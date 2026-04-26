@@ -24,21 +24,22 @@
  * top-level reactive ref outside the GlobalStore object; the pattern is
  * recognized.
  *
- * ─── B1 surface (current commit) ─────────────────────────────────────────────
- * Public:
- *   - `state` — readonly Ref over the discriminated union.
+ * ─── Public surface (after B3) ───────────────────────────────────────────────
+ *   - `state`            — readonly Ref over the discriminated union.
  *   - `isAuthenticated`, `username` — convenience computed views.
- *   - `tryAutoLogin` — bootstrap entry point used by App.vue.
+ *   - `tryAutoLogin()`   — bootstrap entry point used by App.vue.
+ *   - `login(u, p?)`     — sign in as the given user; replaces JWT.
+ *   - `register(u, p?)`  — create account, then sign in. Two-step;
+ *                          partial-success ("registered but auto-sign-in
+ *                          failed") is reported honestly per ADR-0002.
  *
  * Deferred to later milestones:
- *   - login(), register()  → exposed publicly in B3 (LoginModal).
- *   - logout()             → exposed in B4, alongside an `api.clearToken`
- *                            method on api-client.ts (so this file does
- *                            not reach into api-client's localStorage
- *                            keys directly).
+ *   - logout()  → exposed in B4, alongside an `api.clearToken()` method
+ *                 on api-client.ts (so this file does not reach into
+ *                 api-client's localStorage keys directly).
  *   - JWT identity verification via /auth/me → B5; closes the
- *                            stale-token-drift failure mode that motivated
- *                            this whole refactor.
+ *                 stale-token-drift failure mode that motivated this
+ *                 whole refactor.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -118,6 +119,71 @@ async function tryAutoLogin(): Promise<void> {
   setState({ kind: 'error', message });
 }
 
+// ─── Explicit sign-in / register actions (public, B3) ────────────────────────
+
+/**
+ * Sign in as the given user. Transitions:
+ *   any → authenticating → authenticated  (success)
+ *   any → authenticating → error          (failure, rethrown)
+ *
+ * If the SPA was previously authenticated as a different user, this
+ * effectively switches identity — `api.login` overwrites the cached
+ * JWT and username in localStorage as part of its success path.
+ *
+ * Errors are surfaced via `pushSystemMessage` and reflected on
+ * `state.kind === 'error'`. The throw is re-raised so callers (the
+ * LoginModal) can suppress the modal's "close on success" branch.
+ */
+async function login(username: string, password?: string): Promise<void> {
+  setState({ kind: 'authenticating' });
+  try {
+    await api.login(username, password);
+    setState({ kind: 'authenticated', username });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    pushSystemMessage('error', `Sign-in failed: ${message}`);
+    setState({ kind: 'error', message });
+    throw err;
+  }
+}
+
+/**
+ * Register a new account, then sign in. Composed of two distinct API
+ * steps so partial success is reported honestly per ADR-0002:
+ *
+ *   - If `api.register` fails        → error: "Registration failed: …"
+ *   - If `api.register` succeeds but
+ *     `api.login` fails              → error: "Registered, but
+ *                                      auto-sign-in failed: …"
+ *
+ * The user account exists on the backend in the latter case; reporting
+ * "Registration failed" would be a lie. The user can recover by
+ * clicking Sign In (not Register) on the next attempt.
+ */
+async function register(username: string, password?: string): Promise<void> {
+  setState({ kind: 'authenticating' });
+
+  try {
+    await api.register(username, password);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    pushSystemMessage('error', `Registration failed: ${message}`);
+    setState({ kind: 'error', message });
+    throw err;
+  }
+
+  // Registration succeeded; account now exists on the backend.
+  try {
+    await api.login(username, password);
+    setState({ kind: 'authenticated', username });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    pushSystemMessage('error', `Registered, but auto-sign-in failed: ${message}`);
+    setState({ kind: 'error', message });
+    throw err;
+  }
+}
+
 // ─── Public composable ───────────────────────────────────────────────────────
 
 export interface UseAuth {
@@ -125,6 +191,8 @@ export interface UseAuth {
   readonly isAuthenticated: ComputedRef<boolean>;
   readonly username: ComputedRef<string | null>;
   tryAutoLogin(): Promise<void>;
+  login(username: string, password?: string): Promise<void>;
+  register(username: string, password?: string): Promise<void>;
 }
 
 export function useAuth(): UseAuth {
@@ -135,5 +203,7 @@ export function useAuth(): UseAuth {
       _authState.value.kind === 'authenticated' ? _authState.value.username : null
     ),
     tryAutoLogin,
+    login,
+    register,
   };
 }

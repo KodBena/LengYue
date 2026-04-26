@@ -1,18 +1,18 @@
 <!--
   src/components/UserBadge.vue
-  Displays current authentication identity. Pure presentational leaf;
-  reads `useAuth().state` directly and pattern-matches the discriminated
-  union into a flat presentational record (BadgeView).
+  Displays current authentication identity AND opens the LoginModal on
+  click. Pattern-matches the AuthState discriminated union into a flat
+  presentational record (BadgeView) in script; template stays dumb.
 
-  Future evolution: in B3 this becomes a button that opens LoginModal;
-  in B5 the 'authenticated' label can use the JWT-verified username
-  from /auth/me. Both extensions touch only this file.
+  Future evolution: in B5 the 'authenticated' label can use the
+  JWT-verified username from /auth/me. Touches only this file.
 
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import { useAuth } from '../composables/useAuth';
+import LoginModal from './LoginModal.vue';
 import type { AuthState } from '../types';
 
 const { state } = useAuth();
@@ -39,22 +39,31 @@ const view = computed<BadgeView>(() => {
     case 'error':
       return { kind: s.kind, label: 'sign-in failed',      dotClass: 'dot-err' };
     case 'unknown':
-      // Pre-bootstrap; render a non-breaking space to reserve layout
-      // height without a visible flash before tryAutoLogin completes.
       return { kind: s.kind, label: '\u00A0',              dotClass: 'dot-idle' };
   }
 });
+
+// Modal visibility — ephemeral local state owned by this component.
+// Not in any store; the LoginModal is mounted only when open, so its
+// own form state is also fresh on every open.
+const isModalOpen = ref(false);
+function openModal(): void  { isModalOpen.value = true;  }
+function closeModal(): void { isModalOpen.value = false; }
 </script>
 
 <template>
-  <span
+  <button
+    type="button"
     class="user-badge"
     :class="`auth-${view.kind}`"
-    :title="`Auth state: ${view.kind}`"
+    :title="`Auth: ${view.kind} — click to sign in or switch user`"
+    @click="openModal"
   >
     <span class="dot" :class="view.dotClass"></span>
     <span class="label">{{ view.label }}</span>
-  </span>
+  </button>
+
+  <LoginModal v-if="isModalOpen" @close="closeModal" />
 </template>
 
 <style scoped>
@@ -62,12 +71,25 @@ const view = computed<BadgeView>(() => {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 0 0 0 12px;
+  padding: 0 8px 0 12px;
   margin-left: 4px;
+  height: 100%;
   font-size: 11px;
   color: #aaa;
+  background: none;
+  border: none;
   border-left: 1px solid #2a2a2a;
+  cursor: pointer;
   user-select: none;
+  font-family: inherit;
+  outline: none;
+}
+.user-badge:hover {
+  background: rgba(74, 174, 240, 0.08);
+}
+.user-badge:focus-visible {
+  outline: 1px solid #4aaef0;
+  outline-offset: -1px;
 }
 
 .dot {
