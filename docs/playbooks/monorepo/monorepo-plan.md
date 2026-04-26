@@ -36,10 +36,12 @@ omega/
 `omega/frontend/docs/HANDOFF.md`). Treat all source paths in the
 move table as relative to the umbrella root.
 
-**Precondition still pending:** the backend HANDOFF needs to land
-at `omega/backend/docs/HANDOFF.md` before Phase 3 executes the
-move-archive of it. If the file isn't there, retrieve from session
-transcripts and place it first.
+**Backend HANDOFF — deviation found mid-execution:** the original
+plan assumed a single backend HANDOFF document. Audit discovered
+there were two — `HANDOFF.md` and `HANDOFF-companion.md` — and both
+are already present in `docs/archive/` under self-referenced
+`34b-*` names. See the "Backend HANDOFF deviation" note in Phase 3
+below for the corrected disposition.
 
 ---
 
@@ -72,8 +74,9 @@ omega/                                       # umbrella; rename as you prefer
 │   │   └── tenancy.md
 │   ├── archive/
 │   │   ├── 34b-complete-status.md
-│   │   ├── handoff-2026-04-frontend-pre-umbrella.md
-│   │   └── handoff-2026-04-backend-pre-umbrella.md
+│   │   ├── 34b-frontend-brief.md            # backend HANDOFF.md, archived (see Phase 3 deviation note)
+│   │   ├── 34b-parallel-frontend-work.md    # backend HANDOFF-companion.md, archived (see Phase 3 deviation note)
+│   │   └── handoff-2026-04-frontend-pre-umbrella.md
 │   ├── handoff-current.md                   # synthesized post-umbrella state
 │   └── TODO.md                              # consolidated cross-team
 ├── frontend/
@@ -170,7 +173,8 @@ exists at the target before removing the source.
 | `frontend/docs/adr/0003-frontend-portability-and-domain-boundaries.md` | `docs/adr/0003-frontend-portability-and-domain-boundaries.md` | Verbatim |
 | `frontend/docs/tenets/0004-minimal-touch-edits-to-partially-visible-files.md` | `docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md` | Same as 0002 |
 | `frontend/docs/HANDOFF.md` | `docs/archive/handoff-2026-04-frontend-pre-umbrella.md` | Archived snapshot. The synthesis of a new `docs/handoff-current.md` is a Part B task (see "TODO merger" pattern). |
-| `backend/docs/HANDOFF.md` | `docs/archive/handoff-2026-04-backend-pre-umbrella.md` | **Precondition**: this file must exist at `fastapi_polish/docs/HANDOFF.md` before the playbook runs. If it doesn't, retrieve it from session transcripts and place it there first. The playbook treats the backend HANDOFF as already-existing source material; do not generate one during execution. |
+| `backend/docs/HANDOFF.md` | `docs/archive/34b-frontend-brief.md` | **Deviation.** Already at destination under its self-describing name; original is deleted via Files to DELETE. See "Backend HANDOFF deviation" note below the move table. |
+| `backend/docs/HANDOFF-companion.md` | `docs/archive/34b-parallel-frontend-work.md` | **Deviation.** Already at destination under its self-describing name; original is deleted via Files to DELETE. See "Backend HANDOFF deviation" note below the move table. |
 | `frontend/ANALYSIS_PERSISTENCE_PLAN.md` | `docs/notes/analysis-persistence-plan.md` | Renamed kebab-case |
 | `frontend/34b-complete-status.md` | `docs/archive/34b-complete-status.md` | Verbatim; honest about archival status |
 | `frontend/TODO` (no extension) | `docs/notes/frontend-backlog.md` | Renamed; preserves the dual-genre mix |
@@ -180,6 +184,45 @@ exists at the target before removing the source.
 | `backend/docs/notes/tenancy.md` | `docs/notes/tenancy.md` | Verbatim |
 | `backend/docs/reflection.md` | `docs/notes/reflection.md` | Verbatim |
 
+#### Backend HANDOFF deviation (recorded mid-execution)
+
+The original plan assumed a single backend HANDOFF document and
+prescribed the rename to
+`docs/archive/handoff-2026-04-backend-pre-umbrella.md`. Discovery
+during the audit phase changed the picture:
+
+- There were **two** backend handoff documents:
+  `backend/docs/HANDOFF.md` and `backend/docs/HANDOFF-companion.md`.
+  Both were authored by the backend during the 34b project to brief
+  the frontend.
+- Earlier phase work had already copied both files into
+  `docs/archive/` under self-descriptive 34b-prefixed names:
+  `34b-frontend-brief.md` and `34b-parallel-frontend-work.md`.
+  Byte-identical to the originals at the time of audit.
+- The companion document's body explicitly references
+  `34b-frontend-brief.md` by filename: "This document is a companion
+  to `TODO.md` and `34b-frontend-brief.md`." Renaming the archive
+  copies to the date-stamped pattern the table originally prescribed
+  would either break that internal reference or require body surgery
+  — both violate the "Verbatim" disposition prescribed elsewhere in
+  this table.
+- The frontend HANDOFF, by contrast, has no internal self-reference,
+  so its rename to `handoff-2026-04-frontend-pre-umbrella.md`
+  proceeds as originally specified.
+
+**Corrected disposition.** Keep the 34b-named archive copies in
+place as the canonical surviving versions; delete the originals
+from `backend/docs/`. The asymmetry in archive naming (one
+`handoff-2026-04-frontend-pre-umbrella.md` next to two `34b-*.md`
+files) is intentional and reflects genuine differences in document
+genre — the frontend HANDOFF is a generic state-of-the-system
+orientation; the backend pair are project-specific briefings that
+already named themselves after the project.
+
+A short orientation README inside `docs/archive/` is a reasonable
+Part B addition to make this asymmetry self-explanatory to future
+readers.
+
 #### Files to DELETE
 
 | File | Reason |
@@ -187,6 +230,8 @@ exists at the target before removing the source.
 | `frontend/CWT.md` | Confirmed by author: not coming back. Reasoning captured in his note; file no longer needs to outlive that decision. |
 | `backend/routers/` (the directory, after moving REFERENCE.md) | Empty after the move; no longer serves a purpose. |
 | `backend/ebisu_old.db` | Stale database backup; not under version control concerns. (Confirm before deletion — not architectural to me.) |
+| `backend/docs/HANDOFF.md` | Byte-identical to `docs/archive/34b-frontend-brief.md` (already in place). The archive copy is the canonical surviving version. See "Backend HANDOFF deviation" note above. |
+| `backend/docs/HANDOFF-companion.md` | Byte-identical to `docs/archive/34b-parallel-frontend-work.md` (already in place). The archive copy is the canonical surviving version. See "Backend HANDOFF deviation" note above. |
 
 #### Files NOT to move
 
