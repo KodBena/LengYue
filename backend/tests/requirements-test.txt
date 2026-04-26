@@ -1,0 +1,5 @@
+# Test-only requirements.
+# The production packages (sqlalchemy, pydantic, etc.) should already be installed.
+pytest>=7.4
+pytest-asyncio>=0.23
+aiosqlite>=0.19.0

@@ -1,0 +1,384 @@
+/**
+ * src/types.ts
+ * Domain Modeling with Branded Types (Haskell-style Newtypes).
+ *
+ * ─── Policy on `readonly` (per ADR-0001 Path A) ──────────────────────────────
+ * Two distinct categories of interface live in this file, and they have
+ * opposite `readonly` policies:
+ *
+ *   STATE CONTAINERS (no `readonly`):
+ *     Interfaces representing state that the application mutates as part
+ *     of normal operation — the store mutates `BoardState`, the navigator
+ *     updates `GameNode.activeChildIndex`, the analysis service writes
+ *     to `EngineState`, registry editors mutate `AppSettings` and friends.
+ *     Annotating these `readonly` was an aspirational lie that strict mode
+ *     refused to accept; ADR-0001 Path A removes the annotation in favor
+ *     of mutator-convention enforcement at code review.
+ *
+ *     In this category: BoardState, GameNode, EngineState, UISession,
+ *     SessionState, ReviewSessionData, ProfileState, AppSettings (and
+ *     its nested types), AnalysisEnvironment, AnalysisPalette,
+ *     MintingSettings, NavigationSettings, ThumbnailSettings, CardSet.
+ *
+ *   VALUE OBJECTS (`readonly` preserved):
+ *     Interfaces that flow through the system but are never mutated;
+ *     new instances are constructed from old ones (functional update).
+ *     The `readonly` annotation here matches actual behavior — strict
+ *     mode never had a problem with these because the codebase never
+ *     mutates them.
+ *
+ *     In this category: Point, Move, GameMetadata, NodeDelta, EbisuModel,
+ *     ReviewCard, SystemMessage, ForestStat, TagStat, ReviewFeedback,
+ *     EngineMetrics (the metrics object itself is swapped wholesale by
+ *     the analysis service; its inner fields are never individually
+ *     mutated — `metrics: EngineMetrics` on EngineState is mutable, but
+ *     the EngineMetrics value object is immutable, which is the
+ *     idiomatic functional-state pattern: mutable container, immutable
+ *     value).
+ *
+ * The `Brand<K, T>` phantom field uses `readonly` as a structural-typing
+ * trick, not as an immutability annotation; it is unrelated to either
+ * category above.
+ * ──────────────────────────────────────────────────────────────────────────
+ */
+
+// ── Re-exports: KataGo wire-protocol types ────────────────────────────────────
+export type {
+  KataAnalysisResponse,
+  KataExtra,
+  KataPlayerExtra,
+} from './engine/katago/types';
+
+// ── Type Branding Utilities ───────────────────────────────────────────────────
+type Brand<K, T> = K & { readonly __brand: T };
+
+export type BoardId   = Brand<string, 'BoardId'>;
+export type NodeId    = Brand<string, 'NodeId'>;
+export type ProfileId = Brand<string, 'ProfileId'>;
+export type SessionId = Brand<string, 'SessionId'>;
+
+export type StoneColor = 'B' | 'W';
+
+// ── Value Objects (readonly preserved) ────────────────────────────────────────
+
+export interface Point {
+  readonly x: number;
+  readonly y: number;
+}
+
+export interface Move extends Point {
+  readonly color: StoneColor;
+  readonly type: 'place' | 'pass';
+}
+
+export type SgfProperties = Record<string, string[]>;
+
+export interface GameMetadata {
+  readonly blackName: string;
+  readonly whiteName: string;
+  readonly komi: number;
+  readonly rules: string;
+  readonly boardSize: number;
+  readonly gameName?: string;
+}
+
+export interface NodeDelta {
+  readonly captures: string[];
+  readonly setupOverwritten: Record<string, StoneColor | null>;
+  readonly prevKoPoint: Point | null;
+  readonly newKoPoint: Point | null;
+}
+
+// ── State Containers (readonly removed per ADR-0001 Path A) ───────────────────
+
+export interface GameNode {
+  id: NodeId;
+  parent: NodeId | null;
+  children: NodeId[];
+  activeChildIndex: number;
+  properties: SgfProperties;
+  move: Move | null;
+  delta?: NodeDelta;
+}
+
+export interface BoardState {
+  id: BoardId;
+  rootNodeId: NodeId;
+  currentNodeId: NodeId;
+  stones: Record<string, StoneColor>;
+  // Captures inner fields are mutated by `applyGoMove` (`nextCaptures[turn] += 1`);
+  // the captures container's mutability propagates to its fields.
+  captures: { B: number; W: number };
+  koPoint: Point | null;
+  turn: StoneColor;
+  nodes: Record<NodeId, GameNode>;
+  lastActivity: number;
+  maxVisitsTarget?: number;
+}
+
+// EngineMetrics is a value object (immutable, swapped wholesale); the
+// `metrics` *field* on EngineState below is mutable (the swap is the
+// mutation). This is the idiomatic functional-state pattern.
+export interface EngineMetrics {
+  readonly packetsPerSecond: number;
+  readonly lastResponseId: BoardId | null;
+  readonly lastWatchdogTimestamp: number;
+  readonly latencyMs: number;
+}
+
+export type RegistryLeaf = string | number | boolean | null;
+export interface Registry {
+  [key: string]: RegistryLeaf | Registry | RegistryLeaf[];
+}
+
+// ThumbnailSettings is mutated through the registry editor.
+export interface ThumbnailSettings {
+  showOnHover: boolean;
+  sizePx: number;
+}
+
+// AnalysisPalette is mutated through the PaletteEditor.
+export interface AnalysisPalette {
+  id: string;
+  name: string;
+  delta_fn: string;
+  summary_fn: string;
+  state_fns: Record<string, string>;
+}
+
+export interface AnalysisEnvironment {
+  symbols: Record<string, string>;
+  parameters: Record<string, number>;
+  palettes: AnalysisPalette[];
+  activePaletteId: string;
+}
+
+export interface MintingSettings {
+  defaultVisits: number;
+  defaultNumMoves: number;
+  defaultPaletteId: 'active' | string;
+}
+
+export interface NavigationSettings {
+  actionOnDirtyBoard: 'ask' | 'new' | 'overwrite';
+}
+
+export interface AppSettings {
+  engine: {
+    katago: {
+      url: string;
+      analysis_env: AnalysisEnvironment;
+    };
+  };
+  appearance: {
+    theme: 'ebisu-dark' | 'ebisu-light';
+  };
+  persistence: {
+    debounceInterval: number;
+  };
+  minting: MintingSettings;
+  navigation: NavigationSettings;
+}
+
+export interface UISession {
+  activeTab: string;
+  sidebarExpanded: boolean;
+  treeExpanded: boolean;
+  controlsExpanded: boolean;
+  boardExpanded: boolean;
+  // Persistent system-log bar below the top nav. Default true — hidden
+  // only when the user explicitly unchecks it in the Session (UI) registry.
+  systemLogExpanded: boolean;
+  controlPanelWidth: number;
+  moveFilterThreshold: number;
+  moveFilterExpression: string;
+  analysisLayout: 'horizontal' | 'vertical';
+  showMoveSuggestions: boolean;
+  activeCardSetId: string;
+}
+
+export type CardId = Brand<number, 'CardId'>;
+export type CardSetKey = Brand<string, 'CardSetKey'>;
+export type ReviewSessionId = Brand<string, 'ReviewSessionId'>;
+
+// ── Value Objects (readonly preserved) — SR domain ────────────────────────────
+
+export interface EbisuModel {
+  readonly alpha: number;
+  readonly beta: number;
+  readonly t: number;
+}
+
+/**
+ * A card surfaced to the SR session. Backend sources (`CardWithRecall` on
+ * the wire) are translated through `EbisuService::mapToReviewCard` into
+ * this shape; everything that consumes a card downstream — the SR
+ * composable, the lineage tree, the chart panels — sees only this type,
+ * never the wire shape.
+ *
+ * ─── `gradingParameter` field (Commit 4 — closes TODO item 18) ───────────────
+ * The opaque grading-parameter blob carries domain-specific configuration
+ * for how the card's recall is graded — for KataGo cards, this includes
+ * `default_visits`, `analysis_config` (the palette payload), and
+ * `gamma`. The wire shape is `Record<string, any> | null`, intentionally
+ * untyped on the OpenAPI boundary because the inner shape is application-
+ * defined and changes more often than the schema. Surfacing it on the
+ * domain type lets the SR composable read `currentCard.gradingParameter
+ * ?.data?.analysis_config` to override the active palette per card,
+ * without re-fetching the wire shape from anywhere downstream.
+ *
+ * `current_recall` and `halflife_units` (also part of item 18): the
+ * backend computes these on every `CardWithRecall` response; surfacing
+ * them lets the UI display "this card will be at 50% recall in N hours"
+ * style diagnostics. Both are optional because they're snapshots at
+ * read-time, not core card identity, and a card may be constructed
+ * without them in test contexts.
+ */
+export interface ReviewCard {
+  readonly id: CardId;
+  readonly sgf: string;
+  readonly numMoves: number;
+  readonly parentId?: CardId;
+  readonly model: EbisuModel;
+  readonly lastReviewedAt: Date | null;
+  readonly numReviews: number;
+  readonly suspended: boolean;
+  readonly defaultVisits: number;
+  readonly gamma: number;
+  // ─── Item 18 surfacing (Commit 4) ────────────────────────────────────────
+  readonly gradingParameter?: Record<string, any> | null;
+  readonly currentRecall?: number;
+  readonly halflifeUnits?: number;
+}
+
+// ── State Container (readonly removed) — SR domain ────────────────────────────
+
+// CardSet is mutated through the CardSetEditor (name, description,
+// contextIds, pipeline are all editable).
+export interface CardSet {
+  id: string;
+  name: string;
+  description: string;
+  contextIds: number[];
+  pipeline: any[];
+}
+
+export interface ProfileState {
+  id: ProfileId;
+  username: string;
+  settings: AppSettings;
+  thumbnailSettings: ThumbnailSettings;
+  cardSets: Record<string, CardSet>;
+  knownTags: string[];
+}
+
+export interface SessionState {
+  id: SessionId;
+  profileId: ProfileId;
+  ui: UISession;
+  reviews: Record<BoardId, ReviewSessionData>;
+}
+
+export interface GlobalStore {
+  activeBoardIndex: number;
+  boards: BoardState[];
+  profile: ProfileState;
+  session: SessionState;
+  engine: EngineState;
+}
+
+export type EngineStatus = 'disconnected' | 'connecting' | 'connected';
+export type AnalysisMode = 'none' | 'ponder' | 'analyze';
+
+// ── Value Object (readonly preserved) — SystemMessage ─────────────────────────
+
+export interface SystemMessage {
+  readonly id: string;
+  readonly type: 'error' | 'warning' | 'info';
+  readonly text: string;
+  readonly timestamp: number;
+}
+
+// ── State Container (readonly removed) — EngineState ──────────────────────────
+
+export interface EngineState {
+  status: EngineStatus;
+  // `metrics` field is reassigned wholesale by analysis-service
+  // (`store.engine.metrics = { ...metrics, packetsPerSecond: x }`); the
+  // EngineMetrics value object inside is itself immutable. Mutable
+  // container, immutable value.
+  metrics: EngineMetrics;
+  activeMode: Record<BoardId, AnalysisMode>;
+  messages: SystemMessage[];
+}
+
+export type ReviewStatus = 'IDLE' | 'LOADING' | 'AWAITING_MOVE' | 'ANALYZING' | 'FINISHED';
+
+// ReviewSessionData is mutated through `mutateReviewSession` in store/index.ts;
+// the SR session writes back queue progression, scores, override values.
+export interface ReviewSessionData {
+  status: ReviewStatus;
+  queue: ReviewCard[];
+  currentIndex: number;
+  startingNodeId: NodeId | null;
+  userMovesCount: number;
+  userMoveScores: number[];
+  // Per-card sticky visits override. `null` means "no override, use the
+  // card's defaultVisits." Set by the UI; reset to `null` by loadCard
+  // when a new card becomes active (each card gets its own starting
+  // point). Bang-bang semantics: once set, it persists across every
+  // subsequent move within the same card until the user either changes
+  // it again or advances to the next card.
+  visitsOverride: number | null;
+}
+
+// ── Value Object (readonly preserved) — ReviewFeedback ────────────────────────
+
+export interface ReviewFeedback {
+  readonly finished: boolean;
+  readonly acc: number;
+  readonly discounted: number;
+  readonly visitRatio: number;
+  readonly nEff: number;
+}
+
+// ── Wire types (going outbound) — no readonly, mutable construction ───────────
+
+export interface GameMetadataPayload {
+  description?: string;
+  player_white?: string;
+  player_black?: string;
+}
+
+// ─── 34b: Wire-format rename ──────────────────────────────────────────────────
+// `sgf` → `raw_content` (domain-neutral name for the serialized content).
+// `default_visits` has moved off the top level; it now lives inside
+// `grading_parameter.data`. See `composables/useMinting.ts::prepareDraft` for
+// the construction site that places it there.
+// ──────────────────────────────────────────────────────────────────────────────
+export interface CardCreatePayload {
+  raw_content: string;
+  num_moves: number;
+  grading_parameter: Record<string, any>;
+  tags: string[];
+  parent_card_id?: number;
+  game_metadata?: GameMetadataPayload;
+}
+
+// ── Value Objects (readonly preserved) — backend-sourced stats ────────────────
+
+export interface ForestStat {
+  readonly root_card_id: number;
+  readonly game_source_id: number;
+  readonly description: string;
+  readonly player_white: string;
+  readonly player_black: string;
+  readonly total_cards: number;
+  readonly total_reviews: number;
+  readonly average_recall: number;
+}
+
+export interface TagStat {
+  readonly name: string;
+  readonly count: number;
+}

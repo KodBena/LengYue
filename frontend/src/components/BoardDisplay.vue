@@ -1,0 +1,201 @@
+<!-- 
+  src/components/BoardDisplay.vue 
+  Stateless SVG Go board with gradients and textures.
+  License: Public Domain (The Unlicense)
+-->
+<script setup lang="ts">
+import { computed } from 'vue';
+import { BOARD_PX, BOARD_COLOR, LINE_COLOR, LABEL_COLOR, ALL_X_LABELS } from '../engine/constants';
+import type { StoneColor, Move } from '../types';
+
+const props = defineProps<{
+  size?: number;
+  stones: Record<string, StoneColor>;
+  lastMove?: Move | null;
+  showLabels?: boolean;
+}>();
+
+const emit = defineEmits<{
+  (e: 'click', x: number, y: number): void;
+}>();
+
+// Unique ID suffix to prevent gradient collisions between multiple boards/thumbnails
+const uid = Math.random().toString(36).substring(2, 6);
+
+const boardSize = computed(() => props.size ?? 19);
+
+// All geometry is derived from boardSize and the fixed viewBox size.
+// pad = one cell's worth of margin on each side, so that the grid lines sit
+// inset from the board edge exactly one cell.
+const pad     = computed(() => BOARD_PX / (boardSize.value + 1));
+const cell    = computed(() => (BOARD_PX - 2 * pad.value) / (boardSize.value - 1));
+const stoneR  = computed(() => cell.value * 0.46);
+const STAR_R  = 2.5; // Fixed dot size — does not need to scale with the board.
+
+const xLabels = computed(() => ALL_X_LABELS.slice(0, boardSize.value));
+
+const hoshi = computed((): [number, number][] => {
+  const s = boardSize.value;
+  if (s === 19) {
+    return [
+      [3,3],[9,3],[15,3],
+      [3,9],[9,9],[15,9],
+      [3,15],[9,15],[15,15],
+    ];
+  }
+  if (s === 13) {
+    // Corners at 3 and 9, tengen at 6.
+    return [[3,3],[9,3],[3,9],[9,9],[6,6]];
+  }
+  if (s === 9) {
+    // Corners at 2 and 6, tengen at 4.
+    return [[2,2],[6,2],[2,6],[6,6],[4,4]];
+  }
+  // Other sizes (5x5, etc.) get no hoshi rather than wrong hoshi.
+  console.warn(`[BoardDisplay uid=${uid}] no hoshi definition for size=${s}`);
+  return [];
+});
+
+// `lines` previously had a `{ cache: true }` second-argument options object.
+// Vue 3.5+ removed the `cache` option from computed() — the option doesn't
+// exist on DebuggerOptions and triggers a TS2769 overload error. The default
+// behavior of computed (memoize the result, recompute when tracked deps
+// change) is exactly what we want here. The `cache: true` was either
+// cargo-culted or a relic from a Vue 2/3-early reactivity tweak; either
+// way, the dep-tracked memoization in current Vue does the right thing
+// without it.
+const lines = computed(() => {
+  const result = [];
+  const p = pad.value;
+  const c = cell.value;
+  const s = boardSize.value;
+  const end = p + (s - 1) * c;
+  for (let i = 0; i < s; i++) {
+    const pos = p + i * c;
+    result.push({ x1: pos, y1: p, x2: pos, y2: end }); // vertical
+    result.push({ x1: p, y1: pos, x2: end, y2: pos }); // horizontal
+  }
+  return result;
+});
+
+const stoneList = computed(() => {
+  return Object.entries(props.stones).map(([key, color]) => {
+    const [bx, by] = key.split(',').map(Number);
+    const { x, y } = toSVG(bx, by);
+    return { key, x, y, color };
+  });
+});
+function toSVG(bx: number, by: number): { x: number; y: number } {
+  // Board y=0 is at the bottom; SVG y increases downward, so we flip.
+  return {
+    x: pad.value + bx * cell.value,
+    y: pad.value + (boardSize.value - 1 - by) * cell.value,
+  };
+}
+
+function onBoardClick(e: MouseEvent) {
+  const svg = e.currentTarget as SVGSVGElement;
+  const pt = svg.createSVGPoint();
+  pt.x = e.clientX;
+  pt.y = e.clientY;
+  const cursor = pt.matrixTransform(svg.getScreenCTM()?.inverse());
+
+  const col = Math.round((cursor.x - pad.value) / cell.value);
+  const row = Math.round((cursor.y - pad.value) / cell.value);
+  const s = boardSize.value;
+
+  if (col >= 0 && col < s && row >= 0 && row < s) {
+    const boardY = s - 1 - row;
+    console.log(`[BoardDisplay uid=${uid}] click svg=(${cursor.x.toFixed(1)},${cursor.y.toFixed(1)}) board=(${col},${boardY}) size=${s}`);
+    emit('click', col, boardY);
+  }
+}
+</script>
+
+<template>
+  <svg 
+    :viewBox="`0 0 ${BOARD_PX} ${BOARD_PX}`" 
+    class="board-svg"
+    @click="onBoardClick"
+  >
+    <!-- Assets Definition -->
+    <defs>
+      <!-- Wood Texture -->
+      <pattern :id="'wood-' + uid" patternUnits="userSpaceOnUse" :width="BOARD_PX" :height="BOARD_PX">
+        <image href="/textures/wood.jpg" :width="BOARD_PX" :height="BOARD_PX" preserveAspectRatio="xMidYMid slice" />
+      </pattern>
+
+      <!-- Black Stone Gradient -->
+      <radialGradient :id="'grad-b-' + uid" cx="35%" cy="30%" r="50%">
+        <stop offset="0%" stop-color="#666" />
+        <stop offset="100%" stop-color="#111" />
+      </radialGradient>
+
+      <!-- White Stone Gradient -->
+      <radialGradient :id="'grad-w-' + uid" cx="35%" cy="30%" r="50%">
+        <stop offset="0%" stop-color="#fff" />
+        <stop offset="100%" stop-color="#d0d0d0" />
+      </radialGradient>
+    </defs>
+
+    <!-- 1. Background -->
+    <rect width="100%" height="100%" :fill="BOARD_COLOR" />
+    <rect width="100%" height="100%" :fill="`url(#wood-${uid})`" />
+    
+    <!-- 2. Grid -->
+    <g :stroke="LINE_COLOR" stroke-width="0.8" opacity="0.8">
+      <line v-for="(l, i) in lines" :key="i" :x1="l.x1" :y1="l.y1" :x2="l.x2" :y2="l.y2" />
+    </g>
+
+    <!-- 3. Hoshi -->
+    <circle 
+      v-for="(h, i) in hoshi" 
+      :key="'h'+i"
+      :cx="toSVG(h[0], h[1]).x" 
+      :cy="toSVG(h[0], h[1]).y" 
+      :r="STAR_R"
+      fill="#222"
+    />
+
+    <!-- 4. Labels -->
+    <g v-if="showLabels" :fill="LABEL_COLOR" font-size="11" font-weight="bold" font-family="monospace" text-anchor="middle">
+      <text v-for="(label, i) in xLabels" :key="'lx'+i" :x="pad + i * cell" :y="pad / 2 + 4">{{ label }}</text>
+      <text v-for="i in boardSize"         :key="'ly'+i" :x="pad / 2"         :y="pad + (boardSize - i) * cell + 4">{{ i }}</text>
+    </g>
+
+    <!-- 5. Stones -->
+    <g v-for="stone in stoneList" :key="stone.key">
+      <circle 
+        :cx="stone.x"
+        :cy="stone.y"
+        :r="stoneR"
+        :fill="stone.color === 'B' ? `url(#grad-b-${uid})` : `url(#grad-w-${uid})`"
+        :stroke="stone.color === 'B' ? '#000' : '#aaa'"
+        stroke-width="0.5"
+      />
+    </g>
+
+    <!-- 6. Last Move Marker (skipped on pass) -->
+    <g v-if="lastMove && lastMove.type === 'place'">
+      <circle 
+        :cx="toSVG(lastMove.x, lastMove.y).x"
+        :cy="toSVG(lastMove.x, lastMove.y).y"
+        :r="stoneR * 0.4"
+        fill="none"
+        :stroke="stones[`${lastMove.x},${lastMove.y}`] === 'B' ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.6)'"
+        stroke-width="2"
+      />
+    </g>
+  </svg>
+</template>
+
+<style scoped>
+.board-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  cursor: crosshair;
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5));
+}
+</style>

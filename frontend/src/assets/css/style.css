@@ -1,0 +1,363 @@
+@import "palettes.css";
+:root {
+  /* Alias: Functional Name := Data Name */
+  --default-bg: var(--cluster-4-3);
+}
+/* ── Reset ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background:var(--default-bg);
+  color: #aaa;
+  font-family: 'Courier New', monospace;
+  font-size: 10px;
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Main row: sidebar | centre | tree panel ──────────────────────── */
+#main-area {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────── */
+#sidebar {
+  width: 108px;
+  background: var(--default-bg);
+  border-right: 1px solid #242424;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 0;
+  gap: 6px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex-shrink: 0;
+}
+
+.tab-thumb {
+  width: 88px;
+  height: 88px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  border-radius: 3px;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: border-color 0.12s;
+  background: var(--default-bg);
+}
+
+/* SVG thumbnail via <img>: inherently resolution-independent. */
+.tab-thumb img {
+  display: block;
+  width: 88px;
+  height: 88px;
+}
+
+/* .tab-thumb:hover  { border-color: #3a3a3a; } */
+/* .tab-thumb.active { border-color: #4aaef0; } */
+
+.tab-add-btn {
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid #2e2e2e;
+  color: #484848;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.12s, color 0.12s;
+}
+.tab-add-btn:hover { border-color: #555; color: #7a7a7a; }
+
+.tab-load-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid #2e2e2e;
+  color: #484848;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.12s, color 0.12s;
+}
+.tab-load-btn:hover { border-color: #555; color: #7a7a7a; }
+
+
+/* ── Centre column ─────────────────────────────────────────────── */
+/* Update these in style.css */
+#centre {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0; /* Add this: allows the container to shrink below its content size */
+}
+
+#tabs {
+  width: 300px; /* Give your tabs a fixed or percentage width */
+  min-width: 200px; 
+  flex-shrink: 0; /* Prevent the tabs from disappearing entirely */
+  overflow-y: auto; /* Allow scrolling inside tabs if the window is short */
+}
+
+/* Toolbar */
+#toolbar {
+  height: 34px;
+  background: var(--default-bg);
+  border-bottom: 1px solid #242424;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+#toolbar-title {
+  font-size: 10px;
+  color: #fff;
+  text-transform: uppercase;
+  margin-right: auto;
+}
+
+.toolbar-btn {
+  background: transparent;
+  border: 1px solid #2e2e2e;
+  color: #555;
+  padding: 1px 1px;
+  font-size: 10px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
+  font-family: 'Courier New', monospace;
+}
+.toolbar-btn:hover  { border-color: #4a4a4a; color: #fff; }
+.toolbar-btn.active { border-color: #4aaef0; color: #fff; }
+
+#content {
+  display: flex;
+  flex: 1;            /* Take up all remaining vertical space in #centre */
+  min-height: 0;      /* Crucial for nested flex scrolling */
+  justify-content: center;
+  align-items: center; /* Centers the board vertically */
+  padding: 10px;
+}
+
+#board-area {
+  width: 100%;
+  height: 100%;       /* Take full height of #content */
+  max-width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.board-svg {
+  /* Use 'max' properties to ensure it fits both width and height */
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;        /* Let the aspect ratio be handled by the SVG viewBox */
+  height: auto;
+  flex-shrink: 1;     /* Allow the SVG itself to shrink */
+}
+
+#control-panel {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: right;
+}
+
+#control-tabs {
+  display: flex;
+  flex-direction: row;
+}
+
+#ct-sr {
+  flex: 1;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: #363636;
+  text-transform: uppercase;
+  margin-right: auto;
+}
+
+#ct-settings {
+  flex: 1;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: #363636;
+  text-transform: uppercase;
+  margin-right: auto;
+}
+
+#ct-analysis {
+  flex: 1;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: #363636;
+  text-transform: uppercase;
+  margin-right: auto;
+}
+
+#control-content {
+  margin-top: 10px;
+}
+
+/* Applied to every board SVG by BoardRenderer */
+.board-svg {
+  flex-shrink: 0;
+}
+
+/* Status bar */
+#status-bar {
+  height: 26px;
+  background: var(--default-bg);
+  border-top: 1px solid #1e1e1e;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 10px;
+  color: #484848;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Tree panel (right, toggleable) ───────────────────────────────── */
+#tree-panel {
+  width: 272px;
+  background: var(--default-bg);
+  border-left: 1px solid #1e1e1e;
+  display: none;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+#tree-panel-header {
+  height: 28px;
+  background: var(--default-bg);
+  border-bottom: 1px solid #1e1e1e;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  color: #363636;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+#tree-container {
+  flex: 1;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+#tree-container::-webkit-scrollbar       { width: 6px; height: 6px; }
+#tree-container::-webkit-scrollbar-track { background: #0f0f0f; }
+#tree-container::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+
+/* ── Debug log ─────────────────────────────────────────────────────── */
+#debug-resizer {
+  height: 2px;
+  background: var(--cluster-4-1);
+  cursor: ns-resize;
+  flex-shrink: 0;
+  /*transition: background 0.2s;*/
+  position: relative;
+  z-index: 10;
+}
+
+#debug-resizer:hover {
+  background: #4aaef0;
+}
+
+#debug-log {
+  height: 80px;
+  background: var(--default-bg);
+  overflow-y: auto;
+  padding: 4px 10px;
+  flex-shrink: 0;
+  scrollbar-color: var(--cluster-4-2) var(--cluster-4-1);
+  resize: vertical;
+  min-height: 40px;
+  max-height: 400px;
+}
+#debug-log p       { margin: 0; line-height: 1.65; white-space: pre; }
+#debug-log p.info  { color: #2e4a2e; }
+#debug-log p.warn  { color: #4a4a1e; }
+#debug-log p.error { color: #4a1e1e; }
+body { scrollbar-color: #eba46d #123;}
+/* body { scrollbar-color: #fe0 #123;} */
+/*********** Baseline, reset styles ***********/
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  width: 25rem;
+}
+
+/* Removes default focus */
+input[type="range"]:focus {
+  outline: none;
+}
+
+/******** Chrome, Safari, Opera and Edge Chromium styles ********/
+/* slider track */
+input[type="range"]::-webkit-slider-runnable-track {
+  background-color: #add8e6;
+  border-radius: 0rem;
+  height: 0.5rem;
+}
+
+/* slider thumb */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; /* Override default look */
+  appearance: none;
+  margin-top: 0px; /* Centers thumb on the track */
+  background-color: #808080;
+  border-radius: 0rem;
+  height: 0.5rem;
+  width: 1.5%;
+}
+
+input[type="range"]:focus::-webkit-slider-thumb {
+  outline: 3px solid #808080;
+  outline-offset: 0.125rem;
+}
+
+/*********** Firefox styles ***********/
+/* slider track */
+input[type="range"]::-moz-range-track {
+  background-color: #add8e6;
+  border-radius: 0rem;
+  height: 0.5rem;
+}
+
+/* slider thumb */
+input[type="range"]::-moz-range-thumb {
+  background-color: #808080;
+  border: none; /*Removes extra border that FF applies*/
+  border-radius: 0rem;
+  height: 0.5rem;
+  width: 1.5%;
+}
+
+input[type="range"]:focus::-moz-range-thumb{
+  outline: 3px solid #808080;
+  outline-offset: 0.125rem;
+}

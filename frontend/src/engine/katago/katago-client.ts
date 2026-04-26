@@ -1,0 +1,149 @@
+/**
+ * src/engine/katago/katago-client.ts
+ * Asynchronous WebSocket Transport for KataGo Analysis Engine.
+ * License: Public Domain (The Unlicense)
+ */
+
+import { 
+  type KataGoQuery, 
+  type KataGoAnalysisQuery, 
+  type KataGoResponse, 
+  type KataGoActionQuery,
+} from './types';
+
+type ResponseCallback = (response: KataGoResponse) => void;
+
+export interface ClientCallbacks {
+  onDisconnect: (code: number, reason: string) => void;
+  onError: (errorMsg: string) => void;
+}
+
+export class KataGoClient {
+  private ws: WebSocket | null = null;
+  private url: string;
+  private subscribers = new Map<string, Set<ResponseCallback>>();
+  private isConnecting = false;
+  private callbacks?: ClientCallbacks;
+
+  constructor(url: string) {
+    this.url = url;
+  }
+
+  /**
+   * Establishes the WebSocket connection and sets up global message routing.
+   */
+  public connect(url: string, callbacks: ClientCallbacks): void {
+    this.url = url;
+    this.callbacks = callbacks;
+
+    if (this.ws?.readyState === WebSocket.OPEN || this.isConnecting) {
+      if (import.meta.env.DEV) console.log(`[katago-client] Already connected or connecting to ${this.url}`);
+      return;
+    }
+
+    if (import.meta.env.DEV) console.log(`[katago-client] Attempting connection to ${this.url}`);
+    this.isConnecting = true;
+    this.ws = new WebSocket(this.url);
+
+    this.ws.onopen = () => {
+      this.isConnecting = false;
+      if (import.meta.env.DEV) console.log(`[katago-client] Connected to KataGo backend.`);
+    };
+
+    this.ws.onmessage = (event) => {
+      this.handleIncomingMessage(event.data);
+    };
+
+    this.ws.onclose = (event) => {
+      this.isConnecting = false;
+      this.ws = null;
+      if (import.meta.env.DEV) console.log(`[katago-client] Disconnected. Code: ${event.code}`);
+      
+      // Notify parent of unexpected disconnects
+      if (this.callbacks) {
+        this.callbacks.onDisconnect(event.code, event.reason);
+      }
+    };
+
+    this.ws.onerror = (err) => {
+      this.isConnecting = false;
+      console.error(`[katago-client] WebSocket Error:`, err);
+      // We don't always get text from WS Error events, but we fire a generic callback
+      if (this.callbacks) {
+        this.callbacks.onError("WebSocket connection error. Is the middleware running?");
+      }
+    };
+  }
+
+  /**
+   * Parses the raw JSON and dispatches it to any callback matching the 'id'.
+   */
+  private handleIncomingMessage(rawData: string): void {
+    try {
+      const response: KataGoResponse = JSON.parse(rawData);
+      
+      // NEW: Intercept Error Packets (e.g. from bad Python Palettes)
+      if ('error' in response) {
+        console.error(`[katago-client] Received Error Packet:`, response.error);
+        if (this.callbacks) {
+          this.callbacks.onError(response.error);
+        }
+      }
+
+      const callbacks = this.subscribers.get(response.id);
+      if (callbacks) {
+        callbacks.forEach(cb => cb(response));
+      }
+    } catch (err) {
+      console.error(`[katago-client] Failed to parse response:`, err);
+    }
+  }
+
+  public subscribe(query: KataGoAnalysisQuery, onUpdate: ResponseCallback): () => void {
+    const id = query.id;
+
+    if (!this.subscribers.has(id)) {
+      this.subscribers.set(id, new Set());
+    }
+    this.subscribers.get(id)!.add(onUpdate);
+
+    this.sendRaw(query);
+
+    return () => {
+      if (import.meta.env.DEV) console.log(`[katago-client] Removing listener for id=${id}`);
+      const callbacks = this.subscribers.get(id);
+      if (callbacks) {
+        callbacks.delete(onUpdate);
+        if (callbacks.size === 0) {
+          this.subscribers.delete(id);
+        }
+      }
+    };
+  }
+
+  public sendCommand(query: KataGoActionQuery): Promise<KataGoResponse> {
+    return new Promise((resolve) => {
+      const cleanup = this.subscribe(query as any, (res) => {
+        cleanup();
+        resolve(res);
+      });
+    });
+  }
+
+  private sendRaw(query: KataGoQuery): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.warn(`[katago-client] Cannot send. WebSocket is waiting to connect.`);
+      return;
+    }
+    this.ws.send(JSON.stringify(query));
+  }
+
+  public disconnect(): void {
+    if (import.meta.env.DEV) console.log(`[katago-client] Closing connection.`);
+    
+    // Unset callbacks so intentional disconnects don't trigger the error UI
+    this.callbacks = undefined;
+    this.ws?.close();
+    this.ws = null;
+  }
+}

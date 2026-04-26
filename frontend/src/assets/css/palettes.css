@@ -1,0 +1,137 @@
+
+:root {
+    --cluster-2-0: rgba(0, 255, 0, 1);  /* Index 0 */
+    --cluster-2-1: rgba(255, 90, 255, 1);  /* Index 1 */
+
+    --cluster-3-0: rgba(96, 145, 255, 1);  /* Index 0 */
+    --cluster-3-1: rgba(140, 255, 0, 1);  /* Index 1 */
+    --cluster-3-2: rgba(255, 0, 0, 1);  /* Index 2 */
+
+    --cluster-4-0: rgba(0, 137, 0, 1);  /* Index 0 */
+    --cluster-4-1: rgba(6, 0, 0, 1);  /* Index 1 */
+    --cluster-4-2: rgba(229, 0, 0, 1);  /* Index 2 */
+    --cluster-4-3: rgba(255, 245, 255, 1);  /* Index 3 */
+
+    --cluster-5-0: rgba(0, 222, 255, 1);  /* Index 0 */
+    --cluster-5-1: rgba(69, 107, 0, 1);  /* Index 1 */
+    --cluster-5-2: rgba(183, 30, 255, 1);  /* Index 2 */
+    --cluster-5-3: rgba(255, 0, 0, 1);  /* Index 3 */
+    --cluster-5-4: rgba(255, 255, 0, 1);  /* Index 4 */
+
+    --cluster-6-0: rgba(0, 121, 0, 1);  /* Index 0 */
+    --cluster-6-1: rgba(0, 232, 255, 1);  /* Index 1 */
+    --cluster-6-2: rgba(36, 60, 255, 1);  /* Index 2 */
+    --cluster-6-3: rgba(162, 0, 0, 1);  /* Index 3 */
+    --cluster-6-4: rgba(255, 125, 255, 1);  /* Index 4 */
+    --cluster-6-5: rgba(255, 255, 0, 1);  /* Index 5 */
+
+    --cluster-7-0: rgba(0, 101, 255, 1);  /* Index 0 */
+    --cluster-7-1: rgba(0, 255, 0, 1);  /* Index 1 */
+    --cluster-7-2: rgba(21, 105, 10, 1);  /* Index 2 */
+    --cluster-7-3: rgba(116, 0, 0, 1);  /* Index 3 */
+    --cluster-7-4: rgba(212, 232, 255, 1);  /* Index 4 */
+    --cluster-7-5: rgba(242, 43, 218, 1);  /* Index 5 */
+    --cluster-7-6: rgba(255, 140, 0, 1);  /* Index 6 */
+
+    --cluster-8-0: rgba(0, 133, 0, 1);  /* Index 0 */
+    --cluster-8-1: rgba(0, 140, 255, 1);  /* Index 1 */
+    --cluster-8-2: rgba(0, 255, 227, 1);  /* Index 2 */
+    --cluster-8-3: rgba(68, 29, 0, 1);  /* Index 3 */
+    --cluster-8-4: rgba(167, 0, 173, 1);  /* Index 4 */
+    --cluster-8-5: rgba(254, 16, 0, 1);  /* Index 5 */
+    --cluster-8-6: rgba(255, 195, 249, 1);  /* Index 6 */
+    --cluster-8-7: rgba(255, 203, 0, 1);  /* Index 7 */
+
+    --cluster-9-0: rgba(0, 142, 255, 1);  /* Index 0 */
+    --cluster-9-1: rgba(0, 156, 0, 1);  /* Index 1 */
+    --cluster-9-2: rgba(0, 255, 237, 1);  /* Index 2 */
+    --cluster-9-3: rgba(33, 0, 123, 1);  /* Index 3 */
+    --cluster-9-4: rgba(117, 0, 5, 1);  /* Index 4 */
+    --cluster-9-5: rgba(182, 0, 204, 1);  /* Index 5 */
+    --cluster-9-6: rgba(250, 255, 0, 1);  /* Index 6 */
+    --cluster-9-7: rgba(255, 114, 12, 1);  /* Index 7 */
+    --cluster-9-8: rgba(255, 203, 255, 1);  /* Index 8 */
+
+    --cluster-10-0: rgba(0, 32, 0, 1);  /* Index 0 */
+    --cluster-10-1: rgba(0, 132, 249, 1);  /* Index 1 */
+    --cluster-10-2: rgba(0, 248, 255, 1);  /* Index 2 */
+    --cluster-10-3: rgba(0, 255, 0, 1);  /* Index 3 */
+    --cluster-10-4: rgba(82, 137, 92, 1);  /* Index 4 */
+    --cluster-10-5: rgba(84, 0, 48, 1);  /* Index 5 */
+    --cluster-10-6: rgba(199, 0, 237, 1);  /* Index 6 */
+    --cluster-10-7: rgba(235, 0, 57, 1);  /* Index 7 */
+    --cluster-10-8: rgba(255, 169, 3, 1);  /* Index 8 */
+    --cluster-10-9: rgba(255, 204, 248, 1);  /* Index 9 */
+
+    --cluster-11-0: rgba(0, 60, 0, 1);  /* Index 0 */
+    --cluster-11-1: rgba(0, 157, 255, 1);  /* Index 1 */
+    --cluster-11-2: rgba(0, 172, 0, 1);  /* Index 2 */
+    --cluster-11-3: rgba(25, 255, 232, 1);  /* Index 3 */
+    --cluster-11-4: rgba(88, 0, 0, 1);  /* Index 4 */
+    --cluster-11-5: rgba(115, 0, 203, 1);  /* Index 5 */
+    --cluster-11-6: rgba(136, 116, 110, 1);  /* Index 6 */
+    --cluster-11-7: rgba(255, 0, 0, 1);  /* Index 7 */
+    --cluster-11-8: rgba(255, 0, 223, 1);  /* Index 8 */
+    --cluster-11-9: rgba(255, 220, 254, 1);  /* Index 9 */
+    --cluster-11-10: rgba(255, 254, 73, 1);  /* Index 10 */
+
+    --cluster-12-0: rgba(0, 53, 0, 1);  /* Index 0 */
+    --cluster-12-1: rgba(0, 164, 0, 1);  /* Index 1 */
+    --cluster-12-2: rgba(0, 167, 255, 1);  /* Index 2 */
+    --cluster-12-3: rgba(0, 255, 221, 1);  /* Index 3 */
+    --cluster-12-4: rgba(11, 0, 27, 1);  /* Index 4 */
+    --cluster-12-5: rgba(99, 0, 0, 1);  /* Index 5 */
+    --cluster-12-6: rgba(122, 111, 109, 1);  /* Index 6 */
+    --cluster-12-7: rgba(175, 0, 255, 1);  /* Index 7 */
+    --cluster-12-8: rgba(230, 255, 0, 1);  /* Index 8 */
+    --cluster-12-9: rgba(254, 218, 247, 1);  /* Index 9 */
+    --cluster-12-10: rgba(255, 0, 134, 1);  /* Index 10 */
+    --cluster-12-11: rgba(255, 136, 0, 1);  /* Index 11 */
+
+    --cluster-13-0: rgba(0, 50, 0, 1);  /* Index 0 */
+    --cluster-13-1: rgba(0, 127, 128, 1);  /* Index 1 */
+    --cluster-13-2: rgba(0, 181, 0, 1);  /* Index 2 */
+    --cluster-13-3: rgba(0, 255, 227, 1);  /* Index 3 */
+    --cluster-13-4: rgba(3, 0, 38, 1);  /* Index 4 */
+    --cluster-13-5: rgba(66, 0, 0, 1);  /* Index 5 */
+    --cluster-13-6: rgba(120, 0, 139, 1);  /* Index 6 */
+    --cluster-13-7: rgba(143, 97, 0, 1);  /* Index 7 */
+    --cluster-13-8: rgba(162, 181, 255, 1);  /* Index 8 */
+    --cluster-13-9: rgba(253, 0, 60, 1);  /* Index 9 */
+    --cluster-13-10: rgba(253, 255, 0, 1);  /* Index 10 */
+    --cluster-13-11: rgba(255, 60, 254, 1);  /* Index 11 */
+    --cluster-13-12: rgba(255, 188, 171, 1);  /* Index 12 */
+
+    --cluster-14-0: rgba(0, 114, 110, 1);  /* Index 0 */
+    --cluster-14-1: rgba(0, 171, 0, 1);  /* Index 1 */
+    --cluster-14-2: rgba(0, 255, 211, 1);  /* Index 2 */
+    --cluster-14-3: rgba(16, 0, 65, 1);  /* Index 3 */
+    --cluster-14-4: rgba(38, 60, 255, 1);  /* Index 4 */
+    --cluster-14-5: rgba(69, 0, 12, 1);  /* Index 5 */
+    --cluster-14-6: rgba(98, 182, 255, 1);  /* Index 6 */
+    --cluster-14-7: rgba(124, 88, 0, 1);  /* Index 7 */
+    --cluster-14-8: rgba(139, 0, 160, 1);  /* Index 8 */
+    --cluster-14-9: rgba(224, 4, 76, 1);  /* Index 9 */
+    --cluster-14-10: rgba(225, 255, 0, 1);  /* Index 10 */
+    --cluster-14-11: rgba(255, 109, 255, 1);  /* Index 11 */
+    --cluster-14-12: rgba(255, 155, 68, 1);  /* Index 12 */
+    --cluster-14-13: rgba(255, 239, 254, 1);  /* Index 13 */
+
+    --cluster-15-0: rgba(0, 0, 255, 1);  /* Index 0 */
+    --cluster-15-1: rgba(0, 51, 0, 1);  /* Index 1 */
+    --cluster-15-2: rgba(0, 118, 122, 1);  /* Index 2 */
+    --cluster-15-3: rgba(0, 240, 210, 1);  /* Index 3 */
+    --cluster-15-4: rgba(22, 157, 0, 1);  /* Index 4 */
+    --cluster-15-5: rgba(42, 0, 0, 1);  /* Index 5 */
+    --cluster-15-6: rgba(129, 176, 255, 1);  /* Index 6 */
+    --cluster-15-7: rgba(136, 87, 0, 1);  /* Index 7 */
+    --cluster-15-8: rgba(154, 0, 92, 1);  /* Index 8 */
+    --cluster-15-9: rgba(165, 37, 255, 1);  /* Index 9 */
+    --cluster-15-10: rgba(167, 255, 0, 1);  /* Index 10 */
+    --cluster-15-11: rgba(255, 1, 0, 1);  /* Index 11 */
+    --cluster-15-12: rgba(255, 117, 200, 1);  /* Index 12 */
+    --cluster-15-13: rgba(255, 171, 55, 1);  /* Index 13 */
+    --cluster-15-14: rgba(255, 240, 250, 1);  /* Index 14 */
+
+}
+
