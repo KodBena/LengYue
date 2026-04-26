@@ -5,6 +5,7 @@
 -->
 <script setup lang="ts">
 import type { StoneColor } from '../types';
+import UserBadge from './UserBadge.vue';
 
 interface StatusMetadata {
   readonly blackName: string;
@@ -47,6 +48,7 @@ const emit = defineEmits<{
         {{ turn === 'B' ? 'Black to Play' : 'White to Play' }}
       </span>
       <span class="caps">B: {{ captures.B }} · W: {{ captures.W }}</span>
+      <UserBadge />
     </div>
   </div>
 </template>
