@@ -24,7 +24,7 @@
  * top-level reactive ref outside the GlobalStore object; the pattern is
  * recognized.
  *
- * ─── Public surface (after B4) ───────────────────────────────────────────────
+ * ─── Public surface (after B5) ───────────────────────────────────────────────
  *   - `state`            — readonly Ref over the discriminated union.
  *   - `isAuthenticated`, `username` — convenience computed views.
  *   - `tryAutoLogin()`   — bootstrap entry point used by App.vue.
@@ -35,17 +35,21 @@
  *   - `logout()`         — clear JWT and cached username; transition
  *                          to 'unauthenticated'. Synchronous.
  *
+ * All three success-path actions (tryAutoLogin, login, register)
+ * compose with an internal verify step that calls /auth/me to confirm
+ * the JWT-bearer's identity. The verified userId is set on the
+ * authenticated state when verify succeeds; absent when verify
+ * fails for non-401 reasons (network, 5xx) — in which case we trust
+ * the typed/cached identity but flag the unverified state via the
+ * system log per ADR-0002. A 401 on verify drops the JWT and
+ * transitions to unauthenticated.
+ *
  * ─── Storage boundary ────────────────────────────────────────────────────────
  * This file does not touch localStorage directly in either direction.
  * Reads go through `api.cachedUsername()`; writes go through
  * `api.clearToken()` and the side effects of `api.login()` /
  * `api.register()`. The storage-key invariant has one enforcement
  * site, in api-client.ts.
- *
- * Deferred to later milestones:
- *   - JWT identity verification via /auth/me → B5; closes the
- *                 stale-token-drift failure mode that motivated this
- *                 whole refactor.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -67,6 +71,66 @@ function setState(next: AuthState): void {
   _authState.value = next;
 }
 
+// ─── Verify-and-transition helper (private, B5) ──────────────────────────────
+
+/**
+ * After a JWT has been obtained (via login, register, or
+ * ensureAuthenticated), call /auth/me to confirm identity and set
+ * the authenticated state with the verified userId.
+ *
+ * Three branches, all bounded:
+ *
+ *   200 → setState authenticated{username from /auth/me, userId from
+ *         /auth/me}. The backend's claim overrides the typed/cached
+ *         username — this is the stale-token-drift fix.
+ *
+ *   401 → token rejected by server. api.request has already cleared
+ *         the JWT internally; we additionally clear the cached
+ *         username (via api.clearToken, which is idempotent on the
+ *         JWT side), transition to unauthenticated, and surface a
+ *         warning. The user can recover via the LoginModal.
+ *
+ *   other (network, 5xx) → can't verify, but the JWT is presumed
+ *         valid (it just succeeded one call ago, in the login case;
+ *         or ensureAuthenticated installed it). Trust the typed
+ *         identity, leave userId undefined, flag the unverified
+ *         state via system log per ADR-0002.
+ *
+ * The 401 detection keys on the error message format thrown by
+ * api.request ("API Error 401: ..."). Brittle in principle but the
+ * format is part of api-client's shipped contract; a deliberate
+ * refactor that changes it would also update this site.
+ */
+async function _setAuthenticatedAfterVerify(typedUsername: string): Promise<void> {
+  try {
+    const me = await api.getMe();
+    setState({ kind: 'authenticated', username: me.username, userId: me.id });
+    return;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+
+    if (msg.includes('API Error 401')) {
+      // Token is invalid by the server's reckoning; the cached
+      // identity is meaningless. Clear and route to unauthenticated.
+      api.clearToken();
+      setState({ kind: 'unauthenticated' });
+      pushSystemMessage(
+        'warning',
+        'Session not recognised by the server. Please sign in again.'
+      );
+      return;
+    }
+
+    // Verify failed for a non-auth reason. The token is presumed
+    // valid; trust the typed identity but flag the gap.
+    pushSystemMessage(
+      'warning',
+      `Could not verify identity with server (${msg}). Using cached identity.`
+    );
+    setState({ kind: 'authenticated', username: typedUsername });
+  }
+}
+
 // ─── Bootstrap action (public) ───────────────────────────────────────────────
 
 /**
@@ -75,21 +139,22 @@ function setState(next: AuthState): void {
  * outcome is observable on `state` rather than only as a side effect.
  *
  * Behavior:
- *   - Transitions through `authenticating` while the underlying call
- *     is in flight.
+ *   - Transitions through `authenticating` while the underlying
+ *     calls are in flight.
  *   - Delegates the auto-register-then-login dance to
  *     `api.ensureAuthenticated()`. That method swallows its inner
  *     errors (it predates this composable); we therefore consult
  *     `api.cachedUsername()` afterwards as the source of truth for
  *     whether a token was actually obtained.
- *   - On success → `{ kind: 'authenticated', username }`, where the
- *     username is whatever `api.login()` cached during ensure.
- *   - On failure → `{ kind: 'error', message }` and a system-log
- *     surface, per ADR-0002.
+ *   - On token present → invokes the verify step, which sets the
+ *     final state (authenticated with userId, or unauthenticated on
+ *     401, or authenticated without userId on other verify failure).
+ *   - On no token → emits an error system message and transitions
+ *     to error state.
  *
- * Note: the username here reflects what the SPA *typed* at login,
- * not what the JWT *claims*. They can drift on stale tokens — which
- * is the failure mode the planned /auth/me endpoint (B5) closes.
+ * The verified username from /auth/me overrides the cached one,
+ * which closes the stale-token-drift failure mode that motivated
+ * this whole refactor.
  */
 async function tryAutoLogin(): Promise<void> {
   setState({ kind: 'authenticating' });
@@ -105,59 +170,66 @@ async function tryAutoLogin(): Promise<void> {
   }
 
   const username = api.cachedUsername();
-  if (username) {
-    setState({ kind: 'authenticated', username });
+  if (!username) {
+    // No cached username means ensureAuthenticated didn't complete a
+    // successful login.
+    const message = 'Auto-login failed; no JWT obtained.';
+    pushSystemMessage('error', message);
+    setState({ kind: 'error', message });
     return;
   }
 
-  // No cached username means ensureAuthenticated didn't complete a
-  // successful login. (If ensureAuthenticated had succeeded, login()
-  // would have written the username via api-client's storage path.)
-  const message = 'Auto-login failed; no JWT obtained.';
-  pushSystemMessage('error', message);
-  setState({ kind: 'error', message });
+  await _setAuthenticatedAfterVerify(username);
 }
 
-// ─── Explicit sign-in / register actions (public, B3) ────────────────────────
+// ─── Explicit sign-in / register actions (public) ───────────────────────────
 
 /**
  * Sign in as the given user. Transitions:
- *   any → authenticating → authenticated  (success)
- *   any → authenticating → error          (failure, rethrown)
+ *   any → authenticating → authenticated  (success, with verified userId)
+ *   any → authenticating → unauthenticated (login succeeded, verify 401)
+ *   any → authenticating → error           (login failed)
  *
  * If the SPA was previously authenticated as a different user, this
  * effectively switches identity — `api.login` overwrites the cached
- * JWT and username in localStorage as part of its success path.
+ * JWT and username in localStorage as part of its success path; the
+ * subsequent verify confirms the new identity with the backend.
  *
- * Errors are surfaced via `pushSystemMessage` and reflected on
- * `state.kind === 'error'`. The throw is re-raised so callers (the
- * LoginModal) can suppress the modal's "close on success" branch.
+ * Errors from api.login itself are surfaced via `pushSystemMessage`
+ * and reflected on `state.kind === 'error'`. The throw is re-raised
+ * so callers (the LoginModal) can suppress the modal's "close on
+ * success" branch.
  */
 async function login(username: string, password?: string): Promise<void> {
   setState({ kind: 'authenticating' });
   try {
     await api.login(username, password);
-    setState({ kind: 'authenticated', username });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     pushSystemMessage('error', `Sign-in failed: ${message}`);
     setState({ kind: 'error', message });
     throw err;
   }
+
+  // Login succeeded; verify identity to set userId and to confirm
+  // the backend's claim over the typed username.
+  await _setAuthenticatedAfterVerify(username);
 }
 
 /**
- * Register a new account, then sign in. Composed of two distinct API
- * steps so partial success is reported honestly per ADR-0002:
+ * Register a new account, then sign in. Composed of three distinct
+ * API steps so partial success is reported honestly per ADR-0002:
  *
- *   - If `api.register` fails        → error: "Registration failed: …"
- *   - If `api.register` succeeds but
- *     `api.login` fails              → error: "Registered, but
- *                                      auto-sign-in failed: …"
+ *   - api.register fails        → error: "Registration failed: …"
+ *   - api.register succeeds but
+ *     api.login fails           → error: "Registered, but
+ *                                  auto-sign-in failed: …"
+ *   - login succeeds, verify    → handled by the verify helper
+ *     401 / non-401              (see _setAuthenticatedAfterVerify)
  *
- * The user account exists on the backend in the latter case; reporting
- * "Registration failed" would be a lie. The user can recover by
- * clicking Sign In (not Register) on the next attempt.
+ * The user account exists on the backend in the "registered but
+ * sign-in failed" case; reporting "Registration failed" would be a
+ * lie. The user can recover by clicking Sign In on the next attempt.
  */
 async function register(username: string, password?: string): Promise<void> {
   setState({ kind: 'authenticating' });
@@ -174,13 +246,15 @@ async function register(username: string, password?: string): Promise<void> {
   // Registration succeeded; account now exists on the backend.
   try {
     await api.login(username, password);
-    setState({ kind: 'authenticated', username });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     pushSystemMessage('error', `Registered, but auto-sign-in failed: ${message}`);
     setState({ kind: 'error', message });
     throw err;
   }
+
+  // Login succeeded; verify identity to set userId.
+  await _setAuthenticatedAfterVerify(username);
 }
 
 // ─── Logout action (public, B4) ──────────────────────────────────────────────

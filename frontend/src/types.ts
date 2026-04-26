@@ -313,7 +313,7 @@ export type AuthState =
   | { readonly kind: 'unknown' }
   | { readonly kind: 'unauthenticated' }
   | { readonly kind: 'authenticating' }
-  | { readonly kind: 'authenticated'; readonly username: string }
+  | { readonly kind: 'authenticated'; readonly username: string; readonly userId?: number }
   | { readonly kind: 'error'; readonly message: string };
 
 // ── Value Object (readonly preserved) — SystemMessage ─────────────────────────

@@ -7,6 +7,9 @@
 
 import { API_BASE_URL } from '../config/env';
 import { pushSystemMessage } from '../store';
+import type { components } from '../types/backend';
+
+type AuthMeResponse = components['schemas']['AuthMeResponse'];
 
 const TOKEN_KEY = 'ebisu_jwt_token';
 const USER_KEY = 'ebisu_username';
@@ -139,6 +142,23 @@ export class ApiClient {
     this.token = null;
     localStorage.removeItem(USER_KEY);
     console.log('[API] Token cleared.');
+  }
+
+  /**
+   * Fetches the JWT-bearer's identity from the backend.
+   *
+   * Returns the wire-shape AuthMeResponse directly; projection into
+   * domain types is done one layer up (in useAuth.ts), matching the
+   * codebase's ACL convention where this file does the HTTP and the
+   * consumer does the domain translation.
+   *
+   * Throws on 401 (token rejected by server), on other non-2xx, or
+   * on network failure. Callers that need to differentiate must
+   * inspect the thrown Error's message — the format is "API Error
+   * ${status}: ${body}" per request().
+   */
+  public async getMe(): Promise<AuthMeResponse> {
+    return this.request<AuthMeResponse>('GET', '/auth/me');
   }
 
   /**
