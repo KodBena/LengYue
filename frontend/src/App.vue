@@ -10,6 +10,7 @@ import { useMetadata }       from './composables/useMetadata';
 import { useSgfLoader }      from './composables/useSgfLoader';
 import { useEngineControls } from './composables/useEngineControls';
 import { useUserIORegistry } from './composables/useUserIORegistry';
+import { useAuth }           from './composables/useAuth';
 import { resourceService } from './services/resource-service';
 
 import {
@@ -28,7 +29,7 @@ import { updateRegistry, getActiveVariationPath } from './engine/util';
 
 import { SyncService } from './services/sync-service';
 import { ebisuService } from './services/ebisu-service';
-import { analysisService } from './services/analysis-service'; // NEW: Imported for Auto-Ponder
+import { analysisService } from './services/analysis-service';
 
 import BoardWidget      from './components/BoardWidget.vue';
 import SidebarWidget    from './components/SidebarWidget.vue';
@@ -53,6 +54,7 @@ useUserIORegistry();
 const { openFileDialog } = useSgfLoader();
 const engineControls     = useEngineControls();
 const metadata           = useMetadata(activeBoard);
+const auth               = useAuth();
 
 const activeBoardId = computed(() => activeBoard.value?.id as BoardId | null);
 const reviewSession = useReviewSession(activeBoardId);
@@ -188,6 +190,13 @@ function handleVisitsOverrideChange(e: Event) {
 
 const sync = new SyncService('user_workspace_01');
 onMounted(async () => {
+  // Establish auth identity FIRST. Subsequent calls (sync.connect's
+  // hydration GET, getTags) depend on a valid JWT being present, and
+  // previously each path called api.ensureAuthenticated independently
+  // — a real race during cold start. Auth-first eliminates the race
+  // and gives downstream code an observable identity to read.
+  await auth.tryAutoLogin();
+
   sync.connect();
   resourceService.loadVisitDistribution();
   try {

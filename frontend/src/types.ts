@@ -34,7 +34,9 @@
  *     mutated — `metrics: EngineMetrics` on EngineState is mutable, but
  *     the EngineMetrics value object is immutable, which is the
  *     idiomatic functional-state pattern: mutable container, immutable
- *     value).
+ *     value), AuthState (discriminated union; each constructor's
+ *     fields are immutable; new state values are produced rather than
+ *     mutated in place).
  *
  * The `Brand<K, T>` phantom field uses `readonly` as a structural-typing
  * trick, not as an immutability annotation; it is unrelated to either
@@ -289,6 +291,30 @@ export interface GlobalStore {
 
 export type EngineStatus = 'disconnected' | 'connecting' | 'connected';
 export type AnalysisMode = 'none' | 'ponder' | 'analyze';
+
+// ── Value Object (readonly preserved) — Authentication state ──────────────────
+//
+// Discriminated union over the five legitimate states of the SPA's auth
+// identity. Constructors carry exactly the data each state needs; no
+// impossible combinations are representable (no `authenticated` without
+// a username; no `error` without a message). Owned at runtime by the
+// `useAuth` composable in `composables/useAuth.ts`; declared here for
+// accessibility by future consumers (UserBadge, LoginModal, etc.).
+//
+// Lifecycle:
+//   unknown         → pre-bootstrap, no attempt yet made.
+//   authenticating  → login/register call in flight.
+//   authenticated   → JWT in localStorage; identity known.
+//   unauthenticated → no token, idle. Reachable via logout (B4) or via
+//                     a deliberate identity-clear (B5).
+//   error           → last attempt failed; surfaced via system log;
+//                     transient until the next attempt.
+export type AuthState =
+  | { readonly kind: 'unknown' }
+  | { readonly kind: 'unauthenticated' }
+  | { readonly kind: 'authenticating' }
+  | { readonly kind: 'authenticated'; readonly username: string }
+  | { readonly kind: 'error'; readonly message: string };
 
 // ── Value Object (readonly preserved) — SystemMessage ─────────────────────────
 
