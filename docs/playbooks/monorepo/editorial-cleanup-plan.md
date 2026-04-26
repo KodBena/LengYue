@@ -1,7 +1,7 @@
 # Editorial Cleanup Playbook (Part B)
 
-- **Status:** Pending. Part A (`monorepo-plan.md`) complete as of
-  2026-04-26.
+- **Status:** Executed (2026-04-26).
+- ~~**Status:** Pending. Part A (`monorepo-plan.md`) complete as of 2026-04-26.~~
 - **Scope:** Editorial follow-up to the umbrella restructure. TODO
   consolidation, HANDOFF synthesis, archive orientation, and
   resolution of the placeholder references Part A intentionally

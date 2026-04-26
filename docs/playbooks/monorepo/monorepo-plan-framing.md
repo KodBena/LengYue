@@ -1,3 +1,5 @@
+*Status: Executed (2026-04-26). The plan this memo accompanies has been executed; see `monorepo-plan.md` for its execution record and `editorial-cleanup-plan.md` for the editorial follow-up.*
+
 # Framing memo for the executor
 
 This memo accompanies `monorepo-plan.md`. It is intended for the

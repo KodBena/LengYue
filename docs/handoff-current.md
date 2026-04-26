@@ -1,0 +1,527 @@
+# Handoff — Current State
+
+A living orientation document for the umbrella repository. Written
+to be useful to someone arriving at this codebase cold — whether
+to extend it, to maintain it, or to coordinate a release across
+the three sub-projects. Updated as the system evolves.
+
+For specific architectural decisions, see the four ADRs in
+`docs/adr/`. For active work, see `docs/TODO.md`. For backend
+architectural retrospective, see `docs/notes/reflection.md`. For
+moment-in-time snapshots from before the umbrella restructure,
+see `docs/archive/`.
+
+---
+
+## What this product is
+
+A study application for the game of Go (Weiqi). The user loads
+SGF games — their own play, professional games, problem sets —
+and the application stages them as flashcards in a
+spaced-repetition system, evaluated by KataGo (the strongest
+publicly available Go engine).
+
+The product thesis is that **deep Go improvement comes not from
+volume but from focused review of positions where the user's
+intuition and the engine's evaluation diverge.** The combination
+of Ebisu's Bayesian recall model (for scheduling) and KataGo's
+position evaluation (for grading) is the engineered version of
+"play the position, see what you think the right move is, see
+what KataGo thinks, and feel the difference."
+
+What makes this distinctive:
+
+- **The analysis palette system.** Move quality in Go isn't a
+  single number. KataGo emits a packet of metrics (winrate,
+  score lead, visit distribution, ownership map, policy head,
+  principal variations) and the *meaningful* signal for any
+  given study context is some palette-defined function over
+  them. The palette is user-editable.
+- **The qEUBO calibration loop (planned).** Picking palette
+  parameters by hand is a research problem this project doesn't
+  claim to have solved. The roadmap includes Bayesian
+  optimization over palette parameters, evaluated by user
+  satisfaction with the surfaced reviews. KataProxy's
+  analysis-level cache is what makes this loop economically
+  feasible.
+- **Transparent depth.** The application exposes its
+  abstractions — the registry editor lets the user inspect and
+  modify the full settings tree; the palette editor exposes the
+  function definitions; the pipeline DSL lets the user define
+  custom card sets via composable selection/ordering operators.
+  The target audience (serious Go researchers) gets value from
+  being able to reach into the machinery.
+
+What this is not, and is not trying to become: a casual learning
+app, a multiplayer client, or a game database. The engine is the
+only opponent in the building; storage is incidental to the SR
+workflow.
+
+---
+
+## The umbrella
+
+The product is composed of **three independently-developed,
+peer-level sub-projects**. Each has its own architecture, its
+own intended user base, and its own development history. They
+integrate at well-defined boundaries; none is subordinate to the
+others.
+
+- **`frontend/`** — Vue 3 + TypeScript SPA (formerly the `gogui`
+  repository). The user-facing client.
+- **`backend/`** — FastAPI + SQLAlchemy 2.0 service (formerly
+  the `fastapi_service` repository). Spaced-repetition core
+  (Ebisu-based), card and tree storage, and the tenancy boundary.
+- **`proxy/`** — KataProxy, included as a git submodule. KataGo
+  analysis bridge with a three-layer architecture; intended for
+  use by go schools, online go services, and individual
+  operators sharing analysis machines.
+
+The "soft monorepo" choice is deliberate: each sub-project keeps
+its own dependencies, build tooling, lint config, and
+`.gitignore`. There is no root-level `package.json`, no shared
+`pyproject.toml`, no top-level test runner. The decision is
+recorded in `docs/playbooks/monorepo/monorepo-plan.md`, which
+also captures the structural moves that produced the current
+layout.
+
+System-level documentation lives in `docs/`. Subproject-internal
+documentation lives in each subproject's `docs/` (currently only
+`backend/docs/`, which holds the Tree-DSL reference). For
+day-to-day "what's in this repo" navigation, the root
+`README.md` is the entry point.
+
+### Integration model
+
+- **Frontend ↔ backend**: REST + JWT auth, with an OpenAPI-typed
+  ACL in `frontend/src/services/ebisu-service.ts`. The frontend
+  never talks to the backend's database directly; the ACL
+  translates wire shapes (snake_case) into clean domain types
+  (camelCase, branded). The codegen pipeline (`npm run gen:api`)
+  keeps the two sides honestly synced.
+- **Frontend ↔ proxy**: WebSocket. KataProxy's wire contract is
+  a superset of KataGo's native analysis protocol — it accepts
+  every field KataGo's binary accepts, plus four control flags
+  (`cache`, `lookup_cache`, `replay_final_only`,
+  `analysis_config`) that KataProxy interprets at its Hub layer.
+  The frontend's `src/engine/katago/types.ts` describes the
+  specific subset gogui uses.
+- **Backend ↔ proxy**: none currently. The proxy is purely a
+  frontend-facing service. If the analysis-persistence feature
+  lands, the backend gains a write path for engine analyses, but
+  the read path stays through the proxy.
+
+The three sub-projects are coupled at the *protocol* level (wire
+formats, JSON shapes, action verbs) but decoupled at the
+*implementation* level. Each could be reimplemented in a
+different language without affecting the others.
+
+---
+
+## The frontend
+
+A Vue 3 + TypeScript SPA. The architecture has settled into
+three layers:
+
+- **Components** (`src/components/*`, `src/App.vue`) — Vue SFCs;
+  thin renderers, plus the minimum wiring to composables.
+- **Composables** (`src/composables/*`) — the real logic layer.
+  `useReviewSession`, `useAnalysisProjection`, `useChartNavigation`,
+  and others. Pure-ish functions over reactive refs.
+- **Services** (`src/services/*`) — effectful singletons. API
+  calls, WebSocket clients, debounced persistence. The ACL at
+  `ebisu-service.ts` is the boundary where backend wire shapes
+  become domain types.
+
+State lives in a single reactive `GlobalStore` (`src/store/index.ts`).
+There is no Pinia yet — using Vue's built-ins kept the
+dependency footprint small, which paid off during the strict-mode
+build sweep.
+
+**The build sweep is closed.** `vue-tsc -b` had not been run in
+months when the work began; ~124 strict-mode errors surfaced.
+Closed across 11 commits, with one regression caught and fixed
+mid-sweep — the regression became the proximate motivation for
+ADR-0004. Since then, `npm run build` is part of the regular
+contributor workflow and the strict typecheck is a real safety
+net rather than a fictional one.
+
+**The OpenAPI codegen pipeline is operational.** `npm run gen:api`
+runs `openapi-typescript` against the backend's live
+`/openapi.json` and writes a TypeScript declaration of every
+wire shape to `src/types/backend.ts`. That file is committed
+(reasoning: reproducibility, review signal, end-user builds —
+see `frontend/README.md` for the full justification). The ACL at
+`ebisu-service.ts` consumes the generated types; backend
+refactors that rename a field produce TypeScript compile errors
+at every site that reads the old name.
+
+The frontend is **domain-specific to Go**. ADR-0003 documents
+this honestly: roughly 30-40% of the frontend is Go-bound (the
+SGF parsing, board renderer, KataGo wire vocabulary), with the
+remainder domain-agnostic infrastructure that a Chess or Shogi
+port could reuse.
+
+### Known gaps (frontend)
+
+- **Pipeline DSL still typed `any[]`.** The backend has typed
+  pipeline stages (item 31, shipped: discriminated unions of
+  `SelectStage | TakeStage | ShuffleStage | OrderStage`). The
+  frontend's `CardSet.pipeline: any[]` is the largest remaining
+  `any` in domain types. Tracked in `docs/TODO.md`.
+- **`useVariationPath` boundary cleanup.** Currently exposed as
+  `Ref<string[]>`; `useAnalysisProjection` adapts to
+  `Ref<NodeId[]>` via a documented boundary cast. Tightening
+  `useVariationPath` itself would eliminate the adapter. ~5
+  lines.
+- **No test suite.** This is an honest gap. The codebase has
+  been developed by single-author iteration with careful manual
+  review; the absence of tests is debt that should be paid down
+  once the higher-priority work is settled. Suggested starting
+  point: integration tests at the composable level
+  (`useReviewSession`, `useAnalysisProjection`).
+
+---
+
+## The backend
+
+A FastAPI + SQLAlchemy 2.0 service. Clean / Hexagonal
+Architecture; the Dependency Rule is enforceable by import-graph
+inspection.
+
+**Six Ports** declare what the inner layers need from the outer:
+`CardRepositoryPort`, `CardWriteRepositoryPort`,
+`LineageRepositoryPort`, `TagFilterRepositoryPort`,
+`StatsRepositoryPort`, `StaticResourceRepositoryPort`. Each Port
+returns domain entities or DTOs (`Card`, `CardNode`,
+`ForestMemberRow`, etc.), never SQLAlchemy Rows or CTEs. This is
+the seam any future domain adoption flows through.
+
+**The backend is genuinely domain-agnostic.** Items 34, 34a, and
+34b closed the wire-rename and schema-rename work that took the
+service from Go-specific (`sgf`, `normalized_sgf`, `pos_hash`)
+to neutral (`raw_content`, `canonical_content`, `content_hash`).
+A Chess adoption now requires writing one Python file
+implementing `PositionNormalizerPort` plus light DI wiring; see
+`backend/README.md`'s "Adopting for another domain" section for
+the full checklist.
+
+**The tenancy spine is in progress.** The schema supports
+multi-tenant operation (every domain object the user authors is
+tenant-scoped by `user_id`), but read paths don't all enforce it
+yet. The complete model is documented in `docs/notes/tenancy.md`;
+the outstanding implementation work is items 13–16 (read-path
+filtering), 23–24 (schema migrations for `documents` and
+`game_source`), 25 (threading `user_id` through `PipelineExecutor`),
+and 26 (in-code documentation). The single config flag
+`ALLOW_PASSWORDLESS_LOGIN: bool = True` (item 9, shipped) is the
+switch that flips the system between "transparent local install"
+and "multi-tenant deployment."
+
+**Migration tooling is hand-rolled, not Alembic.** Each
+migration is a one-shot script in `backend/scripts/`,
+idempotent, dialect-aware (SQLite + Postgres). For
+single-machine deployment this works well; for multi-region or
+read-replica topologies, Alembic-equivalent tooling becomes
+worthwhile.
+
+### Known gaps (backend)
+
+- **`domain/tag_dsl.py` is structurally an adapter.**
+  `TagDSLCompiler` produces a SQLAlchemy `Select` and imports
+  from `db.schema`; by the Dependency Rule it shouldn't be in
+  `domain/`. Future cleanup: move to `repositories/`. Resistance
+  is purely test-ergonomics, not architectural.
+  See `docs/notes/reflection.md` for the rationale.
+- **`PipelineExecutor.run()` couples lineage and tag-filter into
+  one method.** Two Port calls, one method. Conceptually
+  independent, temporally coupled. Worth a refactor if the
+  executor grows further; not worth it at the current size.
+- **No row-level audit log.** The system records `user_id` on
+  every row but doesn't track which user made which change to
+  which row over time. Fine for single-user or
+  trust-each-other-Alice-and-Bob deployments; would need an
+  audit table for any compliance-flavored deployment.
+- **No tenant deletion path.** Removing a user means
+  cascade-deleting their cards, documents, and game_sources.
+  The schema has the right `ON DELETE CASCADE` clauses but no
+  user-level cascade script exists. Deferrable until needed.
+- **Test coverage is uneven.** The DSL pure-logic paths have
+  coverage; the rest is pending a rewrite against the Port
+  architecture.
+
+---
+
+## The proxy
+
+KataProxy is included as a git submodule pinned to a specific
+commit. The architecture is independently designed and worth
+reading separately if extending the proxy itself; gogui consumes
+it through a stable wire protocol and rarely needs to know
+internals.
+
+**Three-layer design** (Sessions / Hub / Router) with each layer
+speaking a different ID namespace. Transformers can be authored
+without knowing about coalescing; the Hub coalesces without
+knowing about clients; the Router dispatches without knowing
+about either. This separation is what makes KataProxy's two
+extension surfaces (Transformers and SessionMiddleware) honest
+abstractions rather than convenience APIs.
+
+**Four operational roles**: LEAF (engine-bound process), RELAY
+(public-facing aggregator over many LEAFs), ECHO (test/replay),
+REDIRECT (compat shim). For local development, a single LEAF on
+`127.0.0.1:41949` is sufficient — and is exactly what the
+frontend's default config expects. For institutional deployment,
+the RELAY-over-LEAF pattern is the production shape.
+
+The proxy is independently developed and intended for use beyond
+gogui — go schools, online go services (FoxWQ, Tygem, etc.), and
+research groups sharing analysis machines. As soon as it gains a
+second consumer, its wire contract becomes a multi-party API; a
+typed schema publication (analogous to the backend's OpenAPI)
+will become important at that point.
+
+For the proxy's own architecture, framework, and operational
+documentation, see `proxy/README.md`, `proxy/FRAMEWORK.md`, and
+`proxy/ARCHITECTURE.md` inside the submodule.
+
+---
+
+## Architectural governance — ADRs and tenets
+
+The four foundational architectural records live in `docs/adr/`,
+spread across two genres. **All four apply project-wide**,
+regardless of which sub-project's history they originated in.
+
+### Decisions
+
+- **ADR-0001: State Mutation and `readonly` Policy.** Frontend
+  state containers are mutated as part of normal operation;
+  annotating them `readonly` was an aspirational lie that strict
+  mode refused to accept. Decision: remove `readonly` from state
+  containers, preserve it on value objects. The same philosophy
+  applies to the backend's mutable Pydantic models.
+- **ADR-0003: Frontend Portability and Domain Boundaries.** A
+  descriptive map of the codebase's domain coupling, plus a
+  forward-looking authoring principle: when designing a new
+  module, ask "what would change for a Chess port?" The
+  principle's value is at authoring time — it forces honest
+  separation between the abstraction and the instance.
+
+### Tenets
+
+- **ADR-0002: Fail Loudly.** Six-level loudness hierarchy from
+  compile-error (best) to silent fallback (worst). Five concrete
+  rules; three documented exceptions. The most consequential
+  single document in the project. The reason analysis-recording
+  is designed without a silent retry queue, why proxy cache
+  controls are explicit rather than implicit, why the SR review
+  timeout cancels-rather-than-retries.
+- **ADR-0004: Minimal-Touch Edits to Partially-Visible Files.**
+  Authoring discipline: when editing under partial visibility,
+  only the lines the build tool flags get touched. Full-file
+  rewrites require full-file visibility. Protects against silent
+  runtime breakage from changes the type-checker cannot catch.
+
+Together they establish the codebase's architectural personality:
+honest types over aspirational annotations (ADR-0001); loud
+failure over silent drift (ADR-0002); domain-aware seams without
+premature abstraction (ADR-0003); surgical edits over speculative
+reconstruction (ADR-0004). Read all four before making
+non-trivial changes; a contribution against the grain causes
+friction wherever it touches.
+
+---
+
+## Where the project is going
+
+The roadmap, in rough priority order:
+
+**1. Tenancy completion.** Items 13–26 in `docs/TODO.md`. Once
+landed, the system can be deployed as a hosted service with
+multiple users. The work is well-scoped and mechanical; the
+backend tenancy spine is the bulk, the frontend's reciprocal is
+small (item 28 — JWT 401 retry).
+
+**2. Closing the SR loop server-side (analysis persistence).**
+The biggest user-visible improvement available. SR sessions that
+take 30 seconds to load today would take 1–2 seconds with
+analysis caching on the backend. Design captured in
+`docs/notes/analysis-persistence-plan.md`; the blocker is a
+15-minute DevTools session to validate the `isDuringSearch`
+gating predicate against KataGo's actual terminate-ack behavior.
+
+**3. qEUBO palette calibration.** A research direction, not a
+polish item. The proxy's replay cache (Layer 2) exists
+specifically to make this loop economically feasible. The next
+milestone after analysis persistence is a calibration UI where
+the user runs "survey" sessions with perturbed palette
+parameters, the optimizer (on the backend) consumes the user's
+reviews, and the cache substrate (in the proxy) makes the whole
+thing affordable.
+
+**4. Public deployment.** Once tenancy is real, the application
+can move from local-install to hosted service. The proxy's
+RELAY-over-LEAF pattern is what makes the engine side scalable.
+
+**5. Domain extension.** All three sub-projects support domain
+adoption to varying degrees. The backend is genuinely portable
+(item 34). The frontend's ADR-0003 maps the work that would be
+required (~30-40% of the frontend would need rewriting). The
+proxy's Prism abstraction is intended to support multiple
+protocols, though only KataGo is currently implemented. If a
+chess or shogi adopter materializes, the work is substantial
+but bounded.
+
+**Community palette library** is on the longer-term horizon —
+palettes are JSON, and a "share my palette" feature is an
+upload-download flow. Could be hosted alongside the backend or
+as a separate static-site feature. Depends on whether palette
+calibration produces results the community wants to share.
+
+---
+
+## Rough edges to know about
+
+Beyond the per-subproject gaps named above, three cross-cutting
+concerns worth surfacing:
+
+**Drift between the proxy's contract and the frontend's wire
+type.** The proxy is independently developed; if it gains new
+control flags or changes coalescing semantics, the frontend's
+`src/engine/katago/types.ts` needs to be updated to match. There
+is no automated coupling between the two. The right long-term
+fix is the typed-schema publication noted in the Proxy section.
+
+**The `gradingParameter` opacity.** The most opaque field in the
+domain model — `Record<string, any>` because the inner shape is
+application-defined and changes frequently. The SR composable
+reads `gradingParameter.data.analysis_config` to override the
+active palette per card. If the inner shape ever stabilizes
+enough to deserve a typed schema, formalize it in `types.ts` and
+tighten the access sites; don't let the `Record<string, any>`
+become permanent through inertia.
+
+**Multi-tab support.** Currently undefined behavior; the
+`SyncService` is last-write-wins (documented). If multi-tab use
+becomes a real workflow (it currently isn't), an ETag-based
+coordination layer is the right design — the sketch is in a
+comment on `SyncService::sendSync()`. Until then, document the
+single-tab assumption and move on.
+
+For backend-specific rough edges (the misfiled `tag_dsl.py`, the
+executor's coupling, the migration scripts' single-deployment
+assumption), see `docs/notes/reflection.md`. That document is
+the most candid available accounting of where the backend's
+load bears unevenly.
+
+---
+
+## Operational notes
+
+**Frontend.** `npm run build` is the canonical correctness
+check. It runs `vue-tsc -b && vite build`. Every PR should run
+it and resolve any new errors before merging. The strict
+typecheck is load-bearing.
+
+**Frontend logging.** The application logs aggressively to the
+browser console (especially `SyncService`, `AnalysisService`,
+`EbisuService`). This is intentional — the target user is
+technical and benefits from transparency. Don't suppress the
+logs; if you add new functionality, log its lifecycle events at
+the same level of detail. The proxy makes the same choice
+(namespaced under `kataproxy.*` so individual subsystems can be
+filtered independently). The project as a whole values loud,
+filterable observability over silent operation.
+
+**Frontend persistence.** The `SyncService` writes the entire
+`GlobalStore` to the backend on every change (debounced). For a
+developer making schema changes to the store, stale values can
+appear after a redeploy — either bump a schema version or clear
+the local user's saved state. There's a "Force Persistence"
+button in the Settings tab useful for debugging.
+
+**Backend.** `cd backend && pytest` runs the test suite (DSL and
+graph algorithms; light coverage). For local development:
+
+```bash
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+fastapi dev main.py --host 127.0.0.1 --port 8764
+```
+
+Schema is created on first run via SQLAlchemy's
+`metadata.create_all`. For existing installs, see the migration
+scripts in `backend/scripts/`.
+
+**Proxy.** See `proxy/README.md`. The four roles (LEAF / RELAY /
+ECHO / REDIRECT) are env-var-driven; built-in auth/TLS is
+deliberately absent (with documented alternatives at the network
+layer).
+
+**Cross-team coordination.** Inter-subproject communications
+during the pre-release sweep (item 34b in particular) revealed
+that no shared filing convention existed for documents
+addressed across teams; three backend-authored briefings to the
+frontend ended up in three different places. A future
+cross-cutting authoring discipline ADR may codify a dispatch
+ledger pattern. For now: when authoring a document for another
+sub-project, store under the recipient's tree, name explicitly
+("brief," "status," "request"), and reference it in commit
+messages so the receiving team finds it without archaeology.
+
+---
+
+## Where to read further
+
+In rough order of priority for a new contributor:
+
+- **`docs/adr/`** — The four ADRs. Read these first.
+- **`docs/notes/tenancy.md`** — How multi-tenancy flows through
+  the backend.
+- **`docs/notes/reflection.md`** — Backend architectural
+  retrospective. The "Rough edges to know about" section is
+  unusually candid.
+- **`docs/TODO.md`** — Active work, organized by tier and by
+  recommended sequence.
+- **`backend/README.md`** — Backend-specific concerns; includes
+  the "Adopting for another domain" checklist.
+- **`frontend/README.md`** — Frontend-specific concerns;
+  includes the OpenAPI codegen workflow rationale.
+- **`backend/docs/tree-dsl.md`** — Tree-DSL reference for the
+  pipeline executor.
+- **`docs/notes/analysis-persistence-plan.md`** — Design note
+  for the planned analysis-persistence feature.
+- **`docs/notes/frontend-backlog.md`** — Raw frontend backlog
+  (UI/UX items not in the canonical TODO).
+- **`docs/archive/`** — Historical artifacts kept for reference.
+  The pre-umbrella HANDOFFs (the frontend's bird's-eye
+  orientation, the three 34b-project communications) capture
+  moment-in-time states. See `docs/archive/README.md` for the
+  archive's own orientation.
+- **`docs/playbooks/monorepo/`** — The restructuring playbooks
+  (Part A: structural; Part B: editorial) that produced the
+  current layout. Useful for understanding why things are
+  arranged the way they are.
+- **`proxy/README.md`**, **`proxy/FRAMEWORK.md`**,
+  **`proxy/ARCHITECTURE.md`** — Inside the submodule. Required
+  reading before making non-trivial changes to the proxy.
+
+---
+
+## Closing
+
+The codebase is in good shape. Six Ports cleanly composed on the
+backend, four ADRs that capture the discipline, a tenancy spine
+that's honest about what it guarantees, migration tooling
+reusable for the next schema change. The frontend's analogous
+work (typed wire shapes, fail-loud surfacing, OpenAPI codegen)
+means the two halves of the system understand each other. The
+proxy's three-layer decomposition is its own architectural win.
+
+What remains — tenancy completion, analysis persistence,
+eventual public deployment — is incremental work on a sound
+foundation. None of it requires architectural excavation.
+
+Hand off in good condition.

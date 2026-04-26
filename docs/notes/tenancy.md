@@ -15,8 +15,9 @@
 A working contributor's mental model of the tenancy system: the
 shape it has, the invariants it guarantees, the operator-side
 configuration, and the architectural seams that make it work. Writ
-for someone who has read the four ADRs and the HANDOFF and now wants
-to know how multi-tenancy actually flows through the code.
+for someone who has read the four ADRs and `handoff-current.md`
+and now wants to know how multi-tenancy actually flows through
+the code.
 
 The historical narrative — why this shape and not another — lives
 above this in the four ADRs (especially ADR-0002 on fail-loudly,
@@ -369,10 +370,10 @@ composes: through the Port.
 
 ## Related
 
-- **handoff-current.md** — describes the system at the close of the
-  pre-release infrastructure sweep. The tenancy section there
-  enumerates the items in the spine; this document explains the
-  shape they collectively produce.
+- **handoff-current.md** — current orientation document for the
+  umbrella. Briefly describes the tenancy spine in its backend
+  section; this document is the architectural reference it
+  points back to.
 - **ADR-0001** (state mutation): the same "honest types over
   aspirational annotations" principle led to UserId being a real
   branded type rather than a comment-as-type.

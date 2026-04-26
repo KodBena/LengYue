@@ -1,7 +1,7 @@
 # Monorepo Restructuring Plan
 
-- **Status:** Design locked. Phases 1–2 already executed. Phase 3
-  onward is the active work.
+- **Status:** Executed (2026-04-26).
+- ~~**Status:** Design locked. Phases 1–2 already executed. Phase 3 onward is the active work.~~
 - **Scope:** Move three independent project repos (`gogui`,
   `fastapi_polish`, `KataProxy`) into a single umbrella repo with
   consolidated documentation.

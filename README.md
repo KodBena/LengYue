@@ -74,28 +74,13 @@ Backend-internal documentation lives in `backend/docs/`:
 - **`backend/docs/tree-dsl.md`** — Tree-DSL reference for the
   pipeline executor.
 
-### Transitional documentation
-
-A few documents are in a known-incomplete state pending follow-up
-editorial work (tracked as Part B of the umbrella transition):
-
-- **`docs/TODO.md`** is currently a placeholder. The pre-umbrella
-  TODOs live in `docs/old-todos/` (`TODO-frontend.md`,
-  `TODO-backend.md`) awaiting consolidation.
-- **`docs/handoff-current.md`** does not yet exist. Notes that
-  reference it (e.g., `docs/notes/tenancy.md`'s Related section)
-  link to a placeholder; the link will resolve once the synthesis
-  runs. Until then, the most recent state is the collective
-  contents of `docs/archive/`.
-
 ## Project status
 
 Pre-release infrastructure work is closed; see
-`docs/notes/reflection.md` for the architectural retrospective.
-The umbrella restructure is in progress — `docs/playbooks/monorepo/`
-records the structural moves, and Part B (TODO consolidation,
-handoff-current synthesis, broader cross-reference cleanup) is
-the remaining work.
+`docs/notes/reflection.md` for the architectural retrospective
+and `docs/handoff-current.md` for the current operational state.
+The umbrella restructure (recorded in `docs/playbooks/monorepo/`)
+is complete.
 
 ## License
 
