@@ -43,6 +43,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Current User
+         * @description Project the JWT-bearer's identity to the wire.
+         *
+         *     Resolves the drift surfaced when a stale token in localStorage
+         *     authenticates as one user while the SPA displays another. The SPA
+         *     calls this once at bootstrap and trusts what the backend returns
+         *     over what its own cache claims.
+         *
+         *     Three 401 paths converge on the standard credentials-validation
+         *     response:
+         *       - missing / malformed Bearer (handled by get_current_user_id)
+         *       - JWT decodes but `sub` is missing or unparseable (same dep)
+         *       - JWT decodes to a user_id whose row no longer exists (here)
+         *     All three drop the token client-side; the WWW-Authenticate: Bearer
+         *     header signals OAuth2-aware clients to re-auth.
+         *
+         *     The query projects only (id, username, has_password). The bcrypt
+         *     hash is never read into the route layer — a future edit cannot
+         *     accidentally widen AuthMeResponse to include it because the column
+         *     is not in scope here.
+         */
+        get: operations["read_current_user_auth_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/cards/{card_id}": {
         parameters: {
             query?: never;
@@ -325,6 +363,21 @@ export interface components {
              * @default 1
              */
             n: number;
+        };
+        /**
+         * AuthMeResponse
+         * @description Identity-projection wire shape for GET /auth/me.
+         *
+         *     Mirrors the three non-credential columns of the `users` table.
+         *     `bcrypt_hash` is intentionally absent — it never crosses the wire.
+         */
+        AuthMeResponse: {
+            /** Id */
+            id: number;
+            /** Username */
+            username: string;
+            /** Has Password */
+            has_password: boolean;
         };
         /**
          * BfsOrder
@@ -980,6 +1033,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_current_user_auth_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthMeResponse"];
                 };
             };
         };
