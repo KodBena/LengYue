@@ -62,33 +62,11 @@ export class EbisuService {
    * Translates the backend's wire shape into our strict domain type.
    * Isolates the frontend from backend schema changes and snake_case.
    *
-   * ─── Typed ACL (items 29 + 30) ────────────────────────────────────────────
-   * `raw` is now typed as `components['schemas']['CardWithRecall']` (via the
+   * `raw` is typed as `components['schemas']['CardWithRecall']` (via the
    * `CardFromWire` alias). TypeScript will flag any property access that
-   * disagrees with the backend's OpenAPI-published contract, at compile time.
-   * A backend field rename becomes a compile error at exactly the sites that
-   * need updating — which is the whole point.
-   *
-   * One side effect of typing: the pre-34b `raw.sgf` fallback leg is gone.
-   * `CardWithRecall` doesn't have an `sgf` field (backend rejects it on
-   * input post-Commit-3 and never emits it on output), so the access was
-   * dead code that the compiler now rejects. Removing a dead fallback is
-   * not a behavior change; it's the compiler enforcing what was already
-   * true.
-   *
-   * ─── 34b wire rename — fallback chains (remaining) ────────────────────────
-   * Two defensive legs remain:
-   *
-   *   sgf:           raw.canonical_content ?? raw.normalized_sgf
-   *   defaultVisits: readGradingParam<number>(raw.grading_parameter, 'default_visits')
-   *                  ?? raw.default_visits
-   *                  ?? 1000
-   *
-   * The middle legs (`normalized_sgf`, top-level `default_visits`) are the
-   * backend's stale-bundle compat shims, marked `readonly` in the generated
-   * type. They survive until backend's Commit 3b removes them; see TODO
-   * item 34b-cleanup for the eventual simplification.
-   * ──────────────────────────────────────────────────────────────────────────
+   * disagrees with the backend's OpenAPI-published contract at compile
+   * time — a backend field rename becomes a compile error at exactly the
+   * sites that need updating.
    */
   private mapToReviewCard(raw: CardFromWire): ReviewCard {
     // DIAGNOSTIC: under the typed contract, `card_source_id` is
@@ -107,11 +85,7 @@ export class EbisuService {
 
     return {
       id: raw.id as CardId,
-      // canonical_content is the new domain-neutral name. normalized_sgf is
-      // the stale-bundle shim (both are required strings under the current
-      // wire contract; the `??` is defensive against a hypothetical pre-34b
-      // backend and will be dropped by TODO item 34b-cleanup).
-      sgf: raw.canonical_content ?? raw.normalized_sgf,
+      sgf: raw.canonical_content,
       numMoves: raw.num_moves,
       // `card_source_id` is `number | null | undefined` on the wire;
       // coalesce null → undefined so the domain type stays
@@ -121,13 +95,9 @@ export class EbisuService {
       lastReviewedAt: raw.last_reviewed_at ? new Date(raw.last_reviewed_at) : null,
       numReviews: raw.num_reviews,
       suspended: raw.suspended,
-      // Canonically `grading_parameter.data.default_visits`; the top-level
-      // `default_visits` is the stale-bundle shim; `?? 1000` matches the
-      // backend's own sentinel for cards that somehow predate Commit 1's
-      // data migration.
-      defaultVisits: readGradingParam<number>(raw.grading_parameter, 'default_visits')
-        ?? raw.default_visits
-        ?? 1000,
+      // `?? 1000` is the application-side safety net for cards with
+      // malformed or missing grading_parameter.data.default_visits.
+      defaultVisits: readGradingParam<number>(raw.grading_parameter, 'default_visits') ?? 1000,
       gamma: readGradingParam<number>(raw.grading_parameter, 'gamma') ?? 0.9,
     };
   }

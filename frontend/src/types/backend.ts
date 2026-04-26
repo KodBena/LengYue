@@ -105,7 +105,8 @@ export interface paths {
         put?: never;
         /**
          * Query Forest
-         * @description Executes a typed pipeline against the given context ids.
+         * @description Executes a typed pipeline against the given context ids,
+         *     restricted to cards owned by the requesting user.
          *
          *     Item 32a: the route no longer constructs the executor inline or
          *     takes a session dependency. The executor is injected fully wired —
@@ -113,6 +114,12 @@ export interface paths {
          *     already composed into it by get_pipeline_executor. FastAPI's
          *     dependency caching ensures the session backing both Ports is the
          *     same per-request session.
+         *
+         *     Item 25 (tenancy): user_id is forwarded to executor.run(), which
+         *     threads it through both the lineage Port and the tag-filter Port.
+         *     The transitional UserId(1) shim that lived inside PipelineExecutor
+         *     until items 13–16 had prepared the Port signatures is gone; the
+         *     tenancy spine is fully threaded for /forests/query.
          *
          *     Pydantic has already validated the entire typed DSL (parse-time).
          *     The try/except remains defensive against runtime-only DSL errors —
@@ -135,12 +142,36 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Document */
+        /**
+         * Get Document
+         * @description Fetch a document by (key, user_id). Returns an empty payload if
+         *     no row exists — this preserves the frontend's "missing = empty"
+         *     contract (sync-service.ts assumes a fresh install gets {} back,
+         *     not 404; item 5 on the frontend documented this).
+         *
+         *     Item 23 (tenancy): each user gets their own value for any given
+         *     key. User A's writes under "user_workspace_settings" are
+         *     invisible to user B; user B starts fresh. The empty-payload
+         *     convention for missing rows applies per-user, so a brand new
+         *     user reading any key gets {}.
+         */
         get: operations["get_document_documents__key__get"];
         /**
          * Update Document
-         * @description Stateless Upsert for document data.
-         *     Works natively on both Postgres and SQLite.
+         * @description Stateless upsert for document data. Works natively on both
+         *     Postgres and SQLite via the SELECT-then-conditional-INSERT
+         *     pattern (avoids dialect-specific ON CONFLICT / INSERT OR REPLACE).
+         *
+         *     Item 23 (tenancy): the existence check filters by (key, user_id).
+         *     Without this, user B's first write under a key already used by
+         *     user A would fall into the UPDATE branch — and update zero rows
+         *     (the WHERE wouldn't match user B's pair), silently failing to
+         *     persist. Filtering both the existence check and the UPDATE's
+         *     WHERE makes the upsert correct per-tenant.
+         *
+         *     The composite primary key (key, user_id) on the documents table
+         *     enforces the invariant at the database level: a per-user UPSERT
+         *     cannot collide with another user's row.
          */
         put: operations["update_document_documents__key__put"];
         post?: never;
@@ -212,17 +243,14 @@ export interface paths {
         };
         /**
          * Get Tags
-         * @description Returns a list of all tags and their usage counts across all cards.
+         * @description Returns a list of all tags and their usage counts among the
+         *     requesting user's cards.
          *
-         *     Item 32a.2: service is now Port-pure and fully wired by DI — the
-         *     route doesn't construct StatsEngine inline or take a session
-         *     dependency. The service's repository shares the request-scoped
-         *     session via FastAPI's dependency caching.
-         *
-         *     When tenancy lands (item 15), user_id becomes a parameter to
-         *     service.compute_tag_usage(user_id=user_id) and the adapter adds
-         *     the corresponding WHERE clause. Route change is one line; service
-         *     change is additive; adapter change is additive.
+         *     Item 15 (tenancy): user_id is forwarded to the service, which
+         *     forwards to the Port. Tags used only by other tenants appear with
+         *     count=0 (the LEFT OUTER JOIN preserves the tag row), making them
+         *     indistinguishable from tags with no use at all — the correct
+         *     privacy property.
          */
         get: operations["get_tags_stats_tags_get"];
         put?: never;
@@ -242,14 +270,15 @@ export interface paths {
         };
         /**
          * Get Forests
-         * @description Returns a summary of all root game sources, including the total
-         *     number of descendant cards, aggregated reviews, and average
-         *     Ebisu recall per forest.
+         * @description Returns a summary of the requesting user's root game sources,
+         *     including the total number of descendant cards, aggregated reviews,
+         *     and average Ebisu recall per forest.
          *
-         *     Item 32a.2: aggregation lives in StatsService.compute_forest_
-         *     summaries (pure Python over ForestMemberRow DTOs); the recursive
-         *     root-mapping CTE and the card/game_source joins live in
-         *     StatsRepository. The route is a three-liner.
+         *     Item 15 (tenancy): user_id is forwarded to the service, which
+         *     forwards to the Port. The recursive root-mapping CTE filters at
+         *     both the base case and the recursive step, ensuring that historical
+         *     cross-tenant lineage (if any exists) doesn't leak into a user's
+         *     aggregated stats.
          */
         get: operations["get_forests_stats_forests_get"];
         put?: never;
@@ -388,16 +417,19 @@ export interface components {
          * CardWithRecall
          * @description A Card augmented with its current Bayesian recall projection.
          *
-         *     The wire shape. Post-34b Commit 3, it still emits the legacy
-         *     `normalized_sgf` and `default_visits` field names via
-         *     @computed_field shims for stale-client backward compatibility.
-         *     These shims protect users whose cached browser bundle hasn't
-         *     picked up the Commit 2 frontend yet.
+         *     The wire shape returned by GET /cards/{id},
+         *     POST /cards/{id}/review, and POST /forests/query.
          *
-         *     The shims are purely additive — they synthesize from fields that
-         *     already exist — and have zero cost for modern clients that read
-         *     the canonical names. A later commit-3b drops them once the stale-
-         *     client window is exhausted.
+         *     Post-34b-Commit-3b: emits only canonical field names. The
+         *     stale-client compat shims that synthesized `normalized_sgf` and
+         *     top-level `default_visits` for browsers running pre-Commit-2
+         *     bundles have been removed — the stale-bundle window has closed
+         *     and frontend code reads exclusively from the canonical fields.
+         *
+         *     Any client that still reads `response.normalized_sgf` or
+         *     `response.default_visits` will get `undefined` from this point
+         *     on. The frontend's `34b-cleanup` removes the corresponding
+         *     fallback chains in `mapToReviewCard` in tandem with this commit.
          */
         CardWithRecall: {
             /** Id */
@@ -433,32 +465,6 @@ export interface components {
             current_recall: number;
             /** Halflife Units */
             halflife_units: number;
-            /**
-             * Normalized Sgf
-             * @description Stale-client compat shim. Returns canonical_content under the
-             *     pre-34b-Commit-3 field name.
-             *
-             *     Safe to remove in commit-3b (scheduled: once stale-client
-             *     window is closed — typically 7–30 days after Commit 2 is
-             *     live in production, operator's judgment).
-             */
-            readonly normalized_sgf: string;
-            /**
-             * Default Visits
-             * @description Stale-client compat shim. Synthesizes the pre-34b-Commit-3
-             *     top-level `default_visits` field by reaching into
-             *     grading_parameter.data.default_visits (where the value
-             *     actually lives post-Commit-3).
-             *
-             *     Returns 1000 as a sentinel if the grading_parameter doesn't
-             *     contain the nested value — this matches the historical
-             *     schema default and shouldn't happen for any row that went
-             *     through CardService.create_card since Commit 1 (which always
-             *     merges the value into the JSON).
-             *
-             *     Safe to remove in commit-3b.
-             */
-            readonly default_visits: number;
         };
         /**
          * CentroidOrder
