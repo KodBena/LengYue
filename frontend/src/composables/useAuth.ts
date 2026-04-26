@@ -24,7 +24,7 @@
  * top-level reactive ref outside the GlobalStore object; the pattern is
  * recognized.
  *
- * ─── Public surface (after B3) ───────────────────────────────────────────────
+ * ─── Public surface (after B4) ───────────────────────────────────────────────
  *   - `state`            — readonly Ref over the discriminated union.
  *   - `isAuthenticated`, `username` — convenience computed views.
  *   - `tryAutoLogin()`   — bootstrap entry point used by App.vue.
@@ -32,11 +32,17 @@
  *   - `register(u, p?)`  — create account, then sign in. Two-step;
  *                          partial-success ("registered but auto-sign-in
  *                          failed") is reported honestly per ADR-0002.
+ *   - `logout()`         — clear JWT and cached username; transition
+ *                          to 'unauthenticated'. Synchronous.
+ *
+ * ─── Storage boundary ────────────────────────────────────────────────────────
+ * This file does not touch localStorage directly in either direction.
+ * Reads go through `api.cachedUsername()`; writes go through
+ * `api.clearToken()` and the side effects of `api.login()` /
+ * `api.register()`. The storage-key invariant has one enforcement
+ * site, in api-client.ts.
  *
  * Deferred to later milestones:
- *   - logout()  → exposed in B4, alongside an `api.clearToken()` method
- *                 on api-client.ts (so this file does not reach into
- *                 api-client's localStorage keys directly).
  *   - JWT identity verification via /auth/me → B5; closes the
  *                 stale-token-drift failure mode that motivated this
  *                 whole refactor.
@@ -54,14 +60,6 @@ import type { AuthState } from '../types';
 // JWT exists in localStorage. The state is private; the public functions
 // below are the only writers.
 const _authState = ref<AuthState>({ kind: 'unknown' });
-
-// localStorage keys mirror the constants in api-client.ts. Documented as
-// duplicated here so a future grep finds both sites; consolidation is a
-// follow-up cleanup (B4 will introduce `api.clearToken()` as the single
-// owner of the JWT key).
-const TOKEN_KEY = 'ebisu_jwt_token';
-const USER_KEY = 'ebisu_username';
-const DEFAULT_USERNAME = 'local_user';
 
 // ─── State transition (private) ──────────────────────────────────────────────
 
@@ -82,11 +80,10 @@ function setState(next: AuthState): void {
  *   - Delegates the auto-register-then-login dance to
  *     `api.ensureAuthenticated()`. That method swallows its inner
  *     errors (it predates this composable); we therefore consult
- *     localStorage directly afterwards as the source of truth for
+ *     `api.cachedUsername()` afterwards as the source of truth for
  *     whether a token was actually obtained.
  *   - On success → `{ kind: 'authenticated', username }`, where the
- *     username is whatever `api.login()` cached (defaults to
- *     DEFAULT_USERNAME if the cache is empty for any reason).
+ *     username is whatever `api.login()` cached during ensure.
  *   - On failure → `{ kind: 'error', message }` and a system-log
  *     surface, per ADR-0002.
  *
@@ -102,18 +99,20 @@ async function tryAutoLogin(): Promise<void> {
   } catch (err) {
     // Defensive: api.ensureAuthenticated() currently swallows its inner
     // errors and only console.errors. This catch handles any future
-    // change that starts throwing. Either way, the localStorage check
-    // below is the source of truth for whether a token exists.
+    // change that starts throwing. Either way, the cachedUsername
+    // check below is the source of truth for whether a login completed.
     void err;
   }
 
-  const token = localStorage.getItem(TOKEN_KEY);
-  if (token) {
-    const username = localStorage.getItem(USER_KEY) ?? DEFAULT_USERNAME;
+  const username = api.cachedUsername();
+  if (username) {
     setState({ kind: 'authenticated', username });
     return;
   }
 
+  // No cached username means ensureAuthenticated didn't complete a
+  // successful login. (If ensureAuthenticated had succeeded, login()
+  // would have written the username via api-client's storage path.)
   const message = 'Auto-login failed; no JWT obtained.';
   pushSystemMessage('error', message);
   setState({ kind: 'error', message });
@@ -184,6 +183,23 @@ async function register(username: string, password?: string): Promise<void> {
   }
 }
 
+// ─── Logout action (public, B4) ──────────────────────────────────────────────
+
+/**
+ * Clear the JWT and cached identity. Returns the SPA to the
+ * 'unauthenticated' state. Synchronous — no network round-trip; the
+ * JWT itself remains valid on the backend until its expiry, but we
+ * stop presenting it.
+ *
+ * Delegates the localStorage side effect to `api.clearToken()`, which
+ * owns those keys.
+ */
+function logout(): void {
+  api.clearToken();
+  setState({ kind: 'unauthenticated' });
+  pushSystemMessage('info', 'Signed out.');
+}
+
 // ─── Public composable ───────────────────────────────────────────────────────
 
 export interface UseAuth {
@@ -193,6 +209,7 @@ export interface UseAuth {
   tryAutoLogin(): Promise<void>;
   login(username: string, password?: string): Promise<void>;
   register(username: string, password?: string): Promise<void>;
+  logout(): void;
 }
 
 export function useAuth(): UseAuth {
@@ -205,5 +222,6 @@ export function useAuth(): UseAuth {
     tryAutoLogin,
     login,
     register,
+    logout,
   };
 }

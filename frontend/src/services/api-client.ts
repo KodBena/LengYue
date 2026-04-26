@@ -18,10 +18,7 @@ const USER_KEY = 'ebisu_username';
 const ERROR_BODY_EXCERPT_MAX = 200;
 
 export class ApiClient {
-  private get token(): string | null {
-    return localStorage.getItem(TOKEN_KEY);
-  }
-
+  private get token(): string | null { return localStorage.getItem(TOKEN_KEY); }
   private set token(val: string | null) {
     if (val) localStorage.setItem(TOKEN_KEY, val);
     else localStorage.removeItem(TOKEN_KEY);
@@ -52,7 +49,7 @@ export class ApiClient {
     if (body && !(body instanceof URLSearchParams)) {
       headers['Content-Type'] = 'application/json';
       payload.body = JSON.stringify(body);
-    } 
+    }
     // Form-urlencoded payload (used for OAuth2 /token endpoint)
     else if (body instanceof URLSearchParams) {
       headers['Content-Type'] = 'application/x-www-form-urlencoded';
@@ -95,10 +92,10 @@ export class ApiClient {
   public async login(username: string, password?: string): Promise<void> {
     const params = new URLSearchParams();
     params.append('username', username);
-    
+
     // FastAPI's OAuth2 form strictly requires a non-empty string.
     // For password-less "Open Access" accounts, the backend accepts ANY string.
-    params.append('password', password || 'nopassword'); 
+    params.append('password', password || 'nopassword');
 
     const res = await this.request<any>('POST', '/auth/token', params);
     this.token = res.access_token;
@@ -113,9 +110,35 @@ export class ApiClient {
     // The backend accepts omitted/null password to create an Open Access account.
     const body: any = { username };
     if (password) body.password = password;
-    
+
     await this.request('POST', '/auth/register', body);
     console.log(`[API] Registered ${username}`);
+  }
+
+  /**
+   * Returns the cached username from localStorage, or null if no
+   * login has completed in this browser. Read-side companion to
+   * `clearToken()`; together they constitute the public surface for
+   * auth-state localStorage access. Outside callers (the useAuth
+   * composable) go through these methods rather than touching
+   * localStorage directly, so the storage-key invariant has one
+   * enforcement site.
+   */
+  public cachedUsername(): string | null {
+    return localStorage.getItem(USER_KEY);
+  }
+
+  /**
+   * Clears the cached JWT and username. Synchronous; purely
+   * client-side. The JWT itself remains valid on the backend until
+   * its expiry — we just stop presenting it. A backend revocation
+   * endpoint, if added, would be called from useAuth.logout() in
+   * addition to this method.
+   */
+  public clearToken(): void {
+    this.token = null;
+    localStorage.removeItem(USER_KEY);
+    console.log('[API] Token cleared.');
   }
 
   /**

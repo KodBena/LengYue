@@ -1,19 +1,22 @@
-<!--
-  src/components/LoginModal.vue
-  Sign-in / register / switch-user modal.
-
-  Owns its own form state. Reads `useAuth().state` for context display
-  and to detect in-flight / error transitions. Submits via a single
-  parameterised `submit(action)` that dispatches to login or register
-  by pattern match.
-
-  License: Public Domain (The Unlicense)
--->
 <script setup lang="ts">
+/**
+ * src/components/LoginModal.vue
+ *
+ * Sign-in / register / switch-user / sign-out modal.
+ *
+ * Owns its own form state. Reads `useAuth().state` for context display
+ * and to detect in-flight / error transitions. Submits via a single
+ * parameterised `submit(action)` that dispatches to login or register
+ * by pattern match. Logout is a separate synchronous action surfaced
+ * only when the current state is 'authenticated'.
+ *
+ * License: Public Domain (The Unlicense)
+ */
+
 import { ref, computed } from 'vue';
 import { useAuth } from '../composables/useAuth';
 
-const { state, login, register } = useAuth();
+const { state, login, register, logout } = useAuth();
 
 const emit = defineEmits<{
   (e: 'close'): void;
@@ -28,6 +31,7 @@ const password = ref('');
 // ─── Derived view ───────────────────────────────────────────────────────────
 
 const inFlight = computed(() => state.value.kind === 'authenticating');
+const isAuthenticated = computed(() => state.value.kind === 'authenticated');
 
 const errorMessage = computed((): string | null =>
   state.value.kind === 'error' ? state.value.message : null
@@ -65,6 +69,13 @@ async function submit(action: SubmitAction): Promise<void> {
   }
 }
 
+// ─── Sign-out (synchronous, no try/catch needed — the action can't fail) ────
+
+function handleSignOut(): void {
+  logout();
+  emit('close');
+}
+
 // ─── Dismiss handlers ───────────────────────────────────────────────────────
 
 function handleCancel(): void {
@@ -99,11 +110,7 @@ function handleBackdropClick(e: MouseEvent): void {
       </div>
 
       <div class="form-row checkbox-row">
-        <input
-          id="login-use-password"
-          v-model="usePassword"
-          type="checkbox"
-        />
+        <input id="login-use-password" v-model="usePassword" type="checkbox" />
         <label for="login-use-password">This account uses a password</label>
       </div>
 
@@ -125,6 +132,9 @@ function handleBackdropClick(e: MouseEvent): void {
         <button class="btn btn-secondary" @click="handleCancel" :disabled="inFlight">
           Cancel
         </button>
+        <button v-if="isAuthenticated" class="btn btn-danger" @click="handleSignOut" :disabled="inFlight">
+          Sign Out
+        </button>
         <button class="btn btn-secondary" @click="submit('register')" :disabled="!canSubmit">
           Register &amp; Sign In
         </button>
@@ -138,114 +148,51 @@ function handleBackdropClick(e: MouseEvent): void {
 
 <style scoped>
 .modal-backdrop {
-  position: fixed;
-  inset: 0;
+  position: fixed; inset: 0; z-index: 1000;
   background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
 }
 
 .modal-card {
-  background: #1a1a1a;
-  border: 1px solid #333;
-  border-radius: 6px;
-  padding: 24px;
-  width: 360px;
-  max-width: 90vw;
+  background: #1a1a1a; border: 1px solid #333; border-radius: 6px;
+  padding: 24px; width: 360px; max-width: 90vw;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  display: flex; flex-direction: column; gap: 12px;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-.modal-title {
-  color: #eee;
-  margin: 0;
-  font-size: 16px;
-}
+.modal-title { color: #eee; margin: 0; font-size: 16px; }
+.current-identity { color: #888; font-size: 11px; margin: 0 0 4px 0; font-family: monospace; }
 
-.current-identity {
-  color: #888;
-  font-size: 11px;
-  margin: 0 0 4px 0;
-  font-family: monospace;
-}
+.form-row { display: flex; flex-direction: column; gap: 4px; }
+.form-row label { color: #888; font-size: 11px; text-transform: uppercase; }
 
-.form-row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.form-row label {
-  color: #888;
-  font-size: 11px;
-  text-transform: uppercase;
-}
-
-.form-row.checkbox-row {
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-}
-
-.form-row.checkbox-row label {
-  text-transform: none;
-  font-size: 12px;
-  color: #aaa;
-}
+.form-row.checkbox-row { flex-direction: row; align-items: center; gap: 8px; }
+.form-row.checkbox-row label { text-transform: none; font-size: 12px; color: #aaa; }
 
 .text-input {
-  background: #0a0a0a;
-  border: 1px solid #333;
-  color: #ddd;
-  padding: 6px 8px;
-  font-size: 13px;
-  font-family: inherit;
-  outline: none;
-  border-radius: 3px;
+  background: #0a0a0a; border: 1px solid #333; color: #ddd;
+  padding: 6px 8px; font-size: 13px; font-family: inherit;
+  border-radius: 3px; outline: none;
 }
 .text-input:focus { border-color: #4aaef0; }
 
-.error-message {
-  color: #ff4a4a;
-  font-size: 11px;
-  margin: 0;
-  word-break: break-word;
-}
+.error-message { color: #ff4a4a; font-size: 11px; margin: 0; word-break: break-word; }
 
-.button-row {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 8px;
-}
+.button-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 
 .btn {
-  padding: 6px 12px;
-  font-size: 12px;
-  font-family: inherit;
-  border-radius: 3px;
-  cursor: pointer;
-  border: 1px solid transparent;
+  padding: 6px 12px; font-size: 12px; font-family: inherit;
+  border: 1px solid transparent; border-radius: 3px; cursor: pointer;
 }
 .btn:disabled { cursor: not-allowed; opacity: 0.5; }
 
-.btn-secondary {
-  background: #333;
-  border-color: #444;
-  color: #ccc;
-}
+.btn-secondary { background: #333; border-color: #444; color: #ccc; }
 .btn-secondary:hover:not(:disabled) { background: #444; }
 
-.btn-primary {
-  background: #4aaef0;
-  border-color: #4aaef0;
-  color: #fff;
-  font-weight: bold;
-}
+.btn-primary { background: #4aaef0; border-color: #4aaef0; color: #fff; font-weight: bold; }
 .btn-primary:hover:not(:disabled) { background: #5dbafa; }
+
+.btn-danger { background: #4a2020; border-color: #6a3030; color: #ffaaaa; }
+.btn-danger:hover:not(:disabled) { background: #5a2828; color: #ffcccc; }
 </style>

@@ -1,15 +1,17 @@
-<!--
-  src/components/UserBadge.vue
-  Displays current authentication identity AND opens the LoginModal on
-  click. Pattern-matches the AuthState discriminated union into a flat
-  presentational record (BadgeView) in script; template stays dumb.
-
-  Future evolution: in B5 the 'authenticated' label can use the
-  JWT-verified username from /auth/me. Touches only this file.
-
-  License: Public Domain (The Unlicense)
--->
 <script setup lang="ts">
+/**
+ * src/components/UserBadge.vue
+ *
+ * Displays current authentication identity AND opens the LoginModal on
+ * click. Pattern-matches the AuthState discriminated union into a flat
+ * presentational record (BadgeView) in script; template stays dumb.
+ *
+ * Future evolution: in B5 the 'authenticated' label can use the
+ * JWT-verified username from /auth/me. Touches only this file.
+ *
+ * License: Public Domain (The Unlicense)
+ */
+
 import { ref, computed } from 'vue';
 import { useAuth } from '../composables/useAuth';
 import LoginModal from './LoginModal.vue';
@@ -39,6 +41,8 @@ const view = computed<BadgeView>(() => {
     case 'error':
       return { kind: s.kind, label: 'sign-in failed',      dotClass: 'dot-err' };
     case 'unknown':
+      // Pre-bootstrap; render a non-breaking space to reserve layout
+      // height without a visible flash before tryAutoLogin completes.
       return { kind: s.kind, label: '\u00A0',              dotClass: 'dot-idle' };
   }
 });
@@ -68,48 +72,27 @@ function closeModal(): void { isModalOpen.value = false; }
 
 <style scoped>
 .user-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 8px 0 12px;
-  margin-left: 4px;
-  height: 100%;
-  font-size: 11px;
-  color: #aaa;
-  background: none;
-  border: none;
-  border-left: 1px solid #2a2a2a;
-  cursor: pointer;
-  user-select: none;
-  font-family: inherit;
-  outline: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0 8px 0 12px; margin-left: 4px; height: 100%;
+  font-size: 11px; color: #aaa; font-family: inherit;
+  background: none; border: none; border-left: 1px solid #2a2a2a;
+  cursor: pointer; user-select: none; outline: none;
 }
-.user-badge:hover {
-  background: rgba(74, 174, 240, 0.08);
-}
-.user-badge:focus-visible {
-  outline: 1px solid #4aaef0;
-  outline-offset: -1px;
-}
+.user-badge:hover { background: rgba(74, 174, 240, 0.08); }
+.user-badge:focus-visible { outline: 1px solid #4aaef0; outline-offset: -1px; }
 
 .dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #555;
-  flex-shrink: 0;
+  display: inline-block; width: 7px; height: 7px;
+  border-radius: 50%; background: #555; flex-shrink: 0;
 }
 
-.dot-ok      { background: #4aaef0; } /* matches turn-indicator.B */
-.dot-pending { background: #f0a04a; } /* matches turn-indicator.W */
-.dot-err     { background: #ff4a4a; } /* matches the SR review-fail red */
+/* dot color matches turn-indicator palette */
+.dot-ok      { background: #4aaef0; }
+.dot-pending { background: #f0a04a; }
+.dot-err     { background: #ff4a4a; }
 .dot-idle    { background: #555; }
 
-.label {
-  font-family: monospace;
-  font-size: 10px;
-}
+.label { font-family: monospace; font-size: 10px; }
 
 .auth-authenticated  .label { color: #ddd; }
 .auth-authenticating .label { color: #f0a04a; }
