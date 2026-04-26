@@ -369,7 +369,7 @@ composes: through the Port.
 
 ## Related
 
-- **HANDOFF.md** — describes the system at the close of the
+- **handoff-current.md** — describes the system at the close of the
   pre-release infrastructure sweep. The tenancy section there
   enumerates the items in the spine; this document explains the
   shape they collectively produce.

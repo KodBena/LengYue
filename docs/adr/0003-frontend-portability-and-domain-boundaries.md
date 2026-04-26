@@ -341,7 +341,7 @@ This ADR would be worth revisiting if any of the following:
   domain-portability is a real architectural goal across the system.
   This ADR is the frontend's reply: same goal, different velocity,
   same discipline applied at design time.
-- **`ANALYSIS_PERSISTENCE_PLAN.md`.** The future-project planning
+- **`../notes/analysis-persistence-plan.md`.** The future-project planning
   note that triggered this ADR. The principle here applies directly
   to that feature; see "What this means for the analysis-recording
   feature" above.

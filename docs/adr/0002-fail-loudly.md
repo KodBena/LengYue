@@ -281,7 +281,7 @@ following happen:
   and no auto-retry.
 - **TODO item 20** (shipped). API and sync error surfacing via
   pushSystemMessage.
-- **`ANALYSIS_PERSISTENCE_PLAN.md`**. Per-record failure surfacing,
+- **`../notes/analysis-persistence-plan.md`**. Per-record failure surfacing,
   no silent retry queue.
 - **Engagement protocol** (operative throughout this project). The
   rules "if you think you are missing some code… you *must* ask for
