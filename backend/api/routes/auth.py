@@ -1,15 +1,37 @@
+"""
+api/routes/auth.py
+
+Authentication routes — registration, password-grant token issuance,
+and JWT-bearer identity verification.
+
+Three endpoints, one file:
+
+  - POST /auth/register   create a (possibly passwordless) user
+  - POST /auth/token      OAuth2 password-grant: username+password → JWT
+  - GET  /auth/me         project the current JWT-bearer's identity
+
+The file talks directly to the `users` table via SQLAlchemy core. There
+is no `UserRepositoryPort`: per ADR-0003, abstractions are extracted
+when a second concrete consumer exists, and auth currently has only
+itself. The shape `domain/auth.py`'s docstring anticipates (a `User`
+entity with profile fields) is the natural seam for the day a second
+consumer arrives — not today.
+
+License: Public Domain (The Unlicense)
+"""
 from typing import Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_db
+from api.dependencies import get_current_user_id, get_db
 from core.config import config
 from core.security import create_access_token, get_password_hash, verify_password
 from db.schema import users
+from domain.auth import UserId
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -31,9 +53,37 @@ _INVALID_CREDENTIALS = HTTPException(
 )
 
 
+# Distinct from _INVALID_CREDENTIALS: this path is reached after a JWT
+# has been successfully decoded by get_current_user_id, but the user_id
+# in the `sub` claim no longer corresponds to a row in the users table
+# (account deleted between token issuance and use). The detail mirrors
+# get_current_user_id's own 401 message so the client cannot distinguish
+# "your token is malformed" from "your token references a vanished
+# account" — the recovery action is identical (drop the token, re-auth).
+_INVALID_TOKEN = HTTPException(
+    status_code=status.HTTP_401_UNAUTHORIZED,
+    detail="Could not validate credentials",
+    headers={"WWW-Authenticate": "Bearer"},
+)
+
+
 class UserRegister(BaseModel):
     username: str
     password: Optional[str] = None
+
+
+class AuthMeResponse(BaseModel):
+    """
+    Identity-projection wire shape for GET /auth/me.
+
+    Mirrors the three non-credential columns of the `users` table.
+    `bcrypt_hash` is intentionally absent — it never crosses the wire.
+    """
+    model_config = ConfigDict(frozen=True)
+
+    id: int
+    username: str
+    has_password: bool
 
 
 @router.post("/register", status_code=201)
@@ -86,3 +136,42 @@ async def login_for_access_token(
 
     access_token = create_access_token(data={"sub": str(user.id)})
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.get("/me", response_model=AuthMeResponse)
+async def read_current_user(
+    user_id: UserId = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Project the JWT-bearer's identity to the wire.
+
+    Resolves the drift surfaced when a stale token in localStorage
+    authenticates as one user while the SPA displays another. The SPA
+    calls this once at bootstrap and trusts what the backend returns
+    over what its own cache claims.
+
+    Three 401 paths converge on the standard credentials-validation
+    response:
+      - missing / malformed Bearer (handled by get_current_user_id)
+      - JWT decodes but `sub` is missing or unparseable (same dep)
+      - JWT decodes to a user_id whose row no longer exists (here)
+    All three drop the token client-side; the WWW-Authenticate: Bearer
+    header signals OAuth2-aware clients to re-auth.
+
+    The query projects only (id, username, has_password). The bcrypt
+    hash is never read into the route layer — a future edit cannot
+    accidentally widen AuthMeResponse to include it because the column
+    is not in scope here.
+    """
+    query = select(users.c.id, users.c.username, users.c.has_password).where(
+        users.c.id == int(user_id)
+    )
+    row = (await db.execute(query)).fetchone()
+    if row is None:
+        raise _INVALID_TOKEN
+    return AuthMeResponse(
+        id=row.id,
+        username=row.username,
+        has_password=row.has_password,
+    )
