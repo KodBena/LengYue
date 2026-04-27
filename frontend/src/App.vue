@@ -42,6 +42,7 @@ import AnalysisControls from './components/AnalysisControls.vue';
 import Toolbar          from './components/Toolbar.vue';
 import StatusBar        from './components/StatusBar.vue';
 import MintCardModal    from './components/MintCardModal.vue';
+import ConfirmLoadModal from './components/ConfirmLoadModal.vue';
 import ForestDirectory  from './components/ForestDirectory.vue';
 import SystemLogPanel   from './components/SystemLogPanel.vue';
 
@@ -92,7 +93,7 @@ function handleUpdateKomi(newKomi: number) {
   });
 }
 
-const confirmLoadModalRef = vueRef<any>(null);
+const confirmLoadModalRef = vueRef<InstanceType<typeof ConfirmLoadModal> | null>(null);
 
 async function handleLoadCardFromDatabase(card: ReviewCard) {
   const board = activeBoard.value;
@@ -268,6 +269,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 <template>
   <div id="main-area">
     <MintCardModal ref="mintModalRef" />
+    <ConfirmLoadModal ref="confirmLoadModalRef" />
     <SidebarWidget v-show="store.session.ui.sidebarExpanded" />
 
     <div id="main-workspace">
