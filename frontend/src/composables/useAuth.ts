@@ -105,6 +105,13 @@ async function _setAuthenticatedAfterVerify(typedUsername: string): Promise<void
   try {
     const me = await api.getMe();
     setState({ kind: 'authenticated', username: me.username, userId: me.id });
+    // Reconcile the localStorage cache with the server's
+    // source-of-truth username, so a future cold-start first-paint
+    // doesn't briefly display a stale value before /auth/me resolves.
+    // The 401 branch below clears the cache; the non-401 verify-error
+    // branch deliberately does NOT write back, since by that branch's
+    // reasoning we don't trust the identity to canonical-truth level.
+    api.setCachedUsername(me.username);
     return;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

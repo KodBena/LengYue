@@ -93,6 +93,28 @@ this file.
   handler-call time. The handler in App.vue no longer exists;
   the contract is documented in the composable's JSDoc.
 
+### Tags-fetch hydration race (useAppBootstrap.ts)
+
+- **Surfaced:** 2026-04-27 (during B5 finalization / identity-aware
+  SyncService rework).
+- **Concern:** `useAppBootstrap.onMounted` fires
+  `ebisuService.getTags()` concurrently with `sync.connect()`'s
+  hydration. If `getTags()` wins the race, the store mutation
+  `store.profile = { ...store.profile, knownTags: ... }` runs
+  first; then hydration's `updateFromRemote(doc.data)` overwrites
+  the entire profile, dropping `knownTags`. Pre-existing; benign
+  in practice (knownTags is re-fetchable on demand and isn't
+  user-authored data), but it's a real ordering bug that an audit
+  should pick up. Belongs to the same general category as the
+  identity bug just closed in B5 finalization (race on async
+  store mutations during boot).
+- **Suggested next action:** Either await `sync.connect()`'s
+  initial hydration before the tags fetch (requires sync to
+  expose a `whenHydrated()` promise or similar), or move
+  `knownTags` to a separate composable that watches
+  `store.profile` and re-applies after any identity change.
+  Defer to a future B-arc-style refinement; not blocking.
+
 ### Refactoring queue from ADR-0007
 
 - **Surfaced:** 2026-04-26 (during ADR-0007 drafting).
