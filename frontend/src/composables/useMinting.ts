@@ -5,7 +5,7 @@
  */
 
 import { store } from '../store';
-import { ebisuService } from '../services/ebisu-service';
+import { backendService } from '../services/backend-service';
 import { serializeActivePath } from '../engine/sgf-writer';
 import { compileAnalysisConfig } from '../services/analysis-config';
 import { useMetadata } from './useMetadata';
@@ -105,7 +105,7 @@ export function useMinting() {
    * Automatically adds any newly introduced tags to the user's knownTags list.
    */
   async function commitMint(payload: CardCreatePayload): Promise<number> {
-    const newCardId = await ebisuService.createCard(payload);
+    const newCardId = await backendService.createCard(payload);
     
     // Update profile's known tags so autocomplete remembers them locally
     const currentTags = new Set(store.profile.knownTags);

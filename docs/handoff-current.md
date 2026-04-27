@@ -94,7 +94,7 @@ day-to-day "what's in this repo" navigation, the root
 ### Integration model
 
 - **Frontend ↔ backend**: REST + JWT auth, with an OpenAPI-typed
-  ACL in `frontend/src/services/ebisu-service.ts`. The frontend
+  ACL in `frontend/src/services/backend-service.ts`. The frontend
   never talks to the backend's database directly; the ACL
   translates wire shapes (snake_case) into clean domain types
   (camelCase, branded). The codegen pipeline (`npm run gen:api`)
@@ -130,7 +130,7 @@ three layers:
   and others. Pure-ish functions over reactive refs.
 - **Services** (`src/services/*`) — effectful singletons. API
   calls, WebSocket clients, debounced persistence. The ACL at
-  `ebisu-service.ts` is the boundary where backend wire shapes
+  `backend-service.ts` is the boundary where backend wire shapes
   become domain types.
 
 State lives in a single reactive `GlobalStore` (`src/store/index.ts`).
@@ -152,7 +152,7 @@ runs `openapi-typescript` against the backend's live
 wire shape to `src/types/backend.ts`. That file is committed
 (reasoning: reproducibility, review signal, end-user builds —
 see `frontend/README.md` for the full justification). The ACL at
-`ebisu-service.ts` consumes the generated types; backend
+`backend-service.ts` consumes the generated types; backend
 refactors that rename a field produce TypeScript compile errors
 at every site that reads the old name.
 
@@ -427,7 +427,7 @@ typecheck is load-bearing.
 
 **Frontend logging.** The application logs aggressively to the
 browser console (especially `SyncService`, `AnalysisService`,
-`EbisuService`). This is intentional — the target user is
+`BackendService`). This is intentional — the target user is
 technical and benefits from transparency. Don't suppress the
 logs; if you add new functionality, log its lifecycle events at
 the same level of detail. The proxy makes the same choice

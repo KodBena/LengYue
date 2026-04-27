@@ -213,7 +213,7 @@ export interface EbisuModel {
 
 /**
  * A card surfaced to the SR session. Backend sources (`CardWithRecall` on
- * the wire) are translated through `EbisuService::mapToReviewCard` into
+ * the wire) are translated through `BackendService::mapToReviewCard` into
  * this shape; everything that consumes a card downstream — the SR
  * composable, the lineage tree, the chart panels — sees only this type,
  * never the wire shape.

@@ -1,6 +1,6 @@
 /**
- * src/services/ebisu-service.ts
- * Anti-Corruption Layer for the Ebisu REST Backend.
+ * src/services/backend-service.ts
+ * Anti-Corruption Layer for the spaced-repetition backend.
  * License: Public Domain (The Unlicense)
  */
 
@@ -54,7 +54,7 @@ function readGradingParam<T>(
   return value as T | undefined;
 }
 
-export class EbisuService {
+export class BackendService {
 
   private warnedAboutMissingParentId = false;
 
@@ -76,7 +76,7 @@ export class EbisuService {
     // We warn on the latter and suppress subsequent identical warnings.
     if (!this.warnedAboutMissingParentId && raw.card_source_id === undefined) {
       console.warn(
-        `[EbisuService] API Response missing 'card_source_id' field (key absent, not null). ` +
+        `[BackendService] API Response missing 'card_source_id' field (key absent, not null). ` +
         `Wire contract expects it to always be present as number | null. ` +
         `Lineage Tree linking will not work until the backend schema is fixed.`
       );
@@ -150,4 +150,4 @@ export class EbisuService {
   }
 }
 
-export const ebisuService = new EbisuService();
+export const backendService = new BackendService();

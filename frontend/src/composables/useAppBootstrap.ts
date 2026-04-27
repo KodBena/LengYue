@@ -23,7 +23,7 @@
 import { onMounted } from 'vue';
 import { SyncService } from '../services/sync-service';
 import { resourceService } from '../services/resource-service';
-import { ebisuService } from '../services/ebisu-service';
+import { backendService } from '../services/backend-service';
 import { store } from '../store';
 import type { useAuth } from './useAuth';
 
@@ -43,7 +43,7 @@ export function useAppBootstrap(
     sync.connect();
     resourceService.loadVisitDistribution();
     try {
-      const tags = await ebisuService.getTags();
+      const tags = await backendService.getTags();
       store.profile = { ...store.profile, knownTags: tags.map(t => t.name) };
     } catch (err) {
       console.warn('Could not load tag dictionary:', err);

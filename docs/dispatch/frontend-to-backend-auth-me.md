@@ -15,7 +15,7 @@ runtime, independent of the username the user typed when they last
 logged in.
 
 The motivating failure is real and observed. A user with a stale
-`ebisu_jwt_token` in localStorage (carried over from before the
+`auth_token` in localStorage (carried over from before the
 tenancy spine landed) can see a SPA that displays "logged in as
 local_user" while the JWT actually authenticates as `bork` — or vice
 versa. The SPA currently has no way to detect this drift; it surfaces

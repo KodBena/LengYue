@@ -22,7 +22,7 @@ bundle reaches your machine.
 ### Prerequisites
 
 - Node 20+ and npm.
-- A running instance of the Ebisu backend (see the backend repo). The
+- A running instance of the spaced-repetition backend (see the backend repo). The
   frontend expects it at `http://127.0.0.1:8764` by default; override
   with `VITE_API_BASE_URL` in a local `.env` file if needed
   (`.env.example` is the template).
@@ -50,7 +50,7 @@ npm run preview   # local smoke test of the built bundle
 ## Backend type generation — `npm run gen:api`
 
 This is the load-bearing part of this document. Read it before making
-any change to code that talks to the Ebisu backend.
+any change to code that talks to the spaced-repetition backend.
 
 ### What it does
 
@@ -62,13 +62,13 @@ Runs `openapi-typescript` against the backend's live OpenAPI
 description (`http://127.0.0.1:8764/openapi.json` by default) and
 writes a TypeScript declaration of every wire shape to
 `src/types/backend.ts`. That file is then imported at the
-anti-corruption layer (currently `src/services/ebisu-service.ts`) to
+anti-corruption layer (currently `src/services/backend-service.ts`) to
 type-check the boundary where the backend's responses enter the
 frontend.
 
 ### Why it exists
 
-Before codegen, `ebisu-service.ts::mapToReviewCard` took `raw: any`
+Before codegen, `backend-service.ts::mapToReviewCard` took `raw: any`
 and manually projected fields onto our domain types. There was no
 compile-time check that the field names we read actually matched the
 field names the backend sends. A backend refactor could silently
@@ -127,7 +127,7 @@ Three reasons, in order of importance:
 
 ### What the generated file is NOT
 
-- **Not a replacement for the ACL.** `src/services/ebisu-service.ts`
+- **Not a replacement for the ACL.** `src/services/backend-service.ts`
   still does the work of translating wire shapes (snake_case,
   nullable, permissive) into domain shapes (camelCase, branded IDs,
   strict). The generated types describe what arrives *on the wire*;
@@ -172,7 +172,7 @@ whole point.
   reactive session shapes. The vocabulary the app thinks in.
 - **Wire types** (`src/types/backend.ts`): generated; what the
   backend sends over HTTP. Do not hand-edit.
-- **ACL** (`src/services/ebisu-service.ts`, et al.): translates
+- **ACL** (`src/services/backend-service.ts`, et al.): translates
   wire → domain. Only service files import wire types.
 - **Services** (`src/services/*`): effectful singletons. API calls,
   WebSocket clients, debounced persistence.
