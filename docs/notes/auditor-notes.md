@@ -232,3 +232,45 @@ listen to the handoff.
   rest of the session.
 
 — end 2026-04-27 entry —
+
+---
+
+## 2026-04-27 (follow-on) — doc-graph discipline by Claude (Opus 4.7)
+
+A narrow meta-pass on documentation-graph organization, requested
+mid-session as a follow-on to the morning's orientation. Single
+deliverable produced; no functional product gaps enumerated. This
+entry is brief by design — primarily of interest to other auditors.
+
+### 1. Documentation-graph opacity and LLM-onboarding efficiency
+
+The user surfaced two conjoined concerns: human reviewers cannot
+cheaply assess doc liveness across the tree (especially in flat
+directories like `dispatch/` and `worklog/`, where most entries are
+historical), and LLMs onboarding to a sub-project or the umbrella
+waste cycles classifying which docs will improve their grasp vs.
+which are time-sinks. Plan drafted at
+`docs/notes/doc-graph-discipline-plan.md` (status: `draft`). It
+proposes ten genres in a closed enumeration, per-genre status
+vocabulary, YAML frontmatter as the single source of truth for
+metadata, an optional generated `INDEX.md`, a one-time back-catalog
+sweep, and a forward authoring discipline — to land as a new ADR
+(proposed slot ADR-0008). Three sub-questions remained unresolved
+and are logged within the plan body (Section 11), with recommended
+future filing in `docs/notes/decisions-deferred.md`. The
+relational-DB option was assessed and recommended against at
+current scale; trigger conditions for revisitation are named in the
+plan.
+
+### Advice for the next auditor
+
+- **The auditor seat covers structural-meta as well as
+  functional-gap work.** This entry is the precedent. Don't assume
+  the next pass looks like the first.
+- **The meta-plan → plan cadence served the forking decisions
+  well.** When the topic has multiple genuine forks, surface them
+  before resolving — the user redirects cheaply at the meta layer.
+- **This work is orthogonal to RFC-0001's audit discipline.** Both
+  are governance, but they resolve independently. Don't bundle.
+
+— end 2026-04-27 (follow-on) entry —
