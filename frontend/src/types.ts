@@ -173,7 +173,7 @@ export interface AppSettings {
     };
   };
   appearance: {
-    theme: 'ebisu-dark' | 'ebisu-light';
+    theme: 'dark' | 'light';
   };
   persistence: {
     debounceInterval: number;
