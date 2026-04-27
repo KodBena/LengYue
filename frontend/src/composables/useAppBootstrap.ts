@@ -30,7 +30,7 @@ import type { useAuth } from './useAuth';
 export function useAppBootstrap(
   auth: ReturnType<typeof useAuth>,
 ): { sync: SyncService } {
-  const sync = new SyncService('user_workspace_01');
+  const sync = new SyncService('user_workspace_01', auth);
 
   onMounted(async () => {
     // Establish auth identity FIRST. Subsequent calls (sync.connect's

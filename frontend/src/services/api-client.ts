@@ -132,6 +132,17 @@ export class ApiClient {
   }
 
   /**
+   * Writes the cached username. Used by useAuth after a successful
+   * /auth/me verify to reconcile the cache with the server's
+   * source-of-truth value. Preserves the storage-key invariant
+   * documented on `cachedUsername()` — only this class touches
+   * USER_KEY directly.
+   */
+  public setCachedUsername(name: string): void {
+    localStorage.setItem(USER_KEY, name);
+  }
+
+  /**
    * Clears the cached JWT and username. Synchronous; purely
    * client-side. The JWT itself remains valid on the backend until
    * its expiry — we just stop presenting it. A backend revocation
