@@ -15,7 +15,7 @@
  */
 
 import { watch } from 'vue';
-import { store, boardsVersion, updateFromRemote, pushSystemMessage } from '../store';
+import { store, boardsVersion, updateFromRemote, pushSystemMessage, resetWorkspace } from '../store';
 import { api } from './api-client';
 import type { useAuth } from '../composables/useAuth';
 import type { AuthState } from '../types';
@@ -102,10 +102,22 @@ export class SyncService {
    */
   private onAuthStateChange(next: AuthState): void {
     this.cancelPending();
+
+    const wasHydrated = this.hydratedForUserId !== null;
     this.hydratedForUserId = null;
 
     if (next.kind === 'authenticated' && next.userId !== undefined) {
+      // hydrate's updateFromRemote will replace the store; no
+      // explicit reset needed on this branch.
       this.hydrate(next.userId);
+    } else if (wasHydrated) {
+      // We were synced to an identity; we're not anymore. Clear
+      // the workspace so the next user (or no-user) doesn't see
+      // the prior user's data. Privacy: shared-computer scenario.
+      // Engine state is intentionally preserved; see
+      // resetWorkspace's docstring for the deployment-model
+      // reasoning.
+      resetWorkspace();
     }
   }
 

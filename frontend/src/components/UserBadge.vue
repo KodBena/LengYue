@@ -12,7 +12,7 @@
  * License: Public Domain (The Unlicense)
  */
 
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useAuth } from '../composables/useAuth';
 import LoginModal from './LoginModal.vue';
 import type { AuthState } from '../types';
@@ -53,6 +53,26 @@ const view = computed<BadgeView>(() => {
 const isModalOpen = ref(false);
 function openModal(): void  { isModalOpen.value = true;  }
 function closeModal(): void { isModalOpen.value = false; }
+
+// Auto-open the modal when auth transitions to a state where login
+// is the natural next action — rejection (state goes to
+// 'unauthenticated' from 'authenticated' due to /auth/me 401) and
+// verify errors ('error'). Without this, the user has to discover
+// the badge-click affordance after their session was invalidated.
+//
+// No `immediate: true`: the initial 'unknown' state during boot is
+// skipped, so the modal stays closed until the auth subsystem
+// actually settles into a non-authenticated state. Consequently
+// cold-start with auto-fill (state goes unknown → authenticating →
+// authenticated) does not flash the modal.
+watch(
+  () => state.value.kind,
+  (next) => {
+    if (next === 'unauthenticated' || next === 'error') {
+      isModalOpen.value = true;
+    }
+  },
+);
 </script>
 
 <template>
