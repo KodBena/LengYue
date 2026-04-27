@@ -261,6 +261,27 @@ every-six-months pass turns out to be too lumpy.
    month, lower upfront cost)? Likely all-at-once for the
    baseline, then delta-only thereafter.
 
+8. **Benchmark ADR language against practiced posture.** The
+   validity layer asks whether rules are internally consistent
+   and whether stated rationale entails them. A subtler check
+   sits adjacent: when contributors deliberate over an ADR's
+   application (e.g., "is ADR-0007's ≤250-line SFC target a
+   flag or a ceiling?"), the practiced posture often resolves
+   cleanly to one reading while the ADR's language could
+   plausibly support either. The validity audit should
+   benchmark each ADR's language against the project's
+   practiced posture in such deliberations: where they diverge,
+   the ADR likely needs language sharpening, not the practice.
+   This is the "silent contextual gravity" concern — project
+   DNA is real even when undocumented, and the meta-review is
+   the natural place to surface it back into the documented
+   record. The C2 (App.vue refactor) deliberation about whether
+   ADR-0007's target is bounded (clean-seam stopping point) or
+   aspirational (drive to ≤250) is a worked example: the
+   project's DNA favors bounded, but the ADR's language is
+   ambiguous enough that a fresh contributor could read either
+   way.
+
 ## Acceptance criteria
 
 This RFC is accepted when:
