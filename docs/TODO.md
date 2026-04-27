@@ -147,6 +147,8 @@ Plus design notes in `docs/notes/`:
 | `docs/notes/tenancy.md` | System note describing the tenancy model in the codebase. |
 | `docs/notes/reflection.md` | Architectural retrospective at the close of the pre-release sweep. |
 | `docs/notes/frontend-backlog.md` | Raw frontend backlog (UI/UX items not in this TODO). |
+| `docs/notes/deferred-items.md` | Active ledger of items that don't yet warrant a TODO, ADR, or decisions-deferred entry. Working-memory offload. |
+| `docs/notes/auditor-notes.md` | Append-only ledger of overarching observations from auditors (Claude orientation passes). Feeds this TODO via manual promotion. |
 
 ---
 
