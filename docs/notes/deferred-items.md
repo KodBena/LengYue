@@ -78,36 +78,20 @@ this file.
 
 ### LoadAction type is dishonest (ConfirmLoadModal.vue)
 
-- **Surfaced:** 2026-04-26 (during C1 diagnosis).
-- **Concern:** `ConfirmLoadModal.vue` declares
-  `type LoadAction = 'new' | 'overwrite' | 'cancel'` but actually
-  resolves with values like `'new-saved'` and `'overwrite-saved'`
-  via an `as LoadAction` cast in `handle()`. The consumer
-  (`handleLoadCardFromDatabase` in App.vue) correctly handles the
-  suffixed cases — but at the type level the contract is a lie.
-  Direct ADR-0001 violation (no aspirational annotations).
-- **Suggested next action:** Widen the type to
-  `'new' | 'overwrite' | 'cancel' | 'new-saved' | 'overwrite-saved'`,
-  or split into two fields (`{ action: 'new' | 'overwrite' |
-  'cancel', remember: boolean }`) which is the more honest shape.
-  Apply the next time `ConfirmLoadModal.vue` is touched
-  substantively (per ADR-0004's incremental-retrofit posture).
+- **Closed:** 2026-04-27 in C2.2 (branch
+  `frontend/c2.2-use-dirty-board-guard`). `ConfirmLoadModal` now
+  exposes `Promise<LoadResult>` with the structured
+  `{ action, remember }` pair — the more honest shape recommended
+  in the original entry. The `as LoadAction` cast is gone.
 
 ### Silent guard fail in handleLoadCardFromDatabase (App.vue)
 
-- **Surfaced:** 2026-04-26 (during C1 diagnosis).
-- **Concern:** The handler contains `if (!confirmLoadModalRef.value)
-  return` — a silent early-return when the modal ref isn't bound.
-  Direct ADR-0002 violation (silent fallback rather than fail-loud).
-  Even after C1 restores the import, the early return remains as a
-  defensive-programming residue that hides future detachments of
-  the modal ref. Should at minimum be `pushSystemMessage('error',
-  ...)` followed by throwing, or replaced with a typed contract
-  that makes the modal mount mandatory at call time.
-- **Suggested next action:** Decide whether this is a C1 follow-up
-  (small enough to bundle) or a separate touch. Will resolve
-  during C2 (App.vue refactor) at the latest, since the guard
-  logic is the natural extraction target.
+- **Closed:** 2026-04-27 in C2.2 (branch
+  `frontend/c2.2-use-dirty-board-guard`). `useDirtyBoardGuard`
+  owns the policy; the silent early-return is replaced with an
+  explicit `throw new Error(...)` if the modal ref is null at
+  handler-call time. The handler in App.vue no longer exists;
+  the contract is documented in the composable's JSDoc.
 
 ### Refactoring queue from ADR-0007
 

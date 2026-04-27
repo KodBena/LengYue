@@ -1,19 +1,28 @@
-<!-- 
-  src/components/ConfirmLoadModal.vue
-  Custom Vue modal to handle navigation logic with a "Remember" checkbox.
-  License: Public Domain (The Unlicense)
--->
 <script setup lang="ts">
+/**
+ * src/components/ConfirmLoadModal.vue
+ * Modal dialog presented when the user attempts to load a card while
+ * the active board has non-trivial state. Resolves to a structured
+ * { action, remember } pair; the caller is responsible for honoring
+ * the remember flag (typically by persisting `action` as the user's
+ * default for the next dirty-board encounter).
+ *
+ * License: Public Domain (The Unlicense).
+ */
 import { ref } from 'vue';
 
 type LoadAction = 'new' | 'overwrite' | 'cancel';
+export interface LoadResult {
+  readonly action: LoadAction;
+  readonly remember: boolean;
+}
 
 const isOpen = ref(false);
 const remember = ref(false);
-let resolvePromise: ((action: LoadAction) => void) | null = null;
+let resolvePromise: ((result: LoadResult) => void) | null = null;
 
 defineExpose({
-  open(): Promise<LoadAction> {
+  open(): Promise<LoadResult> {
     isOpen.value = true;
     remember.value = false;
     return new Promise(resolve => {
@@ -25,9 +34,10 @@ defineExpose({
 function handle(action: LoadAction) {
   isOpen.value = false;
   if (resolvePromise) {
-    // If they checked "Remember", we pass that fact out so the caller can save it.
-    // We append '-saved' to the action to signal this.
-    resolvePromise(remember.value && action !== 'cancel' ? (action + '-saved') as LoadAction : action);
+    resolvePromise({
+      action,
+      remember: remember.value && action !== 'cancel',
+    });
   }
 }
 </script>
