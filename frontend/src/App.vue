@@ -11,6 +11,7 @@ import { useSgfLoader }      from './composables/useSgfLoader';
 import { useEngineControls } from './composables/useEngineControls';
 import { useUserIORegistry } from './composables/useUserIORegistry';
 import { useAuth }           from './composables/useAuth';
+import { useResizablePanel } from './composables/useResizablePanel';
 import { resourceService } from './services/resource-service';
 
 import {
@@ -149,32 +150,7 @@ const intermissionSeries = computed(() => {
   return [{ name: 'Move Score (Delta)', data, color: '#f0a04a', showPoints: true }];
 });
 
-const isResizing = vueRef(false);
-let lastMouseX = 0;
-
-function startResize(e: MouseEvent) {
-  e.preventDefault(); 
-  isResizing.value = true;
-  lastMouseX = e.clientX;
-  document.addEventListener('mousemove', onMouseMove);
-  document.addEventListener('mouseup', stopResize);
-  document.body.classList.add('resizing'); 
-}
-
-function onMouseMove(e: MouseEvent) {
-  if (!isResizing.value) return;
-  const deltaX = e.clientX - lastMouseX;
-  lastMouseX = e.clientX;
-  const currentWidth = store.session.ui.controlPanelWidth || 340;
-  store.session.ui.controlPanelWidth = Math.max(200, Math.min(currentWidth - deltaX, 800));
-}
-
-function stopResize() {
-  isResizing.value = false;
-  document.removeEventListener('mousemove', onMouseMove);
-  document.removeEventListener('mouseup', stopResize);
-  document.body.classList.remove('resizing');
-}
+const { startResize } = useResizablePanel();
 
 async function startEbisu() {
   await reviewSession.startSession(store.session.ui.activeCardSetId);
