@@ -76,16 +76,15 @@ even pre-deployment.
 
 ### 2. Frontend store schema versioning + hydrate migrations
 
-`SyncService` writes the entire `GlobalStore`; the handoff
-explicitly notes "stale values can appear after a redeploy —
-either bump a schema version or clear the local user's saved
-state." A first-class `schemaVersion` on the persisted blob plus
-an ordered list of `migrate(N → N+1)` functions would close it.
-The de-branding entries filed today (theme / cardset / palette
-rewrite-on-hydrate shims) are a forcing function — three of them
-propose ad-hoc migrations. Doing those without a versioning
-frame is a missed opportunity; doing them with one establishes
-the pattern.
+- **Closed:** 2026-04-27. Framework shipped on branch
+  `frontend/store-schema-versioning`.
+  `CURRENT_SCHEMA_VERSION = 1` and an empty append-only
+  `migrations[]` array in `frontend/src/store/migrations.ts`;
+  `updateFromRemote` runs `migrate()` before applying;
+  `buildPersistencePayload()` stamps the version on outbound
+  saves. The de-branding tier (the original forcing function)
+  now has a place to land migration `1 → 2` as one principled
+  migration rather than three ad-hoc shims.
 
 ### 3. Account recovery / password reset
 

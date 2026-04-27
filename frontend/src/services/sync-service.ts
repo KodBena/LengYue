@@ -15,7 +15,14 @@
  */
 
 import { watch } from 'vue';
-import { store, boardsVersion, updateFromRemote, pushSystemMessage, resetWorkspace } from '../store';
+import {
+  store,
+  boardsVersion,
+  updateFromRemote,
+  pushSystemMessage,
+  resetWorkspace,
+  buildPersistencePayload,
+} from '../store';
 import { api } from './api-client';
 import type { useAuth } from '../composables/useAuth';
 import type { AuthState } from '../types';
@@ -266,12 +273,7 @@ export class SyncService {
       return;
     }
 
-    const payload = {
-      boards: store.boards,
-      activeBoardIndex: store.activeBoardIndex,
-      profile: store.profile,
-      session: store.session
-    };
+    const payload = buildPersistencePayload();
 
     try {
       await api.request('PUT', `/documents/${this.docKey}`, { data: payload });

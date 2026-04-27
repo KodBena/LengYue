@@ -19,9 +19,11 @@ import type {
 
 import { defaultProfile, defaultSessionUI, NIL_UUID } from './defaults';
 import { createInitialBoard } from './board-factory';
+import { migrate, CURRENT_SCHEMA_VERSION } from './migrations';
 
 export { createInitialBoard }        from './board-factory';
 export { DEFAULTS }                  from './defaults';
+export { CURRENT_SCHEMA_VERSION, migrate } from './migrations';
 
 export const boardsVersion = ref(0);
 
@@ -166,21 +168,52 @@ export function resetWorkspace(): void {
   boardsVersion.value++;
 }
 
-export function updateFromRemote(remoteData: Partial<GlobalStore>): void {
-  if (remoteData.boards) {
-    store.boards = remoteData.boards.map(normalizeBoard);
+export function updateFromRemote(
+  remoteData: Partial<GlobalStore> & { schemaVersion?: number },
+): void {
+  // Bring the blob up to current schema before applying. migrate
+  // throws on future-version or missing-migration blobs (per
+  // ADR-0002); the SyncService's hydrate() catches and surfaces.
+  const migrated = migrate(remoteData);
+
+  if (migrated.boards) {
+    store.boards = migrated.boards.map(normalizeBoard);
   }
-  if (typeof remoteData.activeBoardIndex === 'number') {
-    store.activeBoardIndex = remoteData.activeBoardIndex;
+  if (typeof migrated.activeBoardIndex === 'number') {
+    store.activeBoardIndex = migrated.activeBoardIndex;
   }
-  if (remoteData.profile) store.profile = deepMerge(store.profile, remoteData.profile);
-  if (remoteData.session) store.session = deepMerge(store.session, remoteData.session);
-  
+  if (migrated.profile) store.profile = deepMerge(store.profile, migrated.profile);
+  if (migrated.session) store.session = deepMerge(store.session, migrated.session);
+
   if (!store.session.reviews) {
     store.session.reviews = {} as Record<BoardId, ReviewSessionData>;
   }
-  
+
   boardsVersion.value++;
+}
+
+/**
+ * Builds the persistence payload that SyncService PUTs to the
+ * backend. Stamps the current schema version so the round-trip is
+ * complete: future hydrations of this blob carry their version
+ * marker and migrate() can dispatch the right forward-migration
+ * chain. The store is the natural owner of both the schema and
+ * the persistence shape; SyncService becomes a pure transport.
+ */
+export function buildPersistencePayload(): {
+  schemaVersion: number;
+  boards: GlobalStore['boards'];
+  activeBoardIndex: GlobalStore['activeBoardIndex'];
+  profile: GlobalStore['profile'];
+  session: GlobalStore['session'];
+} {
+  return {
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    boards: store.boards,
+    activeBoardIndex: store.activeBoardIndex,
+    profile: store.profile,
+    session: store.session,
+  };
 }
 
 // ── System Messaging Actions ──
