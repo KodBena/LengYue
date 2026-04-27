@@ -116,6 +116,13 @@ export const defaultSessionUI: UISession = {
   moveFilterExpression: 'move.order === 0 || (move.visits / root.visits) >= ui.threshold',
   analysisLayout: 'horizontal',
   showMoveSuggestions: true,
+  overlayLayers: {
+    ownership: {
+      continuous: false,
+      dots: false,
+      liveness: false,
+    },
+  },
   activeCardSetId: 'default',
 };
 

@@ -5,12 +5,49 @@
 <script setup lang="ts">
 import { computed, ref, toRaw } from 'vue';
 import BoardDisplay from './BoardDisplay.vue';
+import BoardHeatmapOverlay from './BoardHeatmapOverlay.vue';
 import MoveSuggestions from './MoveSuggestions.vue';
 import type { BoardState, NodeId, GameNode } from '../types';
-import { getBoardSize } from '../engine/util';
+import { getBoardSize, decodeBoardArray } from '../engine/util';
 import { useScopedScroll } from '../composables/useScopedScroll';
 import { useNavigation } from '../composables/useNavigation';
 import { store } from '../store';
+import { ledger } from '../services/analysis-ledger';
+import { activeConfigHash } from '../services/analysis-config';
+
+// ── Ownership overlay glue ───────────────────────────────────────────────────
+// KataGo's `ownership` field comes back length size² in row-major order.
+// The project follows KataGo's default convention: positive values
+// indicate the *white* player expects to own that point; negative
+// indicate black. Empirically verified against the live engine.
+//
+// The colorMap is shared across all three ownership sub-modes
+// (continuous fill, discrete dots, stone liveness). For the liveness
+// case, the call site encodes the disagreement-magnitude as a signed
+// value — sign carries the opposing-stone colour, magnitude carries
+// the confidence of the disagreement — and this same map paints it.
+function ownershipColor(v: number): { fill: string; opacity: number } {
+  const mag = Math.abs(v);
+  if (mag < 0.05) return { fill: 'transparent', opacity: 0 };
+  return {
+    fill: v > 0 ? '#fff' : '#000',
+    opacity: Math.min(0.85, mag * 0.85),
+  };
+}
+
+// Stones with disagreement weaker than this threshold aren't flagged
+// as dead; below it, the engine is genuinely undecided about the
+// region and the highlight would just flicker as packets arrive.
+const LIVENESS_THRESHOLD = 0.3;
+
+// Liveness marker uses the conventional small-opposing-coloured-dot
+// rendering inside the stone (Lizzie / KaTrain / Sabaki convention).
+// The threshold filter at the call site has already gated to confident
+// disagreement, so a flat near-opaque fill reads cleanly without the
+// magnitude-modulated opacity that the territory overlays use.
+function livenessColor(v: number): { fill: string; opacity: number } {
+  return { fill: v > 0 ? '#fff' : '#000', opacity: 0.95 };
+}
 
 const props = defineProps<{
   state: BoardState;
@@ -33,6 +70,52 @@ const boardSize = computed(() => getBoardSize(props.state));
 const lastMovePoint = computed(() => {
   const currentNode = props.state.nodes[props.state.currentNodeId];
   return currentNode?.move ?? null;
+});
+
+// Decoded ownership cells reactive to the active-palette hash and the
+// current node. Both the continuous and dots sub-modes consume this
+// list; the liveness sub-mode consumes its sibling `livenessCells`.
+const decodedOwnership = computed(() => {
+  const hash = activeConfigHash.value;
+  if (!hash) return null;
+  const packet = ledger.getRaw(hash, props.state.currentNodeId);
+  const raw = packet?.ownership;
+  if (!raw) return null;
+  return decodeBoardArray(raw, boardSize.value);
+});
+
+// Empty-intersection cells for the territory-style overlays. Stones
+// occlude their own position; their ownership is conveyed through the
+// liveness sub-mode instead.
+const emptyCells = computed(() => {
+  const cells = decodedOwnership.value;
+  if (!cells) return [];
+  return cells.filter(({ x, y }) => !props.state.stones[`${x},${y}`]);
+});
+
+const continuousCells = computed(
+  () => store.session.ui.overlayLayers.ownership.continuous ? emptyCells.value : [],
+);
+
+const dotsCells = computed(
+  () => store.session.ui.overlayLayers.ownership.dots ? emptyCells.value : [],
+);
+
+// Stone-position cells where the engine's predicted owner disagrees
+// with the stone's own colour. The encoded `value` is the raw
+// ownership reading — its sign already addresses the colorMap toward
+// the *opposing* colour (positive ownership = white-tint over a black
+// stone; negative ownership = black-tint over a white stone).
+const livenessCells = computed(() => {
+  if (!store.session.ui.overlayLayers.ownership.liveness) return [];
+  const cells = decodedOwnership.value;
+  if (!cells) return [];
+  return cells.filter(({ x, y, value }) => {
+    const stone = props.state.stones[`${x},${y}`];
+    if (!stone) return false;
+    return (stone === 'B' && value > LIVENESS_THRESHOLD)
+        || (stone === 'W' && value < -LIVENESS_THRESHOLD);
+  });
 });
 
 const currentMoveNumber = computed(() => {
@@ -67,6 +150,30 @@ const currentMoveNumber = computed(() => {
       :last-move="lastMovePoint"
       :show-labels="true"
       @click="(x, y) => emit('move', x, y)"
+    />
+    <BoardHeatmapOverlay
+      v-if="continuousCells.length > 0"
+      :cells="continuousCells"
+      :size="boardSize"
+      :color-map="ownershipColor"
+      shape="square"
+      :scale="0.5"
+    />
+    <BoardHeatmapOverlay
+      v-if="dotsCells.length > 0"
+      :cells="dotsCells"
+      :size="boardSize"
+      :color-map="ownershipColor"
+      shape="disc"
+      :scale="0.3"
+    />
+    <BoardHeatmapOverlay
+      v-if="livenessCells.length > 0"
+      :cells="livenessCells"
+      :size="boardSize"
+      :color-map="livenessColor"
+      shape="disc"
+      :scale="0.13"
     />
     <!-- Bound to the new global toggle -->
     <MoveSuggestions

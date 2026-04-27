@@ -3,9 +3,15 @@
         * PV-settings
     * Currently stored analyses
 * Need a way to close/minimize/restore open games; maybe take inspiration from tab manager extensions for firefox
-* ownership maps and policy head outputs (generic overlay that can be used with both ownership and policy)
-    * policy map overlay requires mapping linear indices to board 2d indices
-        * probably should implement a middleware extension for this
+* ~~ownership maps~~ — shipped as the release wrap-up. Three orthogonal
+  sub-modes (continuous adjacent-square fill, discrete dots, liveness
+  dot-in-stone) on `UISession.overlayLayers.ownership`; rendered by the
+  parameterised `BoardHeatmapOverlay.vue`; KataGo's `includeOwnership`
+  wire flag plumbed reactively. Policy head outputs still pending — they
+  will reuse `BoardHeatmapOverlay` and `decodeBoardArray` (the latter
+  resolves the linear→2D mapping concern frontend-side, so no proxy
+  middleware extension is needed; the trailing "pass" slot must be
+  stripped before decode).
 * PV's should be mouse-scrollable (as in the animated versions of the PV display but optionally done manually using the scroll-wheel)
 * PV's should be pasteable into the game-tree
 * Seek to off-load some styling/layout to existing libraries in the javascript/typescript/vue eco-system (grid-layout, monaco editor, etc, etc, not sure what's out there)
