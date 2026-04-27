@@ -2,16 +2,13 @@
 import { computed, onMounted, watch } from 'vue';
 import { ref as vueRef } from 'vue';
 
-// @ts-ignore
-import sgf from '@sabaki/sgf';
-import { loadSgf } from './engine/sgf-loader';
-
 import { useMetadata }       from './composables/useMetadata';
 import { useSgfLoader }      from './composables/useSgfLoader';
 import { useEngineControls } from './composables/useEngineControls';
 import { useUserIORegistry } from './composables/useUserIORegistry';
 import { useAuth }           from './composables/useAuth';
 import { useResizablePanel } from './composables/useResizablePanel';
+import { useDirtyBoardGuard } from './composables/useDirtyBoardGuard';
 import { resourceService } from './services/resource-service';
 
 import {
@@ -19,14 +16,13 @@ import {
   activeBoard,
   updateBoardState,
   mutateBoard,
-  createBoard,
   DEFAULTS,
 } from './store';
 
-import type { BoardId, ReviewCard, NodeId, GameNode }   from './types';
+import type { BoardId, NodeId, GameNode }   from './types';
 import { applyGoMove }    from './logic';
 import { navigateTo }     from './engine/navigator';
-import { updateRegistry, getActiveVariationPath } from './engine/util';
+import { updateRegistry } from './engine/util';
 
 import { SyncService } from './services/sync-service';
 import { ebisuService } from './services/ebisu-service';
@@ -95,52 +91,7 @@ function handleUpdateKomi(newKomi: number) {
 }
 
 const confirmLoadModalRef = vueRef<InstanceType<typeof ConfirmLoadModal> | null>(null);
-
-async function handleLoadCardFromDatabase(card: ReviewCard) {
-  const board = activeBoard.value;
-  if (!board) return;
-
-  const nodeCount = Object.keys(board.nodes).length;
-  let targetBoardId = board.id;
-
-  let action = store.profile.settings.navigation.actionOnDirtyBoard;
-
-  if (nodeCount > 1 && action === 'ask') {
-    if (!confirmLoadModalRef.value) return;
-    
-    const userChoice = await confirmLoadModalRef.value.open();
-    if (userChoice === 'cancel') return;
-    
-    if (userChoice.endsWith('-saved')) {
-      action = userChoice.replace('-saved', '') as 'new' | 'overwrite';
-      updateRegistry(store.profile.settings, ['navigation', 'actionOnDirtyBoard'], action);
-    } else {
-      action = userChoice as 'new' | 'overwrite';
-    }
-  }
-
-  if (action === 'new' && nodeCount > 1) {
-    createBoard();
-    targetBoardId = store.boards[store.activeBoardIndex].id;
-  }
-
-  try {
-    const sabakiTrees = sgf.parse(card.sgf);
-    const parsedBoard = loadSgf(sabakiTrees);
-    parsedBoard.id = targetBoardId as any;
-    
-    const idx = store.boards.findIndex(b => b.id === targetBoardId);
-    if (idx !== -1) {
-      updateBoardState(idx, parsedBoard);
-      
-      const path = getActiveVariationPath(parsedBoard);
-      const leafId = path[path.length - 1];
-      mutateBoard(targetBoardId, draft => navigateTo(draft, leafId as NodeId));
-    }
-  } catch (err) {
-    console.error("Failed to load card into board:", err);
-  }
-}
+const { handleLoadCard } = useDirtyBoardGuard(confirmLoadModalRef);
 
 const intermissionSeries = computed(() => {
   if (reviewSession.state.value !== 'FINISHED') return [];
@@ -408,7 +359,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
             <template #database>
               <div style="flex: 1; display: flex; min-height: 0; width: 100%;">
-                <ForestDirectory @load-card="handleLoadCardFromDatabase" />
+                <ForestDirectory @load-card="handleLoadCard" />
               </div>
             </template>
 
