@@ -23,6 +23,12 @@ export class AnalysisService {
   private activeSubscriptions = new Map<BoardId, () => void>();
   private activeQueryIds = new Map<BoardId, string>();
   private activeQueries = new Map<string, { path: NodeId[], hash: string }>();
+  // Per-board thunks that re-issue the most recent active query.
+  // Keyed by BoardId; populated by analyzeRange/analyzeActiveNode and
+  // cleared by stopBoardAnalysis. Used by restartActiveAnalyses to
+  // re-fire active work when wire-flag-affecting state changes (e.g.,
+  // toggling the ownership overlay).
+  private restartCallbacks = new Map<BoardId, () => void>();
   private packetCount = 0;
   private metricsTimer: number | null = null;
   private watchdogTimer: number | null = null;
@@ -134,6 +140,8 @@ export class AnalysisService {
     // (see engine/katago/types.ts), so no inline intersection type or cast
     // workaround is needed. This is what the type-honest version of this
     // call site looks like.
+    const ownershipModes = store.session.ui.overlayLayers.ownership;
+    const needsOwnership = ownershipModes.continuous || ownershipModes.dots || ownershipModes.liveness;
     const query: KataGoAnalysisQuery = {
       id: queryId,
       moves,
@@ -146,6 +154,7 @@ export class AnalysisService {
       lookup_cache: false,
       reportDuringSearchEvery: 0.5,
       analyzeTurns,
+      ...(needsOwnership ? { includeOwnership: true } : {}),
       ...(analysis_config ? { analysis_config } : {})
     };
 
@@ -156,6 +165,10 @@ export class AnalysisService {
 
     this.activeSubscriptions.set(boardId, unsubscribe);
     this.activeQueryIds.set(boardId, queryId);
+    this.restartCallbacks.set(
+      boardId,
+      () => this.analyzeRange(boardId, fullPath, startTurn, endTurn, visits, configOverride),
+    );
   }
 
   public analyzeActiveNode(
@@ -188,6 +201,8 @@ export class AnalysisService {
 
     this.activeQueries.set(queryId, { path: fullPath, hash });
 
+    const ownershipModes = store.session.ui.overlayLayers.ownership;
+    const needsOwnership = ownershipModes.continuous || ownershipModes.dots || ownershipModes.liveness;
     const query: KataGoAnalysisQuery = {
       id: queryId,
       moves,
@@ -198,6 +213,7 @@ export class AnalysisService {
       ...(visits !== undefined ? { maxVisits: visits } : {}),
       ...(mode === 'ponder' ? { reportDuringSearchEvery: 0.15, maxVisits: 100000 } : { reportDuringSearchEvery: 0.5 }),
       analyzeTurns: [currentIdx],
+      ...(needsOwnership ? { includeOwnership: true } : {}),
       ...(analysis_config ? { analysis_config } : {})
     };
 
@@ -208,6 +224,24 @@ export class AnalysisService {
 
     this.activeSubscriptions.set(boardId, unsubscribe);
     this.activeQueryIds.set(boardId, queryId);
+    this.restartCallbacks.set(
+      boardId,
+      () => this.analyzeActiveNode(boardId, mode, visits, configOverride),
+    );
+  }
+
+  /**
+   * Re-issue every currently-active analysis query. Used when a piece
+   * of state external to the query parameters (e.g., the overlay-layer
+   * toggle that gates `includeOwnership`) changes and must propagate
+   * into the engine's wire request. Each restart goes through the
+   * normal stop-then-issue path, so subscribers see the standard
+   * lifecycle.
+   */
+  public restartActiveAnalyses(): void {
+    for (const cb of Array.from(this.restartCallbacks.values())) {
+      cb();
+    }
   }
 
   private onAnalysisUpdate(response: KataAnalysisResponse, queryId: string) {
@@ -236,6 +270,7 @@ export class AnalysisService {
     }
     this.activeSubscriptions.delete(boardId);
     this.activeQueryIds.delete(boardId);
+    this.restartCallbacks.delete(boardId);
     store.engine.activeMode[boardId] = 'none';
   }
 }

@@ -196,6 +196,27 @@ export interface UISession {
   moveFilterExpression: string;
   analysisLayout: 'horizontal' | 'vertical';
   showMoveSuggestions: boolean;
+  // Per-metric board overlays. Each metric carries its own set of
+  // orthogonal sub-toggles describing the visual mode(s) the user
+  // wants applied to that data; multiple sub-modes may be
+  // simultaneously enabled. Mutated in place via the keyboard
+  // registry. The wire-flag plumbing in analysis-service consults
+  // these to decide whether to request `includeOwnership` (and later
+  // `includePolicy`) — any sub-toggle being on is sufficient.
+  overlayLayers: {
+    ownership: {
+      // Adjacent gap-less squares filling empty intersections.
+      // Reads as a continuous territory map.
+      continuous: boolean;
+      // Small discrete confidence markers at empty intersections.
+      // Less visually dominant; useful alongside MoveSuggestions.
+      dots: boolean;
+      // Sign-inversion overlay on stones whose own colour disagrees
+      // with the predicted ownership at their position. Highlights
+      // dead stones; conveys liveness without territory clutter.
+      liveness: boolean;
+    };
+  };
   activeCardSetId: string;
 }
 

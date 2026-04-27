@@ -67,7 +67,7 @@
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 4;
 
 /**
  * A migration brings a blob at version N forward to version N+1.
@@ -144,6 +144,54 @@ export const migrations: Migration[] = [
       }
     }
 
+    return out;
+  },
+  // 2 → 3: Introduce session.ui.overlayLayers, the multi-select set of
+  // board-overlay metrics. Defaults to `{ ownership: false }`. Existing
+  // blobs at v2 lack the field; absence is treated as opt-out (the user
+  // must explicitly enable the overlay). Idempotent: leaves an
+  // already-populated overlayLayers untouched, only fills in missing
+  // sub-fields against the v3 default shape.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    if (out.session?.ui) {
+      const existing = out.session.ui.overlayLayers;
+      out.session.ui.overlayLayers = {
+        ownership: typeof existing?.ownership === 'boolean' ? existing.ownership : false,
+      };
+    }
+    return out;
+  },
+  // 3 → 4: Split ownership from a single boolean into three orthogonal
+  // sub-modes (continuous / dots / liveness). v3 stored a single flag
+  // covering "show ownership somehow"; v4 lets the user independently
+  // toggle the continuous-fill territory view, the discrete confidence
+  // dots, and the dead-stone liveness highlight. A v3 `true` maps to
+  // `{ continuous: true, dots: false, liveness: false }` — the
+  // continuous-fill style is the new canonical "ownership view," so
+  // preserving the user's prior intent that way is the least surprising
+  // forward path. False or missing maps to all-off.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const layers = out.session?.ui?.overlayLayers;
+    if (layers) {
+      const prev = layers.ownership;
+      if (typeof prev === 'boolean') {
+        layers.ownership = {
+          continuous: prev,
+          dots: false,
+          liveness: false,
+        };
+      } else if (prev && typeof prev === 'object') {
+        layers.ownership = {
+          continuous: !!prev.continuous,
+          dots: !!prev.dots,
+          liveness: !!prev.liveness,
+        };
+      } else {
+        layers.ownership = { continuous: false, dots: false, liveness: false };
+      }
+    }
     return out;
   },
 ];

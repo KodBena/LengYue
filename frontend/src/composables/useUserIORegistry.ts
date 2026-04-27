@@ -54,6 +54,26 @@ export function useUserIORegistry() {
         store.session.ui.showMoveSuggestions = !store.session.ui.showMoveSuggestions;
         break;
 
+      // Ownership overlay sub-modes — three orthogonal toggles. The
+      // watcher in useAppBootstrap restarts any active analyses so the
+      // shared `includeOwnership` wire flag flips correctly when the
+      // first sub-mode turns on or the last one turns off.
+      //   'c' — continuous adjacent-square territory fill
+      //   'd' — discrete confidence dots on empty intersections
+      //   'l' — liveness highlight on disagreeing stones
+      case 'c':
+      case 'C':
+        store.session.ui.overlayLayers.ownership.continuous = !store.session.ui.overlayLayers.ownership.continuous;
+        break;
+      case 'd':
+      case 'D':
+        store.session.ui.overlayLayers.ownership.dots = !store.session.ui.overlayLayers.ownership.dots;
+        break;
+      case 'l':
+      case 'L':
+        store.session.ui.overlayLayers.ownership.liveness = !store.session.ui.overlayLayers.ownership.liveness;
+        break;
+
       default:
         handled = false;
     }

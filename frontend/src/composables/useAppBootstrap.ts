@@ -20,10 +20,11 @@
  *
  * License: Public Domain (The Unlicense).
  */
-import { onMounted } from 'vue';
+import { onMounted, watch } from 'vue';
 import { SyncService } from '../services/sync-service';
 import { resourceService } from '../services/resource-service';
 import { backendService } from '../services/backend-service';
+import { analysisService } from '../services/analysis-service';
 import { store } from '../store';
 import type { useAuth } from './useAuth';
 
@@ -31,6 +32,18 @@ export function useAppBootstrap(
   auth: ReturnType<typeof useAuth>,
 ): { sync: SyncService } {
   const sync = new SyncService('user_workspace_01', auth);
+
+  // Restart active analyses whenever an overlay layer toggles. The flag
+  // gates a wire-level field (e.g. `includeOwnership`) that's set at
+  // query construction; in-flight queries don't pick up the new flag
+  // value, so a clean stop-then-reissue is the discipline-correct
+  // refresh. Deep watch so future overlay layers (policy, extension-
+  // provided metrics) inherit the same restart behaviour.
+  watch(
+    () => store.session.ui.overlayLayers,
+    () => analysisService.restartActiveAnalyses(),
+    { deep: true },
+  );
 
   onMounted(async () => {
     // Establish auth identity FIRST. Subsequent calls (sync.connect's

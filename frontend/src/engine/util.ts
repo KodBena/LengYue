@@ -110,6 +110,41 @@ export function getKomi(state: BoardState): number {
   return isNaN(km) ? 6.5 : km;
 }
 
+/**
+ * Decodes a flat KataGo board-shaped array (length = size²) into per-cell
+ * records in our internal coordinate convention.
+ *
+ * KataGo emits board arrays (`ownership`, `policy`) in row-major order
+ * with row 0 at the *top* of the board. Our internal coordinate system
+ * places y=0 at the *bottom* (matching `BoardDisplay.toSVG`'s y-flip),
+ * so the row index inverts: row = size - 1 - y.
+ *
+ * Returns an empty array on length mismatch with a console warning
+ * (per ADR-0002 — surfaces the deviation rather than silently rendering
+ * a misaligned heatmap).
+ *
+ * Note: `policy` is conventionally length size² + 1 (the trailing slot
+ * is the "pass" probability). Strip the pass slot before passing here,
+ * or this function will warn and return empty.
+ */
+export function decodeBoardArray(
+  values: readonly number[],
+  size: number,
+): { x: number; y: number; value: number }[] {
+  if (values.length !== size * size) {
+    console.warn(`[decodeBoardArray] length ${values.length} != size² ${size * size}`);
+    return [];
+  }
+  const out: { x: number; y: number; value: number }[] = [];
+  for (let i = 0; i < values.length; i++) {
+    const x = i % size;
+    const row = Math.floor(i / size);
+    const y = size - 1 - row;
+    out.push({ x, y, value: values[i] });
+  }
+  return out;
+}
+
 export function updateRegistry<T extends object>(
   root: T, 
   path: string[], 
