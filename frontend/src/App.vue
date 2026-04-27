@@ -39,6 +39,7 @@ import MintCardModal    from './components/MintCardModal.vue';
 import ConfirmLoadModal from './components/ConfirmLoadModal.vue';
 import ForestDirectory  from './components/ForestDirectory.vue';
 import SystemLogPanel   from './components/SystemLogPanel.vue';
+import RootErrorBoundary from './components/RootErrorBoundary.vue';
 
 import { useReviewSession } from './composables/useReviewSession';
 import BaseChart from './components/charts/BaseChart.vue';
@@ -174,6 +175,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 </script>
 
 <template>
+  <RootErrorBoundary>
   <div id="main-area">
     <MintCardModal ref="mintModalRef" />
     <ConfirmLoadModal ref="confirmLoadModalRef" />
@@ -388,6 +390,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
           </TabWidget>
         </div>
       </div> </div> </div>
+  </RootErrorBoundary>
 </template>
 
 <style>

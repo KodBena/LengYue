@@ -102,12 +102,14 @@ throttling. Pre-public-deployment requirement.
 
 ### 5. Top-level frontend error boundary
 
-ADR-0002 says fail loudly. An unhandled render exception in a
-deep component white-screens the app — silent from the user's
-perspective even though it's loud in the console. A root-level
-error boundary that funnels render errors into
-`pushSystemMessage('error', …)` and offers a reload affordance
-closes the gap with the tenet.
+- **Closed:** 2026-04-27. `RootErrorBoundary.vue` wraps App.vue's
+  root content; uses Vue 3's `onErrorCaptured` to catch
+  descendant render/watcher/lifecycle/event-handler errors,
+  surfaces them via `pushSystemMessage('error', ...)`, and
+  displays a fallback overlay with a "Reload page" button.
+  `app.config.errorHandler` in `main.ts` is the last-resort
+  backstop for errors that escape every component boundary
+  (App.vue setup, mount-time errors).
 
 ### 6. Backend health/liveness endpoint
 
