@@ -162,6 +162,111 @@ Skipped for numbering continuity.
 
 Skipped for numbering continuity.
 
+> **De-branding from "Ebisu" — preservation note for the entries
+> below (across the Trivial, Small, and Medium tiers).** The project
+> name is **LengYue**. "Ebisu" is the third-party Bayesian
+> spaced-repetition algorithm by Fasiha that the project uses as a
+> dependency, not the project's own brand. The de-branding entries
+> remove *project-level* uses of "Ebisu" but MUST preserve
+> *algorithm-level* references:
+>
+> - the dependency line in `backend/requirements.txt`
+> - the wrapper module `backend/core/ebisu.py`
+> - `EBISU_TARGET_RECALL` / `EBISU_TIME_UNIT` / `EBISU_DEFAULT_MODEL`
+>   in `backend/core/config.py`
+> - the `EbisuModel` value object in `frontend/src/types.ts`
+> - the `EbisuRecallKey` pipeline-DSL discriminator in
+>   `backend/domain/pipeline_dsl.py` and its codegen mirrors
+> - the `predict_recall` / `update_recall_float` functions
+> - prose in `backend/docs/tree-dsl.md`, `backend/README.md`,
+>   `docs/adr/0001-…`, and `docs/adr-synopsis.md` that explicitly
+>   describes the project's *use of* the Ebisu algorithm
+>
+> Naming policy: prefer functional, role-descriptive names
+> (`backend-service.ts`, `auth_token`, `'dark' | 'light'`). Use
+> "LengYue" only where a project handle is genuinely unavoidable
+> (e.g., a public-facing API title).
+
+#### `[backend]` De-brand FastAPI metadata title
+
+`backend/main.py:47` declares
+`title="Ebisu Spaced Repetition API"`. The OpenAPI title brands
+the backend service for a misnomer. Replace with a functional
+title (`"Spaced Repetition API"`) or, if a project handle at the
+public OpenAPI surface is desired, `"LengYue API"`. No other
+behavior change; `frontend/src/types/backend.ts` updates on the
+next `npm run gen:api`.
+
+#### `[backend]` De-brand README and config-comment prose
+
+Sweep `backend/README.md` for project-branding uses of "Ebisu":
+the heading at line 1 (`# Ebisu — Spaced-Repetition Service`),
+the opening sentence at line 3 (`A FastAPI service implementing
+the Ebisu Bayesian…`), and any prose framing the backend as
+"the Ebisu service." Replace with functional language ("the
+spaced-repetition service"). Preserve algorithm-attribution
+prose — the `#### 3. Set sensible Ebisu defaults` section
+heading, the `EBISU_TIME_UNIT` / `EBISU_DEFAULT_MODEL`
+descriptions, the "in Ebisu terms" passage at line 83. The
+`# ----- Ebisu Math -----` comment in `backend/core/config.py`
+is algorithm-correct and stays.
+
+#### `[frontend]` De-brand source-file comments
+
+Frontend source comments where "Ebisu" labels the backend service
+rather than the algorithm:
+
+- `src/services/api-client.ts:3` — `* Pure REST client for Ebisu API v2.`
+- `src/config/env.ts:26` — `Base URL for the Ebisu REST backend …`
+- `src/services/ebisu-service.ts:2-3` — file header (retired by
+  the file rename below)
+
+Replace with functional descriptors ("the spaced-repetition
+backend"). Pairs naturally with the file rename in the Small
+tier; can also be done independently as typo-class fixes.
+
+#### `[both]` De-brand documentation prose
+
+Single documentation-discipline sweep (per ADR-0005) over:
+
+- `docs/handoff-current.md` — lines 74, 97, 133, 155 are
+  project-branding ("(Ebisu-based)", "ebisu-service.ts",
+  service references). Line 27 ("Ebisu's Bayesian recall model")
+  is correct algorithm attribution and stays.
+- `docs/dispatch/frontend-to-backend-auth-me.md:18` — references
+  the localStorage key; updates with the localStorage rename
+  below.
+- `frontend/README.md` lines 4, 25, 53, 65, 71, 130, 175 — mix
+  of service-branding and filename references.
+- `frontend/CLAUDE.md:26` — references the file being renamed.
+- `docs/adr/0002-fail-loudly.md:10,221` — line 10 is
+  service-branding prose; line 221 is a filename reference.
+
+Replace project-branding instances ("the Ebisu backend", "the
+Ebisu service") with functional descriptors ("the
+spaced-repetition backend"). Preserve algorithm-attribution
+phrases ("Ebisu's Bayesian recall model", "Ebisu-based" where
+the prose is explicitly about the algorithm). One commit,
+ADR-0005-shaped.
+
+#### `[docs]` Decide policy for `docs/archive/` Ebisu references
+
+The archive contains ~25 uses of "Ebisu backend" / "Ebisu API"
+in pre-umbrella handoff and 34b-project documents
+(`docs/archive/handoff-2026-04-frontend-pre-umbrella.md`,
+`docs/archive/34b-*.md`). Two policies are reasonable:
+
+(a) Leave archive content untouched (it is historical record),
+    and add a one-line preface to `docs/archive/README.md`
+    explaining that "Ebisu" appearing in archive material
+    refers to the project under its previous misnomer.
+    *Recommended* — preserves the artifacts as moment-in-time
+    records.
+(b) Sweep archive content for consistency with the rest of the
+    de-branded codebase.
+
+Pick one and execute when the rest of the de-branding is done.
+
 ### Small — one-file refactors, no contract changes
 
 #### 13. `[backend]` Filter `CardRepository` by `user_id` *(tenancy)*
@@ -240,6 +345,29 @@ Optional cleanup. After Commit 5a-extension,
 boundary adapter; tightening the underlying `useVariationPath`
 directly would let the adapter be removed and the variation path
 be exposed natively as branded. ~5 lines of cleanup.
+
+#### `[frontend]` Rename `ebisu-service.ts` → `backend-service.ts`
+
+The frontend ACL file currently labels itself for the project
+misnomer; `frontend/CLAUDE.md:26` already flags it as "subject
+to renaming." Functional rename:
+
+- `src/services/ebisu-service.ts` → `src/services/backend-service.ts`
+- `class EbisuService` → `class BackendService`
+- `export const ebisuService` → `export const backendService`
+
+Update all imports (`useMinting.ts:8`, `useReviewSession.ts`,
+plus about a dozen other call sites; grep for `ebisu-service`
+and `ebisuService` to enumerate). Update doc references:
+
+- `frontend/CLAUDE.md:26` (drop the "subject to renaming" caveat)
+- `frontend/README.md` lines 65, 71, 130, 175
+- `docs/handoff-current.md` lines 97, 133, 155
+- `docs/adr/0002-fail-loudly.md:221`
+- `docs/TODO.md:117,376` (this file's own references)
+
+Per ADR-0006, the moved file's pathname comment in the JSDoc
+header updates to match. No behavior change.
 
 ### Medium — touches contracts or requires coordinated changes
 
@@ -376,6 +504,139 @@ Adopt the generated type at the call site (`useMinting.ts` and
 `ebisu-service.ts::createCard`) and remove the handwritten
 version. Not yet numbered; treat as a follow-on to the
 build-error sweep.
+
+#### `[frontend]` Rename auth localStorage keys
+
+`src/services/api-client.ts:14-15` declares:
+
+```typescript
+const TOKEN_KEY = 'ebisu_jwt_token';
+const USER_KEY = 'ebisu_username';
+```
+
+Both are project-handle-branded. Rename to functional names
+(`auth_token`, `auth_username`).
+
+Migration concern: existing users have tokens stored at the old
+keys; a hard-cut logs them out on next session. Recommended: a
+one-shot compat shim in `api-client.ts` that, on construction,
+reads the old key, writes to the new key, and removes the old.
+Per ADR-0002 documented exception #3
+(bounded-and-scheduled-for-removal compat shim) — file a
+follow-on TODO to drop the shim after one release-cycle.
+
+Updates `docs/dispatch/frontend-to-backend-auth-me.md:18` to
+match. Not a contract change for the backend.
+
+#### `[backend]` Rename or remove HTTP header `X-Ebisu-Token`
+
+`backend/core/config.py:86` declares
+`API_TOKEN_NAME: str = "X-Ebisu-Token"`. Project-handle-branded.
+
+Audit usage first — grep for `API_TOKEN_NAME`. The auth flow uses
+Bearer JWT (`get_current_user_id` reads `Authorization`), so this
+constant may be vestigial. If unused, remove the constant
+entirely; if used, rename to `X-Auth-Token` or fold the call site
+into Authorization-header handling. If any frontend code sends
+this header, that call site updates in lockstep.
+
+#### `[backend]` Rename secret-key file `.ebisu_secret_key`
+
+`backend/core/config.py:85` declares
+`SECRET_KEY_FILE: str = "./.ebisu_secret_key"`.
+Project-handle-branded. Rename to a functional path (e.g.,
+`./.jwt_secret`).
+
+Migration concern: existing installs hold the JWT signing secret
+in the old file. A hard-cut regenerates the secret on first run
+after the rename, invalidating every JWT in the wild and logging
+out all users. The cleanest solution is a startup compat: if the
+old file exists and the new one does not, rename it on disk and
+proceed. One small block in `core/security.py` (or wherever the
+file is read).
+
+Updates `docs/notes/tenancy.md:254` and `docs/TODO.md:66` (the
+Completed-table reference to the filename in this file).
+
+#### `[backend]` Rename SQLite database file `ebisu.db`
+
+`backend/core/config.py:72` defaults `DATABASE_URI` to
+`sqlite+aiosqlite:///./ebisu.db`. Project-handle-branded.
+Rename to a functional or LengYue-branded filename (e.g.,
+`./cards.db`, `./lengyue.db`).
+
+Migration concern: existing local installs hold their data in
+the old filename. Recommended startup compat: if `DATABASE_URI`
+resolves to a missing file but the legacy `ebisu.db` exists in
+the same directory, rename it on disk before opening the
+connection. Same shape as the secret-key compat above.
+
+Updates `backend/README.md:62` (the example
+`export DATABASE_URI=…ebisu.db`) and
+`docs/playbooks/monorepo/monorepo-plan.md:232,240` (which list
+the filename in the inventory).
+
+#### `[frontend]` De-brand theme identifiers
+
+`'ebisu-dark' | 'ebisu-light'` in `src/types.ts:176` and
+`src/store/defaults.ts:45` are project-handle-branded.
+Functional rename: `'dark' | 'light'`.
+
+Migration concern: existing users' `AppSettings.appearance.theme`
+holds `'ebisu-dark'`; without migration the value becomes
+invalid on next load and the theme falls back to the default.
+Two acceptable approaches:
+
+(a) Hard-cut: update the type union; accept that existing users
+    see the default theme on next load.
+(b) Settings-migration on hydrate: rewrite `'ebisu-dark' →
+    'dark'` once during store hydration.
+
+Recommended: (b) — small, bounded, removable later. Group with
+the card-set and palette migrations below into one
+settings-hydrate shim.
+
+#### `[frontend]` De-brand default card-set id
+
+`src/store/defaults.ts:62-65,119` defines:
+
+```typescript
+'default_ebisu': {
+  id: 'default_ebisu',
+  name: 'Standard Ebisu',
+  description: 'Breadth-first pool, sorted by Ebisu recall probability.',
+  ...
+}
+…
+activeCardSetId: 'default_ebisu',
+```
+
+Functional rename: `'default'` for the id, `'Standard'` for the
+display name; rephrase the description to drop the project brand
+(e.g., "Breadth-first pool, sorted by spaced-repetition recall
+probability").
+
+Migration concern: a stored `activeCardSetId: 'default_ebisu'`
+in user state references the old id. Rewrite-on-hydrate,
+alongside the theme migration above.
+
+#### `[frontend]` De-brand default palette formula name
+
+`src/store/defaults.ts:21,31` declares:
+
+```typescript
+ebisu_delta:   'visit_ratio(x)**(spread(x)**alpha)',
+…
+delta_fn: 'ebisu_delta',
+```
+
+The formula `visit_ratio(x)**(spread(x)**alpha)` has no
+algorithmic relationship to Ebisu — the name is purely
+project-brand. Functional rename: `quality_delta` or similar.
+
+Migration concern: user palettes reference this name as a
+string key. Rewrite-on-hydrate, alongside the theme and
+card-set migrations above.
 
 ### Large — structural changes that introduce new abstractions
 
