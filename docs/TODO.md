@@ -115,6 +115,7 @@ reading the outstanding work.
 | 27-min | Last-write-wins invariant documented on `sendSync()`. The "full" multi-tab version is parked under Future projects below. |
 | 29 | ACL fully typed: `mapToReviewCard(raw: CardFromWire)` (closed jointly with item 30 step 2). Wire shape `raw.sgf` confirmed dead and removed; `normalized_sgf` and `default_visits` retained as 34b-Commit-3 stale-bundle compat shims, removed by Commit 3b. |
 | 30 | OpenAPI codegen pipeline: `openapi-typescript` dev dependency, `gen:api` script, generated `src/types/backend.ts` (committed), `frontend/README.md` documenting workflow. First consumer (`ebisu-service.ts`) wired. |
+| 28 | JWT 401 silent retry: identity-honest re-login as the cached user on non-`/auth/*` 401s (passwordless: silent recovery via `pushSystemMessage('info', ...)`; password accounts: fall through to the existing visible rejection flow). Identity-preserving variant of the original spec — uses `login(cached)` not `ensureAuthenticated()` to avoid silent identity substitution post-B5 finalization. Bundled with the api-client → useAuth callback bridge that flips `auth.state` to `'unauthenticated'` on 401-cleared-token, closing a pre-existing convention-only drift between the two; the underlying pattern is filed as RFC-0001 open question 9. |
 | — | Build-error sweep (multi-commit project; ~124 strict-mode errors closed across 11 commits + one regression caught and fixed mid-sweep). The mid-sweep regression became the proximate motivation for ADR-0004. After this sweep, `vue-tsc -b` runs clean. Detail in `docs/archive/handoff-2026-04-frontend-pre-umbrella.md`. |
 | — | *Visits-override feature: per-card sticky `visitsOverride` in `ReviewSessionData`; `effectiveVisits` / `setVisitsOverride` on composable; number input in SR tab. Not in original TODO numbering.* |
 | — | *Persistent system-log bar: `systemLogExpanded` in `UISession`, always-render `SystemLogPanel`, registry checkbox. Not in original TODO numbering.* |
@@ -458,31 +459,6 @@ Brief docstrings in:
 The system-level tenancy note already exists at
 `docs/notes/tenancy.md`. This item is the in-code documentation
 that points back at it.
-
-#### 28. `[frontend]` Improve JWT 401 handling
-
-`api-client.ts::request` clears the token on 401 and throws.
-With 30-day tokens
-(`core/security.py::ACCESS_TOKEN_EXPIRE_MINUTES`), most users
-will hit this exactly once per month, and the failure presents
-as one user-visible error followed by silent recovery on the
-next call. Replace with: on 401, attempt `ensureAuthenticated()`
-once and retry the original request; only throw if the retry
-also fails. Surface the recovery via
-`pushSystemMessage('info', ...)`.
-
-**Depends on:** item 20 (shipped). Compliant with ADR-0002:
-this is "explicit, bounded, single retry on a known auth-protocol
-pattern," not the silent auto-retry that the tenet rejects.
-
-Caveat: during a fresh install, the first `login()` inside
-`ensureAuthenticated` legitimately fails before the
-registration-then-login dance completes. Item 28's retry logic
-must distinguish "expected first-run auth dance" from "user's
-session actually expired." The simplest distinction is
-state-based: if the 401 happens inside `ensureAuthenticated`
-itself, suppress surfacing; if it happens on any other call,
-surface and retry.
 
 #### `[frontend]` Type the pipeline DSL on the frontend
 

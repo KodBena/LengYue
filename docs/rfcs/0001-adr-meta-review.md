@@ -282,6 +282,44 @@ every-six-months pass turns out to be too lumpy.
    ambiguous enough that a fresh contributor could read either
    way.
 
+9. **Runtime-state source-of-truth coverage in Layer 1.**
+   ADR-0005 Rule 1 ("single source of truth per nominal
+   handle") was authored about documentation drift, but the
+   same risk applies to runtime state. Cross-module pairs
+   whose alignment is convention-only — module A mutates a
+   state representation that module B claims to own, with
+   nothing structural enforcing the agreement — can drift the
+   moment consumer count grows. The TODO #28 / auth-lifecycle-
+   ux work surfaced this concretely: `api-client.ts`'s
+   `request()` clears the JWT in localStorage on a 401
+   side-effect, while `useAuth`'s `auth.state` is supposed to
+   be the SPA's source of truth for authentication. As long as
+   only `useAuth` itself watched `auth.state`, the drift was
+   latent. Once SyncService (B5 finalization) and UserBadge
+   (auth-lifecycle-ux) became load-bearing consumers,
+   non-`/auth/*` 401s left `auth.state` falsely
+   `'authenticated'` while the JWT was already gone — modal
+   didn't auto-open, workspace didn't wipe, "spammy" follow-up
+   401s as sync's gate stayed open against a user the SPA no
+   longer represented. The fix was a callback bridge (api-
+   client invokes a useAuth-registered hook on 401-clears-
+   token), but the underlying shape is conventional-alignment
+   between two physical representations of one nominal handle.
+   The Layer 1 audit should enumerate cross-module state pairs
+   and flag those whose alignment depends on convention rather
+   than formal binding. **Detection heuristic**: for any state
+   X read by two or more modules, identify paths that mutate X
+   without invoking the owner module's methods. **Remediation
+   patterns**, in order of structural honesty: (a) single
+   owner with the other module strictly observing (no
+   independent writes), (b) explicit callback / event bridge
+   so writes propagate, (c) collapse to a single physical
+   representation. Worth distinguishing from open question 8 —
+   that one is about ADR *language* drift; this one is about
+   *implementation* drift against an ADR (specifically -0005)
+   that holds at the documentation level but isn't being
+   enforced at the runtime level.
+
 ## Acceptance criteria
 
 This RFC is accepted when:

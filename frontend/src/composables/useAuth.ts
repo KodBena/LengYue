@@ -71,6 +71,27 @@ function setState(next: AuthState): void {
   _authState.value = next;
 }
 
+// ─── api-client → useAuth bridge (TODO #28 follow-up) ─────────────────────────
+// When api-client's request() observes a 401 on a non-auth endpoint, the
+// token gets cleared at the localStorage layer; without this bridge,
+// `auth.state` would stay falsely 'authenticated' (since useAuth methods
+// haven't run) and the auth-lifecycle UX (modal auto-open, workspace
+// wipe via SyncService's auth-state watcher) wouldn't trigger. The
+// bridge transitions state to 'unauthenticated' so downstream watchers
+// see the truth.
+//
+// Registered once at module init. The kind-guard avoids redundant
+// transitions when state is already non-authenticated (the api-client
+// can fire the callback in scenarios where useAuth has just done its
+// own state update — e.g., overlapping flows during cold-start; the
+// guard makes the registration idempotent).
+api.onTokenInvalidated(() => {
+  if (_authState.value.kind === 'authenticated') {
+    setState({ kind: 'unauthenticated' });
+    pushSystemMessage('warning', 'Session expired. Please sign in again.');
+  }
+});
+
 // ─── Verify-and-transition helper (private, B5) ──────────────────────────────
 
 /**
