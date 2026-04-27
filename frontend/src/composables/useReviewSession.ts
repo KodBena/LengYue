@@ -8,7 +8,7 @@
 import { computed, type Ref } from 'vue';
 import type { ReviewCard, NodeId, BoardId, ReviewStatus } from '../types';
 import { store, addBoard, mutateBoard, updateBoardState, mutateReviewSession, pushSystemMessage } from '../store';
-import { ebisuService } from '../services/ebisu-service';
+import { backendService } from '../services/backend-service';
 import { analysisService } from '../services/analysis-service';
 import { activeConfigHash, hashConfig } from '../services/analysis-config';
 import { waitForAnalysis, AnalysisWaitError } from './wait-for-analysis';
@@ -129,7 +129,7 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     mutateReviewSession(bId, draft => { draft.status = 'LOADING'; });
     
     try {
-      const cards = await ebisuService.fetchCardSet(cardSet);
+      const cards = await backendService.fetchCardSet(cardSet);
       mutateReviewSession(bId, draft => { draft.queue = cards; });
       
       if (cards.length > 0) {
@@ -324,7 +324,7 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     store.session.ui.showMoveSuggestions = true;
 
     try {
-      await ebisuService.submitReview(currentCard.value!.id, userMoveScores.value);
+      await backendService.submitReview(currentCard.value!.id, userMoveScores.value);
       rewindToStart();
     } catch (err) {
       console.error('[ReviewSession] Failed to submit review:', err);

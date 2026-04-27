@@ -7,7 +7,7 @@
   for single-location retrieval.
 - **Date:** 2026-04-24
 - **Scope:** Codebase-wide. Applies to the frontend (`gogui`) and, as a
-  design aspiration, to coordinated choices on the Ebisu backend.
+  design aspiration, to coordinated choices on the spaced-repetition backend.
 
 ## Context
 
@@ -218,7 +218,7 @@ whether the operation had already run.
 
 ### Backend stale-bundle compat shims
 
-`ebisu-service.ts::mapToReviewCard` has fallback chains like
+`backend-service.ts::mapToReviewCard` has fallback chains like
 `raw.canonical_content ?? raw.normalized_sgf ?? raw.sgf` during the
 34b wire-rename transition. These ARE a form of "quietly coerce
 ambiguous input." The justification: the alternative (compile error

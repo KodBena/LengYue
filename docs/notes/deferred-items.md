@@ -136,12 +136,30 @@ this file.
   user-keyed-or-not; this entry preserves that distinction
   for the future revisit.
 
+### Remove legacy auth-key compat shim (api-client.ts)
+
+- **Surfaced:** 2026-04-27 (during de-branding round 2).
+- **Concern:** `api-client.ts` carries a one-shot compat shim
+  (`migrateLegacyAuthKeys()`) that migrates from the
+  pre-de-branding identifiers `'ebisu_jwt_token'` /
+  `'ebisu_username'` to the canonical `'auth_token'` /
+  `'auth_username'` on module init. Per ADR-0002 documented
+  exception #3, it's a bounded-and-scheduled-for-removal compat
+  shim. Once monitoring confirms no users still carry the
+  legacy keys (or after a release cycle), the shim can be
+  removed.
+- **Suggested next action:** Open a small cleanup PR removing
+  the function definition and its single call. ~30 lines
+  deletion (function + comments). The relevant TODO Medium-tier
+  entry already retired in the de-branding round 2 PR; this
+  entry is the follow-on shim-removal target.
+
 ### Tags-fetch hydration race (useAppBootstrap.ts)
 
 - **Surfaced:** 2026-04-27 (during B5 finalization / identity-aware
   SyncService rework).
 - **Concern:** `useAppBootstrap.onMounted` fires
-  `ebisuService.getTags()` concurrently with `sync.connect()`'s
+  `backendService.getTags()` concurrently with `sync.connect()`'s
   hydration. If `getTags()` wins the race, the store mutation
   `store.profile = { ...store.profile, knownTags: ... }` runs
   first; then hydration's `updateFromRemote(doc.data)` overwrites

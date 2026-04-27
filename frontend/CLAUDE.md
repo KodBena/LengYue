@@ -23,8 +23,7 @@ The frontend is layered:
   shape.
 - **Services** (`src/services/*`) — effectful singletons. API calls,
   WebSocket clients, debounced persistence. The ACL at
-  `src/services/ebisu-service.ts` (subject to renaming; see
-  `docs/TODO.md`) is the boundary where backend wire shapes
+  `src/services/backend-service.ts` is the boundary where backend wire shapes
   (snake_case) become domain types (camelCase, branded).
 - **Store** — a single reactive `GlobalStore` at `src/store/index.ts`.
   No Pinia; the decision and its conditions for revisit are in

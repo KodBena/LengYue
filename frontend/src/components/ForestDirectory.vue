@@ -5,7 +5,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { store } from '../store';
-import { ebisuService } from '../services/ebisu-service';
+import { backendService } from '../services/backend-service';
 import type { ForestStat, ReviewCard } from '../types';
 import LineageTreeChart from './charts/LineageTreeChart.vue';
 
@@ -30,7 +30,7 @@ const selectedDeckId = ref<string>(store.session.ui.activeCardSetId);
 onMounted(async () => {
   isLoadingRoots.value = true;
   try {
-    roots.value = await ebisuService.getForestStats();
+    roots.value = await backendService.getForestStats();
     if (roots.value.length > 0) {
       await loadTree(roots.value[0].root_card_id);
     }
@@ -50,7 +50,7 @@ async function loadTree(rootCardId: number) {
     const pipeline = [
       { stage: "select", selection: { type: "SubtreeSelection", n: 0 }, ordering: { type: "DepthKey" } }
     ];
-    activeTreeCards.value = await ebisuService.queryForest([rootCardId], pipeline);
+    activeTreeCards.value = await backendService.queryForest([rootCardId], pipeline);
   } catch (err) {
     console.error(`Failed to load tree for root ${rootCardId}:`, err);
   } finally {
@@ -89,7 +89,7 @@ async function loadTree(rootCardId: number) {
       <div v-if="activeTab === 'roots'" class="roots-view">
         <div class="tools-row">
           <span style="font-size: 10px; color:#888;">All Game Sources</span>
-          <button class="reload-btn" @click="ebisuService.getForestStats().then(r => roots = r)">↻</button>
+          <button class="reload-btn" @click="backendService.getForestStats().then(r => roots = r)">↻</button>
         </div>
 
         <div v-if="isLoadingRoots" class="empty-state">Loading Roots...</div>

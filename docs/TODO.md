@@ -117,6 +117,7 @@ reading the outstanding work.
 | 30 | OpenAPI codegen pipeline: `openapi-typescript` dev dependency, `gen:api` script, generated `src/types/backend.ts` (committed), `frontend/README.md` documenting workflow. First consumer (`ebisu-service.ts`) wired. |
 | 28 | JWT 401 silent retry: identity-honest re-login as the cached user on non-`/auth/*` 401s (passwordless: silent recovery via `pushSystemMessage('info', ...)`; password accounts: fall through to the existing visible rejection flow). Identity-preserving variant of the original spec — uses `login(cached)` not `ensureAuthenticated()` to avoid silent identity substitution post-B5 finalization. Bundled with the api-client → useAuth callback bridge that flips `auth.state` to `'unauthenticated'` on 401-cleared-token, closing a pre-existing convention-only drift between the two; the underlying pattern is filed as RFC-0001 open question 9. |
 | — | Frontend de-branding round 1 — store migration `1 → 2`. Theme identifier rename (`'ebisu-dark'`/`'ebisu-light'` → `'dark'`/`'light'` in `profile.settings.appearance.theme` plus the type union in `types.ts:176`); default card-set id rename (`'default_ebisu'` → `'default'` in `cardSets[id]` keys plus `session.ui.activeCardSetId`, with display name `'Standard Ebisu'` → `'Standard'` and description de-branded); default palette formula name rename (`'ebisu_delta'` → `'quality_delta'` in `analysis_env.symbols` keys plus `palettes[*].delta_fn`). Three retiring TODO entries land as one principled migration in `migrations[0]`. Mid-execution lesson on defensive collision-guards captured in the worklog. |
+| — | Frontend de-branding round 2 — file rename `ebisu-service.ts` → `backend-service.ts` (class `EbisuService` → `BackendService`, const `ebisuService` → `backendService`, ~14 imports/usages updated across composables and `ForestDirectory.vue`); localStorage auth keys rename (`'ebisu_jwt_token'` → `'auth_token'`, `'ebisu_username'` → `'auth_username'`) with one-shot compat shim in `api-client.ts` per ADR-0002 documented exception #3; source-comment de-brands in `api-client.ts:3` and `env.ts:26`; doc prose sweeps across `handoff-current.md`, `dispatch/frontend-to-backend-auth-me.md`, `frontend/README.md`, `frontend/CLAUDE.md`, `docs/adr/0002-fail-loudly.md` (algorithm-attribution prose preserved per the TODO's preservation note). `docs/archive/` policy decided as option (a): leave content untouched (preface already in place at `archive/README.md`). EbisuModel and EbisuRecallKey preserved as algorithm-correct domain references. |
 | — | Build-error sweep (multi-commit project; ~124 strict-mode errors closed across 11 commits + one regression caught and fixed mid-sweep). The mid-sweep regression became the proximate motivation for ADR-0004. After this sweep, `vue-tsc -b` runs clean. Detail in `docs/archive/handoff-2026-04-frontend-pre-umbrella.md`. |
 | — | *Visits-override feature: per-card sticky `visitsOverride` in `ReviewSessionData`; `effectiveVisits` / `setVisitsOverride` on composable; number input in SR tab. Not in original TODO numbering.* |
 | — | *Persistent system-log bar: `systemLogExpanded` in `UISession`, always-render `SystemLogPanel`, registry checkbox. Not in original TODO numbering.* |
@@ -215,62 +216,6 @@ descriptions, the "in Ebisu terms" passage at line 83. The
 `# ----- Ebisu Math -----` comment in `backend/core/config.py`
 is algorithm-correct and stays.
 
-#### `[frontend]` De-brand source-file comments
-
-Frontend source comments where "Ebisu" labels the backend service
-rather than the algorithm:
-
-- `src/services/api-client.ts:3` — `* Pure REST client for Ebisu API v2.`
-- `src/config/env.ts:26` — `Base URL for the Ebisu REST backend …`
-- `src/services/ebisu-service.ts:2-3` — file header (retired by
-  the file rename below)
-
-Replace with functional descriptors ("the spaced-repetition
-backend"). Pairs naturally with the file rename in the Small
-tier; can also be done independently as typo-class fixes.
-
-#### `[both]` De-brand documentation prose
-
-Single documentation-discipline sweep (per ADR-0005) over:
-
-- `docs/handoff-current.md` — lines 74, 97, 133, 155 are
-  project-branding ("(Ebisu-based)", "ebisu-service.ts",
-  service references). Line 27 ("Ebisu's Bayesian recall model")
-  is correct algorithm attribution and stays.
-- `docs/dispatch/frontend-to-backend-auth-me.md:18` — references
-  the localStorage key; updates with the localStorage rename
-  below.
-- `frontend/README.md` lines 4, 25, 53, 65, 71, 130, 175 — mix
-  of service-branding and filename references.
-- `frontend/CLAUDE.md:26` — references the file being renamed.
-- `docs/adr/0002-fail-loudly.md:10,221` — line 10 is
-  service-branding prose; line 221 is a filename reference.
-
-Replace project-branding instances ("the Ebisu backend", "the
-Ebisu service") with functional descriptors ("the
-spaced-repetition backend"). Preserve algorithm-attribution
-phrases ("Ebisu's Bayesian recall model", "Ebisu-based" where
-the prose is explicitly about the algorithm). One commit,
-ADR-0005-shaped.
-
-#### `[docs]` Decide policy for `docs/archive/` Ebisu references
-
-The archive contains ~25 uses of "Ebisu backend" / "Ebisu API"
-in pre-umbrella handoff and 34b-project documents
-(`docs/archive/handoff-2026-04-frontend-pre-umbrella.md`,
-`docs/archive/34b-*.md`). Two policies are reasonable:
-
-(a) Leave archive content untouched (it is historical record),
-    and add a one-line preface to `docs/archive/README.md`
-    explaining that "Ebisu" appearing in archive material
-    refers to the project under its previous misnomer.
-    *Recommended* — preserves the artifacts as moment-in-time
-    records.
-(b) Sweep archive content for consistency with the rest of the
-    de-branded codebase.
-
-Pick one and execute when the rest of the de-branding is done.
-
 ### Small — one-file refactors, no contract changes
 
 #### 13. `[backend]` Filter `CardRepository` by `user_id` *(tenancy)*
@@ -349,29 +294,6 @@ Optional cleanup. After Commit 5a-extension,
 boundary adapter; tightening the underlying `useVariationPath`
 directly would let the adapter be removed and the variation path
 be exposed natively as branded. ~5 lines of cleanup.
-
-#### `[frontend]` Rename `ebisu-service.ts` → `backend-service.ts`
-
-The frontend ACL file currently labels itself for the project
-misnomer; `frontend/CLAUDE.md:26` already flags it as "subject
-to renaming." Functional rename:
-
-- `src/services/ebisu-service.ts` → `src/services/backend-service.ts`
-- `class EbisuService` → `class BackendService`
-- `export const ebisuService` → `export const backendService`
-
-Update all imports (`useMinting.ts:8`, `useReviewSession.ts`,
-plus about a dozen other call sites; grep for `ebisu-service`
-and `ebisuService` to enumerate). Update doc references:
-
-- `frontend/CLAUDE.md:26` (drop the "subject to renaming" caveat)
-- `frontend/README.md` lines 65, 71, 130, 175
-- `docs/handoff-current.md` lines 97, 133, 155
-- `docs/adr/0002-fail-loudly.md:221`
-- `docs/TODO.md:117,376` (this file's own references)
-
-Per ADR-0006, the moved file's pathname comment in the JSDoc
-header updates to match. No behavior change.
 
 ### Medium — touches contracts or requires coordinated changes
 
@@ -480,32 +402,9 @@ build-error sweep.
 `components['schemas']['CardCreate']` from the same backend
 schema. Two declarations of the same shape is a drift hazard.
 Adopt the generated type at the call site (`useMinting.ts` and
-`ebisu-service.ts::createCard`) and remove the handwritten
+`backend-service.ts::createCard`) and remove the handwritten
 version. Not yet numbered; treat as a follow-on to the
 build-error sweep.
-
-#### `[frontend]` Rename auth localStorage keys
-
-`src/services/api-client.ts:14-15` declares:
-
-```typescript
-const TOKEN_KEY = 'ebisu_jwt_token';
-const USER_KEY = 'ebisu_username';
-```
-
-Both are project-handle-branded. Rename to functional names
-(`auth_token`, `auth_username`).
-
-Migration concern: existing users have tokens stored at the old
-keys; a hard-cut logs them out on next session. Recommended: a
-one-shot compat shim in `api-client.ts` that, on construction,
-reads the old key, writes to the new key, and removes the old.
-Per ADR-0002 documented exception #3
-(bounded-and-scheduled-for-removal compat shim) — file a
-follow-on TODO to drop the shim after one release-cycle.
-
-Updates `docs/dispatch/frontend-to-backend-auth-me.md:18` to
-match. Not a contract change for the backend.
 
 #### `[backend]` Rename or remove HTTP header `X-Ebisu-Token`
 

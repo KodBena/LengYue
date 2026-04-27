@@ -23,7 +23,7 @@
  */
 
 /**
- * Base URL for the Ebisu REST backend (cards, reviews, forests,
+ * Base URL for the spaced-repetition backend (cards, reviews, forests,
  * documents, and — since the resource-endpoint consolidation — static
  * resources served at /resources/{name}).
  * Override via VITE_API_BASE_URL in `.env` or the build environment.
