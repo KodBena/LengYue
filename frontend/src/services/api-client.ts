@@ -27,6 +27,32 @@ export class ApiClient {
     else localStorage.removeItem(TOKEN_KEY);
   }
 
+  // Recursion guard for the 401 silent-retry path. When `request` is
+  // attempting a re-authentication after a 401, the inner login() call
+  // re-enters request() against /auth/token; the flag prevents that
+  // inner call from spawning its own retry attempt. The auth-endpoint
+  // check (path.startsWith('/auth/')) below would also catch it; the
+  // flag is belt-and-suspenders.
+  private isReauthInFlight = false;
+
+  // Callback bridge: invoked when a non-auth-endpoint 401 forces the
+  // token to be cleared (i.e., the user's session is genuinely no
+  // longer valid). useAuth registers a handler at module init that
+  // transitions `auth.state` to `'unauthenticated'`, which in turn
+  // drives the auth-lifecycle UX (modal auto-open, workspace wipe via
+  // SyncService's auth-state watcher). Without this bridge,
+  // mid-session 401s would clear the token at the api-client layer
+  // while leaving `auth.state` falsely 'authenticated' — the gap
+  // surfaced during TODO #28 testing.
+  //
+  // Skipped for auth endpoints (login / /auth/me): those paths' callers
+  // already handle their own state transitions, so firing this callback
+  // would produce duplicate setState calls and warning messages.
+  private onTokenInvalidatedCallback: (() => void) | null = null;
+  public onTokenInvalidated(cb: () => void): void {
+    this.onTokenInvalidatedCallback = cb;
+  }
+
   /**
    * Generic request wrapper that automatically injects the JWT.
    *
@@ -39,29 +65,40 @@ export class ApiClient {
    *     match on err.message.
    *   - console.error is kept in both paths as a secondary debug
    *     surface; the system log is primary.
+   *
+   * 401 silent-retry (TODO item 28):
+   *   - On 401 from a non-auth endpoint, attempt one re-login as the
+   *     cached identity (`cachedUsername`) and retry the original
+   *     request. Identity-honest: preserves who we were authenticated
+   *     as, never silently substitutes (the failure mode B5 closed).
+   *     For passwordless deployments the re-login succeeds and the
+   *     retry runs transparently; for password-protected accounts
+   *     (no cached password) the re-login fails and the original 401
+   *     falls through to the normal rejection flow.
+   *   - ADR-0002 compliance: explicit, bounded, single retry on a
+   *     known auth-protocol pattern — not the silent auto-retry the
+   *     tenet rejects.
    */
   public async request<T>(method: string, path: string, body?: any): Promise<T> {
-    const headers: Record<string, string> = {};
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
-    }
-
-    let payload: RequestInit = { method, headers };
-
-    // Standard JSON payload
-    if (body && !(body instanceof URLSearchParams)) {
-      headers['Content-Type'] = 'application/json';
-      payload.body = JSON.stringify(body);
-    }
-    // Form-urlencoded payload (used for OAuth2 /token endpoint)
-    else if (body instanceof URLSearchParams) {
-      headers['Content-Type'] = 'application/x-www-form-urlencoded';
-      payload.body = body;
-    }
+    const buildPayload = (): RequestInit => {
+      const headers: Record<string, string> = {};
+      if (this.token) {
+        headers['Authorization'] = `Bearer ${this.token}`;
+      }
+      const payload: RequestInit = { method, headers };
+      if (body && !(body instanceof URLSearchParams)) {
+        headers['Content-Type'] = 'application/json';
+        payload.body = JSON.stringify(body);
+      } else if (body instanceof URLSearchParams) {
+        headers['Content-Type'] = 'application/x-www-form-urlencoded';
+        payload.body = body;
+      }
+      return payload;
+    };
 
     let response: Response;
     try {
-      response = await fetch(`${API_BASE_URL}${path}`, payload);
+      response = await fetch(`${API_BASE_URL}${path}`, buildPayload());
     } catch (err) {
       // fetch() itself rejected — network unreachable, DNS, CORS, etc.
       // No HTTP status is available in this case.
@@ -72,8 +109,44 @@ export class ApiClient {
       throw err;
     }
 
+    // 401 retry: identity-honest single retry. See class JSDoc above.
+    const isAuthEndpoint = path.startsWith('/auth/');
+    if (response.status === 401 && !this.isReauthInFlight && !isAuthEndpoint) {
+      const cached = this.cachedUsername();
+      if (cached) {
+        this.token = null;
+        this.isReauthInFlight = true;
+        try {
+          await this.login(cached);
+          response = await fetch(`${API_BASE_URL}${path}`, buildPayload());
+          if (response.ok) {
+            pushSystemMessage('info', 'Session refreshed automatically.');
+          }
+          // If retry returned non-ok, fall through to standard error
+          // handling below — the new token didn't help, the user's
+          // session is genuinely no longer valid.
+        } catch {
+          // login() failed (no password cached; password account) or
+          // the retry fetch itself threw. Leave `response` as the
+          // original 401; the standard !response.ok branch handles it
+          // and useAuth's normal rejection flow takes over.
+        } finally {
+          this.isReauthInFlight = false;
+        }
+      }
+    }
+
     if (!response.ok) {
-      if (response.status === 401) this.token = null; // Token expired/invalid
+      if (response.status === 401) {
+        this.token = null; // Token expired/invalid
+        // Notify useAuth so it can flip `auth.state` to unauthenticated
+        // and drive the auth-lifecycle UX. Auth endpoints' callers
+        // handle their own state, so we skip the callback there to
+        // avoid duplicate transitions/messages.
+        if (!isAuthEndpoint) {
+          this.onTokenInvalidatedCallback?.();
+        }
+      }
       const errText = await response.text();
       const excerpt = errText.length > ERROR_BODY_EXCERPT_MAX
         ? errText.slice(0, ERROR_BODY_EXCERPT_MAX) + '…'
