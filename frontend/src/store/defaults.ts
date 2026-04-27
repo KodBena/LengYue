@@ -18,7 +18,7 @@ export const defaultSettings = {
           score_lead:    'x["rootInfo"]["scoreLead"]',
           visit_ratio:   'uservisits(x[0]) / x[0]["rootInfo"]["visits"]',
           spread:        'x[0]["moveInfos"][0]["visits"] / x[0]["rootInfo"]["visits"]',
-          ebisu_delta:   'visit_ratio(x)**(spread(x)**alpha)',
+          quality_delta: 'visit_ratio(x)**(spread(x)**alpha)',
           min_summary:   'float(np.min(x))',
         },
         parameters: {
@@ -28,7 +28,7 @@ export const defaultSettings = {
           {
             id: 'default',
             name: 'Standard Evaluation',
-            delta_fn: 'ebisu_delta',
+            delta_fn: 'quality_delta',
             summary_fn: 'min_summary',
             state_fns: {
               'Complexity':      'visit_entropy',
@@ -42,7 +42,7 @@ export const defaultSettings = {
     },
   },
   persistence: { debounceInterval: 1000 },
-  appearance:  { theme: 'ebisu-dark' },
+  appearance:  { theme: 'dark' },
   minting: {
     defaultVisits: 1000,
     defaultNumMoves: 1,
@@ -59,10 +59,10 @@ export const defaultThumbnailSettings: ThumbnailSettings = {
 };
 
 export const defaultCardSets: Record<string, CardSet> = {
-  'default_ebisu': {
-    id: 'default_ebisu',
-    name: 'Standard Ebisu',
-    description: 'Breadth-first pool, sorted by Ebisu recall probability.',
+  'default': {
+    id: 'default',
+    name: 'Standard',
+    description: 'Breadth-first pool, sorted by spaced-repetition recall probability.',
     contextIds: [3], 
     pipeline: [
       {
@@ -116,7 +116,7 @@ export const defaultSessionUI: UISession = {
   moveFilterExpression: 'move.order === 0 || (move.visits / root.visits) >= ui.threshold',
   analysisLayout: 'horizontal',
   showMoveSuggestions: true,
-  activeCardSetId: 'default_ebisu',
+  activeCardSetId: 'default',
 };
 
 export const DEFAULTS = {

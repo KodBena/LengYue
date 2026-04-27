@@ -116,6 +116,7 @@ reading the outstanding work.
 | 29 | ACL fully typed: `mapToReviewCard(raw: CardFromWire)` (closed jointly with item 30 step 2). Wire shape `raw.sgf` confirmed dead and removed; `normalized_sgf` and `default_visits` retained as 34b-Commit-3 stale-bundle compat shims, removed by Commit 3b. |
 | 30 | OpenAPI codegen pipeline: `openapi-typescript` dev dependency, `gen:api` script, generated `src/types/backend.ts` (committed), `frontend/README.md` documenting workflow. First consumer (`ebisu-service.ts`) wired. |
 | 28 | JWT 401 silent retry: identity-honest re-login as the cached user on non-`/auth/*` 401s (passwordless: silent recovery via `pushSystemMessage('info', ...)`; password accounts: fall through to the existing visible rejection flow). Identity-preserving variant of the original spec — uses `login(cached)` not `ensureAuthenticated()` to avoid silent identity substitution post-B5 finalization. Bundled with the api-client → useAuth callback bridge that flips `auth.state` to `'unauthenticated'` on 401-cleared-token, closing a pre-existing convention-only drift between the two; the underlying pattern is filed as RFC-0001 open question 9. |
+| — | Frontend de-branding round 1 — store migration `1 → 2`. Theme identifier rename (`'ebisu-dark'`/`'ebisu-light'` → `'dark'`/`'light'` in `profile.settings.appearance.theme` plus the type union in `types.ts:176`); default card-set id rename (`'default_ebisu'` → `'default'` in `cardSets[id]` keys plus `session.ui.activeCardSetId`, with display name `'Standard Ebisu'` → `'Standard'` and description de-branded); default palette formula name rename (`'ebisu_delta'` → `'quality_delta'` in `analysis_env.symbols` keys plus `palettes[*].delta_fn`). Three retiring TODO entries land as one principled migration in `migrations[0]`. Mid-execution lesson on defensive collision-guards captured in the worklog. |
 | — | Build-error sweep (multi-commit project; ~124 strict-mode errors closed across 11 commits + one regression caught and fixed mid-sweep). The mid-sweep regression became the proximate motivation for ADR-0004. After this sweep, `vue-tsc -b` runs clean. Detail in `docs/archive/handoff-2026-04-frontend-pre-umbrella.md`. |
 | — | *Visits-override feature: per-card sticky `visitsOverride` in `ReviewSessionData`; `effectiveVisits` / `setVisitsOverride` on composable; number input in SR tab. Not in original TODO numbering.* |
 | — | *Persistent system-log bar: `systemLogExpanded` in `UISession`, always-render `SystemLogPanel`, registry checkbox. Not in original TODO numbering.* |
@@ -553,68 +554,6 @@ Updates `backend/README.md:62` (the example
 `export DATABASE_URI=…ebisu.db`) and
 `docs/playbooks/monorepo/monorepo-plan.md:232,240` (which list
 the filename in the inventory).
-
-#### `[frontend]` De-brand theme identifiers
-
-`'ebisu-dark' | 'ebisu-light'` in `src/types.ts:176` and
-`src/store/defaults.ts:45` are project-handle-branded.
-Functional rename: `'dark' | 'light'`.
-
-Migration concern: existing users' `AppSettings.appearance.theme`
-holds `'ebisu-dark'`; without migration the value becomes
-invalid on next load and the theme falls back to the default.
-Two acceptable approaches:
-
-(a) Hard-cut: update the type union; accept that existing users
-    see the default theme on next load.
-(b) Settings-migration on hydrate: rewrite `'ebisu-dark' →
-    'dark'` once during store hydration.
-
-Recommended: (b) — small, bounded, removable later. Group with
-the card-set and palette migrations below into one
-settings-hydrate shim.
-
-#### `[frontend]` De-brand default card-set id
-
-`src/store/defaults.ts:62-65,119` defines:
-
-```typescript
-'default_ebisu': {
-  id: 'default_ebisu',
-  name: 'Standard Ebisu',
-  description: 'Breadth-first pool, sorted by Ebisu recall probability.',
-  ...
-}
-…
-activeCardSetId: 'default_ebisu',
-```
-
-Functional rename: `'default'` for the id, `'Standard'` for the
-display name; rephrase the description to drop the project brand
-(e.g., "Breadth-first pool, sorted by spaced-repetition recall
-probability").
-
-Migration concern: a stored `activeCardSetId: 'default_ebisu'`
-in user state references the old id. Rewrite-on-hydrate,
-alongside the theme migration above.
-
-#### `[frontend]` De-brand default palette formula name
-
-`src/store/defaults.ts:21,31` declares:
-
-```typescript
-ebisu_delta:   'visit_ratio(x)**(spread(x)**alpha)',
-…
-delta_fn: 'ebisu_delta',
-```
-
-The formula `visit_ratio(x)**(spread(x)**alpha)` has no
-algorithmic relationship to Ebisu — the name is purely
-project-brand. Functional rename: `quality_delta` or similar.
-
-Migration concern: user palettes reference this name as a
-string key. Rewrite-on-hydrate, alongside the theme and
-card-set migrations above.
 
 ### Large — structural changes that introduce new abstractions
 

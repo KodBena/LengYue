@@ -67,7 +67,7 @@
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 /**
  * A migration brings a blob at version N forward to version N+1.
@@ -85,7 +85,68 @@ type Migration = (blob: any) => any;
  * The first real migration (whenever it lands) is appended at
  * index 0 and represents 1 → 2.
  */
-export const migrations: Migration[] = [];
+export const migrations: Migration[] = [
+  // 1 → 2: De-brand three identifiers in the persisted blob.
+  // Theme: 'ebisu-dark' / 'ebisu-light' → 'dark' / 'light' in
+  //   profile.settings.appearance.theme.
+  // Card-set id: 'default_ebisu' → 'default' as the
+  //   profile.cardSets key, the embedded `id` field, and any
+  //   session.ui.activeCardSetId reference.
+  // Palette formula symbol: 'ebisu_delta' → 'quality_delta' as
+  //   the profile.settings.engine.katago.analysis_env.symbols
+  //   key, plus any palettes[*].delta_fn reference.
+  // Three collision-guards preserve user customizations that
+  // happen to occupy the destination identifier — we never
+  // overwrite a pre-existing 'default', 'quality_delta', or
+  // user-customized delta_fn.
+  (blob: any) => {
+    const out = structuredClone(blob);
+
+    const theme = out.profile?.settings?.appearance?.theme;
+    if (theme === 'ebisu-dark') {
+      out.profile.settings.appearance.theme = 'dark';
+    } else if (theme === 'ebisu-light') {
+      out.profile.settings.appearance.theme = 'light';
+    }
+
+    // Card-set id: always promote 'default_ebisu' to 'default'. If
+    // a 'default' key already exists alongside (e.g., from a prior
+    // hybrid-state hydrate where new-defaults seeded a fresh
+    // template before this migration ran), it's an auto-generated
+    // template — the user's actual customizations live at
+    // 'default_ebisu' and take precedence. Earlier defensive
+    // collision-guard turned out to preserve stale keys; honest
+    // behavior is to always reconcile to the new identifier.
+    const cardSets = out.profile?.cardSets;
+    if (cardSets && cardSets.default_ebisu) {
+      cardSets.default = cardSets.default_ebisu;
+      cardSets.default.id = 'default';
+      delete cardSets.default_ebisu;
+    }
+    if (out.session?.ui?.activeCardSetId === 'default_ebisu') {
+      out.session.ui.activeCardSetId = 'default';
+    }
+
+    // Palette formula symbol: always promote 'ebisu_delta' to
+    // 'quality_delta'. Same reasoning as above.
+    const symbols = out.profile?.settings?.engine?.katago?.analysis_env?.symbols;
+    if (symbols && 'ebisu_delta' in symbols) {
+      symbols.quality_delta = symbols.ebisu_delta;
+      delete symbols.ebisu_delta;
+    }
+
+    const palettes = out.profile?.settings?.engine?.katago?.analysis_env?.palettes;
+    if (Array.isArray(palettes)) {
+      for (const p of palettes) {
+        if (p?.delta_fn === 'ebisu_delta') {
+          p.delta_fn = 'quality_delta';
+        }
+      }
+    }
+
+    return out;
+  },
+];
 
 /**
  * Bring a persisted blob up to CURRENT_SCHEMA_VERSION. Returns
