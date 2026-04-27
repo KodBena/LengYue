@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue';
+import { computed, watch } from 'vue';
 import { ref as vueRef } from 'vue';
 
 import { useMetadata }       from './composables/useMetadata';
@@ -9,8 +9,7 @@ import { useUserIORegistry } from './composables/useUserIORegistry';
 import { useAuth }           from './composables/useAuth';
 import { useResizablePanel } from './composables/useResizablePanel';
 import { useDirtyBoardGuard } from './composables/useDirtyBoardGuard';
-import { resourceService } from './services/resource-service';
-
+import { useAppBootstrap } from './composables/useAppBootstrap';
 import {
   store,
   activeBoard,
@@ -24,8 +23,6 @@ import { applyGoMove }    from './logic';
 import { navigateTo }     from './engine/navigator';
 import { updateRegistry } from './engine/util';
 
-import { SyncService } from './services/sync-service';
-import { ebisuService } from './services/ebisu-service';
 import { analysisService } from './services/analysis-service';
 
 import BoardWidget      from './components/BoardWidget.vue';
@@ -116,24 +113,7 @@ function handleVisitsOverrideChange(e: Event) {
   reviewSession.setVisitsOverride(n);
 }
 
-const sync = new SyncService('user_workspace_01');
-onMounted(async () => {
-  // Establish auth identity FIRST. Subsequent calls (sync.connect's
-  // hydration GET, getTags) depend on a valid JWT being present, and
-  // previously each path called api.ensureAuthenticated independently
-  // — a real race during cold start. Auth-first eliminates the race
-  // and gives downstream code an observable identity to read.
-  await auth.tryAutoLogin();
-
-  sync.connect();
-  resourceService.loadVisitDistribution();
-  try {
-    const tags = await ebisuService.getTags();
-    store.profile = { ...store.profile, knownTags: tags.map(t => t.name) };
-  } catch (err) {
-    console.warn("Could not load tag dictionary:", err);
-  }
-});
+const { sync } = useAppBootstrap(auth);
 
 const controlTabs = [
   { id: 'sr',       label: 'SR'       },
