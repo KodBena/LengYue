@@ -17,7 +17,7 @@ import type {
   SystemMessage,
 } from '../types';
 
-import { defaultProfile, defaultSessionUI } from './defaults';
+import { defaultProfile, defaultSessionUI, NIL_UUID } from './defaults';
 import { createInitialBoard } from './board-factory';
 
 export { createInitialBoard }        from './board-factory';
@@ -131,6 +131,39 @@ export function updateBoardState(index: number, newState: BoardState): void {
     store.boards[index] = newState;
     boardsVersion.value++;
   }
+}
+
+/**
+ * Resets user-owned reactive workspace state (boards,
+ * activeBoardIndex, profile, session) to defaults. `store.engine`
+ * is intentionally preserved across the reset: under today's
+ * local-machine deployment the WebSocket URL is not user-keyed,
+ * so the live KataGo connection remains honestly applicable to
+ * any user. Half-resetting `store.engine` (e.g., flipping
+ * `status` to `'disconnected'` while the socket is still open)
+ * would create a real ADR-0001 violation. When deployment
+ * shifts to user-keyed endpoints (cloud-compute, rented
+ * per-user engines), full engine reset + actual
+ * analysisService.disconnect() becomes the right move; tracked
+ * in `docs/notes/deferred-items.md`.
+ *
+ * Used by the SyncService's auth-state watcher to clear prior-
+ * user data on identity loss (logout, rejection). The next
+ * hydration on re-login overwrites with the new user's backend
+ * document; the reset is the privacy-correct in-between state
+ * for shared-computer scenarios.
+ */
+export function resetWorkspace(): void {
+  store.boards = [createInitialBoard()];
+  store.activeBoardIndex = 0;
+  store.profile = structuredClone(defaultProfile);
+  store.session = {
+    id: NIL_UUID as SessionId,
+    profileId: NIL_UUID as ProfileId,
+    ui: structuredClone(defaultSessionUI),
+    reviews: {} as Record<BoardId, ReviewSessionData>,
+  };
+  boardsVersion.value++;
 }
 
 export function updateFromRemote(remoteData: Partial<GlobalStore>): void {
