@@ -23,7 +23,7 @@ export type VisitColorFn = (visitRatio: number) => string;
  * src/engine/suggestion-colors.ts
  */
 import { shallowRef } from 'vue';
-import { ALPHA_KNOTS, big_table as TABLE, pchipN } from './helper';
+import { big_table as TABLE } from './helper';
 
 // ── The Factory Pattern ──────────────────────────────────────────────────────
 
@@ -58,75 +58,135 @@ const placeholderFn: IntensityColorFn = (_t, alpha = 1.0) => `rgba(128, 128, 128
  */
 export const getIntensityColor = shallowRef<IntensityColorFn>(placeholderFn);
 
-export function initializeIntensityFactory(distributionData: VisitDistributionData): void {
-    const quantiles = distributionData.quantiles;
+// ── Module-level state for runtime gradient configuration ────────────────────
+//
+// The gradient has two configuration inputs that may change at different
+// rates: the visit-distribution quantiles (loaded once from a JSON
+// resource at startup) and the hue-rotation offset (a user-facing
+// preference, mutated whenever the slider moves). Splitting them lets
+// either be updated without re-fetching the other; each setter writes
+// its respective slot then triggers a rebuild that produces a fresh
+// IntensityColorFn closure.
+//
+// The default hue offset of -43° is a hand-applied orientation chosen
+// for typical-trichromat readability; the slider lets users with
+// different colour-vision profiles pick something else.
+let _quantiles: number[] | null = null;
+let _hueShiftDeg = -43;
+
+/**
+ * Rotate an sRGB triple by `deg` degrees around the L* axis in CIELAB.
+ * Pure: no closure dependencies, cheap to call per-pixel.
+ */
+function rotateHueLab(r: number, g: number, b: number, deg: number): [number, number, number] {
+  if (!deg) return [r, g, b];
+  function lin(c: number): number { return c <= 0.04045 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4); }
+  function gam(c: number): number { c = Math.max(0, Math.min(1, c)); return c <= 0.0031308 ? c*12.92 : 1.055*Math.pow(c, 1/2.4) - 0.055; }
+  const rl = lin(r), gl = lin(g), bl = lin(b);
+  const x = 0.4124564*rl + 0.3575761*gl + 0.1804375*bl;
+  const y = 0.2126729*rl + 0.7151522*gl + 0.0721750*bl;
+  const z = 0.0193339*rl + 0.1191920*gl + 0.9503041*bl;
+  const Xn = 0.95047, Yn = 1.0, Zn = 1.08883;
+  function f(t: number): number { return t > 0.008856 ? Math.pow(t, 1/3) : 7.787*t + 16/116; }
+  function fi(t: number): number { return t > 0.206897 ? t*t*t : (t - 16/116) / 7.787; }
+  let fy = f(y/Yn);
+  const Lab_a = 500*(f(x/Xn) - fy), Lab_b = 200*(fy - f(z/Zn));
+  const Lab_L = 116*fy - 16;
+  const hRad = Math.atan2(Lab_b, Lab_a) + deg * Math.PI / 180;
+  const C    = Math.sqrt(Lab_a*Lab_a + Lab_b*Lab_b);
+  const na = C * Math.cos(hRad), nb = C * Math.sin(hRad);
+  fy = (Lab_L + 16) / 116;
+  const xo = Xn*fi(na/500 + fy), yo = Yn*fi(fy), zo = Zn*fi(fy - nb/200);
+  const ro =  3.2404542*xo - 1.5371385*yo - 0.4985314*zo;
+  const go = -0.9692660*xo + 1.8760108*yo + 0.0415560*zo;
+  const bo =  0.0556434*xo - 0.2040259*yo + 1.0572252*zo;
+  return [gam(ro), gam(go), gam(bo)];
+}
+
+/**
+ * Build a fresh IntensityColorFn from the current `_quantiles` and
+ * `_hueShiftDeg`, and atomically swap it into `getIntensityColor`.
+ * Early-returns if the distribution hasn't been loaded yet — the
+ * placeholder stays in place until the resource arrives.
+ *
+ * The shallowRef swap is what propagates updates to consumers; they
+ * read `getIntensityColor.value` (the function) and the ref's
+ * reactivity triggers re-render when we replace it.
+ */
+function rebuildIntensityColorFn(): void {
+  const quantiles = _quantiles;
+  if (!quantiles) return;
+  const hueShiftDeg = _hueShiftDeg;
 
   function ecdf(t: number): number {
     if (!quantiles || !quantiles.length) return t;
-    var n = quantiles.length, lo = 0, hi = n - 1;
+    const n = quantiles.length;
+    let lo = 0, hi = n - 1;
     while (lo < hi) {
-      var mid = (lo + hi) >> 1;
+      const mid = (lo + hi) >> 1;
       if (quantiles[mid] < t) lo = mid + 1; else hi = mid;
     }
     if (lo === 0)    return 0;
     if (lo >= n - 1) return 1;
-    var t0 = quantiles[lo-1], t1 = quantiles[lo];
+    const t0 = quantiles[lo-1], t1 = quantiles[lo];
     return ((lo - 1) + (t1 > t0 ? (t - t0) / (t1 - t0) : 0)) / (n - 1);
   }
 
-  function rotateHueLab(r: number, g: number, b: number, deg: number): [number, number, number] {
-    if (!deg) return [r, g, b];
-    function lin(c: number): number { return c <= 0.04045 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4); }
-    function gam(c: number): number { c = Math.max(0, Math.min(1, c)); return c <= 0.0031308 ? c*12.92 : 1.055*Math.pow(c, 1/2.4) - 0.055; }
-    var rl = lin(r), gl = lin(g), bl = lin(b);
-    var x = 0.4124564*rl + 0.3575761*gl + 0.1804375*bl;
-    var y = 0.2126729*rl + 0.7151522*gl + 0.0721750*bl;
-    var z = 0.0193339*rl + 0.1191920*gl + 0.9503041*bl;
-    var Xn = 0.95047, Yn = 1.0, Zn = 1.08883;
-    function f(t: number): number { return t > 0.008856 ? Math.pow(t, 1/3) : 7.787*t + 16/116; }
-    function fi(t: number): number { return t > 0.206897 ? t*t*t : (t - 16/116) / 7.787; }
-    var fy = f(y/Yn), Lab_a = 500*(f(x/Xn) - fy), Lab_b = 200*(fy - f(z/Zn));
-    var Lab_L = 116*fy - 16;
-    var hRad = Math.atan2(Lab_b, Lab_a) + deg * Math.PI / 180;
-    var C    = Math.sqrt(Lab_a*Lab_a + Lab_b*Lab_b);
-    var na = C * Math.cos(hRad), nb = C * Math.sin(hRad);
-    fy = (Lab_L + 16) / 116;
-    var xo = Xn*fi(na/500 + fy), yo = Yn*fi(fy), zo = Zn*fi(fy - nb/200);
-    var ro =  3.2404542*xo - 1.5371385*yo - 0.4985314*zo;
-    var go = -0.9692660*xo + 1.8760108*yo + 0.0415560*zo;
-    var bo =  0.0556434*xo - 0.2040259*yo + 1.0572252*zo;
-    return [gam(ro), gam(go), gam(bo)];
-  }
-
-  // The final `alpha` parameter is part of the IntensityColorFn contract
-  // (see type definition) but this particular implementation derives its
-  // alpha from `t` directly — see the `1-t` line below. Underscored to
-  // signal "intentionally unused."
-  const newFn: IntensityColorFn = (t: number, _alpha = 1.0) => {
-    const hueShiftDeg = -43;
-    t = 1-t;
-    var u   = ecdf(t);
-    var idx = u * (TABLE.length - 1);
-    var lo  = Math.floor(idx);
-    var hi  = Math.min(lo + 1, TABLE.length - 1);
-    var f   = idx - lo;
-    var ca  = TABLE[lo], cb = TABLE[hi];
-    var r   = ca[0] + f * (cb[0] - ca[0]);
-    var g   = ca[1] + f * (cb[1] - ca[1]);
-    var b   = ca[2] + f * (cb[2] - ca[2]);
-    var a   = pchipN(u, ALPHA_KNOTS);
+  // The LUT was generated by an algorithm that quotient-ed out the
+  // gradient's direction (it optimised the path's perceptual shape
+  // modulo orientation). The orientation we want is applied here by
+  // hand: high `intensity` traverses the LUT from the *opposite* end
+  // (`lookup = 1 - intensity`) while alpha ramps from the original
+  // input. The two together are the symmetry the optimiser couldn't
+  // fix on its own.
+  const newFn: IntensityColorFn = (intensity: number, _alpha = 1.0) => {
+    const lookup = 1 - intensity;
+    const u = ecdf(lookup);
+    const idx = u * (TABLE.length - 1);
+    const lo = Math.floor(idx);
+    const hi = Math.min(lo + 1, TABLE.length - 1);
+    const f = idx - lo;
+    const ca = TABLE[lo], cb = TABLE[hi];
+    let r = ca[0] + f * (cb[0] - ca[0]);
+    let g = ca[1] + f * (cb[1] - ca[1]);
+    let b = ca[2] + f * (cb[2] - ca[2]);
     if (hueShiftDeg) {
-      var c = rotateHueLab(r, g, b, hueShiftDeg);
+      const c = rotateHueLab(r, g, b, hueShiftDeg);
       r = c[0]; g = c[1]; b = c[2];
     }
-    a = Math.max(0, Math.min(1, 1-t));
+    const a = Math.max(0, Math.min(1, intensity));
     return `rgba(${Math.floor(r*256)}, ${Math.floor(256*g)}, ${Math.floor(256*b)}, ${a})`;
   };
 
-  // Atomic replacement of the reactive function
-  console.log('newfn loaded', newFn(574/956));
   getIntensityColor.value = newFn;
 }
+
+/**
+ * Set the visit-distribution data backing the gradient's ECDF. Called
+ * once at startup from the resource service; safe to call again if
+ * the distribution is re-fetched.
+ */
+export function setVisitDistribution(distributionData: VisitDistributionData): void {
+  _quantiles = distributionData.quantiles;
+  rebuildIntensityColorFn();
+}
+
+/**
+ * Set the hue-rotation offset (in degrees) applied uniformly across
+ * the gradient in CIELAB space. Called by the appearance-setting
+ * watcher in useAppBootstrap whenever the user moves the slider.
+ */
+export function setIntensityHueShift(deg: number): void {
+  _hueShiftDeg = deg;
+  rebuildIntensityColorFn();
+}
+
+/**
+ * Backwards-compatible alias for setVisitDistribution. Existing call
+ * sites (resource-service) can keep their import name; new code
+ * should prefer the explicit setter.
+ */
+export const initializeIntensityFactory = setVisitDistribution;
 
 
 
