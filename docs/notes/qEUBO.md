@@ -87,12 +87,13 @@ When reviewing a successor's qEUBO PR:
 | Backend MIT wrapper | Merged | #26 | 5f0fcf9 |
 | Backend REST routes + encode/decode + deps | Merged | #30 | 6fa4db6 |
 | Backend MIT runtime compat shims (modern botorch/torch) | Merged | #30 | f3dac77 |
-| Frontend schema migration 5→6 | In review | — | — |
-| Frontend `useQeubo` composable | Not started | — | — |
-| Frontend toolbar A/B cluster | Not started | — | — |
+| Frontend schema migration 5→6 | Merged | #31 | 7717332 |
+| Dispatch v1.2 (separable verdict + apply UX) | In review | — | — |
+| Frontend `useQeubo` composable + `qeubo-service.ts` ACL | In review | — | — |
+| Frontend toolbar A/B cluster (toggle + verdict + apply + pin) | Not started | — | — |
 | Frontend bookmarks UI | Not started | — | — |
 | Frontend parameter-meta editor (in PaletteEditor) | Not started | — | — |
-| End-to-end verification with KeyDB | Not started | — | — |
+| End-to-end verification with Redis | Not started | — | — |
 
 The two remaining halves (backend route handlers, frontend
 everything) are independent and can ship in parallel sessions;

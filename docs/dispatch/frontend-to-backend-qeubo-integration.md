@@ -172,11 +172,15 @@ PyTorch tensors qEUBO operates on.
   — it temporarily overrides what the engine sees during
   evaluation. The "applied" value is persistent in the user's
   profile.
-- "I prefer A" / "I prefer B" verdicts **bundle** two effects:
-  submit the preference observation to the qEUBO posterior, AND
-  apply that point's values to `analysis_env.parameters` (so the
-  user's next analysis run reflects their stated choice without a
-  second click).
+- "I prefer A" / "I prefer B" verdicts submit a **preference
+  observation only** to the qEUBO posterior. They do *not* write
+  the chosen point's values into `analysis_env.parameters`; that
+  is a separate **apply** action ("Use this") the user invokes
+  explicitly when they want the audition promoted to persistent.
+  See v1.2 revision history for the rationale (the audition
+  needs to be toggle-able back and forth before deciding;
+  bundling verdict with apply would force duplicate A/B button
+  clusters, one for testing and one for verdict).
 - Bookmarks ("pin this") are saved snapshots of any parameter
   configuration the user wants to keep — independent of qEUBO's
   optimiser state. They survive experiment changes.
@@ -532,13 +536,13 @@ Response:
 }
 ```
 
-The "**bundled apply**" semantic is **frontend-side**, not
-backend-side: the frontend, on receiving this response, writes
-`values_a` (or `values_b` based on the user's choice) into
-`store.profile.settings.engine.katago.analysis_env.parameters`
-and lets the existing watcher chain propagate. The backend does
-not write to the user's profile through this route — it stays
-single-purpose (preference recording).
+The route is single-purpose: it records the preference
+observation to qEUBO and returns updated counts. It does *not*
+write to the user's profile. v1.2: the apply-to-parameters
+action is a separate frontend-only flow (see §3.4
+`applyEffective` and §3.5 toolbar layout) that runs only when
+the user explicitly invokes "Use this", not bundled with the
+verdict.
 
 #### `GET /qeubo/experiment/best` — qEUBO's posterior best estimate
 
@@ -655,20 +659,25 @@ machine, similar in shape to `useReviewSession`. Public API
 
 ```ts
 export function useQeubo(): {
+  calibrationEnabled: ComputedRef<boolean | null>;
   experimentExists: ComputedRef<boolean>;
   phase: ComputedRef<'init' | 'optimization' | 'idle'>;
   initProgress: ComputedRef<{ done: number; total: number } | null>;
   optimizationProgress: ComputedRef<{ iteration: number; total: number } | null>;
   currentPair: ComputedRef<QeuboPair | null>;
-  currentBestEstimate: ComputedRef<QeuboPoint | null>;
+  currentBestEstimate: ComputedRef<QeuboBest | null>;
   toolbarView: Ref<'applied' | 'A' | 'B'>;
   effectiveParameterValues: ComputedRef<Record<string, number>>;
+  isBusy: ComputedRef<boolean>;
+  bootstrap: () => Promise<void>;
   startNewExperiment: (params: string[]) => Promise<void>;
   abortExperiment: () => Promise<void>;
-  submitPreference: (preferred: 0 | 1) => Promise<void>;
+  submitPreference: (preferred: 0 | 1) => Promise<void>;   // observation only (v1.2)
+  refreshPair: () => Promise<void>;
+  refreshBest: () => Promise<void>;
+  applyEffective: () => void;                              // NEW in v1.2
   pinCurrent: (name: string) => void;
   applyBookmark: (id: BookmarkId) => void;
-  refreshBest: () => Promise<void>;
 };
 ```
 
@@ -680,6 +689,19 @@ export function useQeubo(): {
 `store.profile.settings.engine.katago.analysis_env.parameters`,
 when a calibration session is active.
 
+`submitPreference` (v1.2) records the qEUBO observation only; it
+does not write to `analysis_env.parameters`. `applyEffective`
+(v1.2) is the explicit promotion: it copies the currently-
+effective audition into `analysis_env.parameters` and resets
+`toolbarView` to `'applied'`. The two actions are deliberately
+separable so the user can toggle A/B back and forth before
+deciding (verdict) and again before applying — see v1.2 revision
+history.
+
+`calibrationEnabled` is null pre-bootstrap, true when the backend
+returns 200 or 404, false on 503. The toolbar binds
+`v-if="calibrationEnabled === true"` to its conditional cluster.
+
 ### 3.5 Toolbar cluster
 
 `src/components/Toolbar.vue` gains a conditional cluster that
@@ -687,17 +709,21 @@ renders when `experimentExists` is true. Approximate layout
 (when active):
 
 ```
-[ Quality ▼ ][ ⏵ A | ● B | Applied ][ I prefer A ][ I prefer B ][ ⏎ Pin ][ ↺ ?  init 5/8  iter 12 ]
+[ Quality ▼ ][ ⏵ A | ● B | Applied ][ I prefer A ][ I prefer B ][ ✓ Use this ][ ⏎ Pin ][ ↺ ?  init 5/8  iter 12 ]
 ```
 
 - Three-state radio (or segmented control) for the toggle: A / B
   / Applied. Toggling writes to `session.ui.qeuboToolbarView`.
-- "I prefer A" / "I prefer B" verdict buttons. On click:
-  1. Call `submitPreference(0|1)`.
-  2. Bundled-apply: write the chosen point's decoded values to
-     `analysis_env.parameters` (so subsequent analyses use the
-     preferred values).
-  3. Reset toolbar view to `'applied'`.
+  The toggle is the **audition** — non-destructive, switches
+  what the engine sees during evaluation without persisting.
+- "I prefer A" / "I prefer B" **verdict** buttons. On click,
+  call `submitPreference(0|1)`. The composable records the
+  observation and auto-fetches the next pair; the toolbar's
+  view, applied parameters, and bookmarks are unaffected.
+- "Use this" **apply** button. On click, call `applyEffective()`.
+  Hidden when `toolbarView === 'applied'` (nothing to apply).
+  The composable copies the currently-effective audition into
+  `analysis_env.parameters` and resets the toolbar to Applied.
 - Pin button — opens a small dialog to name the bookmark; saves
   the *currently effective* parameter values (whatever the
   toggle is showing) to `profile.qeuboPinnedBookmarks`.
@@ -799,8 +825,12 @@ documented in §2.4. A few cross-cutting notes:
 
 4. **Frontend toolbar smoke.** With a calibration set up:
    toggle between Applied / A / B updates the displayed engine
-   parameters live; clicking "I prefer A" submits the verdict,
-   applies A's values, and resets the toolbar view.
+   parameters live; clicking "I prefer A" submits the verdict
+   (parameters and toolbar view both unchanged); the audition
+   stays toggle-able afterwards. Clicking "Use this" while
+   auditioning A or B writes the audition into
+   `analysis_env.parameters` and resets the view to Applied.
+   Verdict and apply are separable per v1.2.
 
 5. **Bookmarks.** Pin a parameter set; switch palette; apply
    the bookmark; confirm the values restore.
@@ -871,8 +901,9 @@ The dispatch proposes:
 - **Frontend**: schema additions (`parameter_meta`,
   `qeuboPinnedBookmarks`, `qeuboToolbarView`); migration 5→6;
   new `qeubo-service.ts` API client; new `useQeubo` composable
-  with bundled-apply preference verdict; toolbar A/B cluster;
-  bookmark management UI; parameter-meta editor extension.
+  with separable verdict + apply (per v1.2); toolbar A/B
+  cluster (toggle / verdict / apply / pin); bookmark management
+  UI; parameter-meta editor extension.
 - **Coordination**: shared wire shapes documented in §2.4; the
   schema migration is frontend-only (the backend keeps Redis
   shape).
@@ -883,9 +914,12 @@ The user's review focuses on:
    pattern). Resolved post-merge of v1: the boundary is the whole
    `backend/qeubo/` directory; the wrapper is MIT-derivative, not
    PD. See the licensing section and §2.1 for the corrected shape.
-2. Whether the bundled-apply preference verdict (verdict + apply
+2. ~~Whether the bundled-apply preference verdict (verdict + apply
    in one click) is the right UX, or whether they should be
-   separate actions (default in this spec is bundled).
+   separate actions (default in this spec is bundled).~~ Resolved
+   in v1.2: **separable**. The toolbar gains an explicit "Use this"
+   apply button distinct from the verdict; the user's reasoning
+   is recorded in the v1.2 revision-history entry.
 3. ~~Parameter-meta editor placement.~~ Resolved: `PaletteEditor.vue`
    (Analysis Environment view). RegistryEditor remains the
    universal editor; Analysis Environment is the guided one.
@@ -914,5 +948,32 @@ The user's review focuses on:
     optimizer config fields).
   - Parameter-meta editor placement resolved (PaletteEditor /
     Analysis Environment view).
+- **2026-04-28 v1.2**: bundled-apply UX resolution. The user
+  specified that verdict and apply must be **separable**, not
+  bundled. Reasoning: the audition (toggle between Applied / A
+  / B) needs to be toggle-able back and forth before deciding;
+  bundling the verdict with the apply-action would force
+  duplicate A/B button clusters (one for testing, one for
+  verdict) since the verdict would commit before the user is
+  done auditioning. The single bound A/B audition is the
+  testing surface; the verdict is the qEUBO observation; apply
+  is a third explicit action that promotes the audition to
+  persistent. Corrections in this revision:
+  - §1 user-facing-behaviour summary: verdict bullet rewritten
+    (no longer "bundle two effects").
+  - §2.4 POST /preference response paragraph: route is
+    single-purpose; the apply-to-parameters action is the
+    frontend's separate flow.
+  - §3.4 useQeubo public API: `submitPreference` is observation
+    only; new `applyEffective()` method handles the parameter
+    write; `calibrationEnabled`, `isBusy`, `bootstrap`,
+    `refreshPair` exposed; `currentBestEstimate`'s element type
+    renamed `QeuboPoint` → `QeuboBest` to avoid collision with
+    `point` field name.
+  - §3.5 toolbar layout: gains a "Use this" apply button next
+    to the verdict pair, hidden when toolbarView==='applied'.
+    Verdict no longer resets the toolbar view.
+  - §5 verification case 4: rewritten for separable flow.
+  - Summary review-focus item 2: marked resolved.
 
 — end dispatch —
