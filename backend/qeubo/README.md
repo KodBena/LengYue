@@ -48,6 +48,55 @@ The exact pinning is deferred to the route-implementer session
 qEUBO's upstream pin baseline and verifying the import chain
 boots before wiring routes.
 
+## Compatibility envelope
+
+Upstream qEUBO is unmaintained (last commit `21cd661e`,
+2023-03-24) and was written against the botorch / torch
+ecosystem of that period. Two breaking changes have landed in
+the third-party deps since:
+
+- **botorch ≥0.9** tightened `MCSampler.sample_shape` from
+  accepting `int` to requiring `torch.Size`. Vendored qEUBO
+  calls `SobolQMCNormalSampler(sample_shape=512)` in the
+  preferential-softmax likelihood; botorch >=0.9 raises
+  `InputDataError`.
+- **modern torch** defaults to float32 (older torch defaulted
+  to float64). Vendored qEUBO assumes float64 throughout, and
+  the dtype mismatch surfaces as `RuntimeError: expected m1
+  and m2 to have the same dtype, but got: double != float`
+  inside gpytorch's variational strategy.
+
+The runtime carries two compatibility shims at module-import
+time, in `runtime/_compat.py`, that bridge both regressions:
+
+1. `MCSampler.__init__` is patched at the base class to
+   coerce `int` inputs to `torch.Size`. One-way coercion;
+   never narrows behavior.
+2. `torch.set_default_dtype(torch.float64)` is called at
+   import time so vendor-created tensors land in the expected
+   precision.
+
+These shims activate when the qEUBO package is imported (i.e.
+when `QEUBO_ENABLED=True` flips the route layer on); a backend
+with `QEUBO_ENABLED=False` does not import the package and is
+unaffected. PD callers do not need to know the shims exist —
+the runtime is shim-aware on their behalf.
+
+Verified working with this envelope:
+
+| Component  | Tested at | Notes                                    |
+|------------|-----------|------------------------------------------|
+| `torch`    | 2.11.0    | Newer torch may need a re-test            |
+| `botorch`  | 0.17.2    | Patches the int→torch.Size coercion above |
+| `gpytorch` | 1.15.2    | Used transitively via botorch / vendor    |
+| `redis`    | 7.4.0     | Async client `redis.asyncio`              |
+
+If a future torch / botorch / gpytorch update introduces a
+new shape or API drift, surface it as a third entry in
+`runtime/_compat.py` rather than monkey-patching from PD code.
+The licensing boundary is preserved by keeping every
+botorch/torch-internals patch inside the MIT scope.
+
 ## Importing
 
 ```python
