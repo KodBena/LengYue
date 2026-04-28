@@ -174,6 +174,12 @@ export interface AppSettings {
   };
   appearance: {
     theme: 'dark' | 'light';
+    // Hue-rotation offset (degrees) applied uniformly across the
+    // intensity gradient in CIELAB space. Default -43° is a
+    // hand-applied orientation chosen for typical-trichromat
+    // readability; users with different colour-vision profiles can
+    // adjust via the slider in the Gradient Calibration view.
+    intensityHueShift: number;
   };
   persistence: {
     debounceInterval: number;

@@ -383,6 +383,20 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
             <template #other>
               <div class="tab-padding">
                 <h3 class="sub-header">Gradient Calibration</h3>
+                <div class="hue-slider-row">
+                  <label class="hue-slider-label">
+                    <span>Hue Offset</span>
+                    <span class="hue-slider-value">{{ store.profile.settings.appearance.intensityHueShift }}°</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="-180"
+                    max="180"
+                    step="1"
+                    v-model.number="store.profile.settings.appearance.intensityHueShift"
+                    class="hue-slider-input"
+                  />
+                </div>
                 <ColorDebugStrip :steps="500" />
               </div>
             </template>
@@ -500,4 +514,9 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
   border-radius: 3px;
 }
 .visits-input:focus { border-color: #4aaef0; }
+
+.hue-slider-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.hue-slider-label { display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: #aaa; text-transform: uppercase; letter-spacing: 0.05em; }
+.hue-slider-value { background: #222; padding: 0 8px; border-radius: 3px; color: #4aaef0; font-family: monospace; }
+.hue-slider-input { width: 100%; accent-color: #4aaef0; cursor: pointer; }
 </style>
