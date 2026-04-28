@@ -5,7 +5,9 @@
 -->
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import type { AnalysisEnvironment, AnalysisPalette } from '../types';
+import { useQeubo } from '../composables/useQeubo';
+import { pushSystemMessage } from '../store';
+import type { AnalysisEnvironment, AnalysisPalette, ParameterMeta } from '../types';
 
 import { Codemirror } from 'vue-codemirror';
 import { python } from '@codemirror/lang-python';
@@ -18,6 +20,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update', payload: { path: string[], value: AnalysisEnvironment }): void;
 }>();
+
+const qeubo = useQeubo();
 
 // Editor Extensions
 const extensions = [python(), oneDark];
@@ -78,6 +82,108 @@ function updateParameterValue(val: number) {
   const next = getClone();
   next.parameters[selectedId.value] = val;
   commit(next);
+}
+
+// ── Parameter meta editing (qEUBO calibration) ─────────────────────
+//
+// Per dispatch v1.2 §3.7, the PaletteEditor is the curated home for
+// parameter_meta editing. The toggle (qeubo_controlled) is the
+// trigger that recreates the backend experiment over the new
+// controlled set; range edits are local and do NOT recreate (the
+// backend snapshots ranges at experiment-create time, so changing a
+// range mid-experiment would silently misalign the GP). Users who
+// edit a range while qeubo_controlled is checked can apply the new
+// range by retoggling.
+
+function getParamMeta(name: string): ParameterMeta {
+  return props.env.parameter_meta?.[name] ?? {};
+}
+
+function isRangeValid(meta: ParameterMeta): boolean {
+  const r = meta.range;
+  return Array.isArray(r)
+    && r.length === 2
+    && Number.isFinite(r[0])
+    && Number.isFinite(r[1])
+    && r[0] < r[1];
+}
+
+const selectedParamMeta = computed<ParameterMeta>(() =>
+  selectedType.value === 'parameter' ? getParamMeta(selectedId.value) : {}
+);
+
+const selectedRangeValid = computed<boolean>(() =>
+  isRangeValid(selectedParamMeta.value)
+);
+
+function updateParamRange(name: string, side: 'min' | 'max', raw: string): void {
+  const next = getClone();
+  if (!next.parameter_meta) next.parameter_meta = {};
+  const meta: ParameterMeta = { ...(next.parameter_meta[name] ?? {}) };
+  const currentRange = meta.range ?? [NaN, NaN];
+  const parsed = raw.trim() === '' ? NaN : Number(raw);
+  const newRange: [number, number] = side === 'min'
+    ? [parsed, currentRange[1]]
+    : [currentRange[0], parsed];
+  // Keep the range as-set even if invalid; validation happens at
+  // qeubo_controlled gate. A partial range is preserved across input
+  // events so the user doesn't lose half their typing.
+  if (Number.isNaN(newRange[0]) && Number.isNaN(newRange[1])) {
+    delete meta.range;
+  } else {
+    meta.range = newRange;
+  }
+  next.parameter_meta[name] = meta;
+  commit(next);
+}
+
+async function setParamQeuboControlled(name: string, checked: boolean): Promise<void> {
+  const next = getClone();
+  if (!next.parameter_meta) next.parameter_meta = {};
+  const meta: ParameterMeta = { ...(next.parameter_meta[name] ?? {}) };
+
+  if (checked) {
+    // Defensive: the checkbox is supposed to be disabled when range
+    // is invalid. If it somehow fires anyway (programmatic change,
+    // older UA), surface the error per ADR-0002 and bail.
+    if (!isRangeValid(meta)) {
+      pushSystemMessage(
+        'error',
+        `qEUBO: parameter "${name}" needs a valid [min, max] range before it can be marked qeubo_controlled.`,
+      );
+      return;
+    }
+    meta.qeubo_controlled = true;
+  } else {
+    delete meta.qeubo_controlled;
+  }
+  next.parameter_meta[name] = meta;
+  commit(next);
+
+  // Read the controlled set from the just-committed `next`, not from
+  // props.env (Vue may not have re-rendered the prop yet). The
+  // composable reads from store, but its read happens inside the
+  // network request which fires after the commit's reactive update
+  // has propagated.
+  const controlled = Object.entries(next.parameter_meta)
+    .filter(([_, m]) => m?.qeubo_controlled === true)
+    .map(([k]) => k);
+
+  try {
+    if (controlled.length === 0) {
+      await qeubo.abortExperiment();
+      pushSystemMessage('info', 'qEUBO experiment dissolved (no controlled parameters).');
+    } else {
+      await qeubo.startNewExperiment(controlled);
+      pushSystemMessage(
+        'info',
+        `qEUBO experiment recreated over [${controlled.join(', ')}].`,
+      );
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    pushSystemMessage('error', `qEUBO sync failed: ${msg}`);
+  }
 }
 
 function addPalette() {
@@ -227,13 +333,58 @@ function deleteItem() {
         <!-- Parameter Editor -->
         <div v-if="selectedType === 'parameter'" class="form-grid">
           <label>Value:</label>
-          <input 
-            type="number" 
-            step="0.01" 
-            class="dark-input" 
-            :value="env.parameters[selectedId]" 
+          <input
+            type="number"
+            step="0.01"
+            class="dark-input"
+            :value="env.parameters[selectedId]"
             @input="(e: any) => updateParameterValue(Number(e.target.value))"
           />
+
+          <label>Range:</label>
+          <div class="range-inputs">
+            <input
+              type="number"
+              step="0.01"
+              class="dark-input range-half"
+              :class="{ invalid: !selectedRangeValid && !!selectedParamMeta.qeubo_controlled }"
+              placeholder="min"
+              :value="selectedParamMeta.range?.[0] ?? ''"
+              @input="(e: any) => updateParamRange(selectedId, 'min', e.target.value)"
+            />
+            <span class="range-sep">–</span>
+            <input
+              type="number"
+              step="0.01"
+              class="dark-input range-half"
+              :class="{ invalid: !selectedRangeValid && !!selectedParamMeta.qeubo_controlled }"
+              placeholder="max"
+              :value="selectedParamMeta.range?.[1] ?? ''"
+              @input="(e: any) => updateParamRange(selectedId, 'max', e.target.value)"
+            />
+          </div>
+
+          <label>qEUBO:</label>
+          <div class="qeubo-control">
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                :checked="!!selectedParamMeta.qeubo_controlled"
+                :disabled="!selectedRangeValid && !selectedParamMeta.qeubo_controlled"
+                :title="selectedRangeValid
+                  ? 'Mark this parameter as qEUBO-controlled. Toggling recreates the calibration experiment over the new controlled set.'
+                  : 'Set a valid [min, max] range first (min < max).'"
+                @change="(e: any) => setParamQeuboControlled(selectedId, e.target.checked)"
+              />
+              <span>controlled by qEUBO calibration</span>
+            </label>
+            <div v-if="!selectedRangeValid && !!selectedParamMeta.qeubo_controlled" class="validation-error">
+              Range invalid — qEUBO experiment continues with the snapshot taken at create. Fix the range and re-toggle to apply.
+            </div>
+            <div v-else-if="!selectedRangeValid" class="validation-hint">
+              Set a valid [min, max] range to enable qEUBO control.
+            </div>
+          </div>
         </div>
 
         <!-- Palette Editor -->
@@ -346,4 +497,16 @@ function deleteItem() {
 .flex-1 { flex: 1; }
 .del-btn-sm { background: none; border: none; color: #ff6b6b; cursor: pointer; font-size: 14px; }
 .del-btn-sm:hover { color: #fff; }
+
+.range-inputs { display: flex; align-items: center; gap: 6px; }
+.range-half { flex: 1; min-width: 0; }
+.range-sep { color: #555; }
+.dark-input.invalid { border-color: #ff6b6b; }
+.qeubo-control { display: flex; flex-direction: column; gap: 4px; }
+.checkbox-label { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #ccc; cursor: pointer; }
+.checkbox-label input[type=checkbox] { cursor: pointer; }
+.checkbox-label input[type=checkbox]:disabled { cursor: not-allowed; }
+.checkbox-label input[type=checkbox]:disabled + span { color: #555; }
+.validation-error { font-size: 10px; color: #ff6b6b; }
+.validation-hint { font-size: 10px; color: #888; font-style: italic; }
 </style>
