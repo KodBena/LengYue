@@ -5,7 +5,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { store, setActiveBoard, createBoard, closeBoard } from '../store';
-import BoardThumbnail from './BoardThumbnail.vue';
+import BoardTab from './BoardTab.vue';
 import FloatingThumbnail from './FloatingThumbnail.vue';
 import { useThumbnailCache } from '../composables/useThumbnailCache';
 import type { BoardId, BoardState } from '../types';
@@ -43,8 +43,8 @@ function onHoverLeave() {
     <FloatingThumbnail ref="thumbRef" />
 
     <div class="thumb-list">
-      <BoardThumbnail 
-        v-for="(board, index) in store.boards" 
+      <BoardTab
+        v-for="(board, index) in store.boards"
         :key="board.id"
         :state="board"
         :index="index"
