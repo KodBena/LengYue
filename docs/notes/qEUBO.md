@@ -91,13 +91,14 @@ When reviewing a successor's qEUBO PR:
 | Dispatch v1.2 (separable verdict + apply UX) | Merged | #32 | a059703 |
 | Frontend `useQeubo` composable + `qeubo-service.ts` ACL | Merged | #32 | a059703 |
 | Frontend toolbar A/B cluster (toggle + verdict + apply + pin) | Merged | #33 | 62efec8 |
-| Frontend parameter-meta editor (in PaletteEditor) | In review | — | — |
-| Frontend bookmarks UI | Not started | — | — |
+| Frontend parameter-meta editor (in PaletteEditor) | Merged | #34 | c286492 |
+| Frontend bookmarks UI | In review | — | — |
 | End-to-end verification with Redis | Partial (wire layer verified via curl 2026-04-28; UI smoke pending) | — | — |
 
-The two remaining halves (backend route handlers, frontend
-everything) are independent and can ship in parallel sessions;
-they coordinate via the wire contract in dispatch §2.4 / Part 4.
+The qEUBO integration is feature-complete pending the bookmarks
+UI merge and an end-to-end UI smoke. Once both close, this note
+transitions per its maintenance contract from `living-doc` to
+`design-note: implemented`.
 
 ## Outstanding open items
 
