@@ -93,8 +93,9 @@ _uservisits(x[0]) / _maxvisits(x[0])
 
 The first two have semantic problems. The seed's `rootInfo.visits`
 denominator collapses the metric to "share of budget" — when the
-user picks the top move, the result equals `spread`, not the
-natural identity. The stdlib's `moveInfos[0].visits` denominator
+user picks the top move, the result equals `decisiveness` (the
+position's top-heaviness), not the natural identity. The stdlib's
+`moveInfos[0].visits` denominator
 *looks* clean but isn't quite right either: per
 `Analysis_Engine.md`, `moveInfos[0]` is the move with the highest
 `playSelectionValue` — the move KataGo would actually play —
@@ -224,7 +225,7 @@ treatment.
 ### `quality_delta` (preserved; canonical delta_fn)
 
 ```python
-quality_delta(x) = visit_ratio(x) ** (spread(x[0]) ** alpha)
+quality_delta(x) = visit_ratio(x) ** (decisiveness(x[0]) ** alpha)
 ```
 
 Where (with the heuristic-obliviousness correction applied
@@ -234,12 +235,24 @@ throughout):
   user's chosen-move's visits as a fraction of the most-visited
   move's visits. `1.0` exactly when the user picked the
   most-visited (robust) child.
-- `spread(x[0])` = `_maxvisits(x[0]) / x[0]['rootInfo']['visits']`
+- `decisiveness(x[0])` = `_maxvisits(x[0]) / x[0]['rootInfo']['visits']`
   — the most-visited move's share of total root visits. The
   pre-move position's top-heaviness, computed independently of
-  KataGo's `order` ranking. The frontend redefines `spread` to
-  override the stdlib's heuristic-aware version.
+  KataGo's `order` ranking.
 - `alpha` is a calibration parameter (current default `0.25`).
+
+**Naming note (rename from `spread` → `decisiveness`).** The
+historical seed exposed this symbol as `spread`, but the value it
+computes is the *concentration* of visits onto the top-visited
+move, not the *dispersion*. Linguistically, "spread" connotes
+dispersion (high-spread = many viable candidates); the historical
+formula's value behaved oppositely (high value = single dominant
+move). The seed's `quality_delta` formula relied on the
+top-heaviness reading, so the formula was correct but the symbol
+name was inverted. This spec renames the symbol to
+`decisiveness` to match the value's actual meaning. Existing
+user palettes that referenced `spread` are handled by the
+migration in Part 6.
 
 **Rationale to preserve in source:** The metric quantifies how well
 the user's move aligns with the search's robust-child selection,
@@ -254,23 +267,25 @@ the metric heuristic-oblivious: it ignores
 `playSelectionValue`-derived ranking and works purely with visit
 counts, the substrate the regret bound is stated against.
 
-The exponent `spread^alpha` is the calibrated smoother. When the
-search is confident (top move dominates, `spread → 1`), the
-exponent stays near 1 and `quality_delta` tracks `visit_ratio`
+The exponent `decisiveness^alpha` is the calibrated smoother. When
+the search is confident (top move dominates, `decisiveness → 1`),
+the exponent stays near 1 and `quality_delta` tracks `visit_ratio`
 faithfully — the engine knew its preference, and deviation matters.
-When the search is uncertain (broad, `spread → 0`), the exponent
-compresses toward 0, lifting `quality_delta` toward 1 even for low
-`visit_ratio` — many candidates were viable and the user's
+When the search is uncertain (broad, `decisiveness → 0`), the
+exponent compresses toward 0, lifting `quality_delta` toward 1 even
+for low `visit_ratio` — many candidates were viable and the user's
 deviation is forgiven proportionally.
 
 Empirically (per the project author), `_visit_entropy` normalised
-by `_uniform_entropy(N)` is closely correlated with the local
-`spread` (the heuristic-oblivious `_maxvisits / rootInfo.visits`);
-for positions with similar move-count `N`, the two are nearly
-interchangeable as smoother inputs. A future iteration could swap
-in an `entropy_normalised` symbol to make the smoother dimensionless
-across positions of varying branching factor; for the seed,
-`spread` is the existing choice and works well.
+by `_uniform_entropy(N)` is closely correlated with `1 -
+decisiveness` (i.e., dispersion); for positions with similar
+move-count `N`, normalised entropy and `1 - decisiveness` track
+each other strongly. A future iteration could swap in
+`entropy_normalised` as the smoother input directly — but note that
+substitution would require complementing it inside `quality_delta`
+(the smoother wants concentration, not dispersion), e.g.
+`visit_ratio ** ((1 - entropy_normalised) ** alpha)`. For the seed,
+`decisiveness` is the natural primitive and works well.
 
 ### `scoreLead_delta` (new; mandatory inclusion)
 
@@ -361,17 +376,22 @@ Pedagogically valuable: positions with high `complexity` are
 genuinely hard regardless of who's reviewing them. A study session
 could prioritise high-complexity positions for the user.
 
-#### `decisiveness` (A) — alias for `spread`
+#### `decisiveness` (A)
 
-The local `spread` symbol (defined in Part 5's inventory using
-`_maxvisits / rootInfo.visits`) doubles as a state_fn and can be
-exposed in palettes under the user-facing label "Decisiveness" —
-it's the inverse of `complexity`, measuring how much of the
-search budget concentrated on the single most-visited move.
+```python
+'_maxvisits(x) / x["rootInfo"]["visits"]'
+```
 
-No separate symbol definition needed. Use `spread` directly in the
-`state_fns` mapping with the label of choice (`'Decisiveness':
-'spread'` or similar).
+The most-visited move's share of total root visits — top-heaviness
+of the search distribution at this position. Inverse of
+`complexity` (low decisiveness ↔ high complexity ↔ many viable
+moves). Doubles as the smoother input for `quality_delta` (used as
+`decisiveness(x[0])` in window context).
+
+This symbol replaces what the historical seed called `spread` —
+see the naming note in Part 2 for the rationale. The formula is
+unchanged from the heuristic-oblivious version (`_maxvisits` rather
+than `moveInfos[0].visits`); only the name is corrected.
 
 #### `winrate` (A)
 
@@ -569,7 +589,7 @@ safe              # use stdlib's `safe` directly; not redefined locally
 
 # State-context helpers (single packet)
 visit_entropy     'safe(entropy([mi["visits"] for mi in x["moveInfos"]]))'
-spread            '_maxvisits(x) / x["rootInfo"]["visits"]'
+decisiveness      '_maxvisits(x) / x["rootInfo"]["visits"]'
 complexity        'safe(_visit_entropy(x) / _uniform_entropy(len(x["moveInfos"])))'
 winrate           'x["rootInfo"]["winrate"]'
 score_lead        'x["rootInfo"]["scoreLead"]'
@@ -578,7 +598,7 @@ nn_uncertainty    'x["rootInfo"]["rawStWrError"]'
 
 # Window-context helpers (windowed pair)
 visit_ratio       '_uservisits(x[0]) / _maxvisits(x[0])'
-quality_delta     'visit_ratio(x) ** (spread(x[0]) ** alpha)'
+quality_delta     'visit_ratio(x) ** (decisiveness(x[0]) ** alpha)'
 scoreLead_delta   'x[1]["rootInfo"]["scoreLead"] - x[0]["rootInfo"]["scoreLead"]'
 winrate_loss_topvsuser
                   '(x[0]["moveInfos"][0]["winrate"] - x[0]["userMoveInfo"]["winrate"]) if x[0]["userMoveInfo"] else 0'
@@ -597,13 +617,19 @@ mean_summary      'float(np.mean(x))'
 
 Notes on the symbol set:
 
-- `spread` is **redefined** locally (overriding the stdlib's
-  `_spread`). The local version uses `_maxvisits` and is therefore
-  heuristic-oblivious; the stdlib's `_spread` is heuristic-aware
-  (uses `moveInfos[0]`). Local naming wins in asteval's symtable
-  per `RegistryInterpreter`'s compile order. Per-state-fn callers
-  use `spread(x)`; per-window-callers (e.g., `quality_delta`) use
-  `spread(x[0])`.
+- `decisiveness` is the local rename of the historical seed's
+  `spread` symbol. The formula is unchanged in shape — top-
+  heaviness of the visit distribution — but uses `_maxvisits`
+  rather than the stdlib's `moveInfos[0]['visits']` for heuristic
+  obliviousness. The rename corrects a long-standing naming
+  inversion (the historical "spread" symbol's value tracked
+  *concentration*, not *dispersion*). Per-state-fn callers use
+  `decisiveness(x)`; per-window callers (`quality_delta`) use
+  `decisiveness(x[0])`.
+- The stdlib's `_spread` is unaffected and continues to compute
+  its own (heuristic-aware) top-heaviness for any caller that
+  references it directly. We do not redefine `_spread` because
+  it lives in the proxy and we don't reference it.
 - `visit_ratio` similarly avoids the stdlib's `_visit_ratio`; the
   local definition uses `_maxvisits` for heuristic-obliviousness.
 - The "loss" metrics (`winrate_loss_topvsuser`,
@@ -623,7 +649,7 @@ Notes on the symbol set:
 
 | Axis | Symbols | Reference move | Question answered |
 |---|---|---|---|
-| Robust-child alignment | `visit_ratio`, `quality_delta`, `spread` | most-visited (`_maxvisits`) | "How aligned is the user with the search's most-trusted child?" |
+| Robust-child alignment | `visit_ratio`, `quality_delta`, `decisiveness` | most-visited (`_maxvisits`) | "How aligned is the user with the search's most-trusted child?" |
 | Engine-recommendation alignment | `*_loss_topvsuser`, `user_order`, `policy_loss`, `rank_quality` | `moveInfos[0]` (`playSelectionValue`-ranked) | "How aligned is the user with what KataGo would have played?" |
 
 The two axes correlate strongly but measure different things;
@@ -666,12 +692,40 @@ Concerns:
    - Add new palettes (`'quality'`, `'score'`, `'rank'`) only if not
      already present; never overwrite existing palette IDs.
 
-2. **`activePaletteId`.** If the current active is `'default'` and
+2. **`spread` → `decisiveness` rename.** The historical seed
+   exposed a symbol called `spread` whose value was top-heaviness
+   (the new spec exposes the same value as `decisiveness`). The
+   migration must:
+   - **In `symbols`:** if a symbol named `spread` exists with the
+     historical broken-seed definition (`'x[0]["moveInfos"][0]
+     ["visits"] / x[0]["rootInfo"]["visits"]'`), rename to
+     `decisiveness` with the corrected formula (`'_maxvisits(x)
+     / x["rootInfo"]["visits"]'`). If a `spread` symbol exists with
+     a *different* definition (user-customised), leave it in place
+     under the old name AND add `decisiveness` alongside; the user's
+     custom `spread` is preserved as their own symbol.
+   - **In symbol formulas that reference `spread(...)`:** in user
+     palettes' `delta_fn`/`summary_fn`/`state_fns` mappings, and
+     inside any user-defined symbol bodies, references to a
+     `spread` symbol that resolved to the broken default need to
+     update to `decisiveness`. **Detection rule for body
+     replacement:** if the formula text contains the substring
+     `spread(` and the original `spread` symbol matched the broken
+     seed (i.e., we just renamed it above), rewrite all `spread(`
+     occurrences in formula bodies to `decisiveness(`. If the user
+     has a custom `spread` symbol (we left it in place), leave
+     formula bodies alone.
+   - **In palette `state_fns` mappings:** entries like `{'Spread':
+     'spread'}` should be renamed to `{'Decisiveness':
+     'decisiveness'}` only if the underlying symbol matched the
+     broken seed; user-customised mappings stay.
+
+3. **`activePaletteId`.** If the current active is `'default'` and
    the migration is replacing the broken default with the new
    `'quality'` palette, update `activePaletteId` accordingly.
    Otherwise leave alone.
 
-3. **`alpha` parameter.** Preserve user's value if customised; set
+4. **`alpha` parameter.** Preserve user's value if customised; set
    to 0.25 if missing.
 
 The migration's discipline matches the de-branding migrations
@@ -813,10 +867,15 @@ The spec proposes:
   metric heuristic-oblivious (independent of KataGo's
   `playSelectionValue`-driven `order` ranking) and aligning it
   with the robust-child literature.
-- Parallel correction to `spread` (and therefore `quality_delta`'s
-  smoother): use `_maxvisits` rather than `moveInfos[0].visits`.
+- A rename, `spread` → `decisiveness`, that corrects a
+  long-standing inversion: the historical `spread` symbol's value
+  measured *concentration* of visits, not *dispersion*; the
+  formula stays (corrected to use `_maxvisits` for heuristic
+  obliviousness) and the new name matches what the value
+  represents.
 - Two mandatory metrics: `quality_delta` (preserved with the new
-  heuristic-oblivious denominator) and `scoreLead_delta` (new).
+  heuristic-oblivious denominator and the renamed `decisiveness`
+  smoother input) and `scoreLead_delta` (new).
 - A library of seven candidate metrics across four axes for review
   and culling, partitioned into two semantic dimensions:
   robust-child alignment (visit-share) vs engine-recommendation
