@@ -15,7 +15,21 @@ export function useUserIORegistry() {
 
   const handleKeyDown = (e: KeyboardEvent) => {
     // Context Guard: ignore hardware events when user is typing.
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    //
+    // The form-control branches (HTMLInputElement, HTMLTextAreaElement,
+    // HTMLSelectElement) cover native widgets that own their own
+    // keystrokes. The contenteditable branch covers rich-text editing
+    // surfaces — most importantly CodeMirror 6's `.cm-content` div used
+    // by PaletteEditor and CardSetEditor, which the textarea check
+    // misses because the editable surface is a contenteditable div.
+    // `HTMLElement.isContentEditable` already accounts for inheritance,
+    // so a single check on `e.target` covers any nested element inside
+    // an editable region.
+    const target = e.target;
+    if (target instanceof HTMLInputElement) return;
+    if (target instanceof HTMLTextAreaElement) return;
+    if (target instanceof HTMLSelectElement) return;
+    if (target instanceof HTMLElement && target.isContentEditable) return;
     if (!activeBoard.value) return;
 
     const boardId = activeBoard.value.id;

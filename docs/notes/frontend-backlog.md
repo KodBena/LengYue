@@ -22,7 +22,16 @@
 
 Bugs or other rough edges
 
-* useUserIORegistry interacts with keyboard handling elsewhere. For example, in the Monaco editor, bound keys in UserIO can not be used which is obviously a blocker
+* ~~useUserIORegistry interacts with keyboard handling elsewhere. For
+  example, in the Monaco editor, bound keys in UserIO can not be used
+  which is obviously a blocker~~ — resolved. The editor in use is
+  actually CodeMirror 6 (`.cm-content` is a `<div contenteditable="true">`),
+  which the existing `instanceof HTMLTextAreaElement` guard missed.
+  Fixed by adding `HTMLElement.isContentEditable` to the context guard
+  in `useUserIORegistry.ts`; the property accounts for inheritance, so
+  a single check covers nested elements inside any contenteditable
+  surface (CodeMirror today, Monaco if ever added, generic
+  contenteditable mounts).
 * After spaced repetition when the game rewinds to initial position, when entering intermission, you can't click on the chart like on the PlayerPanel (actually, if PlayerPanel isn't reused, why is that? should it be?)
 * When hovering PV, still shows text annotation (like number of visit or scoreLead), but shouldn't
 * Need an override for visits in SR; card metadata should be displayed for active review sessions
