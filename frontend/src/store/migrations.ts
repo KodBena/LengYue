@@ -67,7 +67,7 @@
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 
 /**
  * A migration brings a blob at version N forward to version N+1.
@@ -190,6 +190,23 @@ export const migrations: Migration[] = [
         };
       } else {
         layers.ownership = { continuous: false, dots: false, liveness: false };
+      }
+    }
+    return out;
+  },
+  // 4 → 5: Introduce profile.settings.appearance.intensityHueShift,
+  // the user-tunable hue offset (in degrees) applied to the visit-
+  // intensity gradient. Defaults to -43 — the prior hardcoded
+  // constant, so nothing visually changes for users who don't
+  // touch the slider. A pre-existing numeric value in the blob is
+  // preserved (the user has already calibrated); anything else
+  // (missing, wrong type) resets to the default.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const appearance = out.profile?.settings?.appearance;
+    if (appearance) {
+      if (typeof appearance.intensityHueShift !== 'number') {
+        appearance.intensityHueShift = -43;
       }
     }
     return out;

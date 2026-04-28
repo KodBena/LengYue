@@ -25,6 +25,7 @@ import { SyncService } from '../services/sync-service';
 import { resourceService } from '../services/resource-service';
 import { backendService } from '../services/backend-service';
 import { analysisService } from '../services/analysis-service';
+import { setIntensityHueShift } from '../engine/suggestion-colors';
 import { store } from '../store';
 import type { useAuth } from './useAuth';
 
@@ -43,6 +44,20 @@ export function useAppBootstrap(
     () => store.session.ui.overlayLayers,
     () => analysisService.restartActiveAnalyses(),
     { deep: true },
+  );
+
+  // Propagate the user's intensity-gradient hue offset into the
+  // suggestion-colors module. `immediate: true` syncs the engine to
+  // the current store value at composable-setup time; subsequent
+  // changes (slider moves, hydration overrides) re-fire and rebuild
+  // the gradient closure. The early-return inside
+  // rebuildIntensityColorFn handles the pre-distribution case
+  // gracefully — the value is recorded; the rebuild happens once
+  // resourceService.loadVisitDistribution() lands.
+  watch(
+    () => store.profile.settings.appearance.intensityHueShift,
+    (deg) => setIntensityHueShift(deg),
+    { immediate: true },
   );
 
   onMounted(async () => {
