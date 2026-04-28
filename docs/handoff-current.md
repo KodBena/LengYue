@@ -336,7 +336,18 @@ friction wherever it touches.
 
 ## Where the project is going
 
-The roadmap, in rough priority order:
+The immediate scope is now locked. `docs/release-scope.md`
+records the punch list for the next release: backend
+de-branding finalisation, analysis-range preservation, the
+card-tree widget, pass handling + save-to-disk, and the
+default-palette work. The project commits to ship once those
+five close (critical bugs notwithstanding); per its retirement
+clause, that document closes when a release tag is cut.
+
+The longer-horizon roadmap below stays valid as a *post-release*
+view — what to pick up after the freeze lifts. Items in this
+section are not in release scope unless explicitly listed in
+`docs/release-scope.md`.
 
 **1. Tenancy completion.** Items 13–26 in `docs/TODO.md`. Once
 landed, the system can be deployed as a hosted service with
