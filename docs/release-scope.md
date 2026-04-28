@@ -96,9 +96,55 @@ Per `docs/dispatch/frontend-to-frontend-default-palette-metrics-spec.md`
   broader than the final seed to give the user genuine
   choice"; review-and-cull happens before merge.
 
+### 6. Tenancy READMEs (TODO #26)
+
+Folded into release scope after the 2026-04-28 audit confirmed
+TODO items 13–16 and 23–25 are shipped in code (the remaining
+seventh tenancy item is documentation, not behaviour). The
+sweep:
+
+- "Tenancy" sections in `backend/README.md` and
+  `frontend/README.md` describing what's isolated, what's
+  global, the role of `ALLOW_PASSWORDLESS_LOGIN`, the default
+  single-user UX.
+- Brief docstrings on `db.schema.documents`,
+  `db.schema.game_source`, `db.schema.tag` (what is and isn't
+  tenant-scoped, and why); on `Settings.ALLOW_PASSWORDLESS_LOGIN`
+  (what flipping it does); on `api.dependencies.get_current_user_id`
+  (the invariant downstream code relies on); on
+  `src/services/api-client.ts::ensureAuthenticated` (the
+  backend-side assumption).
+
+The system-level note already exists at
+`docs/notes/tenancy.md`; item 26 is the in-code documentation
+that points back at it. Adjacent in shape to item 1 (backend
+de-branding) — both are operator-facing surface polish — so
+the two arcs close out symmetrically at release.
+
+### 7. Initial-load layout / UI responsiveness fix
+
+On first load, the application's layout has a visibly broken
+"tacky" state — the control-panel and board areas don't size
+correctly until the user nudges the vertical panel resizer.
+The store value `session.ui.controlPanelWidth` is restored
+from persistence with a sane default (340 px), and `App.vue`'s
+template binds both `width` and `flex` against it, but the
+initial render produces a transient broken state nonetheless.
+Root cause not yet identified at this writing; the
+implementation session investigates and ships the smallest
+fix that makes initial load match a post-resize state.
+Frontend-only.
+
+The user names this kind of issue — "tractable, bounded,
+high-impact on perception" — as the class that should ship
+before release rather than be deferred as polish. Other
+similar issues that surface during the release run-up should
+be flagged for the same treatment, with the project author
+making the call per item.
+
 ## Project commitment
 
-The project commits to release after these five items are
+The project commits to release after these seven items are
 merged and verified, with one exception:
 
 **Critical bugs that are blatantly blockers** (data loss,
@@ -136,10 +182,15 @@ release** and may land in a successor release.
   release is local-install-shaped; these items remain visible
   in `docs/notes/auditor-notes.md` for a future hosted-release
   arc.
-- **Tenancy spine completion** (TODO items 13–16, 23–26).
-  Backend multi-tenant read-path filtering and schema
-  migrations. Required for hosted deployment; not for
-  local-install. Stays in TODO; not in release scope.
+- **Tenancy spine code work** (TODO items 13–16, 23–25). Audit
+  on 2026-04-28 found these are already shipped in code with
+  explicit "Item N (tenancy)" annotations; only item 26
+  (READMEs + docstrings) was outstanding. Item 26 is folded
+  into release scope as item 6 above. The original blanket
+  exclusion bullet ("Tenancy spine completion (TODO items
+  13–16, 23–26)") was misleading and is corrected here. No
+  scope expansion — the work that's now in scope was the
+  documentation half of an already-shipped runtime feature.
 - **Analysis persistence** (`docs/notes/analysis-persistence-plan.md`).
   Performance feature; not release-blocking.
 - **qEUBO genre transition** of `docs/notes/qEUBO.md` from
@@ -149,8 +200,9 @@ release** and may land in a successor release.
 
 ## Cross-references
 
-- `docs/TODO.md` — full work ledger. The five locked items
-  exist in the TODO; this document promotes them to release
+- `docs/TODO.md` — full work ledger. The seven locked items
+  exist in the TODO (or, for items 26 and 7, in the
+  frontend-backlog); this document promotes them to release
   scope and binds the project to ship after they close.
 - `docs/handoff-current.md` "Where the project is going" — the
   pre-freeze roadmap remains the long-horizon view; this
