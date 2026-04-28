@@ -111,8 +111,29 @@ export class ApiClient {
    *   - ADR-0002 compliance: explicit, bounded, single retry on a
    *     known auth-protocol pattern — not the silent auto-retry the
    *     tenet rejects.
+   *
+   * `options.silentStatuses` (added 2026-04-28):
+   *   - Per-call list of HTTP status codes the caller considers
+   *     in-contract for the specific route. When the server returns
+   *     one of these, the system-log error and console.error are
+   *     suppressed; the request still throws with the same `Error`
+   *     shape so callers can pattern-match on `err.message` (and the
+   *     qeubo-service ACL re-throws as a typed `QeuboError`).
+   *   - Used for route-specific status codes that are part of the
+   *     route's documented contract rather than a deviation
+   *     (qEUBO's 404 = "no experiment exists" / 409 = "init phase" /
+   *     503 = "calibration disabled"). Routes that don't pass this
+   *     option get the default loud behaviour.
+   *   - Per ADR-0002: this is not "silent failure" — the deviation
+   *     simply isn't there. The route's spec says "404 means no
+   *     experiment"; treating that as an error is the bug.
    */
-  public async request<T>(method: string, path: string, body?: any): Promise<T> {
+  public async request<T>(
+    method: string,
+    path: string,
+    body?: any,
+    options?: { silentStatuses?: readonly number[] },
+  ): Promise<T> {
     const buildPayload = (): RequestInit => {
       const headers: Record<string, string> = {};
       if (this.token) {
@@ -181,14 +202,18 @@ export class ApiClient {
         }
       }
       const errText = await response.text();
-      const excerpt = errText.length > ERROR_BODY_EXCERPT_MAX
-        ? errText.slice(0, ERROR_BODY_EXCERPT_MAX) + '…'
-        : errText;
-      const userMsg = `API ${method} ${path} → ${response.status}: ${excerpt}`;
-      pushSystemMessage('error', userMsg);
-      console.error('[API]', userMsg);
+      const isSilent = options?.silentStatuses?.includes(response.status) ?? false;
+      if (!isSilent) {
+        const excerpt = errText.length > ERROR_BODY_EXCERPT_MAX
+          ? errText.slice(0, ERROR_BODY_EXCERPT_MAX) + '…'
+          : errText;
+        const userMsg = `API ${method} ${path} → ${response.status}: ${excerpt}`;
+        pushSystemMessage('error', userMsg);
+        console.error('[API]', userMsg);
+      }
       // Thrown message format is preserved verbatim so that callers
-      // doing `err.message.includes('404')` continue to work.
+      // doing `err.message.includes('404')` continue to work — even
+      // when the system-log surface is suppressed via silentStatuses.
       throw new Error(`API Error ${response.status}: ${errText}`);
     }
 
