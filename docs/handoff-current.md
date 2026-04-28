@@ -349,11 +349,16 @@ view — what to pick up after the freeze lifts. Items in this
 section are not in release scope unless explicitly listed in
 `docs/release-scope.md`.
 
-**1. Tenancy completion.** Items 13–26 in `docs/TODO.md`. Once
-landed, the system can be deployed as a hosted service with
-multiple users. The work is well-scoped and mechanical; the
-backend tenancy spine is the bulk, the frontend's reciprocal is
-small (item 28 — JWT 401 retry).
+**1. Tenancy spine — closed in code; documentation pending.**
+Items 13–16 (read-path filtering), 23–25 (schema migrations +
+`PipelineExecutor` threading) are all shipped in code with
+explicit "Item N (tenancy)" annotations. Item 26 (READMEs +
+docstrings that document the tenancy model for operators) is
+folded into the release scope per `docs/release-scope.md`. Once
+that documentation lands, the system can be deployed as a
+hosted service with multiple users; the frontend's reciprocal
+(item 28 — JWT 401 retry) shipped separately as part of the
+auth-lifecycle UX work.
 
 **2. Closing the SR loop server-side (analysis persistence).**
 The biggest user-visible improvement available. SR sessions that

@@ -89,6 +89,13 @@ reading the outstanding work.
 | 32a.2 | Stats purification: `StatsRepositoryPort`, `StatsService`. |
 | 34 | Domain-agnostic core (umbrella) — closed via 34a (schema rename) + 34b (wire rename, including the response-side compat shim removal in Commit 3b) + 30b's `PositionNormalizerPort` + the `backend/README.md` "adopting for another domain" section. Ebisu backend is now genuinely domain-portable. |
 | 34a | Schema rename (`pos_hash` → `content_hash`, `normalized_sgf` → `canonical_content`); `backend/README.md` "adopting for another domain" section. |
+| 13 | `CardRepository.{get_card_by_id, update_card_model}` filter by `user_id` *(tenancy)*. Both methods take `user_id: UserId` keyword-only and add `WHERE card.user_id == user_id`; 404-not-403 collapse preserves the privacy boundary. Code-comment-tagged "Item 13 (tenancy)". |
+| 14 | `CardService.create_card` parent-ownership precheck via `read_repository.get_card_by_id(parent_card_id, user_id=user_id)` before insert; raises `CardNotFoundError` on cross-tenant parent. Code-comment-tagged "Item 14 (tenancy)". |
+| 15 | `StatsRepository.{get_tag_usage, get_forest_summaries}` filter by `user_id`; routes in `stats.py` forward the JWT identity. Tags remain a global vocabulary; counts reflect only the caller's cards. Code-comment-tagged "Item 15 (tenancy)". |
+| 16 | `LineageRepository.{fetch_selection, fetch_lineage}` filter by `user_id`; user_id flows through `_build_selection_cte`. Code-comment-tagged "Item 16 (tenancy)". |
+| 23 | `documents` schema gets composite primary key `(key, user_id)` with `user_id INTEGER REFERENCES users(id) NOT NULL`. Routes in `api/routes/documents.py` filter on the JWT identity. Existing-install migration via `scripts/migrate_23_add_user_id_to_documents.py`. Code-comment-tagged "Item 23 (tenancy)". |
+| 24 | `game_source` schema gets `user_id INTEGER REFERENCES users(id) NOT NULL`. Backfilled per the migration recipe in the original entry; `CardService.create_card` stamps it on inserts. |
+| 25 | `PipelineExecutor` and `_build_selection_cte` thread `user_id: UserId` keyword-only; the materialization query joins `card` with `WHERE card.user_id = :user_id`. Tag-DSL subquery semantics documented in `tag_dsl.py` per the original entry's note. Code-comment-tagged "Item 25 (tenancy)". |
 | — | *Resource endpoint reinstated on the Ebisu backend (`/resources/{name}`, `/resources`) with `StaticResourceRepositoryPort`. Not in original TODO numbering.* |
 | — | *qEUBO MIT-licensed wrapper, step 1 of the qEUBO integration dispatch (`docs/dispatch/frontend-to-backend-qeubo-integration.md` v1.1). Lands the directory-by-license boundary at `backend/qeubo/` parallel to `proxy/goboard_transposition/`'s pattern: `backend/qeubo/vendor/src/` carries the upstream qEUBO library copied verbatim from `~/preference_optimizer/qEUBO/src/`; `backend/qeubo/runtime/` carries the LLM-derived wrapper adapted from the user's prototype at `~/preference_optimizer/qEUBO/wss3/{service,storage}.py` with the gradient-optimizer / colormap cruft surgically removed (no `colormap.py`, no `_compute_colour_data`, no `colour_table_*` / `*_jab` response fields, no JAB / quotient-space hue config — PBO core only). The whole `backend/qeubo/` tree is MIT; `backend/NOTICE` (new) declares the boundary parallel to `proxy/NOTICE`. The runtime supports `controlled_parameters` and `parameter_ranges` in the experiment config (stored, not consumed) so the still-to-be-written PD route handlers can do encode/decode against them. `backend/qeubo/README.md` is the load-bearing public API contract: the route-author session reads it instead of the runtime's `.py` source per the authoring discipline established in dispatch v1.1. Deferred to the route-implementer session: the FastAPI route handlers, encode/decode logic, requirements.txt bump (torch, botorch, gpytorch, redis≥4), and the FastAPI lifespan wiring. Frontend half of the dispatch (toolbar UX, schema migration, useQeubo composable, bookmarks UI, parameter-meta editor extension) is independent and can ship in parallel sessions. Not in original TODO numbering.* |
 | — | *qEUBO REST routes + encode/decode + opt-in deps + lifespan wiring (PD scope at `backend/api/routes/qeubo.py`, `backend/api/routes/qeubo_encoding.py`, `backend/requirements-qeubo.txt`, `backend/core/config.py` edits, `backend/main.py` edits) plus MIT-scope runtime compatibility shims at `backend/qeubo/runtime/_compat.py` bridging vendored qEUBO to modern botorch ≥0.9 / torch ≥2.x / gpytorch ≥1.15 (sample_shape int→torch.Size coercion; float64 default-dtype restoration). Six endpoints under `/qeubo/experiment` per dispatch §2.4; QEUBO_ENABLED defaults to False (researcher opt-in for the heavy deps); routes return 503 when disabled to honor the dispatch's disabled-state contract. Per-user namespacing strips before the wire (dispatch §2.2). End-to-end sanity verified against random L2-target trials in 1D and 2D — zero shape errors, convergence in expected direction. Closes the backend half of the qEUBO integration dispatch; backend status dispatched to frontend at `docs/dispatch/backend-to-frontend-qeubo-status.md`. Worklog at `docs/worklog/2026-04-28-qeubo-routes-and-runtime-modernization.md`. Not in original TODO numbering.* |
@@ -225,44 +232,15 @@ is algorithm-correct and stays.
 
 ### Small — one-file refactors, no contract changes
 
-#### 13. `[backend]` Filter `CardRepository` by `user_id` *(tenancy)*
+#### Items 13–16 *(tenancy read-path)* — moved to Completed
 
-Both `get_card_by_id` and `update_card_model` must take a
-`user_id` parameter and add `WHERE card.user_id = :user_id` to
-their queries. Routes in `api/routes/cards.py` already have
-`user_id` from the JWT dependency; they need to pass it through.
-A 404 (rather than 403) is the right response when the card
-exists but isn't yours, so the tenancy boundary is not
-information-leaking.
-
-#### 14. `[backend]` Verify `parent_card_id` ownership in `CardService.create_card` *(tenancy)*
-
-When `data.parent_card_id` is provided, check that the parent
-card's `user_id` matches the caller before inserting
-`card_source`. Otherwise a user can insert a "child" card under
-any other user's parent, polluting their lineage tree. A 403
-with an explicit message is appropriate here since the user is
-asserting a relationship to something they don't own.
-
-#### 15. `[backend]` Filter `StatsEngine` queries by `user_id` *(tenancy)*
-
-`get_tag_usage` joins `tag` ⋈ `card_tag`; needs an additional
-join into `card` with a `card.user_id = :user_id` filter so tag
-counts reflect only the caller's cards. `get_forest_summaries`
-selects from `card_source` and `game_source`; needs filtering
-through `card.user_id` (and, after item 24, through
-`game_source.user_id` directly). `api/routes/stats.py` passes
-`user_id` from the JWT dependency through. Tags themselves
-remain a global vocabulary (this is intentional — see the
-Tenancy section above).
-
-#### 16. `[backend]` Filter `tree_engine.fetch_lineage` by `user_id` *(tenancy)*
-
-Same pattern as item 13: take `user_id` as a parameter, add the
-filter to the join into `card`. This function is currently
-unused by the main request path (the production path goes
-through `PipelineExecutor`), but it is exported and could be
-picked up by future code, so fixing it now is cheap insurance.
+Items 13 (`CardRepository`), 14 (parent-ownership precheck), 15
+(`StatsEngine`), and 16 (`tree_engine`/`LineageRepository`
+`fetch_lineage`) are all shipped in code with explicit
+"Item N (tenancy)" annotations. The original Active entries
+were stale at the time of `docs/release-scope.md`'s authoring
+(2026-04-28). See the Backend Completed table above for the
+one-line synopses.
 
 #### 34b-cleanup. `[frontend]` Remove ACL fallback chains
 
@@ -304,70 +282,14 @@ be exposed natively as branded. ~5 lines of cleanup.
 
 ### Medium — touches contracts or requires coordinated changes
 
-#### 23. `[backend]` Add `user_id` to `documents` table *(tenancy)*
+#### Items 23–25 *(tenancy schema + executor)* — moved to Completed
 
-Schema migration:
-- Add `user_id INTEGER REFERENCES users(id) NOT NULL` column to
-  `documents`.
-- Change primary key from `(key)` to `(user_id, key)`.
-- Migration step for existing data: assign all existing rows to
-  `user_id=1` (the `local_user`'s expected id under the default
-  install). Document this assumption in the migration script.
-
-Then update `api/routes/documents.py`: both `GET` and `PUT`
-filter by `(user_id, key)`; both pass `user_id` from
-`get_current_user_id` through to the queries.
-
-The frontend's `SyncService` does not change — the URL still
-uses `key` alone, and the backend looks up by the JWT-derived
-`user_id` plus `key`. This makes the tenancy boundary entirely
-server-side, which is correct.
-
-#### 24. `[backend]` Add `user_id` to `game_source` table *(tenancy)*
-
-Schema migration:
-- Add `user_id INTEGER REFERENCES users(id) NOT NULL` column to
-  `game_source`.
-- Backfill existing rows by joining through
-  `card_source.game_source_id` to find an associated
-  `card.user_id`. Multiple cards may reference the same
-  `game_source` under the current schema, but in practice they
-  should all belong to the same user (since `create_card` only
-  mints a new `game_source` on a root). Verify this invariant
-  before migration; if it holds, take any matching `user_id`. If
-  it doesn't, log the violations and require manual resolution.
-
-Then update `CardService.create_card` to stamp `user_id` on
-inserts, and update item 15's `get_forest_summaries` filter to
-also constrain on `game_source.user_id` directly (cleaner than
-going through `card_source` → `card.user_id`).
-
-#### 25. `[backend]` Thread `user_id` through `PipelineExecutor` and `build_selection_cte` *(tenancy)*
-
-This is the largest of the tenancy items because the DSL
-evaluator was designed with no awareness of ownership. Two
-coordinated changes:
-
-- `PipelineExecutor.__init__` (or `.run()`) takes `user_id`. The
-  final query that materializes the pool joins `card` and
-  applies `WHERE card.user_id = :user_id`.
-- `build_selection_cte` in `tree_engine.py` either takes
-  `user_id` and filters at the CTE level, OR the CTE stays
-  unfiltered and the outer query that joins `card` does the
-  filter. The second is simpler (one filter point, easier to
-  audit) and is recommended; the first is more defensive.
-
-Also: `TagDSLCompiler.compile_to_subquery` produces a subquery
-selecting `card_id` from `card_tag → tag`. If a user has the
-tag `$private` on their card and another user also has
-`$private`, the subquery returns both card ids. The outer pool
-filter from `PipelineExecutor` will drop the wrong ones, so this
-is technically safe — but only because the outer filter exists.
-Document this dependency in a comment in `tag_dsl.py` so no one
-later "optimizes" by using the tag subquery in isolation.
-
-`api/routes/forests.py::query_forest` already has `user_id` from
-the JWT dependency; it just needs to pass it through.
+Items 23 (`documents.user_id`), 24 (`game_source.user_id`), and
+25 (`PipelineExecutor` + `_build_selection_cte` user_id
+threading) are all shipped in code with explicit
+"Item N (tenancy)" annotations. The original Active entries
+were stale at the time of `docs/release-scope.md`'s authoring.
+See the Backend Completed table above.
 
 #### 26. `[both]` Document the tenancy model in code and READMEs
 
@@ -578,19 +500,13 @@ shipped. Current shape of remaining work:
 - Item 28 (JWT 401 retry) — depends on already-shipped item 20.
   Compliant with ADR-0002 (explicit, bounded, single retry).
 
-**Backend tenancy spine (coherent sub-sequence):**
-
-- Items 13 → 14 → 15 → 16 (read-path filtering, same pattern
-  four times).
-- Items 23 → 24 (schema migrations, isolated tables).
-- Item 25 (`PipelineExecutor` — largest behavioral change).
-- Item 26 (documentation).
-
-Each tenancy step is independently reviewable and leaves the
-system in a working state. At every intermediate point,
-`local_user` (the sole tenant) sees exactly the same data they
-did before; behavior only changes for installs that have
-provisioned multiple users.
+**Backend tenancy spine — closed.** Items 13 → 14 → 15 → 16
+(read-path filtering), 23 → 24 (schema migrations), and 25
+(`PipelineExecutor` threading) are all shipped in code with
+explicit "Item N (tenancy)" annotations. Item 26 (the README +
+docstring sweep that documents the tenancy model for operators)
+is the only remaining piece and is folded into release scope —
+see `docs/release-scope.md`.
 
 **Backend architectural:**
 
