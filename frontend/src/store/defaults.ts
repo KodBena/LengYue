@@ -24,6 +24,7 @@ export const defaultSettings = {
         parameters: {
           alpha: 0.25,
         },
+        parameter_meta: {},
         palettes: [
           {
             id: 'default',
@@ -100,6 +101,7 @@ export const defaultProfile: ProfileState = {
   thumbnailSettings: defaultThumbnailSettings,
   cardSets: defaultCardSets,
   knownTags: ['$mistake', '$opening', '$joseki', '$life_and_death'],
+  qeuboPinnedBookmarks: [],
 };
 
 export const defaultSessionUI: UISession = {
@@ -124,6 +126,7 @@ export const defaultSessionUI: UISession = {
     },
   },
   activeCardSetId: 'default',
+  qeuboToolbarView: 'applied',
 };
 
 export const DEFAULTS = {

@@ -85,9 +85,9 @@ When reviewing a successor's qEUBO PR:
 | Dispatch v1 (initial spec) | Merged | #24 | 3b2b0c7 |
 | Dispatch v1.1 (licensing correction) | Merged | #25 | 51cabfa |
 | Backend MIT wrapper | Merged | #26 | 5f0fcf9 |
-| Backend REST routes + encode/decode + deps | In review | — | — |
-| Backend MIT runtime compat shims (modern botorch/torch) | In review | — | — |
-| Frontend schema migration 5→6 | Not started | — | — |
+| Backend REST routes + encode/decode + deps | Merged | #30 | 6fa4db6 |
+| Backend MIT runtime compat shims (modern botorch/torch) | Merged | #30 | f3dac77 |
+| Frontend schema migration 5→6 | In review | — | — |
 | Frontend `useQeubo` composable | Not started | — | — |
 | Frontend toolbar A/B cluster | Not started | — | — |
 | Frontend bookmarks UI | Not started | — | — |
@@ -102,14 +102,20 @@ they coordinate via the wire contract in dispatch §2.4 / Part 4.
 
 From the dispatch's Summary review focus:
 
-- **Bundled-apply verdict UX (still open).** Dispatch v1.1
-  default: "I prefer A" both submits the qEUBO observation AND
-  writes A's decoded values into `analysis_env.parameters`. If
-  the verdict and apply-action should be separable instead
-  (verdict = qEUBO only; a separate "Use A" button writes
-  parameters), flag it before the frontend session starts. The
-  bundled default's rationale is the user's "hit analyze again"
-  framing, implying no second click.
+- ~~Bundled-apply verdict UX~~ — resolved 2026-04-28:
+  **separable**. The toolbar splits into three actions, not two:
+  the **toggle** (Applied / A / B) auditions a candidate non-
+  destructively (overrides what the engine sees during evaluation,
+  no persistence); the **verdict** ("I prefer A" / "I prefer B")
+  submits the qEUBO observation only; an explicit **apply** action
+  ("Use this") promotes the currently-effective audition into
+  `analysis_env.parameters`. User's reasoning: the audition needs
+  to be toggle-able back and forth before deciding; bundling
+  verdict with apply would force duplicate A/B button clusters
+  (one for testing, one for verdict). Implication for the
+  forthcoming `useQeubo` composable: `submitPreference` does only
+  the qEUBO observation, and a sibling `applyEffective` (or
+  similar) handles the parameter write.
 - ~~Three-layer licensing structure~~ — resolved in v1.1.
 - ~~Parameter-meta editor placement~~ — resolved as
   PaletteEditor / Analysis Environment view.

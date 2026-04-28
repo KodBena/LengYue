@@ -67,7 +67,7 @@
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 5;
+export const CURRENT_SCHEMA_VERSION = 6;
 
 /**
  * A migration brings a blob at version N forward to version N+1.
@@ -209,6 +209,48 @@ export const migrations: Migration[] = [
         appearance.intensityHueShift = -43;
       }
     }
+    return out;
+  },
+  // 5 → 6: Introduce qEUBO calibration scaffolding. Three fields
+  // seed alongside existing structures; v5 had no qEUBO concept,
+  // so every blob arriving from v5 needs the seed:
+  //
+  //   - profile.settings.engine.katago.analysis_env.parameter_meta:
+  //     per-parameter metadata (range + qeubo_controlled flag) read
+  //     by the calibration loop. Empty dict = no parameter is yet
+  //     under qEUBO control.
+  //   - profile.qeuboPinnedBookmarks: user-pinned snapshots of
+  //     analysis_env.parameters values. Empty list = nothing pinned.
+  //   - session.ui.qeuboToolbarView: the toolbar cluster's current
+  //     view. 'applied' is the only sensible default at migration
+  //     time (no experiment exists yet).
+  //
+  // Each seed checks for "missing or malformed" rather than just
+  // missing — the registry editor lets the user write arbitrary
+  // values into the persisted blob, so a hand-edited corrupt value
+  // is normalized here rather than crashing the consumer.
+  (blob: any) => {
+    const out = structuredClone(blob);
+
+    const ae = out.profile?.settings?.engine?.katago?.analysis_env;
+    if (ae) {
+      const pm = ae.parameter_meta;
+      if (pm === undefined || pm === null || typeof pm !== 'object' || Array.isArray(pm)) {
+        ae.parameter_meta = {};
+      }
+    }
+
+    if (out.profile && !Array.isArray(out.profile.qeuboPinnedBookmarks)) {
+      out.profile.qeuboPinnedBookmarks = [];
+    }
+
+    if (out.session?.ui) {
+      const view = out.session.ui.qeuboToolbarView;
+      if (view !== 'applied' && view !== 'A' && view !== 'B') {
+        out.session.ui.qeuboToolbarView = 'applied';
+      }
+    }
+
     return out;
   },
 ];
