@@ -84,6 +84,7 @@
  */
 
 import { computed, ref, type ComputedRef, type Ref, type WritableComputedRef } from 'vue';
+import { generateUUID } from '../engine/util';
 import { qeuboService } from '../services/qeubo-service';
 import { pushSystemMessage, store } from '../store';
 import {
@@ -404,7 +405,7 @@ function pinCurrent(name: string): void {
   }
   const eff = _effectiveParameterValues.value;
   const bookmark: QeuboBookmark = {
-    id: crypto.randomUUID() as BookmarkId,
+    id: generateUUID() as BookmarkId,
     name: trimmed,
     createdAt: Date.now(),
     parameters: { ...eff },

@@ -146,9 +146,42 @@ export function decodeBoardArray(
 }
 
 export function updateRegistry<T extends object>(
-  root: T, 
-  path: string[], 
+  root: T,
+  path: string[],
   value: any
 ): void {
   setDeep(root, path, value);
+}
+
+/**
+ * RFC4122 v4 UUID. Prefers `crypto.randomUUID()`; falls back to a
+ * manual construction over `crypto.getRandomValues` when the former
+ * is unavailable.
+ *
+ * `crypto.randomUUID` is only present on **secure contexts** —
+ * HTTPS or localhost. Accessing the Vite dev server via a LAN IP
+ * (e.g. `http://192.168.x.x:5173`) is not a secure context, so the
+ * method is undefined there. `crypto.getRandomValues` is available
+ * in every context, so the fallback works regardless. Per ADR-0002,
+ * the call site (currently `useQeubo`'s `pinCurrent`) goes through
+ * this helper rather than the bare API to avoid silent context-
+ * dependent failures.
+ */
+export function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
+  const hex: string[] = [];
+  for (const b of bytes) hex.push(b.toString(16).padStart(2, '0'));
+  return [
+    hex.slice(0, 4).join(''),
+    hex.slice(4, 6).join(''),
+    hex.slice(6, 8).join(''),
+    hex.slice(8, 10).join(''),
+    hex.slice(10, 16).join(''),
+  ].join('-');
 }
