@@ -1,6 +1,7 @@
 # qEUBO Integration — Frontend → Backend Dispatch
 
-- **Date:** 2026-04-28
+- **Date:** 2026-04-28 (revised same-day; see Revision History
+  at the bottom for the change log).
 - **From:** frontend (authoring session, 2026-04-28)
 - **To:** backend (recipient session for vendoring + endpoint
   implementation); frontend (recipient session for client-side
@@ -64,47 +65,83 @@ This dispatch was authored from four sources, all read directly:
 qEUBO is distributed under the MIT License. LengYue (frontend +
 backend) is released into the public domain (Unlicense).
 
-The vendoring approach mirrors `proxy/goboard_transposition/`:
-qEUBO's source is incorporated wholesale into a self-contained
-backend subdirectory, that subdirectory carries the MIT license
-and attribution, and the rest of the backend remains public
-domain. **The boundary is by directory** — there is no derivative
-work outside `backend/qeubo_vendor/` (the wholesale-imported
-library code).
+**Three licensing layers**, not two. The dispatch's first version
+treated the wrapper as public-domain alongside the vendored
+library; this is incorrect. The user's existing prototype at
+`~/preference_optimizer/qEUBO/wss3/{server,service,storage}.py`
+was authored by an LLM that had full visibility into qEUBO's
+source, which makes that wrapper code MIT-derivative under the
+project's conservative licensing posture (`proxy/NOTICE`'s spirit).
+Anything we adapt from the demo into the backend inherits MIT.
+The PD scope therefore sits one layer further out than originally
+described:
 
-The wrapper code that LengYue authors (the FastAPI routes, the
-encode/decode logic, the storage adapter) lives in a sibling
-directory `backend/qeubo/` and is public domain. It *uses* the
-vendored library through normal Python imports; it is not a
-derivative work in the copyright sense.
+| Layer | Location | License | Source visibility while authored |
+|---|---|---|---|
+| Upstream library | `backend/qeubo/vendor/` | MIT (unmodified) | is the source |
+| Wrapper / runtime | `backend/qeubo/runtime/` | MIT (derivative; adapted from `wss3/`'s service.py and storage.py) | reads qEUBO source freely |
+| Route handlers + encode/decode | `backend/api/routes/qeubo.py` (and any sibling PD module) | Public domain (Unlicense) | reads ONLY the published public API of `backend/qeubo/`, never its source |
+
+The MIT scope is the **whole** `backend/qeubo/` directory tree.
+The `vendor/` and `runtime/` subdirectories are both inside the
+MIT boundary; one LICENSE applies to both. The PD route handlers
+sit *outside* `backend/qeubo/` and call into it through normal
+Python imports — they read the package's published API contract
+(`backend/qeubo/README.md` documents function signatures, types,
+and behavioural contracts) but not its source. This is the
+"intermediary preserves obligations" pattern: the runtime is the
+intermediary that absorbs the MIT-derivative status; PD code on
+the other side of it talks via interface knowledge only.
 
 A new `backend/NOTICE` (parallel to `proxy/NOTICE`) declares the
-boundary explicitly, including:
+boundary explicitly:
 
 - Project root + most subdirectories: public domain (Unlicense).
-- `backend/qeubo_vendor/`: MIT, with full attribution and a
-  derivation-provenance section recording the upstream source
-  URL, version/commit SHA, and update procedure.
+- `backend/qeubo/`: MIT, with full attribution and a derivation-
+  provenance section recording the upstream qEUBO source URL,
+  version/commit SHA, the user's `wss3/` prototype as the
+  immediate ancestor of the runtime layer, and update procedure
+  for both the upstream library and the LLM-derived wrapper.
 
 Downstream packagers and redistributors of the backend must
-include `backend/qeubo_vendor/LICENSE` alongside any binary or
-source form of the qeubo_vendor module. Redistributions that omit
-the qEUBO loop (the optimisation feature is gated behind a
-configuration flag — see Part 6) carry no MIT obligation.
+include `backend/qeubo/LICENSE` alongside any binary or source
+form of the `qeubo` module. Redistributions that omit the qEUBO
+loop (the optimisation feature is gated behind a configuration
+flag — see Part 6) carry no MIT obligation.
+
+### Authoring discipline (preserves the boundary)
+
+The session that authors `backend/qeubo/runtime/` may read qEUBO
+source freely — that's required to adapt the wrapper. The session
+that authors `backend/api/routes/qeubo.py` (and any sibling PD
+encode/decode module) **must read only the published API contract
+in `backend/qeubo/README.md`**, never the runtime's `.py` source.
+That's how the PD code stays non-derivative: it's calling
+documented function signatures (a non-copyrightable interface,
+post-Google v Oracle), not transcribing logic.
+
+In practice for this project: the same author (LLM session) MAY
+write both the runtime and the routes provided the route-author
+explicitly avoids reading the runtime source — the discipline is
+about source visibility at authoring time, not about who's at the
+keyboard. `backend/qeubo/README.md` is the load-bearing artefact
+for this separation: it has to actually describe enough of the
+runtime's surface that a route-author can write the routes without
+needing source.
 
 ## Part 1 — Architecture overview
 
 The integration is a three-tier system:
 
 ```
-┌─────────────────────────┐    REST + JWT     ┌───────────────────────────┐
-│ Frontend SPA             │ ───────────────► │ LengYue backend           │
-│  - Toolbar A/B cluster   │                  │  - api/routes/qeubo.py    │
-│  - useQeubo composable   │                  │  - qeubo/encoding.py      │
-│  - Bookmark UX           │                  │  - qeubo/service.py       │
-│  - Schema migrations     │                  │  - qeubo/storage.py       │
-│  - Parameter-meta editor │                  │  - qeubo_vendor/ (MIT)    │
-└─────────────────────────┘                  └────────────┬─────────────┘
+┌─────────────────────────┐    REST + JWT     ┌────────────────────────────────┐
+│ Frontend SPA             │ ───────────────► │ LengYue backend                │
+│  - Toolbar A/B cluster   │                  │  - api/routes/qeubo.py    (PD) │
+│  - useQeubo composable   │                  │  - api/routes/qeubo_*     (PD) │
+│  - Bookmark UX           │                  │     (encode/decode)            │
+│  - Schema migrations     │                  │  - qeubo/runtime/        (MIT) │
+│  - Parameter-meta editor │                  │  - qeubo/vendor/         (MIT) │
+└─────────────────────────┘                  └────────────────┬───────────────┘
                                                           │ Python import +
                                                           │ Redis (KeyDB)
                                                           ▼
@@ -153,62 +190,110 @@ PyTorch tensors qEUBO operates on.
 
 ### 2.1 Vendoring layout
 
-Following `proxy/goboard_transposition/`'s precedent:
+Following `proxy/goboard_transposition/`'s precedent, with the
+three-layer correction from the licensing section above:
 
 ```
 backend/
 ├── NOTICE                          # NEW. Mirrors proxy/NOTICE
 │                                   #   - root + most subdirs: Unlicense
-│                                   #   - qeubo_vendor/: MIT (qEUBO upstream)
+│                                   #   - qeubo/ (whole tree): MIT
 │
-├── qeubo_vendor/                   # NEW. Self-contained MIT-licensed import
+├── qeubo/                          # MIT. The whole directory is MIT-scoped
 │   ├── LICENSE                     #   qEUBO upstream MIT license, verbatim
-│   ├── README.md                   #   Provenance: upstream URL, commit SHA,
-│   │                               #     update procedure (see goboard_transposition/
-│   │                               #     third_party/README.md for template)
-│   ├── pyproject.toml              #   Independent build/install if desired,
-│   │                               #     parallel to goboard_transposition/pyproject.toml
-│   └── src/
-│       ├── __init__.py
-│       ├── acquisition_functions/
-│       │   ├── __init__.py
-│       │   └── eubo.py             #   The qExpectedUtilityOfBestOption class
-│       ├── models/                 #   GP model variants (per qEUBO upstream)
-│       └── utils.py                #   fit_model, generate_random_queries,
-│                                   #     optimize_acqf_and_get_suggested_query
-│
-├── qeubo/                          # NEW. Public-domain wrapper (LengYue)
-│   ├── __init__.py
-│   ├── service.py                  #   ExperimentService, adapted from
-│   │                               #     wss3/service.py (drop WebSocket-
-│   │                               #     specific code; pure Python class)
-│   ├── storage.py                  #   ExperimentStorage, adapted from
-│   │                               #     wss3/storage.py (Redis tensor I/O)
-│   └── encoding.py                 #   NEW. point ↔ actual parameter values
-│                                   #     (see §2.3)
+│   │                               #     (covers vendor/ and runtime/ both)
+│   ├── README.md                   #   Public API contract for callers
+│   │                               #     outside qeubo/ — function signatures,
+│   │                               #     types, behavioural docs. Load-bearing
+│   │                               #     artefact for the authoring discipline.
+│   ├── pyproject.toml              #   Independent build/install, parallel
+│   │                               #     to goboard_transposition/pyproject.toml
+│   ├── __init__.py                 #   Public API re-exports from runtime/.
+│   │                               #     This is the surface PD callers see.
+│   │
+│   ├── vendor/                     #   Unmodified upstream qEUBO library.
+│   │   ├── __init__.py
+│   │   ├── acquisition_functions/
+│   │   │   ├── __init__.py
+│   │   │   └── eubo.py             #     The qExpectedUtilityOfBestOption class
+│   │   ├── models/                 #     GP model variants (per qEUBO upstream)
+│   │   └── utils.py                #     fit_model, generate_random_queries,
+│   │                               #       optimize_acqf_and_get_suggested_query
+│   │
+│   └── runtime/                    #   LLM-derived wrapper (MIT-derivative).
+│       ├── __init__.py             #     Adapted from wss3/'s server-side code,
+│       ├── service.py              #     stripped of:
+│       ├── storage.py              #       - WebSocket dispatcher (server.py is
+│       │                                     not vendored — REST replaces it)
+│       │                                   - Colormap / gradient-optimizer cruft
+│       │                                     (colormap.py, _compute_colour_data,
+│       │                                     _attach_colour_data, JAB-CAM coords,
+│       │                                     hue-sweep / chroma-bound config
+│       │                                     fields). PBO core only.
+│       └── (no encoding.py here)   #     Encode/decode is PD; see below.
 │
 ├── api/
 │   └── routes/
-│       └── qeubo.py                # NEW. FastAPI routes (see §2.4)
+│       └── qeubo.py                # NEW. FastAPI routes (see §2.4). PD.
+│                                   #   Imports `from qeubo import …` against
+│                                   #   the published API contract, never reads
+│                                   #   qeubo's .py source. Encode/decode logic
+│                                   #   lives here (or in a sibling PD module).
 │
 └── core/
     └── config.py                   # EDITED. Add QEUBO_REDIS_URL,
                                     #   QEUBO_ENABLED feature flag
 ```
 
-The vendoring step itself: a one-time copy of qEUBO's `src/` tree
-(plus its LICENSE and any required notice files) into
-`backend/qeubo_vendor/src/`. SHA-256 of the upstream source tree
-recorded in the README; updates are atomic commits with `deps:`
-prefix per the `goboard_transposition/third_party/` precedent.
+The vendoring step proper: a one-time copy of qEUBO's `src/` tree
+into `backend/qeubo/vendor/`, plus the LICENSE. SHA-256 of the
+upstream source tree recorded in the README; updates are atomic
+commits with `deps:` prefix per the
+`goboard_transposition/third_party/` precedent.
+
+The runtime adaptation: the LLM-derived `wss3/{server,service,storage}.py`
+files are simplified into `backend/qeubo/runtime/{service,storage}.py`
+by:
+
+- **Dropping the WebSocket dispatcher** (`server.py` entirely —
+  the FastAPI routes replace its function).
+- **Dropping the gradient-optimizer cruft** that was layered onto
+  the demo for an unrelated colormap-tuning use case. Specifically:
+  - Remove `colormap.py` and any imports thereof.
+  - Remove `_compute_colour_data()` and `_attach_colour_data()`
+    helper functions in `service.py`.
+  - Remove colour-table / waypoint / floor / ceiling JAB fields
+    from the `request_pair` and `get_best_point` response shapes
+    (these are gradient-optimizer-specific).
+  - Remove gradient-specific config fields from `_DEFAULT_CONFIG`:
+    `n_waypoints`, `colour_table_size`, `hue_global`,
+    `hue_sweep_limit`, `endpoint_chroma_bound`,
+    `interior_chroma_bound`. These leave nine truly PBO-core
+    fields: `noise_type`, `noise_level`, `num_alternatives`,
+    `num_init_queries`, `num_algo_queries`, `model_type`, plus
+    the `controlled_parameters` and `parameter_ranges` we add
+    per §2.5.
+  - Remove the JAB / quotient-space hue documentation from the
+    module docstring; it's not part of the PBO core.
+- **Preserving** the experiment lifecycle (init → optimization),
+  pending-pair re-issue semantics, async-with-thread-pool
+  pattern for blocking GP fits, and the Redis storage layout.
+
+The PBO core that remains is what the qEUBO library actually
+needs: a wrapper around `qExpectedUtilityOfBestOption`, model
+fitting, query generation, posterior-mean argmax, and per-experiment
+state tracking. That's what the dispatch's endpoint specifications
+in §2.4 surface.
 
 ### 2.2 Persistence model
 
-The qEUBO server's Redis is the right substrate for experiment
-data — PyTorch tensors of queries / responses / model state.
-Migrating to LengYue's document store would mean either binary-
-blob columns in SQLAlchemy (real schema impact) or tensor-to-JSON
-serialisation (wasteful and fragile). **Keep Redis.**
+The runtime's Redis is the right substrate for experiment data —
+PyTorch tensors of queries / responses / model state. Migrating
+to LengYue's document store would mean either binary-blob columns
+in SQLAlchemy (real schema impact) or tensor-to-JSON serialisation
+(wasteful and fragile). **Keep Redis.** The Redis-side code lives
+in `backend/qeubo/runtime/storage.py` (MIT, derived from
+`wss3/storage.py`).
 
 The document-store concern (per-user data, security) is solved at
 the boundary, not by merging stores: the LengYue backend
@@ -245,7 +330,14 @@ Configuration:
 qEUBO operates in `[0, 1]^input_dim`, normalised. Real parameter
 values may have arbitrary ranges (`alpha ∈ [0, 1]`, others might
 be `[0, 100]`, `[-1, 1]`, etc.). The encode/decode boundary lives
-in `backend/qeubo/encoding.py`.
+**outside the MIT scope**, in `backend/api/routes/qeubo.py` (or a
+sibling PD module like `backend/api/routes/qeubo_encoding.py`).
+The transform is plain `(actual − min) / (max − min)` math; it
+requires no qEUBO source visibility, only knowledge of the
+runtime's published API contract — that the runtime accepts a
+list of floats in `[0, 1]` ordered to match the
+`controlled_parameters` declaration. That's interface knowledge,
+not source. PD code can write it freely.
 
 #### The contract
 
@@ -333,7 +425,7 @@ Request:
 declaration order; the backend records it for stability per
 §2.3). `parameter_ranges` is required for every parameter in the
 list. `config_overrides` is optional; if absent, defaults from
-`backend/qeubo/service.py::_DEFAULT_CONFIG` apply, with one
+`backend/qeubo/runtime/service.py::_DEFAULT_CONFIG` apply, with one
 adjustment from the demo's defaults: `num_algo_queries` defaults
 to `1000000` (effectively unbounded — see §3.2 for the rationale).
 
@@ -631,9 +723,17 @@ survive experiment changes, deletions, etc.
 
 ### 3.7 Parameter-meta editor
 
-The existing `RegistryEditor.vue` (or `PaletteEditor.vue`,
-whichever currently surfaces `parameters`) is extended to also
-edit `parameter_meta`:
+**Placement: `PaletteEditor.vue`** (the master-detail Analysis
+Environment editor). Resolution from session discussion: the
+RegistryEditor is generic and captures everything anyway, but
+the Analysis Environment view is the cleaner home for parameter
+declarations because the parameters are conceptually part of the
+analysis environment that consumes them. RegistryEditor remains
+available as the universal editor; Analysis Environment is the
+guided / curated affordance.
+
+The PaletteEditor is extended to also edit `parameter_meta`
+alongside the existing `parameters` editing surface:
 
 - For each parameter, two new optional fields: a `[min, max]`
   range (number-pair input) and a `qeubo_controlled` checkbox.
@@ -760,12 +860,14 @@ When this dispatch is implemented:
 
 The dispatch proposes:
 
-- **Backend**: vendor qEUBO at `backend/qeubo_vendor/` (MIT,
-  parallel to `proxy/goboard_transposition/`); add wrapper code
-  at `backend/qeubo/`; expose six REST endpoints; persist
-  experiment data in Redis (KeyDB), namespaced by `user_id`;
-  enforce range-driven encode/decode of qEUBO points ↔ actual
-  parameter values; add `backend/NOTICE` declaring the boundary.
+- **Backend**: vendor qEUBO at `backend/qeubo/vendor/` and adapt
+  the wrapper at `backend/qeubo/runtime/` (whole `backend/qeubo/`
+  tree is MIT, parallel to `proxy/goboard_transposition/`); add
+  PD route handlers at `backend/api/routes/qeubo.py` (with
+  encode/decode living in PD code outside the MIT scope); expose
+  six REST endpoints; persist experiment data in Redis (KeyDB),
+  namespaced by `user_id`; add `backend/NOTICE` declaring the
+  boundary.
 - **Frontend**: schema additions (`parameter_meta`,
   `qeuboPinnedBookmarks`, `qeuboToolbarView`); migration 5→6;
   new `qeubo-service.ts` API client; new `useQeubo` composable
@@ -778,12 +880,39 @@ The dispatch proposes:
 The user's review focuses on:
 
 1. The vendoring boundary and NOTICE shape (parallel to proxy's
-   pattern).
+   pattern). Resolved post-merge of v1: the boundary is the whole
+   `backend/qeubo/` directory; the wrapper is MIT-derivative, not
+   PD. See the licensing section and §2.1 for the corrected shape.
 2. Whether the bundled-apply preference verdict (verdict + apply
    in one click) is the right UX, or whether they should be
    separate actions (default in this spec is bundled).
-3. Whether the parameter-meta editor extension belongs in
-   `RegistryEditor.vue` or `PaletteEditor.vue` (where parameters
-   currently live).
+3. ~~Parameter-meta editor placement.~~ Resolved: `PaletteEditor.vue`
+   (Analysis Environment view). RegistryEditor remains the
+   universal editor; Analysis Environment is the guided one.
+
+## Revision history
+
+- **2026-04-28 v1**: initial dispatch (PR #24, merged at 3b2b0c7).
+- **2026-04-28 v1.1**: licensing-correctness revision. The first
+  version treated `backend/qeubo/` as PD wrapper code; the user
+  noted this was wrong because the wrapper, having been authored
+  by an LLM with full visibility into qEUBO source (the existing
+  `~/preference_optimizer/qEUBO/wss3/` prototype), is itself
+  MIT-derivative. Corrections in this revision:
+  - Three-layer licensing structure (vendor + runtime both MIT
+    inside `backend/qeubo/`; PD route handlers and encode/decode
+    sit *outside* the MIT scope).
+  - Authoring-discipline subsection added: the route-author may
+    not read the runtime's source, only its published API in
+    `backend/qeubo/README.md`.
+  - Vendoring layout updated: `backend/qeubo_vendor/` and
+    `backend/qeubo/` collapse into `backend/qeubo/{vendor,runtime}/`.
+  - Encode/decode moved from `backend/qeubo/encoding.py` (would
+    have inherited MIT) to a PD module under `backend/api/routes/`.
+  - PBO-core scope: explicit list of demo cruft to NOT vendor
+    (colormap.py, _compute_colour_data, JAB-CAM stuff, gradient-
+    optimizer config fields).
+  - Parameter-meta editor placement resolved (PaletteEditor /
+    Analysis Environment view).
 
 — end dispatch —
