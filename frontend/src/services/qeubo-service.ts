@@ -156,6 +156,19 @@ function mapHistory(wire: HistoryWire): QeuboHistory {
 
 // ─── Service class ───────────────────────────────────────────────────────────
 
+// Per-route lists of statuses that are part of the qEUBO contract
+// (not deviations). Threaded through `api.request` via
+// `options.silentStatuses` so they don't surface as system-log
+// errors; they still throw with the `API Error <status>` message
+// shape so `rethrowAs` can map them to typed `QeuboError`s.
+const POST_EXPERIMENT_SILENT  = [503] as const;
+const DELETE_EXPERIMENT_SILENT = [404, 503] as const;
+const GET_STATUS_SILENT        = [404, 503] as const;
+const GET_PAIR_SILENT          = [404, 503] as const;
+const POST_PREFERENCE_SILENT   = [404, 503] as const;
+const GET_BEST_SILENT          = [404, 409, 503] as const;
+const GET_HISTORY_SILENT       = [404, 503] as const;
+
 export class QeuboService {
 
   public async createExperiment(input: QeuboCreateInput): Promise<QeuboExperiment> {
@@ -165,7 +178,9 @@ export class QeuboService {
       config_overrides: input.configOverrides ?? null,
     };
     try {
-      const wire = await api.request<CreateResponseWire>('POST', '/qeubo/experiment', body);
+      const wire = await api.request<CreateResponseWire>('POST', '/qeubo/experiment', body, {
+        silentStatuses: POST_EXPERIMENT_SILENT,
+      });
       return mapExperiment(wire);
     } catch (err) {
       throw rethrowAs(err, { 503: 'disabled' });
@@ -174,7 +189,9 @@ export class QeuboService {
 
   public async deleteExperiment(): Promise<void> {
     try {
-      await api.request<unknown>('DELETE', '/qeubo/experiment');
+      await api.request<unknown>('DELETE', '/qeubo/experiment', undefined, {
+        silentStatuses: DELETE_EXPERIMENT_SILENT,
+      });
     } catch (err) {
       throw rethrowAs(err, { 503: 'disabled', 404: 'no-experiment' });
     }
@@ -182,7 +199,9 @@ export class QeuboService {
 
   public async getStatus(): Promise<QeuboStatus> {
     try {
-      const wire = await api.request<StatusWire>('GET', '/qeubo/experiment/status');
+      const wire = await api.request<StatusWire>('GET', '/qeubo/experiment/status', undefined, {
+        silentStatuses: GET_STATUS_SILENT,
+      });
       return mapStatus(wire);
     } catch (err) {
       throw rethrowAs(err, { 503: 'disabled', 404: 'no-experiment' });
@@ -191,7 +210,9 @@ export class QeuboService {
 
   public async getPair(): Promise<QeuboPair> {
     try {
-      const wire = await api.request<PairWire>('GET', '/qeubo/experiment/pair');
+      const wire = await api.request<PairWire>('GET', '/qeubo/experiment/pair', undefined, {
+        silentStatuses: GET_PAIR_SILENT,
+      });
       return mapPair(wire);
     } catch (err) {
       throw rethrowAs(err, { 503: 'disabled', 404: 'no-experiment' });
@@ -201,7 +222,9 @@ export class QeuboService {
   public async submitPreference(queryUuid: string, preferred: 0 | 1): Promise<QeuboPreferenceResult> {
     const body: PreferenceRequestWire = { query_uuid: queryUuid, preferred };
     try {
-      const wire = await api.request<PreferenceResponseWire>('POST', '/qeubo/experiment/preference', body);
+      const wire = await api.request<PreferenceResponseWire>('POST', '/qeubo/experiment/preference', body, {
+        silentStatuses: POST_PREFERENCE_SILENT,
+      });
       return mapPreferenceResult(wire);
     } catch (err) {
       throw rethrowAs(err, { 503: 'disabled', 404: 'no-experiment' });
@@ -210,7 +233,9 @@ export class QeuboService {
 
   public async getBest(): Promise<QeuboBest> {
     try {
-      const wire = await api.request<BestWire>('GET', '/qeubo/experiment/best');
+      const wire = await api.request<BestWire>('GET', '/qeubo/experiment/best', undefined, {
+        silentStatuses: GET_BEST_SILENT,
+      });
       return mapBest(wire);
     } catch (err) {
       throw rethrowAs(err, { 503: 'disabled', 404: 'no-experiment', 409: 'init-not-ready' });
@@ -219,7 +244,9 @@ export class QeuboService {
 
   public async getHistory(): Promise<QeuboHistory> {
     try {
-      const wire = await api.request<HistoryWire>('GET', '/qeubo/experiment/history');
+      const wire = await api.request<HistoryWire>('GET', '/qeubo/experiment/history', undefined, {
+        silentStatuses: GET_HISTORY_SILENT,
+      });
       return mapHistory(wire);
     } catch (err) {
       throw rethrowAs(err, { 503: 'disabled', 404: 'no-experiment' });
