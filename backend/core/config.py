@@ -17,6 +17,13 @@ A few non-trivial behaviors are documented inline:
   comma-separated list, e.g. CORS_ALLOW_ORIGINS='["https://go.example.org"]'.
 - SQL_ECHO: defaults to False so SQL does not leak into stdout/logs in
   production. Local development can opt in via env.
+- QEUBO_ENABLED: defaults to False. The qEUBO preference-based optimisation
+  feature requires heavy optional deps (torch, botorch, gpytorch — see
+  requirements-qeubo.txt) plus a running Redis instance. Researchers who
+  want it set QEUBO_ENABLED=True after installing the deps; everyone else
+  gets a backend with /qeubo/* routes returning 503 (the dispatch's
+  documented disabled-state contract; see
+  docs/dispatch/frontend-to-backend-qeubo-integration.md §2.2).
 """
 import logging
 import secrets
@@ -87,6 +94,14 @@ class Settings(BaseSettings):
     # The single switch that flips the system between transparent local install
     # and multi-tenant deployment. See api/routes/auth.py::login_for_access_token.
     ALLOW_PASSWORDLESS_LOGIN: bool = True
+
+    # ----- qEUBO (optional, opt-in for researchers) -----
+    # The optimisation feature is gated behind this flag. Heavy deps
+    # (torch/botorch/gpytorch) live in requirements-qeubo.txt and are not
+    # installed by default. When False, /qeubo/* routes return 503 — the
+    # dispatch-documented disabled-state contract.
+    QEUBO_ENABLED: bool = False
+    QEUBO_REDIS_URL: str = "redis://127.0.0.1:6379"
 
     # ----- HTTP -----
     # The JWT bearer token is not a CORS credential, so wildcard origin is

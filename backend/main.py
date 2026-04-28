@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager  # noqa: E402
 from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 
-from api.routes import auth, cards, documents, forests, resources, stats  # noqa: E402
+from api.routes import auth, cards, documents, forests, qeubo, resources, stats  # noqa: E402
 from core.config import config  # noqa: E402
 from core.database import Database  # noqa: E402
 from db.schema import metadata  # noqa: E402
@@ -31,6 +31,37 @@ async def lifespan(app: FastAPI):
     app.state.db = db
     logger.info("Database initialized: %s", config.DATABASE_URI)
 
+    # qEUBO is opt-in (researcher-only feature; heavy deps in
+    # requirements-qeubo.txt). The import itself is deferred to this branch
+    # so that a default install without torch / botorch / gpytorch can still
+    # boot the backend — the routes are always registered, but the dependency
+    # `get_qeubo_service` returns 503 unless `app.state.qeubo_service` is set.
+    qeubo_service = None
+    qeubo_executor = None
+    if config.QEUBO_ENABLED:
+        from concurrent.futures import ThreadPoolExecutor
+
+        from qeubo import ExperimentService, ExperimentStorage  # heavy import
+
+        storage = ExperimentStorage(config.QEUBO_REDIS_URL)
+        # Fail loudly per ADR-0002: a researcher who flipped QEUBO_ENABLED on
+        # without a reachable Redis should see the failure at boot, not as
+        # an opaque 5xx on first call.
+        if not await storage.ping():
+            raise RuntimeError(
+                f"qEUBO storage unreachable at {config.QEUBO_REDIS_URL}; "
+                "either start Redis (see backend/docs/redis-local-resource.md) "
+                "or set QEUBO_ENABLED=False."
+            )
+        qeubo_executor = ThreadPoolExecutor(
+            max_workers=2, thread_name_prefix="qeubo_worker"
+        )
+        qeubo_service = ExperimentService(storage, qeubo_executor)
+        logger.info("qEUBO enabled; Redis at %s", config.QEUBO_REDIS_URL)
+    else:
+        logger.info("qEUBO disabled; /qeubo/* will return 503 until QEUBO_ENABLED=True")
+    app.state.qeubo_service = qeubo_service
+
     try:
         # Schema bootstrap: idempotent CREATE TABLE / CREATE INDEX IF NOT EXISTS.
         # Won't overwrite migrated data; will add new tables and indexes on
@@ -39,6 +70,8 @@ async def lifespan(app: FastAPI):
             await conn.run_sync(metadata.create_all)
         yield
     finally:
+        if qeubo_executor is not None:
+            qeubo_executor.shutdown(wait=False, cancel_futures=True)
         await db.dispose()
         logger.info("Database disposed cleanly")
 
@@ -66,6 +99,7 @@ app.include_router(auth.router)
 app.include_router(cards.router)
 app.include_router(forests.router)
 app.include_router(documents.router)
+app.include_router(qeubo.router)
 app.include_router(resources.router)
 app.include_router(stats.router)
 

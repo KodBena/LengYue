@@ -25,6 +25,13 @@ _VENDOR_PATH = str(Path(__file__).parent / "vendor")
 if _VENDOR_PATH not in sys.path:
     sys.path.insert(0, _VENDOR_PATH)
 
+# Apply third-party-API compatibility shims (botorch sample_shape
+# strictness; torch default-dtype regression) BEFORE any runtime or
+# vendor module is loaded. The shims are documented in
+# `runtime/_compat.py`; importing the module here is what activates
+# them. See also the "Compatibility envelope" section of README.md.
+from .runtime import _compat  # noqa: F401, E402
+
 # Public API surface — re-exported here so callers do `from qeubo import X`
 # rather than reaching into runtime submodules. The route handlers
 # (public-domain code in `backend/api/routes/`) read only this surface

@@ -1,0 +1,16 @@
+# Optional dependencies for the qEUBO preference-based optimisation feature.
+#
+# Install only when QEUBO_ENABLED=True is set in the environment:
+#   pip install -r requirements-qeubo.txt
+#
+# These pull in PyTorch and the BoTorch / GPyTorch stack — multi-GB on first
+# install. Aimed at researchers; not part of the default backend install.
+#
+# Pinning posture: the upstream qEUBO library does not pin its own deps, so
+# this file is unpinned by design. If a future release breaks the integration,
+# pin the offending package here rather than across the project.
+
+torch
+botorch
+gpytorch
+redis>=4
