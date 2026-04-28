@@ -90,9 +90,9 @@ When reviewing a successor's qEUBO PR:
 | Frontend schema migration 5→6 | Merged | #31 | 7717332 |
 | Dispatch v1.2 (separable verdict + apply UX) | Merged | #32 | a059703 |
 | Frontend `useQeubo` composable + `qeubo-service.ts` ACL | Merged | #32 | a059703 |
-| Frontend toolbar A/B cluster (toggle + verdict + apply + pin) | In review | — | — |
+| Frontend toolbar A/B cluster (toggle + verdict + apply + pin) | Merged | #33 | 62efec8 |
+| Frontend parameter-meta editor (in PaletteEditor) | In review | — | — |
 | Frontend bookmarks UI | Not started | — | — |
-| Frontend parameter-meta editor (in PaletteEditor) | Not started | — | — |
 | End-to-end verification with Redis | Partial (wire layer verified via curl 2026-04-28; UI smoke pending) | — | — |
 
 The two remaining halves (backend route handlers, frontend
