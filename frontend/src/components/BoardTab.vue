@@ -1,4 +1,11 @@
-<!-- src/components/BoardThumbnail.vue -->
+<!--
+  src/components/BoardTab.vue
+  Tab item in the board-list rail. Carries the board's label, close
+  button, the analysis-meter rugplot, and the activity (geiger) dot.
+  The hover-thumbnail is a separate component (FloatingThumbnail.vue)
+  triggered by the hover-enter / hover-leave events emitted from here.
+  License: Public Domain (The Unlicense)
+-->
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useActivityDecay } from '../composables/useActivityDecay';

@@ -68,7 +68,7 @@ export const getIntensityColor = shallowRef<IntensityColorFn>(placeholderFn);
 /**
  * Linear-LUT intensity colour. The input `t` is interpreted as a
  * *uniform position along the gradient*, with no ECDF remap. Used by
- * `BoardThumbnail`'s rugplot, where the input is a log-compressed
+ * `BoardTab`'s rugplot, where the input is a log-compressed
  * `visits / target` (already evenly distributed across orders of
  * magnitude) and the ECDF would just collapse the practical range
  * onto a narrow band of the LUT.
