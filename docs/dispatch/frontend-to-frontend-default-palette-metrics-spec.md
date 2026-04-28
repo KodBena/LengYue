@@ -28,9 +28,13 @@ This spec was authored from three sources:
 
 1. **`/home/bork/omega/proxy/NOTICE`** — established that the proxy
    root is public domain (Unlicense); only `goboard_transposition/`
-   is MIT-derived from KataGo and carries attribution obligations.
-   Nothing in this spec touches `goboard_transposition/`. No
-   attribution shadow falls on the metric definitions below.
+   carries attribution obligations. That subdirectory is derived
+   from two upstream MIT-licensed projects: KataGo (for the search
+   / analysis-data structure) and nlohmann/json (vendored under
+   `goboard_transposition/third_party/nlohmann/` to make distribution
+   tractable). Nothing in this spec touches `goboard_transposition/`
+   or its third-party vendor tree. No attribution shadow falls on
+   the metric definitions below.
 
 2. **`/home/bork/omega/proxy/{baduk.py, reginterp.py, bsa.py,
    proxy_server.py}`** — public-domain proxy source defining the
