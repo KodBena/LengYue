@@ -85,7 +85,8 @@ When reviewing a successor's qEUBO PR:
 | Dispatch v1 (initial spec) | Merged | #24 | 3b2b0c7 |
 | Dispatch v1.1 (licensing correction) | Merged | #25 | 51cabfa |
 | Backend MIT wrapper | Merged | #26 | 5f0fcf9 |
-| Backend REST routes + encode/decode + deps | Not started | — | — |
+| Backend REST routes + encode/decode + deps | In review | — | — |
+| Backend MIT runtime compat shims (modern botorch/torch) | In review | — | — |
 | Frontend schema migration 5→6 | Not started | — | — |
 | Frontend `useQeubo` composable | Not started | — | — |
 | Frontend toolbar A/B cluster | Not started | — | — |
@@ -112,6 +113,17 @@ From the dispatch's Summary review focus:
 - ~~Three-layer licensing structure~~ — resolved in v1.1.
 - ~~Parameter-meta editor placement~~ — resolved as
   PaletteEditor / Analysis Environment view.
+- **Runtime compat shims for modern botorch/torch (added).** The
+  vendored qEUBO predates botorch ≥0.9's `sample_shape` strictness
+  and modern torch's float32 default; `backend/qeubo/runtime/_compat.py`
+  carries two import-time shims that bridge the regressions inside MIT
+  scope. Documented in `backend/qeubo/README.md` "Compatibility
+  envelope" subsection. Future trigger for cleanup: if upstream
+  qEUBO becomes maintained again, fork-vendor with patches inlined.
+- **KeyDB substituted with Redis.** KeyDB is discontinued upstream;
+  the dev machine now runs Redis 8.6.2 on the same port. The wire
+  substrate is interchangeable (`redis.asyncio` works against either);
+  no code change implied. See `backend/docs/redis-local-resource.md`.
 
 ## Licensing discipline (short form)
 
