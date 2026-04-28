@@ -84,6 +84,7 @@
  */
 
 import { computed, ref, type ComputedRef, type Ref, type WritableComputedRef } from 'vue';
+import { generateUUID } from '../engine/util';
 import { qeuboService } from '../services/qeubo-service';
 import { pushSystemMessage, store } from '../store';
 import {
@@ -404,7 +405,7 @@ function pinCurrent(name: string): void {
   }
   const eff = _effectiveParameterValues.value;
   const bookmark: QeuboBookmark = {
-    id: crypto.randomUUID() as BookmarkId,
+    id: generateUUID() as BookmarkId,
     name: trimmed,
     createdAt: Date.now(),
     parameters: { ...eff },
@@ -424,6 +425,31 @@ function applyBookmark(id: BookmarkId): void {
   }
   store.profile.settings.engine.katago.analysis_env.parameters = { ...bookmark.parameters };
   _toolbarView.value = 'applied';
+}
+
+function renameBookmark(id: BookmarkId, newName: string): void {
+  const trimmed = newName.trim();
+  if (!trimmed) {
+    throw new Error('qEUBO: bookmark name must be non-empty.');
+  }
+  const list = store.profile.qeuboPinnedBookmarks ?? [];
+  const bookmark = list.find((b) => b.id === id);
+  if (!bookmark) {
+    pushSystemMessage('error', `qEUBO: bookmark ${id} not found.`);
+    return;
+  }
+  bookmark.name = trimmed;
+}
+
+function deleteBookmark(id: BookmarkId): void {
+  const list = store.profile.qeuboPinnedBookmarks;
+  if (!list) return;
+  const idx = list.findIndex((b) => b.id === id);
+  if (idx === -1) {
+    pushSystemMessage('error', `qEUBO: bookmark ${id} not found.`);
+    return;
+  }
+  list.splice(idx, 1);
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
@@ -449,6 +475,8 @@ export interface UseQeuboReturn {
   applyEffective: () => void;
   pinCurrent: (name: string) => void;
   applyBookmark: (id: BookmarkId) => void;
+  renameBookmark: (id: BookmarkId, newName: string) => void;
+  deleteBookmark: (id: BookmarkId) => void;
 }
 
 export function useQeubo(): UseQeuboReturn {
@@ -473,5 +501,7 @@ export function useQeubo(): UseQeuboReturn {
     applyEffective,
     pinCurrent,
     applyBookmark,
+    renameBookmark,
+    deleteBookmark,
   };
 }

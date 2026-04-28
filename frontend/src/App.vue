@@ -44,6 +44,7 @@ import RootErrorBoundary from './components/RootErrorBoundary.vue';
 import { useReviewSession } from './composables/useReviewSession';
 import BaseChart from './components/charts/BaseChart.vue';
 import ColorDebugStrip  from './components/charts/ColorDebugStrip.vue';
+import QeuboBookmarks   from './components/QeuboBookmarks.vue';
 
 useUserIORegistry();
 
@@ -398,6 +399,9 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
                   />
                 </div>
                 <ColorDebugStrip :steps="500" />
+
+                <h3 class="sub-header section-divider" style="margin-top: 24px;">qEUBO Bookmarks</h3>
+                <QeuboBookmarks />
               </div>
             </template>
 
