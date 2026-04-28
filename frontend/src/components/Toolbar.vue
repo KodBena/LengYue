@@ -4,6 +4,7 @@
 -->
 <script setup lang="ts">
 import { computed } from 'vue';
+import QeuboToolbar from './QeuboToolbar.vue';
 import type { EngineStatus, EngineMetrics } from '../types';
 
 const props = defineProps<{
@@ -44,6 +45,12 @@ const engineBtnLabel = computed(() => isConnected.value ? 'Engine' : 'Connect');
         >●</span>
       </div>
     </div>
+
+    <!-- qEUBO calibration cluster. Self-gating: renders only when an
+         experiment exists. Sits between metrics and engine controls
+         so it shares horizontal space with engine telemetry without
+         competing for the title region. -->
+    <QeuboToolbar />
 
     <div class="engine-controls">
       <button class="toolbar-btn highlight-btn" @click="emit('mint-card')">Mint Card</button>

@@ -375,6 +375,26 @@ function applyEffective(): void {
   _toolbarView.value = 'applied';
 }
 
+/**
+ * Synchronous local-state reset. Clears every piece of state owned
+ * by this composable without making any network calls. Used when
+ * the SPA's auth identity is lost (logout, identity change) — the
+ * subsequent bootstrap (called when a new identity authenticates)
+ * re-populates from /status.
+ *
+ * Does NOT touch the GlobalStore (qeuboPinnedBookmarks,
+ * qeuboToolbarView, parameter_meta) — those are user-data and the
+ * SyncService's identity-aware workspace handling owns their
+ * lifecycle.
+ */
+function reset(): void {
+  _statusRef.value = null;
+  _pairRef.value = null;
+  _bestRef.value = null;
+  _calibrationEnabledRef.value = null;
+  _isBusyRef.value = false;
+}
+
 // ─── Bookmarks ───────────────────────────────────────────────────────────────
 
 function pinCurrent(name: string): void {
@@ -420,6 +440,7 @@ export interface UseQeuboReturn {
   effectiveParameterValues: ComputedRef<Record<string, number>>;
   isBusy: ComputedRef<boolean>;
   bootstrap: () => Promise<void>;
+  reset: () => void;
   startNewExperiment: (controlledParams: string[]) => Promise<void>;
   abortExperiment: () => Promise<void>;
   submitPreference: (preferred: 0 | 1) => Promise<void>;
@@ -443,6 +464,7 @@ export function useQeubo(): UseQeuboReturn {
     effectiveParameterValues: _effectiveParameterValues,
     isBusy: computed(() => _isBusyRef.value),
     bootstrap,
+    reset,
     startNewExperiment,
     abortExperiment,
     submitPreference,
