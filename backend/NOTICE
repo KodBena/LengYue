@@ -1,0 +1,109 @@
+LengYue Backend
+===============
+
+This repository contains code released under two distinct licenses.
+The boundary is by directory and is documented below.
+
+------------------------------------------------------------------------
+Project root and all subdirectories EXCEPT `qeubo/`
+------------------------------------------------------------------------
+
+Released into the public domain under the Unlicense, per ADR-0006's
+per-file header convention. The umbrella's licensing posture treats
+every source file in `backend/` (outside `qeubo/`) as public domain.
+
+This includes (non-exhaustive):
+  - main.py, the api/ subpackage, core/, db/, domain/, repositories/,
+    services/, schemas/.
+  - All scripts under scripts/.
+  - All shell scripts, configuration examples, and documentation
+    under backend/.
+
+------------------------------------------------------------------------
+The `qeubo/` subdirectory
+------------------------------------------------------------------------
+
+Derived from qEUBO (the q-Expected Utility of Best Option preference-
+based optimization library), distributed under the MIT License.
+See the file `qeubo/LICENSE` for the full text and copyright
+attribution from the upstream qEUBO project.
+
+The MIT License requires that this attribution and the license text
+itself be preserved in any redistribution of the derivative work.
+Downstream packagers and redistributors must include `qeubo/LICENSE`
+alongside any binary or source form of the `qeubo` module.
+
+The MIT scope is the **whole** `qeubo/` directory tree, including:
+
+  - `qeubo/vendor/`, the unmodified upstream qEUBO source.
+  - `qeubo/runtime/`, the LLM-derived wrapper code adapted from the
+    project author's prototype at
+    `~/preference_optimizer/qEUBO/wss3/{service,storage}.py`.
+    The prototype was authored by an LLM with full visibility into
+    qEUBO source, which makes it MIT-derivative under the
+    conservative interpretation; anything we adapt from it inherits
+    that status.
+  - `qeubo/__init__.py`, `qeubo/README.md`, `qeubo/LICENSE`.
+
+upstream qEUBO project: https://github.com/facebookresearch/qEUBO
+upstream MIT license: see `qeubo/LICENSE`
+
+Derivation provenance
+~~~~~~~~~~~~~~~~~~~~~
+
+The vendored library at `qeubo/vendor/src/` was copied from the
+upstream qEUBO source tree at the project author's working copy
+(`~/preference_optimizer/qEUBO/src/`). No modifications to the
+vendored source: the library is bit-for-bit identical to upstream
+modulo the `__pycache__` directories, which were stripped at copy
+time as a hygiene measure.
+
+The runtime wrapper at `qeubo/runtime/` was adapted from
+`~/preference_optimizer/qEUBO/wss3/{service,storage}.py`, with the
+following deletions per the qEUBO integration dispatch's PBO-core
+scope:
+
+  - All references to the colormap / gradient-optimizer extensions
+    that the wss3 prototype carried for an unrelated colormap-tuning
+    use case: `colormap.py` imports, `_compute_colour_data`,
+    `_attach_colour_data`, and the `colour_table_*` / `*_jab` fields
+    in pair / best responses.
+  - The gradient-specific config fields in `_DEFAULT_CONFIG`:
+    `n_waypoints`, `colour_table_size`, `hue_global`,
+    `hue_sweep_limit`, `endpoint_chroma_bound`,
+    `interior_chroma_bound`. Only the PBO-core fields remain.
+  - The WebSocket dispatcher (`server.py`) is not vendored at all;
+    REST route handlers in `backend/api/routes/qeubo.py` replace
+    its function.
+
+------------------------------------------------------------------------
+The licensing boundary at the import surface
+------------------------------------------------------------------------
+
+Code outside `backend/qeubo/` (notably the FastAPI route handlers
+and any sibling encode/decode utility modules under
+`backend/api/routes/`) is public domain. Such code consumes the
+qeubo package via the documented public API in
+`backend/qeubo/README.md`, not by reading the source files in
+`vendor/` or `runtime/`. Source visibility tainted with MIT-
+derivative status would carry the MIT obligation outward; calling
+documented function signatures (a non-copyrightable interface)
+does not. This is the "intermediary preserves obligations" pattern
+documented in the qEUBO integration dispatch.
+
+------------------------------------------------------------------------
+Practical implications for downstream users
+------------------------------------------------------------------------
+
+If you redistribute the LengYue backend in source form: include
+`qeubo/LICENSE` and this NOTICE file. No further obligations.
+
+If you redistribute compiled artifacts that include the `qeubo`
+module: include `qeubo/LICENSE` alongside the binary. The MIT
+attribution requirement applies to that module specifically.
+
+If you redistribute compiled artifacts WITHOUT `qeubo` (the
+optimisation feature is gated behind the `QEUBO_ENABLED`
+configuration flag and can be excluded from a deployed build):
+no licensing obligations apply. The remainder of the backend is
+in the public domain.
