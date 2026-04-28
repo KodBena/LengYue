@@ -219,6 +219,140 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/qeubo/experiment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Experiment
+         * @description Create-or-replace the user's experiment.
+         *
+         *     Per dispatch §2.4, if an experiment already exists for this user,
+         *     delete it first. The user's `analysis_env.parameters` document
+         *     (frontend-side) is unaffected — only Redis state resets.
+         */
+        post: operations["create_experiment_qeubo_experiment_post"];
+        /**
+         * Delete Experiment
+         * @description Abort and dissolve the user's experiment. 404 if none exists.
+         */
+        delete: operations["delete_experiment_qeubo_experiment_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/qeubo/experiment/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Experiment Status */
+        get: operations["get_experiment_status_qeubo_experiment_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/qeubo/experiment/pair": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Pair
+         * @description Fetch (or re-issue) the next A/B pair.
+         *
+         *     Probes status first to recover `controlled_parameters` and
+         *     `parameter_ranges` for decoding; the round-trip cost is one Redis
+         *     HMGET, dwarfed by the GP acquisition cost when the runtime fits a
+         *     new pair.
+         */
+        get: operations["get_pair_qeubo_experiment_pair_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/qeubo/experiment/preference": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Preference
+         * @description Record the user's verdict.
+         *
+         *     Per dispatch §2.4, the bundled-apply semantic ("write the chosen
+         *     point's values to `analysis_env.parameters`") is FRONTEND-SIDE.
+         *     This route is preference-recording-only.
+         */
+        post: operations["submit_preference_qeubo_experiment_preference_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/qeubo/experiment/best": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Best
+         * @description qEUBO's posterior-mean argmax. Heavy compute; may take seconds.
+         */
+        get: operations["get_best_qeubo_experiment_best_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/qeubo/experiment/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get History
+         * @description Diagnostic: the full ordered preference-triple history.
+         */
+        get: operations["get_history_qeubo_experiment_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/resources": {
         parameters: {
             query?: never;
@@ -378,6 +512,19 @@ export interface components {
             username: string;
             /** Has Password */
             has_password: boolean;
+        };
+        /** BestResponse */
+        BestResponse: {
+            /** Point */
+            point: number[];
+            /** Values */
+            values: {
+                [key: string]: number;
+            };
+            /** Phase */
+            phase: string;
+            /** Iteration */
+            iteration: number;
         };
         /**
          * BfsOrder
@@ -539,6 +686,30 @@ export interface components {
             type: "CentroidRankKey";
         };
         /**
+         * ConfigOverrides
+         * @description Optional overrides forwarded into the runtime's `user_config`.
+         *
+         *     `extra="allow"` keeps the wire shape forward-compatible with any
+         *     upstream config keys the runtime may grow without forcing a wire-
+         *     schema bump every time.
+         */
+        ConfigOverrides: {
+            /** Num Init Queries */
+            num_init_queries?: number | null;
+            /** Num Algo Queries */
+            num_algo_queries?: number | null;
+            /** Noise Type */
+            noise_type?: string | null;
+            /** Noise Level */
+            noise_level?: number | null;
+            /** Num Alternatives */
+            num_alternatives?: number | null;
+            /** Model Type */
+            model_type?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
          * ContextSelection
          * @description Just the context card itself.
          */
@@ -548,6 +719,37 @@ export interface components {
              * @enum {string}
              */
             type: "ContextSelection";
+        };
+        /** CreateExperimentRequest */
+        CreateExperimentRequest: {
+            /** Controlled Parameters */
+            controlled_parameters: string[];
+            /** Parameter Ranges */
+            parameter_ranges: {
+                [key: string]: number[];
+            };
+            config_overrides?: components["schemas"]["ConfigOverrides"] | null;
+        };
+        /** CreateExperimentResponse */
+        CreateExperimentResponse: {
+            /** Experiment Id */
+            experiment_id: string;
+            /** Config */
+            config: {
+                [key: string]: unknown;
+            };
+            /** Controlled Parameters */
+            controlled_parameters: string[];
+            /** Phase */
+            phase: string;
+            /** Init Index */
+            init_index: number;
+            /** Num Init Queries */
+            num_init_queries: number;
+            /** Iteration */
+            iteration: number;
+            /** Num Algo Queries */
+            num_algo_queries: number;
         };
         /** DepthKey */
         DepthKey: {
@@ -709,6 +911,22 @@ export interface components {
              */
             type: "HeightKey";
         };
+        /**
+         * HistoryResponse
+         * @description The runtime's history-triple shape is undocumented in
+         *     `backend/qeubo/README.md`; pass it through verbatim under
+         *     `history` typed as `list[Any]` rather than guessing.
+         */
+        HistoryResponse: {
+            /** History */
+            history: unknown[];
+            /** Phase */
+            phase: string;
+            /** Iteration */
+            iteration: number;
+            /** Total Responses */
+            total_responses: number;
+        };
         /** IntersectSelection */
         IntersectSelection: {
             /**
@@ -780,6 +998,49 @@ export interface components {
             stage: "order";
             /** Ordering */
             ordering: components["schemas"]["DepthKey"] | components["schemas"]["HeightKey"] | components["schemas"]["SubtreeSizeKey"] | components["schemas"]["HeavyPathRankKey"] | components["schemas"]["CentroidRankKey"] | components["schemas"]["NumReviewsKey"] | components["schemas"]["NumMovesKey"] | components["schemas"]["EbisuRecallKey"] | components["schemas"]["Negated"] | components["schemas"]["LexicographicOrder"] | components["schemas"]["WeightedSumOrder"] | components["schemas"]["BfsOrder"] | components["schemas"]["DfsPreorder"] | components["schemas"]["DfsPostorder"] | components["schemas"]["FringeFirst"] | components["schemas"]["CentroidOrder"] | components["schemas"]["MainLineFirst"];
+        };
+        /** PairResponse */
+        PairResponse: {
+            /** Query Uuid */
+            query_uuid: string;
+            /** Point A */
+            point_a: number[];
+            /** Point B */
+            point_b: number[];
+            /** Values A */
+            values_a: {
+                [key: string]: number;
+            };
+            /** Values B */
+            values_b: {
+                [key: string]: number;
+            };
+            /** Phase */
+            phase: string;
+            /** Iteration */
+            iteration: number;
+            /** Reissued */
+            reissued: boolean;
+        };
+        /** PreferenceRequest */
+        PreferenceRequest: {
+            /** Query Uuid */
+            query_uuid: string;
+            /** Preferred */
+            preferred: number;
+        };
+        /** PreferenceResponse */
+        PreferenceResponse: {
+            /** Phase */
+            phase: string;
+            /** Iteration */
+            iteration: number;
+            /** Init Index */
+            init_index: number;
+            /** Total Responses */
+            total_responses: number;
+            /** Completed */
+            completed: boolean;
         };
         /**
          * ResourceResponse
@@ -860,6 +1121,27 @@ export interface components {
              * @enum {string}
              */
             type: "SiblingSelection";
+        };
+        /** StatusResponse */
+        StatusResponse: {
+            /** Experiment Id */
+            experiment_id: string;
+            /** Phase */
+            phase: string;
+            /** Init Index */
+            init_index: number;
+            /** Num Init Queries */
+            num_init_queries: number;
+            /** Iteration */
+            iteration: number;
+            /** Num Algo Queries */
+            num_algo_queries: number;
+            /** Total Responses */
+            total_responses: number;
+            /** Has Pending */
+            has_pending: boolean;
+            /** Pending Query Uuid */
+            pending_query_uuid: string | null;
         };
         /**
          * SubtreeSelection
@@ -1251,6 +1533,174 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_experiment_qeubo_experiment_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateExperimentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateExperimentResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_experiment_qeubo_experiment_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    get_experiment_status_qeubo_experiment_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+        };
+    };
+    get_pair_qeubo_experiment_pair_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PairResponse"];
+                };
+            };
+        };
+    };
+    submit_preference_qeubo_experiment_preference_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreferenceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferenceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_best_qeubo_experiment_best_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BestResponse"];
+                };
+            };
+        };
+    };
+    get_history_qeubo_experiment_history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HistoryResponse"];
                 };
             };
         };
