@@ -117,3 +117,120 @@ have different organizing pressures. The backend's Hexagonal
 Architecture bounds directory size as a side-effect of the
 discipline; the frontend's composable/component layering does
 not.
+
+---
+
+## Where to document the cross-framing-consistency authoring discipline
+
+- **Date:** 2026-04-28.
+- **Considered:** Where to record the lesson surfaced by the
+  `spread` → `decisiveness` rename in PR #23 — that artifacts
+  authored by the LLM session can carry concealed inconsistencies
+  whose discovery requires human intervention. Three channels were
+  weighed for documenting a forward discipline: a paragraph in
+  umbrella `CLAUDE.md` (lightest, always loaded), an entry in
+  `docs/notes/auditor-notes.md` as a concrete example (medium, read
+  on every orientation), and a new ADR (heaviest, durable tenet).
+- **Decision:** Deferred. The lesson is judged worth carrying
+  forward — possibly applicable beyond this project — and the
+  policy framing that's exactly right hasn't been settled yet. The
+  candidate framings are recorded here so a later session can
+  return to them rather than reconstruct from absence.
+
+### The incident
+
+In drafting `docs/dispatch/frontend-to-frontend-default-palette-`
+`metrics-spec.md`, the LLM author committed three statements about
+the symbol `spread` to the same artifact: (1) the informal semantic
+("decisive position has spread → 1"); (2) the formal definition
+(`spread = max_visits / total_visits`); (3) an empirical claim
+relayed from the project author ("spread and normalized entropy
+tend to be very close"). Statements (1) and (2) describe top-
+heaviness and are consistent. Statement (3) is consistent with (1)
+and (2) only if the "spread" referenced in the empirical claim is
+the *complement* of what (1) and (2) define — i.e. dispersion, not
+concentration. The LLM author wrote all three into the same Part 2
+paragraph, hedged the empirical claim with "closely correlated"
+rather than deriving the relationship explicitly, and shipped the
+artifact. The user caught it in review and flagged the inversion;
+the rename followed in PR #23.
+
+### LLM author's framing of the lesson
+
+When an artifact describes the same concept from multiple framings
+— informal semantic, formal definition, empirical observation —
+the framings must be cross-checked against each other within the
+artifact. The failure mode is not "missing the inconsistency
+outright"; it's "noticing weak tension and softening the language
+instead of resolving it." Hedges like "closely correlated," "in
+practice tend to," "roughly the same as" are weak signals that
+reconciliation hasn't been performed. Treat them as triggers to
+derive the relationship explicitly, not as polite prose.
+
+This framing is adjacent to ADR-0002 (fail loudly) but operates at
+authoring time on documents rather than at runtime on code. It's
+also adjacent to ADR-0005 Rule 1 (single source of truth) but the
+inconsistency in question wasn't between two documents — it was
+within one document, between framings of the same handle.
+
+A separate-but-related failure mode worth distinguishing: the
+proxy/NOTICE incident (nlohmann attribution gap) earlier in the
+same session was *external incompleteness* — the LLM author worked
+from a source that didn't have the full picture and the user filled
+the gap. The spread/decisiveness incident is *internal
+inconsistency* — the LLM author had everything needed and didn't
+reconcile. Different shapes; the discipline framing should be
+precise about which.
+
+### User's objection to the LLM author's framing
+
+The lesson is more accurately characterised as a **lack of
+proactively flagging inconsistencies**, not specifically as a
+failure of cross-framing reconciliation. The hedge phenomenon is
+one symptom; the underlying discipline is the broader posture of
+surfacing tensions rather than papering over them — applicable to
+artifacts the LLM is reading, not just artifacts it's authoring.
+
+A direct policy ("always proactively flag inconsistencies") has a
+genuine architectural cost in current transformer-based LLMs:
+forcing attention to dilute across the substantive task and a
+parallel inconsistency-check load can deteriorate the actual task
+at hand. Naive enforcement is therefore dangerous on its own.
+
+A possible middle path — out of scope for this project but worth
+recording — is inspired by KataProxy's protocol-transformer
+architecture: rather than asking the task LLM to self-audit, run a
+separate auditor LLM as an enrichment transformation over the task
+LLM's input/output, applying interpretation that surfaces
+inconsistencies the task LLM might have hedged past. The same
+architectural pattern that lets KataProxy's Hub inject
+`_uservisits` without the underlying KataGo binary needing to know
+about it could let an audit-LLM inject inconsistency flags without
+diluting the task-LLM's attention.
+
+The user's framing is the more accurate one. The LLM author's
+framing covered a subset (the within-artifact case) but missed the
+broader posture and the architectural-cost concern. Recording both
+preserves the audit trail.
+
+### Triggers for revisitation
+
+1. **A second instance of the same failure mode in a future
+   session.** If a future spec/doc/code-review session has another
+   hedge-papered-over inconsistency that human intervention is
+   required to catch, that's evidence the pattern recurs and
+   warrants formalisation.
+2. **The doc-graph discipline plan ratifies (currently
+   `status: draft`).** When that plan accepts and the next ADR slot
+   resolves, the marginal cost of formalising this discipline as
+   a co-landed tenet drops; revisit at that moment.
+3. **External LLM-tooling work surfaces a transformer-aware
+   policy.** If the broader community develops a discipline for
+   proactive inconsistency flagging that respects the attention-
+   dilution constraint — or a tooling pattern that resembles the
+   user's enrichment-transformer sketch — adopt the upstream
+   framing rather than reinventing it.
+
+Absent one of these, the discipline is held informally; the
+incident above is captured as the canonical example so a future
+session has a concrete case to reason from.
