@@ -54,10 +54,11 @@ export type {
 // ── Type Branding Utilities ───────────────────────────────────────────────────
 type Brand<K, T> = K & { readonly __brand: T };
 
-export type BoardId   = Brand<string, 'BoardId'>;
-export type NodeId    = Brand<string, 'NodeId'>;
-export type ProfileId = Brand<string, 'ProfileId'>;
-export type SessionId = Brand<string, 'SessionId'>;
+export type BoardId    = Brand<string, 'BoardId'>;
+export type NodeId     = Brand<string, 'NodeId'>;
+export type ProfileId  = Brand<string, 'ProfileId'>;
+export type SessionId  = Brand<string, 'SessionId'>;
+export type BookmarkId = Brand<string, 'BookmarkId'>;
 
 export type StoneColor = 'B' | 'W';
 
@@ -148,9 +149,24 @@ export interface AnalysisPalette {
   state_fns: Record<string, string>;
 }
 
+// Per-parameter metadata for the qEUBO calibration loop. Authored
+// via the PaletteEditor's Analysis Environment view; mutated in
+// place. `range` is required when `qeubo_controlled` is true (the
+// optimizer needs both endpoints to map [0, 1]^d → actual values);
+// the editor surfaces a validation error when the contract is
+// violated, per ADR-0002. Parameter declarations not under qEUBO
+// control may still carry a range for documentation, or carry
+// neither field. Snake_case matches the surrounding analysis_env
+// subtree convention (sibling to `parameters`, `symbols`).
+export interface ParameterMeta {
+  range?: [number, number];
+  qeubo_controlled?: boolean;
+}
+
 export interface AnalysisEnvironment {
   symbols: Record<string, string>;
   parameters: Record<string, number>;
+  parameter_meta?: Record<string, ParameterMeta>;
   palettes: AnalysisPalette[];
   activePaletteId: string;
 }
@@ -224,6 +240,14 @@ export interface UISession {
     };
   };
   activeCardSetId: string;
+  // Which view the qEUBO toolbar cluster is currently showing.
+  // 'applied' = engine sees the persistent values from
+  // analysis_env.parameters; 'A' / 'B' temporarily override what
+  // the engine sees with the corresponding qEUBO point's decoded
+  // values, without writing to analysis_env.parameters. Default
+  // 'applied'. Mutated by the toolbar; consumed by useQeubo's
+  // effectiveParameterValues computed.
+  qeuboToolbarView?: 'applied' | 'A' | 'B';
 }
 
 export type CardId = Brand<number, 'CardId'>;
@@ -292,6 +316,18 @@ export interface CardSet {
   pipeline: any[];
 }
 
+// User-pinned snapshot of analysis_env.parameters values.
+// Survives qEUBO experiment lifecycle (creating, replacing, or
+// deleting an experiment does not affect the bookmark list). The
+// id is generated frontend-side at pin time; createdAt is unix
+// ms; parameters is a value-snapshot, not a reference.
+export interface QeuboBookmark {
+  id: BookmarkId;
+  name: string;
+  createdAt: number;
+  parameters: Record<string, number>;
+}
+
 export interface ProfileState {
   id: ProfileId;
   username: string;
@@ -299,6 +335,7 @@ export interface ProfileState {
   thumbnailSettings: ThumbnailSettings;
   cardSets: Record<string, CardSet>;
   knownTags: string[];
+  qeuboPinnedBookmarks?: QeuboBookmark[];
 }
 
 export interface SessionState {
