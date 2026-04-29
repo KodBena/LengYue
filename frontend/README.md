@@ -1,19 +1,22 @@
-# gogui
+# Spaced-Repetition Study Client
 
-A study application for the game of Go (Weiqi/Baduk) built on KataGo
-analysis and Ebisu spaced repetition. The frontend is a Vue 3 +
-TypeScript SPA; the backend is a FastAPI service that manages
-spaced-repetition state and persists user workspaces.
+The user-facing client for a spaced-repetition study system for the
+game of Go (Weiqi/Baduk). KataGo (the strongest publicly available
+Go engine) provides position analysis; the Ebisu Bayesian
+spaced-repetition algorithm provides scheduling; the backend service
+persists card state and user workspaces. This document is the
+contributor-side reference for the Vue 3 + TypeScript SPA; the
+umbrella `README.md` is the system-level entry point.
 
 ---
 
 ## For end users
 
-If you just want to use gogui, you don't build it from source — you
-install a pre-built release. Nothing in the rest of this document
-applies to you. Codegen, development servers, and type regeneration
-are concerns for contributors only; they happen long before the
-bundle reaches your machine.
+If you just want to use the application, you don't build it from
+source — you install a pre-built release. Nothing in the rest of
+this document applies to you. Codegen, development servers, and type
+regeneration are concerns for contributors only; they happen long
+before the bundle reaches your machine.
 
 ---
 
@@ -163,6 +166,41 @@ the wire. Fix those sites (update the ACL mapping, update domain
 types if the change is real, or remove code that referenced a
 removed field). Do not suppress with `as any` — that defeats the
 whole point.
+
+---
+
+## Tenancy
+
+The frontend operates against a backend that's **multi-tenant
+capable but transparent single-user by default.** The browser-side
+view of tenancy is minimal: the backend stamps every authored object
+with the JWT-derived `user_id` and filters every read on it; the
+frontend just carries the JWT, and the data the user sees is by
+construction the data the user owns.
+
+Two operating modes share the same client code path:
+
+- **`ALLOW_PASSWORDLESS_LOGIN=True` on the backend (default —
+  transparent-local-install mode).** `ensureAuthenticated` in
+  `src/services/api-client.ts` auto-logs-in as `local_user` on
+  first load; the user sees a working app with no friction.
+  Behavior is indistinguishable from a pre-tenancy single-user
+  system.
+- **`ALLOW_PASSWORDLESS_LOGIN=False` (multi-tenant deployment).**
+  The same auto-login attempt fails; the auth-lifecycle UX
+  (login modal, register flow, identity-aware `SyncService`
+  workspace wipe) kicks in. Users authenticate with username +
+  password, then the JWT carries identity for the rest of the
+  session.
+
+The system-level architectural reference is
+`docs/notes/tenancy.md`. The backend-side assumption that
+`ensureAuthenticated` relies on is documented inline in
+`src/services/api-client.ts`. Items 28 (JWT 401 retry) and the B5
+identity-aware sync rework compose with the spine — the JWT is the
+identity, and a 401 on a non-auth endpoint forces the user back
+through the auth flow rather than silently substituting a different
+identity.
 
 ---
 

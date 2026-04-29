@@ -306,6 +306,25 @@ export class ApiClient {
   /**
    * Zero-Friction Auth: Ensures we have a valid token.
    *
+   * Backend-side assumption: this flow relies on the backend running
+   * with `ALLOW_PASSWORDLESS_LOGIN=True` (the default —
+   * transparent-local-install mode). Under that mode, the backend's
+   * /auth/token endpoint accepts any password for a registered user,
+   * and /auth/register accepts an empty password to create an
+   * Open-Access account. Together those let the "login local_user,
+   * fall back to register-then-login local_user" dance below succeed
+   * on a fresh install without prompting the user for a password.
+   *
+   * When the backend is configured with
+   * `ALLOW_PASSWORDLESS_LOGIN=False` (multi-tenant deployment), BOTH
+   * the login and the register attempts fail; the catch-and-log
+   * branch surfaces the failure and the auth-lifecycle UX (login
+   * modal, register flow, identity-aware sync wipe — wired via
+   * `useAuth` and `SyncService`) takes over. The two backend modes
+   * share the same client entry point; only the backend's response
+   * to this attempt differs. See `docs/notes/tenancy.md` for the
+   * system-level model.
+   *
    * Note: the first login() call here may legitimately fail with a
    * 4xx on a fresh install (user doesn't exist yet). That failure
    * will be surfaced by request() as an API error in the system log —
