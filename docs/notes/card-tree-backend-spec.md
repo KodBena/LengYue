@@ -242,10 +242,14 @@ Out of scope for this work:
   multiple parents? If yes, "subtree rooted at X" is genuinely
   a DAG, not a tree, and `fetch_tree_by_root` needs to decide
   whether to return a tree by some canonicalization, return a
-  DAG with explicit edges, or reject the request. Worth
-  resolving against the schema before implementation; the
-  frontend spec has the same open question, and a single answer
-  serves both sides.
+  DAG with explicit edges, or reject the request. Formally
+  deferred as a decision to be resolved at item-3 implementation
+  start; the deferred-decisions ledger
+  (`docs/notes/decisions-deferred.md`) carries the deferral
+  entry under the title "Card-tree DAG-vs-tree question
+  (multi-parent edges in `card_source`)" with the rationale and
+  triggers for revisitation. The frontend spec carries the same
+  open question; a single answer serves both sides.
 
 ## Related
 

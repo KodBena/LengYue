@@ -113,8 +113,28 @@ class Settings(BaseSettings):
     # one to SECRET_KEY_FILE. Set explicitly via env in multi-tenant deployments.
     SECRET_KEY: Optional[str] = None
     SECRET_KEY_FILE: str = "./.jwt_secret"
-    # The single switch that flips the system between transparent local install
-    # and multi-tenant deployment. See api/routes/auth.py::login_for_access_token.
+    # The single switch that flips the system between transparent local
+    # install and multi-tenant deployment.
+    #
+    # When True (default — transparent-local-install mode):
+    #   - The auth/token endpoint auto-provisions a `local_user` row on
+    #     first request to an empty users table and issues a JWT for
+    #     that user without requiring a password. Subsequent boots
+    #     reuse that user.
+    #   - Behavior is indistinguishable from a pre-tenancy single-user
+    #     system; all data lives under user_id=1.
+    #
+    # When False (multi-tenant deployment):
+    #   - Operators provision real `users` rows out-of-band; users
+    #     authenticate with username + bcrypt-hashed password.
+    #   - The passwordless auto-provision path is rejected.
+    #
+    # The flag affects authentication, not the tenancy spine itself —
+    # every tenant-scoped read and write filters on user_id regardless
+    # of which mode is active. The system-level tenancy model and the
+    # operator pre-flight checklist for going multi-tenant live in
+    # docs/notes/tenancy.md. The auth route that consumes this flag is
+    # api/routes/auth.py::login_for_access_token.
     ALLOW_PASSWORDLESS_LOGIN: bool = True
 
     # ----- qEUBO (optional, opt-in for researchers) -----
