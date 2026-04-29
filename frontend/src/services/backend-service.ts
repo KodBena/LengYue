@@ -5,7 +5,20 @@
  */
 
 import { api } from './api-client';
-import type { CardId, ReviewCard, CardSet, CardCreatePayload, ForestStat, TagStat } from '../types';
+import type {
+  CardId,
+  GameSourceId,
+  ReviewCard,
+  CardSet,
+  CardCreatePayload,
+  ForestStat,
+  TagStat,
+  ResolveRootsResult,
+  RootGroup,
+  CardLineageTree,
+  CardLineageNode,
+} from '../types';
+import { CardTreeOverflowError } from '../types';
 import type { components } from '../types/backend';
 
 // ─── Wire-type aliases (the ACL boundary) ────────────────────────────────────
@@ -18,6 +31,10 @@ import type { components } from '../types/backend';
 // The new name makes explicit what the shape actually is: a card augmented
 // with its current Bayesian recall projection. Adopted here with no loss.
 type CardFromWire = components['schemas']['CardWithRecall'];
+type ResolveRootsResponseWire = components['schemas']['ResolveRootsResponse'];
+type ResolvedRootWire = components['schemas']['ResolvedRoot'];
+type TreeByRootResponseWire = components['schemas']['TreeByRootResponse'];
+type TreeNodeWire = components['schemas']['TreeNode'];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -148,6 +165,127 @@ export class BackendService {
     ];
     return this.queryForest(contextIds, pipeline);
   }
+
+  /**
+   * Single-card hydrate. Used by the card-tree widget to populate
+   * thumbnails for context cards (cards on a path between active nodes
+   * that didn't come back in the pipeline result). The wire shape is
+   * the same `CardWithRecall` used by `submitReview` and `queryForest`.
+   */
+  public async fetchCard(cardId: CardId): Promise<ReviewCard> {
+    const raw = await api.request<CardFromWire>('GET', `/cards/${cardId}`);
+    return this.mapToReviewCard(raw);
+  }
+
+  /**
+   * Group input card ids by the game-source root they descend from.
+   * Inputs not owned by the caller (or absent from the database) come
+   * back in `unmatchedCardIds` rather than being silently dropped —
+   * `roots ∪ unmatchedCardIds` partitions the original input.
+   */
+  public async resolveRoots(cardIds: CardId[]): Promise<ResolveRootsResult> {
+    // `CardId` is `number & { __brand }`, so `CardId[]` is assignable to
+    // the wire's `number[]` directly — the brand is phantom and widens
+    // away here. Going the other direction (raw number → CardId) is
+    // where the assertion lives, in `mapResolvedRoot` below.
+    const raw = await api.request<ResolveRootsResponseWire>(
+      'POST',
+      '/lineage/resolve-roots',
+      { card_ids: cardIds },
+    );
+    return {
+      roots: raw.roots.map(r => this.mapResolvedRoot(r)),
+      unmatchedCardIds: raw.unmatched_card_ids.map(n => n as CardId),
+    };
+  }
+
+  private mapResolvedRoot(raw: ResolvedRootWire): RootGroup {
+    return {
+      rootCardId: raw.root_card_id as CardId,
+      gameSourceId: raw.game_source_id as GameSourceId,
+      cardIdsInTree: raw.card_ids_in_tree.map(n => n as CardId),
+    };
+  }
+
+  /**
+   * Fetch the structure-only subtree rooted at `rootCardId`. The wire
+   * shape is `{id, children}` recursive; per-card data is fetched
+   * separately via `fetchCard`. The two read paths are independently
+   * cacheable per the backend dispatch.
+   *
+   * Throws `CardTreeOverflowError` on 422 (`actual_size` exceeds
+   * `max_nodes`). Per ADR-0002, no silent truncation; the caller
+   * decides how to react (raise the cap, narrow the query, surface
+   * the overflow in the UI).
+   *
+   * Throws the generic `Error` shape from `api-client` on 404 (root
+   * not owned, missing, or not a game-source root).
+   */
+  public async fetchTreeByRoot(
+    rootCardId: CardId,
+    maxNodes?: number,
+  ): Promise<CardLineageTree> {
+    const body: { root_card_id: CardId; max_nodes?: number } = {
+      root_card_id: rootCardId,
+    };
+    if (maxNodes !== undefined) body.max_nodes = maxNodes;
+
+    try {
+      const raw = await api.request<TreeByRootResponseWire>(
+        'POST',
+        '/lineage/tree-by-root',
+        body,
+        { silentStatuses: [422] },
+      );
+      return {
+        rootCardId: raw.root_card_id as CardId,
+        gameSourceId: raw.game_source_id as GameSourceId,
+        tree: this.mapTreeNode(raw.tree),
+      };
+    } catch (err) {
+      // The api-client throws `Error` with message "API Error 422: <body>".
+      // Parse the structured detail to a typed error for ADR-0002 surfacing.
+      if (err instanceof Error) {
+        const match = err.message.match(/^API Error 422: (.+)$/s);
+        if (match) {
+          const body422 = parse422Body(match[1]);
+          if (body422) {
+            throw new CardTreeOverflowError(
+              rootCardId,
+              body422.actualSize,
+              body422.maxNodes,
+            );
+          }
+        }
+      }
+      throw err;
+    }
+  }
+
+  private mapTreeNode(raw: TreeNodeWire): CardLineageNode {
+    return {
+      id: raw.id as CardId,
+      children: raw.children.map(c => this.mapTreeNode(c)),
+    };
+  }
+}
+
+// 422 body shape from the backend's overflow response, per the dispatch:
+//   { detail: "tree exceeds max_nodes", actual_size: number, max_nodes: number }
+// Returns null if the body doesn't match — the caller falls back to the
+// generic Error and the system log carries the raw text.
+function parse422Body(text: string): { actualSize: number; maxNodes: number } | null {
+  try {
+    const parsed = JSON.parse(text) as Record<string, unknown>;
+    const actualSize = parsed['actual_size'];
+    const maxNodes = parsed['max_nodes'];
+    if (typeof actualSize === 'number' && typeof maxNodes === 'number') {
+      return { actualSize, maxNodes };
+    }
+  } catch {
+    // Not JSON, or malformed JSON. Fall through to null.
+  }
+  return null;
 }
 
 export const backendService = new BackendService();

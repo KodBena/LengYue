@@ -219,6 +219,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lineage/resolve-roots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve Roots
+         * @description For each input card id owned by the caller, identify the game-
+         *     source root the card descends from. Group the input by root; list
+         *     the unmatched ids (not owned, or not present) explicitly.
+         *
+         *     Tenancy: the seventh tenant-scoped read path. The Port applies
+         *     the user_id filter at both the base case and the recursive step
+         *     of its upward-walk CTE. Cross-tenant input ids appear in
+         *     `unmatched_card_ids` (the bulk lift of item 13's 404-not-403
+         *     posture).
+         */
+        post: operations["resolve_roots_lineage_resolve_roots_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lineage/tree-by-root": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tree By Root
+         * @description Return the structure-only subtree rooted at `root_card_id`.
+         *
+         *     Three response shapes:
+         *       - 200: TreeByRootResponse with the recursive `tree` payload.
+         *       - 404: root unowned, missing, or not actually a game-source
+         *              root. Same 404-not-403 collapse as /cards/{id}.
+         *       - 422: tree size exceeds `max_nodes`. Body includes the exact
+         *              `actual_size` so the caller can react deliberately.
+         *
+         *     Tenancy: the eighth tenant-scoped read path. The Port applies
+         *     user_id filtering at both the root verification step and at every
+         *     level of the descent CTE.
+         */
+        post: operations["tree_by_root_lineage_tree_by_root_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/qeubo/experiment": {
         parameters: {
             query?: never;
@@ -1043,6 +1102,46 @@ export interface components {
             completed: boolean;
         };
         /**
+         * ResolveRootsRequest
+         * @description Bulk input to /lineage/resolve-roots: a list of card ids the
+         *     caller wants grouped by their game-source root.
+         *
+         *     Empty list is a valid input (resolve-roots returns an empty
+         *     response). The route does not impose an upper bound on list size;
+         *     the underlying CTE is one round trip regardless of input length.
+         */
+        ResolveRootsRequest: {
+            /** Card Ids */
+            card_ids: number[];
+        };
+        /**
+         * ResolveRootsResponse
+         * @description Response shape for /lineage/resolve-roots.
+         *
+         *     `roots` and `unmatched_card_ids` partition the original input —
+         *     every input id appears in exactly one of the two — so the caller
+         *     knows whether a missing id was unowned or never existed (the
+         *     bulk lift of the per-card 404-not-403 invariant).
+         */
+        ResolveRootsResponse: {
+            /** Roots */
+            roots: components["schemas"]["ResolvedRoot"][];
+            /** Unmatched Card Ids */
+            unmatched_card_ids: number[];
+        };
+        /**
+         * ResolvedRoot
+         * @description One game-source root and the input cards that descend from it.
+         */
+        ResolvedRoot: {
+            /** Root Card Id */
+            root_card_id: number;
+            /** Game Source Id */
+            game_source_id: number;
+            /** Card Ids In Tree */
+            card_ids_in_tree: number[];
+        };
+        /**
          * ResourceResponse
          * @description The wire shape for GET /resources/{name}.
          *
@@ -1189,6 +1288,49 @@ export interface components {
             stage: "take";
             /** N */
             n: number;
+        };
+        /**
+         * TreeByRootRequest
+         * @description Input to /lineage/tree-by-root.
+         *
+         *     `max_nodes` defaults to 10000 per the spec. The route accepts an
+         *     explicit override if the caller knows it wants a smaller cap (e.g.
+         *     a UI that previews only the top of a tree); the lower bound is
+         *     1, enforced at the Pydantic layer rather than discovered as a
+         *     runtime overflow.
+         */
+        TreeByRootRequest: {
+            /** Root Card Id */
+            root_card_id: number;
+            /**
+             * Max Nodes
+             * @default 10000
+             */
+            max_nodes: number | null;
+        };
+        /**
+         * TreeByRootResponse
+         * @description Response shape for /lineage/tree-by-root.
+         *
+         *     On overflow the route returns 422 with a structured detail body
+         *     (see `_overflow_detail` below) instead of this shape.
+         */
+        TreeByRootResponse: {
+            /** Root Card Id */
+            root_card_id: number;
+            /** Game Source Id */
+            game_source_id: number;
+            tree: components["schemas"]["TreeNode"];
+        };
+        /**
+         * TreeNode
+         * @description A recursive structure-only tree node: id and children only.
+         */
+        TreeNode: {
+            /** Id */
+            id: number;
+            /** Children */
+            children: components["schemas"]["TreeNode"][];
         };
         /** UnionSelection */
         UnionSelection: {
@@ -1524,6 +1666,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_roots_lineage_resolve_roots_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveRootsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResolveRootsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tree_by_root_lineage_tree_by_root_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TreeByRootRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TreeByRootResponse"];
                 };
             };
             /** @description Validation Error */
