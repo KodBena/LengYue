@@ -22,10 +22,21 @@ Order is suggested-not-strict; items can be interleaved.
 
 ### 1. Backend de-branding finalisation
 
-Three remaining entries from `docs/TODO.md`'s "Trivial — string
-substitutions" tier. Each is a small, scoped rename with a
-documented compat-shim approach where existing local installs
-hold state under the old name.
+Five entries from `docs/TODO.md`'s "Trivial — string
+substitutions" tier. Three are scoped renames with a documented
+compat-shim approach where existing local installs hold state
+under the old name; two are pure prose / metadata changes that
+don't carry state.
+
+The fourth and fifth bullets were folded in mid-execution after
+the project author flagged the FastAPI metadata title as the
+proximate trigger for remembering the forgotten task. The title
+is the kind of public-facing surface TODO's de-branding
+preservation note names as a candidate for the "unavoidable
+handle" exception, but the project author judged it vestigial
+rather than load-bearing — the public-domain release posture
+makes a project-handle title less informative than a functional
+descriptor for whoever picks the codebase up downstream.
 
 - **`X-Ebisu-Token` HTTP header** (`backend/core/config.py:86`).
   Audit usage first — `API_TOKEN_NAME` may be vestigial since
@@ -42,12 +53,27 @@ hold state under the old name.
   `DATABASE_URI` resolves to a missing file but the legacy
   `ebisu.db` exists in the same directory, rename it before
   opening. Prevents data loss for existing local installs.
+- **FastAPI metadata title** (`backend/main.py`). The OpenAPI
+  `info.title` declares `"Ebisu Spaced Repetition API"` —
+  vestigial branding on a public-facing surface. Rename to a
+  functional title (`"Spaced Repetition API"`). Visible to
+  frontend codegen but the title is metadata, not a generated
+  type, so `src/types/backend.ts` is unaffected; a brief status
+  dispatch records the change for awareness.
+- **`backend/README.md` prose** (heading at line 1). Replace
+  project-branded "Ebisu — Spaced-Repetition Service" with the
+  functional "Spaced-Repetition Service". Algorithm-attribution
+  prose stays per TODO's preservation note (the `Ebisu Bayesian
+  spaced-repetition algorithm` reference, the `In Ebisu terms`
+  passage, the `Set sensible Ebisu defaults` section heading,
+  the `# ----- Ebisu Math -----` comment in `core/config.py`).
 
 Doc updates land alongside each rename: `docs/notes/tenancy.md:254`
 for the secret-key path, `backend/README.md:62` for the
 database example, `docs/playbooks/monorepo/monorepo-plan.md:232,240`
-for the inventory references, and the TODO's own
-Completed-table reference at `docs/TODO.md:66`.
+for the inventory references, the TODO's own Completed-table
+reference at `docs/TODO.md:66`, and a backend-to-frontend status
+dispatch under `docs/dispatch/` for the OpenAPI title change.
 
 ### 2. Analysis-range preservation across tab/board switches
 

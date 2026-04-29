@@ -1,3 +1,13 @@
+"""
+main.py
+
+FastAPI application entry point. Configures logging first (so module-level
+startup events from core.config's SECRET_KEY resolution and friends emit
+through a configured root logger), then constructs the FastAPI app, wires
+the routers, and owns the database / qEUBO lifecycle through `lifespan`.
+
+License: Public Domain (The Unlicense)
+"""
 # Configure logging FIRST, before any other imports — module-level startup
 # events (e.g., core.config's SECRET_KEY resolution) emit through the
 # logging subsystem and need a configured root logger to be visible.
@@ -8,9 +18,11 @@ configure_logging(style="application")
 import logging  # noqa: E402
 import uvicorn  # noqa: E402
 from contextlib import asynccontextmanager  # noqa: E402
+from pathlib import Path  # noqa: E402
 
 from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from sqlalchemy.engine.url import make_url  # noqa: E402
 
 from api.routes import auth, cards, documents, forests, qeubo, resources, stats  # noqa: E402
 from core.config import config  # noqa: E402
@@ -20,6 +32,47 @@ from db.schema import metadata  # noqa: E402
 logger = logging.getLogger(__name__)
 
 
+def _apply_legacy_db_rename_compat(uri: str) -> None:
+    """
+    Rename a legacy `ebisu.db` onto the configured SQLite path before opening.
+
+    Same shape as core/config._load_or_generate_secret_key's secret-file
+    compat: a bounded shim (ADR-0002 exception #3) that lets a pre-debranding
+    install upgrade without losing data. No-op for non-SQLite URIs and for
+    `:memory:` URIs (test installs). SQLite sidecars (`-journal`, `-wal`,
+    `-shm`) are renamed alongside the main file so a crash-recovery boot
+    finds them in their expected co-location. Remove in a successor release
+    once operators have had one upgrade cycle to migrate.
+    """
+    url = make_url(uri)
+    if not url.drivername.startswith("sqlite"):
+        return
+    db = url.database
+    if not db or db == ":memory:":
+        return
+    target = Path(db)
+    if target.exists():
+        return
+    legacy = target.parent / "ebisu.db"
+    if not legacy.exists():
+        return
+
+    legacy.rename(target)
+    logger.info(
+        "DATABASE: renamed legacy %s -> %s (de-branding compat)",
+        legacy, target,
+    )
+    for suffix in ("-journal", "-wal", "-shm"):
+        legacy_side = legacy.with_name(legacy.name + suffix)
+        if legacy_side.exists():
+            target_side = target.with_name(target.name + suffix)
+            legacy_side.rename(target_side)
+            logger.info(
+                "DATABASE: renamed sidecar %s -> %s",
+                legacy_side, target_side,
+            )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Item 21c: the database connection pool is owned by the application
@@ -27,6 +80,7 @@ async def lifespan(app: FastAPI):
     # attached to app.state, disposed cleanly at shutdown. This makes
     # `from api.dependencies import anything` a side-effect-free import,
     # which is what makes the codebase testable.
+    _apply_legacy_db_rename_compat(config.DATABASE_URI)
     db = Database.from_uri(config.DATABASE_URI, echo=config.SQL_ECHO)
     app.state.db = db
     logger.info("Database initialized: %s", config.DATABASE_URI)
@@ -77,7 +131,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Ebisu Spaced Repetition API",
+    title="Spaced Repetition API",
     description="Stateless Backend for SGF Card Trees",
     version="2.0.0",
     lifespan=lifespan,

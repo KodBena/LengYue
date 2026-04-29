@@ -251,7 +251,7 @@ When deploying for multiple users, the operator must:
    hits an empty token endpoint gets auto-logged-in.
 
 3. **Set `SECRET_KEY` to a real secret.** The auto-generated
-   `.ebisu_secret_key` is fine for a dev install; a public-facing
+   `.jwt_secret` is fine for a dev install; a public-facing
    deployment should set the env var explicitly and avoid relying
    on the file fallback.
 
