@@ -67,7 +67,7 @@
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 7;
+export const CURRENT_SCHEMA_VERSION = 8;
 
 /**
  * A migration brings a blob at version N forward to version N+1.
@@ -442,6 +442,44 @@ export const migrations: Migration[] = [
       ? ae.parameters
       : (ae.parameters = {});
     if (typeof params.alpha !== 'number') params.alpha = 0.25;
+
+    return out;
+  },
+  // 7 → 8: Add `player_sign` (SIDETOMOVE → black-perspective sign
+  // factor) to the symbol library, and rebase `scoreLead_loss_topvsuser`
+  // onto it. The v7 seed's body computed top-vs-user score-points loss
+  // from the engine's recommendation but didn't normalise the
+  // SIDETOMOVE perspective; under that frame the sign of the value
+  // alternates by mover. Multiplying by `player_sign(x[0])` normalises
+  // to a black-perspective sign that's stable across the move
+  // boundary.
+  //
+  // Detection rule (preserve user customisations): replace
+  // `scoreLead_loss_topvsuser` only when its body matches the v7 seed
+  // literal verbatim. Add `player_sign` only when absent.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ae = out.profile?.settings?.engine?.katago?.analysis_env;
+    if (!ae || typeof ae !== 'object') return out;
+
+    const symbols = ae.symbols && typeof ae.symbols === 'object'
+      ? ae.symbols
+      : (ae.symbols = {});
+
+    const V7_SCORELEAD_LOSS =
+      '(x[0]["moveInfos"][0]["scoreLead"] - x[0]["userMoveInfo"]["scoreLead"]) if x[0]["userMoveInfo"] else 0';
+    const NEW_SCORELEAD_LOSS =
+      'player_sign(x[0]) * ((x[0]["rootInfo"]["scoreLead"] - x[0]["userMoveInfo"]["scoreLead"]) if x[0]["userMoveInfo"] else 0)';
+    const NEW_PLAYER_SIGN =
+      '1.0 if x["rootInfo"]["currentPlayer"] == "B" else -1.0';
+
+    if (symbols.player_sign === undefined) {
+      symbols.player_sign = NEW_PLAYER_SIGN;
+    }
+
+    if (symbols.scoreLead_loss_topvsuser === V7_SCORELEAD_LOSS) {
+      symbols.scoreLead_loss_topvsuser = NEW_SCORELEAD_LOSS;
+    }
 
     return out;
   },

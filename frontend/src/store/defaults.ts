@@ -34,6 +34,11 @@ export const defaultSettings = {
           score_lead:       'x["rootInfo"]["scoreLead"]',
           score_volatility: 'x["rootInfo"]["scoreStdev"]',
           nn_uncertainty:   'x["rootInfo"]["rawStWrError"]',
+          // SIDETOMOVE-perspective sign factor: +1 when the side to
+          // move at this packet is Black, -1 when White. Multiply
+          // a SIDETOMOVE-framed quantity by this to normalise to a
+          // black-perspective sign.
+          player_sign:      '1.0 if x["rootInfo"]["currentPlayer"] == "B" else -1.0',
 
           // Window-context helpers (windowed pair).
           // Heuristic-oblivious: denominator is `_maxvisits(x[0])`,
@@ -44,7 +49,7 @@ export const defaultSettings = {
           winrate_loss_topvsuser:
             '(x[0]["moveInfos"][0]["winrate"] - x[0]["userMoveInfo"]["winrate"]) if x[0]["userMoveInfo"] else 0',
           scoreLead_loss_topvsuser:
-            '(x[0]["moveInfos"][0]["scoreLead"] - x[0]["userMoveInfo"]["scoreLead"]) if x[0]["userMoveInfo"] else 0',
+            'player_sign(x[0]) * ((x[0]["rootInfo"]["scoreLead"] - x[0]["userMoveInfo"]["scoreLead"]) if x[0]["userMoveInfo"] else 0)',
           user_order:       'x[0]["userMoveInfo"]["order"] if x[0]["userMoveInfo"] else 999',
           policy_loss:      'x[0]["moveInfos"][0]["prior"] - (x[0]["userMoveInfo"]["prior"] if x[0]["userMoveInfo"] else 0)',
           risk_adjusted_score_loss:
