@@ -67,54 +67,73 @@ export function applyGoMove(state: BoardState, x: number, y: number): BoardState
   const result = validateMove(state.stones, state.koPoint, state.turn, x, y, size);
   if (!result.ok) return null;
 
+  const posKey = pointToKey(x, y);
+  const currentNode = state.nodes[state.currentNodeId];
+
+  // Existing-child reuse: if a child of the current node already plays
+  // this move (same coordinate, same color), navigate to it rather than
+  // creating a duplicate sibling. The validation result is shared —
+  // captures and newKoPoint are deterministic given the parent's
+  // stones, so the freshly-computed projection is consistent with the
+  // child's stored delta and we don't need to re-read it.
+  const existingChildId = currentNode.children.find(id => {
+    const m = state.nodes[id]?.move;
+    return m?.type === 'place' && m.x === x && m.y === y && m.color === state.turn;
+  });
+
+  // Stones / captures projection — identical regardless of whether
+  // we're creating a new node or descending into an existing one.
   const nextStones = { ...state.stones };
   const nextCaptures = { ...state.captures };
-  const posKey = pointToKey(x, y);
-  
   nextStones[posKey] = state.turn;
   for (const capKey of result.captures) {
     delete nextStones[capKey];
     nextCaptures[state.turn] += 1;
   }
 
-  // Single cast at the boundary: untyped string from Math.random becomes
-  // a NodeId here. All four downstream uses (newNode.id, parentNode.children
-  // append, nextNodes record indexing, BoardState.currentNodeId) consume the
-  // already-branded value with no further casting. This is the ideal shape:
-  // one cast, one comment, four sites fixed.
-  const newNodeId = ('node-' + Math.random().toString(36).substring(2, 7)) as NodeId;
-  const sgfCoord = String.fromCharCode(97 + x) + String.fromCharCode(97 + (size - 1 - y));
-
-  const newNode: GameNode = {
-    id: newNodeId,
-    parent: state.currentNodeId,
-    children: [],
-    activeChildIndex: 0,
-    properties: { [state.turn]: [sgfCoord] },
-    move: { x, y, color: state.turn, type: 'place' },
-    delta: {
-      captures: result.captures,
-      setupOverwritten: {},
-      prevKoPoint: state.koPoint,
-      newKoPoint: result.newKoPoint
-    }
-  };
-
   const nextNodes = { ...state.nodes };
-  const parentNode = { ...nextNodes[state.currentNodeId] };
-  parentNode.children = [...parentNode.children, newNodeId];
-  parentNode.activeChildIndex = parentNode.children.length - 1;
-  
+  const parentNode = { ...currentNode };
+  let nextCurrentNodeId: NodeId;
+
+  if (existingChildId) {
+    // Reuse path: update activeChildIndex on parent so the existing
+    // child becomes the active variation.
+    parentNode.activeChildIndex = parentNode.children.indexOf(existingChildId);
+    nextCurrentNodeId = existingChildId;
+  } else {
+    // New-node path. Single cast at the boundary: untyped string from
+    // Math.random becomes a NodeId here.
+    const newNodeId = ('node-' + Math.random().toString(36).substring(2, 7)) as NodeId;
+    const sgfCoord = String.fromCharCode(97 + x) + String.fromCharCode(97 + (size - 1 - y));
+    const newNode: GameNode = {
+      id: newNodeId,
+      parent: state.currentNodeId,
+      children: [],
+      activeChildIndex: 0,
+      properties: { [state.turn]: [sgfCoord] },
+      move: { x, y, color: state.turn, type: 'place' },
+      delta: {
+        captures: result.captures,
+        setupOverwritten: {},
+        prevKoPoint: state.koPoint,
+        newKoPoint: result.newKoPoint,
+      },
+    };
+    parentNode.children = [...parentNode.children, newNodeId];
+    parentNode.activeChildIndex = parentNode.children.length - 1;
+    nextNodes[newNodeId] = newNode;
+    nextCurrentNodeId = newNodeId;
+  }
+
   nextNodes[state.currentNodeId] = parentNode;
-  nextNodes[newNodeId] = newNode;
 
   return {
     ...state,
     stones: nextStones,
     captures: nextCaptures,
     turn: state.turn === 'B' ? 'W' : 'B',
-    currentNodeId: newNodeId,
+    currentNodeId: nextCurrentNodeId,
     nodes: nextNodes,
-    koPoint: result.newKoPoint
+    koPoint: result.newKoPoint,
   };
 }
