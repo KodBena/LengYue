@@ -253,6 +253,25 @@ session has a concrete case to reason from.
   in advance of an implementation context would be premature
   investigation against a use case that's not yet under
   construction.
+- **Outcome (2026-04-29, revisit):** Trigger #1 fired when the
+  card-tree backend implementation session opened. The
+  investigation took one file read: `backend/db/schema.py:121`
+  declares `card_source.card_id` with `unique=True`, and the
+  table's `check_one_source` CheckConstraint enforces that
+  exactly one of `card_source_id` (parent card) or
+  `game_source_id` (game-source root) is set. **Each card has
+  exactly one row in `card_source`, hence exactly one parent.**
+  The schema does not admit multi-parent edges; the lineage is a
+  forest of trees, not a DAG. The `is_primary_source` boolean
+  is a vestigial design hint that is unreachable under the
+  current unique constraint — were multi-source ever to become
+  a domain need, the constraint would have to be relaxed first
+  and that would itself be the schema-change trigger named in
+  trigger #3 below. `fetch_tree_by_root` therefore takes the
+  natural tree shape; no canonicalization, no DAG return, no
+  rejection branch needed. Both spec files have been updated
+  to reference this resolution; the originating rationale
+  above is preserved as ledger history per Rule 6.
 
 ### Rationale
 

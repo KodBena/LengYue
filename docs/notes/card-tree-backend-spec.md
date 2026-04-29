@@ -236,20 +236,20 @@ Out of scope for this work:
   service-level helper if a second consumer materializes;
   premature for v1.
 
-## Open questions
+## Resolved questions
 
-- **Multi-parent edges.** Does `card_source` admit a card with
-  multiple parents? If yes, "subtree rooted at X" is genuinely
-  a DAG, not a tree, and `fetch_tree_by_root` needs to decide
-  whether to return a tree by some canonicalization, return a
-  DAG with explicit edges, or reject the request. Formally
-  deferred as a decision to be resolved at item-3 implementation
-  start; the deferred-decisions ledger
-  (`docs/notes/decisions-deferred.md`) carries the deferral
-  entry under the title "Card-tree DAG-vs-tree question
-  (multi-parent edges in `card_source`)" with the rationale and
-  triggers for revisitation. The frontend spec carries the same
-  open question; a single answer serves both sides.
+- **Multi-parent edges.** Resolved at item-3 implementation
+  start: the schema does not admit multi-parent edges
+  (`card_source.card_id` is `UNIQUE`, with the `check_one_source`
+  CheckConstraint forcing exactly one of `card_source_id` or
+  `game_source_id` to be set). Each card has exactly one
+  parent; the lineage is a forest of trees. `fetch_tree_by_root`
+  therefore returns the natural tree shape with no
+  canonicalization or DAG handling. The deferred-decisions
+  ledger (`docs/notes/decisions-deferred.md`) carries the
+  rationale, the originating deferral entry, and the triggers
+  that were named for revisiting if the schema's single-parent
+  invariant ever changes.
 
 ## Related
 
