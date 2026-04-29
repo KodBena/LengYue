@@ -1,3 +1,19 @@
+"""
+db/schema.py
+
+SQLAlchemy table definitions for the spaced-repetition core.
+
+Tenancy: tables split between tenant-scoped (`card`, `card_source`,
+`card_tag`, `game_source`, `documents`) and intentionally global
+(`users`, `normalized_position`, `tag`). Tenant-scoped tables carry a
+non-null `user_id` foreign key; reads are filtered on it via the
+WHERE-clause-fusion pattern that gives the codebase its 404-not-403
+invariant. Per-table comments below name which side each table sits
+on and why; the system-level model is documented in
+`docs/notes/tenancy.md`.
+
+License: Public Domain (The Unlicense)
+"""
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -53,16 +69,16 @@ normalized_position = Table(
 
 # 3. Game Sources
 #
-# Item 24 (tenancy): user_id added. Game sources are tenant-scoped —
-# the description, player names, and raw_content originate with a
-# specific user's upload, even when two users happen to upload the
-# same content (they each get their own game_source row, while
-# sharing the underlying normalized_position row).
+# Tenant-scoped. The description, player names, and raw_content
+# originate with a specific user's upload, even when two users happen
+# to upload the same content (they each get their own game_source
+# row, while sharing the underlying normalized_position row). See
+# docs/notes/tenancy.md for the system-level tenancy model.
 #
-# The column has a default=1 so the migration can backfill existing
-# rows to local_user without running an UPDATE; new rows inserted by
-# CardService.insert_game_source explicitly supply user_id from the
-# tenant context.
+# Item 24 (tenancy): user_id added. The column has a default=1 so the
+# migration can backfill existing rows to local_user without running
+# an UPDATE; new rows inserted by CardService.insert_game_source
+# explicitly supply user_id from the tenant context.
 #
 # Existing installs must run scripts/migrate_24_add_user_id_to_game_source.py
 # before pulling this schema.
@@ -126,10 +142,13 @@ Index("ix_card_source_parent", card_source.c.card_source_id)
 
 # 6. Tags
 #
-# Tags are intentionally global, not per-tenant. Tag NAMES like "joseki"
-# or "endgame" mean the same thing across users; what's tenant-specific
+# Intentionally global, not per-tenant. Tag NAMES like "joseki" or
+# "endgame" mean the same thing across users; what's tenant-specific
 # is which cards a user has tagged, which lives in card_tag (with the
-# tenancy enforced via the card_id FK to card.user_id).
+# tenancy enforced via the card_id FK to card.user_id). Tag *usage
+# statistics* surfaced by StatsRepository.get_tag_usage are filtered
+# through the caller's cards, so each user sees counts that reflect
+# only their own card collection. See docs/notes/tenancy.md.
 tag = Table(
     "tag", metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
@@ -153,10 +172,15 @@ Index("ix_card_tag_tag_id", card_tag.c.tag_id)
 
 # 8. Documents (Frontend UI State & Settings)
 #
-# Item 23 (tenancy): composite primary key (key, user_id). Two users
-# can independently store documents under the same key — each gets
-# their own row. Without this, the first user to write a key would
-# lock all others out of it.
+# Tenant-scoped via composite primary key. The frontend's per-user
+# workspace state (board sets, palettes, registry overrides, etc.)
+# lives here keyed by (key, user_id) so two users can independently
+# store data under the same key without collision. See
+# docs/notes/tenancy.md.
+#
+# Item 23 (tenancy): composite primary key (key, user_id). Without
+# this, the first user to write a key would lock all others out of
+# it.
 #
 # The frontend's existing key naming convention (e.g.,
 # "user_workspace_settings") becomes redundant under tenancy but

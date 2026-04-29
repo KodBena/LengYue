@@ -256,8 +256,14 @@ Out of scope for this widget:
 
 - **Multi-parent edges.** If the schema admits a card with
   multiple parents, the widget's tree assumption fails for those
-  cards. Worth confirming against the schema; if multi-parent
-  is real, the spec needs an addendum.
+  cards. Formally deferred as a decision to be resolved at
+  card-tree implementation start; the deferred-decisions ledger
+  (`docs/notes/decisions-deferred.md`) carries the deferral
+  entry under the title "Card-tree DAG-vs-tree question
+  (multi-parent edges in `card_source`)" with the rationale and
+  triggers for revisitation. The backend spec carries the same
+  open question with the same trigger; a single answer serves
+  both sides.
 - **Edge labels (move data).** If the backend's wire shape
   exposes parent→child move information, the widget could
   surface it as an edge annotation. Not required; revisit when

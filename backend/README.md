@@ -31,14 +31,16 @@ import from outer ones.
     └─────────────────────────────────────────────────────────┘
 ```
 
-Five Ports (`repositories/ports.py`) declare what the inner layers
-need from the outer:
+Six Ports declare what the inner layers need from the outer — five
+database-backed Ports in `repositories/ports.py`, plus the resource
+Port in `domain/resource.py`:
 
 - `CardRepositoryPort` — card reads
 - `CardWriteRepositoryPort` — card writes
 - `LineageRepositoryPort` — tree fetches
 - `TagFilterRepositoryPort` — tag-DSL materialization
 - `StatsRepositoryPort` — tag usage + forest members
+- `StaticResourceRepositoryPort` — deployment-bundled JSON resources
 
 Each Port returns domain entities or DTOs (`Card`, `CardNode`,
 `ForestMemberRow`, etc.), never SQLAlchemy Rows or CTEs. This is
@@ -51,6 +53,40 @@ path — confirmable with:
 python -c "import domain.pipeline; import sys; \
            assert 'sqlalchemy' not in sys.modules"
 ```
+
+## Tenancy
+
+The service is **multi-tenant capable in its data model and access
+control, but transparent single-user in its default UX.** Every
+domain object the user authors (`card`, `card_source`, `card_tag`,
+`game_source`, `documents`) is tenant-scoped by a `user_id` foreign
+key; every read path filters on the JWT-derived `user_id` via the
+WHERE-clause-fusion pattern that gives the codebase its 404-not-403
+invariant. Intrinsically global reference data (`users`,
+`normalized_position`, `tag`) is shared.
+
+The single switch that flips between the two operating modes is
+`ALLOW_PASSWORDLESS_LOGIN` in `core/config.py`:
+
+- **`ALLOW_PASSWORDLESS_LOGIN=True` (default — transparent local
+  install).** The `auth/token` endpoint auto-provisions a `local_user`
+  row on first request to an empty users table and issues a JWT for
+  that user without a password. The tenancy spine is dormant but
+  correct: all data lives under `user_id=1`, behavior is
+  indistinguishable from a pre-tenancy single-user system.
+- **`ALLOW_PASSWORDLESS_LOGIN=False` (multi-tenant deployment).**
+  Operators provision real `users` rows; users authenticate with
+  username + bcrypt-hashed password. The tenancy spine is unchanged
+  by the flag — every tenant-scoped read and write filters on
+  `user_id` regardless of which mode is active.
+
+The system-level architectural reference is `docs/notes/tenancy.md`,
+which documents the 404-not-403 invariant, the five-layer threading
+discipline (route → service → Port → adapter → schema), the
+defense-in-depth pattern for recursive-CTE filtering, the limits the
+spine doesn't yet handle (no row-level audit log; no tenant deletion
+path; no per-tenant rate limiting), and the operator pre-flight
+checklist for going multi-tenant.
 
 ## Running it
 
@@ -195,21 +231,22 @@ The codebase uses generic names at the schema and DTO level:
 - `game_source.raw_content` — the user-supplied original
 
 These were named for Go originally (`normalized_sgf`, `pos_hash`,
-`raw_sgf`) and renamed in item 34a for domain-neutrality. The one
-remaining Go-ism at the time of writing is `Card.normalized_sgf` (a
-Pydantic field that aliases from `canonical_content` during SELECT);
-item 34b will remove this alias in coordination with the frontend's
-own field rename. Chess adopters tracking this codebase can ignore
-the lingering alias — it's an internal compatibility shim.
+`raw_sgf`) and renamed in item 34a for domain-neutrality. The wire
+rename followed in item 34b — the `Card` Pydantic model and
+`CardCreate` request schema now use the generic names directly with
+no Go-flavored aliases on the read or write surface. A Chess
+adopter sees no Go-isms in the schema or wire shape.
 
 ### `default_visits`
 
-`Card.default_visits` is a KataGo-specific analysis parameter (number
-of Monte Carlo rollouts per position). Other domains can set it to
-any sentinel value (1 is fine) and ignore it in their grading logic.
-A future cleanup may move it into `grading_parameter` JSON or drop
-it from the generic `Card` entity; for now it's a schema column with
-a reasonable default.
+`default_visits` (a KataGo-specific analysis parameter — number of
+Monte Carlo rollouts per position) lives in `grading_parameter.data`
+on each `Card`, alongside any other per-card analysis-runtime knobs
+the application chooses to carry. It was previously a top-level
+schema column; item 34b relocated it into the per-card JSON blob
+during the domain-neutralization sweep, so adopters of other domains
+carry no Go-isms in their schema. Domains that don't need a
+`default_visits` analog simply leave the JSON key out.
 
 ## Development
 
@@ -223,7 +260,12 @@ a reasonable default.
 
 ## Status
 
-Path B (the architectural turn) complete through item 34a. The
-wire-breaking 34b (field renames on `Card` and `CardCreate`, plus
-`default_visits` relocation) is deferred pending coordinated frontend
-work. The tenancy spine (items 13–26) is the next major milestone.
+Path B (the architectural turn) is complete. The domain-agnostic
+core landed via items 34/34a/34b — schema renames (`pos_hash` →
+`content_hash`, `normalized_sgf` → `canonical_content`), the wire
+rename, and the `default_visits` relocation into
+`grading_parameter`. The tenancy spine (items 13–25) is shipped
+end-to-end; this README's `Tenancy` section and the in-code
+docstrings that point back at `docs/notes/tenancy.md` close item 26
+(the documentation half of the spine), which is the seventh and
+final piece of the locked release scope's tenancy work.

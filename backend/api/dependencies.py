@@ -1,3 +1,17 @@
+"""
+api/dependencies.py
+
+FastAPI dependency factories for the delivery layer.
+
+Composes Ports with their concrete adapters and yields request-scoped
+sessions. The auth gatekeeper `get_current_user_id` is the single
+boundary at which a JWT becomes a `UserId`; every tenant-scoped route
+threads the result of that dependency into its Port calls. The
+five-layer threading discipline that makes the tenancy spine work is
+documented in docs/notes/tenancy.md.
+
+License: Public Domain (The Unlicense)
+"""
 from pathlib import Path
 
 import jwt
@@ -76,6 +90,19 @@ async def get_current_user_id(token: str = Depends(oauth2_scheme)) -> UserId:
     """
     Stateless auth gatekeeper.
     Verifies the JWT signature and extracts the user_id.
+
+    The downstream invariant: every route that depends on this
+    function receives a UserId that has been authenticated against
+    the JWT this request carries. Downstream code is REQUIRED to
+    thread that UserId into every tenant-scoped Port call (typically
+    as the `*, user_id` keyword-only parameter), and the SQL adapter
+    fuses it into the WHERE clause of any read or write touching a
+    tenant-owned table. The 404-not-403 invariant — that "doesn't
+    exist" and "not yours" return the same status — depends on this
+    function being the single boundary at which a JWT becomes a
+    `UserId`. The five-layer threading discipline (route captures,
+    service forwards, Port declares, adapter applies, schema
+    declares the FK) is documented in docs/notes/tenancy.md.
 
     Item 13 (tenancy): return type is now UserId (a NewType-branded
     int from domain/auth.py). The brand is applied here at the

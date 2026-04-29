@@ -234,3 +234,81 @@ preserves the audit trail.
 Absent one of these, the discipline is held informally; the
 incident above is captured as the canonical example so a future
 session has a concrete case to reason from.
+
+---
+
+## Card-tree DAG-vs-tree question (multi-parent edges in `card_source`)
+
+- **Date:** 2026-04-29.
+- **Considered:** Whether to investigate, and if necessary
+  resolve, the multi-parent edge question in `card_source` before
+  card-tree endpoint implementation (`docs/release-scope.md` item
+  3) starts. The question — does the schema admit a card with
+  multiple parents, and if so what does "subtree rooted at X"
+  mean for `fetch_tree_by_root`? — is recorded as an open
+  question in both the frontend and backend card-tree specs,
+  with the explicit note that a single answer serves both sides.
+- **Decision:** Deferred until card-tree implementation begins.
+  The question is acknowledged, scoped, and parked; resolving it
+  in advance of an implementation context would be premature
+  investigation against a use case that's not yet under
+  construction.
+
+### Rationale
+
+The other in-flight backend arc — release-scope item 6 (tenancy
+READMEs) — is independent of the answer; folding investigation
+into item 6 would be scope creep. Resolving the question outside
+an implementation context invites designing against a hypothetical
+rather than against concrete calling code: the three-way decision
+("return a tree by canonicalization," "return a DAG with explicit
+edges," "reject the request") reads differently when
+`fetch_tree_by_root`'s call site is sketched out than when it
+remains abstract. The deferred posture preserves the question as
+a known input to item 3's implementer instead of prematurely
+closing it on weaker evidence than the implementer will have.
+
+The investigation itself is bounded — read the `card_source`
+table definition in `db/schema.py` to see whether the primary key
+admits multi-parent edges, read the existing recursive-CTE call
+sites to see whether they implicitly assume tree-shape, and ask
+the project author whether multi-parent is a real domain case or
+a permissiveness artifact. The work fits in a single session, but
+only once there's a calling-code shape to evaluate the answer
+against.
+
+A subtler reason for deferral: even if the schema admits
+multi-parent today, the *intent* of the data model may be
+single-parent, in which case the right resolution is a schema
+constraint plus a migration audit rather than a runtime
+canonicalization. Distinguishing "current schema permits this but
+the system never produces it" from "the system actually produces
+it and the API must handle it" is the question that the
+implementation session is best positioned to ask, because the
+question is forced exactly when the answer is needed.
+
+### Triggers for revisitation
+
+1. **Card-tree backend implementation starts.** When the backend
+   half of release-scope item 3 is picked up, resolving this
+   question is the first step before sketching the new
+   `LineageRepositoryPort` methods. The frontend's reciprocal
+   spec adjustment falls out of the same answer.
+2. **A schema audit or production incident surfaces a
+   multi-parent card.** If a tenancy migration, a logs review,
+   or any other audit pass finds a card with `>1` rows in
+   `card_source`, the question becomes forced regardless of
+   whether item 3 is in flight; address it then rather than
+   continuing to defer.
+3. **Any schema change touching `card_source`.** Editing the
+   table for unrelated reasons (indexing, tenancy migration,
+   normalization) naturally forces the multi-parent question
+   into the same migration. Better to resolve once alongside the
+   adjacent change than to thread ambiguity through a successor
+   schema.
+
+The frontend and backend card-tree specs each preserve their
+multi-parent open-question entry, updated to reference this
+ledger entry as the deferral record. Per ADR-0005 Rule 3, the
+spec-side note frames this entry as the ledger that records the
+deferral, not as a snapshot of the deferral's content.
