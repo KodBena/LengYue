@@ -4,6 +4,7 @@ import { ref as vueRef } from 'vue';
 
 import { useMetadata }       from './composables/useMetadata';
 import { useSgfLoader }      from './composables/useSgfLoader';
+import { useSgfDownload }    from './composables/useSgfDownload';
 import { useEngineControls } from './composables/useEngineControls';
 import { useUserIORegistry } from './composables/useUserIORegistry';
 import { useAuth }           from './composables/useAuth';
@@ -49,6 +50,7 @@ import QeuboBookmarks   from './components/QeuboBookmarks.vue';
 useUserIORegistry();
 
 const { openFileDialog } = useSgfLoader();
+const { downloadActiveBoard } = useSgfDownload();
 const engineControls     = useEngineControls();
 const metadata           = useMetadata(activeBoard);
 const auth               = useAuth();
@@ -193,6 +195,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
           :engine-status="engineControls.status.value"
           :metrics="engineControls.metrics.value"
           @load-sgf="openFileDialog"
+          @save-sgf="downloadActiveBoard"
           @toggle-engine="engineControls.toggle"
           @mint-card="triggerMint"
           style="flex: 1; border-bottom: none;" 
