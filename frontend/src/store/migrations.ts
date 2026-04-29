@@ -67,7 +67,7 @@
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
 
 /**
  * A migration brings a blob at version N forward to version N+1.
@@ -250,6 +250,198 @@ export const migrations: Migration[] = [
         out.session.ui.qeuboToolbarView = 'applied';
       }
     }
+
+    return out;
+  },
+  // 6 → 7: Default-palette repair (release-scope item 5). Three
+  // concerns, all under the discipline "preserve user customisations,
+  // replace only the broken-seed literals." See
+  // docs/dispatch/frontend-to-frontend-default-palette-metrics-spec.md
+  // §6 for the rationale of every detection rule below.
+  //
+  //  (a) Symbol repair: the broken seed's `visit_ratio` referenced
+  //      `uservisits` (the proxy stdlib provides `_uservisits`). The
+  //      historical `quality_delta` referenced `spread`, which the
+  //      seed defined with a heuristic-aware denominator. Both are
+  //      replaced when their bodies match the broken-seed literals;
+  //      user-customised bodies are left in place.
+  //  (b) `spread` → `decisiveness` rename: if the symbol named
+  //      `spread` matches the broken seed, rename it to `decisiveness`
+  //      with the heuristic-oblivious formula. Update any formula
+  //      body referencing `spread(` to `decisiveness(` IN THE SAME
+  //      PASS — but only if `spread` actually got renamed (we never
+  //      rewrite bodies referencing a user-customised `spread`).
+  //  (c) Seed expansion: add the new symbols (`complexity`,
+  //      `score_volatility`, `nn_uncertainty`, `mean_summary`, plus
+  //      the engine-recommendation-axis symbols) only when absent;
+  //      add the new palettes (`quality`, `score`, `rank`) only when
+  //      absent. If `activePaletteId === 'default'` and we just
+  //      replaced the broken default's body, promote to `'quality'`.
+  //
+  // The `alpha` parameter is preserved if numeric; defaulted to 0.25
+  // otherwise.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ae = out.profile?.settings?.engine?.katago?.analysis_env;
+    if (!ae || typeof ae !== 'object') return out;
+
+    // Broken-seed literals — exact string match required to overwrite.
+    const BROKEN_VISIT_RATIO = 'uservisits(x[0]) / x[0]["rootInfo"]["visits"]';
+    const BROKEN_SPREAD      = 'x[0]["moveInfos"][0]["visits"] / x[0]["rootInfo"]["visits"]';
+    const HISTORICAL_QUALITY = 'visit_ratio(x)**(spread(x)**alpha)';
+
+    // New definitions.
+    const NEW_VISIT_RATIO   = '_uservisits(x[0]) / _maxvisits(x[0])';
+    const NEW_DECISIVENESS  = '_maxvisits(x) / x["rootInfo"]["visits"]';
+    const NEW_QUALITY_DELTA = 'visit_ratio(x) ** (decisiveness(x[0]) ** alpha)';
+
+    const symbols = ae.symbols && typeof ae.symbols === 'object' ? ae.symbols : (ae.symbols = {});
+
+    // (a) Repair `visit_ratio` if it matches the broken literal.
+    if (symbols.visit_ratio === BROKEN_VISIT_RATIO) {
+      symbols.visit_ratio = NEW_VISIT_RATIO;
+    }
+
+    // (b) `spread` → `decisiveness` rename, with body-rewrite tracking.
+    let renamedSpread = false;
+    if (symbols.spread === BROKEN_SPREAD) {
+      symbols.decisiveness = symbols.decisiveness ?? NEW_DECISIVENESS;
+      delete symbols.spread;
+      renamedSpread = true;
+    } else if (symbols.spread !== undefined && symbols.decisiveness === undefined) {
+      // User has a custom `spread` symbol AND no `decisiveness`. Add
+      // `decisiveness` alongside; leave their `spread` untouched.
+      symbols.decisiveness = NEW_DECISIVENESS;
+    }
+
+    // Repair `quality_delta` if it matches the historical literal.
+    // The historical body referenced `spread(x)`; if we just renamed
+    // `spread` → `decisiveness`, the body's `spread(` substring needs
+    // updating. The new body also moves to `x[0]` indexing for the
+    // smoother input (per spec §2). Both edits land via outright
+    // replacement when the body matches the historical literal.
+    if (symbols.quality_delta === HISTORICAL_QUALITY) {
+      symbols.quality_delta = NEW_QUALITY_DELTA;
+    } else if (renamedSpread && typeof symbols.quality_delta === 'string') {
+      // User-customised `quality_delta` body — rewrite `spread(` to
+      // `decisiveness(` so the rename doesn't break their formula.
+      symbols.quality_delta = symbols.quality_delta.replace(/\bspread\(/g, 'decisiveness(');
+    }
+
+    // If we renamed `spread`, also rewrite any other user symbol
+    // bodies that reference it. Bodies that DIDN'T reference the
+    // renamed `spread` (i.e., the user kept their custom `spread`)
+    // are left alone — that branch hit the `else if` above.
+    if (renamedSpread) {
+      for (const key of Object.keys(symbols)) {
+        if (typeof symbols[key] === 'string' && key !== 'quality_delta') {
+          symbols[key] = symbols[key].replace(/\bspread\(/g, 'decisiveness(');
+        }
+      }
+    }
+
+    // (c) Seed expansion — add only if absent. Order intentionally
+    // mirrors defaults.ts for diff-readability.
+    const NEW_SYMBOLS: Record<string, string> = {
+      complexity:               'safe(_visit_entropy(x) / _uniform_entropy(len(x["moveInfos"])))',
+      score_volatility:         'x["rootInfo"]["scoreStdev"]',
+      nn_uncertainty:           'x["rootInfo"]["rawStWrError"]',
+      scoreLead_delta:          'x[1]["rootInfo"]["scoreLead"] - x[0]["rootInfo"]["scoreLead"]',
+      winrate_loss_topvsuser:
+        '(x[0]["moveInfos"][0]["winrate"] - x[0]["userMoveInfo"]["winrate"]) if x[0]["userMoveInfo"] else 0',
+      scoreLead_loss_topvsuser:
+        '(x[0]["moveInfos"][0]["scoreLead"] - x[0]["userMoveInfo"]["scoreLead"]) if x[0]["userMoveInfo"] else 0',
+      user_order:               'x[0]["userMoveInfo"]["order"] if x[0]["userMoveInfo"] else 999',
+      policy_loss:              'x[0]["moveInfos"][0]["prior"] - (x[0]["userMoveInfo"]["prior"] if x[0]["userMoveInfo"] else 0)',
+      risk_adjusted_score_loss:
+        'safe((x[0]["moveInfos"][0]["scoreLead"] - (x[0]["userMoveInfo"]["scoreLead"] if x[0]["userMoveInfo"] else x[0]["moveInfos"][0]["scoreLead"])) / x[0]["rootInfo"]["scoreStdev"])',
+      rank_quality:             '1.0 / (1 + (x[0]["userMoveInfo"]["order"] if x[0]["userMoveInfo"] else 999))',
+      mean_summary:             'float(np.mean(x))',
+    };
+    for (const [name, body] of Object.entries(NEW_SYMBOLS)) {
+      if (symbols[name] === undefined) symbols[name] = body;
+    }
+
+    // (c) Palette additions. Detect whether the historical 'default'
+    // palette body matched the broken seed; if so, repair its
+    // state_fns to the new shape and remember to repoint
+    // activePaletteId. User-customised 'default' palettes (different
+    // delta_fn / summary_fn / state_fns mapping) stay untouched —
+    // we never overwrite a customised palette.
+    const palettes = Array.isArray(ae.palettes) ? ae.palettes : (ae.palettes = []);
+    let defaultWasBrokenSeed = false;
+    const defaultPalette = palettes.find((p: any) => p?.id === 'default');
+    if (defaultPalette) {
+      const sf = defaultPalette.state_fns ?? {};
+      const matchesBrokenSeed =
+        defaultPalette.delta_fn === 'quality_delta' &&
+        defaultPalette.summary_fn === 'min_summary' &&
+        sf['Complexity'] === 'visit_entropy' &&
+        sf['Win Probability'] === 'winrate' &&
+        sf['Score Advantage'] === 'score_lead';
+      if (matchesBrokenSeed) {
+        defaultPalette.state_fns = {
+          'Complexity':      'complexity',
+          'Win Probability': 'winrate',
+          'Score Advantage': 'score_lead',
+        };
+        defaultWasBrokenSeed = true;
+      }
+    }
+
+    // Add the three new palettes only if their ids aren't already
+    // present.
+    const NEW_PALETTES = [
+      {
+        id: 'quality',
+        name: 'Quality (Robust-Child Calibrated)',
+        delta_fn: 'quality_delta',
+        summary_fn: 'min_summary',
+        state_fns: {
+          'Complexity':      'complexity',
+          'Win Probability': 'winrate',
+          'Score Advantage': 'score_lead',
+        }
+      },
+      {
+        id: 'score',
+        name: 'Score Loss',
+        delta_fn: 'scoreLead_loss_topvsuser',
+        summary_fn: 'mean_summary',
+        state_fns: {
+          'Volatility':      'score_volatility',
+          'Win Probability': 'winrate',
+          'Score Advantage': 'score_lead',
+        }
+      },
+      {
+        id: 'rank',
+        name: 'Engine Rank',
+        delta_fn: 'rank_quality',
+        summary_fn: 'mean_summary',
+        state_fns: {
+          'Complexity':      'complexity',
+          'Win Probability': 'winrate',
+        }
+      },
+    ];
+    const existingIds = new Set(palettes.map((p: any) => p?.id));
+    for (const p of NEW_PALETTES) {
+      if (!existingIds.has(p.id)) palettes.push(p);
+    }
+
+    // activePaletteId promotion: only when the user was on 'default'
+    // AND that 'default' was the broken seed (we just repaired it).
+    // Customised-default users keep their selection.
+    if (defaultWasBrokenSeed && ae.activePaletteId === 'default') {
+      ae.activePaletteId = 'quality';
+    }
+
+    // alpha parameter: preserve if numeric, default otherwise.
+    const params = ae.parameters && typeof ae.parameters === 'object'
+      ? ae.parameters
+      : (ae.parameters = {});
+    if (typeof params.alpha !== 'number') params.alpha = 0.25;
 
     return out;
   },
