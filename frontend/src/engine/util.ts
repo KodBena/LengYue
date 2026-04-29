@@ -90,10 +90,22 @@ export function toGtp(x: number, y: number): string {
     console.warn(`[util.ts:toGtp] X-coordinate ${x} out of GTP range.`);
     return "pass";
   }
-  
+
   const col = GTP_ALPHABET[x];
-  const row = y + 1; 
+  const row = y + 1;
   return `${col}${row}`;
+}
+
+/**
+ * Converts a `Move` to the wire-coordinate string KataGo's analysis
+ * engine accepts: a GTP coordinate for placed stones, or the literal
+ * `"pass"` for passes. The pass branch is load-bearing — without it,
+ * any game with a pass in its history sends a move list shorter than
+ * the actual move count, and KataGo analyses positions that diverge
+ * from the user's board state from the first pass onward.
+ */
+export function moveToKataCoord(m: Move): string {
+  return m.type === 'pass' ? 'pass' : toGtp(m.x, m.y);
 }
 
 export function getBoardSize(state: BoardState): number {
