@@ -12,33 +12,112 @@ export const defaultSettings = {
     katago: {
       url: 'ws://127.0.0.1:8765/katago',
       analysis_env: {
+        // Symbol library per docs/dispatch/frontend-to-frontend-default-palette-metrics-spec.md.
+        // Two semantic axes coexist:
+        //  - Robust-child alignment (`visit_ratio`, `quality_delta`,
+        //    `decisiveness`) uses `_maxvisits(x)` — heuristic-oblivious,
+        //    independent of KataGo's `playSelectionValue` ranking.
+        //  - Engine-recommendation alignment (`*_loss_topvsuser`,
+        //    `user_order`, `policy_loss`, `rank_quality`) uses
+        //    `moveInfos[0]` — the move KataGo would actually play.
+        // Both are useful; both ship.
         symbols: {
-          visit_entropy: 'safe(entropy([mi["visits"] for mi in x["moveInfos"]]))',
-          winrate:       'x["rootInfo"]["winrate"]',
-          score_lead:    'x["rootInfo"]["scoreLead"]',
-          visit_ratio:   'uservisits(x[0]) / x[0]["rootInfo"]["visits"]',
-          spread:        'x[0]["moveInfos"][0]["visits"] / x[0]["rootInfo"]["visits"]',
-          quality_delta: 'visit_ratio(x)**(spread(x)**alpha)',
-          min_summary:   'float(np.min(x))',
+          // Universal helpers (kept from prior seed for compat;
+          // unnormalised primitive — `complexity` is the normalised
+          // form recommended for state_fns).
+          visit_entropy:    'safe(entropy([mi["visits"] for mi in x["moveInfos"]]))',
+
+          // State-context helpers (single packet).
+          decisiveness:     '_maxvisits(x) / x["rootInfo"]["visits"]',
+          complexity:       'safe(_visit_entropy(x) / _uniform_entropy(len(x["moveInfos"])))',
+          winrate:          'x["rootInfo"]["winrate"]',
+          score_lead:       'x["rootInfo"]["scoreLead"]',
+          score_volatility: 'x["rootInfo"]["scoreStdev"]',
+          nn_uncertainty:   'x["rootInfo"]["rawStWrError"]',
+
+          // Window-context helpers (windowed pair).
+          // Heuristic-oblivious: denominator is `_maxvisits(x[0])`,
+          // not `moveInfos[0]["visits"]`.
+          visit_ratio:      '_uservisits(x[0]) / _maxvisits(x[0])',
+          quality_delta:    'visit_ratio(x) ** (decisiveness(x[0]) ** alpha)',
+          scoreLead_delta:  'x[1]["rootInfo"]["scoreLead"] - x[0]["rootInfo"]["scoreLead"]',
+          winrate_loss_topvsuser:
+            '(x[0]["moveInfos"][0]["winrate"] - x[0]["userMoveInfo"]["winrate"]) if x[0]["userMoveInfo"] else 0',
+          scoreLead_loss_topvsuser:
+            '(x[0]["moveInfos"][0]["scoreLead"] - x[0]["userMoveInfo"]["scoreLead"]) if x[0]["userMoveInfo"] else 0',
+          user_order:       'x[0]["userMoveInfo"]["order"] if x[0]["userMoveInfo"] else 999',
+          policy_loss:      'x[0]["moveInfos"][0]["prior"] - (x[0]["userMoveInfo"]["prior"] if x[0]["userMoveInfo"] else 0)',
+          risk_adjusted_score_loss:
+            'safe((x[0]["moveInfos"][0]["scoreLead"] - (x[0]["userMoveInfo"]["scoreLead"] if x[0]["userMoveInfo"] else x[0]["moveInfos"][0]["scoreLead"])) / x[0]["rootInfo"]["scoreStdev"])',
+          rank_quality:     '1.0 / (1 + (x[0]["userMoveInfo"]["order"] if x[0]["userMoveInfo"] else 999))',
+
+          // Summary functions.
+          min_summary:      'float(np.min(x))',
+          mean_summary:     'float(np.mean(x))',
         },
         parameters: {
           alpha: 0.25,
         },
         parameter_meta: {},
         palettes: [
+          // 'default' kept for compat with users who customised this
+          // palette away from the broken seed. The composition is
+          // restored to a working shape (the renamed `decisiveness`
+          // smoother, heuristic-oblivious `visit_ratio`).
           {
             id: 'default',
             name: 'Standard Evaluation',
             delta_fn: 'quality_delta',
             summary_fn: 'min_summary',
             state_fns: {
-              'Complexity':      'visit_entropy',
+              'Complexity':      'complexity',
               'Win Probability': 'winrate',
               'Score Advantage': 'score_lead',
             }
+          },
+          // Palette A — visit-share-aligned default. Emphasises user's
+          // alignment with robust-child selection, calibrated by
+          // position branching.
+          {
+            id: 'quality',
+            name: 'Quality (Robust-Child Calibrated)',
+            delta_fn: 'quality_delta',
+            summary_fn: 'min_summary',
+            state_fns: {
+              'Complexity':      'complexity',
+              'Win Probability': 'winrate',
+              'Score Advantage': 'score_lead',
+            }
+          },
+          // Palette B — points-loss alternative. Cleaner semantic
+          // ("points left on the table at the pre-move position"), no
+          // SIDETOMOVE perspective ambiguity. `mean_summary` is the
+          // natural aggregator for a positive-only loss metric.
+          {
+            id: 'score',
+            name: 'Score Loss',
+            delta_fn: 'scoreLead_loss_topvsuser',
+            summary_fn: 'mean_summary',
+            state_fns: {
+              'Volatility':      'score_volatility',
+              'Win Probability': 'winrate',
+              'Score Advantage': 'score_lead',
+            }
+          },
+          // Palette C — most permissive. Hyperbolic in the user's
+          // engine-rank: 1.0 for top, 0.5 for second, etc.
+          {
+            id: 'rank',
+            name: 'Engine Rank',
+            delta_fn: 'rank_quality',
+            summary_fn: 'mean_summary',
+            state_fns: {
+              'Complexity':      'complexity',
+              'Win Probability': 'winrate',
+            }
           }
         ],
-        activePaletteId: 'default'
+        activePaletteId: 'quality'
       },
     },
   },
