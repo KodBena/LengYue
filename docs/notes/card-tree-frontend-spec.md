@@ -254,16 +254,15 @@ Out of scope for this widget:
 
 ## Open questions
 
-- **Multi-parent edges.** If the schema admits a card with
-  multiple parents, the widget's tree assumption fails for those
-  cards. Formally deferred as a decision to be resolved at
-  card-tree implementation start; the deferred-decisions ledger
-  (`docs/notes/decisions-deferred.md`) carries the deferral
-  entry under the title "Card-tree DAG-vs-tree question
-  (multi-parent edges in `card_source`)" with the rationale and
-  triggers for revisitation. The backend spec carries the same
-  open question with the same trigger; a single answer serves
-  both sides.
+- **Multi-parent edges.** Resolved at card-tree implementation
+  start: the backend's schema does not admit multi-parent
+  edges (`card_source.card_id` is `UNIQUE`), so each card has
+  exactly one parent and the widget's tree assumption holds
+  unconditionally. The backend's `fetch_tree_by_root` returns
+  a natural tree. The deferred-decisions ledger
+  (`docs/notes/decisions-deferred.md`) carries the rationale and
+  the schema-change triggers named for revisiting if the
+  single-parent invariant ever changes.
 - **Edge labels (move data).** If the backend's wire shape
   exposes parent→child move information, the widget could
   surface it as an edge annotation. Not required; revisit when

@@ -1,4 +1,6 @@
 """
+repositories/lineage_repository.py
+
 Lineage repository — the SQLAlchemy adapter for tree-fetch operations.
 
 Satisfies LineageRepositoryPort. Before item 32a, the CTE-building
@@ -6,18 +8,29 @@ logic and the materialization queries lived in `domain/tree_engine.py`,
 where they violated the Dependency Rule by importing from `sqlalchemy`
 and `db.schema`. This adapter is their proper home.
 
-Two public methods match the Port:
+Four public methods match the Port:
   - fetch_selection(selection, context_ids, *, user_id): typed-DSL path.
     The BaseSelection is dispatched into a single CTE that handles all
     context ids at once; the CTE is joined with card and
     normalized_position; CardNodes are materialized.
   - fetch_lineage(context_id, max_depth, *, user_id): raw subtree path
     used by validation scripts and by future stats work. Single-context.
+  - resolve_roots(card_ids, *, user_id): card-tree endpoint. Walks UP
+    from each input id to its game-source root, grouping the input by
+    root and surfacing unmatched ids explicitly.
+  - fetch_tree_by_root(root_card_id, *, user_id, max_nodes): card-tree
+    endpoint. Walks DOWN from a verified game-source root, returning
+    a structure-only CardTree, with explicit overflow on
+    `count > max_nodes`.
 
-Both methods funnel into a shared private _materialize helper.
+The first two funnel into a shared private _materialize helper. The
+two card-tree methods do not — their result types are different
+(structural-only DTOs, no Card domain entity) so they materialize
+directly from CTE rows.
 
 Item 30d: the recursive-descent CTE pattern is extracted into
-_recursive_descent_cte. Three callers delegate to it.
+_recursive_descent_cte. Three callers delegate to it; the card-tree
+fetch_tree_by_root makes the fourth.
 
 Item 30c: fetch_selection takes List[int]. Single CTE per pipeline run.
 
@@ -25,24 +38,33 @@ Item 16 (tenancy): both Port methods take *, user_id: UserId. The
 helper threads the filter through to both the base case and the
 recursive step. The non-recursive variants (ContextSelection,
 SiblingSelection) and AncestorSelection's parent-walk apply the same
-filter at their respective base predicates. Net effect: no CTE walk
-can cross a tenant boundary, regardless of historical card_source
-data shape.
+filter at their respective base predicates. The card-tree extension
+follows the same pattern — `_root_walk_cte` filters at base+step,
+and `fetch_tree_by_root`'s descent reuses `_recursive_descent_cte`'s
+existing belt-and-braces filter. Net effect: no CTE walk can cross
+a tenant boundary, regardless of historical card_source data shape.
 
 Dialect-agnostic: uses SQLAlchemy's recursive-CTE primitives and
 ANSI-standard IN-list predicates. Same adapter runs on SQLite and
 Postgres.
+
+License: Public Domain (The Unlicense)
 """
 from typing import List, Optional, assert_never
 
-from sqlalchemy import and_, column, literal_column, select
+from sqlalchemy import and_, column, func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.expression import ColumnElement, CTE, Select
 
 from db.schema import card, card_source, normalized_position
 from domain.auth import UserId
 from domain.card import Card
-from domain.errors import PipelineDSLError
+from domain.errors import (
+    CardNotFoundError,
+    LineageOverflowError,
+    PipelineDSLError,
+)
+from domain.lineage import CardTree, RootGroup, RootResolution, RootedTree
 from domain.pipeline_dsl import (
     AncestorSelection,
     BaseSelection,
@@ -122,6 +144,201 @@ class LineageRepository:
             user_id=user_id,
         )
         return await self._materialize(cte)
+
+    async def resolve_roots(
+        self,
+        card_ids: List[int],
+        *,
+        user_id: UserId,
+    ) -> RootResolution:
+        """
+        Walk upward from each input card id to its game-source root,
+        grouping the input by root and surfacing input ids that don't
+        resolve (cards not owned by the caller or not in the database)
+        in `unmatched_card_ids`.
+
+        Card-tree (release-scope item 3): seventh tenant-scoped read
+        path. The CTE is built by `_root_walk_cte`, which applies the
+        `user_id` filter at both the base case and the recursive step
+        per the defense-in-depth pattern documented in
+        `docs/notes/tenancy.md`.
+
+        Empty input short-circuits — no CTE constructed, no
+        round-trip to the database.
+
+        Output ordering: `roots` is in the order each root was first
+        encountered (i.e. the order of the first input id resolving to
+        it); `card_ids_in_tree` within each group is in input-list
+        order. Neither is part of the wire contract — the spec leaves
+        ordering to the adapter — but the deterministic shape makes
+        tests easier to write and keeps the response stable across
+        repeated calls.
+        """
+        if not card_ids:
+            return RootResolution(roots=[], unmatched_card_ids=[])
+
+        walk = _root_walk_cte(card_ids, user_id=user_id)
+        terminal_query = (
+            select(
+                walk.c.input_card_id,
+                walk.c.current_card_id,
+                walk.c.terminal_game_source_id,
+            )
+            .where(walk.c.terminal_game_source_id.is_not(None))
+        )
+        rows = (await self.session.execute(terminal_query)).fetchall()
+
+        # Group by (root_card_id, game_source_id).
+        groups: dict[tuple[int, int], list[int]] = {}
+        order_seen: list[tuple[int, int]] = []
+        matched: set[int] = set()
+
+        # Pre-index rows by input_card_id so we can iterate in input
+        # order — `card_ids` is the deterministic source of truth, not
+        # the row order from SQLite (which is engine-implementation-
+        # defined for a UNION ALL recursive CTE without ORDER BY).
+        terminal_by_input: dict[int, tuple[int, int]] = {}
+        for row in rows:
+            terminal_by_input.setdefault(
+                row.input_card_id,
+                (row.current_card_id, row.terminal_game_source_id),
+            )
+
+        for cid in card_ids:
+            term = terminal_by_input.get(cid)
+            if term is None:
+                continue
+            root_id, gs_id = term
+            key = (root_id, gs_id)
+            if key not in groups:
+                groups[key] = []
+                order_seen.append(key)
+            groups[key].append(cid)
+            matched.add(cid)
+
+        roots = [
+            RootGroup(
+                root_card_id=root_id,
+                game_source_id=gs_id,
+                card_ids_in_tree=groups[(root_id, gs_id)],
+            )
+            for (root_id, gs_id) in order_seen
+        ]
+        unmatched = [cid for cid in card_ids if cid not in matched]
+
+        return RootResolution(roots=roots, unmatched_card_ids=unmatched)
+
+    async def fetch_tree_by_root(
+        self,
+        root_card_id: int,
+        *,
+        user_id: UserId,
+        max_nodes: int = 10000,
+    ) -> RootedTree:
+        """
+        Walk downward from a verified game-source root, returning a
+        `RootedTree` (the recursive `CardTree` plus the per-root
+        context — `root_card_id` and `game_source_id`) restricted to
+        cards owned by `user_id`.
+
+        Card-tree (release-scope item 3): eighth tenant-scoped read
+        path.
+
+        Three failure modes:
+          - root not owned / not exists / not actually a root →
+            CardNotFoundError. The route maps to 404; the
+            single-resource 404-not-403 collapse from item 13 applies.
+          - tree exceeds `max_nodes` → LineageOverflowError with
+            the exact `actual_size`. Per ADR-0002, no post-hoc
+            truncation: the caller raises the cap or asks a
+            different question.
+          - happy path: tree of `<= max_nodes` nodes, returned as a
+            RootedTree.
+
+        Implementation:
+          1. A small SELECT verifies the root: owned by user_id,
+             present in card_source, with `game_source_id IS NOT NULL`
+             (i.e. genuinely a game-source root, not a mid-chain
+             card). The verification's row carries the
+             `game_source_id` we need for the wire response, so the
+             second projection is a free byproduct.
+          2. The descent CTE reuses `_recursive_descent_cte`, which
+             already applies the `user_id` filter at base+step and
+             returns `(card_id, card_source_id, depth)` rows.
+          3. A bounded SELECT with `LIMIT max_nodes + 1` materializes
+             the tree. If the limit is hit, a follow-up COUNT on the
+             same CTE produces the exact `actual_size` for the 422
+             body. The single happy-path query path is the common
+             case; the second query only fires on overflow.
+          4. Tree assembly is iterative post-order so a deep chain
+             (worst case: a `max_nodes`-long linear tree) doesn't
+             exhaust Python's recursion limit.
+        """
+        # Step 1: verify the root and capture its game_source_id.
+        root_check = (
+            select(card_source.c.game_source_id)
+            .select_from(
+                card_source.join(card, card_source.c.card_id == card.c.id)
+            )
+            .where(card_source.c.card_id == root_card_id)
+            .where(card.c.user_id == user_id)
+            .where(card_source.c.game_source_id.is_not(None))
+        )
+        root_row = (await self.session.execute(root_check)).fetchone()
+        if root_row is None:
+            raise CardNotFoundError(
+                f"root card {root_card_id} not found for this user"
+            )
+        game_source_id = int(root_row.game_source_id)
+
+        # Step 2: build the descent CTE.
+        descent = _recursive_descent_cte(
+            base_predicate=card_source.c.card_id == root_card_id,
+            base_depth=0,
+            user_id=user_id,
+        )
+
+        # Step 3: bounded materialization.
+        bounded = (
+            select(descent.c.card_id, descent.c.card_source_id)
+            .limit(max_nodes + 1)
+        )
+        rows = list((await self.session.execute(bounded)).fetchall())
+
+        if len(rows) > max_nodes:
+            count_q = select(func.count()).select_from(descent)
+            actual = int((await self.session.execute(count_q)).scalar() or 0)
+            raise LineageOverflowError(
+                actual_size=actual, max_nodes=max_nodes
+            )
+
+        # Step 4: assemble the tree iteratively (post-order).
+        children_map: dict[int, list[int]] = {row.card_id: [] for row in rows}
+        for row in rows:
+            parent = row.card_source_id
+            if parent is not None and parent in children_map:
+                children_map[parent].append(row.card_id)
+
+        built: dict[int, CardTree] = {}
+        # Two-phase iterative post-order: push (id, processed) pairs.
+        stack: list[tuple[int, bool]] = [(root_card_id, False)]
+        while stack:
+            node_id, processed = stack.pop()
+            if processed:
+                built[node_id] = CardTree(
+                    id=node_id,
+                    children=[built[c] for c in children_map[node_id]],
+                )
+            else:
+                stack.append((node_id, True))
+                for child_id in children_map[node_id]:
+                    stack.append((child_id, False))
+
+        return RootedTree(
+            root_card_id=root_card_id,
+            game_source_id=game_source_id,
+            tree=built[root_card_id],
+        )
 
     async def _materialize(self, cte: CTE) -> List[CardNode]:
         """
@@ -437,3 +654,74 @@ def _build_selection_cte(
     # at runtime if a new variant is ever added to the Union without
     # being handled here.
     assert_never(cfg)
+
+
+def _root_walk_cte(
+    card_ids: List[int],
+    *,
+    user_id: UserId,
+) -> CTE:
+    """
+    Recursive CTE that walks UPWARD from each input card id toward
+    its game-source root, restricted to cards owned by `user_id`.
+
+    Result columns:
+      - input_card_id: the original card id this row's walk started at
+      - current_card_id: the card whose card_source row we're looking at
+      - parent_card_id: the parent pointer (NULL at game-source roots)
+      - terminal_game_source_id: the game_source_id on the current row
+        (NOT NULL only on terminal rows — i.e. when current_card_id
+        is itself a game-source root)
+
+    Caller selects rows where `terminal_game_source_id IS NOT NULL`
+    to identify, for each input id, the root and game_source it
+    descends from.
+
+    Card-tree (release-scope item 3): used by `resolve_roots`. The
+    recursive step fires only when the current row is non-terminal
+    (`game_source_id IS NULL`) and the parent's `card_source` row is
+    owned by the user — the same defense-in-depth pattern as
+    `_recursive_descent_cte`'s downward walk.
+
+    Caller responsibility: `card_ids` is non-empty. `resolve_roots`
+    short-circuits empty input upstream.
+    """
+    base = (
+        select(
+            card_source.c.card_id.label("input_card_id"),
+            card_source.c.card_id.label("current_card_id"),
+            card_source.c.card_source_id.label("parent_card_id"),
+            card_source.c.game_source_id.label("terminal_game_source_id"),
+        )
+        .select_from(
+            card_source.join(card, card_source.c.card_id == card.c.id)
+        )
+        .where(card_source.c.card_id.in_(card_ids))
+        .where(card.c.user_id == user_id)  # Tenancy: base case filter.
+        .cte(recursive=True, name="root_walk")
+    )
+
+    parent_cs = card_source.alias("parent_cs")
+    parent_card = card.alias("parent_card")
+    step = (
+        select(
+            base.c.input_card_id,
+            parent_cs.c.card_id.label("current_card_id"),
+            parent_cs.c.card_source_id.label("parent_card_id"),
+            parent_cs.c.game_source_id.label("terminal_game_source_id"),
+        )
+        .select_from(
+            base
+            .join(parent_cs, base.c.parent_card_id == parent_cs.c.card_id)
+            .join(parent_card, parent_cs.c.card_id == parent_card.c.id)
+        )
+        # Only continue from non-terminal rows.
+        .where(base.c.terminal_game_source_id.is_(None))
+        # Tenancy: belt-and-braces filter on the parent's owner. With
+        # item 14 active, descendants share their parent's tenant for
+        # new writes; this filter defends against historical data
+        # where a card_source row may bridge two tenants.
+        .where(parent_card.c.user_id == user_id)
+    )
+
+    return base.union_all(step)

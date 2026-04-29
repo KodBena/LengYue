@@ -1,11 +1,14 @@
 """
+repositories/ports.py
+
 Repository Ports — the abstract contracts that use cases depend on.
 
 In Hexagonal terms, these are the "driven ports" — the interfaces the
 application's inner core uses to ask the outside world for data. The
 outer SQLAlchemy adapters in this package implement them. The inner
 use cases (services/card_service.py, services/review_service.py,
-services/stats_service.py, domain/pipeline.py::PipelineExecutor)
+services/stats_service.py, domain/pipeline.py::PipelineExecutor) and
+the route layer (api/routes/lineage.py for the card-tree endpoints)
 declare their dependencies structurally using these Protocols.
 
 Python's Protocol gives us this with structural typing — any class
@@ -18,7 +21,9 @@ Five Ports live here:
 
     CardRepositoryPort       (21f):    reads for ReviewService + GET /cards/{id}
     CardWriteRepositoryPort  (30b):    writes for CardService
-    LineageRepositoryPort    (32a):    tree-fetch for PipelineExecutor
+    LineageRepositoryPort    (32a):    tree-fetch for PipelineExecutor;
+                                       extended for the card-tree
+                                       endpoints (release-scope item 3)
     TagFilterRepositoryPort  (32a):    tag-DSL materialization for PipelineExecutor
     StatsRepositoryPort      (32a.2):  stats fetches for StatsService
 
@@ -27,11 +32,14 @@ AsyncSession, no CTE, no SQLAlchemy Row. The Dependency Rule is
 enforceable by inspecting this file's imports: everything comes from
 `typing`, `domain.*`, or `schemas.*`. Nothing from `sqlalchemy.*`,
 nothing from `db.schema`.
+
+License: Public Domain (The Unlicense)
 """
 from typing import Any, Dict, List, Optional, Protocol, Set, Tuple
 
 from domain.auth import UserId
 from domain.card import Card
+from domain.lineage import RootedTree, RootResolution
 from domain.pipeline_dsl import BaseSelection
 from domain.stats import ForestMemberRow
 from domain.tree_engine import CardNode
@@ -161,11 +169,18 @@ class CardWriteRepositoryPort(Protocol):
 
 class LineageRepositoryPort(Protocol):
     """
-    The tree-fetch contract. PipelineExecutor depends on this.
+    The tree-fetch contract. PipelineExecutor depends on this for the
+    pipeline-result path; the card-tree route (api/routes/lineage.py)
+    depends on it for the resolve-roots and tree-by-root endpoints.
 
     Introduced in item 32a. Item 30c generalized fetch_selection to
     multi-context per call. Item 16 (tenancy) added user_id parameters
-    so that lineage walks cannot cross tenant boundaries.
+    so that lineage walks cannot cross tenant boundaries. The
+    card-tree extension (release-scope item 3) adds two methods —
+    `resolve_roots` (upward walk; many cards → their game-source
+    roots) and `fetch_tree_by_root` (downward walk; one root →
+    structure-only subtree, capped) — both following the same
+    keyword-only-user_id and defense-in-depth-recursive-CTE patterns.
     """
 
     async def fetch_selection(
@@ -219,6 +234,93 @@ class LineageRepositoryPort(Protocol):
         starting context node and all descendants. A request for a
         lineage rooted at another tenant's card returns an empty list
         (the base predicate doesn't match).
+        """
+        ...
+
+    async def resolve_roots(
+        self,
+        card_ids: List[int],
+        *,
+        user_id: UserId,
+    ) -> RootResolution:
+        """
+        For each input card id owned by `user_id`, identify the
+        game-source root that the card descends from, group the input
+        cards by their root, and return both the matched groups and
+        the explicit `unmatched_card_ids` list (cards not owned by
+        the caller, or not present in the database at all).
+
+        Card-tree contract: see `docs/notes/card-tree-backend-spec.md`
+        for the wire-shape rationale and the auditability argument
+        for surfacing unmatched ids explicitly rather than silently
+        dropping them.
+
+        Tenancy: this is the seventh tenant-scoped read path on the
+        backend. The walk follows the same defense-in-depth pattern
+        used by `_recursive_descent_cte` — `user_id` applies at both
+        the base case and the recursive step so historical
+        cross-tenant edges (if any exist) cannot leak into a result.
+        Cross-tenant input ids appear in `unmatched_card_ids` (the
+        bulk lift of the per-card 404-not-403 invariant from item
+        13).
+
+        Empty input returns an empty `RootResolution`. The order of
+        `roots` and the `card_ids_in_tree` within each group is the
+        adapter's choice; no ordering invariant is part of the
+        contract — the frontend re-organizes by its own UX rules.
+        """
+        ...
+
+    async def fetch_tree_by_root(
+        self,
+        root_card_id: int,
+        *,
+        user_id: UserId,
+        max_nodes: int = 10000,
+    ) -> RootedTree:
+        """
+        Return the structure-only subtree rooted at `root_card_id`,
+        restricted to cards owned by `user_id`. The result wraps the
+        recursive `CardTree` with the `root_card_id` and the
+        `game_source_id` of the game source the root descends from
+        (the wire shape's per-root context).
+
+        Card-tree contract: per-card metadata is fetched separately
+        via /cards/{id} (the existing route). The recursive `tree`
+        field carries only `id` and `children` per node — see
+        `docs/notes/card-tree-backend-spec.md` for the rationale.
+
+        Behaviors:
+
+        - If `root_card_id` is not owned by the caller, or doesn't
+          exist, or exists but isn't a game-source root (i.e.
+          `card_source.game_source_id IS NULL` for that row), raise
+          `CardNotFoundError`. The route maps this to 404 — the
+          single 404-not-403 collapse for the single-resource case
+          (item 13's posture).
+
+        - If the tree contains more than `max_nodes` nodes, raise
+          `LineageOverflowError(actual_size, max_nodes)`. Early
+          termination by ADR-0002: post-hoc truncation produces an
+          undefined "which subset did the user receive" question,
+          so the request fails with structured detail instead.
+
+        Tenancy: eighth tenant-scoped read path. Same
+        defense-in-depth filtering as `resolve_roots`. Descendants
+        belonging to a different tenant (only possible from
+        historical data; item 14 prevents new such crossings) are
+        filtered out of the returned tree.
+
+        Implementation note on the return shape: the
+        backend-spec text declares the return as `CardTree` and
+        the wire response shape as `{root_card_id, game_source_id,
+        tree}`. The two are inconsistent because the Port has the
+        game_source_id in hand from its own root-verification step,
+        and forcing the route to fetch it again would be a wasted
+        round trip. The Port returns `RootedTree` (a small wrapper
+        carrying both pieces of context) so the route can project
+        directly to the wire shape. Worklog
+        2026-04-29-card-tree-backend documents the deviation.
         """
         ...
 

@@ -173,9 +173,13 @@ have it). The recursive step could traverse from a user-owned root
 into someone else's descendants.
 
 **The pattern**: filter at the base case AND at the recursive step.
-Both `_recursive_descent_cte` (lineage) and the `root_mapping` CTE
-(stats) join `card` and apply `card.user_id = :user_id` in both
-positions:
+Three recursive CTEs in the codebase apply this — the
+`_recursive_descent_cte` (lineage; downward walks for
+pipeline-result and card-tree fetches), the `root_mapping` CTE
+(stats; root-of-each-card discovery for forest aggregation), and
+the `_root_walk_cte` (card-tree; upward walks from input cards to
+their game-source roots). Each joins `card` and applies
+`card.user_id = :user_id` in both positions:
 
 ```python
 # Base case: only this user's roots start a CTE walk.

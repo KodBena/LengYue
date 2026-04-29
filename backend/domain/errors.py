@@ -1,4 +1,6 @@
 """
+domain/errors.py
+
 Domain-level error taxonomy.
 
 Two-axis structure:
@@ -9,7 +11,8 @@ Two-axis structure:
     │   └── ResourceNotFoundError
     └── InvalidInputError          "the request is malformed at the domain level"
         ├── InvalidReviewError
-        └── PipelineDSLError
+        ├── PipelineDSLError
+        └── LineageOverflowError   "tree exceeds caller-supplied node cap"
 
 Routes catch the *axis* (NotFoundError → 404, InvalidInputError → 422)
 without needing to enumerate every concrete subclass. The concrete
@@ -21,6 +24,8 @@ These are intentionally separate from FastAPI's HTTPException — domain
 code raises domain errors; only the outermost (route) layer translates
 to HTTP. This is the Dependency Rule: nothing in `domain/` or
 `services/` should know that HTTP exists.
+
+License: Public Domain (The Unlicense)
 """
 
 
@@ -67,3 +72,27 @@ class PipelineDSLError(InvalidInputError):
     SQL execution time. Message includes the offending fragment so
     the caller can see exactly what was rejected.
     """
+
+
+class LineageOverflowError(InvalidInputError):
+    """The requested tree exceeds the caller-supplied `max_nodes` cap.
+
+    Raised by `LineageRepositoryPort.fetch_tree_by_root` when the
+    tree rooted at the requested card contains more than `max_nodes`
+    nodes. Carries both numbers so the route can populate the
+    structured 422 body specified by the card-tree backend spec
+    (`docs/notes/card-tree-backend-spec.md`).
+
+    Per ADR-0002 (fail loudly) — explicitly preferred over post-hoc
+    truncation, which would silently return an undefined subset of
+    the tree. The caller raises max_nodes deliberately or asks a
+    different question.
+    """
+
+    def __init__(self, *, actual_size: int, max_nodes: int):
+        self.actual_size = actual_size
+        self.max_nodes = max_nodes
+        super().__init__(
+            f"tree exceeds max_nodes (actual={actual_size}, "
+            f"max_nodes={max_nodes})"
+        )
