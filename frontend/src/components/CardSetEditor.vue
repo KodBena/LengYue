@@ -9,6 +9,7 @@ import { ref, watch } from 'vue';
 import type { CardSet } from '../types';
 import { Codemirror } from 'vue-codemirror';
 import { oneDark } from '@codemirror/theme-one-dark';
+import { EditorView } from '@codemirror/view';
 
 const props = defineProps<{
   cardSets: Record<string, CardSet>;
@@ -24,7 +25,10 @@ const selectedId = ref<string | null>(props.activeCardSetId || Object.keys(props
 const pipelineStr = ref<string>('');
 const isJsonValid = ref(true);
 
-const extensions = [oneDark]; // Pure JSON, oneDark handles basic styling
+// Pure JSON; oneDark handles basic styling. `EditorView.lineWrapping`
+// keeps unusually long pipeline JSON lines from pushing the editor
+// outward and squeezing the deck-list sidebar off-screen.
+const extensions = [oneDark, EditorView.lineWrapping];
 
 // Synchronize local JSON string when selection changes
 watch(selectedId, (newId) => {
@@ -214,7 +218,7 @@ function updatePipeline(newJsonStr: string) {
   border-radius: 4px; overflow: hidden; font-family: 'Consolas', monospace;
 }
 
-.sidebar { width: 200px; background: #111; border-right: 1px solid #222; display: flex; flex-direction: column; overflow-y: auto; }
+.sidebar { width: 200px; background: #111; border-right: 1px solid #222; display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
 .section { border-bottom: 1px solid #1a1a1a; }
 .section-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: #1a1a1a; color: #aaa; font-size: 10px; text-transform: uppercase; }
 .add-btn { background: none; border: none; color: #4aaef0; cursor: pointer; font-weight: bold; font-size: 14px; }
@@ -226,7 +230,7 @@ function updatePipeline(newJsonStr: string) {
 .item-list li.active { background: #000; border-left-color: #4aaef0; color: #4aaef0; }
 .active-badge { font-size: 8px; background: #4aaef0; color: #000; padding: 1px 4px; border-radius: 2px; }
 
-.detail-pane { flex: 1; display: flex; flex-direction: column; background: #000; }
+.detail-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; background: #000; }
 .empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: #555; font-size: 12px; }
 .detail-content { display: flex; flex-direction: column; height: 100%; }
 

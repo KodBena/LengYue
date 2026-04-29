@@ -12,6 +12,7 @@ import type { AnalysisEnvironment, AnalysisPalette, ParameterMeta } from '../typ
 import { Codemirror } from 'vue-codemirror';
 import { python } from '@codemirror/lang-python';
 import { oneDark } from '@codemirror/theme-one-dark';
+import { EditorView } from '@codemirror/view';
 
 const props = defineProps<{
   env: AnalysisEnvironment;
@@ -23,8 +24,10 @@ const emit = defineEmits<{
 
 const qeubo = useQeubo();
 
-// Editor Extensions
-const extensions = [python(), oneDark];
+// Editor Extensions. `EditorView.lineWrapping` makes long single-line
+// formulas wrap visually instead of pushing the editor outward and
+// squeezing the sidebar's symbol list off-screen.
+const extensions = [python(), oneDark, EditorView.lineWrapping];
 
 // View State
 type ViewType = 'symbol' | 'parameter' | 'palette' | null;
@@ -449,6 +452,10 @@ function deleteItem() {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  /* Keep the 200px even when the detail pane's content (e.g. an
+     unwrapped CodeMirror line) tries to grow the editor outward —
+     without this, the flex algorithm shrinks the sidebar to fit. */
+  flex-shrink: 0;
 }
 
 .section { border-bottom: 1px solid #1a1a1a; }
@@ -468,7 +475,10 @@ function deleteItem() {
 
 .active-badge { font-size: 8px; background: #4aaef0; color: #000; padding: 1px 4px; border-radius: 2px; margin-left: 6px; }
 
-.detail-pane { flex: 1; display: flex; flex-direction: column; background: #000; }
+/* `min-width: 0` lets the flex item shrink below the intrinsic
+   width of CodeMirror's content; without it, an unwrapped long line
+   widens the pane past its allocated flex share. */
+.detail-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; background: #000; }
 .empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: #555; font-size: 12px; }
 
 .detail-content { display: flex; flex-direction: column; height: 100%; }
