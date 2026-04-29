@@ -15,8 +15,9 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'load-sgf'):     void;
+  (e: 'save-sgf'):     void;
   (e: 'toggle-engine'): void;
-  (e: 'mint-card'):    void; 
+  (e: 'mint-card'):    void;
 }>();
 
 const isConnected   = computed(() => props.engineStatus === 'connected');
@@ -55,6 +56,7 @@ const engineBtnLabel = computed(() => isConnected.value ? 'Engine' : 'Connect');
     <div class="engine-controls">
       <button class="toolbar-btn highlight-btn" @click="emit('mint-card')">Mint Card</button>
       <button class="toolbar-btn" @click="emit('load-sgf')">Load SGF</button>
+      <button class="toolbar-btn" @click="emit('save-sgf')">Save SGF</button>
       <button
         class="toolbar-btn"
         :class="{ 'btn-connected': isConnected }"
