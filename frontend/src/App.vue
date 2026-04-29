@@ -10,6 +10,7 @@ import { useAuth }           from './composables/useAuth';
 import { useResizablePanel } from './composables/useResizablePanel';
 import { useDirtyBoardGuard } from './composables/useDirtyBoardGuard';
 import { useAppBootstrap } from './composables/useAppBootstrap';
+import { useInitialLayoutSettle } from './composables/useInitialLayoutSettle';
 import {
   store,
   activeBoard,
@@ -47,6 +48,7 @@ import ColorDebugStrip  from './components/charts/ColorDebugStrip.vue';
 import QeuboBookmarks   from './components/QeuboBookmarks.vue';
 
 useUserIORegistry();
+useInitialLayoutSettle();
 
 const { openFileDialog } = useSgfLoader();
 const engineControls     = useEngineControls();
