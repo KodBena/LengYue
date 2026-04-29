@@ -1,4 +1,6 @@
 """
+core/config.py
+
 Application configuration.
 
 Settings are loaded from environment variables (with optional .env file support).
@@ -24,6 +26,8 @@ A few non-trivial behaviors are documented inline:
   gets a backend with /qeubo/* routes returning 503 (the dispatch's
   documented disabled-state contract; see
   docs/dispatch/frontend-to-backend-qeubo-integration.md §2.2).
+
+License: Public Domain (The Unlicense)
 """
 import logging
 import secrets
@@ -47,6 +51,23 @@ def _load_or_generate_secret_key(path: str) -> str:
     never called.
     """
     p = Path(path)
+
+    # De-branding compat: an install that predates the .ebisu_secret_key →
+    # .jwt_secret rename holds its JWT signing key in the legacy filename.
+    # Renaming the file in place lets that install upgrade without
+    # invalidating every JWT in the wild (which would log out every user
+    # on first boot). Bounded shim per ADR-0002 exception #3 — remove
+    # in a successor release once operators have had one upgrade cycle
+    # to migrate. If both files exist (operator-managed override), the
+    # configured target wins; the legacy file is left untouched.
+    legacy = p.parent / ".ebisu_secret_key"
+    if not p.exists() and legacy.exists():
+        legacy.rename(p)
+        logger.info(
+            "SECRET_KEY: renamed legacy %s -> %s (de-branding compat)",
+            legacy, p,
+        )
+
     if p.exists():
         key = p.read_text().strip()
         if key:
@@ -75,8 +96,10 @@ def _load_or_generate_secret_key(path: str) -> str:
 
 class Settings(BaseSettings):
     # ----- Database -----
-    # Default to local SQLite for zero-config dev
-    DATABASE_URI: str = "sqlite+aiosqlite:///./ebisu.db"
+    # Default to local SQLite for zero-config dev. main.py::lifespan applies
+    # a one-time disk rename if a legacy ./ebisu.db exists alongside an
+    # absent ./cards.db (de-branding compat; ADR-0002 exception #3).
+    DATABASE_URI: str = "sqlite+aiosqlite:///./cards.db"
     SQL_ECHO: bool = False
 
     # ----- Ebisu Math -----
@@ -89,8 +112,7 @@ class Settings(BaseSettings):
     # SECRET_KEY: if unset, _resolve_secret_key auto-generates and persists
     # one to SECRET_KEY_FILE. Set explicitly via env in multi-tenant deployments.
     SECRET_KEY: Optional[str] = None
-    SECRET_KEY_FILE: str = "./.ebisu_secret_key"
-    API_TOKEN_NAME: str = "X-Ebisu-Token"
+    SECRET_KEY_FILE: str = "./.jwt_secret"
     # The single switch that flips the system between transparent local install
     # and multi-tenant deployment. See api/routes/auth.py::login_for_access_token.
     ALLOW_PASSWORDLESS_LOGIN: bool = True

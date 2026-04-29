@@ -63,7 +63,7 @@ reading the outstanding work.
 
 | # | One-line synopsis |
 |---|---|
-| 1 | `SECRET_KEY` auto-gen + persist to `./.ebisu_secret_key`. |
+| 1 | `SECRET_KEY` auto-gen + persist to `./.jwt_secret`. |
 | 2 | CORS: `allow_credentials=False` + config-driven origins. |
 | 3 | `datetime.utcnow()` → `datetime.now(timezone.utc)` sweep. |
 | 4 | `CardCreateResponse` typed (status + card_id), replacing `Dict[str, Any]`. |
@@ -99,6 +99,7 @@ reading the outstanding work.
 | — | *Resource endpoint reinstated on the Ebisu backend (`/resources/{name}`, `/resources`) with `StaticResourceRepositoryPort`. Not in original TODO numbering.* |
 | — | *qEUBO MIT-licensed wrapper, step 1 of the qEUBO integration dispatch (`docs/dispatch/frontend-to-backend-qeubo-integration.md` v1.1). Lands the directory-by-license boundary at `backend/qeubo/` parallel to `proxy/goboard_transposition/`'s pattern: `backend/qeubo/vendor/src/` carries the upstream qEUBO library copied verbatim from `~/preference_optimizer/qEUBO/src/`; `backend/qeubo/runtime/` carries the LLM-derived wrapper adapted from the user's prototype at `~/preference_optimizer/qEUBO/wss3/{service,storage}.py` with the gradient-optimizer / colormap cruft surgically removed (no `colormap.py`, no `_compute_colour_data`, no `colour_table_*` / `*_jab` response fields, no JAB / quotient-space hue config — PBO core only). The whole `backend/qeubo/` tree is MIT; `backend/NOTICE` (new) declares the boundary parallel to `proxy/NOTICE`. The runtime supports `controlled_parameters` and `parameter_ranges` in the experiment config (stored, not consumed) so the still-to-be-written PD route handlers can do encode/decode against them. `backend/qeubo/README.md` is the load-bearing public API contract: the route-author session reads it instead of the runtime's `.py` source per the authoring discipline established in dispatch v1.1. Deferred to the route-implementer session: the FastAPI route handlers, encode/decode logic, requirements.txt bump (torch, botorch, gpytorch, redis≥4), and the FastAPI lifespan wiring. Frontend half of the dispatch (toolbar UX, schema migration, useQeubo composable, bookmarks UI, parameter-meta editor extension) is independent and can ship in parallel sessions. Not in original TODO numbering.* |
 | — | *qEUBO REST routes + encode/decode + opt-in deps + lifespan wiring (PD scope at `backend/api/routes/qeubo.py`, `backend/api/routes/qeubo_encoding.py`, `backend/requirements-qeubo.txt`, `backend/core/config.py` edits, `backend/main.py` edits) plus MIT-scope runtime compatibility shims at `backend/qeubo/runtime/_compat.py` bridging vendored qEUBO to modern botorch ≥0.9 / torch ≥2.x / gpytorch ≥1.15 (sample_shape int→torch.Size coercion; float64 default-dtype restoration). Six endpoints under `/qeubo/experiment` per dispatch §2.4; QEUBO_ENABLED defaults to False (researcher opt-in for the heavy deps); routes return 503 when disabled to honor the dispatch's disabled-state contract. Per-user namespacing strips before the wire (dispatch §2.2). End-to-end sanity verified against random L2-target trials in 1D and 2D — zero shape errors, convergence in expected direction. Closes the backend half of the qEUBO integration dispatch; backend status dispatched to frontend at `docs/dispatch/backend-to-frontend-qeubo-status.md`. Worklog at `docs/worklog/2026-04-28-qeubo-routes-and-runtime-modernization.md`. Not in original TODO numbering.* |
+| — | *Backend de-branding round 1 (release-scope.md item 1) — five brand-tagged identifiers retired. State-bearing renames (a)-(c) carry compat shims; metadata renames (d)-(e) do not. (a) `API_TOKEN_NAME = "X-Ebisu-Token"` deleted from `backend/core/config.py`: audit confirmed zero references in `backend/` and `frontend/src/`; the auth flow uses Bearer JWT via `Authorization`, so the constant was vestigial. No frontend lockstep needed. (b) `SECRET_KEY_FILE` default `./.ebisu_secret_key` → `./.jwt_secret`, with a startup compat shim in `_load_or_generate_secret_key`: if the configured target is missing and a sibling `.ebisu_secret_key` exists, rename in place before reading. Bounded per ADR-0002 exception #3, removable in a successor release once operators have had one upgrade cycle. Avoids invalidating in-flight JWTs (which would log every user out on the first boot after the rename). (c) `DATABASE_URI` SQLite default `./ebisu.db` → `./cards.db`, same shape: `_apply_legacy_db_rename_compat(uri)` in `main.py::lifespan` parses the SQLAlchemy URL, no-ops for non-SQLite or `:memory:` URIs, and renames `ebisu.db` (plus `-journal`/`-wal`/`-shm` sidecars so SQLite's crash-recovery finds them in their expected co-location) onto the configured target before `Database.from_uri`. (d) FastAPI metadata title `"Ebisu Spaced Repetition API"` → `"Spaced Repetition API"` in `backend/main.py`. Title is OpenAPI metadata, not a generated type, so `frontend/src/types/backend.ts` is unaffected; backend-to-frontend status dispatch records the change at `docs/dispatch/backend-to-frontend-openapi-title-debrand.md` for awareness. (e) `backend/README.md` heading `# Ebisu — Spaced-Repetition Service` → `# Spaced-Repetition Service`. Algorithm-attribution prose preserved per the de-branding preservation note (the `Ebisu Bayesian spaced-repetition algorithm` reference at line 3, the `In Ebisu terms` passage at line 83, the `Set sensible Ebisu defaults` section heading at line 146, the `Ebisu math` reference in the architecture diagram, the `# ----- Ebisu Math -----` comment in `core/config.py`). ADR-0006 headers retrofitted on `core/config.py` and `main.py` since both were touched under full visibility. Doc updates land alongside: `backend/README.md:62` (DATABASE_URI example), `docs/notes/tenancy.md:254` (operator pre-flight reference), `backend/.gitignore` (add `.jwt_secret`), `docs/playbooks/monorepo/monorepo-plan.md:232,240` (forward-reference parentheticals so the historical playbook record stays intact), `docs/release-scope.md` item 1 (records the mid-execution scope addition for bullets (d) and (e) per the document's own "scope addition requires explicit project-author sign-off" rule). Closes the five retired Trivial-tier entries — header-rename, secret-file rename, db-file rename, FastAPI title, README prose. Not in original TODO numbering.* |
 
 > Note on item 32: the backend's original item 32 specified
 > zeroconf / mDNS service discovery, which is unshipped. The
@@ -206,30 +207,6 @@ Skipped for numbering continuity.
 > "LengYue" only where a project handle is genuinely unavoidable
 > (e.g., a public-facing API title).
 
-#### `[backend]` De-brand FastAPI metadata title
-
-`backend/main.py:47` declares
-`title="Ebisu Spaced Repetition API"`. The OpenAPI title brands
-the backend service for a misnomer. Replace with a functional
-title (`"Spaced Repetition API"`) or, if a project handle at the
-public OpenAPI surface is desired, `"LengYue API"`. No other
-behavior change; `frontend/src/types/backend.ts` updates on the
-next `npm run gen:api`.
-
-#### `[backend]` De-brand README and config-comment prose
-
-Sweep `backend/README.md` for project-branding uses of "Ebisu":
-the heading at line 1 (`# Ebisu — Spaced-Repetition Service`),
-the opening sentence at line 3 (`A FastAPI service implementing
-the Ebisu Bayesian…`), and any prose framing the backend as
-"the Ebisu service." Replace with functional language ("the
-spaced-repetition service"). Preserve algorithm-attribution
-prose — the `#### 3. Set sensible Ebisu defaults` section
-heading, the `EBISU_TIME_UNIT` / `EBISU_DEFAULT_MODEL`
-descriptions, the "in Ebisu terms" passage at line 83. The
-`# ----- Ebisu Math -----` comment in `backend/core/config.py`
-is algorithm-correct and stays.
-
 ### Small — one-file refactors, no contract changes
 
 #### Items 13–16 *(tenancy read-path)* — moved to Completed
@@ -334,54 +311,6 @@ Adopt the generated type at the call site (`useMinting.ts` and
 `backend-service.ts::createCard`) and remove the handwritten
 version. Not yet numbered; treat as a follow-on to the
 build-error sweep.
-
-#### `[backend]` Rename or remove HTTP header `X-Ebisu-Token`
-
-`backend/core/config.py:86` declares
-`API_TOKEN_NAME: str = "X-Ebisu-Token"`. Project-handle-branded.
-
-Audit usage first — grep for `API_TOKEN_NAME`. The auth flow uses
-Bearer JWT (`get_current_user_id` reads `Authorization`), so this
-constant may be vestigial. If unused, remove the constant
-entirely; if used, rename to `X-Auth-Token` or fold the call site
-into Authorization-header handling. If any frontend code sends
-this header, that call site updates in lockstep.
-
-#### `[backend]` Rename secret-key file `.ebisu_secret_key`
-
-`backend/core/config.py:85` declares
-`SECRET_KEY_FILE: str = "./.ebisu_secret_key"`.
-Project-handle-branded. Rename to a functional path (e.g.,
-`./.jwt_secret`).
-
-Migration concern: existing installs hold the JWT signing secret
-in the old file. A hard-cut regenerates the secret on first run
-after the rename, invalidating every JWT in the wild and logging
-out all users. The cleanest solution is a startup compat: if the
-old file exists and the new one does not, rename it on disk and
-proceed. One small block in `core/security.py` (or wherever the
-file is read).
-
-Updates `docs/notes/tenancy.md:254` and `docs/TODO.md:66` (the
-Completed-table reference to the filename in this file).
-
-#### `[backend]` Rename SQLite database file `ebisu.db`
-
-`backend/core/config.py:72` defaults `DATABASE_URI` to
-`sqlite+aiosqlite:///./ebisu.db`. Project-handle-branded.
-Rename to a functional or LengYue-branded filename (e.g.,
-`./cards.db`, `./lengyue.db`).
-
-Migration concern: existing local installs hold their data in
-the old filename. Recommended startup compat: if `DATABASE_URI`
-resolves to a missing file but the legacy `ebisu.db` exists in
-the same directory, rename it on disk before opening the
-connection. Same shape as the secret-key compat above.
-
-Updates `backend/README.md:62` (the example
-`export DATABASE_URI=…ebisu.db`) and
-`docs/playbooks/monorepo/monorepo-plan.md:232,240` (which list
-the filename in the inventory).
 
 ### Large — structural changes that introduce new abstractions
 

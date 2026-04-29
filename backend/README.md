@@ -1,4 +1,4 @@
-# Ebisu — Spaced-Repetition Service
+# Spaced-Repetition Service
 
 A FastAPI service implementing the Ebisu Bayesian spaced-repetition
 algorithm, designed as the persistence and scoring backbone for
@@ -59,7 +59,7 @@ python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 
 # Point at SQLite (default) or Postgres:
-export DATABASE_URI="sqlite+aiosqlite:///./ebisu.db"
+export DATABASE_URI="sqlite+aiosqlite:///./cards.db"
 # or
 export DATABASE_URI="postgresql+asyncpg://user@host/db"
 

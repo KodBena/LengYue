@@ -229,7 +229,7 @@ readers.
 |---|---|
 | `frontend/CWT.md` | Confirmed by author: not coming back. Reasoning captured in his note; file no longer needs to outlive that decision. |
 | `backend/routers/` (the directory, after moving REFERENCE.md) | Empty after the move; no longer serves a purpose. |
-| `backend/ebisu_old.db` | Stale database backup; not under version control concerns. (Confirm before deletion — not architectural to me.) |
+| `backend/ebisu_old.db` | Stale database backup; not under version control concerns. (Confirm before deletion — not architectural to me.) The brand-tagged filename predates the de-branding sweep; the active database was later renamed to `cards.db` per `docs/release-scope.md` item 1. |
 | `backend/docs/HANDOFF.md` | Byte-identical to `docs/archive/34b-frontend-brief.md` (already in place). The archive copy is the canonical surviving version. See "Backend HANDOFF deviation" note above. |
 | `backend/docs/HANDOFF-companion.md` | Byte-identical to `docs/archive/34b-parallel-frontend-work.md` (already in place). The archive copy is the canonical surviving version. See "Backend HANDOFF deviation" note above. |
 
@@ -237,7 +237,7 @@ readers.
 
 | File | Reason |
 |---|---|
-| `backend/ebisu.db` | Active database; subproject-local. Should remain in `backend/` and be in `backend/.gitignore` (verify). |
+| `backend/ebisu.db` | Active database; subproject-local. Should remain in `backend/` and be in `backend/.gitignore` (verify). Later renamed to `backend/cards.db` per `docs/release-scope.md` item 1; the runtime carries a one-cycle disk-rename compat shim in `backend/main.py::_apply_legacy_db_rename_compat`. |
 | `backend/data/visit_distribution.json` | Application data, not documentation. Stays in `backend/data/`. |
 | `backend/scripts/migrate_*.py` | Migration scripts are backend-internal tooling. Stay in `backend/scripts/`. |
 | KataProxy's `ARCHITECTURE.md`, `FRAMEWORK.md`, `README.md`, `goboard_transposition/COMPILATION.md` | Submodule-internal; preserved by virtue of the submodule itself. |
