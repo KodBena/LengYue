@@ -118,6 +118,13 @@ export interface BoardState {
   nodes: Record<NodeId, GameNode>;
   lastActivity: number;
   maxVisitsTarget?: number;
+  // Analysis-chart selection range as [startTurn, endTurn] indices into
+  // the active variation path. Mutated by `useAnalysisTimeline` via
+  // `mutateBoard`; persisted across tab switches and board switches
+  // (BoardState survives both). `undefined` means "use the default
+  // fit-to-path range" — set on first observation of a non-empty
+  // variation. Release-scope item 2.
+  analysisRange?: [number, number];
 }
 
 // EngineMetrics is a value object (immutable, swapped wholesale); the
