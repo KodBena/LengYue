@@ -12,7 +12,7 @@ import {
   type KataAnalysisResponse,
 } from '../engine/katago/types';
 import { type BoardId, type NodeId } from '../types';
-import { toGtp, getActiveVariationPath, getBoardSize, getKomi } from '../engine/util';
+import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi } from '../engine/util';
 import { store, pushSystemMessage } from '../store';
 import { ledger } from './analysis-ledger';
 import { compileAnalysisConfig, activeConfigHash, hashConfig } from './analysis-config';
@@ -124,8 +124,8 @@ export class AnalysisService {
 
     const moves = pathUpToEnd
       .map(id => board.nodes[id]?.move ?? null)
-      .filter((m): m is NonNullable<typeof m> => !!m && m.type === 'place')
-      .map(m => [m.color, toGtp(m.x, m.y)] as [Player, KataCoord]);
+      .filter((m): m is NonNullable<typeof m> => !!m)
+      .map(m => [m.color, moveToKataCoord(m)] as [Player, KataCoord]);
 
     const analyzeTurns = Array.from({ length: endTurn - startTurn + 1 }, (_, i) => startTurn + i);
     const queryId = `range-${boardId}-${Date.now()}`;
@@ -192,8 +192,8 @@ export class AnalysisService {
 
     const moves = pathUpToCurrent
       .map(id => board.nodes[id as NodeId]?.move ?? null)
-      .filter((m): m is NonNullable<typeof m> => !!m && m.type === 'place')
-      .map(m => [m.color, toGtp(m.x, m.y)] as [Player, KataCoord]);
+      .filter((m): m is NonNullable<typeof m> => !!m)
+      .map(m => [m.color, moveToKataCoord(m)] as [Player, KataCoord]);
 
     const queryId = `${mode}-${boardId}-${Date.now()}`;
     const analysis_config = configOverride || compileAnalysisConfig();
