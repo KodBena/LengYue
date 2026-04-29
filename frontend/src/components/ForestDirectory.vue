@@ -178,35 +178,35 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
 <style scoped>
 .forest-container { display: flex; flex: 1; height: 100%; min-height: 0; background: #0a0a0a; }
 .left-panel { width: 280px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid #222; background: #111; flex-shrink: 0; }
-.panel-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 1px solid #222; background: #181818; font-size: 11px; text-transform: uppercase; color: #fff; letter-spacing: 0.1em; flex-shrink: 0; }
+.panel-header { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; border-bottom: 1px solid #222; background: #181818; font-size: 11px; text-transform: uppercase; color: #fff; letter-spacing: 0.1em; flex-shrink: 0; }
 .tab-switcher { padding: 0; display: flex; }
-.tab-switcher button { flex: 1; background: transparent; border: none; color: #888; padding: 12px 0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; cursor: pointer; border-bottom: 2px solid transparent; transition: color 0.2s, background 0.2s; }
+.tab-switcher button { flex: 1; background: transparent; border: none; color: #888; padding: 4px 0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; cursor: pointer; border-bottom: 2px solid transparent; transition: color 0.2s, background 0.2s; }
 .tab-switcher button:hover { background: #1a1a1a; color: #ccc; }
 .tab-switcher button.active { color: #4aaef0; border-bottom-color: #4aaef0; background: #1a1a1a; }
 .decks-view, .roots-view { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-.deck-selector-box { padding: 15px; border-bottom: 1px solid #222; }
-.deck-selector-box label { font-size: 11px; color: #888; display: block; margin-bottom: 6px; text-transform: uppercase; }
-.deck-dropdown { width: 100%; padding: 8px; font-size: 12px; margin-bottom: 8px; background: #0a0a0a; color: #eee; border: 1px solid #333; border-radius: 3px; outline: none; }
+.deck-selector-box { padding: 6px; border-bottom: 1px solid #222; }
+.deck-selector-box label { font-size: 11px; color: #888; display: block; margin-bottom: 3px; text-transform: uppercase; }
+.deck-dropdown { width: 100%; padding: 2px 4px; font-size: 12px; margin-bottom: 4px; background: #0a0a0a; color: #eee; border: 1px solid #333; border-radius: 3px; outline: none; }
 .deck-dropdown:focus { border-color: #4aaef0; }
-.hint { font-size: 10px; color: #666; margin: 0 0 8px 0; }
-.action-btn-large { width: 100%; background: #1a1a1a; color: #4aaef0; border: 1px solid #333; padding: 8px; border-radius: 3px; font-size: 11px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.05em; }
+.hint { font-size: 10px; color: #666; margin: 0 0 4px 0; }
+.action-btn-large { width: 100%; background: #1a1a1a; color: #4aaef0; border: 1px solid #333; padding: 2px 4px; border-radius: 3px; font-size: 11px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.05em; }
 .action-btn-large:hover { background: #222; border-color: #4aaef0; }
-.tools-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 15px; border-bottom: 1px solid #222; }
+.tools-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 8px; border-bottom: 1px solid #222; }
 .reload-btn { background: none; border: none; color: #888; cursor: pointer; font-size: 14px; padding: 0; line-height: 1; }
 .reload-btn:hover { color: #4aaef0; }
-.roots-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-.root-card { background: #181818; border: 1px solid #333; border-radius: 4px; padding: 10px; cursor: pointer; transition: border-color 0.2s; flex-shrink: 0; }
+.roots-list { flex: 1; overflow-y: auto; padding: 4px; display: flex; flex-direction: column; gap: 3px; }
+.root-card { background: #181818; border: 1px solid #333; border-radius: 4px; padding: 4px 6px; cursor: pointer; transition: border-color 0.2s; flex-shrink: 0; }
 .root-card:hover { border-color: #555; }
 .root-card.active { border-color: #4aaef0; background: rgba(74, 174, 240, 0.05); }
-.root-title { font-size: 12px; font-weight: bold; color: #eee; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.root-meta { font-size: 10px; color: #888; margin-bottom: 8px; }
-.root-stats { display: flex; justify-content: space-between; font-size: 10px; color: #aaa; background: #0a0a0a; padding: 4px 6px; border-radius: 2px; }
+.root-title { font-size: 12px; font-weight: bold; color: #eee; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.root-meta { font-size: 10px; color: #888; margin-bottom: 3px; }
+.root-stats { display: flex; justify-content: space-between; font-size: 10px; color: #aaa; background: #0a0a0a; padding: 1px 3px; border-radius: 2px; }
 .tree-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-.header-controls { display: flex; align-items: center; gap: 12px; }
-.orient-btn { background: #1a1a1a; color: #4aaef0; border: 1px solid #333; border-radius: 3px; padding: 4px 8px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; font-family: inherit; }
+.header-controls { display: flex; align-items: center; gap: 6px; }
+.orient-btn { background: #1a1a1a; color: #4aaef0; border: 1px solid #333; border-radius: 3px; padding: 1px 3px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; font-family: inherit; }
 .orient-btn:hover { background: #222; border-color: #4aaef0; }
 .tree-meta { color: #4aaef0; font-size: 10px; }
 .empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: #666; font-size: 12px; }
 .empty-state.error { color: #ff6b6b; }
-.chart-wrapper { flex: 1; padding: 10px; min-height: 0; display: flex; }
+.chart-wrapper { flex: 1; padding: 4px; min-height: 0; display: flex; }
 </style>
