@@ -1,8 +1,16 @@
 # Card-Tree — Frontend Specification
 
-- **Status:** Specification (pending implementation).
+- **Status:** Implemented 2026-04-29 — see
+  `docs/worklog/2026-04-29-card-tree-frontend.md`. The widget at
+  `frontend/src/components/charts/CardTreeWidget.vue` implements
+  this spec faithfully; two corner cases (hot-but-not-warm
+  rendering, expanded-bucket-leaves role assignment) are
+  documented in the worklog and the close-out dispatch
+  (`docs/dispatch/frontend-to-backend-card-tree-status.md`).
+  Specification kept as the authoritative reference for future
+  spec consumers.
 - **Genre:** Frontend widget specification.
-- **Date:** 2026-04-26.
+- **Date:** 2026-04-26 (spec); implemented 2026-04-29.
 - **Scope:** Synthesis of two existing artifacts:
   (1) `frontend/src/components/charts/LineageTreeChart.vue` — the
   current ECharts-based tree renderer with thumbnail-in-tooltip
