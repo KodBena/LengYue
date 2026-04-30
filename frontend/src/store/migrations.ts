@@ -67,7 +67,7 @@
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 8;
+export const CURRENT_SCHEMA_VERSION = 9;
 
 /**
  * A migration brings a blob at version N forward to version N+1.
@@ -481,6 +481,23 @@ export const migrations: Migration[] = [
       symbols.scoreLead_loss_topvsuser = NEW_SCORELEAD_LOSS;
     }
 
+    return out;
+  },
+  // 8 → 9: Flip `systemLogExpanded` default from true to false.
+  // The system-log bar's 30px vertical footprint eats space the
+  // analysis dashboard would rather have, and the bar is a debugging
+  // surface that few users actively read. Users on `true` are almost
+  // certainly there because of the prior default rather than an
+  // explicit choice (the toggle lives in the Session-UI registry,
+  // not on the main UI), so unconditional flip is the right move; a
+  // user who genuinely wants it visible can re-enable in one click.
+  // Idempotent: if the field is missing or non-boolean (corrupt or
+  // hand-edited), normalises to false.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    if (out.session?.ui) {
+      out.session.ui.systemLogExpanded = false;
+    }
     return out;
   },
 ];
