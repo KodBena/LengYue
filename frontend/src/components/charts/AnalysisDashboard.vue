@@ -108,7 +108,7 @@ const engineConnected = computed(() => store.engine.status === 'connected');
 .dashboard {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 100px);
+  height: calc(100vh - 165px);
   overflow: hidden;
   background: #111;
   gap: 8px;

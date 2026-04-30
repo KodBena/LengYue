@@ -194,9 +194,11 @@ export const defaultSessionUI: UISession = {
   treeExpanded: true,
   controlsExpanded: true,
   boardExpanded: true,
-  // Persistent system-log bar visible by default. Users can uncheck
-  // this box in the Session (UI) registry to hide the bar.
-  systemLogExpanded: true,
+  // System-log bar default-hidden — it's a debugging surface, and
+  // its 30px vertical footprint eats space the analysis dashboard
+  // would rather have. Users can re-enable via the Session (UI)
+  // registry.
+  systemLogExpanded: false,
   controlPanelWidth: 340,
   moveFilterThreshold: 0.05,
   moveFilterExpression: 'move.order === 0 || (move.visits / root.visits) >= ui.threshold',
