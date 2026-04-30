@@ -423,17 +423,36 @@ documentation never fully replaces practiced familiarity. The
 first community contributor will find friction the documents
 can't pre-empt.
 
-### The proxy is frozen and that constrains evolution
+### The proxy's freeze lifted at the wire
 
-`proxy/` is pinned at the v1.0.0 submodule reference. Per the
-umbrella `CLAUDE.md`, the proxy is "mature and frozen until
-release." Now that v1 is shipping, the freeze condition is
-nominally satisfied. But the proxy is its own architectural
-artifact with its own contributor base; the umbrella's tagging
-v1 doesn't directly imply the proxy advancing. A community
-contributor wanting to extend the proxy's protocol surface will
-need to coordinate with the proxy's own development line, which
-operates on a different cadence than the umbrella.
+`proxy/` was pinned at v1.0.0 through most of the umbrella's
+release run-up. Per the umbrella `CLAUDE.md`, the proxy was
+"mature and frozen until release." Late in the release window
+the freeze had to lift: an empty-board ponder bug surfaced where
+the proxy's `analysis_enricher` Transformer failed to strip its
+own `analysis_config` flag from queries shorter than two moves,
+leaking the proxy-only field through to KataGo's stdin and
+producing malformed responses. The frontend treated symptoms
+with defensive guards (KodBena/LengYue#58), but the root-cause
+fix lived in the proxy. The umbrella's v1.0.0 ships with the
+proxy bumped to v1.0.1, which carries that fix plus a separate
+licensing-compliance PR that added the full upstream MIT license
+text for the vendored nlohmann/json dependency (the `.hpp`'s SPDX
+identifiers alone didn't satisfy the MIT preservation
+requirement).
+
+The episode is worth naming for two reasons. First, it
+demonstrates that the proxy is its own architectural artifact
+with its own contributor base — the umbrella's tagging doesn't
+directly imply the proxy advancing, and proxy bumps are their
+own coordinated arc (branch in the proxy repo, PR there, get a
+tag cut, then bump the umbrella's pointer). Second, it surfaced
+a class of bug — proxy-only fields stripped under conditions
+that don't hold for all queries — that's worth auditing if a
+community contributor finds themselves in `baduk.py`'s
+neighbours. The PR description (KataProxy#1) names this as
+follow-up work explicitly; the audit was deliberately not
+broadened during the release window.
 
 ## On the project author
 
