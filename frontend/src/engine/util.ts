@@ -123,6 +123,42 @@ export function getKomi(state: BoardState): number {
 }
 
 /**
+ * Extracts SGF-root setup stones (AB / AW on the root node) in the
+ * shape KataGo's analysis-engine protocol accepts as `initialStones`.
+ *
+ * The protocol distinguishes `initialStones` (the board state before
+ * the first move — handicap stones, problem setups) from `moves` (the
+ * game played after). Sending handicap stones in `moves` shifts
+ * KataGo's turn-to-play and produces incorrect analysis silently —
+ * exactly the symptom this helper exists to prevent.
+ *
+ * Mid-tree setup (AB/AW/AE on non-root nodes) is out of scope —
+ * KataGo's analysis engine doesn't model setup operations after the
+ * first move.
+ */
+export function getInitialStones(state: BoardState): [StoneColor, string][] {
+  const rootNode = state.nodes[state.rootNodeId];
+  if (!rootNode) return [];
+  const size = getBoardSize(state);
+  const result: [StoneColor, string][] = [];
+
+  for (const sgfCoord of rootNode.properties.AB ?? []) {
+    const move = sgfToMove(sgfCoord, 'B', size);
+    if (move.type === 'place') {
+      result.push(['B', toGtp(move.x, move.y)]);
+    }
+  }
+  for (const sgfCoord of rootNode.properties.AW ?? []) {
+    const move = sgfToMove(sgfCoord, 'W', size);
+    if (move.type === 'place') {
+      result.push(['W', toGtp(move.x, move.y)]);
+    }
+  }
+
+  return result;
+}
+
+/**
  * Decodes a flat KataGo board-shaped array (length = size²) into per-cell
  * records in our internal coordinate convention.
  *

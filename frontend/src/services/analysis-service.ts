@@ -12,7 +12,7 @@ import {
   type KataAnalysisResponse,
 } from '../engine/katago/types';
 import { type BoardId, type NodeId } from '../types';
-import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi } from '../engine/util';
+import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi, getInitialStones } from '../engine/util';
 import { store, pushSystemMessage } from '../store';
 import { ledger } from './analysis-ledger';
 import { compileAnalysisConfig, activeConfigHash, hashConfig } from './analysis-config';
@@ -127,9 +127,11 @@ export class AnalysisService {
       .filter((m): m is NonNullable<typeof m> => !!m)
       .map(m => [m.color, moveToKataCoord(m)] as [Player, KataCoord]);
 
+    const initialStones = getInitialStones(board);
+
     const analyzeTurns = Array.from({ length: endTurn - startTurn + 1 }, (_, i) => startTurn + i);
     const queryId = `range-${boardId}-${Date.now()}`;
-    
+
     const analysis_config = configOverride || compileAnalysisConfig();
     const hash = configOverride ? hashConfig(configOverride) : activeConfigHash.value;
 
@@ -145,6 +147,7 @@ export class AnalysisService {
     const query: KataGoAnalysisQuery = {
       id: queryId,
       moves,
+      ...(initialStones.length ? { initialStones } : {}),
       rules: 'tromp-taylor',
       boardXSize: size,
       boardYSize: size,
@@ -195,6 +198,8 @@ export class AnalysisService {
       .filter((m): m is NonNullable<typeof m> => !!m)
       .map(m => [m.color, moveToKataCoord(m)] as [Player, KataCoord]);
 
+    const initialStones = getInitialStones(board);
+
     const queryId = `${mode}-${boardId}-${Date.now()}`;
     const analysis_config = configOverride || compileAnalysisConfig();
     const hash = configOverride ? hashConfig(configOverride) : activeConfigHash.value;
@@ -206,6 +211,7 @@ export class AnalysisService {
     const query: KataGoAnalysisQuery = {
       id: queryId,
       moves,
+      ...(initialStones.length ? { initialStones } : {}),
       rules: 'tromp-taylor',
       boardXSize: size,
       boardYSize: size,
