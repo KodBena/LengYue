@@ -55,13 +55,13 @@ const emit = defineEmits<{
 
 <style scoped>
 .status-bar {
-  height: 30px;
+  height: 20px;
   background: #1a1a1a;
   border-top: 1px solid #2a2a2a;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 12px;
+  padding: 0 6px;
   font-size: 11px;
   color: #aaa;
   flex-shrink: 0;

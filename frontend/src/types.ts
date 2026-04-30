@@ -319,6 +319,14 @@ export interface UISession {
   // only when the user explicitly unchecks it in the Session (UI) registry.
   systemLogExpanded: boolean;
   controlPanelWidth: number;
+  // Release-scope item 7: user-controlled cap on the square board's
+  // width, in pixels. The board column is height-driven via
+  // aspect-ratio: 1/1; `boardSquareMaxWidthPx` puts an additional
+  // upper bound, letting the user shrink the board (giving the
+  // control panel more room) below the height-natural max. The
+  // resizer drag mutates this. `undefined` = no cap; the board
+  // saturates at column.height.
+  boardSquareMaxWidthPx?: number;
   moveFilterThreshold: number;
   moveFilterExpression: string;
   analysisLayout: 'horizontal' | 'vertical';

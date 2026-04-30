@@ -222,7 +222,13 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
       <div id="split-workspace">
         
-        <div id="board-column" v-show="store.session.ui.boardExpanded">
+        <div
+          id="board-column"
+          v-show="store.session.ui.boardExpanded"
+          :style="store.session.ui.boardSquareMaxWidthPx
+            ? { '--board-target-px': store.session.ui.boardSquareMaxWidthPx + 'px' }
+            : {}"
+        >
           <div id="content">
             <BoardWidget
               v-if="activeBoard"
@@ -254,14 +260,10 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
         <div v-show="store.session.ui.controlsExpanded" class="panel-resizer" @mousedown="startResize"></div>
 
-        <div 
-          id="control-panel" 
+        <div
+          id="control-panel"
           v-show="store.session.ui.controlsExpanded"
-          :style="{ 
-            width: store.session.ui.boardExpanded ? (store.session.ui.controlPanelWidth || 340) + 'px' : 'auto',
-            flex: store.session.ui.boardExpanded ? '0 0 ' + (store.session.ui.controlPanelWidth || 340) + 'px' : '1',
-            minWidth: 0
-          }"
+          :style="{ flex: '1 1 0', minWidth: 0 }"
         >
           <TabWidget
             :tabs="controlTabs"
@@ -441,7 +443,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 /* The top nav bar always spans the full width of main-workspace */
 .top-nav-bar { 
   display: flex; align-items: center; background: #252525; 
-  border-bottom: 1px solid #111; padding: 0 8px; height: 45px; flex-shrink: 0; 
+  border-bottom: 1px solid #111; padding: 0 6px; height: 32px; flex-shrink: 0;
 }
 
 /* The lower area where the resizer lives */
@@ -453,25 +455,35 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
   min-height: 0;
 }
 
+/* Release-scope item 7: board column is a square sized from its
+   allocated height (aspect-ratio: 1/1 + height: 100%). The user-
+   set `--board-target-px` (mutated by the resizer) caps the width
+   below the height-natural max — drag-left grows the cap (board
+   shrinks), drag-right shrinks the cap (board grows up to the
+   height saturation point). When unset, no cap; the board
+   saturates at full square. */
 #board-column {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 0 0 auto;
+  height: 100%;
+  aspect-ratio: 1 / 1;
+  max-width: var(--board-target-px, 100%);
   min-width: 0;
   min-height: 0;
 }
 
-#content { flex: 1; display: flex; justify-content: center; align-items: center; min-height: 0; padding: 20px; }
+#content { flex: 1; display: flex; justify-content: center; align-items: center; min-height: 0; }
 
 #vue-tree-panel { width: 220px; display: flex; flex-direction: column; border-left: 1px solid #111; background: #1e1e1e; min-height: 0; flex-shrink: 0; padding-right: 5px; }
-#tree-panel-header { height: 28px; background: #1e1e1e; border-bottom: 1px solid #111; display: flex; align-items: center; padding: 0 10px; font-size: 9px; letter-spacing: 0.16em; color: #363636; text-transform: uppercase; flex-shrink: 0; }
+#tree-panel-header { height: 20px; background: #1e1e1e; border-bottom: 1px solid #111; display: flex; align-items: center; padding: 0 6px; font-size: 9px; letter-spacing: 0.16em; color: #363636; text-transform: uppercase; flex-shrink: 0; }
 #control-panel { border-left: 1px solid #111; background: #222; flex-shrink: 0; display: flex; flex-direction: column; }
 
 .panel-resizer { width: 4px; background: #eba46d; cursor: col-resize; z-index: 50; flex-shrink: 0; transition: background 0.2s; }
 .panel-resizer:hover, .panel-resizer:active { background: #4aaef0; }
 
-.tab-padding { padding: 20px; }
-.tab-padding-sr { padding: 40px 20px; text-align: center; }
+.tab-padding { padding: 8px; }
+.tab-padding-sr { padding: 12px 8px; text-align: center; }
 .section-divider { border-top: 1px solid #222; margin-top: 20px; padding-top: 10px; }
 .sub-header { color: #666; font-size: 14px; margin-bottom: 10px; }
 
@@ -480,12 +492,12 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 .deck-dropdown { width: 100%; padding: 8px; font-size: 12px; margin-bottom: 8px; background: #111; color: #eee; border: 1px solid #333; border-radius: 3px; outline: none; }
 .deck-dropdown:focus { border-color: #4aaef0; }
 
-.action-btn-large { background: #4aaef0; color: #fff; border: none; padding: 12px 24px; cursor: pointer; border-radius: 4px; font-weight: bold; width: 100%; }
-.toolbar-btn-sm { background: #333; border: 1px solid #444; color: #ccc; padding: 4px 10px; font-size: 11px; cursor: pointer; border-radius: 3px; }
+.action-btn-large { background: #4aaef0; color: #fff; border: none; padding: 4px 10px; cursor: pointer; border-radius: 4px; font-weight: bold; width: 100%; }
+.toolbar-btn-sm { background: #333; border: 1px solid #444; color: #ccc; padding: 1px 4px; font-size: 11px; cursor: pointer; border-radius: 3px; }
 .toolbar-btn-sm:hover { background: #444; border-color: #555; }
 .registry-container { margin-top: 15px; background: #181818; border: 1px solid #222; border-radius: 4px; max-height: 400px; overflow-y: auto; }
 
-.collapse-btn { background: rgba(20, 20, 20, 0.8); border: 1px solid #333; color: #888; height: 24px; padding: 0 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 10px; }
+.collapse-btn { background: rgba(20, 20, 20, 0.8); border: 1px solid #333; color: #888; height: 18px; padding: 0 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 10px; }
 .collapse-btn:hover { background: #333; color: #fff; border-color: #555; }
 .right-toggles { display: flex; gap: 6px; margin-left: auto; }
 

@@ -70,7 +70,7 @@ function selectTab(id: string) {
 }
 
 .tab-header li {
-  padding: 4px 15px;
+  padding: 1px 6px;
   font-size: 12px;
   color: #888;
   cursor: pointer;

@@ -67,14 +67,14 @@ const engineBtnLabel = computed(() => isConnected.value ? 'Engine' : 'Connect');
 </template>
 
 <style scoped>
-.toolbar { height: 45px; background: #252525; display: flex; align-items: center; padding: 0 15px; gap: 12px; justify-content: space-between; border-bottom: 1px solid #111; flex-shrink: 0; }
+.toolbar { height: 28px; background: #252525; display: flex; align-items: center; padding: 0 6px; gap: 6px; justify-content: space-between; border-bottom: 1px solid #111; flex-shrink: 0; }
 .toolbar-title { font-size: 10px; color: #fff; text-transform: uppercase; letter-spacing: 0.12em; white-space: nowrap; }
-.engine-metrics-bar { display: flex; gap: 18px; font-family: monospace; font-size: 11px; }
-.metric { display: flex; align-items: center; gap: 5px; }
+.engine-metrics-bar { display: flex; gap: 10px; font-family: monospace; font-size: 11px; }
+.metric { display: flex; align-items: center; gap: 4px; }
 .m-lbl  { color: #555; font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; }
 .m-val  { color: #4aaef0; font-weight: bold; }
-.engine-controls { display: flex; gap: 8px; flex-shrink: 0; }
-.toolbar-btn { background: #333; border: 1px solid #444; color: #ccc; padding: 5px 12px; font-size: 11px; cursor: pointer; border-radius: 3px; font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: 0.05em; transition: background 0.15s, border-color 0.15s; }
+.engine-controls { display: flex; gap: 4px; flex-shrink: 0; }
+.toolbar-btn { background: #333; border: 1px solid #444; color: #ccc; padding: 1px 5px; font-size: 11px; cursor: pointer; border-radius: 3px; font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: 0.05em; transition: background 0.15s, border-color 0.15s; }
 .toolbar-btn:hover { background: #444; border-color: #555; color: #fff; }
 .btn-connected { border-color: #4caf50 !important; color: #4caf50 !important; }
 .highlight-btn { border-color: #2a5a7a; color: #4aaef0; }
