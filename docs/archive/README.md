@@ -1,15 +1,17 @@
 # Archive
 
-This directory holds documentation snapshots from before the umbrella
-restructure. The contents are kept for historical reference and are
-not maintained: references inside these files point at locations
+This directory holds documentation snapshots that captured a
+specific moment and are kept for historical reference. The contents
+are not maintained: references inside these files point at locations
 and item numbers as they existed at the moment of capture. For
 current state, see `../handoff-current.md`, `../TODO.md`, and the
 ADRs in `../adr/`.
 
 ## Contents
 
-The four files split into two genres.
+The five files split into three genres: pre-umbrella cross-team
+communications, a pre-umbrella state-of-system snapshot, and a
+v1-release scope freeze.
 
 ### Backend → frontend communications during the 34b project
 
@@ -46,22 +48,39 @@ internal reference.
   and posture at the close of the pre-release infrastructure
   sweep. Authored at `frontend/docs/HANDOFF.md`.
 
+### v1.0.0 release scope freeze
+
+- **`release-scope-2026-04.md`** — the project-level scope freeze
+  authored 2026-04-28 that named the seven items gating v1.0.0
+  and committed the project to ship after they closed. All seven
+  closed by 2026-04-30; the scope's own retirement clause moved
+  it here. Distinct from the other archive contents in two ways:
+  the references inside reflect post-umbrella paths (it was
+  authored after the umbrella restructure), and it captures a
+  forward-looking commitment rather than a retrospective
+  snapshot. The closure document that replaces it for
+  current-state purposes is
+  `../notes/release-retrospective-2026-04.md`.
+
 ## On the naming asymmetry
 
 The project-stamped pattern (`34b-*`) and the date-stamped pattern
-(`handoff-2026-04-frontend-pre-umbrella`) coexist deliberately. The
-former fits the 34b project's communications because those
-documents already named themselves that way internally; the latter
-fits a generic state-of-the-system snapshot that has no narrower
-project anchor. The trade-off is recorded in
+(`handoff-2026-04-frontend-pre-umbrella`, `release-scope-2026-04`)
+coexist deliberately. The former fits the 34b project's
+communications because those documents already named themselves
+that way internally; the latter fits state-of-system snapshots and
+project-level commitment freezes that have no narrower project
+anchor. The trade-off is recorded in
 `../playbooks/monorepo/monorepo-plan.md` under "Backend HANDOFF
 deviation."
 
 ## Posture toward these files
 
-Read them for context. Do not edit them to fix references —
-references inside reflect pre-umbrella paths and pre-merger TODO
-item numbers, and that is accurate to the moment they captured.
-For current paths and current TODO item state, follow the pointers
-in this directory's parent `README` or in the system-level
-documentation under `../`.
+Read them for context. Do not edit them to fix references — for
+the four pre-umbrella files, references inside reflect
+pre-umbrella paths and pre-merger TODO item numbers; for the v1
+scope freeze, references inside reflect the project state on
+2026-04-28. Both kinds are accurate to the moment they captured.
+For current paths, current TODO state, and current release
+posture, follow the pointers in this directory's parent
+`README` or in the system-level documentation under `../`.

@@ -20,11 +20,13 @@ tackling structural work.
 - `[frontend]` — touches only the Vue SPA codebase
 - `[both]` — requires coordinated changes on both sides
 
-**Cross-team status:** as of the close of the pre-release
-infrastructure sweep, no outstanding action items between teams.
-The backend confirmed closure of items 32 and 34 and shipped Commit
-3b (response-side stale-bundle compat shim removal); the frontend's
-remaining work is independent.
+**Cross-team status:** as of the close of v1.0.0 (2026-04-30),
+no outstanding action items between teams. The locked release
+scope (the seven items in
+`docs/archive/release-scope-2026-04.md`) is shipped end-to-end,
+including the cross-team card-tree arc (item 3) and the joint
+tenancy-documentation sweep (item 26). The closure document is
+`docs/notes/release-retrospective-2026-04.md`.
 
 ## Tenancy model — recorded for context
 
@@ -44,11 +46,20 @@ in its default UX.**
   defaults to on for the local install scenario; multi-tenant
   operators set it to off and provision real accounts.
 
-The current code stamps `user_id` on writes (correct) but ignores
-it on reads (bug). The outstanding tenancy items below are the
-"realize the tenancy model that already exists in the schema" work.
+The tenancy spine is shipped end-to-end as of v1.0.0: code stamps
+`user_id` on writes, read paths filter by it, schema migrations
+land cleanly, and the operator-facing documentation (item 26)
+points back at the system note. The items below remain in the
+list as the durable record of what shipped.
 
-For the architectural rationale, see `docs/notes/tenancy.md`.
+For the architectural rationale, see `docs/notes/tenancy.md`. For
+the in-code documentation (READMEs, schema docstrings, config-flag
+docstrings), see the "Tenancy" sections in `backend/README.md` and
+`frontend/README.md` plus the docstrings on
+`db.schema.{documents,game_source,tag}`,
+`Settings.ALLOW_PASSWORDLESS_LOGIN`,
+`api.dependencies.get_current_user_id`, and
+`src/services/api-client.ts::ensureAuthenticated`.
 
 ---
 
@@ -58,6 +69,14 @@ Items below are shipped, merged, and verified. They're kept here
 as context so it's obvious which item numbers are skipped in the
 tier sections below, and so nothing has to be re-derived when
 reading the outstanding work.
+
+> Note on `release-scope.md` references: the v1.0.0 locked release
+> scope was archived to `docs/archive/release-scope-2026-04.md` on
+> 2026-04-30 per its own retirement clause. References below to
+> `release-scope.md` reflect the document's name at the moment of
+> the entry's authoring; the file now lives at the archived path.
+> The closure document is
+> `docs/notes/release-retrospective-2026-04.md`.
 
 ### Backend
 
@@ -142,16 +161,18 @@ reading the outstanding work.
 | — | *Intensity gradient hue-shift slider (release wrap-up; accessibility). Persisted setting `profile.settings.appearance.intensityHueShift` (default `-43°` — the prior hardcoded value) bound to a range slider in the Other tab's Gradient Calibration view, alongside `ColorDebugStrip`. Engine refactor in `engine/suggestion-colors.ts`: split `initializeIntensityFactory` into `setVisitDistribution` (one-shot from `resource-service`) and `setIntensityHueShift` (called by an `appearance.intensityHueShift` watcher in `useAppBootstrap`); `rebuildIntensityColorFn` produces fresh `IntensityColorFn` closures atomically swapped into the reactive `getIntensityColor` shallowRef so consumers re-render when either input changes. `rotateHueLab` hoisted to module scope. Cleaned up the dead `pchipN(u, ALPHA_KNOTS)` line and the `t = 1-t` double-flip — replaced with named `lookup = 1 - intensity` and `a = intensity`, with a comment recording that the LUT was generated direction-quotient-optimised and the orientation is hand-applied by name. Schema migration 4→5 fills the new field with `-43` for legacy blobs (visually a no-op for users who haven't moved the slider). Not in original TODO numbering.* |
 | — | *Analysis-meter rugplot fix in `BoardThumbnail.vue` (release wrap-up). The per-move depth strip under each tab thumb had three coupled defects. (1) `min-width: 1px` on each `.meter-slice` made the first ~60 moves consume the meter's visible width with the rest clipped invisibly via `overflow: hidden` — long games were silently truncated past the opening. (2) The default target of `state.maxVisitsTarget || 1000` was instantly saturated by pondering at `maxVisits: 100000`. (3) Inputs ran through `ecdf(visits/target)` even though the ECDF was calibrated for visit-ratio inputs (a move's share of total visits at a node), not absolute target fractions — collapsing the practical range onto a narrow band of the LUT regardless of visit count. Fix: drop the `min-width` so all path nodes share the meter proportionally; raise the target floor to `100000` (matching the ponder ceiling, with a deeper user-specified `analyzeRange` target still winning via `Math.max`); log-compress visits → t (`log1p(visits) / log1p(target)`) so each ~10× of visits adds a near-constant slice of t; add a sibling export `getIntensityColorLinear` in `engine/suggestion-colors.ts` that walks the LUT without the ECDF and takes alpha as a parameter. The ECDF variant `getIntensityColor` is unchanged — move suggestions and `ColorDebugStrip` continue to use it under its original calibrated semantics. Internally, the LUT-walk + hue-rotation is extracted to a shared `colorAtU` helper. Two visual-honesty refinements: unanalysed nodes (`visits === 0`) render as transparent (the meter background shows through, encoding "no data" honestly); each slice carries `title="Move N: X visits"` for hover discoverability at this small size. Closes the indicator-row rough edge surfaced during release wrap-up. Not in original TODO numbering.* |
 | — | *`BoardThumbnail.vue` → `BoardTab.vue` rename (release wrap-up). The component is the tab item in the board-list rail (label, close button, analysis-meter rugplot, geiger dot); the hover-thumbnail is `FloatingThumbnail.vue`'s job. The "Thumbnail" name was a misnomer at this point. Rename via `git mv` (preserves history); two reference sites updated (`SidebarWidget.vue` import + template, comment in `engine/suggestion-colors.ts`); internal header comment in the file expanded to ADR-0006 form (full path + purpose + license) since the SFC was previously carrying a one-line header that predated the ADR. No behaviour change. Not in original TODO numbering.* |
+| — | *Initial-load layout settle (release-scope.md item 7). On first load, the application's layout was visibly broken — the control-panel and board areas didn't size correctly until the user nudged the vertical panel resizer, despite the persisted `session.ui.controlPanelWidth` having a sane default. Resolved across an arc of commits that re-architected the layout pass: the resizer drives the board-square cap, the control panel absorbs leftover space, and the AnalysisDashboard's vertical sizing was tightened (`100vh-100`→`165` plus a `systemLogExpanded` default flip). Two follow-on UI fits landed alongside (board-fits-its-square, analysis-dashboard-double-scrollbar). Closes the seventh and final release-scope item. Not in original TODO numbering.* |
 
 ### Joint
 
 | # | One-line synopsis |
 |---|---|
 | 34b | Domain-neutral wire rename (`sgf`→`raw_content`, `normalized_sgf`→`canonical_content`, `default_visits` nested into `grading_parameter.data`). Backend dual-emitted for stale-bundle compat through Commit 3, then dropped the response-side shims in Commit 3b. Frontend's reciprocal cleanup (`34b-cleanup`) is now unblocked and listed in the Small tier below. |
+| 26 | *Tenancy READMEs (release-scope.md item 6). The in-code documentation half of the already-shipped tenancy spine. New `## Tenancy` sections in `backend/README.md` and `frontend/README.md` describing what's isolated, what's global, the role of `ALLOW_PASSWORDLESS_LOGIN`, and the default single-user UX. Brief docstrings on `db.schema.{documents,game_source,tag}` (what is and isn't tenant-scoped, and why), `Settings.ALLOW_PASSWORDLESS_LOGIN` (what flipping it does), `api.dependencies.get_current_user_id` (the invariant downstream code relies on), and `src/services/api-client.ts::ensureAuthenticated` (the backend-side assumption). System-level note already exists at `docs/notes/tenancy.md`; this work is the in-code documentation that points back at it. Backend close at commit `0a61197`; frontend close at commit `7eb972e` (also de-branded the README opener as part of the same edit).* |
 
 ### Documentation (architectural records)
 
-The codebase carries four ADRs covering both decisions and tenets.
+The codebase carries seven ADRs covering both decisions and tenets.
 Tenets are cross-cutting authoring/runtime disciplines that apply
 to both frontend and backend; decisions are point-in-time
 architectural choices specific to where they're recorded.
@@ -162,6 +183,9 @@ architectural choices specific to where they're recorded.
 | `docs/adr/0002-fail-loudly.md` | Tenet | When in doubt, fail audibly. Six-level loudness hierarchy from compile-error to silent fallback. Five concrete rules and three documented exceptions. |
 | `docs/adr/0003-frontend-portability-and-domain-boundaries.md` | Bounded Context Map | Frontend portability and domain boundaries. The "what would change for a Chess port?" principle. Three-band domain coupling inventory. |
 | `docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md` | Tenet | Authoring discipline: when editing a file under partial visibility, only the lines the build tool flags get touched. Full-file rewrites require full-file visibility. |
+| `docs/adr/0005-documentation-discipline.md` | Tenet | Seven rules for authoring documentation: single source of truth per nominal handle, dispatch ledger for cross-team comms, references describe relations not snapshots, generic descriptors for sibling refs, location reflects content, author as you decide, retirement plans for transitional sections. |
+| `docs/adr/0006-source-file-headers.md` | Tenet | Per-file headers (path + purpose + license) on every source file in `frontend/` and `backend/`. Composes with ADR-0004's partial-visibility discipline — a file pasted into a chat or PR diff identifies itself. |
+| `docs/adr/0007-file-size-and-information-density.md` | Tenet | *(Status: Proposed.)* Soft size budgets for source files, with the hard prohibition that logic must never be compressed to fit a budget. Prevents the condition under which ADR-0004's partial-visibility discipline has to apply. |
 
 Plus design notes in `docs/notes/`:
 
@@ -221,7 +245,7 @@ Items 13 (`CardRepository`), 14 (parent-ownership precheck), 15
 (`StatsEngine`), and 16 (`tree_engine`/`LineageRepository`
 `fetch_lineage`) are all shipped in code with explicit
 "Item N (tenancy)" annotations. The original Active entries
-were stale at the time of `docs/release-scope.md`'s authoring
+were stale at the time of `release-scope.md`'s authoring
 (2026-04-28). See the Backend Completed table above for the
 one-line synopses.
 
@@ -271,29 +295,15 @@ Items 23 (`documents.user_id`), 24 (`game_source.user_id`), and
 25 (`PipelineExecutor` + `_build_selection_cte` user_id
 threading) are all shipped in code with explicit
 "Item N (tenancy)" annotations. The original Active entries
-were stale at the time of `docs/release-scope.md`'s authoring.
+were stale at the time of `release-scope.md`'s authoring.
 See the Backend Completed table above.
 
-#### 26. `[both]` Document the tenancy model in code and READMEs
+#### Item 26 *(tenancy READMEs)* — moved to Completed
 
-Now that items 9, 13–16, 23–25 implement multi-tenancy properly,
-prominent README sections ("Tenancy") in both subproject READMEs
-should describe the model: what's isolated, what's global, the
-role of `ALLOW_PASSWORDLESS_LOGIN`, the default single-user UX.
-Brief docstrings in:
-
-- `db/schema.documents`, `db/schema.game_source`, `db/schema.tag`
-  — what is and isn't tenant-scoped, and why.
-- `core/config.Settings.ALLOW_PASSWORDLESS_LOGIN` — what flipping
-  it does.
-- `api/dependencies.get_current_user_id` — the invariant that
-  downstream code can rely on.
-- `src/services/api-client.ts::ensureAuthenticated` — the
-  assumption about the backend that this flow relies on.
-
-The system-level tenancy note already exists at
-`docs/notes/tenancy.md`. This item is the in-code documentation
-that points back at it.
+Item 26 (the in-code documentation half of the tenancy spine,
+shipped as release-scope.md item 6) closed on 2026-04-30 across
+commits `0a61197` (backend) and `7eb972e` (frontend). See the
+Joint Completed table above for the synopsis.
 
 #### `[frontend]` Type the pipeline DSL on the frontend
 
@@ -418,9 +428,15 @@ under its original number rather than silently retired.
 
 ## Implementation order recommendation
 
-The frontend's build sweep is closed. Items 32a/32a.2 and 34 on
-the backend are confirmed closed. Backend's Commit 3b has
-shipped. Current shape of remaining work:
+v1.0.0 has shipped. The locked release scope (the seven items
+in `docs/archive/release-scope-2026-04.md`) is closed end-to-end;
+see `docs/notes/release-retrospective-2026-04.md` for the
+whole-project close-out. The frontend's build sweep is closed.
+Items 32a/32a.2 and 34 on the backend are closed. Backend's
+Commit 3b has shipped. The tenancy spine (items 9, 13–16,
+23–25) is shipped end-to-end with item 26's documentation half
+closing alongside the release scope. Current shape of remaining
+work:
 
 **Frontend (small, independent — easiest to interleave):**
 
@@ -430,26 +446,24 @@ shipped. Current shape of remaining work:
 - Type the pipeline DSL — small follow-on.
 - Merge `CardCreatePayload` / `CardCreate` — small follow-on.
 
-**Frontend architectural:**
-
-- Item 28 (JWT 401 retry) — depends on already-shipped item 20.
-  Compliant with ADR-0002 (explicit, bounded, single retry).
-
-**Backend tenancy spine — closed.** Items 13 → 14 → 15 → 16
-(read-path filtering), 23 → 24 (schema migrations), and 25
-(`PipelineExecutor` threading) are all shipped in code with
-explicit "Item N (tenancy)" annotations. Item 26 (the README +
-docstring sweep that documents the tenancy model for operators)
-is the only remaining piece and is folded into release scope —
-see `docs/release-scope.md`.
-
 **Backend architectural:**
 
 - Items 30c + 30d (CTE consolidation) — do 30d first.
+
+**Distribution and post-v1 product work:**
+
+- Distribution-packaging decision per
+  `docs/notes/distribution-packaging.md` — the leading edge of
+  the post-v1 arc.
+- Test coverage at the composable layer (frontend) and against
+  Port shapes (backend) — the largest debt the project carries
+  per the v1 retrospective.
 
 **Future projects (when ready):**
 
 - Analysis persistence (start with the 15-minute
   `isDuringSearch` validation).
+- qEUBO end-to-end validation + transition of
+  `docs/notes/qEUBO.md` to `design-note: implemented`.
 - Item 27 full, if multi-tab becomes a real workflow.
 - Item 32, if deployment flexibility motivates zeroconf.
