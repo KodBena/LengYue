@@ -5,11 +5,12 @@ to be useful to someone arriving at this codebase cold — whether
 to extend it, to maintain it, or to coordinate a release across
 the three sub-projects. Updated as the system evolves.
 
-For specific architectural decisions, see the four ADRs in
+For specific architectural decisions, see the seven ADRs in
 `docs/adr/`. For active work, see `docs/TODO.md`. For backend
 architectural retrospective, see `docs/notes/reflection.md`. For
-moment-in-time snapshots from before the umbrella restructure,
-see `docs/archive/`.
+the v1.0.0 release retrospective, see
+`docs/notes/release-retrospective-2026-04.md`. For moment-in-time
+snapshots and the v1 scope freeze, see `docs/archive/`.
 
 ---
 
@@ -290,8 +291,8 @@ documentation, see `proxy/README.md`, `proxy/FRAMEWORK.md`, and
 
 ## Architectural governance — ADRs and tenets
 
-The four foundational architectural records live in `docs/adr/`,
-spread across two genres. **All four apply project-wide**,
+The seven foundational architectural records live in `docs/adr/`,
+spread across two genres. **All seven apply project-wide**,
 regardless of which sub-project's history they originated in.
 
 ### Decisions
@@ -323,42 +324,67 @@ regardless of which sub-project's history they originated in.
   only the lines the build tool flags get touched. Full-file
   rewrites require full-file visibility. Protects against silent
   runtime breakage from changes the type-checker cannot catch.
+- **ADR-0005: Documentation Discipline.** Seven rules for
+  authoring documentation: single source of truth per nominal
+  handle; a shared dispatch ledger for cross-team communications;
+  reference descriptions describe relations rather than content
+  snapshots; sibling references use generic descriptors; file
+  location reflects content; author as you decide; transitional
+  sections carry explicit retirement plans. The discipline that
+  prevents documentation drift from becoming its own silent
+  failure mode.
+- **ADR-0006: Source-File Headers.** Every source file in
+  `frontend/` and `backend/` carries a header with pathname,
+  purpose statement, and license declaration. Composes with
+  ADR-0004's partial-visibility discipline — a file pasted into
+  a chat or PR diff identifies itself.
+- **ADR-0007: File Size and Information Density.** *(Status:
+  Proposed.)* Soft size budgets for source files, with the hard
+  prohibition that logic must never be compressed to fit a
+  budget. Prevents the condition under which ADR-0004's
+  partial-visibility discipline has to apply.
 
 Together they establish the codebase's architectural personality:
 honest types over aspirational annotations (ADR-0001); loud
 failure over silent drift (ADR-0002); domain-aware seams without
 premature abstraction (ADR-0003); surgical edits over speculative
-reconstruction (ADR-0004). Read all four before making
-non-trivial changes; a contribution against the grain causes
-friction wherever it touches.
+reconstruction (ADR-0004); documentation that doesn't drift into
+silence (ADR-0005); files that identify themselves (ADR-0006);
+working memory budgets that keep partial visibility rare
+(ADR-0007). Read all seven before making non-trivial changes; a
+contribution against the grain causes friction wherever it
+touches.
 
 ---
 
 ## Where the project is going
 
-The immediate scope is now locked. `docs/release-scope.md`
-records the punch list for the next release: backend
-de-branding finalisation, analysis-range preservation, the
-card-tree widget, pass handling + save-to-disk, and the
-default-palette work. The project commits to ship once those
-five close (critical bugs notwithstanding); per its retirement
-clause, that document closes when a release tag is cut.
+**v1.0.0 has shipped.** The locked release scope (the seven items
+named in the now-archived `docs/archive/release-scope-2026-04.md`)
+closed on 2026-04-30: backend de-branding finalisation,
+analysis-range preservation, the card-tree widget, pass handling
+plus save-to-disk, the default-palette curated metric set, the
+tenancy READMEs, and the initial-load layout fix. The closure
+document is `docs/notes/release-retrospective-2026-04.md` —
+whole-project retrospective from a contributor perspective; read
+that document for the v1 close-out.
 
-The longer-horizon roadmap below stays valid as a *post-release*
-view — what to pick up after the freeze lifts. Items in this
-section are not in release scope unless explicitly listed in
-`docs/release-scope.md`.
+The roadmap below is the post-v1 view — what to pick up next. The
+distribution-packaging memo (`docs/notes/distribution-packaging.md`)
+is the leading edge: making the software installable by users who
+don't know `npm` or `fastapi` is the next undertaking. The other
+items below remain valid as longer-horizon targets.
 
-**1. Tenancy spine — closed in code; documentation pending.**
-Items 13–16 (read-path filtering), 23–25 (schema migrations +
-`PipelineExecutor` threading) are all shipped in code with
-explicit "Item N (tenancy)" annotations. Item 26 (READMEs +
-docstrings that document the tenancy model for operators) is
-folded into the release scope per `docs/release-scope.md`. Once
-that documentation lands, the system can be deployed as a
+**1. Tenancy spine — shipped end-to-end.** Items 13–16 (read-path
+filtering), 23–25 (schema migrations + `PipelineExecutor`
+threading), and item 26 (READMEs + docstrings that document the
+tenancy model for operators) are all shipped in code with explicit
+"Item N (tenancy)" annotations. The system can be deployed as a
 hosted service with multiple users; the frontend's reciprocal
 (item 28 — JWT 401 retry) shipped separately as part of the
-auth-lifecycle UX work.
+auth-lifecycle UX work. Distribution packaging is the structural
+blocker between "tenancy spine works" and "hosted deployment
+ships."
 
 **2. Closing the SR loop server-side (analysis persistence).**
 The biggest user-visible improvement available. SR sessions that
@@ -368,14 +394,18 @@ analysis caching on the backend. Design captured in
 15-minute DevTools session to validate the `isDuringSearch`
 gating predicate against KataGo's actual terminate-ack behavior.
 
-**3. qEUBO palette calibration.** A research direction, not a
-polish item. The proxy's replay cache (Layer 2) exists
-specifically to make this loop economically feasible. The next
-milestone after analysis persistence is a calibration UI where
-the user runs "survey" sessions with perturbed palette
-parameters, the optimizer (on the backend) consumes the user's
-reviews, and the cache substrate (in the proxy) makes the whole
-thing affordable.
+**3. qEUBO palette calibration — feature-complete, validation
+pending.** The Bayesian preference-based optimization integration
+shipped during the v1 arc (backend MIT-boundary wrapper, REST
+routes, frontend `useQeubo` composable, toolbar A/B cluster,
+parameter-meta editor in `PaletteEditor`). End-to-end UI smoke
+with Redis is still pending; the bookmarks UI is in review.
+Status table at `docs/notes/qEUBO.md`. The runtime is opt-in
+(`QEUBO_ENABLED=False` by default) because the dependency
+footprint is heavy and the validation incomplete. The proxy's
+replay cache (Layer 2) exists specifically to make this loop
+economically feasible at scale — useful once the integration is
+validated.
 
 **4. Public deployment.** Once tenancy is real, the application
 can move from local-install to hosted service. The proxy's
@@ -493,12 +523,15 @@ messages so the receiving team finds it without archaeology.
 
 In rough order of priority for a new contributor:
 
-- **`docs/adr/`** — The four ADRs. Read these first.
+- **`docs/adr/`** — The seven ADRs. Read these first.
 - **`docs/notes/tenancy.md`** — How multi-tenancy flows through
   the backend.
 - **`docs/notes/reflection.md`** — Backend architectural
   retrospective. The "Rough edges to know about" section is
   unusually candid.
+- **`docs/notes/release-retrospective-2026-04.md`** —
+  Whole-project retrospective at the close of v1.0.0. Honest
+  assessment from a contributor perspective.
 - **`docs/TODO.md`** — Active work, organized by tier and by
   recommended sequence.
 - **`backend/README.md`** — Backend-specific concerns; includes
@@ -529,15 +562,16 @@ In rough order of priority for a new contributor:
 ## Closing
 
 The codebase is in good shape. Six Ports cleanly composed on the
-backend, four ADRs that capture the discipline, a tenancy spine
+backend, seven ADRs that capture the discipline, a tenancy spine
 that's honest about what it guarantees, migration tooling
 reusable for the next schema change. The frontend's analogous
 work (typed wire shapes, fail-loud surfacing, OpenAPI codegen)
 means the two halves of the system understand each other. The
 proxy's three-layer decomposition is its own architectural win.
 
-What remains — tenancy completion, analysis persistence,
-eventual public deployment — is incremental work on a sound
-foundation. None of it requires architectural excavation.
+What remains — distribution packaging, analysis persistence,
+eventual public deployment, the test debt — is incremental work
+on a sound foundation. None of it requires architectural
+excavation.
 
 Hand off in good condition.

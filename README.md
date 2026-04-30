@@ -76,11 +76,23 @@ Backend-internal documentation lives in `backend/docs/`:
 
 ## Project status
 
-Pre-release infrastructure work is closed; see
-`docs/notes/reflection.md` for the architectural retrospective
-and `docs/handoff-current.md` for the current operational state.
-The umbrella restructure (recorded in `docs/playbooks/monorepo/`)
-is complete.
+**v1.0.0 has shipped** (2026-04-30). The locked release scope —
+seven items spanning backend de-branding, analysis-range
+preservation, the card-tree widget, pass handling and SGF save,
+the curated default palette, the tenancy READMEs, and the
+initial-load layout fix — is closed. See
+`docs/notes/release-retrospective-2026-04.md` for the
+whole-project retrospective from a contributor perspective and
+`docs/handoff-current.md` for the current operational state.
+Earlier closure documents remain valid as historical record:
+`docs/notes/reflection.md` (backend infrastructure-sweep
+retrospective) and `docs/notes/audit-reflections.md` (umbrella
+restructure retrospective).
+
+The next undertaking is distribution packaging — making the
+software installable for users who don't have Node and Python
+toolchains. The options memo is at
+`docs/notes/distribution-packaging.md`.
 
 ## License
 
