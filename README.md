@@ -45,6 +45,21 @@ cd proxy
 ./run_relay.sh   # or ./run_leaf.sh
 ```
 
+### Optional: populate the database with a sample workspace
+
+A fresh install starts with an empty backend database — the SPA's
+database tab is blank until the user imports SGFs. To explore the
+application with example content already in place:
+
+```bash
+python backend/scripts/load_sample.py
+```
+
+This is opt-in (refuses to clobber an existing `backend/cards.db`
+unless `--force` is passed). See `backend/samples/README.md` for
+details on what the sample contains and
+`backend/scripts/make_sample_db.py` for how to regenerate it.
+
 ## Documentation
 
 System-level documentation lives in `docs/`:

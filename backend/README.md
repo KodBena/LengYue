@@ -106,6 +106,24 @@ fastapi dev main.py --host 127.0.0.1 --port 8764
 Schema is created on first run via SQLAlchemy's `metadata.create_all`.
 For existing installs, see the migration scripts in `scripts/`.
 
+### Loading a populated sample workspace (optional)
+
+A fresh install starts with an empty database — the SPA's database
+tab is blank until the user imports SGFs. To explore the
+application with example content already in place, load the
+shipped sample:
+
+```bash
+python backend/scripts/load_sample.py
+```
+
+This copies `backend/samples/cards.sample.db` to `backend/cards.db`
+(refuses to clobber an existing `cards.db` unless `--force` is
+passed). The sample is a single-user, anonymized snapshot — see
+`backend/samples/README.md` for what's in it and
+`backend/scripts/make_sample_db.py` for how to regenerate it from
+a personal workspace.
+
 ## Adopting for another domain
 
 The codebase is structured so that a Chess, Shogi, or arbitrary-other-
