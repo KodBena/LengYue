@@ -222,7 +222,13 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
       <div id="split-workspace">
         
-        <div id="board-column" v-show="store.session.ui.boardExpanded">
+        <div
+          id="board-column"
+          v-show="store.session.ui.boardExpanded"
+          :style="store.session.ui.boardSquareMaxWidthPx
+            ? { '--board-target-px': store.session.ui.boardSquareMaxWidthPx + 'px' }
+            : {}"
+        >
           <div id="content">
             <BoardWidget
               v-if="activeBoard"
@@ -254,14 +260,10 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
         <div v-show="store.session.ui.controlsExpanded" class="panel-resizer" @mousedown="startResize"></div>
 
-        <div 
-          id="control-panel" 
+        <div
+          id="control-panel"
           v-show="store.session.ui.controlsExpanded"
-          :style="{ 
-            width: store.session.ui.boardExpanded ? (store.session.ui.controlPanelWidth || 340) + 'px' : 'auto',
-            flex: store.session.ui.boardExpanded ? '0 0 ' + (store.session.ui.controlPanelWidth || 340) + 'px' : '1',
-            minWidth: 0
-          }"
+          :style="{ flex: '1 1 0', minWidth: 0 }"
         >
           <TabWidget
             :tabs="controlTabs"
@@ -453,10 +455,20 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
   min-height: 0;
 }
 
+/* Release-scope item 7: board column is a square sized from its
+   allocated height (aspect-ratio: 1/1 + height: 100%). The user-
+   set `--board-target-px` (mutated by the resizer) caps the width
+   below the height-natural max — drag-left grows the cap (board
+   shrinks), drag-right shrinks the cap (board grows up to the
+   height saturation point). When unset, no cap; the board
+   saturates at full square. */
 #board-column {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 0 0 auto;
+  height: 100%;
+  aspect-ratio: 1 / 1;
+  max-width: var(--board-target-px, 100%);
   min-width: 0;
   min-height: 0;
 }
