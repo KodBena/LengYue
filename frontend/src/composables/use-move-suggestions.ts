@@ -69,7 +69,13 @@ export function useMoveSuggestions(
 
   const suggestions = computed<SuggestionDisk[]>(() => {
     const p = packet.value;
-    if (!p || p.moveInfos.length === 0) return [];
+    // The wire-type declares `moveInfos` as required, but the proxy can
+    // deliver packets where the field is absent (early/intermediate
+    // packets, enrichment-only updates that the ledger merges in).
+    // Guard defensively here — tightening the wire type to mark
+    // `moveInfos?:` and propagating the optional through all consumers
+    // is the type-honest fix and is post-release work.
+    if (!p || !p.moveInfos || p.moveInfos.length === 0) return [];
 
     const filterFn = compiledFilter.value;
     const uiContext = { threshold: store.session.ui.moveFilterThreshold };
@@ -127,7 +133,7 @@ export function useMoveSuggestions(
 
   function buildPvMoves(moveIndex: number): PvMove[] {
     const p = packet.value;
-    if (!p) return [];
+    if (!p || !p.moveInfos || !p.rootInfo) return [];
     const info = p.moveInfos[moveIndex];
     if (!info?.pv?.length) return [];
     const firstPlayer = p.rootInfo.currentPlayer;

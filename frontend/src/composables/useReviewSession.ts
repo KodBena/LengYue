@@ -302,7 +302,10 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     mutateReviewSession(bId, draft => { draft.userMoveScores.push(delta); });
 
     if (userMovesCount.value < currentCard.value!.numMoves) {
-      const bestMoveInfo = s_1_packet.moveInfos.find(m => m.order === 0);
+      // Same defensive moveInfos guard as use-move-suggestions.ts: the
+      // wire type declares moveInfos required but the proxy can deliver
+      // packets where it is absent. Skip best-move follow-through if so.
+      const bestMoveInfo = s_1_packet.moveInfos?.find(m => m.order === 0);
       if (bestMoveInfo) {
         const coords = gtpToBoard(bestMoveInfo.move);
         if (coords) {
