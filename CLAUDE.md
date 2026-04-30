@@ -70,11 +70,27 @@ tree without surfacing the cross-boundary nature first.
 
 ## On the proxy submodule
 
-`proxy/` is KataProxy, a git submodule pinned at v1.0.0. It is
-mature and frozen until release; do not propose changes to its
-contents. If a change to the proxy appears necessary while working
-in another sub-project, surface this as a blocker and stop. The
-submodule's pinned reference is the freeze; do not advance it.
+`proxy/` is KataProxy, a git submodule pinned at v1.0.1 as of the
+umbrella's v1.0.0 release. The pre-release freeze that originally
+covered the proxy was lifted during the v1.0.0 release window — a
+bug surfaced (empty-board ponder via `analysis_config` leakage)
+that warranted a coordinated proxy bump rather than a frontend-only
+workaround.
+
+The proxy is independently developed with its own architecture
+(see `proxy/README.md`, `proxy/ARCHITECTURE.md`, `proxy/FRAMEWORK.md`)
+and its own licensing posture (see `proxy/NOTICE`, which declares
+the `goboard_transposition/` MIT boundary including the vendored
+nlohmann/json dependency). Treat changes to the submodule as their
+own arc: branch in the proxy repo, PR there, get a tag cut, then
+bump the umbrella's pointer in a separate umbrella-side PR. Don't
+conflate the two — the proxy's release cadence is independent of
+the umbrella's, and the licensing boundary makes write-side care
+load-bearing.
+
+If a bug or improvement appears to require changes inside `proxy/`,
+surface the cross-boundary nature first and confirm the bump is in
+scope before opening proxy-repo work.
 
 ## Asking before assuming
 
