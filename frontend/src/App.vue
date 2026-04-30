@@ -285,17 +285,14 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
                     <p class="hint">{{ store.profile.cardSets[store.session.ui.activeCardSetId]?.description }}</p>
                   </div>
 
-                  <button 
-                    class="action-btn-large" 
-                    style="background: #f0a04a; color: #111; margin-bottom: 20px;" 
+                  <button
+                    class="action-btn-large"
+                    style="background: #f0a04a; color: #111; margin-bottom: 20px;"
                     @click="startEbisu"
                     :disabled="reviewSession.state.value === 'LOADING' || !store.profile.cardSets[store.session.ui.activeCardSetId]"
                   >
                     {{ reviewSession.state.value === 'LOADING' ? 'Fetching Cards...' : 'Start Review Session' }}
                   </button>
-                  <hr style="border-color: #222; margin-bottom: 20px;"/>
-                  <button class="action-btn-large" @click="openFileDialog">Browse SGF…</button>
-                  <p class="hint text-muted" style="margin-top: 10px;">Load an SGF to freely explore.</p>
                 </div>
 
                 <div v-else-if="reviewSession.currentCard.value">

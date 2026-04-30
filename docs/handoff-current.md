@@ -272,9 +272,10 @@ abstractions rather than convenience APIs.
 **Four operational roles**: LEAF (engine-bound process), RELAY
 (public-facing aggregator over many LEAFs), ECHO (test/replay),
 REDIRECT (compat shim). For local development, a single LEAF on
-`127.0.0.1:41949` is sufficient — and is exactly what the
-frontend's default config expects. For institutional deployment,
-the RELAY-over-LEAF pattern is the production shape.
+`127.0.0.1:41948` is sufficient — and is exactly what the
+frontend's default config expects (matching `proxy/run_leaf.sh`'s
+default). For institutional deployment, the RELAY-over-LEAF
+pattern is the production shape.
 
 The proxy is independently developed and intended for use beyond
 gogui — go schools, online go services (FoxWQ, Tygem, etc.), and
