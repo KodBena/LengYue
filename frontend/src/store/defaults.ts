@@ -10,7 +10,7 @@ export const NIL_UUID = '00000000-0000-0000-0000-000000000000';
 export const defaultSettings = {
   engine: {
     katago: {
-      url: 'ws://127.0.0.1:8765/katago',
+      url: 'ws://127.0.0.1:41948',
       analysis_env: {
         // Symbol library per docs/dispatch/frontend-to-frontend-default-palette-metrics-spec.md.
         // Two semantic axes coexist:

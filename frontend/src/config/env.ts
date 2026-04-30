@@ -44,4 +44,4 @@ export const API_BASE_URL: string =
  * Override via VITE_KATAGO_WS_URL in `.env` or the build environment.
  */
 export const KATAGO_WS_URL: string =
-  import.meta.env.VITE_KATAGO_WS_URL ?? 'ws://127.0.0.1:8765/katago';
+  import.meta.env.VITE_KATAGO_WS_URL ?? 'ws://127.0.0.1:41948';
