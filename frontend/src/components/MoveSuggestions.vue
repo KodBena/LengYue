@@ -112,10 +112,10 @@ function toSvg(x: number, y: number): { x: number; y: number } {
   };
 }
 
-const isWindowMode = computed(() => pvCfg.mode === 'window');
-const pvTransition = computed(() =>
-  isWindowMode.value ? `opacity ${pvCfg.fadeDurationMs}ms ease` : 'none'
-);
+// Uniform opacity transition across all modes. Previously this was
+// gated on window mode, leaving instant / sequential to snap stones
+// in/out — see the composable's header comment for the rationale.
+const pvTransition = computed(() => `opacity ${pvCfg.fadeDurationMs}ms ease`);
 </script>
 
 <template>

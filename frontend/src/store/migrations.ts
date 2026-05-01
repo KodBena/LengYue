@@ -67,7 +67,7 @@
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 9;
+export const CURRENT_SCHEMA_VERSION = 10;
 
 /**
  * A migration brings a blob at version N forward to version N+1.
@@ -497,6 +497,37 @@ export const migrations: Migration[] = [
     const out = structuredClone(blob);
     if (out.session?.ui) {
       out.session.ui.systemLogExpanded = false;
+    }
+    return out;
+  },
+  // 9 → 10: Surface PV-preview animation knobs in the registry. v9 had
+  // no `session.ui.pvAnimation` field; the prop on `MoveSuggestions.vue`
+  // was wired but no caller ever populated it, so the composable
+  // always fell back to its hard-coded defaults. v10 introduces
+  // `session.ui.pvAnimation` carrying the full PvAnimationSettings
+  // shape; the registry editor renders it automatically. Defaults
+  // mirror `composables/use-pv-animation.ts::PV_DEFAULTS` and
+  // `defaults.ts::defaultSessionUI.pvAnimation` (three sources of
+  // truth that must agree). Idempotent: each field is normalised
+  // individually, so a partial or hand-edited blob is filled in
+  // without overwriting valid user values.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    if (out.session?.ui) {
+      const e = out.session.ui.pvAnimation;
+      const validMode = (v: unknown): v is 'instant' | 'sequential' | 'window' =>
+        v === 'instant' || v === 'sequential' || v === 'window';
+      const validAnnotation = (v: unknown): v is 'none' | 'from1' | 'fromCurrent' =>
+        v === 'none' || v === 'from1' || v === 'fromCurrent';
+      out.session.ui.pvAnimation = {
+        mode:             validMode(e?.mode) ? e.mode : 'instant',
+        stepDelayMs:      typeof e?.stepDelayMs      === 'number'  ? e.stepDelayMs      : 350,
+        windowDurationMs: typeof e?.windowDurationMs === 'number'  ? e.windowDurationMs : 600,
+        fadeDurationMs:   typeof e?.fadeDurationMs   === 'number'  ? e.fadeDurationMs   : 150,
+        cycle:            typeof e?.cycle            === 'boolean' ? e.cycle            : false,
+        pvOpacity:        typeof e?.pvOpacity        === 'number'  ? e.pvOpacity        : 1,
+        annotation:       validAnnotation(e?.annotation) ? e.annotation : 'fromCurrent',
+      };
     }
     return out;
   },

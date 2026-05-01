@@ -2,23 +2,38 @@
  * src/composables/use-pv-animation.ts
  * Composable for animating a Principal Variation (PV) stone sequence.
  *
- * Supports three rendering modes, selected via PvConfig.mode:
+ * ── Rendering invariant ────────────────────────────────────────────────────
+ * Every move in `pvMoves.value` is rendered as a circle in the DOM with
+ * opacity driven by the `visible` reactive set. CSS sets a uniform
+ * `opacity ${fadeDurationMs}ms ease` transition (in the rendering layer)
+ * — so this composable's only job is to schedule setVisible calls at the
+ * right moments for the chosen mode. The previous implementation
+ * mixed slice-based reveal (sequential) with opacity-based reveal
+ * (window) and gated the CSS transition on mode === 'window', which left
+ * sequential and instant modes snapping stones in/out without animation.
  *
- *   'instant'    — All PV stones appear immediately with move-number labels.
+ * ── Modes ──────────────────────────────────────────────────────────────────
+ *   'instant'    — all PV stones fade in together when startPv is called.
+ *                  On real-time PV updates during pondering, stones whose
+ *                  moveNumber survives into the new packet stay visible
+ *                  without re-fading; new moveNumbers fade in.
  *
- *   'sequential' — Stones are revealed one by one, each after `stepDelayMs`.
- *                  Good for players who want to "read" the line at their own pace.
+ *   'sequential' — stones fade in one by one, each at `stepDelayMs` after
+ *                  the previous. No real-time update mid-hover (the
+ *                  reveal would re-stagger every packet).
  *
- *   'window'     — Each stone fades in, holds for `windowDurationMs`, then fades
- *                  out before the next appears. Inspired by flash-training techniques
- *                  where brief exposure to a position builds pattern recognition.
- *                  Fade is implemented via CSS transitions (set in the rendering layer)
- *                  so the composable only needs to toggle opacity 0↔1 at the right times.
+ *   'window'     — sliding-window reveal: each stone fades in, holds for
+ *                  `windowDurationMs`, fades out. With `cycle: true` the
+ *                  pattern repeats. Note that with stepDelayMs <
+ *                  fadeDurationMs * 2 + windowDurationMs, multiple stones
+ *                  are visible simultaneously by design (the "window" is
+ *                  windowDurationMs wide, sliding across the line).
  *
- * Usage:
- *   const { startPv, stopPv, displayStones, cfg } = usePvAnimation({ mode: 'sequential', stepDelayMs: 300 });
- *   // On hover: startPv(pvMoves)
- *   // On leave: stopPv()             ← instant, no animation
+ * ── Graceful exit ──────────────────────────────────────────────────────────
+ * `stopPv` empties `visible` (CSS fades all stones to 0), then clears
+ * `pvMoves` after `fadeDurationMs` so Vue can release the DOM elements
+ * only once the fade has completed. Re-entry via `startPv` cancels the
+ * pending clear.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -28,28 +43,40 @@ import type { StoneColor } from '../types';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
-export type PvMode = 'instant' | 'sequential' | 'window';
+export type PvMode       = 'instant' | 'sequential' | 'window';
+export type PvAnnotation = 'none' | 'from1' | 'fromCurrent';
 
-
+/**
+ * Loose construction-time shape — `mode` required, others optional.
+ * Used as the prop type on `MoveSuggestions.vue` so a hand-constructed
+ * config (e.g., a future review-mode override) can omit fields and let
+ * defaults fill in.
+ */
 export interface PvConfig {
   mode: PvMode;
   stepDelayMs?: number;
   windowDurationMs?: number;
   fadeDurationMs?: number;
-  /** Repeat the window animation indefinitely (smooth loop, no hard restart) */
   cycle?: boolean;
-  /** Overall opacity of PV stones (0–1). Useful for translucent look. */
   pvOpacity?: number;
-  /** How PV stones are numbered */
-  annotation?: 'none' | 'from1' | 'fromCurrent';
+  annotation?: PvAnnotation;
 }
+
+/**
+ * Persisted shape — every field required. Stored at
+ * `UISession.pvAnimation` and edited via the registry editor; aligned
+ * with the registry default and the schemaVersion 9→10 backfill.
+ */
+export type PvAnimationSettings = Required<PvConfig>;
 
 /** A single move in a PV sequence, ready for rendering. */
 export interface PvMove {
   x: number;
   y: number;
   color: StoneColor;
-  /** 1-indexed position in the PV; used as the displayed move number. */
+  /** 1-indexed position in the PV; used as the displayed move number AND
+   *  as the Vue v-for key. Stable across packet updates of the same PV
+   *  line so element reuse works for in-place position updates. */
   moveNumber: number;
 }
 
@@ -59,27 +86,31 @@ export interface PvStoneDisplay extends PvMove {
 }
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
-
-const DEFAULTS = {
+//
+// Shared with `defaults.ts::defaultSessionUI.pvAnimation` and the
+// migration 9→10 backfill. Three sources of truth that must agree;
+// updates must land in lockstep.
+export const PV_DEFAULTS: PvAnimationSettings = {
+  mode: 'instant',
   stepDelayMs: 350,
   windowDurationMs: 600,
   fadeDurationMs: 150,
   cycle: false,
   pvOpacity: 1,
-  annotation: 'fromCurrent' as const,
-} as const;
+  annotation: 'fromCurrent',
+};
 
 // ─── Composable ───────────────────────────────────────────────────────────────
 
 export function usePvAnimation(config: PvConfig = { mode: 'instant' }) {
-  // Merge user config with defaults; cfg is stable for the lifetime of this instance.
-  const cfg: Required<PvConfig> = { ...DEFAULTS, ...config };
+  const cfg: PvAnimationSettings = { ...PV_DEFAULTS, ...config };
 
   // ── State ──────────────────────────────────────────────────────────────────
 
   const pvMoves = ref<PvMove[]>([]);
-  const revealedCount = ref(0);
-  const litStones = ref(new Set<number>());
+  // moveNumber → "should render at opacity 1"; CSS transitions handle
+  // the visual fade between 0 and 1.
+  const visible = ref<Set<number>>(new Set());
   const timers: ReturnType<typeof setTimeout>[] = [];
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -89,94 +120,118 @@ export function usePvAnimation(config: PvConfig = { mode: 'instant' }) {
     timers.length = 0;
   }
 
+  function setVisible(moveNumber: number, value: boolean): void {
+    const next = new Set(visible.value);
+    if (value) next.add(moveNumber); else next.delete(moveNumber);
+    visible.value = next;
+  }
+
+  function scheduleWindow(moves: PvMove[]): void {
+    moves.forEach((m, i) => {
+      // +1ms epsilon: ensures the initial opacity-0 render commits
+      // before the flip to opacity-1 on first stone of the cycle, so
+      // CSS has a starting point to interpolate from.
+      const fadeInAt = cfg.stepDelayMs * i + 1;
+      timers.push(setTimeout(() => setVisible(m.moveNumber, true), fadeInAt));
+
+      const fadeOutAt = fadeInAt + cfg.fadeDurationMs + cfg.windowDurationMs;
+      timers.push(setTimeout(() => setVisible(m.moveNumber, false), fadeOutAt));
+    });
+
+    if (cfg.cycle) {
+      const cycleDuration =
+        (moves.length - 1) * cfg.stepDelayMs +
+        cfg.fadeDurationMs +
+        cfg.windowDurationMs;
+      if (cycleDuration > 0) {
+        // Replace the timer list at the cycle boundary so it doesn't
+        // grow unboundedly with each iteration. Per-stone fade timers
+        // from this cycle have already fired by then; their references
+        // are no longer needed and the next cycle's scheduling supplies
+        // its own. (The previous implementation appended to `timers`
+        // every cycle without ever clearing fired entries — a leak that
+        // grew with hover duration.)
+        timers.push(
+          setTimeout(() => {
+            timers.length = 0;
+            scheduleWindow(moves);
+          }, cycleDuration)
+        );
+      }
+    }
+  }
+
   // ── Public API ─────────────────────────────────────────────────────────────
 
   function startPv(moves: PvMove[]): void {
-    stopPv();
+    clearTimers();
+
+    if (moves.length === 0) {
+      stopPv();
+      return;
+    }
+
     pvMoves.value = moves;
-    if (moves.length === 0) return;
+
+    // Prune visibility to moveNumbers still present in the new line. In
+    // 'instant' mode, retained stones stay visible (no fade-flash on
+    // ponder-update mid-hover); 'sequential' / 'window' resets to empty
+    // because the staged reveal is the whole point.
+    const present  = new Set(moves.map(m => m.moveNumber));
+    const retained = new Set([...visible.value].filter(n => present.has(n)));
+
+    visible.value = cfg.mode === 'instant' ? retained : new Set();
 
     switch (cfg.mode) {
       case 'instant':
-        revealedCount.value = moves.length;
+        moves.forEach(m => {
+          if (!retained.has(m.moveNumber)) {
+            timers.push(setTimeout(() => setVisible(m.moveNumber, true), 1));
+          }
+        });
         break;
 
       case 'sequential':
-        revealedCount.value = 0;
-        moves.forEach((_, i) => {
+        moves.forEach((m, i) => {
           timers.push(
-            setTimeout(() => { revealedCount.value = i + 1; }, cfg.stepDelayMs * i)
+            setTimeout(() => setVisible(m.moveNumber, true), cfg.stepDelayMs * i + 1)
           );
         });
         break;
 
       case 'window':
-        revealedCount.value = moves.length;
-        litStones.value = new Set();
-
-        const scheduleWindowCycle = () => {
-          moves.forEach((move, i) => {
-            const fadeInDelay = cfg.stepDelayMs * i;
-            timers.push(
-              setTimeout(() => {
-                litStones.value = new Set([...litStones.value, move.moveNumber]);
-              }, fadeInDelay)
-            );
-
-            const fadeOutDelay = fadeInDelay + cfg.fadeDurationMs + cfg.windowDurationMs;
-            timers.push(
-              setTimeout(() => {
-                const next = new Set(litStones.value);
-                next.delete(move.moveNumber);
-                litStones.value = next;
-              }, fadeOutDelay)
-            );
-          });
-
-          // Schedule next cycle exactly when the last stone of this cycle fades out
-          const cycleDuration = (moves.length - 1) * cfg.stepDelayMs + cfg.fadeDurationMs + cfg.windowDurationMs;
-          if (cfg.cycle && cycleDuration > 0) {
-            timers.push(setTimeout(scheduleWindowCycle, cycleDuration));
-          }
-        };
-
-        scheduleWindowCycle();
+        scheduleWindow(moves);
         break;
     }
   }
 
   function stopPv(): void {
     clearTimers();
-    pvMoves.value     = [];
-    revealedCount.value = 0;
-    litStones.value   = new Set();
+
+    if (visible.value.size === 0) {
+      pvMoves.value = [];
+      return;
+    }
+
+    // Empty visible set; CSS transitions interpolate stones to opacity 0.
+    // After fadeDurationMs, clear pvMoves so Vue unmounts the DOM only
+    // once the fade has finished.
+    visible.value = new Set();
+    timers.push(
+      setTimeout(() => { pvMoves.value = []; }, cfg.fadeDurationMs)
+    );
   }
 
   // ── Derived state ──────────────────────────────────────────────────────────
 
-  /** The list of stones to render this frame, each with its resolved opacity. */
-  const displayStones = computed<PvStoneDisplay[]>(() => {
-    const moves = pvMoves.value;
-    if (moves.length === 0) return [];
-
-    const baseOpacity = (m: PvMove) =>
-      cfg.mode === 'window' ? (litStones.value.has(m.moveNumber) ? 1 : 0) : 1;
-
-          switch (cfg.mode) {
-      case 'instant':
-        return moves.map(m => ({ ...m, opacity: baseOpacity(m) * cfg.pvOpacity }));
-      case 'sequential':
-        return moves
-          .slice(0, revealedCount.value)
-          .map(m => ({ ...m, opacity: baseOpacity(m) * cfg.pvOpacity }));
-      case 'window':
-        return moves
-          .slice(0, revealedCount.value)
-          .map(m => ({ ...m, opacity: baseOpacity(m) * cfg.pvOpacity }));
-    }
-  });
+  const displayStones = computed<PvStoneDisplay[]>(() =>
+    pvMoves.value.map(m => ({
+      ...m,
+      opacity: (visible.value.has(m.moveNumber) ? 1 : 0) * cfg.pvOpacity,
+    }))
+  );
 
   onUnmounted(clearTimers);
 
-  return { startPv, stopPv, displayStones, cfg  };
+  return { startPv, stopPv, displayStones, cfg };
 }

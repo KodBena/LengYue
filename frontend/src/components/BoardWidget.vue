@@ -181,6 +181,7 @@ const currentMoveNumber = computed(() => {
       :board-id="state.id"
       :current-node-id="state.currentNodeId"
       :board-size="boardSize"
+      :pv-config="store.session.ui.pvAnimation"
       :current-move-number="currentMoveNumber"
       @move="(x, y) => emit('move', x, y)"
     />
