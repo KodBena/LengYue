@@ -70,12 +70,14 @@ tree without surfacing the cross-boundary nature first.
 
 ## On the proxy submodule
 
-`proxy/` is KataProxy, a git submodule pinned at v1.0.1 as of the
-umbrella's v1.0.0 release. The pre-release freeze that originally
-covered the proxy was lifted during the v1.0.0 release window — a
-bug surfaced (empty-board ponder via `analysis_config` leakage)
-that warranted a coordinated proxy bump rather than a frontend-only
-workaround.
+`proxy/` is KataProxy, a git submodule. The pre-release freeze that
+originally covered the proxy was lifted during the umbrella's v1.0.0
+release window — a bug surfaced (empty-board ponder via
+`analysis_config` leakage) that warranted a coordinated proxy bump
+rather than a frontend-only workaround. The current pin is **v1.0.2**;
+later bumps follow the same coordinated arc (v1.0.2 specifically made
+the LEAF role's startup fail loudly when the engine cannot run, per
+ADR-0002 — see the proxy's tag annotations for the full changelog).
 
 The proxy is independently developed with its own architecture
 (see `proxy/README.md`, `proxy/ARCHITECTURE.md`, `proxy/FRAMEWORK.md`)
