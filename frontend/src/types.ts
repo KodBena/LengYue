@@ -61,6 +61,27 @@ export type ProfileId  = Brand<string, 'ProfileId'>;
 export type SessionId  = Brand<string, 'SessionId'>;
 export type BookmarkId = Brand<string, 'BookmarkId'>;
 
+// Two distinct ways to count moves in a game; the project's prior practice
+// of typing both as bare `number` admitted a class of off-by-color bugs
+// (heatmap thumbnail hint indexed `variationPath` with a color-local move
+// number instead of an absolute ply, surfacing as misaligned thumbnails).
+//
+//   ColorMoveIndex — 0-indexed within a single colour's move sequence.
+//     ColorMoveIndex 0 for Black is Black's first move; for White, White's
+//     first. The triangular heatmap data emitted by KataProxy is natively
+//     in this space (proxy/bsa.py SubStream → Triangular).
+//
+//   PlyIndex — 0-indexed position into a `variationPath: NodeId[]`.
+//     PlyIndex 0 is the root (no move played); PlyIndex N is the position
+//     after the Nth overall move. Black's k-th move → PlyIndex 2k-1;
+//     White's k-th → PlyIndex 2k.
+//
+// Conversion happens through a single named helper at the boundary where
+// a ColorMoveIndex is consumed against a variationPath; see
+// `composables/useTriangularHeatmap::colorMoveToPly`.
+export type ColorMoveIndex = Brand<number, 'ColorMoveIndex'>;
+export type PlyIndex       = Brand<number, 'PlyIndex'>;
+
 export type StoneColor = 'B' | 'W';
 
 // ── Value Objects (readonly preserved) ────────────────────────────────────────
