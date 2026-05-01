@@ -349,33 +349,50 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
             </template>
 
             <template #settings>
+              <!--
+                Each subsection is a native <details> disclosure. Open by
+                default — no behavior change for users opening the tab the
+                first time after this lands; collapsing is purely an
+                opt-in space-saver. @click.stop on the Force Persistence
+                button keeps clicks from bubbling up to <summary>'s
+                toggle.
+              -->
               <div class="tab-padding">
-                <div class="settings-header">
-                  <h3 style="display:inline-block">Analysis Environment</h3>
-                  <button class="toolbar-btn-sm" @click="sync.forceSave()" style="float:right">Force Persistence</button>
-                </div>
-                <div style="margin-top: 10px;">
-                  <PaletteEditor :env="store.profile.settings.engine.katago.analysis_env" @update="handleSettingsUpdate"/>
-                </div>
+                <details class="settings-section" open>
+                  <summary>
+                    <h3 class="sub-header">Analysis Environment</h3>
+                    <button class="toolbar-btn-sm" @click.stop="sync.forceSave()">Force Persistence</button>
+                  </summary>
+                  <div style="margin-top: 10px;">
+                    <PaletteEditor :env="store.profile.settings.engine.katago.analysis_env" @update="handleSettingsUpdate"/>
+                  </div>
+                </details>
 
-                <div class="registry-container section-divider" style="max-height: 500px; padding-bottom: 10px;">
-                  <h3 class="sub-header">Card Sets (Decks)</h3>
-                  <CardSetEditor 
-                    :cardSets="store.profile.cardSets" 
-                    :activeCardSetId="store.session.ui.activeCardSetId"
-                    @update="handleProfileUpdate"
-                    @update-active="(id) => store.session.ui.activeCardSetId = id"
-                  />
-                </div>
+                <details class="settings-section section-divider" open>
+                  <summary><h3 class="sub-header">Card Sets (Decks)</h3></summary>
+                  <div class="registry-container" style="max-height: 500px; padding-bottom: 10px;">
+                    <CardSetEditor
+                      :cardSets="store.profile.cardSets"
+                      :activeCardSetId="store.session.ui.activeCardSetId"
+                      @update="handleProfileUpdate"
+                      @update-active="(id) => store.session.ui.activeCardSetId = id"
+                    />
+                  </div>
+                </details>
 
-                <div class="registry-container section-divider">
-                  <h3 class="sub-header">Advanced Registry</h3>
-                  <RegistryEditor :registry="store.profile.settings" :defaults="DEFAULTS.profile" @update="handleSettingsUpdate"/>
-                </div>
-                <div class="registry-container section-divider">
-                  <h3 class="sub-header">Session (UI)</h3>
-                  <RegistryEditor :registry="store.session.ui" :defaults="DEFAULTS.session" @update="handleSessionUpdate"/>
-                </div>
+                <details class="settings-section section-divider" open>
+                  <summary><h3 class="sub-header">Advanced Registry</h3></summary>
+                  <div class="registry-container">
+                    <RegistryEditor :registry="store.profile.settings" :defaults="DEFAULTS.profile" @update="handleSettingsUpdate"/>
+                  </div>
+                </details>
+
+                <details class="settings-section section-divider" open>
+                  <summary><h3 class="sub-header">Session (UI)</h3></summary>
+                  <div class="registry-container">
+                    <RegistryEditor :registry="store.session.ui" :defaults="DEFAULTS.session" @update="handleSessionUpdate"/>
+                  </div>
+                </details>
               </div>
             </template>
 
@@ -483,6 +500,33 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 .tab-padding-sr { padding: 12px 8px; text-align: center; }
 .section-divider { border-top: 1px solid #222; margin-top: 20px; padding-top: 10px; }
 .sub-header { color: #666; font-size: 14px; margin-bottom: 10px; }
+
+/* Native <details> subsections in the Settings tab. Override default
+   marker, render a custom chevron that rotates on open. The h3
+   (.sub-header) lives inside <summary> so it visually anchors the
+   disclosure header; its bottom margin is neutralised in this context
+   since the disclosure itself owns vertical rhythm. */
+.settings-section > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  user-select: none;
+  padding: 4px 0;
+}
+.settings-section > summary::-webkit-details-marker { display: none; }
+.settings-section > summary::before {
+  content: '▶';
+  margin-right: 8px;
+  font-size: 9px;
+  color: #666;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+.settings-section[open] > summary::before { transform: rotate(90deg); }
+.settings-section > summary > h3 { margin: 0; flex: 1; }
+.settings-section > summary > .toolbar-btn-sm { margin-left: 8px; }
+.settings-section > summary:hover > h3 { color: #888; }
 
 .deck-selector-box { background: #181818; padding: 15px; border-radius: 4px; border: 1px solid #222; margin-bottom: 20px; text-align: left; }
 .deck-selector-box label { font-size: 11px; color: #888; display: block; margin-bottom: 6px; text-transform: uppercase; }

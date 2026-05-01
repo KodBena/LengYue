@@ -38,7 +38,7 @@
  * License: Public Domain (The Unlicense)
  */
 
-import { ref, computed, onUnmounted } from 'vue';
+import { computed, onUnmounted, reactive, ref, watchEffect } from 'vue';
 import type { StoneColor } from '../types';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
@@ -102,8 +102,27 @@ export const PV_DEFAULTS: PvAnimationSettings = {
 
 // ─── Composable ───────────────────────────────────────────────────────────────
 
-export function usePvAnimation(config: PvConfig = { mode: 'instant' }) {
-  const cfg: PvAnimationSettings = { ...PV_DEFAULTS, ...config };
+/**
+ * `getConfig` is a getter (not a static value) so changes to the
+ * underlying source — typically `props.pvConfig` reading from
+ * `UISession.pvAnimation` — propagate live without remounting the
+ * component. The returned `cfg` is a reactive object: consumers read
+ * `cfg.mode`, `cfg.fadeDurationMs`, etc. directly, and Vue tracks
+ * dependencies through the proxy. Previously the composable accepted
+ * a static `PvConfig` and snapshotted it once at call time, which
+ * meant a registry change required closing/re-opening the board for
+ * the new mode to take effect.
+ */
+export function usePvAnimation(getConfig: () => PvConfig | undefined = () => undefined) {
+  // Reactive cfg; mirrored from `getConfig()` over `PV_DEFAULTS`
+  // every time the getter's reactive dependencies change. We use
+  // `reactive` (not `computed`) so consumers can read fields directly
+  // without `.value` — the existing template and script call sites
+  // (`pvCfg.fadeDurationMs`, `pvCfg.mode`, ...) keep working.
+  const cfg: PvAnimationSettings = reactive({ ...PV_DEFAULTS });
+  watchEffect(() => {
+    Object.assign(cfg, PV_DEFAULTS, getConfig() ?? {});
+  });
 
   // ── State ──────────────────────────────────────────────────────────────────
 
