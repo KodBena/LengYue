@@ -39,7 +39,7 @@ export interface CardTreeData {
   error: Ref<string | null>;
   // Two consumption-mode entry points and a hydration callback.
   loadBrowse: (rootCardId: CardId) => Promise<void>;
-  runPipeline: (deck: CardSet) => Promise<void>;
+  runPipeline: (deck: CardSet, contextIds: number[]) => Promise<void>;
   setForestStats: (stats: ForestStat[]) => void;
   requestCard: (cardId: CardId) => Promise<void>;
 }
@@ -79,11 +79,13 @@ export function useCardTreeData(): CardTreeData {
     }
   }
 
-  async function runPipeline(deck: CardSet): Promise<void> {
+  async function runPipeline(deck: CardSet, contextIds: number[]): Promise<void> {
     isLoading.value = true;
     reset();
     try {
-      const matched: ReviewCard[] = await backendService.fetchCardSet(deck);
+      // Per-tab context (schema-version 11): the deck declaration is
+      // pure strategy; the call site supplies its own root list.
+      const matched: ReviewCard[] = await backendService.queryForest(contextIds, deck.pipeline);
       if (matched.length === 0) {
         error.value = 'Pipeline returned no cards.';
         return;

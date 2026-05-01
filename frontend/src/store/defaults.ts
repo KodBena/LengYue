@@ -148,7 +148,6 @@ export const defaultCardSets: Record<string, CardSet> = {
     id: 'default',
     name: 'Standard',
     description: 'Breadth-first pool, sorted by spaced-repetition recall probability.',
-    contextIds: [3], 
     pipeline: [
       {
         stage: "select",
@@ -165,7 +164,6 @@ export const defaultCardSets: Record<string, CardSet> = {
     id: 'fringe_first',
     name: 'Fringe First (Bottom-Up)',
     description: 'Learn deep leaves before shallow parent nodes.',
-    contextIds: [3],
     pipeline: [
       {
         stage: "select",
@@ -224,6 +222,14 @@ export const defaultSessionUI: UISession = {
     },
   },
   activeCardSetId: 'default',
+  // Per-tab deck contexts. Default to `[3]` to preserve the prior
+  // hardcoded behaviour against the sample database; users edit these
+  // through the SR / Database tabs directly. Schema-version 11
+  // backfills these fields from any pre-existing CardSet's contextIds
+  // when migrating an existing blob, so this default only applies to
+  // fresh installs.
+  srContextIds: [3],
+  databaseContextIds: [3],
   qeuboToolbarView: 'applied',
 };
 

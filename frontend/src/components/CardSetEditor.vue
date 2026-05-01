@@ -61,7 +61,6 @@ function addCardSet() {
     id,
     name,
     description: '',
-    contextIds: [3], // Default root
     pipeline: [
       {
         stage: "select",
@@ -103,14 +102,6 @@ function updateField(field: keyof CardSet, val: any) {
   if (!selectedId.value) return;
   const next = getClone();
   (next[selectedId.value] as any)[field] = val;
-  commit(next);
-}
-
-function updateContextIds(val: string) {
-  if (!selectedId.value) return;
-  const ids = val.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
-  const next = getClone();
-  next[selectedId.value].contextIds = ids;
   commit(next);
 }
 
@@ -175,21 +166,11 @@ function updatePipeline(newJsonStr: string) {
           />
 
           <label>Description:</label>
-          <input 
-            type="text" 
-            class="dark-input" 
+          <input
+            type="text"
+            class="dark-input"
             :value="cardSets[selectedId].description"
             @input="(e: any) => updateField('description', e.target.value)"
-          />
-
-          <label>Context IDs:</label>
-          <input 
-            type="text" 
-            class="dark-input" 
-            placeholder="e.g. 3, 4, 12"
-            :value="cardSets[selectedId].contextIds.join(', ')"
-            @input="(e: any) => updateContextIds(e.target.value)"
-            title="Comma separated root node IDs for the backend to query."
           />
         </div>
 

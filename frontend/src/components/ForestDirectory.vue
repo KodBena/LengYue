@@ -63,7 +63,17 @@ async function reloadRoots(): Promise<void> {
 async function runDeck(): Promise<void> {
   const deck = store.profile.cardSets[selectedDeckId.value];
   if (!deck) return;
-  await tree.runPipeline(deck);
+  // Database tab supplies its own root list to the deck (schema-
+  // version 11 lifted contextIds off the CardSet onto per-tab UI).
+  await tree.runPipeline(deck, store.session.ui.databaseContextIds);
+}
+
+function updateContextIds(val: string): void {
+  // Mirrors CardSetEditor's parser: split on comma, parse, drop NaN.
+  store.session.ui.databaseContextIds = val
+    .split(',')
+    .map(s => parseInt(s.trim(), 10))
+    .filter(n => !isNaN(n));
 }
 
 function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }): void {
@@ -100,6 +110,17 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
             </option>
           </select>
           <p class="hint">{{ store.profile.cardSets[selectedDeckId]?.description }}</p>
+
+          <label style="margin-top: 8px;">Context IDs:</label>
+          <input
+            type="text"
+            class="dark-input deck-dropdown"
+            placeholder="e.g. 3, 4, 12"
+            :value="store.session.ui.databaseContextIds.join(', ')"
+            @input="(e: any) => updateContextIds(e.target.value)"
+            title="Comma-separated root card ids fed to the deck pipeline."
+          />
+
           <button class="action-btn-large" @click="runDeck">Run pipeline</button>
         </div>
       </div>

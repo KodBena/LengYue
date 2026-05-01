@@ -127,9 +127,15 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     }
 
     mutateReviewSession(bId, draft => { draft.status = 'LOADING'; });
-    
+
     try {
-      const cards = await backendService.fetchCardSet(cardSet);
+      // Per-tab context (schema-version 11): SR supplies its own
+      // `srContextIds` to the deck's pipeline. The deck declaration
+      // is pure strategy; the input set lives in UI state.
+      const cards = await backendService.queryForest(
+        store.session.ui.srContextIds,
+        cardSet.pipeline,
+      );
       mutateReviewSession(bId, draft => { draft.queue = cards; });
       
       if (cards.length > 0) {
