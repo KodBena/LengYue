@@ -38,14 +38,36 @@ function isObject(val: any) {
   return val !== null && typeof val === 'object' && !Array.isArray(val);
 }
 
-// `_key` is currently unused (the function classifies based on `value`'s
-// shape and the parent path), but it's kept in the signature for two
-// reasons: (1) call sites already pass `key` and a future variant might
-// want to dispatch on key naming conventions; (2) removing it would
-// force every call site to change. Underscore-prefix signals
-// intentional non-use.
-function getFieldType(_key: string, value: any) {
+// Path → finite set of allowed string values for typed-union fields.
+// The lookup key is a dot-joined path RELATIVE to the editor's root —
+// `App.vue` mounts the editor twice (once with `store.profile.settings`
+// as the root, once with `store.session.ui`); both rooting contexts
+// share this table. When introducing a new typed-string-union field
+// anywhere under either root, add an entry here so the editor renders
+// a dropdown rather than a free-text input the user has to read source
+// to discover the valid values for.
+//
+// Fields whose value set is dynamic (palette ids, card-set ids, the
+// active tab) are out of scope here — they need a per-root option
+// resolver, not a static table.
+const PATH_ENUMS: Record<string, readonly string[]> = {
+  // settings root (store.profile.settings)
+  'appearance.theme':              ['dark', 'light'],
+  'navigation.actionOnDirtyBoard': ['ask', 'new', 'overwrite'],
+  // session-ui root (store.session.ui)
+  'analysisLayout':                ['horizontal', 'vertical'],
+  'pvAnimation.mode':              ['instant', 'sequential', 'window'],
+  'pvAnimation.annotation':        ['none', 'from1', 'fromCurrent'],
+  'qeuboToolbarView':              ['applied', 'A', 'B'],
+};
+
+function enumOptions(key: string): readonly string[] | undefined {
+  return PATH_ENUMS[[...(props.path ?? []), key].join('.')];
+}
+
+function getFieldType(key: string, value: any) {
   if (typeof value !== 'string') return 'scalar';
+  if (enumOptions(key)) return 'enum';
   const parentKey = props.path?.[props.path.length - 1];
   if (parentKey === 'symbols') return 'expression';
   if (parentKey === 'bindings' || parentKey === 'state_fns') return 'symbol-ref';
@@ -139,6 +161,14 @@ function isModified(key: string, value: any) {
           </div>
 
           <input v-else-if="typeof value === 'boolean'" type="checkbox" :checked="value" @change="(e: any) => handleUpdate(key as string, e.target.checked)"/>
+          <select
+            v-else-if="getFieldType(key as string, value) === 'enum'"
+            class="dark-input scalar-input"
+            :value="value"
+            @change="(e: any) => handleUpdate(key as string, e.target.value)"
+          >
+            <option v-for="opt in enumOptions(key as string)" :key="opt" :value="opt">{{ opt }}</option>
+          </select>
           <input v-else :type="typeof value === 'number' ? 'number' : 'text'" class="dark-input scalar-input" :value="value" @input="(e: any) => handleUpdate(key as string, typeof value === 'number' ? Number(e.target.value) : e.target.value)"/>
         </div>
       </div>
@@ -179,7 +209,7 @@ function isModified(key: string, value: any) {
 .ref-input { color: #f472b6; font-style: italic; flex: 1; }
 
 .registry-leaf { padding: 6px 8px; border-bottom: 1px solid #1a1a1a; }
-.registry-leaf.scalar, .registry-leaf.symbol-ref { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; }
+.registry-leaf.scalar, .registry-leaf.symbol-ref, .registry-leaf.enum { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; }
 .leaf-label { color: #666; font-size: 11px; }
 
 .restore-btn { background: none; border: none; color: #666; cursor: pointer; font-size: 12px; }
