@@ -21,7 +21,9 @@ const emit = defineEmits<{
 }>();
 
 const isConnected   = computed(() => props.engineStatus === 'connected');
-const engineBtnLabel = computed(() => isConnected.value ? 'Engine' : 'Connect');
+// Symmetric verb pairing with the disconnected label; the connected
+// branch previously read 'Engine', which left the action ambiguous.
+const engineBtnLabel = computed(() => isConnected.value ? 'Disconnect' : 'Connect');
 </script>
 
 <template>

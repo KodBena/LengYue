@@ -170,8 +170,15 @@ const pvTransition = computed(() =>
           transition: 'opacity 60ms ease'
         }"
       />
+      <!--
+        Labels hide on any hover (not just hovers of *other* suggestions):
+        the hovered suggestion's disk fades to opacity 0 and is replaced by
+        the PV preview stones, which are smaller (stoneR * 0.88) than the
+        suggestion disk; leaving the label rendered would let the digits
+        protrude past the preview stone's edge.
+      -->
       <text
-        v-if="hoveredIndex === null || s.moveIndex === hoveredIndex"
+        v-if="hoveredIndex === null"
         :x="toSvg(s.x, s.y).x"
         :y="toSvg(s.x, s.y).y + 1"
         class="suggestion-label"
@@ -180,7 +187,7 @@ const pvTransition = computed(() =>
         :fill="s.isBest ? '#003040' : '#000'"
       >{{ s.winrateLabel }}</text>
       <text
-        v-if="s.isBest && (hoveredIndex === null || s.moveIndex === hoveredIndex)"
+        v-if="s.isBest && hoveredIndex === null"
         :x="toSvg(s.x, s.y).x"
         :y="toSvg(s.x, s.y).y + stoneR * 0.62"
         class="suggestion-label"
