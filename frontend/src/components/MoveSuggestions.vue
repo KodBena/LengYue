@@ -37,8 +37,11 @@ const emit = defineEmits<{
 // ── Composables ───────────────────────────────────────────────────────────────
 
 const { suggestions, packet, buildPvMoves } = useMoveSuggestions(() => props.currentNodeId);
+// Pass the prop as a getter so registry changes to
+// `session.ui.pvAnimation` (mode / timings / etc.) reach the live
+// composable without requiring a remount of MoveSuggestions.
 const { startPv, stopPv, displayStones, cfg: pvCfg } = usePvAnimation(
-  props.pvConfig ?? { mode: 'instant', annotation: 'from1' }
+  () => props.pvConfig
 );
 
 const hoveredIndex = ref<number | null>(null);
