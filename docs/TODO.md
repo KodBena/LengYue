@@ -237,6 +237,28 @@ Skipped for numbering continuity.
 > "LengYue" only where a project handle is genuinely unavoidable
 > (e.g., a public-facing API title).
 
+#### `[frontend]` Settings-tab CSS tightening (queued for batching)
+
+Three small CSS adjustments queued for a future bundle so they
+can ship together with other tiny visual tweaks. Not worth a
+standalone PR; accumulate adjacent items here as they surface.
+
+- `App.vue` `.section-divider` (`margin-top: 20px; padding-top:
+  10px;` → both `0`). After the Settings-tab accordion landed
+  (PR #64), the per-section vertical air reads as wasted space
+  rather than visual structure. The per-site
+  `style="margin-top: 24px;"` override on `App.vue:422`
+  (qEUBO Bookmarks header) needs a sanity-check during the same
+  edit — confirm whether the explicit override stays or is
+  removed alongside.
+- `App.vue` `.registry-container` (`margin-top: 15px` → `0`).
+  Same motivation; the wrapping `<details>` now owns the
+  subsection's top rhythm.
+- `RegistryEditor.vue` `.registry-leaf` (`padding: 6px 8px;` →
+  `0`). Tightens the key/value rows; inner form controls already
+  carry their own padding so the leaf wrapper has nothing to
+  contribute. Visual density improvement on the registry editor.
+
 ### Small — one-file refactors, no contract changes
 
 #### Items 13–16 *(tenancy read-path)* — moved to Completed
