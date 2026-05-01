@@ -52,6 +52,17 @@ export type {
   KataPlayerExtra,
 } from './engine/katago/types';
 
+// ── Re-exports: PV animation settings shape ───────────────────────────────────
+// Imported (not just re-exported) so `UISession.pvAnimation` can
+// reference the alias locally; `export type … from` is a pure
+// re-export and does not introduce the name into module scope.
+import type {
+  PvAnimationSettings,
+  PvAnnotation,
+  PvMode,
+} from './composables/use-pv-animation';
+export type { PvAnimationSettings, PvAnnotation, PvMode };
+
 // ── Type Branding Utilities ───────────────────────────────────────────────────
 type Brand<K, T> = K & { readonly __brand: T };
 
@@ -352,6 +363,13 @@ export interface UISession {
   moveFilterExpression: string;
   analysisLayout: 'horizontal' | 'vertical';
   showMoveSuggestions: boolean;
+  // Per-board PV-preview animation settings — surfaces the knobs of
+  // `usePvAnimation` (mode / timings / opacity / annotation / cycle)
+  // through the registry editor. Schema-version 10 introduced the
+  // field and backfills existing blobs against `PV_DEFAULTS`. The
+  // composable's hard-coded fallback remains as a safety net for
+  // unconfigured callers.
+  pvAnimation: PvAnimationSettings;
   // Per-metric board overlays. Each metric carries its own set of
   // orthogonal sub-toggles describing the visual mode(s) the user
   // wants applied to that data; multiple sub-modes may be

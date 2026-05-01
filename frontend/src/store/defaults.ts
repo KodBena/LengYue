@@ -204,6 +204,18 @@ export const defaultSessionUI: UISession = {
   moveFilterExpression: 'move.order === 0 || (move.visits / root.visits) >= ui.threshold',
   analysisLayout: 'horizontal',
   showMoveSuggestions: true,
+  // PV-preview animation defaults — kept in lockstep with
+  // `composables/use-pv-animation.ts::PV_DEFAULTS` and the migration
+  // 9→10 backfill. Three sources of truth that must agree.
+  pvAnimation: {
+    mode: 'instant',
+    stepDelayMs: 350,
+    windowDurationMs: 600,
+    fadeDurationMs: 150,
+    cycle: false,
+    pvOpacity: 1,
+    annotation: 'fromCurrent',
+  },
   overlayLayers: {
     ownership: {
       continuous: false,
