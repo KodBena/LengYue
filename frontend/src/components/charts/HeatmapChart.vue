@@ -7,19 +7,26 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 import * as echarts from 'echarts';
 import { useThumbnailCache } from '../../composables/useThumbnailCache';
+import {
+  colorMoveToPly,
+  type HeatmapCell,
+  type HeatmapDatum,
+} from '../../composables/useTriangularHeatmap';
 import type { BoardId, NodeId } from '../../types';
 
 const { getSync } = useThumbnailCache();
 
-// Branded-type signature discipline (Commit 5a): boardId and variationPath
-// are tightened from `string` and `string[]` to BoardId/NodeId[]. Both
-// values flow down from the AnalysisDashboard, ultimately sourced from
-// BoardState. The previous loose signature was a signature lie that
-// forced a downstream type mismatch when variationPath[s] is passed to
-// getSync (whose parameter was tightened in Commit 2a).
-const props = defineProps<{ 
-  data: [number, number, number][]; 
-  maxMoveIndex: number; 
+// Branded-type signature discipline: boardId and variationPath are
+// branded BoardId / NodeId[]; data is HeatmapDatum[] (objects carrying
+// both the visual [x,y,v] tuple and the typed HeatmapCell), so the
+// formatter and click handler recover colour and colour-local move
+// indices directly rather than reconstructing them from the visual
+// triangle half. The conversion to absolute ply for variationPath
+// indexing routes through `colorMoveToPly` — indexing variationPath
+// with a ColorMoveIndex is now a compile error.
+const props = defineProps<{
+  data: HeatmapDatum[];
+  maxMoveIndex: number;
   minVal: number;
   maxVal: number;
   boardId?: BoardId;
@@ -27,7 +34,9 @@ const props = defineProps<{
   zoomRange?: [number, number] | null;
 }>();
 
-const emit = defineEmits(['cell-click']);
+const emit = defineEmits<{
+  'cell-click': [HeatmapCell];
+}>();
 
 const chartRef = ref<HTMLElement | null>(null);
 let chartInstance: echarts.ECharts | null = null;
@@ -44,20 +53,29 @@ const updateOptions = () => {
     coordinateSystem: 'cartesian2d',
     square: true,
     backgroundColor: 'transparent',
-    tooltip: { 
+    tooltip: {
       show: true,
       enterable: true,
       formatter: (p: any) => {
-        if (!p.data) return '';
-        const [a, b, v] = p.data;
-        const isBlack = a < b;
-        const [s, e] = isBlack ? [a, b] : [b, a];
-        const label = `${isBlack ? 'Black' : 'White'}: moves ${s}–${e} &nbsp; ${v.toFixed(3)}`;
+        if (!p.data?.cell) return '';
+        const cell = p.data.cell as HeatmapCell;
+        const colorLabel = cell.color === 'B' ? 'Black' : 'White';
+        const label = `${colorLabel}: moves ${cell.s}–${cell.t} &nbsp; ${cell.value.toFixed(3)}`;
 
         if (!props.boardId || !props.variationPath) return label;
 
-        const startSvg = getSync(props.variationPath[s], false);
-        const endSvg = getSync(props.variationPath[e], false);
+        const startPly = colorMoveToPly(cell.s, cell.color);
+        const endPly   = colorMoveToPly(cell.t, cell.color);
+        // Pondering can paint a cell whose endpoint is past the live tail
+        // of the known variationPath. Per ADR-0002 this is hover UX, not
+        // a state-transition contract: degrade to label-only rather than
+        // index out-of-bounds.
+        const startNode = props.variationPath[startPly];
+        const endNode   = props.variationPath[endPly];
+        if (!startNode || !endNode) return label;
+
+        const startSvg = getSync(startNode, false);
+        const endSvg   = getSync(endNode, false);
         const thumb = 'width:80px;height:80px;display:inline-block;border:1px solid #333;background:#000;';
         return `
           <div style="font-size:11px;color:#aaa;margin-bottom:6px;">${label}</div>
@@ -117,9 +135,8 @@ const initChart = () => {
   chartInstance = echarts.init(chartRef.value, 'dark', { renderer: 'svg' });
   
   chartInstance.on('click', (params: any) => {
-    if (params.componentType === 'series' && params.seriesType === 'heatmap') {
-      const [moveS, moveE] = params.data;
-      emit('cell-click', [moveS, moveE]);
+    if (params.componentType === 'series' && params.seriesType === 'heatmap' && params.data?.cell) {
+      emit('cell-click', params.data.cell as HeatmapCell);
     }
   });
 

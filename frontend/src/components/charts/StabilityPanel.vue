@@ -1,11 +1,20 @@
 <!--
   src/components/charts/StabilityPanel.vue
+  Hosts the triangular stability-interval heatmap. Wires the
+  per-board variationPath into `useTriangularHeatmap`, then
+  translates a heatmap cell click into an absolute-ply selection
+  range for the broader analysis chart.
+  License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import HeatmapChart             from './HeatmapChart.vue';
-import { useTriangularHeatmap } from '../../composables/useTriangularHeatmap';
-import type { BoardId,NodeId } from '../../types.ts';
+import {
+  colorMoveToPly,
+  useTriangularHeatmap,
+  type HeatmapCell,
+} from '../../composables/useTriangularHeatmap';
+import type { BoardId, NodeId } from '../../types.ts';
 
 const props = defineProps<{
   boardId:        BoardId;
@@ -22,9 +31,13 @@ const expanded = ref(true);
 const pathRef = computed(() => props.variationPath);
 const heatmapResults = useTriangularHeatmap(pathRef);
 
-function handleCellClick([moveS, moveE]: [number, number]) {
-  const startTurn = Math.min(moveS, moveE) * 2;
-  const endTurn   = Math.max(moveS, moveE) * 2;
+function handleCellClick(cell: HeatmapCell) {
+  // s ≤ t holds by the proxy's Triangular() contract, so order-preserving
+  // conversion suffices; both endpoints route through `colorMoveToPly` so
+  // the colour-local → absolute-ply mapping is the same as the heatmap
+  // tooltip uses.
+  const startTurn = colorMoveToPly(cell.s, cell.color);
+  const endTurn   = colorMoveToPly(cell.t, cell.color);
   emit('update:selectionRange', [startTurn, endTurn]);
 }
 </script>

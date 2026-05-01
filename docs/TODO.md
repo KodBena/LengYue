@@ -328,6 +328,42 @@ Adopt the generated type at the call site (`useMinting.ts` and
 version. Not yet numbered; treat as a follow-on to the
 build-error sweep.
 
+#### `[frontend]` Brand `PlayerPanel.activeIndex` as `ColorMoveIndex`
+
+`PlayerPanel.vue:30,34,47` inlines the same colour-local-to-ply
+conversion (`activeIndex * 2 + turnOffset + 1`) that the
+heatmap-thumbnail-hint fix moved into
+`composables/useTriangularHeatmap::colorMoveToPly` — the typed
+helper introduced alongside the `ColorMoveIndex` / `PlyIndex`
+brand pair in `types.ts`. The inline math is correct today but
+duplicates the convention. The brand-discipline finish is to
+type `activeIndex` as `ColorMoveIndex | null` and route both
+call sites (`resetPreview`, `handleHover`) through
+`colorMoveToPly`. Touches `PlayerPanel.vue` plus
+`AnalysisChartPanel`'s `activeIndex` prop signature (which
+propagates the brand up to its caller). Closes the third
+remaining inline-conversion site identified during the
+heatmap fix; the same bug shape that motivated the brand
+pair cannot re-emerge here once the prop is branded.
+
+#### `[frontend]` Brand `BoardState.analysisRange` as `[PlyIndex, PlyIndex]`
+
+`BoardState.analysisRange?: [number, number]` is documented in
+`types.ts` as "indices into the active variation path" — i.e.,
+absolute plies. Typed as bare `number`, it admits the same
+off-by-colour confusion the `ColorMoveIndex` / `PlyIndex` brand
+pair exists (per the heatmap-thumbnail-hint fix) to prevent.
+Tightening to `[PlyIndex, PlyIndex]` would catch any caller
+that confuses the analysis-chart selection range with a
+colour-local range. Touches `BoardState` in `types.ts`, the
+four consumers that route through `update:selectionRange`
+(`AnalysisDashboard`, `AnalysisChartPanel`, `StabilityPanel`,
+`AnalysisTimelinePanel`), and `useAnalysisTimeline`'s
+clamp/initialise code that produces the value. Wire shape is
+unaffected — brands erase at JSON serialisation, so SyncService
+persistence is transparent. Medium because the brand propagates
+through the consumer graph, not because the change is risky.
+
 ### Large — structural changes that introduce new abstractions
 
 #### 30c. `[backend]` Single CTE per pipeline run
@@ -445,6 +481,11 @@ work:
 - Tighten `useVariationPath` to `Ref<NodeId[]>` (~5 lines).
 - Type the pipeline DSL — small follow-on.
 - Merge `CardCreatePayload` / `CardCreate` — small follow-on.
+- Brand-discipline finishing for the heatmap fix:
+  `PlayerPanel.activeIndex` → `ColorMoveIndex` and
+  `BoardState.analysisRange` → `[PlyIndex, PlyIndex]`. Pair of
+  Medium-tier entries above; both shake out the off-by-colour
+  bug class the brand pair was introduced to prevent.
 
 **Backend architectural:**
 
