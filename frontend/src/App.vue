@@ -283,6 +283,16 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
                       </option>
                     </select>
                     <p class="hint">{{ store.profile.cardSets[store.session.ui.activeCardSetId]?.description }}</p>
+
+                    <label style="margin-top: 8px;">Context IDs:</label>
+                    <input
+                      type="text"
+                      class="dark-input deck-dropdown"
+                      placeholder="e.g. 3, 4, 12"
+                      :value="store.session.ui.srContextIds.join(', ')"
+                      @input="(e: any) => store.session.ui.srContextIds = e.target.value.split(',').map((s: string) => parseInt(s.trim(), 10)).filter((n: number) => !isNaN(n))"
+                      title="Comma-separated root card ids fed to the deck pipeline."
+                    />
                   </div>
 
                   <button

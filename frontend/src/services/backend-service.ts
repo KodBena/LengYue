@@ -9,7 +9,6 @@ import type {
   CardId,
   GameSourceId,
   ReviewCard,
-  CardSet,
   CardCreatePayload,
   ForestStat,
   TagStat,
@@ -127,10 +126,6 @@ export class BackendService {
 
     const rawCards = await api.request<CardFromWire[]>('POST', '/forests/query', payload);
     return rawCards.map(c => this.mapToReviewCard(c));
-  }
-
-  public async fetchCardSet(cardSet: CardSet): Promise<ReviewCard[]> {
-    return this.queryForest(cardSet.contextIds, cardSet.pipeline);
   }
 
   public async submitReview(cardId: CardId, scores: number[]): Promise<ReviewCard> {

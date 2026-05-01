@@ -392,6 +392,15 @@ export interface UISession {
     };
   };
   activeCardSetId: string;
+  // Per-tab ephemeral context for deck pipelines. Schema-version 11
+  // moved `contextIds` off `CardSet` and onto these per-tab UI fields:
+  // the deck is a pure strategy, the context is supplied at the call
+  // boundary. SR's `startSession` reads `srContextIds`;
+  // `ForestDirectory`'s Decks panel reads `databaseContextIds`. Edited
+  // via simple comma-separated text inputs in each tab today; a roots
+  // picker is queued separately.
+  srContextIds: number[];
+  databaseContextIds: number[];
   // Which view the qEUBO toolbar cluster is currently showing.
   // 'applied' = engine sees the persistent values from
   // analysis_env.parameters; 'A' / 'B' temporarily override what
@@ -459,13 +468,15 @@ export interface ReviewCard {
 
 // ── State Container (readonly removed) — SR domain ────────────────────────────
 
-// CardSet is mutated through the CardSetEditor (name, description,
-// contextIds, pipeline are all editable).
+// CardSet is mutated through the CardSetEditor. Decks are pure
+// strategies (the DSL pipeline) — context (root card-id list) is
+// supplied by the caller at execution time, lifted out of the deck
+// declaration in schema-version 11. SR and Database tabs each carry
+// their own context in `UISession.{sr,database}ContextIds`.
 export interface CardSet {
   id: string;
   name: string;
   description: string;
-  contextIds: number[];
   pipeline: any[];
 }
 
