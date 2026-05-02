@@ -50,16 +50,15 @@ const expanded = ref(true);
 </template>
 
 <style scoped>
-/* Styles remain identical to previous version */
-.section { background: #181818; border: 1px solid #222; border-radius: 4px; overflow: hidden; }
-.header { padding: 0 12px; display: flex; justify-content: space-between; cursor: pointer; font-size: 10px; font-weight: bold; color: #fff; text-transform: uppercase; background: #222; letter-spacing: 0.1em; }
-.header:hover { background: #282828; color: #aaa; }
-.content { border-top: 1px solid #222; background: #000; }
+.section { background: var(--surface-2); border: 1px solid var(--surface-3); border-radius: 4px; overflow: hidden; }
+.header { padding: 0 12px; display: flex; justify-content: space-between; cursor: pointer; font-size: 10px; font-weight: bold; color: var(--text-0); text-transform: uppercase; background: var(--surface-3); letter-spacing: 0.1em; }
+.header:hover { background: var(--surface-3); color: var(--text-1); }
+.content { border-top: 1px solid var(--surface-3); background: var(--surface-0); }
 .linear-content { display: flex; height: 160px; align-items: stretch; }
 .chart-area { flex: 1; min-width: 0; }
-.preview-box { width: 140px; background: #000; border-left: 1px solid #222; display: flex; align-items: center; justify-content: center; }
+.preview-box { width: 140px; background: var(--surface-0); border-left: 1px solid var(--surface-3); display: flex; align-items: center; justify-content: center; }
 .preview-box div { width: 100%; height: 100%; }
-.marker-b { border-left: 3px solid #4aaef0; }
-.marker-w { border-left: 3px solid #f04a4a; }
-.chevron { font-size: 8px; color: #444; }
+.marker-b { border-left: 3px solid var(--accent-primary); }
+.marker-w { border-left: 3px solid var(--state-error); }
+.chevron { font-size: 8px; color: var(--border-3); }
 </style>

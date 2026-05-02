@@ -82,8 +82,8 @@ function onRangeUpdate(r: [number, number]): void {
 
 <style scoped>
 .section {
-  background: #181818;
-  border: 1px solid #222;
+  background: var(--surface-2);
+  border: 1px solid var(--surface-3);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -92,19 +92,19 @@ function onRangeUpdate(r: [number, number]): void {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #222;
-  border-bottom: 1px solid #2a2a2a;
+  background: var(--surface-3);
+  border-bottom: 1px solid var(--border-1);
 }
 .timeline-title {
   font-size: 10px;
   font-weight: bold;
-  color: #fff;
+  color: var(--text-0);
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
 .timeline-info {
   font-size: 10px;
-  color: #fff;
+  color: var(--text-0);
   font-variant-numeric: tabular-nums;
 }
 .timeline-body { padding: 6px 10px 4px; }
@@ -114,22 +114,28 @@ function onRangeUpdate(r: [number, number]): void {
   gap: 8px;
   padding: 6px 10px 8px;
 }
-.visits-label { font-size: 11px; color: #fff; flex-shrink: 0; }
+.visits-label { font-size: 11px; color: var(--text-0); flex-shrink: 0; }
 .visits-input {
   width: 72px;
-  background: #111;
-  border: 1px solid #333;
-  color: #ccc;
+  background: var(--surface-1);
+  border: 1px solid var(--border-2);
+  color: var(--text-1);
   padding: 3px 6px;
   border-radius: 3px;
   font-size: 11px;
 }
-.visits-input:focus { outline: none; border-color: #4aaef0; }
+.visits-input:focus { outline: none; border-color: var(--accent-primary); }
+/* theme-exception: .analyze-btn uses muted-accent variants (#2a5a7a /
+   #254a60) — desaturated darkened cyans that don't fit the chrome
+   anchor vocabulary. Snapping to var(--accent-primary) would brighten
+   the button noticeably; preserving the literals keeps the deliberate
+   subdued-action-button aesthetic. Future substrate work could add
+   accent-tone variants. */
 .analyze-btn {
   flex: 1;
-  background: #000;
+  background: var(--surface-0);
   border: 1px solid #2a5a7a;
-  color: #fff;
+  color: var(--text-0);
   padding: 4px 10px;
   border-radius: 3px;
   font-size: 11px;

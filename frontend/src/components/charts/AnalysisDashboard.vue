@@ -110,7 +110,7 @@ const engineConnected = computed(() => store.engine.status === 'connected');
   flex-direction: column;
   height: calc(100vh - 165px);
   overflow: hidden;
-  background: #111;
+  background: var(--surface-1);
   gap: 8px;
   padding: 10px;
 }

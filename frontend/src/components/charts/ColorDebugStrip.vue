@@ -72,8 +72,8 @@ const samples = computed(() => {
 <style scoped>
 .debug-strip-container {
   padding: 12px;
-  background: #0f0f0f;
-  border: 1px solid #222;
+  background: var(--surface-1);
+  border: 1px solid var(--surface-3);
   border-radius: 4px;
   margin-top: 12px;
   display: flex;
@@ -94,7 +94,7 @@ const samples = computed(() => {
 
 .track-label {
   font-size: 8px;
-  color: #555;
+  color: var(--border-3);
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
@@ -103,12 +103,16 @@ const samples = computed(() => {
   display: flex;
   height: 24px;
   width: 100%;
-  border: 1px solid #000;
+  border: 1px solid var(--surface-0);
   border-radius: 2px;
   overflow: hidden;
 }
 
-/* Backgrounds */
+/* theme-exception: .clean-bg and .wood-texture are visualization
+   backdrops for the intensity-LUT debug strip — per plan §E,
+   ColorDebugStrip is out of scope for the chrome substrate. The
+   backdrops are deliberate "neutral dark" / "board texture" choices
+   tuned for LUT readability; they do not theme-swap. */
 .clean-bg { background-color: #050505; }
 .wood-texture {
   background-image: url('/textures/wood.jpg');
@@ -126,10 +130,10 @@ const samples = computed(() => {
   justify-content: space-between;
   align-items: center;
   font-size: 9px;
-  color: #888;
+  color: var(--text-2);
   font-family: monospace;
   padding-top: 4px;
-  border-top: 1px solid #1a1a1a;
+  border-top: 1px solid var(--surface-2);
 }
 
 .ticks {
@@ -141,6 +145,6 @@ const samples = computed(() => {
 .tick {
   width: 1px;
   height: 4px;
-  background: #fff;
+  background: var(--text-0);
 }
 </style>
