@@ -455,6 +455,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 </template>
 
 <style>
+@import "./assets/css/theme.css";
 @import "./assets/css/style.css";
 @import "./assets/css/palettes.css";
 
