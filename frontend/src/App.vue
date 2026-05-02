@@ -187,7 +187,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
     <div id="main-workspace">
       
       <div class="top-nav-bar">
-        <button class="collapse-btn" @click="store.session.ui.sidebarExpanded = !store.session.ui.sidebarExpanded">
+        <button class="collapse-btn" @click="store.session.ui.sidebarExpanded = !store.session.ui.sidebarExpanded" title="Toggle Board Inventory">
           {{ store.session.ui.sidebarExpanded ? '◀' : '▶' }}
         </button>
 
@@ -508,7 +508,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
 .tab-padding { padding: 8px; }
 .tab-padding-sr { padding: 12px 8px; text-align: center; }
-.section-divider { border-top: 1px solid #222; margin-top: 20px; padding-top: 10px; }
+.section-divider { border-top: 1px solid #222; margin-top: 0; padding-top: 0; }
 .sub-header { color: #666; font-size: 14px; margin-bottom: 10px; }
 
 /* Native <details> subsections in the Settings tab. Override default
@@ -546,7 +546,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 .action-btn-large { background: #4aaef0; color: #fff; border: none; padding: 4px 10px; cursor: pointer; border-radius: 4px; font-weight: bold; width: 100%; }
 .toolbar-btn-sm { background: #333; border: 1px solid #444; color: #ccc; padding: 1px 4px; font-size: 11px; cursor: pointer; border-radius: 3px; }
 .toolbar-btn-sm:hover { background: #444; border-color: #555; }
-.registry-container { margin-top: 15px; background: #181818; border: 1px solid #222; border-radius: 4px; max-height: 400px; overflow-y: auto; }
+.registry-container { margin-top: 0; background: #181818; border: 1px solid #222; border-radius: 4px; max-height: 400px; overflow-y: auto; }
 
 .collapse-btn { background: rgba(20, 20, 20, 0.8); border: 1px solid #333; color: #888; height: 18px; padding: 0 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 10px; }
 .collapse-btn:hover { background: #333; color: #fff; border-color: #555; }

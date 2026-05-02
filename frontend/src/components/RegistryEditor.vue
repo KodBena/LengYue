@@ -208,7 +208,7 @@ function isModified(key: string, value: any) {
 .ref-icon { color: #f472b6; font-size: 14px; }
 .ref-input { color: #f472b6; font-style: italic; flex: 1; }
 
-.registry-leaf { padding: 6px 8px; border-bottom: 1px solid #1a1a1a; }
+.registry-leaf { padding: 0; border-bottom: 1px solid #1a1a1a; }
 .registry-leaf.scalar, .registry-leaf.symbol-ref, .registry-leaf.enum { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; }
 .leaf-label { color: #666; font-size: 11px; }
 
