@@ -69,26 +69,29 @@ function purgeLedger() {
 <style scoped>
 .tab-padding { padding: 0px; }
 .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-h3 { margin-top: 0; font-size: 12px; color: #4aaef0; }
-.status-indicator { font-weight: bold; color: #fff; }
-.status-indicator.connected { color: #4caf50; }
+h3 { margin-top: 0; font-size: 12px; color: var(--accent-primary); }
+.status-indicator { font-weight: bold; color: var(--text-0); }
+.status-indicator.connected { color: var(--state-success); }
 
-.palette-selector { display: flex; align-items: center; gap: 8px; font-size: 10px; color: #aaa; text-transform: uppercase; }
-.dark-select { background: #111; border: 1px solid #333; color: #4aaef0; padding: 2px 6px; border-radius: 3px; font-size: 10px; outline: none; cursor: pointer; text-transform: uppercase; }
+.palette-selector { display: flex; align-items: center; gap: 8px; font-size: 10px; color: var(--text-1); text-transform: uppercase; }
+.dark-select { background: var(--surface-1); border: 1px solid var(--border-2); color: var(--accent-primary); padding: 2px 6px; border-radius: 3px; font-size: 10px; outline: none; cursor: pointer; text-transform: uppercase; }
 
-.warning-btn { color: #ff6b6b !important; border-color: #5a1a1a !important; }
+/* theme-exception: .warning-btn uses muted-state-error variants
+   (#5a1a1a border, #3a1a1a hover bg) — same pattern as
+   PaletteEditor's .del-btn. */
+.warning-btn { color: var(--state-error) !important; border-color: #5a1a1a !important; }
 .warning-btn:hover { background: #3a1a1a !important; }
 
-.toolbar-btn-sm { background: #333; border: 1px solid #444; color: #ccc; padding: 2px 6px; font-size: 10px; cursor: pointer; border-radius: 3px; text-transform: uppercase; }
+.toolbar-btn-sm { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: 2px 6px; font-size: 10px; cursor: pointer; border-radius: 3px; text-transform: uppercase; }
 
 /* ... remaining styles ... */
-.analysis-config-box { margin-top: 0px; background: #181818; padding: 0px 12px; border-radius: 4px; border: 1px solid #222; }
-.move-filter-box { border-bottom: 2px solid #333; margin-bottom: 15px; }
+.analysis-config-box { margin-top: 0px; background: var(--surface-2); padding: 0px 12px; border-radius: 4px; border: 1px solid var(--surface-3); }
+.move-filter-box { border-bottom: 2px solid var(--border-2); margin-bottom: 15px; }
 .settings-row { display: flex; flex-direction: column; gap: 3px; }
-.label-with-value { display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: #aaa; }
-.value-badge { background: #333; padding: 0px 6px; border-radius: 4px; color: #4aaef0; font-family: monospace; }
-.range-slider { width: 100%; accent-color: #4aaef0; cursor: pointer; }
-.hint { font-size: 10px; color: #fff; margin: 0; }
+.label-with-value { display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--text-1); }
+.value-badge { background: var(--border-2); padding: 0px 6px; border-radius: 4px; color: var(--accent-primary); font-family: monospace; }
+.range-slider { width: 100%; accent-color: var(--accent-primary); cursor: pointer; }
+.hint { font-size: 10px; color: var(--text-0); margin: 0; }
 .chart-container-outer { margin-top: 0px; min-height: 200px; }
 </style>
 

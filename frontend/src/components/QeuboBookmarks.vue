@@ -114,26 +114,31 @@ function onDelete(b: QeuboBookmark): void {
 <style scoped>
 .qeubo-bookmarks { font-family: 'Consolas', monospace; }
 .bookmarks-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.hint { font-size: 11px; color: #888; }
-.new-btn { background: #1a3a4a; border: 1px solid #2a5a7a; color: #4aaef0; padding: 5px 10px; font-size: 11px; cursor: pointer; border-radius: 3px; font-family: inherit; text-transform: uppercase; letter-spacing: 0.05em; }
-.new-btn:hover { background: #2a4a5a; border-color: #4aaef0; color: #fff; }
+.hint { font-size: 11px; color: var(--text-2); }
+/* theme-exception: .new-btn / .apply-btn use muted-cyan variants
+   (#1a3a4a / #2a5a7a / #2a4a5a) — same pattern as QeuboToolbar's
+   action-button vocabulary. */
+.new-btn { background: #1a3a4a; border: 1px solid #2a5a7a; color: var(--accent-primary); padding: 5px 10px; font-size: 11px; cursor: pointer; border-radius: 3px; font-family: inherit; text-transform: uppercase; letter-spacing: 0.05em; }
+.new-btn:hover { background: #2a4a5a; border-color: var(--accent-primary); color: var(--text-0); }
 
-.empty-state { padding: 20px; background: #0a0a0a; border: 1px dashed #222; border-radius: 4px; color: #777; font-size: 11px; line-height: 1.5; text-align: center; }
-.empty-state code { background: #1a1a1a; padding: 1px 5px; border-radius: 2px; color: #aaa; font-size: 10px; }
+.empty-state { padding: 20px; background: var(--surface-0); border: 1px dashed var(--surface-3); border-radius: 4px; color: var(--text-2); font-size: 11px; line-height: 1.5; text-align: center; }
+.empty-state code { background: var(--surface-2); padding: 1px 5px; border-radius: 2px; color: var(--text-1); font-size: 10px; }
 
 .bookmark-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
-.bookmark-row { display: flex; align-items: center; gap: 10px; padding: 10px; background: #111; border: 1px solid #222; border-radius: 4px; }
-.bookmark-row:hover { border-color: #333; }
+.bookmark-row { display: flex; align-items: center; gap: 10px; padding: 10px; background: var(--surface-1); border: 1px solid var(--surface-3); border-radius: 4px; }
+.bookmark-row:hover { border-color: var(--border-2); }
 .bookmark-meta { flex: 1; min-width: 0; }
-.bookmark-name { font-size: 12px; color: #eee; font-weight: bold; margin-bottom: 2px; }
-.bookmark-date { font-size: 10px; color: #777; margin-bottom: 4px; }
-.bookmark-params { font-size: 10px; color: #aaa; font-family: monospace; overflow-wrap: anywhere; }
+.bookmark-name { font-size: 12px; color: var(--text-0); font-weight: bold; margin-bottom: 2px; }
+.bookmark-date { font-size: 10px; color: var(--text-2); margin-bottom: 4px; }
+.bookmark-params { font-size: 10px; color: var(--text-1); font-family: monospace; overflow-wrap: anywhere; }
 
 .bookmark-actions { display: flex; gap: 4px; flex-shrink: 0; }
-.apply-btn, .rename-btn, .delete-btn { background: #333; border: 1px solid #444; color: #ccc; padding: 4px 8px; font-size: 10px; cursor: pointer; border-radius: 3px; font-family: inherit; text-transform: uppercase; letter-spacing: 0.05em; transition: background 0.15s, border-color 0.15s, color 0.15s; }
-.apply-btn:hover, .rename-btn:hover { background: #444; border-color: #555; color: #fff; }
-.apply-btn { border-color: #2a5a7a; color: #4aaef0; }
-.apply-btn:hover { background: #1a3a4a; border-color: #4aaef0; }
-.delete-btn { color: #ff6b6b; padding: 4px 7px; font-size: 12px; }
-.delete-btn:hover { background: #3a1a1a; border-color: #5a1a1a; color: #fff; }
+.apply-btn, .rename-btn, .delete-btn { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: 4px 8px; font-size: 10px; cursor: pointer; border-radius: 3px; font-family: inherit; text-transform: uppercase; letter-spacing: 0.05em; transition: background 0.15s, border-color 0.15s, color 0.15s; }
+.apply-btn:hover, .rename-btn:hover { background: var(--border-3); border-color: var(--border-3); color: var(--text-0); }
+.apply-btn { border-color: #2a5a7a; color: var(--accent-primary); }
+.apply-btn:hover { background: #1a3a4a; border-color: var(--accent-primary); }
+.delete-btn { color: var(--state-error); padding: 4px 7px; font-size: 12px; }
+/* theme-exception: .delete-btn:hover muted-state-error surface
+   (#3a1a1a / #5a1a1a) — same pattern as PaletteEditor's .del-btn. */
+.delete-btn:hover { background: #3a1a1a; border-color: #5a1a1a; color: var(--text-0); }
 </style>
