@@ -7,7 +7,7 @@ import { ref, watch } from 'vue';
 import AnalysisChartPanel from './AnalysisChartPanel.vue';
 import { useThumbnailCache } from '../../composables/useThumbnailCache';
 import { colorMoveToPly } from '../../composables/useTriangularHeatmap';
-import type { BoardId, ColorMoveIndex, NodeId } from '../../types';
+import type { BoardId, ColorMoveIndex, NodeId, PlyIndex } from '../../types';
 
 // Branded-type signature discipline (Commit 5a + brand-pair extension):
 // boardId/variationPath tightened in 5a; activeIndex and onIndexClick now
@@ -22,7 +22,7 @@ const props = defineProps<{
   series:         any[];
   boardId:        BoardId;
   variationPath:  NodeId[];
-  selectionRange: [number, number];
+  selectionRange: [PlyIndex, PlyIndex];
   activeIndex:    ColorMoveIndex | null;
   onIndexClick?: (moveIdx: ColorMoveIndex) => void;
 }>();
