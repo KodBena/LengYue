@@ -1,3 +1,18 @@
+/**
+ * src/assets/css/style.css
+ *
+ * Application-wide chrome stylesheet — global resets, layout
+ * primitives (sidebar, toolbar, tree panel, status bar). Most
+ * SFC-level chrome lives in scoped <style> blocks; this file
+ * hosts the rules whose selectors are document-wide.
+ *
+ * Chrome anchors are imported from theme.css (declared in
+ * App.vue's <style> block); see docs/notes/frontend-theming-plan.md
+ * for the SSOT contract.
+ *
+ * License: Public Domain (The Unlicense)
+ */
+
 @import "palettes.css";
 :root {
   /* Alias: Functional Name := Data Name */
@@ -9,7 +24,7 @@
 html, body {
   height: 100%;
   background:var(--default-bg);
-  color: #aaa;
+  color: var(--text-1);
   font-family: 'Courier New', monospace;
   font-size: 10px;
   overflow: hidden;
@@ -31,7 +46,7 @@ body {
 #sidebar {
   width: 108px;
   background: var(--default-bg);
-  border-right: 1px solid #242424;
+  border-right: 1px solid var(--border-1);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -69,34 +84,33 @@ body {
   height: 17px;
   border-radius: 50%;
   background: transparent;
-  border: 1px solid #2e2e2e;
-  color: #484848;
+  border: 1px solid var(--border-1);
+  color: var(--text-2);
   font-size: 10px;
   line-height: 1;
   cursor: pointer;
   flex-shrink: 0;
   transition: border-color 0.12s, color 0.12s;
 }
-.tab-add-btn:hover { border-color: #555; color: #7a7a7a; }
+.tab-add-btn:hover { border-color: var(--border-3); color: var(--text-1); }
 
 .tab-load-btn {
   width: 34px;
   height: 34px;
   border-radius: 50%;
   background: transparent;
-  border: 1px solid #2e2e2e;
-  color: #484848;
+  border: 1px solid var(--border-1);
+  color: var(--text-2);
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
   flex-shrink: 0;
   transition: border-color 0.12s, color 0.12s;
 }
-.tab-load-btn:hover { border-color: #555; color: #7a7a7a; }
+.tab-load-btn:hover { border-color: var(--border-3); color: var(--text-1); }
 
 
 /* ── Centre column ─────────────────────────────────────────────── */
-/* Update these in style.css */
 #centre {
   display: flex;
   flex-direction: column;
@@ -106,7 +120,7 @@ body {
 
 #tabs {
   width: 300px; /* Give your tabs a fixed or percentage width */
-  min-width: 200px; 
+  min-width: 200px;
   flex-shrink: 0; /* Prevent the tabs from disappearing entirely */
   overflow-y: auto; /* Allow scrolling inside tabs if the window is short */
 }
@@ -115,7 +129,7 @@ body {
 #toolbar {
   height: 34px;
   background: var(--default-bg);
-  border-bottom: 1px solid #242424;
+  border-bottom: 1px solid var(--border-1);
   display: flex;
   align-items: center;
   padding: 0 12px;
@@ -125,15 +139,15 @@ body {
 
 #toolbar-title {
   font-size: 10px;
-  color: #fff;
+  color: var(--text-0);
   text-transform: uppercase;
   margin-right: auto;
 }
 
 .toolbar-btn {
   background: transparent;
-  border: 1px solid #2e2e2e;
-  color: #555;
+  border: 1px solid var(--border-1);
+  color: var(--text-2);
   padding: 1px 1px;
   font-size: 10px;
   text-transform: uppercase;
@@ -141,8 +155,8 @@ body {
   border-radius: 2px;
   font-family: 'Courier New', monospace;
 }
-.toolbar-btn:hover  { border-color: #4a4a4a; color: #fff; }
-.toolbar-btn.active { border-color: #4aaef0; color: #fff; }
+.toolbar-btn:hover  { border-color: var(--border-3); color: var(--text-0); }
+.toolbar-btn.active { border-color: var(--accent-primary); color: var(--text-0); }
 
 #content {
   display: flex;
@@ -188,7 +202,7 @@ body {
   flex: 1;
   font-size: 10px;
   letter-spacing: 0.18em;
-  color: #363636;
+  color: var(--text-2);
   text-transform: uppercase;
   margin-right: auto;
 }
@@ -197,7 +211,7 @@ body {
   flex: 1;
   font-size: 10px;
   letter-spacing: 0.18em;
-  color: #363636;
+  color: var(--text-2);
   text-transform: uppercase;
   margin-right: auto;
 }
@@ -206,7 +220,7 @@ body {
   flex: 1;
   font-size: 10px;
   letter-spacing: 0.18em;
-  color: #363636;
+  color: var(--text-2);
   text-transform: uppercase;
   margin-right: auto;
 }
@@ -224,12 +238,12 @@ body {
 #status-bar {
   height: 26px;
   background: var(--default-bg);
-  border-top: 1px solid #1e1e1e;
+  border-top: 1px solid var(--border-1);
   display: flex;
   align-items: center;
   padding: 0 12px;
   font-size: 10px;
-  color: #484848;
+  color: var(--text-2);
   letter-spacing: 0.06em;
   flex-shrink: 0;
   white-space: nowrap;
@@ -241,7 +255,7 @@ body {
 #tree-panel {
   width: 272px;
   background: var(--default-bg);
-  border-left: 1px solid #1e1e1e;
+  border-left: 1px solid var(--border-1);
   display: none;
   flex-direction: column;
   flex-shrink: 0;
@@ -250,13 +264,13 @@ body {
 #tree-panel-header {
   height: 28px;
   background: var(--default-bg);
-  border-bottom: 1px solid #1e1e1e;
+  border-bottom: 1px solid var(--border-1);
   display: flex;
   align-items: center;
   padding: 0 10px;
   font-size: 9px;
   letter-spacing: 0.16em;
-  color: #363636;
+  color: var(--text-2);
   text-transform: uppercase;
   flex-shrink: 0;
 }
@@ -267,42 +281,14 @@ body {
   scrollbar-width: thin;
 }
 #tree-container::-webkit-scrollbar       { width: 6px; height: 6px; }
-#tree-container::-webkit-scrollbar-track { background: #0f0f0f; }
-#tree-container::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+#tree-container::-webkit-scrollbar-track { background: var(--surface-1); }
+#tree-container::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 3px; }
 
-/* ── Debug log ─────────────────────────────────────────────────────── */
-#debug-resizer {
-  height: 2px;
-  background: var(--cluster-4-1);
-  cursor: ns-resize;
-  flex-shrink: 0;
-  /*transition: background 0.2s;*/
-  position: relative;
-  z-index: 10;
-}
-
-#debug-resizer:hover {
-  background: #4aaef0;
-}
-
-#debug-log {
-  height: 80px;
-  background: var(--default-bg);
-  overflow-y: auto;
-  padding: 4px 10px;
-  flex-shrink: 0;
-  scrollbar-color: var(--cluster-4-2) var(--cluster-4-1);
-  resize: vertical;
-  min-height: 40px;
-  max-height: 400px;
-}
-#debug-log p       { margin: 0; line-height: 1.65; white-space: pre; }
-#debug-log p.info  { color: #2e4a2e; }
-#debug-log p.warn  { color: #4a4a1e; }
-#debug-log p.error { color: #4a1e1e; }
-body { scrollbar-color: #eba46d #123;}
-/* body { scrollbar-color: #fe0 #123;} */
-/*********** Baseline, reset styles ***********/
+/* ── Native range-input styling (theme-exception) ─────────────────────
+   Browser form-control aesthetic — the lightblue track and mid-grey
+   thumb / focus ring don't fit the chrome anchor vocabulary and are
+   left as literals. Revisit if range inputs gain a deliberate
+   dark-theme treatment.                                              */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
