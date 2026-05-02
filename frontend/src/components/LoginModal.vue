@@ -154,30 +154,30 @@ function handleBackdropClick(e: MouseEvent): void {
 }
 
 .modal-card {
-  background: #1a1a1a; border: 1px solid #333; border-radius: 6px;
+  background: var(--surface-2); border: 1px solid var(--border-2); border-radius: 6px;
   padding: 24px; width: 360px; max-width: 90vw;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
   display: flex; flex-direction: column; gap: 12px;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-.modal-title { color: #eee; margin: 0; font-size: 16px; }
-.current-identity { color: #888; font-size: 11px; margin: 0 0 4px 0; font-family: monospace; }
+.modal-title { color: var(--text-0); margin: 0; font-size: 16px; }
+.current-identity { color: var(--text-2); font-size: 11px; margin: 0 0 4px 0; font-family: monospace; }
 
 .form-row { display: flex; flex-direction: column; gap: 4px; }
-.form-row label { color: #888; font-size: 11px; text-transform: uppercase; }
+.form-row label { color: var(--text-2); font-size: 11px; text-transform: uppercase; }
 
 .form-row.checkbox-row { flex-direction: row; align-items: center; gap: 8px; }
-.form-row.checkbox-row label { text-transform: none; font-size: 12px; color: #aaa; }
+.form-row.checkbox-row label { text-transform: none; font-size: 12px; color: var(--text-1); }
 
 .text-input {
-  background: #0a0a0a; border: 1px solid #333; color: #ddd;
+  background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
   padding: 6px 8px; font-size: 13px; font-family: inherit;
   border-radius: 3px; outline: none;
 }
-.text-input:focus { border-color: #4aaef0; }
+.text-input:focus { border-color: var(--accent-primary); }
 
-.error-message { color: #ff4a4a; font-size: 11px; margin: 0; word-break: break-word; }
+.error-message { color: var(--state-attention); font-size: 11px; margin: 0; word-break: break-word; }
 
 .button-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 
@@ -187,12 +187,19 @@ function handleBackdropClick(e: MouseEvent): void {
 }
 .btn:disabled { cursor: not-allowed; opacity: 0.5; }
 
-.btn-secondary { background: #333; border-color: #444; color: #ccc; }
-.btn-secondary:hover:not(:disabled) { background: #444; }
+.btn-secondary { background: var(--border-2); border-color: var(--border-3); color: var(--text-1); }
+.btn-secondary:hover:not(:disabled) { background: var(--border-3); }
 
-.btn-primary { background: #4aaef0; border-color: #4aaef0; color: #fff; font-weight: bold; }
+/* theme-exception: .btn-primary:hover #5dbafa is a lightened-accent
+   variant; same rationale as MintCardModal's btn-submit hover. */
+.btn-primary { background: var(--accent-primary); border-color: var(--accent-primary); color: var(--text-0); font-weight: bold; }
 .btn-primary:hover:not(:disabled) { background: #5dbafa; }
 
+/* theme-exception: .btn-danger uses muted-attention surface variants
+   (#4a2020 / #5a2828 / #6a3030) and pinkish-pale text (#ffaaaa /
+   #ffcccc) — designer-intentional muted destructive-button aesthetic.
+   Same substrate gap as PaletteEditor's .del-btn (no tinted-state
+   anchors yet). */
 .btn-danger { background: #4a2020; border-color: #6a3030; color: #ffaaaa; }
 .btn-danger:hover:not(:disabled) { background: #5a2828; color: #ffcccc; }
 </style>

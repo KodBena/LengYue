@@ -72,23 +72,25 @@ function handle(action: LoadAction) {
   display: flex; align-items: center; justify-content: center; z-index: 9999;
 }
 .modal-content {
-  background: #111; border: 1px solid #333; border-radius: 6px;
+  background: var(--surface-1); border: 1px solid var(--border-2); border-radius: 6px;
   width: 420px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
   display: flex; flex-direction: column; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
-.modal-header { padding: 12px 15px; border-bottom: 1px solid #222; background: #181818; }
-.modal-header h2 { margin: 0; font-size: 14px; color: #fff; text-transform: uppercase; }
-.modal-body { padding: 15px; color: #ccc; font-size: 12px; }
+.modal-header { padding: 12px 15px; border-bottom: 1px solid var(--surface-3); background: var(--surface-2); }
+.modal-header h2 { margin: 0; font-size: 14px; color: var(--text-0); text-transform: uppercase; }
+.modal-body { padding: 15px; color: var(--text-1); font-size: 12px; }
 .checkbox-row { margin-top: 15px; display: flex; align-items: center; gap: 8px; }
-.checkbox-row label { cursor: pointer; color: #aaa; }
+.checkbox-row label { cursor: pointer; color: var(--text-1); }
 .modal-footer {
   display: flex; justify-content: flex-end; gap: 10px; padding: 12px 15px;
-  border-top: 1px solid #222; background: #181818;
+  border-top: 1px solid var(--surface-3); background: var(--surface-2);
 }
-.btn-cancel { background: transparent; border: 1px solid #444; color: #aaa; padding: 6px 12px; border-radius: 3px; cursor: pointer; }
-.btn-cancel:hover { background: #222; color: #fff; }
-.btn-overwrite { background: transparent; border: 1px solid #ff4a4a; color: #ff4a4a; padding: 6px 12px; border-radius: 3px; cursor: pointer; }
-.btn-overwrite:hover { background: rgba(255, 74, 74, 0.1); }
-.btn-submit { background: #4aaef0; border: none; color: #111; font-weight: bold; padding: 6px 15px; border-radius: 3px; cursor: pointer; }
+.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-1); padding: 6px 12px; border-radius: 3px; cursor: pointer; }
+.btn-cancel:hover { background: var(--surface-3); color: var(--text-0); }
+.btn-overwrite { background: transparent; border: 1px solid var(--state-attention); color: var(--state-attention); padding: 6px 12px; border-radius: 3px; cursor: pointer; }
+.btn-overwrite:hover { background: color-mix(in srgb, var(--state-attention) 10%, transparent); }
+/* theme-exception: .btn-submit:hover #5bc0ff is a lightened-accent
+   variant; same rationale as MintCardModal's btn-submit hover. */
+.btn-submit { background: var(--accent-primary); border: none; color: var(--surface-1); font-weight: bold; padding: 6px 15px; border-radius: 3px; cursor: pointer; }
 .btn-submit:hover { background: #5bc0ff; }
 </style>
