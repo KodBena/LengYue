@@ -12,7 +12,7 @@ import { useEnrichedData } from './useEnrichedData';
 import { useKernelSeries } from './useKernelSeries';
 import { scoreLead } from '../engine/analysis/kernels';
 import { useAnalysisTimeline } from './useAnalysisTimeline';
-import type { NodeId, BoardId } from '../types';
+import type { NodeId, BoardId, ColorMoveIndex } from '../types';
 
 /**
  * Branded-type signature discipline (Commit 5a-extension):
@@ -64,7 +64,7 @@ export function useAnalysisProjection(boardId: BoardId) {
     return idx === -1 ? null : idx;
   });
 
-  const getPlayerIndex = (color: 'B' | 'W') => {
+  const getPlayerIndex = (color: 'B' | 'W'): ColorMoveIndex | null => {
     const board = store.boards.find(b => b.id === boardId);
     if (!board || activeMainIndex.value === null) return null;
 
@@ -80,7 +80,10 @@ export function useAnalysisProjection(boardId: BoardId) {
       const node = board.nodes[variationPath.value[i]];
       if (node?.move?.color === color) count++;
     }
-    return count; 
+    // Brand cast at construction: `count` is the colour-local move index
+    // PlayerPanel expects (semantics preserved from the prior bare-number
+    // return; type claim now honest).
+    return count as ColorMoveIndex;
   };
 
   const activeBlackIndex = computed(() => getPlayerIndex('B'));

@@ -7,15 +7,16 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import HorizontalTimelineVisualizer from '../HorizontalTimelineVisualizer.vue';
+import type { PlyIndex } from '../../types';
 
 const props = defineProps<{
   visitVector:    number[];
-  selectionRange: [number, number];
+  selectionRange: [PlyIndex, PlyIndex];
   engineConnected: boolean;
 }>();
 
 const emit = defineEmits<{
-  (e: 'update:selectionRange', value: [number, number]): void;
+  (e: 'update:selectionRange', value: [PlyIndex, PlyIndex]): void;
   (e: 'analyze', visits: number): void;
 }>();
 
@@ -24,6 +25,17 @@ const visits = ref(200);
 const selectionNodeCount = computed(() =>
   Math.max(0, Math.round(props.selectionRange[1] - props.selectionRange[0]))
 );
+
+// Boundary brand-cast: HorizontalTimelineVisualizer is band-1
+// (domain-agnostic — works on any numeric vector), so its model-value
+// is `[number, number]`. Here the data-vector is the visit-vector
+// derived from the active variation path, so the visualizer's range
+// values are bounded to `[0, path.length - 1]` — i.e. valid PlyIndices
+// by construction. One cast at the band-1 → branded boundary; consumers
+// above (the store, useAnalysisTimeline) see the brand.
+function onRangeUpdate(r: [number, number]): void {
+  emit('update:selectionRange', r as [PlyIndex, PlyIndex]);
+}
 </script>
 
 <template>
@@ -43,7 +55,7 @@ const selectionNodeCount = computed(() =>
         :data-vector="visitVector"
         :model-value="selectionRange"
         color-mode="global"
-        @update:model-value="r => emit('update:selectionRange', r)"
+        @update:model-value="onRangeUpdate"
       />
     </div>
 

@@ -6,7 +6,7 @@
 import { ref, watch } from 'vue';
 import AnalysisChartPanel from './AnalysisChartPanel.vue';
 import { useThumbnailCache } from '../../composables/useThumbnailCache';
-import type { BoardId, NodeId } from '../../types';
+import type { BoardId, NodeId, PlyIndex } from '../../types';
 
 // Branded-type signature discipline (Commit 5a): boardId and variationPath
 // are tightened from `string` and `string[]` to BoardId/NodeId[]. Both
@@ -14,11 +14,20 @@ import type { BoardId, NodeId } from '../../types';
 // BoardState. The previous loose signature was a signature lie that
 // forced a downstream type mismatch when variationPath[idx] is passed
 // to getThumbnailSvg (whose parameter was tightened in Commit 2a).
+//
+// selectionRange is `[PlyIndex, PlyIndex]` per `BoardState.analysisRange`'s
+// brand. activeIndex stays bare `number | null`: ScoreLeadPanel's series
+// indexes the variation path, so semantically it's a PlyIndex, but
+// AnalysisChartPanel's shared activeIndex prop is consumed polymorphically
+// (PlayerPanel passes ColorMoveIndex), so the brand belongs at this
+// caller's API surface only if/when ScoreLeadPanel itself becomes a
+// brand boundary. Leaving it bare here matches the design call recorded
+// in the PlayerPanel brand commit's closure note.
 const props = defineProps<{
   series:         any[];
   boardId:        BoardId;
   variationPath:  NodeId[];
-  selectionRange: [number, number];
+  selectionRange: [PlyIndex, PlyIndex];
   activeIndex:    number | null;
   onIndexClick?: (turnIdx: number) => void;
 }>();

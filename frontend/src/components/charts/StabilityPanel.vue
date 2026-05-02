@@ -14,16 +14,16 @@ import {
   useTriangularHeatmap,
   type HeatmapCell,
 } from '../../composables/useTriangularHeatmap';
-import type { BoardId, NodeId } from '../../types.ts';
+import type { BoardId, NodeId, PlyIndex } from '../../types.ts';
 
 const props = defineProps<{
   boardId:        BoardId;
   variationPath:  NodeId[];
-  selectionRange: [number, number];
+  selectionRange: [PlyIndex, PlyIndex];
 }>();
 
 const emit = defineEmits<{
-  (e: 'update:selectionRange', value: [number, number]): void;
+  (e: 'update:selectionRange', value: [PlyIndex, PlyIndex]): void;
 }>();
 
 const expanded = ref(true);

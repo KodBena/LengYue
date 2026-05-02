@@ -150,13 +150,17 @@ export interface BoardState {
   nodes: Record<NodeId, GameNode>;
   lastActivity: number;
   maxVisitsTarget?: number;
-  // Analysis-chart selection range as [startTurn, endTurn] indices into
-  // the active variation path. Mutated by `useAnalysisTimeline` via
-  // `mutateBoard`; persisted across tab switches and board switches
-  // (BoardState survives both). `undefined` means "use the default
-  // fit-to-path range" — set on first observation of a non-empty
-  // variation. Release-scope item 2.
-  analysisRange?: [number, number];
+  // Analysis-chart selection range as [startPly, endPly] indices into
+  // the active variation path. Branded `[PlyIndex, PlyIndex]` so the
+  // off-by-colour confusion the brand pair exists to prevent (a caller
+  // passing a colour-local move-range here would be a compile error)
+  // cannot recur. Mutated by `useAnalysisTimeline` via `mutateBoard`;
+  // persisted across tab switches and board switches (BoardState
+  // survives both). `undefined` means "use the default fit-to-path
+  // range" — set on first observation of a non-empty variation.
+  // Wire shape unaffected: brands erase at JSON serialisation, so
+  // SyncService persistence is transparent. Release-scope item 2.
+  analysisRange?: [PlyIndex, PlyIndex];
 }
 
 // EngineMetrics is a value object (immutable, swapped wholesale); the

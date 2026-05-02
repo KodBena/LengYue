@@ -163,6 +163,7 @@ reading the outstanding work.
 | — | *`BoardThumbnail.vue` → `BoardTab.vue` rename (release wrap-up). The component is the tab item in the board-list rail (label, close button, analysis-meter rugplot, geiger dot); the hover-thumbnail is `FloatingThumbnail.vue`'s job. The "Thumbnail" name was a misnomer at this point. Rename via `git mv` (preserves history); two reference sites updated (`SidebarWidget.vue` import + template, comment in `engine/suggestion-colors.ts`); internal header comment in the file expanded to ADR-0006 form (full path + purpose + license) since the SFC was previously carrying a one-line header that predated the ADR. No behaviour change. Not in original TODO numbering.* |
 | — | *Initial-load layout settle (release-scope.md item 7). On first load, the application's layout was visibly broken — the control-panel and board areas didn't size correctly until the user nudged the vertical panel resizer, despite the persisted `session.ui.controlPanelWidth` having a sane default. Resolved across an arc of commits that re-architected the layout pass: the resizer drives the board-square cap, the control panel absorbs leftover space, and the AnalysisDashboard's vertical sizing was tightened (`100vh-100`→`165` plus a `systemLogExpanded` default flip). Two follow-on UI fits landed alongside (board-fits-its-square, analysis-dashboard-double-scrollbar). Closes the seventh and final release-scope item. Not in original TODO numbering.* |
 | — | *Sidebar toggle tooltip + Settings-tab CSS tightening (paired polish). The board-inventory `.collapse-btn` on the top nav bar (`App.vue:190`) was the only toggle in the cluster lacking a `title` attribute — its three siblings (`Toggle Main Board`, `Toggle Game Tree`, `Toggle Control Panel`) had hover tooltips, this one was silent. Added `title="Toggle Board Inventory"` matching the existing pattern. Bundled with the queued Settings-tab CSS tightening: `.section-divider` (`margin-top: 20px; padding-top: 10px;` → both `0`, border-top preserved) and `.registry-container` (`margin-top: 15px` → `0`) in `App.vue`, and `.registry-leaf` (`padding: 6px 8px;` → `0`) in `RegistryEditor.vue`. After the post-PR-#64 accordion landed, the wrapping `<details>` owns each subsection's top rhythm; the per-section air read as wasted space rather than visual structure. The inline `style="margin-top: 24px;"` override on the qEUBO Bookmarks header (`App.vue:432`) was preserved by deliberation — that header lives in the Other tab outside the accordion shape, so the wrapping-details rationale doesn't apply, and after zeroing `.section-divider`'s top margin the inline override is the only thing separating it from the ColorDebugStrip above. Not in original TODO numbering.* |
+| — | *Brand-discipline pair: `PlayerPanel.activeIndex` → `ColorMoveIndex` and `BoardState.analysisRange` → `[PlyIndex, PlyIndex]` (paired follow-up to the heatmap-thumbnail-hint fix). Both items finish the brand pair's reach. **Item 1**: PlayerPanel's three inline `idx * 2 + turnOffset + 1` sites — duplicating `useTriangularHeatmap::colorMoveToPly`, the single authority — collapse into the named helper; `activeIndex` and `onIndexClick` brand to `ColorMoveIndex`. The `useChartNavigation` player handlers (`handlePlayerClick`, `handlePlayerHover`) brand their `moveIdx` parameter the same way, with an explicit comment recording the asymmetry that was implicit in the prior formulae: click navigates to the position BEFORE the move, hover previews AFTER. `useAnalysisProjection.getPlayerIndex` returns `ColorMoveIndex \| null`. A `forwardClick` wrapper inside PlayerPanel resolves the function-parameter contravariance against AnalysisChartPanel's `(idx: number) => void` slot — boundary brand-cast at the chart-event edge, same shape as `useTriangularHeatmap`'s `s/t` casts. **Item 2**: `BoardState.analysisRange` brands to `[PlyIndex, PlyIndex]`; `useAnalysisTimeline`'s `selectionRange`/`setSelectionRange` propagate the brand; the four `selectionRange` prop consumers (`ScoreLeadPanel`, `PlayerPanel`, `StabilityPanel`, `AnalysisTimelinePanel`) tighten their prop types; the two emit sites (`StabilityPanel`, `AnalysisTimelinePanel`) tighten their emit signatures. `StabilityPanel`'s emit closes a small pre-existing brand-lie — `colorMoveToPly` already returned `PlyIndex`, but the loose emit signature laundered the brand back to bare number. `AnalysisTimelinePanel` introduces an `onRangeUpdate` script-section wrapper that casts the band-1 `HorizontalTimelineVisualizer`'s emit to `[PlyIndex, PlyIndex]` — safe by construction, the visualizer's range is bounded to the visit-vector's length which equals the variation path length. Wire shape unaffected; brands erase at JSON serialisation. **`AnalysisChartPanel.activeIndex` and `zoomRange` stay bare `number`** — design call recorded below. **Past-planning-failure note (preserved as a reminder to remain vigilant).** Both original Active entries carried small inaccuracies that surfaced during implementation: (a) the PlayerPanel entry claimed branding `activeIndex` "propagates the brand up to its caller via `AnalysisChartPanel`'s prop signature", but AnalysisChartPanel is consumed polymorphically — ScoreLeadPanel passes `PlyIndex` (indexes `variationPath` directly), PlayerPanel passes `ColorMoveIndex` (requires conversion). Branding the shared prop as either type would type-launder the other; the chart-coordinate layer is honestly polymorphic, the brand belongs one level up where the per-caller meaning is fixed. (b) the BoardState.analysisRange entry listed "the four consumers that route through `update:selectionRange` (`AnalysisDashboard`, `AnalysisChartPanel`, `StabilityPanel`, `AnalysisTimelinePanel`)" — but AnalysisChartPanel doesn't have a `selectionRange` prop or emit at all (its analogous prop is `zoomRange`, fed indirectly via ScoreLeadPanel/PlayerPanel forwarding); the actual prop consumers are ScoreLeadPanel + PlayerPanel + StabilityPanel + AnalysisTimelinePanel, and only the latter two emit. The lesson: an Active-tier entry is a working hypothesis about the shape of the work, not a completed audit; verifying the actual consumer graph against the stated one is part of the implementation, and the discrepancies surface design calls (here, the polymorphic-prop boundary) that the planning pass missed. **Deferred observation surfaced during the audit**: `useAnalysisProjection.getPlayerIndex` returns `count` (the total of color's moves up to `activeMainIndex` inclusive). For the documented "highlight the most-recent color move" PlayerPanel semantics the correct value would be `count - 1`. The brand cast doesn't change the value; if the off-by-one is real, the chart highlight is one slot off and the hover-preview goes blank when activeIndex points past the end of the player's actual move list. Out of scope for the brand work — needs a browser session to confirm before claiming a bug. Not in original TODO numbering.* |
 
 ### Joint
 
@@ -329,24 +330,6 @@ Adopt the generated type at the call site (`useMinting.ts` and
 version. Not yet numbered; treat as a follow-on to the
 build-error sweep.
 
-#### `[frontend]` Brand `PlayerPanel.activeIndex` as `ColorMoveIndex`
-
-`PlayerPanel.vue:30,34,47` inlines the same colour-local-to-ply
-conversion (`activeIndex * 2 + turnOffset + 1`) that the
-heatmap-thumbnail-hint fix moved into
-`composables/useTriangularHeatmap::colorMoveToPly` — the typed
-helper introduced alongside the `ColorMoveIndex` / `PlyIndex`
-brand pair in `types.ts`. The inline math is correct today but
-duplicates the convention. The brand-discipline finish is to
-type `activeIndex` as `ColorMoveIndex | null` and route both
-call sites (`resetPreview`, `handleHover`) through
-`colorMoveToPly`. Touches `PlayerPanel.vue` plus
-`AnalysisChartPanel`'s `activeIndex` prop signature (which
-propagates the brand up to its caller). Closes the third
-remaining inline-conversion site identified during the
-heatmap fix; the same bug shape that motivated the brand
-pair cannot re-emerge here once the prop is branded.
-
 #### `[frontend]` Cards tab merge — per-board forest + current-card overlay
 
 Merge the SR and Database control-panel tabs into a single
@@ -375,24 +358,6 @@ Two-PR seam suggested in the plan:
   overlay (no UI move yet; old SR / Database tabs unchanged).
 - PR 2: `ReviewSessionPanel` extraction + `ForestDirectory`
   integration + `App.vue` tab restructure.
-
-#### `[frontend]` Brand `BoardState.analysisRange` as `[PlyIndex, PlyIndex]`
-
-`BoardState.analysisRange?: [number, number]` is documented in
-`types.ts` as "indices into the active variation path" — i.e.,
-absolute plies. Typed as bare `number`, it admits the same
-off-by-colour confusion the `ColorMoveIndex` / `PlyIndex` brand
-pair exists (per the heatmap-thumbnail-hint fix) to prevent.
-Tightening to `[PlyIndex, PlyIndex]` would catch any caller
-that confuses the analysis-chart selection range with a
-colour-local range. Touches `BoardState` in `types.ts`, the
-four consumers that route through `update:selectionRange`
-(`AnalysisDashboard`, `AnalysisChartPanel`, `StabilityPanel`,
-`AnalysisTimelinePanel`), and `useAnalysisTimeline`'s
-clamp/initialise code that produces the value. Wire shape is
-unaffected — brands erase at JSON serialisation, so SyncService
-persistence is transparent. Medium because the brand propagates
-through the consumer graph, not because the change is risky.
 
 ### Large — structural changes that introduce new abstractions
 
@@ -599,11 +564,6 @@ work:
 - Tighten `useVariationPath` to `Ref<NodeId[]>` (~5 lines).
 - Type the pipeline DSL — small follow-on.
 - Merge `CardCreatePayload` / `CardCreate` — small follow-on.
-- Brand-discipline finishing for the heatmap fix:
-  `PlayerPanel.activeIndex` → `ColorMoveIndex` and
-  `BoardState.analysisRange` → `[PlyIndex, PlyIndex]`. Pair of
-  Medium-tier entries above; both shake out the off-by-colour
-  bug class the brand pair was introduced to prevent.
 
 **Frontend architectural:**
 

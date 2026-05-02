@@ -6,10 +6,11 @@
  */
 
 import { useThumbnailCache } from './useThumbnailCache';
+import { colorMoveToPly } from './useTriangularHeatmap';
 import { mutateBoard } from '../store';
 import { navigateTo } from '../engine/navigator';
 import type { Ref } from 'vue';
-import type { BoardId, NodeId } from '../types';
+import type { BoardId, ColorMoveIndex, NodeId } from '../types';
 
 /**
  * Composable for chart-driven board navigation.
@@ -46,9 +47,17 @@ export function useChartNavigation(variationPath: Ref<NodeId[]>, boardId: BoardI
   }
 
   // ── Player panels (move-indexed) ──────────────────────────────────────────
-  function handlePlayerClick(playerColor: 'B' | 'W', moveIdx: number) {
-    const offset = playerColor === 'B' ? 0 : 1;
-    const turnIdx = moveIdx * 2 + offset;
+  // moveIdx is branded ColorMoveIndex; the brand pair forces callers to
+  // commit to the colour-local interpretation rather than passing a bare
+  // number that could be a PlyIndex by mistake.
+  //
+  // Asymmetry note: click navigates to the position BEFORE the move (so
+  // the user sees the situation the player faced), hover previews the
+  // position AFTER (the result of the move). Click is `colorMoveToPly`
+  // minus one; hover is `colorMoveToPly` directly. The two routes share
+  // the cmi → ply conversion but diverge by one ply for UX reasons.
+  function handlePlayerClick(playerColor: 'B' | 'W', moveIdx: ColorMoveIndex) {
+    const turnIdx = colorMoveToPly(moveIdx, playerColor) - 1;
     const nodeId = variationPath.value[turnIdx];
     if (nodeId) {
       mutateBoard(boardId, draft => navigateTo(draft, nodeId));
@@ -57,11 +66,10 @@ export function useChartNavigation(variationPath: Ref<NodeId[]>, boardId: BoardI
 
   async function handlePlayerHover(
     playerColor: 'B' | 'W',
-    moveIdx: number,
+    moveIdx: ColorMoveIndex,
     previewRef: { value: string }
   ) {
-    const offset = playerColor === 'B' ? 0 : 1;
-    const nodeIdx = moveIdx * 2 + offset + 1; // position AFTER the move
+    const nodeIdx = colorMoveToPly(moveIdx, playerColor);
     const nodeId = variationPath.value[nodeIdx];
     if (nodeId) {
       previewRef.value = await getThumbnailSvg(nodeId, boardId, true);

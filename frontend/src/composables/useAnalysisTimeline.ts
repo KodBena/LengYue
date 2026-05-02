@@ -16,18 +16,21 @@ import { computed, watch, type Ref, type ComputedRef } from 'vue';
 import { ledger } from '../services/analysis-ledger';
 import { analysisService } from '../services/analysis-service';
 import { store, mutateBoard } from '../store';
-import type { BoardId, NodeId } from '../types';
+import type { BoardId, NodeId, PlyIndex } from '../types';
 import { activeConfigHash } from '../services/analysis-config';
 
 export interface AnalysisTimelineState {
   visitVector: ComputedRef<number[]>;
   /**
    * Read-only view onto the active board's stored selection range.
-   * Mutate via `setSelectionRange`, never via `.value =`.
+   * Mutate via `setSelectionRange`, never via `.value =`. Branded
+   * `[PlyIndex, PlyIndex]` per `BoardState.analysisRange`'s brand
+   * (which the brand pair was introduced to enforce against the
+   * colour-local-vs-absolute-ply confusion class).
    */
-  selectionRange: ComputedRef<[number, number]>;
+  selectionRange: ComputedRef<[PlyIndex, PlyIndex]>;
   /** The only sanctioned mutation point. */
-  setSelectionRange: (range: [number, number]) => void;
+  setSelectionRange: (range: [PlyIndex, PlyIndex]) => void;
   analyzeSelection: (visits: number) => void;
 }
 
@@ -56,16 +59,23 @@ export function useAnalysisTimeline(
   const board = computed(() => store.boards.find(b => b.id === branded));
   const stored = computed(() => board.value?.analysisRange);
 
-  const selectionRange = computed<[number, number]>(() => stored.value ?? [0, 0]);
+  // Brand cast at construction: the `[0, 0]` fallback is the empty range
+  // at the root, valid PlyIndices by construction (PlyIndex 0 = root).
+  const selectionRange = computed<[PlyIndex, PlyIndex]>(
+    () => stored.value ?? ([0, 0] as [PlyIndex, PlyIndex])
+  );
 
-  function setSelectionRange(range: [number, number]): void {
+  function setSelectionRange(range: [PlyIndex, PlyIndex]): void {
     mutateBoard(branded, draft => { draft.analysisRange = range; });
   }
 
   // Keep the stored range in sync with the path length: initialize on
   // first observation of a non-empty path, clamp on subsequent length
   // changes. Skip the write when the clamp is a no-op so we don't churn
-  // boardsVersion on every navigation.
+  // boardsVersion on every navigation. Brand casts at the construction
+  // sites are safe by construction — every value is clamped against
+  // `len = variationPath.value.length`, which is the upper bound of
+  // valid PlyIndices for the active path.
   watch(
     () => variationPath.value.length,
     (len) => {
@@ -73,8 +83,7 @@ export function useAnalysisTimeline(
 
       const prev = stored.value;
       if (!prev) {
-        // First init: full range.
-        setSelectionRange([0, len - 1]);
+        setSelectionRange([0, len - 1] as [PlyIndex, PlyIndex]);
         return;
       }
 
@@ -86,7 +95,7 @@ export function useAnalysisTimeline(
       const newEnd   = Math.max(newStart + 1, Math.min(e, len));
 
       if (newStart !== prevStart || newEnd !== prevEnd) {
-        setSelectionRange([newStart, newEnd]);
+        setSelectionRange([newStart, newEnd] as [PlyIndex, PlyIndex]);
       }
     },
     { immediate: true },
