@@ -393,6 +393,53 @@ same pass: `currentRecall`, `halflifeUnits`. Both are part of
 "Item 18 surfacing (Commit 4)" per the same comment block; if
 `gradingParameter` was missed, these may have been too.
 
+### 4. Sister-class — TODO ↔ code drift (inverse-direction divergence)
+
+Surfaced later the same day, on user prompt: "I thought 34b
+was closed. Can you check?" Investigation showed that
+`docs/TODO.md`'s 34b-cleanup entry was still listed under
+Active (Small tier) and called out by name in the
+implementation-order recommendation, despite the actual code
+work having shipped on 2026-04-26 in commit `41a9c5d`
+("ebisu-service: drop 34b stale-bundle compat shims") with
+explicit `Closes: TODO 34b-cleanup` in the commit body. The
+TODO never got the corresponding update; three stale references
+accumulated (the Active entry itself, an "is now unblocked and
+listed in the Small tier below" pointer in the Joint Completed
+parent row, and the implementation-order recommendation).
+
+This is the **inverse direction** of the section-1 instance.
+There the implementation lagged the type/doc claim
+(`gradingParameter` declared but never populated). Here the
+documentation lagged the implementation (work done, TODO not
+updated). Same family — claim-vs-reality desync at a doc-graph
+boundary — but the asymmetry is the notable bit:
+
+- **Type-vs-implementation divergence** is invisible to the
+  type-checker (TS optionality silently accepts). It surfaces
+  only when a downstream consumer *expects* the field to be
+  populated. The cost is silent dormancy.
+- **Doc-vs-code divergence** is invisible to any compile-time
+  check at all (no machinery validates that TODO claims match
+  code state). It surfaces only on human re-reading. The cost
+  is recurring "didn't we do that already?" cycles, where each
+  re-read pays the audit-from-scratch tax.
+
+The audit shape generalises: any boundary between a high-level
+claim (type, doc, dispatch correspondence) and a lower-level
+reality (implementation, code state, current configuration) is
+a candidate divergence site. The boundary translators audit in
+section 3 is one specific application; a periodic doc-graph
+sweep against shipped commits is the other. The 34b case
+suggests a small mechanism: when a commit body declares
+`Closes: TODO X`, the TODO entry retire should ride alongside
+in the same commit (or the next commit on the same branch).
+The `Closes:` trailer is the auditor's signal; honouring it
+would close most instances of the doc-drift direction.
+
+The 34b stale references are retired in a small docs-only
+PR that lands alongside this sub-observation.
+
 ### Auditor's prioritization
 
 - **Item 18 actual closure** — surfaces `gradingParameter`,
@@ -419,6 +466,17 @@ same pass: `currentRecall`, `halflifeUnits`. Both are part of
   entry as a sub-numbered observation; the class deserves a
   cumulative tally so we can see whether it's a chronic shape
   or a one-off.
+- **The doc-graph ↔ code drift sweep is also mechanical.**
+  `git log --all --grep "Closes: TODO"` lists every commit
+  that claims to retire a TODO entry; cross-reference against
+  the current `docs/TODO.md` Active sections and flag any
+  claimant whose corresponding entry is still listed. The 34b-
+  cleanup case (section 4 above) was a six-day-old retire that
+  only surfaced on user prompt; even on that short horizon the
+  re-read tax was a recurring "didn't we do that already?"
+  cycle for the user. Pair this with the boundary-translator
+  pass — same five-minute audit shape, opposite divergence
+  direction.
 - **Watch for "Commit N closes Item M" claims that mention
   type-side work but not implementation-side work.** Those
   are the highest-likelihood divergence sites. The

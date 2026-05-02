@@ -172,7 +172,7 @@ reading the outstanding work.
 
 | # | One-line synopsis |
 |---|---|
-| 34b | Domain-neutral wire rename (`sgf`→`raw_content`, `normalized_sgf`→`canonical_content`, `default_visits` nested into `grading_parameter.data`). Backend dual-emitted for stale-bundle compat through Commit 3, then dropped the response-side shims in Commit 3b. Frontend's reciprocal cleanup (`34b-cleanup`) is now unblocked and listed in the Small tier below. |
+| 34b | Domain-neutral wire rename (`sgf`→`raw_content`, `normalized_sgf`→`canonical_content`, `default_visits` nested into `grading_parameter.data`). Backend dual-emitted for stale-bundle compat through Commit 3, then dropped the response-side shims in Commit 3b. Frontend's reciprocal cleanup (`34b-cleanup`) closed in commit `41a9c5d` (2026-04-26): `mapToReviewCard`'s `?? raw.normalized_sgf` and `?? raw.default_visits` fallback legs retired; the `?? 1000` floor stays as the application-side safety net for malformed `grading_parameter.data`, per ADR-0002's structurally-impossible-input exception. |
 | 26 | *Tenancy READMEs (release-scope.md item 6). The in-code documentation half of the already-shipped tenancy spine. New `## Tenancy` sections in `backend/README.md` and `frontend/README.md` describing what's isolated, what's global, the role of `ALLOW_PASSWORDLESS_LOGIN`, and the default single-user UX. Brief docstrings on `db.schema.{documents,game_source,tag}` (what is and isn't tenant-scoped, and why), `Settings.ALLOW_PASSWORDLESS_LOGIN` (what flipping it does), `api.dependencies.get_current_user_id` (the invariant downstream code relies on), and `src/services/api-client.ts::ensureAuthenticated` (the backend-side assumption). System-level note already exists at `docs/notes/tenancy.md`; this work is the in-code documentation that points back at it. Backend close at commit `0a61197`; frontend close at commit `7eb972e` (also de-branded the README opener as part of the same edit).* |
 
 ### Documentation (architectural records)
@@ -253,36 +253,6 @@ Items 13 (`CardRepository`), 14 (parent-ownership precheck), 15
 were stale at the time of `release-scope.md`'s authoring
 (2026-04-28). See the Backend Completed table above for the
 one-line synopses.
-
-#### 34b-cleanup. `[frontend]` Remove ACL fallback chains
-
-Backend's Commit 3b has shipped, removing the response-side
-stale-bundle compat shims (`normalized_sgf`, top-level
-`default_visits`). The frontend's reciprocal cleanup is no
-longer gated.
-
-Workflow: regenerate `src/types/backend.ts` (`npm run gen:api`)
-to pick up the slimmer wire shape, then simplify
-`mapToReviewCard` from:
-
-```typescript
-sgf: raw.canonical_content ?? raw.normalized_sgf,
-defaultVisits: readGradingParam<number>(raw.grading_parameter, 'default_visits')
-  ?? raw.default_visits
-  ?? 1000,
-```
-
-to:
-
-```typescript
-sgf: raw.canonical_content,
-defaultVisits: readGradingParam<number>(raw.grading_parameter, 'default_visits') ?? 1000,
-```
-
-The `?? 1000` floor stays — that's the application-side safety
-net for cards with malformed `grading_parameter` data,
-independent of any backend shim. Purely housekeeping; no
-behavior change.
 
 ### Medium — touches contracts or requires coordinated changes
 
@@ -589,8 +559,6 @@ work:
 
 **Frontend (small, independent — easiest to interleave):**
 
-- Item 34b-cleanup (~10 lines once `npm run gen:api` is run;
-  pure housekeeping).
 - Type the pipeline DSL — small follow-on.
 
 **Frontend architectural:**
