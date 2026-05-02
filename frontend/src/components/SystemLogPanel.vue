@@ -50,8 +50,8 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
 
 <style scoped>
 .system-log-panel {
-  background: #111;
-  border-bottom: 1px solid #333;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border-2);
   display: flex;
   flex-direction: column;
   max-height: 250px;
@@ -64,14 +64,14 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
   justify-content: space-between;
   align-items: center;
   padding: 4px 12px;
-  background: #181818;
-  border-bottom: 1px solid #222;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--surface-3);
 }
 
 .title {
   font-size: 10px;
   text-transform: uppercase;
-  color: #888;
+  color: var(--text-2);
   letter-spacing: 0.1em;
   font-weight: bold;
 }
@@ -79,13 +79,13 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
 .clear-btn {
   background: none;
   border: none;
-  color: #4aaef0;
+  color: var(--accent-primary);
   font-size: 10px;
   cursor: pointer;
   text-transform: uppercase;
 }
-.clear-btn:hover:not(:disabled) { color: #fff; }
-.clear-btn:disabled { color: #333; cursor: default; }
+.clear-btn:hover:not(:disabled) { color: var(--text-0); }
+.clear-btn:disabled { color: var(--border-2); cursor: default; }
 
 .messages-list {
   flex: 1;
@@ -100,15 +100,15 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
   display: flex;
   align-items: flex-start;
   padding: 8px 10px;
-  background: #1a1a1a;
-  border-left: 3px solid #555;
+  background: var(--surface-2);
+  border-left: 3px solid var(--border-3);
   border-radius: 2px;
   gap: 10px;
 }
 
-.msg-error { border-left-color: #ff4a4a; background: rgba(255, 74, 74, 0.05); }
-.msg-warning { border-left-color: #f0a04a; background: rgba(240, 160, 74, 0.05); }
-.msg-info { border-left-color: #4aaef0; }
+.msg-error { border-left-color: var(--state-attention); background: color-mix(in srgb, var(--state-attention) 5%, transparent); }
+.msg-warning { border-left-color: var(--state-warning); background: color-mix(in srgb, var(--state-warning) 5%, transparent); }
+.msg-info { border-left-color: var(--accent-primary); }
 
 .msg-icon { font-size: 14px; margin-top: 2px; }
 
@@ -121,13 +121,13 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
 
 .msg-time {
   font-size: 9px;
-  color: #666;
+  color: var(--text-2);
   font-family: monospace;
 }
 
 .msg-text {
   font-size: 11px;
-  color: #eee;
+  color: var(--text-0);
   font-family: monospace;
   white-space: pre-wrap; /* Preserve stack traces if sent by Python */
   line-height: 1.4;
@@ -136,13 +136,13 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
 .dismiss-btn {
   background: none;
   border: none;
-  color: #666;
+  color: var(--text-2);
   font-size: 16px;
   cursor: pointer;
   padding: 0;
   line-height: 1;
 }
-.dismiss-btn:hover { color: #fff; }
+.dismiss-btn:hover { color: var(--text-0); }
 
 .empty-state {
   display: flex;
@@ -151,6 +151,6 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
   padding: 6px 14px;
   font-family: monospace;
 }
-.empty-dot { color: #333; font-size: 14px; line-height: 1; }
-.empty-text { color: #444; font-size: 11px; font-style: italic; }
+.empty-dot { color: var(--border-2); font-size: 14px; line-height: 1; }
+.empty-text { color: var(--border-3); font-size: 11px; font-style: italic; }
 </style>

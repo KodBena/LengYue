@@ -94,27 +94,27 @@ watch(
 .user-badge {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 0 8px 0 12px; margin-left: 4px; height: 100%;
-  font-size: 11px; color: #aaa; font-family: inherit;
-  background: none; border: none; border-left: 1px solid #2a2a2a;
+  font-size: 11px; color: var(--text-1); font-family: inherit;
+  background: none; border: none; border-left: 1px solid var(--border-1);
   cursor: pointer; user-select: none; outline: none;
 }
-.user-badge:hover { background: rgba(74, 174, 240, 0.08); }
-.user-badge:focus-visible { outline: 1px solid #4aaef0; outline-offset: -1px; }
+.user-badge:hover { background: color-mix(in srgb, var(--accent-primary) 8%, transparent); }
+.user-badge:focus-visible { outline: 1px solid var(--accent-primary); outline-offset: -1px; }
 
 .dot {
   display: inline-block; width: 7px; height: 7px;
-  border-radius: 50%; background: #555; flex-shrink: 0;
+  border-radius: 50%; background: var(--border-3); flex-shrink: 0;
 }
 
 /* dot color matches turn-indicator palette */
-.dot-ok      { background: #4aaef0; }
-.dot-pending { background: #f0a04a; }
-.dot-err     { background: #ff4a4a; }
-.dot-idle    { background: #555; }
+.dot-ok      { background: var(--accent-primary); }
+.dot-pending { background: var(--state-warning); }
+.dot-err     { background: var(--state-attention); }
+.dot-idle    { background: var(--border-3); }
 
 .label { font-family: monospace; font-size: 10px; }
 
-.auth-authenticated  .label { color: #ddd; }
-.auth-authenticating .label { color: #f0a04a; }
-.auth-error          .label { color: #ff4a4a; }
+.auth-authenticated  .label { color: var(--text-0); }
+.auth-authenticating .label { color: var(--state-warning); }
+.auth-error          .label { color: var(--state-attention); }
 </style>
