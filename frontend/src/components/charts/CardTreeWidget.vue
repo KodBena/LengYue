@@ -197,14 +197,14 @@ watch(
   width: 100%;
   height: 100%;
   min-height: 0;
-  background: #050505;
+  background: var(--surface-0);
   padding: 8px;
 }
 .tree-section {
   display: flex;
   flex-direction: column;
-  background: #0a0a0a;
-  border: 1px solid #1f1f1f;
+  background: var(--surface-0);
+  border: 1px solid var(--border-1);
   border-radius: 4px;
   flex-shrink: 0;
   min-height: 0;
@@ -219,12 +219,12 @@ watch(
   cursor: pointer;
   user-select: none;
 }
-.tree-header:hover { background: #111; }
-.tree-section.expanded .tree-header { border-bottom: 1px solid #1a1a1a; }
-.tree-header .chevron { font-size: 9px; color: #666; width: 10px; flex-shrink: 0; }
-.tree-header .title { font-size: 12px; color: #eee; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tree-header .meta { font-size: 10px; color: #888; white-space: nowrap; }
-.tree-header .counts { margin-left: auto; font-size: 10px; color: #4aaef0; white-space: nowrap; }
+.tree-header:hover { background: var(--surface-1); }
+.tree-section.expanded .tree-header { border-bottom: 1px solid var(--surface-2); }
+.tree-header .chevron { font-size: 9px; color: var(--text-2); width: 10px; flex-shrink: 0; }
+.tree-header .title { font-size: 12px; color: var(--text-0); font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tree-header .meta { font-size: 10px; color: var(--text-2); white-space: nowrap; }
+.tree-header .counts { margin-left: auto; font-size: 10px; color: var(--accent-primary); white-space: nowrap; }
 .tree-canvas { flex: 1; min-height: 0; width: 100%; cursor: crosshair; }
-.empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: #555; font-size: 12px; }
+.empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--border-3); font-size: 12px; }
 </style>

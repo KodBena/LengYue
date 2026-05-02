@@ -276,6 +276,14 @@ onUnmounted(() => stopDragging());
 </script>
 
 <style scoped>
+/* theme-exception: This component carries its own self-contained
+   Tailwind-style palette (slate / sky / amber tones) tuned to make
+   the rug-plot data colors (set in the script's `getColor`) pop.
+   The chrome here is part of that visualization-system design, not
+   the substrate's vocabulary. Snapping to the chrome anchors would
+   break the deliberate slate/sky aesthetic; mapping the data colors
+   would defeat the rug-plot signaling. Treated as a self-contained
+   visualization-system per plan §E's posture toward such systems. */
 .timeline-container {
   position: relative;
   width: 100%;
