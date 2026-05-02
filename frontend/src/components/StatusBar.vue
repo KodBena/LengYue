@@ -56,14 +56,14 @@ const emit = defineEmits<{
 <style scoped>
 .status-bar {
   height: 20px;
-  background: #1a1a1a;
-  border-top: 1px solid #2a2a2a;
+  background: var(--surface-2);
+  border-top: 1px solid var(--border-1);
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 6px;
   font-size: 11px;
-  color: #aaa;
+  color: var(--text-1);
   flex-shrink: 0;
 }
 
@@ -71,8 +71,8 @@ const emit = defineEmits<{
 .status-right { display: flex; gap: 15px; align-items: center; }
 
 .move-badge {
-  background: #4aaef0;
-  color: #000;
+  background: var(--accent-primary);
+  color: var(--surface-0);
   padding: 1px 6px;
   font-weight: bold;
   border-radius: 2px;
@@ -80,15 +80,15 @@ const emit = defineEmits<{
   font-size: 10px;
 }
 
-.player-names { color: #fff; font-weight: 600; }
-.game-info    { color: #555; font-size: 10px; display: flex; align-items: center; gap: 4px; }
+.player-names { color: var(--text-0); font-weight: 600; }
+.game-info    { color: var(--border-3); font-size: 10px; display: flex; align-items: center; gap: 4px; }
 
 .komi-input {
   width: 42px;
   background: transparent;
   border: none;
-  border-bottom: 1px dashed #555;
-  color: #aaa;
+  border-bottom: 1px dashed var(--border-3);
+  color: var(--text-1);
   font-size: 10px;
   font-family: inherit;
   padding: 0;
@@ -97,8 +97,8 @@ const emit = defineEmits<{
   transition: color 0.2s, border-color 0.2s;
 }
 .komi-input:focus, .komi-input:hover {
-  color: #4aaef0;
-  border-bottom: 1px solid #4aaef0;
+  color: var(--accent-primary);
+  border-bottom: 1px solid var(--accent-primary);
 }
 
 /* Hide number arrows for a cleaner look */
@@ -112,8 +112,8 @@ const emit = defineEmits<{
 }
 
 .turn-indicator { font-weight: bold; }
-.turn-indicator.B { color: #4aaef0; }
-.turn-indicator.W { color: #f0a04a; }
+.turn-indicator.B { color: var(--accent-primary); }
+.turn-indicator.W { color: var(--accent-secondary); }
 
-.caps { font-family: monospace; color: #666; font-size: 10px; }
+.caps { font-family: monospace; color: var(--text-2); font-size: 10px; }
 </style>

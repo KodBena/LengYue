@@ -44,7 +44,7 @@ const engineBtnLabel = computed(() => isConnected.value ? 'Disconnect' : 'Connec
         <span class="m-lbl">WATCHDOG</span>
         <span
           class="m-val watchdog-dot"
-          :style="{ color: metrics.latencyMs < 500 ? '#00ff88' : '#ff4444' }"
+          :style="{ color: metrics.latencyMs < 500 ? '#00ff88' : 'var(--state-attention)' }"
         >●</span>
       </div>
     </div>
@@ -69,16 +69,19 @@ const engineBtnLabel = computed(() => isConnected.value ? 'Disconnect' : 'Connec
 </template>
 
 <style scoped>
-.toolbar { height: 28px; background: #252525; display: flex; align-items: center; padding: 0 6px; gap: 6px; justify-content: space-between; border-bottom: 1px solid #111; flex-shrink: 0; }
-.toolbar-title { font-size: 10px; color: #fff; text-transform: uppercase; letter-spacing: 0.12em; white-space: nowrap; }
+.toolbar { height: 28px; background: var(--surface-3); display: flex; align-items: center; padding: 0 6px; gap: 6px; justify-content: space-between; border-bottom: 1px solid var(--surface-1); flex-shrink: 0; }
+.toolbar-title { font-size: 10px; color: var(--text-0); text-transform: uppercase; letter-spacing: 0.12em; white-space: nowrap; }
 .engine-metrics-bar { display: flex; gap: 10px; font-family: monospace; font-size: 11px; }
 .metric { display: flex; align-items: center; gap: 4px; }
-.m-lbl  { color: #555; font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; }
-.m-val  { color: #4aaef0; font-weight: bold; }
+.m-lbl  { color: var(--border-3); font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; }
+.m-val  { color: var(--accent-primary); font-weight: bold; }
 .engine-controls { display: flex; gap: 4px; flex-shrink: 0; }
-.toolbar-btn { background: #333; border: 1px solid #444; color: #ccc; padding: 1px 5px; font-size: 11px; cursor: pointer; border-radius: 3px; font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: 0.05em; transition: background 0.15s, border-color 0.15s; }
-.toolbar-btn:hover { background: #444; border-color: #555; color: #fff; }
-.btn-connected { border-color: #4caf50 !important; color: #4caf50 !important; }
-.highlight-btn { border-color: #2a5a7a; color: #4aaef0; }
-.highlight-btn:hover { background: #1a3a4a; border-color: #4aaef0; }
+.toolbar-btn { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: 1px 5px; font-size: 11px; cursor: pointer; border-radius: 3px; font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: 0.05em; transition: background 0.15s, border-color 0.15s; }
+.toolbar-btn:hover { background: var(--border-3); border-color: var(--border-3); color: var(--text-0); }
+.btn-connected { border-color: var(--state-success) !important; color: var(--state-success) !important; }
+/* theme-exception: .highlight-btn uses muted-cyan border (#2a5a7a)
+   and #1a3a4a hover bg — same muted-action-button pattern as
+   QeuboToolbar's .apply-btn. */
+.highlight-btn { border-color: #2a5a7a; color: var(--accent-primary); }
+.highlight-btn:hover { background: #1a3a4a; border-color: var(--accent-primary); }
 </style>

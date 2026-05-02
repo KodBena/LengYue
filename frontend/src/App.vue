@@ -311,7 +311,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
                   <button
                     class="action-btn-large"
-                    style="background: #f0a04a; color: #111; margin-bottom: 20px;"
+                    style="background: var(--accent-secondary); color: var(--surface-1); margin-bottom: 20px;"
                     @click="startEbisu"
                     :disabled="reviewSession.state.value === 'LOADING' || !store.profile.cardSets[store.session.ui.activeCardSetId]"
                   >
@@ -326,12 +326,12 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
                   </p>
                   
                   <p style="font-weight: bold; margin-bottom: 15px;" 
-                     :style="{ color: reviewSession.state.value === 'FINISHED' ? '#f0a04a' : '#ff4a4a' }">
+                     :style="{ color: reviewSession.state.value === 'FINISHED' ? 'var(--accent-secondary)' : 'var(--state-attention)' }">
                     Status: {{ reviewSession.state.value }} 
                     <span v-if="reviewSession.state.value === 'ANALYZING'">(KataGo is pondering...)</span>
                   </p>
 
-                  <div v-if="reviewSession.state.value === 'FINISHED'" style="height: 180px; width: 100%; margin-bottom: 20px; background: #0a0a0a; border: 1px solid #222; border-radius: 4px;">
+                  <div v-if="reviewSession.state.value === 'FINISHED'" style="height: 180px; width: 100%; margin-bottom: 20px; background: var(--surface-0); border: 1px solid var(--surface-3); border-radius: 4px;">
                     <BaseChart :series="intermissionSeries" :zoomRange="[1, reviewSession.currentCard.value.numMoves]" />
                   </div>
 
@@ -461,7 +461,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
 #app {
   height: 100vh; width: 100vw;
-  background-color: #1a1a1a; color: #eee;
+  background-color: var(--surface-2); color: var(--text-0);
   overflow: hidden;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
@@ -476,13 +476,13 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
   flex: 1;
   min-width: 0;
   min-height: 0;
-  background: #111;
+  background: var(--surface-1);
 }
 
 /* The top nav bar always spans the full width of main-workspace */
-.top-nav-bar { 
-  display: flex; align-items: center; background: #252525; 
-  border-bottom: 1px solid #111; padding: 0 6px; height: 32px; flex-shrink: 0;
+.top-nav-bar {
+  display: flex; align-items: center; background: var(--surface-3);
+  border-bottom: 1px solid var(--surface-1); padding: 0 6px; height: 32px; flex-shrink: 0;
 }
 
 /* The lower area where the resizer lives */
@@ -514,17 +514,22 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
 #content { flex: 1; display: flex; justify-content: center; align-items: center; min-height: 0; }
 
-#vue-tree-panel { width: 220px; display: flex; flex-direction: column; border-left: 1px solid #111; background: #1e1e1e; min-height: 0; flex-shrink: 0; padding-right: 5px; }
-#tree-panel-header { height: 20px; background: #1e1e1e; border-bottom: 1px solid #111; display: flex; align-items: center; padding: 0 6px; font-size: 9px; letter-spacing: 0.16em; color: #363636; text-transform: uppercase; flex-shrink: 0; }
-#control-panel { border-left: 1px solid #111; background: #222; flex-shrink: 0; display: flex; flex-direction: column; }
+#vue-tree-panel { width: 220px; display: flex; flex-direction: column; border-left: 1px solid var(--surface-1); background: var(--border-1); min-height: 0; flex-shrink: 0; padding-right: 5px; }
+#tree-panel-header { height: 20px; background: var(--border-1); border-bottom: 1px solid var(--surface-1); display: flex; align-items: center; padding: 0 6px; font-size: 9px; letter-spacing: 0.16em; color: var(--text-2); text-transform: uppercase; flex-shrink: 0; }
+#control-panel { border-left: 1px solid var(--surface-1); background: var(--surface-3); flex-shrink: 0; display: flex; flex-direction: column; }
 
+/* theme-exception: .panel-resizer #eba46d is a peach accent color
+   outside the substrate vocabulary (the chrome substrate has
+   --accent-primary cyan and --accent-secondary orange #f0a04a; this
+   peach is distinct from both). Used as a visual handle for the
+   board / control-panel divider. */
 .panel-resizer { width: 4px; background: #eba46d; cursor: col-resize; z-index: 50; flex-shrink: 0; transition: background 0.2s; }
-.panel-resizer:hover, .panel-resizer:active { background: #4aaef0; }
+.panel-resizer:hover, .panel-resizer:active { background: var(--accent-primary); }
 
 .tab-padding { padding: 8px; }
 .tab-padding-sr { padding: 12px 8px; text-align: center; }
-.section-divider { border-top: 1px solid #222; margin-top: 0; padding-top: 0; }
-.sub-header { color: #666; font-size: 14px; margin-bottom: 10px; }
+.section-divider { border-top: 1px solid var(--surface-3); margin-top: 0; padding-top: 0; }
+.sub-header { color: var(--text-2); font-size: 14px; margin-bottom: 10px; }
 
 /* Native <details> subsections in the Settings tab. Override default
    marker, render a custom chevron that rotates on open. The h3
@@ -544,27 +549,27 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
   content: '▶';
   margin-right: 8px;
   font-size: 9px;
-  color: #666;
+  color: var(--text-2);
   transition: transform 0.15s ease;
   flex-shrink: 0;
 }
 .settings-section[open] > summary::before { transform: rotate(90deg); }
 .settings-section > summary > h3 { margin: 0; flex: 1; }
 .settings-section > summary > .toolbar-btn-sm { margin-left: 8px; }
-.settings-section > summary:hover > h3 { color: #888; }
+.settings-section > summary:hover > h3 { color: var(--text-2); }
 
-.deck-selector-box { background: #181818; padding: 15px; border-radius: 4px; border: 1px solid #222; margin-bottom: 20px; text-align: left; }
-.deck-selector-box label { font-size: 11px; color: #888; display: block; margin-bottom: 6px; text-transform: uppercase; }
-.deck-dropdown { width: 100%; padding: 8px; font-size: 12px; margin-bottom: 8px; background: #111; color: #eee; border: 1px solid #333; border-radius: 3px; outline: none; }
-.deck-dropdown:focus { border-color: #4aaef0; }
+.deck-selector-box { background: var(--surface-2); padding: 15px; border-radius: 4px; border: 1px solid var(--surface-3); margin-bottom: 20px; text-align: left; }
+.deck-selector-box label { font-size: 11px; color: var(--text-2); display: block; margin-bottom: 6px; text-transform: uppercase; }
+.deck-dropdown { width: 100%; padding: 8px; font-size: 12px; margin-bottom: 8px; background: var(--surface-1); color: var(--text-0); border: 1px solid var(--border-2); border-radius: 3px; outline: none; }
+.deck-dropdown:focus { border-color: var(--accent-primary); }
 
-.action-btn-large { background: #4aaef0; color: #fff; border: none; padding: 4px 10px; cursor: pointer; border-radius: 4px; font-weight: bold; width: 100%; }
-.toolbar-btn-sm { background: #333; border: 1px solid #444; color: #ccc; padding: 1px 4px; font-size: 11px; cursor: pointer; border-radius: 3px; }
-.toolbar-btn-sm:hover { background: #444; border-color: #555; }
-.registry-container { margin-top: 0; background: #181818; border: 1px solid #222; border-radius: 4px; max-height: 400px; overflow-y: auto; }
+.action-btn-large { background: var(--accent-primary); color: var(--text-0); border: none; padding: 4px 10px; cursor: pointer; border-radius: 4px; font-weight: bold; width: 100%; }
+.toolbar-btn-sm { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: 1px 4px; font-size: 11px; cursor: pointer; border-radius: 3px; }
+.toolbar-btn-sm:hover { background: var(--border-3); border-color: var(--border-3); }
+.registry-container { margin-top: 0; background: var(--surface-2); border: 1px solid var(--surface-3); border-radius: 4px; max-height: 400px; overflow-y: auto; }
 
-.collapse-btn { background: rgba(20, 20, 20, 0.8); border: 1px solid #333; color: #888; height: 18px; padding: 0 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 10px; }
-.collapse-btn:hover { background: #333; color: #fff; border-color: #555; }
+.collapse-btn { background: color-mix(in srgb, var(--surface-2) 80%, transparent); border: 1px solid var(--border-2); color: var(--text-2); height: 18px; padding: 0 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 10px; }
+.collapse-btn:hover { background: var(--border-2); color: var(--text-0); border-color: var(--border-3); }
 .right-toggles { display: flex; gap: 6px; margin-left: auto; }
 
 /* Visits override row in the SR tab during an active review */
@@ -574,21 +579,21 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
   justify-content: space-between;
   gap: 10px;
   padding: 8px 10px;
-  background: #181818;
-  border: 1px solid #222;
+  background: var(--surface-2);
+  border: 1px solid var(--surface-3);
   border-radius: 4px;
   margin-bottom: 10px;
   text-align: left;
 }
 .visits-override-row label {
   font-size: 11px;
-  color: #888;
+  color: var(--text-2);
   text-transform: uppercase;
 }
 .dark-input {
-  background: #0a0a0a;
-  border: 1px solid #333;
-  color: #ccc;
+  background: var(--surface-0);
+  border: 1px solid var(--border-2);
+  color: var(--text-1);
   font-size: 11px;
 }
 .visits-input {
@@ -598,10 +603,10 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
   outline: none;
   border-radius: 3px;
 }
-.visits-input:focus { border-color: #4aaef0; }
+.visits-input:focus { border-color: var(--accent-primary); }
 
 .hue-slider-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
-.hue-slider-label { display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: #aaa; text-transform: uppercase; letter-spacing: 0.05em; }
-.hue-slider-value { background: #222; padding: 0 8px; border-radius: 3px; color: #4aaef0; font-family: monospace; }
-.hue-slider-input { width: 100%; accent-color: #4aaef0; cursor: pointer; }
+.hue-slider-label { display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--text-1); text-transform: uppercase; letter-spacing: 0.05em; }
+.hue-slider-value { background: var(--surface-3); padding: 0 8px; border-radius: 3px; color: var(--accent-primary); font-family: monospace; }
+.hue-slider-input { width: 100%; accent-color: var(--accent-primary); cursor: pointer; }
 </style>
