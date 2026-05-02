@@ -167,6 +167,7 @@ reading the outstanding work.
 | — | *`useVariationPath` tightening + branded-ref propagation (Small-tier entry retired; closes the adapter the brand-pair commit was rebased through). `useVariationPath`'s return type tightened from `ComputedRef<string[]>` to `ComputedRef<NodeId[]>` — the underlying `getActiveVariationPath` had returned `NodeId[]` since Commit 2-tail, but the composable's loose return type laundered the brand back to bare string. Same for the `getBoardId: () => string` parameter, which is now `() => BoardId`. The `useAnalysisProjection` boundary adapter (a single `as NodeId[]` cast paired with renamed `variationPathRaw`) is gone — the upstream return type is the truth, downstream consumers receive the branded shape directly. While at it: scope expanded to retire the four brand-laundering sites in the consumer graph that the now-honest source signature flagged: `BoardTab.vue:71` (`id as NodeId`), `useEnrichedData.ts:92` (`pathIds[idx] as NodeId`) plus its parameter signature `Ref<string[]>` → `Ref<NodeId[]>`, `useKernelSeries.ts:11` (`variationPath.value as any`, which was brand-laundering against an already-branded `ledger.compute(nodeIds: NodeId[], ...)` API — a pure-overhead cast) plus its parameter signature, `useAnalysisTimeline.ts` two cast sites (`id as NodeId`, `variationPath.value as NodeId[]`) plus parameter signatures `Ref<string[]>` → `Ref<NodeId[]>` and `boardId: string` → `BoardId` (the `branded = boardId as BoardId` local with its now-stale "for compatibility with pre-branded callers" comment also retires — the only caller was already branded). `engine/util.ts`'s "follow-up cleanup worth revisiting" comment block rewritten to reflect that the propagation is complete; the file's ADR-0006 header retrofitted with a purpose line. Scope-expansion lesson, matching the brand-pair commit's "Active-tier entry is a working hypothesis": the original entry framed this as "~5 lines of cleanup" but tightening the source signature without retiring the downstream casts would have left the source telling the truth while the consumer signatures still laundered it — a half-finished propagation that re-establishes the same lie at one layer down. The honest scope of the cleanup is the full propagation. Not in original TODO numbering.* |
 | — | *Merge `CardCreatePayload` / `GameMetadataPayload` with their generated counterparts (Medium-tier entry retired). The handwritten interfaces in `types.ts` were the same shape as the OpenAPI-generated `components['schemas']['CardCreate']` and `components['schemas']['GameSourceCreate']`, declared twice — a drift hazard whose two halves could diverge silently if the backend renamed a field. Closure: re-export from `types.ts` as `type` aliases of the generated schemas. Consumer imports unchanged; `useMinting.ts`, `MintCardModal.vue`, and `services/backend-service.ts::createCard` continue to import `CardCreatePayload`/`GameMetadataPayload` from `../types` — the source-of-truth shift is invisible at the call site, the generated declaration carries the truth. **One subtle migration surfaced**: the generated `CardCreate.grading_parameter` is honestly opaque (`{[key: string]: unknown} \| null`) where the handwritten was `Record<string, any>`. Two access sites in `MintCardModal.vue` (a read at the palette-override branch, a v-model on the visits input) had been quietly relying on the `any`-widening to navigate `gp.data.default_visits`. Closed surgically with localized casts at the access boundaries: a `defaultVisits` computed `{ get, set }` wrapper for the v-model so the template stays clean, and a one-line `as { data?: { default_visits?: number } }` cast at the read site. Both casts carry the same justification: `useMinting.prepareDraft` populates `data.default_visits` before the modal renders, and the modal's contract is to surface that one specific field. The blob's other contents stay opaque. Not in original TODO numbering.* |
 | — | *Transient log-panel auto-reveal on errors and warnings. The persistent system-log bar (filed earlier as "`systemLogExpanded` in `UISession`, always-render `SystemLogPanel`, registry checkbox") shipped only the always-on half of the user's UX intent: `systemLogExpanded === true` exposes the panel persistently, but `=== false` was rendering the panel never — closing the channel for diagnostics that arrive while the panel is collapsed. The user's framing was `=== false` should mean "see it momentarily so you can act on it when something bad happens." Surfaced when a `/cards/{id}/review` 422 (scores outside [0.0, 1.0] under the score-loss palette — Ebisu rejecting unbounded deltas, correctly fail-loud at the backend) reached `pushSystemMessage` but never became visible because the panel was hidden. New composable `src/composables/useTransientLogReveal.ts` (App.vue-scoped, called once at root) watches the head of `store.engine.messages` and flips a local `Ref<boolean>` for 8 seconds when an error- or warning-level message arrives. A second event during the reveal window resets the timer (latest-wins) so a burst keeps the panel visible until things settle. The `v-if` gate on `<SystemLogPanel>` becomes `systemLogExpanded || transientLogReveal`. Info-level messages don't trigger; the user-visible channel for them stays the explicitly-expanded panel. Distinguishing "new arrival" from "rotation/dismissal" uses the message's monotonically-rising `timestamp`, which `pushSystemMessage` stamps on construction; dismissal (`messages.filter(...)`) can change the head reference but never produces a head with a newer timestamp than the last one seen, so the timestamp comparison short-circuits the dismissal case correctly. `immediate: true` on the watcher captures startup-time messages (e.g., a migration's audit-trail SystemMessage written by `updateFromRemote` during hydrate) — startup is exactly when the user needs to see diagnostics. Not in original TODO numbering.* |
+| — | *Color theming substrate — chrome SSOT contract (A1–A4 arc, nine PRs on 2026-05-02). Closes the discipline failure named in `docs/notes/frontend-theming-plan.md`: ~380 chrome color literals scattered across `style.css`, SFC `<style>` blocks, inline template styles, and TS adapters collapse to one substrate file (`src/assets/css/theme.css`) with 16 named anchors (4 surface + 3 border + 3 text + 2 accent + 4 semantic state) plus six chart-derived helpers. The post-refactor SSOT contract: chrome lives in `theme.css`; domain (Go board / stones / ownership) lives in `engine/constants.ts` and inline binding sites; visualization-system anchors (visit-intensity LUT, `CLUSTER_PALETTES`) live in `engine/suggestion-colors.ts`. ~14 documented `theme-exception` zones cover designer-intentional palettes the substrate deliberately doesn't model (native form-control styling, pure-black/white rgba shadows, geiger-dot indicators, muted-state-error button surfaces, muted-cyan action-button variants, lightened-accent hover variants, Tailwind amber/pink role-indicators, HorizontalTimelineVisualizer's whole-block Tailwind palette, ColorDebugStrip's LUT visualization backdrops, and App.vue's panel-resizer peach handle). New helper `src/utils/theme-color.ts::themeColor(name)` (ADR-0002 compliant — throws on missing) for runtime-string consumers (ECharts adapter configs, dynamic SVG presentation attributes that don't evaluate `var()`). PRs: #80 substrate file; #81 style.css sweep; #82–#87 SFC `<style>` blocks across six clusters (rail/board-list, charts/viz, editors, modals/auth, forest/qeubo/controls, shell+App.vue); #88 TS chart adapters via `themeColor()`. Theme replacement (B — flipping the dark default to something less depressing) parked per the user's "structural close only" scoping. Worklogs at `docs/worklog/2026-05-02-theme-substrate-{a1..a4,a3a..a3f}.md`. Substrate-tuning candidates surfaced during the sweep (muted-state-error surfaces, muted-cyan action-button variants, lightened-accent hover) recorded in the A4 worklog as future-PR seeds. Not in original TODO numbering.* |
 
 ### Joint
 
@@ -403,51 +404,14 @@ but the recursive machinery lives in exactly one place.
 Bug-fixes to one variant currently never propagate to the
 others; this item closes that hole.
 
-#### `[frontend]` Color theming substrate — chrome SSOT contract
+#### `[frontend]` Color theming substrate — moved to Completed
 
-Frame and execute the styling-consolidation refactor that closes
-the discipline failure named in
-`docs/notes/frontend-theming-plan.md`: today's ~60 distinct color
-literals scattered across `style.css`, SFC `<style>` blocks,
-inline template styles, and TS adapters (the same `#4aaef0`
-appears ~88 times alone) collapse to **16 named anchors** plus
-two carved-out concerns (domain colors, visualisation systems).
-
-The substrate's value is *primarily* the SSOT contract, not any
-particular theme. After the refactor, every color in the
-codebase lives in exactly one of:
-
-- `src/assets/css/theme.css` (new) — chrome (4 surface + 3
-  border + 3 text + 2 accent + 4 state).
-- `src/engine/constants.ts` (existing, expanded) — domain (Go
-  board, stones, ownership).
-- `src/engine/suggestion-colors.ts` (existing) — visualisation-
-  system anchors (intensity LUT, `CLUSTER_PALETTES`).
-
-This is **ADR-0005 Rule 1 (single source of truth per nominal
-handle) applied to color**. The same survey → cluster →
-substrate → sweep shape is intended as a model for future style
-consolidations (typography, spacing, animation, z-index).
-
-Design note specifies the role taxonomy, default values,
-optional compression points if a smaller budget is mandated, the
-three-phase refactor sketch (land substrate → sweep consumers →
-optionally activate theme variants), the boundary rule that tells
-a contributor which file to touch, and the verification checklist
-including a tee-up for an optional CI lint that fails the build
-on out-of-place color literals.
-
-The parked maximin-contrast palette in
-`src/assets/css/palettes.css` is preserved untouched as a future
-theme variant; the substrate is designed so it can be plugged in
-(or any other theme) without re-touching consumers. The
-visit-intensity LUT, `ColorDebugStrip`, and `CLUSTER_PALETTES`
-are explicitly out of scope — including their anchor colors —
-because they encode information-theoretic properties that arbitrary
-theme swaps would defeat.
-
-Large because the sweep touches every frontend SFC and several
-TS adapters; the substrate addition itself is small.
+Closed across nine PRs (A1–A4 arc) on 2026-05-02. The Frontend
+Completed table below carries the closure synopsis. Worklogs at
+`docs/worklog/2026-05-02-theme-substrate-{a1..a4,a3a..a3f}.md`.
+Theme replacement (B) — flipping the dark default to something
+less depressing — is a separate decision deferred per the user's
+"structural close only" scoping.
 
 #### `[frontend]` Magic-literals audit — extend SSOT discipline beyond color
 
