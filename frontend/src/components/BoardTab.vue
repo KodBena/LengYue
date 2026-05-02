@@ -122,22 +122,22 @@ const rugPlot = computed(() => {
 <style scoped>
 .thumb-container { display: flex; flex-direction: column; align-items: center; margin-bottom: 8px; width: 88px; }
 
-.tab-thumb { 
-  width: 88px; height: 32px; border: 2px solid #222; background: #111; 
-  cursor: pointer; display: flex; align-items: center; justify-content: center; 
+.tab-thumb {
+  width: 88px; height: 32px; border: 2px solid var(--surface-3); background: var(--surface-1);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
   transition: border-color 0.2s ease, background 0.2s ease;
   position: relative; border-radius: 3px;
 }
 
-.tab-label { font-size: 11px; color: #888; font-weight: bold; pointer-events: none; }
-.tab-thumb:hover .tab-label { color: #fff; }
+.tab-label { font-size: 11px; color: var(--text-2); font-weight: bold; pointer-events: none; }
+.tab-thumb:hover .tab-label { color: var(--text-0); }
 
-.tab-thumb.active { background: #181818; }
-.tab-thumb.active .tab-label { color: #4aaef0; }
+.tab-thumb.active { background: var(--surface-2); }
+.tab-thumb.active .tab-label { color: var(--accent-primary); }
 
-.tab-thumb.review-active { border-color: #ff4a4a; box-shadow: 0 0 8px rgba(255, 74, 74, 0.4); }
-.tab-thumb.review-intermission { border-color: #f0a04a; box-shadow: 0 0 8px rgba(240, 160, 74, 0.4); }
-.tab-thumb.review-complete { border-color: #4caf50; }
+.tab-thumb.review-active { border-color: var(--state-attention); box-shadow: 0 0 8px color-mix(in srgb, var(--state-attention) 40%, transparent); }
+.tab-thumb.review-intermission { border-color: var(--state-warning); box-shadow: 0 0 8px color-mix(in srgb, var(--state-warning) 40%, transparent); }
+.tab-thumb.review-complete { border-color: var(--state-success); }
 
 .tab-thumb.active.review-active { border-width: 3px; }
 .tab-thumb.active.review-intermission { border-width: 3px; }
@@ -145,26 +145,29 @@ const rugPlot = computed(() => {
 
 .close-board-btn {
   position: absolute; top: -6px; right: -6px;
-  background: #222; color: #aaa; border: 1px solid #444; border-radius: 50%;
+  background: var(--surface-3); color: var(--text-1); border: 1px solid var(--border-3); border-radius: 50%;
   width: 16px; height: 16px; font-size: 12px; line-height: 1;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; opacity: 0; transition: opacity 0.2s, background 0.2s, color 0.2s;
 }
 
 .tab-thumb:hover .close-board-btn { opacity: 1; }
-.close-board-btn:hover { background: #ff4a4a; color: #fff; border-color: #ff4a4a; }
+.close-board-btn:hover { background: var(--state-attention); color: var(--text-0); border-color: var(--state-attention); }
 
-.indicator-row { 
-  width: 100%; height: 12px; display: flex; align-items: center; 
+.indicator-row {
+  width: 100%; height: 12px; display: flex; align-items: center;
   justify-content: space-between; margin-top: 2px; padding: 0 4px;
 }
 
-.analysis-meter { 
-  flex: 1; height: 4px; background: #050505; border-radius: 1px;
-  margin-right: 8px; display: flex; overflow: hidden; border: 1px solid #111;
+.analysis-meter {
+  flex: 1; height: 4px; background: var(--surface-0); border-radius: 1px;
+  margin-right: 8px; display: flex; overflow: hidden; border: 1px solid var(--surface-1);
 }
 
 .meter-slice { height: 100%; }
 .geiger-dot-wrap { width: 10px; height: 10px; display: flex; align-items: center; justify-content: center; }
+/* theme-exception: #00ff88 is an intentionally vivid activity indicator
+   color, outside the muted semantic-state spectrum and not part of the
+   chrome substrate's vocabulary. */
 .geiger-dot { width: 6px; height: 6px; background: #00ff88; border-radius: 50%; box-shadow: 0 0 8px #00ff88; }
 </style>

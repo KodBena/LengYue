@@ -28,8 +28,8 @@ defineExpose({
   z-index: 9999;
   width: 150px;
   height: 150px;
-  background: #1a1a1a;
-  border: 2px solid #4aaef0;
+  background: var(--surface-2);
+  border: 2px solid var(--accent-primary);
   border-radius: 4px;
   pointer-events: none;
   box-shadow: 0 10px 30px rgba(0,0,0,0.5);

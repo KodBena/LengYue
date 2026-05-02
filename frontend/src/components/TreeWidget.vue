@@ -234,14 +234,14 @@ const edges = computed(() => {
 </template>
 
 <style scoped>
-.tree-widget-wrapper { position: relative; width: 100%; height: 100%; background: #1a1a1a; }
+.tree-widget-wrapper { position: relative; width: 100%; height: 100%; background: var(--surface-2); }
 .tree-widget-outer { width: 100%; height: 100%; overflow: auto; }
 .tree-svg { display: block; }
 .node-circle { cursor: pointer; transition: filter 0.1s; }
-.node-circle:hover { filter: brightness(1.4) drop-shadow(0 0 3px #4aaef0); }
+.node-circle:hover { filter: brightness(1.4) drop-shadow(0 0 3px var(--accent-primary)); }
 .toggle-group { cursor: pointer; }
 .toggle-group rect { transition: stroke 0.1s, fill 0.1s; }
-.toggle-group:hover rect { stroke: #4aaef0; fill: #222; }
-.toggle-group:hover line { stroke: #fff; }
+.toggle-group:hover rect { stroke: var(--accent-primary); fill: var(--surface-3); }
+.toggle-group:hover line { stroke: var(--text-0); }
 .hit-area { pointer-events: all; }
 </style>
