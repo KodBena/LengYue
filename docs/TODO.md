@@ -162,6 +162,7 @@ reading the outstanding work.
 | — | *Analysis-meter rugplot fix in `BoardThumbnail.vue` (release wrap-up). The per-move depth strip under each tab thumb had three coupled defects. (1) `min-width: 1px` on each `.meter-slice` made the first ~60 moves consume the meter's visible width with the rest clipped invisibly via `overflow: hidden` — long games were silently truncated past the opening. (2) The default target of `state.maxVisitsTarget || 1000` was instantly saturated by pondering at `maxVisits: 100000`. (3) Inputs ran through `ecdf(visits/target)` even though the ECDF was calibrated for visit-ratio inputs (a move's share of total visits at a node), not absolute target fractions — collapsing the practical range onto a narrow band of the LUT regardless of visit count. Fix: drop the `min-width` so all path nodes share the meter proportionally; raise the target floor to `100000` (matching the ponder ceiling, with a deeper user-specified `analyzeRange` target still winning via `Math.max`); log-compress visits → t (`log1p(visits) / log1p(target)`) so each ~10× of visits adds a near-constant slice of t; add a sibling export `getIntensityColorLinear` in `engine/suggestion-colors.ts` that walks the LUT without the ECDF and takes alpha as a parameter. The ECDF variant `getIntensityColor` is unchanged — move suggestions and `ColorDebugStrip` continue to use it under its original calibrated semantics. Internally, the LUT-walk + hue-rotation is extracted to a shared `colorAtU` helper. Two visual-honesty refinements: unanalysed nodes (`visits === 0`) render as transparent (the meter background shows through, encoding "no data" honestly); each slice carries `title="Move N: X visits"` for hover discoverability at this small size. Closes the indicator-row rough edge surfaced during release wrap-up. Not in original TODO numbering.* |
 | — | *`BoardThumbnail.vue` → `BoardTab.vue` rename (release wrap-up). The component is the tab item in the board-list rail (label, close button, analysis-meter rugplot, geiger dot); the hover-thumbnail is `FloatingThumbnail.vue`'s job. The "Thumbnail" name was a misnomer at this point. Rename via `git mv` (preserves history); two reference sites updated (`SidebarWidget.vue` import + template, comment in `engine/suggestion-colors.ts`); internal header comment in the file expanded to ADR-0006 form (full path + purpose + license) since the SFC was previously carrying a one-line header that predated the ADR. No behaviour change. Not in original TODO numbering.* |
 | — | *Initial-load layout settle (release-scope.md item 7). On first load, the application's layout was visibly broken — the control-panel and board areas didn't size correctly until the user nudged the vertical panel resizer, despite the persisted `session.ui.controlPanelWidth` having a sane default. Resolved across an arc of commits that re-architected the layout pass: the resizer drives the board-square cap, the control panel absorbs leftover space, and the AnalysisDashboard's vertical sizing was tightened (`100vh-100`→`165` plus a `systemLogExpanded` default flip). Two follow-on UI fits landed alongside (board-fits-its-square, analysis-dashboard-double-scrollbar). Closes the seventh and final release-scope item. Not in original TODO numbering.* |
+| — | *Sidebar toggle tooltip + Settings-tab CSS tightening (paired polish). The board-inventory `.collapse-btn` on the top nav bar (`App.vue:190`) was the only toggle in the cluster lacking a `title` attribute — its three siblings (`Toggle Main Board`, `Toggle Game Tree`, `Toggle Control Panel`) had hover tooltips, this one was silent. Added `title="Toggle Board Inventory"` matching the existing pattern. Bundled with the queued Settings-tab CSS tightening: `.section-divider` (`margin-top: 20px; padding-top: 10px;` → both `0`, border-top preserved) and `.registry-container` (`margin-top: 15px` → `0`) in `App.vue`, and `.registry-leaf` (`padding: 6px 8px;` → `0`) in `RegistryEditor.vue`. After the post-PR-#64 accordion landed, the wrapping `<details>` owns each subsection's top rhythm; the per-section air read as wasted space rather than visual structure. The inline `style="margin-top: 24px;"` override on the qEUBO Bookmarks header (`App.vue:432`) was preserved by deliberation — that header lives in the Other tab outside the accordion shape, so the wrapping-details rationale doesn't apply, and after zeroing `.section-divider`'s top margin the inline override is the only thing separating it from the ColorDebugStrip above. Not in original TODO numbering.* |
 
 ### Joint
 
@@ -236,28 +237,6 @@ Skipped for numbering continuity.
 > (`backend-service.ts`, `auth_token`, `'dark' | 'light'`). Use
 > "LengYue" only where a project handle is genuinely unavoidable
 > (e.g., a public-facing API title).
-
-#### `[frontend]` Settings-tab CSS tightening (queued for batching)
-
-Three small CSS adjustments queued for a future bundle so they
-can ship together with other tiny visual tweaks. Not worth a
-standalone PR; accumulate adjacent items here as they surface.
-
-- `App.vue` `.section-divider` (`margin-top: 20px; padding-top:
-  10px;` → both `0`). After the Settings-tab accordion landed
-  (PR #64), the per-section vertical air reads as wasted space
-  rather than visual structure. The per-site
-  `style="margin-top: 24px;"` override on `App.vue:422`
-  (qEUBO Bookmarks header) needs a sanity-check during the same
-  edit — confirm whether the explicit override stays or is
-  removed alongside.
-- `App.vue` `.registry-container` (`margin-top: 15px` → `0`).
-  Same motivation; the wrapping `<details>` now owns the
-  subsection's top rhythm.
-- `RegistryEditor.vue` `.registry-leaf` (`padding: 6px 8px;` →
-  `0`). Tightens the key/value rows; inner form controls already
-  carry their own padding so the leaf wrapper has nothing to
-  contribute. Visual density improvement on the registry editor.
 
 ### Small — one-file refactors, no contract changes
 
