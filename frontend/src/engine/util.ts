@@ -1,5 +1,7 @@
 /**
  * src/engine/util.ts
+ * Pure helpers for board / SGF coordinate work and active-variation
+ * traversal. Stateless; no reactive imports.
  * License: Public Domain (The Unlicense)
  */
 import type { Move, StoneColor, BoardState, NodeId } from '../types';
@@ -51,20 +53,13 @@ export function setDeep(obj: any, path: string[], value: any): void {
  * (following `activeChildIndex` at each branch), then walks back up to
  * collect the lineage as a NodeId[] from root to leaf.
  *
- * ─── Return-type tightening (Commit 2-tail) ──────────────────────────────────
- * Previously typed as `string[]` — a signature lie, since every element
- * is a key in `board.nodes` (Record<NodeId, GameNode>) and therefore by
- * construction a NodeId. The loose `string[]` return type forced
- * downstream consumers (notably useVariationPath, useAnalysisProjection,
- * useChartNavigation) to either accept loose `string[]` themselves or
- * cast at every indexing site.
- *
- * Tightening here is the source-side fix: NodeId[] propagates through
- * useVariationPath to its consumers automatically. The three "safe-by-
- * construction" casts left in useAnalysisProjection.ts (Commit 2a) are
- * now redundant — strict mode may even start flagging them. Worth
- * revisiting that file to remove them as a follow-up cleanup.
- * ──────────────────────────────────────────────────────────────────────────
+ * Returns NodeId[] rather than string[] — every element is a key in
+ * `board.nodes: Record<NodeId, GameNode>` by construction, so the
+ * branded element type is the honest signature. The brand propagates
+ * through `useVariationPath` (which exposes `ComputedRef<NodeId[]>`)
+ * into its consumers (`useAnalysisProjection`, `useChartNavigation`,
+ * `useEnrichedData`, `useKernelSeries`, `useAnalysisTimeline`,
+ * `BoardTab`) without per-site casts.
  */
 export function getActiveVariationPath(board: BoardState): NodeId[] {
   let leafId = board.currentNodeId;

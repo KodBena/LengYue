@@ -4,8 +4,8 @@
  *
  * ## Design
  *
- * This composable accepts a reactive path (a Ref<string[]> of NodeIds) and
- * returns a single ComputedRef<EnrichedResult> that:
+ * This composable accepts a reactive path (`Ref<NodeId[]>`) and returns
+ * a single `ComputedRef<EnrichedResult>` that:
  *
  *   1. Reads each node's packet directly via `ledger.getRaw()`, which now
  *      carries its own per-node reactive dependency (see analysis-ledger.ts).
@@ -71,7 +71,7 @@ const EMPTY_RESULT: EnrichedResult = {
  * The second condition is handled transparently by per-node reactive version
  * refs inside `ledger.getRaw()`. No explicit `watch` or `ledgerVersion` needed.
  */
-export function useEnrichedData(pathIdsRef: Ref<string[]>) {
+export function useEnrichedData(pathIdsRef: Ref<NodeId[]>) {
   return computed<EnrichedResult>(() => {
     const pathIds = pathIdsRef.value;
     if (pathIds.length === 0) return EMPTY_RESULT;
@@ -89,7 +89,7 @@ export function useEnrichedData(pathIdsRef: Ref<string[]>) {
     // all three outputs simultaneously. Each getRaw() call registers a
     // fine-grained reactive dependency on that specific node.
     for (let idx = 0; idx < pathIds.length; idx++) {
-      const packet = ledger.getRaw(activeConfigHash.value, pathIds[idx] as NodeId);
+      const packet = ledger.getRaw(activeConfigHash.value, pathIds[idx]);
       if (!packet?.extra) continue;
 
       const turnStr = packet.turnNumber.toString();

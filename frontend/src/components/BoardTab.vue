@@ -10,7 +10,7 @@
 import { computed } from 'vue';
 import { useActivityDecay } from '../composables/useActivityDecay';
 import { getIntensityColorLinear } from '../engine/suggestion-colors';
-import type { BoardState, NodeId } from '../types';
+import type { BoardState } from '../types';
 import { ledger } from '../services/analysis-ledger';
 import { useVariationPath } from '../composables/useVariationPath';
 import { activeConfigHash } from '../services/analysis-config';
@@ -68,7 +68,7 @@ const rugPlot = computed(() => {
   const target = Math.max(props.state.maxVisitsTarget ?? 0, 100000);
   const targetLog = Math.log1p(target);
   return nodeIds.map((id, idx) => {
-    const packet = ledger.getRaw(activeConfigHash.value, id as NodeId);
+    const packet = ledger.getRaw(activeConfigHash.value, id);
     const visits = packet?.rootInfo?.visits ?? 0;
     if (visits === 0) {
       return { idx, visits, color: 'transparent' };

@@ -12,49 +12,35 @@ import { useEnrichedData } from './useEnrichedData';
 import { useKernelSeries } from './useKernelSeries';
 import { scoreLead } from '../engine/analysis/kernels';
 import { useAnalysisTimeline } from './useAnalysisTimeline';
-import type { NodeId, BoardId, ColorMoveIndex } from '../types';
+import type { BoardId, ColorMoveIndex } from '../types';
 
 /**
- * Branded-type signature discipline (Commit 5a-extension):
+ * Branded-type signature discipline:
  *
- * - `boardId` parameter tightened from `string` to `BoardId`. Caller is
- *   AnalysisDashboard which passes `props.boardId: BoardId` (already
- *   tightened in Commit 5a).
+ * - `boardId` parameter is `BoardId`. Caller is AnalysisDashboard which
+ *   passes `props.boardId: BoardId` (already tightened in Commit 5a).
  *
- * - `variationPath` is now exposed as `ComputedRef<NodeId[]>` rather than
- *   the raw `Ref<string[]>` returned by `useVariationPath`. The cast is
- *   localized to a single adapter computed at the boundary of this
- *   composable; downstream consumers (AnalysisDashboard, ScoreLeadPanel,
- *   PlayerPanel, StabilityPanel) get the branded shape automatically.
- *
- *   This is the agreed pattern from Commit 2-tail: cast at the upstream-
- *   boundary, document as safe-by-construction, until `useVariationPath`
- *   itself is tightened (which would let us remove this adapter and
- *   expose the underlying ref directly). The cast is honest because
- *   variationPath is computed by walking `board.nodes`
- *   (Record<NodeId, GameNode>); every element is a valid NodeId by
- *   construction. Future cleanup: tighten useVariationPath to return
- *   `Ref<NodeId[]>` and replace this adapter with a passthrough.
+ * - `variationPath` flows in as `ComputedRef<NodeId[]>` directly from
+ *   `useVariationPath`, which itself reads from `board.nodes:
+ *   Record<NodeId, GameNode>` via `getActiveVariationPath` — every
+ *   element is a NodeId by construction. The boundary adapter that
+ *   previously lived at the head of this composable (a single
+ *   safe-by-construction `as NodeId[]` cast paired with renamed
+ *   `variationPathRaw`) is gone; the upstream return type is now the
+ *   truth and downstream consumers receive the branded shape directly.
  */
 export function useAnalysisProjection(boardId: BoardId) {
   // 1. Source Data
-  const variationPathRaw = useVariationPath(() => boardId);
-  const enriched = useEnrichedData(variationPathRaw);
-  const scoreLeadData = useKernelSeries(variationPathRaw, scoreLead);
+  const variationPath = useVariationPath(() => boardId);
+  const enriched = useEnrichedData(variationPath);
+  const scoreLeadData = useKernelSeries(variationPath, scoreLead);
 
-  // Boundary adapter: re-expose variationPath with branded element type.
-  // Single safe-by-construction cast localized here so consumers don't
-  // each need their own.
-  const variationPath = computed<NodeId[]>(
-    () => variationPathRaw.value as NodeId[]
-  );
-  
   const {
     visitVector,
     selectionRange,
     setSelectionRange,
     analyzeSelection,
-  } = useAnalysisTimeline(variationPathRaw, boardId);
+  } = useAnalysisTimeline(variationPath, boardId);
 
   // 2. Index Calculation (The "Audit" Logic)
   const activeMainIndex = computed(() => {
