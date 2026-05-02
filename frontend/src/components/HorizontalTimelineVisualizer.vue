@@ -86,6 +86,7 @@
 <script setup lang="ts">
 import { computed, ref, onUnmounted, toRefs } from 'vue';
 import { useTimelineLogic, type Segment } from '../composables/useTimelineLogic';
+import { getIntensityColorLinear } from '../engine/suggestion-colors';
 
 interface Props {
   dataVector: number[];
@@ -127,11 +128,18 @@ const handleSegmentClick = (segment: Segment) => {
   emit('segmentClick', segment);
 };
 
-const getColor = (value: number) => {
-  if (value >= 0.8) return '#38bdf8'; 
-  if (value >= 0.5) return '#fbbf24'; 
-  if (value > 0) return '#94a3b8'; 
-  return 'transparent';
+// Use the perceptually-uniform CIELAB visit-intensity LUT — the
+// same gradient that drives the move-suggestion overlay and the
+// BoardTab analysis-meter rugplot. The previous categorical
+// mapping (sky-400 / amber-400 / slate-400 by threshold) was a
+// long-standing visual bug in this band-1 component; replacing
+// it puts the rug-plot here visually consistent with the rest of
+// the app's analysis-depth signalling. Zero values render
+// transparent so unanalyzed gaps show through honestly (matches
+// BoardTab's `visits === 0 → transparent` discipline).
+const getColor = (value: number): string => {
+  if (value <= 0) return 'transparent';
+  return getIntensityColorLinear.value(Math.min(1, value), 1);
 };
 
 const normalizeValue = (val: number, segment: Segment) => {
@@ -276,14 +284,17 @@ onUnmounted(() => stopDragging());
 </script>
 
 <style scoped>
-/* theme-exception: This component carries its own self-contained
-   Tailwind-style palette (slate / sky / amber tones) tuned to make
-   the rug-plot data colors (set in the script's `getColor`) pop.
-   The chrome here is part of that visualization-system design, not
-   the substrate's vocabulary. Snapping to the chrome anchors would
-   break the deliberate slate/sky aesthetic; mapping the data colors
-   would defeat the rug-plot signaling. Treated as a self-contained
-   visualization-system per plan §E's posture toward such systems. */
+/* theme-exception: chrome (slate-950 background, slate-700 border,
+   slate-400 grid lines, sky-400 alpha-modulated selection slider,
+   pink-200 handle bar) is preserved as a deliberate Tailwind-style
+   palette for this band-1 visualizer. The earlier rationale (chrome
+   "co-tuned" with the categorical Tailwind data colors) is retired
+   — the data gradient now uses the perceptually-uniform CIELAB LUT
+   that the rest of the app uses for analysis-depth signalling, see
+   the script's `getColor`. The chrome's slate aesthetic stands on
+   its own; whether to sweep it to the chrome substrate is a
+   separate UX decision (would lose the slate tint for grayscale
+   surface anchors). */
 .timeline-container {
   position: relative;
   width: 100%;
