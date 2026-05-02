@@ -368,6 +368,35 @@ remaining inline-conversion site identified during the
 heatmap fix; the same bug shape that motivated the brand
 pair cannot re-emerge here once the prop is branded.
 
+#### `[frontend]` Cards tab merge — per-board forest + current-card overlay
+
+Merge the SR and Database control-panel tabs into a single
+**Cards** tab (visual shape matches today's `ForestDirectory`),
+introduce a "Start review session from this configuration" button
+in the Decks subtab, render the active-board's current SR card in
+orange against the forest's blue active-set rendering. Forest
+state, active set, hydrated cards, and per-tree stats become
+**per-board** to match the existing per-board convention for
+review session state; UI affordance state (active sub-tab, panel
+widths) stays workspace-global.
+
+Design captured in `docs/notes/cards-tab-merge-plan.md`. The note
+lays out: schema migration 11 → 12 (collapse `srContextIds` and
+`databaseContextIds` to `cardsContextIds`, rewrite stored
+`activeTab` values), per-board ephemeral state at module scope
+(mirrors `pendingAnalysisAborts`), composable signature changes
+(`useCardTreeData` becomes a projection composable;
+`useReviewSession.startSession` accepts a prefetched queue), the
+orange overlay as a render-time decoration on top of the existing
+role partition (active / context / stub / bucket), the two-PR
+phasing, and the verification checklist.
+
+Two-PR seam suggested in the plan:
+- PR 1: schema migration + composable signatures + orange
+  overlay (no UI move yet; old SR / Database tabs unchanged).
+- PR 2: `ReviewSessionPanel` extraction + `ForestDirectory`
+  integration + `App.vue` tab restructure.
+
 #### `[frontend]` Brand `BoardState.analysisRange` as `[PlyIndex, PlyIndex]`
 
 `BoardState.analysisRange?: [number, number]` is documented in
@@ -429,6 +458,52 @@ four public surfaces intact — they're each used by something —
 but the recursive machinery lives in exactly one place.
 Bug-fixes to one variant currently never propagate to the
 others; this item closes that hole.
+
+#### `[frontend]` Color theming substrate — chrome SSOT contract
+
+Frame and execute the styling-consolidation refactor that closes
+the discipline failure named in
+`docs/notes/frontend-theming-plan.md`: today's ~60 distinct color
+literals scattered across `style.css`, SFC `<style>` blocks,
+inline template styles, and TS adapters (the same `#4aaef0`
+appears ~88 times alone) collapse to **16 named anchors** plus
+two carved-out concerns (domain colors, visualisation systems).
+
+The substrate's value is *primarily* the SSOT contract, not any
+particular theme. After the refactor, every color in the
+codebase lives in exactly one of:
+
+- `src/assets/css/theme.css` (new) — chrome (4 surface + 3
+  border + 3 text + 2 accent + 4 state).
+- `src/engine/constants.ts` (existing, expanded) — domain (Go
+  board, stones, ownership).
+- `src/engine/suggestion-colors.ts` (existing) — visualisation-
+  system anchors (intensity LUT, `CLUSTER_PALETTES`).
+
+This is **ADR-0005 Rule 1 (single source of truth per nominal
+handle) applied to color**. The same survey → cluster →
+substrate → sweep shape is intended as a model for future style
+consolidations (typography, spacing, animation, z-index).
+
+Design note specifies the role taxonomy, default values,
+optional compression points if a smaller budget is mandated, the
+three-phase refactor sketch (land substrate → sweep consumers →
+optionally activate theme variants), the boundary rule that tells
+a contributor which file to touch, and the verification checklist
+including a tee-up for an optional CI lint that fails the build
+on out-of-place color literals.
+
+The parked maximin-contrast palette in
+`src/assets/css/palettes.css` is preserved untouched as a future
+theme variant; the substrate is designed so it can be plugged in
+(or any other theme) without re-touching consumers. The
+visit-intensity LUT, `ColorDebugStrip`, and `CLUSTER_PALETTES`
+are explicitly out of scope — including their anchor colors —
+because they encode information-theoretic properties that arbitrary
+theme swaps would defeat.
+
+Large because the sweep touches every frontend SFC and several
+TS adapters; the substrate addition itself is small.
 
 ---
 
@@ -508,6 +583,17 @@ work:
   `BoardState.analysisRange` → `[PlyIndex, PlyIndex]`. Pair of
   Medium-tier entries above; both shake out the off-by-colour
   bug class the brand pair was introduced to prevent.
+
+**Frontend architectural:**
+
+- Cards tab merge (`docs/notes/cards-tab-merge-plan.md`) — Medium
+  tier; closes the SR/Database DRY violation, introduces the
+  per-board forest + orange current-card overlay. Two-PR seam
+  documented in the plan.
+- Color theming substrate (`docs/notes/frontend-theming-plan.md`)
+  — Large tier; closes the scattered-color-literal discipline
+  failure as an instance of ADR-0005 Rule 1 applied to color.
+  Codebase-wide sweep; substrate addition itself is small.
 
 **Backend architectural:**
 
