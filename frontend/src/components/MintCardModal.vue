@@ -24,6 +24,30 @@ const selectedPaletteId = ref<string>('active');
 
 const palettes = computed(() => store.profile.settings.engine.katago.analysis_env.palettes);
 
+// Typed accessor for the modal's only field inside `grading_parameter`.
+// The wire shape declares `grading_parameter: { [key: string]: unknown } | null`
+// (OpenAPI-honest about the blob's opacity), but `useMinting.prepareDraft`
+// populates `data.default_visits: number` before the modal renders, and
+// the modal's contract is to surface that one field as editable. The
+// localized cast widens at the access boundary; the rest of the blob
+// stays opaque.
+const defaultVisits = computed<number>({
+  get() {
+    const gp = draft.value?.grading_parameter as
+      | { data?: { default_visits?: number } }
+      | null
+      | undefined;
+    return gp?.data?.default_visits ?? 1000;
+  },
+  set(v: number) {
+    if (!draft.value) return;
+    const gp = draft.value.grading_parameter as
+      | { data: Record<string, unknown> }
+      | null;
+    if (gp?.data) gp.data.default_visits = v;
+  },
+});
+
 const filteredTags = computed(() => {
   const query = tagInput.value.toLowerCase().trim();
   if (!query) return [];
@@ -112,7 +136,13 @@ async function submit() {
     const env = store.profile.settings.engine.katago.analysis_env;
     const p = env.palettes.find(x => x.id === selectedPaletteId.value);
     if (p) {
-      const preservedVisits = draft.value.grading_parameter?.data?.default_visits;
+      // Local cast at the read site: the wire shape's `grading_parameter`
+      // is `{[key: string]: unknown} | null`; the create-flow contract
+      // populates `data.default_visits` (see `useMinting.prepareDraft`).
+      const gp = draft.value.grading_parameter as
+        | { data?: { default_visits?: number } }
+        | null;
+      const preservedVisits = gp?.data?.default_visits;
       draft.value.grading_parameter = {
         data: {
           analysis_config: {
@@ -166,12 +196,14 @@ async function submit() {
           <input type="number" v-model.number="draft.num_moves" min="1" max="50" class="dark-input" />
 
           <label>Default Visits:</label>
-          <!-- 34b: visits moved from top-level `draft.default_visits` into
-               `draft.grading_parameter.data.default_visits`. The nested path
-               is guaranteed to exist because `useMinting.prepareDraft`
-               always constructs `grading_parameter.data` and populates
-               `default_visits` inside it before the modal renders. -->
-          <input type="number" v-model.number="draft.grading_parameter.data.default_visits" min="1" step="100" class="dark-input" />
+          <!-- 34b: visits live inside `grading_parameter.data.default_visits`,
+               not at the top level. The OpenAPI-generated wire type leaves
+               that path opaque (`{[key: string]: unknown}`); the typed
+               accessor `defaultVisits` (see <script>) widens at the
+               access boundary. The path is guaranteed to exist because
+               `useMinting.prepareDraft` constructs it before the modal
+               renders. -->
+          <input type="number" v-model.number="defaultVisits" min="1" step="100" class="dark-input" />
 
           <label>Analysis Palette:</label>
           <select v-model="selectedPaletteId" class="dark-select">
