@@ -505,6 +505,48 @@ theme swaps would defeat.
 Large because the sweep touches every frontend SFC and several
 TS adapters; the substrate addition itself is small.
 
+#### `[frontend]` Magic-literals audit — extend SSOT discipline beyond color
+
+After the color theming substrate lands, sweep the rest of the
+codebase for unjustified literal constants — magic numbers, magic
+strings, magic offsets — and bring them under the same discipline.
+**Treat scattered literals with the same suspicion as `as any`:**
+each is a local override of the design vocabulary, visible only on
+review, with no compiler signal pointing at it later. The
+codebase already requires comments justifying `as any` casts; the
+audit extends the same expectation to literals.
+
+Triggering specimen: the `* 0.88` PV-stone-radius multiplier in
+`MoveSuggestions.vue` (no recorded rationale; engineered around in
+a later fix instead of being questioned). The 0.88 itself is being
+removed in a one-shot fix; this audit addresses the *class* of
+failure that allowed it to land.
+
+Design captured in `docs/notes/magic-literals-audit-plan.md`. The
+note specifies: the literals-as-`as any` framing, a two-pass sweep
+methodology (inventory → cluster → substrate-or-justify), the
+contract ("every literal either lives in a named constant in a
+documented location, OR carries an inline comment at the use site
+explaining its presence"), the categories likely to surface
+(layout/geometry, animation timings, opacity scales, z-index,
+domain thresholds, wire-format magic strings), and what the audit
+deliberately does not do (no retroactive comments on trivial
+literals; no one-off promotion to constants; backend scope
+deferred).
+
+**Predicated on the color theming substrate being done first.**
+Color is the largest single literal category (~60 distinct values)
+and is already its own design plan; auditing color and the residue
+together would make either review impossible. A small layout/
+geometry substrate (`useBoardGeometry` + a shared `<Stone>`
+component, surfaced by the PV-stone investigation) may also land
+as its own substrate before this broad audit, by the same
+scope-cleanliness logic.
+
+Large because the audit's surface is the entire frontend codebase,
+even though each emerging substrate or inline-justification edit
+is small.
+
 ---
 
 ## Future projects (parked with design notes)
@@ -594,6 +636,12 @@ work:
   — Large tier; closes the scattered-color-literal discipline
   failure as an instance of ADR-0005 Rule 1 applied to color.
   Codebase-wide sweep; substrate addition itself is small.
+- Magic-literals audit (`docs/notes/magic-literals-audit-plan.md`)
+  — Large tier; predicated on the color theming substrate landing
+  first. Treats unjustified literals as `as any` for the design
+  vocabulary; sweeps the residue (geometry, timings, opacity,
+  z-index, thresholds) under the same SSOT-or-justified-inline
+  contract.
 
 **Backend architectural:**
 
