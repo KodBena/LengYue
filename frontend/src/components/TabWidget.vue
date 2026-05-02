@@ -55,7 +55,7 @@ function selectTab(id: string) {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #222;
+  background: var(--surface-3);
   min-height: 0;
 }
 
@@ -64,29 +64,29 @@ function selectTab(id: string) {
   list-style: none;
   padding: 0;
   margin: 0;
-  background: #252525;
-  border-bottom: 1px solid #111;
+  background: var(--surface-3);
+  border-bottom: 1px solid var(--surface-1);
   flex-shrink: 0;
 }
 
 .tab-header li {
   padding: 1px 6px;
   font-size: 12px;
-  color: #888;
+  color: var(--text-2);
   cursor: pointer;
-  border-right: 1px solid #111;
+  border-right: 1px solid var(--surface-1);
   transition: background 0.2s, color 0.2s;
 }
 
 .tab-header li:hover {
-  background: #2a2a2a;
-  color: #eee;
+  background: var(--border-1);
+  color: var(--text-0);
 }
 
 .tab-header li.active {
-  background: #222;
-  color: #4aaef0;
-  border-bottom: 2px solid #4aaef0;
+  background: var(--surface-3);
+  color: var(--accent-primary);
+  border-bottom: 2px solid var(--accent-primary);
 }
 
 .tab-body {
