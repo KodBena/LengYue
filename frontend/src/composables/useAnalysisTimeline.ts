@@ -35,28 +35,21 @@ export interface AnalysisTimelineState {
 }
 
 export function useAnalysisTimeline(
-  variationPath: Ref<string[]>,
-  boardId: string,
+  variationPath: Ref<NodeId[]>,
+  boardId: BoardId,
 ): AnalysisTimelineState {
 
   const visitVector = computed<number[]>(() => {
     const ids = variationPath.value;
     if (ids.length === 0) return [];
 
-    const rawVisits = ids.map(id => ledger.getRaw(activeConfigHash.value, id as NodeId)?.rootInfo?.visits ?? 0);
+    const rawVisits = ids.map(id => ledger.getRaw(activeConfigHash.value, id)?.rootInfo?.visits ?? 0);
     const globalMax = Math.max(...rawVisits, 1);
     return rawVisits.map(v => v / globalMax);
   });
 
   // ── Selection range — store-backed ────────────────────────────────────────
-  // Single safe-by-construction cast at the boundary: callers thread
-  // `boardId: BoardId` (e.g. AnalysisDashboard's `props.boardId`) but
-  // the parameter is currently typed `string` for compatibility with
-  // pre-branded callers. Localized here so the rest of the composable
-  // can use the branded type for `mutateBoard`.
-  const branded = boardId as BoardId;
-
-  const board = computed(() => store.boards.find(b => b.id === branded));
+  const board = computed(() => store.boards.find(b => b.id === boardId));
   const stored = computed(() => board.value?.analysisRange);
 
   // Brand cast at construction: the `[0, 0]` fallback is the empty range
@@ -66,7 +59,7 @@ export function useAnalysisTimeline(
   );
 
   function setSelectionRange(range: [PlyIndex, PlyIndex]): void {
-    mutateBoard(branded, draft => { draft.analysisRange = range; });
+    mutateBoard(boardId, draft => { draft.analysisRange = range; });
   }
 
   // Keep the stored range in sync with the path length: initialize on
@@ -102,7 +95,7 @@ export function useAnalysisTimeline(
   );
 
   function analyzeSelection(visits: number): void {
-    const path = variationPath.value as NodeId[];
+    const path = variationPath.value;
 
     const startTurn = Math.round(selectionRange.value[0]) || 0;
     const endTurn = Math.round(selectionRange.value[1]) || 0;
@@ -110,7 +103,7 @@ export function useAnalysisTimeline(
     if (path.length === 0 || endTurn <= startTurn) return;
 
     const clampedEnd = Math.min(endTurn, path.length - 1);
-    analysisService.analyzeRange(branded, path, startTurn, clampedEnd, visits);
+    analysisService.analyzeRange(boardId, path, startTurn, clampedEnd, visits);
   }
 
   return { visitVector, selectionRange, setSelectionRange, analyzeSelection };
