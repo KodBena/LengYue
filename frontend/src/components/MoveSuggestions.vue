@@ -175,10 +175,10 @@ const pvTransition = computed(() => `opacity ${pvCfg.fadeDurationMs}ms ease`);
       />
       <!--
         Labels hide on any hover (not just hovers of *other* suggestions):
-        the hovered suggestion's disk fades to opacity 0 and is replaced by
-        the PV preview stones, which are smaller (stoneR * 0.88) than the
-        suggestion disk; leaving the label rendered would let the digits
-        protrude past the preview stone's edge.
+        the hovered suggestion's disk fades to opacity 0 and is replaced
+        by the PV preview stone at the same location, which renders its
+        own move-number text. Showing both texts on one stone clutters
+        the read.
       -->
       <text
         v-if="hoveredIndex === null"
@@ -210,7 +210,7 @@ const pvTransition = computed(() => `opacity ${pvCfg.fadeDurationMs}ms ease`);
       <circle
         :cx="toSvg(stone.x, stone.y).x"
         :cy="toSvg(stone.x, stone.y).y"
-        :r="stoneR * 0.88"
+        :r="stoneR"
         :fill="stone.color === 'B' ? `url(#gb-${safeUid})` : `url(#gw-${safeUid})`"
         :stroke="stone.color === 'B' ? '#000' : '#aaa'"
         stroke-width="0.5"
