@@ -195,37 +195,40 @@ function updatePipeline(newJsonStr: string) {
 
 <style scoped>
 .deck-editor {
-  display: flex; height: 400px; background: #0a0a0a; border: 1px solid #222; 
+  display: flex; height: 400px; background: var(--surface-0); border: 1px solid var(--surface-3);
   border-radius: 4px; overflow: hidden; font-family: 'Consolas', monospace;
 }
 
-.sidebar { width: 200px; background: #111; border-right: 1px solid #222; display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
-.section { border-bottom: 1px solid #1a1a1a; }
-.section-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: #1a1a1a; color: #aaa; font-size: 10px; text-transform: uppercase; }
-.add-btn { background: none; border: none; color: #4aaef0; cursor: pointer; font-weight: bold; font-size: 14px; }
-.add-btn:hover { color: #fff; }
+.sidebar { width: 200px; background: var(--surface-1); border-right: 1px solid var(--surface-3); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
+.section { border-bottom: 1px solid var(--surface-2); }
+.section-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: var(--surface-2); color: var(--text-1); font-size: 10px; text-transform: uppercase; }
+.add-btn { background: none; border: none; color: var(--accent-primary); cursor: pointer; font-weight: bold; font-size: 14px; }
+.add-btn:hover { color: var(--text-0); }
 
 .item-list { list-style: none; padding: 0; margin: 0; }
-.item-list li { padding: 6px 12px; font-size: 11px; color: #ccc; cursor: pointer; border-left: 2px solid transparent; display: flex; justify-content: space-between; align-items: center;}
-.item-list li:hover { background: #1a1a1a; }
-.item-list li.active { background: #000; border-left-color: #4aaef0; color: #4aaef0; }
-.active-badge { font-size: 8px; background: #4aaef0; color: #000; padding: 1px 4px; border-radius: 2px; }
+.item-list li { padding: 6px 12px; font-size: 11px; color: var(--text-1); cursor: pointer; border-left: 2px solid transparent; display: flex; justify-content: space-between; align-items: center;}
+.item-list li:hover { background: var(--surface-2); }
+.item-list li.active { background: var(--surface-0); border-left-color: var(--accent-primary); color: var(--accent-primary); }
+.active-badge { font-size: 8px; background: var(--accent-primary); color: var(--surface-0); padding: 1px 4px; border-radius: 2px; }
 
-.detail-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; background: #000; }
-.empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: #555; font-size: 12px; }
+.detail-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--surface-0); }
+.empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--border-3); font-size: 12px; }
 .detail-content { display: flex; flex-direction: column; height: 100%; }
 
-.detail-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 1px solid #1a1a1a; }
-.detail-header h3 { margin: 0; font-size: 14px; color: #fff; font-weight: normal; }
-.del-btn { background: #3a1a1a; color: #ff6b6b; border: 1px solid #5a1a1a; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 10px; }
-.del-btn:hover { background: #5a1a1a; color: #fff; }
+.detail-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 1px solid var(--surface-2); }
+.detail-header h3 { margin: 0; font-size: 14px; color: var(--text-0); font-weight: normal; }
+/* theme-exception: .del-btn muted-state-error surface variants per
+   the same rationale as PaletteEditor's .del-btn. Future substrate
+   work could introduce tinted-surface anchors. */
+.del-btn { background: #3a1a1a; color: var(--state-error); border: 1px solid #5a1a1a; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 10px; }
+.del-btn:hover { background: #5a1a1a; color: var(--text-0); }
 
 .form-grid { padding: 15px; display: grid; grid-template-columns: 100px 1fr; gap: 10px; align-items: center; }
-.form-grid label { font-size: 11px; color: #888; }
-.dark-input { background: #111; border: 1px solid #333; color: #eee; padding: 6px; border-radius: 3px; font-family: monospace; font-size: 12px; width: 100%; outline: none; }
-.dark-input:focus { border-color: #4aaef0; }
+.form-grid label { font-size: 11px; color: var(--text-2); }
+.dark-input { background: var(--surface-1); border: 1px solid var(--border-2); color: var(--text-0); padding: 6px; border-radius: 3px; font-family: monospace; font-size: 12px; width: 100%; outline: none; }
+.dark-input:focus { border-color: var(--accent-primary); }
 
-.editor-wrap { flex: 1; overflow: auto; border-top: 1px solid #222; transition: border-color 0.2s; }
-.editor-wrap.json-error { border-top: 2px solid #ff6b6b; }
-.error-badge { font-size: 9px; color: #ff6b6b; font-weight: bold; }
+.editor-wrap { flex: 1; overflow: auto; border-top: 1px solid var(--surface-3); transition: border-color 0.2s; }
+.editor-wrap.json-error { border-top: 2px solid var(--state-error); }
+.error-badge { font-size: 9px; color: var(--state-error); font-weight: bold; }
 </style>

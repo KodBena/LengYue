@@ -190,37 +190,51 @@ function isModified(key: string, value: any) {
 .label-group { display: flex; align-items: center; gap: 6px; }
 .action-group { display: flex; align-items: center; gap: 8px; }
 
+/* theme-exception: .modified-dot uses #fbbf24 (Tailwind amber-400)
+   as a "this leaf has been edited" indicator. A semantic anchor for
+   "edited / pending" doesn't exist in the current substrate; the
+   existing --state-warning (#f0a04a) is close in hue but differs in
+   brightness and is reserved for warning-level system messages.
+   Preserved verbatim. */
 .modified-dot { width: 4px; height: 4px; border-radius: 50%; background: #fbbf24; box-shadow: 0 0 4px #fbbf24; }
 
 .branch-label {
-  color: #4aaef0; text-transform: uppercase; font-size: 10px; font-weight: bold;
-  padding: 4px 8px; background: rgba(74, 174, 240, 0.05); border-left: 2px solid #4aaef0;
+  color: var(--accent-primary); text-transform: uppercase; font-size: 10px; font-weight: bold;
+  padding: 4px 8px; background: color-mix(in srgb, var(--accent-primary) 5%, transparent); border-left: 2px solid var(--accent-primary);
 }
 
-.branch-content { padding-left: 12px; border-left: 1px solid #222; margin-left: 4px; }
+.branch-content { padding-left: 12px; border-left: 1px solid var(--surface-3); margin-left: 4px; }
 
+/* theme-exception: .expression-input's #fbbf24 text matches the
+   .modified-dot indicator above — same Tailwind amber-400, marking
+   asteval expressions visually distinct from non-expression scalar
+   inputs. Same substrate gap as the indicator. */
 .expression-input {
   width: 100%; min-height: 50px; padding: 8px; line-height: 1.4;
-  color: #fbbf24; background: #050505; border: 1px solid #222; resize: vertical;
+  color: #fbbf24; background: var(--surface-0); border: 1px solid var(--surface-3); resize: vertical;
 }
 
 .symbol-ref-box { display: flex; align-items: center; width: 100%; gap: 6px; }
+/* theme-exception: .ref-icon / .ref-input use #f472b6 (Tailwind
+   pink-400) as a "symbolic reference" indicator — visually distinct
+   from expressions (amber) and scalars (white-ish). No semantic anchor
+   for "reference" in the substrate. */
 .ref-icon { color: #f472b6; font-size: 14px; }
 .ref-input { color: #f472b6; font-style: italic; flex: 1; }
 
-.registry-leaf { padding: 0; border-bottom: 1px solid #1a1a1a; }
+.registry-leaf { padding: 0; border-bottom: 1px solid var(--surface-2); }
 .registry-leaf.scalar, .registry-leaf.symbol-ref, .registry-leaf.enum { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; }
-.leaf-label { color: #666; font-size: 11px; }
+.leaf-label { color: var(--text-2); font-size: 11px; }
 
-.restore-btn { background: none; border: none; color: #666; cursor: pointer; font-size: 12px; }
-.restore-btn:hover { color: #4aaef0; }
-.delete-btn { background: none; border: none; color: #444; cursor: pointer; font-size: 14px; }
-.delete-btn:hover { color: #ef4444; }
+.restore-btn { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: 12px; }
+.restore-btn:hover { color: var(--accent-primary); }
+.delete-btn { background: none; border: none; color: var(--border-3); cursor: pointer; font-size: 14px; }
+.delete-btn:hover { color: var(--state-error); }
 
 .add-key-row { display: flex; padding: 8px; gap: 4px; background: rgba(0,0,0,0.2); }
 .add-input { flex: 1; border-style: dashed; }
-.add-btn { background: #222; border: 1px solid #333; color: #4aaef0; cursor: pointer; font-size: 10px; padding: 0 8px; text-transform: uppercase; }
+.add-btn { background: var(--surface-3); border: 1px solid var(--border-2); color: var(--accent-primary); cursor: pointer; font-size: 10px; padding: 0 8px; text-transform: uppercase; }
 
-.dark-input { background: #0a0a0a; border: 1px solid #333; color: #ccc; font-size: 11px; }
+.dark-input { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-1); font-size: 11px; }
 .scalar-input { height: 22px; padding: 0 6px; width: 140px; }
 </style>

@@ -438,8 +438,8 @@ function deleteItem() {
 .palette-editor {
   display: flex;
   height: 400px;
-  background: #0a0a0a;
-  border: 1px solid #222;
+  background: var(--surface-0);
+  border: 1px solid var(--surface-3);
   border-radius: 4px;
   overflow: hidden;
   font-family: 'Consolas', monospace;
@@ -447,8 +447,8 @@ function deleteItem() {
 
 .sidebar {
   width: 200px;
-  background: #111;
-  border-right: 1px solid #222;
+  background: var(--surface-1);
+  border-right: 1px solid var(--surface-3);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -458,65 +458,71 @@ function deleteItem() {
   flex-shrink: 0;
 }
 
-.section { border-bottom: 1px solid #1a1a1a; }
-.section-header { 
+.section { border-bottom: 1px solid var(--surface-2); }
+.section-header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 6px 10px; background: #1a1a1a; color: #aaa; font-size: 10px; text-transform: uppercase;
+  padding: 6px 10px; background: var(--surface-2); color: var(--text-1); font-size: 10px; text-transform: uppercase;
 }
-.add-btn { background: none; border: none; color: #4aaef0; cursor: pointer; font-weight: bold; font-size: 14px; }
-.add-btn:hover { color: #fff; }
+.add-btn { background: none; border: none; color: var(--accent-primary); cursor: pointer; font-weight: bold; font-size: 14px; }
+.add-btn:hover { color: var(--text-0); }
 
 .item-list { list-style: none; padding: 0; margin: 0; }
 .item-list li {
-  padding: 6px 12px; font-size: 11px; color: #ccc; cursor: pointer; border-left: 2px solid transparent;
+  padding: 6px 12px; font-size: 11px; color: var(--text-1); cursor: pointer; border-left: 2px solid transparent;
 }
-.item-list li:hover { background: #1a1a1a; }
-.item-list li.active { background: #000; border-left-color: #4aaef0; color: #4aaef0; }
+.item-list li:hover { background: var(--surface-2); }
+.item-list li.active { background: var(--surface-0); border-left-color: var(--accent-primary); color: var(--accent-primary); }
 
-.active-badge { font-size: 8px; background: #4aaef0; color: #000; padding: 1px 4px; border-radius: 2px; margin-left: 6px; }
+.active-badge { font-size: 8px; background: var(--accent-primary); color: var(--surface-0); padding: 1px 4px; border-radius: 2px; margin-left: 6px; }
 
 /* `min-width: 0` lets the flex item shrink below the intrinsic
    width of CodeMirror's content; without it, an unwrapped long line
    widens the pane past its allocated flex share. */
-.detail-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; background: #000; }
-.empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: #555; font-size: 12px; }
+.detail-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--surface-0); }
+.empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--border-3); font-size: 12px; }
 
 .detail-content { display: flex; flex-direction: column; height: 100%; }
-.detail-header { 
-  display: flex; justify-content: space-between; align-items: center; 
-  padding: 10px 15px; border-bottom: 1px solid #1a1a1a;
+.detail-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 15px; border-bottom: 1px solid var(--surface-2);
 }
-.detail-header h3 { margin: 0; font-size: 14px; color: #fff; font-weight: normal; }
-.del-btn { background: #3a1a1a; color: #ff6b6b; border: 1px solid #5a1a1a; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 10px; }
-.del-btn:hover { background: #5a1a1a; color: #fff; }
+.detail-header h3 { margin: 0; font-size: 14px; color: var(--text-0); font-weight: normal; }
+/* theme-exception: .del-btn uses muted-state-error surface variants
+   (#3a1a1a / #5a1a1a) — designer-intentional dark-red surfaces for
+   destructive actions. The chrome substrate's --state-error anchor
+   is the saturated wire-color (#f04a4a); muted surface variants
+   would need new anchors (e.g. --state-error-muted). Preserved
+   verbatim until the substrate gains tinted-surface vocabulary. */
+.del-btn { background: #3a1a1a; color: var(--state-error); border: 1px solid #5a1a1a; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 10px; }
+.del-btn:hover { background: #5a1a1a; color: var(--text-0); }
 
 .editor-wrap { flex: 1; overflow: auto; }
 
 .palette-form, .form-grid { padding: 15px; }
 .form-grid { display: grid; grid-template-columns: 120px 1fr; gap: 10px; align-items: center; }
-.form-grid label { font-size: 11px; color: #888; }
+.form-grid label { font-size: 11px; color: var(--text-2); }
 
 .dark-input, .dark-select {
-  background: #111; border: 1px solid #333; color: #eee; padding: 6px; border-radius: 3px; font-family: monospace; font-size: 12px; width: 100%; outline: none;
+  background: var(--surface-1); border: 1px solid var(--border-2); color: var(--text-0); padding: 6px; border-radius: 3px; font-family: monospace; font-size: 12px; width: 100%; outline: none;
 }
-.dark-input:focus, .dark-select:focus { border-color: #4aaef0; }
+.dark-input:focus, .dark-select:focus { border-color: var(--accent-primary); }
 
-.state-fn-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 8px; background: #111; border-radius: 4px; border: 1px solid #222; }
-.chart-name { font-size: 12px; color: #fff; font-weight: bold; width: 120px; }
-.arrow { color: #555; }
+.state-fn-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 8px; background: var(--surface-1); border-radius: 4px; border: 1px solid var(--surface-3); }
+.chart-name { font-size: 12px; color: var(--text-0); font-weight: bold; width: 120px; }
+.arrow { color: var(--border-3); }
 .flex-1 { flex: 1; }
-.del-btn-sm { background: none; border: none; color: #ff6b6b; cursor: pointer; font-size: 14px; }
-.del-btn-sm:hover { color: #fff; }
+.del-btn-sm { background: none; border: none; color: var(--state-error); cursor: pointer; font-size: 14px; }
+.del-btn-sm:hover { color: var(--text-0); }
 
 .range-inputs { display: flex; align-items: center; gap: 6px; }
 .range-half { flex: 1; min-width: 0; }
-.range-sep { color: #555; }
-.dark-input.invalid { border-color: #ff6b6b; }
+.range-sep { color: var(--border-3); }
+.dark-input.invalid { border-color: var(--state-error); }
 .qeubo-control { display: flex; flex-direction: column; gap: 4px; }
-.checkbox-label { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #ccc; cursor: pointer; }
+.checkbox-label { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-1); cursor: pointer; }
 .checkbox-label input[type=checkbox] { cursor: pointer; }
 .checkbox-label input[type=checkbox]:disabled { cursor: not-allowed; }
-.checkbox-label input[type=checkbox]:disabled + span { color: #555; }
-.validation-error { font-size: 10px; color: #ff6b6b; }
-.validation-hint { font-size: 10px; color: #888; font-style: italic; }
+.checkbox-label input[type=checkbox]:disabled + span { color: var(--border-3); }
+.validation-error { font-size: 10px; color: var(--state-error); }
+.validation-hint { font-size: 10px; color: var(--text-2); font-style: italic; }
 </style>
