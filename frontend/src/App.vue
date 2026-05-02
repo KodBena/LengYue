@@ -11,6 +11,7 @@ import { useAuth }           from './composables/useAuth';
 import { useResizablePanel } from './composables/useResizablePanel';
 import { useDirtyBoardGuard } from './composables/useDirtyBoardGuard';
 import { useAppBootstrap } from './composables/useAppBootstrap';
+import { useTransientLogReveal } from './composables/useTransientLogReveal';
 import {
   store,
   activeBoard,
@@ -119,6 +120,11 @@ function handleVisitsOverrideChange(e: Event) {
 
 const { sync } = useAppBootstrap(auth);
 
+// Transient auto-reveal of the system-log panel on error/warning
+// arrivals when `systemLogExpanded` is false. See the composable for
+// the UX rationale and timer mechanics.
+const transientLogReveal = useTransientLogReveal();
+
 const controlTabs = [
   { id: 'sr',       label: 'SR'       },
   { id: 'database', label: 'Database' },
@@ -214,11 +220,19 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
         </div>
       </div>
 
-      <!-- Persistent system-log bar. Hidden when the user unchecks
-           `systemLogExpanded` in the Session (UI) registry. Messages
-           continue to accumulate in the store while hidden and become
-           visible again on re-enable. -->
-      <SystemLogPanel v-if="store.session.ui.systemLogExpanded" />
+      <!-- Persistent system-log bar. Visible when either:
+             (a) `systemLogExpanded` is checked in the Session (UI)
+                 registry — the always-on case, or
+             (b) `transientLogReveal` is currently flashing — an
+                 error- or warning-level message arrived in the
+                 last few seconds while `systemLogExpanded` was
+                 false. See `composables/useTransientLogReveal.ts`
+                 for the timer mechanics.
+           Messages continue to accumulate in the store regardless
+           of the visibility gate. -->
+      <SystemLogPanel
+        v-if="store.session.ui.systemLogExpanded || transientLogReveal"
+      />
 
       <div id="split-workspace">
         
