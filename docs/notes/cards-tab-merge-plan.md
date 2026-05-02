@@ -221,7 +221,25 @@ review queue are by-construction the same set of cards.
 
 ---
 
-## Schema migration 11 → 12
+## Schema migration
+
+> **Slot-numbering note (2026-05-02 update).** This plan was
+> authored when the head was `CURRENT_SCHEMA_VERSION = 11`,
+> and originally specified the cards-tab-merge migration as
+> the `11 → 12` step. That slot has since been claimed by the
+> proxy v1.0.3 `analysis_config` curation alignment migration
+> (held local-only on
+> `frontend/analysis-config-curation-migration` until the
+> v1.0.3 release window). This plan's migration step now
+> renumbers to whatever the head is at implementation time —
+> likely `12 → 13` if no other migration intervenes, but the
+> implementer should check `CURRENT_SCHEMA_VERSION` directly
+> rather than trust this note. The append-only invariant is
+> what matters; the specific integer is bookkeeping. Touch-
+> list and phasing references below preserve the original
+> `11 → 12` numbering as historical record but should be read
+> as "the cards-tab-merge migration step, whatever its number
+> at implementation time."
 
 Three field changes to the persisted blob:
 
@@ -235,9 +253,9 @@ Three field changes to the persisted blob:
 3. `defaults.ts::defaultSessionUI.activeTab` becomes `'cards'`;
    `cardsContextIds: [3]` replaces the two old fields.
 
-`CURRENT_SCHEMA_VERSION` bumps to 12. Migration is idempotent and
-order-independent within itself. Append-only invariant honoured;
-prior migrations untouched.
+`CURRENT_SCHEMA_VERSION` bumps by one. Migration is idempotent
+and order-independent within itself. Append-only invariant
+honoured; prior migrations untouched.
 
 The `cardsContextIds` field stays **single-valued at the UI level**,
 not per-board. The form is transient form input — what the user

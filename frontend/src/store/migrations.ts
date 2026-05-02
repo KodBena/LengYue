@@ -70,6 +70,11 @@
  */
 
 import { archivedMigrations, type Migration } from './archived-migrations';
+import {
+  rewriteSymbolBlock,
+  rewriteGradingParameterAnalysisConfig,
+} from '../engine/analysis-config-curation';
+import type { SystemMessage } from '../types';
 
 /**
  * The current schema version. Bump only when the GlobalStore
@@ -77,7 +82,7 @@ import { archivedMigrations, type Migration } from './archived-migrations';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 11;
+export const CURRENT_SCHEMA_VERSION = 12;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -178,6 +183,103 @@ export const migrations: Migration[] = [
       if (!validArr(out.session.ui.databaseContextIds)) {
         out.session.ui.databaseContextIds = [...seed];
       }
+    }
+
+    return out;
+  },
+  // 11 → 12: `analysis_config` curation alignment per proxy v1.0.3.
+  // Walks the live profile's symbol library AND any cards persisted in
+  // active review queues; rewrites `np.<fn>(` → `<fn>(` whenever
+  // `<fn>` is one of the curated stdlib names AND the call-site is a
+  // direct invocation (not an attribute walk like `np.linalg.<fn>(`).
+  // Bit-equivalent under the wrapper contract for the kwarg-free
+  // positional case (the case the project's defaults satisfy).
+  // Residue (anything `np.*` left after the rewrite) is named in a
+  // SystemMessage at startup; the proxy's call-time `NameError`
+  // remains the authoritative diagnostic for those bodies. See
+  // `src/engine/analysis-config-curation.ts` for the rewriter and
+  // its bit-equivalence rationale. The audit-trail SystemMessage is
+  // queued via the transient `_pendingMigrationMessages` field on the
+  // blob; `store/index.ts::updateFromRemote` drains it post-apply.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    let totalRewrites = 0;
+    const residueLocations: string[] = [];
+
+    // (a) Live profile's symbol library.
+    const liveSymbols = out.profile?.settings?.engine?.katago?.analysis_env?.symbols;
+    if (liveSymbols && typeof liveSymbols === 'object') {
+      const result = rewriteSymbolBlock(liveSymbols as Record<string, unknown>);
+      if (result.rewriteCount > 0) {
+        out.profile.settings.engine.katago.analysis_env.symbols = result.symbols;
+        totalRewrites += result.rewriteCount;
+      }
+      for (const r of result.residue) {
+        residueLocations.push(`profile.symbols.${r.name}`);
+      }
+    }
+
+    // (b) Cards persisted in active review queues, if any are in
+    // flight at migration time. Defensive — most users will have no
+    // active session when this runs, but the migration must handle
+    // the case where a session straddles the upgrade.
+    const reviews = out.session?.reviews;
+    if (reviews && typeof reviews === 'object') {
+      for (const [boardId, sessionData] of Object.entries(reviews as Record<string, unknown>)) {
+        if (!sessionData || typeof sessionData !== 'object') continue;
+        const queue = (sessionData as { queue?: unknown }).queue;
+        if (!Array.isArray(queue)) continue;
+        for (let cardIdx = 0; cardIdx < queue.length; cardIdx++) {
+          const card = queue[cardIdx];
+          if (!card || typeof card !== 'object') continue;
+          const result = rewriteGradingParameterAnalysisConfig(
+            (card as { gradingParameter?: unknown }).gradingParameter
+          );
+          if (result.rewriteCount > 0) {
+            (card as { gradingParameter?: unknown }).gradingParameter = result.gradingParameter;
+            totalRewrites += result.rewriteCount;
+          }
+          for (const r of result.residue) {
+            residueLocations.push(
+              `session.reviews.${boardId}.queue[${cardIdx}].symbols.${r.name}`
+            );
+          }
+        }
+      }
+    }
+
+    // (c) Audit-trail SystemMessages, queued for post-apply drain.
+    const messages: { type: SystemMessage['type']; text: string }[] = [];
+    if (totalRewrites > 0) {
+      messages.push({
+        type: 'info',
+        text:
+          `v1.0.3 curation alignment: rewrote ${totalRewrites} symbol body` +
+          `${totalRewrites === 1 ? '' : ' instances'} (np.<fn> → <fn>) ` +
+          `in persisted state. Bit-equivalent under the curated proxy ` +
+          `stdlib; recall trajectories preserved.`,
+      });
+    }
+    if (residueLocations.length > 0) {
+      const head = residueLocations.slice(0, 5).join(', ');
+      const tail = residueLocations.length > 5
+        ? `, … and ${residueLocations.length - 5} more`
+        : '';
+      messages.push({
+        type: 'warning',
+        text:
+          `v1.0.3 curation alignment: ${residueLocations.length} symbol ` +
+          `body${residueLocations.length === 1 ? '' : ' instances'} reference ` +
+          `numpy functions outside the curated stdlib (${head}${tail}). ` +
+          `These will fail at review time with a proxy NameError; ` +
+          `hand-edit to use the curated wrappers.`,
+      });
+    }
+    if (messages.length > 0) {
+      const existing = Array.isArray(out._pendingMigrationMessages)
+        ? out._pendingMigrationMessages
+        : [];
+      out._pendingMigrationMessages = existing.concat(messages);
     }
 
     return out;

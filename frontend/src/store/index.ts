@@ -176,6 +176,15 @@ export function updateFromRemote(
   // ADR-0002); the SyncService's hydrate() catches and surfaces.
   const migrated = migrate(remoteData);
 
+  // Migrations may queue SystemMessages on a transient
+  // `_pendingMigrationMessages` field — `engine.messages` isn't part
+  // of the persistence shape, so the migration can't push directly.
+  // Drain the queue here, after the schema is apply-ready, before
+  // pushing through the public API.
+  const pending = (migrated as { _pendingMigrationMessages?: unknown })
+    ._pendingMigrationMessages;
+  delete (migrated as { _pendingMigrationMessages?: unknown })._pendingMigrationMessages;
+
   if (migrated.boards) {
     store.boards = migrated.boards.map(normalizeBoard);
   }
@@ -187,6 +196,21 @@ export function updateFromRemote(
 
   if (!store.session.reviews) {
     store.session.reviews = {} as Record<BoardId, ReviewSessionData>;
+  }
+
+  if (Array.isArray(pending)) {
+    for (const m of pending) {
+      if (
+        m && typeof m === 'object' &&
+        typeof (m as { type?: unknown }).type === 'string' &&
+        typeof (m as { text?: unknown }).text === 'string'
+      ) {
+        pushSystemMessage(
+          (m as { type: SystemMessage['type'] }).type,
+          (m as { text: string }).text
+        );
+      }
+    }
   }
 
   boardsVersion.value++;
