@@ -1,0 +1,59 @@
+/**
+ * src/assets/css/theme.css
+ *
+ * Chrome theming substrate — the SSOT for every chrome color
+ * decision in the codebase. Sixteen named anchors (4 surface, 3
+ * border, 3 text, 2 accent, 4 semantic state) plus six chart-
+ * derived helpers. Every chrome color in CSS, in SFC <style>
+ * blocks, and in TypeScript chart-adapter sites reads from this
+ * file via `var(--name)` (or the `themeColor()` helper for
+ * runtime-string consumers).
+ *
+ * Out of scope:
+ * - Domain (Go-specific) colors live in src/engine/constants.ts.
+ * - Visualization-system anchors (visit-intensity LUT,
+ *   CLUSTER_PALETTES, ColorDebugStrip) live in
+ *   src/engine/suggestion-colors.ts.
+ * - The parked maximin palette in src/assets/css/palettes.css is
+ *   a future theme-variant experiment, deliberately not woven in.
+ *
+ * Design note: docs/notes/frontend-theming-plan.md.
+ *
+ * License: Public Domain (The Unlicense)
+ */
+
+:root {
+  /* ── Surface (4) ─────────────────────────────────────────── */
+  --surface-0: #000;     /* deepest — board panel, chart bg */
+  --surface-1: #111;     /* default panel — sidebar, content */
+  --surface-2: #1a1a1a;  /* raised panel — control bar, frame */
+  --surface-3: #222;     /* toolbar / header strip / button */
+
+  /* ── Border (3) ──────────────────────────────────────────── */
+  --border-1: #2a2a2a;   /* subtle — divider within a panel */
+  --border-2: #333;      /* default — input edge, panel edge */
+  --border-3: #555;      /* strong — focus, hover, active */
+
+  /* ── Text (3) ────────────────────────────────────────────── */
+  --text-0: #fff;        /* high emphasis — titles, primary */
+  --text-1: #aaa;        /* medium — body copy */
+  --text-2: #666;        /* low — labels, hints, axis text */
+
+  /* ── Accent (2) ──────────────────────────────────────────── */
+  --accent-primary:   #4aaef0;  /* cyan — active interactive */
+  --accent-secondary: #f0a04a;  /* orange — SR / CTA / current-card */
+
+  /* ── Semantic state (4) ──────────────────────────────────── */
+  --state-success:   #4caf50;  /* engine connected, complete */
+  --state-warning:   #f0a04a;  /* warnings (matches secondary today) */
+  --state-error:     #f04a4a;  /* delete, destructive, winrate-negative */
+  --state-attention: #ff4a4a;  /* review-active, latency-bad */
+
+  /* ── Chart-derived helpers (aliases; no new decisions) ───── */
+  --heatmap-low:  var(--surface-2);
+  --heatmap-mid:  var(--accent-primary);
+  --heatmap-high: var(--state-error);
+  --chart-grid:   var(--border-1);
+  --chart-axis:   var(--text-2);
+  --chart-marker: var(--accent-primary);
+}
