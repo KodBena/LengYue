@@ -57,8 +57,23 @@ export const defaultSettings = {
           rank_quality:     '1.0 / (1 + (x[0]["userMoveInfo"]["order"] if x[0]["userMoveInfo"] else 999))',
 
           // Summary functions.
-          min_summary:      'float(np.min(x))',
-          mean_summary:     'float(np.mean(x))',
+          //
+          // ─── Bit-equivalence contract (proxy v1.0.3 curation) ───────────────
+          // Bodies use the curated stdlib names (`min`, `mean`, …) rather
+          // than `np.<fn>(...)` — see `proxy/reginterp.py`'s
+          // `_CURATED_SYMTABLE`, the authoritative list. The wrappers are
+          // drop-in for `np.<fn>` in the kwarg-free positional case (the
+          // case the bodies below satisfy): `min(x) ≡ np.min(x)`,
+          // `mean(x) ≡ np.mean(x)` exactly. Pre-v1.0.3 versions of these
+          // bodies referenced `np.min`/`np.mean`; the migration at
+          // `store/migrations.ts` (11 → 12) rewrites persisted state in
+          // place via `engine/analysis-config-curation.ts`. Asymmetries
+          // worth knowing about for any future bespoke body: `clip`
+          // rejects array-shaped scalar bounds where `np.clip` permits
+          // them; see the rewriter's docstring for the full list.
+          // ─────────────────────────────────────────────────────────────────────
+          min_summary:      'float(min(x))',
+          mean_summary:     'float(mean(x))',
         },
         parameters: {
           alpha: 0.25,

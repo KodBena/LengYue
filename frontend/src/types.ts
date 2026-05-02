@@ -442,7 +442,7 @@ export interface EbisuModel {
  * composable, the lineage tree, the chart panels — sees only this type,
  * never the wire shape.
  *
- * ─── `gradingParameter` field (Commit 4 — closes TODO item 18) ───────────────
+ * ─── `gradingParameter` field (Item 18 — TYPE LANDED, ACL DROPS) ─────────────
  * The opaque grading-parameter blob carries domain-specific configuration
  * for how the card's recall is graded — for KataGo cards, this includes
  * `default_visits`, `analysis_config` (the palette payload), and
@@ -452,6 +452,27 @@ export interface EbisuModel {
  * domain type lets the SR composable read `currentCard.gradingParameter
  * ?.data?.analysis_config` to override the active palette per card,
  * without re-fetching the wire shape from anywhere downstream.
+ *
+ * **WARNING — discovered 2026-05-02 during the proxy v1.0.3 curation
+ * migration work.** The TYPE side of Item 18 landed; the IMPLEMENTATION
+ * side did not. `services/backend-service.ts::mapToReviewCard` extracts
+ * `default_visits` and `gamma` from `raw.grading_parameter` via
+ * `readGradingParam<T>` but never propagates the whole blob onto the
+ * returned `ReviewCard`. `useReviewSession.ts:235`'s
+ * `currentCard.value?.gradingParameter?.data?.analysis_config` therefore
+ * reads `undefined` in production today; the per-card config-override
+ * path is dormant and reviews use `compileAnalysisConfig()` (the live
+ * env config) regardless of what the card was minted with.
+ *
+ * **When closing this gap**, the closure must include the curation
+ * rewrite from `engine/analysis-config-curation.ts::rewriteGrading-
+ * ParameterAnalysisConfig` at the ACL boundary — pre-v1.0.3 cards
+ * carry baked configs with `np.<fn>` references that the proxy
+ * v1.0.3 stdlib will reject at call time, and the rewrite is what
+ * keeps those cards reviewable. `auditor-notes.md`'s 2026-05-02 entry
+ * documents this gap as one instance of a recurring class
+ * (type-vs-impl divergence at the ACL); see also the TODO entry for
+ * Item 18's actual closure.
  *
  * `current_recall` and `halflife_units` (also part of item 18): the
  * backend computes these on every `CardWithRecall` response; surfacing

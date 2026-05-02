@@ -274,3 +274,169 @@ plan.
   are governance, but they resolve independently. Don't bundle.
 
 — end 2026-04-27 (follow-on) entry —
+
+---
+
+## 2026-05-02 — type-vs-implementation divergence at the ACL by Claude (Opus 4.7)
+
+A narrow, mid-session discovery surfaced while implementing the
+proxy v1.0.3 `analysis_config` curation migration: a documented
+ACL surfacing claim turned out to be type-only. The user flagged
+this as a recurring class — "this is not the first time" — and
+asked it be filed for systematic audit. This entry is the filing.
+
+### 1. The specific instance — `ReviewCard.gradingParameter`
+
+`types.ts:438` documents `gradingParameter` as having been
+"closed jointly with Commit 4 of the build-error sweep" per
+TODO Item 18 — *the most opaque field in the domain model*,
+the one the SR composable reads to override the active palette
+per card. The TYPE landed (the field is on `ReviewCard`); the
+IMPLEMENTATION did not (`services/backend-service.ts::mapTo-
+ReviewCard` extracts `default_visits` and `gamma` from
+`raw.grading_parameter` via `readGradingParam<T>` but never
+propagates the whole blob onto the returned `ReviewCard`).
+`useReviewSession.ts:235`'s `currentCard.value?.gradingParameter
+?.data?.analysis_config` therefore reads `undefined` in
+production today. The per-card config-override path is dormant;
+reviews use `compileAnalysisConfig()` (live env config)
+regardless of what the card was minted with.
+
+The cross-team coordination during the v1.0.3 release window
+operated on the (incorrect) premise that this field round-trips
+through review. The frontend reply to the proxy team named the
+field as part of the persistence story, the proxy team built
+their card-coverage follow-up around it, and the agreed
+migration design included an ACL rewrite at the boundary —
+until implementation revealed there's no boundary to rewrite
+at, because the field is dropped on the floor.
+
+The 11 → 12 migration ships the live-profile half of the
+curation alignment regardless. A warning comment is placed at
+the type declaration site (`types.ts:438`); when Item 18's
+implementation half is properly closed, the contributor must
+also wire `engine/analysis-config-curation.ts::rewriteGrading-
+ParameterAnalysisConfig` at the ACL or 7000+ pre-v1.0.3 cards
+become unreviewable. A closing dispatch documents the discovery
+to the proxy team.
+
+### 2. The class — type-vs-implementation divergence at boundary translators
+
+The `gradingParameter` instance is one of (per the user) at
+least several. The pattern shape is:
+
+- A type is added to a domain model declaring an optional
+  field.
+- A doc comment claims the field is surfaced by the relevant
+  ACL / boundary translator.
+- The implementation half — the code in the ACL that actually
+  populates the field — is forgotten, deferred, or never
+  written.
+- TypeScript permits this because the field is optional;
+  `undefined` is a valid value for the absent-field case.
+- Consumers compose with optional-chaining (`?.`); reads
+  silently return `undefined`; the consumer's logic falls
+  through to its fallback path.
+- The system appears functional but a documented capability
+  is dormant. The lie is invisible to the type-checker, to
+  the build, and to runtime — only an audit catches it.
+
+This is structurally adjacent to but distinct from the
+"signature lie" class the brand-pair work surfaced earlier
+this session (e.g., `useVariationPath` declaring
+`ComputedRef<string[]>` while its source was `NodeId[]`,
+`StabilityPanel` emitting bare-number `selectionRange` while
+the value originated as `PlyIndex`). Signature lies are
+type-vs-type divergences within the type system; this class
+is type-vs-implementation divergence between the type system
+and the boundary code. Both produce silent gaps, both are
+invisible to compile-time checks, both calcify if not
+audited.
+
+The dependency graph that makes this class load-bearing:
+
+- ACL boundary translators are the only place wire shapes
+  meet domain types in this codebase (per ADR-0003 band
+  taxonomy and the architectural shape doc).
+- The type system trusts the ACL to produce honest domain
+  values; consumers downstream don't re-validate.
+- A field that's typed-but-not-populated is a localized
+  contract violation. The contract is invisible because
+  optionality + structural typing accept the ACL's
+  incomplete output without complaint.
+
+### 3. Suggested audit shape
+
+The natural locus is `services/backend-service.ts::mapTo-
+ReviewCard` and any other ACL translator with documented
+surfacings (search for "Item N surfacing" or similar
+closure-claim comments in `types.ts`). For each documented
+field:
+
+- Verify the ACL assignment exists (the field appears in
+  the returned object literal of the translator).
+- Verify the assignment chains to the wire data (the field's
+  value derives from `raw.<wire_field>`, not from a static
+  default or undefined).
+- For passthrough fields (whole-blob propagation), verify
+  any defensive transformation (sanitization, normalization,
+  brand-cast) is also in place.
+
+A single-pass auditor sweep would suffice: read the
+`ReviewCard` interface (and any neighbouring domain interfaces
+with documented surfacings), grep `mapToReviewCard`'s body for
+each field's assignment site, flag any field that's typed but
+not assigned.
+
+Other documented surfacings on `ReviewCard` to verify in the
+same pass: `currentRecall`, `halflifeUnits`. Both are part of
+"Item 18 surfacing (Commit 4)" per the same comment block; if
+`gradingParameter` was missed, these may have been too.
+
+### Auditor's prioritization
+
+- **Item 18 actual closure** — surfaces `gradingParameter`,
+  `currentRecall`, `halflifeUnits` properly through `mapTo-
+  ReviewCard`, with the curation rewrite at the ACL as a
+  bundled requirement. Files into TODO under the Medium tier
+  with a precondition note (the proxy v1.0.3 migration must
+  ship first). This is the immediate-action item this entry
+  surfaces.
+- **A class-wide audit pass** — single sweep across the ACL
+  and any other boundary translators looking for typed-but-
+  unassigned fields. Filed at this entry's level rather than
+  promoted to TODO; the user can elect to schedule it as its
+  own session.
+
+### Advice for the next auditor
+
+- **The boundary-translator audit is mechanical.** Reading
+  `mapToReviewCard` against the `ReviewCard` interface takes
+  five minutes. It should be a periodic pass, not a wait-
+  for-discovery exercise — every documented surfacing claim
+  in `types.ts` is a candidate for the divergence class.
+  When you do the pass, file what you find under this same
+  entry as a sub-numbered observation; the class deserves a
+  cumulative tally so we can see whether it's a chronic shape
+  or a one-off.
+- **Watch for "Commit N closes Item M" claims that mention
+  type-side work but not implementation-side work.** Those
+  are the highest-likelihood divergence sites. The
+  `gradingParameter` instance had exactly that shape in its
+  doc comment.
+- **TypeScript optionality is the silent collaborator.** The
+  type-system permits divergence because optional fields can
+  be undefined. When you write a domain type, ask whether
+  the field is *truly* optional (legitimate undefined cases
+  exist) or *aspirationally* optional (the field is meant to
+  always be there, optionality is just a defensive shim).
+  The latter is a divergence-class trap waiting to spring.
+- **The dispatch-chain ground truth check.** When a
+  cross-team dispatch's premises depend on observable
+  frontend behavior, verify the behavior is what the
+  premises claim. The `gradingParameter` discovery would
+  have been caught one round-trip earlier if I'd traced the
+  read path during the original reply rather than during
+  implementation.
+
+— end 2026-05-02 entry —
