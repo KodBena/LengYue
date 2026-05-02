@@ -33,6 +33,7 @@ import { computed, type Ref } from 'vue';
 import { ledger } from '../services/analysis-ledger';
 import { type NodeId } from '../types';
 import { activeConfigHash } from '../services/analysis-config';
+import { themeColor } from '../utils/theme-color';
 
 // ── Output contract ───────────────────────────────────────────────────────────
 
@@ -136,12 +137,12 @@ export function useEnrichedData(pathIdsRef: Ref<NodeId[]>) {
         black: [{
           name: 'Black Delta',
           data: blackDeltas.map((v, i) => [i, v] as [number, number | null]),
-          color: '#4aaef0',
+          color: themeColor('--accent-primary'),
         }],
         white: [{
           name: 'White Delta',
           data: whiteDeltas.map((v, i) => [i, v] as [number, number | null]),
-          color: '#f04a4a',
+          color: themeColor('--state-error'),
         }],
       },
     };

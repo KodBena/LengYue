@@ -11,6 +11,7 @@ import { useTreeExpansion } from '../composables/useTreeExpansion';
 import { useScopedScroll }  from '../composables/useScopedScroll';
 import { useNavigation }    from '../composables/useNavigation';
 import { useThumbnailCache } from '../composables/useThumbnailCache';
+import { themeColor }        from '../utils/theme-color';
 import FloatingThumbnail    from './FloatingThumbnail.vue';
 import type { GameNode, NodeId, BoardId } from '../types';
 
@@ -80,6 +81,19 @@ async function onToggleEnter(e: MouseEvent, nodeId: NodeId) {
 
 function onToggleLeave() {
   thumbRef.value?.hide();
+}
+
+// ── Node-circle fill / stroke helpers (chrome via themeColor; B/W
+//    stones stay literal as domain colors per ADR-0003 plan §D). ─────────────
+
+function nodeFill(item: { move?: GameNode['move'] }): string {
+  if (!item.move) return themeColor('--border-3');
+  // Stone colors are domain-meaningful (board pieces); not chrome.
+  return item.move.color === 'B' ? '#111' : '#eee';
+}
+
+function nodeStroke(item: { move?: GameNode['move'] }): string {
+  return item.move ? themeColor('--border-3') : themeColor('--border-2');
 }
 
 // ── Coordinate mapping ────────────────────────────────────────────────────────
@@ -209,19 +223,19 @@ const edges = computed(() => {
   <div class="tree-widget-wrapper">
     <div ref="outerRef" class="tree-widget-outer">
       <svg :width="svgWidth" :height="svgHeight" class="tree-svg">
-        <g fill="none" stroke="#444" stroke-width="1.2" stroke-linecap="round">
+        <g class="tree-edges" stroke-width="1.2" stroke-linecap="round">
           <path v-for="edge in edges" :key="edge.id" :d="edge.d" />
         </g>
 
         <g v-for="item in nodeList" :key="item.id" v-memo="[item.id === currentNodeId, item.move?.color, item.isBranching, item.isExpanded]">
-          <circle v-if="item.id === currentNodeId" :cx="item.px" :cy="item.py" :r="NODE_R + 3" fill="rgba(74, 174, 240, 0.15)" stroke="#4aaef0" stroke-width="1" />
-          <circle :cx="item.px" :cy="item.py" :r="NODE_R" :fill="item.move ? (item.move.color === 'B' ? '#111' : '#eee') : '#555'" :stroke="item.move ? '#444' : '#333'" stroke-width="1" class="node-circle" @click="emit('select-node', item.id)" />
+          <circle v-if="item.id === currentNodeId" :cx="item.px" :cy="item.py" :r="NODE_R + 3" class="active-ring" stroke-width="1" />
+          <circle :cx="item.px" :cy="item.py" :r="NODE_R" :fill="nodeFill(item)" :stroke="nodeStroke(item)" stroke-width="1" class="node-circle" @click="emit('select-node', item.id)" />
 
           <g v-if="item.isBranching" class="toggle-group" @click.stop="expansion.toggle(item.parentIdForToggle)" @mouseenter="e => onToggleEnter(e, item.parentIdForToggle as NodeId)" @mouseleave="onToggleLeave">
-            <line :x1="item.px" :y1="item.py" :x2="item.ix" :y2="item.iy" stroke="#444" stroke-width="1" stroke-dasharray="2,1" />
-            <rect :x="item.ix - BOX_SIZE/2" :y="item.iy - BOX_SIZE/2" :width="BOX_SIZE" :height="BOX_SIZE" fill="#181818" stroke="#555" stroke-width="1" rx="1" />
-            <line :x1="item.ix - 2.5" :y1="item.iy" :x2="item.ix + 2.5" :y2="item.iy" stroke="#888" stroke-width="1" />
-            <line v-if="!item.isExpanded" :x1="item.ix" :y1="item.iy - 2.5" :x2="item.ix" :y2="item.iy + 2.5" stroke="#888" stroke-width="1" />
+            <line :x1="item.px" :y1="item.py" :x2="item.ix" :y2="item.iy" class="toggle-leader" stroke-width="1" stroke-dasharray="2,1" />
+            <rect :x="item.ix - BOX_SIZE/2" :y="item.iy - BOX_SIZE/2" :width="BOX_SIZE" :height="BOX_SIZE" class="toggle-box" stroke-width="1" rx="1" />
+            <line :x1="item.ix - 2.5" :y1="item.iy" :x2="item.ix + 2.5" :y2="item.iy" class="toggle-mark" stroke-width="1" />
+            <line v-if="!item.isExpanded" :x1="item.ix" :y1="item.iy - 2.5" :x2="item.ix" :y2="item.iy + 2.5" class="toggle-mark" stroke-width="1" />
             <rect :x="item.ix - 7" :y="item.iy - 7" width="14" height="14" fill="transparent" class="hit-area" />
           </g>
         </g>
@@ -237,11 +251,16 @@ const edges = computed(() => {
 .tree-widget-wrapper { position: relative; width: 100%; height: 100%; background: var(--surface-2); }
 .tree-widget-outer { width: 100%; height: 100%; overflow: auto; }
 .tree-svg { display: block; }
+.tree-edges { fill: none; stroke: var(--border-3); }
+.active-ring { fill: color-mix(in srgb, var(--accent-primary) 15%, transparent); stroke: var(--accent-primary); }
 .node-circle { cursor: pointer; transition: filter 0.1s; }
 .node-circle:hover { filter: brightness(1.4) drop-shadow(0 0 3px var(--accent-primary)); }
 .toggle-group { cursor: pointer; }
 .toggle-group rect { transition: stroke 0.1s, fill 0.1s; }
-.toggle-group:hover rect { stroke: var(--accent-primary); fill: var(--surface-3); }
-.toggle-group:hover line { stroke: var(--text-0); }
+.toggle-leader { stroke: var(--border-3); }
+.toggle-box { fill: var(--surface-2); stroke: var(--border-3); }
+.toggle-mark { stroke: var(--text-2); }
+.toggle-group:hover .toggle-box { stroke: var(--accent-primary); fill: var(--surface-3); }
+.toggle-group:hover .toggle-mark { stroke: var(--text-0); }
 .hit-area { pointer-events: all; }
 </style>

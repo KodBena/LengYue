@@ -16,6 +16,7 @@
 import { onUnmounted } from 'vue';
 import * as echarts from 'echarts';
 import type { EChartsTreeNode } from '../components/charts/card-tree-echarts';
+import { themeColor } from '../utils/theme-color';
 
 export interface ForestChartConfig<P> {
   /** Per-tree key (stable identifier ECharts instances are stored under). */
@@ -122,9 +123,9 @@ export function useEChartsForestRender<P>(): ForestChartHandle<P> {
       tooltip: {
         trigger: 'item',
         triggerOn: 'mousemove',
-        backgroundColor: '#111',
-        borderColor: '#4aaef0',
-        textStyle: { color: '#ccc', fontSize: 11 },
+        backgroundColor: themeColor('--surface-1'),
+        borderColor: themeColor('--accent-primary'),
+        textStyle: { color: themeColor('--text-1'), fontSize: 11 },
         enterable: true,
         formatter: (info: { data?: { payload?: P } }) => {
           const payload = info.data?.payload;
@@ -152,7 +153,7 @@ export function useEChartsForestRender<P>(): ForestChartHandle<P> {
             show: !isMassive,
             position: cfg.orient === 'TB' ? 'top' : 'left',
             fontSize: 9,
-            color: '#aaa',
+            color: themeColor('--text-1'),
           },
           leaves: {
             label: {
@@ -162,7 +163,7 @@ export function useEChartsForestRender<P>(): ForestChartHandle<P> {
           },
           animationDuration: isMassive ? 0 : 400,
           animationDurationUpdate: isMassive ? 0 : 400,
-          lineStyle: { color: '#444', curveness: 0.4, width: 1.2 },
+          lineStyle: { color: themeColor('--border-3'), curveness: 0.4, width: 1.2 },
         },
       ],
     });

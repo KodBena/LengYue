@@ -9,6 +9,7 @@ const globalLegendState: Record<string, boolean> = {};
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import * as echarts from 'echarts';
+import { themeColor } from '../../utils/theme-color';
 
 const props = defineProps<{ 
   series: any[];
@@ -118,13 +119,13 @@ const updateOptions = () => {
     legend: { 
       show: true, 
       selected: getSelectionMap(),
-      textStyle: { color: '#888', fontSize: 10 },
+      textStyle: { color: themeColor('--text-2'), fontSize: 10 },
       top: '0%',
       left: 'center'
     },
-    tooltip: { 
-      trigger: 'axis', 
-      showContent: true, 
+    tooltip: {
+      trigger: 'axis',
+      showContent: true,
       textStyle: { fontSize: 8 },
       confine: true,
       padding: 0,
@@ -132,21 +133,21 @@ const updateOptions = () => {
         let res = `<div style="line-height: 1.2; padding: 4px;">`;
         const firstParam = params[0];
         const xVal = Array.isArray(firstParam.value) ? firstParam.value[0] : firstParam.value;
-        res += `<b style="font-size: 10px; color: #aaa;">Move ${xVal}</b>`;
+        res += `<b style="font-size: 10px; color: ${themeColor('--text-1')};">Move ${xVal}</b>`;
         params.forEach(item => {
           const yVal = Array.isArray(item.value) ? item.value[1] : item.value;
           const val = typeof yVal === 'number' ? yVal.toFixed(2) : yVal;
           res += `
             <div style="margin-top: 2px; display: flex; align-items: center; gap: 4px;">
-              ${item.marker.replace('width:10px;height:10px', 'width:6px;height:6px')} 
-              <span style="color: #ccc;">${item.seriesName}:</span>
+              ${item.marker.replace('width:10px;height:10px', 'width:6px;height:6px')}
+              <span style="color: ${themeColor('--text-1')};">${item.seriesName}:</span>
               <b style="margin-left: auto;">${val}</b>
             </div>`;
         });
         res += `</div>`;
         return res;
       },
-      axisPointer: { type: 'line', lineStyle: { color: '#4aaef0', opacity: 0.5 } } 
+      axisPointer: { type: 'line', lineStyle: { color: themeColor('--accent-primary'), opacity: 0.5 } }
     },
     grid: { 
       left: '10%', 
@@ -161,10 +162,10 @@ const updateOptions = () => {
       max: bounds.max,
       axisLabel: {
         fontSize: 9,
-        color: '#666',
+        color: themeColor('--text-2'),
         formatter: (val: number) => val.toFixed(2) // Fixed precision as requested
       },
-      splitLine: { lineStyle: { color: '#222' } } 
+      splitLine: { lineStyle: { color: themeColor('--surface-3') } }
     },
     xAxis: { 
       type: 'value', 
@@ -237,12 +238,12 @@ const updateMarker = () => {
         symbol: 'circle',
         symbolSize: 8,
         label: { show: false },
-        itemStyle: { 
-          color: '#4aaef0', 
-          borderColor: '#fff', 
+        itemStyle: {
+          color: themeColor('--accent-primary'),
+          borderColor: themeColor('--text-0'),
           borderWidth: 1,
           shadowBlur: 4,
-          shadowColor: 'rgba(0,0,0,0.5)' 
+          shadowColor: 'rgba(0,0,0,0.5)'
         },
         data: [{ coord: [activeIdx, yVal] }]
       }

@@ -12,6 +12,7 @@ import { useResizablePanel } from './composables/useResizablePanel';
 import { useDirtyBoardGuard } from './composables/useDirtyBoardGuard';
 import { useAppBootstrap } from './composables/useAppBootstrap';
 import { useTransientLogReveal } from './composables/useTransientLogReveal';
+import { themeColor } from './utils/theme-color';
 import {
   store,
   activeBoard,
@@ -97,10 +98,11 @@ const { handleLoadCard } = useDirtyBoardGuard(confirmLoadModalRef);
 
 const intermissionSeries = computed(() => {
   if (reviewSession.state.value !== 'FINISHED') return [];
+  const accentSecondary = themeColor('--accent-secondary');
   const data = reviewSession.userMoveScores.value.map((score, index) => {
-    return { value: [index + 1, score], itemStyle: { color: '#f0a04a' } };
+    return { value: [index + 1, score], itemStyle: { color: accentSecondary } };
   });
-  return [{ name: 'Move Score (Delta)', data, color: '#f0a04a', showPoints: true }];
+  return [{ name: 'Move Score (Delta)', data, color: accentSecondary, showPoints: true }];
 });
 
 const { startResize } = useResizablePanel();

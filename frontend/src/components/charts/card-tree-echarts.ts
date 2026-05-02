@@ -12,6 +12,7 @@
 import type { CardId, ForestStat, ReviewCard } from '../../types';
 import type { RenderNode, RenderTree } from '../../composables/useCardTreeProjection';
 import { getCardThumbnailSync } from '../../composables/useCardThumbnail';
+import { themeColor } from '../../utils/theme-color';
 
 // Per-node payload travelled with each ECharts datum. Click and
 // hover handlers read this back to dispatch the right behaviour
@@ -30,20 +31,24 @@ export interface EChartsTreeNode {
   payload: NodePayload;
 }
 
-// Palette: cyan accent (#4aaef0) is the codebase's primary; cold
-// nodes sit in the existing dark-theme greys. Stub borders pick up
-// the active accent when their head card is in the active set —
-// the spec's 4-role partition is preserved (the role stays 'stub')
-// but the visual signal "matched but summarized" is recoverable.
-const COLOR_ACTIVE = '#4aaef0';
-const COLOR_ACTIVE_BORDER = '#ffffff';
-const COLOR_CONTEXT = '#222222';
-const COLOR_CONTEXT_BORDER = '#666666';
-const COLOR_STUB = '#1a1a1a';
-const COLOR_STUB_BORDER = '#444444';
-const COLOR_STUB_ACTIVE_BORDER = '#4aaef0';
-const COLOR_BUCKET = '#0a0a0a';
-const COLOR_BUCKET_BORDER = '#333333';
+// Palette: cyan accent (--accent-primary) is the codebase's primary;
+// cold nodes sit in the chrome substrate's surface tones. Stub
+// borders pick up the active accent when their head card is in the
+// active set — the spec's 4-role partition is preserved (the role
+// stays 'stub') but the visual signal "matched but summarized" is
+// recoverable. Read at use time via themeColor() so the values track
+// theme.css changes.
+const colors = {
+  get active()             { return themeColor('--accent-primary'); },
+  get activeBorder()       { return themeColor('--text-0'); },
+  get context()            { return themeColor('--surface-3'); },
+  get contextBorder()      { return themeColor('--text-2'); },
+  get stub()               { return themeColor('--surface-2'); },
+  get stubBorder()         { return themeColor('--border-3'); },
+  get stubActiveBorder()   { return themeColor('--accent-primary'); },
+  get bucket()             { return themeColor('--surface-0'); },
+  get bucketBorder()       { return themeColor('--border-2'); },
+};
 
 export function toEChartsNode(node: RenderNode): EChartsTreeNode {
   if (node.kind === 'card') {
@@ -52,9 +57,9 @@ export function toEChartsNode(node: RenderNode): EChartsTreeNode {
       payload: { kind: 'card', cardId: node.cardId, role: node.role },
       symbolSize: node.role === 'active' ? 12 : 8,
       itemStyle: {
-        color: node.role === 'active' ? COLOR_ACTIVE : COLOR_CONTEXT,
+        color: node.role === 'active' ? colors.active : colors.context,
         borderColor:
-          node.role === 'active' ? COLOR_ACTIVE_BORDER : COLOR_CONTEXT_BORDER,
+          node.role === 'active' ? colors.activeBorder : colors.contextBorder,
         borderWidth: node.role === 'active' ? 2 : 1,
       },
       children: node.children.map(toEChartsNode),
@@ -66,17 +71,17 @@ export function toEChartsNode(node: RenderNode): EChartsTreeNode {
       payload: { kind: 'stub', cardId: node.cardId },
       symbolSize: 9,
       itemStyle: {
-        color: COLOR_STUB,
+        color: colors.stub,
         borderColor: node.isHeadActive
-          ? COLOR_STUB_ACTIVE_BORDER
-          : COLOR_STUB_BORDER,
+          ? colors.stubActiveBorder
+          : colors.stubBorder,
         borderWidth: node.isHeadActive ? 1.5 : 1,
         borderType: 'dashed',
       },
       label: {
         show: true,
         position: 'right',
-        color: '#888',
+        color: themeColor('--text-2'),
         fontSize: 10,
         formatter: `+${node.subtreeSize}`,
       },
@@ -91,15 +96,15 @@ export function toEChartsNode(node: RenderNode): EChartsTreeNode {
     },
     symbolSize: 7,
     itemStyle: {
-      color: COLOR_BUCKET,
-      borderColor: COLOR_BUCKET_BORDER,
+      color: colors.bucket,
+      borderColor: colors.bucketBorder,
       borderWidth: 1,
       borderType: 'dotted',
     },
     label: {
       show: true,
       position: 'right',
-      color: '#666',
+      color: themeColor('--text-2'),
       fontSize: 10,
       formatter: `×${node.childCardIds.length}`,
     },
@@ -117,22 +122,27 @@ export function tooltipFor(
   payload: NodePayload,
   cards: ReadonlyMap<CardId, ReviewCard>,
 ): string {
+  const cText1 = themeColor('--text-1');
+  const cText2 = themeColor('--text-2');
+  const cAccent = themeColor('--accent-primary');
+  const cBorder2 = themeColor('--border-2');
+  const cSurface0 = themeColor('--surface-0');
   if (payload.kind === 'stub') {
-    return `<div style="padding:6px; font-size:11px; color:#ccc;">
-      <b style="color:#4aaef0;">Card ${payload.cardId}</b><br/>
-      <span style="color:#888;">Subtree summary — click to expand.</span>
+    return `<div style="padding:6px; font-size:11px; color:${cText1};">
+      <b style="color:${cAccent};">Card ${payload.cardId}</b><br/>
+      <span style="color:${cText2};">Subtree summary — click to expand.</span>
     </div>`;
   }
   if (payload.kind === 'bucket') {
-    return `<div style="padding:6px; font-size:11px; color:#ccc;">
-      <b style="color:#888;">Bucket of cold leaves</b><br/>
-      <span style="color:#666;">Click to expand individual cards.</span>
+    return `<div style="padding:6px; font-size:11px; color:${cText1};">
+      <b style="color:${cText2};">Bucket of cold leaves</b><br/>
+      <span style="color:${cText2};">Click to expand individual cards.</span>
     </div>`;
   }
   const card = cards.get(payload.cardId);
   if (!card) {
-    return `<div style="padding:6px; font-size:11px; color:#888;">
-      <b style="color:#4aaef0;">Card ${payload.cardId}</b><br/>
+    return `<div style="padding:6px; font-size:11px; color:${cText2};">
+      <b style="color:${cAccent};">Card ${payload.cardId}</b><br/>
       Loading…
     </div>`;
   }
@@ -142,16 +152,16 @@ export function tooltipFor(
   const ebisuT = card.model.t.toFixed(4);
   return `
     <div style="display:flex; flex-direction:column; gap:8px;">
-      <div style="font-weight:bold; color:#4aaef0; text-transform:uppercase;">
+      <div style="font-weight:bold; color:${cAccent}; text-transform:uppercase;">
         Card #${card.id}${payload.role === 'active' ? ' · active' : ''}
       </div>
-      <div style="width:140px; height:140px; border:1px solid #333; background:#000;">
+      <div style="width:140px; height:140px; border:1px solid ${cBorder2}; background:${cSurface0};">
         ${svg}
       </div>
-      <div style="font-size:10px; color:#888;">
+      <div style="font-size:10px; color:${cText2};">
         Reviews: ${card.numReviews} · Ebisu T: ${ebisuT}
       </div>
-      <div style="color:#4aaef0; font-size:9px;">Click to load position</div>
+      <div style="color:${cAccent}; font-size:9px;">Click to load position</div>
     </div>`;
 }
 
