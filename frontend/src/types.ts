@@ -63,6 +63,13 @@ import type {
 } from './composables/use-pv-animation';
 export type { PvAnimationSettings, PvAnnotation, PvMode };
 
+// ── Re-exports: generated wire schemas ────────────────────────────────────────
+// Imported here so this file can alias selected wire shapes under
+// domain-friendly names. The generated module is the single source of
+// truth for the wire boundary; re-exporting keeps consumers free of
+// `components['schemas']['…']` boilerplate.
+import type { components } from './types/backend';
+
 // ── Type Branding Utilities ───────────────────────────────────────────────────
 type Brand<K, T> = K & { readonly __brand: T };
 
@@ -602,26 +609,24 @@ export interface ReviewFeedback {
 
 // ── Wire types (going outbound) — no readonly, mutable construction ───────────
 
-export interface GameMetadataPayload {
-  description?: string;
-  player_white?: string;
-  player_black?: string;
-}
-
-// ─── 34b: Wire-format rename ──────────────────────────────────────────────────
-// `sgf` → `raw_content` (domain-neutral name for the serialized content).
-// `default_visits` has moved off the top level; it now lives inside
-// `grading_parameter.data`. See `composables/useMinting.ts::prepareDraft` for
-// the construction site that places it there.
-// ──────────────────────────────────────────────────────────────────────────────
-export interface CardCreatePayload {
-  raw_content: string;
-  num_moves: number;
-  grading_parameter: Record<string, any>;
-  tags: string[];
-  parent_card_id?: number;
-  game_metadata?: GameMetadataPayload;
-}
+// ─── Card-create wire shapes ──────────────────────────────────────────────────
+//
+// Aliases for the generated wire types from `types/backend.ts`. The
+// handwritten interfaces that previously sat here (one per shape)
+// retired in favour of the codegen-sourced declarations to close a
+// drift hazard — they were the same shape as the generated schemas,
+// declared twice. The fields are snake_case because these are wire
+// shapes, not camelCase domain projections; there is no inverse-mapper
+// for the create flow analogous to `mapToReviewCard`. The composable
+// (`composables/useMinting.ts::prepareDraft`) constructs the payload
+// literally and the ACL (`services/backend-service.ts::createCard`)
+// forwards it.
+//
+// 34b note: `default_visits` lives inside `grading_parameter.data`,
+// not at the top level. See `composables/useMinting.ts::prepareDraft`
+// for the construction site that places it there.
+export type CardCreatePayload = components['schemas']['CardCreate'];
+export type GameMetadataPayload = components['schemas']['GameSourceCreate'];
 
 // ── Value Objects (readonly preserved) — backend-sourced stats ────────────────
 
