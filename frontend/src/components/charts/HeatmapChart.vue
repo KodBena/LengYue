@@ -7,6 +7,7 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 import * as echarts from 'echarts';
 import { useThumbnailCache } from '../../composables/useThumbnailCache';
+import { themeColor } from '../../utils/theme-color';
 import {
   colorMoveToPly,
   type HeatmapCell,
@@ -76,41 +77,44 @@ const updateOptions = () => {
 
         const startSvg = getSync(startNode, false);
         const endSvg   = getSync(endNode, false);
-        const thumb = 'width:80px;height:80px;display:inline-block;border:1px solid #333;background:#000;';
+        const thumb = `width:80px;height:80px;display:inline-block;border:1px solid ${themeColor('--border-2')};background:${themeColor('--surface-0')};`;
         return `
-          <div style="font-size:11px;color:#aaa;margin-bottom:6px;">${label}</div>
+          <div style="font-size:11px;color:${themeColor('--text-1')};margin-bottom:6px;">${label}</div>
           <div style="display:flex;gap:8px;">
             <div style="${thumb}">${startSvg}</div>
             <div style="${thumb}">${endSvg}</div>
           </div>`;
       }
     },
-    xAxis: { 
-      type: 'category', 
+    xAxis: {
+      type: 'category',
       data: categories,
       show: true,
-      axisLabel: { fontSize: 9, color: '#666' },
+      axisLabel: { fontSize: 9, color: themeColor('--text-2') },
       min: props.zoomRange ? Math.floor(props.zoomRange[0]/2) : 0,
       max: props.zoomRange ? Math.ceil(props.zoomRange[1]/2) : props.maxMoveIndex
     },
-    yAxis: { 
-      type: 'category', 
+    yAxis: {
+      type: 'category',
       data: categories,
       show: true,
-      axisLabel: { fontSize: 9, color: '#666' },
+      axisLabel: { fontSize: 9, color: themeColor('--text-2') },
       min: props.zoomRange ? Math.floor(props.zoomRange[0]/2) : 0,
       max: props.zoomRange ? Math.ceil(props.zoomRange[1]/2) : props.maxMoveIndex
     },
     visualMap: {
-      min: props.minVal, 
-      max: props.maxVal, 
-      calculable: true, 
-      orient: 'vertical', 
-      right: 0, 
+      min: props.minVal,
+      max: props.maxVal,
+      calculable: true,
+      orient: 'vertical',
+      right: 0,
       top: 'center',
       itemWidth: 10,
-      inRange: { color: ['#1a1a1a', '#4aaef0', '#f04a4a'] },
-      textStyle: { color: '#666', fontSize: 9 }
+      // Heatmap gradient: --heatmap-low (surface-2) -> --heatmap-mid
+      // (accent-primary) -> --heatmap-high (state-error). Defined as
+      // chart-derived helpers in theme.css.
+      inRange: { color: [themeColor('--heatmap-low'), themeColor('--heatmap-mid'), themeColor('--heatmap-high')] },
+      textStyle: { color: themeColor('--text-2'), fontSize: 9 }
     },
     series: [{
       type: 'heatmap',

@@ -12,6 +12,7 @@ import { useEnrichedData } from './useEnrichedData';
 import { useKernelSeries } from './useKernelSeries';
 import { scoreLead } from '../engine/analysis/kernels';
 import { useAnalysisTimeline } from './useAnalysisTimeline';
+import { themeColor } from '../utils/theme-color';
 import type { BoardId, ColorMoveIndex } from '../types';
 
 /**
@@ -97,7 +98,9 @@ export function useAnalysisProjection(boardId: BoardId) {
       
       // Determine dot color by inspecting who actually played the move to reach this state
       const isBlack = node?.move?.color === 'B';
-      const pointColor = node?.move ? (isBlack ? '#4aaef0' : '#f04a4a') : '#888';
+      const pointColor = node?.move
+        ? (isBlack ? themeColor('--accent-primary') : themeColor('--state-error'))
+        : themeColor('--text-2');
       
       return {
         value: [i, val],
@@ -106,11 +109,11 @@ export function useAnalysisProjection(boardId: BoardId) {
     });
 
     return [
-      { 
-        name: 'Score Lead', 
-        data: scoreLeadFormatted, 
-        color: '#fff',
-        showPoints: true 
+      {
+        name: 'Score Lead',
+        data: scoreLeadFormatted,
+        color: themeColor('--text-0'),
+        showPoints: true
       },
       ...enriched.value.stateSeries,
     ];
