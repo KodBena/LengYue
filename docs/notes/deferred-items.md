@@ -201,6 +201,83 @@ this file.
   contents (multiple orchestration patterns competing in one
   file) actively cause confusion during navigation-guard work.
 
+### Anchor role overloading in the chrome substrate
+
+- **Surfaced:** 2026-05-02 (during A4 of the color theming
+  substrate arc, when the user noticed that `AnalysisChartPanel`'s
+  `.marker-w` border maps to `var(--state-error)` and
+  `.marker-b` to `var(--accent-primary)`).
+- **Concern:** The chrome substrate's 16-anchor role taxonomy
+  (surface / border / text / accent / state) doesn't cover all
+  the implicit semantic roles consumers need. When a consumer's
+  role doesn't fit the taxonomy — "player B" / "player W"
+  identifier in delta charts; "review state" indicators on
+  board tabs — the consumer snaps to whichever anchor shares the
+  literal value. The anchor's *value* is correct; the anchor's
+  *name* lies about what it covers.
+
+  This violates **ADR-0005 Rule 1 in spirit**: the implicit
+  handle ("player W color") has no source of truth — it
+  piggybacks on `--state-error`. A future substrate-tuning PR
+  that nudges `--state-error` toward a different shade (because
+  error messages were too aggressive, say) would drag every
+  player-W chart site along involuntarily, even though no
+  decision was made about player colors.
+
+  Worked examples introduced in A4 (PR #88):
+  - `useEnrichedData.ts` — Black delta `var(--accent-primary)`,
+    White delta `var(--state-error)`.
+  - `useAnalysisProjection.ts` — per-point dot colors, same
+    overloaded pair.
+  - `AnalysisChartPanel.vue` — `.marker-b` border
+    `var(--accent-primary)`, `.marker-w` border
+    `var(--state-error)`.
+
+  Pre-A4, the same shape exists on `BoardTab.vue`'s
+  review-state borders piggybacking on the state anchors:
+  `.review-active` → `--state-attention`, `.review-intermission`
+  → `--state-warning`, `.review-complete` → `--state-success`.
+  Conceptually distinct semantic roles ("review intermission" is
+  not the same role as "warning system message") but they share
+  the literal values.
+
+- **Suggested next action:** **Decouple-via-alias.** Add new
+  role anchors to `theme.css` that initially alias existing
+  anchors:
+
+  ```css
+  --player-black:        var(--accent-primary);
+  --player-white:        var(--state-error);
+  --review-active:       var(--state-attention);
+  --review-intermission: var(--state-warning);
+  --review-complete:     var(--state-success);
+  ```
+
+  Sweep the affected sites to use the new role anchors. Visual
+  is unchanged at the time of the change; the SSOT contract
+  gains honest handles for these roles; future tuning can break
+  the aliasing without disturbing the chrome story (e.g., if
+  `--state-error` shifts toward orange but you want to keep
+  player-W solidly red, you change `--player-white`'s alias
+  target rather than tracking down every overloaded site).
+
+  Note that "player B" / "player W" sit in ADR-0003's band 2
+  (game-tree-coupled, not Go-bound — Chess and Shogi also have
+  two players); the role anchors are honestly chrome-domain
+  even though their *meaning* is game-tree-side.
+
+- **Adjacent principle for future substrate work:** when a
+  substrate refactor encounters two distinct semantic roles
+  that happen to share a literal value, that's an empirical
+  observation, not license to merge the roles in the substrate.
+  Pre-emptively name implicit handles even when their values
+  overlap existing anchors. The decouple-via-alias pattern
+  preserves visual identity while keeping the role taxonomy
+  honest. Worth applying as a posture during the next
+  substrate-tuning pass and any future SSOT refactor (typography,
+  spacing, animation, z-index — each will have its own version
+  of the role coverage gap).
+
 ---
 
 ## Closed items
