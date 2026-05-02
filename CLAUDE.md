@@ -74,7 +74,7 @@ tree without surfacing the cross-boundary nature first.
 originally covered the proxy was lifted during the umbrella's v1.0.0
 release window — a bug surfaced (empty-board ponder via
 `analysis_config` leakage) that warranted a coordinated proxy bump
-rather than a frontend-only workaround. The current pin is **v1.0.3**;
+rather than a frontend-only workaround. The current pin is **v1.0.6**;
 later bumps follow the same coordinated arc (see the proxy's tag
 annotations for each release's full changelog).
 
