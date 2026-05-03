@@ -7,6 +7,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import HorizontalTimelineVisualizer from '../HorizontalTimelineVisualizer.vue';
+import { PONDER_MAX_VISITS } from '../../engine/constants';
 import type { PlyIndex } from '../../types';
 
 const props = defineProps<{
@@ -65,7 +66,7 @@ function onRangeUpdate(r: [number, number]): void {
         v-model.number="visits"
         type="number"
         min="1"
-        max="100000"
+        :max="PONDER_MAX_VISITS"
         class="visits-input"
       />
       <button
