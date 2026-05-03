@@ -549,11 +549,11 @@ The auditor entry surfaced two distinct items: the immediate-
 action item (Item 18 closure, shipped here) and a class-wide
 audit pass over `mapToReviewCard` and any other ACL translator
 with documented surfacings, looking for typed-but-unassigned
-fields. The class-wide pass is **not** done in this PR. It
-remains as a follow-on session — the user can elect to schedule
-it as its own work unit when prioritized, and the entry's
-"Advice for the next auditor" section is the hand-off for that
-sweep when it happens.
+fields. The class-wide pass was deferred at this entry's
+authoring time; the user prioritised it later in the same
+session, and the dated follow-on entry below records the
+sweep's cumulative-tally findings (clean — no further
+instances surfaced; one-off, not chronic).
 
 ### 3. Lesson reinforced
 
@@ -569,3 +569,189 @@ the code no longer exhibits). The doc edit and the code edit
 ship in the same commit for this reason, not as a follow-up.
 
 — end 2026-05-03 entry —
+
+---
+
+## 2026-05-03 (follow-on) — class-wide ACL audit sweep by Claude (Opus 4.7)
+
+The "class-wide audit pass" the 2026-05-02 entry filed as a
+secondary recommendation, and the 2026-05-03 closure entry
+defered as out of its own scope, ran in the same session. This
+entry is the cumulative-tally artifact the original entry's
+"Advice for the next auditor" asked future passes to file.
+
+### 1. Mechanical procedure applied
+
+For each domain interface in `src/types.ts` produced by an
+ACL translator, walk its fields against the corresponding
+translator's body. For each field: verify the assignment
+exists; verify the assignment chains to wire data; for
+passthrough fields, verify any defensive transformation
+(sanitization, normalization, brand-cast, curation rewrite)
+is in place.
+
+The grep that opens the audit:
+
+```
+grep -rn 'Item .* surfacing\|closed jointly\|Commit .* closes\|surfaced (Commit' src/types.ts
+```
+
+After PR #96 retired the Item 18 surfacing claims, the only
+match in `src/types.ts` is the `Item 18 surfacing` section
+comment in `ReviewCard` itself. No other "Item N surfacing"
+or "closed jointly with Commit M" claims survive in domain
+types — meaning either there were no other documented
+surfacings to audit (the more likely reading: closure-claim
+comments were rare), or the practice itself decayed before
+the divergence class was named.
+
+### 2. Forward sweep — typed-but-unassigned fields
+
+Every ACL translator in the codebase walked against every
+field of the domain type it produces. Findings:
+
+| Translator | Domain types | Verdict |
+|---|---|---|
+| `services/backend-service.ts::mapToReviewCard` | `ReviewCard` | Clean post-PR-#96. |
+| `services/backend-service.ts::mapResolvedRoot` | `RootGroup` | Clean — three fields, brand-cast at boundary. |
+| `services/backend-service.ts::mapTreeNode` | `CardLineageNode` | Clean — recursion handled. |
+| `services/backend-service.ts` inline (`fetchTreeByRoot`) | `CardLineageTree` | Clean. |
+| `services/backend-service.ts` inline (`resolveRoots`) | `ResolveRootsResult` | Clean. |
+| `services/qeubo-service.ts::map{Experiment,Status,Pair,Best,PreferenceResult,History}` | `QeuboExperiment`, `QeuboStatus`, `QeuboPair`, `QeuboBest`, `QeuboPreferenceResult`, `QeuboHistory` | Exemplary — every wire field maps to exactly one domain field, `narrowPhase` enforces the discriminated union per ADR-0002 with a throw on contract violation. |
+| `services/api-client.ts::getMe` → `composables/useAuth.ts` (composable-side projection) | `AuthState` constructor `{ kind: 'authenticated', username, userId }` | Clean as a translator. Drops `has_password`; the domain type doesn't model it (out of scope: wire-side surplus, not domain-side missed assignment). |
+
+**No new typed-but-unassigned fields surface.** The `gradingParameter`
+instance was a one-off in the present codebase, not the
+leading edge of a chronic shape. The cumulative tally for
+the class so far: one instance, found, closed.
+
+### 3. Inverse sweep — TODO ↔ code drift
+
+The 2026-05-02 entry's section 4 named TODO ↔ code drift as
+the inverse-direction divergence class. The mechanical pass:
+
+```
+git log --all --grep "Closes: TODO"
+```
+
+Returns exactly two commits: `41a9c5d` (the original 34b
+cleanup) and `d8d81b4` (the meta-commit that retired the
+stale 34b TODO references — i.e., the commit the original
+entry's section 4 triggered). Both resolved.
+
+Spot-checked Active TODO entries against current code state:
+
+- **"Type the pipeline DSL on the frontend"** —
+  `CardSet.pipeline: any[]` at `types.ts:512` is still bare
+  `any[]`. Premise holds.
+- **"Cards tab merge"** — `srContextIds` and
+  `databaseContextIds` are still separate per-tab fields at
+  `types.ts:413-414`. Premise holds.
+- **"Magic-literals audit"** — predicate "color theming
+  substrate done first" is now satisfied (substrate shipped
+  2026-05-02). Entry's own "Predicated on …" line correctly
+  records this.
+
+**No Active entries have stale premises.**
+
+### 4. Adjacent observations (not class findings)
+
+These surfaced during the sweep and are filed for completeness
+rather than as audit findings of the class. Each is a separate
+shape that the audit didn't target.
+
+- **Three shipped frontend PRs lack rows in the Frontend
+  Completed table:** PR #91 (HorizontalTimelineVisualizer
+  rug-plot gradient fix), PR #92 (themeColor signature
+  tightened to `ChromeAnchor` literal union), PR #94 (board
+  coordinate label band). Each has a worklog entry; none has
+  a TODO Completed row. Convention isn't airtight — PR #95
+  got a row, those three didn't. This is a documentation-graph
+  gap rather than the strict 34b-class drift (no Active entry
+  exists for any of them to be retired against), but it's
+  adjacent in shape: a gap between the high-level claim
+  ("TODO is the canonical record of shipped frontend work")
+  and lower-level reality (worklogs are the actual record).
+  Not filed for backfill in this PR; the user can elect to
+  do a small docs sweep if uniformity is wanted.
+- **`ForestStat` and `TagStat` are wire-shape passthroughs
+  in `types.ts`** (lines 653-664, 666-668) — snake_case
+  fields kept as the domain type, with no ACL translator
+  between `getForestStats`/`getTags` and consumers. Two
+  consumer sites (`useCardTreeData.ts:65`,
+  `ForestDirectory.vue:44, 144`) carry inline `as CardId`
+  brand-casts because the domain type leaks `root_card_id:
+  number`. Different class from this audit's target (no
+  typed-but-unassigned divergence) — this is "missing ACL
+  translator entirely." Filed in
+  `docs/notes/deferred-items.md` for prioritization.
+- **`currentRecall` / `halflifeUnits` have no current
+  consumers.** Both fields are correctly populated by
+  `mapToReviewCard` post-PR-#96, but no site in `src/`
+  outside the ACL itself reads them. Surfacing-without-current-
+  consumer is a reasonable shape if the field is intended
+  for diagnostics the UI hasn't yet wired (e.g., "this card
+  will be at 50% recall in N hours" tooltips). Worth
+  remembering when the SR view next gets attention; not
+  itself a divergence.
+
+### 5. Closing recommendation
+
+The 2026-05-02 entry's hypothesis was that `gradingParameter`
+was "one of … at least several" instances. The mechanical
+sweep does not bear this out in the current codebase. The
+class-wide audit recommendation closes as **swept clean —
+no further instances surfaced**. The user's recollection of
+"this is not the first time" likely captures a chronic shape
+across the codebase's *history* rather than across its
+current state — earlier instances may have been quietly
+fixed before the class was named.
+
+The audit shape itself remains valuable as a periodic pass
+even when results are clean — the procedure is mechanical,
+the cost is ~30 minutes per pass, and the asymmetry between
+"discover post-hoc on a dispatch round-trip" and "discover
+during a scheduled sweep" favours the sweep.
+
+### Advice for the next auditor
+
+- **Suggested cadence: per-release sweep at minimum.** The
+  audit cost is small enough that running it as part of any
+  release-prep arc is cheap insurance against a divergence
+  having accumulated since the last pass. The mechanical
+  procedure transcribes onto a checklist.
+- **The grep-for-surfacing-claims pattern is fragile.** This
+  pass found very few `Item N surfacing` comments because
+  the convention itself was sparse — only `ReviewCard`
+  carried them, and that was the one that happened to
+  diverge. A future divergence may not announce itself with
+  a closure-claim comment. The structurally-honest sweep is
+  walking every domain interface against its translator,
+  not grepping for self-flagging instances. Trust the field
+  walk; treat the grep as a hint, not a filter.
+- **Optional fields are the silent collaborator (still).**
+  When you see `field?:` in a domain interface, the
+  audit-relevant question is: is this field genuinely
+  optional (legitimate undefined cases exist) or
+  aspirationally optional (the field is meant to always be
+  there, the optionality is a defensive shim)? The latter
+  is the divergence trap; the former isn't. Keep the
+  taxonomy explicit when a new optional field is added —
+  ideally in a doc comment that names the optionality
+  category.
+- **The inverse class generalises beyond TODO ↔ code.** Any
+  boundary between a high-level claim and a lower-level
+  reality is a candidate divergence site. The
+  three-PRs-without-Completed-rows observation in section 4
+  is one such site (TODO Completed table vs. worklog
+  ledger); ForestStat/TagStat is another (declared domain
+  type vs. actual ACL discipline elsewhere in the codebase).
+  When you sweep the audit class proper, glance at the
+  adjacent shapes and file what you see.
+- **A clean negative result is itself the data point the
+  cumulative tally needs.** Don't pad the entry; record the
+  procedure, the verdict, and any adjacent observations.
+  The next auditor reads this entry to decide what's worth
+  re-checking.
+
+— end 2026-05-03 (follow-on) entry —
