@@ -289,12 +289,15 @@ The triangular heatmap component
 (`src/components/charts/HeatmapChart.vue`, backed by
 `src/composables/useTriangularHeatmap.ts`) currently re-renders the
 entire triangle on every analysis-packet arrival, even though each
-packet only contributes new data to one cell at most (a sliver of
-one triangle). Under fast-backend conditions (KataGo NN-cache
-hits, proxy replay-cache replays) the redraws can't keep up with
-the packet rate at 60Hz, producing visible jankiness in the
-heatmap chart panel — distinct from the main-thread saturation
-that the RAF-batched ledger notification
+packet only refreshes a single ray within the triangle — positions
+`(s, t)` for `s ≤ t` given the new turn `t`, and the reflection
+across the diagonal (the BSA per-colour summary's update footprint:
+the summaries over `[s, t]` intervals that newly include the
+just-arrived delta, not the whole matrix). Under fast-backend
+conditions (KataGo NN-cache hits, proxy replay-cache replays) the
+redraws can't keep up with the packet rate at 60Hz, producing
+visible jankiness in the heatmap chart panel — distinct from the
+main-thread saturation that the RAF-batched ledger notification
 (`src/services/analysis-ledger.ts`, shipped 2026-05-03) addressed
 at the ingress layer.
 
