@@ -53,6 +53,55 @@ verdict (SSOT candidate / one-off / domain / already-disciplined).
 
 ---
 
+## Working principle: semantic consolidation, not literal lifting
+
+A misreading of this inventory would be to lift each distinct
+literal into its own named home — `--text-8: 8px`, `--text-9:
+9px`, ..., `--text-20: 20px` for the ten font-size literals — and
+conclude the audit's contract is satisfied. That shape preserves
+drift; it just gives every drifting value an address. The audit's
+intent is the opposite: **reduce the number of *distinct semantic
+roles* the codebase carries**, not the number of distinct
+addresses.
+
+Two sub-principles inherited from the color substrate's worked
+example apply uniformly to every Pass-2 substrate decision:
+
+- **Snap-by-cluster** (the consolidation move). When surveyed
+  values fall within JND of each other and serve the same role,
+  collapse them. The color sweep's 380 literals → 16 base
+  anchors was a 23:1 consolidation; the same shape is plausible
+  for every scale category in this inventory. Ten font-sizes
+  likely resolve to four or five roles (tiny / body / emphasis /
+  heading-sm / heading-md) with the rest absorbed; seven
+  letter-spacings to three (tight / default / wide); twenty-two
+  transition durations to three or four (fast / default /
+  linger / pulse). The Pass-2 substrate's job is to **answer the
+  design question of how many roles the codebase actually has**,
+  not to faithfully reproduce every authored-by-hand value.
+
+- **Decouple-via-alias** (the disambiguation move). When two
+  values *match by accident* but represent semantically distinct
+  roles, do not merge them in the substrate. Add the role anchor
+  and initially alias it to whichever existing anchor happens to
+  share the value. The chrome substrate's
+  `--player-white: var(--state-error)` is the worked example;
+  the principle is recorded in `docs/notes/deferred-items.md`'s
+  "Anchor role overloading" entry. Snap-by-cluster says *fewer
+  roles when consolidation is honest*; decouple-via-alias says
+  *more roles when consolidation would flatten meaning*. The two
+  compose: each Pass-2 substrate first chooses the role taxonomy
+  (design judgement, named explicitly), then mechanically snaps
+  each inventoried literal to its nearest declared role.
+
+The cluster summary's per-category anchor counts (~5 spacing
+anchors for ~150 sites, ~7 font-size anchors for ~150 sites, 4
+z-index tiers for 8 sites) assume this discipline. Without it,
+the audit produces a dictionary of literals; with it, the audit
+produces a vocabulary.
+
+---
+
 ## Existing SSOT baseline (what's already centralised)
 
 Recording the baseline so Pass 2's substrates compose with it

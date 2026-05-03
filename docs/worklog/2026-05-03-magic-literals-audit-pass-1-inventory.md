@@ -33,16 +33,31 @@ The inventory artifact. Sections:
    from the plan, applied verbatim. Concrete sweeps performed
    (CSS-side categories, TS-side categories, cross-cutting
    verification of existing SSOT files).
-2. **Existing SSOT baseline.** What's already centralised
+2. **Working principle: semantic consolidation, not literal
+   lifting.** Names the load-bearing authoring rule for Pass 2
+   — reduce the number of *distinct semantic roles*, not the
+   number of distinct addresses. Two sub-principles inherited
+   from the color substrate's worked example: **snap-by-cluster**
+   (collapse within-JND values that serve the same role; the
+   color sweep's 23:1 consolidation is the precedent) and
+   **decouple-via-alias** (when two values match by accident
+   but serve distinct roles, name the second role and alias it
+   — `--player-white: var(--state-error)` is the worked
+   example, recorded in `deferred-items.md`'s "Anchor role
+   overloading" entry). Without this discipline a Pass-2 author
+   could produce a dictionary of literals (`--text-8: 8px`,
+   `--text-9: 9px`, …) and consider the audit closed; with it,
+   the deliverable is a vocabulary.
+3. **Existing SSOT baseline.** What's already centralised
    (`engine/constants.ts`, `theme.css`, `theme-color.ts`,
    `style.css`, `config/env.ts`, `lib/utils.ts`, `defaults.ts`).
    Records that the color category is swept clean post-A4.
-3. **CSS-side findings (categories A–K).** Animation durations
+4. **CSS-side findings (categories A–K).** Animation durations
    and easings, opacity sub-roles, z-index strata, font-size
    scale, spacing scale (gap/padding/margin), border-radius
    scale, border-width, fixed layout sizes, letter-spacing,
    color-mix percentages.
-4. **TS-side findings (categories L–T).** Geometry multipliers
+5. **TS-side findings (categories L–T).** Geometry multipliers
    (the `cell * 0.46` triggering specimen and its second-order
    derivatives), other domain multipliers,
    setTimeout/setInterval delays, domain thresholds (`100000`
@@ -50,27 +65,27 @@ The inventory artifact. Sections:
    fallback), URL path strings, discriminated-union `kind`
    strings (NOT magic literals — disclaimed), Vue `emit()`
    names, DOM event names, migration version strings.
-5. **Adjacent observations.** The two-site default divergence
+6. **Adjacent observations.** The two-site default divergence
    between `defaults.ts` and `use-pv-animation.ts` (same shape
    as the gradingParameter Item-18 finding); the
    not-yet-existing `magic-literal:` comment convention; the
    already-disciplined HorizontalTimelineVisualizer
    block-exception.
-6. **Cluster summary.** A 4-tier prioritisation table mapping
+7. **Cluster summary.** A 4-tier prioritisation table mapping
    each cluster to a candidate substrate shape and an estimated
    PR count.
-7. **Recommended Pass 2 sequencing.** Ten ordered PRs:
+8. **Recommended Pass 2 sequencing.** Ten ordered PRs:
    z-index ladder → TS-side defaults consolidation → animation
    duration tokens → geometry substrate → spacing scale →
    font-size scale → border-radius scale → letter-spacing
    scale → Tier-3 small substrates → Tier-4 inline-justification
    sweep (the audit's deliverable).
-8. **Carve-outs and exclusions.** Backend deferred; generated
+9. **Carve-outs and exclusions.** Backend deferred; generated
    files out of scope; trivial literals exempt; band-3 domain
    literals owned by `engine/`; block-level theme exceptions
    accepted as-is; migration-frozen strings preserved per
    ADR-0005 spirit.
-9. **Verification + open Pass 2 judgement calls** — five
+10. **Verification + open Pass 2 judgement calls** — five
    per-cluster decisions deferred to substrate-PR authoring
    time (duration-tier collapse, spacing-scale stragglers,
    color-mix interpolation shape, URL path centralisation
