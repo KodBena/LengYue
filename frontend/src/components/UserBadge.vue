@@ -103,7 +103,7 @@ watch(
 
 .dot {
   display: inline-block; width: 7px; height: 7px;
-  border-radius: 50%; background: var(--border-3); flex-shrink: 0;
+  border-radius: var(--radius-circle); background: var(--border-3); flex-shrink: 0;
 }
 
 /* dot color matches turn-indicator palette */

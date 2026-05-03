@@ -102,7 +102,7 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
   padding: var(--space-default) var(--space-medium);
   background: var(--surface-2);
   border-left: 3px solid var(--border-3);
-  border-radius: 2px;
+  border-radius: var(--radius-default);
   gap: var(--space-medium);
 }
 

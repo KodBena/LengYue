@@ -6,14 +6,16 @@
  * 2 accent, 4 semantic state; plus 6 chart-derived helpers and 5
  * role aliases). Z-index ladder (4 layering tiers). Animation
  * durations (2 timing tiers). Spacing scale (4 spacing tiers).
- * Font-size scale (4 typographic tiers). Every chrome color,
- * z-index, transition duration, substrate-cluster spacing, and
- * font-size value in CSS, in SFC <style> blocks, and in
+ * Font-size scale (4 typographic tiers). Border-radius scale (2
+ * rounding tiers). Every chrome color, z-index, transition
+ * duration, substrate-cluster spacing, font-size, and
+ * border-radius value in CSS, in SFC <style> blocks, and in
  * TypeScript chart-adapter sites reads from this file via
  * `var(--name)`; the `themeColor()` helper in
  * src/utils/theme-color.ts is the runtime-string accessor for
- * the color subset (z-index, durations, spacing, and font-sizes
- * are CSS-only and don't need typed runtime accessors).
+ * the color subset (z-index, durations, spacing, font-sizes,
+ * and radii are CSS-only and don't need typed runtime
+ * accessors).
  *
  * Out of scope:
  * - Domain (Go-specific) colors live in src/engine/constants.ts.
@@ -27,7 +29,8 @@
  * docs/notes/magic-literals-audit-inventory.md (z-index ladder
  * is Pass-2 Tier-1 #1, animation durations are Pass-2 Tier-1 #2,
  * spacing scale is Pass-2 Tier-2 #1, font-size scale is Pass-2
- * Tier-2 #2 of the audit's residue sweep).
+ * Tier-2 #2, border-radius scale is Pass-2 Tier-2 #3 of the
+ * audit's residue sweep).
  *
  * License: Public Domain (The Unlicense)
  */
@@ -183,4 +186,27 @@
   --text-body:     10px;  /* body default — set in style.css's html/body */
   --text-emphasis: 12px;  /* emphasized body, secondary headings */
   --text-heading:  16px;  /* section headings, dialog titles, hero */
+
+  /* ── Border-radius scale (2) ─────────────────────────────────
+   * Two tiers for chrome rounding. Snap-by-cluster collapses
+   * the 2/3/4/6 px small-radius cluster into a single
+   * --radius-default at 3px (the dominant value, ×36 sites);
+   * 4→3 (-1px, 21 sites) and 2→3 (+1px, 8 sites) shifts are
+   * within JND. The 6px sites (4 — RootErrorBoundary error
+   * panel, MintCardModal modal-content frame, and similar
+   * larger surfaces) lower 3px to default; if the loss of
+   * heavier corner-softening reads as too tight in a future
+   * tuning pass, the alias-not-add discipline applies — add
+   * `--radius-large: 6px` and route the affected sites to it.
+   *
+   * The circle tier is a distinct role (status indicators,
+   * dots, round buttons) — preserved as a 50% radius.
+   *
+   * Stragglers preserved as literals for Tier-4 inline-
+   * justification: `0rem` (4 sites — input[type="range"]
+   * form-control overrides in style.css's documented
+   * theme-exception block), `9999px` (1 site — pill-shape
+   * trick), `1px`, `0%` (1 site each). */
+  --radius-default: 3px;   /* default chrome — buttons, panels, inputs, cards */
+  --radius-circle:  50%;   /* circular indicators, dots, round buttons */
 }

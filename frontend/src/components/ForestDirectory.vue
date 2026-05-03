@@ -207,24 +207,24 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
 .decks-view, .roots-view { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .deck-selector-box { padding: var(--space-default); border-bottom: 1px solid var(--surface-3); }
 .deck-selector-box label { font-size: var(--text-emphasis); color: var(--text-2); display: block; margin-bottom: 3px; text-transform: uppercase; }
-.deck-dropdown { width: 100%; padding: 2px 4px; font-size: var(--text-emphasis); margin-bottom: var(--space-tight); background: var(--surface-0); color: var(--text-0); border: 1px solid var(--border-2); border-radius: 3px; outline: none; }
+.deck-dropdown { width: 100%; padding: 2px 4px; font-size: var(--text-emphasis); margin-bottom: var(--space-tight); background: var(--surface-0); color: var(--text-0); border: 1px solid var(--border-2); border-radius: var(--radius-default); outline: none; }
 .deck-dropdown:focus { border-color: var(--accent-primary); }
 .hint { font-size: var(--text-body); color: var(--text-2); margin: 0 0 var(--space-tight) 0; }
-.action-btn-large { width: 100%; background: var(--surface-2); color: var(--accent-primary); border: 1px solid var(--border-2); padding: 2px 4px; border-radius: 3px; font-size: var(--text-emphasis); cursor: pointer; text-transform: uppercase; letter-spacing: 0.05em; }
+.action-btn-large { width: 100%; background: var(--surface-2); color: var(--accent-primary); border: 1px solid var(--border-2); padding: 2px 4px; border-radius: var(--radius-default); font-size: var(--text-emphasis); cursor: pointer; text-transform: uppercase; letter-spacing: 0.05em; }
 .action-btn-large:hover { background: var(--surface-3); border-color: var(--accent-primary); }
 .tools-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 8px; border-bottom: 1px solid var(--surface-3); }
 .reload-btn { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: var(--text-heading); padding: 0; line-height: 1; }
 .reload-btn:hover { color: var(--accent-primary); }
 .roots-list { flex: 1; overflow-y: auto; padding: var(--space-tight); display: flex; flex-direction: column; gap: 3px; }
-.root-card { background: var(--surface-2); border: 1px solid var(--border-2); border-radius: 4px; padding: var(--space-tight) var(--space-default); cursor: pointer; transition: border-color var(--duration-default); flex-shrink: 0; }
+.root-card { background: var(--surface-2); border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: var(--space-tight) var(--space-default); cursor: pointer; transition: border-color var(--duration-default); flex-shrink: 0; }
 .root-card:hover { border-color: var(--border-3); }
 .root-card.active { border-color: var(--accent-primary); background: color-mix(in srgb, var(--accent-primary) 5%, transparent); }
 .root-title { font-size: var(--text-emphasis); font-weight: bold; color: var(--text-0); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .root-meta { font-size: var(--text-body); color: var(--text-2); margin-bottom: 3px; }
-.root-stats { display: flex; justify-content: space-between; font-size: var(--text-body); color: var(--text-1); background: var(--surface-0); padding: 1px 3px; border-radius: 2px; }
+.root-stats { display: flex; justify-content: space-between; font-size: var(--text-body); color: var(--text-1); background: var(--surface-0); padding: 1px 3px; border-radius: var(--radius-default); }
 .tree-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .header-controls { display: flex; align-items: center; gap: var(--space-default); }
-.orient-btn { background: var(--surface-2); color: var(--accent-primary); border: 1px solid var(--border-2); border-radius: 3px; padding: 1px 3px; font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; font-family: inherit; }
+.orient-btn { background: var(--surface-2); color: var(--accent-primary); border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: 1px 3px; font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; font-family: inherit; }
 .orient-btn:hover { background: var(--surface-3); border-color: var(--accent-primary); }
 .tree-meta { color: var(--accent-primary); font-size: var(--text-body); }
 .empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-2); font-size: var(--text-emphasis); }

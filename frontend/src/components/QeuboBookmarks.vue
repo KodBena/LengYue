@@ -118,14 +118,14 @@ function onDelete(b: QeuboBookmark): void {
 /* theme-exception: .new-btn / .apply-btn use muted-cyan variants
    (#1a3a4a / #2a5a7a / #2a4a5a) — same pattern as QeuboToolbar's
    action-button vocabulary. */
-.new-btn { background: #1a3a4a; border: 1px solid #2a5a7a; color: var(--accent-primary); padding: 5px 10px; font-size: var(--text-emphasis); cursor: pointer; border-radius: 3px; font-family: inherit; text-transform: uppercase; letter-spacing: 0.05em; }
+.new-btn { background: #1a3a4a; border: 1px solid #2a5a7a; color: var(--accent-primary); padding: 5px 10px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: uppercase; letter-spacing: 0.05em; }
 .new-btn:hover { background: #2a4a5a; border-color: var(--accent-primary); color: var(--text-0); }
 
-.empty-state { padding: var(--space-loose); background: var(--surface-0); border: 1px dashed var(--surface-3); border-radius: 4px; color: var(--text-2); font-size: var(--text-emphasis); line-height: 1.5; text-align: center; }
-.empty-state code { background: var(--surface-2); padding: 1px 5px; border-radius: 2px; color: var(--text-1); font-size: var(--text-body); }
+.empty-state { padding: var(--space-loose); background: var(--surface-0); border: 1px dashed var(--surface-3); border-radius: var(--radius-default); color: var(--text-2); font-size: var(--text-emphasis); line-height: 1.5; text-align: center; }
+.empty-state code { background: var(--surface-2); padding: 1px 5px; border-radius: var(--radius-default); color: var(--text-1); font-size: var(--text-body); }
 
 .bookmark-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-default); }
-.bookmark-row { display: flex; align-items: center; gap: var(--space-medium); padding: var(--space-medium); background: var(--surface-1); border: 1px solid var(--surface-3); border-radius: 4px; }
+.bookmark-row { display: flex; align-items: center; gap: var(--space-medium); padding: var(--space-medium); background: var(--surface-1); border: 1px solid var(--surface-3); border-radius: var(--radius-default); }
 .bookmark-row:hover { border-color: var(--border-2); }
 .bookmark-meta { flex: 1; min-width: 0; }
 .bookmark-name { font-size: var(--text-emphasis); color: var(--text-0); font-weight: bold; margin-bottom: 2px; }
@@ -133,7 +133,7 @@ function onDelete(b: QeuboBookmark): void {
 .bookmark-params { font-size: var(--text-body); color: var(--text-1); font-family: monospace; overflow-wrap: anywhere; }
 
 .bookmark-actions { display: flex; gap: var(--space-tight); flex-shrink: 0; }
-.apply-btn, .rename-btn, .delete-btn { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: var(--space-tight) var(--space-default); font-size: var(--text-body); cursor: pointer; border-radius: 3px; font-family: inherit; text-transform: uppercase; letter-spacing: 0.05em; transition: background var(--duration-default), border-color var(--duration-default), color var(--duration-default); }
+.apply-btn, .rename-btn, .delete-btn { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: var(--space-tight) var(--space-default); font-size: var(--text-body); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: uppercase; letter-spacing: 0.05em; transition: background var(--duration-default), border-color var(--duration-default), color var(--duration-default); }
 .apply-btn:hover, .rename-btn:hover { background: var(--border-3); border-color: var(--border-3); color: var(--text-0); }
 .apply-btn { border-color: #2a5a7a; color: var(--accent-primary); }
 .apply-btn:hover { background: #1a3a4a; border-color: var(--accent-primary); }

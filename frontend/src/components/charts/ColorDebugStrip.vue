@@ -74,7 +74,7 @@ const samples = computed(() => {
   padding: var(--space-medium);
   background: var(--surface-1);
   border: 1px solid var(--surface-3);
-  border-radius: 4px;
+  border-radius: var(--radius-default);
   margin-top: var(--space-medium);
   display: flex;
   flex-direction: column;
@@ -104,7 +104,7 @@ const samples = computed(() => {
   height: 24px;
   width: 100%;
   border: 1px solid var(--surface-0);
-  border-radius: 2px;
+  border-radius: var(--radius-default);
   overflow: hidden;
 }
 

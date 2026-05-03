@@ -72,7 +72,7 @@ function handle(action: LoadAction) {
   display: flex; align-items: center; justify-content: center; z-index: var(--z-modal);
 }
 .modal-content {
-  background: var(--surface-1); border: 1px solid var(--border-2); border-radius: 6px;
+  background: var(--surface-1); border: 1px solid var(--border-2); border-radius: var(--radius-default);
   width: 420px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
   display: flex; flex-direction: column; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
@@ -85,12 +85,12 @@ function handle(action: LoadAction) {
   display: flex; justify-content: flex-end; gap: var(--space-medium); padding: var(--space-medium) var(--space-medium);
   border-top: 1px solid var(--surface-3); background: var(--surface-2);
 }
-.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-1); padding: var(--space-default) var(--space-medium); border-radius: 3px; cursor: pointer; }
+.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-1); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 .btn-cancel:hover { background: var(--surface-3); color: var(--text-0); }
-.btn-overwrite { background: transparent; border: 1px solid var(--state-attention); color: var(--state-attention); padding: var(--space-default) var(--space-medium); border-radius: 3px; cursor: pointer; }
+.btn-overwrite { background: transparent; border: 1px solid var(--state-attention); color: var(--state-attention); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 .btn-overwrite:hover { background: color-mix(in srgb, var(--state-attention) 10%, transparent); }
 /* theme-exception: .btn-submit:hover #5bc0ff is a lightened-accent
    variant; same rationale as MintCardModal's btn-submit hover. */
-.btn-submit { background: var(--accent-primary); border: none; color: var(--surface-1); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: 3px; cursor: pointer; }
+.btn-submit { background: var(--accent-primary); border: none; color: var(--surface-1); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 .btn-submit:hover { background: #5bc0ff; }
 </style>

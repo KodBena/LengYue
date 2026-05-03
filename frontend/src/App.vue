@@ -333,7 +333,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
                     <span v-if="reviewSession.state.value === 'ANALYZING'">(KataGo is pondering...)</span>
                   </p>
 
-                  <div v-if="reviewSession.state.value === 'FINISHED'" style="height: 180px; width: 100%; margin-bottom: var(--space-loose); background: var(--surface-0); border: 1px solid var(--surface-3); border-radius: 4px;">
+                  <div v-if="reviewSession.state.value === 'FINISHED'" style="height: 180px; width: 100%; margin-bottom: var(--space-loose); background: var(--surface-0); border: 1px solid var(--surface-3); border-radius: var(--radius-default);">
                     <BaseChart :series="intermissionSeries" :zoomRange="[1, reviewSession.currentCard.value.numMoves]" />
                   </div>
 
@@ -560,17 +560,17 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 .settings-section > summary > .toolbar-btn-sm { margin-left: var(--space-default); }
 .settings-section > summary:hover > h3 { color: var(--text-2); }
 
-.deck-selector-box { background: var(--surface-2); padding: var(--space-medium); border-radius: 4px; border: 1px solid var(--surface-3); margin-bottom: var(--space-loose); text-align: left; }
+.deck-selector-box { background: var(--surface-2); padding: var(--space-medium); border-radius: var(--radius-default); border: 1px solid var(--surface-3); margin-bottom: var(--space-loose); text-align: left; }
 .deck-selector-box label { font-size: var(--text-emphasis); color: var(--text-2); display: block; margin-bottom: var(--space-default); text-transform: uppercase; }
-.deck-dropdown { width: 100%; padding: var(--space-default); font-size: var(--text-emphasis); margin-bottom: var(--space-default); background: var(--surface-1); color: var(--text-0); border: 1px solid var(--border-2); border-radius: 3px; outline: none; }
+.deck-dropdown { width: 100%; padding: var(--space-default); font-size: var(--text-emphasis); margin-bottom: var(--space-default); background: var(--surface-1); color: var(--text-0); border: 1px solid var(--border-2); border-radius: var(--radius-default); outline: none; }
 .deck-dropdown:focus { border-color: var(--accent-primary); }
 
-.action-btn-large { background: var(--accent-primary); color: var(--text-0); border: none; padding: var(--space-tight) var(--space-medium); cursor: pointer; border-radius: 4px; font-weight: bold; width: 100%; }
-.toolbar-btn-sm { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: 1px 4px; font-size: var(--text-emphasis); cursor: pointer; border-radius: 3px; }
+.action-btn-large { background: var(--accent-primary); color: var(--text-0); border: none; padding: var(--space-tight) var(--space-medium); cursor: pointer; border-radius: var(--radius-default); font-weight: bold; width: 100%; }
+.toolbar-btn-sm { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: 1px 4px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); }
 .toolbar-btn-sm:hover { background: var(--border-3); border-color: var(--border-3); }
-.registry-container { margin-top: 0; background: var(--surface-2); border: 1px solid var(--surface-3); border-radius: 4px; max-height: 400px; overflow-y: auto; }
+.registry-container { margin-top: 0; background: var(--surface-2); border: 1px solid var(--surface-3); border-radius: var(--radius-default); max-height: 400px; overflow-y: auto; }
 
-.collapse-btn { background: color-mix(in srgb, var(--surface-2) 80%, transparent); border: 1px solid var(--border-2); color: var(--text-2); height: 18px; padding: 0 var(--space-tight); cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: var(--text-body); }
+.collapse-btn { background: color-mix(in srgb, var(--surface-2) 80%, transparent); border: 1px solid var(--border-2); color: var(--text-2); height: 18px; padding: 0 var(--space-tight); cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-default); font-size: var(--text-body); }
 .collapse-btn:hover { background: var(--border-2); color: var(--text-0); border-color: var(--border-3); }
 .right-toggles { display: flex; gap: var(--space-default); margin-left: auto; }
 
@@ -583,7 +583,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
   padding: var(--space-default) var(--space-medium);
   background: var(--surface-2);
   border: 1px solid var(--surface-3);
-  border-radius: 4px;
+  border-radius: var(--radius-default);
   margin-bottom: var(--space-medium);
   text-align: left;
 }
@@ -603,12 +603,12 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
   padding: var(--space-tight) var(--space-default);
   font-family: monospace;
   outline: none;
-  border-radius: 3px;
+  border-radius: var(--radius-default);
 }
 .visits-input:focus { border-color: var(--accent-primary); }
 
 .hue-slider-row { display: flex; flex-direction: column; gap: var(--space-tight); margin-bottom: var(--space-default); }
 .hue-slider-label { display: flex; justify-content: space-between; align-items: center; font-size: var(--text-body); color: var(--text-1); text-transform: uppercase; letter-spacing: 0.05em; }
-.hue-slider-value { background: var(--surface-3); padding: 0 var(--space-default); border-radius: 3px; color: var(--accent-primary); font-family: monospace; }
+.hue-slider-value { background: var(--surface-3); padding: 0 var(--space-default); border-radius: var(--radius-default); color: var(--accent-primary); font-family: monospace; }
 .hue-slider-input { width: 100%; accent-color: var(--accent-primary); cursor: pointer; }
 </style>

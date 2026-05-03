@@ -62,7 +62,7 @@ body {
   height: 88px;
   cursor: pointer;
   border: 2px solid transparent;
-  border-radius: 3px;
+  border-radius: var(--radius-default);
   overflow: hidden;
   flex-shrink: 0;
   transition: border-color var(--duration-default);
@@ -82,7 +82,7 @@ body {
 .tab-add-btn {
   width: 17px;
   height: 17px;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   background: transparent;
   border: 1px solid var(--border-1);
   color: var(--text-2);
@@ -97,7 +97,7 @@ body {
 .tab-load-btn {
   width: 34px;
   height: 34px;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   background: transparent;
   border: 1px solid var(--border-1);
   color: var(--text-2);
@@ -152,7 +152,7 @@ body {
   font-size: var(--text-body);
   text-transform: uppercase;
   cursor: pointer;
-  border-radius: 2px;
+  border-radius: var(--radius-default);
   font-family: 'Courier New', monospace;
 }
 .toolbar-btn:hover  { border-color: var(--border-3); color: var(--text-0); }
@@ -282,7 +282,7 @@ body {
 }
 #tree-container::-webkit-scrollbar       { width: 6px; height: 6px; }
 #tree-container::-webkit-scrollbar-track { background: var(--surface-1); }
-#tree-container::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 3px; }
+#tree-container::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: var(--radius-default); }
 
 /* ── Native range-input styling (theme-exception) ─────────────────────
    Browser form-control aesthetic — the lightblue track and mid-grey
