@@ -64,7 +64,7 @@ function onHoverLeave() {
 <style scoped>
 #sidebar-widget {
   display: flex; flex-direction: column; align-items: center;
-  padding: 10px 0; background: var(--surface-3); height: 100%;
+  padding: var(--space-medium) 0; background: var(--surface-3); height: 100%;
   border-right: 1px solid var(--surface-1); width: 108px;
 }
 
@@ -75,7 +75,7 @@ function onHoverLeave() {
 
 .tab-add-btn {
   width: 20px; height: 20px; border-radius: 0%; border: none;
-  background: var(--border-3); color: var(--text-0); font-size: 12px; cursor: pointer; margin-top: 10px;
+  background: var(--border-3); color: var(--text-0); font-size: 12px; cursor: pointer; margin-top: var(--space-medium);
 }
 .tab-add-btn:hover { background: var(--border-3); }
 </style>

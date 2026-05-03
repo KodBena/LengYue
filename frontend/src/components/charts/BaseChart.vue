@@ -130,7 +130,7 @@ const updateOptions = () => {
       confine: true,
       padding: 0,
       formatter: (params: any[]) => {
-        let res = `<div style="line-height: 1.2; padding: 4px;">`;
+        let res = `<div style="line-height: 1.2; padding: var(--space-tight);">`;
         const firstParam = params[0];
         const xVal = Array.isArray(firstParam.value) ? firstParam.value[0] : firstParam.value;
         res += `<b style="font-size: 10px; color: ${themeColor('--text-1')};">Move ${xVal}</b>`;
@@ -138,7 +138,7 @@ const updateOptions = () => {
           const yVal = Array.isArray(item.value) ? item.value[1] : item.value;
           const val = typeof yVal === 'number' ? yVal.toFixed(2) : yVal;
           res += `
-            <div style="margin-top: 2px; display: flex; align-items: center; gap: 4px;">
+            <div style="margin-top: 2px; display: flex; align-items: center; gap: var(--space-tight);">
               ${item.marker.replace('width:10px;height:10px', 'width:6px;height:6px')}
               <span style="color: ${themeColor('--text-1')};">${item.seriesName}:</span>
               <b style="margin-left: auto;">${val}</b>

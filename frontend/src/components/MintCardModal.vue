@@ -213,7 +213,7 @@ async function submit() {
         </div>
 
         <!-- Tag Autocomplete -->
-        <div class="form-group" style="margin-top: 15px;">
+        <div class="form-group" style="margin-top: var(--space-medium);">
           <label class="tag-label">Tags:</label>
           <div class="tag-input-wrapper">
             <div class="tag-badges">
@@ -271,17 +271,17 @@ async function submit() {
 
 .modal-header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 12px 15px; border-bottom: 1px solid var(--surface-3); background: var(--surface-2);
+  padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-3); background: var(--surface-2);
 }
 .modal-header h2 { margin: 0; font-size: 14px; color: var(--text-0); text-transform: uppercase; letter-spacing: 0.05em; }
 .close-btn { background: none; border: none; color: var(--text-2); font-size: 18px; cursor: pointer; }
 .close-btn:hover { color: var(--text-0); }
 
-.modal-body { padding: 15px; }
+.modal-body { padding: var(--space-medium); }
 
 .lineage-box {
-  display: flex; align-items: center; gap: 10px; padding: 10px;
-  border-radius: 4px; margin-bottom: 15px; border: 1px solid transparent;
+  display: flex; align-items: center; gap: var(--space-medium); padding: var(--space-medium);
+  border-radius: 4px; margin-bottom: var(--space-medium); border: 1px solid transparent;
 }
 .lineage-box.root { background: color-mix(in srgb, var(--state-success) 10%, transparent); border-color: color-mix(in srgb, var(--state-success) 30%, transparent); }
 .lineage-box.branch { background: color-mix(in srgb, var(--accent-primary) 10%, transparent); border-color: color-mix(in srgb, var(--accent-primary) 30%, transparent); }
@@ -289,25 +289,25 @@ async function submit() {
 .lineage-text { display: flex; flex-direction: column; font-size: 11px; color: var(--text-1); }
 .lineage-text strong { color: var(--text-0); font-size: 12px; text-transform: uppercase; }
 
-.form-grid { display: grid; grid-template-columns: 110px 1fr; gap: 10px; align-items: center; }
+.form-grid { display: grid; grid-template-columns: 110px 1fr; gap: var(--space-medium); align-items: center; }
 .form-grid label { font-size: 11px; color: var(--text-2); text-transform: uppercase; }
 .dark-input, .dark-select {
-  background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: 6px;
+  background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default);
   border-radius: 3px; font-family: monospace; font-size: 12px; width: 100%; outline: none;
 }
 .dark-input:focus, .dark-select:focus { border-color: var(--accent-primary); }
 
-.tag-label { font-size: 11px; color: var(--text-2); text-transform: uppercase; display: block; margin-bottom: 6px; }
+.tag-label { font-size: 11px; color: var(--text-2); text-transform: uppercase; display: block; margin-bottom: var(--space-default); }
 .tag-input-wrapper {
   background: var(--surface-0); border: 1px solid var(--border-2); border-radius: 3px;
-  display: flex; flex-wrap: wrap; padding: 4px; gap: 4px; position: relative;
+  display: flex; flex-wrap: wrap; padding: var(--space-tight); gap: var(--space-tight); position: relative;
 }
 .tag-input-wrapper:focus-within { border-color: var(--accent-primary); }
 
-.tag-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.tag-badges { display: flex; flex-wrap: wrap; gap: var(--space-tight); }
 .tag-badge {
   background: var(--border-1); color: var(--accent-primary); padding: 2px 6px; border-radius: 3px;
-  font-size: 11px; font-family: monospace; display: flex; align-items: center; gap: 4px;
+  font-size: 11px; font-family: monospace; display: flex; align-items: center; gap: var(--space-tight);
 }
 .tag-remove { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: 12px; padding: 0; line-height: 1; }
 .tag-remove:hover { color: var(--state-attention); }
@@ -322,16 +322,16 @@ async function submit() {
   border: 1px solid var(--border-2); border-top: none; border-radius: 0 0 3px 3px;
   list-style: none; padding: 0; margin: 0; max-height: 150px; overflow-y: auto; z-index: var(--z-popover);
 }
-.suggestions-list li { padding: 6px 10px; font-size: 11px; font-family: monospace; color: var(--text-1); cursor: pointer; }
+.suggestions-list li { padding: var(--space-default) var(--space-medium); font-size: 11px; font-family: monospace; color: var(--text-1); cursor: pointer; }
 .suggestions-list li:hover { background: var(--border-1); color: var(--accent-primary); }
 
-.hint { font-size: 10px; color: var(--text-2); margin: 4px 0 0 0; }
+.hint { font-size: 10px; color: var(--text-2); margin: var(--space-tight) 0 0 0; }
 
 .modal-footer {
-  display: flex; justify-content: flex-end; gap: 10px; padding: 12px 15px;
+  display: flex; justify-content: flex-end; gap: var(--space-medium); padding: var(--space-medium) var(--space-medium);
   border-top: 1px solid var(--surface-3); background: var(--surface-2);
 }
-.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-1); padding: 6px 12px; border-radius: 3px; cursor: pointer; }
+.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-1); padding: var(--space-default) var(--space-medium); border-radius: 3px; cursor: pointer; }
 .btn-cancel:hover { background: var(--surface-3); color: var(--text-0); }
 /* theme-exception: .btn-submit:hover #5bc0ff is a lightened-accent
    variant. The substrate has only one cyan anchor (--accent-primary
@@ -340,7 +340,7 @@ async function submit() {
    color-mix(in srgb, var(--accent-primary), white 15%) ≈ #6abbf2)
    but not exact. Preserved verbatim until the substrate gains
    accent-tone variants. */
-.btn-submit { background: var(--accent-primary); border: none; color: var(--surface-1); font-weight: bold; padding: 6px 15px; border-radius: 3px; cursor: pointer; }
+.btn-submit { background: var(--accent-primary); border: none; color: var(--surface-1); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: 3px; cursor: pointer; }
 .btn-submit:hover:not(:disabled) { background: #5bc0ff; }
 .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

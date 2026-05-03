@@ -71,7 +71,7 @@ function reload(): void {
 }
 .reb-panel {
   background: var(--surface-2); border: 1px solid var(--state-attention); border-radius: 6px;
-  width: min(560px, 92vw); padding: 24px;
+  width: min(560px, 92vw); padding: var(--space-loose);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.9);
   color: var(--text-0);
 }
@@ -79,11 +79,11 @@ function reload(): void {
    variants (#ff7070, #ff8888) — not in the substrate. The error
    panel's distinct urgency-but-readable text colors aren't covered
    by the saturated --state-attention anchor. */
-.reb-title { margin: 0 0 12px; font-size: 18px; color: #ff7070; }
-.reb-text { margin: 0 0 14px; font-size: 13px; color: var(--text-1); line-height: 1.5; }
+.reb-title { margin: 0 0 var(--space-medium); font-size: 18px; color: #ff7070; }
+.reb-text { margin: 0 0 var(--space-medium); font-size: 13px; color: var(--text-1); line-height: 1.5; }
 .reb-message {
   background: var(--surface-0); border: 1px solid var(--border-1); border-radius: 3px;
-  padding: 10px 12px; font-family: monospace; font-size: 12px;
+  padding: var(--space-medium) var(--space-medium); font-family: monospace; font-size: 12px;
   color: #ff8888; white-space: pre-wrap; word-break: break-word;
   max-height: 180px; overflow: auto; margin: 0 0 18px;
 }
