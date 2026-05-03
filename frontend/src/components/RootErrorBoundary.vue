@@ -66,7 +66,7 @@ function reload(): void {
   position: fixed; inset: 0;
   background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(2px);
   display: flex; align-items: center; justify-content: center;
-  z-index: 99999;
+  z-index: var(--z-overlay);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 .reb-panel {

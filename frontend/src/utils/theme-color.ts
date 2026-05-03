@@ -1,10 +1,10 @@
 /**
  * src/utils/theme-color.ts
  *
- * Runtime accessor for chrome-substrate CSS variables, for the
- * minority of consumers that need a string-shaped color value at
- * render time (ECharts adapter configs, SVG presentation attributes
- * that don't evaluate var()).
+ * Runtime accessor for chrome-substrate **color** CSS variables,
+ * for the minority of consumers that need a string-shaped color
+ * value at render time (ECharts adapter configs, SVG presentation
+ * attributes that don't evaluate var()).
  *
  * The CSS substrate at src/assets/css/theme.css owns the values;
  * this helper reads them from `:root` via getComputedStyle.
@@ -12,28 +12,47 @@
  * directly via `var(--name)`; this helper exists because ECharts
  * options and SVG presentation attributes don't.
  *
+ * ## Scope: color anchors only
+ *
+ * `ChromeAnchor` mirrors the **color** anchors declared in
+ * theme.css's `:root` — base color anchors, chart-derived color
+ * helpers, and color role aliases. theme.css also declares
+ * non-color anchors (the z-index ladder added 2026-05-03 as the
+ * magic-literals-audit Pass 2 Tier-1 #1 substrate); those are
+ * CSS-only and intentionally outside this union's scope. A
+ * runtime accessor for z-index would be useful only if a TS-side
+ * consumer needed numeric layering decisions, which the codebase
+ * doesn't currently have. If that need arises, add a
+ * `themeNumber()` (or similar) accessor with its own anchor
+ * union; don't muddle this color-typed contract.
+ *
  * ## SSOT discipline (ADR-0005 Rule 1, applied)
  *
  * The `ChromeAnchor` union below is the type-system view of the
- * substrate's anchor names. The single source of truth is
+ * substrate's color-anchor names. The single source of truth is
  * src/assets/css/theme.css; this union is a hand-derived mirror.
- * When the substrate grows or shrinks, BOTH files must be edited:
+ * When the color subset of the substrate grows or shrinks, BOTH
+ * files must be edited:
  *
- *   - **Add an anchor.** Declare it in theme.css's `:root`, add the
- *     literal to `ChromeAnchor`. Until the second edit lands,
- *     callers can't reference the new anchor — TypeScript will
- *     reject the unknown literal.
- *   - **Rename an anchor.** Rename in theme.css, rename in
- *     `ChromeAnchor`. TypeScript surfaces every callsite using the
- *     old name as a compile error — refactor signal.
- *   - **Remove an anchor.** Delete from theme.css, delete from
- *     `ChromeAnchor`. TypeScript surfaces every stale caller.
+ *   - **Add a color anchor.** Declare it in theme.css's `:root`,
+ *     add the literal to `ChromeAnchor`. Until the second edit
+ *     lands, callers can't reference the new anchor — TypeScript
+ *     will reject the unknown literal.
+ *   - **Rename a color anchor.** Rename in theme.css, rename in
+ *     `ChromeAnchor`. TypeScript surfaces every callsite using
+ *     the old name as a compile error — refactor signal.
+ *   - **Remove a color anchor.** Delete from theme.css, delete
+ *     from `ChromeAnchor`. TypeScript surfaces every stale caller.
+ *
+ * Non-color anchors (z-index, future timing tokens) don't go into
+ * `ChromeAnchor` and don't need the lockstep edit; they are
+ * CSS-only and have no compile-time mirror.
  *
  * Codegen from theme.css → ChromeAnchor would eliminate the
- * lockstep concern but is overkill at ~25 anchors with a low
- * change rate. If the substrate's churn rises (or the union
- * crosses ~50 anchors), revisit and follow the OpenAPI pipeline
- * shape (`npm run gen:api` / `openapi-typescript`).
+ * lockstep concern but is overkill at ~25 color anchors with a low
+ * change rate. If the substrate's color-side churn rises (or the
+ * union crosses ~50 anchors), revisit and follow the OpenAPI
+ * pipeline shape (`npm run gen:api` / `openapi-typescript`).
  *
  * Per ADR-0002, throws on missing variable rather than returning
  * empty string — a missing chrome anchor is a real error, not a
@@ -46,14 +65,20 @@
  */
 
 /**
- * The complete vocabulary of chrome anchors declared in theme.css.
- * Mirrors the `:root` rules in `src/assets/css/theme.css` —
- * 16 base anchors (4 surface + 3 border + 3 text + 2 accent +
- * 4 semantic state) plus 6 chart-derived helpers plus 5 role
- * aliases (decouple-via-alias for implicit handles).
+ * The vocabulary of **color** anchors declared in theme.css.
+ * Mirrors the color subset of `:root` rules in
+ * `src/assets/css/theme.css` — 16 base anchors (4 surface + 3
+ * border + 3 text + 2 accent + 4 semantic state) plus 6
+ * chart-derived helpers plus 5 role aliases (decouple-via-alias
+ * for implicit handles).
  *
- * Update both files in lockstep — see the SSOT discipline note
- * in the file header.
+ * Non-color anchors in theme.css (the z-index ladder) are
+ * intentionally excluded — they're CSS-only, no runtime accessor
+ * is needed, and including them here would muddle this type's
+ * color-specific contract.
+ *
+ * Update both files in lockstep when the color subset changes —
+ * see the SSOT discipline note in the file header.
  */
 export type ChromeAnchor =
   // Surface (4)

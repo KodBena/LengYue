@@ -260,7 +260,7 @@ async function submit() {
 .modal-backdrop {
   position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
   background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(2px);
-  display: flex; align-items: center; justify-content: center; z-index: 9999;
+  display: flex; align-items: center; justify-content: center; z-index: var(--z-modal);
 }
 
 .modal-content {
@@ -320,7 +320,7 @@ async function submit() {
 .suggestions-list {
   position: absolute; top: 100%; left: 0; width: 100%; background: var(--surface-2);
   border: 1px solid var(--border-2); border-top: none; border-radius: 0 0 3px 3px;
-  list-style: none; padding: 0; margin: 0; max-height: 150px; overflow-y: auto; z-index: 10;
+  list-style: none; padding: 0; margin: 0; max-height: 150px; overflow-y: auto; z-index: var(--z-popover);
 }
 .suggestions-list li { padding: 6px 10px; font-size: 11px; font-family: monospace; color: var(--text-1); cursor: pointer; }
 .suggestions-list li:hover { background: var(--border-1); color: var(--accent-primary); }
