@@ -58,7 +58,7 @@ const expanded = ref(true);
 .chart-area { flex: 1; min-width: 0; }
 .preview-box { width: 140px; background: var(--surface-0); border-left: 1px solid var(--surface-3); display: flex; align-items: center; justify-content: center; }
 .preview-box div { width: 100%; height: 100%; }
-.marker-b { border-left: 3px solid var(--accent-primary); }
-.marker-w { border-left: 3px solid var(--state-error); }
+.marker-b { border-left: 3px solid var(--player-black); }
+.marker-w { border-left: 3px solid var(--player-white); }
 .chevron { font-size: 8px; color: var(--border-3); }
 </style>

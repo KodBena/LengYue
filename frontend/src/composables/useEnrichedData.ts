@@ -137,12 +137,12 @@ export function useEnrichedData(pathIdsRef: Ref<NodeId[]>) {
         black: [{
           name: 'Black Delta',
           data: blackDeltas.map((v, i) => [i, v] as [number, number | null]),
-          color: themeColor('--accent-primary'),
+          color: themeColor('--player-black'),
         }],
         white: [{
           name: 'White Delta',
           data: whiteDeltas.map((v, i) => [i, v] as [number, number | null]),
-          color: themeColor('--state-error'),
+          color: themeColor('--player-white'),
         }],
       },
     };
