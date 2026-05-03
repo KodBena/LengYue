@@ -6,13 +6,14 @@
  * 2 accent, 4 semantic state; plus 6 chart-derived helpers and 5
  * role aliases). Z-index ladder (4 layering tiers). Animation
  * durations (2 timing tiers). Spacing scale (4 spacing tiers).
- * Every chrome color, z-index, transition duration, and
- * substrate-cluster spacing value in CSS, in SFC <style> blocks,
- * and in TypeScript chart-adapter sites reads from this file via
+ * Font-size scale (4 typographic tiers). Every chrome color,
+ * z-index, transition duration, substrate-cluster spacing, and
+ * font-size value in CSS, in SFC <style> blocks, and in
+ * TypeScript chart-adapter sites reads from this file via
  * `var(--name)`; the `themeColor()` helper in
  * src/utils/theme-color.ts is the runtime-string accessor for
- * the color subset (z-index, durations, and spacing are CSS-only
- * and don't need typed runtime accessors).
+ * the color subset (z-index, durations, spacing, and font-sizes
+ * are CSS-only and don't need typed runtime accessors).
  *
  * Out of scope:
  * - Domain (Go-specific) colors live in src/engine/constants.ts.
@@ -25,8 +26,8 @@
  * Design notes: docs/notes/frontend-theming-plan.md (color),
  * docs/notes/magic-literals-audit-inventory.md (z-index ladder
  * is Pass-2 Tier-1 #1, animation durations are Pass-2 Tier-1 #2,
- * spacing scale is Pass-2 Tier-2 #1 of the audit's residue
- * sweep).
+ * spacing scale is Pass-2 Tier-2 #1, font-size scale is Pass-2
+ * Tier-2 #2 of the audit's residue sweep).
  *
  * License: Public Domain (The Unlicense)
  */
@@ -150,4 +151,36 @@
   --space-default: 8px;   /* default chrome — control-row, modal-element gap */
   --space-medium:  12px;  /* section-level gap, content-block separation */
   --space-loose:   20px;  /* block-level gap, large content separation */
+
+  /* ── Font-size scale (4) ─────────────────────────────────────
+   * Four tiers for the codebase's typographic hierarchy.
+   * Snap-by-cluster applied to 159 surveyed font-size sites.
+   * The body tier (10px) is the inheritance baseline — set once
+   * in style.css's `html, body` rule and inherited everywhere
+   * by default. Explicit body-size declarations on individual
+   * elements are common but redundant; sweep collapses them
+   * through this anchor and a future polish pass could remove
+   * the redundancy entirely.
+   *
+   * Snap rule (nearest, ties → up):
+   *   8/9   → tiny (9)        — 16 sites
+   *   10    → body (10)       — 53 sites unchanged
+   *   11    → emphasis (12)   — 42 sites raised 1px
+   *   12    → emphasis (12)   — 26 sites unchanged
+   *   13    → emphasis (12)   — 3 sites lowered 1px
+   *   14    → heading (16)    — 13 sites raised 2px
+   *   16/18 → heading (16)    — 18 lowered 2px (2 sites)
+   *   20    → heading (16)    — 2 sites lowered 4px
+   *
+   * The 14→16 raise is the most visible change: section
+   * headings get slightly bigger. The 18/20→16 lowerings touch
+   * dialog titles and hero text — fewer sites, slightly
+   * smaller. If the heading-size collapse reads as too
+   * aggressive in a future pass, splitting --text-heading into
+   * heading-sm (14) and heading-lg (18) is the obvious tuning
+   * — same discipline as z-index and spacing (alias-not-add). */
+  --text-tiny:     9px;   /* fine metadata, axis labels */
+  --text-body:     10px;  /* body default — set in style.css's html/body */
+  --text-emphasis: 12px;  /* emphasized body, secondary headings */
+  --text-heading:  16px;  /* section headings, dialog titles, hero */
 }

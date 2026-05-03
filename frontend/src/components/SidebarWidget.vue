@@ -75,7 +75,7 @@ function onHoverLeave() {
 
 .tab-add-btn {
   width: 20px; height: 20px; border-radius: 0%; border: none;
-  background: var(--border-3); color: var(--text-0); font-size: 12px; cursor: pointer; margin-top: var(--space-medium);
+  background: var(--border-3); color: var(--text-0); font-size: var(--text-emphasis); cursor: pointer; margin-top: var(--space-medium);
 }
 .tab-add-btn:hover { background: var(--border-3); }
 </style>

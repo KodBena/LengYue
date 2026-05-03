@@ -70,13 +70,13 @@ const engineBtnLabel = computed(() => isConnected.value ? 'Disconnect' : 'Connec
 
 <style scoped>
 .toolbar { height: 28px; background: var(--surface-3); display: flex; align-items: center; padding: 0 var(--space-default); gap: var(--space-default); justify-content: space-between; border-bottom: 1px solid var(--surface-1); flex-shrink: 0; }
-.toolbar-title { font-size: 10px; color: var(--text-0); text-transform: uppercase; letter-spacing: 0.12em; white-space: nowrap; }
-.engine-metrics-bar { display: flex; gap: var(--space-medium); font-family: monospace; font-size: 11px; }
+.toolbar-title { font-size: var(--text-body); color: var(--text-0); text-transform: uppercase; letter-spacing: 0.12em; white-space: nowrap; }
+.engine-metrics-bar { display: flex; gap: var(--space-medium); font-family: monospace; font-size: var(--text-emphasis); }
 .metric { display: flex; align-items: center; gap: var(--space-tight); }
-.m-lbl  { color: var(--border-3); font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; }
+.m-lbl  { color: var(--border-3); font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: 0.1em; }
 .m-val  { color: var(--accent-primary); font-weight: bold; }
 .engine-controls { display: flex; gap: var(--space-tight); flex-shrink: 0; }
-.toolbar-btn { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: 1px 5px; font-size: 11px; cursor: pointer; border-radius: 3px; font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: 0.05em; transition: background var(--duration-default), border-color var(--duration-default); }
+.toolbar-btn { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: 1px 5px; font-size: var(--text-emphasis); cursor: pointer; border-radius: 3px; font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: 0.05em; transition: background var(--duration-default), border-color var(--duration-default); }
 .toolbar-btn:hover { background: var(--border-3); border-color: var(--border-3); color: var(--text-0); }
 .btn-connected { border-color: var(--state-success) !important; color: var(--state-success) !important; }
 /* theme-exception: .highlight-btn uses muted-cyan border (#2a5a7a)

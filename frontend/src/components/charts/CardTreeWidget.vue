@@ -221,10 +221,10 @@ watch(
 }
 .tree-header:hover { background: var(--surface-1); }
 .tree-section.expanded .tree-header { border-bottom: 1px solid var(--surface-2); }
-.tree-header .chevron { font-size: 9px; color: var(--text-2); width: 10px; flex-shrink: 0; }
-.tree-header .title { font-size: 12px; color: var(--text-0); font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tree-header .meta { font-size: 10px; color: var(--text-2); white-space: nowrap; }
-.tree-header .counts { margin-left: auto; font-size: 10px; color: var(--accent-primary); white-space: nowrap; }
+.tree-header .chevron { font-size: var(--text-tiny); color: var(--text-2); width: 10px; flex-shrink: 0; }
+.tree-header .title { font-size: var(--text-emphasis); color: var(--text-0); font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tree-header .meta { font-size: var(--text-body); color: var(--text-2); white-space: nowrap; }
+.tree-header .counts { margin-left: auto; font-size: var(--text-body); color: var(--accent-primary); white-space: nowrap; }
 .tree-canvas { flex: 1; min-height: 0; width: 100%; cursor: crosshair; }
-.empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--border-3); font-size: 12px; }
+.empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--border-3); font-size: var(--text-emphasis); }
 </style>

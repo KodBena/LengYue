@@ -71,7 +71,7 @@ function selectTab(id: string) {
 
 .tab-header li {
   padding: 1px 6px;
-  font-size: 12px;
+  font-size: var(--text-emphasis);
   color: var(--text-2);
   cursor: pointer;
   border-right: 1px solid var(--surface-1);

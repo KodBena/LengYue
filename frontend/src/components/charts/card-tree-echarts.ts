@@ -128,20 +128,20 @@ export function tooltipFor(
   const cBorder2 = themeColor('--border-2');
   const cSurface0 = themeColor('--surface-0');
   if (payload.kind === 'stub') {
-    return `<div style="padding:6px; font-size:11px; color:${cText1};">
+    return `<div style="padding:6px; font-size:var(--text-emphasis); color:${cText1};">
       <b style="color:${cAccent};">Card ${payload.cardId}</b><br/>
       <span style="color:${cText2};">Subtree summary — click to expand.</span>
     </div>`;
   }
   if (payload.kind === 'bucket') {
-    return `<div style="padding:6px; font-size:11px; color:${cText1};">
+    return `<div style="padding:6px; font-size:var(--text-emphasis); color:${cText1};">
       <b style="color:${cText2};">Bucket of cold leaves</b><br/>
       <span style="color:${cText2};">Click to expand individual cards.</span>
     </div>`;
   }
   const card = cards.get(payload.cardId);
   if (!card) {
-    return `<div style="padding:6px; font-size:11px; color:${cText2};">
+    return `<div style="padding:6px; font-size:var(--text-emphasis); color:${cText2};">
       <b style="color:${cAccent};">Card ${payload.cardId}</b><br/>
       Loading…
     </div>`;
@@ -158,10 +158,10 @@ export function tooltipFor(
       <div style="width:140px; height:140px; border:1px solid ${cBorder2}; background:${cSurface0};">
         ${svg}
       </div>
-      <div style="font-size:10px; color:${cText2};">
+      <div style="font-size:var(--text-body); color:${cText2};">
         Reviews: ${card.numReviews} · Ebisu T: ${ebisuT}
       </div>
-      <div style="color:${cAccent}; font-size:9px;">Click to load position</div>
+      <div style="color:${cAccent}; font-size:var(--text-tiny);">Click to load position</div>
     </div>`;
 }
 

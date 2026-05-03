@@ -461,57 +461,57 @@ function deleteItem() {
 .section { border-bottom: 1px solid var(--surface-2); }
 .section-header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: var(--space-default) var(--space-medium); background: var(--surface-2); color: var(--text-1); font-size: 10px; text-transform: uppercase;
+  padding: var(--space-default) var(--space-medium); background: var(--surface-2); color: var(--text-1); font-size: var(--text-body); text-transform: uppercase;
 }
-.add-btn { background: none; border: none; color: var(--accent-primary); cursor: pointer; font-weight: bold; font-size: 14px; }
+.add-btn { background: none; border: none; color: var(--accent-primary); cursor: pointer; font-weight: bold; font-size: var(--text-heading); }
 .add-btn:hover { color: var(--text-0); }
 
 .item-list { list-style: none; padding: 0; margin: 0; }
 .item-list li {
-  padding: var(--space-default) var(--space-medium); font-size: 11px; color: var(--text-1); cursor: pointer; border-left: 2px solid transparent;
+  padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); color: var(--text-1); cursor: pointer; border-left: 2px solid transparent;
 }
 .item-list li:hover { background: var(--surface-2); }
 .item-list li.active { background: var(--surface-0); border-left-color: var(--accent-primary); color: var(--accent-primary); }
 
-.active-badge { font-size: 8px; background: var(--accent-primary); color: var(--surface-0); padding: 1px 4px; border-radius: 2px; margin-left: var(--space-default); }
+.active-badge { font-size: var(--text-tiny); background: var(--accent-primary); color: var(--surface-0); padding: 1px 4px; border-radius: 2px; margin-left: var(--space-default); }
 
 /* `min-width: 0` lets the flex item shrink below the intrinsic
    width of CodeMirror's content; without it, an unwrapped long line
    widens the pane past its allocated flex share. */
 .detail-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--surface-0); }
-.empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--border-3); font-size: 12px; }
+.empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--border-3); font-size: var(--text-emphasis); }
 
 .detail-content { display: flex; flex-direction: column; height: 100%; }
 .detail-header {
   display: flex; justify-content: space-between; align-items: center;
   padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-2);
 }
-.detail-header h3 { margin: 0; font-size: 14px; color: var(--text-0); font-weight: normal; }
+.detail-header h3 { margin: 0; font-size: var(--text-heading); color: var(--text-0); font-weight: normal; }
 /* theme-exception: .del-btn uses muted-state-error surface variants
    (#3a1a1a / #5a1a1a) — designer-intentional dark-red surfaces for
    destructive actions. The chrome substrate's --state-error anchor
    is the saturated wire-color (#f04a4a); muted surface variants
    would need new anchors (e.g. --state-error-muted). Preserved
    verbatim until the substrate gains tinted-surface vocabulary. */
-.del-btn { background: #3a1a1a; color: var(--state-error); border: 1px solid #5a1a1a; padding: var(--space-tight) var(--space-default); border-radius: 3px; cursor: pointer; font-size: 10px; }
+.del-btn { background: #3a1a1a; color: var(--state-error); border: 1px solid #5a1a1a; padding: var(--space-tight) var(--space-default); border-radius: 3px; cursor: pointer; font-size: var(--text-body); }
 .del-btn:hover { background: #5a1a1a; color: var(--text-0); }
 
 .editor-wrap { flex: 1; overflow: auto; }
 
 .palette-form, .form-grid { padding: var(--space-medium); }
 .form-grid { display: grid; grid-template-columns: 120px 1fr; gap: var(--space-medium); align-items: center; }
-.form-grid label { font-size: 11px; color: var(--text-2); }
+.form-grid label { font-size: var(--text-emphasis); color: var(--text-2); }
 
 .dark-input, .dark-select {
-  background: var(--surface-1); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default); border-radius: 3px; font-family: monospace; font-size: 12px; width: 100%; outline: none;
+  background: var(--surface-1); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default); border-radius: 3px; font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
 }
 .dark-input:focus, .dark-select:focus { border-color: var(--accent-primary); }
 
 .state-fn-row { display: flex; align-items: center; gap: var(--space-medium); margin-top: var(--space-default); padding: var(--space-default); background: var(--surface-1); border-radius: 4px; border: 1px solid var(--surface-3); }
-.chart-name { font-size: 12px; color: var(--text-0); font-weight: bold; width: 120px; }
+.chart-name { font-size: var(--text-emphasis); color: var(--text-0); font-weight: bold; width: 120px; }
 .arrow { color: var(--border-3); }
 .flex-1 { flex: 1; }
-.del-btn-sm { background: none; border: none; color: var(--state-error); cursor: pointer; font-size: 14px; }
+.del-btn-sm { background: none; border: none; color: var(--state-error); cursor: pointer; font-size: var(--text-heading); }
 .del-btn-sm:hover { color: var(--text-0); }
 
 .range-inputs { display: flex; align-items: center; gap: var(--space-default); }
@@ -519,10 +519,10 @@ function deleteItem() {
 .range-sep { color: var(--border-3); }
 .dark-input.invalid { border-color: var(--state-error); }
 .qeubo-control { display: flex; flex-direction: column; gap: var(--space-tight); }
-.checkbox-label { display: flex; align-items: center; gap: var(--space-default); font-size: 11px; color: var(--text-1); cursor: pointer; }
+.checkbox-label { display: flex; align-items: center; gap: var(--space-default); font-size: var(--text-emphasis); color: var(--text-1); cursor: pointer; }
 .checkbox-label input[type=checkbox] { cursor: pointer; }
 .checkbox-label input[type=checkbox]:disabled { cursor: not-allowed; }
 .checkbox-label input[type=checkbox]:disabled + span { color: var(--border-3); }
-.validation-error { font-size: 10px; color: var(--state-error); }
-.validation-hint { font-size: 10px; color: var(--text-2); font-style: italic; }
+.validation-error { font-size: var(--text-body); color: var(--state-error); }
+.validation-hint { font-size: var(--text-body); color: var(--text-2); font-style: italic; }
 </style>

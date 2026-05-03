@@ -96,14 +96,14 @@ function onRangeUpdate(r: [number, number]): void {
   border-bottom: 1px solid var(--border-1);
 }
 .timeline-title {
-  font-size: 10px;
+  font-size: var(--text-body);
   font-weight: bold;
   color: var(--text-0);
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
 .timeline-info {
-  font-size: 10px;
+  font-size: var(--text-body);
   color: var(--text-0);
   font-variant-numeric: tabular-nums;
 }
@@ -114,7 +114,7 @@ function onRangeUpdate(r: [number, number]): void {
   gap: var(--space-default);
   padding: var(--space-default) var(--space-medium) var(--space-default);
 }
-.visits-label { font-size: 11px; color: var(--text-0); flex-shrink: 0; }
+.visits-label { font-size: var(--text-emphasis); color: var(--text-0); flex-shrink: 0; }
 .visits-input {
   width: 72px;
   background: var(--surface-1);
@@ -122,7 +122,7 @@ function onRangeUpdate(r: [number, number]): void {
   color: var(--text-1);
   padding: 3px 6px;
   border-radius: 3px;
-  font-size: 11px;
+  font-size: var(--text-emphasis);
 }
 .visits-input:focus { outline: none; border-color: var(--accent-primary); }
 /* theme-exception: .analyze-btn uses muted-accent variants (#2a5a7a /
@@ -138,7 +138,7 @@ function onRangeUpdate(r: [number, number]): void {
   color: var(--text-0);
   padding: var(--space-tight) var(--space-medium);
   border-radius: 3px;
-  font-size: 11px;
+  font-size: var(--text-emphasis);
   cursor: pointer;
   transition: background var(--duration-default);
 }

@@ -79,11 +79,11 @@ function reload(): void {
    variants (#ff7070, #ff8888) — not in the substrate. The error
    panel's distinct urgency-but-readable text colors aren't covered
    by the saturated --state-attention anchor. */
-.reb-title { margin: 0 0 var(--space-medium); font-size: 18px; color: #ff7070; }
-.reb-text { margin: 0 0 var(--space-medium); font-size: 13px; color: var(--text-1); line-height: 1.5; }
+.reb-title { margin: 0 0 var(--space-medium); font-size: var(--text-heading); color: #ff7070; }
+.reb-text { margin: 0 0 var(--space-medium); font-size: var(--text-emphasis); color: var(--text-1); line-height: 1.5; }
 .reb-message {
   background: var(--surface-0); border: 1px solid var(--border-1); border-radius: 3px;
-  padding: var(--space-medium) var(--space-medium); font-family: monospace; font-size: 12px;
+  padding: var(--space-medium) var(--space-medium); font-family: monospace; font-size: var(--text-emphasis);
   color: #ff8888; white-space: pre-wrap; word-break: break-word;
   max-height: 180px; overflow: auto; margin: 0 0 18px;
 }
@@ -91,7 +91,7 @@ function reload(): void {
    accent variant as MintCardModal's btn-submit hover. */
 .reb-reload {
   background: var(--accent-primary); border: none; color: var(--surface-1); font-weight: bold;
-  padding: 8px 18px; border-radius: 3px; cursor: pointer; font-size: 13px;
+  padding: 8px 18px; border-radius: 3px; cursor: pointer; font-size: var(--text-emphasis);
 }
 .reb-reload:hover { background: #5bc0ff; }
 </style>

@@ -66,7 +66,7 @@ function handleCellClick(cell: HeatmapCell) {
 
 <style scoped>
 .section { background: var(--surface-2); border: 1px solid var(--surface-3); border-radius: 4px; overflow: hidden; margin-bottom: var(--space-medium); }
-.header { padding: var(--space-default) var(--space-medium); display: flex; justify-content: space-between; cursor: pointer; font-size: 10px; font-weight: bold; color: var(--text-0); text-transform: uppercase; background: var(--surface-3); letter-spacing: 0.1em; }
+.header { padding: var(--space-default) var(--space-medium); display: flex; justify-content: space-between; cursor: pointer; font-size: var(--text-body); font-weight: bold; color: var(--text-0); text-transform: uppercase; background: var(--surface-3); letter-spacing: 0.1em; }
 .header:hover { background: var(--surface-3); color: var(--text-1); }
 .content { border-top: 1px solid var(--surface-3); background: var(--surface-0); }
 
@@ -77,5 +77,5 @@ function handleCellClick(cell: HeatmapCell) {
   display: flex;
   flex-direction: column;
 }
-.chevron { font-size: 8px; color: var(--border-3); }
+.chevron { font-size: var(--text-tiny); color: var(--border-3); }
 </style>
