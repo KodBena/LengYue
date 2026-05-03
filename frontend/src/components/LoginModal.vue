@@ -153,6 +153,10 @@ function handleBackdropClick(e: MouseEvent): void {
   display: flex; align-items: center; justify-content: center;
 }
 
+/* magic-literal: 360px LoginModal width — narrower than the 420px
+   ConfirmLoadModal/MintCardModal pattern because the auth form has
+   fewer / shorter fields. 3 modal sites total at 2 widths; modal-
+   width substrate not pursued (thin cluster). */
 .modal-card {
   background: var(--surface-2); border: 1px solid var(--border-2); border-radius: var(--radius-default);
   padding: var(--space-loose); width: 360px; max-width: 90vw;

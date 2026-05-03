@@ -65,6 +65,9 @@ export class AnalysisService {
 
   private startMetrics() {
     if (this.metricsTimer) clearInterval(this.metricsTimer);
+    // magic-literal: 1000ms metrics-update interval — once-per-second
+    // packet-rate refresh is the conventional cadence for engine-status
+    // displays. Distinct role from --duration-* CSS scale.
     this.metricsTimer = window.setInterval(() => {
       store.engine.metrics = { ...store.engine.metrics, packetsPerSecond: this.packetCount };
       this.packetCount = 0;
@@ -218,6 +221,10 @@ export class AnalysisService {
       boardYSize: size,
       komi, // Added Komi mapping
       ...(visits !== undefined ? { maxVisits: visits } : {}),
+      // magic-literal: reportDuringSearchEvery cadences — 0.15s for ponder
+      // (frequent updates as ponder accumulates over long horizons), 0.5s
+      // for analysis (less frequent — bounded query, less to update).
+      // Mode-specific KataGo wire-protocol cadence; not a substrate scale.
       ...(mode === 'ponder' ? { reportDuringSearchEvery: 0.15, maxVisits: PONDER_MAX_VISITS } : { reportDuringSearchEvery: 0.5 }),
       analyzeTurns: [currentIdx],
       ...(needsOwnership ? { includeOwnership: true } : {}),

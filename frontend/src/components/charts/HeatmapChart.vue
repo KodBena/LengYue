@@ -131,6 +131,8 @@ const initChart = () => {
   if (!chartRef.value) return;
 
   if (chartRef.value.clientWidth < 10 || chartRef.value.clientHeight < 10) {
+    // magic-literal: 100ms re-init delay matching BaseChart.vue's pattern;
+    // gives the ECharts container time to acquire layout.
     initTimeout = window.setTimeout(initChart, 100);
     return;
   }

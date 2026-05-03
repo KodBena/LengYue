@@ -71,6 +71,11 @@ function handle(action: LoadAction) {
   background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(2px);
   display: flex; align-items: center; justify-content: center; z-index: var(--z-modal);
 }
+/* magic-literal: 420px modal width — design decision shared with
+   MintCardModal.vue (same value); narrow enough to feel focused on
+   non-tiny screens, wide enough for typical form content. LoginModal
+   uses 360px for its narrower auth form. Modal-width substrate not
+   pursued — 3 sites at 2 distinct values is a thin cluster. */
 .modal-content {
   background: var(--surface-1); border: 1px solid var(--border-2); border-radius: var(--radius-default);
   width: 420px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);

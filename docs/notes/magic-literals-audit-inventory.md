@@ -6,6 +6,12 @@
 **(2) Cluster and decide — group by nominal handle, build substrate or
 require inline justification**. This document is the (1) artifact.
 
+**Pass 2 closed 2026-05-03** across nine substrate PRs and a Tier-4
+inline-justification sweep. The audit's contract is satisfied. See
+the audit plan's status header for the full close-out summary; the
+"Recommended Pass 2 sequencing" section below served as the working
+order during execution.
+
 **Predicate:** the color theming substrate (closed 2026-05-02, A1–A4
 arc) had to land first; color was the largest single literal class and
 the established methodology. With color in place, the residue is

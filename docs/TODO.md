@@ -178,6 +178,7 @@ reading the outstanding work.
 | — | *Letter-spacing scale (magic-literals-audit Pass 2 Tier-2 #4 — the Tier-2 closer). Closes the typographic-tracking residue from `magic-literals-audit-inventory.md` Category J — 24 sites, 7 distinct values. Three dominant tiers (0.05em ×8, 0.1em ×8, 0.18em ×3) plus four stragglers (0.06, 0.08, 0.12, 0.16) that all snap cleanly to a dominant tier within JND. Cleanest sweep of the Tier-2 arc — no straggler carve-outs needed, no perceptible visual changes anywhere (max shift 0.02em, well below the perceptual threshold for letter-spacing). Project-author-chosen 3-tier scale: `--tracking-tight: 0.05em` (toolbar buttons, secondary labels), `--tracking-default: 0.1em` (uppercase headings, chart axis labels), `--tracking-wide: 0.18em` (control-tab labels, prominent uppercase headers). 24 `var(--tracking-{tight|default|wide})` usages now; zero literal letter-spacing em declarations remain. Sweep was script-driven via /tmp/letter-spacing-sweep.py. theme.css now at 234 lines (was 213); file header extended; design-notes reference acknowledges this PR closes the Tier-2 arc. **Tier-2 total: 4 substrates / 13 anchors / ~433 sites swept.** Plus the Tier-1 trio: full Pass-2 substrate total ~469 sites consolidated into theme.css's vocabulary. `npm run build` passes. Worklog at `docs/worklog/2026-05-03-letter-spacing-scale.md`. Not in original TODO numbering.* |
 | — | *Disabled-state alpha (magic-literals-audit Pass 2 Tier-3 #1, opens the Tier-3 small-substrate arc). Closes inventory Category C.1 — 5 sites at three close values (0.35 ×1, 0.4 ×2, 0.5 ×2) all serving the same `:disabled` button-fade role. Single anchor `--alpha-disabled: 0.5` (project-author-chosen — most common existing value, web-design conventional default for disabled UI). Snap rule: 0.35 → 0.5 (raises 0.15), 0.4 → 0.5 (raises 0.1, ×2 sites), 0.5 unchanged (×2). Disabled state reads slightly less faded post-PR; if HMR review finds it not-obviously-disabled-enough, lower the anchor to 0.4 without touching consumers. The QeuboToolbar pulse keyframe (0.4 trough) and BaseChart axisPointer (0.5) are different roles (animation envelope, chart viz) and stay literal for Tier-4. theme.css now at 248 lines (was 234). `npm run build` passes. Worklog at `docs/worklog/2026-05-03-disabled-alpha.md`. Not in original TODO numbering.* |
 | — | *Ponder-cap constant (magic-literals-audit Pass 2 Tier-3 #2). Closes inventory Category O's `100000` cluster — 3 consumer sites across an SFC script, an SFC template attribute, and the analysis service, all sharing the same "max visits during ponder/analysis" handle. New named export `PONDER_MAX_VISITS = 100000` in `src/engine/constants.ts` with JSDoc naming the role, the three consumer sites, and the related `defaultVisits = 1000` constant (in `defaults.ts`) for tuning context. Sweep: `services/analysis-service.ts:220` (`maxVisits: 100000` → `maxVisits: PONDER_MAX_VISITS` in ponder-mode wire query), `components/BoardTab.vue:68` (`Math.max(target, 100000)` → `Math.max(target, PONDER_MAX_VISITS)` for analysis-meter rugplot target floor), `components/charts/AnalysisTimelinePanel.vue:68` (`max="100000"` static HTML attribute → `:max="PONDER_MAX_VISITS"` Vue dynamic binding for the visits input). Plus one doc-comment update in BoardTab.vue's rugplot-target-floor block to reference the new naming and documented home. Cross-cuts CSS-substrate and TS-substrate territory — the constant is a TS-side export consumed by service code, SFC scripts, and SFC template attributes. `engine/constants.ts` now at 95 lines (was 79). `npm run build` passes. Worklog at `docs/worklog/2026-05-03-ponder-cap-constant.md`. Not in original TODO numbering.* |
+| — | *Tier-4 inline-justification sweep (magic-literals-audit closer). Closes the audit by codifying the `magic-literal:` comment convention in `docs/notes/magic-literals-audit-plan.md`'s new "Comment convention" section (CSS `/* magic-literal: ... */` syntax, TS `// magic-literal: ...` syntax, threshold = "could a future reader reasonably ask where this came from?", carve-outs for trivial literals / universal CSS vocabulary / block-level theme exceptions / generated files / typed discriminated-union members) and applying it to the curated residue surfaced during the audit's substrate work — 25 sites across 13 files: spacing/border-radius stragglers (BoardTab analysis-meter `border-radius: 1px`, close-button `top: -6px; right: -6px` offset, geiger-dot `0.6 + energy * 0.4` scale, HorizontalTimelineVisualizer pill `9999px`, Toolbar `padding: 1px 5px` compactness, modal widths 360/420), animation-envelope alphas (QeuboToolbar pulse-keyframe trough `0.4`, BaseChart axisPointer `0.5`), band-3 domain decisions (BoardWidget ownership `Math.min(0.85, mag * 0.85)` ceiling-and-multiplier, liveness `0.95`, BaseChart Y-axis margin `range * 0.1`), TS-side timers (analysis-service `1000ms` watchdog and `0.15`/`0.5` reportDuringSearchEvery cadences, BaseChart/HeatmapChart `100ms` ECharts init delays, MintCardModal `150ms` suggestions-hide, useEChartsForestRender `50ms` render-retry, use-pv-animation `1ms` next-tick scheduler), domain thresholds (defaults.ts `999` user_order fallback, twice — paired with the rank_quality formula). Plus PV-stone fade `60ms` references the deferred-items entry for the PV-overlay typography proportions co-tuning. Comprehensive codebase-wide retroactive application is explicitly out of scope per the convention's "Authoring discipline going forward" subsection; future PRs are responsible for maintaining the convention on new literals. **The audit's contract (substrate-or-comment) is satisfied** across ~469 substrate-swept sites + 25 inline-justified sites; both the magic-literals-audit-plan.md and -inventory.md status headers updated to reflect the close. `npm run build` passes. Worklog at `docs/worklog/2026-05-03-tier-4-inline-justification.md`. Not in original TODO numbering.* |
 
 ### Joint
 
@@ -391,68 +392,21 @@ Theme replacement (B) — flipping the dark default to something
 less depressing — is a separate decision deferred per the user's
 "structural close only" scoping.
 
-#### `[frontend]` Magic-literals audit — extend SSOT discipline beyond color
+#### `[frontend]` Magic-literals audit — moved to Completed
 
-After the color theming substrate lands, sweep the rest of the
-codebase for unjustified literal constants — magic numbers, magic
-strings, magic offsets — and bring them under the same discipline.
-**Treat scattered literals with the same suspicion as `as any`:**
-each is a local override of the design vocabulary, visible only on
-review, with no compiler signal pointing at it later. The
-codebase already requires comments justifying `as any` casts; the
-audit extends the same expectation to literals.
-
-Triggering specimen: the `* 0.88` PV-stone-radius multiplier in
-`MoveSuggestions.vue` (no recorded rationale; engineered around in
-a later fix instead of being questioned). The 0.88 itself is being
-removed in a one-shot fix; this audit addresses the *class* of
-failure that allowed it to land.
-
-Design captured in `docs/notes/magic-literals-audit-plan.md`. The
-note specifies: the literals-as-`as any` framing, a two-pass sweep
-methodology (inventory → cluster → substrate-or-justify), the
-contract ("every literal either lives in a named constant in a
-documented location, OR carries an inline comment at the use site
-explaining its presence"), the categories likely to surface
-(layout/geometry, animation timings, opacity scales, z-index,
-domain thresholds, wire-format magic strings), and what the audit
-deliberately does not do (no retroactive comments on trivial
-literals; no one-off promotion to constants; backend scope
-deferred).
-
-**Predicated on the color theming substrate being done first.**
-Color is the largest single literal category (~60 distinct values)
-and is already its own design plan; auditing color and the residue
-together would make either review impossible. A small layout/
-geometry substrate (`useBoardGeometry` + a shared `<Stone>`
-component, surfaced by the PV-stone investigation) may also land
-as its own substrate before this broad audit, by the same
-scope-cleanliness logic.
-
-Large because the audit's surface is the entire frontend codebase,
-even though each emerging substrate or inline-justification edit
-is small.
-
-**Pass 1 inventory filed 2026-05-03** at
-`docs/notes/magic-literals-audit-inventory.md`. The inventory walks
-all 111 frontend `.ts` and `.vue` files, captures clusters across
-~14 categories (z-index ladder, animation durations, geometry
-multipliers, font-size scale, spacing scale, border-radius scale,
-letter-spacing scale, opacity sub-roles, color-mix percentages,
-TS-side timer literals, domain thresholds, URL paths, plus the
-already-disciplined band-3 domain literals and discriminated-union
-kind strings), and proposes a tiered sequencing for Pass 2 (9
-substrate-or-cleanup PRs, smallest-first). The cluster summary's
-Tier-1 candidates (z-index ladder, animation duration scale,
-geometry substrate) are the recommended opening sweep; spacing /
-font-size / radius / letter-spacing are the Tier-2 bulk; smaller
-alpha and path constants are Tier 3; the inline `magic-literal:`
-comment convention is the Tier-4 deliverable that closes the
-audit. The `defaults.ts` ↔ `use-pv-animation.ts` consolidation
-was initially flagged Tier-1 but set aside pending pairwise-
-calibration determination (the four values may be co-tuned for
-the repeating-window animation's visual rhythm); recorded in
-`deferred-items.md`.
+Closed 2026-05-03. The Frontend Completed table below carries
+the per-PR breakdown. Worklog series at
+`docs/worklog/2026-05-03-magic-literals-audit-pass-1-inventory.md`
+through `2026-05-03-tier-4-inline-justification.md`. Audit's
+contract (substrate-or-comment) satisfied across ~469
+substrate-swept sites + ~25 inline-justified sites + the
+codified `magic-literal:` comment convention (in
+`docs/notes/magic-literals-audit-plan.md`'s "Comment convention"
+section). Two third-pattern observations remain in
+`deferred-items.md`: PV-animation defaults pairwise calibration
+(use-pv-animation.ts ↔ defaults.ts) and PV-overlay typography
+proportions co-tuning. Future PRs are responsible for
+maintaining the convention on any new literals they introduce.
 
 ---
 

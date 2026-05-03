@@ -119,6 +119,9 @@ function removeTag(index: number) {
  * browser globals).
  */
 function hideSuggestionsDelayed() {
+  // magic-literal: 150ms suggestions-hide delay — gives the user time to
+  // mousedown on a suggestion before the dropdown closes on input blur.
+  // Hand-tuned for the responsiveness of typical click sequences.
   window.setTimeout(() => { showSuggestions.value = false; }, 150);
 }
 
@@ -263,6 +266,9 @@ async function submit() {
   display: flex; align-items: center; justify-content: center; z-index: var(--z-modal);
 }
 
+/* magic-literal: 420px modal width — same design decision as
+   ConfirmLoadModal.vue. Modal-width substrate not pursued (3 sites,
+   2 widths is a thin cluster). */
 .modal-content {
   background: var(--surface-1); border: 1px solid var(--border-2); border-radius: var(--radius-default);
   width: 420px; max-width: 90vw; box-shadow: 0 10px 30px rgba(0,0,0,0.8);

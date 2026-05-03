@@ -205,6 +205,10 @@ export function usePvAnimation(getConfig: () => PvConfig | undefined = () => und
       case 'instant':
         moves.forEach(m => {
           if (!retained.has(m.moveNumber)) {
+            // magic-literal: 1ms next-tick scheduler — defers visibility
+            // flip out of the current synchronous batch so Vue's reactive
+            // tracking sees the state change as a separate update cycle.
+            // Functionally equivalent to queueMicrotask but explicit.
             timers.push(setTimeout(() => setVisible(m.moveNumber, true), 1));
           }
         });

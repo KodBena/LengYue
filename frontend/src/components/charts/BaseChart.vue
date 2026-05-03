@@ -68,6 +68,9 @@ const getVisibleYBounds = () => {
   
   if (min === Infinity) return { min: 'dataMin', max: 'dataMax' };
   const range = max - min;
+  // magic-literal: 10% Y-axis margin — chart-visualization padding above
+  // and below the data range so peaks/troughs don't kiss the chart edge.
+  // Conventional default for ECharts axis tuning.
   const margin = range === 0 ? 1 : range * 0.1;
   return { min: min - margin, max: max + margin };
 };
@@ -147,6 +150,9 @@ const updateOptions = () => {
         res += `</div>`;
         return res;
       },
+      // magic-literal: axisPointer opacity 0.5 — chart-visualization role,
+      // distinct from --alpha-disabled. Hand-tuned for visible-but-not-
+      // intrusive cursor crosshair against the chart background.
       axisPointer: { type: 'line', lineStyle: { color: themeColor('--accent-primary'), opacity: 0.5 } }
     },
     grid: { 
@@ -273,6 +279,9 @@ let resizeObserver: ResizeObserver | null = null;
 const initChart = async () => {
   await nextTick();
   if (!chartRef.value || chartRef.value.clientHeight === 0) {
+    // magic-literal: 100ms re-init delay — gives the ECharts container
+    // time to acquire layout. Same 100ms pattern in HeatmapChart.vue;
+    // empirically reliable for the codebase's flex-based chart wrappers.
     setTimeout(initChart, 100);
     return;
   }
