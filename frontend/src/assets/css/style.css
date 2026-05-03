@@ -201,7 +201,7 @@ body {
 #ct-sr {
   flex: 1;
   font-size: var(--text-body);
-  letter-spacing: 0.18em;
+  letter-spacing: var(--tracking-wide);
   color: var(--text-2);
   text-transform: uppercase;
   margin-right: auto;
@@ -210,7 +210,7 @@ body {
 #ct-settings {
   flex: 1;
   font-size: var(--text-body);
-  letter-spacing: 0.18em;
+  letter-spacing: var(--tracking-wide);
   color: var(--text-2);
   text-transform: uppercase;
   margin-right: auto;
@@ -219,7 +219,7 @@ body {
 #ct-analysis {
   flex: 1;
   font-size: var(--text-body);
-  letter-spacing: 0.18em;
+  letter-spacing: var(--tracking-wide);
   color: var(--text-2);
   text-transform: uppercase;
   margin-right: auto;
@@ -244,7 +244,7 @@ body {
   padding: 0 var(--space-medium);
   font-size: var(--text-body);
   color: var(--text-2);
-  letter-spacing: 0.06em;
+  letter-spacing: var(--tracking-tight);
   flex-shrink: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -269,7 +269,7 @@ body {
   align-items: center;
   padding: 0 var(--space-medium);
   font-size: var(--text-tiny);
-  letter-spacing: 0.16em;
+  letter-spacing: var(--tracking-wide);
   color: var(--text-2);
   text-transform: uppercase;
   flex-shrink: 0;

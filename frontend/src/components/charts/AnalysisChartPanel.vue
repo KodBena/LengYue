@@ -51,7 +51,7 @@ const expanded = ref(true);
 
 <style scoped>
 .section { background: var(--surface-2); border: 1px solid var(--surface-3); border-radius: var(--radius-default); overflow: hidden; }
-.header { padding: 0 var(--space-medium); display: flex; justify-content: space-between; cursor: pointer; font-size: var(--text-body); font-weight: bold; color: var(--text-0); text-transform: uppercase; background: var(--surface-3); letter-spacing: 0.1em; }
+.header { padding: 0 var(--space-medium); display: flex; justify-content: space-between; cursor: pointer; font-size: var(--text-body); font-weight: bold; color: var(--text-0); text-transform: uppercase; background: var(--surface-3); letter-spacing: var(--tracking-default); }
 .header:hover { background: var(--surface-3); color: var(--text-1); }
 .content { border-top: 1px solid var(--surface-3); background: var(--surface-0); }
 .linear-content { display: flex; height: 160px; align-items: stretch; }

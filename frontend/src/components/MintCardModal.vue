@@ -273,7 +273,7 @@ async function submit() {
   display: flex; justify-content: space-between; align-items: center;
   padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-3); background: var(--surface-2);
 }
-.modal-header h2 { margin: 0; font-size: var(--text-heading); color: var(--text-0); text-transform: uppercase; letter-spacing: 0.05em; }
+.modal-header h2 { margin: 0; font-size: var(--text-heading); color: var(--text-0); text-transform: uppercase; letter-spacing: var(--tracking-tight); }
 .close-btn { background: none; border: none; color: var(--text-2); font-size: var(--text-heading); cursor: pointer; }
 .close-btn:hover { color: var(--text-0); }
 

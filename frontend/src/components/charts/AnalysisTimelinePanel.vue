@@ -100,7 +100,7 @@ function onRangeUpdate(r: [number, number]): void {
   font-weight: bold;
   color: var(--text-0);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: var(--tracking-default);
 }
 .timeline-info {
   font-size: var(--text-body);
