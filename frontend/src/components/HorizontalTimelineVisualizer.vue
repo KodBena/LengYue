@@ -367,7 +367,7 @@ onUnmounted(() => stopDragging());
   bottom: 0;
   width: 16px;
   cursor: ew-resize;
-  z-index: 10;
+  z-index: var(--z-popover);
   display: flex;
   align-items: center;
   justify-content: center;

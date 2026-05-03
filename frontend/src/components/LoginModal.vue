@@ -148,7 +148,7 @@ function handleBackdropClick(e: MouseEvent): void {
 
 <style scoped>
 .modal-backdrop {
-  position: fixed; inset: 0; z-index: 1000;
+  position: fixed; inset: 0; z-index: var(--z-modal);
   background: rgba(0, 0, 0, 0.6);
   display: flex; align-items: center; justify-content: center;
 }

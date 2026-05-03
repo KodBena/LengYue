@@ -525,7 +525,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
    --accent-primary cyan and --accent-secondary orange #f0a04a; this
    peach is distinct from both). Used as a visual handle for the
    board / control-panel divider. */
-.panel-resizer { width: 4px; background: #eba46d; cursor: col-resize; z-index: 50; flex-shrink: 0; transition: background 0.2s; }
+.panel-resizer { width: 4px; background: #eba46d; cursor: col-resize; z-index: var(--z-affordance); flex-shrink: 0; transition: background 0.2s; }
 .panel-resizer:hover, .panel-resizer:active { background: var(--accent-primary); }
 
 .tab-padding { padding: 8px; }

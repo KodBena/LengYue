@@ -1,13 +1,16 @@
 /**
  * src/assets/css/theme.css
  *
- * Chrome theming substrate — the SSOT for every chrome color
- * decision in the codebase. Sixteen named anchors (4 surface, 3
- * border, 3 text, 2 accent, 4 semantic state) plus six chart-
- * derived helpers. Every chrome color in CSS, in SFC <style>
- * blocks, and in TypeScript chart-adapter sites reads from this
- * file via `var(--name)` (or the `themeColor()` helper for
- * runtime-string consumers).
+ * Chrome substrate — the SSOT for chrome design decisions in the
+ * codebase. Color anchors (16 base: 4 surface, 3 border, 3 text,
+ * 2 accent, 4 semantic state; plus 6 chart-derived helpers and 5
+ * role aliases). Z-index ladder (4 layering tiers). Every chrome
+ * color and z-index value in CSS, in SFC <style> blocks, and in
+ * TypeScript chart-adapter sites reads from this file via
+ * `var(--name)`; the `themeColor()` helper in
+ * src/utils/theme-color.ts is the runtime-string accessor for the
+ * color subset (z-index is CSS-only and doesn't need a typed
+ * runtime accessor).
  *
  * Out of scope:
  * - Domain (Go-specific) colors live in src/engine/constants.ts.
@@ -17,7 +20,9 @@
  * - The parked maximin palette in src/assets/css/palettes.css is
  *   a future theme-variant experiment, deliberately not woven in.
  *
- * Design note: docs/notes/frontend-theming-plan.md.
+ * Design notes: docs/notes/frontend-theming-plan.md (color),
+ * docs/notes/magic-literals-audit-inventory.md (z-index ladder
+ * is Pass-2 Tier-1 #1 of the audit's residue sweep).
  *
  * License: Public Domain (The Unlicense)
  */
@@ -80,4 +85,18 @@
   --review-active:       var(--state-attention);
   --review-intermission: var(--state-warning);
   --review-complete:     var(--state-success);
+
+  /* ── Z-index ladder (4) ──────────────────────────────────────
+   * Page-stacking tiers, ordered low → high. Snap-by-cluster
+   * applied to the eight surveyed sites: the LoginModal's prior
+   * z-index 1000 is collapsed into --z-modal (9999) to match the
+   * three other modal-tier sites. If a future role wants to sit
+   * between two tiers (e.g. a drag-overlay distinct from modals,
+   * or a panel-affordance distinct from a popover), add a role
+   * alias rather than a new numeric tier — same discipline as the
+   * color decouple-via-alias pattern. */
+  --z-popover:    10;     /* in-stacking-context popovers, dropdowns, brush handles */
+  --z-affordance: 50;     /* panel-level chrome affordances (resizers, drag handles) */
+  --z-modal:      9999;   /* page-level modal scrim, drag-preview overlays */
+  --z-overlay:    99999;  /* error / system overlay above modals */
 }

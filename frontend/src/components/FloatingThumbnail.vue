@@ -25,7 +25,7 @@ defineExpose({
 <style scoped>
 .floating-thumb {
   position: fixed;
-  z-index: 9999;
+  z-index: var(--z-modal);
   width: 150px;
   height: 150px;
   background: var(--surface-2);
