@@ -6,7 +6,7 @@
 -->
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { BOARD_PX } from '../engine/constants';
+import { BOARD_PX, LABEL_BAND, TOTAL_PX } from '../engine/constants';
 import { useMoveSuggestions } from '../composables/use-move-suggestions';
 import { usePvAnimation, type PvConfig, type PvMove } from '../composables/use-pv-animation';
 import type { BoardId, NodeId } from '../types';
@@ -123,7 +123,7 @@ const pvTransition = computed(() => `opacity ${pvCfg.fadeDurationMs}ms ease`);
 
 <template>
   <svg
-    :viewBox="`0 0 ${BOARD_PX} ${BOARD_PX}`"
+    :viewBox="`0 0 ${TOTAL_PX} ${TOTAL_PX}`"
     class="suggestions-overlay"
     aria-hidden="true"
   >
@@ -137,6 +137,11 @@ const pvTransition = computed(() => `opacity ${pvCfg.fadeDurationMs}ms ease`);
         <stop offset="100%" stop-color="#d0d0d0" />
       </radialGradient>
     </defs>
+
+    <!-- Translate into the inner playing area so the toSvg / stoneR
+         formulas above stay BoardDisplay-aligned without carrying the
+         LABEL_BAND offset. -->
+    <g :transform="`translate(${LABEL_BAND}, ${LABEL_BAND})`">
 
     <!-- 1. Suggestion Disks (Interactions) -->
     <g
@@ -226,6 +231,8 @@ const pvTransition = computed(() => `opacity ${pvCfg.fadeDurationMs}ms ease`);
         :fill="stone.color === 'B' ? '#e8e8e8' : '#1a1a1a'"
         :style="{ opacity: stone.opacity, transition: pvTransition }"
       >{{ stone.moveNumber }}</text>
+    </g>
+
     </g>
   </svg>
 </template>

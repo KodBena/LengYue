@@ -6,8 +6,46 @@
  * License: Public Domain (The Unlicense)
  */
 
-/** SVG viewBox dimension. All geometry is derived from this. */
+/**
+ * Inner playable-area dimension (viewBox-units): the grid plus the per-side
+ * cell margin (`pad = BOARD_PX / (size + 1)`, equal to one cell). The SVG
+ * viewBox is `TOTAL_PX = BOARD_PX + 2 × LABEL_BAND` — the inner area lives
+ * offset by `LABEL_BAND` inside the SVG, with the outer ring reserved for
+ * coordinate labels.
+ */
 export const BOARD_PX = 600;
+
+/**
+ * Coordinate-label font size (viewBox-units). LABEL_BAND's value is
+ * justified relative to this; the two should move together if either is
+ * tuned.
+ */
+export const LABEL_FONT_SIZE = 11;
+
+/**
+ * Outer label band (viewBox-units) added on each side of the playable area
+ * to host the coordinate labels (A–T columns, 1–19 rows). The label sits
+ * within the strip between the SVG edge and the nearest edge-row stone
+ * (see BoardDisplay's `labelOffset`); LABEL_BAND's job is to widen the SVG
+ * viewBox so the strip is wide enough to position the label outside the
+ * stone-clearance zone. Tune by hand for taste.
+ */
+export const LABEL_BAND = 9;
+
+/**
+ * Where the coordinate label sits within the strip between the SVG edge
+ * and the nearest edge-row stone, as a fraction of strip width.
+ *   0.0 → label hugs the SVG/board-texture edge.
+ *   0.5 → label is visually centered (equal gap to edge and stone).
+ *   1.0 → label hugs the nearest stone.
+ * Tune by hand for taste; the underlying strip width varies with board
+ * size (smaller boards have larger stones, so the strip narrows and the
+ * label drifts inward proportionally — the ratio holds across sizes).
+ */
+export const LABEL_INSET_RATIO = 0.65;
+
+/** SVG viewBox dimension — inner playable area plus a label band on each side. */
+export const TOTAL_PX = BOARD_PX + 2 * LABEL_BAND;
 
 export const BOARD_COLOR = '#dcb35c';
 export const LINE_COLOR  = '#222';
