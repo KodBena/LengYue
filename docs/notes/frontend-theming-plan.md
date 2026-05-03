@@ -505,6 +505,94 @@ above lays out the trade-offs and where each saved anchor lands.
 
 ---
 
+## Substrate evolution (post-implementation)
+
+The structural implementation closed across PRs #80–#88 (worklog
+series `2026-05-02-theme-substrate-{a1..a4,a3a..a3f}.md`). The
+principles below govern how the substrate evolves after that
+closure — surfaced as the codebase encounters specific tuning
+needs and intended as settled direction for any future
+substrate-tuning PR.
+
+### Decouple-via-alias for implicit handles
+
+When a substrate refactor finds a consumer borrowing an anchor
+for a semantically distinct role (e.g., `--state-error` used as
+"player W identifier" because both happen to be red), the fix is
+**not** to merge the roles in the chrome taxonomy. The chrome
+anchor's *value* is correct; the chrome anchor's *name* lies
+about what it covers. Add a new role anchor in `theme.css` that
+initially aliases the existing chrome anchor:
+
+```css
+--player-white: var(--state-error);
+```
+
+Sweep consumers to use the new role anchor. Visual is unchanged
+at the time of the change; the SSOT contract gains an honest
+handle for the implicit role; future tuning can break the
+aliasing without disturbing chrome (e.g., `--state-error` can
+shift toward orange while `--player-white` stays solidly red).
+
+Worked examples currently in the substrate: `--player-black`,
+`--player-white`, `--review-active`, `--review-intermission`,
+`--review-complete` (added in PR `frontend/anchor-decouple-via-alias`,
+worklog `2026-05-03-anchor-decouple-via-alias.md`).
+
+The principle generalises beyond colour. Any future SSOT
+refactor — typography, spacing, animation, z-index — will face
+its own version of the role-coverage gap. Pre-emptively name
+implicit handles even when their values overlap existing
+anchors; the decouple-via-alias pattern preserves visual
+identity while keeping the role taxonomy honest.
+
+### Color-mix derivation over multi-tone anchor families
+
+When a button family or interactive control appears to need a
+hover variant, a border variant, or a muted variant of an
+existing colour, **prefer one base anchor plus CSS-side
+`color-mix()` at the use site over multiple new anchors**.
+
+Anti-pattern (substrate sprawl):
+
+```css
+--accent-primary-muted:        #1a3a4a;
+--accent-primary-muted-hover:  #2a5a7a;
+--accent-primary-muted-border: #2a4a5a;
+```
+
+Preferred (one base + derivation):
+
+```css
+--accent-primary-muted: #1a3a4a;
+.btn       { border-color: color-mix(in srgb, var(--accent-primary-muted), black 20%); }
+.btn:hover { background:   color-mix(in srgb, var(--accent-primary-muted), white 15%); }
+```
+
+Rationale. Multi-tone discrete-gradient families per role (3
+anchors × N families) contradict the brief's "each colour = one
+decision, no redundancy." One base + `color-mix()` keeps SSOT
+honest — one anchor is the source of truth — while letting use
+sites express their state-derivative needs without naming each
+variant. Browser support (Chrome 111+ / Firefox 113+ / Safari
+16.4+) covers the project's target.
+
+The trigger for adding a new base anchor (rather than deriving
+from an existing one) is empirical: **the desired value cannot
+be expressed as a small `color-mix()` derivation of an existing
+anchor.** A substantively new tone earns a base anchor; hover
+and border variants of an existing tone are derivations and
+stay at the use site.
+
+This direction settles several "missing-variant" candidates that
+surfaced during the 2026-05-02 substrate sweep — the muted-cyan
+action variants, the lightened-accent hover, the muted-state-
+error surfaces — into "leave as theme-exception" or "introduce
+one base anchor + color-mix derivation," not new multi-tone
+anchor families.
+
+---
+
 ## What this document deliberately does not do
 
 - **Does not propose a specific theme to ship.** Today's dark

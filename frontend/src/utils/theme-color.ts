@@ -30,7 +30,7 @@
  *     `ChromeAnchor`. TypeScript surfaces every stale caller.
  *
  * Codegen from theme.css → ChromeAnchor would eliminate the
- * lockstep concern but is overkill at ~22 anchors with a low
+ * lockstep concern but is overkill at ~25 anchors with a low
  * change rate. If the substrate's churn rises (or the union
  * crosses ~50 anchors), revisit and follow the OpenAPI pipeline
  * shape (`npm run gen:api` / `openapi-typescript`).
@@ -49,7 +49,8 @@
  * The complete vocabulary of chrome anchors declared in theme.css.
  * Mirrors the `:root` rules in `src/assets/css/theme.css` —
  * 16 base anchors (4 surface + 3 border + 3 text + 2 accent +
- * 4 semantic state) plus 6 chart-derived helpers.
+ * 4 semantic state) plus 6 chart-derived helpers plus 5 role
+ * aliases (decouple-via-alias for implicit handles).
  *
  * Update both files in lockstep — see the SSOT discipline note
  * in the file header.
@@ -70,7 +71,14 @@ export type ChromeAnchor =
   // chart-side vocabulary rather than reaching into the role
   // anchors).
   | '--heatmap-low' | '--heatmap-mid' | '--heatmap-high'
-  | '--chart-grid' | '--chart-axis' | '--chart-marker';
+  | '--chart-grid' | '--chart-axis' | '--chart-marker'
+  // Role aliases (decouple-via-alias). Named for the implicit
+  // handle the consumer needs ("player W identifier", "review
+  // session active state"); aliased to whichever chrome anchor
+  // currently shares the value. Future tuning can break the
+  // aliasing without disturbing chrome.
+  | '--player-black' | '--player-white'
+  | '--review-active' | '--review-intermission' | '--review-complete';
 
 /**
  * Resolve a chrome-substrate CSS variable to its current string value.

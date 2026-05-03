@@ -99,7 +99,7 @@ export function useAnalysisProjection(boardId: BoardId) {
       // Determine dot color by inspecting who actually played the move to reach this state
       const isBlack = node?.move?.color === 'B';
       const pointColor = node?.move
-        ? (isBlack ? themeColor('--accent-primary') : themeColor('--state-error'))
+        ? (isBlack ? themeColor('--player-black') : themeColor('--player-white'))
         : themeColor('--text-2');
       
       return {

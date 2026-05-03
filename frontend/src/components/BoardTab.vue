@@ -135,9 +135,9 @@ const rugPlot = computed(() => {
 .tab-thumb.active { background: var(--surface-2); }
 .tab-thumb.active .tab-label { color: var(--accent-primary); }
 
-.tab-thumb.review-active { border-color: var(--state-attention); box-shadow: 0 0 8px color-mix(in srgb, var(--state-attention) 40%, transparent); }
-.tab-thumb.review-intermission { border-color: var(--state-warning); box-shadow: 0 0 8px color-mix(in srgb, var(--state-warning) 40%, transparent); }
-.tab-thumb.review-complete { border-color: var(--state-success); }
+.tab-thumb.review-active { border-color: var(--review-active); box-shadow: 0 0 8px color-mix(in srgb, var(--review-active) 40%, transparent); }
+.tab-thumb.review-intermission { border-color: var(--review-intermission); box-shadow: 0 0 8px color-mix(in srgb, var(--review-intermission) 40%, transparent); }
+.tab-thumb.review-complete { border-color: var(--review-complete); }
 
 .tab-thumb.active.review-active { border-width: 3px; }
 .tab-thumb.active.review-intermission { border-width: 3px; }

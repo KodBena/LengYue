@@ -56,4 +56,28 @@
   --chart-grid:   var(--border-1);
   --chart-axis:   var(--text-2);
   --chart-marker: var(--accent-primary);
+
+  /* ── Role aliases for implicit handles (decouple-via-alias) ─
+   * Where a consumer's semantic role doesn't fit the chrome
+   * taxonomy above, name the implicit handle here and alias it
+   * to the chrome anchor whose value happens to match. Future
+   * tuning can break the aliasing without disturbing chrome.
+   * Adding a new entry is the right move when a substrate
+   * refactor uncovers a consumer borrowing an anchor for a
+   * semantically distinct role. Don't merge roles in the chrome
+   * taxonomy just because two of them happen to share a value.
+   * See docs/notes/frontend-theming-plan.md "Substrate
+   * evolution" for the principle. */
+
+  /* Player identifiers — used in chart series for B/W deltas
+   * and per-point markers. Band 2 (game-tree-coupled). */
+  --player-black: var(--accent-primary);
+  --player-white: var(--state-error);
+
+  /* Review-session lifecycle states — used for tab-thumb
+   * borders and any other indicator of an SR session's
+   * current phase. */
+  --review-active:       var(--state-attention);
+  --review-intermission: var(--state-warning);
+  --review-complete:     var(--state-success);
 }
