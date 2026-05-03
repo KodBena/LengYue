@@ -19,6 +19,7 @@ import type {
 } from '../types';
 import { CardTreeOverflowError } from '../types';
 import type { components } from '../types/backend';
+import { rewriteGradingParameterAnalysisConfig } from '../engine/analysis-config-curation';
 
 // ─── Wire-type aliases (the ACL boundary) ────────────────────────────────────
 // These names describe what the backend sends, not what the app speaks in.
@@ -99,6 +100,22 @@ export class BackendService {
       this.warnedAboutMissingParentId = true;
     }
 
+    // Item 18 closure: route the wire blob through the proxy v1.0.3
+    // curation rewriter before surfacing it on the domain card. The
+    // rewriter only walks `data.analysis_config.symbols.*` strings,
+    // rewriting `np.<fn>(` → `<fn>(` for curated names; the top-level
+    // shape is structurally preserved (same reference returned for the
+    // no-op fast path; otherwise a structural copy with siblings kept
+    // by reference). This aligns pre-v1.0.3 cards' baked configs with
+    // the curated proxy stdlib so they remain reviewable. Residue
+    // (bodies referencing fns outside the curated stdlib, attribute
+    // walks like `np.linalg.<fn>`) is left for the proxy's call-time
+    // NameError to surface as a SystemMessage at review time per
+    // ADR-0002 — no per-card warning here, which would be noisy.
+    const curatedGradingParameter =
+      rewriteGradingParameterAnalysisConfig(raw.grading_parameter)
+        .gradingParameter as CardFromWire['grading_parameter'];
+
     return {
       id: raw.id as CardId,
       sgf: raw.canonical_content,
@@ -115,6 +132,14 @@ export class BackendService {
       // malformed or missing grading_parameter.data.default_visits.
       defaultVisits: readGradingParam<number>(raw.grading_parameter, 'default_visits') ?? 1000,
       gamma: readGradingParam<number>(raw.grading_parameter, 'gamma') ?? 0.9,
+      // Item 18 surfacing: the curated grading_parameter blob (so the
+      // SR composable's per-card `analysis_config` override at
+      // `useReviewSession.ts:235` can read it), and the recall
+      // projections the backend computes on every CardWithRecall
+      // response.
+      gradingParameter: curatedGradingParameter,
+      currentRecall: raw.current_recall,
+      halflifeUnits: raw.halflife_units,
     };
   }
 

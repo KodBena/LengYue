@@ -142,7 +142,7 @@ reading the outstanding work.
 | 5 | Dead 404 branch in `sync-service.ts::connect()` removed; backend contract stated in the docstring. |
 | 6 | Ghost `AppSettings` fields (`autoConnect`, `extensionCapabilities`) removed. |
 | 17 | `SyncService` three-channel watcher collapsed to single-slot (Option A). |
-| 18 | `current_recall`, `halflife_units`, `gradingParameter` surfaced on `ReviewCard` (closed jointly with Commit 4 of the build-error sweep). |
+| 18 | `current_recall`, `halflife_units`, `gradingParameter` surfaced on `ReviewCard`. Closed in two stages: the TYPE side landed during Commit 4 of the build-error sweep (the three optional fields appeared on `ReviewCard`); the IMPLEMENTATION side — `services/backend-service.ts::mapToReviewCard` actually populating them — was discovered missing on 2026-05-02 during the proxy v1.0.3 curation migration work and shipped on 2026-05-03 wired through `engine/analysis-config-curation.ts::rewriteGradingParameterAnalysisConfig` so pre-v1.0.3 cards' baked configs are translated to the curated proxy stdlib at the ACL boundary (residue left for the proxy's call-time `NameError` per ADR-0002). The 2026-05-02 auditor-notes entry filed the divergence as one instance of a recurring class (type-vs-impl divergence at the ACL); the closure follow-on is dated 2026-05-03 in the same file. Worklog at `docs/worklog/2026-05-03-item-18-grading-parameter-acl-closure.md`. |
 | 19 | `resource-service.ts` migrated to the consolidated `/resources/{name}` endpoint + envelope unwrap. |
 | 20 | API and sync errors surfaced via `pushSystemMessage`. |
 | 21 | KataGo analysis wait: timeout + abort-signal support; extracted to `wait-for-analysis.ts` primitive. |
@@ -321,45 +321,13 @@ curation alignment migration; the Cards tab merge step needs
 to be re-numbered (likely `12 → 13` or whatever the head is at
 the time of implementation).
 
-#### `[frontend]` Item 18 — `gradingParameter` ACL surfacing (actual closure)
+#### Item 18 — `gradingParameter` ACL surfacing — moved to Completed
 
-Discovered 2026-05-02 during the proxy v1.0.3 curation
-migration work: Item 18's TYPE side landed (`ReviewCard.grading-
-Parameter`, `ReviewCard.currentRecall`, `ReviewCard.halflife-
-Units` declared on the domain type per `types.ts:438`); the
-IMPLEMENTATION side did not. `services/backend-service.ts::
-mapToReviewCard` extracts `default_visits` and `gamma` via
-`readGradingParam<T>` but never propagates the whole blob (or
-the recall projections) onto the returned `ReviewCard`.
-`useReviewSession.ts:235`'s read of `currentCard.value
-?.gradingParameter?.data?.analysis_config` therefore returns
-`undefined` in production today; the per-card config-override
-path is dormant; reviews use the live env config regardless of
-what each card was minted with.
-
-Closure scope:
-- `mapToReviewCard` must populate `gradingParameter`,
-  `currentRecall`, `halflifeUnits` on the returned `ReviewCard`.
-- The `gradingParameter` population MUST route through
-  `engine/analysis-config-curation.ts::rewriteGrading-
-  ParameterAnalysisConfig` to align pre-v1.0.3 cards' baked
-  configs with the curated proxy stdlib. Without this rewrite,
-  every card minted before v1.0.3 (~7 000+ in the deployed
-  population) becomes unreviewable post-v1.0.3.
-- The closure should also verify residue handling end-to-end:
-  the proxy's call-time `NameError` for bodies referencing fns
-  outside the curated stdlib must propagate as a SystemMessage
-  per ADR-0002.
-
-**Precondition:** the proxy v1.0.3 release ships with the
-curated stdlib in place. While the proxy still accepts `np.*`,
-this closure can ship safely; once v1.0.3 ships, it MUST ship
-with the curation rewrite or pre-v1.0.3 cards break.
-
-This entry is the immediate-action item from auditor-notes
-2026-05-02; the broader class-of-inconsistency observation
-(type-vs-implementation divergence at boundary translators)
-is recorded there for systematic audit.
+Closed on 2026-05-03; see the Frontend Completed table above
+for the synopsis. The 2026-05-02 auditor-notes entry that
+surfaced the type-vs-implementation divergence is updated with
+a closure follow-on; the broader class-wide audit pass remains
+open per that entry's "Advice for the next auditor" section.
 
 ### Large — structural changes that introduce new abstractions
 
