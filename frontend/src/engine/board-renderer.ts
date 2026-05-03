@@ -2,7 +2,7 @@
  * src/engine/board-renderer.ts
  * Pure SVG Go board rendering. Added: markerLabels.
  */
-import { BOARD_PX, BOARD_COLOR, LINE_COLOR } from './constants';
+import { BOARD_PX, BOARD_COLOR, LINE_COLOR, STONE_RADIUS_RATIO, MARKER_INNER_RATIO } from './constants';
 import type { StoneColor, Point } from '../types';
 
 export function renderBoardToSvg(props: {
@@ -18,7 +18,7 @@ export function renderBoardToSvg(props: {
   const safeUid = uid.replace(/[^a-z0-9]/gi, '');
   const pad = BOARD_PX / (size + 1);
   const cell = (BOARD_PX - 2 * pad) / (size - 1);
-  const stoneR = cell * 0.46;
+  const stoneR = cell * STONE_RADIUS_RATIO;
   const toSVG = (bx: number, by: number) => ({ x: pad + bx * cell, y: pad + (size - 1 - by) * cell });
 
   let stonesSvg = '';
@@ -45,7 +45,7 @@ export function renderBoardToSvg(props: {
   let markerSvg = '';
   if (showMarker && lastMove) {
     const coords = toSVG(lastMove.x, lastMove.y);
-    markerSvg += `<circle cx="${coords.x}" cy="${coords.y}" r="${stoneR * 0.4}" fill="none" 
+    markerSvg += `<circle cx="${coords.x}" cy="${coords.y}" r="${stoneR * MARKER_INNER_RATIO}" fill="none"
       stroke="${stones[`${lastMove.x},${lastMove.y}`] === 'B' ? 'white' : 'black'}" stroke-width="2" opacity="0.8" />`;
   }
 

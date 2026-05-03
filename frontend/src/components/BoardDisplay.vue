@@ -8,6 +8,7 @@ import { computed } from 'vue';
 import {
   BOARD_PX, BOARD_COLOR, LINE_COLOR, LABEL_COLOR,
   LABEL_BAND, LABEL_FONT_SIZE, LABEL_INSET_RATIO, TOTAL_PX,
+  STONE_RADIUS_RATIO, MARKER_INNER_RATIO,
   ALL_X_LABELS,
 } from '../engine/constants';
 import type { StoneColor, Move } from '../types';
@@ -35,7 +36,7 @@ const boardSize = computed(() => props.size ?? 19);
 // below remain inner-board-relative and don't carry the offset themselves.
 const pad     = computed(() => BOARD_PX / (boardSize.value + 1));
 const cell    = computed(() => (BOARD_PX - 2 * pad.value) / (boardSize.value - 1));
-const stoneR  = computed(() => cell.value * 0.46);
+const stoneR  = computed(() => cell.value * STONE_RADIUS_RATIO);
 const STAR_R  = 2.5; // Fixed dot size — does not need to scale with the board.
 
 // Coordinate-label offset from the SVG edge (viewBox-units). The label
@@ -207,7 +208,7 @@ function onBoardClick(e: MouseEvent) {
         <circle
           :cx="toSVG(lastMove.x, lastMove.y).x"
           :cy="toSVG(lastMove.x, lastMove.y).y"
-          :r="stoneR * 0.4"
+          :r="stoneR * MARKER_INNER_RATIO"
           fill="none"
           :stroke="stones[`${lastMove.x},${lastMove.y}`] === 'B' ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.6)'"
           stroke-width="2"

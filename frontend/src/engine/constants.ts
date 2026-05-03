@@ -47,6 +47,27 @@ export const LABEL_INSET_RATIO = 0.65;
 /** SVG viewBox dimension — inner playable area plus a label band on each side. */
 export const TOTAL_PX = BOARD_PX + 2 * LABEL_BAND;
 
+/**
+ * Stone radius as a fraction of cell size. The geometric foundation
+ * shared by every renderer that draws stones — keep as a single
+ * value across consumers to prevent the drift that surfaced this
+ * audit's triggering specimen (the `* 0.88` PV-stone variant in
+ * MoveSuggestions.vue, removed earlier in favor of the unified
+ * ratio). Three consumer sites read this: live BoardDisplay,
+ * suggestion overlay (MoveSuggestions), and the SVG-string
+ * renderer (board-renderer.ts).
+ */
+export const STONE_RADIUS_RATIO = 0.46;
+
+/**
+ * Inner-marker radius as a fraction of stone radius. Used for the
+ * small inner circle drawn on the most recent move (last-move
+ * marker, BoardDisplay) and for analysis preview markers
+ * (board-renderer's optional showMarker overlay). Two consumer
+ * sites today.
+ */
+export const MARKER_INNER_RATIO = 0.4;
+
 export const BOARD_COLOR = '#dcb35c';
 export const LINE_COLOR  = '#222';
 export const LABEL_COLOR = '#444';
