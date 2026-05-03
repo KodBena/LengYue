@@ -133,7 +133,7 @@ function onDelete(b: QeuboBookmark): void {
 .bookmark-params { font-size: 10px; color: var(--text-1); font-family: monospace; overflow-wrap: anywhere; }
 
 .bookmark-actions { display: flex; gap: 4px; flex-shrink: 0; }
-.apply-btn, .rename-btn, .delete-btn { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: 4px 8px; font-size: 10px; cursor: pointer; border-radius: 3px; font-family: inherit; text-transform: uppercase; letter-spacing: 0.05em; transition: background 0.15s, border-color 0.15s, color 0.15s; }
+.apply-btn, .rename-btn, .delete-btn { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: 4px 8px; font-size: 10px; cursor: pointer; border-radius: 3px; font-family: inherit; text-transform: uppercase; letter-spacing: 0.05em; transition: background var(--duration-default), border-color var(--duration-default), color var(--duration-default); }
 .apply-btn:hover, .rename-btn:hover { background: var(--border-3); border-color: var(--border-3); color: var(--text-0); }
 .apply-btn { border-color: #2a5a7a; color: var(--accent-primary); }
 .apply-btn:hover { background: #1a3a4a; border-color: var(--accent-primary); }

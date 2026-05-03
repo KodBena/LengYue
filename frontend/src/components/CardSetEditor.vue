@@ -228,7 +228,7 @@ function updatePipeline(newJsonStr: string) {
 .dark-input { background: var(--surface-1); border: 1px solid var(--border-2); color: var(--text-0); padding: 6px; border-radius: 3px; font-family: monospace; font-size: 12px; width: 100%; outline: none; }
 .dark-input:focus { border-color: var(--accent-primary); }
 
-.editor-wrap { flex: 1; overflow: auto; border-top: 1px solid var(--surface-3); transition: border-color 0.2s; }
+.editor-wrap { flex: 1; overflow: auto; border-top: 1px solid var(--surface-3); transition: border-color var(--duration-default); }
 .editor-wrap.json-error { border-top: 2px solid var(--state-error); }
 .error-badge { font-size: 9px; color: var(--state-error); font-weight: bold; }
 </style>

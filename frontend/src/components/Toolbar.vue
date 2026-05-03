@@ -76,7 +76,7 @@ const engineBtnLabel = computed(() => isConnected.value ? 'Disconnect' : 'Connec
 .m-lbl  { color: var(--border-3); font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; }
 .m-val  { color: var(--accent-primary); font-weight: bold; }
 .engine-controls { display: flex; gap: 4px; flex-shrink: 0; }
-.toolbar-btn { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: 1px 5px; font-size: 11px; cursor: pointer; border-radius: 3px; font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: 0.05em; transition: background 0.15s, border-color 0.15s; }
+.toolbar-btn { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: 1px 5px; font-size: 11px; cursor: pointer; border-radius: 3px; font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: 0.05em; transition: background var(--duration-default), border-color var(--duration-default); }
 .toolbar-btn:hover { background: var(--border-3); border-color: var(--border-3); color: var(--text-0); }
 .btn-connected { border-color: var(--state-success) !important; color: var(--state-success) !important; }
 /* theme-exception: .highlight-btn uses muted-cyan border (#2a5a7a)
