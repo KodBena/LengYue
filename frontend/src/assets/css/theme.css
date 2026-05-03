@@ -7,15 +7,15 @@
  * role aliases). Z-index ladder (4 layering tiers). Animation
  * durations (2 timing tiers). Spacing scale (4 spacing tiers).
  * Font-size scale (4 typographic tiers). Border-radius scale (2
- * rounding tiers). Every chrome color, z-index, transition
- * duration, substrate-cluster spacing, font-size, and
- * border-radius value in CSS, in SFC <style> blocks, and in
+ * rounding tiers). Letter-spacing scale (3 tracking tiers).
+ * Every chrome color, z-index, transition duration,
+ * substrate-cluster spacing, font-size, border-radius, and
+ * letter-spacing value in CSS, in SFC <style> blocks, and in
  * TypeScript chart-adapter sites reads from this file via
  * `var(--name)`; the `themeColor()` helper in
  * src/utils/theme-color.ts is the runtime-string accessor for
- * the color subset (z-index, durations, spacing, font-sizes,
- * and radii are CSS-only and don't need typed runtime
- * accessors).
+ * the color subset (the non-color anchor sets are CSS-only and
+ * don't need typed runtime accessors).
  *
  * Out of scope:
  * - Domain (Go-specific) colors live in src/engine/constants.ts.
@@ -29,8 +29,9 @@
  * docs/notes/magic-literals-audit-inventory.md (z-index ladder
  * is Pass-2 Tier-1 #1, animation durations are Pass-2 Tier-1 #2,
  * spacing scale is Pass-2 Tier-2 #1, font-size scale is Pass-2
- * Tier-2 #2, border-radius scale is Pass-2 Tier-2 #3 of the
- * audit's residue sweep).
+ * Tier-2 #2, border-radius scale is Pass-2 Tier-2 #3,
+ * letter-spacing scale is Pass-2 Tier-2 #4 of the audit's
+ * residue sweep — the Tier-2 closer).
  *
  * License: Public Domain (The Unlicense)
  */
@@ -209,4 +210,20 @@
    * trick), `1px`, `0%` (1 site each). */
   --radius-default: 3px;   /* default chrome — buttons, panels, inputs, cards */
   --radius-circle:  50%;   /* circular indicators, dots, round buttons */
+
+  /* ── Letter-spacing scale (3) ────────────────────────────────
+   * Three tiers for typographic tracking (letter-spacing).
+   * Snap-by-cluster covers all 24 surveyed sites cleanly — the
+   * 0.06 / 0.08 / 0.12 / 0.16 stragglers each fall within JND
+   * of a dominant tier (0.05, 0.1, or 0.18). All shifts ≤ 0.02em,
+   * well below the perceptual threshold for letter-spacing
+   * changes; no carve-outs needed.
+   *
+   * Snap rule (nearest):
+   *   0.05 / 0.06        → tight (0.05)    — 9 sites
+   *   0.08 / 0.1 / 0.12  → default (0.1)   — 10 sites
+   *   0.16 / 0.18        → wide (0.18)     — 5 sites */
+  --tracking-tight:   0.05em;  /* toolbar buttons, secondary labels */
+  --tracking-default: 0.1em;   /* uppercase headings, chart axis labels */
+  --tracking-wide:    0.18em;  /* control-tab labels, prominent uppercase headers */
 }

@@ -72,7 +72,7 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
   font-size: var(--text-body);
   text-transform: uppercase;
   color: var(--text-2);
-  letter-spacing: 0.1em;
+  letter-spacing: var(--tracking-default);
   font-weight: bold;
 }
 

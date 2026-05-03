@@ -96,7 +96,7 @@ const samples = computed(() => {
   font-size: var(--text-tiny);
   color: var(--border-3);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: var(--tracking-default);
 }
 
 .strip {

@@ -517,7 +517,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 #content { flex: 1; display: flex; justify-content: center; align-items: center; min-height: 0; }
 
 #vue-tree-panel { width: 220px; display: flex; flex-direction: column; border-left: 1px solid var(--surface-1); background: var(--border-1); min-height: 0; flex-shrink: 0; padding-right: 5px; }
-#tree-panel-header { height: 20px; background: var(--border-1); border-bottom: 1px solid var(--surface-1); display: flex; align-items: center; padding: 0 var(--space-default); font-size: var(--text-tiny); letter-spacing: 0.16em; color: var(--text-2); text-transform: uppercase; flex-shrink: 0; }
+#tree-panel-header { height: 20px; background: var(--border-1); border-bottom: 1px solid var(--surface-1); display: flex; align-items: center; padding: 0 var(--space-default); font-size: var(--text-tiny); letter-spacing: var(--tracking-wide); color: var(--text-2); text-transform: uppercase; flex-shrink: 0; }
 #control-panel { border-left: 1px solid var(--surface-1); background: var(--surface-3); flex-shrink: 0; display: flex; flex-direction: column; }
 
 /* theme-exception: .panel-resizer #eba46d is a peach accent color
@@ -608,7 +608,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 .visits-input:focus { border-color: var(--accent-primary); }
 
 .hue-slider-row { display: flex; flex-direction: column; gap: var(--space-tight); margin-bottom: var(--space-default); }
-.hue-slider-label { display: flex; justify-content: space-between; align-items: center; font-size: var(--text-body); color: var(--text-1); text-transform: uppercase; letter-spacing: 0.05em; }
+.hue-slider-label { display: flex; justify-content: space-between; align-items: center; font-size: var(--text-body); color: var(--text-1); text-transform: uppercase; letter-spacing: var(--tracking-tight); }
 .hue-slider-value { background: var(--surface-3); padding: 0 var(--space-default); border-radius: var(--radius-default); color: var(--accent-primary); font-family: monospace; }
 .hue-slider-input { width: 100%; accent-color: var(--accent-primary); cursor: pointer; }
 </style>
