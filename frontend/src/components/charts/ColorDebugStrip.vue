@@ -93,7 +93,7 @@ const samples = computed(() => {
 }
 
 .track-label {
-  font-size: 8px;
+  font-size: var(--text-tiny);
   color: var(--border-3);
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -129,7 +129,7 @@ const samples = computed(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 9px;
+  font-size: var(--text-tiny);
   color: var(--text-2);
   font-family: monospace;
   padding-top: var(--space-tight);

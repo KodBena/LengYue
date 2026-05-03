@@ -199,7 +199,7 @@ function isModified(key: string, value: any) {
 .modified-dot { width: 4px; height: 4px; border-radius: 50%; background: #fbbf24; box-shadow: 0 0 4px #fbbf24; }
 
 .branch-label {
-  color: var(--accent-primary); text-transform: uppercase; font-size: 10px; font-weight: bold;
+  color: var(--accent-primary); text-transform: uppercase; font-size: var(--text-body); font-weight: bold;
   padding: var(--space-tight) var(--space-default); background: color-mix(in srgb, var(--accent-primary) 5%, transparent); border-left: 2px solid var(--accent-primary);
 }
 
@@ -219,22 +219,22 @@ function isModified(key: string, value: any) {
    pink-400) as a "symbolic reference" indicator — visually distinct
    from expressions (amber) and scalars (white-ish). No semantic anchor
    for "reference" in the substrate. */
-.ref-icon { color: #f472b6; font-size: 14px; }
+.ref-icon { color: #f472b6; font-size: var(--text-heading); }
 .ref-input { color: #f472b6; font-style: italic; flex: 1; }
 
 .registry-leaf { padding: 0; border-bottom: 1px solid var(--surface-2); }
 .registry-leaf.scalar, .registry-leaf.symbol-ref, .registry-leaf.enum { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: var(--space-medium); }
-.leaf-label { color: var(--text-2); font-size: 11px; }
+.leaf-label { color: var(--text-2); font-size: var(--text-emphasis); }
 
-.restore-btn { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: 12px; }
+.restore-btn { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: var(--text-emphasis); }
 .restore-btn:hover { color: var(--accent-primary); }
-.delete-btn { background: none; border: none; color: var(--border-3); cursor: pointer; font-size: 14px; }
+.delete-btn { background: none; border: none; color: var(--border-3); cursor: pointer; font-size: var(--text-heading); }
 .delete-btn:hover { color: var(--state-error); }
 
 .add-key-row { display: flex; padding: var(--space-default); gap: var(--space-tight); background: rgba(0,0,0,0.2); }
 .add-input { flex: 1; border-style: dashed; }
-.add-btn { background: var(--surface-3); border: 1px solid var(--border-2); color: var(--accent-primary); cursor: pointer; font-size: 10px; padding: 0 var(--space-default); text-transform: uppercase; }
+.add-btn { background: var(--surface-3); border: 1px solid var(--border-2); color: var(--accent-primary); cursor: pointer; font-size: var(--text-body); padding: 0 var(--space-default); text-transform: uppercase; }
 
-.dark-input { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-1); font-size: 11px; }
+.dark-input { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-1); font-size: var(--text-emphasis); }
 .scalar-input { height: 22px; padding: 0 var(--space-default); width: 140px; }
 </style>

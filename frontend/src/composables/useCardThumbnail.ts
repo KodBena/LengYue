@@ -45,6 +45,6 @@ export function getCardThumbnailSync(cardId: number, cardSgf: string): string {
     return svg;
   } catch (err) {
     console.error(`[ThumbnailCache] Failed to render Card ${cardId}:`, err);
-    return `<div style="color:red; font-size:10px;">Render Error</div>`;
+    return `<div style="color:red; font-size:var(--text-body);">Render Error</div>`;
   }
 }

@@ -517,7 +517,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 #content { flex: 1; display: flex; justify-content: center; align-items: center; min-height: 0; }
 
 #vue-tree-panel { width: 220px; display: flex; flex-direction: column; border-left: 1px solid var(--surface-1); background: var(--border-1); min-height: 0; flex-shrink: 0; padding-right: 5px; }
-#tree-panel-header { height: 20px; background: var(--border-1); border-bottom: 1px solid var(--surface-1); display: flex; align-items: center; padding: 0 var(--space-default); font-size: 9px; letter-spacing: 0.16em; color: var(--text-2); text-transform: uppercase; flex-shrink: 0; }
+#tree-panel-header { height: 20px; background: var(--border-1); border-bottom: 1px solid var(--surface-1); display: flex; align-items: center; padding: 0 var(--space-default); font-size: var(--text-tiny); letter-spacing: 0.16em; color: var(--text-2); text-transform: uppercase; flex-shrink: 0; }
 #control-panel { border-left: 1px solid var(--surface-1); background: var(--surface-3); flex-shrink: 0; display: flex; flex-direction: column; }
 
 /* theme-exception: .panel-resizer #eba46d is a peach accent color
@@ -531,7 +531,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 .tab-padding { padding: var(--space-default); }
 .tab-padding-sr { padding: var(--space-medium) var(--space-default); text-align: center; }
 .section-divider { border-top: 1px solid var(--surface-3); margin-top: 0; padding-top: 0; }
-.sub-header { color: var(--text-2); font-size: 14px; margin-bottom: var(--space-medium); }
+.sub-header { color: var(--text-2); font-size: var(--text-heading); margin-bottom: var(--space-medium); }
 
 /* Native <details> subsections in the Settings tab. Override default
    marker, render a custom chevron that rotates on open. The h3
@@ -550,7 +550,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 .settings-section > summary::before {
   content: '▶';
   margin-right: var(--space-default);
-  font-size: 9px;
+  font-size: var(--text-tiny);
   color: var(--text-2);
   transition: transform var(--duration-default) ease;
   flex-shrink: 0;
@@ -561,16 +561,16 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 .settings-section > summary:hover > h3 { color: var(--text-2); }
 
 .deck-selector-box { background: var(--surface-2); padding: var(--space-medium); border-radius: 4px; border: 1px solid var(--surface-3); margin-bottom: var(--space-loose); text-align: left; }
-.deck-selector-box label { font-size: 11px; color: var(--text-2); display: block; margin-bottom: var(--space-default); text-transform: uppercase; }
-.deck-dropdown { width: 100%; padding: var(--space-default); font-size: 12px; margin-bottom: var(--space-default); background: var(--surface-1); color: var(--text-0); border: 1px solid var(--border-2); border-radius: 3px; outline: none; }
+.deck-selector-box label { font-size: var(--text-emphasis); color: var(--text-2); display: block; margin-bottom: var(--space-default); text-transform: uppercase; }
+.deck-dropdown { width: 100%; padding: var(--space-default); font-size: var(--text-emphasis); margin-bottom: var(--space-default); background: var(--surface-1); color: var(--text-0); border: 1px solid var(--border-2); border-radius: 3px; outline: none; }
 .deck-dropdown:focus { border-color: var(--accent-primary); }
 
 .action-btn-large { background: var(--accent-primary); color: var(--text-0); border: none; padding: var(--space-tight) var(--space-medium); cursor: pointer; border-radius: 4px; font-weight: bold; width: 100%; }
-.toolbar-btn-sm { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: 1px 4px; font-size: 11px; cursor: pointer; border-radius: 3px; }
+.toolbar-btn-sm { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: 1px 4px; font-size: var(--text-emphasis); cursor: pointer; border-radius: 3px; }
 .toolbar-btn-sm:hover { background: var(--border-3); border-color: var(--border-3); }
 .registry-container { margin-top: 0; background: var(--surface-2); border: 1px solid var(--surface-3); border-radius: 4px; max-height: 400px; overflow-y: auto; }
 
-.collapse-btn { background: color-mix(in srgb, var(--surface-2) 80%, transparent); border: 1px solid var(--border-2); color: var(--text-2); height: 18px; padding: 0 var(--space-tight); cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 10px; }
+.collapse-btn { background: color-mix(in srgb, var(--surface-2) 80%, transparent); border: 1px solid var(--border-2); color: var(--text-2); height: 18px; padding: 0 var(--space-tight); cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: var(--text-body); }
 .collapse-btn:hover { background: var(--border-2); color: var(--text-0); border-color: var(--border-3); }
 .right-toggles { display: flex; gap: var(--space-default); margin-left: auto; }
 
@@ -588,7 +588,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
   text-align: left;
 }
 .visits-override-row label {
-  font-size: 11px;
+  font-size: var(--text-emphasis);
   color: var(--text-2);
   text-transform: uppercase;
 }
@@ -596,7 +596,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
   background: var(--surface-0);
   border: 1px solid var(--border-2);
   color: var(--text-1);
-  font-size: 11px;
+  font-size: var(--text-emphasis);
 }
 .visits-input {
   width: 100px;
@@ -608,7 +608,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 .visits-input:focus { border-color: var(--accent-primary); }
 
 .hue-slider-row { display: flex; flex-direction: column; gap: var(--space-tight); margin-bottom: var(--space-default); }
-.hue-slider-label { display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--text-1); text-transform: uppercase; letter-spacing: 0.05em; }
+.hue-slider-label { display: flex; justify-content: space-between; align-items: center; font-size: var(--text-body); color: var(--text-1); text-transform: uppercase; letter-spacing: 0.05em; }
 .hue-slider-value { background: var(--surface-3); padding: 0 var(--space-default); border-radius: 3px; color: var(--accent-primary); font-family: monospace; }
 .hue-slider-input { width: 100%; accent-color: var(--accent-primary); cursor: pointer; }
 </style>

@@ -201,34 +201,34 @@ function updatePipeline(newJsonStr: string) {
 
 .sidebar { width: 200px; background: var(--surface-1); border-right: 1px solid var(--surface-3); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
 .section { border-bottom: 1px solid var(--surface-2); }
-.section-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-default) var(--space-medium); background: var(--surface-2); color: var(--text-1); font-size: 10px; text-transform: uppercase; }
-.add-btn { background: none; border: none; color: var(--accent-primary); cursor: pointer; font-weight: bold; font-size: 14px; }
+.section-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-default) var(--space-medium); background: var(--surface-2); color: var(--text-1); font-size: var(--text-body); text-transform: uppercase; }
+.add-btn { background: none; border: none; color: var(--accent-primary); cursor: pointer; font-weight: bold; font-size: var(--text-heading); }
 .add-btn:hover { color: var(--text-0); }
 
 .item-list { list-style: none; padding: 0; margin: 0; }
-.item-list li { padding: var(--space-default) var(--space-medium); font-size: 11px; color: var(--text-1); cursor: pointer; border-left: 2px solid transparent; display: flex; justify-content: space-between; align-items: center;}
+.item-list li { padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); color: var(--text-1); cursor: pointer; border-left: 2px solid transparent; display: flex; justify-content: space-between; align-items: center;}
 .item-list li:hover { background: var(--surface-2); }
 .item-list li.active { background: var(--surface-0); border-left-color: var(--accent-primary); color: var(--accent-primary); }
-.active-badge { font-size: 8px; background: var(--accent-primary); color: var(--surface-0); padding: 1px 4px; border-radius: 2px; }
+.active-badge { font-size: var(--text-tiny); background: var(--accent-primary); color: var(--surface-0); padding: 1px 4px; border-radius: 2px; }
 
 .detail-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--surface-0); }
-.empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--border-3); font-size: 12px; }
+.empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--border-3); font-size: var(--text-emphasis); }
 .detail-content { display: flex; flex-direction: column; height: 100%; }
 
 .detail-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-2); }
-.detail-header h3 { margin: 0; font-size: 14px; color: var(--text-0); font-weight: normal; }
+.detail-header h3 { margin: 0; font-size: var(--text-heading); color: var(--text-0); font-weight: normal; }
 /* theme-exception: .del-btn muted-state-error surface variants per
    the same rationale as PaletteEditor's .del-btn. Future substrate
    work could introduce tinted-surface anchors. */
-.del-btn { background: #3a1a1a; color: var(--state-error); border: 1px solid #5a1a1a; padding: var(--space-tight) var(--space-default); border-radius: 3px; cursor: pointer; font-size: 10px; }
+.del-btn { background: #3a1a1a; color: var(--state-error); border: 1px solid #5a1a1a; padding: var(--space-tight) var(--space-default); border-radius: 3px; cursor: pointer; font-size: var(--text-body); }
 .del-btn:hover { background: #5a1a1a; color: var(--text-0); }
 
 .form-grid { padding: var(--space-medium); display: grid; grid-template-columns: 100px 1fr; gap: var(--space-medium); align-items: center; }
-.form-grid label { font-size: 11px; color: var(--text-2); }
-.dark-input { background: var(--surface-1); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default); border-radius: 3px; font-family: monospace; font-size: 12px; width: 100%; outline: none; }
+.form-grid label { font-size: var(--text-emphasis); color: var(--text-2); }
+.dark-input { background: var(--surface-1); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default); border-radius: 3px; font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none; }
 .dark-input:focus { border-color: var(--accent-primary); }
 
 .editor-wrap { flex: 1; overflow: auto; border-top: 1px solid var(--surface-3); transition: border-color var(--duration-default); }
 .editor-wrap.json-error { border-top: 2px solid var(--state-error); }
-.error-badge { font-size: 9px; color: var(--state-error); font-weight: bold; }
+.error-badge { font-size: var(--text-tiny); color: var(--state-error); font-weight: bold; }
 </style>

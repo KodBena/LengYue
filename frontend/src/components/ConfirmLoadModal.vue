@@ -77,8 +77,8 @@ function handle(action: LoadAction) {
   display: flex; flex-direction: column; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 .modal-header { padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-3); background: var(--surface-2); }
-.modal-header h2 { margin: 0; font-size: 14px; color: var(--text-0); text-transform: uppercase; }
-.modal-body { padding: var(--space-medium); color: var(--text-1); font-size: 12px; }
+.modal-header h2 { margin: 0; font-size: var(--text-heading); color: var(--text-0); text-transform: uppercase; }
+.modal-body { padding: var(--space-medium); color: var(--text-1); font-size: var(--text-emphasis); }
 .checkbox-row { margin-top: var(--space-medium); display: flex; align-items: center; gap: var(--space-default); }
 .checkbox-row label { cursor: pointer; color: var(--text-1); }
 .modal-footer {

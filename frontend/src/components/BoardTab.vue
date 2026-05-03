@@ -129,7 +129,7 @@ const rugPlot = computed(() => {
   position: relative; border-radius: 3px;
 }
 
-.tab-label { font-size: 11px; color: var(--text-2); font-weight: bold; pointer-events: none; }
+.tab-label { font-size: var(--text-emphasis); color: var(--text-2); font-weight: bold; pointer-events: none; }
 .tab-thumb:hover .tab-label { color: var(--text-0); }
 
 .tab-thumb.active { background: var(--surface-2); }
@@ -146,7 +146,7 @@ const rugPlot = computed(() => {
 .close-board-btn {
   position: absolute; top: -6px; right: -6px;
   background: var(--surface-3); color: var(--text-1); border: 1px solid var(--border-3); border-radius: 50%;
-  width: 16px; height: 16px; font-size: 12px; line-height: 1;
+  width: 16px; height: 16px; font-size: var(--text-emphasis); line-height: 1;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; opacity: 0; transition: opacity var(--duration-default), background var(--duration-default), color var(--duration-default);
 }

@@ -133,7 +133,7 @@ const updateOptions = () => {
         let res = `<div style="line-height: 1.2; padding: var(--space-tight);">`;
         const firstParam = params[0];
         const xVal = Array.isArray(firstParam.value) ? firstParam.value[0] : firstParam.value;
-        res += `<b style="font-size: 10px; color: ${themeColor('--text-1')};">Move ${xVal}</b>`;
+        res += `<b style="font-size: var(--text-body); color: ${themeColor('--text-1')};">Move ${xVal}</b>`;
         params.forEach(item => {
           const yVal = Array.isArray(item.value) ? item.value[1] : item.value;
           const val = typeof yVal === 'number' ? yVal.toFixed(2) : yVal;

@@ -69,7 +69,7 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
 }
 
 .title {
-  font-size: 10px;
+  font-size: var(--text-body);
   text-transform: uppercase;
   color: var(--text-2);
   letter-spacing: 0.1em;
@@ -80,7 +80,7 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
   background: none;
   border: none;
   color: var(--accent-primary);
-  font-size: 10px;
+  font-size: var(--text-body);
   cursor: pointer;
   text-transform: uppercase;
 }
@@ -110,7 +110,7 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
 .msg-warning { border-left-color: var(--state-warning); background: color-mix(in srgb, var(--state-warning) 5%, transparent); }
 .msg-info { border-left-color: var(--accent-primary); }
 
-.msg-icon { font-size: 14px; margin-top: 2px; }
+.msg-icon { font-size: var(--text-heading); margin-top: 2px; }
 
 .msg-content {
   flex: 1;
@@ -120,13 +120,13 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
 }
 
 .msg-time {
-  font-size: 9px;
+  font-size: var(--text-tiny);
   color: var(--text-2);
   font-family: monospace;
 }
 
 .msg-text {
-  font-size: 11px;
+  font-size: var(--text-emphasis);
   color: var(--text-0);
   font-family: monospace;
   white-space: pre-wrap; /* Preserve stack traces if sent by Python */
@@ -137,7 +137,7 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
   background: none;
   border: none;
   color: var(--text-2);
-  font-size: 16px;
+  font-size: var(--text-heading);
   cursor: pointer;
   padding: 0;
   line-height: 1;
@@ -151,6 +151,6 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
   padding: var(--space-default) var(--space-medium);
   font-family: monospace;
 }
-.empty-dot { color: var(--border-2); font-size: 14px; line-height: 1; }
-.empty-text { color: var(--border-3); font-size: 11px; font-style: italic; }
+.empty-dot { color: var(--border-2); font-size: var(--text-heading); line-height: 1; }
+.empty-text { color: var(--border-3); font-size: var(--text-emphasis); font-style: italic; }
 </style>

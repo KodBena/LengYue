@@ -273,8 +273,8 @@ async function submit() {
   display: flex; justify-content: space-between; align-items: center;
   padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-3); background: var(--surface-2);
 }
-.modal-header h2 { margin: 0; font-size: 14px; color: var(--text-0); text-transform: uppercase; letter-spacing: 0.05em; }
-.close-btn { background: none; border: none; color: var(--text-2); font-size: 18px; cursor: pointer; }
+.modal-header h2 { margin: 0; font-size: var(--text-heading); color: var(--text-0); text-transform: uppercase; letter-spacing: 0.05em; }
+.close-btn { background: none; border: none; color: var(--text-2); font-size: var(--text-heading); cursor: pointer; }
 .close-btn:hover { color: var(--text-0); }
 
 .modal-body { padding: var(--space-medium); }
@@ -285,19 +285,19 @@ async function submit() {
 }
 .lineage-box.root { background: color-mix(in srgb, var(--state-success) 10%, transparent); border-color: color-mix(in srgb, var(--state-success) 30%, transparent); }
 .lineage-box.branch { background: color-mix(in srgb, var(--accent-primary) 10%, transparent); border-color: color-mix(in srgb, var(--accent-primary) 30%, transparent); }
-.lineage-icon { font-size: 20px; }
-.lineage-text { display: flex; flex-direction: column; font-size: 11px; color: var(--text-1); }
-.lineage-text strong { color: var(--text-0); font-size: 12px; text-transform: uppercase; }
+.lineage-icon { font-size: var(--text-heading); }
+.lineage-text { display: flex; flex-direction: column; font-size: var(--text-emphasis); color: var(--text-1); }
+.lineage-text strong { color: var(--text-0); font-size: var(--text-emphasis); text-transform: uppercase; }
 
 .form-grid { display: grid; grid-template-columns: 110px 1fr; gap: var(--space-medium); align-items: center; }
-.form-grid label { font-size: 11px; color: var(--text-2); text-transform: uppercase; }
+.form-grid label { font-size: var(--text-emphasis); color: var(--text-2); text-transform: uppercase; }
 .dark-input, .dark-select {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default);
-  border-radius: 3px; font-family: monospace; font-size: 12px; width: 100%; outline: none;
+  border-radius: 3px; font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
 }
 .dark-input:focus, .dark-select:focus { border-color: var(--accent-primary); }
 
-.tag-label { font-size: 11px; color: var(--text-2); text-transform: uppercase; display: block; margin-bottom: var(--space-default); }
+.tag-label { font-size: var(--text-emphasis); color: var(--text-2); text-transform: uppercase; display: block; margin-bottom: var(--space-default); }
 .tag-input-wrapper {
   background: var(--surface-0); border: 1px solid var(--border-2); border-radius: 3px;
   display: flex; flex-wrap: wrap; padding: var(--space-tight); gap: var(--space-tight); position: relative;
@@ -307,14 +307,14 @@ async function submit() {
 .tag-badges { display: flex; flex-wrap: wrap; gap: var(--space-tight); }
 .tag-badge {
   background: var(--border-1); color: var(--accent-primary); padding: 2px 6px; border-radius: 3px;
-  font-size: 11px; font-family: monospace; display: flex; align-items: center; gap: var(--space-tight);
+  font-size: var(--text-emphasis); font-family: monospace; display: flex; align-items: center; gap: var(--space-tight);
 }
-.tag-remove { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: 12px; padding: 0; line-height: 1; }
+.tag-remove { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: var(--text-emphasis); padding: 0; line-height: 1; }
 .tag-remove:hover { color: var(--state-attention); }
 
 .tag-input {
   background: transparent; border: none; color: var(--text-0); font-family: monospace;
-  font-size: 12px; outline: none; flex: 1; min-width: 120px; padding: 2px;
+  font-size: var(--text-emphasis); outline: none; flex: 1; min-width: 120px; padding: 2px;
 }
 
 .suggestions-list {
@@ -322,10 +322,10 @@ async function submit() {
   border: 1px solid var(--border-2); border-top: none; border-radius: 0 0 3px 3px;
   list-style: none; padding: 0; margin: 0; max-height: 150px; overflow-y: auto; z-index: var(--z-popover);
 }
-.suggestions-list li { padding: var(--space-default) var(--space-medium); font-size: 11px; font-family: monospace; color: var(--text-1); cursor: pointer; }
+.suggestions-list li { padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); font-family: monospace; color: var(--text-1); cursor: pointer; }
 .suggestions-list li:hover { background: var(--border-1); color: var(--accent-primary); }
 
-.hint { font-size: 10px; color: var(--text-2); margin: var(--space-tight) 0 0 0; }
+.hint { font-size: var(--text-body); color: var(--text-2); margin: var(--space-tight) 0 0 0; }
 
 .modal-footer {
   display: flex; justify-content: flex-end; gap: var(--space-medium); padding: var(--space-medium) var(--space-medium);

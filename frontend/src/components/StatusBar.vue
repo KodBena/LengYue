@@ -62,7 +62,7 @@ const emit = defineEmits<{
   justify-content: space-between;
   align-items: center;
   padding: 0 var(--space-default);
-  font-size: 11px;
+  font-size: var(--text-emphasis);
   color: var(--text-1);
   flex-shrink: 0;
 }
@@ -77,11 +77,11 @@ const emit = defineEmits<{
   font-weight: bold;
   border-radius: 2px;
   font-family: monospace;
-  font-size: 10px;
+  font-size: var(--text-body);
 }
 
 .player-names { color: var(--text-0); font-weight: 600; }
-.game-info    { color: var(--border-3); font-size: 10px; display: flex; align-items: center; gap: var(--space-tight); }
+.game-info    { color: var(--border-3); font-size: var(--text-body); display: flex; align-items: center; gap: var(--space-tight); }
 
 .komi-input {
   width: 42px;
@@ -89,7 +89,7 @@ const emit = defineEmits<{
   border: none;
   border-bottom: 1px dashed var(--border-3);
   color: var(--text-1);
-  font-size: 10px;
+  font-size: var(--text-body);
   font-family: inherit;
   padding: 0;
   outline: none;
@@ -115,5 +115,5 @@ const emit = defineEmits<{
 .turn-indicator.B { color: var(--accent-primary); }
 .turn-indicator.W { color: var(--accent-secondary); }
 
-.caps { font-family: monospace; color: var(--text-2); font-size: 10px; }
+.caps { font-family: monospace; color: var(--text-2); font-size: var(--text-body); }
 </style>
