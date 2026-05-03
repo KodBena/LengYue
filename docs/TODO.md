@@ -240,13 +240,16 @@ each board through `stopBoardAnalysis` (so the proper client-side
 Roughly 10 lines, dev-only (`import.meta.hot` is undefined in
 production builds).
 
-This is dev-loop hygiene. The proxy's new keep-alive middleware
-(`docs/dispatch/frontend-to-proxy-keep-alive-middleware.md`) is the
-production-side safety net for the same class of problem (stranded
-queries from any cause, not just HMR); the two are complementary
-and both should ship. The frontend cleanup is faster to implement
-but the proxy middleware has broader coverage — operators on
-high-cost hardware benefit even when the frontend never bugs out.
+This is dev-loop hygiene. The proxy's keep-alive middleware
+(shipped at proxy v1.0.10; status dispatch at
+`docs/dispatch/proxy-to-frontend-keep-alive-middleware-status.md`)
+is the production-side safety net for the same class of problem
+(stranded queries from any cause, not just HMR); the two are
+complementary and both should ship. The frontend cleanup is faster
+to implement and closes the cleanest path (no need to wait for the
+proxy's watchdog timeout). The proxy safety net has broader coverage
+— operators on high-cost hardware benefit even when the frontend
+never bugs out.
 
 #### 7. *(no longer relevant)*
 
