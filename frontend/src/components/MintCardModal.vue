@@ -342,5 +342,5 @@ async function submit() {
    accent-tone variants. */
 .btn-submit { background: var(--accent-primary); border: none; color: var(--surface-1); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 .btn-submit:hover:not(:disabled) { background: #5bc0ff; }
-.btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-submit:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 </style>
