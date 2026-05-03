@@ -84,7 +84,7 @@ function onRangeUpdate(r: [number, number]): void {
 .section {
   background: var(--surface-2);
   border: 1px solid var(--surface-3);
-  border-radius: 4px;
+  border-radius: var(--radius-default);
   overflow: hidden;
 }
 .timeline-header {
@@ -121,7 +121,7 @@ function onRangeUpdate(r: [number, number]): void {
   border: 1px solid var(--border-2);
   color: var(--text-1);
   padding: 3px 6px;
-  border-radius: 3px;
+  border-radius: var(--radius-default);
   font-size: var(--text-emphasis);
 }
 .visits-input:focus { outline: none; border-color: var(--accent-primary); }
@@ -137,7 +137,7 @@ function onRangeUpdate(r: [number, number]): void {
   border: 1px solid #2a5a7a;
   color: var(--text-0);
   padding: var(--space-tight) var(--space-medium);
-  border-radius: 3px;
+  border-radius: var(--radius-default);
   font-size: var(--text-emphasis);
   cursor: pointer;
   transition: background var(--duration-default);

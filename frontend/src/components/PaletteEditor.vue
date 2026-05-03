@@ -440,7 +440,7 @@ function deleteItem() {
   height: 400px;
   background: var(--surface-0);
   border: 1px solid var(--surface-3);
-  border-radius: 4px;
+  border-radius: var(--radius-default);
   overflow: hidden;
   font-family: 'Consolas', monospace;
 }
@@ -473,7 +473,7 @@ function deleteItem() {
 .item-list li:hover { background: var(--surface-2); }
 .item-list li.active { background: var(--surface-0); border-left-color: var(--accent-primary); color: var(--accent-primary); }
 
-.active-badge { font-size: var(--text-tiny); background: var(--accent-primary); color: var(--surface-0); padding: 1px 4px; border-radius: 2px; margin-left: var(--space-default); }
+.active-badge { font-size: var(--text-tiny); background: var(--accent-primary); color: var(--surface-0); padding: 1px 4px; border-radius: var(--radius-default); margin-left: var(--space-default); }
 
 /* `min-width: 0` lets the flex item shrink below the intrinsic
    width of CodeMirror's content; without it, an unwrapped long line
@@ -493,7 +493,7 @@ function deleteItem() {
    is the saturated wire-color (#f04a4a); muted surface variants
    would need new anchors (e.g. --state-error-muted). Preserved
    verbatim until the substrate gains tinted-surface vocabulary. */
-.del-btn { background: #3a1a1a; color: var(--state-error); border: 1px solid #5a1a1a; padding: var(--space-tight) var(--space-default); border-radius: 3px; cursor: pointer; font-size: var(--text-body); }
+.del-btn { background: #3a1a1a; color: var(--state-error); border: 1px solid #5a1a1a; padding: var(--space-tight) var(--space-default); border-radius: var(--radius-default); cursor: pointer; font-size: var(--text-body); }
 .del-btn:hover { background: #5a1a1a; color: var(--text-0); }
 
 .editor-wrap { flex: 1; overflow: auto; }
@@ -503,11 +503,11 @@ function deleteItem() {
 .form-grid label { font-size: var(--text-emphasis); color: var(--text-2); }
 
 .dark-input, .dark-select {
-  background: var(--surface-1); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default); border-radius: 3px; font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
+  background: var(--surface-1); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default); border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
 }
 .dark-input:focus, .dark-select:focus { border-color: var(--accent-primary); }
 
-.state-fn-row { display: flex; align-items: center; gap: var(--space-medium); margin-top: var(--space-default); padding: var(--space-default); background: var(--surface-1); border-radius: 4px; border: 1px solid var(--surface-3); }
+.state-fn-row { display: flex; align-items: center; gap: var(--space-medium); margin-top: var(--space-default); padding: var(--space-default); background: var(--surface-1); border-radius: var(--radius-default); border: 1px solid var(--surface-3); }
 .chart-name { font-size: var(--text-emphasis); color: var(--text-0); font-weight: bold; width: 120px; }
 .arrow { color: var(--border-3); }
 .flex-1 { flex: 1; }

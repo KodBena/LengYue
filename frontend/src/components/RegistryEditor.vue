@@ -196,7 +196,7 @@ function isModified(key: string, value: any) {
    existing --state-warning (#f0a04a) is close in hue but differs in
    brightness and is reserved for warning-level system messages.
    Preserved verbatim. */
-.modified-dot { width: 4px; height: 4px; border-radius: 50%; background: #fbbf24; box-shadow: 0 0 4px #fbbf24; }
+.modified-dot { width: 4px; height: 4px; border-radius: var(--radius-circle); background: #fbbf24; box-shadow: 0 0 4px #fbbf24; }
 
 .branch-label {
   color: var(--accent-primary); text-transform: uppercase; font-size: var(--text-body); font-weight: bold;

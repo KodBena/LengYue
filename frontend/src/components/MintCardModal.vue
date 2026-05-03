@@ -264,7 +264,7 @@ async function submit() {
 }
 
 .modal-content {
-  background: var(--surface-1); border: 1px solid var(--border-2); border-radius: 6px;
+  background: var(--surface-1); border: 1px solid var(--border-2); border-radius: var(--radius-default);
   width: 420px; max-width: 90vw; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
   display: flex; flex-direction: column; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
@@ -281,7 +281,7 @@ async function submit() {
 
 .lineage-box {
   display: flex; align-items: center; gap: var(--space-medium); padding: var(--space-medium);
-  border-radius: 4px; margin-bottom: var(--space-medium); border: 1px solid transparent;
+  border-radius: var(--radius-default); margin-bottom: var(--space-medium); border: 1px solid transparent;
 }
 .lineage-box.root { background: color-mix(in srgb, var(--state-success) 10%, transparent); border-color: color-mix(in srgb, var(--state-success) 30%, transparent); }
 .lineage-box.branch { background: color-mix(in srgb, var(--accent-primary) 10%, transparent); border-color: color-mix(in srgb, var(--accent-primary) 30%, transparent); }
@@ -293,20 +293,20 @@ async function submit() {
 .form-grid label { font-size: var(--text-emphasis); color: var(--text-2); text-transform: uppercase; }
 .dark-input, .dark-select {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default);
-  border-radius: 3px; font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
+  border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
 }
 .dark-input:focus, .dark-select:focus { border-color: var(--accent-primary); }
 
 .tag-label { font-size: var(--text-emphasis); color: var(--text-2); text-transform: uppercase; display: block; margin-bottom: var(--space-default); }
 .tag-input-wrapper {
-  background: var(--surface-0); border: 1px solid var(--border-2); border-radius: 3px;
+  background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default);
   display: flex; flex-wrap: wrap; padding: var(--space-tight); gap: var(--space-tight); position: relative;
 }
 .tag-input-wrapper:focus-within { border-color: var(--accent-primary); }
 
 .tag-badges { display: flex; flex-wrap: wrap; gap: var(--space-tight); }
 .tag-badge {
-  background: var(--border-1); color: var(--accent-primary); padding: 2px 6px; border-radius: 3px;
+  background: var(--border-1); color: var(--accent-primary); padding: 2px 6px; border-radius: var(--radius-default);
   font-size: var(--text-emphasis); font-family: monospace; display: flex; align-items: center; gap: var(--space-tight);
 }
 .tag-remove { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: var(--text-emphasis); padding: 0; line-height: 1; }
@@ -319,7 +319,7 @@ async function submit() {
 
 .suggestions-list {
   position: absolute; top: 100%; left: 0; width: 100%; background: var(--surface-2);
-  border: 1px solid var(--border-2); border-top: none; border-radius: 0 0 3px 3px;
+  border: 1px solid var(--border-2); border-top: none; border-radius: 0 0 var(--radius-default) var(--radius-default);
   list-style: none; padding: 0; margin: 0; max-height: 150px; overflow-y: auto; z-index: var(--z-popover);
 }
 .suggestions-list li { padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); font-family: monospace; color: var(--text-1); cursor: pointer; }
@@ -331,7 +331,7 @@ async function submit() {
   display: flex; justify-content: flex-end; gap: var(--space-medium); padding: var(--space-medium) var(--space-medium);
   border-top: 1px solid var(--surface-3); background: var(--surface-2);
 }
-.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-1); padding: var(--space-default) var(--space-medium); border-radius: 3px; cursor: pointer; }
+.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-1); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 .btn-cancel:hover { background: var(--surface-3); color: var(--text-0); }
 /* theme-exception: .btn-submit:hover #5bc0ff is a lightened-accent
    variant. The substrate has only one cyan anchor (--accent-primary
@@ -340,7 +340,7 @@ async function submit() {
    color-mix(in srgb, var(--accent-primary), white 15%) ≈ #6abbf2)
    but not exact. Preserved verbatim until the substrate gains
    accent-tone variants. */
-.btn-submit { background: var(--accent-primary); border: none; color: var(--surface-1); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: 3px; cursor: pointer; }
+.btn-submit { background: var(--accent-primary); border: none; color: var(--surface-1); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
 .btn-submit:hover:not(:disabled) { background: #5bc0ff; }
 .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

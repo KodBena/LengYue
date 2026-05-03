@@ -30,7 +30,7 @@ defineExpose({
   height: 150px;
   background: var(--surface-2);
   border: 2px solid var(--accent-primary);
-  border-radius: 4px;
+  border-radius: var(--radius-default);
   pointer-events: none;
   box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }

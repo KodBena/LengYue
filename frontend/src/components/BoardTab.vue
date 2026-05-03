@@ -126,7 +126,7 @@ const rugPlot = computed(() => {
   width: 88px; height: 32px; border: 2px solid var(--surface-3); background: var(--surface-1);
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   transition: border-color var(--duration-default) ease, background var(--duration-default) ease;
-  position: relative; border-radius: 3px;
+  position: relative; border-radius: var(--radius-default);
 }
 
 .tab-label { font-size: var(--text-emphasis); color: var(--text-2); font-weight: bold; pointer-events: none; }
@@ -145,7 +145,7 @@ const rugPlot = computed(() => {
 
 .close-board-btn {
   position: absolute; top: -6px; right: -6px;
-  background: var(--surface-3); color: var(--text-1); border: 1px solid var(--border-3); border-radius: 50%;
+  background: var(--surface-3); color: var(--text-1); border: 1px solid var(--border-3); border-radius: var(--radius-circle);
   width: 16px; height: 16px; font-size: var(--text-emphasis); line-height: 1;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; opacity: 0; transition: opacity var(--duration-default), background var(--duration-default), color var(--duration-default);
@@ -169,5 +169,5 @@ const rugPlot = computed(() => {
 /* theme-exception: #00ff88 is an intentionally vivid activity indicator
    color, outside the muted semantic-state spectrum and not part of the
    chrome substrate's vocabulary. */
-.geiger-dot { width: 6px; height: 6px; background: #00ff88; border-radius: 50%; box-shadow: 0 0 8px #00ff88; }
+.geiger-dot { width: 6px; height: 6px; background: #00ff88; border-radius: var(--radius-circle); box-shadow: 0 0 8px #00ff88; }
 </style>

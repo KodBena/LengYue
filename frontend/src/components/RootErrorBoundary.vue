@@ -70,7 +70,7 @@ function reload(): void {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 .reb-panel {
-  background: var(--surface-2); border: 1px solid var(--state-attention); border-radius: 6px;
+  background: var(--surface-2); border: 1px solid var(--state-attention); border-radius: var(--radius-default);
   width: min(560px, 92vw); padding: var(--space-loose);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.9);
   color: var(--text-0);
@@ -82,7 +82,7 @@ function reload(): void {
 .reb-title { margin: 0 0 var(--space-medium); font-size: var(--text-heading); color: #ff7070; }
 .reb-text { margin: 0 0 var(--space-medium); font-size: var(--text-emphasis); color: var(--text-1); line-height: 1.5; }
 .reb-message {
-  background: var(--surface-0); border: 1px solid var(--border-1); border-radius: 3px;
+  background: var(--surface-0); border: 1px solid var(--border-1); border-radius: var(--radius-default);
   padding: var(--space-medium) var(--space-medium); font-family: monospace; font-size: var(--text-emphasis);
   color: #ff8888; white-space: pre-wrap; word-break: break-word;
   max-height: 180px; overflow: auto; margin: 0 0 18px;
@@ -91,7 +91,7 @@ function reload(): void {
    accent variant as MintCardModal's btn-submit hover. */
 .reb-reload {
   background: var(--accent-primary); border: none; color: var(--surface-1); font-weight: bold;
-  padding: 8px 18px; border-radius: 3px; cursor: pointer; font-size: var(--text-emphasis);
+  padding: 8px 18px; border-radius: var(--radius-default); cursor: pointer; font-size: var(--text-emphasis);
 }
 .reb-reload:hover { background: #5bc0ff; }
 </style>

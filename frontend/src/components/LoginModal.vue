@@ -154,7 +154,7 @@ function handleBackdropClick(e: MouseEvent): void {
 }
 
 .modal-card {
-  background: var(--surface-2); border: 1px solid var(--border-2); border-radius: 6px;
+  background: var(--surface-2); border: 1px solid var(--border-2); border-radius: var(--radius-default);
   padding: var(--space-loose); width: 360px; max-width: 90vw;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
   display: flex; flex-direction: column; gap: var(--space-medium);
@@ -173,7 +173,7 @@ function handleBackdropClick(e: MouseEvent): void {
 .text-input {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
   padding: var(--space-default) var(--space-default); font-size: var(--text-emphasis); font-family: inherit;
-  border-radius: 3px; outline: none;
+  border-radius: var(--radius-default); outline: none;
 }
 .text-input:focus { border-color: var(--accent-primary); }
 
@@ -183,7 +183,7 @@ function handleBackdropClick(e: MouseEvent): void {
 
 .btn {
   padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); font-family: inherit;
-  border: 1px solid transparent; border-radius: 3px; cursor: pointer;
+  border: 1px solid transparent; border-radius: var(--radius-default); cursor: pointer;
 }
 .btn:disabled { cursor: not-allowed; opacity: 0.5; }
 

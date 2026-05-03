@@ -205,7 +205,7 @@ watch(
   flex-direction: column;
   background: var(--surface-0);
   border: 1px solid var(--border-1);
-  border-radius: 4px;
+  border-radius: var(--radius-default);
   flex-shrink: 0;
   min-height: 0;
 }

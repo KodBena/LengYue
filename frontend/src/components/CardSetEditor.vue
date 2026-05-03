@@ -196,7 +196,7 @@ function updatePipeline(newJsonStr: string) {
 <style scoped>
 .deck-editor {
   display: flex; height: 400px; background: var(--surface-0); border: 1px solid var(--surface-3);
-  border-radius: 4px; overflow: hidden; font-family: 'Consolas', monospace;
+  border-radius: var(--radius-default); overflow: hidden; font-family: 'Consolas', monospace;
 }
 
 .sidebar { width: 200px; background: var(--surface-1); border-right: 1px solid var(--surface-3); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
@@ -209,7 +209,7 @@ function updatePipeline(newJsonStr: string) {
 .item-list li { padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); color: var(--text-1); cursor: pointer; border-left: 2px solid transparent; display: flex; justify-content: space-between; align-items: center;}
 .item-list li:hover { background: var(--surface-2); }
 .item-list li.active { background: var(--surface-0); border-left-color: var(--accent-primary); color: var(--accent-primary); }
-.active-badge { font-size: var(--text-tiny); background: var(--accent-primary); color: var(--surface-0); padding: 1px 4px; border-radius: 2px; }
+.active-badge { font-size: var(--text-tiny); background: var(--accent-primary); color: var(--surface-0); padding: 1px 4px; border-radius: var(--radius-default); }
 
 .detail-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--surface-0); }
 .empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--border-3); font-size: var(--text-emphasis); }
@@ -220,12 +220,12 @@ function updatePipeline(newJsonStr: string) {
 /* theme-exception: .del-btn muted-state-error surface variants per
    the same rationale as PaletteEditor's .del-btn. Future substrate
    work could introduce tinted-surface anchors. */
-.del-btn { background: #3a1a1a; color: var(--state-error); border: 1px solid #5a1a1a; padding: var(--space-tight) var(--space-default); border-radius: 3px; cursor: pointer; font-size: var(--text-body); }
+.del-btn { background: #3a1a1a; color: var(--state-error); border: 1px solid #5a1a1a; padding: var(--space-tight) var(--space-default); border-radius: var(--radius-default); cursor: pointer; font-size: var(--text-body); }
 .del-btn:hover { background: #5a1a1a; color: var(--text-0); }
 
 .form-grid { padding: var(--space-medium); display: grid; grid-template-columns: 100px 1fr; gap: var(--space-medium); align-items: center; }
 .form-grid label { font-size: var(--text-emphasis); color: var(--text-2); }
-.dark-input { background: var(--surface-1); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default); border-radius: 3px; font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none; }
+.dark-input { background: var(--surface-1); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default); border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none; }
 .dark-input:focus { border-color: var(--accent-primary); }
 
 .editor-wrap { flex: 1; overflow: auto; border-top: 1px solid var(--surface-3); transition: border-color var(--duration-default); }
