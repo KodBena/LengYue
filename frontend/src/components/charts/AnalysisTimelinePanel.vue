@@ -140,7 +140,7 @@ function onRangeUpdate(r: [number, number]): void {
   border-radius: 3px;
   font-size: 11px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background var(--duration-default);
 }
 .analyze-btn:hover:not(:disabled) { background: #254a60; }
 .analyze-btn:disabled { opacity: 0.35; cursor: not-allowed; }

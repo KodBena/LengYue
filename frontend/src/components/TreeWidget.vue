@@ -253,10 +253,10 @@ const edges = computed(() => {
 .tree-svg { display: block; }
 .tree-edges { fill: none; stroke: var(--border-3); }
 .active-ring { fill: color-mix(in srgb, var(--accent-primary) 15%, transparent); stroke: var(--accent-primary); }
-.node-circle { cursor: pointer; transition: filter 0.1s; }
+.node-circle { cursor: pointer; transition: filter var(--duration-default); }
 .node-circle:hover { filter: brightness(1.4) drop-shadow(0 0 3px var(--accent-primary)); }
 .toggle-group { cursor: pointer; }
-.toggle-group rect { transition: stroke 0.1s, fill 0.1s; }
+.toggle-group rect { transition: stroke var(--duration-default), fill var(--duration-default); }
 .toggle-leader { stroke: var(--border-3); }
 .toggle-box { fill: var(--surface-2); stroke: var(--border-3); }
 .toggle-mark { stroke: var(--text-2); }

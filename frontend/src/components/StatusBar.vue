@@ -94,7 +94,7 @@ const emit = defineEmits<{
   padding: 0;
   outline: none;
   text-align: center;
-  transition: color 0.2s, border-color 0.2s;
+  transition: color var(--duration-default), border-color var(--duration-default);
 }
 .komi-input:focus, .komi-input:hover {
   color: var(--accent-primary);

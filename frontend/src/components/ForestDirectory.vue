@@ -201,7 +201,7 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
 .left-panel { width: 280px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--surface-3); background: var(--surface-1); flex-shrink: 0; }
 .panel-header { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; border-bottom: 1px solid var(--surface-3); background: var(--surface-2); font-size: 11px; text-transform: uppercase; color: var(--text-0); letter-spacing: 0.1em; flex-shrink: 0; }
 .tab-switcher { padding: 0; display: flex; }
-.tab-switcher button { flex: 1; background: transparent; border: none; color: var(--text-2); padding: 4px 0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; cursor: pointer; border-bottom: 2px solid transparent; transition: color 0.2s, background 0.2s; }
+.tab-switcher button { flex: 1; background: transparent; border: none; color: var(--text-2); padding: 4px 0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; cursor: pointer; border-bottom: 2px solid transparent; transition: color var(--duration-default), background var(--duration-default); }
 .tab-switcher button:hover { background: var(--surface-2); color: var(--text-1); }
 .tab-switcher button.active { color: var(--accent-primary); border-bottom-color: var(--accent-primary); background: var(--surface-2); }
 .decks-view, .roots-view { display: flex; flex-direction: column; flex: 1; min-height: 0; }
@@ -216,7 +216,7 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
 .reload-btn { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: 14px; padding: 0; line-height: 1; }
 .reload-btn:hover { color: var(--accent-primary); }
 .roots-list { flex: 1; overflow-y: auto; padding: 4px; display: flex; flex-direction: column; gap: 3px; }
-.root-card { background: var(--surface-2); border: 1px solid var(--border-2); border-radius: 4px; padding: 4px 6px; cursor: pointer; transition: border-color 0.2s; flex-shrink: 0; }
+.root-card { background: var(--surface-2); border: 1px solid var(--border-2); border-radius: 4px; padding: 4px 6px; cursor: pointer; transition: border-color var(--duration-default); flex-shrink: 0; }
 .root-card:hover { border-color: var(--border-3); }
 .root-card.active { border-color: var(--accent-primary); background: color-mix(in srgb, var(--accent-primary) 5%, transparent); }
 .root-title { font-size: 12px; font-weight: bold; color: var(--text-0); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

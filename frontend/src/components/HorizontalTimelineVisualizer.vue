@@ -333,7 +333,7 @@ onUnmounted(() => stopDragging());
 .segment-rect {
   cursor: pointer;
   pointer-events: auto;
-  transition: filter 0.2s;
+  transition: filter var(--duration-default);
 }
 
 .segment-rect:hover {
@@ -350,7 +350,7 @@ onUnmounted(() => stopDragging());
   backdrop-filter: blur(1px);
   pointer-events: auto;
   cursor: grab;
-  transition: background-color 0.2s;
+  transition: background-color var(--duration-default);
 }
 
 .selection-slider:active {

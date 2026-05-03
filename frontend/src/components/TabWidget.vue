@@ -75,7 +75,7 @@ function selectTab(id: string) {
   color: var(--text-2);
   cursor: pointer;
   border-right: 1px solid var(--surface-1);
-  transition: background 0.2s, color 0.2s;
+  transition: background var(--duration-default), color var(--duration-default);
 }
 
 .tab-header li:hover {

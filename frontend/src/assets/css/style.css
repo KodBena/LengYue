@@ -65,7 +65,7 @@ body {
   border-radius: 3px;
   overflow: hidden;
   flex-shrink: 0;
-  transition: border-color 0.12s;
+  transition: border-color var(--duration-default);
   background: var(--default-bg);
 }
 
@@ -90,7 +90,7 @@ body {
   line-height: 1;
   cursor: pointer;
   flex-shrink: 0;
-  transition: border-color 0.12s, color 0.12s;
+  transition: border-color var(--duration-default), color var(--duration-default);
 }
 .tab-add-btn:hover { border-color: var(--border-3); color: var(--text-1); }
 
@@ -105,7 +105,7 @@ body {
   line-height: 1;
   cursor: pointer;
   flex-shrink: 0;
-  transition: border-color 0.12s, color 0.12s;
+  transition: border-color var(--duration-default), color var(--duration-default);
 }
 .tab-load-btn:hover { border-color: var(--border-3); color: var(--text-1); }
 

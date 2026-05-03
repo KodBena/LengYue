@@ -4,13 +4,14 @@
  * Chrome substrate — the SSOT for chrome design decisions in the
  * codebase. Color anchors (16 base: 4 surface, 3 border, 3 text,
  * 2 accent, 4 semantic state; plus 6 chart-derived helpers and 5
- * role aliases). Z-index ladder (4 layering tiers). Every chrome
- * color and z-index value in CSS, in SFC <style> blocks, and in
+ * role aliases). Z-index ladder (4 layering tiers). Animation
+ * durations (2 timing tiers). Every chrome color, z-index, and
+ * transition duration in CSS, in SFC <style> blocks, and in
  * TypeScript chart-adapter sites reads from this file via
  * `var(--name)`; the `themeColor()` helper in
  * src/utils/theme-color.ts is the runtime-string accessor for the
- * color subset (z-index is CSS-only and doesn't need a typed
- * runtime accessor).
+ * color subset (z-index and durations are CSS-only and don't need
+ * typed runtime accessors).
  *
  * Out of scope:
  * - Domain (Go-specific) colors live in src/engine/constants.ts.
@@ -22,7 +23,8 @@
  *
  * Design notes: docs/notes/frontend-theming-plan.md (color),
  * docs/notes/magic-literals-audit-inventory.md (z-index ladder
- * is Pass-2 Tier-1 #1 of the audit's residue sweep).
+ * is Pass-2 Tier-1 #1 of the audit's residue sweep, animation
+ * durations are Pass-2 Tier-1 #2).
  *
  * License: Public Domain (The Unlicense)
  */
@@ -99,4 +101,22 @@
   --z-affordance: 50;     /* panel-level chrome affordances (resizers, drag handles) */
   --z-modal:      9999;   /* page-level modal scrim, drag-preview overlays */
   --z-overlay:    99999;  /* error / system overlay above modals */
+
+  /* ── Animation durations (2) ──────────────────────────────────
+   * Two tiers, ordered fast → slow. Snap-by-cluster applied to
+   * 22 surveyed transition sites: the prior 0.1s / 0.12s / 0.15s
+   * / 0.2s spread is within JND for the role they all serve
+   * (hover and state transitions on chrome) and collapses into
+   * a single --duration-default at 0.2s (the largest cluster and
+   * web-design canonical default). The pulse-and-attention
+   * animation tier is preserved as a distinct role at 1s. If a
+   * future need surfaces for a snappier-than-default tier (e.g.
+   * an SVG node hover with sub-100ms feedback), add the tier
+   * here rather than reaching for an inline literal — same
+   * discipline as z-index. The MoveSuggestions PV-stone fade
+   * (60ms inline in MoveSuggestions.vue) is intentionally faster
+   * than chrome and band-2 game-tree-coupled; it stays inline-
+   * justified rather than entering this scale. */
+  --duration-default: 0.2s;  /* chrome hover and state transitions */
+  --duration-slow:    1s;    /* pulse and attention animations */
 }
