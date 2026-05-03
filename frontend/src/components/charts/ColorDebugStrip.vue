@@ -71,20 +71,20 @@ const samples = computed(() => {
 
 <style scoped>
 .debug-strip-container {
-  padding: 12px;
+  padding: var(--space-medium);
   background: var(--surface-1);
   border: 1px solid var(--surface-3);
   border-radius: 4px;
-  margin-top: 12px;
+  margin-top: var(--space-medium);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-medium);
 }
 
 .track-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-tight);
 }
 
 .track-header {
@@ -132,13 +132,13 @@ const samples = computed(() => {
   font-size: 9px;
   color: var(--text-2);
   font-family: monospace;
-  padding-top: 4px;
+  padding-top: var(--space-tight);
   border-top: 1px solid var(--surface-2);
 }
 
 .ticks {
   display: flex;
-  gap: 20px;
+  gap: var(--space-loose);
   opacity: 0.3;
 }
 

@@ -193,12 +193,12 @@ watch(
 .card-tree-widget {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-default);
   width: 100%;
   height: 100%;
   min-height: 0;
   background: var(--surface-0);
-  padding: 8px;
+  padding: var(--space-default);
 }
 .tree-section {
   display: flex;
@@ -211,10 +211,10 @@ watch(
 }
 .tree-section.expanded { flex: 1; min-height: 280px; }
 .tree-header {
-  padding: 8px 12px;
+  padding: var(--space-default) var(--space-medium);
   display: flex;
   align-items: baseline;
-  gap: 12px;
+  gap: var(--space-medium);
   flex-shrink: 0;
   cursor: pointer;
   user-select: none;

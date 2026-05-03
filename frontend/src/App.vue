@@ -300,7 +300,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
                     </select>
                     <p class="hint">{{ store.profile.cardSets[store.session.ui.activeCardSetId]?.description }}</p>
 
-                    <label style="margin-top: 8px;">Context IDs:</label>
+                    <label style="margin-top: var(--space-default);">Context IDs:</label>
                     <input
                       type="text"
                       class="dark-input deck-dropdown"
@@ -313,7 +313,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
                   <button
                     class="action-btn-large"
-                    style="background: var(--accent-secondary); color: var(--surface-1); margin-bottom: 20px;"
+                    style="background: var(--accent-secondary); color: var(--surface-1); margin-bottom: var(--space-loose);"
                     @click="startEbisu"
                     :disabled="reviewSession.state.value === 'LOADING' || !store.profile.cardSets[store.session.ui.activeCardSetId]"
                   >
@@ -323,21 +323,21 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
                 <div v-else-if="reviewSession.currentCard.value">
                   <h3>{{ reviewSession.state.value === 'FINISHED' ? 'Intermission' : 'Review Active' }}</h3>
-                  <p class="hint text-muted" style="margin-bottom: 10px;">
+                  <p class="hint text-muted" style="margin-bottom: var(--space-medium);">
                     Card {{ reviewSession.queue.value.indexOf(reviewSession.currentCard.value) + 1 }} of {{ reviewSession.queue.value.length }}
                   </p>
                   
-                  <p style="font-weight: bold; margin-bottom: 15px;" 
+                  <p style="font-weight: bold; margin-bottom: var(--space-medium);" 
                      :style="{ color: reviewSession.state.value === 'FINISHED' ? 'var(--accent-secondary)' : 'var(--state-attention)' }">
                     Status: {{ reviewSession.state.value }} 
                     <span v-if="reviewSession.state.value === 'ANALYZING'">(KataGo is pondering...)</span>
                   </p>
 
-                  <div v-if="reviewSession.state.value === 'FINISHED'" style="height: 180px; width: 100%; margin-bottom: 20px; background: var(--surface-0); border: 1px solid var(--surface-3); border-radius: 4px;">
+                  <div v-if="reviewSession.state.value === 'FINISHED'" style="height: 180px; width: 100%; margin-bottom: var(--space-loose); background: var(--surface-0); border: 1px solid var(--surface-3); border-radius: 4px;">
                     <BaseChart :series="intermissionSeries" :zoomRange="[1, reviewSession.currentCard.value.numMoves]" />
                   </div>
 
-                  <p class="hint text-muted" style="margin-bottom: 10px;" v-if="reviewSession.state.value !== 'FINISHED'">
+                  <p class="hint text-muted" style="margin-bottom: var(--space-medium);" v-if="reviewSession.state.value !== 'FINISHED'">
                     Moves made: {{ reviewSession.userMovesCount.value }} / {{ reviewSession.currentCard.value.numMoves }}
                   </p>
 
@@ -357,7 +357,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
                     />
                   </div>
 
-                  <button class="action-btn-large" style="margin-bottom: 10px; margin-top: 15px;" @click="reviewSession.nextCard">
+                  <button class="action-btn-large" style="margin-bottom: var(--space-medium); margin-top: var(--space-medium);" @click="reviewSession.nextCard">
                     {{ reviewSession.state.value === 'FINISHED' ? 'Next Card' : 'Skip Card' }}
                   </button>
                   
@@ -389,14 +389,14 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
                     <h3 class="sub-header">Analysis Environment</h3>
                     <button class="toolbar-btn-sm" @click.stop="sync.forceSave()">Force Persistence</button>
                   </summary>
-                  <div style="margin-top: 10px;">
+                  <div style="margin-top: var(--space-medium);">
                     <PaletteEditor :env="store.profile.settings.engine.katago.analysis_env" @update="handleSettingsUpdate"/>
                   </div>
                 </details>
 
                 <details class="settings-section section-divider" open>
                   <summary><h3 class="sub-header">Card Sets (Decks)</h3></summary>
-                  <div class="registry-container" style="max-height: 500px; padding-bottom: 10px;">
+                  <div class="registry-container" style="max-height: 500px; padding-bottom: var(--space-medium);">
                     <CardSetEditor
                       :cardSets="store.profile.cardSets"
                       :activeCardSetId="store.session.ui.activeCardSetId"
@@ -445,7 +445,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
                 </div>
                 <ColorDebugStrip :steps="500" />
 
-                <h3 class="sub-header section-divider" style="margin-top: 24px;">qEUBO Bookmarks</h3>
+                <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">qEUBO Bookmarks</h3>
                 <QeuboBookmarks />
               </div>
             </template>
@@ -484,7 +484,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 /* The top nav bar always spans the full width of main-workspace */
 .top-nav-bar {
   display: flex; align-items: center; background: var(--surface-3);
-  border-bottom: 1px solid var(--surface-1); padding: 0 6px; height: 32px; flex-shrink: 0;
+  border-bottom: 1px solid var(--surface-1); padding: 0 var(--space-default); height: 32px; flex-shrink: 0;
 }
 
 /* The lower area where the resizer lives */
@@ -517,7 +517,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 #content { flex: 1; display: flex; justify-content: center; align-items: center; min-height: 0; }
 
 #vue-tree-panel { width: 220px; display: flex; flex-direction: column; border-left: 1px solid var(--surface-1); background: var(--border-1); min-height: 0; flex-shrink: 0; padding-right: 5px; }
-#tree-panel-header { height: 20px; background: var(--border-1); border-bottom: 1px solid var(--surface-1); display: flex; align-items: center; padding: 0 6px; font-size: 9px; letter-spacing: 0.16em; color: var(--text-2); text-transform: uppercase; flex-shrink: 0; }
+#tree-panel-header { height: 20px; background: var(--border-1); border-bottom: 1px solid var(--surface-1); display: flex; align-items: center; padding: 0 var(--space-default); font-size: 9px; letter-spacing: 0.16em; color: var(--text-2); text-transform: uppercase; flex-shrink: 0; }
 #control-panel { border-left: 1px solid var(--surface-1); background: var(--surface-3); flex-shrink: 0; display: flex; flex-direction: column; }
 
 /* theme-exception: .panel-resizer #eba46d is a peach accent color
@@ -528,10 +528,10 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 .panel-resizer { width: 4px; background: #eba46d; cursor: col-resize; z-index: var(--z-affordance); flex-shrink: 0; transition: background var(--duration-default); }
 .panel-resizer:hover, .panel-resizer:active { background: var(--accent-primary); }
 
-.tab-padding { padding: 8px; }
-.tab-padding-sr { padding: 12px 8px; text-align: center; }
+.tab-padding { padding: var(--space-default); }
+.tab-padding-sr { padding: var(--space-medium) var(--space-default); text-align: center; }
 .section-divider { border-top: 1px solid var(--surface-3); margin-top: 0; padding-top: 0; }
-.sub-header { color: var(--text-2); font-size: 14px; margin-bottom: 10px; }
+.sub-header { color: var(--text-2); font-size: 14px; margin-bottom: var(--space-medium); }
 
 /* Native <details> subsections in the Settings tab. Override default
    marker, render a custom chevron that rotates on open. The h3
@@ -544,12 +544,12 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
   display: flex;
   align-items: center;
   user-select: none;
-  padding: 4px 0;
+  padding: var(--space-tight) 0;
 }
 .settings-section > summary::-webkit-details-marker { display: none; }
 .settings-section > summary::before {
   content: '▶';
-  margin-right: 8px;
+  margin-right: var(--space-default);
   font-size: 9px;
   color: var(--text-2);
   transition: transform var(--duration-default) ease;
@@ -557,34 +557,34 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 }
 .settings-section[open] > summary::before { transform: rotate(90deg); }
 .settings-section > summary > h3 { margin: 0; flex: 1; }
-.settings-section > summary > .toolbar-btn-sm { margin-left: 8px; }
+.settings-section > summary > .toolbar-btn-sm { margin-left: var(--space-default); }
 .settings-section > summary:hover > h3 { color: var(--text-2); }
 
-.deck-selector-box { background: var(--surface-2); padding: 15px; border-radius: 4px; border: 1px solid var(--surface-3); margin-bottom: 20px; text-align: left; }
-.deck-selector-box label { font-size: 11px; color: var(--text-2); display: block; margin-bottom: 6px; text-transform: uppercase; }
-.deck-dropdown { width: 100%; padding: 8px; font-size: 12px; margin-bottom: 8px; background: var(--surface-1); color: var(--text-0); border: 1px solid var(--border-2); border-radius: 3px; outline: none; }
+.deck-selector-box { background: var(--surface-2); padding: var(--space-medium); border-radius: 4px; border: 1px solid var(--surface-3); margin-bottom: var(--space-loose); text-align: left; }
+.deck-selector-box label { font-size: 11px; color: var(--text-2); display: block; margin-bottom: var(--space-default); text-transform: uppercase; }
+.deck-dropdown { width: 100%; padding: var(--space-default); font-size: 12px; margin-bottom: var(--space-default); background: var(--surface-1); color: var(--text-0); border: 1px solid var(--border-2); border-radius: 3px; outline: none; }
 .deck-dropdown:focus { border-color: var(--accent-primary); }
 
-.action-btn-large { background: var(--accent-primary); color: var(--text-0); border: none; padding: 4px 10px; cursor: pointer; border-radius: 4px; font-weight: bold; width: 100%; }
+.action-btn-large { background: var(--accent-primary); color: var(--text-0); border: none; padding: var(--space-tight) var(--space-medium); cursor: pointer; border-radius: 4px; font-weight: bold; width: 100%; }
 .toolbar-btn-sm { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: 1px 4px; font-size: 11px; cursor: pointer; border-radius: 3px; }
 .toolbar-btn-sm:hover { background: var(--border-3); border-color: var(--border-3); }
 .registry-container { margin-top: 0; background: var(--surface-2); border: 1px solid var(--surface-3); border-radius: 4px; max-height: 400px; overflow-y: auto; }
 
-.collapse-btn { background: color-mix(in srgb, var(--surface-2) 80%, transparent); border: 1px solid var(--border-2); color: var(--text-2); height: 18px; padding: 0 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 10px; }
+.collapse-btn { background: color-mix(in srgb, var(--surface-2) 80%, transparent); border: 1px solid var(--border-2); color: var(--text-2); height: 18px; padding: 0 var(--space-tight); cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 10px; }
 .collapse-btn:hover { background: var(--border-2); color: var(--text-0); border-color: var(--border-3); }
-.right-toggles { display: flex; gap: 6px; margin-left: auto; }
+.right-toggles { display: flex; gap: var(--space-default); margin-left: auto; }
 
 /* Visits override row in the SR tab during an active review */
 .visits-override-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: var(--space-medium);
+  padding: var(--space-default) var(--space-medium);
   background: var(--surface-2);
   border: 1px solid var(--surface-3);
   border-radius: 4px;
-  margin-bottom: 10px;
+  margin-bottom: var(--space-medium);
   text-align: left;
 }
 .visits-override-row label {
@@ -600,15 +600,15 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 }
 .visits-input {
   width: 100px;
-  padding: 4px 6px;
+  padding: var(--space-tight) var(--space-default);
   font-family: monospace;
   outline: none;
   border-radius: 3px;
 }
 .visits-input:focus { border-color: var(--accent-primary); }
 
-.hue-slider-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.hue-slider-row { display: flex; flex-direction: column; gap: var(--space-tight); margin-bottom: var(--space-default); }
 .hue-slider-label { display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--text-1); text-transform: uppercase; letter-spacing: 0.05em; }
-.hue-slider-value { background: var(--surface-3); padding: 0 8px; border-radius: 3px; color: var(--accent-primary); font-family: monospace; }
+.hue-slider-value { background: var(--surface-3); padding: 0 var(--space-default); border-radius: 3px; color: var(--accent-primary); font-family: monospace; }
 .hue-slider-input { width: 100%; accent-color: var(--accent-primary); cursor: pointer; }
 </style>

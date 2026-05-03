@@ -155,34 +155,34 @@ function handleBackdropClick(e: MouseEvent): void {
 
 .modal-card {
   background: var(--surface-2); border: 1px solid var(--border-2); border-radius: 6px;
-  padding: 24px; width: 360px; max-width: 90vw;
+  padding: var(--space-loose); width: 360px; max-width: 90vw;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
-  display: flex; flex-direction: column; gap: 12px;
+  display: flex; flex-direction: column; gap: var(--space-medium);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .modal-title { color: var(--text-0); margin: 0; font-size: 16px; }
-.current-identity { color: var(--text-2); font-size: 11px; margin: 0 0 4px 0; font-family: monospace; }
+.current-identity { color: var(--text-2); font-size: 11px; margin: 0 0 var(--space-tight) 0; font-family: monospace; }
 
-.form-row { display: flex; flex-direction: column; gap: 4px; }
+.form-row { display: flex; flex-direction: column; gap: var(--space-tight); }
 .form-row label { color: var(--text-2); font-size: 11px; text-transform: uppercase; }
 
-.form-row.checkbox-row { flex-direction: row; align-items: center; gap: 8px; }
+.form-row.checkbox-row { flex-direction: row; align-items: center; gap: var(--space-default); }
 .form-row.checkbox-row label { text-transform: none; font-size: 12px; color: var(--text-1); }
 
 .text-input {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
-  padding: 6px 8px; font-size: 13px; font-family: inherit;
+  padding: var(--space-default) var(--space-default); font-size: 13px; font-family: inherit;
   border-radius: 3px; outline: none;
 }
 .text-input:focus { border-color: var(--accent-primary); }
 
 .error-message { color: var(--state-attention); font-size: 11px; margin: 0; word-break: break-word; }
 
-.button-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.button-row { display: flex; justify-content: flex-end; gap: var(--space-default); margin-top: var(--space-default); flex-wrap: wrap; }
 
 .btn {
-  padding: 6px 12px; font-size: 12px; font-family: inherit;
+  padding: var(--space-default) var(--space-medium); font-size: 12px; font-family: inherit;
   border: 1px solid transparent; border-radius: 3px; cursor: pointer;
 }
 .btn:disabled { cursor: not-allowed; opacity: 0.5; }

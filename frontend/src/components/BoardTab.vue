@@ -120,7 +120,7 @@ const rugPlot = computed(() => {
 </template>
 
 <style scoped>
-.thumb-container { display: flex; flex-direction: column; align-items: center; margin-bottom: 8px; width: 88px; }
+.thumb-container { display: flex; flex-direction: column; align-items: center; margin-bottom: var(--space-default); width: 88px; }
 
 .tab-thumb {
   width: 88px; height: 32px; border: 2px solid var(--surface-3); background: var(--surface-1);
@@ -156,12 +156,12 @@ const rugPlot = computed(() => {
 
 .indicator-row {
   width: 100%; height: 12px; display: flex; align-items: center;
-  justify-content: space-between; margin-top: 2px; padding: 0 4px;
+  justify-content: space-between; margin-top: 2px; padding: 0 var(--space-tight);
 }
 
 .analysis-meter {
   flex: 1; height: 4px; background: var(--surface-0); border-radius: 1px;
-  margin-right: 8px; display: flex; overflow: hidden; border: 1px solid var(--surface-1);
+  margin-right: var(--space-default); display: flex; overflow: hidden; border: 1px solid var(--surface-1);
 }
 
 .meter-slice { height: 100%; }

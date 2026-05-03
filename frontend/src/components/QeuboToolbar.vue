@@ -165,7 +165,7 @@ function onPin(): void {
 </template>
 
 <style scoped>
-.qeubo-cluster { display: flex; align-items: center; gap: 8px; padding: 0 8px; border-left: 1px solid var(--border-2); border-right: 1px solid var(--border-2); font-family: 'Courier New', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+.qeubo-cluster { display: flex; align-items: center; gap: var(--space-default); padding: 0 var(--space-default); border-left: 1px solid var(--border-2); border-right: 1px solid var(--border-2); font-family: 'Courier New', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
 .seg-toggle { display: flex; border: 1px solid var(--border-3); border-radius: 3px; overflow: hidden; }
 .seg-btn { background: var(--border-1); border: none; border-right: 1px solid var(--border-3); color: var(--text-1); padding: 5px 10px; font-size: 11px; cursor: pointer; font-family: inherit; text-transform: inherit; letter-spacing: inherit; transition: background var(--duration-default), color var(--duration-default); }
 .seg-btn:last-child { border-right: none; }
@@ -181,14 +181,14 @@ function onPin(): void {
    border (#2a5a7a) and .phase-help border. */
 .seg-btn.active { background: #1a3a4a; color: var(--accent-primary); }
 .seg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.verdict-pair { display: flex; gap: 4px; }
+.verdict-pair { display: flex; gap: var(--space-tight); }
 .verdict-btn, .apply-btn, .pin-btn { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: 5px 10px; font-size: 11px; cursor: pointer; border-radius: 3px; font-family: inherit; text-transform: inherit; letter-spacing: inherit; transition: background var(--duration-default), border-color var(--duration-default), color var(--duration-default); }
 .verdict-btn:hover:not(:disabled), .apply-btn:hover:not(:disabled), .pin-btn:hover:not(:disabled) { background: var(--border-3); border-color: var(--border-3); color: var(--text-0); }
 .verdict-btn:disabled, .apply-btn:disabled, .pin-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .apply-btn { border-color: #2a5a7a; color: var(--accent-primary); }
 .apply-btn:hover:not(:disabled) { background: #1a3a4a; border-color: var(--accent-primary); }
-.phase-indicator { color: var(--text-2); font-size: 10px; letter-spacing: 0.08em; cursor: help; padding: 0 4px; }
-.phase-help { color: var(--accent-primary); border: 1px solid #2a5a7a; border-radius: 50%; width: 12px; height: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; margin-left: 4px; }
+.phase-indicator { color: var(--text-2); font-size: 10px; letter-spacing: 0.08em; cursor: help; padding: 0 var(--space-tight); }
+.phase-help { color: var(--accent-primary); border: 1px solid #2a5a7a; border-radius: 50%; width: 12px; height: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; margin-left: var(--space-tight); }
 .busy-dot { color: var(--accent-primary); font-size: 10px; animation: pulse var(--duration-slow) infinite; }
 @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1.0; } }
 </style>

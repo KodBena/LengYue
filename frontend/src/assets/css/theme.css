@@ -5,13 +5,14 @@
  * codebase. Color anchors (16 base: 4 surface, 3 border, 3 text,
  * 2 accent, 4 semantic state; plus 6 chart-derived helpers and 5
  * role aliases). Z-index ladder (4 layering tiers). Animation
- * durations (2 timing tiers). Every chrome color, z-index, and
- * transition duration in CSS, in SFC <style> blocks, and in
- * TypeScript chart-adapter sites reads from this file via
+ * durations (2 timing tiers). Spacing scale (4 spacing tiers).
+ * Every chrome color, z-index, transition duration, and
+ * substrate-cluster spacing value in CSS, in SFC <style> blocks,
+ * and in TypeScript chart-adapter sites reads from this file via
  * `var(--name)`; the `themeColor()` helper in
- * src/utils/theme-color.ts is the runtime-string accessor for the
- * color subset (z-index and durations are CSS-only and don't need
- * typed runtime accessors).
+ * src/utils/theme-color.ts is the runtime-string accessor for
+ * the color subset (z-index, durations, and spacing are CSS-only
+ * and don't need typed runtime accessors).
  *
  * Out of scope:
  * - Domain (Go-specific) colors live in src/engine/constants.ts.
@@ -23,8 +24,9 @@
  *
  * Design notes: docs/notes/frontend-theming-plan.md (color),
  * docs/notes/magic-literals-audit-inventory.md (z-index ladder
- * is Pass-2 Tier-1 #1 of the audit's residue sweep, animation
- * durations are Pass-2 Tier-1 #2).
+ * is Pass-2 Tier-1 #1, animation durations are Pass-2 Tier-1 #2,
+ * spacing scale is Pass-2 Tier-2 #1 of the audit's residue
+ * sweep).
  *
  * License: Public Domain (The Unlicense)
  */
@@ -119,4 +121,33 @@
    * justified rather than entering this scale. */
   --duration-default: 0.2s;  /* chrome hover and state transitions */
   --duration-slow:    1s;    /* pulse and attention animations */
+
+  /* ── Spacing scale (4) ───────────────────────────────────────
+   * Four tiers for gap, padding, margin. Snap-by-cluster
+   * applied to ~150 surveyed sites in the dominant cluster
+   * (4/6/8/10/12/14/15/20px); the 4/6 and 8/10 pairs were
+   * authoring-chance drift on the same role (button-cluster
+   * gaps, control-row spacing) and collapse via the snap rule
+   * (nearest tier, ties → up). The 14/15 sites collapse to the
+   * loose tier (20) — modal-padding asymmetries (commonly
+   * 12px 15px) become 12 / 20 with a slight horizontal-padding
+   * raise; reverse the snap to 15→12 if the loose-tier raise
+   * reads as too spacious in a future tuning pass.
+   *
+   * Stragglers (1/2/3/5px sites — ~25 hairline borders, fine
+   * vertical alignment, button-row tightness) are NOT promoted
+   * to anchors; they stay literal and receive an inline
+   * `magic-literal:` comment in the Tier-4 sweep that closes
+   * the audit. The 0 value is not a tier — sites with `0` in
+   * shorthand (e.g. `padding: 0 12px`) keep the 0 inline and
+   * sweep only the non-zero side.
+   *
+   * If a future role wants a tier between two existing ones
+   * (e.g. a "section" gap between medium and loose), add the
+   * tier rather than reaching for inline values — same
+   * discipline as z-index and durations. */
+  --space-tight:   4px;   /* button-cluster gaps, icon spacing, tight rows */
+  --space-default: 8px;   /* default chrome — control-row, modal-element gap */
+  --space-medium:  12px;  /* section-level gap, content-block separation */
+  --space-loose:   20px;  /* block-level gap, large content separation */
 }

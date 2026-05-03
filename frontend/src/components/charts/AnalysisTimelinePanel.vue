@@ -88,7 +88,7 @@ function onRangeUpdate(r: [number, number]): void {
   overflow: hidden;
 }
 .timeline-header {
-  padding: 0 12px;
+  padding: 0 var(--space-medium);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -107,12 +107,12 @@ function onRangeUpdate(r: [number, number]): void {
   color: var(--text-0);
   font-variant-numeric: tabular-nums;
 }
-.timeline-body { padding: 6px 10px 4px; }
+.timeline-body { padding: var(--space-default) var(--space-medium) var(--space-tight); }
 .timeline-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px 8px;
+  gap: var(--space-default);
+  padding: var(--space-default) var(--space-medium) var(--space-default);
 }
 .visits-label { font-size: 11px; color: var(--text-0); flex-shrink: 0; }
 .visits-input {
@@ -136,7 +136,7 @@ function onRangeUpdate(r: [number, number]): void {
   background: var(--surface-0);
   border: 1px solid #2a5a7a;
   color: var(--text-0);
-  padding: 4px 10px;
+  padding: var(--space-tight) var(--space-medium);
   border-radius: 3px;
   font-size: 11px;
   cursor: pointer;

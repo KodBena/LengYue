@@ -79,8 +79,8 @@ const updateOptions = () => {
         const endSvg   = getSync(endNode, false);
         const thumb = `width:80px;height:80px;display:inline-block;border:1px solid ${themeColor('--border-2')};background:${themeColor('--surface-0')};`;
         return `
-          <div style="font-size:11px;color:${themeColor('--text-1')};margin-bottom:6px;">${label}</div>
-          <div style="display:flex;gap:8px;">
+          <div style="font-size:11px;color:${themeColor('--text-1')};margin-bottom:var(--space-default);">${label}</div>
+          <div style="display:flex;gap:var(--space-default);">
             <div style="${thumb}">${startSvg}</div>
             <div style="${thumb}">${endSvg}</div>
           </div>`;

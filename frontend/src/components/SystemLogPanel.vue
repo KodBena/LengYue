@@ -63,7 +63,7 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 4px 12px;
+  padding: var(--space-tight) var(--space-medium);
   background: var(--surface-2);
   border-bottom: 1px solid var(--surface-3);
 }
@@ -90,20 +90,20 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
 .messages-list {
   flex: 1;
   overflow-y: auto;
-  padding: 6px;
+  padding: var(--space-default);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-tight);
 }
 
 .message-row {
   display: flex;
   align-items: flex-start;
-  padding: 8px 10px;
+  padding: var(--space-default) var(--space-medium);
   background: var(--surface-2);
   border-left: 3px solid var(--border-3);
   border-radius: 2px;
-  gap: 10px;
+  gap: var(--space-medium);
 }
 
 .msg-error { border-left-color: var(--state-attention); background: color-mix(in srgb, var(--state-attention) 5%, transparent); }
@@ -147,8 +147,8 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
 .empty-state {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
+  gap: var(--space-default);
+  padding: var(--space-default) var(--space-medium);
   font-family: monospace;
 }
 .empty-dot { color: var(--border-2); font-size: 14px; line-height: 1; }

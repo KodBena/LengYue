@@ -61,14 +61,14 @@ const emit = defineEmits<{
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 6px;
+  padding: 0 var(--space-default);
   font-size: 11px;
   color: var(--text-1);
   flex-shrink: 0;
 }
 
-.status-left  { display: flex; gap: 15px; align-items: center; }
-.status-right { display: flex; gap: 15px; align-items: center; }
+.status-left  { display: flex; gap: var(--space-medium); align-items: center; }
+.status-right { display: flex; gap: var(--space-medium); align-items: center; }
 
 .move-badge {
   background: var(--accent-primary);
@@ -81,7 +81,7 @@ const emit = defineEmits<{
 }
 
 .player-names { color: var(--text-0); font-weight: 600; }
-.game-info    { color: var(--border-3); font-size: 10px; display: flex; align-items: center; gap: 4px; }
+.game-info    { color: var(--border-3); font-size: 10px; display: flex; align-items: center; gap: var(--space-tight); }
 
 .komi-input {
   width: 42px;

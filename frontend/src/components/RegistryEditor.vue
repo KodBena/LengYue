@@ -186,9 +186,9 @@ function isModified(key: string, value: any) {
 .registry-editor { display: flex; flex-direction: column; font-family: 'Consolas', monospace; }
 .registry-row { margin-bottom: 2px; }
 
-.branch-header, .leaf-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-.label-group { display: flex; align-items: center; gap: 6px; }
-.action-group { display: flex; align-items: center; gap: 8px; }
+.branch-header, .leaf-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-tight); }
+.label-group { display: flex; align-items: center; gap: var(--space-default); }
+.action-group { display: flex; align-items: center; gap: var(--space-default); }
 
 /* theme-exception: .modified-dot uses #fbbf24 (Tailwind amber-400)
    as a "this leaf has been edited" indicator. A semantic anchor for
@@ -200,21 +200,21 @@ function isModified(key: string, value: any) {
 
 .branch-label {
   color: var(--accent-primary); text-transform: uppercase; font-size: 10px; font-weight: bold;
-  padding: 4px 8px; background: color-mix(in srgb, var(--accent-primary) 5%, transparent); border-left: 2px solid var(--accent-primary);
+  padding: var(--space-tight) var(--space-default); background: color-mix(in srgb, var(--accent-primary) 5%, transparent); border-left: 2px solid var(--accent-primary);
 }
 
-.branch-content { padding-left: 12px; border-left: 1px solid var(--surface-3); margin-left: 4px; }
+.branch-content { padding-left: var(--space-medium); border-left: 1px solid var(--surface-3); margin-left: var(--space-tight); }
 
 /* theme-exception: .expression-input's #fbbf24 text matches the
    .modified-dot indicator above — same Tailwind amber-400, marking
    asteval expressions visually distinct from non-expression scalar
    inputs. Same substrate gap as the indicator. */
 .expression-input {
-  width: 100%; min-height: 50px; padding: 8px; line-height: 1.4;
+  width: 100%; min-height: 50px; padding: var(--space-default); line-height: 1.4;
   color: #fbbf24; background: var(--surface-0); border: 1px solid var(--surface-3); resize: vertical;
 }
 
-.symbol-ref-box { display: flex; align-items: center; width: 100%; gap: 6px; }
+.symbol-ref-box { display: flex; align-items: center; width: 100%; gap: var(--space-default); }
 /* theme-exception: .ref-icon / .ref-input use #f472b6 (Tailwind
    pink-400) as a "symbolic reference" indicator — visually distinct
    from expressions (amber) and scalars (white-ish). No semantic anchor
@@ -223,7 +223,7 @@ function isModified(key: string, value: any) {
 .ref-input { color: #f472b6; font-style: italic; flex: 1; }
 
 .registry-leaf { padding: 0; border-bottom: 1px solid var(--surface-2); }
-.registry-leaf.scalar, .registry-leaf.symbol-ref, .registry-leaf.enum { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; }
+.registry-leaf.scalar, .registry-leaf.symbol-ref, .registry-leaf.enum { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: var(--space-medium); }
 .leaf-label { color: var(--text-2); font-size: 11px; }
 
 .restore-btn { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: 12px; }
@@ -231,10 +231,10 @@ function isModified(key: string, value: any) {
 .delete-btn { background: none; border: none; color: var(--border-3); cursor: pointer; font-size: 14px; }
 .delete-btn:hover { color: var(--state-error); }
 
-.add-key-row { display: flex; padding: 8px; gap: 4px; background: rgba(0,0,0,0.2); }
+.add-key-row { display: flex; padding: var(--space-default); gap: var(--space-tight); background: rgba(0,0,0,0.2); }
 .add-input { flex: 1; border-style: dashed; }
-.add-btn { background: var(--surface-3); border: 1px solid var(--border-2); color: var(--accent-primary); cursor: pointer; font-size: 10px; padding: 0 8px; text-transform: uppercase; }
+.add-btn { background: var(--surface-3); border: 1px solid var(--border-2); color: var(--accent-primary); cursor: pointer; font-size: 10px; padding: 0 var(--space-default); text-transform: uppercase; }
 
 .dark-input { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-1); font-size: 11px; }
-.scalar-input { height: 22px; padding: 0 6px; width: 140px; }
+.scalar-input { height: 22px; padding: 0 var(--space-default); width: 140px; }
 </style>

@@ -92,8 +92,8 @@ watch(
 
 <style scoped>
 .user-badge {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 0 8px 0 12px; margin-left: 4px; height: 100%;
+  display: inline-flex; align-items: center; gap: var(--space-default);
+  padding: 0 var(--space-default) 0 var(--space-medium); margin-left: var(--space-tight); height: 100%;
   font-size: 11px; color: var(--text-1); font-family: inherit;
   background: none; border: none; border-left: 1px solid var(--border-1);
   cursor: pointer; user-select: none; outline: none;

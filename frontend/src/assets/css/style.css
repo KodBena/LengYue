@@ -50,8 +50,8 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 10px 0;
-  gap: 6px;
+  padding: var(--space-medium) 0;
+  gap: var(--space-default);
   overflow-y: auto;
   overflow-x: hidden;
   flex-shrink: 0;
@@ -132,8 +132,8 @@ body {
   border-bottom: 1px solid var(--border-1);
   display: flex;
   align-items: center;
-  padding: 0 12px;
-  gap: 8px;
+  padding: 0 var(--space-medium);
+  gap: var(--space-default);
   flex-shrink: 0;
 }
 
@@ -164,7 +164,7 @@ body {
   min-height: 0;      /* Crucial for nested flex scrolling */
   justify-content: center;
   align-items: center; /* Centers the board vertically */
-  padding: 10px;
+  padding: var(--space-medium);
 }
 
 #board-area {
@@ -226,7 +226,7 @@ body {
 }
 
 #control-content {
-  margin-top: 10px;
+  margin-top: var(--space-medium);
 }
 
 /* Applied to every board SVG by BoardRenderer */
@@ -241,7 +241,7 @@ body {
   border-top: 1px solid var(--border-1);
   display: flex;
   align-items: center;
-  padding: 0 12px;
+  padding: 0 var(--space-medium);
   font-size: 10px;
   color: var(--text-2);
   letter-spacing: 0.06em;
@@ -267,7 +267,7 @@ body {
   border-bottom: 1px solid var(--border-1);
   display: flex;
   align-items: center;
-  padding: 0 10px;
+  padding: 0 var(--space-medium);
   font-size: 9px;
   letter-spacing: 0.16em;
   color: var(--text-2);
@@ -314,7 +314,7 @@ input[type="range"]::-webkit-slider-runnable-track {
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; /* Override default look */
   appearance: none;
-  margin-top: 0px; /* Centers thumb on the track */
+  margin-top: 0; /* Centers thumb on the track */
   background-color: #808080;
   border-radius: 0rem;
   height: 0.5rem;

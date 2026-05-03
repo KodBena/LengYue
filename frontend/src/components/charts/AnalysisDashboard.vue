@@ -111,12 +111,12 @@ const engineConnected = computed(() => store.engine.status === 'connected');
   height: calc(100vh - 165px);
   overflow: hidden;
   background: var(--surface-1);
-  gap: 8px;
-  padding: 10px;
+  gap: var(--space-default);
+  padding: var(--space-medium);
 }
 .scrollable-content {
   flex: 1;
   overflow-y: auto;
-  padding: 10px;
+  padding: var(--space-medium);
 }
 </style>

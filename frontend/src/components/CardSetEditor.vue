@@ -174,7 +174,7 @@ function updatePipeline(newJsonStr: string) {
           />
         </div>
 
-        <div class="section-header" style="margin-top: 10px; border-top: 1px solid #1a1a1a;">
+        <div class="section-header" style="margin-top: var(--space-medium); border-top: 1px solid #1a1a1a;">
           <span>Tree DSL Pipeline (JSON)</span>
           <span v-if="!isJsonValid" class="error-badge">INVALID JSON</span>
         </div>
@@ -201,12 +201,12 @@ function updatePipeline(newJsonStr: string) {
 
 .sidebar { width: 200px; background: var(--surface-1); border-right: 1px solid var(--surface-3); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
 .section { border-bottom: 1px solid var(--surface-2); }
-.section-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: var(--surface-2); color: var(--text-1); font-size: 10px; text-transform: uppercase; }
+.section-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-default) var(--space-medium); background: var(--surface-2); color: var(--text-1); font-size: 10px; text-transform: uppercase; }
 .add-btn { background: none; border: none; color: var(--accent-primary); cursor: pointer; font-weight: bold; font-size: 14px; }
 .add-btn:hover { color: var(--text-0); }
 
 .item-list { list-style: none; padding: 0; margin: 0; }
-.item-list li { padding: 6px 12px; font-size: 11px; color: var(--text-1); cursor: pointer; border-left: 2px solid transparent; display: flex; justify-content: space-between; align-items: center;}
+.item-list li { padding: var(--space-default) var(--space-medium); font-size: 11px; color: var(--text-1); cursor: pointer; border-left: 2px solid transparent; display: flex; justify-content: space-between; align-items: center;}
 .item-list li:hover { background: var(--surface-2); }
 .item-list li.active { background: var(--surface-0); border-left-color: var(--accent-primary); color: var(--accent-primary); }
 .active-badge { font-size: 8px; background: var(--accent-primary); color: var(--surface-0); padding: 1px 4px; border-radius: 2px; }
@@ -215,17 +215,17 @@ function updatePipeline(newJsonStr: string) {
 .empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--border-3); font-size: 12px; }
 .detail-content { display: flex; flex-direction: column; height: 100%; }
 
-.detail-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 1px solid var(--surface-2); }
+.detail-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-2); }
 .detail-header h3 { margin: 0; font-size: 14px; color: var(--text-0); font-weight: normal; }
 /* theme-exception: .del-btn muted-state-error surface variants per
    the same rationale as PaletteEditor's .del-btn. Future substrate
    work could introduce tinted-surface anchors. */
-.del-btn { background: #3a1a1a; color: var(--state-error); border: 1px solid #5a1a1a; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 10px; }
+.del-btn { background: #3a1a1a; color: var(--state-error); border: 1px solid #5a1a1a; padding: var(--space-tight) var(--space-default); border-radius: 3px; cursor: pointer; font-size: 10px; }
 .del-btn:hover { background: #5a1a1a; color: var(--text-0); }
 
-.form-grid { padding: 15px; display: grid; grid-template-columns: 100px 1fr; gap: 10px; align-items: center; }
+.form-grid { padding: var(--space-medium); display: grid; grid-template-columns: 100px 1fr; gap: var(--space-medium); align-items: center; }
 .form-grid label { font-size: 11px; color: var(--text-2); }
-.dark-input { background: var(--surface-1); border: 1px solid var(--border-2); color: var(--text-0); padding: 6px; border-radius: 3px; font-family: monospace; font-size: 12px; width: 100%; outline: none; }
+.dark-input { background: var(--surface-1); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default); border-radius: 3px; font-family: monospace; font-size: 12px; width: 100%; outline: none; }
 .dark-input:focus { border-color: var(--accent-primary); }
 
 .editor-wrap { flex: 1; overflow: auto; border-top: 1px solid var(--surface-3); transition: border-color var(--duration-default); }
