@@ -185,7 +185,7 @@ function handleBackdropClick(e: MouseEvent): void {
   padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); font-family: inherit;
   border: 1px solid transparent; border-radius: var(--radius-default); cursor: pointer;
 }
-.btn:disabled { cursor: not-allowed; opacity: 0.5; }
+.btn:disabled { cursor: not-allowed; opacity: var(--alpha-disabled); }
 
 .btn-secondary { background: var(--border-2); border-color: var(--border-3); color: var(--text-1); }
 .btn-secondary:hover:not(:disabled) { background: var(--border-3); }

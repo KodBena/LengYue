@@ -180,11 +180,11 @@ function onPin(): void {
    variants would need new anchors. Same pattern used on .apply-btn
    border (#2a5a7a) and .phase-help border. */
 .seg-btn.active { background: #1a3a4a; color: var(--accent-primary); }
-.seg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.seg-btn:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 .verdict-pair { display: flex; gap: var(--space-tight); }
 .verdict-btn, .apply-btn, .pin-btn { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: 5px 10px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: inherit; letter-spacing: inherit; transition: background var(--duration-default), border-color var(--duration-default), color var(--duration-default); }
 .verdict-btn:hover:not(:disabled), .apply-btn:hover:not(:disabled), .pin-btn:hover:not(:disabled) { background: var(--border-3); border-color: var(--border-3); color: var(--text-0); }
-.verdict-btn:disabled, .apply-btn:disabled, .pin-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.verdict-btn:disabled, .apply-btn:disabled, .pin-btn:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 .apply-btn { border-color: #2a5a7a; color: var(--accent-primary); }
 .apply-btn:hover:not(:disabled) { background: #1a3a4a; border-color: var(--accent-primary); }
 .phase-indicator { color: var(--text-2); font-size: var(--text-body); letter-spacing: var(--tracking-default); cursor: help; padding: 0 var(--space-tight); }

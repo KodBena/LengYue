@@ -8,14 +8,15 @@
  * durations (2 timing tiers). Spacing scale (4 spacing tiers).
  * Font-size scale (4 typographic tiers). Border-radius scale (2
  * rounding tiers). Letter-spacing scale (3 tracking tiers).
- * Every chrome color, z-index, transition duration,
- * substrate-cluster spacing, font-size, border-radius, and
- * letter-spacing value in CSS, in SFC <style> blocks, and in
- * TypeScript chart-adapter sites reads from this file via
- * `var(--name)`; the `themeColor()` helper in
- * src/utils/theme-color.ts is the runtime-string accessor for
- * the color subset (the non-color anchor sets are CSS-only and
- * don't need typed runtime accessors).
+ * Disabled-state alpha (1 anchor). Every chrome color, z-index,
+ * transition duration, substrate-cluster spacing, font-size,
+ * border-radius, letter-spacing, and disabled-alpha value in
+ * CSS, in SFC <style> blocks, and in TypeScript chart-adapter
+ * sites reads from this file via `var(--name)`; the
+ * `themeColor()` helper in src/utils/theme-color.ts is the
+ * runtime-string accessor for the color subset (the non-color
+ * anchor sets are CSS-only and don't need typed runtime
+ * accessors).
  *
  * Out of scope:
  * - Domain (Go-specific) colors live in src/engine/constants.ts.
@@ -226,4 +227,16 @@
   --tracking-tight:   0.05em;  /* toolbar buttons, secondary labels */
   --tracking-default: 0.1em;   /* uppercase headings, chart axis labels */
   --tracking-wide:    0.18em;  /* control-tab labels, prominent uppercase headers */
+
+  /* ── Disabled-state alpha (1) ────────────────────────────────
+   * Single anchor for the disabled-button alpha role. Snap-by-
+   * cluster collapses 5 surveyed :disabled sites at three
+   * close values (0.35 / 0.4 / 0.5) into one tier at 0.5 — the
+   * most common existing value and the web-design conventional
+   * default for disabled UI elements. The 0.4 sites raise 0.1
+   * (disabled state reads slightly less faded); the 0.35 site
+   * raises 0.15 (same direction). If "less faded" reads as not
+   * obviously-disabled-enough in a future tuning pass, lower
+   * to 0.4 here without disturbing consumers. */
+  --alpha-disabled: 0.5;
 }

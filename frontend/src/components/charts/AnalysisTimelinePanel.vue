@@ -143,5 +143,5 @@ function onRangeUpdate(r: [number, number]): void {
   transition: background var(--duration-default);
 }
 .analyze-btn:hover:not(:disabled) { background: #254a60; }
-.analyze-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.analyze-btn:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 </style>
