@@ -6,7 +6,7 @@
 -->
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { BOARD_PX, LABEL_BAND, TOTAL_PX } from '../engine/constants';
+import { BOARD_PX, LABEL_BAND, TOTAL_PX, STONE_RADIUS_RATIO } from '../engine/constants';
 import { useMoveSuggestions } from '../composables/use-move-suggestions';
 import { usePvAnimation, type PvConfig, type PvMove } from '../composables/use-pv-animation';
 import type { BoardId, NodeId } from '../types';
@@ -105,7 +105,7 @@ function onSuggestionClick(x: number, y: number) {
 
 const pad    = computed(() => BOARD_PX / (props.boardSize + 1));
 const cell   = computed(() => (BOARD_PX - 2 * pad.value) / (props.boardSize - 1));
-const stoneR = computed(() => cell.value * 0.46);
+const stoneR = computed(() => cell.value * STONE_RADIUS_RATIO);
 const safeUid = computed(() => props.boardId.replace(/[^a-z0-9]/gi, ''));
 
 function toSvg(x: number, y: number): { x: number; y: number } {
