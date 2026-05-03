@@ -221,6 +221,33 @@ Plus design notes in `docs/notes/`:
 
 ### Trivial — single-line or single-block changes, no cross-file impact
 
+#### `[frontend]` HMR cleanup for `analysisService` singleton — **priority**
+
+Vite HMR can leak the `AnalysisService` singleton's WebSocket and
+in-flight ponder bookkeeping when
+`frontend/src/services/analysis-service.ts` (or one of its
+transitive dependencies) is hot-replaced. The new module instance
+starts with empty `activeQueryIds`/`activeSubscriptions`, so the
+old singleton's in-flight ponder query never receives a client-side
+`terminate` — and on high-end hardware running an unbounded ponder
+(`maxVisits: PONDER_MAX_VISITS = 100000`) the orphaned compute is
+substantial.
+
+The fix is a small `import.meta.hot.dispose` callback in
+`analysis-service.ts` that, on outgoing-singleton teardown, walks
+each board through `stopBoardAnalysis` (so the proper client-side
+`terminate` packets are emitted) and then calls `disconnect()`.
+Roughly 10 lines, dev-only (`import.meta.hot` is undefined in
+production builds).
+
+This is dev-loop hygiene. The proxy's new keep-alive middleware
+(`docs/dispatch/frontend-to-proxy-keep-alive-middleware.md`) is the
+production-side safety net for the same class of problem (stranded
+queries from any cause, not just HMR); the two are complementary
+and both should ship. The frontend cleanup is faster to implement
+but the proxy middleware has broader coverage — operators on
+high-cost hardware benefit even when the frontend never bugs out.
+
 #### 7. *(no longer relevant)*
 
 Skipped for numbering continuity.
