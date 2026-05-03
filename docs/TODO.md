@@ -283,6 +283,57 @@ Skipped for numbering continuity.
 
 ### Small — one-file refactors, no contract changes
 
+#### `[frontend]` Heatmap delta-update investigation — **priority** (secondary to the HMR cleanup item in the Trivial tier above)
+
+The triangular heatmap component
+(`src/components/charts/HeatmapChart.vue`, backed by
+`src/composables/useTriangularHeatmap.ts`) currently re-renders the
+entire triangle on every analysis-packet arrival, even though each
+packet only contributes new data to one cell at most (a sliver of
+one triangle). Under fast-backend conditions (KataGo NN-cache
+hits, proxy replay-cache replays) the redraws can't keep up with
+the packet rate at 60Hz, producing visible jankiness in the
+heatmap chart panel — distinct from the main-thread saturation
+that the RAF-batched ledger notification
+(`src/services/analysis-ledger.ts`, shipped 2026-05-03) addressed
+at the ingress layer.
+
+Investigation tasks:
+
+1. Determine whether ECharts supports an incremental update mode for
+   heatmap data (e.g., `setOption` with `replaceMerge`, `appendData`,
+   or a series-level merge strategy) that updates only the cells
+   whose values changed since the last frame.
+2. Determine whether the current full-redraw behaviour is a
+   deliberate trade-off — there's a recollection in the codebase
+   that this might be necessary so Vue's reactivity doesn't get in
+   the way of ECharts' update path. Validate or refute that
+   explanation against the current ECharts API surface; the
+   reasoning may have been correct at the time and outdated now,
+   or it may have been an excuse-of-convenience that warrants
+   revisiting.
+3. If delta updates are achievable: refactor `useTriangularHeatmap`
+   and `HeatmapChart` to feed ECharts only the changed cells. The
+   data-shape contract between the composable and the component may
+   need adjustment.
+4. If full redraws are genuinely required: document the reason in
+   `HeatmapChart.vue`'s header so the next contributor doesn't
+   re-investigate from scratch.
+
+Scope: primarily `src/components/charts/HeatmapChart.vue` and
+`src/composables/useTriangularHeatmap.ts`. May touch the
+data-shape contract between the composable and the component;
+no cross-tier contract change.
+
+Secondary in priority to the HMR cleanup item in the Trivial tier
+above because the symptom is cosmetic (visible heatmap jankiness on
+fast backends) rather than load-bearing, but high enough that it
+should be addressed before any work that increases the packet rate
+further — including the Phase 1 multi-subscriber non-regression test
+in `docs/dispatch/frontend-to-proxy-keep-alive-middleware.md`,
+which exercises concurrent ponders on a coalesced canonical and
+exacerbates the flood.
+
 #### Items 13–16 *(tenancy read-path)* — moved to Completed
 
 Items 13 (`CardRepository`), 14 (parent-ownership precheck), 15
