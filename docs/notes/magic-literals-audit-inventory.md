@@ -441,9 +441,19 @@ Plus the named values from `defaults.ts` (and duplicated in
   which is "wait for ECharts container to lay out").
 - The `defaults.ts` values are *named* but their consumers
   (`use-pv-animation.ts`) also declare local defaults of the same
-  values. The defaults should be the SSOT and the composable should
-  import them. **This is exactly the Item-18-class divergence shape:
-  two sources of truth declaring the same default.**
+  values. The structural shape matches the gradingParameter Item-18
+  finding (two sources of truth, no compiler check). **However, the
+  four values may be pairwise-calibrated** for the repeating-window
+  animation's intended visual rhythm — naming the divergence as a
+  redundancy could flatten an invariant the values hold. A recent
+  fix to the PV-animation code may have decoupled the interaction;
+  the determination is uncertain. **The consolidation question is
+  set aside** for this audit pending investigation; recorded in
+  `docs/notes/deferred-items.md`'s "PV-animation defaults —
+  pairwise-calibration question" entry. This surfaces a third
+  pattern beyond snap-by-cluster and decouple-via-alias: **co-tuned
+  constants**, values whose individual identities are subordinate
+  to a calibrated relationship.
 - The one-off delays (`1`, `50`, `150` MintCardModal, `1000`
   watchdog) are inline-justification candidates.
 
@@ -590,13 +600,21 @@ These surfaced during the inventory and are filed for completeness.
   ```
 
 - **Two-site default divergence between `defaults.ts` and
-  `use-pv-animation.ts`.** The composable declares its own defaults
-  for `stepDelayMs`, `windowDurationMs`, `fadeDurationMs`, `pvOpacity`
-  with the same numeric values as `defaults.ts`. Pass 2 should make
-  the composable import from `defaults.ts` (or from a shared
-  `pv-animation-defaults.ts` if the values are PV-specific). This
-  is the same shape as the gradingParameter Item-18 finding — two
-  sources of truth, no compiler check.
+  `use-pv-animation.ts` — set aside.** The composable declares
+  its own defaults for `stepDelayMs`, `windowDurationMs`,
+  `fadeDurationMs`, `pvOpacity` with the same numeric values as
+  `defaults.ts`. The structural shape matches the gradingParameter
+  Item-18 finding (two sources of truth, no compiler check), but
+  the four values may be **pairwise-calibrated** for the repeating-
+  window animation's intended visual rhythm. If the values are
+  co-tuned, the audit's two working principles (snap-by-cluster,
+  decouple-via-alias) don't apply — "co-tuned constants" is a
+  third pattern that wants the calibration named explicitly rather
+  than the duplication removed. A recent fix may have decoupled
+  the pairwise interaction; the determination is uncertain. The
+  consolidation question is set aside pending investigation;
+  recorded in `deferred-items.md`'s "PV-animation defaults —
+  pairwise-calibration question" entry.
 
 ---
 
@@ -609,7 +627,7 @@ What wants to become a substrate, in rough priority order:
 | 1    | z-index ladder           | 8   | `theme.css` + naming convention; trivial    |
 | 1    | Animation duration scale | 22  | `theme.css` extension (3-4 anchors)         |
 | 1    | Geometry (cell / stoneR) | ~10 | `useBoardGeometry` composable + `<Stone>`   |
-| 1    | TS-side timer / defaults divergence | 4 | Import from `defaults.ts` instead of redeclare |
+| —    | TS-side timer / defaults divergence | 4 | **Set aside** — pairwise-calibration question; see adjacent observations + `deferred-items.md` |
 | 2    | Spacing scale (gap/padding/margin) | ~150 | `theme.css` extension (5 anchors)        |
 | 2    | Font-size scale          | ~150| `theme.css` extension (~7 anchors)          |
 | 2    | Border-radius scale      | ~30 | `theme.css` extension (4 anchors)           |
@@ -649,31 +667,34 @@ as its own small PR." The recommended order:
    anchors, 8 sweep sites. Establishes the convention without
    committing to scale shapes; closes the modal-scrim drift
    (1000 vs 9999) immediately. ~1 PR.
-2. **TS-side defaults consolidation** (Tier 1). Make
-   `use-pv-animation.ts` import from `defaults.ts`. Closes the
-   two-site default divergence — same shape as the
-   gradingParameter Item-18 finding. ~1 PR.
-3. **Animation duration / easing tokens** (Tier 1). Three or four
+2. **Animation duration / easing tokens** (Tier 1). Three or four
    anchors, ~25 sweep sites. ~1 PR.
-4. **Geometry substrate** (Tier 1). `useBoardGeometry` composable
+3. **Geometry substrate** (Tier 1). `useBoardGeometry` composable
    + shared `<Stone>` (or named multipliers). Closes the
    `* 0.88` triggering specimen and the three-site `cell * 0.46`
    duplication. ~1-2 PRs (composable, then sweep).
-5. **Spacing scale** (Tier 2). ~5 anchors, ~150 sweep sites. The
+4. **Spacing scale** (Tier 2). ~5 anchors, ~150 sweep sites. The
    second-largest sweep after color. ~1 PR (or 2-3 if split by
    region as the color sweep was).
-6. **Font-size scale** (Tier 2). ~7 anchors, ~150 sweep sites.
+5. **Font-size scale** (Tier 2). ~7 anchors, ~150 sweep sites.
    ~1-2 PRs.
-7. **Border-radius scale** (Tier 2). ~4 anchors, ~30 sweep sites.
+6. **Border-radius scale** (Tier 2). ~4 anchors, ~30 sweep sites.
    ~1 PR.
-8. **Letter-spacing scale** (Tier 2). ~3 anchors, ~20 sweep
+7. **Letter-spacing scale** (Tier 2). ~3 anchors, ~20 sweep
    sites. ~1 PR.
-9. **Tier 3 substrates** — disabled-alpha, color-mix alpha
+8. **Tier 3 substrates** — disabled-alpha, color-mix alpha
    scale, URL paths, ponder-cap constant. Each ~1 small PR.
-10. **Tier 4 inline-justification sweep**. Establish the
-    `magic-literal:` comment convention; sweep remaining one-offs
-    that don't fit any substrate. The audit's *deliverable* — the
-    contract is satisfied when this sweep closes.
+9. **Tier 4 inline-justification sweep**. Establish the
+   `magic-literal:` comment convention; sweep remaining one-offs
+   that don't fit any substrate. The audit's *deliverable* — the
+   contract is satisfied when this sweep closes.
+
+**Set aside, not in the sequence:** the `defaults.ts` ↔
+`use-pv-animation.ts` consolidation (originally Tier-1 #2 in an
+earlier draft of this section). The values may be pairwise-
+calibrated for the repeating-window animation; until that's
+investigated, the audit doesn't touch them. Recorded in
+`deferred-items.md` and in this inventory's adjacent observations.
 
 The scale-related substrates (Tier 2: spacing, font-size,
 border-radius, letter-spacing) follow the snap-by-cluster rule

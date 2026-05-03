@@ -66,8 +66,11 @@ The inventory artifact. Sections:
    strings (NOT magic literals — disclaimed), Vue `emit()`
    names, DOM event names, migration version strings.
 6. **Adjacent observations.** The two-site default divergence
-   between `defaults.ts` and `use-pv-animation.ts` (same shape
-   as the gradingParameter Item-18 finding); the
+   between `defaults.ts` and `use-pv-animation.ts` (initially
+   flagged as same shape as gradingParameter Item-18, then set
+   aside pending pairwise-calibration determination — the values
+   may be co-tuned for the repeating-window animation's visual
+   rhythm; recorded in `deferred-items.md`); the
    not-yet-existing `magic-literal:` comment convention; the
    already-disciplined HorizontalTimelineVisualizer
    block-exception.
@@ -113,12 +116,20 @@ inline-justification sweep) is still ahead.
   cluster_id → substrate_shape decisions are deferred to the
   per-substrate PRs in Pass 2.
 - **The two-site default divergence between `defaults.ts` and
-  `use-pv-animation.ts`** surfaced during the inventory is
-  flagged as Tier-1 candidate #2 but not closed in this PR.
-  Worth noting here because the shape is identical to the
-  Item-18 / gradingParameter finding closed yesterday — two
-  sources of truth for the same nominal handle, no compiler
-  check.
+  `use-pv-animation.ts`** surfaced during the inventory was
+  initially flagged as Tier-1 candidate #2 (same shape as the
+  Item-18 / gradingParameter finding closed yesterday). The
+  user then surfaced a hunch that the four values may be
+  pairwise-calibrated for the repeating-window animation's
+  visual rhythm — naming "the divergence" as a redundancy
+  could flatten an invariant the values hold. The consolidation
+  question is set aside pending investigation and recorded in
+  `deferred-items.md`'s "PV-animation defaults — pairwise-
+  calibration question" entry. Surfaces a third pattern beyond
+  the audit's two working principles (snap-by-cluster,
+  decouple-via-alias): **co-tuned constants** — values whose
+  individual identities are subordinate to a calibrated
+  relationship.
 
 ## Verification
 
