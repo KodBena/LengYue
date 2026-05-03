@@ -231,6 +231,55 @@ this file.
   way, the visible inconsistency is recorded for explicit
   resolution rather than silent drift.
 
+### ForestStat / TagStat — wire-shape passthrough at the ACL boundary
+
+- **Surfaced:** 2026-05-03 (during the class-wide ACL audit
+  sweep that closed the 2026-05-02 auditor-notes
+  type-vs-implementation entry; recorded there as an adjacent
+  observation, and filed here for prioritization).
+- **Concern:** `ForestStat` and `TagStat` are declared in
+  `src/types.ts` (lines 653-664, 666-668) with snake_case
+  fields kept verbatim from the wire shape — `root_card_id:
+  number`, `game_source_id: number`, `total_cards: number`,
+  etc. There is no ACL translator between
+  `BackendService.getForestStats()` /
+  `BackendService.getTags()` and consumers; the wire shape
+  *is* the domain shape. This violates the ACL discipline
+  documented in `frontend/CLAUDE.md` ("the ACL at
+  `src/services/backend-service.ts` is the boundary where
+  backend wire shapes (snake_case) become domain types
+  (camelCase, branded)") and surfaces in two ways: (a) the
+  domain type carries snake_case identifiers that read like
+  wire shapes everywhere they appear, and (b) consumer sites
+  carry inline `as CardId` brand-casts to bridge the
+  un-branded wire numbers into the rest of the codebase.
+  Observed sites: `composables/useCardTreeData.ts:65`
+  (`s.root_card_id as CardId`),
+  `components/ForestDirectory.vue:44, 144`
+  (`roots.value[0].root_card_id as CardId`,
+  `root.root_card_id as CardId`).
+
+  This is structurally adjacent to but distinct from the
+  type-vs-implementation divergence class the 2026-05-02
+  auditor entry named: there's no typed-but-unassigned field
+  here (the wire fields are the domain fields), but the
+  discipline gap is the same — the ACL boundary is the only
+  place wire shapes meet domain types in the codebase, and
+  these two interfaces skip the boundary entirely.
+
+- **Suggested next action:** Add `mapForestStat` /
+  `mapTagStat` translators in `services/backend-service.ts`
+  paralleling `mapToReviewCard`'s shape; rename the domain
+  interfaces with camelCase (`rootCardId: CardId`,
+  `gameSourceId: GameSourceId`, etc.); brand `total_cards` /
+  `total_reviews` if the project wants to (probably no — they
+  are bare counts). Sweep the three observed consumer sites
+  to drop their `as CardId` brand-casts. Small PR (one file,
+  three consumers, no contract change). Defer until prioritized;
+  no urgent functional issue, but worth doing before a fourth
+  consumer appears and accumulates a fourth brand-laundering
+  cast.
+
 ---
 
 ## Closed items
