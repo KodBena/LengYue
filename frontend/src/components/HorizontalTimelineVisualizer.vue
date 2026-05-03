@@ -377,6 +377,11 @@ onUnmounted(() => stopDragging());
 .handle-left { left: -8px; }
 .handle-right { right: -8px; }
 
+/* magic-literal: 9999px is the canonical "max-out radius" pill-shape
+   trick — any value larger than half the element's longest dimension
+   produces fully-rounded ends. Substrate's --radius-circle (50%) would
+   require knowing the element's aspect; the pill idiom is dimension-
+   agnostic. */
 .handle-bar {
   height: 12px;
   width: 4px;

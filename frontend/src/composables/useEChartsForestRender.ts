@@ -115,6 +115,9 @@ export function useEChartsForestRender<P>(): ForestChartHandle<P> {
     if (!inst) {
       // Container not yet sized — try again on next tick. Mirrors
       // LineageTreeChart's initial-mount race-window pattern.
+      // magic-literal: 50ms render-retry — short enough to feel
+      // immediate after layout settles, long enough that the next tick
+      // has actually happened. Empirically tuned.
       setTimeout(() => render(cfg), 50);
       return;
     }

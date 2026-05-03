@@ -28,9 +28,17 @@ import { activeConfigHash } from '../services/analysis-config';
 // the confidence of the disagreement — and this same map paints it.
 function ownershipColor(v: number): { fill: string; opacity: number } {
   const mag = Math.abs(v);
+  // magic-literal: 0.05 is the dead-band threshold below which ownership
+  // signal is too weak to render — prevents flicker as the engine's
+  // confidence wavers around 0.
   if (mag < 0.05) return { fill: 'transparent', opacity: 0 };
   return {
     fill: v > 0 ? '#fff' : '#000',
+    // magic-literal: 0.85 ownership ceiling — band-3 Go-bound visualization
+    // decision. Caps the territory overlay's max opacity so even fully-
+    // owned points don't completely obscure the board grid beneath. Both
+    // factors (ceiling AND magnitude multiplier) are 0.85 by design — the
+    // signal's apparent intensity tops out at the same 0.85 it scales by.
     opacity: Math.min(0.85, mag * 0.85),
   };
 }
@@ -46,6 +54,11 @@ const LIVENESS_THRESHOLD = 0.3;
 // disagreement, so a flat near-opaque fill reads cleanly without the
 // magnitude-modulated opacity that the territory overlays use.
 function livenessColor(v: number): { fill: string; opacity: number } {
+  // magic-literal: 0.95 liveness opacity — band-3 Go-bound visualization
+  // decision. Higher than ownershipColor's 0.85 ceiling because liveness
+  // markers have already passed the LIVENESS_THRESHOLD gate (line 41), so
+  // the rendering can be near-opaque without the magnitude-modulated fade
+  // territory overlays use.
   return { fill: v > 0 ? '#fff' : '#000', opacity: 0.95 };
 }
 

@@ -1,10 +1,24 @@
 # Magic Literals Audit — Design Note
 
-**Status:** Draft (2026-05-02); Pass 1 inventory filed 2026-05-03 at
-`docs/notes/magic-literals-audit-inventory.md` (color substrate
-predicate satisfied). Pass 2 (cluster + substrate-or-justify) is
-the in-flight work; the inventory's "Recommended Pass 2 sequencing"
-section is the working order.
+**Status:** **Closed 2026-05-03.** Pass 1 inventory filed at
+`docs/notes/magic-literals-audit-inventory.md` 2026-05-03 (color
+substrate predicate satisfied). Pass 2 closed across nine
+substrate PRs (Tier 1: z-index ladder #99, animation durations
+#100, geometry ratios #101; Tier 2: spacing #102, font-size #103,
+border-radius #104, letter-spacing #105; Tier 3: disabled-alpha
+#106, ponder-cap #107) plus the Tier-4 inline-justification
+sweep that codifies the `magic-literal:` comment convention (see
+"Comment convention" section below) and applies it to the curated
+residue. Both halves of the audit's contract (substrate-or-
+comment) are satisfied; ~469 sites swept into substrate, ~25
+sites inline-justified. Two third-pattern observations remain
+deferred (use-pv-animation defaults pairwise calibration;
+PV-overlay typography proportions co-tuning) — recorded in
+`docs/notes/deferred-items.md`. Future PRs are responsible for
+maintaining the convention on any new literals they introduce;
+comprehensive codebase-wide retroactive application was
+explicitly out of scope per the "Authoring discipline going
+forward" subsection.
 
 **Motivation:** the codebase carries an unknown number of unjustified
 literal constants — magic numbers, magic strings, magic offsets —
@@ -176,6 +190,87 @@ investigation, the residue likely includes:
 - **Wire-format magic strings** — registry keys, event names. The
   generated `backend.ts` covers most wire shapes; residual hand-
   written keys may remain.
+
+---
+
+## Comment convention — the inline-justification escape hatch
+
+The audit's contract has two halves: substrate-or-comment.
+Substrates landed across Pass-2 Tiers 1-3; the comment
+convention is the second half.
+
+### Syntax
+
+CSS-side (in `.css` files and SFC `<style>` blocks), placed
+immediately before the rule that contains the literal:
+
+```css
+/* magic-literal: <reason — why this value, why local, why not in scale> */
+.foo { padding: 1px 5px; }
+```
+
+TS-side (in `.ts` files and SFC `<script>` blocks), placed on
+the line immediately above the literal's use:
+
+```ts
+// magic-literal: <reason>
+const RAW_NUMBER = 0.42;
+```
+
+For multi-literal lines, a single comment block can cover the
+whole line if the literals share a rationale:
+
+```css
+/* magic-literal: close-button absolute offset hand-tuned to clear the tab-thumb's border-radius. */
+.close-board-btn { top: -6px; right: -6px; ... }
+```
+
+### Threshold
+
+The contract: every literal in the codebase either lives in a
+named constant in a documented location (substrate), OR carries
+an inline `magic-literal:` comment at the use site explaining
+its presence.
+
+The threshold for "warrants a comment" is **could a future
+reader reasonably ask where this came from?** Carve-outs:
+
+- **Trivial literals** — loop bounds (`i < array.length`),
+  boolean-equivalent (`0`, `1`, `true`, `false`),
+  array-indexing constants (`arr[0]`), mathematical identities
+  (`Math.PI / 2`).
+- **Universal CSS vocabulary** — `0` / `0px` / `0%` / `0rem` as
+  reset / zero-out values; `100%` / `100vh` / `100vw` as
+  fill-parent values; `1px` for hairline borders (the universal
+  CSS "minimum visible line" idiom).
+- **Block-level theme exceptions** that already carry a
+  `theme-exception:` comment — those have their rationale
+  documented at the block level, no per-literal `magic-literal:`
+  comment needed.
+- **Generated files** — `src/types/backend.ts` is OpenAPI
+  codegen; literals there are projected from the wire schema.
+- **String literals that are typed as discriminated-union
+  members** — `kind: 'authenticated'`, DOM event names, Vue
+  emit names declared via `defineEmits<>()`. These are the
+  named handles, not magic literals.
+
+### Distinction from theme-exception
+
+The chrome substrate established the `/* theme-exception: ... */`
+comment convention specifically for color-substrate exceptions
+(designer-intentional palettes outside the chrome anchor
+vocabulary). `magic-literal:` is the broader convention applied
+to all non-color literals. A site can carry either; both
+satisfy the audit's contract.
+
+### Authoring discipline going forward
+
+Future PRs are responsible for `magic-literal:` comments on any
+new literals they introduce that don't fit a substrate. This
+audit's Tier-4 sweep applied the convention to the curated
+residue surfaced during the substrate work; comprehensive
+codebase-wide application is a steady-state authoring habit,
+not a one-shot retroactive sweep.
 
 ---
 

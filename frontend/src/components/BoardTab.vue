@@ -116,6 +116,9 @@ const rugPlot = computed(() => {
         ></div>
       </div>
       <div class="geiger-dot-wrap">
+        <!-- magic-literal: geiger-dot scale derivation `0.6 + energy * 0.4`
+             produces a 0.6→1.0 scale range as energy decays from 0 to 1.
+             Hand-tuned for visible-but-not-distracting pulse. -->
         <div class="geiger-dot" :style="{ opacity: energy, transform: `scale(${0.6 + energy * 0.4})` }"></div>
       </div>
     </div>
@@ -146,6 +149,11 @@ const rugPlot = computed(() => {
 .tab-thumb.active.review-intermission { border-width: 3px; }
 .tab-thumb.active.review-complete { border-width: 3px; }
 
+/* magic-literal: .close-board-btn's `top: -6px; right: -6px` lifts the
+   16x16 close button off the tab-thumb's corner so half the button
+   overlaps the corner radius and half hangs outside, reading as a
+   detached affordance. The -6px offset is hand-tuned to that specific
+   visual; not a substrate candidate. */
 .close-board-btn {
   position: absolute; top: -6px; right: -6px;
   background: var(--surface-3); color: var(--text-1); border: 1px solid var(--border-3); border-radius: var(--radius-circle);
@@ -162,6 +170,10 @@ const rugPlot = computed(() => {
   justify-content: space-between; margin-top: 2px; padding: 0 var(--space-tight);
 }
 
+/* magic-literal: .analysis-meter's `border-radius: 1px` is a hairline
+   rounding that softens the meter's corners without making them visibly
+   rounded — below the substrate's smallest tier (3px). Intentional fine
+   detail on a 4px-tall element. */
 .analysis-meter {
   flex: 1; height: 4px; background: var(--surface-0); border-radius: 1px;
   margin-right: var(--space-default); display: flex; overflow: hidden; border: 1px solid var(--surface-1);

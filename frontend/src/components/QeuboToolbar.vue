@@ -190,5 +190,9 @@ function onPin(): void {
 .phase-indicator { color: var(--text-2); font-size: var(--text-body); letter-spacing: var(--tracking-default); cursor: help; padding: 0 var(--space-tight); }
 .phase-help { color: var(--accent-primary); border: 1px solid #2a5a7a; border-radius: var(--radius-circle); width: 12px; height: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: var(--text-tiny); margin-left: var(--space-tight); }
 .busy-dot { color: var(--accent-primary); font-size: var(--text-body); animation: pulse var(--duration-slow) infinite; }
+/* magic-literal: pulse keyframe trough at 0.4 (vs --alpha-disabled at
+   0.5 for the disabled-button role) — animation envelope alpha,
+   hand-tuned for visible-pulse contrast against the 1.0 peak. Distinct
+   role from disabled-state alpha; intentional. */
 @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1.0; } }
 </style>

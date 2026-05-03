@@ -153,7 +153,12 @@ const pvTransition = computed(() => `opacity ${pvCfg.fadeDurationMs}ms ease`);
       @click="onSuggestionClick(s.x, s.y)"
       :style="{ pointerEvents: (hoveredIndex !== null && s.moveIndex !== hoveredIndex) ? 'none' : 'all' }"
     >
-          <circle
+      <!-- magic-literal: 60ms suggestion-ring/disk fade (transition values
+           in :style below) — band-2 game-tree-coupled, intentionally
+           faster than chrome's --duration-default (200ms). Likely
+           co-tuned with the PV-overlay typography proportions; see
+           deferred-items.md PV-overlay-typography-proportions entry. -->
+      <circle
         v-if="s.clusterColor"
         :cx="toSvg(s.x, s.y).x"
         :cy="toSvg(s.x, s.y).y"

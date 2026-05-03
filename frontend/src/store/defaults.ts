@@ -50,10 +50,18 @@ export const defaultSettings = {
             '(x[0]["moveInfos"][0]["winrate"] - x[0]["userMoveInfo"]["winrate"]) if x[0]["userMoveInfo"] else 0',
           scoreLead_loss_topvsuser:
             'player_sign(x[0]) * ((x[0]["rootInfo"]["scoreLead"] - x[0]["userMoveInfo"]["scoreLead"]) if x[0]["userMoveInfo"] else 0)',
+          // magic-literal: 999 user_order fallback — the convention for
+          // "treat missing userMove as worst-rank" in the palette stdlib's
+          // ordering expressions. Used twice (here and in rank_quality
+          // below); both are inside the proxy's curated palette stdlib
+          // expressions and aren't substrate candidates. Distinct from
+          // the engine's actual rank values (typically 0 to ~50).
           user_order:       'x[0]["userMoveInfo"]["order"] if x[0]["userMoveInfo"] else 999',
           policy_loss:      'x[0]["moveInfos"][0]["prior"] - (x[0]["userMoveInfo"]["prior"] if x[0]["userMoveInfo"] else 0)',
           risk_adjusted_score_loss:
             'safe((x[0]["moveInfos"][0]["scoreLead"] - (x[0]["userMoveInfo"]["scoreLead"] if x[0]["userMoveInfo"] else x[0]["moveInfos"][0]["scoreLead"])) / x[0]["rootInfo"]["scoreStdev"])',
+          // magic-literal: 999 same as user_order above — paired fallback
+          // for the rank_quality formula.
           rank_quality:     '1.0 / (1 + (x[0]["userMoveInfo"]["order"] if x[0]["userMoveInfo"] else 999))',
 
           // Summary functions.
