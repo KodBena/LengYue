@@ -61,17 +61,25 @@ const activeBoardId = computed(() => activeBoard.value?.id as BoardId | null);
 const reviewSession = useReviewSession(activeBoardId);
 const mintModalRef = vueRef<InstanceType<typeof MintCardModal> | null>(null);
 
-// ─── BUG FIX: "Follow Me" Ponder Watcher ─────────────────────────────────────
-// Automatically restarts pondering when the user navigates or plays a move
+// ─── "Follow Me" Ponder Watcher ──────────────────────────────────────────────
+// Automatically restarts pondering when the user navigates or plays a move on
+// the *currently active* board. The reactive expression includes the active
+// board's id so a board switch (different active tab) can be distinguished
+// from same-board navigation: switching tabs is NOT a "follow me" trigger and
+// must not re-issue the new tab's ponder query — doing so would cancel and
+// re-subscribe a perfectly good in-flight ponder, churning the proxy's
+// canonical (and, with multi-tab coalescing, masking the proxy's stranded-
+// query / coalescing-transparency behaviour during testing).
 watch(
-  () => activeBoard.value?.currentNodeId,
-  (newId, oldId) => {
-    if (newId && newId !== oldId && activeBoard.value) {
-      const boardId = activeBoard.value.id;
-      // If the engine is active in 'ponder' mode on this board, follow the cursor!
-      if (store.engine.activeMode[boardId] === 'ponder') {
-        analysisService.analyzeActiveNode(boardId, 'ponder');
-      }
+  () => activeBoard.value
+    ? { id: activeBoard.value.id, nodeId: activeBoard.value.currentNodeId }
+    : null,
+  (curr, prev) => {
+    if (!curr || !prev) return;            // mount, unmount, or no active board
+    if (curr.id !== prev.id) return;       // board switch — not a "follow me" trigger
+    if (curr.nodeId === prev.nodeId) return;
+    if (store.engine.activeMode[curr.id] === 'ponder') {
+      analysisService.analyzeActiveNode(curr.id, 'ponder');
     }
   }
 );
