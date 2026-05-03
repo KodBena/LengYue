@@ -1,11 +1,15 @@
-<!-- 
-  src/components/BoardDisplay.vue 
+<!--
+  src/components/BoardDisplay.vue
   Stateless SVG Go board with gradients and textures.
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
 import { computed } from 'vue';
-import { BOARD_PX, BOARD_COLOR, LINE_COLOR, LABEL_COLOR, ALL_X_LABELS } from '../engine/constants';
+import {
+  BOARD_PX, BOARD_COLOR, LINE_COLOR, LABEL_COLOR,
+  LABEL_BAND, LABEL_FONT_SIZE, LABEL_INSET_RATIO, TOTAL_PX,
+  ALL_X_LABELS,
+} from '../engine/constants';
 import type { StoneColor, Move } from '../types';
 
 const props = defineProps<{
@@ -24,13 +28,24 @@ const uid = Math.random().toString(36).substring(2, 6);
 
 const boardSize = computed(() => props.size ?? 19);
 
-// All geometry is derived from boardSize and the fixed viewBox size.
-// pad = one cell's worth of margin on each side, so that the grid lines sit
-// inset from the board edge exactly one cell.
+// Inner-board geometry. `pad` is the inset within the playable area from
+// the area edge to the first grid line (one cell wide, by Go-board
+// convention). LABEL_BAND sits *outside* this — the playing-area group is
+// translated by (LABEL_BAND, LABEL_BAND) inside the SVG, so the formulas
+// below remain inner-board-relative and don't carry the offset themselves.
 const pad     = computed(() => BOARD_PX / (boardSize.value + 1));
 const cell    = computed(() => (BOARD_PX - 2 * pad.value) / (boardSize.value - 1));
 const stoneR  = computed(() => cell.value * 0.46);
 const STAR_R  = 2.5; // Fixed dot size — does not need to scale with the board.
+
+// Coordinate-label offset from the SVG edge (viewBox-units). The label
+// sits inside the strip between the SVG edge and the nearest edge-row
+// stone; LABEL_INSET_RATIO chooses where in that strip (0 = edge, 1 =
+// stone, 0.5 = centered). Size-aware via pad and stoneR — smaller boards
+// have larger stones, so the strip narrows; the ratio holds across sizes.
+const labelOffset = computed(() =>
+  LABEL_INSET_RATIO * (LABEL_BAND + pad.value - stoneR.value),
+);
 
 const xLabels = computed(() => ALL_X_LABELS.slice(0, boardSize.value));
 
@@ -87,6 +102,8 @@ const stoneList = computed(() => {
 });
 function toSVG(bx: number, by: number): { x: number; y: number } {
   // Board y=0 is at the bottom; SVG y increases downward, so we flip.
+  // The playing-area group is translated by (LABEL_BAND, LABEL_BAND) in
+  // the template, so these are inner-board coordinates.
   return {
     x: pad.value + bx * cell.value,
     y: pad.value + (boardSize.value - 1 - by) * cell.value,
@@ -100,8 +117,10 @@ function onBoardClick(e: MouseEvent) {
   pt.y = e.clientY;
   const cursor = pt.matrixTransform(svg.getScreenCTM()?.inverse());
 
-  const col = Math.round((cursor.x - pad.value) / cell.value);
-  const row = Math.round((cursor.y - pad.value) / cell.value);
+  // Cursor is in viewBox coords (0..TOTAL_PX); subtract LABEL_BAND to land
+  // in inner-board coords before resolving column/row.
+  const col = Math.round((cursor.x - LABEL_BAND - pad.value) / cell.value);
+  const row = Math.round((cursor.y - LABEL_BAND - pad.value) / cell.value);
   const s = boardSize.value;
 
   if (col >= 0 && col < s && row >= 0 && row < s) {
@@ -113,16 +132,16 @@ function onBoardClick(e: MouseEvent) {
 </script>
 
 <template>
-  <svg 
-    :viewBox="`0 0 ${BOARD_PX} ${BOARD_PX}`" 
+  <svg
+    :viewBox="`0 0 ${TOTAL_PX} ${TOTAL_PX}`"
     class="board-svg"
     @click="onBoardClick"
   >
     <!-- Assets Definition -->
     <defs>
-      <!-- Wood Texture -->
-      <pattern :id="'wood-' + uid" patternUnits="userSpaceOnUse" :width="BOARD_PX" :height="BOARD_PX">
-        <image href="/textures/wood.jpg" :width="BOARD_PX" :height="BOARD_PX" preserveAspectRatio="xMidYMid slice" />
+      <!-- Wood Texture (covers the full canvas including the label band) -->
+      <pattern :id="'wood-' + uid" patternUnits="userSpaceOnUse" :width="TOTAL_PX" :height="TOTAL_PX">
+        <image href="/textures/wood.jpg" :width="TOTAL_PX" :height="TOTAL_PX" preserveAspectRatio="xMidYMid slice" />
       </pattern>
 
       <!-- Black Stone Gradient -->
@@ -141,50 +160,59 @@ function onBoardClick(e: MouseEvent) {
     <!-- 1. Background -->
     <rect width="100%" height="100%" :fill="BOARD_COLOR" />
     <rect width="100%" height="100%" :fill="`url(#wood-${uid})`" />
-    
-    <!-- 2. Grid -->
-    <g :stroke="LINE_COLOR" stroke-width="0.8" opacity="0.8">
-      <line v-for="(l, i) in lines" :key="i" :x1="l.x1" :y1="l.y1" :x2="l.x2" :y2="l.y2" />
+
+    <!-- 2. Coordinate labels (viewBox-absolute coords; placed inside the
+         strip between the SVG edge and the nearest edge-row stone via
+         labelOffset / LABEL_INSET_RATIO). Rendered on all four sides
+         per the Lizzie/Sabaki/KaTrain/KGS/OGS convention. -->
+    <g v-if="showLabels" :fill="LABEL_COLOR" :font-size="LABEL_FONT_SIZE" font-weight="bold" font-family="monospace" text-anchor="middle" dominant-baseline="middle">
+      <text v-for="(label, i) in xLabels" :key="'lxt'+i" :x="LABEL_BAND + pad + i * cell" :y="labelOffset">{{ label }}</text>
+      <text v-for="(label, i) in xLabels" :key="'lxb'+i" :x="LABEL_BAND + pad + i * cell" :y="TOTAL_PX - labelOffset">{{ label }}</text>
+      <text v-for="i in boardSize"         :key="'lyl'+i" :x="labelOffset"                  :y="LABEL_BAND + pad + (boardSize - i) * cell">{{ i }}</text>
+      <text v-for="i in boardSize"         :key="'lyr'+i" :x="TOTAL_PX - labelOffset"      :y="LABEL_BAND + pad + (boardSize - i) * cell">{{ i }}</text>
     </g>
 
-    <!-- 3. Hoshi -->
-    <circle 
-      v-for="(h, i) in hoshi" 
-      :key="'h'+i"
-      :cx="toSVG(h[0], h[1]).x" 
-      :cy="toSVG(h[0], h[1]).y" 
-      :r="STAR_R"
-      fill="#222"
-    />
+    <!-- 3. Playing area: grid, hoshi, stones, last-move marker. Translated
+         into the inner box so the geometry below stays inner-board-relative. -->
+    <g :transform="`translate(${LABEL_BAND}, ${LABEL_BAND})`">
+      <!-- 3a. Grid -->
+      <g :stroke="LINE_COLOR" stroke-width="0.8" opacity="0.8">
+        <line v-for="(l, i) in lines" :key="i" :x1="l.x1" :y1="l.y1" :x2="l.x2" :y2="l.y2" />
+      </g>
 
-    <!-- 4. Labels -->
-    <g v-if="showLabels" :fill="LABEL_COLOR" font-size="11" font-weight="bold" font-family="monospace" text-anchor="middle">
-      <text v-for="(label, i) in xLabels" :key="'lx'+i" :x="pad + i * cell" :y="pad / 2 + 4">{{ label }}</text>
-      <text v-for="i in boardSize"         :key="'ly'+i" :x="pad / 2"         :y="pad + (boardSize - i) * cell + 4">{{ i }}</text>
-    </g>
-
-    <!-- 5. Stones -->
-    <g v-for="stone in stoneList" :key="stone.key">
-      <circle 
-        :cx="stone.x"
-        :cy="stone.y"
-        :r="stoneR"
-        :fill="stone.color === 'B' ? `url(#grad-b-${uid})` : `url(#grad-w-${uid})`"
-        :stroke="stone.color === 'B' ? '#000' : '#aaa'"
-        stroke-width="0.5"
+      <!-- 3b. Hoshi -->
+      <circle
+        v-for="(h, i) in hoshi"
+        :key="'h'+i"
+        :cx="toSVG(h[0], h[1]).x"
+        :cy="toSVG(h[0], h[1]).y"
+        :r="STAR_R"
+        fill="#222"
       />
-    </g>
 
-    <!-- 6. Last Move Marker (skipped on pass) -->
-    <g v-if="lastMove && lastMove.type === 'place'">
-      <circle 
-        :cx="toSVG(lastMove.x, lastMove.y).x"
-        :cy="toSVG(lastMove.x, lastMove.y).y"
-        :r="stoneR * 0.4"
-        fill="none"
-        :stroke="stones[`${lastMove.x},${lastMove.y}`] === 'B' ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.6)'"
-        stroke-width="2"
-      />
+      <!-- 3c. Stones -->
+      <g v-for="stone in stoneList" :key="stone.key">
+        <circle
+          :cx="stone.x"
+          :cy="stone.y"
+          :r="stoneR"
+          :fill="stone.color === 'B' ? `url(#grad-b-${uid})` : `url(#grad-w-${uid})`"
+          :stroke="stone.color === 'B' ? '#000' : '#aaa'"
+          stroke-width="0.5"
+        />
+      </g>
+
+      <!-- 3d. Last Move Marker (skipped on pass) -->
+      <g v-if="lastMove && lastMove.type === 'place'">
+        <circle
+          :cx="toSVG(lastMove.x, lastMove.y).x"
+          :cy="toSVG(lastMove.x, lastMove.y).y"
+          :r="stoneR * 0.4"
+          fill="none"
+          :stroke="stones[`${lastMove.x},${lastMove.y}`] === 'B' ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.6)'"
+          stroke-width="2"
+        />
+      </g>
     </g>
   </svg>
 </template>

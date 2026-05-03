@@ -18,7 +18,7 @@
  * License: Public Domain (The Unlicense)
  */
 import { computed } from 'vue';
-import { BOARD_PX } from '../engine/constants';
+import { BOARD_PX, LABEL_BAND, TOTAL_PX } from '../engine/constants';
 
 export interface HeatmapCell {
   readonly x: number;
@@ -61,29 +61,33 @@ const renderedCells = computed(() => props.cells.map(c => {
 
 <template>
   <svg
-    :viewBox="`0 0 ${BOARD_PX} ${BOARD_PX}`"
+    :viewBox="`0 0 ${TOTAL_PX} ${TOTAL_PX}`"
     class="heatmap-overlay"
     aria-hidden="true"
   >
-    <template v-for="cell in renderedCells" :key="cell.key">
-      <rect
-        v-if="shape === 'square'"
-        :x="cell.cx - half"
-        :y="cell.cy - half"
-        :width="half * 2"
-        :height="half * 2"
-        :fill="cell.fill"
-        :opacity="cell.opacity"
-      />
-      <circle
-        v-else
-        :cx="cell.cx"
-        :cy="cell.cy"
-        :r="half"
-        :fill="cell.fill"
-        :opacity="cell.opacity"
-      />
-    </template>
+    <!-- Translate into the inner playing area so the cx/cy formulas above
+         stay BoardDisplay-aligned without carrying the LABEL_BAND offset. -->
+    <g :transform="`translate(${LABEL_BAND}, ${LABEL_BAND})`">
+      <template v-for="cell in renderedCells" :key="cell.key">
+        <rect
+          v-if="shape === 'square'"
+          :x="cell.cx - half"
+          :y="cell.cy - half"
+          :width="half * 2"
+          :height="half * 2"
+          :fill="cell.fill"
+          :opacity="cell.opacity"
+        />
+        <circle
+          v-else
+          :cx="cell.cx"
+          :cy="cell.cy"
+          :r="half"
+          :fill="cell.fill"
+          :opacity="cell.opacity"
+        />
+      </template>
+    </g>
   </svg>
 </template>
 
