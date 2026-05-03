@@ -1,8 +1,10 @@
 # Magic Literals Audit — Design Note
 
-**Status:** Draft (2026-05-02). Planned for after the color theming
-substrate lands; see "Sequencing" below for why this depends on
-that work.
+**Status:** Draft (2026-05-02); Pass 1 inventory filed 2026-05-03 at
+`docs/notes/magic-literals-audit-inventory.md` (color substrate
+predicate satisfied). Pass 2 (cluster + substrate-or-justify) is
+the in-flight work; the inventory's "Recommended Pass 2 sequencing"
+section is the working order.
 
 **Motivation:** the codebase carries an unknown number of unjustified
 literal constants — magic numbers, magic strings, magic offsets —

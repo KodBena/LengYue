@@ -424,6 +424,27 @@ Large because the audit's surface is the entire frontend codebase,
 even though each emerging substrate or inline-justification edit
 is small.
 
+**Pass 1 inventory filed 2026-05-03** at
+`docs/notes/magic-literals-audit-inventory.md`. The inventory walks
+all 111 frontend `.ts` and `.vue` files, captures clusters across
+~14 categories (z-index ladder, animation durations, geometry
+multipliers, font-size scale, spacing scale, border-radius scale,
+letter-spacing scale, opacity sub-roles, color-mix percentages,
+TS-side timer literals, domain thresholds, URL paths, plus the
+already-disciplined band-3 domain literals and discriminated-union
+kind strings), and proposes a tiered sequencing for Pass 2 (9
+substrate-or-cleanup PRs, smallest-first). The cluster summary's
+Tier-1 candidates (z-index ladder, animation duration scale,
+geometry substrate) are the recommended opening sweep; spacing /
+font-size / radius / letter-spacing are the Tier-2 bulk; smaller
+alpha and path constants are Tier 3; the inline `magic-literal:`
+comment convention is the Tier-4 deliverable that closes the
+audit. The `defaults.ts` ↔ `use-pv-animation.ts` consolidation
+was initially flagged Tier-1 but set aside pending pairwise-
+calibration determination (the four values may be co-tuned for
+the repeating-window animation's visual rhythm); recorded in
+`deferred-items.md`.
+
 ---
 
 ## Future projects (parked with design notes)
