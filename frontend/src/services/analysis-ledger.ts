@@ -1,3 +1,19 @@
+/**
+ * src/services/analysis-ledger.ts
+ * Per-(configHash, nodeId) store of merged KataGo analysis packets,
+ * with per-node reactive version refs as the change-notification
+ * surface. Consumers (composables, charts) subscribe by reading via
+ * getRaw / getProjectedSequence, which touches the relevant version
+ * refs.
+ *
+ * Version-bump notifications are coalesced via requestAnimationFrame
+ * so high-frequency packet floods (KataGo NN-cache hits, proxy
+ * replay-cache replays) collapse into one redraw per browser frame.
+ * The merged packet is stored synchronously in record(); only the
+ * reactive notification is batched.
+ *
+ * License: Public Domain (The Unlicense)
+ */
 import { computed, ref, type ComputedRef, type Ref } from 'vue';
 import { type KataAnalysisResponse, type KataExtra, type KataPlayerExtra } from '../engine/katago/types';
 import { type NodeId, type BoardId } from '../types';
@@ -21,6 +37,34 @@ function getOrCreateVersion(hash: string, nodeId: NodeId): Ref<number> {
     nodeVersions.set(key, v);
   }
   return v;
+}
+
+// ── Batched version-bump scheduler ────────────────────────────────────────────
+// Coalesces per-node version bumps into one flush per browser frame so that
+// high-frequency packet arrivals (NN-cache hits, proxy replay-cache replays)
+// don't saturate the main thread re-running every consumer's computed and
+// re-firing every chart's setOption. Data is updated synchronously in
+// record(); only the reactive notification is deferred. Multiple packets
+// for the same (hash, nodeId) within a frame collapse to one bump; multiple
+// distinct keys each bump exactly once at flush time.
+//
+// purgeBoard intentionally bumps directly: it is a one-shot user action
+// that wants immediate visual feedback, not a flood needing coalescing.
+
+const pendingBumps = new Set<string>();
+let flushScheduled = false;
+
+function scheduleBumpFlush(): void {
+  if (flushScheduled) return;
+  flushScheduled = true;
+  requestAnimationFrame(() => {
+    flushScheduled = false;
+    for (const key of pendingBumps) {
+      const v = nodeVersions.get(key);
+      if (v) v.value++;
+    }
+    pendingBumps.clear();
+  });
 }
 
 // ── Merge helpers ─────────────────────────────────────────────────────────────
@@ -87,11 +131,18 @@ export class AnalysisLedger {
   public record(hash: string, nodeId: NodeId, packet: KataAnalysisResponse): void {
     if (!data.has(hash)) data.set(hash, new Map());
     const hashData = data.get(hash)!;
-    
+
     const existing = hashData.get(nodeId);
     const merged = mergeAnalysisPacket(existing, packet);
     hashData.set(nodeId, merged);
-    getOrCreateVersion(hash, nodeId).value++;
+
+    // Ensure the version ref exists so consumers reading via getRaw /
+    // getProjectedSequence can subscribe to it; the actual bump is
+    // deferred to the next animation frame so simultaneous arrivals
+    // collapse into one notification per (hash, nodeId).
+    getOrCreateVersion(hash, nodeId);
+    pendingBumps.add(`${hash}:${nodeId}`);
+    scheduleBumpFlush();
   }
 
   public getRaw(hash: string, nodeId: NodeId): KataAnalysisResponse | null {
