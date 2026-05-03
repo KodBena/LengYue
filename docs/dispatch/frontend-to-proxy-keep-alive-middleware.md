@@ -1,12 +1,18 @@
-# Frontend → Proxy: Stranded-query cleanup — hub-level orphan termination + keep-alive middleware
+# Frontend → Proxy: Stranded-query cleanup and coalescing-transparency
 
-- **Date:** 2026-05-03 (initial draft); revised 2026-05-03 (scope
-  expanded after a sharper question reframed the problem — see
-  *Revision note* below)
+- **Date:** 2026-05-03 (initial draft); revised 2026-05-03 twice — first
+  to layer in hub-level orphan termination after the disconnect-cleanup
+  gap was identified, second to add coalescing-transparent explicit
+  terminate as a priority concern after the existing
+  `_handle_terminate`'s coalescing-non-transparency was surfaced
+  during dispatch review (see *Revision note* below)
 - **From:** frontend (umbrella session)
 - **To:** proxy (KataProxy submodule)
-- **Type:** request — protocol-level fix (Phase 1) + new feature
-  with minor `SessionMiddleware` contract extension (Phase 2)
+- **Type:** request — three layered changes: (1) protocol-level fix to
+  `hub.unsubscribe`'s contract for disconnect cleanup; (2) priority
+  bug fix to `_handle_terminate`'s coalescing semantics; (3) new
+  feature with minor `SessionMiddleware` contract extension for
+  defense-in-depth against WS-stays-open client silence
 - **Status:** drafted; awaiting proxy-side implementation
 - **Suggested filing:** `docs/dispatch/frontend-to-proxy-keep-alive-middleware.md`
   per ADR-0005's dispatch-ledger convention. First entry in the
@@ -20,15 +26,16 @@ The initial draft framed this as a single-phase request: a
 keep-alive `SessionMiddleware` that uses the frontend's existing
 `query_version` watchdog as a heartbeat and terminates stranded
 queries when the heartbeat lapses. That framing was incomplete in
-a way that matters.
+two ways that matter.
 
-The blind spot: the initial draft treated WebSocket disconnect as
+**First blind spot — disconnect cleanup is incomplete at the
+protocol level.** The initial draft treated WebSocket disconnect as
 "already handled by the existing infrastructure," when in fact
 **`hub.unsubscribe` (`pubsub_hub.py:485`) does not check whether
 the subscriber list went empty and does not signal `router.terminate`
-on orphaned canonicals**. This means every sole-subscriber session
-that disconnects today leaves its in-flight queries running on the
-LEAF until natural completion — a generic protocol-level gap, not
+on orphaned canonicals**. Every sole-subscriber session that
+disconnects today leaves its in-flight queries running on the LEAF
+until natural completion — a generic protocol-level gap, not
 HMR-specific. On bounded analyze queries (`maxVisits ≈ 1000`) the
 cost is small and easy to miss; on ponder queries
 (`maxVisits = PONDER_MAX_VISITS = 100000`) it is substantial.
@@ -38,25 +45,52 @@ The middleware's watchdog task gets cancelled in `on_session_end`
 (called from `_cleanup` on disconnect), so the middleware
 contributes nothing in the true-disconnect cases (clean tab close,
 browser quit, eventual TCP RST). It only helps when the WS stays
-nominally open but the client is non-responsive — which is real
-(HMR singleton orphan, network freezes that don't drop TCP, frontend
-bugs that stop heartbeating without disconnecting), but a narrower
-case than the initial framing implied.
+nominally open but the client is non-responsive — a real but
+narrower case than the initial framing implied.
 
-The revised request is therefore layered:
+**Second blind spot — explicit terminate is coalescing-non-transparent.**
+While walking through Phase 1's mechanics during dispatch review, a
+pre-existing coalescing semantics violation in
+`_handle_terminate` (`proxy_server.py:398`) was surfaced. The
+current implementation calls `router.terminate(canonical_id)`
+**unconditionally** (line 455), which means: when client A
+explicitly terminates a query that's currently coalesced with
+client B's identical query, the LEAF gets the terminate, the
+canonical dies for everyone, and **B's analysis silently stops too**
+— B never gets a final response with `isDuringSearch=False` for
+that turn; their stream just ends. This blatantly violates the
+coalescing concept (the whole point of coalescing is that
+participants are isolated from each other's lifecycle) and is now
+treated as a priority defect to fix in this dispatch's scope rather
+than a follow-on concern.
+
+The revised request is therefore three layered changes:
 
 - **Phase 1 — Hub-level orphan termination.** The protocol-level
   fix: `hub.unsubscribe` returns a "was-last-subscriber" signal;
   `_cleanup` and any other unsubscribe call site act on it by
   invoking `router.terminate` on the orphaned canonical. Closes
-  the broader gap. Necessary first.
-- **Phase 2 — Keep-alive middleware.** The defense-in-depth: the
-  `SessionMiddleware` contract extension and the `KeepAliveMiddleware`
-  catch the residual case where the WS stays open but the client is
-  silent. Builds cleanly on Phase 1's foundation.
+  the disconnect-side gap. Necessary first because Phase 2 layers
+  on the same `was_last` contract.
+- **Phase 2 — Coalescing-transparent explicit terminate.** Priority
+  fix: `_handle_terminate` becomes coalescing-aware. When the
+  unsubscribe leaves other subscribers on the canonical, the LEAF
+  is **not** terminated, and a synthesized terminate-ack is
+  delivered to the originating client so they observe the same
+  protocol behaviour they would have if they'd been the sole
+  subscriber. When `was_last == True`, the existing flow runs
+  unchanged: terminate the LEAF, forward the real ack from KataGo.
+  This restores the coalescing isolation the architecture
+  intended.
+- **Phase 3 — Keep-alive middleware.** The defense-in-depth: the
+  `SessionMiddleware` contract extension and the
+  `KeepAliveMiddleware` catch the residual case where the WS
+  stays open but the client is silent. Builds cleanly on Phase 1
+  and Phase 2's foundation.
 
-Both are needed; the original-draft's "the existing infrastructure
-handles it" claim has been removed wherever it appeared.
+All three are needed; the original draft's "the existing
+infrastructure handles it" claim has been removed wherever it
+appeared.
 
 ## Why
 
@@ -85,9 +119,16 @@ controlled disconnect that leaves a single-subscriber session
 without a path to `router.terminate` results in stranded compute.
 On GPU-accelerated deployments, real money.
 
-This dispatch proposes the layered fix described in the *Revision
-note* above: Phase 1 closes the protocol-level gap, Phase 2 adds
-defense-in-depth for the residual WS-stays-open case.
+Separately, the coalescing-non-transparency in `_handle_terminate`
+means that any client explicitly terminating a coalesced query
+silently kills the analysis for every other subscriber on that
+canonical. This is a latent defect rather than a stranded-compute
+problem, but it's a coalescing-architecture violation the proxy
+should not carry — and the same `was_last` signal Phase 1
+introduces lets us close it cleanly.
+
+This dispatch proposes the three-phase fix described in the
+*Revision note* above.
 
 ---
 
@@ -133,11 +174,12 @@ def unsubscribe(
 
 The hub stays free of router dependencies — no new wiring at hub
 construction, no callback registration. The signal is just a
-return value.
+return value; both Phase 1's `_cleanup` and Phase 2's
+`_handle_terminate` consume it.
 
-### Call-site updates
+### Call-site update — `_cleanup`
 
-**`_cleanup`** (`proxy_server.py:565`) acts on the signal:
+`_cleanup` (`proxy_server.py:565`) acts on the signal:
 
 ```python
 async def _cleanup(self) -> None:
@@ -162,36 +204,17 @@ async def _cleanup(self) -> None:
                     f"orphan-terminate failed: canonical={cid!r}"
                 )
     self._active_queries.clear()
-    self._middleware.on_session_end()  # Phase 2 hook; no-op until then
+    self._middleware.on_session_end()  # Phase 3 hook; no-op until then
 ```
-
-**`_handle_terminate`** (`proxy_server.py:398`) ignores the return
-value — it explicitly fires `router.terminate` further down anyway,
-and KataGo's terminate is idempotent at the LEAF level. An
-optimization to skip the explicit terminate when `was_last=True`
-is possible but optional; the duplicate is wasteful only on the
-network round-trip, not on engine work, and isn't worth the
-flow-control complexity for Phase 1.
-
-(If the proxy implementer prefers the optimization, the path is:
-`_handle_terminate` checks `was_last`; if true, skips its own
-`await self._router.terminate(...)` since the cleanup is already
-in flight. The response-relabelling callbacks must still be
-preserved for the originating client's terminate-ack.)
 
 ### Compatibility and architectural fit
 
-- **Coalescing.** Multi-subscriber canonicals are unaffected:
-  `unsubscribe` returns `False` when other subscribers remain,
-  and no terminate fires. Only the last subscriber's departure
-  triggers cleanup. Matches the existing terminate semantics
-  (which also leave coalesced queries running for other
-  subscribers).
-- **Existing `_handle_terminate` flow.** Unchanged in correctness;
-  the explicit `router.terminate` at the bottom of
-  `_handle_terminate` continues to fire and produces the
-  terminate-ack the client expects. The duplicate engine signal
-  is benign.
+- **Coalescing.** Multi-subscriber canonicals are unaffected by
+  Phase 1: `unsubscribe` returns `False` when other subscribers
+  remain, and no terminate fires. Only the last subscriber's
+  departure triggers cleanup. Phase 2 then extends the same
+  coalescing-aware reasoning to the explicit-terminate path,
+  closing the asymmetry that would otherwise persist.
 - **Race conditions.** `unsubscribe` and `on_complete` can race —
   if a query finishes naturally just as the last subscriber leaves,
   one of two outcomes:
@@ -213,14 +236,192 @@ preserved for the originating client's terminate-ack.)
 
 ---
 
-## Phase 2 — Keep-alive `SessionMiddleware` (defense-in-depth)
+## Phase 2 — Coalescing-transparent explicit terminate
 
 ### Problem
 
-Phase 1 closes the disconnect path. The residual case is the
-WS-stays-nominally-open silence: HMR singleton orphan with the old
-WS held by a dead closure; network freezes that wedge a connection
-without a TCP RST; a frontend bug that stops sending `query_version`
+`_handle_terminate` (`proxy_server.py:398`) currently calls
+`router.terminate(canonical_id)` unconditionally at line 455:
+
+```python
+self._hub.unsubscribe(target_internal_id, canonical_id)
+self._active_queries = { ... cleaned up ... }
+register_query_completion(self._tracker, terminate_internal_id, translated_query)
+
+async def on_terminate_response(wire_id, wire) -> None:
+    relabelled = dict(wire)
+    relabelled["id"] = terminate_internal_id
+    if relabelled.get("terminateId") == canonical_id:
+        relabelled["terminateId"] = target_internal_id
+    await send_queue.put(relabelled)
+
+async def on_terminate_complete(wire_id) -> None:
+    logger.debug(...)
+
+await self._router.terminate(
+    canonical_id,
+    on_response=on_terminate_response,
+    on_complete=on_terminate_complete,
+)
+```
+
+When client A explicitly terminates a query that is currently
+coalesced with client B's identical query (B is in the same
+canonical's subscriber list), the LEAF gets the terminate, KataGo
+stops the search, and the canonical's response stream ends. B's
+analysis silently dies — no final response, no error, the stream
+just stops. This contradicts the coalescing architecture's central
+promise: that participants in a coalesced canonical are isolated
+from each other's lifecycle.
+
+The "no longer valid for new business" comment on `unsubscribe`
+(`pubsub_hub.py:498-500`) suggests the original design intent was
+that any unsubscribe (whether by terminate or by departure) freezes
+new coalescing onto the canonical — that part is fine — but the
+unconditional LEAF terminate goes further than that: it actively
+takes the canonical away from existing subscribers. A defect, and
+priority enough not to leave deferred.
+
+### Contract change
+
+`_handle_terminate` becomes coalescing-aware by acting on Phase 1's
+`was_last` return:
+
+```python
+async def _handle_terminate(self, orig_id: str, query) -> None:
+    # ... existing translation, target lookup, and orig_id-namespace
+    # bookkeeping (unchanged) ...
+
+    was_last = self._hub.unsubscribe(target_internal_id, canonical_id)
+    self._active_queries = {
+        oid: pair
+        for oid, pair in self._active_queries.items()
+        if pair[1] != canonical_id
+    }
+    register_query_completion(self._tracker, terminate_internal_id, translated_query)
+
+    send_queue = self._send_queue
+
+    if was_last:
+        # Existing path: no other subscribers, so terminating the
+        # canonical at the LEAF is correct. The originating client
+        # gets the real KataGo terminate-ack via the relabelling
+        # callback, exactly as today.
+
+        async def on_terminate_response(wire_id: str, wire: dict) -> None:
+            relabelled = dict(wire)
+            relabelled["id"] = terminate_internal_id
+            if relabelled.get("terminateId") == canonical_id:
+                relabelled["terminateId"] = target_internal_id
+            await send_queue.put(relabelled)
+
+        async def on_terminate_complete(wire_id: str) -> None:
+            logger.debug(
+                f"on_terminate_complete (was_last) "
+                f"wire_id={wire_id!r}"
+            )
+
+        await self._router.terminate(
+            canonical_id,
+            on_response=on_terminate_response,
+            on_complete=on_terminate_complete,
+        )
+    else:
+        # Coalescing-transparent path: other subscribers remain on
+        # this canonical. We must NOT terminate the LEAF — that would
+        # silently kill their analysis. Instead, synthesize the
+        # terminate-ack the originating client expects, so they
+        # observe the same protocol behaviour they would if they'd
+        # been the sole subscriber.
+
+        synthesized_ack = _build_synthesized_terminate_ack(
+            terminate_internal_id=terminate_internal_id,
+            target_internal_id=target_internal_id,
+        )
+        logger.debug(
+            f"coalescing-transparent terminate: canonical={canonical_id!r} "
+            f"retains {len(_remaining_subscribers(canonical_id))} subscriber(s); "
+            f"synthesizing ack for orig={orig_id!r}"
+        )
+        await send_queue.put(synthesized_ack)
+```
+
+### Open implementation question — synthesized-ack shape
+
+The exact wire shape of a KataGo terminate-ack determines the
+synthesized payload. The current code's `on_terminate_response`
+relabels the LEAF's response and forwards it; the synthesized
+version needs to carry the same fields. Two options for the proxy
+implementer to decide:
+
+1. **Inspect KataGo's actual terminate-ack** (likely a small
+   `{"id": ..., "action": "terminate", "terminateId": ..., "isDuringSearch": false}`-shape
+   payload, but the proxy team will know the exact fields) and
+   construct an equivalent payload locally.
+2. **Capture a real terminate-ack at first occurrence** and use it
+   as a template. Less appealing — adds startup-time state — but
+   robust against KataGo ever extending the ack format.
+
+Option 1 is the natural choice; the small risk is divergence if
+KataGo ever changes the ack shape, which the proxy's existing
+fail-loud posture would catch in any case.
+
+### Compatibility and architectural fit
+
+- **Coalescing semantics restored.** This is the central goal:
+  client A's explicit terminate stops A's view of a coalesced
+  canonical; B's view continues uninterrupted. The protocol
+  experience is symmetric whether A was alone or coalesced.
+- **Sole-subscriber path unchanged.** When `was_last == True`, the
+  existing flow runs verbatim — same terminate dispatch, same
+  ack-relabelling callback, same observable behaviour for the
+  client. The only structural difference is a guard around the
+  existing block.
+- **Hub-side bookkeeping.** The hub entry's lifecycle is unchanged
+  in the multi-subscriber path: the canonical continues serving
+  remaining subscribers; `on_complete` from the hub-registered
+  callback fires when the canonical naturally completes; the
+  entry pops then. The unsubscribe already removed the canonical
+  from the `_by_hash` coalescing pool (the existing
+  "no longer valid for new business" behaviour), so no new
+  subscribers can join the canonical mid-lifetime — that's the
+  correct posture; this terminate is a signal that the canonical's
+  participant set is shrinking, not that new participants should
+  start joining.
+- **Tracker / completion tracker.** The synthesized ack flows
+  through the same upstream path as a real LEAF-derived ack
+  (`send_queue` → send loop → `chain.translate_upstream`), so the
+  tracker advances and the mapping cleans up via the existing
+  machinery. No new bookkeeping path.
+- **Fail-loud (ADR-0002).** A synthesized ack that doesn't match
+  KataGo's actual format could surface as a client-side parse
+  failure — that's the right loudness for a divergence between
+  proxy-synthesis and engine-emission. No silent drift.
+- **Licensing boundary.** No code touches `goboard_transposition/`.
+
+### Why this is priority
+
+The defect is a coalescing-architecture violation — it contradicts
+the central guarantee that makes the hub layer's existence
+worthwhile. Multi-tab gogui sessions with the same active position
+and the same palette would exhibit the bug today (one tab
+navigating away kills the other tab's analysis); the multi-client
+institutional case (the audience the proxy is positioned to
+serve, per `proxy/README.md`'s framing) would exhibit it at any
+time two clients happen to coalesce. The fix is small and
+mechanical, and lives next to Phase 1 in the same files.
+
+---
+
+## Phase 3 — Keep-alive `SessionMiddleware` (defense-in-depth)
+
+### Problem
+
+Phase 1 closes the disconnect path; Phase 2 closes the
+coalescing-transparency gap. The residual case is the WS-stays-
+nominally-open silence: HMR singleton orphan with the old WS held
+by a dead closure; network freezes that wedge a connection without
+a TCP RST; a frontend bug that stops sending `query_version`
 without disconnecting. In all of these, the proxy never observes a
 disconnect, `_cleanup` never runs, and the canonical query keeps
 computing for a client that no longer exists.
@@ -310,7 +511,9 @@ either direction creates a concrete problem.
 no-op implementations of the new hooks.
 
 The `terminate_query` callback wraps a synthetic-id-prefixed call
-into `_handle_terminate`:
+into `_handle_terminate` (which by Phase 3's time has been made
+coalescing-transparent by Phase 2 — so middleware-initiated
+terminations also respect coalescing without any extra work):
 
 ```python
 async def _terminate_query(target_orig_id: str) -> None:
@@ -348,8 +551,8 @@ class KeepAliveMiddleware(SessionMiddleware):
     Scope: this middleware addresses the WS-stays-nominally-open case
     only. The disconnect case is handled by Phase 1's hub-level
     orphan termination, which fires before on_session_end cancels the
-    watchdog. Both layers together cover all known stranded-query
-    scenarios.
+    watchdog. All three layers together cover the known stranded-
+    query and coalescing-transparency scenarios.
     """
 
     def __init__(
@@ -451,15 +654,12 @@ online go services" framing) can supply their own predicate.
   `AdaptiveReevaluateMiddleware` get default no-op implementations of
   `on_session_start`/`on_session_end`. `MiddlewareChain` forwards
   the hooks. No behavior change for existing consumers.
-- **Coalescing.** A query coalesced at the hub belongs to multiple
-  sessions; the middleware's `_in_flight` is per-session. When a
-  middleware fires `terminate_query` for one of its session's queries,
-  `_handle_terminate` runs through the existing flow (translate ID,
-  unsubscribe from hub, fire `router.terminate`). With Phase 1 in
-  place, `hub.unsubscribe` returns the was-last signal — but
-  `_handle_terminate` is the explicit-terminate path and ignores it
-  per Phase 1's call-site rules. Net: one terminate to the LEAF per
-  middleware-initiated termination, regardless of subscriber count.
+- **Coalescing.** The middleware's `_in_flight` is per-session;
+  middleware-initiated `terminate_query` calls go through Phase 2's
+  coalescing-transparent `_handle_terminate`. So a keep-alive
+  termination on a coalesced canonical only stops *this* session's
+  view; other subscribers continue. The whole stack composes
+  cleanly.
 - **Synthetic-query tracking.** Queries injected by other middleware
   via `submit_query` bypass `_handle_incoming` and therefore are not
   seen by `KeepAliveMiddleware.on_query`. This means
@@ -510,34 +710,63 @@ Multi-subscriber non-regression:
    because the surviving subscriber keeps it alive.
 7. Close the second tab. Verify GPU/CPU drops as in step 3.
 
-Explicit-terminate non-regression:
+### Phase 2 — Coalescing-transparent explicit terminate
 
-8. Open the SPA, fire a ponder, then change the active board node
-   (which triggers `stopBoardAnalysis` → client-initiated
-   `terminate`). Verify the terminate-ack reaches the client and the
-   LEAF stops the search. (This was the existing path; Phase 1 must
-   not break it.)
+Coalescing-transparency under explicit terminate (the priority bug
+fix):
 
-### Phase 2 — Keep-alive middleware
+8. Open two SPA tabs pointing at the same position with the same
+   palette; verify both ponder concurrently as a coalesced canonical.
+9. In one tab, navigate to a different node (which triggers
+   `stopBoardAnalysis` → client-initiated `terminate` for that
+   tab's view of the coalesced canonical). The other tab's
+   `currentNodeId` does not change.
+10. **Expected (post-Phase-2):** the navigating tab's analysis stops
+    cleanly (it gets a synthesized terminate-ack and the local
+    bookkeeping unwinds normally); the other tab's analysis
+    **continues uninterrupted**, with `isDuringSearch` updates
+    flowing as before. Proxy log should show
+    `coalescing-transparent terminate: ... retains 1 subscriber(s)`.
+11. **Pre-Phase-2 baseline:** the navigating tab terminates
+    correctly; the other tab's analysis silently stops (its packet
+    stream just ends with no final response).
+
+Sole-subscriber non-regression:
+
+12. Open one SPA tab; fire a ponder; navigate to a different node.
+    Verify the explicit terminate flow works exactly as before
+    (real KataGo terminate-ack relabelled and forwarded).
+
+Synthesized-ack shape:
+
+13. Compare a real KataGo terminate-ack (captured via Phase 1's
+    sole-subscriber path or Phase 2's `was_last==True` path) with
+    the synthesized-ack the proxy emits in the multi-subscriber
+    path. Fields and format should match closely enough that the
+    client cannot tell which was synthesized. Any divergence is a
+    fail-loud signal at the client (parse error, unexpected field)
+    and warrants tightening the synthesis.
+
+### Phase 3 — Keep-alive middleware
 
 WS-stays-open variant (the residual case):
 
-9. Set `KEEP_ALIVE_IDLE_TIMEOUT_SECONDS=3` in the proxy environment.
-10. Lower the frontend watchdog to ~600ms locally (single line in
+14. Set `KEEP_ALIVE_IDLE_TIMEOUT_SECONDS=3` in the proxy environment.
+15. Lower the frontend watchdog to ~600ms locally (single line in
     `analysis-service.ts:88`); revert before commit.
-11. Open the SPA, fire a ponder.
-12. Suspend the browser tab in a way that keeps the WS nominally open
+16. Open the SPA, fire a ponder.
+17. Suspend the browser tab in a way that keeps the WS nominally open
     but stops the heartbeat (e.g., DevTools → Sources → pause
     JavaScript execution; or simulate by commenting out the watchdog
     interval temporarily).
-13. **Expected:** GPU/CPU utilisation drops within ~3-5 seconds (3s
+18. **Expected:** GPU/CPU utilisation drops within ~3-5 seconds (3s
     timeout + up to 1s check interval + the LEAF's terminate
     acknowledgement). Proxy log shows
     `keep-alive timeout: idle=3.X s terminating 1 stranded query(ies)`.
 
 Non-regression:
 
-14. With `KEEP_ALIVE_IDLE_TIMEOUT_SECONDS=25` (production default),
+19. With `KEEP_ALIVE_IDLE_TIMEOUT_SECONDS=25` (production default),
     leave the SPA open with a ponder running. Verify the
     `query_version` watchdog keeps the heartbeat fresh and no
     stranded-termination logs appear over a sustained session.
@@ -549,16 +778,17 @@ Non-regression:
 On the proxy side: a section in `proxy/FRAMEWORK.md` (or
 `proxy/ARCHITECTURE.md`, whichever is the natural fit) documenting
 (a) the `hub.unsubscribe` return-value contract and the orphan-
-termination responsibility on call sites, and (b) the
-`SessionMiddleware` lifecycle hooks and `SessionCapabilities` shape.
-The `KeepAliveMiddleware` itself is self-documenting via its module
-docstring; no separate doc required.
+termination responsibility on call sites, (b) the
+coalescing-transparent semantics of explicit terminate, and (c)
+the `SessionMiddleware` lifecycle hooks and `SessionCapabilities`
+shape. The `KeepAliveMiddleware` itself is self-documenting via its
+module docstring; no separate doc required.
 
 On the umbrella side: `docs/handoff-current.md`'s "Rough edges to
 know about" section currently flags "Drift between the proxy's
 contract and the frontend's wire type" — this work doesn't change
 the wire, so no edit there. After the proxy ships, the umbrella's
-proxy pointer bump (a separate umbrella PR) should update
+proxy pointer bumps (separate umbrella PRs per phase) should update
 `docs/handoff-current.md`'s proxy-version reference and the
 frontend's TODO entry for HMR cleanup
 (`docs/TODO.md`'s "Trivial" tier — added in this same session) can
@@ -576,32 +806,43 @@ own repo with its own release cadence. The arc:
    protocol-level fix, no contract widening). The umbrella's
    pointer bump for v1.0.7 is its own umbrella PR.
 
-2. **Phase 2 PR** in the proxy repo, layered on Phase 1: contract
-   extension (`session_middleware.py` lifecycle hooks +
+2. **Phase 2 PR** in the proxy repo, layered on Phase 1:
+   `proxy_server.py:_handle_terminate` becomes coalescing-aware
+   by acting on the same `was_last` signal Phase 1 introduced;
+   the synthesized-ack helper is added next to the existing
+   terminate response-relabelling logic. Tag cut on completion
+   (suggested: v1.0.8, behavior change in the multi-subscriber
+   terminate path — restoring the coalescing guarantee that was
+   never honoured, but a behaviour change nevertheless). The
+   umbrella's pointer bump for v1.0.8 is its own umbrella PR.
+
+3. **Phase 3 PR** in the proxy repo, layered on Phases 1 and 2:
+   contract extension (`session_middleware.py` lifecycle hooks +
    `SessionCapabilities`), wiring in `proxy_server.py`
    (`on_session_start` / `on_session_end` calls + `terminate_query`
    capability constructed from `_handle_terminate`), and the new
    `keep_alive.py` module. Existing middleware
    (`IdentityMiddleware`, `MiddlewareChain`,
    `AdaptiveReevaluateMiddleware`) get default no-op lifecycle
-   implementations. Tag cut on completion (suggested: v1.0.8,
+   implementations. Tag cut on completion (suggested: v1.0.9,
    additive feature + additive contract change, no breaking
-   changes). The umbrella's pointer bump for v1.0.8 is its own
+   changes). The umbrella's pointer bump for v1.0.9 is its own
    umbrella PR.
 
-The shared context across the two phases is strong (both touch the
-same files, the same testing scenarios overlap, the second's
-correctness reasoning depends on the first), so a single proxy-side
-session implementing both in sequence is appropriate. The two PRs
-remain separate so reviewers can sign off on the protocol-level
-fix independently of the contract widening.
+The shared context across the three phases is strong (Phases 1
+and 2 touch the same files and share the `was_last` contract;
+Phase 3 builds on the foundation both lay), so a single proxy-side
+session implementing all three in sequence is appropriate. The
+three PRs remain separate so reviewers can sign off on the
+protocol-level fix, the coalescing-semantics correction, and the
+contract widening independently.
 
 ## Reply
 
 When each phase ships, a status dispatch back to
 `docs/dispatch/proxy-to-frontend-keep-alive-middleware-status.md`
 is sufficient — anything from "Phase 1 shipped, contract as
-proposed" to "Phase 2 shipped with the following deviations: …"
-lets the umbrella proceed with the corresponding pointer bump.
+proposed" to "Phase 3 shipped with the following deviations: …"
+lets the umbrella proceed with the corresponding pointer bumps.
 
 — end request —
