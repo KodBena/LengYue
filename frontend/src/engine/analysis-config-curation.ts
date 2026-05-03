@@ -20,9 +20,10 @@
  * Single source for the curated names; consumed by:
  *   - `src/store/migrations.ts` (11 → 12 step, walks persisted state)
  *   - `src/services/backend-service.ts::mapToReviewCard` (ACL pass on
- *     fetched cards' baked configs — gated on Item 18's actual
- *     closure per the warning at `types.ts`'s `gradingParameter`
- *     declaration; not wired today)
+ *     fetched cards' baked configs — wired as part of Item 18's
+ *     actual closure; the migration covers state already persisted
+ *     pre-v1.0.3, the ACL covers cards as they arrive from the
+ *     backend going forward)
  *
  * Coordinated with the proxy team during the v1.0.3 release window.
  * The bit-equivalence claim under the wrapper contract is the design

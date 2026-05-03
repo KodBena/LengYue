@@ -498,3 +498,74 @@ PR that lands alongside this sub-observation.
   implementation.
 
 — end 2026-05-02 entry —
+
+---
+
+## 2026-05-03 — Item 18 ACL closure follow-on by Claude (Opus 4.7)
+
+A short closure note rather than a fresh observation: the
+immediate-action item from the 2026-05-02 entry — "Item 18
+actual closure" — shipped today, on the user's prompt. This
+entry records what landed and what the broader audit pass
+this surfaced is still owed.
+
+### 1. What shipped
+
+The closure follows the scope the 2026-05-02 entry named:
+
+- `services/backend-service.ts::mapToReviewCard` now routes
+  `raw.grading_parameter` through `engine/analysis-config-
+  curation.ts::rewriteGradingParameterAnalysisConfig` before
+  surfacing it on the returned `ReviewCard`. The bit-equivalent
+  rewrite aligns pre-v1.0.3 cards' baked configs with the
+  curated proxy stdlib so the per-card config-override path
+  at `useReviewSession.ts:235` actually overrides at review
+  time.
+- `currentRecall` and `halflifeUnits` (the other two fields
+  in the same Commit-4 batch the auditor entry called out as
+  potentially missed) now propagate from `raw.current_recall`
+  / `raw.halflife_units` directly. No transformation; the
+  wire fields are required `number` in the OpenAPI schema.
+- `types.ts`'s WARNING block on `ReviewCard.gradingParameter`
+  retired (the dormant-state warning is no longer accurate).
+  The `Item 18 surfacing (Commit 4)` comment line trimmed to
+  `Item 18 surfacing` since "Commit 4" is no longer the
+  authoritative closure reference.
+- `engine/analysis-config-curation.ts` header's "not wired
+  today" note flipped to record that the ACL pass is now in
+  place alongside the migrations consumer.
+
+Residue handling left as the entry recommended: the proxy's
+call-time `NameError` for bodies referencing fns outside the
+curated stdlib remains the authoritative diagnostic, and the
+existing analysis-service → SystemMessage path surfaces it
+per ADR-0002. No per-card residue warning at the ACL — that
+would be noise, and the migration already covered the
+upgrade-path audit.
+
+### 2. What this entry does NOT close
+
+The auditor entry surfaced two distinct items: the immediate-
+action item (Item 18 closure, shipped here) and a class-wide
+audit pass over `mapToReviewCard` and any other ACL translator
+with documented surfacings, looking for typed-but-unassigned
+fields. The class-wide pass is **not** done in this PR. It
+remains as a follow-on session — the user can elect to schedule
+it as its own work unit when prioritized, and the entry's
+"Advice for the next auditor" section is the hand-off for that
+sweep when it happens.
+
+### 3. Lesson reinforced
+
+The "TS optionality is the silent collaborator" advice from
+the 2026-05-02 entry was the structural enabler of the original
+divergence. The closure path used here — wiring the ACL
+assignment, then retiring the WARNING block at the type
+declaration site — is the symmetric remediation: when a typed-
+but-unpopulated field is finally populated, the documentation
+that warned about its dormancy must retire alongside, or the
+warning ages into a different kind of lie (claiming a state
+the code no longer exhibits). The doc edit and the code edit
+ship in the same commit for this reason, not as a follow-up.
+
+— end 2026-05-03 entry —
