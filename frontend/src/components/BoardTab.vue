@@ -10,6 +10,7 @@
 import { computed } from 'vue';
 import { useActivityDecay } from '../composables/useActivityDecay';
 import { getIntensityColorLinear } from '../engine/suggestion-colors';
+import { PONDER_MAX_VISITS } from '../engine/constants';
 import type { BoardState } from '../types';
 import { ledger } from '../services/analysis-ledger';
 import { useVariationPath } from '../composables/useVariationPath';
@@ -37,11 +38,13 @@ const path = useVariationPath(() => props.state.id);
 // Three visual decisions distinct from how the intensity gradient is
 // consumed elsewhere (move suggestions, ColorDebugStrip):
 //
-//   • Target floor is the ponder ceiling (`maxVisits: 100000` in
-//     analysis-service); a deeper user-specified `analyzeRange` target
-//     wins. Without the floor, the meter saturates instantly on ponder
-//     when the user hasn't run a range analysis, because the default
-//     `state.maxVisitsTarget` is 1000.
+//   • Target floor is the ponder ceiling (`PONDER_MAX_VISITS` in
+//     `engine/constants.ts`, applied as `maxVisits` in
+//     analysis-service's ponder mode); a deeper user-specified
+//     `analyzeRange` target wins. Without the floor, the meter
+//     saturates instantly on ponder when the user hasn't run a
+//     range analysis, because the default `state.maxVisitsTarget`
+//     is 1000.
 //
 //   • Logarithmic compression on visits → t. Linear `visits / target`
 //     would put the entire 1k–10k–100k progression into the bottom
@@ -65,7 +68,7 @@ const path = useVariationPath(() => props.state.id);
 const rugPlot = computed(() => {
   const nodeIds = path.value;
   if (nodeIds.length === 0) return [];
-  const target = Math.max(props.state.maxVisitsTarget ?? 0, 100000);
+  const target = Math.max(props.state.maxVisitsTarget ?? 0, PONDER_MAX_VISITS);
   const targetLog = Math.log1p(target);
   return nodeIds.map((id, idx) => {
     const packet = ledger.getRaw(activeConfigHash.value, id);

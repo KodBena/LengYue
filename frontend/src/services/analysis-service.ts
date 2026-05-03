@@ -13,6 +13,7 @@ import {
 } from '../engine/katago/types';
 import { type BoardId, type NodeId } from '../types';
 import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi, getInitialStones } from '../engine/util';
+import { PONDER_MAX_VISITS } from '../engine/constants';
 import { store, pushSystemMessage } from '../store';
 import { ledger } from './analysis-ledger';
 import { compileAnalysisConfig, activeConfigHash, hashConfig } from './analysis-config';
@@ -217,7 +218,7 @@ export class AnalysisService {
       boardYSize: size,
       komi, // Added Komi mapping
       ...(visits !== undefined ? { maxVisits: visits } : {}),
-      ...(mode === 'ponder' ? { reportDuringSearchEvery: 0.15, maxVisits: 100000 } : { reportDuringSearchEvery: 0.5 }),
+      ...(mode === 'ponder' ? { reportDuringSearchEvery: 0.15, maxVisits: PONDER_MAX_VISITS } : { reportDuringSearchEvery: 0.5 }),
       analyzeTurns: [currentIdx],
       ...(needsOwnership ? { includeOwnership: true } : {}),
       ...(analysis_config ? { analysis_config } : {})
