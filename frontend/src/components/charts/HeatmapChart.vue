@@ -57,6 +57,9 @@ const updateOptions = () => {
     tooltip: {
       show: true,
       enterable: true,
+      backgroundColor: themeColor('--surface-1'),
+      borderColor: themeColor('--border-2'),
+      textStyle: { color: themeColor('--text-1') },
       formatter: (p: any) => {
         if (!p.data?.cell) return '';
         const cell = p.data.cell as HeatmapCell;

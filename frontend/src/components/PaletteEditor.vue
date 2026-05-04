@@ -464,7 +464,6 @@ function deleteItem() {
   padding: var(--space-default) var(--space-medium); background: var(--surface-2); color: var(--text-1); font-size: var(--text-body); text-transform: uppercase;
 }
 .add-btn { background: none; border: none; color: var(--accent-primary); cursor: pointer; font-weight: bold; font-size: var(--text-heading); }
-.add-btn:hover { color: var(--text-0); }
 
 .item-list { list-style: none; padding: 0; margin: 0; }
 .item-list li {
@@ -497,7 +496,6 @@ function deleteItem() {
    --state-error-muted) would retire these last two literals.
    Preserved until the substrate gains tinted-surface vocabulary. */
 .del-btn { background: var(--surface-0); color: var(--state-error); border: 1px solid #5a1a1a; padding: var(--space-tight) var(--space-default); border-radius: var(--radius-default); cursor: pointer; font-size: var(--text-body); }
-.del-btn:hover { background: #5a1a1a; color: var(--text-0); }
 
 .editor-wrap { flex: 1; overflow: auto; }
 
@@ -505,8 +503,11 @@ function deleteItem() {
 .form-grid { display: grid; grid-template-columns: 120px 1fr; gap: var(--space-medium); align-items: center; }
 .form-grid label { font-size: var(--text-emphasis); color: var(--text-2); }
 
-.dark-input, .dark-select {
+.dark-input {
   background: var(--surface-1); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default); border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
+}
+.dark-select {
+  border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default); border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
 }
 .dark-input:focus, .dark-select:focus { border-color: var(--accent-primary); }
 
@@ -515,7 +516,6 @@ function deleteItem() {
 .arrow { color: var(--border-3); }
 .flex-1 { flex: 1; }
 .del-btn-sm { background: none; border: none; color: var(--state-error); cursor: pointer; font-size: var(--text-heading); }
-.del-btn-sm:hover { color: var(--text-0); }
 
 .range-inputs { display: flex; align-items: center; gap: var(--space-default); }
 .range-half { flex: 1; min-width: 0; }

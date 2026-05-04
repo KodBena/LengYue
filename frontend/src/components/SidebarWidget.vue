@@ -64,7 +64,7 @@ function onHoverLeave() {
 <style scoped>
 #sidebar-widget {
   display: flex; flex-direction: column; align-items: center;
-  padding: var(--space-medium) 0; background: var(--surface-1); height: 100%;
+  padding: var(--space-medium) 0; background: var(--surface-0); height: 100%;
   border-right: 1px solid var(--surface-1); width: 108px;
 }
 
@@ -77,10 +77,4 @@ function onHoverLeave() {
   width: 20px; height: 20px; border-radius: 0%; border: none;
   background: var(--surface-2); color: var(--text-0); font-size: var(--text-emphasis); cursor: pointer; margin-top: var(--space-medium);
 }
-/* Hover declarations are no-ops by design (match base) so the
-   button has no visual hover change. The global .tab-add-btn:hover
-   in style.css would otherwise shift border-color and color; the
-   explicit overrides here keep the hover state visually identical
-   to the base. */
-.tab-add-btn:hover { background: var(--surface-2); color: var(--text-0); }
 </style>

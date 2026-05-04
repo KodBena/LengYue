@@ -198,11 +198,10 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
 
 <style scoped>
 .forest-container { display: flex; flex: 1; height: 100%; min-height: 0; background: var(--surface-0); }
-.left-panel { width: 280px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--surface-3); background: var(--surface-1); flex-shrink: 0; }
+.left-panel { width: 280px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--surface-3); flex-shrink: 0; }
 .panel-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-tight) var(--space-default); border-bottom: 1px solid var(--surface-3); background: var(--surface-2); font-size: var(--text-emphasis); text-transform: uppercase; color: var(--text-0); letter-spacing: var(--tracking-default); flex-shrink: 0; }
 .tab-switcher { padding: 0; display: flex; }
-.tab-switcher button { flex: 1; background: transparent; border: none; color: var(--text-2); padding: var(--space-tight) 0; font-size: var(--text-body); text-transform: uppercase; letter-spacing: var(--tracking-default); cursor: pointer; border-bottom: 2px solid transparent; transition: color var(--duration-default), background var(--duration-default); }
-.tab-switcher button:hover { background: var(--surface-2); color: var(--text-1); }
+.tab-switcher button { flex: 1; background: transparent; border: none; color: var(--text-2); padding: var(--space-tight) 0; font-size: var(--text-body); text-transform: uppercase; letter-spacing: var(--tracking-default); cursor: pointer; border-bottom: 2px solid transparent; }
 .tab-switcher button.active { color: var(--accent-primary); border-bottom-color: var(--accent-primary); background: var(--surface-2); }
 .decks-view, .roots-view { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .deck-selector-box { padding: var(--space-default); border-bottom: 1px solid var(--surface-3); }
@@ -211,10 +210,8 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
 .deck-dropdown:focus { border-color: var(--accent-primary); }
 .hint { font-size: var(--text-body); color: var(--text-2); margin: 0 0 var(--space-tight) 0; }
 .action-btn-large { width: 100%; background: var(--surface-2); color: var(--accent-primary); border: 1px solid var(--border-2); padding: 2px 4px; border-radius: var(--radius-default); font-size: var(--text-emphasis); cursor: pointer; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
-.action-btn-large:hover { background: var(--surface-3); border-color: var(--accent-primary); }
 .tools-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 8px; border-bottom: 1px solid var(--surface-3); }
 .reload-btn { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: var(--text-heading); padding: 0; line-height: 1; }
-.reload-btn:hover { color: var(--accent-primary); }
 .roots-list { flex: 1; overflow-y: auto; padding: var(--space-tight); display: flex; flex-direction: column; gap: 3px; }
 .root-card { background: var(--surface-2); border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: var(--space-tight) var(--space-default); cursor: pointer; transition: border-color var(--duration-default); flex-shrink: 0; }
 .root-card:hover { border-color: var(--border-3); }
@@ -225,7 +222,6 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
 .tree-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .header-controls { display: flex; align-items: center; gap: var(--space-default); }
 .orient-btn { background: var(--surface-2); color: var(--accent-primary); border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: 1px 3px; font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: var(--tracking-tight); cursor: pointer; font-family: inherit; }
-.orient-btn:hover { background: var(--surface-3); border-color: var(--accent-primary); }
 .tree-meta { color: var(--accent-primary); font-size: var(--text-body); }
 .empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-2); font-size: var(--text-emphasis); }
 .empty-state.error { color: var(--state-error); }

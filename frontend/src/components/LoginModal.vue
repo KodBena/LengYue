@@ -192,18 +192,13 @@ function handleBackdropClick(e: MouseEvent): void {
 .btn:disabled { cursor: not-allowed; opacity: var(--alpha-disabled); }
 
 .btn-secondary { background: var(--border-2); border-color: var(--border-3); color: var(--text-1); }
-.btn-secondary:hover:not(:disabled) { background: var(--border-3); }
 
-/* theme-exception: .btn-primary:hover #5dbafa is a lightened-accent
-   variant; same rationale as MintCardModal's btn-submit hover. */
 .btn-primary { background: var(--accent-primary); border-color: var(--accent-primary); color: var(--text-0); font-weight: bold; }
-.btn-primary:hover:not(:disabled) { background: #5dbafa; }
 
 /* theme-exception: .btn-danger uses muted-attention surface variants
-   (#4a2020 / #5a2828 / #6a3030) and pinkish-pale text (#ffaaaa /
-   #ffcccc) — designer-intentional muted destructive-button aesthetic.
-   Same substrate gap as PaletteEditor's .del-btn (no tinted-state
-   anchors yet). */
+   (#4a2020 / #6a3030) and pinkish-pale text (#ffaaaa) — designer-
+   intentional muted destructive-button aesthetic. Same substrate gap
+   as PaletteEditor's .del-btn (no tinted-state anchors yet). Hover-
+   state literals retired with the no-mouseover-change sweep. */
 .btn-danger { background: #4a2020; border-color: #6a3030; color: #ffaaaa; }
-.btn-danger:hover:not(:disabled) { background: #5a2828; color: #ffcccc; }
 </style>

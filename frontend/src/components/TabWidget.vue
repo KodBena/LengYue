@@ -55,7 +55,7 @@ function selectTab(id: string) {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--surface-1);
+  background: var(--surface-0);
   min-height: 0;
 }
 
@@ -64,7 +64,7 @@ function selectTab(id: string) {
   list-style: none;
   padding: 0;
   margin: 0;
-  background: var(--surface-1);
+  background: var(--surface-0);
   border-bottom: 1px solid var(--surface-1);
   flex-shrink: 0;
 }

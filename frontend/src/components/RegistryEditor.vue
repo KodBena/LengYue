@@ -227,9 +227,7 @@ function isModified(key: string, value: any) {
 .leaf-label { color: var(--text-2); font-size: var(--text-emphasis); }
 
 .restore-btn { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: var(--text-emphasis); }
-.restore-btn:hover { color: var(--accent-primary); }
 .delete-btn { background: none; border: none; color: var(--border-3); cursor: pointer; font-size: var(--text-heading); }
-.delete-btn:hover { color: var(--state-error); }
 
 .add-key-row { display: flex; padding: var(--space-default); gap: var(--space-tight); background: rgba(0,0,0,0.2); }
 .add-input { flex: 1; border-style: dashed; }

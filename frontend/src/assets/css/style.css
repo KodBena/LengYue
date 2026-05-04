@@ -92,7 +92,6 @@ body {
   flex-shrink: 0;
   transition: border-color var(--duration-default), color var(--duration-default);
 }
-.tab-add-btn:hover { border-color: var(--border-3); color: var(--text-1); }
 
 .tab-load-btn {
   width: 34px;
@@ -107,7 +106,6 @@ body {
   flex-shrink: 0;
   transition: border-color var(--duration-default), color var(--duration-default);
 }
-.tab-load-btn:hover { border-color: var(--border-3); color: var(--text-1); }
 
 
 /* ── Centre column ─────────────────────────────────────────────── */
@@ -145,7 +143,7 @@ body {
 }
 
 .toolbar-btn {
-  background: var(--border-1);
+  background: var(--surface-0);
   border: 1px solid var(--border-1);
   color: var(--text-2);
   padding: 1px 1px;
@@ -155,7 +153,6 @@ body {
   border-radius: var(--radius-default);
   font-family: 'Courier New', monospace;
 }
-.toolbar-btn:hover  { border-color: var(--border-3); color: var(--text-0); }
 .toolbar-btn.active { border-color: var(--accent-primary); color: var(--text-0); }
 
 #content {

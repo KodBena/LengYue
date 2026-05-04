@@ -74,22 +74,21 @@ h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--accent-primary
 .status-indicator.connected { color: var(--state-success); }
 
 .palette-selector { display: flex; align-items: center; gap: var(--space-default); font-size: var(--text-body); color: var(--text-1); text-transform: uppercase; }
-.dark-select { background: var(--surface-1); border: 1px solid var(--border-2); color: var(--accent-primary); padding: 2px 6px; border-radius: var(--radius-default); font-size: var(--text-body); outline: none; cursor: pointer; text-transform: uppercase; }
+.dark-select { border: 1px solid var(--border-2); color: var(--accent-primary); padding: 2px 6px; border-radius: var(--radius-default); font-size: var(--text-body); outline: none; cursor: pointer; text-transform: uppercase; }
 
 /* theme-exception: .warning-btn uses muted-state-error variants
    (#5a1a1a border, #3a1a1a hover bg) — same pattern as
    PaletteEditor's .del-btn. */
 .warning-btn { color: var(--state-error) !important; border-color: #5a1a1a !important; }
-.warning-btn:hover { background: #3a1a1a !important; }
 
-.toolbar-btn-sm { background: var(--border-1); border: 1px solid var(--border-3); color: var(--text-1); padding: 2px 6px; font-size: var(--text-body); cursor: pointer; border-radius: var(--radius-default); text-transform: uppercase; }
+.toolbar-btn-sm { border: 1px solid var(--border-3); color: var(--text-1); padding: 2px 6px; font-size: var(--text-body); cursor: pointer; border-radius: var(--radius-default); text-transform: uppercase; }
 
 /* ... remaining styles ... */
 .analysis-config-box { margin-top: 0; background: var(--surface-2); padding: 0 var(--space-medium); border-radius: var(--radius-default); border: 1px solid var(--surface-3); }
 .move-filter-box { border-bottom: 2px solid var(--border-2); margin-bottom: var(--space-medium); }
 .settings-row { display: flex; flex-direction: column; gap: 3px; }
 .label-with-value { display: flex; justify-content: space-between; align-items: center; font-size: var(--text-body); color: var(--text-1); }
-.value-badge { background: var(--border-2); padding: 0 var(--space-default); border-radius: var(--radius-default); color: var(--accent-primary); font-family: monospace; }
+.value-badge { padding: 0 var(--space-default); border-radius: var(--radius-default); color: var(--accent-primary); font-family: monospace; }
 .range-slider { width: 100%; accent-color: var(--accent-primary); cursor: pointer; }
 .hint { font-size: var(--text-body); color: var(--text-0); margin: 0; }
 .chart-container-outer { margin-top: 0; min-height: 200px; }
