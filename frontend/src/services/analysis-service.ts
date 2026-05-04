@@ -159,6 +159,14 @@ export class AnalysisService {
     // call site looks like.
     const ownershipModes = store.session.ui.overlayLayers.ownership;
     const needsOwnership = ownershipModes.continuous || ownershipModes.dots || ownershipModes.liveness;
+    // Replay-cache flags are user-controlled via the registry editor;
+    // read fresh on each call so a registry-edit-then-restart picks up
+    // the new value immediately. Schema-version 14 surfaced these.
+    const cacheFlags = {
+      cache: store.profile.settings.engine.katago.cache,
+      lookup_cache: store.profile.settings.engine.katago.lookup_cache,
+      replay_final_only: store.profile.settings.engine.katago.replay_final_only,
+    };
     const query: KataGoAnalysisQuery = {
       id: queryId,
       moves,
@@ -168,8 +176,7 @@ export class AnalysisService {
       boardYSize: size,
       komi, // Added Komi mapping
       maxVisits: visits,
-      cache: false,
-      lookup_cache: false,
+      ...cacheFlags,
       reportDuringSearchEvery: 0.5,
       analyzeTurns,
       ...(needsOwnership ? { includeOwnership: true } : {}),
@@ -223,6 +230,11 @@ export class AnalysisService {
 
     const ownershipModes = store.session.ui.overlayLayers.ownership;
     const needsOwnership = ownershipModes.continuous || ownershipModes.dots || ownershipModes.liveness;
+    const cacheFlags = {
+      cache: store.profile.settings.engine.katago.cache,
+      lookup_cache: store.profile.settings.engine.katago.lookup_cache,
+      replay_final_only: store.profile.settings.engine.katago.replay_final_only,
+    };
     const query: KataGoAnalysisQuery = {
       id: queryId,
       moves,
@@ -232,6 +244,7 @@ export class AnalysisService {
       boardYSize: size,
       komi, // Added Komi mapping
       ...(visits !== undefined ? { maxVisits: visits } : {}),
+      ...cacheFlags,
       // magic-literal: reportDuringSearchEvery cadences — 0.15s for ponder
       // (frequent updates as ponder accumulates over long horizons), 0.5s
       // for analysis (less frequent — bounded query, less to update).

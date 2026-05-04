@@ -340,6 +340,28 @@ export interface AppSettings {
   engine: {
     katago: {
       url: string;
+      // Proxy replay-cache control flags. Project verbatim to the
+      // `cache` / `lookup_cache` / `replay_final_only` fields on
+      // `KataGoAnalysisQuery` (see `engine/katago/types.ts` for the
+      // authoritative wire-protocol semantics). Snake-case spelling
+      // matches the wire vocabulary — the same convention `analysis_env`
+      // follows for the same reason. All three default `false`: a fresh
+      // install neither writes to the cache nor reads from it, and
+      // observes the full anytime-optimization stream during any replay
+      // it does perform. Users opt in via the registry editor:
+      //   `cache: true` while running through SR queues to make
+      //     re-visits cheap;
+      //   `lookup_cache: true` to short-circuit known positions during
+      //     qEUBO calibration sweeps;
+      //   `replay_final_only: true` to suppress mid-search packets
+      //     during cache replay (no effect when not replaying — i.e.
+      //     when `lookup_cache: false` or on cache miss).
+      // Read by `services/analysis-service.ts` at every `analyzeRange`
+      // / `analyzeActiveNode` call site; closure capture is fine
+      // because the restart-callback re-enters the same call path.
+      cache: boolean;
+      lookup_cache: boolean;
+      replay_final_only: boolean;
       analysis_env: AnalysisEnvironment;
     };
   };
