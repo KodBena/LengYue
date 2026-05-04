@@ -82,7 +82,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 13;
+export const CURRENT_SCHEMA_VERSION = 14;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -303,6 +303,37 @@ export const migrations: Migration[] = [
     if (minting && typeof minting === 'object') {
       if (typeof minting.defaultGamma !== 'number') {
         minting.defaultGamma = 0.9;
+      }
+    }
+    return out;
+  },
+  // 13 → 14: Surface proxy replay-cache flags in engine.katago. v13
+  // had no `cache` / `lookup_cache` / `replay_final_only` fields on
+  // `profile.settings.engine.katago`; the analyze* call sites in
+  // `services/analysis-service.ts` either hard-coded `false`
+  // (`analyzeRange`'s `cache` / `lookup_cache`) or omitted the fields
+  // entirely (`analyzeActiveNode`'s `cache` / `lookup_cache`, and
+  // `replay_final_only` everywhere — the proxy's wire-default `false`
+  // produced the same effective behavior). v14 introduces all three
+  // as user-editable booleans defaulting `false`, preserving the
+  // pre-surfacing behavior; the registry editor renders them
+  // automatically as checkboxes. Idempotent: pre-existing boolean
+  // values are preserved (a hand-edited blob isn't clobbered);
+  // non-boolean or missing fields get `false`. The flags' wire-protocol
+  // semantics are documented on `KataGoAnalysisQuery` in
+  // `engine/katago/types.ts`.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const katago = out.profile?.settings?.engine?.katago;
+    if (katago && typeof katago === 'object') {
+      if (typeof katago.cache !== 'boolean') {
+        katago.cache = false;
+      }
+      if (typeof katago.lookup_cache !== 'boolean') {
+        katago.lookup_cache = false;
+      }
+      if (typeof katago.replay_final_only !== 'boolean') {
+        katago.replay_final_only = false;
       }
     }
     return out;

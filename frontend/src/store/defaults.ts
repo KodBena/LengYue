@@ -11,6 +11,19 @@ export const defaultSettings = {
   engine: {
     katago: {
       url: 'ws://127.0.0.1:41948',
+      // Proxy replay-cache flags. All three default `false` — preserves
+      // the pre-surfacing behaviour where the analyze* call sites either
+      // hard-coded these (`analyzeRange`'s `cache: false, lookup_cache:
+      // false`) or left them absent entirely (the proxy reads absent
+      // boolean fields as `false` per its wire-default).
+      // `replay_final_only` was never set explicitly anywhere; absent →
+      // wire-default `false` produced full-stream replay. Wire-protocol
+      // semantics documented on `KataGoAnalysisQuery` in
+      // `engine/katago/types.ts`; the user toggles all three via the
+      // registry editor under engine → katago.
+      cache: false,
+      lookup_cache: false,
+      replay_final_only: false,
       analysis_env: {
         // Symbol library per docs/dispatch/frontend-to-frontend-default-palette-metrics-spec.md.
         // Two semantic axes coexist:
