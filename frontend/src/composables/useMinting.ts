@@ -90,6 +90,15 @@ export function useMinting() {
     // branches pick it up uniformly.
     grading_parameter.data.default_visits = mintingPrefs.defaultVisits;
 
+    // Recall-discount γ rides in the same opaque blob — the wire is
+    // OpenAPI-honest about the shape (`{[key: string]: unknown} |
+    // null`); the backend reads it back via the same `data.gamma`
+    // path on grading. The MintCardModal surfaces it as editable so
+    // the per-card override is set at mint time; this seeds the
+    // user's profile-default value. Read-side counterpart in
+    // `backend-service.ts::mapToReviewCard`'s `?? 0.9` fallback.
+    grading_parameter.data.gamma = mintingPrefs.defaultGamma;
+
     return {
       raw_content: sgf,
       num_moves: mintingPrefs.defaultNumMoves,

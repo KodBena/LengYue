@@ -155,6 +155,7 @@ export const defaultSettings = {
     defaultVisits: 1000,
     defaultNumMoves: 1,
     defaultPaletteId: 'active',
+    defaultGamma: 0.9,
   },
   navigation: {
     actionOnDirtyBoard: 'ask', // 'ask', 'new', or 'overwrite'
