@@ -1,6 +1,15 @@
 /**
  * src/store/index.ts
- * Central Reactive Store.
+ * Central reactive store. Holds the single GlobalStore singleton and
+ * exports both pure mutators and the small set of orchestrator
+ * functions (createBoard, closeBoard, resetUserOwnedState) that
+ * coordinate workspace-level state changes with their downstream
+ * service-side cleanup. The latter is why this module imports
+ * analysis-service — closing a board is a workspace mutation that
+ * must release the board's in-flight analysis subscription as part
+ * of the same operation; see closeBoard's comment.
+ *
+ * License: Public Domain (The Unlicense)
  */
 
 import { reactive, computed, ref } from 'vue';
@@ -20,6 +29,7 @@ import type {
 import { defaultProfile, defaultSessionUI, NIL_UUID } from './defaults';
 import { createInitialBoard } from './board-factory';
 import { migrate, CURRENT_SCHEMA_VERSION } from './migrations';
+import { analysisService } from '../services/analysis-service';
 
 export { createInitialBoard }        from './board-factory';
 export { DEFAULTS }                  from './defaults';
@@ -106,25 +116,44 @@ export function setActiveBoard(index: number): void {
 /**
  * Safely removes a board, shifting the active index.
  * If the last board is closed, spawns a fresh blank board.
+ *
+ * Releases the closing board's in-flight analysis subscription
+ * before mutating the workspace. Without this call, the
+ * analysis-service keeps the boardId in its activeQueryIds /
+ * activeSubscriptions / restartCallbacks maps, the proxy keeps the
+ * canonical alive (its keep-alive watchdog can't help — the WS is
+ * still healthy because it's shared with the surviving boards), and
+ * the LEAF keeps pondering for a board that no longer exists in the
+ * workspace. This is the closeBoard half of the broader
+ * workspace-owned-resource cleanup discipline scheduled in
+ * docs/notes/resource-ownership-audit-plan.md; subsequent owner-
+ * resource pairs ship in their own commits per the audit plan's
+ * bisect discipline.
  */
 export function closeBoard(boardId: BoardId): void {
+  // Sever the analysis-subscription resource the closing board owns.
+  // Safe to call when no analysis is active for the board:
+  // stopBoardAnalysis short-circuits when its bookkeeping has no
+  // entry for the boardId.
+  analysisService.stopBoardAnalysis(boardId);
+
   if (store.boards.length <= 1) {
     store.boards = [createInitialBoard()];
     store.activeBoardIndex = 0;
     boardsVersion.value++;
     return;
   }
-  
+
   const idx = store.boards.findIndex(b => b.id === boardId);
   if (idx === -1) return;
-  
+
   store.boards.splice(idx, 1);
-  
+
   // Adjust active index if we closed a board before or at the current index
   if (store.activeBoardIndex >= idx) {
     store.activeBoardIndex = Math.max(0, store.activeBoardIndex - 1);
   }
-  
+
   boardsVersion.value++;
 }
 
