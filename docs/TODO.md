@@ -352,6 +352,47 @@ one-line synopses.
 
 ### Medium — touches contracts or requires coordinated changes
 
+#### `[frontend]` Resource-ownership audit — **priority**
+
+A workspace-mutation bug surfaced 2026-05-04: closing a board tab
+spliced the board out of `store.boards` without ever issuing a
+`terminate` for its in-flight ponder query, leaving the proxy's
+canonical alive on the LEAF for a board that no longer existed in
+the workspace. The fix was small (one call site); the lesson is
+that the SPA holds many implicit ownership relationships between
+workspace entities and external resources (proxy subscriptions,
+ledger entries, persistence rows, timers, listeners) and the
+codebase has not been audited for them as a class.
+
+The audit is scheduled in `docs/notes/resource-ownership-audit-plan.md`,
+modelled on `docs/notes/magic-literals-audit-plan.md`'s tiered
+structure: Pass 1 inventory, Pass 2 per-pair fix-or-doc, Pass 3
+forward-authoring discipline. The plan picks owner-resource as the
+primary framing while acknowledging that protocol-state and
+subscription framings would catch additional residue and warrant
+separate sweeps.
+
+**Bisect discipline:** the audit ships one fix per commit (more
+granular than the magic-literals audit's per-tier batching) so
+that resource-management regressions remain localisable via `git
+bisect` — this matters because the bugs typically manifest as
+silent runtime behaviour invisible until operational monitoring
+catches them.
+
+Seed inventory in the plan flags four suspected open pairs (board
+→ ledger entries, board → review-session row, board → thumbnail
+cache, identity → all-of-the-above on logout) plus a fifth
+already-tracked elsewhere (the HMR cleanup for `analysisService`
+in the Trivial tier above). The audit's Pass 1 expands this list.
+
+Marked **priority** because the prompting case study was a silent
+compute leak with no in-app symptom — a class of regression that's
+expensive to discover and easy to multiply if not addressed
+systematically. Lower priority than the HMR cleanup item in the
+Trivial tier above (smaller, faster, dev-loop hygiene); higher
+priority than the heatmap delta-update investigation in the Small
+tier above (cosmetic vs silent-leak severity asymmetry).
+
 #### Items 23–25 *(tenancy schema + executor)* — moved to Completed
 
 Items 23 (`documents.user_id`), 24 (`game_source.user_id`), and
