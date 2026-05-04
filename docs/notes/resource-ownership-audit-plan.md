@@ -1,10 +1,15 @@
 # Resource-ownership audit plan
 
-- **Status:** Pass 1 closed 2026-05-04; the inventory below is the
-  deliverable. Pass 2 (per-pair fix-or-doc) and Pass 3 (forward-
-  authoring discipline) remain pending. The first inventory entry
-  (board → in-flight analysis subscription) closed earlier on the
-  same day in `closeBoard`'s call site as the prompting case study.
+- **Status:** All three passes closed 2026-05-04. Pass 1 produced
+  the inventory below (15 owner-resource pairs across six
+  mutation sites). Pass 2 closed all 15 pairs across ten PRs (13
+  in code, 2 by verification with explanatory comments). Pass 3
+  codified the inline-comment convention and the authoring
+  checklist — see §"Comment convention and authoring
+  discipline" below. The audit's close-out is this document plus
+  the worklog chain at `docs/worklog/2026-05-04-*.md` (eleven
+  entries, indexable via the `resource-audit` prefix or the
+  closeBoard / resetWorkspace shape).
 - **Genre:** Audit plan, modelled on
   `docs/notes/magic-literals-audit-plan.md`'s tiered structure.
 - **Tracking:** A row in `docs/TODO.md` (Medium tier) points here.
@@ -188,6 +193,160 @@ inline-comment convention should specifically name "what does this
 owner own?" at the mutation function's docstring; closeBoard's
 expanded 2026-05-04 docstring is the worked example to mirror.
 
+## Comment convention and authoring discipline
+
+The audit's close-out artifact, analogous to the magic-literals
+audit's "Comment convention" section. Two halves: (1) the inline
+shape that cleanup sites carry post-audit, and (2) the authoring
+checklist that future contributors apply when introducing a new
+owner type or a new mutation function.
+
+### Inline shape — at the cleanup site
+
+When a workspace-mutation function releases an external resource
+the closing/replaced/identity-flipped owner held, the cleanup
+line carries a short inline comment naming three things:
+
+1. **What's being released** — the resource, briefly.
+2. **Why it matters** — the failure mode without the cleanup, in
+   one phrase. The full failure mode lives in the function's
+   docstring; the inline is a quick marker for the reader
+   scanning the body.
+3. **Any ordering constraint** that makes the call site
+   load-bearing.
+
+The pattern in `closeBoard`'s post-audit body is the canonical
+worked example:
+
+```ts
+// Release external resources the closing board owns. Both calls
+// are safe when the board has nothing to release; ordering is
+// load-bearing — stop the engine before purging the ledger. See
+// docstring above for the full rationale.
+analysisService.stopBoardAnalysis(boardId);
+ledger.purgeBoard(boardId);
+
+// Drop the per-board workspace dictionary entries. Both keys are
+// owned by this BoardId and have no meaning once the board is
+// gone; persisting them via SyncService would just bloat the
+// user's document with tombstones over time.
+delete store.session.reviews[boardId];
+delete store.engine.activeMode[boardId];
+
+// Abort any in-flight review-analysis wait for this board so the
+// 30s timeout doesn't fire later and resurrect the reviews row
+// we just deleted. No-op if no review wait is pending.
+abortBoardReview(boardId);
+
+// Drop the closing board's thumbnail-cache entries. Must run
+// before the splice below — purgeBoardThumbnails walks
+// `board.nodes` and looks the board up in store.boards.
+purgeBoardThumbnails(boardId);
+```
+
+Cleanups that share a rationale collapse into one comment block;
+cleanups with distinct ordering constraints get separate ones.
+
+### Function-docstring shape — at the mutation site
+
+The function carrying the cleanup orchestration documents the
+contract in full at the docstring level. `closeBoard` and
+`resetWorkspace` post-audit are the worked examples; both follow
+the same structure:
+
+1. **One-line summary.** What the function does at the
+   workspace-mutation level.
+2. **Enumerated cleanups.** A numbered list, one entry per
+   external resource released, naming the resource and the
+   failure mode without the cleanup.
+3. **Ordering paragraph.** Any load-bearing constraints between
+   the cleanups (e.g., "stop the engine before purging the
+   ledger so an in-flight packet can't…").
+4. **Audit-pair identifier reference.** The closing line points
+   at this audit plan and names the pair identifiers (O1, O7,
+   etc.) that the function's cleanups close. Future
+   contributors landing on the docstring without the PR context
+   can navigate to the inventory.
+
+### Authoring checklist — when introducing a new owner or mutation
+
+When a PR introduces a new entity type (a new BoardId-shaped
+identifier, a new identity-flip event, a new lifecycle owner) or
+a new mutation function that removes/replaces such an entity,
+walk through:
+
+1. **What external state is keyed by this entity's identifier?**
+   - Singletons in `src/services/*` (per-board `Map`s, ledger
+     entries, etc.).
+   - Module-scope state in `src/composables/*` (caches, abort
+     registries, expansion sets).
+   - Per-entity dictionaries in `src/store/index.ts`'s
+     `GlobalStore`.
+2. **What would happen if the owner exited without releasing
+   each piece?** For each:
+   - **Bounded leak?** Memory hygiene only.
+   - **Unbounded leak?** Real correctness concern.
+   - **Privacy concern?** Cross-identity collision in a
+     hosted/multi-tenant deployment.
+   - **User-visible misbehavior?** Toasts firing for missing
+     entities, resurrected dictionary rows, etc.
+3. **For each, decide: fix, document, defer.**
+   - Fix: wire the cleanup at the mutation site with the
+     inline-comment convention above.
+   - Document: name the deferral and its trigger. The
+     `analysisService.disconnect()` deferral in
+     `resetWorkspace`'s docstring is the worked example.
+   - Defer: only when the resource is reachable solely via the
+     owner and gets garbage-collected when the owner is
+     dropped (e.g., closures over function-local state). Most
+     module-scope `Map`/`Set` entries don't qualify — they
+     persist beyond the owner.
+4. **Update the function docstring** with the enumerated-cleanup
+   shape above, naming the audit-pair identifier if the audit
+   surfaces a relevant precedent.
+
+The discipline composes with ADR-0002 (fail loudly): a missing
+cleanup is a silent failure that surfaces only through
+operational monitoring or a future audit. Naming the pair at
+authoring time prevents the silent-failure mode the audit was
+shaped to catch.
+
+### Threshold — when does this apply?
+
+Every owner-resource pair where the runtime contract requires
+explicit cleanup. Not every resource needs a comment-and-cleanup
+shape:
+
+- **Vue lifecycle automatics.** Watcher cleanup, computed
+  re-evaluation, component-instance teardown — Vue handles
+  these. The audit didn't generate cleanups for them.
+- **Closure-scoped state.** Local variables inside a function
+  body that don't outlive the function call. GC handles these.
+- **Type-system-checked invariants.** Discriminated-union
+  exhaustiveness, branded-type construction at ACL boundaries —
+  these are caught at compile time, not runtime.
+- **Backend-side resources.** Out of scope per the audit's
+  §"Out-of-scope" section; the backend's tenancy spine owns
+  those.
+
+The threshold is "would a future audit walk surface this as a
+suspected-open pair?" If yes, the discipline applies. The
+audit's Pass-1 inventory is the catalogue of shapes that meet
+the threshold.
+
+### Authoring discipline going forward
+
+Future PRs that introduce new owners or mutations are
+responsible for the inline-comment + docstring shape on any new
+cleanups. This audit's Pass 2 retrofitted the discipline to the
+existing inventory; comprehensive codebase-wide application is
+a steady-state authoring habit.
+
+A future audit walk (driven by a new entity type, a deployment-
+model shift, or operational monitoring surfacing a leak) can
+re-run the methodology in §"Pass structure" and produce a fresh
+inventory; the discipline above is the contract between audits.
+
 ## Pass structure
 
 ### Pass 1 — Inventory
@@ -224,22 +383,15 @@ For each owner-resource pair in the inventory, either:
 
 ### Pass 3 — Forward-authoring discipline
 
-After Pass 2, codify the discipline so new owner-resource pairs
-introduced by future PRs are wired correctly at authoring time
-rather than caught by a future audit. Two complementary outputs:
-
-1. **Inline comment convention.** When a workspace-mutation
-   function releases a resource, the cleanup line carries a
-   short comment that names the resource and the reason
-   (e.g., the closeBoard fix's `// Sever the analysis-subscription
-   resource the closing board owns.`).
-2. **Authoring checklist.** The PR template (or a `frontend/CLAUDE.md`
-   addendum, depending on what ships in adjacent work) names
-   "what does this owner own?" as a question to ask when adding
-   a new entity type or a new mutation that removes one.
-
-The codified convention ships as the audit's close-out, analogous
-to the magic-literals audit's "Comment convention" section.
+The Pass 3 deliverables — the inline-comment convention plus
+the authoring checklist — landed in §"Comment convention and
+authoring discipline" above. The PR-template / CLAUDE.md
+question was resolved in favor of `frontend/CLAUDE.md`: no PR
+template existed at audit-close time, and the authoring
+discipline is frontend-scoped (the audit's domain). See
+`frontend/CLAUDE.md`'s "Resource ownership at mutation sites"
+section for the addendum that names the discipline at the
+file most contributors read first.
 
 ## Bisect discipline — one fix per commit
 

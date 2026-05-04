@@ -180,6 +180,7 @@ reading the outstanding work.
 | — | *Ponder-cap constant (magic-literals-audit Pass 2 Tier-3 #2). Closes inventory Category O's `100000` cluster — 3 consumer sites across an SFC script, an SFC template attribute, and the analysis service, all sharing the same "max visits during ponder/analysis" handle. New named export `PONDER_MAX_VISITS = 100000` in `src/engine/constants.ts` with JSDoc naming the role, the three consumer sites, and the related `defaultVisits = 1000` constant (in `defaults.ts`) for tuning context. Sweep: `services/analysis-service.ts:220` (`maxVisits: 100000` → `maxVisits: PONDER_MAX_VISITS` in ponder-mode wire query), `components/BoardTab.vue:68` (`Math.max(target, 100000)` → `Math.max(target, PONDER_MAX_VISITS)` for analysis-meter rugplot target floor), `components/charts/AnalysisTimelinePanel.vue:68` (`max="100000"` static HTML attribute → `:max="PONDER_MAX_VISITS"` Vue dynamic binding for the visits input). Plus one doc-comment update in BoardTab.vue's rugplot-target-floor block to reference the new naming and documented home. Cross-cuts CSS-substrate and TS-substrate territory — the constant is a TS-side export consumed by service code, SFC scripts, and SFC template attributes. `engine/constants.ts` now at 95 lines (was 79). `npm run build` passes. Worklog at `docs/worklog/2026-05-03-ponder-cap-constant.md`. Not in original TODO numbering.* |
 | — | *Tier-4 inline-justification sweep (magic-literals-audit closer). Closes the audit by codifying the `magic-literal:` comment convention in `docs/notes/magic-literals-audit-plan.md`'s new "Comment convention" section (CSS `/* magic-literal: ... */` syntax, TS `// magic-literal: ...` syntax, threshold = "could a future reader reasonably ask where this came from?", carve-outs for trivial literals / universal CSS vocabulary / block-level theme exceptions / generated files / typed discriminated-union members) and applying it to the curated residue surfaced during the audit's substrate work — 25 sites across 13 files: spacing/border-radius stragglers (BoardTab analysis-meter `border-radius: 1px`, close-button `top: -6px; right: -6px` offset, geiger-dot `0.6 + energy * 0.4` scale, HorizontalTimelineVisualizer pill `9999px`, Toolbar `padding: 1px 5px` compactness, modal widths 360/420), animation-envelope alphas (QeuboToolbar pulse-keyframe trough `0.4`, BaseChart axisPointer `0.5`), band-3 domain decisions (BoardWidget ownership `Math.min(0.85, mag * 0.85)` ceiling-and-multiplier, liveness `0.95`, BaseChart Y-axis margin `range * 0.1`), TS-side timers (analysis-service `1000ms` watchdog and `0.15`/`0.5` reportDuringSearchEvery cadences, BaseChart/HeatmapChart `100ms` ECharts init delays, MintCardModal `150ms` suggestions-hide, useEChartsForestRender `50ms` render-retry, use-pv-animation `1ms` next-tick scheduler), domain thresholds (defaults.ts `999` user_order fallback, twice — paired with the rank_quality formula). Plus PV-stone fade `60ms` references the deferred-items entry for the PV-overlay typography proportions co-tuning. Comprehensive codebase-wide retroactive application is explicitly out of scope per the convention's "Authoring discipline going forward" subsection; future PRs are responsible for maintaining the convention on new literals. **The audit's contract (substrate-or-comment) is satisfied** across ~469 substrate-swept sites + 25 inline-justified sites; both the magic-literals-audit-plan.md and -inventory.md status headers updated to reflect the close. `npm run build` passes. Worklog at `docs/worklog/2026-05-03-tier-4-inline-justification.md`. Not in original TODO numbering.* |
 | — | *HMR cleanup for `analysisService` singleton (filed Trivial-tier priority 2026-05-03; closed 2026-05-04). Adds a public `stopAllBoardAnalyses()` to `AnalysisService` that snapshots `activeQueryIds.keys()` and walks each through `stopBoardAnalysis` (the snapshot is necessary because `stopBoardAnalysis` mutates the underlying map). Adds a dev-only `import.meta.hot.dispose(...)` block at the bottom of `src/services/analysis-service.ts` that calls `stopAllBoardAnalyses()` followed by `disconnect()` on the outgoing singleton — order matters: emit per-board terminate packets while the WebSocket is still open, then close it. The `import.meta.hot` conditional is statically removable by Vite's tree-shaker in production builds, so the whole hook is dev-only. Closes the dev-loop hygiene companion to the proxy's keep-alive middleware (shipped at proxy v1.0.10) — same class of problem (stranded queries on owner mutation), one fix on each side. Closes the corresponding row in the resource-ownership audit plan's seed inventory; the row moves from "suspected open" to "closed". Worklog at `docs/worklog/2026-05-04-hmr-dispose-analysis-service.md`. Not in original TODO numbering.* |
+| — | *Resource-ownership audit (filed Medium-tier priority 2026-05-04; closed 2026-05-04 across all three passes in a single session). Pass 1 produced an expanded inventory in `docs/notes/resource-ownership-audit-plan.md`: 17 closed pairs verified during the walk plus 15 suspected-open pairs grouped by mutation site (closeBoard, resetWorkspace, component unmount, engine-WS reconnect). Pass 2 closed all 15 suspected-open pairs across ten PRs (#119–#128, plus #118 for the inventory itself): 13 closed in code, 2 closed by verification with explanatory comments. Pass 3 codified the inline-comment convention and authoring checklist in the plan's new §"Comment convention and authoring discipline" section, mirrored as a "Resource ownership at mutation sites" section in `frontend/CLAUDE.md`. Substantive sub-findings surfaced during the work: `purgeBoard`'s incomplete `nodeVersions` cleanup (sub-PR #119 paired with main #120), the closeBoard / resetWorkspace timeout-resurrect bug that the inventory had pitched as a benign bounded leak (#126's O5/O11 fixes — a minor honesty miss surfaced in the verification trace and recorded in that PR's worklog as a future-audit framing lesson), and an ADR-0001/0002 type-honesty retrofit narrowing two `Record<BoardId, T>` types to `Partial<Record<BoardId, T>>` so deletes don't lie about indexed reads (#125). Final cleanup contracts: `closeBoard` runs six cleanups, `resetWorkspace` runs five, each enumerated in the function docstring with audit-pair identifiers (O1–O15). Two ADR-0006 file-header retrofits rode along under full-visibility edits (`store/index.ts`'s `resetUserOwnedState` → `resetWorkspace` drift, `useThumbnailCache.ts`'s lifecycle-contract description). The audit's contract (one cleanup or documented deferral per owner-resource pair) is satisfied; future PRs maintain the discipline at authoring time per the codified convention. Worklog series at `docs/worklog/2026-05-04-resource-audit-pass-1-inventory.md` through `2026-05-04-resetworkspace-purges-bounded-caches.md` (eleven entries, indexable by the `closeboard` / `resetworkspace` / `lifecycle` / `audit-sweep` / `ledger-purgeboard` / `cardthumbnail` / `useresizablepanel` / `audit-pass-3` shape).* |
 
 ### Joint
 
@@ -333,54 +334,16 @@ one-line synopses.
 
 ### Medium — touches contracts or requires coordinated changes
 
-#### `[frontend]` Resource-ownership audit — **priority**
+#### `[frontend]` Resource-ownership audit — moved to Completed
 
-A workspace-mutation bug surfaced 2026-05-04: closing a board tab
-spliced the board out of `store.boards` without ever issuing a
-`terminate` for its in-flight ponder query, leaving the proxy's
-canonical alive on the LEAF for a board that no longer existed in
-the workspace. The fix was small (one call site); the lesson is
-that the SPA holds many implicit ownership relationships between
-workspace entities and external resources (proxy subscriptions,
-ledger entries, persistence rows, timers, listeners) and the
-codebase has not been audited for them as a class.
-
-The audit is scheduled in `docs/notes/resource-ownership-audit-plan.md`,
-modelled on `docs/notes/magic-literals-audit-plan.md`'s tiered
-structure: Pass 1 inventory, Pass 2 per-pair fix-or-doc, Pass 3
-forward-authoring discipline. The plan picks owner-resource as the
-primary framing while acknowledging that protocol-state and
-subscription framings would catch additional residue and warrant
-separate sweeps.
-
-**Bisect discipline:** the audit ships one fix per commit (more
-granular than the magic-literals audit's per-tier batching) so
-that resource-management regressions remain localisable via `git
-bisect` — this matters because the bugs typically manifest as
-silent runtime behaviour invisible until operational monitoring
-catches them.
-
-Pass 1 closed 2026-05-04. The expanded inventory in the plan
-records 17 closed pairs (the seed plus 15 already-clean cleanups
-verified during the walk) and 15 suspected-open pairs grouped by
-mutation site (closeBoard / resetWorkspace / component unmount /
-engine-WS reconnect). Headline open pairs: ledger entries on
-closeBoard (O1, with a sub-finding that `purgeBoard` itself leaks
-`nodeVersions`), review-session row on closeBoard (O2), thumbnail
-cache cross-board (O4) and cross-user (O9 / O10 — the latter
-privacy-relevant because raw CardIds collide across users),
-analysis-service per-board maps on resetWorkspace (O7, closeable
-by reusing the existing `stopAllBoardAnalyses`), and the
-`useResizablePanel` mid-drag unmount leak (O12). Pass 2 ships
-per-pair fixes per the bisect discipline.
-
-Marked **priority** because the prompting case study was a silent
-compute leak with no in-app symptom — a class of regression that's
-expensive to discover and easy to multiply if not addressed
-systematically. Lower priority than the HMR cleanup item in the
-Trivial tier above (smaller, faster, dev-loop hygiene); higher
-priority than the heatmap delta-update investigation in the Small
-tier above (cosmetic vs silent-leak severity asymmetry).
+Closed 2026-05-04 across all three passes in a single session
+(eleven PRs, #118–#128). The Frontend Completed table above
+carries the closure synopsis. Plan + inventory + comment
+convention in `docs/notes/resource-ownership-audit-plan.md`;
+authoring checklist in `frontend/CLAUDE.md`'s "Resource
+ownership at mutation sites" section. Worklog series at
+`docs/worklog/2026-05-04-resource-audit-pass-1-inventory.md`
+through `2026-05-04-resetworkspace-purges-bounded-caches.md`.
 
 #### Items 23–25 *(tenancy schema + executor)* — moved to Completed
 

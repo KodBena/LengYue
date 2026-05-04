@@ -126,3 +126,48 @@ scope per the umbrella file.
 ADR-0003's bands (truly domain-agnostic, game-tree-coupled, Go-bound)
 are the authoring-time question for new modules: which band does this
 belong in, and is it placed accordingly.
+
+## Resource ownership at mutation sites
+
+When a function removes or replaces an entity that owned external
+resources — `closeBoard` removing a board, `resetWorkspace`
+clearing an identity's workspace, an `onUnmounted` running for a
+component that installed global listeners — the function is
+responsible for releasing every resource the entity owned. Vue
+cleans up watchers, computeds, and component-instance state
+automatically; nothing cleans up resources that live beyond Vue's
+reactivity graph (proxy subscriptions, ledger entries, persistence
+rows, timers, document-level listeners) unless wired explicitly at
+the mutation site.
+
+The discipline is codified in
+`docs/notes/resource-ownership-audit-plan.md`'s §"Comment
+convention and authoring discipline". When introducing a new
+entity type or a new mutation function, walk the authoring
+checklist:
+
+1. **What external state is keyed by this entity's identifier?**
+   Per-entity `Map`/`Set`s in services, composable module-scope
+   caches, per-entity dictionaries in `GlobalStore`.
+2. **What would happen if the owner exited without releasing
+   each piece?** Bounded leak / unbounded leak / privacy concern
+   / user-visible misbehavior.
+3. **For each, decide: fix, document, defer.** Fix wires the
+   cleanup at the mutation site. Document names the deferral
+   and its trigger. Defer is only correct when the resource
+   GCs with the owner (most module-scope state doesn't).
+4. **Wire cleanups with the inline-comment convention** — name
+   the resource, the failure mode, and any ordering constraint.
+   The function's docstring carries the depth (an enumerated
+   list of cleanups, the load-bearing ordering, an audit-pair
+   reference).
+
+`closeBoard` and `resetWorkspace` in `src/store/index.ts` are the
+post-audit worked examples — read both before extending either,
+or before introducing a new mutation function in a similar shape.
+
+The discipline composes with ADR-0002's fail-loudly tenet: a
+missing cleanup is a silent failure that surfaces only through
+operational monitoring or a future audit walk. Naming the pair
+at authoring time prevents the silent-failure mode the audit was
+shaped to catch.
