@@ -33,6 +33,7 @@ import { createInitialBoard } from './board-factory';
 import { migrate, CURRENT_SCHEMA_VERSION } from './migrations';
 import { analysisService } from '../services/analysis-service';
 import { ledger } from '../services/analysis-ledger';
+import { clearCardThumbnailCache } from '../composables/useCardThumbnail';
 
 export { createInitialBoard }        from './board-factory';
 export { DEFAULTS }                  from './defaults';
@@ -192,6 +193,16 @@ export function updateBoardState(index: number, newState: BoardState): void {
  * still-active query; the per-board maps drop their entries on
  * the way through.
  *
+ * Also clears the card-thumbnail cache via
+ * clearCardThumbnailCache. Its keys are raw CardIds — auto-
+ * increments that collide across users — so without the clear,
+ * a shared-computer flow would render the prior user's card
+ * content under the next user's identity. This is the audit's
+ * only privacy-relevant cleanup; the analysis-ledger and
+ * useThumbnailCache caches share the same shape but use UUID-
+ * style NodeIds where cross-user collision is functionally
+ * impossible.
+ *
  * `store.engine` itself (status, metrics, the live WebSocket)
  * is intentionally preserved across the reset: under today's
  * local-machine deployment the WebSocket URL is not user-keyed,
@@ -213,8 +224,9 @@ export function updateBoardState(index: number, newState: BoardState): void {
  * for shared-computer scenarios.
  *
  * Workspace-owned-resource cleanup is tracked in
- * docs/notes/resource-ownership-audit-plan.md (audit pair O7
- * for analysisService's per-board maps; O8-O11 cover the
+ * docs/notes/resource-ownership-audit-plan.md (audit pairs O7
+ * for analysisService's per-board maps and O10 for the privacy-
+ * relevant useCardThumbnail cache; O8 / O9 / O11 cover the
  * remaining identity-flip resources).
  */
 export function resetWorkspace(): void {
@@ -224,6 +236,16 @@ export function resetWorkspace(): void {
   // itself stays open per the docstring's deployment-model
   // reasoning.
   analysisService.stopAllBoardAnalyses();
+
+  // Drop the card-thumbnail cache. Keys are raw CardIds and
+  // collide across users (auto-increment per tenant), so a
+  // shared-computer flow would otherwise render the prior
+  // user's card content under the next user's identity. The
+  // analysis-ledger and useThumbnailCache caches share the
+  // same shape but use UUID-style NodeIds; their cross-user
+  // collision risk is low and the cleanup is deferred to
+  // their own audit pairs (O8 / O9).
+  clearCardThumbnailCache();
 
   store.boards = [createInitialBoard()];
   store.activeBoardIndex = 0;
