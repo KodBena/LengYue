@@ -64,7 +64,7 @@ function onHoverLeave() {
 <style scoped>
 #sidebar-widget {
   display: flex; flex-direction: column; align-items: center;
-  padding: var(--space-medium) 0; background: var(--surface-3); height: 100%;
+  padding: var(--space-medium) 0; background: var(--surface-1); height: 100%;
   border-right: 1px solid var(--surface-1); width: 108px;
 }
 

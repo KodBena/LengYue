@@ -491,7 +491,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
 /* The top nav bar always spans the full width of main-workspace */
 .top-nav-bar {
-  display: flex; align-items: center; background: var(--surface-3);
+  display: flex; align-items: center; background: var(--surface-1);
   border-bottom: 1px solid var(--surface-1); padding: 0 var(--space-default); height: 32px; flex-shrink: 0;
 }
 
@@ -578,7 +578,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 .toolbar-btn-sm:hover { background: var(--border-3); border-color: var(--border-3); }
 .registry-container { margin-top: 0; background: var(--surface-2); border: 1px solid var(--surface-3); border-radius: var(--radius-default); max-height: 400px; overflow-y: auto; }
 
-.collapse-btn { background: color-mix(in srgb, var(--surface-2) 80%, transparent); border: 1px solid var(--border-2); color: var(--text-2); height: 18px; padding: 0 var(--space-tight); cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-default); font-size: var(--text-body); }
+.collapse-btn { background: var(--surface-1); border: 1px solid var(--border-2); color: var(--text-2); height: 18px; padding: 0 var(--space-tight); cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-default); font-size: var(--text-body); }
 .collapse-btn:hover { background: var(--border-2); color: var(--text-0); border-color: var(--border-3); }
 .right-toggles { display: flex; gap: var(--space-default); margin-left: auto; }
 
