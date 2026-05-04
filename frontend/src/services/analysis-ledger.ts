@@ -185,6 +185,32 @@ export class AnalysisLedger {
     return computed(() => seqRef.value.map((_, i) => kernel(seqRef.value, i)));
   }
 
+  /**
+   * Drop every cached packet and per-node version ref. Called from
+   * `resetWorkspace` on identity flip so the prior identity's
+   * analysis state doesn't accumulate in the singleton across
+   * the session boundary.
+   *
+   * Bumps every existing version ref before clearing so any
+   * subscribed consumer's computed re-runs and observes the
+   * cleared data — same bump-then-delete contract as `purgeBoard`,
+   * applied to all entries at once. Consumers re-attach to fresh
+   * refs through `getOrCreateVersion` on their next compute run
+   * (the pattern getRaw and getProjectedSequence already use).
+   *
+   * Resource-ownership audit O8. NodeIds are UUID-style and don't
+   * collide across users, so this is bounded-memory hygiene rather
+   * than the privacy concern that motivates the useCardThumbnail
+   * clear (O10).
+   */
+  public purgeAll(): void {
+    for (const v of nodeVersions.values()) {
+      v.value++;
+    }
+    data.clear();
+    nodeVersions.clear();
+  }
+
   public purgeBoard(boardId: BoardId): void {
     const board = store.boards.find(b => b.id === boardId);
     if (!board) return;

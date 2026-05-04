@@ -7,20 +7,21 @@
  * *same* cache instance. This makes the cache truly global
  * (singleton) while keeping the per-component API black-box.
  *
- * Cache lifetime is per-board, scoped within an identity. Entries
- * are added by `getThumbnailSvg` / `warmPath` (keyed
- * `${nodeId}:${showMarker}`) and dropped by:
+ * Cache lifetime is identity-scoped, with per-board purge on
+ * board close. Entries are added by `getThumbnailSvg` /
+ * `warmPath` (keyed `${nodeId}:${showMarker}`) and dropped by:
  *
  *   - `purgeBoardThumbnails(boardId)` — invoked from `closeBoard`
- *     when a board exits the workspace. Without this, the cache
- *     would accumulate SVG payloads for every closed board's
- *     nodes for the duration of the SPA session.
+ *     when a board exits the workspace (audit pair O4). Without
+ *     it, the cache would accumulate SVG payloads for every
+ *     closed board's nodes across the session.
+ *   - `purgeAllThumbnails()` — invoked from `resetWorkspace` on
+ *     identity flip (audit pair O9). Same memory-hygiene framing.
  *
  * NodeIds are UUID-style and don't collide across boards or
- * users, so the per-board purge is a memory-hygiene cleanup, not
- * a correctness or privacy concern. The cache is intentionally
- * NOT cleared on identity flip via `resetWorkspace` — that path
- * is audit pair O9 (deferred memory-hygiene candidate).
+ * users, so both cleanups are memory hygiene rather than the
+ * privacy concern that motivates the useCardThumbnail clear
+ * (audit pair O10).
  *
  * Low-hanging performance win: lastWarmedPath guard prevents
  * re-warming identical paths.
@@ -80,11 +81,8 @@ async function generateThumbnail(
  * the cache are silently skipped — `Map.delete` on a missing key
  * is a no-op.
  *
- * Resource-ownership audit pair O4. The companion identity-flip
- * cleanup (O9) is deferred per the audit's bounded-memory-hygiene
- * disposition; UUID NodeIds don't collide across users, so the
- * privacy concern that motivated O10 (clearCardThumbnailCache)
- * doesn't apply here.
+ * Resource-ownership audit pair O4. See file header for the
+ * identity-flip companion (purgeAllThumbnails / O9).
  */
 export function purgeBoardThumbnails(boardId: BoardId): void {
   const board = store.boards.find(b => b.id === boardId);
@@ -93,6 +91,24 @@ export function purgeBoardThumbnails(boardId: BoardId): void {
     cache.value.delete(`${nodeId}:true`);
     cache.value.delete(`${nodeId}:false`);
   }
+}
+
+/**
+ * Drop every cached thumbnail. Called from `resetWorkspace` on
+ * identity flip so the prior identity's renders don't accumulate
+ * in the singleton across the session boundary. Also clears
+ * `lastWarmedPath` so the next identity's first warmPath call
+ * actually warms (rather than short-circuiting on a stale
+ * fingerprint match).
+ *
+ * Resource-ownership audit pair O9. NodeIds are UUID-style and
+ * don't collide across users — this is memory hygiene, not a
+ * privacy concern (cf. clearCardThumbnailCache / O10 where the
+ * raw-CardId collision motivates the cleanup).
+ */
+export function purgeAllThumbnails(): void {
+  cache.value.clear();
+  lastWarmedPath.value = [];
 }
 
 // ── Public black-box contract ──────────────────────────────────────────────
