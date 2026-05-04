@@ -180,7 +180,19 @@ export function updateBoardState(index: number, newState: BoardState): void {
 
 /**
  * Resets user-owned reactive workspace state (boards,
- * activeBoardIndex, profile, session) to defaults. `store.engine`
+ * activeBoardIndex, profile, session) to defaults.
+ *
+ * Releases the prior identity's per-board analysis bookkeeping
+ * before the workspace state is replaced — without it, the
+ * analysisService's activeQueryIds / activeSubscriptions /
+ * activeQueries / restartCallbacks Maps would persist with
+ * BoardIds keyed to a workspace that no longer exists, and the
+ * proxy would keep pondering for those orphaned IDs. The
+ * stopAllBoardAnalyses call fires a terminate frame for each
+ * still-active query; the per-board maps drop their entries on
+ * the way through.
+ *
+ * `store.engine` itself (status, metrics, the live WebSocket)
  * is intentionally preserved across the reset: under today's
  * local-machine deployment the WebSocket URL is not user-keyed,
  * so the live KataGo connection remains honestly applicable to
@@ -190,15 +202,29 @@ export function updateBoardState(index: number, newState: BoardState): void {
  * shifts to user-keyed endpoints (cloud-compute, rented
  * per-user engines), full engine reset + actual
  * analysisService.disconnect() becomes the right move; tracked
- * in `docs/notes/deferred-items.md`.
+ * in `docs/notes/deferred-items.md`. The per-board cleanup
+ * shipped here is a strict subset of that future work — it
+ * releases workspace-keyed state without touching the WS.
  *
  * Used by the SyncService's auth-state watcher to clear prior-
  * user data on identity loss (logout, rejection). The next
  * hydration on re-login overwrites with the new user's backend
  * document; the reset is the privacy-correct in-between state
  * for shared-computer scenarios.
+ *
+ * Workspace-owned-resource cleanup is tracked in
+ * docs/notes/resource-ownership-audit-plan.md (audit pair O7
+ * for analysisService's per-board maps; O8-O11 cover the
+ * remaining identity-flip resources).
  */
 export function resetWorkspace(): void {
+  // Release the prior identity's per-board analysis bookkeeping
+  // before mutating the workspace. Same shape as closeBoard's
+  // cleanup but applied to every active board at once. The WS
+  // itself stays open per the docstring's deployment-model
+  // reasoning.
+  analysisService.stopAllBoardAnalyses();
+
   store.boards = [createInitialBoard()];
   store.activeBoardIndex = 0;
   store.profile = structuredClone(defaultProfile);
