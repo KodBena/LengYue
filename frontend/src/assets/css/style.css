@@ -145,7 +145,7 @@ body {
 }
 
 .toolbar-btn {
-  background: var(--border-1);
+  background: var(--surface-0);
   border: 1px solid var(--border-1);
   color: var(--text-2);
   padding: 1px 1px;
