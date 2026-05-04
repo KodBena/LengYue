@@ -325,6 +325,11 @@ watch(() => props.activeIndex, debouncedUpdateMarker);
 
 onMounted(initChart);
 onUnmounted(() => {
+  // Clear the debounced marker timer first so its callback doesn't
+  // fire post-unmount and read a now-disposed chartInstance. The
+  // existing callback's null-check would short-circuit safely, but
+  // releasing the timer on unmount is the discipline-correct shape.
+  if (markerTimer) clearTimeout(markerTimer);
   if (resizeObserver && chartRef.value) {
     resizeObserver.unobserve(chartRef.value);
     resizeObserver.disconnect();
