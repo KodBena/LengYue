@@ -129,7 +129,7 @@ const rugPlot = computed(() => {
 .thumb-container { display: flex; flex-direction: column; align-items: center; margin-bottom: var(--space-default); width: 88px; }
 
 .tab-thumb {
-  width: 88px; height: 32px; border: 2px solid var(--surface-3); background: var(--surface-1);
+  width: 88px; height: 32px; border: 2px solid var(--surface-3); background: var(--surface-0);
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   transition: border-color var(--duration-default) ease, background var(--duration-default) ease;
   position: relative; border-radius: var(--radius-default);

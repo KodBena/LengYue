@@ -55,7 +55,7 @@ function selectTab(id: string) {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--surface-1);
+  background: var(--surface-0);
   min-height: 0;
 }
 

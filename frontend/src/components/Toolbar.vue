@@ -72,7 +72,7 @@ const engineBtnLabel = computed(() => isConnected.value ? 'Disconnect' : 'Connec
 </template>
 
 <style scoped>
-.toolbar { height: 28px; background: var(--surface-1); display: flex; align-items: center; padding: 0 var(--space-default); gap: var(--space-default); justify-content: space-between; border-bottom: 1px solid var(--surface-1); flex-shrink: 0; }
+.toolbar { height: 28px; background: var(--surface-0); display: flex; align-items: center; padding: 0 var(--space-default); gap: var(--space-default); justify-content: space-between; border-bottom: 1px solid var(--surface-1); flex-shrink: 0; }
 .toolbar-title { font-size: var(--text-body); color: var(--text-0); text-transform: uppercase; letter-spacing: var(--tracking-default); white-space: nowrap; }
 .engine-metrics-bar { display: flex; gap: var(--space-medium); font-family: monospace; font-size: var(--text-emphasis); }
 .metric { display: flex; align-items: center; gap: var(--space-tight); }
