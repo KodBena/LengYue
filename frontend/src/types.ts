@@ -527,7 +527,16 @@ export interface SessionState {
   id: SessionId;
   profileId: ProfileId;
   ui: UISession;
-  reviews: Record<BoardId, ReviewSessionData>;
+  // Per-board review-session rows. `Partial<Record<>>` (rather than
+  // bare `Record<>`) reflects the runtime contract honestly: rows
+  // are added by `mutateReviewSession`, deleted by `closeBoard` when
+  // the owning board exits, and replaced wholesale by
+  // `resetWorkspace` on identity flip. Bare `Record<>` would lie
+  // about indexed reads — TS would say `ReviewSessionData`, the
+  // runtime would return `undefined` after a delete. Per ADR-0001
+  // (types reflect runtime reality) and ADR-0002 (type assertions
+  // must be justified — bare-Record reads were unjustified).
+  reviews: Partial<Record<BoardId, ReviewSessionData>>;
 }
 
 export interface GlobalStore {
@@ -583,7 +592,14 @@ export interface EngineState {
   // EngineMetrics value object inside is itself immutable. Mutable
   // container, immutable value.
   metrics: EngineMetrics;
-  activeMode: Record<BoardId, AnalysisMode>;
+  // Per-board analysis mode. `Partial<Record<>>` reflects that keys
+  // are added by analyze* calls, set to `'none'` by stopBoardAnalysis,
+  // deleted by `closeBoard` when the owning board exits, and replaced
+  // wholesale by analysisService.disconnect / onDisconnect. Same
+  // ADR-0001 / ADR-0002 reasoning as `reviews` above. Consumers
+  // (App.vue, useUserIORegistry) compare against `'ponder'`, which
+  // is correct against both `'none'` and `undefined`.
+  activeMode: Partial<Record<BoardId, AnalysisMode>>;
   messages: SystemMessage[];
 }
 

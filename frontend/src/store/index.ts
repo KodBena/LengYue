@@ -23,7 +23,6 @@ import type {
   BoardId,
   ProfileId,
   SessionId,
-  AnalysisMode,
   ReviewSessionData,
   SystemMessage,
 } from '../types';
@@ -49,7 +48,7 @@ export const store = reactive<GlobalStore>({
     id: '00000000-0000-0000-0000-000000000000' as SessionId,
     profileId: '00000000-0000-0000-0000-000000000000' as ProfileId,
     ui: defaultSessionUI,
-    reviews: {} as Record<BoardId, ReviewSessionData>,
+    reviews: {},
   },
   engine: {
     status: 'disconnected',
@@ -59,7 +58,7 @@ export const store = reactive<GlobalStore>({
       lastWatchdogTimestamp: 0,
       latencyMs: 0,
     },
-    activeMode: {} as Record<BoardId, AnalysisMode>,
+    activeMode: {},
     messages: [], 
   },
 });
@@ -121,8 +120,9 @@ export function setActiveBoard(index: number): void {
  * Safely removes a board, shifting the active index.
  * If the last board is closed, spawns a fresh blank board.
  *
- * Releases the closing board's external resources before mutating
- * the workspace state. Two cleanups currently fire:
+ * Releases the closing board's external resources and per-board
+ * workspace dictionaries before mutating the surviving boards.
+ * Four cleanups currently fire:
  *
  *   1. analysisService.stopBoardAnalysis — severs the in-flight
  *      analysis subscription so the proxy stops pondering for a
@@ -133,16 +133,32 @@ export function setActiveBoard(index: number): void {
  *      per-node reactive version refs for the closed board's nodes
  *      across every palette hash. Without it, the ledger's internal
  *      Maps grow on every board close.
+ *   3. delete store.session.reviews[boardId] — drops the per-board
+ *      review-session row. Without it, dead entries accumulate in
+ *      `store.session.reviews` and round-trip to the backend via
+ *      SyncService (which persists `store.session` deeply).
+ *   4. delete store.engine.activeMode[boardId] — drops the
+ *      `'none'` tombstone that stopBoardAnalysis writes for every
+ *      stopped board. Same SyncService-payload concern as #3, plus
+ *      keeping the dictionary honest about which boards are still
+ *      tracked.
  *
  * Order matters: stop the engine before purging the ledger so an
  * in-flight packet can't land between the two and re-populate the
- * ledger after we've cleared it. Both calls short-circuit cleanly
- * when the board has no active analysis or recorded packets.
+ * ledger after we've cleared it. The dictionary deletes follow
+ * stopBoardAnalysis (which writes to activeMode) so the deletes
+ * actually overwrite the tombstone rather than leaving it.
+ *
+ * Both `analysisService.stopBoardAnalysis` and `ledger.purgeBoard`
+ * short-circuit cleanly when the board has no active analysis or
+ * recorded packets; the dictionary deletes are safe regardless
+ * (delete on a missing key is a no-op).
  *
  * Workspace-owned-resource cleanup is tracked in
- * docs/notes/resource-ownership-audit-plan.md (audit pair O1 for
- * the ledger; subsequent pairs ship in their own commits per the
- * audit's bisect discipline).
+ * docs/notes/resource-ownership-audit-plan.md (audit pairs O1 for
+ * the ledger, O2 for the review-session row, and O3 for the
+ * activeMode tombstone; subsequent pairs ship in their own
+ * commits per the audit's bisect discipline).
  */
 export function closeBoard(boardId: BoardId): void {
   // Release external resources the closing board owns. Both calls
@@ -151,6 +167,13 @@ export function closeBoard(boardId: BoardId): void {
   // docstring above for the full rationale.
   analysisService.stopBoardAnalysis(boardId);
   ledger.purgeBoard(boardId);
+
+  // Drop the per-board workspace dictionary entries. Both keys are
+  // owned by this BoardId and have no meaning once the board is
+  // gone; persisting them via SyncService would just bloat the
+  // user's document with tombstones over time.
+  delete store.session.reviews[boardId];
+  delete store.engine.activeMode[boardId];
 
   if (store.boards.length <= 1) {
     store.boards = [createInitialBoard()];
@@ -254,7 +277,7 @@ export function resetWorkspace(): void {
     id: NIL_UUID as SessionId,
     profileId: NIL_UUID as ProfileId,
     ui: structuredClone(defaultSessionUI),
-    reviews: {} as Record<BoardId, ReviewSessionData>,
+    reviews: {},
   };
   boardsVersion.value++;
 }
@@ -286,7 +309,7 @@ export function updateFromRemote(
   if (migrated.session) store.session = deepMerge(store.session, migrated.session);
 
   if (!store.session.reviews) {
-    store.session.reviews = {} as Record<BoardId, ReviewSessionData>;
+    store.session.reviews = {};
   }
 
   if (Array.isArray(pending)) {
