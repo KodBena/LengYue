@@ -2,12 +2,14 @@
  * src/store/index.ts
  * Central reactive store. Holds the single GlobalStore singleton and
  * exports both pure mutators and the small set of orchestrator
- * functions (createBoard, closeBoard, resetUserOwnedState) that
+ * functions (createBoard, closeBoard, resetWorkspace) that
  * coordinate workspace-level state changes with their downstream
- * service-side cleanup. The latter is why this module imports
- * analysis-service — closing a board is a workspace mutation that
- * must release the board's in-flight analysis subscription as part
- * of the same operation; see closeBoard's comment.
+ * service-side cleanup. The latter is why this module imports both
+ * analysis-service and analysis-ledger — closing a board is a
+ * workspace mutation that must release the board's external
+ * resources (in-flight analysis subscription at the proxy, cached
+ * packets and per-node version refs in the ledger) as part of the
+ * same operation; see closeBoard's docstring.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -30,6 +32,7 @@ import { defaultProfile, defaultSessionUI, NIL_UUID } from './defaults';
 import { createInitialBoard } from './board-factory';
 import { migrate, CURRENT_SCHEMA_VERSION } from './migrations';
 import { analysisService } from '../services/analysis-service';
+import { ledger } from '../services/analysis-ledger';
 
 export { createInitialBoard }        from './board-factory';
 export { DEFAULTS }                  from './defaults';
@@ -117,25 +120,36 @@ export function setActiveBoard(index: number): void {
  * Safely removes a board, shifting the active index.
  * If the last board is closed, spawns a fresh blank board.
  *
- * Releases the closing board's in-flight analysis subscription
- * before mutating the workspace. Without this call, the
- * analysis-service keeps the boardId in its activeQueryIds /
- * activeSubscriptions / restartCallbacks maps, the proxy keeps the
- * canonical alive (its keep-alive watchdog can't help — the WS is
- * still healthy because it's shared with the surviving boards), and
- * the LEAF keeps pondering for a board that no longer exists in the
- * workspace. This is the closeBoard half of the broader
- * workspace-owned-resource cleanup discipline scheduled in
- * docs/notes/resource-ownership-audit-plan.md; subsequent owner-
- * resource pairs ship in their own commits per the audit plan's
- * bisect discipline.
+ * Releases the closing board's external resources before mutating
+ * the workspace state. Two cleanups currently fire:
+ *
+ *   1. analysisService.stopBoardAnalysis — severs the in-flight
+ *      analysis subscription so the proxy stops pondering for a
+ *      board that no longer exists. The keep-alive middleware can't
+ *      help here; the WS is shared with surviving boards and stays
+ *      healthy.
+ *   2. ledger.purgeBoard — drops cached analysis packets and the
+ *      per-node reactive version refs for the closed board's nodes
+ *      across every palette hash. Without it, the ledger's internal
+ *      Maps grow on every board close.
+ *
+ * Order matters: stop the engine before purging the ledger so an
+ * in-flight packet can't land between the two and re-populate the
+ * ledger after we've cleared it. Both calls short-circuit cleanly
+ * when the board has no active analysis or recorded packets.
+ *
+ * Workspace-owned-resource cleanup is tracked in
+ * docs/notes/resource-ownership-audit-plan.md (audit pair O1 for
+ * the ledger; subsequent pairs ship in their own commits per the
+ * audit's bisect discipline).
  */
 export function closeBoard(boardId: BoardId): void {
-  // Sever the analysis-subscription resource the closing board owns.
-  // Safe to call when no analysis is active for the board:
-  // stopBoardAnalysis short-circuits when its bookkeeping has no
-  // entry for the boardId.
+  // Release external resources the closing board owns. Both calls
+  // are safe when the board has nothing to release; ordering is
+  // load-bearing — stop the engine before purging the ledger. See
+  // docstring above for the full rationale.
   analysisService.stopBoardAnalysis(boardId);
+  ledger.purgeBoard(boardId);
 
   if (store.boards.length <= 1) {
     store.boards = [createInitialBoard()];
