@@ -48,6 +48,17 @@ export class AnalysisService {
     
     this.client.connect(url, {
       onDisconnect: (code, reason) => {
+        // Per-board maps (activeQueryIds, activeSubscriptions,
+        // activeQueries, restartCallbacks) are intentionally NOT
+        // cleared here. They hold closures over the now-dead WS,
+        // but each new analyze* call's stopBoardAnalysis-first
+        // pattern overwrites stale entries before issuing a fresh
+        // subscribe — the closures are no-op-functional and don't
+        // cause user-visible misbehavior. KataGoClient.subscribers
+        // has the same as-designed shape: stale entries persist
+        // through reconnect but get overwritten on next subscribe.
+        // Resource-ownership audit O15 (and the related O6
+        // verification on the subscribers side).
         store.engine.status = 'disconnected';
         store.engine.activeMode = {};
         this.clearTimers();

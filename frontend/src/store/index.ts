@@ -33,6 +33,7 @@ import { migrate, CURRENT_SCHEMA_VERSION } from './migrations';
 import { analysisService } from '../services/analysis-service';
 import { ledger } from '../services/analysis-ledger';
 import { clearCardThumbnailCache } from '../composables/useCardThumbnail';
+import { abortAllReviews, abortBoardReview } from '../composables/useReviewSession';
 
 export { createInitialBoard }        from './board-factory';
 export { DEFAULTS }                  from './defaults';
@@ -142,12 +143,22 @@ export function setActiveBoard(index: number): void {
  *      stopped board. Same SyncService-payload concern as #3, plus
  *      keeping the dictionary honest about which boards are still
  *      tracked.
+ *   5. abortBoardReview — fires AbortController.abort() on the
+ *      board's pending review-analysis wait, if any. Without it,
+ *      a mid-review close would let the 30s timeout fire later,
+ *      surfacing a "KataGo did not respond" toast for a board
+ *      that no longer exists AND resurrecting the just-deleted
+ *      `store.session.reviews[boardId]` row via the catch-block's
+ *      lazy `mutateReviewSession`.
  *
  * Order matters: stop the engine before purging the ledger so an
  * in-flight packet can't land between the two and re-populate the
  * ledger after we've cleared it. The dictionary deletes follow
  * stopBoardAnalysis (which writes to activeMode) so the deletes
- * actually overwrite the tombstone rather than leaving it.
+ * actually overwrite the tombstone rather than leaving it. The
+ * abort runs last; its rejection-side cleanup runs in
+ * processUserMove's catch on the next microtask, by which point
+ * the synchronous portions of closeBoard have completed.
  *
  * Both `analysisService.stopBoardAnalysis` and `ledger.purgeBoard`
  * short-circuit cleanly when the board has no active analysis or
@@ -156,9 +167,10 @@ export function setActiveBoard(index: number): void {
  *
  * Workspace-owned-resource cleanup is tracked in
  * docs/notes/resource-ownership-audit-plan.md (audit pairs O1 for
- * the ledger, O2 for the review-session row, and O3 for the
- * activeMode tombstone; subsequent pairs ship in their own
- * commits per the audit's bisect discipline).
+ * the ledger, O2 for the review-session row, O3 for the
+ * activeMode tombstone, and O5 for the review-wait abort;
+ * subsequent pairs ship in their own commits per the audit's
+ * bisect discipline).
  */
 export function closeBoard(boardId: BoardId): void {
   // Release external resources the closing board owns. Both calls
@@ -174,6 +186,11 @@ export function closeBoard(boardId: BoardId): void {
   // user's document with tombstones over time.
   delete store.session.reviews[boardId];
   delete store.engine.activeMode[boardId];
+
+  // Abort any in-flight review-analysis wait for this board so the
+  // 30s timeout doesn't fire later and resurrect the reviews row
+  // we just deleted. No-op if no review wait is pending.
+  abortBoardReview(boardId);
 
   if (store.boards.length <= 1) {
     store.boards = [createInitialBoard()];
@@ -226,6 +243,13 @@ export function updateBoardState(index: number, newState: BoardState): void {
  * style NodeIds where cross-user collision is functionally
  * impossible.
  *
+ * Aborts every in-flight review-analysis wait via
+ * abortAllReviews. Without this, a mid-review identity flip
+ * would let the 30s timeout fire later (in the new identity's
+ * session) and pollute `store.session.reviews` with phantom IDLE
+ * rows keyed to the prior identity's BoardIds — those rows would
+ * then sync to the new user's backend document.
+ *
  * `store.engine` itself (status, metrics, the live WebSocket)
  * is intentionally preserved across the reset: under today's
  * local-machine deployment the WebSocket URL is not user-keyed,
@@ -248,9 +272,9 @@ export function updateBoardState(index: number, newState: BoardState): void {
  *
  * Workspace-owned-resource cleanup is tracked in
  * docs/notes/resource-ownership-audit-plan.md (audit pairs O7
- * for analysisService's per-board maps and O10 for the privacy-
- * relevant useCardThumbnail cache; O8 / O9 / O11 cover the
- * remaining identity-flip resources).
+ * for analysisService's per-board maps, O10 for the privacy-
+ * relevant useCardThumbnail cache, and O11 for the review-wait
+ * aborts; O8 / O9 cover the remaining identity-flip resources).
  */
 export function resetWorkspace(): void {
   // Release the prior identity's per-board analysis bookkeeping
@@ -269,6 +293,11 @@ export function resetWorkspace(): void {
   // collision risk is low and the cleanup is deferred to
   // their own audit pairs (O8 / O9).
   clearCardThumbnailCache();
+
+  // Abort every in-flight review-analysis wait so prior-identity
+  // timeouts can't fire 30s into the new identity's session and
+  // pollute `store.session.reviews` with phantom IDLE rows.
+  abortAllReviews();
 
   store.boards = [createInitialBoard()];
   store.activeBoardIndex = 0;

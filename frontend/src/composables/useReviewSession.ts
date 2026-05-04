@@ -41,6 +41,65 @@ const ABSOLUTE_FALLBACK_VISITS = 1000;
  */
 const KATAGO_ANALYSIS_TIMEOUT_MS = 30_000;
 
+/**
+ * Per-board in-flight analysis-wait controllers.
+ *
+ * Module-scope rather than per-composable-instance: the composable
+ * is instantiated once per App.vue setup, so a module-scope Map
+ * matches the runtime reality of "one canonical registry across
+ * the app." Module-scoping is also what lets `closeBoard` and
+ * `resetWorkspace` reach in to abort entries — the abort
+ * affordance is exposed via `abortBoardReview` and `abortAllReviews`
+ * below.
+ *
+ * Keyed by BoardId rather than using a single controller because
+ * the composable serves all boards (boardIdRef.value changes as
+ * the user switches tabs). A single-slot controller would let
+ * loadCard on board B abort an in-flight wait on board A,
+ * silently wedging A in ANALYZING. The per-board map keeps each
+ * board's cancellation scope isolated.
+ *
+ * Lifetime: an entry is added when processUserMove starts a wait,
+ * and deleted when the wait settles (success, timeout, or abort).
+ * loadCard aborts and deletes an entry as part of transitioning
+ * into a new card. closeBoard and resetWorkspace abort entries
+ * for the boards they're tearing down — without that, the
+ * AbortController would persist until the 30s timeout fires, at
+ * which point the timeout branch would surface a "KataGo did not
+ * respond" toast for a closed board AND resurrect the just-deleted
+ * `store.session.reviews[boardId]` row via `mutateReviewSession`'s
+ * lazy initialization. Resource-ownership audit O5 / O11.
+ */
+const pendingAnalysisAborts = new Map<BoardId, AbortController>();
+
+/**
+ * Abort the in-flight analysis-wait for `boardId`, if any. The
+ * waitForAnalysis promise rejects with `AnalysisWaitError('aborted')`
+ * which processUserMove's catch silent-returns on — no toast, no
+ * reviews-row resurrection. Safe to call when no wait is in flight
+ * (no-op).
+ */
+export function abortBoardReview(boardId: BoardId): void {
+  const controller = pendingAnalysisAborts.get(boardId);
+  if (controller) {
+    controller.abort();
+    pendingAnalysisAborts.delete(boardId);
+  }
+}
+
+/**
+ * Abort every in-flight analysis-wait. Used by `resetWorkspace` on
+ * identity flip so prior-identity timeouts can't fire 30s into the
+ * new identity's session and pollute its `store.session.reviews`
+ * with phantom rows keyed to the prior identity's BoardIds.
+ */
+export function abortAllReviews(): void {
+  for (const controller of pendingAnalysisAborts.values()) {
+    controller.abort();
+  }
+  pendingAnalysisAborts.clear();
+}
+
 export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
   // ── Safe Projections ──
   const reviewData = computed(() => {
@@ -60,22 +119,10 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
       : null
   );
 
-  /**
-   * Per-board in-flight analysis wait controllers.
-   *
-   * Keyed by BoardId rather than using a single controller because
-   * this composable is instantiated once per App.vue setup and serves
-   * all boards (boardIdRef.value changes as the user switches tabs).
-   * A single-slot controller would let loadCard on board B abort an
-   * in-flight wait on board A, silently wedging A in ANALYZING. The
-   * per-board map keeps each board's cancellation scope isolated.
-   *
-   * Lifetime: an entry is added when processUserMove starts a wait,
-   * and deleted when the wait settles (success, timeout, or abort).
-   * loadCard aborts and deletes an entry as part of transitioning
-   * into a new card.
-   */
-  const pendingAnalysisAborts = new Map<BoardId, AbortController>();
+  // Module-scope `pendingAnalysisAborts` (declared at file top) is
+  // the per-board in-flight analysis-wait registry; see its block
+  // comment at the top of this file for the lifecycle contract and
+  // the closeBoard / resetWorkspace integration shape.
 
   /**
    * Derived value — the maxVisits count that WILL be used on the next
