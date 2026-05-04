@@ -34,7 +34,7 @@ import { analysisService } from '../services/analysis-service';
 import { ledger } from '../services/analysis-ledger';
 import { clearCardThumbnailCache } from '../composables/useCardThumbnail';
 import { abortAllReviews, abortBoardReview } from '../composables/useReviewSession';
-import { purgeBoardThumbnails } from '../composables/useThumbnailCache';
+import { purgeAllThumbnails, purgeBoardThumbnails } from '../composables/useThumbnailCache';
 
 export { createInitialBoard }        from './board-factory';
 export { DEFAULTS }                  from './defaults';
@@ -248,22 +248,32 @@ export function updateBoardState(index: number, newState: BoardState): void {
  * still-active query; the per-board maps drop their entries on
  * the way through.
  *
- * Also clears the card-thumbnail cache via
- * clearCardThumbnailCache. Its keys are raw CardIds — auto-
- * increments that collide across users — so without the clear,
- * a shared-computer flow would render the prior user's card
- * content under the next user's identity. This is the audit's
- * only privacy-relevant cleanup; the analysis-ledger and
- * useThumbnailCache caches share the same shape but use UUID-
- * style NodeIds where cross-user collision is functionally
- * impossible.
+ * Clears the bounded module-scope caches that would otherwise
+ * accumulate the prior identity's data across the session
+ * boundary:
+ *
+ *   - ledger.purgeAll (audit pair O8) — analysis packets and
+ *     per-node version refs.
+ *   - purgeAllThumbnails (audit pair O9) — board-thumbnail
+ *     SVG cache.
+ *   - clearCardThumbnailCache (audit pair O10) — card-thumbnail
+ *     SVG cache.
+ *
+ * Only the card-thumbnail clear is privacy-relevant: its keys
+ * are raw CardIds that auto-increment per tenant and collide
+ * across users, so without it a shared-computer flow would
+ * render the prior user's card content under the next user's
+ * identity. The other two caches use UUID-style NodeIds where
+ * cross-user collision is functionally impossible; their clears
+ * are pure memory hygiene.
  *
  * Aborts every in-flight review-analysis wait via
- * abortAllReviews. Without this, a mid-review identity flip
- * would let the 30s timeout fire later (in the new identity's
- * session) and pollute `store.session.reviews` with phantom IDLE
- * rows keyed to the prior identity's BoardIds — those rows would
- * then sync to the new user's backend document.
+ * abortAllReviews (audit pair O11). Without this, a mid-review
+ * identity flip would let the 30s timeout fire later (in the
+ * new identity's session) and pollute `store.session.reviews`
+ * with phantom IDLE rows keyed to the prior identity's BoardIds
+ * — those rows would then sync to the new user's backend
+ * document.
  *
  * `store.engine` itself (status, metrics, the live WebSocket)
  * is intentionally preserved across the reset: under today's
@@ -287,9 +297,10 @@ export function updateBoardState(index: number, newState: BoardState): void {
  *
  * Workspace-owned-resource cleanup is tracked in
  * docs/notes/resource-ownership-audit-plan.md (audit pairs O7
- * for analysisService's per-board maps, O10 for the privacy-
- * relevant useCardThumbnail cache, and O11 for the review-wait
- * aborts; O8 / O9 cover the remaining identity-flip resources).
+ * for analysisService's per-board maps, O8 for the analysis-
+ * ledger, O9 for the board-thumbnail cache, O10 for the
+ * privacy-relevant useCardThumbnail cache, and O11 for the
+ * review-wait aborts).
  */
 export function resetWorkspace(): void {
   // Release the prior identity's per-board analysis bookkeeping
@@ -299,14 +310,13 @@ export function resetWorkspace(): void {
   // reasoning.
   analysisService.stopAllBoardAnalyses();
 
-  // Drop the card-thumbnail cache. Keys are raw CardIds and
-  // collide across users (auto-increment per tenant), so a
-  // shared-computer flow would otherwise render the prior
-  // user's card content under the next user's identity. The
-  // analysis-ledger and useThumbnailCache caches share the
-  // same shape but use UUID-style NodeIds; their cross-user
-  // collision risk is low and the cleanup is deferred to
-  // their own audit pairs (O8 / O9).
+  // Drop bounded module-scope caches that would otherwise
+  // accumulate the prior identity's data across the session
+  // boundary. Only the card-thumbnail clear is privacy-relevant
+  // (raw-CardId collisions across users); the other two are
+  // memory hygiene over UUID-keyed entries.
+  ledger.purgeAll();
+  purgeAllThumbnails();
   clearCardThumbnailCache();
 
   // Abort every in-flight review-analysis wait so prior-identity
