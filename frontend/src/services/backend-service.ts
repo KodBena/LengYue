@@ -16,6 +16,7 @@ import type {
   RootGroup,
   CardLineageTree,
   CardLineageNode,
+  PipelineStage,
 } from '../types';
 import { CardTreeOverflowError } from '../types';
 import type { components } from '../types/backend';
@@ -143,7 +144,7 @@ export class BackendService {
     };
   }
 
-  public async queryForest(contextIds: number[], pipeline: any[]): Promise<ReviewCard[]> {
+  public async queryForest(contextIds: number[], pipeline: PipelineStage[]): Promise<ReviewCard[]> {
     const payload = {
       context_ids: contextIds,
       pipeline
@@ -172,7 +173,7 @@ export class BackendService {
   }
 
   public async fetchEbisuSession(contextIds: number[], poolSize = 50, drawSize = 10): Promise<ReviewCard[]> {
-    const pipeline = [
+    const pipeline: PipelineStage[] = [
       {
         stage: "select",
         selection: { type: "DescendantSelection" },
