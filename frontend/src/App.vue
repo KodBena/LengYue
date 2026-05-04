@@ -486,7 +486,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
   flex: 1;
   min-width: 0;
   min-height: 0;
-  background: var(--surface-1);
+  background: var(--surface-0);
 }
 
 /* The top nav bar always spans the full width of main-workspace */
