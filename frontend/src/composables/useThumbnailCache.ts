@@ -1,12 +1,30 @@
 /**
  * src/composables/useThumbnailCache.ts
- * Pure, shared thumbnail cache as a Vue composable.
- * 
- * The cache Map lives at module level so every call to useThumbnailCache()
- * returns functions that close over the *same* cache instance.
- * This makes the cache truly global while keeping the API black-box and pure.
- * 
- * Low-hanging performance win: lastWarmedPath guard prevents re-warming identical paths.
+ * Shared board-thumbnail cache as a Vue composable.
+ *
+ * The cache Map lives at module level so every call to
+ * `useThumbnailCache()` returns functions that close over the
+ * *same* cache instance. This makes the cache truly global
+ * (singleton) while keeping the per-component API black-box.
+ *
+ * Cache lifetime is per-board, scoped within an identity. Entries
+ * are added by `getThumbnailSvg` / `warmPath` (keyed
+ * `${nodeId}:${showMarker}`) and dropped by:
+ *
+ *   - `purgeBoardThumbnails(boardId)` — invoked from `closeBoard`
+ *     when a board exits the workspace. Without this, the cache
+ *     would accumulate SVG payloads for every closed board's
+ *     nodes for the duration of the SPA session.
+ *
+ * NodeIds are UUID-style and don't collide across boards or
+ * users, so the per-board purge is a memory-hygiene cleanup, not
+ * a correctness or privacy concern. The cache is intentionally
+ * NOT cleared on identity flip via `resetWorkspace` — that path
+ * is audit pair O9 (deferred memory-hygiene candidate).
+ *
+ * Low-hanging performance win: lastWarmedPath guard prevents
+ * re-warming identical paths.
+ *
  * License: Public Domain (The Unlicense)
  */
 
@@ -48,6 +66,33 @@ async function generateThumbnail(
     showMarker,
     uid: `${nodeId.replace(/[^a-zA-Z0-9]/g, '')}${showMarker ? 'm' : 's'}`,
   });
+}
+
+/**
+ * Drop every cached thumbnail for the given board's nodes. Called
+ * from `closeBoard` when the board exits the workspace, so the
+ * shared cache doesn't accumulate dead entries across the session.
+ *
+ * Walks the closing board's `nodes` keys (still readable here
+ * because closeBoard runs this before splicing the board out of
+ * `store.boards`) and deletes both the showMarker=true and
+ * showMarker=false cache entries for each. NodeIds that aren't in
+ * the cache are silently skipped — `Map.delete` on a missing key
+ * is a no-op.
+ *
+ * Resource-ownership audit pair O4. The companion identity-flip
+ * cleanup (O9) is deferred per the audit's bounded-memory-hygiene
+ * disposition; UUID NodeIds don't collide across users, so the
+ * privacy concern that motivated O10 (clearCardThumbnailCache)
+ * doesn't apply here.
+ */
+export function purgeBoardThumbnails(boardId: BoardId): void {
+  const board = store.boards.find(b => b.id === boardId);
+  if (!board) return;
+  for (const nodeId of Object.keys(board.nodes) as NodeId[]) {
+    cache.value.delete(`${nodeId}:true`);
+    cache.value.delete(`${nodeId}:false`);
+  }
 }
 
 // ── Public black-box contract ──────────────────────────────────────────────
