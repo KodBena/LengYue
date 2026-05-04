@@ -159,9 +159,14 @@ export class AnalysisLedger {
     nodeIds.forEach(id => getOrCreateVersion(hash, id));
 
     return computed(() => {
+      // Always go through getOrCreateVersion so the dependency re-
+      // attaches even after purgeBoard deletes-and-recreates the ref.
+      // A bare `nodeVersions.get(...)` would silently skip on a missing
+      // entry, leaving the computed without a dep on the new ref and
+      // unable to see future records for the same nodeId. Mirrors the
+      // pattern in getRaw().
       for (const id of nodeIds) {
-        const v = nodeVersions.get(`${hash}:${id}`);
-        if (v) v.value;
+        getOrCreateVersion(hash, id).value;
       }
       const raw = nodeIds.map(id => data.get(hash)?.get(id) ?? null);
       const filtered = raw.map(packet => packet && (!filter || filter(packet)) ? packet : null);
@@ -184,13 +189,24 @@ export class AnalysisLedger {
     const board = store.boards.find(b => b.id === boardId);
     if (!board) return;
     const nodeIds = Object.keys(board.nodes) as NodeId[];
-    
+
     for (const [hash, hashMap] of data.entries()) {
       for (const nodeId of nodeIds) {
         if (hashMap.has(nodeId)) {
           hashMap.delete(nodeId);
-          const v = nodeVersions.get(`${hash}:${nodeId}`);
-          if (v) v.value++;
+          const key = `${hash}:${nodeId}`;
+          const v = nodeVersions.get(key);
+          if (v) {
+            // Bump first so any subscribed consumer's computed re-runs
+            // and observes the cleared data, then drop the ref so it
+            // isn't retained for nodes that no longer have data. A
+            // re-record on the same nodeId creates a fresh ref via
+            // getOrCreateVersion; consumers re-attach through the same
+            // call inside their compute body (see getProjectedSequence
+            // and getRaw below).
+            v.value++;
+            nodeVersions.delete(key);
+          }
         }
       }
     }
