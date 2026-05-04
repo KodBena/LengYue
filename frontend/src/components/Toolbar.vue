@@ -82,12 +82,10 @@ const engineBtnLabel = computed(() => isConnected.value ? 'Disconnect' : 'Connec
 /* magic-literal: .toolbar-btn padding `1px 5px` — toolbar buttons are
    visually-compact one-line action triggers; tighter than the substrate's
    --space-tight (4px) on both axes for the dense top-toolbar's aesthetic. */
-.toolbar-btn { background: var(--surface-0); border: 1px solid var(--border-3); color: var(--text-1); padding: 1px 5px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: var(--tracking-tight); transition: background var(--duration-default), border-color var(--duration-default); }
-.toolbar-btn:hover { background: var(--border-3); border-color: var(--border-3); color: var(--text-0); }
+.toolbar-btn { background: var(--surface-0); border: 1px solid var(--border-3); color: var(--text-1); padding: 1px 5px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
 .btn-connected { border-color: var(--state-success) !important; color: var(--state-success) !important; }
 /* theme-exception: .highlight-btn uses muted-cyan border (#2a5a7a)
-   and #1a3a4a hover bg — same muted-action-button pattern as
-   QeuboToolbar's .apply-btn. */
+   — same muted-action-button pattern as QeuboToolbar's .apply-btn.
+   Hover-state literal retired with the no-mouseover-change sweep. */
 .highlight-btn { border-color: #2a5a7a; color: var(--accent-primary); }
-.highlight-btn:hover { background: #1a3a4a; border-color: var(--accent-primary); }
 </style>

@@ -163,7 +163,6 @@ const rugPlot = computed(() => {
 }
 
 .tab-thumb:hover .close-board-btn { opacity: 1; }
-.close-board-btn:hover { background: var(--state-attention); color: var(--text-0); border-color: var(--state-attention); }
 
 .indicator-row {
   width: 100%; height: 12px; display: flex; align-items: center;

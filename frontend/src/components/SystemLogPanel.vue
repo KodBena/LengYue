@@ -84,7 +84,6 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
   cursor: pointer;
   text-transform: uppercase;
 }
-.clear-btn:hover:not(:disabled) { color: var(--text-0); }
 .clear-btn:disabled { color: var(--border-2); cursor: default; }
 
 .messages-list {
@@ -142,7 +141,6 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
   padding: 0;
   line-height: 1;
 }
-.dismiss-btn:hover { color: var(--text-0); }
 
 .empty-state {
   display: flex;

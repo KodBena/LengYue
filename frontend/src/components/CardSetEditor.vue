@@ -216,7 +216,6 @@ function updatePipeline(newJsonStr: string) {
 .section { border-bottom: 1px solid var(--surface-2); }
 .section-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-default) var(--space-medium); background: var(--surface-2); color: var(--text-1); font-size: var(--text-body); text-transform: uppercase; }
 .add-btn { background: none; border: none; color: var(--accent-primary); cursor: pointer; font-weight: bold; font-size: var(--text-heading); }
-.add-btn:hover { color: var(--text-0); }
 
 .item-list { list-style: none; padding: 0; margin: 0; }
 .item-list li { padding: var(--space-default) var(--space-medium); font-size: var(--text-emphasis); color: var(--text-1); cursor: pointer; border-left: 2px solid transparent; display: flex; justify-content: space-between; align-items: center;}
@@ -230,14 +229,13 @@ function updatePipeline(newJsonStr: string) {
 
 .detail-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-2); }
 .detail-header h3 { margin: 0; font-size: var(--text-heading); color: var(--text-0); font-weight: normal; }
-/* theme-exception: .del-btn's border (#5a1a1a) and hover background
-   (#5a1a1a) are muted-dark-red tints for the destructive-action
-   affordance — same rationale as PaletteEditor's .del-btn. Base bg
-   is substrate-anchored (var(--surface-0)); the tints survive only
-   on border and hover. Future substrate work could introduce
-   tinted-surface anchors to retire these. */
+/* theme-exception: .del-btn's border (#5a1a1a) is a muted-dark-red
+   tint for the destructive-action affordance — same rationale as
+   PaletteEditor's .del-btn. Base bg is substrate-anchored
+   (var(--surface-0)); the tint survives only on the border. Future
+   substrate work could introduce tinted-surface anchors to retire
+   it. */
 .del-btn { background: var(--surface-0); color: var(--state-error); border: 1px solid #5a1a1a; padding: var(--space-tight) var(--space-default); border-radius: var(--radius-default); cursor: pointer; font-size: var(--text-body); }
-.del-btn:hover { background: #5a1a1a; color: var(--text-0); }
 
 .form-grid { padding: var(--space-medium); display: grid; grid-template-columns: 100px 1fr; gap: var(--space-medium); align-items: center; }
 .form-grid label { font-size: var(--text-emphasis); color: var(--text-2); }

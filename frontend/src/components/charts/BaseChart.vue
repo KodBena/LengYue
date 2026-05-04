@@ -129,7 +129,9 @@ const updateOptions = () => {
     tooltip: {
       trigger: 'axis',
       showContent: true,
-      textStyle: { fontSize: 8 },
+      backgroundColor: themeColor('--surface-1'),
+      borderColor: themeColor('--border-2'),
+      textStyle: { color: themeColor('--text-1'), fontSize: 8 },
       confine: true,
       padding: 0,
       formatter: (params: any[]) => {

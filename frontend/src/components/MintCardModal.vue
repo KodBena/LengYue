@@ -328,7 +328,6 @@ async function submit() {
 }
 .modal-header h2 { margin: 0; font-size: var(--text-heading); color: var(--text-0); text-transform: uppercase; letter-spacing: var(--tracking-tight); }
 .close-btn { background: none; border: none; color: var(--text-2); font-size: var(--text-heading); cursor: pointer; }
-.close-btn:hover { color: var(--text-0); }
 
 .modal-body { padding: var(--space-medium); }
 
@@ -385,15 +384,6 @@ async function submit() {
   border-top: 1px solid var(--surface-3); background: var(--surface-2);
 }
 .btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-1); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
-.btn-cancel:hover { background: var(--surface-3); color: var(--text-0); }
-/* theme-exception: .btn-submit:hover #5bc0ff is a lightened-accent
-   variant. The substrate has only one cyan anchor (--accent-primary
-   #4aaef0); the hover lightening doesn't match any anchor. Color-mix
-   from the substrate would be approximate (e.g.
-   color-mix(in srgb, var(--accent-primary), white 15%) ≈ #6abbf2)
-   but not exact. Preserved verbatim until the substrate gains
-   accent-tone variants. */
 .btn-submit { background: var(--accent-primary); border: none; color: var(--surface-1); font-weight: bold; padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
-.btn-submit:hover:not(:disabled) { background: #5bc0ff; }
 .btn-submit:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 </style>

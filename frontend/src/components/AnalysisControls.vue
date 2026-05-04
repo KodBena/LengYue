@@ -80,7 +80,6 @@ h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--accent-primary
    (#5a1a1a border, #3a1a1a hover bg) — same pattern as
    PaletteEditor's .del-btn. */
 .warning-btn { color: var(--state-error) !important; border-color: #5a1a1a !important; }
-.warning-btn:hover { background: #3a1a1a !important; }
 
 .toolbar-btn-sm { background: var(--border-1); border: 1px solid var(--border-3); color: var(--text-1); padding: 2px 6px; font-size: var(--text-body); cursor: pointer; border-radius: var(--radius-default); text-transform: uppercase; }
 
