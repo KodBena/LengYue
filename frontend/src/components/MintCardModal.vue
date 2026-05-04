@@ -24,13 +24,15 @@ const selectedPaletteId = ref<string>('active');
 
 const palettes = computed(() => store.profile.settings.engine.katago.analysis_env.palettes);
 
-// Typed accessor for the modal's only field inside `grading_parameter`.
+// Typed accessors for the two editable fields inside `grading_parameter`.
 // The wire shape declares `grading_parameter: { [key: string]: unknown } | null`
 // (OpenAPI-honest about the blob's opacity), but `useMinting.prepareDraft`
-// populates `data.default_visits: number` before the modal renders, and
-// the modal's contract is to surface that one field as editable. The
-// localized cast widens at the access boundary; the rest of the blob
-// stays opaque.
+// populates `data.default_visits: number` and `data.gamma: number` before
+// the modal renders, and the modal's contract is to surface those two
+// fields as editable. The localized casts widen at the access boundary;
+// the rest of the blob stays opaque. Read-side counterparts are the
+// `readGradingParam<number>` calls in
+// `services/backend-service.ts::mapToReviewCard`.
 const defaultVisits = computed<number>({
   get() {
     const gp = draft.value?.grading_parameter as
@@ -45,6 +47,23 @@ const defaultVisits = computed<number>({
       | { data: Record<string, unknown> }
       | null;
     if (gp?.data) gp.data.default_visits = v;
+  },
+});
+
+const gamma = computed<number>({
+  get() {
+    const gp = draft.value?.grading_parameter as
+      | { data?: { gamma?: number } }
+      | null
+      | undefined;
+    return gp?.data?.gamma ?? 0.9;
+  },
+  set(v: number) {
+    if (!draft.value) return;
+    const gp = draft.value.grading_parameter as
+      | { data: Record<string, unknown> }
+      | null;
+    if (gp?.data) gp.data.gamma = v;
   },
 });
 
@@ -151,19 +170,21 @@ async function submit() {
 
   // Apply Palette Override if one was specifically chosen.
   // 34b: The override rebuilds `grading_parameter` from the palette, so we
-  // must re-attach `default_visits` afterwards — otherwise we'd clobber the
-  // value the user may have edited in the modal.
+  // must re-attach `default_visits` and `gamma` afterwards — otherwise
+  // we'd clobber the values the user may have edited in the modal.
   if (selectedPaletteId.value !== 'active') {
     const env = store.profile.settings.engine.katago.analysis_env;
     const p = env.palettes.find(x => x.id === selectedPaletteId.value);
     if (p) {
       // Local cast at the read site: the wire shape's `grading_parameter`
       // is `{[key: string]: unknown} | null`; the create-flow contract
-      // populates `data.default_visits` (see `useMinting.prepareDraft`).
+      // populates `data.default_visits` and `data.gamma` (see
+      // `useMinting.prepareDraft`).
       const gp = draft.value.grading_parameter as
-        | { data?: { default_visits?: number } }
+        | { data?: { default_visits?: number; gamma?: number } }
         | null;
       const preservedVisits = gp?.data?.default_visits;
+      const preservedGamma = gp?.data?.gamma;
       draft.value.grading_parameter = {
         data: {
           analysis_config: {
@@ -171,7 +192,8 @@ async function submit() {
             parameters: env.parameters,
             symbols: env.symbols
           },
-          default_visits: preservedVisits
+          default_visits: preservedVisits,
+          gamma: preservedGamma
         }
       };
     }
@@ -225,6 +247,13 @@ async function submit() {
                `useMinting.prepareDraft` constructs it before the modal
                renders. -->
           <input type="number" v-model.number="defaultVisits" min="1" step="100" class="dark-input" />
+
+          <label>Discount γ:</label>
+          <!-- gamma rides in `grading_parameter.data.gamma` alongside
+               default_visits; same opacity story, same typed-accessor
+               pattern (see <script>). Range bounded to (0, 1] —
+               Ebisu's recall-discount semantics. -->
+          <input type="number" v-model.number="gamma" min="0.01" max="1" step="0.01" class="dark-input" />
 
           <label>Analysis Palette:</label>
           <select v-model="selectedPaletteId" class="dark-select">

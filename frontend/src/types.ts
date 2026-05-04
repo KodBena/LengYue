@@ -323,6 +323,13 @@ export interface MintingSettings {
   defaultVisits: number;
   defaultNumMoves: number;
   defaultPaletteId: 'active' | string;
+  // Recall-discount γ baked into each newly-minted card's
+  // `grading_parameter.data.gamma`. The MintCardModal exposes the
+  // field per-card so the user can override at mint time; this
+  // setting is the starting value the modal opens with. Matches the
+  // `?? 0.9` fallback in `backend-service.ts::mapToReviewCard`'s
+  // gamma read for legacy cards that lack the field.
+  defaultGamma: number;
 }
 
 export interface NavigationSettings {

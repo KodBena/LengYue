@@ -82,7 +82,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 12;
+export const CURRENT_SCHEMA_VERSION = 13;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -282,6 +282,29 @@ export const migrations: Migration[] = [
       out._pendingMigrationMessages = existing.concat(messages);
     }
 
+    return out;
+  },
+  // 12 → 13: Surface mint-time γ control in MintingSettings. v12 had
+  // no `profile.settings.minting.defaultGamma` field; gamma was only
+  // ever written to a card's `grading_parameter.data.gamma` if the
+  // backend or some external tool put it there, and the frontend's
+  // `mapToReviewCard` read it via `?? 0.9` fallback. v13 introduces
+  // `defaultGamma: 0.9` in MintingSettings; the MintCardModal opens
+  // with this value and writes the user-edited value into each new
+  // card's `grading_parameter.data.gamma`. Idempotent: a pre-existing
+  // numeric value is preserved (a hand-edited blob with a custom
+  // default isn't clobbered); non-numeric or missing field gets the
+  // 0.9 default. The 0.9 matches the read-side fallback in
+  // backend-service.ts so the user-facing semantics are unchanged
+  // for legacy cards that lack the field.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const minting = out.profile?.settings?.minting;
+    if (minting && typeof minting === 'object') {
+      if (typeof minting.defaultGamma !== 'number') {
+        minting.defaultGamma = 0.9;
+      }
+    }
     return out;
   },
 ];
