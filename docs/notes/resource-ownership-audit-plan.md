@@ -1,10 +1,10 @@
 # Resource-ownership audit plan
 
-- **Status:** Proposed. First pass not yet executed; this document
-  is the schedule, not a record of completed work. The first
-  inventory entry (board → in-flight analysis subscription) closed
-  on 2026-05-04 in `closeBoard`'s call site as the prompting case
-  study; the audit's purpose is to catch the rest.
+- **Status:** Pass 1 closed 2026-05-04; the inventory below is the
+  deliverable. Pass 2 (per-pair fix-or-doc) and Pass 3 (forward-
+  authoring discipline) remain pending. The first inventory entry
+  (board → in-flight analysis subscription) closed earlier on the
+  same day in `closeBoard`'s call site as the prompting case study.
 - **Genre:** Audit plan, modelled on
   `docs/notes/magic-literals-audit-plan.md`'s tiered structure.
 - **Tracking:** A row in `docs/TODO.md` (Medium tier) points here.
@@ -79,33 +79,114 @@ subscription framings will catch additional residue and should be
 scheduled separately when the owner-resource sweep completes —
 they are not redundant.
 
-## Seed inventory
+## Inventory
 
-The pairs below are starting points. The audit's Pass 1 expands
-this list; the inventory itself is part of the deliverable.
+Pass 1 closed 2026-05-04; the table below is the deliverable. The
+walk covered `src/store/`, `src/services/`, `src/composables/`,
+`src/components/`, and `src/engine/katago/katago-client.ts` under
+the owner-resource framing of §"Primary taxonomy". The plan's grep
+heuristics all ran. The result is **6 owner-mutation sites**
+(closeBoard, resetWorkspace, identity-change-via-watcher, HMR
+dispose, component unmount, engine WS disconnect) and **~25
+owned-resource pairs** across them. 17 are closed (the seed plus
+15 already-clean cleanups confirmed during the walk); 15 are
+suspected open and break out by mutation site below. Pass 2
+schedules per-pair fixes per the bisect discipline.
 
 ### Closed (do not re-audit)
 
-| Owner | Resource | Resolution | Commit |
-|-------|----------|------------|--------|
-| Board (closed via `closeBoard`) | In-flight analysis subscription at the proxy | `closeBoard` calls `analysisService.stopBoardAnalysis(boardId)` | 2026-05-04 — the prompting case study |
-| HMR module reload | `analysisService` singleton's WebSocket + `metricsTimer` + `watchdogTimer` + per-board `activeQueryIds` / `activeSubscriptions` / `restartCallbacks` | New public `stopAllBoardAnalyses()` on `AnalysisService` (snapshots `activeQueryIds.keys()` and walks each through `stopBoardAnalysis`); dev-only `import.meta.hot.dispose(...)` at the bottom of `src/services/analysis-service.ts` calls it followed by `disconnect()` | 2026-05-04 — see the worklog cross-referenced below |
+The seed entries plus cleanups verified during the walk that
+already have explicit teardown wired:
 
-### Suspected open (audit Pass 2 verifies and fixes per-pair)
+| # | Owner | Resource | Resolution | Reference |
+|---|-------|----------|------------|-----------|
+| C1 | Board (closeBoard) | In-flight analysis subscription at proxy (per-board entry in `activeQueryIds` / `activeSubscriptions` / `restartCallbacks`; LEAF canonical) | `closeBoard` calls `analysisService.stopBoardAnalysis(boardId)` first | 2026-05-04 — prompting case study; `store/index.ts:138` |
+| C2 | HMR module reload | `analysisService` singleton's WS + `metricsTimer` + `watchdogTimer` + per-board bookkeeping | `import.meta.hot.dispose` calls `stopAllBoardAnalyses()` then `disconnect()` | 2026-05-04; `services/analysis-service.ts:324-329` |
+| C3 | Identity flip (auth → not-auth) | qEUBO operational state (`_statusRef`, `_pairRef`, `_bestRef`, `_calibrationEnabledRef`, `_isBusyRef`) | `useAppBootstrap` auth-watcher calls `qeubo.reset()` | `composables/useAppBootstrap.ts:72-83`, `composables/useQeubo.ts:391-397` |
+| C4 | Identity flip (auth → not-auth) | Workspace state in GlobalStore (boards, profile, session sans engine) | `SyncService.onAuthStateChange` calls `resetWorkspace()` | `services/sync-service.ts:110-129` |
+| C5 | `useAuth.logout()` / 401 on non-auth path | localStorage JWT + cached username | `api.clearToken()`; api-client invokes `onTokenInvalidatedCallback` for the 401 path | `services/api-client.ts:194-202`, `composables/useAuth.ts:88-93,299-303` |
+| C6 | Engine WS disconnect (LEAF/proxy drops) | `metricsTimer` + `watchdogTimer` + `activeMode` clear | `KataGoClient.onDisconnect` callback in analysis-service | `services/analysis-service.ts:50-54` |
+| C7 | Component unmount: `BaseChart` | ECharts instance + ResizeObserver | `onUnmounted` dispose + disconnect | `components/charts/BaseChart.vue:327-333` |
+| C8 | Component unmount: `HeatmapChart` | ECharts instance + ResizeObserver + initTimeout | `onUnmounted` clears all three | `components/charts/HeatmapChart.vue:166-170` |
+| C9 | Component unmount: `HorizontalTimelineVisualizer` | document mousemove/touchmove/mouseup/touchend listeners installed during drag | `onUnmounted(() => stopDragging())` | `components/HorizontalTimelineVisualizer.vue:283` |
+| C10 | Component unmount: `useScopedScroll` | wheel / mouseenter / mouseleave listeners + rafId | `onUnmounted` | `composables/useScopedScroll.ts:46-55` |
+| C11 | Component unmount: `useUserIORegistry` | window keydown listener | `onUnmounted` | `composables/useUserIORegistry.ts:99` |
+| C12 | Component unmount: `useTransientLogReveal` | reveal-window setTimeout | `onUnmounted` | `composables/useTransientLogReveal.ts:73-75` |
+| C13 | Component unmount: `useActivityDecay` | requestAnimationFrame id | `onUnmounted` | `composables/useActivityDecay.ts:27-29` |
+| C14 | Component unmount: `use-pv-animation` | per-stone fade timers (and cycle-boundary timer-array reset) | `onUnmounted(clearTimers)` | `composables/use-pv-animation.ts:257` |
+| C15 | Component unmount: `useEChartsForestRender` | per-tree ECharts instances + ResizeObservers | `onUnmounted` destroys all | `composables/useEChartsForestRender.ts:183-185` |
+| C16 | `loadCard` / `processUserMove` boundary in `useReviewSession` | per-board `AbortController` for in-flight analysis-wait | abort+delete on card transition; map.delete on settle when slot still owned | `composables/useReviewSession.ts:163-164,263-264,284-286` |
+| C17 | `KataGoClient.subscribers` map (per-queryId) | callback registration + map-shrink-on-empty | unsub returned from `client.subscribe`, called by `stopBoardAnalysis`; `sendCommand` uses subscribe-then-unsub on first response | `engine/katago/katago-client.ts:102-122,124-131` |
 
-| Owner | Resource | Audit Pass-2 question | Notes |
-|-------|----------|----------------------|-------|
-| Board (closed via `closeBoard`) | Analysis-ledger entries keyed by `(configHash, nodeId)` for the closed board's nodes | Does anything call `ledger.purgeBoard(boardId)` from `closeBoard`? Spot-check says no — `purgeBoard` is only called from the per-board "stop" affordance in `AnalysisControls.vue:15`. | Same shape of bug as the in-flight subscription. Sibling commit. |
-| Board (closed via `closeBoard`) | `store.session.reviews[boardId]` review-session entry | Is the review-session row deleted on board close, or does it leak in `store.session.reviews`? | Memory leak (small); also potential identity confusion if a recreated board ever reuses a `BoardId` (shouldn't happen since `BoardId` is freshly generated, but worth confirming). |
-| Board (closed via `closeBoard`) | Thumbnail-cache entries in `useThumbnailCache` | Does the cache evict the closed board's thumbnails? | Memory leak (per-thumbnail SVG payloads). |
-| Identity (cleared via logout / identity change) | All-of-the-above on logout, plus the live KataGo WebSocket connection | The deferred case explicitly named in `store/index.ts`'s comment on `resetUserOwnedState`: "When deployment shifts to user-keyed endpoints (cloud-compute, rented per-user engines), full engine reset + actual `analysisService.disconnect()` becomes the right move." | The current single-machine deployment makes the leak benign. A future hosted deployment promotes it to a real correctness concern. |
-| Component unmount (Vue lifecycle) | DOM-level event listeners attached via `addEventListener` from inside `<script setup>` (search for `addEventListener` outside `onMounted`/`onUnmounted` pairings) | Spot-check existing components for the pattern. | Scoped to a Pass-2 sub-sweep. |
+### Suspected open
+
+Per the bisect discipline (§"Bisect discipline"), each row below
+ships as its own Pass-2 commit even when multiple rows share an
+owner-mutation site. The Disposition column is a hint for Pass 2,
+not a binding decision; per-pair the choice is fix / document /
+defer.
+
+#### Owner = Board (mutation site: `store/index.ts:closeBoard`)
+
+| # | Resource | Pass-2 question | Disposition |
+|---|----------|-----------------|-------------|
+| O1 | Analysis-ledger entries keyed by `(configHash, nodeId)` for the closed board's nodes — both `data` and `nodeVersions` | `closeBoard` does not call `ledger.purgeBoard(boardId)`; `purgeBoard` is only invoked from `AnalysisControls.vue:15`. | Same shape as C1. **Sub-finding:** `purgeBoard` itself is incomplete — `analysis-ledger.ts:183-197` deletes from `data` but only bumps `nodeVersions`, so `nodeVersions` leaks even after the user clicks Purge. Worth a separate sub-commit. |
+| O2 | `store.session.reviews[boardId]` review-session row | Should `closeBoard` `delete store.session.reviews[boardId]`? | Small memory leak; gets round-tripped to backend via SyncService (it persists `store.session` deeply), so dead entries accumulate in the user's document. |
+| O3 | `store.engine.activeMode[boardId]` — set to `'none'` by `stopBoardAnalysis` but the key persists in the Record | Delete the key, or accept the `'none'` tombstone? | Tombstone is read-side benign; persisted via SyncService same as O2. Probably fix as part of O2's commit. |
+| O4 | `useThumbnailCache` module-scope cache entries (`Map<string, string>` keyed `${nodeId}:${showMarker}`) for the closed board's nodes | Does the cache evict on board close? | Memory leak per-SVG. Cache is a module singleton with no per-board purge affordance — Pass 2 needs to add one (`purgeBoard(boardId)` on the composable surface) and call from `closeBoard`. |
+| O5 | `useReviewSession.pendingAnalysisAborts` entry for the closed board | If the user closes a board mid-review, the `AbortController` stays mapped. | Small leak; downstream `waitForAnalysis` will time out and the controller becomes GC-eligible. Worth confirming by Pass-2 trace. |
+| O6 | `KataGoClient.subscribers` entries for the closed board's still-active queries | Verify no path leaves a queryId in `subscribers` because the unsub closure was never invoked. Likely already correct via `stopBoardAnalysis` (C17), but the protocol-state framing in §"Primary taxonomy" suggests this is the right Pass-2 trace. | Cosmetic / verification only if the trace confirms. |
+
+#### Owner = Identity / Workspace (mutation site: `store/index.ts:resetWorkspace`)
+
+| # | Resource | Pass-2 question | Disposition |
+|---|----------|-----------------|-------------|
+| O7 | `analysisService` per-board maps (`activeSubscriptions`, `activeQueryIds`, `activeQueries`, `restartCallbacks`) keyed to the prior user's BoardIds | `resetWorkspace` replaces `boards` wholesale; it does NOT release the analysis-service's per-board bookkeeping or fire terminate frames. | `stopAllBoardAnalyses()` already exists (added for HMR). Wiring it into `resetWorkspace` closes this without touching the WS. The deferred `analysisService.disconnect()` discussed in `resetWorkspace`'s docstring is a strict superset and remains deferred per the same "user-keyed endpoints" trigger. |
+| O8 | `analysisLedger.data` and `nodeVersions` maps | Ledger holds prior user's analysis packets indexed by NodeId across the resetWorkspace boundary. NodeIds are UUID-shape so cross-user collision is unlikely, but memory grows monotonically. | Same family as O7. Either flush on `resetWorkspace` (add `ledger.purgeAll()`), or document the deferral with the same "revisit when" trigger as the WS-disconnect deferral. |
+| O9 | `useThumbnailCache` module-scope cache | Same shape as O8. | Same disposition. |
+| O10 | `useCardThumbnail` module-scope `cache: Map<number, string>` keyed by raw CardId | **Privacy-relevant**: CardIds are integer auto-increments per the backend; cross-user collision is *likely*, so the next user could see the prior user's card render via the memo. | Add `clearCache()` to `useCardThumbnail` and invoke from `resetWorkspace`. Single-machine deployment makes this latent today; multi-tenant deployment surfaces it. |
+| O11 | `useReviewSession.pendingAnalysisAborts` (App.vue-scoped, so effectively a singleton across resetWorkspace) | If `resetWorkspace` fires mid-review, the controller stays mapped to a now-defunct BoardId. | Bounded; same shape as O5. |
+
+#### Owner = Component lifecycle (mutation site: `onUnmounted` or its absence)
+
+| # | Resource | Pass-2 question | Disposition |
+|---|----------|-----------------|-------------|
+| O12 | `useResizablePanel`'s document `mousemove`+`mouseup` listeners and `body.classList.add('resizing')` | `useResizablePanel.ts` has no `onUnmounted`. If the host SFC unmounts mid-drag (HMR, route change), the global listeners persist and the body keeps the resizing class. | Mirror the `HorizontalTimelineVisualizer` shape: `onUnmounted(stopResize)`. ~3 lines. |
+| O13 | `BaseChart` `markerTimer` (debounced marker update setTimeout) | `onUnmounted` disposes chart + ResizeObserver but doesn't `clearTimeout(markerTimer)`. The callback fires post-unmount and reads a now-null `chartInstance` — a no-op, not a crash. | Trivial — add `if (markerTimer) clearTimeout(markerTimer)` to onUnmounted for completeness. |
+| O14 | `MintCardModal` `window.setTimeout` for `hideSuggestionsDelayed` | If the modal closes within 150ms of input blur, the callback writes to `showSuggestions.value` on a torn-down component. Vue ref closure stable, write is a no-op. | Benign. Either ignore or store the handle and clear in `onUnmounted`. |
+
+#### Owner = Engine WS reconnect
+
+| # | Resource | Pass-2 question | Disposition |
+|---|----------|-----------------|-------------|
+| O15 | `analysisService` per-board bookkeeping (`activeSubscriptions` closures over a now-dead WS, `activeQueryIds`, `activeQueries`, `restartCallbacks`) | `onDisconnect` clears timers and `activeMode = {}` but does NOT clear the per-board maps. On reconnect, each new `analyzeRange` calls `stopBoardAnalysis(boardId)` first, which overwrites — so the stale maps hold no-op closures rather than causing misbehavior. | Cosmetically wrong; investigate Pass-2 whether any user-visible misbehavior exists on reconnect. If not, document the as-designed state. |
 
 ### Out-of-scope (initially)
 
 - **Backend-side resources** (cards, documents, game_sources). Those are owned by the backend's tenancy spine, not the SPA's workspace; their lifecycle is the backend's concern.
 - **The proxy's own internal cleanup**. The proxy's coalescing-transparency, hub orphan-termination, and keep-alive middleware ship in v1.0.7-v1.0.11 and close the SPA-disconnect path. The audit's scope is SPA-side cleanup that prevents leaks from arising in the first place.
 - **Browser-process resource cleanup** on tab close. The browser handles WS teardown, timer cleanup, etc. on tab close; the SPA can't and shouldn't try to.
+
+### Pass-1 closeout notes
+
+**Doc-graph drift surfaced during the walk.** This plan's prior
+seed-inventory row for "Identity (cleared via logout / identity
+change)" referenced `store/index.ts`'s comment on
+`resetUserOwnedState`; the actual function is named `resetWorkspace`
+(`store/index.ts:187`), and the file's own header still carries the
+legacy name. The seed row was rewritten to use the correct name in
+the inventory above; the file-header drift is a Pass-2 candidate
+that will land alongside the O7/O8/O9/O10 commits which touch this
+site anyway. Per ADR-0005 (single source of truth) and ADR-0004
+(minimal-touch), the retrofit is deferred rather than swept.
+
+**Forward note for Pass 3.** A recurring shape emerged from the
+walk: per-entity `Map`/`Set` state in a service or composable
+singleton reliably gets a `dispose`/`disconnect` cleanup path, but
+inconsistently gets an entity-removal cleanup path. The Pass-3
+inline-comment convention should specifically name "what does this
+owner own?" at the mutation function's docstring; closeBoard's
+expanded 2026-05-04 docstring is the worked example to mirror.
 
 ## Pass structure
 

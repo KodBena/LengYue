@@ -360,11 +360,19 @@ bisect` — this matters because the bugs typically manifest as
 silent runtime behaviour invisible until operational monitoring
 catches them.
 
-Seed inventory in the plan flags four suspected open pairs (board
-→ ledger entries, board → review-session row, board → thumbnail
-cache, identity → all-of-the-above on logout) plus a fifth
-already-tracked elsewhere (the HMR cleanup for `analysisService`
-in the Trivial tier above). The audit's Pass 1 expands this list.
+Pass 1 closed 2026-05-04. The expanded inventory in the plan
+records 17 closed pairs (the seed plus 15 already-clean cleanups
+verified during the walk) and 15 suspected-open pairs grouped by
+mutation site (closeBoard / resetWorkspace / component unmount /
+engine-WS reconnect). Headline open pairs: ledger entries on
+closeBoard (O1, with a sub-finding that `purgeBoard` itself leaks
+`nodeVersions`), review-session row on closeBoard (O2), thumbnail
+cache cross-board (O4) and cross-user (O9 / O10 — the latter
+privacy-relevant because raw CardIds collide across users),
+analysis-service per-board maps on resetWorkspace (O7, closeable
+by reusing the existing `stopAllBoardAnalyses`), and the
+`useResizablePanel` mid-drag unmount leak (O12). Pass 2 ships
+per-pair fixes per the bisect discipline.
 
 Marked **priority** because the prompting case study was a silent
 compute leak with no in-app symptom — a class of regression that's
