@@ -82,7 +82,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 14;
+export const CURRENT_SCHEMA_VERSION = 15;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -334,6 +334,44 @@ export const migrations: Migration[] = [
       }
       if (typeof katago.replay_final_only !== 'boolean') {
         katago.replay_final_only = false;
+      }
+    }
+    return out;
+  },
+  // 14 → 15: Retire the never-wired `'light'` theme value, introduce
+  // the `'cluster'` theme variant, flip the default to `'cluster'`.
+  // v14 had `appearance.theme: 'dark' | 'light'` declared on the
+  // type union and selectable in the RegistryEditor dropdown, but
+  // `'light'` had never been wired to anything (theme.css had a
+  // single `:root` block with the dark values; no
+  // `[data-theme="light"]` ever existed). v15 introduces the
+  // data-theme wiring for the first time, narrows the type union to
+  // `'dark' | 'cluster'`, ships `[data-theme="cluster"]` as a real
+  // second theme, and flips the new-install default to `'cluster'`.
+  //
+  // Migration coerces any non-{'dark','cluster'} value to the new
+  // default `'cluster'`. The most likely such case is a v14 blob
+  // with the never-effective `'light'` value — those users land on
+  // `'cluster'` (the new default) rather than `'dark'` (the de-facto
+  // value they were seeing) because the old default was a vestigial
+  // wiring artifact, not an active choice. Idempotent: a
+  // pre-existing `'dark'` or `'cluster'` value is preserved.
+  //
+  // Existing users with `theme: 'dark'` (the de-branding-migrated
+  // majority) keep their `'dark'`. The `'dark' → 'cluster'`
+  // transition for those users is intentionally manual: flip the
+  // registry dropdown. Reasoning: silently inverting an active-
+  // looking choice during an upgrade is the failure mode that
+  // produces "my app suddenly looks different" surprises; we do
+  // that for `'light'` only because `'light'` was demonstrably
+  // never an effective choice.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const appearance = out.profile?.settings?.appearance;
+    if (appearance && typeof appearance === 'object') {
+      const valid = appearance.theme === 'dark' || appearance.theme === 'cluster';
+      if (!valid) {
+        appearance.theme = 'cluster';
       }
     }
     return out;

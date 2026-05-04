@@ -52,7 +52,7 @@ function isObject(val: any) {
 // resolver, not a static table.
 const PATH_ENUMS: Record<string, readonly string[]> = {
   // settings root (store.profile.settings)
-  'appearance.theme':              ['dark', 'light'],
+  'appearance.theme':              ['dark', 'cluster'],
   'navigation.actionOnDirtyBoard': ['ask', 'new', 'overwrite'],
   // session-ui root (store.session.ui)
   'analysisLayout':                ['horizontal', 'vertical'],

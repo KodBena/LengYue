@@ -230,10 +230,13 @@ function updatePipeline(newJsonStr: string) {
 
 .detail-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-2); }
 .detail-header h3 { margin: 0; font-size: var(--text-heading); color: var(--text-0); font-weight: normal; }
-/* theme-exception: .del-btn muted-state-error surface variants per
-   the same rationale as PaletteEditor's .del-btn. Future substrate
-   work could introduce tinted-surface anchors. */
-.del-btn { background: #3a1a1a; color: var(--state-error); border: 1px solid #5a1a1a; padding: var(--space-tight) var(--space-default); border-radius: var(--radius-default); cursor: pointer; font-size: var(--text-body); }
+/* theme-exception: .del-btn's border (#5a1a1a) and hover background
+   (#5a1a1a) are muted-dark-red tints for the destructive-action
+   affordance — same rationale as PaletteEditor's .del-btn. Base bg
+   is substrate-anchored (var(--surface-0)); the tints survive only
+   on border and hover. Future substrate work could introduce
+   tinted-surface anchors to retire these. */
+.del-btn { background: var(--surface-0); color: var(--state-error); border: 1px solid #5a1a1a; padding: var(--space-tight) var(--space-default); border-radius: var(--radius-default); cursor: pointer; font-size: var(--text-body); }
 .del-btn:hover { background: #5a1a1a; color: var(--text-0); }
 
 .form-grid { padding: var(--space-medium); display: grid; grid-template-columns: 100px 1fr; gap: var(--space-medium); align-items: center; }

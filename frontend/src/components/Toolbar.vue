@@ -28,8 +28,11 @@ const engineBtnLabel = computed(() => isConnected.value ? 'Disconnect' : 'Connec
 
 <template>
   <div class="toolbar">
-    <!-- TASK 3: Generic Naming -->
-    <span class="toolbar-title">{{ title ?? 'Open Go Studio' }}</span>
+    <!-- The toolbar-title element is preserved as a layout slot
+         (it participates in the toolbar's flex layout); the text
+         binding is opt-in via the `title` prop. No caller passes
+         it today; the element renders empty by default. -->
+    <span class="toolbar-title">{{ title }}</span>
 
     <div v-if="isConnected" class="engine-metrics-bar">
       <div class="metric">
@@ -69,7 +72,7 @@ const engineBtnLabel = computed(() => isConnected.value ? 'Disconnect' : 'Connec
 </template>
 
 <style scoped>
-.toolbar { height: 28px; background: var(--surface-3); display: flex; align-items: center; padding: 0 var(--space-default); gap: var(--space-default); justify-content: space-between; border-bottom: 1px solid var(--surface-1); flex-shrink: 0; }
+.toolbar { height: 28px; background: var(--surface-1); display: flex; align-items: center; padding: 0 var(--space-default); gap: var(--space-default); justify-content: space-between; border-bottom: 1px solid var(--surface-1); flex-shrink: 0; }
 .toolbar-title { font-size: var(--text-body); color: var(--text-0); text-transform: uppercase; letter-spacing: var(--tracking-default); white-space: nowrap; }
 .engine-metrics-bar { display: flex; gap: var(--space-medium); font-family: monospace; font-size: var(--text-emphasis); }
 .metric { display: flex; align-items: center; gap: var(--space-tight); }
@@ -79,7 +82,7 @@ const engineBtnLabel = computed(() => isConnected.value ? 'Disconnect' : 'Connec
 /* magic-literal: .toolbar-btn padding `1px 5px` — toolbar buttons are
    visually-compact one-line action triggers; tighter than the substrate's
    --space-tight (4px) on both axes for the dense top-toolbar's aesthetic. */
-.toolbar-btn { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: 1px 5px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: var(--tracking-tight); transition: background var(--duration-default), border-color var(--duration-default); }
+.toolbar-btn { background: var(--border-1); border: 1px solid var(--border-3); color: var(--text-1); padding: 1px 5px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: var(--tracking-tight); transition: background var(--duration-default), border-color var(--duration-default); }
 .toolbar-btn:hover { background: var(--border-3); border-color: var(--border-3); color: var(--text-0); }
 .btn-connected { border-color: var(--state-success) !important; color: var(--state-success) !important; }
 /* theme-exception: .highlight-btn uses muted-cyan border (#2a5a7a)

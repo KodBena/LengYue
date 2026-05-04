@@ -1,5 +1,13 @@
 <!doctype html>
-<html lang="en">
+<!--
+  data-theme: initial value baked into the markup to prevent FOUC
+  during cold-start. The watcher in src/composables/useAppBootstrap.ts
+  mirrors store.profile.settings.appearance.theme to this attribute
+  once Vue mounts and the persisted value is hydrated; until then
+  this attribute provides the stable default. See theme.css for the
+  available theme blocks.
+-->
+<html lang="en" data-theme="cluster">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
