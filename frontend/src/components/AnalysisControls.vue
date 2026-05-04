@@ -82,7 +82,7 @@ h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--accent-primary
 .warning-btn { color: var(--state-error) !important; border-color: #5a1a1a !important; }
 .warning-btn:hover { background: #3a1a1a !important; }
 
-.toolbar-btn-sm { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: 2px 6px; font-size: var(--text-body); cursor: pointer; border-radius: var(--radius-default); text-transform: uppercase; }
+.toolbar-btn-sm { background: var(--border-1); border: 1px solid var(--border-3); color: var(--text-1); padding: 2px 6px; font-size: var(--text-body); cursor: pointer; border-radius: var(--radius-default); text-transform: uppercase; }
 
 /* ... remaining styles ... */
 .analysis-config-box { margin-top: 0; background: var(--surface-2); padding: 0 var(--space-medium); border-radius: var(--radius-default); border: 1px solid var(--surface-3); }

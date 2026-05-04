@@ -39,7 +39,11 @@ palette in `assets/css/palettes.css` — bg = `--cluster-12-9`
 on the rest. Plus a fallback path so a comically-bad theme can
 be reverted. Both wants compose to: wire the theme switch for
 the first time, ship `'cluster'` as the second theme variant
-alongside `'dark'`, default stays `'dark'`.
+alongside `'dark'`. After the user's hands-on review of the
+initial substrate landing, three small visual tweaks (toolbar
+button surfaces, tab-header surface) and the default flip to
+`'cluster'` rolled in as a second pass — see "Second-pass
+tweaks" below.
 
 ## What changed
 
@@ -172,10 +176,64 @@ the `'dark'` they were de-facto seeing).
 
 ### `frontend/src/store/defaults.ts`
 
-Untouched. `defaultSettings.appearance.theme = 'dark'` was
-already correct under the new union; flipping the default to
-`'cluster'` is a separate scope question (user-flip-via-dropdown
-is the minimum-surprise path).
+`defaultSettings.appearance.theme: 'dark'` →
+`'cluster'`. Flipped during the second-pass review (see
+"Second-pass tweaks" below): once the cluster theme had
+visible-in-browser confirmation that it was coherent, the
+right default for new installs became cluster rather than
+dark. Existing users with `theme: 'dark'` keep `'dark'`
+(the migration preserves it); only the
+not-an-active-choice `'light'` value gets coerced to the
+new default.
+
+## Second-pass tweaks (after the user's hands-on review)
+
+After the initial substrate landed and the user opened the
+cluster theme in-browser, three small visual refinements
+surfaced that read better in both themes simultaneously
+(rather than being cluster-specific touch-ups):
+
+1. **`.toolbar-btn` background = `var(--border-1)`** — was
+   `transparent` in `style.css` (the global rule, applied
+   to top-toolbar buttons in App.vue and elsewhere) and
+   `var(--border-2)` in the scoped `Toolbar.vue` block. The
+   `--border-1` value reads as a subtle filled-button surface
+   against either theme's `--surface-2`/`--surface-3`
+   chrome — distinct enough to look like an interactive
+   affordance, calm enough not to compete with primary actions.
+2. **`.toolbar-btn-sm` background = `var(--border-1)`** —
+   was `var(--border-2)` in both the App.vue global rule and
+   the AnalysisControls.vue scoped block. Same rationale; the
+   sm variant sits in denser layouts where the lower-contrast
+   bg helps avoid visual clutter.
+3. **`.tab-header` background = `var(--surface-1)`** — was
+   `var(--surface-3)` in `TabWidget.vue`. The tab-row reads as
+   a quieter container, with the active tab's
+   `var(--surface-3)` bg now contrast-popping against the
+   surface-1 bar (in dark theme: `#222` active tab against
+   `#111` bar; in cluster: less-tinted surface-1 against
+   more-tinted surface-3). Hover state `var(--border-1)`
+   continues to pop against either theme.
+
+Hover states (`.toolbar-btn:hover`,
+`.toolbar-btn-sm:hover`) left at their existing
+`var(--border-3)` background. The base→hover jump
+widens slightly (border-1 → border-3 is a 2-tier shift
+where it was border-2 → border-3, a 1-tier shift), but
+the resulting hover affordance reads as more emphatic
+rather than jumpy. Tunable to `--border-2` if a future
+review finds it too aggressive.
+
+**Default flipped to `'cluster'`.** With cluster confirmed
+coherent in-browser, the new-install default became cluster
+rather than dark. The migration's coercion target updated
+accordingly — non-valid values now land on `'cluster'`
+rather than `'dark'`. Existing users with `theme: 'dark'`
+preserve their value (no silent `'dark' → 'cluster'` flip
+during upgrade — that's the "my app suddenly looks
+different" failure mode the migration's docstring names).
+The user (project author) flips their own dev install via
+the registry dropdown.
 
 ## Why no backend dispatch
 
@@ -214,10 +272,15 @@ backend stores opaquely. No backend coordination implied.
   to `theme: 'dark'` (idempotent for `'dark'` and `'cluster'`).
   A v14 blob with no `appearance` object (defensive case)
   passes through unchanged.
-- Non-regression: theme defaults to `'dark'` for fresh installs
-  and for existing users (whose v14 blobs carried `'dark'` or
-  the now-coerced-to-`'dark'` `'light'`); the visual experience
-  is unchanged until the user opts in.
+- Non-regression: existing users with `theme: 'dark'` (the
+  de-branding-migrated majority) keep their `'dark'`; the
+  migration only coerces the never-effective `'light'`, and now
+  coerces it to the new default `'cluster'` rather than
+  `'dark'` (it was a wiring artifact, not an active choice).
+  Fresh installs and freshly-reset workspaces get
+  `'cluster'`. The user (project author) flips their own dev
+  install via the registry dropdown — minor inconvenience for
+  one person, no surprise for any field user.
 
 ## Forward notes
 
@@ -267,7 +330,8 @@ entry at line 170 named "Theme replacement (B — flipping the
 dark default to something less depressing) parked per the
 user's 'structural close only' scoping" as parked. This PR does
 the structural half of B (ships the variant, wires the switch)
-but leaves the default at `'dark'`. The "less depressing"
-question is now toggleable per-user via the registry. Whether
-to flip the default is a separate scope question — depends on
-the user's hands-on impression of cluster.
+and, after the user's hands-on review, also flips the
+new-install default to `'cluster'` (existing `'dark'` blobs
+preserved by the migration). The "less depressing" question
+is settled in the affirmative for new installs; existing
+users opt in via the registry dropdown.

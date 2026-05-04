@@ -163,7 +163,7 @@ export const defaultSettings = {
     },
   },
   persistence: { debounceInterval: 1000 },
-  appearance:  { theme: 'dark', intensityHueShift: -43 },
+  appearance:  { theme: 'cluster', intensityHueShift: -43 },
   minting: {
     defaultVisits: 1000,
     defaultNumMoves: 1,
