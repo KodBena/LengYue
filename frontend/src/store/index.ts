@@ -34,6 +34,7 @@ import { analysisService } from '../services/analysis-service';
 import { ledger } from '../services/analysis-ledger';
 import { clearCardThumbnailCache } from '../composables/useCardThumbnail';
 import { abortAllReviews, abortBoardReview } from '../composables/useReviewSession';
+import { purgeBoardThumbnails } from '../composables/useThumbnailCache';
 
 export { createInitialBoard }        from './board-factory';
 export { DEFAULTS }                  from './defaults';
@@ -150,15 +151,24 @@ export function setActiveBoard(index: number): void {
  *      that no longer exists AND resurrecting the just-deleted
  *      `store.session.reviews[boardId]` row via the catch-block's
  *      lazy `mutateReviewSession`.
+ *   6. purgeBoardThumbnails — drops cached SVG renders keyed on
+ *      the closing board's NodeIds. Walks `board.nodes`, so it
+ *      must run while the board is still present in
+ *      `store.boards` (i.e., before the splice below). NodeIds
+ *      are UUID-style; cross-user collision is functionally
+ *      impossible, so this is memory-hygiene rather than a
+ *      correctness or privacy concern.
  *
  * Order matters: stop the engine before purging the ledger so an
  * in-flight packet can't land between the two and re-populate the
  * ledger after we've cleared it. The dictionary deletes follow
  * stopBoardAnalysis (which writes to activeMode) so the deletes
  * actually overwrite the tombstone rather than leaving it. The
- * abort runs last; its rejection-side cleanup runs in
- * processUserMove's catch on the next microtask, by which point
- * the synchronous portions of closeBoard have completed.
+ * abort runs after the deletes; its rejection-side cleanup runs
+ * in processUserMove's catch on the next microtask. The thumbnail
+ * purge runs last among the cleanups but still before the splice
+ * — purgeBoardThumbnails reads `board.nodes` via store.boards.find,
+ * which only resolves while the board is still present.
  *
  * Both `analysisService.stopBoardAnalysis` and `ledger.purgeBoard`
  * short-circuit cleanly when the board has no active analysis or
@@ -168,9 +178,9 @@ export function setActiveBoard(index: number): void {
  * Workspace-owned-resource cleanup is tracked in
  * docs/notes/resource-ownership-audit-plan.md (audit pairs O1 for
  * the ledger, O2 for the review-session row, O3 for the
- * activeMode tombstone, and O5 for the review-wait abort;
- * subsequent pairs ship in their own commits per the audit's
- * bisect discipline).
+ * activeMode tombstone, O4 for the thumbnail cache, and O5 for
+ * the review-wait abort; subsequent pairs ship in their own
+ * commits per the audit's bisect discipline).
  */
 export function closeBoard(boardId: BoardId): void {
   // Release external resources the closing board owns. Both calls
@@ -191,6 +201,11 @@ export function closeBoard(boardId: BoardId): void {
   // 30s timeout doesn't fire later and resurrect the reviews row
   // we just deleted. No-op if no review wait is pending.
   abortBoardReview(boardId);
+
+  // Drop the closing board's thumbnail-cache entries. Must run
+  // before the splice below — purgeBoardThumbnails walks
+  // `board.nodes` and looks the board up in store.boards.
+  purgeBoardThumbnails(boardId);
 
   if (store.boards.length <= 1) {
     store.boards = [createInitialBoard()];
