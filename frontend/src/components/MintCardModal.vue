@@ -4,7 +4,7 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onUnmounted } from 'vue';
 import { store } from '../store';
 import { useMinting } from '../composables/useMinting';
 import type { BoardId, CardCreatePayload } from '../types';
@@ -118,12 +118,30 @@ function removeTag(index: number) {
  * (the auto-generated component instance type doesn't include
  * browser globals).
  */
+// Tracks the in-flight setTimeout handle for hideSuggestionsDelayed
+// so we can clear it on unmount (and on overlapping schedules — a
+// rapid blur-focus-blur sequence would otherwise queue duplicate
+// callbacks). The post-unmount write to showSuggestions.value would
+// be a closure-stable no-op, but releasing the timer is the
+// discipline-correct shape.
+let suggestionsHideTimer: number | null = null;
+
 function hideSuggestionsDelayed() {
+  if (suggestionsHideTimer !== null) {
+    clearTimeout(suggestionsHideTimer);
+  }
   // magic-literal: 150ms suggestions-hide delay — gives the user time to
   // mousedown on a suggestion before the dropdown closes on input blur.
   // Hand-tuned for the responsiveness of typical click sequences.
-  window.setTimeout(() => { showSuggestions.value = false; }, 150);
+  suggestionsHideTimer = window.setTimeout(() => {
+    showSuggestions.value = false;
+    suggestionsHideTimer = null;
+  }, 150);
 }
+
+onUnmounted(() => {
+  if (suggestionsHideTimer !== null) clearTimeout(suggestionsHideTimer);
+});
 
 // ─── Submission ──────────────────────────────────────────────────────────────
 
