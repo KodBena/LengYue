@@ -487,13 +487,16 @@ function deleteItem() {
   padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-2);
 }
 .detail-header h3 { margin: 0; font-size: var(--text-heading); color: var(--text-0); font-weight: normal; }
-/* theme-exception: .del-btn uses muted-state-error surface variants
-   (#3a1a1a / #5a1a1a) — designer-intentional dark-red surfaces for
-   destructive actions. The chrome substrate's --state-error anchor
-   is the saturated wire-color (#f04a4a); muted surface variants
-   would need new anchors (e.g. --state-error-muted). Preserved
-   verbatim until the substrate gains tinted-surface vocabulary. */
-.del-btn { background: #3a1a1a; color: var(--state-error); border: 1px solid #5a1a1a; padding: var(--space-tight) var(--space-default); border-radius: var(--radius-default); cursor: pointer; font-size: var(--text-body); }
+/* theme-exception: .del-btn's border (#5a1a1a) and hover background
+   (#5a1a1a) are designer-intentional muted-dark-red tints for the
+   destructive-action affordance. The base background is substrate-
+   anchored (var(--surface-0)) so the button sits on the active
+   theme's deepest surface; the red tints survive only on the border
+   and hover state. Substrate's --state-error anchor is the
+   saturated wire-color (#f04a4a); a muted-tint anchor (e.g.
+   --state-error-muted) would retire these last two literals.
+   Preserved until the substrate gains tinted-surface vocabulary. */
+.del-btn { background: var(--surface-0); color: var(--state-error); border: 1px solid #5a1a1a; padding: var(--space-tight) var(--space-default); border-radius: var(--radius-default); cursor: pointer; font-size: var(--text-body); }
 .del-btn:hover { background: #5a1a1a; color: var(--text-0); }
 
 .editor-wrap { flex: 1; overflow: auto; }
