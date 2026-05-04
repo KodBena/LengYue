@@ -343,8 +343,12 @@ async function submit() {
 
 .form-grid { display: grid; grid-template-columns: 110px 1fr; gap: var(--space-medium); align-items: center; }
 .form-grid label { font-size: var(--text-emphasis); color: var(--text-2); text-transform: uppercase; }
-.dark-input, .dark-select {
+.dark-input {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default);
+  border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
+}
+.dark-select {
+  border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default);
   border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
 }
 .dark-input:focus, .dark-select:focus { border-color: var(--accent-primary); }

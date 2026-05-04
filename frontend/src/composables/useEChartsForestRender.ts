@@ -13,10 +13,11 @@
  * License: Public Domain (The Unlicense)
  */
 
-import { onUnmounted } from 'vue';
+import { onUnmounted, watch } from 'vue';
 import * as echarts from 'echarts';
 import type { EChartsTreeNode } from '../components/charts/card-tree-echarts';
 import { themeColor } from '../utils/theme-color';
+import { store } from '../store';
 
 export interface ForestChartConfig<P> {
   /** Per-tree key (stable identifier ECharts instances are stored under). */
@@ -83,7 +84,15 @@ export function useEChartsForestRender<P>(): ForestChartHandle<P> {
     if (cfg.el.clientWidth < 10 || cfg.el.clientHeight < 10) return null;
     let inst = instances.get(cfg.treeKey);
     if (!inst) {
-      inst = echarts.init(cfg.el, 'dark', { renderer: 'svg' });
+      // No ECharts theme passed — the built-in 'dark' theme would
+      // overlay a dark canvas backgroundColor and a dark default
+      // lineStyle that ignores the app's substrate. We set every
+      // visible color via the explicit setOption below (canvas
+      // backgroundColor: 'transparent' lets the container's CSS bg
+      // show through; lineStyle.color reads from --border-3 via
+      // themeColor()), so the chart inherits the active theme rather
+      // than ECharts' theme defaults.
+      inst = echarts.init(cfg.el, undefined, { renderer: 'svg' });
       instances.set(cfg.treeKey, inst);
 
       // ECharts' callback param shape is loose; the `data` field on
@@ -123,6 +132,7 @@ export function useEChartsForestRender<P>(): ForestChartHandle<P> {
     }
     const isMassive = cfg.renderedNodeCount > 500;
     inst.setOption({
+      backgroundColor: 'transparent',
       tooltip: {
         trigger: 'item',
         triggerOn: 'mousemove',
@@ -172,15 +182,35 @@ export function useEChartsForestRender<P>(): ForestChartHandle<P> {
     });
   }
 
+  // Last-applied configs, retained so the theme-change watcher below
+  // can rebuild the active chart set without involving the caller.
+  // Cleared by sync's destroy pass when a config drops out.
+  let lastConfigs: ForestChartConfig<P>[] = [];
+
   function syncCharts(configs: ForestChartConfig<P>[]): void {
     const liveKeys = new Set(configs.map(c => c.treeKey));
     for (const k of [...instances.keys()]) {
       if (!liveKeys.has(k)) destroy(k);
     }
     for (const cfg of configs) render(cfg);
+    lastConfigs = configs;
   }
 
+  // Theme change → re-issue setOption on every active instance with
+  // freshly-resolved theme colors. The chart instances themselves are
+  // preserved (no init/dispose churn); render() walks each config and
+  // hits its existing instance via ensure()'s "already exists" path.
+  // Without this watcher, themeColor() values would be frozen at the
+  // first-render time; switching app theme would leave the chart
+  // pinned to the prior theme's colors until the next data-change
+  // re-render.
+  const stopThemeWatch = watch(
+    () => store.profile.settings.appearance.theme,
+    () => { for (const cfg of lastConfigs) render(cfg); },
+  );
+
   onUnmounted(() => {
+    stopThemeWatch();
     for (const k of [...instances.keys()]) destroy(k);
   });
 

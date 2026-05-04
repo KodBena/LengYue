@@ -198,7 +198,7 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
 
 <style scoped>
 .forest-container { display: flex; flex: 1; height: 100%; min-height: 0; background: var(--surface-0); }
-.left-panel { width: 280px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--surface-3); background: var(--surface-1); flex-shrink: 0; }
+.left-panel { width: 280px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--surface-3); flex-shrink: 0; }
 .panel-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-tight) var(--space-default); border-bottom: 1px solid var(--surface-3); background: var(--surface-2); font-size: var(--text-emphasis); text-transform: uppercase; color: var(--text-0); letter-spacing: var(--tracking-default); flex-shrink: 0; }
 .tab-switcher { padding: 0; display: flex; }
 .tab-switcher button { flex: 1; background: transparent; border: none; color: var(--text-2); padding: var(--space-tight) 0; font-size: var(--text-body); text-transform: uppercase; letter-spacing: var(--tracking-default); cursor: pointer; border-bottom: 2px solid transparent; }
