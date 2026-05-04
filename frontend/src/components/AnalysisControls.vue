@@ -88,7 +88,7 @@ h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--accent-primary
 .move-filter-box { border-bottom: 2px solid var(--border-2); margin-bottom: var(--space-medium); }
 .settings-row { display: flex; flex-direction: column; gap: 3px; }
 .label-with-value { display: flex; justify-content: space-between; align-items: center; font-size: var(--text-body); color: var(--text-1); }
-.value-badge { background: var(--border-2); padding: 0 var(--space-default); border-radius: var(--radius-default); color: var(--accent-primary); font-family: monospace; }
+.value-badge { padding: 0 var(--space-default); border-radius: var(--radius-default); color: var(--accent-primary); font-family: monospace; }
 .range-slider { width: 100%; accent-color: var(--accent-primary); cursor: pointer; }
 .hint { font-size: var(--text-body); color: var(--text-0); margin: 0; }
 .chart-container-outer { margin-top: 0; min-height: 200px; }
