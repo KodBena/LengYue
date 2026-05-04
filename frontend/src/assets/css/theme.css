@@ -146,67 +146,50 @@
    * (its tone reads as a dark-theme holdover, not a theme-
    * coherent cluster role).
    *
-   * Palette entries 3 (cyan-mint), 6 (taupe), 7 (bright purple),
-   * 8 (yellow-green) are unused here — categorically distinct
-   * from every substrate role, available for future role-alias
-   * overrides (e.g. a cluster-mode chart-helper override for
-   * heatmap-mid could pick one).
-   *
-   * --cluster-12-5 (dark red) is reused across substrate roles:
-   * state-error (its semantic role) plus surface-1, border-1,
-   * border-2, text-2. The reuse is deliberate — the user opted
-   * to project the chrome-neutral surface-1 / border / low-text
-   * roles onto the dark-red entry rather than the taupe, giving
-   * the chrome a warmer cast at the cost of role-overlap with
-   * the destructive-action color. Inside the substrate's
-   * vocabulary that means "subtle border" and "destructive
-   * action" share a value — visual disambiguation comes from
-   * context (a single thin line vs a whole button surface)
-   * rather than from color difference. */
+   * Palette entries 3 (cyan-mint), 7 (bright purple), 8 (yellow-
+   * green) are unused here — categorically distinct from every
+   * substrate role, available for future role-alias overrides
+   * (e.g. a cluster-mode chart-helper override for heatmap-mid
+   * could pick one). */
 
   /* ── Surface (4) — collapse to two tones (page bg + chrome) ─
-   * Strict palette gives us a single non-bg neutral; the
-   * four-tier surface scheme collapses to two effective values:
-   * --cluster-12-9 (page bg) and --cluster-12-5 (chrome
-   * containers — dark red). Surface-1 is the chrome tone (the
-   * tier originally targeted for sidebars, tab bars, toolbars;
-   * the user has since repinned those chrome containers
-   * directly to surface-0, so surface-1's effective consumers
-   * today are just the residual border-bottom declarations on
-   * .toolbar / .top-nav-bar / .tab-header). Surface-2 and
+   * Strict palette gives us only one near-neutral non-bg color
+   * (--cluster-12-6, taupe). The four-tier surface scheme
+   * collapses to two effective values: --cluster-12-9 (page bg)
+   * and --cluster-12-6 (chrome containers). Surface-1 is the
+   * chrome tone (sidebars, tab bars, toolbars — the tier the
+   * user has been pinning chrome containers to); surface-2 and
    * surface-3 fall back to the page bg, so elements bound to
    * those tiers (raised buttons over chrome, active tab over
-   * the chrome bar) appear pink-against-dark-red — a coherent
-   * inverse of the dark theme's lighter-than-bg raise. */
+   * the chrome bar) appear as pink-against-taupe — visible and
+   * coherent inverse of the dark theme's lighter-than-bg
+   * raise direction. */
   --surface-0: var(--cluster-12-9);  /* page bg */
-  --surface-1: var(--cluster-12-5);  /* chrome containers (dark red) */
+  --surface-1: var(--cluster-12-6);  /* chrome containers (taupe) */
   --surface-2: var(--cluster-12-9);  /* raised over chrome → back to bg tone */
   --surface-3: var(--cluster-12-9);  /* most-raised → bg tone */
 
   /* ── Border (3) — two effective values ───────────────────────
-   * border-1 and border-2 collapse to dark red (the chrome
-   * tone); border-3 (strong / focus) is the deep purple. The
-   * dark red here also matches state-error's semantic value —
-   * a "subtle border" and a "destructive-action color" share
-   * the same hex. Visual disambiguation in practice: borders
-   * are 1px lines under chrome forms; state-error fills button
-   * surfaces and text. The substrate accepts the role overlap
-   * rather than reaching for color-mix() to derive a distinct
-   * neutral. */
-  --border-1: var(--cluster-12-5);  /* subtle (dark red) */
-  --border-2: var(--cluster-12-5);  /* default (dark red) */
+   * border-1 and border-2 collapse to taupe (the chrome tone);
+   * border-3 (strong / focus) is the deep purple. Inside chrome
+   * panels the border-1 / border-2 declarations are taupe-on-
+   * taupe (invisible — semantically "subtle" in the palette-
+   * strict sense). On pink surfaces the same declarations are
+   * taupe-on-pink (visible). Context-dependent visibility is
+   * intentional. */
+  --border-1: var(--cluster-12-6);  /* subtle (taupe) */
+  --border-2: var(--cluster-12-6);  /* default (taupe) */
   --border-3: var(--cluster-12-4);  /* strong / focus (purple) */
 
   /* ── Text (3) — two effective values ─────────────────────────
    * text-0 and text-1 collapse to deep purple (the only strong-
-   * contrast text against the page bg); text-2 is dark red
-   * (low-emphasis on pink, conventionally axis-label-shaped
-   * — the dark red reads as warning-tinted rather than purely
-   * neutral, but inside the substrate it serves the
-   * low-emphasis label role per the user's mapping). */
+   * contrast text against pink and taupe alike); text-2 is
+   * taupe (low-emphasis on pink, blends-into-chrome on taupe —
+   * which reads as "incidental" rather than "informational",
+   * the right semantic for axis labels and hints). */
   --text-0: var(--cluster-12-4);    /* high emphasis (purple) */
   --text-1: var(--cluster-12-4);    /* body copy (purple) */
-  --text-2: var(--cluster-12-5);    /* labels, hints (dark red) */
+  --text-2: var(--cluster-12-6);    /* labels, hints (taupe) */
 
   /* ── Accent (2) ──────────────────────────────────────────── */
   --accent-primary:   var(--cluster-12-2);   /* sky blue */
