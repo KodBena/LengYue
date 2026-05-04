@@ -518,6 +518,29 @@ export interface ReviewCard {
 
 // ── State Container (readonly removed) — SR domain ────────────────────────────
 
+// Pipeline-stage discriminated union, sourced from the generated
+// wire schema. Backend item 31 closed the typed-pipeline arc on
+// the server side (`SelectStage | TakeStage | ShuffleStage |
+// OrderStage` over `domain/pipeline_dsl.py`); this alias projects
+// that union into the frontend domain so `CardSet.pipeline` is no
+// longer `any[]`. The discriminant is the `stage` field
+// (`"select" | "take" | "shuffle" | "order"`); each variant carries
+// its own typed payload (selection + ordering for `select`, `n` for
+// `take`, ordering for `order`, nothing for `shuffle`). Inner
+// selection / ordering strategies are themselves wire-typed
+// discriminated unions — see `types/backend.ts` for the full leaf
+// vocabulary (DescendantSelection, EbisuRecallKey, BfsOrder, …).
+//
+// The CardSetEditor remains a free-form JSON authoring surface; the
+// boundary cast there carries an ADR-0002 justification naming the
+// backend's pipeline executor as the loud-failure surface for
+// malformed pipelines.
+export type PipelineStage =
+  | components['schemas']['SelectStage']
+  | components['schemas']['TakeStage']
+  | components['schemas']['ShuffleStage']
+  | components['schemas']['OrderStage'];
+
 // CardSet is mutated through the CardSetEditor. Decks are pure
 // strategies (the DSL pipeline) — context (root card-id list) is
 // supplied by the caller at execution time, lifted out of the deck
@@ -527,7 +550,7 @@ export interface CardSet {
   id: string;
   name: string;
   description: string;
-  pipeline: any[];
+  pipeline: PipelineStage[];
 }
 
 // User-pinned snapshot of analysis_env.parameters values.

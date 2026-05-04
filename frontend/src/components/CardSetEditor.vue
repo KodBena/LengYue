@@ -6,7 +6,7 @@
 -->
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import type { CardSet } from '../types';
+import type { CardSet, PipelineStage } from '../types';
 import { Codemirror } from 'vue-codemirror';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { EditorView } from '@codemirror/view';
@@ -108,7 +108,20 @@ function updateField(field: keyof CardSet, val: any) {
 function updatePipeline(newJsonStr: string) {
   pipelineStr.value = newJsonStr;
   try {
-    const parsed = JSON.parse(newJsonStr);
+    // ADR-0002 boundary cast: this editor is a free-form JSON
+    // authoring surface for power users (the Tree DSL pipeline is
+    // intentionally hand-editable). `JSON.parse` returns `any` and we
+    // assert `PipelineStage[]` here without runtime structural
+    // validation — the backend's pipeline executor is the loud-failure
+    // surface for malformed pipelines (rejects with 4xx, surfaces via
+    // the request error path), so duplicating the discriminated-union
+    // shape check on the frontend would split responsibility without
+    // adding signal. The `isJsonValid` indicator below covers
+    // parse-time syntactic validity; structural validity is the
+    // executor's job. Upgrade path if this ever needs tightening: a
+    // structural validator at this boundary that walks the union and
+    // sets `isJsonValid = false` on shape mismatch.
+    const parsed = JSON.parse(newJsonStr) as PipelineStage[];
     isJsonValid.value = true;
     if (selectedId.value) {
       const next = getClone();

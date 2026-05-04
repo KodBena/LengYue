@@ -165,16 +165,6 @@ port could reuse.
 
 ### Known gaps (frontend)
 
-- **Pipeline DSL still typed `any[]`.** The backend has typed
-  pipeline stages (item 31, shipped: discriminated unions of
-  `SelectStage | TakeStage | ShuffleStage | OrderStage`). The
-  frontend's `CardSet.pipeline: any[]` is the largest remaining
-  `any` in domain types. Tracked in `docs/TODO.md`.
-- **`useVariationPath` boundary cleanup.** Currently exposed as
-  `Ref<string[]>`; `useAnalysisProjection` adapts to
-  `Ref<NodeId[]>` via a documented boundary cast. Tightening
-  `useVariationPath` itself would eliminate the adapter. ~5
-  lines.
 - **No test suite.** This is an honest gap. The codebase has
   been developed by single-author iteration with careful manual
   review; the absence of tests is debt that should be paid down
