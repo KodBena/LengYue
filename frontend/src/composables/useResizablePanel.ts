@@ -25,7 +25,7 @@
  *
  * License: Public Domain (The Unlicense).
  */
-import { ref } from 'vue';
+import { onUnmounted, ref } from 'vue';
 import { store } from '../store';
 
 const MIN_BOARD = 300;
@@ -70,6 +70,15 @@ export function useResizablePanel() {
     document.removeEventListener('mouseup', stopResize);
     document.body.classList.remove('resizing');
   }
+
+  // If the host SFC unmounts mid-drag (HMR, route change), the
+  // document-level mousemove / mouseup listeners would persist and
+  // body.classList would keep the 'resizing' class. stopResize is
+  // idempotent — safe to call when no drag is in flight, removeEvent-
+  // Listener is a no-op for unattached handlers, classList.remove is
+  // a no-op for an absent class. Mirrors HorizontalTimelineVisualizer's
+  // onUnmounted(() => stopDragging()) pattern.
+  onUnmounted(stopResize);
 
   return { startResize };
 }
