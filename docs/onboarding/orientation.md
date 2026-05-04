@@ -18,8 +18,10 @@ structured as a soft monorepo of three peer sub-projects:
 - `backend/` — FastAPI + SQLAlchemy 2.0 service. Spaced-repetition
   core, card and tree storage, the tenancy boundary.
 - `proxy/` — KataProxy, a git submodule. KataGo analysis bridge.
-  Frozen at v1.0.0 until release; do not propose changes to its
-  contents.
+  Independently developed; the umbrella pin advances through
+  separate proxy-side releases, coordinated through the
+  dispatch ledger. The current pin is recorded in the umbrella
+  `CLAUDE.md`.
 
 Each sub-project owns its dependencies, its build tooling, and its
 own README. There is no top-level test runner and no shared
@@ -41,7 +43,7 @@ In order:
    state-of-the-system note. Read the sub-project section that
    matches your task; skim the rest.
 6. The subproject-specific onboarding note in this directory
-   (`frontend.md` or `backend.md`).
+   (`frontend.md`, `backend.md`, or `proxy.md`).
 
 That is the onboarding turn. Stop here unless your task obviously
 calls for a specific reference document.
@@ -106,5 +108,5 @@ dispatch, not as direct implementation.
 
 ## Next
 
-Read the subproject-specific onboarding note (`frontend.md` or
-`backend.md`) for your task.
+Read the subproject-specific onboarding note (`frontend.md`,
+`backend.md`, or `proxy.md`) for your task.
