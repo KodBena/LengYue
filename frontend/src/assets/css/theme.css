@@ -18,13 +18,57 @@
  * anchor sets are CSS-only and don't need typed runtime
  * accessors).
  *
+ * ─── Theme variants (data-theme) ─────────────────────────────
+ * The 16 base color anchors live inside `[data-theme="..."]`
+ * blocks at the top of this file; the alias layer (chart-derived
+ * helpers, role aliases) stays in `:root` because CSS resolves
+ * `var()` references at use time, not at declaration time — an
+ * alias declared once at :root that references a base anchor
+ * picks up whichever theme block is active automatically.
+ *
+ * Theme-invariant tokens (z-index, durations, spacing, font,
+ * radius, tracking, alpha) also stay in `:root` — they are
+ * structural, not aesthetic, and don't change between themes.
+ *
+ * The active theme is selected via a `data-theme="<name>"`
+ * attribute on `<html>` (set initially in index.html for FOUC
+ * prevention, kept in sync at runtime by the watcher in
+ * useAppBootstrap.ts which mirrors
+ * `store.profile.settings.appearance.theme`). `themeColor()`'s
+ * runtime accessor reads from `documentElement` via
+ * `getComputedStyle`, so it picks up the active theme's values
+ * with no additional plumbing.
+ *
+ * Available themes:
+ *   "dark"    — original substrate values; the long-standing
+ *               default. High-contrast on near-black.
+ *   "cluster" — light-background variant authored against the
+ *               curated cluster-12 palette in palettes.css (pale
+ *               pink bg, deep purple text, vivid accents). Surface
+ *               and border progressions interpolate via
+ *               `color-mix()` between bg and text for coherent
+ *               raise-tier separation.
+ *
+ * Adding a new theme: add a new `[data-theme="X"]` block here
+ * declaring the 16 base anchors, extend the
+ * `AppSettings.appearance.theme` union and RegistryEditor's
+ * PATH_ENUMS to include the new name, and append a migration
+ * coercion if a prior valid value is being retired.
+ *
  * Out of scope:
  * - Domain (Go-specific) colors live in src/engine/constants.ts.
  * - Visualization-system anchors (visit-intensity LUT,
  *   CLUSTER_PALETTES, ColorDebugStrip) live in
  *   src/engine/suggestion-colors.ts.
- * - The parked maximin palette in src/assets/css/palettes.css is
- *   a future theme-variant experiment, deliberately not woven in.
+ * - The ~14 documented `theme-exception` blocks scattered in
+ *   SFC <style> sections (LoginModal red error variants,
+ *   QeuboToolbar muted-cyan buttons, RegistryEditor's amber/pink
+ *   role indicators, App.vue's peach panel-resizer) are
+ *   theme-invariant by design — they will read against the
+ *   active theme's surfaces but their own colors don't shift
+ *   per theme. Sweeping them into substrate anchors is its own
+ *   arc; if cluster sticks and the visual mismatch is
+ *   load-bearing, that's the right next pass.
  *
  * Design notes: docs/notes/frontend-theming-plan.md (color),
  * docs/notes/magic-literals-audit-inventory.md (z-index ladder
@@ -37,7 +81,7 @@
  * License: Public Domain (The Unlicense)
  */
 
-:root {
+[data-theme="dark"] {
   /* ── Surface (4) ─────────────────────────────────────────── */
   --surface-0: #000;     /* deepest — board panel, chart bg */
   --surface-1: #111;     /* default panel — sidebar, content */
@@ -63,8 +107,56 @@
   --state-warning:   #f0a04a;  /* warnings (matches secondary today) */
   --state-error:     #f04a4a;  /* delete, destructive, winrate-negative */
   --state-attention: #ff4a4a;  /* review-active, latency-bad */
+}
 
-  /* ── Chart-derived helpers (aliases; no new decisions) ───── */
+[data-theme="cluster"] {
+  /* Cluster-12 light-bg palette. The user-named pair drives the
+   * mapping: --cluster-12-9 (pale pink, 254,218,247) is the
+   * canonical bg, --cluster-12-4 (very dark purple, 11,0,27) is
+   * the canonical text. Surface and border progressions
+   * interpolate via `color-mix(in srgb, ...)` between those two
+   * for coherent tier separation; vivid cluster entries take the
+   * accent and state roles. --cluster-12-0 (dark green) is
+   * deliberately unused — its near-black tone reads as a holdover
+   * from the dark theme rather than as a theme-coherent role.
+   * --cluster-12-3 (bright cyan), --cluster-12-7 (bright purple),
+   * --cluster-12-8 (yellow-green) are unused here too — available
+   * for future role-alias overrides if a cluster-mode override
+   * for one of the chart helpers wants a more vivid value than
+   * the alias resolution naturally produces. */
+
+  /* ── Surface (4) — pale pink → tinted toward text ────────── */
+  --surface-0: var(--cluster-12-9);                                              /* canonical bg */
+  --surface-1: color-mix(in srgb, var(--cluster-12-9) 92%, var(--cluster-12-4)); /* default panel */
+  --surface-2: color-mix(in srgb, var(--cluster-12-9) 84%, var(--cluster-12-4)); /* raised panel */
+  --surface-3: color-mix(in srgb, var(--cluster-12-9) 76%, var(--cluster-12-4)); /* toolbar / button */
+
+  /* ── Border (3) — more contrast-heavy mix ────────────────── */
+  --border-1: color-mix(in srgb, var(--cluster-12-9) 70%, var(--cluster-12-4));  /* subtle divider */
+  --border-2: color-mix(in srgb, var(--cluster-12-9) 55%, var(--cluster-12-4));  /* default edge */
+  --border-3: color-mix(in srgb, var(--cluster-12-9) 40%, var(--cluster-12-4));  /* strong / focus */
+
+  /* ── Text (3) — deep purple → taupe low-emphasis ─────────── */
+  --text-0: var(--cluster-12-4);                                                 /* high emphasis */
+  --text-1: color-mix(in srgb, var(--cluster-12-4) 60%, var(--cluster-12-9));    /* body copy */
+  --text-2: var(--cluster-12-6);                                                 /* labels, hints */
+
+  /* ── Accent (2) — sky blue + orange ──────────────────────── */
+  --accent-primary:   var(--cluster-12-2);   /* sky blue 0,167,255 */
+  --accent-secondary: var(--cluster-12-11);  /* orange — SR / CTA */
+
+  /* ── Semantic state (4) ──────────────────────────────────── */
+  --state-success:   var(--cluster-12-1);   /* bright green — engine connected */
+  --state-warning:   var(--cluster-12-11);  /* orange — matches accent-secondary as in dark */
+  --state-error:     var(--cluster-12-5);   /* dark red — destructive, winrate-negative */
+  --state-attention: var(--cluster-12-10);  /* hot pink — review-active, latency-bad */
+}
+
+:root {
+  /* ── Chart-derived helpers (aliases; no new decisions) ────
+   * `var()` resolves at use time against the active cascade,
+   * so these aliases automatically pick up the active theme's
+   * base values. Declared here once rather than per-theme. */
   --heatmap-low:  var(--surface-2);
   --heatmap-mid:  var(--accent-primary);
   --heatmap-high: var(--state-error);
@@ -82,7 +174,10 @@
    * semantically distinct role. Don't merge roles in the chrome
    * taxonomy just because two of them happen to share a value.
    * See docs/notes/frontend-theming-plan.md "Substrate
-   * evolution" for the principle. */
+   * evolution" for the principle. Same `var()`-resolution-at-
+   * use-time argument as the chart helpers above — these are
+   * theme-invariant indirections that resolve through whichever
+   * base values the active theme block defines. */
 
   /* Player identifiers — used in chart series for B/W deltas
    * and per-point markers. Band 2 (game-tree-coupled). */

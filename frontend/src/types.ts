@@ -366,7 +366,17 @@ export interface AppSettings {
     };
   };
   appearance: {
-    theme: 'dark' | 'light';
+    // Active chrome theme. Mirrored onto `<html data-theme="...">`
+    // by useAppBootstrap, which resolves theme.css's
+    // `[data-theme="X"]` block. The historical `'light'` value was
+    // declared but never wired to anything; schema-version 15
+    // retired it (a migration coerces existing `'light'` blobs to
+    // `'dark'`) and added `'cluster'` as a real second theme
+    // (cluster-12-mapped light variant). Adding a new theme:
+    // extend this union, add a `[data-theme="X"]` block in
+    // theme.css, extend RegistryEditor's PATH_ENUMS, append a
+    // migration if a prior valid value retires.
+    theme: 'dark' | 'cluster';
     // Hue-rotation offset (degrees) applied uniformly across the
     // intensity gradient in CIELAB space. Default -43° is a
     // hand-applied orientation chosen for typical-trichromat

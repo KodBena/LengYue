@@ -82,7 +82,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 14;
+export const CURRENT_SCHEMA_VERSION = 15;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -334,6 +334,32 @@ export const migrations: Migration[] = [
       }
       if (typeof katago.replay_final_only !== 'boolean') {
         katago.replay_final_only = false;
+      }
+    }
+    return out;
+  },
+  // 14 → 15: Retire the never-wired `'light'` theme value, introduce
+  // the `'cluster'` theme variant. v14 had `appearance.theme: 'dark'
+  // | 'light'` declared on the type union and selectable in the
+  // RegistryEditor dropdown, but `'light'` had never been wired to
+  // anything (theme.css had a single `:root` block with the dark
+  // values; no `[data-theme="light"]` ever existed). v15 introduces
+  // the data-theme wiring for the first time, narrows the type union
+  // to `'dark' | 'cluster'`, and ships `[data-theme="cluster"]` as a
+  // real second theme. Migration coerces any non-{'dark','cluster'}
+  // value to `'dark'` (the most likely transition: a user with the
+  // never-effective `'light'` lands on the never-changed `'dark'`
+  // they were de-facto seeing). Idempotent: a pre-existing `'dark'`
+  // or `'cluster'` value is preserved. Default stays `'dark'` for
+  // minimum-surprise; users who want the new theme flip the
+  // registry dropdown to `'cluster'`.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const appearance = out.profile?.settings?.appearance;
+    if (appearance && typeof appearance === 'object') {
+      const valid = appearance.theme === 'dark' || appearance.theme === 'cluster';
+      if (!valid) {
+        appearance.theme = 'dark';
       }
     }
     return out;

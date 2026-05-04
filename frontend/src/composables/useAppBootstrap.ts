@@ -62,6 +62,27 @@ export function useAppBootstrap(
     { immediate: true },
   );
 
+  // Mirror the active chrome theme onto `<html data-theme="...">` so
+  // theme.css's [data-theme="X"] blocks resolve their base color
+  // anchors per the user's choice. The initial value is baked into
+  // index.html to prevent FOUC during cold-start; this watcher takes
+  // over once Vue mounts. `immediate: true` syncs at setup-time so the
+  // pre-hydration store-default (`'dark'`) lands as a no-op write
+  // matching the HTML default. Post-hydration, if the user has saved
+  // a different theme, the attribute flips and CSS resolves the
+  // alternative block on the next style recalc.
+  //
+  // themeColor() in src/utils/theme-color.ts reads from
+  // documentElement via getComputedStyle, so TS-side consumers
+  // (ECharts adapters, board-renderer SVG strings that don't
+  // evaluate var()) pick up the active theme's values transparently
+  // — no per-consumer rewiring needed.
+  watch(
+    () => store.profile.settings.appearance.theme,
+    (theme) => document.documentElement.setAttribute('data-theme', theme),
+    { immediate: true },
+  );
+
   // Identity-aware qEUBO bootstrap. When auth flips into
   // 'authenticated', probe the new identity's experiment state.
   // When it flips out (logout, identity change), clear the
