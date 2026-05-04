@@ -287,6 +287,43 @@ export class AnalysisService {
     this.restartCallbacks.delete(boardId);
     store.engine.activeMode[boardId] = 'none';
   }
+
+  /**
+   * Stop every board's active analysis. Snapshots the active set
+   * before iterating because stopBoardAnalysis mutates the underlying
+   * map. Used by the HMR dispose hook below; safe to call from any
+   * context that wants to release every per-board analysis resource
+   * the singleton holds.
+   */
+  public stopAllBoardAnalyses(): void {
+    const boardIds = Array.from(this.activeQueryIds.keys());
+    for (const boardId of boardIds) {
+      this.stopBoardAnalysis(boardId);
+    }
+  }
 }
 
 export const analysisService = new AnalysisService();
+
+// HMR dispose — dev-only. Vite re-instantiates this module's singleton
+// when the file (or one of its transitive dependencies) is hot-replaced;
+// without this hook the outgoing singleton's WebSocket and per-board
+// bookkeeping become orphaned (the new singleton starts fresh, but the
+// old singleton's in-flight ponders never receive a client-side
+// terminate). The proxy's keep-alive middleware is the production
+// safety net; this is the cleaner dev-loop path.
+//
+// Order matters: emit per-board terminate packets first, while the
+// outgoing WebSocket is still open, so the proxy sees explicit
+// terminates rather than only the disconnect-side orphan cleanup
+// from Phase 1 of the keep-alive dispatch. Then close the WebSocket.
+//
+// import.meta.hot is undefined in production builds, so this whole
+// block is dead code outside dev. The conditional is statically
+// removable by Vite's tree-shaker.
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    analysisService.stopAllBoardAnalyses();
+    analysisService.disconnect();
+  });
+}

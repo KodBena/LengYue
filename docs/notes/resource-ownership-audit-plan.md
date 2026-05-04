@@ -84,11 +84,12 @@ they are not redundant.
 The pairs below are starting points. The audit's Pass 1 expands
 this list; the inventory itself is part of the deliverable.
 
-### Closed in the prompting fix (do not re-audit)
+### Closed (do not re-audit)
 
 | Owner | Resource | Resolution | Commit |
 |-------|----------|------------|--------|
-| Board (closed via `closeBoard`) | In-flight analysis subscription at the proxy | `closeBoard` calls `analysisService.stopBoardAnalysis(boardId)` | 2026-05-04 (this PR) |
+| Board (closed via `closeBoard`) | In-flight analysis subscription at the proxy | `closeBoard` calls `analysisService.stopBoardAnalysis(boardId)` | 2026-05-04 — the prompting case study |
+| HMR module reload | `analysisService` singleton's WebSocket + `metricsTimer` + `watchdogTimer` + per-board `activeQueryIds` / `activeSubscriptions` / `restartCallbacks` | New public `stopAllBoardAnalyses()` on `AnalysisService` (snapshots `activeQueryIds.keys()` and walks each through `stopBoardAnalysis`); dev-only `import.meta.hot.dispose(...)` at the bottom of `src/services/analysis-service.ts` calls it followed by `disconnect()` | 2026-05-04 — see the worklog cross-referenced below |
 
 ### Suspected open (audit Pass 2 verifies and fixes per-pair)
 
@@ -98,7 +99,6 @@ this list; the inventory itself is part of the deliverable.
 | Board (closed via `closeBoard`) | `store.session.reviews[boardId]` review-session entry | Is the review-session row deleted on board close, or does it leak in `store.session.reviews`? | Memory leak (small); also potential identity confusion if a recreated board ever reuses a `BoardId` (shouldn't happen since `BoardId` is freshly generated, but worth confirming). |
 | Board (closed via `closeBoard`) | Thumbnail-cache entries in `useThumbnailCache` | Does the cache evict the closed board's thumbnails? | Memory leak (per-thumbnail SVG payloads). |
 | Identity (cleared via logout / identity change) | All-of-the-above on logout, plus the live KataGo WebSocket connection | The deferred case explicitly named in `store/index.ts`'s comment on `resetUserOwnedState`: "When deployment shifts to user-keyed endpoints (cloud-compute, rented per-user engines), full engine reset + actual `analysisService.disconnect()` becomes the right move." | The current single-machine deployment makes the leak benign. A future hosted deployment promotes it to a real correctness concern. |
-| HMR module reload | `analysisService` singleton's WebSocket + `metricsTimer` + `watchdogTimer` | Already filed as the priority TODO entry in the Trivial tier (`import.meta.hot.dispose` callback). Audit notes this as already-tracked. | The HMR cleanup item is the dev-loop hygiene companion to the proxy's keep-alive middleware (production safety net). |
 | Component unmount (Vue lifecycle) | DOM-level event listeners attached via `addEventListener` from inside `<script setup>` (search for `addEventListener` outside `onMounted`/`onUnmounted` pairings) | Spot-check existing components for the pattern. | Scoped to a Pass-2 sub-sweep. |
 
 ### Out-of-scope (initially)
