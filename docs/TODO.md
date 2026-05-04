@@ -179,6 +179,7 @@ reading the outstanding work.
 | — | *Disabled-state alpha (magic-literals-audit Pass 2 Tier-3 #1, opens the Tier-3 small-substrate arc). Closes inventory Category C.1 — 5 sites at three close values (0.35 ×1, 0.4 ×2, 0.5 ×2) all serving the same `:disabled` button-fade role. Single anchor `--alpha-disabled: 0.5` (project-author-chosen — most common existing value, web-design conventional default for disabled UI). Snap rule: 0.35 → 0.5 (raises 0.15), 0.4 → 0.5 (raises 0.1, ×2 sites), 0.5 unchanged (×2). Disabled state reads slightly less faded post-PR; if HMR review finds it not-obviously-disabled-enough, lower the anchor to 0.4 without touching consumers. The QeuboToolbar pulse keyframe (0.4 trough) and BaseChart axisPointer (0.5) are different roles (animation envelope, chart viz) and stay literal for Tier-4. theme.css now at 248 lines (was 234). `npm run build` passes. Worklog at `docs/worklog/2026-05-03-disabled-alpha.md`. Not in original TODO numbering.* |
 | — | *Ponder-cap constant (magic-literals-audit Pass 2 Tier-3 #2). Closes inventory Category O's `100000` cluster — 3 consumer sites across an SFC script, an SFC template attribute, and the analysis service, all sharing the same "max visits during ponder/analysis" handle. New named export `PONDER_MAX_VISITS = 100000` in `src/engine/constants.ts` with JSDoc naming the role, the three consumer sites, and the related `defaultVisits = 1000` constant (in `defaults.ts`) for tuning context. Sweep: `services/analysis-service.ts:220` (`maxVisits: 100000` → `maxVisits: PONDER_MAX_VISITS` in ponder-mode wire query), `components/BoardTab.vue:68` (`Math.max(target, 100000)` → `Math.max(target, PONDER_MAX_VISITS)` for analysis-meter rugplot target floor), `components/charts/AnalysisTimelinePanel.vue:68` (`max="100000"` static HTML attribute → `:max="PONDER_MAX_VISITS"` Vue dynamic binding for the visits input). Plus one doc-comment update in BoardTab.vue's rugplot-target-floor block to reference the new naming and documented home. Cross-cuts CSS-substrate and TS-substrate territory — the constant is a TS-side export consumed by service code, SFC scripts, and SFC template attributes. `engine/constants.ts` now at 95 lines (was 79). `npm run build` passes. Worklog at `docs/worklog/2026-05-03-ponder-cap-constant.md`. Not in original TODO numbering.* |
 | — | *Tier-4 inline-justification sweep (magic-literals-audit closer). Closes the audit by codifying the `magic-literal:` comment convention in `docs/notes/magic-literals-audit-plan.md`'s new "Comment convention" section (CSS `/* magic-literal: ... */` syntax, TS `// magic-literal: ...` syntax, threshold = "could a future reader reasonably ask where this came from?", carve-outs for trivial literals / universal CSS vocabulary / block-level theme exceptions / generated files / typed discriminated-union members) and applying it to the curated residue surfaced during the audit's substrate work — 25 sites across 13 files: spacing/border-radius stragglers (BoardTab analysis-meter `border-radius: 1px`, close-button `top: -6px; right: -6px` offset, geiger-dot `0.6 + energy * 0.4` scale, HorizontalTimelineVisualizer pill `9999px`, Toolbar `padding: 1px 5px` compactness, modal widths 360/420), animation-envelope alphas (QeuboToolbar pulse-keyframe trough `0.4`, BaseChart axisPointer `0.5`), band-3 domain decisions (BoardWidget ownership `Math.min(0.85, mag * 0.85)` ceiling-and-multiplier, liveness `0.95`, BaseChart Y-axis margin `range * 0.1`), TS-side timers (analysis-service `1000ms` watchdog and `0.15`/`0.5` reportDuringSearchEvery cadences, BaseChart/HeatmapChart `100ms` ECharts init delays, MintCardModal `150ms` suggestions-hide, useEChartsForestRender `50ms` render-retry, use-pv-animation `1ms` next-tick scheduler), domain thresholds (defaults.ts `999` user_order fallback, twice — paired with the rank_quality formula). Plus PV-stone fade `60ms` references the deferred-items entry for the PV-overlay typography proportions co-tuning. Comprehensive codebase-wide retroactive application is explicitly out of scope per the convention's "Authoring discipline going forward" subsection; future PRs are responsible for maintaining the convention on new literals. **The audit's contract (substrate-or-comment) is satisfied** across ~469 substrate-swept sites + 25 inline-justified sites; both the magic-literals-audit-plan.md and -inventory.md status headers updated to reflect the close. `npm run build` passes. Worklog at `docs/worklog/2026-05-03-tier-4-inline-justification.md`. Not in original TODO numbering.* |
+| — | *HMR cleanup for `analysisService` singleton (filed Trivial-tier priority 2026-05-03; closed 2026-05-04). Adds a public `stopAllBoardAnalyses()` to `AnalysisService` that snapshots `activeQueryIds.keys()` and walks each through `stopBoardAnalysis` (the snapshot is necessary because `stopBoardAnalysis` mutates the underlying map). Adds a dev-only `import.meta.hot.dispose(...)` block at the bottom of `src/services/analysis-service.ts` that calls `stopAllBoardAnalyses()` followed by `disconnect()` on the outgoing singleton — order matters: emit per-board terminate packets while the WebSocket is still open, then close it. The `import.meta.hot` conditional is statically removable by Vite's tree-shaker in production builds, so the whole hook is dev-only. Closes the dev-loop hygiene companion to the proxy's keep-alive middleware (shipped at proxy v1.0.10) — same class of problem (stranded queries on owner mutation), one fix on each side. Closes the corresponding row in the resource-ownership audit plan's seed inventory; the row moves from "suspected open" to "closed". Worklog at `docs/worklog/2026-05-04-hmr-dispose-analysis-service.md`. Not in original TODO numbering.* |
 
 ### Joint
 
@@ -221,35 +222,15 @@ Plus design notes in `docs/notes/`:
 
 ### Trivial — single-line or single-block changes, no cross-file impact
 
-#### `[frontend]` HMR cleanup for `analysisService` singleton — **priority**
+#### `[frontend]` HMR cleanup for `analysisService` singleton — moved to Completed
 
-Vite HMR can leak the `AnalysisService` singleton's WebSocket and
-in-flight ponder bookkeeping when
-`frontend/src/services/analysis-service.ts` (or one of its
-transitive dependencies) is hot-replaced. The new module instance
-starts with empty `activeQueryIds`/`activeSubscriptions`, so the
-old singleton's in-flight ponder query never receives a client-side
-`terminate` — and on high-end hardware running an unbounded ponder
-(`maxVisits: PONDER_MAX_VISITS = 100000`) the orphaned compute is
-substantial.
-
-The fix is a small `import.meta.hot.dispose` callback in
-`analysis-service.ts` that, on outgoing-singleton teardown, walks
-each board through `stopBoardAnalysis` (so the proper client-side
-`terminate` packets are emitted) and then calls `disconnect()`.
-Roughly 10 lines, dev-only (`import.meta.hot` is undefined in
-production builds).
-
-This is dev-loop hygiene. The proxy's keep-alive middleware
-(shipped at proxy v1.0.10; status dispatch at
-`docs/dispatch/proxy-to-frontend-keep-alive-middleware-status.md`)
-is the production-side safety net for the same class of problem
-(stranded queries from any cause, not just HMR); the two are
-complementary and both should ship. The frontend cleanup is faster
-to implement and closes the cleanest path (no need to wait for the
-proxy's watchdog timeout). The proxy safety net has broader coverage
-— operators on high-cost hardware benefit even when the frontend
-never bugs out.
+The `import.meta.hot.dispose` cleanup shipped on 2026-05-04. The
+outgoing singleton calls `stopAllBoardAnalyses()` (new public method
+that snapshots and walks `activeQueryIds.keys()`) followed by
+`disconnect()`, so per-board explicit `terminate` packets are
+emitted before the WebSocket closes. Dev-only (the
+`import.meta.hot` block is statically removable in production
+builds). See the Frontend Completed table above for the synopsis.
 
 #### 7. *(no longer relevant)*
 
