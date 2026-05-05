@@ -117,10 +117,10 @@ export const migrations: Migration[] = [
         mode:             validMode(e?.mode) ? e.mode : 'instant',
         stepDelayMs:      typeof e?.stepDelayMs      === 'number'  ? e.stepDelayMs      : 350,
         windowDurationMs: typeof e?.windowDurationMs === 'number'  ? e.windowDurationMs : 600,
-        fadeDurationMs:   typeof e?.fadeDurationMs   === 'number'  ? e.fadeDurationMs   : 150,
+        fadeDurationMs:   typeof e?.fadeDurationMs   === 'number'  ? e.fadeDurationMs   : 0,
         cycle:            typeof e?.cycle            === 'boolean' ? e.cycle            : false,
         pvOpacity:        typeof e?.pvOpacity        === 'number'  ? e.pvOpacity        : 1,
-        annotation:       validAnnotation(e?.annotation) ? e.annotation : 'fromCurrent',
+        annotation:       validAnnotation(e?.annotation) ? e.annotation : 'from1',
       };
     }
     return out;

@@ -94,10 +94,10 @@ export const PV_DEFAULTS: PvAnimationSettings = {
   mode: 'instant',
   stepDelayMs: 350,
   windowDurationMs: 600,
-  fadeDurationMs: 150,
+  fadeDurationMs: 0,
   cycle: false,
   pvOpacity: 1,
-  annotation: 'fromCurrent',
+  annotation: 'from1',
 };
 
 // ─── Composable ───────────────────────────────────────────────────────────────
