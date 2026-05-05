@@ -167,17 +167,15 @@ function onPin(): void {
 <style scoped>
 .qeubo-cluster { display: flex; align-items: center; gap: var(--space-default); padding: 0 var(--space-default); border-left: 1px solid var(--border-2); border-right: 1px solid var(--border-2); font-family: 'Courier New', monospace; font-size: var(--text-emphasis); text-transform: uppercase; letter-spacing: var(--tracking-tight); }
 .seg-toggle { display: flex; border: 1px solid var(--border-3); border-radius: var(--radius-default); overflow: hidden; }
-.seg-btn { background: var(--border-1); border: none; border-right: 1px solid var(--border-3); color: var(--text-1); padding: 5px 10px; font-size: var(--text-emphasis); cursor: pointer; font-family: inherit; text-transform: inherit; letter-spacing: inherit; }
+.seg-btn { background: var(--surface-0); border: none; border-right: 1px solid var(--border-3); color: var(--text-1); padding: 5px 10px; font-size: var(--text-emphasis); cursor: pointer; font-family: inherit; text-transform: inherit; letter-spacing: inherit; }
 .seg-btn:last-child { border-right: none; }
-/* theme-exception: .seg-btn.active and .apply-btn backgrounds use
-   muted-cyan variants (#1a3a4a) — designer-intentional darkened
-   accent surfaces. The substrate has only --accent-primary; muted
-   variants would need new anchors. Same pattern used on .apply-btn
-   border (#2a5a7a) and .phase-help border. */
-.seg-btn.active { background: #1a3a4a; color: var(--accent-primary); }
+/* theme-exception: .apply-btn and .phase-help borders use #2a5a7a
+   — designer-intentional muted-cyan accent. The substrate has only
+   --accent-primary; muted variants would need new anchors. */
+.seg-btn.active { background: var(--surface-0); color: var(--accent-primary); }
 .seg-btn:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 .verdict-pair { display: flex; gap: var(--space-tight); }
-.verdict-btn, .apply-btn, .pin-btn { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: 5px 10px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: inherit; letter-spacing: inherit; }
+.verdict-btn, .apply-btn, .pin-btn { background: var(--surface-0); border: 1px solid var(--border-3); color: var(--text-1); padding: 5px 10px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: inherit; letter-spacing: inherit; }
 .verdict-btn:disabled, .apply-btn:disabled, .pin-btn:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 .apply-btn { border-color: #2a5a7a; color: var(--accent-primary); }
 .phase-indicator { color: var(--text-2); font-size: var(--text-body); letter-spacing: var(--tracking-default); cursor: help; padding: 0 var(--space-tight); }

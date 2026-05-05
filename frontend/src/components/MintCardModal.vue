@@ -309,7 +309,7 @@ async function submit() {
 <style scoped>
 .modal-backdrop {
   position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-  background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(2px);
+  background: rgba(0, 0, 0, 0.1);
   display: flex; align-items: center; justify-content: center; z-index: var(--z-modal);
 }
 
@@ -317,7 +317,7 @@ async function submit() {
    ConfirmLoadModal.vue. Modal-width substrate not pursued (3 sites,
    2 widths is a thin cluster). */
 .modal-content {
-  background: var(--surface-1); border: 1px solid var(--border-2); border-radius: var(--radius-default);
+  border: 1px solid var(--border-2); border-radius: var(--radius-default);
   width: 420px; max-width: 90vw; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
   display: flex; flex-direction: column; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
