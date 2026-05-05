@@ -411,6 +411,38 @@ surfaced the type-vs-implementation divergence is updated with
 a closure follow-on; the broader class-wide audit pass remains
 open per that entry's "Advice for the next auditor" section.
 
+#### Chess clone `[both]`
+
+Per ADR-0003's domain-portability discipline on the frontend
+and the "Adopting for another domain" checklist in
+`backend/README.md`. Items 34 / 34a / 34b debranded the backend
+wire and schema (`raw_content`, `canonical_content`,
+`content_hash`, `PositionNormalizerPort`) so this becomes a
+single-Port-implementation arc on the backend side.
+
+- **Backend.** Implement `PositionNormalizerPort` for PGN, plus
+  light DI wiring. Ebisu scheduling, tenancy spine, migration
+  tooling, qEUBO integration — all domain-agnostic, all work
+  as-is.
+- **Frontend.** Replace the ~30-40% Band 3 surface (SGF
+  parsing, board renderer, KataGo wire vocabulary in
+  `src/engine/katago/types.ts`). Components / Composables /
+  Services / Store / ACL layering doesn't move.
+- **Engine bridge.** Proxy speaks KataGo; chess needs a
+  Stockfish or Leela bridge through the same Sessions / Hub /
+  Router architecture. The Prism abstraction is intended to
+  support multiple protocols but only KataGo is implemented
+  today.
+- **Palette stdlib.** Substitute Go vocabulary (`visit_ratio`,
+  `decisiveness`, `quality_delta`) for chess equivalents
+  (centipawn loss, top-engine-move agreement, blunder
+  thresholds). Palette infrastructure absorbs it without
+  structural change.
+
+Trigger: a chess-playing contributor with a proof-of-concept
+comparable to what the Go version had, plus willingness to do
+the engine bridge.
+
 ### Large — structural changes that introduce new abstractions
 
 #### 30c. `[backend]` Single CTE per pipeline run
