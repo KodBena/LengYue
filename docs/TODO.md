@@ -532,6 +532,36 @@ shipped under 32a/32a.2 in the Backend Completed table above.
 The zeroconf work — substantively unrelated — is preserved here
 under its original number rather than silently retired.
 
+### Forest Directory — hierarchical redesign `[frontend]`
+
+The Roots tab in `ForestDirectory.vue` currently presents a
+flat list of game-source roots. Redesign the panel as a
+file-manager-style hierarchical navigator with games at the
+top level (`game_source` rows, which the schema already treats
+as the "parent" of root cards), roots beneath, and cards as
+leaves; selecting any node drives the existing Lineage
+Explorer in the right pane via the preserved
+`tree.loadBrowse(rootCardId)` seam. The aggregate statistics
+currently shown per-root remain visible in some form (user
+constraint).
+
+Planning note at
+`docs/notes/forest-directory-hierarchy-redesign.md` covers
+the schema reality (verified against the live `cards.db` —
+multi-root-per-game is already common: sample-loader
+populates one `game_source` with up to 276 roots; user-mint
+flow gives one root per game_source with branches as
+descendants), the file-manager UX sketch, frontend extensions
+required (a `useForestNavigation` composable, a new
+`ForestTreeNav.vue` component), the open decisions
+(multi-root display strategy at scale, expanded-state
+persistence, aggregate-stats placement, tab naming, click vs.
+double-click for card-level drill), and v2 follow-ups
+(cross-upload dedupe, super-game grouping). No backend
+extension needed for v1 — `GET /stats/forests` already
+returns enough data to group client-side by `game_source_id`.
+Trigger: frontend bandwidth.
+
 ### Internationalization (i18n) `[frontend]`
 
 UI translation to additional locales — Chinese, Japanese, Korean
