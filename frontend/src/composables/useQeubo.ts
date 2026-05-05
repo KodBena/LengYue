@@ -159,6 +159,17 @@ const _effectiveParameterValues = computed<Record<string, number>>(() => {
   return { ...base };
 });
 
+/**
+ * The persistent parameter set the engine actually reads — the
+ * toolbar's "Applied" reference, regardless of which view (A / B /
+ * Applied) is currently being previewed. Distinct from
+ * `effectiveParameterValues`, which reflects the preview state and
+ * therefore changes as the seg-toggle is clicked.
+ */
+const _appliedParameterValues = computed<Record<string, number>>(() =>
+  ({ ...store.profile.settings.engine.katago.analysis_env.parameters })
+);
+
 // ─── Lifecycle ───────────────────────────────────────────────────────────────
 
 /**
@@ -464,6 +475,7 @@ export interface UseQeuboReturn {
   currentBestEstimate: ComputedRef<QeuboBest | null>;
   toolbarView: Ref<'applied' | 'A' | 'B'>;
   effectiveParameterValues: ComputedRef<Record<string, number>>;
+  appliedParameterValues: ComputedRef<Record<string, number>>;
   isBusy: ComputedRef<boolean>;
   bootstrap: () => Promise<void>;
   reset: () => void;
@@ -490,6 +502,7 @@ export function useQeubo(): UseQeuboReturn {
     currentBestEstimate: computed(() => _bestRef.value),
     toolbarView: _toolbarView,
     effectiveParameterValues: _effectiveParameterValues,
+    appliedParameterValues: _appliedParameterValues,
     isBusy: computed(() => _isBusyRef.value),
     bootstrap,
     reset,

@@ -6,7 +6,7 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useQeubo } from '../composables/useQeubo';
 import { pushSystemMessage } from '../store';
 
@@ -34,15 +34,43 @@ const phaseLabel = computed<string>(() => {
   return '';
 });
 
-// Tooltip explaining GP-fitting cost grows cubic in the number of
-// observations, so users naturally hit a wall in mid-hundreds and
-// should stop voting once successive bests stabilise. The dispatch's
-// `?` affordance.
+// Tooltip on the phase-indicator's `?` affordance. Covers both the
+// cluster's overall workflow (the seg-toggle / verdict / apply / pin
+// labels are individually opaque) and the GP-fitting cost curve
+// (cubic in observations — users naturally hit a wall in mid-hundreds
+// and should stop voting once successive bests stabilise).
 const phaseTooltip =
-  'qEUBO fits a Gaussian process over the responses you submit. ' +
-  'GP fitting cost is cubic in the number of observations, so each ' +
-  "iteration is slower than the last. Stop voting once the best estimate " +
-  'has stabilised — no hard cap is enforced.';
+  'qEUBO calibrates palette parameters by Bayesian preference ' +
+  'learning: it proposes a pair (A vs B), you register your ' +
+  'preference, and a Gaussian process refines its model. The ' +
+  'Applied/A/B toggle previews each variant; "Use this" promotes ' +
+  'the current preview to the persistent parameters; "Pin" saves ' +
+  'it as a named bookmark. GP fitting cost is cubic in the number ' +
+  'of observations, so each iteration is slower than the last — ' +
+  'stop voting once successive bests stabilise (no hard cap is ' +
+  'enforced).';
+
+// Debug readout: current view + applied (persisted) + effective
+// (preview-overlaid) parameter sets, shown inline as plain text
+// when the ⊗ toggle is active. Inline rather than tooltip so state
+// changes across user actions are visible side-by-side; the toggle
+// keeps the cluster uncluttered when not actively debugging.
+function formatParams(params: Record<string, number>): string {
+  const entries = Object.entries(params);
+  if (entries.length === 0) return '{}';
+  return `{${entries.map(([k, v]) => `${k}: ${v}`).join(', ')}}`;
+}
+const paramsDebug = computed<string>(() => {
+  const view = q.toolbarView.value;
+  const a = formatParams(q.appliedParameterValues.value);
+  const e = formatParams(q.effectiveParameterValues.value);
+  return `view=${view}  applied=${a}  effective=${e}`;
+});
+
+// Local toggle: the ⊗ icon flips this; the debug strip is gated on
+// it. Component-local since debug visibility is a per-session
+// preference, not part of the qEUBO state model.
+const debugVisible = ref<boolean>(false);
 
 function setView(v: 'applied' | 'A' | 'B'): void {
   q.toolbarView.value = v;
@@ -92,6 +120,7 @@ function onPin(): void {
         :disabled="q.isBusy.value"
         role="radio"
         :aria-checked="q.toolbarView.value === 'applied'"
+        title="Preview the parameters currently in use. Switch to A or B to compare qEUBO's candidates."
         @click="setView('applied')"
       >Applied</button>
       <button
@@ -101,6 +130,7 @@ function onPin(): void {
         :disabled="q.isBusy.value || !hasPair"
         role="radio"
         :aria-checked="q.toolbarView.value === 'A'"
+        title="Preview qEUBO candidate A. Use the verdict buttons to register your A-vs-B preference."
         @click="setView('A')"
       >A</button>
       <button
@@ -110,6 +140,7 @@ function onPin(): void {
         :disabled="q.isBusy.value || !hasPair"
         role="radio"
         :aria-checked="q.toolbarView.value === 'B'"
+        title="Preview qEUBO candidate B. Use the verdict buttons to register your A-vs-B preference."
         @click="setView('B')"
       >B</button>
     </div>
@@ -121,14 +152,14 @@ function onPin(): void {
         type="button"
         class="verdict-btn"
         :disabled="verdictDisabled"
-        title="Submit qEUBO observation: A is better"
+        title="Submit your preference for A. The optimizer updates its model and proposes a new pair."
         @click="onVerdict(0)"
       >I prefer A</button>
       <button
         type="button"
         class="verdict-btn"
         :disabled="verdictDisabled"
-        title="Submit qEUBO observation: B is better"
+        title="Submit your preference for B. The optimizer updates its model and proposes a new pair."
         @click="onVerdict(1)"
       >I prefer B</button>
     </div>
@@ -140,7 +171,7 @@ function onPin(): void {
       type="button"
       class="apply-btn"
       :disabled="q.isBusy.value"
-      title="Write the current audition into analysis_env.parameters"
+      title="Promote the current preview (A or B) to the persistent palette parameters. Future analyses will use these values."
       @click="onApply"
     >Use this</button>
 
@@ -149,9 +180,22 @@ function onPin(): void {
       type="button"
       class="pin-btn"
       :disabled="q.isBusy.value"
-      title="Pin the current audition as a bookmark"
+      title="Save the current preview as a named bookmark for cross-session comparison."
       @click="onPin"
     >Pin</button>
+
+    <!-- Debug toggle (⊗) and conditional readout. The icon flips
+         debugVisible; the strip shows view + applied + effective
+         parameters when active. Hidden by default to keep the
+         cluster uncluttered. -->
+    <button
+      type="button"
+      class="debug-toggle"
+      :class="{ active: debugVisible }"
+      :title="debugVisible ? 'Hide qEUBO parameter readout' : 'Show qEUBO parameter readout (debug)'"
+      @click="debugVisible = !debugVisible"
+    >⊗</button>
+    <span v-if="debugVisible" class="params-debug">{{ paramsDebug }}</span>
 
     <!-- Phase indicator with `?` tooltip. -->
     <span v-if="phaseLabel" class="phase-indicator" :title="phaseTooltip">
@@ -178,6 +222,9 @@ function onPin(): void {
 .verdict-btn, .apply-btn, .pin-btn { background: var(--surface-0); border: 1px solid var(--border-3); color: var(--text-1); padding: 5px 10px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: inherit; letter-spacing: inherit; }
 .verdict-btn:disabled, .apply-btn:disabled, .pin-btn:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 .apply-btn { border-color: #2a5a7a; color: var(--accent-primary); }
+.debug-toggle { background: none; border: none; color: var(--text-2); font-size: var(--text-emphasis); cursor: pointer; padding: 0 var(--space-tight); font-family: inherit; line-height: 1; }
+.debug-toggle.active { color: var(--accent-primary); }
+.params-debug { color: var(--text-2); font-size: var(--text-tiny); padding: 0 var(--space-tight); text-transform: none; letter-spacing: var(--tracking-default); white-space: nowrap; }
 .phase-indicator { color: var(--text-2); font-size: var(--text-body); letter-spacing: var(--tracking-default); cursor: help; padding: 0 var(--space-tight); }
 .phase-help { color: var(--accent-primary); border: 1px solid #2a5a7a; border-radius: var(--radius-circle); width: 12px; height: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: var(--text-tiny); margin-left: var(--space-tight); }
 .busy-dot { color: var(--accent-primary); font-size: var(--text-body); animation: pulse var(--duration-slow) infinite; }
