@@ -532,6 +532,23 @@ shipped under 32a/32a.2 in the Backend Completed table above.
 The zeroconf work — substantively unrelated — is preserved here
 under its original number rather than silently retired.
 
+### Internationalization (i18n) `[frontend]`
+
+UI translation to additional locales — Chinese, Japanese, Korean
+are the obvious candidates given the target audience's
+geographic distribution. Not a current priority; the codebase is
+English-only. Scoping note at `docs/notes/i18n-plan.md` covers
+the rough string inventory (order-of-magnitude 150-300 distinct
+user-facing strings, well above initial intuition), the
+ADR-0003 bands of what does and doesn't translate (DSL symbol
+names, wire shapes, KataGo notation, file-format tags are all
+explicitly out), `vue-i18n` as the tooling pick, and the
+outstanding decisions before implementation can begin (locales,
+translation workflow, backend error message handling, lockstep
+discipline). Triggers: a community contributor offers a pilot
+locale's catalog, or distribution packaging ships to a
+predominantly non-English-speaking audience.
+
 ---
 
 ## Implementation order recommendation
