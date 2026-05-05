@@ -115,7 +115,7 @@ class CardService:
         # to InvalidInputError so the route's error axis (item 11)
         # handles it cleanly.
         try:
-            normalized = self.normalizer.normalize(data.sgf)
+            normalized = self.normalizer.normalize(data.raw_content)
         except ValueError as e:
             raise InvalidInputError(f"Could not normalize position: {e}")
 
@@ -134,7 +134,6 @@ class CardService:
             model=config.EBISU_DEFAULT_MODEL,
             user_id=user_id,
             grading_parameter=data.grading_parameter,
-            default_visits=data.default_visits,
             position_id=position_id,
         )
 
@@ -158,7 +157,7 @@ class CardService:
                 player_white=pw,
                 player_black=pb,
                 description=data.game_metadata.description,
-                raw_content=data.sgf,
+                raw_content=data.raw_content,
             )
 
         # 5. Link the card into its lineage. The CardCreate validator

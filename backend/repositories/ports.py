@@ -124,7 +124,6 @@ class CardWriteRepositoryPort(Protocol):
         model: Tuple[float, float, float],
         user_id: int,
         grading_parameter: Optional[Dict[str, Any]],
-        default_visits: int,
         position_id: int,
     ) -> int:
         ...

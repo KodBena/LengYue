@@ -204,7 +204,6 @@ class CardRepository(CardRepositoryPort, CardWriteRepositoryPort):
         model: Tuple[float, float, float],
         user_id: int,
         grading_parameter: Optional[Dict[str, Any]],
-        default_visits: int,
         position_id: int,
     ) -> int:
         """
@@ -222,7 +221,6 @@ class CardRepository(CardRepositoryPort, CardWriteRepositoryPort):
                 t=t,
                 user_id=user_id,
                 grading_parameter=grading_parameter,
-                default_visits=default_visits,
                 normalized_position_id=position_id,
             )
             .returning(card.c.id)
