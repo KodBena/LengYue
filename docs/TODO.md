@@ -182,6 +182,7 @@ reading the outstanding work.
 | — | *HMR cleanup for `analysisService` singleton (filed Trivial-tier priority 2026-05-03; closed 2026-05-04). Adds a public `stopAllBoardAnalyses()` to `AnalysisService` that snapshots `activeQueryIds.keys()` and walks each through `stopBoardAnalysis` (the snapshot is necessary because `stopBoardAnalysis` mutates the underlying map). Adds a dev-only `import.meta.hot.dispose(...)` block at the bottom of `src/services/analysis-service.ts` that calls `stopAllBoardAnalyses()` followed by `disconnect()` on the outgoing singleton — order matters: emit per-board terminate packets while the WebSocket is still open, then close it. The `import.meta.hot` conditional is statically removable by Vite's tree-shaker in production builds, so the whole hook is dev-only. Closes the dev-loop hygiene companion to the proxy's keep-alive middleware (shipped at proxy v1.0.10) — same class of problem (stranded queries on owner mutation), one fix on each side. Closes the corresponding row in the resource-ownership audit plan's seed inventory; the row moves from "suspected open" to "closed". Worklog at `docs/worklog/2026-05-04-hmr-dispose-analysis-service.md`. Not in original TODO numbering.* |
 | — | *Resource-ownership audit (filed Medium-tier priority 2026-05-04; closed 2026-05-04 across all three passes in a single session). Pass 1 produced an expanded inventory in `docs/notes/resource-ownership-audit-plan.md`: 17 closed pairs verified during the walk plus 15 suspected-open pairs grouped by mutation site (closeBoard, resetWorkspace, component unmount, engine-WS reconnect). Pass 2 closed all 15 suspected-open pairs across ten PRs (#119–#128, plus #118 for the inventory itself): 13 closed in code, 2 closed by verification with explanatory comments. Pass 3 codified the inline-comment convention and authoring checklist in the plan's new §"Comment convention and authoring discipline" section, mirrored as a "Resource ownership at mutation sites" section in `frontend/CLAUDE.md`. Substantive sub-findings surfaced during the work: `purgeBoard`'s incomplete `nodeVersions` cleanup (sub-PR #119 paired with main #120), the closeBoard / resetWorkspace timeout-resurrect bug that the inventory had pitched as a benign bounded leak (#126's O5/O11 fixes — a minor honesty miss surfaced in the verification trace and recorded in that PR's worklog as a future-audit framing lesson), and an ADR-0001/0002 type-honesty retrofit narrowing two `Record<BoardId, T>` types to `Partial<Record<BoardId, T>>` so deletes don't lie about indexed reads (#125). Final cleanup contracts: `closeBoard` runs six cleanups, `resetWorkspace` runs five, each enumerated in the function docstring with audit-pair identifiers (O1–O15). Two ADR-0006 file-header retrofits rode along under full-visibility edits (`store/index.ts`'s `resetUserOwnedState` → `resetWorkspace` drift, `useThumbnailCache.ts`'s lifecycle-contract description). The audit's contract (one cleanup or documented deferral per owner-resource pair) is satisfied; future PRs maintain the discipline at authoring time per the codified convention. Worklog series at `docs/worklog/2026-05-04-resource-audit-pass-1-inventory.md` through `2026-05-04-resetworkspace-purges-bounded-caches.md` (eleven entries, indexable by the `closeboard` / `resetworkspace` / `lifecycle` / `audit-sweep` / `ledger-purgeboard` / `cardthumbnail` / `useresizablepanel` / `audit-pass-3` shape).* |
 | — | *Pipeline DSL typing on the frontend (Medium-tier entry retired; closes the largest remaining `any` in domain types). Adds a `PipelineStage` discriminated-union alias in `types.ts` projecting the generated wire union (`SelectStage \| TakeStage \| ShuffleStage \| OrderStage` from `types/backend.ts`) into the frontend domain; tightens `CardSet.pipeline` from `any[]` to `PipelineStage[]`. Three files touched: `types.ts` (alias + interface tightening), `services/backend-service.ts` (`queryForest` parameter type, plus a `: PipelineStage[]` annotation on the internal `fetchEbisuSession` literal so the literal narrows via contextual typing), `components/CardSetEditor.vue` (a single `JSON.parse(...) as PipelineStage[]` boundary cast at the editor's parse-then-assign site, with an ADR-0002 justification comment naming the backend's pipeline executor as the loud-failure surface for malformed pipelines and the parse-vs-structural-validity distinction). Composables (`useCardTreeData`, `useReviewSession`) are pure pass-throughs — types flow naturally without needing edits. The two pipeline literals in `defaults.ts` typecheck cleanly via the `Record<string, CardSet>` annotation contextually typing each element through the `stage` discriminant. No migration (wire shape unchanged) and no backend dispatch (we're consuming the wire schema, not changing it). Worklog at `docs/worklog/2026-05-04-dsl-pipeline-typing.md`. **Doc-graph retrofit rode along**: `handoff-current.md`'s "Known gaps (frontend)" section dropped both the just-closed Pipeline DSL bullet and the already-closed `useVariationPath` bullet (the latter retired by the brand-pair commit but the gap section had not been swept). Not in original TODO numbering.* |
+| — | *Heatmap delta-update mitigations (Small-tier priority entry retired). Investigation confirmed the symptom but corrected the framing: the per-packet update is a sparse delta of `(s, t)` cells (~half the triangle for that color, since when delta at turn T arrives every interval `[s, t]` containing T gets bumped — `proxy/bsa.py` push_packet returns only changed cells, ledger correctly accumulates via `mergeTriangular`), not "a single ray" as the original entry suggested. The destroy-and-recreate behaviour is structural in ECharts' heatmap renderer — `node_modules/echarts/lib/chart/heatmap/HeatmapView.js` calls `this.group.removeAll()` then walks the data array creating fresh `Rect` objects, with no cell-level diff. Confirmed against the upstream issue tracker (#15269 "whole series re-renders on setOption", #8834, plus the broken `appendData` for grid heatmap mail-archive bug); the data-transition diff is keyed on `name` which heatmap cells don't carry. Three independent mitigations to `HeatmapChart.vue` (single file touched): (1) trailing-edge throttle bounded by `THROTTLE_MS = 250` collapses packet floods to ≤4 Hz with `pendingMode` promotion (`full > data > axes`) so a sequence of changes within the window resolves to the most-thorough mode; (2) canvas renderer replaces SVG — the previous "Use SVG renderer for Firefox stability" comment had no recorded provenance (no worklog, no commit message, no dispatch), and canvas is substantially faster for thousands of small Rects; (3) split update paths (`applyFull` / `applyData` / `applyAxes`) send only the option keys that actually changed, all with `lazyUpdate: true`. Three watchers route to the cheapest applicable path. Per-cell redraw cost unchanged (ECharts' fault) but option-merge validation is cheaper, throttle gives ~15× redraw reduction, and canvas removes SVG-DOM diff overhead. Polymorphic-renderer abstraction parked under Future projects for the user's interest in trying alternative backends (custom canvas, D3+canvas, Plotly.js, SciChart.js) — once a `ChartRenderer` Port exists, swapping a single chart to canvas-from-scratch is independent of the rest of the chart surface. Worklog at `docs/worklog/2026-05-06-heatmap-update-throttle.md`. Not in original TODO numbering.* |
 
 ### Joint
 
@@ -269,59 +270,24 @@ Skipped for numbering continuity.
 
 ### Small — one-file refactors, no contract changes
 
-#### `[frontend]` Heatmap delta-update investigation — **priority** (secondary to the HMR cleanup item in the Trivial tier above)
+#### `[frontend]` Heatmap delta-update investigation — moved to Completed
 
-The triangular heatmap component
-(`src/components/charts/HeatmapChart.vue`, backed by
-`src/composables/useTriangularHeatmap.ts`) currently re-renders the
-entire triangle on every analysis-packet arrival, even though each
-packet only refreshes a single ray within the triangle — positions
-`(s, t)` for `s ≤ t` given the new turn `t`, and the reflection
-across the diagonal (the BSA per-colour summary's update footprint:
-the summaries over `[s, t]` intervals that newly include the
-just-arrived delta, not the whole matrix). Under fast-backend
-conditions (KataGo NN-cache hits, proxy replay-cache replays) the
-redraws can't keep up with the packet rate at 60Hz, producing
-visible jankiness in the heatmap chart panel — distinct from the
-main-thread saturation that the RAF-batched ledger notification
-(`src/services/analysis-ledger.ts`, shipped 2026-05-03) addressed
-at the ingress layer.
-
-Investigation tasks:
-
-1. Determine whether ECharts supports an incremental update mode for
-   heatmap data (e.g., `setOption` with `replaceMerge`, `appendData`,
-   or a series-level merge strategy) that updates only the cells
-   whose values changed since the last frame.
-2. Determine whether the current full-redraw behaviour is a
-   deliberate trade-off — there's a recollection in the codebase
-   that this might be necessary so Vue's reactivity doesn't get in
-   the way of ECharts' update path. Validate or refute that
-   explanation against the current ECharts API surface; the
-   reasoning may have been correct at the time and outdated now,
-   or it may have been an excuse-of-convenience that warrants
-   revisiting.
-3. If delta updates are achievable: refactor `useTriangularHeatmap`
-   and `HeatmapChart` to feed ECharts only the changed cells. The
-   data-shape contract between the composable and the component may
-   need adjustment.
-4. If full redraws are genuinely required: document the reason in
-   `HeatmapChart.vue`'s header so the next contributor doesn't
-   re-investigate from scratch.
-
-Scope: primarily `src/components/charts/HeatmapChart.vue` and
-`src/composables/useTriangularHeatmap.ts`. May touch the
-data-shape contract between the composable and the component;
-no cross-tier contract change.
-
-Secondary in priority to the HMR cleanup item in the Trivial tier
-above because the symptom is cosmetic (visible heatmap jankiness on
-fast backends) rather than load-bearing, but high enough that it
-should be addressed before any work that increases the packet rate
-further — including the Phase 1 multi-subscriber non-regression test
-in `docs/dispatch/frontend-to-proxy-keep-alive-middleware.md`,
-which exercises concurrent ponders on a coalesced canonical and
-exacerbates the flood.
+Closed 2026-05-06. Investigation confirmed the symptom (full
+chart redraw on every packet) but corrected the framing on
+detail: the per-packet update footprint is sparse but not "a
+single ray," and the limitation is structural in ECharts itself
+(its heatmap renderer destroys-and-recreates every Rect on every
+`setOption` — confirmed against `node_modules/echarts/lib/chart/heatmap/HeatmapView.js`
+and the upstream issue tracker). Three independent mitigations
+applied to `HeatmapChart.vue`: 250ms trailing-edge throttle,
+canvas renderer (the previous "Use SVG renderer for Firefox
+stability" comment had no recorded provenance), and split
+update paths (`applyData` / `applyAxes` / `applyFull`) with
+`lazyUpdate: true`. Polymorphic-renderer abstraction parked
+under Future projects below for the user's interest in trying
+alternative backends. See the Frontend Completed table above
+for the synopsis. Worklog at
+`docs/worklog/2026-05-06-heatmap-update-throttle.md`.
 
 #### Items 13–16 *(tenancy read-path)* — moved to Completed
 
@@ -610,6 +576,49 @@ translation workflow, backend error message handling, lockstep
 discipline). Triggers: a community contributor offers a pilot
 locale's catalog, or distribution packaging ships to a
 predominantly non-English-speaking audience.
+
+### Polymorphic chart renderer abstraction `[frontend]`
+
+The frontend's chart surface is uniformly ECharts (`HeatmapChart`,
+`BaseChart`, `useEChartsForestRender`, the TS chart adapters via
+`themeColor()`). ECharts has known limits — most acutely, its
+heatmap renderer destroys-and-recreates every `Rect` on every
+`setOption`, with no cell-level diff and no working `appendData`
+for grid heatmaps (confirmed against the v6 source and the
+upstream issue tracker). The 2026-05-06 throttle PR
+(`docs/worklog/2026-05-06-heatmap-update-throttle.md`) bounds
+the redraw rate but doesn't change the per-redraw cost.
+
+The idea here is to introduce a renderer-shaped seam — a
+`ChartRenderer` Port-equivalent in ADR-0003 terms — so the chart
+surface can host alternative backends without rewriting every
+consumer. Candidates worth trying for the heatmap specifically:
+custom canvas (fully controlled diff), D3 + canvas, Plotly.js,
+SciChart.js (commercial). For the line charts, ECharts may stay;
+the abstraction's value is letting each surface pick its
+renderer independently.
+
+Open questions before implementation:
+
+- **Where the seam lives.** A per-component `renderer` prop, a
+  factory pattern at module scope, or a chart-type registry. The
+  registry shape composes best with ADR-0003's bands — heatmaps
+  and line charts have genuinely different performance profiles
+  and different rendering primitives.
+- **What the Port surface is.** Init / dispose / setData /
+  setRange / on(event). The minimum viable contract that lets
+  `HeatmapChart` and `BaseChart` both work without leaking
+  ECharts-specific concepts.
+- **Theme-substrate coupling.** Current adapters thread
+  `themeColor()` through ECharts' option object. Each renderer
+  needs its own theme-binding shape; the substrate stays the
+  source of truth.
+- **Bundle weight.** Adding a second renderer doubles the chart
+  surface area in the bundle. May want code-splitting / dynamic
+  imports keyed on the active renderer.
+
+Trigger: user prioritization. Not blocking any current arc; the
+heatmap throttle bought enough headroom to defer indefinitely.
 
 ---
 
