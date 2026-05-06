@@ -1,6 +1,8 @@
 <!--
   src/components/StatusBar.vue
-  Purely presentational game status bar.
+  Purely presentational game status bar. Engine info (version,
+  model, telemetry) lives in the Toolbar — this bar is for
+  board-state vocabulary (move number, players, captures, turn).
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
@@ -32,11 +34,11 @@ const emit = defineEmits<{
       <span class="move-badge">MOVE {{ moveNumber }}</span>
       <span class="player-names">{{ metadata?.blackName }} vs {{ metadata?.whiteName }}</span>
       <span class="game-info">
-        {{ metadata?.rules }} · Komi 
-        <input 
-          type="number" 
-          class="komi-input" 
-          :value="metadata?.komi" 
+        {{ metadata?.rules }} · Komi
+        <input
+          type="number"
+          class="komi-input"
+          :value="metadata?.komi"
           step="0.5"
           @change="(e) => emit('update-komi', parseFloat((e.target as HTMLInputElement).value))"
           title="Edit Komi"

@@ -62,7 +62,17 @@ export const store = reactive<GlobalStore>({
       latencyMs: 0,
     },
     activeMode: {},
-    messages: [], 
+    messages: [],
+    // Populated by analysisService on each fresh WebSocket open via
+    // probeEngineInfo(); cleared back to this empty shape on
+    // disconnect so a stale identity from a prior session can't
+    // surface in the toolbar after the WS drops.
+    info: {
+      version: null,
+      internalName: null,
+      versionPayload: null,
+      modelsPayload: null,
+    },
   },
 });
 
