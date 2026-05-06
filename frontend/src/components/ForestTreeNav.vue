@@ -92,7 +92,24 @@ function hiddenCount(game: ForestNavGameNode): number {
           {{ isExpanded(game) ? '▾' : '▸' }}
         </button>
         <div class="game-meta">
-          <div class="game-title">{{ game.title }}</div>
+          <div class="game-title">
+            <span class="game-title-text">{{ game.title }}</span>
+            <!--
+              game-source id surfaced inline so users can read it
+              against the macro-expansion operator (the Cards-tab
+              `${N}` syntax expands a game-source id to its root
+              cards). Resolves the discoverability gap noted on the
+              forest-directory-id-display branch: the navigator's
+              `titleFor()` only fell back to "Game source #N" when
+              every root had null description, so any non-null
+              description hid the id even though the id is the only
+              stable handle for downstream operators.
+            -->
+            <span
+              class="game-id"
+              title="Game source id — usable in the Cards-tab context-id field as ${N}"
+            >#{{ game.gameSourceId }}</span>
+          </div>
           <div class="game-aggregate">
             <span>{{ game.aggregate.rootCount }}&nbsp;{{ game.aggregate.rootCount === 1 ? 'root' : 'roots' }}</span>
             <span title="Total Cards">🗂️ {{ game.aggregate.totalCards }}</span>
@@ -113,7 +130,19 @@ function hiddenCount(game: ForestNavGameNode): number {
           :class="{ selected: isSelected({ kind: 'root', rootCardId: root.rootCardId }) }"
           @click="selectRoot(root.rootCardId)"
         >
-          <div class="root-title">{{ root.stat.description || 'Unnamed root' }}</div>
+          <div class="root-title">
+            <span class="root-title-text">{{ root.stat.description || 'Unnamed root' }}</span>
+            <!--
+              root-card id surfaced inline. Same rationale as the
+              game-id above: the id is the addressable handle for
+              downstream operators (Cards-tab context-ids accept
+              raw root-card ids alongside `${gameSourceId}` macros).
+            -->
+            <span
+              class="root-id"
+              title="Root card id — usable directly in the Cards-tab context-id field"
+            >#{{ root.rootCardId }}</span>
+          </div>
           <div class="root-meta">{{ root.stat.playerBlack || '?' }} vs {{ root.stat.playerWhite || '?' }}</div>
           <div class="root-stats">
             <span title="Total Cards">🗂️ {{ root.stat.totalCards }}</span>
@@ -139,13 +168,20 @@ function hiddenCount(game: ForestNavGameNode): number {
 .chevron-btn { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: var(--text-body); padding: 0 2px; line-height: 1; flex-shrink: 0; }
 .chevron-btn:hover { color: var(--text-0); }
 .game-meta { flex: 1; min-width: 0; }
-.game-title { font-size: var(--text-emphasis); font-weight: bold; color: var(--text-0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+.game-title { display: flex; align-items: baseline; gap: var(--space-tight); font-size: var(--text-emphasis); font-weight: bold; color: var(--text-0); margin-bottom: 2px; min-width: 0; }
+.game-title-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+/* Inline id chips — small, monospace, muted; the title still reads
+   first; the id sits as a quiet handle the user can grab when they
+   need to reach for the macro operator. flex-shrink: 0 keeps the id
+   visible even when the title is long enough to ellipsis. */
+.game-id, .root-id { font-size: var(--text-tiny); font-weight: normal; color: var(--text-2); font-family: var(--font-mono, monospace); flex-shrink: 0; }
 .game-aggregate { display: flex; flex-wrap: wrap; gap: var(--space-tight); font-size: var(--text-body); color: var(--text-1); }
 .root-list { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 var(--space-tight) var(--space-medium); padding-left: var(--space-tight); border-left: 1px solid var(--surface-3); }
 .root-row { background: var(--surface-1); border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: var(--space-tight) var(--space-default); cursor: pointer; transition: border-color var(--duration-default); flex-shrink: 0; }
 .root-row:hover { border-color: var(--border-3); }
 .root-row.selected { border-color: var(--accent-primary); background: color-mix(in srgb, var(--accent-primary) 5%, transparent); }
-.root-title { font-size: var(--text-emphasis); font-weight: bold; color: var(--text-0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+.root-title { display: flex; align-items: baseline; gap: var(--space-tight); font-size: var(--text-emphasis); font-weight: bold; color: var(--text-0); margin-bottom: 2px; min-width: 0; }
+.root-title-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .root-meta { font-size: var(--text-body); color: var(--text-2); margin-bottom: 3px; }
 .root-stats { display: flex; justify-content: space-between; font-size: var(--text-body); color: var(--text-1); background: var(--surface-0); padding: 1px 3px; border-radius: var(--radius-default); }
 .more-affordance { font-size: var(--text-body); color: var(--text-2); padding: var(--space-tight) var(--space-default); font-style: italic; }
