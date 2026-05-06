@@ -87,6 +87,38 @@ watch(boardIdRef, () => {
   if (roots.value.length > 0) tree.setForestStats(roots.value);
 });
 
+// Re-hydrate the forest from the active board's review queue when
+// the queue is non-empty but the slot's forest hasn't been
+// populated yet — the cross-session re-hydrate path. The review
+// queue persists via SyncService so a browser reload restores it
+// from the backend; the forest doesn't (`board-card-trees.ts`
+// holds it as ephemeral analysis-shaped data, not synced). Without
+// this watcher the user lands mid-session with `inReviewSession`
+// true (panel visible, status correct) but the Lineage Explorer
+// empty — no view of where they are in the deck.
+//
+// `tree.seedFromQueue` is internally idempotent (short-circuits
+// when the slot's forest is already populated), so the watcher
+// can fire freely on any board switch or queue mutation. The
+// `immediate: true` flag covers the mount-time case where the
+// queue is already in the store from SyncService's hydrate.
+//
+// Reads the queue from the store directly rather than instantiating
+// `useReviewSession` for this single read — same cheap-projection
+// pattern the rest of this file uses for `currentCardId`.
+watch(
+  [boardIdRef, () => {
+    const id = boardIdRef.value;
+    return id ? store.session.reviews[id]?.queue ?? [] : [];
+  }],
+  ([id, queue]) => {
+    if (id && queue.length > 0) {
+      void tree.seedFromQueue(queue);
+    }
+  },
+  { immediate: true },
+);
+
 async function selectRoot(rootCardId: CardId): Promise<void> {
   activeRootId.value = rootCardId as unknown as number;
   await tree.loadBrowse(rootCardId);

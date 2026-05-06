@@ -395,11 +395,65 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     if (currentIndex.value + 1 < queue.value.length) {
       loadCard(currentIndex.value + 1);
     } else {
-      if (boardIdRef.value) {
-        mutateReviewSession(boardIdRef.value, draft => { draft.status = 'IDLE'; });
-      }
-      alert('Session Complete!');
+      // No more cards in the queue — end the session and let the
+      // host UI return to its idle shape (deck-config form). The
+      // prior implementation set status to IDLE but left
+      // currentIndex/queue in place; the panel-gating predicate
+      // `currentCard !== null` then stayed true and kept the
+      // ReviewSessionPanel mounted with no way out. Calling
+      // endSession() resets the queue and currentIndex too, so
+      // the Cards tab cleanly returns to the deck-config form.
+      endSession();
     }
+  }
+
+  /**
+   * Stop the current review session and reset the per-board state
+   * to a clean IDLE shape (empty queue, no current card, scores
+   * cleared). Aborts any in-flight analysis-wait so the 30s
+   * timeout can't fire later and resurrect the just-cleared row
+   * via mutateReviewSession's lazy-init path.
+   *
+   * Used by:
+   *   - The "End Session" button in `ReviewSessionPanel.vue`
+   *     (visible during all non-IDLE states).
+   *   - `nextCard()` past the end of the queue, replacing the
+   *     prior IDLE-only-status + alert behaviour.
+   *
+   * Per-card review scores are submitted via `submitReview` at
+   * each `finishCard` call, so ending mid-session loses only the
+   * current card's in-flight scores (the moves the user has made
+   * but hasn't yet completed the card on). Cards already finished
+   * during the session are not affected.
+   *
+   * Safe to call at any time; idempotent on an already-IDLE board.
+   */
+  function endSession() {
+    const bId = boardIdRef.value;
+    if (!bId) return;
+
+    // Cancel any in-flight analysis-wait for this board. The wait
+    // promise rejects with AnalysisWaitError('aborted') which
+    // processUserMove's catch silent-returns on. Same shape as
+    // loadCard's pre-transition cleanup.
+    pendingAnalysisAborts.get(bId)?.abort();
+    pendingAnalysisAborts.delete(bId);
+
+    mutateReviewSession(bId, draft => {
+      draft.status = 'IDLE';
+      draft.queue = [];
+      draft.currentIndex = -1;
+      draft.startingNodeId = null;
+      draft.userMovesCount = 0;
+      draft.userMoveScores = [];
+      draft.visitsOverride = null;
+    });
+
+    // Move-suggestions visibility was flipped off by loadCard
+    // ("Blind Mode") and on by finishCard. Restore the default
+    // here too so the post-session board state matches a fresh
+    // browse-mode session.
+    store.session.ui.showMoveSuggestions = true;
   }
 
   function rewindToStart() {
@@ -424,5 +478,6 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     userMoveScores,
     effectiveVisits,
     setVisitsOverride,
+    endSession,
   };
 }

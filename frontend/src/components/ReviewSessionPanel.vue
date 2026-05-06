@@ -106,6 +106,10 @@ function handleVisitsOverrideChange(e: Event) {
     <button class="toolbar-btn-sm" @click="reviewSession.rewindToStart">
       Rewind to Start
     </button>
+
+    <button class="toolbar-btn-sm end-session-btn" @click="reviewSession.endSession">
+      End Session
+    </button>
   </div>
 </template>
 
@@ -127,4 +131,17 @@ function handleVisitsOverrideChange(e: Event) {
 .visits-override-row label { font-size: var(--text-body); color: var(--text-2); white-space: nowrap; }
 .visits-input { width: 100%; }
 .advance-btn { margin-bottom: var(--space-medium); margin-top: var(--space-medium); }
+/* End-session affordance — de-emphasised against Skip/Next so the
+   user doesn't accidentally end mid-card. Inherits the
+   `--state-error` rest tone so its destructive intent is honest;
+   stays muted (transparent surface, thin border) until hover. */
+.end-session-btn {
+  margin-top: var(--space-default);
+  color: var(--state-error);
+  border-color: var(--state-error);
+  background: transparent;
+}
+.end-session-btn:hover {
+  background: color-mix(in srgb, var(--state-error) 15%, transparent);
+}
 </style>
