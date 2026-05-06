@@ -3,8 +3,11 @@
   Master-Detail view for Database Exploration. Hosts the card-tree
   widget (per docs/notes/card-tree-frontend-spec.md) in two modes:
   Decks tab drives the active-set rendering from a CardSet pipeline
-  result; Roots tab drives a single-tree browse-mode view. The
-  per-board data state lives in `board-card-trees.ts`; this SFC
+  result; Browse tab drives a file-manager-style hierarchical
+  navigator (game_sources → roots) via `useForestNavigation` +
+  `ForestTreeNav.vue`, with selection driving the right pane through
+  `useCardTreeData`'s loadBrowse / loadBrowseForest entry points.
+  The per-board data state lives in `board-card-trees.ts`; this SFC
   reads it via `useCardTreeData(boardIdRef)`.
   License: Public Domain (The Unlicense)
 -->
@@ -14,21 +17,29 @@ import { store, activeBoard } from '../store';
 import { backendService } from '../services/backend-service';
 import type { BoardId, CardId, ForestStat, ReviewCard } from '../types';
 import { useCardTreeData } from '../composables/useCardTreeData';
+import { useForestNavigation } from '../composables/useForestNavigation';
+import { useForestBrowsePolicy } from '../composables/useForestBrowsePolicy';
 import { useReviewSession } from '../composables/useReviewSession';
 import CardTreeWidget from './charts/CardTreeWidget.vue';
+import ForestTreeNav from './ForestTreeNav.vue';
 import ReviewSessionPanel from './ReviewSessionPanel.vue';
 
 const emit = defineEmits<{
   (e: 'load-card', card: ReviewCard): void;
 }>();
 
-const activeTab = ref<'decks' | 'roots'>('decks');
+const activeTab = ref<'decks' | 'browse'>('decks');
 
-// Roots panel state — separate from the tree-data composable; this
-// is the left-pane list, not the tree being rendered.
+// Browse-pane state. `roots` is the source for both the navigator
+// (`useForestNavigation` consumes it) and the chart's tooltip
+// header composer (`tree.setForestStats(roots.value)` populates the
+// per-CardId Map). `browseError` is a UX-level signal, distinct
+// from `tree.error` (fetch failures): set when game-node selection
+// exceeds `MULTI_ROOT_DISPLAY_CAP` to nudge the user toward
+// sub-selection.
 const roots = ref<ForestStat[]>([]);
 const isLoadingRoots = ref(false);
-const activeRootId = ref<CardId | null>(null);
+const browseError = ref<string | null>(null);
 
 // Per-board projection: the composable reads/writes against the
 // active board's slot in `board-card-trees.ts`. Switching boards
@@ -36,6 +47,7 @@ const activeRootId = ref<CardId | null>(null);
 // widget displays — same shape as `useReviewSession(boardIdRef)`.
 const boardIdRef = computed<BoardId | null>(() => activeBoard.value?.id ?? null);
 const tree = useCardTreeData(boardIdRef);
+const nav = useForestNavigation(roots);
 const reviewSession = useReviewSession(boardIdRef);
 const selectedDeckId = ref<string>(store.session.ui.activeCardSetId);
 const orientation = ref<'horizontal' | 'vertical'>('vertical');
@@ -70,9 +82,11 @@ onMounted(async () => {
   try {
     roots.value = await backendService.getForestStats();
     tree.setForestStats(roots.value);
-    if (roots.value.length > 0) {
-      await selectRoot(roots.value[0].rootCardId);
-    }
+    // The selection watcher below (immediate: true) drives the
+    // right pane from the persisted `nav.selection` once roots
+    // load. No auto-select — fresh users land on a fully
+    // collapsed nav and pick what they want; returning users
+    // resume their last selection.
   } catch (err) {
     console.error('Failed to load Forest Directory:', err);
   } finally {
@@ -119,10 +133,11 @@ watch(
   { immediate: true },
 );
 
-async function selectRoot(rootCardId: CardId): Promise<void> {
-  activeRootId.value = rootCardId;
-  await tree.loadBrowse(rootCardId);
-}
+// Selection → right-pane policy lives in its own composable so the
+// orchestration is named and findable. The policy writes
+// `browseError` for UX-cap messages; the right-pane empty-state
+// cascade below reads it alongside `tree.error`.
+useForestBrowsePolicy(nav, tree, browseError);
 
 async function reloadRoots(): Promise<void> {
   roots.value = await backendService.getForestStats();
@@ -192,7 +207,7 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
     <div class="left-panel">
       <div class="panel-header tab-switcher">
         <button :class="{ active: activeTab === 'decks' }" @click="activeTab = 'decks'">Decks</button>
-        <button :class="{ active: activeTab === 'roots' }" @click="activeTab = 'roots'">Roots</button>
+        <button :class="{ active: activeTab === 'browse' }" @click="activeTab = 'browse'">Browse</button>
       </div>
 
       <!-- TAB 1: DECKS — deck-config form when idle, ReviewSessionPanel when a session is running -->
@@ -236,33 +251,16 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
         </div>
       </div>
 
-      <!-- TAB 2: ROOTS -->
-      <div v-if="activeTab === 'roots'" class="roots-view">
+      <!-- TAB 2: BROWSE — file-manager hierarchy (games → roots) -->
+      <div v-if="activeTab === 'browse'" class="browse-view">
         <div class="tools-row">
           <span style="font-size: var(--text-body); color: var(--text-2);">All Game Sources</span>
           <button class="reload-btn" @click="reloadRoots">↻</button>
         </div>
 
-        <div v-if="isLoadingRoots" class="empty-state">Loading Roots...</div>
+        <div v-if="isLoadingRoots" class="empty-state">Loading…</div>
         <div v-else-if="roots.length === 0" class="empty-state">No cards in database.</div>
-
-        <div v-else class="roots-list">
-          <div
-            v-for="root in roots"
-            :key="root.rootCardId"
-            class="root-card"
-            :class="{ active: activeRootId === root.rootCardId }"
-            @click="selectRoot(root.rootCardId)"
-          >
-            <div class="root-title">{{ root.description || 'Unknown Game' }}</div>
-            <div class="root-meta">{{ root.playerBlack || '?' }} vs {{ root.playerWhite || '?' }}</div>
-            <div class="root-stats">
-              <span title="Total Cards">🗂️ {{ root.totalCards }}</span>
-              <span title="Total Reviews">🔄 {{ root.totalReviews }}</span>
-              <span title="Average Ebisu T (Recall)">🧠 {{ root.averageRecall.toFixed(2) }}</span>
-            </div>
-          </div>
-        </div>
+        <ForestTreeNav v-else :nav="nav" />
       </div>
     </div>
 
@@ -286,9 +284,10 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
       </div>
 
       <div v-if="tree.isLoading.value" class="empty-state">Loading tree…</div>
+      <div v-else-if="browseError" class="empty-state error">{{ browseError }}</div>
       <div v-else-if="tree.error.value" class="empty-state error">{{ tree.error.value }}</div>
       <div v-else-if="tree.forest.value.length === 0" class="empty-state">
-        {{ activeTab === 'decks' ? 'Run a deck to populate the view.' : 'Select a source to explore.' }}
+        {{ activeTab === 'decks' ? 'Run a deck to populate the view.' : 'Select a game or root in the navigator.' }}
       </div>
 
       <div v-else class="chart-wrapper">
@@ -315,7 +314,7 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
 .tab-switcher { padding: 0; display: flex; }
 .tab-switcher button { flex: 1; background: transparent; border: none; color: var(--text-2); padding: var(--space-tight) 0; font-size: var(--text-body); text-transform: uppercase; letter-spacing: var(--tracking-default); cursor: pointer; border-bottom: 2px solid transparent; }
 .tab-switcher button.active { color: var(--accent-primary); border-bottom-color: var(--accent-primary); background: var(--surface-2); }
-.decks-view, .roots-view { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.decks-view, .browse-view { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .deck-selector-box { padding: var(--space-default); border-bottom: 1px solid var(--surface-3); }
 .deck-selector-box label { font-size: var(--text-emphasis); color: var(--text-2); display: block; margin-bottom: 3px; text-transform: uppercase; }
 .deck-dropdown { width: 100%; padding: 2px 4px; font-size: var(--text-emphasis); margin-bottom: var(--space-tight); background: var(--surface-0); color: var(--text-0); border: 1px solid var(--border-2); border-radius: var(--radius-default); outline: none; }
@@ -326,13 +325,6 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
 .start-review-btn { background: var(--accent-secondary); color: var(--surface-1); margin-bottom: var(--space-tight); }
 .tools-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 8px; border-bottom: 1px solid var(--surface-3); }
 .reload-btn { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: var(--text-heading); padding: 0; line-height: 1; }
-.roots-list { flex: 1; overflow-y: auto; padding: var(--space-tight); display: flex; flex-direction: column; gap: 3px; }
-.root-card { background: var(--surface-2); border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: var(--space-tight) var(--space-default); cursor: pointer; transition: border-color var(--duration-default); flex-shrink: 0; }
-.root-card:hover { border-color: var(--border-3); }
-.root-card.active { border-color: var(--accent-primary); background: color-mix(in srgb, var(--accent-primary) 5%, transparent); }
-.root-title { font-size: var(--text-emphasis); font-weight: bold; color: var(--text-0); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.root-meta { font-size: var(--text-body); color: var(--text-2); margin-bottom: 3px; }
-.root-stats { display: flex; justify-content: space-between; font-size: var(--text-body); color: var(--text-1); background: var(--surface-0); padding: 1px 3px; border-radius: var(--radius-default); }
 .tree-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .header-controls { display: flex; align-items: center; gap: var(--space-default); }
 .orient-btn { background: var(--surface-2); color: var(--accent-primary); border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: 1px 3px; font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: var(--tracking-tight); cursor: pointer; font-family: inherit; }

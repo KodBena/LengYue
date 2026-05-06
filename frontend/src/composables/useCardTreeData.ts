@@ -53,6 +53,18 @@ export interface CardTreeData {
   // Consumption-mode entry points and a hydration callback. Each
   // operates on the active board's slot at call time.
   loadBrowse: (rootCardId: CardId) => Promise<void>;
+  // Multi-root browse mode — fetches each root's lineage tree in
+  // parallel and combines them into the slot's forest. Used by the
+  // Forest Directory navigator's game-node selection path (see
+  // `MULTI_ROOT_DISPLAY_CAP` for the caller-side cap policy). No
+  // active set / hydrated cards (browse semantics, not pipeline);
+  // per-root fetch failures surface via `pushSystemMessage` per
+  // ADR-0002, mirroring `populateSlotFromMatched`'s pattern.
+  loadBrowseForest: (rootCardIds: CardId[]) => Promise<void>;
+  // Clear the slot's browse state (forest, error, isLoading) without
+  // a fetch. Called when the navigator's selection is null — drops
+  // the right pane to its empty state cleanly.
+  clearBrowse: () => void;
   runPipeline: (deck: CardSet, contextIds: number[]) => Promise<ReviewCard[]>;
   setForestStats: (stats: ForestStat[]) => void;
   requestCard: (cardId: CardId) => Promise<void>;
@@ -141,6 +153,57 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
       const target = getOrCreateBoardCardTree(id);
       target.isLoading = false;
     }
+  }
+
+  async function loadBrowseForest(rootCardIds: CardId[]): Promise<void> {
+    const id = boardIdRef.value;
+    if (!id) return;
+    const slot = getOrCreateBoardCardTree(id);
+    slot.isLoading = true;
+    reset(id);
+    try {
+      // Same per-root failure-aggregation pattern as
+      // populateSlotFromMatched — a 422 CardTreeOverflowError on
+      // one root shouldn't blank the whole forest.
+      const failed: { rootCardId: number; reason: string }[] = [];
+      const trees = await Promise.all(
+        rootCardIds.map(rcid =>
+          backendService
+            .fetchTreeByRoot(rcid)
+            .catch(treeErr => {
+              console.error('[useCardTreeData] tree-by-root failed for', rcid, treeErr);
+              failed.push({
+                rootCardId: rcid as unknown as number,
+                reason: treeErr instanceof Error ? treeErr.message : String(treeErr),
+              });
+              return null;
+            }),
+        ),
+      );
+      const target = getOrCreateBoardCardTree(id);
+      target.forest = trees.filter((t): t is CardLineageTree => t !== null);
+      if (failed.length > 0) {
+        const head = failed.slice(0, 3).map(f => `#${f.rootCardId}`).join(', ');
+        const tail = failed.length > 3 ? `, … and ${failed.length - 3} more` : '';
+        pushSystemMessage(
+          'warning',
+          `Lineage Explorer: ${failed.length} tree${failed.length === 1 ? '' : 's'} ` +
+          `(${head}${tail}) could not be fetched. First failure: ${failed[0].reason}.`,
+        );
+      }
+    } catch (err) {
+      const target = getOrCreateBoardCardTree(id);
+      target.error = formatError(err);
+    } finally {
+      const target = getOrCreateBoardCardTree(id);
+      target.isLoading = false;
+    }
+  }
+
+  function clearBrowse(): void {
+    const id = boardIdRef.value;
+    if (!id) return;
+    reset(id);
   }
 
   /**
@@ -312,6 +375,8 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
     isLoading,
     error,
     loadBrowse,
+    loadBrowseForest,
+    clearBrowse,
     runPipeline,
     setForestStats,
     requestCard,
