@@ -807,18 +807,34 @@ export type CardCreatePayload = components['schemas']['CardCreate'];
 export type GameMetadataPayload = components['schemas']['GameSourceCreate'];
 
 // ── Value Objects (readonly preserved) — backend-sourced stats ────────────────
+//
+// camelCase domain projections of the `/stats/forests` and `/stats/tags`
+// wire shapes. The ACL at `services/backend-service.ts` translates between
+// these and the generated `components['schemas']['ForestStat'|'TagStat']`
+// wire types. Branded ids (`CardId`, `GameSourceId`) replace raw `number`
+// at the boundary; the wire's nullable string metadata (description,
+// player names) is preserved as `string | null` so consumers can choose
+// how to surface "no metadata" rather than the ACL silently coercing per
+// ADR-0002.
 
 export interface ForestStat {
-  readonly root_card_id: number;
-  readonly game_source_id: number;
-  readonly description: string;
-  readonly player_white: string;
-  readonly player_black: string;
-  readonly total_cards: number;
-  readonly total_reviews: number;
-  readonly average_recall: number;
+  readonly rootCardId: CardId;
+  readonly gameSourceId: GameSourceId;
+  readonly description: string | null;
+  readonly playerWhite: string | null;
+  readonly playerBlack: string | null;
+  readonly totalCards: number;
+  readonly totalReviews: number;
+  readonly averageRecall: number;
 }
 
+// `TagStat`'s wire and domain shapes are field-for-field identical (no
+// snake_case to translate, no ids to brand — counts stay bare per the
+// "brand the meaningful, not the trivial" pattern). The ACL's
+// `mapTagStat` is therefore structurally redundant today; it exists as
+// a forward-looking indirection point so a future wire rename or added
+// field can be absorbed at the boundary rather than rippling through
+// consumers.
 export interface TagStat {
   readonly name: string;
   readonly count: number;

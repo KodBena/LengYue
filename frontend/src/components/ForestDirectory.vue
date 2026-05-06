@@ -28,7 +28,7 @@ const activeTab = ref<'decks' | 'roots'>('decks');
 // is the left-pane list, not the tree being rendered.
 const roots = ref<ForestStat[]>([]);
 const isLoadingRoots = ref(false);
-const activeRootId = ref<number | null>(null);
+const activeRootId = ref<CardId | null>(null);
 
 // Per-board projection: the composable reads/writes against the
 // active board's slot in `board-card-trees.ts`. Switching boards
@@ -71,7 +71,7 @@ onMounted(async () => {
     roots.value = await backendService.getForestStats();
     tree.setForestStats(roots.value);
     if (roots.value.length > 0) {
-      await selectRoot(roots.value[0].root_card_id as CardId);
+      await selectRoot(roots.value[0].rootCardId);
     }
   } catch (err) {
     console.error('Failed to load Forest Directory:', err);
@@ -120,7 +120,7 @@ watch(
 );
 
 async function selectRoot(rootCardId: CardId): Promise<void> {
-  activeRootId.value = rootCardId as unknown as number;
+  activeRootId.value = rootCardId;
   await tree.loadBrowse(rootCardId);
 }
 
@@ -249,17 +249,17 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
         <div v-else class="roots-list">
           <div
             v-for="root in roots"
-            :key="root.root_card_id"
+            :key="root.rootCardId"
             class="root-card"
-            :class="{ active: activeRootId === root.root_card_id }"
-            @click="selectRoot(root.root_card_id as CardId)"
+            :class="{ active: activeRootId === root.rootCardId }"
+            @click="selectRoot(root.rootCardId)"
           >
             <div class="root-title">{{ root.description || 'Unknown Game' }}</div>
-            <div class="root-meta">{{ root.player_black || '?' }} vs {{ root.player_white || '?' }}</div>
+            <div class="root-meta">{{ root.playerBlack || '?' }} vs {{ root.playerWhite || '?' }}</div>
             <div class="root-stats">
-              <span title="Total Cards">🗂️ {{ root.total_cards }}</span>
-              <span title="Total Reviews">🔄 {{ root.total_reviews }}</span>
-              <span title="Average Ebisu T (Recall)">🧠 {{ root.average_recall.toFixed(2) }}</span>
+              <span title="Total Cards">🗂️ {{ root.totalCards }}</span>
+              <span title="Total Reviews">🔄 {{ root.totalReviews }}</span>
+              <span title="Average Ebisu T (Recall)">🧠 {{ root.averageRecall.toFixed(2) }}</span>
             </div>
           </div>
         </div>

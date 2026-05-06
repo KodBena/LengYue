@@ -118,7 +118,7 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
     if (!id) return;
     const slot = getOrCreateBoardCardTree(id);
     const m = new Map<CardId, ForestStat>();
-    for (const s of stats) m.set(s.root_card_id as CardId, s);
+    for (const s of stats) m.set(s.rootCardId, s);
     slot.forestStats = m;
   }
 

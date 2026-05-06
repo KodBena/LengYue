@@ -231,55 +231,6 @@ this file.
   way, the visible inconsistency is recorded for explicit
   resolution rather than silent drift.
 
-### ForestStat / TagStat — wire-shape passthrough at the ACL boundary
-
-- **Surfaced:** 2026-05-03 (during the class-wide ACL audit
-  sweep that closed the 2026-05-02 auditor-notes
-  type-vs-implementation entry; recorded there as an adjacent
-  observation, and filed here for prioritization).
-- **Concern:** `ForestStat` and `TagStat` are declared in
-  `src/types.ts` (lines 653-664, 666-668) with snake_case
-  fields kept verbatim from the wire shape — `root_card_id:
-  number`, `game_source_id: number`, `total_cards: number`,
-  etc. There is no ACL translator between
-  `BackendService.getForestStats()` /
-  `BackendService.getTags()` and consumers; the wire shape
-  *is* the domain shape. This violates the ACL discipline
-  documented in `frontend/CLAUDE.md` ("the ACL at
-  `src/services/backend-service.ts` is the boundary where
-  backend wire shapes (snake_case) become domain types
-  (camelCase, branded)") and surfaces in two ways: (a) the
-  domain type carries snake_case identifiers that read like
-  wire shapes everywhere they appear, and (b) consumer sites
-  carry inline `as CardId` brand-casts to bridge the
-  un-branded wire numbers into the rest of the codebase.
-  Observed sites: `composables/useCardTreeData.ts:65`
-  (`s.root_card_id as CardId`),
-  `components/ForestDirectory.vue:44, 144`
-  (`roots.value[0].root_card_id as CardId`,
-  `root.root_card_id as CardId`).
-
-  This is structurally adjacent to but distinct from the
-  type-vs-implementation divergence class the 2026-05-02
-  auditor entry named: there's no typed-but-unassigned field
-  here (the wire fields are the domain fields), but the
-  discipline gap is the same — the ACL boundary is the only
-  place wire shapes meet domain types in the codebase, and
-  these two interfaces skip the boundary entirely.
-
-- **Suggested next action:** Add `mapForestStat` /
-  `mapTagStat` translators in `services/backend-service.ts`
-  paralleling `mapToReviewCard`'s shape; rename the domain
-  interfaces with camelCase (`rootCardId: CardId`,
-  `gameSourceId: GameSourceId`, etc.); brand `total_cards` /
-  `total_reviews` if the project wants to (probably no — they
-  are bare counts). Sweep the three observed consumer sites
-  to drop their `as CardId` brand-casts. Small PR (one file,
-  three consumers, no contract change). Defer until prioritized;
-  no urgent functional issue, but worth doing before a fourth
-  consumer appears and accumulates a fourth brand-laundering
-  cast.
-
 ### PV-overlay typography proportions — calibration question
 
 - **Surfaced:** 2026-05-03 (during magic-literals audit Pass 2
@@ -397,6 +348,42 @@ this file.
 ---
 
 ## Closed items
+
+### ForestStat / TagStat — wire-shape passthrough at the ACL boundary
+
+- **Surfaced:** 2026-05-03. **Closed:** 2026-05-06 in PR
+  `frontend/foreststat-tagstat-acl`. Worklog:
+  `docs/worklog/2026-05-06-foreststat-tagstat-acl-translator.md`.
+  Pre-PR-0 of the Forest Directory hierarchical redesign arc.
+- **Outcome (ForestStat — real fix):** `mapForestStat` translator
+  added at `services/backend-service.ts`; `ForestStat` in
+  `types.ts` rewritten to camelCase with branded ids
+  (`rootCardId: CardId`, `gameSourceId: GameSourceId`); nullable
+  metadata strings (`description`, `playerWhite`, `playerBlack`)
+  preserved as `string | null` per ADR-0002 ("validate, not
+  coerce" — consumers handle the no-metadata case at the
+  presentation boundary). Five consumer sites swept:
+  `useCardTreeData.ts` (one cast), `ForestDirectory.vue` (template
+  + script, two casts), `card-tree-echarts.ts` (tooltip composer).
+  Counts (`totalCards`, `totalReviews`, `averageRecall`) stay bare
+  per the entry's own "brand the meaningful, not the trivial"
+  recommendation.
+- **Outcome (TagStat — structural-redundancy translator):**
+  `mapTagStat` translator added even though wire and domain
+  shapes are field-for-field identical (no snake_case to
+  rename, no ids to brand). Documented at the type declaration
+  and the translator site as a forward-looking indirection point —
+  if backend ever renames `name` or adds a field, the boundary
+  exists. The honesty trade-off is recorded in the worklog: a
+  no-op translator is a small ADR-0002 lie of its own (looks like
+  ACL work, does none). The deferred-items entry's framing of
+  TagStat as a discipline gap won the call; the convention
+  argument was the deciding factor.
+- **Settled direction recorded:** future ACL passthroughs that
+  share field shapes with the wire by accident still get a
+  translator stub at the boundary, with a doc comment naming the
+  redundancy explicitly so future readers don't conclude the ACL
+  has nothing to do.
 
 ### Anchor role overloading in the chrome substrate
 
