@@ -6,6 +6,7 @@
 import { computed, ref, toRaw } from 'vue';
 import BoardDisplay from './BoardDisplay.vue';
 import BoardHeatmapOverlay from './BoardHeatmapOverlay.vue';
+import BoardVariationsOverlay from './BoardVariationsOverlay.vue';
 import MoveSuggestions from './MoveSuggestions.vue';
 import type { BoardState, NodeId, GameNode } from '../types';
 import { getBoardSize, decodeBoardArray } from '../engine/util';
@@ -197,6 +198,18 @@ const currentMoveNumber = computed(() => {
       :pv-config="store.session.ui.pvAnimation"
       :current-move-number="currentMoveNumber"
       @move="(x, y) => emit('move', x, y)"
+    />
+    <!-- Game-tree variations overlay: gray ghost for the next move
+         on the active path, colored discs (or A/B/C letters) for
+         sibling variations from the current node. Independent of
+         `showMoveSuggestions` since this is the user's own
+         exploration state, not engine analysis. Hidden when the
+         user has set the mode to 'off'. -->
+    <BoardVariationsOverlay
+      v-if="store.session.ui.boardVariations !== 'off'"
+      :state="state"
+      :size="boardSize"
+      :mode="store.session.ui.boardVariations"
     />
   </div>
 </template>

@@ -59,6 +59,7 @@ const PATH_ENUMS: Record<string, readonly string[]> = {
   'pvAnimation.mode':              ['instant', 'sequential', 'window'],
   'pvAnimation.annotation':        ['none', 'from1', 'fromCurrent'],
   'qeuboToolbarView':              ['applied', 'A', 'B'],
+  'boardVariations':               ['off', 'circles', 'letters'],
 };
 
 function enumOptions(key: string): readonly string[] | undefined {

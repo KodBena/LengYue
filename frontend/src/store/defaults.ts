@@ -268,6 +268,14 @@ export const defaultSessionUI: UISession = {
   // editing.
   cardsContextIds: [3],
   qeuboToolbarView: 'applied',
+  // Board-variations overlay rendering posture. Default 'circles' is
+  // the common GUI default per the user's framing (Lizzie / Sabaki /
+  // KaTrain idiom): active next move as a gray ghost, sibling
+  // variations as colored discs. Users wanting the SGF-style A/B/C
+  // labelling switch to 'letters'; users who want the board
+  // unannotated switch to 'off'. Schema-version 18 introduces the
+  // field with this default.
+  boardVariations: 'circles',
 };
 
 export const DEFAULTS = {

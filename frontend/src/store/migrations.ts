@@ -82,7 +82,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 17;
+export const CURRENT_SCHEMA_VERSION = 18;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -436,6 +436,29 @@ export const migrations: Migration[] = [
     if (ui && typeof ui === 'object') {
       if (ui.activeTab === 'sr' || ui.activeTab === 'database') {
         ui.activeTab = 'cards';
+      }
+    }
+    return out;
+  },
+  // 17 → 18: Surface the board-variations overlay setting in
+  // `session.ui.boardVariations`. Renders the next move on the
+  // active path (gray ghost) and sibling variations (colored
+  // discs or A/B/C letters) directly on the board, controlled by
+  // a single tri-state field. Backfills with `'circles'` (the
+  // common GUI default per Lizzie / Sabaki / KaTrain) so existing
+  // users land on a sensible visual default rather than `'off'`,
+  // which would gate the new feature behind a discovery step.
+  // Idempotent: a pre-existing valid value (`'off'`, `'circles'`,
+  // or `'letters'`) is preserved; any other value (or absent
+  // field) gets the default.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = out.session?.ui;
+    if (ui && typeof ui === 'object') {
+      const v = ui.boardVariations;
+      const valid = v === 'off' || v === 'circles' || v === 'letters';
+      if (!valid) {
+        ui.boardVariations = 'circles';
       }
     }
     return out;

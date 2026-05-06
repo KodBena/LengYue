@@ -478,6 +478,23 @@ export interface UISession {
   // 'applied'. Mutated by the toolbar; consumed by useQeubo's
   // effectiveParameterValues computed.
   qeuboToolbarView?: 'applied' | 'A' | 'B';
+  // Board-overlay rendering for the next move on the active path
+  // and sibling variations from the current node. Surfaced by
+  // `BoardVariationsOverlay.vue`, controlled here so the user can
+  // pick the rendering posture (or disable the overlay entirely).
+  //   'off'     — no overlay; the board shows only stones.
+  //   'circles' — common GUI posture. Active next move = gray
+  //               semi-transparent disc; each sibling variation =
+  //               filled disc cycling through a small palette of
+  //               distinct colours.
+  //   'letters' — active next move = gray semi-transparent disc;
+  //               each sibling variation = colored disc with letter
+  //               label A, B, C... where A is the first non-active
+  //               sibling (declaration order).
+  // Distinct from `showMoveSuggestions` (which gates KataGo's
+  // analysis overlay): this is the user's own game-tree state, not
+  // engine analysis. Schema-version 18 introduces the field.
+  boardVariations: 'off' | 'circles' | 'letters';
 }
 
 export type CardId = Brand<number, 'CardId'>;
