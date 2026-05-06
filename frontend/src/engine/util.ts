@@ -228,3 +228,80 @@ export function generateUUID(): string {
     hex.slice(10, 16).join(''),
   ].join('-');
 }
+
+// ── Game-name resolution (description fallback ladder) ────────────────────────
+
+/**
+ * Format a Date as `YYYY-MM-DD HH:MM` in local time.
+ *
+ * Locale-independent (manual padding rather than toLocaleString) so
+ * the persisted description doesn't drift across user-agent locales —
+ * once a description is set on a game_source row, the backend keeps
+ * it forever per the first-mint-wins contract; an unstable format
+ * would mean two users with different locales producing different
+ * "Free play (...)" strings for the same logical action.
+ */
+function formatDateStamp(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
+}
+
+/**
+ * Strip a single trailing `.sgf` extension (case-insensitive) from a
+ * filename. Other extensions pass through unchanged. Used by
+ * `resolveGameName` to surface filenames as game names without the
+ * format-marker noise — the user typed `kobayashi-vs-cho-1996.sgf`,
+ * what they read in the navigator should be `kobayashi-vs-cho-1996`.
+ */
+function stripSgfExtension(filename: string): string {
+  return filename.replace(/\.sgf$/i, '');
+}
+
+/**
+ * Resolves a board's user-friendly game name via a four-rung
+ * fallback ladder:
+ *
+ *   1. SGF GN root property (game name) — when set in the file.
+ *   2. SGF EV root property (event) — common in tournament SGFs.
+ *   3. Source filename — populated by `useSgfLoader` from the
+ *      File API; absent on blank boards. `.sgf` extension stripped.
+ *   4. Date-stamped catch-all — `Free play (YYYY-MM-DD HH:MM)`.
+ *      Captured at call time; the backend's first-mint-wins
+ *      semantic means subsequent calls for the same game_source
+ *      are discarded, so a board's recorded name reflects the
+ *      moment of its first mint.
+ *
+ * Used by `useMetadata.gameName` (the SSOT for display) and by
+ * `useMinting.prepareDraft` (the SSOT for the wire payload) — both
+ * read from the same helper so a hand-edit to the ladder lands at
+ * both surfaces uniformly.
+ *
+ * Pure function: no side effects beyond reading `Date` for the
+ * fourth rung. The ladder previously lived as a chained `||` in
+ * `useMetadata` (`'Untitled Game'` as the bottom rung), which
+ * conflated "no SGF metadata at all" with "this is a fresh-play
+ * board" and produced the user-observed Forest Directory bug
+ * where every fresh-play mint became its own "Untitled Game"
+ * entry. The new ladder names each rung explicitly.
+ */
+export function resolveGameName(board: BoardState, now: Date = new Date()): string {
+  const root = board.nodes[board.rootNodeId];
+  const props = root?.properties ?? {};
+
+  const gn = props['GN']?.[0]?.trim();
+  if (gn) return gn;
+
+  const ev = props['EV']?.[0]?.trim();
+  if (ev) return ev;
+
+  if (board.sourceFileName) {
+    const stripped = stripSgfExtension(board.sourceFileName).trim();
+    if (stripped) return stripped;
+  }
+
+  return `Free play (${formatDateStamp(now)})`;
+}

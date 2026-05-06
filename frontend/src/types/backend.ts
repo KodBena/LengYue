@@ -940,6 +940,25 @@ export interface components {
         /**
          * GameSourceCreate
          * @description Metadata for minting a brand new root card.
+         *
+         *     Game-source dedup: `client_game_id` is an opaque
+         *     client-managed UUID. When set, the backend uses it as a
+         *     get-or-create key on `(user_id, client_game_id)` so multiple
+         *     mints from one board's lifetime resolve to a single game_source
+         *     row (and a single forest-navigator entry). When unset, the
+         *     backend falls through to the historical always-create behavior,
+         *     preserving any caller that doesn't speak the new wire (curl,
+         *     test fixtures, pre-rollout frontends).
+         *
+         *     First-mint-wins semantic: when the client_game_id matches an
+         *     existing row, the existing row's player_white / player_black /
+         *     description are preserved; the incoming values on the second
+         *     mint are ignored. This matches user intent — editing SGF root
+         *     properties between mints from one board shouldn't retroactively
+         *     rewrite the game's recorded metadata.
+         *
+         *     See `docs/dispatch/backend-to-frontend-game-source-dedup-status.md`
+         *     for the wire-shape rationale.
          */
         GameSourceCreate: {
             /** Player White */
@@ -948,6 +967,8 @@ export interface components {
             player_black?: string | null;
             /** Description */
             description?: string | null;
+            /** Client Game Id */
+            client_game_id?: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {

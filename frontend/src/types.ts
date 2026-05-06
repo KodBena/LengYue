@@ -185,6 +185,34 @@ export interface BoardState {
   // round-trips transparently — the brand erases at JSON
   // serialisation.
   sourceCardId?: CardId;
+  // Opaque client-managed UUID for game-source dedup. Generated at
+  // board-creation time (`createInitialBoard` for blanks, `loadSgf`
+  // for SGF file uploads) and stable for the board's persistence
+  // lifetime. Sent in every mint's `game_metadata.client_game_id`
+  // (when `sourceCardId` is absent and the root-mint branch fires);
+  // backend uses `(user_id, client_game_id)` as a get-or-create key
+  // so two mints from positions A and B on the same board resolve
+  // to a single game_source row with two roots underneath, instead
+  // of two distinct "Untitled Game" entries with one root each.
+  // First-mint-wins on the description / player metadata per the
+  // backend's contract (`docs/dispatch/backend-to-frontend-game-source-dedup-status.md`).
+  // Schema-version 23 introduces this field; the migration backfills
+  // existing persisted boards with fresh UUIDs so each becomes its
+  // own group (no retroactive grouping — pre-rollout game_sources
+  // remain isolated, which matches the backend's NULL-client_game_id
+  // posture for legacy rows).
+  clientGameId: string;
+  // Filename of the SGF the board was loaded from, when known.
+  // Captured by `useSgfLoader` from the user's File.name; absent on
+  // blank boards from `createInitialBoard` and on card-load paths
+  // (where `sourceCardId` is the better handle). Read by
+  // `resolveGameName` (`engine/util.ts`) as the third rung of the
+  // description fallback ladder (after SGF GN / EV root properties),
+  // before falling through to the date-stamped catch-all. The
+  // `.sgf` extension is stripped by `resolveGameName`; this field
+  // stores the raw filename so a future surfacing (e.g., a tooltip
+  // showing "loaded from <file>") doesn't have to reconstruct it.
+  sourceFileName?: string;
 }
 
 // EngineMetrics is a value object (immutable, swapped wholesale); the

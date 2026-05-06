@@ -35,6 +35,13 @@ export function useSgfLoader(): SgfLoaderActions {
       const content = await file.text();
       const sabakiTrees = sgf.parse(content);
       const newBoard = loadSgf(sabakiTrees);
+      // Stamp the source filename onto the board. `loadSgf` lives in
+      // `engine/` and doesn't see the File API — this composable is the
+      // boundary where the user's chosen filename is observable. Read
+      // by `resolveGameName` (`engine/util.ts`) as the third rung of
+      // the description fallback ladder. The raw filename (with
+      // extension) is stored; the ladder strips `.sgf` for display.
+      newBoard.sourceFileName = file.name;
       addBoard(newBoard);
     } catch (err) {
       console.error('[useSgfLoader] Failed to load SGF:', err);

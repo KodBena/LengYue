@@ -2,14 +2,14 @@
  * src/engine/sgf-loader.ts
  * License: Public Domain (The Unlicense)
  */
-import { sgfToMove } from './util';
+import { sgfToMove, generateUUID } from './util';
 import { validateMove } from './rules';
 import type { BoardState, GameNode, StoneColor, Point } from '../types';
 
 const uuid = () => Math.random().toString(36).substring(2, 7);
 
 export function loadSgf(sabakiOutput: any): BoardState {
-  const sabakiRoot = sabakiOutput[0]; 
+  const sabakiRoot = sabakiOutput[0];
   const nodes: Record<string, GameNode> = {};
 
   const size = parseInt(sabakiRoot.data['SZ']?.[0] ?? '19', 10);
@@ -22,16 +22,23 @@ export function loadSgf(sabakiOutput: any): BoardState {
   // 1. Calculate the entire tree's deltas
   hydrate(rootId, nodes, {}, null, size);
 
-  // 2. Create the base state
+  // 2. Create the base state. Each loadSgf call mints a fresh
+  // clientGameId — two loads of the same SGF produce two distinct
+  // game-source groupings on the backend, matching user intent ("I
+  // re-imported the file, treat it as a separate session"). The
+  // `sourceFileName` field is populated by useSgfLoader after this
+  // call returns, since the filename is a File-API artifact the
+  // engine layer doesn't see.
   const state: BoardState = {
     id: 'sgf-' + uuid(), // Will be cast to BoardId elsewhere
     rootNodeId: rootId,  // Will be cast to NodeId elsewhere
-    stones: {}, 
+    stones: {},
     captures: { B: 0, W: 0 },
     currentNodeId: rootId,
     nodes,
     koPoint: null,
-    turn: 'B'
+    turn: 'B',
+    clientGameId: generateUUID(),
   } as unknown as BoardState;
 
   // 3. Project root setup stones (AB/AW on the root node) into the board.

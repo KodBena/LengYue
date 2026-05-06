@@ -7,6 +7,7 @@
 import { store } from '../store';
 import { backendService } from '../services/backend-service';
 import { serializeActivePath } from '../engine/sgf-writer';
+import { resolveGameName } from '../engine/util';
 import { compileAnalysisConfig } from '../services/analysis-config';
 import { useMetadata } from './useMetadata';
 import { computed } from 'vue';
@@ -50,11 +51,31 @@ export function useMinting() {
     }
 
     // If there is no parent card, it is a Root. We must provide game_metadata.
+    //
+    // `description` runs through `resolveGameName` directly rather than the
+    // `metadata?.gameName` projection so this codepath doesn't depend on the
+    // composable surface for a value the wire requires; the four-rung
+    // ladder (GN → EV → sourceFileName → date-stamped catch-all) is the
+    // SSOT for "user-friendly game name" and `useMetadata` reads from
+    // the same helper for display.
+    //
+    // `client_game_id` is the dedup key per
+    // `docs/dispatch/backend-to-frontend-game-source-dedup-status.md`.
+    // Sent unconditionally on every root-mint from this board's lifetime;
+    // backend's get-or-create on `(user_id, client_game_id)` resolves
+    // subsequent mints to the same game_source row, so two mints from
+    // positions A and B of one loaded SGF surface as a single forest
+    // entry with two roots underneath. First-mint-wins on metadata —
+    // the description / player names from the second mint are ignored
+    // backend-side, which matches the user intent of editing SGF root
+    // properties between mints not retroactively rewriting the recorded
+    // game name.
     if (!parent_card_id) {
       game_metadata = {
-        description: metadata?.gameName || 'Free Play Mint',
+        description: resolveGameName(board),
         player_white: metadata?.whiteName,
-        player_black: metadata?.blackName
+        player_black: metadata?.blackName,
+        client_game_id: board.clientGameId,
       };
     }
 

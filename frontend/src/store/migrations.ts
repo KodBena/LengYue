@@ -74,6 +74,7 @@ import {
   rewriteSymbolBlock,
   rewriteGradingParameterAnalysisConfig,
 } from '../engine/analysis-config-curation';
+import { generateUUID } from '../engine/util';
 import type { SystemMessage } from '../types';
 
 /**
@@ -82,7 +83,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 22;
+export const CURRENT_SCHEMA_VERSION = 23;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -593,6 +594,48 @@ export const migrations: Migration[] = [
           { stage: 'shuffle' },
         ],
       };
+    }
+    return out;
+  },
+  // 22 → 23: Surface `clientGameId` on BoardState for game-source
+  // dedup. v22 had no client-side game identifier; the backend
+  // unconditionally inserted a new game_source row on every mint
+  // with `game_metadata`, so two mints from positions A and B on one
+  // loaded SGF surfaced in the Forest Directory as two distinct
+  // "Untitled Game" entries with one root each.
+  //
+  // v23 introduces an opaque RFC4122 v4 UUID per BoardState; the
+  // mint flow sends it as `game_metadata.client_game_id` on every
+  // root-mint from that board's lifetime. Backend's get-or-create
+  // on `(user_id, client_game_id)` resolves subsequent mints to
+  // the same game_source row, with first-mint-wins on the recorded
+  // metadata. Wire change shipped on the backend's
+  // `backend/game-source-dedup` PR; rationale at
+  // `docs/dispatch/backend-to-frontend-game-source-dedup-status.md`.
+  //
+  // Backfill rule: each existing board gets its own fresh UUID. No
+  // retroactive grouping — pre-rollout game_sources were created
+  // with NULL client_game_id on the backend (the partial unique
+  // index ignores them), and pre-rollout BoardStates have no way
+  // to reconstruct which mints came from which board's lifetime.
+  // The two halves match: legacy state stays isolated; new state
+  // groups correctly.
+  //
+  // Idempotent: a pre-existing string clientGameId is preserved
+  // (a hand-edited blob isn't clobbered); missing or non-string
+  // gets a fresh UUID. The `Array.isArray(out.boards)` guard is
+  // belt-and-braces — every prior migration has assumed
+  // `out.boards` is array-shaped, but the migration ledger is the
+  // load-bearing append-only invariant; defensiveness is cheap
+  // here.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    if (Array.isArray(out.boards)) {
+      for (const b of out.boards) {
+        if (b && typeof b === 'object' && typeof b.clientGameId !== 'string') {
+          b.clientGameId = generateUUID();
+        }
+      }
     }
     return out;
   },
