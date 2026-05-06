@@ -82,7 +82,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 20;
+export const CURRENT_SCHEMA_VERSION = 21;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -493,6 +493,35 @@ export const migrations: Migration[] = [
     if (ui && typeof ui === 'object') {
       if (typeof ui.showTranspositionRings !== 'boolean') {
         ui.showTranspositionRings = true;
+      }
+    }
+    return out;
+  },
+  // 20 → 21: Surface the Forest Directory navigator state in
+  // `session.ui.forestNav`. The navigator presents game_sources →
+  // roots as a file-manager hierarchy (PR 1 of the redesign arc);
+  // expanded-set and current selection persist across reloads to
+  // match the file-manager idiom. Defaults: empty expanded array,
+  // null selection — fresh users land on a fully-collapsed tree
+  // until they click. Idempotent: a pre-existing well-shaped
+  // `forestNav` (object with `expanded: array` and a `selection`
+  // key) is preserved; missing or malformed gets the empty defaults.
+  // Stricter validation of `expanded` entries (NavNodeId format)
+  // and `selection` shape is deliberately not done here — bogus
+  // entries are dead in the renderer (Set lookup never matches,
+  // selection doesn't drive the right pane), and `useForestNavigation`'s
+  // mutators only ever write well-shaped values forward.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = out.session?.ui;
+    if (ui && typeof ui === 'object') {
+      const nav = ui.forestNav;
+      const valid =
+        nav && typeof nav === 'object' &&
+        Array.isArray(nav.expanded) &&
+        'selection' in nav;
+      if (!valid) {
+        ui.forestNav = { expanded: [], selection: null };
       }
     }
     return out;
