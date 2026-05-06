@@ -47,11 +47,19 @@ assumes you have already read the generic orientation
    do to preserve a boundary invariant, first check whether the
    layer that owns the invariant already does the work
    declaratively.
-5. `docs/handoff-current.md`, "The proxy" section — the
+5. `docs/dispatch/proxy-to-proxy-post-v1.0.13-followups.md` — a
+   punch list of three loose ends from the v1.0.13 release window
+   (sibling-parser sweep for the silent-coercion pattern;
+   wheel-build entry-point breakage; duplicated
+   `JSONEncoder.default` monkey-patch). None blocks a release;
+   each is appropriate to land in any future patch arc. Worth
+   surfacing at session start so a contributor with capacity can
+   pick one up.
+6. `docs/handoff-current.md`, "The proxy" section — the
    umbrella's condensed perspective on the submodule, including
    the typed-schema-publication trigger that becomes
    load-bearing once a second consumer appears.
-6. Scan `docs/dispatch/` for open requests in the proxy's
+7. Scan `docs/dispatch/` for open requests in the proxy's
    direction (filenames containing `to-proxy` or `proxy-to-`).
    Surface unaddressed ones at the start of the session before
    implementing.
