@@ -82,7 +82,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 15;
+export const CURRENT_SCHEMA_VERSION = 16;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -373,6 +373,46 @@ export const migrations: Migration[] = [
       if (!valid) {
         appearance.theme = 'cluster';
       }
+    }
+    return out;
+  },
+  // 15 → 16: Collapse per-tab deck contexts into a single field.
+  // v15 had `session.ui.srContextIds` and `session.ui.databaseContextIds`
+  // — the SR tab and the Database tab each carried their own ephemeral
+  // root-id list for the deck pipeline. The cards-tab-merge arc
+  // (`docs/notes/cards-tab-merge-plan.md`) merges the two tabs into a
+  // single Cards tab, so the per-tab split no longer corresponds to
+  // anything in the UI. v16 introduces `session.ui.cardsContextIds`
+  // and drops both old fields.
+  //
+  // Seeding rule: prefer `databaseContextIds` (the form most users
+  // were using once they realized the database tab gave them the same
+  // pipeline pre-execution preview), fall back to `srContextIds`,
+  // fall back to `[3]`. Idempotent: a pre-existing valid
+  // `cardsContextIds` array is preserved.
+  //
+  // The activeTab field is intentionally NOT rewritten in this
+  // migration — the tab restructure that introduces the `'cards'`
+  // tab id ships separately, and rewriting `activeTab` here would
+  // leave users on a tab id with no matching tab if they hydrated
+  // between this migration and the UI restructure shipping.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = out.session?.ui;
+    if (ui && typeof ui === 'object') {
+      const validArr = (v: unknown): v is number[] =>
+        Array.isArray(v) && v.every(n => typeof n === 'number');
+      if (!validArr(ui.cardsContextIds)) {
+        if (validArr(ui.databaseContextIds) && ui.databaseContextIds.length > 0) {
+          ui.cardsContextIds = [...ui.databaseContextIds];
+        } else if (validArr(ui.srContextIds) && ui.srContextIds.length > 0) {
+          ui.cardsContextIds = [...ui.srContextIds];
+        } else {
+          ui.cardsContextIds = [3];
+        }
+      }
+      delete ui.srContextIds;
+      delete ui.databaseContextIds;
     }
     return out;
   },

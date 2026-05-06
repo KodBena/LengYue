@@ -4,14 +4,15 @@
   widget (per docs/notes/card-tree-frontend-spec.md) in two modes:
   Decks tab drives the active-set rendering from a CardSet pipeline
   result; Roots tab drives a single-tree browse-mode view. The
-  data state lives in `useCardTreeData`.
+  per-board data state lives in `board-card-trees.ts`; this SFC
+  reads it via `useCardTreeData(boardIdRef)`.
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { store } from '../store';
+import { ref, computed, onMounted, watch } from 'vue';
+import { store, activeBoard } from '../store';
 import { backendService } from '../services/backend-service';
-import type { CardId, ForestStat, ReviewCard } from '../types';
+import type { BoardId, CardId, ForestStat, ReviewCard } from '../types';
 import { useCardTreeData } from '../composables/useCardTreeData';
 import CardTreeWidget from './charts/CardTreeWidget.vue';
 
@@ -27,9 +28,28 @@ const roots = ref<ForestStat[]>([]);
 const isLoadingRoots = ref(false);
 const activeRootId = ref<number | null>(null);
 
-const tree = useCardTreeData();
+// Per-board projection: the composable reads/writes against the
+// active board's slot in `board-card-trees.ts`. Switching boards
+// (active-tab change in the workspace) atomically swaps what the
+// widget displays — same shape as `useReviewSession(boardIdRef)`.
+const boardIdRef = computed<BoardId | null>(() => activeBoard.value?.id ?? null);
+const tree = useCardTreeData(boardIdRef);
 const selectedDeckId = ref<string>(store.session.ui.activeCardSetId);
 const orientation = ref<'horizontal' | 'vertical'>('vertical');
+
+// Render-time overlay: highlight the active board's current review
+// card in orange against the forest's blue active-set rendering.
+// Reads from `store.session.reviews[boardId]` directly because the
+// composable's `currentCard` is per-instance and we don't want to
+// instantiate `useReviewSession` here just for this read.
+const currentCardId = computed<CardId | null>(() => {
+  const id = boardIdRef.value;
+  if (!id) return null;
+  const review = store.session.reviews[id];
+  if (!review || review.currentIndex < 0) return null;
+  const card = review.queue[review.currentIndex];
+  return card ? card.id : null;
+});
 
 function toggleOrientation(): void {
   orientation.value = orientation.value === 'horizontal' ? 'vertical' : 'horizontal';
@@ -50,6 +70,13 @@ onMounted(async () => {
   }
 });
 
+// Re-seed forestStats into the active board's slot when the board
+// changes (the slot may be empty if it's a never-explored board).
+// The roots list itself is workspace-global, so we don't reload it.
+watch(boardIdRef, () => {
+  if (roots.value.length > 0) tree.setForestStats(roots.value);
+});
+
 async function selectRoot(rootCardId: CardId): Promise<void> {
   activeRootId.value = rootCardId as unknown as number;
   await tree.loadBrowse(rootCardId);
@@ -63,14 +90,16 @@ async function reloadRoots(): Promise<void> {
 async function runDeck(): Promise<void> {
   const deck = store.profile.cardSets[selectedDeckId.value];
   if (!deck) return;
-  // Database tab supplies its own root list to the deck (schema-
-  // version 11 lifted contextIds off the CardSet onto per-tab UI).
-  await tree.runPipeline(deck, store.session.ui.databaseContextIds);
+  // Single ephemeral context (schema-version 16): the deck is a pure
+  // strategy, the context lives on `cardsContextIds`. The matched-cards
+  // return value is unused here — this codepath is browse-only,
+  // distinct from the start-review-session flow that consumes it.
+  await tree.runPipeline(deck, store.session.ui.cardsContextIds);
 }
 
 function updateContextIds(val: string): void {
   // Mirrors CardSetEditor's parser: split on comma, parse, drop NaN.
-  store.session.ui.databaseContextIds = val
+  store.session.ui.cardsContextIds = val
     .split(',')
     .map(s => parseInt(s.trim(), 10))
     .filter(n => !isNaN(n));
@@ -116,7 +145,7 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
             type="text"
             class="dark-input deck-dropdown"
             placeholder="e.g. 3, 4, 12"
-            :value="store.session.ui.databaseContextIds.join(', ')"
+            :value="store.session.ui.cardsContextIds.join(', ')"
             @input="(e: any) => updateContextIds(e.target.value)"
             title="Comma-separated root card ids fed to the deck pipeline."
           />
@@ -187,6 +216,7 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
           :cards="tree.cards.value"
           :forest-stats="tree.forestStats.value"
           :orientation="orientation"
+          :current-card-id="currentCardId"
           @node-click="handleNodeClick"
           @request-card="tree.requestCard"
         />

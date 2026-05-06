@@ -161,35 +161,34 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
   }
 
   /**
-   * Starts a new Sparring Session using the specified CardSet definition.
+   * Starts a new Sparring Session against a pre-fetched queue of
+   * cards. The caller is responsible for running the deck pipeline
+   * (typically via `useCardTreeData.runPipeline`) and handing the
+   * matched cards in here. The cards-tab-merge arc collapses two
+   * backend round-trips (pipeline + start-session) to one — this
+   * signature is the load-bearing change.
+   *
+   * If `prefetchedQueue` is empty, the session goes straight to
+   * IDLE without spinning up state. The caller should typically
+   * surface that to the user via the slot's `error` field; this
+   * composable only owns the per-board review state.
    */
-  async function startSession(cardSetId: string) {
+  async function startSession(prefetchedQueue: ReviewCard[]) {
     const bId = boardIdRef.value;
     if (!bId) return;
 
-    const cardSet = store.profile.cardSets[cardSetId];
-    if (!cardSet) {
-      console.error(`[ReviewSession] CardSet not found: ${cardSetId}`);
+    if (prefetchedQueue.length === 0) {
+      mutateReviewSession(bId, draft => { draft.status = 'IDLE'; });
       return;
     }
 
-    mutateReviewSession(bId, draft => { draft.status = 'LOADING'; });
+    mutateReviewSession(bId, draft => {
+      draft.status = 'LOADING';
+      draft.queue = prefetchedQueue;
+    });
 
     try {
-      // Per-tab context (schema-version 11): SR supplies its own
-      // `srContextIds` to the deck's pipeline. The deck declaration
-      // is pure strategy; the input set lives in UI state.
-      const cards = await backendService.queryForest(
-        store.session.ui.srContextIds,
-        cardSet.pipeline,
-      );
-      mutateReviewSession(bId, draft => { draft.queue = cards; });
-      
-      if (cards.length > 0) {
-        await loadCard(0);
-      } else {
-        mutateReviewSession(bId, draft => { draft.status = 'IDLE'; });
-      }
+      await loadCard(0);
     } catch (err) {
       console.error('[ReviewSession] Failed to start session:', err);
       mutateReviewSession(bId, draft => { draft.status = 'IDLE'; });

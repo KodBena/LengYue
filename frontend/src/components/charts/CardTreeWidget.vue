@@ -44,8 +44,16 @@ const props = withDefaults(
     forestStats: ReadonlyMap<CardId, ForestStat>;
     orientation?: 'horizontal' | 'vertical';
     maxNodes?: number;
+    // Optional render-time overlay: when set, the matching `card` or
+    // `stub` node paints in `--player-white` (orange) instead of the
+    // role-derived chrome color. The spec's 4-role partition stays
+    // exhaustive; this is decoration, not a fifth role. Consumers
+    // typically pass the active board's review-session current card
+    // id so the user can track SR progress against the rendered
+    // forest. `null` (default) means no overlay.
+    currentCardId?: CardId | null;
   }>(),
-  { orientation: 'vertical', maxNodes: 5000 },
+  { orientation: 'vertical', maxNodes: 5000, currentCardId: null },
 );
 
 const emit = defineEmits<{
@@ -146,7 +154,7 @@ function buildConfigs(): ForestChartConfig<NodePayload>[] {
   return [{
     treeKey: String(tree.rootCardId),
     el,
-    data: toEChartsNode(tree.root),
+    data: toEChartsNode(tree.root, props.currentCardId),
     orient: props.orientation === 'vertical' ? 'TB' : 'LR',
     renderedNodeCount: tree.stats.renderedNodeCount,
     tooltipFor: payload => tooltipFor(payload, props.cards),
@@ -157,7 +165,7 @@ function buildConfigs(): ForestChartConfig<NodePayload>[] {
 }
 
 watch(
-  [renderForest, () => props.orientation, () => props.cards, expandedRootId],
+  [renderForest, () => props.orientation, () => props.cards, expandedRootId, () => props.currentCardId],
   async () => { await nextTick(); syncCharts(buildConfigs()); },
   { immediate: true },
 );

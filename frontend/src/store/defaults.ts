@@ -259,14 +259,14 @@ export const defaultSessionUI: UISession = {
     },
   },
   activeCardSetId: 'default',
-  // Per-tab deck contexts. Default to `[3]` to preserve the prior
-  // hardcoded behaviour against the sample database; users edit these
-  // through the SR / Database tabs directly. Schema-version 11
-  // backfills these fields from any pre-existing CardSet's contextIds
-  // when migrating an existing blob, so this default only applies to
-  // fresh installs.
-  srContextIds: [3],
-  databaseContextIds: [3],
+  // Single ephemeral deck context. Default `[3]` matches the prior
+  // hardcoded behaviour against the sample database. Schema-version
+  // 16 collapsed the prior per-tab `srContextIds` / `databaseContextIds`
+  // into this single field as part of the cards-tab-merge arc; the
+  // migration seeds from `databaseContextIds` (preferred) → `srContextIds`
+  // → `[3]` so existing users land on whichever value they were last
+  // editing.
+  cardsContextIds: [3],
   qeuboToolbarView: 'applied',
 };
 
