@@ -1,9 +1,16 @@
 # Frontend Theming — Design Note
 
-**Status:** Draft (2026-05-02). Survey-and-direction document, not yet
-implemented. Intended to be the starting point for a future PR that
-introduces a replaceable color substrate; the survey portion stands
-on its own as a reference even if the proposed direction shifts.
+**Status:** Implemented. The structural-substrate phase (A) closed
+across PRs #80–#88 on 2026-05-02 (worklog series
+`2026-05-02-theme-substrate-{a1..a4,a3a..a3f}.md`); theme
+replacement (B) closed 2026-05-04 with a cluster-12 second theme
+variant wired through `[data-theme]` (worklog
+`2026-05-04-cluster-theme-variant.md`) plus a 2026-05-05
+strict-palette follow-on. The remainder of this document is the
+design record at the time of authoring. The "Substrate evolution
+(post-implementation)" section captures the principles that have
+hardened since closure and is the part still load-bearing for
+future substrate-tuning work.
 
 **Motivation:** color decisions are scattered across **four
 locations with no enforced discipline** — CSS files

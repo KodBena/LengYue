@@ -556,9 +556,14 @@ others; this item closes that hole.
 Closed across nine PRs (A1–A4 arc) on 2026-05-02. The Frontend
 Completed table below carries the closure synopsis. Worklogs at
 `docs/worklog/2026-05-02-theme-substrate-{a1..a4,a3a..a3f}.md`.
-Theme replacement (B) — flipping the dark default to something
-less depressing — is a separate decision deferred per the user's
-"structural close only" scoping.
+Theme replacement (B) — wiring `appearance.theme` to actually do
+something and shipping a second theme variant — closed
+2026-05-04 (cluster-theme variant against the curated cluster-12
+palette; `[data-theme]` selector activated, `useAppBootstrap`
+mirrors the value onto `documentElement`) with a same-week
+strict-palette follow-on (2026-05-05). Worklogs at
+`docs/worklog/2026-05-04-cluster-theme-variant.md` and
+`docs/worklog/2026-05-05-cluster-theme-palette-strict.md`.
 
 #### `[frontend]` Magic-literals audit — moved to Completed
 
@@ -732,26 +737,18 @@ Commit 3b has shipped. The tenancy spine (items 9, 13–16,
 closing alongside the release scope. Current shape of remaining
 work:
 
-**Frontend (small, independent — easiest to interleave):**
-
-- Type the pipeline DSL — small follow-on.
-
-**Frontend architectural:**
-
-- Cards tab merge (`docs/notes/cards-tab-merge-plan.md`) — Medium
-  tier; closes the SR/Database DRY violation, introduces the
-  per-board forest + orange current-card overlay. Two-PR seam
-  documented in the plan.
-- Color theming substrate (`docs/notes/frontend-theming-plan.md`)
-  — Large tier; closes the scattered-color-literal discipline
-  failure as an instance of ADR-0005 Rule 1 applied to color.
-  Codebase-wide sweep; substrate addition itself is small.
-- Magic-literals audit (`docs/notes/magic-literals-audit-plan.md`)
-  — Large tier; predicated on the color theming substrate landing
-  first. Treats unjustified literals as `as any` for the design
-  vocabulary; sweeps the residue (geometry, timings, opacity,
-  z-index, thresholds) under the same SSOT-or-justified-inline
-  contract.
+**Frontend.** No remaining frontend architectural arc is queued
+in Active. The post-v1 frontend work shipped through May —
+pipeline DSL typing (2026-05-04), Cards tab merge (2026-05-06),
+the colour theming substrate and theme replacement (B)
+(2026-05-02 / 2026-05-04 / 2026-05-05), the magic-literals audit
+(2026-05-03), the resource-ownership audit (2026-05-04), and the
+HMR cleanup for `analysisService` (2026-05-04). Remaining
+frontend tracks are coordinated cross-team work (the
+silent-coercion-at-protocol-boundaries audit's frontend leg, in
+the Medium tier above), longer-horizon items in Future projects
+below, and whatever surfaces from `docs/notes/deferred-items.md`
+or `docs/notes/frontend-backlog.md` when the user prioritises.
 
 **Backend architectural:**
 

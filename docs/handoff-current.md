@@ -389,9 +389,10 @@ gating predicate against KataGo's actual terminate-ack behavior.
 pending.** The Bayesian preference-based optimization integration
 shipped during the v1 arc (backend MIT-boundary wrapper, REST
 routes, frontend `useQeubo` composable, toolbar A/B cluster,
-parameter-meta editor in `PaletteEditor`). End-to-end UI smoke
-with Redis is still pending; the bookmarks UI is in review.
-Status table at `docs/notes/qEUBO.md`. The runtime is opt-in
+parameter-meta editor in `PaletteEditor`, bookmarks UI panel
+shipped 2026-04-28). End-to-end UI smoke with Redis is still
+the remaining validation gate. Status table at
+`docs/notes/qEUBO.md`. The runtime is opt-in
 (`QEUBO_ENABLED=False` by default) because the dependency
 footprint is heavy and the validation incomplete. The proxy's
 replay cache (Layer 2) exists specifically to make this loop

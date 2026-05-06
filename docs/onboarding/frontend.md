@@ -14,9 +14,11 @@ note assumes you have already read the generic orientation
    `npm run gen:api` section is load-bearing; read it before any
    change to code that touches the wire boundary.
 3. `docs/handoff-current.md`, "The frontend" section — the
-   architectural snapshot, including known gaps (Pipeline DSL
-   still typed `any[]`; `useVariationPath` boundary cleanup; no
-   test suite yet).
+   architectural snapshot. The durable known gap is **no test
+   suite yet**; earlier-named gaps (Pipeline DSL `any[]`,
+   `useVariationPath` boundary cleanup) have closed. Always
+   verify a "known gap" claim against `docs/TODO.md`'s
+   Completed table before treating it as still open.
 4. Scan `docs/dispatch/` for open requests addressed to the
    frontend (filenames containing `to-frontend` or
    `frontend-to-frontend`). Surface unaddressed ones at the start
