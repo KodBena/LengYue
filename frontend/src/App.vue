@@ -27,6 +27,7 @@ import { navigateTo }     from './engine/navigator';
 import { updateRegistry } from './engine/util';
 
 import { analysisService } from './services/analysis-service';
+import { backendService } from './services/backend-service';
 
 import BoardWidget      from './components/BoardWidget.vue';
 import SidebarWidget    from './components/SidebarWidget.vue';
@@ -116,7 +117,26 @@ const intermissionSeries = computed(() => {
 const { startResize } = useResizablePanel();
 
 async function startEbisu() {
-  await reviewSession.startSession(store.session.ui.activeCardSetId);
+  // Pre-fetch the queue here and hand it to startSession. The
+  // cards-tab-merge arc collapses two backend round-trips (pipeline
+  // + start-session) to one — `useReviewSession.startSession` no
+  // longer fetches internally; the queue must arrive prefabricated.
+  // PR 2 of the merge arc will route this through
+  // `useCardTreeData.runPipeline` so the forest visualisation and
+  // the review queue share one pipeline call; for now the SR tab's
+  // own minimal pipeline call is enough to keep behaviour identical
+  // to the pre-merge SR tab.
+  const deck = store.profile.cardSets[store.session.ui.activeCardSetId];
+  if (!deck) return;
+  try {
+    const matched = await backendService.queryForest(
+      store.session.ui.cardsContextIds,
+      deck.pipeline,
+    );
+    await reviewSession.startSession(matched);
+  } catch (err) {
+    console.error('[App] startEbisu pipeline call failed:', err);
+  }
 }
 
 // Thin adapter: the input event's value arrives as a string from the
@@ -313,8 +333,8 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
                       type="text"
                       class="dark-input deck-dropdown"
                       placeholder="e.g. 3, 4, 12"
-                      :value="store.session.ui.srContextIds.join(', ')"
-                      @input="(e: any) => store.session.ui.srContextIds = e.target.value.split(',').map((s: string) => parseInt(s.trim(), 10)).filter((n: number) => !isNaN(n))"
+                      :value="store.session.ui.cardsContextIds.join(', ')"
+                      @input="(e: any) => store.session.ui.cardsContextIds = e.target.value.split(',').map((s: string) => parseInt(s.trim(), 10)).filter((n: number) => !isNaN(n))"
                       title="Comma-separated root card ids fed to the deck pipeline."
                     />
                   </div>

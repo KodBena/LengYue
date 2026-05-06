@@ -35,6 +35,7 @@ import { ledger } from '../services/analysis-ledger';
 import { clearCardThumbnailCache } from '../composables/useCardThumbnail';
 import { abortAllReviews, abortBoardReview } from '../composables/useReviewSession';
 import { purgeAllThumbnails, purgeBoardThumbnails } from '../composables/useThumbnailCache';
+import { removeBoardCardTree, clearAllBoardCardTrees } from '../composables/board-card-trees';
 
 export { createInitialBoard }        from './board-factory';
 export { DEFAULTS }                  from './defaults';
@@ -158,6 +159,13 @@ export function setActiveBoard(index: number): void {
  *      are UUID-style; cross-user collision is functionally
  *      impossible, so this is memory-hygiene rather than a
  *      correctness or privacy concern.
+ *   7. removeBoardCardTree — drops the closing board's slot in
+ *      the per-board card-tree state map (forest, active set,
+ *      hydrated cards, forestStats). Without it, the
+ *      `boardCardTrees` map accumulates dead entries over the
+ *      session, and the slot's hydrated-cards map (CardId-keyed)
+ *      could leak across an identity flip with collision-prone
+ *      auto-increment ids. Resource-ownership audit O12.
  *
  * Order matters: stop the engine before purging the ledger so an
  * in-flight packet can't land between the two and re-populate the
@@ -206,6 +214,13 @@ export function closeBoard(boardId: BoardId): void {
   // before the splice below — purgeBoardThumbnails walks
   // `board.nodes` and looks the board up in store.boards.
   purgeBoardThumbnails(boardId);
+
+  // Drop the closing board's card-tree slot (forest, active set,
+  // hydrated cards, forestStats). Must run before the splice so
+  // any subsequent reactive read against `boardCardTrees.get(...)`
+  // sees the empty state rather than stale content from the
+  // closing board. Resource-ownership audit O12.
+  removeBoardCardTree(boardId);
 
   if (store.boards.length <= 1) {
     store.boards = [createInitialBoard()];
@@ -258,14 +273,17 @@ export function updateBoardState(index: number, newState: BoardState): void {
  *     SVG cache.
  *   - clearCardThumbnailCache (audit pair O10) — card-thumbnail
  *     SVG cache.
+ *   - clearAllBoardCardTrees (audit pair O12) — per-board
+ *     card-tree state (forest, active set, hydrated cards keyed
+ *     by raw CardId, forestStats).
  *
- * Only the card-thumbnail clear is privacy-relevant: its keys
- * are raw CardIds that auto-increment per tenant and collide
- * across users, so without it a shared-computer flow would
- * render the prior user's card content under the next user's
- * identity. The other two caches use UUID-style NodeIds where
- * cross-user collision is functionally impossible; their clears
- * are pure memory hygiene.
+ * Both card-thumbnail and card-tree clears are privacy-relevant:
+ * their keys include raw CardIds that auto-increment per tenant
+ * and collide across users, so without these clears a shared-
+ * computer flow would surface the prior user's card content
+ * under the next user's identity. The other two caches use
+ * UUID-style NodeIds where cross-user collision is functionally
+ * impossible; their clears are pure memory hygiene.
  *
  * Aborts every in-flight review-analysis wait via
  * abortAllReviews (audit pair O11). Without this, a mid-review
@@ -312,12 +330,13 @@ export function resetWorkspace(): void {
 
   // Drop bounded module-scope caches that would otherwise
   // accumulate the prior identity's data across the session
-  // boundary. Only the card-thumbnail clear is privacy-relevant
-  // (raw-CardId collisions across users); the other two are
-  // memory hygiene over UUID-keyed entries.
+  // boundary. Both card-thumbnail and card-tree clears are
+  // privacy-relevant (raw-CardId collisions across users); the
+  // other two are memory hygiene over UUID-keyed entries.
   ledger.purgeAll();
   purgeAllThumbnails();
   clearCardThumbnailCache();
+  clearAllBoardCardTrees();
 
   // Abort every in-flight review-analysis wait so prior-identity
   // timeouts can't fire 30s into the new identity's session and

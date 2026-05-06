@@ -459,15 +459,17 @@ export interface UISession {
     };
   };
   activeCardSetId: string;
-  // Per-tab ephemeral context for deck pipelines. Schema-version 11
-  // moved `contextIds` off `CardSet` and onto these per-tab UI fields:
-  // the deck is a pure strategy, the context is supplied at the call
-  // boundary. SR's `startSession` reads `srContextIds`;
-  // `ForestDirectory`'s Decks panel reads `databaseContextIds`. Edited
-  // via simple comma-separated text inputs in each tab today; a roots
-  // picker is queued separately.
-  srContextIds: number[];
-  databaseContextIds: number[];
+  // Single ephemeral context for deck pipelines. The deck is a pure
+  // strategy; the context is supplied at the call boundary. The
+  // `Cards` tab (formed by merging the prior SR and Database tabs)
+  // reads this for both pipeline runs and review-session starts;
+  // schema-version 16 collapsed the prior per-tab `srContextIds` and
+  // `databaseContextIds` into this single field as part of the tab
+  // merge. Per-board scoping was considered and parked: today's
+  // workflow has the user adjusting context-ids occasionally, not
+  // tab-by-tab. Edited via a simple comma-separated text input in
+  // the Cards tab.
+  cardsContextIds: number[];
   // Which view the qEUBO toolbar cluster is currently showing.
   // 'applied' = engine sees the persistent values from
   // analysis_env.parameters; 'A' / 'B' temporarily override what

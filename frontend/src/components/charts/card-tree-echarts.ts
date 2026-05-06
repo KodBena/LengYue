@@ -38,6 +38,14 @@ export interface EChartsTreeNode {
 // stays 'stub') but the visual signal "matched but summarized" is
 // recoverable. Read at use time via themeColor() so the values track
 // theme.css changes.
+//
+// `--player-white` is the orange-anchored substrate handle introduced
+// for review-state highlighting (its literal value is the orange
+// `#f0a04a` matching App.vue's start button and intermission accent).
+// Used here as the "current review card" overlay — the spec's 4-role
+// partition (active / context / stub / bucket) stays exhaustive; the
+// orange paint is a render-time decoration on top of `active` or
+// `stub`, not a fifth role.
 const colors = {
   get active()             { return themeColor('--accent-primary'); },
   get activeBorder()       { return themeColor('--text-0'); },
@@ -48,34 +56,44 @@ const colors = {
   get stubActiveBorder()   { return themeColor('--accent-primary'); },
   get bucket()             { return themeColor('--surface-0'); },
   get bucketBorder()       { return themeColor('--border-2'); },
+  get current()            { return themeColor('--player-white'); },
+  get currentBorder()      { return themeColor('--text-0'); },
 };
 
-export function toEChartsNode(node: RenderNode): EChartsTreeNode {
+export function toEChartsNode(
+  node: RenderNode,
+  currentCardId: CardId | null = null,
+): EChartsTreeNode {
   if (node.kind === 'card') {
+    const isCurrent = currentCardId !== null && node.cardId === currentCardId;
     return {
       name: `Card ${node.cardId}`,
       payload: { kind: 'card', cardId: node.cardId, role: node.role },
       symbolSize: node.role === 'active' ? 12 : 8,
       itemStyle: {
-        color: node.role === 'active' ? colors.active : colors.context,
-        borderColor:
-          node.role === 'active' ? colors.activeBorder : colors.contextBorder,
+        color: isCurrent
+          ? colors.current
+          : (node.role === 'active' ? colors.active : colors.context),
+        borderColor: isCurrent
+          ? colors.currentBorder
+          : (node.role === 'active' ? colors.activeBorder : colors.contextBorder),
         borderWidth: node.role === 'active' ? 2 : 1,
       },
-      children: node.children.map(toEChartsNode),
+      children: node.children.map(child => toEChartsNode(child, currentCardId)),
     };
   }
   if (node.kind === 'stub') {
+    const isCurrent = currentCardId !== null && node.cardId === currentCardId;
     return {
       name: `+${node.subtreeSize}`,
       payload: { kind: 'stub', cardId: node.cardId },
       symbolSize: 9,
       itemStyle: {
         color: colors.stub,
-        borderColor: node.isHeadActive
-          ? colors.stubActiveBorder
-          : colors.stubBorder,
-        borderWidth: node.isHeadActive ? 1.5 : 1,
+        borderColor: isCurrent
+          ? colors.current
+          : (node.isHeadActive ? colors.stubActiveBorder : colors.stubBorder),
+        borderWidth: isCurrent || node.isHeadActive ? 1.5 : 1,
         borderType: 'dashed',
       },
       label: {

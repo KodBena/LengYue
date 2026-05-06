@@ -132,6 +132,17 @@ can react differently (e.g., loading a position makes sense for
 `active` and `context` clicks, but not for `stub` or `bucket`
 which trigger expansion instead).
 
+**Render-time decoration: current-review-card overlay.** Consumers
+of the widget may pass a `currentCardId` prop carrying the id of
+the active board's current review card. When set, the matching
+`card` or `stub` node paints in `--player-white` (orange) instead
+of the role-derived chrome color. The four-role partition above
+stays exhaustive — orange is decoration on top of `active` or
+`stub`, not a fifth role. Introduced as part of the cards-tab-merge
+arc (`docs/notes/cards-tab-merge-plan.md`); the partition's
+exhaustiveness was a deliberate choice in that plan, recorded here
+so the contract is auditable from the spec.
+
 ## The display projection
 
 Given the input forest and active set, compute the rendered
