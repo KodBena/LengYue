@@ -63,9 +63,14 @@ export class AnalysisService {
         store.engine.activeMode = {};
         // Clear engine identity on disconnect so a stale
         // version/model from a prior session can't surface in the
-        // status bar after the WS drops. Reconnect fires
+        // toolbar after the WS drops. Reconnect fires
         // probeEngineInfo() via onConnect to repopulate.
-        store.engine.info = { version: null, modelNames: [] };
+        store.engine.info = {
+          version: null,
+          internalName: null,
+          versionPayload: null,
+          modelsPayload: null,
+        };
         this.clearTimers();
         pushSystemMessage('warning', `WebSocket Disconnected (Code: ${code}). ${reason}`);
       },
@@ -74,7 +79,7 @@ export class AnalysisService {
       },
       onConnect: () => {
         // Fresh WebSocket open (initial connection or reconnect).
-        // Probe the engine identity so the status bar reflects the
+        // Probe the engine identity so the toolbar reflects the
         // live config — covers the case where the engine service
         // was restarted with a different version or model loadout
         // between sessions.
@@ -95,13 +100,17 @@ export class AnalysisService {
    * `version` on each 5s tick so a mid-session engine restart with a
    * version bump surfaces without waiting for a full reconnect.
    *
-   * Defensive parse on the models response: KataGo's wire shape for
-   * `query_models` is an array of model entries whose per-entry shape
-   * varies across versions (some return strings, some return objects
-   * with a `name` field). The parse here handles both.
+   * The visible label is `models[0].internalName` — KataGo's short
+   * model self-identifier. The `name` field is intentionally NOT
+   * surfaced in the visible label because on most installs it's the
+   * model file's full pathname (privacy concern in screenshare /
+   * streaming contexts). The full response payloads are retained
+   * verbatim so a tooltip can show them on demand. See KataGo's
+   * Analysis_Engine.md for the protocol; the user surfaced this
+   * privacy distinction during PR #145 review.
    *
    * Errors logged and swallowed — a probe failure is non-fatal; the
-   * status bar just shows the cleared state until the next probe
+   * toolbar just shows the cleared state until the next probe
    * succeeds. Per ADR-0002 the failure is logged loud enough to be
    * findable in the console.
    */
@@ -116,25 +125,34 @@ export class AnalysisService {
         action: 'query_models',
       });
 
-      const version = ('version' in versionResp && typeof versionResp.version === 'string')
-        ? versionResp.version
+      // KataGoResponse is a discriminated union; widening to a plain
+      // record for the tooltip payload requires a two-step cast
+      // through `unknown`. The cast is justified per ADR-0002 Rule 2:
+      // we're surfacing the raw response for debugging / inspection,
+      // not interpreting it through the discriminator — the union's
+      // structural guarantees are deliberately set aside here.
+      const versionPayload = (versionResp && typeof versionResp === 'object')
+        ? (versionResp as unknown as Record<string, unknown>)
+        : null;
+      const modelsPayload = (modelsResp && typeof modelsResp === 'object')
+        ? (modelsResp as unknown as Record<string, unknown>)
         : null;
 
-      const rawModels = ('models' in modelsResp && Array.isArray(modelsResp.models))
-        ? modelsResp.models
+      const version = (versionPayload && typeof versionPayload.version === 'string')
+        ? versionPayload.version
+        : null;
+
+      let internalName: string | null = null;
+      const rawModels = (modelsPayload && Array.isArray(modelsPayload.models))
+        ? modelsPayload.models
         : [];
-      const modelNames: string[] = [];
-      for (const m of rawModels) {
-        if (typeof m === 'string') {
-          modelNames.push(m);
-        } else if (m && typeof m === 'object') {
-          const named = m as { name?: unknown; internalName?: unknown };
-          if (typeof named.name === 'string') modelNames.push(named.name);
-          else if (typeof named.internalName === 'string') modelNames.push(named.internalName);
-        }
+      const first = rawModels[0];
+      if (first && typeof first === 'object') {
+        const named = first as { internalName?: unknown };
+        if (typeof named.internalName === 'string') internalName = named.internalName;
       }
 
-      store.engine.info = { version, modelNames };
+      store.engine.info = { version, internalName, versionPayload, modelsPayload };
     } catch (err) {
       console.error('[AnalysisService] Failed to probe engine info:', err);
     }
@@ -163,13 +181,25 @@ export class AnalysisService {
         latencyMs: Math.round(performance.now() - start)
       };
       // Capture the version on each tick so a mid-session engine
-      // restart with a version bump surfaces in the status bar
-      // without waiting for a full WebSocket reconnect. Models are
-      // refreshed only on connect (probeEngineInfo) since a model
-      // change typically requires a service restart anyway.
+      // restart with a version bump surfaces in the toolbar
+      // without waiting for a full WebSocket reconnect. Also
+      // refresh `versionPayload` so the hover tooltip stays
+      // current. Models are refreshed only on connect
+      // (probeEngineInfo) since a model change typically requires
+      // a service restart anyway.
       if ('version' in resp && typeof resp.version === 'string'
           && resp.version !== store.engine.info.version) {
-        store.engine.info = { ...store.engine.info, version: resp.version };
+        // Same two-step cast through `unknown` as probeEngineInfo's
+        // payload widening — see the comment block there for the
+        // ADR-0002 Rule 2 justification.
+        const versionPayload = (resp && typeof resp === 'object')
+          ? (resp as unknown as Record<string, unknown>)
+          : null;
+        store.engine.info = {
+          ...store.engine.info,
+          version: resp.version,
+          versionPayload,
+        };
       }
     }, 5000);
   }
@@ -183,7 +213,12 @@ export class AnalysisService {
     this.client.disconnect();
     store.engine.status = 'disconnected';
     store.engine.activeMode = {};
-    store.engine.info = { version: null, modelNames: [] };
+    store.engine.info = {
+      version: null,
+      internalName: null,
+      versionPayload: null,
+      modelsPayload: null,
+    };
     this.clearTimers();
   }
 

@@ -1,11 +1,34 @@
-# KataGo engine-info probe + status-bar surface + backlog sweep
+# KataGo engine-info probe + toolbar surface + backlog sweep
 
 - **Status:** Shipped on `frontend/katago-engine-info-probe`,
-  2026-05-06. Six files touched (no new files); build green.
-  Closes the last open scoped item in `docs/notes/frontend-backlog.md`
-  ("query_version + query_models on KataGo connect"). Plus a
-  documentation sweep retiring four other backlog entries the
-  user named as already done or no-longer-applicable.
+  2026-05-06 (iteration 2). Eight files touched (no new files);
+  build green. Closes the last open scoped item in
+  `docs/notes/frontend-backlog.md` ("query_version + query_models
+  on KataGo connect"). Plus a documentation sweep retiring four
+  other backlog entries the user named as already done or
+  no-longer-applicable.
+
+  **Iteration 2 — three changes per user feedback on PR #145**:
+
+  1. *Visible label uses `models[0].internalName`*, not `name`.
+     The `name` field on most installs is the model file's full
+     pathname, which leaks operator info in screenshare /
+     streaming contexts. `internalName` is KataGo's short
+     self-identifier — short and path-free.
+  2. *Display moves from StatusBar to Toolbar* (left of PPS).
+     The status bar's role is board-state vocabulary (move
+     number, players, captures, turn); engine info belonged
+     with the rest of the engine telemetry already in the
+     toolbar (PPS / LATENCY / WATCHDOG).
+  3. *Hover tooltip shows the full responses* (JSON-stringified
+     `query_version` and `query_models` payloads, including the
+     privacy-concerning `name` field). The user explicitly asked
+     for the full data to be inspectable on demand — visible
+     short, hover deep.
+
+  `EngineInfo` gains `internalName` plus `versionPayload` /
+  `modelsPayload` for the tooltip; iteration 1's `modelNames`
+  array retired.
 - **Genre:** Feature + doc maintenance — small lifecycle
   improvement (probe engine identity on each connect / reconnect)
   + a long-overdue sweep of `frontend-backlog.md` to retire

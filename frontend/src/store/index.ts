@@ -66,10 +66,12 @@ export const store = reactive<GlobalStore>({
     // Populated by analysisService on each fresh WebSocket open via
     // probeEngineInfo(); cleared back to this empty shape on
     // disconnect so a stale identity from a prior session can't
-    // surface in the status bar after the WS drops.
+    // surface in the toolbar after the WS drops.
     info: {
       version: null,
-      modelNames: [],
+      internalName: null,
+      versionPayload: null,
+      modelsPayload: null,
     },
   },
 });

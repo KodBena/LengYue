@@ -724,19 +724,35 @@ export interface EngineState {
   // Engine identity captured from the upstream KataGo backend on
   // every fresh WebSocket open: `query_version` returns the engine
   // version string; `query_models` returns the loaded neural-net
-  // model list. Consumed by the StatusBar for the "what am I
-  // talking to" surface so a config change at the engine side is
-  // visible without restarting the frontend. Both fields are
-  // populated optimistically — `null` / empty until the probe
-  // round-trips on connect / reconnect; `EngineInfo` is a value
-  // object the analysis-service reassigns wholesale (same shape
-  // as `metrics` above).
+  // model list. Consumed by the Toolbar for the "what am I talking
+  // to" surface so a config change at the engine side is visible
+  // without restarting the frontend. Both fields are populated
+  // optimistically — `null` / empty until the probe round-trips on
+  // connect / reconnect; `EngineInfo` is a value object the
+  // analysis-service reassigns wholesale (same shape as `metrics`
+  // above). Visible label uses `internalName` (KataGo's model
+  // self-identifier — short, no path leakage); the full responses
+  // are retained in `versionPayload` / `modelsPayload` so a hover
+  // tooltip can surface the privacy-concerning `name` field
+  // (typically a filesystem path) on demand for debugging.
   info: EngineInfo;
 }
 
 export interface EngineInfo {
+  // Engine version string, e.g. "1.13.0".
   readonly version: string | null;
-  readonly modelNames: readonly string[];
+  // Short model identifier — `models[0].internalName` from KataGo's
+  // `query_models` response. Short and path-free, suitable for
+  // streaming / screenshare contexts where the filesystem-path
+  // `name` field would leak operator info.
+  readonly internalName: string | null;
+  // Full payloads of the two probe responses, retained verbatim so
+  // a hover tooltip can show the entire engine response (including
+  // the privacy-concerning `name` field) on demand. Null until the
+  // corresponding probe round-trips. Plain `Record<string, unknown>`
+  // because the per-version response shape is loose at the wire.
+  readonly versionPayload: Record<string, unknown> | null;
+  readonly modelsPayload: Record<string, unknown> | null;
 }
 
 export type ReviewStatus = 'IDLE' | 'LOADING' | 'AWAITING_MOVE' | 'ANALYZING' | 'FINISHED';
