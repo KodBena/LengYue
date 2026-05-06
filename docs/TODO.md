@@ -51,6 +51,41 @@ canonical live reference is `docs/notes/tenancy.md`.
 
 ### Medium — touches contracts or requires coordinated changes
 
+#### `[frontend]` Context-id macro expansion in the Cards tab
+
+The Cards tab's context-id input takes a comma-separated list
+of root card ids today. A macro syntax — sketch:
+`${game_id_1, game_id_2, ...}` — that expands those handles to
+the corresponding root card ids would let users reference games
+by their `game_source` id rather than enumerating roots by hand.
+
+**Simple case (frontend-only).** `useForestNavigation`'s grouped
+nodes already carry the `gameSourceId → rootCardIds` mapping;
+the macro resolves client-side via the same `ForestStat[]` data
+the navigator consumes. No new fetches, no contract change.
+
+**Richer case (open design question).** "Expand to all cards
+under a game_source, including descendants" needs either
+client-side `fetchTreeByRoot` iteration per root or a new
+backend endpoint (`/cards/by-game-source` or similar). The
+"do we already have this in ergonomic form, or does this
+warrant a backend dispatch" call is open and should be
+resolved before implementation. If the simple case suffices
+for the user's actual workflow, ship that first; the richer
+case becomes a follow-on if it earns its keep.
+
+Provenance note (kept for future calibration): the user's
+actual db has a 276-root `game_source` carrying
+"UNKNOWN_ORIGIN" in `raw_content` — the catch-all bucket for
+imports without provenance, validated against the user's
+PostgreSQL db on 2026-05-06. The macro feature would let users
+reference such buckets (or any organic game with multiple
+roots) by handle rather than by enumerating all root ids.
+
+Trigger: user prioritization + resolution of the design
+question above. Surfaced 2026-05-06 during the Forest
+Directory redesign close-out.
+
 #### Chess clone `[both]`
 
 Per ADR-0003's domain-portability discipline on the frontend
@@ -296,36 +331,6 @@ shipped under 32a/32a.2 in the Backend Completed table now
 archived at `docs/archive/TODO-completed-2026-05-06.md`. The
 zeroconf work — substantively unrelated — is preserved here
 under its original number rather than silently retired.
-
-### Forest Directory — hierarchical redesign `[frontend]`
-
-The Roots tab in `ForestDirectory.vue` currently presents a
-flat list of game-source roots. Redesign the panel as a
-file-manager-style hierarchical navigator with games at the
-top level (`game_source` rows, which the schema already treats
-as the "parent" of root cards), roots beneath, and cards as
-leaves; selecting any node drives the existing Lineage
-Explorer in the right pane via the preserved
-`tree.loadBrowse(rootCardId)` seam. The aggregate statistics
-currently shown per-root remain visible in some form (user
-constraint).
-
-Planning note at
-`docs/notes/forest-directory-hierarchy-redesign.md` covers
-the schema reality (verified against the live `cards.db` —
-multi-root-per-game is already common: sample-loader
-populates one `game_source` with up to 276 roots; user-mint
-flow gives one root per game_source with branches as
-descendants), the file-manager UX sketch, frontend extensions
-required (a `useForestNavigation` composable, a new
-`ForestTreeNav.vue` component), the open decisions
-(multi-root display strategy at scale, expanded-state
-persistence, aggregate-stats placement, tab naming, click vs.
-double-click for card-level drill), and v2 follow-ups
-(cross-upload dedupe, super-game grouping). No backend
-extension needed for v1 — `GET /stats/forests` already
-returns enough data to group client-side by `game_source_id`.
-Trigger: frontend bandwidth.
 
 ### Internationalization (i18n) `[frontend]`
 

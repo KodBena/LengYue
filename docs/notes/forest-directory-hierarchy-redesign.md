@@ -9,8 +9,47 @@ systematically rather than scrolling a flat list.
 
 ## Status
 
-**Planning.** No implementation in this session. The TODO entry
-under "Future projects" in `docs/TODO.md` references this note.
+**Closed: shipped 2026-05-06** across PRs #151–#154. Worklogs:
+
+- `docs/worklog/2026-05-06-foreststat-tagstat-acl-translator.md`
+  (PR 0 — ACL translators).
+- `docs/worklog/2026-05-06-forest-navigation-composable.md`
+  (PR 1 — `useForestNavigation` + schema migration 20 → 21).
+- `docs/worklog/2026-05-06-forest-tree-nav-component.md`
+  (PR 2 — `ForestTreeNav.vue`).
+- `docs/worklog/2026-05-06-forest-tree-nav-wire-in.md`
+  (PR 3 — wire-in + `loadBrowseForest` + `useForestBrowsePolicy` +
+  `MULTI_ROOT_DISPLAY_CAP`; closes the arc).
+
+This note remains as the design record for the arc — the schema
+reality check, UX sketch, six open decisions, and out-of-scope
+boundaries are the historical context that informed the
+implementation. The TODO entry under "Future projects" has been
+retired in lockstep with this status flip; the
+"Decisions resolved at implementation time" column below
+records how the six open decisions actually closed.
+
+### Decisions resolved at implementation time
+
+| Decision (planning note ref) | Resolution shipped |
+|---|---|
+| Multi-root forest display | `MULTI_ROOT_DISPLAY_CAP = 8` in `engine/constants.ts`; game-selection past the cap shows a guidance message in the right pane. |
+| Persistence of expanded / selected state | Persistent in `store.session.ui.forestNav` via schema migration 20 → 21. |
+| Aggregate stats placement | Inline per-node — both at game level (Σ + weighted recall) and at root level (existing trio). |
+| Decks-tab interaction | None; independent path. |
+| "Navigating into a card" | Nav clicks toggle expand / set selection only; loading into the main board view stays the right-pane CardTreeWidget's existing `node-click` → `emit('load-card')`. |
+| Scale (276-root case) | Render-cap in `ForestTreeNav` past 50 roots per game; fetch-cap past 8 roots per game-selection. |
+
+### Out-of-scope items, status
+
+- **Card-level expansion in the nav.** Remained out of scope.
+  The persistence union narrows to `game | root`. Adding card-
+  level later needs a fresh schema migration plus a
+  `NavNodeId` template-literal extension (`\`card:${number}\``).
+- **Cross-upload dedupe / super-game grouping.** Remained out
+  of scope; v2 design questions still open.
+- **Search / filter within the navigator.** Remained out of
+  scope; possible follow-up.
 
 ## Schema reality check (2026-05, sampled from the live database)
 
