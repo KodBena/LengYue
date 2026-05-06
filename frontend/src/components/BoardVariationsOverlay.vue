@@ -72,11 +72,13 @@ const stoneR = computed(() => cell.value * STONE_RADIUS_RATIO);
 // radius from MoveSuggestions, mirrored verbatim. Future tuning
 // would update both call sites.
 const MARKER_RADIUS_RATIO = 1.01;
-// Stroke width matches the cluster-ring's 2.5; the dash pattern is
-// what tells variation rings apart from transposition rings.
-// magic-literal: 2.5 — same value MoveSuggestions's cluster-ring
-// uses; mirrored so the visual weight is identical.
-const MARKER_STROKE_WIDTH = 2.5;
+// Stroke width is thinner than MoveSuggestions's cluster-ring
+// (2.5), so the variation ring reads as secondary information when
+// both render at the same intersection. The dash pattern is what
+// tells the two ring families apart, but a lighter weight also
+// helps. magic-literal: 1.5 — empirically tuned against the user's
+// "too thick" feedback at 2.5.
+const MARKER_STROKE_WIDTH = 1.5;
 // Dashed stroke pattern. magic-literal: "4 3" — 4-unit dashes with
 // 3-unit gaps. At the marker radius (≈ 13.9 SVG units on a 19×19
 // board, circumference ≈ 87 units), this produces ~12 dashes around
@@ -92,27 +94,45 @@ function toSvg(x: number, y: number): { x: number; y: number } {
   };
 }
 
-// All variation rings share a single tint — the visual goal at this
-// stage is "these are variations" as a class, not per-variation
-// identity. Letters (in 'letters' mode) provide the per-variation
-// disambiguation. Reads at render time so theme changes propagate
-// without a remount, same shape as BoardWidget's color helpers.
-const VARIATION_TINT_ANCHOR: ChromeAnchor = '--accent-secondary';
-// Active-next-move ring is a lighter gray than the muted-text tone
-// — kept distinct from the variation tint and from MoveSuggestions's
-// cluster colours. `--text-1` reads as "secondary chrome text" —
-// brighter than `--text-2` (the prior choice) but still
-// recognisably gray. The user's framing was "lighter gray" against
-// the variation tint; --text-1 is the substrate's nearest match.
+// Variation rings share a single gray tint — the visual goal at
+// this stage is "these are variations" as a class. Letters (in
+// 'letters' mode) provide per-variation disambiguation but use a
+// different drawing path entirely (see below): the ring is dropped
+// and a black letter label appears at the intersection.
+const VARIATION_TINT_ANCHOR: ChromeAnchor = '--text-2';
+// Active-next-move ring is a *lighter* gray than the variation
+// rings — `--text-1` reads as "primary chrome text," brighter than
+// `--text-2`, so the active marker stays visually distinct from a
+// non-active variation when both render at the same time.
 const ACTIVE_TINT_ANCHOR: ChromeAnchor = '--text-1';
+// Letters-mode label colour. Black on wood reads as a high-contrast
+// SGF-style annotation, separate from the gray ring vocabulary.
+// magic-literal: hex literal #000 chosen by the user's spec
+// ("black letter labels"); not a substrate anchor candidate since
+// the relationship is "this is the SGF letter convention" rather
+// than a chrome decision.
+const LETTER_LABEL_COLOR = '#000';
+// Letter font size. magic-literal: 1.2 × stoneR — slightly larger
+// than the in-ring letter sizing of the prior iteration since the
+// letter sits alone on the wood texture without a ring backing.
+const LETTER_FONT_SIZE_RATIO = 1.2;
 
+// A marker can carry a ring, a letter, or both — the four
+// (mode × active/variation) combinations differ on which fields
+// are populated:
+//   active in either mode      → ring only.
+//   variation in 'circles'     → ring only.
+//   variation in 'letters'     → letter only.
+//   variation in 'off'         → no marker emitted.
+// The template branches on `ring !== null` and `label !== null`
+// independently; both being null means the iteration was filtered
+// out earlier.
 interface Marker {
   readonly x: number;
   readonly y: number;
-  readonly stroke: string;
-  readonly opacity: number;
-  readonly label: string | null;
   readonly key: string;
+  readonly ring: { readonly stroke: string; readonly opacity: number } | null;
+  readonly label: { readonly text: string; readonly color: string; readonly opacity: number } | null;
 }
 
 const markers = computed<Marker[]>(() => {
@@ -134,32 +154,56 @@ const markers = computed<Marker[]>(() => {
 
     if (isActive) {
       if (!props.showActiveNextMove) continue;
-      // Active next move on the active path — light gray ring. No
-      // label, even in 'letters' mode (A is reserved for the first
-      // non-active sibling per the spec).
+      // Active next move on the active path — light-gray dashed
+      // ring. No label, even in 'letters' mode (A is reserved for
+      // the first non-active sibling per the spec).
       // magic-literal: 0.7 opacity — visible against the wood
       // texture without competing with stones.
       out.push({
         x, y,
-        stroke:  themeColor(ACTIVE_TINT_ANCHOR),
-        opacity: 0.7,
-        label:   null,
-        key:     `active-${x}-${y}`,
+        key: `active-${x}-${y}`,
+        ring: {
+          stroke:  themeColor(ACTIVE_TINT_ANCHOR),
+          opacity: 0.7,
+        },
+        label: null,
       });
     } else {
       if (props.variationsMode === 'off') continue;
       const letter = String.fromCharCode(0x41 /* 'A' */ + variationIdx);
-      // magic-literal: 0.85 opacity — slightly louder than the
-      // active marker (0.7) since the colored tint carries the
-      // "variation" identity and needs to read clearly through any
-      // co-located MoveSuggestion disc / cluster-ring.
-      out.push({
-        x, y,
-        stroke:  themeColor(VARIATION_TINT_ANCHOR),
-        opacity: 0.85,
-        label:   props.variationsMode === 'letters' ? letter : null,
-        key:     `variation-${x}-${y}`,
-      });
+      if (props.variationsMode === 'circles') {
+        // 'circles' mode: gray dashed ring, no letter.
+        // magic-literal: 0.7 opacity — same as the active marker
+        // since both are gray rings; the lighter / darker tint
+        // distinguishes them, not opacity.
+        out.push({
+          x, y,
+          key: `variation-${x}-${y}`,
+          ring: {
+            stroke:  themeColor(VARIATION_TINT_ANCHOR),
+            opacity: 0.7,
+          },
+          label: null,
+        });
+      } else {
+        // 'letters' mode: black letter label only, no ring. Reads
+        // as the SGF-style A/B/C convention — high contrast on the
+        // wood texture without competing with the active ring or
+        // any MoveSuggestion at the same intersection.
+        // magic-literal: 0.9 opacity — slightly louder than the
+        // gray rings since the letter is the sole carrier of the
+        // variation identity in this mode.
+        out.push({
+          x, y,
+          key: `variation-${x}-${y}`,
+          ring: null,
+          label: {
+            text:    letter,
+            color:   LETTER_LABEL_COLOR,
+            opacity: 0.9,
+          },
+        });
+      }
       variationIdx++;
     }
   }
@@ -180,27 +224,28 @@ const markers = computed<Marker[]>(() => {
     <g :transform="`translate(${LABEL_BAND}, ${LABEL_BAND})`">
       <g v-for="m in markers" :key="m.key">
         <circle
+          v-if="m.ring !== null"
           :cx="toSvg(m.x, m.y).x"
           :cy="toSvg(m.x, m.y).y"
           :r="stoneR * MARKER_RADIUS_RATIO"
           fill="none"
-          :stroke="m.stroke"
+          :stroke="m.ring.stroke"
           :stroke-width="MARKER_STROKE_WIDTH"
           :stroke-dasharray="MARKER_DASHARRAY"
-          :opacity="m.opacity"
+          :opacity="m.ring.opacity"
         />
         <text
           v-if="m.label !== null"
           :x="toSvg(m.x, m.y).x"
           :y="toSvg(m.x, m.y).y + 1"
-          :font-size="stoneR * 1.0"
+          :font-size="stoneR * LETTER_FONT_SIZE_RATIO"
           dominant-baseline="middle"
           text-anchor="middle"
           font-family="monospace"
           font-weight="bold"
-          :fill="m.stroke"
-          :opacity="m.opacity"
-        >{{ m.label }}</text>
+          :fill="m.label.color"
+          :opacity="m.label.opacity"
+        >{{ m.label.text }}</text>
       </g>
     </g>
   </svg>
