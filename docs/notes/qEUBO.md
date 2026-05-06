@@ -92,13 +92,13 @@ When reviewing a successor's qEUBO PR:
 | Frontend `useQeubo` composable + `qeubo-service.ts` ACL | Merged | #32 | a059703 |
 | Frontend toolbar A/B cluster (toggle + verdict + apply + pin) | Merged | #33 | 62efec8 |
 | Frontend parameter-meta editor (in PaletteEditor) | Merged | #34 | c286492 |
-| Frontend bookmarks UI | In review | — | — |
+| Frontend bookmarks UI | Merged | — | (worklog `2026-04-28-qeubo-frontend-bookmarks-ui.md`) |
 | End-to-end verification with Redis | Partial (wire layer verified via curl 2026-04-28; UI smoke pending) | — | — |
 
-The qEUBO integration is feature-complete pending the bookmarks
-UI merge and an end-to-end UI smoke. Once both close, this note
-transitions per its maintenance contract from `living-doc` to
-`design-note: implemented`.
+The qEUBO integration is feature-complete; the only remaining
+gate is the end-to-end UI smoke with Redis. Once that closes,
+this note transitions per its maintenance contract from
+`living-doc` to `design-note: implemented`.
 
 ## Outstanding open items
 
