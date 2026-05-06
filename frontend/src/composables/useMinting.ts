@@ -30,17 +30,23 @@ export function useMinting() {
     // 1. Serialize only the active path (omits sidelines)
     const sgf = serializeActivePath(board);
 
-    // 2. Resolve Lineage (Heredity XOR Rule)
+    // 2. Resolve Lineage (Heredity XOR Rule).
+    // The board's `sourceCardId` is the single source of truth for
+    // "this board was derived from card X" — set by the card-load
+    // paths (database tab via useDirtyBoardGuard, SR queue via
+    // useReviewSession.loadCard); absent on fresh boards from
+    // createInitialBoard and on SGF file uploads via useSgfLoader.
+    // Per the wire contract the two fields are mutually exclusive:
+    // supply game_metadata only when there is no upstream card.
+    // The `as unknown as number` cast strips the CardId brand at the
+    // wire boundary (CardId = Brand<number, 'CardId'>); the brand
+    // erases at runtime, so this is the standard ADR-0002-justified
+    // brand-erasure cast on the way to a snake_case wire payload.
     let parent_card_id: number | undefined = undefined;
     let game_metadata: GameMetadataPayload | undefined = undefined;
 
-    const reviewSession = store.session.reviews[boardId];
-    if (reviewSession && reviewSession.status !== 'IDLE') {
-      // Minting from an active review session: this is a branch mutation.
-      const activeCard = reviewSession.queue[reviewSession.currentIndex];
-      if (activeCard) {
-        parent_card_id = activeCard.id as unknown as number;
-      }
+    if (board.sourceCardId !== undefined) {
+      parent_card_id = board.sourceCardId as unknown as number;
     }
 
     // If there is no parent card, it is a Root. We must provide game_metadata.

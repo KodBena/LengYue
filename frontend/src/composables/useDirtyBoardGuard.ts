@@ -75,6 +75,10 @@ export function useDirtyBoardGuard(
       const sabakiTrees = sgf.parse(card.sgf);
       const parsedBoard = loadSgf(sabakiTrees);
       parsedBoard.id = targetBoardId as any;
+      // Stamp the lineage source onto the board so a subsequent mint
+      // from this exploration session populates `parent_card_id`
+      // correctly (consumed by `useMinting.prepareDraft`).
+      parsedBoard.sourceCardId = card.id;
 
       const idx = store.boards.findIndex(b => b.id === targetBoardId);
       if (idx !== -1) {

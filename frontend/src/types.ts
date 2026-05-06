@@ -168,6 +168,23 @@ export interface BoardState {
   // Wire shape unaffected: brands erase at JSON serialisation, so
   // SyncService persistence is transparent. Release-scope item 2.
   analysisRange?: [PlyIndex, PlyIndex];
+  // CardId of the card whose SGF populated this board, when known.
+  // Set by the card-load paths — `useDirtyBoardGuard.handleLoadCard`
+  // (database tab) and `useReviewSession.loadCard` (SR queue) — before
+  // `updateBoardState`. Preserved across moves and navigation because
+  // `applyGoMove` / `applySetup` spread the state. Absent on fresh
+  // boards from `createInitialBoard` and on SGF file uploads via
+  // `useSgfLoader` — those are genuine roots with no upstream card.
+  // After a successful mint the field is intentionally not advanced:
+  // subsequent mints from the same exploration session land as
+  // siblings under the original source, matching the natural
+  // variation-tree fan-out shape rather than forcing a linear chain.
+  // Read by `useMinting.prepareDraft` to populate the new card's
+  // `parent_card_id`; absence triggers the root-mint branch that
+  // supplies `game_metadata` instead. Persisted across SyncService
+  // round-trips transparently — the brand erases at JSON
+  // serialisation.
+  sourceCardId?: CardId;
 }
 
 // EngineMetrics is a value object (immutable, swapped wholesale); the

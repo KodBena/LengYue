@@ -224,6 +224,11 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     try {
       const sabakiTrees = sgf.parse(card.sgf);
       const parsedBoard = loadSgf(sabakiTrees);
+      // Stamp the lineage source onto the board so a subsequent mint
+      // from this exploration session populates `parent_card_id`
+      // correctly (consumed by `useMinting.prepareDraft`). Set before
+      // either branch below so the addBoard fallback also carries it.
+      parsedBoard.sourceCardId = card.id;
 
       // Mutate the active board to become the loaded card
       const existingIdx = store.boards.findIndex(b => b.id === bId);
