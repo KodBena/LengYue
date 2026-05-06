@@ -517,12 +517,51 @@ export interface UISession {
   // specifically to compose with the solid transposition ring when
   // both are visible at the same intersection.
   showTranspositionRings: boolean;
+  // Forest Directory navigator state — which game nodes are expanded
+  // (showing their roots) and which game/root the user has selected.
+  // Schema-version 21 introduces the field. Persisted across reloads
+  // per the file-manager idiom users expect; collapsed games stay
+  // collapsed. Mutated through `useForestNavigation`'s named
+  // mutators (toggle / expandAll / collapseAll / select). See the
+  // `ForestNavState` declaration above for the persistence shape and
+  // `composables/useForestNavigation.ts` for the render-shape
+  // projection.
+  forestNav: ForestNavState;
 }
 
 export type CardId = Brand<number, 'CardId'>;
 export type GameSourceId = Brand<number, 'GameSourceId'>;
 export type CardSetKey = Brand<string, 'CardSetKey'>;
 export type ReviewSessionId = Brand<string, 'ReviewSessionId'>;
+
+// ── Forest Directory navigator persistence (UISession.forestNav) ─────────────
+//
+// String-discriminated id for navigator tree nodes. Template-literal
+// type so the discriminator (`game:` / `root:`) is a structural
+// property of the value, not a convention. Serializable to JSON via
+// SyncService for cross-reload persistence.
+export type NavNodeId = `game:${number}` | `root:${number}`;
+
+// The user's current selection in the Forest navigator. `null` = no
+// selection (right-pane shows empty state). The discriminated union
+// matches the navigator's two selectable kinds; widening to add a
+// `'card'` variant later will require both a schema migration and
+// a composable update — the persistence and render layers stay in
+// lockstep on the union shape.
+export type NavSelection =
+  | { readonly kind: 'game'; readonly gameSourceId: GameSourceId }
+  | { readonly kind: 'root'; readonly rootCardId: CardId };
+
+// Persisted navigator state on `session.ui.forestNav`. Schema-version
+// 21 introduces this field. `expanded` is an array (not a Set) so it
+// JSON-round-trips through SyncService cleanly; the composable
+// projects it into a ReadonlySet for O(1) lookup at render time.
+// Persistent state — collapsed games stay collapsed across reloads
+// per the file-manager idiom users expect.
+export interface ForestNavState {
+  expanded: NavNodeId[];
+  selection: NavSelection | null;
+}
 
 // ── Value Objects (readonly preserved) — SR domain ────────────────────────────
 

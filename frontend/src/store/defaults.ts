@@ -286,6 +286,14 @@ export const defaultSessionUI: UISession = {
   // unconditionally before this field landed). Schema-version 20
   // introduces the field.
   showTranspositionRings: true,
+  // Forest Directory navigator: empty expansion + null selection
+  // means a fresh user lands on a fully-collapsed tree until they
+  // click. Schema-version 21 introduces the field; the migration
+  // backfills existing blobs with the same empty defaults.
+  forestNav: {
+    expanded: [],
+    selection: null,
+  },
 };
 
 export const DEFAULTS = {
