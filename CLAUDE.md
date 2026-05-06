@@ -74,9 +74,21 @@ tree without surfacing the cross-boundary nature first.
 originally covered the proxy was lifted during the umbrella's v1.0.0
 release window — a bug surfaced (empty-board ponder via
 `analysis_config` leakage) that warranted a coordinated proxy bump
-rather than a frontend-only workaround. The current pin is **v1.0.11**;
+rather than a frontend-only workaround. The current pin is **v1.0.13**;
 later bumps follow the same coordinated arc (see the proxy's tag
 annotations for each release's full changelog).
+
+v1.0.13 is a structural release: it splits `KataGoResponse` into a
+discriminated union (`AnalyzeResponse | MetadataResponse`) eliminating
+the v1.0.12 `query_models` transparency bug, renames cryptic top-level
+modules (`flt`/`bsa`/`baduk`/`rxp`/`reginterp`) to descriptive ones,
+and surfaces Layer 1's two extension surfaces as `transformers/` and
+`middleware/` directories with KataGo-specific protocol types in their
+own `katago/` package outside `AbstractProxy/`. Wire-shape behaviour
+to KataGo clients is unchanged for analyze responses and gains
+transparency for metadata responses. See the v1.0.13 tag annotation
+for the full changelog and `proxy/docs/roadmap-response-variants.md`
+for the response-variants design rationale.
 
 The proxy is independently developed with its own architecture
 (see `proxy/README.md`, `proxy/ARCHITECTURE.md`, `proxy/FRAMEWORK.md`)
