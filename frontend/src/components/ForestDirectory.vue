@@ -20,6 +20,7 @@ import { useCardTreeData } from '../composables/useCardTreeData';
 import { useForestNavigation } from '../composables/useForestNavigation';
 import { useForestBrowsePolicy } from '../composables/useForestBrowsePolicy';
 import { useReviewSession } from '../composables/useReviewSession';
+import { expandContextIdMacros } from '../utils/context-id-macros';
 import CardTreeWidget from './charts/CardTreeWidget.vue';
 import ForestTreeNav from './ForestTreeNav.vue';
 import ReviewSessionPanel from './ReviewSessionPanel.vue';
@@ -178,9 +179,37 @@ async function startReviewFromConfig(): Promise<void> {
   }
 }
 
+// The context-id input is a local-ref-owned display because
+// `:value="store.session.ui.cardsContextIds.join(', ')"` would
+// reset the DOM whenever the parser dropped non-digit chars
+// (the parsed-then-formatted value differs from the user's
+// raw typing, so Vue's reactivity stomps the input). Writes
+// flow input → store one-way: every keystroke updates the
+// local ref (preserving typing) and re-parses into the store
+// in expanded form. The store-side ref is the source of truth
+// for the deck pipeline; the local ref is the source of truth
+// for what the user sees.
+const contextIdInput = ref(store.session.ui.cardsContextIds.join(', '));
+
+// Whether the current input contains a macro — gates the
+// "→ Expands to" hint below the input so the user can see
+// what the macro resolved to (since the input itself now
+// shows their literal typing rather than the parsed form).
+const hasContextIdMacro = computed(() => /\$\{/.test(contextIdInput.value));
+
 function updateContextIds(val: string): void {
-  // Mirrors CardSetEditor's parser: split on comma, parse, drop NaN.
-  store.session.ui.cardsContextIds = val
+  // Preserve the user's literal typing in the local ref.
+  contextIdInput.value = val;
+  // Pre-expand `${gameSourceId, ...}` macros to the corresponding
+  // root card ids, then mirror CardSetEditor's parser: split on
+  // comma, parse, drop NaN. Resolution uses the same `roots` ref
+  // that drives the navigator — no backend round-trip needed.
+  const expanded = expandContextIdMacros(val, (gameSourceId) =>
+    roots.value
+      .filter(s => (s.gameSourceId as unknown as number) === gameSourceId)
+      .map(s => s.rootCardId as unknown as number),
+  );
+  store.session.ui.cardsContextIds = expanded
     .split(',')
     .map(s => parseInt(s.trim(), 10))
     .filter(n => !isNaN(n));
@@ -226,11 +255,14 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
           <input
             type="text"
             class="dark-input deck-dropdown"
-            placeholder="e.g. 3, 4, 12"
-            :value="store.session.ui.cardsContextIds.join(', ')"
+            placeholder="e.g. 3, 4, ${12}"
+            :value="contextIdInput"
             @input="(e: any) => updateContextIds(e.target.value)"
-            title="Comma-separated root card ids fed to the deck pipeline."
+            title="Comma-separated root-card ids fed to the deck pipeline. Use ${N} (or ${N, M, ...}) to expand a game-source id to all of its root card ids — resolved client-side from the loaded forest stats."
           />
+          <p v-if="hasContextIdMacro" class="macro-hint">
+            → Expands to: {{ store.session.ui.cardsContextIds.join(', ') || '(empty)' }}
+          </p>
 
           <button
             class="action-btn-large start-review-btn"
@@ -320,6 +352,7 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
 .deck-dropdown { width: 100%; padding: 2px 4px; font-size: var(--text-emphasis); margin-bottom: var(--space-tight); background: var(--surface-0); color: var(--text-0); border: 1px solid var(--border-2); border-radius: var(--radius-default); outline: none; }
 .deck-dropdown:focus { border-color: var(--accent-primary); }
 .hint { font-size: var(--text-body); color: var(--text-2); margin: 0 0 var(--space-tight) 0; }
+.macro-hint { font-size: var(--text-body); color: var(--text-2); margin: 2px 0 var(--space-tight) 0; font-style: italic; word-break: break-all; }
 .action-btn-large { width: 100%; background: var(--surface-2); color: var(--accent-primary); border: 1px solid var(--border-2); padding: 2px 4px; border-radius: var(--radius-default); font-size: var(--text-emphasis); cursor: pointer; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
 .action-btn-large:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
 .start-review-btn { background: var(--accent-secondary); color: var(--surface-1); margin-bottom: var(--space-tight); }

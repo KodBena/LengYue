@@ -179,27 +179,41 @@ this file.
 ### Refactoring queue from ADR-0007
 
 - **Surfaced:** 2026-04-26 (during ADR-0007 drafting).
+  **Refreshed:** 2026-05-06 with current line counts; the
+  pre-refresh entry's claims about App.vue (`591 lines`,
+  "first target after B5") were stale relative to ongoing
+  incremental refactoring work.
 - **Concern:** Files failing ADR-0007's single-view test (red
-  flag, > 300 lines) need to be queued for refactoring. The
-  candidates from the audit done at draft time:
-  - `App.vue` (591 lines) — god component; first target after B5.
-    Becomes C2 of the navigation-guard milestone sequence.
-  - `HorizontalTimelineVisualizer.vue` (371 lines).
-  - `useReviewSession.ts` (371 lines) — likely state-machine
-    exception applies; verify before refactoring.
-  - `PaletteEditor.vue` (352 lines).
-  - `BaseChart.vue` (331 lines).
-  - `MintCardModal.vue` (310 lines).
-  - `types.ts` (387 lines) — type-catalogue exception applies; no
-    action needed unless a clean domain seam appears.
+  flag, > 300 lines) need to be queued for refactoring. Current
+  counts (sampled 2026-05-06):
+  - `App.vue` (513 lines) — already a focus of incremental
+    refactor work (down from 591 at original audit time);
+    Vue SFC's "template + style" sections make trimming below
+    250 hard, even after composable extractions and child-
+    component splits. The "god component" framing is no longer
+    accurate; it's now an orchestrator that hosts multiple
+    tabs and dispatches to extracted children.
+  - `PaletteEditor.vue` (531 lines).
+  - `useReviewSession.ts` (483 lines) — state-machine
+    exception likely applies; verify before refactoring.
+  - `HorizontalTimelineVisualizer.vue` (392 lines).
+  - `MintCardModal.vue` (393 lines).
+  - `BaseChart.vue` (345 lines).
+  - `types.ts` (953 lines) — type-catalogue exception applies;
+    no action needed unless a clean domain seam appears.
+  - `ForestDirectory.vue` (~335 lines post-2026-05-06 redesign;
+    `useForestBrowsePolicy` extraction kept it from growing
+    further past budget; further refactor is feasible but not
+    high-priority).
   Yellow flag (200–300): `CardSetEditor.vue`, `TreeWidget.vue`,
   `MoveSuggestions.vue`, `BoardDisplay.vue`. Review on next touch
   per ADR-0007.
 - **Suggested next action:** No batch refactor — handle
-  incrementally per ADR-0004's posture. App.vue is the highest-
-  priority target because it's the largest and because its
-  contents (multiple orchestration patterns competing in one
-  file) actively cause confusion during navigation-guard work.
+  incrementally per ADR-0004's posture. With App.vue already
+  trending down from incremental work, `PaletteEditor.vue`
+  (currently the largest non-App SFC) and `useReviewSession.ts`
+  (the largest TS file outside type-catalogue exceptions) are
+  the natural next targets when bandwidth opens up.
 
 ### Review-state convention inconsistency between App.vue and BoardTab.vue
 
