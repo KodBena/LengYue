@@ -217,8 +217,8 @@ export function headerLineFor(
   const stat = forestStats.get(tree.rootCardId);
   const title = stat?.description?.trim() || `Game source #${tree.gameSourceId}`;
   const players =
-    stat?.player_black || stat?.player_white
-      ? `${stat?.player_black || '?'} vs ${stat?.player_white || '?'}`
+    stat?.playerBlack || stat?.playerWhite
+      ? `${stat?.playerBlack || '?'} vs ${stat?.playerWhite || '?'}`
       : '';
   const counts =
     `${tree.stats.renderedNodeCount} rendered · ${tree.stats.totalCardNodes} total` +

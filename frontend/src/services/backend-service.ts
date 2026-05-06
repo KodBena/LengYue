@@ -36,6 +36,8 @@ type ResolveRootsResponseWire = components['schemas']['ResolveRootsResponse'];
 type ResolvedRootWire = components['schemas']['ResolvedRoot'];
 type TreeByRootResponseWire = components['schemas']['TreeByRootResponse'];
 type TreeNodeWire = components['schemas']['TreeNode'];
+type ForestStatWire = components['schemas']['ForestStat'];
+type TagStatWire = components['schemas']['TagStat'];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -165,11 +167,41 @@ export class BackendService {
   }
 
   public async getTags(): Promise<TagStat[]> {
-    return api.request<TagStat[]>('GET', '/stats/tags');
+    const raw = await api.request<TagStatWire[]>('GET', '/stats/tags');
+    return raw.map(t => this.mapTagStat(t));
+  }
+
+  // Structurally redundant today — wire and domain shapes are
+  // field-for-field identical (see the type-level note on `TagStat`).
+  // Kept as a forward-looking indirection point per ADR-0005 so a
+  // future wire rename or added field is absorbed here, not at consumers.
+  private mapTagStat(raw: TagStatWire): TagStat {
+    return {
+      name: raw.name,
+      count: raw.count,
+    };
   }
 
   public async getForestStats(): Promise<ForestStat[]> {
-    return api.request<ForestStat[]>('GET', '/stats/forests');
+    const raw = await api.request<ForestStatWire[]>('GET', '/stats/forests');
+    return raw.map(s => this.mapForestStat(s));
+  }
+
+  // Wire → domain projection: snake_case → camelCase rename, raw
+  // `number` → branded `CardId` / `GameSourceId` at the boundary,
+  // nullable metadata strings preserved (consumers handle the
+  // "no metadata" case, the ACL does not coerce — see ADR-0002).
+  private mapForestStat(raw: ForestStatWire): ForestStat {
+    return {
+      rootCardId: raw.root_card_id as CardId,
+      gameSourceId: raw.game_source_id as GameSourceId,
+      description: raw.description,
+      playerWhite: raw.player_white,
+      playerBlack: raw.player_black,
+      totalCards: raw.total_cards,
+      totalReviews: raw.total_reviews,
+      averageRecall: raw.average_recall,
+    };
   }
 
   public async fetchEbisuSession(contextIds: number[], poolSize = 50, drawSize = 10): Promise<ReviewCard[]> {
