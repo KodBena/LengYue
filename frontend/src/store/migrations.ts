@@ -82,7 +82,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 21;
+export const CURRENT_SCHEMA_VERSION = 22;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -523,6 +523,76 @@ export const migrations: Migration[] = [
       if (!valid) {
         ui.forestNav = { expanded: [], selection: null };
       }
+    }
+    return out;
+  },
+  // 21 → 22: Three new default deck strategies showcasing distinctive
+  // pipeline-DSL primitives — Centroid Coverage (centroid_order
+  // structural balance), Main Line First (heavy-path DFS via the
+  // main_line_first preset, no final shuffle so the deck plays in
+  // narrative order), and Balanced Overdue (centroid pool → Ebisu
+  // filter combo, distinct from Standard's shallow-biased BFS pool).
+  // Backfilled for existing users so the new vocabulary appears in
+  // their workspace; user customisations preserved (each new deck is
+  // added only if its id isn't already present, so a deliberately-
+  // edited entry under one of these ids is left alone).
+  //
+  // Deck definitions are inlined here per the append-only migration
+  // discipline — `defaults.ts` may evolve later without retro-
+  // affecting blobs already migrated through this step. Idempotent:
+  // running on a blob that already has the three ids is a no-op.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const cardSets = out.profile?.cardSets;
+    if (!cardSets || typeof cardSets !== 'object') return out;
+    if (!cardSets['centroid_coverage']) {
+      cardSets['centroid_coverage'] = {
+        id: 'centroid_coverage',
+        name: 'Centroid Coverage',
+        description: 'Balanced subtree coverage via centroid decomposition — each card is a structurally informative sample of the tree (deep nodes and shallow nodes both surface). Pure structural; no SR weighting. Good for getting acquainted with a new game where the SR scheduler hasn\'t yet learned what to prioritize.',
+        pipeline: [
+          {
+            stage: 'select',
+            selection: { type: 'SubtreeSelection', n: 0 },
+            ordering:  { type: 'centroid_order' },
+          },
+          { stage: 'take', n: 20 },
+          { stage: 'shuffle' },
+        ],
+      };
+    }
+    if (!cardSets['main_line_first']) {
+      cardSets['main_line_first'] = {
+        id: 'main_line_first',
+        name: 'Main Line First',
+        description: 'Heavy-path DFS — principal variation before sidelines, with least-reviewed lines as tiebreak. No final shuffle, so the deck plays in narrative order: study the game as a game, not as scattered flashcards.',
+        pipeline: [
+          {
+            stage: 'select',
+            selection: { type: 'SubtreeSelection', n: 0 },
+            ordering:  { type: 'main_line_first' },
+          },
+          { stage: 'take', n: 20 },
+        ],
+      };
+    }
+    if (!cardSets['balanced_overdue']) {
+      cardSets['balanced_overdue'] = {
+        id: 'balanced_overdue',
+        name: 'Balanced Overdue',
+        description: 'Pool by centroid coverage (structurally balanced sample of the tree), then filter to the most overdue. Distinct from Standard, which BFS-pools (shallow bias) before Ebisu — this gives exposure to deep parts of the tree where SR has flagged attention needed, instead of repeatedly drilling the opening.',
+        pipeline: [
+          {
+            stage: 'select',
+            selection: { type: 'SubtreeSelection', n: 0 },
+            ordering:  { type: 'centroid_order' },
+          },
+          { stage: 'take', n: 30 },
+          { stage: 'order', ordering: { type: 'EbisuRecallKey' } },
+          { stage: 'take', n: 10 },
+          { stage: 'shuffle' },
+        ],
+      };
     }
     return out;
   },
