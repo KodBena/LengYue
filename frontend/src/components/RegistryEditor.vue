@@ -5,6 +5,7 @@
 -->
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { SUPPORTED_LOCALES } from '../i18n/locales';
 
 const props = defineProps<{
   registry: any;
@@ -53,6 +54,7 @@ function isObject(val: any) {
 const PATH_ENUMS: Record<string, readonly string[]> = {
   // settings root (store.profile.settings)
   'appearance.theme':              ['dark', 'cluster'],
+  'appearance.locale':             [...SUPPORTED_LOCALES],
   'navigation.actionOnDirtyBoard': ['ask', 'new', 'overwrite'],
   // session-ui root (store.session.ui)
   'analysisLayout':                ['horizontal', 'vertical'],

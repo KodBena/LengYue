@@ -10,6 +10,7 @@ import './style.css';
 import App from './App.vue';
 import { store, pushSystemMessage } from './store';
 import { serializeBoard, serializeActivePath } from './engine/sgf-writer';
+import { i18n } from './i18n';
 
 // Expose the reactive store to the browser console for verification ONLY in DEV.
 if (import.meta.env.DEV) {
@@ -18,6 +19,11 @@ if (import.meta.env.DEV) {
 }
 
 const app = createApp(App);
+
+// vue-i18n plugin. Initialised at DEFAULT_LOCALE; useAppBootstrap's
+// watch on `store.profile.settings.appearance.locale` flips it to
+// the (post-hydration or default) workspace value once Vue mounts.
+app.use(i18n);
 
 // Last-resort error handler for errors that escape every component
 // boundary (App.vue's own setup, mount-time errors, etc.). The

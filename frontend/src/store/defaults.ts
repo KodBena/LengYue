@@ -163,7 +163,11 @@ export const defaultSettings = {
     },
   },
   persistence: { debounceInterval: 1000 },
-  appearance:  { theme: 'cluster', intensityHueShift: -43 },
+  // Locale defaults to 'en' for fresh installs; existing users get
+  // their browser-detected locale via the schema 22 → 23 migration.
+  // The active value is mirrored onto vue-i18n by useAppBootstrap's
+  // watch on this field.
+  appearance:  { theme: 'cluster', intensityHueShift: -43, locale: 'en' },
   minting: {
     defaultVisits: 1000,
     defaultNumMoves: 1,

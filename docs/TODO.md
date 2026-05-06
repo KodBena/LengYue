@@ -51,6 +51,48 @@ canonical live reference is `docs/notes/tenancy.md`.
 
 ### Medium — touches contracts or requires coordinated changes
 
+#### Internationalization (i18n) — string sweep `[frontend]`
+
+PR1 (plumbing) shipped 2026-05-06: vue-i18n wired in, schema 23 → 24
+adds `appearance.locale` with browser-detected backfill, five locale
+catalogs scaffolded (en source, sv pilot, zh-CN/ja/ko stubs),
+contributor doc at `frontend/docs/i18n.md`. The proof-of-life line
+in the Settings tab confirms the catalog round-trip end-to-end.
+
+Remaining work — the order-of-magnitude 150-300 hardcoded user-facing
+strings move through catalog keys, locale-by-feature for reviewability:
+
+- `title=` / `placeholder=` / `aria-label=` attributes on chrome
+  buttons, indicators, controls.
+- `pushSystemMessage(...)` toasts. Per the (a) backend-error
+  pass-through approach, the wrapper is translated; the
+  interpolated `${err.message}` from the backend stays in English
+  until a structured-error-code arc lands.
+- Native `alert / confirm / prompt` calls (the qEUBO pin-name
+  prompt and similar handful of sites).
+- Inline template text: button labels, tab names, modal headers,
+  empty states, settings labels.
+
+Per-locale-tier completion: `en` is the source and ships fully
+populated as the sweep progresses. `sv` is the project author's
+verification pilot — populated alongside `en` in each PR. `zh-CN /
+ja / ko` catalogs accumulate placeholder-mirrored entries during
+the sweep; native-speaker review is a separate gating arc per
+locale before the catalog is marked Active in the table at
+`frontend/docs/i18n.md`.
+
+Out-of-scope explicitly: DSL symbol names, wire-shape field names,
+KataGo's output, file-format vocabulary, console / debug log lines,
+and built-in palette IDs. The full inventory and rationale is
+recorded in `docs/notes/i18n-plan.md`'s "What does NOT get
+translated" section, mirrored into `frontend/docs/i18n.md` for
+contributor reference.
+
+Trigger: sweep PRs ship as bandwidth allows; no external blocker.
+A future structured-backend-error-codes arc is its own dispatch
+when wrapped-error sites accumulate enough to justify the
+backend-side work.
+
 #### Chess clone `[both]`
 
 Per ADR-0003's domain-portability discipline on the frontend
@@ -296,23 +338,6 @@ shipped under 32a/32a.2 in the Backend Completed table now
 archived at `docs/archive/TODO-completed-2026-05-06.md`. The
 zeroconf work — substantively unrelated — is preserved here
 under its original number rather than silently retired.
-
-### Internationalization (i18n) `[frontend]`
-
-UI translation to additional locales — Chinese, Japanese, Korean
-are the obvious candidates given the target audience's
-geographic distribution. Not a current priority; the codebase is
-English-only. Scoping note at `docs/notes/i18n-plan.md` covers
-the rough string inventory (order-of-magnitude 150-300 distinct
-user-facing strings, well above initial intuition), the
-ADR-0003 bands of what does and doesn't translate (DSL symbol
-names, wire shapes, KataGo notation, file-format tags are all
-explicitly out), `vue-i18n` as the tooling pick, and the
-outstanding decisions before implementation can begin (locales,
-translation workflow, backend error message handling, lockstep
-discipline). Triggers: a community contributor offers a pilot
-locale's catalog, or distribution packaging ships to a
-predominantly non-English-speaking audience.
 
 ### Polymorphic chart renderer abstraction `[frontend]`
 

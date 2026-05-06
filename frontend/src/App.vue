@@ -309,6 +309,16 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
                 <details class="settings-section section-divider" open>
                   <summary><h3 class="sub-header">Advanced Registry</h3></summary>
+                  <!--
+                    i18n proof-of-life line. The locale is set via the
+                    Advanced Registry below (appearance → locale); this
+                    sentence flips between English / Svenska / 简体中文 / …
+                    immediately on selection, verifying the catalog
+                    round-trip end-to-end. Removed once the string sweep
+                    starts producing real localized UI text — by then
+                    every label is its own proof of life.
+                  -->
+                  <p class="i18n-proof-of-life">{{ $t('meta.localeStatus', { name: $t('meta.localeName') }) }}</p>
                   <div class="registry-container">
                     <RegistryEditor :registry="store.profile.settings" :defaults="DEFAULTS.profile" @update="handleSettingsUpdate"/>
                   </div>
@@ -460,6 +470,15 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 .settings-section > summary > h3 { margin: 0; flex: 1; }
 .settings-section > summary > .toolbar-btn-sm { margin-left: var(--space-default); }
 .settings-section > summary:hover > h3 { color: var(--text-2); }
+
+/* i18n proof-of-life line — see template-side comment for retirement
+   trigger. */
+.i18n-proof-of-life {
+  margin: var(--space-default) 0;
+  font-size: var(--text-emphasis);
+  color: var(--text-2);
+  font-style: italic;
+}
 
 .deck-selector-box { background: var(--surface-2); padding: var(--space-medium); border-radius: var(--radius-default); border: 1px solid var(--surface-3); margin-bottom: var(--space-loose); text-align: left; }
 .deck-selector-box label { font-size: var(--text-emphasis); color: var(--text-2); display: block; margin-bottom: var(--space-default); text-transform: uppercase; }
