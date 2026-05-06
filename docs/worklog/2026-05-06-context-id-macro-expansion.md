@@ -137,6 +137,58 @@ would have required a different schema for `cardsContextIds`
 of the macro form during editing turns out to be annoying in
 practice, that's a clean follow-on PR.
 
+## Bug fix landed on the same branch (2026-05-06)
+
+The first ship had a real bug: the input field rejected
+non-digit characters, so the user couldn't actually type the
+macro syntax at all. Surfaced when the user tested HMR-side
+and reported "the input field doesn't allow writing anything
+other than digits."
+
+**Cause.** The original `:value="store.session.ui.cardsContextIds.join(', ')"`
+binding made the DOM track the parsed-and-formatted store
+value. Every non-digit keystroke produced a parser failure
+that dropped chars; the bound value (the formatted store)
+diverged from the user's literal typing; Vue's reactivity
+stomped the DOM back to the parsed form. The user's `${`
+typing was being erased on each keystroke before they could
+finish the macro.
+
+The trace I sketched in the original section above assumed
+"Vue's `:value` only updates the DOM when the bound value
+changes between renders" — true in some cases, but not when
+the bound value diverges from the DOM's actual value at any
+given render. The latter is what bit here. Lesson: don't
+trust mental models of reactivity edge cases without testing.
+
+**Fix.** Local `contextIdInput: Ref<string>` owns the input's
+display value; `:value="contextIdInput"`. Writes flow
+input → store one-way: every keystroke updates the local
+ref (preserving typing) and re-parses into the store in
+expanded form. The store-side ref stays the source of truth
+for the deck pipeline; the local ref stays the source of
+truth for what the user sees. No reverse watch (store →
+input) — that would re-introduce the original stomp.
+
+**Side effect of the fix.** The input now shows the user's
+literal typing (including `${...}` macros) rather than the
+parsed-and-formatted store value. The user has to glance
+elsewhere to see what their macro resolved to. Closed by a
+small "→ Expands to: …" hint paragraph that renders below
+the input only when the input contains a `${...}` substring.
+Cleaner UX than the original auto-replace-on-keystroke
+behaviour, by accident — the macro form is now editable
+rather than instantly destroyed by the parser.
+
+**Persistence implication.** The macro form is preserved
+during the session (the local ref retains it across panel
+re-renders) but lost on reload (the local ref re-initializes
+from `store.session.ui.cardsContextIds`, which holds the
+expanded form). Same v1 trade-off as before, but with a
+clearer separation between the in-flight edit state and the
+persisted state — the macro form's session-lifetime is now
+explicit rather than instantaneous.
+
 ## Verification
 
 `npm run build` (`vue-tsc -b && vite build`) passes — the
