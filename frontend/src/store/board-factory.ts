@@ -4,12 +4,14 @@
  *
  * All exports are pure functions — no side effects, no reactive state,
  * no Vue imports. This module can be tested in isolation with plain
- * TypeScript and has no runtime dependencies beyond the domain types.
+ * TypeScript and has no runtime dependencies beyond the domain types
+ * and the engine's pure helpers.
  *
  * License: Public Domain (The Unlicense)
  */
 
 import type { BoardState, GameNode, BoardId, NodeId } from '../types';
+import { generateUUID } from '../engine/util';
 
 // ── Newtype constructors ───────────────────────────────────────────────────────
 // These are identity functions at runtime; their value is purely in the
@@ -20,6 +22,12 @@ export const asNodeId  = (s: string): NodeId  => s as NodeId;
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
+// Short id generator for BoardId / NodeId. Distinct from
+// `engine/util.ts::generateUUID` (RFC4122 v4) — the short form is
+// fine for these intra-frontend handles where collision risk is
+// per-session and human-readable hashes are friendlier in DevTools.
+// `clientGameId` (which crosses the wire to backend's UUID-typed
+// column) goes through `generateUUID` instead.
 export const uuid = (): string => Math.random().toString(36).substring(2, 9);
 
 // ── Factory ───────────────────────────────────────────────────────────────────
@@ -29,7 +37,10 @@ export const uuid = (): string => Math.random().toString(36).substring(2, 9);
  *
  * Pure function: every call returns a fresh object graph with no shared
  * references. The root node contains the minimal set of SGF properties
- * needed for downstream consumers (SZ, GM, FF).
+ * needed for downstream consumers (SZ, GM, FF). `clientGameId` gets a
+ * fresh RFC4122 v4 UUID — that's the dedup handle the mint flow sends
+ * to the backend so subsequent mints from this board's lifetime resolve
+ * to the same game_source row.
  */
 export function createInitialBoard(): BoardState {
   const rootId = asNodeId('root-' + uuid());
@@ -53,5 +64,6 @@ export function createInitialBoard(): BoardState {
     koPoint: null,
     turn: 'B',
     lastActivity: 0,
+    clientGameId: generateUUID(),
   };
 }
