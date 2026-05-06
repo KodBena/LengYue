@@ -24,7 +24,9 @@
 import { computed } from 'vue';
 import BaseChart from './charts/BaseChart.vue';
 import { useReviewSession } from '../composables/useReviewSession';
-import { activeBoard } from '../store';
+import { activeBoard, mutateBoard, store } from '../store';
+import { getActiveVariationPath } from '../engine/util';
+import { navigateTo } from '../engine/navigator';
 import { themeColor } from '../utils/theme-color';
 import type { BoardId } from '../types';
 
@@ -60,6 +62,45 @@ function handleVisitsOverrideChange(e: Event) {
   const n = Number(raw);
   reviewSession.setVisitsOverride(n);
 }
+
+/**
+ * Click on the intermission chart → navigate the board to the
+ * position the user faced when making the k-th move (1-indexed
+ * along the chart's x-axis). Same "navigate to position BEFORE
+ * the move" semantics as `useChartNavigation::handlePlayerClick`
+ * for the per-player delta charts on the analysis tab.
+ *
+ * Sequencing: in a review session, each user move is followed by
+ * the engine's best-move response (`processUserMove` calls
+ * `applyGoMove` for both, in sequence). The active variation
+ * path therefore advances 2 plies per user move from
+ * `startingNodeId`. Position before user move k = path index
+ * `startIdx + 2(k-1)`.
+ *
+ * Reads `store.session.reviews[bId].startingNodeId` directly
+ * rather than threading the value through the composable's
+ * return — same cheap-projection pattern ForestDirectory uses.
+ *
+ * No-op when the path doesn't include `startingNodeId` (defensive
+ * guard for the unlikely case of a navigation that severs the
+ * post-rewind active variation), or when the target index is
+ * out of bounds.
+ */
+function handleIntermissionClick(idx: number) {
+  const bId = activeBoardId.value;
+  if (!bId) return;
+  const review = store.session.reviews[bId];
+  if (!review || !review.startingNodeId) return;
+  const board = activeBoard.value;
+  if (!board) return;
+  const path = getActiveVariationPath(board);
+  const startIdx = path.indexOf(review.startingNodeId);
+  if (startIdx < 0) return;
+  const targetIdx = startIdx + 2 * (idx - 1);
+  if (targetIdx < 0 || targetIdx >= path.length) return;
+  const targetNodeId = path[targetIdx];
+  mutateBoard(bId, draft => navigateTo(draft, targetNodeId));
+}
 </script>
 
 <template>
@@ -76,7 +117,11 @@ function handleVisitsOverrideChange(e: Event) {
     </p>
 
     <div v-if="reviewSession.state.value === 'FINISHED'" class="intermission-chart">
-      <BaseChart :series="intermissionSeries" :zoomRange="[1, reviewSession.currentCard.value.numMoves]" />
+      <BaseChart
+        :series="intermissionSeries"
+        :zoomRange="[1, reviewSession.currentCard.value.numMoves]"
+        @index-click="handleIntermissionClick"
+      />
     </div>
 
     <p class="hint text-muted moves-made" v-if="reviewSession.state.value !== 'FINISHED'">
