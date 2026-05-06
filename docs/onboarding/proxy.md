@@ -29,17 +29,18 @@ assumes you have already read the generic orientation
    falls short" section is unusually candid about the
    abstractions that work but do not yet bear formal scrutiny
    (the `Prism` shape is approximate, the `Dispatcher` is
-   unused in the live path, `rxp/` is experimental).
+   unused in the live path, `reactive_pipeline/` is
+   experimental).
 4. `docs/dispatch/proxy-to-proxy-id-translation-near-miss.md` —
    a letter from a recent proxy-side session about a near-miss
    when reasoning about ID-rewriting at a call site
    (`_handle_terminate`'s relabel callback) rather than tracing
    through the `ReferentialField` policy that owns the
-   translation (`AbstractProxy/katago_proxy.py`'s
+   translation (`katago/katago_proxy.py`'s
    `RESPONSE_TERMINATE_ID_FIELD`). The lesson is small but
    generalisable: in this codebase the abstractions in
    `AbstractProxy/proxy_core.py` and
-   `AbstractProxy/katago_proxy.py` are the load-bearing units;
+   `katago/katago_proxy.py` are the load-bearing units;
    call sites in `proxy_server.py`, `pubsub_hub.py`, and
    `router.py` are recipes that compose them. Adopt the posture
    from the start — when reasoning about what a call site must
@@ -67,7 +68,7 @@ engine, an engine `id` never reaches a client. The contracts
 that hold the property together (`IdMapping`,
 `CompletionTracker`, `ProxyLink`, `ProxyChain`,
 `ReferentialField`) live in `AbstractProxy/proxy_core.py` and
-`AbstractProxy/katago_proxy.py`. Edits there are edits to the
+`katago/katago_proxy.py`. Edits there are edits to the
 spine.
 
 ## ADR map (proxy-relevant)
@@ -109,16 +110,32 @@ every edit:
   `CompletionTracker`, `ProxyLink`, `ProxyChain`, `Prism`,
   `Dispatcher`. Prisms are *modelled* on the optics paradigm;
   they do not enforce the laws.
-- `proxy/AbstractProxy/katago_proxy.py` — KataGo-specific
-  protocol types, prisms, parsers, and the
+- `proxy/AbstractProxy/protocol_transformer.py` — the Generic
+  `Transformer` ABC + `TransformedChain`. Stays protocol-agnostic
+  alongside `proxy_core.py`.
+- `proxy/katago/katago_proxy.py` — KataGo-specific protocol
+  types, prisms, parsers, the response variant union
+  (`AnalyzeResponse | MetadataResponse`), and the
   `RESPONSE_TERMINATE_ID_FIELD` registration that the
-  near-miss letter centres on.
-- `proxy/keep_alive.py` — worked example for `SessionMiddleware`
-  lifecycle hooks (`on_session_start` / `on_session_end`) and
-  the `SessionCapabilities` bundle (including
-  `terminate_query`). The keep-alive watchdog catches the
-  WS-stays-open-but-silent case that disconnect-side cleanup
-  cannot.
+  near-miss letter centres on. Lives outside `AbstractProxy/`
+  because it is KataGo-specific (post-v1.0.13 reorg).
+- `proxy/transformers/` — Layer 1 transformer extensions:
+  `katago.py` (response post-processing factories),
+  `analysis_enricher.py`, `transposition_enricher.py`.
+- `proxy/middleware/` — Layer 1 middleware: `session_middleware.py`
+  (the `SessionMiddleware` ABC, `MiddlewareChain`,
+  `SessionCapabilities`), `keep_alive.py`,
+  `adaptive_reevaluate.py`. The directory is the layer signal.
+- `proxy/middleware/keep_alive.py` — worked example for
+  `SessionMiddleware` lifecycle hooks (`on_session_start` /
+  `on_session_end`) and the `SessionCapabilities` bundle
+  (including `terminate_query`). The keep-alive watchdog
+  catches the WS-stays-open-but-silent case that
+  disconnect-side cleanup cannot.
+- `proxy/docs/roadmap-response-variants.md` — the v1.0.13
+  response-variants design rationale; durable record of the
+  impedance-mismatch diagnosis and the consumer migration
+  table for the `KataGoResponse` union split.
 - `proxy/tests/diagnose_phase{1,2,3}.py` — KataGo-free
   diagnostic suite (one file per phase of the keep-alive
   dispatch). Run with `python -m tests.diagnose_phase1` from
@@ -139,9 +156,9 @@ every edit:
   wire vocabulary (`frontend/src/engine/katago/types.ts` is
   the only consumer-side file the proxy ever needs to
   consider).
-- `proxy/rxp/` — an experimental reactive-pipeline subpackage,
-  used only by `bsa.py`; not integrated with the main message
-  flow.
+- `proxy/reactive_pipeline/` — an experimental reactive-pipeline
+  subpackage, used only by `delta_analysis.py`; not integrated
+  with the main message flow.
 - `proxy/AbstractProxy/proxy_core.py`'s `Dispatcher` —
   scaffolding for a future world of multiple protocol
   versions; unused in the live code path.

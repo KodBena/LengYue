@@ -183,7 +183,7 @@ reading the outstanding work.
 | — | *Resource-ownership audit (filed Medium-tier priority 2026-05-04; closed 2026-05-04 across all three passes in a single session). Pass 1 produced an expanded inventory in `docs/notes/resource-ownership-audit-plan.md`: 17 closed pairs verified during the walk plus 15 suspected-open pairs grouped by mutation site (closeBoard, resetWorkspace, component unmount, engine-WS reconnect). Pass 2 closed all 15 suspected-open pairs across ten PRs (#119–#128, plus #118 for the inventory itself): 13 closed in code, 2 closed by verification with explanatory comments. Pass 3 codified the inline-comment convention and authoring checklist in the plan's new §"Comment convention and authoring discipline" section, mirrored as a "Resource ownership at mutation sites" section in `frontend/CLAUDE.md`. Substantive sub-findings surfaced during the work: `purgeBoard`'s incomplete `nodeVersions` cleanup (sub-PR #119 paired with main #120), the closeBoard / resetWorkspace timeout-resurrect bug that the inventory had pitched as a benign bounded leak (#126's O5/O11 fixes — a minor honesty miss surfaced in the verification trace and recorded in that PR's worklog as a future-audit framing lesson), and an ADR-0001/0002 type-honesty retrofit narrowing two `Record<BoardId, T>` types to `Partial<Record<BoardId, T>>` so deletes don't lie about indexed reads (#125). Final cleanup contracts: `closeBoard` runs six cleanups, `resetWorkspace` runs five, each enumerated in the function docstring with audit-pair identifiers (O1–O15). Two ADR-0006 file-header retrofits rode along under full-visibility edits (`store/index.ts`'s `resetUserOwnedState` → `resetWorkspace` drift, `useThumbnailCache.ts`'s lifecycle-contract description). The audit's contract (one cleanup or documented deferral per owner-resource pair) is satisfied; future PRs maintain the discipline at authoring time per the codified convention. Worklog series at `docs/worklog/2026-05-04-resource-audit-pass-1-inventory.md` through `2026-05-04-resetworkspace-purges-bounded-caches.md` (eleven entries, indexable by the `closeboard` / `resetworkspace` / `lifecycle` / `audit-sweep` / `ledger-purgeboard` / `cardthumbnail` / `useresizablepanel` / `audit-pass-3` shape).* |
 | — | *Pipeline DSL typing on the frontend (Medium-tier entry retired; closes the largest remaining `any` in domain types). Adds a `PipelineStage` discriminated-union alias in `types.ts` projecting the generated wire union (`SelectStage \| TakeStage \| ShuffleStage \| OrderStage` from `types/backend.ts`) into the frontend domain; tightens `CardSet.pipeline` from `any[]` to `PipelineStage[]`. Three files touched: `types.ts` (alias + interface tightening), `services/backend-service.ts` (`queryForest` parameter type, plus a `: PipelineStage[]` annotation on the internal `fetchEbisuSession` literal so the literal narrows via contextual typing), `components/CardSetEditor.vue` (a single `JSON.parse(...) as PipelineStage[]` boundary cast at the editor's parse-then-assign site, with an ADR-0002 justification comment naming the backend's pipeline executor as the loud-failure surface for malformed pipelines and the parse-vs-structural-validity distinction). Composables (`useCardTreeData`, `useReviewSession`) are pure pass-throughs — types flow naturally without needing edits. The two pipeline literals in `defaults.ts` typecheck cleanly via the `Record<string, CardSet>` annotation contextually typing each element through the `stage` discriminant. No migration (wire shape unchanged) and no backend dispatch (we're consuming the wire schema, not changing it). Worklog at `docs/worklog/2026-05-04-dsl-pipeline-typing.md`. **Doc-graph retrofit rode along**: `handoff-current.md`'s "Known gaps (frontend)" section dropped both the just-closed Pipeline DSL bullet and the already-closed `useVariationPath` bullet (the latter retired by the brand-pair commit but the gap section had not been swept). Not in original TODO numbering.* |
 | — | *Cards tab merge (Medium-tier entry retired). Closed 2026-05-06 across two PRs as the design note's two-PR seam suggested. **PR 1** (`docs/worklog/2026-05-06-cards-tab-merge-pr1-per-board-forest.md`): schema migration 15 → 16 collapses `srContextIds` + `databaseContextIds` into `cardsContextIds`; new `src/composables/board-card-trees.ts` holds module-scope per-board card-tree state (forest, active set, hydrated cards, forestStats); `useCardTreeData` becomes a per-board projection composable taking `Ref<BoardId | null>`; `runPipeline` returns matched `ReviewCard[]` so the caller can hand them to `startSession` without a second backend round-trip; `useReviewSession.startSession` signature changes to take a prefetched queue (the `pendingAnalysisAborts` module-scope hoist was already done by the 2026-05-04 audit); orange "current review card" overlay via `card-tree-echarts.ts::toEChartsNode` accepting an optional `currentCardId` (the four-role partition active/context/stub/bucket stays exhaustive — orange is decoration, not a fifth role); `closeBoard` and `resetWorkspace` integrate the new per-board state cleanup as resource-ownership audit pair O12 (privacy-relevant, since hydrated-cards is CardId-keyed). **PR 2** (`docs/worklog/2026-05-06-cards-tab-merge-pr2-tab-restructure.md`): schema migration 16 → 17 rewrites `activeTab` from `'sr'`/`'database'` to `'cards'`; new `ReviewSessionPanel.vue` extracts the in-session controls; `ForestDirectory.vue` hosts either the deck-config form (idle) or `ReviewSessionPanel` (in-session) in the Decks subtab and gains a "Start Review Session" button orchestrating `runPipeline` + `startSession` as a single pipeline call; `App.vue` collapses `controlTabs` from `[sr, database, settings, analysis, other]` to `[cards, settings, analysis, other]`. The two collapsed backend round-trips become one for the start-review flow; the forest's active set and the review queue are by-construction the same set of cards. ADR-0007 budget honoured — App.vue shrinks ~80 lines, ReviewSessionPanel ~120 lines, `card-tree-echarts.ts` gains ~20 lines for the overlay. Per-board scoping mirrors the existing convention for review session state; UI affordance state (active sub-tab, panel widths) stays workspace-global. Not in original TODO numbering.* |
-| — | *Heatmap delta-update mitigations (Small-tier priority entry retired). Investigation confirmed the symptom but corrected the framing: the per-packet update is a sparse delta of `(s, t)` cells (~half the triangle for that color, since when delta at turn T arrives every interval `[s, t]` containing T gets bumped — `proxy/bsa.py` push_packet returns only changed cells, ledger correctly accumulates via `mergeTriangular`), not "a single ray" as the original entry suggested. The destroy-and-recreate behaviour is structural in ECharts' heatmap renderer — `node_modules/echarts/lib/chart/heatmap/HeatmapView.js` calls `this.group.removeAll()` then walks the data array creating fresh `Rect` objects, with no cell-level diff. Confirmed against the upstream issue tracker (#15269 "whole series re-renders on setOption", #8834, plus the broken `appendData` for grid heatmap mail-archive bug); the data-transition diff is keyed on `name` which heatmap cells don't carry. Three independent mitigations to `HeatmapChart.vue` (single file touched): (1) trailing-edge throttle bounded by `THROTTLE_MS = 250` collapses packet floods to ≤4 Hz with `pendingMode` promotion (`full > data > axes`) so a sequence of changes within the window resolves to the most-thorough mode; (2) canvas renderer replaces SVG — the previous "Use SVG renderer for Firefox stability" comment had no recorded provenance (no worklog, no commit message, no dispatch), and canvas is substantially faster for thousands of small Rects; (3) split update paths (`applyFull` / `applyData` / `applyAxes`) send only the option keys that actually changed, all with `lazyUpdate: true`. Three watchers route to the cheapest applicable path. Per-cell redraw cost unchanged (ECharts' fault) but option-merge validation is cheaper, throttle gives ~15× redraw reduction, and canvas removes SVG-DOM diff overhead. Polymorphic-renderer abstraction parked under Future projects for the user's interest in trying alternative backends (custom canvas, D3+canvas, Plotly.js, SciChart.js) — once a `ChartRenderer` Port exists, swapping a single chart to canvas-from-scratch is independent of the rest of the chart surface. Worklog at `docs/worklog/2026-05-06-heatmap-update-throttle.md`. Not in original TODO numbering.* |
+| — | *Heatmap delta-update mitigations (Small-tier priority entry retired). Investigation confirmed the symptom but corrected the framing: the per-packet update is a sparse delta of `(s, t)` cells (~half the triangle for that color, since when delta at turn T arrives every interval `[s, t]` containing T gets bumped — `proxy/delta_analysis.py` (was `proxy/bsa.py` pre-v1.0.13) push_packet returns only changed cells, ledger correctly accumulates via `mergeTriangular`), not "a single ray" as the original entry suggested. The destroy-and-recreate behaviour is structural in ECharts' heatmap renderer — `node_modules/echarts/lib/chart/heatmap/HeatmapView.js` calls `this.group.removeAll()` then walks the data array creating fresh `Rect` objects, with no cell-level diff. Confirmed against the upstream issue tracker (#15269 "whole series re-renders on setOption", #8834, plus the broken `appendData` for grid heatmap mail-archive bug); the data-transition diff is keyed on `name` which heatmap cells don't carry. Three independent mitigations to `HeatmapChart.vue` (single file touched): (1) trailing-edge throttle bounded by `THROTTLE_MS = 250` collapses packet floods to ≤4 Hz with `pendingMode` promotion (`full > data > axes`) so a sequence of changes within the window resolves to the most-thorough mode; (2) canvas renderer replaces SVG — the previous "Use SVG renderer for Firefox stability" comment had no recorded provenance (no worklog, no commit message, no dispatch), and canvas is substantially faster for thousands of small Rects; (3) split update paths (`applyFull` / `applyData` / `applyAxes`) send only the option keys that actually changed, all with `lazyUpdate: true`. Three watchers route to the cheapest applicable path. Per-cell redraw cost unchanged (ECharts' fault) but option-merge validation is cheaper, throttle gives ~15× redraw reduction, and canvas removes SVG-DOM diff overhead. Polymorphic-renderer abstraction parked under Future projects for the user's interest in trying alternative backends (custom canvas, D3+canvas, Plotly.js, SciChart.js) — once a `ChartRenderer` Port exists, swapping a single chart to canvas-from-scratch is independent of the rest of the chart surface. Worklog at `docs/worklog/2026-05-06-heatmap-update-throttle.md`. Not in original TODO numbering.* |
 
 ### Joint
 
@@ -389,6 +389,123 @@ single-Port-implementation arc on the backend side.
 Trigger: a chess-playing contributor with a proof-of-concept
 comparable to what the Go version had, plus willingness to do
 the engine bridge.
+
+#### Silent-coercion-at-protocol-boundaries audit `[both]` (and proxy via dispatch)
+
+A recurring class of bug: a closed-set wire vocabulary (an enum,
+a discriminated-union tag, an `action` field) is parsed with an
+*open-set* fallback that silently coerces unknown values to a
+default member, then later code paths gate on that default and
+strip or rewrite fields. The result is a malformed message that
+hangs or fails downstream, with no log line at the parser to
+point at the actual cause. This is exactly the silent coercion
+ADR-0002 forbids, and it has bitten more than once.
+
+**Two worked examples shipped in the v1.0.13 release window**
+both surface this pattern from different angles:
+
+*Query-side, proxy PR #16* — The proxy's
+`katago/katago_proxy.py::parse_query_from_wire` (then at
+`AbstractProxy/katago_proxy.py`) had the shape
+`action_map.get(action_str, KataGoAction.ANALYZE)`. When the
+frontend's engine-status-bar work added `query_models` alongside
+the long-standing `query_version` probe, the unknown action
+coerced to `ANALYZE`; `translate_query_to_wire`'s
+`if action != ANALYZE: wire["action"] = ...` then dropped the
+action on the wire to KataGo, which received `{"id": "..."}` and
+hung the probe. The fix raises on unknown action and the dispatch
+prism gates on closed-set membership so the receive loop's
+structured ERROR log is the loud surface (audit-H-3-safe).
+
+*Response-side, proxy PR #17* — The same pattern on the
+response parser: `wire.get("isDuringSearch", False)` and
+`wire.get("turnNumber", 0)` fabricated default values for the
+metadata response variant (KataGo's `query_version`,
+`query_models`, terminate-ack responses do not carry those
+fields), then `translate_response_to_wire` emitted them
+unconditionally on the way out. The frontend's status-bar
+tooltip displayed the synthetic fields verbatim, surfacing the
+bug end-to-end. The fix splits `KataGoResponse` into a
+discriminated union (`AnalyzeResponse | MetadataResponse`)
+discriminated structurally on the presence of those keys; the
+parser raises on half-present fields per ADR-0002. See
+`proxy/docs/roadmap-response-variants.md` for the design
+rationale.
+
+**The pattern, named.** Closed-set vocabulary parsed with an
+open-set default is the silent-coercion shape. The cure has four
+parts:
+
+1. **Enum or `Literal` as the canonical witness** of the allowed
+   values — not a string, not a free-form discriminator. Type
+   checkers can then exhaustively check switch / match
+   statements over the closed set.
+2. **One source of truth for the wire-string ↔ enum map.** Lift
+   it to a module-level constant; share it with the parser and
+   every dispatch site. Adding a new member must require updating
+   both halves, and a completeness test should fail if only one
+   half is updated.
+3. **Distinguish "missing key" from "unknown value."** A missing
+   discriminator key may legitimately default (vanilla-protocol
+   compatibility, a default branch in a tagged union); an
+   *unknown value* of a present key is a protocol violation and
+   must raise per ADR-0002.
+4. **Two-tier loudness on parse.** Pure parsers raise on
+   protocol violation (ADR-0002 in the small). Dispatch / receive
+   loops that must survive a buggy peer gate-not-raise: the
+   parser's raise propagates only when callers do not pre-check
+   membership, and the dispatch site emits a structured ERROR
+   log with the actual offending value named (the
+   `proxy_server._handle_incoming` malformed-message branch is
+   the canonical worked example).
+
+**Audit pass — sites to inspect.** Three categories across the
+three sub-projects:
+
+- **Parser entry points** — every place that turns external
+  input (HTTP body, WebSocket frame, DB row, JSON file) into a
+  typed domain object. Look for `.get("action", ...)`,
+  `.get("type", ...)`, `.get("kind", ...)`, etc. with a
+  *non-None, non-sentinel* default. A real default is the smell.
+- **Dispatch sites** — every `match` or `if/elif` chain over a
+  discriminator. The default branch should either name the
+  closed set (and raise) or be a no-match-with-loud-log
+  (dispatcher-style). A silent fallback to "treat it like X"
+  is the bug.
+- **Wire-vocabulary maps** — every dict literal of the shape
+  `{"a": MemberA, "b": MemberB, ...}` parameterising a
+  `.get(s, default)`. Lift to module-level, add a completeness
+  test, replace `.get(s, default)` with explicit membership
+  check + raise.
+
+**Concrete starting greps.** Run from the umbrella root:
+
+- `grep -rn '\.get(\(["'"'"'][^"'"'"']*["'"'"'],[^,]*[A-Z]' frontend/src backend/`
+  — `.get(...)` calls whose default is an enum-shaped (capitalised)
+  value. Most hits will be benign (genuine optionality), but the
+  parser-shaped ones stand out.
+- `grep -rn 'action_map\|type_map\|kind_map\|TYPE_MAP\|ACTION_MAP'`
+  — explicit wire-vocabulary maps. Each one is an audit candidate.
+- For the proxy specifically, `proxy/katago/katago_proxy.py`'s
+  `parse_query_from_wire` and `parse_response_from_wire` are the
+  canonical reference shape (post-v1.0.13); other parsers in the
+  proxy should be checked for the same pattern.
+
+**Scope and coordination.** The audit covers frontend (e.g.,
+DTO parsing in `src/services/`, KataGo wire types in
+`src/engine/katago/types.ts`) and backend (e.g., pipeline-DSL
+discriminator parsing, request DTOs). The proxy side has had
+its two acute instances addressed in v1.0.13 (the worked
+examples above); a sibling-parser sweep remains as
+proxy-internal follow-up — open as a dispatch
+(`docs/dispatch/`) per `proxy/CLAUDE.md`'s submodule-arc
+discipline if/when the audit picks it up. The umbrella's
+frontend + backend sweeps can ship as a single coordinated
+`[both]` PR or as two sequential ones, contributor's choice.
+
+**Trigger:** picked up the next time a parser-or-dispatcher
+change is on the table, or proactively as a focused audit
+session. Not blocking on a release.
 
 ### Large — structural changes that introduce new abstractions
 
