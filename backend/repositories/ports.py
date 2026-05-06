@@ -36,6 +36,7 @@ nothing from `db.schema`.
 License: Public Domain (The Unlicense)
 """
 from typing import Any, Dict, List, Optional, Protocol, Set, Tuple
+from uuid import UUID
 
 from domain.auth import UserId
 from domain.card import Card
@@ -146,6 +147,77 @@ class CardWriteRepositoryPort(Protocol):
         get distinct game_source rows (each owns their own metadata)
         even though they share the underlying normalized_position
         row (which is global and content-addressed).
+
+        Game-source dedup: unconditional insert. The new
+        row carries `client_game_id IS NULL`, exempt from the partial
+        unique index and therefore not a dedup target. CardService
+        dispatches between this method and
+        `get_or_create_game_source_by_client_id` based on whether
+        the wire request supplied a client_game_id.
+        """
+        ...
+
+    async def get_or_create_game_source_by_client_id(
+        self,
+        *,
+        client_game_id: UUID,
+        position_id: int,
+        user_id: UserId,
+        player_white: Optional[str],
+        player_black: Optional[str],
+        description: Optional[str],
+        raw_content: str,
+    ) -> int:
+        """
+        Get-or-create a game_source row keyed on
+        `(user_id, client_game_id)` and return its id.
+
+        Game-source dedup: the contract the
+        `frontend-to-backend-game-source-dedup` dispatch establishes.
+        A frontend that stamps every board's lifetime with a stable
+        opaque UUID gets one game_source row regardless of how many
+        mints occur during that lifetime — eliminating the
+        "Untitled Game ×N" forest-navigator fragmentation that
+        triggered the dispatch.
+
+        Implementation contract:
+
+        - SELECT first by `(user_id, client_game_id)`. The pair is
+          unique under the partial index
+          `uniq_game_source_user_client_game_id`, so the SELECT
+          returns at most one row.
+
+        - On hit: return the existing id. The incoming
+          `position_id`, `player_white`, `player_black`,
+          `description`, and `raw_content` are ignored. First-mint
+          wins. This matches user intent — editing SGF root
+          properties between mints shouldn't retroactively rewrite
+          the recorded metadata. The caller (CardService) doesn't
+          care about the distinction, but downstream observability
+          (Q4 of the dispatch) wants to record "got" vs "created."
+
+        - On miss: INSERT a new row with the same fields
+          `insert_game_source` would set, plus the stamped
+          `client_game_id`. The new row's id is returned.
+
+        Tenancy: the SELECT predicate fuses `user_id` and
+        `client_game_id` (same WHERE-clause-fusion pattern that gives
+        the codebase its 404-not-403 invariant). Two users that
+        somehow generated the same UUID get isolated rows; the
+        partial unique index permits identical client_game_ids
+        across tenants.
+
+        Race window: SELECT-then-INSERT is not strictly atomic. Two
+        concurrent transactions sharing a `(user_id, client_game_id)`
+        can both miss the SELECT, then both attempt the INSERT, and
+        the partial unique index serializes them — one succeeds, the
+        other surfaces an IntegrityError. This matches the existing
+        race window of `get_or_create_position` and is acceptable
+        for the current single-writer-per-tenant pattern; if
+        concurrent multi-tab ingestion ever becomes a workload, add
+        a dialect-specific upsert branch here. The IntegrityError
+        path bubbles to the route as a 500, which is honest:
+        a rare race condition that the database correctly refused.
         """
         ...
 

@@ -69,7 +69,11 @@ class CardService:
             1. Normalize raw content → canonical_content + content_hash + metadata.
             2. Get-or-create a normalized_position from the hash.
             3. Insert a card row with the default Bayesian prior.
-            4. If this is a root: insert a game_source row.
+            4. If this is a root: insert or get-or-create a
+               game_source row. The branch is on client_game_id —
+               when supplied (game-source dedup arc), repeated mints
+               from one board's lifetime collapse to a single row;
+               when absent, legacy always-create behavior.
             5. Link the card to either its parent (branch) or its game_source (root).
             6. Attach any tags.
 
@@ -137,7 +141,23 @@ class CardService:
             position_id=position_id,
         )
 
-        # 4. If this card is a new root: insert the game_source.
+        # 4. If this card is a new root: insert or get-or-create the
+        # game_source. The branch is on `client_game_id`:
+        #
+        # - When set (game-source dedup arc): the frontend is
+        #   signalling "this mint belongs to the same board's
+        #   lifetime as any prior mint sharing this UUID." The repository performs a
+        #   get-or-create on `(user_id, client_game_id)`; the
+        #   second-and-subsequent mints from one board return the
+        #   first mint's game_source_id and the input metadata is
+        #   ignored (first-mint-wins, so editing SGF root properties
+        #   between mints doesn't retroactively rewrite the recorded
+        #   game name / players).
+        #
+        # - When unset: legacy always-create behavior. Preserves any
+        #   caller that doesn't speak the new wire (curl, test
+        #   fixtures, pre-rollout frontends).
+        #
         # Falls back to normalizer-extracted player names when the
         # frontend didn't supply them — `metadata.get("white")` /
         # `metadata.get("black")` is the convention all normalizers
@@ -145,20 +165,32 @@ class CardService:
         # single-player game wouldn't populate those keys; the
         # fallback would be None, which is fine.
         #
-        # Item 24 (tenancy): user_id is forwarded to insert_game_source
-        # so the new row is stamped with the creating tenant.
+        # Item 24 (tenancy): user_id is forwarded to both Port paths
+        # so the new (or matched) row is stamped with the creating
+        # tenant.
         game_source_id = None
         if data.game_metadata:
             pw = data.game_metadata.player_white or normalized.metadata.get("white")
             pb = data.game_metadata.player_black or normalized.metadata.get("black")
-            game_source_id = await self.repository.insert_game_source(
-                position_id=position_id,
-                user_id=user_id,
-                player_white=pw,
-                player_black=pb,
-                description=data.game_metadata.description,
-                raw_content=data.raw_content,
-            )
+            if data.game_metadata.client_game_id is not None:
+                game_source_id = await self.repository.get_or_create_game_source_by_client_id(
+                    client_game_id=data.game_metadata.client_game_id,
+                    position_id=position_id,
+                    user_id=user_id,
+                    player_white=pw,
+                    player_black=pb,
+                    description=data.game_metadata.description,
+                    raw_content=data.raw_content,
+                )
+            else:
+                game_source_id = await self.repository.insert_game_source(
+                    position_id=position_id,
+                    user_id=user_id,
+                    player_white=pw,
+                    player_black=pb,
+                    description=data.game_metadata.description,
+                    raw_content=data.raw_content,
+                )
 
         # 5. Link the card into its lineage. The CardCreate validator
         # has already ensured exactly one of parent_card_id /

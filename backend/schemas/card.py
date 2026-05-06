@@ -26,15 +26,38 @@ commit-3b.
 """
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
 
 class GameSourceCreate(BaseModel):
-    """Metadata for minting a brand new root card."""
+    """
+    Metadata for minting a brand new root card.
+
+    Game-source dedup: `client_game_id` is an opaque
+    client-managed UUID. When set, the backend uses it as a
+    get-or-create key on `(user_id, client_game_id)` so multiple
+    mints from one board's lifetime resolve to a single game_source
+    row (and a single forest-navigator entry). When unset, the
+    backend falls through to the historical always-create behavior,
+    preserving any caller that doesn't speak the new wire (curl,
+    test fixtures, pre-rollout frontends).
+
+    First-mint-wins semantic: when the client_game_id matches an
+    existing row, the existing row's player_white / player_black /
+    description are preserved; the incoming values on the second
+    mint are ignored. This matches user intent — editing SGF root
+    properties between mints from one board shouldn't retroactively
+    rewrite the game's recorded metadata.
+
+    See `docs/dispatch/backend-to-frontend-game-source-dedup-status.md`
+    for the wire-shape rationale.
+    """
     player_white: Optional[str] = None
     player_black: Optional[str] = None
     description: Optional[str] = None
+    client_game_id: Optional[UUID] = None
 
 
 class CardBase(BaseModel):

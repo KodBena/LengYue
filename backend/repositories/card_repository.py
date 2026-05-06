@@ -1,5 +1,7 @@
+import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
+from uuid import UUID
 
 from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +17,8 @@ from db.schema import (
 from domain.auth import UserId
 from domain.card import Card
 from repositories.ports import CardRepositoryPort, CardWriteRepositoryPort
+
+logger = logging.getLogger(__name__)
 
 
 class CardRepository(CardRepositoryPort, CardWriteRepositoryPort):
@@ -241,6 +245,12 @@ class CardRepository(CardRepositoryPort, CardWriteRepositoryPort):
         """
         Insert a new game_source row, stamping user_id from the
         caller's tenant context (item 24). Returns the new id.
+
+        Game-source dedup: no `client_game_id` is set on
+        rows from this path. Such rows are exempt from the partial
+        unique index `uniq_game_source_user_client_game_id` and
+        therefore not dedup targets. The dedup-aware path is
+        `get_or_create_game_source_by_client_id`.
         """
         stmt = (
             insert(game_source)
@@ -256,6 +266,68 @@ class CardRepository(CardRepositoryPort, CardWriteRepositoryPort):
         )
         result = await self.session.execute(stmt)
         return result.scalar()
+
+    async def get_or_create_game_source_by_client_id(
+        self,
+        *,
+        client_game_id: UUID,
+        position_id: int,
+        user_id: UserId,
+        player_white: Optional[str],
+        player_black: Optional[str],
+        description: Optional[str],
+        raw_content: str,
+    ) -> int:
+        """
+        Get-or-create a game_source row keyed on
+        `(user_id, client_game_id)`. Returns the existing id on hit,
+        the new id on miss.
+
+        Game-source dedup: the dispatch's contract. See
+        the Port docstring for the full semantic, including the
+        first-mint-wins metadata rule and the documented race window.
+
+        Logging: the "got" vs "created" branch is logged at INFO so
+        the dispatch's Q4 (rollout observability) is satisfied. The
+        log line carries user_id and client_game_id so a sweep over
+        backend logs can verify dedup is firing on
+        second-and-subsequent mints from one board.
+        """
+        existing = await self.session.execute(
+            select(game_source.c.id)
+            .where(game_source.c.user_id == user_id)
+            .where(game_source.c.client_game_id == client_game_id)
+        )
+        found_id = existing.scalar()
+        if found_id is not None:
+            logger.info(
+                "game_source dedup: got existing row "
+                "id=%s user_id=%s client_game_id=%s",
+                found_id, user_id, client_game_id,
+            )
+            return found_id
+
+        stmt = (
+            insert(game_source)
+            .values(
+                position_id=position_id,
+                user_id=user_id,
+                player_white=player_white,
+                player_black=player_black,
+                description=description,
+                raw_content=raw_content,
+                client_game_id=client_game_id,
+            )
+            .returning(game_source.c.id)
+        )
+        result = await self.session.execute(stmt)
+        new_id = result.scalar()
+        logger.info(
+            "game_source dedup: created row "
+            "id=%s user_id=%s client_game_id=%s",
+            new_id, user_id, client_game_id,
+        )
+        return new_id
 
     async def link_source(
         self,
