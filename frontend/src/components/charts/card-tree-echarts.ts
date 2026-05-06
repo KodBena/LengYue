@@ -135,7 +135,7 @@ export function tooltipFor(
   }
   if (payload.kind === 'bucket') {
     return `<div style="padding:6px; font-size:var(--text-emphasis); color:${cText1};">
-      <b style="color:${cText2};">Bucket of cold leaves</b><br/>
+      <b style="color:${cAccent};">Bucket of cold leaves</b><br/>
       <span style="color:${cText2};">Click to expand individual cards.</span>
     </div>`;
   }
