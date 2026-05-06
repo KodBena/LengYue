@@ -82,7 +82,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 17;
+export const CURRENT_SCHEMA_VERSION = 20;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -436,6 +436,63 @@ export const migrations: Migration[] = [
     if (ui && typeof ui === 'object') {
       if (ui.activeTab === 'sr' || ui.activeTab === 'database') {
         ui.activeTab = 'cards';
+      }
+    }
+    return out;
+  },
+  // 17 → 18: Surface the board-variations overlay setting in
+  // `session.ui.boardVariations`. Renders sibling variations from
+  // the current node (colored rings or A/B/C letters) directly on
+  // the board, controlled by a single tri-state field. Backfills
+  // with `'circles'` (the common GUI default per Lizzie / Sabaki /
+  // KaTrain) so existing users land on a sensible visual default
+  // rather than `'off'`, which would gate the new feature behind a
+  // discovery step. Idempotent: a pre-existing valid value
+  // (`'off'`, `'circles'`, or `'letters'`) is preserved; any other
+  // value (or absent field) gets the default.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = out.session?.ui;
+    if (ui && typeof ui === 'object') {
+      const v = ui.boardVariations;
+      const valid = v === 'off' || v === 'circles' || v === 'letters';
+      if (!valid) {
+        ui.boardVariations = 'circles';
+      }
+    }
+    return out;
+  },
+  // 18 → 19: Surface the active-next-move hint toggle in
+  // `session.ui.showActiveNextMove`. Independent of
+  // `boardVariations` per its docstring — the user can have
+  // variations on without the active marker, or vice versa, or
+  // both, or neither. Backfills with `true` (common GUI posture);
+  // users who find the marker noisy disable it via the Session
+  // (UI) registry. Idempotent: a pre-existing boolean value is
+  // preserved; non-boolean or absent gets `true`.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = out.session?.ui;
+    if (ui && typeof ui === 'object') {
+      if (typeof ui.showActiveNextMove !== 'boolean') {
+        ui.showActiveNextMove = true;
+      }
+    }
+    return out;
+  },
+  // 19 → 20: Surface the transposition-ring toggle in
+  // `session.ui.showTranspositionRings`. Pre-feature, the cluster
+  // ring on `MoveSuggestions` rendered unconditionally whenever a
+  // move was part of a multi-tenant cluster. v20 adds an explicit
+  // user toggle; default `true` preserves the pre-feature
+  // behaviour. Idempotent: a pre-existing boolean value is
+  // preserved; non-boolean or absent gets `true`.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = out.session?.ui;
+    if (ui && typeof ui === 'object') {
+      if (typeof ui.showTranspositionRings !== 'boolean') {
+        ui.showTranspositionRings = true;
       }
     }
     return out;
