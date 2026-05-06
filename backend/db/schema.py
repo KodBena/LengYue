@@ -29,6 +29,7 @@ from sqlalchemy import (
     MetaData,
     String,
     Table,
+    Uuid,
     func,
 )
 
@@ -89,6 +90,23 @@ normalized_position = Table(
 # defense-in-depth — used today by writes (insert_game_source stamps
 # the column from the caller's user_id), available tomorrow for any
 # direct game_source query that doesn't go through the card chain.
+#
+# Game-source dedup: client_game_id added — an opaque,
+# client-managed UUID stamped at board-creation time on the frontend
+# and sent on every mint from that board's lifetime. The partial
+# unique index `uniq_game_source_user_client_game_id` (declared just
+# below the table) collapses repeated mints from one board into a
+# single game_source row via the get-or-create path in
+# repositories.card_repository.get_or_create_game_source_by_client_id.
+# The column is nullable so legacy callers (and any pre-rollout
+# frontend traffic) keep the always-create behavior; the partial
+# predicate keeps the unique constraint inert for those rows. See
+# docs/dispatch/backend-to-frontend-game-source-dedup-status.md for
+# the dedup contract.
+#
+# Existing installs must run
+# scripts/migrate_add_client_game_id_to_game_source.py before
+# pulling this schema.
 game_source = Table(
     "game_source", metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
@@ -97,7 +115,24 @@ game_source = Table(
     Column("player_white", String, nullable=True),
     Column("player_black", String, nullable=True),
     Column("raw_content", String, nullable=True),
-    Column("description", String, nullable=True)
+    Column("description", String, nullable=True),
+    Column("client_game_id", Uuid, nullable=True)
+)
+
+# Game-source dedup: partial unique index on (user_id, client_game_id) where
+# client_game_id is set. Both SQLite (3.8.0+) and Postgres support
+# the WHERE-bounded unique index. The partial predicate is the
+# load-bearing detail: legacy rows with NULL client_game_id remain
+# isolated, and the index provides database-level honesty (concurrent
+# inserts sharing a (user_id, client_game_id) key serialize correctly
+# rather than racing through the SELECT-then-INSERT window).
+Index(
+    "uniq_game_source_user_client_game_id",
+    game_source.c.user_id,
+    game_source.c.client_game_id,
+    unique=True,
+    sqlite_where=game_source.c.client_game_id.isnot(None),
+    postgresql_where=game_source.c.client_game_id.isnot(None),
 )
 
 # 4. Cards
