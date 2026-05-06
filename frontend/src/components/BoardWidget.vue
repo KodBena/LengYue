@@ -199,17 +199,20 @@ const currentMoveNumber = computed(() => {
       :current-move-number="currentMoveNumber"
       @move="(x, y) => emit('move', x, y)"
     />
-    <!-- Game-tree variations overlay: gray ghost for the next move
-         on the active path, colored discs (or A/B/C letters) for
-         sibling variations from the current node. Independent of
-         `showMoveSuggestions` since this is the user's own
-         exploration state, not engine analysis. Hidden when the
-         user has set the mode to 'off'. -->
+    <!-- Game-tree variations overlay: stroke-only colored rings (or
+         A/B/C lettered rings) for sibling variations from the
+         current node, plus an optional gray ring at the next move
+         on the active path. Independent of `showMoveSuggestions`
+         since this is the user's own exploration state, not engine
+         analysis. Mounted only when at least one of the two
+         settings is on, so the off/off pair has zero runtime
+         cost. -->
     <BoardVariationsOverlay
-      v-if="store.session.ui.boardVariations !== 'off'"
+      v-if="store.session.ui.boardVariations !== 'off' || store.session.ui.showActiveNextMove"
       :state="state"
       :size="boardSize"
-      :mode="store.session.ui.boardVariations"
+      :variations-mode="store.session.ui.boardVariations"
+      :show-active-next-move="store.session.ui.showActiveNextMove"
     />
   </div>
 </template>

@@ -1,34 +1,44 @@
 <!--
   src/components/BoardVariationsOverlay.vue
 
-  Renders the next move on the active path and sibling variations
-  from the current node directly on the board, in one of two
-  postures controlled by `session.ui.boardVariations`:
+  Renders sibling variations from the current node (and, optionally,
+  a hint marker for the next move on the active path) directly on
+  the board as stroke-only colored rings — distinct from
+  `MoveSuggestions`'s filled discs so the two overlays compose
+  cleanly when both are enabled at the same intersection.
 
-    'circles' — common GUI posture (Lizzie / Sabaki / KaTrain
-                idiom). Active next move = gray semi-transparent
-                disc; each sibling variation = filled disc cycling
-                through a small palette of distinct colours.
-    'letters' — active next move = gray semi-transparent disc;
-                each sibling variation = colored disc with letter
-                label A, B, C... (A is the first non-active sibling
-                in declaration order).
+  Two settings drive the overlay, independently:
 
-  When the parent `BoardWidget` reads `boardVariations === 'off'`,
-  the overlay is not mounted at all — this component never has to
-  render an empty state.
+  - `boardVariations: 'off' | 'circles' | 'letters'`
+      'circles' — each non-active sibling renders as a colored
+                  ring, cycling through a small palette of distinct
+                  hues.
+      'letters' — same colored ring, plus a centered letter label
+                  A, B, C... in the matching tint. A is the first
+                  non-active sibling in declaration order; the
+                  active child never gets a letter.
+      'off'     — no variation markers.
+
+  - `showActiveNextMove: boolean`
+      true  — the active child renders as a gray ring (no letter,
+              even in 'letters' mode).
+      false — no active marker.
+
+  All four combinations are valid; the component renders the
+  intersection of both flags. The host `BoardWidget` mounts the
+  overlay only when at least one is on, so the off/off pair has
+  zero runtime cost.
 
   Stateless. Reads `state.nodes[currentNodeId]`'s `children` and
   `activeChildIndex`; emits no events. Pointer-events: none on the
-  outer SVG so clicks pass through to BoardDisplay (which means
-  clicking on a variation marker plays the move at that
-  intersection — which is the correct affordance, since the
-  position would extend the existing branch via `applyGoMove`).
+  outer SVG so clicks pass through to BoardDisplay (clicking a
+  variation marker plays the move at that intersection — extending
+  the existing branch via `applyGoMove`, which is the intended
+  affordance).
 
-  Domain band (ADR-0003): Go-bound. Uses `Move` (with B/W color),
-  the SVG geometry shared with BoardDisplay, and stone-radius
-  styling. A chess port would replace this overlay entirely with
-  its own variant-display surface.
+  Domain band (ADR-0003): Go-bound. Uses `Move`'s B/W color, the
+  SVG geometry shared with BoardDisplay, and stone-radius styling.
+  A chess port would replace this overlay entirely.
 
   License: Public Domain (The Unlicense)
 -->
@@ -46,13 +56,27 @@ import type { BoardState, GameNode } from '../types';
 const props = defineProps<{
   state: BoardState;
   size: number;
-  mode: 'circles' | 'letters';
+  variationsMode: 'off' | 'circles' | 'letters';
+  showActiveNextMove: boolean;
 }>();
 
 // ── Geometry (mirrors BoardDisplay) ───────────────────────────────────────────
 const pad    = computed(() => BOARD_PX / (props.size + 1));
 const cell   = computed(() => (BOARD_PX - 2 * pad.value) / (props.size - 1));
 const stoneR = computed(() => cell.value * STONE_RADIUS_RATIO);
+
+// magic-literal: 0.85 marker-radius ratio against the stone radius.
+// Chosen so the variation ring sits clearly inside MoveSuggestions's
+// cluster-ring at 1.01 × stoneR (stroke 2.5) and the filled
+// suggestion-disc at 1.0 × stoneR — the smaller ring + thinner
+// stroke read as "secondary information" without competing with the
+// engine's primary signal at the same intersection.
+const MARKER_RADIUS_RATIO = 0.85;
+// magic-literal: 2 stroke width — same vocabulary as
+// BoardDisplay's last-move marker (stroke-width="2"). Visible but
+// lighter than MoveSuggestions's cluster-ring (stroke-width="2.5"),
+// keeping the variation overlay subordinate when both show.
+const MARKER_STROKE_WIDTH = 2;
 
 function toSvg(x: number, y: number): { x: number; y: number } {
   return {
@@ -78,9 +102,8 @@ const VARIATION_TINT_ANCHORS: readonly ChromeAnchor[] = [
 interface Marker {
   readonly x: number;
   readonly y: number;
-  readonly tint: string;
+  readonly stroke: string;
   readonly opacity: number;
-  readonly radius: number;
   readonly label: string | null;
   readonly key: string;
 }
@@ -89,7 +112,6 @@ const markers = computed<Marker[]>(() => {
   const node: GameNode | undefined = props.state.nodes[props.state.currentNodeId];
   if (!node || node.children.length === 0) return [];
 
-  const r = stoneR.value;
   const out: Marker[] = [];
   let variationIdx = 0;
 
@@ -104,37 +126,32 @@ const markers = computed<Marker[]>(() => {
     const y = child.move.y;
 
     if (isActive) {
-      // Active next move on the active path — gray ghost. Half-
-      // opacity at full stone radius reads as "hint" without
-      // competing with the actual stones. magic-literal: 0.45
-      // chosen by inspection — at lower values the marker
-      // disappears against the wood texture, at higher it reads
-      // as a real stone.
+      if (!props.showActiveNextMove) continue;
+      // Active next move on the active path — gray ring. No label,
+      // even in 'letters' mode (A is reserved for the first
+      // non-active sibling per the spec).
+      // magic-literal: 0.7 opacity — visible against the wood
+      // texture without competing with stones.
       out.push({
         x, y,
-        tint:    themeColor('--text-2'),
-        opacity: 0.45,
-        radius:  r,
+        stroke:  themeColor('--text-2'),
+        opacity: 0.7,
         label:   null,
         key:     `active-${x}-${y}`,
       });
     } else {
+      if (props.variationsMode === 'off') continue;
       const tintAnchor = VARIATION_TINT_ANCHORS[variationIdx % VARIATION_TINT_ANCHORS.length];
       const letter = String.fromCharCode(0x41 /* 'A' */ + variationIdx);
-      // 'letters' mode uses a smaller backdrop disc so the letter
-      // sits clear of the surrounding stones / grid; 'circles'
-      // mode uses a near-full-radius disc for a filled-glyph read.
-      // magic-literals: 0.55 and 0.95 chosen so 'letters' reads as
-      // "small badge with text" and 'circles' reads as "filled
-      // marker"; identical opacities so the two modes feel
-      // tonally consistent.
-      const radius = props.mode === 'letters' ? r * 0.55 : r * 0.95;
+      // magic-literal: 0.85 opacity — slightly louder than the
+      // active marker (0.7) since the colored tints carry the
+      // variation's identity and need to read clearly through any
+      // co-located MoveSuggestion disc.
       out.push({
         x, y,
-        tint:    themeColor(tintAnchor),
-        opacity: 0.65,
-        radius,
-        label:   props.mode === 'letters' ? letter : null,
+        stroke:  themeColor(tintAnchor),
+        opacity: 0.85,
+        label:   props.variationsMode === 'letters' ? letter : null,
         key:     `variation-${x}-${y}`,
       });
       variationIdx++;
@@ -159,20 +176,23 @@ const markers = computed<Marker[]>(() => {
         <circle
           :cx="toSvg(m.x, m.y).x"
           :cy="toSvg(m.x, m.y).y"
-          :r="m.radius"
-          :fill="m.tint"
+          :r="stoneR * MARKER_RADIUS_RATIO"
+          fill="none"
+          :stroke="m.stroke"
+          :stroke-width="MARKER_STROKE_WIDTH"
           :opacity="m.opacity"
         />
         <text
           v-if="m.label !== null"
           :x="toSvg(m.x, m.y).x"
           :y="toSvg(m.x, m.y).y + 1"
-          :font-size="m.radius * 1.3"
+          :font-size="stoneR * 1.0"
           dominant-baseline="middle"
           text-anchor="middle"
           font-family="monospace"
           font-weight="bold"
-          fill="#fff"
+          :fill="m.stroke"
+          :opacity="m.opacity"
         >{{ m.label }}</text>
       </g>
     </g>

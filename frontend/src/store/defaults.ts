@@ -270,12 +270,17 @@ export const defaultSessionUI: UISession = {
   qeuboToolbarView: 'applied',
   // Board-variations overlay rendering posture. Default 'circles' is
   // the common GUI default per the user's framing (Lizzie / Sabaki /
-  // KaTrain idiom): active next move as a gray ghost, sibling
-  // variations as colored discs. Users wanting the SGF-style A/B/C
+  // KaTrain idiom): variations as stroke-only colored rings (so they
+  // overlay cleanly with MoveSuggestions' filled discs and stay
+  // visually distinguishable). Users wanting the SGF-style A/B/C
   // labelling switch to 'letters'; users who want the board
   // unannotated switch to 'off'. Schema-version 18 introduces the
   // field with this default.
   boardVariations: 'circles',
+  // Hint marker for the next move on the active path. Default true
+  // (common GUI posture). Schema-version 19 introduces the field;
+  // independent of boardVariations.
+  showActiveNextMove: true,
 };
 
 export const DEFAULTS = {

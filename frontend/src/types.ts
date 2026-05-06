@@ -478,23 +478,34 @@ export interface UISession {
   // 'applied'. Mutated by the toolbar; consumed by useQeubo's
   // effectiveParameterValues computed.
   qeuboToolbarView?: 'applied' | 'A' | 'B';
-  // Board-overlay rendering for the next move on the active path
-  // and sibling variations from the current node. Surfaced by
-  // `BoardVariationsOverlay.vue`, controlled here so the user can
-  // pick the rendering posture (or disable the overlay entirely).
-  //   'off'     — no overlay; the board shows only stones.
-  //   'circles' — common GUI posture. Active next move = gray
-  //               semi-transparent disc; each sibling variation =
-  //               filled disc cycling through a small palette of
-  //               distinct colours.
-  //   'letters' — active next move = gray semi-transparent disc;
-  //               each sibling variation = colored disc with letter
-  //               label A, B, C... where A is the first non-active
-  //               sibling (declaration order).
+  // Board-overlay rendering posture for sibling variations from
+  // the current node. Surfaced by `BoardVariationsOverlay.vue`.
+  //   'off'     — no variation markers rendered.
+  //   'circles' — each sibling variation = colored stroke-only
+  //               ring, cycling through a small palette of
+  //               distinct hues. Outline-only (not a filled disc)
+  //               so the marker overlays cleanly with
+  //               `MoveSuggestions`'s filled discs and stays
+  //               visually distinguishable from them.
+  //   'letters' — same colored ring as 'circles', plus a centered
+  //               letter label A, B, C... in the matching tint.
+  //               A is the first non-active sibling (declaration
+  //               order); the active child never gets a letter.
   // Distinct from `showMoveSuggestions` (which gates KataGo's
   // analysis overlay): this is the user's own game-tree state, not
-  // engine analysis. Schema-version 18 introduces the field.
+  // engine analysis. Independent of `showActiveNextMove` (below);
+  // the two settings compose. Schema-version 18 introduces the
+  // field.
   boardVariations: 'off' | 'circles' | 'letters';
+  // Whether to render a hint marker at the next move on the active
+  // path (the position the variation widget would land at if the
+  // user advanced one step). When true, draws a gray stroke-only
+  // ring at that intersection. Independent of `boardVariations`:
+  // the user can have variations on without the active marker, or
+  // vice versa, or both, or neither. Default `true` (common GUI
+  // posture); users who find the marker noisy disable it via the
+  // Session (UI) registry. Schema-version 19 introduces the field.
+  showActiveNextMove: boolean;
 }
 
 export type CardId = Brand<number, 'CardId'>;
