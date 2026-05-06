@@ -20,6 +20,7 @@ import { useCardTreeData } from '../composables/useCardTreeData';
 import { useForestNavigation } from '../composables/useForestNavigation';
 import { useForestBrowsePolicy } from '../composables/useForestBrowsePolicy';
 import { useReviewSession } from '../composables/useReviewSession';
+import { expandContextIdMacros } from '../utils/context-id-macros';
 import CardTreeWidget from './charts/CardTreeWidget.vue';
 import ForestTreeNav from './ForestTreeNav.vue';
 import ReviewSessionPanel from './ReviewSessionPanel.vue';
@@ -179,8 +180,16 @@ async function startReviewFromConfig(): Promise<void> {
 }
 
 function updateContextIds(val: string): void {
-  // Mirrors CardSetEditor's parser: split on comma, parse, drop NaN.
-  store.session.ui.cardsContextIds = val
+  // Pre-expand `${gameSourceId, ...}` macros to the corresponding
+  // root card ids, then mirror CardSetEditor's parser: split on
+  // comma, parse, drop NaN. Resolution uses the same `roots` ref
+  // that drives the navigator — no backend round-trip needed.
+  const expanded = expandContextIdMacros(val, (gameSourceId) =>
+    roots.value
+      .filter(s => (s.gameSourceId as unknown as number) === gameSourceId)
+      .map(s => s.rootCardId as unknown as number),
+  );
+  store.session.ui.cardsContextIds = expanded
     .split(',')
     .map(s => parseInt(s.trim(), 10))
     .filter(n => !isNaN(n));
@@ -226,10 +235,10 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
           <input
             type="text"
             class="dark-input deck-dropdown"
-            placeholder="e.g. 3, 4, 12"
+            placeholder="e.g. 3, 4, ${12}"
             :value="store.session.ui.cardsContextIds.join(', ')"
             @input="(e: any) => updateContextIds(e.target.value)"
-            title="Comma-separated root card ids fed to the deck pipeline."
+            title="Comma-separated root-card ids fed to the deck pipeline. Use ${N} (or ${N, M, ...}) to expand a game-source id to all of its root card ids — resolved client-side from the loaded forest stats."
           />
 
           <button

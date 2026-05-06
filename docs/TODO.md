@@ -51,41 +51,6 @@ canonical live reference is `docs/notes/tenancy.md`.
 
 ### Medium — touches contracts or requires coordinated changes
 
-#### `[frontend]` Context-id macro expansion in the Cards tab
-
-The Cards tab's context-id input takes a comma-separated list
-of root card ids today. A macro syntax — sketch:
-`${game_id_1, game_id_2, ...}` — that expands those handles to
-the corresponding root card ids would let users reference games
-by their `game_source` id rather than enumerating roots by hand.
-
-**Simple case (frontend-only).** `useForestNavigation`'s grouped
-nodes already carry the `gameSourceId → rootCardIds` mapping;
-the macro resolves client-side via the same `ForestStat[]` data
-the navigator consumes. No new fetches, no contract change.
-
-**Richer case (open design question).** "Expand to all cards
-under a game_source, including descendants" needs either
-client-side `fetchTreeByRoot` iteration per root or a new
-backend endpoint (`/cards/by-game-source` or similar). The
-"do we already have this in ergonomic form, or does this
-warrant a backend dispatch" call is open and should be
-resolved before implementation. If the simple case suffices
-for the user's actual workflow, ship that first; the richer
-case becomes a follow-on if it earns its keep.
-
-Provenance note (kept for future calibration): the user's
-actual db has a 276-root `game_source` carrying
-"UNKNOWN_ORIGIN" in `raw_content` — the catch-all bucket for
-imports without provenance, validated against the user's
-PostgreSQL db on 2026-05-06. The macro feature would let users
-reference such buckets (or any organic game with multiple
-roots) by handle rather than by enumerating all root ids.
-
-Trigger: user prioritization + resolution of the design
-question above. Surfaced 2026-05-06 during the Forest
-Directory redesign close-out.
-
 #### Chess clone `[both]`
 
 Per ADR-0003's domain-portability discipline on the frontend
