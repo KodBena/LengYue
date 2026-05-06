@@ -16,6 +16,13 @@ type ResponseCallback = (response: KataGoResponse) => void;
 export interface ClientCallbacks {
   onDisconnect: (code: number, reason: string) => void;
   onError: (errorMsg: string) => void;
+  // Fires on each successful WebSocket open — initial connection
+  // and every reconnect. The parent uses this to issue identity
+  // probes (`query_version`, `query_models`) so the status bar
+  // reflects the live engine config rather than a stale snapshot
+  // from before the drop. Optional so existing callers that don't
+  // care about the connect-time hook stay one-line.
+  onConnect?: () => void;
 }
 
 export class KataGoClient {
@@ -48,6 +55,11 @@ export class KataGoClient {
     this.ws.onopen = () => {
       this.isConnecting = false;
       if (import.meta.env.DEV) console.log(`[katago-client] Connected to KataGo backend.`);
+      // Notify parent of fresh connection so it can probe the
+      // engine identity (version + models). Fires on each open —
+      // initial connection and every reconnect — so a service
+      // restart with new config is visible without remounting.
+      this.callbacks?.onConnect?.();
     };
 
     this.ws.onmessage = (event) => {

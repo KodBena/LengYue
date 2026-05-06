@@ -4,8 +4,10 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
+import { computed } from 'vue';
 import type { StoneColor } from '../types';
 import UserBadge from './UserBadge.vue';
+import { store } from '../store';
 
 interface StatusMetadata {
   readonly blackName: string;
@@ -24,6 +26,26 @@ defineProps<{
 const emit = defineEmits<{
   (e: 'update-komi', value: number): void;
 }>();
+
+// Engine identity (KataGo version + loaded model names) — populated
+// by analysisService on each fresh WebSocket open via the
+// query_version / query_models probes, refreshed for the version
+// part on every 5s watchdog tick. The label collapses to
+// "Engine: vX.Y.Z" when at least the version is known; appends the
+// first model name when present (multi-model setups are
+// uncommon, so showing one with a count suffix is enough).
+const engineLabel = computed(() => {
+  const info = store.engine.info;
+  if (!info.version && info.modelNames.length === 0) return null;
+  const parts: string[] = [];
+  if (info.version) parts.push(`v${info.version}`);
+  if (info.modelNames.length === 1) {
+    parts.push(info.modelNames[0]);
+  } else if (info.modelNames.length > 1) {
+    parts.push(`${info.modelNames[0]} (+${info.modelNames.length - 1})`);
+  }
+  return parts.join(' · ');
+});
 </script>
 
 <template>
@@ -48,6 +70,11 @@ const emit = defineEmits<{
         {{ turn === 'B' ? 'Black to Play' : 'White to Play' }}
       </span>
       <span class="caps">B: {{ captures.B }} · W: {{ captures.W }}</span>
+      <span
+        v-if="engineLabel"
+        class="engine-label"
+        title="KataGo backend identity (refreshed on each connect / reconnect)"
+      >{{ engineLabel }}</span>
       <UserBadge />
     </div>
   </div>
@@ -116,4 +143,5 @@ const emit = defineEmits<{
 .turn-indicator.W { color: var(--accent-secondary); }
 
 .caps { font-family: monospace; color: var(--text-2); font-size: var(--text-body); }
+.engine-label { font-family: monospace; color: var(--text-2); font-size: var(--text-body); white-space: nowrap; }
 </style>

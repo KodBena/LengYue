@@ -721,6 +721,22 @@ export interface EngineState {
   // is correct against both `'none'` and `undefined`.
   activeMode: Partial<Record<BoardId, AnalysisMode>>;
   messages: SystemMessage[];
+  // Engine identity captured from the upstream KataGo backend on
+  // every fresh WebSocket open: `query_version` returns the engine
+  // version string; `query_models` returns the loaded neural-net
+  // model list. Consumed by the StatusBar for the "what am I
+  // talking to" surface so a config change at the engine side is
+  // visible without restarting the frontend. Both fields are
+  // populated optimistically — `null` / empty until the probe
+  // round-trips on connect / reconnect; `EngineInfo` is a value
+  // object the analysis-service reassigns wholesale (same shape
+  // as `metrics` above).
+  info: EngineInfo;
+}
+
+export interface EngineInfo {
+  readonly version: string | null;
+  readonly modelNames: readonly string[];
 }
 
 export type ReviewStatus = 'IDLE' | 'LOADING' | 'AWAITING_MOVE' | 'ANALYZING' | 'FINISHED';

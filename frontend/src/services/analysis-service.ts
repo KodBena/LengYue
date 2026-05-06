@@ -61,17 +61,83 @@ export class AnalysisService {
         // verification on the subscribers side).
         store.engine.status = 'disconnected';
         store.engine.activeMode = {};
+        // Clear engine identity on disconnect so a stale
+        // version/model from a prior session can't surface in the
+        // status bar after the WS drops. Reconnect fires
+        // probeEngineInfo() via onConnect to repopulate.
+        store.engine.info = { version: null, modelNames: [] };
         this.clearTimers();
         pushSystemMessage('warning', `WebSocket Disconnected (Code: ${code}). ${reason}`);
       },
       onError: (errorMsg) => {
         pushSystemMessage('error', errorMsg);
-      }
+      },
+      onConnect: () => {
+        // Fresh WebSocket open (initial connection or reconnect).
+        // Probe the engine identity so the status bar reflects the
+        // live config — covers the case where the engine service
+        // was restarted with a different version or model loadout
+        // between sessions.
+        void this.probeEngineInfo();
+      },
     });
 
     store.engine.status = 'connected';
     this.startMetrics();
     this.startWatchdog();
+  }
+
+  /**
+   * Send `query_version` and `query_models` and update
+   * `store.engine.info` with the responses. Fires on each fresh
+   * WebSocket open (initial connection + every reconnect) via the
+   * onConnect callback above; the watchdog independently refreshes
+   * `version` on each 5s tick so a mid-session engine restart with a
+   * version bump surfaces without waiting for a full reconnect.
+   *
+   * Defensive parse on the models response: KataGo's wire shape for
+   * `query_models` is an array of model entries whose per-entry shape
+   * varies across versions (some return strings, some return objects
+   * with a `name` field). The parse here handles both.
+   *
+   * Errors logged and swallowed — a probe failure is non-fatal; the
+   * status bar just shows the cleared state until the next probe
+   * succeeds. Per ADR-0002 the failure is logged loud enough to be
+   * findable in the console.
+   */
+  private async probeEngineInfo(): Promise<void> {
+    try {
+      const versionResp = await this.client.sendCommand({
+        id: `probe-version-${Date.now()}`,
+        action: 'query_version',
+      });
+      const modelsResp = await this.client.sendCommand({
+        id: `probe-models-${Date.now()}`,
+        action: 'query_models',
+      });
+
+      const version = ('version' in versionResp && typeof versionResp.version === 'string')
+        ? versionResp.version
+        : null;
+
+      const rawModels = ('models' in modelsResp && Array.isArray(modelsResp.models))
+        ? modelsResp.models
+        : [];
+      const modelNames: string[] = [];
+      for (const m of rawModels) {
+        if (typeof m === 'string') {
+          modelNames.push(m);
+        } else if (m && typeof m === 'object') {
+          const named = m as { name?: unknown; internalName?: unknown };
+          if (typeof named.name === 'string') modelNames.push(named.name);
+          else if (typeof named.internalName === 'string') modelNames.push(named.internalName);
+        }
+      }
+
+      store.engine.info = { version, modelNames };
+    } catch (err) {
+      console.error('[AnalysisService] Failed to probe engine info:', err);
+    }
   }
 
   private startMetrics() {
@@ -90,12 +156,21 @@ export class AnalysisService {
     this.watchdogTimer = window.setInterval(async () => {
       if (store.engine.status !== 'connected') return;
       const start = performance.now();
-      await this.client.sendCommand({ id: `wd-${Date.now()}`, action: 'query_version' });
+      const resp = await this.client.sendCommand({ id: `wd-${Date.now()}`, action: 'query_version' });
       store.engine.metrics = {
         ...store.engine.metrics,
         lastWatchdogTimestamp: Date.now(),
         latencyMs: Math.round(performance.now() - start)
       };
+      // Capture the version on each tick so a mid-session engine
+      // restart with a version bump surfaces in the status bar
+      // without waiting for a full WebSocket reconnect. Models are
+      // refreshed only on connect (probeEngineInfo) since a model
+      // change typically requires a service restart anyway.
+      if ('version' in resp && typeof resp.version === 'string'
+          && resp.version !== store.engine.info.version) {
+        store.engine.info = { ...store.engine.info, version: resp.version };
+      }
     }, 5000);
   }
 
@@ -108,6 +183,7 @@ export class AnalysisService {
     this.client.disconnect();
     store.engine.status = 'disconnected';
     store.engine.activeMode = {};
+    store.engine.info = { version: null, modelNames: [] };
     this.clearTimers();
   }
 
