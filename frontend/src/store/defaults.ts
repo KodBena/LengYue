@@ -281,6 +281,11 @@ export const defaultSessionUI: UISession = {
   // (common GUI posture). Schema-version 19 introduces the field;
   // independent of boardVariations.
   showActiveNextMove: true,
+  // Transposition cluster rings on MoveSuggestions. Default true
+  // preserves pre-feature behaviour (the cluster ring rendered
+  // unconditionally before this field landed). Schema-version 20
+  // introduces the field.
+  showTranspositionRings: true,
 };
 
 export const DEFAULTS = {

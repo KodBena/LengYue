@@ -65,18 +65,25 @@ const pad    = computed(() => BOARD_PX / (props.size + 1));
 const cell   = computed(() => (BOARD_PX - 2 * pad.value) / (props.size - 1));
 const stoneR = computed(() => cell.value * STONE_RADIUS_RATIO);
 
-// magic-literal: 0.85 marker-radius ratio against the stone radius.
-// Chosen so the variation ring sits clearly inside MoveSuggestions's
-// cluster-ring at 1.01 × stoneR (stroke 2.5) and the filled
-// suggestion-disc at 1.0 × stoneR — the smaller ring + thinner
-// stroke read as "secondary information" without competing with the
-// engine's primary signal at the same intersection.
-const MARKER_RADIUS_RATIO = 0.85;
-// magic-literal: 2 stroke width — same vocabulary as
-// BoardDisplay's last-move marker (stroke-width="2"). Visible but
-// lighter than MoveSuggestions's cluster-ring (stroke-width="2.5"),
-// keeping the variation overlay subordinate when both show.
-const MARKER_STROKE_WIDTH = 2;
+// Marker radius matches MoveSuggestions's cluster-ring (1.01 ×
+// stoneR) so the two ring families sit at the same diameter — the
+// dashed stroke and z-index distinguish variations from
+// transpositions, not size. magic-literal: 1.01 — cluster-ring
+// radius from MoveSuggestions, mirrored verbatim. Future tuning
+// would update both call sites.
+const MARKER_RADIUS_RATIO = 1.01;
+// Stroke width matches the cluster-ring's 2.5; the dash pattern is
+// what tells variation rings apart from transposition rings.
+// magic-literal: 2.5 — same value MoveSuggestions's cluster-ring
+// uses; mirrored so the visual weight is identical.
+const MARKER_STROKE_WIDTH = 2.5;
+// Dashed stroke pattern. magic-literal: "4 3" — 4-unit dashes with
+// 3-unit gaps. At the marker radius (≈ 13.9 SVG units on a 19×19
+// board, circumference ≈ 87 units), this produces ~12 dashes around
+// the ring — clearly dashed without fragmenting into a near-solid
+// rendering. The visual contract: solid stroke = transposition
+// (engine analysis), dashed stroke = variation (game-tree state).
+const MARKER_DASHARRAY = '4 3';
 
 function toSvg(x: number, y: number): { x: number; y: number } {
   return {
@@ -85,19 +92,19 @@ function toSvg(x: number, y: number): { x: number; y: number } {
   };
 }
 
-// Variation tint cycle. Four distinct hues — the most common case
-// is 1–3 variations, so cycling rarely matters; when a position has
-// >4 variations the user will see repeats but the lettering (in
-// 'letters' mode) disambiguates and the visual goal is "this is a
-// variation point" rather than per-variation identity. Reads at
-// render time so theme changes propagate without a remount, same
-// shape as BoardWidget's color helpers.
-const VARIATION_TINT_ANCHORS: readonly ChromeAnchor[] = [
-  '--accent-secondary',
-  '--state-error',
-  '--state-success',
-  '--accent-primary',
-];
+// All variation rings share a single tint — the visual goal at this
+// stage is "these are variations" as a class, not per-variation
+// identity. Letters (in 'letters' mode) provide the per-variation
+// disambiguation. Reads at render time so theme changes propagate
+// without a remount, same shape as BoardWidget's color helpers.
+const VARIATION_TINT_ANCHOR: ChromeAnchor = '--accent-secondary';
+// Active-next-move ring is a lighter gray than the muted-text tone
+// — kept distinct from the variation tint and from MoveSuggestions's
+// cluster colours. `--text-1` reads as "secondary chrome text" —
+// brighter than `--text-2` (the prior choice) but still
+// recognisably gray. The user's framing was "lighter gray" against
+// the variation tint; --text-1 is the substrate's nearest match.
+const ACTIVE_TINT_ANCHOR: ChromeAnchor = '--text-1';
 
 interface Marker {
   readonly x: number;
@@ -127,29 +134,28 @@ const markers = computed<Marker[]>(() => {
 
     if (isActive) {
       if (!props.showActiveNextMove) continue;
-      // Active next move on the active path — gray ring. No label,
-      // even in 'letters' mode (A is reserved for the first
+      // Active next move on the active path — light gray ring. No
+      // label, even in 'letters' mode (A is reserved for the first
       // non-active sibling per the spec).
       // magic-literal: 0.7 opacity — visible against the wood
       // texture without competing with stones.
       out.push({
         x, y,
-        stroke:  themeColor('--text-2'),
+        stroke:  themeColor(ACTIVE_TINT_ANCHOR),
         opacity: 0.7,
         label:   null,
         key:     `active-${x}-${y}`,
       });
     } else {
       if (props.variationsMode === 'off') continue;
-      const tintAnchor = VARIATION_TINT_ANCHORS[variationIdx % VARIATION_TINT_ANCHORS.length];
       const letter = String.fromCharCode(0x41 /* 'A' */ + variationIdx);
       // magic-literal: 0.85 opacity — slightly louder than the
-      // active marker (0.7) since the colored tints carry the
-      // variation's identity and need to read clearly through any
-      // co-located MoveSuggestion disc.
+      // active marker (0.7) since the colored tint carries the
+      // "variation" identity and needs to read clearly through any
+      // co-located MoveSuggestion disc / cluster-ring.
       out.push({
         x, y,
-        stroke:  themeColor(tintAnchor),
+        stroke:  themeColor(VARIATION_TINT_ANCHOR),
         opacity: 0.85,
         label:   props.variationsMode === 'letters' ? letter : null,
         key:     `variation-${x}-${y}`,
@@ -180,6 +186,7 @@ const markers = computed<Marker[]>(() => {
           fill="none"
           :stroke="m.stroke"
           :stroke-width="MARKER_STROKE_WIDTH"
+          :stroke-dasharray="MARKER_DASHARRAY"
           :opacity="m.opacity"
         />
         <text
@@ -212,5 +219,16 @@ const markers = computed<Marker[]>(() => {
      intended affordance). */
   pointer-events: none;
   overflow: visible;
+  /* Render above MoveSuggestions's transposition cluster-rings
+     so a co-located variation marker reads cleanly on top of the
+     transposition. DOM order in BoardWidget already mounts this
+     overlay last (so the default paint order would do the right
+     thing), but the explicit z-index documents the intent —
+     reordering BoardWidget's stack later won't silently swap the
+     two layers. magic-literal: z-index 1 — small bump above the
+     default 0 of the other overlays; not a substrate anchor
+     candidate since the relationship is local to this overlay
+     pair. */
+  z-index: 1;
 }
 </style>

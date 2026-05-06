@@ -197,6 +197,7 @@ const currentMoveNumber = computed(() => {
       :board-size="boardSize"
       :pv-config="store.session.ui.pvAnimation"
       :current-move-number="currentMoveNumber"
+      :show-transposition-rings="store.session.ui.showTranspositionRings"
       @move="(x, y) => emit('move', x, y)"
     />
     <!-- Game-tree variations overlay: stroke-only colored rings (or

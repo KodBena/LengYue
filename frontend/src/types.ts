@@ -506,6 +506,17 @@ export interface UISession {
   // posture); users who find the marker noisy disable it via the
   // Session (UI) registry. Schema-version 19 introduces the field.
   showActiveNextMove: boolean;
+  // Whether `MoveSuggestions` paints its solid colored ring around
+  // moves that participate in a multi-tenant cluster (a
+  // transposition — multiple distinct positions reachable via
+  // different move orders that converge to the same node, surfaced
+  // by the proxy's clustering pass and consumed via
+  // `KataMoveInfo.clusterId`). Default `true` preserves the
+  // pre-feature behaviour. Schema-version 20 introduces the field.
+  // The variations overlay's dashed-stroke ring shape is chosen
+  // specifically to compose with the solid transposition ring when
+  // both are visible at the same intersection.
+  showTranspositionRings: boolean;
 }
 
 export type CardId = Brand<number, 'CardId'>;

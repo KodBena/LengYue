@@ -23,6 +23,12 @@ const props = defineProps<{
   boardSize: number;
   pvConfig?: PvConfig;
   currentMoveNumber?: number;
+  // Whether to render the solid colored ring around moves that
+  // share a cluster (a transposition). Default true preserves
+  // pre-toggle behaviour; the host (`BoardWidget`) threads the
+  // `session.ui.showTranspositionRings` flag through here so the
+  // setting can be flipped without remounting MoveSuggestions.
+  showTranspositionRings?: boolean;
 }>();
 
 const hoveredClusterId = computed(() => {
@@ -159,7 +165,7 @@ const pvTransition = computed(() => `opacity ${pvCfg.fadeDurationMs}ms ease`);
            co-tuned with the PV-overlay typography proportions; see
            deferred-items.md PV-overlay-typography-proportions entry. -->
       <circle
-        v-if="s.clusterColor"
+        v-if="s.clusterColor && (showTranspositionRings ?? true)"
         :cx="toSvg(s.x, s.y).x"
         :cy="toSvg(s.x, s.y).y"
         :r="stoneR * 1.01"

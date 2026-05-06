@@ -82,7 +82,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 19;
+export const CURRENT_SCHEMA_VERSION = 20;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -476,6 +476,23 @@ export const migrations: Migration[] = [
     if (ui && typeof ui === 'object') {
       if (typeof ui.showActiveNextMove !== 'boolean') {
         ui.showActiveNextMove = true;
+      }
+    }
+    return out;
+  },
+  // 19 → 20: Surface the transposition-ring toggle in
+  // `session.ui.showTranspositionRings`. Pre-feature, the cluster
+  // ring on `MoveSuggestions` rendered unconditionally whenever a
+  // move was part of a multi-tenant cluster. v20 adds an explicit
+  // user toggle; default `true` preserves the pre-feature
+  // behaviour. Idempotent: a pre-existing boolean value is
+  // preserved; non-boolean or absent gets `true`.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = out.session?.ui;
+    if (ui && typeof ui === 'object') {
+      if (typeof ui.showTranspositionRings !== 'boolean') {
+        ui.showTranspositionRings = true;
       }
     }
     return out;

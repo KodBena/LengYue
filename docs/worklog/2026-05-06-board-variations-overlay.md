@@ -1,15 +1,19 @@
 # Board variations overlay
 
 - **Status:** Shipped on `frontend/board-variations-overlay`,
-  2026-05-06. Seven files touched (one new SFC); build green. New
-  feature; no closing of an existing tier-1 TODO entry.
+  2026-05-06. Eight files touched (one new SFC, plus
+  `MoveSuggestions.vue` for the new transposition-ring toggle);
+  build green. New feature; no closing of an existing tier-1 TODO
+  entry.
 - **Genre:** Feature — common GUI affordance that the codebase
   hadn't surfaced yet. Renders sibling variations from the current
   node (and, optionally, a hint marker for the next move on the
-  active path) directly on the board. Two independent user
-  settings drive the rendering; the overlay's design composes
-  cleanly with the existing `MoveSuggestions` overlay so both can
-  be enabled at once without visual confusion.
+  active path) directly on the board. Three independent user
+  settings drive the rendering (variations mode, active-marker
+  toggle, transposition-ring toggle); the overlay's design
+  composes cleanly with the existing `MoveSuggestions` overlay so
+  any combination of the three can be enabled at once without
+  visual confusion.
 - **Date:** 2026-05-06.
 
 ## Context
@@ -27,19 +31,34 @@ widget separately.
 
 The user requested both modalities — colored circles, or
 SGF-style A/B/C letters — and asked for both to be selectable
-via a user setting. After a first iteration that used filled
-discs, the user asked for two refinements:
+via a user setting. After three iterations:
 
-1. **Circles, not disks.** "The disk modality is already used by
+**Iteration 1**: filled colored discs cycling through a 4-tint
+palette, single tri-state field combining variations and active
+marker.
+
+**Iteration 2** (user feedback):
+
+1. *Circles, not disks.* "The disk modality is already used by
    move suggestions, which should be overlay-able with variations
-   and distinguishable from ditto." So the variation markers
-   render as stroke-only rings; visually distinct from
-   MoveSuggestions's filled discs even at the same intersection.
-2. **Separate toggle for the active marker.** "Personally I
-   don't like it unless I really need it ... but it's a standard
-   feature we should not miss out on." So the active-next-move
-   marker has its own boolean toggle, independent of the
-   variations rendering.
+   and distinguishable from ditto."
+2. *Separate toggle for the active marker.* "Personally I don't
+   like it unless I really need it ... but it's a standard
+   feature we should not miss out on."
+
+**Iteration 3** (further feedback): the rings should match
+MoveSuggestions's transposition cluster-ring radius (1.01 ×
+stoneR) and stroke-width (2.5); all variation rings should share
+a single tint (not a cycling palette); the active ring should be
+a lighter gray than the muted-text tone of iteration 2 (`--text-1`
+not `--text-2`); the dashed stroke pattern + explicit z-index
+distinguish variation rings from transposition rings when both
+are visible at the same intersection. Plus: the
+transposition-ring rendering, previously unconditional whenever a
+move was part of a multi-tenant cluster, gains its own user
+toggle (`session.ui.showTranspositionRings`, default `true`) so a
+user who finds the ring distracting can disable it without losing
+the underlying MoveSuggestions overlay.
 
 ## Decision
 
