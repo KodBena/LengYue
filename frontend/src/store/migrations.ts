@@ -82,7 +82,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 16;
+export const CURRENT_SCHEMA_VERSION = 17;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -413,6 +413,30 @@ export const migrations: Migration[] = [
       }
       delete ui.srContextIds;
       delete ui.databaseContextIds;
+    }
+    return out;
+  },
+  // 16 → 17: Rewrite `activeTab` for the cards-tab-merge UI restructure.
+  // PR 2 of the cards-tab-merge arc collapses the SR and Database tabs
+  // into a single Cards tab; users on `activeTab: 'sr'` or 'database'
+  // would land on a tab id with no matching tab. Both legacy values
+  // rewrite to `'cards'`. Other values (settings, analysis, other) pass
+  // through unchanged. Idempotent: an already-`'cards'` blob is a no-op.
+  //
+  // The migration is paired with the controlTabs / template restructure
+  // in the same PR — the `'cards'` tab id appears in App.vue at the same
+  // commit as this migration ships, so a user hydrating against the new
+  // bundle lands cleanly regardless of where their pre-PR `activeTab`
+  // pointed. The split from migration 15 → 16 is deliberate: the field
+  // rename had to land first so users on the intermediate state had
+  // working SR/Database tabs against the merged cardsContextIds field.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = out.session?.ui;
+    if (ui && typeof ui === 'object') {
+      if (ui.activeTab === 'sr' || ui.activeTab === 'database') {
+        ui.activeTab = 'cards';
+      }
     }
     return out;
   },

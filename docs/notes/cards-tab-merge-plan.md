@@ -1,8 +1,17 @@
 # Cards Tab Merge — Design Note
 
-**Status:** Planned (2026-05-02). Not yet implemented. This document
-captures the chosen direction and the reasoning behind it so the
-feature can be picked up later without re-deriving the trade-offs.
+**Status:** Implemented 2026-05-06 across two PRs as the two-PR seam
+below recommended. Worklogs at
+`docs/worklog/2026-05-06-cards-tab-merge-pr1-per-board-forest.md`
+(PR 1 — schema migration 15 → 16, per-board forest, composable
+signatures, orange overlay) and
+`docs/worklog/2026-05-06-cards-tab-merge-pr2-tab-restructure.md`
+(PR 2 — schema migration 16 → 17, `ReviewSessionPanel` extraction,
+`ForestDirectory` host integration, `App.vue` tab collapse). The
+remainder of this document is the design record at the time of
+authoring; deviations from it during implementation are recorded in
+the worklogs. The "Open questions for execution time" section at
+the bottom is annotated with the choices actually taken.
 
 **Motivation:** the current SR and Database control-panel tabs both
 render a deck-config form (deck dropdown + context-ids input) that
@@ -399,14 +408,26 @@ for review-ergonomics, not technical necessity.
    `store.boards`? `removeBoardCardTree` should be wired to the
    same point. If no removal flow exists today, defer the wire
    (the map is GCable on reload).
+   *Resolution (2026-05-06): wired into `closeBoard` in
+   `src/store/index.ts` as the seventh enumerated cleanup, plus
+   `clearAllBoardCardTrees` from `resetWorkspace` for identity
+   flips. Tracked as resource-ownership audit pair O12.*
 2. **`cardsContextIds` scope revisit.** If the workflow turns out
    to be "each board habitually uses different context-ids,"
    per-board form state is a small follow-up. Not in scope for
    this change.
+   *Resolution (2026-05-06): single workspace-global field as
+   originally specified. Per-board scoping deferred until the
+   workflow demands it; type-system change is a one-line follow-up
+   if so.*
 3. **"Run pipeline" button with no review.** Preserved as today's
    browse-only action. If telemetry or feel suggests users only
    ever press "Start review session," the button could be retired
    in a follow-up.
+   *Resolution (2026-05-06): preserved. Both buttons coexist in the
+   Decks subtab idle state; "Start Review Session" is the
+   secondary-accent affordance, "Run pipeline" is the muted-
+   default browse-only action.*
 
 ---
 
