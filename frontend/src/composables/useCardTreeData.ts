@@ -33,6 +33,7 @@ import type {
 } from '../types';
 import { CardTreeOverflowError } from '../types';
 import { backendService } from '../services/backend-service';
+import { pushSystemMessage } from '../store';
 import {
   getOrCreateBoardCardTree,
   getBoardCardTree,
@@ -55,6 +56,15 @@ export interface CardTreeData {
   runPipeline: (deck: CardSet, contextIds: number[]) => Promise<ReviewCard[]>;
   setForestStats: (stats: ForestStat[]) => void;
   requestCard: (cardId: CardId) => Promise<void>;
+  // Re-hydrate the forest from a known queue of matched cards
+  // without re-running the deck pipeline. Used by the cards-tab
+  // re-hydrate path (browser reopen mid-session): the review
+  // queue persists via SyncService but the forest doesn't, and
+  // without this seed the user lands mid-session with no view of
+  // where they are in the forest. Idempotent — short-circuits if
+  // the slot's forest is already populated. See
+  // `ForestDirectory.vue`'s seed-from-queue watcher.
+  seedFromQueue: (queue: ReviewCard[]) => Promise<void>;
 }
 
 const EMPTY_FOREST: CardLineageTree[] = [];
@@ -157,35 +167,7 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
         target.error = 'Pipeline returned no cards.';
         return [];
       }
-      const matchedIds = matched.map(c => c.id);
-      const grouped: ResolveRootsResult = await backendService.resolveRoots(matchedIds);
-      if (grouped.unmatchedCardIds.length > 0) {
-        console.warn(
-          '[useCardTreeData] resolve-roots reported unmatched ids:',
-          grouped.unmatchedCardIds,
-        );
-      }
-      const trees = await Promise.all(
-        grouped.roots.map((g: RootGroup) =>
-          backendService
-            .fetchTreeByRoot(g.rootCardId)
-            .catch(treeErr => {
-              // Per ADR-0002, surface the per-root failure rather than
-              // dropping it silently. The host page also gets the
-              // remainder of the trees that did succeed.
-              console.error(
-                '[useCardTreeData] tree-by-root failed for',
-                g.rootCardId,
-                treeErr,
-              );
-              return null;
-            }),
-        ),
-      );
-      const target = getOrCreateBoardCardTree(id);
-      target.forest = trees.filter((t): t is CardLineageTree => t !== null);
-      target.activeSet = new Set(matchedIds);
-      target.cards = new Map(matched.map(c => [c.id, c] as const));
+      await populateSlotFromMatched(id, matched);
       return matched;
     } catch (err) {
       const target = getOrCreateBoardCardTree(id);
@@ -194,6 +176,111 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
     } finally {
       const target = getOrCreateBoardCardTree(id);
       target.isLoading = false;
+    }
+  }
+
+  /**
+   * Re-hydrate the slot's forest from a pre-fetched queue of matched
+   * cards, skipping the deck-pipeline call. Used by the cards-tab
+   * re-hydrate path: when a review queue persists across a browser
+   * reload (via SyncService) but the forest doesn't (per
+   * `board-card-trees.ts`'s ephemeral-data rationale), the user
+   * lands mid-session with `inReviewSession === true` but
+   * `tree.forest === []`. Without re-fetching the trees, the
+   * Lineage Explorer is empty and the user has no view of where
+   * they are in the session.
+   *
+   * Idempotent: short-circuits when the slot's forest is already
+   * populated, so the watcher in ForestDirectory can fire freely on
+   * any board / queue change without producing duplicate fetches.
+   *
+   * Doesn't touch the active set or hydrated-cards map until the
+   * tree fetches actually complete — keeps the spinner visible
+   * until the forest is renderable rather than flashing an empty
+   * "0 active" header.
+   */
+  async function seedFromQueue(queue: ReviewCard[]): Promise<void> {
+    const id = boardIdRef.value;
+    if (!id) return;
+    if (queue.length === 0) return;
+    const existingSlot = getBoardCardTree(id);
+    if (existingSlot && existingSlot.forest.length > 0) return;
+    if (existingSlot && existingSlot.isLoading) return;
+    const slot = getOrCreateBoardCardTree(id);
+    slot.isLoading = true;
+    slot.error = null;
+    try {
+      await populateSlotFromMatched(id, queue);
+    } catch (err) {
+      const target = getOrCreateBoardCardTree(id);
+      target.error = formatError(err);
+    } finally {
+      const target = getOrCreateBoardCardTree(id);
+      target.isLoading = false;
+    }
+  }
+
+  /**
+   * Shared between `runPipeline` and `seedFromQueue`: given a
+   * pre-fetched matched-card list, resolve roots, fetch trees, and
+   * write into the slot. Per-root tree-fetch failures (typically a
+   * 422 `CardTreeOverflowError` for trees exceeding the backend's
+   * max-nodes cap) are surfaced via `pushSystemMessage` per
+   * ADR-0002 — without it, the failures are silently dropped and
+   * the user sees fewer trees than the active set's count would
+   * suggest, with no diagnostic to explain why. Long-standing
+   * pre-existing behaviour; this function makes the failure mode
+   * audible.
+   */
+  async function populateSlotFromMatched(
+    id: BoardId,
+    matched: ReviewCard[],
+  ): Promise<void> {
+    const matchedIds = matched.map(c => c.id);
+    const grouped: ResolveRootsResult = await backendService.resolveRoots(matchedIds);
+    if (grouped.unmatchedCardIds.length > 0) {
+      console.warn(
+        '[useCardTreeData] resolve-roots reported unmatched ids:',
+        grouped.unmatchedCardIds,
+      );
+    }
+    const failed: { rootCardId: number; reason: string }[] = [];
+    const trees = await Promise.all(
+      grouped.roots.map((g: RootGroup) =>
+        backendService
+          .fetchTreeByRoot(g.rootCardId)
+          .catch(treeErr => {
+            // Per ADR-0002, surface the per-root failure to the user.
+            // Aggregating across failures (rather than one toast per
+            // root) keeps the system-log noise bounded for the
+            // common "deck spans many trees of which N are too large"
+            // case.
+            console.error(
+              '[useCardTreeData] tree-by-root failed for',
+              g.rootCardId,
+              treeErr,
+            );
+            failed.push({
+              rootCardId: g.rootCardId as unknown as number,
+              reason: treeErr instanceof Error ? treeErr.message : String(treeErr),
+            });
+            return null;
+          }),
+      ),
+    );
+    const target = getOrCreateBoardCardTree(id);
+    target.forest = trees.filter((t): t is CardLineageTree => t !== null);
+    target.activeSet = new Set(matchedIds);
+    target.cards = new Map(matched.map(c => [c.id, c] as const));
+    if (failed.length > 0) {
+      const head = failed.slice(0, 3).map(f => `#${f.rootCardId}`).join(', ');
+      const tail = failed.length > 3 ? `, … and ${failed.length - 3} more` : '';
+      pushSystemMessage(
+        'warning',
+        `Lineage Explorer: ${failed.length} tree${failed.length === 1 ? '' : 's'} ` +
+        `(${head}${tail}) could not be fetched — matched cards in those trees ` +
+        `won't be visible in the forest. First failure: ${failed[0].reason}.`,
+      );
     }
   }
 
@@ -228,6 +315,7 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
     runPipeline,
     setForestStats,
     requestCard,
+    seedFromQueue,
   };
 }
 

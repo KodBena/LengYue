@@ -84,15 +84,28 @@ export function toEChartsNode(
   }
   if (node.kind === 'stub') {
     const isCurrent = currentCardId !== null && node.cardId === currentCardId;
+    // When the stub's head card is in the active set (an active
+    // leaf with cold descendants — the spec's "hot but not warm"
+    // case), paint the fill in the active color so the matched
+    // card is recognisable at a glance. The dashed border is
+    // preserved as the stub-shape signal — clicking still expands
+    // the underlying subtree. Without this, an active stub looks
+    // like an inactive stub plus a thin colored border, which
+    // reads as "barely a different gray glyph" rather than
+    // "matched card with hidden descendants" — the long-standing
+    // visual-confusion bug surfaced during the cards-tab-merge
+    // arc's review.
     return {
       name: `+${node.subtreeSize}`,
       payload: { kind: 'stub', cardId: node.cardId },
       symbolSize: 9,
       itemStyle: {
-        color: colors.stub,
-        borderColor: isCurrent
+        color: isCurrent
           ? colors.current
-          : (node.isHeadActive ? colors.stubActiveBorder : colors.stubBorder),
+          : (node.isHeadActive ? colors.active : colors.stub),
+        borderColor: isCurrent
+          ? colors.currentBorder
+          : (node.isHeadActive ? colors.activeBorder : colors.stubBorder),
         borderWidth: isCurrent || node.isHeadActive ? 1.5 : 1,
         borderType: 'dashed',
       },
