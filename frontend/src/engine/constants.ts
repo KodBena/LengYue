@@ -89,6 +89,30 @@ export const MARKER_INNER_RATIO = 0.4;
  */
 export const PONDER_MAX_VISITS = 100000;
 
+/**
+ * Maximum number of roots whose lineage trees the Forest Directory
+ * navigator will auto-load into the right pane on a game-node
+ * selection. Past this cap, selecting a game shows a guidance
+ * message in the right pane instead of fetching every tree —
+ * `ForestDirectory.vue`'s selection watcher checks `game.roots.length`
+ * against this constant before calling `tree.loadBrowseForest(...)`.
+ *
+ * The cap is on the FETCH side (avoid 200+ parallel
+ * `fetchTreeByRoot` calls when the user's intent is to browse, not
+ * display every tree); `CardTreeWidget`'s vertical-stack-with-one-
+ * expanded layout handles modest trees-per-forest counts without
+ * visual squeeze, but parallel fetch ceilings and per-tree CTE costs
+ * make 8 a reasonable upper bound for "small game, auto-load all
+ * roots." The 276-root case in the user's actual data sits well
+ * past this cap and falls through to sub-selection.
+ *
+ * Tuning consideration: if the auto-load feels too eager at 8
+ * (e.g., right pane visually crowded for 5-7 root games), drop
+ * to 4. If users routinely have 15-20-root games where they want
+ * "show all", raise to 16 — the bound is policy, not structural.
+ */
+export const MULTI_ROOT_DISPLAY_CAP = 8;
+
 export const BOARD_COLOR = '#dcb35c';
 export const LINE_COLOR  = '#222';
 export const LABEL_COLOR = '#444';
