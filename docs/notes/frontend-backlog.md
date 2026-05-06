@@ -32,7 +32,7 @@ Bugs or other rough edges
   a single check covers nested elements inside any contenteditable
   surface (CodeMirror today, Monaco if ever added, generic
   contenteditable mounts).
-* After spaced repetition when the game rewinds to initial position, when entering intermission, you can't click on the chart like on the PlayerPanel (actually, if PlayerPanel isn't reused, why is that? should it be?)
+* ~~After spaced repetition when the game rewinds to initial position, when entering intermission, you can't click on the chart like on the PlayerPanel~~ Closed 2026-05-06: `ReviewSessionPanel.vue`'s intermission `BaseChart` now wires its `@index-click` to a local `handleIntermissionClick` that navigates the board to the position the user faced when making the clicked move (1-indexed along the chart's x-axis), with `position before user move k = path index startIdx + 2(k-1)` since each user move + engine response advances 2 plies along the active variation. Same "navigate to position BEFORE the move" semantics as `useChartNavigation::handlePlayerClick` on the analysis tab; the chart wasn't reused as `AnalysisChartPanel` (which would bring thumbnail-on-hover overlay and `axisPointer` cosmetics) — the intermission chart is a small 180px-tall summary, not a full per-player delta view, and the simpler BaseChart suffices for the click-only fix. Worklog at `docs/worklog/2026-05-06-intermission-chart-click.md`.
 * When hovering PV, still shows text annotation (like number of visit or scoreLead), but shouldn't
 * Need an override for visits in SR; card metadata should be displayed for active review sessions
 * Need a card editor; probably there is going to be some DRY/reuse related to the above

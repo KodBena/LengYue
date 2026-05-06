@@ -224,7 +224,7 @@ export const defaultProfile: ProfileState = {
 };
 
 export const defaultSessionUI: UISession = {
-  activeTab: 'sr',
+  activeTab: 'cards',
   sidebarExpanded: true,
   treeExpanded: true,
   controlsExpanded: true,
