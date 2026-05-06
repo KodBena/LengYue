@@ -9,9 +9,9 @@ ADRs in `../adr/`.
 
 ## Contents
 
-The five files split into three genres: pre-umbrella cross-team
-communications, a pre-umbrella state-of-system snapshot, and a
-v1-release scope freeze.
+The six files split into four genres: pre-umbrella cross-team
+communications, a pre-umbrella state-of-system snapshot, a
+v1-release scope freeze, and a post-v1 TODO-completion snapshot.
 
 ### Backend → frontend communications during the 34b project
 
@@ -61,6 +61,20 @@ internal reference.
   snapshot. The closure document that replaces it for
   current-state purposes is
   `../notes/release-retrospective-2026-04.md`.
+
+### Post-v1 TODO-completion snapshot
+
+- **`TODO-completed-2026-05-06.md`** — snapshot of `../TODO.md`'s
+  `Completed — do not act on these (reference only)` section
+  (Backend / Frontend / Joint synopsis tables plus the
+  `Documentation (architectural records)` reference sub-table)
+  and the `Tenancy model — recorded for context` block that
+  preceded it, archived 2026-05-06 to bound the size of the live
+  tracker. The de-branding preservation note that scoped the
+  now-archived Trivial / Small / Medium entries was moved
+  alongside as an appendix. The live `../TODO.md` retains only
+  Active items, Future projects, and the Implementation-order
+  recommendation.
 
 ## On the naming asymmetry
 
