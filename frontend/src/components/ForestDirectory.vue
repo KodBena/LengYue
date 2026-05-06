@@ -14,7 +14,9 @@ import { store, activeBoard } from '../store';
 import { backendService } from '../services/backend-service';
 import type { BoardId, CardId, ForestStat, ReviewCard } from '../types';
 import { useCardTreeData } from '../composables/useCardTreeData';
+import { useReviewSession } from '../composables/useReviewSession';
 import CardTreeWidget from './charts/CardTreeWidget.vue';
+import ReviewSessionPanel from './ReviewSessionPanel.vue';
 
 const emit = defineEmits<{
   (e: 'load-card', card: ReviewCard): void;
@@ -34,20 +36,28 @@ const activeRootId = ref<number | null>(null);
 // widget displays — same shape as `useReviewSession(boardIdRef)`.
 const boardIdRef = computed<BoardId | null>(() => activeBoard.value?.id ?? null);
 const tree = useCardTreeData(boardIdRef);
+const reviewSession = useReviewSession(boardIdRef);
 const selectedDeckId = ref<string>(store.session.ui.activeCardSetId);
 const orientation = ref<'horizontal' | 'vertical'>('vertical');
 
+// "In-session" gating for the Decks panel: when a session is running
+// against the active board, the Decks left panel hosts the
+// ReviewSessionPanel in place of the deck-config form. Mirrors the
+// pre-merge SR tab's gating: deck-config form when IDLE / LOADING,
+// in-session controls when a current card exists. Per
+// `cards-tab-merge-plan.md`'s "in-session state" section.
+const inReviewSession = computed<boolean>(() =>
+  reviewSession.currentCard.value !== null
+);
+
 // Render-time overlay: highlight the active board's current review
 // card in orange against the forest's blue active-set rendering.
-// Reads from `store.session.reviews[boardId]` directly because the
-// composable's `currentCard` is per-instance and we don't want to
-// instantiate `useReviewSession` here just for this read.
+// Routes through `reviewSession.currentCard` rather than reading
+// `store.session.reviews` directly because the composable's
+// projection already does the boardId-keyed lookup; passing through
+// keeps one source of truth for "what card is the user reviewing".
 const currentCardId = computed<CardId | null>(() => {
-  const id = boardIdRef.value;
-  if (!id) return null;
-  const review = store.session.reviews[id];
-  if (!review || review.currentIndex < 0) return null;
-  const card = review.queue[review.currentIndex];
+  const card = reviewSession.currentCard.value;
   return card ? card.id : null;
 });
 
@@ -97,6 +107,30 @@ async function runDeck(): Promise<void> {
   await tree.runPipeline(deck, store.session.ui.cardsContextIds);
 }
 
+/**
+ * Start a review session from the currently-selected deck-config.
+ * The cards-tab-merge arc collapses two backend round-trips
+ * (pipeline + start-session) to one — `tree.runPipeline` populates
+ * the forest visualisation AND returns the matched cards;
+ * `reviewSession.startSession` consumes the queue directly without
+ * a second fetch. The forest's active set and the review queue are
+ * by-construction the same set of cards.
+ *
+ * If the pipeline produces no matches, `runPipeline` returns `[]`
+ * and sets the slot's `error`; `startSession` short-circuits to
+ * IDLE without spinning up state. Both surfaces (the forest's
+ * empty state and the reviewSession state) reflect that
+ * correctly.
+ */
+async function startReviewFromConfig(): Promise<void> {
+  const deck = store.profile.cardSets[selectedDeckId.value];
+  if (!deck) return;
+  const matched = await tree.runPipeline(deck, store.session.ui.cardsContextIds);
+  if (matched.length > 0) {
+    await reviewSession.startSession(matched);
+  }
+}
+
 function updateContextIds(val: string): void {
   // Mirrors CardSetEditor's parser: split on comma, parse, drop NaN.
   store.session.ui.cardsContextIds = val
@@ -129,9 +163,10 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
         <button :class="{ active: activeTab === 'roots' }" @click="activeTab = 'roots'">Roots</button>
       </div>
 
-      <!-- TAB 1: DECKS -->
+      <!-- TAB 1: DECKS — deck-config form when idle, ReviewSessionPanel when a session is running -->
       <div v-if="activeTab === 'decks'" class="decks-view">
-        <div class="deck-selector-box">
+        <ReviewSessionPanel v-if="inReviewSession" />
+        <div v-else class="deck-selector-box">
           <label>Select Deck:</label>
           <select v-model="selectedDeckId" class="dark-select deck-dropdown">
             <option v-for="set in store.profile.cardSets" :key="set.id" :value="set.id">
@@ -150,7 +185,22 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
             title="Comma-separated root card ids fed to the deck pipeline."
           />
 
-          <button class="action-btn-large" @click="runDeck">Run pipeline</button>
+          <button
+            class="action-btn-large start-review-btn"
+            @click="startReviewFromConfig"
+            :disabled="!store.profile.cardSets[selectedDeckId]"
+            title="Run the pipeline and immediately start a review session against the matched cards."
+          >
+            Start Review Session
+          </button>
+          <button
+            class="action-btn-large"
+            @click="runDeck"
+            :disabled="!store.profile.cardSets[selectedDeckId]"
+            title="Run the pipeline and populate the forest in browse mode (no review)."
+          >
+            Run pipeline
+          </button>
         </div>
       </div>
 
@@ -240,6 +290,8 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
 .deck-dropdown:focus { border-color: var(--accent-primary); }
 .hint { font-size: var(--text-body); color: var(--text-2); margin: 0 0 var(--space-tight) 0; }
 .action-btn-large { width: 100%; background: var(--surface-2); color: var(--accent-primary); border: 1px solid var(--border-2); padding: 2px 4px; border-radius: var(--radius-default); font-size: var(--text-emphasis); cursor: pointer; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
+.action-btn-large:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
+.start-review-btn { background: var(--accent-secondary); color: var(--surface-1); margin-bottom: var(--space-tight); }
 .tools-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 8px; border-bottom: 1px solid var(--surface-3); }
 .reload-btn { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: var(--text-heading); padding: 0; line-height: 1; }
 .roots-list { flex: 1; overflow-y: auto; padding: var(--space-tight); display: flex; flex-direction: column; gap: 3px; }

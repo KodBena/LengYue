@@ -12,7 +12,6 @@ import { useResizablePanel } from './composables/useResizablePanel';
 import { useDirtyBoardGuard } from './composables/useDirtyBoardGuard';
 import { useAppBootstrap } from './composables/useAppBootstrap';
 import { useTransientLogReveal } from './composables/useTransientLogReveal';
-import { themeColor } from './utils/theme-color';
 import {
   store,
   activeBoard,
@@ -27,7 +26,6 @@ import { navigateTo }     from './engine/navigator';
 import { updateRegistry } from './engine/util';
 
 import { analysisService } from './services/analysis-service';
-import { backendService } from './services/backend-service';
 
 import BoardWidget      from './components/BoardWidget.vue';
 import SidebarWidget    from './components/SidebarWidget.vue';
@@ -46,7 +44,6 @@ import SystemLogPanel   from './components/SystemLogPanel.vue';
 import RootErrorBoundary from './components/RootErrorBoundary.vue';
 
 import { useReviewSession } from './composables/useReviewSession';
-import BaseChart from './components/charts/BaseChart.vue';
 import ColorDebugStrip  from './components/charts/ColorDebugStrip.vue';
 import QeuboBookmarks   from './components/QeuboBookmarks.vue';
 
@@ -105,48 +102,7 @@ function handleUpdateKomi(newKomi: number) {
 const confirmLoadModalRef = vueRef<InstanceType<typeof ConfirmLoadModal> | null>(null);
 const { handleLoadCard } = useDirtyBoardGuard(confirmLoadModalRef);
 
-const intermissionSeries = computed(() => {
-  if (reviewSession.state.value !== 'FINISHED') return [];
-  const accentSecondary = themeColor('--accent-secondary');
-  const data = reviewSession.userMoveScores.value.map((score, index) => {
-    return { value: [index + 1, score], itemStyle: { color: accentSecondary } };
-  });
-  return [{ name: 'Move Score (Delta)', data, color: accentSecondary, showPoints: true }];
-});
-
 const { startResize } = useResizablePanel();
-
-async function startEbisu() {
-  // Pre-fetch the queue here and hand it to startSession. The
-  // cards-tab-merge arc collapses two backend round-trips (pipeline
-  // + start-session) to one — `useReviewSession.startSession` no
-  // longer fetches internally; the queue must arrive prefabricated.
-  // PR 2 of the merge arc will route this through
-  // `useCardTreeData.runPipeline` so the forest visualisation and
-  // the review queue share one pipeline call; for now the SR tab's
-  // own minimal pipeline call is enough to keep behaviour identical
-  // to the pre-merge SR tab.
-  const deck = store.profile.cardSets[store.session.ui.activeCardSetId];
-  if (!deck) return;
-  try {
-    const matched = await backendService.queryForest(
-      store.session.ui.cardsContextIds,
-      deck.pipeline,
-    );
-    await reviewSession.startSession(matched);
-  } catch (err) {
-    console.error('[App] startEbisu pipeline call failed:', err);
-  }
-}
-
-// Thin adapter: the input event's value arrives as a string from the
-// DOM; the composable wants a number. Validation (finite, >= 1) lives
-// in setVisitsOverride itself, so this wrapper is purely about types.
-function handleVisitsOverrideChange(e: Event) {
-  const raw = (e.target as HTMLInputElement).value;
-  const n = Number(raw);
-  reviewSession.setVisitsOverride(n);
-}
 
 const { sync } = useAppBootstrap(auth);
 
@@ -156,8 +112,7 @@ const { sync } = useAppBootstrap(auth);
 const transientLogReveal = useTransientLogReveal();
 
 const controlTabs = [
-  { id: 'sr',       label: 'SR'       },
-  { id: 'database', label: 'Database' },
+  { id: 'cards',    label: 'Cards'    },
   { id: 'settings', label: 'Settings' },
   { id: 'analysis', label: 'Analysis' },
   { id: 'other',    label: 'Other'    },
@@ -314,89 +269,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
             v-model="(store.session.ui.activeTab as string)"
           >
 
-            <template #sr>
-              <div class="tab-padding-sr">
-                <div v-if="reviewSession.state.value === 'IDLE' || reviewSession.state.value === 'LOADING'">
-                  <h3>Spaced Repetition</h3>
-                  
-                  <div class="deck-selector-box">
-                    <label>Deck:</label>
-                    <select v-model="store.session.ui.activeCardSetId" class="dark-select deck-dropdown">
-                      <option v-for="set in store.profile.cardSets" :key="set.id" :value="set.id">
-                        {{ set.name }}
-                      </option>
-                    </select>
-                    <p class="hint">{{ store.profile.cardSets[store.session.ui.activeCardSetId]?.description }}</p>
-
-                    <label style="margin-top: var(--space-default);">Context IDs:</label>
-                    <input
-                      type="text"
-                      class="dark-input deck-dropdown"
-                      placeholder="e.g. 3, 4, 12"
-                      :value="store.session.ui.cardsContextIds.join(', ')"
-                      @input="(e: any) => store.session.ui.cardsContextIds = e.target.value.split(',').map((s: string) => parseInt(s.trim(), 10)).filter((n: number) => !isNaN(n))"
-                      title="Comma-separated root card ids fed to the deck pipeline."
-                    />
-                  </div>
-
-                  <button
-                    class="action-btn-large"
-                    style="background: var(--accent-secondary); color: var(--surface-1); margin-bottom: var(--space-loose);"
-                    @click="startEbisu"
-                    :disabled="reviewSession.state.value === 'LOADING' || !store.profile.cardSets[store.session.ui.activeCardSetId]"
-                  >
-                    {{ reviewSession.state.value === 'LOADING' ? 'Fetching Cards...' : 'Start Review Session' }}
-                  </button>
-                </div>
-
-                <div v-else-if="reviewSession.currentCard.value">
-                  <h3>{{ reviewSession.state.value === 'FINISHED' ? 'Intermission' : 'Review Active' }}</h3>
-                  <p class="hint text-muted" style="margin-bottom: var(--space-medium);">
-                    Card {{ reviewSession.queue.value.indexOf(reviewSession.currentCard.value) + 1 }} of {{ reviewSession.queue.value.length }}
-                  </p>
-                  
-                  <p style="font-weight: bold; margin-bottom: var(--space-medium);" 
-                     :style="{ color: reviewSession.state.value === 'FINISHED' ? 'var(--accent-secondary)' : 'var(--state-attention)' }">
-                    Status: {{ reviewSession.state.value }} 
-                    <span v-if="reviewSession.state.value === 'ANALYZING'">(KataGo is pondering...)</span>
-                  </p>
-
-                  <div v-if="reviewSession.state.value === 'FINISHED'" style="height: 180px; width: 100%; margin-bottom: var(--space-loose); background: var(--surface-0); border: 1px solid var(--surface-3); border-radius: var(--radius-default);">
-                    <BaseChart :series="intermissionSeries" :zoomRange="[1, reviewSession.currentCard.value.numMoves]" />
-                  </div>
-
-                  <p class="hint text-muted" style="margin-bottom: var(--space-medium);" v-if="reviewSession.state.value !== 'FINISHED'">
-                    Moves made: {{ reviewSession.userMovesCount.value }} / {{ reviewSession.currentCard.value.numMoves }}
-                  </p>
-
-                  <!-- Per-card sticky visits override. The input shows the
-                       effective value (override if set, else the card's
-                       defaultVisits). Persists across moves within the
-                       same card; auto-resets on next card via loadCard. -->
-                  <div v-if="reviewSession.state.value !== 'FINISHED'" class="visits-override-row">
-                    <label>Max visits (this card):</label>
-                    <input
-                      type="number"
-                      min="1"
-                      step="50"
-                      :value="reviewSession.effectiveVisits.value"
-                      @change="handleVisitsOverrideChange"
-                      class="dark-input visits-input"
-                    />
-                  </div>
-
-                  <button class="action-btn-large" style="margin-bottom: var(--space-medium); margin-top: var(--space-medium);" @click="reviewSession.nextCard">
-                    {{ reviewSession.state.value === 'FINISHED' ? 'Next Card' : 'Skip Card' }}
-                  </button>
-                  
-                  <button class="toolbar-btn-sm" @click="reviewSession.rewindToStart">
-                    Rewind to Start
-                  </button>
-                </div>
-              </div>
-            </template>
-
-            <template #database>
+            <template #cards>
               <div style="flex: 1; display: flex; min-height: 0; width: 100%;">
                 <ForestDirectory @load-card="handleLoadCard" />
               </div>
