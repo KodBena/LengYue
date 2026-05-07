@@ -600,24 +600,20 @@ async def test_lexicographic_order_compound_key(seeded_session):
     assert leaf_pos < internal_pos
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "D-9: PipelineExecutor only handles DescendantSelection and "
-        "filter-over-DescendantSelection. All other selection types fall "
-        "through to the same fetch_lineage(context_id) call with no ancestor "
-        "walk, making SubtreeSelection(n=1) identical to SubtreeSelection(n=0)."
-    ),
-)
 async def test_subtree_selection_n1_walks_up_one_ancestor(seeded_session):
     """
-    D-9: SubtreeSelection(n=1) should anchor at the parent of the context node.
+    D-9 fix regression: ``SubtreeSelection(n=1)`` anchors at the
+    parent of the context node and returns the parent's full
+    subtree. The fix landed in
+    ``repositories/lineage_repository.py``'s ``AncestorSelection``
+    branch — the recursive step now climbs one level per iteration
+    rather than two, so n=1 correctly resolves to the parent (not
+    the grandparent). ``SubtreeSelection`` with n>0 reuses the
+    AncestorSelection CTE, so the same fix closes both defects.
 
-    Tree: grand → parent → ctx → child
-    Selection from ctx with n=1: should return parent + its full subtree
-    [parent, ctx, child] — 3 nodes.
-
-    Today it returns [ctx, child] — 2 nodes (n is ignored).
+    Tree: grand → parent → ctx → child.
+    SubtreeSelection(n=1) from ctx: anchor at parent, descend the
+    parent's subtree → {parent, ctx, child}.
     """
     session, builder = seeded_session
     ids = await builder.build({
