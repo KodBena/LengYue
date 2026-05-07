@@ -1,0 +1,254 @@
+/**
+ * tests/integration/store-mutators.test.ts
+ *
+ * Tier-3 (composable / store integration) tests for the two
+ * load-bearing workspace mutators in `src/store/index.ts` —
+ * `closeBoard` and `resetWorkspace`. Both are the post-resource-
+ * ownership-audit worked examples named in `frontend/CLAUDE.md`'s
+ * §"Resource ownership at mutation sites"; their cleanup chains
+ * are the canonical reference future contributors read before
+ * extending either function or introducing a similar mutator.
+ *
+ * The audit pairs (O1–O13 in
+ * `docs/notes/resource-ownership-audit-plan.md`) record each
+ * external resource a board owns and the cleanup that releases
+ * it on board close / identity flip. Bugs in this layer are
+ * silent — a missed cleanup leaks the resource until the user
+ * closes another tab / logs out, manifesting as
+ * "store keeps growing" or, in the privacy-relevant pairs (O10,
+ * O12), as cross-identity card-tree or card-thumbnail leakage.
+ *
+ * The tests below pin every cleanup-call wired into closeBoard
+ * and resetWorkspace as a record-and-verify spy. The fakes /
+ * vi.mocked module replacements are wired so the spies record
+ * the call shape without invoking the real network or DOM
+ * dependencies.
+ *
+ * License: Public Domain (The Unlicense)
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// Service mocks (network boundaries).
+vi.mock('../../src/services/analysis-service', async () => {
+  const { fakeAnalysisService } = await import('../fakes/analysis-service');
+  return { analysisService: fakeAnalysisService };
+});
+
+vi.mock('../../src/services/analysis-persistence-service', async () => {
+  const { fakeAnalysisPersistenceService } = await import('../fakes/analysis-persistence-service');
+  return { analysisPersistenceService: fakeAnalysisPersistenceService };
+});
+
+// Composable-exported cleanup functions. Replace each with a
+// vi.fn() spy; resetWorkspace and closeBoard call these as part
+// of their cleanup chain, and the assertion is on call shape.
+vi.mock('../../src/composables/useCardThumbnail', () => ({
+  clearCardThumbnailCache: vi.fn(),
+  getCardThumbnailSync: vi.fn(() => ''),
+}));
+
+vi.mock('../../src/composables/useThumbnailCache', () => ({
+  purgeBoardThumbnails: vi.fn(),
+  purgeAllThumbnails: vi.fn(),
+  useThumbnailCache: () => ({
+    getThumbnailSvg: vi.fn(),
+    getVariationThumbnail: vi.fn(),
+    getSync: vi.fn(),
+    warmPath: vi.fn(),
+  }),
+}));
+
+vi.mock('../../src/composables/board-card-trees', () => ({
+  removeBoardCardTree: vi.fn(),
+  clearAllBoardCardTrees: vi.fn(),
+  getOrCreateBoardCardTree: vi.fn(),
+  getBoardCardTree: vi.fn(() => null),
+}));
+
+import {
+  store,
+  addBoard,
+  closeBoard,
+  resetWorkspace,
+} from '../../src/store';
+import { createInitialBoard } from '../../src/store/board-factory';
+import { ledger } from '../../src/services/analysis-ledger';
+import { fakeAnalysisService, resetFakeAnalysisService } from '../fakes/analysis-service';
+import {
+  fakeAnalysisPersistenceService,
+  resetFakeAnalysisPersistenceService,
+} from '../fakes/analysis-persistence-service';
+import { clearCardThumbnailCache } from '../../src/composables/useCardThumbnail';
+import {
+  purgeBoardThumbnails,
+  purgeAllThumbnails,
+} from '../../src/composables/useThumbnailCache';
+import {
+  removeBoardCardTree,
+  clearAllBoardCardTrees,
+} from '../../src/composables/board-card-trees';
+import type { BoardId } from '../../src/types';
+
+beforeEach(() => {
+  resetFakeAnalysisService();
+  resetFakeAnalysisPersistenceService();
+  vi.mocked(clearCardThumbnailCache).mockReset();
+  vi.mocked(purgeBoardThumbnails).mockReset();
+  vi.mocked(purgeAllThumbnails).mockReset();
+  vi.mocked(removeBoardCardTree).mockReset();
+  vi.mocked(clearAllBoardCardTrees).mockReset();
+  resetWorkspace();
+  // Clear the post-reset baseline so per-test assertions are
+  // honest. resetWorkspace itself fires every cleanup spy once.
+  resetFakeAnalysisService();
+  resetFakeAnalysisPersistenceService();
+  vi.mocked(clearCardThumbnailCache).mockReset();
+  vi.mocked(purgeBoardThumbnails).mockReset();
+  vi.mocked(purgeAllThumbnails).mockReset();
+  vi.mocked(removeBoardCardTree).mockReset();
+  vi.mocked(clearAllBoardCardTrees).mockReset();
+});
+
+describe('closeBoard — resource-ownership cleanup chain', () => {
+  it('fires every per-board cleanup on the closing board\'s BoardId', () => {
+    // Add a second board so closeBoard exercises the splice
+    // branch (rather than the "last-board → spawn a fresh blank"
+    // branch).
+    const second = createInitialBoard();
+    addBoard(second);
+
+    // Pre-populate the per-board dictionaries so the deletes have
+    // observable effects.
+    store.session.reviews[second.id] = {
+      status: 'IDLE',
+      queue: [],
+      currentIndex: -1,
+      startingNodeId: null,
+      userMovesCount: 0,
+      userMoveScores: [],
+      visitsOverride: null,
+    };
+    store.engine.activeMode[second.id] = 'none';
+
+    // Spy on the ledger's purgeBoard — it's a real module-scope
+    // singleton; vi.spyOn lets us record the call without
+    // replacing behaviour.
+    const purgeBoardSpy = vi.spyOn(ledger, 'purgeBoard');
+
+    closeBoard(second.id);
+
+    // Service calls (audit O1, O13).
+    expect(fakeAnalysisService.stopBoardAnalysis).toHaveBeenCalledWith(second.id);
+    expect(purgeBoardSpy).toHaveBeenCalledWith(second.id);
+    expect(fakeAnalysisPersistenceService.discard).toHaveBeenCalledWith(second.id);
+
+    // Per-board dictionary deletes (audit O2, O3).
+    expect(store.session.reviews[second.id]).toBeUndefined();
+    expect(store.engine.activeMode[second.id]).toBeUndefined();
+
+    // Composable-exported cleanups (audit O4, O5, O12).
+    // abortBoardReview is called via the real composable export;
+    // its observable effect is the abort firing on the in-flight
+    // wait — already covered in
+    // useReviewSession.test.ts's "closeBoard fires …" path. Here
+    // we focus on the spies that record specifically for closeBoard.
+    expect(purgeBoardThumbnails).toHaveBeenCalledWith(second.id);
+    expect(removeBoardCardTree).toHaveBeenCalledWith(second.id);
+
+    // The board has been removed from store.boards.
+    const remaining = store.boards.find(b => b.id === second.id);
+    expect(remaining).toBeUndefined();
+
+    purgeBoardSpy.mockRestore();
+  });
+
+  it('spawns a fresh blank board when closing the only remaining board', () => {
+    // Default state has one board; close it and the last-board
+    // branch fires: store.boards becomes [createInitialBoard()].
+    const onlyBoard = store.boards[0];
+    const onlyId: BoardId = onlyBoard.id;
+
+    closeBoard(onlyId);
+
+    expect(store.boards).toHaveLength(1);
+    // The replacement is a fresh board, not the closed one — the
+    // BoardId is freshly minted by createInitialBoard.
+    expect(store.boards[0].id).not.toBe(onlyId);
+    expect(store.activeBoardIndex).toBe(0);
+  });
+
+  it('decrements activeBoardIndex when closing a board before the cursor', () => {
+    // Three boards: the default + two more. Set activeBoardIndex
+    // to 2 (the third board). Closing the first should shift
+    // activeBoardIndex down to 1.
+    const second = createInitialBoard();
+    const third = createInitialBoard();
+    addBoard(second);
+    addBoard(third);
+    expect(store.boards).toHaveLength(3);
+    store.activeBoardIndex = 2;
+
+    closeBoard(store.boards[0].id);
+
+    expect(store.boards).toHaveLength(2);
+    expect(store.activeBoardIndex).toBe(1);
+  });
+});
+
+describe('resetWorkspace — identity-flip cleanup chain', () => {
+  it('fires every workspace-wide cleanup once', () => {
+    // Add a board and seed some state to verify the reset
+    // actually clears it.
+    const second = createInitialBoard();
+    addBoard(second);
+    store.session.reviews[second.id] = {
+      status: 'AWAITING_MOVE',
+      queue: [],
+      currentIndex: -1,
+      startingNodeId: null,
+      userMovesCount: 5,
+      userMoveScores: [0.1, 0.2, 0.3, 0.4, 0.5],
+      visitsOverride: 800,
+    };
+    store.session.ui.showMoveSuggestions = false;
+
+    const purgeAllSpy = vi.spyOn(ledger, 'purgeAll');
+
+    resetWorkspace();
+
+    // Service calls (audit O7, O13).
+    expect(fakeAnalysisService.stopAllBoardAnalyses).toHaveBeenCalledTimes(1);
+    expect(fakeAnalysisPersistenceService.forgetAll).toHaveBeenCalledTimes(1);
+
+    // Module-scope cache clears (audit O8, O9, O10, O12).
+    expect(purgeAllSpy).toHaveBeenCalledTimes(1);
+    expect(purgeAllThumbnails).toHaveBeenCalledTimes(1);
+    expect(clearCardThumbnailCache).toHaveBeenCalledTimes(1);
+    expect(clearAllBoardCardTrees).toHaveBeenCalledTimes(1);
+
+    // Workspace state itself reset to a single fresh board.
+    expect(store.boards).toHaveLength(1);
+    expect(store.activeBoardIndex).toBe(0);
+    expect(store.session.reviews).toEqual({});
+    // The default-session UI shape is restored.
+    expect(store.session.ui.showMoveSuggestions).toBe(true);
+
+    purgeAllSpy.mockRestore();
+  });
+
+  it('preserves store.engine across the reset (intentional, see resetWorkspace docstring)', () => {
+    // The docstring records that store.engine is intentionally
+    // preserved: under today's local-machine deployment the WS
+    // URL is not user-keyed, so the live KataGo connection
+    // remains honestly applicable to any user.
+    store.engine.status = 'connected';
+
+    resetWorkspace();
+
+    // status is preserved across the reset; the per-board
+    // activeMode dictionary is wiped (it's keyed by BoardIds
+    // belonging to the prior identity).
+    expect(store.engine.status).toBe('connected');
+  });
+});
