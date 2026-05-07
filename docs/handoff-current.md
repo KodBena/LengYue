@@ -107,10 +107,13 @@ day-to-day "what's in this repo" navigation, the root
   `analysis_config`) that KataProxy interprets at its Hub layer.
   The frontend's `src/engine/katago/types.ts` describes the
   specific subset gogui uses.
-- **Backend ↔ proxy**: none currently. The proxy is purely a
-  frontend-facing service. If the analysis-persistence feature
-  lands, the backend gains a write path for engine analyses, but
-  the read path stays through the proxy.
+- **Backend ↔ proxy**: none. The proxy is purely a
+  frontend-facing service for live analysis queries. The
+  cross/analysis-persistence arc adds a backend write path for
+  analysis bundles — the frontend captures KataGo responses via
+  the proxy and uploads them as bundles to the backend's
+  `/analysis-bundles` endpoint — but the proxy itself never
+  talks to the backend.
 
 The three sub-projects are coupled at the *protocol* level (wire
 formats, JSON shapes, action verbs) but decoupled at the
@@ -377,13 +380,28 @@ auth-lifecycle UX work. Distribution packaging is the structural
 blocker between "tenancy spine works" and "hosted deployment
 ships."
 
-**2. Closing the SR loop server-side (analysis persistence).**
-The biggest user-visible improvement available. SR sessions that
-take 30 seconds to load today would take 1–2 seconds with
-analysis caching on the backend. Design captured in
-`docs/notes/analysis-persistence-plan.md`; the blocker is a
-15-minute DevTools session to validate the `isDuringSearch`
-gating predicate against KataGo's actual terminate-ack behavior.
+**2. Analysis persistence — backend shipped, frontend half queued.**
+The cross/analysis-persistence arc closes the SR loop
+server-side. KataGo analyses (currently held in an in-memory
+ledger and lost on browser close) become a
+per-`(user_id, board_id)` bundle persisted on the backend, with
+upload triggered by an explicit "Save analyses" user action. The
+wire-shape and codec-envelope contract lives in the dispatch
+chain at `docs/dispatch/frontend-to-backend-analysis-persistence.md`
+and its status replies; the system-level reference is
+`docs/notes/analysis-persistence-plan.md`. As of 2026-05-07: the
+backend half — schema, migration, four routes under
+`/analysis-bundles`, codec dispatch (`json` + `json+gzip`),
+atomic quota enforcement, structured 413/500 bodies — is
+implemented on `cross/analysis-persistence`; the frontend's
+precursor BoardId-to-UUID migration also shipped on the branch.
+The frontend consumer-side PR (settings, service, ACL, UI,
+`closeBoard` augmentation) is queued behind the backend half
+merging to main and `npm run gen:api` regenerating against the
+new wire shapes. The original `isDuringSearch` blocker is no
+longer relevant — the design pivoted to manual + batched, where
+the gate is a user click rather than a streaming protocol
+question.
 
 **3. qEUBO palette calibration — feature-complete, validation
 pending.** The Bayesian preference-based optimization integration

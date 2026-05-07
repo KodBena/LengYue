@@ -150,6 +150,38 @@ class Settings(BaseSettings):
     # spec-compliant when allow_credentials=False (set in main.py).
     CORS_ALLOW_ORIGINS: List[str] = ["*"]
 
+    # ----- Analysis persistence -----
+    # The cross/analysis-persistence arc adds server-side persistence for
+    # KataGo analysis bundles per BoardId. The codec envelope is opaque
+    # to the frontend — the backend stores `(scheme, payload)` pairs and
+    # transcodes between the canonical-JSON wire shape and whatever the
+    # current write-scheme prescribes.
+    #
+    # WRITE_SCHEME: the codec the adapter uses on writes. The dispatcher
+    # ships with two decoders ("json", "json+gzip") so existing rows
+    # remain readable across scheme upgrades. Adding a future scheme
+    # (e.g., "json+zstd") is purely additive — a new decoder entry plus
+    # flipping this knob — old rows keep their tag and remain readable.
+    # The codebase ships "json+gzip" as default (gzip is stdlib, no new
+    # dependency, ~5–8× ratio on JSON-shaped data).
+    #
+    # BUNDLE_MAX_BYTES: per-request body cap. Checked against the
+    # request body length pre-transcoding, since that bounds server-side
+    # memory during JSON parse + transcode. Exceedance returns 413 with
+    # `{kind: "bundle_too_large", ...}` detail.
+    #
+    # USER_QUOTA_BYTES: per-user storage cap. Sums the post-transcoding
+    # `byte_size` column for the caller's rows; a write that would push
+    # the user over returns 413 with `{kind: "user_quota_exceeded", ...}`.
+    # The check is atomic with the upsert (same transaction).
+    #
+    # The wire-shape contract and the codec-experimentation rationale
+    # are recorded in
+    # docs/dispatch/backend-to-frontend-analysis-persistence-status.md.
+    ANALYSIS_PERSISTENCE_WRITE_SCHEME: str = "json+gzip"
+    ANALYSIS_PERSISTENCE_BUNDLE_MAX_BYTES: int = 100 * 1024 * 1024  # 100 MB
+    ANALYSIS_PERSISTENCE_USER_QUOTA_BYTES: int = 2 * 1024 * 1024 * 1024  # 2 GB
+
     model_config = SettingsConfigDict(env_file=".env")
 
     @model_validator(mode="after")
