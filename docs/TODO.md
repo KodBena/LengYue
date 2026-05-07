@@ -291,27 +291,6 @@ others; this item closes that hole.
 
 ## Future projects (parked with design notes)
 
-### Analysis persistence
-
-Server-side storage of KataGo analyses so repeated sessions don't
-re-pay the compute cost. Design captured in
-`docs/notes/analysis-persistence-plan.md`:
-
-- Separate service (`AnalysisPersistenceService`), separate
-  endpoint (`POST /analysis-records`). Not a fourth channel on
-  `SyncService`.
-- Per-node granularity keyed by `(configHash, nodeId)` matching
-  the ledger.
-- User opt-in, off by default; fine-grained toggles for heavy
-  channels (policy, ownership).
-- Fail-loud per ADR-0002 — no silent retry.
-- **Blocker:** validate the `isDuringSearch` gating rule against
-  KataGo's actual behavior on terminated ponders. 15-minute
-  DevTools session, not a coding task. Documented in the
-  planning note with the corrected polarity (the failure mode is
-  terminate-acks masquerading as final packets, not
-  legitimate-but-truncated anytime-optimization estimates).
-
 ### Item 27 full (ETag-based multi-tab)
 
 Deferred per the item-17 reasoning: multi-tab use isn't a known
@@ -414,8 +393,6 @@ do 30d first.
 
 **Future projects (when ready).**
 
-- Analysis persistence (start with the 15-minute
-  `isDuringSearch` validation).
 - qEUBO end-to-end validation + transition of
   `docs/notes/qEUBO.md` to `design-note: implemented`.
 - Item 27 full, if multi-tab becomes a real workflow.
