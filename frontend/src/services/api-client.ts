@@ -218,7 +218,16 @@ export class ApiClient {
       throw new Error(`API Error ${response.status}: ${errText}`);
     }
 
-    return response.json();
+    // Empty-body responses (204 No Content; any 2xx with empty body)
+    // would crash `response.json()` because `JSON.parse('')` throws.
+    // Read as text and conditionally parse. Byte-equivalent to
+    // `response.json()` for non-empty bodies (Response.json
+    // internally does Response.text + JSON.parse). Lets DELETE
+    // routes return 204-no-content cleanly and lets callers declare
+    // `request<void>` for those endpoints.
+    const text = await response.text();
+    if (text === '') return undefined as T;
+    return JSON.parse(text);
   }
 
   /**
