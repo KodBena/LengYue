@@ -87,7 +87,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 25;
+export const CURRENT_SCHEMA_VERSION = 26;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -746,6 +746,33 @@ export const migrations: Migration[] = [
       out.engine.activeMode = reKey(out.engine.activeMode);
     }
 
+    return out;
+  },
+  // 25 → 26: Surface the experimental analysis-persistence panel
+  // visibility toggle in `engine.katago.analysisStorageEnabled`.
+  // The persistence feature is in early testing; the panel carries
+  // an "experimental" tag and an inline tooltip explaining the
+  // storage semantics, so users discover the feature naturally
+  // rather than via the registry editor (which is itself hard to
+  // navigate as the settings tree grows).
+  //
+  // Default `true` for v25 blobs — surfaces the panel in
+  // AnalysisControls.vue. Idempotent: a pre-existing boolean is
+  // preserved (a hand-edited blob's deliberate `false` survives
+  // this migration); non-boolean or missing field gets `true`.
+  //
+  // The toggle controls panel visibility only; the save action
+  // itself remains manual regardless. Whether saving ever becomes
+  // transparent (auto-save) is a future decision contingent on
+  // operational evidence from the manual-test phase.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const katago = out.profile?.settings?.engine?.katago;
+    if (katago && typeof katago === 'object') {
+      if (typeof katago.analysisStorageEnabled !== 'boolean') {
+        katago.analysisStorageEnabled = true;
+      }
+    }
     return out;
   },
 ];

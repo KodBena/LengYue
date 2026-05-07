@@ -159,6 +159,8 @@
   "analysis.persist.errorQuota":          "Storage quota reached: {current} of {quota}. Discard a saved bundle to free space.",
   "analysis.persist.errorUnknownScheme":  "Server cannot decode this stored bundle. Contact your operator.",
   "analysis.persist.errorGeneric":        "Save failed; see system log for details.",
+  "analysis.persist.experimentalTag":     "Experimental",
+  "analysis.persist.tooltip":             "Experimental — opt-in feature, in active testing.\n\nSave captures whatever the analysis ledger holds for this board right now. Ownership maps and policy heads are only included if the matching overlay was enabled BEFORE the engine ran the analysis — disabling an overlay later does not retroactively add its data to a saved bundle.\n\nRe-saving overwrites the previous bundle entirely; there is no per-record merge.\n\nClosing a board deletes its saved bundle from the server. Bundles auto-restore when the board reappears (e.g., on next SPA load).\n\nSaving may become transparent (automatic) in a future release once we have operational confidence.",
 
   "palette.sidebar.symbols":              "Symbols (λ)",
   "palette.sidebar.parameters":           "Parameters",

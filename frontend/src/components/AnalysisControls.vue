@@ -145,10 +145,14 @@ function purgeLedger() {
       </div>
     </div>
 
-    <div class="analysis-config-box persist-box">
+    <div v-if="store.profile.settings.engine.katago.analysisStorageEnabled" class="analysis-config-box persist-box">
       <div class="settings-row">
         <label class="label-with-value">
-          <span>{{ $t('analysis.persist.title') }}</span>
+          <span class="persist-title-row">
+            {{ $t('analysis.persist.title') }}
+            <span class="experimental-tag">{{ $t('analysis.persist.experimentalTag') }}</span>
+            <span class="info-icon" :title="$t('analysis.persist.tooltip')">?</span>
+          </span>
           <span class="value-badge">{{ summarySubtitle }}</span>
         </label>
         <div class="persist-btn-row">
@@ -195,6 +199,9 @@ h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--accent-primary
 .persist-box { padding: var(--space-default) var(--space-medium); margin-bottom: var(--space-medium); border-bottom: 2px solid var(--border-2); }
 .persist-btn-row { display: flex; gap: var(--space-default); margin-top: var(--space-default); }
 .error-hint { color: var(--state-error); }
+.persist-title-row { display: inline-flex; align-items: center; gap: var(--space-default); }
+.experimental-tag { font-size: var(--text-tiny); padding: 0 var(--space-default); border: 1px solid var(--state-warning); color: var(--state-warning); border-radius: var(--radius-default); text-transform: uppercase; line-height: 1.4; }
+.info-icon { display: inline-block; width: 13px; height: 13px; border-radius: 50%; border: 1px solid var(--text-1); text-align: center; font-size: 9px; line-height: 11px; color: var(--text-1); cursor: help; }
 .settings-row { display: flex; flex-direction: column; gap: 3px; }
 .label-with-value { display: flex; justify-content: space-between; align-items: center; font-size: var(--text-body); color: var(--text-1); }
 .value-badge { padding: 0 var(--space-default); border-radius: var(--radius-default); color: var(--accent-primary); font-family: monospace; }
