@@ -4,6 +4,74 @@
  */
 
 export interface paths {
+    "/analysis-bundles/{board_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Analysis Bundle
+         * @description Fetch the bundle stored under `(user_id, board_id)`, decoded
+         *     back to canonical-JSON shape. 404 if no bundle exists OR if
+         *     the bundle exists but belongs to a different tenant
+         *     (404-not-403 invariant).
+         */
+        get: operations["get_analysis_bundle_analysis_bundles__board_id__get"];
+        /**
+         * Upsert Analysis Bundle
+         * @description Upsert the analysis bundle stored under
+         *     `(user_id, board_id)`. The frontend's "Save analyses" action
+         *     is the canonical caller — one PUT replaces the whole bundle
+         *     for that board.
+         *
+         *     The request body's `schema_version` is gated by Pydantic's
+         *     `Literal[1]` validator on `AnalysisBundle` (Confirmation C2's
+         *     schemaVersion gate; a v2 bundle is a 422 against a v1-only
+         *     backend). The two caps — per-bundle (this route's responsibility,
+         *     via the service) and per-user (the adapter's, atomic with the
+         *     upsert) — both raise to 413 with a structured detail body
+         *     discriminated by `kind`.
+         */
+        put: operations["upsert_analysis_bundle_analysis_bundles__board_id__put"];
+        post?: never;
+        /**
+         * Delete Analysis Bundle
+         * @description Idempotent delete. 204 whether or not a row existed.
+         *     Cross-tenant deletes are silent no-ops (the WHERE clause's
+         *     user_id filter ensures zero-rows-affected for someone else's
+         *     board_id).
+         */
+        delete: operations["delete_analysis_bundle_analysis_bundles__board_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/analysis-bundles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Analysis Bundles
+         * @description Per-bundle metadata for every bundle the caller owns. No
+         *     payloads — the frontend's storage panel uses this to render
+         *     "you have N bundles using M GB" without forcing a per-bundle
+         *     decode.
+         */
+        get: operations["list_analysis_bundles_analysis_bundles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/register": {
         parameters: {
             query?: never;
@@ -541,6 +609,83 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AnalysisBundle
+         * @description The bundle stored under one (user_id, board_id) pair.
+         *
+         *     The upsert wire shape; also the GET response shape (since the
+         *     backend reconstructs a canonical-JSON bundle from its stored
+         *     `(scheme, payload)` tuple).
+         *
+         *     `schema_version` gates forward compatibility. The backend
+         *     accepts only versions in its known set (today: {1}); a future
+         *     v2 bundle adds fields to records without breaking v1 readers,
+         *     and the gate prevents a v1-only backend from silently
+         *     accepting a v2 bundle it would mis-project.
+         */
+        AnalysisBundle: {
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 1;
+            /** Records */
+            records: components["schemas"]["AnalysisBundleRecord"][];
+        };
+        /**
+         * AnalysisBundleRecord
+         * @description One persisted (config_hash, node_id, packet) tuple.
+         *
+         *     `packet` is opaque to the backend — a JSON object the frontend
+         *     captured from a KataGo analysis response. The backend never
+         *     inspects its shape; the codec round-trip preserves it byte-for-
+         *     byte (modulo JSON normalisation).
+         */
+        AnalysisBundleRecord: {
+            /** Config Hash */
+            config_hash: string;
+            /** Node Id */
+            node_id: string;
+            /** Packet */
+            packet: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * AnalysisBundleSummary
+         * @description Metadata about a stored bundle — no payload.
+         *
+         *     The return shape of both `upsert` (the write response) and
+         *     `list_summaries` (the per-board listing). The dispatch named
+         *     the upsert-return as AnalysisBundleStored and the list-element
+         *     as AnalysisBundleSummary, but the two shapes are identical and
+         *     the semantic is the same ("metadata about a stored bundle"),
+         *     so they collapse to one DTO here.
+         *
+         *     `stored_byte_size` is the post-transcoding byte count — the
+         *     same value the per-user quota check sums (Confirmation C3 in
+         *     the dispatch). The frontend's storage panel sums this across
+         *     a list response to display "X of 2 GB used"; backend's quota
+         *     check on the next PUT operates on the same value.
+         */
+        AnalysisBundleSummary: {
+            /**
+             * Board Id
+             * Format: uuid
+             */
+            board_id: string;
+            /** Record Count */
+            record_count: number;
+            /** Stored Scheme */
+            stored_scheme: string;
+            /** Stored Byte Size */
+            stored_byte_size: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /**
          * AncestorSelection
          * @description The n-th ancestor of the context card (n=1 means parent).
@@ -1414,6 +1559,121 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_analysis_bundle_analysis_bundles__board_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                board_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisBundle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upsert_analysis_bundle_analysis_bundles__board_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                board_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnalysisBundle"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisBundleSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_analysis_bundle_analysis_bundles__board_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                board_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_analysis_bundles_analysis_bundles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisBundleSummary"][];
+                };
+            };
+        };
+    };
     register_user_auth_register_post: {
         parameters: {
             query?: never;
