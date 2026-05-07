@@ -20,13 +20,16 @@ tackling structural work.
 - `[frontend]` — touches only the Vue SPA codebase
 - `[both]` — requires coordinated changes on both sides
 
-**Cross-team status:** as of the close of v1.0.0 (2026-04-30),
-no outstanding action items between teams. The locked release
-scope (the seven items in
-`docs/archive/release-scope-2026-04.md`) is shipped end-to-end,
-including the cross-team card-tree arc (item 3) and the joint
-tenancy-documentation sweep (item 26). The closure document is
-`docs/notes/release-retrospective-2026-04.md`.
+**Cross-team status:** as of the close of v1.1.0 (2026-05-08),
+no outstanding action items between teams. The
+`cross/analysis-persistence` arc (the cycle's headline cross-team
+feature) is shipped end-to-end; v1.0.0's locked release scope
+(seven items in `docs/archive/release-scope-2026-04.md`) had
+already shipped end-to-end at the v1.0.0 boundary including the
+cross-team card-tree arc and the joint tenancy-documentation
+sweep. Closure documents:
+`docs/notes/release-retrospective-2026-05.md` (v1.1.0) and
+`docs/notes/release-retrospective-2026-04.md` (v1.0.0).
 
 ## Completed work — archived
 
@@ -75,12 +78,13 @@ the same arc:
   empty states, settings labels.
 
 Per-locale-tier completion: `en` is the source and ships fully
-populated. `zh-CN / ja / ko` catalogs are stubs (empty `{}`); the
-fallback chain (`fallbackLocale: 'en'`) renders English until a
-native-speaker review fills them, with vue-i18n's `missingWarn`
-firing in dev for every miss. Native-speaker review is a separate
-gating arc per locale before the catalog is marked Active in the
-table at `frontend/docs/i18n.md`.
+populated. `zh-CN / ja / ko` shipped LLM-drafted catalogs with a
+machine-translation notice on each (PR #164, 2026-05-06); the
+fallback chain (`fallbackLocale: 'en'`) still renders English on
+keys absent from the LLM draft, with vue-i18n's `missingWarn`
+firing in dev for every miss. Native-speaker review is the
+remaining gating arc per locale before the catalog is marked
+Active in the table at `frontend/docs/i18n.md`.
 
 Out-of-scope explicitly: DSL symbol names, wire-shape field names,
 KataGo's output, file-format vocabulary, console / debug log lines,
@@ -439,11 +443,17 @@ heatmap throttle bought enough headroom to defer indefinitely.
 
 ## Implementation order recommendation
 
-v1.0.0 shipped on 2026-04-30 (see
-`docs/notes/release-retrospective-2026-04.md`); the v1 locked
-scope and the post-v1 frontend backlog through 2026-05-06 are
-all closed (see `docs/archive/TODO-completed-2026-05-06.md` for
-the synopsis tables). Current shape of remaining work:
+v1.1.0 shipped 2026-05-08 (see
+`docs/notes/release-retrospective-2026-05.md`); v1.0.0 shipped
+2026-04-30 (see `docs/notes/release-retrospective-2026-04.md`).
+The v1.0.0 locked scope and the post-v1.0.0 frontend backlog
+through 2026-05-06 are archived (see
+`docs/archive/TODO-completed-2026-05-06.md` for the synopsis
+tables). The v1.1.0 cycle's eleven arcs (testing, analysis
+persistence, cards-tab merge, forest-directory hierarchy
+redesign, i18n, audits, ADR amendments, proxy bumps) all
+landed; the v1.1.0 retrospective is the consolidated record.
+Current shape of remaining work:
 
 **Frontend.** No frontend architectural arc is queued in Active.
 Remaining frontend tracks are coordinated cross-team work (the
