@@ -14,8 +14,10 @@
  */
 
 import { ref, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useAuth } from '../composables/useAuth';
 
+const { t } = useI18n();
 const { state, login, register, logout } = useAuth();
 
 const emit = defineEmits<{
@@ -39,10 +41,10 @@ const errorMessage = computed((): string | null =>
 
 const currentIdentity = computed((): string => {
   switch (state.value.kind) {
-    case 'authenticated':   return `Currently signed in as ${state.value.username}.`;
-    case 'unauthenticated': return 'Not currently signed in.';
-    case 'authenticating':  return 'Signing in…';
-    case 'error':           return 'Last sign-in attempt failed.';
+    case 'authenticated':   return t('auth.currentIdentity.authenticated', { username: state.value.username });
+    case 'unauthenticated': return t('auth.currentIdentity.unauthenticated');
+    case 'authenticating':  return t('auth.currentIdentity.authenticating');
+    case 'error':           return t('auth.currentIdentity.error');
     case 'unknown':         return '';
   }
 });
@@ -92,12 +94,12 @@ function handleBackdropClick(e: MouseEvent): void {
 <template>
   <div class="modal-backdrop" @click="handleBackdropClick">
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="login-modal-title">
-      <h3 id="login-modal-title" class="modal-title">Sign In</h3>
+      <h3 id="login-modal-title" class="modal-title">{{ $t('auth.title') }}</h3>
 
       <p class="current-identity" v-if="currentIdentity">{{ currentIdentity }}</p>
 
       <div class="form-row">
-        <label for="login-username">Username</label>
+        <label for="login-username">{{ $t('auth.field.username') }}</label>
         <input
           id="login-username"
           v-model="username"
@@ -111,11 +113,11 @@ function handleBackdropClick(e: MouseEvent): void {
 
       <div class="form-row checkbox-row">
         <input id="login-use-password" v-model="usePassword" type="checkbox" />
-        <label for="login-use-password">This account uses a password</label>
+        <label for="login-use-password">{{ $t('auth.field.usePasswordLabel') }}</label>
       </div>
 
       <div class="form-row" v-if="usePassword">
-        <label for="login-password">Password</label>
+        <label for="login-password">{{ $t('auth.field.password') }}</label>
         <input
           id="login-password"
           v-model="password"
@@ -130,16 +132,16 @@ function handleBackdropClick(e: MouseEvent): void {
 
       <div class="button-row">
         <button class="btn btn-secondary" @click="handleCancel" :disabled="inFlight">
-          Cancel
+          {{ $t('auth.button.cancel') }}
         </button>
         <button v-if="isAuthenticated" class="btn btn-danger" @click="handleSignOut" :disabled="inFlight">
-          Sign Out
+          {{ $t('auth.button.signOut') }}
         </button>
         <button class="btn btn-secondary" @click="submit('register')" :disabled="!canSubmit">
-          Register &amp; Sign In
+          {{ $t('auth.button.registerAndSignIn') }}
         </button>
         <button class="btn btn-primary" @click="submit('login')" :disabled="!canSubmit">
-          {{ inFlight ? 'Signing in…' : 'Sign In' }}
+          {{ inFlight ? $t('auth.button.signingIn') : $t('auth.button.signIn') }}
         </button>
       </div>
     </div>

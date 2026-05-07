@@ -34,6 +34,7 @@ import type {
 import { CardTreeOverflowError } from '../types';
 import { backendService } from '../services/backend-service';
 import { pushSystemMessage } from '../store';
+import { i18n } from '../i18n';
 import {
   getOrCreateBoardCardTree,
   getBoardCardTree,
@@ -184,11 +185,15 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
       target.forest = trees.filter((t): t is CardLineageTree => t !== null);
       if (failed.length > 0) {
         const head = failed.slice(0, 3).map(f => `#${f.rootCardId}`).join(', ');
-        const tail = failed.length > 3 ? `, … and ${failed.length - 3} more` : '';
+        const tail = failed.length > 3 ? i18n.global.t('lineage.failedTail', { n: failed.length - 3 }) : '';
         pushSystemMessage(
           'warning',
-          `Lineage Explorer: ${failed.length} tree${failed.length === 1 ? '' : 's'} ` +
-          `(${head}${tail}) could not be fetched. First failure: ${failed[0].reason}.`,
+          i18n.global.t('lineage.fetchFailedBrowse', {
+            count: failed.length,
+            head,
+            tail,
+            reason: failed[0].reason,
+          }),
         );
       }
     } catch (err) {
@@ -337,12 +342,15 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
     target.cards = new Map(matched.map(c => [c.id, c] as const));
     if (failed.length > 0) {
       const head = failed.slice(0, 3).map(f => `#${f.rootCardId}`).join(', ');
-      const tail = failed.length > 3 ? `, … and ${failed.length - 3} more` : '';
+      const tail = failed.length > 3 ? i18n.global.t('lineage.failedTail', { n: failed.length - 3 }) : '';
       pushSystemMessage(
         'warning',
-        `Lineage Explorer: ${failed.length} tree${failed.length === 1 ? '' : 's'} ` +
-        `(${head}${tail}) could not be fetched — matched cards in those trees ` +
-        `won't be visible in the forest. First failure: ${failed[0].reason}.`,
+        i18n.global.t('lineage.fetchFailedDeck', {
+          count: failed.length,
+          head,
+          tail,
+          reason: failed[0].reason,
+        }),
       );
     }
   }

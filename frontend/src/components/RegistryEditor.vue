@@ -5,6 +5,7 @@
 -->
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { SUPPORTED_LOCALES } from '../i18n/locales';
 
 const props = defineProps<{
   registry: any;
@@ -53,6 +54,7 @@ function isObject(val: any) {
 const PATH_ENUMS: Record<string, readonly string[]> = {
   // settings root (store.profile.settings)
   'appearance.theme':              ['dark', 'cluster'],
+  'appearance.locale':             [...SUPPORTED_LOCALES],
   'navigation.actionOnDirtyBoard': ['ask', 'new', 'overwrite'],
   // session-ui root (store.session.ui)
   'analysisLayout':                ['horizontal', 'vertical'],
@@ -120,7 +122,7 @@ function isModified(key: string, value: any) {
              <span v-if="isModified(key as string, value)" class="modified-dot"></span>
           </div>
           <div class="action-group">
-            <button v-if="isModified(key as string, value)" class="restore-btn" title="Restore branch defaults" @click="restoreDefault(key as string)">↺</button>
+            <button v-if="isModified(key as string, value)" class="restore-btn" :title="$t('registry.restoreBranchDefaults')" @click="restoreDefault(key as string)">↺</button>
             <button v-if="isDynamicNode" class="delete-btn" @click="deleteKey(key as string)">×</button>
           </div>
         </div>
@@ -142,7 +144,7 @@ function isModified(key: string, value: any) {
             <span v-if="isModified(key as string, value)" class="modified-dot"></span>
           </div>
           <div class="action-group">
-            <button v-if="isModified(key as string, value)" class="restore-btn" title="Restore default value" @click="restoreDefault(key as string)">↺</button>
+            <button v-if="isModified(key as string, value)" class="restore-btn" :title="$t('registry.restoreDefault')" @click="restoreDefault(key as string)">↺</button>
             <button v-if="isDynamicNode" class="delete-btn" @click="deleteKey(key as string)">×</button>
           </div>
         </div>
@@ -177,8 +179,8 @@ function isModified(key: string, value: any) {
 
     <!-- Only show Add interface if this node is whitelisted as Dynamic -->
     <div v-if="isDynamicNode" class="add-key-row">
-      <input v-model="newKeyName" placeholder="new symbol name..." class="dark-input scalar-input add-input" @keyup.enter="addKey"/>
-      <button class="add-btn" @click="addKey">Add Symbol</button>
+      <input v-model="newKeyName" :placeholder="$t('registry.newSymbolPlaceholder')" class="dark-input scalar-input add-input" @keyup.enter="addKey"/>
+      <button class="add-btn" @click="addKey">{{ $t('registry.addSymbol') }}</button>
     </div>
   </div>
 </template>

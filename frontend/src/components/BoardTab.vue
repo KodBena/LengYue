@@ -101,10 +101,10 @@ const rugPlot = computed(() => {
         'review-complete': reviewState === 'COMPLETE'
       }"
     >
-      <span class="tab-label">Board {{ index + 1 }}</span>
-      <button class="close-board-btn" @click.stop="emit('close')" title="Close Board">×</button>
+      <span class="tab-label">{{ $t('boardTab.label', { n: index + 1 }) }}</span>
+      <button class="close-board-btn" @click.stop="emit('close')" :title="$t('boardTab.close')">×</button>
     </div>
-    
+
     <div class="indicator-row">
       <div class="analysis-meter">
         <div
@@ -112,7 +112,9 @@ const rugPlot = computed(() => {
           :key="slice.idx"
           class="meter-slice"
           :style="{ backgroundColor: slice.color, flex: 1 }"
-          :title="`${slice.idx === 0 ? 'Root' : `Move ${slice.idx}`}: ${slice.visits.toLocaleString()} visits`"
+          :title="slice.idx === 0
+            ? $t('boardTab.meterRoot', { visits: slice.visits.toLocaleString() })
+            : $t('boardTab.meterMove', { idx: slice.idx, visits: slice.visits.toLocaleString() })"
         ></div>
       </div>
       <div class="geiger-dot-wrap">

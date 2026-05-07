@@ -46,20 +46,20 @@ function handle(action: LoadAction) {
   <div v-if="isOpen" class="modal-backdrop" @mousedown.self="handle('cancel')">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>Board in Use</h2>
+        <h2>{{ $t('confirmLoad.title') }}</h2>
       </div>
       <div class="modal-body">
-        <p>The current board has moves. How would you like to load this position?</p>
-        
+        <p>{{ $t('confirmLoad.body') }}</p>
+
         <div class="checkbox-row">
           <input type="checkbox" id="remember-cb" v-model="remember" />
-          <label for="remember-cb">Remember my decision</label>
+          <label for="remember-cb">{{ $t('confirmLoad.rememberLabel') }}</label>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-cancel" @click="handle('cancel')">Cancel</button>
-        <button class="btn-overwrite" @click="handle('overwrite')">Overwrite Current</button>
-        <button class="btn-submit" @click="handle('new')">Open in New Tab</button>
+        <button class="btn-cancel" @click="handle('cancel')">{{ $t('confirmLoad.button.cancel') }}</button>
+        <button class="btn-overwrite" @click="handle('overwrite')">{{ $t('confirmLoad.button.overwrite') }}</button>
+        <button class="btn-submit" @click="handle('new')">{{ $t('confirmLoad.button.openInNewTab') }}</button>
       </div>
     </div>
   </div>

@@ -7,6 +7,7 @@
 
 import { API_BASE_URL } from '../config/env';
 import { pushSystemMessage } from '../store';
+import { i18n } from '../i18n';
 import type { components } from '../types/backend';
 
 type AuthMeResponse = components['schemas']['AuthMeResponse'];
@@ -157,7 +158,7 @@ export class ApiClient {
       // fetch() itself rejected — network unreachable, DNS, CORS, etc.
       // No HTTP status is available in this case.
       const detail = err instanceof Error ? err.message : String(err);
-      const userMsg = `Network error on ${method} ${path}: ${detail}`;
+      const userMsg = i18n.global.t('api.networkError', { method, path, detail });
       pushSystemMessage('error', userMsg);
       console.error('[API]', userMsg, err);
       throw err;
@@ -174,7 +175,7 @@ export class ApiClient {
           await this.login(cached);
           response = await fetch(`${API_BASE_URL}${path}`, buildPayload());
           if (response.ok) {
-            pushSystemMessage('info', 'Session refreshed automatically.');
+            pushSystemMessage('info', i18n.global.t('api.sessionRefreshed'));
           }
           // If retry returned non-ok, fall through to standard error
           // handling below — the new token didn't help, the user's
@@ -207,7 +208,7 @@ export class ApiClient {
         const excerpt = errText.length > ERROR_BODY_EXCERPT_MAX
           ? errText.slice(0, ERROR_BODY_EXCERPT_MAX) + '…'
           : errText;
-        const userMsg = `API ${method} ${path} → ${response.status}: ${excerpt}`;
+        const userMsg = i18n.global.t('api.errorResponse', { method, path, status: response.status, excerpt });
         pushSystemMessage('error', userMsg);
         console.error('[API]', userMsg);
       }

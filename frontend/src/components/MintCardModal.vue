@@ -5,10 +5,12 @@
 -->
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { store } from '../store';
 import { useMinting } from '../composables/useMinting';
 import type { BoardId, CardCreatePayload } from '../types';
 
+const { t } = useI18n();
 const { prepareDraft, commitMint } = useMinting();
 
 const isOpen = ref(false);
@@ -205,7 +207,9 @@ async function submit() {
     close();
   } catch (err) {
     console.error('[Minting] Failed to create card:', err);
-    alert(`Minting Failed: ${err}`);
+    // Native alert wraps the English `${err}` per the (a) backend-error
+    // pass-through approach (see frontend/docs/i18n.md).
+    alert(t('mint.alert.failed', { err: String(err) }));
   } finally {
     isLoading.value = false;
   }
@@ -217,28 +221,28 @@ async function submit() {
     <div class="modal-content">
       
       <div class="modal-header">
-        <h2>Mint Flashcard</h2>
+        <h2>{{ $t('mint.title') }}</h2>
         <button class="close-btn" @click="close">×</button>
       </div>
 
       <div class="modal-body" v-if="draft">
-        
+
         <!-- Lineage Indicator -->
         <div class="lineage-box" :class="draft.parent_card_id ? 'branch' : 'root'">
           <span class="lineage-icon">{{ draft.parent_card_id ? '↳' : '🌱' }}</span>
           <div class="lineage-text">
-            <strong>{{ draft.parent_card_id ? 'Branch Card' : 'Root Card' }}</strong>
-            <span v-if="draft.parent_card_id">Derived from Card #{{ draft.parent_card_id }}</span>
-            <span v-else>New Origin from SGF</span>
+            <strong>{{ draft.parent_card_id ? $t('mint.lineage.branch') : $t('mint.lineage.root') }}</strong>
+            <span v-if="draft.parent_card_id">{{ $t('mint.lineage.derivedFrom', { id: draft.parent_card_id }) }}</span>
+            <span v-else>{{ $t('mint.lineage.newOrigin') }}</span>
           </div>
         </div>
 
         <!-- Basic Settings -->
         <div class="form-grid">
-          <label>Target Moves:</label>
+          <label>{{ $t('mint.field.targetMoves') }}</label>
           <input type="number" v-model.number="draft.num_moves" min="1" max="50" class="dark-input" />
 
-          <label>Default Visits:</label>
+          <label>{{ $t('mint.field.defaultVisits') }}</label>
           <!-- 34b: visits live inside `grading_parameter.data.default_visits`,
                not at the top level. The OpenAPI-generated wire type leaves
                that path opaque (`{[key: string]: unknown}`); the typed
@@ -248,23 +252,23 @@ async function submit() {
                renders. -->
           <input type="number" v-model.number="defaultVisits" min="1" step="100" class="dark-input" />
 
-          <label>Discount γ:</label>
+          <label>{{ $t('mint.field.discountGamma') }}</label>
           <!-- gamma rides in `grading_parameter.data.gamma` alongside
                default_visits; same opacity story, same typed-accessor
                pattern (see <script>). Range bounded to (0, 1] —
                Ebisu's recall-discount semantics. -->
           <input type="number" v-model.number="gamma" min="0.01" max="1" step="0.01" class="dark-input" />
 
-          <label>Analysis Palette:</label>
+          <label>{{ $t('mint.field.analysisPalette') }}</label>
           <select v-model="selectedPaletteId" class="dark-select">
-            <option value="active">(Current Active View)</option>
+            <option value="active">{{ $t('mint.palette.activeOption') }}</option>
             <option v-for="p in palettes" :key="p.id" :value="p.id">{{ p.name }}</option>
           </select>
         </div>
 
         <!-- Tag Autocomplete -->
         <div class="form-group" style="margin-top: var(--space-medium);">
-          <label class="tag-label">Tags:</label>
+          <label class="tag-label">{{ $t('mint.field.tags') }}</label>
           <div class="tag-input-wrapper">
             <div class="tag-badges">
               <span v-for="(tag, i) in draft.tags" :key="tag" class="tag-badge">
@@ -272,12 +276,12 @@ async function submit() {
                 <button class="tag-remove" @click="removeTag(i)">×</button>
               </span>
             </div>
-            
-            <input 
-              type="text" 
-              class="tag-input" 
+
+            <input
+              type="text"
+              class="tag-input"
               v-model="tagInput"
-              placeholder="Add tag (e.g. $fight)..."
+              :placeholder="$t('mint.tags.placeholder')"
               @keydown="handleTagKeydown"
               @focus="showSuggestions = true"
               @blur="hideSuggestionsDelayed"
@@ -290,15 +294,15 @@ async function submit() {
               </li>
             </ul>
           </div>
-          <p class="hint">Press Enter or Comma to add. Prefix with $ for dynamic queries.</p>
+          <p class="hint">{{ $t('mint.tags.hint') }}</p>
         </div>
 
       </div>
 
       <div class="modal-footer">
-        <button class="btn-cancel" @click="close" :disabled="isLoading">Cancel</button>
+        <button class="btn-cancel" @click="close" :disabled="isLoading">{{ $t('mint.button.cancel') }}</button>
         <button class="btn-submit" @click="submit" :disabled="isLoading">
-          {{ isLoading ? 'Minting...' : 'Mint Card' }}
+          {{ isLoading ? $t('mint.button.minting') : $t('mint.button.mint') }}
         </button>
       </div>
 

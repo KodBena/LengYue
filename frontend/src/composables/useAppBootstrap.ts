@@ -27,6 +27,8 @@ import { backendService } from '../services/backend-service';
 import { analysisService } from '../services/analysis-service';
 import { setIntensityHueShift } from '../engine/suggestion-colors';
 import { store } from '../store';
+import { i18n } from '../i18n';
+import { isSupportedLocale, DEFAULT_LOCALE } from '../i18n/locales';
 import { useQeubo } from './useQeubo';
 import type { useAuth } from './useAuth';
 
@@ -80,6 +82,30 @@ export function useAppBootstrap(
   watch(
     () => store.profile.settings.appearance.theme,
     (theme) => document.documentElement.setAttribute('data-theme', theme),
+    { immediate: true },
+  );
+
+  // Mirror the active UI locale onto vue-i18n's runtime locale ref
+  // and onto `<html lang="...">` for assistive tech / browser
+  // language inference. Same shape as the theme watcher above —
+  // immediate: true syncs at setup-time so the pre-hydration store
+  // default ('en') lands as the starting locale matching i18n's
+  // own initial config; post-hydration the watcher takes over.
+  //
+  // Defensive resolver per ADR-0002: if the persisted value is
+  // somehow outside the supported set (hand-edited blob, future
+  // code path that bypasses the migration), fall back to
+  // DEFAULT_LOCALE rather than letting vue-i18n's silent fallback
+  // chain hide the bad value. The store-side value is left
+  // untouched — surfacing the divergence to DevTools rather than
+  // overwriting user data.
+  watch(
+    () => store.profile.settings.appearance.locale,
+    (loc) => {
+      const resolved = isSupportedLocale(loc) ? loc : DEFAULT_LOCALE;
+      i18n.global.locale.value = resolved;
+      document.documentElement.setAttribute('lang', resolved);
+    },
     { immediate: true },
   );
 

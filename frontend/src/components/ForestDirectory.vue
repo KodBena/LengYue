@@ -235,15 +235,15 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
     <!-- LEFT PANEL: Navigation -->
     <div class="left-panel">
       <div class="panel-header tab-switcher">
-        <button :class="{ active: activeTab === 'decks' }" @click="activeTab = 'decks'">Decks</button>
-        <button :class="{ active: activeTab === 'browse' }" @click="activeTab = 'browse'">Browse</button>
+        <button :class="{ active: activeTab === 'decks' }" @click="activeTab = 'decks'">{{ $t('cards.tab.decks') }}</button>
+        <button :class="{ active: activeTab === 'browse' }" @click="activeTab = 'browse'">{{ $t('cards.tab.browse') }}</button>
       </div>
 
       <!-- TAB 1: DECKS — deck-config form when idle, ReviewSessionPanel when a session is running -->
       <div v-if="activeTab === 'decks'" class="decks-view">
         <ReviewSessionPanel v-if="inReviewSession" />
         <div v-else class="deck-selector-box">
-          <label>Select Deck:</label>
+          <label>{{ $t('cards.decks.selectDeck') }}</label>
           <select v-model="selectedDeckId" class="dark-select deck-dropdown">
             <option v-for="set in store.profile.cardSets" :key="set.id" :value="set.id">
               {{ set.name }}
@@ -251,34 +251,34 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
           </select>
           <p class="hint">{{ store.profile.cardSets[selectedDeckId]?.description }}</p>
 
-          <label style="margin-top: var(--space-default);">Context IDs:</label>
+          <label style="margin-top: var(--space-default);">{{ $t('cards.decks.contextIds') }}</label>
           <input
             type="text"
             class="dark-input deck-dropdown"
-            placeholder="e.g. 3, 4, ${12}"
+            :placeholder="$t('cards.decks.contextIdsPlaceholder', ['${12}'])"
             :value="contextIdInput"
             @input="(e: any) => updateContextIds(e.target.value)"
-            title="Comma-separated root-card ids fed to the deck pipeline. Use ${N} (or ${N, M, ...}) to expand a game-source id to all of its root card ids — resolved client-side from the loaded forest stats."
+            :title="$t('cards.decks.contextIdsTooltip', ['${N}', '${N, M, ...}'])"
           />
           <p v-if="hasContextIdMacro" class="macro-hint">
-            → Expands to: {{ store.session.ui.cardsContextIds.join(', ') || '(empty)' }}
+            {{ $t('cards.decks.expandsTo', { ids: store.session.ui.cardsContextIds.join(', ') || $t('cards.decks.expandsToEmpty') }) }}
           </p>
 
           <button
             class="action-btn-large start-review-btn"
             @click="startReviewFromConfig"
             :disabled="!store.profile.cardSets[selectedDeckId]"
-            title="Run the pipeline and immediately start a review session against the matched cards."
+            :title="$t('cards.decks.startReviewTooltip')"
           >
-            Start Review Session
+            {{ $t('cards.decks.startReview') }}
           </button>
           <button
             class="action-btn-large"
             @click="runDeck"
             :disabled="!store.profile.cardSets[selectedDeckId]"
-            title="Run the pipeline and populate the forest in browse mode (no review)."
+            :title="$t('cards.decks.runPipelineTooltip')"
           >
-            Run pipeline
+            {{ $t('cards.decks.runPipeline') }}
           </button>
         </div>
       </div>
@@ -286,12 +286,12 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
       <!-- TAB 2: BROWSE — file-manager hierarchy (games → roots) -->
       <div v-if="activeTab === 'browse'" class="browse-view">
         <div class="tools-row">
-          <span style="font-size: var(--text-body); color: var(--text-2);">All Game Sources</span>
+          <span style="font-size: var(--text-body); color: var(--text-2);">{{ $t('cards.browse.allGameSources') }}</span>
           <button class="reload-btn" @click="reloadRoots">↻</button>
         </div>
 
-        <div v-if="isLoadingRoots" class="empty-state">Loading…</div>
-        <div v-else-if="roots.length === 0" class="empty-state">No cards in database.</div>
+        <div v-if="isLoadingRoots" class="empty-state">{{ $t('cards.browse.loading') }}</div>
+        <div v-else-if="roots.length === 0" class="empty-state">{{ $t('cards.browse.empty') }}</div>
         <ForestTreeNav v-else :nav="nav" />
       </div>
     </div>
@@ -299,27 +299,27 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
     <!-- RIGHT PANEL: Card-tree widget -->
     <div class="tree-panel">
       <div class="panel-header">
-        <span>Lineage Explorer</span>
+        <span>{{ $t('cards.lineage.header') }}</span>
         <div class="header-controls">
           <button
             class="orient-btn"
-            :title="orientation === 'horizontal' ? 'Switch to vertical layout (root on top)' : 'Switch to horizontal layout (root on left)'"
+            :title="orientation === 'horizontal' ? $t('cards.lineage.switchToVertical') : $t('cards.lineage.switchToHorizontal')"
             @click="toggleOrientation"
           >
-            {{ orientation === 'horizontal' ? '⇥ horizontal' : '⇩ vertical' }}
+            {{ orientation === 'horizontal' ? `⇥ ${$t('cards.lineage.orientationHorizontal')}` : `⇩ ${$t('cards.lineage.orientationVertical')}` }}
           </button>
           <span class="tree-meta" v-if="tree.forest.value.length">
-            {{ tree.forest.value.length }} {{ tree.forest.value.length === 1 ? 'tree' : 'trees' }} ·
-            {{ tree.activeSet.value.size }} active
+            {{ $t('cards.lineage.treeCount', tree.forest.value.length) }} ·
+            {{ $t('cards.lineage.activeCount', { n: tree.activeSet.value.size }) }}
           </span>
         </div>
       </div>
 
-      <div v-if="tree.isLoading.value" class="empty-state">Loading tree…</div>
+      <div v-if="tree.isLoading.value" class="empty-state">{{ $t('cards.lineage.loadingTree') }}</div>
       <div v-else-if="browseError" class="empty-state error">{{ browseError }}</div>
       <div v-else-if="tree.error.value" class="empty-state error">{{ tree.error.value }}</div>
       <div v-else-if="tree.forest.value.length === 0" class="empty-state">
-        {{ activeTab === 'decks' ? 'Run a deck to populate the view.' : 'Select a game or root in the navigator.' }}
+        {{ activeTab === 'decks' ? $t('cards.lineage.emptyDecks') : $t('cards.lineage.emptyBrowse') }}
       </div>
 
       <div v-else class="chart-wrapper">

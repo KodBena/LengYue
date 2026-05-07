@@ -18,6 +18,7 @@ import { store, pushSystemMessage } from '../store';
 import { ledger } from './analysis-ledger';
 import { compileAnalysisConfig, activeConfigHash, hashConfig } from './analysis-config';
 import { KATAGO_WS_URL } from '../config/env';
+import { i18n } from '../i18n';
 
 export class AnalysisService {
   private client: KataGoClient;
@@ -72,7 +73,7 @@ export class AnalysisService {
           modelsPayload: null,
         };
         this.clearTimers();
-        pushSystemMessage('warning', `WebSocket Disconnected (Code: ${code}). ${reason}`);
+        pushSystemMessage('warning', i18n.global.t('analysis.websocketDisconnected', { code, reason }));
       },
       onError: (errorMsg) => {
         pushSystemMessage('error', errorMsg);

@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { BoardId } from '../types';
 import { store } from '../store';
 import { ledger } from '../services/analysis-ledger';
 import { analysisService } from '../services/analysis-service';
 import AnalysisDashboard from './charts/AnalysisDashboard.vue';
 
+const { t } = useI18n();
 const props = defineProps<{ boardId: BoardId; }>();
 const palettes = computed(() => store.profile.settings.engine.katago.analysis_env.palettes);
 
 function purgeLedger() {
-  if (confirm("Clear all analysis data for this board across all palettes?")) {
+  if (confirm(t('analysis.confirmPurge'))) {
     analysisService.stopBoardAnalysis(props.boardId);
     ledger.purgeBoard(props.boardId);
   }
@@ -21,39 +23,39 @@ function purgeLedger() {
   <div class="tab-padding">
     <div class="header-row">
       <p>
-        Engine: 
+        {{ $t('analysis.engineLabel') }}
         <span class="status-indicator" :class="{ 'connected': store.engine.status === 'connected' }">
-          {{ store.engine.status === 'connected' ? 'Connected' : 'Offline' }}
+          {{ store.engine.status === 'connected' ? $t('analysis.engineConnected') : $t('analysis.engineOffline') }}
         </span>
       </p>
 
       <div style="display: flex; gap: var(--space-default);">
         <div class="palette-selector">
-          <label>Palette:</label>
+          <label>{{ $t('analysis.paletteLabel') }}</label>
           <select v-model="store.profile.settings.engine.katago.analysis_env.activePaletteId" class="dark-select">
             <option v-for="p in palettes" :key="p.id" :value="p.id">{{ p.name }}</option>
           </select>
         </div>
-        <button class="toolbar-btn-sm warning-btn" @click="purgeLedger" title="Purge Cache">Purge</button>
+        <button class="toolbar-btn-sm warning-btn" @click="purgeLedger" :title="$t('analysis.purgeTooltip')">{{ $t('analysis.purge') }}</button>
       </div>
     </div>
-    
+
     <!-- ... same as before ... -->
     <div class="analysis-config-box move-filter-box">
       <div class="settings-row">
         <label class="label-with-value">
-          <span>Move Filter</span>
+          <span>{{ $t('analysis.moveFilter') }}</span>
           <span class="value-badge">{{ (store.session.ui.moveFilterThreshold * 100).toFixed(0) }}%</span>
         </label>
-        <input 
-          type="range" 
-          min="0" 
-          max="1" 
-          step="0.01" 
-          v-model.number="store.session.ui.moveFilterThreshold" 
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          v-model.number="store.session.ui.moveFilterThreshold"
           class="range-slider"
         />
-        <p class="hint">Threshold: {{ store.session.ui.moveFilterThreshold }}</p>
+        <p class="hint">{{ $t('analysis.thresholdLabel', { value: store.session.ui.moveFilterThreshold }) }}</p>
       </div>
     </div>
 

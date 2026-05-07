@@ -7,9 +7,11 @@
 -->
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useQeubo } from '../composables/useQeubo';
 import { pushSystemMessage } from '../store';
 
+const { t } = useI18n();
 const q = useQeubo();
 
 // Render gate: hide entirely when calibration is disabled (503 from
@@ -28,9 +30,9 @@ const applyVisible = computed<boolean>(() => q.toolbarView.value !== 'applied');
 
 const phaseLabel = computed<string>(() => {
   const init = q.initProgress.value;
-  if (init) return `init ${init.done}/${init.total}`;
+  if (init) return t('qeubo.phase.init', { done: init.done, total: init.total });
   const opt = q.optimizationProgress.value;
-  if (opt) return `iter ${opt.iteration}`;
+  if (opt) return t('qeubo.phase.iter', { n: opt.iteration });
   return '';
 });
 
@@ -39,16 +41,7 @@ const phaseLabel = computed<string>(() => {
 // labels are individually opaque) and the GP-fitting cost curve
 // (cubic in observations — users naturally hit a wall in mid-hundreds
 // and should stop voting once successive bests stabilise).
-const phaseTooltip =
-  'qEUBO calibrates palette parameters by Bayesian preference ' +
-  'learning: it proposes a pair (A vs B), you register your ' +
-  'preference, and a Gaussian process refines its model. The ' +
-  'Applied/A/B toggle previews each variant; "Use this" promotes ' +
-  'the current preview to the persistent parameters; "Pin" saves ' +
-  'it as a named bookmark. GP fitting cost is cubic in the number ' +
-  'of observations, so each iteration is slower than the last — ' +
-  'stop voting once successive bests stabilise (no hard cap is ' +
-  'enforced).';
+const phaseTooltip = computed<string>(() => t('qeubo.phaseTooltip'));
 
 // Debug readout: current view + applied (persisted) + effective
 // (preview-overlaid) parameter sets, shown inline as plain text
@@ -81,7 +74,7 @@ async function onVerdict(preferred: 0 | 1): Promise<void> {
     await q.submitPreference(preferred);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    pushSystemMessage('error', `qEUBO verdict failed: ${msg}`);
+    pushSystemMessage('error', t('qeubo.systemMessage.verdictFailed', { msg }));
   }
 }
 
@@ -90,19 +83,19 @@ function onApply(): void {
     q.applyEffective();
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    pushSystemMessage('error', `qEUBO apply failed: ${msg}`);
+    pushSystemMessage('error', t('qeubo.systemMessage.applyFailed', { msg }));
   }
 }
 
 function onPin(): void {
-  const name = window.prompt('Bookmark name:');
+  const name = window.prompt(t('qeubo.prompt.bookmarkName'));
   if (name === null) return; // user cancelled
   try {
     q.pinCurrent(name);
-    pushSystemMessage('info', `qEUBO bookmark "${name.trim()}" saved.`);
+    pushSystemMessage('info', t('qeubo.systemMessage.bookmarkSaved', { name: name.trim() }));
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    pushSystemMessage('error', `qEUBO pin failed: ${msg}`);
+    pushSystemMessage('error', t('qeubo.systemMessage.pinFailed', { msg }));
   }
 }
 </script>
@@ -112,7 +105,7 @@ function onPin(): void {
     <!-- Audition toggle. v-model on q.toolbarView would also work
          but explicit click handlers give us per-button styling and
          keyboard semantics. -->
-    <div class="seg-toggle" role="radiogroup" aria-label="qEUBO audition view">
+    <div class="seg-toggle" role="radiogroup" :aria-label="$t('qeubo.aria.auditionView')">
       <button
         type="button"
         class="seg-btn"
@@ -120,9 +113,9 @@ function onPin(): void {
         :disabled="q.isBusy.value"
         role="radio"
         :aria-checked="q.toolbarView.value === 'applied'"
-        title="Preview the parameters currently in use. Switch to A or B to compare qEUBO's candidates."
+        :title="$t('qeubo.tooltip.applied')"
         @click="setView('applied')"
-      >Applied</button>
+      >{{ $t('qeubo.label.applied') }}</button>
       <button
         type="button"
         class="seg-btn"
@@ -130,7 +123,7 @@ function onPin(): void {
         :disabled="q.isBusy.value || !hasPair"
         role="radio"
         :aria-checked="q.toolbarView.value === 'A'"
-        title="Preview qEUBO candidate A. Use the verdict buttons to register your A-vs-B preference."
+        :title="$t('qeubo.tooltip.candidateA')"
         @click="setView('A')"
       >A</button>
       <button
@@ -140,7 +133,7 @@ function onPin(): void {
         :disabled="q.isBusy.value || !hasPair"
         role="radio"
         :aria-checked="q.toolbarView.value === 'B'"
-        title="Preview qEUBO candidate B. Use the verdict buttons to register your A-vs-B preference."
+        :title="$t('qeubo.tooltip.candidateB')"
         @click="setView('B')"
       >B</button>
     </div>
@@ -152,16 +145,16 @@ function onPin(): void {
         type="button"
         class="verdict-btn"
         :disabled="verdictDisabled"
-        title="Submit your preference for A. The optimizer updates its model and proposes a new pair."
+        :title="$t('qeubo.tooltip.preferA')"
         @click="onVerdict(0)"
-      >I prefer A</button>
+      >{{ $t('qeubo.label.preferA') }}</button>
       <button
         type="button"
         class="verdict-btn"
         :disabled="verdictDisabled"
-        title="Submit your preference for B. The optimizer updates its model and proposes a new pair."
+        :title="$t('qeubo.tooltip.preferB')"
         @click="onVerdict(1)"
-      >I prefer B</button>
+      >{{ $t('qeubo.label.preferB') }}</button>
     </div>
 
     <!-- Apply: promote the current audition to persistent. Hidden
@@ -171,18 +164,18 @@ function onPin(): void {
       type="button"
       class="apply-btn"
       :disabled="q.isBusy.value"
-      title="Promote the current preview (A or B) to the persistent palette parameters. Future analyses will use these values."
+      :title="$t('qeubo.tooltip.useThis')"
       @click="onApply"
-    >Use this</button>
+    >{{ $t('qeubo.label.useThis') }}</button>
 
     <!-- Pin: snapshot effective values to qeuboPinnedBookmarks. -->
     <button
       type="button"
       class="pin-btn"
       :disabled="q.isBusy.value"
-      title="Save the current preview as a named bookmark for cross-session comparison."
+      :title="$t('qeubo.tooltip.pin')"
       @click="onPin"
-    >Pin</button>
+    >{{ $t('qeubo.label.pin') }}</button>
 
     <!-- Debug toggle (⊗) and conditional readout. The icon flips
          debugVisible; the strip shows view + applied + effective
@@ -192,7 +185,7 @@ function onPin(): void {
       type="button"
       class="debug-toggle"
       :class="{ active: debugVisible }"
-      :title="debugVisible ? 'Hide qEUBO parameter readout' : 'Show qEUBO parameter readout (debug)'"
+      :title="debugVisible ? $t('qeubo.tooltip.debugHide') : $t('qeubo.tooltip.debugShow')"
       @click="debugVisible = !debugVisible"
     >⊗</button>
     <span v-if="debugVisible" class="params-debug">{{ paramsDebug }}</span>
@@ -204,7 +197,7 @@ function onPin(): void {
 
     <!-- Spinner placeholder; toolbar already shows engine spinners
          elsewhere so this is intentionally minimal. -->
-    <span v-if="q.isBusy.value" class="busy-dot" aria-label="qEUBO request in flight">●</span>
+    <span v-if="q.isBusy.value" class="busy-dot" :aria-label="$t('qeubo.aria.busy')">●</span>
   </div>
 </template>
 

@@ -72,7 +72,7 @@ function hiddenCount(game: ForestNavGameNode): number {
 <template>
   <div class="forest-tree-nav">
     <div v-if="nav.nodes.value.length === 0" class="empty-state">
-      No games loaded.
+      {{ $t('cards.browse.noGames') }}
     </div>
     <div
       v-for="game in nav.nodes.value"
@@ -86,7 +86,7 @@ function hiddenCount(game: ForestNavGameNode): number {
       >
         <button
           class="chevron-btn"
-          :title="isExpanded(game) ? 'Collapse' : 'Expand'"
+          :title="isExpanded(game) ? $t('cards.browse.collapse') : $t('cards.browse.expand')"
           @click.stop="nav.toggle(game.nodeId)"
         >
           {{ isExpanded(game) ? '▾' : '▸' }}
@@ -107,16 +107,16 @@ function hiddenCount(game: ForestNavGameNode): number {
             -->
             <span
               class="game-id"
-              title="Game source id — usable in the Cards-tab context-id field as ${N}"
+              :title="$t('cards.browse.gameIdTooltip', ['${N}'])"
             >#{{ game.gameSourceId }}</span>
           </div>
           <div class="game-aggregate">
-            <span>{{ game.aggregate.rootCount }}&nbsp;{{ game.aggregate.rootCount === 1 ? 'root' : 'roots' }}</span>
-            <span title="Total Cards">🗂️ {{ game.aggregate.totalCards }}</span>
-            <span title="Total Reviews">🔄 {{ game.aggregate.totalReviews }}</span>
+            <span>{{ $t('cards.browse.rootCount', game.aggregate.rootCount) }}</span>
+            <span :title="$t('cards.browse.statTotalCards')">🗂️ {{ game.aggregate.totalCards }}</span>
+            <span :title="$t('cards.browse.statTotalReviews')">🔄 {{ game.aggregate.totalReviews }}</span>
             <span
               v-if="game.aggregate.totalReviews > 0"
-              title="Average Recall (weighted by reviews)"
+              :title="$t('cards.browse.statAverageRecallWeighted')"
             >🧠 {{ game.aggregate.averageRecall.toFixed(2) }}</span>
           </div>
         </div>
@@ -131,7 +131,7 @@ function hiddenCount(game: ForestNavGameNode): number {
           @click="selectRoot(root.rootCardId)"
         >
           <div class="root-title">
-            <span class="root-title-text">{{ root.stat.description || 'Unnamed root' }}</span>
+            <span class="root-title-text">{{ root.stat.description || $t('cards.browse.unnamedRoot') }}</span>
             <!--
               root-card id surfaced inline. Same rationale as the
               game-id above: the id is the addressable handle for
@@ -140,18 +140,18 @@ function hiddenCount(game: ForestNavGameNode): number {
             -->
             <span
               class="root-id"
-              title="Root card id — usable directly in the Cards-tab context-id field"
+              :title="$t('cards.browse.rootIdTooltip')"
             >#{{ root.rootCardId }}</span>
           </div>
-          <div class="root-meta">{{ root.stat.playerBlack || '?' }} vs {{ root.stat.playerWhite || '?' }}</div>
+          <div class="root-meta">{{ root.stat.playerBlack || $t('cards.browse.unknownPlayer') }} {{ $t('cards.browse.versus') }} {{ root.stat.playerWhite || $t('cards.browse.unknownPlayer') }}</div>
           <div class="root-stats">
-            <span title="Total Cards">🗂️ {{ root.stat.totalCards }}</span>
-            <span title="Total Reviews">🔄 {{ root.stat.totalReviews }}</span>
-            <span title="Average Recall">🧠 {{ root.stat.averageRecall.toFixed(2) }}</span>
+            <span :title="$t('cards.browse.statTotalCards')">🗂️ {{ root.stat.totalCards }}</span>
+            <span :title="$t('cards.browse.statTotalReviews')">🔄 {{ root.stat.totalReviews }}</span>
+            <span :title="$t('cards.browse.statAverageRecall')">🧠 {{ root.stat.averageRecall.toFixed(2) }}</span>
           </div>
         </div>
         <div v-if="hiddenCount(game) > 0" class="more-affordance">
-          + {{ hiddenCount(game) }} more — collapse and select the parent game to load all roots
+          {{ $t('cards.browse.moreAffordance', { n: hiddenCount(game) }) }}
         </div>
       </div>
     </div>

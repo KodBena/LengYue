@@ -43,11 +43,11 @@ function onRangeUpdate(r: [number, number]): void {
   <div class="section">
 
     <div class="timeline-header">
-      <span class="timeline-title">Analysis Range</span>
+      <span class="timeline-title">{{ $t('analysisTimeline.title') }}</span>
       <span class="timeline-info">
-        {{ selectionNodeCount }} node{{ selectionNodeCount === 1 ? '' : 's' }} selected
+        {{ $t('analysisTimeline.nodesSelected', selectionNodeCount) }}
         &nbsp;·&nbsp;
-        turns {{ Math.round(selectionRange[0]) }}–{{ Math.round(selectionRange[1]) }}
+        {{ $t('analysisTimeline.turnsRange', { from: Math.round(selectionRange[0]), to: Math.round(selectionRange[1]) }) }}
       </span>
     </div>
 
@@ -61,7 +61,7 @@ function onRangeUpdate(r: [number, number]): void {
     </div>
 
     <div class="timeline-controls">
-      <label class="visits-label">Visits</label>
+      <label class="visits-label">{{ $t('analysisTimeline.visits') }}</label>
       <input
         v-model.number="visits"
         type="number"
@@ -74,7 +74,7 @@ function onRangeUpdate(r: [number, number]): void {
         :disabled="!engineConnected || selectionNodeCount === 0"
         @click="emit('analyze', visits)"
       >
-        Analyse selection ({{ selectionNodeCount }} nodes)
+        {{ $t('analysisTimeline.analyseSelection', { n: selectionNodeCount }) }}
       </button>
     </div>
 

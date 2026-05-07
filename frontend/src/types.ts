@@ -63,6 +63,14 @@ import type {
 } from './composables/use-pv-animation';
 export type { PvAnimationSettings, PvAnnotation, PvMode };
 
+// ── Re-exports: i18n supported-locale union ───────────────────────────────────
+// AppSettings.appearance.locale references SupportedLocale; the SSOT
+// for the supported set lives next to the catalog registry in
+// src/i18n/locales.ts. Re-exported here so consumers of the AppSettings
+// shape don't need a second import path.
+import type { SupportedLocale } from './i18n/locales';
+export type { SupportedLocale };
+
 // ── Re-exports: generated wire schemas ────────────────────────────────────────
 // Imported here so this file can alias selected wire shapes under
 // domain-friendly names. The generated module is the single source of
@@ -428,6 +436,19 @@ export interface AppSettings {
     // readability; users with different colour-vision profiles can
     // adjust via the slider in the Gradient Calibration view.
     intensityHueShift: number;
+    // Active UI locale. Mirrored onto `<html lang="...">` and
+    // `i18n.global.locale.value` by useAppBootstrap. Schema-version
+    // 24 introduces this field; the migration backfills existing
+    // workspace blobs with the user-agent's preferred locale via
+    // `detectBrowserLocale()`. The supported set is the union of
+    // catalogs registered in src/i18n/index.ts; SUPPORTED_LOCALES
+    // in src/i18n/locales.ts is the SSOT. Adding a locale: extend
+    // SUPPORTED_LOCALES, add a JSON catalog under src/locales/,
+    // register it in src/i18n/index.ts. Adding a value here NOT in
+    // the supported set is a real ADR-0002 violation; the
+    // composable's defensive resolver catches it but the type
+    // should agree with the runtime contract.
+    locale: SupportedLocale;
   };
   persistence: {
     debounceInterval: number;

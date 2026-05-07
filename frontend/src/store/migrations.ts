@@ -75,6 +75,10 @@ import {
   rewriteGradingParameterAnalysisConfig,
 } from '../engine/analysis-config-curation';
 import { generateUUID } from '../engine/util';
+import {
+  detectBrowserLocale,
+  isSupportedLocale,
+} from '../i18n/locales';
 import type { SystemMessage } from '../types';
 
 /**
@@ -83,7 +87,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 23;
+export const CURRENT_SCHEMA_VERSION = 24;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -635,6 +639,44 @@ export const migrations: Migration[] = [
         if (b && typeof b === 'object' && typeof b.clientGameId !== 'string') {
           b.clientGameId = generateUUID();
         }
+      }
+    }
+    return out;
+  },
+  // 23 → 24: Surface UI locale in `appearance.locale`. v23 had no
+  // locale field; the SPA was English-only. v24 introduces vue-i18n
+  // and the per-user locale preference. Backfills existing users
+  // with their user-agent's preferred locale via
+  // `detectBrowserLocale()` — first-encounter rule from
+  // docs/notes/i18n-plan.md ("browser-detect at first run, store in
+  // user's profile thereafter"). The migration is the natural place
+  // for the one-time detection: it fires exactly once per
+  // workspace blob (subsequent loads see the persisted value and
+  // skip the detection).
+  //
+  // Idempotent: pre-existing valid SupportedLocale value preserved
+  // (a hand-edited blob isn't clobbered); missing or unsupported
+  // value gets the browser-detected one. New fresh installs land on
+  // 'en' from defaults.ts, not on the migration's detection
+  // (defaults.ts runs on the in-memory store; the migration runs on
+  // hydration of a stored blob); fresh-install browser-detection
+  // could be added at composable cold-start if it turns out to
+  // matter, but bias is to keep new installs predictable rather
+  // than locale-shifting silently.
+  //
+  // Slot was originally authored as 22 → 23 on the parked i18n PR1
+  // branch; renumbered to 23 → 24 at rebase time after the
+  // game-source dedup migration took the 22 → 23 slot during the
+  // arc that landed first. Append-only invariant honored at the
+  // ledger level — both migrations land in their committed-to
+  // positions; the renumber is purely an authoring-time
+  // pre-merge fix-up.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const appearance = out.profile?.settings?.appearance;
+    if (appearance && typeof appearance === 'object') {
+      if (!isSupportedLocale(appearance.locale)) {
+        appearance.locale = detectBrowserLocale();
       }
     }
     return out;

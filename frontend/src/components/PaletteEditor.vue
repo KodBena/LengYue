@@ -5,9 +5,12 @@
 -->
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useQeubo } from '../composables/useQeubo';
 import { pushSystemMessage } from '../store';
 import type { AnalysisEnvironment, AnalysisPalette, ParameterMeta } from '../types';
+
+const { t } = useI18n();
 
 import { Codemirror } from 'vue-codemirror';
 import { python } from '@codemirror/lang-python';
@@ -56,7 +59,7 @@ function select(type: ViewType, id: string) {
 // ── Mutations ──────────────────────────────────────────
 
 function addSymbol() {
-  const name = prompt("Symbol name (e.g., 'new_metric'):");
+  const name = prompt(t('palette.prompt.symbolName'));
   if (!name || props.env.symbols[name]) return;
   const next = getClone();
   next.symbols[name] = '0.0';
@@ -72,7 +75,7 @@ function updateSymbolValue(val: string) {
 }
 
 function addParameter() {
-  const name = prompt("Parameter name (e.g., 'beta'):");
+  const name = prompt(t('palette.prompt.parameterName'));
   if (!name || props.env.parameters[name] !== undefined) return;
   const next = getClone();
   next.parameters[name] = 1.0;
@@ -180,17 +183,17 @@ async function setParamQeuboControlled(name: string, checked: boolean): Promise<
       await qeubo.startNewExperiment(controlled);
       pushSystemMessage(
         'info',
-        `qEUBO experiment recreated over [${controlled.join(', ')}].`,
+        t('palette.systemMessage.qeuboRecreated', { params: controlled.join(', ') }),
       );
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    pushSystemMessage('error', `qEUBO sync failed: ${msg}`);
+    pushSystemMessage('error', t('palette.systemMessage.qeuboSyncFailed', { msg }));
   }
 }
 
 function addPalette() {
-  const name = prompt("Palette Name:");
+  const name = prompt(t('palette.prompt.paletteName'));
   if (!name) return;
   const id = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
   const next = getClone();
@@ -206,7 +209,7 @@ function addPalette() {
 }
 
 function addStateFnToPalette(paletteId: string) {
-  const name = prompt("Chart Name (e.g., 'Complexity'):");
+  const name = prompt(t('palette.prompt.chartName'));
   if (!name) return;
   const next = getClone();
   const p = next.palettes.find(p => p.id === paletteId);
@@ -245,7 +248,7 @@ function updatePaletteStateFn(paletteId: string, chartName: string, symRef: stri
 
 function deleteItem() {
   if (!selectedType.value || !selectedId.value) return;
-  if (!confirm(`Delete ${selectedType.value} '${selectedId.value}'?`)) return;
+  if (!confirm(t('palette.confirm.deleteItem', { type: selectedType.value, id: selectedId.value }))) return;
   
   const next = getClone();
   if (selectedType.value === 'symbol') delete next.symbols[selectedId.value];
@@ -270,11 +273,11 @@ function deleteItem() {
     <div class="sidebar">
       <div class="section">
         <div class="section-header">
-          <span>Symbols (λ)</span>
+          <span>{{ $t('palette.sidebar.symbols') }}</span>
           <button class="add-btn" @click="addSymbol">+</button>
         </div>
         <ul class="item-list">
-          <li 
+          <li
             v-for="key in symbolKeys" :key="key"
             :class="{ active: selectedType === 'symbol' && selectedId === key }"
             @click="select('symbol', key)"
@@ -284,11 +287,11 @@ function deleteItem() {
 
       <div class="section">
         <div class="section-header">
-          <span>Parameters</span>
+          <span>{{ $t('palette.sidebar.parameters') }}</span>
           <button class="add-btn" @click="addParameter">+</button>
         </div>
         <ul class="item-list">
-          <li 
+          <li
             v-for="key in paramKeys" :key="key"
             :class="{ active: selectedType === 'parameter' && selectedId === key }"
             @click="select('parameter', key)"
@@ -298,15 +301,15 @@ function deleteItem() {
 
       <div class="section">
         <div class="section-header">
-          <span>Palettes</span>
+          <span>{{ $t('palette.sidebar.palettes') }}</span>
           <button class="add-btn" @click="addPalette">+</button>
         </div>
         <ul class="item-list">
-          <li 
+          <li
             v-for="p in env.palettes" :key="p.id"
             :class="{ active: selectedType === 'palette' && selectedId === p.id }"
             @click="select('palette', p.id)"
-          >{{ p.name }} <span v-if="env.activePaletteId === p.id" class="active-badge">ACTIVE</span></li>
+          >{{ p.name }} <span v-if="env.activePaletteId === p.id" class="active-badge">{{ $t('palette.sidebar.activeBadge') }}</span></li>
         </ul>
       </div>
     </div>
@@ -314,13 +317,13 @@ function deleteItem() {
     <!-- RIGHT PANE: Details -->
     <div class="detail-pane">
       <div v-if="!selectedType" class="empty-state">
-        Select an item to edit
+        {{ $t('palette.detail.empty') }}
       </div>
 
       <div v-else class="detail-content">
         <div class="detail-header">
           <h3>{{ selectedId }}</h3>
-          <button class="del-btn" @click="deleteItem">Delete</button>
+          <button class="del-btn" @click="deleteItem">{{ $t('palette.detail.delete') }}</button>
         </div>
 
         <!-- Symbol Editor (CodeMirror) -->
@@ -335,7 +338,7 @@ function deleteItem() {
 
         <!-- Parameter Editor -->
         <div v-if="selectedType === 'parameter'" class="form-grid">
-          <label>Value:</label>
+          <label>{{ $t('palette.param.value') }}</label>
           <input
             type="number"
             step="0.01"
@@ -344,14 +347,14 @@ function deleteItem() {
             @input="(e: any) => updateParameterValue(Number(e.target.value))"
           />
 
-          <label>Range:</label>
+          <label>{{ $t('palette.param.range') }}</label>
           <div class="range-inputs">
             <input
               type="number"
               step="0.01"
               class="dark-input range-half"
               :class="{ invalid: !selectedRangeValid && !!selectedParamMeta.qeubo_controlled }"
-              placeholder="min"
+              :placeholder="$t('palette.param.rangeMin')"
               :value="selectedParamMeta.range?.[0] ?? ''"
               @input="(e: any) => updateParamRange(selectedId, 'min', e.target.value)"
             />
@@ -361,31 +364,29 @@ function deleteItem() {
               step="0.01"
               class="dark-input range-half"
               :class="{ invalid: !selectedRangeValid && !!selectedParamMeta.qeubo_controlled }"
-              placeholder="max"
+              :placeholder="$t('palette.param.rangeMax')"
               :value="selectedParamMeta.range?.[1] ?? ''"
               @input="(e: any) => updateParamRange(selectedId, 'max', e.target.value)"
             />
           </div>
 
-          <label>qEUBO:</label>
+          <label>{{ $t('palette.param.qeuboLabel') }}</label>
           <div class="qeubo-control">
             <label class="checkbox-label">
               <input
                 type="checkbox"
                 :checked="!!selectedParamMeta.qeubo_controlled"
                 :disabled="!selectedRangeValid && !selectedParamMeta.qeubo_controlled"
-                :title="selectedRangeValid
-                  ? 'Mark this parameter as qEUBO-controlled. Toggling recreates the calibration experiment over the new controlled set.'
-                  : 'Set a valid [min, max] range first (min < max).'"
+                :title="selectedRangeValid ? $t('palette.param.qeuboTooltipReady') : $t('palette.param.qeuboTooltipNeedRange')"
                 @change="(e: any) => setParamQeuboControlled(selectedId, e.target.checked)"
               />
-              <span>controlled by qEUBO calibration</span>
+              <span>{{ $t('palette.param.qeuboCheckboxLabel') }}</span>
             </label>
             <div v-if="!selectedRangeValid && !!selectedParamMeta.qeubo_controlled" class="validation-error">
-              Range invalid — qEUBO experiment continues with the snapshot taken at create. Fix the range and re-toggle to apply.
+              {{ $t('palette.param.qeuboRangeInvalidActive') }}
             </div>
             <div v-else-if="!selectedRangeValid" class="validation-hint">
-              Set a valid [min, max] range to enable qEUBO control.
+              {{ $t('palette.param.qeuboRangeInvalidPassive') }}
             </div>
           </div>
         </div>
@@ -393,20 +394,20 @@ function deleteItem() {
         <!-- Palette Editor -->
         <div v-if="selectedType === 'palette'" class="palette-form">
           <div class="form-grid">
-            <label>Name:</label>
-            <input 
-              type="text" 
-              class="dark-input" 
+            <label>{{ $t('palette.field.name') }}</label>
+            <input
+              type="text"
+              class="dark-input"
               :value="env.palettes.find(p => p.id === selectedId)?.name"
               @input="(e: any) => updatePaletteField(selectedId, 'name', e.target.value)"
             />
-            
-            <label>Delta Function:</label>
+
+            <label>{{ $t('palette.field.deltaFn') }}</label>
             <select class="dark-select" :value="env.palettes.find(p => p.id === selectedId)?.delta_fn" @change="(e: any) => updatePaletteField(selectedId, 'delta_fn', e.target.value)">
               <option v-for="sym in symbolKeys" :key="sym" :value="sym">{{ sym }}</option>
             </select>
 
-            <label>Summary Function:</label>
+            <label>{{ $t('palette.field.summaryFn') }}</label>
             <select class="dark-select" :value="env.palettes.find(p => p.id === selectedId)?.summary_fn" @change="(e: any) => updatePaletteField(selectedId, 'summary_fn', e.target.value)">
               <option v-for="sym in symbolKeys" :key="sym" :value="sym">{{ sym }}</option>
             </select>
@@ -414,8 +415,8 @@ function deleteItem() {
 
           <div class="state-fns-section">
             <div class="section-header" style="margin-top: var(--space-medium);">
-              <span>Charts (State Functions)</span>
-              <button class="add-btn" @click="addStateFnToPalette(selectedId)">+ Chart</button>
+              <span>{{ $t('palette.field.charts') }}</span>
+              <button class="add-btn" @click="addStateFnToPalette(selectedId)">{{ $t('palette.field.addChart') }}</button>
             </div>
             
             <div class="state-fn-row" v-for="(symRef, chartName) in env.palettes.find(p => p.id === selectedId)?.state_fns" :key="chartName">
