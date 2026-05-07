@@ -29,13 +29,23 @@ Known Defects Documented Here
 """
 import pytest
 
+from domain.auth import UserId
 from domain.pipeline import PipelineExecutor
-from tests.helpers import TreeBuilder, get_by_id
+from domain.pipeline_dsl import ForestQuery
+from repositories.lineage_repository import LineageRepository
+from repositories.tag_filter_repository import TagFilterRepository
+from tests.helpers import TreeBuilder, get_by_id  # noqa: F401  (TreeBuilder kept for legacy fixture seeding inside individual tests)
 
 pytestmark = pytest.mark.integration
 
+# TreeBuilder defaults to user_id=1; tests use the same id for the
+# pipeline caller so the tenancy filter doesn't accidentally mask a
+# row.
+USER = UserId(1)
+
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
+
 
 def card_ids(responses) -> list[int]:
     """Extract ordered card IDs from a list of CardResponse objects."""
@@ -47,8 +57,23 @@ def card_id_set(responses) -> set[int]:
 
 
 async def run(session, context_ids, pipeline):
-    executor = PipelineExecutor(session)
-    return await executor.run(context_ids, pipeline)
+    """
+    Validate a wire-shape pipeline (list of stage dicts) through
+    ForestQuery (the same Pydantic gate the route uses), then run it
+    through a Port-composed PipelineExecutor backed by the integration
+    session's adapters. Returns the ordered list of CardWithRecall.
+
+    Item 32a: PipelineExecutor depends on LineageRepositoryPort +
+    TagFilterRepositoryPort, not a session directly.
+
+    Item 25: user_id is keyword-only on the executor's run method.
+    """
+    query = ForestQuery(context_ids=context_ids, pipeline=pipeline)
+    executor = PipelineExecutor(
+        lineage_repo=LineageRepository(session),
+        tag_filter_repo=TagFilterRepository(session),
+    )
+    return await executor.run(query.context_ids, query.pipeline, user_id=USER)
 
 
 # ─── P-E2E-0: Basic smoke test ────────────────────────────────────────────────
@@ -413,19 +438,13 @@ async def test_multi_context_deduplication_first_seen_wins(seeded_session):
 
 # ─── Defect tests ─────────────────────────────────────────────────────────────
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "D-3/D-4: 'bfs_order' is a named preset from REFERENCE.md that maps to "
-        "DepthKey.  _apply_order only checks otype == 'DepthKey', not 'bfs_order'. "
-        "A pipeline with ordering={'type': 'bfs_order'} silently does nothing. "
-        "Fix: add alias handling in _apply_order or expand presets before dispatch."
-    ),
-)
 async def test_named_preset_bfs_order_is_handled(seeded_session):
     """
-    D-4: 'bfs_order' named preset must produce the same ordering as 'DepthKey'.
-    Today _apply_order has no 'bfs_order' branch → pool is unsorted.
+    D-3/D-4 fix regression: 'bfs_order' named preset produces the same
+    ordering as 'DepthKey'. Item 32a's exhaustiveness-checked
+    ``_build_order_key_fn`` expands ``BfsOrder`` into the
+    ``DepthKey()`` primitive, so the two ordering shapes are now
+    semantically equivalent at runtime.
     """
     session, builder = seeded_session
     ids = await builder.build({
@@ -453,15 +472,12 @@ async def test_named_preset_bfs_order_is_handled(seeded_session):
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "D-4: 'dfs_preorder' maps to HeavyPathRankKey per REFERENCE.md. "
-        "_apply_order has no 'dfs_preorder' branch."
-    ),
-)
 async def test_named_preset_dfs_preorder_is_handled(seeded_session):
-    """D-4: 'dfs_preorder' must produce the same ordering as 'HeavyPathRankKey'."""
+    """
+    D-4 fix regression: 'dfs_preorder' produces the same ordering as
+    'HeavyPathRankKey'. ``DfsPreorder`` is expanded into
+    ``HeavyPathRankKey()`` by ``_build_order_key_fn``.
+    """
     session, builder = seeded_session
     ids = await builder.build({
         "r": None, "main_a": "r", "side": "r", "main_b": "main_a"
@@ -481,17 +497,11 @@ async def test_named_preset_dfs_preorder_is_handled(seeded_session):
     assert card_ids(preset) == card_ids(ref)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "D-4: 'fringe_first' maps to LexicographicOrder([HeightKey, DepthKey]). "
-        "Neither the alias nor LexicographicOrder is implemented in _apply_order."
-    ),
-)
 async def test_named_preset_fringe_first_is_handled(seeded_session):
     """
-    D-4: 'fringe_first' must produce leaves before internal nodes, with
-    equal-height nodes ordered by depth.
+    D-4 fix regression: 'fringe_first' produces leaves before internal
+    nodes, with equal-height nodes ordered by depth. ``FringeFirst``
+    expands into ``LexicographicOrder([HeightKey, DepthKey])``.
     """
     session, builder = seeded_session
     ids = await builder.build({
@@ -513,19 +523,13 @@ async def test_named_preset_fringe_first_is_handled(seeded_session):
     assert last_leaf < first_internal, "fringe_first must place leaves before internals"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "D-3: SubtreeSizeKey is specified in REFERENCE.md but has no branch in "
-        "_apply_order. The pool is returned in its current (unsorted) order."
-    ),
-)
 async def test_subtree_size_key_sorts_smallest_first(seeded_session):
     """
-    D-3: SubtreeSizeKey ascending puts nodes with smallest subtrees first
-    (terminal positions before branch points).
-
-    A leaf (size=1) must come before its parent (size>1).
+    D-3 fix regression: SubtreeSizeKey ascending puts nodes with
+    smallest subtrees first (terminal positions before branch points).
+    A leaf (size=1) must come before its parent (size>1). The
+    ``SubtreeSizeKey`` branch is now part of
+    ``_build_order_key_fn``'s primitive dispatch.
     """
     session, builder = seeded_session
     ids = await builder.build({"r": None, "a": "r", "b": "a", "c": "a"})
@@ -546,18 +550,12 @@ async def test_subtree_size_key_sorts_smallest_first(seeded_session):
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "D-2: CentroidRankKey references n.centroid_rank which is never "
-        "initialised on CardNode and never computed by compute_structural_coords. "
-        "This raises AttributeError at runtime."
-    ),
-)
 async def test_centroid_rank_key_does_not_crash(seeded_session):
     """
-    D-2: Using CentroidRankKey as an ordering must not raise AttributeError.
-    Today it will crash because centroid_rank is never set on CardNode.
+    D-2 fix regression: Using CentroidRankKey as an ordering does not
+    raise AttributeError. ``CardNode`` initialises ``centroid_rank``
+    in ``__init__`` and ``compute_structural_coords`` assigns it via
+    its centroid-decomposition phase.
     """
     session, builder = seeded_session
     ids = await builder.build({"r": None, "a": "r", "b": "r", "c": "a"})
@@ -572,17 +570,12 @@ async def test_centroid_rank_key_does_not_crash(seeded_session):
     assert len(responses) == 3
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "D-3: LexicographicOrder is a compound ordering from REFERENCE.md. "
-        "_apply_order has no handler for it, so it silently does nothing."
-    ),
-)
 async def test_lexicographic_order_compound_key(seeded_session):
     """
-    D-3: LexicographicOrder([HeightKey, DepthKey]) must sort by height first,
-    then break ties by depth.  Today it is a no-op.
+    D-3 fix regression: LexicographicOrder([HeightKey, DepthKey])
+    sorts by height first, then breaks ties by depth. ``LexicographicOrder``
+    is a recursive combinator in ``_build_order_key_fn`` — it composes
+    its child keys into a tuple sort.
     """
     session, builder = seeded_session
     ids = await builder.build({

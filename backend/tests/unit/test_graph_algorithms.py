@@ -38,7 +38,6 @@ from typing import List, Optional
 
 from domain.tree_engine import CardNode, compute_structural_coords
 from tests.helpers import (
-    FakeRow,
     make_node,
     build_nodes,
     build_chain,
@@ -411,32 +410,29 @@ def test_deep_chain_causes_recursion_error():
         sys.setrecursionlimit(old_limit)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "D-2: centroid_rank is specified in REFERENCE.md and referenced by "
-        "_apply_order in pipeline.py, but it is never computed by "
-        "compute_structural_coords and is not initialised on CardNode.__init__. "
-        "Accessing n.centroid_rank raises AttributeError at runtime."
-    ),
-)
 def test_centroid_rank_is_computed_after_compute_structural_coords():
     """
-    D-2: centroid_rank not implemented.
+    D-2 fix regression: ``centroid_rank`` is initialised on
+    ``CardNode.__init__`` (default 0) and assigned by the centroid-
+    decomposition phase of ``compute_structural_coords``. The
+    historical defect — ``AttributeError`` at access time — was closed
+    when the centroid pass landed in ``domain/tree_engine.py``.
 
-    After compute_structural_coords runs, every node should have a
-    ``centroid_rank`` integer attribute.  Today it does not exist at all.
+    After ``compute_structural_coords`` runs, every node must have an
+    integer ``centroid_rank`` attribute, and the set of ranks must
+    form a permutation of {0..N-1} (each node assigned a unique
+    centroid order).
     """
     nodes = build_nodes({1: None, 2: 1, 3: 1, 4: 2, 5: 2})
     compute_structural_coords(nodes)
-    by_id = get_by_id(nodes)
 
+    # Attribute exists and is integer-valued on every node.
     for n in nodes:
-        # This attribute access raises AttributeError today → xfail.
-        _ = n.centroid_rank
+        assert isinstance(n.centroid_rank, int)
 
-    # When implemented, centroid_rank must also be a permutation.
-    assert_heavy_path_permutation(nodes)  # Reuse HP1 shape check (rename to assert_rank_permutation)
+    # Ranks form a permutation of {0..N-1}.
+    N = len(nodes)
+    assert sorted(n.centroid_rank for n in nodes) == list(range(N))
 
 
 def test_compute_structural_coords_is_NOT_idempotent():
