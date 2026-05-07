@@ -87,7 +87,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 26;
+export const CURRENT_SCHEMA_VERSION = 27;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -773,6 +773,62 @@ export const migrations: Migration[] = [
         katago.analysisStorageEnabled = true;
       }
     }
+    return out;
+  },
+  // 26 → 27: Repair non-UUID BoardIds that the SGF-load path
+  // continued to mint after migration 24 → 25 shipped. The 24 → 25
+  // migration moved BoardId to RFC4122 UUID across the persisted
+  // blob and `createInitialBoard()`, but missed
+  // `engine/sgf-loader.ts`, which kept emitting `'sgf-' + uuid()`
+  // five-character slugs. Any board the user loaded from an SGF
+  // after 24 → 25 ran seeded a slug-shaped id into a v25/v26 blob,
+  // where it stayed indefinitely and crashed the analysis-bundle
+  // PUT path with a 422 (FastAPI types `board_id` as a UUID).
+  //
+  // Walks `out.boards` and assigns a fresh UUID to any `b.id` that
+  // doesn't match the UUID shape. Re-keys the two persisted
+  // `Partial<Record<BoardId, _>>` dictionaries (`session.reviews`
+  // and `engine.activeMode`) through the slug→UUID map; entries
+  // whose key is already UUID-shaped pass through unchanged. This
+  // differs from 24 → 25's "drop orphans" semantics because here
+  // most existing dictionary keys are UUIDs that should be
+  // preserved verbatim — only the slug-shaped keys need re-keying.
+  //
+  // The loader fix that prevents new occurrences ships in the
+  // same change as this migration.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    if (!Array.isArray(out.boards)) return out;
+
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const idMap = new Map<string, string>();
+    for (const b of out.boards) {
+      if (b && typeof b === 'object' && typeof b.id === 'string' && !UUID_RE.test(b.id)) {
+        const newId = generateUUID();
+        idMap.set(b.id, newId);
+        b.id = newId;
+      }
+    }
+
+    if (idMap.size === 0) return out;
+
+    const reKey = <T>(dict: Record<string, T> | undefined): Record<string, T> => {
+      if (!dict || typeof dict !== 'object') return dict ?? {};
+      const next: Record<string, T> = {};
+      for (const [k, v] of Object.entries(dict)) {
+        const mapped = idMap.get(k);
+        next[mapped ?? k] = v;
+      }
+      return next;
+    };
+
+    if (out.session && typeof out.session === 'object') {
+      out.session.reviews = reKey(out.session.reviews);
+    }
+    if (out.engine && typeof out.engine === 'object') {
+      out.engine.activeMode = reKey(out.engine.activeMode);
+    }
+
     return out;
   },
 ];

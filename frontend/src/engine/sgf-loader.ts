@@ -30,8 +30,8 @@ export function loadSgf(sabakiOutput: any): BoardState {
   // call returns, since the filename is a File-API artifact the
   // engine layer doesn't see.
   const state: BoardState = {
-    id: 'sgf-' + uuid(), // Will be cast to BoardId elsewhere
-    rootNodeId: rootId,  // Will be cast to NodeId elsewhere
+    id: generateUUID(), // BoardId is UUID-shaped (migration 24 → 25)
+    rootNodeId: rootId, // Will be cast to NodeId elsewhere
     stones: {},
     captures: { B: 0, W: 0 },
     currentNodeId: rootId,
