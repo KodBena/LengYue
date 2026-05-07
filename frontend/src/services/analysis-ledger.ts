@@ -150,6 +150,28 @@ export class AnalysisLedger {
     return data.get(hash)?.get(nodeId) ?? null;
   }
 
+  /**
+   * Non-reactive batch read across every configHash, restricted
+   * to the given nodeIds. Intended for one-shot snapshots like
+   * the analysis-persistence bundle export, not for reactive
+   * views (no version-ref subscriptions are registered). Order
+   * of returned entries is unspecified.
+   */
+  public listEntriesForNodes(
+    nodeIds: readonly NodeId[]
+  ): readonly { configHash: string; nodeId: NodeId; packet: KataAnalysisResponse }[] {
+    const wantedNodes = new Set<NodeId>(nodeIds);
+    const out: { configHash: string; nodeId: NodeId; packet: KataAnalysisResponse }[] = [];
+    for (const [hash, hashMap] of data.entries()) {
+      for (const [nodeId, packet] of hashMap.entries()) {
+        if (wantedNodes.has(nodeId)) {
+          out.push({ configHash: hash, nodeId, packet });
+        }
+      }
+    }
+    return out;
+  }
+
   public getProjectedSequence(
     hash: string,
     nodeIds: NodeId[],
