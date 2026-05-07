@@ -4,6 +4,7 @@
  */
 
 import type { AppSettings, ProfileState, UISession, ProfileId, ThumbnailSettings, CardSet } from '../types';
+import { detectBrowserLocale } from '../i18n/locales';
 
 export const NIL_UUID = '00000000-0000-0000-0000-000000000000';
 
@@ -163,11 +164,15 @@ export const defaultSettings = {
     },
   },
   persistence: { debounceInterval: 1000 },
-  // Locale defaults to 'en' for fresh installs; existing users get
-  // their browser-detected locale via the schema 22 → 23 migration.
-  // The active value is mirrored onto vue-i18n by useAppBootstrap's
-  // watch on this field.
-  appearance:  { theme: 'cluster', intensityHueShift: -43, locale: 'en' },
+  // Locale: browser-detected at fresh-install time. `detectBrowserLocale`
+  // walks `navigator.languages` (with the same prefix-dispatch rules
+  // the schema 23 → 24 migration uses for legacy-blob backfill), so
+  // new sign-ups land on the user's preferred locale rather than a
+  // hardcoded 'en'. Existing users continue to hit the migration
+  // path; both code paths now use the same resolver, so behaviour is
+  // symmetric across new and existing users. The active value is
+  // mirrored onto vue-i18n by useAppBootstrap's watch on this field.
+  appearance:  { theme: 'cluster', intensityHueShift: -43, locale: detectBrowserLocale() },
   minting: {
     defaultVisits: 1000,
     defaultNumMoves: 1,

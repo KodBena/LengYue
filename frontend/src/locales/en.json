@@ -11,6 +11,8 @@
   "app.chrome.gameTreePanelHeader":       "Game Tree",
 
   "localePicker.tooltip":                 "Change interface language",
+  "localePicker.machineTranslatedNotice": "* machine-translated — contributions welcome",
+  "localePicker.machineTranslatedTooltip": "This catalog was produced by machine translation and is awaiting native-speaker review. Contributions are welcome on GitHub.",
 
   "settings.section.analysisEnv":         "Analysis Environment",
   "settings.section.cardSets":            "Card Sets (Decks)",

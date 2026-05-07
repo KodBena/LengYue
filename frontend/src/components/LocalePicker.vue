@@ -12,7 +12,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useLocale } from '../composables/useLocale';
 import type { SupportedLocale } from '../i18n/locales';
 
-const { locale, supportedLocales, displayName, flag, setLocale } = useLocale();
+const { locale, supportedLocales, displayName, flag, isMachineTranslated, setLocale } = useLocale();
 
 const open = ref(false);
 
@@ -82,6 +82,16 @@ onBeforeUnmount(() => {
       <span class="caret" aria-hidden="true">▾</span>
     </button>
 
+    <!-- Per-locale machine-translation notice. Renders only when the
+         active catalog is in MACHINE_TRANSLATED_LOCALES; the text and
+         hover-detail are translated into the active locale so the
+         contribute invitation reads in the user's own language. -->
+    <span
+      v-if="isMachineTranslated"
+      class="machine-notice"
+      :title="$t('localePicker.machineTranslatedTooltip')"
+    >{{ $t('localePicker.machineTranslatedNotice') }}</span>
+
     <ul v-if="open" class="locale-menu" role="listbox">
       <li
         v-for="loc in supportedLocales"
@@ -101,7 +111,15 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.locale-picker { position: relative; }
+.locale-picker { position: relative; display: flex; align-items: center; gap: var(--space-tight); }
+
+.machine-notice {
+  font-size: var(--text-tiny);
+  color: var(--state-warning);
+  font-style: italic;
+  cursor: help;
+  white-space: nowrap;
+}
 
 .locale-trigger {
   background: var(--surface-0);
@@ -127,7 +145,11 @@ onBeforeUnmount(() => {
 .locale-menu {
   position: absolute;
   top: calc(100% + 4px);
-  right: 0;
+  /* Anchor to the left so the dropdown flows from under the trigger
+     button (the picker container is now flex with an optional notice
+     to the right; right: 0 would otherwise drag the menu under the
+     notice). */
+  left: 0;
   margin: 0;
   padding: var(--space-tight) 0;
   list-style: none;
