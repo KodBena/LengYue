@@ -18,22 +18,31 @@ The ``TagDSLCompiler`` is tested at two sub-levels:
      into the flat negation set?
 
   3. **Compile-time error detection** — ``compile_to_subquery`` on inputs that
-     must raise ``ValueError``.
+     must raise ``PipelineDSLError`` (a subclass of
+     ``InvalidInputError``; the route maps to 422).
 
   4. **SQL structure checks** — without executing SQL, we compile a Select
      object and inspect its string form to verify structural properties
      (HAVING clause presence, EXCEPT clause, etc.).
 
-Known Defects Documented Here
-------------------------------
-- D-7: A statement that looks like a definition ``$X :- a`` passed as the
-        *last* statement is silently treated as a query tag name.
-- D-8: An empty virtual tag definition ``$X :-`` (no tags) causes a *silent*
-        match-nothing for positive queries using ``$X``.
+Closed defects (previously documented as silent failures, now raise loudly
+per ADR-0002):
+
+- D-7: A statement that looks like a definition (``$X :- a``) without a
+        trailing period was previously treated as a query tag name. Today
+        it raises ``PipelineDSLError`` — the unknown-virtual-tag check
+        catches the ``$X`` as a query symbol with no matching definition.
+- D-8: ``compile_to_subquery("$X :- . $X")`` now raises
+        ``PipelineDSLError("Tag expression produced no conjunctions")``
+        rather than silently returning a select that matches no rows. The
+        unit-level ``_expand_conjunction`` still returns ``[]`` on an
+        empty virtual-tag positive (the silent-fold-out is genuine algebra
+        — there's no concrete tag to AND in), but the compile boundary
+        catches the empty result and raises before SQL is generated.
 """
-import re
 import pytest
 
+from domain.errors import PipelineDSLError
 from domain.tag_dsl import TagDSLCompiler
 
 pytestmark = pytest.mark.unit
@@ -99,10 +108,10 @@ class TestParseDefinition:
     def test_transitive_expansion_forward_reference_fails(self):
         """
         DNF-5: Forward reference — $B references $A before $A is defined.
-        Must raise ValueError.
+        Must raise PipelineDSLError per ADR-0002 (fail loudly).
         """
         c = TagDSLCompiler()
-        with pytest.raises(ValueError, match=r"\$A"):
+        with pytest.raises(PipelineDSLError, match=r"\$A"):
             c._parse_definition("$B :- $A;extra")  # $A not yet in definitions
 
     def test_transitive_expansion_backward_reference_succeeds(self):
@@ -117,16 +126,21 @@ class TestParseDefinition:
     def test_negation_in_definition_raises(self):
         """DNF-4: Negation (~) inside a virtual tag definition is forbidden."""
         c = TagDSLCompiler()
-        with pytest.raises(ValueError, match=r"Negation not allowed"):
+        with pytest.raises(PipelineDSLError, match=r"Negation not allowed"):
             c._parse_definition("$X :- attack;~defense")
 
-    def test_non_matching_string_is_silently_ignored(self):
+    def test_non_matching_string_raises(self):
         """
-        _parse_definition returns without modifying state if the string
-        does not match the ':-' definition pattern.
+        Item 12 / ADR-0002: ``_parse_definition`` no longer silently
+        ignores non-``:-`` statements. Previously a query expression
+        accidentally placed before the final statement was discarded
+        with no diagnostic; now the parser raises so the author sees
+        exactly what was rejected. State is unchanged on raise (the
+        regex match fails before any mutation).
         """
         c = TagDSLCompiler()
-        c._parse_definition("just_a_query_not_a_definition")
+        with pytest.raises(PipelineDSLError, match=r"valid virtual tag definition"):
+            c._parse_definition("just_a_query_not_a_definition")
         assert c.definitions == {}
 
     def test_definition_tags_are_deduplicated(self):
@@ -281,45 +295,45 @@ class TestExpandConjunction:
         """DNF-6: A virtual tag in the query that was never defined."""
         c = TagDSLCompiler()
         conj = {"pos": {"$undefined"}, "neg": set()}
-        with pytest.raises(ValueError, match=r"\$undefined"):
+        with pytest.raises(PipelineDSLError, match=r"\$undefined"):
             c._expand_conjunction(conj)
 
     def test_unknown_negative_virtual_tag_raises(self):
         c = TagDSLCompiler()
         conj = {"pos": set(), "neg": {"$undefined"}}
-        with pytest.raises(ValueError, match=r"\$undefined"):
+        with pytest.raises(PipelineDSLError, match=r"\$undefined"):
             c._expand_conjunction(conj)
 
 
 # ─── compile_to_subquery — error paths ────────────────────────────────────────
 
 class TestCompileToSubqueryErrors:
-    def test_empty_expression_raises_value_error(self):
+    def test_empty_expression_raises(self):
         """DNF-7: An empty tag expression has no meaningful query."""
         c = TagDSLCompiler()
-        with pytest.raises(ValueError):
+        with pytest.raises(PipelineDSLError):
             c.compile_to_subquery("")
 
-    def test_whitespace_only_expression_raises_value_error(self):
+    def test_whitespace_only_expression_raises(self):
         c = TagDSLCompiler()
-        with pytest.raises(ValueError):
+        with pytest.raises(PipelineDSLError):
             c.compile_to_subquery("   ")
 
     def test_negation_in_definition_raises_during_compile(self):
         """DNF-4: compile_to_subquery must surface the negation-in-def error."""
         c = TagDSLCompiler()
-        with pytest.raises(ValueError, match=r"Negation not allowed"):
+        with pytest.raises(PipelineDSLError, match=r"Negation not allowed"):
             c.compile_to_subquery("$X :- attack;~defense. $X")
 
     def test_forward_reference_raises_during_compile(self):
-        """DNF-5: referencing an undefined virtual tag raises ValueError."""
+        """DNF-5: referencing an undefined virtual tag raises PipelineDSLError."""
         c = TagDSLCompiler()
-        with pytest.raises(ValueError):
+        with pytest.raises(PipelineDSLError):
             c.compile_to_subquery("$B :- $A. $A :- x. $B")
 
     def test_unknown_virtual_tag_in_query_raises(self):
         c = TagDSLCompiler()
-        with pytest.raises(ValueError, match=r"\$ghost"):
+        with pytest.raises(PipelineDSLError, match=r"\$ghost"):
             c.compile_to_subquery("$ghost")
 
     def test_full_pipeline_valid_expression_does_not_raise(self):
@@ -414,85 +428,54 @@ class TestCompiledSQLStructure:
         assert "3" in sql and "HAVING" in sql.upper()
 
 
-# ─── Documented Silent Failure Tests ──────────────────────────────────────────
-# These tests document current INCORRECT behaviour that does not raise an error.
-# They are not marked xfail — they pass by asserting the buggy behaviour,
-# making the bug visible and preventing it from silently changing.
+# ─── Closed-defect regressions ────────────────────────────────────────────────
+# Both D-7 and D-8 documented silent-coercion failures at the
+# `compile_to_subquery` boundary. ADR-0002 closed them: today, the
+# malformed inputs raise loudly. These tests pin the fail-loud
+# behaviour so a future regression that re-introduces the silence
+# would fail here.
 
-class TestSilentFailures:
-    def test_D7_definition_as_last_statement_is_misinterpreted(self):
+class TestClosedSilentFailures:
+    def test_D7_definition_as_last_statement_now_raises(self):
         """
-        D-7: If the LAST statement looks like a definition (contains ':-'),
-        it is passed to _parse_query() instead of _parse_definition().
+        D-7 fix regression: ``compile_to_subquery("$X :- a")`` was
+        previously treated as a query expression and silently produced
+        a select that could never match. Today the parser raises
+        ``PipelineDSLError`` — the unknown-virtual-tag check catches
+        the bare ``$X`` symbol with no preceding definition.
 
-        _parse_query does NOT recognise the ':-' syntax and treats the entire
-        string as a single tag name.  This produces a Select that filters
-        for cards tagged with the literal string "$X :- a", which will never
-        match any real tag.
-
-        The expression "$X :- a" (no trailing period, single statement) should
-        raise ValueError or be treated as a definition error.  Instead, it
-        silently produces a semantically meaningless query.
-
-        This test documents the current behaviour.  When fixed, this test
-        must be updated to assert a ValueError instead.
+        A future refactor that reintroduces a silent path here would
+        fail this test.
         """
         c = TagDSLCompiler()
-        # No period → single statement → passed to _parse_query.
-        # _parse_query returns [{pos: {"$X :- a"}, neg: {}}]
-        # This contains a virtual tag reference "$X" but also extra chars,
-        # OR it is treated as a literal tag name.  Either way it's wrong.
-        #
-        # We verify that NO ValueError is raised (the silent failure mode).
-        try:
-            stmt = c.compile_to_subquery("$X :- a")
-            # If we reach here, no error was raised — the bug is present.
-            # The statement must still be a Select object (not None or an error).
-            assert stmt is not None, "Should produce some Select statement"
-        except ValueError:
-            pytest.fail(
-                "D-7: A definition-as-last-statement now raises ValueError. "
-                "Good! Update this test to assert the ValueError instead."
-            )
+        with pytest.raises(PipelineDSLError):
+            c.compile_to_subquery("$X :- a")
 
-    def test_D8_empty_virtual_tag_silently_matches_nothing(self):
+    def test_D8_empty_virtual_tag_compile_now_raises(self):
         """
-        D-8: An empty virtual tag definition ($X :- with no tags after ':-')
-        produces self.definitions['X'] = set().
-
-        When $X appears as a POSITIVE requirement in the query,
-        _expand_conjunction iterates over an empty set and produces NO
-        expanded conjunctions for that OR branch.  The effect is that the
-        entire OR clause silently disappears, matching no cards.
-
-        This is a silent correctness failure: the user gets zero results with
-        no error message, which is indistinguishable from "no cards match."
+        D-8 fix regression: ``compile_to_subquery("$X :- . $X")``
+        previously produced a select that silently matched no rows.
+        Today the compiler raises
+        ``PipelineDSLError("Tag expression produced no conjunctions")``
+        because the empty virtual definition makes
+        ``_expand_conjunction`` return zero conjunctions, and the
+        compile boundary's defensive guard catches the empty result.
         """
         c = TagDSLCompiler()
-        # Manually inject an empty definition (simulating "$X :- ." or "$X :- ;;")
+        with pytest.raises(PipelineDSLError, match=r"no conjunctions"):
+            c.compile_to_subquery("$X :- . $X")
+
+    def test_D8_empty_virtual_tag_unit_level_returns_empty(self):
+        """
+        Unit-level documentation: ``_expand_conjunction`` returns
+        ``[]`` when a positive virtual tag expands to an empty set.
+        This is genuine algebra (no concrete tag to AND in), not a
+        silent failure — the load-bearing safety belongs at the
+        compile boundary, where the empty result is caught and raised
+        (see ``test_D8_empty_virtual_tag_compile_now_raises``).
+        """
+        c = TagDSLCompiler()
         c.definitions["empty"] = set()
-
         conj = {"pos": {"$empty"}, "neg": set()}
         result = c._expand_conjunction(conj)
-
-        # The bug: zero conjunctions are returned for a positive virtual tag
-        # whose definition is empty.  A correct implementation might raise
-        # ValueError("Empty virtual tag definition") or return a match-all.
-        assert result == [], (
-            "D-8 confirmed: empty virtual tag definition produces zero conjunctions. "
-            "When fixed, update this test to assert the correct behaviour."
-        )
-
-    def test_D8_empty_virtual_tag_via_compile_does_not_raise(self):
-        """
-        D-8 end-to-end: compiling "$X :- . $X" (empty definition) produces a
-        Select that returns zero cards, silently.
-        """
-        c = TagDSLCompiler()
-        # "$X :- " with nothing after :- → raw_tags is empty → definitions['X'] = set()
-        # The query "$X" then finds zero conjunctions → falls through to
-        # select(card.c.id).where(False)
-        stmt = c.compile_to_subquery("$X :- . $X")
-        sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
-        # No error was raised.  The SQL likely contains WHERE false or is empty.
-        assert stmt is not None, "Should not raise, but produces a semantically empty query"
+        assert result == []

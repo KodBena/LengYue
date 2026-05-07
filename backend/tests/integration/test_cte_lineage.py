@@ -1,14 +1,21 @@
 """
 tests/integration/test_cte_lineage.py
 =======================================
-Tier 2 — SQLAlchemy Integration Tests: ``fetch_lineage`` and CTE generation.
+Tier 2 — SQLAlchemy Integration Tests: ``LineageRepository.fetch_lineage``
+and the recursive descent CTE.
 
 These tests use a real in-memory SQLite database seeded via ``TreeBuilder``.
-They verify that the recursive CTE in ``domain/tree_engine.py`` produces
+They verify that the recursive CTE backing ``fetch_lineage`` produces
 correct node sets and depth assignments for a variety of tree topologies.
 
 They do NOT test the coordinate computation (that is covered in
 ``test_graph_algorithms.py``); they test what ROWS come back from SQL.
+
+Item 32a moved ``fetch_lineage`` from ``domain/tree_engine.py`` to
+``repositories/lineage_repository.LineageRepository.fetch_lineage`` —
+the function is now an instance method on the adapter, takes a
+keyword-only ``user_id`` (item 16, tenancy), and returns ``CardNode``
+objects wrapping typed ``Card`` domain entities.
 
 Verified Contracts
 ------------------
@@ -18,22 +25,29 @@ Verified Contracts
 - Non-root context_id as start node (subtree anchoring).
 - Leaf context_id returns exactly one node.
 - Nonexistent context_id returns an empty list.
-- Multi-root union deduplication (first-seen structural coords win).
+- parent_id population on returned CardNode (carried via Card.card_source_id).
 
-Documented Defects
-------------------
-- D-5: SubtreeSelection ancestor walk (n parameter) is not implemented.
-        The test proves the n=1 case gives the same result as n=0.
-- D-6: ContextSelection.to_cte() declares recursive=True with no UNION ALL.
-        Verified that it still executes without error, but generates
-        misleading SQL.
+Documented Defects (preserved per the testing posture in tests/CLAUDE.md)
+-----------------------------------------------------------------------
+- D-5: ``SubtreeSelection`` ancestor walk (n parameter) is not
+        implemented. The test proves the n=1 case gives the same
+        result as n=0.
+- D-6: ``ContextSelection.to_cte()`` declares recursive=True with no
+        UNION ALL. Verified that it still executes without error, but
+        generates misleading SQL.
 """
 import pytest
 
-from domain.tree_engine import CardNode, fetch_lineage
+from domain.auth import UserId
+from repositories.lineage_repository import LineageRepository
 from tests.helpers import get_by_id
 
 pytestmark = pytest.mark.integration
+
+# TreeBuilder defaults to user_id=1; tests use the same id for the
+# fetch_lineage caller so the tenancy filter doesn't accidentally
+# mask a row.
+USER = UserId(1)
 
 
 # ─── CTE-1: Full subtree from root ────────────────────────────────────────────
@@ -46,7 +60,7 @@ async def test_fetch_lineage_full_chain(seeded_session):
     session, builder = seeded_session
     ids = await builder.build({"r": None, "a": "r", "b": "a", "c": "b"})
 
-    nodes = await fetch_lineage(session, ids["r"])
+    nodes = await LineageRepository(session).fetch_lineage(ids["r"], user_id=USER)
     assert len(nodes) == 4
 
     by_id = get_by_id(nodes)
@@ -70,7 +84,9 @@ async def test_fetch_lineage_max_depth_boundary(seeded_session):
     session, builder = seeded_session
     ids = await builder.build({"r": None, "a": "r", "b": "a", "c": "b"})
 
-    nodes = await fetch_lineage(session, ids["r"], max_depth=1)
+    nodes = await LineageRepository(session).fetch_lineage(
+        ids["r"], max_depth=1, user_id=USER
+    )
     returned_ids = {n.id for n in nodes}
 
     assert ids["r"] in returned_ids, "depth=0 (root) must be included"
@@ -88,7 +104,9 @@ async def test_fetch_lineage_max_depth_zero_returns_only_root(seeded_session):
     session, builder = seeded_session
     ids = await builder.build({"r": None, "a": "r", "b": "a"})
 
-    nodes = await fetch_lineage(session, ids["r"], max_depth=0)
+    nodes = await LineageRepository(session).fetch_lineage(
+        ids["r"], max_depth=0, user_id=USER
+    )
     assert len(nodes) == 1
     assert nodes[0].id == ids["r"]
     assert nodes[0].depth == 0
@@ -103,7 +121,9 @@ async def test_fetch_lineage_max_depth_none_is_unbounded(seeded_session):
         "r": None, "a": "r", "b": "a", "c": "b", "d": "c"
     })
 
-    nodes = await fetch_lineage(session, ids["r"], max_depth=None)
+    nodes = await LineageRepository(session).fetch_lineage(
+        ids["r"], max_depth=None, user_id=USER
+    )
     assert len(nodes) == 5
 
 
@@ -121,7 +141,7 @@ async def test_fetch_lineage_mid_chain_context(seeded_session):
     session, builder = seeded_session
     ids = await builder.build({"r": None, "a": "r", "b": "a", "c": "b"})
 
-    nodes = await fetch_lineage(session, ids["a"])
+    nodes = await LineageRepository(session).fetch_lineage(ids["a"], user_id=USER)
     returned_ids = {n.id for n in nodes}
 
     assert ids["r"] not in returned_ids, "Parent of context must NOT be returned"
@@ -146,7 +166,7 @@ async def test_fetch_lineage_leaf_context_returns_single_node(seeded_session):
     session, builder = seeded_session
     ids = await builder.build({"r": None, "a": "r", "b": "a"})
 
-    nodes = await fetch_lineage(session, ids["b"])
+    nodes = await LineageRepository(session).fetch_lineage(ids["b"], user_id=USER)
     assert len(nodes) == 1
     assert nodes[0].id == ids["b"]
     assert nodes[0].depth == 0
@@ -170,7 +190,7 @@ async def test_fetch_lineage_branching_tree(seeded_session):
         "e": "b",
     })
 
-    nodes = await fetch_lineage(session, ids["r"])
+    nodes = await LineageRepository(session).fetch_lineage(ids["r"], user_id=USER)
     assert len(nodes) == 6
 
     by_id = get_by_id(nodes)
@@ -193,7 +213,9 @@ async def test_fetch_lineage_branching_tree_depth_1_only(seeded_session):
         "c": "a", "d": "a",
     })
 
-    nodes = await fetch_lineage(session, ids["r"], max_depth=1)
+    nodes = await LineageRepository(session).fetch_lineage(
+        ids["r"], max_depth=1, user_id=USER
+    )
     returned_ids = {n.id for n in nodes}
 
     assert ids["r"] in returned_ids
@@ -213,7 +235,7 @@ async def test_fetch_lineage_nonexistent_context_returns_empty(seeded_session):
     session, builder = seeded_session
     await builder.build({"r": None})
 
-    nodes = await fetch_lineage(session, 99999)
+    nodes = await LineageRepository(session).fetch_lineage(99999, user_id=USER)
     assert nodes == []
 
 
@@ -230,7 +252,7 @@ async def test_descendant_selection_excludes_depth_zero(seeded_session):
     session, builder = seeded_session
     ids = await builder.build({"r": None, "a": "r", "b": "r", "c": "a"})
 
-    raw_nodes = await fetch_lineage(session, ids["r"])
+    raw_nodes = await LineageRepository(session).fetch_lineage(ids["r"], user_id=USER)
     descendants_only = [n for n in raw_nodes if n.depth > 0]
 
     returned_ids = {n.id for n in descendants_only}
@@ -252,7 +274,7 @@ async def test_fetch_lineage_parent_id_populated(seeded_session):
     session, builder = seeded_session
     ids = await builder.build({"r": None, "a": "r", "b": "a"})
 
-    nodes = await fetch_lineage(session, ids["r"])
+    nodes = await LineageRepository(session).fetch_lineage(ids["r"], user_id=USER)
     by_id = get_by_id(nodes)
 
     root = by_id[ids["r"]]
