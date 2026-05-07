@@ -361,21 +361,33 @@ touches.
 
 ## Where the project is going
 
-**v1.0.0 has shipped.** The locked release scope (the seven items
-named in the now-archived `docs/archive/release-scope-2026-04.md`)
-closed on 2026-04-30: backend de-branding finalisation,
-analysis-range preservation, the card-tree widget, pass handling
-plus save-to-disk, the default-palette curated metric set, the
-tenancy READMEs, and the initial-load layout fix. The closure
-document is `docs/notes/release-retrospective-2026-04.md` —
-whole-project retrospective from a contributor perspective; read
-that document for the v1 close-out.
+**v1.1.0 has shipped (2026-05-08).** The cycle's closure document
+is `docs/notes/release-retrospective-2026-05.md` — whole-project
+retrospective covering the eight-day arc from v1.0.0 through
+v1.1.0 (289 commits, two testing arcs, one cross-team feature,
+one large UX restructure, six audit / discipline arcs, six proxy
+bumps including the v1.0.13 structural release, two ADR
+amendments). Read it for the contributor-perspective close-out.
 
-The roadmap below is the post-v1 view — what to pick up next. The
-distribution-packaging memo (`docs/notes/distribution-packaging.md`)
-is the leading edge: making the software installable by users who
-don't know `npm` or `fastapi` is the next undertaking. The other
-items below remain valid as longer-horizon targets.
+**v1.0.0 shipped 2026-04-30.** The locked release scope (the
+seven items named in the now-archived
+`docs/archive/release-scope-2026-04.md`) closed on that date:
+backend de-branding finalisation, analysis-range preservation,
+the card-tree widget, pass handling plus save-to-disk, the
+default-palette curated metric set, the tenancy READMEs, and
+the initial-load layout fix. The closure document is
+`docs/notes/release-retrospective-2026-04.md`. v1.0.0 was the
+first user-facing release; v1.1.0 is the first that shipped on
+top of established discipline-arc machinery.
+
+The roadmap below is the post-v1.1.0 view — what to pick up
+next. The distribution-packaging memo
+(`docs/notes/distribution-packaging.md`) is the leading edge:
+making the software installable by users who don't know `npm`
+or `fastapi` is the next undertaking. The tree-DSL hyperparameter
+harness (`docs/notes/dsl-hyperparameter-harness-plan.md`) is the
+named user-facing follow-on for the next cycle. The other items
+below remain valid as longer-horizon targets.
 
 **1. Tenancy spine — shipped end-to-end.** Items 13–16 (read-path
 filtering), 23–25 (schema migrations + `PipelineExecutor`
@@ -388,27 +400,26 @@ auth-lifecycle UX work. Distribution packaging is the structural
 blocker between "tenancy spine works" and "hosted deployment
 ships."
 
-**2. Analysis persistence — backend shipped, frontend half queued.**
-The cross/analysis-persistence arc closes the SR loop
-server-side. KataGo analyses (currently held in an in-memory
-ledger and lost on browser close) become a
-per-`(user_id, board_id)` bundle persisted on the backend, with
-upload triggered by an explicit "Save analyses" user action. The
-wire-shape and codec-envelope contract lives in the dispatch
-chain at `docs/dispatch/frontend-to-backend-analysis-persistence.md`
-and its status replies; the system-level reference is
-`docs/notes/analysis-persistence-plan.md`. As of 2026-05-07: the
-backend half — schema, migration, four routes under
-`/analysis-bundles`, codec dispatch (`json` + `json+gzip`),
-atomic quota enforcement, structured 413/500 bodies — is
-implemented on `cross/analysis-persistence`; the frontend's
-precursor BoardId-to-UUID migration also shipped on the branch.
-The frontend consumer-side PR (settings, service, ACL, UI,
-`closeBoard` augmentation) is queued behind the backend half
-merging to main and `npm run gen:api` regenerating against the
-new wire shapes. The original `isDuringSearch` blocker is no
-longer relevant — the design pivoted to manual + batched, where
-the gate is a user click rather than a streaming protocol
+**2. Analysis persistence — shipped end-to-end.** The
+`cross/analysis-persistence` arc closed the SR loop server-side.
+KataGo analyses are now persisted as per-`(user_id, board_id)`
+bundles on the backend, with upload triggered by an explicit
+"Save analyses" user action via the AnalysisControls Save /
+Discard buttons. Backend half: schema, migration, four routes
+under `/analysis-bundles`, codec dispatch (`json` + `json+gzip`),
+atomic quota enforcement, structured 413/500 bodies. Frontend
+half: BoardId-to-UUID migration (precursor), the
+`AnalysisPersistenceService` HTTP boundary, the analysis-bundle
+parser + summary type + storage-error union, the bootstrap
+restore on auth+hydrate, the `closeBoard` / `resetWorkspace`
+audit pair O13 augmentations, and the AnalysisControls UI
+surface. System-level reference:
+`docs/notes/analysis-persistence-plan.md`. The wire-shape design
+record lives in the dispatch chain at
+`docs/dispatch/frontend-to-backend-analysis-persistence.md` and
+its status replies. The original `isDuringSearch` design
+blocker was retired — the manual + batched shape ships instead,
+where the gate is a user click rather than a streaming-protocol
 question.
 
 **3. qEUBO palette calibration — feature-complete, validation
