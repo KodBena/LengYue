@@ -1,5 +1,24 @@
 # Analysis Persistence — Design Note
 
+> **Status (2026-05-07): superseded in shape, not in motivation.**
+> The design described below — per-`(configHash, nodeId)`
+> granularity, auto-persist gated on `isDuringSearch === false`,
+> validation-blocked on a KataGo terminate-behaviour question —
+> was reconsidered during the analysis-persistence design session
+> on the `frontend/analysis-persistence` branch. The current shape
+> is **manual + batched per-`BoardId`** with a scheme-tagged
+> opaque-blob storage envelope; the `isDuringSearch` validation
+> question dissolves under the watermark interpretation of
+> `AnalysisLedger.mergeAnalysisPacket`. The canonical record of
+> the new design is the dispatch
+> `docs/dispatch/frontend-to-backend-analysis-persistence.md`,
+> which is awaiting backend acknowledgement.
+>
+> This note will be rewritten to reflect the shipped design once
+> the wire shape is firm. Until then, read the dispatch for the
+> current design and treat the body of this note as historical
+> context for how the shape evolved.
+
 **Status:** Planning. Not yet implemented. This document captures the
 design decisions so the feature can be picked up later without
 re-deriving them from scratch.
