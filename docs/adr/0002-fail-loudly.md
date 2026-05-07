@@ -6,6 +6,11 @@
   decisions resolve specific questions. Both are filed under `docs/adr/`
   for single-location retrieval.
 - **Date:** 2026-04-24
+- **Amendments:** 2026-05-07 — appended Rule 6 (design-time drift surfaces
+  too), extending the principle from runtime drift to planning-time
+  records and naming ADR-0005's documentation discipline as the
+  register-specific instances. Per ADR-0005's own Revisit when… rule 3,
+  tenets absorb additional disciplines by append rather than supersession.
 - **Scope:** Codebase-wide. Applies to the frontend (`gogui`) and, as a
   design aspiration, to coordinated choices on the spaced-repetition backend.
 
@@ -144,6 +149,25 @@ A deviation is *not* surfaced loudly enough when:
 5. **Error-swallowing `catch (e) {}` is never acceptable.** At
    minimum, the catch block logs or re-throws with context. A bare
    empty catch is treated as a bug during code review.
+6. **Design-time drift surfaces too.** *(Appended 2026-05-07.)*
+   When a planning-time record (a design note, an ADR, a documented
+   decision) is found to be wrong in a load-bearing way, surface the
+   deviation rather than absorb it into the post-state: file a
+   sibling marked `design-note: revised` per the doc-graph genre
+   vocabulary, or amend the ADR by appending a rule rather than
+   silently editing existing text. The principle parallels Rules
+   1–5 in a different register: a deviation that gets quietly
+   absorbed loses its reasoning trace, and the trace is what lets
+   a future reader reconstruct *why* the project ended up where it
+   did, not just *what* it ended up doing. ADR-0005's documentation
+   discipline carries the register-specific instances; ADR-0005
+   Rule 7 was already framed in its Related section as the
+   documentation analog of Rule 1 ("no silent retry queue"), and
+   ADR-0005 Rule 8 is the documentation analog of this rule. The
+   maintenance contracts on `docs/notes/dsl-hyperparameter-harness-plan.md`
+   and `docs/notes/qeubo-namespace-unification-plan.md` are the
+   first design-note instances applying the discipline at authoring
+   time.
 
 ## Consequences
 
