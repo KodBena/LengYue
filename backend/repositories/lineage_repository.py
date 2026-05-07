@@ -52,7 +52,7 @@ License: Public Domain (The Unlicense)
 """
 from typing import List, Optional, assert_never
 
-from sqlalchemy import and_, column, func, literal_column, select
+from sqlalchemy import and_, func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.expression import ColumnElement, CTE, Select
 
@@ -530,6 +530,10 @@ def _build_selection_cte(
         # case (the starting context must belong to the user) and the
         # recursive step (the parent ancestor must also belong to the
         # user). Same belt-and-braces pattern as _recursive_descent_cte.
+        #
+        # Each row represents "I am at card X, my parent is Y, I have
+        # walked S steps." n=0 returns the context itself; n=1 returns
+        # the parent; n=2 returns the grandparent; and so on.
         n = cfg.n
         base = (
             select(
@@ -545,21 +549,23 @@ def _build_selection_cte(
             .cte(recursive=True)
         )
 
-        # The recursive step climbs to the parent. card_source.c.card_id
-        # in this row is the parent card (the one whose card_source_id
-        # the previous level pointed at). Filter that parent on user_id
-        # via a join to card.
+        # The recursive step climbs one level to the parent. For each
+        # base row at depth S, find the card_source row whose
+        # `card_id` equals base's `card_source_id` (the parent's
+        # card_source row). The new row records `card_id = parent`,
+        # `card_source_id = parent's parent`, `steps = S + 1`. Filter
+        # the parent on user_id via the join to card.
         anc_card = card.alias("anc_card")
         step = (
             select(
-                card_source.c.card_source_id.label("card_id"),
-                literal_column("NULL").label("card_source_id"),
+                card_source.c.card_id,
+                card_source.c.card_source_id,
                 (base.c.steps + 1).label("steps"),
             )
             .select_from(
                 card_source
                 .join(base, card_source.c.card_id == base.c.card_source_id)
-                .join(anc_card, card_source.c.card_source_id == anc_card.c.id)
+                .join(anc_card, card_source.c.card_id == anc_card.c.id)
             )
             .where(base.c.steps < n)
             .where(anc_card.c.user_id == user_id)  # Item 16: belt-and-braces.
@@ -578,6 +584,7 @@ def _build_selection_cte(
     if isinstance(cfg, SiblingSelection):
         # Self-join card_source on shared parent. Item 16: filter the
         # sibling card by user_id via a card join.
+        cs_ctx = card_source.alias("cs_ctx")
         cs_card = card.alias("sib_card")
         return (
             select(
@@ -588,15 +595,14 @@ def _build_selection_cte(
             .select_from(
                 card_source
                 .join(
-                    card_source.alias("cs_ctx"),
-                    card_source.c.card_source_id
-                    == column("cs_ctx").c.card_source_id,
+                    cs_ctx,
+                    card_source.c.card_source_id == cs_ctx.c.card_source_id,
                 )
                 .join(cs_card, card_source.c.card_id == cs_card.c.id)
             )
             .where(
                 and_(
-                    column("cs_ctx").c.card_id.in_(context_ids),
+                    cs_ctx.c.card_id.in_(context_ids),
                     card_source.c.card_id.not_in(context_ids),
                     cs_card.c.user_id == user_id,  # Item 16: tenancy filter.
                 )

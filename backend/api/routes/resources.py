@@ -13,8 +13,9 @@ endpoint — the surrounding architecture doesn't need to change.
 
 Service is injected via DI — the route handler doesn't know whether
 the backing store is the filesystem, S3, a CDN, or an in-memory fake.
-ResourceNotFoundError propagates unchanged; the application-level
-exception handlers (registered in main.py) map NotFoundError → 404.
+ResourceNotFoundError → 404 is mapped at the route boundary (matches
+the cards.py / lineage.py pattern; the codebase does not register
+application-level exception handlers).
 
 Prefix note: `/resources` (no `/api/` prefix) matches the convention
 of the other Ebisu routes (`/cards`, `/stats`, `/forests`, `/auth`).
@@ -24,9 +25,10 @@ when migrating to this endpoint.
 """
 from typing import List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import get_resource_service
+from domain.errors import ResourceNotFoundError
 from domain.resource import ResourceResponse
 from services.resource_service import ResourceService
 
@@ -61,7 +63,8 @@ async def get_resource(
 
     Raises:
         404 (via ResourceNotFoundError): `name` is not registered.
-            The response body includes a message listing known
-            resources.
     """
-    return await service.get(name)
+    try:
+        return await service.get(name)
+    except ResourceNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
