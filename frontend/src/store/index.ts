@@ -32,6 +32,7 @@ import { createInitialBoard } from './board-factory';
 import { migrate, CURRENT_SCHEMA_VERSION } from './migrations';
 import { analysisService } from '../services/analysis-service';
 import { ledger } from '../services/analysis-ledger';
+import { analysisPersistenceService } from '../services/analysis-persistence-service';
 import { clearCardThumbnailCache } from '../composables/useCardThumbnail';
 import { abortAllReviews, abortBoardReview } from '../composables/useReviewSession';
 import { purgeAllThumbnails, purgeBoardThumbnails } from '../composables/useThumbnailCache';
@@ -176,6 +177,17 @@ export function setActiveBoard(index: number): void {
  *      session, and the slot's hydrated-cards map (CardId-keyed)
  *      could leak across an identity flip with collision-prone
  *      auto-increment ids. Resource-ownership audit O12.
+ *   8. analysisPersistenceService.discard — server-side bundle
+ *      delete + local summary cache clear. Symmetric to O1 (the
+ *      ledger purge) but for the persisted server row that
+ *      belongs to this board's lifetime. Best-effort and
+ *      fire-and-forget — closeBoard stays sync from the caller's
+ *      perspective; a failed delete leaves an unreferenced server
+ *      row that's harmless (no local board references it; idempotent
+ *      delete cleans it up if the user closes the same id again,
+ *      which they can't, so it's effectively orphan storage). The
+ *      api-client surfaces non-2xx via the system log; no need
+ *      to double-handle here. Resource-ownership audit O13.
  *
  * Order matters: stop the engine before purging the ledger so an
  * in-flight packet can't land between the two and re-populate the
@@ -207,6 +219,13 @@ export function closeBoard(boardId: BoardId): void {
   // docstring above for the full rationale.
   analysisService.stopBoardAnalysis(boardId);
   ledger.purgeBoard(boardId);
+
+  // Release the server-side persisted bundle if one exists. Sym-
+  // metric to ledger.purgeBoard but for the row stored by the
+  // analysis-persistence feature. Fire-and-forget — closeBoard
+  // stays sync from the caller's perspective; the api-client
+  // surfaces non-2xx via the system log if it matters. Audit O13.
+  analysisPersistenceService.discard(boardId).catch(() => { /* surfaced via api-client's system-message push */ });
 
   // Drop the per-board workspace dictionary entries. Both keys are
   // owned by this BoardId and have no meaning once the board is
@@ -286,6 +305,14 @@ export function updateBoardState(index: number, newState: BoardState): void {
  *   - clearAllBoardCardTrees (audit pair O12) — per-board
  *     card-tree state (forest, active set, hydrated cards keyed
  *     by raw CardId, forestStats).
+ *   - analysisPersistenceService.forgetAll (audit pair O13) —
+ *     per-board cached AnalysisBundleSummary entries. Pure
+ *     local-cache release; the server-side rows belong to the
+ *     prior identity's user_id and are unreachable to the new
+ *     identity via the tenancy boundary, so no DELETE storm is
+ *     needed (and would be wrong — it would 404 against a
+ *     freshly-authenticated user who hasn't even tried to access
+ *     the prior user's bundles).
  *
  * Both card-thumbnail and card-tree clears are privacy-relevant:
  * their keys include raw CardIds that auto-increment per tenant
@@ -347,6 +374,13 @@ export function resetWorkspace(): void {
   purgeAllThumbnails();
   clearCardThumbnailCache();
   clearAllBoardCardTrees();
+
+  // Drop cached AnalysisBundleSummary entries — pure local-cache
+  // release per the docstring's tenancy reasoning above. The
+  // server-side rows belong to the prior identity and stay there
+  // (the WHERE-clause fusion in the backend's adapter ensures
+  // they're 404-not-403 to the new identity). Audit pair O13.
+  analysisPersistenceService.forgetAll();
 
   // Abort every in-flight review-analysis wait so prior-identity
   // timeouts can't fire 30s into the new identity's session and
