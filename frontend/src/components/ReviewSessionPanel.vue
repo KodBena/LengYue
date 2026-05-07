@@ -22,6 +22,7 @@
 -->
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import BaseChart from './charts/BaseChart.vue';
 import { useReviewSession } from '../composables/useReviewSession';
 import { activeBoard, mutateBoard, store } from '../store';
@@ -29,6 +30,8 @@ import { getActiveVariationPath } from '../engine/util';
 import { navigateTo } from '../engine/navigator';
 import { themeColor } from '../utils/theme-color';
 import type { BoardId } from '../types';
+
+const { t } = useI18n();
 
 // The composable is per-board: it projects the active board's
 // `store.session.reviews[boardId]` slot. ForestDirectory composes
@@ -52,8 +55,20 @@ const intermissionSeries = computed(() => {
   const data = reviewSession.userMoveScores.value.map((score, index) => {
     return { value: [index + 1, score], itemStyle: { color: accentSecondary } };
   });
-  return [{ name: 'Move Score (Delta)', data, color: accentSecondary, showPoints: true }];
+  return [{ name: t('review.session.moveScoreDelta'), data, color: accentSecondary, showPoints: true }];
 });
+
+// State-name lookup so the status line displays a translated label
+// rather than the raw machine-state enum. The keys mirror the
+// `ReviewState` discriminator in `useReviewSession` (LOADING /
+// AWAITING_USER / ANALYZING / EVALUATING / FINISHED). When the
+// state machine adds a new variant, add a key here in the same
+// pass — the template's `t(stateLabelKey(...))` will fall through
+// to the raw enum if the key is missing (vue-i18n missingWarn fires
+// loudly under ADR-0002).
+function stateLabelKey(state: string): string {
+  return `review.session.state.${state}`;
+}
 
 function handleVisitsOverrideChange(e: Event) {
   // Thin DOM-string-to-number adapter; validation lives in
@@ -105,15 +120,18 @@ function handleIntermissionClick(idx: number) {
 
 <template>
   <div v-if="reviewSession.currentCard.value" class="review-session-panel">
-    <h3>{{ reviewSession.state.value === 'FINISHED' ? 'Intermission' : 'Review Active' }}</h3>
+    <h3>{{ reviewSession.state.value === 'FINISHED' ? $t('review.session.intermission') : $t('review.session.active') }}</h3>
     <p class="hint text-muted card-counter">
-      Card {{ reviewSession.queue.value.indexOf(reviewSession.currentCard.value) + 1 }} of {{ reviewSession.queue.value.length }}
+      {{ $t('review.session.cardOf', {
+        n: reviewSession.queue.value.indexOf(reviewSession.currentCard.value) + 1,
+        total: reviewSession.queue.value.length,
+      }) }}
     </p>
 
     <p class="status-line"
        :style="{ color: reviewSession.state.value === 'FINISHED' ? 'var(--accent-secondary)' : 'var(--state-attention)' }">
-      Status: {{ reviewSession.state.value }}
-      <span v-if="reviewSession.state.value === 'ANALYZING'">(KataGo is pondering...)</span>
+      {{ $t('review.session.statusLine', { state: $t(stateLabelKey(reviewSession.state.value)) }) }}
+      <span v-if="reviewSession.state.value === 'ANALYZING'">{{ $t('review.session.ponderHint') }}</span>
     </p>
 
     <div v-if="reviewSession.state.value === 'FINISHED'" class="intermission-chart">
@@ -125,7 +143,10 @@ function handleIntermissionClick(idx: number) {
     </div>
 
     <p class="hint text-muted moves-made" v-if="reviewSession.state.value !== 'FINISHED'">
-      Moves made: {{ reviewSession.userMovesCount.value }} / {{ reviewSession.currentCard.value.numMoves }}
+      {{ $t('review.session.movesMade', {
+        n: reviewSession.userMovesCount.value,
+        total: reviewSession.currentCard.value.numMoves,
+      }) }}
     </p>
 
     <!-- Per-card sticky visits override. The input shows the
@@ -133,7 +154,7 @@ function handleIntermissionClick(idx: number) {
          defaultVisits). Persists across moves within the same card;
          auto-resets on next card via loadCard. -->
     <div v-if="reviewSession.state.value !== 'FINISHED'" class="visits-override-row">
-      <label>Max visits (this card):</label>
+      <label>{{ $t('review.session.maxVisitsLabel') }}</label>
       <input
         type="number"
         min="1"
@@ -145,15 +166,15 @@ function handleIntermissionClick(idx: number) {
     </div>
 
     <button class="action-btn-large advance-btn" @click="reviewSession.nextCard">
-      {{ reviewSession.state.value === 'FINISHED' ? 'Next Card' : 'Skip Card' }}
+      {{ reviewSession.state.value === 'FINISHED' ? $t('review.session.nextCard') : $t('review.session.skipCard') }}
     </button>
 
     <button class="toolbar-btn-sm" @click="reviewSession.rewindToStart">
-      Rewind to Start
+      {{ $t('review.session.rewindToStart') }}
     </button>
 
     <button class="toolbar-btn-sm end-session-btn" @click="reviewSession.endSession">
-      End Session
+      {{ $t('review.session.endSession') }}
     </button>
   </div>
 </template>

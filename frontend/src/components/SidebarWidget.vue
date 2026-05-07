@@ -57,7 +57,7 @@ function onHoverLeave() {
       />
     </div>
 
-    <button class="tab-add-btn" title="New Board" @click="handleAdd">+</button>
+    <button class="tab-add-btn" :title="$t('sidebar.newBoard')" @click="handleAdd">+</button>
   </div>
 </template>
 

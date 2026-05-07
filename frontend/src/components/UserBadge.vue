@@ -13,10 +13,12 @@
  */
 
 import { ref, computed, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useAuth } from '../composables/useAuth';
 import LoginModal from './LoginModal.vue';
 import type { AuthState } from '../types';
 
+const { t } = useI18n();
 const { state } = useAuth();
 
 // Pure projection of AuthState into a presentational record. Exhaustive
@@ -35,11 +37,11 @@ const view = computed<BadgeView>(() => {
     case 'authenticated':
       return { kind: s.kind, label: s.username,           dotClass: 'dot-ok' };
     case 'authenticating':
-      return { kind: s.kind, label: 'signing in…',         dotClass: 'dot-pending' };
+      return { kind: s.kind, label: t('auth.badge.authenticating'),  dotClass: 'dot-pending' };
     case 'unauthenticated':
-      return { kind: s.kind, label: 'no account',          dotClass: 'dot-idle' };
+      return { kind: s.kind, label: t('auth.badge.unauthenticated'), dotClass: 'dot-idle' };
     case 'error':
-      return { kind: s.kind, label: 'sign-in failed',      dotClass: 'dot-err' };
+      return { kind: s.kind, label: t('auth.badge.error'),           dotClass: 'dot-err' };
     case 'unknown':
       // Pre-bootstrap; render a non-breaking space to reserve layout
       // height without a visible flash before tryAutoLogin completes.
@@ -80,7 +82,7 @@ watch(
     type="button"
     class="user-badge"
     :class="`auth-${view.kind}`"
-    :title="`Auth: ${view.kind} — click to sign in or switch user`"
+    :title="$t('auth.badge.tooltip', { kind: view.kind })"
     @click="openModal"
   >
     <span class="dot" :class="view.dotClass"></span>

@@ -6,8 +6,23 @@ a contributor can pick it up without re-deriving the bands.
 
 ## Status
 
-**Scoping.** No implementation planned. The design space is sketched
-here; the TODO entry under "Future projects" references this note.
+**Implementation in progress.** PR1 (plumbing + sweep) shipped
+2026-05-06 on `frontend/i18n-pr1-plumbing` — vue-i18n wired in,
+schema 23 → 24 adds `appearance.locale` with browser-detected
+backfill, four locale catalogs in the active roster (en source,
+zh-CN/ja/ko stubs), toolbar `LocalePicker` for switching,
+contributor doc at `frontend/docs/i18n.md`. The full string sweep —
+moving the order-of-magnitude 150-300 hardcoded user-facing
+strings through catalog keys — completed as part of PR1 (the
+locale-by-feature split landed inside the same arc).
+
+The outstanding decisions named below were resolved during PR1
+scoping (see worklog `docs/worklog/2026-05-06-i18n-pr1-plumbing.md`):
+Simplified Chinese chosen over Traditional given the larger
+Go-playing population; the (a) backend-error pass-through approach
+adopted; per-user persistence via `AppSettings.appearance.locale`;
+key convention `feature.subfeature.element`; lockstep posture
+defaults to periodic-audit; RTL out of scope.
 
 ## Why care, why not now
 

@@ -24,6 +24,7 @@ import {
   buildPersistencePayload,
 } from '../store';
 import { api } from './api-client';
+import { i18n } from '../i18n';
 import type { useAuth } from '../composables/useAuth';
 import type { AuthState } from '../types';
 
@@ -143,11 +144,11 @@ export class SyncService {
       if (doc && doc.data) updateFromRemote(doc.data);
       this.hydratedForUserId = userId;
       console.log('[Sync] Hydration complete for user', userId);
-      pushSystemMessage('info', 'Sync: workspace loaded.');
+      pushSystemMessage('info', i18n.global.t('sync.workspaceLoaded'));
     } catch (err) {
       if (gen !== this.hydrationGeneration) return;
       console.error('[Sync] Hydration failed:', err);
-      pushSystemMessage('error', 'Sync: workspace did not load. Your changes will not persist this session.');
+      pushSystemMessage('error', i18n.global.t('sync.workspaceLoadFailed'));
     }
   }
 
@@ -269,7 +270,7 @@ export class SyncService {
         authUserId: state.kind === 'authenticated' ? state.userId : undefined,
         hydratedForUserId: this.hydratedForUserId,
       });
-      pushSystemMessage('error', 'Sync: aborted save (identity gate). Please report.');
+      pushSystemMessage('error', i18n.global.t('sync.abortedSaveIdentityGate'));
       return;
     }
 
@@ -280,7 +281,7 @@ export class SyncService {
       if (import.meta.env.DEV) console.log('[Sync] Document saved.');
     } catch (err) {
       console.error('[Sync] Failed to save document:', err);
-      pushSystemMessage('error', 'Sync: failed to save workspace. Your recent changes are not on the server yet.');
+      pushSystemMessage('error', i18n.global.t('sync.saveFailed'));
     }
   }
 }

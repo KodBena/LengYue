@@ -6,10 +6,13 @@
 -->
 <script setup lang="ts">
 import { ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { CardSet, PipelineStage } from '../types';
 import { Codemirror } from 'vue-codemirror';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { EditorView } from '@codemirror/view';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   cardSets: Record<string, CardSet>;
@@ -51,10 +54,10 @@ function select(id: string) {
 }
 
 function addCardSet() {
-  const name = prompt("Deck Name (e.g., 'Opening Mistakes'):");
+  const name = prompt(t('cardSet.prompt.deckName'));
   if (!name) return;
   const id = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-  if (props.cardSets[id]) return alert("ID already exists.");
+  if (props.cardSets[id]) return alert(t('cardSet.alert.idExists'));
   
   const next = getClone();
   next[id] = {
@@ -77,7 +80,7 @@ function addCardSet() {
 
 function deleteCardSet() {
   if (!selectedId.value) return;
-  if (!confirm(`Delete Deck '${selectedId.value}'?`)) return;
+  if (!confirm(t('cardSet.confirm.deleteDeck', { id: selectedId.value }))) return;
   
   const next = getClone();
   delete next[selectedId.value];
@@ -141,17 +144,17 @@ function updatePipeline(newJsonStr: string) {
     <div class="sidebar">
       <div class="section">
         <div class="section-header">
-          <span>Card Sets (Decks)</span>
+          <span>{{ $t('cardSet.sidebar.header') }}</span>
           <button class="add-btn" @click="addCardSet">+</button>
         </div>
         <ul class="item-list">
-          <li 
+          <li
             v-for="(set, key) in cardSets" :key="key"
             :class="{ active: selectedId === key }"
             @click="select(key as string)"
           >
             {{ set.name }}
-            <span v-if="activeCardSetId === key" class="active-badge">SELECTED</span>
+            <span v-if="activeCardSetId === key" class="active-badge">{{ $t('cardSet.sidebar.selectedBadge') }}</span>
           </li>
         </ul>
       </div>
@@ -160,25 +163,25 @@ function updatePipeline(newJsonStr: string) {
     <!-- RIGHT PANE: Details -->
     <div class="detail-pane">
       <div v-if="!selectedId || !cardSets[selectedId]" class="empty-state">
-        Select a deck to edit
+        {{ $t('cardSet.detail.empty') }}
       </div>
 
       <div v-else class="detail-content">
         <div class="detail-header">
           <h3>{{ selectedId }}</h3>
-          <button class="del-btn" @click="deleteCardSet">Delete</button>
+          <button class="del-btn" @click="deleteCardSet">{{ $t('cardSet.detail.delete') }}</button>
         </div>
 
         <div class="form-grid">
-          <label>Name:</label>
-          <input 
-            type="text" 
-            class="dark-input" 
+          <label>{{ $t('cardSet.field.name') }}</label>
+          <input
+            type="text"
+            class="dark-input"
             :value="cardSets[selectedId].name"
             @input="(e: any) => updateField('name', e.target.value)"
           />
 
-          <label>Description:</label>
+          <label>{{ $t('cardSet.field.description') }}</label>
           <input
             type="text"
             class="dark-input"
@@ -188,8 +191,8 @@ function updatePipeline(newJsonStr: string) {
         </div>
 
         <div class="section-header" style="margin-top: var(--space-medium); border-top: 1px solid #1a1a1a;">
-          <span>Tree DSL Pipeline (JSON)</span>
-          <span v-if="!isJsonValid" class="error-badge">INVALID JSON</span>
+          <span>{{ $t('cardSet.field.pipelineHeader') }}</span>
+          <span v-if="!isJsonValid" class="error-badge">{{ $t('cardSet.field.invalidJson') }}</span>
         </div>
         
         <div class="editor-wrap" :class="{ 'json-error': !isJsonValid }">

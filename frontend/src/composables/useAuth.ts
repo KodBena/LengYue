@@ -57,6 +57,7 @@
 import { ref, computed, readonly, type ComputedRef, type Ref } from 'vue';
 import { api } from '../services/api-client';
 import { pushSystemMessage } from '../store';
+import { i18n } from '../i18n';
 import type { AuthState } from '../types';
 
 // ─── Module-scoped state ─────────────────────────────────────────────────────
@@ -88,7 +89,7 @@ function setState(next: AuthState): void {
 api.onTokenInvalidated(() => {
   if (_authState.value.kind === 'authenticated') {
     setState({ kind: 'unauthenticated' });
-    pushSystemMessage('warning', 'Session expired. Please sign in again.');
+    pushSystemMessage('warning', i18n.global.t('auth.sessionExpired'));
   }
 });
 
@@ -142,19 +143,13 @@ async function _setAuthenticatedAfterVerify(typedUsername: string): Promise<void
       // identity is meaningless. Clear and route to unauthenticated.
       api.clearToken();
       setState({ kind: 'unauthenticated' });
-      pushSystemMessage(
-        'warning',
-        'Session not recognised by the server. Please sign in again.'
-      );
+      pushSystemMessage('warning', i18n.global.t('auth.sessionNotRecognised'));
       return;
     }
 
     // Verify failed for a non-auth reason. The token is presumed
     // valid; trust the typed identity but flag the gap.
-    pushSystemMessage(
-      'warning',
-      `Could not verify identity with server (${msg}). Using cached identity.`
-    );
+    pushSystemMessage('warning', i18n.global.t('auth.verifyFailed', { msg }));
     setState({ kind: 'authenticated', username: typedUsername });
   }
 }
@@ -201,7 +196,7 @@ async function tryAutoLogin(): Promise<void> {
   if (!username) {
     // No cached username means ensureAuthenticated didn't complete a
     // successful login.
-    const message = 'Auto-login failed; no JWT obtained.';
+    const message = i18n.global.t('auth.autoLoginFailed');
     pushSystemMessage('error', message);
     setState({ kind: 'error', message });
     return;
@@ -234,7 +229,7 @@ async function login(username: string, password?: string): Promise<void> {
     await api.login(username, password);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    pushSystemMessage('error', `Sign-in failed: ${message}`);
+    pushSystemMessage('error', i18n.global.t('auth.signInFailed', { msg: message }));
     setState({ kind: 'error', message });
     throw err;
   }
@@ -266,7 +261,7 @@ async function register(username: string, password?: string): Promise<void> {
     await api.register(username, password);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    pushSystemMessage('error', `Registration failed: ${message}`);
+    pushSystemMessage('error', i18n.global.t('auth.registrationFailed', { msg: message }));
     setState({ kind: 'error', message });
     throw err;
   }
@@ -276,7 +271,7 @@ async function register(username: string, password?: string): Promise<void> {
     await api.login(username, password);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    pushSystemMessage('error', `Registered, but auto-sign-in failed: ${message}`);
+    pushSystemMessage('error', i18n.global.t('auth.registeredButAutoSignInFailed', { msg: message }));
     setState({ kind: 'error', message });
     throw err;
   }
@@ -299,7 +294,7 @@ async function register(username: string, password?: string): Promise<void> {
 function logout(): void {
   api.clearToken();
   setState({ kind: 'unauthenticated' });
-  pushSystemMessage('info', 'Signed out.');
+  pushSystemMessage('info', i18n.global.t('auth.signedOut'));
 }
 
 // ─── Public composable ───────────────────────────────────────────────────────

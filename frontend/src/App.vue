@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue';
 import { ref as vueRef } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 import { useMetadata }       from './composables/useMetadata';
 import { useSgfLoader }      from './composables/useSgfLoader';
@@ -42,6 +43,7 @@ import ConfirmLoadModal from './components/ConfirmLoadModal.vue';
 import ForestDirectory  from './components/ForestDirectory.vue';
 import SystemLogPanel   from './components/SystemLogPanel.vue';
 import RootErrorBoundary from './components/RootErrorBoundary.vue';
+import LocalePicker     from './components/LocalePicker.vue';
 
 import { useReviewSession } from './composables/useReviewSession';
 import ColorDebugStrip  from './components/charts/ColorDebugStrip.vue';
@@ -49,6 +51,7 @@ import QeuboBookmarks   from './components/QeuboBookmarks.vue';
 
 useUserIORegistry();
 
+const { t } = useI18n();
 const { openFileDialog } = useSgfLoader();
 const { downloadActiveBoard } = useSgfDownload();
 const engineControls     = useEngineControls();
@@ -111,12 +114,15 @@ const { sync } = useAppBootstrap(auth);
 // the UX rationale and timer mechanics.
 const transientLogReveal = useTransientLogReveal();
 
-const controlTabs = [
-  { id: 'cards',    label: 'Cards'    },
-  { id: 'settings', label: 'Settings' },
-  { id: 'analysis', label: 'Analysis' },
-  { id: 'other',    label: 'Other'    },
-];
+// Computed so the labels re-evaluate on locale change. The TabWidget
+// renders `tab.label` directly; Vue's reactivity passes through the
+// prop, so a locale flip propagates without per-tab re-mounting.
+const controlTabs = computed(() => [
+  { id: 'cards',    label: t('app.tabs.cards')    },
+  { id: 'settings', label: t('app.tabs.settings') },
+  { id: 'analysis', label: t('app.tabs.analysis') },
+  { id: 'other',    label: t('app.tabs.other')    },
+]);
 
 const moveNumber = computed((): number => {
   const board = activeBoard.value;
@@ -178,7 +184,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
     <div id="main-workspace">
       
       <div class="top-nav-bar">
-        <button class="collapse-btn" @click="store.session.ui.sidebarExpanded = !store.session.ui.sidebarExpanded" title="Toggle Board Inventory">
+        <button class="collapse-btn" @click="store.session.ui.sidebarExpanded = !store.session.ui.sidebarExpanded" :title="$t('app.chrome.toggleSidebar')">
           {{ store.session.ui.sidebarExpanded ? '◀' : '▶' }}
         </button>
 
@@ -189,19 +195,20 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
           @save-sgf="downloadActiveBoard"
           @toggle-engine="engineControls.toggle"
           @mint-card="triggerMint"
-          style="flex: 1; border-bottom: none;" 
+          style="flex: 1; border-bottom: none;"
         />
 
         <div class="right-toggles">
-          <button class="collapse-btn" @click="store.session.ui.boardExpanded = !store.session.ui.boardExpanded" title="Toggle Main Board">
+          <button class="collapse-btn" @click="store.session.ui.boardExpanded = !store.session.ui.boardExpanded" :title="$t('app.chrome.toggleBoard')">
             🔲 {{ store.session.ui.boardExpanded ? '▶' : '◀' }}
           </button>
-          <button class="collapse-btn" @click="store.session.ui.treeExpanded = !store.session.ui.treeExpanded" title="Toggle Game Tree">
+          <button class="collapse-btn" @click="store.session.ui.treeExpanded = !store.session.ui.treeExpanded" :title="$t('app.chrome.toggleTree')">
             🌲 {{ store.session.ui.treeExpanded ? '▶' : '◀' }}
           </button>
-          <button class="collapse-btn" @click="store.session.ui.controlsExpanded = !store.session.ui.controlsExpanded" title="Toggle Control Panel">
+          <button class="collapse-btn" @click="store.session.ui.controlsExpanded = !store.session.ui.controlsExpanded" :title="$t('app.chrome.toggleControls')">
             ⚙️ {{ store.session.ui.controlsExpanded ? '▶' : '◀' }}
           </button>
+          <LocalePicker />
         </div>
       </div>
 
@@ -247,7 +254,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
         </div>
 
         <div id="vue-tree-panel" v-show="store.session.ui.treeExpanded">
-          <div id="tree-panel-header">Game Tree</div>
+          <div id="tree-panel-header">{{ $t('app.chrome.gameTreePanelHeader') }}</div>
           <TreeWidget
             v-if="activeBoard"
             :nodes="activeBoard.nodes"
@@ -287,8 +294,8 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
               <div class="tab-padding">
                 <details class="settings-section" open>
                   <summary>
-                    <h3 class="sub-header">Analysis Environment</h3>
-                    <button class="toolbar-btn-sm" @click.stop="sync.forceSave()">Force Persistence</button>
+                    <h3 class="sub-header">{{ $t('settings.section.analysisEnv') }}</h3>
+                    <button class="toolbar-btn-sm" @click.stop="sync.forceSave()">{{ $t('settings.button.forcePersistence') }}</button>
                   </summary>
                   <div style="margin-top: var(--space-medium);">
                     <PaletteEditor :env="store.profile.settings.engine.katago.analysis_env" @update="handleSettingsUpdate"/>
@@ -296,7 +303,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
                 </details>
 
                 <details class="settings-section section-divider" open>
-                  <summary><h3 class="sub-header">Card Sets (Decks)</h3></summary>
+                  <summary><h3 class="sub-header">{{ $t('settings.section.cardSets') }}</h3></summary>
                   <div class="registry-container" style="max-height: 500px; padding-bottom: var(--space-medium);">
                     <CardSetEditor
                       :cardSets="store.profile.cardSets"
@@ -308,14 +315,14 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
                 </details>
 
                 <details class="settings-section section-divider" open>
-                  <summary><h3 class="sub-header">Advanced Registry</h3></summary>
+                  <summary><h3 class="sub-header">{{ $t('settings.section.advancedRegistry') }}</h3></summary>
                   <div class="registry-container">
                     <RegistryEditor :registry="store.profile.settings" :defaults="DEFAULTS.profile" @update="handleSettingsUpdate"/>
                   </div>
                 </details>
 
                 <details class="settings-section section-divider" open>
-                  <summary><h3 class="sub-header">Session (UI)</h3></summary>
+                  <summary><h3 class="sub-header">{{ $t('settings.section.sessionUI') }}</h3></summary>
                   <div class="registry-container">
                     <RegistryEditor :registry="store.session.ui" :defaults="DEFAULTS.session" @update="handleSessionUpdate"/>
                   </div>
@@ -329,10 +336,10 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
             <template #other>
               <div class="tab-padding">
-                <h3 class="sub-header">Gradient Calibration</h3>
+                <h3 class="sub-header">{{ $t('other.section.gradientCalibration') }}</h3>
                 <div class="hue-slider-row">
                   <label class="hue-slider-label">
-                    <span>Hue Offset</span>
+                    <span>{{ $t('other.label.hueOffset') }}</span>
                     <span class="hue-slider-value">{{ store.profile.settings.appearance.intensityHueShift }}°</span>
                   </label>
                   <input
@@ -346,7 +353,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
                 </div>
                 <ColorDebugStrip :steps="500" />
 
-                <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">qEUBO Bookmarks</h3>
+                <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.qeuboBookmarks') }}</h3>
                 <QeuboBookmarks />
               </div>
             </template>

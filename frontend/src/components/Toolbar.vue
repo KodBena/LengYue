@@ -4,9 +4,12 @@
 -->
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import QeuboToolbar from './QeuboToolbar.vue';
 import { store } from '../store';
 import type { EngineStatus, EngineMetrics } from '../types';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   engineStatus: EngineStatus;
@@ -24,7 +27,7 @@ const emit = defineEmits<{
 const isConnected   = computed(() => props.engineStatus === 'connected');
 // Symmetric verb pairing with the disconnected label; the connected
 // branch previously read 'Engine', which left the action ambiguous.
-const engineBtnLabel = computed(() => isConnected.value ? 'Disconnect' : 'Connect');
+const engineBtnLabel = computed(() => isConnected.value ? t('toolbar.disconnect') : t('toolbar.connect'));
 
 // Engine identity (KataGo `query_version` + `query_models` probe).
 // Two separate slots — VERSION and MODEL — each with its own
@@ -44,13 +47,13 @@ const versionTooltip = computed(() => {
   const payload = store.engine.info.versionPayload;
   return payload
     ? `query_version response:\n${JSON.stringify(payload, null, 2)}`
-    : 'KataGo engine version (refreshed on each connect / reconnect). Probe pending.';
+    : t('toolbar.engineVersionTooltipPending');
 });
 const modelTooltip = computed(() => {
   const payload = store.engine.info.modelsPayload;
   return payload
     ? `query_models response:\n${JSON.stringify(payload, null, 2)}`
-    : 'KataGo loaded model (refreshed on each connect / reconnect). Probe pending.';
+    : t('toolbar.engineModelTooltipPending');
 });
 </script>
 
@@ -73,23 +76,23 @@ const modelTooltip = computed(() => {
            connect-and-probe window so the layout doesn't shift when
            the responses arrive. -->
       <div class="metric engine-identity" :title="versionTooltip">
-        <span class="m-lbl">VERSION</span>
+        <span class="m-lbl">{{ $t('toolbar.metric.version') }}</span>
         <span class="m-val engine-version-val">{{ engineVersion !== null ? `v${engineVersion}` : '—' }}</span>
       </div>
       <div class="metric engine-identity" :title="modelTooltip">
-        <span class="m-lbl">MODEL</span>
+        <span class="m-lbl">{{ $t('toolbar.metric.model') }}</span>
         <span class="m-val engine-id-val">{{ engineInternalName ?? '—' }}</span>
       </div>
       <div class="metric">
-        <span class="m-lbl">PPS</span>
+        <span class="m-lbl">{{ $t('toolbar.metric.pps') }}</span>
         <span class="m-val">{{ metrics.packetsPerSecond }}</span>
       </div>
       <div class="metric">
-        <span class="m-lbl">LATENCY</span>
-        <span class="m-val">{{ metrics.latencyMs }}ms</span>
+        <span class="m-lbl">{{ $t('toolbar.metric.latency') }}</span>
+        <span class="m-val">{{ $t('toolbar.metric.latencyValue', { ms: metrics.latencyMs }) }}</span>
       </div>
       <div class="metric">
-        <span class="m-lbl">WATCHDOG</span>
+        <span class="m-lbl">{{ $t('toolbar.metric.watchdog') }}</span>
         <span
           class="m-val watchdog-dot"
           :style="{ color: metrics.latencyMs < 500 ? '#00ff88' : 'var(--state-attention)' }"
@@ -104,9 +107,9 @@ const modelTooltip = computed(() => {
     <QeuboToolbar />
 
     <div class="engine-controls">
-      <button class="toolbar-btn highlight-btn" @click="emit('mint-card')">Mint Card</button>
-      <button class="toolbar-btn" @click="emit('load-sgf')">Load SGF</button>
-      <button class="toolbar-btn" @click="emit('save-sgf')">Save SGF</button>
+      <button class="toolbar-btn highlight-btn" @click="emit('mint-card')">{{ $t('toolbar.mintCard') }}</button>
+      <button class="toolbar-btn" @click="emit('load-sgf')">{{ $t('toolbar.loadSgf') }}</button>
+      <button class="toolbar-btn" @click="emit('save-sgf')">{{ $t('toolbar.saveSgf') }}</button>
       <button
         class="toolbar-btn"
         :class="{ 'btn-connected': isConnected }"

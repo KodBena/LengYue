@@ -17,6 +17,7 @@
 
 import { serializeBoard } from '../engine/sgf-writer';
 import { store, pushSystemMessage } from '../store';
+import { i18n } from '../i18n';
 import type { BoardState } from '../types';
 
 // ── Public contract ───────────────────────────────────────────────────────────
@@ -35,7 +36,7 @@ export function useSgfDownload(): SgfDownloadActions {
   function downloadActiveBoard(): void {
     const board = store.boards[store.activeBoardIndex];
     if (!board) {
-      pushSystemMessage('warning', 'No active board to save.');
+      pushSystemMessage('warning', i18n.global.t('sgf.noActiveBoard'));
       return;
     }
 
@@ -44,14 +45,14 @@ export function useSgfDownload(): SgfDownloadActions {
       content = serializeBoard(board);
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
-      pushSystemMessage('error', `SGF serialisation failed: ${detail}`);
+      pushSystemMessage('error', i18n.global.t('sgf.serialisationFailed', { detail }));
       console.error('[useSgfDownload] serializeBoard threw:', err);
       return;
     }
 
     const filename = deriveFilename(board);
     triggerDownload(filename, content);
-    pushSystemMessage('info', `Saved ${filename}.`);
+    pushSystemMessage('info', i18n.global.t('sgf.saved', { filename }));
   }
 
   return { downloadActiveBoard };

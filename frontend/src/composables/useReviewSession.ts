@@ -8,6 +8,7 @@
 import { computed, type Ref } from 'vue';
 import type { ReviewCard, NodeId, BoardId, ReviewStatus } from '../types';
 import { store, addBoard, mutateBoard, updateBoardState, mutateReviewSession, pushSystemMessage } from '../store';
+import { i18n } from '../i18n';
 import { backendService } from '../services/backend-service';
 import { analysisService } from '../services/analysis-service';
 import { activeConfigHash, hashConfig } from '../services/analysis-config';
@@ -319,7 +320,7 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
         if (err.reason === 'timeout') {
           pushSystemMessage(
             'warning',
-            `KataGo did not respond within ${KATAGO_ANALYSIS_TIMEOUT_MS / 1000}s. Review cancelled.`
+            i18n.global.t('review.kataGoTimeout', { seconds: KATAGO_ANALYSIS_TIMEOUT_MS / 1000 }),
           );
           mutateReviewSession(bId, draft => { draft.status = 'IDLE'; });
         }

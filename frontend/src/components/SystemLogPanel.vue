@@ -15,17 +15,17 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
 <template>
   <div class="system-log-panel">
     <div class="panel-header">
-      <span class="title">System Diagnostics</span>
+      <span class="title">{{ $t('systemLog.title') }}</span>
       <button
         class="clear-btn"
         :disabled="!hasMessages"
         @click="clearSystemMessages"
-      >Clear All</button>
+      >{{ $t('systemLog.clearAll') }}</button>
     </div>
-    
+
     <div v-if="hasMessages" class="messages-list">
-      <div 
-        v-for="msg in store.engine.messages" 
+      <div
+        v-for="msg in store.engine.messages"
         :key="msg.id"
         class="message-row"
         :class="`msg-${msg.type}`"
@@ -43,7 +43,7 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
          the surface doesn't pop in/out as messages arrive and clear. -->
     <div v-else class="empty-state">
       <span class="empty-dot">·</span>
-      <span class="empty-text">No messages.</span>
+      <span class="empty-text">{{ $t('systemLog.noMessages') }}</span>
     </div>
   </div>
 </template>

@@ -17,8 +17,10 @@
  * License: Public Domain (The Unlicense).
  */
 import { ref, onErrorCaptured } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { pushSystemMessage } from '../store';
 
+const { t } = useI18n();
 const error = ref<Error | null>(null);
 
 onErrorCaptured((err, _instance, info) => {
@@ -29,7 +31,7 @@ onErrorCaptured((err, _instance, info) => {
   // (e.g., a future regression in store wiring), don't recurse — log
   // and proceed.
   try {
-    pushSystemMessage('error', `Unhandled UI error: ${msg}.`);
+    pushSystemMessage('error', t('errors.unhandledUi', { msg }));
   } catch (pushErr) {
     console.error('[RootErrorBoundary] pushSystemMessage failed:', pushErr);
   }
@@ -50,13 +52,10 @@ function reload(): void {
   <slot v-if="!error" />
   <div v-else class="reb-overlay">
     <div class="reb-panel">
-      <h2 class="reb-title">Something went wrong</h2>
-      <p class="reb-text">
-        The application hit an unexpected error. The system log has
-        the details. Reload the page to continue.
-      </p>
+      <h2 class="reb-title">{{ $t('errors.boundary.title') }}</h2>
+      <p class="reb-text">{{ $t('errors.boundary.body') }}</p>
       <pre v-if="error.message" class="reb-message">{{ error.message }}</pre>
-      <button @click="reload" class="reb-reload">Reload page</button>
+      <button @click="reload" class="reb-reload">{{ $t('errors.boundary.reload') }}</button>
     </div>
   </div>
 </template>

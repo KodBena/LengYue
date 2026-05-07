@@ -31,23 +31,23 @@ const emit = defineEmits<{
 <template>
   <div class="status-bar">
     <div class="status-left">
-      <span class="move-badge">MOVE {{ moveNumber }}</span>
-      <span class="player-names">{{ metadata?.blackName }} vs {{ metadata?.whiteName }}</span>
+      <span class="move-badge">{{ $t('statusBar.move', { n: moveNumber }) }}</span>
+      <span class="player-names">{{ metadata?.blackName }} {{ $t('statusBar.versus') }} {{ metadata?.whiteName }}</span>
       <span class="game-info">
-        {{ metadata?.rules }} · Komi
+        {{ metadata?.rules }} · {{ $t('statusBar.komi') }}
         <input
           type="number"
           class="komi-input"
           :value="metadata?.komi"
           step="0.5"
           @change="(e) => emit('update-komi', parseFloat((e.target as HTMLInputElement).value))"
-          title="Edit Komi"
+          :title="$t('statusBar.editKomi')"
         />
       </span>
     </div>
     <div class="status-right">
       <span class="turn-indicator" :class="turn">
-        {{ turn === 'B' ? 'Black to Play' : 'White to Play' }}
+        {{ turn === 'B' ? $t('statusBar.blackToPlay') : $t('statusBar.whiteToPlay') }}
       </span>
       <span class="caps">B: {{ captures.B }} · W: {{ captures.W }}</span>
       <UserBadge />

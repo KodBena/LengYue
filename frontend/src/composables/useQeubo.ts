@@ -87,6 +87,7 @@ import { computed, ref, type ComputedRef, type Ref, type WritableComputedRef } f
 import { generateUUID } from '../engine/util';
 import { qeuboService } from '../services/qeubo-service';
 import { pushSystemMessage, store } from '../store';
+import { i18n } from '../i18n';
 import {
   QeuboError,
   type BookmarkId,
@@ -226,12 +227,12 @@ async function bootstrap(): Promise<void> {
       }
       // 'init-not-ready' shouldn't surface from /status; if it
       // does, surface loudly per ADR-0002.
-      pushSystemMessage('error', `qEUBO bootstrap: unexpected error kind ${err.kind}`);
+      pushSystemMessage('error', i18n.global.t('qeuboInternal.bootstrapUnexpectedKind', { kind: err.kind }));
       return;
     }
     // Network or other generic error. Calibration state stays at
     // its prior value (null on first call); the user can retry.
-    pushSystemMessage('warning', 'qEUBO bootstrap failed; calibration status unknown.');
+    pushSystemMessage('warning', i18n.global.t('qeuboInternal.bootstrapFailed'));
     console.warn('[useQeubo] bootstrap failed:', err);
   }
 }
@@ -431,7 +432,7 @@ function applyBookmark(id: BookmarkId): void {
   const list = store.profile.qeuboPinnedBookmarks ?? [];
   const bookmark = list.find((b) => b.id === id);
   if (!bookmark) {
-    pushSystemMessage('error', `qEUBO: bookmark ${id} not found.`);
+    pushSystemMessage('error', i18n.global.t('qeuboInternal.bookmarkNotFound', { id }));
     return;
   }
   store.profile.settings.engine.katago.analysis_env.parameters = { ...bookmark.parameters };
@@ -446,7 +447,7 @@ function renameBookmark(id: BookmarkId, newName: string): void {
   const list = store.profile.qeuboPinnedBookmarks ?? [];
   const bookmark = list.find((b) => b.id === id);
   if (!bookmark) {
-    pushSystemMessage('error', `qEUBO: bookmark ${id} not found.`);
+    pushSystemMessage('error', i18n.global.t('qeuboInternal.bookmarkNotFound', { id }));
     return;
   }
   bookmark.name = trimmed;
@@ -457,7 +458,7 @@ function deleteBookmark(id: BookmarkId): void {
   if (!list) return;
   const idx = list.findIndex((b) => b.id === id);
   if (idx === -1) {
-    pushSystemMessage('error', `qEUBO: bookmark ${id} not found.`);
+    pushSystemMessage('error', i18n.global.t('qeuboInternal.bookmarkNotFound', { id }));
     return;
   }
   list.splice(idx, 1);

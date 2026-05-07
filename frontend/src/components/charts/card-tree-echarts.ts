@@ -13,6 +13,15 @@ import type { CardId, ForestStat, ReviewCard } from '../../types';
 import type { RenderNode, RenderTree } from '../../composables/useCardTreeProjection';
 import { getCardThumbnailSync } from '../../composables/useCardThumbnail';
 import { themeColor } from '../../utils/theme-color';
+import { i18n } from '../../i18n';
+
+// Module-level i18n: this is a pure adapter, not a Vue component, so
+// `useI18n()` (which requires a setup context) isn't available. The
+// `i18n.global.t(...)` accessor reads the same active locale ref the
+// component-side `t` reads, so labels re-render correctly when the
+// store-driven locale flips. Pattern shared with services/ and the
+// module-level composables that wrap pushSystemMessage().
+const t = i18n.global.t;
 
 // Per-node payload travelled with each ECharts datum. Click and
 // hover handlers read this back to dispatch the right behaviour
@@ -160,39 +169,42 @@ export function tooltipFor(
   const cSurface0 = themeColor('--surface-0');
   if (payload.kind === 'stub') {
     return `<div style="padding:6px; font-size:var(--text-emphasis); color:${cText1};">
-      <b style="color:${cAccent};">Card ${payload.cardId}</b><br/>
-      <span style="color:${cText2};">Subtree summary — click to expand.</span>
+      <b style="color:${cAccent};">${t('cardTree.tooltip.cardHeader', { id: payload.cardId })}</b><br/>
+      <span style="color:${cText2};">${t('cardTree.tooltip.subtreeSummary')}</span>
     </div>`;
   }
   if (payload.kind === 'bucket') {
     return `<div style="padding:6px; font-size:var(--text-emphasis); color:${cText1};">
-      <b style="color:${cAccent};">Bucket of cold leaves</b><br/>
-      <span style="color:${cText2};">Click to expand individual cards.</span>
+      <b style="color:${cAccent};">${t('cardTree.tooltip.bucketHeader')}</b><br/>
+      <span style="color:${cText2};">${t('cardTree.tooltip.bucketBody')}</span>
     </div>`;
   }
   const card = cards.get(payload.cardId);
   if (!card) {
     return `<div style="padding:6px; font-size:var(--text-emphasis); color:${cText2};">
-      <b style="color:${cAccent};">Card ${payload.cardId}</b><br/>
-      Loading…
+      <b style="color:${cAccent};">${t('cardTree.tooltip.cardHeader', { id: payload.cardId })}</b><br/>
+      ${t('cardTree.tooltip.loading')}
     </div>`;
   }
   // The cardId widening matches LineageTreeChart's existing pattern;
   // `getCardThumbnailSync` keys its memo cache by raw number.
   const svg = getCardThumbnailSync(card.id as unknown as number, card.sgf);
   const ebisuT = card.model.t.toFixed(4);
+  const cardHeaderKey = payload.role === 'active'
+    ? 'cardTree.tooltip.cardHeaderActive'
+    : 'cardTree.tooltip.cardHeaderInactive';
   return `
     <div style="display:flex; flex-direction:column; gap:8px;">
       <div style="font-weight:bold; color:${cAccent}; text-transform:uppercase;">
-        Card #${card.id}${payload.role === 'active' ? ' · active' : ''}
+        ${t(cardHeaderKey, { id: card.id })}
       </div>
       <div style="width:140px; height:140px; border:1px solid ${cBorder2}; background:${cSurface0};">
         ${svg}
       </div>
       <div style="font-size:var(--text-body); color:${cText2};">
-        Reviews: ${card.numReviews} · Ebisu T: ${ebisuT}
+        ${t('cardTree.tooltip.reviewsAndT', { n: card.numReviews, t: ebisuT })}
       </div>
-      <div style="color:${cAccent}; font-size:var(--text-tiny);">Click to load position</div>
+      <div style="color:${cAccent}; font-size:var(--text-tiny);">${t('cardTree.tooltip.clickToLoad')}</div>
     </div>`;
 }
 
@@ -215,13 +227,25 @@ export function headerLineFor(
   forestStats: ReadonlyMap<CardId, ForestStat>,
 ): HeaderLine {
   const stat = forestStats.get(tree.rootCardId);
-  const title = stat?.description?.trim() || `Game source #${tree.gameSourceId}`;
+  const title = stat?.description?.trim()
+    || t('cardTree.header.gameSourceFallback', { id: tree.gameSourceId });
+  const unknownPlayer = t('cardTree.header.unknownPlayer');
   const players =
     stat?.playerBlack || stat?.playerWhite
-      ? `${stat?.playerBlack || '?'} vs ${stat?.playerWhite || '?'}`
+      ? t('cardTree.header.versus', {
+          black: stat?.playerBlack || unknownPlayer,
+          white: stat?.playerWhite || unknownPlayer,
+        })
       : '';
-  const counts =
-    `${tree.stats.renderedNodeCount} rendered · ${tree.stats.totalCardNodes} total` +
-    (tree.stats.activeCount > 0 ? ` · ${tree.stats.activeCount} active` : '');
+  const counts = tree.stats.activeCount > 0
+    ? t('cardTree.header.countsWithActive', {
+        rendered: tree.stats.renderedNodeCount,
+        total:    tree.stats.totalCardNodes,
+        active:   tree.stats.activeCount,
+      })
+    : t('cardTree.header.counts', {
+        rendered: tree.stats.renderedNodeCount,
+        total:    tree.stats.totalCardNodes,
+      });
   return { title, meta: players, counts };
 }

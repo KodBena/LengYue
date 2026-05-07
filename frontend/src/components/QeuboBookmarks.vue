@@ -7,10 +7,12 @@
 -->
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useQeubo } from '../composables/useQeubo';
 import { pushSystemMessage, store } from '../store';
 import type { QeuboBookmark } from '../types';
 
+const { t } = useI18n();
 const q = useQeubo();
 
 const bookmarks = computed<QeuboBookmark[]>(() => {
@@ -31,7 +33,7 @@ function formatDate(ts: number): string {
  */
 function formatParameters(params: Record<string, number>): string {
   const entries = Object.entries(params).sort(([a], [b]) => a.localeCompare(b));
-  if (entries.length === 0) return '(no parameters)';
+  if (entries.length === 0) return t('qeuboBookmarks.noParameters');
   return entries
     .map(([k, v]) => `${k}=${trimZeros(v.toFixed(4))}`)
     .join(', ');
@@ -43,35 +45,35 @@ function trimZeros(s: string): string {
 }
 
 function onNewFromCurrent(): void {
-  const name = window.prompt('Bookmark name:');
+  const name = window.prompt(t('qeubo.prompt.bookmarkName'));
   if (name === null) return;
   try {
     q.pinCurrent(name);
-    pushSystemMessage('info', `qEUBO bookmark "${name.trim()}" saved.`);
+    pushSystemMessage('info', t('qeubo.systemMessage.bookmarkSaved', { name: name.trim() }));
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    pushSystemMessage('error', `qEUBO pin failed: ${msg}`);
+    pushSystemMessage('error', t('qeubo.systemMessage.pinFailed', { msg }));
   }
 }
 
 function onApply(b: QeuboBookmark): void {
   q.applyBookmark(b.id);
-  pushSystemMessage('info', `qEUBO bookmark "${b.name}" applied.`);
+  pushSystemMessage('info', t('qeuboBookmarks.systemMessage.applied', { name: b.name }));
 }
 
 function onRename(b: QeuboBookmark): void {
-  const next = window.prompt('New name:', b.name);
+  const next = window.prompt(t('qeuboBookmarks.prompt.newName'), b.name);
   if (next === null) return;
   try {
     q.renameBookmark(b.id, next);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    pushSystemMessage('error', `qEUBO rename failed: ${msg}`);
+    pushSystemMessage('error', t('qeuboBookmarks.systemMessage.renameFailed', { msg }));
   }
 }
 
 function onDelete(b: QeuboBookmark): void {
-  if (!window.confirm(`Delete bookmark "${b.name}"?`)) return;
+  if (!window.confirm(t('qeuboBookmarks.confirm.delete', { name: b.name }))) return;
   q.deleteBookmark(b.id);
 }
 </script>
@@ -79,19 +81,21 @@ function onDelete(b: QeuboBookmark): void {
 <template>
   <div class="qeubo-bookmarks">
     <div class="bookmarks-header">
-      <span class="hint">{{ bookmarks.length }} saved</span>
+      <span class="hint">{{ $t('qeuboBookmarks.savedCount', { n: bookmarks.length }) }}</span>
       <button
         type="button"
         class="new-btn"
-        title="Snapshot the currently applied analysis_env.parameters as a new bookmark"
+        :title="$t('qeuboBookmarks.tooltip.newFromCurrent')"
         @click="onNewFromCurrent"
-      >+ New from current</button>
+      >{{ $t('qeuboBookmarks.button.newFromCurrent') }}</button>
     </div>
 
     <div v-if="bookmarks.length === 0" class="empty-state">
-      No bookmarks yet. Pin from the toolbar during a calibration session,
-      or click "+ New from current" to snapshot the values currently in
-      <code>analysis_env.parameters</code>.
+      <i18n-t keypath="qeuboBookmarks.emptyState" tag="span">
+        <template #code>
+          <code>analysis_env.parameters</code>
+        </template>
+      </i18n-t>
     </div>
 
     <ul v-else class="bookmark-list">
@@ -102,9 +106,9 @@ function onDelete(b: QeuboBookmark): void {
           <div class="bookmark-params">{{ formatParameters(b.parameters) }}</div>
         </div>
         <div class="bookmark-actions">
-          <button type="button" class="apply-btn" title="Write these values into analysis_env.parameters" @click="onApply(b)">Apply</button>
-          <button type="button" class="rename-btn" title="Rename" @click="onRename(b)">Rename</button>
-          <button type="button" class="delete-btn" title="Delete" @click="onDelete(b)">×</button>
+          <button type="button" class="apply-btn" :title="$t('qeuboBookmarks.tooltip.apply')" @click="onApply(b)">{{ $t('qeuboBookmarks.button.apply') }}</button>
+          <button type="button" class="rename-btn" :title="$t('qeuboBookmarks.tooltip.rename')" @click="onRename(b)">{{ $t('qeuboBookmarks.button.rename') }}</button>
+          <button type="button" class="delete-btn" :title="$t('qeuboBookmarks.tooltip.delete')" @click="onDelete(b)">×</button>
         </div>
       </li>
     </ul>
