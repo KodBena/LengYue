@@ -460,21 +460,24 @@ do 30d first.
 - Distribution-packaging decision per
   `docs/notes/distribution-packaging.md` — the leading edge of
   the post-v1 arc.
-- Test coverage at the composable layer (frontend). Phase 0
-  shipped 2026-05-08 (issue #137): Vitest + jsdom +
-  `@vue/test-utils` wired, three-tier shape established
-  (`tests/unit/`, `tests/fakes/`, `tests/integration/`), one
-  test per tier as the pattern proof — `applyGoMove` placement
-  / capture / ko at Tier 1; `useReviewSession` endSession /
-  empty-queue startSession / processUserMove timeout at Tier
-  3. Contributor doc `frontend/tests/CLAUDE.md`. Open work:
-  expand to other composables (`useAnalysisProjection`,
-  `useReviewSession` happy-path, `useChartNavigation`),
-  cover the resource-ownership audit cleanups, integrate
-  with CI. Backend side closed in the 2026-05-07 testing
-  arc (442 tests across four tiers, four production bugs
-  fixed); see `docs/notes/test-coverage-2026-05.md` for
-  the closing reflection.
+- Frontend test coverage closed 2026-05-08 in a five-phase arc
+  (PRs #178-#182 + Phase 5 docs). The frontend ships 100 tests
+  across three tiers (`tests/unit/` pure logic, `tests/fakes/`
+  service substitutes, `tests/integration/` composable + store
+  integration); zero production bugs surfaced (the
+  branded-types + ADR-0002 + OpenAPI-codegen discipline already
+  catches the typecheck-passable bug class). Closing
+  reflection: `docs/notes/frontend-test-coverage-2026-05.md`.
+  Backend side closed in the 2026-05-07 testing arc (442 tests
+  across four tiers, four production bugs fixed); see
+  `docs/notes/test-coverage-2026-05.md` for the closing
+  reflection. Open follow-ups: component-level / template
+  tests, E2E, visual regression, CI integration (gating
+  `npm run build` on the suite), and breadth across the
+  remaining composables (`useAuth`, `useCardTreeData`,
+  `useDirtyBoardGuard`, `useMinting`, `useSgfLoader`, the
+  forest navigation set, plus the engine kernels in
+  `src/engine/analysis/`).
 
 **Future projects (when ready).**
 
