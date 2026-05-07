@@ -20,6 +20,9 @@
  *     locale's name in its own script (English / 简体中文 / 日本語 / …).
  *   - flag: (loc: SupportedLocale) => string — regional-flag emoji
  *     for the picker UI.
+ *   - isMachineTranslated: ComputedRef<boolean> — true when the
+ *     active catalog is in MACHINE_TRANSLATED_LOCALES (the picker
+ *     uses this to render a contribute-invitation notice).
  *   - setLocale(loc): mutator. Writes through to the store; the
  *     useAppBootstrap watch picks it up and flips i18n.global.locale.
  *
@@ -34,6 +37,7 @@ import {
   SUPPORTED_LOCALES,
   LOCALE_DISPLAY_NAMES,
   LOCALE_FLAGS,
+  MACHINE_TRANSLATED_LOCALES,
   isSupportedLocale,
   DEFAULT_LOCALE,
 } from '../i18n/locales';
@@ -44,6 +48,7 @@ export function useLocale(): {
   supportedLocales: readonly SupportedLocale[];
   displayName: (loc: SupportedLocale) => string;
   flag: (loc: SupportedLocale) => string;
+  isMachineTranslated: ComputedRef<boolean>;
   setLocale: (loc: SupportedLocale) => void;
 } {
   // Defensive resolver per ADR-0002. The migration and the type
@@ -67,11 +72,16 @@ export function useLocale(): {
   const flag = (loc: SupportedLocale): string =>
     LOCALE_FLAGS[loc];
 
+  const isMachineTranslated = computed<boolean>(() =>
+    MACHINE_TRANSLATED_LOCALES.has(locale.value)
+  );
+
   return {
     locale,
     supportedLocales: SUPPORTED_LOCALES,
     displayName,
     flag,
+    isMachineTranslated,
     setLocale,
   };
 }

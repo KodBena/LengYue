@@ -63,6 +63,21 @@ export const LOCALE_FLAGS: Record<SupportedLocale, string> = {
   'ko':    '🇰🇷',
 };
 
+/**
+ * Locales whose catalogs were produced by machine translation and
+ * have not yet had a native-speaker review pass. The toolbar
+ * `LocalePicker` reads this set and renders a per-locale notice
+ * inviting contributions when one of these is active. When a
+ * native reviewer ratifies a catalog, remove its entry here.
+ *
+ * The notice text itself lives in each affected catalog under
+ * `localePicker.machineTranslatedNotice` (rendered) and
+ * `localePicker.machineTranslatedTooltip` (hover detail), so the
+ * invitation reads in the user's own language.
+ */
+export const MACHINE_TRANSLATED_LOCALES: ReadonlySet<SupportedLocale> =
+  new Set(['zh-CN', 'ja', 'ko']);
+
 export const DEFAULT_LOCALE: SupportedLocale = 'en';
 
 /**
