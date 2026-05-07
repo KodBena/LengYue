@@ -22,12 +22,16 @@ export const asNodeId  = (s: string): NodeId  => s as NodeId;
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
-// Short id generator for BoardId / NodeId. Distinct from
+// Short id generator for NodeId. Distinct from
 // `engine/util.ts::generateUUID` (RFC4122 v4) — the short form is
-// fine for these intra-frontend handles where collision risk is
+// fine for board-scoped node identifiers where collision risk is
 // per-session and human-readable hashes are friendlier in DevTools.
-// `clientGameId` (which crosses the wire to backend's UUID-typed
-// column) goes through `generateUUID` instead.
+//
+// BoardId no longer uses this — it uses `generateUUID` instead, since
+// it crosses the wire to backend's UUID-typed `analysis_bundles.board_id`
+// column. The cutover happened in migration 24 → 25 (see
+// `migrations.ts`); `clientGameId` adopted `generateUUID` earlier in
+// migration 22 → 23.
 export const uuid = (): string => Math.random().toString(36).substring(2, 9);
 
 // ── Factory ───────────────────────────────────────────────────────────────────
@@ -55,7 +59,7 @@ export function createInitialBoard(): BoardState {
   };
 
   return {
-    id: asBoardId(uuid()),
+    id: asBoardId(generateUUID()),
     rootNodeId: rootId,
     currentNodeId: rootId,
     stones: {},

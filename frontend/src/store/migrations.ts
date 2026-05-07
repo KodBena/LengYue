@@ -87,7 +87,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 24;
+export const CURRENT_SCHEMA_VERSION = 25;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -679,6 +679,73 @@ export const migrations: Migration[] = [
         appearance.locale = detectBrowserLocale();
       }
     }
+    return out;
+  },
+  // 24 → 25: Migrate BoardId from short base-36 string (~7 chars,
+  // produced by `Math.random().toString(36).substring(2, 9)` in
+  // `store/board-factory.ts`) to RFC4122 v4 UUID. The original
+  // short-id rationale ("intra-frontend handle, per-session
+  // collision risk, human-readable in DevTools") was correct while
+  // BoardIds never crossed the wire; the analysis-persistence
+  // feature lands BoardId as backend's UUID-typed
+  // `analysis_bundles.board_id` primary-key column (per
+  // `docs/dispatch/frontend-to-backend-analysis-persistence.md`
+  // and the status reply on the same dispatch), and a tighter
+  // column type beats DevTools friendliness at that boundary.
+  // NodeIds stay short — they're board-scoped, opaque to the
+  // backend, and don't participate in the new persistence shape.
+  //
+  // Walks `out.boards` and assigns each board a fresh UUID,
+  // building an old→new map. Re-keys the two persisted
+  // `Partial<Record<BoardId, _>>` dictionaries through the map:
+  // `session.reviews` and `engine.activeMode`. Entries whose key
+  // isn't in the map are orphans (a delete that crashed before
+  // the dictionary was cleaned up); they're dropped here rather
+  // than carried forward with a stale key, since the owning board
+  // no longer exists.
+  //
+  // Non-idempotent in the technical sense (re-running would
+  // re-randomise the IDs), but the schema-version increment
+  // guarantees it runs exactly once per blob — the migration
+  // ledger's append-only contract is what makes the
+  // non-idempotency safe at the system level.
+  //
+  // Runtime-only state (AnalysisService.activeSubscriptions /
+  // activeQueryIds / restartCallbacks, board-card-trees module-
+  // scope Map, useReviewSession's pendingAnalysisAborts) is not
+  // migrated — those Maps are populated post-hydrate from the
+  // now-UUID'd `store.boards` and never see the old IDs.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    if (!Array.isArray(out.boards)) return out;
+
+    const idMap = new Map<string, string>();
+    for (const b of out.boards) {
+      if (b && typeof b === 'object' && typeof b.id === 'string') {
+        const newId = generateUUID();
+        idMap.set(b.id, newId);
+        b.id = newId;
+      }
+    }
+
+    const reKey = <T>(dict: Record<string, T> | undefined): Record<string, T> => {
+      if (!dict || typeof dict !== 'object') return {};
+      const next: Record<string, T> = {};
+      for (const [k, v] of Object.entries(dict)) {
+        const mapped = idMap.get(k);
+        if (mapped !== undefined) next[mapped] = v;
+        // else: orphan — drop.
+      }
+      return next;
+    };
+
+    if (out.session && typeof out.session === 'object') {
+      out.session.reviews = reKey(out.session.reviews);
+    }
+    if (out.engine && typeof out.engine === 'object') {
+      out.engine.activeMode = reKey(out.engine.activeMode);
+    }
+
     return out;
   },
 ];
