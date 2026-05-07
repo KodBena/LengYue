@@ -1,9 +1,12 @@
 # Analysis persistence — Frontend → Backend
 
-- **Date:** 2026-05-07
+- **Date:** 2026-05-07 (revised same day with branch rename and
+  cross-team coordination note; original dispatch shipped via PR
+  #165)
 - **From:** frontend (analysis-persistence design session,
-  2026-05-07; non-canonical branch
-  `frontend/analysis-persistence`)
+  2026-05-07; cross-cutting branch
+  `cross/analysis-persistence`, originally `frontend/analysis-persistence`
+  before the cross-cutting nature was made explicit)
 - **To:** backend
 - **Type:** new-feature wire-shape proposal — sketch + recommendation,
   awaiting sign-off before either side ships.
@@ -268,6 +271,37 @@ For visibility, not for backend's review:
   a complete decoded bundle or it returns 404; failure modes are
   loud (per ADR-0002).
 
+## Coordination on `cross/analysis-persistence`
+
+Frontend and backend implementation work both land on the
+`cross/analysis-persistence` branch. End-to-end iteration across
+the two sub-projects is the load-bearing requirement (the
+feature is tested by sending a real bundle through a real
+backend and watching it round-trip into the ledger), and a
+single branch is the cheapest way to honour it. Each side commits
+to its own sub-tree (`frontend/`, `backend/`); path collisions
+are not expected.
+
+The branch was originally cut as `frontend/analysis-persistence`
+before the cross-cutting work pattern was named explicitly. It
+has been renamed to `cross/analysis-persistence`; the old name
+is gone from origin.
+
+### Push hygiene
+
+When two contributors are pushing to one branch, the rule is
+`git pull --rebase` (or `git pull` with merge) before
+`git push`. **Avoid `git push --force` on this shared branch** —
+even though it is not main, force-pushing a branch the other
+side has based work on overwrites their commits silently. If a
+rebase produces a conflict, resolve it locally rather than
+reaching for force. ADR-0002 extends here: noisy merge commits
+are better than silently losing the other team's work.
+
+If a force-push genuinely is needed (e.g., to remove an
+accidentally-committed secret), coordinate first via a
+status-dispatch addressed to the other side before doing it.
+
 ## Open questions for backend
 
 1. **Storage column type.** `BLOB` (Postgres `BYTEA`, SQLite
@@ -312,8 +346,8 @@ For visibility, not for backend's review:
   PRs; replies on
   `docs/dispatch/backend-to-frontend-analysis-persistence-status.md`
   with the merge SHAs.
-- Frontend then ships the consumer-side PR(s) on
-  `frontend/analysis-persistence` (settings, service, UI surface,
+- Frontend then ships the consumer-side PR(s) from
+  `cross/analysis-persistence` (settings, service, UI surface,
   `closeBoard` cleanup augmentation, `analysis-persistence-plan.md`
   rewrite to reflect the shipped design).
 
@@ -322,7 +356,7 @@ For visibility, not for backend's review:
 Please respond on
 `docs/dispatch/backend-to-frontend-analysis-persistence-status.md`
 once you've evaluated. The frontend half is queued on
-`frontend/analysis-persistence`; nothing ships on this side
+`cross/analysis-persistence`; nothing ships on this side
 until the wire is firm.
 
 If the wire shape needs revision (different endpoint pattern,
