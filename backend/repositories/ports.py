@@ -17,15 +17,17 @@ explicitly (for mypy/pyright to catch signature drift); consumers
 take the Port as a parameter and don't know which implementation
 they got.
 
-Five Ports live here:
+Six Ports live here:
 
-    CardRepositoryPort       (21f):    reads for ReviewService + GET /cards/{id}
-    CardWriteRepositoryPort  (30b):    writes for CardService
-    LineageRepositoryPort    (32a):    tree-fetch for PipelineExecutor;
-                                       extended for the card-tree
-                                       endpoints (release-scope item 3)
-    TagFilterRepositoryPort  (32a):    tag-DSL materialization for PipelineExecutor
-    StatsRepositoryPort      (32a.2):  stats fetches for StatsService
+    CardRepositoryPort           (21f):    reads for ReviewService + GET /cards/{id}
+    CardWriteRepositoryPort      (30b):    writes for CardService
+    LineageRepositoryPort        (32a):    tree-fetch for PipelineExecutor;
+                                           extended for the card-tree
+                                           endpoints (release-scope item 3)
+    TagFilterRepositoryPort      (32a):    tag-DSL materialization for PipelineExecutor
+    StatsRepositoryPort          (32a.2):  stats fetches for StatsService
+    AnalysisBundleRepositoryPort (cross/   per-board KataGo analysis
+                                  ap):     bundle persistence
 
 Each Port declares only domain / wire types in its signatures — no
 AsyncSession, no CTE, no SQLAlchemy Row. The Dependency Rule is
@@ -38,6 +40,7 @@ License: Public Domain (The Unlicense)
 from typing import Any, Dict, List, Optional, Protocol, Set, Tuple
 from uuid import UUID
 
+from domain.analysis_bundle import AnalysisBundle, AnalysisBundleSummary
 from domain.auth import UserId
 from domain.card import Card
 from domain.lineage import RootedTree, RootResolution
@@ -501,5 +504,137 @@ class StatsRepositoryPort(Protocol):
         card may belong to a different tenant than its parent (item 14
         prevents this for new writes; old data may already be in this
         state).
+        """
+        ...
+
+
+class AnalysisBundleRepositoryPort(Protocol):
+    """
+    The analysis-bundle persistence contract. AnalysisBundleService
+    depends on this for the cross/analysis-persistence arc.
+
+    Introduced for the per-(user_id, board_id) bundle storage
+    feature. The wire-shape and codec-envelope contract is
+    recorded in
+    docs/dispatch/backend-to-frontend-analysis-persistence-status.md.
+
+    Tenancy: every method takes `*, user_id: UserId` keyword-only,
+    matching the rest of the spine. The composite PK
+    `(user_id, board_id)` and the WHERE-clause-fusion pattern in
+    the adapter preserve the codebase's 404-not-403 invariant — a
+    GET / DELETE for someone else's `board_id` is indistinguishable
+    from a GET / DELETE for a non-existent bundle.
+
+    The codec dispatch (encoding bundles to the configured write
+    scheme; decoding stored payloads regardless of their scheme)
+    lives entirely inside the adapter. The Port speaks domain
+    DTOs (AnalysisBundle / AnalysisBundleSummary), never raw bytes.
+    """
+
+    async def upsert(
+        self,
+        *,
+        board_id: UUID,
+        user_id: UserId,
+        bundle: AnalysisBundle,
+    ) -> AnalysisBundleSummary:
+        """
+        Insert or replace the bundle stored under
+        `(user_id, board_id)`. Returns the post-write summary
+        (record_count, stored_scheme, stored_byte_size, updated_at)
+        — this is what the route projects directly into the
+        AnalysisBundleWriteResponse wire shape.
+
+        The adapter performs three responsibilities atomically
+        within the caller's transaction:
+
+        1. Encode `bundle` via the currently-configured write
+           scheme (`config.ANALYSIS_PERSISTENCE_WRITE_SCHEME`) and
+           compute the post-transcoding byte_size.
+        2. Atomic per-user quota check: SUM(byte_size) for this
+           user's existing bundles, minus the row being replaced
+           (if any), plus the incoming byte_size. If the new total
+           would exceed `config.ANALYSIS_PERSISTENCE_USER_QUOTA_BYTES`,
+           raise `UserQuotaExceededError(current_bytes, quota_bytes)`
+           BEFORE the INSERT/UPDATE — no row is written.
+        3. SELECT-then-conditional-INSERT-or-UPDATE for dialect
+           agnosticism (matching the documents.py upsert pattern).
+           UPDATE replaces the existing row's payload + scheme +
+           record_count + byte_size + updated_at; INSERT creates
+           a new row.
+
+        Tenancy: the WHERE clauses on the existence check and the
+        UPDATE both filter on `user_id`. A would-be cross-tenant
+        write affects zero rows (and the quota check above already
+        operated on the caller's namespace, so the math is honest).
+
+        Per-bundle cap is checked at the SERVICE layer, not here —
+        the service knows the request body length, the adapter
+        knows the post-transcoding byte_size; these are the two
+        natural enforcement points for two distinct caps.
+        """
+        ...
+
+    async def get(
+        self,
+        *,
+        board_id: UUID,
+        user_id: UserId,
+    ) -> Optional[AnalysisBundle]:
+        """
+        Fetch the bundle stored under `(user_id, board_id)`,
+        decoded back to canonical-JSON shape via the row's
+        recorded `scheme`. Returns None if no bundle exists OR if
+        the bundle exists but belongs to a different tenant.
+
+        The codec dispatcher in the adapter handles every scheme
+        the backend has ever written — old rows with older schemes
+        remain readable indefinitely. If a row carries a scheme
+        the dispatcher doesn't recognise (a re-pack rolled back, a
+        hand-edited row, a misconfigured deployment), the dispatcher
+        raises `UnknownSchemeError(scheme)`, which the route maps
+        to a structured 500 (Confirmation C2 in the dispatch).
+
+        Tenancy: WHERE clause filters on both `board_id` and
+        `user_id`. The 404-not-403 invariant: the route maps None
+        to 404, so "doesn't exist" and "not yours" are
+        indistinguishable.
+        """
+        ...
+
+    async def delete(
+        self,
+        *,
+        board_id: UUID,
+        user_id: UserId,
+    ) -> None:
+        """
+        Idempotent delete. Returns successfully whether or not a
+        row existed for `(user_id, board_id)`. The route maps
+        success to 204 No Content regardless.
+
+        Tenancy: WHERE clause filters on `user_id`. A delete for
+        another tenant's `board_id` affects zero rows and returns
+        normally — same shape as deleting a non-existent bundle.
+        """
+        ...
+
+    async def list_summaries(
+        self,
+        *,
+        user_id: UserId,
+    ) -> List[AnalysisBundleSummary]:
+        """
+        Return per-bundle metadata for every bundle the caller
+        owns. No payloads — the frontend's storage panel uses this
+        to render "you have N bundles using M GB" without forcing
+        a per-bundle decode.
+
+        Order is unspecified. Realistic cardinality is small
+        (~tens of bundles per user in heavy use); no pagination is
+        proposed for v1.
+
+        Tenancy: WHERE clause filters on `user_id` — the caller
+        cannot observe other tenants' bundle metadata.
         """
         ...

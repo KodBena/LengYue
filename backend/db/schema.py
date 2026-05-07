@@ -233,3 +233,56 @@ documents = Table(
     Column("data", JSON, nullable=False),
     Column("updated_at", DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 )
+
+# 9. Analysis Bundles (cross/analysis-persistence arc)
+#
+# Tenant-scoped via composite primary key. One row per (user_id,
+# board_id) — the user's "save analyses for this board" lifecycle
+# anchor. The board is the unit; replacing a row replaces the whole
+# bundle (the frontend's "Save analyses" action is full-bundle).
+#
+# `payload` is opaque bytes from the database's perspective. The
+# adapter (repositories/analysis_bundle_repository.py) holds the
+# codec dispatch table that translates between the request bundle's
+# canonical-JSON wire shape and whatever `scheme` the operator
+# configured for writes. Existing rows with older schemes remain
+# readable indefinitely — the dispatch table only grows. See the
+# wire-shape and codec-envelope rationale in
+# docs/dispatch/backend-to-frontend-analysis-persistence-status.md.
+#
+# Tenancy: the composite PK `(user_id, board_id)` is the
+# database-level isolation enforcement. Two users with the same
+# RFC4122 v4 UUID (astronomically unlikely; the frontend's
+# precursor migration 24 → 25 ensures BoardId is RFC4122 v4) get
+# distinct rows. Read paths in the adapter fuse `user_id` into
+# every WHERE clause, preserving the codebase's 404-not-403
+# invariant.
+#
+# `record_count` and `byte_size` are denormalized for cheap
+# per-user storage reporting (`GET /analysis-bundles` sums them
+# without needing to decode the payloads) and for the per-user
+# quota check inside the upsert transaction. `byte_size` is the
+# post-transcoding size — the same number `GET /analysis-bundles`
+# returns as `stored_byte_size` per bundle, so the frontend's
+# storage panel and the backend's quota check operate on the
+# same value (per Confirmation C3 in the dispatch).
+#
+# Existing installs must run
+# scripts/migrate_create_analysis_bundles.py before pulling this
+# schema. Fresh installs pick up the table via metadata.create_all.
+analysis_bundles = Table(
+    "analysis_bundles", metadata,
+    Column("user_id", Integer, ForeignKey("users.id"), primary_key=True, default=1),
+    Column("board_id", Uuid, primary_key=True),
+    Column("scheme", String, nullable=False),
+    Column("payload", LargeBinary, nullable=False),
+    Column("record_count", Integer, nullable=False),
+    Column("byte_size", Integer, nullable=False),
+    Column(
+        "updated_at",
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    ),
+)

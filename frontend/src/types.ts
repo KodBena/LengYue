@@ -415,6 +415,22 @@ export interface AppSettings {
       cache: boolean;
       lookup_cache: boolean;
       replay_final_only: boolean;
+      // Visibility toggle for the experimental analysis-persistence
+      // panel (manual save / restore of analysis bundles per
+      // BoardId; see services/analysis-persistence-service.ts and
+      // components/AnalysisControls.vue). Camel-case rather than
+      // snake_case because this is a frontend user-facing toggle,
+      // not a wire-protocol field. Default `true`: the panel
+      // surfaces in AnalysisControls.vue with a clearly marked
+      // "experimental" tag and an inline tooltip explaining the
+      // semantics, so testers can discover it without spelunking the
+      // registry editor. Users who want to hide the panel — e.g.,
+      // because the experimental scaffolding bothers them, or they
+      // never use save/restore — can flip this to false via the
+      // registry editor under engine → katago. The save action
+      // itself is always manual regardless; the toggle controls only
+      // the panel's visibility, not auto-save behaviour.
+      analysisStorageEnabled: boolean;
       analysis_env: AnalysisEnvironment;
     };
   };

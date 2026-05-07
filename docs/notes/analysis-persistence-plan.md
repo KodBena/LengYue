@@ -1,371 +1,287 @@
-# Analysis Persistence — Design Note
+# Analysis Persistence — System Note
 
-> **Status (2026-05-07): superseded in shape, not in motivation.**
-> The design described below — per-`(configHash, nodeId)`
-> granularity, auto-persist gated on `isDuringSearch === false`,
-> validation-blocked on a KataGo terminate-behaviour question —
-> was reconsidered during the analysis-persistence design session
-> on the `frontend/analysis-persistence` branch. The current shape
-> is **manual + batched per-`BoardId`** with a scheme-tagged
-> opaque-blob storage envelope; the `isDuringSearch` validation
-> question dissolves under the watermark interpretation of
-> `AnalysisLedger.mergeAnalysisPacket`. The canonical record of
-> the new design is the dispatch
-> `docs/dispatch/frontend-to-backend-analysis-persistence.md`,
-> which is awaiting backend acknowledgement.
->
-> This note will be rewritten to reflect the shipped design once
-> the wire shape is firm. Until then, read the dispatch for the
-> current design and treat the body of this note as historical
-> context for how the shape evolved.
+- **Status:** Backend half shipped on `cross/analysis-persistence`
+  (this commit). Frontend precursor BoardId-to-UUID migration
+  shipped on the same branch (b0b0e74). Frontend consumer-side
+  (settings, service, ACL, UI surface, `closeBoard` augmentation)
+  is queued behind the backend half merging to main and the
+  frontend's `npm run gen:api` picking up the new wire shapes.
+- **Genre:** System note — descriptive documentation of how
+  analysis-persistence works in the codebase. Not the design
+  negotiation record (that's the dispatch chain at
+  `docs/dispatch/frontend-to-backend-analysis-persistence.md`,
+  `docs/dispatch/backend-to-frontend-analysis-persistence-status.md`,
+  and `docs/dispatch/frontend-to-backend-analysis-persistence-status.md`).
+- **Date:** 2026-05-07.
+- **Scope:** Both `frontend/` and `backend/`. The cross-cutting
+  arc landed on the `cross/analysis-persistence` branch.
 
-**Status:** Planning. Not yet implemented. This document captures the
-design decisions so the feature can be picked up later without
-re-deriving them from scratch.
+## What this document is
 
-**Motivation:** KataGo analyses cost electricity (real money). Today,
-all analyses are held in an in-memory `AnalysisLedger` and are lost
-when the user closes the browser. A user who reviews 30 games and
-analyzes every move will pay the compute cost every time they reopen
-those games. The feature stores analyses server-side so subsequent
-sessions reuse the prior compute work.
+A working contributor's mental model of analysis persistence:
+the wire shape, the storage row, the codec envelope, the two
+caps, and how the discipline composes with the rest of the
+codebase (tenancy spine, ADR-0002 fail-loudly, the Port
+architecture). The dispatch chain is the canonical record of
+the negotiation; this note picks up where it leaves off and
+describes what's there.
 
----
+## Motivation
 
-## Scale constraints (back-of-envelope)
+KataGo analyses cost electricity (real money). Today, all
+analyses are held in an in-memory `AnalysisLedger` and lost
+when the user closes the browser. A user who reviews 30 games
+and analyzes every move pays the compute cost every time they
+reopen those games. The feature stores analyses server-side so
+subsequent sessions reuse the prior compute work.
 
-The constraints set by realistic usage:
+## The shape
 
-- **Per-response size:** up to ~48KB when policy head output and
-  ownership maps are included; much less without them.
-- **Per-session scope:** 30 tabs × 200 moves each = 6,000 nodes in a
-  worst case. Most won't be analyzed, but the upper bound must be
-  considered.
-- **Per-node config variance:** the `AnalysisLedger` keys by
-  `(configHash, nodeId)`. A user who explores multiple analysis
-  palettes on the same game multiplies the record count by the
-  number of configs they ran.
+**Manual + batched, per-`BoardId` bundle.** The user clicks
+"Save analyses" on a board to upload; the backend stores one
+bundle per `(user_id, board_id)`; reopening the board hydrates
+records back into the ledger. The board is the lifecycle anchor:
+created on first save, replaced on re-save, deleted on board
+close.
 
-**Implication:** the monolithic `PUT /documents/{key}` pattern used
-by `SyncService` does not scale to this payload. A naive "add
-analysis to the document" would produce multi-megabyte PUTs on every
-debounced save. Analysis persistence requires its own channel,
-granular uploads, and its own lifecycle.
+A bundle is the flat ledger projection over a board's nodes —
+a list of `(config_hash, node_id, packet)` records. Not a tree,
+not a sequence; a flat dict. The frontend's
+`projectLedgerToBundle(boardId)` (in
+`frontend/src/services/analysis-bundle.ts`, shipped in 650c668)
+collects every record the ledger holds for the board's nodes.
 
----
+**Why manual + batched and not streaming-on-packet-arrival?**
+Two pressures resolved here:
 
-## Architectural principles
+1. **UI-state snappiness.** `SyncService` debounces document-blob
+   writes at ~1s and the user notices nothing. Adding a streaming
+   analysis-persistence channel that fires per final packet
+   introduces a second concurrent persistence flow on the same
+   network path; the worst-case bundle of "30 tabs × 200 moves
+   × 48 KB" is in the multi-hundred-MB range and the user should
+   opt into that explicitly.
+2. **Compression wants a corpus.** Per-record uploads foreclose
+   delta encoding. Per-board batching opens the door — every
+   record in a bundle has its sibling positions on the same board
+   to delta against. Forward-looking codecs (cross-board,
+   dictionary-shared) want even more scope; the wire shape mustn't
+   lock that out.
 
-### 1. Separate service, separate endpoint
+The `isDuringSearch === false` validation question that blocked
+the original streaming design is dissolved here: under manual +
+batched, the trigger is a user click, and the watermark
+interpretation of `AnalysisLedger.mergeAnalysisPacket` means
+every stored packet is already the strongest seen for its
+`(config_hash, node_id)`.
 
-`AnalysisPersistenceService` (or similarly named) — its own module.
-**Not** a new channel on `SyncService`. The two services share one
-invariant (reactive-to-network bridge) but differ in every other
-respect:
+## The storage row
 
-| Concern | SyncService | AnalysisPersistenceService |
-|---|---|---|
-| Payload shape | monolithic document | many small records |
-| Endpoint | `PUT /documents/{key}` | `POST /analysis-records` (or similar) |
-| Batching | time-debounced (1s) | coalesced-per-node or small-batch |
-| Failure policy | error-toast and continue | error-toast PER RECORD, fail-loud |
-| Ownership semantics | last-write-wins on full blob | upsert by `(configHash, nodeId)` |
-
-A generic `SyncChannel<T>` abstraction over both is tempting but
-premature — we'd be abstracting over a sample size of one concrete
-instance. Build the second one concretely first; if the pattern
-genuinely repeats, extract later.
-
-### 2. Per-node granularity, incremental upload
-
-The existing `AnalysisLedger` already indexes by `(configHash,
-nodeId)`. That is the natural persistence unit. When a node's
-analysis reaches a persistence-eligible state, upload that single
-record — not a wholesale dump. Three consequences:
-
-- **Compute-bound, not bandwidth-bound.** Even the worst-case 48KB
-  per-node record fits comfortably in one HTTP request.
-- **Backend records are immutable in practice.** Analysis is a
-  deterministic function of `(board state, config)`, so records for
-  the same `(configHash, nodeId)` should be byte-equivalent modulo
-  numeric noise. The upsert contract is "last-write-wins, but nobody
-  writes competing values" — trivial concurrency.
-- **Hydration becomes selective.** Rather than loading all records
-  on connect, the client can fetch by `(configHash, nodeId)` on
-  demand as the user navigates, or bulk-prefetch when a game is
-  opened. Separate design question; see §5.
-
-### 3. User opt-in, with cost-granularity controls
-
-The feature is **off by default**. KataGo compute cost is the user's
-problem; they decide whether the convenience of persistence is worth
-the storage cost and the privacy implications (analyses stored
-server-side).
-
-Proposed settings (in `AppSettings.engine.katago` or a new
-`AppSettings.persistence` group — naming TBD):
-
-```typescript
-readonly analysisStorage: {
-  readonly enabled: boolean;              // master switch; default false
-  readonly includePolicy: boolean;        // policy head channel; default false
-  readonly includeOwnership: boolean;     // ownership map channel; default false
-  readonly minVisitsToStore: number;      // floor to avoid storing trivial
-                                          // low-visit ponders; default e.g. 100
-};
+```python
+analysis_bundles = Table(
+    "analysis_bundles", metadata,
+    Column("user_id", Integer, ForeignKey("users.id"), primary_key=True, default=1),
+    Column("board_id", Uuid, primary_key=True),
+    Column("scheme", String, nullable=False),
+    Column("payload", LargeBinary, nullable=False),
+    Column("record_count", Integer, nullable=False),
+    Column("byte_size", Integer, nullable=False),
+    Column("updated_at", DateTime(timezone=True),
+           server_default=func.now(), onupdate=func.now(), nullable=False),
+)
 ```
 
-The two "include*" toggles give users control over the heaviest
-channels. `minVisitsToStore` avoids filling storage with the
-near-worthless packets produced by e.g. a 50-visit dev test.
+(See `backend/db/schema.py`.)
 
-Rationale for the default-off stance: a user who opts in has
-*actively chosen* to spend server storage to save future KataGo
-cost. A user who never opts in pays KataGo costs every session but
-gets exactly the behavior they have today. Quiet regression-safe
-default.
+- **`(user_id, board_id)` composite PK.** Database-level
+  tenant isolation; two users with the same UUID get distinct
+  rows. The frontend's RFC4122 v4 UUIDs make collision
+  astronomically unlikely, but the schema enforces it anyway.
+- **`scheme`** is the codec tag — see "The codec envelope"
+  below.
+- **`payload`** is opaque bytes (`LargeBinary` = Postgres
+  `BYTEA` / SQLite `BLOB`). The frontend never sees the stored
+  bytes; the backend transcodes on read and write.
+- **`record_count`** and **`byte_size`** are denormalized for
+  cheap per-user storage reporting (`GET /analysis-bundles`)
+  and for the per-user quota check inside the upsert
+  transaction. `byte_size` is the post-transcoding size — the
+  same value the frontend's storage panel sums to display
+  "X of 2 GB used".
 
-### 4. Fail-loud — no silent retry
+Migration: `backend/scripts/migrate_create_analysis_bundles.py`.
+Idempotent (uses SQLAlchemy's
+`analysis_bundles.create(checkfirst=True)`, which generates the
+dialect-appropriate CREATE TABLE).
 
-Each upload either succeeds or emits a system-log warning naming
-the specific `(configHash, nodeId)` that didn't persist. The user
-sees failures; they decide whether to retry manually (e.g., by
-re-analyzing that node).
+## The endpoints
 
-**Automatic retry is rejected** for the same reason it was rejected
-in item 21: silent retry masks real backend problems. A KataGo
-response that silently fails to persist looks exactly like a
-successful analysis — until the user reopens the game next week
-and discovers half the nodes need recomputing.
+Four routes, all under `/analysis-bundles`:
 
-An explicit "retry failed persists" action (button in the system
-log, or a background sweep behind a setting) could be added later
-if the failure rate warrants it. Until we have evidence it does,
-we don't build the machinery.
-
----
-
-## ⚠ Open validation question: the `isDuringSearch` gating rule
-
-**The protocol contract (as we understand it).** KataGo streams
-intermediate packets during search with `isDuringSearch === true` —
-the anytime-optimization pattern: each packet contains a
-progressively better estimate as more visits accumulate. The final
-packet for a query, marking the canonical result, carries
-`isDuringSearch === false`. The existing ledger-watching code
-already relies on this contract: `processUserMove` waits for
-`isDuringSearch === false` precisely because that's the "real
-analysis, done" signal.
-
-**The proposed gating rule:** persist a record when a packet arrives
-with `isDuringSearch === false` (and passes a visit-count floor).
-
-**The actual risk — what we need to validate.** The typical user
-flow includes aborting a ponder via the terminate action (`action:
-'terminate'` on the KataGo analysis engine; current UI binding is
-press-space-to-start, press-space-again-to-abort). The question is
-what KataGo sends back when a ponder is terminated mid-search.
-
-Two possibilities:
-
-- **Hope (anytime-optimization-honoring behavior):** KataGo emits an
-  `isDuringSearch === false` packet carrying the *best-known
-  estimate computed so far*. `rootInfo.visits` reflects what was
-  actually searched before the terminate; `moveInfos` reflect the
-  interim conclusions; `extra` may or may not be populated
-  depending on how much work had accumulated. The gating rule
-  fires; we persist a legitimate-but-truncated analysis. This is
-  fine — the `minVisitsToStore` floor filters out the worst
-  undercooked records, but the data we do persist is honest.
-
-- **Failure mode to guard against:** KataGo sends a
-  terminate-acknowledgment packet — an `{ action: 'terminate',
-  isDuringSearch: false }` shell, or similar — that has
-  `isDuringSearch === false` set *for bookkeeping purposes* but
-  carries no real analysis payload (empty or missing `moveInfos`,
-  zeroed `rootInfo.visits`, missing `extra`). Or worse, carries
-  payload fields from a prior streaming packet that are now stale.
-  The gating rule fires; we persist junk; next session the junk
-  hydrates as if it were a real analysis. **This is the data-
-  corruption scenario the gating rule must prevent.**
-
-**Validation plan (before building anything downstream):**
-
-1. Start a ponder (a long one — high `maxVisits`, a position that
-   won't settle quickly). Confirm the streaming `isDuringSearch ===
-   true` packets arrive with monotonically growing
-   `rootInfo.visits`.
-2. Send `terminate` before the ponder naturally completes.
-3. Observe the packets arriving after the terminate. Specifically:
-   - Is there an `isDuringSearch === false` packet in the response?
-   - If yes: inspect its structure.
-     - Does `rootInfo.visits` match what was actually searched
-       before terminate, or is it zero / missing / obviously bogus?
-     - Is `moveInfos` populated with interim conclusions, or
-       empty/missing?
-     - Is the `id` field the query's id (meaning: "here's the final
-       result of *that* query"), or something like a terminate-ack id?
-4. If `rootInfo.visits` is legitimate and `moveInfos` is populated
-   with real data: **the simple gating rule works as-is**. The
-   anytime-optimization contract is being honored and we can trust
-   `isDuringSearch === false` as a sufficient gate, modulo the
-   visit-count floor.
-5. If the terminate packet has `isDuringSearch === false` but fails
-   structural checks (empty `moveInfos`, zero visits, etc.): the
-   gating rule needs a structural predicate, not just a flag check.
-
-**Refined gating predicate for case 5 (and prudent anyway):**
-
-```typescript
-const defaultGating: GatingPredicate = (p) =>
-  p.isDuringSearch === false &&
-  (p.rootInfo?.visits ?? 0) >= store.profile.settings.analysisStorage.minVisitsToStore &&
-  Array.isArray(p.moveInfos) && p.moveInfos.length > 0;
+```
+PUT    /analysis-bundles/{board_id}    upsert
+GET    /analysis-bundles/{board_id}    fetch (404 on miss)
+DELETE /analysis-bundles/{board_id}    idempotent delete (204)
+GET    /analysis-bundles               list summaries (no payloads)
 ```
 
-The `moveInfos` presence check is the structural guarantee that the
-packet carries analysis data, independent of whatever the
-`isDuringSearch` flag claims for protocol reasons. This predicate
-is worth adopting even in the hope case (1–4): it's a cheap
-additional safety check, it only rejects packets that wouldn't be
-useful anyway, and it insulates us from any future protocol
-evolution that might introduce new `isDuringSearch === false`
-packet variants we didn't anticipate.
+(See `backend/api/routes/analysis_bundles.py`.)
 
-**Development-phase diagnostic:** while validating, emit a
-`console.warn` (not a user-visible system message — too noisy) for
-any packet with `isDuringSearch === false` that fails the structural
-check. If such packets turn out to be common during normal terminate
-flow, we know case 5 is real and adjust. If they only appear under
-weird edge cases, we can promote the diagnostic to a proper
-`pushSystemMessage('warning', ...)` or silence it as noise. The
-decision comes from observation, not speculation.
+The PUT request body is a canonical-JSON `AnalysisBundle`
+(`schema_version: Literal[1]`, `records: List[Record]`); the GET
+returns the same shape after decoding the stored payload.
+DELETE always returns 204; cross-tenant deletes are silent
+no-ops (the WHERE clause's `user_id` filter ensures
+zero-rows-affected for someone else's `board_id`). The list
+endpoint returns metadata-only summaries — the frontend's
+storage panel uses it to render quota usage without forcing
+per-bundle decodes.
 
-**This is the blocker for actually building the feature.** Everything
-else in this document is design over the ledger's existing API
-surface; this is the one place where a wrong assumption silently
-corrupts data rather than producing visible ugliness.
+## The codec envelope
 
----
+The `scheme` column is the load-bearing flexibility. The
+adapter (`backend/repositories/analysis_bundle_repository.py`)
+holds a dispatch table:
 
-## Proposed module shape
-
-```typescript
-// src/services/analysis-persistence.ts (illustrative)
-
-export class AnalysisPersistenceService {
-  // Subscribe to ledger mutations for a given config. Emits a
-  // persist-eligible event per (nodeId, packet) that passes the
-  // gating rule.
-  constructor(private readonly gating: GatingPredicate) { ... }
-
-  // Wire once at app startup, after auth.
-  public start(): void;
-
-  // Manual persist, e.g. from a "persist this node now" button.
-  public persistOne(hash: string, nodeId: NodeId): Promise<void>;
-
-  // Fetch stored analyses for a given board (bulk prefetch).
-  public hydrateBoard(boardId: BoardId): Promise<void>;
+```python
+_ENCODERS: Dict[str, Callable[[dict], bytes]] = {
+    "json": _encode_json,
+    "json+gzip": _encode_json_gzip,
 }
 
-type GatingPredicate = (packet: KataAnalysisResponse) => boolean;
-
-// Default gating: structural, not just flag-based. See the
-// validation section for why moveInfos presence is included.
-export const defaultGating: GatingPredicate = (p) =>
-  p.isDuringSearch === false &&
-  (p.rootInfo?.visits ?? 0) >= store.profile.settings.analysisStorage.minVisitsToStore &&
-  Array.isArray(p.moveInfos) && p.moveInfos.length > 0;
+_DECODERS: Dict[str, Callable[[bytes], dict]] = {
+    "json": _decode_json,
+    "json+gzip": _decode_json_gzip,
+}
 ```
 
-Implementation notes:
+The current write scheme is read from
+`config.ANALYSIS_PERSISTENCE_WRITE_SCHEME` (default
+`"json+gzip"`). On read, the adapter dispatches by the row's
+stored `scheme` value — old rows with older schemes remain
+readable forever.
 
-- **Subscription mechanism:** the `AnalysisLedger` already exposes
-  per-node reactive version refs (`getOrCreateVersion`). The service
-  watches those version refs and fires when a new packet is recorded.
-- **Batching:** per-node watching naturally produces one event per
-  final packet. No debounce needed — each event is already a discrete
-  work unit. If we see a burst of events (e.g., bulk hydration after
-  a `analyzeRange` for a 200-move game), batch into
-  `POST /analysis-records/batch` — but build the single-record
-  endpoint first and optimize only with evidence.
-- **Config-scoped persistence:** the user may change palette mid-
-  session. Each `configHash` is a distinct namespace. Stored
-  records should include the `configHash` so hydration can select
-  the right analysis for the user's current palette.
+**Adding a new scheme:**
 
----
+1. Define `_encode_<name>` / `_decode_<name>` in
+   `analysis_bundle_repository.py`.
+2. Add them to the corresponding dispatch tables.
+3. Optionally flip `ANALYSIS_PERSISTENCE_WRITE_SCHEME` to the
+   new tag so newly-written rows use it.
+4. (Optional) Ship a re-pack migration script to sweep older-
+   scheme rows to the new scheme. Existing migrations in
+   `backend/scripts/` are the pattern; idempotent, dialect-aware.
 
-## Hydration strategy — separate design question
+If a stored row carries a `scheme` value the dispatcher doesn't
+recognise on read, `UnknownSchemeError(scheme)` propagates to a
+structured 500 response (per ADR-0002 — silent garbage on read
+would let the user believe analyses hydrated when they hadn't;
+Confirmation C2 in the dispatch).
 
-The write path (persistence) and the read path (hydration) are
-independent decisions. Rough options for hydration:
+A note on cross-row codecs: when a future `scheme` references
+shared state (e.g., `corpus-zstd-dict-vN` referencing a row in
+some `zstd_dictionaries` table), DELETE semantics need either
+refcount tracking or a "dictionaries are immutable" rule. v1
+explicitly does not design this; the door is open, the lock is
+a v2 concern when the simpler schemes hit a ceiling.
 
-**A. On-demand per node.** When the user navigates to a node and
-the ledger doesn't have a record for `(currentConfigHash, nodeId)`,
-issue a GET. Minimum network footprint, highest latency per-node.
+## The two caps
 
-**B. Bulk prefetch on board open.** When a board loads (SGF import
-or review card load), fetch all stored records for that board's
-nodes at the active configHash. One request, larger payload, no
-per-node latency after.
+Two distinct caps with two distinct enforcement points:
 
-**C. Background lazy prefetch.** A low-priority queue that
-prefetches stored records for all active boards in the background.
-Complexity cost for marginal UX gain.
+| Cap | Default | Where enforced | Failure mode |
+|---|---|---|---|
+| `ANALYSIS_PERSISTENCE_BUNDLE_MAX_BYTES` | 100 MB | `AnalysisBundleService.upsert` (request body length) | `BundleTooLargeError` → 413 with `{kind: "bundle_too_large", ...}` |
+| `ANALYSIS_PERSISTENCE_USER_QUOTA_BYTES` | 2 GB | `AnalysisBundleRepository.upsert` (post-transcoding sum, atomic with the upsert) | `UserQuotaExceededError` → 413 with `{kind: "user_quota_exceeded", ...}` |
 
-**My default leaning:** **B with a fallback to A.** Bulk prefetch
-covers the common case (user opens a game, scrolls through it);
-on-demand fallback covers the rare case (user explores variations
-that weren't part of the original analysis range). C is a premature
-optimization.
+The per-bundle cap bounds memory and parse cost per request.
+The per-user quota bounds long-term storage growth per tenant.
+Both 413 bodies carry a `kind` discriminator (Confirmation C1
+in the dispatch) so the frontend ACL dispatches by tag, not by
+field-presence.
 
-This is an implementation detail to settle when the feature is
-actually being built; noted here for completeness.
+The per-user quota check is atomic with the upsert: SUM the
+caller's existing `byte_size`, subtract any row being replaced,
+add the new transcoded size. If the result exceeds the quota,
+no row is written. Realistic per-user cardinality is small
+(~tens of bundles), so the SUM is cheap; the whole computation
+runs inside the route's transaction.
 
----
+## Tenancy
 
-## Rollout phases
+Strict per-`user_id` filter on every read path; per-`user_id`
+authorization on every write/delete; same posture as the rest
+of the tenancy spine (`docs/notes/tenancy.md`). The composite
+PK enforces collision isolation at the DB level. A would-be
+cross-tenant access (GET, DELETE, or PUT against someone else's
+`board_id`) is indistinguishable from access to a non-existent
+bundle: 404 on GET, 204 on DELETE, separate-row creation on
+PUT (since the composite PK is `(other_user, same_board)`).
 
-If/when we build this, a sensible sequencing:
+## What the frontend does (briefly)
 
-1. **Validate the gating rule** (the `isDuringSearch` question above).
-   Nothing else happens until this is resolved.
-2. **Backend**: new table/collection for `analysis_records`, endpoints
-   for POST (upsert by `(configHash, nodeId)`) and GET (single
-   record and bulk-by-board).
-3. **Frontend types & settings**: add `analysisStorage` to
-   `AppSettings`, populate defaults, surface in the Settings tab
-   (the RegistryEditor will auto-generate checkboxes + numeric
-   input for the shape above).
-4. **Write path only**: `AnalysisPersistenceService.start()`
-   subscribes to the ledger, POSTs eligible records. No hydration
-   yet. User can verify persistence via backend inspection.
-5. **Hydration path**: add `hydrateBoard()` or equivalent; wire
-   into board-load flow (SGF loader, review card loader).
-6. **Polish**: batch endpoint if single-record POST bottlenecks;
-   explicit "retry failed persists" surface if the failure rate
-   warrants.
+The frontend's projection/replay skeleton is at
+`frontend/src/services/analysis-bundle.ts` (commit 650c668):
 
-Each phase is independently reviewable and leaves the system in a
-working state.
+- `projectLedgerToBundle(boardId)` — collect every
+  `(config_hash, node_id, packet)` the ledger holds for the
+  board's nodes into a flat `AnalysisBundle`. One-shot snapshot,
+  non-reactive.
+- `replayBundleIntoLedger(bundle)` — each record becomes one
+  `ledger.record()` call; `mergeAnalysisPacket` preserves
+  higher-visit packets if a fresher record was already in
+  flight.
 
----
+The consumer side (the service module that calls PUT/GET/DELETE,
+the ACL, the UI, the `closeBoard` augmentation) is queued behind
+the backend half merging to main. The dispatch's "Coordination
+on `cross/analysis-persistence`" section names the sequencing.
 
-## Non-goals (explicit)
+## Forward-compat hooks
 
-- **Not building a generic `SyncChannel<T>` abstraction.** Defer
-  until there's evidence the pattern actually repeats with the same
-  invariants.
-- **Not changing anything about `SyncService`.** Document-blob sync
-  stays exactly as it is. Analysis persistence is a sibling service,
-  not a successor.
-- **Not storing in-progress (`isDuringSearch === true`) packets.**
-  The ledger holds these for reactive UI updates, but they're not
-  canonical and shouldn't persist. (The `isDuringSearch === false`
-  gating rule, refined per the validation section above, captures
-  this correctly.)
-- **Not addressing multi-tab concurrency.** Analysis records are
-  upsert-by-key with no competing writers in practice; the single-
-  tab assumption that SyncService relies on is irrelevant here.
+Two extension points are deliberately left open in v1:
+
+- **`schema_version`.** The Pydantic `Literal[1]` gate rejects
+  unknown versions at the route boundary (422 with structured
+  detail). Future v2 bundles add fields to records without a DB
+  migration; the backend gates which versions it accepts.
+- **`scheme` tag.** New codecs slot into the dispatch tables
+  without disturbing existing rows. Old rows remain readable
+  forever; the operator can re-pack when convenient.
+
+A third, deliberately not-yet-implemented hook: `model_version`
+on records. The frontend may eventually want to discriminate
+analyses by which KataGo neural-net weights produced them. The
+record shape is opaque to the backend, so adding the field is a
+frontend-only bundle-version bump (no DB migration). The
+dispatch's "Forward-compatibility note on records" documents
+this explicitly.
+
+## Related
+
+- `docs/dispatch/frontend-to-backend-analysis-persistence.md` —
+  the original wire-shape proposal.
+- `docs/dispatch/backend-to-frontend-analysis-persistence-status.md` —
+  backend's wire/table/codec acknowledgement plus
+  Confirmations (post-frontend-status) for the three
+  clarifications.
+- `docs/dispatch/frontend-to-backend-analysis-persistence-status.md` —
+  frontend's status reply.
+- `docs/notes/tenancy.md` — the tenancy spine the analysis-
+  bundle Port plugs into.
+- `backend/api/routes/analysis_bundles.py` — the route layer.
+- `backend/services/analysis_bundle_service.py` — the use case.
+- `backend/repositories/analysis_bundle_repository.py` — the
+  adapter, including the codec dispatch.
+- `backend/repositories/ports.py::AnalysisBundleRepositoryPort` —
+  the contract.
+- `backend/domain/analysis_bundle.py` — the domain DTOs (also
+  reused as wire shapes since they're identical).
+- `frontend/src/services/analysis-bundle.ts` — the frontend's
+  projection/replay skeleton.
+- `frontend/src/services/analysis-ledger.ts` — the in-memory
+  ledger the bundle projects from / replays into.
+
+## License
+
+Public Domain (The Unlicense).

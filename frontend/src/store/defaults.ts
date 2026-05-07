@@ -25,6 +25,13 @@ export const defaultSettings = {
       cache: false,
       lookup_cache: false,
       replay_final_only: false,
+      // See AppSettings.engine.katago.analysisStorageEnabled for the
+      // motivation. Default `true` — fresh installs surface the
+      // experimental persistence panel (with its experimental tag
+      // and inline tooltip) so testers find it. Users can hide the
+      // panel via the registry editor; the save action is manual
+      // regardless of this toggle.
+      analysisStorageEnabled: true,
       analysis_env: {
         // Symbol library per docs/dispatch/frontend-to-frontend-default-palette-metrics-spec.md.
         // Two semantic axes coexist:

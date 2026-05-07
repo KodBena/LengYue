@@ -20,15 +20,17 @@
  *
  * License: Public Domain (The Unlicense).
  */
-import { onMounted, watch } from 'vue';
+import { onMounted, watch, watchEffect } from 'vue';
 import { SyncService } from '../services/sync-service';
 import { resourceService } from '../services/resource-service';
 import { backendService } from '../services/backend-service';
 import { analysisService } from '../services/analysis-service';
+import { analysisPersistenceService } from '../services/analysis-persistence-service';
 import { setIntensityHueShift } from '../engine/suggestion-colors';
 import { store } from '../store';
 import { i18n } from '../i18n';
 import { isSupportedLocale, DEFAULT_LOCALE } from '../i18n/locales';
+import type { BoardId } from '../types';
 import { useQeubo } from './useQeubo';
 import type { useAuth } from './useAuth';
 
@@ -140,6 +142,67 @@ export function useAppBootstrap(
     () => qeubo.toolbarView.value,
     () => analysisService.restartActiveAnalyses(),
   );
+
+  // ── Analysis-persistence hydration ──────────────────────────────────────
+  //
+  // Two-stage bootstrap. Server probes don't need boards loaded;
+  // per-board restore does, but boards arrive asynchronously via
+  // SyncService.hydrate. Splitting the work matches the qEUBO
+  // bootstrap shape (auth-state watcher fires the server probe)
+  // plus a watchEffect that handles per-board work as boards
+  // become visible.
+  //
+  // Stage 1 (auth-state watcher below): on `authenticated` flip-in,
+  // refresh the summaries cache from `GET /analysis-bundles`.
+  // Pure server probe, no board dependency.
+  //
+  // Stage 2 (watchEffect below): for each board currently in
+  // store.boards that has a summary in the cache and hasn't yet
+  // been restored this session, kick off `restore(id)`. The
+  // dedup `Set` prevents re-restore on subsequent boards-array
+  // mutations (a user adding a fresh board fires the effect; the
+  // Set's miss for the new id paired with the absent summary
+  // makes it a no-op). Cleared on identity-out so a later
+  // re-login as the same user can re-hydrate fresh.
+  //
+  // Both stages best-effort: failures are surfaced via
+  // api-client's system-message push, no blocking UX impact on
+  // bootstrap.
+  watch(
+    () => auth.state.value,
+    (next, prev) => {
+      const wasAuth = prev?.kind === 'authenticated';
+      const isAuth = next.kind === 'authenticated';
+      if (isAuth && !wasAuth) {
+        analysisPersistenceService.refreshSummaries().catch(() => { /* surfaced via api-client */ });
+      }
+      // Identity-out cleanup is handled by SyncService's
+      // resetWorkspace branch, which calls
+      // analysisPersistenceService.forgetAll() (audit pair O13).
+      // The restoredBoards Set below is cleared in the watchEffect
+      // below when auth flips to non-authenticated.
+    },
+  );
+
+  const restoredBoards = new Set<BoardId>();
+  watchEffect(() => {
+    if (auth.state.value.kind !== 'authenticated') {
+      restoredBoards.clear();
+      return;
+    }
+    // Touch the reactive boards array and the reactive summaries
+    // Map (via summaryFor). The effect re-fires when either
+    // changes — so a hydrate that populates boards AND a separate
+    // refreshSummaries that populates the cache both converge on
+    // the same restore loop without duplicate dispatches.
+    for (const board of store.boards) {
+      const id = board.id;
+      if (restoredBoards.has(id)) continue;
+      if (!analysisPersistenceService.summaryFor(id)) continue;
+      restoredBoards.add(id);
+      analysisPersistenceService.restore(id).catch(() => { /* surfaced via api-client */ });
+    }
+  });
 
   onMounted(async () => {
     // Establish auth identity FIRST. Subsequent calls (sync.connect's

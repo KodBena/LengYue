@@ -26,9 +26,11 @@ from domain.normalizer import PositionNormalizerPort
 from domain.pipeline import PipelineExecutor
 from domain.resource import StaticResourceRepositoryPort
 from domain.sgf_normalizer import SgfNormalizer
+from repositories.analysis_bundle_repository import AnalysisBundleRepository
 from repositories.card_repository import CardRepository
 from repositories.lineage_repository import LineageRepository
 from repositories.ports import (
+    AnalysisBundleRepositoryPort,
     CardRepositoryPort,
     CardWriteRepositoryPort,
     LineageRepositoryPort,
@@ -38,6 +40,7 @@ from repositories.ports import (
 from repositories.resource_repository import FilesystemResourceRepository
 from repositories.stats_repository import StatsRepository
 from repositories.tag_filter_repository import TagFilterRepository
+from services.analysis_bundle_service import AnalysisBundleService
 from services.card_service import CardService
 from services.resource_service import ResourceService
 from services.review_service import ReviewService
@@ -280,3 +283,49 @@ async def get_resource_service(
     Compose the resource Port into the fetch-resource use case.
     """
     return ResourceService(repository=repo)
+
+
+# =====================================================================
+# Analysis-bundle DI (cross/analysis-persistence arc).
+#
+# The adapter takes the per-deployment knobs (write scheme, user
+# quota) at construction time so the codec dispatch and the atomic
+# quota check have everything they need without reaching into
+# config from inside SQL methods. The service takes the per-bundle
+# request cap. All three knobs are env-overridable via
+# core.config.Settings; defaults: "json+gzip" / 100 MB / 2 GB.
+# =====================================================================
+
+
+async def get_analysis_bundle_repo(
+    db: AsyncSession = Depends(get_db),
+) -> AnalysisBundleRepositoryPort:
+    """
+    Construct the SQLAlchemy implementation of
+    AnalysisBundleRepositoryPort. Reads the write scheme and the
+    user quota from core.config; tests can construct the adapter
+    directly with arbitrary values to exercise the codec dispatch
+    and quota check without mutating global config.
+    """
+    return AnalysisBundleRepository(
+        db,
+        write_scheme=config.ANALYSIS_PERSISTENCE_WRITE_SCHEME,
+        user_quota_bytes=config.ANALYSIS_PERSISTENCE_USER_QUOTA_BYTES,
+    )
+
+
+async def get_analysis_bundle_service(
+    repo: AnalysisBundleRepositoryPort = Depends(get_analysis_bundle_repo),
+) -> AnalysisBundleService:
+    """
+    Compose the analysis-bundle Port with the per-bundle byte cap
+    into the use case. Per-user quota enforcement lives in the
+    adapter (atomic with the upsert); per-bundle cap lives here
+    (the service is the natural place to bound request body size
+    against a config knob, since the adapter only sees the parsed
+    DTO).
+    """
+    return AnalysisBundleService(
+        repository=repo,
+        bundle_max_bytes=config.ANALYSIS_PERSISTENCE_BUNDLE_MAX_BYTES,
+    )
