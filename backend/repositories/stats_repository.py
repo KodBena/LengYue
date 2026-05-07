@@ -74,9 +74,17 @@ class StatsRepository:
         Tags used only by other tenants appear with count=0 — same
         as tags with no use at all. From the API surface the two are
         indistinguishable, which is the correct privacy property.
+        The COUNT operates on ``card.c.id`` rather than
+        ``card_tag.c.card_id``: when the inner LEFT OUTER JOIN to
+        ``card`` fails (the card_tag row's card belongs to a
+        different tenant), ``card.c.id`` is NULL on that pseudo-row
+        and COUNT skips it. Counting ``card_tag.c.card_id`` instead
+        would silently leak cross-tenant tag usage — the bug
+        ``test_fetch_tag_usage_does_not_leak_other_tenants_counts``
+        pins.
         """
         stmt = (
-            select(tag.c.name, func.count(card_tag.c.card_id).label("count"))
+            select(tag.c.name, func.count(card.c.id).label("count"))
             .select_from(
                 tag
                 .outerjoin(card_tag, tag.c.id == card_tag.c.tag_id)
@@ -87,7 +95,7 @@ class StatsRepository:
                 )
             )
             .group_by(tag.c.name)
-            .order_by(func.count(card_tag.c.card_id).desc())
+            .order_by(func.count(card.c.id).desc())
         )
         result = await self.session.execute(stmt)
         return [
