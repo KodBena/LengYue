@@ -168,25 +168,16 @@ port could reuse.
 
 ### Known gaps (frontend)
 
-- **Test suite — Phase 0 complete; coverage expanding.** The
-  bootstrap PR (issue #137) wired Vitest + jsdom +
-  `@vue/test-utils`, established the three-tier shape (pure
-  logic in `tests/unit/`, service fakes in `tests/fakes/`,
-  composable integration in `tests/integration/`), and shipped
-  one test per tier as the pattern proof — `applyGoMove`
-  (placement, capture, ko) at Tier 1, and three
-  `useReviewSession` paths (endSession reset, empty-queue
-  startSession short-circuit, processUserMove timeout) at Tier
-  3. Contributor doc: `frontend/tests/CLAUDE.md`. The gap from
-  here is breadth: extending coverage to the rest of
-  `src/composables/` (especially `useAnalysisProjection`,
-  `useReviewSession` happy-path, the resource-ownership audit
-  cleanups in `closeBoard`/`resetWorkspace`) and to the pure
-  modules under `src/engine/` (sgf-loader, navigator, the
-  analysis kernels). Component-level tests, E2E, and visual
-  regression remain explicitly out of scope at this stage. CI
-  integration (running tests on PR push) is a follow-up — the
-  build (`npm run build`) does not yet gate on the suite.
+- *(retired 2026-05-08)* ~~No test suite.~~ Closed by the
+  five-phase frontend testing arc (PRs #178, #179, #180, #181,
+  #182, plus the Phase 5 docs PR). The frontend ships 100 tests
+  across three tiers (`tests/unit/` pure logic, `tests/fakes/`
+  service substitutes, `tests/integration/` composable + store
+  integration). Closing reflection:
+  `docs/notes/frontend-test-coverage-2026-05.md`. Component-level
+  tests, E2E, visual regression, and CI integration (gating
+  `npm run build` on the suite) remain explicit follow-ups, but
+  the foundational gap — "no automated tests at all" — is closed.
 
 ---
 
