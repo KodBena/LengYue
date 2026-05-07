@@ -240,9 +240,13 @@ worthwhile.
   cascade-deleting their cards, documents, and game_sources.
   The schema has the right `ON DELETE CASCADE` clauses but no
   user-level cascade script exists. Deferrable until needed.
-- **Test coverage is uneven.** The DSL pure-logic paths have
-  coverage; the rest is pending a rewrite against the Port
-  architecture.
+- *(retired 2026-05-07)* ~~Test coverage is uneven.~~ Closed
+  by the five-phase testing arc (PRs #167, #170, #172, plus two
+  PRs that closed inside the stack). The backend ships 442
+  tests across four tiers (unit, unit-with-Port-fakes,
+  adapter integration, route via httpx + ASGITransport); four
+  production bugs surfaced and were fixed in-place. Closing
+  reflection: `docs/notes/test-coverage-2026-05.md`.
 
 ---
 
@@ -498,8 +502,11 @@ appear after a redeploy — either bump a schema version or clear
 the local user's saved state. There's a "Force Persistence"
 button in the Settings tab useful for debugging.
 
-**Backend.** `cd backend && pytest` runs the test suite (DSL and
-graph algorithms; light coverage). For local development:
+**Backend.** `cd backend && pytest` runs the test suite — 442
+tests across the four tiers documented in `tests/CLAUDE.md`
+(pure-domain unit, service unit with Port fakes, adapter
+integration, route via httpx + ASGITransport). For local
+development:
 
 ```bash
 python -m venv venv && source venv/bin/activate
@@ -579,9 +586,11 @@ work (typed wire shapes, fail-loud surfacing, OpenAPI codegen)
 means the two halves of the system understand each other. The
 proxy's three-layer decomposition is its own architectural win.
 
-What remains — distribution packaging, analysis persistence,
-eventual public deployment, the test debt — is incremental work
-on a sound foundation. None of it requires architectural
-excavation.
+What remains — distribution packaging, eventual public
+deployment, the frontend test debt — is incremental work on a
+sound foundation. None of it requires architectural excavation.
+The backend test debt closed in the 2026-05-07 testing sweep
+(`docs/notes/test-coverage-2026-05.md`); analysis persistence
+shipped via PR #166 (cross-team).
 
 Hand off in good condition.

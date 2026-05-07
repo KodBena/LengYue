@@ -387,9 +387,11 @@ do 30d first.
 - Distribution-packaging decision per
   `docs/notes/distribution-packaging.md` — the leading edge of
   the post-v1 arc.
-- Test coverage at the composable layer (frontend) and against
-  Port shapes (backend) — the largest debt the project carries
-  per the v1 retrospective.
+- Test coverage at the composable layer (frontend). Backend
+  side closed in the 2026-05-07 testing arc (442 tests across
+  four tiers, four production bugs fixed); see
+  `docs/notes/test-coverage-2026-05.md` for the closing
+  reflection.
 
 **Future projects (when ready).**
 

@@ -129,3 +129,59 @@ ADR-0003's bands are the authoring-time question for new endpoints
 and use cases: Band 1 (domain-agnostic, portable to Chess/Shogi),
 Band 2 (game-tree-coupled), or Band 3 (Go-bound). Most backend
 work is Band 1 by design; Band 2/3 placement should be deliberate.
+
+## Testing posture
+
+The test tree mirrors the layering, with a different boundary at
+each tier:
+
+- **Unit (`tests/unit/`)** — pure-Python tests of one module
+  against pre-loaded inputs. Domain math (`core/ebisu.py`),
+  pure projections (`domain/card.py`), discriminated-union
+  grammars (`domain/pipeline_dsl.py`), the codec dispatch in
+  `repositories/analysis_bundle_repository.py`. No I/O.
+- **Service unit tests with Port fakes
+  (`tests/unit/services/`)** — drives a service against
+  Port-shaped fakes from `tests/fakes/`. One fake per Port,
+  mirroring the production class shape; in-memory state, no
+  SQLAlchemy, no async fixtures. The contract a service test
+  pins is the Port contract — internal refactors that preserve
+  it leave the test green.
+- **Adapter integration (`tests/integration/`)** — exercises one
+  adapter at a time (or an executor + adapter composition)
+  against a fresh in-memory SQLite session via the
+  `seeded_session` fixture. Verifies SQL behaviour the Port
+  fakes deliberately don't model: WHERE-clause tenancy,
+  recursive CTE shape, atomic quota checks.
+- **Route tests (`tests/integration/routes/`)** — drives the
+  FastAPI app via `httpx.AsyncClient(transport=ASGITransport(app))`
+  with per-test JWT mint and per-test `get_db` override.
+  Verifies the wire contract: status codes, response shapes,
+  the 404-not-403 invariant (`docs/notes/tenancy.md`), the 401
+  / 422 / 413 axis mappings.
+
+Three contracts to honour:
+
+1. **Trust the type system.** Pydantic `frozen=True`, the Port
+   `Protocol` declarations, the discriminated-union dispatchers
+   — all do work the test doesn't need to redo. Test the parts
+   the type system can't see (runtime behaviour, side effects,
+   serialised wire shapes), not the parts it polices.
+2. **Failure mode first.** When testing a service or route,
+   write the cross-tenant 404 / 422 / 413 case before the happy
+   path. The happy path is what production exercises; the
+   failure path is what production doesn't, so it's where
+   regressions hide. The bug count from the testing arc bears
+   this out: 4 bugs found (3 in adapter SQL, 1 in route error
+   mapping), all in failure paths.
+3. **Defect xfails are strict.** A test marked
+   `@pytest.mark.xfail(strict=True, reason="D-N: ...")` asserts
+   the *post-fix* behaviour. Today it's an XFAIL; when the
+   underlying defect is fixed, the test XPASSes — and under
+   `--strict-markers` an XPASS fails the suite. The team
+   converts the xfail to a regular passing test in the same
+   commit. This is the discipline that closed nine defects
+   silently across the testing arc.
+
+Working contributor doc: `tests/CLAUDE.md`. Closing reflection
+on the testing arc: `docs/notes/test-coverage-2026-05.md`.
