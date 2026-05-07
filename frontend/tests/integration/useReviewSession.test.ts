@@ -93,6 +93,7 @@ import {
 import {
   store,
   addBoard,
+  closeBoard,
   mutateReviewSession,
   resetWorkspace,
 } from '../../src/store';
@@ -110,7 +111,13 @@ import {
   resetFakeAnalysisService,
 } from '../fakes/analysis-service';
 import { resetFakeAnalysisPersistenceService } from '../fakes/analysis-persistence-service';
-import type { BoardId, CardId, EbisuModel, ReviewCard } from '../../src/types';
+import type {
+  BoardId,
+  CardId,
+  EbisuModel,
+  KataAnalysisResponse,
+  ReviewCard,
+} from '../../src/types';
 
 // ── Test fixtures ────────────────────────────────────────────────────────────
 
@@ -129,6 +136,49 @@ function makeReviewCard(overrides: Partial<ReviewCard> = {}): ReviewCard {
     gamma: 1.0,
     ...overrides,
   };
+}
+
+/**
+ * Builds a minimal KataAnalysisResponse for processUserMove's
+ * success path. The composable reads:
+ *   - `extra[colorKey].deltas[colorMoveCount-1]` for the user's
+ *     recall-delta score (defaults to 0.5 if absent).
+ *   - `moveInfos.find(m => m.order === 0).move` for the engine's
+ *     best-move follow-through (only consulted when the card has
+ *     more user-moves to play).
+ *
+ * This factory keeps the test fixtures explicit about which slots
+ * are intentionally populated and which are stubbed-but-irrelevant.
+ */
+function makeAnalysisPacket(opts: {
+  turnNumber: number;
+  delta?: number;
+  bestMoveGtp?: string;
+}): KataAnalysisResponse {
+  return {
+    isDuringSearch: false,
+    turnNumber: opts.turnNumber,
+    extra: {
+      black: { deltas: opts.delta !== undefined ? { '0': opts.delta } : undefined },
+      white: { deltas: opts.delta !== undefined ? { '0': opts.delta } : undefined },
+    },
+    moveInfos: opts.bestMoveGtp
+      ? [{
+          move: opts.bestMoveGtp,
+          visits: 1000,
+          winrate: 0.5,
+          scoreLead: 0,
+          pv: [],
+          order: 0,
+        }]
+      : [],
+    rootInfo: {
+      winrate: 0.5,
+      scoreLead: 0,
+      visits: 1000,
+      currentPlayer: 'B',
+    },
+  } as unknown as KataAnalysisResponse;
 }
 
 beforeEach(() => {
@@ -268,5 +318,263 @@ describe('useReviewSession.processUserMove — timeout path', () => {
     // The backend was not asked to record this move — finishCard's
     // submitReview only fires on the success path.
     expect(fakeBackendService.submitReview).not.toHaveBeenCalled();
+  });
+});
+
+describe('useReviewSession.processUserMove — happy path', () => {
+  it('records the analysis delta on a non-final move and returns to AWAITING_MOVE', async () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    const card = makeReviewCard({ numMoves: 5, defaultVisits: 1000 });
+    mutateReviewSession(boardId, draft => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [card];
+      draft.currentIndex = 0;
+      draft.startingNodeId = board.rootNodeId;
+    });
+
+    // Engine's best-move follow-through plays Q16 = (15, 15) on
+    // 19×19. The engine plays for whoever's turn is next after the
+    // user's move; here the user plays B, so the engine plays W.
+    const packet = makeAnalysisPacket({
+      turnNumber: 1,
+      delta: 0.85,
+      bestMoveGtp: 'Q16',
+    });
+    vi.mocked(waitForAnalysis).mockResolvedValueOnce(packet);
+
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { processUserMove, state, userMoveScores } = useReviewSession(boardIdRef);
+
+    await processUserMove(3, 3); // legal first move
+
+    // The delta from the packet is appended to the per-board score
+    // list, and the composable transitions back to AWAITING_MOVE
+    // (the card has more moves to play).
+    expect(userMoveScores.value).toEqual([0.85]);
+    expect(state.value).toBe('AWAITING_MOVE');
+
+    // The engine's best-move follow-through fired: Q16 = (15, 15)
+    // is now on the board with W as the colour (alternation after
+    // the user's B move).
+    const updatedBoard = store.boards.find(b => b.id === boardId)!;
+    expect(updatedBoard.stones['15,15']).toBe('W');
+
+    // Backend was NOT asked to record yet — submitReview only
+    // fires on the FINAL move.
+    expect(fakeBackendService.submitReview).not.toHaveBeenCalled();
+  });
+
+  it('falls back to delta=0.5 when the packet lacks a per-colour deltas entry', () => {
+    // Sanity-pinning the magic-number fallback documented in
+    // useReviewSession's processUserMove. If the proxy emits a
+    // packet without `extra.black.deltas` or with a missing index,
+    // the composable assigns 0.5 (a "neutral" placeholder) so the
+    // user move score is at least recorded — defended by the
+    // matching code branch in the composable.
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    const card = makeReviewCard({ numMoves: 5 });
+    mutateReviewSession(boardId, draft => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [card];
+      draft.currentIndex = 0;
+      draft.startingNodeId = board.rootNodeId;
+    });
+
+    // No deltas, no moveInfos — pure "analysis came back but
+    // didn't include enrichment" shape.
+    const packet = makeAnalysisPacket({ turnNumber: 1 });
+    vi.mocked(waitForAnalysis).mockResolvedValueOnce(packet);
+
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { processUserMove, userMoveScores } = useReviewSession(boardIdRef);
+
+    return processUserMove(3, 3).then(() => {
+      expect(userMoveScores.value).toEqual([0.5]);
+    });
+  });
+
+  it('fires submitReview and transitions to FINISHED on the final move', async () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    // numMoves=1 → the first user move is the last; finishCard
+    // fires immediately after the wait resolves.
+    const card = makeReviewCard({ id: 42 as CardId, numMoves: 1 });
+    mutateReviewSession(boardId, draft => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [card];
+      draft.currentIndex = 0;
+      draft.startingNodeId = board.rootNodeId;
+    });
+
+    const packet = makeAnalysisPacket({ turnNumber: 1, delta: 0.92 });
+    vi.mocked(waitForAnalysis).mockResolvedValueOnce(packet);
+    fakeBackendService.submitReview.mockResolvedValueOnce(card);
+
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { processUserMove, state, userMoveScores } = useReviewSession(boardIdRef);
+
+    await processUserMove(3, 3);
+
+    // Final-move branch: status is FINISHED, submitReview was
+    // called with the card id and the recorded score.
+    expect(state.value).toBe('FINISHED');
+    expect(userMoveScores.value).toEqual([0.92]);
+    expect(fakeBackendService.submitReview).toHaveBeenCalledTimes(1);
+    expect(fakeBackendService.submitReview).toHaveBeenCalledWith(42, [0.92]);
+    // Move-suggestions visibility was restored by finishCard.
+    expect(store.session.ui.showMoveSuggestions).toBe(true);
+  });
+});
+
+describe('useReviewSession — abort cleanup', () => {
+  // The composable manages a module-scope per-board map of pending
+  // AbortControllers (`pendingAnalysisAborts`). The abort must fire
+  // when:
+  //   - loadCard is called (user transitions to a different card)
+  //   - closeBoard is called (the entire board is being torn down)
+  //   - resetWorkspace is called (identity flip)
+  //
+  // The tests below mock waitForAnalysis to install an
+  // abort-listener and resolve the test promise when the abort
+  // fires. This both pins the cleanup behaviour and verifies that
+  // the composable's per-board map is keyed correctly (a wrong key
+  // would mean the cleanup misses its target controller).
+
+  /**
+   * Build a mock waitForAnalysis that exposes a flag indicating
+   * whether the AbortSignal was triggered. The returned promise
+   * rejects with AnalysisWaitError('aborted') when the signal
+   * fires; processUserMove's catch silent-returns on that.
+   */
+  function abortableMock(): { aborted: () => boolean } {
+    let abortFired = false;
+    vi.mocked(waitForAnalysis).mockImplementationOnce((_h, _n, _t, options) => {
+      return new Promise((_resolve, reject) => {
+        options.signal?.addEventListener('abort', () => {
+          abortFired = true;
+          reject(new AnalysisWaitError('aborted'));
+        });
+      });
+    });
+    return { aborted: () => abortFired };
+  }
+
+  it('nextCard (which calls loadCard internally) aborts the in-flight wait on the active board', async () => {
+    // loadCard is intentionally not surfaced on the composable's
+    // public return — it's invoked through nextCard / startSession.
+    // For the abort-on-card-transition path, the test uses nextCard
+    // against a two-card queue; nextCard delegates to
+    // loadCard(currentIndex + 1) when the queue has more cards.
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    const card1 = makeReviewCard({ id: 1 as CardId, numMoves: 5 });
+    const card2 = makeReviewCard({ id: 2 as CardId, numMoves: 5 });
+    mutateReviewSession(boardId, draft => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [card1, card2];
+      draft.currentIndex = 0;
+      draft.startingNodeId = board.rootNodeId;
+    });
+
+    const wait = abortableMock();
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const composable = useReviewSession(boardIdRef);
+
+    // Kick off processUserMove without awaiting — the wait promise
+    // is pending against the abort signal.
+    const movePromise = composable.processUserMove(3, 3);
+
+    // Advance to the next card. nextCard invokes
+    // loadCard(currentIndex + 1) which begins by aborting the
+    // pending wait via `pendingAnalysisAborts.get(bId)?.abort()`.
+    composable.nextCard();
+    await movePromise;
+
+    expect(wait.aborted()).toBe(true);
+  });
+
+  it('closeBoard fires AbortController.abort() on the closing board\'s pending wait', async () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    const card = makeReviewCard({ numMoves: 5 });
+    mutateReviewSession(boardId, draft => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [card];
+      draft.currentIndex = 0;
+      draft.startingNodeId = board.rootNodeId;
+    });
+
+    const wait = abortableMock();
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const composable = useReviewSession(boardIdRef);
+
+    const movePromise = composable.processUserMove(3, 3);
+
+    // closeBoard's resource-ownership cleanup chain calls
+    // abortBoardReview(boardId) which fires the controller. (The
+    // analysisService and ledger calls in closeBoard are absorbed
+    // by the fakes / pure module-scope state respectively.)
+    closeBoard(boardId);
+    await movePromise;
+
+    expect(wait.aborted()).toBe(true);
+  });
+
+  it('resetWorkspace fires AbortController.abort() on every pending wait', async () => {
+    // Two boards, two pending waits — resetWorkspace's
+    // abortAllReviews must fire both.
+    const boardA = createInitialBoard();
+    const boardB = createInitialBoard();
+    addBoard(boardA);
+    addBoard(boardB);
+
+    const card = makeReviewCard({ numMoves: 5 });
+    for (const board of [boardA, boardB]) {
+      mutateReviewSession(board.id, draft => {
+        draft.status = 'AWAITING_MOVE';
+        draft.queue = [card];
+        draft.currentIndex = 0;
+        draft.startingNodeId = board.rootNodeId;
+      });
+    }
+
+    const waitA = abortableMock();
+    const waitB = abortableMock();
+
+    // Drive each board's processUserMove. The composable reads
+    // `boardIdRef.value` to find the active board; we point each
+    // composable instance at its own board.
+    const refA = ref<BoardId | null>(boardA.id);
+    const refB = ref<BoardId | null>(boardB.id);
+    const compA = useReviewSession(refA);
+    const compB = useReviewSession(refB);
+
+    // boardB is the active board (last addBoard call wins
+    // `store.activeBoardIndex`); processUserMove on compA mutates
+    // store via activeBoardIndex which is currently boardB. Move
+    // the cursor explicitly to keep each composable's call
+    // self-consistent.
+    store.activeBoardIndex = store.boards.findIndex(b => b.id === boardA.id);
+    const moveA = compA.processUserMove(3, 3);
+    store.activeBoardIndex = store.boards.findIndex(b => b.id === boardB.id);
+    const moveB = compB.processUserMove(3, 3);
+
+    resetWorkspace();
+    await Promise.all([moveA, moveB]);
+
+    expect(waitA.aborted()).toBe(true);
+    expect(waitB.aborted()).toBe(true);
   });
 });
