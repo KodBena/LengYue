@@ -460,11 +460,21 @@ do 30d first.
 - Distribution-packaging decision per
   `docs/notes/distribution-packaging.md` — the leading edge of
   the post-v1 arc.
-- Test coverage at the composable layer (frontend). Backend
-  side closed in the 2026-05-07 testing arc (442 tests across
-  four tiers, four production bugs fixed); see
-  `docs/notes/test-coverage-2026-05.md` for the closing
-  reflection.
+- Test coverage at the composable layer (frontend). Phase 0
+  shipped 2026-05-08 (issue #137): Vitest + jsdom +
+  `@vue/test-utils` wired, three-tier shape established
+  (`tests/unit/`, `tests/fakes/`, `tests/integration/`), one
+  test per tier as the pattern proof — `applyGoMove` placement
+  / capture / ko at Tier 1; `useReviewSession` endSession /
+  empty-queue startSession / processUserMove timeout at Tier
+  3. Contributor doc `frontend/tests/CLAUDE.md`. Open work:
+  expand to other composables (`useAnalysisProjection`,
+  `useReviewSession` happy-path, `useChartNavigation`),
+  cover the resource-ownership audit cleanups, integrate
+  with CI. Backend side closed in the 2026-05-07 testing
+  arc (442 tests across four tiers, four production bugs
+  fixed); see `docs/notes/test-coverage-2026-05.md` for
+  the closing reflection.
 
 **Future projects (when ready).**
 

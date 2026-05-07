@@ -171,3 +171,57 @@ missing cleanup is a silent failure that surfaces only through
 operational monitoring or a future audit walk. Naming the pair
 at authoring time prevents the silent-failure mode the audit was
 shaped to catch.
+
+## Testing posture
+
+The test tree at `tests/` (Vitest + jsdom + `@vue/test-utils`)
+mirrors the backend's three-tier shape, with the architectural
+seams already in place — Components / Composables / Services —
+acting as the boundaries between tiers. The contributor doc lives
+at `tests/CLAUDE.md`; this section is the orientation pointer.
+
+**Tier 1 — pure logic (`tests/unit/`).** Functions of plain
+inputs to plain outputs. No DOM, no fakes, no Vue reactivity.
+The Go rules engine (`src/logic.ts`, `src/engine/rules.ts`,
+`src/engine/sgf-loader.ts`, `src/engine/navigator.ts`,
+`src/engine/analysis/kernels.ts`), the SGF normaliser, the
+analysis kernel arithmetic. Highest ROI, lowest cost; this is
+where bugs the typecheck cannot police live.
+
+**Tier 2 — service fakes (`tests/fakes/`).** Spy-backed
+substitutes for the effectful service singletons in
+`src/services/`. The pattern is a vi-spy-bearing object
+exposing the subset of the real surface a test subject
+exercises, plus a `reset…` function each suite calls in
+`beforeEach`. Mocking happens at the test-file level via
+`vi.mock(...)` with a factory that imports the fake.
+
+**Tier 3 — composable integration (`tests/integration/`).**
+Composables driven against fakes. The fakes substitute the
+proxy / backend / persistence boundaries; the rest of the
+dependency chain (the store, the navigator, the SGF loader,
+the rules engine, the i18n catalogs) runs for real. This is
+where the highest-value behaviour assertions live —
+resource-ownership cleanups, async/timeout state machines, the
+abort-and-resume choreography in `useReviewSession`.
+
+**Out of scope (initially).** Component-level / template tests
+(low ROI for the current shape), E2E (defer until the
+integration layer has spread), snapshot or visual-regression
+tests (wrong tool for this codebase).
+
+The strict typecheck (`vue-tsc -b`) remains the wire-shape and
+signature safety net — branded IDs, discriminated unions with
+exhaustiveness `never`-defaults, the OpenAPI-generated wire
+types. Tests extend coverage to the **behaviour** class:
+lifecycle transitions, async settling, abort cleanup, the
+class of bugs that surfaces only when control flow is observed
+end-to-end.
+
+Run modes: `npm test` (Vitest watch mode for development),
+`npm run test:run` (one-shot — the build-pipeline-suitable
+form), `npm run test:coverage` (one-shot with v8 coverage
+report). Build still gates on `npm run build` (`vue-tsc -b &&
+vite build`); the test suite is a strict-add safety net at
+this stage, not a build prerequisite. CI integration is a
+follow-up item.

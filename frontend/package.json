@@ -7,6 +7,9 @@
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "gen:api": "openapi-typescript http://127.0.0.1:8764/openapi.json -o src/types/backend.ts"
   },
   "dependencies": {
@@ -28,10 +31,14 @@
     "@types/jqueryui": "^1.12.24",
     "@types/node": "^24.12.0",
     "@vitejs/plugin-vue": "^6.0.5",
+    "@vitest/coverage-v8": "^4.1.5",
+    "@vue/test-utils": "^2.4.10",
     "@vue/tsconfig": "^0.9.0",
+    "jsdom": "^29.1.1",
     "openapi-typescript": "^7.4.0",
     "typescript": "~5.9.3",
     "vite": "^8.0.1",
+    "vitest": "^4.1.5",
     "vue-tsc": "^3.2.5"
   }
 }

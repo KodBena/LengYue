@@ -168,12 +168,25 @@ port could reuse.
 
 ### Known gaps (frontend)
 
-- **No test suite.** This is an honest gap. The codebase has
-  been developed by single-author iteration with careful manual
-  review; the absence of tests is debt that should be paid down
-  once the higher-priority work is settled. Suggested starting
-  point: integration tests at the composable level
-  (`useReviewSession`, `useAnalysisProjection`).
+- **Test suite — Phase 0 complete; coverage expanding.** The
+  bootstrap PR (issue #137) wired Vitest + jsdom +
+  `@vue/test-utils`, established the three-tier shape (pure
+  logic in `tests/unit/`, service fakes in `tests/fakes/`,
+  composable integration in `tests/integration/`), and shipped
+  one test per tier as the pattern proof — `applyGoMove`
+  (placement, capture, ko) at Tier 1, and three
+  `useReviewSession` paths (endSession reset, empty-queue
+  startSession short-circuit, processUserMove timeout) at Tier
+  3. Contributor doc: `frontend/tests/CLAUDE.md`. The gap from
+  here is breadth: extending coverage to the rest of
+  `src/composables/` (especially `useAnalysisProjection`,
+  `useReviewSession` happy-path, the resource-ownership audit
+  cleanups in `closeBoard`/`resetWorkspace`) and to the pure
+  modules under `src/engine/` (sgf-loader, navigator, the
+  analysis kernels). Component-level tests, E2E, and visual
+  regression remain explicitly out of scope at this stage. CI
+  integration (running tests on PR push) is a follow-up — the
+  build (`npm run build`) does not yet gate on the suite.
 
 ---
 
