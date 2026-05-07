@@ -37,9 +37,12 @@ surfaces the deviation through the strongest applicable channel,
 preferring compile-time errors, then build-time, then runtime
 exceptions, then user-visible system messages, then console warnings,
 and silent fallback only when fallback is genuinely the right answer.
-Five concrete rules: no automatic retry on real failures; type
+Six concrete rules: no automatic retry on real failures; type
 assertions must be justified; no sentinel-instead-of-throw; ACL
-boundaries validate rather than coerce; no empty catches.
+boundaries validate rather than coerce; no empty catches; design-time
+drift surfaces too (Rule 6, appended 2026-05-07 — extends the
+principle to planning-time records and names ADR-0005's documentation
+discipline as the register-specific instances).
 
 **Why care.** This is the most consequential single tenet in the
 codebase. It is why the KataGo timeout cancels rather than retries,
@@ -89,7 +92,7 @@ authoring pattern that produces it.
 
 ## ADR-0005: Documentation Discipline
 
-**Decision.** Seven rules for authoring documentation: (1) single
+**Decision.** Eight rules for authoring documentation: (1) single
 source of truth per nominal handle; (2) a shared dispatch ledger for
 cross-team communications under `docs/dispatch/`; (3) reference
 descriptions describe relations between documents, not content
@@ -97,7 +100,10 @@ snapshots; (4) document bodies use generic descriptors rather than
 bare-named filenames for sibling references; (5) file location
 reflects content, not authoring history; (6) author documentation as
 you decide, not in retrospect; (7) transitional sections carry
-explicit retirement plans.
+explicit retirement plans; (8) sibling revisions over silent edits
+(Rule 8, appended 2026-05-07 — the doc-graph plan's `design-note:
+revised` pattern made explicit at the tenet level; the documentation
+register of ADR-0002 Rule 6).
 
 **Why care.** The umbrella restructure surfaced a recurring failure
 pattern: documentation written reactively decays into low-trust

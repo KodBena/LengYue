@@ -5,6 +5,13 @@
   third tenet in this codebase, after ADR-0002 (fail-loudly) and
   ADR-0004 (minimal-touch).
 - **Date:** 2026-04-26
+- **Amendments:** 2026-05-07 — appended Rule 8 (sibling revisions
+  over silent edits), making the doc-graph plan's `design-note:
+  revised` pattern explicit at the tenet level. The new rule is
+  the documentation register of ADR-0002 Rule 6 (design-time drift
+  surfaces too), in the same shape that Rule 7 of this tenet was
+  already identified in the Related section as the documentation
+  register of ADR-0002 Rule 1 ("no silent retry queue").
 - **Scope:** All authoring of documentation across the three
   sub-projects. Includes ADRs, notes, READMEs, TODO entries,
   HANDOFFs, playbooks, and inter-team communications.
@@ -158,6 +165,39 @@ retired explicitly when the transitions completed. Future
 transitional sections should follow the same shape — name the
 trigger for retirement at the moment the section is added.
 
+### Rule 8: Sibling revisions over silent edits
+
+*(Appended 2026-05-07.)*
+
+When an authoritative documentation artifact (a design note, an
+ADR, a planning record) is found to be wrong in a load-bearing
+way, the response is to preserve the original as the
+planning-time record and file a sibling marked `revised` —
+never to silently edit the original. The doc-graph genre
+vocabulary names the markers (`design-note: planned`,
+`design-note: implemented`, `design-note: revised`); ADRs
+follow the same shape via the Amendments header line and the
+append-a-rule convention from Rule 3 of this tenet's Revisit
+when… section.
+
+The cost is one extra file (or one Amendments-line entry plus
+an appended rule paragraph for an ADR amendment); the payoff
+is that wrong-but-honest plans stay legible in the doc graph
+rather than collapsing into the post-implementation state. The
+trace of planning-time reasoning is what lets a future reader
+reconstruct *why* a thing was believed, not just *what*
+eventually shipped.
+
+This rule is the documentation register of ADR-0002 Rule 6
+("design-time drift surfaces too"), in the same shape that
+Rule 7 above is the documentation register of ADR-0002 Rule 1
+("no silent retry queue"). The two cross-tenet pairings make
+the relationship between this tenet and ADR-0002 a load-bearing
+structural fact rather than a Related-section observation: the
+documentation discipline is fail-loudly applied to the
+documentation graph, and these two rule pairings are how that
+relationship is anchored in the codebase's authoring vocabulary.
+
 ## Consequences
 
 ### Positive
@@ -232,9 +272,12 @@ This tenet is worth revisiting if:
    TODO items between parallel documents is harder but not
    infeasible.
 3. **A genuinely new failure pattern surfaces** that isn't
-   covered by Rules 1–7. At that point, append the rule rather
-   than starting a new tenet — this tenet is shaped to absorb
-   additional disciplines.
+   covered by the existing rules. At that point, append the rule
+   rather than starting a new tenet — this tenet is shaped to
+   absorb additional disciplines. (The 2026-05-07 amendment
+   adding Rule 8 is the first instance of this pre-authorized
+   append, and the precedent for tracking such additions via the
+   Amendments header line.)
 
 ## Related
 
