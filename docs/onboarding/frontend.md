@@ -59,11 +59,13 @@ ADR-0002 (fail loudly), ADR-0004 (minimal-touch), and ADR-0005
   for the card-tree view.
 - `docs/notes/qEUBO.md` — Successor-session map for qEUBO work.
   Points at canonical sources rather than substituting for them.
-- `docs/dispatch/frontend-to-frontend-*.md` — Session-to-session
-  handoffs. Read the most recent one if you are picking up an
-  in-flight effort.
-- `docs/worklog/` — Per-PR records. Useful when the task description
-  references a specific shipped change.
+- Session-to-session handoffs — recent ones land in
+  `docs/dispatch/frontend-to-frontend-*.md`; prior ones are
+  archived under `docs/archive/dispatch/`. Read the most recent
+  handoff if you are picking up an in-flight effort.
+- `docs/worklog/` — Per-PR records for the current cycle. Useful
+  when the task description references a specific shipped change.
+  Prior-cycle entries live under `docs/archive/worklog/<cycle>/`.
 - `src/types.ts` (domain), `src/types/backend.ts` (generated wire,
   do not hand-edit), `src/engine/katago/types.ts` (proxy wire).
 

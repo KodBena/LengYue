@@ -405,7 +405,7 @@ heatmap renderer destroys-and-recreates every `Rect` on every
 `setOption`, with no cell-level diff and no working `appendData`
 for grid heatmaps (confirmed against the v6 source and the
 upstream issue tracker). The 2026-05-06 throttle PR
-(`docs/worklog/2026-05-06-heatmap-update-throttle.md`) bounds
+(`docs/archive/worklog/2026-05-v1.0-to-v1.1/2026-05-06-heatmap-update-throttle.md`) bounds
 the redraw rate but doesn't change the per-redraw cost.
 
 The idea here is to introduce a renderer-shaped seam — a

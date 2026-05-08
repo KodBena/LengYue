@@ -3,7 +3,7 @@
 This is a navigation map for sessions that need to work on the
 qEUBO preference-based optimisation integration. **It is not a
 substitute for the canonical sources** — the dispatch at
-`docs/dispatch/frontend-to-backend-qeubo-integration.md` is the
+`docs/archive/dispatch/frontend-to-backend-qeubo-integration.md` is the
 SoT for the protocol design; `backend/qeubo/README.md` is the SoT
 for the public API contract; per-PR worklog entries record what
 shipped and when. This file's role is to triage *which sources to
@@ -22,7 +22,7 @@ README win and this file needs updating.
 You are writing `backend/api/routes/qeubo.py` and any sibling
 public-domain encode/decode utility module. Read order:
 
-1. `docs/dispatch/frontend-to-backend-qeubo-integration.md` —
+1. `docs/archive/dispatch/frontend-to-backend-qeubo-integration.md` —
    Part 1 (architecture overview), §2.3 (encode/decode in PD
    code), §2.4 (the six REST endpoints), §2.5 (server-side
    schema), Part 4 (wire contract), Part 5 verification

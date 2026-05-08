@@ -2,7 +2,7 @@
 
 This README is the **load-bearing artefact** for the licensing
 boundary documented in
-`docs/dispatch/frontend-to-backend-qeubo-integration.md`.
+`docs/archive/dispatch/frontend-to-backend-qeubo-integration.md`.
 
 Public-domain code outside `backend/qeubo/` (notably the FastAPI
 route handlers in `backend/api/routes/qeubo.py` and any sibling

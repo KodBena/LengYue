@@ -1,12 +1,12 @@
 # Card-Tree — Frontend Specification
 
 - **Status:** Implemented 2026-04-29 — see
-  `docs/worklog/2026-04-29-card-tree-frontend.md`. The widget at
+  `docs/archive/worklog/2026-04-pre-v1.0/2026-04-29-card-tree-frontend.md`. The widget at
   `frontend/src/components/charts/CardTreeWidget.vue` implements
   this spec faithfully; two corner cases (hot-but-not-warm
   rendering, expanded-bucket-leaves role assignment) are
   documented in the worklog and the close-out dispatch
-  (`docs/dispatch/frontend-to-backend-card-tree-status.md`).
+  (`docs/archive/dispatch/frontend-to-backend-card-tree-status.md`).
   Specification kept as the authoritative reference for future
   spec consumers.
 - **Genre:** Frontend widget specification.
@@ -139,7 +139,7 @@ the active board's current review card. When set, the matching
 of the role-derived chrome color. The four-role partition above
 stays exhaustive — orange is decoration on top of `active` or
 `stub`, not a fifth role. Introduced as part of the cards-tab-merge
-arc (`docs/notes/cards-tab-merge-plan.md`); the partition's
+arc (`docs/archive/notes/cards-tab-merge-plan.md`); the partition's
 exhaustiveness was a deliberate choice in that plan, recorded here
 so the contract is auditable from the spec.
 

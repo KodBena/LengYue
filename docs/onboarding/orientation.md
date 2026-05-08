@@ -74,15 +74,22 @@ calls for a specific reference document.
 
 ## Skip during onboarding (read only if explicitly directed)
 
-- `docs/archive/` — Pre-umbrella snapshots. Historical only;
-  internal references point at paths and item numbers that no
-  longer exist.
+- `docs/archive/` — Historical snapshots: pre-umbrella
+  cross-team communications, the v1.0.0 release-scope freeze,
+  the post-v1.0 TODO snapshot, and the post-v1.1.0 archival
+  sweep (closed dispatches under `archive/dispatch/`, closed-
+  plan notes under `archive/notes/`, per-cycle worklog entries
+  under `archive/worklog/<cycle>/`). Internal references point
+  at paths as they existed at each file's capture moment; do
+  not edit to fix.
 - `docs/playbooks/monorepo/` — The restructuring playbooks.
   Already executed. Useful only for understanding why the layout
   is the way it is.
-- `docs/worklog/` — Per-PR worklog entries; each is a
-  moment-in-time record of one shipped change. Read only when
-  your task explicitly cites one.
+- `docs/worklog/` — Per-PR worklog entries for the current
+  release cycle; each is a moment-in-time record of one shipped
+  change. Read only when your task explicitly cites one. Prior-
+  cycle entries live under `docs/archive/worklog/<cycle>/`; cited
+  paths point at whichever location is current.
 - `docs/rfcs/` — Proposals under discussion. Not authoritative.
 - `docs/notes/auditor-notes.md`, `audit-reflections.md`,
   `decisions-deferred.md`, `deferred-items.md`,

@@ -17,7 +17,7 @@ strings through catalog keys — completed as part of PR1 (the
 locale-by-feature split landed inside the same arc).
 
 The outstanding decisions named below were resolved during PR1
-scoping (see worklog `docs/worklog/2026-05-06-i18n-pr1-plumbing.md`):
+scoping (see worklog `docs/archive/worklog/2026-05-v1.0-to-v1.1/2026-05-06-i18n-pr1-plumbing.md`):
 Simplified Chinese chosen over Traditional given the larger
 Go-playing population; the (a) backend-error pass-through approach
 adopted; per-user persistence via `AppSettings.appearance.locale`;

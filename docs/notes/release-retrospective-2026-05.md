@@ -141,7 +141,7 @@ well as named.
 ### Cards-tab merge (PRs #140–#142)
 
 The longest user-facing UX arc of the cycle. Filed as a design
-note (`docs/notes/cards-tab-merge-plan.md`) on 2026-05-04;
+note (`docs/archive/notes/cards-tab-merge-plan.md`) on 2026-05-04;
 shipped across three coordinated PRs on 2026-05-06.
 
 The previous shape: an "SR" tab and a "Database" tab each
@@ -194,7 +194,7 @@ sweep (#158) closed out the navigation work.
 ### Cross-team analysis-persistence arc (PR #166)
 
 The largest single feature of the cycle. Designed in
-`docs/dispatch/frontend-to-backend-analysis-persistence.md` and
+`docs/archive/dispatch/frontend-to-backend-analysis-persistence.md` and
 its three status replies; shipped on the `cross/analysis-persistence`
 branch and merged 2026-05-07. System-level reference:
 `docs/notes/analysis-persistence-plan.md`.

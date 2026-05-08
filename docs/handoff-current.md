@@ -465,7 +465,7 @@ audit pair O13 augmentations, and the AnalysisControls UI
 surface. System-level reference:
 `docs/notes/analysis-persistence-plan.md`. The wire-shape design
 record lives in the dispatch chain at
-`docs/dispatch/frontend-to-backend-analysis-persistence.md` and
+`docs/archive/dispatch/frontend-to-backend-analysis-persistence.md` and
 its status replies. The original `isDuringSearch` design
 blocker was retired — the manual + batched shape ships instead,
 where the gate is a user click rather than a streaming-protocol

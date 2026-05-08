@@ -150,9 +150,9 @@ every edit:
   the proxy directory; exit 0 on PASS. Reuses the
   `SyntheticPonderingRouter` (v1.0.9) so no GPU or KataGo
   binary is required.
-- `docs/dispatch/frontend-to-proxy-keep-alive-middleware.md`
+- `docs/archive/dispatch/frontend-to-proxy-keep-alive-middleware.md`
   and
-  `docs/dispatch/proxy-to-frontend-keep-alive-middleware-status.md`
+  `docs/archive/dispatch/proxy-to-frontend-keep-alive-middleware-status.md`
   — the recent multi-phase coordination loop (Phases 1-3 plus
   diagnostics, shipping in proxy v1.0.7-v1.0.11).
 
