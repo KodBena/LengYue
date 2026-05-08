@@ -10,13 +10,24 @@ import {
   type Player,
   type KataCoord,
   type KataAnalysisResponse,
+  type WinrateFraming,
 } from '../engine/katago/types';
+import {
+  resolveWinrateFraming,
+  normalizePacketToWhiteFraming,
+} from '../engine/katago/winrate-framing';
 import { type BoardId, type NodeId } from '../types';
 import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi, getInitialStones } from '../engine/util';
 import { PONDER_MAX_VISITS } from '../engine/constants';
 import { store, pushSystemMessage } from '../store';
 import { ledger } from './analysis-ledger';
-import { compileAnalysisConfig, activeConfigHash, hashConfig } from './analysis-config';
+import {
+  compileAnalysisConfig,
+  compileEngineOverrides,
+  compileAnalysisDescriptorFromParts,
+  activeConfigHash,
+  hashConfig,
+} from './analysis-config';
 import { KATAGO_WS_URL } from '../config/env';
 import { i18n } from '../i18n';
 
@@ -24,7 +35,16 @@ export class AnalysisService {
   private client: KataGoClient;
   private activeSubscriptions = new Map<BoardId, () => void>();
   private activeQueryIds = new Map<BoardId, string>();
-  private activeQueries = new Map<string, { path: NodeId[], hash: string }>();
+  // Per-query bookkeeping. `framing` is the
+  // `reportAnalysisWinratesAs` value the wire query was sent with;
+  // every packet that arrives under this query is normalised through
+  // `normalizePacketToWhiteFraming(_, framing)` before reaching the
+  // ledger so consumers downstream see canonical 'WHITE' regardless
+  // of what the user picked in the registry. See
+  // `engine/katago/winrate-framing.ts` for the normalisation contract
+  // and the deliberate scope (raw signed scalars yes; proxy-applied
+  // `extra.*` enrichment no).
+  private activeQueries = new Map<string, { path: NodeId[], hash: string, framing: WinrateFraming }>();
   // Per-board thunks that re-issue the most recent active query.
   // Keyed by BoardId; populated by analyzeRange/analyzeActiveNode and
   // cleared by stopBoardAnalysis. Used by restartActiveAnalyses to
@@ -236,7 +256,8 @@ export class AnalysisService {
     startTurn: number,
     endTurn: number,
     visits: number,
-    configOverride?: Record<string, unknown>
+    configOverride?: Record<string, unknown>,
+    overrideSettingsOverride?: Record<string, unknown>,
   ) {
     const board = store.boards.find(b => b.id === boardId);
     if (board) (board as any).maxVisitsTarget = visits;
@@ -259,10 +280,39 @@ export class AnalysisService {
     const analyzeTurns = Array.from({ length: endTurn - startTurn + 1 }, (_, i) => startTurn + i);
     const queryId = `range-${boardId}-${Date.now()}`;
 
-    const analysis_config = configOverride || compileAnalysisConfig();
-    const hash = configOverride ? hashConfig(configOverride) : activeConfigHash.value;
+    // Snapshot vs. live mode. `configOverride !== undefined` is the
+    // signal the caller is replaying a persisted descriptor (typically
+    // from `useReviewSession` reading a card's `gradingParameter.data`
+    // snapshot) rather than asking for live analysis. In snapshot mode
+    // BOTH legs come from the snapshot — including a legacy card's
+    // missing `overrideSettings` field, which surfaces as
+    // `overrideSettingsOverride === undefined` and means "no overrides
+    // on the wire" (the card was minted before the field existed).
+    // Falling back to `compileEngineOverrides()` here would silently
+    // bind the card's analysis posture to the user's CURRENT registry
+    // values, which is exactly the snapshot-fidelity break the
+    // configOverride mechanism is shaped to prevent.
+    const isSnapshotMode = configOverride !== undefined;
+    const analysis_config = configOverride ?? compileAnalysisConfig();
+    const overrideSettings = isSnapshotMode
+      ? overrideSettingsOverride
+      : compileEngineOverrides();
+    const hash = isSnapshotMode
+      ? hashConfig(compileAnalysisDescriptorFromParts(analysis_config, overrideSettings))
+      : activeConfigHash.value;
+    // Resolve the framing the wire is about to ask KataGo for and
+    // cache it on the active-query entry; `onAnalysisUpdate`
+    // normalises every response packet through this value before
+    // recording into the ledger. Read once at query construction so
+    // a mid-query registry edit (the user toggles
+    // `reportAnalysisWinratesAs` while ponder is still streaming)
+    // doesn't desync the in-flight packets — they're still in the
+    // framing of the ORIGINAL ask. The watcher in `useAppBootstrap`
+    // / `restartActiveAnalyses` is the path that picks up registry
+    // edits cleanly, by stop-then-issue with the new framing.
+    const framing = resolveWinrateFraming(overrideSettings);
 
-    this.activeQueries.set(queryId, { path: fullPath, hash });
+    this.activeQueries.set(queryId, { path: fullPath, hash, framing });
 
     // The query is now type-honest end-to-end: KataGoAnalysisQuery declares
     // `cache`, `lookup_cache`, and `analysis_config` as accepted wire fields
@@ -279,6 +329,12 @@ export class AnalysisService {
       lookup_cache: store.profile.settings.engine.katago.lookup_cache,
       replay_final_only: store.profile.settings.engine.katago.replay_final_only,
     };
+    // `overrideSettings` resolved above already accounts for the
+    // snapshot-vs-live distinction. Conditionally include so an
+    // empty / undefined value falls back to KataGo's config-file
+    // values rather than wire-overriding them with a no-op.
+    const hasOverrides =
+      overrideSettings !== undefined && Object.keys(overrideSettings).length > 0;
     const query: KataGoAnalysisQuery = {
       id: queryId,
       moves,
@@ -292,6 +348,7 @@ export class AnalysisService {
       reportDuringSearchEvery: 0.5,
       analyzeTurns,
       ...(needsOwnership ? { includeOwnership: true } : {}),
+      ...(hasOverrides ? { overrideSettings } : {}),
       ...(analysis_config ? { analysis_config } : {})
     };
 
@@ -304,7 +361,7 @@ export class AnalysisService {
     this.activeQueryIds.set(boardId, queryId);
     this.restartCallbacks.set(
       boardId,
-      () => this.analyzeRange(boardId, fullPath, startTurn, endTurn, visits, configOverride),
+      () => this.analyzeRange(boardId, fullPath, startTurn, endTurn, visits, configOverride, overrideSettingsOverride),
     );
   }
 
@@ -312,7 +369,8 @@ export class AnalysisService {
     boardId: BoardId,
     mode: 'ponder' | 'analyze',
     visits?: number,
-    configOverride?: Record<string, unknown>
+    configOverride?: Record<string, unknown>,
+    overrideSettingsOverride?: Record<string, unknown>,
   ) {
     const board = store.boards.find(b => b.id === boardId);
     if (!board || store.engine.status !== 'connected') return;
@@ -335,10 +393,19 @@ export class AnalysisService {
     const initialStones = getInitialStones(board);
 
     const queryId = `${mode}-${boardId}-${Date.now()}`;
-    const analysis_config = configOverride || compileAnalysisConfig();
-    const hash = configOverride ? hashConfig(configOverride) : activeConfigHash.value;
+    // See analyzeRange above for the snapshot-vs-live rationale.
+    const isSnapshotMode = configOverride !== undefined;
+    const analysis_config = configOverride ?? compileAnalysisConfig();
+    const overrideSettings = isSnapshotMode
+      ? overrideSettingsOverride
+      : compileEngineOverrides();
+    const hash = isSnapshotMode
+      ? hashConfig(compileAnalysisDescriptorFromParts(analysis_config, overrideSettings))
+      : activeConfigHash.value;
+    // See analyzeRange above for the framing-resolution rationale.
+    const framing = resolveWinrateFraming(overrideSettings);
 
-    this.activeQueries.set(queryId, { path: fullPath, hash });
+    this.activeQueries.set(queryId, { path: fullPath, hash, framing });
 
     const ownershipModes = store.session.ui.overlayLayers.ownership;
     const needsOwnership = ownershipModes.continuous || ownershipModes.dots || ownershipModes.liveness;
@@ -347,6 +414,10 @@ export class AnalysisService {
       lookup_cache: store.profile.settings.engine.katago.lookup_cache,
       replay_final_only: store.profile.settings.engine.katago.replay_final_only,
     };
+    // `overrideSettings` resolved above — see analyzeRange for the
+    // wire conditional-spread rationale.
+    const hasOverrides =
+      overrideSettings !== undefined && Object.keys(overrideSettings).length > 0;
     const query: KataGoAnalysisQuery = {
       id: queryId,
       moves,
@@ -364,6 +435,7 @@ export class AnalysisService {
       ...(mode === 'ponder' ? { reportDuringSearchEvery: 0.15, maxVisits: PONDER_MAX_VISITS } : { reportDuringSearchEvery: 0.5 }),
       analyzeTurns: [currentIdx],
       ...(needsOwnership ? { includeOwnership: true } : {}),
+      ...(hasOverrides ? { overrideSettings } : {}),
       ...(analysis_config ? { analysis_config } : {})
     };
 
@@ -376,7 +448,7 @@ export class AnalysisService {
     this.activeQueryIds.set(boardId, queryId);
     this.restartCallbacks.set(
       boardId,
-      () => this.analyzeActiveNode(boardId, mode, visits, configOverride),
+      () => this.analyzeActiveNode(boardId, mode, visits, configOverride, overrideSettingsOverride),
     );
   }
 
@@ -401,7 +473,15 @@ export class AnalysisService {
 
     const nodeId = queryInfo.path[response.turnNumber];
     if (nodeId) {
-      ledger.record(queryInfo.hash, nodeId, response);
+      // Normalise to canonical 'WHITE' framing before recording so
+      // every consumer downstream — `waitForAnalysis`, the chart
+      // composables, the ownership renderer, the bundle export —
+      // sees consistent sign conventions regardless of what the user
+      // asked KataGo for. Pure function over the typed signed
+      // scalars; identity-returns the input when no flip is needed
+      // (WHITE framing, or SIDETOMOVE with currentPlayer === 'W').
+      const normalized = normalizePacketToWhiteFraming(response, queryInfo.framing);
+      ledger.record(queryInfo.hash, nodeId, normalized);
       const board = store.boards.find(b => this.activeQueryIds.get(b.id) === queryId);
       if (board) {
         board.lastActivity = Date.now();

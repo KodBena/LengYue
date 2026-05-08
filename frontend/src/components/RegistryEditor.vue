@@ -6,6 +6,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { SUPPORTED_LOCALES } from '../i18n/locales';
+import { WINRATE_FRAMINGS } from '../engine/katago/types';
 
 const props = defineProps<{
   registry: any;
@@ -24,10 +25,17 @@ const isDynamicNode = computed(() => {
   if (!props.path) return false;
   const pathStr = props.path.join('.');
   return (
-    pathStr.endsWith('symbols') || 
-    pathStr.endsWith('state_fns') || 
+    pathStr.endsWith('symbols') ||
+    pathStr.endsWith('state_fns') ||
     pathStr.endsWith('bindings') ||
-    pathStr.endsWith('parameters')
+    pathStr.endsWith('parameters') ||
+    // KataGo's `overrideSettings` is an open-ended namespace: the
+    // accepted-key set is engine-version-dependent and the user
+    // routinely adds keys beyond the default seed (e.g.
+    // `rootPolicyTemperature`, `analysisPVLen`). Treating it as
+    // dynamic surfaces the add/remove affordances so the user
+    // doesn't have to source-edit defaults.ts to extend the dict.
+    pathStr.endsWith('overrideSettings')
   );
 });
 
@@ -56,6 +64,16 @@ const PATH_ENUMS: Record<string, readonly string[]> = {
   'appearance.theme':              ['dark', 'cluster'],
   'appearance.locale':             [...SUPPORTED_LOCALES],
   'navigation.actionOnDirtyBoard': ['ask', 'new', 'overwrite'],
+  // KataGo `overrideSettings` keys with frontend-side meaning. Most
+  // entries in `overrideSettings` are opaque pass-throughs (free-form
+  // numbers / strings the user can add or remove via the dynamic-node
+  // affordance); the entries listed here have a wire-vocabulary the
+  // frontend reasons about by name and benefit from a dropdown both
+  // for typo-prevention and for surfacing the accepted set without a
+  // doc lookup. WINRATE_FRAMINGS is the exported truth set in
+  // `engine/katago/types.ts`; importing rather than re-listing keeps
+  // the two sites from drifting.
+  'engine.katago.overrideSettings.reportAnalysisWinratesAs': [...WINRATE_FRAMINGS],
   // session-ui root (store.session.ui)
   'analysisLayout':                ['horizontal', 'vertical'],
   'pvAnimation.mode':              ['instant', 'sequential', 'window'],
@@ -66,6 +84,36 @@ const PATH_ENUMS: Record<string, readonly string[]> = {
 
 function enumOptions(key: string): readonly string[] | undefined {
   return PATH_ENUMS[[...(props.path ?? []), key].join('.')];
+}
+
+// Path → human-readable warning / hint string. Same lookup convention
+// as PATH_ENUMS: dot-joined path RELATIVE to the editor's mount root.
+// Rendered as a `⚠` glyph after the leaf label, with the text carried
+// on a native `title` attribute (browser tooltip on hover) and an
+// `aria-label` for assistive tech. Use this table sparingly: it's
+// intended for paths whose values have load-bearing semantics the
+// user would otherwise have to spelunk source to discover, NOT for
+// general-purpose field documentation (the registry editor is
+// already a deep technical surface; saturating it with hint icons
+// is noise). Current entries:
+//   - reportAnalysisWinratesAs: only 'WHITE' is fully supported;
+//     non-WHITE values get raw-packet normalisation but palette
+//     enrichment runs in the wire framing on the proxy side, so
+//     the seeded `winrate` / `score_lead` state_fns render
+//     inverted. Tracking note in `docs/handoff-current.md`'s
+//     "Known gaps (frontend)".
+const PATH_TOOLTIPS: Record<string, string> = {
+  'engine.katago.overrideSettings.reportAnalysisWinratesAs':
+    "Only 'WHITE' is fully supported. 'BLACK' and 'SIDETOMOVE' will " +
+    'not be supported in the near future unless another contributor ' +
+    'steps up — raw response fields are normalised to WHITE on receipt, ' +
+    'but palette enrichment runs in the wire framing on the proxy side, ' +
+    'so charts using the seeded `winrate` / `score_lead` symbols will ' +
+    'display in the wire framing rather than canonical WHITE.',
+};
+
+function tooltipText(key: string): string | undefined {
+  return PATH_TOOLTIPS[[...(props.path ?? []), key].join('.')];
 }
 
 function getFieldType(key: string, value: any) {
@@ -120,6 +168,13 @@ function isModified(key: string, value: any) {
           <div class="label-group">
              <span class="branch-label">{{ key }}</span>
              <span v-if="isModified(key as string, value)" class="modified-dot"></span>
+             <span
+               v-if="tooltipText(key as string)"
+               class="tooltip-hint"
+               role="img"
+               :aria-label="tooltipText(key as string)"
+               :title="tooltipText(key as string)"
+             >⚠</span>
           </div>
           <div class="action-group">
             <button v-if="isModified(key as string, value)" class="restore-btn" :title="$t('registry.restoreBranchDefaults')" @click="restoreDefault(key as string)">↺</button>
@@ -142,6 +197,13 @@ function isModified(key: string, value: any) {
           <div class="label-group">
             <label class="leaf-label">{{ key }}</label>
             <span v-if="isModified(key as string, value)" class="modified-dot"></span>
+            <span
+              v-if="tooltipText(key as string)"
+              class="tooltip-hint"
+              role="img"
+              :aria-label="tooltipText(key as string)"
+              :title="tooltipText(key as string)"
+            >⚠</span>
           </div>
           <div class="action-group">
             <button v-if="isModified(key as string, value)" class="restore-btn" :title="$t('registry.restoreDefault')" @click="restoreDefault(key as string)">↺</button>
@@ -200,6 +262,22 @@ function isModified(key: string, value: any) {
    brightness and is reserved for warning-level system messages.
    Preserved verbatim. */
 .modified-dot { width: 4px; height: 4px; border-radius: var(--radius-circle); background: #fbbf24; box-shadow: 0 0 4px #fbbf24; }
+
+/* The tooltip-hint glyph uses --state-warning (#f0a04a) — the
+   substrate's warning-level anchor, deliberately distinct from
+   .modified-dot's amber-400 so the two indicators read as
+   different concerns: amber dot = "you've edited this leaf",
+   warning glyph = "the value here has load-bearing semantics
+   you should know about." Hover surfaces the full text via the
+   native `title` attribute; aria-label mirrors it for assistive
+   tech. */
+.tooltip-hint {
+  color: var(--state-warning);
+  font-size: var(--text-emphasis);
+  cursor: help;
+  user-select: none;
+  line-height: 1;
+}
 
 .branch-label {
   color: var(--accent-primary); text-transform: uppercase; font-size: var(--text-body); font-weight: bold;

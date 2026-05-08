@@ -8,7 +8,7 @@ import { store } from '../store';
 import { backendService } from '../services/backend-service';
 import { serializeActivePath } from '../engine/sgf-writer';
 import { resolveGameName } from '../engine/util';
-import { compileAnalysisConfig } from '../services/analysis-config';
+import { compileAnalysisConfig, compileEngineOverrides } from '../services/analysis-config';
 import { useMetadata } from './useMetadata';
 import { computed } from 'vue';
 import type { BoardId, CardCreatePayload, GameMetadataPayload } from '../types';
@@ -87,8 +87,28 @@ export function useMinting() {
     // (`Record<string, any>`) because we mutate it below to add
     // `default_visits`. Without this, TypeScript would infer the narrower
     // object-literal type from the initializer and reject the mutation.
+    //
+    // The mint-time snapshot has two legs: `analysis_config` (palette)
+    // determines how the proxy enriches the response; `overrideSettings`
+    // (KataGo runtime overrides) determines what packets KataGo emits
+    // in the first place — winrate sign convention, symmetry sampling,
+    // root noise. Both are part of the stable analysis identity for
+    // this card; both are read back at review time by `useReviewSession`
+    // and threaded through `analyzeRange` so the replay matches the
+    // mint-time analysis posture exactly. The hash that buckets ledger
+    // entries combines both via `compileAnalysisDescriptorFromParts`.
+    //
+    // `compileEngineOverrides()` returns `undefined` when the user has
+    // no overrides configured; we conditionally include the field so a
+    // legacy card's snapshot shape (no `overrideSettings` key) is
+    // reachable as a deliberate "no overrides" semantic for future
+    // mints from a registry-cleared profile.
+    const overrideSettingsSnapshot = compileEngineOverrides();
     let grading_parameter: Record<string, any> = {
-      data: { analysis_config: compileAnalysisConfig() }
+      data: {
+        analysis_config: compileAnalysisConfig(),
+        ...(overrideSettingsSnapshot ? { overrideSettings: overrideSettingsSnapshot } : {}),
+      },
     };
 
     // If the user specified a specific default palette, compile just that one
@@ -105,7 +125,8 @@ export function useMinting() {
               },
               parameters: env.parameters,
               symbols: env.symbols
-            }
+            },
+            ...(overrideSettingsSnapshot ? { overrideSettings: overrideSettingsSnapshot } : {}),
           }
         };
       }

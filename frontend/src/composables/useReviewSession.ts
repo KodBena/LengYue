@@ -11,7 +11,11 @@ import { store, addBoard, mutateBoard, updateBoardState, mutateReviewSession, pu
 import { i18n } from '../i18n';
 import { backendService } from '../services/backend-service';
 import { analysisService } from '../services/analysis-service';
-import { activeConfigHash, hashConfig } from '../services/analysis-config';
+import {
+  activeConfigHash,
+  hashConfig,
+  compileAnalysisDescriptorFromParts,
+} from '../services/analysis-config';
 import { waitForAnalysis, AnalysisWaitError } from './wait-for-analysis';
 
 // @ts-ignore
@@ -284,16 +288,46 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     const s_1_id = nextBoard.currentNodeId as NodeId;
     const s_1_idx = s_0_idx + 1;
 
+    // Two-leg snapshot: palette (`analysis_config`) + KataGo runtime
+    // overrides (`overrideSettings`). The hash combines both via the
+    // descriptor helper so cards minted under different overrides
+    // (e.g. a 'WHITE'-framed card vs. a 'BLACK'-framed one) bucket
+    // separately in the ledger. Legacy cards minted before the
+    // overrideSettings field existed leave `rawOverrides` undefined,
+    // which the analyze-service interprets as "no overrides on the
+    // wire" — preserving the no-overrides analysis posture the card
+    // was minted under instead of bleeding the user's current
+    // registry overrideSettings into a snapshot replay.
     const rawConfig = currentCard.value?.gradingParameter?.data?.analysis_config;
+    const rawOverrides = currentCard.value?.gradingParameter?.data?.overrideSettings;
     const configOverride = rawConfig ? rawConfig : undefined;
-    const hash = configOverride ? hashConfig(configOverride) : activeConfigHash.value;
+    const overrideSettingsOverride =
+      configOverride !== undefined &&
+      rawOverrides &&
+      typeof rawOverrides === 'object' &&
+      !Array.isArray(rawOverrides)
+        ? (rawOverrides as Record<string, unknown>)
+        : undefined;
+    const hash = configOverride
+      ? hashConfig(
+          compileAnalysisDescriptorFromParts(configOverride, overrideSettingsOverride),
+        )
+      : activeConfigHash.value;
     // Single source of truth for the visits count — effectiveVisits
     // encapsulates the override-vs-default precedence. See the
     // computed's docstring for the resolution order.
     const visits = effectiveVisits.value;
 
     const newPath = getActiveVariationPath(nextBoard) as NodeId[];
-    analysisService.analyzeRange(nextBoard.id, newPath, s_0_idx, s_1_idx, visits, configOverride);
+    analysisService.analyzeRange(
+      nextBoard.id,
+      newPath,
+      s_0_idx,
+      s_1_idx,
+      visits,
+      configOverride,
+      overrideSettingsOverride,
+    );
 
     // Set up a fresh abort controller for this wait. loadCard will
     // trigger it if the user transitions cards while we're waiting.

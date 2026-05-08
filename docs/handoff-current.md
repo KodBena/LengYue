@@ -179,6 +179,55 @@ port could reuse.
   `npm run build` on the suite) remain explicit follow-ups, but
   the foundational gap — "no automated tests at all" — is closed.
 
+- **`reportAnalysisWinratesAs` non-WHITE: raw-packet normalisation
+  shipped; proxy-side palette enrichment still in wire framing.**
+  The KataGo `overrideSettings.reportAnalysisWinratesAs` setting
+  (surfaced in the registry editor as a typed dropdown per the
+  `WinrateFraming` union in `frontend/src/engine/katago/types.ts`)
+  controls the sign convention of `winrate`, `scoreLead`, and
+  `ownership` in response packets.
+
+  The receipt-time normalisation layer landed in
+  `frontend/src/engine/katago/winrate-framing.ts` and is wired
+  into `analysis-service.ts::onAnalysisUpdate`: every packet is
+  normalised to canonical 'WHITE' framing before
+  `ledger.record`, so the raw-packet consumers (liveness overlay,
+  score series, ownership renderer, move suggestions, the
+  bundle-export path, `waitForAnalysis`) see consistent signs
+  regardless of what the user asked KataGo for. The typed signed
+  scalars (winrate, scoreLead, ownership) are flipped at the
+  contract level; the commonly-emitted untyped siblings
+  (scoreMean, scoreSelfplay, utility, utilityLcb, lcb) are flipped
+  defensively when present.
+
+  The residual gap is **proxy-side palette enrichment**. The
+  proxy applies user-authored `state_fn` / `delta_fn` / `summary_fn`
+  expressions on KataGo's response BEFORE the packet reaches the
+  frontend. Those functions see the wire framing (whatever the
+  user asked for); the resulting `extra.state[turn]['Win Probability']`
+  values are in the wire framing, not in canonical 'WHITE'. So a
+  user with `reportAnalysisWinratesAs: 'BLACK'` who renders the
+  default `'Win Probability'` state_fn (which reads
+  `x["rootInfo"]["winrate"]`) sees a chart in BLACK framing even
+  though the raw packet's `rootInfo.winrate` is normalised to
+  WHITE.
+
+  Two paths to close this:
+    1. **Compensating state_fns** — author palette expressions
+       that read `player_sign(x)` (already in the seeded symbol
+       library) and multiply through. User-side fix; works for
+       custom palettes today.
+    2. **Proxy-side normalisation** — have the proxy normalise
+       packets to 'WHITE' before applying the palette, so
+       enrichment is always in canonical framing. Cross-team
+       arc; would land via dispatch.
+
+  Until either path closes, leaving the registry value at the
+  seeded 'WHITE' is the configuration that's consistent
+  end-to-end without bespoke state_fn authoring. The dropdown
+  lists all three accepted values; `engine/katago/winrate-framing.ts`'s
+  file header is the scope-of-the-fix reference.
+
 ---
 
 ## The backend
