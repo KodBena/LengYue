@@ -27,6 +27,41 @@ A contribution that fights any of these is wrong by default; if a
 specific case appears to warrant deviation, name it explicitly and
 ask before proceeding.
 
+## ADR-0002 applies to documentation consumption (LLM collaborators)
+
+ADR-0002 (fail loudly) applies with special force to LLM collaborators
+reading documentation for orientation. **The single gravest sin against
+ADR-0002 is to fail to read a piece of documentation from beginning to
+end, and then make any statement that references any part within it, no
+matter how small.** Failing loudly here means the user is never in the
+dark about whether the collaborator has actually seen the document being
+referenced. An LLM collaborator must never consume documentation
+partially.
+
+Concretely:
+
+- Orientation documents — `README.md`, `docs/handoff-current.md`,
+  `docs/adr-synopsis.md`, every ADR cited, every CLAUDE.md in scope,
+  every open dispatch under `docs/dispatch/` addressed to the current
+  sub-project — are read end to end before any claim about them is
+  made. The same applies to any further document those orientation
+  documents point at, when that document is the one being relied on.
+- A `grep`, search-tool hit, code-aware-IDE preview, or other partial
+  render is a pointer to read the file, not a substitute for reading
+  it. Acting on a fragment is the silent failure this section names.
+- If a document is too long to read in full given the immediate
+  budget, say so explicitly — name what was read, what was skipped,
+  and what the skipped portion might affect — and ask the user how to
+  proceed. Do not paper over the gap.
+- A statement that cites a section, an ADR number, a heading, a
+  filename, or a sentence from a document the collaborator has not
+  read end to end is itself the silent failure ADR-0002 forbids.
+  Surfacing the gap audibly is the only correct move.
+
+This composes with ADR-0004 (minimal-touch under partial visibility):
+when context is missing, ask for it; when context is present but
+unread, read it; either way, do not bluff.
+
 ## Documentation is part of the work
 
 Implementation is incomplete until the documentation graph reflects

@@ -9,6 +9,27 @@ Ports as Protocols, Pydantic v2 with `frozen=True`, Adapters in
 `repositories/`, Routers in `api/routes/`) determines how tests
 compose. The test tree mirrors the layering, not the file layout.
 
+## Reading documentation (ADR-0002 corollary)
+
+The umbrella `CLAUDE.md` names ADR-0002 (fail loudly) as applying with
+special force to documentation consumption: **the single gravest sin
+against ADR-0002 is to fail to read a piece of documentation from
+beginning to end, and then make any statement that references any part
+within it, no matter how small.** Failing loudly means the user is
+never in the dark about whether the collaborator has actually seen the
+document. Documentation must never be consumed partially.
+
+The local form for backend test-authoring: this file, the umbrella
+`CLAUDE.md`, `backend/CLAUDE.md`, `repositories/ports.py` when fakes
+are in scope, the existing fakes under `tests/fakes/` when extending
+or mirroring them, the closing-reflection note
+`docs/notes/test-coverage-2026-05.md`, and any cited fixture or helper
+file are read end to end before authoring — not skimmed for keywords,
+not relied on through search-result fragments. If reading is deferred
+for a budget reason, say so audibly — name what was read and what was
+skipped — and ask the user how to proceed. Bluffing a citation is the
+failure mode the umbrella section is shaped to prevent.
+
 ## Tier structure
 
 Three tiers, each with a different boundary:

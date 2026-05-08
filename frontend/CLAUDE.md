@@ -10,6 +10,26 @@ that follows — composables as pure-ish functions, branded types as
 specifications, ACLs as adapter boundaries — is the project's working
 language.
 
+## Reading documentation (ADR-0002 corollary)
+
+The umbrella `CLAUDE.md` names ADR-0002 (fail loudly) as applying with
+special force to documentation consumption: **the single gravest sin
+against ADR-0002 is to fail to read a piece of documentation from
+beginning to end, and then make any statement that references any part
+within it, no matter how small.** Failing loudly means the user is
+never in the dark about whether the collaborator has actually seen the
+document. Documentation must never be consumed partially.
+
+The local form for the frontend: this file, the umbrella `CLAUDE.md`,
+`tests/CLAUDE.md` when test-authoring is in scope, every cited ADR,
+`docs/handoff-current.md`, and any open dispatch under
+`docs/dispatch/` addressed to the frontend are read end to end before
+substantive work — not skimmed for keywords, not relied on through
+search-result fragments or IDE previews. If reading is deferred for a
+budget reason, say so audibly — name what was read and what was
+skipped — and ask the user how to proceed. Bluffing a citation is the
+failure mode the umbrella section is shaped to prevent.
+
 ## Architectural shape
 
 The frontend is layered:
