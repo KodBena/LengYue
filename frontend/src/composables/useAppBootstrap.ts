@@ -40,17 +40,51 @@ export function useAppBootstrap(
   const sync = new SyncService('user_workspace_01', auth);
   const qeubo = useQeubo();
 
-  // Restart active analyses whenever an overlay layer toggles. The flag
-  // gates a wire-level field (e.g. `includeOwnership`) that's set at
-  // query construction; in-flight queries don't pick up the new flag
-  // value, so a clean stop-then-reissue is the discipline-correct
-  // refresh. Deep watch so future overlay layers (policy, extension-
-  // provided metrics) inherit the same restart behaviour.
-  watch(
-    () => store.session.ui.overlayLayers,
-    () => analysisService.restartActiveAnalyses(),
-    { deep: true },
-  );
+  // ── Overlay-layer toggles are UI-only ──────────────────────────────
+  // No watcher on `store.session.ui.overlayLayers` here, deliberately.
+  //
+  // An earlier version of this composable carried a `deep: true`
+  // watcher that called `analysisService.restartActiveAnalyses()` on
+  // any change to the overlay tree. The justification was "the flag
+  // gates a wire-level field (`includeOwnership`); in-flight queries
+  // don't pick up the new flag value, so stop-then-reissue is the
+  // discipline-correct refresh."
+  //
+  // Two problems with that posture:
+  //
+  //   1. Some overlay sub-modes are entirely SPA-side projections of
+  //      data that's already in the cached packet. `liveness` reads
+  //      `decodedOwnership` (computed from `packet.ownership`) and
+  //      filters per stone-position; toggling it while `continuous`
+  //      or `dots` is already on changes nothing about the wire query
+  //      (`needsOwnership` stays true), but the unconditional restart
+  //      stops and re-issues the in-flight analysis anyway. Visible
+  //      to the user as analysis progress dropping back to zero on
+  //      a UI checkbox flip.
+  //
+  //   2. More fundamentally, a config-toggle that auto-fires an
+  //      expensive engine query is a costly-and-unexpected side
+  //      effect of the kind ADR-0002 is shaped to make explicit.
+  //      Display preferences should not initiate work the user
+  //      didn't ask for; the user re-triggers analysis when they
+  //      want fresh data.
+  //
+  // The consumer side is already wired for the "toggle is UI-only"
+  // semantics: `BoardWidget.vue`'s `continuousCells` / `dotsCells` /
+  // `livenessCells` all gate on both the toggle state AND on
+  // `decodedOwnership` being non-null. Toggle off → empty list →
+  // nothing renders. Toggle on with `ownership` in the packet →
+  // renders. Toggle on without `ownership` in the packet (because
+  // the original query went out without `includeOwnership: true`)
+  // → empty list → nothing renders. The user then runs a fresh
+  // analysis to fetch ownership data, which is the explicit
+  // re-trigger the user opted out of with the original toggle-off
+  // state.
+  //
+  // The separate qEUBO toolbar watcher below (Applied / A / B) is a
+  // different shape — clicking A is asking for analysis under
+  // proposal A's parameters, a genuine data-change request rather
+  // than a display preference — and stays as-is.
 
   // Propagate the user's intensity-gradient hue offset into the
   // suggestion-colors module. `immediate: true` syncs the engine to
