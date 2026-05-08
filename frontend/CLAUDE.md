@@ -161,7 +161,7 @@ rows, timers, document-level listeners) unless wired explicitly at
 the mutation site.
 
 The discipline is codified in
-`docs/notes/resource-ownership-audit-plan.md`'s §"Comment
+`docs/archive/notes/resource-ownership-audit-plan.md`'s §"Comment
 convention and authoring discipline". When introducing a new
 entity type or a new mutation function, walk the authoring
 checklist:

@@ -4,10 +4,10 @@
 started. This document is the canonical handle for the
 qEUBO-controls-anything ambition; it picks up the parking note
 filed during the 2026-05-02 theme-substrate session
-(`docs/dispatch/frontend-to-frontend-session-handoff-2026-05-02.md`,
+(`docs/archive/dispatch/frontend-to-frontend-session-handoff-2026-05-02.md`,
 "qEUBO over chrome — the user's parking note") and the matching
 "qEUBO over chrome" follow-up in
-`docs/worklog/2026-05-02-theme-substrate-a4.md`.
+`docs/archive/worklog/2026-05-v1.0-to-v1.1/2026-05-02-theme-substrate-a4.md`.
 
 **Motivation.** The existing qEUBO surface is shaped around
 `analysis_env.parameter_meta[name]`, where `name` is a flat key
@@ -283,15 +283,15 @@ cross-domain view is needed up front.
 - `docs/notes/qEUBO.md` — successor-session map for the qEUBO
   integration arc; the implementation status table that this
   follow-up plan sits downstream of.
-- `docs/dispatch/frontend-to-backend-qeubo-integration.md` — wire
+- `docs/archive/dispatch/frontend-to-backend-qeubo-integration.md` — wire
   contract for the optimizer service. The unification keeps the
   contract intact.
-- `docs/dispatch/frontend-to-frontend-session-handoff-2026-05-02.md`,
+- `docs/archive/dispatch/frontend-to-frontend-session-handoff-2026-05-02.md`,
   "qEUBO over chrome" section — the original parking note.
-- `docs/worklog/2026-05-02-theme-substrate-a4.md`, "qEUBO over
+- `docs/archive/worklog/2026-05-v1.0-to-v1.1/2026-05-02-theme-substrate-a4.md`, "qEUBO over
   chrome" follow-on — the matching forward-pointer from the
   theme-substrate sweep.
-- `docs/notes/frontend-theming-plan.md` — the Substrate-evolution
+- `docs/archive/notes/frontend-theming-plan.md` — the Substrate-evolution
   section names the decouple-via-alias and color-mix-derivation
   principles that interact with the transform library
   (`fixed-luminance-arc` and `lockstep-hue-rotate` work against

@@ -58,7 +58,7 @@ allowed to know about SQLAlchemy directly — that's an Adapter
 concern. The exception is genuinely simple endpoints that read a
 single table for a single field set; ADR-0003 documents the Band 1
 case where direct `users` access in `api/routes/auth.py` is
-appropriate (see `docs/dispatch/backend-to-frontend-auth-me-status.md`
+appropriate (see `docs/archive/dispatch/backend-to-frontend-auth-me-status.md`
 for the worked example, where no `UserRepositoryPort` was extracted
 because no second consumer exists).
 

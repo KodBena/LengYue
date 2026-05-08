@@ -9,9 +9,9 @@
 - **Genre:** System note — descriptive documentation of how
   analysis-persistence works in the codebase. Not the design
   negotiation record (that's the dispatch chain at
-  `docs/dispatch/frontend-to-backend-analysis-persistence.md`,
-  `docs/dispatch/backend-to-frontend-analysis-persistence-status.md`,
-  and `docs/dispatch/frontend-to-backend-analysis-persistence-status.md`).
+  `docs/archive/dispatch/frontend-to-backend-analysis-persistence.md`,
+  `docs/archive/dispatch/backend-to-frontend-analysis-persistence-status.md`,
+  and `docs/archive/dispatch/frontend-to-backend-analysis-persistence-status.md`).
 - **Date:** 2026-05-07.
 - **Scope:** Both `frontend/` and `backend/`. The cross-cutting
   arc landed on the `cross/analysis-persistence` branch.
@@ -259,13 +259,13 @@ this explicitly.
 
 ## Related
 
-- `docs/dispatch/frontend-to-backend-analysis-persistence.md` —
+- `docs/archive/dispatch/frontend-to-backend-analysis-persistence.md` —
   the original wire-shape proposal.
-- `docs/dispatch/backend-to-frontend-analysis-persistence-status.md` —
+- `docs/archive/dispatch/backend-to-frontend-analysis-persistence-status.md` —
   backend's wire/table/codec acknowledgement plus
   Confirmations (post-frontend-status) for the three
   clarifications.
-- `docs/dispatch/frontend-to-backend-analysis-persistence-status.md` —
+- `docs/archive/dispatch/frontend-to-backend-analysis-persistence-status.md` —
   frontend's status reply.
 - `docs/notes/tenancy.md` — the tenancy spine the analysis-
   bundle Port plugs into.

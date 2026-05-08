@@ -139,8 +139,9 @@ not.
 
 ### The incident
 
-In drafting `docs/dispatch/frontend-to-frontend-default-palette-`
-`metrics-spec.md`, the LLM author committed three statements about
+In drafting
+`docs/archive/dispatch/frontend-to-frontend-default-palette-metrics-spec.md`,
+the LLM author committed three statements about
 the symbol `spread` to the same artifact: (1) the informal semantic
 ("decisive position has spread → 1"); (2) the formal definition
 (`spread = max_visits / total_visits`); (3) an empirical claim

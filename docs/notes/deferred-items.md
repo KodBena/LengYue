@@ -367,7 +367,7 @@ this file.
 
 - **Surfaced:** 2026-05-03. **Closed:** 2026-05-06 in PR
   `frontend/foreststat-tagstat-acl`. Worklog:
-  `docs/worklog/2026-05-06-foreststat-tagstat-acl-translator.md`.
+  `docs/archive/worklog/2026-05-v1.0-to-v1.1/2026-05-06-foreststat-tagstat-acl-translator.md`.
   Pre-PR-0 of the Forest Directory hierarchical redesign arc.
 - **Outcome (ForestStat — real fix):** `mapForestStat` translator
   added at `services/backend-service.ts`; `ForestStat` in
@@ -403,7 +403,7 @@ this file.
 
 - **Surfaced:** 2026-05-02. **Closed:** 2026-05-03 in PR
   `frontend/anchor-decouple-via-alias`. Worklog:
-  `docs/worklog/2026-05-03-anchor-decouple-via-alias.md`. TODO
+  `docs/archive/worklog/2026-05-v1.0-to-v1.1/2026-05-03-anchor-decouple-via-alias.md`. TODO
   Completed row: under Frontend.
 - **Outcome:** Strict-scope decouple-via-alias landed for the
   two named overloading patterns. Five role aliases added to
@@ -419,7 +419,7 @@ this file.
   principle and the related "color-mix derivation over
   multi-tone anchor families" preference now live as a
   "Substrate evolution" section in
-  `docs/notes/frontend-theming-plan.md` — settled direction for
+  `docs/archive/notes/frontend-theming-plan.md` — settled direction for
   any future substrate-tuning PR, applicable to typography /
   spacing / animation / z-index by analogy when those SSOT
   refactors arrive.

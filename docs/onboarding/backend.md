@@ -68,8 +68,9 @@ bind every edit.
   milestone; items 32 and 34 closed the wire-rename work.
 - `backend/scripts/` — Hand-rolled migration scripts. One-shot,
   idempotent, dialect-aware (SQLite + Postgres). No Alembic.
-- `docs/worklog/` — Per-PR records; useful when the task
-  description references a specific shipped change.
+- `docs/worklog/` — Per-PR records for the current cycle; useful
+  when the task description references a specific shipped change.
+  Prior-cycle entries live under `docs/archive/worklog/<cycle>/`.
 
 ## Skip during onboarding
 
