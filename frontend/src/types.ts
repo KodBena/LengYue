@@ -431,6 +431,31 @@ export interface AppSettings {
       // itself is always manual regardless; the toggle controls only
       // the panel's visibility, not auto-save behaviour.
       analysisStorageEnabled: boolean;
+      // Engine-side runtime overrides forwarded verbatim to KataGo as
+      // the Analysis Engine's `overrideSettings` field. Documented at
+      // the wire-shape boundary on `KataGoAnalysisQuery` in
+      // `engine/katago/types.ts`; this entry is the registry-editable
+      // container the user mutates. Shape is `Record<string, unknown>`
+      // because the accepted-key set is engine-version-dependent and
+      // the surface here is intentionally an open dynamic node in
+      // RegistryEditor (add / remove keys, not a fixed-leaf form).
+      //
+      // A small set of keys carries frontend-side meaning and is
+      // typed via dedicated unions in `engine/katago/types.ts`
+      // (`WinrateFraming` for `reportAnalysisWinratesAs` is the
+      // current entry); RegistryEditor's `PATH_ENUMS` table mirrors
+      // these so the user gets a dropdown for the typed slots and
+      // free-text for the rest. Adding a new typed key: declare its
+      // union in `engine/katago/types.ts`, append a `PATH_ENUMS`
+      // entry rooted at `engine.katago.overrideSettings.<key>`.
+      //
+      // Defaults seeded in `store/defaults.ts`; backfilled by the
+      // schema-version 27 → 28 migration. Read by
+      // `services/analysis-service.ts` at every analyze call site,
+      // conditionally spread (an empty object is omitted from the
+      // wire so the user clearing every key falls back to KataGo's
+      // config-file values rather than overriding them with a no-op).
+      overrideSettings: Record<string, unknown>;
       analysis_env: AnalysisEnvironment;
     };
   };

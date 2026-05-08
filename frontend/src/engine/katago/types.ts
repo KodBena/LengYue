@@ -13,6 +13,47 @@ export type Player = 'B' | 'W';
 export type KataCoord = string;
 
 /**
+ * Accepted values for the KataGo Analysis Engine's
+ * `overrideSettings.reportAnalysisWinratesAs` setting. Controls the
+ * sign convention of `winrate`, `scoreLead`, and `ownership` in the
+ * response packets:
+ *
+ *   'BLACK'      — high winrate / +score / +ownership = Black favoured
+ *   'WHITE'      — high winrate / +score / +ownership = White favoured
+ *   'SIDETOMOVE' — perspective flips per move (KataGo's own default)
+ *
+ * This enum is exported and re-used by:
+ *
+ *   - the registry editor's dropdown table (`PATH_ENUMS` in
+ *     `components/RegistryEditor.vue`), so the user can't typo the
+ *     value;
+ *   - the receipt-time normalisation layer in
+ *     `engine/katago/winrate-framing.ts`, which flips the typed
+ *     signed scalars (winrate, scoreLead, ownership) plus the
+ *     defensively-handled untyped siblings (scoreMean, utility,
+ *     etc.) to canonical 'WHITE' framing before packets reach the
+ *     ledger. After normalisation, every consumer downstream sees
+ *     'WHITE'-framed packets regardless of what the user asked
+ *     KataGo for, fixing the inversion bug for raw-packet consumers.
+ *
+ * ── Residual limitation (proxy-side palette enrichment) ───────────
+ * The receipt-time normaliser flips raw-packet signed scalars only.
+ * Palette enrichment in `extra.*` is computed on the proxy side
+ * BEFORE packets reach the frontend, using the wire's framing —
+ * so a user with `reportAnalysisWinratesAs: 'BLACK'` receives
+ * `extra.state[turn]['Win Probability']` in BLACK framing even
+ * after the raw packet's `rootInfo.winrate` is normalised to
+ * WHITE. Custom palette state_fns reading signed scalars must
+ * compensate, or the user keeps the registry at 'WHITE' (the
+ * seeded default) for fully-consistent display. Tracking detail
+ * in `docs/handoff-current.md`'s "Known gaps (frontend)" and the
+ * scope discussion in `engine/katago/winrate-framing.ts`'s file
+ * header.
+ */
+export const WINRATE_FRAMINGS = ['BLACK', 'WHITE', 'SIDETOMOVE'] as const;
+export type WinrateFraming = typeof WINRATE_FRAMINGS[number];
+
+/**
  * Common fields for all queries sent to KataGo.
  */
 interface BaseQuery {
@@ -111,6 +152,38 @@ export interface KataGoAnalysisQuery extends BaseQuery {
    * or there's a cache miss).
    */
   readonly replay_final_only?: boolean;
+
+  // ─── Engine-side runtime overrides ─────────────────────────────────────────
+
+  /**
+   * Per-query overrides for engine-side settings normally configured
+   * via KataGo's analysis config file. Forwarded verbatim by the
+   * proxy (it does not introspect the keys); the upstream KataGo
+   * Analysis Engine documents the accepted set in
+   * `Analysis_Engine.md` under "overrideSettings" — common entries
+   * include `reportAnalysisWinratesAs` (a `WinrateFraming` —
+   * `'BLACK'` / `'WHITE'` / `'SIDETOMOVE'`),
+   * `rootNumSymmetriesToSample` (1..8), `wideRootNoise` (0..0.5+),
+   * `rootPolicyTemperature`, etc.
+   *
+   * Shape is deliberately opaque (`Record<string, unknown>`) at the
+   * wire level: the accepted set is engine-version-dependent and
+   * the user surfaces it through the registry editor as a dynamic
+   * node. Snake-case is NOT applied; KataGo's wire vocabulary here
+   * is camelCase (`reportAnalysisWinratesAs`, not
+   * `report_analysis_winrates_as`). Specific keys with frontend-side
+   * meaning (currently just `reportAnalysisWinratesAs`) are typed by
+   * dedicated unions exported above and constrained at the registry
+   * UI via `PATH_ENUMS`; the rest stay free-form.
+   *
+   * Currently optional: when absent, KataGo uses the values from its
+   * config file. The frontend defaults this to a non-empty seed (see
+   * `store/defaults.ts`) so a fresh install gets a sensible analysis
+   * posture out of the box; the call site conditionally spreads it
+   * so an empty dict (user cleared every key) does not pollute the
+   * wire with a no-op.
+   */
+  readonly overrideSettings?: Record<string, unknown>;
 
   // ─── Per-move enrichment payload ───────────────────────────────────────────
 

@@ -32,6 +32,47 @@ export const defaultSettings = {
       // panel via the registry editor; the save action is manual
       // regardless of this toggle.
       analysisStorageEnabled: true,
+      // Engine-side runtime overrides forwarded as KataGo's
+      // `overrideSettings` field on every analysis query. The seed
+      // values are a sensible default analysis posture for the SR
+      // study workflow:
+      //   `reportAnalysisWinratesAs: 'WHITE'` — the seeded default,
+      //     but no longer load-bearing for raw-packet correctness:
+      //     `engine/katago/winrate-framing.ts` normalises every
+      //     received packet to canonical 'WHITE' framing before the
+      //     ledger.record path, so the analysis-projection
+      //     consumers (liveness overlay, score series, ownership
+      //     renderer) get consistent sign conventions regardless of
+      //     what the user picks here. The residual concern is
+      //     proxy-side palette enrichment: `extra.*` values are
+      //     computed on the proxy in the wire's framing before
+      //     normalisation, so user-authored state_fns reading
+      //     `winrate` / `score_lead` against the raw packet produce
+      //     output in the wire's framing. The registry dropdown
+      //     lists all three accepted values per the `WinrateFraming`
+      //     union; 'WHITE' is the configuration that's consistent
+      //     end-to-end without bespoke state_fn authoring. Tracked
+      //     in `docs/handoff-current.md`'s "Known gaps (frontend)";
+      //   `rootNumSymmetriesToSample: 8` — average across all eight
+      //     board symmetries at the root for a more stable
+      //     evaluation than the single-symmetry default;
+      //   `wideRootNoise: 0.02` — small Dirichlet noise at the root
+      //     to surface plausible alternatives the policy head would
+      //     otherwise prune.
+      // Snake-case is NOT applied here; KataGo's wire vocabulary
+      // for these fields is camelCase. The registry editor renders
+      // this as a dynamic node (add / remove keys), so users can
+      // extend with `rootPolicyTemperature`, `analysisPVLen`, etc.
+      // without source edits. Wire-shape semantics documented on
+      // `KataGoAnalysisQuery.overrideSettings` in
+      // `engine/katago/types.ts`; the typed enum for the
+      // `reportAnalysisWinratesAs` value is `WinrateFraming` in
+      // the same file.
+      overrideSettings: {
+        reportAnalysisWinratesAs: 'WHITE',
+        rootNumSymmetriesToSample: 8,
+        wideRootNoise: 0.02,
+      },
       analysis_env: {
         // Symbol library per docs/dispatch/frontend-to-frontend-default-palette-metrics-spec.md.
         // Two semantic axes coexist:

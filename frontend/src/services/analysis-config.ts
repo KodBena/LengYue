@@ -2,9 +2,36 @@
  * src/services/analysis-config.ts
  * Pure utilities for compiling and hashing the Analysis Environment.
  *
+ * Two distinct concepts coexist here, and the ledger hash bridges
+ * them:
+ *
+ *   - `compileAnalysisConfig()` — the frontend palette compilation
+ *     (delta_fn, state_fns, summary_fn, parameters, symbols). Sent
+ *     to the proxy verbatim as the wire's `analysis_config` field;
+ *     the proxy applies it to compute per-move enrichment. Opaque
+ *     to KataGo (the proxy strips it before forwarding).
+ *
+ *   - `compileEngineOverrides()` — KataGo-side runtime settings the
+ *     user opts into via the registry editor (winrate framing,
+ *     symmetry sampling, root noise). Sent to KataGo verbatim as
+ *     the wire's `overrideSettings` field; the proxy forwards it
+ *     transparently. Affects what packets KataGo emits — winrate
+ *     sign convention is the canonical example: a user who flips
+ *     `reportAnalysisWinratesAs` from 'WHITE' to 'BLACK' would see
+ *     analysis numbers invert without a fresh ledger bucket.
+ *
+ * `compileAnalysisDescriptor()` is the holistic `{ analysis_config,
+ * overrideSettings }` envelope that determines what packets KataGo
+ * (via the proxy) returns. Hashing this envelope — not just the
+ * palette — is what guarantees a settings change buckets analyses
+ * separately. Both flows that need a stable hash (live navigation
+ * and card replay) compose the descriptor identically; the wire
+ * splits it back into the two top-level fields at the call site
+ * (see `analysis-service.ts`).
+ *
  * The qEUBO audition (toggle Applied / A / B in the toolbar) flows
- * through the `parameters` field below. When an experiment exists
- * and the toolbar is in 'A' or 'B' mode, the corresponding pair's
+ * through the `parameters` field. When an experiment exists and
+ * the toolbar is in 'A' or 'B' mode, the corresponding pair's
  * decoded values overlay `env.parameters`; the engine sees the
  * audition without the audition being persisted. `activeConfigHash`
  * is reactive on this overlay so analyses re-issue automatically
@@ -53,6 +80,68 @@ export function compileAnalysisConfig() {
   };
 }
 
+/**
+ * Compiles the engine-side runtime overrides (KataGo's
+ * `overrideSettings`) from the user's profile. Returns `undefined`
+ * when the dict is missing or empty so the descriptor below can
+ * elide the field entirely from the JSON serialisation — keeping
+ * the hash stable across the "user has no overrides" cohort and
+ * matching the wire's conditional-spread posture.
+ *
+ * Returned object is a fresh shallow copy: the consumer hashes /
+ * serialises it, never mutates it. Mutation upstream would only
+ * occur via the registry editor's emit path, which writes through
+ * `store.profile.settings` — but defensiveness here is cheap and
+ * matches `compileAnalysisConfig`'s "fresh-each-call" posture.
+ */
+export function compileEngineOverrides(): Record<string, unknown> | undefined {
+  const overrides = store.profile.settings.engine.katago.overrideSettings;
+  if (!overrides || typeof overrides !== 'object' || Array.isArray(overrides)) return undefined;
+  const keys = Object.keys(overrides);
+  if (keys.length === 0) return undefined;
+  return { ...overrides };
+}
+
+/**
+ * Holistic descriptor of every input that determines an analysis
+ * packet's content. Used as the hashing input for `activeConfigHash`
+ * and for the per-query hash in `analysis-service.ts`. Kept
+ * structural rather than wire-shaped so the proxy and KataGo each
+ * see only the field that concerns them: `analysis_config`
+ * (palette) goes to the proxy; `overrideSettings` goes to KataGo.
+ *
+ * `compileAnalysisDescriptorFromParts` is the symmetric helper for
+ * card-replay paths, where the palette and overrides come from a
+ * persisted snapshot rather than from live settings.
+ *
+ * Returns `undefined` when both legs of the descriptor are
+ * undefined — preserves the `hashConfig(undefined) === 'default'`
+ * contract for the rare case of no env / no palettes / no
+ * overrides.
+ */
+export function compileAnalysisDescriptor() {
+  return compileAnalysisDescriptorFromParts(
+    compileAnalysisConfig(),
+    compileEngineOverrides(),
+  );
+}
+
+export function compileAnalysisDescriptorFromParts(
+  analysis_config: unknown,
+  overrideSettings: Record<string, unknown> | undefined,
+) {
+  if (analysis_config === undefined && overrideSettings === undefined) {
+    return undefined;
+  }
+  // Explicit field order — the JSON.stringify ordering matters for
+  // the DJB2 hash to be stable. Keep `analysis_config` first so
+  // legacy palette-only descriptors (overrideSettings undefined,
+  // serialised as the field being absent) hash the same as a future
+  // reading of just the palette were that ever needed for
+  // back-compat introspection.
+  return { analysis_config, overrideSettings };
+}
+
 /** Fast, deterministic DJB2 hash for the config string */
 export function hashConfig(config: any): string {
   if (!config) return 'default';
@@ -64,8 +153,12 @@ export function hashConfig(config: any): string {
   return (hash >>> 0).toString(16);
 }
 
-/** 
+/**
  * A reactive computed for UI composables to track the current active hash.
- * Changes instantly when a palette is swapped or a symbol is edited.
+ * Changes instantly when a palette is swapped, a symbol is edited, OR a
+ * key in `engine.katago.overrideSettings` is added / removed / retyped.
+ * Including overrideSettings in the hash is what prevents two analyses
+ * with different KataGo runtime settings (e.g. winrate framing flipped
+ * from 'WHITE' to 'BLACK') from sharing a ledger bucket.
  */
-export const activeConfigHash = computed(() => hashConfig(compileAnalysisConfig()));
+export const activeConfigHash = computed(() => hashConfig(compileAnalysisDescriptor()));

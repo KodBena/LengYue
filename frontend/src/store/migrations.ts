@@ -87,7 +87,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 27;
+export const CURRENT_SCHEMA_VERSION = 28;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -829,6 +829,57 @@ export const migrations: Migration[] = [
       out.engine.activeMode = reKey(out.engine.activeMode);
     }
 
+    return out;
+  },
+  // 27 → 28: Surface KataGo engine-side runtime overrides in
+  // `engine.katago.overrideSettings`. v27 had no field; the analyze
+  // call sites in `services/analysis-service.ts` did not send an
+  // `overrideSettings` block at all, so KataGo used whatever
+  // values its config file declared (typically the upstream
+  // defaults — `reportAnalysisWinratesAs: 'SIDETOMOVE'`,
+  // `rootNumSymmetriesToSample: 1`, no root noise). v28 introduces
+  // the field with a non-empty seed:
+  //   reportAnalysisWinratesAs: 'WHITE'      (stable framing)
+  //   rootNumSymmetriesToSample: 8           (eight-symmetry average)
+  //   wideRootNoise: 0.02                    (small Dirichlet noise)
+  // The seed is a sensible default analysis posture for the SR
+  // study workflow; users can extend / replace via the registry
+  // editor (the path is whitelisted as a dynamic node).
+  //
+  // Idempotent: an existing object value is preserved verbatim
+  // (a hand-edited blob's deliberate choices survive); a missing
+  // or non-object field gets the seed. The non-empty default is
+  // a deliberate choice — it does mean existing users see a
+  // behavior change at upgrade time (their KataGo will start
+  // using the eight-symmetry average instead of the single
+  // symmetry, etc.). The change is small in the limit (a slightly
+  // more stable evaluation) and reversible by clearing the keys
+  // through the registry editor; the alternative — seeding empty
+  // and only honouring the request for new installs — splits the
+  // field's behaviour between cohorts in a way that drifts the
+  // user-visible analysis posture without recourse.
+  //
+  // Wire-shape semantics documented on
+  // `KataGoAnalysisQuery.overrideSettings` in
+  // `engine/katago/types.ts`; type-shape on
+  // `AppSettings.engine.katago.overrideSettings` in `types.ts`.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const katago = out.profile?.settings?.engine?.katago;
+    if (katago && typeof katago === 'object') {
+      const existing = katago.overrideSettings;
+      const isPlainObject =
+        existing !== null &&
+        typeof existing === 'object' &&
+        !Array.isArray(existing);
+      if (!isPlainObject) {
+        katago.overrideSettings = {
+          reportAnalysisWinratesAs: 'WHITE',
+          rootNumSymmetriesToSample: 8,
+          wideRootNoise: 0.02,
+        };
+      }
+    }
     return out;
   },
 ];
