@@ -227,6 +227,17 @@ about the long-term Router taxonomy.
 | `EchoRouter` | Nothing (synthetic) | Returns a canned response | Test seam |
 | `SelectorRouter` *(new)* | N upstream WebSocket LEAFs | Content-routed by `leafId` on the canonical query; **no fallback** | Missing field → reject; unknown `leafId` → reject; targeted LEAF unhealthy → reject for that LEAF only |
 
+**A note on `REDIRECT`.** The `PROXY_ROLE` env var has a fifth
+value, `REDIRECT`, that doesn't appear in this table. REDIRECT
+is a Layer 1 (Sessions) shortcut, not a Layer 3 Router: when a
+client connects, a `RedirectSession` tells the client to
+reconnect to one of the configured upstreams (round-robin) and
+the connection never reaches the Hub or Router. Per
+`proxy/README.md`'s "Roles" table, REDIRECT is a service-discovery
+handoff point, not a compatibility shim. So the proxy has five
+roles but only four Router subclasses, and SELECTOR is the
+fourth Router — not the fifth role.
+
 The SELECTOR shares the upstream-WebSocket connection management
 shape with `RelayRouter`. The two diverge on:
 
