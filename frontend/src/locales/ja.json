@@ -272,6 +272,7 @@
   "sgf.saved":                            "{filename} を保存しました。",
 
   "review.kataGoTimeout":                 "KataGo が {seconds} 秒以内に応答しませんでした。復習をキャンセル。",
+  "review.missingPerMoveDelta":           "KataGo の応答にあなたが打った手の評価値が含まれていませんでした (player={color}, 同色手番 {index})。復習をキャンセル。パレット設定またはプロキシエンリッチメントの問題が考えられます。",
 
   "review.session.intermission":          "インターミッション",
   "review.session.active":                "復習進行中",

@@ -335,6 +335,16 @@ export class AnalysisService {
     // values rather than wire-overriding them with a no-op.
     const hasOverrides =
       overrideSettings !== undefined && Object.keys(overrideSettings).length > 0;
+    // Snapshot mode (review-session card replay) waits for FINAL packets
+    // only — `useReviewSession.processUserMove` does
+    // `Promise.all([waitForAnalysis(s_0), waitForAnalysis(s_1)])` where
+    // both waits settle on `isDuringSearch === false`. Intermediate
+    // during-search packets are wasted bandwidth in that mode and
+    // churn the ledger's per-node version refs without changing what
+    // the consumer reads. Live mode keeps the 0.5s cadence so the
+    // analysis tab's reactive views update during ponder. The
+    // presence/absence of `reportDuringSearchEvery` is the
+    // realtime/replay distinction at the wire boundary.
     const query: KataGoAnalysisQuery = {
       id: queryId,
       moves,
@@ -345,7 +355,7 @@ export class AnalysisService {
       komi, // Added Komi mapping
       maxVisits: visits,
       ...cacheFlags,
-      reportDuringSearchEvery: 0.5,
+      ...(isSnapshotMode ? {} : { reportDuringSearchEvery: 0.5 }),
       analyzeTurns,
       ...(needsOwnership ? { includeOwnership: true } : {}),
       ...(hasOverrides ? { overrideSettings } : {}),
