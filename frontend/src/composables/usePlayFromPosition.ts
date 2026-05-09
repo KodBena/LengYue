@@ -137,11 +137,25 @@ function awaitFinalPacket(
  * Build the analyze query for "evaluate this position at the next
  * turn." Shared between the self-play loop and the one-shot top-move
  * helper.
+ *
+ * The `model` and `capabilities` parameters are optional pass-throughs
+ * for proxy v1.0.14+ contracts: SELECTOR routing and per-query
+ * capability opt-in. They have no SPA-side semantics here — the
+ * harness gives the caller direct control over them, distinct from
+ * the analysis-service's policy-driven injection (which is keyed on
+ * snapshot-mode, registry toggles, and the connected proxy's
+ * advertisement). This lets harness scenarios author multi-weights
+ * and LLM-at-seat policies that the autonomous-SR-loop note sketches:
+ * fire alternating `playEngineMoves({...,model:"strong"})` and
+ * `playEngineMoves({...,model:"weak"})` against one URL and the
+ * SELECTOR's labelled-pool routes them appropriately.
  */
 function buildAnalyzeQuery(
   board: BoardState,
   maxVisits: number,
   queryId: string,
+  model?: string,
+  capabilities?: Record<string, Record<string, unknown>>,
 ): { query: KataGoAnalysisQuery; expectedTurn: number } {
   const path = getActiveVariationPath(board);
   const moves = path
@@ -166,6 +180,8 @@ function buildAnalyzeQuery(
       komi: getKomi(board),
       maxVisits,
       analyzeTurns: [expectedTurn],
+      ...(model !== undefined ? { model } : {}),
+      ...(capabilities !== undefined ? { capabilities } : {}),
     },
     expectedTurn,
   };
@@ -193,6 +209,33 @@ export interface PlayEngineMovesOptions {
    * final return value.
    */
   readonly onMoveApplied?: (board: BoardState) => void;
+  /**
+   * SELECTOR routing key (proxy v1.0.15+). When set, every query
+   * fired by this loop carries `model: <label>`; the SELECTOR
+   * dispatches each to the corresponding upstream LEAF. Enables
+   * multi-weights harness policies — alternate strong/weak
+   * networks across moves by issuing two `playEngineMoves` calls
+   * with different `model` values against the same SELECTOR URL,
+   * or interleave per-position by stitching `queryEngineMove`
+   * calls in a host loop.
+   *
+   * On non-SELECTOR proxies the field is benign — the proxy
+   * forwards or ignores per its role contract; on SELECTOR with
+   * an unknown label, the proxy returns a `KataErrorResponse`
+   * (loud failure per ADR-0002) which surfaces through
+   * `awaitFinalPacket`'s error branch.
+   */
+  readonly model?: string;
+  /**
+   * Per-query capability opt-in (proxy v1.0.14+). When set,
+   * forwarded verbatim on every query. The harness owns the
+   * decision rather than reading from store — a test scenario
+   * may want to opt out of `delta_analysis` (skip the enricher
+   * for raw-packet timing measurement) or opt into
+   * `adaptive_reevaluate` with a custom `worst_quantile` that
+   * isn't represented in the user's registry. Pure pass-through.
+   */
+  readonly capabilities?: Record<string, Record<string, unknown>>;
 }
 
 /**
@@ -216,6 +259,8 @@ export async function playEngineMoves(opts: PlayEngineMovesOptions): Promise<Boa
         board,
         opts.maxVisits,
         `play-${turn}-${Date.now()}`,
+        opts.model,
+        opts.capabilities,
       );
       const packet = await awaitFinalPacket(client, query, expectedTurn, timeoutMs);
       const best = packet.moveInfos.find((m) => m.order === 0);
@@ -244,6 +289,10 @@ export interface QueryEngineMoveOptions {
   readonly board: BoardState;
   readonly maxVisits: number;
   readonly timeoutMs?: number;
+  /** See `PlayEngineMovesOptions.model` for the SELECTOR contract. */
+  readonly model?: string;
+  /** See `PlayEngineMovesOptions.capabilities` for the per-query opt-in contract. */
+  readonly capabilities?: Record<string, Record<string, unknown>>;
 }
 
 export interface EngineMoveResult {
@@ -266,6 +315,8 @@ export async function queryEngineMove(opts: QueryEngineMoveOptions): Promise<Eng
       opts.board,
       opts.maxVisits,
       `query-${Date.now()}`,
+      opts.model,
+      opts.capabilities,
     );
     const packet = await awaitFinalPacket(client, query, expectedTurn, opts.timeoutMs ?? DEFAULT_TIMEOUT_MS);
     const best = packet.moveInfos.find((m) => m.order === 0);

@@ -109,11 +109,11 @@ tree without surfacing the cross-boundary nature first.
 originally covered the proxy was lifted during the umbrella's v1.0.0
 release window — a bug surfaced (empty-board ponder via
 `analysis_config` leakage) that warranted a coordinated proxy bump
-rather than a frontend-only workaround. The current pin is **v1.0.13**;
+rather than a frontend-only workaround. The current pin is **v1.0.15**;
 later bumps follow the same coordinated arc (see the proxy's tag
 annotations for each release's full changelog).
 
-v1.0.13 is a structural release: it splits `KataGoResponse` into a
+v1.0.13 was a structural release: it splits `KataGoResponse` into a
 discriminated union (`AnalyzeResponse | MetadataResponse`) eliminating
 the v1.0.12 `query_models` transparency bug, renames cryptic top-level
 modules (`flt`/`bsa`/`baduk`/`rxp`/`reginterp`) to descriptive ones,
@@ -124,6 +124,36 @@ to KataGo clients is unchanged for analyze responses and gains
 transparency for metadata responses. See the v1.0.13 tag annotation
 for the full changelog and `proxy/docs/roadmap-response-variants.md`
 for the response-variants design rationale.
+
+v1.0.14 introduces two-sided capability negotiation: a `capabilities`
+dict on `query_version` responses (gated by
+`PROXY_ADVERTISE_CAPABILITIES=true`, default off) and a symmetric
+per-query opt-in on the analysis query payload. Three behavioural
+capabilities ride the new channel — `delta_analysis` (the
+`analysis_enricher` Transformer producing per-move enrichment),
+`transposition` (the `transposition_enricher` Transformer producing
+`clusterId`), and `adaptive_reevaluate` (the middleware that fires
+deeper follow-up queries on worst-quantile turns, with a
+`worst_quantile`/`extra_visits` metadata schema). Default semantics
+when the per-query field is absent is legacy auto-engage —
+v1.0.13-and-earlier clients continue working unchanged. The frontend
+side of this contract closes a pre-existing fail-loud violation
+around the registry's transposition toggle (silent no-op when the
+proxy lacks `goboard_transposition`).
+
+v1.0.15 introduces the SELECTOR role: a fourth Layer 3
+`BackendRouter` peer to `LeafRouter`/`RelayRouter`/`EchoRouter` that
+dispatches per-query against a labelled upstream pool. Configuration
+via the `SELECTOR_MODELS` env var (`label1=ws://host1,label2=ws://host2,…`);
+the wire `model: string` field on the analysis query is the routing
+key. A `selector` capability appears in the version-response
+advertisement so clients can feature-detect; `query_models` extends
+to enumerate the labelled set as `[{label}, …]`. Failure modes are
+loud per ADR-0002 (unknown label / unhealthy upstream → structured
+`KataErrorResponse`; duplicate labels at startup → `SelectorStartupError`).
+Together v1.0.14 and v1.0.15 enable real-time model-vs-model
+analysis and the multi-weights/LLM-at-seat policies the autonomous-SR
+loop note sketches.
 
 The proxy is independently developed with its own architecture
 (see `proxy/README.md`, `proxy/ARCHITECTURE.md`, `proxy/FRAMEWORK.md`)

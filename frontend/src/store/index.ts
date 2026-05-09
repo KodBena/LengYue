@@ -73,7 +73,18 @@ export const store = reactive<GlobalStore>({
       internalName: null,
       versionPayload: null,
       modelsPayload: null,
+      availableModels: [],
+      capabilities: null,
     },
+    // SELECTOR-mode model selection. Null means "no selection" —
+    // the wire `model` field is omitted on outgoing analysis queries.
+    // Set via `setSelectedModel` named mutator below; cleared back
+    // to null on disconnect (analysis-service's onDisconnect path)
+    // so a stale selection from a prior session doesn't carry into
+    // a freshly-connected proxy that may have a different upstream
+    // pool. Persisted through SyncService alongside other engine
+    // settings.
+    selectedModel: null,
   },
 });
 
@@ -95,6 +106,26 @@ export function mutateBoard(boardId: BoardId, fn: (draft: BoardState) => void): 
   fn(board);
   store.boards[index] = { ...board };
   boardsVersion.value++;
+}
+
+/**
+ * Set the SELECTOR-mode model selection. `null` clears the
+ * selection (the wire `model` field is omitted from subsequent
+ * analysis queries — appropriate when the user picks "no model"
+ * or when the SELECTOR advertisement disappears mid-session).
+ * Non-null sets it to the chosen label; the analysis-service ACL
+ * injects this into every outgoing analysis query.
+ *
+ * Validity is the caller's responsibility: passing a label that
+ * doesn't appear in `store.engine.info.availableModels` will
+ * surface as a `KataErrorResponse` from the proxy on the next
+ * query (per ADR-0002, the proxy refuses to silently substitute
+ * a different upstream). The Toolbar dropdown's option list is
+ * sourced from `availableModels`, so the typical UI-driven path
+ * cannot construct an invalid selection.
+ */
+export function setSelectedModel(label: string | null): void {
+  store.engine.selectedModel = label;
 }
 
 export function mutateReviewSession(boardId: BoardId, fn: (draft: ReviewSessionData) => void): void {

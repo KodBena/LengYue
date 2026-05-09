@@ -431,6 +431,41 @@ export interface AppSettings {
       // itself is always manual regardless; the toggle controls only
       // the panel's visibility, not auto-save behaviour.
       analysisStorageEnabled: boolean;
+      // Whether the analysis-service ACL injects the `transposition`
+      // capability into outgoing analysis queries (proxy v1.0.14+
+      // capability-negotiation contract). When the proxy advertises
+      // `transposition` in its `query_version` capabilities AND this
+      // toggle is on, the proxy's `transposition_enricher` Transformer
+      // engages on each query, producing the `clusterId` field on
+      // `KataMoveInfo` consumed by the cluster-rings overlay
+      // (`MoveSuggestions.vue` gated on `session.ui.showTranspositionRings`).
+      //
+      // Two independent toggles by deliberate separation of concerns:
+      //   - `engine.katago.useTransposition` (this one) — wire request:
+      //     does the proxy do the work? Costs the Python↔C++ boundary
+      //     when on. Persisted with the user's profile (a calibration
+      //     concern).
+      //   - `session.ui.showTranspositionRings` — rendering: does the
+      //     overlay paint the rings? Pure UI; persisted with the
+      //     session UI.
+      //
+      // Default `true` preserves pre-v1.0.14 behaviour (proxy
+      // unconditionally engaged the Transformer when wired); users
+      // who don't want the boundary cost can flip via the registry
+      // editor.
+      //
+      // ADR-0002 surfacing path: when the toggle is on but the proxy
+      // does NOT advertise the `transposition` capability (a v1.0.14+
+      // proxy with the module not compiled in, or
+      // `PROXY_ADVERTISE_CAPABILITIES=true` but the wiring absent),
+      // the analysis service pushes a one-shot system message naming
+      // the unmet capability so the user knows their toggle isn't
+      // being honoured. Wire request is omitted in that case (no
+      // point asking for what the proxy doesn't have).
+      //
+      // Schema-version 29 introduces this field; the migration
+      // backfills `true` on existing blobs to preserve behaviour.
+      useTransposition: boolean;
       // Engine-side runtime overrides forwarded verbatim to KataGo as
       // the Analysis Engine's `overrideSettings` field. Documented at
       // the wire-shape boundary on `KataGoAnalysisQuery` in
@@ -865,6 +900,37 @@ export interface EngineState {
   // tooltip can surface the privacy-concerning `name` field
   // (typically a filesystem path) on demand for debugging.
   info: EngineInfo;
+  // SELECTOR-mode model selection. Set when the proxy advertises
+  // `selector` on its `query_version` capabilities AND the user has
+  // chosen one of the labelled models from the Toolbar dropdown;
+  // `null` means "no selection" (LEAF mode, or SELECTOR mode where
+  // the user hasn't picked yet — the proxy will reject queries with
+  // missing/unknown `model` field per ADR-0002).
+  //
+  // Consumed at the analysis-service ACL: when non-null, injected
+  // into outgoing analysis queries as the `model` wire field
+  // (proxy reads, dispatches via labelled WebSocket pool, strips
+  // before forwarding to upstream LEAF). Above the ACL no module
+  // learns that model selection is happening — the selection is a
+  // proxy-routing concern, not a domain concern.
+  //
+  // Mutated through the named mutator `setSelectedModel` in
+  // `store/index.ts`; persists through SyncService like any other
+  // engine setting (see `closeBoard`'s comment on why the engine
+  // surface is intentionally preserved across the `resetWorkspace`
+  // identity-flip — the WebSocket URL is not user-keyed in the
+  // current local-machine deployment).
+  selectedModel: string | null;
+}
+
+export interface EngineModelEntry {
+  // Identifier the SPA passes back via the `model` query field
+  // when SELECTOR routing is in play. For SELECTOR-mode proxies
+  // this is the `label` field on each `models[i]` entry (an
+  // operator-chosen short name like `"strong"`); for LEAF-mode
+  // proxies the array has a single entry whose `label` is derived
+  // from `internalName` so the dropdown's data shape is uniform.
+  readonly label: string;
 }
 
 export interface EngineInfo {
@@ -873,7 +939,10 @@ export interface EngineInfo {
   // Short model identifier — `models[0].internalName` from KataGo's
   // `query_models` response. Short and path-free, suitable for
   // streaming / screenshare contexts where the filesystem-path
-  // `name` field would leak operator info.
+  // `name` field would leak operator info. On a SELECTOR proxy this
+  // is null (SELECTOR's synthesized `query_models` carries `label`
+  // not `internalName`); the Toolbar's MODEL slot reads
+  // `availableModels` instead in that mode.
   readonly internalName: string | null;
   // Full payloads of the two probe responses, retained verbatim so
   // a hover tooltip can show the entire engine response (including
@@ -882,6 +951,33 @@ export interface EngineInfo {
   // because the per-version response shape is loose at the wire.
   readonly versionPayload: Record<string, unknown> | null;
   readonly modelsPayload: Record<string, unknown> | null;
+  // Normalised model list — derived once at probe time from
+  // `modelsPayload.models[i]`, picking up either `.label` (SELECTOR
+  // mode) or `.internalName` (LEAF mode) per the dispatch's wire
+  // contract. Empty when neither field is parseable. Single-source
+  // for the Toolbar dropdown (rendered when `capabilities.selector`
+  // is present in the advertisement) and for the SELECTOR's routing
+  // key validation. Reactive-friendly readonly array; the analysis-
+  // service reassigns the entire `info` value object wholesale.
+  readonly availableModels: readonly EngineModelEntry[];
+  // Capability advertisement from `query_version`'s response (the
+  // optional `capabilities` field on `KataActionResponse`). Null when
+  // the field is absent — either a pre-v1.0.14 proxy, or a v1.0.14+
+  // proxy with `PROXY_ADVERTISE_CAPABILITIES=false` (the operator
+  // hasn't opted into surfacing capabilities yet). Non-null when the
+  // field is present, even when the dict is empty (proxy advertises
+  // "no capabilities at all" — distinct from "absent advertisement"
+  // semantically per the dispatch's Q1 sign-off; the SPA's
+  // capability-injection helper distinguishes legacy auto-engage
+  // from explicit empty advertisement when computing per-query
+  // opt-ins).
+  //
+  // Read by the analysis service to gate per-query capability
+  // injection (`delta_analysis`, `transposition`,
+  // `adaptive_reevaluate`) and by the Toolbar to gate the SELECTOR
+  // dropdown render (which requires `selector` in the advertised
+  // dict).
+  readonly capabilities: Record<string, Record<string, unknown>> | null;
 }
 
 export type ReviewStatus = 'IDLE' | 'LOADING' | 'AWAITING_MOVE' | 'ANALYZING' | 'FINISHED';

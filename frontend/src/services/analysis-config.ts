@@ -108,38 +108,54 @@ export function compileEngineOverrides(): Record<string, unknown> | undefined {
  * and for the per-query hash in `analysis-service.ts`. Kept
  * structural rather than wire-shaped so the proxy and KataGo each
  * see only the field that concerns them: `analysis_config`
- * (palette) goes to the proxy; `overrideSettings` goes to KataGo.
+ * (palette) goes to the proxy; `overrideSettings` goes to KataGo;
+ * `model` goes to a SELECTOR-role proxy as the routing key (and
+ * therefore selects the network that produces the packet).
  *
  * `compileAnalysisDescriptorFromParts` is the symmetric helper for
  * card-replay paths, where the palette and overrides come from a
- * persisted snapshot rather than from live settings.
+ * persisted snapshot rather than from live settings; the model is
+ * always read live (a card replayed under a different network is a
+ * different analysis and must bucket separately).
  *
- * Returns `undefined` when both legs of the descriptor are
+ * Returns `undefined` when all three legs of the descriptor are
  * undefined — preserves the `hashConfig(undefined) === 'default'`
  * contract for the rare case of no env / no palettes / no
- * overrides.
+ * overrides / no SELECTOR target.
  */
 export function compileAnalysisDescriptor() {
   return compileAnalysisDescriptorFromParts(
     compileAnalysisConfig(),
     compileEngineOverrides(),
+    store.engine.selectedModel ?? undefined,
   );
 }
 
 export function compileAnalysisDescriptorFromParts(
   analysis_config: unknown,
   overrideSettings: Record<string, unknown> | undefined,
+  model?: string,
 ) {
-  if (analysis_config === undefined && overrideSettings === undefined) {
+  if (
+    analysis_config === undefined &&
+    overrideSettings === undefined &&
+    model === undefined
+  ) {
     return undefined;
   }
   // Explicit field order — the JSON.stringify ordering matters for
-  // the DJB2 hash to be stable. Keep `analysis_config` first so
-  // legacy palette-only descriptors (overrideSettings undefined,
-  // serialised as the field being absent) hash the same as a future
-  // reading of just the palette were that ever needed for
-  // back-compat introspection.
-  return { analysis_config, overrideSettings };
+  // the DJB2 hash to be stable. `analysis_config` and
+  // `overrideSettings` come first in the order they shipped, so
+  // pre-SELECTOR descriptors (model undefined, serialised as the
+  // field being absent) hash identically to what they hashed before
+  // this leg was added. `model` last keeps that backward-compatible
+  // hash invariant: an `undefined` model is JSON-stringified as
+  // omitted, producing the same JSON byte-for-byte as the two-leg
+  // descriptor. When a SELECTOR target is selected, switching it
+  // produces a fresh hash → a fresh ledger bucket, so the move-
+  // suggestions visit-count gating doesn't compare strong-network
+  // packets against the prior weak-network's accumulated visits.
+  return { analysis_config, overrideSettings, model };
 }
 
 /** Fast, deterministic DJB2 hash for the config string */
@@ -155,10 +171,12 @@ export function hashConfig(config: any): string {
 
 /**
  * A reactive computed for UI composables to track the current active hash.
- * Changes instantly when a palette is swapped, a symbol is edited, OR a
- * key in `engine.katago.overrideSettings` is added / removed / retyped.
- * Including overrideSettings in the hash is what prevents two analyses
- * with different KataGo runtime settings (e.g. winrate framing flipped
- * from 'WHITE' to 'BLACK') from sharing a ledger bucket.
+ * Changes instantly when a palette is swapped, a symbol is edited, a
+ * key in `engine.katago.overrideSettings` is added / removed / retyped,
+ * OR the SELECTOR Toolbar dropdown selects a different network.
+ * Including all three legs in the hash is what prevents two analyses
+ * with different inputs (palette, KataGo runtime settings like winrate
+ * framing flipped from 'WHITE' to 'BLACK', or routing target like
+ * weak vs. strong network) from sharing a ledger bucket.
  */
 export const activeConfigHash = computed(() => hashConfig(compileAnalysisDescriptor()));

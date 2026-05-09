@@ -210,6 +210,85 @@ export interface KataGoAnalysisQuery extends BaseQuery {
    * (no `?`) is a one-character change at that point.
    */
   readonly analysis_config?: Record<string, unknown>;
+
+  // ─── Per-query capability opt-in (proxy v1.0.14+) ─────────────────────────
+  //
+  // Symmetric to the response-side `capabilities` advertisement on
+  // `query_version` (see `KataActionResponse.capabilities` below). Each
+  // entry the client lists is a request to engage that capability for
+  // this specific query; the wire shape is a dict-of-dicts
+  // (capability-name → metadata), where empty `{}` means "opt in with
+  // proxy defaults" and a populated metadata object parameterises the
+  // capability per-query.
+  //
+  // Initial behavioural capabilities (per the dispatch at
+  // `docs/dispatch/frontend-to-proxy-selector-and-capabilities.md` and
+  // its proxy-side status sibling):
+  //   - `delta_analysis` — engages the proxy's `analysis_enricher`
+  //     Transformer producing `extra.state` / `extra.<color>.deltas` /
+  //     `extra.<color>.triangular`. The SPA injects this on every
+  //     analysis query (universally required for review-session
+  //     grading and analysis-tab rendering).
+  //   - `transposition` — engages `transposition_enricher` so move
+  //     responses carry `clusterId` for the cluster-rings overlay.
+  //     Gated by `engine.katago.useTransposition` registry toggle AND
+  //     proxy advertisement.
+  //   - `adaptive_reevaluate` — engages the middleware that fires
+  //     deeper follow-up queries on worst-quantile turns. Engaged on
+  //     live range-based analysis only; omitted on snapshot-replay
+  //     and turn-locked review-session queries (whose timing
+  //     assumptions break under follow-ups).
+  //
+  // Default semantics when absent (legacy auto-engage per the
+  // dispatch's Q1 sign-off): the proxy auto-engages every wired
+  // Transformer and middleware, preserving v1.0.13-and-earlier
+  // behaviour for clients that haven't migrated. Clients that want
+  // explicit "engage nothing" send `capabilities: {}`.
+  //
+  // The dict-not-list shape is deliberate: capabilities can carry
+  // metadata schemas (e.g., `adaptive_reevaluate` accepts
+  // `worst_quantile` and `extra_visits`); a flat string list would
+  // foreclose on per-capability parameterisation. See the proxy-side
+  // sign-off (Q4) for the schema-formalisation discipline.
+  //
+  // Proxy-control field (never reaches the engine): the proxy reads
+  // and strips this before forwarding to KataGo. Semantics match the
+  // existing `cache` / `lookup_cache` / `analysis_config` family.
+  // Distinct from the four older controls in coalescing-key handling
+  // (Q6 sign-off): `capabilities` is *retain-in-hash* (different
+  // opt-in sets produce different transformer chains and therefore
+  // different response artefacts), where the older four are
+  // *strip-before-hash*.
+  readonly capabilities?: Record<string, Record<string, unknown>>;
+
+  // ─── SELECTOR routing key (proxy v1.0.15+) ────────────────────────────────
+  //
+  // Names which upstream the SELECTOR role should route this query to.
+  // Matches a label declared in the proxy's `SELECTOR_MODELS` env var
+  // (`label1=ws://host1:port1,label2=ws://host2:port2`). Proxy reads
+  // the field, dispatches via the labelled WebSocket pool, and strips
+  // the field from the payload before forwarding to the upstream
+  // LEAF — vanilla KataGo doesn't know about it.
+  //
+  // The frontend sets this only when a model has been selected via the
+  // SELECTOR Toolbar dropdown (which itself only renders when the
+  // proxy advertises `selector` on `query_version`'s response). On a
+  // LEAF / RELAY / ECHO proxy the field has no meaning; clients should
+  // omit it.
+  //
+  // Proxy-control field with the same lifecycle as `capabilities`
+  // above: never reaches the engine; *retain-in-hash* in coalescing.
+  // Two queries identical except for `model` route to different
+  // upstreams and produce genuinely different responses, so they
+  // must not coalesce.
+  //
+  // Failure modes per ADR-0002 (the proxy enforces these; the
+  // frontend surfaces what it sees back):
+  //   - Unknown label → SELECTOR returns a `KataErrorResponse` with
+  //     `field: "model"` naming the unknown label.
+  //   - Upstream LEAF down mid-session → same disposition (loud
+  //     abort, no failover to a different model).
+  readonly model?: string;
 }
 
 /**
@@ -315,6 +394,46 @@ export interface KataActionResponse {
   readonly action: string;
   readonly version?: string;    // from query_version
   readonly models?: readonly unknown[]; // from query_models
+
+  // ─── Capability advertisement (proxy v1.0.14+) ────────────────────────────
+  //
+  // Server-side capability advertisement attached to `query_version`
+  // responses by any proxy role whose Transformer chain includes
+  // `capabilities_advertiser`. Each key is a capability name; each
+  // value is the metadata dict the proxy publishes for that
+  // capability (empty `{}` for capabilities without per-query knobs).
+  //
+  // Symmetric to the per-query opt-in field on
+  // `KataGoAnalysisQuery.capabilities` above — what the proxy
+  // advertises here is the universe of capabilities the client may
+  // opt into per query. See that field's docstring for the engagement
+  // semantics, the legacy auto-engage default, and the four initial
+  // capabilities (`delta_analysis`, `transposition`,
+  // `adaptive_reevaluate`, `selector`).
+  //
+  // Three behavioural capabilities (`delta_analysis`, `transposition`,
+  // `adaptive_reevaluate`) and one routing capability (`selector`) are
+  // expected at v1.0.15+. The routing capability is advertisement-only
+  // — `selector` never appears on the query side; it gates whether
+  // the SPA renders the model dropdown UI at all.
+  //
+  // Field is *optional* on the wire because:
+  //   - Pre-v1.0.14 proxies don't emit it. The frontend reads its
+  //     absence as "legacy auto-engage path" and stays on the path
+  //     that was correct before this protocol existed.
+  //   - v1.0.14+ proxies emit it only when
+  //     `PROXY_ADVERTISE_CAPABILITIES=true` is set in the environment
+  //     (default false — operators with unknown clients can update
+  //     without fear of breaking parsers that don't tolerate unknown
+  //     JSON fields). The default-off shape means the SPA will see
+  //     this field only on intentionally-opted-in deployments.
+  //
+  // Read once per WebSocket open by `analysis-service.ts::probeEngineInfo`
+  // and stored on `store.engine.info.capabilities`. The connection
+  // refusal path fires when the field IS present but the SPA's
+  // universally-required `delta_analysis` is missing — per the
+  // dispatch's *Frontend will not* exception clause.
+  readonly capabilities?: Record<string, Record<string, unknown>>;
 }
 
 export interface KataErrorResponse {

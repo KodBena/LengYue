@@ -87,7 +87,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 28;
+export const CURRENT_SCHEMA_VERSION = 29;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -878,6 +878,41 @@ export const migrations: Migration[] = [
           rootNumSymmetriesToSample: 8,
           wideRootNoise: 0.02,
         };
+      }
+    }
+    return out;
+  },
+  // 28 → 29: Surface the wire-request gate for the `transposition`
+  // capability under the proxy v1.0.14+ capability-negotiation
+  // contract. v28 had no field; the analysis-service unconditionally
+  // omitted any per-query `capabilities` opt-in, falling through to
+  // the proxy's legacy auto-engage path (every wired Transformer
+  // engaged on every query). v29 introduces an explicit
+  // `engine.katago.useTransposition: boolean` toggle that gates
+  // whether the SPA injects `transposition: {}` into the per-query
+  // capabilities dict.
+  //
+  // Default `true` preserves pre-v29 behaviour: clients hitting a
+  // v1.0.14+ proxy with `PROXY_ADVERTISE_CAPABILITIES=true` will
+  // continue to receive transposition-enriched packets (the
+  // `clusterId` field on `KataMoveInfo` consumed by the cluster-rings
+  // overlay). Users can flip via the registry editor to skip the
+  // Python↔C++ boundary cost when they don't render rings.
+  //
+  // Idempotent: an existing boolean value is preserved verbatim
+  // (a hand-edited blob's deliberate choice survives); a missing or
+  // non-boolean field gets the `true` default.
+  //
+  // Wire-shape semantics documented on
+  // `KataGoAnalysisQuery.capabilities` in `engine/katago/types.ts`;
+  // type-shape on `AppSettings.engine.katago.useTransposition` in
+  // `types.ts`.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const katago = out.profile?.settings?.engine?.katago;
+    if (katago && typeof katago === 'object') {
+      if (typeof katago.useTransposition !== 'boolean') {
+        katago.useTransposition = true;
       }
     }
     return out;

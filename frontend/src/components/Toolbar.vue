@@ -6,7 +6,7 @@
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import QeuboToolbar from './QeuboToolbar.vue';
-import { store } from '../store';
+import { store, setSelectedModel } from '../store';
 import type { EngineStatus, EngineMetrics } from '../types';
 
 const { t } = useI18n();
@@ -32,17 +32,33 @@ const engineBtnLabel = computed(() => isConnected.value ? t('toolbar.disconnect'
 // Engine identity (KataGo `query_version` + `query_models` probe).
 // Two separate slots — VERSION and MODEL — each with its own
 // hover tooltip showing the full corresponding probe payload.
-// The model slot displays `models[0].internalName` (KataGo's short
-// self-identifier) because the alternative `name` field on most
-// installs is the model file's full pathname, which leaks operator
-// info during streaming or screenshare; the full `query_models`
-// response (including `name`) is reachable via the model slot's
-// tooltip on demand. Reads `store.engine.info` directly; populated
-// by analysisService on each fresh WebSocket open. Slots render
-// unconditionally while connected with a `—` placeholder during
-// the connect-and-probe window so layout stays stable.
+// The model slot's render shape varies by proxy role:
+//
+//   - LEAF / RELAY / ECHO (or SELECTOR-not-advertised): static
+//     label showing `models[0].internalName` (KataGo's short
+//     self-identifier — short and path-free, suitable for
+//     streaming / screenshare contexts).
+//   - SELECTOR (capabilities.selector advertised): `<select>`
+//     dropdown sourced from `engine.info.availableModels` (each
+//     entry's `label` field). Selection writes to
+//     `engine.selectedModel` via the named mutator and persists
+//     through SyncService.
+//
+// In both modes the slot's hover tooltip surfaces the full
+// `query_models` payload (including the privacy-concerning `name`
+// field on LEAF mode) for debugging.
 const engineInternalName = computed(() => store.engine.info.internalName);
 const engineVersion = computed(() => store.engine.info.version);
+const isSelectorMode = computed(() => {
+  const caps = store.engine.info.capabilities;
+  return caps !== null && 'selector' in caps;
+});
+const availableModels = computed(() => store.engine.info.availableModels);
+const selectedModel = computed(() => store.engine.selectedModel);
+function onSelectModel(event: Event) {
+  const target = event.target as HTMLSelectElement;
+  setSelectedModel(target.value || null);
+}
 const versionTooltip = computed(() => {
   const payload = store.engine.info.versionPayload;
   return payload
@@ -81,7 +97,19 @@ const modelTooltip = computed(() => {
       </div>
       <div class="metric engine-identity" :title="modelTooltip">
         <span class="m-lbl">{{ $t('toolbar.metric.model') }}</span>
-        <span class="m-val engine-id-val">{{ engineInternalName ?? '—' }}</span>
+        <select
+          v-if="isSelectorMode"
+          class="m-val engine-id-val engine-model-select"
+          :value="selectedModel ?? ''"
+          @change="onSelectModel"
+        >
+          <option
+            v-for="entry in availableModels"
+            :key="entry.label"
+            :value="entry.label"
+          >{{ entry.label }}</option>
+        </select>
+        <span v-else class="m-val engine-id-val">{{ engineInternalName ?? '—' }}</span>
       </div>
       <div class="metric">
         <span class="m-lbl">{{ $t('toolbar.metric.pps') }}</span>
@@ -134,6 +162,15 @@ const modelTooltip = computed(() => {
    response, including the privacy-concerning `name` field). */
 .engine-identity { flex-shrink: 0; }
 .engine-version-val, .engine-id-val { white-space: nowrap; cursor: help; }
+/* SELECTOR-mode model dropdown. The .m-val class on the same
+   element supplies the accent colour + bold weight; this rule
+   overrides only the chrome — transparent background + thin
+   border so it reads as a native part of the metrics row rather
+   than a heavy form control. font-family is set explicitly
+   because <select> elements default to system-UI typography and
+   wouldn't inherit the surrounding monospace; pointer cursor
+   overrides .engine-id-val's `help`. */
+.engine-model-select { background: transparent; border: 1px solid var(--border-3); padding: 0 var(--space-tight); border-radius: var(--radius-default); cursor: pointer; font-family: monospace; font-size: var(--text-emphasis); }
 .engine-controls { display: flex; gap: var(--space-tight); flex-shrink: 0; }
 /* magic-literal: .toolbar-btn padding `1px 5px` — toolbar buttons are
    visually-compact one-line action triggers; tighter than the substrate's

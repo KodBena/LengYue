@@ -310,9 +310,16 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
       !Array.isArray(rawOverrides)
         ? (rawOverrides as Record<string, unknown>)
         : undefined;
+    // Read the current SELECTOR target live so a card replay under a
+    // different network buckets separately in the ledger from a prior
+    // replay under another network. `activeConfigHash` already
+    // accounts for this in the non-snapshot branch (its source reads
+    // `store.engine.selectedModel` too).
     const hash = configOverride
       ? hashConfig(
-          compileAnalysisDescriptorFromParts(configOverride, overrideSettingsOverride),
+          compileAnalysisDescriptorFromParts(
+            configOverride, overrideSettingsOverride, store.engine.selectedModel ?? undefined,
+          ),
         )
       : activeConfigHash.value;
     // Single source of truth for the visits count — effectiveVisits

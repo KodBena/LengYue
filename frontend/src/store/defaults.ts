@@ -32,6 +32,18 @@ export const defaultSettings = {
       // panel via the registry editor; the save action is manual
       // regardless of this toggle.
       analysisStorageEnabled: true,
+      // Wire-request gate for the `transposition` capability under
+      // the proxy v1.0.14+ capability-negotiation contract. Default
+      // `true` preserves the pre-v1.0.14 behaviour where the proxy's
+      // `transposition_enricher` Transformer was unconditionally
+      // engaged when wired; users who want to skip the Python↔C++
+      // boundary cost can flip via the registry editor. Independent
+      // of `session.ui.showTranspositionRings` (the rendering toggle)
+      // — see `AppSettings.engine.katago.useTransposition` in
+      // `types.ts` for the separation-of-concerns rationale and the
+      // ADR-0002 surfacing path when the toggle is on but the proxy
+      // doesn't advertise the capability.
+      useTransposition: true,
       // Engine-side runtime overrides forwarded as KataGo's
       // `overrideSettings` field on every analysis query. The seed
       // values are a sensible default analysis posture for the SR

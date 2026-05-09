@@ -160,6 +160,33 @@ see `frontend/README.md` for the full justification). The ACL at
 refactors that rename a field produce TypeScript compile errors
 at every site that reads the old name.
 
+**The proxy v1.0.14+ capability-negotiation contract is consumed.**
+`analysis-service.ts::probeEngineInfo` reads the optional
+`capabilities` advertisement from `query_version`'s response into
+`store.engine.info.capabilities`; per-query opt-in is built by the
+pure helper in `engine/katago/capability-injection.ts` at every
+analyze call site. The SPA always opts in to `delta_analysis`
+(refusing the connection at probe time if a capability-aware proxy
+lacks it), opts in to `transposition` when the new
+`engine.katago.useTransposition` registry toggle is on AND the proxy
+advertises it (with a probe-time system-message warning when the
+toggle is on but the capability is absent), and opts in to
+`adaptive_reevaluate` on live range-based queries only (omitted on
+snapshot replays so review-session timing stays turn-locked).
+SELECTOR routing surfaces as a Toolbar dropdown gated on
+`capabilities.selector` and a `model: string` field injected at the
+ACL when `store.engine.selectedModel` is non-null; the test-harness
+exports (`playEngineMoves` / `queryEngineMove` in
+`composables/usePlayFromPosition.ts`) gain optional `model` and
+`capabilities` parameters for the multi-weights and LLM-at-seat
+scenarios the autonomous-SR loop note sketches. The
+contract reference lives in the dispatch chain at
+`docs/dispatch/frontend-to-proxy-selector-and-capabilities.md`
+(frontend ask), `docs/dispatch/proxy-to-frontend-selector-and-capabilities-status.md`
+(proxy sign-off, six open questions answered including the Q6
+canonical-key bifurcation), and the frontend-side design note at
+`docs/notes/proxy-selector-and-capability-negotiation.md`.
+
 The frontend is **domain-specific to Go**. ADR-0003 documents
 this honestly: roughly 30-40% of the frontend is Go-bound (the
 SGF parsing, board renderer, KataGo wire vocabulary), with the

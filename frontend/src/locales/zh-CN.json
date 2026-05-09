@@ -266,6 +266,8 @@
   "sync.saveFailed":                      "同步:保存工作区失败。最近的更改尚未保存到服务器。",
 
   "analysis.websocketDisconnected":       "WebSocket 已断开(代码:{code})。{reason}",
+  "analysis.proxyMissingDeltaAnalysis":   "KataGo 代理已通告 capabilities,但未包含 `delta_analysis`。本代理无法提供逐手评估和分析面板的丰富数据,即将断开连接。",
+  "analysis.proxyMissingTransposition":   "转置开关为启用状态,但 KataGo 代理未通告 `transposition` 能力。聚类环将不会显示;在注册表中关闭该开关可抑制此警告,或确认代理已包含 `goboard_transposition` 模块的编译。",
 
   "sgf.noActiveBoard":                    "无活动棋盘可保存。",
   "sgf.serialisationFailed":              "SGF 序列化失败:{detail}",

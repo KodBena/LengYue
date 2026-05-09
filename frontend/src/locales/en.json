@@ -266,6 +266,8 @@
   "sync.saveFailed":                      "Sync: failed to save workspace. Your recent changes are not on the server yet.",
 
   "analysis.websocketDisconnected":       "WebSocket Disconnected (Code: {code}). {reason}",
+  "analysis.proxyMissingDeltaAnalysis":   "KataGo proxy advertises capabilities but does not list `delta_analysis`. Per-move grading and analysis-tab enrichment cannot run on this proxy. Disconnecting.",
+  "analysis.proxyMissingTransposition":   "Transposition toggle is on, but the KataGo proxy does not advertise the `transposition` capability. Cluster rings will not appear; flip the toggle off in the registry to suppress this warning, or check that the proxy was built with the `goboard_transposition` module.",
 
   "sgf.noActiveBoard":                    "No active board to save.",
   "sgf.serialisationFailed":              "SGF serialisation failed: {detail}",

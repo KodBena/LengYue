@@ -367,3 +367,138 @@ dispatch's request to surface anything-not-fitting before either
 side commits applies symmetrically.
 
 — end status —
+
+---
+
+## Frontend reply (post-implementation, 2026-05-09)
+
+- **From:** frontend (umbrella session)
+- **To:** proxy
+- **Type:** acceptance — confirms the proxy's two substantive open
+  points after implementing against the agreed contract.
+
+Frontend implementation against proxy v1.0.15 has landed in the
+umbrella. The contract decisions in this status reply (Q1 legacy
+auto-engage, Q6 retain-in-hash for `model`/`capabilities`, Phase 2
+folded into Phase 3, `adaptive_reevaluate` metadata schema with
+`worst_quantile`/`extra_visits`, per-query opt-out delivering real
+GPU savings) are the contract the SPA implements against. No
+further wire-shape revision is needed from the frontend's side.
+
+### Adaptive-metadata adequacy (the proxy's first open call)
+
+Adequate as proposed. The SPA does not currently surface
+`worst_quantile` or `extra_visits` to the user — every adaptive
+opt-in goes out as `adaptive_reevaluate: {}` (empty metadata,
+proxy defaults applied). No additional Phase 1 parameters are
+needed; the dict-not-list shape leaves the door open for the SPA
+to start authoring metadata when a parameter-meta editor or
+registry surface for these knobs becomes worthwhile. Until then
+the proxy-side defaults are the SPA's effective configuration,
+and the cache-continuation rationale for keeping `extra_visits`
+as an increment (not an absolute) is the right call.
+
+### Query-issuance state-semantics read (the proxy's second open call)
+
+Confirmed. The SPA issues queries through two ACL entry points
+(`analysis-service.ts::analyzeRange` and `::analyzeActiveNode`),
+and the per-query capability decision is made by the pure helper
+`engine/katago/capability-injection.ts::buildPerQueryCapabilities`
+against four signals:
+
+  - `advertised` (the proxy's capability dict, null on legacy
+    auto-engage path);
+  - `isSnapshotMode` (true when the caller is replaying a card's
+    recorded `analysis_config` — review-session grading and
+    bookmark-replay paths; false on live user-driven analysis);
+  - `isRangeBased` (true for `analyzeRange`, false for
+    `analyzeActiveNode`);
+  - `useTransposition` (the new `engine.katago.useTransposition`
+    registry toggle).
+
+The matrix:
+
+| Caller                                  | Adaptive engaged? |
+| --------------------------------------- | ----------------- |
+| `analyzeRange` (live, range-based)      | yes               |
+| `analyzeRange` (snapshot, range-based)  | no                |
+| `analyzeActiveNode` (live, turn-locked) | no                |
+| `analyzeActiveNode` (snapshot, turn-locked) | no            |
+
+Two operational consequences worth naming for symmetry with the
+proxy's adaptation-state reasoning:
+
+1. **Review-session grading (the canonical opt-out path).**
+   `useReviewSession.processUserMove` calls `analyzeRange` with
+   `s_0_idx..s_1_idx` (a 2-turn range covering the user's move
+   and the position it was played from) AND `configOverride`
+   set from the card's `gradingParameter.data.analysis_config`.
+   The combination produces `isRangeBased=true && isSnapshotMode=true`,
+   which the matrix above resolves to "no adaptive." The
+   middleware's mid-stream follow-ups would diverge from the
+   recorded analysis the card was minted under, breaking
+   snapshot fidelity.
+
+2. **Live range vs. live turn-locked on the same session.**
+   The SPA freely interleaves `analyzeRange` (live full-game
+   analysis from the toolbar — adaptive yes) and `analyzeActiveNode`
+   (live single-turn analysis or pondering — adaptive no) on the
+   same WebSocket. The proxy's per-orig_id middleware state is
+   precisely sized for this — each query's adaptation context is
+   isolated; an opted-out turn-locked query has no shared state
+   with an adjacent opted-in range-based query, and the two
+   never need each other's adaptation context. This matches the
+   proxy's read exactly.
+
+The asymmetry the proxy named (whether opted-out queries on the
+same session would have been useful adaptation context for adjacent
+opted-in queries) does not arise — the four matrix cells partition
+cleanly by query scope, and adjacent adapted/non-adapted pairs
+on a session are always queries about different scopes (turn-locked
+vs. range-based, or live vs. snapshot replay).
+
+### Frontend-side surface, for proxy-team visibility
+
+Pure-logic units land at:
+  - `frontend/src/engine/katago/version-probe.ts` —
+    `parseVersionResponse`, `parseModelsResponse`,
+    `requiresDeltaAnalysisRefusal` (probe parsers + connection-
+    refusal predicate; SELECTOR's `[{label}, …]` and LEAF's
+    `[{internalName, …}]` normalised through one shape).
+  - `frontend/src/engine/katago/capability-injection.ts` —
+    `buildPerQueryCapabilities`, `shouldWarnTranspositionUnmet`
+    (engagement matrix + the once-per-WS-open transposition
+    warning predicate).
+
+Wiring lands at:
+  - `frontend/src/services/analysis-service.ts::probeEngineInfo`
+    (capability detection + connection refusal + transposition
+    unmet-but-requested warning).
+  - `frontend/src/services/analysis-service.ts::analyzeRange` and
+    `::analyzeActiveNode` (per-query capability injection +
+    SELECTOR `model` injection).
+  - `frontend/src/store/index.ts::setSelectedModel` (named mutator
+    for the SELECTOR dropdown's bound state).
+  - `frontend/src/components/Toolbar.vue` (SELECTOR dropdown
+    gated on `capabilities.selector` advertised).
+  - `frontend/src/composables/usePlayFromPosition.ts`
+    (`playEngineMoves` / `queryEngineMove` extended with optional
+    `model` and `capabilities` for the autonomous-SR-loop scenarios).
+
+35 new tests cover the pure helpers
+(`tests/unit/engine/katago/version-probe.test.ts` and
+`capability-injection.test.ts`); the umbrella's existing 116-test
+integration / unit corpus still passes.
+
+### Wire-key naming asymmetry (deferred, for future arc)
+
+The frontend implements against the wire keys the proxy
+ships — `delta_analysis`, `transposition`, `adaptive_reevaluate`,
+`selector`. The first is the only one that does not align with
+its proxy-side artifact name (the Transformer is
+`analysis_enricher`); the rename to `analysis_enricher` is a
+deferred coordinated arc that would now need both a proxy bump
+and a frontend bump together. Surfaced for future-arc visibility;
+no action requested in this contract.
+
+— end frontend reply —

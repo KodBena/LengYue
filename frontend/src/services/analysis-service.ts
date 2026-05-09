@@ -16,6 +16,15 @@ import {
   resolveWinrateFraming,
   normalizePacketToWhiteFraming,
 } from '../engine/katago/winrate-framing';
+import {
+  parseVersionResponse,
+  parseModelsResponse,
+  requiresDeltaAnalysisRefusal,
+} from '../engine/katago/version-probe';
+import {
+  buildPerQueryCapabilities,
+  shouldWarnTranspositionUnmet,
+} from '../engine/katago/capability-injection';
 import { type BoardId, type NodeId } from '../types';
 import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi, getInitialStones } from '../engine/util';
 import { PONDER_MAX_VISITS } from '../engine/constants';
@@ -86,12 +95,19 @@ export class AnalysisService {
         // version/model from a prior session can't surface in the
         // toolbar after the WS drops. Reconnect fires
         // probeEngineInfo() via onConnect to repopulate.
+        // SELECTOR's `selectedModel` is cleared symmetrically — a
+        // stale selection from a prior proxy must not silently apply
+        // to a freshly-connected proxy whose upstream pool may
+        // differ.
         store.engine.info = {
           version: null,
           internalName: null,
           versionPayload: null,
           modelsPayload: null,
+          availableModels: [],
+          capabilities: null,
         };
+        store.engine.selectedModel = null;
         this.clearTimers();
         pushSystemMessage('warning', i18n.global.t('analysis.websocketDisconnected', { code, reason }));
       },
@@ -146,34 +162,76 @@ export class AnalysisService {
         action: 'query_models',
       });
 
-      // KataGoResponse is a discriminated union; widening to a plain
-      // record for the tooltip payload requires a two-step cast
-      // through `unknown`. The cast is justified per ADR-0002 Rule 2:
-      // we're surfacing the raw response for debugging / inspection,
-      // not interpreting it through the discriminator — the union's
-      // structural guarantees are deliberately set aside here.
-      const versionPayload = (versionResp && typeof versionResp === 'object')
-        ? (versionResp as unknown as Record<string, unknown>)
-        : null;
-      const modelsPayload = (modelsResp && typeof modelsResp === 'object')
-        ? (modelsResp as unknown as Record<string, unknown>)
-        : null;
+      // The discriminated `KataGoResponse` union widens to `unknown`
+      // for the parser's input — the parsers do their own structural
+      // type-guards rather than relying on the union's tag, because
+      // the version-response shape is the proxy's wire contract
+      // rather than a strict subset of the union (the new
+      // `capabilities` field doesn't appear on `KataActionResponse`'s
+      // declaration in this build's pre-codegen world; the parser
+      // honours what's actually on the wire).
+      const versionResult = parseVersionResponse(versionResp);
+      const modelsResult = parseModelsResponse(modelsResp);
 
-      const version = (versionPayload && typeof versionPayload.version === 'string')
-        ? versionPayload.version
-        : null;
-
-      let internalName: string | null = null;
-      const rawModels = (modelsPayload && Array.isArray(modelsPayload.models))
-        ? modelsPayload.models
-        : [];
-      const first = rawModels[0];
-      if (first && typeof first === 'object') {
-        const named = first as { internalName?: unknown };
-        if (typeof named.internalName === 'string') internalName = named.internalName;
+      // Connection-refusal path per the dispatch's *Frontend will
+      // not* exception. When the proxy advertises capabilities at
+      // all but `delta_analysis` is missing, no per-query opt-in can
+      // rescue the situation — the SPA universally needs the
+      // analysis-enricher Transformer's `extra.<color>.deltas` for
+      // review-session grading. Surface, disconnect, return.
+      if (requiresDeltaAnalysisRefusal(versionResult.capabilities)) {
+        pushSystemMessage(
+          'error',
+          i18n.global.t('analysis.proxyMissingDeltaAnalysis'),
+        );
+        this.disconnect();
+        return;
       }
 
-      store.engine.info = { version, internalName, versionPayload, modelsPayload };
+      store.engine.info = {
+        version: versionResult.version,
+        internalName: modelsResult.internalName,
+        versionPayload: versionResult.raw,
+        modelsPayload: modelsResult.raw,
+        availableModels: modelsResult.availableModels,
+        capabilities: versionResult.capabilities,
+      };
+
+      // Auto-select the first available model when SELECTOR is in
+      // play and the user hasn't explicitly chosen one. This keeps
+      // the wire contract honest — without a selection the proxy's
+      // SELECTOR rejects the query — while still letting the
+      // Toolbar dropdown be the user-visible affordance for
+      // changing the choice. The check on `availableModels` having
+      // more than one entry distinguishes SELECTOR-mode (multiple
+      // labelled models) from LEAF-mode (single model, no
+      // dropdown, no `model` field needed on outgoing queries).
+      const isSelectorMode =
+        versionResult.capabilities !== null &&
+        'selector' in versionResult.capabilities;
+      if (isSelectorMode
+          && store.engine.selectedModel === null
+          && modelsResult.availableModels.length > 0) {
+        store.engine.selectedModel = modelsResult.availableModels[0].label;
+      }
+
+      // Once-per-WS-open transposition-unmet warning. Fires when
+      // the registry toggle is on but the proxy doesn't advertise
+      // the capability — the asymmetric case the dispatch's
+      // *Behavioural contract* §4 names. The per-query injection
+      // helper silently omits the opt-in in this state; this
+      // probe-time message is the surfacing path that tells the
+      // user their toggle isn't being honoured. Per ADR-0002,
+      // surfacing happens once per probe rather than per-query so
+      // the system log isn't flooded.
+      const useTransposition = !!(store.profile.settings.engine as { katago?: { useTransposition?: boolean } })
+        .katago?.useTransposition;
+      if (shouldWarnTranspositionUnmet(versionResult.capabilities, useTransposition)) {
+        pushSystemMessage(
+          'warning',
+          i18n.global.t('analysis.proxyMissingTransposition'),
+        );
+      }
     } catch (err) {
       console.error('[AnalysisService] Failed to probe engine info:', err);
     }
@@ -239,7 +297,10 @@ export class AnalysisService {
       internalName: null,
       versionPayload: null,
       modelsPayload: null,
+      availableModels: [],
+      capabilities: null,
     };
+    store.engine.selectedModel = null;
     this.clearTimers();
   }
 
@@ -297,8 +358,15 @@ export class AnalysisService {
     const overrideSettings = isSnapshotMode
       ? overrideSettingsOverride
       : compileEngineOverrides();
+    // The current SELECTOR target is read live for both modes — a
+    // snapshot replay under a different network produces different
+    // packets and must bucket separately in the ledger from a prior
+    // replay under another network. `activeConfigHash` already
+    // accounts for this in live mode (it reads the same source).
     const hash = isSnapshotMode
-      ? hashConfig(compileAnalysisDescriptorFromParts(analysis_config, overrideSettings))
+      ? hashConfig(compileAnalysisDescriptorFromParts(
+          analysis_config, overrideSettings, store.engine.selectedModel ?? undefined,
+        ))
       : activeConfigHash.value;
     // Resolve the framing the wire is about to ask KataGo for and
     // cache it on the active-query entry; `onAnalysisUpdate`
@@ -335,6 +403,23 @@ export class AnalysisService {
     // values rather than wire-overriding them with a no-op.
     const hasOverrides =
       overrideSettings !== undefined && Object.keys(overrideSettings).length > 0;
+    // Per-query capability opt-in (proxy v1.0.14+). Range-based
+    // queries engage `adaptive_reevaluate` in live mode; snapshot
+    // replays omit it (the middleware's mid-stream follow-ups
+    // would diverge from the card's recorded analysis). The helper
+    // returns `undefined` against pre-v1.0.14 proxies (advertised
+    // is null) so the wire field stays absent and the proxy's
+    // legacy auto-engage path runs. SELECTOR routing key is read
+    // from `store.engine.selectedModel`; null on LEAF / RELAY /
+    // ECHO proxies and on SELECTOR proxies before the user picks
+    // a model — in either case the wire field is omitted.
+    const capabilities = buildPerQueryCapabilities({
+      advertised: store.engine.info.capabilities,
+      isSnapshotMode,
+      isRangeBased: true,
+      useTransposition: store.profile.settings.engine.katago.useTransposition,
+    });
+    const selectedModel = store.engine.selectedModel;
     // Snapshot mode (review-session card replay) waits for FINAL packets
     // only — `useReviewSession.processUserMove` does
     // `Promise.all([waitForAnalysis(s_0), waitForAnalysis(s_1)])` where
@@ -359,7 +444,9 @@ export class AnalysisService {
       analyzeTurns,
       ...(needsOwnership ? { includeOwnership: true } : {}),
       ...(hasOverrides ? { overrideSettings } : {}),
-      ...(analysis_config ? { analysis_config } : {})
+      ...(analysis_config ? { analysis_config } : {}),
+      ...(capabilities ? { capabilities } : {}),
+      ...(selectedModel !== null ? { model: selectedModel } : {}),
     };
 
     store.engine.activeMode[boardId] = 'analyze';
@@ -409,8 +496,11 @@ export class AnalysisService {
     const overrideSettings = isSnapshotMode
       ? overrideSettingsOverride
       : compileEngineOverrides();
+    // See analyzeRange above for the SELECTOR-model hash rationale.
     const hash = isSnapshotMode
-      ? hashConfig(compileAnalysisDescriptorFromParts(analysis_config, overrideSettings))
+      ? hashConfig(compileAnalysisDescriptorFromParts(
+          analysis_config, overrideSettings, store.engine.selectedModel ?? undefined,
+        ))
       : activeConfigHash.value;
     // See analyzeRange above for the framing-resolution rationale.
     const framing = resolveWinrateFraming(overrideSettings);
@@ -428,6 +518,19 @@ export class AnalysisService {
     // wire conditional-spread rationale.
     const hasOverrides =
       overrideSettings !== undefined && Object.keys(overrideSettings).length > 0;
+    // Per-query capability opt-in. analyzeActiveNode is turn-locked
+    // by construction (single-turn `analyzeTurns: [currentIdx]`),
+    // so `adaptive_reevaluate` is structurally inappropriate
+    // regardless of snapshot vs. live — the helper's `isRangeBased:
+    // false` enforces this. See analyzeRange above for the broader
+    // rationale and the SELECTOR `model` injection contract.
+    const capabilities = buildPerQueryCapabilities({
+      advertised: store.engine.info.capabilities,
+      isSnapshotMode,
+      isRangeBased: false,
+      useTransposition: store.profile.settings.engine.katago.useTransposition,
+    });
+    const selectedModel = store.engine.selectedModel;
     const query: KataGoAnalysisQuery = {
       id: queryId,
       moves,
@@ -446,7 +549,9 @@ export class AnalysisService {
       analyzeTurns: [currentIdx],
       ...(needsOwnership ? { includeOwnership: true } : {}),
       ...(hasOverrides ? { overrideSettings } : {}),
-      ...(analysis_config ? { analysis_config } : {})
+      ...(analysis_config ? { analysis_config } : {}),
+      ...(capabilities ? { capabilities } : {}),
+      ...(selectedModel !== null ? { model: selectedModel } : {}),
     };
 
     store.engine.activeMode[boardId] = mode;

@@ -266,6 +266,8 @@
   "sync.saveFailed":                      "同期: ワークスペース保存失敗。最近の変更はまだサーバに送信されていません。",
 
   "analysis.websocketDisconnected":       "WebSocket 切断 (コード: {code})。{reason}",
+  "analysis.proxyMissingDeltaAnalysis":   "KataGo プロキシは機能広告を行っていますが、`delta_analysis` が含まれていません。手ごと評価および解析タブの拡張機能はこのプロキシでは動作しません。切断します。",
+  "analysis.proxyMissingTransposition":   "転置トグルは ON ですが、KataGo プロキシは `transposition` 機能を広告していません。クラスタリングは表示されません。レジストリで該当トグルを OFF にすればこの警告を抑制できます。または `goboard_transposition` モジュール付きでプロキシをビルドし直してください。",
 
   "sgf.noActiveBoard":                    "保存可能なアクティブボードがありません。",
   "sgf.serialisationFailed":              "SGF シリアライズ失敗: {detail}",
