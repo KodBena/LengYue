@@ -188,3 +188,105 @@ work touches Layer 2's `CoalescingPolicy` or the proxy-control field
 family. Both of those are in scope for the selector dispatch.
 
 — a recent proxy-side session, 2026-05-09
+
+---
+
+## Addendum (same-day, post code-read): two refinements and one downstream hazard
+
+The next planned step after filing this letter — and after filing the
+status reply it grounds — was to read the proxy abstractions in full
+before proposing the Phase 1 implementation roadmap. That is the very
+posture this letter prescribes; the code-read surfaced refinements
+that the document-graph-only framing above had glossed. Recording them
+here so the next session inherits the sharpened version.
+
+### Refinement 1: pubsub_hub.py has two hashes, not one
+
+The framing above referred to "the canonical key" / "the canonical
+hash" as if Layer 2 maintains a single hash. It does not. There are
+two, with opposite default discipline:
+
+- **The coalescing `content_hash`** — opt-in per field via
+  `CoalescingPolicy.capturing_fields`. The default tuple is
+  `("rules", "komi", "boardXSize", "boardYSize", "moves")` —
+  deliberately not even `maxVisits`, so two queries with different
+  visit budgets coalesce onto the same canonical
+  (`pubsub_hub.py:155-180` is explicit).
+- **The analysis-level `cache_key`** — opt-out, computed in
+  `_compute_cache_key` (`pubsub_hub.py:311-334`). Includes everything
+  in opaque except the client-specific `id` and the three control
+  flags that `subscribe()` pops *before* both hashes are computed.
+
+FRAMEWORK.md §3's "strip-before-hash" language was about the cache_key
+path specifically: the three flags are stripped so `cached: true` and
+`cached: false` requests for otherwise-identical queries reuse the
+same cached artefact. The content_hash, by contrast, is constructed
+by *reading-not-popping* from opaque via `capturing_fields`.
+
+For Q6, this means the implementation is simpler than the
+"bifurcation" framing above suggested: adding `capabilities` to
+`capturing_fields` is a one-line tuple extension; the existing
+machinery supports per-field inclusion already. `cache_key` retains
+`capabilities` automatically. Both hashes do the right thing with one
+tuple extension plus one new pop in `subscribe()`.
+
+### Refinement 2: the dispatch's "existing four" don't share a strip mechanism
+
+The dispatch listed the existing proxy-control field family as
+`cache`, `lookup_cache`, `replay_final_only`, `analysis_config` —
+implying these four share a strip discipline. They do not.
+
+- The first three are popped from opaque in
+  `pubsub_hub.py:subscribe` (lines 404-406), part of the hub's
+  flag-extraction.
+- `analysis_config` is popped by the `analysis_enricher` Transformer's
+  `on_query` (`transformers/analysis_enricher.py:62`), part of the
+  transformer's own consumption. The hub never sees `analysis_config`
+  because the transformer runs first in the chain.
+
+The four share the *intent* (never reach KataGo) but not the
+mechanism. That distinction is invisible from FRAMEWORK.md and from
+the dispatch alone; only the code shows it.
+
+### The downstream hazard this surfaces for Phase 1
+
+Per-query capability gating makes the analysis_enricher's `on_query`
+conditional: it runs only when `delta_analysis` is engaged. The strip
+of `analysis_config` therefore becomes conditional too. A query that
+opts out of `delta_analysis` while still carrying `analysis_config` in
+opaque (a plausible shape — a legacy client newly connecting to a
+capability-aware proxy, or a new client wanting to disable enrichment
+for one query) would let `analysis_config` survive into the wire and
+reach KataGo. That is exactly the empty-board-ponder failure mode
+v1.0.13's `analysis_config`-strip fix closed.
+
+The architectural fix is small but load-bearing: centralise the
+"never reaches KataGo" discipline in one authoritative place, the
+wire builder. `katago/katago_proxy.py:translate_query_to_wire` gains
+a closed `_PROXY_ONLY_FIELDS` frozenset and excludes those fields at
+emission time. Per-consumer pops (the hub's three, the analysis
+enricher's one, the new `capabilities` strip) become belt-and-braces
+with the central enforcement; legacy semantics unchanged, but the
+central strip is the new authoritative line, and adding a future
+proxy-only field becomes a one-line tuple extension to a single
+known location instead of a search-the-codebase exercise.
+
+### What this means for the lesson
+
+The original lesson stands and is reinforced: reading the abstractions
+in full is what surfaced these refinements; reading the document graph
+alone produced the looser "bifurcation" framing the body of this
+letter records. The Phase 1 implementation roadmap (to be filed at
+`proxy/docs/roadmap-capability-negotiation.md` when the implementation
+arc opens) is what the framing should have been all along; the
+status reply's contract holds, and the implementation matches the
+roadmap rather than the looser framing in this letter's body.
+
+The next session that touches Layer 2's `CoalescingPolicy` or the
+proxy-only field family should read `pubsub_hub.py:subscribe`,
+`pubsub_hub.py:_compute_cache_key`, and `translate_query_to_wire`
+end to end before proposing changes. Those three are the spine of
+the proxy-control field family's Layer 2 + wire-emission behaviour
+post-Phase-1.
+
+— the same proxy-side session, post code-read, 2026-05-09
