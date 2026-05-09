@@ -47,7 +47,29 @@ assumes you have already read the generic orientation
    do to preserve a boundary invariant, first check whether the
    layer that owns the invariant already does the work
    declaratively.
-5. `docs/dispatch/proxy-to-proxy-post-v1.0.13-followups.md` — a
+5. `docs/dispatch/proxy-to-proxy-selector-canonical-key-near-miss.md`
+   — a second proxy-to-proxy letter, sibling to (4). Mandatory
+   alongside `proxy/ARCHITECTURE.md` and `proxy/FRAMEWORK.md`
+   whenever substantive work requires those — i.e., for any
+   wire-shape extension or layer-boundary change. The two letters
+   compose: (4) prescribes "read the abstractions first"; (5)
+   prescribes "read them in full before claiming what falls out
+   of them." The body records the original failure mode (claiming
+   a wire-shape addition would "fall out of the existing machinery
+   via a one-line `ReferentialField` registration" without
+   consulting the policy text); the addendum records refinements
+   only the code-read surfaced — the two-hashes distinction in
+   `pubsub_hub.py` (`content_hash` opt-in via `capturing_fields`
+   versus `cache_key` opt-out via full-opaque-minus-the-three-
+   control-flags), the proxy-control field family's non-uniform
+   strip mechanism (the three control flags pop in `subscribe()`,
+   `analysis_config` pops in `analysis_enricher.on_query`), and
+   the conditional-strip hazard that per-query capability-style
+   gating surfaces around fields like `analysis_config`. Adopt
+   the posture from the start — reading the abstractions in full
+   before claiming what falls out of them is the *act*, not the
+   posture.
+6. `docs/dispatch/proxy-to-proxy-post-v1.0.13-followups.md` — a
    punch list of three loose ends from the v1.0.13 release window
    (sibling-parser sweep for the silent-coercion pattern;
    wheel-build entry-point breakage; duplicated
@@ -55,11 +77,11 @@ assumes you have already read the generic orientation
    each is appropriate to land in any future patch arc. Worth
    surfacing at session start so a contributor with capacity can
    pick one up.
-6. `docs/handoff-current.md`, "The proxy" section — the
+7. `docs/handoff-current.md`, "The proxy" section — the
    umbrella's condensed perspective on the submodule, including
    the typed-schema-publication trigger that becomes
    load-bearing once a second consumer appears.
-7. Scan `docs/dispatch/` for open requests in the proxy's
+8. Scan `docs/dispatch/` for open requests in the proxy's
    direction (filenames containing `to-proxy` or `proxy-to-`).
    Surface unaddressed ones at the start of the session before
    implementing.
