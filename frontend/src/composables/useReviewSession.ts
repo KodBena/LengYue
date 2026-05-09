@@ -11,6 +11,7 @@ import { store, addBoard, mutateBoard, updateBoardState, mutateReviewSession, pu
 import { i18n } from '../i18n';
 import { backendService } from '../services/backend-service';
 import { analysisService } from '../services/analysis-service';
+import { ledger } from '../services/analysis-ledger';
 import {
   activeConfigHash,
   hashConfig,
@@ -275,13 +276,14 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
 
     const path = getActiveVariationPath(board);
     const s_0_idx = path.indexOf(board.currentNodeId);
+    const s_0_id = board.currentNodeId as NodeId;
 
     const nextBoard = applyGoMove(board, x, y);
-    if (!nextBoard) return; 
-    
+    if (!nextBoard) return;
+
     updateBoardState(store.activeBoardIndex, nextBoard);
-    mutateReviewSession(bId, draft => { 
-      draft.status = 'ANALYZING'; 
+    mutateReviewSession(bId, draft => {
+      draft.status = 'ANALYZING';
       draft.userMovesCount++;
     });
 
@@ -339,10 +341,23 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
 
     let s_1_packet;
     try {
-      s_1_packet = await waitForAnalysis(hash, s_1_id, s_1_idx, {
-        timeoutMs: KATAGO_ANALYSIS_TIMEOUT_MS,
-        signal: controller.signal,
-      });
+      // Wait for BOTH s_0 and s_1 final packets. The proxy attaches
+      // the per-move delta to whichever packet on the analyzed range
+      // it chose — most often the s_0 packet (the position the move
+      // was played FROM, since the delta_fn references `x[0]` = the
+      // pre-move state). KataGo can emit the s_1 final packet before
+      // s_0 under cache hits and parallel-search races; if we only
+      // awaited s_1, the path-scan below would miss a delta that's
+      // about to land on s_0. Promise.all rejects on the first
+      // failure (timeout / abort), preserving the existing catch
+      // handling. The fuzzing harness in `tests/e2e/` reproducibly
+      // surfaces this race when only s_1 is awaited.
+      const waitOpts = { timeoutMs: KATAGO_ANALYSIS_TIMEOUT_MS, signal: controller.signal };
+      const [, s1] = await Promise.all([
+        waitForAnalysis(hash, s_0_id, s_0_idx, waitOpts),
+        waitForAnalysis(hash, s_1_id, s_1_idx, waitOpts),
+      ]);
+      s_1_packet = s1;
     } catch (err) {
       // Clean up our map entry only if the slot is still ours (a
       // later processUserMove or loadCard may have replaced it).
@@ -373,24 +388,64 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
 
     const userColor = nextBoard.nodes[s_1_id].move!.color;
     const colorKey = userColor === 'B' ? 'black' : 'white';
-    
-    let delta = 0.5; 
-    const proxyDeltas = s_1_packet.extra?.[colorKey]?.deltas;
-    
-    if (proxyDeltas) {
-      let colorMoveCount = 0;
-      for (let i = 0; i <= s_1_idx; i++) {
-        if (nextBoard.nodes[newPath[i]]?.move?.color === userColor) {
-          colorMoveCount++;
-        }
-      }
-      const n = colorMoveCount - 1;
 
-      if (proxyDeltas[n] !== undefined) {
-        delta = proxyDeltas[n];
+    // Per-color local index for the user's just-played move. Black
+    // moves are at full-path positions 1, 3, 5… (per-color indices 0,
+    // 1, 2…); white moves are at 2, 4, 6…. The proxy keys
+    // `extra.{color}.deltas` by per-color index strings ("0", "1", …);
+    // see `useEnrichedData.ts` for the symmetric read on the analysis
+    // tab and `engine/katago/types.ts::KataPlayerExtra.deltas` for
+    // the contract.
+    let colorMoveCount = 0;
+    for (let i = 0; i <= s_1_idx; i++) {
+      if (nextBoard.nodes[newPath[i]]?.move?.color === userColor) {
+        colorMoveCount++;
       }
     }
-    
+    const n = colorMoveCount - 1;
+
+    // Per-color delta lookup. The proxy attaches each `extra[color].deltas`
+    // entry to whichever packet on the analyzed range it chose — most
+    // commonly the s_0 packet (the position the move was played FROM,
+    // since that's where the engine evaluated alternatives), but we
+    // don't require that. Mirror the analysis-tab pattern in
+    // `useEnrichedData.ts:113-122`: scan every packet on the active
+    // path for the key `n`, take the first non-undefined value found.
+    // The fast-path s_1_packet check covers the historic case; the
+    // ledger scan covers the s_0 case the prior implementation silently
+    // missed (and the loud-failure branch below catches the residue).
+    let delta = s_1_packet.extra?.[colorKey]?.deltas?.[n];
+    if (delta === undefined) {
+      for (const nodeId of newPath) {
+        const candidate = ledger.getRaw(hash, nodeId)?.extra?.[colorKey]?.deltas?.[n];
+        if (candidate !== undefined) {
+          delta = candidate;
+          break;
+        }
+      }
+    }
+
+    if (delta === undefined) {
+      // ADR-0002: a missing per-move delta at the wire boundary is a
+      // contract failure (proxy enrichment misconfiguration, palette
+      // drift, narrow-range delta_fn that never fires, etc.). The
+      // prior behaviour silently substituted 0.5 here, which scored
+      // every failure as a "neutral" review and corrupted the Ebisu
+      // recall update on every occurrence — exactly the discovered-
+      // late-as-corrupted-data failure mode the tenet is shaped to
+      // prevent. Surface, cancel the session, and let the user
+      // investigate before any score is persisted.
+      pushSystemMessage(
+        'warning',
+        i18n.global.t('review.missingPerMoveDelta', {
+          color: userColor,
+          index: n,
+        }),
+      );
+      mutateReviewSession(bId, draft => { draft.status = 'IDLE'; });
+      return;
+    }
+
     mutateReviewSession(bId, draft => { draft.userMoveScores.push(delta); });
 
     if (userMovesCount.value < currentCard.value!.numMoves) {

@@ -272,6 +272,7 @@
   "sgf.saved":                            "{filename} 저장됨.",
 
   "review.kataGoTimeout":                 "KataGo가 {seconds}초 이내에 응답하지 않았습니다. 복습 취소됨.",
+  "review.missingPerMoveDelta":           "KataGo 응답에 당신이 둔 수의 품질 점수가 포함되지 않았습니다 (player={color}, 동일 색 수번 {index}). 복습 취소됨. 보통 팔레트 설정 오류 또는 프록시 enrichment 실패를 의미합니다.",
 
   "review.session.intermission":          "인터미션",
   "review.session.active":                "복습 진행 중",

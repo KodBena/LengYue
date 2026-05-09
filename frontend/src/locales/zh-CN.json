@@ -272,6 +272,7 @@
   "sgf.saved":                            "已保存 {filename}。",
 
   "review.kataGoTimeout":                 "KataGo 在 {seconds} 秒内未响应。复习已取消。",
+  "review.missingPerMoveDelta":           "KataGo 的响应未包含您所下棋步的评估值 (player={color}, 同色手序 {index})。复习已取消。通常表示调色板配置或代理增强出现问题。",
 
   "review.session.intermission":          "间歇",
   "review.session.active":                "复习进行中",

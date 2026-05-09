@@ -111,6 +111,8 @@ import {
   resetFakeAnalysisService,
 } from '../fakes/analysis-service';
 import { resetFakeAnalysisPersistenceService } from '../fakes/analysis-persistence-service';
+import { ledger } from '../../src/services/analysis-ledger';
+import { activeConfigHash } from '../../src/services/analysis-config';
 import type {
   BoardId,
   CardId,
@@ -286,7 +288,11 @@ describe('useReviewSession.processUserMove — timeout path', () => {
     // mockRejectedValueOnce is in scope. The error class comes from
     // the partially-mocked module, which preserves the real
     // `AnalysisWaitError` (see vi.mock above).
-    vi.mocked(waitForAnalysis).mockRejectedValueOnce(new AnalysisWaitError('timeout'));
+    //
+    // processUserMove awaits both s_0 and s_1 packets via Promise.all,
+    // so the mock is called twice per call. Reject both — Promise.all
+    // rejects on the first rejection regardless.
+    vi.mocked(waitForAnalysis).mockRejectedValue(new AnalysisWaitError('timeout'));
 
     const messagesBefore = store.engine.messages.length;
 
@@ -310,8 +316,11 @@ describe('useReviewSession.processUserMove — timeout path', () => {
     // waitForAnalysis was called and rejected; the catch block
     // pushed a system-message warning. The exact text isn't pinned
     // (the i18n key may evolve) — the contract is "a warning is
-    // surfaced", which we verify by counting messages.
-    expect(waitForAnalysis).toHaveBeenCalledTimes(1);
+    // surfaced", which we verify by counting messages. Two calls
+    // total because processUserMove awaits both s_0 and s_1 via
+    // Promise.all (the s_0 wait fixes a race where the proxy emits
+    // the s_1 packet before s_0).
+    expect(waitForAnalysis).toHaveBeenCalledTimes(2);
     expect(store.engine.messages.length).toBe(messagesBefore + 1);
     expect(store.engine.messages[0]?.type).toBe('warning');
 
@@ -343,7 +352,13 @@ describe('useReviewSession.processUserMove — happy path', () => {
       delta: 0.85,
       bestMoveGtp: 'Q16',
     });
-    vi.mocked(waitForAnalysis).mockResolvedValueOnce(packet);
+    // processUserMove awaits BOTH s_0 and s_1 packets via Promise.all
+    // (the s_0 wait was added to fix a race where the proxy emits
+    // the s_1 packet before the s_0 packet under cache hits, leaving
+    // the path-scan looking at a not-yet-present packet). Use
+    // `mockResolvedValue` so both waits resolve with this packet.
+    // The s_1 path's fast-path delta lookup finds 0.85 on it.
+    vi.mocked(waitForAnalysis).mockResolvedValue(packet);
 
     const boardIdRef = ref<BoardId | null>(boardId);
     const { processUserMove, state, userMoveScores } = useReviewSession(boardIdRef);
@@ -367,13 +382,72 @@ describe('useReviewSession.processUserMove — happy path', () => {
     expect(fakeBackendService.submitReview).not.toHaveBeenCalled();
   });
 
-  it('falls back to delta=0.5 when the packet lacks a per-colour deltas entry', () => {
-    // Sanity-pinning the magic-number fallback documented in
-    // useReviewSession's processUserMove. If the proxy emits a
-    // packet without `extra.black.deltas` or with a missing index,
-    // the composable assigns 0.5 (a "neutral" placeholder) so the
-    // user move score is at least recorded — defended by the
-    // matching code branch in the composable.
+  it('finds the delta on the s_0 packet via the path-scan when s_1 lacks it', async () => {
+    // The proxy attaches each `extra[color].deltas` entry to whatever
+    // packet on the analyzed range it chose — most commonly the s_0
+    // packet (the position the move was played FROM, since that's
+    // where the engine evaluated alternatives). The prior
+    // implementation read ONLY `s_1_packet.extra[colorKey].deltas[n]`
+    // and silently substituted 0.5 when the proxy chose s_0; the
+    // current code mirrors `useEnrichedData.ts`'s pattern and scans
+    // every packet on the active path. This test pins the path-scan:
+    // s_1 carries no deltas, the ledger has an s_0 packet with the
+    // delta, and the score is recorded correctly.
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    const card = makeReviewCard({ numMoves: 5 });
+    mutateReviewSession(boardId, draft => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [card];
+      draft.currentIndex = 0;
+      draft.startingNodeId = board.rootNodeId;
+    });
+
+    // Pre-populate the ledger: the s_0 packet (root nodeId, the
+    // position the user is about to play from) carries the delta
+    // for black move index 0. The card has no `gradingParameter`,
+    // so processUserMove uses `activeConfigHash.value` as the hash;
+    // we mirror that here.
+    ledger.record(activeConfigHash.value, board.rootNodeId, {
+      isDuringSearch: false,
+      turnNumber: 0,
+      extra: {
+        black: { deltas: { '0': 0.42 } },
+      },
+      moveInfos: [],
+      rootInfo: { winrate: 0.5, scoreLead: 0, visits: 1000, currentPlayer: 'B' },
+    } as unknown as KataAnalysisResponse);
+
+    // The s_1 packet carries no deltas — exactly the case where the
+    // prior implementation silently fell back to 0.5. Empty
+    // moveInfos also disables the engine follow-through branch so
+    // the post-move board state isn't perturbed by a phantom W move.
+    // processUserMove awaits both s_0 and s_1 via Promise.all; resolve
+    // both with the same empty packet (the delta lookup will fall
+    // through to the path-scan, which finds the delta in the ledger).
+    const s1Packet = makeAnalysisPacket({ turnNumber: 1 });
+    vi.mocked(waitForAnalysis).mockResolvedValue(s1Packet);
+
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { processUserMove, state, userMoveScores } = useReviewSession(boardIdRef);
+
+    await processUserMove(3, 3);
+
+    expect(userMoveScores.value).toEqual([0.42]);
+    expect(state.value).toBe('AWAITING_MOVE');
+    expect(fakeBackendService.submitReview).not.toHaveBeenCalled();
+  });
+
+  it('cancels the session and surfaces a warning when the packet lacks a per-colour deltas entry', async () => {
+    // Inversion of the prior `delta=0.5 fallback` test. The composable
+    // used to silently substitute 0.5 when the proxy's enrichment was
+    // missing; per ADR-0002 (and the shipped fix that removed the
+    // sentinel), a missing per-move delta is a contract failure that
+    // must surface — not a quietly-recorded "neutral" review. The
+    // assertions below pin the loud-failure shape: no score recorded,
+    // status reset to IDLE, system-message warning pushed.
     const board = createInitialBoard();
     addBoard(board);
     const boardId: BoardId = board.id;
@@ -387,16 +461,36 @@ describe('useReviewSession.processUserMove — happy path', () => {
     });
 
     // No deltas, no moveInfos — pure "analysis came back but
-    // didn't include enrichment" shape.
+    // didn't include enrichment" shape. Both s_0 and s_1 waits
+    // resolve with this empty packet; the path-scan finds nothing
+    // in the ledger either, so the loud-failure branch fires.
     const packet = makeAnalysisPacket({ turnNumber: 1 });
-    vi.mocked(waitForAnalysis).mockResolvedValueOnce(packet);
+    vi.mocked(waitForAnalysis).mockResolvedValue(packet);
+
+    const messagesBefore = store.engine.messages.length;
 
     const boardIdRef = ref<BoardId | null>(boardId);
-    const { processUserMove, userMoveScores } = useReviewSession(boardIdRef);
+    const { processUserMove, state, userMoveScores } = useReviewSession(boardIdRef);
 
-    return processUserMove(3, 3).then(() => {
-      expect(userMoveScores.value).toEqual([0.5]);
-    });
+    await processUserMove(3, 3);
+
+    expect(userMoveScores.value).toEqual([]);
+    expect(state.value).toBe('IDLE');
+    expect(store.engine.messages.length).toBe(messagesBefore + 1);
+    // pushSystemMessage `unshift`s — newest message is at index 0,
+    // not at `messagesBefore`. Mirrors the assertion shape in the
+    // sibling timeout test above.
+    expect(store.engine.messages[0]?.type).toBe('warning');
+    // Pin the message text against either the i18n catalog rendering
+    // (en is the active locale in tests) or the key-fallback path that
+    // vue-i18n emits when a catalog entry is absent. Either form
+    // satisfies the loudness contract.
+    expect(store.engine.messages[0]?.text).toMatch(
+      /missingPerMoveDelta|carried no per-move/,
+    );
+    // submitReview was NOT called — the session cancelled before the
+    // final-move branch could fire.
+    expect(fakeBackendService.submitReview).not.toHaveBeenCalled();
   });
 
   it('fires submitReview and transitions to FINISHED on the final move', async () => {
@@ -415,7 +509,8 @@ describe('useReviewSession.processUserMove — happy path', () => {
     });
 
     const packet = makeAnalysisPacket({ turnNumber: 1, delta: 0.92 });
-    vi.mocked(waitForAnalysis).mockResolvedValueOnce(packet);
+    // Both s_0 and s_1 waits resolve with this packet (Promise.all).
+    vi.mocked(waitForAnalysis).mockResolvedValue(packet);
     fakeBackendService.submitReview.mockResolvedValueOnce(card);
 
     const boardIdRef = ref<BoardId | null>(boardId);
@@ -456,14 +551,21 @@ describe('useReviewSession — abort cleanup', () => {
    */
   function abortableMock(): { aborted: () => boolean } {
     let abortFired = false;
-    vi.mocked(waitForAnalysis).mockImplementationOnce((_h, _n, _t, options) => {
-      return new Promise((_resolve, reject) => {
+    const impl = (_h: unknown, _n: unknown, _t: unknown, options: { signal?: AbortSignal }) => {
+      return new Promise<never>((_resolve, reject) => {
         options.signal?.addEventListener('abort', () => {
           abortFired = true;
           reject(new AnalysisWaitError('aborted'));
         });
       });
-    });
+    };
+    // processUserMove awaits both s_0 and s_1 via Promise.all, so each
+    // invocation consumes two queued implementations. The
+    // resetWorkspace test creates two abortableMock()s for different
+    // boards; using `mockImplementationOnce` (×2 per helper) keeps
+    // each helper's flag bound to its own board's waits without one
+    // helper's mockImplementation clobbering the other's.
+    vi.mocked(waitForAnalysis).mockImplementationOnce(impl).mockImplementationOnce(impl);
     return { aborted: () => abortFired };
   }
 
