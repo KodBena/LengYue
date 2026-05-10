@@ -126,7 +126,9 @@ const modelTooltip = computed(() => {
             v-for="entry in availableModels"
             :key="entry.label"
             :value="entry.label"
-          >{{ entry.label }}</option>
+            :disabled="!entry.healthy"
+            :title="entry.healthy ? entry.label : t('toolbar.modelUnavailable', { label: entry.label })"
+          >{{ entry.label }}{{ entry.healthy ? '' : ' (unavailable)' }}</option>
         </select>
         <span v-else class="m-val engine-id-val">{{ engineInternalName ?? '—' }}</span>
       </div>

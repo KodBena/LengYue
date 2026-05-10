@@ -134,6 +134,7 @@
   "toolbar.saveSgf":                      "Save SGF",
   "toolbar.engineVersionTooltipPending":  "KataGo engine version (refreshed on each connect / reconnect). Probe pending.",
   "toolbar.engineModelTooltipPending":    "KataGo loaded model (refreshed on each connect / reconnect). Probe pending.",
+  "toolbar.modelUnavailable":             "{label}: SELECTOR advertises this model but its upstream is currently unavailable; pick another model.",
   "toolbar.metric.version":               "VERSION",
   "toolbar.metric.model":                 "MODEL",
   "toolbar.metric.pps":                   "PPS",

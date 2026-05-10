@@ -19,11 +19,20 @@
  *   query_models response (SELECTOR, proxy v1.0.15+):
  *     { id, models: [{ label: string }, { label: string }, ...] }
  *
+ *   query_models response (SELECTOR, proxy v1.0.18+):
+ *     { id, models: [{ label: string, healthy: boolean }, ...] }
+ *     The `healthy` field surfaces per-LEAF availability so the
+ *     SPA's model-selector dropdown can grey out advertised-but-
+ *     disconnected labels. Wire-compatible with v1.0.15 (the field
+ *     is additive); pre-v1.0.18 SELECTOR responses and LEAF-mode
+ *     responses don't carry it, and the parser defaults it to
+ *     `true`.
+ *
  * The SELECTOR shape is authoritatively documented in the proxy's
  * `tests/test_selector_router.py::test_query_models_synthesised_no_upstream_traffic`
- * (asserts `[{label: "strong"}, {label: "weak"}]`); the LEAF shape
- * is KataGo's native protocol. The frontend handles both with one
- * normalised `EngineModelEntry[]` projection so the dropdown UI
+ * (asserts the v1.0.18 entries `[{label, healthy}, ...]`); the LEAF
+ * shape is KataGo's native protocol. The frontend handles both with
+ * one normalised `EngineModelEntry[]` projection so the dropdown UI
  * doesn't need to know which kind of proxy is in front of it.
  *
  * License: Public Domain (The Unlicense)
@@ -143,7 +152,13 @@ export function parseModelsResponse(payload: unknown): ModelsProbeResult {
       label = entry.internalName;
     }
     if (label !== null) {
-      availableModels.push({ label });
+      // `healthy` is the proxy v1.0.18+ per-label availability flag
+      // (SELECTOR-mode only). Default to `true` when the field is
+      // absent or non-boolean — pre-v1.0.18 proxies and LEAF-mode
+      // responses don't carry it, and treating "field missing" as
+      // unhealthy would grey out every entry in those topologies.
+      const healthy = typeof entry.healthy === 'boolean' ? entry.healthy : true;
+      availableModels.push({ label, healthy });
     }
     if (i === 0 && typeof entry.internalName === 'string') {
       internalName = entry.internalName;

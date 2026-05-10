@@ -101,18 +101,74 @@ describe('parseModelsResponse', () => {
         { internalName: 'kata1-b18c384nbt', name: '/path/to/model.bin' },
       ],
     });
-    expect(r.availableModels).toEqual([{ label: 'kata1-b18c384nbt' }]);
+    // LEAF-mode responses don't carry `healthy`; parser defaults to
+    // `true` so the dropdown (which only renders in SELECTOR mode
+    // anyway) doesn't grey out a LEAF-derived entry.
+    expect(r.availableModels).toEqual([
+      { label: 'kata1-b18c384nbt', healthy: true },
+    ]);
     expect(r.internalName).toBe('kata1-b18c384nbt');
   });
 
   it('parses SELECTOR-mode response (label-bearing entries)', () => {
     const r = parseModelsResponse({
       id: 'x',
-      models: [{ label: 'strong' }, { label: 'weak' }],
+      models: [
+        { label: 'strong', healthy: true },
+        { label: 'weak', healthy: true },
+      ],
     });
-    expect(r.availableModels).toEqual([{ label: 'strong' }, { label: 'weak' }]);
+    expect(r.availableModels).toEqual([
+      { label: 'strong', healthy: true },
+      { label: 'weak', healthy: true },
+    ]);
     // SELECTOR's synthesised entries don't carry internalName.
     expect(r.internalName).toBeNull();
+  });
+
+  it('parses SELECTOR-mode `healthy: false` for an unavailable label', () => {
+    // Proxy v1.0.18+ surfaces per-label availability so the dropdown
+    // can grey out advertised-but-disconnected labels.
+    const r = parseModelsResponse({
+      models: [
+        { label: 'strong', healthy: true },
+        { label: 'weak', healthy: false },
+      ],
+    });
+    expect(r.availableModels).toEqual([
+      { label: 'strong', healthy: true },
+      { label: 'weak', healthy: false },
+    ]);
+  });
+
+  it('defaults `healthy: true` when the field is absent (pre-v1.0.18 proxy)', () => {
+    // Backward compatibility: a pre-v1.0.18 SELECTOR ships entries
+    // without `healthy`; treating absent-as-unhealthy would grey out
+    // every entry against an older proxy. Default true.
+    const r = parseModelsResponse({
+      models: [{ label: 'strong' }, { label: 'weak' }],
+    });
+    expect(r.availableModels).toEqual([
+      { label: 'strong', healthy: true },
+      { label: 'weak', healthy: true },
+    ]);
+  });
+
+  it('defaults `healthy: true` when the field has a non-boolean value', () => {
+    // Defensive: a malformed payload with `healthy: "yes"` or
+    // `healthy: 1` parses to `true` rather than coercing into a
+    // truthy boolean. Per ADR-0002 the parser fails legibly
+    // (non-boolean → ignored) rather than guessing.
+    const r = parseModelsResponse({
+      models: [
+        { label: 'strong', healthy: 'yes' },
+        { label: 'weak', healthy: 1 },
+      ],
+    });
+    expect(r.availableModels).toEqual([
+      { label: 'strong', healthy: true },
+      { label: 'weak', healthy: true },
+    ]);
   });
 
   it('prefers `label` over `internalName` when both are present', () => {
@@ -121,7 +177,7 @@ describe('parseModelsResponse', () => {
     const r = parseModelsResponse({
       models: [{ label: 'strong', internalName: 'kata1-b18c384nbt' }],
     });
-    expect(r.availableModels).toEqual([{ label: 'strong' }]);
+    expect(r.availableModels).toEqual([{ label: 'strong', healthy: true }]);
   });
 
   it('skips entries with neither label nor internalName', () => {
@@ -132,7 +188,10 @@ describe('parseModelsResponse', () => {
         { label: 'weak' },
       ],
     });
-    expect(r.availableModels).toEqual([{ label: 'strong' }, { label: 'weak' }]);
+    expect(r.availableModels).toEqual([
+      { label: 'strong', healthy: true },
+      { label: 'weak', healthy: true },
+    ]);
   });
 
   it('returns the raw payload for tooltip surfacing', () => {

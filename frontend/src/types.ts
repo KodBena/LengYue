@@ -970,6 +970,16 @@ export interface EngineModelEntry {
   // proxies the array has a single entry whose `label` is derived
   // from `internalName` so the dropdown's data shape is uniform.
   readonly label: string;
+  // Per-label availability, surfaced by SELECTOR's synthesised
+  // `query_models` response (proxy v1.0.18+) so the model-selector
+  // dropdown can grey out advertised-but-disconnected labels — a
+  // SELECTOR may list every configured model regardless of upstream
+  // state, and the SPA should not let the user pick one whose
+  // upstream is currently unreachable. Pre-v1.0.18 proxies (and
+  // LEAF-mode responses) don't carry the field; the parser defaults
+  // it to `true` so older proxies and the LEAF-mode shape behave as
+  // they did before this addition.
+  readonly healthy: boolean;
 }
 
 export interface EngineInfo {
