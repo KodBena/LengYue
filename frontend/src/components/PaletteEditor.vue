@@ -504,6 +504,22 @@ function deleteItem() {
 .form-grid { display: grid; grid-template-columns: 120px 1fr; gap: var(--space-medium); align-items: center; }
 .form-grid label { font-size: var(--text-emphasis); color: var(--text-2); }
 
+/* Top-level editor forms scroll when their content exceeds the
+   400px PaletteEditor container — the .palette-form for a palette
+   with many state_fn rows, and the Parameter editor's .form-grid
+   when validation messages stretch the layout. Scoped to direct
+   children of .detail-content so the nested .form-grid inside
+   .palette-form (the name/delta_fn/summary_fn sub-block) isn't
+   captured. `min-height: 0` is the flex-shrink-below-content
+   incantation: without it, a flex child grows to fit its content
+   regardless of `flex: 1`, defeating the overflow. */
+.detail-content > .palette-form,
+.detail-content > .form-grid {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
 .dark-input {
   background: var(--surface-1); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default); border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
 }
