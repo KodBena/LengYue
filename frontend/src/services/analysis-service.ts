@@ -52,7 +52,21 @@ export class AnalysisService {
   // `engine/katago/winrate-framing.ts` for the normalisation contract
   // and the deliberate scope (raw signed scalars yes; proxy-applied
   // `extra.*` enrichment no).
-  private activeQueries = new Map<string, { path: NodeId[], hash: string, framing: WinrateFraming }>();
+  private activeQueries = new Map<string, {
+    path: NodeId[],
+    hash: string,
+    framing: WinrateFraming,
+    // Present only for ponder-mode queries; absent for analyzeRange
+    // and analyzeActiveNode(mode='analyze'). When the final packet
+    // arrives for a ponder query (isDuringSearch=false), the
+    // analysis service surfaces a "ponder ceiling reached" system
+    // warning naming the ceiling — the user's hardware finished
+    // ponder before they stopped it and might want to raise
+    // engine.katago.ponderMaxVisits. ponderCeiling is the
+    // configured value at query-start time (snapshot, so mid-query
+    // registry edits don't change what we report).
+    ponderCeiling?: number,
+  }>();
   // Per-board thunks that re-issue the most recent active query.
   // Keyed by BoardId; populated by analyzeRange/analyzeActiveNode and
   // cleared by stopBoardAnalysis. Used by restartActiveAnalyses to
@@ -508,7 +522,15 @@ export class AnalysisService {
     // See analyzeRange above for the framing-resolution rationale.
     const framing = resolveWinrateFraming(overrideSettings);
 
-    this.activeQueries.set(queryId, { path: fullPath, hash, framing });
+    // Snapshot the ponder ceiling at query-start so a mid-query
+    // registry edit doesn't change what we report when the warning
+    // fires. Only attached for mode='ponder' — analyze mode never
+    // surfaces the warning regardless of how many packets land.
+    const ponderCeiling =
+      mode === 'ponder'
+        ? store.profile.settings.engine.katago.ponderMaxVisits
+        : undefined;
+    this.activeQueries.set(queryId, { path: fullPath, hash, framing, ponderCeiling });
 
     const ownershipModes = store.session.ui.overlayLayers.ownership;
     const needsOwnership = ownershipModes.continuous || ownershipModes.dots || ownershipModes.liveness;
@@ -611,6 +633,31 @@ export class AnalysisService {
         board.lastActivity = Date.now();
         store.engine.metrics = { ...store.engine.metrics, lastResponseId: board.id };
       }
+    }
+
+    // Ponder-ceiling-reached warning. A ponder-mode query is
+    // structurally indefinite (single-turn analyzeTurns, no time
+    // limit on the proxy side); the only realistic completion is
+    // KataGo exhausting maxVisits. If a final packet
+    // (isDuringSearch=false) arrives here for a ponder query, the
+    // user's hardware is fast enough that ponder finished before
+    // they stopped it — surface the ceiling and the registry path
+    // so they can raise it. ponderCeiling is cleared on first
+    // fire so the warning doesn't repeat (defensive: KataGo emits
+    // one final per turn, but if a cache replay or proxy enrichment
+    // ever produced two, the user only sees the message once per
+    // query).
+    if (
+      queryInfo.ponderCeiling !== undefined
+      && !response.isDuringSearch
+    ) {
+      pushSystemMessage(
+        'warning',
+        i18n.global.t('analysis.ponderExhausted', {
+          visits: queryInfo.ponderCeiling.toLocaleString(),
+        }),
+      );
+      this.activeQueries.set(queryId, { ...queryInfo, ponderCeiling: undefined });
     }
   }
 

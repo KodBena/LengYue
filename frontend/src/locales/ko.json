@@ -289,6 +289,7 @@
   "analysis.websocketDisconnected":       "WebSocket 연결 끊김 (코드: {code}). {reason}",
   "analysis.proxyMissingDeltaAnalysis":   "KataGo 프록시가 capabilities를 알리지만 `delta_analysis`가 포함되어 있지 않습니다. 이 프록시에서는 수별 채점과 분석 탭 기능을 사용할 수 없어 연결을 끊습니다.",
   "analysis.proxyMissingTransposition":   "전치 토글이 켜져 있지만 KataGo 프록시가 `transposition` 기능을 알리지 않습니다. 클러스터 링이 표시되지 않습니다. 레지스트리에서 토글을 끄면 이 경고를 억제할 수 있으며, `goboard_transposition` 모듈을 포함해 프록시를 빌드했는지 확인하세요.",
+  "analysis.ponderExhausted":             "폰더가 방문 한도({visits})에 도달했습니다. 하드웨어가 충분히 빨라 사용자가 중지하기 전에 폰더가 끝났습니다 — 레지스트리 편집기에서 `engine.katago.ponderMaxVisits`를 올리는 것을 고려해 보세요.",
 
   "sgf.noActiveBoard":                    "저장할 활성 보드가 없습니다.",
   "sgf.serialisationFailed":              "SGF 직렬화 실패: {detail}",

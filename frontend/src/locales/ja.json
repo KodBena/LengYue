@@ -289,6 +289,7 @@
   "analysis.websocketDisconnected":       "WebSocket 切断 (コード: {code})。{reason}",
   "analysis.proxyMissingDeltaAnalysis":   "KataGo プロキシは機能広告を行っていますが、`delta_analysis` が含まれていません。手ごと評価および解析タブの拡張機能はこのプロキシでは動作しません。切断します。",
   "analysis.proxyMissingTransposition":   "転置トグルは ON ですが、KataGo プロキシは `transposition` 機能を広告していません。クラスタリングは表示されません。レジストリで該当トグルを OFF にすればこの警告を抑制できます。または `goboard_transposition` モジュール付きでプロキシをビルドし直してください。",
+  "analysis.ponderExhausted":             "ポンダーが訪問上限({visits})に到達しました。ハードウェアが十分速いため、停止前にポンダーが完了しました — レジストリエディタで `engine.katago.ponderMaxVisits` を引き上げることを検討してください。",
 
   "sgf.noActiveBoard":                    "保存可能なアクティブボードがありません。",
   "sgf.serialisationFailed":              "SGF シリアライズ失敗: {detail}",
