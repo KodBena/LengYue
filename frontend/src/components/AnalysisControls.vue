@@ -22,6 +22,19 @@ const { t } = useI18n();
 const props = defineProps<{ boardId: BoardId; }>();
 const palettes = computed(() => store.profile.settings.engine.katago.analysis_env.palettes);
 
+// Adaptive-reevaluate UI is gated on the proxy actually advertising
+// the capability. When the proxy doesn't advertise (legacy proxies
+// or PROXY_ADVERTISE_CAPABILITIES=false), no UI is shown — the
+// SPA's wire opt-in falls back to the proxy's legacy auto-engage
+// path which is the right semantic for non-advertising proxies.
+// The registry values stay populated regardless (so a user who
+// configures here, disconnects, and reconnects to an advertising
+// proxy gets their config back).
+const adaptiveAdvertised = computed(() => {
+  const caps = store.engine.info.capabilities;
+  return caps !== null && 'adaptive_reevaluate' in caps;
+});
+
 // ── Persistence UI state ──────────────────────────────────────────────────
 //
 // `summary` is reactive on the service's per-board summaries Map.
@@ -145,6 +158,46 @@ function purgeLedger() {
       </div>
     </div>
 
+    <div v-if="adaptiveAdvertised" class="analysis-config-box adaptive-box">
+      <div class="settings-row">
+        <label class="checkbox-row">
+          <input
+            type="checkbox"
+            v-model="store.profile.settings.engine.katago.adaptiveReevaluate.enabled"
+          />
+          <span>{{ $t('analysis.adaptive.enabled') }}</span>
+          <span class="info-icon" :title="$t('analysis.adaptive.tooltip')">?</span>
+        </label>
+        <div
+          v-if="store.profile.settings.engine.katago.adaptiveReevaluate.enabled"
+          class="adaptive-fields"
+        >
+          <label class="label-with-value adaptive-field-row">
+            <span>{{ $t('analysis.adaptive.worstQuantile') }}</span>
+            <input
+              type="number"
+              min="0"
+              max="1"
+              step="0.01"
+              v-model.number="store.profile.settings.engine.katago.adaptiveReevaluate.worstQuantile"
+              class="dark-input adaptive-input"
+            />
+          </label>
+          <label class="label-with-value adaptive-field-row">
+            <span>{{ $t('analysis.adaptive.extraVisits') }}</span>
+            <input
+              type="number"
+              min="0"
+              step="100"
+              v-model.number="store.profile.settings.engine.katago.adaptiveReevaluate.extraVisits"
+              class="dark-input adaptive-input"
+            />
+          </label>
+          <p class="hint">{{ $t('analysis.adaptive.hint') }}</p>
+        </div>
+      </div>
+    </div>
+
     <div v-if="store.profile.settings.engine.katago.analysisStorageEnabled" class="analysis-config-box persist-box">
       <div class="settings-row">
         <label class="label-with-value">
@@ -197,6 +250,17 @@ h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--accent-primary
 .analysis-config-box { margin-top: 0; background: var(--surface-2); padding: 0 var(--space-medium); border-radius: var(--radius-default); border: 1px solid var(--surface-3); }
 .move-filter-box { border-bottom: 2px solid var(--border-2); margin-bottom: var(--space-medium); }
 .persist-box { padding: var(--space-default) var(--space-medium); margin-bottom: var(--space-medium); border-bottom: 2px solid var(--border-2); }
+.adaptive-box { padding: var(--space-default) var(--space-medium); margin-bottom: var(--space-medium); border-bottom: 2px solid var(--border-2); }
+.checkbox-row { display: flex; align-items: center; gap: var(--space-default); font-size: var(--text-body); color: var(--text-1); cursor: pointer; }
+.checkbox-row input[type="checkbox"] { accent-color: var(--accent-primary); cursor: pointer; }
+.adaptive-fields { margin-top: var(--space-default); display: flex; flex-direction: column; gap: var(--space-default); }
+.adaptive-field-row { padding-left: var(--space-loose); }
+/* magic-literal: 100px adaptive-input width — narrow numeric input
+   for compact value entry (worst_quantile is sub-1, extra_visits is
+   in hundreds). Same width chosen for both so the two rows align
+   visually. */
+.adaptive-input { width: 100px; padding: 1px 4px; font-family: monospace; font-size: var(--text-body); background: var(--surface-0); border: 1px solid var(--border-2); color: var(--accent-primary); border-radius: var(--radius-default); outline: none; }
+.adaptive-input:focus { border-color: var(--accent-primary); }
 .persist-btn-row { display: flex; gap: var(--space-default); margin-top: var(--space-default); }
 .error-hint { color: var(--state-error); }
 .persist-title-row { display: inline-flex; align-items: center; gap: var(--space-default); }

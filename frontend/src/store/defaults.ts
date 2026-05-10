@@ -44,6 +44,22 @@ export const defaultSettings = {
       // ADR-0002 surfacing path when the toggle is on but the proxy
       // doesn't advertise the capability.
       useTransposition: true,
+      // User-controlled opt-in for adaptive_reevaluate (proxy
+      // v1.0.14+ capability). Default off: adaptive's deeper-
+      // analysis follow-ups change the visit count of resulting
+      // packets, which is a surprise unless explicitly opted into.
+      // worstQuantile defaults to 0.05 (more conservative than the
+      // proxy's 0.25); extraVisits defaults to 800 (matches proxy
+      // default, increment-not-absolute). Surfaced in the analysis
+      // tab as a checkbox + two number inputs when the proxy
+      // advertises the capability. See
+      // `AppSettings.engine.katago.adaptiveReevaluate` in `types.ts`
+      // for the full rationale.
+      adaptiveReevaluate: {
+        enabled: false,
+        worstQuantile: 0.05,
+        extraVisits: 800,
+      },
       // Engine-side runtime overrides forwarded as KataGo's
       // `overrideSettings` field on every analysis query. The seed
       // values are a sensible default analysis posture for the SR

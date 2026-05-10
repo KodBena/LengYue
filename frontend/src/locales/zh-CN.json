@@ -177,6 +177,12 @@
   "analysis.persist.experimentalTag":     "实验性",
   "analysis.persist.tooltip":             "实验性 — 选择加入功能,测试中。\n\n保存会捕获此棋盘当前分析账本中保存的所有数据。所有权图和策略头仅在引擎运行分析之前启用了相应的覆盖层时才会包含 — 稍后禁用覆盖层不会追溯地将其数据添加到已保存的捆绑包中。\n\n重新保存会完全覆盖之前的捆绑包;没有按记录的合并。\n\n关闭棋盘会从服务器删除其已保存的捆绑包。当棋盘重新出现时 (例如,在下次 SPA 加载时),捆绑包会自动恢复。\n\n在我们获得运营信心后,保存可能在未来版本中变为透明 (自动)。",
 
+  "analysis.adaptive.enabled":            "自适应再评估",
+  "analysis.adaptive.tooltip":            "自适应再评估: 原始分析完成后,代理使用额外访问数重新运行最差分位数的着手,并将更深的结果作为更新流式传输回来。在引擎的第一遍揭示出值得仔细查看的着手的长距离查询中有用。默认关闭 — 自适应的更深一遍会改变结果数据包的访问数,这会让期望特定 maxVisits 的消费者感到惊讶 (例如,复习会话的评分依赖于卡片记录的访问数)。",
+  "analysis.adaptive.worstQuantile":      "最差分位数",
+  "analysis.adaptive.extraVisits":        "额外访问数",
+  "analysis.adaptive.hint":               "最差分位数: 要重新评估的着手的比例 (0.05 = 最差着手的前 5%;代理默认值为 0.25)。额外访问数: 在更深一遍中添加到原始 maxVisits (代理默认值为 800;为增量而非绝对值,因此 NN 缓存从原始一遍结束的地方继续)。",
+
   "palette.sidebar.symbols":              "符号(λ)",
   "palette.sidebar.parameters":           "参数",
   "palette.sidebar.palettes":             "调色板",

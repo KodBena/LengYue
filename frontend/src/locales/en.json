@@ -177,6 +177,12 @@
   "analysis.persist.experimentalTag":     "Experimental",
   "analysis.persist.tooltip":             "Experimental — opt-in feature, in active testing.\n\nSave captures whatever the analysis ledger holds for this board right now. Ownership maps and policy heads are only included if the matching overlay was enabled BEFORE the engine ran the analysis — disabling an overlay later does not retroactively add its data to a saved bundle.\n\nRe-saving overwrites the previous bundle entirely; there is no per-record merge.\n\nClosing a board deletes its saved bundle from the server. Bundles auto-restore when the board reappears (e.g., on next SPA load).\n\nSaving may become transparent (automatic) in a future release once we have operational confidence.",
 
+  "analysis.adaptive.enabled":            "Adaptive re-evaluation",
+  "analysis.adaptive.tooltip":            "Adaptive re-evaluation: after the original analysis completes, the proxy re-runs the worst-quantile turns at extra visits and streams the deeper results back as updates. Useful on long range queries where the engine's first pass surfaces moves worth a closer look. Off by default — adaptive's deeper pass changes the visit count of resulting packets, which surprises consumers expecting a specific maxVisits (review-session grading, for example, relies on the card's recorded visit count).",
+  "analysis.adaptive.worstQuantile":      "Worst quantile",
+  "analysis.adaptive.extraVisits":        "Extra visits",
+  "analysis.adaptive.hint":               "Worst quantile: fraction of moves to re-evaluate (0.05 = top 5% of worst moves; proxy default is 0.25). Extra visits: added to original maxVisits for the deeper pass (proxy default is 800; increment-not-absolute, so the NN cache continues from where the original left off).",
+
   "palette.sidebar.symbols":              "Symbols (λ)",
   "palette.sidebar.parameters":           "Parameters",
   "palette.sidebar.palettes":             "Palettes",

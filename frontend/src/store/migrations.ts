@@ -87,7 +87,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 29;
+export const CURRENT_SCHEMA_VERSION = 30;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -913,6 +913,55 @@ export const migrations: Migration[] = [
     if (katago && typeof katago === 'object') {
       if (typeof katago.useTransposition !== 'boolean') {
         katago.useTransposition = true;
+      }
+    }
+    return out;
+  },
+  // 29 → 30: Surface user-controlled opt-in + metadata for the
+  // proxy's adaptive_reevaluate middleware (proxy v1.0.14+
+  // capability). v29 had no field; the SPA's wire payload either
+  // omitted adaptive_reevaluate (when capabilities advertised) or
+  // fell through to legacy auto-engage (when not advertised). v30
+  // introduces explicit user control:
+  //   - enabled (boolean, default false)
+  //   - worstQuantile (number, default 0.05; proxy default is 0.25)
+  //   - extraVisits (number, default 800; matches proxy default)
+  //
+  // Default `enabled: false` because adaptive's deeper-analysis
+  // follow-ups change the visit count of resulting packets, which
+  // is a surprise unless the user opts in deliberately. The UI
+  // surfaces a checkbox in the analysis tab when the proxy
+  // advertises adaptive_reevaluate; checking it reveals the two
+  // number inputs.
+  //
+  // Idempotent: an existing object value is preserved verbatim
+  // with per-key fallback (a hand-edited blob's deliberate choices
+  // survive); missing or non-object value gets the full default.
+  //
+  // Wire-shape semantics documented on
+  // `KataGoAnalysisQuery.capabilities` in `engine/katago/types.ts`;
+  // type-shape on `AppSettings.engine.katago.adaptiveReevaluate` in
+  // `types.ts`. Proxy-side metadata schema documented in
+  // `proxy/middleware/adaptive_reevaluate.py`.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const katago = out.profile?.settings?.engine?.katago;
+    if (katago && typeof katago === 'object') {
+      const existing = katago.adaptiveReevaluate;
+      const isPlainObject =
+        existing !== null &&
+        typeof existing === 'object' &&
+        !Array.isArray(existing);
+      if (!isPlainObject) {
+        katago.adaptiveReevaluate = {
+          enabled: false,
+          worstQuantile: 0.05,
+          extraVisits: 800,
+        };
+      } else {
+        if (typeof existing.enabled !== 'boolean') existing.enabled = false;
+        if (typeof existing.worstQuantile !== 'number') existing.worstQuantile = 0.05;
+        if (typeof existing.extraVisits !== 'number') existing.extraVisits = 800;
       }
     }
     return out;

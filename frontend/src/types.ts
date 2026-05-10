@@ -466,6 +466,43 @@ export interface AppSettings {
       // Schema-version 29 introduces this field; the migration
       // backfills `true` on existing blobs to preserve behaviour.
       useTransposition: boolean;
+      // User-controlled opt-in for the proxy's adaptive_reevaluate
+      // middleware (proxy v1.0.14+ capability) plus the per-query
+      // metadata schema overrides. Surfaced as a checkbox + two
+      // number inputs in the analysis tab, gated on the proxy
+      // actually advertising `adaptive_reevaluate` (no UI noise on
+      // proxies that can't honour it). When `enabled` is true and
+      // the query is live + range-based, the analysis-service ACL
+      // injects `adaptive_reevaluate: { worst_quantile, extra_visits }`
+      // into the per-query capabilities dict. Snapshot mode (review-
+      // session card replay) and turn-locked queries
+      // (analyzeActiveNode) always omit it regardless of `enabled`,
+      // because the middleware's mid-stream follow-ups would either
+      // diverge from a card's recorded analysis or be structurally
+      // inappropriate for a single-turn target.
+      //
+      // Default off — adaptive's deeper-analysis follow-ups change
+      // the visit count of resulting packets in ways that surprise
+      // any consumer expecting a specific maxVisits, so opt-in is
+      // explicit.
+      //
+      // worstQuantile defaults to 0.05 (top 5% of moves get re-
+      // evaluated, more conservative than the proxy's 0.25 default
+      // — the SPA's review-session palettes already pick out the
+      // user's worst moves separately, so a tighter quantile here
+      // avoids double-attention on the same positions).
+      // extraVisits defaults to 800 (matches proxy default;
+      // increment-not-absolute, so KataGo's NN cache continues
+      // search from where the original left off).
+      //
+      // Schema-version 30 introduces this field; the migration
+      // backfills `{ enabled: false, worstQuantile: 0.05,
+      // extraVisits: 800 }` on existing blobs.
+      adaptiveReevaluate: {
+        enabled: boolean;
+        worstQuantile: number;
+        extraVisits: number;
+      };
       // Engine-side runtime overrides forwarded verbatim to KataGo as
       // the Analysis Engine's `overrideSettings` field. Documented at
       // the wire-shape boundary on `KataGoAnalysisQuery` in

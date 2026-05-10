@@ -418,6 +418,7 @@ export class AnalysisService {
       isSnapshotMode,
       isRangeBased: true,
       useTransposition: store.profile.settings.engine.katago.useTransposition,
+      adaptiveReevaluate: store.profile.settings.engine.katago.adaptiveReevaluate,
     });
     const selectedModel = store.engine.selectedModel;
     // Snapshot mode (review-session card replay) waits for FINAL packets
@@ -529,6 +530,7 @@ export class AnalysisService {
       isSnapshotMode,
       isRangeBased: false,
       useTransposition: store.profile.settings.engine.katago.useTransposition,
+      adaptiveReevaluate: store.profile.settings.engine.katago.adaptiveReevaluate,
     });
     const selectedModel = store.engine.selectedModel;
     const query: KataGoAnalysisQuery = {

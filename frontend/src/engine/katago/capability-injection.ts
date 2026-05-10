@@ -24,12 +24,12 @@
  *       universal requirement; engagement-or-disconnect is
  *       enforced at probe time). Includes `transposition: {}` when
  *       the registry toggle is on AND the proxy advertises
- *       transposition. Includes `adaptive_reevaluate: {}` when the
- *       query is range-based AND not a snapshot replay (the
- *       middleware's mid-stream follow-ups break turn-locked
- *       review-session timing in ways that aren't fixable
- *       client-side, and would diverge from a card's recorded
- *       analysis on snapshot replay).
+ *       transposition. Includes `adaptive_reevaluate: {meta}` when
+ *       the user has opted in via the analysis-tab checkbox AND the
+ *       query is range-based AND not a snapshot replay AND the
+ *       proxy advertises the capability — `{meta}` carries the
+ *       user-configured `worst_quantile` and `extra_visits`
+ *       overrides (registry-stored, persisted across sessions).
  *
  * The transposition unmet-but-requested case (toggle on, proxy
  * doesn't advertise) does NOT push warnings here — that's a
@@ -40,6 +40,35 @@
  *
  * License: Public Domain (The Unlicense)
  */
+
+export interface AdaptiveReevaluateInput {
+  /**
+   * User's opt-in toggle, surfaced in the analysis-tab UI when the
+   * proxy advertises `adaptive_reevaluate`. Persisted across
+   * sessions via the registry. Default false: adaptive's deeper-
+   * analysis follow-ups change the visit count of the resulting
+   * packets, which corrupts review-session grading and confuses
+   * any downstream consumer that expects a specific maxVisits;
+   * the user opts in deliberately for live range queries where
+   * the deeper pass on worst-quantile turns is wanted.
+   */
+  readonly enabled: boolean;
+  /**
+   * Per-query `worst_quantile` metadata override sent on opt-in.
+   * The proxy's middleware default is 0.25; the SPA's registry
+   * default is 0.05 (top 5% of moves get re-evaluated, more
+   * conservative than the proxy's default).
+   */
+  readonly worstQuantile: number;
+  /**
+   * Per-query `extra_visits` metadata override sent on opt-in.
+   * The proxy's middleware default is 800; this matches.
+   * Increment-not-absolute: the deeper query runs at
+   * `original_maxVisits + extra_visits`, letting KataGo's NN cache
+   * continue the search from where the original left off.
+   */
+  readonly extraVisits: number;
+}
 
 export interface CapabilityInjectionInput {
   /**
@@ -76,6 +105,17 @@ export interface CapabilityInjectionInput {
    * the user the toggle isn't being honoured).
    */
   readonly useTransposition: boolean;
+  /**
+   * The user's adaptive-reevaluate opt-in + metadata, sourced from
+   * `engine.katago.adaptiveReevaluate` in the registry. When
+   * `enabled` is true AND this is a live range-based query AND the
+   * proxy advertises the capability, the SPA opts in and sends
+   * the metadata as the per-query `adaptive_reevaluate.{worst_quantile,
+   * extra_visits}` overrides. The metadata is sent unconditionally
+   * on opt-in (no comparison to proxy defaults) so registry edits
+   * take effect on the next query.
+   */
+  readonly adaptiveReevaluate: AdaptiveReevaluateInput;
 }
 
 /**
@@ -87,11 +127,10 @@ export interface CapabilityInjectionInput {
  *
  * The returned dict is fresh per call (callers may freely include
  * it in the wire payload without aliasing concerns); empty
- * metadata `{}` per capability means "opt in with proxy
- * defaults" (the `adaptive_reevaluate` schema with
- * `worst_quantile` / `extra_visits` exists but the SPA accepts
- * proxy defaults today; the dict shape leaves the door open for
- * future schema authoring without wire-compatibility consequences).
+ * metadata `{}` per capability means "opt in with proxy defaults"
+ * — adaptive_reevaluate is the only capability today that ships
+ * with non-empty metadata (the user's worst_quantile / extra_visits
+ * overrides), keyed snake_case to match the wire vocabulary.
  */
 export function buildPerQueryCapabilities(
   input: CapabilityInjectionInput,
@@ -108,10 +147,18 @@ export function buildPerQueryCapabilities(
     out.transposition = {};
   }
 
-  if (input.isRangeBased
+  if (input.adaptiveReevaluate.enabled
+      && input.isRangeBased
       && !input.isSnapshotMode
       && 'adaptive_reevaluate' in input.advertised) {
-    out.adaptive_reevaluate = {};
+    // Wire shape uses snake_case to match the proxy's metadata
+    // schema (per the dispatch's Q4 sign-off). Registry uses
+    // camelCase per the SPA's convention; the translation happens
+    // here at the wire boundary.
+    out.adaptive_reevaluate = {
+      worst_quantile: input.adaptiveReevaluate.worstQuantile,
+      extra_visits: input.adaptiveReevaluate.extraVisits,
+    };
   }
 
   return out;
