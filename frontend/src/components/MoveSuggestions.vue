@@ -201,7 +201,7 @@ const pvTransition = computed(() => `opacity ${pvCfg.fadeDurationMs}ms ease`);
         :x="toSvg(s.x, s.y).x"
         :y="toSvg(s.x, s.y).y + 1"
         class="suggestion-label"
-        :font-size="stoneR * 0.72"
+        :font-size="stoneR * 0.59"
         dominant-baseline="middle"
         :fill="s.isBest ? '#003040' : '#000'"
       >{{ s.winrateLabel }}</text>
