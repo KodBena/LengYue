@@ -319,6 +319,8 @@ export class AnalysisService {
     visits: number,
     configOverride?: Record<string, unknown>,
     overrideSettingsOverride?: Record<string, unknown>,
+    forReview: boolean = false,
+    isRealtime: boolean = true,
   ) {
     const board = store.boards.find(b => b.id === boardId);
     if (board) (board as any).maxVisitsTarget = visits;
@@ -341,29 +343,31 @@ export class AnalysisService {
     const analyzeTurns = Array.from({ length: endTurn - startTurn + 1 }, (_, i) => startTurn + i);
     const queryId = `range-${boardId}-${Date.now()}`;
 
-    // Snapshot vs. live mode. `configOverride !== undefined` is the
-    // signal the caller is replaying a persisted descriptor (typically
-    // from `useReviewSession` reading a card's `gradingParameter.data`
-    // snapshot) rather than asking for live analysis. In snapshot mode
-    // BOTH legs come from the snapshot — including a legacy card's
-    // missing `overrideSettings` field, which surfaces as
-    // `overrideSettingsOverride === undefined` and means "no overrides
-    // on the wire" (the card was minted before the field existed).
-    // Falling back to `compileEngineOverrides()` here would silently
-    // bind the card's analysis posture to the user's CURRENT registry
-    // values, which is exactly the snapshot-fidelity break the
-    // configOverride mechanism is shaped to prevent.
-    const isSnapshotMode = configOverride !== undefined;
+    // When the caller supplied a `configOverride` it provided BOTH
+    // analysis_config and overrideSettings; both legs come from the
+    // caller, including a missing `overrideSettingsOverride` which
+    // means "no overrides on the wire" (a card minted before the
+    // overrideSettings field existed). Falling back to
+    // `compileEngineOverrides()` in that case would silently bind
+    // the card's analysis posture to the user's CURRENT registry
+    // values, breaking the caller's intent that the recorded
+    // descriptor is the source of truth.
+    //
+    // This is purely a parameter-presence check. It is independent
+    // of the `isRealtime` parameter, which controls
+    // `reportDuringSearchEvery` and is the caller's separate intent
+    // about whether they want during-search packets streamed back.
+    const hasConfigOverride = configOverride !== undefined;
     const analysis_config = configOverride ?? compileAnalysisConfig();
-    const overrideSettings = isSnapshotMode
+    const overrideSettings = hasConfigOverride
       ? overrideSettingsOverride
       : compileEngineOverrides();
-    // The current SELECTOR target is read live for both modes — a
-    // snapshot replay under a different network produces different
-    // packets and must bucket separately in the ledger from a prior
-    // replay under another network. `activeConfigHash` already
-    // accounts for this in live mode (it reads the same source).
-    const hash = isSnapshotMode
+    // The current SELECTOR target is read live in both branches — a
+    // query that targets a different network produces different
+    // packets and must bucket separately in the ledger from one
+    // targeting another network. `activeConfigHash` already accounts
+    // for this in the live branch (it reads the same source).
+    const hash = hasConfigOverride
       ? hashConfig(compileAnalysisDescriptorFromParts(
           analysis_config, overrideSettings, store.engine.selectedModel ?? undefined,
         ))
@@ -415,22 +419,21 @@ export class AnalysisService {
     // a model — in either case the wire field is omitted.
     const capabilities = buildPerQueryCapabilities({
       advertised: store.engine.info.capabilities,
-      isSnapshotMode,
       isRangeBased: true,
+      forReview,
       useTransposition: store.profile.settings.engine.katago.useTransposition,
       adaptiveReevaluate: store.profile.settings.engine.katago.adaptiveReevaluate,
     });
     const selectedModel = store.engine.selectedModel;
-    // Snapshot mode (review-session card replay) waits for FINAL packets
-    // only — `useReviewSession.processUserMove` does
-    // `Promise.all([waitForAnalysis(s_0), waitForAnalysis(s_1)])` where
-    // both waits settle on `isDuringSearch === false`. Intermediate
-    // during-search packets are wasted bandwidth in that mode and
-    // churn the ledger's per-node version refs without changing what
-    // the consumer reads. Live mode keeps the 0.5s cadence so the
-    // analysis tab's reactive views update during ponder. The
-    // presence/absence of `reportDuringSearchEvery` is the
-    // realtime/replay distinction at the wire boundary.
+    // `reportDuringSearchEvery` is the wire signal for "stream me
+    // during-search packets every N seconds." Caller-controlled via
+    // `isRealtime`: callers that only read the final packet (review
+    // session via `Promise.all([waitForAnalysis(s_0), waitForAnalysis(s_1)])`,
+    // both settling on `isDuringSearch === false`) pass `false` so
+    // the proxy doesn't churn intermediate packets through the
+    // ledger. Realtime callers (analysis-tab range selection,
+    // full-game analyze) keep the default and get the 0.5s cadence
+    // so reactive views update during ponder.
     const query: KataGoAnalysisQuery = {
       id: queryId,
       moves,
@@ -441,7 +444,7 @@ export class AnalysisService {
       komi, // Added Komi mapping
       maxVisits: visits,
       ...cacheFlags,
-      ...(isSnapshotMode ? {} : { reportDuringSearchEvery: 0.5 }),
+      ...(isRealtime ? { reportDuringSearchEvery: 0.5 } : {}),
       analyzeTurns,
       ...(needsOwnership ? { includeOwnership: true } : {}),
       ...(hasOverrides ? { overrideSettings } : {}),
@@ -459,7 +462,7 @@ export class AnalysisService {
     this.activeQueryIds.set(boardId, queryId);
     this.restartCallbacks.set(
       boardId,
-      () => this.analyzeRange(boardId, fullPath, startTurn, endTurn, visits, configOverride, overrideSettingsOverride),
+      () => this.analyzeRange(boardId, fullPath, startTurn, endTurn, visits, configOverride, overrideSettingsOverride, forReview, isRealtime),
     );
   }
 
@@ -491,14 +494,14 @@ export class AnalysisService {
     const initialStones = getInitialStones(board);
 
     const queryId = `${mode}-${boardId}-${Date.now()}`;
-    // See analyzeRange above for the snapshot-vs-live rationale.
-    const isSnapshotMode = configOverride !== undefined;
+    // See analyzeRange above for the configOverride-vs-live rationale.
+    const hasConfigOverride = configOverride !== undefined;
     const analysis_config = configOverride ?? compileAnalysisConfig();
-    const overrideSettings = isSnapshotMode
+    const overrideSettings = hasConfigOverride
       ? overrideSettingsOverride
       : compileEngineOverrides();
     // See analyzeRange above for the SELECTOR-model hash rationale.
-    const hash = isSnapshotMode
+    const hash = hasConfigOverride
       ? hashConfig(compileAnalysisDescriptorFromParts(
           analysis_config, overrideSettings, store.engine.selectedModel ?? undefined,
         ))
@@ -522,13 +525,18 @@ export class AnalysisService {
     // Per-query capability opt-in. analyzeActiveNode is turn-locked
     // by construction (single-turn `analyzeTurns: [currentIdx]`),
     // so `adaptive_reevaluate` is structurally inappropriate
-    // regardless of snapshot vs. live — the helper's `isRangeBased:
-    // false` enforces this. See analyzeRange above for the broader
-    // rationale and the SELECTOR `model` injection contract.
+    // regardless of forReview — the helper's `isRangeBased: false`
+    // enforces this. forReview defaults to false here because no
+    // current caller of analyzeActiveNode is a review-session
+    // grading consumer (review session uses analyzeRange via
+    // processUserMove); the parameter would be a no-op even if
+    // added because adaptive can't engage on a turn-locked query
+    // anyway. See analyzeRange above for the broader rationale and
+    // the SELECTOR `model` injection contract.
     const capabilities = buildPerQueryCapabilities({
       advertised: store.engine.info.capabilities,
-      isSnapshotMode,
       isRangeBased: false,
+      forReview: false,
       useTransposition: store.profile.settings.engine.katago.useTransposition,
       adaptiveReevaluate: store.profile.settings.engine.katago.adaptiveReevaluate,
     });

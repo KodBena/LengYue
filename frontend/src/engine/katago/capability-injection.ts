@@ -25,11 +25,15 @@
  *       enforced at probe time). Includes `transposition: {}` when
  *       the registry toggle is on AND the proxy advertises
  *       transposition. Includes `adaptive_reevaluate: {meta}` when
- *       the user has opted in via the analysis-tab checkbox AND the
- *       query is range-based AND not a snapshot replay AND the
+ *       the user has opted in via the analysis-tab checkbox AND
+ *       the query is range-based AND `forReview` is false AND the
  *       proxy advertises the capability — `{meta}` carries the
  *       user-configured `worst_quantile` and `extra_visits`
  *       overrides (registry-stored, persisted across sessions).
+ *       The `forReview` gate exists because review-session grading
+ *       reads the wire-level visit count against the card's
+ *       defaultVisits; adaptive's deeper pass would inflate it
+ *       and corrupt the score.
  *
  * The transposition unmet-but-requested case (toggle on, proxy
  * doesn't advertise) does NOT push warnings here — that's a
@@ -80,22 +84,31 @@ export interface CapabilityInjectionInput {
    */
   readonly advertised: Record<string, Record<string, unknown>> | null;
   /**
-   * Whether this query is a snapshot replay (a card's recorded
-   * analysis_config being replayed for review-session grading) or
-   * a live query authored against the user's current registry. The
-   * snapshot/live distinction matches `analysis-service.ts`'s
-   * existing `isSnapshotMode = configOverride !== undefined` check
-   * — preserved here as the structural signal for whether
-   * `adaptive_reevaluate` is appropriate.
-   */
-  readonly isSnapshotMode: boolean;
-  /**
    * Whether this query covers a range of turns (`analyzeRange`)
    * versus a single turn (`analyzeActiveNode`). Adaptive
    * re-evaluation only makes sense on range-based queries — its
    * worst-quantile selection operates over a window.
    */
   readonly isRangeBased: boolean;
+  /**
+   * Whether the caller needs the wire-level maxVisits to be exactly
+   * what was requested — i.e., adaptive_reevaluate's deeper pass
+   * must NOT add visits to the resulting packets. Set true by the
+   * review-session grading path (`useReviewSession.processUserMove`
+   * → analyzeRange) where visit counts are load-bearing for the
+   * card's recorded defaultVisits comparison; set false by all
+   * other range-query callers (live analysis-tab range selection,
+   * full-game analyze button).
+   *
+   * Distinct from `isRealtime` (analysis-service's caller-supplied
+   * parameter that gates `reportDuringSearchEvery`): a review
+   * session sets both `forReview=true` and `isRealtime=false`, but
+   * a hypothetical batch caller might want `isRealtime=false` (no
+   * during-search packets) without `forReview=true` (adaptive's
+   * deeper pass would be welcome). The two flags are independent
+   * dimensions of caller intent.
+   */
+  readonly forReview: boolean;
   /**
    * The user's wire-request gate for `transposition` — sourced
    * from `engine.katago.useTransposition` in the registry. When
@@ -149,7 +162,7 @@ export function buildPerQueryCapabilities(
 
   if (input.adaptiveReevaluate.enabled
       && input.isRangeBased
-      && !input.isSnapshotMode
+      && !input.forReview
       && 'adaptive_reevaluate' in input.advertised) {
     // Wire shape uses snake_case to match the proxy's metadata
     // schema (per the dispatch's Q4 sign-off). Registry uses

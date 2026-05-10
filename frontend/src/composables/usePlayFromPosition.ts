@@ -143,7 +143,7 @@ function awaitFinalPacket(
  * capability opt-in. They have no SPA-side semantics here — the
  * harness gives the caller direct control over them, distinct from
  * the analysis-service's policy-driven injection (which is keyed on
- * snapshot-mode, registry toggles, and the connected proxy's
+ * caller-supplied flags, registry toggles, and the connected proxy's
  * advertisement). This lets harness scenarios author multi-weights
  * and LLM-at-seat policies that the autonomous-SR-loop note sketches:
  * fire alternating `playEngineMoves({...,model:"strong"})` and

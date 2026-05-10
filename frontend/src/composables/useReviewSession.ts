@@ -290,16 +290,16 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     const s_1_id = nextBoard.currentNodeId as NodeId;
     const s_1_idx = s_0_idx + 1;
 
-    // Two-leg snapshot: palette (`analysis_config`) + KataGo runtime
-    // overrides (`overrideSettings`). The hash combines both via the
-    // descriptor helper so cards minted under different overrides
-    // (e.g. a 'WHITE'-framed card vs. a 'BLACK'-framed one) bucket
-    // separately in the ledger. Legacy cards minted before the
-    // overrideSettings field existed leave `rawOverrides` undefined,
-    // which the analyze-service interprets as "no overrides on the
-    // wire" — preserving the no-overrides analysis posture the card
-    // was minted under instead of bleeding the user's current
-    // registry overrideSettings into a snapshot replay.
+    // Two-leg replay descriptor: palette (`analysis_config`) +
+    // KataGo runtime overrides (`overrideSettings`). The hash
+    // combines both via the descriptor helper so cards minted under
+    // different overrides (e.g. a 'WHITE'-framed card vs. a
+    // 'BLACK'-framed one) bucket separately in the ledger. Legacy
+    // cards minted before the overrideSettings field existed leave
+    // `rawOverrides` undefined, which the analyze-service interprets
+    // as "no overrides on the wire" — preserving the no-overrides
+    // analysis posture the card was minted under instead of bleeding
+    // the user's current registry overrideSettings into the replay.
     const rawConfig = currentCard.value?.gradingParameter?.data?.analysis_config;
     const rawOverrides = currentCard.value?.gradingParameter?.data?.overrideSettings;
     const configOverride = rawConfig ? rawConfig : undefined;
@@ -313,8 +313,8 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     // Read the current SELECTOR target live so a card replay under a
     // different network buckets separately in the ledger from a prior
     // replay under another network. `activeConfigHash` already
-    // accounts for this in the non-snapshot branch (its source reads
-    // `store.engine.selectedModel` too).
+    // accounts for this in the no-configOverride branch (its source
+    // reads `store.engine.selectedModel` too).
     const hash = configOverride
       ? hashConfig(
           compileAnalysisDescriptorFromParts(
@@ -328,6 +328,19 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     const visits = effectiveVisits.value;
 
     const newPath = getActiveVariationPath(nextBoard) as NodeId[];
+    // Two trailing booleans documented at the call site:
+    //   forReview=true: visit count is load-bearing for grading
+    //     (delta read against the card's defaultVisits), so
+    //     adaptive_reevaluate's deeper-pass visit-count inflation
+    //     must NOT engage on this query. Independent of whether
+    //     the card carries a recorded analysis_config — legacy
+    //     cards (configOverride undefined) are still review
+    //     sessions and need the same protection.
+    //   isRealtime=false: no `reportDuringSearchEvery` on the wire
+    //     so the proxy doesn't emit during-search packets the
+    //     review session never reads (waitForAnalysis filters on
+    //     isDuringSearch=false; the intermediate packets just
+    //     churn the ledger).
     analysisService.analyzeRange(
       nextBoard.id,
       newPath,
@@ -336,6 +349,8 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
       visits,
       configOverride,
       overrideSettingsOverride,
+      true,
+      false,
     );
 
     // Set up a fresh abort controller for this wait. loadCard will

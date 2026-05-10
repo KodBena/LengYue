@@ -474,11 +474,13 @@ export interface AppSettings {
       // proxies that can't honour it). When `enabled` is true and
       // the query is live + range-based, the analysis-service ACL
       // injects `adaptive_reevaluate: { worst_quantile, extra_visits }`
-      // into the per-query capabilities dict. Snapshot mode (review-
-      // session card replay) and turn-locked queries
+      // into the per-query capabilities dict. Review-session queries
+      // (analyzeRange called with `forReview=true` from
+      // `useReviewSession.processUserMove`) and turn-locked queries
       // (analyzeActiveNode) always omit it regardless of `enabled`,
       // because the middleware's mid-stream follow-ups would either
-      // diverge from a card's recorded analysis or be structurally
+      // inflate the visit count beyond the card's defaultVisits
+      // (corrupting review-session grading) or be structurally
       // inappropriate for a single-turn target.
       //
       // Default off — adaptive's deeper-analysis follow-ups change

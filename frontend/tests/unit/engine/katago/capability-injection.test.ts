@@ -3,11 +3,20 @@
  *
  * Tier-1 (pure-logic) tests for the per-query capability builder
  * in `src/engine/katago/capability-injection.ts`. The engagement
- * matrix has five binary axes (advertised yes/no, isSnapshotMode
- * yes/no, isRangeBased yes/no, useTransposition yes/no,
+ * matrix has five binary axes (advertised yes/no, isRangeBased
+ * yes/no, forReview yes/no, useTransposition yes/no,
  * adaptiveReevaluate.enabled yes/no) and a capability-presence
  * dimension on the advertised side; each branch is a specification
  * of behaviour the analysis-service ACL relies on.
+ *
+ * The gate for adaptive_reevaluate omission is the explicit
+ * `forReview` flag — independent of `isRealtime` (which controls
+ * only `reportDuringSearchEvery` over in analysis-service). The
+ * two were once collapsed under a misnamed `isSnapshotMode` local
+ * that derived from `configOverride !== undefined`; legacy cards
+ * (configOverride undefined → that derived flag was false) being
+ * review sessions exposed the conflation, and the two dimensions
+ * are now separately first-class caller intents.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -40,13 +49,12 @@ describe('buildPerQueryCapabilities', () => {
     // Pre-v1.0.14 proxy or PROXY_ADVERTISE_CAPABILITIES=false: omit
     // the wire field entirely so the proxy's wired-extensions
     // default fires (the dispatch's Q1 sign-off). This is the
-    // correct behaviour for legacy proxies — reverted from a brief
-    // experiment with always-send semantics.
+    // correct behaviour for legacy proxies.
     expect(
       buildPerQueryCapabilities({
         advertised: null,
-        isSnapshotMode: false,
         isRangeBased: true,
+        forReview: false,
         useTransposition: true,
         adaptiveReevaluate: ADAPTIVE_ON,
       }),
@@ -56,8 +64,8 @@ describe('buildPerQueryCapabilities', () => {
   it('always includes delta_analysis when the proxy advertises', () => {
     const caps = buildPerQueryCapabilities({
       advertised: { delta_analysis: {} },
-      isSnapshotMode: true,
       isRangeBased: false,
+      forReview: false,
       useTransposition: false,
       adaptiveReevaluate: ADAPTIVE_OFF,
     });
@@ -68,8 +76,8 @@ describe('buildPerQueryCapabilities', () => {
   it('engages transposition when toggle is on AND advertised', () => {
     const caps = buildPerQueryCapabilities({
       advertised: { delta_analysis: {}, transposition: {} },
-      isSnapshotMode: false,
       isRangeBased: true,
+      forReview: false,
       useTransposition: true,
       adaptiveReevaluate: ADAPTIVE_OFF,
     });
@@ -79,8 +87,8 @@ describe('buildPerQueryCapabilities', () => {
   it('omits transposition when toggle on but proxy does not advertise', () => {
     const caps = buildPerQueryCapabilities({
       advertised: { delta_analysis: {} },
-      isSnapshotMode: false,
       isRangeBased: true,
+      forReview: false,
       useTransposition: true,
       adaptiveReevaluate: ADAPTIVE_OFF,
     });
@@ -90,8 +98,8 @@ describe('buildPerQueryCapabilities', () => {
   it('engages adaptive_reevaluate on live range queries when user has opted in AND advertised', () => {
     const caps = buildPerQueryCapabilities({
       advertised: { delta_analysis: {}, adaptive_reevaluate: {} },
-      isSnapshotMode: false,
       isRangeBased: true,
+      forReview: false,
       useTransposition: false,
       adaptiveReevaluate: ADAPTIVE_ON,
     });
@@ -103,29 +111,32 @@ describe('buildPerQueryCapabilities', () => {
 
   it('omits adaptive_reevaluate when user has not opted in (the default)', () => {
     // Even with all other conditions met, the user's enabled flag
-    // gates the wire opt-in. Pinned because the default is OFF —
-    // a regression that flipped this on by default would
-    // immediately surface the visit-count-bloat bug on review-
-    // session grading and similar consumers.
+    // gates the wire opt-in. Pinned because the default is OFF.
     const caps = buildPerQueryCapabilities({
       advertised: { delta_analysis: {}, adaptive_reevaluate: {} },
-      isSnapshotMode: false,
       isRangeBased: true,
+      forReview: false,
       useTransposition: false,
       adaptiveReevaluate: ADAPTIVE_OFF,
     });
     expect(caps).not.toHaveProperty('adaptive_reevaluate');
   });
 
-  it('omits adaptive_reevaluate on snapshot replays even when user has opted in', () => {
-    // Review-session card replay. Adaptive's mid-stream follow-ups
-    // would diverge from the recorded analysis the card was minted
-    // under (and inflate the visit count, breaking visit-ratio
-    // grading). Snapshot mode is the structural override.
+  it('omits adaptive_reevaluate when forReview is true even when user has opted in', () => {
+    // The user-reported regression: review-session card on
+    // 2000-visit query returned packets at 2800 visits (2000 +
+    // adaptive's 800 extra_visits). The first attempted fix gated
+    // on a derived flag that conflated "caller passed a
+    // configOverride" with "caller wants final-only packets", which
+    // was FALSE on legacy cards (no recorded analysis_config), so
+    // adaptive still engaged on review sessions of legacy cards.
+    // The correct gate is the explicit `forReview` flag set by
+    // useReviewSession.processUserMove regardless of whether the
+    // card carries a recorded analysis_config.
     const caps = buildPerQueryCapabilities({
       advertised: { delta_analysis: {}, adaptive_reevaluate: {} },
-      isSnapshotMode: true,
       isRangeBased: true,
+      forReview: true,
       useTransposition: false,
       adaptiveReevaluate: ADAPTIVE_ON,
     });
@@ -136,8 +147,8 @@ describe('buildPerQueryCapabilities', () => {
   it('omits adaptive_reevaluate on turn-locked queries (analyzeActiveNode)', () => {
     const caps = buildPerQueryCapabilities({
       advertised: { delta_analysis: {}, adaptive_reevaluate: {} },
-      isSnapshotMode: false,
       isRangeBased: false,
+      forReview: false,
       useTransposition: false,
       adaptiveReevaluate: ADAPTIVE_ON,
     });
@@ -147,8 +158,8 @@ describe('buildPerQueryCapabilities', () => {
   it('omits adaptive_reevaluate when proxy does not advertise it', () => {
     const caps = buildPerQueryCapabilities({
       advertised: { delta_analysis: {} },
-      isSnapshotMode: false,
       isRangeBased: true,
+      forReview: false,
       useTransposition: false,
       adaptiveReevaluate: ADAPTIVE_ON,
     });
@@ -159,8 +170,8 @@ describe('buildPerQueryCapabilities', () => {
     // Pin: the registry values flow to the wire snake_case fields.
     const caps = buildPerQueryCapabilities({
       advertised: { delta_analysis: {}, adaptive_reevaluate: {} },
-      isSnapshotMode: false,
       isRangeBased: true,
+      forReview: false,
       useTransposition: false,
       adaptiveReevaluate: { enabled: true, worstQuantile: 0.1, extraVisits: 1600 },
     });
@@ -177,8 +188,8 @@ describe('buildPerQueryCapabilities', () => {
         transposition: {},
         adaptive_reevaluate: {},
       },
-      isSnapshotMode: false,
       isRangeBased: true,
+      forReview: false,
       useTransposition: true,
       adaptiveReevaluate: ADAPTIVE_ON,
     });
@@ -190,12 +201,10 @@ describe('buildPerQueryCapabilities', () => {
   });
 
   it('produces a minimal review-session opt-in dict (delta_analysis only) regardless of user adaptive opt-in', () => {
-    // The user-reported regression: review-session card on
-    // 2000-visit query returned packets at 2800 visits (2000 +
-    // adaptive's 800 extra_visits). The fix gates adaptive on
-    // !isSnapshotMode AND user-opt-in; this test pins both gates
-    // by passing isSnapshotMode=true alongside the user having
-    // opted in. The wire dict must remain {delta_analysis: {}}.
+    // Regression pin for the visit-count-bloat bug: review session
+    // on a legacy card (configOverride undefined; forReview=true
+    // from processUserMove) must produce a wire dict without
+    // adaptive_reevaluate even when the user has opted in.
     const caps = buildPerQueryCapabilities({
       advertised: {
         delta_analysis: {},
@@ -203,8 +212,8 @@ describe('buildPerQueryCapabilities', () => {
         adaptive_reevaluate: {},
         selector: {},
       },
-      isSnapshotMode: true,
       isRangeBased: true,
+      forReview: true,
       useTransposition: false,
       adaptiveReevaluate: ADAPTIVE_ON,
     });
@@ -214,15 +223,15 @@ describe('buildPerQueryCapabilities', () => {
   it('returns a fresh object per call (no aliasing across queries)', () => {
     const a = buildPerQueryCapabilities({
       advertised: { delta_analysis: {} },
-      isSnapshotMode: false,
       isRangeBased: false,
+      forReview: false,
       useTransposition: false,
       adaptiveReevaluate: ADAPTIVE_OFF,
     });
     const b = buildPerQueryCapabilities({
       advertised: { delta_analysis: {} },
-      isSnapshotMode: false,
       isRangeBased: false,
+      forReview: false,
       useTransposition: false,
       adaptiveReevaluate: ADAPTIVE_OFF,
     });
