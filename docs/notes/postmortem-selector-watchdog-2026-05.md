@@ -433,6 +433,54 @@ the full game. Pre-fix the watchdog terminates the analyze
 mid-stream and the SPA's `waitForAnalysis` expires at 30s;
 post-fix the analyze runs to completion.
 
+### Addendum 3 — RELAY follow-up arc shipped in proxy v1.0.19
+
+The latent-bug-audit section above named RELAY as "needs the same
+`_broadcast` pattern in a follow-up arc with corresponding
+regression tests". That arc shipped immediately after the v1.0.18
+release on the same day:
+
+  - `RelayRouter._broadcast` mirrors `SelectorRouter._broadcast`;
+    routes QUERY_VERSION / TERMINATE_ALL / CLEAR_CACHE to every
+    connected upstream; first response wins; LoadMetric skipped
+    on the broadcast path (heartbeats and metadata fanouts aren't
+    in-flight in the load sense).
+  - Single-target ANALYZE dispatch via the hash ring is unchanged.
+  - `tests/test_relay_router.py` (new — RelayRouter previously had
+    no unit-level test file) covers the dispatch matrix:
+    single-target ANALYZE regression, broadcast for the three
+    metadata actions, no-connected and all-sends-failing
+    degenerate paths, per-upstream send-failure continues,
+    LoadMetric not advanced by broadcast, first-response-wins
+    via the existing `_callbacks.pop` on QUERY_COMPLETE.
+  - `tests/diagnose_watchdog_relay.py` (new) — topology-level
+    KataGo-free diagnostic mirroring
+    `tests/diagnose_watchdog_selector.py` for the RELAY topology.
+    RelayRouter + 3 phantom upstreams each with its own
+    `KeepAliveMiddleware`; pre-fix the broadcast assertion fails
+    on tick 1 (only the ring-selected upstream receives the
+    heartbeat); post-fix all three upstreams receive every
+    heartbeat and only the analyze-target upstream fires its
+    watchdog when heartbeats stop.
+  - `proxy/CLAUDE.md`'s heartbeat-fanout-contract section updated
+    to mark RELAY as compliant; both `SelectorRouter._broadcast`
+    (v1.0.18) and `RelayRouter._broadcast` (v1.0.19) named as
+    the reference shapes for any future multi-upstream
+    `BackendRouter`.
+
+The RELAY arc was scoped tightly: only the broadcast routing for
+the three metadata actions changed. Structured-error surfacing
+for RELAY's no-upstream-available case (currently logs and
+silently drops, matching pre-fix convention) is a separate
+fail-loud enhancement not bundled here. If a future SPA flow
+benefits from explicit no-upstream errors on RELAY, that arc
+fixes the surfacing and threads the same convention SELECTOR
+already follows.
+
+The latent-bug-audit's RELAY entry above is preserved verbatim
+as the planning-time record; this addendum is the closure
+ledger entry per ADR-0005 Rule 8.
+
 ## Related
 
 - The original keep-alive contract:
