@@ -189,34 +189,32 @@ const updateOptions = () => {
     return;
   }
 
-  // 4. Empty-series special case. ECharts' merge-mode setOption
-  // (notMerge: false) does not remove series that aren't in the new
-  // options, so passing `series: []` after a non-empty render leaves
-  // the prior series and their legend chrome on screen. The visible
-  // symptom is "purge analysis doesn't clear the Game State chart"
-  // — the data is gone from the ledger and from props.series, but
-  // the chart's internal series list still has the prior entries.
-  // `chartInstance.clear()` resets the internal series list and
-  // legend cleanly; the next non-empty render goes through the full
-  // init path via `isInitialized = false`.
-  if (props.series.length === 0) {
-    chartInstance.clear();
-    lastDataRefs = [];
-    lastZoomRange = '';
-    lastSeriesNames = '';
-    isInitialized = false;
-    return;
-  }
-
-  // 5. Heavy update: Data has changed or we are initializing.
+  // 4. Heavy update: Data has changed or we are initializing.
   // Use notMerge: true when the set of series names has changed —
   // ECharts retains series across merges when keyed by name, so a
-  // legitimate name change (palette swap, series-set restructure)
-  // would leave the prior names visible alongside the new ones
-  // without notMerge. When names are stable and only data refs
-  // changed, merge (notMerge: false) is the right call: it
-  // preserves ECharts' internal animation / scroll / drag state
-  // across data updates.
+  // legitimate name change (palette swap, series-set restructure,
+  // or the empty-series case after a purge: N names → 0 names) would
+  // leave the prior names visible alongside the new ones without
+  // notMerge. The "purge doesn't clear Game State" bug surfaced
+  // exactly here: every BaseChart consumer except ScoreLeadPanel
+  // emits at least one always-present stub series (PlayerPanel's
+  // `Black Delta` / `White Delta` carry null-valued data when
+  // ledger is empty), so their name-set is stable across purge and
+  // merge-mode renders correctly. ScoreLeadPanel's mainSeries goes
+  // from N palette-driven names to empty, and merge-mode preserves
+  // the old names — hence the lingering legend + line traces.
+  //
+  // When names are stable and only data refs changed, merge mode
+  // (notMerge: false) is preserved — that's the optimal path for
+  // ponder-stream updates where ECharts' internal animation /
+  // scroll / drag state should survive across data refreshes.
+  //
+  // Calling chartInstance.clear() here would also kill the prior
+  // series, but it ALSO clears the backdrop and axis styling —
+  // leaving an unconfigured ECharts element that paints as a black
+  // void on dark themes. notMerge:true on a setOption that still
+  // carries the full chart config (legend / tooltip / grid / axes)
+  // replaces the series list cleanly while preserving the frame.
   const currentNames = props.series.map(s => s.name).join('|');
   const namesChanged = currentNames !== lastSeriesNames;
   lastDataRefs = currentRefs;
