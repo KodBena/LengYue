@@ -109,51 +109,53 @@ tree without surfacing the cross-boundary nature first.
 originally covered the proxy was lifted during the umbrella's v1.0.0
 release window — a bug surfaced (empty-board ponder via
 `analysis_config` leakage) that warranted a coordinated proxy bump
-rather than a frontend-only workaround. The current pin is **v1.0.15**;
-later bumps follow the same coordinated arc (see the proxy's tag
-annotations for each release's full changelog).
+rather than a frontend-only workaround. The current pin is **v1.0.20**;
+later bumps follow the same coordinated arc. The proxy's tag
+annotations carry the full per-release changelog; the prose below
+sketches the recent arc only deeply enough to orient cross-boundary
+work.
 
-v1.0.13 was a structural release: it splits `KataGoResponse` into a
-discriminated union (`AnalyzeResponse | MetadataResponse`) eliminating
-the v1.0.12 `query_models` transparency bug, renames cryptic top-level
-modules (`flt`/`bsa`/`baduk`/`rxp`/`reginterp`) to descriptive ones,
-and surfaces Layer 1's two extension surfaces as `transformers/` and
-`middleware/` directories with KataGo-specific protocol types in their
-own `katago/` package outside `AbstractProxy/`. Wire-shape behaviour
-to KataGo clients is unchanged for analyze responses and gains
-transparency for metadata responses. See the v1.0.13 tag annotation
-for the full changelog and `proxy/docs/roadmap-response-variants.md`
-for the response-variants design rationale.
+The v1.0.13–v1.0.15 arc was structural: v1.0.13 split `KataGoResponse`
+into a discriminated `AnalyzeResponse | MetadataResponse` union and
+renamed the cryptic top-level modules; v1.0.14 introduced two-sided
+capability negotiation (a `capabilities` dict on `query_version`
+responses gated by `PROXY_ADVERTISE_CAPABILITIES`, plus a symmetric
+per-query opt-in on the analysis query payload) carrying three
+behavioural capabilities (`delta_analysis`, `transposition`,
+`adaptive_reevaluate`); v1.0.15 added the SELECTOR role — a fourth
+Layer 3 `BackendRouter` peer that dispatches per-query against a
+labelled upstream pool via the wire `model: string` field, with the
+`selector` capability advertised in the version response and
+`query_models` extended to enumerate the labelled set. See those
+tag annotations for the contracts.
 
-v1.0.14 introduces two-sided capability negotiation: a `capabilities`
-dict on `query_version` responses (gated by
-`PROXY_ADVERTISE_CAPABILITIES=true`, default off) and a symmetric
-per-query opt-in on the analysis query payload. Three behavioural
-capabilities ride the new channel — `delta_analysis` (the
-`analysis_enricher` Transformer producing per-move enrichment),
-`transposition` (the `transposition_enricher` Transformer producing
-`clusterId`), and `adaptive_reevaluate` (the middleware that fires
-deeper follow-up queries on worst-quantile turns, with a
-`worst_quantile`/`extra_visits` metadata schema). Default semantics
-when the per-query field is absent is legacy auto-engage —
-v1.0.13-and-earlier clients continue working unchanged. The frontend
-side of this contract closes a pre-existing fail-loud violation
-around the registry's transposition toggle (silent no-op when the
-proxy lacks `goboard_transposition`).
+The v1.0.18–v1.0.19 arc was corrective: both surfaced the heartbeat-
+fanout contract documented in `proxy/CLAUDE.md`. v1.0.18 fixed
+SELECTOR's `QUERY_VERSION` / `TERMINATE_ALL` / `CLEAR_CACHE` routing
+to broadcast to every healthy upstream rather than the first one
+(the prior shape silently broke per-session keep-alive watchdogs on
+non-first models); v1.0.19 fixed the same root cause on RELAY's
+hash-ring side. Both ship with regression tests and topology
+diagnostics under `tests/diagnose_watchdog_*.py`. See the umbrella's
+`docs/notes/postmortem-selector-watchdog-2026-05.md` for the
+diagnosis arc.
 
-v1.0.15 introduces the SELECTOR role: a fourth Layer 3
-`BackendRouter` peer to `LeafRouter`/`RelayRouter`/`EchoRouter` that
-dispatches per-query against a labelled upstream pool. Configuration
-via the `SELECTOR_MODELS` env var (`label1=ws://host1,label2=ws://host2,…`);
-the wire `model: string` field on the analysis query is the routing
-key. A `selector` capability appears in the version-response
-advertisement so clients can feature-detect; `query_models` extends
-to enumerate the labelled set as `[{label}, …]`. Failure modes are
-loud per ADR-0002 (unknown label / unhealthy upstream → structured
-`KataErrorResponse`; duplicate labels at startup → `SelectorStartupError`).
-Together v1.0.14 and v1.0.15 enable real-time model-vs-model
-analysis and the multi-weights/LLM-at-seat policies the autonomous-SR
-loop note sketches.
+v1.0.20 is the institutional structured-logging release. The
+proxy's log surface is rewritten end to end — closed `Event`
+vocabulary with per-event required-field schemas validated at the
+call site (ADR-0002 applied to logging), three formatters
+(console / logfmt / JSON) selected by `PROXY_LOG_FORMAT`, role-
+tinted bind chains carrying role/session/upstream/label/cid/orig as
+structured fields, and demand-edge `forward` events at INFO so
+operators see when each authoritative response reaches the SPA
+without partial-flood noise. The release also lands an
+adaptive_reevaluate streaming refactor that stops the long-standing
+"ranges feel batchy" symptom: original finals now stream
+immediately as `is_during_search=True` previews and promote to
+authoritative `is_during_search=False` once the worst-quantile
+decision is in. Operator runtime view in `proxy/docs/logging.md`;
+authoring conventions in `proxy/CLAUDE.md`'s logging-conventions
+section.
 
 The proxy is independently developed with its own architecture
 (see `proxy/README.md`, `proxy/ARCHITECTURE.md`, `proxy/FRAMEWORK.md`)
