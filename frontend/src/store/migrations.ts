@@ -973,12 +973,10 @@ export const migrations: Migration[] = [
   // setups the cap was hit in seconds, surprising users who expected
   // ponder to keep accumulating. v31 introduces
   // `engine.katago.ponderMaxVisits` (default 2,000,000), read by
-  // `analyzeActiveNode(mode='ponder')` in the analysis service and by
-  // `AnalysisTimelinePanel.vue`'s visits-input cap.
-  //
-  // The `PONDER_MAX_VISITS` constant remains for the rugplot's
-  // intensity-gradient saturation target (a visualization scale, not
-  // a wire-protocol ceiling) — see the constant's docstring.
+  // `analyzeActiveNode(mode='ponder')` in the analysis service, by
+  // `AnalysisTimelinePanel.vue`'s visits-input cap, and by
+  // `BoardTab.vue`'s rugplot intensity-gradient floor — the same
+  // three consumer sites the removed constant served.
   //
   // Idempotent: a non-number existing value is replaced; an existing
   // numeric value is preserved.

@@ -61,12 +61,11 @@ export const defaultSettings = {
         extraVisits: 800,
       },
       // Practical ceiling on ponder mode's maxVisits. The pre-v1.0.20
-      // hardcoded ceiling of 100,000 (from `PONDER_MAX_VISITS` in
-      // `engine/constants.ts`) was hit in seconds on weak networks /
-      // CPU-only setups; 2,000,000 is the new default and is
-      // user-tunable. See `AppSettings.engine.katago.ponderMaxVisits`
-      // in `types.ts` for the full rationale and the split from the
-      // rugplot's intensity-gradient saturation target.
+      // hardcoded ceiling of 100,000 was hit in seconds on weak
+      // networks / CPU-only setups; 2,000,000 is the new default and
+      // is user-tunable. See `AppSettings.engine.katago.ponderMaxVisits`
+      // in `types.ts` for the three consumer sites and the v1.0.20
+      // surfacing rationale.
       ponderMaxVisits: 2_000_000,
       // Engine-side runtime overrides forwarded as KataGo's
       // `overrideSettings` field on every analysis query. The seed

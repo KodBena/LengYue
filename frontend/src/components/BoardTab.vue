@@ -10,7 +10,7 @@
 import { computed } from 'vue';
 import { useActivityDecay } from '../composables/useActivityDecay';
 import { getIntensityColorLinear } from '../engine/suggestion-colors';
-import { PONDER_MAX_VISITS } from '../engine/constants';
+import { store } from '../store';
 import type { BoardState } from '../types';
 import { ledger } from '../services/analysis-ledger';
 import { useVariationPath } from '../composables/useVariationPath';
@@ -38,19 +38,35 @@ const path = useVariationPath(() => props.state.id);
 // Three visual decisions distinct from how the intensity gradient is
 // consumed elsewhere (move suggestions, ColorDebugStrip):
 //
-//   • Target floor is the ponder ceiling (`PONDER_MAX_VISITS` in
-//     `engine/constants.ts`, applied as `maxVisits` in
-//     analysis-service's ponder mode); a deeper user-specified
+//   • Target floor is the user-configured ponder ceiling
+//     (`engine.katago.ponderMaxVisits`, default 2,000,000; tunable
+//     via the registry editor and applied as `maxVisits` in
+//     analysis-service's ponder mode). A deeper user-specified
 //     `analyzeRange` target wins. Without the floor, the meter
 //     saturates instantly on ponder when the user hasn't run a
 //     range analysis, because the default `state.maxVisitsTarget`
-//     is 1000.
+//     is 1000. The pre-v1.0.20 shape pinned this to a hardcoded
+//     100,000 constant; after the v1.0.20 surfacing the analysis
+//     service goes deeper than that on ponder, so the meter
+//     saturated 20× too quickly. SSOT: same setting both ends
+//     consume.
 //
 //   • Logarithmic compression on visits → t. Linear `visits / target`
 //     would put the entire 1k–10k–100k progression into the bottom
 //     decile; log mapping spreads each ~10× of visits across roughly
 //     equal slices of t, so the colour gradates smoothly as ponder
 //     accumulates. `log1p` keeps `visits === 0 → t = 0` clean.
+//
+//     Distinct from the timeline-panel rug-plot's quantile mapping:
+//     the rail meter answers "how deep has analysis gone on this
+//     board, on an absolute scale anchored to the configured
+//     ceiling?" — magnitude information is the point. The timeline-
+//     panel rug-plot answers "which turns in this game got
+//     relatively more attention than others?" — rank-position
+//     information is the point. Different questions, different
+//     mappings; the shared SSOT is the gradient LUT
+//     (`getIntensityColorLinear`), the transparent-for-zero rule,
+//     and the ponder-ceiling reference.
 //
 //   • The linear (non-ECDF) variant of the gradient is the right fit
 //     here. The ECDF variant remaps `t` through the visit-ratio
@@ -68,7 +84,8 @@ const path = useVariationPath(() => props.state.id);
 const rugPlot = computed(() => {
   const nodeIds = path.value;
   if (nodeIds.length === 0) return [];
-  const target = Math.max(props.state.maxVisitsTarget ?? 0, PONDER_MAX_VISITS);
+  const ponderCeiling = store.profile.settings.engine.katago.ponderMaxVisits;
+  const target = Math.max(props.state.maxVisitsTarget ?? 0, ponderCeiling);
   const targetLog = Math.log1p(target);
   return nodeIds.map((id, idx) => {
     const packet = ledger.getRaw(activeConfigHash.value, id);

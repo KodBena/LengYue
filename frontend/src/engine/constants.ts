@@ -69,27 +69,6 @@ export const STONE_RADIUS_RATIO = 0.46;
 export const MARKER_INNER_RATIO = 0.4;
 
 /**
- * Maximum visits during ponder / analysis mode. KataGo's
- * analysis-engine `maxVisits` parameter caps how many search
- * iterations the engine runs per query; this value is the
- * upper bound the application uses for unrestricted ponder.
- * Three consumer sites read this:
- *   - `services/analysis-service.ts` — passes it as `maxVisits`
- *     in the wire query for ponder mode.
- *   - `components/BoardTab.vue` — uses it as the floor for the
- *     analysis-meter rugplot's intensity-gradient target so the
- *     meter doesn't saturate instantly when the user hasn't
- *     specified a deeper analyzeRange target.
- *   - `components/charts/AnalysisTimelinePanel.vue` — caps the
- *     visits input's HTML `max` attribute so the user can't
- *     request a deeper analysis than the engine will deliver.
- *
- * Tuning consideration: this is the ceiling, not the default.
- * The default `defaultVisits` is 1000 (in `store/defaults.ts`).
- */
-export const PONDER_MAX_VISITS = 100000;
-
-/**
  * Maximum number of roots whose lineage trees the Forest Directory
  * navigator will auto-load into the right pane on a game-node
  * selection. Past this cap, selecting a game shows a guidance

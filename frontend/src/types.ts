@@ -514,15 +514,24 @@ export interface AppSettings {
       // a CPU-only setup hit the cap in seconds). User-tunable via the
       // registry editor under engine → katago; default 2,000,000.
       //
-      // Read by `services/analysis-service.ts` at every
-      // `analyzeActiveNode(mode='ponder')` call site, and by
-      // `components/charts/AnalysisTimelinePanel.vue` as the
-      // visits-input's HTML `max` attribute so the user cannot
-      // request a deeper one-shot range analyze than the ponder
-      // ceiling. Distinct from `PONDER_MAX_VISITS` in
-      // `engine/constants.ts`, which is the rugplot's intensity-
-      // gradient saturation target (a visualization concern, not a
-      // wire-protocol ceiling).
+      // Single source of truth for ponder-depth across three
+      // consumer sites:
+      //   - `services/analysis-service.ts` — passed as `maxVisits`
+      //     in the wire query for ponder mode (the actual KataGo-
+      //     side ceiling on per-query search depth).
+      //   - `components/charts/AnalysisTimelinePanel.vue` — caps
+      //     the visits-input's HTML `max` attribute so the user
+      //     cannot request a one-shot range analyze deeper than
+      //     the ponder ceiling permits.
+      //   - `components/BoardTab.vue` — uses it as the floor for
+      //     the analysis-meter rugplot's intensity-gradient
+      //     target, so the meter doesn't saturate instantly when
+      //     the user hasn't run a range analysis.
+      //
+      // The pre-v1.0.20 shape had a hardcoded `PONDER_MAX_VISITS`
+      // constant (100,000) in `engine/constants.ts` consumed by
+      // the same three sites; v1.0.20 surfaces the value as a
+      // registry-tunable setting and removes the constant.
       //
       // Schema-version 31 introduces this field; the migration
       // backfills 2,000,000 on existing blobs.
