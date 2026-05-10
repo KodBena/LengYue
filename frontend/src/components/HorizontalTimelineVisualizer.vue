@@ -176,16 +176,23 @@ const normalizeValue = (val: number, segment: Segment) => {
   return val;
 };
 
-const getSampledValues = (values: number[]) => {
-  const maxStops = 20;
-  if (values.length <= maxStops) return values;
-  const result = [];
-  const step = (values.length - 1) / (maxStops - 1);
-  for (let i = 0; i < maxStops; i++) {
-    result.push(values[Math.round(i * step)]);
-  }
-  return result;
-};
+// Render every position in the segment as a gradient stop. The
+// pre-v1.0.20 shape capped this at maxStops=20, which under-sampled
+// any segment longer than 20 turns — adjacent stops were linearly
+// interpolated in RGB by the SVG renderer, so a heavily-pondered
+// outlier turn between two low-visit neighbours could be rendered
+// as merely the interpolated midpoint of the two, making the
+// outlier visually invisible. The same rationale that produced
+// the v1.0.20 quantile color-mode (no parametric squashing of the
+// distribution onto a min-max axis) applies to spatial sampling:
+// the SVG renderer handles many gradient stops fine — browsers
+// rasterise the gradient once and the per-stop cost is negligible
+// — so the right move is to remove the cap and let every turn
+// contribute its own stop. Caller's responsibility to keep
+// segment lengths reasonable; in practice they're bounded by
+// Go game lengths (well under 10^3 turns for any realistic game
+// and well within the renderer's headroom).
+const getSampledValues = (values: number[]) => values;
 
 /**
  * Empirical-CDF midrank quantile of `val` within `sortedAsc`.
