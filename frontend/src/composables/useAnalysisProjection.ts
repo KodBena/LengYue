@@ -9,10 +9,7 @@ import { computed } from 'vue';
 import { store, activeBoard } from '../store';
 import { useVariationPath } from './useVariationPath';
 import { useEnrichedData } from './useEnrichedData';
-import { useKernelSeries } from './useKernelSeries';
-import { scoreLead } from '../engine/analysis/kernels';
 import { useAnalysisTimeline } from './useAnalysisTimeline';
-import { themeColor } from '../utils/theme-color';
 import type { BoardId, ColorMoveIndex } from '../types';
 
 /**
@@ -34,7 +31,6 @@ export function useAnalysisProjection(boardId: BoardId) {
   // 1. Source Data
   const variationPath = useVariationPath(() => boardId);
   const enriched = useEnrichedData(variationPath);
-  const scoreLeadData = useKernelSeries(variationPath, scoreLead);
 
   const {
     visitVector,
@@ -76,48 +72,20 @@ export function useAnalysisProjection(boardId: BoardId) {
   const activeBlackIndex = computed(() => getPlayerIndex('B'));
   const activeWhiteIndex = computed(() => getPlayerIndex('W'));
 
-  // 3. Series Merging
-  const mainSeries = computed(() => {
-    if (scoreLeadData.value.length === 0 && enriched.value.stateSeries.length === 0) {
-      return [];
-    }
-
-    const board = store.boards.find(b => b.id === boardId);
-    
-    // Transform flat arrays into format that supports conditional dot styling.
-    // The kernel series emits `[number | null, number | null][]`: both the
-    // index slot and the value slot can be null (an absent kernel sample
-    // means we can't anchor it to a turn either). Guard both at the top
-    // and pass the null-pair through unchanged so downstream renderers see
-    // a uniform shape.
-    const scoreLeadFormatted = scoreLeadData.value.map(([i, val]) => {
-      if (i === null || val === null) return [i, val];
-      
-      const nodeId = variationPath.value[i];
-      const node = board?.nodes[nodeId];
-      
-      // Determine dot color by inspecting who actually played the move to reach this state
-      const isBlack = node?.move?.color === 'B';
-      const pointColor = node?.move
-        ? (isBlack ? themeColor('--player-black') : themeColor('--player-white'))
-        : themeColor('--text-2');
-      
-      return {
-        value: [i, val],
-        itemStyle: { color: pointColor }
-      };
-    });
-
-    return [
-      {
-        name: 'Score Lead',
-        data: scoreLeadFormatted,
-        color: themeColor('--text-0'),
-        showPoints: true
-      },
-      ...enriched.value.stateSeries,
-    ];
-  });
+  // 3. Series — palette-driven only.
+  // The default palette's state_fns include 'Score Advantage'
+  // (= `x["rootInfo"]["scoreLead"]`) which produces a series with the
+  // same values the v1.0.20-removed SPA-side `scoreLead` kernel
+  // emitted. The proxy is now the single source of truth for every
+  // series in the Game State chart; the SPA contributes no ad-hoc
+  // metric extraction. A side effect that motivated the deletion:
+  // when the user purges analysis, `enriched.value.stateSeries`
+  // empties (no packets → no `extra.state` → no series), and
+  // mainSeries is naturally `[]`. The prior kernel-scoreLead path
+  // emitted a series of all-null points that kept mainSeries non-
+  // empty after purge, so the chart legend/axes lingered visually
+  // even though the data was gone.
+  const mainSeries = computed(() => enriched.value.stateSeries);
 
   return {
     // State

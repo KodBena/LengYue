@@ -3,8 +3,7 @@
  * Per-(configHash, nodeId) store of merged KataGo analysis packets,
  * with per-node reactive version refs as the change-notification
  * surface. Consumers (composables, charts) subscribe by reading via
- * getRaw / getProjectedSequence, which touches the relevant version
- * refs.
+ * `getRaw`, which touches the relevant version ref.
  *
  * Version-bump notifications are coalesced via requestAnimationFrame
  * so high-frequency packet floods (KataGo NN-cache hits, proxy
@@ -14,15 +13,10 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import { computed, ref, type ComputedRef, type Ref } from 'vue';
+import { ref, type Ref } from 'vue';
 import { type KataAnalysisResponse, type KataExtra, type KataPlayerExtra } from '../engine/katago/types';
 import { type NodeId, type BoardId } from '../types';
 import { store } from '../store';
-
-export type MetricKernel = (
-  sequence: (KataAnalysisResponse | null)[],
-  index: number
-) => number | null;
 
 // ── Internal storage (Hash -> NodeId -> Packet) ──────────────────────
 
@@ -136,10 +130,10 @@ export class AnalysisLedger {
     const merged = mergeAnalysisPacket(existing, packet);
     hashData.set(nodeId, merged);
 
-    // Ensure the version ref exists so consumers reading via getRaw /
-    // getProjectedSequence can subscribe to it; the actual bump is
-    // deferred to the next animation frame so simultaneous arrivals
-    // collapse into one notification per (hash, nodeId).
+    // Ensure the version ref exists so consumers reading via getRaw
+    // can subscribe to it; the actual bump is deferred to the next
+    // animation frame so simultaneous arrivals collapse into one
+    // notification per (hash, nodeId).
     getOrCreateVersion(hash, nodeId);
     pendingBumps.add(`${hash}:${nodeId}`);
     scheduleBumpFlush();
@@ -172,41 +166,6 @@ export class AnalysisLedger {
     return out;
   }
 
-  public getProjectedSequence(
-    hash: string,
-    nodeIds: NodeId[],
-    filter?: (packet: KataAnalysisResponse) => boolean,
-    compress: boolean = false
-  ): ComputedRef<(KataAnalysisResponse | null)[]> {
-    nodeIds.forEach(id => getOrCreateVersion(hash, id));
-
-    return computed(() => {
-      // Always go through getOrCreateVersion so the dependency re-
-      // attaches even after purgeBoard deletes-and-recreates the ref.
-      // A bare `nodeVersions.get(...)` would silently skip on a missing
-      // entry, leaving the computed without a dep on the new ref and
-      // unable to see future records for the same nodeId. Mirrors the
-      // pattern in getRaw().
-      for (const id of nodeIds) {
-        getOrCreateVersion(hash, id).value;
-      }
-      const raw = nodeIds.map(id => data.get(hash)?.get(id) ?? null);
-      const filtered = raw.map(packet => packet && (!filter || filter(packet)) ? packet : null);
-      return compress ? (filtered.filter((p): p is KataAnalysisResponse => p !== null)) : filtered;
-    });
-  }
-
-  public compute(
-    hash: string,
-    nodeIds: NodeId[],
-    kernel: MetricKernel,
-    filter?: (packet: KataAnalysisResponse) => boolean,
-    compress: boolean = false
-  ): ComputedRef<(number | null)[]> {
-    const seqRef = this.getProjectedSequence(hash, nodeIds, filter, compress);
-    return computed(() => seqRef.value.map((_, i) => kernel(seqRef.value, i)));
-  }
-
   /**
    * Drop every cached packet and per-node version ref. Called from
    * `resetWorkspace` on identity flip so the prior identity's
@@ -218,7 +177,7 @@ export class AnalysisLedger {
    * cleared data — same bump-then-delete contract as `purgeBoard`,
    * applied to all entries at once. Consumers re-attach to fresh
    * refs through `getOrCreateVersion` on their next compute run
-   * (the pattern getRaw and getProjectedSequence already use).
+   * (the pattern getRaw uses).
    *
    * Resource-ownership audit O8. NodeIds are UUID-style and don't
    * collide across users, so this is bounded-memory hygiene rather
@@ -250,8 +209,7 @@ export class AnalysisLedger {
             // isn't retained for nodes that no longer have data. A
             // re-record on the same nodeId creates a fresh ref via
             // getOrCreateVersion; consumers re-attach through the same
-            // call inside their compute body (see getProjectedSequence
-            // and getRaw below).
+            // call inside their read body (see getRaw above).
             v.value++;
             nodeVersions.delete(key);
           }
