@@ -337,7 +337,181 @@ function currentTurnNumber(board: BoardState): number {
   return getActiveVariationPath(board).length - 1;
 }
 
+// ── Engine-vs-engine match (per-color options) ────────────────────────────────
+
+export interface PlayEngineMatchSide {
+  /**
+   * SELECTOR routing key for this side's queries (omitted if
+   * undefined). When the connected proxy is not in SELECTOR mode the
+   * field is benign — proxy ignores it, both sides play through the
+   * single connected LEAF.
+   */
+  readonly model?: string;
+  readonly maxVisits: number;
+}
+
+export interface PlayEngineMatchOptions {
+  readonly katagoUrl: string;
+  readonly startBoard: BoardState;
+  /**
+   * Number of moves to play from the starting position (each
+   * placement counts; passes still count as a move). The match
+   * stops when the active path has grown by this many nodes
+   * relative to the start.
+   */
+  readonly numMoves: number;
+  readonly black: PlayEngineMatchSide;
+  readonly white: PlayEngineMatchSide;
+  readonly perMoveTimeoutMs?: number;
+  readonly shouldStop?: () => boolean;
+  readonly onMoveApplied?: (board: BoardState) => void;
+  /**
+   * Optional per-query capability opt-in forwarded verbatim on every
+   * query. The match doesn't need `delta_analysis` for its own
+   * purposes (it only reads `moveInfos[0].move`), so leaving this
+   * undefined and letting the proxy's legacy auto-engage path fire
+   * is fine. Exposed as a pass-through so harness scenarios that
+   * want explicit control (e.g., opting out of all enrichment to
+   * measure raw KataGo throughput) can still author it.
+   */
+  readonly capabilities?: Record<string, Record<string, unknown>>;
+}
+
+/**
+ * Play a match between two engines (or the same engine vs itself)
+ * from `startBoard` for `numMoves` moves. Per-iteration the side to
+ * move is read from `board.turn`; the corresponding `black` / `white`
+ * options supply the SELECTOR `model` (when in SELECTOR mode) and
+ * the per-side `maxVisits`.
+ *
+ * Sibling to `playEngineMoves` — that one runs a single configured
+ * engine; this one alternates per `board.turn`. The two share helpers
+ * (`connectFresh`, `awaitFinalPacket`, `buildAnalyzeQuery`) but the
+ * options shapes differ enough that one function with a discriminator
+ * would be less clear than two siblings.
+ *
+ * Connection lifetime spans the whole match — one WS open per call,
+ * regardless of how many moves are played; the SELECTOR's per-upstream
+ * pool fans alternating queries out per-`model`. Returns the final
+ * board state. Does NOT touch the global store; the optional
+ * `onMoveApplied` callback is how the composable opt-in to store
+ * mirroring.
+ */
+export async function playEngineMatch(opts: PlayEngineMatchOptions): Promise<BoardState> {
+  const timeoutMs = opts.perMoveTimeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const client = await connectFresh(opts.katagoUrl);
+  let board = opts.startBoard;
+  const startPathLength = getActiveVariationPath(board).length;
+  const targetPathLength = startPathLength + opts.numMoves;
+  try {
+    while (!(opts.shouldStop?.() ?? false)
+        && getActiveVariationPath(board).length < targetPathLength) {
+      const turn = currentTurnNumber(board);
+      const playerColor = board.turn;
+      const side = playerColor === 'B' ? opts.black : opts.white;
+      const { query, expectedTurn } = buildAnalyzeQuery(
+        board,
+        side.maxVisits,
+        `match-${playerColor}-${turn}-${Date.now()}`,
+        side.model,
+        opts.capabilities,
+      );
+      const packet = await awaitFinalPacket(client, query, expectedTurn, timeoutMs);
+      const best = packet.moveInfos.find((m) => m.order === 0);
+      if (!best) {
+        throw new Error(`playEngineMatch: turn ${expectedTurn} packet has no order-0 moveInfo`);
+      }
+      const coords = gtpToBoard(best.move);
+      if (!coords) {
+        throw new Error(`playEngineMatch: engine recommended pass at turn ${expectedTurn}`);
+      }
+      const next = applyGoMove(board, coords.x, coords.y);
+      if (!next) {
+        throw new Error(`playEngineMatch: engine's top move ${best.move} is illegal at turn ${expectedTurn}`);
+      }
+      board = next;
+      opts.onMoveApplied?.(board);
+    }
+    return board;
+  } finally {
+    client.disconnect();
+  }
+}
+
 // ── Composable — reactive wrapper for product UI ─────────────────────────────
+
+/**
+ * Vue composable driving `playEngineMatch` against the active board
+ * in the global store. Surfaces reactive `isRunning` / `lastError`
+ * and a cooperative `stop()` for host-component wiring (the Toolbar's
+ * STOP MATCH button is the canonical caller). The store is mirrored
+ * after each move via `onMoveApplied`, so the reactive UI sees each
+ * engine move land before the next query starts.
+ *
+ * Sibling to `usePlayFromPosition` — that one drives a single engine
+ * playing forward; this one drives an engine-vs-engine match. The
+ * lifecycle shape is identical; the option surface differs (per-color
+ * `{model, maxVisits}` vs. single `maxVisits`), so two composables
+ * keep each call site honest about which mode is in use.
+ */
+export function usePlayMatch(boardIdRef: Ref<BoardId | null>) {
+  const isRunning = ref(false);
+  const lastError = ref<Error | null>(null);
+  let stopRequested = false;
+
+  async function start(opts: {
+    katagoUrl: string;
+    numMoves: number;
+    black: PlayEngineMatchSide;
+    white: PlayEngineMatchSide;
+    perMoveTimeoutMs?: number;
+  }): Promise<void> {
+    if (isRunning.value) {
+      throw new Error('usePlayMatch.start called while a previous match is still active');
+    }
+    const boardId = boardIdRef.value;
+    if (!boardId) throw new Error('usePlayMatch.start requires a non-null boardIdRef');
+
+    const idx = store.boards.findIndex((b) => b.id === boardId);
+    if (idx === -1) throw new Error(`usePlayMatch: board ${boardId} not in store`);
+
+    isRunning.value = true;
+    lastError.value = null;
+    stopRequested = false;
+
+    try {
+      await playEngineMatch({
+        katagoUrl: opts.katagoUrl,
+        startBoard: store.boards[idx],
+        numMoves: opts.numMoves,
+        black: opts.black,
+        white: opts.white,
+        perMoveTimeoutMs: opts.perMoveTimeoutMs,
+        shouldStop: () => stopRequested,
+        onMoveApplied: (next) => {
+          // Re-resolve the index — concurrent store mutations could
+          // have shifted positions. boardId is stable.
+          const writeIdx = store.boards.findIndex((b) => b.id === boardId);
+          if (writeIdx === -1) {
+            throw new Error(`usePlayMatch: board ${boardId} disappeared mid-match`);
+          }
+          updateBoardState(writeIdx, next);
+        },
+      });
+    } catch (err) {
+      lastError.value = err instanceof Error ? err : new Error(String(err));
+      throw lastError.value;
+    } finally {
+      isRunning.value = false;
+    }
+  }
+
+  function stop(): void {
+    stopRequested = true;
+  }
+
+  return { start, stop, isRunning, lastError };
+}
 
 /**
  * Vue composable driving `playEngineMoves` against the active board

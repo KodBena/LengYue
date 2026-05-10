@@ -15,6 +15,12 @@ const props = defineProps<{
   engineStatus: EngineStatus;
   metrics:      EngineMetrics;
   title?:       string;
+  // Match-running state from `usePlayMatch.isRunning`. When true the
+  // MATCH button switches into STOP MATCH mode and emits the stop
+  // event instead of opening the modal. Defaults to `false` so
+  // existing call sites that don't pass the prop keep the static
+  // MATCH-opens-modal behaviour.
+  isMatchRunning?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -22,12 +28,25 @@ const emit = defineEmits<{
   (e: 'save-sgf'):     void;
   (e: 'toggle-engine'): void;
   (e: 'mint-card'):    void;
+  (e: 'open-match'):   void;
+  (e: 'stop-match'):   void;
 }>();
 
 const isConnected   = computed(() => props.engineStatus === 'connected');
 // Symmetric verb pairing with the disconnected label; the connected
 // branch previously read 'Engine', which left the action ambiguous.
 const engineBtnLabel = computed(() => isConnected.value ? t('toolbar.disconnect') : t('toolbar.connect'));
+
+// Single state-driven button: MATCH opens the modal when idle, STOP
+// MATCH cancels the cooperative-stop signal when a match is running.
+// Two roles on one chrome slot keeps the toolbar compact and avoids
+// surfacing a stop button that never fires for users who don't use
+// engine matches.
+const matchBtnLabel = computed(() => props.isMatchRunning ? t('toolbar.stopMatch') : t('toolbar.match'));
+function onMatchClick() {
+  if (props.isMatchRunning) emit('stop-match');
+  else emit('open-match');
+}
 
 // Engine identity (KataGo `query_version` + `query_models` probe).
 // Two separate slots — VERSION and MODEL — each with its own
@@ -136,6 +155,11 @@ const modelTooltip = computed(() => {
 
     <div class="engine-controls">
       <button class="toolbar-btn highlight-btn" @click="emit('mint-card')">{{ $t('toolbar.mintCard') }}</button>
+      <button
+        class="toolbar-btn"
+        :class="{ 'btn-stop-match': isMatchRunning }"
+        @click="onMatchClick"
+      >{{ matchBtnLabel }}</button>
       <button class="toolbar-btn" @click="emit('load-sgf')">{{ $t('toolbar.loadSgf') }}</button>
       <button class="toolbar-btn" @click="emit('save-sgf')">{{ $t('toolbar.saveSgf') }}</button>
       <button
@@ -177,6 +201,11 @@ const modelTooltip = computed(() => {
    --space-tight (4px) on both axes for the dense top-toolbar's aesthetic. */
 .toolbar-btn { background: var(--surface-0); border: 1px solid var(--border-3); color: var(--text-1); padding: 1px 5px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
 .btn-connected { border-color: var(--state-success) !important; color: var(--state-success) !important; }
+/* Match-running attention border on the same slot the MATCH button
+   normally occupies. Reuses the existing attention substrate so the
+   colour reads as "this button does something interruptive" without
+   adding a new theme exception. */
+.btn-stop-match { border-color: var(--state-attention) !important; color: var(--state-attention) !important; }
 /* theme-exception: .highlight-btn uses muted-cyan border (#2a5a7a)
    — same muted-action-button pattern as QeuboToolbar's .apply-btn.
    Hover-state literal retired with the no-mouseover-change sweep. */

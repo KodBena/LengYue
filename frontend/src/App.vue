@@ -18,6 +18,7 @@ import {
   activeBoard,
   updateBoardState,
   mutateBoard,
+  pushSystemMessage,
   DEFAULTS,
 } from './store';
 
@@ -27,6 +28,8 @@ import { navigateTo }     from './engine/navigator';
 import { updateRegistry } from './engine/util';
 
 import { analysisService } from './services/analysis-service';
+import { KATAGO_WS_URL } from './config/env';
+import { usePlayMatch } from './composables/usePlayFromPosition';
 
 import BoardWidget      from './components/BoardWidget.vue';
 import SidebarWidget    from './components/SidebarWidget.vue';
@@ -40,6 +43,7 @@ import Toolbar          from './components/Toolbar.vue';
 import StatusBar        from './components/StatusBar.vue';
 import MintCardModal    from './components/MintCardModal.vue';
 import ConfirmLoadModal from './components/ConfirmLoadModal.vue';
+import EngineMatchModal from './components/EngineMatchModal.vue';
 import ForestDirectory  from './components/ForestDirectory.vue';
 import SystemLogPanel   from './components/SystemLogPanel.vue';
 import RootErrorBoundary from './components/RootErrorBoundary.vue';
@@ -61,6 +65,46 @@ const auth               = useAuth();
 const activeBoardId = computed(() => activeBoard.value?.id as BoardId | null);
 const reviewSession = useReviewSession(activeBoardId);
 const mintModalRef = vueRef<InstanceType<typeof MintCardModal> | null>(null);
+const matchModalRef = vueRef<InstanceType<typeof EngineMatchModal> | null>(null);
+
+// Engine-vs-engine match controls. Lifecycle is independent of the
+// singleton analysis-service: `usePlayMatch.start` opens its own
+// WebSocket via `connectFresh` (matches the proxy's MAX_SESSIONS=256
+// per-connection budget), runs the alternating queries, closes when
+// done or stopped. The Toolbar's MATCH button toggles between
+// "open the modal" (idle) and "request cooperative stop" (running)
+// based on `matchControls.isRunning`.
+const matchControls = usePlayMatch(activeBoardId);
+
+function triggerMatch() {
+  if (activeBoardId.value) {
+    matchModalRef.value?.open();
+  }
+}
+
+function handleStartMatch(opts: {
+  numMoves: number;
+  black: { model?: string; maxVisits: number };
+  white: { model?: string; maxVisits: number };
+}) {
+  // Match opens its own WS to the same URL the singleton uses (or
+  // would use after Connect). The `||` (not `??`) is intentional so
+  // an empty-string profile setting falls through to the env-var
+  // default — same convention as analysis-service's `connect()`.
+  const url = store.profile.settings.engine.katago.url || KATAGO_WS_URL;
+  matchControls.start({
+    katagoUrl: url,
+    numMoves: opts.numMoves,
+    black: opts.black,
+    white: opts.white,
+  }).catch((err: Error) => {
+    pushSystemMessage('error', t('match.failed', { error: err.message }));
+  });
+}
+
+function handleStopMatch() {
+  matchControls.stop();
+}
 
 // ─── "Follow Me" Ponder Watcher ──────────────────────────────────────────────
 // Automatically restarts pondering when the user navigates or plays a move on
@@ -179,6 +223,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
   <div id="main-area">
     <MintCardModal ref="mintModalRef" />
     <ConfirmLoadModal ref="confirmLoadModalRef" />
+    <EngineMatchModal ref="matchModalRef" @start-match="handleStartMatch" />
     <SidebarWidget v-show="store.session.ui.sidebarExpanded" />
 
     <div id="main-workspace">
@@ -191,10 +236,13 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
         <Toolbar
           :engine-status="engineControls.status.value"
           :metrics="engineControls.metrics.value"
+          :is-match-running="matchControls.isRunning.value"
           @load-sgf="openFileDialog"
           @save-sgf="downloadActiveBoard"
           @toggle-engine="engineControls.toggle"
           @mint-card="triggerMint"
+          @open-match="triggerMatch"
+          @stop-match="handleStopMatch"
           style="flex: 1; border-bottom: none;"
         />
 
