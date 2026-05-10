@@ -11,13 +11,43 @@ import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import * as echarts from 'echarts';
 import { themeColor } from '../../utils/theme-color';
 
-const props = defineProps<{ 
+const props = defineProps<{
   series: any[];
   title?: string;
-  reservedWidth?: number; 
+  reservedWidth?: number;
   reservedHeight?: number;
   activeIndex?: number | null;
   zoomRange?: [number, number] | null;
+  /**
+   * Y-axis scaling discipline:
+   *
+   *   - `'shared'` (default) — one Y-axis with min/max computed across
+   *     every visible series's data inside the X-zoom. Right when every
+   *     series shares a meaningful scale (e.g., PlayerPanel's per-player
+   *     deltas which are all in points-loss units).
+   *
+   *   - `'per-series'` — each series is min/max-normalised to [0, 1]
+   *     across the X-zoom independently, all rendered on a shared
+   *     [0, 1] axis with hidden labels (the axis value is uninterpretable
+   *     across series). Right when series live on wildly different
+   *     scales (the Game State chart: Score Lead spans ~[-361, 361]
+   *     for a 19×19 board while Complexity is locked to [0, 1] and
+   *     Win Probability to [0, 1]; a shared axis squashes the ratios
+   *     onto the score-dominated range and the user loses the shape
+   *     of the bounded series). The tooltip restores absolute
+   *     magnitudes per series; the chart preserves relative shape
+   *     over time, which is the per-position-quality question the
+   *     panel is shaped to answer.
+   *
+   * Per-series mode is the rendering analogue of v1.0.20's quantile
+   * color-mode on the rugplot: parametric squashing of multi-scale
+   * data onto one axis is the same kind of distribution-flatten the
+   * quantile mode fixed on intensity gradients. Constant-valued
+   * series (range = 0) are passed through unnormalised (rendered at
+   * value, on a degenerate per-series scale) rather than mapped to
+   * a meaningless midpoint.
+   */
+  normalize?: 'shared' | 'per-series';
 }>();
 
 let markerTimer: number | null = null;
@@ -43,14 +73,21 @@ let chartInstance: echarts.ECharts | null = null;
  * Calculates the strictly visible min/max of Y values, respecting X-zoom and Legend toggles.
  */
 const getVisibleYBounds = () => {
+  // Per-series mode renders every series on a normalised [0, 1] axis.
+  // The 10% margin is preserved so the lines don't kiss the chart
+  // edge when a series saturates at its own min/max.
+  if (props.normalize === 'per-series') {
+    return { min: -0.1, max: 1.1 };
+  }
+
   let min = Infinity;
   let max = -Infinity;
   const [startX, endX] = props.zoomRange || [0, Infinity];
-  
+
   for (let i = 0; i < props.series.length; i++) {
     const s = props.series[i];
     if (globalLegendState[s.name] === false) continue;
-    
+
     const data = s.data;
     if (!data) continue;
 
@@ -58,14 +95,14 @@ const getVisibleYBounds = () => {
       const pt = data[j];
       const x = pt?.value !== undefined ? pt.value[0] : pt?.[0];
       const y = pt?.value !== undefined ? pt.value[1] : pt?.[1];
-      
+
       if (x >= startX && x <= endX && y != null) {
         if (y < min) min = y;
         if (y > max) max = y;
       }
     }
   }
-  
+
   if (min === Infinity) return { min: 'dataMin', max: 'dataMax' };
   const range = max - min;
   // magic-literal: 10% Y-axis margin — chart-visualization padding above
@@ -73,6 +110,48 @@ const getVisibleYBounds = () => {
   // Conventional default for ECharts axis tuning.
   const margin = range === 0 ? 1 : range * 0.1;
   return { min: min - margin, max: max + margin };
+};
+
+/**
+ * For `normalize='per-series'`, transform each series's data so that
+ * the Y coordinate is the value's position in [0, 1] within the
+ * series's own min/max across the X-zoom. The original value is
+ * retained on each datum as `rawY` so the tooltip formatter can
+ * show absolute magnitudes. Returns props.series unchanged when
+ * `normalize !== 'per-series'`.
+ */
+const getDisplaySeries = () => {
+  if (props.normalize !== 'per-series') return props.series;
+
+  const [startX, endX] = props.zoomRange || [0, Infinity];
+
+  return props.series.map(s => {
+    if (!s.data || s.data.length === 0) return s;
+
+    let smin = Infinity;
+    let smax = -Infinity;
+    for (const pt of s.data) {
+      const x = pt?.value !== undefined ? pt.value[0] : pt?.[0];
+      const y = pt?.value !== undefined ? pt.value[1] : pt?.[1];
+      if (x >= startX && x <= endX && y != null) {
+        if (y < smin) smin = y;
+        if (y > smax) smax = y;
+      }
+    }
+
+    if (smin === Infinity) return s;
+    const range = smax - smin;
+    if (range === 0) return s;  // constant series; pass through unnormalised
+
+    const normalized = s.data.map((pt: any) => {
+      const x = pt?.value !== undefined ? pt.value[0] : pt?.[0];
+      const y = pt?.value !== undefined ? pt.value[1] : pt?.[1];
+      if (y == null) return { value: [x, null], rawY: null };
+      return { value: [x, (y - smin) / range], rawY: y };
+    });
+
+    return { ...s, data: normalized };
+  });
 };
 
 const getSelectionMap = () => {
@@ -140,7 +219,13 @@ const updateOptions = () => {
         const xVal = Array.isArray(firstParam.value) ? firstParam.value[0] : firstParam.value;
         res += `<b style="font-size: var(--text-body); color: ${themeColor('--text-1')};">Move ${xVal}</b>`;
         params.forEach(item => {
-          const yVal = Array.isArray(item.value) ? item.value[1] : item.value;
+          // When per-series-normalised, the plotted Y is in [0, 1] and
+          // the absolute magnitude is carried on the datum as `rawY`.
+          // Fall back to the plotted Y for the shared-axis case.
+          const dataRaw = (item.data as { rawY?: number } | undefined)?.rawY;
+          const yVal = dataRaw !== undefined && dataRaw !== null
+            ? dataRaw
+            : (Array.isArray(item.value) ? item.value[1] : item.value);
           const val = typeof yVal === 'number' ? yVal.toFixed(2) : yVal;
           res += `
             <div style="margin-top: 2px; display: flex; align-items: center; gap: var(--space-tight);">
@@ -164,24 +249,29 @@ const updateOptions = () => {
       top: '15%',
       containLabel: false 
     },
-    yAxis: { 
-      type: 'value', 
+    yAxis: {
+      type: 'value',
       min: bounds.min,
       max: bounds.max,
       axisLabel: {
         fontSize: 9,
         color: themeColor('--text-2'),
-        formatter: (val: number) => val.toFixed(2) // Fixed precision as requested
+        // Hide the axis labels in per-series mode: a number in [0, 1]
+        // doesn't tell the operator which series's scale they're
+        // reading, so the label is actively misleading. Hover restores
+        // absolute magnitudes via the tooltip's rawY path.
+        show: props.normalize !== 'per-series',
+        formatter: (val: number) => val.toFixed(2)
       },
       splitLine: { lineStyle: { color: themeColor('--surface-3') } }
     },
-    xAxis: { 
-      type: 'value', 
+    xAxis: {
+      type: 'value',
       show: true,
       min: props.zoomRange ? props.zoomRange[0] : 'dataMin',
       max: props.zoomRange ? props.zoomRange[1] : 'dataMax'
     },
-    series: props.series.map(s => ({
+    series: getDisplaySeries().map(s => ({
       name: s.name,
       data: s.data,
       type: 'line',
@@ -224,7 +314,12 @@ const updateMarker = () => {
   }
 
   const activeIdx = props.activeIndex;
-  const seriesUpdates = props.series.map(s => {
+  // Use the same display-series transformation the chart's setOption
+  // path uses, so the marker is placed at the normalised Y coordinate
+  // in per-series mode (otherwise it would land off-chart at the raw
+  // y-value while the chart's data is in [0, 1]).
+  const displaySeries = getDisplaySeries();
+  const seriesUpdates = displaySeries.map(s => {
     const data = s.data as any[];
     if (!data || data.length === 0) return { markPoint: { data: [] } };
 

@@ -16,6 +16,8 @@ const props = defineProps<{
   onIndexHover?: (idx: number) => void;
   onMouseLeave?: () => void; // New prop for restoration
   playerColor?: 'B' | 'W';
+  /** Forwarded to BaseChart; see its `normalize` prop docs. */
+  normalize?: 'shared' | 'per-series';
 }>();
 
 const expanded = ref(true);
@@ -38,6 +40,7 @@ const expanded = ref(true);
           :series="series"
           :active-index="activeIndex"
           :zoom-range="zoomRange"
+          :normalize="normalize"
           @index-hover="onIndexHover"
           @index-click="onIndexClick"
         />

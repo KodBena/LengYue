@@ -66,7 +66,8 @@ async function handleHover(turnIdx: number) {
     :zoom-range="selectionRange"
     :on-index-click="onIndexClick"
     :on-index-hover="handleHover"
-    :on-mouse-leave="resetPreview" 
+    :on-mouse-leave="resetPreview"
     :preview-html="preview"
+    normalize="per-series"
   />
 </template>
