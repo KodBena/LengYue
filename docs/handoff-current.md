@@ -650,6 +650,11 @@ In rough order of priority for a new contributor:
   pipeline executor.
 - **`docs/notes/analysis-persistence-plan.md`** — Design note
   for the planned analysis-persistence feature.
+- **`docs/notes/autonomous-srs-loop-revised.md`** — Pre-implementation
+  design note for the autonomous spaced-repetition loop (post-SELECTOR
+  + capability-negotiation shipping). Companion sibling
+  `autonomous-srs-loop.md` is the planning-time record retained per
+  ADR-0005 Rule 8.
 - **`docs/notes/frontend-backlog.md`** — Raw frontend backlog
   (UI/UX items not in the canonical TODO).
 - **`docs/archive/`** — Historical artifacts kept for reference.
