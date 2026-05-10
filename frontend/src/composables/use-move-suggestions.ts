@@ -19,6 +19,28 @@ import { activeConfigHash } from '../services/analysis-config';
 
 const GTP_ALPHABET = 'ABCDEFGHJKLMNOPQRSTUVWXYZ';
 
+// Power-of-thousand contraction for the per-suggestion visit count
+// label. Raw integers like `1234567` are unreadable in the small
+// stone-overlay typography and pushed long-running ponder against
+// the limit of the disc; `1.2M` is the conventional compaction.
+// Intl.NumberFormat('en', notation: 'compact') is the standardised
+// API (Unicode CLDR, K/M/B/T suffixes for the English locale).
+// `maximumFractionDigits: 1` matches the convention "show one
+// decimal below ten of a unit, no decimal above": 12K rather than
+// 12.0K, 1.2K rather than 1.234K. Locale 'en' is hardcoded because
+// the suffix vocabulary (K/M/B) is part of the substrate's
+// visual-design contract rather than user-locale-dependent prose;
+// other locales would use different suffixes (e.g., '万' in zh)
+// which would break the disc-label aesthetic the symbol-substrate
+// optimises for.
+const _visitsCompactFormatter = new Intl.NumberFormat('en', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
+function formatVisitsCompact(visits: number): string {
+  return _visitsCompactFormatter.format(visits);
+}
+
 export function gtpToBoard(gtp: string): { x: number; y: number } | null {
   if (!gtp || gtp.toLowerCase() === 'pass') return null;
   const letter = gtp[0].toUpperCase();
@@ -123,7 +145,7 @@ export function useMoveSuggestions(
 
       const color = isBest ? BEST_MOVE_COLOR : getIntensityColor.value(z);
 
-      const winrateLabel = `${info.visits}`;
+      const winrateLabel = formatVisitsCompact(info.visits);
       const scoreLabel = (info.scoreLead >= 0 ? '+' : '') + info.scoreLead.toFixed(1);
       const clusterColor = info.clusterId !== undefined ? clusterColorMap.get(String(info.clusterId)) : undefined;
 
