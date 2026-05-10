@@ -63,6 +63,7 @@ const DEBOUNCE_MS = 60;
 // for now, dead-code removal keeps the module surface honest.
 let lastDataRefs: any[] = [];
 let lastZoomRange: string = '';
+let lastSeriesNames: string = '';
 let isInitialized = false;
 
 const emit = defineEmits(['index-click', 'index-hover']);
@@ -172,9 +173,9 @@ const updateOptions = () => {
   // 1. Check if references changed (O(Series) cost).
   // Because the parent's computed re-maps data on change, refs are reliable.
   const currentRefs = props.series.map(s => s.data);
-  const dataChanged = currentRefs.length !== lastDataRefs.length || 
+  const dataChanged = currentRefs.length !== lastDataRefs.length ||
                       currentRefs.some((ref, i) => ref !== lastDataRefs[i]);
-  
+
   const currentZoom = JSON.stringify(props.zoomRange);
   const zoomChanged = currentZoom !== lastZoomRange;
 
@@ -188,9 +189,39 @@ const updateOptions = () => {
     return;
   }
 
-  // 4. Heavy update: Data has changed or we are initializing.
+  // 4. Empty-series special case. ECharts' merge-mode setOption
+  // (notMerge: false) does not remove series that aren't in the new
+  // options, so passing `series: []` after a non-empty render leaves
+  // the prior series and their legend chrome on screen. The visible
+  // symptom is "purge analysis doesn't clear the Game State chart"
+  // — the data is gone from the ledger and from props.series, but
+  // the chart's internal series list still has the prior entries.
+  // `chartInstance.clear()` resets the internal series list and
+  // legend cleanly; the next non-empty render goes through the full
+  // init path via `isInitialized = false`.
+  if (props.series.length === 0) {
+    chartInstance.clear();
+    lastDataRefs = [];
+    lastZoomRange = '';
+    lastSeriesNames = '';
+    isInitialized = false;
+    return;
+  }
+
+  // 5. Heavy update: Data has changed or we are initializing.
+  // Use notMerge: true when the set of series names has changed —
+  // ECharts retains series across merges when keyed by name, so a
+  // legitimate name change (palette swap, series-set restructure)
+  // would leave the prior names visible alongside the new ones
+  // without notMerge. When names are stable and only data refs
+  // changed, merge (notMerge: false) is the right call: it
+  // preserves ECharts' internal animation / scroll / drag state
+  // across data updates.
+  const currentNames = props.series.map(s => s.name).join('|');
+  const namesChanged = currentNames !== lastSeriesNames;
   lastDataRefs = currentRefs;
   lastZoomRange = currentZoom;
+  lastSeriesNames = currentNames;
   isInitialized = true;
 
   const bounds = getVisibleYBounds();
@@ -283,7 +314,7 @@ const updateOptions = () => {
       itemStyle: s.color ? { color: s.color } : undefined,
       markPoint: { data: [] }
     }))
-  }, { notMerge: false, lazyUpdate: true });
+  }, { notMerge: namesChanged, lazyUpdate: true });
 
   updateMarker();
 };
