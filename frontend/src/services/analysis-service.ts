@@ -27,7 +27,6 @@ import {
 } from '../engine/katago/capability-injection';
 import { type BoardId, type NodeId } from '../types';
 import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi, getInitialStones } from '../engine/util';
-import { PONDER_MAX_VISITS } from '../engine/constants';
 import { store, pushSystemMessage } from '../store';
 import { ledger } from './analysis-ledger';
 import {
@@ -555,7 +554,7 @@ export class AnalysisService {
       // (frequent updates as ponder accumulates over long horizons), 0.5s
       // for analysis (less frequent — bounded query, less to update).
       // Mode-specific KataGo wire-protocol cadence; not a substrate scale.
-      ...(mode === 'ponder' ? { reportDuringSearchEvery: 0.15, maxVisits: PONDER_MAX_VISITS } : { reportDuringSearchEvery: 0.5 }),
+      ...(mode === 'ponder' ? { reportDuringSearchEvery: 0.15, maxVisits: store.profile.settings.engine.katago.ponderMaxVisits } : { reportDuringSearchEvery: 0.5 }),
       analyzeTurns: [currentIdx],
       ...(needsOwnership ? { includeOwnership: true } : {}),
       ...(hasOverrides ? { overrideSettings } : {}),

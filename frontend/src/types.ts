@@ -505,6 +505,28 @@ export interface AppSettings {
         worstQuantile: number;
         extraVisits: number;
       };
+      // Ceiling on ponder mode's KataGo `maxVisits`. Ponder runs
+      // indefinitely on the engine side; this is the practical
+      // backstop that prevents a strong network on a fast GPU from
+      // accumulating an unbounded visit count over a long session
+      // (and, more relevantly to the default's choice, prevents the
+      // pre-v1.0.20 ceiling of 100,000 from making a weak network on
+      // a CPU-only setup hit the cap in seconds). User-tunable via the
+      // registry editor under engine → katago; default 2,000,000.
+      //
+      // Read by `services/analysis-service.ts` at every
+      // `analyzeActiveNode(mode='ponder')` call site, and by
+      // `components/charts/AnalysisTimelinePanel.vue` as the
+      // visits-input's HTML `max` attribute so the user cannot
+      // request a deeper one-shot range analyze than the ponder
+      // ceiling. Distinct from `PONDER_MAX_VISITS` in
+      // `engine/constants.ts`, which is the rugplot's intensity-
+      // gradient saturation target (a visualization concern, not a
+      // wire-protocol ceiling).
+      //
+      // Schema-version 31 introduces this field; the migration
+      // backfills 2,000,000 on existing blobs.
+      ponderMaxVisits: number;
       // Engine-side runtime overrides forwarded verbatim to KataGo as
       // the Analysis Engine's `overrideSettings` field. Documented at
       // the wire-shape boundary on `KataGoAnalysisQuery` in

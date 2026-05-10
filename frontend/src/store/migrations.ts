@@ -87,7 +87,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 30;
+export const CURRENT_SCHEMA_VERSION = 31;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -962,6 +962,32 @@ export const migrations: Migration[] = [
         if (typeof existing.enabled !== 'boolean') existing.enabled = false;
         if (typeof existing.worstQuantile !== 'number') existing.worstQuantile = 0.05;
         if (typeof existing.extraVisits !== 'number') existing.extraVisits = 800;
+      }
+    }
+    return out;
+  },
+
+  // 30 → 31: Surface ponder-mode maxVisits ceiling as a user-tunable
+  // registry setting. v30 hardcoded 100,000 via the `PONDER_MAX_VISITS`
+  // constant in `engine/constants.ts`; on weak networks / CPU-only
+  // setups the cap was hit in seconds, surprising users who expected
+  // ponder to keep accumulating. v31 introduces
+  // `engine.katago.ponderMaxVisits` (default 2,000,000), read by
+  // `analyzeActiveNode(mode='ponder')` in the analysis service and by
+  // `AnalysisTimelinePanel.vue`'s visits-input cap.
+  //
+  // The `PONDER_MAX_VISITS` constant remains for the rugplot's
+  // intensity-gradient saturation target (a visualization scale, not
+  // a wire-protocol ceiling) — see the constant's docstring.
+  //
+  // Idempotent: a non-number existing value is replaced; an existing
+  // numeric value is preserved.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const katago = out.profile?.settings?.engine?.katago;
+    if (katago && typeof katago === 'object') {
+      if (typeof katago.ponderMaxVisits !== 'number') {
+        katago.ponderMaxVisits = 2_000_000;
       }
     }
     return out;
