@@ -1,9 +1,22 @@
 <!--
   src/components/charts/StabilityPanel.vue
-  Hosts the triangular stability-interval heatmap. Wires the
+  Hosts the triangular multiresolution-interval heatmap. Wires the
   per-board variationPath into `useTriangularHeatmap`, then
   translates a heatmap cell click into an absolute-ply selection
   range for the broader analysis chart.
+
+  Name note: the panel was originally titled "Stability Interval
+  Analysis", which was a misnomer — nothing about stability is
+  computed. The proxy's `Triangular()` pipeline emits, for every
+  pair of colour-local move indices (s, t) with s ≤ t, the
+  `summary_fn` of the delta stream over that interval (`min` for
+  the quality/default palettes, `mean` for the score/rank
+  palettes). The triangular cell at (s, t) is therefore a summary
+  at one specific scale (length = t - s + 1); the matrix as a
+  whole is the multi-scale view across every possible interval.
+  "Multiresolution" is the conventional term for this kind of
+  many-scales-at-once analysis (signal-processing vocabulary).
+  Renamed to reflect what's actually shown.
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
@@ -45,7 +58,7 @@ function handleCellClick(cell: HeatmapCell) {
 <template>
   <div class="section">
     <div class="header" @click="expanded = !expanded">
-      <span>Stability Interval Analysis</span>
+      <span>Multiresolution Interval Analysis</span>
       <span class="chevron">{{ expanded ? '▼' : '▶' }}</span>
     </div>
 
