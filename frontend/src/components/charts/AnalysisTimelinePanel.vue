@@ -7,7 +7,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import HorizontalTimelineVisualizer from '../HorizontalTimelineVisualizer.vue';
-import { PONDER_MAX_VISITS } from '../../engine/constants';
+import { store } from '../../store';
 import type { PlyIndex } from '../../types';
 
 const props = defineProps<{
@@ -22,6 +22,12 @@ const emit = defineEmits<{
 }>();
 
 const visits = ref(200);
+
+// The visits-input cap follows the user's configured ponder ceiling
+// (engine.katago.ponderMaxVisits); the one-shot range analyze and
+// ponder share the same intuition of "deepest analyze the user wants
+// to permit." Registry-tunable; default 2,000,000.
+const visitsMax = computed(() => store.profile.settings.engine.katago.ponderMaxVisits);
 
 const selectionNodeCount = computed(() =>
   Math.max(0, Math.round(props.selectionRange[1] - props.selectionRange[0]))
@@ -55,7 +61,7 @@ function onRangeUpdate(r: [number, number]): void {
       <HorizontalTimelineVisualizer
         :data-vector="visitVector"
         :model-value="selectionRange"
-        color-mode="global"
+        color-mode="quantile"
         @update:model-value="onRangeUpdate"
       />
     </div>
@@ -66,7 +72,7 @@ function onRangeUpdate(r: [number, number]): void {
         v-model.number="visits"
         type="number"
         min="1"
-        :max="PONDER_MAX_VISITS"
+        :max="visitsMax"
         class="visits-input"
       />
       <button

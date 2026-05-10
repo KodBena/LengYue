@@ -91,7 +91,33 @@ import { getIntensityColorLinear } from '../engine/suggestion-colors';
 interface Props {
   dataVector: number[];
   modelValue: [number, number];
-  colorMode?: 'global' | 'segment-normalized' | 'aggregate';
+  /**
+   * Color-mode controls how per-position visit counts are mapped to
+   * the intensity gradient:
+   *
+   *   - `global`            — pass raw value through `Math.min(1, v)`.
+   *     Outliers (e.g., extended ponder on one position) saturate at
+   *     the top and squash everything else to near-zero. Cheap but
+   *     dominated by long-tail extrema.
+   *   - `segment-normalized` — min-max within each contiguous segment.
+   *     Parametric: assumes [min, max] is the meaningful scale anchor.
+   *     A single 100× outlier still dominates the range; non-outlier
+   *     turns render near the bottom of the gradient.
+   *   - `quantile`          — non-parametric rank-based mapping. Each
+   *     value maps to its empirical-CDF position (midrank for ties)
+   *     across the segment's values, in [0, 1]. Robust to outliers:
+   *     the heaviest-pondered turn gets quantile≈1, the next gets
+   *     quantile≈(n−1)/n, etc., spread across the gradient regardless
+   *     of magnitude ratios. Trade-off: scale information is lost
+   *     (a 100× outlier and a 10000× outlier both render as the
+   *     top quantile). Right call for analysis-intensity
+   *     visualisations where ponder can produce wildly skewed
+   *     distributions and the operator wants rank order, not
+   *     absolute magnitude.
+   *   - `aggregate`         — single color per segment (mean-of-segment).
+   *     For segment-level summaries; not per-position.
+   */
+  colorMode?: 'global' | 'segment-normalized' | 'quantile' | 'aggregate';
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -147,7 +173,7 @@ const normalizeValue = (val: number, segment: Segment) => {
     const range = segment.stats.max - segment.stats.min;
     return range === 0 ? 1 : (val - segment.stats.min) / range;
   }
-  return val; 
+  return val;
 };
 
 const getSampledValues = (values: number[]) => {
@@ -161,17 +187,61 @@ const getSampledValues = (values: number[]) => {
   return result;
 };
 
+/**
+ * Empirical-CDF midrank quantile of `val` within `sortedAsc`.
+ *
+ * Midrank-for-ties means a run of k equal values centred at sorted
+ * indices [i, i+k) maps to position (i + (k-1)/2) / (n-1) — averaged,
+ * so all tied values get the same quantile and they collectively
+ * occupy the rank-position interval they would have if untied. The
+ * midrank choice is standard for the empirical CDF; it's symmetric
+ * (no left/right bias on ties) and produces a continuous gradient
+ * when tied groups are small relative to n.
+ *
+ * Degenerate cases: n=0 returns 1 (no signal — render at max), n=1
+ * returns 1 (single point — render at max so the lone segment is
+ * visible rather than blank).
+ *
+ * Cost: O(n) per call; we call it once per sampled stop (≤20) per
+ * segment, so total work is O(n × maxStops) ≈ 20n per segment,
+ * which is well below the per-frame budget for any realistic
+ * visit-vector length.
+ */
+const quantileOf = (val: number, sortedAsc: number[]): number => {
+  const n = sortedAsc.length;
+  if (n <= 1) return 1;
+  let lt = 0, eq = 0;
+  for (const x of sortedAsc) {
+    if (x < val) lt++;
+    else if (x === val) eq++;
+  }
+  if (eq === 0) {
+    return lt / (n - 1);
+  }
+  // Midrank of the equal-run: ((lt) + (lt + eq - 1)) / 2 / (n - 1).
+  return (lt + (eq - 1) / 2) / (n - 1);
+};
+
 // FIX: Safely compute gradient stops to prevent NaN% in the SVG
 const processedSegments = computed(() => {
   return segments.value.map(segment => {
     const sampled = getSampledValues(segment.values);
+    // For the quantile color mode, precompute the segment's sorted
+    // values once; each sampled stop then resolves via quantileOf.
+    const sortedAsc =
+      props.colorMode === 'quantile'
+        ? [...segment.values].sort((a, b) => a - b)
+        : null;
     const stops = sampled.map((val, idx) => {
       // Guard against division by zero
-      const offset = sampled.length <= 1 
-        ? '0%' 
+      const offset = sampled.length <= 1
+        ? '0%'
         : `${(idx / (sampled.length - 1)) * 100}%`;
-      
-      const color = getColor(normalizeValue(val, segment));
+
+      const normalised = sortedAsc !== null
+        ? quantileOf(val, sortedAsc)
+        : normalizeValue(val, segment);
+      const color = getColor(normalised);
       return { offset, color };
     });
     return { ...segment, stops };
