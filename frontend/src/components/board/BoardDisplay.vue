@@ -211,8 +211,12 @@ function onBoardClick(e: MouseEvent) {
         />
       </g>
 
-      <!-- 3d. Last Move Marker (skipped on pass) -->
-      <g v-if="lastMove && lastMove.type === 'place'">
+      <!-- 3d. Last Move Marker (skipped on pass; suppressed when
+           move-number annotations are showing — the highest
+           number IS the last move, so the inner ring is
+           redundant and only adds visual noise overlapping the
+           numeric label). -->
+      <g v-if="lastMove && lastMove.type === 'place' && !moveNumbers">
         <circle
           :cx="toSVG(lastMove.x, lastMove.y).x"
           :cy="toSVG(lastMove.x, lastMove.y).y"
