@@ -12,6 +12,14 @@ treats positions — not whole games — as the unit of practice,
 with KataGo's evaluation as the grader and Ebisu's Bayesian
 recall model as the scheduler.
 
+> **Disclaimer.** The application's user-facing surface has
+> outgrown what any single person can reliably enumerate from
+> memory — neither the project author nor the LLM that helped
+> draft this tour is fully cognisant of every capability the
+> software ships. This document is best-effort. If you find a
+> feature missing, mistagged, or described inaccurately, an
+> issue (or PR) is welcome and useful.
+
 For the *pedagogy* behind this — why position-based study with
 unrelenting machine evaluation produces durable Go improvement
 — see `docs/handoff-current.md`'s "What this product is"
@@ -39,7 +47,8 @@ patterns supported, others render without hoshi).
   intersection to play; the rule engine validates legality
   (suicide / ko / occupied), updates captures, and threads the
   move into the game tree as a new child of the current node.
-  Pass support via the toolbar.
+  Pass moves are representable in the data model and SGF I/O
+  but no UI surface for issuing one ships today `[planned]`.
 
 - **Move-number annotation toggle.** A "#" button in the status
   bar overlays each placed stone with its ordinal (1, 2, 3, …),
@@ -64,10 +73,12 @@ patterns supported, others render without hoshi).
   engine work. Hover a tab to preview the board state without
   switching.
 
-- **SGF import and export.** Drag a `.sgf` file onto the
-  application or use the load dialog; exports via the toolbar.
+- **SGF import and export.** Load via the toolbar's file dialog;
+  export the active board to an SGF file via the same surface.
   Game metadata (player names, komi, rules, event, date)
-  propagates into the status bar.
+  propagates into the status bar. (Drag-drop import may also
+  work depending on your desktop environment's file-manager
+  integration, but isn't the documented path.)
 
 ## Move analysis (KataGo)
 
@@ -80,6 +91,24 @@ as a git submodule).
   coloured discs on the board, intensity-mapped against the
   visit count of non-best moves. The disc shows the winrate
   inline; the best move carries a score-delta label.
+
+- **Programmable move filter.** A user-editable JavaScript
+  expression decides which of KataGo's move candidates render
+  as suggestion discs. The expression sees `(move, root, ui)` —
+  the per-move `moveInfo` packet, the root info, and a
+  ui-context object exposing a numeric threshold slider. The
+  default keeps the engine's best move plus any move whose
+  visits exceed `ui.threshold` of the root's: a clean "show the
+  serious candidates, hide the long tail" predicate. Edit the
+  expression to surface only moves above a policy cutoff, only
+  cluster representatives, only moves with a positive
+  scoreLead delta — anything expressible in a single-line
+  JavaScript predicate. This kind of programmable filter is
+  conspicuously absent from every other Go GUI we've surveyed,
+  and the SR study workflow values it specifically: reviewing
+  a position with 30 plausible suggestions on screen is a
+  different cognitive task than reviewing the same position
+  with 3.
 
 - **Principal-variation preview on hover.** Hovering a move
   suggestion fades the surrounding overlay and animates the
@@ -156,12 +185,14 @@ packets, keyed by `(configHash, nodeId)`.
   board to that move; hovering surfaces a board-thumbnail
   preview.
 
-- **Stability / triangular heatmap.** A
-  multiresolution-interval triangular heatmap rendered from
-  KataProxy's `triangular` enrichment. Each cell encodes the
-  engine's evaluation of a slice of the variation at a given
-  resolution; clicking a cell projects to the matching ply
-  range and re-evaluates.
+- **Multiresolution-interval triangular heatmap.** A triangular
+  heatmap rendered from KataProxy's `triangular` enrichment.
+  Each cell encodes the engine's evaluation of a slice of the
+  variation at a given resolution; clicking a cell projects to
+  the matching ply range and re-evaluates. (Previously labelled
+  "Stability Interval Analysis" — renamed in chart code; the
+  earlier nomenclature was misrepresenting what the panel
+  actually shows.)
 
 - **Custom palette state functions.** Every visible metric is
   defined by a user-editable expression over KataGo's response
@@ -199,9 +230,12 @@ modal collects:
 - **Discount γ** — Ebisu's recall-decay parameter, per card.
 - **Analysis palette** — which palette compiles the grading
   signal.
-- **Tags** — comma-separated, including *virtual tags* via the
-  tag-DSL (prefix with `$` for dynamic queries like
-  `$tactic,~$blocked`).
+- **Tags** — comma-separated plain tags attached to the card.
+  Virtual tags (the `$tactic,~$blocked` macro form) are NOT
+  authored at mint time; they live as a query-time
+  macro-expansion language layered on the datalog-like tag DSL
+  used by deck pipelines. See *Decks* below for how virtual
+  tags participate in selection.
 - **Lineage** — the card is born either as a *Root* (new
   origin from the SGF) or as a *Branch* (derived from an
   existing card), forming the parent-child *Heredity tracking*
@@ -265,9 +299,14 @@ the review controls:
   before that move.
 
 - **Per-card visit override.** A number input on the in-session
-  panel lets the user override the default visit budget for
-  the current card — useful when a position warrants deeper
-  analysis than the deck's default.
+  panel lets the user override the visit budget for the current
+  card. Each card carries its own `defaultVisits` set at mint
+  time (cards are the things that have visit budgets — decks
+  are ephemeral DSL programs that asynchronously resolve to a
+  card list, not parameter carriers; the same deck evaluated at
+  different times can produce different card sets per the
+  time-dependent Ebisu schedule). The override applies to the
+  current card only and persists across the session.
 
 - **FINISHED state.** Session-end summary; back to the deck
   picker.
@@ -342,11 +381,13 @@ the user finds most valuable.
   qEUBO observation without changing the active palette.
 - **Apply.** Promote the currently-effective audition into the
   active palette parameters.
-- **Pin.** Lock individual parameters during optimisation —
-  useful for sweeping a single axis while holding others
-  fixed.
-- **Bookmarks.** Save candidate parameter sets independently of
-  the experiment lifecycle.
+- **Pin.** Save and name the parameter set qEUBO is currently
+  presenting — promotes the live A-or-B candidate into a
+  durable named entry so the user can return to it after
+  further optimisation rounds.
+- **Bookmarks.** The list of pinned parameter sets, independent
+  of the experiment lifecycle (bookmarks survive experiment
+  deletions, restarts, etc.).
 
 Status: feature-complete in code; end-to-end UI validation with
 Redis still pending. `QEUBO_ENABLED=False` by default on the
@@ -411,12 +452,15 @@ backend; flip the env-var to opt in.
 - **No multiplayer.** The engine is the only opponent.
 - **No game database / playback library.** Storage is
   incidental to the SR workflow; loading SGFs is one-shot.
-- **No "play vs. AI" mode in the casual sense.** The
-  engine-vs-engine match is a study affordance, not a casual
-  play surface.
 
 These are deliberate scope decisions, recorded in
 `docs/handoff-current.md`'s "What this product is" section.
+
+A **human-vs-engine play mode** is *not* on the
+intentionally-absent list — it simply hasn't been built yet. The
+engine-vs-engine match is the closest surface that ships today;
+a casual play affordance is a plausible direction `[planned]`,
+not a scope-line decision against the idea.
 
 ---
 
