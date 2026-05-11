@@ -259,15 +259,18 @@ CodeMirror 6 editor with continuous lint.
   field to expand a game-source id to all of its root card
   ids. Resolved client-side from the loaded forest stats.
 
-- **Hyperparameter harness.** Decks can declare *holes* —
-  named handles that get filled in at review-session-start
-  time. A bare identifier in value position (e.g.
+- **Hyperparameter harness** `[experimental]`**.** Decks can
+  declare *holes* — named handles bound at pipeline-run time.
+  A bare identifier in value position (e.g.
   `{ "stage": "take", "n": deck_size }`) marks a hole; the
-  CardSet editor lints definitions against usage. At session
-  start, a small modal collects values (defaults pre-filled,
-  validators in place). Same deck declaration produces a
-  family of related sessions parameterised by the holes — vary
-  `deck_size` from 10 to 200 without duplicating the deck.
+  CardSet editor lints definitions against usage with a
+  per-declaration panel for name / type / default / constraints.
+  Clicking "Run pipeline" or "Start Review" opens a small modal
+  that collects values (defaults pre-filled, per-field validators
+  in place) — same deck produces a family of related sessions
+  parameterised by the holes, with no deck duplication. Built-in
+  default decks ship with their session-size knob (`deck_size`)
+  declared as a demonstration.
 
 - **Start review.** "Start Review Session" runs the pipeline
   and immediately enters review mode. "Run pipeline" runs the

@@ -82,13 +82,15 @@ frontend/src/
 │   │
 │   ├── editors/                             Settings / palette / pipeline editors.
 │   │   ├── AnalysisControls.vue       [B3]  Per-board analysis controls (engine status, palette picker, bundle persistence, …).
-│   │   ├── CardSetEditor.vue          [B2]  Master-Detail Tree-DSL pipeline editor (CodeMirror 6).
+│   │   ├── CardSetEditor.vue          [B2]  Master-Detail Tree-DSL pipeline editor (CodeMirror 6) with JSON5+holes dialect.
+│   │   ├── HyperparameterPanel.vue    [B1]  Declarations editor (name/type/default/constraints) for a deck's harness.
 │   │   ├── PaletteEditor.vue          [B3]  Master-Detail Analysis-Environment editor.
 │   │   └── RegistryEditor.vue         [B1]  Generic managed-registry editor with defaults and structural protection.
 │   │
 │   ├── modals/                              Dialog modals. Mostly B1 (generic UX) with two B3 (engine/SGF-touching).
 │   │   ├── ConfirmLoadModal.vue       [B1]  "Save / discard / cancel" dirty-board dialog.
 │   │   ├── EngineMatchModal.vue       [B3]  Engine-vs-engine match config (model picker, visits, num moves).
+│   │   ├── HyperparamPromptModal.vue  [B1]  Bind-time prompt for deck-pipeline hyperparameters (defaults pre-filled, per-field validation).
 │   │   ├── LoginModal.vue             [B1]  Sign-in / register / switch-user / sign-out.
 │   │   └── MintCardModal.vue          [B3]  Flashcard mint dialog (SGF → backend mint).
 │   │
@@ -225,6 +227,7 @@ frontend/src/
 │   └── theme-color.ts                 [B1]  Runtime CSS-variable accessor for ECharts adapter configs.
 │
 ├── lib/
+│   ├── dsl-harness.ts                 [B1]  Pipeline-DSL hyperparameter harness: JSON5+holes parser/formatter, validator, substitute.
 │   └── utils.ts                       [B1]  debounce helper (the only inhabitant; lib/utils merger flagged separately).
 │
 └── config/

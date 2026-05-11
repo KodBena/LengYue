@@ -87,7 +87,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 32;
+export const CURRENT_SCHEMA_VERSION = 33;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -1004,6 +1004,30 @@ export const migrations: Migration[] = [
     if (ui && typeof ui === 'object') {
       if (typeof ui.showStoneMoveNumbers !== 'boolean') {
         ui.showStoneMoveNumbers = false;
+      }
+    }
+    return out;
+  },
+  // 32 → 33: CardSet hyperparameter-harness scaffolding. Every deck
+  // gains `hyperparameters: HyperparamDecl[]` alongside its existing
+  // `pipeline`. Decks with no holes (the universal pre-v33 case)
+  // type-check identically post-migration because `pipeline:
+  // PipelineStageWithHoles[]` is a supertype of `PipelineStage[]`.
+  // The harness modal opens at runtime only when the array is non-
+  // empty; legacy decks therefore behave unchanged.
+  //
+  // Idempotent: an existing array on each card-set is preserved
+  // unchanged; missing / non-array gets `[]`. See
+  // `docs/notes/dsl-hyperparameter-harness-plan.md` for the design.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const cardSets = out.profile?.cardSets;
+    if (cardSets && typeof cardSets === 'object') {
+      for (const key of Object.keys(cardSets)) {
+        const cs = cardSets[key];
+        if (cs && typeof cs === 'object' && !Array.isArray(cs.hyperparameters)) {
+          cs.hyperparameters = [];
+        }
       }
     }
     return out;

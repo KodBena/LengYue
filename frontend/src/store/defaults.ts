@@ -285,8 +285,11 @@ export const defaultCardSets: Record<string, CardSet> = {
       },
       { stage: "take", n: 50 },
       { stage: "order", ordering: { type: "EbisuRecallKey" } },
-      { stage: "take", n: 10 },
+      { stage: "take", n: { $param: 'deck_size' } },
       { stage: "shuffle" }
+    ],
+    hyperparameters: [
+      { name: 'deck_size', type: 'number', default: 10, range: [1, 500], label: 'Deck size' }
     ]
   },
   'fringe_first': {
@@ -299,8 +302,11 @@ export const defaultCardSets: Record<string, CardSet> = {
         selection: { type: "SubtreeSelection", n: 0 },
         ordering:  { type: "fringe_first" }
       },
-      { stage: "take", n: 20 },
+      { stage: "take", n: { $param: 'deck_size' } },
       { stage: "shuffle" }
+    ],
+    hyperparameters: [
+      { name: 'deck_size', type: 'number', default: 20, range: [1, 500], label: 'Deck size' }
     ]
   },
   'centroid_coverage': {
@@ -313,8 +319,11 @@ export const defaultCardSets: Record<string, CardSet> = {
         selection: { type: "SubtreeSelection", n: 0 },
         ordering:  { type: "centroid_order" }
       },
-      { stage: "take", n: 20 },
+      { stage: "take", n: { $param: 'deck_size' } },
       { stage: "shuffle" }
+    ],
+    hyperparameters: [
+      { name: 'deck_size', type: 'number', default: 20, range: [1, 500], label: 'Deck size' }
     ]
   },
   'main_line_first': {
@@ -327,7 +336,10 @@ export const defaultCardSets: Record<string, CardSet> = {
         selection: { type: "SubtreeSelection", n: 0 },
         ordering:  { type: "main_line_first" }
       },
-      { stage: "take", n: 20 }
+      { stage: "take", n: { $param: 'deck_size' } }
+    ],
+    hyperparameters: [
+      { name: 'deck_size', type: 'number', default: 20, range: [1, 500], label: 'Deck size' }
     ]
   },
   'balanced_overdue': {
@@ -340,10 +352,14 @@ export const defaultCardSets: Record<string, CardSet> = {
         selection: { type: "SubtreeSelection", n: 0 },
         ordering:  { type: "centroid_order" }
       },
-      { stage: "take", n: 30 },
+      { stage: "take", n: { $param: 'pool_size' } },
       { stage: "order", ordering: { type: "EbisuRecallKey" } },
-      { stage: "take", n: 10 },
+      { stage: "take", n: { $param: 'deck_size' } },
       { stage: "shuffle" }
+    ],
+    hyperparameters: [
+      { name: 'pool_size', type: 'number', default: 30, range: [1, 500], label: 'Coverage pool size' },
+      { name: 'deck_size', type: 'number', default: 10, range: [1, 500], label: 'Deck size' }
     ]
   }
 };

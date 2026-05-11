@@ -24,6 +24,7 @@ import { expandContextIdMacros } from '../../utils/context-id-macros';
 import CardTreeWidget from '../charts/CardTreeWidget.vue';
 import ForestTreeNav from './ForestTreeNav.vue';
 import ReviewSessionPanel from '../ReviewSessionPanel.vue';
+import HyperparamPromptModal, { type HyperparamValues } from '../modals/HyperparamPromptModal.vue';
 
 const emit = defineEmits<{
   (e: 'load-card', card: ReviewCard): void;
@@ -145,14 +146,35 @@ async function reloadRoots(): Promise<void> {
   tree.setForestStats(roots.value);
 }
 
+// Bind-time prompt for the deck's hyperparameter harness. Resolves
+// to a `Record<name, value>` on submit or `null` on cancel; when the
+// deck declares no hyperparameters, we skip the modal entirely and
+// pass `{}` through to `runPipeline`. The modal lives in the
+// component layer — composables stay UI-free per the layering tenet.
+const harnessModalRef = ref<InstanceType<typeof HyperparamPromptModal> | null>(null);
+
+async function collectHyperparameters(
+  deck: { hyperparameters: { name: string }[] } & { hyperparameters: unknown[] },
+): Promise<HyperparamValues | 'skipped' | 'cancelled'> {
+  if (!deck.hyperparameters || deck.hyperparameters.length === 0) return 'skipped';
+  if (!harnessModalRef.value) return 'cancelled';
+  const result = await harnessModalRef.value.open(
+    deck.hyperparameters as Parameters<typeof harnessModalRef.value.open>[0],
+  );
+  return result ?? 'cancelled';
+}
+
 async function runDeck(): Promise<void> {
   const deck = store.profile.cardSets[selectedDeckId.value];
   if (!deck) return;
+  const collected = await collectHyperparameters(deck);
+  if (collected === 'cancelled') return;
+  const values: HyperparamValues = collected === 'skipped' ? {} : collected;
   // Single ephemeral context (schema-version 16): the deck is a pure
   // strategy, the context lives on `cardsContextIds`. The matched-cards
   // return value is unused here — this codepath is browse-only,
   // distinct from the start-review-session flow that consumes it.
-  await tree.runPipeline(deck, store.session.ui.cardsContextIds);
+  await tree.runPipeline(deck, store.session.ui.cardsContextIds, values);
 }
 
 /**
@@ -164,16 +186,17 @@ async function runDeck(): Promise<void> {
  * a second fetch. The forest's active set and the review queue are
  * by-construction the same set of cards.
  *
- * If the pipeline produces no matches, `runPipeline` returns `[]`
- * and sets the slot's `error`; `startSession` short-circuits to
- * IDLE without spinning up state. Both surfaces (the forest's
- * empty state and the reviewSession state) reflect that
- * correctly.
+ * If the deck declares hyperparameters, the harness prompt modal
+ * opens first; cancelling skips the session start. Empty pipeline
+ * result still routes through `startSession` short-circuit to IDLE.
  */
 async function startReviewFromConfig(): Promise<void> {
   const deck = store.profile.cardSets[selectedDeckId.value];
   if (!deck) return;
-  const matched = await tree.runPipeline(deck, store.session.ui.cardsContextIds);
+  const collected = await collectHyperparameters(deck);
+  if (collected === 'cancelled') return;
+  const values: HyperparamValues = collected === 'skipped' ? {} : collected;
+  const matched = await tree.runPipeline(deck, store.session.ui.cardsContextIds, values);
   if (matched.length > 0) {
     await reviewSession.startSession(matched);
   }
@@ -335,6 +358,8 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
         />
       </div>
     </div>
+
+    <HyperparamPromptModal ref="harnessModalRef" />
 
   </div>
 </template>
