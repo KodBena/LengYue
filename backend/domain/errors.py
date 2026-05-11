@@ -91,7 +91,7 @@ class LineageOverflowError(InvalidInputError):
     tree rooted at the requested card contains more than `max_nodes`
     nodes. Carries both numbers so the route can populate the
     structured 422 body specified by the card-tree backend spec
-    (`docs/notes/card-tree-backend-spec.md`).
+    (`docs/archive/notes/card-tree-backend-spec.md`).
 
     Per ADR-0002 (fail loudly) — explicitly preferred over post-hoc
     truncation, which would silently return an undefined subset of

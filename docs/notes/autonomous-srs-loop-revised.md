@@ -361,7 +361,7 @@ as a "what we believed when we hadn't built it yet" record gives
 useful context for *why* the substrate ended up shipping in the
 shape it did — the original's policy wishlist directly motivated
 the SELECTOR design, and the design note for SELECTOR
-(`docs/notes/proxy-selector-and-capability-negotiation.md`) cites
+(`docs/archive/notes/proxy-selector-and-capability-negotiation.md`) cites
 the autonomous-SR loop as the destination the SELECTOR is shaped
 to enable. Both notes are now planning-time records; this revision
 is the pre-implementation note that takes positions on what to

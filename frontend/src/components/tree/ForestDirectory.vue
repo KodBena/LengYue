@@ -1,7 +1,7 @@
 <!--
   src/components/tree/ForestDirectory.vue
   Master-Detail view for Database Exploration. Hosts the card-tree
-  widget (per docs/notes/card-tree-frontend-spec.md) in two modes:
+  widget (per docs/archive/notes/card-tree-frontend-spec.md) in two modes:
   Decks tab drives the active-set rendering from a CardSet pipeline
   result; Browse tab drives a file-manager-style hierarchical
   navigator (game_sources → roots) via `useForestNavigation` +

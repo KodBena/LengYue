@@ -207,7 +207,7 @@ contract reference lives in the dispatch chain at
 (frontend ask), `docs/dispatch/proxy-to-frontend-selector-and-capabilities-status.md`
 (proxy sign-off, six open questions answered including the Q6
 canonical-key bifurcation), and the frontend-side design note at
-`docs/notes/proxy-selector-and-capability-negotiation.md`.
+`docs/archive/notes/proxy-selector-and-capability-negotiation.md`.
 
 The frontend is **domain-specific to Go**. ADR-0003 documents
 this honestly: roughly 30-40% of the frontend is Go-bound (the
@@ -483,7 +483,7 @@ next. The distribution-packaging memo
 (`docs/notes/distribution-packaging.md`) is the leading edge:
 making the software installable by users who don't know `npm`
 or `fastapi` is the next undertaking. The tree-DSL hyperparameter
-harness (`docs/notes/dsl-hyperparameter-harness-plan.md`) shipped
+harness (`docs/archive/notes/dsl-hyperparameter-harness-plan.md`) shipped
 on 2026-05-12 — the design note transitions to
 `design-note: implemented`; the user-facing surface is a JSON5+holes
 authoring dialect in `CardSetEditor.vue` plus a bind-time prompt

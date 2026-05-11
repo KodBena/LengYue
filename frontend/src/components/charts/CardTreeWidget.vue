@@ -1,6 +1,6 @@
 <!--
   src/components/charts/CardTreeWidget.vue
-  Card-tree widget per docs/notes/card-tree-frontend-spec.md.
+  Card-tree widget per docs/archive/notes/card-tree-frontend-spec.md.
 
   Renders a forest of `CardLineageTree`s as one ECharts tree-series
   per tree, vertically stacked with per-tree headers. The

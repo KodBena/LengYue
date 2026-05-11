@@ -324,7 +324,7 @@ class LineageRepositoryPort(Protocol):
         the explicit `unmatched_card_ids` list (cards not owned by
         the caller, or not present in the database at all).
 
-        Card-tree contract: see `docs/notes/card-tree-backend-spec.md`
+        Card-tree contract: see `docs/archive/notes/card-tree-backend-spec.md`
         for the wire-shape rationale and the auditability argument
         for surfacing unmatched ids explicitly rather than silently
         dropping them.
@@ -362,7 +362,7 @@ class LineageRepositoryPort(Protocol):
         Card-tree contract: per-card metadata is fetched separately
         via /cards/{id} (the existing route). The recursive `tree`
         field carries only `id` and `children` per node — see
-        `docs/notes/card-tree-backend-spec.md` for the rationale.
+        `docs/archive/notes/card-tree-backend-spec.md` for the rationale.
 
         Behaviors:
 

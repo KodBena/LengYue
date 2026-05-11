@@ -61,7 +61,7 @@ bind every edit.
   any pipeline work.
 - `docs/notes/analysis-persistence-plan.md` — Design note for the
   planned analysis-persistence feature; not yet implemented.
-- `docs/notes/card-tree-backend-spec.md` — Backend capability spec
+- `docs/archive/notes/card-tree-backend-spec.md` — Backend capability spec
   for the card-tree widget.
 - `docs/notes/qEUBO.md` — Successor-session map for qEUBO work.
 - `docs/TODO.md` — Tenancy spine items 13–26 are the next major

@@ -5,7 +5,7 @@
   skips, 31 new tests added in `tests/unit/lib/dsl-harness.test.ts`).
   Branch / PR to be assigned on push.
 - **Genre:** Feature — closes the planned arc in
-  `docs/notes/dsl-hyperparameter-harness-plan.md`; that note
+  `docs/archive/notes/dsl-hyperparameter-harness-plan.md`; that note
   transitions from `design-note: planned` to `design-note:
   implemented` in the same arc.
 - **Date:** 2026-05-12.
@@ -155,7 +155,7 @@ JSON5+holes dialect.
 
 3. **`src/lib/dsl-harness.ts`, not `src/utils/`.** The plan named
    the `lib/` path explicitly; the `lib/` vs `utils/` merger
-   flagged in `docs/notes/frontend-source-tree-reorganization.md`
+   flagged in `docs/archive/notes/frontend-source-tree-reorganization.md`
    is still its own open arc. If the merger lands later, the
    harness file moves alongside the other lib inhabitant.
 

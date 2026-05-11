@@ -14,7 +14,7 @@ deeper "why."
 - `docs/handoff-current.md` — system-level orientation.
 - `docs/adr/0003-frontend-portability-and-domain-boundaries.md` —
   the canonical band definitions referenced below.
-- `docs/notes/frontend-source-tree-reorganization.md` — why the
+- `docs/archive/notes/frontend-source-tree-reorganization.md` — why the
   directory layout looks the way it does.
 
 ## ADR-0003 band tags (one-line legend)

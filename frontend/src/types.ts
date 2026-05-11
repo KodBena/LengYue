@@ -857,7 +857,7 @@ export type PipelineStage =
 // deck declaration untouched. The disambiguator is syntactic: every
 // legitimate DSL atom is either quoted or numeric, so a bare
 // identifier in value position unambiguously marks a hole. See
-// `docs/notes/dsl-hyperparameter-harness-plan.md` for the design.
+// `docs/archive/notes/dsl-hyperparameter-harness-plan.md` for the design.
 
 // Hole marker: a bare identifier in the authoring dialect parses to
 // this shape. The `$param` field is the declared hyperparameter name

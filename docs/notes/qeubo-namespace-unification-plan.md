@@ -306,7 +306,7 @@ cross-domain view is needed up front.
 ## Frontend impact
 
 Sizable. Compared to the hyperparameter harness (the sibling
-plan at `docs/notes/dsl-hyperparameter-harness-plan.md`), this
+plan at `docs/archive/notes/dsl-hyperparameter-harness-plan.md`), this
 project reaches further into existing surfaces.
 
 - `src/types.ts` — `KnobId`, `KnobDecl`, `KnobTransform`,

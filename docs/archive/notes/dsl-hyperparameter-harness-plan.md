@@ -165,7 +165,7 @@ generic hole-and-fill machine, no Go in it).
 - New `src/lib/dsl-harness.ts` — pure parse / validate /
   substitute functions; the file is the unit-test target. (The
   `lib/` vs `utils/` merger flagged in
-  `docs/notes/frontend-source-tree-reorganization.md` is its own
+  `docs/archive/notes/frontend-source-tree-reorganization.md` is its own
   arc; if it lands before this work does, place the new file
   under whichever name wins.)
 - New `src/components/modals/HyperparamPromptModal.vue` —

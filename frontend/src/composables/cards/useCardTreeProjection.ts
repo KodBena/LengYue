@@ -4,7 +4,7 @@
  * Pure projection from a card-tree forest + active-set + manual-expand
  * state to the role-annotated render forest the CardTreeWidget hands
  * to ECharts. Implements the active/context/stub/bucket logic specified
- * in `docs/notes/card-tree-frontend-spec.md` §"The display projection".
+ * in `docs/archive/notes/card-tree-frontend-spec.md` §"The display projection".
  *
  * ── Band (ADR-0003) ──────────────────────────────────────────────────────────
  * Truly domain-agnostic. The projection operates on `{id, children}`

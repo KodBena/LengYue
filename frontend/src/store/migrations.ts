@@ -1018,7 +1018,7 @@ export const migrations: Migration[] = [
   //
   // Idempotent: an existing array on each card-set is preserved
   // unchanged; missing / non-array gets `[]`. See
-  // `docs/notes/dsl-hyperparameter-harness-plan.md` for the design.
+  // `docs/archive/notes/dsl-hyperparameter-harness-plan.md` for the design.
   (blob: any) => {
     const out = structuredClone(blob);
     const cardSets = out.profile?.cardSets;

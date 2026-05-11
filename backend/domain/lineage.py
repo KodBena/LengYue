@@ -4,7 +4,7 @@ domain/lineage.py
 Value objects for the card-tree endpoints (release-scope item 3).
 
 Two frozen Pydantic models satisfy the contract specified in
-`docs/notes/card-tree-backend-spec.md`:
+`docs/archive/notes/card-tree-backend-spec.md`:
 
 - `RootResolution` — the wire-shape DTO returned by the resolve-roots
   Port method, carrying both the matched groups (one per

@@ -55,7 +55,7 @@ ADR-0002 (fail loudly), ADR-0004 (minimal-touch), and ADR-0005
 
 - `docs/notes/frontend-backlog.md` — Raw frontend backlog (UI/UX
   items not in the canonical `docs/TODO.md`).
-- `docs/notes/card-tree-frontend-spec.md` — Frontend widget spec
+- `docs/archive/notes/card-tree-frontend-spec.md` — Frontend widget spec
   for the card-tree view.
 - `docs/notes/qEUBO.md` — Successor-session map for qEUBO work.
   Points at canonical sources rather than substituting for them.

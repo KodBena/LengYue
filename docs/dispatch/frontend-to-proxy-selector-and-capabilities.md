@@ -22,7 +22,7 @@
   per ADR-0005's dispatch-ledger convention. Second entry in the
   frontend↔proxy direction (the keep-alive request was the first).
 - **Companion design note:** the frontend-side design rationale lives
-  at `docs/notes/proxy-selector-and-capability-negotiation.md` and is
+  at `docs/archive/notes/proxy-selector-and-capability-negotiation.md` and is
   the planning-time record this dispatch is drawn from. The dispatch
   is self-contained for proxy-side review; the note carries the
   why-from-the-frontend's-perspective.

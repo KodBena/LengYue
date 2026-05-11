@@ -624,7 +624,7 @@ section is the long-horizon view.
 - **Tree-DSL hyperparameter harness.** Frontend-only construct
   for parameterising deck pipelines without hand-editing the
   declaration. Design memo at
-  `docs/notes/dsl-hyperparameter-harness-plan.md`. The
+  `docs/archive/notes/dsl-hyperparameter-harness-plan.md`. The
   author's named "creme on top" target for the next cycle.
 - **qEUBO end-to-end validation.** Runtime ships behind
   `QEUBO_ENABLED=False`; UI smoke + Redis run pending. Once
