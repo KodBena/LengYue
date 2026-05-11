@@ -13,7 +13,25 @@
   middleware extension is needed; the trailing "pass" slot must be
   stripped before decode).
 * PV's should be mouse-scrollable (as in the animated versions of the PV display but optionally done manually using the scroll-wheel)
-* PV's should be pasteable into the game-tree
+* ~~PV's should be pasteable into the game-tree~~ Closed 2026-05-11:
+  `MoveSuggestions.vue` gains a `paste-pv` emit fired on modifier-click
+  (Ctrl on Win/Linux, Cmd on Mac — `utils/modifier-key.ts` centralises
+  the platform split) or middle-click (`@mousedown` with `button === 1`
+  is the portable shape; `@click.middle` is unreliable across browsers).
+  `BoardWidget.vue` re-emits, `App.vue::handlePastePv` loops
+  `applyGoMove` from the active board state — the dedup-or-descend
+  branch at `logic.ts:79–82` means moves that already exist as
+  children of the current node are descended into rather than
+  duplicated, which is exactly the historical-bug guarantee carried
+  forward to the sequential case. Cursor advances to the PV leaf
+  via the `BoardState.currentNodeId` chain. Illegal moves surface
+  a system message and accept the legal prefix per ADR-0002.
+  Discoverability: a new `useTransientHint` composable (module-
+  scope ref) lets the hover-enter handler publish a localised
+  "{Ctrl|Cmd}+click or middle-click to paste PV" message to the
+  status bar, cleared on hover-leave. No-op during the review
+  session's `AWAITING_MOVE` state to preserve single-move
+  discipline; allowed in idle / intermission / finished states.
 * Seek to off-load some styling/layout to existing libraries in the javascript/typescript/vue eco-system (grid-layout, monaco editor, etc, etc, not sure what's out there)
 * ~~When connection with KataGo has been established, should send query_version and query_models in order to display relevant information in the status bar; if connection drops and is re-established, should probe again to cover the case where the KataGo service change configuration~~ Closed 2026-05-06: `KataGoClient.ClientCallbacks` gains an optional `onConnect` hook fired from `onopen` (initial connection + every reconnect); `analysisService.probeEngineInfo()` issues `query_version` + `query_models` and writes a new `EngineInfo` value object onto `store.engine.info`. The 5s watchdog refreshes the version field on each tick so a mid-session restart with a version bump surfaces without waiting for a full reconnect; on disconnect the info clears so a stale identity doesn't survive into the next session. `StatusBar.vue` renders the version + first model name (with a `(+N)` suffix when multiple) on the right-hand cluster. Worklog at `docs/archive/worklog/2026-05-v1.0-to-v1.1/2026-05-06-katago-engine-info-probe.md`.
 

@@ -22,8 +22,9 @@ import {
   DEFAULTS,
 } from './store';
 
-import type { BoardId, NodeId, GameNode }   from './types';
+import type { BoardId, NodeId, GameNode, BoardState }   from './types';
 import { applyGoMove }    from './logic';
+import type { PvMove }    from './composables/use-pv-animation';
 import { navigateTo }     from './engine/navigator';
 import { updateRegistry } from './engine/util';
 
@@ -196,12 +197,52 @@ function handleBoardMove(x: number, y: number): void {
     if (reviewSession.state.value === 'AWAITING_MOVE') {
       reviewSession.processUserMove(x, y);
     }
-    return; 
+    return;
   }
 
   if (!activeBoard.value) return;
   const next = applyGoMove(activeBoard.value, x, y);
   if (next) updateBoardState(store.activeBoardIndex, next);
+}
+
+/**
+ * Paste a principal variation into the active board's game tree.
+ * Loops applyGoMove sequentially: each call either descends into
+ * an existing child that already plays the coordinate, or creates
+ * a new child. The dedup behaviour at logic.ts:79–82 means the
+ * final tree is correct whether the PV is wholly new, wholly
+ * pre-existing, or any partial overlap. After the loop the board's
+ * currentNodeId sits at the PV leaf (the "advance to PV leaf"
+ * cursor behaviour the user picked). Illegal moves surface a
+ * system message and accept the legal prefix per ADR-0002 — fail
+ * loudly, but don't discard useful work.
+ *
+ * No-op during AWAITING_MOVE review state: the review session
+ * enforces single-move discipline and pasting a whole PV would
+ * silently bypass it. Other review states (intermission, finished)
+ * allow paste — those are study phases where exploration is the
+ * point.
+ */
+function handlePastePv(pv: PvMove[]): void {
+  if (reviewSession.state.value === 'AWAITING_MOVE') return;
+  if (!activeBoard.value || pv.length === 0) return;
+
+  let board: BoardState = activeBoard.value;
+  for (const move of pv) {
+    const next = applyGoMove(board, move.x, move.y);
+    if (!next) {
+      pushSystemMessage('warning', t('moveSuggestions.pasteIllegal', {
+        n: move.moveNumber,
+        x: move.x,
+        y: move.y,
+      }));
+      break;
+    }
+    board = next;
+  }
+  if (board !== activeBoard.value) {
+    updateBoardState(store.activeBoardIndex, board);
+  }
 }
 
 // Tightened from `nodeId: string` to `nodeId: NodeId` to match
@@ -289,6 +330,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
               :key="activeBoard.id"
               :state="activeBoard"
               @move="handleBoardMove"
+              @paste-pv="handlePastePv"
             />
           </div>
           <StatusBar

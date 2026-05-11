@@ -8,6 +8,7 @@
 <script setup lang="ts">
 import type { StoneColor } from '../types';
 import UserBadge from './UserBadge.vue';
+import { useTransientHint } from '../composables/useTransientHint';
 
 interface StatusMetadata {
   readonly blackName: string;
@@ -26,6 +27,8 @@ defineProps<{
 const emit = defineEmits<{
   (e: 'update-komi', value: number): void;
 }>();
+
+const { hint } = useTransientHint();
 </script>
 
 <template>
@@ -46,6 +49,7 @@ const emit = defineEmits<{
       </span>
     </div>
     <div class="status-right">
+      <span v-if="hint" class="transient-hint">{{ hint }}</span>
       <span class="turn-indicator" :class="turn">
         {{ turn === 'B' ? $t('statusBar.blackToPlay') : $t('statusBar.whiteToPlay') }}
       </span>
@@ -118,4 +122,14 @@ const emit = defineEmits<{
 .turn-indicator.W { color: var(--accent-secondary); }
 
 .caps { font-family: monospace; color: var(--text-2); font-size: var(--text-body); }
+
+/* Transient hint surface — populated by `useTransientHint` from
+   hover-driven affordances (e.g. the PV-paste discoverability
+   text on move-suggestion hover). Distinct anchor from the
+   permanent status vocabulary so it reads as ephemeral. */
+.transient-hint {
+  color: var(--text-2);
+  font-style: italic;
+  font-size: var(--text-body);
+}
 </style>

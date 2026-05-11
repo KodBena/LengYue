@@ -149,6 +149,9 @@
   "statusBar.blackToPlay":                "Black to Play",
   "statusBar.whiteToPlay":                "White to Play",
 
+  "moveSuggestions.pasteHint":            "{key}+click or middle-click to paste PV",
+  "moveSuggestions.pasteIllegal":         "PV paste stopped at move {n}: ({x}, {y}) is illegal in that position",
+
   "errors.unhandled":                     "Unhandled error: {msg}.",
   "errors.unhandledUi":                   "Unhandled UI error: {msg}.",
   "errors.boundary.title":                "Something went wrong",

@@ -69,6 +69,11 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'move', x: number, y: number): void;
+  // Re-emitted from MoveSuggestions: modifier-click or middle-click
+  // on a suggestion disc requests pasting that suggestion's PV
+  // into the game tree as a sequential branch. The handler in
+  // App.vue loops applyGoMove from the active board state.
+  (e: 'paste-pv', pv: import('../composables/use-pv-animation').PvMove[]): void;
 }>();
 
 const containerRef = ref<HTMLElement | null>(null);
@@ -199,6 +204,7 @@ const currentMoveNumber = computed(() => {
       :current-move-number="currentMoveNumber"
       :show-transposition-rings="store.session.ui.showTranspositionRings"
       @move="(x, y) => emit('move', x, y)"
+      @paste-pv="(pv) => emit('paste-pv', pv)"
     />
     <!-- Game-tree variations overlay: stroke-only colored rings (or
          A/B/C lettered rings) for sibling variations from the

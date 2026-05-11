@@ -6,9 +6,12 @@
 -->
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { BOARD_PX, LABEL_BAND, TOTAL_PX, STONE_RADIUS_RATIO } from '../engine/constants';
 import { useMoveSuggestions } from '../composables/use-move-suggestions';
 import { usePvAnimation, type PvConfig, type PvMove } from '../composables/use-pv-animation';
+import { useTransientHint } from '../composables/useTransientHint';
+import { isPasteClick, isMiddleButtonMousedown, pasteModifierLabel } from '../utils/modifier-key';
 import type { BoardId, NodeId } from '../types';
 
 // Branded-type signature discipline (Commit 5a): boardId and currentNodeId
@@ -38,7 +41,18 @@ const hoveredClusterId = computed(() => {
 
 const emit = defineEmits<{
   (e: 'move', x: number, y: number): void;
+  // Paste the principal variation of a suggestion into the game
+  // tree as a sequential branch. Triggered by modifier-click
+  // (Ctrl on Win/Linux, Cmd on Mac) or middle-click on a
+  // suggestion disc; the caller in App.vue loops applyGoMove over
+  // the PV, inheriting the existing dedup-or-descend behaviour at
+  // logic.ts:79–82, so moves that already exist as children of
+  // the current node are descended into rather than duplicated.
+  (e: 'paste-pv', pv: PvMove[]): void;
 }>();
+
+const { t } = useI18n();
+const { setHint, clearHint } = useTransientHint();
 
 // ── Composables ───────────────────────────────────────────────────────────────
 
@@ -76,6 +90,7 @@ function getAnnotatedPv(moveIndex: number): PvMove[] {
 function onDiskEnter(moveIndex: number) {
   hoveredIndex.value = moveIndex;
   startPv(getAnnotatedPv(moveIndex));
+  setHint(t('moveSuggestions.pasteHint', { key: pasteModifierLabel() }));
 }
 
 /**
@@ -100,10 +115,39 @@ watch(() => props.currentNodeId, () => {
 function onLeave(): void {
   hoveredIndex.value = null;
   stopPv();
+  clearHint();
 }
 
-function onSuggestionClick(x: number, y: number) {
-  emit('move', x, y);
+/**
+ * Dispatches the click to one of two affordances:
+ *  - Modifier-held click (Ctrl on Win/Linux, Cmd on Mac) emits
+ *    `paste-pv` with the suggestion's full PV.
+ *  - Plain left-click emits `move` with the suggestion's
+ *    coordinate, matching the historical behaviour.
+ * Middle-click is handled separately on `mousedown` because
+ * `click` events are unreliable for the middle button across
+ * browsers — see `utils/modifier-key.ts`.
+ */
+function onSuggestionClick(event: MouseEvent, x: number, y: number, moveIndex: number) {
+  if (isPasteClick(event)) {
+    emit('paste-pv', getAnnotatedPv(moveIndex));
+  } else {
+    emit('move', x, y);
+  }
+  onLeave();
+}
+
+/**
+ * Middle-button mousedown handler. Vue's `@click.middle` does not
+ * reliably fire across browsers; binding on `mousedown` and
+ * filtering on `button === 1` is the portable shape. The
+ * `preventDefault()` suppresses the platform default (auto-scroll
+ * cursor on Win/Linux).
+ */
+function onSuggestionMousedown(event: MouseEvent, moveIndex: number) {
+  if (!isMiddleButtonMousedown(event)) return;
+  event.preventDefault();
+  emit('paste-pv', getAnnotatedPv(moveIndex));
   onLeave();
 }
 
@@ -156,7 +200,8 @@ const pvTransition = computed(() => `opacity ${pvCfg.fadeDurationMs}ms ease`);
       class="suggestion-group"
       @mouseenter="onDiskEnter(s.moveIndex)"
       @mouseleave="onLeave"
-      @click="onSuggestionClick(s.x, s.y)"
+      @click="(e) => onSuggestionClick(e, s.x, s.y, s.moveIndex)"
+      @mousedown="(e) => onSuggestionMousedown(e, s.moveIndex)"
       :style="{ pointerEvents: (hoveredIndex !== null && s.moveIndex !== hoveredIndex) ? 'none' : 'all' }"
     >
       <!-- magic-literal: 60ms suggestion-ring/disk fade (transition values
