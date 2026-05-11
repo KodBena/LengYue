@@ -216,8 +216,22 @@ watch(
   border-radius: var(--radius-default);
   flex-shrink: 0;
   min-height: 0;
+  min-width: 0;
+  /* `overflow: hidden` is load-bearing for responsiveness: at small
+     panel heights the expanded section would otherwise let its
+     ECharts canvas render at content-natural-size and spill out
+     horizontally (the chart's `roam: true` mode lets it grow past
+     the viewport). Clipping at the section boundary keeps the
+     chart inside its allotted box; the ResizeObserver on
+     .tree-canvas then triggers ECharts.resize() at the right
+     dimensions. */
+  overflow: hidden;
 }
-.tree-section.expanded { flex: 1; min-height: 280px; }
+/* `min-height: 0` (rather than the prior 280px floor) lets the
+   expanded section shrink with the panel — the user can drag the
+   panel-resizer to small heights without the chart being pushed
+   outside its container. */
+.tree-section.expanded { flex: 1; min-height: 0; }
 .tree-header {
   padding: var(--space-default) var(--space-medium);
   display: flex;
