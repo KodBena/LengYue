@@ -201,8 +201,11 @@ function titleFor(gameStats: readonly ForestStat[]): string {
   // The game-source id is the only stable identifier when every
   // root has null metadata. Visible enough that the user can match
   // it against the backend if needed; not so prominent it pretends
-  // to be a name.
-  return `Game source #${gameStats[0]?.gameSourceId ?? '?'}`;
+  // to be a name. Renamed "Game source" → "Game ID" for brevity
+  // alongside the CardTreeWidget header rename; the inline `#N`
+  // chip in ForestTreeNav still handles the discoverability case
+  // when a non-null description hides the id.
+  return `Game ID #${gameStats[0]?.gameSourceId ?? '?'}`;
 }
 
 function aggregateFor(

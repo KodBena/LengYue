@@ -212,6 +212,17 @@ export function tooltipFor(
 
 export interface HeaderLine {
   title: string;
+  /**
+   * Tooltip text for the title element. Always surfaces the
+   * game-source id because users reference it in the Cards-tab
+   * `${N}` macro — the id is load-bearing identity and there is
+   * no shorter handle that resolves it. When a description is
+   * present, the displayed title hides the id; the tooltip
+   * appends it. When no description is present, the displayed
+   * title already IS the id and the tooltip simply restates it
+   * so a truncated title still reveals the full ordinal on hover.
+   */
+  titleTooltip: string;
   meta: string;
   counts: string;
 }
@@ -227,8 +238,12 @@ export function headerLineFor(
   forestStats: ReadonlyMap<CardId, ForestStat>,
 ): HeaderLine {
   const stat = forestStats.get(tree.rootCardId);
-  const title = stat?.description?.trim()
-    || t('cardTree.header.gameSourceFallback', { id: tree.gameSourceId });
+  const desc = stat?.description?.trim();
+  const gameIdLabel = t('cardTree.header.gameSourceFallback', { id: tree.gameSourceId });
+  const title = desc || gameIdLabel;
+  const titleTooltip = desc
+    ? t('cardTree.header.titleTooltipWithDesc', { desc, id: tree.gameSourceId })
+    : gameIdLabel;
   const unknownPlayer = t('cardTree.header.unknownPlayer');
   const players =
     stat?.playerBlack || stat?.playerWhite
@@ -247,5 +262,5 @@ export function headerLineFor(
         rendered: tree.stats.renderedNodeCount,
         total:    tree.stats.totalCardNodes,
       });
-  return { title, meta: players, counts };
+  return { title, titleTooltip, meta: players, counts };
 }

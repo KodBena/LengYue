@@ -181,7 +181,10 @@ watch(
     >
       <div class="tree-header" @click="toggleExpand(tree.rootCardId)">
         <span class="chevron">{{ tree.rootCardId === expandedRootId ? '▼' : '▶' }}</span>
-        <div class="title">{{ headerLineFor(tree, props.forestStats).title }}</div>
+        <div
+          class="title"
+          :title="headerLineFor(tree, props.forestStats).titleTooltip"
+        >{{ headerLineFor(tree, props.forestStats).title }}</div>
         <div class="meta">{{ headerLineFor(tree, props.forestStats).meta }}</div>
         <div class="counts">{{ headerLineFor(tree, props.forestStats).counts }}</div>
       </div>
