@@ -4,7 +4,7 @@
  * SPA's vue-i18n integration.
  *
  * The supported list is the project's policy decision (see
- * docs/notes/i18n-plan.md): English source, plus Simplified
+ * docs/archive/notes/i18n-plan.md): English source, plus Simplified
  * Chinese / Japanese / Korean for the Go-research target audience.
  * Adding a locale is a four-site change here: extend
  * SUPPORTED_LOCALES below, add entries to LOCALE_DISPLAY_NAMES and

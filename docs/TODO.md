@@ -29,7 +29,7 @@ already shipped end-to-end at the v1.0.0 boundary including the
 cross-team card-tree arc and the joint tenancy-documentation
 sweep. Closure documents:
 `docs/notes/release-retrospective-2026-05.md` (v1.1.0) and
-`docs/notes/release-retrospective-2026-04.md` (v1.0.0).
+`docs/archive/notes/release-retrospective-2026-04.md` (v1.0.0).
 
 ## Completed work — archived
 
@@ -89,7 +89,7 @@ Active in the table at `frontend/docs/i18n.md`.
 Out-of-scope explicitly: DSL symbol names, wire-shape field names,
 KataGo's output, file-format vocabulary, console / debug log lines,
 and built-in palette IDs. The full inventory and rationale is
-recorded in `docs/notes/i18n-plan.md`'s "What does NOT get
+recorded in `docs/archive/notes/i18n-plan.md`'s "What does NOT get
 translated" section, mirrored into `frontend/docs/i18n.md` for
 contributor reference.
 
@@ -445,7 +445,7 @@ heatmap throttle bought enough headroom to defer indefinitely.
 
 v1.1.0 shipped 2026-05-08 (see
 `docs/notes/release-retrospective-2026-05.md`); v1.0.0 shipped
-2026-04-30 (see `docs/notes/release-retrospective-2026-04.md`).
+2026-04-30 (see `docs/archive/notes/release-retrospective-2026-04.md`).
 The v1.0.0 locked scope and the post-v1.0.0 frontend backlog
 through 2026-05-06 are archived (see
 `docs/archive/TODO-completed-2026-05-06.md` for the synopsis
@@ -492,6 +492,6 @@ do 30d first.
 **Future projects (when ready).**
 
 - qEUBO end-to-end validation + transition of
-  `docs/notes/qEUBO.md` to `design-note: implemented`.
+  `docs/archive/notes/qEUBO.md` to `design-note: implemented`.
 - Item 27 full, if multi-tab becomes a real workflow.
 - Item 32, if deployment flexibility motivates zeroconf.

@@ -9,7 +9,7 @@ For specific architectural decisions, see the seven ADRs in
 `docs/adr/`. For active work, see `docs/TODO.md`. For backend
 architectural retrospective, see `docs/notes/reflection.md`. For
 the v1.0.0 release retrospective, see
-`docs/notes/release-retrospective-2026-04.md`. For moment-in-time
+`docs/archive/notes/release-retrospective-2026-04.md`. For moment-in-time
 snapshots and the v1 scope freeze, see `docs/archive/`.
 
 ---
@@ -474,7 +474,7 @@ backend de-branding finalisation, analysis-range preservation,
 the card-tree widget, pass handling plus save-to-disk, the
 default-palette curated metric set, the tenancy READMEs, and
 the initial-load layout fix. The closure document is
-`docs/notes/release-retrospective-2026-04.md`. v1.0.0 was the
+`docs/archive/notes/release-retrospective-2026-04.md`. v1.0.0 was the
 first user-facing release; v1.1.0 is the first that shipped on
 top of established discipline-arc machinery.
 
@@ -530,7 +530,7 @@ routes, frontend `useQeubo` composable, toolbar A/B cluster,
 parameter-meta editor in `PaletteEditor`, bookmarks UI panel
 shipped 2026-04-28). End-to-end UI smoke with Redis is still
 the remaining validation gate. Status table at
-`docs/notes/qEUBO.md`. The runtime is opt-in
+`docs/archive/notes/qEUBO.md`. The runtime is opt-in
 (`QEUBO_ENABLED=False` by default) because the dependency
 footprint is heavy and the validation incomplete. The proxy's
 replay cache (Layer 2) exists specifically to make this loop
@@ -662,7 +662,7 @@ In rough order of priority for a new contributor:
 - **`docs/notes/reflection.md`** — Backend architectural
   retrospective. The "Rough edges to know about" section is
   unusually candid.
-- **`docs/notes/release-retrospective-2026-04.md`** —
+- **`docs/archive/notes/release-retrospective-2026-04.md`** —
   Whole-project retrospective at the close of v1.0.0. Honest
   assessment from a contributor perspective.
 - **`docs/TODO.md`** — Active work, organized by tier and by

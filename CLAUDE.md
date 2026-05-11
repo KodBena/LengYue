@@ -199,7 +199,7 @@ to broadcast to every healthy upstream rather than the first one
 non-first models); v1.0.19 fixed the same root cause on RELAY's
 hash-ring side. Both ship with regression tests and topology
 diagnostics under `tests/diagnose_watchdog_*.py`. See the umbrella's
-`docs/notes/postmortem-selector-watchdog-2026-05.md` for the
+`docs/archive/notes/postmortem-selector-watchdog-2026-05.md` for the
 diagnosis arc.
 
 v1.0.20 is the institutional structured-logging release. The

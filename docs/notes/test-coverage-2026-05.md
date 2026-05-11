@@ -4,7 +4,7 @@
   edge (`docs/handoff-current.md`, retired in this same arc).
 - **Genre:** Per-arc closing reflection. Peer of
   `docs/notes/reflection.md` (backend infrastructure sweep) and
-  `docs/notes/release-retrospective-2026-04.md` (v1.0.0 release
+  `docs/archive/notes/release-retrospective-2026-04.md` (v1.0.0 release
   retrospective). Specific where I can be specific.
 - **Date:** 2026-05-07.
 - **Audience:** Future contributors, future-self returning cold,

@@ -648,7 +648,7 @@ export const migrations: Migration[] = [
   // and the per-user locale preference. Backfills existing users
   // with their user-agent's preferred locale via
   // `detectBrowserLocale()` — first-encounter rule from
-  // docs/notes/i18n-plan.md ("browser-detect at first run, store in
+  // docs/archive/notes/i18n-plan.md ("browser-detect at first run, store in
   // user's profile thereafter"). The migration is the natural place
   // for the one-time detection: it fires exactly once per
   // workspace blob (subsequent loads see the persisted value and

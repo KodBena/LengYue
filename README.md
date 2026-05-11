@@ -111,7 +111,7 @@ seven items spanning backend de-branding, analysis-range
 preservation, the card-tree widget, pass handling and SGF save,
 the curated default palette, the tenancy READMEs, and the
 initial-load layout fix — is closed. See
-`docs/notes/release-retrospective-2026-04.md` for the
+`docs/archive/notes/release-retrospective-2026-04.md` for the
 whole-project retrospective from a contributor perspective and
 `docs/handoff-current.md` for the current operational state.
 Earlier closure documents remain valid as historical record:

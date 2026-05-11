@@ -3,7 +3,7 @@
 - **Status:** Closes v1.1.0. The work between v1.0.0 (2026-04-30)
   and the v1.1.0 tag is shipped, and the doc graph is current.
 - **Genre:** Whole-project retrospective. Peer of
-  `docs/notes/release-retrospective-2026-04.md` (the v1.0.0
+  `docs/archive/notes/release-retrospective-2026-04.md` (the v1.0.0
   retro), and the umbrella retrospective for the cycle —
   not a substitute for the per-arc retros (`reflection.md`,
   `audit-reflections.md`, `test-coverage-2026-05.md`,
@@ -628,7 +628,7 @@ section is the long-horizon view.
   author's named "creme on top" target for the next cycle.
 - **qEUBO end-to-end validation.** Runtime ships behind
   `QEUBO_ENABLED=False`; UI smoke + Redis run pending. Once
-  validated, transition `docs/notes/qEUBO.md` to
+  validated, transition `docs/archive/notes/qEUBO.md` to
   `design-note: implemented`.
 - **CI integration.** Both testing arcs explicitly named this
   as the natural follow-up. Build pipelines (`npm run build`,

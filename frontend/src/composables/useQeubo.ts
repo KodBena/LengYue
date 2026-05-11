@@ -78,7 +78,7 @@
  * observation only, and an explicit apply action promotes the
  * audition into analysis_env.parameters. `submitPreference` here
  * therefore does NOT touch the parameters store; `applyEffective`
- * does. See `docs/notes/qEUBO.md` open-items section.
+ * does. See `docs/archive/notes/qEUBO.md` open-items section.
  *
  * License: Public Domain (The Unlicense)
  */

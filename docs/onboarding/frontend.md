@@ -57,7 +57,7 @@ ADR-0002 (fail loudly), ADR-0004 (minimal-touch), and ADR-0005
   items not in the canonical `docs/TODO.md`).
 - `docs/archive/notes/card-tree-frontend-spec.md` — Frontend widget spec
   for the card-tree view.
-- `docs/notes/qEUBO.md` — Successor-session map for qEUBO work.
+- `docs/archive/notes/qEUBO.md` — Successor-session map for qEUBO work.
   Points at canonical sources rather than substituting for them.
 - Session-to-session handoffs — recent ones land in
   `docs/dispatch/frontend-to-frontend-*.md`; prior ones are

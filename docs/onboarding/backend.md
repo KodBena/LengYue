@@ -63,7 +63,7 @@ bind every edit.
   planned analysis-persistence feature; not yet implemented.
 - `docs/archive/notes/card-tree-backend-spec.md` — Backend capability spec
   for the card-tree widget.
-- `docs/notes/qEUBO.md` — Successor-session map for qEUBO work.
+- `docs/archive/notes/qEUBO.md` — Successor-session map for qEUBO work.
 - `docs/TODO.md` — Tenancy spine items 13–26 are the next major
   milestone; items 32 and 34 closed the wire-rename work.
 - `backend/scripts/` — Hand-rolled migration scripts. One-shot,

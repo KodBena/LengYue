@@ -280,7 +280,7 @@ cross-domain view is needed up front.
 
 ## Cross-references
 
-- `docs/notes/qEUBO.md` — successor-session map for the qEUBO
+- `docs/archive/notes/qEUBO.md` — successor-session map for the qEUBO
   integration arc; the implementation status table that this
   follow-up plan sits downstream of.
 - `docs/archive/dispatch/frontend-to-backend-qeubo-integration.md` — wire
@@ -342,7 +342,7 @@ this is the canonical handle for the planned work.
 If implementation reveals the design is wrong in some
 load-bearing way, file a sibling `design-note: revised` rather
 than silently editing this one. The qEUBO arc is unusually
-well-documented (`docs/notes/qEUBO.md`'s status table, the
+well-documented (`docs/archive/notes/qEUBO.md`'s status table, the
 backend dispatch chain, the worklogs); preserving the same
 discipline here means a future reader can reconstruct what was
 believed at planning time even if the implementation ended up

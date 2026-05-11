@@ -6,7 +6,7 @@
 - **Genre:** Per-arc closing reflection. Peer of
   `docs/notes/test-coverage-2026-05.md` (the backend testing arc's
   closing reflection, 2026-05-07) and
-  `docs/notes/release-retrospective-2026-04.md` (v1.0.0 release
+  `docs/archive/notes/release-retrospective-2026-04.md` (v1.0.0 release
   retrospective). Specific where I can be specific.
 - **Date:** 2026-05-08.
 - **Audience:** Future contributors, future-self returning cold,
