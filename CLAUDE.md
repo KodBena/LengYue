@@ -71,6 +71,12 @@ it. Before declaring a task done or filing a PR, audit:
   record items the work surfaced?
 - Does `docs/handoff-current.md` describe a surface this change
   affects, and is the description still accurate?
+- Does `FEATURES.md` need a new entry, an updated description, or
+  a removed entry? See "User-facing tour (FEATURES.md)" below for
+  the full discipline.
+- Does `frontend/FILES.md` need a new entry, a moved entry, a
+  band re-tag, or a removed entry? See the frontend `CLAUDE.md`'s
+  "File map" section for the full discipline.
 - Does any ADR's "Revisit when…" section name a trigger this change
   satisfies?
 - Does any cross-reference in the doc graph now describe its target
@@ -81,6 +87,62 @@ it. Before declaring a task done or filing a PR, audit:
 If yes to any, propose the documentation edits as part of the same
 change. Code-only PRs that have documentation implications are
 incomplete deliveries.
+
+## User-facing tour (FEATURES.md)
+
+`FEATURES.md` at the umbrella root is a descriptive tour of every
+user-facing surface of the application — board / analysis /
+cards / browse / power-user customisation / qEUBO / workspace /
+auth. It exists because the SPA's surface has outgrown the
+project author's ability to enumerate features from memory, and
+because prospective users (the philanthropic-mission target
+audience: serious Go students who do not necessarily read code)
+need a canonical "what does this do" without trawling the source
+tree.
+
+It is a **tour**, not a marketing list — descriptive, honest
+about state, organised by user surface rather than by
+implementation category.
+
+### When to update it
+
+When you ship a change that adds, removes, or materially alters
+a **user-facing capability**, update FEATURES.md in the same PR.
+The bar is "would a Go player reading the tour misunderstand
+what the application offers if this isn't reflected?" — if yes,
+update. Pure internal refactors, bug fixes that preserve
+behaviour, and code-only restructures don't need FEATURES.md
+edits.
+
+### State qualifiers (the immature-feature allowance)
+
+A feature that ships but hasn't been validated end-to-end gets
+tagged `[experimental]`. One whose backend exists but whose UI
+is still being wired gets `[partial]`. One the architecture
+supports but which hasn't been built yet gets `[planned]`.
+Untagged entries are stable, validated, ready for users.
+
+Refining the tag as a feature firms up is expected; pretending
+a feature is settled when it isn't is the failure mode the
+qualifiers prevent. This parallels the
+`frontend/FILES.md` immature-files allowance (the `[B?]`
+unclassified band tag for files whose domain-coupling hasn't
+crystallised).
+
+### What NOT to put in FEATURES.md
+
+- Internal architecture (Components / Composables / Services
+  layering, branded types, the ACL pattern). Lives in
+  `frontend/CLAUDE.md` and `docs/handoff-current.md`.
+- Build / lifecycle / contributor workflow. Lives in the
+  per-sub-project `README.md`.
+- Architectural decisions. Live in `docs/adr/`.
+- Project-level status (release retrospectives, current
+  in-flight work). Lives in `docs/handoff-current.md` and
+  `docs/notes/release-retrospective-*.md`.
+
+The tour describes capabilities a user can exercise; it doesn't
+describe how the team builds them.
 
 ## Dispatch ledger for cross-team work
 

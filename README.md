@@ -13,6 +13,21 @@ own dependencies, build tooling, lint config, and `.gitignore`.
 There is no root-level `package.json`, no shared `pyproject.toml`,
 no top-level test runner. To work on a subproject, `cd` into it.
 
+## What it does
+
+The application stages SGF positions as flashcards in a
+spaced-repetition system, with KataGo's evaluation as the
+grader and Ebisu's Bayesian recall model as the scheduler. The
+intent: forward the average capability of human Go players as a
+virtue in itself.
+
+See **[FEATURES.md](FEATURES.md)** for the canonical tour —
+board, analysis, cards & SR, browse mode, power-user
+customisation, qEUBO calibration, workspace, and auth — with
+state qualifiers (`[experimental]` / `[partial]` / `[planned]`)
+for each surface. See `docs/handoff-current.md`'s "What this
+product is" section for the pedagogy that motivates the design.
+
 ## Cloning
 
 ```bash
