@@ -73,9 +73,9 @@ vi.mock('../../src/services/analysis-persistence-service', async () => {
 // and a freshly-defined fake class would fail the check, sending
 // the rejection down the unexpected-error throw branch. Only
 // `waitForAnalysis` itself is replaced.
-vi.mock('../../src/composables/wait-for-analysis', async () => {
-  const actual = await vi.importActual<typeof import('../../src/composables/wait-for-analysis')>(
-    '../../src/composables/wait-for-analysis',
+vi.mock('../../src/composables/analysis/wait-for-analysis', async () => {
+  const actual = await vi.importActual<typeof import('../../src/composables/analysis/wait-for-analysis')>(
+    '../../src/composables/analysis/wait-for-analysis',
   );
   return {
     ...actual,
@@ -89,7 +89,7 @@ vi.mock('../../src/composables/wait-for-analysis', async () => {
 
 import {
   useReviewSession,
-} from '../../src/composables/useReviewSession';
+} from '../../src/composables/review/useReviewSession';
 import {
   store,
   addBoard,
@@ -101,7 +101,7 @@ import { createInitialBoard } from '../../src/store/board-factory';
 import {
   AnalysisWaitError,
   waitForAnalysis,
-} from '../../src/composables/wait-for-analysis';
+} from '../../src/composables/analysis/wait-for-analysis';
 import {
   fakeBackendService,
   resetFakeBackendService,

@@ -24,7 +24,7 @@
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import BaseChart from './charts/BaseChart.vue';
-import { useReviewSession } from '../composables/useReviewSession';
+import { useReviewSession } from '../composables/review/useReviewSession';
 import { activeBoard, mutateBoard, store } from '../store';
 import { getActiveVariationPath } from '../engine/util';
 import { navigateTo } from '../engine/navigator';

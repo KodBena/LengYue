@@ -60,7 +60,7 @@ import type {
   PvAnimationSettings,
   PvAnnotation,
   PvMode,
-} from './composables/use-pv-animation';
+} from './composables/board/use-pv-animation';
 export type { PvAnimationSettings, PvAnnotation, PvMode };
 
 // ── Re-exports: i18n supported-locale union ───────────────────────────────────

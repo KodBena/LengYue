@@ -1,9 +1,11 @@
 # Frontend source-tree reorganization — audit and planning
 
-- **Status:** `design-note: planned`. No implementation work has
-  started. Pending author review of taxonomy proposal.
+- **Status:** `design-note: implemented`. Landed 2026-05-11 in the
+  reorganization commit that ships alongside this transition. See
+  the "Implementation outcome" section at the bottom for the
+  resolved decision-points and what differed from the proposal.
 - **Genre:** Design note — file-structure audit.
-- **Date:** 2026-05-11.
+- **Date:** 2026-05-11 (drafted, accepted, implemented same day).
 - **Author:** bork (drafted with Claude Opus 4.7, 1M-context).
 
 ## Why this exists
@@ -492,5 +494,68 @@ the rationale, and retire this note.
   section describes the layer split (components / composables /
   services / store), which is preserved.
 - `frontend/CLAUDE.md` — no change needed; the layering tenet
-  is preserved. May warrant a one-line "see also" pointer to
-  this note while it's still in `planned` status.
+  is preserved.
+
+## Implementation outcome
+
+Reorganization landed 2026-05-11 in the same commit that
+transitions this note to `design-note: implemented`. 81 files
+had imports rewritten by a one-off `/tmp/fix-imports.py`
+script that walked the tree, resolved every relative import,
+and repaired the broken ones via a lookup table over the
+moves. Four cross-subdir-within-components edge cases the
+script missed (paths starting `./` rather than `../`) were
+fixed by hand. ADR-0006 source-file headers updated in-place
+by a sibling `/tmp/fix-headers.py` script (62 files). The
+strict `vue-tsc -b` typecheck and the 166-test Vitest suite
+both passed clean after the sweep; `npm run build` produces
+identical bundle output (same gzip size, same module count).
+
+### Decision points — how they resolved
+
+1. **Proceed with Option E?** Yes.
+2. **`useNavigation.ts`** — top-level (author override of the
+   proposed `forest/` placement). Rationale per the new
+   feedback memory: synthetic classification under ambiguity
+   is worse than honest flat placement. The same principle
+   was applied to five other ambiguous composables that the
+   proposal had tentatively placed in subdirs:
+   `useScopedScroll` (board+tree consumers), `useUserIORegistry`
+   (global hardware adapter), `useEngineControls` (engine
+   cross-surface), `useTransientHint` (writer/reader split),
+   `useTransientLogReveal` (App-scoped chrome utility) — all
+   lifted to top-level. The principle the audit calls
+   "earn-your-place" for subdirs has a per-file counterpart for
+   ambiguous individual files: when classification is
+   synthetic, flat is honest.
+3. **`useQeubo.ts`** — top-level (singleton).
+4. **`cards/` + `forest/` split** — applied as proposed.
+   `useActivePath.ts` and `useVariationPath.ts` (both
+   variation-path-within-game-tree concepts) joined the `board/`
+   cluster, bringing it to 7 files.
+5. **Schedule** — implemented immediately on author approval.
+
+### Final shape
+
+```
+components/ — 1 top-level (ReviewSessionPanel.vue) + 7 subdirs
+  board/ (7), charts/ (11, unchanged), chrome/ (8),
+  editors/ (4), modals/ (4), qeubo/ (2), tree/ (4)
+
+composables/ — 7 top-level + 8 subdirs
+  top-level: useEngineControls, useNavigation, useQeubo,
+             useScopedScroll, useTransientHint,
+             useTransientLogReveal, useUserIORegistry
+  analysis/ (9), auth-app/ (3), board/ (7), cards/ (6),
+  chrome/ (2), forest/ (4), review/ (2), sgf/ (2)
+```
+
+Untouched per the audit's recommendation: `services/` (10
+flat), `store/` (5), `engine/` (its existing `analysis/` and
+`katago/` subdirs are sufficient), `utils/`, `lib/`, `config/`,
+`i18n/`, `locales/`, `types/`.
+
+The flagged adjacent cleanups remain out of scope and open as
+their own arcs: the kebab→camelCase composable rename, App.vue
+extraction, types.ts catalogue audit, lib/ vs utils/ merger,
+engine/ sub-grouping (if warranted).

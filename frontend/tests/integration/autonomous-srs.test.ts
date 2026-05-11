@@ -51,9 +51,9 @@ vi.mock('../../src/services/analysis-persistence-service', async () => {
 // Preserve the real `AnalysisWaitError` class so the catch in
 // processUserMove's instanceof check still matches; only
 // waitForAnalysis itself is replaced.
-vi.mock('../../src/composables/wait-for-analysis', async () => {
-  const actual = await vi.importActual<typeof import('../../src/composables/wait-for-analysis')>(
-    '../../src/composables/wait-for-analysis',
+vi.mock('../../src/composables/analysis/wait-for-analysis', async () => {
+  const actual = await vi.importActual<typeof import('../../src/composables/analysis/wait-for-analysis')>(
+    '../../src/composables/analysis/wait-for-analysis',
   );
   return {
     ...actual,
@@ -70,7 +70,7 @@ import { createInitialBoard } from '../../src/store/board-factory';
 import {
   AnalysisWaitError,
   waitForAnalysis,
-} from '../../src/composables/wait-for-analysis';
+} from '../../src/composables/analysis/wait-for-analysis';
 import {
   fakeBackendService,
   resetFakeBackendService,
@@ -83,7 +83,7 @@ import {
   type Policy,
   type Recorder,
   type RecorderEntry,
-} from '../../src/composables/autonomous-srs';
+} from '../../src/composables/board/autonomous-srs';
 import type {
   CardId,
   EbisuModel,

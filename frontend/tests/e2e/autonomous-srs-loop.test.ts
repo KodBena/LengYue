@@ -54,13 +54,13 @@ import { createInitialBoard } from '../../src/store/board-factory';
 import { serializeActivePath } from '../../src/engine/sgf-writer';
 import type { BoardId, ReviewCard } from '../../src/types';
 
-import { playEngineMoves } from '../../src/composables/usePlayFromPosition';
+import { playEngineMoves } from '../../src/composables/board/usePlayFromPosition';
 import {
   fixedNetworkPolicy,
   runAutonomousDriver,
   type Recorder,
   type RecorderEntry,
-} from '../../src/composables/autonomous-srs';
+} from '../../src/composables/board/autonomous-srs';
 import { seedTestUser, seedTestCard } from './seed';
 
 // ── Configuration ────────────────────────────────────────────────────────────

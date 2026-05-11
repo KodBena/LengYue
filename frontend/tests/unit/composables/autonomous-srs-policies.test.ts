@@ -13,12 +13,12 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../../../src/composables/usePlayFromPosition', () => ({
+vi.mock('../../../src/composables/board/usePlayFromPosition', () => ({
   queryEngineMove: vi.fn(),
 }));
 
-import { queryEngineMove } from '../../../src/composables/usePlayFromPosition';
-import { fixedNetworkPolicy } from '../../../src/composables/autonomous-srs';
+import { queryEngineMove } from '../../../src/composables/board/usePlayFromPosition';
+import { fixedNetworkPolicy } from '../../../src/composables/board/autonomous-srs';
 import type { BoardState, ReviewCard, CardId, EbisuModel } from '../../../src/types';
 
 const SENTINEL_EBISU: EbisuModel = { alpha: 4, beta: 4, t: 1 };

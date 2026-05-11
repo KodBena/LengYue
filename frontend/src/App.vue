@@ -3,15 +3,15 @@ import { computed, watch } from 'vue';
 import { ref as vueRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 
-import { useMetadata }       from './composables/useMetadata';
-import { useSgfLoader }      from './composables/useSgfLoader';
-import { useSgfDownload }    from './composables/useSgfDownload';
+import { useMetadata }       from './composables/auth-app/useMetadata';
+import { useSgfLoader }      from './composables/sgf/useSgfLoader';
+import { useSgfDownload }    from './composables/sgf/useSgfDownload';
 import { useEngineControls } from './composables/useEngineControls';
 import { useUserIORegistry } from './composables/useUserIORegistry';
-import { useAuth }           from './composables/useAuth';
-import { useResizablePanel } from './composables/useResizablePanel';
-import { useDirtyBoardGuard } from './composables/useDirtyBoardGuard';
-import { useAppBootstrap } from './composables/useAppBootstrap';
+import { useAuth }           from './composables/auth-app/useAuth';
+import { useResizablePanel } from './composables/chrome/useResizablePanel';
+import { useDirtyBoardGuard } from './composables/board/useDirtyBoardGuard';
+import { useAppBootstrap } from './composables/auth-app/useAppBootstrap';
 import { useTransientLogReveal } from './composables/useTransientLogReveal';
 import {
   store,
@@ -24,35 +24,35 @@ import {
 
 import type { BoardId, NodeId, GameNode, BoardState }   from './types';
 import { applyGoMove }    from './logic';
-import type { PvMove }    from './composables/use-pv-animation';
+import type { PvMove }    from './composables/board/use-pv-animation';
 import { navigateTo }     from './engine/navigator';
 import { updateRegistry } from './engine/util';
 
 import { analysisService } from './services/analysis-service';
 import { KATAGO_WS_URL } from './config/env';
-import { usePlayMatch } from './composables/usePlayFromPosition';
+import { usePlayMatch } from './composables/board/usePlayFromPosition';
 
-import BoardWidget      from './components/BoardWidget.vue';
-import SidebarWidget    from './components/SidebarWidget.vue';
-import TreeWidget       from './components/TreeWidget.vue';
-import TabWidget        from './components/TabWidget.vue';
-import RegistryEditor   from './components/RegistryEditor.vue';
-import PaletteEditor    from './components/PaletteEditor.vue';
-import CardSetEditor    from './components/CardSetEditor.vue';
-import AnalysisControls from './components/AnalysisControls.vue';
-import Toolbar          from './components/Toolbar.vue';
-import StatusBar        from './components/StatusBar.vue';
-import MintCardModal    from './components/MintCardModal.vue';
-import ConfirmLoadModal from './components/ConfirmLoadModal.vue';
-import EngineMatchModal from './components/EngineMatchModal.vue';
-import ForestDirectory  from './components/ForestDirectory.vue';
-import SystemLogPanel   from './components/SystemLogPanel.vue';
-import RootErrorBoundary from './components/RootErrorBoundary.vue';
-import LocalePicker     from './components/LocalePicker.vue';
+import BoardWidget      from './components/board/BoardWidget.vue';
+import SidebarWidget    from './components/chrome/SidebarWidget.vue';
+import TreeWidget       from './components/tree/TreeWidget.vue';
+import TabWidget        from './components/chrome/TabWidget.vue';
+import RegistryEditor   from './components/editors/RegistryEditor.vue';
+import PaletteEditor    from './components/editors/PaletteEditor.vue';
+import CardSetEditor    from './components/editors/CardSetEditor.vue';
+import AnalysisControls from './components/editors/AnalysisControls.vue';
+import Toolbar          from './components/chrome/Toolbar.vue';
+import StatusBar        from './components/board/StatusBar.vue';
+import MintCardModal    from './components/modals/MintCardModal.vue';
+import ConfirmLoadModal from './components/modals/ConfirmLoadModal.vue';
+import EngineMatchModal from './components/modals/EngineMatchModal.vue';
+import ForestDirectory  from './components/tree/ForestDirectory.vue';
+import SystemLogPanel   from './components/chrome/SystemLogPanel.vue';
+import RootErrorBoundary from './components/chrome/RootErrorBoundary.vue';
+import LocalePicker     from './components/chrome/LocalePicker.vue';
 
-import { useReviewSession } from './composables/useReviewSession';
+import { useReviewSession } from './composables/review/useReviewSession';
 import ColorDebugStrip  from './components/charts/ColorDebugStrip.vue';
-import QeuboBookmarks   from './components/QeuboBookmarks.vue';
+import QeuboBookmarks   from './components/qeubo/QeuboBookmarks.vue';
 
 useUserIORegistry();
 

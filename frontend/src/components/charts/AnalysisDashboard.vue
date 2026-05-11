@@ -6,9 +6,9 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue';
 
-import { useAnalysisProjection } from '../../composables/useAnalysisProjection';
-import { useChartNavigation } from '../../composables/useChartNavigation';
-import { useThumbnailCache } from '../../composables/useThumbnailCache';
+import { useAnalysisProjection } from '../../composables/analysis/useAnalysisProjection';
+import { useChartNavigation } from '../../composables/analysis/useChartNavigation';
+import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
 import { store } from '../../store';
 import type { BoardId } from '../../types';
 

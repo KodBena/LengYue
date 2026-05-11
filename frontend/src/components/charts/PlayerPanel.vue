@@ -5,8 +5,8 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import AnalysisChartPanel from './AnalysisChartPanel.vue';
-import { useThumbnailCache } from '../../composables/useThumbnailCache';
-import { colorMoveToPly } from '../../composables/useTriangularHeatmap';
+import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
+import { colorMoveToPly } from '../../composables/analysis/useTriangularHeatmap';
 import type { BoardId, ColorMoveIndex, NodeId, PlyIndex } from '../../types';
 
 // Branded-type signature discipline (Commit 5a + brand-pair extension):

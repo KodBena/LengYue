@@ -26,7 +26,7 @@ import {
   colorMoveToPly,
   useTriangularHeatmap,
   type HeatmapCell,
-} from '../../composables/useTriangularHeatmap';
+} from '../../composables/analysis/useTriangularHeatmap';
 import type { BoardId, NodeId, PlyIndex } from '../../types.ts';
 
 const props = defineProps<{

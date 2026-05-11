@@ -6,13 +6,13 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 import * as echarts from 'echarts';
-import { useThumbnailCache } from '../../composables/useThumbnailCache';
+import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
 import { themeColor } from '../../utils/theme-color';
 import {
   colorMoveToPly,
   type HeatmapCell,
   type HeatmapDatum,
-} from '../../composables/useTriangularHeatmap';
+} from '../../composables/analysis/useTriangularHeatmap';
 import type { BoardId, NodeId } from '../../types';
 
 const { getSync } = useThumbnailCache();

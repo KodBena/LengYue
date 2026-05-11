@@ -59,7 +59,7 @@ import {
 import { backendService } from '../../src/services/backend-service';
 import { analysisService } from '../../src/services/analysis-service';
 import { ledger } from '../../src/services/analysis-ledger';
-import { useReviewSession } from '../../src/composables/useReviewSession';
+import { useReviewSession } from '../../src/composables/review/useReviewSession';
 import { createInitialBoard } from '../../src/store/board-factory';
 import {
   hashConfig,
@@ -67,7 +67,7 @@ import {
 } from '../../src/services/analysis-config';
 import { serializeActivePath } from '../../src/engine/sgf-writer';
 import { applyGoMove } from '../../src/logic';
-import { gtpToBoard } from '../../src/composables/use-move-suggestions';
+import { gtpToBoard } from '../../src/composables/board/use-move-suggestions';
 import { getActiveVariationPath } from '../../src/engine/util';
 import type {
   BoardId,
@@ -79,7 +79,7 @@ import type {
 import {
   playEngineMoves,
   queryEngineMove,
-} from '../../src/composables/usePlayFromPosition';
+} from '../../src/composables/board/usePlayFromPosition';
 import { seedTestUser, seedTestCard } from './seed';
 
 // ── Configuration ────────────────────────────────────────────────────────────

@@ -43,12 +43,12 @@ vi.mock('../../src/services/analysis-persistence-service', async () => {
 // Composable-exported cleanup functions. Replace each with a
 // vi.fn() spy; resetWorkspace and closeBoard call these as part
 // of their cleanup chain, and the assertion is on call shape.
-vi.mock('../../src/composables/useCardThumbnail', () => ({
+vi.mock('../../src/composables/cards/useCardThumbnail', () => ({
   clearCardThumbnailCache: vi.fn(),
   getCardThumbnailSync: vi.fn(() => ''),
 }));
 
-vi.mock('../../src/composables/useThumbnailCache', () => ({
+vi.mock('../../src/composables/cards/useThumbnailCache', () => ({
   purgeBoardThumbnails: vi.fn(),
   purgeAllThumbnails: vi.fn(),
   useThumbnailCache: () => ({
@@ -59,7 +59,7 @@ vi.mock('../../src/composables/useThumbnailCache', () => ({
   }),
 }));
 
-vi.mock('../../src/composables/board-card-trees', () => ({
+vi.mock('../../src/composables/cards/board-card-trees', () => ({
   removeBoardCardTree: vi.fn(),
   clearAllBoardCardTrees: vi.fn(),
   getOrCreateBoardCardTree: vi.fn(),
@@ -79,15 +79,15 @@ import {
   fakeAnalysisPersistenceService,
   resetFakeAnalysisPersistenceService,
 } from '../fakes/analysis-persistence-service';
-import { clearCardThumbnailCache } from '../../src/composables/useCardThumbnail';
+import { clearCardThumbnailCache } from '../../src/composables/cards/useCardThumbnail';
 import {
   purgeBoardThumbnails,
   purgeAllThumbnails,
-} from '../../src/composables/useThumbnailCache';
+} from '../../src/composables/cards/useThumbnailCache';
 import {
   removeBoardCardTree,
   clearAllBoardCardTrees,
-} from '../../src/composables/board-card-trees';
+} from '../../src/composables/cards/board-card-trees';
 import type { BoardId } from '../../src/types';
 
 beforeEach(() => {

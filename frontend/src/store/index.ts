@@ -33,10 +33,10 @@ import { migrate, CURRENT_SCHEMA_VERSION } from './migrations';
 import { analysisService } from '../services/analysis-service';
 import { ledger } from '../services/analysis-ledger';
 import { analysisPersistenceService } from '../services/analysis-persistence-service';
-import { clearCardThumbnailCache } from '../composables/useCardThumbnail';
-import { abortAllReviews, abortBoardReview } from '../composables/useReviewSession';
-import { purgeAllThumbnails, purgeBoardThumbnails } from '../composables/useThumbnailCache';
-import { removeBoardCardTree, clearAllBoardCardTrees } from '../composables/board-card-trees';
+import { clearCardThumbnailCache } from '../composables/cards/useCardThumbnail';
+import { abortAllReviews, abortBoardReview } from '../composables/review/useReviewSession';
+import { purgeAllThumbnails, purgeBoardThumbnails } from '../composables/cards/useThumbnailCache';
+import { removeBoardCardTree, clearAllBoardCardTrees } from '../composables/cards/board-card-trees';
 
 export { createInitialBoard }        from './board-factory';
 export { DEFAULTS }                  from './defaults';

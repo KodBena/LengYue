@@ -5,7 +5,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import AnalysisChartPanel from './AnalysisChartPanel.vue';
-import { useThumbnailCache } from '../../composables/useThumbnailCache';
+import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
 import type { BoardId, NodeId, PlyIndex } from '../../types';
 
 // Branded-type signature discipline (Commit 5a): boardId and variationPath

@@ -25,7 +25,7 @@ import {
 } from '../store';
 import { api } from './api-client';
 import { i18n } from '../i18n';
-import type { useAuth } from '../composables/useAuth';
+import type { useAuth } from '../composables/auth-app/useAuth';
 import type { AuthState } from '../types';
 
 type AuthApi = ReturnType<typeof useAuth>;

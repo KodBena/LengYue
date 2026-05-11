@@ -35,7 +35,7 @@ vi.mock('../../src/services/analysis-service', async () => {
   return { analysisService: fakeAnalysisService };
 });
 
-vi.mock('../../src/composables/useThumbnailCache', () => ({
+vi.mock('../../src/composables/cards/useThumbnailCache', () => ({
   useThumbnailCache: () => ({
     getThumbnailSvg: vi.fn(async () => ''),
     getVariationThumbnail: vi.fn(),
@@ -49,7 +49,7 @@ vi.mock('../../src/composables/useThumbnailCache', () => ({
 import { loadSgf } from '../../src/engine/sgf-loader';
 import { addBoard, mutateBoard, resetWorkspace, store } from '../../src/store';
 import { navigateTo } from '../../src/engine/navigator';
-import { useAnalysisProjection } from '../../src/composables/useAnalysisProjection';
+import { useAnalysisProjection } from '../../src/composables/analysis/useAnalysisProjection';
 import { resetFakeAnalysisService } from '../fakes/analysis-service';
 import { resetFakeAnalysisPersistenceService } from '../fakes/analysis-persistence-service';
 import type { BoardId, BoardState, NodeId } from '../../src/types';

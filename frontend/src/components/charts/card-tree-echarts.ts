@@ -10,8 +10,8 @@
  */
 
 import type { CardId, ForestStat, ReviewCard } from '../../types';
-import type { RenderNode, RenderTree } from '../../composables/useCardTreeProjection';
-import { getCardThumbnailSync } from '../../composables/useCardThumbnail';
+import type { RenderNode, RenderTree } from '../../composables/cards/useCardTreeProjection';
+import { getCardThumbnailSync } from '../../composables/cards/useCardThumbnail';
 import { themeColor } from '../../utils/theme-color';
 import { i18n } from '../../i18n';
 

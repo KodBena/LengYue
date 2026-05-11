@@ -37,7 +37,7 @@ import sgf from '@sabaki/sgf';
 // call getThumbnailSvg and store the result on the previewRef. The
 // mock returns a deterministic SVG string per call so the hover-
 // handler tests can assert on the previewRef value directly.
-vi.mock('../../src/composables/useThumbnailCache', () => ({
+vi.mock('../../src/composables/cards/useThumbnailCache', () => ({
   useThumbnailCache: () => ({
     getThumbnailSvg: vi.fn(async (nodeId: string, _boardId: string, showMarker: boolean) =>
       `<svg data-node="${nodeId}" data-marker="${showMarker}"/>`,
@@ -64,8 +64,8 @@ vi.mock('../../src/services/analysis-service', async () => {
 
 import { loadSgf } from '../../src/engine/sgf-loader';
 import { addBoard, mutateBoard, resetWorkspace, store } from '../../src/store';
-import { useChartNavigation } from '../../src/composables/useChartNavigation';
-import { useVariationPath } from '../../src/composables/useVariationPath';
+import { useChartNavigation } from '../../src/composables/analysis/useChartNavigation';
+import { useVariationPath } from '../../src/composables/board/useVariationPath';
 import { resetFakeAnalysisService } from '../fakes/analysis-service';
 import { resetFakeAnalysisPersistenceService } from '../fakes/analysis-persistence-service';
 import type { BoardId, BoardState, ColorMoveIndex, NodeId } from '../../src/types';

@@ -1,0 +1,206 @@
+<!--
+  src/components/board/BoardTab.vue
+  Tab item in the board-list rail. Carries the board's label, close
+  button, the analysis-meter rugplot, and the activity (geiger) dot.
+  The hover-thumbnail is a separate component (FloatingThumbnail.vue)
+  triggered by the hover-enter / hover-leave events emitted from here.
+  License: Public Domain (The Unlicense)
+-->
+<script setup lang="ts">
+import { computed } from 'vue';
+import { useActivityDecay } from '../../composables/analysis/useActivityDecay';
+import { getIntensityColorLinear } from '../../engine/suggestion-colors';
+import { store } from '../../store';
+import type { BoardState } from '../../types';
+import { ledger } from '../../services/analysis-ledger';
+import { useVariationPath } from '../../composables/board/useVariationPath';
+import { activeConfigHash } from '../../services/analysis-config';
+
+const props = defineProps<{
+  state: BoardState;
+  index: number;
+  isActive: boolean;
+  reviewState?: 'ACTIVE' | 'INTERMISSION' | 'COMPLETE' | null;
+}>();
+
+const emit = defineEmits<{
+  (e: 'close'): void;
+  (e: 'hover-enter', evt: MouseEvent): void;
+  (e: 'hover-leave'): void;
+}>();
+
+const energy = useActivityDecay(() => props.state.lastActivity);
+const path = useVariationPath(() => props.state.id);
+
+// Per-node analysis depth, surfaced as a colour stripe per move along
+// the active variation.
+//
+// Three visual decisions distinct from how the intensity gradient is
+// consumed elsewhere (move suggestions, ColorDebugStrip):
+//
+//   • Target floor is the user-configured ponder ceiling
+//     (`engine.katago.ponderMaxVisits`, default 2,000,000; tunable
+//     via the registry editor and applied as `maxVisits` in
+//     analysis-service's ponder mode). A deeper user-specified
+//     `analyzeRange` target wins. Without the floor, the meter
+//     saturates instantly on ponder when the user hasn't run a
+//     range analysis, because the default `state.maxVisitsTarget`
+//     is 1000. The pre-v1.0.20 shape pinned this to a hardcoded
+//     100,000 constant; after the v1.0.20 surfacing the analysis
+//     service goes deeper than that on ponder, so the meter
+//     saturated 20× too quickly. SSOT: same setting both ends
+//     consume.
+//
+//   • Logarithmic compression on visits → t. Linear `visits / target`
+//     would put the entire 1k–10k–100k progression into the bottom
+//     decile; log mapping spreads each ~10× of visits across roughly
+//     equal slices of t, so the colour gradates smoothly as ponder
+//     accumulates. `log1p` keeps `visits === 0 → t = 0` clean.
+//
+//     Distinct from the timeline-panel rug-plot's quantile mapping:
+//     the rail meter answers "how deep has analysis gone on this
+//     board, on an absolute scale anchored to the configured
+//     ceiling?" — magnitude information is the point. The timeline-
+//     panel rug-plot answers "which turns in this game got
+//     relatively more attention than others?" — rank-position
+//     information is the point. Different questions, different
+//     mappings; the shared SSOT is the gradient LUT
+//     (`getIntensityColorLinear`), the transparent-for-zero rule,
+//     and the ponder-ceiling reference.
+//
+//   • The linear (non-ECDF) variant of the gradient is the right fit
+//     here. The ECDF variant remaps `t` through the visit-ratio
+//     population's CDF — calibrated for "this move's share of visits
+//     at a node," not for "fraction of an absolute target." Feeding
+//     log-compressed `visits / target` through the ECDF would just
+//     collapse our practical range onto a narrow band of the LUT, so
+//     the colour wouldn't change as ponder progressed. `getIntensity-
+//     ColorLinear` walks the LUT uniformly with `alpha = 1`, giving
+//     hue-only depth signalling at full visibility.
+//
+//   • Unanalyzed nodes (`visits === 0`) render as transparent so the
+//     meter's dark background shows through. Encoding "no data" as a
+//     specific gradient endpoint would lie about the absence.
+const rugPlot = computed(() => {
+  const nodeIds = path.value;
+  if (nodeIds.length === 0) return [];
+  const ponderCeiling = store.profile.settings.engine.katago.ponderMaxVisits;
+  const target = Math.max(props.state.maxVisitsTarget ?? 0, ponderCeiling);
+  const targetLog = Math.log1p(target);
+  return nodeIds.map((id, idx) => {
+    const packet = ledger.getRaw(activeConfigHash.value, id);
+    const visits = packet?.rootInfo?.visits ?? 0;
+    if (visits === 0) {
+      return { idx, visits, color: 'transparent' };
+    }
+    const t = Math.min(1, Math.log1p(visits) / targetLog);
+    return {
+      idx,
+      visits,
+      color: getIntensityColorLinear.value(t, 1),
+    };
+  });
+});
+</script>
+
+<template>
+  <div 
+    class="thumb-container" 
+    @mouseenter="emit('hover-enter', $event)" 
+    @mouseleave="emit('hover-leave')"
+  >
+    <div 
+      class="tab-thumb" 
+      :class="{ 
+        active: isActive,
+        'review-active': reviewState === 'ACTIVE',
+        'review-intermission': reviewState === 'INTERMISSION',
+        'review-complete': reviewState === 'COMPLETE'
+      }"
+    >
+      <span class="tab-label">{{ $t('boardTab.label', { n: index + 1 }) }}</span>
+      <button class="close-board-btn" @click.stop="emit('close')" :title="$t('boardTab.close')">×</button>
+    </div>
+
+    <div class="indicator-row">
+      <div class="analysis-meter">
+        <div
+          v-for="slice in rugPlot"
+          :key="slice.idx"
+          class="meter-slice"
+          :style="{ backgroundColor: slice.color, flex: 1 }"
+          :title="slice.idx === 0
+            ? $t('boardTab.meterRoot', { visits: slice.visits.toLocaleString() })
+            : $t('boardTab.meterMove', { idx: slice.idx, visits: slice.visits.toLocaleString() })"
+        ></div>
+      </div>
+      <div class="geiger-dot-wrap">
+        <!-- magic-literal: geiger-dot scale derivation `0.6 + energy * 0.4`
+             produces a 0.6→1.0 scale range as energy decays from 0 to 1.
+             Hand-tuned for visible-but-not-distracting pulse. -->
+        <div class="geiger-dot" :style="{ opacity: energy, transform: `scale(${0.6 + energy * 0.4})` }"></div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.thumb-container { display: flex; flex-direction: column; align-items: center; margin-bottom: var(--space-default); width: 88px; }
+
+.tab-thumb {
+  width: 88px; height: 32px; border: 2px solid var(--surface-3); background: var(--surface-0);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: border-color var(--duration-default) ease, background var(--duration-default) ease;
+  position: relative; border-radius: var(--radius-default);
+}
+
+.tab-label { font-size: var(--text-emphasis); color: var(--text-2); font-weight: bold; pointer-events: none; }
+.tab-thumb:hover .tab-label { color: var(--text-0); }
+
+.tab-thumb.active { background: var(--surface-2); }
+.tab-thumb.active .tab-label { color: var(--accent-primary); }
+
+.tab-thumb.review-active { border-color: var(--review-active); box-shadow: 0 0 8px color-mix(in srgb, var(--review-active) 40%, transparent); }
+.tab-thumb.review-intermission { border-color: var(--review-intermission); box-shadow: 0 0 8px color-mix(in srgb, var(--review-intermission) 40%, transparent); }
+.tab-thumb.review-complete { border-color: var(--review-complete); }
+
+.tab-thumb.active.review-active { border-width: 3px; }
+.tab-thumb.active.review-intermission { border-width: 3px; }
+.tab-thumb.active.review-complete { border-width: 3px; }
+
+/* magic-literal: .close-board-btn's `top: -6px; right: -6px` lifts the
+   16x16 close button off the tab-thumb's corner so half the button
+   overlaps the corner radius and half hangs outside, reading as a
+   detached affordance. The -6px offset is hand-tuned to that specific
+   visual; not a substrate candidate. */
+.close-board-btn {
+  position: absolute; top: -6px; right: -6px;
+  background: var(--surface-3); color: var(--text-1); border: 1px solid var(--border-3); border-radius: var(--radius-circle);
+  width: 16px; height: 16px; font-size: var(--text-emphasis); line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; opacity: 0; transition: opacity var(--duration-default), background var(--duration-default), color var(--duration-default);
+}
+
+.tab-thumb:hover .close-board-btn { opacity: 1; }
+
+.indicator-row {
+  width: 100%; height: 12px; display: flex; align-items: center;
+  justify-content: space-between; margin-top: 2px; padding: 0 var(--space-tight);
+}
+
+/* magic-literal: .analysis-meter's `border-radius: 1px` is a hairline
+   rounding that softens the meter's corners without making them visibly
+   rounded — below the substrate's smallest tier (3px). Intentional fine
+   detail on a 4px-tall element. */
+.analysis-meter {
+  flex: 1; height: 4px; background: var(--surface-0); border-radius: 1px;
+  margin-right: var(--space-default); display: flex; overflow: hidden; border: 1px solid var(--surface-1);
+}
+
+.meter-slice { height: 100%; }
+.geiger-dot-wrap { width: 10px; height: 10px; display: flex; align-items: center; justify-content: center; }
+/* theme-exception: #00ff88 is an intentionally vivid activity indicator
+   color, outside the muted semantic-state spectrum and not part of the
+   chrome substrate's vocabulary. */
+.geiger-dot { width: 6px; height: 6px; background: #00ff88; border-radius: var(--radius-circle); box-shadow: 0 0 8px #00ff88; }
+</style>

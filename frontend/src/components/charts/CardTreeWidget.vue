@@ -23,12 +23,12 @@ import type {
 import {
   useCardTreeProjection,
   cardExpandKeyFor,
-} from '../../composables/useCardTreeProjection';
-import { useCardTreeHydration } from '../../composables/useCardTreeHydration';
+} from '../../composables/cards/useCardTreeProjection';
+import { useCardTreeHydration } from '../../composables/cards/useCardTreeHydration';
 import {
   useEChartsForestRender,
   type ForestChartConfig,
-} from '../../composables/useEChartsForestRender';
+} from '../../composables/analysis/useEChartsForestRender';
 import {
   toEChartsNode,
   tooltipFor,
