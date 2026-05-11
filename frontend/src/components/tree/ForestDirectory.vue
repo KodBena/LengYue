@@ -340,7 +340,7 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
 </template>
 
 <style scoped>
-.forest-container { display: flex; flex: 1; height: 100%; min-height: 0; background: var(--surface-0); }
+.forest-container { display: flex; flex: 1; height: 100%; min-height: 0; min-width: 0; overflow: hidden; background: var(--surface-0); }
 .left-panel { width: 280px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--surface-3); flex-shrink: 0; }
 .panel-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-tight) var(--space-default); border-bottom: 1px solid var(--surface-3); background: var(--surface-2); font-size: var(--text-emphasis); text-transform: uppercase; color: var(--text-0); letter-spacing: var(--tracking-default); flex-shrink: 0; }
 .tab-switcher { padding: 0; display: flex; }
@@ -358,11 +358,11 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
 .start-review-btn { background: var(--accent-secondary); color: var(--surface-1); margin-bottom: var(--space-tight); }
 .tools-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 8px; border-bottom: 1px solid var(--surface-3); }
 .reload-btn { background: none; border: none; color: var(--text-2); cursor: pointer; font-size: var(--text-heading); padding: 0; line-height: 1; }
-.tree-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.tree-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
 .header-controls { display: flex; align-items: center; gap: var(--space-default); }
 .orient-btn { background: var(--surface-2); color: var(--accent-primary); border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: 1px 3px; font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: var(--tracking-tight); cursor: pointer; font-family: inherit; }
 .tree-meta { color: var(--accent-primary); font-size: var(--text-body); }
 .empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-2); font-size: var(--text-emphasis); }
 .empty-state.error { color: var(--state-error); }
-.chart-wrapper { flex: 1; padding: var(--space-tight); min-height: 0; display: flex; }
+.chart-wrapper { flex: 1; padding: var(--space-tight); min-height: 0; min-width: 0; overflow: hidden; display: flex; }
 </style>
