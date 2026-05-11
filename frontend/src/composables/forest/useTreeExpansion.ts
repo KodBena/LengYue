@@ -1,9 +1,27 @@
 /**
  * src/composables/forest/useTreeExpansion.ts
+ *
  * Expansion state logic: Default = Variations Hidden.
+ *
+ * UX invariant the composable enforces (via `ensureVisible`): the
+ * board's current node is always visible in the tree. Callers (today
+ * just `TreeWidget`) invoke `ensureVisible` on mount and on every
+ * `currentNodeId` change; the walk-up adds every ancestor to the
+ * expansion set so no collapsed-variation toggle can hide the
+ * currently-displayed node. This composes the SPA-reload case
+ * (initial mount with a mid-variation currentNodeId) and the
+ * multi-step navigation case (PV paste, where Vue's reactive batching
+ * means only the leaf of the new branch fires the watcher) under the
+ * same primitive.
+ *
+ * Union semantics, not replacement: `ensureVisible` adds ancestors to
+ * the existing expanded set rather than replacing it. Variations the
+ * user had previously revealed stay revealed.
+ *
+ * License: Public Domain (The Unlicense)
  */
 import { ref, type Ref } from 'vue';
-import type { GameNode } from '../../types';
+import type { GameNode, NodeId } from '../../types';
 
 export interface TreeExpansionState {
   readonly expandedNodes: Ref<ReadonlySet<string>>;
@@ -11,11 +29,22 @@ export interface TreeExpansionState {
   readonly toggle: (nodeId: string) => void;
   readonly expandMany: (nodeIds: readonly string[]) => void;
   readonly collapseAll: () => void;
-  readonly focusPath: (nodes: Record<string, GameNode>, activePath: readonly string[]) => void;
+  /**
+   * Ensure `nodeId` is reachable from the root by expanding every
+   * ancestor along the parent chain. Union semantics: existing
+   * expansion entries are preserved. Called from TreeWidget on mount
+   * and on every currentNodeId change to enforce the
+   * "current-node-is-always-visible" invariant.
+   */
+  readonly ensureVisible: (
+    nodes: Record<NodeId, GameNode>,
+    nodeId: NodeId,
+  ) => void;
 }
 
 export function useTreeExpansion(): TreeExpansionState {
-  // Now tracks nodes that ARE showing variations. Default empty = all collapsed.
+  // Tracks nodes whose variations ARE showing. Default empty =
+  // all variations collapsed.
   const expandedNodes = ref<ReadonlySet<string>>(new Set<string>());
 
   const isExpanded = (nodeId: string): boolean =>
@@ -41,18 +70,21 @@ export function useTreeExpansion(): TreeExpansionState {
     expandedNodes.value = new Set<string>();
   };
 
-  // The `nodes` parameter is declared to match the TreeExpansionState
-  // interface (callers pass the full node map so a future implementation
-  // can walk siblings/parents when computing "interesting" expansions).
-  // The current implementation only uses `activePath`, so `nodes` is
-  // underscore-prefixed to signal intentional non-use without breaking
-  // the contract.
-  const focusPath = (_nodes: Record<string, GameNode>, activePath: readonly string[]): void => {
-    // In this "Default Collapsed" world, focusPath might simply clear everything 
-    // or expand only the nodes on the path that have siblings.
-    // For now, let's make it expand every node on the current path.
-    expandedNodes.value = new Set(activePath);
+  const ensureVisible = (
+    nodes: Record<NodeId, GameNode>,
+    nodeId: NodeId,
+  ): void => {
+    const ancestors: NodeId[] = [];
+    let cur = nodes[nodeId]?.parent ?? null;
+    while (cur) {
+      ancestors.push(cur);
+      cur = nodes[cur]?.parent ?? null;
+    }
+    if (ancestors.length === 0) return;
+    const next = new Set(expandedNodes.value);
+    for (const id of ancestors) next.add(id);
+    expandedNodes.value = next;
   };
 
-  return { expandedNodes, isExpanded, toggle, expandMany, collapseAll, focusPath };
+  return { expandedNodes, isExpanded, toggle, expandMany, collapseAll, ensureVisible };
 }

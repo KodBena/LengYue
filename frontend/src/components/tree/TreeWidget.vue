@@ -1,7 +1,12 @@
-<!-- 
-  src/components/tree/TreeWidget.vue 
+<!--
+  src/components/tree/TreeWidget.vue
   SVG-based Game Tree viewer.
-  Added: Auto-expand hidden variations upon lateral navigation.
+  Enforces the "current-node-is-always-visible" UX invariant via
+  `expansion.ensureVisible` on mount and on every currentNodeId
+  change. Covers PV paste (Vue batches the multi-step navigation
+  into a single watcher firing on the new leaf), SPA reload (the
+  immediate-flag fires the watcher on mount with the hydrated
+  currentNodeId), and lateral navigation to hidden variations.
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
@@ -124,24 +129,25 @@ const svgHeight = computed(() =>
 );
 
 // ── Viewport Centering & Auto-Expand ──────────────────────────────────────────
+//
+// `immediate: true` so the invariant fires on mount (the SPA-reload
+// case, where currentNodeId is hydrated to a mid-variation node and
+// no change event ever happens). `ensureVisible` walks up from the
+// new node and unions every ancestor into the expansion set — this
+// is the load-bearing piece of the "current-node-is-always-visible"
+// invariant the composable's header documents. Covers all three
+// trigger cases (mount, lateral nav, multi-step PV paste) uniformly.
 
 watch(() => props.currentNodeId, async (newId, _oldId) => {
-  
-  // 1. AUTO-EXPAND GUARD: If we navigated to a lateral variation that is currently hidden,
-  //    we MUST expand the parent before doing layout/centering logic.
-  const parentId = props.nodes[newId]?.parent;
-  if (parentId) {
-    const parentNode = props.nodes[parentId];
-    // If the active node is not the mainline child, and the parent is collapsed...
-    if (parentNode.children.indexOf(newId) > 0 && !expansion.isExpanded(parentId)) {
-      expansion.expandMany([parentId]);
-    }
-  }
+  expansion.ensureVisible(props.nodes, newId);
 
-  // 2. Wait for Vue to trigger useTreeLayout and patch the DOM
+  // Wait for Vue to trigger useTreeLayout and patch the DOM.
   await nextTick();
-  
-  // 3. Center the newly revealed node
+
+  // Center the newly revealed node. On the initial-mount run
+  // outerRef is null and the early return is the right behaviour;
+  // first paint scrolls to its own default and subsequent navigation
+  // takes over.
   const pos = layout.value.positions.get(newId);
   if (!pos || !outerRef.value) return;
   const { x, y } = toPixels(pos.gx, pos.gy);
@@ -150,7 +156,7 @@ watch(() => props.currentNodeId, async (newId, _oldId) => {
   if (outOfBounds) {
     el.scrollTo({ left: x - el.clientWidth / 2, top: y - el.clientHeight / 2, behavior: 'smooth' });
   }
-});
+}, { immediate: true });
 
 // ── Derived display lists ─────────────────────────────────────────────────────
 
