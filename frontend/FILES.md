@@ -233,17 +233,31 @@ frontend/src/
 
 ## Maintaining this map
 
-When you add a new source file under `frontend/src/`, append it
-here with a one-line purpose and a band tag. When you move a
-file, update the entry; when you delete, remove. Drift is the
-silent-failure mode this kind of map enables — ADR-0005 Rule 5
-applies: file location reflects content, and that includes
-this map's representation of the layout.
+The full discipline lives in `frontend/CLAUDE.md`'s "File map"
+section; in short:
 
-If a file's band changes (a once-agnostic helper now imports
-from `engine/katago/`, say), retag here in the same PR.
+- **Create** a file → add an entry here with one-line purpose
+  and band tag, same PR.
+- **Move** a file → update its entry's path.
+- **Delete** a file → remove the entry.
+- **Band change** during refactor → retag here, same PR.
+
+Drift between actual dependencies and the band tag is the
+silent-failure mode this map exists to surface; ADR-0005 Rule 5
+applies (file location reflects content, and that includes
+this map's representation of the layout).
+
+**Immature files.** Honest representation beats clean-sounding
+lies. Entries for files whose purpose is still maturing should
+say so — `"Experimental: …"`, `"Scaffold for …"`, or a
+description naming the current uncertainty. The band tag can
+also be **`[B?]`** (unclassified) for files whose
+domain-coupling hasn't crystallised yet. Refining the entry as
+the file's role firms up is the expected path; pretending
+settled purpose where there isn't any is the failure mode this
+allowance prevents.
 
 A future scripted check could validate that every file under
 `src/` appears here, and complain on drift. Out of scope for
-v1 of this map; flag as follow-up if the manual cadence
-proves unreliable.
+v1 of this map; flag as follow-up if the manual cadence proves
+unreliable.

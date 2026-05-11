@@ -30,6 +30,12 @@ budget reason, say so audibly — name what was read and what was
 skipped — and ask the user how to proceed. Bluffing a citation is the
 failure mode the umbrella section is shaped to prevent.
 
+**Explicit exception: `frontend/FILES.md`** — the per-file map
+introduced under "File map" below — is a *lookup reference*, not
+an end-to-end orientation document. Partial consultation is its
+intended consumption mode. The discipline above does not apply to
+it; consulting only the rows you need is correct.
+
 ## Architectural shape
 
 The frontend is layered:
@@ -52,6 +58,49 @@ The frontend is layered:
 Logic does not live in components. Effects do not live in composables
 (they live in services and are called from composables). The ACL is
 the only place wire shapes appear; no other module sees snake_case.
+
+## File map
+
+`frontend/FILES.md` is the per-file navigation map: every
+TypeScript and Vue source file under `src/` listed with a brief
+purpose line and an ADR-0003 band tag (`[B1]` / `[B2]` / `[B3]`).
+It is the practical expansion of the layering above to the actual
+file tree. Use it when:
+
+- Looking for where a concern lives ("which composable handles X?").
+- Deciding where a new file goes — the band tag combined with the
+  directory structure indicates the natural home.
+- Reviewing the layering of a proposed change — consult the
+  bands to see what depends on what.
+
+It is a lookup reference, not an end-to-end orientation document;
+the read-end-to-end discipline above explicitly does not apply.
+
+### Updating FILES.md when files change
+
+When you **create** a new TypeScript or Vue file under `src/`,
+add a corresponding entry to `FILES.md` in the same PR. Place it
+under the right directory in the tree, give it a brief one-line
+purpose, and tag the ADR-0003 band.
+
+When you **move** a file, update its entry's path. When you
+**delete** a file, remove the entry.
+
+When a file's ADR-0003 band changes during refactor — a
+once-agnostic helper that now imports from `engine/katago/`, say
+— retag it in the same PR. Drift between the file's actual
+dependencies and its FILES.md band tag is the silent-failure
+mode this discipline exists to surface.
+
+**Immature-files allowance.** A file whose purpose is still
+maturing should be represented honestly rather than wedged into
+a clean-sounding line. "Experimental: …", "Scaffold for …", or
+a description that names the current uncertainty is the correct
+shape during the unsettled phase. Refining the entry as the
+file's role firms up is expected; pretending settled purpose
+where there isn't any is the failure mode to avoid. The band
+tag can also be `[B?]` (unclassified) for files whose
+domain-coupling hasn't crystallised yet.
 
 ## Type-driven design
 
