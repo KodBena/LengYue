@@ -87,7 +87,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 31;
+export const CURRENT_SCHEMA_VERSION = 32;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -986,6 +986,24 @@ export const migrations: Migration[] = [
     if (katago && typeof katago === 'object') {
       if (typeof katago.ponderMaxVisits !== 'number') {
         katago.ponderMaxVisits = 2_000_000;
+      }
+    }
+    return out;
+  },
+  // 31 → 32: Surface the per-stone move-number annotation toggle in
+  // `session.ui.showStoneMoveNumbers`. Pre-feature, the board never
+  // rendered move numbers on placed stones; users wanting that
+  // affordance (common in SGF viewers when reviewing a game) had no
+  // surface for it. v32 adds the boolean toggle, rendered as a "#"
+  // button in StatusBar; default `false` preserves the pre-feature
+  // visual (no annotation). Idempotent: a pre-existing boolean
+  // value is preserved; non-boolean or absent gets `false`.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = out.session?.ui;
+    if (ui && typeof ui === 'object') {
+      if (typeof ui.showStoneMoveNumbers !== 'boolean') {
+        ui.showStoneMoveNumbers = false;
       }
     }
     return out;

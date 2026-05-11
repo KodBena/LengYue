@@ -9,6 +9,7 @@
 import type { StoneColor } from '../../types';
 import UserBadge from '../chrome/UserBadge.vue';
 import { useTransientHint } from '../../composables/useTransientHint';
+import { store } from '../../store';
 
 interface StatusMetadata {
   readonly blackName: string;
@@ -50,6 +51,12 @@ const { hint } = useTransientHint();
     </div>
     <div class="status-right">
       <span v-if="hint" class="transient-hint">{{ hint }}</span>
+      <button
+        class="move-numbers-btn"
+        :class="{ active: store.session.ui.showStoneMoveNumbers }"
+        :title="$t('statusBar.toggleMoveNumbers')"
+        @click="store.session.ui.showStoneMoveNumbers = !store.session.ui.showStoneMoveNumbers"
+      >#</button>
       <span class="turn-indicator" :class="turn">
         {{ turn === 'B' ? $t('statusBar.blackToPlay') : $t('statusBar.whiteToPlay') }}
       </span>
@@ -122,6 +129,27 @@ const { hint } = useTransientHint();
 .turn-indicator.W { color: var(--accent-secondary); }
 
 .caps { font-family: monospace; color: var(--text-2); font-size: var(--text-body); }
+
+/* Move-number toggle. Inactive: muted text-2, no background.
+   Active: accent-primary, hinting "on" without a separate
+   indicator (the board itself is the indicator). Borderless to
+   match the chrome's low-contrast register; the same tonal scale
+   as `.caps` for the resting state so the button doesn't draw
+   the eye when off. */
+.move-numbers-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  font-family: monospace;
+  font-size: var(--text-body);
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0 var(--space-tight);
+  line-height: 1;
+  transition: color var(--duration-default);
+}
+.move-numbers-btn:hover { color: var(--text-0); }
+.move-numbers-btn.active { color: var(--accent-primary); }
 
 /* Transient hint surface — populated by `useTransientHint` from
    hover-driven affordances (e.g. the PV-paste discoverability

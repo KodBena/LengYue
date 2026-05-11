@@ -374,6 +374,7 @@ export const defaultSessionUI: UISession = {
   moveFilterExpression: 'move.order === 0 || (move.visits / root.visits) >= ui.threshold',
   analysisLayout: 'horizontal',
   showMoveSuggestions: true,
+  showStoneMoveNumbers: false,
   // PV-preview animation defaults — kept in lockstep with
   // `composables/use-pv-animation.ts::PV_DEFAULTS` and the migration
   // 9→10 backfill. Three sources of truth that must agree.

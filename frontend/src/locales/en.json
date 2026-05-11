@@ -148,6 +148,7 @@
   "statusBar.editKomi":                   "Edit Komi",
   "statusBar.blackToPlay":                "Black to Play",
   "statusBar.whiteToPlay":                "White to Play",
+  "statusBar.toggleMoveNumbers":          "Toggle move-number annotation on stones",
 
   "moveSuggestions.pasteHint":            "{key}+click or middle-click to paste PV",
   "moveSuggestions.pasteIllegal":         "PV paste stopped at move {n}: ({x}, {y}) is illegal in that position",

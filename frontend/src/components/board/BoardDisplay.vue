@@ -18,6 +18,14 @@ const props = defineProps<{
   stones: Record<string, StoneColor>;
   lastMove?: Move | null;
   showLabels?: boolean;
+  // Optional: when provided, the value at `moveNumbers["x,y"]` is
+  // rendered as a small numeric label centered on the stone at
+  // that coordinate. Keys that aren't present in `stones` are
+  // ignored. The caller (BoardWidget) is responsible for gating
+  // this on `session.ui.showStoneMoveNumbers` — when off, omit
+  // the prop entirely rather than passing an empty map; keeps
+  // the v-if reactive without an extra props comparison.
+  moveNumbers?: Record<string, number>;
 }>();
 
 const emit = defineEmits<{
@@ -213,6 +221,33 @@ function onBoardClick(e: MouseEvent) {
           :stroke="stones[`${lastMove.x},${lastMove.y}`] === 'B' ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.6)'"
           stroke-width="2"
         />
+      </g>
+
+      <!-- 3e. Move-number annotations (rendered above stones AND
+           the last-move marker so the number is always legible).
+           Font size shrinks with digit count so 3-digit numbers
+           still fit inside the stone — 1-2 digits use a more
+           comfortable base size, 3+ digits compress.
+           magic-literal: 0.7 / 0.6 / 0.5 ratios are an inline
+           sketch of the same kind of by-eye typography
+           calibration the deferred-items.md
+           "PV-overlay-typography-proportions" entry catalogues;
+           if that audit graduates to a substrate, fold these in. -->
+      <g v-if="moveNumbers">
+        <template v-for="stone in stoneList" :key="`mn-${stone.key}`">
+          <text
+            v-if="moveNumbers[stone.key] !== undefined"
+            :x="stone.x"
+            :y="stone.y + 1"
+            :font-size="stoneR * (moveNumbers[stone.key] >= 100 ? 0.5 : moveNumbers[stone.key] >= 10 ? 0.6 : 0.7)"
+            :fill="stone.color === 'B' ? '#e8e8e8' : '#1a1a1a'"
+            text-anchor="middle"
+            dominant-baseline="middle"
+            font-family="monospace"
+            font-weight="bold"
+            pointer-events="none"
+          >{{ moveNumbers[stone.key] }}</text>
+        </template>
       </g>
     </g>
   </svg>

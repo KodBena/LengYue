@@ -159,6 +159,42 @@ const currentMoveNumber = computed(() => {
   }
   return count;
 });
+
+// Per-coordinate move-number map for the active variation up to and
+// including the current node. Walks the parent chain in reverse so
+// the ordinal at "x,y" is the ordinal of the LAST placement-move at
+// that coordinate — a later move overwrites an earlier one whose
+// stone has since been captured and replaced. Setup stones from the
+// root's AB/AW properties have no `move` event and aren't included.
+// Returned undefined (not empty object) when the toggle is off so
+// BoardDisplay's v-if cleanly skips the render branch.
+const moveNumbersByCoord = computed((): Record<string, number> | undefined => {
+  if (!store.session.ui.showStoneMoveNumbers) return undefined;
+  const rawNodes = toRaw(props.state.nodes);
+  // Walk root → current first by collecting the parent chain, then
+  // numbering forward. Walking forward via children is awkward
+  // because of variation choices; the parent walk is unambiguous.
+  const chain: NodeId[] = [];
+  let currId: NodeId | null = props.state.currentNodeId;
+  while (currId) {
+    chain.push(currId);
+    const node: GameNode | undefined = rawNodes[currId];
+    if (!node) break;
+    currId = node.parent;
+  }
+  chain.reverse();
+  const result: Record<string, number> = {};
+  let n = 0;
+  for (const id of chain) {
+    const node = rawNodes[id];
+    if (!node) continue;
+    if (node.move?.type === 'place') {
+      n++;
+      result[`${node.move.x},${node.move.y}`] = n;
+    }
+  }
+  return result;
+});
 </script>
 
 <template>
@@ -168,6 +204,7 @@ const currentMoveNumber = computed(() => {
       :stones="state.stones"
       :last-move="lastMovePoint"
       :show-labels="true"
+      :move-numbers="moveNumbersByCoord"
       @click="(x, y) => emit('move', x, y)"
     />
     <BoardHeatmapOverlay

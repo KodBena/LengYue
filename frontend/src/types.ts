@@ -625,6 +625,12 @@ export interface UISession {
   moveFilterExpression: string;
   analysisLayout: 'horizontal' | 'vertical';
   showMoveSuggestions: boolean;
+  // Render the move-number on every placed stone in the active
+  // variation. Toggled from StatusBar's "#" button; default off
+  // because the numbers can crowd the board on long games.
+  // Setup stones (root AB/AW properties) get no number — they
+  // have no move ordinal to display.
+  showStoneMoveNumbers: boolean;
   // Per-board PV-preview animation settings — surfaces the knobs of
   // `usePvAnimation` (mode / timings / opacity / annotation / cycle)
   // through the registry editor. Schema-version 10 introduced the
