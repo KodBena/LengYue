@@ -45,17 +45,16 @@ sets — and the application stages them as flashcards in an
 SR system, evaluated by KataGo (the strongest publicly available
 Go engine).
 
-The thesis: deep Go improvement comes not from volume but from
-focused review of positions where the user's intuition and the
-engine's evaluation diverge. The combination of Ebisu's Bayesian
-recall model (for scheduling) and KataGo's position evaluation
-(for grading) is the engineered version of "play the position,
-see what you think the right move is, see what KataGo thinks, and
-feel the difference."
+The pedagogy this product serves is multifaceted; the author's
+working enumeration of vantage points lives in
+`docs/handoff-current.md`'s "What this product is" section.
+This document does not restate it.
 
-For the full product framing, see
-`docs/handoff-current.md`'s "What this product is" section. This
-document does not restate it.
+(An earlier draft of this retrospective restated a synthesised
+single-thesis framing inline; the project author flagged that
+framing 2026-05-11 as inconsistent with the actual pedagogy and
+the inline restatement was removed in favour of the redirect
+above.)
 
 ## How the project got here
 

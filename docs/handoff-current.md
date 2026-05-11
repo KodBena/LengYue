@@ -22,13 +22,35 @@ and the application stages them as flashcards in a
 spaced-repetition system, evaluated by KataGo (the strongest
 publicly available Go engine).
 
-The product thesis is that **deep Go improvement comes not from
-volume but from focused review of positions where the user's
-intuition and the engine's evaluation diverge.** The combination
-of Ebisu's Bayesian recall model (for scheduling) and KataGo's
-position evaluation (for grading) is the engineered version of
-"play the position, see what you think the right move is, see
-what KataGo thinks, and feel the difference."
+The pedagogy this product serves is multifaceted rather than
+single-thesis. The project author has named these vantage points
+(partial enumeration — more exist that haven't yet been
+articulated):
+
+- **KataGo doesn't relent.** Because every move is going to be
+  punished for not being your best, you learn over time to be
+  fearless no matter who you play.
+- **Reading becomes a discipline and a habit.** Working
+  positions in this mode trains the user toward not wanting to
+  play until reasonably certain — a posture that transfers to
+  live play.
+- **Limited moves limit demoralisation.** A single position is
+  smaller than a game; if you lose a position, you just move on
+  to the next one.
+- **Heredity tracking offloads branching problems.** Storing
+  variations as parent-child positions externalises the parts
+  of a calculation tree that would otherwise have to be held in
+  head.
+- **High volume forces parsimonious compression.** Reviewing
+  many positions resists memorisation as a strategy — the brain
+  has to find parsimonious representations, which is what
+  actual understanding looks like. KataGo changing its mind
+  regularly reinforces this and also seeds the forest of cards
+  in the first place.
+
+Mechanically, Ebisu's Bayesian recall model schedules reviews
+and KataGo's position evaluation grades them; the rest of this
+document describes the surfaces built around those two.
 
 What makes this distinctive:
 
