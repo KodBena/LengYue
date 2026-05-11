@@ -82,8 +82,8 @@ filters the user maintains).
 ### 3. Bind-time substitution
 
 Two natural call sites: `runPipeline` in
-`composables/useCardTreeData.ts` and the analogous
-review-session-start path in `composables/useReviewSession.ts`.
+`composables/cards/useCardTreeData.ts` and the analogous
+review-session-start path in `composables/review/useReviewSession.ts`.
 Both currently take a `CardSet` and pass `deck.pipeline` directly
 to `backendService.queryForest`. They become harness-aware: if
 the deck declares any hyperparameters, open a small modal
@@ -153,12 +153,16 @@ generic hole-and-fill machine, no Go in it).
   `hyperparameters: []` to existing decks (idempotent, since old
   decks have no holes and their `pipeline` is structurally
   identical post-migration).
-- `src/components/CardSetEditor.vue` — harness panel (declaring
-  hyperparameters), dialect parser swap, lint surface.
+- `src/components/editors/CardSetEditor.vue` — harness panel
+  (declaring hyperparameters), dialect parser swap, lint surface.
 - New `src/lib/dsl-harness.ts` — pure parse / validate /
-  substitute functions; the file is the unit-test target.
-- New `src/components/HyperparamPromptModal.vue` — bind-time
-  value entry.
+  substitute functions; the file is the unit-test target. (The
+  `lib/` vs `utils/` merger flagged in
+  `docs/notes/frontend-source-tree-reorganization.md` is its own
+  arc; if it lands before this work does, place the new file
+  under whichever name wins.)
+- New `src/components/modals/HyperparamPromptModal.vue` —
+  bind-time value entry.
 - Two call-site rewires in `useCardTreeData.runPipeline` and
   `useReviewSession`'s session-start path.
 
