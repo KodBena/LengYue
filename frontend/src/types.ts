@@ -849,16 +849,82 @@ export type PipelineStage =
   | components['schemas']['ShuffleStage']
   | components['schemas']['OrderStage'];
 
+// ── Hyperparameter harness — schema-version 33 ──────────────────────
+//
+// Decks carry hyperparameters by nature (the n a `take` pulls, the
+// expression a tag-DSL filter uses). The harness exposes chosen leaf
+// values as named handles bound at pipeline-run time, leaving the
+// deck declaration untouched. The disambiguator is syntactic: every
+// legitimate DSL atom is either quoted or numeric, so a bare
+// identifier in value position unambiguously marks a hole. See
+// `docs/notes/dsl-hyperparameter-harness-plan.md` for the design.
+
+// Hole marker: a bare identifier in the authoring dialect parses to
+// this shape. The `$param` field is the declared hyperparameter name
+// the leaf binds to at run time.
+export interface Hole {
+  readonly $param: string;
+}
+
+// `Holed<T>` lifts a wire-typed value into the holey-AST shape: every
+// open-primitive leaf may be replaced by a Hole, while literal types
+// (the `stage` and `type` discriminators in particular) pass through
+// unchanged so the union still narrows on the wire shape. Optional
+// fields stay optional; arrays recurse element-wise; objects recurse
+// on each value. After `substitute()` walks the AST and resolves
+// holes, the result type-narrows back to `PipelineStage`.
+export type Holed<T> =
+  string extends T ? T | Hole :
+  number extends T ? T | Hole :
+  boolean extends T ? T | Hole :
+  T extends ReadonlyArray<infer U> ? Holed<U>[] :
+  T extends object ? { [K in keyof T]: Holed<T[K]> } :
+  T;
+
+export type PipelineStageWithHoles = Holed<PipelineStage>;
+
+// HyperparamDecl: one entry in a deck's harness. The discriminated
+// union over `type` selects which inline editor the prompt modal and
+// the harness panel render. `enum` is the tag-DSL case (a fixed list
+// of named filters the user maintains for that deck); `number` and
+// `string` are the general cases.
+export type HyperparamDecl =
+  | {
+      name: string;
+      type: 'number';
+      default: number;
+      range?: [number, number];
+      label?: string;
+    }
+  | {
+      name: string;
+      type: 'string';
+      default: string;
+      options?: string[];
+      label?: string;
+    }
+  | {
+      name: string;
+      type: 'enum';
+      default: string;
+      options: string[];
+      label?: string;
+    };
+
 // CardSet is mutated through the CardSetEditor. Decks are pure
 // strategies (the DSL pipeline) — context (root card-id list) is
 // supplied by the caller at execution time, lifted out of the deck
 // declaration in schema-version 11. SR and Database tabs each carry
-// their own context in `UISession.{sr,database}ContextIds`.
+// their own context in `UISession.{sr,database}ContextIds`. Schema-
+// version 33 added `hyperparameters` for the bind-time harness; the
+// pipeline shape generalised from `PipelineStage[]` to the holey
+// variant — decks without holes type-check identically.
 export interface CardSet {
   id: string;
   name: string;
   description: string;
-  pipeline: PipelineStage[];
+  pipeline: PipelineStageWithHoles[];
+  hyperparameters: HyperparamDecl[];
 }
 
 // User-pinned snapshot of analysis_env.parameters values.

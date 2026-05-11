@@ -483,9 +483,12 @@ next. The distribution-packaging memo
 (`docs/notes/distribution-packaging.md`) is the leading edge:
 making the software installable by users who don't know `npm`
 or `fastapi` is the next undertaking. The tree-DSL hyperparameter
-harness (`docs/notes/dsl-hyperparameter-harness-plan.md`) is the
-named user-facing follow-on for the next cycle. The other items
-below remain valid as longer-horizon targets.
+harness (`docs/notes/dsl-hyperparameter-harness-plan.md`) shipped
+on 2026-05-12 — the design note transitions to
+`design-note: implemented`; the user-facing surface is a JSON5+holes
+authoring dialect in `CardSetEditor.vue` plus a bind-time prompt
+modal that opens when a deck declares hyperparameters. The other
+items below remain valid as longer-horizon targets.
 
 **1. Tenancy spine — shipped end-to-end.** Items 13–16 (read-path
 filtering), 23–25 (schema migrations + `PipelineExecutor`

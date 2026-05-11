@@ -35,6 +35,7 @@ import { CardTreeOverflowError } from '../../types';
 import { backendService } from '../../services/backend-service';
 import { pushSystemMessage } from '../../store';
 import { i18n } from '../../i18n';
+import { substitute } from '../../lib/dsl-harness';
 import {
   getOrCreateBoardCardTree,
   getBoardCardTree,
@@ -66,7 +67,11 @@ export interface CardTreeData {
   // a fetch. Called when the navigator's selection is null — drops
   // the right pane to its empty state cleanly.
   clearBrowse: () => void;
-  runPipeline: (deck: CardSet, contextIds: number[]) => Promise<ReviewCard[]>;
+  runPipeline: (
+    deck: CardSet,
+    contextIds: number[],
+    hyperparameterValues?: Record<string, number | string>,
+  ) => Promise<ReviewCard[]>;
   setForestStats: (stats: ForestStat[]) => void;
   requestCard: (cardId: CardId) => Promise<void>;
   // Re-hydrate the forest from a known queue of matched cards
@@ -219,17 +224,32 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
    * round-trip — the cards-tab-merge arc collapses two backend calls
    * (pipeline + start-session) to one.
    *
+   * `hyperparameterValues` resolves any `{ $param: name }` holes the
+   * deck's pipeline carries (per the harness scaffolded in schema-
+   * version 33). The caller is responsible for collecting them from
+   * the user before calling — typically via the prompt modal. An
+   * empty record is fine when the deck has no holes; an unresolved
+   * hole throws `UnboundHoleError` via `substitute()` and surfaces
+   * through the slot's `error`. The throw is the loud-failure
+   * surface ADR-0002 calls for; silent skip would let a holey deck
+   * reach the backend with `{ $param: ... }` literals.
+   *
    * Returns `[]` if the pipeline produces no matches; the slot's
    * `error` is also set in that case so the UI can surface it.
    */
-  async function runPipeline(deck: CardSet, contextIds: number[]): Promise<ReviewCard[]> {
+  async function runPipeline(
+    deck: CardSet,
+    contextIds: number[],
+    hyperparameterValues: Record<string, number | string> = {},
+  ): Promise<ReviewCard[]> {
     const id = boardIdRef.value;
     if (!id) return [];
     const slot = getOrCreateBoardCardTree(id);
     slot.isLoading = true;
     reset(id);
     try {
-      const matched: ReviewCard[] = await backendService.queryForest(contextIds, deck.pipeline);
+      const resolved = substitute(deck.pipeline, hyperparameterValues);
+      const matched: ReviewCard[] = await backendService.queryForest(contextIds, resolved);
       if (matched.length === 0) {
         const target = getOrCreateBoardCardTree(id);
         target.error = 'Pipeline returned no cards.';

@@ -1,8 +1,15 @@
 # Pipeline-DSL Hyperparameter Harness — Design Note
 
-**Status:** `design-note: planned`. No implementation work has
-started. This document records the design at planning time so a
-future session can pick it up without re-deriving the shape.
+**Status:** `design-note: implemented` — landed 2026-05-12.
+Closing worklog:
+`docs/worklog/2026-05-12-dsl-hyperparameter-harness.md`.
+PR / branch to be filled in on push.
+
+The body below is the planning-time record retained per the
+doc-graph genre lifecycle: the worklog carries the "what actually
+shipped" detail (file list, decisions taken at authoring time vs.
+the plan's proposals, verification surface). Read this for the
+design intent; read the worklog for the implementation outcome.
 
 **Motivation.** Decks (CardSets) carry hyperparameters by nature —
 the number of cards a `take` stage pulls, the tag-DSL filter a
