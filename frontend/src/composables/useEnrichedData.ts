@@ -31,6 +31,7 @@
 
 import { computed, type Ref } from 'vue';
 import { ledger } from '../services/analysis-ledger';
+import { store } from '../store';
 import { type NodeId } from '../types';
 import { activeConfigHash } from '../services/analysis-config';
 import { themeColor } from '../utils/theme-color';
@@ -83,8 +84,30 @@ export function useEnrichedData(pathIdsRef: Ref<NodeId[]>) {
     const whiteDeltas: (number | null)[] = new Array(halfLen).fill(null);
 
     // State metric accumulator: metric-name → per-index value array.
-    // Using a Map avoids re-keying an object on every write.
+    //
+    // Pre-seeded from the active palette's state_fn names so that every
+    // metric in the user's chosen palette has a stub series of the right
+    // length even before any packets land. Without this seed, the Game
+    // State chart would have no series (empty mainSeries) until the first
+    // packet arrives, and hover-to-navigate-thumbnails wouldn't work —
+    // the PlayerPanel deltas worked because their producer always emits
+    // a `Black Delta` / `White Delta` stub series regardless of data
+    // presence; this brings the Game State chart to parity. Packets that
+    // arrive later fill in real values where they exist; positions on
+    // the variation that never receive analysis stay null and render as
+    // gaps in the lines without breaking the index→turn mapping the
+    // chart's hover handlers rely on. A metric name that's NOT in the
+    // active palette but DOES appear in a packet (e.g., legacy data,
+    // palette swap mid-stream) is still added via the lazy-initialise
+    // branch below.
     const stateMetrics = new Map<string, (number | null)[]>();
+    const env = store.profile.settings.engine.katago.analysis_env;
+    const activePalette = env.palettes.find(p => p.id === env.activePaletteId);
+    if (activePalette) {
+      for (const name of Object.keys(activePalette.state_fns)) {
+        stateMetrics.set(name, new Array(pathIds.length).fill(null));
+      }
+    }
 
     // Single pass: for each node in the path, read its packet and populate
     // all three outputs simultaneously. Each getRaw() call registers a
@@ -100,8 +123,10 @@ export function useEnrichedData(pathIdsRef: Ref<NodeId[]>) {
       if (turnMetrics) {
         for (const [key, value] of Object.entries(turnMetrics)) {
           // Lazily initialise each metric's array on first encounter.
-          // For stable analyses the Map is populated in the first pass and
-          // reused on subsequent re-evaluations.
+          // Pre-seeded names from the active palette are already in the
+          // Map; this fallback catches names that come through a packet
+          // but aren't in the active palette (legacy data / palette
+          // mid-swap).
           if (!stateMetrics.has(key)) {
             stateMetrics.set(key, new Array(pathIds.length).fill(null));
           }
