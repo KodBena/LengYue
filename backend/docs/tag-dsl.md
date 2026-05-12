@@ -268,10 +268,50 @@ required no frontend coordination.
 
 `backend/scripts/tag_dsl_repl.py` is an interactive REPL for
 experimenting with the DSL against a live database (SQLite or
-Postgres, env-driven via `DATABASE_URI`). It compiles each
-expression you type, shows the substituted definitions and the
-DNF, runs the query, and prints the matched card count plus a
-sample of IDs. See the script's `--help` for options.
+Postgres, env-driven via `DATABASE_URI`). The session is
+**persistent across lines**: definitions you type accumulate on
+the session until you `:reset`, so you can build up a taxonomy
+one line at a time and then query against it.
+
+```
+> $opening :- joseki; moyo; opening.
+Defined $opening :- joseki; moyo; opening
+
+> $opening, ~volatile
+Query: $opening, ~volatile
+DNF: 3 conjunction(s)
+  joseki, ~volatile
+  moyo, ~volatile
+  opening, ~volatile
+Matched: ... cards (user_id=1)
+  IDs: [...]
+
+> :defs
+Stored definitions:
+  $opening :- joseki; moyo; opening
+
+> :reset
+Cleared 1 definition(s).
+```
+
+Each input line is **transactional** — if anything fails (cap
+violation, unknown reference, syntax error), the session's
+definitions roll back to their pre-line state. Failed input has
+no side effects on what's stored.
+
+REPL commands (colon-prefixed, so they can't collide with tag
+names):
+
+| Command           | Effect                                       |
+|-------------------|----------------------------------------------|
+| `?`, `:help`      | Grammar reference                            |
+| `:defs`           | List stored definitions                      |
+| `:reset`          | Clear all stored definitions (idempotent)    |
+| `:quit`, `:exit`  | Exit (Ctrl-D also works)                     |
+
+For one-off non-interactive queries, use `--expr "..."`. See the
+script's `--help` for the full option list (`--user-id`,
+`--verbose` to print the wrapped SQL, etc.).
 
 ## See also
 
