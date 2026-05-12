@@ -323,12 +323,18 @@ worthwhile.
 
 ### Known gaps (backend)
 
-- **`domain/tag_dsl.py` is structurally an adapter.**
-  `TagDSLCompiler` produces a SQLAlchemy `Select` and imports
-  from `db.schema`; by the Dependency Rule it shouldn't be in
-  `domain/`. Future cleanup: move to `repositories/`. Resistance
-  is purely test-ergonomics, not architectural.
-  See `docs/notes/reflection.md` for the rationale.
+- *(retired 2026-05-12)* ~~`domain/tag_dsl.py` is structurally
+  an adapter.~~ Closed by the tag-DSL macro-language plan's
+  arc 1 — a focused file split. The pure parser, dereferencer,
+  and DNF normaliser now live in `domain/tag_dsl_grammar.py`
+  (no SQLAlchemy); the SQL emitter (`TagDSLCompiler` itself)
+  lives in `repositories/tag_dsl_sql.py`; `domain/tag_dsl.py`
+  is a thin facade re-exporting `TagDSLCompiler` so every
+  existing call site keeps working without import changes.
+  Bit-equal behaviour; 62 tag-DSL-targeted tests pass
+  unchanged. Successor work is arc 2 of the same plan (macro-
+  language refactor); see
+  `docs/notes/tag-dsl-macro-language-plan.md`.
 - **`PipelineExecutor.run()` couples lineage and tag-filter into
   one method.** Two Port calls, one method. Conceptually
   independent, temporally coupled. Worth a refactor if the
@@ -586,11 +592,13 @@ coordination layer is the right design — the sketch is in a
 comment on `SyncService::sendSync()`. Until then, document the
 single-tab assumption and move on.
 
-For backend-specific rough edges (the misfiled `tag_dsl.py`, the
-executor's coupling, the migration scripts' single-deployment
-assumption), see `docs/notes/reflection.md`. That document is
-the most candid available accounting of where the backend's
-load bears unevenly.
+For backend-specific rough edges (the executor's coupling, the
+migration scripts' single-deployment assumption), see
+`docs/notes/reflection.md`. That document is the most candid
+available accounting of where the backend's load bears unevenly.
+The `tag_dsl.py`-is-an-adapter rough-edge listed there has been
+retired by the tag-DSL macro-language plan's arc 1 (file split);
+see the retirement note inline at that file's section heading.
 
 ---
 

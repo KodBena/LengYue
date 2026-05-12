@@ -202,7 +202,7 @@ card_tag = Table(
 # Item 21b: explicit index on card_tag.tag_id.
 # tag_id is the second column of the composite PK, so the implicit PK index
 # does not serve reverse lookups (tag → cards) — used by the tag DSL filter
-# subquery in domain/tag_dsl.TagDSLCompiler._conjunction_to_sql.
+# subquery in repositories/tag_dsl_sql.TagDSLCompiler._conjunction_to_sql.
 Index("ix_card_tag_tag_id", card_tag.c.tag_id)
 
 # 8. Documents (Frontend UI State & Settings)

@@ -24,24 +24,43 @@ the load bears unevenly, where someone could misstep.
 
 The strongest section. If you read nothing else here, read this.
 
-### `domain/tag_dsl.py` is structurally an adapter
+### ~~`domain/tag_dsl.py` is structurally an adapter~~
 
-`TagDSLCompiler` lives in `domain/tag_dsl.py` and produces a
-SQLAlchemy `Select` object. It imports from `db.schema` and from
-`sqlalchemy`. By the Dependency Rule, it should not be in
-`domain/`.
+*(retired 2026-05-12)* Closed by the tag-DSL macro-language plan's
+arc 1 — a focused file split executed as a pure refactor. The
+pure parser, dereferencer, and DNF normaliser now live in
+`domain/tag_dsl_grammar.py` (the `TagDSLGrammar` base class; no
+SQLAlchemy imports). The SQL emitter — including the
+`TagDSLCompiler` class that production code consumes — lives in
+`repositories/tag_dsl_sql.py` (`TagDSLCompiler(TagDSLGrammar)`
+adds `compile_to_subquery` and `_conjunction_to_sql`).
+`domain/tag_dsl.py` becomes a thin facade re-exporting
+`TagDSLCompiler` so every existing call site — three production
+sites, two scripts, and two test files that exercise the
+underscored grammar methods directly — keeps working with no
+import changes.
 
-Why it's there: tests use it directly, and moving it would
-inconvenience the tests. The Port abstraction
-(`TagFilterRepositoryPort`) exists at the right level; it's the
-implementation that's misfiled. This file was not yet in `domain/`
-when ADR-0003 landed, and the Dependency Rule retrofit caught
-most violations but missed this one.
+The unit + integration safety net (`tests/unit/test_tag_dsl_pure.py`,
+`tests/integration/test_tag_dsl_qsl.py`,
+`tests/integration/repositories/test_tag_filter_repository.py`)
+covers 62 assertions across grammar productions, DNF expansion,
+SQL structure, and SQL execution against an in-memory SQLite
+fixture; all pass unchanged. Behavior contract is bit-equal —
+compiled SQL and matched result rows are identical before and
+after the split.
 
-Future cleanup: move `TagDSLCompiler` to `repositories/`. Tests
-that currently import it directly switch to using
-`TagFilterRepository` (or a `FakeTagFilterRepository`). Small
-move; the resistance is purely test-ergonomics, not architectural.
+The Dependency Rule violation is closed at the file-content
+level: `domain/tag_dsl.py` no longer imports SQLAlchemy or
+`db.schema`; the SQL machinery is properly housed in
+`repositories/`. The facade carries one explicit
+`from repositories.tag_dsl_sql import TagDSLCompiler` line — a
+deliberate cross-layer reach for public-surface preservation,
+acknowledged in the facade's docstring.
+
+Successor: arc 2 (macro-language refactor) lands the AST,
+substitutive macro expander, three caps (M / K / D), and
+negation-in-definitions semantics on top of this clean
+structural baseline. See `docs/notes/tag-dsl-macro-language-plan.md`.
 
 ### The executor couples lineage and tag-filter into one method
 
