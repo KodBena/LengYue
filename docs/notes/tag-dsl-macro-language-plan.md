@@ -14,6 +14,37 @@ authoring grammar.
 
 **Date:** 2026-05-12.
 
+**Two-arc shape.** The work lands as **two separate PRs in
+order**, not one bundled change. This is a deliberate sequencing
+decision; both arcs are scoped end-to-end in this document so a
+single backend session can land both with the design read once.
+
+1. **Arc 1 — File split.** Pure refactor. Move
+   `tag_dsl.py`'s SQL emission out of `domain/` into
+   `repositories/`; keep the pure grammar / parse / dereference
+   logic in `domain/`. Public surface preserved bit-equal; the
+   existing test suite is the safety net. Closes the long-
+   carrying `reflection.md` rough-edge entry
+   ("`tag_dsl.py` is structurally an adapter") as a focused arc
+   on its own merits.
+
+2. **Arc 2 — Macro-language refactor.** Lands on top of arc 1's
+   clean structural baseline. Introduces the grammar AST,
+   substitutive macro expander, three caps (M / K / D),
+   negation-in-definitions semantics, and the new tests for
+   the new features. The arc-1 file split lets this arc focus
+   on logic changes without the cleavage churning at the same
+   time.
+
+**Why two arcs, not one.** Pure-refactor PRs are easier to
+review than mixed-concern PRs. Arc 1 has zero open questions;
+arc 2 has six. Doing the certain thing first means arc 2
+inherits a known-stable structural baseline, and bisect /
+revert is decisive if anything regresses. The `reflection.md`
+rough-edge has been carrying since the pre-release sweep —
+closing it as a focused arc honours its standalone value
+rather than treating it as a side-effect of something larger.
+
 ---
 
 ## Motivation — what the user can't currently express
@@ -327,45 +358,110 @@ questions); the macro-language refactor does not depend on it.
 
 ---
 
-## Implementation plan
+## Implementation plan — two arcs
 
-### Module shape
+The work lands as **two separate PRs in order**, each with its
+own scope, file map, definition-of-done, and test strategy. The
+backend session executing this plan should land arc 1, wait for
+review and merge, then land arc 2 on top.
 
-The macro expander lives in **a new file** — keeping the parser,
-expander, and SQL emitter separately named makes the boundary
-clear:
+The rationale for the two-arc shape is in the document header
+(Two-arc shape section). What follows is the per-arc execution
+detail.
+
+### Arc 1 — File split (closes `reflection.md` rough-edge)
+
+**Scope.** Pure refactor: extract the SQL emission from
+`backend/domain/tag_dsl.py` into a new file in
+`backend/repositories/`; keep the pure grammar / parse /
+dereference logic in `domain/`. Public surface preserved
+**bit-equal** — every existing caller, every existing test, and
+every existing query string behaves identically.
+
+**File map after arc 1.**
 
 ```
-backend/domain/tag_dsl.py            # existing compiler — public surface stays
-backend/domain/tag_dsl_grammar.py    # NEW: grammar AST, parser, macro expander
-backend/domain/tag_dsl_sql.py        # NEW: SQL emission (extracted from current
-                                     # _conjunction_to_sql) — sets up the surface
-                                     # for mitigation #4 (shared CTE) later
+backend/domain/tag_dsl.py            # facade: re-exports public surface
+                                     #   from the split modules.
+                                     #   No SQLAlchemy imports.
+backend/domain/tag_dsl_grammar.py    # NEW: parsing, dereferencing,
+                                     #   DNF normalisation (the
+                                     #   _split_statements, _parse_*,
+                                     #   _expand_conjunction logic).
+                                     #   Pure Python; no SQLAlchemy.
+backend/repositories/tag_dsl_sql.py  # NEW: SQL emission (the
+                                     #   _conjunction_to_sql logic).
+                                     #   Imports SQLAlchemy.
 ```
 
-`tag_dsl.py` becomes a thin facade: parse statements via the new
-grammar module, expand macros, normalise to DNF, emit SQL via
-the new SQL module. The public `compile_to_subquery` signature
-is unchanged.
+**Why split it this way.** Per `backend/CLAUDE.md`, the domain
+layer is pure Python with no SQLAlchemy. `tag_dsl.py` today
+imports SQLAlchemy and lives in `domain/` — `reflection.md`'s
+"`tag_dsl.py` is structurally an adapter" entry has named this
+mis-filing since the pre-release sweep. Splitting along the
+import boundary closes the rough-edge: the pure half stays in
+`domain/`, the SQLAlchemy half moves to `repositories/`. The
+facade preserves the public surface for callers.
 
-**Architectural placement.** Per `backend/CLAUDE.md`, the domain
-layer is pure Python with no SQLAlchemy. The current `tag_dsl.py`
-already imports SQLAlchemy (per `docs/notes/reflection.md`'s
-"`domain/tag_dsl.py` is structurally an adapter" entry, this is
-a known mis-filing). This refactor is an opportunity to address
-the misfiling: `tag_dsl_grammar.py` is pure domain; only
-`tag_dsl_sql.py` imports SQLAlchemy and could live in
-`repositories/`. Splitting the file along the import boundary
-makes the long-deferred move cheap. **Recommendation:** do the
-split, file `tag_dsl_grammar.py` in `domain/`, file
-`tag_dsl_sql.py` in `repositories/`, and let `tag_dsl.py`'s
-facade either follow to `repositories/` (cleanest) or stay in
-`domain/` re-exporting the pure parts for backwards-compat
-during transition.
+**Behavior contract.** Bit-equal. No grammar changes, no new
+features, no caps. A caller invoking `TagDSLCompiler.compile_to_subquery(expr)`
+produces the same SQL — and the same result rows — before and
+after arc 1.
 
-### Grammar AST
+**Test strategy.** The existing `tests/unit/` and
+`tests/integration/` coverage of `tag_dsl.py` is the safety net.
+**No new tests in arc 1.** If anything regresses, the existing
+suite catches it; if it doesn't catch it, that's a coverage gap
+to address in a separate arc, not a reason to delay arc 1.
 
-A small discriminated-union shape for the macro tree:
+**Definition-of-done.**
+
+- `tag_dsl_grammar.py` created in `domain/`, holding the pure
+  parse + dereference + DNF-normalisation logic.
+- `tag_dsl_sql.py` created in `repositories/`, holding the SQL
+  emission.
+- `tag_dsl.py` facade preserves
+  `TagDSLCompiler.compile_to_subquery`'s signature and external
+  semantics.
+- Every existing test against `tag_dsl.py` passes unchanged.
+- Every existing call site continues to work without import
+  changes (the facade re-exports `TagDSLCompiler` from
+  `domain.tag_dsl`).
+- `docs/notes/reflection.md`'s "`domain/tag_dsl.py` is
+  structurally an adapter" entry closed (struck through, or
+  marked with the closing-PR reference).
+- Arc 1 PR commit message names this as a pure-refactor that
+  closes the rough-edge; no behavior change.
+
+### Arc 2 — Macro-language refactor
+
+**Prerequisite.** Arc 1 merged. This arc operates on the clean
+structural baseline arc 1 produced.
+
+**Scope.** Replace the flat-set dereference in
+`tag_dsl_grammar.py` with the substitutive macro expander
+described above (grammar AST, recursive substitution, DNF
+normalisation over the fully-expanded grammar tree). Introduce
+the three caps (M / K / D) and the negation-in-definitions
+semantics. Add the new tests for the new features.
+
+**File map (after arc 2).**
+
+```
+backend/domain/tag_dsl.py            # facade (unchanged from arc 1)
+backend/domain/tag_dsl_grammar.py    # MODIFIED: replaces flat-set
+                                     #   dereference with macro
+                                     #   expansion over the new AST;
+                                     #   adds the three caps as
+                                     #   PipelineDSLError-raising
+                                     #   guards.
+backend/repositories/tag_dsl_sql.py  # unchanged from arc 1 (the
+                                     #   SQL emission consumes the
+                                     #   same expanded-DNF shape).
+```
+
+**Grammar AST.** A small discriminated-union shape for the
+macro tree:
 
 ```python
 @dataclass(frozen=True)
@@ -394,52 +490,62 @@ class Disj:
 A definition stores a `Disj`. The macro expander walks a `Disj`,
 substitutes any `Virtual` references with their stored `Disj`,
 and emits a fully-expanded `Disj` containing only `Concrete` and
-`Neg(Concrete)` atoms. The existing DNF emission consumes this
-shape unchanged.
+`Neg(Concrete)` atoms. The existing DNF emission (now in
+`tag_dsl_sql.py` from arc 1) consumes this shape unchanged.
 
-### Test strategy
+**Caps as guards.** Each cap raises `PipelineDSLError` at the
+correct phase:
 
-Per `backend/CLAUDE.md`'s testing tiers, this refactor splits
-across:
+- Cap K (definition body length): at `_parse_definition` time,
+  after substituting all referenced virtuals, count the
+  concrete leaves; refuse if > K.
+- Cap D (recursion depth): during macro expansion, track depth
+  through the reference chain; refuse if > D.
+- Cap M (total expansion size): after macro expansion + DNF
+  normalisation, count conjunctions; refuse if > M before
+  emitting any SQL.
+
+Each error message names the cap, the offending count, and the
+virtual at fault.
+
+**Test strategy.** Per `backend/CLAUDE.md`'s tiered testing
+posture:
 
 **Tier 1 — pure unit (`tests/unit/`).** The grammar parser and
 macro expander are pure functions over plain inputs. Coverage
-target: every grammar production, every cap (size / body / depth),
-every error path. The current `tag_dsl.py` test file in
-`tests/unit/` is the parallel-evolution target.
+target: every grammar production (positive disjunction,
+negation in definition, virtual reference through one level,
+through multiple levels, parentheses if admitted per Open
+Question #1), every cap (M / K / D exceeded with concrete
+example inputs), every error path. **Failure-mode-first**: cap
+violations before happy-path expansion, per the testing-arc
+discipline named in `docs/notes/test-coverage-2026-05.md`.
 
-**Tier 2 — adapter integration (`tests/integration/`).** The SQL
-emission's contract is "given an expanded DNF, produce a
+**Tier 2 — adapter integration (`tests/integration/`).** The
+SQL emission's contract is "given an expanded DNF, produce a
 SQLAlchemy `Select` whose result rows match the expected tag
 membership semantics." Existing integration tests against
-`TagFilterRepository` exercise this; the refactor shouldn't
-regress them. Add tests for the new expressions (negation in
-definitions, deep references) to confirm the wider grammar
-produces correct SQL.
+`TagFilterRepository` exercise this; arc 2 adds tests for the
+new expressions (negation-in-definitions, deep references)
+producing correct SQL against a seeded `card_tag` fixture.
 
-**Failure-mode-first per the testing-arc discipline.** Tests for
-cap-violations (M / K / D exceeded) go in before the happy-path
-expansion tests, because cap violations are exactly the failure
-class the user doesn't routinely exercise.
+**Definition-of-done.**
 
-### Definition-of-done
-
-- New `tag_dsl_grammar.py` with the AST, parser, and macro
-  expander. Pure Python.
-- New `tag_dsl_sql.py` with the SQL emission, extracted from
-  current `tag_dsl.py`. Imports SQLAlchemy.
-- `tag_dsl.py` facade preserves the existing public surface
-  (`TagDSLCompiler.compile_to_subquery`).
-- Tier 1 tests cover grammar parsing, macro expansion, all
-  three caps, recursion depth, and the "definition that uses a
-  virtual that hasn't been declared yet" failure path.
-- Tier 2 integration tests verify SQL semantics for
-  negation-in-definition and deep-reference cases.
-- The `reflection.md` rough-edge ("`tag_dsl.py` is structurally
-  an adapter") either closes (file split to `repositories/`)
-  or gets an updated entry naming the partial-progress shape.
-- `docs/TODO.md` entry replaced with a one-line pointer at this
-  note.
+- `tag_dsl_grammar.py` carries the new AST, parser, and macro
+  expander; the flat-set dereference is replaced.
+- All three caps (M / K / D) implemented and named in the
+  error messages they raise.
+- Negation-in-definitions accepted by the parser; previously-
+  failing definitions like `$attack :- $tactic;~$blocked` now
+  parse and expand correctly.
+- Tier 1 unit tests added covering grammar productions, cap
+  violations, error paths.
+- Tier 2 integration tests added covering negation-in-
+  definitions and deep-reference SQL correctness.
+- Public surface (`TagDSLCompiler.compile_to_subquery`)
+  remains unchanged.
+- Wire shape (the strings sent by the frontend) remains
+  unchanged — the new grammar is a superset of the old.
 
 ---
 
@@ -482,13 +588,12 @@ class the user doesn't routinely exercise.
    it's a `PipelineDSLError`, callers catch the type, and the
    message text is not part of the wire contract.
 
-6. **`reflection.md` rough-edge resolution.** The note's entry
-   on `tag_dsl.py` being structurally an adapter has been
-   carried for a long time. Closing it as part of this arc
-   would be honest; deferring would leave the entry in place.
-   Recommendation: close it; the file-split is a natural
-   side-effect of the refactor and there's no benefit to
-   carrying the rough-edge note any longer.
+6. ~~**`reflection.md` rough-edge resolution.**~~ **Resolved.**
+   The rough-edge closure is **arc 1's definition-of-done item**,
+   not a side-effect of arc 2. The file split goes first, the
+   macro-language refactor follows on the clean baseline. See
+   the document header's "Two-arc shape" section and the
+   per-arc execution detail above.
 
 ---
 
@@ -514,17 +619,24 @@ scheduled, not that it must be scheduled immediately.
 
 ## Maintenance contract
 
-`design-note: planned`. When implementation lands, this document
-transitions to `design-note: implemented` per the doc-graph
-genre lifecycle: a status line at the top names the closing PR
-and worklog, and the body becomes historical record (the
-worklog carries the "what actually shipped" detail). At that
+`design-note: planned`. The two arcs land as separate PRs in
+order; intermediate state between PRs is "arc 1 merged, arc 2
+in flight" — the doc stays at `planned` through both. When
+**both** arcs have landed, this document transitions to
+`design-note: implemented` per the doc-graph genre lifecycle:
+a status line at the top names the closing PRs (one per arc)
+and worklog, and the body becomes historical record. At that
 point the doc joins the others in `docs/archive/notes/`.
 
-If implementation reveals the design is wrong in some
-load-bearing way, that's a worth-publishing rethink — file a
-sibling `design-note: revised` rather than silently editing
-this one.
+If arc 1 surfaces something unexpected that changes the arc 2
+plan, **update this doc between arcs** — the second arc's
+implementer reads the updated version. Do not silently edit;
+the change should be a visible commit on a branch the user
+sees before arc 2 starts.
+
+If either arc reveals the design is wrong in some load-bearing
+way, that's a worth-publishing rethink — file a sibling
+`design-note: revised` rather than silently editing this one.
 
 ---
 
