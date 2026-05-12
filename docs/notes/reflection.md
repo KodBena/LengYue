@@ -57,10 +57,13 @@ level: `domain/tag_dsl.py` no longer imports SQLAlchemy or
 deliberate cross-layer reach for public-surface preservation,
 acknowledged in the facade's docstring.
 
-Successor: arc 2 (macro-language refactor) lands the AST,
-substitutive macro expander, three caps (M / K / D), and
-negation-in-definitions semantics on top of this clean
-structural baseline. See `docs/notes/tag-dsl-macro-language-plan.md`.
+Successor arc 2 (macro-language refactor) landed 2026-05-12 on
+top of this clean structural baseline: AST, substitutive macro
+expander, three caps (M / K / D), negation-in-definitions
+semantics. See `docs/archive/notes/tag-dsl-macro-language-plan.md`
+for the planning-time record and
+`docs/worklog/2026-05-12-tag-dsl-macro-language.md` for the
+implementation outcome.
 
 ### The executor couples lineage and tag-filter into one method
 

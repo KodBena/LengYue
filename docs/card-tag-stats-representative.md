@@ -1,11 +1,12 @@
 # Card-Tag Distribution Statistics + Tag-DSL Test Expressions
 
 A **two-part reference deliverable** for the
-`tag-dsl-macro-language-plan.md` arcs. The macro-language
-refactor will be deep-tested against the real shape of the
-authoring user's `backend/cards.db`; this document captures that
-shape plus the test expressions that exercise the new expander
-against it.
+`tag-dsl-macro-language-plan.md` arcs (archived at
+`docs/archive/notes/` after arc 2 shipped 2026-05-12). The
+macro-language refactor was deep-tested against the real shape
+of the authoring user's `backend/cards.db`; this document
+captures that shape plus the test expressions that exercised
+the new expander against it.
 
 - **Part 1 — Statistics.** What's actually in the dev database
   as of the snapshot below: how many cards, how many tags, the
@@ -381,7 +382,7 @@ allowed in virtual tag definitions" message.
 
 **Expression:**
 ```
-$attack :- $tactic;~$blocked.
+$attack :- $tactic, ~$blocked.
 $attack
 ```
 
@@ -393,9 +394,19 @@ and `$blocked :- volatile.`).
 ```
 $tactic :- punish;fight;sabaki.
 $blocked :- volatile.
-$attack :- $tactic;~$blocked.
+$attack :- $tactic, ~$blocked.
 $attack
 ```
+
+**Note on the comma:** earlier drafts of this stats doc and the
+design note used `$attack :- $tactic;~$blocked` (semicolon).
+Under clean grammar (`;` = OR, `,` = AND) that means
+`$tactic OR NOT $blocked` — a much wider set than the user-
+intent "tactic except blocked". The comma form is the syntax
+that expresses the intent. Resolved 2026-05-12 during arc-2
+implementation; both forms parse and execute correctly under
+the new grammar, but only the comma form computes the
+cardinality below.
 
 **Predicted cardinality:** the expanded form is
 `(punish;fight;sabaki), ~volatile`. Cardinality computed:
@@ -404,14 +415,15 @@ $attack
 SELECT COUNT(DISTINCT card_id) FROM card_tag ct JOIN tag t ON t.id=ct.tag_id
 WHERE t.name IN ('punish','fight','sabaki')
   AND card_id NOT IN (SELECT card_id FROM card_tag ct2 JOIN tag t2 ON t2.id=ct2.tag_id WHERE t2.name='volatile');
--- (run me to populate)
+-- 1000 (verified 2026-05-12 via backend/scripts/tag_dsl_repl.py against samples/cards.sample.db)
 ```
 
 **Behaviour:** macro expander substitutes `$tactic` with its
 disjunction tree, `$blocked` with its single-tag tree, then
-`$attack` with the resulting `(...);~(...)` shape. DNF
-normalisation flattens to three conjunctions each negating
-`volatile`.
+`$attack` with the resulting `(...), ~(...)` conjunctive shape.
+DNF normalisation distributes the inner disjunction across the
+outer conjunction, yielding three conjunctions each ANDing one
+of punish/fight/sabaki with `~volatile`.
 
 **Note:** This is the canonical example from the design note.
 The cardinality is the **measurable proof** that negation-in-
@@ -797,11 +809,12 @@ partner) is unlikely to invert.
 
 ## Cross-references
 
-- **`docs/notes/tag-dsl-macro-language-plan.md`** — the design
-  note this stats document accompanies. The macro language's
-  cap values (K = 256, M = 1024, D = 8) come from there;
-  the test expressions below derive from the planned grammar
-  shape there.
+- **`docs/archive/notes/tag-dsl-macro-language-plan.md`** — the
+  design note this stats document accompanies (archived after
+  arc 2 shipped 2026-05-12). The macro language's cap values
+  (K = 256, M = 1024, D = 8) come from there; the test
+  expressions below derive from the planned grammar shape
+  there.
 - **`backend/domain/tag_dsl.py`** — the file the refactor
   targets.
 - **`backend/cards.db`** — the dev database that backs every

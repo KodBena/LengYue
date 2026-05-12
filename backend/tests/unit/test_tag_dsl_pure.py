@@ -1,66 +1,104 @@
 """
 tests/unit/test_tag_dsl_pure.py
 ================================
-Tier 1 — Pure Python Unit Tests: ``TagDSLCompiler`` parsing and DNF expansion.
+Tier 1 — Pure Python Unit Tests: tag-DSL grammar, AST, macro
+expander, three caps (K / D / M), and the closed-defect
+regressions.
 
-No database.  No async.  No SQLAlchemy execution.
+No database. No async. No SQLAlchemy execution.
 
 Strategy
 --------
-The ``TagDSLCompiler`` is tested at two sub-levels:
+Arc 2 of the tag-DSL macro-language plan replaced the flat-set
+virtual-tag model with a substitutive macro expander over a small
+AST. These tests pin:
 
-  1. **Parser-level** — ``_split_statements``, ``_parse_definition``,
-     ``_parse_query``:  Do tokens get split correctly?  Do virtual tag
-     definitions accumulate in ``self.definitions`` correctly?
+  1. **AST construction** — ``_parse_definition`` stores a
+     parsed ``Disj`` (not a flat ``Set[str]``); ``_parse_query``
+     returns a ``Disj``. The parser admits the full new grammar
+     including negation in definitions and parenthesised
+     sub-expressions.
 
-  2. **Algebraic DNF expansion** — ``_expand_conjunction``:
-     Does the distributive law hold?  Does negation of a virtual tag expand
-     into the flat negation set?
+  2. **Macro expansion** — ``_expand_to_dnf`` substitutes
+     references (D cap), pushes negation inward via De Morgan
+     when appropriate, distributes nested groupings, and
+     returns the flat DNF-dict shape the SQL emitter consumes.
 
-  3. **Compile-time error detection** — ``compile_to_subquery`` on inputs that
-     must raise ``PipelineDSLError`` (a subclass of
-     ``InvalidInputError``; the route maps to 422).
+  3. **Cap guards** — K (definition body length), D (recursion
+     depth), and M (total expansion size) each raise
+     ``PipelineDSLError`` at the correct phase with messages
+     naming the cap, the offending count, and the virtual at
+     fault.
 
-  4. **SQL structure checks** — without executing SQL, we compile a Select
-     object and inspect its string form to verify structural properties
-     (HAVING clause presence, EXCEPT clause, etc.).
+  4. **SQL structure (smoke)** — compile a Select and inspect
+     its string form to verify structural properties (HAVING,
+     EXCEPT, UNION).
 
-Closed defects (previously documented as silent failures, now raise loudly
-per ADR-0002):
+  5. **Closed-defect regressions** — D-7 and D-8 from the
+     pre-release sweep stay pinned through the compile boundary.
 
-- D-7: A statement that looks like a definition (``$X :- a``) without a
-        trailing period was previously treated as a query tag name. Today
-        it raises ``PipelineDSLError`` — the unknown-virtual-tag check
-        catches the ``$X`` as a query symbol with no matching definition.
-- D-8: ``compile_to_subquery("$X :- . $X")`` now raises
-        ``PipelineDSLError("Tag expression produced no conjunctions")``
-        rather than silently returning a select that matches no rows. The
-        unit-level ``_expand_conjunction`` still returns ``[]`` on an
-        empty virtual-tag positive (the silent-fold-out is genuine algebra
-        — there's no concrete tag to AND in), but the compile boundary
-        catches the empty result and raises before SQL is generated.
+Failure-mode-first: cap-violation classes appear before
+happy-path expansion classes in source order, per the testing-arc
+discipline named in ``docs/notes/test-coverage-2026-05.md``.
+
+Stats-doc test bank
+-------------------
+The test cases are driven by the empirical bank in
+``docs/card-tag-stats-representative.md``. Case labels (T1-T22,
+S1-S5) trace back to that document's §2.1-§2.6.
 """
 import pytest
 
 from domain.errors import PipelineDSLError
 from domain.tag_dsl import TagDSLCompiler
+from domain.tag_dsl_grammar import (
+    MAX_DEFINITION_LEAVES,
+    MAX_REFERENCE_DEPTH,
+    MAX_TOTAL_CONJUNCTIONS,
+    Concrete,
+    Conj,
+    Disj,
+    Neg,
+    Virtual,
+)
 
 pytestmark = pytest.mark.unit
 
 
-# ─── _split_statements ────────────────────────────────────────────────────────
+# ─── AST helpers ──────────────────────────────────────────────────────────────
+
+
+def _concrete(name: str) -> Concrete:
+    return Concrete(name=name)
+
+
+def _virtual(name: str) -> Virtual:
+    return Virtual(name=name)
+
+
+def _neg(term) -> Neg:
+    return Neg(term=term)
+
+
+def _conj(*atoms) -> Conj:
+    return Conj(atoms=tuple(atoms))
+
+
+def _disj(*conjs) -> Disj:
+    return Disj(conjs=tuple(conjs))
+
+
+# ─── _split_statements (unchanged from arc 1) ─────────────────────────────────
+
 
 class TestSplitStatements:
     def test_single_query_no_period(self):
         c = TagDSLCompiler()
-        result = c._split_statements("attack")
-        assert result == ["attack"]
+        assert c._split_statements("attack") == ["attack"]
 
     def test_single_query_with_trailing_period(self):
-        """A trailing period is a statement separator and must be stripped."""
         c = TagDSLCompiler()
-        result = c._split_statements("attack.")
-        assert result == ["attack"]
+        assert c._split_statements("attack.") == ["attack"]
 
     def test_definition_and_query(self):
         c = TagDSLCompiler()
@@ -76,406 +114,677 @@ class TestSplitStatements:
 
     def test_empty_string_returns_empty_list(self):
         c = TagDSLCompiler()
-        result = c._split_statements("   ")
-        assert result == []
+        assert c._split_statements("   ") == []
 
     def test_whitespace_only_segments_are_skipped(self):
         c = TagDSLCompiler()
         result = c._split_statements("attack.  .defense")
-        # The middle empty segment must be dropped.
         assert "" not in result
         assert len(result) == 2
 
 
-# ─── _parse_definition ────────────────────────────────────────────────────────
+# ─── Failure mode first: cap-K violations (definition body length) ────────────
 
-class TestParseDefinition:
-    def test_simple_single_tag_definition(self):
+
+class TestCapK:
+    """The K cap fires inside ``_parse_definition`` after the body has
+    been substituted to concrete leaves. Refuses if leaf count > K.
+    """
+
+    def test_T15_definition_at_K_minus_epsilon_is_accepted(self):
+        """T15: 250 concrete leaves; below K = 256. Must parse."""
+        body = ";".join(f"t{i}" for i in range(250))
         c = TagDSLCompiler()
-        c._parse_definition("$atk :- attack")
-        assert c.definitions == {"atk": {"attack"}}
+        c._parse_definition(f"$wide :- {body}")
+        # The Disj carries 250 conjs.
+        assert len(c.definitions["wide"].conjs) == 250
 
-    def test_or_definition_semicolon(self):
+    def test_T18_definition_at_K_plus_epsilon_raises(self):
+        """T18: 260 leaves; above K = 256. Must raise with cap-name + count."""
+        body = ";".join(f"t{i}" for i in range(260))
         c = TagDSLCompiler()
-        c._parse_definition("$fight :- attack;defense")
-        assert c.definitions == {"fight": {"attack", "defense"}}
+        with pytest.raises(PipelineDSLError) as exc:
+            c._parse_definition(f"$wide :- {body}")
+        assert "260" in str(exc.value)
+        assert f"K={MAX_DEFINITION_LEAVES}" in str(exc.value)
+        assert "$wide" in str(exc.value)
 
-    def test_or_definition_newline(self):
-        c = TagDSLCompiler()
-        c._parse_definition("$fight :- attack\ndefense")
-        assert c.definitions == {"fight": {"attack", "defense"}}
-
-    def test_transitive_expansion_forward_reference_fails(self):
+    def test_S2_K_overflow_with_real_tag_names(self):
+        """S2 (sandbox-only stress): a single definition listing every
+        concrete tag in the database (well above K = 256). Must raise
+        at definition-parse time before any SQL is reached.
         """
-        DNF-5: Forward reference — $B references $A before $A is defined.
-        Must raise PipelineDSLError per ADR-0002 (fail loudly).
+        body = ";".join(f"real_tag_{i}" for i in range(290))
+        c = TagDSLCompiler()
+        with pytest.raises(PipelineDSLError, match=r"K=256"):
+            c._parse_definition(f"$everything :- {body}")
+
+
+# ─── Failure mode first: cap-D violations (recursion depth) ───────────────────
+
+
+class TestCapD:
+    """The D cap fires during substitution. The chain depth is the
+    number of Virtual hops resolved before reaching a concrete shape.
+    """
+
+    def test_T17_chain_at_D_minus_epsilon_is_accepted(self):
+        """T17: chain of 7 forward references, all resolving to
+        ``joseki``. Depth 7, below D = 8.
         """
         c = TagDSLCompiler()
-        with pytest.raises(PipelineDSLError, match=r"\$A"):
-            c._parse_definition("$B :- $A;extra")  # $A not yet in definitions
+        c._parse_definition("$d1 :- joseki")
+        c._parse_definition("$d2 :- $d1")
+        c._parse_definition("$d3 :- $d2")
+        c._parse_definition("$d4 :- $d3")
+        c._parse_definition("$d5 :- $d4")
+        c._parse_definition("$d6 :- $d5")
+        c._parse_definition("$d7 :- $d6")
+        # Compiles cleanly (no D-cap raise).
+        stmt = c.compile_to_subquery(
+            "$d1 :- joseki. $d2 :- $d1. $d3 :- $d2. $d4 :- $d3. "
+            "$d5 :- $d4. $d6 :- $d5. $d7 :- $d6. $d7"
+        )
+        assert stmt is not None
 
-    def test_transitive_expansion_backward_reference_succeeds(self):
+    def test_T20_chain_at_D_plus_epsilon_raises(self):
+        """T20: chain of 9 forward references. Depth 9, above D = 8.
+        Must raise with cap-name + offending virtual.
         """
-        DNF-3: $B :- $A;y  AFTER $A :- x  must expand $B = {x, y}.
-        """
-        c = TagDSLCompiler()
-        c._parse_definition("$A :- x")
-        c._parse_definition("$B :- $A;y")
-        assert c.definitions["B"] == {"x", "y"}
+        defs = "\n".join(
+            [f"$d1 :- joseki."]
+            + [f"$d{i} :- $d{i - 1}." for i in range(2, 10)]
+        )
+        expr = defs + "\n$d9"
+        with pytest.raises(PipelineDSLError) as exc:
+            TagDSLCompiler().compile_to_subquery(expr)
+        msg = str(exc.value)
+        assert f"D={MAX_REFERENCE_DEPTH}" in msg
+        assert "recursion depth cap" in msg
 
-    def test_negation_in_definition_raises(self):
-        """DNF-4: Negation (~) inside a virtual tag definition is forbidden."""
-        c = TagDSLCompiler()
-        with pytest.raises(PipelineDSLError, match=r"Negation not allowed"):
-            c._parse_definition("$X :- attack;~defense")
-
-    def test_non_matching_string_raises(self):
+    def test_S3_D_overflow_with_long_synthetic_chain(self):
+        """S3 (sandbox-only stress): 20-level forward reference chain.
+        Must raise. Without D cap the recursion is unbounded and a
+        fan-out variant would compound catastrophically.
         """
-        Item 12 / ADR-0002: ``_parse_definition`` no longer silently
-        ignores non-``:-`` statements. Previously a query expression
-        accidentally placed before the final statement was discarded
-        with no diagnostic; now the parser raises so the author sees
-        exactly what was rejected. State is unchanged on raise (the
-        regex match fails before any mutation).
+        defs = "$d1 :- joseki."
+        for i in range(2, 21):
+            defs += f" $d{i} :- $d{i - 1}."
+        with pytest.raises(PipelineDSLError, match=rf"D={MAX_REFERENCE_DEPTH}"):
+            TagDSLCompiler().compile_to_subquery(defs + " $d20")
+
+    def test_S4_pathological_fan_out_exponential_cliff(self):
+        """S4 (sandbox-only stress): the "exponential cliff". Each
+        level structurally doubles by referencing the previous level
+        twice (``$aN :- $a(N-1);$a(N-1)``). Must refuse before any
+        catastrophic intermediate state materialises.
+
+        Empirical observation under the arc-2 implementation: K
+        fires first (at ``$a9``, leaf count = 2⁹ = 512 > K=256), not
+        D. The stats doc anticipated D as the load-bearing cap on
+        the assumption that the AST deduplicates identical Virtual
+        references — under that assumption, leaves would stay at 2
+        per level and D=8 would catch the chain depth first. The
+        arc-2 implementation preserves duplicate references
+        literally (the macro language is substitutive, not
+        dedup-and-substitute), so leaves grow as 2^N and K fires
+        first. Either refusal path is acceptable; the safety
+        contract is "S4 is refused before any large intermediate
+        list materialises", not "a specific cap is the trigger".
+        """
+        defs = "$a1 :- t1;t2."
+        for i in range(2, 21):
+            defs += f" $a{i} :- $a{i - 1};$a{i - 1}."
+        with pytest.raises(
+            PipelineDSLError,
+            match=rf"(K={MAX_DEFINITION_LEAVES}|D={MAX_REFERENCE_DEPTH})",
+        ):
+            TagDSLCompiler().compile_to_subquery(defs + " $a20")
+
+
+# ─── Failure mode first: cap-M violations (total expansion size) ──────────────
+
+
+class TestCapM:
+    """The M cap fires in ``compile_to_subquery`` after macro expansion
+    + DNF normalisation, before any SQL is emitted.
+    """
+
+    def test_T16_expansion_at_M_minus_epsilon_is_accepted(self):
+        """T16: 5 × 5 × 5 × 5 = 625 conjunctions; below M = 1024.
+        Compiles cleanly.
+        """
+        defs = "\n".join(
+            [
+                "$a :- t1;t2;t3;t4;t5.",
+                "$b :- t6;t7;t8;t9;t10.",
+                "$c :- t11;t12;t13;t14;t15.",
+                "$d :- t16;t17;t18;t19;t20.",
+            ]
+        )
+        stmt = TagDSLCompiler().compile_to_subquery(defs + "\n$a, $b, $c, $d")
+        assert stmt is not None
+
+    def test_T19_expansion_at_M_plus_epsilon_raises(self):
+        """T19: 5⁵ = 3125 conjunctions; above M = 1024. Must raise
+        during DNF distribution before the full 3125 conjunctions
+        materialise — the running-count guard fires as soon as the
+        cap is crossed, so the exact final count is not computed
+        (and intentionally so: for the S1 9.77M-conjunction case the
+        same guard refuses without enumeration).
+        """
+        defs = "\n".join(
+            [
+                "$a :- t1;t2;t3;t4;t5.",
+                "$b :- t6;t7;t8;t9;t10.",
+                "$c :- t11;t12;t13;t14;t15.",
+                "$d :- t16;t17;t18;t19;t20.",
+                "$e :- t21;t22;t23;t24;t25.",
+            ]
+        )
+        with pytest.raises(PipelineDSLError) as exc:
+            TagDSLCompiler().compile_to_subquery(defs + "\n$a, $b, $c, $d, $e")
+        msg = str(exc.value)
+        assert f"M={MAX_TOTAL_CONJUNCTIONS}" in msg
+        assert "total expansion size cap" in msg
+
+    def test_S1_M_overflow_at_scale(self):
+        """S1 (sandbox-only stress): 10-virtual conjunction where
+        each virtual contains 5 disjuncts. 5¹⁰ ≈ 9.77M conjunctions.
+        Must refuse via M cap before SQL emission.
+        """
+        defs_lines = []
+        for letter_i, letter in enumerate("abcdefghij"):
+            base = letter_i * 5
+            defs_lines.append(
+                f"${letter} :- " + ";".join(f"t{base + j + 1}" for j in range(5)) + "."
+            )
+        defs = "\n".join(defs_lines)
+        query = ", ".join(f"${letter}" for letter in "abcdefghij")
+        with pytest.raises(PipelineDSLError, match=rf"M={MAX_TOTAL_CONJUNCTIONS}"):
+            TagDSLCompiler().compile_to_subquery(defs + "\n" + query)
+
+    def test_S5_dense_disjunction_exceeds_M(self):
+        """S5 (sandbox-only stress): a top-level disjunction of many
+        small parenthesised conjunctions. Each disjunct contributes
+        one conj to the final DNF; chaining many past M must refuse
+        via the M cap during DNF distribution.
+
+        Construct 1100 disjuncts each ``(a_i, b_i)``. 1100 > M=1024,
+        so the running-count guard fires during distribution before
+        the full DNF materialises.
+        """
+        disjuncts = [f"(a{i}, b{i})" for i in range(1100)]
+        expr = ";".join(disjuncts)
+        with pytest.raises(PipelineDSLError, match=rf"M={MAX_TOTAL_CONJUNCTIONS}"):
+            TagDSLCompiler().compile_to_subquery(expr)
+
+
+# ─── Failure mode first: error paths (T21 unknown virtual, T22 forward) ──────
+
+
+class TestErrorPaths:
+    def test_T21_unknown_virtual_in_query_raises(self):
+        """T21: Query references an undefined virtual. Must raise."""
+        with pytest.raises(PipelineDSLError, match=r"\$nonexistent"):
+            TagDSLCompiler().compile_to_subquery("$nonexistent")
+
+    def test_T22_forward_reference_order_violation_raises(self):
+        """T22: $b references $a before $a is defined. The forward-
+        declaration discipline is the cheap cycle preventer and is
+        preserved post-arc-2.
+        """
+        with pytest.raises(PipelineDSLError, match=r"\$a"):
+            TagDSLCompiler().compile_to_subquery(
+                "$b :- $a;tag1. $a :- tag2;tag3. $b"
+            )
+
+    def test_empty_expression_raises(self):
+        """An empty tag expression has no meaningful query."""
+        with pytest.raises(PipelineDSLError):
+            TagDSLCompiler().compile_to_subquery("")
+
+    def test_whitespace_only_expression_raises(self):
+        with pytest.raises(PipelineDSLError):
+            TagDSLCompiler().compile_to_subquery("   ")
+
+    def test_non_matching_string_in_definition_raises(self):
+        """A statement before the final-query position that is not a
+        valid definition raises with a name-the-rejected-content
+        message (ADR-0002 fail-loudly).
         """
         c = TagDSLCompiler()
         with pytest.raises(PipelineDSLError, match=r"valid virtual tag definition"):
             c._parse_definition("just_a_query_not_a_definition")
         assert c.definitions == {}
 
-    def test_definition_tags_are_deduplicated(self):
-        """Duplicate tags in a definition should not appear twice."""
+    def test_negation_must_precede_a_simple_atom(self):
+        """``~`` may only prefix a tag or virtual reference, not a
+        parenthesised sub-expression. The current grammar accepts
+        ``~tag`` and ``~$ref`` but not ``~(...)``.
+        """
+        with pytest.raises(PipelineDSLError, match=r"Negation"):
+            TagDSLCompiler().compile_to_subquery("~(a, b)")
+
+    def test_bare_dollar_raises(self):
+        with pytest.raises(PipelineDSLError, match=r"Bare '\$'"):
+            TagDSLCompiler().compile_to_subquery("$")
+
+
+# ─── _parse_definition (happy paths) ──────────────────────────────────────────
+
+
+class TestParseDefinition:
+    def test_simple_single_tag_definition(self):
         c = TagDSLCompiler()
-        c._parse_definition("$dup :- tag_a;tag_a;tag_a")
-        assert c.definitions["dup"] == {"tag_a"}
+        c._parse_definition("$atk :- attack")
+        assert c.definitions == {"atk": _disj(_conj(_concrete("attack")))}
+
+    def test_or_definition_semicolon(self):
+        c = TagDSLCompiler()
+        c._parse_definition("$fight :- attack;defense")
+        assert c.definitions == {
+            "fight": _disj(
+                _conj(_concrete("attack")),
+                _conj(_concrete("defense")),
+            )
+        }
+
+    def test_or_definition_newline(self):
+        c = TagDSLCompiler()
+        c._parse_definition("$fight :- attack\ndefense")
+        assert c.definitions == {
+            "fight": _disj(
+                _conj(_concrete("attack")),
+                _conj(_concrete("defense")),
+            )
+        }
+
+    def test_T7_transitive_backward_reference_storage_is_lazy(self):
+        """T7 (storage): ``$B :- $A;y`` after ``$A :- x``. Definitions
+        store the parsed Disj with Virtual references intact (lazy
+        substitution); the chain is walked at expansion time so the
+        D cap accumulates depth across multi-definition chains.
+        """
+        c = TagDSLCompiler()
+        c._parse_definition("$A :- x")
+        c._parse_definition("$B :- $A;y")
+        # $A has no refs to substitute, so its parsed form is
+        # already concrete-only.
+        assert c.definitions["A"] == _disj(_conj(_concrete("x")))
+        # $B retains the Virtual("A") reference.
+        assert c.definitions["B"] == _disj(
+            _conj(_virtual("A")),
+            _conj(_concrete("y")),
+        )
+
+    def test_T7_transitive_backward_reference_expands_correctly(self):
+        """T7 (behaviour): a query through ``$B`` expands the chain
+        to produce the concrete-tag DNF the SQL emitter consumes.
+        """
+        c = TagDSLCompiler()
+        c._parse_definition("$A :- x")
+        c._parse_definition("$B :- $A;y")
+        dnf = c._expand_to_dnf(c._parse_query("$B"))
+        pos_sets = {frozenset(d["pos"]) for d in dnf}
+        assert pos_sets == {frozenset({"x"}), frozenset({"y"})}
+
+    def test_empty_definition_body_stores_empty_disj(self):
+        """An empty definition body stores a Disj with no conjs. The
+        D-8 compile-boundary regression depends on this — a query
+        through the empty virtual produces zero conjunctions, which
+        the compile boundary loudly refuses.
+        """
+        c = TagDSLCompiler()
+        c._parse_definition("$empty :- ")
+        assert c.definitions["empty"] == _disj()
 
 
-# ─── _parse_query ─────────────────────────────────────────────────────────────
+# ─── Negation in definitions — new at arc 2 ───────────────────────────────────
+
+
+class TestNegationInDefinition:
+    """T10: arc 2's flagship new-grammar capability. Negation inside a
+    virtual-tag definition is now admitted and expanded substitutively.
+    """
+
+    def test_T10_negation_in_definition_parses(self):
+        """``$X :- attack;~defense`` now parses; the stored Disj
+        contains both ``Concrete(attack)`` and ``Neg(Concrete(defense))``.
+        """
+        c = TagDSLCompiler()
+        c._parse_definition("$X :- attack;~defense")
+        assert c.definitions["X"] == _disj(
+            _conj(_concrete("attack")),
+            _conj(_neg(_concrete("defense"))),
+        )
+
+    def test_T10_canonical_attack_example_compiles(self):
+        """The design note's canonical example:
+            $tactic :- punish;fight;sabaki.
+            $blocked :- volatile.
+            $attack :- $tactic;~$blocked.
+            $attack
+        compiles cleanly post-arc-2; pre-arc-2 it would raise
+        "Negation not allowed in virtual tag definitions".
+        """
+        c = TagDSLCompiler()
+        stmt = c.compile_to_subquery(
+            "$tactic :- punish;fight;sabaki. "
+            "$blocked :- volatile. "
+            "$attack :- $tactic;~$blocked. "
+            "$attack"
+        )
+        assert stmt is not None
+
+    def test_negation_in_definition_expands_correctly(self):
+        """``$attack :- $tactic;~$blocked`` queried as ``$attack``
+        produces the union of ``$tactic`` disjuncts AND a single
+        ``~blocked`` term.
+        """
+        c = TagDSLCompiler()
+        c._parse_definition("$tactic :- punish;fight;sabaki")
+        c._parse_definition("$blocked :- volatile")
+        c._parse_definition("$attack :- $tactic;~$blocked")
+        query_disj = c._parse_query("$attack")
+        dnf = c._expand_to_dnf(query_disj)
+        # Three positive conjs (punish / fight / sabaki) plus one
+        # negative conj (~volatile).
+        pos_conjs = [d for d in dnf if d["pos"]]
+        neg_only = [d for d in dnf if not d["pos"] and d["neg"]]
+        assert {next(iter(d["pos"])) for d in pos_conjs} == {"punish", "fight", "sabaki"}
+        assert len(neg_only) == 1
+        assert neg_only[0]["neg"] == {"volatile"}
+
+
+# ─── Parentheses in the grammar — new at arc 2 ────────────────────────────────
+
+
+class TestParentheses:
+    """T13: parenthesised sub-expressions admitted per resolved Q1.
+    The macro expander distributes nested groupings into DNF.
+    """
+
+    def test_T13_top_level_grouping_parses(self):
+        """``(joseki, shape); (technical, opening)`` parses as a
+        top-level disjunction of two conjunctions.
+        """
+        c = TagDSLCompiler()
+        stmt = c.compile_to_subquery("(joseki, shape); (technical, opening)")
+        assert stmt is not None
+
+    def test_non_dnf_distributes(self):
+        """``a, (b; c)`` is non-DNF input — the distributor flattens
+        it to ``(a, b); (a, c)``.
+        """
+        c = TagDSLCompiler()
+        disj = c._parse_query("a, (b; c)")
+        dnf = c._expand_to_dnf(disj)
+        pos_sets = {frozenset(d["pos"]) for d in dnf}
+        assert pos_sets == {frozenset({"a", "b"}), frozenset({"a", "c"})}
+
+    def test_nested_groupings_distribute(self):
+        """``(a; b), (c; d)`` distributes to four DNF conjunctions."""
+        c = TagDSLCompiler()
+        disj = c._parse_query("(a; b), (c; d)")
+        dnf = c._expand_to_dnf(disj)
+        pos_sets = {frozenset(d["pos"]) for d in dnf}
+        assert pos_sets == {
+            frozenset({"a", "c"}),
+            frozenset({"a", "d"}),
+            frozenset({"b", "c"}),
+            frozenset({"b", "d"}),
+        }
+
+
+# ─── _parse_query (Disj output) ───────────────────────────────────────────────
+
 
 class TestParseQuery:
     def test_single_positive_tag(self):
         c = TagDSLCompiler()
-        dnf = c._parse_query("attack")
-        assert len(dnf) == 1
-        assert dnf[0] == {"pos": {"attack"}, "neg": set()}
+        assert c._parse_query("attack") == _disj(_conj(_concrete("attack")))
 
     def test_and_semantics_comma(self):
-        """Comma → AND: both tags must appear in the positive set."""
         c = TagDSLCompiler()
-        dnf = c._parse_query("attack,hard")
-        assert len(dnf) == 1
-        assert dnf[0]["pos"] == {"attack", "hard"}
-        assert dnf[0]["neg"] == set()
+        assert c._parse_query("attack,hard") == _disj(
+            _conj(_concrete("attack"), _concrete("hard"))
+        )
 
     def test_or_semantics_semicolon(self):
-        """Semicolon → OR: two separate conjunctions."""
         c = TagDSLCompiler()
-        dnf = c._parse_query("attack;defense")
-        assert len(dnf) == 2
-        pos_sets = {frozenset(d["pos"]) for d in dnf}
-        assert frozenset({"attack"}) in pos_sets
-        assert frozenset({"defense"}) in pos_sets
+        assert c._parse_query("attack;defense") == _disj(
+            _conj(_concrete("attack")),
+            _conj(_concrete("defense")),
+        )
 
     def test_negation_prefix(self):
-        """~tag_name is extracted into the neg set."""
         c = TagDSLCompiler()
-        dnf = c._parse_query("attack,~contact_play")
-        assert len(dnf) == 1
-        assert dnf[0]["pos"] == {"attack"}
-        assert dnf[0]["neg"] == {"contact_play"}
+        assert c._parse_query("attack,~contact_play") == _disj(
+            _conj(_concrete("attack"), _neg(_concrete("contact_play")))
+        )
 
     def test_negation_only_query(self):
-        """A query with only negations and no positives."""
         c = TagDSLCompiler()
-        dnf = c._parse_query("~snark")
-        assert len(dnf) == 1
-        assert dnf[0]["pos"] == set()
-        assert dnf[0]["neg"] == {"snark"}
+        assert c._parse_query("~snark") == _disj(
+            _conj(_neg(_concrete("snark")))
+        )
 
     def test_mixed_or_and_and_negation(self):
-        """attack,~bad;defense → two conjunctions."""
         c = TagDSLCompiler()
-        dnf = c._parse_query("attack,~bad;defense")
-        assert len(dnf) == 2
+        assert c._parse_query("attack,~bad;defense") == _disj(
+            _conj(_concrete("attack"), _neg(_concrete("bad"))),
+            _conj(_concrete("defense")),
+        )
 
 
-# ─── _expand_conjunction ──────────────────────────────────────────────────────
+# ─── _expand_to_dnf (macro expander semantics) ────────────────────────────────
 
-class TestExpandConjunction:
+
+class TestExpandToDnf:
+    """Replaces TestExpandConjunction. The macro expander's algebraic
+    contract — substitute, push negation inward where appropriate,
+    distribute nested groupings — is exercised here.
     """
-    Tests for the DNF (Disjunctive Normal Form) expansion of virtual tags.
-    These are the algebraic core of the filter DSL.
-    """
 
-    def _compiler_with(self, definitions: dict) -> TagDSLCompiler:
-        """Helper: build a compiler pre-loaded with definitions."""
+    def _compiler_with(self, **defs) -> TagDSLCompiler:
+        """Helper: build a compiler pre-loaded with definitions via
+        the public ``_parse_definition`` path."""
         c = TagDSLCompiler()
-        c.definitions = {k: set(v) for k, v in definitions.items()}
+        for name, body in defs.items():
+            c._parse_definition(f"${name} :- {body}")
         return c
 
     def test_dnf1_distributive_law_single_virtual_pos(self):
+        """``$fight,c`` where ``$fight :- attack;defense``.
+        Expands to ``(attack,c); (defense,c)``.
         """
-        DNF-1: $fight,c  where $fight = {attack, defense}
-        Expands to: [{pos:{attack,c}, neg:{}}, {pos:{defense,c}, neg:{}}]
+        c = self._compiler_with(fight="attack;defense")
+        dnf = c._expand_to_dnf(c._parse_query("$fight, c"))
+        pos_sets = {frozenset(d["pos"]) for d in dnf}
+        assert pos_sets == {frozenset({"attack", "c"}), frozenset({"defense", "c"})}
+        assert all(d["neg"] == set() for d in dnf)
 
-        This is the distributive law: AND distributes over the OR of a
-        virtual tag's members.
+    def test_dnf2_negation_of_pos_virtual_collapses_to_neg_conjunction(self):
+        """``~$fight`` where ``$fight :- attack;defense``.
+        De Morgan: ``~(attack OR defense)`` = ``~attack AND ~defense``.
+        Single conjunction with empty pos and two-element neg.
         """
-        c = self._compiler_with({"fight": ["attack", "defense"]})
-        conj = {"pos": {"$fight", "c"}, "neg": set()}
-        result = c._expand_conjunction(conj)
+        c = self._compiler_with(fight="attack;defense")
+        dnf = c._expand_to_dnf(c._parse_query("~$fight"))
+        assert len(dnf) == 1
+        assert dnf[0]["pos"] == set()
+        assert dnf[0]["neg"] == {"attack", "defense"}
 
-        assert len(result) == 2
-        pos_sets = {frozenset(r["pos"]) for r in result}
-        assert frozenset({"attack", "c"}) in pos_sets
-        assert frozenset({"defense", "c"}) in pos_sets
-        # All neg sets must be empty.
-        assert all(r["neg"] == set() for r in result)
-
-    def test_dnf2_negation_of_virtual_tag_collapses_to_neg_set(self):
+    def test_T9_two_independent_virtual_positives_cartesian_product(self):
+        """T9: ``$A, $B`` where ``$A :- a1;a2`` and ``$B :- b1;b2``.
+        Expands to 4 conjunctions (all pairs).
         """
-        DNF-2: ~$fight  where $fight = {attack, defense}
-        Expands to ONE conjunction: {pos:{}, neg:{attack, defense}}
+        c = self._compiler_with(A="a1;a2", B="b1;b2")
+        dnf = c._expand_to_dnf(c._parse_query("$A, $B"))
+        pos_sets = {frozenset(d["pos"]) for d in dnf}
+        assert pos_sets == {
+            frozenset({"a1", "b1"}),
+            frozenset({"a1", "b2"}),
+            frozenset({"a2", "b1"}),
+            frozenset({"a2", "b2"}),
+        }
 
-        Negated virtual tags must expand ALL their members into the flat
-        negation set, NOT into OR branches.  DeMorgan does not apply here —
-        the semantics are "card must not have any member of $fight".
+    def test_T14_negated_virtual_merges_with_concrete_negations(self):
+        """T14: ``shape, ~$strong_evals`` where
+        ``$strong_evals :- judgement;flow;subtle``.
+        Single conjunction: pos={shape}, neg={judgement,flow,subtle}.
         """
-        c = self._compiler_with({"fight": ["attack", "defense"]})
-        conj = {"pos": set(), "neg": {"$fight"}}
-        result = c._expand_conjunction(conj)
-
-        assert len(result) == 1
-        assert result[0]["pos"] == set()
-        assert result[0]["neg"] == {"attack", "defense"}
-
-    def test_dnf1_two_independent_virtual_positives_cartesian_product(self):
-        """
-        $A,$B where $A={a1,a2} and $B={b1,b2}
-        Expands to 4 conjunctions: all (aX,bY) pairs.
-        """
-        c = self._compiler_with({"A": ["a1", "a2"], "B": ["b1", "b2"]})
-        conj = {"pos": {"$A", "$B"}, "neg": set()}
-        result = c._expand_conjunction(conj)
-
-        assert len(result) == 4
-        pos_sets = {frozenset(r["pos"]) for r in result}
-        for a in ("a1", "a2"):
-            for b in ("b1", "b2"):
-                assert frozenset({a, b}) in pos_sets, (
-                    f"Missing conjunction ({a}, {b})"
-                )
-
-    def test_negated_virtual_merges_with_concrete_negations(self):
-        """
-        attack,~$bad,~extra  where $bad={x,y}
-        neg set must be {x, y, extra}.
-        """
-        c = self._compiler_with({"bad": ["x", "y"]})
-        conj = {"pos": {"attack"}, "neg": {"$bad", "extra"}}
-        result = c._expand_conjunction(conj)
-
-        assert len(result) == 1
-        assert result[0]["neg"] == {"x", "y", "extra"}
-        assert result[0]["pos"] == {"attack"}
+        c = self._compiler_with(strong_evals="judgement;flow;subtle")
+        dnf = c._expand_to_dnf(c._parse_query("shape, ~$strong_evals"))
+        assert len(dnf) == 1
+        assert dnf[0]["pos"] == {"shape"}
+        assert dnf[0]["neg"] == {"judgement", "flow", "subtle"}
 
     def test_concrete_only_conjunction_is_identity(self):
+        c = TagDSLCompiler()
+        dnf = c._expand_to_dnf(c._parse_query("attack, hard, ~easy"))
+        assert len(dnf) == 1
+        assert dnf[0]["pos"] == {"attack", "hard"}
+        assert dnf[0]["neg"] == {"easy"}
+
+    def test_T11_two_level_virtual_reference(self):
+        """T11: ``$technical_shape, ~volatile`` where
+        ``$shape_focus :- shape;contact`` and
+        ``$technical_shape :- $shape_focus;technical``.
+        Final DNF: three conjs each ANDing one positive tag with ~volatile.
         """
-        A conjunction with no virtual tags passes through _expand_conjunction
-        unchanged (wrapped in a list of length 1).
+        c = self._compiler_with(
+            shape_focus="shape;contact",
+            technical_shape="$shape_focus;technical",
+        )
+        dnf = c._expand_to_dnf(c._parse_query("$technical_shape, ~volatile"))
+        pos_sets = {frozenset(d["pos"]) for d in dnf}
+        assert pos_sets == {frozenset({"shape"}), frozenset({"contact"}), frozenset({"technical"})}
+        assert all(d["neg"] == {"volatile"} for d in dnf)
+
+    def test_T12_three_level_reference_chain(self):
+        """T12: chain depth 3. Final disjunction:
+        ``joseki;opening;sabaki;moyo`` queried alone.
         """
-        c = TagDSLCompiler()
-        conj = {"pos": {"attack", "hard"}, "neg": {"easy"}}
-        result = c._expand_conjunction(conj)
-
-        assert len(result) == 1
-        assert result[0] == conj
-
-    def test_unknown_positive_virtual_tag_raises(self):
-        """DNF-6: A virtual tag in the query that was never defined."""
-        c = TagDSLCompiler()
-        conj = {"pos": {"$undefined"}, "neg": set()}
-        with pytest.raises(PipelineDSLError, match=r"\$undefined"):
-            c._expand_conjunction(conj)
-
-    def test_unknown_negative_virtual_tag_raises(self):
-        c = TagDSLCompiler()
-        conj = {"pos": set(), "neg": {"$undefined"}}
-        with pytest.raises(PipelineDSLError, match=r"\$undefined"):
-            c._expand_conjunction(conj)
+        c = self._compiler_with(
+            lvl1="joseki;opening",
+            lvl2="$lvl1;sabaki",
+            lvl3="$lvl2;moyo",
+        )
+        dnf = c._expand_to_dnf(c._parse_query("$lvl3"))
+        pos_sets = {frozenset(d["pos"]) for d in dnf}
+        assert pos_sets == {
+            frozenset({"joseki"}),
+            frozenset({"opening"}),
+            frozenset({"sabaki"}),
+            frozenset({"moyo"}),
+        }
 
 
-# ─── compile_to_subquery — error paths ────────────────────────────────────────
+# ─── Smoke cases T1-T6 (old-grammar regression-equivalent) ────────────────────
 
-class TestCompileToSubqueryErrors:
-    def test_empty_expression_raises(self):
-        """DNF-7: An empty tag expression has no meaningful query."""
-        c = TagDSLCompiler()
-        with pytest.raises(PipelineDSLError):
-            c.compile_to_subquery("")
 
-    def test_whitespace_only_expression_raises(self):
-        c = TagDSLCompiler()
-        with pytest.raises(PipelineDSLError):
-            c.compile_to_subquery("   ")
+class TestStatsDocSmokeCases:
+    """T1-T6: simple expressions that compile under both the old and
+    new grammars. Verifies arc 2 doesn't regress arc 1 behaviour at
+    the unit level. SQL execution is exercised in tier-2 integration.
+    """
 
-    def test_negation_in_definition_raises_during_compile(self):
-        """DNF-4: compile_to_subquery must surface the negation-in-def error."""
-        c = TagDSLCompiler()
-        with pytest.raises(PipelineDSLError, match=r"Negation not allowed"):
-            c.compile_to_subquery("$X :- attack;~defense. $X")
+    def test_T1_single_concrete_tag(self):
+        stmt = TagDSLCompiler().compile_to_subquery("volatile")
+        assert stmt is not None
 
-    def test_forward_reference_raises_during_compile(self):
-        """DNF-5: referencing an undefined virtual tag raises PipelineDSLError."""
-        c = TagDSLCompiler()
-        with pytest.raises(PipelineDSLError):
-            c.compile_to_subquery("$B :- $A. $A :- x. $B")
+    def test_T2_simple_conjunction(self):
+        stmt = TagDSLCompiler().compile_to_subquery("joseki, shape")
+        assert stmt is not None
 
-    def test_unknown_virtual_tag_in_query_raises(self):
-        c = TagDSLCompiler()
-        with pytest.raises(PipelineDSLError, match=r"\$ghost"):
-            c.compile_to_subquery("$ghost")
+    def test_T3_simple_negation(self):
+        stmt = TagDSLCompiler().compile_to_subquery("joseki, ~shape")
+        assert stmt is not None
 
-    def test_full_pipeline_valid_expression_does_not_raise(self):
-        """
-        Smoke test: a well-formed expression must compile without error.
-        We do not execute the SQL — we only verify that compilation succeeds.
-        """
-        c = TagDSLCompiler()
-        stmt = c.compile_to_subquery("$fight :- attack;defense. $fight,~contact_play")
+    def test_T4_simple_disjunction(self):
+        stmt = TagDSLCompiler().compile_to_subquery("joseki; shape")
+        assert stmt is not None
+
+    def test_T5_three_way_disjunction(self):
+        stmt = TagDSLCompiler().compile_to_subquery("joseki;opening;moyo")
+        assert stmt is not None
+
+    def test_T6_conjunction_with_negation_three_terms(self):
+        stmt = TagDSLCompiler().compile_to_subquery("shape, technical, ~volatile")
         assert stmt is not None
 
 
-# ─── SQL Structure Tests ──────────────────────────────────────────────────────
-# These tests compile Select objects and inspect the generated SQL string.
-# No database required.
+# ─── SQL structure smoke (preserved from arc 1) ───────────────────────────────
+
 
 class TestCompiledSQLStructure:
+    """Inspect the compiled SQL string for structural properties. No
+    database — just structural assertions about the emitted SQL.
+    """
+
     @staticmethod
     def _sql(stmt) -> str:
-        """Render a SQLAlchemy statement to a SQL string without a dialect."""
         return str(stmt.compile(compile_kwargs={"literal_binds": True}))
 
     def test_positive_and_generates_having_clause(self):
-        """
-        A positive AND query (attack,hard) must produce a HAVING COUNT == 2
-        clause to ensure both tags are present on the same card.
-
-        Without HAVING, a card with only 'attack' would incorrectly match.
-        """
-        c = TagDSLCompiler()
-        stmt = c.compile_to_subquery("attack,hard")
-        sql = self._sql(stmt)
-        assert "HAVING" in sql.upper(), (
-            "AND semantics require a HAVING count() == N clause"
-        )
+        stmt = TagDSLCompiler().compile_to_subquery("attack,hard")
+        assert "HAVING" in self._sql(stmt).upper()
 
     def test_single_positive_tag_generates_having_count_1(self):
-        """
-        A single-tag query must still use HAVING COUNT == 1.
-        This prevents phantom matches from duplicate card_tag rows.
-        """
-        c = TagDSLCompiler()
-        stmt = c.compile_to_subquery("attack")
-        sql = self._sql(stmt)
-        assert "HAVING" in sql.upper()
+        stmt = TagDSLCompiler().compile_to_subquery("attack")
+        assert "HAVING" in self._sql(stmt).upper()
 
     def test_negation_only_query_generates_except_or_not_in(self):
-        """
-        ~snark: must generate an EXCEPT or NOT IN construct.
-        The pos_query is SELECT all cards; neg_query selects cards with snark.
-        The result is all cards minus those with snark.
-        """
-        c = TagDSLCompiler()
-        stmt = c.compile_to_subquery("~snark")
-        sql = self._sql(stmt)
-        assert "EXCEPT" in sql.upper() or "NOT IN" in sql.upper(), (
-            "Negation-only query must use EXCEPT or NOT IN to exclude tagged cards"
-        )
+        stmt = TagDSLCompiler().compile_to_subquery("~snark")
+        sql = self._sql(stmt).upper()
+        assert "EXCEPT" in sql or "NOT IN" in sql
 
     def test_or_query_generates_union(self):
-        """
-        attack;defense must generate UNION ALL (or UNION) of two subqueries.
-        """
-        c = TagDSLCompiler()
-        stmt = c.compile_to_subquery("attack;defense")
-        sql = self._sql(stmt)
-        assert "UNION" in sql.upper(), (
-            "OR semantics must produce a UNION of subqueries"
-        )
+        stmt = TagDSLCompiler().compile_to_subquery("attack;defense")
+        assert "UNION" in self._sql(stmt).upper()
 
     def test_virtual_tag_expansion_generates_union_of_concrete_tags(self):
-        """
-        $fight :- attack;defense. $fight
-        Must expand to a UNION of two queries: one for 'attack', one for 'defense'.
-        """
-        c = TagDSLCompiler()
-        stmt = c.compile_to_subquery("$fight :- attack;defense. $fight")
+        stmt = TagDSLCompiler().compile_to_subquery(
+            "$fight :- attack;defense. $fight"
+        )
         sql = self._sql(stmt)
         assert "UNION" in sql.upper()
-        # Both concrete tag names must appear in the SQL.
         assert "attack" in sql
         assert "defense" in sql
 
     def test_having_count_matches_number_of_required_positive_tags(self):
-        """
-        attack,hard,opening (3 tags) → HAVING count(...) == 3.
-        """
-        c = TagDSLCompiler()
-        stmt = c.compile_to_subquery("attack,hard,opening")
+        stmt = TagDSLCompiler().compile_to_subquery("attack,hard,opening")
         sql = self._sql(stmt)
-        # The number 3 must appear in a HAVING clause context.
         assert "3" in sql and "HAVING" in sql.upper()
 
 
-# ─── Closed-defect regressions ────────────────────────────────────────────────
-# Both D-7 and D-8 documented silent-coercion failures at the
-# `compile_to_subquery` boundary. ADR-0002 closed them: today, the
-# malformed inputs raise loudly. These tests pin the fail-loud
-# behaviour so a future regression that re-introduces the silence
-# would fail here.
+# ─── Closed-defect regressions (D-7 and D-8 from the pre-release sweep) ──────
+
 
 class TestClosedSilentFailures:
-    def test_D7_definition_as_last_statement_now_raises(self):
-        """
-        D-7 fix regression: ``compile_to_subquery("$X :- a")`` was
-        previously treated as a query expression and silently produced
-        a select that could never match. Today the parser raises
-        ``PipelineDSLError`` — the unknown-virtual-tag check catches
-        the bare ``$X`` symbol with no preceding definition.
+    """Both D-7 and D-8 documented silent-coercion failures at the
+    ``compile_to_subquery`` boundary in the pre-release sweep.
+    ADR-0002 closed them; today the malformed inputs raise loudly.
+    These tests pin the fail-loud behaviour so a future regression
+    that re-introduces the silence would fail here.
+    """
 
-        A future refactor that reintroduces a silent path here would
-        fail this test.
+    def test_D7_definition_as_last_statement_now_raises(self):
+        """D-7: ``compile_to_subquery("$X :- a")`` is structurally a
+        definition with no query. The compiler treats the single
+        statement as the query, the parser raises Unknown-virtual
+        because ``$X`` was never defined.
         """
-        c = TagDSLCompiler()
         with pytest.raises(PipelineDSLError):
-            c.compile_to_subquery("$X :- a")
+            TagDSLCompiler().compile_to_subquery("$X :- a")
 
     def test_D8_empty_virtual_tag_compile_now_raises(self):
+        """D-8: ``$X :- . $X`` previously produced a select that
+        silently matched no rows. Today the empty virtual produces a
+        zero-conjunction expansion, and the compile boundary's
+        defensive guard raises with "no conjunctions".
         """
-        D-8 fix regression: ``compile_to_subquery("$X :- . $X")``
-        previously produced a select that silently matched no rows.
-        Today the compiler raises
-        ``PipelineDSLError("Tag expression produced no conjunctions")``
-        because the empty virtual definition makes
-        ``_expand_conjunction`` return zero conjunctions, and the
-        compile boundary's defensive guard catches the empty result.
-        """
-        c = TagDSLCompiler()
         with pytest.raises(PipelineDSLError, match=r"no conjunctions"):
-            c.compile_to_subquery("$X :- . $X")
-
-    def test_D8_empty_virtual_tag_unit_level_returns_empty(self):
-        """
-        Unit-level documentation: ``_expand_conjunction`` returns
-        ``[]`` when a positive virtual tag expands to an empty set.
-        This is genuine algebra (no concrete tag to AND in), not a
-        silent failure — the load-bearing safety belongs at the
-        compile boundary, where the empty result is caught and raised
-        (see ``test_D8_empty_virtual_tag_compile_now_raises``).
-        """
-        c = TagDSLCompiler()
-        c.definitions["empty"] = set()
-        conj = {"pos": {"$empty"}, "neg": set()}
-        result = c._expand_conjunction(conj)
-        assert result == []
+            TagDSLCompiler().compile_to_subquery("$X :- . $X")

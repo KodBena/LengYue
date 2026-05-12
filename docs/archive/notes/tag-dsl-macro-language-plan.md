@@ -1,11 +1,25 @@
 # Tag-DSL Macro Language — Design Note
 
-**Status:** `design-note: planned`. No implementation work has
-started. Promoted on 2026-05-12 from `docs/TODO.md`'s "Future
-projects" section, where the gap had been captured but the
-analysis had outgrown the TODO format. This document is the
-canonical handle for the work; the TODO entry now redirects
-here.
+**Status:** `design-note: implemented` — landed 2026-05-12.
+Closing PRs:
+
+- #197 — arc 1 (file split along import boundary; closes the
+  long-carrying `reflection.md` rough-edge).
+- #198 — arc 2 (macro language, three caps, AST, substitutive
+  expander) plus the T10 syntax discrepancy resolution
+  (`$attack :- $tactic, ~$blocked` with comma).
+- #199 — user-facing reference (`backend/docs/tag-dsl.md`) and
+  the interactive REPL (`backend/scripts/tag_dsl_repl.py`).
+
+Closing worklog:
+`docs/worklog/2026-05-12-tag-dsl-macro-language.md`.
+
+The body below is the planning-time record retained per the
+doc-graph genre lifecycle: the worklog carries the "what actually
+shipped" detail (file map, decisions taken at authoring time vs.
+the plan's proposals, the empirical discrepancy that drove the
+comma-syntax resolution). Read this for the design intent; read
+the worklog for the implementation outcome.
 
 **Genre:** Backend design note — pure-domain refactor of
 `backend/domain/tag_dsl.py`, with implications for the deck
@@ -60,15 +74,16 @@ realistic taxonomy work:
 definition like:
 
 ```
-$attack :- $tactic;~$blocked
+$attack :- $tactic, ~$blocked
 ```
 
-(intent: "everything in tactic except blocked") is unrepresentable.
-The user has to inline the `~$blocked` exclusion at every query
-site that uses `$attack`. As the taxonomy grows, this inversion
-of definition and use creates a class of subtle drift bugs —
-adding a new excluded tag requires sweeping every query, not
-updating one definition.
+(intent: "everything in tactic except blocked" — comma is AND in
+the tag DSL grammar) is unrepresentable. The user has to inline
+the `~$blocked` exclusion at every query site that uses
+`$attack`. As the taxonomy grows, this inversion of definition
+and use creates a class of subtle drift bugs — adding a new
+excluded tag requires sweeping every query, not updating one
+definition.
 
 ### Gap 2 — Recursion is set-flat, not structural
 
@@ -194,32 +209,40 @@ $tactic, shape                          # query: tactic AND shape
 After the change (new):
 
 ```
-$attack :- $tactic;~$blocked.          # negation in definition
-$attack, shape                          # query: ($tactic;~$blocked), shape
+$attack :- $tactic, ~$blocked.         # negation in definition; comma = AND
+$attack, shape                          # query: ($tactic, ~$blocked), shape
 ```
 
 The macro expander rewrites `$attack` at the query site,
 producing the effective query:
 
 ```
-($tactic;~$blocked), shape
+($tactic, ~$blocked), shape
 ```
 
 Which then expands `$tactic`:
 
 ```
-(attack;defense;invasion;~$blocked), shape
+((attack;defense;invasion), ~$blocked), shape
 ```
 
-Which then expands `$blocked` (a flat-set definition, no
-negation inside):
+Which then expands `$blocked` (a multi-member definition):
 
 ```
-(attack;defense;invasion;~memorisation_trap;~stale), shape
+((attack;defense;invasion), ~(memorisation_trap;stale)), shape
 ```
 
-The DNF normalisation runs on the fully-expanded grammar and
-emits SQL as today.
+The negation of the multi-member virtual is then De Morgan'd
+into a conjunction of negations:
+
+```
+((attack;defense;invasion), ~memorisation_trap, ~stale), shape
+```
+
+DNF normalisation distributes the inner disjunction across the
+outer conjunction, yielding three conjunctions each containing
+shape AND one of attack/defense/invasion AND ~memorisation_trap
+AND ~stale. SQL emission UNIONs the three.
 
 ### Why this composes with the existing query parser
 
