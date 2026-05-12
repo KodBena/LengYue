@@ -54,20 +54,11 @@ async def run_tag_query(session, expression: str) -> set[int]:
 # ─── T10: Negation in definition ──────────────────────────────────────────────
 
 
-async def test_T10_negation_in_definition_AND_form(seeded_session):
-    """T10 (conjunctive form): ``$attack :- $tactic, ~$blocked``
-    means ``$tactic AND NOT $blocked`` under clean grammar (`,` =
-    AND). This is the syntax that expresses the design note's
-    stated user intent — "everything in tactic except blocked".
-
-    The design note's worked example uses ``$attack :- $tactic;~$blocked``
-    (semicolon), which under clean grammar means ``$tactic OR NOT
-    $blocked`` — a semantically different and far less restrictive
-    expression. See the separate ``test_T10_negation_in_definition_OR_form``
-    test for that variant. The discrepancy between the design
-    note's syntax (semicolon) and its parenthetical stated intent
-    ("except") is a documentation inconsistency surfaced during
-    arc 2 implementation.
+async def test_T10_negation_in_definition(seeded_session):
+    """T10: ``$attack :- $tactic, ~$blocked`` means
+    ``$tactic AND NOT $blocked`` (`,` = AND). The canonical
+    "everything in tactic except blocked" example from the design
+    note.
 
     Fixture: punish/fight/sabaki are the "tactic" tags; volatile is
     the "blocked" tag.
@@ -101,24 +92,26 @@ async def test_T10_negation_in_definition_AND_form(seeded_session):
     assert matched == {ids["A"], ids["C"]}
 
 
-async def test_T10_negation_in_definition_OR_form(seeded_session):
-    """T10 (disjunctive form): ``$attack :- $tactic; ~$blocked``
-    means ``$tactic OR NOT $blocked`` under clean grammar (`;` =
-    OR). This is the literal reading of the design note's worked
-    example syntax (which uses semicolon).
+async def test_semicolon_negation_in_definition_is_disjunctive(seeded_session):
+    """Literal-grammar documentation: ``$x :- $a; ~$b`` means
+    ``$a OR NOT $b`` (`;` = OR). This is NOT the T10 "except"
+    semantics — that requires the comma form (``$x :- $a, ~$b``).
 
-    Match set is much wider than the AND form: a card matches if
-    it has any $tactic member OR if it simply lacks $blocked
-    members.
+    Documented here because the design note's worked example
+    historically used semicolon syntax with the parenthetical
+    intent "tactic except blocked" — an authoring inconsistency
+    resolved 2026-05-12 in favour of the comma form for the
+    intent semantics. The semicolon form remains valid grammar
+    and is exercised here to pin its literal disjunctive meaning.
 
-    Fixture (same as the AND form):
-      A — punish (no volatile)        → matches ($tactic) AND (no $blocked)
+    Fixture (same as the T10 AND-form):
+      A — punish (no volatile)        → matches ($tactic-member OR ~volatile)
       B — fight, volatile             → matches ($tactic, fight)
-      C — sabaki                      → matches ($tactic) AND (no $blocked)
-      D — opening                     → matches (no $blocked)
+      C — sabaki                      → matches ($tactic-member OR ~volatile)
+      D — opening                     → matches (~volatile)
       E — punish, volatile            → matches ($tactic, punish)
 
-    All five match.
+    All five match — the OR form is much wider than the AND form.
     """
     session, builder = seeded_session
     ids = await builder.build({"A": None, "B": None, "C": None, "D": None, "E": None})
@@ -137,8 +130,8 @@ async def test_T10_negation_in_definition_OR_form(seeded_session):
         session,
         "$tactic :- punish;fight;sabaki. "
         "$blocked :- volatile. "
-        "$attack :- $tactic;~$blocked. "
-        "$attack",
+        "$or_form :- $tactic;~$blocked. "
+        "$or_form",
     )
     assert matched == {ids["A"], ids["B"], ids["C"], ids["D"], ids["E"]}
 

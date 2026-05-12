@@ -60,15 +60,16 @@ realistic taxonomy work:
 definition like:
 
 ```
-$attack :- $tactic;~$blocked
+$attack :- $tactic, ~$blocked
 ```
 
-(intent: "everything in tactic except blocked") is unrepresentable.
-The user has to inline the `~$blocked` exclusion at every query
-site that uses `$attack`. As the taxonomy grows, this inversion
-of definition and use creates a class of subtle drift bugs —
-adding a new excluded tag requires sweeping every query, not
-updating one definition.
+(intent: "everything in tactic except blocked" — comma is AND in
+the tag DSL grammar) is unrepresentable. The user has to inline
+the `~$blocked` exclusion at every query site that uses
+`$attack`. As the taxonomy grows, this inversion of definition
+and use creates a class of subtle drift bugs — adding a new
+excluded tag requires sweeping every query, not updating one
+definition.
 
 ### Gap 2 — Recursion is set-flat, not structural
 
@@ -194,32 +195,40 @@ $tactic, shape                          # query: tactic AND shape
 After the change (new):
 
 ```
-$attack :- $tactic;~$blocked.          # negation in definition
-$attack, shape                          # query: ($tactic;~$blocked), shape
+$attack :- $tactic, ~$blocked.         # negation in definition; comma = AND
+$attack, shape                          # query: ($tactic, ~$blocked), shape
 ```
 
 The macro expander rewrites `$attack` at the query site,
 producing the effective query:
 
 ```
-($tactic;~$blocked), shape
+($tactic, ~$blocked), shape
 ```
 
 Which then expands `$tactic`:
 
 ```
-(attack;defense;invasion;~$blocked), shape
+((attack;defense;invasion), ~$blocked), shape
 ```
 
-Which then expands `$blocked` (a flat-set definition, no
-negation inside):
+Which then expands `$blocked` (a multi-member definition):
 
 ```
-(attack;defense;invasion;~memorisation_trap;~stale), shape
+((attack;defense;invasion), ~(memorisation_trap;stale)), shape
 ```
 
-The DNF normalisation runs on the fully-expanded grammar and
-emits SQL as today.
+The negation of the multi-member virtual is then De Morgan'd
+into a conjunction of negations:
+
+```
+((attack;defense;invasion), ~memorisation_trap, ~stale), shape
+```
+
+DNF normalisation distributes the inner disjunction across the
+outer conjunction, yielding three conjunctions each containing
+shape AND one of attack/defense/invasion AND ~memorisation_trap
+AND ~stale. SQL emission UNIONs the three.
 
 ### Why this composes with the existing query parser
 
