@@ -274,6 +274,29 @@ status — ask for it before proceeding. ADR-0004 makes this
 non-optional under partial visibility; the same posture applies
 when context is simply missing rather than partially visible.
 
+When investigating a cross-boundary bug — frontend↔backend,
+SPA↔proxy, or any case where the symptom surfaces in one
+sub-project but the cause may live in another — the collaborator
+should ask for *runtime visibility* into the non-local side
+before drawing conclusions from wire-only observation. The proxy's
+structured logging (`proxy/docs/logging.md`) is the canonical
+channel; the backend's `pytest -vv` against a failing repro is
+the analog there; the frontend's browser DevTools console is the
+analog locally. Operating blind to the non-local side and
+inferring its behaviour from wire output is the failure mode
+ADR-0002 applied to debugging forbids — the alternative is a
+fragmentary diagnosis that may misidentify the failure surface
+(as the 2026-05-12 adaptive-deeper-enrichment investigation did
+before the user surfaced the visibility gap; see
+`docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md` §3
+for the diagnosis arc).
+
+This composes with ADR-0002 the same way the rest of the
+"asking before assuming" rule does: fail-loudly applied to the
+collaborator's epistemic state. The absence of a log channel is
+itself information, and operating without surfacing that absence
+is the silent failure the tenet forbids.
+
 ## Authoring posture
 
 Roadmap before code. Contracts and types before implementation.

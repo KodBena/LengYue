@@ -317,6 +317,9 @@ compose with.
 
 ### 5.1 Wire-schema reference doc
 
+**Implementation status:** landed as `docs/wire-schemas.md` (umbrella
+PR #204).
+
 **Spirit.** A single document under `docs/` whose role is to
 describe every wire shape that crosses a sub-project boundary in
 the LengYue system — the SPA↔proxy `analysis_config` schema, the
@@ -341,6 +344,11 @@ root. Sections per shape; each section quotes the producer's
 source as authoritative and links the consumer(s).
 
 ### 5.2 CLAUDE.md amendment — "ask for runtime visibility"
+
+**Implementation status:** landed in umbrella `CLAUDE.md`'s
+"Asking before assuming" section. The prose below is preserved as
+the originating proposal; minor wording variation may exist in the
+final landed paragraph.
 
 **Spirit.** Add to the umbrella `CLAUDE.md`'s "Asking before
 assuming" section a paragraph naming runtime visibility (logs,
