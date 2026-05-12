@@ -18,11 +18,13 @@ against it.
   marked sandbox-only stress cases that should NOT be run
   against a production-shaped database.
 
-**Snapshot date:** 2026-05-12. The numerics below reflect the
-authoring user's local `backend/cards.db` at that timestamp and
-will drift as cards are added / removed; the queries that
-produced them are embedded inline so a future contributor can
-re-run on updated data.
+**Snapshot date:** 2026-05-12. The numerics below reflect
+`backend/samples/cards.sample.db` (the tracked sample database
+shipped with the repo) at that timestamp, **after the
+path-tag-PII cleanup of the same day** — see "Note on the
+2026-05-12 cleanup" at the end of Part 1. The queries that
+produced these numbers are embedded inline so a future
+contributor can re-run on updated data.
 
 **Genre:** Test-reference. Distinct from a design note (which
 describes intent) — this carries the empirical inputs the
@@ -46,15 +48,15 @@ SELECT (SELECT COUNT(*) FROM card)            AS cards,
 
 | Metric                          | Value  |
 |---------------------------------|--------|
-| Total cards                     | 7,873  |
-| Total tags                      | 290    |
-| `card_tag` rows                 | 10,311 |
-| Cards with ≥ 1 tag              | 6,490  |
-| Cards untagged                  | 1,383  |
+| Total cards                     | 7,829  |
+| Total tags                      | 43     |
+| `card_tag` rows                 | 9,251  |
+| Cards with ≥ 1 tag              | 6,404  |
+| Cards untagged                  | 1,425  |
 | Distinct users                  | 30     |
 
-The avg tagged card carries ≈ 1.59 tags (10311 / 6490). Untagged
-cards are 17.6% of the corpus.
+The avg tagged card carries ≈ 1.44 tags (9251 / 6404). Untagged
+cards are 18.2% of the corpus.
 
 ## Tag cardinality — the long-tail split
 
@@ -69,29 +71,28 @@ GROUP BY band ORDER BY MIN(n);
 
 | Cards-per-tag band | n_tags |
 |--------------------|--------|
-| 1                  | 106    |
-| 2-5                | 114    |
-| 6-20               | 33     |
-| 21-100             | 18     |
+| 1                  | 7      |
+| 2-5                | 5      |
+| 6-20               | 5      |
+| 21-100             | 7      |
 | 101-500            | 10     |
 | 500+               | 6      |
 
-**85% of the tag namespace is `source:`-prefixed file-path
-tags** (247 of 290) — auto-tagged from the SGF source. These
-form the bulk of the 1-card and 2-5 card bands. Only ~43 tags
-are **semantic** (topical / evaluation-shape) and these are
-where the interesting taxonomy lives.
+**The namespace is now entirely semantic** — every tag is a
+topical or evaluation-shape marker the user authored. The
+long-tail single-card and few-card bands are real-but-rare
+content categories (`defense` at 7 cards, `attack` at 17,
+`kata` at 16, etc.), not artefacts of an auto-tag pipeline.
 
 The six heavy hitters (`> 500` cards each) are listed below;
 they're the natural anchors for virtual-tag definitions because
 they appear frequently and combine meaningfully.
 
-## Top semantic tags (excluding `source:`)
+## Top tags
 
 ```sql
 SELECT t.name, COUNT(*) AS n_cards
 FROM card_tag ct JOIN tag t ON t.id = ct.tag_id
-WHERE t.name NOT LIKE 'source:%'
 GROUP BY t.id ORDER BY n_cards DESC LIMIT 20;
 ```
 
@@ -146,23 +147,22 @@ GROUP BY tags_per_card ORDER BY MIN(n);
 
 | tags_per_card | n_cards |
 |---------------|---------|
-| 0             | 1,383   |
-| 1             | 3,484   |
-| 2             | 2,291   |
-| 3             | 623     |
-| 4-5           | 92      |
+| 0             | 1,425   |
+| 1             | 4,075   |
+| 2             | 1,863   |
+| 3             | 418     |
+| 4-5           | 48      |
 
 No card has > 5 tags. The mode is 1 tag per card; the median is
 1 too.
 
-## Top tag co-occurrences (semantic tags only)
+## Top tag co-occurrences
 
 ```sql
 SELECT t1.name AS tag_a, t2.name AS tag_b, COUNT(*) AS co
 FROM card_tag ct1 JOIN card_tag ct2
   ON ct1.card_id = ct2.card_id AND ct1.tag_id < ct2.tag_id
 JOIN tag t1 ON t1.id = ct1.tag_id JOIN tag t2 ON t2.id = ct2.tag_id
-WHERE t1.name NOT LIKE 'source:%' AND t2.name NOT LIKE 'source:%'
 GROUP BY ct1.tag_id, ct2.tag_id ORDER BY co DESC LIMIT 15;
 ```
 
@@ -184,11 +184,37 @@ GROUP BY ct1.tag_id, ct2.tag_id ORDER BY co DESC LIMIT 15;
 | fight      | technical | 59       |
 | judgement  | volatile  | 56       |
 
-`volatile` dominates co-occurrence with most semantic tags —
+`volatile` dominates co-occurrence with most other tags —
 again, evaluation-shape marker. The strongest non-`volatile`
 co-occurrences are `shape + technical` (103), `shape + judgement`
 (97), `shape + fight` (75), `joseki + shape` (72) — these are
 the natural virtual-tag composition substrates.
+
+## Note on the 2026-05-12 cleanup
+
+Before the cleanup of 2026-05-12, the tag namespace contained
+247 `source:`-prefixed file-path tags (85% of 290 total) —
+artefacts of a proof-of-concept SGF-auto-tagging pipeline that
+captured the full local filesystem path of each imported SGF as
+a tag. Those tags carried personally-identifying content
+(username in `$HOME`, opponent names embedded in SGF filenames,
+the user's folder organisation) and the sample database
+shipped via git carried that content publicly.
+
+The PoC auto-tag path was already retired in code by the time
+the leak was noticed; card provenance is now tracked via the
+`card_source` table, not via tag-prefix conventions. The
+cleanup removed all 247 source-prefixed tags via cascade-delete
+from the `tag` table, dropping 1,060 corresponding `card_tag`
+rows and reclaiming roughly 56 KB after `VACUUM`. **History
+rewrite was explicitly declined** — the leaked content remains
+in repository history; the cleanup commit just stops the
+bleeding for future readers.
+
+If a future contributor finds source-prefixed tags resurfacing
+in the database, that's a regression — the auto-tag code path
+is gone and only manual user tagging should be reaching the
+`tag` table.
 
 ---
 
@@ -765,8 +791,9 @@ Triggers for refresh:
 Otherwise, this document is fine to age. The tag names will
 stay stable (the user's working taxonomy is the taxonomy); the
 counts will drift but the **shape** of the distribution
-(long-tail, source: dominance, top-six heavy hitters, ≤ 5
-tags per card) is unlikely to invert.
+(top-six heavy hitters dominating, a tapering mid-tail, ≤ 5
+tags per card, `volatile` as the dominant co-occurrence
+partner) is unlikely to invert.
 
 ## Cross-references
 
