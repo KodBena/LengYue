@@ -377,20 +377,40 @@ about either. This separation is what makes KataProxy's two
 extension surfaces (Transformers and SessionMiddleware) honest
 abstractions rather than convenience APIs.
 
-**Four operational roles**: LEAF (engine-bound process), RELAY
-(public-facing aggregator over many LEAFs), ECHO (test/replay),
-REDIRECT (compat shim). For local development, a single LEAF on
-`127.0.0.1:41948` is sufficient — and is exactly what the
-frontend's default config expects (matching `proxy/run_leaf.sh`'s
-default). For institutional deployment, the RELAY-over-LEAF
-pattern is the production shape.
+**Five operational roles**: LEAF (engine-bound process), RELAY
+(public-facing aggregator over many LEAFs), SELECTOR (per-query
+dispatch against a labelled upstream pool, added in v1.0.15),
+ECHO (test/replay), REDIRECT (compat shim). For local
+development, a single LEAF on `127.0.0.1:41948` is sufficient —
+and is exactly what the frontend's default config expects
+(matching `proxy/run_leaf.sh`'s default). For institutional
+deployment, the RELAY-over-LEAF pattern is the production shape;
+SELECTOR-over-LEAFs is the variant when end-users should pick the
+analyzing model per query (the SPA's model-selector dropdown).
 
 The proxy is independently developed and intended for use beyond
 gogui — go schools, online go services (FoxWQ, Tygem, etc.), and
 research groups sharing analysis machines. As soon as it gains a
 second consumer, its wire contract becomes a multi-party API; a
 typed schema publication (analogous to the backend's OpenAPI)
-will become important at that point.
+will become important at that point. The first step toward that
+shipped as `docs/wire-schemas.md` (umbrella PR #204) — a
+descriptive reference for every wire shape that crosses a
+sub-project boundary in the LengYue system, with the producer's
+source named as canonical authority.
+
+The current pin is **v1.0.21**. The recent arc since v1.0.20 (the
+structured-logging release) bundles two independent threads: a
+defensive correction in `adaptive_reevaluate`'s sub-query
+enrichment path (deeper-analysis state-fns reading
+`rootInfo.visits` now update reliably after deepening), and the
+identity-type branding migration that gives the four namespace
+boundaries (`ClientId`, `InternalId`, `CanonicalId`, `WireId`)
+distinct branded types via `typing.NewType`. The migration ships
+with a project-wide `mypy --strict` pass and a CI gate at
+`proxy/.github/workflows/typecheck.yml` that guards against
+future brand-confusion regressions. See the proxy's v1.0.21 tag
+annotation for the full per-release changelog.
 
 For the proxy's own architecture, framework, and operational
 documentation, see `proxy/README.md`, `proxy/FRAMEWORK.md`, and
@@ -653,10 +673,10 @@ Schema is created on first run via SQLAlchemy's
 `metadata.create_all`. For existing installs, see the migration
 scripts in `backend/scripts/`.
 
-**Proxy.** See `proxy/README.md`. The four roles (LEAF / RELAY /
-ECHO / REDIRECT) are env-var-driven; built-in auth/TLS is
-deliberately absent (with documented alternatives at the network
-layer).
+**Proxy.** See `proxy/README.md`. The five roles (LEAF / RELAY /
+SELECTOR / ECHO / REDIRECT) are env-var-driven; built-in auth/TLS
+is deliberately absent (with documented alternatives at the
+network layer).
 
 **Cross-team coordination.** Inter-subproject communications
 during the pre-release sweep (item 34b in particular) revealed
