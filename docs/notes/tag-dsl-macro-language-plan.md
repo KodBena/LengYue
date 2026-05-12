@@ -509,25 +509,42 @@ Each error message names the cap, the offending count, and the
 virtual at fault.
 
 **Test strategy.** Per `backend/CLAUDE.md`'s tiered testing
-posture:
+posture, **driven by the test-expression bank in
+`docs/card-tag-stats-representative.md`** (22 named test cases
++ 5 sandbox-only stress cases, each with predicted cardinality
+computed from the snapshot database, and a reproduction harness
+sketch).
 
 **Tier 1 — pure unit (`tests/unit/`).** The grammar parser and
-macro expander are pure functions over plain inputs. Coverage
-target: every grammar production (positive disjunction,
-negation in definition, virtual reference through one level,
-through multiple levels, parentheses if admitted per Open
-Question #1), every cap (M / K / D exceeded with concrete
-example inputs), every error path. **Failure-mode-first**: cap
-violations before happy-path expansion, per the testing-arc
-discipline named in `docs/notes/test-coverage-2026-05.md`.
+macro expander are pure functions over plain inputs. The
+stats-doc cases §2.1–§2.5 are the parametrised coverage set:
+every grammar production (positive disjunction, negation in
+definition, virtual reference at depths 1–3, parentheses), every
+cap (M / K / D exceeded with the concrete inputs spelled out in
+T18–T22), every error path (T21 unknown-virtual, T22 forward-
+declaration violation). **Failure-mode-first**: cap violations
+before happy-path expansion, per the testing-arc discipline
+named in `docs/notes/test-coverage-2026-05.md`.
 
 **Tier 2 — adapter integration (`tests/integration/`).** The
 SQL emission's contract is "given an expanded DNF, produce a
 SQLAlchemy `Select` whose result rows match the expected tag
-membership semantics." Existing integration tests against
-`TagFilterRepository` exercise this; arc 2 adds tests for the
-new expressions (negation-in-definitions, deep references)
-producing correct SQL against a seeded `card_tag` fixture.
+membership semantics." The stats-doc §2.1–§2.3 cases carry
+**precomputed expected cardinalities** against the snapshot
+database; the integration harness asserts result-count
+equality. Existing integration tests against
+`TagFilterRepository` continue to cover the underlying SQL
+shape; arc 2 adds the new-grammar cases (T10–T14) producing
+correct SQL against the seeded fixture.
+
+**Sandbox-only cases.** §2.6 of the stats doc enumerates five
+stress cases (S1–S5) explicitly fronted by a sandbox-only
+warning. **These must NOT execute against the production-
+shaped database** — they are designed to refuse via the cap
+guards; a bug that lets one through would cause memory /
+runtime exhaustion at the SQL layer. The reproduction harness
+sketch at the end of the stats doc shows how to scope these
+to an in-memory SQLite test fixture.
 
 **Definition-of-done.**
 
@@ -549,50 +566,53 @@ producing correct SQL against a seeded `card_tag` fixture.
 
 ---
 
-## Open questions
+## Resolved questions
 
-1. **Parentheses in the grammar.** The current grammar uses
-   precedence (`,` binds tighter than `;`) implicitly. Should
-   the new grammar admit parentheses for explicit grouping
-   (`($a,$b);$c`)? Pro: necessary for non-trivial macro
-   composition. Con: adds parser complexity. Recommendation:
-   yes, admit; the parser cost is small and the expressiveness
-   gain is real.
+All open questions have been resolved by the project author
+(2026-05-12). The resolutions are recorded here as ledger
+entries rather than open questions; future revisits to this
+note should treat them as decided unless the underlying premise
+changes.
 
-2. **Per-user definition catalogue.** Today every pipeline
-   carries its own definitions. A future "user-scoped virtual-
-   tag catalogue" would let definitions outlive a single deck
-   pipeline. **Out of scope for this arc** — the macro refactor
-   is purely structural; the catalogue question is a separate
-   tenancy + storage decision.
+1. **Parentheses in the grammar.** ✅ **Yes, admit them.** The
+   parser cost is small; the expressiveness gain is real;
+   non-trivial macro composition would be awkward without
+   them. The new grammar accepts `($a, $b); $c` and similar.
 
-3. **Macro expansion preview surface.** Should the backend
-   expose an endpoint like `POST /tag-dsl/expand` that takes
-   an expression and returns its fully-expanded form, for
-   client-side preview in the CardSetEditor? **Out of scope
-   for this arc** — the editor's existing compile-pass error
-   surface handles the immediate need; preview is a polish
-   feature that can land later.
+2. **Per-user definition catalogue.** 🔜 **Real and useful —
+   separately scheduled as a follow-up arc, not bundled
+   here.** Today every pipeline carries its own definitions;
+   the catalogue would let definitions outlive a single deck
+   pipeline. The author confirmed this is desirable but
+   carries its own tenancy + storage shape that wants its
+   own design pass. The macro-language refactor in this note
+   stays scoped to the per-pipeline definitions; the
+   catalogue work picks up after.
 
-4. **Cap defaults.** M = 1024, K = 256, D = 8 are starting
-   points. The first user-encountered cap failure should
-   inform tightening or relaxing. Should the caps be
-   user-configurable via environment variables, or hard-coded?
-   Recommendation: hard-coded initially, surface as registry
-   knobs only if a real workload demands it.
+3. **Macro expansion preview surface.** ❌ **Out of scope.**
+   The editor's existing compile-pass error surface handles
+   the immediate need; preview (`POST /tag-dsl/expand`) is a
+   polish feature that can land later if anyone asks.
 
-5. **Backwards-compat error messages.** The current
-   `_parse_definition` error "Negation not allowed in virtual
-   tag definitions" disappears in the new world. Should that
-   message-string compatibility matter? Recommendation: no —
-   it's a `PipelineDSLError`, callers catch the type, and the
-   message text is not part of the wire contract.
+4. **Cap defaults.** 🧷 **Hard-coded initially** at M = 1024,
+   K = 256, D = 8. Surface as registry knobs only if a real
+   workload demands it; first user-encountered cap failure
+   should inform tightening or relaxing.
 
-6. ~~**`reflection.md` rough-edge resolution.**~~ **Resolved.**
-   The rough-edge closure is **arc 1's definition-of-done item**,
-   not a side-effect of arc 2. The file split goes first, the
-   macro-language refactor follows on the clean baseline. See
-   the document header's "Two-arc shape" section and the
+5. **Backwards-compat error messages.** ❌ **No.** The author
+   states the principle explicitly: *backwards compatibility
+   with a broken feature is not a concern for us.* The
+   current `_parse_definition` error "Negation not allowed in
+   virtual tag definitions" disappears because the broken
+   restriction itself disappears — preserving the error
+   message would mean preserving the bug it described. The
+   exception class (`PipelineDSLError`) is what callers catch;
+   the message text is not part of any contract.
+
+6. **`reflection.md` rough-edge resolution.** ✅ **Resolved as
+   arc 1's definition-of-done.** The file split goes first,
+   the macro-language refactor follows on the clean baseline.
+   See the document header's "Two-arc shape" section and the
    per-arc execution detail above.
 
 ---
@@ -642,6 +662,13 @@ way, that's a worth-publishing rethink — file a sibling
 
 ## Cross-references
 
+- **`docs/card-tag-stats-representative.md`** — the
+  empirical-input deliverable that accompanies this design
+  note. Part 1 (statistics) snapshots the dev database shape
+  arc 2's tests run against; Part 2 (test expressions) is
+  the parametrised coverage set for both arcs. **The
+  reproduction-harness sketch at the end of that document is
+  the canonical starting point for arc 2's test suite.**
 - **`backend/domain/tag_dsl.py`** — the file this refactor
   targets.
 - **`docs/notes/reflection.md`** — "`domain/tag_dsl.py` is
