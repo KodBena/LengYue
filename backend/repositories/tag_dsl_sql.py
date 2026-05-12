@@ -8,34 +8,38 @@ that returns card ids satisfying the expression.
 Before the tag-DSL macro-language arc 1 split, the SQL emission
 lived in `domain/tag_dsl.py` alongside the parser, in violation of
 the Dependency Rule (`domain/` does not import SQLAlchemy). Arc 1
-relocates the SQL half here; the pure half stays in
-`domain/tag_dsl_grammar.py`. `domain/tag_dsl.py` becomes a thin
-facade re-exporting `TagDSLCompiler` from this module so existing
-call sites stay unchanged.
+relocated the SQL half here; the pure half lives in
+`domain/tag_dsl_grammar.py`. Arc 2 replaced the flat-set
+dereference inside the grammar with a substitutive macro expander
+operating over a small AST, plus three caps (K / D / M). The SQL
+emission itself is unchanged from arc 1 — it consumes the same
+`{pos: Set[str], neg: Set[str]}` DNF conjunction shape — but the
+orchestration in `compile_to_subquery` adapts to the new grammar
+contract: `_parse_query` now returns a `Disj` AST,
+`_expand_to_dnf` replaces the old `_expand_conjunction` loop, and
+the M cap fires here before any SQL is emitted.
 
 Surface
 -------
 `TagDSLCompiler(TagDSLGrammar)` is the class production code
-consumes. It inherits the parser state and the four grammar
-methods (`_split_statements`, `_parse_definition`, `_parse_query`,
-`_expand_conjunction`) from the base class and adds:
+consumes. It inherits the grammar state (`self.definitions`) and
+the new grammar methods (`_split_statements`,
+`_parse_definition`, `_parse_query`, `_expand_to_dnf`) from the
+base class and adds:
 
   - `compile_to_subquery(expression)`: top-level orchestration.
-    Splits statements, parses each definition, parses the query,
-    expands each conjunction, emits one `_conjunction_to_sql`
-    per expanded conjunction, and `UNION`s the result. Raises
-    `PipelineDSLError` on an empty expression or on a final-
-    statement expansion that yields zero conjunctions (the D-8
-    fail-loud guard).
+    Splits statements, parses each definition (K + D caps fire
+    inside), parses the query into a Disj, expands to DNF (D cap
+    fires inside), applies the M cap, emits one
+    `_conjunction_to_sql` per expanded conjunction, and `UNION`s
+    the result. Raises `PipelineDSLError` on an empty expression
+    or on a final-statement expansion that yields zero
+    conjunctions (the D-8 fail-loud guard).
   - `_conjunction_to_sql(conj)`: builds a single subquery for one
     concrete-only conjunction. Positive set: `card_tag JOIN tag`
     filtered on the positive tag names with
     `GROUP BY card_id HAVING COUNT(*) = len(pos)`; negative set
     (if present) `EXCEPT`-ed from the positive set.
-
-The subclass shape is what preserves bit-equal behaviour for the
-unit test suite, which calls the underscored grammar methods
-directly on `TagDSLCompiler` instances.
 
 Tenancy
 -------
@@ -78,11 +82,14 @@ class TagDSLCompiler(TagDSLGrammar):
             self._parse_definition(defn)
 
         query_expr = statements[-1]
-        conjunctions = self._parse_query(query_expr)
-
-        expanded_conjunctions = []
-        for conj in conjunctions:
-            expanded_conjunctions.extend(self._expand_conjunction(conj))
+        query_disj = self._parse_query(query_expr)
+        # `_expand_to_dnf` fires the M cap inline during distribution
+        # via a running-count guard — the cap kicks in before any
+        # large intermediate list materialises, so a pathological
+        # input (e.g. 5¹⁰ ≈ 9.77M conjunctions from the stats doc's
+        # S1 stress case) is refused without enumerating it. No
+        # post-DNF M check is needed at this layer.
+        expanded_conjunctions = self._expand_to_dnf(query_disj)
 
         subqueries = []
         for conj in expanded_conjunctions:
