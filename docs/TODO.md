@@ -325,76 +325,14 @@ under its original number rather than silently retired.
 
 ### Tag-DSL virtual-tag macro language `[backend]`
 
-The tag DSL (`backend/domain/tag_dsl.py`) is less expressive than
-its surface grammar suggests. Two specific gaps:
-
-1. **Negation is forbidden inside virtual-tag definitions.**
-   `_parse_definition` raises `PipelineDSLError` on any term
-   beginning with `~` (lines 69-73). So a definition like
-   `$attack :- $tactic;~$blocked` ("everything in tactic except
-   blocked") is unrepresentable; the user has to inline the
-   negation at every query site instead.
-
-2. **Recursion is set-flat, not structural.** When a definition
-   references another (`$x :- $y;tag1`), the body of `$y` is
-   eagerly merged into a flat `Set[str]` of concrete tag names
-   (line 81, `expanded_tags.update(self.definitions[ref_name])`).
-   Once flattened, the structural information that negation
-   would need (intersections, unions of unions, exclusions) is
-   gone. Composition is monotone-additive only.
-
-The natural shape of the fix is to treat virtual tags as a
-**macro language** layered above the tag DSL — a pre-processing
-expansion pass that runs before CTE construction, with the same
-grammar as the query language (positive terms, negative terms,
-disjunctions via `;`, conjunctions via `,`) and proper recursive
-substitution. The `_expand_conjunction` site is where the macro
-expansion would land; the SQL emission below it is unchanged.
-
-**The DoS surface.** Macro expansion has real combinatorial
-explosion potential, and the analysis is the load-bearing piece
-of the design work:
-
-- **Query-time DNF blow-up already exists at small scale.**
-  `_expand_conjunction` distributes positive virtuals
-  multiplicatively: `$a, $b, $c` with each containing K
-  concrete tags produces K³ conjunctions and K³ subqueries
-  `UNION`'d together. Every conjunction is an independent SQL
-  subquery against `card_tag`. Today this is bounded because
-  virtual tag definitions are flat sets and the user picks the
-  K size at write time.
-- **With negation in definitions, the disjunct count goes
-  exponential.** A chain of N virtuals each expanding to K
-  disjuncts gives K^N final conjunctions before SQL emission —
-  the macro language inherits the structural depth that the
-  flat-set design avoids.
-- **Cycle detection is already free.** Definitions require
-  forward declaration (line 76-80 raises if `$ref` isn't yet
-  defined), so cycles can't form via in-band references.
-  Pathological recursion needs intentional fan-out, not cycles.
-
-**Mitigations the investigation should consider.** None of these
-are research-grade; they're all mechanical:
-
-- **Cap total expansion size.** Refuse a query whose macro
-  expansion produces more than M conjunctions (M chosen
-  empirically — start at 1024 and tighten).
-- **Cap definition body length.** Refuse a single definition
-  expanding to more than K concrete leaves.
-- **Cap recursion depth.** Refuse a definition graph deeper
-  than D. (D=8 covers any realistic taxonomy.)
-- **Share SQL across disjuncts.** The current emission
-  `UNION`s K³ separate subqueries; a CTE that materialises the
-  shared tag-membership set once would let the disjuncts re-
-  reference rather than re-query. Reduces the SQL plan cost
-  even at small K. (Item 30c/30d's CTE-consolidation work is
-  adjacent here.)
-
-**Trigger:** picked up when a real taxonomy push surfaces the
-expressiveness gap, or when someone wants a focused investigation
-session for the DoS analysis. Not blocking any current arc — the
-existing flat-set virtual tags are sufficient for the user-facing
-tag use cases the project ships today.
+Promoted to a design note 2026-05-12:
+**`docs/notes/tag-dsl-macro-language-plan.md`**. The TODO entry
+had outgrown the TODO format; the design note carries the full
+analysis (current-implementation walk, proposed grammar with
+worked examples, DoS surface, mitigations, file-split plan that
+also closes the long-standing `tag_dsl.py`-is-an-adapter
+rough-edge from `reflection.md`, test strategy, open questions,
+trigger). Pick up there.
 
 ### Polymorphic chart renderer abstraction `[frontend]`
 
