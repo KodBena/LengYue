@@ -281,9 +281,11 @@ sample of IDs. See the script's `--help` for options.
   per-conjunction subqueries.
 - `backend/repositories/tag_filter_repository.py` — the adapter
   that wraps the compiled SQL with the tenancy filter.
-- `docs/notes/tag-dsl-macro-language-plan.md` — design note
-  covering motivation, DoS analysis, cap calibration, and the
-  arc-1 / arc-2 implementation plan.
+- `docs/archive/notes/tag-dsl-macro-language-plan.md` — the
+  planning-time design note (motivation, DoS analysis, cap
+  calibration, the arc-1 / arc-2 implementation plan).
+  `docs/worklog/2026-05-12-tag-dsl-macro-language.md` is the
+  companion "what shipped" record.
 - `docs/card-tag-stats-representative.md` — the test-expression
   bank (T1–T22 + S1–S5) driving the arc-2 test suite, with
   predicted cardinalities against a real-DB snapshot.

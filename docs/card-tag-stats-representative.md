@@ -1,11 +1,12 @@
 # Card-Tag Distribution Statistics + Tag-DSL Test Expressions
 
 A **two-part reference deliverable** for the
-`tag-dsl-macro-language-plan.md` arcs. The macro-language
-refactor will be deep-tested against the real shape of the
-authoring user's `backend/cards.db`; this document captures that
-shape plus the test expressions that exercise the new expander
-against it.
+`tag-dsl-macro-language-plan.md` arcs (archived at
+`docs/archive/notes/` after arc 2 shipped 2026-05-12). The
+macro-language refactor was deep-tested against the real shape
+of the authoring user's `backend/cards.db`; this document
+captures that shape plus the test expressions that exercised
+the new expander against it.
 
 - **Part 1 — Statistics.** What's actually in the dev database
   as of the snapshot below: how many cards, how many tags, the
@@ -414,7 +415,7 @@ cardinality below.
 SELECT COUNT(DISTINCT card_id) FROM card_tag ct JOIN tag t ON t.id=ct.tag_id
 WHERE t.name IN ('punish','fight','sabaki')
   AND card_id NOT IN (SELECT card_id FROM card_tag ct2 JOIN tag t2 ON t2.id=ct2.tag_id WHERE t2.name='volatile');
--- (run me to populate)
+-- 1000 (verified 2026-05-12 via backend/scripts/tag_dsl_repl.py against samples/cards.sample.db)
 ```
 
 **Behaviour:** macro expander substitutes `$tactic` with its
@@ -808,11 +809,12 @@ partner) is unlikely to invert.
 
 ## Cross-references
 
-- **`docs/notes/tag-dsl-macro-language-plan.md`** — the design
-  note this stats document accompanies. The macro language's
-  cap values (K = 256, M = 1024, D = 8) come from there;
-  the test expressions below derive from the planned grammar
-  shape there.
+- **`docs/archive/notes/tag-dsl-macro-language-plan.md`** — the
+  design note this stats document accompanies (archived after
+  arc 2 shipped 2026-05-12). The macro language's cap values
+  (K = 256, M = 1024, D = 8) come from there; the test
+  expressions below derive from the planned grammar shape
+  there.
 - **`backend/domain/tag_dsl.py`** — the file the refactor
   targets.
 - **`backend/cards.db`** — the dev database that backs every

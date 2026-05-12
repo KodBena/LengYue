@@ -332,9 +332,12 @@ worthwhile.
   is a thin facade re-exporting `TagDSLCompiler` so every
   existing call site keeps working without import changes.
   Bit-equal behaviour; 62 tag-DSL-targeted tests pass
-  unchanged. Successor work is arc 2 of the same plan (macro-
-  language refactor); see
-  `docs/notes/tag-dsl-macro-language-plan.md`.
+  unchanged. Successor arc 2 (macro language) shipped the same
+  day; see
+  `docs/archive/notes/tag-dsl-macro-language-plan.md` for the
+  planning-time record and
+  `docs/worklog/2026-05-12-tag-dsl-macro-language.md` for the
+  shipped outcome.
 - **`PipelineExecutor.run()` couples lineage and tag-filter into
   one method.** Two Port calls, one method. Conceptually
   independent, temporally coupled. Worth a refactor if the
@@ -493,8 +496,16 @@ harness (`docs/archive/notes/dsl-hyperparameter-harness-plan.md`) shipped
 on 2026-05-12 — the design note transitions to
 `design-note: implemented`; the user-facing surface is a JSON5+holes
 authoring dialect in `CardSetEditor.vue` plus a bind-time prompt
-modal that opens when a deck declares hyperparameters. The other
-items below remain valid as longer-horizon targets.
+modal that opens when a deck declares hyperparameters. The
+tag-DSL macro-language arc
+(`docs/archive/notes/tag-dsl-macro-language-plan.md`) shipped
+the same day across PRs #197 / #198 / #199 — the design note
+transitions to `design-note: implemented`; the user-facing
+surface is the now-supported negation-in-definitions and
+parenthesised-grouping syntax (e.g. `$attack :- $tactic, ~$blocked`),
+documented at `backend/docs/tag-dsl.md` with an interactive
+REPL at `backend/scripts/tag_dsl_repl.py`. The other items
+below remain valid as longer-horizon targets.
 
 **1. Tenancy spine — shipped end-to-end.** Items 13–16 (read-path
 filtering), 23–25 (schema migrations + `PipelineExecutor`

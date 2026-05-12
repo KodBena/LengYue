@@ -323,16 +323,17 @@ archived at `docs/archive/TODO-completed-2026-05-06.md`. The
 zeroconf work — substantively unrelated — is preserved here
 under its original number rather than silently retired.
 
-### Tag-DSL virtual-tag macro language `[backend]`
+### ~~Tag-DSL virtual-tag macro language~~ `[backend]` *(shipped 2026-05-12)*
 
-Promoted to a design note 2026-05-12:
-**`docs/notes/tag-dsl-macro-language-plan.md`**. The TODO entry
-had outgrown the TODO format; the design note carries the full
-analysis (current-implementation walk, proposed grammar with
-worked examples, DoS surface, mitigations, file-split plan that
-also closes the long-standing `tag_dsl.py`-is-an-adapter
-rough-edge from `reflection.md`, test strategy, open questions,
-trigger). Pick up there.
+Shipped 2026-05-12 across PRs #197 (arc 1, file split), #198
+(arc 2, macro language + three caps), and #199 (user-facing
+reference + REPL). The design note transitioned to
+`design-note: implemented` and lives at
+`docs/archive/notes/tag-dsl-macro-language-plan.md`; the
+implementation outcome lives at
+`docs/worklog/2026-05-12-tag-dsl-macro-language.md`. The
+long-carrying `tag_dsl.py`-is-an-adapter rough-edge in
+`reflection.md` was closed by arc 1 in the same commit window.
 
 ### Polymorphic chart renderer abstraction `[frontend]`
 
