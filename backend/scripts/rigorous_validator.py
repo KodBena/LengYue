@@ -39,9 +39,11 @@ async def rigorous_tests():
     the domain-purification pass).
 
     Tests 1 and 4 exercise TagDSLCompiler directly — that compiler
-    is still in domain/tag_dsl.py (it has tests of its own) so those
-    tests are unaffected beyond noting that production callers now
-    go through TagFilterRepository.
+    lives in repositories/tag_dsl_sql.py (re-exported via the
+    domain/tag_dsl.py facade after the macro-language plan's
+    arc 1 file split; it has tests of its own) so those tests are
+    unaffected beyond noting that production callers now go
+    through TagFilterRepository.
     """
     engine = create_async_engine(DB_URL)
     async_session = async_sessionmaker(engine, expire_on_commit=False)
