@@ -171,7 +171,7 @@ tree without surfacing the cross-boundary nature first.
 originally covered the proxy was lifted during the umbrella's v1.0.0
 release window — a bug surfaced (empty-board ponder via
 `analysis_config` leakage) that warranted a coordinated proxy bump
-rather than a frontend-only workaround. The current pin is **v1.0.20**;
+rather than a frontend-only workaround. The current pin is **v1.0.21**;
 later bumps follow the same coordinated arc. The proxy's tag
 annotations carry the full per-release changelog; the prose below
 sketches the recent arc only deeply enough to orient cross-boundary
@@ -218,6 +218,38 @@ authoritative `is_during_search=False` once the worst-quantile
 decision is in. Operator runtime view in `proxy/docs/logging.md`;
 authoring conventions in `proxy/CLAUDE.md`'s logging-conventions
 section.
+
+v1.0.21 bundles two independent arcs. The defensive corrective is
+in `adaptive_reevaluate`'s sub-query enrichment path: the
+user-visible symptom was deeper-analysis responses arriving with
+empty `extra.state`, so SPA palette state-fns reading
+`rootInfo.visits` never updated after deepening. Two interlocking
+causes (a `_are_equal` short-circuit in `DeltaAnalysisState.push_packet`
+that dropped identical-content D/F packets, and a destructive pop
+of `analysis_config` in `analysis_enricher.on_query` that left
+sub-queries un-enriched) are fixed in `delta_analysis.py` and
+`transformers/analysis_enricher.py`; the regression test in
+`proxy/tests/test_adaptive_cache_matrix.py` is parametrised across
+all four meaningful cache flag combinations.
+
+The structural arc in v1.0.21 is the identity-type branding
+migration. The four namespaces a proxy chain crosses
+(`client_id → internal_id → canonical_id → wire_id`) are now
+distinct branded types (`ClientId`, `InternalId`, `CanonicalId`,
+`WireId`) via `typing.NewType`, runtime-identity with `str` but
+typecheck-distinct. The framework's `IdMapping`, `IdGenerator`,
+`Translation`, and `ProxyLink` are parameterised on the upstream /
+downstream namespace pair `(U, D)`; the brand threads through
+every call site in the proxy proper (sessions, hub, routers,
+orchestration, middleware, transformers). The migration ships
+with a project-wide `mypy --strict` pass on all 54 source files
+(no `# type: ignore` introduced; three documented casts bridge
+structurally-true contracts Python's type system cannot encode)
+and a CI gate at `proxy/.github/workflows/typecheck.yml` that
+guards against future brand-confusion regressions. Design
+rationale in `proxy/docs/roadmap-identity-type-branding.md`;
+namespace-contract regression tests in
+`proxy/tests/test_identity_types.py`.
 
 The proxy is independently developed with its own architecture
 (see `proxy/README.md`, `proxy/ARCHITECTURE.md`, `proxy/FRAMEWORK.md`)
