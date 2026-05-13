@@ -350,7 +350,7 @@ function resetPriorStandalone(): void {
 .card-metadata-panel {
   border: 1px solid var(--border-2);
   border-radius: var(--radius-default);
-  background: var(--surface-1);
+  background: var(--surface-0);
   font-size: var(--text-body);
   color: var(--text-1);
   margin-top: var(--space-medium);

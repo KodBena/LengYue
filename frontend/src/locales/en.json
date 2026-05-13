@@ -358,6 +358,8 @@
   "review.session.state.AWAITING_MOVE":   "awaiting move",
   "review.session.state.ANALYZING":       "analyzing",
   "review.session.state.FINISHED":        "finished",
+  "review.session.allSuspended":          "All {n} matched cards are suspended — no review queue. Inspect each card in the Browse view (or the Lineage Explorer) to unsuspend the ones you want to study.",
+  "review.session.someSuspended":         "{dropped} of {total} matched cards are suspended and were excluded from this review queue.",
 
   "cardMetadata.title":                          "Card metadata",
   "cardMetadata.tagsLabel":                      "Tags",

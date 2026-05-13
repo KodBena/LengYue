@@ -136,7 +136,7 @@ export function useEChartsForestRender<P>(): ForestChartHandle<P> {
       tooltip: {
         trigger: 'item',
         triggerOn: 'mousemove',
-        backgroundColor: themeColor('--surface-1'),
+        backgroundColor: themeColor('--surface-0'),
         borderColor: themeColor('--accent-primary'),
         textStyle: { color: themeColor('--text-1'), fontSize: 11 },
         enterable: true,

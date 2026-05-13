@@ -74,6 +74,11 @@ export interface CardTreeData {
   ) => Promise<ReviewCard[]>;
   setForestStats: (stats: ForestStat[]) => void;
   requestCard: (cardId: CardId) => Promise<void>;
+  // Upsert a card into the active board's card map. Browse-view
+  // inline-edit splices PATCH responses through this so tooltips
+  // and the panel re-read the new values without a follow-up
+  // fetch. No-op when the active board's slot is missing.
+  setCard: (card: ReviewCard) => void;
   // Re-hydrate the forest from a known queue of matched cards
   // without re-running the deck pipeline. Used by the cards-tab
   // re-hydrate path (browser reopen mid-session): the review
@@ -395,6 +400,25 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
     }
   }
 
+  /**
+   * Upsert a card into the active board's card map. Used by the
+   * Browse-view metadata edit panel to splice a PATCH-returned
+   * card back into the local store so tooltips and the
+   * inline-edit panel re-read the new values without a follow-up
+   * fetch. Mirrors `requestCard`'s writeback shape (fresh Map →
+   * assign back to `target.cards`) so Vue picks up the change.
+   * No-op when the active board's slot is missing (caller raced
+   * past a board switch).
+   */
+  function setCard(card: ReviewCard): void {
+    const id = boardIdRef.value;
+    if (!id) return;
+    const target = getOrCreateBoardCardTree(id);
+    const next = new Map(target.cards);
+    next.set(card.id, card);
+    target.cards = next;
+  }
+
   return {
     forest,
     activeSet,
@@ -408,6 +432,7 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
     runPipeline,
     setForestStats,
     requestCard,
+    setCard,
     seedFromQueue,
   };
 }
