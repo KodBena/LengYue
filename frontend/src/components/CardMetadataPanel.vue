@@ -203,7 +203,7 @@ function resetPriorStandalone(): void {
 <template>
   <div class="card-metadata-panel" :class="{ disabled }">
     <div class="panel-header" @click="expanded = !expanded">
-      <span class="header-label">{{ $t('cardMetadata.title') }}</span>
+      <span class="header-label">{{ $t('cardMetadata.titleWithId', { cardId: card.id }) }}</span>
       <span class="chevron">{{ expanded ? '▼' : '▶' }}</span>
     </div>
 

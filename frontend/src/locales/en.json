@@ -362,6 +362,7 @@
   "review.session.someSuspended":         "{dropped} of {total} matched cards are suspended and were excluded from this review queue.",
 
   "cardMetadata.title":                          "Card metadata",
+  "cardMetadata.titleWithId":                    "Card metadata — Card {cardId}",
   "cardMetadata.tagsLabel":                      "Tags",
   "cardMetadata.tagsPlaceholder":                "Add tag…",
   "cardMetadata.tagRemoveTooltip":               "Remove tag '{tag}'",

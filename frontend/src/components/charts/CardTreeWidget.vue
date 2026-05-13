@@ -52,8 +52,15 @@ const props = withDefaults(
     // id so the user can track SR progress against the rendered
     // forest. `null` (default) means no overlay.
     currentCardId?: CardId | null;
+    // Second render-time overlay: the card the user clicked to load
+    // into the inline-edit metadata panel. Painted in
+    // `--state-success` (green) and wins over `currentCardId` when
+    // both apply — the user's immediate Browse-side action takes
+    // visual priority over the session-running highlight. `null`
+    // (default) means nothing's been clicked to edit.
+    selectedCardId?: CardId | null;
   }>(),
-  { orientation: 'vertical', maxNodes: 5000, currentCardId: null },
+  { orientation: 'vertical', maxNodes: 5000, currentCardId: null, selectedCardId: null },
 );
 
 const emit = defineEmits<{
@@ -154,7 +161,7 @@ function buildConfigs(): ForestChartConfig<NodePayload>[] {
   return [{
     treeKey: String(tree.rootCardId),
     el,
-    data: toEChartsNode(tree.root, props.currentCardId, props.cards),
+    data: toEChartsNode(tree.root, props.currentCardId, props.cards, props.selectedCardId),
     orient: props.orientation === 'vertical' ? 'TB' : 'LR',
     renderedNodeCount: tree.stats.renderedNodeCount,
     tooltipFor: payload => tooltipFor(payload, props.cards),
@@ -165,7 +172,7 @@ function buildConfigs(): ForestChartConfig<NodePayload>[] {
 }
 
 watch(
-  [renderForest, () => props.orientation, () => props.cards, expandedRootId, () => props.currentCardId],
+  [renderForest, () => props.orientation, () => props.cards, expandedRootId, () => props.currentCardId, () => props.selectedCardId],
   async () => { await nextTick(); syncCharts(buildConfigs()); },
   { immediate: true },
 );

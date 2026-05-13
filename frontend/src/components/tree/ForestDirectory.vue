@@ -403,6 +403,7 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
           :forest-stats="tree.forestStats.value"
           :orientation="orientation"
           :current-card-id="currentCardId"
+          :selected-card-id="selectedCardId"
           @node-click="handleNodeClick"
           @request-card="tree.requestCard"
         />
