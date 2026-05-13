@@ -122,6 +122,11 @@ export class AnalysisService {
         }
         store.engine.status = 'disconnected';
         store.engine.activeMode = {};
+        // Reset the in-flight ping marker so the optional
+        // watchdog-dot animation doesn't display a stale "pending"
+        // state across a reconnect. The next `startWatchdog`
+        // iteration sets it freshly when the new WS is up.
+        store.engine.metrics = { ...store.engine.metrics, pingPendingSince: null };
         // Clear engine identity on disconnect so a stale
         // version/model from a prior session can't surface in the
         // toolbar after the WS drops. Reconnect fires
@@ -283,12 +288,23 @@ export class AnalysisService {
     if (this.watchdogTimer) clearInterval(this.watchdogTimer);
     this.watchdogTimer = window.setInterval(async () => {
       if (store.engine.status !== 'connected') return;
+      // Mark a ping in flight before issuing the command so the
+      // optional ping-tandem watchdog-dot animation (gated by
+      // `session.ui.watchdogColorTransition`) can fire on the
+      // outbound edge and reset on the pong.
+      store.engine.metrics = {
+        ...store.engine.metrics,
+        pingPendingSince: Date.now(),
+      };
       const start = performance.now();
       const resp = await this.client.sendCommand({ id: `wd-${Date.now()}`, action: 'query_version' });
       store.engine.metrics = {
         ...store.engine.metrics,
         lastWatchdogTimestamp: Date.now(),
-        latencyMs: Math.round(performance.now() - start)
+        latencyMs: Math.round(performance.now() - start),
+        // Pong received — clear the pending state so the animation
+        // resets to green.
+        pingPendingSince: null,
       };
       // Capture the version on each tick so a mid-session engine
       // restart with a version bump surfaces in the toolbar
@@ -341,6 +357,9 @@ export class AnalysisService {
       capabilities: null,
     };
     store.engine.selectedModel = null;
+    // Symmetric ping-flag reset — see the onDisconnect handler's
+    // comment above for the rationale.
+    store.engine.metrics = { ...store.engine.metrics, pingPendingSince: null };
     this.clearTimers();
   }
 

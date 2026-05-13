@@ -231,6 +231,16 @@ export interface EngineMetrics {
   readonly lastResponseId: BoardId | null;
   readonly lastWatchdogTimestamp: number;
   readonly latencyMs: number;
+  /**
+   * Wall-clock ms at which the most recent watchdog `query_version`
+   * was fired and has not yet received a response. `null` means
+   * either no ping in flight (the last pong has arrived), or the
+   * watchdog hasn't fired yet on this session. Used by the
+   * Toolbar's optional ping-tandem watchdog-dot animation
+   * (`session.ui.watchdogColorTransition`) — the animation runs
+   * while this is non-null and resets on `null`.
+   */
+  readonly pingPendingSince: number | null;
 }
 
 export type RegistryLeaf = string | number | boolean | null;
