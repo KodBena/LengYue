@@ -130,6 +130,14 @@ function awaitFinalPacket(
   return new Promise((resolve, reject) => {
     let unsub: (() => void) | null = null;
     let settled = false;
+    const settle = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      unsub?.();
+      if (telemetryMeta) telemetry.unregisterQuery(query.id);
+      fn();
+    };
     if (telemetryMeta) {
       telemetry.registerQuery({
         queryId:       query.id,
@@ -140,16 +148,24 @@ function awaitFinalPacket(
         turnsTotal:    1,
         visitsPerTurn: telemetryMeta.visitsPerTurn,
         label:         telemetryMeta.label,
+        // Cancel: terminate the proxy-side query (so the engine
+        // stops computing the deeper analysis), then settle the
+        // promise with a rejection. The `playEngineMatch` loop's
+        // try/catch handles the rejection and tears the match
+        // down — cancelling one turn cancels the match, since
+        // the loop can't skip past an aborted turn.
+        cancel: () => {
+          void client.sendCommand({
+            id: `term-cancel-${Date.now()}`,
+            action: 'terminate',
+            terminateId: query.id,
+          });
+          settle(() => reject(
+            new Error(`Cancelled by user (queue-tooltip) for queryId=${query.id}`),
+          ));
+        },
       });
     }
-    const settle = (fn: () => void) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      unsub?.();
-      if (telemetryMeta) telemetry.unregisterQuery(query.id);
-      fn();
-    };
     const timer = setTimeout(() => {
       settle(() => reject(
         new Error(`No final packet for turn ${expectedTurn} within ${timeoutMs}ms (queryId=${query.id})`),

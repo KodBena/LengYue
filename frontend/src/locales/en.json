@@ -157,6 +157,8 @@
   "toolbar.queue.kind.range":             "Range",
   "toolbar.queue.kind.match":             "Match",
   "toolbar.queue.kind.probe":             "Probe",
+  "toolbar.queue.cancel":                 "Cancel this query",
+  "toolbar.queue.col.cancel":             "",
 
   "statusBar.move":                       "MOVE {n}",
   "statusBar.versus":                     "vs",

@@ -69,6 +69,22 @@ export interface QueryMeta {
    * side identification ("B" / "W"), and similar caller context.
    */
   readonly label?: string;
+  /**
+   * Optional cancellation hook. When supplied, the queue tooltip
+   * renders a ✕ button on the query's row; clicking it invokes
+   * this function. Callers are responsible for the cancel's
+   * semantics — analysis-service queries call
+   * `stopBoardAnalysis(boardId)` (which sends `terminate` over
+   * the wire and unsubscribes the client); match-loop queries
+   * send `terminate` directly to their per-match client and
+   * reject the `awaitFinalPacket` promise so the loop's
+   * try/catch tears the match down. The cancel callback itself
+   * does not unregister from telemetry; the resulting unsub /
+   * terminate-then-disconnect cascade is what triggers
+   * `unregisterQuery`, keeping a single source of truth for
+   * lifecycle.
+   */
+  readonly cancel?: () => void;
 }
 
 export interface QueryProgress {
@@ -288,6 +304,21 @@ function recordPacket(
 }
 
 /**
+ * Cancel a registered query by invoking its caller-supplied
+ * `cancel` hook. No-op when the queryId is unknown or has no
+ * cancel hook registered (the queue tooltip hides the cancel
+ * affordance in that case). The cancel callback itself does
+ * not unregister from telemetry — its downstream effects
+ * (unsubscribe / terminate / promise rejection) are what
+ * eventually trigger `unregisterQuery`.
+ */
+function cancelQuery(queryId: string): void {
+  const entry = queries.value.get(queryId);
+  if (!entry) return;
+  entry.meta.cancel?.();
+}
+
+/**
  * Convenience: when stopping all work for a board (e.g.
  * `analysis-service.stopBoardAnalysis`), drop every query
  * associated with that boardId from telemetry. Match queries
@@ -342,6 +373,7 @@ export function useQueryTelemetry() {
     registerQuery,
     unregisterQuery,
     recordPacket,
+    cancelQuery,
     unregisterByBoard,
   } as const;
 }

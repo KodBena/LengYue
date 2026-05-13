@@ -447,6 +447,9 @@ export class AnalysisService {
 
     // Queue telemetry — register at construction so the Toolbar's
     // queue tooltip can render this range query and its ETA.
+    // `cancel` defers to the standard stop-board path so the
+    // proxy gets a `terminate` and the local maps clean up
+    // identically to any other interruption.
     telemetry.registerQuery({
       queryId,
       kind:         'range',
@@ -456,6 +459,7 @@ export class AnalysisService {
       turnsTotal:   analyzeTurns.length,
       visitsPerTurn: visits,
       label:        forReview ? 'grading' : undefined,
+      cancel:       () => this.stopBoardAnalysis(boardId),
     });
 
     // The query is now type-honest end-to-end: KataGoAnalysisQuery declares
@@ -594,7 +598,10 @@ export class AnalysisService {
     // Queue telemetry — single-turn entry. For ponder, the per-turn
     // visit budget is the ponderMaxVisits ceiling; for analyze, the
     // user-supplied / default visits target. Either way the tooltip
-    // computes ETA from the per-model rolling visits/sec.
+    // computes ETA from the per-model rolling visits/sec. `cancel`
+    // defers to `stopBoardAnalysis` for the same reason analyzeRange
+    // does — the proxy gets a `terminate` and the local maps clean
+    // up identically to any other interruption.
     telemetry.registerQuery({
       queryId,
       kind:         mode,
@@ -606,6 +613,7 @@ export class AnalysisService {
         mode === 'ponder'
           ? store.profile.settings.engine.katago.ponderMaxVisits
           : (visits ?? null),
+      cancel:       () => this.stopBoardAnalysis(boardId),
     });
 
     const ownershipModes = store.session.ui.overlayLayers.ownership;

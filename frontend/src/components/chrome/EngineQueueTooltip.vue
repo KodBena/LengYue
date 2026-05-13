@@ -25,11 +25,15 @@ import { useI18n } from 'vue-i18n';
 import { useQueryTelemetry, type InFlightQuery } from '../../composables/useQueryTelemetry';
 
 const { t } = useI18n();
-const { inFlight } = useQueryTelemetry();
+const { inFlight, cancelQuery } = useQueryTelemetry();
 
 const open = ref(false);
 
 const count = computed(() => inFlight.value.length);
+
+function onCancelClick(queryId: string): void {
+  cancelQuery(queryId);
+}
 
 function fmtEta(ms: number | null): string {
   if (ms === null || !Number.isFinite(ms)) return t('toolbar.queue.etaUnknown');
@@ -96,6 +100,7 @@ function fmtProgress(q: InFlightQuery): string {
               <th>{{ $t('toolbar.queue.col.model') }}</th>
               <th>{{ $t('toolbar.queue.col.progress') }}</th>
               <th class="eta-col">{{ $t('toolbar.queue.col.eta') }}</th>
+              <th class="cancel-col">{{ $t('toolbar.queue.col.cancel') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -107,6 +112,19 @@ function fmtProgress(q: InFlightQuery): string {
               <td>{{ fmtModel(q.model) }}</td>
               <td>{{ fmtProgress(q) }}</td>
               <td class="eta-col">{{ fmtEta(q.etaMs) }}</td>
+              <td class="cancel-col">
+                <!-- Cancel button shows only when the registrant
+                     supplied a `cancel` hook. For probes (which
+                     finish quickly and aren't worth cancelling)
+                     no hook is registered, so no button renders. -->
+                <button
+                  v-if="q.cancel !== undefined"
+                  class="cancel-btn"
+                  :title="$t('toolbar.queue.cancel')"
+                  :aria-label="$t('toolbar.queue.cancel')"
+                  @click="onCancelClick(q.queryId)"
+                >✕</button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -190,7 +208,7 @@ td {
 }
 .eta-col {
   text-align: right;
-  padding-right: 0;
+  padding-right: var(--space-default);
 }
 .kind-label {
   color: var(--text-0);
@@ -198,5 +216,25 @@ td {
 .kind-suffix {
   margin-left: var(--space-tight);
   color: var(--text-2);
+}
+
+.cancel-col {
+  text-align: right;
+  padding: 0;
+  width: 1.5em;
+}
+.cancel-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  font-family: monospace;
+  font-size: var(--text-body);
+  cursor: pointer;
+  padding: 0 var(--space-tight);
+  line-height: 1;
+  transition: color var(--duration-default);
+}
+.cancel-btn:hover {
+  color: var(--state-attention);
 }
 </style>
