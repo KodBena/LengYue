@@ -72,9 +72,20 @@ const colors = {
 export function toEChartsNode(
   node: RenderNode,
   currentCardId: CardId | null = null,
+  cards: ReadonlyMap<CardId, ReviewCard> | null = null,
 ): EChartsTreeNode {
   if (node.kind === 'card') {
     const isCurrent = currentCardId !== null && node.cardId === currentCardId;
+    // 💤 indicator for suspended cards. The Lineage Explorer is
+    // the only place outside the inline-edit panel where the
+    // user can see suspended state at a glance — important for
+    // the "all matched cards suspended" case where a deck
+    // populates a non-empty active set but produces an empty
+    // review queue. ECharts node-level `label.formatter` shows
+    // the glyph adjacent to the symbol; we keep it off when the
+    // card isn't suspended so the default-styling pathway is
+    // unchanged.
+    const isSuspended = cards?.get(node.cardId)?.suspended === true;
     return {
       name: `Card ${node.cardId}`,
       payload: { kind: 'card', cardId: node.cardId, role: node.role },
@@ -88,7 +99,15 @@ export function toEChartsNode(
           : (node.role === 'active' ? colors.activeBorder : colors.contextBorder),
         borderWidth: node.role === 'active' ? 2 : 1,
       },
-      children: node.children.map(child => toEChartsNode(child, currentCardId)),
+      ...(isSuspended ? {
+        label: {
+          show: true,
+          position: 'right',
+          fontSize: 12,
+          formatter: '💤',
+        },
+      } : {}),
+      children: node.children.map(child => toEChartsNode(child, currentCardId, cards)),
     };
   }
   if (node.kind === 'stub') {

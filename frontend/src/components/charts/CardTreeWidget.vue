@@ -154,7 +154,7 @@ function buildConfigs(): ForestChartConfig<NodePayload>[] {
   return [{
     treeKey: String(tree.rootCardId),
     el,
-    data: toEChartsNode(tree.root, props.currentCardId),
+    data: toEChartsNode(tree.root, props.currentCardId, props.cards),
     orient: props.orientation === 'vertical' ? 'TB' : 'LR',
     renderedNodeCount: tree.stats.renderedNodeCount,
     tooltipFor: payload => tooltipFor(payload, props.cards),
