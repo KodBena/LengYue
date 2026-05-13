@@ -19,6 +19,7 @@ from repositories.ports import CardRepositoryPort
 from schemas.card import (
     CardCreate,
     CardCreateResponse,
+    CardPatch,
     ReviewRequest,
 )
 from services.card_service import CardService
@@ -133,3 +134,50 @@ async def create_new_card(
         # preserved defensively in case any other code path underneath
         # the service still raises raw ValueError.
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.patch("/{card_id}", response_model=CardWithRecall)
+async def update_card_metadata(
+    card_id: int,
+    patch: CardPatch,
+    service: CardService = Depends(get_card_service),
+    db: AsyncSession = Depends(get_db),
+    user_id: UserId = Depends(get_current_user_id),
+):
+    """
+    Card-metadata inline-edit arc 2 (2026-05-13). Partial-update
+    endpoint for the mutable subset recorded in
+    ``docs/dispatch/backend-to-frontend-card-metadata-inline-edit-status.md``
+    (Ask 2 table). The wire shape is ``CardPatch``; the response is
+    ``CardWithRecall`` projected at write time so the frontend's
+    inline-edit affordance can swap the cached card body via
+    ``ledger.put`` without a follow-up GET.
+
+    Transaction boundary at the route per item 30b's pattern —
+    ``async with db.begin():`` commits on success, rolls back on
+    any exception. The Pydantic validation already happened at
+    parameter binding (a malformed patch never reaches this
+    function body); the try/except below covers domain errors
+    raised inside the service or adapter.
+
+    Tenancy: ``user_id`` flows from the JWT decode through to the
+    UPDATE's WHERE clause via the five-layer recipe in
+    ``docs/notes/tenancy.md``. Cross-tenant ``card_id`` surfaces as
+    404 via the ``CardService.update_card_metadata`` →
+    ``CardNotFoundError`` translation, preserving the codebase's
+    404-not-403 invariant.
+    """
+    try:
+        async with db.begin():
+            updated = await service.update_card_metadata(
+                card_id, patch, user_id=user_id
+            )
+        return project_card(
+            updated,
+            now=datetime.now(timezone.utc),
+            time_unit_seconds=config.EBISU_TIME_UNIT,
+        )
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except InvalidInputError as e:
+        raise HTTPException(status_code=422, detail=str(e))

@@ -396,3 +396,274 @@ async def test_review_response_carries_tags(client, session):
     )
     assert response.status_code == 200
     assert response.json()["tags"] == ["tesuji"]
+
+
+# ─── PATCH /cards/{id} — card-metadata inline-edit arc 2 ─────────────────────
+
+
+async def _seed_card_with_grading_parameter(
+    session: AsyncSession, *, user_id: int, grading_parameter: dict | None
+) -> int:
+    """
+    Direct seed for a PATCH-target card with a configurable
+    ``grading_parameter`` blob (the standard helper has no
+    parameter for this).
+    """
+    pos = await _seed_position(session, content="(;FF[4]C[patch])")
+    res = await session.execute(
+        insert(card).values(
+            num_moves=5, alpha=4.2, beta=4.2, t=2.0,
+            user_id=user_id, normalized_position_id=pos,
+            grading_parameter=grading_parameter, num_reviews=3,
+        ).returning(card.c.id)
+    )
+    cid = int(res.scalar())
+    from db.schema import game_source
+    res = await session.execute(
+        insert(game_source)
+        .values(position_id=pos, user_id=user_id)
+        .returning(game_source.c.id)
+    )
+    gs_id = int(res.scalar())
+    await session.execute(insert(card_source).values(
+        card_id=cid, game_source_id=gs_id, is_primary_source=True,
+    ))
+    await session.commit()
+    return cid
+
+
+# Failure modes first (CLAUDE.md test-authoring posture).
+
+
+async def test_patch_cross_tenant_returns_404(client, session):
+    """The 404-not-403 collapse on the PATCH path."""
+    await seed_user(session, user_id=ALICE_ID)
+    await seed_user(session, user_id=BOB_ID)
+    bobs_card = await _seed_card_with_root(session, user_id=BOB_ID)
+
+    response = await client.patch(
+        f"/cards/{bobs_card}",
+        json={"suspended": True},
+        headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 404
+
+
+async def test_patch_nonexistent_returns_404(client, session):
+    await seed_user(session, user_id=ALICE_ID)
+
+    response = await client.patch(
+        "/cards/999999",
+        json={"suspended": True},
+        headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 404
+
+
+async def test_patch_without_bearer_returns_401(client):
+    response = await client.patch("/cards/1", json={"suspended": True})
+    assert response.status_code == 401
+
+
+async def test_patch_num_moves_zero_returns_422(client, session):
+    """``num_moves`` must be a positive integer."""
+    await seed_user(session, user_id=ALICE_ID)
+    cid = await _seed_card_with_root(session, user_id=ALICE_ID)
+
+    response = await client.patch(
+        f"/cards/{cid}",
+        json={"num_moves": 0},
+        headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 422
+
+
+async def test_patch_gamma_at_unit_boundary_returns_422(client, session):
+    """``gamma`` is constrained to the open unit interval (0, 1)."""
+    await seed_user(session, user_id=ALICE_ID)
+    cid = await _seed_card_with_root(session, user_id=ALICE_ID)
+
+    response = await client.patch(
+        f"/cards/{cid}",
+        json={"grading_parameter": {"data": {"gamma": 1.0}}},
+        headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 422
+
+
+async def test_patch_unknown_top_level_key_returns_422(client, session):
+    """``CardPatch`` has ``extra="forbid"`` — unknown keys fail loudly."""
+    await seed_user(session, user_id=ALICE_ID)
+    cid = await _seed_card_with_root(session, user_id=ALICE_ID)
+
+    response = await client.patch(
+        f"/cards/{cid}",
+        json={"creation_date": "2020-01-01T00:00:00Z"},
+        headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 422
+
+
+async def test_patch_unknown_grading_parameter_wrapper_key_returns_422(
+    client, session,
+):
+    """``GradingParameterPatch`` wrapper also forbids extras."""
+    await seed_user(session, user_id=ALICE_ID)
+    cid = await _seed_card_with_root(session, user_id=ALICE_ID)
+
+    response = await client.patch(
+        f"/cards/{cid}",
+        json={"grading_parameter": {"data": {}, "other": 1}},
+        headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 422
+
+
+async def test_patch_lineage_fields_not_admitted(client, session):
+    """
+    Lineage edits are out of scope per the dispatch's Ask 2 — the
+    PATCH wire shape doesn't admit ``parent_card_id`` and
+    ``extra="forbid"`` rejects it.
+    """
+    await seed_user(session, user_id=ALICE_ID)
+    cid = await _seed_card_with_root(session, user_id=ALICE_ID)
+
+    response = await client.patch(
+        f"/cards/{cid}",
+        json={"parent_card_id": 1},
+        headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 422
+
+
+# Happy paths.
+
+
+async def test_patch_tags_full_replace_persists_and_returns(client, session):
+    await seed_user(session, user_id=ALICE_ID)
+    cid = await _seed_card_with_root(session, user_id=ALICE_ID)
+    await _attach_tags(session, card_id=cid, tag_names=["old"])
+
+    response = await client.patch(
+        f"/cards/{cid}",
+        json={"tags": ["new1", "new2"]},
+        headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 200
+    body = response.json()
+    # Response is CardWithRecall with the new (alphabetised) tag set.
+    assert body["tags"] == ["new1", "new2"]
+    assert "current_recall" in body
+
+    # And the change persists.
+    follow_up = await client.get(
+        f"/cards/{cid}", headers=auth_header(ALICE_ID),
+    )
+    assert follow_up.json()["tags"] == ["new1", "new2"]
+
+
+async def test_patch_tags_empty_list_wipes(client, session):
+    await seed_user(session, user_id=ALICE_ID)
+    cid = await _seed_card_with_root(session, user_id=ALICE_ID)
+    await _attach_tags(session, card_id=cid, tag_names=["doomed"])
+
+    response = await client.patch(
+        f"/cards/{cid}",
+        json={"tags": []},
+        headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 200
+    assert response.json()["tags"] == []
+
+
+async def test_patch_grading_parameter_merges_at_data_level(client, session):
+    """
+    Dispatch's "keys present overwrite, absent preserved" rule.
+    Stored ``data`` keys not named in the patch survive untouched.
+    """
+    await seed_user(session, user_id=ALICE_ID)
+    cid = await _seed_card_with_grading_parameter(
+        session,
+        user_id=ALICE_ID,
+        grading_parameter={
+            "data": {
+                "analysis_config": {"palette": "A"},
+                "default_visits": 200,
+            },
+        },
+    )
+
+    response = await client.patch(
+        f"/cards/{cid}",
+        json={"grading_parameter": {"data": {"gamma": 0.9}}},
+        headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["grading_parameter"] == {
+        "data": {
+            "analysis_config": {"palette": "A"},
+            "default_visits": 200,
+            "gamma": 0.9,
+        },
+    }
+
+
+async def test_patch_reset_prior_with_num_moves_is_atomic(client, session):
+    """
+    The settled CA-1 case from the dispatch: change ``num_moves`` AND
+    reset the Ebisu prior in one request. Both effects observed on
+    the same response body.
+    """
+    await seed_user(session, user_id=ALICE_ID)
+    cid = await _seed_card_with_grading_parameter(
+        session, user_id=ALICE_ID, grading_parameter=None,
+    )
+
+    response = await client.patch(
+        f"/cards/{cid}",
+        json={"num_moves": 8, "reset_prior": True},
+        headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["num_moves"] == 8
+    # config.EBISU_DEFAULT_MODEL is (3.0, 3.0, 1.0).
+    assert body["alpha"] == 3.0
+    assert body["beta"] == 3.0
+    assert body["t"] == 1.0
+    assert body["num_reviews"] == 0
+    assert body["last_reviewed_at"] is None
+
+
+async def test_patch_suspended_toggle(client, session):
+    await seed_user(session, user_id=ALICE_ID)
+    cid = await _seed_card_with_root(session, user_id=ALICE_ID)
+
+    response = await client.patch(
+        f"/cards/{cid}",
+        json={"suspended": True},
+        headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 200
+    assert response.json()["suspended"] is True
+
+
+async def test_patch_empty_body_is_no_op(client, session):
+    """
+    An empty patch returns the current card unchanged — the
+    response shape is still ``CardWithRecall``.
+    """
+    await seed_user(session, user_id=ALICE_ID)
+    cid = await _seed_card_with_root(session, user_id=ALICE_ID)
+
+    response = await client.patch(
+        f"/cards/{cid}",
+        json={},
+        headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == cid
+    assert "current_recall" in body
+    assert "tags" in body

@@ -31,7 +31,13 @@ import pytest
 
 from domain.auth import UserId
 from domain.errors import CardNotFoundError, InvalidInputError
-from schemas.card import CardCreate, GameSourceCreate
+from schemas.card import (
+    CardCreate,
+    CardPatch,
+    GameSourceCreate,
+    GradingParameterData,
+    GradingParameterPatch,
+)
 from services.card_service import CardService
 from tests.fakes import FakeCardRepository, FakeNormalizer
 
@@ -432,3 +438,271 @@ async def test_create_card_stamps_user_id_on_inserted_card():
     # And: the read Port honors the tenant boundary on this card.
     assert await repo.get_card_by_id(card_id, user_id=ALICE) is not None
     assert await repo.get_card_by_id(card_id, user_id=BOB) is None
+
+
+# ─── Card-metadata inline-edit arc 2 — update_card_metadata ───────────────────
+
+
+async def _seed_card_for_patch(
+    repo: FakeCardRepository,
+    *,
+    user_id: UserId,
+    num_moves: int = 5,
+    grading_parameter: dict | None = None,
+    alpha: float = 4.2,
+    beta: float = 4.2,
+    t: float = 2.0,
+    num_reviews: int = 3,
+    suspended: bool = False,
+) -> int:
+    """
+    Direct seed for PATCH-target cards. Uses ``seed_card`` plus a
+    couple of post-hoc adjustments the seeder doesn't expose (a
+    non-default alpha so ``reset_prior`` is visibly distinct from
+    the seeded state).
+    """
+    from datetime import datetime, timezone
+    cid = repo.seed_card(
+        user_id=int(user_id),
+        num_moves=num_moves,
+        alpha=alpha,
+        beta=beta,
+        t=t,
+        num_reviews=num_reviews,
+        suspended=suspended,
+        grading_parameter=grading_parameter,
+        last_reviewed_at=datetime.now(timezone.utc),
+    )
+    return cid
+
+
+# ─── Failure modes: cross-tenant + non-existent ───────────────────────────────
+
+
+async def test_update_card_metadata_cross_tenant_raises_not_found():
+    """
+    Cross-tenant ``card_id`` surfaces as ``CardNotFoundError`` —
+    the route maps to 404 (404-not-403 collapse).
+    """
+    svc, repo, _ = _make_service()
+    cid = await _seed_card_for_patch(repo, user_id=BOB)
+
+    with pytest.raises(CardNotFoundError):
+        await svc.update_card_metadata(
+            cid, CardPatch(suspended=True), user_id=ALICE
+        )
+
+
+async def test_update_card_metadata_nonexistent_raises_not_found():
+    svc, _, _ = _make_service()
+
+    with pytest.raises(CardNotFoundError):
+        await svc.update_card_metadata(
+            999_999, CardPatch(suspended=True), user_id=ALICE
+        )
+
+
+# ─── Happy paths: per-field semantics ─────────────────────────────────────────
+
+
+async def test_update_card_metadata_tags_full_replace():
+    """
+    ``patch.tags`` overwrites the tag set wholesale. Existing tags
+    not in the new list are removed.
+    """
+    svc, repo, _ = _make_service()
+    cid = await _seed_card_for_patch(repo, user_id=ALICE)
+    await repo.attach_tags(cid, ["joseki", "old"])
+
+    updated = await svc.update_card_metadata(
+        cid, CardPatch(tags=["endgame", "shape"]), user_id=ALICE
+    )
+
+    assert updated.tags == ["endgame", "shape"]
+    # The fake's read Port re-derives tags from self.tags; verify
+    # the underlying state too so a regression that leaks the old
+    # set is caught.
+    assert repo.tags[cid] == ["endgame", "shape"]
+
+
+async def test_update_card_metadata_tags_empty_wipes():
+    """``tags=[]`` is the explicit wipe — distinct from ``None``."""
+    svc, repo, _ = _make_service()
+    cid = await _seed_card_for_patch(repo, user_id=ALICE)
+    await repo.attach_tags(cid, ["existing"])
+
+    updated = await svc.update_card_metadata(
+        cid, CardPatch(tags=[]), user_id=ALICE
+    )
+
+    assert updated.tags == []
+
+
+async def test_update_card_metadata_tags_absent_preserves():
+    """A patch with no ``tags`` field leaves the stored tags alone."""
+    svc, repo, _ = _make_service()
+    cid = await _seed_card_for_patch(repo, user_id=ALICE)
+    await repo.attach_tags(cid, ["preserved"])
+
+    updated = await svc.update_card_metadata(
+        cid, CardPatch(num_moves=8), user_id=ALICE
+    )
+
+    assert updated.tags == ["preserved"]
+
+
+async def test_update_card_metadata_num_moves_overwrite():
+    svc, repo, _ = _make_service()
+    cid = await _seed_card_for_patch(repo, user_id=ALICE, num_moves=5)
+
+    updated = await svc.update_card_metadata(
+        cid, CardPatch(num_moves=12), user_id=ALICE
+    )
+
+    assert updated.num_moves == 12
+
+
+async def test_update_card_metadata_suspended_toggle():
+    svc, repo, _ = _make_service()
+    cid = await _seed_card_for_patch(repo, user_id=ALICE, suspended=False)
+
+    updated = await svc.update_card_metadata(
+        cid, CardPatch(suspended=True), user_id=ALICE
+    )
+
+    assert updated.suspended is True
+
+
+async def test_update_card_metadata_grading_parameter_merges_data():
+    """
+    JSON-merge-patch at the ``data`` key level: stored ``data`` keys
+    not named in the patch survive; named keys overwrite.
+    """
+    svc, repo, _ = _make_service()
+    cid = await _seed_card_for_patch(
+        repo,
+        user_id=ALICE,
+        grading_parameter={
+            "data": {"analysis_config": {"palette": "A"}, "default_visits": 200},
+        },
+    )
+
+    updated = await svc.update_card_metadata(
+        cid,
+        CardPatch(
+            grading_parameter=GradingParameterPatch(
+                data=GradingParameterData(gamma=0.9),
+            ),
+        ),
+        user_id=ALICE,
+    )
+
+    # gamma added; analysis_config + default_visits preserved.
+    assert updated.grading_parameter == {
+        "data": {
+            "analysis_config": {"palette": "A"},
+            "default_visits": 200,
+            "gamma": 0.9,
+        },
+    }
+
+
+async def test_update_card_metadata_grading_parameter_overwrites_collision():
+    """A patched ``data`` key with the same name overwrites."""
+    svc, repo, _ = _make_service()
+    cid = await _seed_card_for_patch(
+        repo,
+        user_id=ALICE,
+        grading_parameter={"data": {"gamma": 0.5}},
+    )
+
+    updated = await svc.update_card_metadata(
+        cid,
+        CardPatch(
+            grading_parameter=GradingParameterPatch(
+                data=GradingParameterData(gamma=0.95),
+            ),
+        ),
+        user_id=ALICE,
+    )
+
+    assert updated.grading_parameter["data"]["gamma"] == 0.95
+
+
+async def test_update_card_metadata_grading_parameter_constructs_when_stored_is_null():
+    """
+    The stored ``grading_parameter`` may be ``None``. The patch's
+    ``data`` becomes the new wrapper's data.
+    """
+    svc, repo, _ = _make_service()
+    cid = await _seed_card_for_patch(repo, user_id=ALICE, grading_parameter=None)
+
+    updated = await svc.update_card_metadata(
+        cid,
+        CardPatch(
+            grading_parameter=GradingParameterPatch(
+                data=GradingParameterData(gamma=0.8),
+            ),
+        ),
+        user_id=ALICE,
+    )
+
+    assert updated.grading_parameter == {"data": {"gamma": 0.8}}
+
+
+async def test_update_card_metadata_reset_prior_resets_bayesian_state():
+    """
+    ``reset_prior=True`` resets (α, β, t), clears ``last_reviewed_at``,
+    and zeroes ``num_reviews``. Independent of any other patch field.
+    """
+    svc, repo, _ = _make_service()
+    cid = await _seed_card_for_patch(
+        repo, user_id=ALICE, alpha=10.0, beta=10.0, t=5.0, num_reviews=7,
+    )
+
+    updated = await svc.update_card_metadata(
+        cid, CardPatch(reset_prior=True), user_id=ALICE
+    )
+
+    # config.EBISU_DEFAULT_MODEL is (3.0, 3.0, 1.0).
+    assert (updated.alpha, updated.beta, updated.t) == (3.0, 3.0, 1.0)
+    assert updated.last_reviewed_at is None
+    assert updated.num_reviews == 0
+
+
+async def test_update_card_metadata_reset_prior_atomic_with_num_moves():
+    """
+    The user's authority case from the dispatch: change ``num_moves``
+    AND reset the prior in a single PATCH. Both effects observed on
+    the same returned Card.
+    """
+    svc, repo, _ = _make_service()
+    cid = await _seed_card_for_patch(
+        repo, user_id=ALICE, num_moves=5, num_reviews=4,
+    )
+
+    updated = await svc.update_card_metadata(
+        cid,
+        CardPatch(num_moves=8, reset_prior=True),
+        user_id=ALICE,
+    )
+
+    assert updated.num_moves == 8
+    assert updated.num_reviews == 0
+    assert (updated.alpha, updated.beta, updated.t) == (3.0, 3.0, 1.0)
+
+
+async def test_update_card_metadata_empty_patch_is_no_op():
+    """A patch with no fields set returns the current card unchanged."""
+    svc, repo, _ = _make_service()
+    cid = await _seed_card_for_patch(
+        repo, user_id=ALICE, num_moves=5, num_reviews=3, alpha=4.2,
+    )
+
+    updated = await svc.update_card_metadata(
+        cid, CardPatch(), user_id=ALICE
+    )
+
+    assert updated.num_moves == 5
+    assert updated.num_reviews == 3
+    assert updated.alpha == 4.2
