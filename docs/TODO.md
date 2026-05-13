@@ -247,7 +247,288 @@ frontend + backend sweeps can ship as a single coordinated
 change is on the table, or proactively as a focused audit
 session. Not blocking on a release.
 
+#### Save → disconnect clears the analysis graph; companion "always persist" registry option `[frontend]`
+
+When the user clicks "Save analyses" on a board and then
+disconnects from the engine, the in-memory analysis graph
+(the per-board ledger projection driving the chart cluster)
+clears. The current rationale is staleness avoidance — once
+the engine is gone the analysis is no longer live, and the
+charts shouldn't keep rendering against a stale snapshot as
+if it were. UX-unexpected nonetheless: users who just saved
+their work expect to be able to keep reading the charts they
+just saved without reconnecting.
+
+Two-part fix:
+
+1. **Default stays as-is.** The clear-on-disconnect behaviour
+   is the safe default; the rationale is sound.
+2. **New registry option** under
+   `profile.settings.engine.katago.alwaysPersistGraphs:
+   boolean` (default `false`). When `true`, the analysis
+   ledger survives disconnect; reconnection reads the same
+   bundle the save persisted. UI surface includes an
+   `[experimental]` tag and a strong-language warning naming
+   the resource cost — approximately **1 MB per
+   game-worth-of-analysis**, which builds up across many
+   sessions and is acutely problematic on mobile or when the
+   backend is over a metered network. The warning matches the
+   discipline of the `analysisStorageEnabled` toggle's existing
+   `[experimental]` framing.
+
+Trigger: user-prioritised. Companion to the inline-edit arc
+in that the registry-editor visibility for the toggle is
+where the warning lands.
+
 ### Large — structural changes that introduce new abstractions
+
+#### Unified user-controllable-scalar surface `[frontend]`
+
+Today's user-controllable scalars are scattered across many
+chrome surfaces: the Registry Editor (`engine.katago.*`
+settings tree), the Other tab (hue offset slider), the
+move-suggestion overlay (move-filter threshold slider), the
+per-card inline-edit panel (`numMoves`, `gamma`,
+`defaultVisits`), MintCardModal, the per-card visits override
+in the review-session panel, and one-off `<input
+type="range">` / `<input type="number">` sites throughout the
+chrome. Other scalars that *should* be user-controllable but
+currently aren't include the ownership-overlay opacity
+ceiling (lifted from the prior `0.85` to a hardcoded `0.55`
+during the polish-arc 2026-05-13 session — the user
+reasonably wants this as a slider rather than a magic
+literal) and likely most entries in the magic-literals audit
+inventory that read as preferences rather than invariants.
+
+The architectural shape lives at
+`docs/notes/qeubo-namespace-unification-plan.md`. The plan's
+filename is misleading though: **the registry is a
+substrate-level abstraction, not a qEUBO sub-feature.** qEUBO
+is one consumer of the registry; the SPA UI (the user's
+sliders, knobs, number inputs) is another consumer with equal
+architectural standing. qEUBO is in fact normally off — it
+requires gigabytes of Python ML libraries on the backend and
+ships opt-in (`QEUBO_ENABLED=False` by default per the v1
+qEUBO arc's status), so any design framed as "qEUBO needs X"
+fails the load-bearing test for the registry's basic shape.
+The unification needs reframing on top of this insight:
+
+- **The registry is the substrate.** It is the SSOT for
+  "what scalars in the system are controllable, where they
+  live, what range they admit, what kind of UI surfaces
+  them." This shape exists whether or not qEUBO is in the
+  picture.
+- **Consumers sit above the substrate.** The SPA UI consumes
+  the registry to render slider chrome. qEUBO, when active,
+  consumes the registry to construct its input dimensions
+  and parameter ranges. Future consumers — autonomous-SR
+  harnesses, plugins, programmatic-test harnesses — sit at
+  the same tier.
+- **The KnobDecl shape is fine** for the substrate;
+  `qeuboControlled` is just one of several consumer-state
+  flags the entry may carry.
+
+Every user-controllable scalar then becomes a registry
+entry; the unified editor surface (eventually
+`KnobRegistryEditor.vue`, with per-domain editors as interim
+views) renders sliders based on the registry. The "user
+touches a scalar" case is the `N = K = 1, transform =
+identity` corner of the substrate's shape; qEUBO's
+`R^2 → R^5` matrix-projection case is another corner. The
+substrate accommodates both as instances of the same
+declaration vocabulary.
+
+**Filename note.** `qeubo-namespace-unification-plan.md`
+should be renamed / re-anchored to something like
+`knob-registry-plan.md` (with the `design-note: revised`
+discipline of ADR-0005 Rule 8) at the implementation-arc
+boundary, so the canonical handle reflects the substrate-first
+framing. The plan's body is mostly right already — qEUBO
+consumption is the dominant use case it documents — but the
+framing positions qEUBO as the driver when it's really a
+peer-consumer.
+
+**Scalar vs vector terminology.** The "scalar/scaler" framing
+from the originating riddle — and the heading on this entry —
+is technically too narrow as a label for the substrate. The
+qEUBO plan's KnobDecl shape is vector-capable from day 1: each
+knob declares its own input vector (R^N) and output vector
+(R^K), and the cross-knob picture is a *product* of independent
+vector spaces — R^2 × R^5 if a user has one 2-D knob (e.g., a
+hue-saturation control) declared alongside one 5-D knob (e.g.,
+a five-anchor luminance-arc control). The components inside
+each knob are semantically distinct but composed as a vector;
+the substrate accommodates that without flattening them to
+scalars. **The motivating riddle (ownership opacity) is a
+scalar instance** (N=K=1, identity transform — a slider in
+the chrome corner of the substrate), but the substrate's
+shape supports vector-valued knobs at the same tier. Future
+prose should prefer "knob" or "controllable variable" over
+"scalar" except when the dimensionality is specifically 1; the
+heading of this entry keeps "scalar" only because the
+originating ask was a scalar one.
+
+**The slider widget is scalar-only by nature.** A separate
+point that follows from the substrate vs widget split: the
+slider as a UI primitive is fundamentally 1D — it manages a
+scalar. Rendering a vector knob as N sliders (the
+RGB-as-three-sliders anti-pattern many design tools fall
+into) misrepresents semantically-coupled components as
+independent: the user can change R without G/B but the
+underlying knob's meaning is in the joint vector, and the
+slider chrome makes the joint character invisible. Vector
+knobs need **bespoke widgets per knob's domain** — a gamut /
+heatmap picker for a colour knob, a 2-D pad for a
+two-parameter knob, a matrix editor for a linear-transform
+coefficient table. The substrate is widget-agnostic
+(`KnobDecl` declares the shape; the editor consumer maps
+shape to widget). The "unified slider surface" the
+originating riddle prompted is therefore one editor consumer
+specifically — a scalar-slider surface, where every
+participating knob is `N = 1`. Vector-knob widgets are
+*siblings* to it in the editor architecture, not subordinates;
+the unified scalar-slider surface should not host vector
+knobs by flattening, and the editor's cross-domain view
+(eventually `KnobRegistryEditor.vue`) needs to know which
+widget to render per knob (a `widget` hint on `KnobDecl`,
+or derived from `inputs.length` + transform type — settled at
+implementation time).
+
+This refines the scope of what gets unified in the originating
+ask: **a unified scalar-slider surface for every 1-D knob in
+the system**, not a unified "all knobs" widget. Vector knobs
+remain in their domain-specific surfaces (the palette editor's
+linear-transform coefficient widget, the prospective
+gamut/heatmap colour picker, etc.); the substrate is the
+crossing point.
+
+### Variable ownership / write arbitration
+
+When multiple consumers may write the same scalar, who wins?
+The qEUBO plan's existing "Transform invertibility"
+section sketches one answer ("inputs are the source of truth
+for qEUBO-controlled knobs; outputs are read-only-for-
+manual-edit while the knob is under qEUBO control"); the
+broader substrate framing makes the question more general
+than that section addresses. Discussion points:
+
+- **A. Hard lock.** When a non-user consumer (qEUBO,
+  autonomous-SR run, etc.) is actively controlling a scalar,
+  the user's SPA slider is disabled / read-only for the
+  duration. Status quo per the qEUBO plan. Clean failure
+  semantic; user knows the slider is inert because something
+  else owns the variable.
+- **B. Soft warning.** Manual edit is allowed; the controller
+  is notified ("user manually edited this knob during your
+  experiment; your next iteration will overwrite"). Up to
+  the controller to decide whether to honour the manual edit
+  or proceed. Currently qEUBO would proceed (no plumbing for
+  honouring manual mid-experiment edits) — which makes (B)
+  effectively a documented-noisy form of "the manual edit
+  was futile."
+- **C. Manual edit claims ownership.** Manual edit transitions
+  the scalar from controller-owned to user-owned; the prior
+  controller releases its hold. Graceful UX for the user but
+  disruptive to long-running consumers (a qEUBO experiment
+  mid-iteration loses the parameter it was about to vary;
+  the experiment's GP surrogate's data points become
+  inconsistent with its current parameter ranges).
+- **D. Co-controlled with arbitration.** Both consumers can
+  write; some priority scheme arbitrates (timestamp-last-
+  writes, controller-priority-table, etc.). Combinatorial
+  complexity rises sharply; probably not worth it absent a
+  concrete use case demanding it.
+
+The right answer probably depends on what's controlling and
+what's running. Hard lock (A) is defensible for qEUBO during
+an experiment; manual-claim (C) is defensible for transient
+autonomous-SR scenarios where the user re-asserts control
+mid-run. The substrate should express "current controller"
+per-scalar as a property, with the SPA slider's enabled state
+derived from "is this scalar currently controlled by anything
+other than direct UI?" — leaving the arbitration policy
+configurable per consumer rather than baked into the
+substrate.
+
+The discussion is itself a deliverable of this arc — landing
+the substrate without a settled arbitration policy is a
+known unknown (every consumer falls back to the default-lock
+shape), and explicitly recording the choice prevents the
+"the design picked itself by inertia" drift ADR-0002 Rule 6
+warns about.
+
+Sequencing tension worth naming:
+
+1. **Infrastructure-first path.** Land the knob registry per
+   the plan, migrate every existing user-controllable scalar
+   onto a `KnobDecl` in one structural arc, ship the unified
+   editor surface. Cleanest endpoint; highest up-front cost;
+   delays the small wins (e.g., the ownership-opacity slider
+   the user wanted this session).
+2. **Scalars-first path.** Promote immediate scalars (ownership
+   opacity ceiling, future motivating cases) to registry leaves
+   now, under a coherent namespace
+   (`profile.settings.engine.katago.appearance.*` or similar).
+   Then absorb them onto `KnobDecl`s when the registry lands
+   via the migration the plan already anticipates. Cheap
+   incremental progress; accepts some interim ad-hoc-ness.
+
+The user has explicitly named that the current state feels
+ad-hoc and is open to a teardown / rebuild if the
+infrastructure is judged poor. The knob registry *is* the
+rebuild; the question is whether to ship it as one structural
+arc or to incrementally promote scalars while building the
+registry alongside.
+
+A motivating starting battery for the registry (the scalars
+worth exposing first, in rough order of "user has asked for
+this" → "magic literal that's clearly a preference" →
+"chrome-internal but probably wants a knob"):
+
+- **Ownership opacity ceiling.** Hardcoded `0.55` in
+  `BoardWidget.vue::ownershipColor`. Direct ask from the
+  2026-05-13 session.
+- **Move-filter threshold.** Already exposed as a slider via
+  `session.ui.moveFilterThreshold`; would migrate.
+- **Hue offset.** Already in `appearance.intensityHueShift`,
+  surfaced in the Other tab's slider; would migrate.
+- **Watchdog animation duration.** Hardcoded `500ms` keyframe
+  in the ping-tandem animation — interestingly tied to the
+  threshold cutoff (`WATCHDOG_LATENCY_THRESHOLD_MS`). Both are
+  preference candidates.
+- **Various scalars from the magic-literals audit inventory**
+  (`docs/archive/notes/magic-literals-audit-inventory.md`)
+  flagged as "preference" rather than "invariant" at the
+  authoring discipline stage.
+
+Open questions before implementation:
+
+- **Namespace convention** for promoted-but-not-yet-`KnobDecl`-wrapped
+  scalars. `profile.settings.<domain>.*` is the existing
+  tree; adding a `profile.settings.appearance.*` or
+  `profile.settings.chrome.*` subtree for chrome-scalars is the
+  natural shape. Decide once so promotions don't compound the
+  ad-hoc-ness.
+- **Editor surface ergonomics.** Do per-knob sliders coexist
+  with the existing Registry Editor's typed-leaf approach, or
+  does the knob editor supersede it? The plan suggests
+  coexistence (per-domain views write the same registry); the
+  cross-domain `KnobRegistryEditor` is the new addition.
+- **qEUBO surface impact.** The plan addresses this directly:
+  `useQeubo`'s controlled-parameter list becomes flat wire
+  keys derived from `KnobDecl` input dimensions, encode/decode
+  stays in PD route code on the backend, no dispatch needed.
+
+Cross-references: `docs/notes/qeubo-namespace-unification-plan.md`
+(canonical handle); `docs/archive/notes/magic-literals-audit-inventory.md`
+(the per-literal inventory many of the candidates come from);
+`docs/archive/notes/frontend-theming-plan.md` Substrate-evolution
+section (alias / mix-derivation principles transforms interact
+with).
+
+Trigger: user-prioritised. The user has flagged this as
+warranting deep thought; the design note exists, the sequencing
+decision is the remaining call.
 
 #### 30c. `[backend]` Single CTE per pipeline run
 
@@ -334,6 +615,71 @@ implementation outcome lives at
 `docs/worklog/2026-05-12-tag-dsl-macro-language.md`. The
 long-carrying `tag_dsl.py`-is-an-adapter rough-edge in
 `reflection.md` was closed by arc 1 in the same commit window.
+
+### Automatic mistake discovery `[frontend]`
+
+Surface "mistake" candidates from a played-out game
+automatically, so the user can review them without manually
+scanning move-by-move. A "mistake" is engine-defined: a move
+where the user's choice produces a worse position (by
+palette-derived signal) than the engine's top recommendation
+by some threshold. The candidates become a queue the user
+can flip through.
+
+Open design questions:
+
+- **Mistake definition.** Delta-from-best (winrate /
+  scoreLead delta beyond threshold)? Cluster-based
+  (top-cluster vs played-cluster)? Palette-signal-based
+  (use the user's active palette as the "what counts as bad"
+  function)? Each is a different signal; the palette-driven
+  shape composes best with the existing analysis-environment
+  vocabulary.
+- **Threshold scalar(s).** Per-card, per-deck, or
+  registry-controlled? User-touchable scalar(s) overlap with
+  the "Unified user-controllable-scalar surface" item above —
+  whatever threshold(s) ship become `KnobDecl` candidates.
+- **Affordance.** Live during analysis ("you just played a
+  mistake; want to study it?"), batch ("show me my recent
+  mistakes" view), or both?
+- **Heredity tracking.** Should auto-discovered mistakes
+  spawn child cards (linking them to the parent position
+  the user faced)? Or just become standalone study targets?
+  The heredity option composes with the pedagogy's
+  "heredity-offload" vantage point (see
+  `docs/handoff-current.md`'s pedagogy section); the
+  standalone option keeps the discovery channel separate
+  from the active card tree.
+
+Useful overlap: the existing per-player delta charts
+(`MergedDeltaPanel`) literally render "where each player's
+deltas were largest" — auto-mistake-discovery could pluck
+those peaks for its candidate queue without a separate
+detection pass.
+
+Trigger: user-prioritised. Needs the design decisions above
+settled before implementation.
+
+### Inline `analysis_config` editing in the card-metadata panel `[frontend]`
+
+Deferred during the card-metadata inline-edit arc 2 build
+(2026-05-13). The arc-2 panel surfaces every other writable
+field on a card (tags, numMoves, suspended, gamma,
+defaultVisits, reset_prior) but treats `analysis_config` as
+read-only with a tooltip stating the deferral, pending design
+thought on the design space and downstream consequences. The
+backend's contract over `grading_parameter.data` is
+intentionally open: backend reads only `gamma`, everything
+else (including `analysis_config`) is opaque pass-through, so
+the frontend owns the shape entirely. Today users edit
+`analysis_config` through the registry editor's full-shape
+JSON UI; the question is whether an inline-panel surface
+would expose enough common-case affordances to warrant the
+investment without compounding the "transparent depth" /
+"every abstraction is editable" promise the registry editor
+already keeps.
+
+Trigger: user thought-time on the design space.
 
 ### Polymorphic chart renderer abstraction `[frontend]`
 
