@@ -6,6 +6,7 @@
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import QeuboToolbar from '../qeubo/QeuboToolbar.vue';
+import EngineQueueTooltip from './EngineQueueTooltip.vue';
 import { store, setSelectedModel } from '../../store';
 import type { EngineStatus, EngineMetrics } from '../../types';
 
@@ -147,6 +148,12 @@ const modelTooltip = computed(() => {
           :style="{ color: metrics.latencyMs < 500 ? '#00ff88' : 'var(--state-attention)' }"
         >●</span>
       </div>
+      <!-- Queue tooltip — hover the count to see every in-flight
+           proxy query, with kind, SELECTOR model label, turn /
+           visit progress and ETA. Always rendered while connected
+           so the user knows whether the engine has outstanding
+           work even when no per-board ponder is active. -->
+      <EngineQueueTooltip />
     </div>
 
     <!-- qEUBO calibration cluster. Self-gating: renders only when an

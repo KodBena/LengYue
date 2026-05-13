@@ -71,6 +71,7 @@ frontend/src/
 │   │   └── StabilityPanel.vue         [B3]  Triangular multiresolution-interval heatmap.
 │   │
 │   ├── chrome/                              Application shell. Generic UI primitives.
+│   │   ├── EngineQueueTooltip.vue     [B1]  Toolbar badge + hover panel listing in-flight KataGo queries with ETA.
 │   │   ├── FloatingThumbnail.vue      [B1]  Generic floating thumbnail tooltip.
 │   │   ├── LocalePicker.vue           [B1]  Top-nav locale picker (flag + native name).
 │   │   ├── RootErrorBoundary.vue      [B1]  Catches descendant errors, logs via ADR-0002, renders fallback.
@@ -108,6 +109,7 @@ frontend/src/
 │   ├── useEngineControls.ts           [B3]  Engine connect / disconnect / toggle lifecycle.
 │   ├── useNavigation.ts               [B2]  Headless navigation within the game tree (next/prev/parent/child).
 │   ├── useQeubo.ts                    [B1]  qEUBO experiment state machine + audition + verdict.
+│   ├── useQueryTelemetry.ts           [B1]  Singleton in-flight KataGo query queue + per-model visits/sec ETA.
 │   ├── useScopedScroll.ts             [B1]  Wheel-event scoped scroll (board + tree both consume).
 │   ├── useTransientHint.ts            [B1]  Module-scoped reactive hint string surfaced by StatusBar.
 │   ├── useTransientLogReveal.ts       [B1]  Auto-reveals system-log panel on error/warning bursts.

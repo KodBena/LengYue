@@ -38,6 +38,9 @@ import {
 } from './analysis-config';
 import { KATAGO_WS_URL } from '../config/env';
 import { i18n } from '../i18n';
+import { useQueryTelemetry } from '../composables/useQueryTelemetry';
+
+const telemetry = useQueryTelemetry();
 
 export class AnalysisService {
   private client: KataGoClient;
@@ -399,6 +402,19 @@ export class AnalysisService {
 
     this.activeQueries.set(queryId, { path: fullPath, hash, framing });
 
+    // Queue telemetry — register at construction so the Toolbar's
+    // queue tooltip can render this range query and its ETA.
+    telemetry.registerQuery({
+      queryId,
+      kind:         'range',
+      boardId,
+      model:        store.engine.selectedModel,
+      startTimeMs:  Date.now(),
+      turnsTotal:   analyzeTurns.length,
+      visitsPerTurn: visits,
+      label:        forReview ? 'grading' : undefined,
+    });
+
     // The query is now type-honest end-to-end: KataGoAnalysisQuery declares
     // `cache`, `lookup_cache`, and `analysis_config` as accepted wire fields
     // (see engine/katago/types.ts), so no inline intersection type or cast
@@ -532,6 +548,23 @@ export class AnalysisService {
         : undefined;
     this.activeQueries.set(queryId, { path: fullPath, hash, framing, ponderCeiling });
 
+    // Queue telemetry — single-turn entry. For ponder, the per-turn
+    // visit budget is the ponderMaxVisits ceiling; for analyze, the
+    // user-supplied / default visits target. Either way the tooltip
+    // computes ETA from the per-model rolling visits/sec.
+    telemetry.registerQuery({
+      queryId,
+      kind:         mode,
+      boardId,
+      model:        store.engine.selectedModel,
+      startTimeMs:  Date.now(),
+      turnsTotal:   1,
+      visitsPerTurn:
+        mode === 'ponder'
+          ? store.profile.settings.engine.katago.ponderMaxVisits
+          : (visits ?? null),
+    });
+
     const ownershipModes = store.session.ui.overlayLayers.ownership;
     const needsOwnership = ownershipModes.continuous || ownershipModes.dots || ownershipModes.liveness;
     const cacheFlags = {
@@ -614,6 +647,15 @@ export class AnalysisService {
 
   private onAnalysisUpdate(response: KataAnalysisResponse, queryId: string) {
     this.packetCount++;
+    // Telemetry observation — records visit progress for ETA
+    // computation, regardless of whether the queryId is still in
+    // `activeQueries` (the telemetry singleton's own lookup is
+    // independent, so a packet arriving after `stopBoardAnalysis`
+    // has cleared the local entry still updates ETA cleanly until
+    // the telemetry unregister fires).
+    const rootVisits = response.rootInfo?.visits ?? 0;
+    telemetry.recordPacket(queryId, response.turnNumber, rootVisits, response.isDuringSearch);
+
     const queryInfo = this.activeQueries.get(queryId);
     if (!queryInfo) return;
 
@@ -668,6 +710,11 @@ export class AnalysisService {
     if (prevId) {
       this.client.sendCommand({ id: `term-${Date.now()}`, action: 'terminate', terminateId: prevId });
       this.activeQueries.delete(prevId);
+      // Release the telemetry entry too — the query is genuinely
+      // terminated. (Natural completion has its own auto-cleanup
+      // path inside the telemetry singleton; this branch handles
+      // explicit interruption.)
+      telemetry.unregisterQuery(prevId);
     }
     this.activeSubscriptions.delete(boardId);
     this.activeQueryIds.delete(boardId);
