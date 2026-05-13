@@ -241,7 +241,7 @@ function formatXTooltip(val: number): string {
 
 <template>
   <AnalysisChartPanel
-    label="Both Players' Performance (Moves)"
+    label="Per-Player Performance (Moves)"
     :series="mergedSeries"
     :active-index="activeMergedIndex"
     :zoom-range="zoomRange"
