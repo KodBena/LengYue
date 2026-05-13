@@ -521,8 +521,6 @@ export interface paths {
          *
          *     Raises:
          *         404 (via ResourceNotFoundError): `name` is not registered.
-         *             The response body includes a message listing known
-         *             resources.
          */
         get: operations["get_resource_resources__name__get"];
         put?: never;
@@ -865,6 +863,8 @@ export interface components {
             canonical_content: string;
             /** Card Source Id */
             card_source_id?: number | null;
+            /** Tags */
+            tags?: string[];
             /** Current Recall */
             current_recall: number;
             /** Halflife Units */

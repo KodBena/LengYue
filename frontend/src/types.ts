@@ -843,6 +843,15 @@ export interface ReviewCard {
   readonly gradingParameter?: Record<string, any> | null;
   readonly currentRecall?: number;
   readonly halflifeUnits?: number;
+  // ─── Card-metadata inline-edit arc 1 (backend tag, 2026-05-13) ───────────
+  // Plain tags attached to this card (virtual `$tag` macros are a
+  // deck-DSL construct, not per-card metadata; they don't appear
+  // here). The wire schema marks the field optional (Pydantic
+  // serialises the default `[]` when the card has no tags but
+  // declares the field as having a default — which OpenAPI maps to
+  // optional), so the ACL coerces `undefined → []` at the
+  // boundary. Domain-side the field is always present.
+  readonly tags: readonly string[];
 }
 
 // ── State Container (readonly removed) — SR domain ────────────────────────────

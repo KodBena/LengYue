@@ -143,6 +143,12 @@ export class BackendService {
       gradingParameter: curatedGradingParameter,
       currentRecall: raw.current_recall,
       halflifeUnits: raw.halflife_units,
+      // Card-metadata inline-edit arc 1: plain tags attached to the
+      // card. Wire field is marked optional (Pydantic default
+      // serialisation), so coerce `undefined → []` at this
+      // boundary — domain-side `ReviewCard.tags` is always
+      // present, callers don't branch on absence.
+      tags: raw.tags ?? [],
     };
   }
 
