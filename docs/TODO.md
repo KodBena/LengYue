@@ -300,18 +300,108 @@ reasonably wants this as a slider rather than a magic
 literal) and likely most entries in the magic-literals audit
 inventory that read as preferences rather than invariants.
 
-The architectural answer is **the qEUBO knob-registry
-design** — see
-`docs/notes/qeubo-namespace-unification-plan.md`. Every
-user-controllable scalar becomes a `KnobDecl` entry with
-declared input dimensions, output paths, transform, and
-`qeuboControlled` flag; the unified editor surface
-(eventually `KnobRegistryEditor.vue` per the plan, with the
-existing per-domain editors as interim views) renders sliders
-based on the registry. The qEUBO plan was authored with this
-unification in mind; the "user touches a scalar"
-case is the `N = K = 1, transform = identity` corner of the
-same shape.
+The architectural shape lives at
+`docs/notes/qeubo-namespace-unification-plan.md`. The plan's
+filename is misleading though: **the registry is a
+substrate-level abstraction, not a qEUBO sub-feature.** qEUBO
+is one consumer of the registry; the SPA UI (the user's
+sliders, knobs, number inputs) is another consumer with equal
+architectural standing. qEUBO is in fact normally off — it
+requires gigabytes of Python ML libraries on the backend and
+ships opt-in (`QEUBO_ENABLED=False` by default per the v1
+qEUBO arc's status), so any design framed as "qEUBO needs X"
+fails the load-bearing test for the registry's basic shape.
+The unification needs reframing on top of this insight:
+
+- **The registry is the substrate.** It is the SSOT for
+  "what scalars in the system are controllable, where they
+  live, what range they admit, what kind of UI surfaces
+  them." This shape exists whether or not qEUBO is in the
+  picture.
+- **Consumers sit above the substrate.** The SPA UI consumes
+  the registry to render slider chrome. qEUBO, when active,
+  consumes the registry to construct its input dimensions
+  and parameter ranges. Future consumers — autonomous-SR
+  harnesses, plugins, programmatic-test harnesses — sit at
+  the same tier.
+- **The KnobDecl shape is fine** for the substrate;
+  `qeuboControlled` is just one of several consumer-state
+  flags the entry may carry.
+
+Every user-controllable scalar then becomes a registry
+entry; the unified editor surface (eventually
+`KnobRegistryEditor.vue`, with per-domain editors as interim
+views) renders sliders based on the registry. The "user
+touches a scalar" case is the `N = K = 1, transform =
+identity` corner of the substrate's shape; qEUBO's
+`R^2 → R^5` matrix-projection case is another corner. The
+substrate accommodates both as instances of the same
+declaration vocabulary.
+
+**Filename note.** `qeubo-namespace-unification-plan.md`
+should be renamed / re-anchored to something like
+`controllable-scalar-registry-plan.md` (with the
+`design-note: revised` discipline of ADR-0005 Rule 8) at the
+implementation-arc boundary, so the canonical handle reflects
+the substrate-first framing. The plan's body is mostly right
+already — qEUBO consumption is the dominant use case it
+documents — but the framing positions qEUBO as the driver
+when it's really a peer-consumer.
+
+### Variable ownership / write arbitration
+
+When multiple consumers may write the same scalar, who wins?
+The qEUBO plan's existing "Transform invertibility"
+section sketches one answer ("inputs are the source of truth
+for qEUBO-controlled knobs; outputs are read-only-for-
+manual-edit while the knob is under qEUBO control"); the
+broader substrate framing makes the question more general
+than that section addresses. Discussion points:
+
+- **A. Hard lock.** When a non-user consumer (qEUBO,
+  autonomous-SR run, etc.) is actively controlling a scalar,
+  the user's SPA slider is disabled / read-only for the
+  duration. Status quo per the qEUBO plan. Clean failure
+  semantic; user knows the slider is inert because something
+  else owns the variable.
+- **B. Soft warning.** Manual edit is allowed; the controller
+  is notified ("user manually edited this knob during your
+  experiment; your next iteration will overwrite"). Up to
+  the controller to decide whether to honour the manual edit
+  or proceed. Currently qEUBO would proceed (no plumbing for
+  honouring manual mid-experiment edits) — which makes (B)
+  effectively a documented-noisy form of "the manual edit
+  was futile."
+- **C. Manual edit claims ownership.** Manual edit transitions
+  the scalar from controller-owned to user-owned; the prior
+  controller releases its hold. Graceful UX for the user but
+  disruptive to long-running consumers (a qEUBO experiment
+  mid-iteration loses the parameter it was about to vary;
+  the experiment's GP surrogate's data points become
+  inconsistent with its current parameter ranges).
+- **D. Co-controlled with arbitration.** Both consumers can
+  write; some priority scheme arbitrates (timestamp-last-
+  writes, controller-priority-table, etc.). Combinatorial
+  complexity rises sharply; probably not worth it absent a
+  concrete use case demanding it.
+
+The right answer probably depends on what's controlling and
+what's running. Hard lock (A) is defensible for qEUBO during
+an experiment; manual-claim (C) is defensible for transient
+autonomous-SR scenarios where the user re-asserts control
+mid-run. The substrate should express "current controller"
+per-scalar as a property, with the SPA slider's enabled state
+derived from "is this scalar currently controlled by anything
+other than direct UI?" — leaving the arbitration policy
+configurable per consumer rather than baked into the
+substrate.
+
+The discussion is itself a deliverable of this arc — landing
+the substrate without a settled arbitration policy is a
+known unknown (every consumer falls back to the default-lock
+shape), and explicitly recording the choice prevents the
+"the design picked itself by inertia" drift ADR-0002 Rule 6
+warns about.
 
 Sequencing tension worth naming:
 
