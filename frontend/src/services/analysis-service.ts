@@ -105,6 +105,21 @@ export class AnalysisService {
         // through reconnect but get overwritten on next subscribe.
         // Resource-ownership audit O15 (and the related O6
         // verification on the subscribers side).
+        //
+        // Telemetry IS cleared here, separately from the closure
+        // maps above: the user-visible queue tooltip needs to
+        // reflect that the proxy has dropped every in-flight
+        // query on this side of the WS. The closure maps don't
+        // need clearing because they don't surface to the user;
+        // the queue tooltip reads from `useQueryTelemetry` and
+        // would otherwise show stale "in-flight" rows until the
+        // user fires a new query that overwrites them. Match
+        // queries (registered through `usePlayFromPosition`'s
+        // separate `KataGoClient`) carry boardId=null and are
+        // unaffected — they live on their own WS.
+        for (const queryId of this.activeQueryIds.values()) {
+          telemetry.unregisterQuery(queryId);
+        }
         store.engine.status = 'disconnected';
         store.engine.activeMode = {};
         // Clear engine identity on disconnect so a stale
@@ -305,6 +320,15 @@ export class AnalysisService {
   }
 
   public disconnect() {
+    // Telemetry sweep before `client.disconnect()` so the queue
+    // tooltip clears immediately on user-initiated disconnect
+    // (rather than waiting for the WS-level onDisconnect to fire,
+    // which usually happens but isn't strictly guaranteed if the
+    // client tears down synchronously). Match queries are
+    // preserved by construction (boardId=null, not in this map).
+    for (const queryId of this.activeQueryIds.values()) {
+      telemetry.unregisterQuery(queryId);
+    }
     this.client.disconnect();
     store.engine.status = 'disconnected';
     store.engine.activeMode = {};
