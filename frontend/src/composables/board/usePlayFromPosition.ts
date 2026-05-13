@@ -30,6 +30,9 @@
 
 import { ref, type Ref } from 'vue';
 import { KataGoClient } from '../../engine/katago/katago-client';
+import { useQueryTelemetry } from '../useQueryTelemetry';
+
+const telemetry = useQueryTelemetry();
 import {
   type KataAnalysisResponse,
   type KataGoAnalysisQuery,
@@ -91,16 +94,38 @@ function connectFresh(url: string): Promise<KataGoClient> {
 }
 
 /**
+ * Telemetry meta the caller passes when it wants this query to
+ * appear in the SPA's Toolbar queue tooltip. Optional — single-shot
+ * test-harness helpers can skip it; the production match loop
+ * passes it so each turn appears in the queue with model and ETA.
+ */
+interface AwaitTelemetryMeta {
+  readonly kind: import('../useQueryTelemetry').QueryKind;
+  readonly model: string | null;
+  readonly visitsPerTurn: number | null;
+  readonly label?: string;
+}
+
+/**
  * Subscribe a single query and resolve with the first final packet
  * (`isDuringSearch === false`) for `expectedTurn`. Intermediate
  * during-search packets are ignored. The subscription tears down via
  * the returned `unsub` regardless of which channel wins.
+ *
+ * When `telemetryMeta` is supplied, the call also registers the
+ * query with the SPA's queue-telemetry singleton, records each
+ * packet's `(turnNumber, visits, isDuringSearch)` for ETA
+ * computation, and unregisters on settle (regardless of which
+ * channel — final / timeout / error — wins). This is how the
+ * engine-match loop surfaces in the Toolbar queue alongside
+ * analysis-service-issued queries.
  */
 function awaitFinalPacket(
   client: KataGoClient,
   query: KataGoAnalysisQuery,
   expectedTurn: number,
   timeoutMs: number,
+  telemetryMeta?: AwaitTelemetryMeta,
 ): Promise<KataAnalysisResponse> {
   return new Promise((resolve, reject) => {
     let unsub: (() => void) | null = null;
@@ -110,8 +135,37 @@ function awaitFinalPacket(
       settled = true;
       clearTimeout(timer);
       unsub?.();
+      if (telemetryMeta) telemetry.unregisterQuery(query.id);
       fn();
     };
+    if (telemetryMeta) {
+      telemetry.registerQuery({
+        queryId:       query.id,
+        kind:          telemetryMeta.kind,
+        boardId:       null,
+        model:         telemetryMeta.model,
+        startTimeMs:   Date.now(),
+        turnsTotal:    1,
+        visitsPerTurn: telemetryMeta.visitsPerTurn,
+        label:         telemetryMeta.label,
+        // Cancel: terminate the proxy-side query (so the engine
+        // stops computing the deeper analysis), then settle the
+        // promise with a rejection. The `playEngineMatch` loop's
+        // try/catch handles the rejection and tears the match
+        // down — cancelling one turn cancels the match, since
+        // the loop can't skip past an aborted turn.
+        cancel: () => {
+          void client.sendCommand({
+            id: `term-cancel-${Date.now()}`,
+            action: 'terminate',
+            terminateId: query.id,
+          });
+          settle(() => reject(
+            new Error(`Cancelled by user (queue-tooltip) for queryId=${query.id}`),
+          ));
+        },
+      });
+    }
     const timer = setTimeout(() => {
       settle(() => reject(
         new Error(`No final packet for turn ${expectedTurn} within ${timeoutMs}ms (queryId=${query.id})`),
@@ -126,6 +180,10 @@ function awaitFinalPacket(
         return;
       }
       const r = res as KataAnalysisResponse;
+      if (telemetryMeta) {
+        const rootVisits = r.rootInfo?.visits ?? 0;
+        telemetry.recordPacket(query.id, r.turnNumber, rootVisits, r.isDuringSearch);
+      }
       if (r.turnNumber === expectedTurn && r.isDuringSearch === false) {
         settle(() => resolve(r));
       }
@@ -416,7 +474,12 @@ export async function playEngineMatch(opts: PlayEngineMatchOptions): Promise<Boa
         side.model,
         opts.capabilities,
       );
-      const packet = await awaitFinalPacket(client, query, expectedTurn, timeoutMs);
+      const packet = await awaitFinalPacket(client, query, expectedTurn, timeoutMs, {
+        kind:          'match',
+        model:         side.model ?? null,
+        visitsPerTurn: side.maxVisits,
+        label:         playerColor,
+      });
       const best = packet.moveInfos.find((m) => m.order === 0);
       if (!best) {
         throw new Error(`playEngineMatch: turn ${expectedTurn} packet has no order-0 moveInfo`);

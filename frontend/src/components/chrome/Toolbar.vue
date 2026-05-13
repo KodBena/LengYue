@@ -6,6 +6,7 @@
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import QeuboToolbar from '../qeubo/QeuboToolbar.vue';
+import EngineQueueTooltip from './EngineQueueTooltip.vue';
 import { store, setSelectedModel } from '../../store';
 import type { EngineStatus, EngineMetrics } from '../../types';
 
@@ -31,6 +32,47 @@ const emit = defineEmits<{
   (e: 'open-match'):   void;
   (e: 'stop-match'):   void;
 }>();
+
+// magic-literal: 500ms — watchdog-dot colour-flip threshold for
+// the default (un-animated) mode. The watchdog samples
+// `query_version` round-trip every 5000ms (see
+// `analysis-service.startWatchdog`); a sample above this threshold
+// flips the dot red. The cutoff is hand-tuned: KataGo's proxy
+// returns `query_version` in single-digit ms when idle and
+// hundreds-of-ms when concurrent analyses serialise the proxy's
+// command queue behind heavy-analyze responses — 500ms is the
+// "the engine is busy enough that the user should notice" point.
+const WATCHDOG_LATENCY_THRESHOLD_MS = 500;
+
+// Two distinct watchdog-dot modes, gated by
+// `session.ui.watchdogColorTransition`:
+//
+//   - OFF (default): sample-driven. Dot reads `latencyMs` from
+//     the most recent watchdog poll (5000ms cadence) and flips
+//     green/red on the threshold. Colour persists until the next
+//     sample replaces the value. This is the historical
+//     behaviour the codebase shipped with.
+//
+//   - ON: ping-tandem. Dot starts an animation when each
+//     watchdog `query_version` ping is sent (`pingPendingSince`
+//     non-null) and resets to green when the pong returns
+//     (`pingPendingSince` null). The animation fades from green
+//     toward red over a duration tuned to make a fast pong barely
+//     visible and a slow / never-arriving pong fully red. Class
+//     applied on the dot triggers the keyframe; class removed
+//     snaps the dot back to green per the keyframe's
+//     `animation-fill-mode: forwards` interaction with the
+//     class-toggle.
+const watchdogClasses = computed(() => {
+  if (store.session.ui.watchdogColorTransition) {
+    return store.engine.metrics.pingPendingSince !== null
+      ? 'watchdog-pinging'
+      : '';
+  }
+  return props.metrics.latencyMs >= WATCHDOG_LATENCY_THRESHOLD_MS
+    ? 'watchdog-bad'
+    : '';
+});
 
 const isConnected   = computed(() => props.engineStatus === 'connected');
 // Symmetric verb pairing with the disconnected label; the connected
@@ -144,9 +186,15 @@ const modelTooltip = computed(() => {
         <span class="m-lbl">{{ $t('toolbar.metric.watchdog') }}</span>
         <span
           class="m-val watchdog-dot"
-          :style="{ color: metrics.latencyMs < 500 ? '#00ff88' : 'var(--state-attention)' }"
+          :class="watchdogClasses"
         >●</span>
       </div>
+      <!-- Queue tooltip — hover the count to see every in-flight
+           proxy query, with kind, SELECTOR model label, turn /
+           visit progress and ETA. Always rendered while connected
+           so the user knows whether the engine has outstanding
+           work even when no per-board ponder is active. -->
+      <EngineQueueTooltip />
     </div>
 
     <!-- qEUBO calibration cluster. Self-gating: renders only when an
@@ -187,6 +235,34 @@ const modelTooltip = computed(() => {
    `cursor: help` on the value cues the hover tooltip (full probe
    response, including the privacy-concerning `name` field). */
 .engine-identity { flex-shrink: 0; }
+/* Watchdog dot. magic-literal: #00ff88 (green) is the in-codebase
+   liveness-OK convention; var(--state-attention) is the
+   substrate's red attention anchor. */
+.watchdog-dot { color: #00ff88; }
+/* Default (un-animated) mode — `watchdog-bad` reflects the most
+   recent watchdog poll's `latencyMs` against the
+   WATCHDOG_LATENCY_THRESHOLD_MS threshold. Class toggles
+   instantly; the 5000ms watchdog cadence gives the dot its
+   "stays red for ~5s after a spike" feel. */
+.watchdog-dot.watchdog-bad { color: var(--state-attention); }
+/* Animated mode — gated by `session.ui.watchdogColorTransition`,
+   default off. Class is added when a watchdog ping is in flight
+   (`pingPendingSince` non-null) and removed on pong; the
+   keyframe animates green → red, with `forwards` holding the
+   end colour if the ping outruns the animation, and the
+   class-remove path snaps back to the base green (no
+   transition declared, so removal is instant). magic-literal:
+   500ms — same threshold as the un-animated mode's flip point,
+   tying the animation's full-saturation moment to "the engine
+   is taking long enough to be concerning." A fast pong (≪500ms)
+   leaves the dot only partially-faded before the snap-back. */
+.watchdog-dot.watchdog-pinging {
+  animation: watchdog-pong-pending 500ms linear forwards;
+}
+@keyframes watchdog-pong-pending {
+  from { color: #00ff88; }
+  to   { color: var(--state-attention); }
+}
 .engine-version-val, .engine-id-val { white-space: nowrap; cursor: help; }
 /* SELECTOR-mode model dropdown. The .m-val class on the same
    element supplies the accent colour + bold weight; this rule

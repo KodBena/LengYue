@@ -438,6 +438,15 @@ export const defaultSessionUI: UISession = {
   // unconditionally before this field landed). Schema-version 20
   // introduces the field.
   showTranspositionRings: true,
+  // Schema-version 34 introduces the watchdog-dot colour-transition
+  // toggle (see AppSettings.session.ui.watchdogColorTransition's
+  // doc comment in `types.ts`). Default false — the ping-tandem
+  // animation is opt-in. The default (un-animated) mode keeps
+  // the historical 5000ms-sample-driven behaviour: dot flips on
+  // a sample crossing the threshold and stays put until the next
+  // sample. Users who want the per-ping animation flip the
+  // toggle in the registry editor.
+  watchdogColorTransition: false,
   // Forest Directory navigator: empty expansion + null selection
   // means a fresh user lands on a fully-collapsed tree until they
   // click. Schema-version 21 introduces the field; the migration

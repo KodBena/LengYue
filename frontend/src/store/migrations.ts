@@ -87,7 +87,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 33;
+export const CURRENT_SCHEMA_VERSION = 34;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -1028,6 +1028,27 @@ export const migrations: Migration[] = [
         if (cs && typeof cs === 'object' && !Array.isArray(cs.hyperparameters)) {
           cs.hyperparameters = [];
         }
+      }
+    }
+    return out;
+  },
+  // 33 → 34: Watchdog dot colour-transition toggle. Backfills the
+  // new `session.ui.watchdogColorTransition` field with `false`
+  // for existing blobs (matching the fresh-install default in
+  // `store/defaults.ts`). The ping-tandem animation is opt-in;
+  // existing users keep the historical sample-driven behaviour
+  // until they flip the toggle. Pure UI preference — engine
+  // behaviour unchanged. See
+  // `AppSettings.session.ui.watchdogColorTransition` in `types.ts`
+  // for the field's full doc.
+  //
+  // Idempotent: an existing boolean is preserved unchanged.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = out.session?.ui;
+    if (ui && typeof ui === 'object') {
+      if (typeof ui.watchdogColorTransition !== 'boolean') {
+        ui.watchdogColorTransition = false;
       }
     }
     return out;

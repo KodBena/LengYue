@@ -38,6 +38,9 @@ import {
 } from './analysis-config';
 import { KATAGO_WS_URL } from '../config/env';
 import { i18n } from '../i18n';
+import { useQueryTelemetry } from '../composables/useQueryTelemetry';
+
+const telemetry = useQueryTelemetry();
 
 export class AnalysisService {
   private client: KataGoClient;
@@ -102,8 +105,28 @@ export class AnalysisService {
         // through reconnect but get overwritten on next subscribe.
         // Resource-ownership audit O15 (and the related O6
         // verification on the subscribers side).
+        //
+        // Telemetry IS cleared here, separately from the closure
+        // maps above: the user-visible queue tooltip needs to
+        // reflect that the proxy has dropped every in-flight
+        // query on this side of the WS. The closure maps don't
+        // need clearing because they don't surface to the user;
+        // the queue tooltip reads from `useQueryTelemetry` and
+        // would otherwise show stale "in-flight" rows until the
+        // user fires a new query that overwrites them. Match
+        // queries (registered through `usePlayFromPosition`'s
+        // separate `KataGoClient`) carry boardId=null and are
+        // unaffected — they live on their own WS.
+        for (const queryId of this.activeQueryIds.values()) {
+          telemetry.unregisterQuery(queryId);
+        }
         store.engine.status = 'disconnected';
         store.engine.activeMode = {};
+        // Reset the in-flight ping marker so the optional
+        // watchdog-dot animation doesn't display a stale "pending"
+        // state across a reconnect. The next `startWatchdog`
+        // iteration sets it freshly when the new WS is up.
+        store.engine.metrics = { ...store.engine.metrics, pingPendingSince: null };
         // Clear engine identity on disconnect so a stale
         // version/model from a prior session can't surface in the
         // toolbar after the WS drops. Reconnect fires
@@ -265,12 +288,23 @@ export class AnalysisService {
     if (this.watchdogTimer) clearInterval(this.watchdogTimer);
     this.watchdogTimer = window.setInterval(async () => {
       if (store.engine.status !== 'connected') return;
+      // Mark a ping in flight before issuing the command so the
+      // optional ping-tandem watchdog-dot animation (gated by
+      // `session.ui.watchdogColorTransition`) can fire on the
+      // outbound edge and reset on the pong.
+      store.engine.metrics = {
+        ...store.engine.metrics,
+        pingPendingSince: Date.now(),
+      };
       const start = performance.now();
       const resp = await this.client.sendCommand({ id: `wd-${Date.now()}`, action: 'query_version' });
       store.engine.metrics = {
         ...store.engine.metrics,
         lastWatchdogTimestamp: Date.now(),
-        latencyMs: Math.round(performance.now() - start)
+        latencyMs: Math.round(performance.now() - start),
+        // Pong received — clear the pending state so the animation
+        // resets to green.
+        pingPendingSince: null,
       };
       // Capture the version on each tick so a mid-session engine
       // restart with a version bump surfaces in the toolbar
@@ -302,6 +336,15 @@ export class AnalysisService {
   }
 
   public disconnect() {
+    // Telemetry sweep before `client.disconnect()` so the queue
+    // tooltip clears immediately on user-initiated disconnect
+    // (rather than waiting for the WS-level onDisconnect to fire,
+    // which usually happens but isn't strictly guaranteed if the
+    // client tears down synchronously). Match queries are
+    // preserved by construction (boardId=null, not in this map).
+    for (const queryId of this.activeQueryIds.values()) {
+      telemetry.unregisterQuery(queryId);
+    }
     this.client.disconnect();
     store.engine.status = 'disconnected';
     store.engine.activeMode = {};
@@ -314,6 +357,9 @@ export class AnalysisService {
       capabilities: null,
     };
     store.engine.selectedModel = null;
+    // Symmetric ping-flag reset — see the onDisconnect handler's
+    // comment above for the rationale.
+    store.engine.metrics = { ...store.engine.metrics, pingPendingSince: null };
     this.clearTimers();
   }
 
@@ -398,6 +444,23 @@ export class AnalysisService {
     const framing = resolveWinrateFraming(overrideSettings);
 
     this.activeQueries.set(queryId, { path: fullPath, hash, framing });
+
+    // Queue telemetry — register at construction so the Toolbar's
+    // queue tooltip can render this range query and its ETA.
+    // `cancel` defers to the standard stop-board path so the
+    // proxy gets a `terminate` and the local maps clean up
+    // identically to any other interruption.
+    telemetry.registerQuery({
+      queryId,
+      kind:         'range',
+      boardId,
+      model:        store.engine.selectedModel,
+      startTimeMs:  Date.now(),
+      turnsTotal:   analyzeTurns.length,
+      visitsPerTurn: visits,
+      label:        forReview ? 'grading' : undefined,
+      cancel:       () => this.stopBoardAnalysis(boardId),
+    });
 
     // The query is now type-honest end-to-end: KataGoAnalysisQuery declares
     // `cache`, `lookup_cache`, and `analysis_config` as accepted wire fields
@@ -532,6 +595,27 @@ export class AnalysisService {
         : undefined;
     this.activeQueries.set(queryId, { path: fullPath, hash, framing, ponderCeiling });
 
+    // Queue telemetry — single-turn entry. For ponder, the per-turn
+    // visit budget is the ponderMaxVisits ceiling; for analyze, the
+    // user-supplied / default visits target. Either way the tooltip
+    // computes ETA from the per-model rolling visits/sec. `cancel`
+    // defers to `stopBoardAnalysis` for the same reason analyzeRange
+    // does — the proxy gets a `terminate` and the local maps clean
+    // up identically to any other interruption.
+    telemetry.registerQuery({
+      queryId,
+      kind:         mode,
+      boardId,
+      model:        store.engine.selectedModel,
+      startTimeMs:  Date.now(),
+      turnsTotal:   1,
+      visitsPerTurn:
+        mode === 'ponder'
+          ? store.profile.settings.engine.katago.ponderMaxVisits
+          : (visits ?? null),
+      cancel:       () => this.stopBoardAnalysis(boardId),
+    });
+
     const ownershipModes = store.session.ui.overlayLayers.ownership;
     const needsOwnership = ownershipModes.continuous || ownershipModes.dots || ownershipModes.liveness;
     const cacheFlags = {
@@ -614,6 +698,15 @@ export class AnalysisService {
 
   private onAnalysisUpdate(response: KataAnalysisResponse, queryId: string) {
     this.packetCount++;
+    // Telemetry observation — records visit progress for ETA
+    // computation, regardless of whether the queryId is still in
+    // `activeQueries` (the telemetry singleton's own lookup is
+    // independent, so a packet arriving after `stopBoardAnalysis`
+    // has cleared the local entry still updates ETA cleanly until
+    // the telemetry unregister fires).
+    const rootVisits = response.rootInfo?.visits ?? 0;
+    telemetry.recordPacket(queryId, response.turnNumber, rootVisits, response.isDuringSearch);
+
     const queryInfo = this.activeQueries.get(queryId);
     if (!queryInfo) return;
 
@@ -668,6 +761,11 @@ export class AnalysisService {
     if (prevId) {
       this.client.sendCommand({ id: `term-${Date.now()}`, action: 'terminate', terminateId: prevId });
       this.activeQueries.delete(prevId);
+      // Release the telemetry entry too — the query is genuinely
+      // terminated. (Natural completion has its own auto-cleanup
+      // path inside the telemetry singleton; this branch handles
+      // explicit interruption.)
+      telemetry.unregisterQuery(prevId);
     }
     this.activeSubscriptions.delete(boardId);
     this.activeQueryIds.delete(boardId);

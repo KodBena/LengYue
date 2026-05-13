@@ -231,6 +231,16 @@ export interface EngineMetrics {
   readonly lastResponseId: BoardId | null;
   readonly lastWatchdogTimestamp: number;
   readonly latencyMs: number;
+  /**
+   * Wall-clock ms at which the most recent watchdog `query_version`
+   * was fired and has not yet received a response. `null` means
+   * either no ping in flight (the last pong has arrived), or the
+   * watchdog hasn't fired yet on this session. Used by the
+   * Toolbar's optional ping-tandem watchdog-dot animation
+   * (`session.ui.watchdogColorTransition`) — the animation runs
+   * while this is non-null and resets on `null`.
+   */
+  readonly pingPendingSince: number | null;
 }
 
 export type RegistryLeaf = string | number | boolean | null;
@@ -718,6 +728,17 @@ export interface UISession {
   // specifically to compose with the solid transposition ring when
   // both are visible at the same intersection.
   showTranspositionRings: boolean;
+  // Whether the Toolbar's WATCHDOG dot fades smoothly when its
+  // colour flips (green ↔ red on the 500ms-latency threshold) or
+  // switches instantly. Pure rendering preference — the watchdog
+  // sampling cadence (5000ms poll of `query_version`) and the
+  // threshold are unaffected. Default true (the transition is
+  // less startling than the instant flip during concurrent
+  // queries that briefly push proxy command-queue latency past
+  // the threshold); users who find the fade distracting can
+  // opt out via the registry editor. Schema-version 34
+  // introduces the field.
+  watchdogColorTransition: boolean;
   // Forest Directory navigator state — which game nodes are expanded
   // (showing their roots) and which game/root the user has selected.
   // Schema-version 21 introduces the field. Persisted across reloads

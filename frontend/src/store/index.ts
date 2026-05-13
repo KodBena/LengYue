@@ -61,6 +61,7 @@ export const store = reactive<GlobalStore>({
       lastResponseId: null,
       lastWatchdogTimestamp: 0,
       latencyMs: 0,
+      pingPendingSince: null,
     },
     activeMode: {},
     messages: [],
