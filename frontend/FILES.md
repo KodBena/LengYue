@@ -66,7 +66,7 @@ frontend/src/
 │   │   ├── CardTreeWidget.vue         [B2]  Card-tree forest display (one tree-section per CardLineageTree, accordion).
 │   │   ├── ColorDebugStrip.vue        [B1]  Dual-track gradient-calibration debug strip.
 │   │   ├── HeatmapChart.vue           [B1]  Stateless ECharts heatmap renderer.
-│   │   ├── PlayerPanel.vue            [B3]  Per-player (B/W) stat panel.
+│   │   ├── MergedDeltaPanel.vue       [B3]  Both-players delta chart on a parity-interleaved x-axis.
 │   │   ├── ScoreLeadPanel.vue         [B3]  ScoreLead chart panel.
 │   │   └── StabilityPanel.vue         [B3]  Triangular multiresolution-interval heatmap.
 │   │

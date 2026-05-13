@@ -56,6 +56,15 @@ async function handleHover(turnIdx: number) {
     preview.value = await getThumbnailSvg(nodeId, props.boardId, false);
   }
 }
+
+// The Game State chart is ply-indexed (x = variationPath index,
+// = absolute ply with root at 0). The default BaseChart tooltip
+// header reads "Move {x}" which conflates "play number" with
+// "ply"; the chart's vocabulary is ply, so the header should
+// say so.
+function formatPlyTooltip(val: number): string {
+  return `Ply ${val}`;
+}
 </script>
 
 <template>
@@ -68,6 +77,7 @@ async function handleHover(turnIdx: number) {
     :on-index-hover="handleHover"
     :on-mouse-leave="resetPreview"
     :preview-html="preview"
+    :format-x-tooltip="formatPlyTooltip"
     normalize="per-series"
   />
 </template>

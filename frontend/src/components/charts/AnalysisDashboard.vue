@@ -14,7 +14,7 @@ import type { BoardId } from '../../types';
 
 import AnalysisTimelinePanel from './AnalysisTimelinePanel.vue';
 import ScoreLeadPanel        from './ScoreLeadPanel.vue';
-import PlayerPanel           from './PlayerPanel.vue';
+import MergedDeltaPanel      from './MergedDeltaPanel.vue';
 import StabilityPanel        from './StabilityPanel.vue';
 
 // Branded-type signature discipline (Commit 5a): boardId is tightened
@@ -30,8 +30,6 @@ const {
   selectionRange,
   setSelectionRange,
   activeMainIndex,
-  activeBlackIndex,
-  activeWhiteIndex,
   analyzeSelection,
 } = useAnalysisProjection(props.boardId);
 
@@ -72,26 +70,18 @@ const engineConnected = computed(() => store.engine.status === 'connected');
         :on-index-click="navigation.handleMainClick"
       />
 
-      <PlayerPanel
-        player-color="B"
-        label="Black Performance (Moves)"
-        :series="enriched.deltaSeries.black"
+      <!-- Both-players delta panel. Parity-interleaved x-axis
+           (black moves at even x, white at odd); per-colour
+           dispatch on click / hover by x-parity; active
+           marker on the next-to-play colour. See
+           `docs/archive/notes/merged-delta-panel-spec.md` for
+           the full semantics. -->
+      <MergedDeltaPanel
+        :black-series="enriched.deltaSeries.black"
+        :white-series="enriched.deltaSeries.white"
         :board-id="boardId"
         :variation-path="variationPath"
         :selection-range="selectionRange"
-        :active-index="activeBlackIndex"
-        :on-index-click="(idx) => navigation.handlePlayerClick('B', idx)"
-      />
-
-      <PlayerPanel
-        player-color="W"
-        label="White Performance (Moves)"
-        :series="enriched.deltaSeries.white"
-        :board-id="boardId"
-        :variation-path="variationPath"
-        :selection-range="selectionRange"
-        :active-index="activeWhiteIndex"
-        :on-index-click="(idx) => navigation.handlePlayerClick('W', idx)"
       />
 
       <StabilityPanel

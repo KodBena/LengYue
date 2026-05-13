@@ -247,13 +247,16 @@ A **deck** is a saved pipeline that produces a card list at
 review time. Pipelines compose stages: `select` (lineage or
 tag-DSL), `take` (limit count), `shuffle`, `order` (BFS, DFS,
 recency, …). Composition is JSON-shaped and hand-edited via a
-CodeMirror 6 editor with continuous lint.
+CodeMirror 6 editor with continuous lint. The full grammar —
+stages, selections, order keys, structural coordinates — is
+documented in `backend/docs/tree-dsl.md`.
 
-- **Tag-DSL virtual tags.** Define `$attack :- $tactic;~$blocked`
+- **Tag-DSL virtual tags.** Define `$attack :- $tactic, ~$blocked`
   in the editor and reuse `$attack` as a tag elsewhere. The
-  current implementation is set-flat — see
-  `docs/TODO.md` "Tag-DSL virtual-tag macro language" for the
-  recursion-and-negation extension.
+  language supports negation in definitions, parenthesised
+  grouping, and transitive references; full grammar, semantics,
+  and worked examples in `backend/docs/tag-dsl.md` (an interactive
+  REPL ships at `backend/scripts/tag_dsl_repl.py`).
 
 - **Context-id macros.** Use `${N}` in the deck's context-ids
   field to expand a game-source id to all of its root card
