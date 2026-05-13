@@ -183,14 +183,47 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     const bId = boardIdRef.value;
     if (!bId) return;
 
-    if (prefetchedQueue.length === 0) {
+    // Card-metadata inline-edit arc 2 (2026-05-13): drop suspended
+    // cards from the review queue before starting. The pipeline DSL
+    // doesn't currently express suspension as a predicate, so the
+    // filter lives here at the queue boundary — applies uniformly
+    // whether the queue came from `tree.runPipeline` (the
+    // ForestDirectory deck-run path) or from the autonomous-SR
+    // driver. If the deck DSL eventually grows a `~$suspended`
+    // virtual tag, this filter becomes a defensive fallback.
+    const filtered = prefetchedQueue.filter(c => !c.suspended);
+    const dropped  = prefetchedQueue.length - filtered.length;
+
+    if (filtered.length === 0) {
+      // Loud failure (ADR-0002): silently IDLEing when every matched
+      // card was suspended makes the UI look broken — the user sees
+      // their pipeline produce a non-empty active set in the forest
+      // but "Start Review Session" does nothing. Surface the
+      // "every card suspended" case explicitly so the user knows
+      // what happened and where to look. The empty-queue case
+      // (prefetchedQueue itself was empty) keeps the silent IDLE
+      // since the pipeline already gave nothing to act on.
+      if (prefetchedQueue.length > 0) {
+        pushSystemMessage('warning', i18n.global.t('review.session.allSuspended', {
+          n: prefetchedQueue.length,
+        }));
+      }
       mutateReviewSession(bId, draft => { draft.status = 'IDLE'; });
       return;
     }
 
+    if (dropped > 0) {
+      // Partial suspension — surface the count so the user knows the
+      // queue is smaller than the forest's active set indicates.
+      pushSystemMessage('info', i18n.global.t('review.session.someSuspended', {
+        dropped,
+        total: prefetchedQueue.length,
+      }));
+    }
+
     mutateReviewSession(bId, draft => {
       draft.status = 'LOADING';
-      draft.queue = prefetchedQueue;
+      draft.queue = filtered;
     });
 
     try {

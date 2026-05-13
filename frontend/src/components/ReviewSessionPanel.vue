@@ -21,15 +21,17 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import BaseChart from './charts/BaseChart.vue';
+import CardMetadataPanel from './CardMetadataPanel.vue';
 import { useReviewSession } from '../composables/review/useReviewSession';
-import { activeBoard, mutateBoard, store } from '../store';
+import { activeBoard, mutateBoard, mutateReviewSession, store, pushSystemMessage } from '../store';
 import { getActiveVariationPath } from '../engine/util';
 import { navigateTo } from '../engine/navigator';
 import { themeColor } from '../utils/theme-color';
-import type { BoardId } from '../types';
+import { backendService } from '../services/backend-service';
+import type { BoardId, CardMetadataPatch, CardId, ReviewCard } from '../types';
 
 const { t } = useI18n();
 
@@ -116,6 +118,45 @@ function handleIntermissionClick(idx: number) {
   const targetNodeId = path[targetIdx];
   mutateBoard(bId, draft => navigateTo(draft, targetNodeId));
 }
+
+// Card-metadata inline-edit arc 2 plumbing. The panel emits a
+// `CardMetadataPatch` per field-level save; this handler runs
+// the ACL round-trip, splices the returned `ReviewCard` back
+// into the queue (so the panel re-reads the updated card on
+// the next render cycle), and surfaces validation / network
+// errors as system messages per ADR-0002. `cardMetadataSaving`
+// disables the panel for the duration of the round-trip so
+// concurrent edits can't pile up against the same card.
+const cardMetadataSaving = ref(false);
+
+async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> {
+  const bId = activeBoardId.value;
+  if (!bId) return;
+  const card = reviewSession.currentCard.value;
+  if (!card) return;
+  cardMetadataSaving.value = true;
+  try {
+    const updated: ReviewCard = await backendService.updateCardMetadata(card.id, patch);
+    // Splice the updated card into the queue at the same index.
+    // `mutateReviewSession` is the named-mutator path the rest of
+    // the SR composable already uses; assigning a fresh array
+    // keeps Vue's reactive tracking honest.
+    mutateReviewSession(bId, draft => {
+      const idx = draft.queue.findIndex((c: ReviewCard) => c.id === (card.id as CardId));
+      if (idx >= 0) {
+        const next = [...draft.queue];
+        next[idx] = updated;
+        draft.queue = next;
+      }
+    });
+  } catch (err) {
+    pushSystemMessage('error', t('cardMetadata.saveFailed', {
+      detail: err instanceof Error ? err.message : String(err),
+    }));
+  } finally {
+    cardMetadataSaving.value = false;
+  }
+}
 </script>
 
 <template>
@@ -164,6 +205,13 @@ function handleIntermissionClick(idx: number) {
         class="dark-input visits-input"
       />
     </div>
+
+    <!-- Inline metadata editor for the current card (arc 2). -->
+    <CardMetadataPanel
+      :card="reviewSession.currentCard.value"
+      :disabled="cardMetadataSaving"
+      @patch="handleCardMetadataPatch"
+    />
 
     <button class="action-btn-large advance-btn" @click="reviewSession.nextCard">
       {{ reviewSession.state.value === 'FINISHED' ? $t('review.session.nextCard') : $t('review.session.skipCard') }}

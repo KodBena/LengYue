@@ -46,6 +46,7 @@ frontend/src/
 ├── assets/                                  Static assets (icons, textures).
 │
 ├── components/                              Vue SFCs. Thin renderers, minimum wiring to composables.
+│   ├── CardMetadataPanel.vue          [B3]  Inline-edit metadata panel for a single card (tags / numMoves / gamma / suspended / reset_prior).
 │   ├── ReviewSessionPanel.vue         [B3]  In-session SR controls: status, counter, intermission chart, hint visibility.
 │   │
 │   ├── board/                                Go-board surface. Renderers + overlays.

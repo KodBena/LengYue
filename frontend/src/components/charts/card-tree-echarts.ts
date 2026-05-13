@@ -67,32 +67,79 @@ const colors = {
   get bucketBorder()       { return themeColor('--border-2'); },
   get current()            { return themeColor('--player-white'); },
   get currentBorder()      { return themeColor('--text-0'); },
+  // "Selected for inline-edit" overlay in the Lineage Explorer:
+  // the user clicked this node, its metadata is what the panel
+  // below the tree shows. Routes through --state-success (green)
+  // to read distinctly from the cyan-active and orange-(currently-
+  // red) current-card colour anchors. Wins over `current` when
+  // both apply (the user's immediate action takes visual priority).
+  get selected()           { return themeColor('--state-success'); },
+  get selectedBorder()     { return themeColor('--text-0'); },
 };
 
 export function toEChartsNode(
   node: RenderNode,
   currentCardId: CardId | null = null,
+  cards: ReadonlyMap<CardId, ReviewCard> | null = null,
+  selectedCardId: CardId | null = null,
 ): EChartsTreeNode {
   if (node.kind === 'card') {
-    const isCurrent = currentCardId !== null && node.cardId === currentCardId;
+    const isCurrent  = currentCardId  !== null && node.cardId === currentCardId;
+    const isSelected = selectedCardId !== null && node.cardId === selectedCardId;
+    // 💤 indicator for suspended cards. The Lineage Explorer is
+    // the only place outside the inline-edit panel where the
+    // user can see suspended state at a glance — important for
+    // the "all matched cards suspended" case where a deck
+    // populates a non-empty active set but produces an empty
+    // review queue. ECharts node-level `label.formatter` shows
+    // the glyph adjacent to the symbol; we keep it off when the
+    // card isn't suspended so the default-styling pathway is
+    // unchanged.
+    const isSuspended = cards?.get(node.cardId)?.suspended === true;
     return {
       name: `Card ${node.cardId}`,
       payload: { kind: 'card', cardId: node.cardId, role: node.role },
       symbolSize: node.role === 'active' ? 12 : 8,
       itemStyle: {
-        color: isCurrent
-          ? colors.current
-          : (node.role === 'active' ? colors.active : colors.context),
-        borderColor: isCurrent
-          ? colors.currentBorder
-          : (node.role === 'active' ? colors.activeBorder : colors.contextBorder),
-        borderWidth: node.role === 'active' ? 2 : 1,
+        // Precedence: isSelected (green) > isCurrent (player-white)
+        // > role default. `isSelected` wins because it tracks the
+        // user's immediate Browse-side action (clicking to load
+        // metadata into the panel below the tree); current-card
+        // is a session-running state that may have set the
+        // highlight much earlier.
+        color: isSelected
+          ? colors.selected
+          : (isCurrent
+            ? colors.current
+            : (node.role === 'active' ? colors.active : colors.context)),
+        borderColor: isSelected
+          ? colors.selectedBorder
+          : (isCurrent
+            ? colors.currentBorder
+            : (node.role === 'active' ? colors.activeBorder : colors.contextBorder)),
+        borderWidth: isSelected || node.role === 'active' ? 2 : 1,
       },
-      children: node.children.map(child => toEChartsNode(child, currentCardId)),
+      ...(isSuspended ? {
+        // `position: 'inside'` centres the emoji over the node
+        // symbol so the glyph reads as a stamp on the card
+        // rather than a label that crowds adjacent nodes. The
+        // emoji's bounding box at fontSize 14 overflows the
+        // 8–12px symbol slightly, which is fine — the symbol
+        // colour underneath gives enough contrast to keep both
+        // the emoji and the node's role colour legible.
+        label: {
+          show: true,
+          position: 'inside',
+          fontSize: 14,
+          formatter: '💤',
+        },
+      } : {}),
+      children: node.children.map(child => toEChartsNode(child, currentCardId, cards, selectedCardId)),
     };
   }
   if (node.kind === 'stub') {
-    const isCurrent = currentCardId !== null && node.cardId === currentCardId;
+    const isCurrent  = currentCardId  !== null && node.cardId === currentCardId;
+    const isSelected = selectedCardId !== null && node.cardId === selectedCardId;
     // When the stub's head card is in the active set (an active
     // leaf with cold descendants — the spec's "hot but not warm"
     // case), paint the fill in the active color so the matched
@@ -109,13 +156,22 @@ export function toEChartsNode(
       payload: { kind: 'stub', cardId: node.cardId },
       symbolSize: 9,
       itemStyle: {
-        color: isCurrent
-          ? colors.current
-          : (node.isHeadActive ? colors.active : colors.stub),
-        borderColor: isCurrent
-          ? colors.currentBorder
-          : (node.isHeadActive ? colors.activeBorder : colors.stubBorder),
-        borderWidth: isCurrent || node.isHeadActive ? 1.5 : 1,
+        // Same precedence as the card branch: selected > current
+        // > head-active. Stubs visually represent a summarised
+        // subtree, but they have a stable cardId (the head card),
+        // so the inline-edit selection on a stub-clicked head
+        // gets the same green stamp.
+        color: isSelected
+          ? colors.selected
+          : (isCurrent
+            ? colors.current
+            : (node.isHeadActive ? colors.active : colors.stub)),
+        borderColor: isSelected
+          ? colors.selectedBorder
+          : (isCurrent
+            ? colors.currentBorder
+            : (node.isHeadActive ? colors.activeBorder : colors.stubBorder)),
+        borderWidth: isSelected ? 2 : (isCurrent || node.isHeadActive ? 1.5 : 1),
         borderType: 'dashed',
       },
       label: {

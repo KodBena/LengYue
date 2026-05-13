@@ -13,9 +13,10 @@
 -->
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { store, activeBoard } from '../../store';
+import { useI18n } from 'vue-i18n';
+import { store, activeBoard, pushSystemMessage } from '../../store';
 import { backendService } from '../../services/backend-service';
-import type { BoardId, CardId, ForestStat, ReviewCard } from '../../types';
+import type { BoardId, CardId, CardMetadataPatch, ForestStat, ReviewCard } from '../../types';
 import { useCardTreeData } from '../../composables/cards/useCardTreeData';
 import { useForestNavigation } from '../../composables/forest/useForestNavigation';
 import { useForestBrowsePolicy } from '../../composables/forest/useForestBrowsePolicy';
@@ -24,7 +25,10 @@ import { expandContextIdMacros } from '../../utils/context-id-macros';
 import CardTreeWidget from '../charts/CardTreeWidget.vue';
 import ForestTreeNav from './ForestTreeNav.vue';
 import ReviewSessionPanel from '../ReviewSessionPanel.vue';
+import CardMetadataPanel from '../CardMetadataPanel.vue';
 import HyperparamPromptModal, { type HyperparamValues } from '../modals/HyperparamPromptModal.vue';
+
+const { t } = useI18n();
 
 const emit = defineEmits<{
   (e: 'load-card', card: ReviewCard): void;
@@ -239,6 +243,13 @@ function updateContextIds(val: string): void {
 }
 
 function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }): void {
+  // Track the clicked card as the inline-edit panel's subject in
+  // addition to loading it onto the board. The metadata panel
+  // below the tree binds to this selection so the user can
+  // inspect / edit metadata without starting a review session
+  // (which is the gap that surfaced when suspended cards in
+  // legacy decks silently emptied review queues).
+  selectedCardId.value = payload.cardId;
   const card = tree.cards.value.get(payload.cardId);
   if (card) {
     emit('load-card', card);
@@ -249,6 +260,45 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
     const fresh = tree.cards.value.get(payload.cardId);
     if (fresh) emit('load-card', fresh);
   });
+}
+
+// ─── Browse-mount of the inline-edit panel ───────────────────────────
+// Selection state lives locally to ForestDirectory; the active
+// board may show the loaded card, but we deliberately don't tie
+// the panel's subject to "what's on the board" because the
+// loaded board changes via other affordances (mint, SGF load).
+// The panel's selection is "what did the user click in the
+// tree?" — a Browse-specific notion.
+const selectedCardId = ref<CardId | null>(null);
+
+const selectedCard = computed<ReviewCard | null>(() => {
+  const id = selectedCardId.value;
+  if (id === null) return null;
+  return tree.cards.value.get(id) ?? null;
+});
+
+const cardMetadataSaving = ref(false);
+
+async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> {
+  const card = selectedCard.value;
+  if (!card) return;
+  cardMetadataSaving.value = true;
+  try {
+    const updated = await backendService.updateCardMetadata(card.id, patch);
+    // Splice the updated card back into the tree composable's
+    // local card map so the panel's reactive props.card picks
+    // up the new values. The composable's Map is the source of
+    // truth for what tooltips and the tree's per-card lookups
+    // see; `setCard` keeps every Browse-side consumer
+    // consistent (mirrors `requestCard`'s writeback shape).
+    tree.setCard(updated);
+  } catch (err) {
+    pushSystemMessage('error', t('cardMetadata.saveFailed', {
+      detail: err instanceof Error ? err.message : String(err),
+    }));
+  } finally {
+    cardMetadataSaving.value = false;
+  }
 }
 </script>
 
@@ -353,10 +403,23 @@ function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }
           :forest-stats="tree.forestStats.value"
           :orientation="orientation"
           :current-card-id="currentCardId"
+          :selected-card-id="selectedCardId"
           @node-click="handleNodeClick"
           @request-card="tree.requestCard"
         />
       </div>
+
+      <!-- Inline-edit panel for the most-recently-clicked card.
+           Surfaces here (Browse view) so the user can inspect /
+           edit metadata without starting a review session — the
+           gap that surfaced when legacy decks' suspended cards
+           silently emptied review queues. -->
+      <CardMetadataPanel
+        v-if="selectedCard"
+        :card="selectedCard"
+        :disabled="cardMetadataSaving"
+        @patch="handleCardMetadataPatch"
+      />
     </div>
 
     <HyperparamPromptModal ref="harnessModalRef" />
