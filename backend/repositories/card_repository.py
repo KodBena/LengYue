@@ -23,9 +23,10 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.config import config
 from db.schema import (
     card,
     card_source,
@@ -37,6 +38,7 @@ from db.schema import (
 from domain.auth import UserId
 from domain.card import Card
 from repositories.ports import CardRepositoryPort, CardWriteRepositoryPort
+from schemas.card import CardPatch
 
 logger = logging.getLogger(__name__)
 
@@ -460,3 +462,114 @@ class CardRepository(CardRepositoryPort, CardWriteRepositoryPort):
                     for tid in missing_link_tag_ids
                 ])
             )
+
+    async def update_card_metadata(
+        self,
+        card_id: int,
+        patch: CardPatch,
+        *,
+        user_id: UserId,
+    ) -> Optional[Card]:
+        """
+        Apply a partial-update patch to the card. Card-metadata
+        inline-edit arc 2 (2026-05-13). The wire-shape and semantic
+        contract live in
+        `docs/dispatch/backend-to-frontend-card-metadata-inline-edit-status.md`.
+
+        Five steps in order:
+
+        1. Existence + ownership check via predicate-fused SELECT.
+           Returns ``None`` on cross-tenant / non-existent, which the
+           route maps to 404. The SELECT also fetches the current
+           ``grading_parameter`` so step 3 can do the merge without a
+           second round-trip.
+
+        2. Build the column-level UPDATE values dict from the
+           field-level mutations in the patch. ``reset_prior`` lands
+           here too — when true, four columns (``alpha``, ``beta``,
+           ``t``, ``last_reviewed_at``, ``num_reviews``) get reset
+           atomically alongside whatever else the patch sets.
+
+        3. ``grading_parameter`` merge. Patch's ``data`` is dumped
+           with ``exclude_unset=True`` so only the keys the caller
+           explicitly mentioned end up in the merge dict; absent
+           keys preserve the stored values. The outer wrapper is
+           preserved across the merge (any non-``data`` keys the
+           stored blob may carry survive).
+
+        4. Tag replacement: when ``patch.tags is not None``, delete
+           every ``card_tag`` row for this card and then re-attach
+           via ``attach_tags``. ``patch.tags == []`` is the
+           wipe-all-tags case; ``patch.tags is None`` leaves tags
+           untouched.
+
+        5. Re-fetch via ``get_card_by_id`` so the return value
+           carries the post-mutation field values plus the
+           freshly-enriched ``tags`` list — and reuses the same
+           predicate-fusion tenancy filter for symmetry.
+
+        Tenancy: predicate fusion at the existence check, the
+        UPDATE, and the tag delete. A cross-tenant ``card_id``
+        affects zero rows at every site and surfaces as ``None``
+        from step 1, matching the 404-not-403 invariant.
+        """
+        # Step 1: existence + ownership check, also captures stored
+        # grading_parameter for the merge in step 3.
+        existing_q = (
+            select(card.c.grading_parameter)
+            .where(card.c.id == card_id)
+            .where(card.c.user_id == user_id)
+        )
+        existing_row = (await self.session.execute(existing_q)).fetchone()
+        if existing_row is None:
+            return None
+        existing_gp: Optional[Dict[str, Any]] = existing_row.grading_parameter
+
+        # Step 2: column-level mutations.
+        values: Dict[str, Any] = {}
+        if patch.num_moves is not None:
+            values["num_moves"] = patch.num_moves
+        if patch.suspended is not None:
+            values["suspended"] = patch.suspended
+        if patch.reset_prior:
+            a, b, t = config.EBISU_DEFAULT_MODEL
+            values["alpha"] = a
+            values["beta"] = b
+            values["t"] = t
+            values["last_reviewed_at"] = None
+            values["num_reviews"] = 0
+
+        # Step 3: grading_parameter JSON-merge-patch at the data key
+        # level. exclude_unset preserves "absent ≠ explicit-null"
+        # distinction at the patch boundary; explicit-null in the
+        # patch overwrites a stored value (the dispatch's "keys
+        # present overwrite" rule).
+        if patch.grading_parameter is not None:
+            patch_data = patch.grading_parameter.data.model_dump(
+                exclude_unset=True
+            )
+            stored_data = (existing_gp or {}).get("data", {}) or {}
+            merged_data = {**stored_data, **patch_data}
+            new_gp = {**(existing_gp or {}), "data": merged_data}
+            values["grading_parameter"] = new_gp
+
+        if values:
+            await self.session.execute(
+                update(card)
+                .where(card.c.id == card_id)
+                .where(card.c.user_id == user_id)
+                .values(**values)
+            )
+
+        # Step 4: tag full-replace when patch.tags is not None.
+        if patch.tags is not None:
+            await self.session.execute(
+                delete(card_tag).where(card_tag.c.card_id == card_id)
+            )
+            if patch.tags:
+                await self.attach_tags(card_id, patch.tags)
+
+        # Step 5: re-fetch via the read path so tags + every column
+        # reflect the post-mutation state and the return value is the
+        # shape the route emits to the wire.
+        return await self.get_card_by_id(card_id, user_id=user_id)

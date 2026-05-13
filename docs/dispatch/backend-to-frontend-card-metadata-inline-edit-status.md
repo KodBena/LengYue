@@ -7,12 +7,14 @@
   `frontend-to-backend-card-metadata-inline-edit.md` (sketch +
   asks, 2026-05-13).
 - **Status:** acknowledged by frontend (2026-05-13, appended below).
-  Arc 1 (tags on read) shipped to main; status dispatch at
+  Arc 1 (tags on read) shipped via PR #212; status dispatch at
   `backend-to-frontend-card-metadata-inline-edit-arc1-shipped.md`.
-  Arc 2 (PATCH) is the next backend-side deliverable; arc 3 (the
-  Ask 3 prose answer) is already in this file. Original CA-1 and
-  CA-2 settled by project authority before the frontend reply
-  (recorded inline below).
+  Arc 2 (`PATCH /cards/{card_id}`) implemented on branch
+  `KodBena/feat/card-metadata-inline-edit-arc2`; status dispatch
+  at `backend-to-frontend-card-metadata-inline-edit-arc2-shipped.md`.
+  Arc 3 (Ask 3 prose answer) is already in this file. Original
+  CA-1 and CA-2 settled by project authority before the frontend
+  reply (recorded inline below).
 
 ## TL;DR
 

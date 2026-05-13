@@ -28,7 +28,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class GameSourceCreate(BaseModel):
@@ -120,6 +120,92 @@ class CardCreateResponse(BaseModel):
     """
     status: Literal["created"]
     card_id: int
+
+
+class GradingParameterData(BaseModel):
+    """
+    The opaque-but-partially-typed `data` blob inside
+    ``grading_parameter``.
+
+    Card-metadata inline-edit arc 2 (2026-05-13): the backend's
+    contract over ``grading_parameter.data`` is exactly one key:
+    ``gamma`` (consumed by ``ReviewService.process_review`` for the
+    discounted-sum arithmetic). Every other key — ``analysis_config``,
+    ``default_visits``, future additions — is frontend-defined and
+    flows through unchanged. The status dispatch's Ask 3 records the
+    reasoning.
+
+    ``extra="allow"`` keeps those frontend-owned keys present in
+    ``model_dump()``; ``model_dump(exclude_unset=True)`` returns only
+    the keys the caller actually sent, which is what the adapter's
+    JSON-merge-patch logic needs to merge with the stored ``data``.
+    """
+    model_config = ConfigDict(extra="allow")
+
+    gamma: Optional[float] = Field(
+        default=None,
+        gt=0.0,
+        lt=1.0,
+        description=(
+            "Discount factor for the geometric-sum review aggregation. "
+            "Constrained to the open unit interval (0, 1). When absent, "
+            "the service falls back to `config.SR_DEFAULT_GAMMA`."
+        ),
+    )
+
+
+class GradingParameterPatch(BaseModel):
+    """
+    The ``grading_parameter`` wrapper sent on a PATCH body.
+
+    Card-metadata inline-edit arc 2: ``data`` is the only key the
+    wrapper admits at the wire level (``extra="forbid"`` rejects
+    unknowns at the same level the API contracts about). The merge
+    semantic is JSON-merge-patch at one level of nesting — see the
+    status dispatch's "`grading_parameter` merge semantics" section
+    and the adapter's ``update_card_metadata`` for the worked
+    behaviour.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    data: GradingParameterData
+
+
+class CardPatch(BaseModel):
+    """
+    Request body shape for ``PATCH /cards/{card_id}``.
+
+    Card-metadata inline-edit arc 2 (2026-05-13). The mutable subset
+    is recorded in
+    ``docs/dispatch/backend-to-frontend-card-metadata-inline-edit-status.md``
+    (Ask 2 table). All fields are optional; ``extra="forbid"`` rejects
+    unknown top-level keys with a structured 422 (ADR-0002 — no silent
+    coercion at the wire boundary).
+
+    Semantics per field:
+
+    - ``tags``: full replacement when present. ``[]`` wipes all tags;
+      ``None`` (or absent) leaves them untouched.
+    - ``num_moves``: direct overwrite. The Ebisu prior is NOT
+      automatically reset — the caller pairs this with
+      ``reset_prior=True`` when starting over is intended.
+    - ``suspended``: direct overwrite.
+    - ``grading_parameter``: JSON-merge-patch at the ``data`` key
+      level. Keys present in the patch's ``data`` overwrite the
+      stored same-named keys; absent keys are preserved.
+    - ``reset_prior``: explicit opt-in to reset ``(α, β, t)`` to
+      ``config.EBISU_DEFAULT_MODEL``, set ``last_reviewed_at`` to
+      NULL, and ``num_reviews`` to 0. Independent of ``num_moves``
+      — settable on its own when the user decides the prior is
+      corrupted. Default false.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    tags: Optional[List[str]] = None
+    num_moves: Optional[int] = Field(default=None, gt=0)
+    suspended: Optional[bool] = None
+    grading_parameter: Optional[GradingParameterPatch] = None
+    reset_prior: bool = False
 
 
 class ReviewRequest(BaseModel):

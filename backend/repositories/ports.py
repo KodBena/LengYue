@@ -47,6 +47,7 @@ from domain.lineage import RootedTree, RootResolution
 from domain.pipeline_dsl import BaseSelection
 from domain.stats import ForestMemberRow
 from domain.tree_engine import CardNode
+from schemas.card import CardPatch
 from schemas.stats import TagStat
 
 
@@ -238,6 +239,62 @@ class CardWriteRepositoryPort(Protocol):
         card_id: int,
         tag_names: List[str],
     ) -> None:
+        ...
+
+    async def update_card_metadata(
+        self,
+        card_id: int,
+        patch: CardPatch,
+        *,
+        user_id: UserId,
+    ) -> Optional[Card]:
+        """
+        Apply a partial-update patch to the card identified by
+        ``card_id``, restricted to cards owned by ``user_id``.
+
+        Card-metadata inline-edit arc 2: the wire-shape contract is
+        recorded in
+        `docs/dispatch/backend-to-frontend-card-metadata-inline-edit-status.md`
+        (Ask 2 mutable-subset table and merge semantics).
+
+        Returns the updated ``Card`` (with ``tags`` populated via the
+        same read-side enrichment as ``get_card_by_id``) or ``None``
+        when ``card_id`` doesn't exist OR belongs to a different
+        tenant. The route layer maps ``None`` to 404 via the
+        established ``CardNotFoundError`` translation in
+        ``CardService.update_card_metadata``, preserving the
+        codebase's 404-not-403 invariant.
+
+        Semantics enforced by the adapter:
+
+        - ``patch.tags is None``: tags left untouched. ``patch.tags
+          == []``: all card_tag rows for this card are deleted.
+          ``patch.tags == ["a", "b"]``: tags fully replaced with that
+          set.
+        - ``patch.num_moves``: direct ``UPDATE``.
+        - ``patch.suspended``: direct ``UPDATE``.
+        - ``patch.grading_parameter``: JSON-merge-patch at the
+          ``data`` key level. Keys in the patch's ``data`` overwrite
+          the stored same-named keys; other keys preserved. The outer
+          ``grading_parameter`` is merge-style: if the stored value
+          is ``None``, the patch supplies the new wrapper.
+        - ``patch.reset_prior=True``: ``(alpha, beta, t)`` reset to
+          ``config.EBISU_DEFAULT_MODEL``, ``last_reviewed_at`` set to
+          ``NULL``, ``num_reviews`` set to 0. Independent of any
+          other field in the patch.
+
+        All mutations happen inside the caller's transaction (the
+        route's ``async with db.begin():``). The adapter does not
+        commit.
+
+        Tenancy: predicate fusion in the UPDATE WHERE clause (same
+        ``card.id == :card_id AND card.user_id == :user_id`` pattern
+        as ``update_card_model``). Cross-tenant writes affect zero
+        rows and surface as ``None`` from this method, preserving
+        the 404-not-403 invariant. The existence check at the start
+        of the method runs against the same fused predicate, so the
+        same shape applies on both branches.
+        """
         ...
 
 

@@ -34,8 +34,10 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
+from core.config import config
 from domain.auth import UserId
 from domain.card import Card
+from schemas.card import CardPatch
 
 
 class FakeCardRepository:
@@ -281,3 +283,61 @@ class FakeCardRepository:
         for name in tag_names:
             existing.add(name)
         self.tags[card_id] = sorted(existing)
+
+    async def update_card_metadata(
+        self,
+        card_id: int,
+        patch: CardPatch,
+        *,
+        user_id: UserId,
+    ) -> Optional[Card]:
+        """
+        Card-metadata inline-edit arc 2 (2026-05-13). Behavioural
+        mirror of ``CardRepository.update_card_metadata`` over the
+        fake's in-memory state.
+
+        Same five-step shape as the adapter — existence check, field
+        updates, grading_parameter merge, tag replacement, return
+        the post-mutation Card. ``None`` on cross-tenant /
+        non-existent so the service's ``CardNotFoundError``
+        translation fires symmetrically against fake or real.
+        """
+        if card_id not in self.cards:
+            return None
+        if self.user_id_by_card.get(card_id) != int(user_id):
+            return None
+
+        existing = self.cards[card_id]
+        updates: Dict[str, Any] = {}
+
+        if patch.num_moves is not None:
+            updates["num_moves"] = patch.num_moves
+        if patch.suspended is not None:
+            updates["suspended"] = patch.suspended
+        if patch.reset_prior:
+            a, b, t = config.EBISU_DEFAULT_MODEL
+            updates["alpha"] = a
+            updates["beta"] = b
+            updates["t"] = t
+            updates["last_reviewed_at"] = None
+            updates["num_reviews"] = 0
+
+        if patch.grading_parameter is not None:
+            patch_data = patch.grading_parameter.data.model_dump(
+                exclude_unset=True
+            )
+            stored_gp = existing.grading_parameter or {}
+            stored_data = stored_gp.get("data", {}) or {}
+            merged_data = {**stored_data, **patch_data}
+            updates["grading_parameter"] = {**stored_gp, "data": merged_data}
+
+        if updates:
+            self.cards[card_id] = existing.model_copy(update=updates)
+
+        if patch.tags is not None:
+            if patch.tags:
+                self.tags[card_id] = sorted(set(patch.tags))
+            else:
+                self.tags.pop(card_id, None)
+
+        return await self.get_card_by_id(card_id, user_id=user_id)

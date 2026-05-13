@@ -29,10 +29,11 @@ INSERT cascade).
 """
 from core.config import config
 from domain.auth import UserId
+from domain.card import Card
 from domain.errors import CardNotFoundError, InvalidInputError
 from domain.normalizer import PositionNormalizerPort
 from repositories.ports import CardRepositoryPort, CardWriteRepositoryPort
-from schemas.card import CardCreate
+from schemas.card import CardCreate, CardPatch
 
 
 class CardService:
@@ -213,3 +214,30 @@ class CardService:
         # the transaction boundary. The service is Port-pure: it speaks
         # persistence operations, not transactions.
         return new_card_id
+
+    async def update_card_metadata(
+        self,
+        card_id: int,
+        patch: CardPatch,
+        *,
+        user_id: UserId,
+    ) -> Card:
+        """
+        Card-metadata inline-edit arc 2 (2026-05-13). Forwards the
+        patch to the write Port and translates the ``None`` (cross-
+        tenant / non-existent) return into ``CardNotFoundError``,
+        which the route maps to 404 via the existing
+        ``NotFoundError`` handler.
+
+        The Port does the heavy lifting (existence check, column
+        update, grading_parameter merge, tag replacement,
+        reset_prior); this service method is a thin orchestration
+        seam that preserves the 404-not-403 invariant at the
+        domain-error boundary.
+        """
+        updated = await self.repository.update_card_metadata(
+            card_id, patch, user_id=user_id
+        )
+        if updated is None:
+            raise CardNotFoundError(f"card {card_id} not found")
+        return updated
