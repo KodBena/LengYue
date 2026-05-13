@@ -48,13 +48,15 @@ export interface EChartsTreeNode {
 // recoverable. Read at use time via themeColor() so the values track
 // theme.css changes.
 //
-// `--player-white` is the orange-anchored substrate handle introduced
-// for review-state highlighting (its literal value is the orange
-// `#f0a04a` matching App.vue's start button and intermission accent).
-// Used here as the "current review card" overlay — the spec's 4-role
-// partition (active / context / stub / bucket) stays exhaustive; the
-// orange paint is a render-time decoration on top of `active` or
-// `stub`, not a fifth role.
+// `--review-current-card` is the substrate handle for "the card
+// currently under review in an active SR session" — aliases to
+// `--accent-secondary` (orange / CTA) per the theme-css role-alias
+// layer. The spec's 4-role partition (active / context / stub /
+// bucket) stays exhaustive; the orange paint is a render-time
+// decoration on top of `active` or `stub`, not a fifth role. The
+// prior anchor here (`--player-white`) was a stale misuse — that
+// handle is the white-player chart-series colour (red in the dark
+// theme), not orange.
 const colors = {
   get active()             { return themeColor('--accent-primary'); },
   get activeBorder()       { return themeColor('--text-0'); },
@@ -65,7 +67,7 @@ const colors = {
   get stubActiveBorder()   { return themeColor('--accent-primary'); },
   get bucket()             { return themeColor('--surface-0'); },
   get bucketBorder()       { return themeColor('--border-2'); },
-  get current()            { return themeColor('--player-white'); },
+  get current()            { return themeColor('--review-current-card'); },
   get currentBorder()      { return themeColor('--text-0'); },
   // "Selected for inline-edit" overlay in the Lineage Explorer:
   // the user clicked this node, its metadata is what the panel
@@ -101,12 +103,12 @@ export function toEChartsNode(
       payload: { kind: 'card', cardId: node.cardId, role: node.role },
       symbolSize: node.role === 'active' ? 12 : 8,
       itemStyle: {
-        // Precedence: isSelected (green) > isCurrent (player-white)
-        // > role default. `isSelected` wins because it tracks the
-        // user's immediate Browse-side action (clicking to load
-        // metadata into the panel below the tree); current-card
-        // is a session-running state that may have set the
-        // highlight much earlier.
+        // Precedence: isSelected (green) > isCurrent (orange /
+        // --review-current-card) > role default. `isSelected`
+        // wins because it tracks the user's immediate Browse-side
+        // action (clicking to load metadata into the panel below
+        // the tree); current-card is a session-running state that
+        // may have set the highlight much earlier.
         color: isSelected
           ? colors.selected
           : (isCurrent

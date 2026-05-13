@@ -45,12 +45,13 @@ const props = withDefaults(
     orientation?: 'horizontal' | 'vertical';
     maxNodes?: number;
     // Optional render-time overlay: when set, the matching `card` or
-    // `stub` node paints in `--player-white` (orange) instead of the
-    // role-derived chrome color. The spec's 4-role partition stays
-    // exhaustive; this is decoration, not a fifth role. Consumers
-    // typically pass the active board's review-session current card
-    // id so the user can track SR progress against the rendered
-    // forest. `null` (default) means no overlay.
+    // `stub` node paints in `--review-current-card` (orange via the
+    // CTA accent) instead of the role-derived chrome color. The
+    // spec's 4-role partition stays exhaustive; this is decoration,
+    // not a fifth role. Consumers typically pass the active board's
+    // review-session current card id so the user can track SR
+    // progress against the rendered forest. `null` (default) means
+    // no overlay.
     currentCardId?: CardId | null;
     // Second render-time overlay: the card the user clicked to load
     // into the inline-edit metadata panel. Painted in

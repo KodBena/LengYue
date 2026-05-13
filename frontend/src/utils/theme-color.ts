@@ -103,7 +103,8 @@ export type ChromeAnchor =
   // currently shares the value. Future tuning can break the
   // aliasing without disturbing chrome.
   | '--player-black' | '--player-white'
-  | '--review-active' | '--review-intermission' | '--review-complete';
+  | '--review-active' | '--review-intermission' | '--review-complete'
+  | '--review-current-card';
 
 /**
  * Resolve a chrome-substrate CSS variable to its current string value.
