@@ -15,7 +15,9 @@ State held in plain Python:
     plus a side-index ``client_id_to_gs`` keyed on
     ``(user_id, client_game_id)`` for the dedup path.
   - ``card_sources``: ``{card_id: (parent_card_id, game_source_id)}``.
-  - ``tags``: ``{card_id: list[str]}``.
+  - ``tags``: ``{card_id: list[str]}``. ``attach_tags`` writes here;
+    ``get_card_by_id`` reads from here to populate ``Card.tags``
+    (card-metadata inline-edit arc 1, 2026-05-13).
   - ``user_id_by_card``: ``{card_id: user_id}`` so the read path
     enforces the tenancy filter without a SQL JOIN.
 
@@ -117,7 +119,13 @@ class FakeCardRepository:
             return None
         if self.user_id_by_card.get(card_id) != int(user_id):
             return None
-        return card
+        # Card-metadata inline-edit arc 1: surface tags via the side
+        # store. Production adapter does this via a second SELECT; the
+        # fake hangs the same projection off attach_tags' bookkeeping.
+        # `attach_tags` already maintains a sorted list, so the fake's
+        # alphabetical-order invariant matches the adapter's
+        # ORDER BY tag.name shape.
+        return card.model_copy(update={"tags": list(self.tags.get(card_id, []))})
 
     async def update_card_model(
         self,

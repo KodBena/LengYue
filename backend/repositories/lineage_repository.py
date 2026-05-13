@@ -56,7 +56,7 @@ from sqlalchemy import and_, func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.expression import ColumnElement, CTE, Select
 
-from db.schema import card, card_source, normalized_position
+from db.schema import card, card_source, card_tag, normalized_position, tag
 from domain.auth import UserId
 from domain.card import Card
 from domain.errors import (
@@ -362,6 +362,15 @@ class LineageRepository:
         Item 30c side note: when multiple contexts in a pipeline share
         descendants, this method may materialize the same card id
         multiple times. The pipeline executor dedups in Python.
+
+        Card-metadata inline-edit arc 1 (2026-05-13): after the main
+        JOIN materialises the rows, a single batched
+        `card_tag ⋈ tag WHERE card_id IN (:ids)` fetches tag names
+        for the set of distinct card ids and groups them in Python.
+        Single round-trip regardless of result-set size; tag list
+        bounded by typical per-card tag count (small constant).
+        Alphabetical order per card keeps the wire shape
+        deterministic.
         """
         query = (
             select(
@@ -377,11 +386,33 @@ class LineageRepository:
             )
         )
         res = await self.session.execute(query)
+        rows = res.fetchall()
+
+        # Batched tag enrichment. Distinct card ids → IN-set → group
+        # in Python by card_id. Bypassed entirely when the materialise
+        # produces no rows (AncestorSelection-with-no-match, empty
+        # subtree, etc.).
+        distinct_card_ids = {row._asdict()["id"] for row in rows}
+        tags_by_card: dict[int, List[str]] = {
+            cid: [] for cid in distinct_card_ids
+        }
+        if distinct_card_ids:
+            tag_rows = (await self.session.execute(
+                select(card_tag.c.card_id, tag.c.name)
+                .select_from(
+                    card_tag.join(tag, card_tag.c.tag_id == tag.c.id)
+                )
+                .where(card_tag.c.card_id.in_(distinct_card_ids))
+                .order_by(card_tag.c.card_id, tag.c.name)
+            )).fetchall()
+            for tr in tag_rows:
+                tags_by_card[tr.card_id].append(tr.name)
 
         nodes: List[CardNode] = []
-        for row in res.fetchall():
+        for row in rows:
             row_dict = row._asdict()
             depth = row_dict.pop("depth")
+            row_dict["tags"] = tags_by_card.get(row_dict["id"], [])
             card_entity = Card.model_validate(row_dict)
             nodes.append(CardNode(card=card_entity, depth=depth))
 

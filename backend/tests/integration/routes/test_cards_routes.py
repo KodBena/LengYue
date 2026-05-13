@@ -27,7 +27,7 @@ import pytest
 from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.schema import card, card_source, normalized_position
+from db.schema import card, card_source, card_tag, normalized_position, tag
 from tests.integration.routes.conftest import (
     auth_header,
     seed_user,
@@ -49,6 +49,26 @@ async def _seed_position(session: AsyncSession, *, content: str) -> int:
         .returning(normalized_position.c.id)
     )
     return int(res.scalar())
+
+
+async def _attach_tags(
+    session: AsyncSession, *, card_id: int, tag_names: list[str]
+) -> None:
+    """
+    Direct-seed card_tag rows for a card. Mirrors the production
+    CardRepository.attach_tags write path but bypasses it so the
+    test exercises the read enrichment in isolation from the
+    create-card flow.
+    """
+    for name in tag_names:
+        res = await session.execute(
+            insert(tag).values(name=name).returning(tag.c.id)
+        )
+        tag_id = int(res.scalar())
+        await session.execute(
+            insert(card_tag).values(card_id=card_id, tag_id=tag_id)
+        )
+    await session.commit()
 
 
 async def _seed_card_with_root(
@@ -262,6 +282,31 @@ async def test_get_card_returns_card_with_recall(client, session):
     assert body["id"] == cid
     assert "current_recall" in body
     assert "halflife_units" in body
+    # Card-metadata inline-edit arc 1: tags surface unconditionally
+    # on the read path. A card with no card_tag rows reports `[]`,
+    # never null. ADR-0002: explicit non-nullable.
+    assert body["tags"] == []
+
+
+async def test_get_card_returns_tags_alphabetically(client, session):
+    """
+    Card-metadata inline-edit arc 1: the `tags` field carries the
+    card's tag names, alphabetised. Deterministic order is the
+    contract — the wire shape doesn't depend on tag-insertion
+    order, which lets the frontend cache the response without
+    re-sorting.
+    """
+    await seed_user(session, user_id=ALICE_ID)
+    cid = await _seed_card_with_root(session, user_id=ALICE_ID)
+    await _attach_tags(
+        session, card_id=cid, tag_names=["shape", "endgame", "joseki"]
+    )
+
+    response = await client.get(
+        f"/cards/{cid}", headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 200
+    assert response.json()["tags"] == ["endgame", "joseki", "shape"]
 
 
 async def test_get_card_cross_tenant_returns_404(client, session):
@@ -331,3 +376,23 @@ async def test_review_cross_tenant_returns_404(client, session):
         headers=auth_header(ALICE_ID),
     )
     assert response.status_code == 404
+
+
+async def test_review_response_carries_tags(client, session):
+    """
+    Card-metadata inline-edit arc 1: tags travel on the response
+    to POST /cards/{id}/review the same way they travel on GET.
+    The frontend's review-flow ledger.put can swap the cached
+    body without a follow-up GET.
+    """
+    await seed_user(session, user_id=ALICE_ID)
+    cid = await _seed_card_with_root(session, user_id=ALICE_ID)
+    await _attach_tags(session, card_id=cid, tag_names=["tesuji"])
+
+    response = await client.post(
+        f"/cards/{cid}/review",
+        json={"scores": [0.5, 0.5, 0.5, 0.5, 0.5]},
+        headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 200
+    assert response.json()["tags"] == ["tesuji"]

@@ -1,3 +1,23 @@
+"""
+repositories/card_repository.py
+
+SQLAlchemy adapter satisfying both `CardRepositoryPort` (read) and
+`CardWriteRepositoryPort` (write). One concrete class for both
+Port surfaces because the underlying persistence resource (the
+`card` table family) is one resource; consumers see only their
+Port.
+
+Card-metadata inline-edit arc 1 (2026-05-13): `get_card_by_id`
+now populates `Card.tags` via a second short SELECT against
+`card_tag ⋈ tag`. The lift is one extra small query on each
+single-card read; for the high-frequency multi-card path
+(`POST /forests/query`) the equivalent enrichment lives in
+`LineageRepository._materialize` as a single batched IN-set
+fetch. The wire-shape contract is recorded in
+`docs/dispatch/backend-to-frontend-card-metadata-inline-edit-status.md`.
+
+License: Public Domain (The Unlicense)
+"""
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
@@ -102,6 +122,19 @@ class CardRepository(CardRepositoryPort, CardWriteRepositoryPort):
         if not row:
             return None
 
+        # Tags enrichment (card-metadata inline-edit arc 1): one
+        # short SELECT against the card_tag ⋈ tag join. The result
+        # is alphabetised so the wire shape is deterministic across
+        # reads — useful for the frontend's diff-style cache update
+        # and for test assertions.
+        tag_rows = (await self.session.execute(
+            select(tag.c.name)
+            .select_from(card_tag.join(tag, card_tag.c.tag_id == tag.c.id))
+            .where(card_tag.c.card_id == card_id)
+            .order_by(tag.c.name)
+        )).fetchall()
+        tag_names = [r.name for r in tag_rows]
+
         # Construct via dict-expansion from row._asdict(). Pydantic's
         # `from_attributes=True` mode is designed for ORM-mapped-class
         # instances, not SQLAlchemy Core Row objects — feeding a Row
@@ -109,7 +142,9 @@ class CardRepository(CardRepositoryPort, CardWriteRepositoryPort):
         # the whole row tuple. _asdict() gives a flat column-name-keyed
         # dict that Pydantic validates cleanly with extras (user_id,
         # normalized_position_id) silently dropped.
-        return Card.model_validate(row._asdict())
+        row_dict = row._asdict()
+        row_dict["tags"] = tag_names
+        return Card.model_validate(row_dict)
 
     async def update_card_model(
         self,
