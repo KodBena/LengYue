@@ -15,6 +15,7 @@ import type { BoardId } from '../../types';
 import AnalysisTimelinePanel from './AnalysisTimelinePanel.vue';
 import ScoreLeadPanel        from './ScoreLeadPanel.vue';
 import PlayerPanel           from './PlayerPanel.vue';
+import MergedDeltaPanel      from './MergedDeltaPanel.vue';
 import StabilityPanel        from './StabilityPanel.vue';
 
 // Branded-type signature discipline (Commit 5a): boardId is tightened
@@ -92,6 +93,21 @@ const engineConnected = computed(() => store.engine.status === 'connected');
         :selection-range="selectionRange"
         :active-index="activeWhiteIndex"
         :on-index-click="(idx) => navigation.handlePlayerClick('W', idx)"
+      />
+
+      <!-- Merged per-move delta panel — sibling to the two
+           per-player panels above. Both series share a
+           per-color move x-axis (just like the per-player
+           panels); click and hover dispatch by y-proximity to
+           pick which color's move the user is pointing at.
+           Additive testing surface; the per-player panels
+           stay so we don't lose what works. -->
+      <MergedDeltaPanel
+        :black-series="enriched.deltaSeries.black"
+        :white-series="enriched.deltaSeries.white"
+        :board-id="boardId"
+        :variation-path="variationPath"
+        :selection-range="selectionRange"
       />
 
       <StabilityPanel

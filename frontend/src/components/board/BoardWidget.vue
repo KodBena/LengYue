@@ -35,12 +35,16 @@ function ownershipColor(v: number): { fill: string; opacity: number } {
   if (mag < 0.05) return { fill: 'transparent', opacity: 0 };
   return {
     fill: v > 0 ? '#fff' : '#000',
-    // magic-literal: 0.85 ownership ceiling — band-3 Go-bound visualization
+    // magic-literal: 0.55 ownership ceiling — band-3 Go-bound visualization
     // decision. Caps the territory overlay's max opacity so even fully-
-    // owned points don't completely obscure the board grid beneath. Both
-    // factors (ceiling AND magnitude multiplier) are 0.85 by design — the
-    // signal's apparent intensity tops out at the same 0.85 it scales by.
-    opacity: Math.min(0.85, mag * 0.85),
+    // owned points don't visually dominate the board grid and stones
+    // beneath. Tuned down from a prior 0.85 ceiling that read as harsh:
+    // black-fill at 0.85 opacity over the wood texture produced near-
+    // black squares that overshadowed the placed stones themselves.
+    // Both factors (ceiling AND magnitude multiplier) are 0.55 by
+    // design — the signal's apparent intensity tops out at the same
+    // 0.55 it scales by.
+    opacity: Math.min(0.55, mag * 0.55),
   };
 }
 
@@ -257,6 +261,7 @@ const moveNumbersByCoord = computed((): Record<string, number> | undefined => {
       :size="boardSize"
       :variations-mode="store.session.ui.boardVariations"
       :show-active-next-move="store.session.ui.showActiveNextMove"
+      :show-move-suggestions="store.session.ui.showMoveSuggestions"
     />
   </div>
 </template>

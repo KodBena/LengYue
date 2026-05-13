@@ -12,12 +12,19 @@ const props = defineProps<{
   activeIndex: number | null;
   zoomRange: [number, number];
   previewHtml?: string;
-  onIndexClick?: (idx: number) => void;
-  onIndexHover?: (idx: number) => void;
+  // Second arg is the raw y-coordinate at the cursor (in
+  // seriesIndex-0's data space). Optional because most consumers
+  // (single-series panels) don't need it; the merged-delta panel
+  // does, to disambiguate overlaid series by y-proximity.
+  onIndexClick?: (idx: number, y?: number) => void;
+  onIndexHover?: (idx: number, y?: number) => void;
   onMouseLeave?: () => void; // New prop for restoration
   playerColor?: 'B' | 'W';
   /** Forwarded to BaseChart; see its `normalize` prop docs. */
   normalize?: 'shared' | 'per-series';
+  /** Forwarded to BaseChart; see its `formatXAxis` / `formatXTooltip` prop docs. */
+  formatXAxis?: (val: number) => string;
+  formatXTooltip?: (val: number) => string;
 }>();
 
 const expanded = ref(true);
@@ -41,6 +48,8 @@ const expanded = ref(true);
           :active-index="activeIndex"
           :zoom-range="zoomRange"
           :normalize="normalize"
+          :format-x-axis="formatXAxis"
+          :format-x-tooltip="formatXTooltip"
           @index-hover="onIndexHover"
           @index-click="onIndexClick"
         />

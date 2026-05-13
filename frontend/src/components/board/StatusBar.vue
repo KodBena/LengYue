@@ -3,6 +3,19 @@
   Purely presentational game status bar. Engine info (version,
   model, telemetry) lives in the Toolbar — this bar is for
   board-state vocabulary (move number, players, captures, turn).
+
+  Player-color indicators. Each player name carries a small
+  filled stone-chip (black disc for the SGF `PB` player, white
+  disc for the SGF `PW` player) rendered before the name. The
+  chip's source-of-truth is the SGF property key (PB vs PW),
+  which `useMetadata` already routes into `blackName`/`whiteName`
+  — robust against player-name strings that themselves embed a
+  colour word (e.g. "AlphaGo (W)" being read by the SGF parser
+  into `PB`, where the embedded "(W)" would otherwise mislead).
+  Chip colours are literal `#000` / `#fff` rather than the
+  chrome's `--accent-primary` / `--accent-secondary` because the
+  stone-on-board metaphor is the durable semantic — themes can
+  remap accent vibrancy freely without breaking the indicator.
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
@@ -36,7 +49,13 @@ const { hint } = useTransientHint();
   <div class="status-bar">
     <div class="status-left">
       <span class="move-badge">{{ $t('statusBar.move', { n: moveNumber }) }}</span>
-      <span class="player-names">{{ metadata?.blackName }} {{ $t('statusBar.versus') }} {{ metadata?.whiteName }}</span>
+      <span class="player-names">
+        <span class="stone-chip stone-chip--black" aria-hidden="true"></span>
+        {{ metadata?.blackName }}
+        {{ $t('statusBar.versus') }}
+        <span class="stone-chip stone-chip--white" aria-hidden="true"></span>
+        {{ metadata?.whiteName }}
+      </span>
       <span class="game-info">
         {{ metadata?.rules }} · {{ $t('statusBar.komi') }}
         <input
@@ -93,8 +112,29 @@ const { hint } = useTransientHint();
   font-size: var(--text-body);
 }
 
-.player-names { color: var(--text-0); font-weight: 600; }
+.player-names {
+  color: var(--text-0);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-tight);
+}
 .game-info    { color: var(--border-3); font-size: var(--text-body); display: flex; align-items: center; gap: var(--space-tight); }
+
+/* Stone-chip indicators preceding each player name. Sized to the
+   ambient font (0.85em) so they scale with the status-bar
+   typography rather than the board. The white chip carries a
+   thin border because pure white-on-surface-2 has no edge contrast
+   against the chrome backdrop; the black chip needs none. */
+.stone-chip {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  border-radius: var(--radius-circle);
+  flex-shrink: 0;
+}
+.stone-chip--black { background: #000; }
+.stone-chip--white { background: #fff; border: 1px solid var(--border-3); }
 
 .komi-input {
   width: 42px;

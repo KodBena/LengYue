@@ -29,6 +29,19 @@
   overlay only when at least one is on, so the off/off pair has
   zero runtime cost.
 
+  Overlap with `MoveSuggestions`. In 'letters' mode, a letter
+  rendered on top of a move-suggestion disc collides with the
+  disc's inline winrate/score labels — both compete for the same
+  centered text region and the result reads as visual clutter.
+  When `showMoveSuggestions` is on and a sibling's intersection
+  hits a suggestion, the overlay falls back to the 'circles'
+  marker (gray dashed ring) at that intersection only. The
+  letter-advancement counter still advances so the remaining
+  letters stay in declaration order — the dropped letter shows
+  up as a gap in the visible sequence, which is the honest
+  signal "this variation exists here but its identity is
+  carried by the suggestion disc, not by a letter overlay."
+
   Stateless. Reads `state.nodes[currentNodeId]`'s `children` and
   `activeChildIndex`; emits no events. Pointer-events: none on the
   outer SVG so clicks pass through to BoardDisplay (clicking a
@@ -51,6 +64,7 @@ import {
   STONE_RADIUS_RATIO,
 } from '../../engine/constants';
 import { themeColor, type ChromeAnchor } from '../../utils/theme-color';
+import { useMoveSuggestions } from '../../composables/board/use-move-suggestions';
 import type { BoardState, GameNode } from '../../types';
 
 const props = defineProps<{
@@ -58,7 +72,29 @@ const props = defineProps<{
   size: number;
   variationsMode: 'off' | 'circles' | 'letters';
   showActiveNextMove: boolean;
+  // True iff `MoveSuggestions` is mounted on the same intersection
+  // set. Drives the letters-mode → circles fallback at suggestion
+  // intersections (see file header "Overlap with MoveSuggestions").
+  showMoveSuggestions: boolean;
 }>();
+
+// Intersection set of currently-rendered move-suggestion discs,
+// consulted only when the letter-mode → circle fallback could fire.
+// `useMoveSuggestions` runs the same packet → filter → cluster
+// chain that `MoveSuggestions.vue` runs; the double-eval cost is
+// modest (sub-millisecond per analysis update) and is the
+// minimal-touch alternative to lifting the suggestion list into a
+// shared prop. The set short-circuits to empty whenever the
+// fallback can't fire, so the steady-state cost is zero outside
+// the (letters-mode AND suggestions-on) case.
+const { suggestions } = useMoveSuggestions(() => props.state.currentNodeId);
+const suggestionPoints = computed<ReadonlySet<string>>(() => {
+  if (!props.showMoveSuggestions) return new Set();
+  if (props.variationsMode !== 'letters') return new Set();
+  const out = new Set<string>();
+  for (const s of suggestions.value) out.add(`${s.x},${s.y}`);
+  return out;
+});
 
 // ── Geometry (mirrors BoardDisplay) ───────────────────────────────────────────
 const pad    = computed(() => BOARD_PX / (props.size + 1));
@@ -186,23 +222,46 @@ const markers = computed<Marker[]>(() => {
           label: null,
         });
       } else {
-        // 'letters' mode: black letter label only, no ring. Reads
-        // as the SGF-style A/B/C convention — high contrast on the
-        // wood texture without competing with the active ring or
-        // any MoveSuggestion at the same intersection.
-        // magic-literal: 0.9 opacity — slightly louder than the
-        // gray rings since the letter is the sole carrier of the
-        // variation identity in this mode.
-        out.push({
-          x, y,
-          key: `variation-${x}-${y}`,
-          ring: null,
-          label: {
-            text:    letter,
-            color:   LETTER_LABEL_COLOR,
-            opacity: 0.9,
-          },
-        });
+        // 'letters' mode. Two sub-cases:
+        //
+        //   - Overlap with a MoveSuggestion at this intersection
+        //     → fall back to the 'circles' marker (gray dashed
+        //     ring), per the file header's "Overlap with
+        //     MoveSuggestions" note. The letter is silently
+        //     dropped at this intersection only; `variationIdx`
+        //     advances so the remaining letters stay in
+        //     declaration order, leaving a visible gap that the
+        //     suggestion disc fills in.
+        //   - No overlap → black letter label only, no ring.
+        //     Reads as the SGF-style A/B/C convention — high
+        //     contrast on the wood texture.
+        //
+        // magic-literal: 0.9 letter opacity — slightly louder than
+        // the gray rings since the letter is the sole carrier of
+        // the variation identity in this sub-case.
+        const overlapsSuggestion = suggestionPoints.value.has(`${x},${y}`);
+        if (overlapsSuggestion) {
+          out.push({
+            x, y,
+            key: `variation-${x}-${y}`,
+            ring: {
+              stroke:  themeColor(VARIATION_TINT_ANCHOR),
+              opacity: 0.7,
+            },
+            label: null,
+          });
+        } else {
+          out.push({
+            x, y,
+            key: `variation-${x}-${y}`,
+            ring: null,
+            label: {
+              text:    letter,
+              color:   LETTER_LABEL_COLOR,
+              opacity: 0.9,
+            },
+          });
+        }
       }
       variationIdx++;
     }

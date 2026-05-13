@@ -48,6 +48,24 @@ const props = defineProps<{
    * a meaningless midpoint.
    */
   normalize?: 'shared' | 'per-series';
+
+  /**
+   * Optional formatters mapping the chart's raw x-coordinate to a
+   * user-facing string. `formatXAxis` formats the axis-tick labels;
+   * `formatXTooltip` formats the tooltip's x-header (which by
+   * default reads "Move {raw_x}"). Use when the chart's x-space
+   * is *not* the user-facing "move number" the consumer wants
+   * displayed — e.g., `MergedDeltaPanel`'s parity-interleaved x
+   * where each integer is a ply but the user thinks per-colour.
+   * When omitted, BaseChart renders raw numeric x values on the
+   * axis and the legacy "Move {x}" tooltip header.
+   *
+   * `formatXAxis` may return the empty string for x's that
+   * shouldn't be labelled (e.g. to suppress every-other-tick
+   * duplicates in a parity-interleaved layout).
+   */
+  formatXAxis?: (val: number) => string;
+  formatXTooltip?: (val: number) => string;
 }>();
 
 let markerTimer: number | null = null;
@@ -246,7 +264,8 @@ const updateOptions = () => {
         let res = `<div style="line-height: 1.2; padding: var(--space-tight);">`;
         const firstParam = params[0];
         const xVal = Array.isArray(firstParam.value) ? firstParam.value[0] : firstParam.value;
-        res += `<b style="font-size: var(--text-body); color: ${themeColor('--text-1')};">Move ${xVal}</b>`;
+        const xHeader = props.formatXTooltip ? props.formatXTooltip(xVal) : `Move ${xVal}`;
+        res += `<b style="font-size: var(--text-body); color: ${themeColor('--text-1')};">${xHeader}</b>`;
         params.forEach(item => {
           // When per-series-normalised, the plotted Y is in [0, 1] and
           // the absolute magnitude is carried on the datum as `rawY`.
@@ -298,7 +317,10 @@ const updateOptions = () => {
       type: 'value',
       show: true,
       min: props.zoomRange ? props.zoomRange[0] : 'dataMin',
-      max: props.zoomRange ? props.zoomRange[1] : 'dataMax'
+      max: props.zoomRange ? props.zoomRange[1] : 'dataMax',
+      axisLabel: props.formatXAxis
+        ? { formatter: props.formatXAxis }
+        : undefined,
     },
     series: getDisplaySeries().map(s => ({
       name: s.name,
@@ -426,18 +448,25 @@ const initChart = async () => {
   });
 
   const zr = chartInstance.getZr();
+  // Click/hover emit two args: the rounded x-coordinate (in
+  // seriesIndex-0's space) and the raw y-coordinate at the
+  // pixel under the cursor. Existing single-arg listeners
+  // (ScoreLeadPanel, PlayerPanel) ignore the y harmlessly via
+  // JavaScript's positional-args slack; the merged-delta panel
+  // consumes the y to disambiguate which of its overlaid series
+  // the user clicked closest to (per-color move dispatch).
   zr.on('click', (params) => {
     const point = [params.offsetX, params.offsetY];
     if (chartInstance!.containPixel('grid', point)) {
       const data = chartInstance!.convertFromPixel({ seriesIndex: 0 }, point);
-      emit('index-click', Math.round(data[0]));
+      emit('index-click', Math.round(data[0]), data[1]);
     }
   });
   zr.on('mousemove', (params) => {
     const point = [params.offsetX, params.offsetY];
     if (chartInstance!.containPixel('grid', point)) {
       const data = chartInstance!.convertFromPixel({ seriesIndex: 0 }, point);
-      emit('index-hover', Math.round(data[0]));
+      emit('index-hover', Math.round(data[0]), data[1]);
     }
   });
 
