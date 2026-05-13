@@ -340,13 +340,33 @@ declaration vocabulary.
 
 **Filename note.** `qeubo-namespace-unification-plan.md`
 should be renamed / re-anchored to something like
-`controllable-scalar-registry-plan.md` (with the
-`design-note: revised` discipline of ADR-0005 Rule 8) at the
-implementation-arc boundary, so the canonical handle reflects
-the substrate-first framing. The plan's body is mostly right
-already — qEUBO consumption is the dominant use case it
-documents — but the framing positions qEUBO as the driver
-when it's really a peer-consumer.
+`knob-registry-plan.md` (with the `design-note: revised`
+discipline of ADR-0005 Rule 8) at the implementation-arc
+boundary, so the canonical handle reflects the substrate-first
+framing. The plan's body is mostly right already — qEUBO
+consumption is the dominant use case it documents — but the
+framing positions qEUBO as the driver when it's really a
+peer-consumer.
+
+**Scalar vs vector terminology.** The "scalar/scaler" framing
+from the originating riddle — and the heading on this entry —
+is technically too narrow as a label for the substrate. The
+qEUBO plan's KnobDecl shape is vector-capable from day 1: each
+knob declares its own input vector (R^N) and output vector
+(R^K), and the cross-knob picture is a *product* of independent
+vector spaces — R^2 × R^5 if a user has one 2-D knob (e.g., a
+hue-saturation control) declared alongside one 5-D knob (e.g.,
+a five-anchor luminance-arc control). The components inside
+each knob are semantically distinct but composed as a vector;
+the substrate accommodates that without flattening them to
+scalars. **The motivating riddle (ownership opacity) is a
+scalar instance** (N=K=1, identity transform — a slider in
+the chrome corner of the substrate), but the substrate's
+shape supports vector-valued knobs at the same tier. Future
+prose should prefer "knob" or "controllable variable" over
+"scalar" except when the dimensionality is specifically 1; the
+heading of this entry keeps "scalar" only because the
+originating ask was a scalar one.
 
 ### Variable ownership / write arbitration
 
