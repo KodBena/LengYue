@@ -63,9 +63,20 @@ const emit = defineEmits<{
 // collapse if the chrome competes for vertical space.
 const expanded = ref(true);
 
+// Defensive accessor: persisted ReviewCard blobs from before the
+// arc-1 tags-on-read shipped don't carry a `tags` array (the
+// SyncService snapshotted them pre-ACL). Coerce to `[]` on read
+// so the panel renders rather than crashing on `[...undefined]`.
+// The schema-version migration handles the durable fix at
+// hydrate time; this guard is the per-render belt to the
+// migration's suspenders.
+function cardTags(c: { tags?: readonly string[] }): readonly string[] {
+  return c.tags ?? [];
+}
+
 // Local edit state mirrors `props.card`. Synced via watch when
 // the card changes (next-card transition, post-save echo).
-const localTags             = ref<string[]>([...props.card.tags]);
+const localTags             = ref<string[]>([...cardTags(props.card)]);
 const tagInput              = ref('');
 const showTagSuggestions    = ref(false);
 const localNumMoves         = ref(props.card.numMoves);
@@ -77,7 +88,7 @@ const localDefaultVisits    = ref(props.card.defaultVisits);
 const resetPriorOnSave      = ref(false);
 
 watch(() => props.card, (c) => {
-  localTags.value          = [...c.tags];
+  localTags.value          = [...cardTags(c)];
   tagInput.value           = '';
   localNumMoves.value      = c.numMoves;
   localGamma.value         = c.gamma;
@@ -108,7 +119,7 @@ function tagsEqual(a: readonly string[], b: readonly string[]): boolean {
 }
 
 function commitTags(): void {
-  if (tagsEqual(localTags.value, props.card.tags)) return;
+  if (tagsEqual(localTags.value, cardTags(props.card))) return;
   emit('patch', { tags: [...localTags.value] });
 }
 

@@ -87,7 +87,7 @@ import type { SystemMessage } from '../types';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 34;
+export const CURRENT_SCHEMA_VERSION = 35;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -1049,6 +1049,40 @@ export const migrations: Migration[] = [
     if (ui && typeof ui === 'object') {
       if (typeof ui.watchdogColorTransition !== 'boolean') {
         ui.watchdogColorTransition = false;
+      }
+    }
+    return out;
+  },
+  // 34 → 35: Card-metadata inline-edit arc 1 backfill on persisted
+  // review queues. Cards fetched FRESH from the backend always
+  // carry `tags: string[]` (the ACL coerces `undefined → []` at the
+  // boundary), but cards persisted in `session.reviews[boardId].queue`
+  // pre-date the arc-1 wire-shape addition and lack the field
+  // entirely. The inline-edit panel (arc 2 consumer) crashes on
+  // `[...card.tags]` when iterating undefined — runtime symptom:
+  // "can't access property Symbol.iterator, props.card.tags is
+  // undefined" caught by `RootErrorBoundary` after starting a
+  // review session against a pre-arc-1 persisted queue.
+  //
+  // Backfill: walk every active review queue's cards and set
+  // `tags: []` on any card missing the field. Idempotent — an
+  // existing array is preserved unchanged. Matches the ACL's
+  // empty-default semantic (the card simply has no tags, which
+  // is what `tags: []` says on the wire).
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const reviews = out.session?.reviews;
+    if (reviews && typeof reviews === 'object') {
+      for (const sessionData of Object.values(reviews as Record<string, unknown>)) {
+        if (!sessionData || typeof sessionData !== 'object') continue;
+        const queue = (sessionData as { queue?: unknown }).queue;
+        if (!Array.isArray(queue)) continue;
+        for (const card of queue) {
+          if (!card || typeof card !== 'object') continue;
+          if (!Array.isArray((card as { tags?: unknown }).tags)) {
+            (card as { tags?: unknown }).tags = [];
+          }
+        }
       }
     }
     return out;
