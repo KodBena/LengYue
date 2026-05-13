@@ -68,6 +68,11 @@ class FakeLineageRepository:
         self.parent_of: Dict[int, Optional[int]] = {}
         self.game_source_of_root: Dict[int, int] = {}
         self.user_id_by_card: Dict[int, int] = {}
+        # Card-metadata inline-edit arc 1: tag side-state, populated
+        # via ``seed_tags`` and surfaced on every CardNode the Port
+        # methods return (mirrors the production adapter's batched
+        # IN-set enrichment in ``LineageRepository._materialize``).
+        self.tags: Dict[int, List[str]] = {}
 
         self._next_card_id = 1
 
@@ -104,6 +109,14 @@ class FakeLineageRepository:
                     parent_card_id=ids[parent_name],
                 )
         return ids
+
+    def seed_tags(self, card_id: int, tag_names: List[str]) -> None:
+        """
+        Attach tags to an already-seeded card. The fake stores the
+        list sorted alphabetically to match the production adapter's
+        ``ORDER BY tag.name`` enrichment shape.
+        """
+        self.tags[card_id] = sorted(set(tag_names))
 
     def seed_card(
         self,
@@ -151,6 +164,19 @@ class FakeLineageRepository:
 
     # ─── Internal walks ────────────────────────────────────────────────────
 
+    def _make_node(self, card_id: int, depth: int) -> CardNode:
+        """
+        Construct a ``CardNode`` wrapping the seeded card with its
+        seeded tags injected — mirrors the production adapter's
+        ``_materialize`` tag-enrichment so route- and pipeline-level
+        tests see the same wire shape against fake or real.
+        """
+        base = self.cards[card_id]
+        enriched = base.model_copy(
+            update={"tags": list(self.tags.get(card_id, []))}
+        )
+        return CardNode(enriched, depth)
+
     def _children_of(self, card_id: int, *, user_id: int) -> List[int]:
         return [
             cid
@@ -173,8 +199,7 @@ class FakeLineageRepository:
         frontier: List[Tuple[int, int]] = [(start_id, 0)]
         while frontier:
             current_id, depth = frontier.pop(0)
-            card = self.cards[current_id]
-            nodes.append(CardNode(card, depth))
+            nodes.append(self._make_node(current_id, depth))
             if max_depth is not None and depth >= max_depth:
                 continue
             for child_id in self._children_of(current_id, user_id=user_id):
@@ -231,7 +256,7 @@ class FakeLineageRepository:
                 ))
             elif isinstance(selection, ContextSelection):
                 if self.user_id_by_card.get(cid) == int(user_id):
-                    out.append(CardNode(self.cards[cid], 0))
+                    out.append(self._make_node(cid, 0))
             elif isinstance(selection, SubtreeSelection):
                 # n=0 is descent from cid; n=N walks up N then
                 # descends. The fake mirrors the DSL spec; the
@@ -259,13 +284,13 @@ class FakeLineageRepository:
                         break
                     target = parent
                 if target is not None and self.user_id_by_card.get(target) == int(user_id):
-                    out.append(CardNode(self.cards[target], 0))
+                    out.append(self._make_node(target, 0))
             elif isinstance(selection, SiblingSelection):
                 parent = self.parent_of.get(cid)
                 if parent is not None:
                     for sibling in self._children_of(parent, user_id=int(user_id)):
                         if sibling != cid:
-                            out.append(CardNode(self.cards[sibling], 0))
+                            out.append(self._make_node(sibling, 0))
             elif isinstance(selection, UnionSelection):
                 # Recursive: union of two inner selections over the same context.
                 out.extend(

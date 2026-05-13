@@ -7,14 +7,19 @@ No SQLAlchemy, no FastAPI, no db.schema.
 Exports:
 
 - Card: persisted shape. Frozen Pydantic entity. Domain-agnostic
-  field names throughout.
+  field names throughout. The `tags` field (added per the
+  card-metadata inline-edit dispatch arc 1) is populated by the
+  repository adapters at read time — `Card` is the entity-level
+  home for tags because they're part of the persisted card, not
+  a wire-only enrichment.
 
 - CardWithRecall: Card + freshly-computed Bayesian recall projection.
   The wire shape. Post-34b-Commit-3b, emits only the canonical field
   names; the transitional stale-client compat shims (`normalized_sgf`
   and `default_visits` as @computed_field properties) have been
   removed now that the stale-bundle window is closed and all clients
-  read the canonical names.
+  read the canonical names. The inherited `tags` field flows through
+  via `project_card`'s `model_dump()` without explicit handling.
 
 - compute_current_recall_from_prior: lowest-level recall function.
 - compute_current_recall: Card-taking wrapper.
@@ -35,9 +40,9 @@ And the default_visits relocation (also complete):
     grading_parameter.data only; no synthesis           (34b Commit 3b, this state)
 """
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from core.ebisu import model_to_halflife, predict_recall
 
@@ -74,6 +79,7 @@ class Card(BaseModel):
     grading_parameter: Optional[Dict[str, Any]]
     canonical_content: str
     card_source_id: Optional[int] = None
+    tags: List[str] = Field(default_factory=list)
 
 
 class CardWithRecall(Card):

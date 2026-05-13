@@ -29,8 +29,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.schema import (
     card,
     card_source,
+    card_tag,
     game_source,
     normalized_position,
+    tag,
 )
 from tests.integration.routes.conftest import (
     auth_header,
@@ -135,6 +137,52 @@ async def test_forests_query_returns_descendant_pool(client, session):
     # DescendantSelection excludes the context.
     assert ids["r"] not in returned_ids
     assert returned_ids == {ids["a"], ids["b"]}
+
+
+async def test_forests_query_results_carry_tags(client, session):
+    """
+    Card-metadata inline-edit arc 1: tags surface on every
+    CardWithRecall in the pipeline-result list, populated via the
+    batched IN-set fetch in ``LineageRepository._materialize``. A
+    card with tags carries them alphabetised; a card without tags
+    reports ``[]``. The fetch is single-round-trip regardless of
+    pool size.
+    """
+    await seed_user(session, user_id=ALICE_ID)
+    ids = await _build_tree(
+        session,
+        {"r": None, "a": "r", "b": "a"},
+        user_id=ALICE_ID,
+    )
+    # Tag just one descendant. The other should report `[]`.
+    res = await session.execute(
+        insert(tag).values(name="joseki").returning(tag.c.id)
+    )
+    joseki_id = int(res.scalar())
+    await session.execute(
+        insert(card_tag).values(card_id=ids["a"], tag_id=joseki_id)
+    )
+    await session.commit()
+
+    response = await client.post(
+        "/forests/query",
+        json={
+            "context_ids": [ids["r"]],
+            "pipeline": [
+                {
+                    "stage": "select",
+                    "selection": {"type": "DescendantSelection"},
+                    "ordering": {"type": "DepthKey"},
+                },
+            ],
+        },
+        headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 200
+    body = response.json()
+    by_id = {c["id"]: c for c in body}
+    assert by_id[ids["a"]]["tags"] == ["joseki"]
+    assert by_id[ids["b"]]["tags"] == []
 
 
 async def test_forests_query_take_caps_pool(client, session):

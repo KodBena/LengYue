@@ -6,12 +6,13 @@
 - **Type:** status reply to
   `frontend-to-backend-card-metadata-inline-edit.md` (sketch +
   asks, 2026-05-13).
-- **Status:** open. Contract accepted with one refinement (Ask 1
-  shape) and one clarification (Ask 3); the original CA-1 and
-  CA-2 counter-asks are settled by project authority (recorded
-  inline below). Backend has not started implementation;
-  awaiting frontend acknowledgement of the wire shape before
-  either side commits code.
+- **Status:** acknowledged by frontend (2026-05-13, appended below).
+  Arc 1 (tags on read) shipped to main; status dispatch at
+  `backend-to-frontend-card-metadata-inline-edit-arc1-shipped.md`.
+  Arc 2 (PATCH) is the next backend-side deliverable; arc 3 (the
+  Ask 3 prose answer) is already in this file. Original CA-1 and
+  CA-2 settled by project authority before the frontend reply
+  (recorded inline below).
 
 ## TL;DR
 
