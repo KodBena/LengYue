@@ -183,14 +183,24 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     const bId = boardIdRef.value;
     if (!bId) return;
 
-    if (prefetchedQueue.length === 0) {
+    // Card-metadata inline-edit arc 2 (2026-05-13): drop suspended
+    // cards from the review queue before starting. The pipeline DSL
+    // doesn't currently express suspension as a predicate, so the
+    // filter lives here at the queue boundary — applies uniformly
+    // whether the queue came from `tree.runPipeline` (the
+    // ForestDirectory deck-run path) or from the autonomous-SR
+    // driver. If the deck DSL eventually grows a `~$suspended`
+    // virtual tag, this filter becomes a defensive fallback.
+    const filtered = prefetchedQueue.filter(c => !c.suspended);
+
+    if (filtered.length === 0) {
       mutateReviewSession(bId, draft => { draft.status = 'IDLE'; });
       return;
     }
 
     mutateReviewSession(bId, draft => {
       draft.status = 'LOADING';
-      draft.queue = prefetchedQueue;
+      draft.queue = filtered;
     });
 
     try {
