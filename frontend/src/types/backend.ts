@@ -163,7 +163,31 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Card Metadata
+         * @description Card-metadata inline-edit arc 2 (2026-05-13). Partial-update
+         *     endpoint for the mutable subset recorded in
+         *     ``docs/dispatch/backend-to-frontend-card-metadata-inline-edit-status.md``
+         *     (Ask 2 table). The wire shape is ``CardPatch``; the response is
+         *     ``CardWithRecall`` projected at write time so the frontend's
+         *     inline-edit affordance can swap the cached card body via
+         *     ``ledger.put`` without a follow-up GET.
+         *
+         *     Transaction boundary at the route per item 30b's pattern —
+         *     ``async with db.begin():`` commits on success, rolls back on
+         *     any exception. The Pydantic validation already happened at
+         *     parameter binding (a malformed patch never reaches this
+         *     function body); the try/except below covers domain errors
+         *     raised inside the service or adapter.
+         *
+         *     Tenancy: ``user_id`` flows from the JWT decode through to the
+         *     UPDATE's WHERE clause via the five-layer recipe in
+         *     ``docs/notes/tenancy.md``. Cross-tenant ``card_id`` surfaces as
+         *     404 via the ``CardService.update_card_metadata`` →
+         *     ``CardNotFoundError`` translation, preserving the codebase's
+         *     404-not-403 invariant.
+         */
+        patch: operations["update_card_metadata_cards__card_id__patch"];
         trace?: never;
     };
     "/cards/{card_id}/review": {
@@ -816,6 +840,48 @@ export interface components {
             card_id: number;
         };
         /**
+         * CardPatch
+         * @description Request body shape for ``PATCH /cards/{card_id}``.
+         *
+         *     Card-metadata inline-edit arc 2 (2026-05-13). The mutable subset
+         *     is recorded in
+         *     ``docs/dispatch/backend-to-frontend-card-metadata-inline-edit-status.md``
+         *     (Ask 2 table). All fields are optional; ``extra="forbid"`` rejects
+         *     unknown top-level keys with a structured 422 (ADR-0002 — no silent
+         *     coercion at the wire boundary).
+         *
+         *     Semantics per field:
+         *
+         *     - ``tags``: full replacement when present. ``[]`` wipes all tags;
+         *       ``None`` (or absent) leaves them untouched.
+         *     - ``num_moves``: direct overwrite. The Ebisu prior is NOT
+         *       automatically reset — the caller pairs this with
+         *       ``reset_prior=True`` when starting over is intended.
+         *     - ``suspended``: direct overwrite.
+         *     - ``grading_parameter``: JSON-merge-patch at the ``data`` key
+         *       level. Keys present in the patch's ``data`` overwrite the
+         *       stored same-named keys; absent keys are preserved.
+         *     - ``reset_prior``: explicit opt-in to reset ``(α, β, t)`` to
+         *       ``config.EBISU_DEFAULT_MODEL``, set ``last_reviewed_at`` to
+         *       NULL, and ``num_reviews`` to 0. Independent of ``num_moves``
+         *       — settable on its own when the user decides the prior is
+         *       corrupted. Default false.
+         */
+        CardPatch: {
+            /** Tags */
+            tags?: string[] | null;
+            /** Num Moves */
+            num_moves?: number | null;
+            /** Suspended */
+            suspended?: boolean | null;
+            grading_parameter?: components["schemas"]["GradingParameterPatch"] | null;
+            /**
+             * Reset Prior
+             * @default false
+             */
+            reset_prior: boolean;
+        };
+        /**
          * CardWithRecall
          * @description A Card augmented with its current Bayesian recall projection.
          *
@@ -1114,6 +1180,48 @@ export interface components {
             description?: string | null;
             /** Client Game Id */
             client_game_id?: string | null;
+        };
+        /**
+         * GradingParameterData
+         * @description The opaque-but-partially-typed `data` blob inside
+         *     ``grading_parameter``.
+         *
+         *     Card-metadata inline-edit arc 2 (2026-05-13): the backend's
+         *     contract over ``grading_parameter.data`` is exactly one key:
+         *     ``gamma`` (consumed by ``ReviewService.process_review`` for the
+         *     discounted-sum arithmetic). Every other key — ``analysis_config``,
+         *     ``default_visits``, future additions — is frontend-defined and
+         *     flows through unchanged. The status dispatch's Ask 3 records the
+         *     reasoning.
+         *
+         *     ``extra="allow"`` keeps those frontend-owned keys present in
+         *     ``model_dump()``; ``model_dump(exclude_unset=True)`` returns only
+         *     the keys the caller actually sent, which is what the adapter's
+         *     JSON-merge-patch logic needs to merge with the stored ``data``.
+         */
+        GradingParameterData: {
+            /**
+             * Gamma
+             * @description Discount factor for the geometric-sum review aggregation. Constrained to the open unit interval (0, 1). When absent, the service falls back to `config.SR_DEFAULT_GAMMA`.
+             */
+            gamma?: number | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * GradingParameterPatch
+         * @description The ``grading_parameter`` wrapper sent on a PATCH body.
+         *
+         *     Card-metadata inline-edit arc 2: ``data`` is the only key the
+         *     wrapper admits at the wire level (``extra="forbid"`` rejects
+         *     unknowns at the same level the API contracts about). The merge
+         *     semantic is JSON-merge-patch at one level of nesting — see the
+         *     status dispatch's "`grading_parameter` merge semantics" section
+         *     and the adapter's ``update_card_metadata`` for the worked
+         *     behaviour.
+         */
+        GradingParameterPatch: {
+            data: components["schemas"]["GradingParameterData"];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1772,6 +1880,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardWithRecall"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_card_metadata_cards__card_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                card_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardPatch"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

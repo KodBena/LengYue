@@ -854,6 +854,41 @@ export interface ReviewCard {
   readonly tags: readonly string[];
 }
 
+/**
+ * Patch shape consumed by `BackendService::updateCardMetadata`.
+ * CamelCase domain projection of the wire `CardPatch`
+ * (card-metadata inline-edit arc 2; see
+ * `docs/dispatch/backend-to-frontend-card-metadata-inline-edit-arc2-shipped.md`).
+ *
+ * Every field is optional. The ACL projects each present field
+ * to its snake_case wire counterpart; absent fields stay absent
+ * on the wire so the backend's "absent → preserve" semantics
+ * apply. Senders compose only what they intend to change.
+ *
+ * Semantics mirror the wire contract:
+ *
+ *   - `tags` — full replacement. `[]` wipes; absent preserves.
+ *   - `numMoves` — direct overwrite.
+ *   - `suspended` — direct overwrite.
+ *   - `gradingParameterData` — JSON-merge-patch at one level
+ *     against the stored `grading_parameter.data`. Keys
+ *     present overwrite same-named stored keys; absent keys
+ *     are preserved. The backend reads exactly `gamma`;
+ *     every other key is frontend-defined pass-through.
+ *   - `resetPrior` — atomic Ebisu-prior reset
+ *     (`(α, β, t)` to defaults, `lastReviewedAt → null`,
+ *     `numReviews → 0`). Independent of `numMoves` —
+ *     settable on its own when the user decides the prior
+ *     is corrupted.
+ */
+export interface CardMetadataPatch {
+  readonly tags?:                 readonly string[];
+  readonly numMoves?:             number;
+  readonly suspended?:            boolean;
+  readonly gradingParameterData?: Readonly<Record<string, unknown>>;
+  readonly resetPrior?:           boolean;
+}
+
 // ── State Container (readonly removed) — SR domain ────────────────────────────
 
 // Pipeline-stage discriminated union, sourced from the generated

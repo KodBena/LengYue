@@ -7,6 +7,7 @@
 import { api } from './api-client';
 import type {
   CardId,
+  CardMetadataPatch,
   GameSourceId,
   ReviewCard,
   CardCreatePayload,
@@ -165,6 +166,42 @@ export class BackendService {
   public async submitReview(cardId: CardId, scores: number[]): Promise<ReviewCard> {
     const rawCard = await api.request<CardFromWire>('POST', `/cards/${cardId}/review`, { scores });
     return this.mapToReviewCard(rawCard);
+  }
+
+  /**
+   * Card-metadata inline-edit arc 2 (2026-05-13). Sends a partial
+   * update to `PATCH /cards/{card_id}` and returns the
+   * re-projected domain card. Absent fields stay absent on the
+   * wire so the backend's "absent → preserve" semantics apply —
+   * the ACL composes only the keys the caller actually wanted to
+   * change. See `CardMetadataPatch`'s doc in `types.ts` for the
+   * per-field semantics.
+   *
+   * `grading_parameter` projects through a one-level wrapper:
+   * domain `gradingParameterData` → wire `grading_parameter:
+   * { data: ... }`. The keys inside `data` are passed through
+   * verbatim — backend only types `gamma`, every other key is
+   * frontend-defined pass-through per the Ask 3 contract.
+   *
+   * On 422 (validation failure) or 404 (cross-tenant or
+   * nonexistent id), the underlying `api.request` raises through
+   * the shared error handler; callers can rollback their
+   * optimistic local update in the rejection branch.
+   */
+  public async updateCardMetadata(
+    cardId: CardId,
+    patch: CardMetadataPatch,
+  ): Promise<ReviewCard> {
+    const body: Record<string, unknown> = {};
+    if (patch.tags !== undefined)       body.tags       = [...patch.tags];
+    if (patch.numMoves !== undefined)   body.num_moves  = patch.numMoves;
+    if (patch.suspended !== undefined)  body.suspended  = patch.suspended;
+    if (patch.gradingParameterData !== undefined) {
+      body.grading_parameter = { data: patch.gradingParameterData };
+    }
+    if (patch.resetPrior !== undefined) body.reset_prior = patch.resetPrior;
+    const raw = await api.request<CardFromWire>('PATCH', `/cards/${cardId}`, body);
+    return this.mapToReviewCard(raw);
   }
 
   public async createCard(payload: CardCreatePayload): Promise<number> {
