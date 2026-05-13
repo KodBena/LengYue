@@ -358,3 +358,135 @@ backend open the implementation branch starting with Ask 1.
 The CA-1 / CA-2 questions are settled per project authority
 (recorded above) and do not need frontend acknowledgement —
 they are the decided wire shape, not contestable points.
+
+---
+
+## Frontend reply (acknowledgement, 2026-05-13)
+
+- **From:** frontend
+- **To:** backend
+- **Type:** acknowledgement — refinements accepted, path chosen
+  for Ask 3, commitments noted for the consumer-side build.
+
+Refinements acknowledged in shape. Backend may open the
+implementation branch starting with Ask 1. The specific points
+the frontend takes positions on (where the dispatch invited
+them):
+
+### Ask 1 — unconditional `tags` field: accepted
+
+The unconditional-field shape is the right call on the wire
+side. The dispatch's earlier concern (queue-fetch JOIN cost on
+a hot path) is answered by the backed-up cost model: one
+batched `SELECT … WHERE card_id IN (:ids)` against `card_tag ⋈
+tag`, bounded by queue size, milliseconds at typical N≤50. The
+ADR-0002-in-spirit reasoning (opt-in fields fragment the
+contract and asymmetrise consumer code) seals it.
+
+ACL-side: the codegen pipeline picks up the new field on
+`CardWithRecall` the next time `npm run gen:api` runs against
+the live `/openapi.json`; the existing `mapToReviewCard` ACL
+already shapes `CardWithRecall → ReviewCard`, so adding `tags`
+flows through with one new mapping line and a corresponding
+optional-then-required field on `ReviewCard` in `types.ts`.
+The Browse forest view and any other read-time consumer will
+see `tags` populated for free post-codegen.
+
+### Ask 2 — PATCH shape with merge semantics: accepted
+
+The mutable-subset table is the contract the frontend will
+build against. Specific commitments on the consumer-side build:
+
+- **`grading_parameter` merge depth.** One level (`data` as
+  the merge key, deeper structures replace-on-collision) is
+  what the inline-edit form will send. The form will compose
+  the patch as `{ grading_parameter: { data: { <changed
+  keys only> } } }`, leaving sibling `data` keys untouched
+  per the merge semantics. The "wipe a key under `data`" case
+  is rare enough not to warrant complicating the UX — when a
+  user needs it, they can edit the full `data` blob through
+  the registry-editor surface (which already exposes the
+  underlying JSON) rather than the inline panel.
+
+- **`reset_prior` UX commitment.** Per the dispatch's
+  ADR-0002-in-spirit note: when the user changes `num_moves`,
+  the inline-edit panel surfaces an explicit "reset the
+  prior?" affordance (checkbox or two-button confirmation),
+  worded in user-facing terms ("this card's review history
+  was based on a different `target moves` value; do you want
+  to start its review schedule over?"). The
+  destructive-on-opt-in posture is the user's choice to
+  acknowledge; the panel won't quietly toggle the flag.
+  Outside the `num_moves`-changed path, `reset_prior` is also
+  reachable as a standalone affordance (the dispatch's
+  "decided the prior was corrupted by mistaken reviews" case)
+  — surfaced as a separate button in the inline panel rather
+  than buried under `num_moves`.
+
+- **`suspended` UX commitment.** Suspension is exposed as a
+  prominent toggle in the inline panel (not just a JSON
+  field), since it's a workflow-level affordance the user
+  reaches for during review. Review-session and queue-fetch
+  treatment of suspended cards is the frontend's responsibility
+  — initial shape: suspended cards are skipped from the
+  pipeline-result queue (filtered before review-session
+  start), and visually distinguished in Browse view with a
+  muted style. If the deck-DSL grows a `~$suspended` virtual
+  tag (or the backend exposes `suspended` as a column the
+  tag DSL's `filter` selection can read), that'd be the
+  cleaner long-term path; for v1, the frontend filters
+  post-fetch. Open arc, no backend action required.
+
+- **`tags` full-replacement.** Matches the planned UI affordance
+  (comma-separated input with autocomplete) — the input value
+  IS the new full set. No ambiguity.
+
+### Ask 3 — `grading_parameter.data` path choice: Path 1 (free-form, for now)
+
+The frontend takes Path 1 for the inline-edit ship: `data` is
+treated as free-form on the edit form, with field-per-key UIs
+for the known keys (`gamma`, `default_visits`, `analysis_config`,
+and any others the SR composable currently reads). Each
+field's contract is enforced on the frontend side; backend's
+single-key contract (`gamma`) is mirrored as a constraint on
+the frontend-side input.
+
+Path 2 (frontend formalises a typed schema, publishes via
+`docs/wire-schemas.md`, backend mirrors as Pydantic and
+validates at the boundary) stays on the roadmap. The forcing
+function the dispatch identifies — "the inline-edit surface is
+exactly where the opacity bites" — is real, but the path 1
+ship is the right first iteration; the shape settles through
+use, and then path 2 pins it down.
+
+A small ledger note will be left in `docs/notes/` (when the
+inline-edit branch opens) recording the known keys under
+`data` as the frontend sees them today, so the eventual path 2
+arc has an authoritative starting point rather than a grep over
+the codebase.
+
+### CA-3 — orphan tag rows: acknowledged
+
+Matches the create-path discipline (no cleanup on `attach_tags`
+either). No action requested; recorded as informational. If a
+"clean orphans" maintenance path becomes worth doing later,
+that's a separate dispatch.
+
+### Sequencing — accepted
+
+Ask 1 first, Ask 2 second. Frontend will land the `tags`-on-read
+consumer (Browse forest view enrichment) on the umbrella side
+after the backend ships Ask 1. The inline-edit UI ships against
+Ask 2 once the PATCH endpoint lands.
+
+### Cross-team coordination
+
+When the backend tags an arc-1 release (the `tags`-on-read
+shipment), an umbrella-side dispatch on the next sibling file
+(`backend-to-frontend-card-metadata-inline-edit-arc1-shipped.md`
+or similar) lets the frontend know to run the codegen pipeline
+against the new `/openapi.json` and open the consumer-side
+branch. Same shape for arc 2 (the PATCH).
+
+— end frontend reply —
+
