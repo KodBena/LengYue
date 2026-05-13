@@ -718,6 +718,17 @@ export interface UISession {
   // specifically to compose with the solid transposition ring when
   // both are visible at the same intersection.
   showTranspositionRings: boolean;
+  // Whether the Toolbar's WATCHDOG dot fades smoothly when its
+  // colour flips (green ↔ red on the 500ms-latency threshold) or
+  // switches instantly. Pure rendering preference — the watchdog
+  // sampling cadence (5000ms poll of `query_version`) and the
+  // threshold are unaffected. Default true (the transition is
+  // less startling than the instant flip during concurrent
+  // queries that briefly push proxy command-queue latency past
+  // the threshold); users who find the fade distracting can
+  // opt out via the registry editor. Schema-version 34
+  // introduces the field.
+  watchdogColorTransition: boolean;
   // Forest Directory navigator state — which game nodes are expanded
   // (showing their roots) and which game/root the user has selected.
   // Schema-version 21 introduces the field. Persisted across reloads

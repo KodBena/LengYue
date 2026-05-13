@@ -33,6 +33,16 @@ const emit = defineEmits<{
   (e: 'stop-match'):   void;
 }>();
 
+// magic-literal: 500ms — watchdog-dot colour-flip threshold. The
+// watchdog samples `query_version` round-trip every 5000ms (see
+// `analysis-service.startWatchdog`); a sample above this threshold
+// flips the dot red. The cutoff is hand-tuned: KataGo's proxy
+// returns `query_version` in single-digit ms when idle and
+// hundreds-of-ms when concurrent analyses serialise the proxy's
+// command queue behind heavy-analyze responses — 500ms is the
+// "the engine is busy enough that the user should notice" point.
+const WATCHDOG_LATENCY_THRESHOLD_MS = 500;
+
 const isConnected   = computed(() => props.engineStatus === 'connected');
 // Symmetric verb pairing with the disconnected label; the connected
 // branch previously read 'Engine', which left the action ambiguous.
@@ -145,7 +155,10 @@ const modelTooltip = computed(() => {
         <span class="m-lbl">{{ $t('toolbar.metric.watchdog') }}</span>
         <span
           class="m-val watchdog-dot"
-          :style="{ color: metrics.latencyMs < 500 ? '#00ff88' : 'var(--state-attention)' }"
+          :class="{
+            'watchdog-bad': metrics.latencyMs >= WATCHDOG_LATENCY_THRESHOLD_MS,
+            'watchdog-smoothed': store.session.ui.watchdogColorTransition,
+          }"
         >●</span>
       </div>
       <!-- Queue tooltip — hover the count to see every in-flight
@@ -194,6 +207,25 @@ const modelTooltip = computed(() => {
    `cursor: help` on the value cues the hover tooltip (full probe
    response, including the privacy-concerning `name` field). */
 .engine-identity { flex-shrink: 0; }
+/* Watchdog dot — green when latency below threshold, red above.
+   The colour selection is class-driven (rather than the prior
+   inline `:style`) so the optional `.watchdog-smoothed` class can
+   layer a `transition: color` rule on top. magic-literal: #00ff88
+   (green) is the in-codebase liveness-OK convention (same value
+   the old inline-style used); var(--state-attention) is the
+   substrate's attention anchor. The fade duration is hand-tuned
+   to be visible without lingering — see the comment on the rule
+   below. */
+.watchdog-dot { color: #00ff88; }
+.watchdog-dot.watchdog-bad { color: var(--state-attention); }
+/* Toggle-gated smooth fade. Default-on via
+   `session.ui.watchdogColorTransition` (schema-version 34);
+   user can opt out via the registry editor when the fade reads
+   as distracting. magic-literal: 600ms — long enough to register
+   as a transition rather than an instant flip, short enough that
+   the dot has fully resolved its new colour before the next
+   5000ms watchdog sample lands. */
+.watchdog-dot.watchdog-smoothed { transition: color 600ms ease; }
 .engine-version-val, .engine-id-val { white-space: nowrap; cursor: help; }
 /* SELECTOR-mode model dropdown. The .m-val class on the same
    element supplies the accent colour + bold weight; this rule

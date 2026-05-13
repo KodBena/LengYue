@@ -438,6 +438,12 @@ export const defaultSessionUI: UISession = {
   // unconditionally before this field landed). Schema-version 20
   // introduces the field.
   showTranspositionRings: true,
+  // Schema-version 34 introduces the watchdog-dot colour-transition
+  // toggle (see AppSettings.session.ui.watchdogColorTransition's
+  // doc comment in `types.ts`). Default true: the smooth fade
+  // reads as less startling than the instant flip when the proxy
+  // briefly lags `query_version` during concurrent analyses.
+  watchdogColorTransition: true,
   // Forest Directory navigator: empty expansion + null selection
   // means a fresh user lands on a fully-collapsed tree until they
   // click. Schema-version 21 introduces the field; the migration
