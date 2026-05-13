@@ -368,6 +368,40 @@ prose should prefer "knob" or "controllable variable" over
 heading of this entry keeps "scalar" only because the
 originating ask was a scalar one.
 
+**The slider widget is scalar-only by nature.** A separate
+point that follows from the substrate vs widget split: the
+slider as a UI primitive is fundamentally 1D — it manages a
+scalar. Rendering a vector knob as N sliders (the
+RGB-as-three-sliders anti-pattern many design tools fall
+into) misrepresents semantically-coupled components as
+independent: the user can change R without G/B but the
+underlying knob's meaning is in the joint vector, and the
+slider chrome makes the joint character invisible. Vector
+knobs need **bespoke widgets per knob's domain** — a gamut /
+heatmap picker for a colour knob, a 2-D pad for a
+two-parameter knob, a matrix editor for a linear-transform
+coefficient table. The substrate is widget-agnostic
+(`KnobDecl` declares the shape; the editor consumer maps
+shape to widget). The "unified slider surface" the
+originating riddle prompted is therefore one editor consumer
+specifically — a scalar-slider surface, where every
+participating knob is `N = 1`. Vector-knob widgets are
+*siblings* to it in the editor architecture, not subordinates;
+the unified scalar-slider surface should not host vector
+knobs by flattening, and the editor's cross-domain view
+(eventually `KnobRegistryEditor.vue`) needs to know which
+widget to render per knob (a `widget` hint on `KnobDecl`,
+or derived from `inputs.length` + transform type — settled at
+implementation time).
+
+This refines the scope of what gets unified in the originating
+ask: **a unified scalar-slider surface for every 1-D knob in
+the system**, not a unified "all knobs" widget. Vector knobs
+remain in their domain-specific surfaces (the palette editor's
+linear-transform coefficient widget, the prospective
+gamut/heatmap colour picker, etc.); the substrate is the
+crossing point.
+
 ### Variable ownership / write arbitration
 
 When multiple consumers may write the same scalar, who wins?
