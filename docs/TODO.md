@@ -301,9 +301,12 @@ literal) and likely most entries in the magic-literals audit
 inventory that read as preferences rather than invariants.
 
 The architectural shape lives at
-`docs/notes/qeubo-namespace-unification-plan.md`. The plan's
-filename is misleading though: **the registry is a
-substrate-level abstraction, not a qEUBO sub-feature.** qEUBO
+`docs/notes/knob-registry-plan.md` (canonical handle as of
+2026-05-14; the predecessor `qeubo-namespace-unification-plan.md`
+is `design-note: revised` and remains the record of the
+qEUBO-driven thinking that surfaced the registry's data
+model). **The registry is a substrate-level abstraction, not
+a qEUBO sub-feature.** qEUBO
 is one consumer of the registry; the SPA UI (the user's
 sliders, knobs, number inputs) is another consumer with equal
 architectural standing. qEUBO is in fact normally off — it
@@ -338,15 +341,16 @@ identity` corner of the substrate's shape; qEUBO's
 substrate accommodates both as instances of the same
 declaration vocabulary.
 
-**Filename note.** `qeubo-namespace-unification-plan.md`
-should be renamed / re-anchored to something like
-`knob-registry-plan.md` (with the `design-note: revised`
-discipline of ADR-0005 Rule 8) at the implementation-arc
-boundary, so the canonical handle reflects the substrate-first
-framing. The plan's body is mostly right already — qEUBO
-consumption is the dominant use case it documents — but the
-framing positions qEUBO as the driver when it's really a
-peer-consumer.
+**Predecessor handle.** The substrate-first framing landed in
+`docs/notes/knob-registry-plan.md` on 2026-05-14, paired with
+the predecessor `qeubo-namespace-unification-plan.md`'s
+transition to `design-note: revised` per ADR-0005 Rule 8.
+The predecessor's body remains the canonical record of the
+data-model thinking (KnobDecl, named transforms, encode/decode,
+bookmark migration); the successor adds the substrate/consumer
+split, the ownership state machine, the slider/widget-dispatch
+distinction, and the infrastructure-first implementation
+roadmap.
 
 **Scalar vs vector terminology.** The "scalar/scaler" framing
 from the originating riddle — and the heading on this entry —
@@ -519,9 +523,14 @@ Open questions before implementation:
   keys derived from `KnobDecl` input dimensions, encode/decode
   stays in PD route code on the backend, no dispatch needed.
 
-Cross-references: `docs/notes/qeubo-namespace-unification-plan.md`
-(canonical handle); `docs/archive/notes/magic-literals-audit-inventory.md`
-(the per-literal inventory many of the candidates come from);
+Cross-references: `docs/notes/knob-registry-plan.md`
+(canonical handle, 2026-05-14);
+`docs/notes/qeubo-namespace-unification-plan.md`
+(predecessor, `design-note: revised`, retains the data-model
+record); `docs/archive/notes/magic-literals-audit-inventory.md`
+(the per-literal inventory many of the candidates come from —
+the registry is the natural successor surface for the audit's
+band-3 carve-out of user-controllable preferences);
 `docs/archive/notes/frontend-theming-plan.md` Substrate-evolution
 section (alias / mix-derivation principles transforms interact
 with).
