@@ -241,6 +241,21 @@
   --review-intermission: var(--state-warning);
   --review-complete:     var(--state-success);
 
+  /* The specific card currently under review in an active SR
+   * session — distinct from `--review-active` (phase indicator)
+   * and from `--player-white` (chart-series colour). Used by the
+   * Lineage Explorer to paint the current card's node with a
+   * decoration that reads as "you're here." Aliases to
+   * `--accent-secondary` (orange / CTA), matching the colour the
+   * spec's `card-tree-frontend-spec.md` calls for; the alias
+   * exists so future tuning can break the binding without
+   * touching the CTA accent itself. Card-tree consumers
+   * previously borrowed `--player-white` for this role under a
+   * mistaken assumption about its value — the hex strings
+   * `#f0a04a` (orange) and `#f04a4a` (red) differ in two
+   * characters and were conflated. */
+  --review-current-card: var(--accent-secondary);
+
   /* ── Z-index ladder (4) ──────────────────────────────────────
    * Page-stacking tiers, ordered low → high. Snap-by-cluster
    * applied to the eight surveyed sites: the LoginModal's prior
