@@ -14,7 +14,6 @@ import type { BoardId } from '../../types';
 
 import AnalysisTimelinePanel from './AnalysisTimelinePanel.vue';
 import ScoreLeadPanel        from './ScoreLeadPanel.vue';
-import PlayerPanel           from './PlayerPanel.vue';
 import MergedDeltaPanel      from './MergedDeltaPanel.vue';
 import StabilityPanel        from './StabilityPanel.vue';
 
@@ -31,8 +30,6 @@ const {
   selectionRange,
   setSelectionRange,
   activeMainIndex,
-  activeBlackIndex,
-  activeWhiteIndex,
   analyzeSelection,
 } = useAnalysisProjection(props.boardId);
 
@@ -73,35 +70,12 @@ const engineConnected = computed(() => store.engine.status === 'connected');
         :on-index-click="navigation.handleMainClick"
       />
 
-      <PlayerPanel
-        player-color="B"
-        label="Black Performance (Moves)"
-        :series="enriched.deltaSeries.black"
-        :board-id="boardId"
-        :variation-path="variationPath"
-        :selection-range="selectionRange"
-        :active-index="activeBlackIndex"
-        :on-index-click="(idx) => navigation.handlePlayerClick('B', idx)"
-      />
-
-      <PlayerPanel
-        player-color="W"
-        label="White Performance (Moves)"
-        :series="enriched.deltaSeries.white"
-        :board-id="boardId"
-        :variation-path="variationPath"
-        :selection-range="selectionRange"
-        :active-index="activeWhiteIndex"
-        :on-index-click="(idx) => navigation.handlePlayerClick('W', idx)"
-      />
-
-      <!-- Merged per-move delta panel — sibling to the two
-           per-player panels above. Both series share a
-           per-color move x-axis (just like the per-player
-           panels); click and hover dispatch by y-proximity to
-           pick which color's move the user is pointing at.
-           Additive testing surface; the per-player panels
-           stay so we don't lose what works. -->
+      <!-- Both-players delta panel. Parity-interleaved x-axis
+           (black moves at even x, white at odd); per-colour
+           dispatch on click / hover by x-parity; active
+           marker on the next-to-play colour. See
+           `docs/archive/notes/merged-delta-panel-spec.md` for
+           the full semantics. -->
       <MergedDeltaPanel
         :black-series="enriched.deltaSeries.black"
         :white-series="enriched.deltaSeries.white"

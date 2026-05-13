@@ -318,9 +318,15 @@ const updateOptions = () => {
       show: true,
       min: props.zoomRange ? props.zoomRange[0] : 'dataMin',
       max: props.zoomRange ? props.zoomRange[1] : 'dataMax',
-      axisLabel: props.formatXAxis
-        ? { formatter: props.formatXAxis }
-        : undefined,
+      // Spread the `axisLabel` key in *only* when a formatter is
+      // provided. Setting it to `undefined` explicitly clobbers
+      // ECharts' default tick labels (the symptom: panels that
+      // didn't opt into a custom formatter lost their tick
+      // labels entirely on `setOption` with `notMerge:
+      // namesChanged`).
+      ...(props.formatXAxis && {
+        axisLabel: { formatter: props.formatXAxis },
+      }),
     },
     series: getDisplaySeries().map(s => ({
       name: s.name,

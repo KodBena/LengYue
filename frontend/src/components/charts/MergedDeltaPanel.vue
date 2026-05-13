@@ -13,30 +13,32 @@
   through x-values where the other player wouldn't have a move
   (an interpolation artefact, not a semantic claim).
 
-  Click and hover dispatch by **y-proximity**. The lookup at a
-  given x returns the value of whichever series has a data
-  point there (the other is null by construction of the
-  parity-interleaved layout); whichever value is closer to the
-  click's y wins. With strict per-x sparsity this collapses to
-  "the series that has data at this x" in nearly every case,
-  but the y-proximity shape lets the dispatch keep working
-  cleanly if the click rounds to a non-integer x or lands
-  between data points on the interpolated line. Once the
-  colour is known, navigation is the same as the per-player
-  PlayerPanel's: navigate to `variationPath[colorMoveToPly(K,
-  colour) - 1]` (the position the player faced when choosing
-  that move). Hover preview shows the position AFTER the move.
+  Click and hover dispatch by **x-parity**. With the parity-
+  interleaved layout, exactly one series has a data point at
+  any integer x — even x is black's row, odd x is white's. The
+  lookup verifies that the implied colour-local index has a
+  non-null data point (guards against out-of-range x's at the
+  start / end of the variation) and dispatches to that colour.
+  Once the colour is known, navigation is
+  `variationPath[colorMoveToPly(K, colour) - 1]` (the position
+  the player faced when choosing that move); hover preview
+  shows the position AFTER the move.
 
   Active marker sits on the series of the colour whose turn it
   is to make the next move, at the parity-interleaved x of
-  their upcoming move — matching the per-player panels'
-  marker convention. BaseChart's marker logic finds no data
+  their upcoming move. BaseChart's marker logic finds no data
   point on the OTHER series at that x (parity-interleaved
   sparsity) and naturally renders an empty markPoint there, so
   only one marker appears.
 
-  This panel is additive — it coexists with the two per-player
-  PlayerPanel thumbnails rather than replacing them.
+  Axis labels and tooltip header are formatted via two
+  optional BaseChart props (`formatXAxis`, `formatXTooltip`):
+  visible axis labels read `0, 1, 2, ...` at chart x =
+  `0, 2, 4, ...` (odd-x labels suppressed) so the axis appears
+  to "go up to the per-colour move count"; tooltip header
+  names the colour and the per-colour move number explicitly
+  ("Black move 3" / "White move 7") so the user doesn't have
+  to read the per-series row to identify the colour.
 
   License: Public Domain (The Unlicense)
 -->
@@ -216,20 +218,24 @@ function handleClick(rawIdx: number, yClicked?: number) {
 
 // Map the chart's parity-interleaved x to the user-facing
 // per-colour move number K. Black at x=2K, white at x=2K+1
-// both reduce to K via `Math.floor(x / 2)` — the value the
-// per-player charts use on their own axes. The axis labeller
-// suppresses odd x's so the visible labels (at chart x =
-// 0, 2, 4, ...) read 0, 1, 2, ... without every-other-tick
-// duplicates; the tooltip header shows the per-colour K for
-// whichever series the cursor is over (the per-series rows
-// below the header disambiguate the colour).
+// both reduce to K via `Math.floor(x / 2)`. The axis labeller
+// suppresses odd x's so the visible axis reads 0, 1, 2, ...
+// at chart x = 0, 2, 4, ... without every-other-tick
+// duplicates. The tooltip header names the colour explicitly
+// (x-parity determines colour): the per-series rows below
+// the header still report the delta value, but the header
+// reading "Black move 3" or "White move 7" stands alone
+// without making the user infer colour from the row labels.
 function formatXAxis(val: number): string {
   const rounded = Math.round(val);
   return rounded % 2 === 0 ? (rounded / 2).toString() : '';
 }
 
 function formatXTooltip(val: number): string {
-  return `Move ${Math.floor(val / 2)}`;
+  const rounded = Math.round(val);
+  const k       = Math.floor(rounded / 2);
+  const color   = rounded % 2 === 0 ? 'Black' : 'White';
+  return `${color} move ${k}`;
 }
 </script>
 
