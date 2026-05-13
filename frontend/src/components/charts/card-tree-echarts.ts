@@ -100,10 +100,17 @@ export function toEChartsNode(
         borderWidth: node.role === 'active' ? 2 : 1,
       },
       ...(isSuspended ? {
+        // `position: 'inside'` centres the emoji over the node
+        // symbol so the glyph reads as a stamp on the card
+        // rather than a label that crowds adjacent nodes. The
+        // emoji's bounding box at fontSize 14 overflows the
+        // 8–12px symbol slightly, which is fine — the symbol
+        // colour underneath gives enough contrast to keep both
+        // the emoji and the node's role colour legible.
         label: {
           show: true,
-          position: 'right',
-          fontSize: 12,
+          position: 'inside',
+          fontSize: 14,
           formatter: '💤',
         },
       } : {}),
