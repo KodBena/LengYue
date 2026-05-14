@@ -1,13 +1,44 @@
 # qEUBO Namespace Unification — Design Note
 
-**Status:** `design-note: planned`. No implementation work has
-started. This document is the canonical handle for the
-qEUBO-controls-anything ambition; it picks up the parking note
-filed during the 2026-05-02 theme-substrate session
+**Status:** `design-note: revised` (transitioned 2026-05-14
+per ADR-0005 Rule 8). **Superseded as the canonical handle by
+`docs/notes/knob-registry-plan.md`** for the
+substrate-vs-consumer reframing the 2026-05-14 session
+surfaced and the infrastructure-first implementation roadmap
+chosen against the sequencing tension the TODO entry of the
+same date named.
+
+This document remains the canonical record of the
+qEUBO-driven thinking that surfaced the registry's shape. The
+KnobDecl data model, the named-transform library, the
+encode/decode flow, the bookmark migration shape, the
+viability-concerns catalog, and the frontend-impact estimate
+in the body below are **all carried forward by the successor
+note**; consult them here for depth and the successor for the
+substrate framing they fit inside.
+
+**The framing this note overstates.** The title positions
+qEUBO as the driver of the unification. qEUBO is in fact a
+*consumer* of the controllable-variable substrate, peer to
+the SPA UI's slider chrome and to future programmatic
+consumers (autonomous-SR scenarios, test harnesses, etc.).
+qEUBO is normally off (ships `QEUBO_ENABLED=False` by
+default, requires gigabytes of Python ML libraries on the
+backend, `[experimental]` per FEATURES.md); the registry must
+function for every other consumer regardless. The successor
+note adopts this framing throughout.
+
+**The original status line** read:
+"`design-note: planned`. No implementation work has started.
+This document is the canonical handle for the
+qEUBO-controls-anything ambition; it picks up the parking
+note filed during the 2026-05-02 theme-substrate session
 (`docs/archive/dispatch/frontend-to-frontend-session-handoff-2026-05-02.md`,
-"qEUBO over chrome — the user's parking note") and the matching
-"qEUBO over chrome" follow-up in
-`docs/archive/worklog/2026-05-v1.0-to-v1.1/2026-05-02-theme-substrate-a4.md`.
+"qEUBO over chrome — the user's parking note") and the
+matching "qEUBO over chrome" follow-up in
+`docs/archive/worklog/2026-05-v1.0-to-v1.1/2026-05-02-theme-substrate-a4.md`."
+Preserved verbatim in this paragraph so the planning-time
+record remains legible (per ADR-0005 Rule 8).
 
 **Motivation.** The existing qEUBO surface is shaped around
 `analysis_env.parameter_meta[name]`, where `name` is a flat key
