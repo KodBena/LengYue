@@ -96,6 +96,81 @@ implementation detail.
 
 ---
 
+## Amendment — 2026-05-14: Phase 4 closed, Phase 6 status
+
+Two end-of-arc notes recorded for future readers, both per
+ADR-0005 Rule 8 (sibling revisions over silent edits — §12's
+phase roadmap below is preserved as written):
+
+### Phase 4 — closed on project-author judgment
+
+§12 Phase 4 names "vector widget dispatch" with the
+`KnobGamutPicker.vue` as a worked example for a hypothetical
+`lockstep-hue-rotate` colour knob. The author's judgment
+(recorded 2026-05-14 in this arc's session transcript):
+
+> Phase 4 is unilaterally closed on my judgment — it was never
+> important and only seems like a "nice demo of the latent
+> machinery" kind of thing anyways; as you said, no concrete
+> motivation — and I never asked for it.
+
+Two reinforcing observations from the implementation side
+support the closure:
+
+- The plan's §4 declares `lockstep-hue-rotate` as
+  **scalar-driven** (N=1, K>1), but §6's dispatch policy pairs
+  the gamut picker with `inputs.length === 2 && transform ===
+  'lockstep-hue-rotate'`. The latter branch is unreachable
+  under the type definition, exposing a spec-internal
+  contradiction that wasn't load-bearing for any actual user
+  need — the gamut picker was a downstream artifact of a
+  framing that didn't quite settle.
+- The substrate's vector-knob *capability* is preserved by
+  the type system regardless of whether a vector widget
+  ships. `KnobDecl.inputs` is `readonly KnobInputDecl[]`;
+  `KnobTransform` admits matrix-projection cases. A future
+  contributor with a concrete vector-knob need can author the
+  corresponding widget (gamut picker, two-d pad, matrix
+  editor) without revisiting the substrate's design — the
+  dispatch layer in `KnobRegistryEditor.vue` filters scalar
+  knobs explicitly today (per the §6 widget-dispatch policy
+  for `inputs.length === 1`), and the filter falls open as
+  soon as a vector decl wants in.
+
+Re-opening Phase 4 is a forward-compatible move; closing it
+now reclaims scope without prejudice to the future case.
+
+### Phase 6 — partial sweep landed; further candidates open
+
+§12 Phase 6 is open-ended by design. The first sweep batch
+landed 2026-05-14 alongside this amendment — three preference-
+flavoured literals promoted as KnobDecls in the same domain
+buckets as their existing siblings:
+
+| Lifted leaf | KnobDecl | Was |
+|---|---|---|
+| `appearance.ownershipDeadbandThreshold` (0.05) | `display.ownership-deadband-threshold` | inline `0.05` in `BoardWidget.vue::ownershipColor` |
+| `appearance.livenessThreshold` (0.3) | `display.liveness-threshold` | `LIVENESS_THRESHOLD = 0.3` const in `BoardWidget.vue` |
+| `engine.katago.watchdogLatencyThresholdMs` (500) | `engine.watchdog-latency-threshold-ms` | `WATCHDOG_LATENCY_THRESHOLD_MS = 500` const in `Toolbar.vue` |
+
+Each promotion follows the discipline in §10:
+identify-by-discriminator (user-controllable preference, not
+theme-scale anchor) → lift to a registry leaf → seed
+KnobDecl → retarget consumers reactively. Migration 39 → 40
+backfills the persisted-blob population.
+
+The sweep's stated deliverable ("every literal outside the
+substrate-named SSOTs is either a controllable knob OR
+carries a `magic-literal:` justification comment") is
+**not** closed by this batch — the bulk of the audit
+inventory's residue (theme-scale anchors, geometry
+multipliers, timer constants) sits outside the knob-registry
+substrate by design. Further preference-flavoured candidates
+that surface during normal work can land as their own
+commits.
+
+---
+
 ## 1. Motivation
 
 User-controllable variables in the SPA today live in scattered
