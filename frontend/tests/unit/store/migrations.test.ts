@@ -1579,3 +1579,45 @@ describe('34 → 35: tags backfill on persisted review-queue cards', () => {
     expect(out.session.reviews['board-a']).toEqual({});
   });
 });
+
+// ── Per-migration: 35 → 36 ──────────────────────────────────────────
+
+describe('35 → 36: knob-registry substrate seed', () => {
+  it('seeds knobs = {} when the field is absent', () => {
+    const blob: any = { profile: { settings: {} } };
+    const out = step(35)(blob);
+    expect(out.profile.settings.knobs).toEqual({});
+  });
+
+  it('preserves a pre-existing plain-object registry', () => {
+    const blob: any = {
+      profile: {
+        settings: {
+          knobs: { brightness: { id: 'brightness' } },
+        },
+      },
+    };
+    const out = step(35)(blob);
+    expect(out.profile.settings.knobs).toEqual({
+      brightness: { id: 'brightness' },
+    });
+  });
+
+  it('coerces a non-object knobs field to {}', () => {
+    const blob: any = { profile: { settings: { knobs: 'corrupt' } } };
+    const out = step(35)(blob);
+    expect(out.profile.settings.knobs).toEqual({});
+  });
+
+  it('coerces an array knobs field to {} (Records are not arrays)', () => {
+    const blob: any = { profile: { settings: { knobs: [] } } };
+    const out = step(35)(blob);
+    expect(out.profile.settings.knobs).toEqual({});
+  });
+
+  it('is a no-op when profile.settings is absent (defensive)', () => {
+    const blob: any = { profile: {} };
+    const out = step(35)(blob);
+    expect(out.profile).toEqual({});
+  });
+});

@@ -77,13 +77,13 @@ import { archivedMigrations, type Migration } from './archived-migrations';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 35;
+export const CURRENT_SCHEMA_VERSION = 36;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 32 → 33) are
+ * The first `N` entries (currently 1 → 2 through 33 → 34) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -105,27 +105,6 @@ export const CURRENT_SCHEMA_VERSION = 35;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 33 → 34: Watchdog dot colour-transition toggle. Backfills the
-  // new `session.ui.watchdogColorTransition` field with `false`
-  // for existing blobs (matching the fresh-install default in
-  // `store/defaults.ts`). The ping-tandem animation is opt-in;
-  // existing users keep the historical sample-driven behaviour
-  // until they flip the toggle. Pure UI preference — engine
-  // behaviour unchanged. See
-  // `AppSettings.session.ui.watchdogColorTransition` in `types.ts`
-  // for the field's full doc.
-  //
-  // Idempotent: an existing boolean is preserved unchanged.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const ui = out.session?.ui;
-    if (ui && typeof ui === 'object') {
-      if (typeof ui.watchdogColorTransition !== 'boolean') {
-        ui.watchdogColorTransition = false;
-      }
-    }
-    return out;
-  },
   // 34 → 35: Card-metadata inline-edit arc 1 backfill on persisted
   // review queues. Cards fetched FRESH from the backend always
   // carry `tags: string[]` (the ACL coerces `undefined → []` at the
@@ -156,6 +135,34 @@ export const migrations: Migration[] = [
             (card as { tags?: unknown }).tags = [];
           }
         }
+      }
+    }
+    return out;
+  },
+  // 35 → 36: Knob-registry substrate seed (knob-registry-plan Phase 1).
+  // Backfills the new `profile.settings.knobs` field with an empty
+  // object on existing blobs (matching the fresh-install default in
+  // `store/defaults.ts`). The substrate is the SSOT for user-
+  // controllable variables — Phase 1 ships the empty registry plus
+  // the type vocabulary and path-walk accessors in `src/lib/knobs.ts`;
+  // Phase 3+ promotions populate the registry as scalars lift off of
+  // inline literals. No consumer side-effects until then. See
+  // `AppSettings.knobs` in `types.ts` and
+  // `docs/notes/knob-registry-plan.md` for the design.
+  //
+  // Idempotent: an existing plain-object value is preserved
+  // unchanged; missing / non-object gets `{}`.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const settings = out.profile?.settings;
+    if (settings && typeof settings === 'object') {
+      const existing = (settings as { knobs?: unknown }).knobs;
+      const isPlainObject =
+        existing !== null &&
+        typeof existing === 'object' &&
+        !Array.isArray(existing);
+      if (!isPlainObject) {
+        (settings as { knobs?: unknown }).knobs = {};
       }
     }
     return out;

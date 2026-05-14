@@ -285,6 +285,177 @@ export interface AnalysisEnvironment {
   activePaletteId: string;
 }
 
+// ── Knob registry (substrate-level) ───────────────────────────────────────────
+//
+// User-controllable variables in the SPA live in scattered places today
+// (registry editor settings, the Other tab's hue slider, move-filter
+// thresholds, per-card metadata, magic-literals residue). The knob
+// registry is the substrate that brings them under one declaration
+// vocabulary: each controllable variable is a `KnobDecl` declaring its
+// input vector (R^N), output vector (R^K), the transform connecting
+// them, and the widget shape that edits it. Consumers (the SPA UI's
+// editor surfaces, qEUBO when active, autonomous-SR harnesses) sit
+// above the substrate and read/write knobs through a stable interface.
+//
+// Phase 1 ships the type vocabulary, path-walk accessors, the
+// named-transform library, and a seeded-empty registry on the profile.
+// Phase 3+ promotes the originating-riddle scalars onto KnobDecls and
+// wires the cross-domain editor surface. See
+// `docs/notes/knob-registry-plan.md` for the full design.
+
+/** Stable identifier for a registry-declared knob. */
+export type KnobId = Brand<string, 'KnobId'>;
+
+/**
+ * Dot-separated path into the reactive `GlobalStore`, terminating at
+ * a numeric leaf. v1 stays as `string`; the deferred v2 shape is a
+ * `Path<GlobalStore>` discriminated union over the literal dot-paths
+ * the store admits (so a renamed setting fails the typecheck at every
+ * KnobDecl pointing at the old path). Until that lands, startup-time
+ * validation in `src/lib/knobs.ts::validateRegistry` catches stale or
+ * type-mismatched paths at one layer earlier than runtime.
+ */
+export type StorePath = string;
+
+/**
+ * Knob categorisation. Drives the cross-domain editor's grouping;
+ * consumer-agnostic at the substrate level.
+ */
+export type KnobDomain =
+  | 'display'
+  | 'engine'
+  | 'review'
+  | 'qeubo'
+  | 'experimental';
+
+/**
+ * Closed widget enum. The substrate is widget-agnostic — the
+ * `KnobDecl` declares the shape; the editor consumer maps shape to
+ * widget per §6's dispatch policy. The slider widget is scalar-only
+ * (`inputs.length === 1`) by construction; vector knobs require
+ * bespoke widgets per their domain. Adding a new widget is a
+ * frontend code change so dispatch stays exhaustively-checkable.
+ */
+export type KnobWidget =
+  | 'slider'
+  | 'gamut-picker'
+  | 'two-d-pad'
+  | 'matrix-editor';
+
+/** One dimension of a knob's input vector. */
+export interface KnobInputDecl {
+  readonly range: readonly [number, number];
+  /**
+   * Optional sub-identifier disambiguating the dimensions of a
+   * multi-input knob. When this knob is qEUBO-controlled the
+   * wire key is `${id}.${subId}` per the predecessor plan's
+   * encoding; for manual-only knobs the sub-identifier is editor
+   * metadata only.
+   */
+  readonly subId?: string;
+  readonly label?: string;
+}
+
+/**
+ * One dimension of a knob's output vector. The path resolves into
+ * the reactive store; `writeKnob` walks it and writes through Vue's
+ * reactivity so downstream consumers (CSS variables, watchers, etc.)
+ * respond the same way they do to manual edits.
+ */
+export interface KnobOutputDecl {
+  readonly path: StorePath;
+  readonly label?: string;
+}
+
+/**
+ * Named transforms from the input vector (R^N) to the output vector
+ * (R^K). Discriminated by `kind` so dispatch is exhaustively checked.
+ * Parameter data the transform needs (the linear coefficient matrix,
+ * the hue anchors, the luminance-arc waypoints) lives on the
+ * discriminant itself rather than as code — adding a new instance is
+ * a runtime data change, not a code change. The closed set of
+ * `kind`s is what stays exhaustive.
+ */
+export type KnobTransform =
+  | { readonly kind: 'identity' }
+  | {
+      readonly kind: 'linear';
+      /** `K × N` coefficient matrix. `output[k] = Σ_n coefficients[k][n] * input[n]`. */
+      readonly coefficients: readonly (readonly number[])[];
+    }
+  | {
+      readonly kind: 'lockstep-hue-rotate';
+      /**
+       * Length-K vector of base hue anchors in degrees [0, 360). A
+       * scalar input rotates every anchor by the same offset modulo
+       * 360. Drives the theme-anchor case the predecessor plan
+       * articulates.
+       */
+      readonly anchors: readonly number[];
+    }
+  | {
+      readonly kind: 'fixed-luminance-arc';
+      /**
+       * Sequence of waypoints in the K-dimensional output space.
+       * A scalar input in [0, 1] interpolates linearly through the
+       * waypoints (with `t = 0` at `waypoints[0]`, `t = 1` at
+       * `waypoints[waypoints.length - 1]`). Phase 1 uses linear
+       * interpolation as the simplest correct implementation; a
+       * later phase may refine to a perceptually-coherent arc
+       * preserving CIELab luminance.
+       */
+      readonly waypoints: readonly (readonly number[])[];
+    };
+
+/** A registry-declared user-controllable variable. */
+export interface KnobDecl {
+  readonly id: KnobId;
+  readonly label?: string;
+  readonly domain: KnobDomain;
+  readonly inputs: readonly KnobInputDecl[];
+  readonly outputs: readonly KnobOutputDecl[];
+  /**
+   * Defaults to `{ kind: 'identity' }` when `inputs.length ===
+   * outputs.length` and no transform is specified.
+   */
+  readonly transform?: KnobTransform;
+  /**
+   * Editor-side hint. Absent → derive from `inputs.length` plus
+   * transform per the §6 dispatch policy.
+   */
+  readonly widget?: KnobWidget;
+  /**
+   * When `true` AND a qEUBO experiment is active, this knob
+   * participates in the optimizer's search. When `false` or absent,
+   * the knob is user-controlled-only.
+   */
+  readonly qeuboControlled?: boolean;
+}
+
+/**
+ * The persisted registry. Keyed by `KnobId` (as a string at the
+ * `Record` type level; runtime values carry the brand). Phase 1
+ * seeds empty; Phase 3+ populates as scalars promote off of
+ * inline literals.
+ */
+export type KnobRegistry = Record<string, KnobDecl>;
+
+/** Claim policy in the per-knob ownership state machine (§7). */
+export type ClaimPolicy = 'hard' | 'soft';
+
+/**
+ * Active claim record held by a non-UI consumer (qEUBO during an
+ * experiment, an autonomous-SR scenario, a test harness). Claims
+ * are runtime-only — they live in the substrate's in-memory state,
+ * never in the persisted profile.
+ */
+export interface ConsumerClaim {
+  readonly consumerId: string;
+  readonly policy: ClaimPolicy;
+  /** Human-readable; surfaced in disabled-slider tooltips. */
+  readonly reason?: string;
+}
+
 // ── qEUBO calibration domain types ────────────────────────────────────────────
 //
 // Camel-case projections of the wire shapes documented in
@@ -611,6 +782,17 @@ export interface AppSettings {
   };
   minting: MintingSettings;
   navigation: NavigationSettings;
+  /**
+   * User-controllable-variable registry. Each entry is a `KnobDecl`
+   * declaring the input/output vector, transform, and editor widget
+   * for one controllable variable. Phase 1 of the knob-registry arc
+   * seeds this empty; later phases populate it as the cross-domain
+   * editor and promotion sweep land. The empty-default + idempotent
+   * migration shape means existing consumers see a no-op until a
+   * KnobDecl points at a path they read. See
+   * `docs/notes/knob-registry-plan.md` for the design.
+   */
+  knobs: KnobRegistry;
 }
 
 export interface UISession {

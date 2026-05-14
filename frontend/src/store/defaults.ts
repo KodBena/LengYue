@@ -264,7 +264,12 @@ export const defaultSettings = {
   },
   navigation: {
     actionOnDirtyBoard: 'ask', // 'ask', 'new', or 'overwrite'
-  }
+  },
+  // Knob-registry substrate (knob-registry-plan Phase 1). Seeded
+  // empty; the schema-version 35 → 36 migration backfills the field
+  // on persisted blobs. Phase 3+ promotions populate it as scalars
+  // lift off of inline literals. See `docs/notes/knob-registry-plan.md`.
+  knobs: {},
 } as const;
 
 export const defaultThumbnailSettings: ThumbnailSettings = {

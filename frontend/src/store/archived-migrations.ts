@@ -5,9 +5,9 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-05-14: migrations 1 → 2 through 32 → 33 (32
+ * Scope as of 2026-05-14: migrations 1 → 2 through 33 → 34 (33
  * entries). The first eight covered pre-v1.0.0 schema evolution;
- * the next twenty-four were the v1.0.x – v1.1.x active cycle. Both
+ * the next twenty-five are the v1.0.x – v1.1.x active cycle. Both
  * are now consolidated here under the same archive contract.
  *
  * Why preserved (not deleted): the migration framework's `migrate()`
@@ -1379,6 +1379,27 @@ export const archivedMigrations: Migration[] = [
         if (cs && typeof cs === 'object' && !Array.isArray(cs.hyperparameters)) {
           cs.hyperparameters = [];
         }
+      }
+    }
+    return out;
+  },
+  // 33 → 34: Watchdog dot colour-transition toggle. Backfills the
+  // new `session.ui.watchdogColorTransition` field with `false`
+  // for existing blobs (matching the fresh-install default in
+  // `store/defaults.ts`). The ping-tandem animation is opt-in;
+  // existing users keep the historical sample-driven behaviour
+  // until they flip the toggle. Pure UI preference — engine
+  // behaviour unchanged. See
+  // `AppSettings.session.ui.watchdogColorTransition` in `types.ts`
+  // for the field's full doc.
+  //
+  // Idempotent: an existing boolean is preserved unchanged.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = out.session?.ui;
+    if (ui && typeof ui === 'object') {
+      if (typeof ui.watchdogColorTransition !== 'boolean') {
+        ui.watchdogColorTransition = false;
       }
     }
     return out;

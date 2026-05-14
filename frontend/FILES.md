@@ -231,6 +231,7 @@ frontend/src/
 │
 ├── lib/
 │   ├── dsl-harness.ts                 [B1]  Pipeline-DSL hyperparameter harness: JSON5+holes parser/formatter, validator, substitute.
+│   ├── knobs.ts                       [B1]  Knob-registry substrate: path-walk accessors, named-transform library, startup validation (Phase 1).
 │   └── utils.ts                       [B1]  debounce helper (the only inhabitant; lib/utils merger flagged separately).
 │
 └── config/
