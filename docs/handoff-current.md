@@ -209,6 +209,32 @@ contract reference lives in the dispatch chain at
 canonical-key bifurcation), and the frontend-side design note at
 `docs/archive/notes/proxy-selector-and-capability-negotiation.md`.
 
+**The knob-registry substrate is live.** Shipped end-to-end on
+2026-05-14 via PR #223. `profile.settings.knobs: KnobRegistry`
+is the SSOT for user-controllable variables — KnobDecls
+declaring input vector, output paths, transform, and editor
+widget. A claim state machine (`claimKnob` / `releaseKnob` /
+`currentClaim` / `onClaimChange` in `src/lib/knobs.ts`) governs
+which consumer holds a knob at runtime; `writeKnobValue`
+dispatches per the 8-cell policy matrix (claim policy × writer
+kind). The cross-domain `KnobRegistryEditor.vue` mounted in the
+Other tab is the user-facing editor surface; `KnobSlider.vue`
+under `src/components/knobs/` is the unified scalar widget.
+Seven knobs are currently registered out of the box (display:
+ownership opacity, ownership dead-band, liveness threshold,
+hue offset, move-filter threshold; engine: watchdog animation
+duration, watchdog latency threshold); palette-domain knobs
+appear dynamically when users configure qEUBO control via
+PaletteEditor's Analysis Environment view. The substrate
+enforces claims end-to-end across every write path:
+`KnobRegistryEditor`'s slider, `PaletteEditor`'s parameter
+input, `useQeubo.applyEffective`, and `useQeubo.applyBookmark`.
+Canonical reference: `docs/notes/knob-registry-plan.md`
+(`design-note: implemented`). Worklog:
+`docs/worklog/2026-05-14-knob-registry.md`. Postmortem for the
+`domain: 'qeubo'` category error that surfaced mid-arc:
+`docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`.
+
 The frontend is **domain-specific to Go**. ADR-0003 documents
 this honestly: roughly 30-40% of the frontend is Go-bound (the
 SGF parsing, board renderer, KataGo wire vocabulary), with the

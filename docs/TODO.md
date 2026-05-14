@@ -282,262 +282,42 @@ where the warning lands.
 
 ### Large — structural changes that introduce new abstractions
 
-#### Unified user-controllable-scalar surface `[frontend]`
+#### ~~Unified user-controllable-scalar surface~~ `[frontend]` *(shipped 2026-05-14)*
 
-Today's user-controllable scalars are scattered across many
-chrome surfaces: the Registry Editor (`engine.katago.*`
-settings tree), the Other tab (hue offset slider), the
-move-suggestion overlay (move-filter threshold slider), the
-per-card inline-edit panel (`numMoves`, `gamma`,
-`defaultVisits`), MintCardModal, the per-card visits override
-in the review-session panel, and one-off `<input
-type="range">` / `<input type="number">` sites throughout the
-chrome. Other scalars that *should* be user-controllable but
-currently aren't include the ownership-overlay opacity
-ceiling (lifted from the prior `0.85` to a hardcoded `0.55`
-during the polish-arc 2026-05-13 session — the user
-reasonably wants this as a slider rather than a magic
-literal) and likely most entries in the magic-literals audit
-inventory that read as preferences rather than invariants.
+Shipped via PR #223 (`KodBena/feat/knob-registry`, 14 commits).
+The knob-registry substrate (types + path-walk accessors +
+named-transform library + ownership state machine), the
+cross-domain editor surface (`KnobRegistryEditor` mounted in the
+Other tab), the qEUBO consumer migration, and the first batch
+of the Phase-6 magic-literals promotion sweep all landed
+together. Plan-note status transitions to
+`design-note: implemented` in the same closure pass.
 
-The architectural shape lives at
-`docs/notes/knob-registry-plan.md` (canonical handle as of
-2026-05-14; the predecessor `qeubo-namespace-unification-plan.md`
-is `design-note: revised` and remains the record of the
-qEUBO-driven thinking that surfaced the registry's data
-model). **The registry is a substrate-level abstraction, not
-a qEUBO sub-feature.** qEUBO
-is one consumer of the registry; the SPA UI (the user's
-sliders, knobs, number inputs) is another consumer with equal
-architectural standing. qEUBO is in fact normally off — it
-requires gigabytes of Python ML libraries on the backend and
-ships opt-in (`QEUBO_ENABLED=False` by default per the v1
-qEUBO arc's status), so any design framed as "qEUBO needs X"
-fails the load-bearing test for the registry's basic shape.
-The unification needs reframing on top of this insight:
+Worklog: `docs/worklog/2026-05-14-knob-registry.md`. Plan note:
+`docs/notes/knob-registry-plan.md`. Postmortem (category error
+on `KnobDomain`):
+`docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`.
 
-- **The registry is the substrate.** It is the SSOT for
-  "what scalars in the system are controllable, where they
-  live, what range they admit, what kind of UI surfaces
-  them." This shape exists whether or not qEUBO is in the
-  picture.
-- **Consumers sit above the substrate.** The SPA UI consumes
-  the registry to render slider chrome. qEUBO, when active,
-  consumes the registry to construct its input dimensions
-  and parameter ranges. Future consumers — autonomous-SR
-  harnesses, plugins, programmatic-test harnesses — sit at
-  the same tier.
-- **The KnobDecl shape is fine** for the substrate;
-  `qeuboControlled` is just one of several consumer-state
-  flags the entry may carry.
+Phase 4 (vector widget dispatch) was closed unilaterally on
+author judgment — substrate's vector capability is preserved by
+the type system regardless, and re-opening stays available if a
+concrete vector-knob need surfaces. Phase 6 (magic-literals
+sweep) is open-ended; further preference-flavoured candidates
+can land in their own commits as they surface during normal
+work — not blocking on a follow-up arc.
 
-Every user-controllable scalar then becomes a registry
-entry; the unified editor surface (eventually
-`KnobRegistryEditor.vue`, with per-domain editors as interim
-views) renders sliders based on the registry. The "user
-touches a scalar" case is the `N = K = 1, transform =
-identity` corner of the substrate's shape; qEUBO's
-`R^2 → R^5` matrix-projection case is another corner. The
-substrate accommodates both as instances of the same
-declaration vocabulary.
+Explicit follow-ups deferred from this arc, not blocking future
+work but worth naming:
 
-**Predecessor handle.** The substrate-first framing landed in
-`docs/notes/knob-registry-plan.md` on 2026-05-14, paired with
-the predecessor `qeubo-namespace-unification-plan.md`'s
-transition to `design-note: revised` per ADR-0005 Rule 8.
-The predecessor's body remains the canonical record of the
-data-model thinking (KnobDecl, named transforms, encode/decode,
-bookmark migration); the successor adds the substrate/consumer
-split, the ownership state machine, the slider/widget-dispatch
-distinction, and the infrastructure-first implementation
-roadmap.
-
-**Scalar vs vector terminology.** The "scalar/scaler" framing
-from the originating riddle — and the heading on this entry —
-is technically too narrow as a label for the substrate. The
-qEUBO plan's KnobDecl shape is vector-capable from day 1: each
-knob declares its own input vector (R^N) and output vector
-(R^K), and the cross-knob picture is a *product* of independent
-vector spaces — R^2 × R^5 if a user has one 2-D knob (e.g., a
-hue-saturation control) declared alongside one 5-D knob (e.g.,
-a five-anchor luminance-arc control). The components inside
-each knob are semantically distinct but composed as a vector;
-the substrate accommodates that without flattening them to
-scalars. **The motivating riddle (ownership opacity) is a
-scalar instance** (N=K=1, identity transform — a slider in
-the chrome corner of the substrate), but the substrate's
-shape supports vector-valued knobs at the same tier. Future
-prose should prefer "knob" or "controllable variable" over
-"scalar" except when the dimensionality is specifically 1; the
-heading of this entry keeps "scalar" only because the
-originating ask was a scalar one.
-
-**The slider widget is scalar-only by nature.** A separate
-point that follows from the substrate vs widget split: the
-slider as a UI primitive is fundamentally 1D — it manages a
-scalar. Rendering a vector knob as N sliders (the
-RGB-as-three-sliders anti-pattern many design tools fall
-into) misrepresents semantically-coupled components as
-independent: the user can change R without G/B but the
-underlying knob's meaning is in the joint vector, and the
-slider chrome makes the joint character invisible. Vector
-knobs need **bespoke widgets per knob's domain** — a gamut /
-heatmap picker for a colour knob, a 2-D pad for a
-two-parameter knob, a matrix editor for a linear-transform
-coefficient table. The substrate is widget-agnostic
-(`KnobDecl` declares the shape; the editor consumer maps
-shape to widget). The "unified slider surface" the
-originating riddle prompted is therefore one editor consumer
-specifically — a scalar-slider surface, where every
-participating knob is `N = 1`. Vector-knob widgets are
-*siblings* to it in the editor architecture, not subordinates;
-the unified scalar-slider surface should not host vector
-knobs by flattening, and the editor's cross-domain view
-(eventually `KnobRegistryEditor.vue`) needs to know which
-widget to render per knob (a `widget` hint on `KnobDecl`,
-or derived from `inputs.length` + transform type — settled at
-implementation time).
-
-This refines the scope of what gets unified in the originating
-ask: **a unified scalar-slider surface for every 1-D knob in
-the system**, not a unified "all knobs" widget. Vector knobs
-remain in their domain-specific surfaces (the palette editor's
-linear-transform coefficient widget, the prospective
-gamut/heatmap colour picker, etc.); the substrate is the
-crossing point.
-
-### Variable ownership / write arbitration
-
-When multiple consumers may write the same scalar, who wins?
-The qEUBO plan's existing "Transform invertibility"
-section sketches one answer ("inputs are the source of truth
-for qEUBO-controlled knobs; outputs are read-only-for-
-manual-edit while the knob is under qEUBO control"); the
-broader substrate framing makes the question more general
-than that section addresses. Discussion points:
-
-- **A. Hard lock.** When a non-user consumer (qEUBO,
-  autonomous-SR run, etc.) is actively controlling a scalar,
-  the user's SPA slider is disabled / read-only for the
-  duration. Status quo per the qEUBO plan. Clean failure
-  semantic; user knows the slider is inert because something
-  else owns the variable.
-- **B. Soft warning.** Manual edit is allowed; the controller
-  is notified ("user manually edited this knob during your
-  experiment; your next iteration will overwrite"). Up to
-  the controller to decide whether to honour the manual edit
-  or proceed. Currently qEUBO would proceed (no plumbing for
-  honouring manual mid-experiment edits) — which makes (B)
-  effectively a documented-noisy form of "the manual edit
-  was futile."
-- **C. Manual edit claims ownership.** Manual edit transitions
-  the scalar from controller-owned to user-owned; the prior
-  controller releases its hold. Graceful UX for the user but
-  disruptive to long-running consumers (a qEUBO experiment
-  mid-iteration loses the parameter it was about to vary;
-  the experiment's GP surrogate's data points become
-  inconsistent with its current parameter ranges).
-- **D. Co-controlled with arbitration.** Both consumers can
-  write; some priority scheme arbitrates (timestamp-last-
-  writes, controller-priority-table, etc.). Combinatorial
-  complexity rises sharply; probably not worth it absent a
-  concrete use case demanding it.
-
-The right answer probably depends on what's controlling and
-what's running. Hard lock (A) is defensible for qEUBO during
-an experiment; manual-claim (C) is defensible for transient
-autonomous-SR scenarios where the user re-asserts control
-mid-run. The substrate should express "current controller"
-per-scalar as a property, with the SPA slider's enabled state
-derived from "is this scalar currently controlled by anything
-other than direct UI?" — leaving the arbitration policy
-configurable per consumer rather than baked into the
-substrate.
-
-The discussion is itself a deliverable of this arc — landing
-the substrate without a settled arbitration policy is a
-known unknown (every consumer falls back to the default-lock
-shape), and explicitly recording the choice prevents the
-"the design picked itself by inertia" drift ADR-0002 Rule 6
-warns about.
-
-Sequencing tension worth naming:
-
-1. **Infrastructure-first path.** Land the knob registry per
-   the plan, migrate every existing user-controllable scalar
-   onto a `KnobDecl` in one structural arc, ship the unified
-   editor surface. Cleanest endpoint; highest up-front cost;
-   delays the small wins (e.g., the ownership-opacity slider
-   the user wanted this session).
-2. **Scalars-first path.** Promote immediate scalars (ownership
-   opacity ceiling, future motivating cases) to registry leaves
-   now, under a coherent namespace
-   (`profile.settings.engine.katago.appearance.*` or similar).
-   Then absorb them onto `KnobDecl`s when the registry lands
-   via the migration the plan already anticipates. Cheap
-   incremental progress; accepts some interim ad-hoc-ness.
-
-The user has explicitly named that the current state feels
-ad-hoc and is open to a teardown / rebuild if the
-infrastructure is judged poor. The knob registry *is* the
-rebuild; the question is whether to ship it as one structural
-arc or to incrementally promote scalars while building the
-registry alongside.
-
-A motivating starting battery for the registry (the scalars
-worth exposing first, in rough order of "user has asked for
-this" → "magic literal that's clearly a preference" →
-"chrome-internal but probably wants a knob"):
-
-- **Ownership opacity ceiling.** Hardcoded `0.55` in
-  `BoardWidget.vue::ownershipColor`. Direct ask from the
-  2026-05-13 session.
-- **Move-filter threshold.** Already exposed as a slider via
-  `session.ui.moveFilterThreshold`; would migrate.
-- **Hue offset.** Already in `appearance.intensityHueShift`,
-  surfaced in the Other tab's slider; would migrate.
-- **Watchdog animation duration.** Hardcoded `500ms` keyframe
-  in the ping-tandem animation — interestingly tied to the
-  threshold cutoff (`WATCHDOG_LATENCY_THRESHOLD_MS`). Both are
-  preference candidates.
-- **Various scalars from the magic-literals audit inventory**
-  (`docs/archive/notes/magic-literals-audit-inventory.md`)
-  flagged as "preference" rather than "invariant" at the
-  authoring discipline stage.
-
-Open questions before implementation:
-
-- **Namespace convention** for promoted-but-not-yet-`KnobDecl`-wrapped
-  scalars. `profile.settings.<domain>.*` is the existing
-  tree; adding a `profile.settings.appearance.*` or
-  `profile.settings.chrome.*` subtree for chrome-scalars is the
-  natural shape. Decide once so promotions don't compound the
-  ad-hoc-ness.
-- **Editor surface ergonomics.** Do per-knob sliders coexist
-  with the existing Registry Editor's typed-leaf approach, or
-  does the knob editor supersede it? The plan suggests
-  coexistence (per-domain views write the same registry); the
-  cross-domain `KnobRegistryEditor` is the new addition.
-- **qEUBO surface impact.** The plan addresses this directly:
-  `useQeubo`'s controlled-parameter list becomes flat wire
-  keys derived from `KnobDecl` input dimensions, encode/decode
-  stays in PD route code on the backend, no dispatch needed.
-
-Cross-references: `docs/notes/knob-registry-plan.md`
-(canonical handle, 2026-05-14);
-`docs/notes/qeubo-namespace-unification-plan.md`
-(predecessor, `design-note: revised`, retains the data-model
-record); `docs/archive/notes/magic-literals-audit-inventory.md`
-(the per-literal inventory many of the candidates come from —
-the registry is the natural successor surface for the audit's
-band-3 carve-out of user-controllable preferences);
-`docs/archive/notes/frontend-theming-plan.md` Substrate-evolution
-section (alias / mix-derivation principles transforms interact
-with).
-
-Trigger: user-prioritised. The user has flagged this as
-warranting deep thought; the design note exists, the sequencing
-decision is the remaining call.
+- **Toolbar-hover quick-access surface** for the relocated
+  sliders. AnalysisControls and Gradient Calibration relocation
+  notices point at this as the long-term home; current state is
+  transitional.
+- **Bookmark schema reshape** (qEUBO bookmarks:
+  `Record<string, number>` → `Record<KnobId, number[]>`).
+- **Wire-key derivation from KnobDecl ids** for qEUBO's
+  `controlled_parameters` payload. Backend coordination via
+  dispatch if pursued.
 
 #### 30c. `[backend]` Single CTE per pipeline run
 
