@@ -80,7 +80,12 @@ band-mismatch corrective and pointing at the postmortem.
 
 ## Recommendations recorded (full text in postmortem §7)
 
-Six discipline candidates surfaced by the incident:
+Six discipline candidates surfaced by the incident. **Items 2
+and 3 below were reframed via the postmortem's 2026-05-14
+amendment** (project author surfaced that PR #225's "(ships
+with bugs)" merge was a deliberate strategic choice under
+implementer-rotation constraints, not a discipline failure);
+the recap here carries the reframed versions:
 
 1. **Band-coherence check at mount sites.** Before merging any
    PR mounting a new component in chrome, the implementer
@@ -88,14 +93,24 @@ Six discipline candidates surfaced by the incident:
    enclosing wrapper's coupling. A band-1 child inside a
    band-{2,3} wrapper inherits the wrapper's lifecycle silently;
    the default is relocation.
-2. **"Ships with bugs" merge subjects are discipline
-   violations.** Known defects at merge time must be filed
-   somewhere durable (worklog, issue tracker, dispatch). The
-   merge subject is not a substitute.
-3. **Documentation companion mandatory at PR-filing time.** The
-   qEUBO-domain postmortem named this gap; PR #225 reproduced
-   it. The corrective is to land the audit checklist as an
-   actual file `CLAUDE.md` references as load-bearing.
+2. **"Ships with bugs" merge subjects signal an owed worklog
+   companion** *(reframed; original framing in postmortem §7.2,
+   corrected framing in the head-of-document amendment)*. The
+   merge subject is the durable record that the corrective is
+   owed; the discipline is "trusted rotation eventually files
+   the retroactive worklog," not "block such merges." When
+   implementer rotation is temporarily under-capable, there is
+   no project-level discipline that compensates for the
+   upstream infrastructure factor.
+3. **Documentation companion expected from trusted rotation**
+   *(reframed; original framing in postmortem §7.3, corrected
+   framing in the amendment)*. A pre-merge documentation
+   checklist is useful as a template trusted rotation consults
+   when filing retroactives, not as a gate that blocks merges
+   regardless of implementer capability — mandating
+   documentation from an under-capable implementer produces
+   bungled docs (strictly worse for future readers than
+   missing-but-honest ones).
 4. **Visual exercise in disconnected and degraded states.** The
    qEUBO-domain postmortem recommended visual re-inspection;
    this incident extends it to "exercise the surface in every

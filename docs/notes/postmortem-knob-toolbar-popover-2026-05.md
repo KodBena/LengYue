@@ -20,6 +20,86 @@
 
 ---
 
+## Amendment — 2026-05-14: §7.2 and §7.3 framing correction (project author context)
+
+Per ADR-0005 Rule 8 (sibling revisions over silent edits): §7.2
+("'Ships with bugs' is itself a discipline violation") and §7.3
+("Documentation companion mandatory at PR-filing time") below
+carry an interpretive error. The original framings are preserved
+verbatim for fidelity; the corrected framings live in this
+amendment.
+
+**The error.** Both sections read PR #225's "(ships with bugs)"
+merge subject and absent worklog companion as a failure of
+project-level discipline. They were not — they were a deliberate
+strategic choice by the project author, made under explicit
+constraints recorded by the author 2026-05-14:
+
+- The bug was benign in practice (a visibility-gate non-sequitur
+  on a modestly-used optional feature, not user-data corruption
+  or a safety-critical surface).
+- The feature's usability was important enough that shipping with
+  the known defect was preferable to not shipping.
+- The LLM implementer at the time couldn't be trusted with the
+  correction — asking the bungler to fix it risked compounding
+  the bungling rather than closing it. The likely upstream cause
+  was Claude Code's routing infrastructure substituting Haiku 3.5
+  for Opus 4.7; the project author had no project-level recourse
+  beyond ship-and-wait.
+
+The merge subject was the durable record while waiting for
+trusted implementer rotation to become available. This bugfix PR
+is that rotation operating correctly — the retroactive worklog
+companion is filed alongside the code fix, and the merge
+subject's signal is honoured.
+
+**§7.2 reframed.** A "(ships with bugs)" merge subject is not a
+default discipline failure. It is one of the strategic options
+available to a project author whose implementer rotation is
+temporarily under-capable. The discipline that should hold:
+
+- The merge subject is the load-bearing signal that a worklog
+  companion is *owed*, to be filed when trusted rotation is
+  available.
+- The author tracks the IOU between merge time and corrective
+  time — the project's existing posture, exercised here.
+- The corrective applies the disciplines retroactively (band-
+  coherence check, visual exercise in every state-axis, etc.)
+  against a capable implementer.
+
+There is no project-level discipline that compensates for an
+under-capable implementer rotation. The right move when rotation
+is suspect is "wait for a trusted session," not "force the
+under-capable session through a checklist that requires
+capability to complete coherently."
+
+**§7.3 reframed.** A pre-merge documentation-companion checklist
+is only useful when the implementer can fill it out coherently.
+When the failure mode is implementer-*capability* rather than
+implementer-*laziness*, a mandatory checklist isn't a discipline
+— it's a bottleneck that produces bungled documentation instead
+of missing documentation, which is strictly worse for future
+readers (a missing document signals "go look elsewhere"; a
+bungled one signals "this is the answer" and propagates the
+confusion).
+
+The umbrella's "Documentation is part of the work" tenet stands
+— but its operational enforcement point is "trusted rotation
+eventually files the corrective," not "every PR blocks on
+documentation regardless of implementer state." The pre-merge-
+checklist follow-up named in §7.3 below is reframed accordingly:
+not a gate that blocks merges, but a template the trusted
+rotation consults when filing retroactives so the corrective is
+predictably shaped.
+
+**Recommendations §7.1, §7.4, §7.5, §7.6 are unaffected by this
+amendment.** They name disciplines that hold for trusted
+implementer sessions; they're what the current session operates
+against to file this corrective. They are correct as written and
+remain in force.
+
+---
+
 ## TL;DR
 
 The popover badge is a band-1 surface (substrate-driven; user
@@ -344,6 +424,12 @@ shaped for.
 
 ### 7.2 "Ships with bugs" is itself a discipline violation
 
+*Amended 2026-05-14 — see the Amendment block at the head of
+this document for the corrected framing. The text below is
+preserved per ADR-0005 Rule 8 for historical fidelity but
+reads PR #225's merge subject as a discipline failure when it
+was a deliberate strategic choice by the project author.*
+
 A PR merge subject that reads "(ships with bugs)" without a
 corresponding entry in the worklog, issue tracker, or dispatch
 ledger is ADR-0002 applied to the PR layer: known defects
@@ -368,6 +454,12 @@ cross-team coordination), the discipline catches the *recording*
 of those bugs, not the merging.
 
 ### 7.3 Documentation companion mandatory at PR-filing time
+
+*Amended 2026-05-14 — see the Amendment block at the head of
+this document for the corrected framing. The text below treats
+PR-filing-time documentation as a mandatory gate when the
+operational failure mode here was implementer-capability rather
+than implementer-laziness.*
 
 The qEUBO-domain postmortem (§"Documentation discipline (this
 housekeeping pass)") already recorded this gap and named "adding

@@ -325,12 +325,13 @@ work but worth naming:
   `controlled_parameters` payload. Backend coordination via
   dispatch if pursued.
 - **`docs/pre-merge-checklist.md` as an actual file.** Surfaced
-  by the toolbar-popover postmortem §7.3 and previously named in
-  the qEUBO-domain postmortem §7's "Documentation discipline"
-  closing observation. The umbrella's "Documentation is part of
-  the work" tenet needs operational teeth — landing the checklist
-  as a referenced file (rather than a tenet sentence inside
-  `CLAUDE.md`) is the right tightening. One focused PR closes it.
+  by the toolbar-popover postmortem §7.3 — per that document's
+  head-of-document amendment, the right framing is a *template
+  trusted rotation consults when filing retroactive correctives*,
+  not a gate that blocks merges regardless of implementer
+  capability. The pre-merge-blocking framing was the wrong
+  enforcement point; predictably-shaped retroactive correctives
+  are the right one. One focused PR closes it.
 - **Closest-match failure-mode tenet articulation.** Surfaced by
   the toolbar-popover postmortem §7.6: both that postmortem and
   the qEUBO-domain one share the same root failure pattern
