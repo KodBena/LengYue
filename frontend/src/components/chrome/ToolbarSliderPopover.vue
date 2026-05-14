@@ -2,15 +2,25 @@
   src/components/chrome/ToolbarSliderPopover.vue
 
   Toolbar surface for the knob registry's quick-access sliders.
-  Renders as a single "SLIDERS" badge in the toolbar (sibling to
-  PPS, LATENCY, WATCHDOG, QUEUE); hover opens a floating panel
-  listing every scalar knob in compact mode, sorted by ascending
-  priority so the user's most-likely-touched knob (move-filter
-  threshold) sits at the top.
+  Renders as a single "SLIDERS" badge in the toolbar, visually
+  adjacent to the engine-metrics row (PPS, LATENCY, WATCHDOG,
+  QUEUE) when connected. The badge itself is substrate-driven
+  (ADR-0003 band 1) and renders unconditionally; the engine-metrics
+  row's `v-if="isConnected"` gate explicitly does NOT apply to this
+  component, since user preferences (hue offset, ownership opacity,
+  move-filter threshold) have nothing to do with engine
+  reachability. The PR #225 placement put the badge inside the
+  gated wrapper; see
+  `docs/notes/postmortem-knob-toolbar-popover-2026-05.md` for the
+  band/chrome-neighbourhood mismatch and the corrective.
+
+  Hover opens a floating panel listing every scalar knob in compact
+  mode, sorted by ascending priority so the user's most-likely-
+  touched knob (move-filter threshold) sits at the top.
 
   Pattern mirrors `EngineQueueTooltip` — single hover-open boolean,
-  no local state beyond that. The KnobSlider compact-mode
-  rendering is what compresses each row to a single line.
+  no local state beyond that. The KnobSlider compact-mode rendering
+  is what compresses each row to a single line.
 
   The popover is flat (not grouped by domain) by design — the
   cross-domain `KnobRegistryEditor` in the Other tab is the
@@ -18,9 +28,6 @@
   where domain headers would be visual overhead. Priority is the
   organising axis here; the user's eye scans down a frequency-
   ordered list.
-
-  Domain band (ADR-0003): band 1 — purely substrate-driven, no Go
-  vocabulary.
 
   License: Public Domain (The Unlicense)
 -->

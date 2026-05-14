@@ -208,15 +208,20 @@ const modelTooltip = computed(() => {
            so the user knows whether the engine has outstanding
            work even when no per-board ponder is active. -->
       <EngineQueueTooltip />
-      <!-- Knob registry quick-access — hover the badge to drop
-           down a compact, priority-ordered list of every scalar
-           knob in the registry. Closes the
-           "move-filter-slider-not-visible-from-AnalysisControls"
-           friction the registry's Other-tab editor surfaces. The
-           Other-tab editor remains the spacious grouped view; this
-           is the minimal-friction surface. -->
-      <ToolbarSliderPopover />
     </div>
+
+    <!-- Knob registry quick-access — hover the badge to drop down a
+         compact, priority-ordered list of every scalar knob in the
+         registry. Sits visually adjacent to the engine-metrics row
+         (PPS, LATENCY, WATCHDOG, QUEUE) when connected, but the badge
+         itself is substrate-driven (ADR-0003 band 1) and renders
+         unconditionally — preferences like ownership opacity and hue
+         offset have nothing to do with engine reachability. Mounting
+         INSIDE the v-if="isConnected" wrapper above was the PR #225
+         band/chrome-neighbourhood mismatch; see
+         `docs/notes/postmortem-knob-toolbar-popover-2026-05.md` for
+         the discipline this placement preserves. -->
+    <ToolbarSliderPopover />
 
     <!-- qEUBO calibration cluster. Self-gating: renders only when an
          experiment exists. Sits between metrics and engine controls

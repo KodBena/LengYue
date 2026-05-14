@@ -234,6 +234,18 @@ Canonical reference: `docs/notes/knob-registry-plan.md`
 `docs/worklog/2026-05-14-knob-registry.md`. Postmortem for the
 `domain: 'qeubo'` category error that surfaced mid-arc:
 `docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`.
+PR #225 added a toolbar quick-access popover
+(`ToolbarSliderPopover.vue`) and a `KnobDecl.priority` field
+governing its sort order; the popover shipped band-mismatched
+(mounted inside the toolbar's engine-connection v-if, so
+band-1 substrate preferences silently inherited an engine
+gate) with a "(ships with bugs)" merge subject and no
+documentation companion. The follow-on corrective is recorded
+at `docs/notes/postmortem-knob-toolbar-popover-2026-05.md` and
+`docs/worklog/2026-05-14-toolbar-popover-band-mismatch.md`; the
+postmortem's §7 names six discipline-recommendations
+calibrated to the catastrophe-by-substitution test the
+incident surfaced.
 
 The frontend is **domain-specific to Go**. ADR-0003 documents
 this honestly: roughly 30-40% of the frontend is Go-bound (the

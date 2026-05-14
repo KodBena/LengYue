@@ -309,15 +309,37 @@ work — not blocking on a follow-up arc.
 Explicit follow-ups deferred from this arc, not blocking future
 work but worth naming:
 
-- **Toolbar-hover quick-access surface** for the relocated
-  sliders. AnalysisControls and Gradient Calibration relocation
-  notices point at this as the long-term home; current state is
-  transitional.
+- ~~**Toolbar-hover quick-access surface**~~ *(shipped via PR #225
+  2026-05-14; band-mismatch corrective in flight on
+  `KodBena/fix/knob-toolbar-popover-engine-gating`)*. The popover
+  (`ToolbarSliderPopover.vue`) and the `KnobDecl.priority` field
+  that orders it landed together; the popover mounted inside the
+  toolbar's engine-connection v-if so band-1 substrate
+  preferences silently inherited an engine gate. Postmortem:
+  `docs/notes/postmortem-knob-toolbar-popover-2026-05.md`;
+  corrective worklog:
+  `docs/worklog/2026-05-14-toolbar-popover-band-mismatch.md`.
 - **Bookmark schema reshape** (qEUBO bookmarks:
   `Record<string, number>` → `Record<KnobId, number[]>`).
 - **Wire-key derivation from KnobDecl ids** for qEUBO's
   `controlled_parameters` payload. Backend coordination via
   dispatch if pursued.
+- **`docs/pre-merge-checklist.md` as an actual file.** Surfaced
+  by the toolbar-popover postmortem §7.3 — per that document's
+  head-of-document amendment, the right framing is a *template
+  trusted rotation consults when filing retroactive correctives*,
+  not a gate that blocks merges regardless of implementer
+  capability. The pre-merge-blocking framing was the wrong
+  enforcement point; predictably-shaped retroactive correctives
+  are the right one. One focused PR closes it.
+- **Closest-match failure-mode tenet articulation.** Surfaced by
+  the toolbar-popover postmortem §7.6: both that postmortem and
+  the qEUBO-domain one share the same root failure pattern
+  (closest-match selection in a vocabulary missing a true match,
+  taken without flagging the missing category). Worth a tenet-
+  level codification — probably an ADR-0002 register extension
+  or an ADR-0005 amendment. Drafting candidate ADR text is a
+  small follow-on arc.
 
 #### 30c. `[backend]` Single CTE per pipeline run
 
