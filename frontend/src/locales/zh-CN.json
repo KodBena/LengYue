@@ -20,9 +20,17 @@
   "settings.section.sessionUI":           "会话(界面)",
   "settings.button.forcePersistence":     "强制持久化",
 
+  "other.section.knobRegistry":           "旋钮注册表",
   "other.section.gradientCalibration":    "渐变校准",
   "other.section.qeuboBookmarks":         "qEUBO 书签",
   "other.label.hueOffset":                "色调偏移",
+
+  "knobRegistry.empty":                   "尚无已注册的旋钮。",
+  "knobRegistry.domain.display":          "显示",
+  "knobRegistry.domain.engine":           "引擎",
+  "knobRegistry.domain.review":           "复习",
+  "knobRegistry.domain.qeubo":            "qEUBO",
+  "knobRegistry.domain.experimental":     "实验性",
 
   "cards.tab.decks":                      "卡组",
   "cards.tab.browse":                     "浏览",

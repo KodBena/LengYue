@@ -20,9 +20,17 @@
   "settings.section.sessionUI":           "セッション (UI)",
   "settings.button.forcePersistence":     "強制保存",
 
+  "other.section.knobRegistry":           "ノブレジストリ",
   "other.section.gradientCalibration":    "グラデーション較正",
   "other.section.qeuboBookmarks":         "qEUBO ブックマーク",
   "other.label.hueOffset":                "色相オフセット",
+
+  "knobRegistry.empty":                   "登録済みのノブはありません。",
+  "knobRegistry.domain.display":          "表示",
+  "knobRegistry.domain.engine":           "エンジン",
+  "knobRegistry.domain.review":           "レビュー",
+  "knobRegistry.domain.qeubo":            "qEUBO",
+  "knobRegistry.domain.experimental":     "実験的",
 
   "cards.tab.decks":                      "デッキ",
   "cards.tab.browse":                     "閲覧",

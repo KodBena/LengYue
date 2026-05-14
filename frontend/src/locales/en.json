@@ -20,9 +20,17 @@
   "settings.section.sessionUI":           "Session (UI)",
   "settings.button.forcePersistence":     "Force Persistence",
 
+  "other.section.knobRegistry":           "Knob Registry",
   "other.section.gradientCalibration":    "Gradient Calibration",
   "other.section.qeuboBookmarks":         "qEUBO Bookmarks",
   "other.label.hueOffset":                "Hue Offset",
+
+  "knobRegistry.empty":                   "No registered knobs yet.",
+  "knobRegistry.domain.display":          "Display",
+  "knobRegistry.domain.engine":           "Engine",
+  "knobRegistry.domain.review":           "Review",
+  "knobRegistry.domain.qeubo":            "qEUBO",
+  "knobRegistry.domain.experimental":     "Experimental",
 
   "cards.tab.decks":                      "Decks",
   "cards.tab.browse":                     "Browse",

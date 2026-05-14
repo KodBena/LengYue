@@ -47,6 +47,7 @@ frontend/src/
 │
 ├── components/                              Vue SFCs. Thin renderers, minimum wiring to composables.
 │   ├── CardMetadataPanel.vue          [B3]  Inline-edit metadata panel for a single card (tags / numMoves / gamma / suspended / reset_prior).
+│   ├── KnobRegistryEditor.vue         [B1]  Cross-domain knob-registry editor — lists every scalar knob, grouped by domain (Phase 3b).
 │   ├── ReviewSessionPanel.vue         [B3]  In-session SR controls: status, counter, intermission chart, hint visibility.
 │   │
 │   ├── board/                                Go-board surface. Renderers + overlays.
@@ -95,6 +96,9 @@ frontend/src/
 │   │   ├── HyperparamPromptModal.vue  [B1]  Bind-time prompt for deck-pipeline hyperparameters (defaults pre-filled, per-field validation).
 │   │   ├── LoginModal.vue             [B1]  Sign-in / register / switch-user / sign-out.
 │   │   └── MintCardModal.vue          [B3]  Flashcard mint dialog (SGF → backend mint).
+│   │
+│   ├── knobs/                               Per-knob widgets for the knob-registry editor surfaces.
+│   │   └── KnobSlider.vue             [B1]  Unified scalar slider — substrate-aware read/write, claim-state disable (Phase 3b).
 │   │
 │   ├── qeubo/                               qEUBO calibration UI surfaces.
 │   │   ├── QeuboBookmarks.vue         [B1]  Bookmark list (A/B candidates). Independent of experiment lifecycle.

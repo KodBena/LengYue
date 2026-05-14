@@ -20,9 +20,17 @@
   "settings.section.sessionUI":           "세션 (UI)",
   "settings.button.forcePersistence":     "강제 저장",
 
+  "other.section.knobRegistry":           "노브 레지스트리",
   "other.section.gradientCalibration":    "그라디언트 보정",
   "other.section.qeuboBookmarks":         "qEUBO 북마크",
   "other.label.hueOffset":                "색조 오프셋",
+
+  "knobRegistry.empty":                   "등록된 노브가 없습니다.",
+  "knobRegistry.domain.display":          "표시",
+  "knobRegistry.domain.engine":           "엔진",
+  "knobRegistry.domain.review":           "리뷰",
+  "knobRegistry.domain.qeubo":            "qEUBO",
+  "knobRegistry.domain.experimental":     "실험적",
 
   "cards.tab.decks":                      "덱",
   "cards.tab.browse":                     "둘러보기",

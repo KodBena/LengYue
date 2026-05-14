@@ -53,6 +53,7 @@ import LocalePicker     from './components/chrome/LocalePicker.vue';
 import { useReviewSession } from './composables/review/useReviewSession';
 import ColorDebugStrip  from './components/charts/ColorDebugStrip.vue';
 import QeuboBookmarks   from './components/qeubo/QeuboBookmarks.vue';
+import KnobRegistryEditor from './components/KnobRegistryEditor.vue';
 
 useUserIORegistry();
 
@@ -426,7 +427,10 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
             <template #other>
               <div class="tab-padding">
-                <h3 class="sub-header">{{ $t('other.section.gradientCalibration') }}</h3>
+                <h3 class="sub-header">{{ $t('other.section.knobRegistry') }}</h3>
+                <KnobRegistryEditor />
+
+                <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.gradientCalibration') }}</h3>
                 <div class="hue-slider-row">
                   <label class="hue-slider-label">
                     <span>{{ $t('other.label.hueOffset') }}</span>

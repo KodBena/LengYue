@@ -27,6 +27,7 @@ import { backendService } from '../../services/backend-service';
 import { analysisService } from '../../services/analysis-service';
 import { analysisPersistenceService } from '../../services/analysis-persistence-service';
 import { setIntensityHueShift } from '../../engine/suggestion-colors';
+import { validateRegistry } from '../../lib/knobs';
 import { store } from '../../store';
 import { i18n } from '../../i18n';
 import { isSupportedLocale, DEFAULT_LOCALE } from '../../i18n/locales';
@@ -119,6 +120,37 @@ export function useAppBootstrap(
     () => store.profile.settings.appearance.theme,
     (theme) => document.documentElement.setAttribute('data-theme', theme),
     { immediate: true },
+  );
+
+  // Knob-registry coherence check (knob-registry Phase 3b). Validates
+  // that every KnobDecl's output paths resolve to numeric leaves on
+  // the live store, and that each transform's dimensions agree with
+  // the decl's inputs/outputs. The check runs at composable setup
+  // time (so a defaults-only fresh install is validated against
+  // defaults), then re-runs every time the registry mutates (so the
+  // post-hydrate registry from a persisted blob is validated, and
+  // any runtime mutation through a future decl-editor surface
+  // triggers a re-check). Failures are logged loudly per ADR-0002
+  // but don't throw — a malformed decl shouldn't take down the app's
+  // boot path. The substrate-side write surface (`writeKnobValue`)
+  // re-validates each call so an unfixable decl can't silently
+  // misbehave.
+  watch(
+    () => store.profile.settings.knobs,
+    (registry) => {
+      try {
+        validateRegistry(store, registry);
+      } catch (err) {
+        console.error(
+          '[knob-registry] validateRegistry failed — at least one ' +
+          'KnobDecl is incoherent against the current store. The ' +
+          'cross-domain editor and policy-aware writes for affected ' +
+          'knobs may misbehave until the decl is corrected.',
+          err,
+        );
+      }
+    },
+    { immediate: true, deep: true },
   );
 
   // Mirror the active UI locale onto vue-i18n's runtime locale ref
