@@ -156,6 +156,8 @@
   "toolbar.metric.latency":               "遅延",
   "toolbar.metric.latencyValue":          "{ms}ms",
   "toolbar.metric.watchdog":              "ウォッチドッグ",
+  "toolbar.metric.sliders":               "スライダー",
+  "toolbar.sliders.empty":                "登録済みのノブはありません。",
 
   "statusBar.move":                       "{n} 手目",
   "statusBar.versus":                     "対",

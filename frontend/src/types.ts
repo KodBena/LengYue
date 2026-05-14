@@ -443,6 +443,21 @@ export interface KnobDecl {
    * the knob is user-controlled-only.
    */
   readonly qeuboControlled?: boolean;
+  /**
+   * Optional render-order hint. Editor surfaces (the cross-domain
+   * KnobRegistryEditor, the toolbar quick-access popover) sort by
+   * ascending priority within each domain; `undefined` sorts last.
+   * Smaller numbers render first — `priority: 0` is the user's
+   * most-likely-needed knob.
+   *
+   * The field is also a hook for a future preference-learning
+   * surface that promotes frequently-used knobs to lower numbers
+   * automatically. Auto-promotion isn't shipped (a reordering that
+   * happens behind the user's back would be jarring); the field
+   * exists so that future consumer can write to it through the
+   * same shape the user authors today.
+   */
+  readonly priority?: number;
 }
 
 /**

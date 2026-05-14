@@ -156,6 +156,8 @@
   "toolbar.metric.latency":               "지연",
   "toolbar.metric.latencyValue":          "{ms}ms",
   "toolbar.metric.watchdog":              "워치독",
+  "toolbar.metric.sliders":               "슬라이더",
+  "toolbar.sliders.empty":                "등록된 노브가 없습니다.",
 
   "statusBar.move":                       "{n} 수",
   "statusBar.versus":                     "vs",

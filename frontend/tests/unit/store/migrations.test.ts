@@ -2148,3 +2148,102 @@ describe('39 → 40: Phase 6 magic-literals sweep (3 preference scalars)', () =>
     expect(out.profile).toEqual({});
   });
 });
+
+// ── Per-migration: 40 → 41 ──────────────────────────────────────────
+
+describe('40 → 41: KnobDecl priority backfill (toolbar quick-access)', () => {
+  function blobWithKnobs(knobs: Record<string, unknown>): any {
+    return { profile: { settings: { knobs } } };
+  }
+
+  function seededDecl(id: string, extra: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      id,
+      domain: 'display',
+      inputs: [{ range: [0, 1] }],
+      outputs: [{ path: `profile.settings.placeholder.${id}` }],
+      ...extra,
+    };
+  }
+
+  it('seeds priority 0 on display.move-filter-threshold', () => {
+    const blob = blobWithKnobs({
+      'display.move-filter-threshold': seededDecl('display.move-filter-threshold'),
+    });
+    const out = step(40)(blob);
+    expect(out.profile.settings.knobs['display.move-filter-threshold'].priority).toBe(0);
+  });
+
+  it('seeds priority 10 / 20 / 30 / 40 on the display siblings', () => {
+    const blob = blobWithKnobs({
+      'display.ownership-opacity-ceiling': seededDecl('display.ownership-opacity-ceiling'),
+      'display.ownership-deadband-threshold': seededDecl('display.ownership-deadband-threshold'),
+      'display.liveness-threshold': seededDecl('display.liveness-threshold'),
+      'display.hue-offset': seededDecl('display.hue-offset'),
+    });
+    const out = step(40)(blob);
+    expect(out.profile.settings.knobs['display.ownership-opacity-ceiling'].priority).toBe(10);
+    expect(out.profile.settings.knobs['display.ownership-deadband-threshold'].priority).toBe(20);
+    expect(out.profile.settings.knobs['display.liveness-threshold'].priority).toBe(30);
+    expect(out.profile.settings.knobs['display.hue-offset'].priority).toBe(40);
+  });
+
+  it('seeds priority 50 / 60 on the engine siblings', () => {
+    const blob = blobWithKnobs({
+      'engine.watchdog-animation-ms': seededDecl('engine.watchdog-animation-ms'),
+      'engine.watchdog-latency-threshold-ms': seededDecl('engine.watchdog-latency-threshold-ms'),
+    });
+    const out = step(40)(blob);
+    expect(out.profile.settings.knobs['engine.watchdog-animation-ms'].priority).toBe(50);
+    expect(out.profile.settings.knobs['engine.watchdog-latency-threshold-ms'].priority).toBe(60);
+  });
+
+  it('preserves a pre-existing finite priority', () => {
+    const blob = blobWithKnobs({
+      'display.move-filter-threshold': seededDecl('display.move-filter-threshold', {
+        priority: 99,
+      }),
+    });
+    const out = step(40)(blob);
+    expect(out.profile.settings.knobs['display.move-filter-threshold'].priority).toBe(99);
+  });
+
+  it('overwrites a non-finite priority with the default', () => {
+    const blob = blobWithKnobs({
+      'display.move-filter-threshold': seededDecl('display.move-filter-threshold', {
+        priority: 'corrupt',
+      }),
+    });
+    const out = step(40)(blob);
+    expect(out.profile.settings.knobs['display.move-filter-threshold'].priority).toBe(0);
+  });
+
+  it('leaves runtime-added knobs without priority (e.g. qeubo.<name>)', () => {
+    const blob = blobWithKnobs({
+      'qeubo.alpha': seededDecl('qeubo.alpha', { domain: 'palette' }),
+    });
+    const out = step(40)(blob);
+    expect(out.profile.settings.knobs['qeubo.alpha'].priority).toBeUndefined();
+  });
+
+  it('does not touch non-knob structure on profile.settings', () => {
+    const blob = blobWithKnobs({
+      'display.move-filter-threshold': seededDecl('display.move-filter-threshold'),
+    });
+    blob.profile.settings.appearance = { ownershipOpacityCeiling: 0.7 };
+    const out = step(40)(blob);
+    expect(out.profile.settings.appearance.ownershipOpacityCeiling).toBe(0.7);
+  });
+
+  it('is a no-op when knobs is absent (defensive)', () => {
+    const blob: any = { profile: { settings: {} } };
+    const out = step(40)(blob);
+    expect(out.profile.settings).toEqual({});
+  });
+
+  it('is a no-op when knobs is not a plain object', () => {
+    const blob = blobWithKnobs([] as unknown as Record<string, unknown>);
+    const out = step(40)(blob);
+    expect(out.profile.settings.knobs).toEqual([]);
+  });
+});

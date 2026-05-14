@@ -305,33 +305,26 @@ export const defaultSettings = {
   // schema-version 36 → 37 migration backfills them on persisted
   // blobs. See `docs/notes/knob-registry-plan.md` §11 Phase 3.
   knobs: {
-    'display.ownership-opacity-ceiling': {
-      id: 'display.ownership-opacity-ceiling',
-      label: 'Ownership overlay opacity',
-      domain: 'display',
-      inputs: [{ range: [0, 1] as const }],
-      outputs: [{ path: 'profile.settings.appearance.ownershipOpacityCeiling' }],
-    },
+    // Priority ordering — smaller renders first. Move-filter
+    // threshold gets 0 (the most-likely-used knob per the
+    // toolbar-popover-quick-access ask 2026-05-14); the rest
+    // follow in rough use-frequency order. Gaps of 10 allow
+    // future knobs to slot between without renumbering.
     'display.move-filter-threshold': {
       id: 'display.move-filter-threshold',
       label: 'Move-suggestion filter threshold',
       domain: 'display',
       inputs: [{ range: [0, 1] as const }],
       outputs: [{ path: 'session.ui.moveFilterThreshold' }],
+      priority: 0,
     },
-    'display.hue-offset': {
-      id: 'display.hue-offset',
-      label: 'Hue offset',
+    'display.ownership-opacity-ceiling': {
+      id: 'display.ownership-opacity-ceiling',
+      label: 'Ownership overlay opacity',
       domain: 'display',
-      inputs: [{ range: [-180, 180] as const }],
-      outputs: [{ path: 'profile.settings.appearance.intensityHueShift' }],
-    },
-    'engine.watchdog-animation-ms': {
-      id: 'engine.watchdog-animation-ms',
-      label: 'Watchdog animation duration (ms)',
-      domain: 'engine',
-      inputs: [{ range: [50, 5000] as const }],
-      outputs: [{ path: 'profile.settings.engine.katago.watchdogAnimationMs' }],
+      inputs: [{ range: [0, 1] as const }],
+      outputs: [{ path: 'profile.settings.appearance.ownershipOpacityCeiling' }],
+      priority: 10,
     },
     'display.ownership-deadband-threshold': {
       id: 'display.ownership-deadband-threshold',
@@ -339,6 +332,7 @@ export const defaultSettings = {
       domain: 'display',
       inputs: [{ range: [0, 1] as const }],
       outputs: [{ path: 'profile.settings.appearance.ownershipDeadbandThreshold' }],
+      priority: 20,
     },
     'display.liveness-threshold': {
       id: 'display.liveness-threshold',
@@ -346,6 +340,23 @@ export const defaultSettings = {
       domain: 'display',
       inputs: [{ range: [0, 1] as const }],
       outputs: [{ path: 'profile.settings.appearance.livenessThreshold' }],
+      priority: 30,
+    },
+    'display.hue-offset': {
+      id: 'display.hue-offset',
+      label: 'Hue offset',
+      domain: 'display',
+      inputs: [{ range: [-180, 180] as const }],
+      outputs: [{ path: 'profile.settings.appearance.intensityHueShift' }],
+      priority: 40,
+    },
+    'engine.watchdog-animation-ms': {
+      id: 'engine.watchdog-animation-ms',
+      label: 'Watchdog animation duration (ms)',
+      domain: 'engine',
+      inputs: [{ range: [50, 5000] as const }],
+      outputs: [{ path: 'profile.settings.engine.katago.watchdogAnimationMs' }],
+      priority: 50,
     },
     'engine.watchdog-latency-threshold-ms': {
       id: 'engine.watchdog-latency-threshold-ms',
@@ -353,6 +364,7 @@ export const defaultSettings = {
       domain: 'engine',
       inputs: [{ range: [50, 5000] as const }],
       outputs: [{ path: 'profile.settings.engine.katago.watchdogLatencyThresholdMs' }],
+      priority: 60,
     },
   },
 } as const;

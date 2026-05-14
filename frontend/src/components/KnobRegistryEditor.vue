@@ -55,11 +55,22 @@ const grouped = computed<readonly DomainGroup[]>(() => {
     bucket.push({ id: key as KnobId, decl });
     buckets.set(decl.domain, bucket);
   }
+  // Sort each bucket by ascending priority (undefined sorts last so
+  // a freshly-added decl without an authored priority sits below the
+  // known set rather than at an arbitrary position). The toolbar
+  // popover applies the same ordering for consistency.
+  for (const entries of buckets.values()) {
+    entries.sort((a, b) => priorityKey(a.decl) - priorityKey(b.decl));
+  }
   return Array.from(buckets.entries()).map(([domain, entries]) => ({
     domain,
     entries,
   }));
 });
+
+function priorityKey(decl: KnobDecl): number {
+  return decl.priority ?? Number.POSITIVE_INFINITY;
+}
 
 function domainLabel(domain: KnobDomain): string {
   // i18n keys colocated with the editor; falls back to the raw
