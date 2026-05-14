@@ -25,6 +25,152 @@ than the qEUBO-driven shape its predecessor implied.
 
 ---
 
+## Amendment — 2026-05-14: `KnobDomain` enum correction
+
+Per ADR-0005 Rule 8 (sibling revisions over silent edits): the
+`KnobDomain` enum named in §3 below carries a category error.
+The body of §3 is preserved as written for historical fidelity;
+**the corrected enum and its rationale live in this amendment**,
+and Phase 1 / 3a / 5 / 6 code already implements §3 as
+originally written. The correction shipped as a remediation
+commit on the `KodBena/feat/knob-registry` branch immediately
+after the postmortem.
+
+**What §3 below says (incorrect):**
+
+```ts
+domain: 'display' | 'engine' | 'review' | 'qeubo' | 'experimental';
+```
+
+**What `src/types.ts` carries post-remediation (correct):**
+
+```ts
+domain: 'display' | 'engine' | 'review' | 'palette' | 'experimental';
+```
+
+**Why.** `KnobDomain` answers "where does this knob live in the
+user's mental model" — a UX taxonomy. `'qeubo'` named a
+*consumer identity* (the same value used as
+`ConsumerClaim.consumerId` in the claim API per §7). Mixing the
+two on one enum collapsed the substrate-vs-consumer split this
+note's §2 was shaped around. `'palette'` is the right successor
+for analysis-environment parameters; qEUBO's involvement is
+expressed by `KnobDecl.qeuboControlled: boolean` (already
+correct in §3) and the claim API (already correct in §7).
+
+**Full chain and lessons learned** in
+`docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`,
+filed 2026-05-14. The contributing factors include both
+spec-side (the enum shipped without §3 articulating what
+`KnobDomain` is *for*, leaving `'qeubo'` unchallenged) and
+implementation-side (closest-match enum selection that should
+have flagged the missing category at Phase 5 implementation
+time).
+
+**Scope of the remediation commit:**
+
+- `src/types.ts` — `KnobDomain` corrected.
+- Migration 38 → 39 — rewrites every `qeubo.*` decl's
+  `domain: 'qeubo'` to `'palette'`. Idempotent. The 37 → 38
+  migration is left frozen per the append-only invariant; the
+  walker reaches the corrected state at 38 → 39.
+- `src/composables/useQeubo.ts` — `ensureKnobDecl` and
+  `reconcileQeuboKnobs` produce `'palette'`. The reconcile
+  short-circuit was extended to compare `domain` so stale
+  decls are self-healed.
+- i18n catalogs (en / ja / ko / zh-CN) — dropped
+  `knobRegistry.domain.qeubo`, added `knobRegistry.domain.palette`.
+- Tests — `tests/unit/store/migrations.test.ts` gains a 38 → 39
+  describe block; `tests/integration/qeubo-knob-reconcile.test.ts`
+  expects `'palette'` from reconcile output and exercises the
+  stale-domain self-heal path.
+
+The remediation does **not** rename the `qeubo.<name>`
+KnobDecl id convention. The id is a substrate-internal handle
+keyed by `useQeubo.knobIdForParam`; the rename surface would
+touch `ensureKnobDecl`, `reconcileQeuboKnobs`,
+`acquireExperimentClaims`, the claim Map's keys, and a coordinated
+migration — all out of scope for fixing a UX-taxonomy bug. The
+domain is the visible axis; the id stays as a substrate
+implementation detail.
+
+---
+
+## Amendment — 2026-05-14: Phase 4 closed, Phase 6 status
+
+Two end-of-arc notes recorded for future readers, both per
+ADR-0005 Rule 8 (sibling revisions over silent edits — §12's
+phase roadmap below is preserved as written):
+
+### Phase 4 — closed on project-author judgment
+
+§12 Phase 4 names "vector widget dispatch" with the
+`KnobGamutPicker.vue` as a worked example for a hypothetical
+`lockstep-hue-rotate` colour knob. The author's judgment
+(recorded 2026-05-14 in this arc's session transcript):
+
+> Phase 4 is unilaterally closed on my judgment — it was never
+> important and only seems like a "nice demo of the latent
+> machinery" kind of thing anyways; as you said, no concrete
+> motivation — and I never asked for it.
+
+Two reinforcing observations from the implementation side
+support the closure:
+
+- The plan's §4 declares `lockstep-hue-rotate` as
+  **scalar-driven** (N=1, K>1), but §6's dispatch policy pairs
+  the gamut picker with `inputs.length === 2 && transform ===
+  'lockstep-hue-rotate'`. The latter branch is unreachable
+  under the type definition, exposing a spec-internal
+  contradiction that wasn't load-bearing for any actual user
+  need — the gamut picker was a downstream artifact of a
+  framing that didn't quite settle.
+- The substrate's vector-knob *capability* is preserved by
+  the type system regardless of whether a vector widget
+  ships. `KnobDecl.inputs` is `readonly KnobInputDecl[]`;
+  `KnobTransform` admits matrix-projection cases. A future
+  contributor with a concrete vector-knob need can author the
+  corresponding widget (gamut picker, two-d pad, matrix
+  editor) without revisiting the substrate's design — the
+  dispatch layer in `KnobRegistryEditor.vue` filters scalar
+  knobs explicitly today (per the §6 widget-dispatch policy
+  for `inputs.length === 1`), and the filter falls open as
+  soon as a vector decl wants in.
+
+Re-opening Phase 4 is a forward-compatible move; closing it
+now reclaims scope without prejudice to the future case.
+
+### Phase 6 — partial sweep landed; further candidates open
+
+§12 Phase 6 is open-ended by design. The first sweep batch
+landed 2026-05-14 alongside this amendment — three preference-
+flavoured literals promoted as KnobDecls in the same domain
+buckets as their existing siblings:
+
+| Lifted leaf | KnobDecl | Was |
+|---|---|---|
+| `appearance.ownershipDeadbandThreshold` (0.05) | `display.ownership-deadband-threshold` | inline `0.05` in `BoardWidget.vue::ownershipColor` |
+| `appearance.livenessThreshold` (0.3) | `display.liveness-threshold` | `LIVENESS_THRESHOLD = 0.3` const in `BoardWidget.vue` |
+| `engine.katago.watchdogLatencyThresholdMs` (500) | `engine.watchdog-latency-threshold-ms` | `WATCHDOG_LATENCY_THRESHOLD_MS = 500` const in `Toolbar.vue` |
+
+Each promotion follows the discipline in §10:
+identify-by-discriminator (user-controllable preference, not
+theme-scale anchor) → lift to a registry leaf → seed
+KnobDecl → retarget consumers reactively. Migration 39 → 40
+backfills the persisted-blob population.
+
+The sweep's stated deliverable ("every literal outside the
+substrate-named SSOTs is either a controllable knob OR
+carries a `magic-literal:` justification comment") is
+**not** closed by this batch — the bulk of the audit
+inventory's residue (theme-scale anchors, geometry
+multipliers, timer constants) sits outside the knob-registry
+substrate by design. Further preference-flavoured candidates
+that surface during normal work can land as their own
+commits.
+
+---
+
 ## 1. Motivation
 
 User-controllable variables in the SPA today live in scattered

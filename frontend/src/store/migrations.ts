@@ -77,13 +77,13 @@ import { archivedMigrations, type Migration } from './archived-migrations';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 35;
+export const CURRENT_SCHEMA_VERSION = 40;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 32 → 33) are
+ * The first `N` entries (currently 1 → 2 through 37 → 38) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -105,55 +105,129 @@ export const CURRENT_SCHEMA_VERSION = 35;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 33 → 34: Watchdog dot colour-transition toggle. Backfills the
-  // new `session.ui.watchdogColorTransition` field with `false`
-  // for existing blobs (matching the fresh-install default in
-  // `store/defaults.ts`). The ping-tandem animation is opt-in;
-  // existing users keep the historical sample-driven behaviour
-  // until they flip the toggle. Pure UI preference — engine
-  // behaviour unchanged. See
-  // `AppSettings.session.ui.watchdogColorTransition` in `types.ts`
-  // for the field's full doc.
+  // 38 → 39: Knob-registry domain re-categorisation
+  // (knob-registry-postmortem remediation). The 37 → 38 migration
+  // shipped with `domain: 'qeubo'` on every analysis-env-derived
+  // KnobDecl. That was a category error documented at
+  // `docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`:
+  // `KnobDomain` is a UX taxonomy ("where does this knob live in
+  // the user's mental model"); `'qeubo'` named a consumer identity,
+  // which belongs to `ConsumerClaim.consumerId` and the
+  // `KnobDecl.qeuboControlled` flag. The corrected enum drops
+  // `'qeubo'` and adds `'palette'`.
   //
-  // Idempotent: an existing boolean is preserved unchanged.
+  // This migration rewrites the `domain` field on every
+  // `qeubo.*`-prefixed KnobDecl from `'qeubo'` to `'palette'`. The
+  // KnobDecl IDs themselves keep the `qeubo.` prefix — that's the
+  // naming convention `useQeubo.knobIdForParam` builds, and the
+  // claim machinery already keys on those strings; renaming would
+  // require coordinated rewrites across `ensureKnobDecl`,
+  // `reconcileQeuboKnobs`, `acquireExperimentClaims`, and the
+  // claim Map's keys. The fix is the domain (the UX-presentation
+  // axis), not the id (the substrate-internal handle).
+  //
+  // Idempotent: a decl already at `domain: 'palette'` (or any
+  // non-`'qeubo'` value) is preserved unchanged. Per the
+  // append-only invariant the 37 → 38 migration above is left
+  // frozen as it shipped — the corrected state is reached by
+  // walking forward through this migration, not by retroactively
+  // editing the prior step.
   (blob: any) => {
     const out = structuredClone(blob);
-    const ui = out.session?.ui;
-    if (ui && typeof ui === 'object') {
-      if (typeof ui.watchdogColorTransition !== 'boolean') {
-        ui.watchdogColorTransition = false;
+    const knobs = out.profile?.settings?.knobs;
+    if (knobs && typeof knobs === 'object' && !Array.isArray(knobs)) {
+      const target = knobs as Record<string, unknown>;
+      for (const knobId of Object.keys(target)) {
+        if (!knobId.startsWith('qeubo.')) continue;
+        const decl = target[knobId];
+        if (!decl || typeof decl !== 'object') continue;
+        if ((decl as { domain?: unknown }).domain === 'qeubo') {
+          (decl as { domain?: unknown }).domain = 'palette';
+        }
       }
     }
     return out;
   },
-  // 34 → 35: Card-metadata inline-edit arc 1 backfill on persisted
-  // review queues. Cards fetched FRESH from the backend always
-  // carry `tags: string[]` (the ACL coerces `undefined → []` at the
-  // boundary), but cards persisted in `session.reviews[boardId].queue`
-  // pre-date the arc-1 wire-shape addition and lack the field
-  // entirely. The inline-edit panel (arc 2 consumer) crashes on
-  // `[...card.tags]` when iterating undefined — runtime symptom:
-  // "can't access property Symbol.iterator, props.card.tags is
-  // undefined" caught by `RootErrorBoundary` after starting a
-  // review session against a pre-arc-1 persisted queue.
+  // 39 → 40: Knob-registry Phase 6 magic-literals sweep. Three new
+  // preference-flavoured leaves promoted from inline literals:
   //
-  // Backfill: walk every active review queue's cards and set
-  // `tags: []` on any card missing the field. Idempotent — an
-  // existing array is preserved unchanged. Matches the ACL's
-  // empty-default semantic (the card simply has no tags, which
-  // is what `tags: []` says on the wire).
+  //   (1) `profile.settings.appearance.ownershipDeadbandThreshold`
+  //       default 0.05 — was a `0.05` inline literal in
+  //       BoardWidget.vue's `ownershipColor`. Below this magnitude,
+  //       the territory overlay paints transparent to prevent
+  //       flicker.
+  //   (2) `profile.settings.appearance.livenessThreshold`
+  //       default 0.3 — was `LIVENESS_THRESHOLD = 0.3` const in
+  //       BoardWidget.vue. Stones with engine-disagreement below
+  //       this aren't flagged as dead.
+  //   (3) `profile.settings.engine.katago.watchdogLatencyThresholdMs`
+  //       default 500 — was `WATCHDOG_LATENCY_THRESHOLD_MS = 500`
+  //       const in Toolbar.vue. Latency cutoff for the un-animated
+  //       watchdog's color flip.
+  //
+  // Seeds three corresponding KnobDecls mirroring the defaults-side
+  // fresh-install seed verbatim (display.ownership-deadband-threshold,
+  // display.liveness-threshold, engine.watchdog-latency-threshold-ms).
+  //
+  // Idempotent: each leaf-backfill preserves a pre-existing number;
+  // each KnobDecl seed preserves a pre-existing entry under the
+  // same key (matching the 36 → 37 motivating-scalars migration's
+  // discipline so user-customised label / range edits survive).
+  //
+  // See `BoardWidget.vue::ownershipColor` and
+  // `BoardWidget.vue::livenessColor` for the display-side consumer
+  // retargets, and `Toolbar.vue` for the engine-side one — all
+  // updated in the same commit.
   (blob: any) => {
     const out = structuredClone(blob);
-    const reviews = out.session?.reviews;
-    if (reviews && typeof reviews === 'object') {
-      for (const sessionData of Object.values(reviews as Record<string, unknown>)) {
-        if (!sessionData || typeof sessionData !== 'object') continue;
-        const queue = (sessionData as { queue?: unknown }).queue;
-        if (!Array.isArray(queue)) continue;
-        for (const card of queue) {
-          if (!card || typeof card !== 'object') continue;
-          if (!Array.isArray((card as { tags?: unknown }).tags)) {
-            (card as { tags?: unknown }).tags = [];
+    const settings = out.profile?.settings;
+    if (settings && typeof settings === 'object') {
+      const appearance = (settings as { appearance?: unknown }).appearance;
+      if (appearance && typeof appearance === 'object') {
+        const a = appearance as { ownershipDeadbandThreshold?: unknown; livenessThreshold?: unknown };
+        if (typeof a.ownershipDeadbandThreshold !== 'number') {
+          a.ownershipDeadbandThreshold = 0.05;
+        }
+        if (typeof a.livenessThreshold !== 'number') {
+          a.livenessThreshold = 0.3;
+        }
+      }
+      const katago = (settings as { engine?: { katago?: unknown } }).engine?.katago;
+      if (katago && typeof katago === 'object') {
+        const k = katago as { watchdogLatencyThresholdMs?: unknown };
+        if (typeof k.watchdogLatencyThresholdMs !== 'number') {
+          k.watchdogLatencyThresholdMs = 500;
+        }
+      }
+      const knobs = (settings as { knobs?: unknown }).knobs;
+      if (knobs && typeof knobs === 'object' && !Array.isArray(knobs)) {
+        const seeds: Record<string, unknown> = {
+          'display.ownership-deadband-threshold': {
+            id: 'display.ownership-deadband-threshold',
+            label: 'Ownership overlay dead-band',
+            domain: 'display',
+            inputs: [{ range: [0, 1] }],
+            outputs: [{ path: 'profile.settings.appearance.ownershipDeadbandThreshold' }],
+          },
+          'display.liveness-threshold': {
+            id: 'display.liveness-threshold',
+            label: 'Liveness marker threshold',
+            domain: 'display',
+            inputs: [{ range: [0, 1] }],
+            outputs: [{ path: 'profile.settings.appearance.livenessThreshold' }],
+          },
+          'engine.watchdog-latency-threshold-ms': {
+            id: 'engine.watchdog-latency-threshold-ms',
+            label: 'Watchdog latency threshold (ms)',
+            domain: 'engine',
+            inputs: [{ range: [50, 5000] }],
+            outputs: [{ path: 'profile.settings.engine.katago.watchdogLatencyThresholdMs' }],
+          },
+        };
+        const target = knobs as Record<string, unknown>;
+        for (const key of Object.keys(seeds)) {
+          if (!(key in target)) {
+            target[key] = seeds[key];
           }
         }
       }

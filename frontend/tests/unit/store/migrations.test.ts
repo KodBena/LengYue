@@ -1579,3 +1579,572 @@ describe('34 → 35: tags backfill on persisted review-queue cards', () => {
     expect(out.session.reviews['board-a']).toEqual({});
   });
 });
+
+// ── Per-migration: 35 → 36 ──────────────────────────────────────────
+
+describe('35 → 36: knob-registry substrate seed', () => {
+  it('seeds knobs = {} when the field is absent', () => {
+    const blob: any = { profile: { settings: {} } };
+    const out = step(35)(blob);
+    expect(out.profile.settings.knobs).toEqual({});
+  });
+
+  it('preserves a pre-existing plain-object registry', () => {
+    const blob: any = {
+      profile: {
+        settings: {
+          knobs: { brightness: { id: 'brightness' } },
+        },
+      },
+    };
+    const out = step(35)(blob);
+    expect(out.profile.settings.knobs).toEqual({
+      brightness: { id: 'brightness' },
+    });
+  });
+
+  it('coerces a non-object knobs field to {}', () => {
+    const blob: any = { profile: { settings: { knobs: 'corrupt' } } };
+    const out = step(35)(blob);
+    expect(out.profile.settings.knobs).toEqual({});
+  });
+
+  it('coerces an array knobs field to {} (Records are not arrays)', () => {
+    const blob: any = { profile: { settings: { knobs: [] } } };
+    const out = step(35)(blob);
+    expect(out.profile.settings.knobs).toEqual({});
+  });
+
+  it('is a no-op when profile.settings is absent (defensive)', () => {
+    const blob: any = { profile: {} };
+    const out = step(35)(blob);
+    expect(out.profile).toEqual({});
+  });
+});
+
+// ── Per-migration: 36 → 37 ──────────────────────────────────────────
+
+describe('36 → 37: motivating-scalar promotions (knob-registry Phase 3a)', () => {
+  function blobWithSettings(extra: Record<string, unknown> = {}): any {
+    return {
+      profile: {
+        settings: {
+          appearance: {},
+          engine: { katago: {} },
+          knobs: {},
+          ...extra,
+        },
+      },
+    };
+  }
+
+  it('seeds ownershipOpacityCeiling default 0.55 when absent', () => {
+    const out = step(36)(blobWithSettings());
+    expect(out.profile.settings.appearance.ownershipOpacityCeiling).toBe(0.55);
+  });
+
+  it('preserves a pre-existing ownershipOpacityCeiling value', () => {
+    const blob = blobWithSettings();
+    blob.profile.settings.appearance.ownershipOpacityCeiling = 0.7;
+    const out = step(36)(blob);
+    expect(out.profile.settings.appearance.ownershipOpacityCeiling).toBe(0.7);
+  });
+
+  it('coerces a non-number ownershipOpacityCeiling to 0.55', () => {
+    const blob = blobWithSettings();
+    blob.profile.settings.appearance.ownershipOpacityCeiling = 'corrupt';
+    const out = step(36)(blob);
+    expect(out.profile.settings.appearance.ownershipOpacityCeiling).toBe(0.55);
+  });
+
+  it('seeds watchdogAnimationMs default 500 when absent', () => {
+    const out = step(36)(blobWithSettings());
+    expect(out.profile.settings.engine.katago.watchdogAnimationMs).toBe(500);
+  });
+
+  it('preserves a pre-existing watchdogAnimationMs value', () => {
+    const blob = blobWithSettings();
+    blob.profile.settings.engine.katago.watchdogAnimationMs = 750;
+    const out = step(36)(blob);
+    expect(out.profile.settings.engine.katago.watchdogAnimationMs).toBe(750);
+  });
+
+  it('seeds the four KnobDecls when knobs is empty', () => {
+    const out = step(36)(blobWithSettings());
+    const knobs = out.profile.settings.knobs;
+    expect(Object.keys(knobs).sort()).toEqual([
+      'display.hue-offset',
+      'display.move-filter-threshold',
+      'display.ownership-opacity-ceiling',
+      'engine.watchdog-animation-ms',
+    ]);
+  });
+
+  it('seeds each KnobDecl with the correct output path', () => {
+    const out = step(36)(blobWithSettings());
+    const knobs = out.profile.settings.knobs;
+    expect(knobs['display.ownership-opacity-ceiling'].outputs[0].path).toBe(
+      'profile.settings.appearance.ownershipOpacityCeiling',
+    );
+    expect(knobs['display.move-filter-threshold'].outputs[0].path).toBe(
+      'session.ui.moveFilterThreshold',
+    );
+    expect(knobs['display.hue-offset'].outputs[0].path).toBe(
+      'profile.settings.appearance.intensityHueShift',
+    );
+    expect(knobs['engine.watchdog-animation-ms'].outputs[0].path).toBe(
+      'profile.settings.engine.katago.watchdogAnimationMs',
+    );
+  });
+
+  it('seeds each KnobDecl with the right id, domain, and range', () => {
+    const out = step(36)(blobWithSettings());
+    const knobs = out.profile.settings.knobs;
+    expect(knobs['display.ownership-opacity-ceiling']).toMatchObject({
+      id: 'display.ownership-opacity-ceiling',
+      domain: 'display',
+      inputs: [{ range: [0, 1] }],
+    });
+    expect(knobs['display.move-filter-threshold']).toMatchObject({
+      domain: 'display',
+      inputs: [{ range: [0, 1] }],
+    });
+    expect(knobs['display.hue-offset']).toMatchObject({
+      domain: 'display',
+      inputs: [{ range: [-180, 180] }],
+    });
+    expect(knobs['engine.watchdog-animation-ms']).toMatchObject({
+      domain: 'engine',
+      inputs: [{ range: [50, 5000] }],
+    });
+  });
+
+  it('preserves a pre-existing KnobDecl entry under the same key', () => {
+    const blob = blobWithSettings();
+    blob.profile.settings.knobs['display.hue-offset'] = {
+      id: 'display.hue-offset',
+      label: 'User-customised label',
+      domain: 'display',
+      inputs: [{ range: [-90, 90] }],
+      outputs: [{ path: 'profile.settings.appearance.intensityHueShift' }],
+    };
+    const out = step(36)(blob);
+    expect(out.profile.settings.knobs['display.hue-offset'].label).toBe(
+      'User-customised label',
+    );
+    expect(out.profile.settings.knobs['display.hue-offset'].inputs[0].range).toEqual([
+      -90,
+      90,
+    ]);
+    // The other three seeds still land.
+    expect(
+      out.profile.settings.knobs['display.ownership-opacity-ceiling'],
+    ).toBeDefined();
+  });
+
+  it('is a no-op when profile.settings is absent (defensive)', () => {
+    const blob: any = { profile: {} };
+    const out = step(36)(blob);
+    expect(out.profile).toEqual({});
+  });
+
+  it('skips knob seeds when knobs field is not a plain object', () => {
+    const blob = blobWithSettings();
+    blob.profile.settings.knobs = 'corrupt';
+    const out = step(36)(blob);
+    // Lifts still happen on the new leaves.
+    expect(out.profile.settings.appearance.ownershipOpacityCeiling).toBe(0.55);
+    // Knobs container stays as it was; the 35 → 36 migration is the
+    // one that normalises it.
+    expect(out.profile.settings.knobs).toBe('corrupt');
+  });
+});
+
+// ── Per-migration: 37 → 38 ──────────────────────────────────────────
+
+describe('37 → 38: qEUBO consumer migration (knob-registry Phase 5)', () => {
+  function blobWithEnv(
+    parameterMeta: Record<string, { range?: [number, number]; qeubo_controlled?: boolean }>,
+    knobs: Record<string, unknown> = {},
+  ): any {
+    return {
+      profile: {
+        settings: {
+          engine: {
+            katago: {
+              analysis_env: {
+                parameters: {},
+                parameter_meta: parameterMeta,
+              },
+            },
+          },
+          knobs,
+        },
+      },
+    };
+  }
+
+  it('seeds a KnobDecl for a parameter_meta entry with a valid range', () => {
+    const blob = blobWithEnv({ alpha: { range: [0, 1], qeubo_controlled: true } });
+    const out = step(37)(blob);
+    const decl = out.profile.settings.knobs['qeubo.alpha'];
+    expect(decl).toMatchObject({
+      id: 'qeubo.alpha',
+      label: 'alpha',
+      domain: 'qeubo',
+      inputs: [{ range: [0, 1] }],
+      outputs: [{ path: 'profile.settings.engine.katago.analysis_env.parameters.alpha' }],
+      qeuboControlled: true,
+    });
+  });
+
+  it('mirrors qeubo_controlled === false on the seeded decl', () => {
+    const blob = blobWithEnv({ alpha: { range: [0, 1], qeubo_controlled: false } });
+    const out = step(37)(blob);
+    expect(out.profile.settings.knobs['qeubo.alpha'].qeuboControlled).toBe(false);
+  });
+
+  it('treats missing qeubo_controlled as false', () => {
+    const blob = blobWithEnv({ alpha: { range: [0, 1] } });
+    const out = step(37)(blob);
+    expect(out.profile.settings.knobs['qeubo.alpha'].qeuboControlled).toBe(false);
+  });
+
+  it('skips a parameter_meta entry without a range', () => {
+    const blob = blobWithEnv({ alpha: { qeubo_controlled: true } });
+    const out = step(37)(blob);
+    expect(out.profile.settings.knobs['qeubo.alpha']).toBeUndefined();
+  });
+
+  it('skips a parameter_meta entry with an inverted range (lo >= hi)', () => {
+    const blob = blobWithEnv({ alpha: { range: [1, 0] } });
+    const out = step(37)(blob);
+    expect(out.profile.settings.knobs['qeubo.alpha']).toBeUndefined();
+  });
+
+  it('skips a parameter_meta entry with non-finite range endpoints', () => {
+    const blob = blobWithEnv({
+      bad1: { range: [Number.NaN, 1] as [number, number] },
+      bad2: { range: [0, Number.POSITIVE_INFINITY] as [number, number] },
+    });
+    const out = step(37)(blob);
+    expect(out.profile.settings.knobs['qeubo.bad1']).toBeUndefined();
+    expect(out.profile.settings.knobs['qeubo.bad2']).toBeUndefined();
+  });
+
+  it('seeds multiple entries when several parameters declare valid ranges', () => {
+    const blob = blobWithEnv({
+      alpha: { range: [0, 1], qeubo_controlled: true },
+      beta: { range: [-10, 10], qeubo_controlled: false },
+    });
+    const out = step(37)(blob);
+    expect(Object.keys(out.profile.settings.knobs).sort()).toEqual([
+      'qeubo.alpha',
+      'qeubo.beta',
+    ]);
+  });
+
+  it('preserves a pre-existing decl under the same key', () => {
+    const blob = blobWithEnv(
+      { alpha: { range: [0, 1], qeubo_controlled: true } },
+      {
+        'qeubo.alpha': {
+          id: 'qeubo.alpha',
+          label: 'User-customised label',
+          domain: 'qeubo',
+          inputs: [{ range: [0.1, 0.9] }],
+          outputs: [{ path: 'profile.settings.engine.katago.analysis_env.parameters.alpha' }],
+          qeuboControlled: true,
+        },
+      },
+    );
+    const out = step(37)(blob);
+    expect(out.profile.settings.knobs['qeubo.alpha'].label).toBe(
+      'User-customised label',
+    );
+    expect(out.profile.settings.knobs['qeubo.alpha'].inputs[0].range).toEqual([
+      0.1,
+      0.9,
+    ]);
+  });
+
+  it('is a no-op when analysis_env is absent (defensive)', () => {
+    const blob: any = {
+      profile: { settings: { knobs: {} } },
+    };
+    const out = step(37)(blob);
+    expect(out.profile.settings.knobs).toEqual({});
+  });
+
+  it('is a no-op when parameter_meta is absent', () => {
+    const blob: any = {
+      profile: {
+        settings: {
+          engine: { katago: { analysis_env: { parameters: {} } } },
+          knobs: {},
+        },
+      },
+    };
+    const out = step(37)(blob);
+    expect(out.profile.settings.knobs).toEqual({});
+  });
+
+  it('skips seeding when knobs is not a plain object', () => {
+    const blob = blobWithEnv(
+      { alpha: { range: [0, 1] } },
+      // @ts-expect-error — testing the runtime defensive branch
+      'corrupt',
+    );
+    const out = step(37)(blob);
+    expect(out.profile.settings.knobs).toBe('corrupt');
+  });
+});
+
+// ── Per-migration: 38 → 39 ──────────────────────────────────────────
+
+describe('38 → 39: KnobDomain "qeubo" → "palette" re-categorisation', () => {
+  function blobWithKnobs(knobs: Record<string, unknown>): any {
+    return {
+      profile: { settings: { knobs } },
+    };
+  }
+
+  it('rewrites domain on a qeubo.* decl that was `domain: "qeubo"`', () => {
+    const blob = blobWithKnobs({
+      'qeubo.alpha': {
+        id: 'qeubo.alpha',
+        label: 'alpha',
+        domain: 'qeubo',
+        inputs: [{ range: [0, 1] }],
+        outputs: [{ path: 'profile.settings.engine.katago.analysis_env.parameters.alpha' }],
+        qeuboControlled: true,
+      },
+    });
+    const out = step(38)(blob);
+    expect(out.profile.settings.knobs['qeubo.alpha'].domain).toBe('palette');
+  });
+
+  it('preserves other fields on the rewritten decl', () => {
+    const blob = blobWithKnobs({
+      'qeubo.alpha': {
+        id: 'qeubo.alpha',
+        label: 'alpha-customised',
+        domain: 'qeubo',
+        inputs: [{ range: [0.1, 0.9] }],
+        outputs: [{ path: 'profile.settings.engine.katago.analysis_env.parameters.alpha' }],
+        qeuboControlled: false,
+      },
+    });
+    const out = step(38)(blob);
+    const decl = out.profile.settings.knobs['qeubo.alpha'];
+    expect(decl).toEqual({
+      id: 'qeubo.alpha',
+      label: 'alpha-customised',
+      domain: 'palette',
+      inputs: [{ range: [0.1, 0.9] }],
+      outputs: [{ path: 'profile.settings.engine.katago.analysis_env.parameters.alpha' }],
+      qeuboControlled: false,
+    });
+  });
+
+  it('leaves a qeubo.* decl alone when its domain is already "palette"', () => {
+    const blob = blobWithKnobs({
+      'qeubo.alpha': {
+        id: 'qeubo.alpha',
+        domain: 'palette',
+        inputs: [{ range: [0, 1] }],
+        outputs: [{ path: 'profile.settings.engine.katago.analysis_env.parameters.alpha' }],
+      },
+    });
+    const out = step(38)(blob);
+    expect(out.profile.settings.knobs['qeubo.alpha'].domain).toBe('palette');
+  });
+
+  it('leaves a qeubo.* decl alone when its domain is some other valid value', () => {
+    // Defensive: future hand-edited domains shouldn't be clobbered
+    // by this migration. Only the specific `'qeubo'` → `'palette'`
+    // rewrite is in scope.
+    const blob = blobWithKnobs({
+      'qeubo.alpha': {
+        id: 'qeubo.alpha',
+        domain: 'experimental',
+        inputs: [{ range: [0, 1] }],
+        outputs: [{ path: 'profile.settings.engine.katago.analysis_env.parameters.alpha' }],
+      },
+    });
+    const out = step(38)(blob);
+    expect(out.profile.settings.knobs['qeubo.alpha'].domain).toBe('experimental');
+  });
+
+  it('does not touch non-qeubo.* decls', () => {
+    const blob = blobWithKnobs({
+      'display.hue-offset': {
+        id: 'display.hue-offset',
+        domain: 'display',
+        inputs: [{ range: [-180, 180] }],
+        outputs: [{ path: 'profile.settings.appearance.intensityHueShift' }],
+      },
+    });
+    const out = step(38)(blob);
+    expect(out.profile.settings.knobs['display.hue-offset'].domain).toBe('display');
+  });
+
+  it('rewrites multiple qeubo.* decls in one pass', () => {
+    const blob = blobWithKnobs({
+      'qeubo.alpha': {
+        id: 'qeubo.alpha',
+        domain: 'qeubo',
+        inputs: [{ range: [0, 1] }],
+        outputs: [{ path: 'profile.settings.engine.katago.analysis_env.parameters.alpha' }],
+      },
+      'qeubo.beta': {
+        id: 'qeubo.beta',
+        domain: 'qeubo',
+        inputs: [{ range: [-10, 10] }],
+        outputs: [{ path: 'profile.settings.engine.katago.analysis_env.parameters.beta' }],
+      },
+      'display.brightness': {
+        id: 'display.brightness',
+        domain: 'display',
+        inputs: [{ range: [0, 1] }],
+        outputs: [{ path: 'appearance.brightness' }],
+      },
+    });
+    const out = step(38)(blob);
+    expect(out.profile.settings.knobs['qeubo.alpha'].domain).toBe('palette');
+    expect(out.profile.settings.knobs['qeubo.beta'].domain).toBe('palette');
+    expect(out.profile.settings.knobs['display.brightness'].domain).toBe('display');
+  });
+
+  it('is a no-op when profile.settings.knobs is absent (defensive)', () => {
+    const blob: any = { profile: { settings: {} } };
+    const out = step(38)(blob);
+    expect(out.profile.settings).toEqual({});
+  });
+
+  it('is a no-op when knobs is not a plain object', () => {
+    const blob = blobWithKnobs([] as unknown as Record<string, unknown>);
+    const out = step(38)(blob);
+    expect(out.profile.settings.knobs).toEqual([]);
+  });
+});
+
+// ── Per-migration: 39 → 40 ──────────────────────────────────────────
+
+describe('39 → 40: Phase 6 magic-literals sweep (3 preference scalars)', () => {
+  function blobWithSettings(extra: Record<string, unknown> = {}): any {
+    return {
+      profile: {
+        settings: {
+          appearance: {},
+          engine: { katago: {} },
+          knobs: {},
+          ...extra,
+        },
+      },
+    };
+  }
+
+  it('seeds ownershipDeadbandThreshold default 0.05 when absent', () => {
+    const out = step(39)(blobWithSettings());
+    expect(out.profile.settings.appearance.ownershipDeadbandThreshold).toBe(0.05);
+  });
+
+  it('preserves pre-existing ownershipDeadbandThreshold', () => {
+    const blob = blobWithSettings();
+    blob.profile.settings.appearance.ownershipDeadbandThreshold = 0.1;
+    const out = step(39)(blob);
+    expect(out.profile.settings.appearance.ownershipDeadbandThreshold).toBe(0.1);
+  });
+
+  it('seeds livenessThreshold default 0.3 when absent', () => {
+    const out = step(39)(blobWithSettings());
+    expect(out.profile.settings.appearance.livenessThreshold).toBe(0.3);
+  });
+
+  it('preserves pre-existing livenessThreshold', () => {
+    const blob = blobWithSettings();
+    blob.profile.settings.appearance.livenessThreshold = 0.5;
+    const out = step(39)(blob);
+    expect(out.profile.settings.appearance.livenessThreshold).toBe(0.5);
+  });
+
+  it('seeds watchdogLatencyThresholdMs default 500 when absent', () => {
+    const out = step(39)(blobWithSettings());
+    expect(out.profile.settings.engine.katago.watchdogLatencyThresholdMs).toBe(500);
+  });
+
+  it('preserves pre-existing watchdogLatencyThresholdMs', () => {
+    const blob = blobWithSettings();
+    blob.profile.settings.engine.katago.watchdogLatencyThresholdMs = 750;
+    const out = step(39)(blob);
+    expect(out.profile.settings.engine.katago.watchdogLatencyThresholdMs).toBe(750);
+  });
+
+  it('coerces non-number leaves to defaults', () => {
+    const blob = blobWithSettings();
+    blob.profile.settings.appearance.ownershipDeadbandThreshold = 'corrupt';
+    blob.profile.settings.appearance.livenessThreshold = null;
+    blob.profile.settings.engine.katago.watchdogLatencyThresholdMs = false;
+    const out = step(39)(blob);
+    expect(out.profile.settings.appearance.ownershipDeadbandThreshold).toBe(0.05);
+    expect(out.profile.settings.appearance.livenessThreshold).toBe(0.3);
+    expect(out.profile.settings.engine.katago.watchdogLatencyThresholdMs).toBe(500);
+  });
+
+  it('seeds the three KnobDecls when knobs is empty', () => {
+    const out = step(39)(blobWithSettings());
+    expect(Object.keys(out.profile.settings.knobs).sort()).toEqual([
+      'display.liveness-threshold',
+      'display.ownership-deadband-threshold',
+      'engine.watchdog-latency-threshold-ms',
+    ]);
+  });
+
+  it('seeds each KnobDecl with the correct path and domain', () => {
+    const out = step(39)(blobWithSettings());
+    const knobs = out.profile.settings.knobs;
+    expect(knobs['display.ownership-deadband-threshold']).toMatchObject({
+      id: 'display.ownership-deadband-threshold',
+      domain: 'display',
+      inputs: [{ range: [0, 1] }],
+      outputs: [{ path: 'profile.settings.appearance.ownershipDeadbandThreshold' }],
+    });
+    expect(knobs['display.liveness-threshold']).toMatchObject({
+      id: 'display.liveness-threshold',
+      domain: 'display',
+      inputs: [{ range: [0, 1] }],
+      outputs: [{ path: 'profile.settings.appearance.livenessThreshold' }],
+    });
+    expect(knobs['engine.watchdog-latency-threshold-ms']).toMatchObject({
+      id: 'engine.watchdog-latency-threshold-ms',
+      domain: 'engine',
+      inputs: [{ range: [50, 5000] }],
+      outputs: [{ path: 'profile.settings.engine.katago.watchdogLatencyThresholdMs' }],
+    });
+  });
+
+  it('preserves a pre-existing KnobDecl under the same key', () => {
+    const blob = blobWithSettings();
+    blob.profile.settings.knobs['display.liveness-threshold'] = {
+      id: 'display.liveness-threshold',
+      label: 'User-customised label',
+      domain: 'display',
+      inputs: [{ range: [0.1, 0.9] }],
+      outputs: [{ path: 'profile.settings.appearance.livenessThreshold' }],
+    };
+    const out = step(39)(blob);
+    expect(out.profile.settings.knobs['display.liveness-threshold'].label).toBe(
+      'User-customised label',
+    );
+    // The other two seeds still land.
+    expect(out.profile.settings.knobs['display.ownership-deadband-threshold']).toBeDefined();
+    expect(out.profile.settings.knobs['engine.watchdog-latency-threshold-ms']).toBeDefined();
+  });
+
+  it('is a no-op when profile.settings is absent (defensive)', () => {
+    const blob: any = { profile: {} };
+    const out = step(39)(blob);
+    expect(out.profile).toEqual({});
+  });
+});

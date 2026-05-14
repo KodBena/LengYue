@@ -139,22 +139,17 @@ function purgeLedger() {
       </div>
     </div>
 
-    <!-- ... same as before ... -->
+    <!-- Move-filter slider relocated to the cross-domain knob
+         registry editor (knob-registry Phase 3b + 6 sweep). The
+         eventual home is a toolbar-hover quick-access surface; this
+         stub points users at the current location in the interim. -->
     <div class="analysis-config-box move-filter-box">
       <div class="settings-row">
         <label class="label-with-value">
           <span>{{ $t('analysis.moveFilter') }}</span>
           <span class="value-badge">{{ (store.session.ui.moveFilterThreshold * 100).toFixed(0) }}%</span>
         </label>
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.01"
-          v-model.number="store.session.ui.moveFilterThreshold"
-          class="range-slider"
-        />
-        <p class="hint">{{ $t('analysis.thresholdLabel', { value: store.session.ui.moveFilterThreshold }) }}</p>
+        <p class="hint">{{ $t('analysis.moveFilter.movedNotice') }}</p>
       </div>
     </div>
 

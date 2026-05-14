@@ -285,6 +285,273 @@ export interface AnalysisEnvironment {
   activePaletteId: string;
 }
 
+// ── Knob registry (substrate-level) ───────────────────────────────────────────
+//
+// User-controllable variables in the SPA live in scattered places today
+// (registry editor settings, the Other tab's hue slider, move-filter
+// thresholds, per-card metadata, magic-literals residue). The knob
+// registry is the substrate that brings them under one declaration
+// vocabulary: each controllable variable is a `KnobDecl` declaring its
+// input vector (R^N), output vector (R^K), the transform connecting
+// them, and the widget shape that edits it. Consumers (the SPA UI's
+// editor surfaces, qEUBO when active, autonomous-SR harnesses) sit
+// above the substrate and read/write knobs through a stable interface.
+//
+// Phase 1 ships the type vocabulary, path-walk accessors, the
+// named-transform library, and a seeded-empty registry on the profile.
+// Phase 3+ promotes the originating-riddle scalars onto KnobDecls and
+// wires the cross-domain editor surface. See
+// `docs/notes/knob-registry-plan.md` for the full design.
+
+/** Stable identifier for a registry-declared knob. */
+export type KnobId = Brand<string, 'KnobId'>;
+
+/**
+ * Dot-separated path into the reactive `GlobalStore`, terminating at
+ * a numeric leaf. v1 stays as `string`; the deferred v2 shape is a
+ * `Path<GlobalStore>` discriminated union over the literal dot-paths
+ * the store admits (so a renamed setting fails the typecheck at every
+ * KnobDecl pointing at the old path). Until that lands, startup-time
+ * validation in `src/lib/knobs.ts::validateRegistry` catches stale or
+ * type-mismatched paths at one layer earlier than runtime.
+ */
+export type StorePath = string;
+
+/**
+ * UX taxonomy — categorises a knob by *where it lives in the user's
+ * mental model*, not by *who might claim it*. The latter is
+ * `ConsumerClaim.consumerId` plus `KnobDecl.qeuboControlled`; the
+ * two are deliberately orthogonal per the substrate / consumer
+ * split in `docs/notes/knob-registry-plan.md` §2.
+ *
+ * `'qeubo'` was a value here in the v1 spec; that was a category
+ * error (consumer-name leaking into the domain enum) corrected on
+ * 2026-05-14 — see
+ * `docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`.
+ * `'palette'` is its successor: the analysis-environment / palette
+ * subsystem where `analysis_env.parameter_meta`-derived knobs live.
+ * qEUBO is one consumer that may hold a hard claim on palette
+ * knobs during an experiment; that's `qeuboControlled` territory,
+ * not `KnobDomain` territory.
+ */
+export type KnobDomain =
+  | 'display'
+  | 'engine'
+  | 'review'
+  | 'palette'
+  | 'experimental';
+
+/**
+ * Closed widget enum. The substrate is widget-agnostic — the
+ * `KnobDecl` declares the shape; the editor consumer maps shape to
+ * widget per §6's dispatch policy. The slider widget is scalar-only
+ * (`inputs.length === 1`) by construction; vector knobs require
+ * bespoke widgets per their domain. Adding a new widget is a
+ * frontend code change so dispatch stays exhaustively-checkable.
+ */
+export type KnobWidget =
+  | 'slider'
+  | 'gamut-picker'
+  | 'two-d-pad'
+  | 'matrix-editor';
+
+/** One dimension of a knob's input vector. */
+export interface KnobInputDecl {
+  readonly range: readonly [number, number];
+  /**
+   * Optional sub-identifier disambiguating the dimensions of a
+   * multi-input knob. When this knob is qEUBO-controlled the
+   * wire key is `${id}.${subId}` per the predecessor plan's
+   * encoding; for manual-only knobs the sub-identifier is editor
+   * metadata only.
+   */
+  readonly subId?: string;
+  readonly label?: string;
+}
+
+/**
+ * One dimension of a knob's output vector. The path resolves into
+ * the reactive store; `writeKnob` walks it and writes through Vue's
+ * reactivity so downstream consumers (CSS variables, watchers, etc.)
+ * respond the same way they do to manual edits.
+ */
+export interface KnobOutputDecl {
+  readonly path: StorePath;
+  readonly label?: string;
+}
+
+/**
+ * Named transforms from the input vector (R^N) to the output vector
+ * (R^K). Discriminated by `kind` so dispatch is exhaustively checked.
+ * Parameter data the transform needs (the linear coefficient matrix,
+ * the hue anchors, the luminance-arc waypoints) lives on the
+ * discriminant itself rather than as code — adding a new instance is
+ * a runtime data change, not a code change. The closed set of
+ * `kind`s is what stays exhaustive.
+ */
+export type KnobTransform =
+  | { readonly kind: 'identity' }
+  | {
+      readonly kind: 'linear';
+      /** `K × N` coefficient matrix. `output[k] = Σ_n coefficients[k][n] * input[n]`. */
+      readonly coefficients: readonly (readonly number[])[];
+    }
+  | {
+      readonly kind: 'lockstep-hue-rotate';
+      /**
+       * Length-K vector of base hue anchors in degrees [0, 360). A
+       * scalar input rotates every anchor by the same offset modulo
+       * 360. Drives the theme-anchor case the predecessor plan
+       * articulates.
+       */
+      readonly anchors: readonly number[];
+    }
+  | {
+      readonly kind: 'fixed-luminance-arc';
+      /**
+       * Sequence of waypoints in the K-dimensional output space.
+       * A scalar input in [0, 1] interpolates linearly through the
+       * waypoints (with `t = 0` at `waypoints[0]`, `t = 1` at
+       * `waypoints[waypoints.length - 1]`). Phase 1 uses linear
+       * interpolation as the simplest correct implementation; a
+       * later phase may refine to a perceptually-coherent arc
+       * preserving CIELab luminance.
+       */
+      readonly waypoints: readonly (readonly number[])[];
+    };
+
+/** A registry-declared user-controllable variable. */
+export interface KnobDecl {
+  readonly id: KnobId;
+  readonly label?: string;
+  readonly domain: KnobDomain;
+  readonly inputs: readonly KnobInputDecl[];
+  readonly outputs: readonly KnobOutputDecl[];
+  /**
+   * Defaults to `{ kind: 'identity' }` when `inputs.length ===
+   * outputs.length` and no transform is specified.
+   */
+  readonly transform?: KnobTransform;
+  /**
+   * Editor-side hint. Absent → derive from `inputs.length` plus
+   * transform per the §6 dispatch policy.
+   */
+  readonly widget?: KnobWidget;
+  /**
+   * When `true` AND a qEUBO experiment is active, this knob
+   * participates in the optimizer's search. When `false` or absent,
+   * the knob is user-controlled-only.
+   */
+  readonly qeuboControlled?: boolean;
+}
+
+/**
+ * The persisted registry. Keyed by `KnobId` (as a string at the
+ * `Record` type level; runtime values carry the brand). Phase 1
+ * seeds empty; Phase 3+ populates as scalars promote off of
+ * inline literals.
+ */
+export type KnobRegistry = Record<string, KnobDecl>;
+
+/** Claim policy in the per-knob ownership state machine (§7). */
+export type ClaimPolicy = 'hard' | 'soft';
+
+/**
+ * Active claim record held by a non-UI consumer (qEUBO during an
+ * experiment, an autonomous-SR scenario, a test harness). Claims
+ * are runtime-only — they live in the substrate's in-memory state,
+ * never in the persisted profile.
+ */
+export interface ConsumerClaim {
+  readonly consumerId: string;
+  readonly policy: ClaimPolicy;
+  /** Human-readable; surfaced in disabled-slider tooltips. */
+  readonly reason?: string;
+}
+
+/** Return value of `claimKnob`. First-come-first-served arbitration. */
+export type ClaimResult =
+  | { readonly kind: 'acquired' }
+  | {
+      readonly kind: 'rejected';
+      readonly reason: 'already-claimed';
+      readonly holder: ConsumerClaim;
+    };
+
+/** Return value of `releaseKnob`. Only the holding consumer may release. */
+export type ReleaseResult =
+  | { readonly kind: 'released' }
+  | {
+      readonly kind: 'rejected';
+      readonly reason: 'not-claim-holder';
+      readonly holder: ConsumerClaim | null;
+    };
+
+/**
+ * Caller identity for `writeKnobValue` — drives the per-state policy
+ * dispatch. The SPA UI passes `{ kind: 'manual' }`; non-UI consumers
+ * (qEUBO, autonomous-SR, test harnesses) pass their consumer id so
+ * the substrate can verify they hold the claim.
+ */
+export type WriteContext =
+  | { readonly kind: 'manual' }
+  | { readonly kind: 'consumer'; readonly consumerId: string };
+
+/**
+ * Outcome of a policy-aware write. The four variants name the
+ * states the substrate distinguishes:
+ *
+ *   - `written`: the write succeeded against an unclaimed knob, or
+ *     a soft-claimed knob held by the writer, or a hard-claimed
+ *     knob held by the writer. No side effects beyond the store
+ *     mutation.
+ *   - `written-after-soft-release`: a manual write on a soft-claimed
+ *     knob; the substrate released the soft claim on the user's
+ *     behalf (firing the standard claim-change event) before
+ *     performing the write. The replaced claim is named so
+ *     consumers can react.
+ *   - `refused` / `hard-claim-held`: a manual write or a non-holder
+ *     consumer write attempted against a hard-claimed knob. The
+ *     store is unchanged.
+ *   - `refused` / `consumer-not-claim-holder`: a consumer write
+ *     attempted without holding the knob's claim. The store is
+ *     unchanged. `activeClaim` names the current holder (null if
+ *     unclaimed — consumer writes always require an active claim).
+ */
+export type WriteResult =
+  | { readonly kind: 'written' }
+  | {
+      readonly kind: 'written-after-soft-release';
+      readonly releasedHolder: ConsumerClaim;
+    }
+  | {
+      readonly kind: 'refused';
+      readonly reason: 'hard-claim-held';
+      readonly holder: ConsumerClaim;
+    }
+  | {
+      readonly kind: 'refused';
+      readonly reason: 'consumer-not-claim-holder';
+      readonly activeClaim: ConsumerClaim | null;
+    };
+
+/** Single argument to `ClaimChangeListener`. */
+export interface ClaimChangeEvent {
+  readonly knobId: KnobId;
+  readonly previous: ConsumerClaim | null;
+  readonly next: ConsumerClaim | null;
+}
+
+/**
+ * Callback registered through `onClaimChange`. Fires synchronously
+ * on every claim transition (claim, release, soft-release fallout
+ * from a manual write).
+ */
+export type ClaimChangeListener = (event: ClaimChangeEvent) => void;
+
+/** Returned by every `on…` subscriber registration. */
+export type UnsubscribeFn = () => void;
+
 // ── qEUBO calibration domain types ────────────────────────────────────────────
 //
 // Camel-case projections of the wire shapes documented in
@@ -546,6 +813,36 @@ export interface AppSettings {
       // Schema-version 31 introduces this field; the migration
       // backfills 2,000,000 on existing blobs.
       ponderMaxVisits: number;
+      /**
+       * Watchdog ping-tandem keyframe duration in milliseconds
+       * (knob-registry Phase 3a). The CSS keyframe in
+       * `Toolbar.vue::.watchdog-dot.watchdog-pinging` animates
+       * green → red over this duration when a ping is in flight,
+       * via a `--watchdog-animation-ms` CSS custom property bound
+       * to this leaf. Promoted from the hardcoded keyframe
+       * duration; the `engine.watchdog-animation-ms` KnobDecl
+       * drives it. Schema-version 36 → 37 backfills the field;
+       * default 500.
+       */
+      watchdogAnimationMs: number;
+      /**
+       * Watchdog latency-threshold in milliseconds (knob-registry
+       * Phase 6 sweep). In the un-animated watchdog mode (when
+       * `session.ui.watchdogColorTransition` is false), the dot
+       * flips red when the most-recent ping's round-trip latency
+       * exceeds this value. In the animated mode the threshold is
+       * conceptually independent — the keyframe sweeps over
+       * `watchdogAnimationMs` regardless — but historically the
+       * two defaulted to the same 500 ms by design, tying the
+       * animation's full-saturation moment to "the engine is
+       * taking long enough to be concerning." Users on slow
+       * networks can raise this to avoid spurious red-flash;
+       * users wanting tighter latency feedback can lower it.
+       * Promoted from `Toolbar.vue`'s prior
+       * `WATCHDOG_LATENCY_THRESHOLD_MS` const. Default 500;
+       * range [50, 5000]. Schema-version 39 → 40 backfills.
+       */
+      watchdogLatencyThresholdMs: number;
       // Engine-side runtime overrides forwarded verbatim to KataGo as
       // the Analysis Engine's `overrideSettings` field. Documented at
       // the wire-shape boundary on `KataGoAnalysisQuery` in
@@ -592,6 +889,37 @@ export interface AppSettings {
     // readability; users with different colour-vision profiles can
     // adjust via the slider in the Gradient Calibration view.
     intensityHueShift: number;
+    /**
+     * Ceiling on the territory-overlay opacity (knob-registry Phase 3a).
+     * `BoardWidget.vue::ownershipColor` caps the rendered opacity at
+     * this value so even fully-owned points don't visually dominate
+     * the board grid and stones beneath. Promoted from a hardcoded
+     * 0.55 literal to a registry leaf; the `display.ownership-opacity-ceiling`
+     * KnobDecl drives it. Default 0.55 (matches the prior literal so
+     * the promotion is behaviourally invisible until the user adjusts).
+     * Schema-version 36 → 37 backfills the field.
+     */
+    ownershipOpacityCeiling: number;
+    /**
+     * Dead-band threshold for the territory overlay (knob-registry
+     * Phase 6 sweep). Below this absolute magnitude the engine's
+     * ownership signal is too weak to render — paints transparent
+     * to prevent flicker as confidence wavers around 0. Default
+     * 0.05; range [0, 1]. Promoted from `BoardWidget.vue::ownershipColor`'s
+     * prior `if (mag < 0.05)` literal. Schema-version 39 → 40
+     * backfills the field.
+     */
+    ownershipDeadbandThreshold: number;
+    /**
+     * Liveness-marker threshold (knob-registry Phase 6 sweep).
+     * Stones with engine-disagreement magnitude below this aren't
+     * flagged as dead; below it the engine is genuinely undecided
+     * about the region and the highlight would flicker as packets
+     * arrive. Default 0.3; range [0, 1]. Promoted from
+     * `BoardWidget.vue`'s prior `LIVENESS_THRESHOLD` const.
+     * Schema-version 39 → 40 backfills the field.
+     */
+    livenessThreshold: number;
     // Active UI locale. Mirrored onto `<html lang="...">` and
     // `i18n.global.locale.value` by useAppBootstrap. Schema-version
     // 24 introduces this field; the migration backfills existing
@@ -611,6 +939,17 @@ export interface AppSettings {
   };
   minting: MintingSettings;
   navigation: NavigationSettings;
+  /**
+   * User-controllable-variable registry. Each entry is a `KnobDecl`
+   * declaring the input/output vector, transform, and editor widget
+   * for one controllable variable. Phase 1 of the knob-registry arc
+   * seeds this empty; later phases populate it as the cross-domain
+   * editor and promotion sweep land. The empty-default + idempotent
+   * migration shape means existing consumers see a no-op until a
+   * KnobDecl points at a path they read. See
+   * `docs/notes/knob-registry-plan.md` for the design.
+   */
+  knobs: KnobRegistry;
 }
 
 export interface UISession {

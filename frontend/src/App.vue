@@ -53,6 +53,7 @@ import LocalePicker     from './components/chrome/LocalePicker.vue';
 import { useReviewSession } from './composables/review/useReviewSession';
 import ColorDebugStrip  from './components/charts/ColorDebugStrip.vue';
 import QeuboBookmarks   from './components/qeubo/QeuboBookmarks.vue';
+import KnobRegistryEditor from './components/KnobRegistryEditor.vue';
 
 useUserIORegistry();
 
@@ -426,21 +427,11 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
             <template #other>
               <div class="tab-padding">
-                <h3 class="sub-header">{{ $t('other.section.gradientCalibration') }}</h3>
-                <div class="hue-slider-row">
-                  <label class="hue-slider-label">
-                    <span>{{ $t('other.label.hueOffset') }}</span>
-                    <span class="hue-slider-value">{{ store.profile.settings.appearance.intensityHueShift }}°</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="-180"
-                    max="180"
-                    step="1"
-                    v-model.number="store.profile.settings.appearance.intensityHueShift"
-                    class="hue-slider-input"
-                  />
-                </div>
+                <h3 class="sub-header">{{ $t('other.section.knobRegistry') }}</h3>
+                <KnobRegistryEditor />
+
+                <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.gradientCalibration') }}</h3>
+                <p class="hue-slider-hint">{{ $t('other.label.gradientCalibrationNotice') }}</p>
                 <ColorDebugStrip :steps="500" />
 
                 <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.qeuboBookmarks') }}</h3>
@@ -603,8 +594,9 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 }
 .visits-input:focus { border-color: var(--accent-primary); }
 
-.hue-slider-row { display: flex; flex-direction: column; gap: var(--space-tight); margin-bottom: var(--space-default); }
-.hue-slider-label { display: flex; justify-content: space-between; align-items: center; font-size: var(--text-body); color: var(--text-1); text-transform: uppercase; letter-spacing: var(--tracking-tight); }
-.hue-slider-value { background: var(--surface-3); padding: 0 var(--space-default); border-radius: var(--radius-default); color: var(--accent-primary); font-family: monospace; }
-.hue-slider-input { width: 100%; accent-color: var(--accent-primary); cursor: pointer; }
+/* Gradient-calibration notice (the hue-offset slider lifted into
+   the cross-domain knob registry; see Other-tab Knob Registry's
+   Display group). The preview strip below stays — it's the
+   calibration view the slider feeds. */
+.hue-slider-hint { font-size: var(--text-body); color: var(--text-1); margin: 0 0 var(--space-default) 0; }
 </style>

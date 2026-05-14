@@ -4,11 +4,12 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQeubo } from '../../composables/useQeubo';
 import { pushSystemMessage } from '../../store';
-import type { AnalysisEnvironment, AnalysisPalette, ParameterMeta } from '../../types';
+import { currentClaim, onClaimChange } from '../../lib/knobs';
+import type { AnalysisEnvironment, AnalysisPalette, ConsumerClaim, KnobId, ParameterMeta } from '../../types';
 
 const { t } = useI18n();
 
@@ -85,10 +86,78 @@ function addParameter() {
 
 function updateParameterValue(val: number) {
   if (selectedType.value !== 'parameter') return;
+  // Knob-registry Phase 6: respect the substrate's hard claim. When
+  // a qEUBO experiment is running, the parameter's KnobDecl is
+  // hard-claimed and manual writes must be refused per ADR-0002.
+  // The input is also rendered `:disabled` via `parameterValueDisabled`,
+  // so this guard is the belt-and-braces backstop for programmatic
+  // edits and the rare race window between claim acquisition and
+  // re-render. Skipping the commit (rather than throwing) matches the
+  // KnobSlider's behaviour — the substrate-side WriteResult would be
+  // `refused`/`hard-claim-held`, surfaced as a user-visible message
+  // and a no-op on the underlying store.
+  const knobId = `qeubo.${selectedId.value}` as KnobId;
+  const claim = currentClaim(knobId);
+  if (claim?.policy === 'hard') {
+    pushSystemMessage(
+      'warning',
+      t('palette.systemMessage.parameterLocked', {
+        name: selectedId.value,
+        holder: claim.consumerId,
+      }),
+    );
+    return;
+  }
   const next = getClone();
   next.parameters[selectedId.value] = val;
   commit(next);
 }
+
+// ── Substrate-claim reactivity for the parameter-value input ───────
+//
+// Mirrors the same pattern KnobSlider.vue uses: derive the relevant
+// KnobId from the current selection, subscribe to claim changes
+// once, and update a local ref the template binds to. The
+// substrate's claim machinery is in-memory and not part of the
+// reactive store, so a watcher / subscriber is the bridge that
+// makes the template re-render on transitions.
+
+const selectedParameterKnobId = computed<KnobId | null>(() =>
+  selectedType.value === 'parameter'
+    ? (`qeubo.${selectedId.value}` as KnobId)
+    : null,
+);
+
+const selectedParameterClaim = ref<ConsumerClaim | null>(null);
+
+watch(
+  selectedParameterKnobId,
+  (knobId) => {
+    selectedParameterClaim.value = knobId ? currentClaim(knobId) : null;
+  },
+  { immediate: true },
+);
+
+const unsubscribeClaim = onClaimChange((event) => {
+  if (selectedParameterKnobId.value === event.knobId) {
+    selectedParameterClaim.value = event.next;
+  }
+});
+onUnmounted(unsubscribeClaim);
+
+const parameterValueDisabled = computed<boolean>(
+  () => selectedParameterClaim.value?.policy === 'hard',
+);
+
+const parameterValueDisabledTitle = computed<string>(() => {
+  if (!parameterValueDisabled.value) return '';
+  const c = selectedParameterClaim.value!;
+  const reason = c.reason ? ` (${c.reason})` : '';
+  return t('palette.tooltip.parameterLocked', {
+    holder: c.consumerId,
+    reason,
+  });
+});
 
 // ── Parameter meta editing (qEUBO calibration) ─────────────────────
 //
@@ -344,6 +413,8 @@ function deleteItem() {
             step="0.01"
             class="dark-input"
             :value="env.parameters[selectedId]"
+            :disabled="parameterValueDisabled"
+            :title="parameterValueDisabledTitle"
             @input="(e: any) => updateParameterValue(Number(e.target.value))"
           />
 
