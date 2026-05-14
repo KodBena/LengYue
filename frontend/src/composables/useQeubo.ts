@@ -160,7 +160,14 @@ function ensureKnobDecl(name: string, range: readonly [number, number]): KnobId 
     registry[knobId] = {
       id: knobId,
       label: name,
-      domain: 'qeubo',
+      // Analysis-env parameters live in the palette domain — the
+      // editor's UX taxonomy answer to "where does this knob belong
+      // in the user's mental model". qEUBO is one consumer that
+      // *may* claim these knobs during experiments; that's
+      // `qeuboControlled` + the claim API, not `KnobDomain`. The
+      // earlier `domain: 'qeubo'` was a category error documented
+      // at `docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`.
+      domain: 'palette',
       inputs: [{ range: [range[0], range[1]] }],
       outputs: [{
         path: `profile.settings.engine.katago.analysis_env.parameters.${name}`,
@@ -222,6 +229,7 @@ function reconcileQeuboKnobs(): void {
     const existing = knobs[knobId];
     if (
       existing &&
+      existing.domain === 'palette' &&
       existing.inputs[0]?.range[0] === range[0] &&
       existing.inputs[0]?.range[1] === range[1] &&
       (existing.qeuboControlled === true) === qeuboControlled
@@ -231,7 +239,13 @@ function reconcileQeuboKnobs(): void {
     knobs[knobId] = {
       id: knobId,
       label: name,
-      domain: 'qeubo',
+      // Palette domain (see ensureKnobDecl above for the rationale
+      // and the postmortem reference). The short-circuit includes
+      // `domain === 'palette'` so a stale `domain: 'qeubo'` decl
+      // surviving from a pre-remediation migration falls through
+      // and gets rewritten — defense-in-depth for the 38 → 39
+      // migration's idempotence guarantee.
+      domain: 'palette',
       inputs: [{ range: [range[0], range[1]] }],
       outputs: [{
         path: `profile.settings.engine.katago.analysis_env.parameters.${name}`,

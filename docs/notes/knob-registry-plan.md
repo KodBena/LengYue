@@ -25,6 +25,77 @@ than the qEUBO-driven shape its predecessor implied.
 
 ---
 
+## Amendment — 2026-05-14: `KnobDomain` enum correction
+
+Per ADR-0005 Rule 8 (sibling revisions over silent edits): the
+`KnobDomain` enum named in §3 below carries a category error.
+The body of §3 is preserved as written for historical fidelity;
+**the corrected enum and its rationale live in this amendment**,
+and Phase 1 / 3a / 5 / 6 code already implements §3 as
+originally written. The correction shipped as a remediation
+commit on the `KodBena/feat/knob-registry` branch immediately
+after the postmortem.
+
+**What §3 below says (incorrect):**
+
+```ts
+domain: 'display' | 'engine' | 'review' | 'qeubo' | 'experimental';
+```
+
+**What `src/types.ts` carries post-remediation (correct):**
+
+```ts
+domain: 'display' | 'engine' | 'review' | 'palette' | 'experimental';
+```
+
+**Why.** `KnobDomain` answers "where does this knob live in the
+user's mental model" — a UX taxonomy. `'qeubo'` named a
+*consumer identity* (the same value used as
+`ConsumerClaim.consumerId` in the claim API per §7). Mixing the
+two on one enum collapsed the substrate-vs-consumer split this
+note's §2 was shaped around. `'palette'` is the right successor
+for analysis-environment parameters; qEUBO's involvement is
+expressed by `KnobDecl.qeuboControlled: boolean` (already
+correct in §3) and the claim API (already correct in §7).
+
+**Full chain and lessons learned** in
+`docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`,
+filed 2026-05-14. The contributing factors include both
+spec-side (the enum shipped without §3 articulating what
+`KnobDomain` is *for*, leaving `'qeubo'` unchallenged) and
+implementation-side (closest-match enum selection that should
+have flagged the missing category at Phase 5 implementation
+time).
+
+**Scope of the remediation commit:**
+
+- `src/types.ts` — `KnobDomain` corrected.
+- Migration 38 → 39 — rewrites every `qeubo.*` decl's
+  `domain: 'qeubo'` to `'palette'`. Idempotent. The 37 → 38
+  migration is left frozen per the append-only invariant; the
+  walker reaches the corrected state at 38 → 39.
+- `src/composables/useQeubo.ts` — `ensureKnobDecl` and
+  `reconcileQeuboKnobs` produce `'palette'`. The reconcile
+  short-circuit was extended to compare `domain` so stale
+  decls are self-healed.
+- i18n catalogs (en / ja / ko / zh-CN) — dropped
+  `knobRegistry.domain.qeubo`, added `knobRegistry.domain.palette`.
+- Tests — `tests/unit/store/migrations.test.ts` gains a 38 → 39
+  describe block; `tests/integration/qeubo-knob-reconcile.test.ts`
+  expects `'palette'` from reconcile output and exercises the
+  stale-domain self-heal path.
+
+The remediation does **not** rename the `qeubo.<name>`
+KnobDecl id convention. The id is a substrate-internal handle
+keyed by `useQeubo.knobIdForParam`; the rename surface would
+touch `ensureKnobDecl`, `reconcileQeuboKnobs`,
+`acquireExperimentClaims`, the claim Map's keys, and a coordinated
+migration — all out of scope for fixing a UX-taxonomy bug. The
+domain is the visible axis; the id stays as a substrate
+implementation detail.
+
+---
+
 ## 1. Motivation
 
 User-controllable variables in the SPA today live in scattered

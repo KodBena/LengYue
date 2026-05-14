@@ -29,7 +29,7 @@
   "knobRegistry.domain.display":          "显示",
   "knobRegistry.domain.engine":           "引擎",
   "knobRegistry.domain.review":           "复习",
-  "knobRegistry.domain.qeubo":            "qEUBO",
+  "knobRegistry.domain.palette":          "调色板",
   "knobRegistry.domain.experimental":     "实验性",
 
   "cards.tab.decks":                      "卡组",

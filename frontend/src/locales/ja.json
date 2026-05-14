@@ -29,7 +29,7 @@
   "knobRegistry.domain.display":          "表示",
   "knobRegistry.domain.engine":           "エンジン",
   "knobRegistry.domain.review":           "レビュー",
-  "knobRegistry.domain.qeubo":            "qEUBO",
+  "knobRegistry.domain.palette":          "パレット",
   "knobRegistry.domain.experimental":     "実験的",
 
   "cards.tab.decks":                      "デッキ",

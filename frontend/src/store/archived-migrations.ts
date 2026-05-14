@@ -5,9 +5,9 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-05-14: migrations 1 → 2 through 35 → 36 (35
+ * Scope as of 2026-05-14: migrations 1 → 2 through 36 → 37 (36
  * entries). The first eight covered pre-v1.0.0 schema evolution;
- * the next twenty-seven are the v1.0.x – v1.1.x active cycle. Both
+ * the next twenty-eight are the v1.0.x – v1.1.x active cycle. Both
  * are now consolidated here under the same archive contract.
  *
  * Why preserved (not deleted): the migration framework's `migrate()`
@@ -1462,6 +1462,95 @@ export const archivedMigrations: Migration[] = [
         !Array.isArray(existing);
       if (!isPlainObject) {
         (settings as { knobs?: unknown }).knobs = {};
+      }
+    }
+    return out;
+  },
+  // 36 → 37: Knob-registry Phase 3a — motivating-scalar promotions.
+  // Two halves:
+  //
+  //  (1) Lift two new leaves that were previously hardcoded inline:
+  //      - `profile.settings.appearance.ownershipOpacityCeiling`
+  //        (default 0.55, matches the prior BoardWidget.vue literal)
+  //      - `profile.settings.engine.katago.watchdogAnimationMs`
+  //        (default 500, matches the prior Toolbar.vue keyframe).
+  //
+  //  (2) Seed four KnobDecls into `profile.settings.knobs` pointing
+  //      at the lifted leaves plus two existing leaves already on
+  //      the profile (`appearance.intensityHueShift` and
+  //      `session.ui.moveFilterThreshold`):
+  //      - 'display.ownership-opacity-ceiling'
+  //      - 'display.move-filter-threshold'
+  //      - 'display.hue-offset'
+  //      - 'engine.watchdog-animation-ms'
+  //
+  // Decl shapes mirror the fresh-install seed in `store/defaults.ts`
+  // verbatim. Each KnobDecl seed is idempotent — a pre-existing
+  // entry under the same key is preserved unchanged (the user may
+  // have edited it through a future editor surface).
+  //
+  // See `docs/notes/knob-registry-plan.md` §11 Phase 3 for the
+  // promotion rationale; `BoardWidget.vue::ownershipColor` and
+  // `Toolbar.vue::.watchdog-pinging` are the corresponding consumer
+  // retargets in the same PR.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const settings = out.profile?.settings;
+    if (settings && typeof settings === 'object') {
+      // 1a. Ownership opacity ceiling.
+      const appearance = (settings as { appearance?: unknown }).appearance;
+      if (appearance && typeof appearance === 'object') {
+        if (typeof (appearance as { ownershipOpacityCeiling?: unknown }).ownershipOpacityCeiling !== 'number') {
+          (appearance as { ownershipOpacityCeiling?: unknown }).ownershipOpacityCeiling = 0.55;
+        }
+      }
+      // 1b. Watchdog animation duration (ms).
+      const katago = (settings as { engine?: { katago?: unknown } }).engine?.katago;
+      if (katago && typeof katago === 'object') {
+        if (typeof (katago as { watchdogAnimationMs?: unknown }).watchdogAnimationMs !== 'number') {
+          (katago as { watchdogAnimationMs?: unknown }).watchdogAnimationMs = 500;
+        }
+      }
+      // 2. KnobDecl seeds. `knobs` is `{}` after the 35 → 36
+      //    migration; idempotent on a partially-populated map.
+      const knobs = (settings as { knobs?: unknown }).knobs;
+      if (knobs && typeof knobs === 'object' && !Array.isArray(knobs)) {
+        const seeds: Record<string, unknown> = {
+          'display.ownership-opacity-ceiling': {
+            id: 'display.ownership-opacity-ceiling',
+            label: 'Ownership overlay opacity',
+            domain: 'display',
+            inputs: [{ range: [0, 1] }],
+            outputs: [{ path: 'profile.settings.appearance.ownershipOpacityCeiling' }],
+          },
+          'display.move-filter-threshold': {
+            id: 'display.move-filter-threshold',
+            label: 'Move-suggestion filter threshold',
+            domain: 'display',
+            inputs: [{ range: [0, 1] }],
+            outputs: [{ path: 'session.ui.moveFilterThreshold' }],
+          },
+          'display.hue-offset': {
+            id: 'display.hue-offset',
+            label: 'Hue offset',
+            domain: 'display',
+            inputs: [{ range: [-180, 180] }],
+            outputs: [{ path: 'profile.settings.appearance.intensityHueShift' }],
+          },
+          'engine.watchdog-animation-ms': {
+            id: 'engine.watchdog-animation-ms',
+            label: 'Watchdog animation duration (ms)',
+            domain: 'engine',
+            inputs: [{ range: [50, 5000] }],
+            outputs: [{ path: 'profile.settings.engine.katago.watchdogAnimationMs' }],
+          },
+        };
+        const target = knobs as Record<string, unknown>;
+        for (const key of Object.keys(seeds)) {
+          if (!(key in target)) {
+            target[key] = seeds[key];
+          }
+        }
       }
     }
     return out;

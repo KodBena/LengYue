@@ -1899,3 +1899,132 @@ describe('37 → 38: qEUBO consumer migration (knob-registry Phase 5)', () => {
     expect(out.profile.settings.knobs).toBe('corrupt');
   });
 });
+
+// ── Per-migration: 38 → 39 ──────────────────────────────────────────
+
+describe('38 → 39: KnobDomain "qeubo" → "palette" re-categorisation', () => {
+  function blobWithKnobs(knobs: Record<string, unknown>): any {
+    return {
+      profile: { settings: { knobs } },
+    };
+  }
+
+  it('rewrites domain on a qeubo.* decl that was `domain: "qeubo"`', () => {
+    const blob = blobWithKnobs({
+      'qeubo.alpha': {
+        id: 'qeubo.alpha',
+        label: 'alpha',
+        domain: 'qeubo',
+        inputs: [{ range: [0, 1] }],
+        outputs: [{ path: 'profile.settings.engine.katago.analysis_env.parameters.alpha' }],
+        qeuboControlled: true,
+      },
+    });
+    const out = step(38)(blob);
+    expect(out.profile.settings.knobs['qeubo.alpha'].domain).toBe('palette');
+  });
+
+  it('preserves other fields on the rewritten decl', () => {
+    const blob = blobWithKnobs({
+      'qeubo.alpha': {
+        id: 'qeubo.alpha',
+        label: 'alpha-customised',
+        domain: 'qeubo',
+        inputs: [{ range: [0.1, 0.9] }],
+        outputs: [{ path: 'profile.settings.engine.katago.analysis_env.parameters.alpha' }],
+        qeuboControlled: false,
+      },
+    });
+    const out = step(38)(blob);
+    const decl = out.profile.settings.knobs['qeubo.alpha'];
+    expect(decl).toEqual({
+      id: 'qeubo.alpha',
+      label: 'alpha-customised',
+      domain: 'palette',
+      inputs: [{ range: [0.1, 0.9] }],
+      outputs: [{ path: 'profile.settings.engine.katago.analysis_env.parameters.alpha' }],
+      qeuboControlled: false,
+    });
+  });
+
+  it('leaves a qeubo.* decl alone when its domain is already "palette"', () => {
+    const blob = blobWithKnobs({
+      'qeubo.alpha': {
+        id: 'qeubo.alpha',
+        domain: 'palette',
+        inputs: [{ range: [0, 1] }],
+        outputs: [{ path: 'profile.settings.engine.katago.analysis_env.parameters.alpha' }],
+      },
+    });
+    const out = step(38)(blob);
+    expect(out.profile.settings.knobs['qeubo.alpha'].domain).toBe('palette');
+  });
+
+  it('leaves a qeubo.* decl alone when its domain is some other valid value', () => {
+    // Defensive: future hand-edited domains shouldn't be clobbered
+    // by this migration. Only the specific `'qeubo'` → `'palette'`
+    // rewrite is in scope.
+    const blob = blobWithKnobs({
+      'qeubo.alpha': {
+        id: 'qeubo.alpha',
+        domain: 'experimental',
+        inputs: [{ range: [0, 1] }],
+        outputs: [{ path: 'profile.settings.engine.katago.analysis_env.parameters.alpha' }],
+      },
+    });
+    const out = step(38)(blob);
+    expect(out.profile.settings.knobs['qeubo.alpha'].domain).toBe('experimental');
+  });
+
+  it('does not touch non-qeubo.* decls', () => {
+    const blob = blobWithKnobs({
+      'display.hue-offset': {
+        id: 'display.hue-offset',
+        domain: 'display',
+        inputs: [{ range: [-180, 180] }],
+        outputs: [{ path: 'profile.settings.appearance.intensityHueShift' }],
+      },
+    });
+    const out = step(38)(blob);
+    expect(out.profile.settings.knobs['display.hue-offset'].domain).toBe('display');
+  });
+
+  it('rewrites multiple qeubo.* decls in one pass', () => {
+    const blob = blobWithKnobs({
+      'qeubo.alpha': {
+        id: 'qeubo.alpha',
+        domain: 'qeubo',
+        inputs: [{ range: [0, 1] }],
+        outputs: [{ path: 'profile.settings.engine.katago.analysis_env.parameters.alpha' }],
+      },
+      'qeubo.beta': {
+        id: 'qeubo.beta',
+        domain: 'qeubo',
+        inputs: [{ range: [-10, 10] }],
+        outputs: [{ path: 'profile.settings.engine.katago.analysis_env.parameters.beta' }],
+      },
+      'display.brightness': {
+        id: 'display.brightness',
+        domain: 'display',
+        inputs: [{ range: [0, 1] }],
+        outputs: [{ path: 'appearance.brightness' }],
+      },
+    });
+    const out = step(38)(blob);
+    expect(out.profile.settings.knobs['qeubo.alpha'].domain).toBe('palette');
+    expect(out.profile.settings.knobs['qeubo.beta'].domain).toBe('palette');
+    expect(out.profile.settings.knobs['display.brightness'].domain).toBe('display');
+  });
+
+  it('is a no-op when profile.settings.knobs is absent (defensive)', () => {
+    const blob: any = { profile: { settings: {} } };
+    const out = step(38)(blob);
+    expect(out.profile.settings).toEqual({});
+  });
+
+  it('is a no-op when knobs is not a plain object', () => {
+    const blob = blobWithKnobs([] as unknown as Record<string, unknown>);
+    const out = step(38)(blob);
+    expect(out.profile.settings.knobs).toEqual([]);
+  });
+});

@@ -77,13 +77,13 @@ import { archivedMigrations, type Migration } from './archived-migrations';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 38;
+export const CURRENT_SCHEMA_VERSION = 39;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 35 → 36) are
+ * The first `N` entries (currently 1 → 2 through 36 → 37) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -105,95 +105,6 @@ export const CURRENT_SCHEMA_VERSION = 38;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 36 → 37: Knob-registry Phase 3a — motivating-scalar promotions.
-  // Two halves:
-  //
-  //  (1) Lift two new leaves that were previously hardcoded inline:
-  //      - `profile.settings.appearance.ownershipOpacityCeiling`
-  //        (default 0.55, matches the prior BoardWidget.vue literal)
-  //      - `profile.settings.engine.katago.watchdogAnimationMs`
-  //        (default 500, matches the prior Toolbar.vue keyframe).
-  //
-  //  (2) Seed four KnobDecls into `profile.settings.knobs` pointing
-  //      at the lifted leaves plus two existing leaves already on
-  //      the profile (`appearance.intensityHueShift` and
-  //      `session.ui.moveFilterThreshold`):
-  //      - 'display.ownership-opacity-ceiling'
-  //      - 'display.move-filter-threshold'
-  //      - 'display.hue-offset'
-  //      - 'engine.watchdog-animation-ms'
-  //
-  // Decl shapes mirror the fresh-install seed in `store/defaults.ts`
-  // verbatim. Each KnobDecl seed is idempotent — a pre-existing
-  // entry under the same key is preserved unchanged (the user may
-  // have edited it through a future editor surface).
-  //
-  // See `docs/notes/knob-registry-plan.md` §11 Phase 3 for the
-  // promotion rationale; `BoardWidget.vue::ownershipColor` and
-  // `Toolbar.vue::.watchdog-pinging` are the corresponding consumer
-  // retargets in the same PR.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const settings = out.profile?.settings;
-    if (settings && typeof settings === 'object') {
-      // 1a. Ownership opacity ceiling.
-      const appearance = (settings as { appearance?: unknown }).appearance;
-      if (appearance && typeof appearance === 'object') {
-        if (typeof (appearance as { ownershipOpacityCeiling?: unknown }).ownershipOpacityCeiling !== 'number') {
-          (appearance as { ownershipOpacityCeiling?: unknown }).ownershipOpacityCeiling = 0.55;
-        }
-      }
-      // 1b. Watchdog animation duration (ms).
-      const katago = (settings as { engine?: { katago?: unknown } }).engine?.katago;
-      if (katago && typeof katago === 'object') {
-        if (typeof (katago as { watchdogAnimationMs?: unknown }).watchdogAnimationMs !== 'number') {
-          (katago as { watchdogAnimationMs?: unknown }).watchdogAnimationMs = 500;
-        }
-      }
-      // 2. KnobDecl seeds. `knobs` is `{}` after the 35 → 36
-      //    migration; idempotent on a partially-populated map.
-      const knobs = (settings as { knobs?: unknown }).knobs;
-      if (knobs && typeof knobs === 'object' && !Array.isArray(knobs)) {
-        const seeds: Record<string, unknown> = {
-          'display.ownership-opacity-ceiling': {
-            id: 'display.ownership-opacity-ceiling',
-            label: 'Ownership overlay opacity',
-            domain: 'display',
-            inputs: [{ range: [0, 1] }],
-            outputs: [{ path: 'profile.settings.appearance.ownershipOpacityCeiling' }],
-          },
-          'display.move-filter-threshold': {
-            id: 'display.move-filter-threshold',
-            label: 'Move-suggestion filter threshold',
-            domain: 'display',
-            inputs: [{ range: [0, 1] }],
-            outputs: [{ path: 'session.ui.moveFilterThreshold' }],
-          },
-          'display.hue-offset': {
-            id: 'display.hue-offset',
-            label: 'Hue offset',
-            domain: 'display',
-            inputs: [{ range: [-180, 180] }],
-            outputs: [{ path: 'profile.settings.appearance.intensityHueShift' }],
-          },
-          'engine.watchdog-animation-ms': {
-            id: 'engine.watchdog-animation-ms',
-            label: 'Watchdog animation duration (ms)',
-            domain: 'engine',
-            inputs: [{ range: [50, 5000] }],
-            outputs: [{ path: 'profile.settings.engine.katago.watchdogAnimationMs' }],
-          },
-        };
-        const target = knobs as Record<string, unknown>;
-        for (const key of Object.keys(seeds)) {
-          if (!(key in target)) {
-            target[key] = seeds[key];
-          }
-        }
-      }
-    }
-    return out;
-  },
   // 37 → 38: Knob-registry Phase 5 — qEUBO consumer migration. Seeds
   // a KnobDecl `qeubo.<name>` for every entry in
   // `profile.settings.engine.katago.analysis_env.parameter_meta`
@@ -267,6 +178,49 @@ export const migrations: Migration[] = [
             outputs: [{ path: `profile.settings.engine.katago.analysis_env.parameters.${name}` }],
             qeuboControlled,
           };
+        }
+      }
+    }
+    return out;
+  },
+  // 38 → 39: Knob-registry domain re-categorisation
+  // (knob-registry-postmortem remediation). The 37 → 38 migration
+  // shipped with `domain: 'qeubo'` on every analysis-env-derived
+  // KnobDecl. That was a category error documented at
+  // `docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`:
+  // `KnobDomain` is a UX taxonomy ("where does this knob live in
+  // the user's mental model"); `'qeubo'` named a consumer identity,
+  // which belongs to `ConsumerClaim.consumerId` and the
+  // `KnobDecl.qeuboControlled` flag. The corrected enum drops
+  // `'qeubo'` and adds `'palette'`.
+  //
+  // This migration rewrites the `domain` field on every
+  // `qeubo.*`-prefixed KnobDecl from `'qeubo'` to `'palette'`. The
+  // KnobDecl IDs themselves keep the `qeubo.` prefix — that's the
+  // naming convention `useQeubo.knobIdForParam` builds, and the
+  // claim machinery already keys on those strings; renaming would
+  // require coordinated rewrites across `ensureKnobDecl`,
+  // `reconcileQeuboKnobs`, `acquireExperimentClaims`, and the
+  // claim Map's keys. The fix is the domain (the UX-presentation
+  // axis), not the id (the substrate-internal handle).
+  //
+  // Idempotent: a decl already at `domain: 'palette'` (or any
+  // non-`'qeubo'` value) is preserved unchanged. Per the
+  // append-only invariant the 37 → 38 migration above is left
+  // frozen as it shipped — the corrected state is reached by
+  // walking forward through this migration, not by retroactively
+  // editing the prior step.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const knobs = out.profile?.settings?.knobs;
+    if (knobs && typeof knobs === 'object' && !Array.isArray(knobs)) {
+      const target = knobs as Record<string, unknown>;
+      for (const knobId of Object.keys(target)) {
+        if (!knobId.startsWith('qeubo.')) continue;
+        const decl = target[knobId];
+        if (!decl || typeof decl !== 'object') continue;
+        if ((decl as { domain?: unknown }).domain === 'qeubo') {
+          (decl as { domain?: unknown }).domain = 'palette';
         }
       }
     }

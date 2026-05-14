@@ -29,7 +29,7 @@
   "knobRegistry.domain.display":          "Display",
   "knobRegistry.domain.engine":           "Engine",
   "knobRegistry.domain.review":           "Review",
-  "knobRegistry.domain.qeubo":            "qEUBO",
+  "knobRegistry.domain.palette":          "Palette",
   "knobRegistry.domain.experimental":     "Experimental",
 
   "cards.tab.decks":                      "Decks",

@@ -318,14 +318,27 @@ export type KnobId = Brand<string, 'KnobId'>;
 export type StorePath = string;
 
 /**
- * Knob categorisation. Drives the cross-domain editor's grouping;
- * consumer-agnostic at the substrate level.
+ * UX taxonomy — categorises a knob by *where it lives in the user's
+ * mental model*, not by *who might claim it*. The latter is
+ * `ConsumerClaim.consumerId` plus `KnobDecl.qeuboControlled`; the
+ * two are deliberately orthogonal per the substrate / consumer
+ * split in `docs/notes/knob-registry-plan.md` §2.
+ *
+ * `'qeubo'` was a value here in the v1 spec; that was a category
+ * error (consumer-name leaking into the domain enum) corrected on
+ * 2026-05-14 — see
+ * `docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`.
+ * `'palette'` is its successor: the analysis-environment / palette
+ * subsystem where `analysis_env.parameter_meta`-derived knobs live.
+ * qEUBO is one consumer that may hold a hard claim on palette
+ * knobs during an experiment; that's `qeuboControlled` territory,
+ * not `KnobDomain` territory.
  */
 export type KnobDomain =
   | 'display'
   | 'engine'
   | 'review'
-  | 'qeubo'
+  | 'palette'
   | 'experimental';
 
 /**

@@ -71,13 +71,41 @@ describe('reconcileQeuboKnobs', () => {
     expect(decl).toMatchObject({
       id: 'qeubo.alpha',
       label: 'alpha',
-      domain: 'qeubo',
+      // Palette domain post-remediation (the v1 spec mis-categorised
+      // these as `'qeubo'`; see
+      // `docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`).
+      // The id keeps the `qeubo.` prefix — that's a substrate-internal
+      // handle, not a UX taxonomy.
+      domain: 'palette',
       inputs: [{ range: [0, 1] }],
       outputs: [{
         path: 'profile.settings.engine.katago.analysis_env.parameters.alpha',
       }],
       qeuboControlled: false,
     });
+  });
+
+  it('rewrites a stale domain: "qeubo" decl to "palette" on reconcile', () => {
+    // Simulates the post-migration / pre-reconcile state where a v38
+    // blob had `qeubo.alpha` with the obsolete `'qeubo'` domain. The
+    // 38 → 39 migration handles this case directly, but reconcile
+    // should also self-heal — the short-circuit deliberately checks
+    // domain so a stale entry falls through and is rewritten.
+    store.profile.settings.knobs['qeubo.alpha'] = {
+      id: 'qeubo.alpha' as KnobId,
+      label: 'alpha',
+      domain: 'qeubo' as never,
+      inputs: [{ range: [0, 1] }],
+      outputs: [{
+        path: 'profile.settings.engine.katago.analysis_env.parameters.alpha',
+      }],
+      qeuboControlled: false,
+    };
+    store.profile.settings.engine.katago.analysis_env.parameter_meta = {
+      alpha: { range: [0, 1] },
+    };
+    reconcileQeuboKnobs();
+    expect(store.profile.settings.knobs['qeubo.alpha'].domain).toBe('palette');
   });
 
   it('mirrors qeubo_controlled: true onto the seeded decl', () => {

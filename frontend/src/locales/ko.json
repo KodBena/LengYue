@@ -29,7 +29,7 @@
   "knobRegistry.domain.display":          "표시",
   "knobRegistry.domain.engine":           "엔진",
   "knobRegistry.domain.review":           "리뷰",
-  "knobRegistry.domain.qeubo":            "qEUBO",
+  "knobRegistry.domain.palette":          "팔레트",
   "knobRegistry.domain.experimental":     "실험적",
 
   "cards.tab.decks":                      "덱",
