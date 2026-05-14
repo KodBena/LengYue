@@ -241,6 +241,49 @@ operational monitoring or a future audit walk. Naming the pair
 at authoring time prevents the silent-failure mode the audit was
 shaped to catch.
 
+## Rolling-archive discipline for `src/store/migrations.ts`
+
+The active body of `src/store/migrations.ts` keeps **exactly the
+latest two migrations** as style anchors; everything older lives
+in `src/store/archived-migrations.ts`, spread back in at the head
+of `migrations[]` so the runtime walker's `version - 1` indexing
+is preserved. Per ADR-0007: the prior unified file had grown past
+1100 lines (≈ 50 KB) before the 2026-05-14 cleanup, well past the
+200-line target.
+
+**Per-PR cadence.** When a PR adds migration `N+1` (bumping
+`CURRENT_SCHEMA_VERSION`), the same PR moves migration `N-1` from
+the active body into `archived-migrations.ts`. Steady state: two
+migrations live in the active file; a third appears transiently
+within a single PR's diff before being archived. The "age out the
+older one in the same commit" rule is what keeps the file size
+bounded without a separate periodic-sweep arc.
+
+**Mechanics.**
+
+- Migration bodies are frozen as they shipped. Moving a migration
+  is a pure cut-and-paste; never edit the body during the move.
+- The `// N → N+1` header comment that precedes each migration
+  travels with the body — the historical record stays legible in
+  the archive.
+- Both files' headers point at each other and at this discipline
+  note so any reader can reconstruct the rolling-archive scope at
+  a glance.
+
+**Why two and not one.** A single style anchor risks reflecting a
+quirky recent example (e.g., a one-line backfill that doesn't
+show how multi-step migrations are structured). Two gives a
+sense of variation — most cycles will have both a structural
+migration and a smaller backfill within them, and the two
+anchors capture that range. `N > 2` doesn't add information; it
+just bloats.
+
+`closeBoard` and `resetWorkspace` are the worked examples of the
+sibling resource-ownership-at-mutation-sites discipline above;
+`migrations.ts` ↔ `archived-migrations.ts` is the worked example
+of this one — read both files' headers before introducing a new
+schema migration.
+
 ## Testing posture
 
 The test tree at `tests/` (Vitest + jsdom + `@vue/test-utils`)
