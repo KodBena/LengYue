@@ -297,6 +297,7 @@
   "qeuboInternal.bootstrapUnexpectedKind": "qEUBO 引导:意外的错误类型 {kind}",
   "qeuboInternal.bootstrapFailed":        "qEUBO 引导失败;校准状态未知。",
   "qeuboInternal.bookmarkNotFound":       "qEUBO:未找到书签 {id}。",
+  "qeuboInternal.bookmarkApplyRefused":   "qEUBO:书签应用被拒绝 — {names} 当前处于硬声明状态。",
 
   "auth.sessionExpired":                  "会话已过期。请重新登录。",
   "auth.sessionNotRecognised":            "服务器未识别会话。请重新登录。",

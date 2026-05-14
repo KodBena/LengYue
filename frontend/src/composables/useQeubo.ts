@@ -768,7 +768,59 @@ function applyBookmark(id: BookmarkId): void {
     pushSystemMessage('error', i18n.global.t('qeuboInternal.bookmarkNotFound', { id }));
     return;
   }
-  store.profile.settings.engine.katago.analysis_env.parameters = { ...bookmark.parameters };
+  // Substrate-aware apply (Phase 5 deferred fix, knob-registry-plan
+  // §11 follow-up). Applying a bookmark is a manual user action;
+  // per the claim policy in §7, manual writes are refused against
+  // hard-claimed knobs. If qEUBO is mid-experiment and the bookmark
+  // names any of the controlled parameters, the entire apply is
+  // refused atomically — partial-apply (write the unclaimed keys,
+  // refuse the claimed ones) would leave the bookmark's joint
+  // intent half-realised, which is exactly the silent failure mode
+  // ADR-0002 forbids.
+  const registry = store.profile.settings.knobs;
+  const conflicts: string[] = [];
+  for (const name of Object.keys(bookmark.parameters)) {
+    const knobId = knobIdForParam(name);
+    if (!(knobId in registry)) continue;
+    const claim = currentClaim(knobId);
+    if (claim?.policy === 'hard') {
+      conflicts.push(`${name} (held by ${claim.consumerId})`);
+    }
+  }
+  if (conflicts.length > 0) {
+    pushSystemMessage(
+      'warning',
+      i18n.global.t('qeuboInternal.bookmarkApplyRefused', {
+        names: conflicts.join(', '),
+      }),
+    );
+    return;
+  }
+  // No conflicts — write per-key through the substrate so future
+  // PaletteEditor-style claim watchers see the change reactively
+  // and any soft-claim-aware paths fire the standard release event.
+  // Keys without a KnobDecl fall through to the direct write (the
+  // legacy path; same shape as `applyEffective`).
+  const params = store.profile.settings.engine.katago.analysis_env.parameters;
+  for (const [name, value] of Object.entries(bookmark.parameters)) {
+    const knobId = knobIdForParam(name);
+    if (knobId in registry) {
+      writeKnobValue(store, registry, knobId, [value], { kind: 'manual' });
+    } else {
+      params[name] = value;
+    }
+  }
+  // Bookmarks may also delete keys the current parameters hold —
+  // the prior whole-record reseat (`= { ...bookmark.parameters }`)
+  // erased any key not in the bookmark. Preserve that semantic by
+  // deleting parameters not named in the bookmark. The
+  // substrate-claim conflict check above runs against bookmark.keys
+  // only; deletions of unclaimed-extra keys are safe by definition.
+  for (const name of Object.keys(params)) {
+    if (!(name in bookmark.parameters)) {
+      delete params[name];
+    }
+  }
   _toolbarView.value = 'applied';
 }
 

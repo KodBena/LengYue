@@ -320,6 +320,7 @@
   "qeuboInternal.bootstrapUnexpectedKind": "qEUBO bootstrap: unexpected error kind {kind}",
   "qeuboInternal.bootstrapFailed":        "qEUBO bootstrap failed; calibration status unknown.",
   "qeuboInternal.bookmarkNotFound":       "qEUBO: bookmark {id} not found.",
+  "qeuboInternal.bookmarkApplyRefused":   "qEUBO: bookmark apply refused — {names} currently under hard claim.",
 
   "auth.sessionExpired":                  "Session expired. Please sign in again.",
   "auth.sessionNotRecognised":            "Session not recognised by the server. Please sign in again.",

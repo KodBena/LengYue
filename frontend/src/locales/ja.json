@@ -297,6 +297,7 @@
   "qeuboInternal.bootstrapUnexpectedKind": "qEUBO ブートストラップ: 予期しないエラー種別 {kind}",
   "qeuboInternal.bootstrapFailed":        "qEUBO ブートストラップ失敗。較正状態不明。",
   "qeuboInternal.bookmarkNotFound":       "qEUBO: ブックマーク {id} が見つかりません。",
+  "qeuboInternal.bookmarkApplyRefused":   "qEUBO: ブックマーク適用を拒否しました — {names} はハードクレーム下にあります。",
 
   "auth.sessionExpired":                  "セッションが期限切れです。再度サインインしてください。",
   "auth.sessionNotRecognised":            "サーバがセッションを認識できません。再度サインインしてください。",
