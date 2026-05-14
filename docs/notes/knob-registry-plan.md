@@ -266,7 +266,7 @@ a `Path<GlobalStore>` discriminated union over the literal
 dot-paths the store admits. The full type-system shape is
 deferred to v2 of this arc; v1 ships with `StorePath = string`
 plus the startup-time validation as the correctness anchor.
-The deferred path-type work is recorded in §11.
+The deferred path-type work is recorded in §14.
 
 ## 6. Widget dispatch
 
@@ -380,7 +380,181 @@ to reason about, and the consumer-policy mapping above keeps
 practical conflicts rare. Revisit if a second non-UI consumer
 ships and the conflicts become real.
 
-## 8. Editor surface
+## 8. Declarative vs imperative consumption — design space
+
+The v1 substrate as documented above is **consumer-imperative**
+at the claim layer (consumers call `claimKnob` /
+`releaseKnob`; the substrate either acquires or rejects) and
+**partially knob-declarative** at the rendering layer (the
+`widget?` hint on `KnobDecl` is a knob-side statement of "I
+want to live in widget X"). The two are not symmetric — a
+knob can express widget preference, but cannot express
+consumer preference. This section names the design space the
+asymmetry sits inside so future extensions don't have to
+rediscover it.
+
+### Two complementary axes
+
+The substrate's consumption protocol decomposes into two
+axes:
+
+**Consumer-imperative axis.** Consumers initiate. The claim
+API is on this axis: a consumer says "I want this knob" and
+the substrate dispatches accordingly. The knob is passive at
+the consumption-protocol level — it doesn't choose its
+consumer; the consumer chooses the knob. Today's v1 design
+puts the claim API entirely here.
+
+**Knob-declarative axis.** Knobs initiate. The `KnobDecl`
+carries declarative intent at the rendering level
+(`widget?`), the data level (`outputs.path`), the
+optimization-eligibility level (`qeuboControlled?`), and the
+categorisation level (`domain`). A knob-declarative
+*consumer* model would let a knob say "I should be controlled
+by consumer-class Y" or "I should be consumed via modality Z"
+at declaration time, and the substrate dispatches consumers
+accordingly.
+
+The two axes are complementary, not mutually exclusive. A
+mature substrate likely uses both: the imperative axis for
+transient or scenario-driven claims (a qEUBO experiment that
+varies *these specific knobs this run*; an autonomous-SR
+scenario whose target set depends on session state), and the
+declarative axis for stable structural facts about a knob
+(which widget it belongs in, which optimization modality it's
+compatible with, whether multiple writers are sane against
+its semantics).
+
+### ZeroMQ-style modality framing
+
+A useful design vocabulary for future modality declarations
+on `KnobDecl` is the **ZeroMQ socket-type taxonomy**, adapted
+from messaging to value-distribution. The user surfaced this
+analogy directly in the 2026-05-14 session; it's the right
+shape because each ZeroMQ socket type names a *coupling
+pattern* the substrate may want to express explicitly rather
+than implicitly:
+
+- **`PUB/SUB` — one-to-many broadcast.** One canonical
+  writer; many readers via reactive subscription. Readers
+  don't acknowledge; the writer doesn't know who's listening.
+  This is the **implicit modality every v1 knob uses**, via
+  the reactive `store` walk in `readKnob` / `writeKnob`. Vue's
+  reactivity primitives match the pattern verbatim.
+- **`REQ/REP` — synchronous request-response.** A knob whose
+  value is computed on demand rather than stored. The
+  "writer" is a function; consumers request a fresh
+  evaluation each read. Could model derived knobs (whose
+  value is a function of other knobs) or knobs with expensive
+  lazy computation that shouldn't run unless someone asks.
+- **`PUSH/PULL` — pipeline.** A knob that's part of a
+  producer/consumer queue. The producer pushes values without
+  knowing readers; readers pull. Could model knobs whose
+  value flows from a measurement source — the engine emits
+  per-tick values; the substrate buffers; consumers pull.
+- **`EXCLUSIVE PAIR` — one-to-one bidirectional.** A knob
+  with a single designated consumer; the substrate enforces
+  exclusive coupling. Could model knobs where multi-consumer
+  ownership would corrupt semantics (a "current experiment
+  run-id" knob coupled to a single experiment manager; a
+  "live debug-overlay target" knob coupled to its overlay).
+
+The four modalities are not exhaustive — ZeroMQ has more
+(ROUTER/DEALER, etc.) — but they cover the space densely
+enough to start. A future `KnobDecl` extension might declare
+`modality?: 'pub-sub' | 'req-rep' | 'push-pull' | 'exclusive-pair'`,
+defaulting to `'pub-sub'` (the implicit shape v1 ships with).
+
+### Worked example: a value the substrate can't host today
+
+Consider the current visit count of an in-flight KataGo
+query. Today the visit count lives ephemerally on the
+analysis-service ledger; it's not user-controllable and
+doesn't fit the substrate as v1 documents it (no `outputs.path`
+in the store; not authored by a user; updated by the engine
+and consumed by the queue-tooltip telemetry). But if the
+substrate carried a modality field, this value could be
+declared as a `'push-pull'`-modality knob with `outputs: [{
+path: 'engine.activeQuery.currentVisits' }]`:
+
+- The substrate would expose it through the same `readKnob` /
+  subscription interface every other knob uses — the
+  queue-tooltip telemetry would consume it through the
+  registry rather than through a separate side-channel.
+- The slider widget would gate off (the `'push-pull'`
+  modality declares "no manual writes"); the substrate's
+  consistency invariant doesn't even need a runtime check —
+  the type system at the consumer layer makes manual writes
+  to push-pull knobs unrepresentable.
+- A future consumer (a "live-progress" indicator widget; a
+  notification system; a per-session statistics aggregator)
+  could subscribe through the same modality-aware interface
+  without inventing a parallel registry for engine-emitted
+  values.
+
+The substrate becomes a **uniform interface for any value the
+codebase wants other components to interact with** —
+controllable values, derived values, pipeline-flowing values —
+all under the same vocabulary. This is structurally what the
+v1 substrate aims at; the modality axis is what unlocks the
+non-user-controlled half of the space.
+
+### What v1 commits to
+
+The v1 substrate documented in §§3–7 is **forward-compatible
+with all the extensions sketched here** by construction:
+
+- **The `KnobDecl` shape is open to additive fields.**
+  TypeScript optional properties; adding `modality?:` later is
+  a backward-compatible change. Existing KnobDecls remain
+  valid `'pub-sub'`-implicit knobs (the default-when-absent
+  semantic) without retroactive amendment.
+- **The claim API is consumer-imperative**, but it doesn't
+  preclude a future declarative-affinity layer that
+  pre-resolves which consumer should hold a given knob's
+  claim based on the knob's declared modality. The
+  imperative API stays as the low-level primitive; a
+  higher-level dispatch can compose on top.
+- **The widget dispatch already uses the hint-or-derive
+  pattern** (§6). Future modality declarations can layer the
+  same dispatch logic for consumer-affinity: a
+  `'push-pull'`-modality knob's effective claim might
+  default to the configured push-pull consumer (likely a
+  derived-knob computation runner), with the hint as
+  override.
+- **The transform library is a closed enum** (§4); adding
+  modality-aware transforms is a code change but a
+  localised one.
+
+The asymmetry — knobs partially declarative (widget),
+consumers fully imperative (claims) — is **not load-bearing**.
+It's an artifact of v1's scope. A future arc that fills in
+the asymmetry can do so without disturbing the Phase-1
+through Phase-6 implementation roadmap.
+
+### What this section is NOT
+
+It is not a commitment to ship modality extensions in the v1
+arc. The roadmap of §11 closes at Phase 6; modality-axis
+extensions are a separate arc, opened when a concrete
+consumer-side need surfaces (the first push-pull-shaped
+knob to want into the registry; the first req-rep-shaped
+knob a domain consumer is willing to author). The discussion
+exists here so:
+
+- Future implementers don't accumulate "the registry would
+  have wanted to do X but we can't get there from here"
+  technical debt; the extension points are pre-named.
+- The v1 substrate's design choices are visibly justifiable
+  as one consistent point in a larger space rather than as
+  the only possible substrate.
+- A future user with the same intuition the originating
+  session surfaced (declarative knob → widget binding,
+  generalised to declarative knob → consumer modality) has a
+  discussion anchor rather than having to re-derive the
+  framing.
+
+## 9. Editor surface
 
 Three editor surfaces share the substrate:
 
@@ -421,7 +595,7 @@ value-to-pixel mapping, their accessibility hooks — and
 expose the same prop / event interface (`v-model:value` over
 the input vector).
 
-## 9. Magic-literals promotion pipeline
+## 10. Magic-literals promotion pipeline
 
 The magic-literals audit (`docs/archive/notes/magic-literals-audit-inventory.md`,
 closed 2026-05-03) explicitly carved out **band-3 domain
@@ -467,7 +641,7 @@ The pipeline is per-literal, single-PR-sized. The promotion
 sweep (Phase 6 of the roadmap) closes the candidates one at a
 time without a batched substrate change.
 
-## 10. Sequencing — infrastructure-first
+## 11. Sequencing — infrastructure-first
 
 The TODO entry of 2026-05-14 named the sequencing tension
 between (a) infrastructure-first — land the substrate then
@@ -507,7 +681,7 @@ The cost is delayed gratification on the originating riddle
 (the ownership-opacity slider doesn't ship until Phase 3).
 The user has signalled acceptance of that cost.
 
-## 11. Implementation roadmap
+## 12. Implementation roadmap
 
 Six phases, each independently mergeable. Phase 1 and 2 form
 the substrate proper; phases 3 through 6 are consumer-side.
@@ -664,7 +838,7 @@ established convention."
 **No defined endpoint.** Phase 6 runs as long as candidates
 accumulate. Its priority floats below in-flight feature work.
 
-## 12. Migration
+## 13. Migration
 
 Schema version bumps:
 
@@ -688,7 +862,7 @@ KnobDecl declares may want to be qEUBO-controlled). The
 sequencing ensures the KnobDecl exists before the
 qEUBO-control flag flips.
 
-## 13. Type safety — what's in v1, what's deferred
+## 14. Type safety — what's in v1, what's deferred
 
 **In v1:**
 - `KnobId` branded.
@@ -718,7 +892,7 @@ qEUBO-control flag flips.
   permanently for safety reasons; named-library plus
   `'linear'` covers the cases.
 
-## 14. Cross-references
+## 15. Cross-references
 
 - `docs/notes/qeubo-namespace-unification-plan.md` — the
   predecessor; transitions to `design-note: revised` in the
@@ -730,7 +904,7 @@ qEUBO-control flag flips.
   the audit closure that explicitly carves out band-3
   domain literals; the registry is the natural successor
   surface for the user-controllable subset of that residue.
-  See §9.
+  See §10.
 - `docs/archive/notes/frontend-theming-plan.md` — the
   substrate-evolution principles (decouple-via-alias,
   snap-by-cluster) that the `lockstep-hue-rotate` and
@@ -757,7 +931,7 @@ qEUBO-control flag flips.
   predecessor plan.
 - ADR-0006 — every new file carries the standard header.
 
-## 15. Open questions deferred to implementation time
+## 16. Open questions deferred to implementation time
 
 1. **Editor mount.** Where does `KnobRegistryEditor.vue`
    live in the tab structure? Other-tab extension is the
@@ -788,7 +962,7 @@ qEUBO-control flag flips.
    second non-UI consumer ships and the conflicts become
    real.
 
-## 16. Maintenance contract
+## 17. Maintenance contract
 
 This is `design-note: planned`. When Phase 1 lands, the
 status line at the top transitions; Phase 1's PR and worklog
@@ -807,6 +981,6 @@ The predecessor plan
 (`qeubo-namespace-unification-plan.md`) carries its own
 maintenance contract for its `design-note: revised` state.
 
-## 17. License
+## 18. License
 
 Public Domain (The Unlicense).
