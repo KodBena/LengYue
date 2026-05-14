@@ -7,10 +7,21 @@
   in-flight KataGo proxy query with kind, SELECTOR model label,
   turn / visit progress, and ETA.
 
-  The component reads from `useQueryTelemetry`'s singleton view —
-  no local state beyond the hover-open boolean. Empty queue keeps
-  the badge visible but dimmed; non-empty queue brightens it and
-  shows the count.
+  The component reads from `useQueryTelemetry`'s singleton view.
+  Empty queue keeps the badge visible but dimmed; non-empty queue
+  brightens it and shows the count.
+
+  Hover behaviour mirrors `ToolbarSliderPopover`: hover-open
+  boolean plus a hover-intent grace timer. The popover sits flush
+  against the badge (no `margin-top` dead zone) so the common
+  case is gap-less; the ~150ms close timer on `mouseleave`
+  handles overshoot. The grace timer is cancelled on any
+  subsequent `mouseenter` of the wrapper, which covers reentering
+  the badge or entering the popover (a DOM descendant). Both
+  popovers in `chrome/` carry the same shape; see the worklog
+  entry at `docs/worklog/2026-05-14-popover-hover-finickiness.md`
+  for the recurring-pattern audit note (third instance → extract
+  a composable).
 
   Domain band (ADR-0003): truly agnostic. The strings the panel
   renders are about queries, models, turns, and visits — KataGo
@@ -20,7 +31,7 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onUnmounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQueryTelemetry, type InFlightQuery } from '../../composables/useQueryTelemetry';
 
@@ -28,6 +39,37 @@ const { t } = useI18n();
 const { inFlight, cancelQuery } = useQueryTelemetry();
 
 const open = ref(false);
+
+// Hover-intent close timer. Non-reactive `let` — it's a resource
+// handle, not state to render. Cleared on mouseenter into the
+// wrapper (including any descendant — the popover counts) and on
+// unmount per the resource-ownership-at-mutation-sites discipline
+// in `frontend/CLAUDE.md`. The 150ms grace window is the typical
+// pointer-overshoot reaction time; smaller feels finicky, larger
+// feels sluggish on intentional close. Same shape lives in
+// `ToolbarSliderPopover.vue`.
+let closeTimer: ReturnType<typeof setTimeout> | null = null;
+const CLOSE_DELAY_MS = 150;
+
+function onMouseEnter(): void {
+  if (closeTimer !== null) {
+    clearTimeout(closeTimer);
+    closeTimer = null;
+  }
+  open.value = true;
+}
+
+function onMouseLeave(): void {
+  if (closeTimer !== null) clearTimeout(closeTimer);
+  closeTimer = setTimeout(() => {
+    open.value = false;
+    closeTimer = null;
+  }, CLOSE_DELAY_MS);
+}
+
+onUnmounted(() => {
+  if (closeTimer !== null) clearTimeout(closeTimer);
+});
 
 const count = computed(() => inFlight.value.length);
 
@@ -79,8 +121,8 @@ function fmtProgress(q: InFlightQuery): string {
   <div
     class="metric queue-metric"
     :class="{ 'queue-active': count > 0 }"
-    @mouseenter="open = true"
-    @mouseleave="open = false"
+    @mouseenter="onMouseEnter"
+    @mouseleave="onMouseLeave"
   >
     <span class="m-lbl">{{ $t('toolbar.metric.queue') }}</span>
     <span class="m-val queue-count">{{ count }}</span>
@@ -153,9 +195,12 @@ function fmtProgress(q: InFlightQuery): string {
 
 .queue-popover {
   position: absolute;
-  /* Anchor below the badge with a small gap; left-align so the
-     table reads from the badge's left edge outward. */
-  top: calc(100% + var(--space-tight));
+  /* Anchor below the badge flush (no gap). Zero-gap pairs with
+     the grace-period close timer in <script> to make pointer-
+     traverse from badge to popover gap-free in the common case
+     while still tolerating overshoot. Left-aligned so the table
+     reads from the badge's left edge outward. */
+  top: 100%;
   left: 0;
   background: var(--surface-0);
   border: 1px solid var(--border-2);
