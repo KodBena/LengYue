@@ -171,6 +171,7 @@
   "analysis.confirmPurge":                "이 보드의 모든 팔레트에 대한 분석 데이터를 지우시겠습니까?",
   "analysis.moveFilter":                  "수 필터",
   "analysis.thresholdLabel":              "임계값: {value}",
+  "analysis.moveFilter.movedNotice":      "기타 탭 → 노브 레지스트리로 이동했습니다. 향후 툴바 빠른 접근 영역에 통합될 예정입니다.",
   "analysis.persist.title":               "저장된 분석",
   "analysis.persist.notSaved":            "저장되지 않음",
   "analysis.persist.savedSummary":        "{count}개 분석 · {size}",

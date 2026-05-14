@@ -171,6 +171,7 @@
   "analysis.confirmPurge":                "清除此棋盘所有调色板的所有分析数据?",
   "analysis.moveFilter":                  "着法过滤",
   "analysis.thresholdLabel":              "阈值:{value}",
+  "analysis.moveFilter.movedNotice":      "已移至「其他」选项卡 → 旋钮注册表。后续将整合到工具栏快速访问区域。",
   "analysis.persist.title":               "已保存的分析",
   "analysis.persist.notSaved":            "未保存",
   "analysis.persist.savedSummary":        "{count} 项分析 · {size}",

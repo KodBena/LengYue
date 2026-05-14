@@ -194,6 +194,7 @@
   "analysis.confirmPurge":                "Clear all analysis data for this board across all palettes?",
   "analysis.moveFilter":                  "Move Filter",
   "analysis.thresholdLabel":              "Threshold: {value}",
+  "analysis.moveFilter.movedNotice":      "Moved to Other tab → Knob Registry. A toolbar quick-access surface will replace both eventually.",
   "analysis.persist.title":               "Saved Analyses",
   "analysis.persist.notSaved":            "Not saved",
   "analysis.persist.savedSummary":        "{count} analyses · {size}",

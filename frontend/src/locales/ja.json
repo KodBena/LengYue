@@ -171,6 +171,7 @@
   "analysis.confirmPurge":                "このボードの全パレットの分析データを削除しますか?",
   "analysis.moveFilter":                  "手筋フィルタ",
   "analysis.thresholdLabel":              "閾値: {value}",
+  "analysis.moveFilter.movedNotice":      "「その他」タブ → ノブレジストリに移動しました。今後はツールバーのクイックアクセス領域に統合予定です。",
   "analysis.persist.title":               "保存済み解析",
   "analysis.persist.notSaved":            "未保存",
   "analysis.persist.savedSummary":        "{count} 件の解析 · {size}",
