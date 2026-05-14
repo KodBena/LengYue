@@ -372,7 +372,11 @@ every abstraction the system uses is exposed and editable.
   enforcement applies when other consumers (autonomous-SR
   scenarios, etc.) take a claim. Sliders for analysis-env
   palette parameters appear automatically when their range
-  is configured in PaletteEditor.
+  is configured in PaletteEditor. A toolbar quick-access
+  popover ("SLIDERS" badge) gives a priority-ordered hover
+  list of the same sliders in compact form for rapid
+  adjustment without switching tabs; the Other-tab editor
+  remains the spacious grouped view.
 
 - **Card-set editor.** Tree-DSL pipelines edited in CodeMirror
   6 with JSON5-superset dialect (trailing commas, single
