@@ -77,13 +77,13 @@ import { archivedMigrations, type Migration } from './archived-migrations';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 36;
+export const CURRENT_SCHEMA_VERSION = 37;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 33 → 34) are
+ * The first `N` entries (currently 1 → 2 through 34 → 35) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -105,40 +105,6 @@ export const CURRENT_SCHEMA_VERSION = 36;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 34 → 35: Card-metadata inline-edit arc 1 backfill on persisted
-  // review queues. Cards fetched FRESH from the backend always
-  // carry `tags: string[]` (the ACL coerces `undefined → []` at the
-  // boundary), but cards persisted in `session.reviews[boardId].queue`
-  // pre-date the arc-1 wire-shape addition and lack the field
-  // entirely. The inline-edit panel (arc 2 consumer) crashes on
-  // `[...card.tags]` when iterating undefined — runtime symptom:
-  // "can't access property Symbol.iterator, props.card.tags is
-  // undefined" caught by `RootErrorBoundary` after starting a
-  // review session against a pre-arc-1 persisted queue.
-  //
-  // Backfill: walk every active review queue's cards and set
-  // `tags: []` on any card missing the field. Idempotent — an
-  // existing array is preserved unchanged. Matches the ACL's
-  // empty-default semantic (the card simply has no tags, which
-  // is what `tags: []` says on the wire).
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const reviews = out.session?.reviews;
-    if (reviews && typeof reviews === 'object') {
-      for (const sessionData of Object.values(reviews as Record<string, unknown>)) {
-        if (!sessionData || typeof sessionData !== 'object') continue;
-        const queue = (sessionData as { queue?: unknown }).queue;
-        if (!Array.isArray(queue)) continue;
-        for (const card of queue) {
-          if (!card || typeof card !== 'object') continue;
-          if (!Array.isArray((card as { tags?: unknown }).tags)) {
-            (card as { tags?: unknown }).tags = [];
-          }
-        }
-      }
-    }
-    return out;
-  },
   // 35 → 36: Knob-registry substrate seed (knob-registry-plan Phase 1).
   // Backfills the new `profile.settings.knobs` field with an empty
   // object on existing blobs (matching the fresh-install default in
@@ -163,6 +129,95 @@ export const migrations: Migration[] = [
         !Array.isArray(existing);
       if (!isPlainObject) {
         (settings as { knobs?: unknown }).knobs = {};
+      }
+    }
+    return out;
+  },
+  // 36 → 37: Knob-registry Phase 3a — motivating-scalar promotions.
+  // Two halves:
+  //
+  //  (1) Lift two new leaves that were previously hardcoded inline:
+  //      - `profile.settings.appearance.ownershipOpacityCeiling`
+  //        (default 0.55, matches the prior BoardWidget.vue literal)
+  //      - `profile.settings.engine.katago.watchdogAnimationMs`
+  //        (default 500, matches the prior Toolbar.vue keyframe).
+  //
+  //  (2) Seed four KnobDecls into `profile.settings.knobs` pointing
+  //      at the lifted leaves plus two existing leaves already on
+  //      the profile (`appearance.intensityHueShift` and
+  //      `session.ui.moveFilterThreshold`):
+  //      - 'display.ownership-opacity-ceiling'
+  //      - 'display.move-filter-threshold'
+  //      - 'display.hue-offset'
+  //      - 'engine.watchdog-animation-ms'
+  //
+  // Decl shapes mirror the fresh-install seed in `store/defaults.ts`
+  // verbatim. Each KnobDecl seed is idempotent — a pre-existing
+  // entry under the same key is preserved unchanged (the user may
+  // have edited it through a future editor surface).
+  //
+  // See `docs/notes/knob-registry-plan.md` §11 Phase 3 for the
+  // promotion rationale; `BoardWidget.vue::ownershipColor` and
+  // `Toolbar.vue::.watchdog-pinging` are the corresponding consumer
+  // retargets in the same PR.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const settings = out.profile?.settings;
+    if (settings && typeof settings === 'object') {
+      // 1a. Ownership opacity ceiling.
+      const appearance = (settings as { appearance?: unknown }).appearance;
+      if (appearance && typeof appearance === 'object') {
+        if (typeof (appearance as { ownershipOpacityCeiling?: unknown }).ownershipOpacityCeiling !== 'number') {
+          (appearance as { ownershipOpacityCeiling?: unknown }).ownershipOpacityCeiling = 0.55;
+        }
+      }
+      // 1b. Watchdog animation duration (ms).
+      const katago = (settings as { engine?: { katago?: unknown } }).engine?.katago;
+      if (katago && typeof katago === 'object') {
+        if (typeof (katago as { watchdogAnimationMs?: unknown }).watchdogAnimationMs !== 'number') {
+          (katago as { watchdogAnimationMs?: unknown }).watchdogAnimationMs = 500;
+        }
+      }
+      // 2. KnobDecl seeds. `knobs` is `{}` after the 35 → 36
+      //    migration; idempotent on a partially-populated map.
+      const knobs = (settings as { knobs?: unknown }).knobs;
+      if (knobs && typeof knobs === 'object' && !Array.isArray(knobs)) {
+        const seeds: Record<string, unknown> = {
+          'display.ownership-opacity-ceiling': {
+            id: 'display.ownership-opacity-ceiling',
+            label: 'Ownership overlay opacity',
+            domain: 'display',
+            inputs: [{ range: [0, 1] }],
+            outputs: [{ path: 'profile.settings.appearance.ownershipOpacityCeiling' }],
+          },
+          'display.move-filter-threshold': {
+            id: 'display.move-filter-threshold',
+            label: 'Move-suggestion filter threshold',
+            domain: 'display',
+            inputs: [{ range: [0, 1] }],
+            outputs: [{ path: 'session.ui.moveFilterThreshold' }],
+          },
+          'display.hue-offset': {
+            id: 'display.hue-offset',
+            label: 'Hue offset',
+            domain: 'display',
+            inputs: [{ range: [-180, 180] }],
+            outputs: [{ path: 'profile.settings.appearance.intensityHueShift' }],
+          },
+          'engine.watchdog-animation-ms': {
+            id: 'engine.watchdog-animation-ms',
+            label: 'Watchdog animation duration (ms)',
+            domain: 'engine',
+            inputs: [{ range: [50, 5000] }],
+            outputs: [{ path: 'profile.settings.engine.katago.watchdogAnimationMs' }],
+          },
+        };
+        const target = knobs as Record<string, unknown>;
+        for (const key of Object.keys(seeds)) {
+          if (!(key in target)) {
+            target[key] = seeds[key];
+          }
+        }
       }
     }
     return out;

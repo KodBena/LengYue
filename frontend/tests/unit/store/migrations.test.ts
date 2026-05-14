@@ -1621,3 +1621,141 @@ describe('35 → 36: knob-registry substrate seed', () => {
     expect(out.profile).toEqual({});
   });
 });
+
+// ── Per-migration: 36 → 37 ──────────────────────────────────────────
+
+describe('36 → 37: motivating-scalar promotions (knob-registry Phase 3a)', () => {
+  function blobWithSettings(extra: Record<string, unknown> = {}): any {
+    return {
+      profile: {
+        settings: {
+          appearance: {},
+          engine: { katago: {} },
+          knobs: {},
+          ...extra,
+        },
+      },
+    };
+  }
+
+  it('seeds ownershipOpacityCeiling default 0.55 when absent', () => {
+    const out = step(36)(blobWithSettings());
+    expect(out.profile.settings.appearance.ownershipOpacityCeiling).toBe(0.55);
+  });
+
+  it('preserves a pre-existing ownershipOpacityCeiling value', () => {
+    const blob = blobWithSettings();
+    blob.profile.settings.appearance.ownershipOpacityCeiling = 0.7;
+    const out = step(36)(blob);
+    expect(out.profile.settings.appearance.ownershipOpacityCeiling).toBe(0.7);
+  });
+
+  it('coerces a non-number ownershipOpacityCeiling to 0.55', () => {
+    const blob = blobWithSettings();
+    blob.profile.settings.appearance.ownershipOpacityCeiling = 'corrupt';
+    const out = step(36)(blob);
+    expect(out.profile.settings.appearance.ownershipOpacityCeiling).toBe(0.55);
+  });
+
+  it('seeds watchdogAnimationMs default 500 when absent', () => {
+    const out = step(36)(blobWithSettings());
+    expect(out.profile.settings.engine.katago.watchdogAnimationMs).toBe(500);
+  });
+
+  it('preserves a pre-existing watchdogAnimationMs value', () => {
+    const blob = blobWithSettings();
+    blob.profile.settings.engine.katago.watchdogAnimationMs = 750;
+    const out = step(36)(blob);
+    expect(out.profile.settings.engine.katago.watchdogAnimationMs).toBe(750);
+  });
+
+  it('seeds the four KnobDecls when knobs is empty', () => {
+    const out = step(36)(blobWithSettings());
+    const knobs = out.profile.settings.knobs;
+    expect(Object.keys(knobs).sort()).toEqual([
+      'display.hue-offset',
+      'display.move-filter-threshold',
+      'display.ownership-opacity-ceiling',
+      'engine.watchdog-animation-ms',
+    ]);
+  });
+
+  it('seeds each KnobDecl with the correct output path', () => {
+    const out = step(36)(blobWithSettings());
+    const knobs = out.profile.settings.knobs;
+    expect(knobs['display.ownership-opacity-ceiling'].outputs[0].path).toBe(
+      'profile.settings.appearance.ownershipOpacityCeiling',
+    );
+    expect(knobs['display.move-filter-threshold'].outputs[0].path).toBe(
+      'session.ui.moveFilterThreshold',
+    );
+    expect(knobs['display.hue-offset'].outputs[0].path).toBe(
+      'profile.settings.appearance.intensityHueShift',
+    );
+    expect(knobs['engine.watchdog-animation-ms'].outputs[0].path).toBe(
+      'profile.settings.engine.katago.watchdogAnimationMs',
+    );
+  });
+
+  it('seeds each KnobDecl with the right id, domain, and range', () => {
+    const out = step(36)(blobWithSettings());
+    const knobs = out.profile.settings.knobs;
+    expect(knobs['display.ownership-opacity-ceiling']).toMatchObject({
+      id: 'display.ownership-opacity-ceiling',
+      domain: 'display',
+      inputs: [{ range: [0, 1] }],
+    });
+    expect(knobs['display.move-filter-threshold']).toMatchObject({
+      domain: 'display',
+      inputs: [{ range: [0, 1] }],
+    });
+    expect(knobs['display.hue-offset']).toMatchObject({
+      domain: 'display',
+      inputs: [{ range: [-180, 180] }],
+    });
+    expect(knobs['engine.watchdog-animation-ms']).toMatchObject({
+      domain: 'engine',
+      inputs: [{ range: [50, 5000] }],
+    });
+  });
+
+  it('preserves a pre-existing KnobDecl entry under the same key', () => {
+    const blob = blobWithSettings();
+    blob.profile.settings.knobs['display.hue-offset'] = {
+      id: 'display.hue-offset',
+      label: 'User-customised label',
+      domain: 'display',
+      inputs: [{ range: [-90, 90] }],
+      outputs: [{ path: 'profile.settings.appearance.intensityHueShift' }],
+    };
+    const out = step(36)(blob);
+    expect(out.profile.settings.knobs['display.hue-offset'].label).toBe(
+      'User-customised label',
+    );
+    expect(out.profile.settings.knobs['display.hue-offset'].inputs[0].range).toEqual([
+      -90,
+      90,
+    ]);
+    // The other three seeds still land.
+    expect(
+      out.profile.settings.knobs['display.ownership-opacity-ceiling'],
+    ).toBeDefined();
+  });
+
+  it('is a no-op when profile.settings is absent (defensive)', () => {
+    const blob: any = { profile: {} };
+    const out = step(36)(blob);
+    expect(out.profile).toEqual({});
+  });
+
+  it('skips knob seeds when knobs field is not a plain object', () => {
+    const blob = blobWithSettings();
+    blob.profile.settings.knobs = 'corrupt';
+    const out = step(36)(blob);
+    // Lifts still happen on the new leaves.
+    expect(out.profile.settings.appearance.ownershipOpacityCeiling).toBe(0.55);
+    // Knobs container stays as it was; the 35 → 36 migration is the
+    // one that normalises it.
+    expect(out.profile.settings.knobs).toBe('corrupt');
+  });
+});

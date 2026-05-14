@@ -33,18 +33,17 @@ function ownershipColor(v: number): { fill: string; opacity: number } {
   // signal is too weak to render — prevents flicker as the engine's
   // confidence wavers around 0.
   if (mag < 0.05) return { fill: 'transparent', opacity: 0 };
+  // Ownership overlay ceiling — sourced from the registry leaf
+  // promoted in knob-registry Phase 3a (was a hardcoded 0.55 here
+  // and at the magnitude multiplier; both still pull from the same
+  // leaf so the "signal tops out at the same value it scales by"
+  // coupling is preserved). The leaf is reactive — reads during
+  // render trigger re-render on slider drag through the
+  // `display.ownership-opacity-ceiling` KnobDecl.
+  const ceiling = store.profile.settings.appearance.ownershipOpacityCeiling;
   return {
     fill: v > 0 ? '#fff' : '#000',
-    // magic-literal: 0.55 ownership ceiling — band-3 Go-bound visualization
-    // decision. Caps the territory overlay's max opacity so even fully-
-    // owned points don't visually dominate the board grid and stones
-    // beneath. Tuned down from a prior 0.85 ceiling that read as harsh:
-    // black-fill at 0.85 opacity over the wood texture produced near-
-    // black squares that overshadowed the placed stones themselves.
-    // Both factors (ceiling AND magnitude multiplier) are 0.55 by
-    // design — the signal's apparent intensity tops out at the same
-    // 0.55 it scales by.
-    opacity: Math.min(0.55, mag * 0.55),
+    opacity: Math.min(ceiling, mag * ceiling),
   };
 }
 

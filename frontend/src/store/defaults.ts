@@ -67,6 +67,13 @@ export const defaultSettings = {
       // in `types.ts` for the three consumer sites and the v1.0.20
       // surfacing rationale.
       ponderMaxVisits: 2_000_000,
+      // Watchdog ping-tandem animation duration (ms). Promoted from
+      // the prior hardcoded 500ms keyframe in `Toolbar.vue` to a
+      // registry leaf so users can tune the animation pacing. Bound
+      // through the `engine.watchdog-animation-ms` KnobDecl. See
+      // `AppSettings.engine.katago.watchdogAnimationMs` in `types.ts`
+      // for the consumer-site reference.
+      watchdogAnimationMs: 500,
       // Engine-side runtime overrides forwarded as KataGo's
       // `overrideSettings` field on every analysis query. The seed
       // values are a sensible default analysis posture for the SR
@@ -255,7 +262,17 @@ export const defaultSettings = {
   // path; both code paths now use the same resolver, so behaviour is
   // symmetric across new and existing users. The active value is
   // mirrored onto vue-i18n by useAppBootstrap's watch on this field.
-  appearance:  { theme: 'cluster', intensityHueShift: -43, locale: detectBrowserLocale() },
+  appearance:  {
+    theme: 'cluster',
+    intensityHueShift: -43,
+    // Ceiling on the territory-overlay opacity in BoardWidget.vue's
+    // `ownershipColor`. Promoted from a hardcoded 0.55 literal to a
+    // registry leaf so users can tune it. Bound through the
+    // `display.ownership-opacity-ceiling` KnobDecl. See
+    // `AppSettings.appearance.ownershipOpacityCeiling` in `types.ts`.
+    ownershipOpacityCeiling: 0.55,
+    locale: detectBrowserLocale(),
+  },
   minting: {
     defaultVisits: 1000,
     defaultNumMoves: 1,
@@ -265,11 +282,41 @@ export const defaultSettings = {
   navigation: {
     actionOnDirtyBoard: 'ask', // 'ask', 'new', or 'overwrite'
   },
-  // Knob-registry substrate (knob-registry-plan Phase 1). Seeded
-  // empty; the schema-version 35 → 36 migration backfills the field
-  // on persisted blobs. Phase 3+ promotions populate it as scalars
-  // lift off of inline literals. See `docs/notes/knob-registry-plan.md`.
-  knobs: {},
+  // Knob-registry substrate (knob-registry-plan Phases 1 + 3a). The
+  // four motivating-scalar KnobDecls were promoted from inline
+  // literals during Phase 3a; defaults seed them here, and the
+  // schema-version 36 → 37 migration backfills them on persisted
+  // blobs. See `docs/notes/knob-registry-plan.md` §11 Phase 3.
+  knobs: {
+    'display.ownership-opacity-ceiling': {
+      id: 'display.ownership-opacity-ceiling',
+      label: 'Ownership overlay opacity',
+      domain: 'display',
+      inputs: [{ range: [0, 1] as const }],
+      outputs: [{ path: 'profile.settings.appearance.ownershipOpacityCeiling' }],
+    },
+    'display.move-filter-threshold': {
+      id: 'display.move-filter-threshold',
+      label: 'Move-suggestion filter threshold',
+      domain: 'display',
+      inputs: [{ range: [0, 1] as const }],
+      outputs: [{ path: 'session.ui.moveFilterThreshold' }],
+    },
+    'display.hue-offset': {
+      id: 'display.hue-offset',
+      label: 'Hue offset',
+      domain: 'display',
+      inputs: [{ range: [-180, 180] as const }],
+      outputs: [{ path: 'profile.settings.appearance.intensityHueShift' }],
+    },
+    'engine.watchdog-animation-ms': {
+      id: 'engine.watchdog-animation-ms',
+      label: 'Watchdog animation duration (ms)',
+      domain: 'engine',
+      inputs: [{ range: [50, 5000] as const }],
+      outputs: [{ path: 'profile.settings.engine.katago.watchdogAnimationMs' }],
+    },
+  },
 } as const;
 
 export const defaultThumbnailSettings: ThumbnailSettings = {

@@ -5,9 +5,9 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-05-14: migrations 1 → 2 through 33 → 34 (33
+ * Scope as of 2026-05-14: migrations 1 → 2 through 34 → 35 (34
  * entries). The first eight covered pre-v1.0.0 schema evolution;
- * the next twenty-five are the v1.0.x – v1.1.x active cycle. Both
+ * the next twenty-six are the v1.0.x – v1.1.x active cycle. Both
  * are now consolidated here under the same archive contract.
  *
  * Why preserved (not deleted): the migration framework's `migrate()`
@@ -1400,6 +1400,40 @@ export const archivedMigrations: Migration[] = [
     if (ui && typeof ui === 'object') {
       if (typeof ui.watchdogColorTransition !== 'boolean') {
         ui.watchdogColorTransition = false;
+      }
+    }
+    return out;
+  },
+  // 34 → 35: Card-metadata inline-edit arc 1 backfill on persisted
+  // review queues. Cards fetched FRESH from the backend always
+  // carry `tags: string[]` (the ACL coerces `undefined → []` at the
+  // boundary), but cards persisted in `session.reviews[boardId].queue`
+  // pre-date the arc-1 wire-shape addition and lack the field
+  // entirely. The inline-edit panel (arc 2 consumer) crashes on
+  // `[...card.tags]` when iterating undefined — runtime symptom:
+  // "can't access property Symbol.iterator, props.card.tags is
+  // undefined" caught by `RootErrorBoundary` after starting a
+  // review session against a pre-arc-1 persisted queue.
+  //
+  // Backfill: walk every active review queue's cards and set
+  // `tags: []` on any card missing the field. Idempotent — an
+  // existing array is preserved unchanged. Matches the ACL's
+  // empty-default semantic (the card simply has no tags, which
+  // is what `tags: []` says on the wire).
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const reviews = out.session?.reviews;
+    if (reviews && typeof reviews === 'object') {
+      for (const sessionData of Object.values(reviews as Record<string, unknown>)) {
+        if (!sessionData || typeof sessionData !== 'object') continue;
+        const queue = (sessionData as { queue?: unknown }).queue;
+        if (!Array.isArray(queue)) continue;
+        for (const card of queue) {
+          if (!card || typeof card !== 'object') continue;
+          if (!Array.isArray((card as { tags?: unknown }).tags)) {
+            (card as { tags?: unknown }).tags = [];
+          }
+        }
       }
     }
     return out;

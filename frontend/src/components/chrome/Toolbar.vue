@@ -74,6 +74,18 @@ const watchdogClasses = computed(() => {
     : '';
 });
 
+// Bind the keyframe duration to the registry-promoted leaf
+// (knob-registry Phase 3a). The CSS rule for `.watchdog-pinging`
+// reads `var(--watchdog-animation-ms)` for the animation duration;
+// the inline custom property here sources from
+// `engine.katago.watchdogAnimationMs` and is driven by the
+// `engine.watchdog-animation-ms` KnobDecl. Inline binding rather
+// than a stylesheet rule so the property scopes to the dot and
+// updates reactively without a watcher.
+const watchdogStyle = computed(() => ({
+  '--watchdog-animation-ms': `${store.profile.settings.engine.katago.watchdogAnimationMs}ms`,
+}));
+
 const isConnected   = computed(() => props.engineStatus === 'connected');
 // Symmetric verb pairing with the disconnected label; the connected
 // branch previously read 'Engine', which left the action ambiguous.
@@ -187,6 +199,7 @@ const modelTooltip = computed(() => {
         <span
           class="m-val watchdog-dot"
           :class="watchdogClasses"
+          :style="watchdogStyle"
         >●</span>
       </div>
       <!-- Queue tooltip — hover the count to see every in-flight
@@ -251,13 +264,18 @@ const modelTooltip = computed(() => {
    keyframe animates green → red, with `forwards` holding the
    end colour if the ping outruns the animation, and the
    class-remove path snaps back to the base green (no
-   transition declared, so removal is instant). magic-literal:
-   500ms — same threshold as the un-animated mode's flip point,
-   tying the animation's full-saturation moment to "the engine
-   is taking long enough to be concerning." A fast pong (≪500ms)
-   leaves the dot only partially-faded before the snap-back. */
+   transition declared, so removal is instant). The duration is
+   sourced from the `--watchdog-animation-ms` CSS custom property
+   bound inline by `watchdogStyle` to the
+   `engine.katago.watchdogAnimationMs` registry leaf (promoted in
+   knob-registry Phase 3a). Fallback 500ms matches the prior
+   hardcoded literal so an unbound dot animates identically to
+   the pre-promotion behaviour. The latency threshold that flips
+   the dot un-animated (`WATCHDOG_LATENCY_THRESHOLD_MS`) remains
+   a code constant — different role despite the historical
+   shared 500ms value. */
 .watchdog-dot.watchdog-pinging {
-  animation: watchdog-pong-pending 500ms linear forwards;
+  animation: watchdog-pong-pending var(--watchdog-animation-ms, 500ms) linear forwards;
 }
 @keyframes watchdog-pong-pending {
   from { color: #00ff88; }

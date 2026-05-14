@@ -800,6 +800,21 @@ export interface AppSettings {
       // Schema-version 31 introduces this field; the migration
       // backfills 2,000,000 on existing blobs.
       ponderMaxVisits: number;
+      /**
+       * Watchdog ping-tandem keyframe duration in milliseconds
+       * (knob-registry Phase 3a). The CSS keyframe in
+       * `Toolbar.vue::.watchdog-dot.watchdog-pinging` animates
+       * green → red over this duration when a ping is in flight,
+       * via a `--watchdog-animation-ms` CSS custom property bound
+       * to this leaf. The latency threshold that flips the dot
+       * un-animated (`WATCHDOG_LATENCY_THRESHOLD_MS`) remains a
+       * code constant — it's a different role even though the
+       * historical default tied the two at 500ms. Promoted from
+       * the hardcoded keyframe duration; the
+       * `engine.watchdog-animation-ms` KnobDecl drives it.
+       * Schema-version 36 → 37 backfills the field; default 500.
+       */
+      watchdogAnimationMs: number;
       // Engine-side runtime overrides forwarded verbatim to KataGo as
       // the Analysis Engine's `overrideSettings` field. Documented at
       // the wire-shape boundary on `KataGoAnalysisQuery` in
@@ -846,6 +861,17 @@ export interface AppSettings {
     // readability; users with different colour-vision profiles can
     // adjust via the slider in the Gradient Calibration view.
     intensityHueShift: number;
+    /**
+     * Ceiling on the territory-overlay opacity (knob-registry Phase 3a).
+     * `BoardWidget.vue::ownershipColor` caps the rendered opacity at
+     * this value so even fully-owned points don't visually dominate
+     * the board grid and stones beneath. Promoted from a hardcoded
+     * 0.55 literal to a registry leaf; the `display.ownership-opacity-ceiling`
+     * KnobDecl drives it. Default 0.55 (matches the prior literal so
+     * the promotion is behaviourally invisible until the user adjusts).
+     * Schema-version 36 → 37 backfills the field.
+     */
+    ownershipOpacityCeiling: number;
     // Active UI locale. Mirrored onto `<html lang="...">` and
     // `i18n.global.locale.value` by useAppBootstrap. Schema-version
     // 24 introduces this field; the migration backfills existing
