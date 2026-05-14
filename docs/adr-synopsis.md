@@ -37,12 +37,21 @@ surfaces the deviation through the strongest applicable channel,
 preferring compile-time errors, then build-time, then runtime
 exceptions, then user-visible system messages, then console warnings,
 and silent fallback only when fallback is genuinely the right answer.
-Six concrete rules: no automatic retry on real failures; type
+Seven concrete rules: no automatic retry on real failures; type
 assertions must be justified; no sentinel-instead-of-throw; ACL
 boundaries validate rather than coerce; no empty catches; design-time
 drift surfaces too (Rule 6, appended 2026-05-07 — extends the
 principle to planning-time records and names ADR-0005's documentation
-discipline as the register-specific instances).
+discipline as the register-specific instances); closest-match
+selection surfaces too (Rule 7, appended 2026-05-15 — extends the
+principle to vocabulary-fit decisions: closest-match in a closed
+vocabulary that lacks a true match for the case is a silent failure,
+filed visibly via sibling-note / amendment / TODO / inline-comment
+when revision is out of scope. Filed under ADR-0002 with an explicit
+provisional-home flag — the rule's deeper subject, refusing fuzzy
+matching when sharper classification is available, is broader than
+fail-loudly proper and may relocate when the wider tenet-space
+articulation matures).
 
 **Why care.** This is the most consequential single tenet in the
 codebase. It is why the KataGo timeout cancels rather than retries,

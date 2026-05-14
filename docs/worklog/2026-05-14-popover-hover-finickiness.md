@@ -179,6 +179,14 @@ overshoot (for the grace-period path).
   finicky hover is a silent UX failure that surfaces only when
   the user spends mental effort wondering whether something
   *is supposed to* work the way it's working.
+- ADR-0002 Rule 7 (closest-match selection surfaces too,
+  appended 2026-05-15) — the §"Recurring pattern" audit
+  instruction above is one operational application of the rule
+  applied specifically to UI patterns: imitation of an existing
+  pattern is a closest-match against the vocabulary of
+  "documented patterns to copy," and the audit-trigger
+  ("third instance → extract a composable") is the rule's
+  visible-deviation-recording at the UI-pattern register.
 - ADR-0003 — the two-instances-allowed duplication threshold
   before composable extraction is warranted.
 

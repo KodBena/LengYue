@@ -282,6 +282,12 @@ forbids in other contexts (sentinel-instead-of-throw, partial-
 document-read citations). It applies equally to
 enum-value-selection.
 
+*Codified 2026-05-15 as ADR-0002 Rule 7 ("Closest-match
+selection surfaces too"); this paragraph is one of three origin
+instances cited in the rule body. The rule carries a provisional-
+home flag noting the principle may relocate to a future
+classification-discipline tenet.*
+
 **Re-inspect editor surfaces visually after each
 substantive phase, not just after the final phase.** The
 "sliders work" smoke test after Phase 3b was insufficient
@@ -321,6 +327,11 @@ file these without ceremony.
   — companion postmortem from the same project, sibling format.
 - ADR-0002 (fail loudly) — the loud-failure tenet the
   closest-match failure mode violates.
+- ADR-0002 Rule 7 (closest-match selection surfaces too,
+  appended 2026-05-15) — the rule this postmortem's §7
+  "Closest-match in an enum..." paragraph codified, alongside
+  the band-mismatch postmortem's §7.6 and the popover-hover
+  worklog's §"Recurring pattern."
 - ADR-0005 (documentation discipline), Rule 8 — the sibling-
   revision pattern §6's plan-note revision will follow.
 

@@ -480,12 +480,19 @@ regardless of which sub-project's history they originated in.
 ### Tenets
 
 - **ADR-0002: Fail Loudly.** Six-level loudness hierarchy from
-  compile-error (best) to silent fallback (worst). Five concrete
-  rules; three documented exceptions. The most consequential
-  single document in the project. The reason analysis-recording
-  is designed without a silent retry queue, why proxy cache
-  controls are explicit rather than implicit, why the SR review
-  timeout cancels-rather-than-retries.
+  compile-error (best) to silent fallback (worst). Seven concrete
+  rules (Rule 6 appended 2026-05-07 extending the principle to
+  planning-time records; Rule 7 appended 2026-05-15 extending
+  it to vocabulary-fit decisions — closest-match selection
+  surfaces too — with an explicit provisional-home flag since
+  Rule 7's deeper subject, refusing fuzzy matching when sharper
+  classification is available, is broader than fail-loudly
+  proper and may relocate when a classification-discipline tenet
+  is articulated); three documented exceptions. The most
+  consequential single document in the project. The reason
+  analysis-recording is designed without a silent retry queue,
+  why proxy cache controls are explicit rather than implicit,
+  why the SR review timeout cancels-rather-than-retries.
 - **ADR-0004: Minimal-Touch Edits to Partially-Visible Files.**
   Authoring discipline: when editing under partial visibility,
   only the lines the build tool flags get touched. Full-file

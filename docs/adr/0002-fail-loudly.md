@@ -11,6 +11,14 @@
   records and naming ADR-0005's documentation discipline as the
   register-specific instances. Per ADR-0005's own Revisit when… rule 3,
   tenets absorb additional disciplines by append rather than supersession.
+  2026-05-15 — appended Rule 7 (closest-match selection surfaces too),
+  extending the principle to vocabulary-fit decisions (enum values, ADR
+  band tags, chrome neighbourhoods, documented patterns to imitate). Filed
+  here with an explicit provisional-home flag: the deeper subject of the
+  rule — refusing fuzzy matching when sharper classification is available
+  and warranted — is broader than fail-loudly proper, and may relocate
+  to a future classification-discipline tenet when the wider tenet-space
+  articulation matures. The Rule 7 body names this seam.
 - **Scope:** Codebase-wide. Applies to the frontend (`gogui`) and, as a
   design aspiration, to coordinated choices on the spaced-repetition backend.
 
@@ -168,6 +176,77 @@ A deviation is *not* surfaced loudly enough when:
    and `docs/notes/qeubo-namespace-unification-plan.md` are the
    first design-note instances applying the discipline at authoring
    time.
+7. **Closest-match selection surfaces too.** *(Appended 2026-05-15.)*
+   When choosing from a closed vocabulary — an enum value, an
+   ADR-0003 band tag, a chrome neighbourhood, a documented pattern
+   to imitate, any pre-existing categorisation — the choice's
+   honesty depends on the vocabulary carrying a true match for the
+   case at hand. A closest match selected when no true match exists
+   is the silent failure this rule forbids: the categorisation
+   looks legitimate post-hoc (a defensible value picked from a
+   defensible vocabulary), but the underlying mismatch propagates
+   through every consumer that later reads the categorisation as
+   authoritative.
+
+   The principle parallels Rules 1–5 in a fourth register
+   (vocabulary-fit), and is the design-time companion to Rule 6
+   (design-time drift surfaces too) — Rule 6 governs the moment a
+   planning-time record is found wrong; this rule governs the
+   moment a choice is being made against a vocabulary that's
+   silently wrong-for-this-case. Imitation of an existing pattern
+   is a sub-shape: the vocabulary being selected against is
+   "documented patterns to copy," and copying one without
+   verifying its fit for the new case is the same failure mode
+   wearing a different vehicle.
+
+   Operationally: when the closest available match feels
+   not-quite-right, the honest move is "the vocabulary is missing
+   a category for this case; revise it before committing," not
+   "this is the best available." If revision is out of scope for
+   the current arc, the deviation is filed visibly (a sibling note
+   marked `revised` per ADR-0005 Rule 8, an ADR amendment per this
+   rule's own append-a-rule pattern, a TODO entry, or at minimum
+   an inline comment naming the misfit) so the next reader sees
+   the gap rather than reading the closest-match as a legitimate
+   fit.
+
+   Three observed instances led to the rule's codification: the
+   `KnobDomain` enum-value closest-match
+   (`../notes/postmortem-knob-registry-qeubo-domain-2026-05.md`),
+   the toolbar popover chrome-neighbourhood closest-match
+   (`../notes/postmortem-knob-toolbar-popover-2026-05.md`), and
+   the popover hover-pattern imitation closest-match
+   (`../worklog/2026-05-14-popover-hover-finickiness.md`
+   §"Recurring pattern"). The imitation sub-shape's audit trigger
+   ("third instance → extract a composable") is one operational
+   instance of this rule applied to UI patterns specifically.
+
+   **Provisional home.** This rule is recorded under ADR-0002
+   because its operational surface — closest-match selection as a
+   silent failure mode — fits the fail-loudly tenet structurally:
+   closest-match selections are silent unless surfaced; the
+   rule's job is to surface them. But the principle behind the
+   rule is broader than fail-loudly proper. As the project author
+   named it on 2026-05-15: *the closest-match failure is one
+   instance of failing to correctly obey and adhere to
+   classification on a general level — "category error" or
+   misclassification is just one instance of allowing fuzzy
+   matching where sharper discipline is possible and warranted.*
+   Fail-loudly is the *reactive* register: when something has
+   gone wrong, surface it audibly. The classification-discipline
+   principle is the *proactive* register: when a choice is being
+   made against a vocabulary, refuse fuzzy matches that don't
+   precisely fit. The two are related but not subsumed-by-each-
+   other; the current placement is provisional and pragmatic —
+   the rule lives somewhere reachable while the wider tenet-space
+   articulation matures. A future arc that articulates the
+   classification-discipline principle as its own tenet (a
+   standalone ADR, or a refactoring of the tenet space such that
+   orthogonal disciplines have their own homes) is the natural
+   relocation point. Naming this seam now is itself the rule's
+   own discipline applied to its own placement: the next reader
+   sees the placement as interim rather than reading it as
+   authoritative.
 
 ## Consequences
 

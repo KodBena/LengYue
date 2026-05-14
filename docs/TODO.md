@@ -332,14 +332,29 @@ work but worth naming:
   capability. The pre-merge-blocking framing was the wrong
   enforcement point; predictably-shaped retroactive correctives
   are the right one. One focused PR closes it.
-- **Closest-match failure-mode tenet articulation.** Surfaced by
-  the toolbar-popover postmortem §7.6: both that postmortem and
-  the qEUBO-domain one share the same root failure pattern
-  (closest-match selection in a vocabulary missing a true match,
-  taken without flagging the missing category). Worth a tenet-
-  level codification — probably an ADR-0002 register extension
-  or an ADR-0005 amendment. Drafting candidate ADR text is a
-  small follow-on arc.
+- ~~**Closest-match failure-mode tenet articulation.**~~
+  *(shipped 2026-05-15 as ADR-0002 Rule 7, "Closest-match
+  selection surfaces too." Filed with an explicit provisional-
+  home flag, since the rule's deeper principle — refusing fuzzy
+  matching when sharper classification is available — is broader
+  than fail-loudly proper.)*
+- **Classification-discipline principle as its own tenet;
+  Rule 7 relocation when ready.** Surfaced by the 2026-05-15
+  filing of ADR-0002 Rule 7's provisional-home paragraph: the
+  rule's deeper subject — *failing to correctly obey and adhere
+  to classification on a general level; closest-match / category
+  error / misclassification are instances of allowing fuzzy
+  matching where sharper discipline is possible and warranted* —
+  is broader than fail-loudly proper, and ADR-0002's reactive
+  register is not its natural home. A future arc that articulates
+  the classification-discipline principle in its own right (a
+  standalone ADR, or a refactoring of the tenet space such that
+  orthogonal disciplines have their own homes) is the natural
+  relocation point for Rule 7. Not urgent; the provisional-home
+  flag preserves the seam. The right trigger is "a fourth
+  closest-match instance surfaces and it's clearly not a
+  fail-loudly variant" OR "the project author has appetite for
+  the tenet-space refactor on its own merits."
 
 #### 30c. `[backend]` Single CTE per pipeline run
 
