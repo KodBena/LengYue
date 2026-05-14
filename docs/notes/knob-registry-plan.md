@@ -1,14 +1,24 @@
 # Knob Registry — Design Note
 
-**Status:** `design-note: planned`. Picks up from
-`qeubo-namespace-unification-plan.md` (which transitions to
-`design-note: revised` per ADR-0005 Rule 8 in the same arc).
-That document remains the canonical record of the qEUBO-driven
-thinking that surfaced the registry shape; this document is
-the canonical record of the **substrate-first reframing** the
-2026-05-14 session produced and of the **infrastructure-first
-implementation roadmap** chosen against the sequencing tension
-the TODO entry of the same date named.
+**Status:** `design-note: implemented` (transitioned 2026-05-14
+per the §17 maintenance contract). Shipped via PR #223
+(`KodBena/feat/knob-registry`, 14 commits). Worklog at
+`docs/worklog/2026-05-14-knob-registry.md`. Phase 4 closed
+unilaterally on author judgment (recorded in the §"Amendment —
+2026-05-14: Phase 4 closed" block below); Phase 6 open-ended
+sweep is partially executed (first batch of three preference
+thresholds landed) and remains available for further
+candidate-by-candidate promotions without further-arc ceremony.
+
+**The original status line** read: `design-note: planned`.
+Picks up from `qeubo-namespace-unification-plan.md` (which
+transitions to `design-note: revised` per ADR-0005 Rule 8 in
+the same arc). That document remains the canonical record of
+the qEUBO-driven thinking that surfaced the registry shape;
+this document is the canonical record of the **substrate-first
+reframing** the 2026-05-14 session produced and of the
+**infrastructure-first implementation roadmap** chosen against
+the sequencing tension the TODO entry of the same date named.
 
 **Genre.** Infrastructure-and-implementation roadmap. The
 predecessor note articulates the data shapes (KnobDecl, the

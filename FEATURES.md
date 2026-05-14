@@ -361,6 +361,19 @@ every abstraction the system uses is exposed and editable.
   remove / mutate keys at runtime; changes apply immediately
   and persist on next sync.
 
+- **Knob registry.** A cross-domain sliders surface in the
+  Other tab, listing every preference-flavoured scalar in
+  the system grouped by domain (Display, Engine, Palette, …).
+  Drag a slider; the underlying value updates in real time
+  on every consumer surface that reads it (board overlays,
+  watchdog animation pacing, intensity gradient). When qEUBO
+  is running an experiment, the parameters it controls show
+  as locked with a tooltip naming the consumer; the same
+  enforcement applies when other consumers (autonomous-SR
+  scenarios, etc.) take a claim. Sliders for analysis-env
+  palette parameters appear automatically when their range
+  is configured in PaletteEditor.
+
 - **Card-set editor.** Tree-DSL pipelines edited in CodeMirror
   6 with JSON5-superset dialect (trailing commas, single
   quotes admitted). The hyperparameter-declarations panel lives
