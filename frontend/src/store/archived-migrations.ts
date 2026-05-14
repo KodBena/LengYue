@@ -5,9 +5,9 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-05-14: migrations 1 → 2 through 37 → 38 (37
+ * Scope as of 2026-05-14: migrations 1 → 2 through 38 → 39 (38
  * entries). The first eight covered pre-v1.0.0 schema evolution;
- * the next twenty-nine are the v1.0.x – v1.1.x active cycle. Both
+ * the next thirty are the v1.0.x – v1.1.x active cycle. Both
  * are now consolidated here under the same archive contract.
  *
  * Why preserved (not deleted): the migration framework's `migrate()`
@@ -1628,6 +1628,49 @@ export const archivedMigrations: Migration[] = [
             outputs: [{ path: `profile.settings.engine.katago.analysis_env.parameters.${name}` }],
             qeuboControlled,
           };
+        }
+      }
+    }
+    return out;
+  },
+  // 38 → 39: Knob-registry domain re-categorisation
+  // (knob-registry-postmortem remediation). The 37 → 38 migration
+  // shipped with `domain: 'qeubo'` on every analysis-env-derived
+  // KnobDecl. That was a category error documented at
+  // `docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`:
+  // `KnobDomain` is a UX taxonomy ("where does this knob live in
+  // the user's mental model"); `'qeubo'` named a consumer identity,
+  // which belongs to `ConsumerClaim.consumerId` and the
+  // `KnobDecl.qeuboControlled` flag. The corrected enum drops
+  // `'qeubo'` and adds `'palette'`.
+  //
+  // This migration rewrites the `domain` field on every
+  // `qeubo.*`-prefixed KnobDecl from `'qeubo'` to `'palette'`. The
+  // KnobDecl IDs themselves keep the `qeubo.` prefix — that's the
+  // naming convention `useQeubo.knobIdForParam` builds, and the
+  // claim machinery already keys on those strings; renaming would
+  // require coordinated rewrites across `ensureKnobDecl`,
+  // `reconcileQeuboKnobs`, `acquireExperimentClaims`, and the
+  // claim Map's keys. The fix is the domain (the UX-presentation
+  // axis), not the id (the substrate-internal handle).
+  //
+  // Idempotent: a decl already at `domain: 'palette'` (or any
+  // non-`'qeubo'` value) is preserved unchanged. Per the
+  // append-only invariant the 37 → 38 migration above is left
+  // frozen as it shipped — the corrected state is reached by
+  // walking forward through this migration, not by retroactively
+  // editing the prior step.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const knobs = out.profile?.settings?.knobs;
+    if (knobs && typeof knobs === 'object' && !Array.isArray(knobs)) {
+      const target = knobs as Record<string, unknown>;
+      for (const knobId of Object.keys(target)) {
+        if (!knobId.startsWith('qeubo.')) continue;
+        const decl = target[knobId];
+        if (!decl || typeof decl !== 'object') continue;
+        if ((decl as { domain?: unknown }).domain === 'qeubo') {
+          (decl as { domain?: unknown }).domain = 'palette';
         }
       }
     }

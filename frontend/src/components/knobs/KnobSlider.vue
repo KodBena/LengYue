@@ -35,10 +35,20 @@ import type { ConsumerClaim, KnobId } from '../../types';
 
 const { t } = useI18n();
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   /** Registry key of the KnobDecl this slider drives. */
   knobId: KnobId;
-}>();
+  /**
+   * Compact horizontal layout — label / slider / value in one row.
+   * Used by the toolbar quick-access popover where vertical space
+   * is scarce. The Other-tab editor uses the default (compact:
+   * false) layout, which stacks label-above-slider for more
+   * generous reading.
+   */
+  compact?: boolean;
+}>(), {
+  compact: false,
+});
 
 // Reactive registry lookup — picks up post-hydrate seeding and any
 // future user-side decl mutations without re-mounting the widget.
@@ -161,11 +171,8 @@ function onInput(event: Event) {
 </script>
 
 <template>
-  <div v-if="decl" class="knob-slider-row">
-    <label class="knob-slider-label">
-      <span>{{ displayLabel }}</span>
-      <span class="knob-slider-value">{{ displayValue }}</span>
-    </label>
+  <div v-if="decl" :class="['knob-slider-row', { 'knob-slider-compact': compact }]">
+    <span class="knob-slider-label-text" :title="displayLabel">{{ displayLabel }}</span>
     <input
       type="range"
       :min="range[0]"
@@ -177,32 +184,56 @@ function onInput(event: Event) {
       class="knob-slider-input"
       @input="onInput"
     />
+    <span class="knob-slider-value">{{ displayValue }}</span>
   </div>
 </template>
 
 <style scoped>
+/* Default (spacious) layout — used by the Other tab's
+   KnobRegistryEditor. Label sits above the slider; value badge
+   shares the label row at the right edge via the order property
+   below. */
 .knob-slider-row {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-tight);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "label value" "slider slider";
+  column-gap: var(--space-default);
+  row-gap: var(--space-tight);
   margin-bottom: var(--space-default);
-}
-.knob-slider-label {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
   font-size: var(--text-emphasis);
+}
+.knob-slider-label-text {
+  grid-area: label;
   color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .knob-slider-value {
+  grid-area: value;
   font-family: monospace;
   color: var(--text-0);
 }
 .knob-slider-input {
+  grid-area: slider;
   width: 100%;
 }
 .knob-slider-input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Compact layout — single row, label/slider/value side by side,
+   tight margins. Used by ToolbarSliderPopover so the popover fits
+   many knobs in minimal vertical space. */
+.knob-slider-compact {
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 2fr) auto;
+  grid-template-areas: "label slider value";
+  column-gap: var(--space-default);
+  row-gap: 0;
+  margin-bottom: var(--space-tight);
+  align-items: center;
+  font-size: var(--text-body);
+}
+.knob-slider-compact .knob-slider-input { min-width: 0; }
 </style>

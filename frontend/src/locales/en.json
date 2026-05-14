@@ -158,6 +158,8 @@
   "toolbar.metric.latencyValue":          "{ms}ms",
   "toolbar.metric.watchdog":              "WATCHDOG",
   "toolbar.metric.queue":                 "QUEUE",
+  "toolbar.metric.sliders":               "SLIDERS",
+  "toolbar.sliders.empty":                "No knobs registered yet.",
   "toolbar.queue.empty":                  "No queries in flight.",
   "toolbar.queue.header":                 "{n} in flight",
   "toolbar.queue.col.kind":               "KIND",

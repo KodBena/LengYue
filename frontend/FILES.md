@@ -81,6 +81,7 @@ frontend/src/
 │   │   ├── SystemLogPanel.vue         [B1]  Always-visible system log bar with idle row.
 │   │   ├── TabWidget.vue              [B1]  Controlled tabbed navigation.
 │   │   ├── Toolbar.vue                [B3]  Application toolbar (engine controls, match button, ponder controls, …).
+│   │   ├── ToolbarSliderPopover.vue   [B1]  Toolbar badge + hover popover: compact priority-ordered list of every scalar knob (quick-access surface for the knob registry).
 │   │   └── UserBadge.vue              [B1]  Auth-identity badge; opens LoginModal on click.
 │   │
 │   ├── editors/                             Settings / palette / pipeline editors.

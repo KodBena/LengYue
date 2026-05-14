@@ -156,6 +156,8 @@
   "toolbar.metric.latency":               "延迟",
   "toolbar.metric.latencyValue":          "{ms}ms",
   "toolbar.metric.watchdog":              "看门狗",
+  "toolbar.metric.sliders":               "滑块",
+  "toolbar.sliders.empty":                "尚无已注册的旋钮。",
 
   "statusBar.move":                       "第 {n} 手",
   "statusBar.versus":                     "对",

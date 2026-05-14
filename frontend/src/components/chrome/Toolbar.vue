@@ -7,6 +7,7 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import QeuboToolbar from '../qeubo/QeuboToolbar.vue';
 import EngineQueueTooltip from './EngineQueueTooltip.vue';
+import ToolbarSliderPopover from './ToolbarSliderPopover.vue';
 import { store, setSelectedModel } from '../../store';
 import type { EngineStatus, EngineMetrics } from '../../types';
 
@@ -207,6 +208,14 @@ const modelTooltip = computed(() => {
            so the user knows whether the engine has outstanding
            work even when no per-board ponder is active. -->
       <EngineQueueTooltip />
+      <!-- Knob registry quick-access — hover the badge to drop
+           down a compact, priority-ordered list of every scalar
+           knob in the registry. Closes the
+           "move-filter-slider-not-visible-from-AnalysisControls"
+           friction the registry's Other-tab editor surfaces. The
+           Other-tab editor remains the spacious grouped view; this
+           is the minimal-friction surface. -->
+      <ToolbarSliderPopover />
     </div>
 
     <!-- qEUBO calibration cluster. Self-gating: renders only when an
