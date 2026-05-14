@@ -1,15 +1,20 @@
 # Migration Test Coverage + Rotation Script Automation — Design Note
 
-**Status:** `design-note: planned`. No implementation work has
-started. This document is the canonical handle for two
-complementary sub-projects around the rolling-archive
-discipline shipped 2026-05-14 (PR #219):
+**Status:** `design-note: in-progress` — Phase 1 (migration test
+suite) has landed; Phase 2 (rotation script) remains planned.
+This document is the canonical handle for two complementary
+sub-projects around the rolling-archive discipline shipped
+2026-05-14 (PR #219):
 
-- **A unit-test suite for the schema-migration corpus**, where
-  none exists today.
+- **A unit-test suite for the schema-migration corpus** — landed
+  2026-05-14 as `frontend/tests/unit/store/migrations.test.ts`
+  (144 tests; one `describe` block per migration plus invariant
+  and end-to-end-walk blocks).
 - **A rotation-script automation** that mechanises the per-PR
   cadence the new `frontend/CLAUDE.md`'s "Rolling-archive
   discipline for `src/store/migrations.ts`" section codifies.
+  Still planned; the Phase-1 test suite is the safety net Phase 2
+  was designed to lean on.
 
 **Genre.** Infrastructure / authoring-ergonomics roadmap.
 
@@ -313,19 +318,20 @@ churn and a CI build-time increase.
 
 ## Maintenance contract
 
-This is `design-note: planned`. When Phase 1 (migration tests)
-lands, the status line at the top transitions; the PR and
-worklog get named here. When Phase 2 (rotation script) lands,
-the same. If the AST migration arc opens at some future
-point, this document either gets amended with a new section
-or transitions to `design-note: revised` with a sibling note
-that picks up the AST framing — judgement call at the
-implementation moment.
+This is `design-note: in-progress`. Phase 1 (migration tests)
+landed 2026-05-14 — `frontend/tests/unit/store/migrations.test.ts`.
+When Phase 2 (rotation script) lands, the status line transitions
+again and the PR / worklog reference goes here. If the AST
+migration arc opens at some future point, this document either
+gets amended with a new section or transitions to
+`design-note: revised` with a sibling note that picks up the AST
+framing — judgement call at the implementation moment.
 
-If the project decides not to ship the automation
-(perfectly defensible — the manual rotation is fine), this
-note transitions to `design-note: closed-with-rationale`
-naming why.
+If the project decides not to ship the rotation-script
+automation (perfectly defensible — the manual rotation is fine
+now that Phase-1 tests catch silent corruption), this note
+transitions to `design-note: closed-with-rationale` naming why
+and the Phase-1 suite stands on its own.
 
 ---
 
