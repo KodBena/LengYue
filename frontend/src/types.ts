@@ -819,15 +819,30 @@ export interface AppSettings {
        * `Toolbar.vue::.watchdog-dot.watchdog-pinging` animates
        * green → red over this duration when a ping is in flight,
        * via a `--watchdog-animation-ms` CSS custom property bound
-       * to this leaf. The latency threshold that flips the dot
-       * un-animated (`WATCHDOG_LATENCY_THRESHOLD_MS`) remains a
-       * code constant — it's a different role even though the
-       * historical default tied the two at 500ms. Promoted from
-       * the hardcoded keyframe duration; the
-       * `engine.watchdog-animation-ms` KnobDecl drives it.
-       * Schema-version 36 → 37 backfills the field; default 500.
+       * to this leaf. Promoted from the hardcoded keyframe
+       * duration; the `engine.watchdog-animation-ms` KnobDecl
+       * drives it. Schema-version 36 → 37 backfills the field;
+       * default 500.
        */
       watchdogAnimationMs: number;
+      /**
+       * Watchdog latency-threshold in milliseconds (knob-registry
+       * Phase 6 sweep). In the un-animated watchdog mode (when
+       * `session.ui.watchdogColorTransition` is false), the dot
+       * flips red when the most-recent ping's round-trip latency
+       * exceeds this value. In the animated mode the threshold is
+       * conceptually independent — the keyframe sweeps over
+       * `watchdogAnimationMs` regardless — but historically the
+       * two defaulted to the same 500 ms by design, tying the
+       * animation's full-saturation moment to "the engine is
+       * taking long enough to be concerning." Users on slow
+       * networks can raise this to avoid spurious red-flash;
+       * users wanting tighter latency feedback can lower it.
+       * Promoted from `Toolbar.vue`'s prior
+       * `WATCHDOG_LATENCY_THRESHOLD_MS` const. Default 500;
+       * range [50, 5000]. Schema-version 39 → 40 backfills.
+       */
+      watchdogLatencyThresholdMs: number;
       // Engine-side runtime overrides forwarded verbatim to KataGo as
       // the Analysis Engine's `overrideSettings` field. Documented at
       // the wire-shape boundary on `KataGoAnalysisQuery` in
@@ -885,6 +900,26 @@ export interface AppSettings {
      * Schema-version 36 → 37 backfills the field.
      */
     ownershipOpacityCeiling: number;
+    /**
+     * Dead-band threshold for the territory overlay (knob-registry
+     * Phase 6 sweep). Below this absolute magnitude the engine's
+     * ownership signal is too weak to render — paints transparent
+     * to prevent flicker as confidence wavers around 0. Default
+     * 0.05; range [0, 1]. Promoted from `BoardWidget.vue::ownershipColor`'s
+     * prior `if (mag < 0.05)` literal. Schema-version 39 → 40
+     * backfills the field.
+     */
+    ownershipDeadbandThreshold: number;
+    /**
+     * Liveness-marker threshold (knob-registry Phase 6 sweep).
+     * Stones with engine-disagreement magnitude below this aren't
+     * flagged as dead; below it the engine is genuinely undecided
+     * about the region and the highlight would flicker as packets
+     * arrive. Default 0.3; range [0, 1]. Promoted from
+     * `BoardWidget.vue`'s prior `LIVENESS_THRESHOLD` const.
+     * Schema-version 39 → 40 backfills the field.
+     */
+    livenessThreshold: number;
     // Active UI locale. Mirrored onto `<html lang="...">` and
     // `i18n.global.locale.value` by useAppBootstrap. Schema-version
     // 24 introduces this field; the migration backfills existing

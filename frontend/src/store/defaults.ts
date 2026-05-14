@@ -74,6 +74,13 @@ export const defaultSettings = {
       // `AppSettings.engine.katago.watchdogAnimationMs` in `types.ts`
       // for the consumer-site reference.
       watchdogAnimationMs: 500,
+      // Watchdog latency threshold (ms) — color-flip cutoff for the
+      // un-animated watchdog mode. Promoted from Toolbar.vue's prior
+      // `WATCHDOG_LATENCY_THRESHOLD_MS = 500` const during the
+      // Phase-6 sweep. Bound through the
+      // `engine.watchdog-latency-threshold-ms` KnobDecl. See
+      // `AppSettings.engine.katago.watchdogLatencyThresholdMs`.
+      watchdogLatencyThresholdMs: 500,
       // Engine-side runtime overrides forwarded as KataGo's
       // `overrideSettings` field on every analysis query. The seed
       // values are a sensible default analysis posture for the SR
@@ -271,6 +278,16 @@ export const defaultSettings = {
     // `display.ownership-opacity-ceiling` KnobDecl. See
     // `AppSettings.appearance.ownershipOpacityCeiling` in `types.ts`.
     ownershipOpacityCeiling: 0.55,
+    // Dead-band threshold below which the ownership overlay paints
+    // transparent. Promoted from BoardWidget.vue's prior `0.05`
+    // literal during the Phase-6 sweep. Bound through the
+    // `display.ownership-deadband-threshold` KnobDecl.
+    ownershipDeadbandThreshold: 0.05,
+    // Liveness-marker threshold for the dead-stone overlay.
+    // Promoted from BoardWidget.vue's prior `LIVENESS_THRESHOLD =
+    // 0.3` const during the Phase-6 sweep. Bound through the
+    // `display.liveness-threshold` KnobDecl.
+    livenessThreshold: 0.3,
     locale: detectBrowserLocale(),
   },
   minting: {
@@ -315,6 +332,27 @@ export const defaultSettings = {
       domain: 'engine',
       inputs: [{ range: [50, 5000] as const }],
       outputs: [{ path: 'profile.settings.engine.katago.watchdogAnimationMs' }],
+    },
+    'display.ownership-deadband-threshold': {
+      id: 'display.ownership-deadband-threshold',
+      label: 'Ownership overlay dead-band',
+      domain: 'display',
+      inputs: [{ range: [0, 1] as const }],
+      outputs: [{ path: 'profile.settings.appearance.ownershipDeadbandThreshold' }],
+    },
+    'display.liveness-threshold': {
+      id: 'display.liveness-threshold',
+      label: 'Liveness marker threshold',
+      domain: 'display',
+      inputs: [{ range: [0, 1] as const }],
+      outputs: [{ path: 'profile.settings.appearance.livenessThreshold' }],
+    },
+    'engine.watchdog-latency-threshold-ms': {
+      id: 'engine.watchdog-latency-threshold-ms',
+      label: 'Watchdog latency threshold (ms)',
+      domain: 'engine',
+      inputs: [{ range: [50, 5000] as const }],
+      outputs: [{ path: 'profile.settings.engine.katago.watchdogLatencyThresholdMs' }],
     },
   },
 } as const;

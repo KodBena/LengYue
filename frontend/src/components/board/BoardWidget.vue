@@ -29,10 +29,14 @@ import { activeConfigHash } from '../../services/analysis-config';
 // the confidence of the disagreement — and this same map paints it.
 function ownershipColor(v: number): { fill: string; opacity: number } {
   const mag = Math.abs(v);
-  // magic-literal: 0.05 is the dead-band threshold below which ownership
-  // signal is too weak to render — prevents flicker as the engine's
-  // confidence wavers around 0.
-  if (mag < 0.05) return { fill: 'transparent', opacity: 0 };
+  // Dead-band threshold sourced from the registry leaf promoted in
+  // the knob-registry Phase 6 magic-literals sweep (was a hardcoded
+  // 0.05 literal). Below this magnitude the ownership signal is too
+  // weak to render — paints transparent to prevent flicker as the
+  // engine's confidence wavers around 0. Drives via the
+  // `display.ownership-deadband-threshold` KnobDecl.
+  const deadband = store.profile.settings.appearance.ownershipDeadbandThreshold;
+  if (mag < deadband) return { fill: 'transparent', opacity: 0 };
   // Ownership overlay ceiling — sourced from the registry leaf
   // promoted in knob-registry Phase 3a (was a hardcoded 0.55 here
   // and at the magnitude multiplier; both still pull from the same
@@ -47,11 +51,6 @@ function ownershipColor(v: number): { fill: string; opacity: number } {
   };
 }
 
-// Stones with disagreement weaker than this threshold aren't flagged
-// as dead; below it, the engine is genuinely undecided about the
-// region and the highlight would just flicker as packets arrive.
-const LIVENESS_THRESHOLD = 0.3;
-
 // Liveness marker uses the conventional small-opposing-coloured-dot
 // rendering inside the stone (Lizzie / KaTrain / Sabaki convention).
 // The threshold filter at the call site has already gated to confident
@@ -59,10 +58,10 @@ const LIVENESS_THRESHOLD = 0.3;
 // magnitude-modulated opacity that the territory overlays use.
 function livenessColor(v: number): { fill: string; opacity: number } {
   // magic-literal: 0.95 liveness opacity — band-3 Go-bound visualization
-  // decision. Higher than ownershipColor's 0.85 ceiling because liveness
-  // markers have already passed the LIVENESS_THRESHOLD gate (line 41), so
-  // the rendering can be near-opaque without the magnitude-modulated fade
-  // territory overlays use.
+  // decision. Higher than ownershipColor's ceiling because liveness
+  // markers have already passed the registry-driven liveness-threshold
+  // gate in `livenessCells` below, so the rendering can be near-opaque
+  // without the magnitude-modulated fade territory overlays use.
   return { fill: v > 0 ? '#fff' : '#000', opacity: 0.95 };
 }
 
@@ -132,11 +131,18 @@ const livenessCells = computed(() => {
   if (!store.session.ui.overlayLayers.ownership.liveness) return [];
   const cells = decodedOwnership.value;
   if (!cells) return [];
+  // Liveness threshold sourced from the registry leaf promoted in
+  // the knob-registry Phase 6 magic-literals sweep (was a hardcoded
+  // `LIVENESS_THRESHOLD = 0.3` const). Below this magnitude the
+  // engine is genuinely undecided about the region; the highlight
+  // would flicker as packets arrive. Drives via the
+  // `display.liveness-threshold` KnobDecl.
+  const livenessThreshold = store.profile.settings.appearance.livenessThreshold;
   return cells.filter(({ x, y, value }) => {
     const stone = props.state.stones[`${x},${y}`];
     if (!stone) return false;
-    return (stone === 'B' && value > LIVENESS_THRESHOLD)
-        || (stone === 'W' && value < -LIVENESS_THRESHOLD);
+    return (stone === 'B' && value > livenessThreshold)
+        || (stone === 'W' && value < -livenessThreshold);
   });
 });
 

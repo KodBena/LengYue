@@ -77,13 +77,13 @@ import { archivedMigrations, type Migration } from './archived-migrations';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 39;
+export const CURRENT_SCHEMA_VERSION = 40;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 36 → 37) are
+ * The first `N` entries (currently 1 → 2 through 37 → 38) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -105,84 +105,6 @@ export const CURRENT_SCHEMA_VERSION = 39;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 37 → 38: Knob-registry Phase 5 — qEUBO consumer migration. Seeds
-  // a KnobDecl `qeubo.<name>` for every entry in
-  // `profile.settings.engine.katago.analysis_env.parameter_meta`
-  // that declares a valid `[lo, hi]` range. The seeded decl:
-  //
-  //   - id:           `qeubo.<name>`
-  //   - label:        the param name verbatim
-  //   - domain:       `'qeubo'`
-  //   - inputs:       `[{ range: parameter_meta[name].range }]`
-  //   - outputs:      `[{ path: 'profile.settings.engine.katago.analysis_env.parameters.<name>' }]`
-  //   - transform:    omitted (defaults to `identity`; N=K=1)
-  //   - qeuboControlled: mirrors `parameter_meta[name].qeubo_controlled`
-  //                   (the user's current intent, preserved verbatim).
-  //
-  // Entries without a range are skipped — the predecessor system
-  // requires a range to be qEUBO-controllable, and the new substrate
-  // requires a range to validate the input vector. Skipping keeps the
-  // migration honest: a parameter that wasn't reachable for qEUBO
-  // control before this migration stays unreachable after.
-  //
-  // Idempotent: an existing entry under the same key is preserved
-  // unchanged. This both protects user-customised decl metadata
-  // (a future editor surface lets them rename labels, retune ranges)
-  // and makes the migration safe to run repeatedly across replay
-  // scenarios.
-  //
-  // See `useQeubo`'s `startNewExperiment` / `abortExperiment` for the
-  // claim-side counterpart that exercises these decls at experiment
-  // lifecycle.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const analysisEnv =
-      out.profile?.settings?.engine?.katago?.analysis_env;
-    const knobs = out.profile?.settings?.knobs;
-    if (
-      analysisEnv &&
-      typeof analysisEnv === 'object' &&
-      knobs &&
-      typeof knobs === 'object' &&
-      !Array.isArray(knobs)
-    ) {
-      const parameterMeta =
-        (analysisEnv as { parameter_meta?: unknown }).parameter_meta;
-      if (parameterMeta && typeof parameterMeta === 'object' && !Array.isArray(parameterMeta)) {
-        const meta = parameterMeta as Record<string, unknown>;
-        const target = knobs as Record<string, unknown>;
-        for (const name of Object.keys(meta)) {
-          const knobId = `qeubo.${name}`;
-          if (knobId in target) continue;
-          const entry = meta[name];
-          if (!entry || typeof entry !== 'object') continue;
-          const range = (entry as { range?: unknown }).range;
-          if (
-            !Array.isArray(range) ||
-            range.length !== 2 ||
-            typeof range[0] !== 'number' ||
-            typeof range[1] !== 'number' ||
-            !Number.isFinite(range[0]) ||
-            !Number.isFinite(range[1]) ||
-            range[0] >= range[1]
-          ) {
-            continue;
-          }
-          const qeuboControlled =
-            (entry as { qeubo_controlled?: unknown }).qeubo_controlled === true;
-          target[knobId] = {
-            id: knobId,
-            label: name,
-            domain: 'qeubo',
-            inputs: [{ range: [range[0], range[1]] }],
-            outputs: [{ path: `profile.settings.engine.katago.analysis_env.parameters.${name}` }],
-            qeuboControlled,
-          };
-        }
-      }
-    }
-    return out;
-  },
   // 38 → 39: Knob-registry domain re-categorisation
   // (knob-registry-postmortem remediation). The 37 → 38 migration
   // shipped with `domain: 'qeubo'` on every analysis-env-derived
@@ -221,6 +143,92 @@ export const migrations: Migration[] = [
         if (!decl || typeof decl !== 'object') continue;
         if ((decl as { domain?: unknown }).domain === 'qeubo') {
           (decl as { domain?: unknown }).domain = 'palette';
+        }
+      }
+    }
+    return out;
+  },
+  // 39 → 40: Knob-registry Phase 6 magic-literals sweep. Three new
+  // preference-flavoured leaves promoted from inline literals:
+  //
+  //   (1) `profile.settings.appearance.ownershipDeadbandThreshold`
+  //       default 0.05 — was a `0.05` inline literal in
+  //       BoardWidget.vue's `ownershipColor`. Below this magnitude,
+  //       the territory overlay paints transparent to prevent
+  //       flicker.
+  //   (2) `profile.settings.appearance.livenessThreshold`
+  //       default 0.3 — was `LIVENESS_THRESHOLD = 0.3` const in
+  //       BoardWidget.vue. Stones with engine-disagreement below
+  //       this aren't flagged as dead.
+  //   (3) `profile.settings.engine.katago.watchdogLatencyThresholdMs`
+  //       default 500 — was `WATCHDOG_LATENCY_THRESHOLD_MS = 500`
+  //       const in Toolbar.vue. Latency cutoff for the un-animated
+  //       watchdog's color flip.
+  //
+  // Seeds three corresponding KnobDecls mirroring the defaults-side
+  // fresh-install seed verbatim (display.ownership-deadband-threshold,
+  // display.liveness-threshold, engine.watchdog-latency-threshold-ms).
+  //
+  // Idempotent: each leaf-backfill preserves a pre-existing number;
+  // each KnobDecl seed preserves a pre-existing entry under the
+  // same key (matching the 36 → 37 motivating-scalars migration's
+  // discipline so user-customised label / range edits survive).
+  //
+  // See `BoardWidget.vue::ownershipColor` and
+  // `BoardWidget.vue::livenessColor` for the display-side consumer
+  // retargets, and `Toolbar.vue` for the engine-side one — all
+  // updated in the same commit.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const settings = out.profile?.settings;
+    if (settings && typeof settings === 'object') {
+      const appearance = (settings as { appearance?: unknown }).appearance;
+      if (appearance && typeof appearance === 'object') {
+        const a = appearance as { ownershipDeadbandThreshold?: unknown; livenessThreshold?: unknown };
+        if (typeof a.ownershipDeadbandThreshold !== 'number') {
+          a.ownershipDeadbandThreshold = 0.05;
+        }
+        if (typeof a.livenessThreshold !== 'number') {
+          a.livenessThreshold = 0.3;
+        }
+      }
+      const katago = (settings as { engine?: { katago?: unknown } }).engine?.katago;
+      if (katago && typeof katago === 'object') {
+        const k = katago as { watchdogLatencyThresholdMs?: unknown };
+        if (typeof k.watchdogLatencyThresholdMs !== 'number') {
+          k.watchdogLatencyThresholdMs = 500;
+        }
+      }
+      const knobs = (settings as { knobs?: unknown }).knobs;
+      if (knobs && typeof knobs === 'object' && !Array.isArray(knobs)) {
+        const seeds: Record<string, unknown> = {
+          'display.ownership-deadband-threshold': {
+            id: 'display.ownership-deadband-threshold',
+            label: 'Ownership overlay dead-band',
+            domain: 'display',
+            inputs: [{ range: [0, 1] }],
+            outputs: [{ path: 'profile.settings.appearance.ownershipDeadbandThreshold' }],
+          },
+          'display.liveness-threshold': {
+            id: 'display.liveness-threshold',
+            label: 'Liveness marker threshold',
+            domain: 'display',
+            inputs: [{ range: [0, 1] }],
+            outputs: [{ path: 'profile.settings.appearance.livenessThreshold' }],
+          },
+          'engine.watchdog-latency-threshold-ms': {
+            id: 'engine.watchdog-latency-threshold-ms',
+            label: 'Watchdog latency threshold (ms)',
+            domain: 'engine',
+            inputs: [{ range: [50, 5000] }],
+            outputs: [{ path: 'profile.settings.engine.katago.watchdogLatencyThresholdMs' }],
+          },
+        };
+        const target = knobs as Record<string, unknown>;
+        for (const key of Object.keys(seeds)) {
+          if (!(key in target)) {
+            target[key] = seeds[key];
+          }
         }
       }
     }

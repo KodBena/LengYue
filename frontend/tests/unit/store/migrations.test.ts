@@ -2028,3 +2028,123 @@ describe('38 → 39: KnobDomain "qeubo" → "palette" re-categorisation', () => 
     expect(out.profile.settings.knobs).toEqual([]);
   });
 });
+
+// ── Per-migration: 39 → 40 ──────────────────────────────────────────
+
+describe('39 → 40: Phase 6 magic-literals sweep (3 preference scalars)', () => {
+  function blobWithSettings(extra: Record<string, unknown> = {}): any {
+    return {
+      profile: {
+        settings: {
+          appearance: {},
+          engine: { katago: {} },
+          knobs: {},
+          ...extra,
+        },
+      },
+    };
+  }
+
+  it('seeds ownershipDeadbandThreshold default 0.05 when absent', () => {
+    const out = step(39)(blobWithSettings());
+    expect(out.profile.settings.appearance.ownershipDeadbandThreshold).toBe(0.05);
+  });
+
+  it('preserves pre-existing ownershipDeadbandThreshold', () => {
+    const blob = blobWithSettings();
+    blob.profile.settings.appearance.ownershipDeadbandThreshold = 0.1;
+    const out = step(39)(blob);
+    expect(out.profile.settings.appearance.ownershipDeadbandThreshold).toBe(0.1);
+  });
+
+  it('seeds livenessThreshold default 0.3 when absent', () => {
+    const out = step(39)(blobWithSettings());
+    expect(out.profile.settings.appearance.livenessThreshold).toBe(0.3);
+  });
+
+  it('preserves pre-existing livenessThreshold', () => {
+    const blob = blobWithSettings();
+    blob.profile.settings.appearance.livenessThreshold = 0.5;
+    const out = step(39)(blob);
+    expect(out.profile.settings.appearance.livenessThreshold).toBe(0.5);
+  });
+
+  it('seeds watchdogLatencyThresholdMs default 500 when absent', () => {
+    const out = step(39)(blobWithSettings());
+    expect(out.profile.settings.engine.katago.watchdogLatencyThresholdMs).toBe(500);
+  });
+
+  it('preserves pre-existing watchdogLatencyThresholdMs', () => {
+    const blob = blobWithSettings();
+    blob.profile.settings.engine.katago.watchdogLatencyThresholdMs = 750;
+    const out = step(39)(blob);
+    expect(out.profile.settings.engine.katago.watchdogLatencyThresholdMs).toBe(750);
+  });
+
+  it('coerces non-number leaves to defaults', () => {
+    const blob = blobWithSettings();
+    blob.profile.settings.appearance.ownershipDeadbandThreshold = 'corrupt';
+    blob.profile.settings.appearance.livenessThreshold = null;
+    blob.profile.settings.engine.katago.watchdogLatencyThresholdMs = false;
+    const out = step(39)(blob);
+    expect(out.profile.settings.appearance.ownershipDeadbandThreshold).toBe(0.05);
+    expect(out.profile.settings.appearance.livenessThreshold).toBe(0.3);
+    expect(out.profile.settings.engine.katago.watchdogLatencyThresholdMs).toBe(500);
+  });
+
+  it('seeds the three KnobDecls when knobs is empty', () => {
+    const out = step(39)(blobWithSettings());
+    expect(Object.keys(out.profile.settings.knobs).sort()).toEqual([
+      'display.liveness-threshold',
+      'display.ownership-deadband-threshold',
+      'engine.watchdog-latency-threshold-ms',
+    ]);
+  });
+
+  it('seeds each KnobDecl with the correct path and domain', () => {
+    const out = step(39)(blobWithSettings());
+    const knobs = out.profile.settings.knobs;
+    expect(knobs['display.ownership-deadband-threshold']).toMatchObject({
+      id: 'display.ownership-deadband-threshold',
+      domain: 'display',
+      inputs: [{ range: [0, 1] }],
+      outputs: [{ path: 'profile.settings.appearance.ownershipDeadbandThreshold' }],
+    });
+    expect(knobs['display.liveness-threshold']).toMatchObject({
+      id: 'display.liveness-threshold',
+      domain: 'display',
+      inputs: [{ range: [0, 1] }],
+      outputs: [{ path: 'profile.settings.appearance.livenessThreshold' }],
+    });
+    expect(knobs['engine.watchdog-latency-threshold-ms']).toMatchObject({
+      id: 'engine.watchdog-latency-threshold-ms',
+      domain: 'engine',
+      inputs: [{ range: [50, 5000] }],
+      outputs: [{ path: 'profile.settings.engine.katago.watchdogLatencyThresholdMs' }],
+    });
+  });
+
+  it('preserves a pre-existing KnobDecl under the same key', () => {
+    const blob = blobWithSettings();
+    blob.profile.settings.knobs['display.liveness-threshold'] = {
+      id: 'display.liveness-threshold',
+      label: 'User-customised label',
+      domain: 'display',
+      inputs: [{ range: [0.1, 0.9] }],
+      outputs: [{ path: 'profile.settings.appearance.livenessThreshold' }],
+    };
+    const out = step(39)(blob);
+    expect(out.profile.settings.knobs['display.liveness-threshold'].label).toBe(
+      'User-customised label',
+    );
+    // The other two seeds still land.
+    expect(out.profile.settings.knobs['display.ownership-deadband-threshold']).toBeDefined();
+    expect(out.profile.settings.knobs['engine.watchdog-latency-threshold-ms']).toBeDefined();
+  });
+
+  it('is a no-op when profile.settings is absent (defensive)', () => {
+    const blob: any = { profile: {} };
+    const out = step(39)(blob);
+    expect(out.profile).toEqual({});
+  });
+});

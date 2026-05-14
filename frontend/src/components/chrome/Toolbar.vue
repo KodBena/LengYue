@@ -33,17 +33,6 @@ const emit = defineEmits<{
   (e: 'stop-match'):   void;
 }>();
 
-// magic-literal: 500ms — watchdog-dot colour-flip threshold for
-// the default (un-animated) mode. The watchdog samples
-// `query_version` round-trip every 5000ms (see
-// `analysis-service.startWatchdog`); a sample above this threshold
-// flips the dot red. The cutoff is hand-tuned: KataGo's proxy
-// returns `query_version` in single-digit ms when idle and
-// hundreds-of-ms when concurrent analyses serialise the proxy's
-// command queue behind heavy-analyze responses — 500ms is the
-// "the engine is busy enough that the user should notice" point.
-const WATCHDOG_LATENCY_THRESHOLD_MS = 500;
-
 // Two distinct watchdog-dot modes, gated by
 // `session.ui.watchdogColorTransition`:
 //
@@ -63,13 +52,23 @@ const WATCHDOG_LATENCY_THRESHOLD_MS = 500;
 //     snaps the dot back to green per the keyframe's
 //     `animation-fill-mode: forwards` interaction with the
 //     class-toggle.
+//
+// The threshold is sourced from the registry leaf promoted in
+// the knob-registry Phase 6 sweep (was a hardcoded
+// `WATCHDOG_LATENCY_THRESHOLD_MS = 500` const). KataGo's proxy
+// returns `query_version` in single-digit ms when idle and
+// hundreds-of-ms when concurrent analyses serialise the proxy's
+// command queue behind heavy-analyze responses — 500ms is the
+// hand-tuned "the engine is busy enough that the user should
+// notice" point; users on slower networks can raise it. Drives
+// via the `engine.watchdog-latency-threshold-ms` KnobDecl.
 const watchdogClasses = computed(() => {
   if (store.session.ui.watchdogColorTransition) {
     return store.engine.metrics.pingPendingSince !== null
       ? 'watchdog-pinging'
       : '';
   }
-  return props.metrics.latencyMs >= WATCHDOG_LATENCY_THRESHOLD_MS
+  return props.metrics.latencyMs >= store.profile.settings.engine.katago.watchdogLatencyThresholdMs
     ? 'watchdog-bad'
     : '';
 });
@@ -253,8 +252,8 @@ const modelTooltip = computed(() => {
    substrate's red attention anchor. */
 .watchdog-dot { color: #00ff88; }
 /* Default (un-animated) mode — `watchdog-bad` reflects the most
-   recent watchdog poll's `latencyMs` against the
-   WATCHDOG_LATENCY_THRESHOLD_MS threshold. Class toggles
+   recent watchdog poll's `latencyMs` against the registry-driven
+   `engine.katago.watchdogLatencyThresholdMs` leaf. Class toggles
    instantly; the 5000ms watchdog cadence gives the dot its
    "stays red for ~5s after a spike" feel. */
 .watchdog-dot.watchdog-bad { color: var(--state-attention); }
@@ -270,10 +269,11 @@ const modelTooltip = computed(() => {
    `engine.katago.watchdogAnimationMs` registry leaf (promoted in
    knob-registry Phase 3a). Fallback 500ms matches the prior
    hardcoded literal so an unbound dot animates identically to
-   the pre-promotion behaviour. The latency threshold that flips
-   the dot un-animated (`WATCHDOG_LATENCY_THRESHOLD_MS`) remains
-   a code constant — different role despite the historical
-   shared 500ms value. */
+   the pre-promotion behaviour. The latency-threshold counterpart
+   for un-animated mode lives at
+   `engine.katago.watchdogLatencyThresholdMs` (knob-registry
+   Phase 6 sweep) — same value at default; independent surface
+   for tuning. */
 .watchdog-dot.watchdog-pinging {
   animation: watchdog-pong-pending var(--watchdog-animation-ms, 500ms) linear forwards;
 }
