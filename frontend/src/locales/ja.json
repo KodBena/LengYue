@@ -204,6 +204,8 @@
   "palette.confirm.deleteItem":           "{type} '{id}' を削除しますか?",
   "palette.systemMessage.qeuboRecreated": "qEUBO 実験を [{params}] で再作成しました。",
   "palette.systemMessage.qeuboSyncFailed": "qEUBO 同期失敗: {msg}",
+  "palette.systemMessage.parameterLocked": "パラメータ「{name}」は{holder}にロックされています。編集は拒否されました。",
+  "palette.tooltip.parameterLocked":       "ロック中 — {holder}が制御{reason}",
   "palette.param.value":                  "値:",
   "palette.param.range":                  "範囲:",
   "palette.param.rangeMin":               "最小",

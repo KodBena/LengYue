@@ -204,6 +204,8 @@
   "palette.confirm.deleteItem":           "{type} '{id}'을(를) 삭제하시겠습니까?",
   "palette.systemMessage.qeuboRecreated": "qEUBO 실험이 [{params}]에 대해 재생성됨.",
   "palette.systemMessage.qeuboSyncFailed": "qEUBO 동기화 실패: {msg}",
+  "palette.systemMessage.parameterLocked": "파라미터 \"{name}\"은(는) 현재 {holder}에 의해 잠겨 있습니다. 편집이 거부되었습니다.",
+  "palette.tooltip.parameterLocked":       "잠김 — {holder}가 제어 중{reason}",
   "palette.param.value":                  "값:",
   "palette.param.range":                  "범위:",
   "palette.param.rangeMin":               "최소",

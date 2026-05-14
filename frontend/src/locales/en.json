@@ -227,6 +227,8 @@
   "palette.confirm.deleteItem":           "Delete {type} '{id}'?",
   "palette.systemMessage.qeuboRecreated": "qEUBO experiment recreated over [{params}].",
   "palette.systemMessage.qeuboSyncFailed": "qEUBO sync failed: {msg}",
+  "palette.systemMessage.parameterLocked": "Parameter \"{name}\" is currently locked by {holder}; the edit was refused.",
+  "palette.tooltip.parameterLocked":       "Locked — controlled by {holder}{reason}",
   "palette.param.value":                  "Value:",
   "palette.param.range":                  "Range:",
   "palette.param.rangeMin":               "min",

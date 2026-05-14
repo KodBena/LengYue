@@ -204,6 +204,8 @@
   "palette.confirm.deleteItem":           "删除 {type} '{id}'?",
   "palette.systemMessage.qeuboRecreated": "qEUBO 实验已基于 [{params}] 重建。",
   "palette.systemMessage.qeuboSyncFailed": "qEUBO 同步失败:{msg}",
+  "palette.systemMessage.parameterLocked": "参数 \"{name}\" 当前被 {holder} 锁定;编辑被拒绝。",
+  "palette.tooltip.parameterLocked":       "已锁定 — 由 {holder} 控制{reason}",
   "palette.param.value":                  "值:",
   "palette.param.range":                  "范围:",
   "palette.param.rangeMin":               "最小",
