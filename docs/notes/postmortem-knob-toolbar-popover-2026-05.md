@@ -542,6 +542,15 @@ which surface the next instance lands on.
 
 ### 7.6 The closest-match failure mode, generalised
 
+*Shipped 2026-05-15 as ADR-0002 Rule 7 ("Closest-match selection
+surfaces too"). The text below proposed the tenet articulation and
+identified ADR-0002 as the candidate home; the rule was filed
+there with an explicit provisional-home flag, since the deeper
+principle (refusing fuzzy matching when sharper classification is
+available) is broader than fail-loudly proper and may relocate to
+a future classification-discipline tenet. The text is preserved
+verbatim per ADR-0005 Rule 8 as the proposal-time record.*
+
 Both the qEUBO-domain postmortem and this one share the same root
 failure pattern: *closest-match selection in a vocabulary that
 doesn't actually have a true match for the case at hand, taken
@@ -588,6 +597,11 @@ fit instead of to runtime-error-handling.
   with bugs)."
 - ADR-0002 (fail loudly) — the tenet the closest-match failure
   mode violates.
+- ADR-0002 Rule 7 (closest-match selection surfaces too,
+  appended 2026-05-15) — the rule §7.6 proposed and that shipped
+  as the codification of the pattern. Carries a provisional-home
+  flag noting the principle may relocate to a future
+  classification-discipline tenet.
 - ADR-0003 (frontend portability and domain boundaries) — the
   band classification the postmortem's recommendations operate on.
 - ADR-0004 (minimal-touch edits to partially-visible files) — the
