@@ -91,12 +91,14 @@ import { i18n } from '../i18n';
 import {
   QeuboError,
   type BookmarkId,
+  type KnobId,
   type QeuboBest,
   type QeuboBookmark,
   type QeuboPair,
   type QeuboPhase,
   type QeuboStatus,
 } from '../types';
+import { claimKnob, releaseKnob, writeKnobValue } from '../lib/knobs';
 
 // ─── Module-scoped state ─────────────────────────────────────────────────────
 
@@ -107,6 +109,161 @@ const _bestRef = ref<QeuboBest | null>(null);
 // has QEUBO_ENABLED=true; false = backend returned 503.
 const _calibrationEnabledRef = ref<boolean | null>(null);
 const _isBusyRef = ref<boolean>(false);
+
+/**
+ * Knob-registry substrate integration (Phase 5).
+ *
+ * `_claimedKnobIds` tracks every KnobId qEUBO currently holds a hard
+ * claim on. The set is populated by `startNewExperiment` (and by
+ * `bootstrap` when an existing experiment is rediscovered after
+ * reload) and drained by `abortExperiment` / `reset`. Iteration
+ * order isn't load-bearing — release is per-id.
+ *
+ * `QEUBO_CONSUMER_ID` is the string qEUBO identifies itself as in
+ * the substrate's claim API. Stable across the application's
+ * lifetime; the same identifier the future qEUBO-aware widgets
+ * (PaletteEditor's Analysis Environment view, eventually) check
+ * against to know whether a parameter slider is under qEUBO control.
+ */
+const _claimedKnobIds = new Set<string>();
+const QEUBO_CONSUMER_ID = 'qeubo';
+
+/**
+ * Compute the KnobDecl id from an analysis_env parameter name. The
+ * Phase 5 migration seeds decls under `qeubo.<name>`; the
+ * `ensureKnobDecl` helper below adds new ones for parameters that
+ * arrive after the migration ran. Keeping this single naming
+ * convention is the only thing that ties `parameter_meta` (the
+ * user's authored intent) to the registry.
+ */
+function knobIdForParam(name: string): KnobId {
+  return `qeubo.${name}` as KnobId;
+}
+
+/**
+ * Self-heal the registry — if no KnobDecl exists for `qeubo.<name>`,
+ * synthesize one with the given range. The Phase 5 migration seeds
+ * decls for every `parameter_meta` entry that exists at migration
+ * time; this helper covers the dynamic case where the user adds a
+ * new parameter through the Analysis Environment editor after that
+ * migration ran. Idempotent: an existing decl is returned unchanged.
+ */
+function ensureKnobDecl(name: string, range: readonly [number, number]): KnobId {
+  const knobId = knobIdForParam(name);
+  const registry = store.profile.settings.knobs;
+  if (!(knobId in registry)) {
+    registry[knobId] = {
+      id: knobId,
+      label: name,
+      domain: 'qeubo',
+      inputs: [{ range: [range[0], range[1]] }],
+      outputs: [{
+        path: `profile.settings.engine.katago.analysis_env.parameters.${name}`,
+      }],
+      qeuboControlled: true,
+    };
+  }
+  return knobId;
+}
+
+/**
+ * Acquire hard claims on every controlled parameter, rolling back
+ * on any rejection so the substrate stays consistent if one claim
+ * fails. Returns the list of acquired KnobIds (in declared order)
+ * so callers can record them in `_claimedKnobIds` after they know
+ * the start succeeded.
+ *
+ * Range lookup goes through `parameter_meta` since that's the
+ * authored source of truth on the frontend; the caller has already
+ * validated each param has one before reaching this helper.
+ */
+function acquireExperimentClaims(controlledParams: readonly string[]): KnobId[] {
+  const acquired: KnobId[] = [];
+  const pm = store.profile.settings.engine.katago.analysis_env.parameter_meta ?? {};
+  for (const name of controlledParams) {
+    const range = pm[name]?.range;
+    if (!range) {
+      // Caller (startNewExperiment) should have caught this; defensive
+      // throw rather than silent slip-through. ADR-0002.
+      for (const a of acquired) releaseKnob(a, QEUBO_CONSUMER_ID);
+      throw new Error(
+        `qEUBO: parameter "${name}" has no range — cannot synthesize a KnobDecl.`,
+      );
+    }
+    const knobId = ensureKnobDecl(name, range);
+    const result = claimKnob(knobId, {
+      consumerId: QEUBO_CONSUMER_ID,
+      policy: 'hard',
+      reason: 'qEUBO experiment in progress',
+    });
+    if (result.kind === 'rejected') {
+      // Roll back every claim acquired in this loop so the substrate
+      // doesn't carry a partial-acquire state.
+      for (const a of acquired) releaseKnob(a, QEUBO_CONSUMER_ID);
+      throw new Error(
+        `qEUBO: cannot claim knob "${knobId}" — currently held by ` +
+        `"${result.holder.consumerId}" (${result.holder.reason ?? 'no reason given'}).`,
+      );
+    }
+    acquired.push(knobId);
+  }
+  return acquired;
+}
+
+/**
+ * Release every claim recorded in `_claimedKnobIds`. Used by
+ * `abortExperiment`, `reset`, and any other path that drops the
+ * substrate-side experiment hold. Idempotent: a knob that the
+ * substrate already considers unclaimed surfaces as a
+ * `releaseKnob`-rejected result, which is fine here — the caller's
+ * intent is "no longer claimed", which the substrate state already
+ * satisfies.
+ */
+function releaseAllExperimentClaims(): void {
+  for (const knobId of _claimedKnobIds) {
+    releaseKnob(knobId as KnobId, QEUBO_CONSUMER_ID);
+  }
+  _claimedKnobIds.clear();
+}
+
+/**
+ * Re-claim every `qeubo_controlled: true` parameter at bootstrap
+ * time. The substrate's claim map is module-scope and in-memory
+ * only — a page reload wipes it back to all-unclaimed regardless
+ * of whether the backend still carries an active experiment. This
+ * helper restores the substrate's view from the only persistent
+ * source of truth available on the frontend: `parameter_meta`'s
+ * `qeubo_controlled` flags.
+ *
+ * Conflicting claims (another consumer holds the knob) surface as
+ * a console warning but don't abort bootstrap — a partial-substrate
+ * recovery is strictly better than the pre-Phase-5 zero-enforcement
+ * baseline. The user-visible symptom (a slider that should be
+ * locked is editable) is also visible in the editor's claim state,
+ * so the gap isn't silent.
+ */
+function rehydrateExperimentClaims(): void {
+  const pm = store.profile.settings.engine.katago.analysis_env.parameter_meta ?? {};
+  for (const [name, meta] of Object.entries(pm)) {
+    if (meta?.qeubo_controlled !== true) continue;
+    if (!meta?.range) continue;
+    const knobId = ensureKnobDecl(name, meta.range);
+    if (_claimedKnobIds.has(knobId)) continue;
+    const result = claimKnob(knobId, {
+      consumerId: QEUBO_CONSUMER_ID,
+      policy: 'hard',
+      reason: 'qEUBO experiment in progress',
+    });
+    if (result.kind === 'rejected') {
+      console.warn(
+        `[useQeubo] rehydrate: cannot re-claim knob "${knobId}" — ` +
+        `held by "${result.holder.consumerId}".`,
+      );
+      continue;
+    }
+    _claimedKnobIds.add(knobId);
+  }
+}
 
 // ─── Toolbar-view bridge ─────────────────────────────────────────────────────
 // Proxy `session.ui.qeuboToolbarView` through a WritableComputedRef so
@@ -202,6 +359,16 @@ async function bootstrap(): Promise<void> {
     const status = await qeuboService.getStatus();
     _statusRef.value = status;
     _calibrationEnabledRef.value = true;
+    // Re-claim the substrate-side hold on every parameter the user
+    // has marked `qeubo_controlled: true` in `parameter_meta`. The
+    // claim machinery is in-memory only — on cold start the map is
+    // empty regardless of whether a backend experiment exists, so
+    // bootstrap is responsible for restoring the substrate's view
+    // of what's under qEUBO control. Failures here surface as
+    // console warnings rather than aborting bootstrap: a degraded
+    // substrate-side state is still strictly better than the
+    // pre-Phase-5 zero-enforcement baseline.
+    rehydrateExperimentClaims();
     if (status.hasPending) {
       try {
         const pair = await qeuboService.getPair();
@@ -253,6 +420,17 @@ async function startNewExperiment(controlledParams: string[]): Promise<void> {
     }
     ranges[name] = meta.range;
   }
+  // Acquire substrate-side claims BEFORE the backend call so a
+  // claim conflict (someone else holds one of these knobs) refuses
+  // the start at the substrate boundary rather than after spending
+  // a backend round-trip. Roll back any partial acquisition on
+  // rejection per `acquireExperimentClaims`.
+  let acquired: KnobId[];
+  try {
+    acquired = acquireExperimentClaims(controlledParams);
+  } catch (err) {
+    throw err instanceof Error ? err : new Error(String(err));
+  }
   _isBusyRef.value = true;
   try {
     const exp = await qeuboService.createExperiment({
@@ -276,6 +454,10 @@ async function startNewExperiment(controlledParams: string[]): Promise<void> {
     _pairRef.value = null;
     _bestRef.value = null;
     _calibrationEnabledRef.value = true;
+    // Backend acceptance — record the substrate claims we acquired
+    // above so the lifecycle's `abortExperiment` / `reset` paths can
+    // release them.
+    for (const knobId of acquired) _claimedKnobIds.add(knobId);
     // Auto-fetch the first pair so the toolbar surfaces A/B
     // immediately on creation.
     const pair = await qeuboService.getPair();
@@ -285,6 +467,12 @@ async function startNewExperiment(controlledParams: string[]): Promise<void> {
       hasPending: true,
       pendingQueryUuid: pair.queryUuid,
     };
+  } catch (err) {
+    // Backend rejected the experiment (or the pair fetch failed in a
+    // way that surfaces here). Release the substrate claims so the
+    // user isn't left with locked knobs and no experiment.
+    for (const knobId of acquired) releaseKnob(knobId, QEUBO_CONSUMER_ID);
+    throw err;
   } finally {
     _isBusyRef.value = false;
   }
@@ -301,6 +489,10 @@ async function abortExperiment(): Promise<void> {
         throw err;
       }
     }
+    // Release the substrate-side claims regardless of backend
+    // success — the experiment is gone from the qEUBO consumer's
+    // perspective, so the held claims should follow.
+    releaseAllExperimentClaims();
     _statusRef.value = null;
     _pairRef.value = null;
     _bestRef.value = null;
@@ -384,7 +576,26 @@ async function refreshBest(): Promise<void> {
 function applyEffective(): void {
   if (_toolbarView.value === 'applied') return;
   const eff = _effectiveParameterValues.value;
-  store.profile.settings.engine.katago.analysis_env.parameters = { ...eff };
+  const registry = store.profile.settings.knobs;
+  // Per-key writes through the substrate so the policy machinery
+  // engages — qEUBO writing during its own hard claim is admitted;
+  // keys that lack a KnobDecl fall through to the direct path so
+  // legacy parameters (no parameter_meta range) still take effect.
+  // The substrate-routed writes mutate `analysis_env.parameters`
+  // exactly the same way the prior whole-record reseat did, so
+  // downstream consumers (engine query construction, analysis-
+  // service ACL) see no behavioural change in this commit.
+  for (const [name, value] of Object.entries(eff)) {
+    const knobId = knobIdForParam(name);
+    if (knobId in registry) {
+      writeKnobValue(store, registry, knobId, [value], {
+        kind: 'consumer',
+        consumerId: QEUBO_CONSUMER_ID,
+      });
+    } else {
+      store.profile.settings.engine.katago.analysis_env.parameters[name] = value;
+    }
+  }
   _toolbarView.value = 'applied';
 }
 
@@ -401,6 +612,12 @@ function applyEffective(): void {
  * lifecycle.
  */
 function reset(): void {
+  // Release any held substrate claims so a re-login starts clean.
+  // The logout flow this method serves wipes auth state but doesn't
+  // touch the substrate's claim machinery directly; without this
+  // release, a re-login would inherit the previous identity's
+  // claims and the next bootstrap would race against them.
+  releaseAllExperimentClaims();
   _statusRef.value = null;
   _pairRef.value = null;
   _bestRef.value = null;

@@ -5,9 +5,9 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-05-14: migrations 1 → 2 through 34 → 35 (34
+ * Scope as of 2026-05-14: migrations 1 → 2 through 35 → 36 (35
  * entries). The first eight covered pre-v1.0.0 schema evolution;
- * the next twenty-six are the v1.0.x – v1.1.x active cycle. Both
+ * the next twenty-seven are the v1.0.x – v1.1.x active cycle. Both
  * are now consolidated here under the same archive contract.
  *
  * Why preserved (not deleted): the migration framework's `migrate()`
@@ -1434,6 +1434,34 @@ export const archivedMigrations: Migration[] = [
             (card as { tags?: unknown }).tags = [];
           }
         }
+      }
+    }
+    return out;
+  },
+  // 35 → 36: Knob-registry substrate seed (knob-registry-plan Phase 1).
+  // Backfills the new `profile.settings.knobs` field with an empty
+  // object on existing blobs (matching the fresh-install default in
+  // `store/defaults.ts`). The substrate is the SSOT for user-
+  // controllable variables — Phase 1 ships the empty registry plus
+  // the type vocabulary and path-walk accessors in `src/lib/knobs.ts`;
+  // Phase 3+ promotions populate the registry as scalars lift off of
+  // inline literals. No consumer side-effects until then. See
+  // `AppSettings.knobs` in `types.ts` and
+  // `docs/notes/knob-registry-plan.md` for the design.
+  //
+  // Idempotent: an existing plain-object value is preserved
+  // unchanged; missing / non-object gets `{}`.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const settings = out.profile?.settings;
+    if (settings && typeof settings === 'object') {
+      const existing = (settings as { knobs?: unknown }).knobs;
+      const isPlainObject =
+        existing !== null &&
+        typeof existing === 'object' &&
+        !Array.isArray(existing);
+      if (!isPlainObject) {
+        (settings as { knobs?: unknown }).knobs = {};
       }
     }
     return out;

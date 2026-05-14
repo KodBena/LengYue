@@ -1759,3 +1759,143 @@ describe('36 → 37: motivating-scalar promotions (knob-registry Phase 3a)', () 
     expect(out.profile.settings.knobs).toBe('corrupt');
   });
 });
+
+// ── Per-migration: 37 → 38 ──────────────────────────────────────────
+
+describe('37 → 38: qEUBO consumer migration (knob-registry Phase 5)', () => {
+  function blobWithEnv(
+    parameterMeta: Record<string, { range?: [number, number]; qeubo_controlled?: boolean }>,
+    knobs: Record<string, unknown> = {},
+  ): any {
+    return {
+      profile: {
+        settings: {
+          engine: {
+            katago: {
+              analysis_env: {
+                parameters: {},
+                parameter_meta: parameterMeta,
+              },
+            },
+          },
+          knobs,
+        },
+      },
+    };
+  }
+
+  it('seeds a KnobDecl for a parameter_meta entry with a valid range', () => {
+    const blob = blobWithEnv({ alpha: { range: [0, 1], qeubo_controlled: true } });
+    const out = step(37)(blob);
+    const decl = out.profile.settings.knobs['qeubo.alpha'];
+    expect(decl).toMatchObject({
+      id: 'qeubo.alpha',
+      label: 'alpha',
+      domain: 'qeubo',
+      inputs: [{ range: [0, 1] }],
+      outputs: [{ path: 'profile.settings.engine.katago.analysis_env.parameters.alpha' }],
+      qeuboControlled: true,
+    });
+  });
+
+  it('mirrors qeubo_controlled === false on the seeded decl', () => {
+    const blob = blobWithEnv({ alpha: { range: [0, 1], qeubo_controlled: false } });
+    const out = step(37)(blob);
+    expect(out.profile.settings.knobs['qeubo.alpha'].qeuboControlled).toBe(false);
+  });
+
+  it('treats missing qeubo_controlled as false', () => {
+    const blob = blobWithEnv({ alpha: { range: [0, 1] } });
+    const out = step(37)(blob);
+    expect(out.profile.settings.knobs['qeubo.alpha'].qeuboControlled).toBe(false);
+  });
+
+  it('skips a parameter_meta entry without a range', () => {
+    const blob = blobWithEnv({ alpha: { qeubo_controlled: true } });
+    const out = step(37)(blob);
+    expect(out.profile.settings.knobs['qeubo.alpha']).toBeUndefined();
+  });
+
+  it('skips a parameter_meta entry with an inverted range (lo >= hi)', () => {
+    const blob = blobWithEnv({ alpha: { range: [1, 0] } });
+    const out = step(37)(blob);
+    expect(out.profile.settings.knobs['qeubo.alpha']).toBeUndefined();
+  });
+
+  it('skips a parameter_meta entry with non-finite range endpoints', () => {
+    const blob = blobWithEnv({
+      bad1: { range: [Number.NaN, 1] as [number, number] },
+      bad2: { range: [0, Number.POSITIVE_INFINITY] as [number, number] },
+    });
+    const out = step(37)(blob);
+    expect(out.profile.settings.knobs['qeubo.bad1']).toBeUndefined();
+    expect(out.profile.settings.knobs['qeubo.bad2']).toBeUndefined();
+  });
+
+  it('seeds multiple entries when several parameters declare valid ranges', () => {
+    const blob = blobWithEnv({
+      alpha: { range: [0, 1], qeubo_controlled: true },
+      beta: { range: [-10, 10], qeubo_controlled: false },
+    });
+    const out = step(37)(blob);
+    expect(Object.keys(out.profile.settings.knobs).sort()).toEqual([
+      'qeubo.alpha',
+      'qeubo.beta',
+    ]);
+  });
+
+  it('preserves a pre-existing decl under the same key', () => {
+    const blob = blobWithEnv(
+      { alpha: { range: [0, 1], qeubo_controlled: true } },
+      {
+        'qeubo.alpha': {
+          id: 'qeubo.alpha',
+          label: 'User-customised label',
+          domain: 'qeubo',
+          inputs: [{ range: [0.1, 0.9] }],
+          outputs: [{ path: 'profile.settings.engine.katago.analysis_env.parameters.alpha' }],
+          qeuboControlled: true,
+        },
+      },
+    );
+    const out = step(37)(blob);
+    expect(out.profile.settings.knobs['qeubo.alpha'].label).toBe(
+      'User-customised label',
+    );
+    expect(out.profile.settings.knobs['qeubo.alpha'].inputs[0].range).toEqual([
+      0.1,
+      0.9,
+    ]);
+  });
+
+  it('is a no-op when analysis_env is absent (defensive)', () => {
+    const blob: any = {
+      profile: { settings: { knobs: {} } },
+    };
+    const out = step(37)(blob);
+    expect(out.profile.settings.knobs).toEqual({});
+  });
+
+  it('is a no-op when parameter_meta is absent', () => {
+    const blob: any = {
+      profile: {
+        settings: {
+          engine: { katago: { analysis_env: { parameters: {} } } },
+          knobs: {},
+        },
+      },
+    };
+    const out = step(37)(blob);
+    expect(out.profile.settings.knobs).toEqual({});
+  });
+
+  it('skips seeding when knobs is not a plain object', () => {
+    const blob = blobWithEnv(
+      { alpha: { range: [0, 1] } },
+      // @ts-expect-error — testing the runtime defensive branch
+      'corrupt',
+    );
+    const out = step(37)(blob);
+    expect(out.profile.settings.knobs).toBe('corrupt');
+  });
+});

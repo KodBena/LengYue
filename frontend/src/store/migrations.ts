@@ -77,13 +77,13 @@ import { archivedMigrations, type Migration } from './archived-migrations';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 37;
+export const CURRENT_SCHEMA_VERSION = 38;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 34 → 35) are
+ * The first `N` entries (currently 1 → 2 through 35 → 36) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -105,34 +105,6 @@ export const CURRENT_SCHEMA_VERSION = 37;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 35 → 36: Knob-registry substrate seed (knob-registry-plan Phase 1).
-  // Backfills the new `profile.settings.knobs` field with an empty
-  // object on existing blobs (matching the fresh-install default in
-  // `store/defaults.ts`). The substrate is the SSOT for user-
-  // controllable variables — Phase 1 ships the empty registry plus
-  // the type vocabulary and path-walk accessors in `src/lib/knobs.ts`;
-  // Phase 3+ promotions populate the registry as scalars lift off of
-  // inline literals. No consumer side-effects until then. See
-  // `AppSettings.knobs` in `types.ts` and
-  // `docs/notes/knob-registry-plan.md` for the design.
-  //
-  // Idempotent: an existing plain-object value is preserved
-  // unchanged; missing / non-object gets `{}`.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const settings = out.profile?.settings;
-    if (settings && typeof settings === 'object') {
-      const existing = (settings as { knobs?: unknown }).knobs;
-      const isPlainObject =
-        existing !== null &&
-        typeof existing === 'object' &&
-        !Array.isArray(existing);
-      if (!isPlainObject) {
-        (settings as { knobs?: unknown }).knobs = {};
-      }
-    }
-    return out;
-  },
   // 36 → 37: Knob-registry Phase 3a — motivating-scalar promotions.
   // Two halves:
   //
@@ -217,6 +189,84 @@ export const migrations: Migration[] = [
           if (!(key in target)) {
             target[key] = seeds[key];
           }
+        }
+      }
+    }
+    return out;
+  },
+  // 37 → 38: Knob-registry Phase 5 — qEUBO consumer migration. Seeds
+  // a KnobDecl `qeubo.<name>` for every entry in
+  // `profile.settings.engine.katago.analysis_env.parameter_meta`
+  // that declares a valid `[lo, hi]` range. The seeded decl:
+  //
+  //   - id:           `qeubo.<name>`
+  //   - label:        the param name verbatim
+  //   - domain:       `'qeubo'`
+  //   - inputs:       `[{ range: parameter_meta[name].range }]`
+  //   - outputs:      `[{ path: 'profile.settings.engine.katago.analysis_env.parameters.<name>' }]`
+  //   - transform:    omitted (defaults to `identity`; N=K=1)
+  //   - qeuboControlled: mirrors `parameter_meta[name].qeubo_controlled`
+  //                   (the user's current intent, preserved verbatim).
+  //
+  // Entries without a range are skipped — the predecessor system
+  // requires a range to be qEUBO-controllable, and the new substrate
+  // requires a range to validate the input vector. Skipping keeps the
+  // migration honest: a parameter that wasn't reachable for qEUBO
+  // control before this migration stays unreachable after.
+  //
+  // Idempotent: an existing entry under the same key is preserved
+  // unchanged. This both protects user-customised decl metadata
+  // (a future editor surface lets them rename labels, retune ranges)
+  // and makes the migration safe to run repeatedly across replay
+  // scenarios.
+  //
+  // See `useQeubo`'s `startNewExperiment` / `abortExperiment` for the
+  // claim-side counterpart that exercises these decls at experiment
+  // lifecycle.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const analysisEnv =
+      out.profile?.settings?.engine?.katago?.analysis_env;
+    const knobs = out.profile?.settings?.knobs;
+    if (
+      analysisEnv &&
+      typeof analysisEnv === 'object' &&
+      knobs &&
+      typeof knobs === 'object' &&
+      !Array.isArray(knobs)
+    ) {
+      const parameterMeta =
+        (analysisEnv as { parameter_meta?: unknown }).parameter_meta;
+      if (parameterMeta && typeof parameterMeta === 'object' && !Array.isArray(parameterMeta)) {
+        const meta = parameterMeta as Record<string, unknown>;
+        const target = knobs as Record<string, unknown>;
+        for (const name of Object.keys(meta)) {
+          const knobId = `qeubo.${name}`;
+          if (knobId in target) continue;
+          const entry = meta[name];
+          if (!entry || typeof entry !== 'object') continue;
+          const range = (entry as { range?: unknown }).range;
+          if (
+            !Array.isArray(range) ||
+            range.length !== 2 ||
+            typeof range[0] !== 'number' ||
+            typeof range[1] !== 'number' ||
+            !Number.isFinite(range[0]) ||
+            !Number.isFinite(range[1]) ||
+            range[0] >= range[1]
+          ) {
+            continue;
+          }
+          const qeuboControlled =
+            (entry as { qeubo_controlled?: unknown }).qeubo_controlled === true;
+          target[knobId] = {
+            id: knobId,
+            label: name,
+            domain: 'qeubo',
+            inputs: [{ range: [range[0], range[1]] }],
+            outputs: [{ path: `profile.settings.engine.katago.analysis_env.parameters.${name}` }],
+            qeuboControlled,
+          };
         }
       }
     }
