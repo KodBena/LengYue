@@ -98,7 +98,7 @@ import {
   type QeuboPhase,
   type QeuboStatus,
 } from '../types';
-import { claimKnob, releaseKnob, writeKnobValue } from '../lib/knobs';
+import { claimKnob, currentClaim, releaseKnob, writeKnobValue } from '../lib/knobs';
 
 // ─── Module-scoped state ─────────────────────────────────────────────────────
 
@@ -147,6 +147,11 @@ function knobIdForParam(name: string): KnobId {
  * time; this helper covers the dynamic case where the user adds a
  * new parameter through the Analysis Environment editor after that
  * migration ran. Idempotent: an existing decl is returned unchanged.
+ *
+ * Most call sites should prefer `reconcileQeuboKnobs` below — this
+ * function only adds, never updates or removes, so a parameter
+ * whose range changes after first ensure would carry the stale
+ * range until reconcile runs.
  */
 function ensureKnobDecl(name: string, range: readonly [number, number]): KnobId {
   const knobId = knobIdForParam(name);
@@ -165,6 +170,103 @@ function ensureKnobDecl(name: string, range: readonly [number, number]): KnobId 
   }
   return knobId;
 }
+
+/**
+ * Reactive sync between `analysis_env.parameter_meta` and the
+ * `qeubo.*` portion of the knob registry. Called from the bootstrap
+ * watcher on every parameter_meta mutation so the user authoring a
+ * range or toggling `qeubo_controlled` via PaletteEditor sees the
+ * corresponding KnobRegistryEditor row appear / update / disappear
+ * without a page reload.
+ *
+ * Semantics:
+ *
+ *   - parameter_meta entry with a valid finite [lo, hi] range
+ *     (lo < hi) → there is a `qeubo.<name>` KnobDecl whose
+ *     `inputs[0].range` matches and whose `qeuboControlled` mirrors
+ *     `parameter_meta[name].qeubo_controlled === true`.
+ *   - parameter_meta entry without a valid range → no
+ *     `qeubo.<name>` KnobDecl in the registry, UNLESS the substrate
+ *     is currently holding a claim on it (in which case the decl is
+ *     load-bearing for live policy dispatch and stays). A claim-held
+ *     decl whose parameter_meta has gone invalid is the substrate-
+ *     vs-PaletteEditor mid-experiment edge case the
+ *     `PaletteEditor.vue` comments warn about; we preserve the decl
+ *     so the claim's writes still validate against a known range.
+ *   - `qeubo.*` entry in registry whose parameter no longer exists
+ *     in parameter_meta → removed (unless claim-held, same caveat).
+ *
+ * Idempotent over the steady state — running this against an
+ * already-reconciled registry is a no-op. Equivalent-shape decl
+ * checks short-circuit so the watcher doesn't churn reactive
+ * dependents on every keystroke when the user is typing a range.
+ */
+function reconcileQeuboKnobs(): void {
+  const pm =
+    store.profile.settings.engine.katago.analysis_env.parameter_meta ?? {};
+  const knobs = store.profile.settings.knobs;
+  const KNOB_PREFIX = 'qeubo.';
+
+  // Pass 1 — add / update from parameter_meta.
+  for (const [name, meta] of Object.entries(pm)) {
+    const range = meta?.range;
+    const hasValidRange =
+      Array.isArray(range) &&
+      range.length === 2 &&
+      Number.isFinite(range[0]) &&
+      Number.isFinite(range[1]) &&
+      range[0] < range[1];
+    if (!hasValidRange) continue;
+    const knobId = knobIdForParam(name);
+    const qeuboControlled = meta?.qeubo_controlled === true;
+    const existing = knobs[knobId];
+    if (
+      existing &&
+      existing.inputs[0]?.range[0] === range[0] &&
+      existing.inputs[0]?.range[1] === range[1] &&
+      (existing.qeuboControlled === true) === qeuboControlled
+    ) {
+      continue; // No-op short-circuit
+    }
+    knobs[knobId] = {
+      id: knobId,
+      label: name,
+      domain: 'qeubo',
+      inputs: [{ range: [range[0], range[1]] }],
+      outputs: [{
+        path: `profile.settings.engine.katago.analysis_env.parameters.${name}`,
+      }],
+      qeuboControlled,
+    };
+  }
+
+  // Pass 2 — remove qeubo.* decls whose parameters lost their range
+  // (or were deleted). Claim-held decls survive: yanking a decl out
+  // from under a live experiment would leave the claim un-anchored
+  // and the next writeKnobValue call would throw "no KnobDecl
+  // registered" for a knob that's logically active.
+  for (const knobId of Object.keys(knobs)) {
+    if (!knobId.startsWith(KNOB_PREFIX)) continue;
+    const name = knobId.slice(KNOB_PREFIX.length);
+    const meta = pm[name];
+    const range = meta?.range;
+    const hasValidRange =
+      Array.isArray(range) &&
+      range.length === 2 &&
+      Number.isFinite(range[0]) &&
+      Number.isFinite(range[1]) &&
+      range[0] < range[1];
+    if (hasValidRange) continue;
+    // Check the substrate's actual claim state, not useQeubo's local
+    // bookkeeping — the two can diverge when the claim is held by a
+    // different consumer or when useQeubo's `_claimedKnobIds` hasn't
+    // caught up to a rehydrate. `currentClaim` is the SSOT.
+    if (currentClaim(knobId as KnobId) !== null) continue;
+    delete knobs[knobId];
+  }
+}
+
+export { reconcileQeuboKnobs };
 
 /**
  * Acquire hard claims on every controlled parameter, rolling back

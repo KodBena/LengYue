@@ -32,7 +32,7 @@ import { store } from '../../store';
 import { i18n } from '../../i18n';
 import { isSupportedLocale, DEFAULT_LOCALE } from '../../i18n/locales';
 import type { BoardId } from '../../types';
-import { useQeubo } from '../useQeubo';
+import { useQeubo, reconcileQeuboKnobs } from '../useQeubo';
 import type { useAuth } from './useAuth';
 
 export function useAppBootstrap(
@@ -120,6 +120,28 @@ export function useAppBootstrap(
     () => store.profile.settings.appearance.theme,
     (theme) => document.documentElement.setAttribute('data-theme', theme),
     { immediate: true },
+  );
+
+  // qEUBO knob-registry reconcile (knob-registry Phase 6). Watches
+  // `analysis_env.parameter_meta` deep so a user authoring a range
+  // or toggling `qeubo_controlled` via PaletteEditor's Analysis
+  // Environment view triggers the corresponding `qeubo.*` KnobDecl
+  // to be added / updated / removed in `profile.settings.knobs`.
+  // Without this watcher, the registry only learns about parameter_
+  // meta entries at migration time or on `startNewExperiment` — a
+  // mid-session range edit wouldn't surface the new knob in the
+  // KnobRegistryEditor until the user restarted the experiment or
+  // reloaded the page (the bug the Phase 6 reconcile arc closes).
+  //
+  // `immediate: true` runs once at composable setup so a fresh-
+  // install profile with seeded parameter_meta gets its registry
+  // populated before the user touches anything. `deep: true` so
+  // edits inside individual parameter_meta entries (range nudges,
+  // qeubo_controlled toggles) fire the watcher.
+  watch(
+    () => store.profile.settings.engine.katago.analysis_env.parameter_meta,
+    () => reconcileQeuboKnobs(),
+    { immediate: true, deep: true },
   );
 
   // Knob-registry coherence check (knob-registry Phase 3b). Validates
