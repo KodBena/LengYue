@@ -23,6 +23,7 @@
  */
 
 import { computed, onUnmounted, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { store } from '../../store';
 import {
   readKnob,
@@ -31,6 +32,8 @@ import {
   onClaimChange,
 } from '../../lib/knobs';
 import type { ConsumerClaim, KnobId } from '../../types';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   /** Registry key of the KnobDecl this slider drives. */
@@ -91,6 +94,30 @@ const value = computed(() => {
 
 const displayValue = computed(() => value.value.toFixed(precision.value));
 
+/**
+ * Resolve the knob's user-facing label through i18n. The convention
+ * is `knobRegistry.label.<knobId>` — when the catalog carries that
+ * key, the translated string wins. The fallback chain:
+ *
+ *   1. i18n hit on `knobRegistry.label.<id>` — translated string.
+ *   2. `decl.label` — the English literal seeded in defaults /
+ *      migrations.
+ *   3. `decl.id` — last resort so something always renders.
+ *
+ * Mirrors `KnobRegistryEditor.vue::domainLabel`'s hint-or-derive
+ * pattern; runtime-added decls (e.g. `qeubo.<param>` for
+ * user-named parameters) skip step 1 since no catalog entry
+ * exists for arbitrary param names, and fall through to `label`
+ * (which the migration / `ensureKnobDecl` set to the param name).
+ */
+const displayLabel = computed<string>(() => {
+  if (!decl.value) return '';
+  const key = `knobRegistry.label.${decl.value.id}`;
+  const translated = t(key);
+  if (translated !== key) return translated;
+  return decl.value.label ?? decl.value.id;
+});
+
 // ── Claim-state reactivity ───────────────────────────────────────
 
 const claim = ref<ConsumerClaim | null>(currentClaim(props.knobId));
@@ -105,8 +132,10 @@ const disabled = computed(() => claim.value?.policy === 'hard');
 const disabledTitle = computed(() => {
   if (!disabled.value) return '';
   const c = claim.value!;
-  const reason = c.reason ? ` (${c.reason})` : '';
-  return `Controlled by ${c.consumerId}${reason}`;
+  return t('knobRegistry.lockedTooltip', {
+    holder: c.consumerId,
+    reason: c.reason ? ` (${c.reason})` : '',
+  });
 });
 
 // ── User input ───────────────────────────────────────────────────
@@ -134,7 +163,7 @@ function onInput(event: Event) {
 <template>
   <div v-if="decl" class="knob-slider-row">
     <label class="knob-slider-label">
-      <span>{{ decl.label ?? decl.id }}</span>
+      <span>{{ displayLabel }}</span>
       <span class="knob-slider-value">{{ displayValue }}</span>
     </label>
     <input
