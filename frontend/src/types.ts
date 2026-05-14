@@ -456,6 +456,89 @@ export interface ConsumerClaim {
   readonly reason?: string;
 }
 
+/** Return value of `claimKnob`. First-come-first-served arbitration. */
+export type ClaimResult =
+  | { readonly kind: 'acquired' }
+  | {
+      readonly kind: 'rejected';
+      readonly reason: 'already-claimed';
+      readonly holder: ConsumerClaim;
+    };
+
+/** Return value of `releaseKnob`. Only the holding consumer may release. */
+export type ReleaseResult =
+  | { readonly kind: 'released' }
+  | {
+      readonly kind: 'rejected';
+      readonly reason: 'not-claim-holder';
+      readonly holder: ConsumerClaim | null;
+    };
+
+/**
+ * Caller identity for `writeKnobValue` — drives the per-state policy
+ * dispatch. The SPA UI passes `{ kind: 'manual' }`; non-UI consumers
+ * (qEUBO, autonomous-SR, test harnesses) pass their consumer id so
+ * the substrate can verify they hold the claim.
+ */
+export type WriteContext =
+  | { readonly kind: 'manual' }
+  | { readonly kind: 'consumer'; readonly consumerId: string };
+
+/**
+ * Outcome of a policy-aware write. The four variants name the
+ * states the substrate distinguishes:
+ *
+ *   - `written`: the write succeeded against an unclaimed knob, or
+ *     a soft-claimed knob held by the writer, or a hard-claimed
+ *     knob held by the writer. No side effects beyond the store
+ *     mutation.
+ *   - `written-after-soft-release`: a manual write on a soft-claimed
+ *     knob; the substrate released the soft claim on the user's
+ *     behalf (firing the standard claim-change event) before
+ *     performing the write. The replaced claim is named so
+ *     consumers can react.
+ *   - `refused` / `hard-claim-held`: a manual write or a non-holder
+ *     consumer write attempted against a hard-claimed knob. The
+ *     store is unchanged.
+ *   - `refused` / `consumer-not-claim-holder`: a consumer write
+ *     attempted without holding the knob's claim. The store is
+ *     unchanged. `activeClaim` names the current holder (null if
+ *     unclaimed — consumer writes always require an active claim).
+ */
+export type WriteResult =
+  | { readonly kind: 'written' }
+  | {
+      readonly kind: 'written-after-soft-release';
+      readonly releasedHolder: ConsumerClaim;
+    }
+  | {
+      readonly kind: 'refused';
+      readonly reason: 'hard-claim-held';
+      readonly holder: ConsumerClaim;
+    }
+  | {
+      readonly kind: 'refused';
+      readonly reason: 'consumer-not-claim-holder';
+      readonly activeClaim: ConsumerClaim | null;
+    };
+
+/** Single argument to `ClaimChangeListener`. */
+export interface ClaimChangeEvent {
+  readonly knobId: KnobId;
+  readonly previous: ConsumerClaim | null;
+  readonly next: ConsumerClaim | null;
+}
+
+/**
+ * Callback registered through `onClaimChange`. Fires synchronously
+ * on every claim transition (claim, release, soft-release fallout
+ * from a manual write).
+ */
+export type ClaimChangeListener = (event: ClaimChangeEvent) => void;
+
+/** Returned by every `on…` subscriber registration. */
+export type UnsubscribeFn = () => void;
+
 // ── qEUBO calibration domain types ────────────────────────────────────────────
 //
 // Camel-case projections of the wire shapes documented in

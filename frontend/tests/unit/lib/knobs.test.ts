@@ -24,15 +24,23 @@
  * License: Public Domain (The Unlicense)
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { computed, reactive } from 'vue';
 import {
   readKnob,
   writeKnob,
   applyTransform,
   validateRegistry,
+  claimKnob,
+  releaseKnob,
+  currentClaim,
+  onClaimChange,
+  writeKnobValue,
+  _resetClaimStateForTests,
 } from '../../../src/lib/knobs';
 import type {
+  ClaimChangeEvent,
+  ConsumerClaim,
   KnobDecl,
   KnobId,
   KnobRegistry,
@@ -488,5 +496,399 @@ describe('validateRegistry', () => {
     expect(() => validateRegistry(root, zeroOutputs)).toThrow(
       /zero output paths/,
     );
+  });
+});
+
+// ── Phase 2 — claim state machine ─────────────────────────────────
+
+function claim(consumerId: string, policy: 'hard' | 'soft', reason?: string): ConsumerClaim {
+  return { consumerId, policy, ...(reason ? { reason } : {}) };
+}
+
+describe('claimKnob / releaseKnob / currentClaim', () => {
+  beforeEach(() => {
+    _resetClaimStateForTests();
+  });
+
+  it('starts unclaimed', () => {
+    expect(currentClaim(asKnobId('k1'))).toBeNull();
+  });
+
+  it('acquires an unclaimed knob and surfaces the holder', () => {
+    const k = asKnobId('k1');
+    const c = claim('qeubo', 'hard', 'experiment-x');
+    const result = claimKnob(k, c);
+    expect(result).toEqual({ kind: 'acquired' });
+    expect(currentClaim(k)).toEqual(c);
+  });
+
+  it('rejects a conflicting claim and names the existing holder', () => {
+    const k = asKnobId('k1');
+    const first = claim('qeubo', 'hard');
+    const second = claim('autonomous-sr', 'soft');
+    claimKnob(k, first);
+    const result = claimKnob(k, second);
+    expect(result).toEqual({
+      kind: 'rejected',
+      reason: 'already-claimed',
+      holder: first,
+    });
+    expect(currentClaim(k)).toEqual(first);
+  });
+
+  it('accepts a re-claim by the same consumer (idempotent acquire)', () => {
+    const k = asKnobId('k1');
+    const c = claim('qeubo', 'hard');
+    claimKnob(k, c);
+    const result = claimKnob(k, c);
+    expect(result).toEqual({ kind: 'acquired' });
+  });
+
+  it('releases a held claim and returns to unclaimed', () => {
+    const k = asKnobId('k1');
+    claimKnob(k, claim('qeubo', 'hard'));
+    const result = releaseKnob(k, 'qeubo');
+    expect(result).toEqual({ kind: 'released' });
+    expect(currentClaim(k)).toBeNull();
+  });
+
+  it('refuses release by a non-holder consumer', () => {
+    const k = asKnobId('k1');
+    const held = claim('qeubo', 'hard');
+    claimKnob(k, held);
+    const result = releaseKnob(k, 'autonomous-sr');
+    expect(result).toEqual({
+      kind: 'rejected',
+      reason: 'not-claim-holder',
+      holder: held,
+    });
+    expect(currentClaim(k)).toEqual(held);
+  });
+
+  it('refuses release of an unclaimed knob (catches bookkeeping bugs)', () => {
+    const k = asKnobId('k1');
+    const result = releaseKnob(k, 'qeubo');
+    expect(result).toEqual({
+      kind: 'rejected',
+      reason: 'not-claim-holder',
+      holder: null,
+    });
+  });
+});
+
+// ── Phase 2 — onClaimChange listener registry ─────────────────────
+
+describe('onClaimChange', () => {
+  beforeEach(() => {
+    _resetClaimStateForTests();
+  });
+
+  it('fires on acquire with previous=null, next=<claim>', () => {
+    const events: ClaimChangeEvent[] = [];
+    onClaimChange((e) => events.push(e));
+    const k = asKnobId('k1');
+    const c = claim('qeubo', 'hard');
+    claimKnob(k, c);
+    expect(events).toEqual([{ knobId: k, previous: null, next: c }]);
+  });
+
+  it('fires on release with previous=<claim>, next=null', () => {
+    const events: ClaimChangeEvent[] = [];
+    const k = asKnobId('k1');
+    const c = claim('qeubo', 'hard');
+    claimKnob(k, c);
+    onClaimChange((e) => events.push(e));
+    releaseKnob(k, 'qeubo');
+    expect(events).toEqual([{ knobId: k, previous: c, next: null }]);
+  });
+
+  it('does not fire on idempotent re-claim by the same consumer', () => {
+    const events: ClaimChangeEvent[] = [];
+    const k = asKnobId('k1');
+    const c = claim('qeubo', 'hard');
+    claimKnob(k, c);
+    onClaimChange((e) => events.push(e));
+    claimKnob(k, c);
+    expect(events).toEqual([]);
+  });
+
+  it('does not fire on a rejected conflicting claim', () => {
+    const events: ClaimChangeEvent[] = [];
+    const k = asKnobId('k1');
+    claimKnob(k, claim('qeubo', 'hard'));
+    onClaimChange((e) => events.push(e));
+    claimKnob(k, claim('autonomous-sr', 'hard'));
+    expect(events).toEqual([]);
+  });
+
+  it('does not fire on a rejected release attempt', () => {
+    const events: ClaimChangeEvent[] = [];
+    const k = asKnobId('k1');
+    claimKnob(k, claim('qeubo', 'hard'));
+    onClaimChange((e) => events.push(e));
+    releaseKnob(k, 'autonomous-sr');
+    expect(events).toEqual([]);
+  });
+
+  it('unsubscribe stops further events', () => {
+    const events: ClaimChangeEvent[] = [];
+    const unsubscribe = onClaimChange((e) => events.push(e));
+    const k = asKnobId('k1');
+    claimKnob(k, claim('qeubo', 'hard'));
+    unsubscribe();
+    releaseKnob(k, 'qeubo');
+    expect(events).toHaveLength(1);
+    expect(events[0].next).not.toBeNull();
+  });
+
+  it('refuses duplicate listener registration', () => {
+    const cb = (_e: ClaimChangeEvent) => {};
+    onClaimChange(cb);
+    expect(() => onClaimChange(cb)).toThrow(/already registered/);
+  });
+
+  it('tolerates a listener that unsubscribes itself mid-iteration', () => {
+    const seen: string[] = [];
+    let unsubscribeA: (() => void) | null = null;
+    unsubscribeA = onClaimChange(() => {
+      seen.push('a');
+      unsubscribeA?.();
+    });
+    onClaimChange(() => seen.push('b'));
+    const k = asKnobId('k1');
+    claimKnob(k, claim('qeubo', 'hard'));
+    // Both listeners should fire the first time (snapshot-on-emit).
+    expect(seen).toEqual(['a', 'b']);
+    seen.length = 0;
+    releaseKnob(k, 'qeubo');
+    // After the first event, A unsubscribed itself, so only B fires.
+    expect(seen).toEqual(['b']);
+  });
+});
+
+// ── Phase 2 — writeKnobValue policy dispatch ──────────────────────
+
+describe('writeKnobValue — policy dispatch', () => {
+  beforeEach(() => {
+    _resetClaimStateForTests();
+  });
+
+  function makeRoot(): { ui: { brightness: number; contrast: number } } {
+    return reactive({ ui: { brightness: 0, contrast: 0 } });
+  }
+
+  function makeScalarRegistry(): KnobRegistry {
+    return {
+      brightness: decl({
+        id: 'brightness',
+        inputs: [{ range: [0, 1] as const }],
+        outputs: [{ path: 'ui.brightness' }],
+      }),
+    };
+  }
+
+  it('unclaimed + manual: writes through the transform', () => {
+    const root = makeRoot();
+    const result = writeKnobValue(
+      root,
+      makeScalarRegistry(),
+      asKnobId('brightness'),
+      [0.7],
+      { kind: 'manual' },
+    );
+    expect(result).toEqual({ kind: 'written' });
+    expect(root.ui.brightness).toBe(0.7);
+  });
+
+  it('unclaimed + consumer: refused — consumers must claim first', () => {
+    const root = makeRoot();
+    const result = writeKnobValue(
+      root,
+      makeScalarRegistry(),
+      asKnobId('brightness'),
+      [0.7],
+      { kind: 'consumer', consumerId: 'qeubo' },
+    );
+    expect(result).toEqual({
+      kind: 'refused',
+      reason: 'consumer-not-claim-holder',
+      activeClaim: null,
+    });
+    expect(root.ui.brightness).toBe(0);
+  });
+
+  it('hard-claim + manual: refused (substrate belt-and-braces)', () => {
+    const root = makeRoot();
+    const knobId = asKnobId('brightness');
+    const held = claim('qeubo', 'hard', 'experiment-x');
+    claimKnob(knobId, held);
+    const result = writeKnobValue(
+      root,
+      makeScalarRegistry(),
+      knobId,
+      [0.5],
+      { kind: 'manual' },
+    );
+    expect(result).toEqual({
+      kind: 'refused',
+      reason: 'hard-claim-held',
+      holder: held,
+    });
+    expect(root.ui.brightness).toBe(0);
+    // Claim is unaffected by the refused write.
+    expect(currentClaim(knobId)).toEqual(held);
+  });
+
+  it('hard-claim + holder consumer: writes', () => {
+    const root = makeRoot();
+    const knobId = asKnobId('brightness');
+    claimKnob(knobId, claim('qeubo', 'hard'));
+    const result = writeKnobValue(
+      root,
+      makeScalarRegistry(),
+      knobId,
+      [0.4],
+      { kind: 'consumer', consumerId: 'qeubo' },
+    );
+    expect(result).toEqual({ kind: 'written' });
+    expect(root.ui.brightness).toBe(0.4);
+  });
+
+  it('hard-claim + non-holder consumer: refused', () => {
+    const root = makeRoot();
+    const knobId = asKnobId('brightness');
+    const held = claim('qeubo', 'hard');
+    claimKnob(knobId, held);
+    const result = writeKnobValue(
+      root,
+      makeScalarRegistry(),
+      knobId,
+      [0.4],
+      { kind: 'consumer', consumerId: 'autonomous-sr' },
+    );
+    expect(result).toEqual({
+      kind: 'refused',
+      reason: 'consumer-not-claim-holder',
+      activeClaim: held,
+    });
+    expect(root.ui.brightness).toBe(0);
+  });
+
+  it('soft-claim + manual: releases the soft claim then writes', () => {
+    const root = makeRoot();
+    const knobId = asKnobId('brightness');
+    const held = claim('autonomous-sr', 'soft', 'scenario-1');
+    claimKnob(knobId, held);
+    const events: ClaimChangeEvent[] = [];
+    onClaimChange((e) => events.push(e));
+
+    const result = writeKnobValue(
+      root,
+      makeScalarRegistry(),
+      knobId,
+      [0.3],
+      { kind: 'manual' },
+    );
+
+    expect(result).toEqual({
+      kind: 'written-after-soft-release',
+      releasedHolder: held,
+    });
+    expect(root.ui.brightness).toBe(0.3);
+    expect(currentClaim(knobId)).toBeNull();
+    expect(events).toEqual([
+      { knobId, previous: held, next: null },
+    ]);
+  });
+
+  it('soft-claim + holder consumer: writes (no auto-release)', () => {
+    const root = makeRoot();
+    const knobId = asKnobId('brightness');
+    const held = claim('autonomous-sr', 'soft');
+    claimKnob(knobId, held);
+    const result = writeKnobValue(
+      root,
+      makeScalarRegistry(),
+      knobId,
+      [0.6],
+      { kind: 'consumer', consumerId: 'autonomous-sr' },
+    );
+    expect(result).toEqual({ kind: 'written' });
+    expect(root.ui.brightness).toBe(0.6);
+    expect(currentClaim(knobId)).toEqual(held);
+  });
+
+  it('soft-claim + non-holder consumer: refused', () => {
+    const root = makeRoot();
+    const knobId = asKnobId('brightness');
+    const held = claim('autonomous-sr', 'soft');
+    claimKnob(knobId, held);
+    const result = writeKnobValue(
+      root,
+      makeScalarRegistry(),
+      knobId,
+      [0.6],
+      { kind: 'consumer', consumerId: 'qeubo' },
+    );
+    expect(result).toEqual({
+      kind: 'refused',
+      reason: 'consumer-not-claim-holder',
+      activeClaim: held,
+    });
+    expect(root.ui.brightness).toBe(0);
+  });
+
+  it('throws on an unknown knobId (caller used a stale id)', () => {
+    const root = makeRoot();
+    expect(() =>
+      writeKnobValue(
+        root,
+        makeScalarRegistry(),
+        asKnobId('does-not-exist'),
+        [0.5],
+        { kind: 'manual' },
+      ),
+    ).toThrow(/no KnobDecl registered/);
+  });
+
+  it('throws on input vector arity mismatch', () => {
+    const root = makeRoot();
+    expect(() =>
+      writeKnobValue(
+        root,
+        makeScalarRegistry(),
+        asKnobId('brightness'),
+        [0.5, 0.5],
+        { kind: 'manual' },
+      ),
+    ).toThrow(/expects an input vector of length 1/);
+  });
+
+  it('writes through a linear transform to multiple output paths', () => {
+    const root = reactive({ a: 0, b: 0 });
+    const registry: KnobRegistry = {
+      twoOut: decl({
+        id: 'twoOut',
+        inputs: [{ range: [0, 1] as const }, { range: [0, 1] as const }],
+        outputs: [{ path: 'a' }, { path: 'b' }],
+        transform: {
+          kind: 'linear',
+          coefficients: [
+            [1, 0],
+            [0, 2],
+          ],
+        },
+      }),
+    };
+    const result = writeKnobValue(
+      root,
+      registry,
+      asKnobId('twoOut'),
+      [3, 4],
+      { kind: 'manual' },
+    );
+    expect(result).toEqual({ kind: 'written' });
+    expect(root.a).toBe(3);
+    expect(root.b).toBe(8);
   });
 });
