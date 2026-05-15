@@ -2333,3 +2333,126 @@ describe('41 → 42: KataGo report-cadence registry promotion', () => {
     expect(out.profile.settings.knobs).toBeUndefined();
   });
 });
+
+// ── Per-migration: 42 → 43 ──────────────────────────────────────────
+
+describe('42 → 43: KataGo first-report-after upstream-cliff floor', () => {
+  function blobWithKnobs(knobs: Record<string, unknown>): any {
+    return { profile: { settings: { knobs } } };
+  }
+
+  function firstReportDecl(extra: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      id: 'engine.first-report-during-search-after',
+      label: 'First report after (s)',
+      domain: 'engine',
+      inputs: [{
+        range: [0.01, 4.0],
+        maxFromKnob: 'engine.report-during-search-every',
+        ...extra,
+      }],
+      outputs: [{ path: 'profile.settings.engine.katago.firstReportDuringSearchAfter' }],
+      priority: 80,
+    };
+  }
+
+  it('adds minFloor=0.035 to the first-report-after decl when absent', () => {
+    const blob = blobWithKnobs({
+      'engine.first-report-during-search-after': firstReportDecl(),
+    });
+    const out = step(42)(blob);
+    const inputs = out.profile.settings.knobs['engine.first-report-during-search-after'].inputs;
+    expect(inputs[0].minFloor).toBe(0.035);
+  });
+
+  it('preserves a pre-existing finite minFloor (idempotency)', () => {
+    const blob = blobWithKnobs({
+      'engine.first-report-during-search-after': firstReportDecl({ minFloor: 0.05 }),
+    });
+    const out = step(42)(blob);
+    const inputs = out.profile.settings.knobs['engine.first-report-during-search-after'].inputs;
+    expect(inputs[0].minFloor).toBe(0.05);
+  });
+
+  it('overwrites a non-numeric minFloor (defensive against malformed blobs)', () => {
+    const blob = blobWithKnobs({
+      'engine.first-report-during-search-after': firstReportDecl({ minFloor: 'oops' }),
+    });
+    const out = step(42)(blob);
+    const inputs = out.profile.settings.knobs['engine.first-report-during-search-after'].inputs;
+    expect(inputs[0].minFloor).toBe(0.035);
+  });
+
+  it('overwrites a NaN minFloor (defensive against bad serialisation)', () => {
+    const blob = blobWithKnobs({
+      'engine.first-report-during-search-after': firstReportDecl({ minFloor: Number.NaN }),
+    });
+    const out = step(42)(blob);
+    const inputs = out.profile.settings.knobs['engine.first-report-during-search-after'].inputs;
+    expect(inputs[0].minFloor).toBe(0.035);
+  });
+
+  it('preserves the maxFromKnob and outputs on the touched decl', () => {
+    const blob = blobWithKnobs({
+      'engine.first-report-during-search-after': firstReportDecl(),
+    });
+    const out = step(42)(blob);
+    const decl = out.profile.settings.knobs['engine.first-report-during-search-after'];
+    expect(decl.inputs[0].maxFromKnob).toBe('engine.report-during-search-every');
+    expect(decl.outputs[0].path).toBe('profile.settings.engine.katago.firstReportDuringSearchAfter');
+    expect(decl.priority).toBe(80);
+  });
+
+  it('is a no-op when the first-report-after decl is absent', () => {
+    const blob = blobWithKnobs({
+      // A user whose cadence-knobs migration never ran (improbable
+      // but possible for hand-edited blobs); the floor migration
+      // has nothing to touch and leaves the registry alone.
+      'engine.report-during-search-every': {
+        id: 'engine.report-during-search-every',
+        domain: 'engine',
+        inputs: [{ range: [0.01, 4.0] }],
+        outputs: [{ path: 'profile.settings.engine.katago.reportDuringSearchEvery' }],
+      },
+    });
+    const out = step(42)(blob);
+    expect(out.profile.settings.knobs['engine.first-report-during-search-after']).toBeUndefined();
+    // Sibling decl untouched.
+    expect(out.profile.settings.knobs['engine.report-during-search-every']).toBeDefined();
+  });
+
+  it('is a no-op when the first-report-after decl has no inputs array', () => {
+    const blob = blobWithKnobs({
+      'engine.first-report-during-search-after': {
+        id: 'engine.first-report-during-search-after',
+        domain: 'engine',
+        outputs: [{ path: 'profile.settings.engine.katago.firstReportDuringSearchAfter' }],
+      },
+    });
+    const out = step(42)(blob);
+    const decl = out.profile.settings.knobs['engine.first-report-during-search-after'];
+    expect((decl as { inputs?: unknown }).inputs).toBeUndefined();
+  });
+
+  it('is a no-op when the knobs container is absent (legacy blob)', () => {
+    const blob: any = { profile: { settings: {} } };
+    const out = step(42)(blob);
+    expect(out.profile.settings.knobs).toBeUndefined();
+  });
+
+  it('does not touch unrelated decls', () => {
+    const cadenceDecl = {
+      id: 'engine.report-during-search-every',
+      domain: 'engine',
+      inputs: [{ range: [0.01, 4.0] }],
+      outputs: [{ path: 'profile.settings.engine.katago.reportDuringSearchEvery' }],
+      priority: 70,
+    };
+    const blob = blobWithKnobs({
+      'engine.report-during-search-every': cadenceDecl,
+      'engine.first-report-during-search-after': firstReportDecl(),
+    });
+    const out = step(42)(blob);
+    expect(out.profile.settings.knobs['engine.report-during-search-every']).toEqual(cadenceDecl);
+  });
+});

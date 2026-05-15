@@ -55,7 +55,7 @@ function asKnobId(s: string): KnobId {
 
 function decl(partial: {
   id: string;
-  inputs?: ReadonlyArray<{ range: readonly [number, number]; maxFromKnob?: KnobId }>;
+  inputs?: ReadonlyArray<{ range: readonly [number, number]; maxFromKnob?: KnobId; minFloor?: number }>;
   outputs: ReadonlyArray<{ path: string }>;
   transform?: KnobTransform;
 }): KnobDecl {
@@ -557,6 +557,102 @@ describe('validateRegistry', () => {
     expect(() => validateRegistry(root, registryFirstOrder)).toThrow(
       /maxFromKnob="orphan" but that knob has no output path/,
     );
+  });
+
+  // ── minFloor absolute lower bound (added 2026-05-15) ────────────
+  // The substrate's optional `KnobInputDecl.minFloor` declares an
+  // external-constraint-induced lower bound (distinct from the
+  // knob's intrinsic `range[0]`). validateRegistry checks the floor
+  // is a finite number and (when paired with a static range) does
+  // not exceed `range[1]` — an incoherent declaration is a startup-
+  // time loud failure per ADR-0002. Worked-example use case: the
+  // KataGo first-report-after floor (`limits.ts`) workaround for an
+  // upstream cliff at ~25 ms.
+
+  it('passes when minFloor is a finite number within the static range', () => {
+    const root = { a: 0.05 };
+    const registry: KnobRegistry = {
+      first: decl({
+        id: 'first',
+        inputs: [{ range: [0.01, 4.0] as const, minFloor: 0.035 }],
+        outputs: [{ path: 'a' }],
+      }),
+    };
+    expect(() => validateRegistry(root, registry)).not.toThrow();
+  });
+
+  it('passes when minFloor equals range[0] (degenerate but coherent)', () => {
+    const root = { a: 0.05 };
+    const registry: KnobRegistry = {
+      first: decl({
+        id: 'first',
+        inputs: [{ range: [0.01, 4.0] as const, minFloor: 0.01 }],
+        outputs: [{ path: 'a' }],
+      }),
+    };
+    expect(() => validateRegistry(root, registry)).not.toThrow();
+  });
+
+  it('throws when minFloor is NaN', () => {
+    const root = { a: 0.05 };
+    const registry: KnobRegistry = {
+      first: decl({
+        id: 'first',
+        inputs: [{ range: [0.01, 4.0] as const, minFloor: Number.NaN }],
+        outputs: [{ path: 'a' }],
+      }),
+    };
+    expect(() => validateRegistry(root, registry)).toThrow(
+      /minFloor=NaN which is not a finite number/,
+    );
+  });
+
+  it('throws when minFloor is Infinity', () => {
+    const root = { a: 0.05 };
+    const registry: KnobRegistry = {
+      first: decl({
+        id: 'first',
+        inputs: [{ range: [0.01, 4.0] as const, minFloor: Number.POSITIVE_INFINITY }],
+        outputs: [{ path: 'a' }],
+      }),
+    };
+    expect(() => validateRegistry(root, registry)).toThrow(
+      /minFloor=Infinity which is not a finite number/,
+    );
+  });
+
+  it('throws when minFloor exceeds the static range upper bound', () => {
+    const root = { a: 0.05 };
+    const registry: KnobRegistry = {
+      first: decl({
+        id: 'first',
+        inputs: [{ range: [0.01, 4.0] as const, minFloor: 5.0 }],
+        outputs: [{ path: 'a' }],
+      }),
+    };
+    expect(() => validateRegistry(root, registry)).toThrow(
+      /minFloor=5 above the static range upper bound 4/,
+    );
+  });
+
+  it('passes when minFloor is paired with maxFromKnob (no interaction)', () => {
+    const root = { a: 0.2, b: 0.05 };
+    const registry: KnobRegistry = {
+      cadence: decl({
+        id: 'cadence',
+        outputs: [{ path: 'a' }],
+      }),
+      first: decl({
+        id: 'first',
+        inputs: [{
+          range: [0.01, 4.0] as const,
+          maxFromKnob: asKnobId('cadence'),
+          minFloor: 0.035,
+        }],
+        outputs: [{ path: 'b' }],
+      }),
+    };
+    expect(() => validateRegistry(root, registry)).not.toThrow();
   });
 });
 

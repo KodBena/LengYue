@@ -77,7 +77,7 @@ import { archivedMigrations, type Migration } from './archived-migrations';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 42;
+export const CURRENT_SCHEMA_VERSION = 43;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -105,57 +105,6 @@ export const CURRENT_SCHEMA_VERSION = 42;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 40 → 41: Knob-registry priority backfill (toolbar-popover
-  // quick-access ask, 2026-05-14). The `KnobDecl.priority?: number`
-  // field was added in the same arc so editor surfaces can sort
-  // sliders by ascending render-order. This migration backfills
-  // priorities on the seven seeded decls to match the values
-  // `store/defaults.ts` ships for fresh installs:
-  //
-  //   display.move-filter-threshold       — 0  (most-likely-used)
-  //   display.ownership-opacity-ceiling   — 10
-  //   display.ownership-deadband-threshold — 20
-  //   display.liveness-threshold          — 30
-  //   display.hue-offset                  — 40
-  //   engine.watchdog-animation-ms        — 50
-  //   engine.watchdog-latency-threshold-ms — 60
-  //
-  // Idempotent: a decl whose `priority` is already a finite number
-  // is preserved unchanged (a future preference-learning surface,
-  // or a user who hand-tunes via a future editor, may already have
-  // written a different value). Decls without a registered priority
-  // here are left alone — runtime-added knobs (e.g. `qeubo.<name>`
-  // for analysis-env parameters) will simply sort last via the
-  // editor's `undefined → Infinity` fallback until something
-  // assigns them a priority.
-  //
-  // See `docs/notes/knob-registry-plan.md` and the
-  // KnobRegistryEditor / ToolbarSliderPopover for the consumer
-  // surfaces that act on this field.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const knobs = out.profile?.settings?.knobs;
-    if (knobs && typeof knobs === 'object' && !Array.isArray(knobs)) {
-      const priorities: Record<string, number> = {
-        'display.move-filter-threshold': 0,
-        'display.ownership-opacity-ceiling': 10,
-        'display.ownership-deadband-threshold': 20,
-        'display.liveness-threshold': 30,
-        'display.hue-offset': 40,
-        'engine.watchdog-animation-ms': 50,
-        'engine.watchdog-latency-threshold-ms': 60,
-      };
-      const target = knobs as Record<string, unknown>;
-      for (const [knobId, defaultPriority] of Object.entries(priorities)) {
-        const decl = target[knobId];
-        if (!decl || typeof decl !== 'object') continue;
-        const current = (decl as { priority?: unknown }).priority;
-        if (typeof current === 'number' && Number.isFinite(current)) continue;
-        (decl as { priority?: unknown }).priority = defaultPriority;
-      }
-    }
-    return out;
-  },
   // 41 → 42: KataGo report-cadence registry promotion. Two new
   // preference-flavoured leaves under `engine.katago`, paired with
   // two new KnobDecls under the `engine` domain:
@@ -238,6 +187,56 @@ export const migrations: Migration[] = [
         for (const key of Object.keys(seeds)) {
           if (!(key in target)) {
             target[key] = seeds[key];
+          }
+        }
+      }
+    }
+    return out;
+  },
+  // 42 → 43: KataGo first-report-after upstream-cliff floor. Adds
+  // `inputs[0].minFloor = 0.035` to the persisted
+  // `engine.first-report-during-search-after` KnobDecl so existing
+  // users' slider widget enforces the floor exactly as fresh
+  // installs do. Companion to the wire-side clamp in
+  // `services/analysis-service.ts` that reads
+  // `KATAGO_FIRST_REPORT_FLOOR_S` from `engine/katago/limits.ts`.
+  //
+  // The floor is the empirically-characterised SPA-side workaround
+  // for an upstream KataGo cliff at ~25 ms — KataGo silently
+  // substitutes the cadence value for sub-floor first-report
+  // timings. Diagnosis arc and reproducers are staged at
+  // `~/katago_bugreport`; the umbrella worklog at
+  // `docs/worklog/2026-05-15-katago-first-report-cliff-diagnosis.md`
+  // names the upstream-bug filing trigger that would let this
+  // floor (and this migration's annotation) retire.
+  //
+  // Idempotent: a decl whose `inputs[0].minFloor` is already a
+  // finite number is preserved unchanged (a user-tuned value, or
+  // a forward-compat install where this migration has already
+  // run). A decl whose `inputs[0]` shape doesn't match what the
+  // cadence-knobs migration seeded is left alone — defensive
+  // against hand-edited blobs.
+  //
+  // Hardcodes 0.035 (the value of `KATAGO_FIRST_REPORT_FLOOR_S`
+  // at the time of authoring) rather than importing the
+  // constant, per migrations.ts's append-only invariant: a
+  // shipped migration's behaviour is frozen, and importing a
+  // mutable constant would let a future change silently retroactively
+  // alter what blobs in the wild were migrated to.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const knobs = out.profile?.settings?.knobs;
+    if (knobs && typeof knobs === 'object' && !Array.isArray(knobs)) {
+      const decl = (knobs as Record<string, unknown>)['engine.first-report-during-search-after'];
+      if (decl && typeof decl === 'object') {
+        const inputs = (decl as { inputs?: unknown }).inputs;
+        if (Array.isArray(inputs) && inputs.length > 0) {
+          const first = inputs[0];
+          if (first && typeof first === 'object') {
+            const f = (first as { minFloor?: unknown }).minFloor;
+            if (typeof f !== 'number' || !Number.isFinite(f)) {
+              (first as { minFloor?: unknown }).minFloor = 0.035;
+            }
           }
         }
       }

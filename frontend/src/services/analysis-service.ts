@@ -37,6 +37,7 @@ import {
   hashConfig,
 } from './analysis-config';
 import { KATAGO_WS_URL } from '../config/env';
+import { KATAGO_FIRST_REPORT_FLOOR_S } from '../engine/katago/limits';
 import { i18n } from '../i18n';
 import { useQueryTelemetry } from '../composables/useQueryTelemetry';
 
@@ -59,6 +60,15 @@ export class AnalysisService {
     path: NodeId[],
     hash: string,
     framing: WinrateFraming,
+    // Wall-clock anchor (performance.now()) captured at query-submit
+    // time. Used by the DEV-only per-packet timing log in
+    // `onAnalysisUpdate` so a contributor can see the time-to-first-
+    // packet under the user's chosen
+    // (firstReportDuringSearchAfter, reportDuringSearchEvery) pair
+    // and confirm whether the visible "first paint" delay sits at
+    // the wire, in this service, or downstream in a consumer that
+    // gates on `extra` / `moveInfos`. Always set; non-optional.
+    startedAt: number,
     // Present only for ponder-mode queries; absent for analyzeRange
     // and analyzeActiveNode(mode='analyze'). When the final packet
     // arrives for a ponder query (isDuringSearch=false), the
@@ -443,7 +453,7 @@ export class AnalysisService {
     // edits cleanly, by stop-then-issue with the new framing.
     const framing = resolveWinrateFraming(overrideSettings);
 
-    this.activeQueries.set(queryId, { path: fullPath, hash, framing });
+    this.activeQueries.set(queryId, { path: fullPath, hash, framing, startedAt: performance.now() });
 
     // Queue telemetry — register at construction so the Toolbar's
     // queue tooltip can render this range query and its ETA.
@@ -534,9 +544,24 @@ export class AnalysisService {
       // recorded analysis.
       ...(isRealtime ? {
         reportDuringSearchEvery: store.profile.settings.engine.katago.reportDuringSearchEvery,
+        // Clamp to [KATAGO_FIRST_REPORT_FLOOR_S, cadence]. The inner
+        // `Math.max(floor, stored)` enforces the upstream-cliff
+        // workaround (KataGo silently substitutes cadence for first-
+        // report timings below ~25ms; see limits.ts and the diagnosis
+        // worklog). The outer `Math.min(cadence, _)` enforces the
+        // semantic invariant that first-report ≤ cadence — sending a
+        // first-report larger than cadence would delay first-paint
+        // past what would have been the second regular report. When
+        // the user's cadence is itself below the floor, the outer
+        // Math.min wins (cadence pin), correctly degrading the
+        // first-paint promise to "cadence tick" since the upstream
+        // cliff makes sub-cadence first-paint impossible there.
         firstReportDuringSearchAfter: Math.min(
-          store.profile.settings.engine.katago.firstReportDuringSearchAfter,
           store.profile.settings.engine.katago.reportDuringSearchEvery,
+          Math.max(
+            KATAGO_FIRST_REPORT_FLOOR_S,
+            store.profile.settings.engine.katago.firstReportDuringSearchAfter,
+          ),
         ),
       } : {}),
       analyzeTurns,
@@ -611,7 +636,7 @@ export class AnalysisService {
       mode === 'ponder'
         ? store.profile.settings.engine.katago.ponderMaxVisits
         : undefined;
-    this.activeQueries.set(queryId, { path: fullPath, hash, framing, ponderCeiling });
+    this.activeQueries.set(queryId, { path: fullPath, hash, framing, startedAt: performance.now(), ponderCeiling });
 
     // Queue telemetry — single-turn entry. For ponder, the per-turn
     // visit budget is the ponderMaxVisits ceiling; for analyze, the
@@ -685,9 +710,18 @@ export class AnalysisService {
       // even if the stored leaves drift apart (see the
       // analyzeRange site for the matching pattern).
       reportDuringSearchEvery: store.profile.settings.engine.katago.reportDuringSearchEvery,
+      // Same clamp shape as analyzeRange's site above:
+      // `min(cadence, max(floor, stored))`. KATAGO_FIRST_REPORT_FLOOR_S
+      // is the SPA-side workaround for the upstream cliff (see
+      // limits.ts); the outer min preserves the
+      // `firstReportDuringSearchAfter ≤ reportDuringSearchEvery`
+      // semantic invariant.
       firstReportDuringSearchAfter: Math.min(
-        store.profile.settings.engine.katago.firstReportDuringSearchAfter,
         store.profile.settings.engine.katago.reportDuringSearchEvery,
+        Math.max(
+          KATAGO_FIRST_REPORT_FLOOR_S,
+          store.profile.settings.engine.katago.firstReportDuringSearchAfter,
+        ),
       ),
       ...(mode === 'ponder' ? { maxVisits: store.profile.settings.engine.katago.ponderMaxVisits } : {}),
       analyzeTurns: [currentIdx],
@@ -727,6 +761,15 @@ export class AnalysisService {
 
   private onAnalysisUpdate(response: KataAnalysisResponse, queryId: string) {
     this.packetCount++;
+    if (import.meta.env.DEV) {
+      const q = this.activeQueries.get(queryId);
+      const dt = q ? (performance.now() - q.startedAt).toFixed(1) : 'n/a';
+      console.log(
+        `[analysis-service] packet +${dt}ms queryId=${queryId} `
+        + `isDuringSearch=${response.isDuringSearch} rootVisits=${response.rootInfo?.visits} `
+        + `moveInfos=${response.moveInfos?.length ?? 0} hasExtra=${!!response.extra}`
+      );
+    }
     // Telemetry observation — records visit progress for ETA
     // computation, regardless of whether the queryId is still in
     // `activeQueries` (the telemetry singleton's own lookup is

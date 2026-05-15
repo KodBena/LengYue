@@ -5,6 +5,7 @@
 
 import type { AppSettings, ProfileState, UISession, ProfileId, ThumbnailSettings, CardSet, KnobId } from '../types';
 import { detectBrowserLocale } from '../i18n/locales';
+import { KATAGO_FIRST_REPORT_FLOOR_S } from '../engine/katago/limits';
 
 export const NIL_UUID = '00000000-0000-0000-0000-000000000000';
 
@@ -393,11 +394,23 @@ export const defaultSettings = {
       // declared at the substrate level so future widget consumers
       // see the binding directly on the KnobDecl rather than
       // having to re-derive it.
+      //
+      // Bounded below by `minFloor: KATAGO_FIRST_REPORT_FLOOR_S` —
+      // an SPA-side workaround for an upstream KataGo cliff at
+      // ~25 ms where the binary silently substitutes the cadence
+      // value for sub-floor first-report timings. The KnobSlider
+      // widget pins drags to the floor; the wire-layer clamp in
+      // `analysis-service.ts` reads from `limits.ts` for SSOT
+      // defence-in-depth. See the diagnosis arc worklog
+      // `docs/worklog/2026-05-15-katago-first-report-cliff-diagnosis.md`
+      // and the staged bug-report package at `~/katago_bugreport`
+      // for the upstream artefact.
       label: 'First report after (s)',
       domain: 'engine',
       inputs: [{
         range: [0.01, 4.0] as const,
         maxFromKnob: 'engine.report-during-search-every' as KnobId,
+        minFloor: KATAGO_FIRST_REPORT_FLOOR_S,
       }],
       outputs: [{ path: 'profile.settings.engine.katago.firstReportDuringSearchAfter' }],
       priority: 80,

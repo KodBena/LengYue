@@ -390,6 +390,37 @@ export interface KnobInputDecl {
    * the field is optional and absent on every existing decl.
    */
   readonly maxFromKnob?: KnobId;
+  /**
+   * Optional absolute lower bound, in the knob's native unit.
+   * Distinct from `range[0]`: `range[0]` describes the knob's
+   * intrinsic meaningful range; `minFloor` represents an
+   * external-constraint-induced lower bound — typically an
+   * upstream limitation that is expected to be removable when the
+   * constraint is lifted. The substrate keeps the two separate so
+   * that retiring the workaround is a single-field drop rather than
+   * a re-derivation of what `range[0]` ought to be.
+   *
+   * When set, the KnobSlider widget's effective min is
+   * `max(range[0], minFloor)` — drags below the floor pin to it.
+   * The stored leaf is NOT auto-clamped (user preference is
+   * preserved while the constraint is in force); the wire-layer
+   * consumer should `Math.max(minFloor, …)` as defence-in-depth
+   * so the contract reaching the dependency respects the floor
+   * regardless of stored-leaf state. `analysis-service.ts`'s
+   * first-report-after sites are the worked example.
+   *
+   * `validateRegistry` (`lib/knobs.ts`) checks that `minFloor` is
+   * a finite number when present and (when both are set) does not
+   * exceed `range[1]`. Per ADR-0002, an incoherent declaration is
+   * a loud startup failure rather than a silent runtime fallback.
+   *
+   * Added 2026-05-15 to land an SPA-side mitigation for an upstream
+   * KataGo cliff at ~25 ms on `firstReportDuringSearchAfter` — see
+   * `src/engine/katago/limits.ts` and the umbrella worklog
+   * `docs/worklog/2026-05-15-katago-first-report-cliff-diagnosis.md`
+   * for the diagnosis arc.
+   */
+  readonly minFloor?: number;
 }
 
 /**
