@@ -64,6 +64,45 @@ const range = computed<readonly [number, number]>(() => {
 const path = computed(() => decl.value?.outputs[0]?.path ?? '');
 
 /**
+ * Cross-knob constraint: when `decl.inputs[0].maxFromKnob` is
+ * set, the slider's effective max is
+ * `min(static-range-max, linked-knob-value)`. The linked-knob
+ * read is reactive so a change to the linked knob's stored
+ * value reflows the slider's max here. The substrate's
+ * `validateRegistry` checks the reference resolves at startup
+ * (ADR-0002); this widget is defensive — if the reference
+ * silently dangles at render time (e.g. an experiment-time
+ * dynamic decl), fall back to the static max rather than
+ * throwing on the render path.
+ *
+ * The stored leaf is NOT auto-clamped when the linked knob's
+ * value decreases below it; user preference is preserved. The
+ * wire-layer consumer (`analysis-service.ts` for the cadence
+ * knobs) applies `Math.min` at send time so the contract
+ * reaching the engine is always coherent regardless of stored-
+ * leaf state.
+ */
+const linkedMax = computed<number | null>(() => {
+  const linked = decl.value?.inputs[0]?.maxFromKnob;
+  if (!linked) return null;
+  const linkedDecl = store.profile.settings.knobs[linked];
+  if (!linkedDecl) return null;
+  const linkedPath = linkedDecl.outputs[0]?.path;
+  if (!linkedPath) return null;
+  try {
+    const v = readKnob(store, linkedPath);
+    return Number.isFinite(v) ? v : null;
+  } catch {
+    return null;
+  }
+});
+
+const effectiveMax = computed(() => {
+  const linked = linkedMax.value;
+  return linked === null ? range.value[1] : Math.min(range.value[1], linked);
+});
+
+/**
  * Step size derived from the range span — small enough to feel
  * smooth, coarse enough to land on tidy values. Three buckets:
  *
@@ -102,7 +141,14 @@ const value = computed(() => {
   }
 });
 
-const displayValue = computed(() => value.value.toFixed(precision.value));
+// Display clamped to effectiveMax so the badge agrees with the
+// slider thumb's pinned position when the linked-knob constraint
+// caps the bound below the stored value. Stored leaf preserves
+// the user's preference; only the display is clamped.
+const displayValue = computed(() => {
+  const clamped = Math.min(value.value, effectiveMax.value);
+  return clamped.toFixed(precision.value);
+});
 
 /**
  * Resolve the knob's user-facing label through i18n. The convention
@@ -176,7 +222,7 @@ function onInput(event: Event) {
     <input
       type="range"
       :min="range[0]"
-      :max="range[1]"
+      :max="effectiveMax"
       :step="step"
       :value="value"
       :disabled="disabled"

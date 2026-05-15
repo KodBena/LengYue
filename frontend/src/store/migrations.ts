@@ -77,7 +77,7 @@ import { archivedMigrations, type Migration } from './archived-migrations';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 41;
+export const CURRENT_SCHEMA_VERSION = 42;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -105,92 +105,6 @@ export const CURRENT_SCHEMA_VERSION = 41;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 39 → 40: Knob-registry Phase 6 magic-literals sweep. Three new
-  // preference-flavoured leaves promoted from inline literals:
-  //
-  //   (1) `profile.settings.appearance.ownershipDeadbandThreshold`
-  //       default 0.05 — was a `0.05` inline literal in
-  //       BoardWidget.vue's `ownershipColor`. Below this magnitude,
-  //       the territory overlay paints transparent to prevent
-  //       flicker.
-  //   (2) `profile.settings.appearance.livenessThreshold`
-  //       default 0.3 — was `LIVENESS_THRESHOLD = 0.3` const in
-  //       BoardWidget.vue. Stones with engine-disagreement below
-  //       this aren't flagged as dead.
-  //   (3) `profile.settings.engine.katago.watchdogLatencyThresholdMs`
-  //       default 500 — was `WATCHDOG_LATENCY_THRESHOLD_MS = 500`
-  //       const in Toolbar.vue. Latency cutoff for the un-animated
-  //       watchdog's color flip.
-  //
-  // Seeds three corresponding KnobDecls mirroring the defaults-side
-  // fresh-install seed verbatim (display.ownership-deadband-threshold,
-  // display.liveness-threshold, engine.watchdog-latency-threshold-ms).
-  //
-  // Idempotent: each leaf-backfill preserves a pre-existing number;
-  // each KnobDecl seed preserves a pre-existing entry under the
-  // same key (matching the 36 → 37 motivating-scalars migration's
-  // discipline so user-customised label / range edits survive).
-  //
-  // See `BoardWidget.vue::ownershipColor` and
-  // `BoardWidget.vue::livenessColor` for the display-side consumer
-  // retargets, and `Toolbar.vue` for the engine-side one — all
-  // updated in the same commit.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const settings = out.profile?.settings;
-    if (settings && typeof settings === 'object') {
-      const appearance = (settings as { appearance?: unknown }).appearance;
-      if (appearance && typeof appearance === 'object') {
-        const a = appearance as { ownershipDeadbandThreshold?: unknown; livenessThreshold?: unknown };
-        if (typeof a.ownershipDeadbandThreshold !== 'number') {
-          a.ownershipDeadbandThreshold = 0.05;
-        }
-        if (typeof a.livenessThreshold !== 'number') {
-          a.livenessThreshold = 0.3;
-        }
-      }
-      const katago = (settings as { engine?: { katago?: unknown } }).engine?.katago;
-      if (katago && typeof katago === 'object') {
-        const k = katago as { watchdogLatencyThresholdMs?: unknown };
-        if (typeof k.watchdogLatencyThresholdMs !== 'number') {
-          k.watchdogLatencyThresholdMs = 500;
-        }
-      }
-      const knobs = (settings as { knobs?: unknown }).knobs;
-      if (knobs && typeof knobs === 'object' && !Array.isArray(knobs)) {
-        const seeds: Record<string, unknown> = {
-          'display.ownership-deadband-threshold': {
-            id: 'display.ownership-deadband-threshold',
-            label: 'Ownership overlay dead-band',
-            domain: 'display',
-            inputs: [{ range: [0, 1] }],
-            outputs: [{ path: 'profile.settings.appearance.ownershipDeadbandThreshold' }],
-          },
-          'display.liveness-threshold': {
-            id: 'display.liveness-threshold',
-            label: 'Liveness marker threshold',
-            domain: 'display',
-            inputs: [{ range: [0, 1] }],
-            outputs: [{ path: 'profile.settings.appearance.livenessThreshold' }],
-          },
-          'engine.watchdog-latency-threshold-ms': {
-            id: 'engine.watchdog-latency-threshold-ms',
-            label: 'Watchdog latency threshold (ms)',
-            domain: 'engine',
-            inputs: [{ range: [50, 5000] }],
-            outputs: [{ path: 'profile.settings.engine.katago.watchdogLatencyThresholdMs' }],
-          },
-        };
-        const target = knobs as Record<string, unknown>;
-        for (const key of Object.keys(seeds)) {
-          if (!(key in target)) {
-            target[key] = seeds[key];
-          }
-        }
-      }
-    }
-    return out;
-  },
   // 40 → 41: Knob-registry priority backfill (toolbar-popover
   // quick-access ask, 2026-05-14). The `KnobDecl.priority?: number`
   // field was added in the same arc so editor surfaces can sort
@@ -238,6 +152,94 @@ export const migrations: Migration[] = [
         const current = (decl as { priority?: unknown }).priority;
         if (typeof current === 'number' && Number.isFinite(current)) continue;
         (decl as { priority?: unknown }).priority = defaultPriority;
+      }
+    }
+    return out;
+  },
+  // 41 → 42: KataGo report-cadence registry promotion. Two new
+  // preference-flavoured leaves under `engine.katago`, paired with
+  // two new KnobDecls under the `engine` domain:
+  //
+  //   (1) `profile.settings.engine.katago.reportDuringSearchEvery`
+  //       default 0.15 — replaces the prior hardcoded 0.15 (ponder)
+  //       / 0.5 (analyze) literals in `analysis-service.ts`. Single
+  //       value applies to both modes per the simplification choice
+  //       recorded with the user 2026-05-15.
+  //   (2) `profile.settings.engine.katago.firstReportDuringSearchAfter`
+  //       default 0.05 — new wire field on `KataGoAnalysisQuery`;
+  //       small default closes the perceived first-paint delay on
+  //       fresh ponder / analyze queries. Bounded above by the
+  //       cadence above at the registry widget level
+  //       (`KnobInputDecl.maxFromKnob`) and at the wire layer
+  //       (clamped in `analysis-service.ts`'s query-construction
+  //       sites).
+  //
+  // Seeds the two KnobDecls (`engine.report-during-search-every`
+  // priority 70; `engine.first-report-during-search-after`
+  // priority 80) mirroring the defaults-side fresh-install seed
+  // verbatim. The first-after decl's `inputs[0].maxFromKnob`
+  // references the cadence knob's id; `validateRegistry` (in
+  // `lib/knobs.ts`) checks the reference resolves at startup per
+  // ADR-0002.
+  //
+  // Idempotent: each leaf-backfill preserves a pre-existing
+  // number; each KnobDecl seed preserves a pre-existing entry
+  // under the same key (matching the 36 → 37 motivating-scalars
+  // migration's discipline so user-customised label / range edits
+  // survive).
+  //
+  // See `analysis-service.ts::analyzeRange` and `::analyzeActiveNode`
+  // for the consumer-site retargets that read these leaves and
+  // apply the wire-side `min(first, cadence)` clamp; see
+  // `docs/worklog/2026-05-15-katago-cadence-knobs.md` for the
+  // arc record including the substrate addition of
+  // `KnobInputDecl.maxFromKnob`.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const settings = out.profile?.settings;
+    if (settings && typeof settings === 'object') {
+      const katago = (settings as { engine?: { katago?: unknown } }).engine?.katago;
+      if (katago && typeof katago === 'object') {
+        const k = katago as {
+          reportDuringSearchEvery?: unknown;
+          firstReportDuringSearchAfter?: unknown;
+        };
+        if (typeof k.reportDuringSearchEvery !== 'number') {
+          k.reportDuringSearchEvery = 0.15;
+        }
+        if (typeof k.firstReportDuringSearchAfter !== 'number') {
+          k.firstReportDuringSearchAfter = 0.05;
+        }
+      }
+      const knobs = (settings as { knobs?: unknown }).knobs;
+      if (knobs && typeof knobs === 'object' && !Array.isArray(knobs)) {
+        const seeds: Record<string, unknown> = {
+          'engine.report-during-search-every': {
+            id: 'engine.report-during-search-every',
+            label: 'Report cadence (s)',
+            domain: 'engine',
+            inputs: [{ range: [0.01, 4.0] }],
+            outputs: [{ path: 'profile.settings.engine.katago.reportDuringSearchEvery' }],
+            priority: 70,
+          },
+          'engine.first-report-during-search-after': {
+            id: 'engine.first-report-during-search-after',
+            label: 'First report after (s)',
+            domain: 'engine',
+            inputs: [{
+              range: [0.01, 4.0],
+              maxFromKnob: 'engine.report-during-search-every',
+            }],
+            outputs: [{ path: 'profile.settings.engine.katago.firstReportDuringSearchAfter' }],
+            priority: 80,
+          },
+        };
+        const target = knobs as Record<string, unknown>;
+        for (const key of Object.keys(seeds)) {
+          if (!(key in target)) {
+            target[key] = seeds[key];
+          }
+        }
       }
     }
     return out;

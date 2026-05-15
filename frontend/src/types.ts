@@ -367,6 +367,29 @@ export interface KnobInputDecl {
    */
   readonly subId?: string;
   readonly label?: string;
+  /**
+   * Optional cross-knob constraint: when set, the slider's
+   * effective max is `min(range[1], readKnob(linkedKnob))` rather
+   * than the static `range[1]`. The KnobSlider widget reads the
+   * linked knob's value reactively, so the slider's max bound
+   * tracks the linked knob's current value. The store leaf
+   * itself is NOT auto-clamped — the user's preference is
+   * preserved while the slider's effective range follows the
+   * constraint. Wire-layer consumers should defense-in-depth
+   * clamp at send time so the contract reaching the engine is
+   * always coherent (see `analysis-service.ts`'s cadence-knob
+   * sites for the worked example).
+   *
+   * `validateRegistry` (`lib/knobs.ts`) checks at startup that
+   * any `maxFromKnob` reference resolves to an actual KnobDecl;
+   * an unresolved reference is a loud failure per ADR-0002.
+   *
+   * Added 2026-05-15 with the KataGo cadence-knob pair
+   * (`engine.first-report-during-search-after` bounded by
+   * `engine.report-during-search-every`). One use case today;
+   * the field is optional and absent on every existing decl.
+   */
+  readonly maxFromKnob?: KnobId;
 }
 
 /**
@@ -858,6 +881,33 @@ export interface AppSettings {
        * range [50, 5000]. Schema-version 39 → 40 backfills.
        */
       watchdogLatencyThresholdMs: number;
+      /**
+       * KataGo `reportDuringSearchEvery` cadence in seconds — wire
+       * field on every analyze query that streams intermediate
+       * packets. Replaces the prior hardcoded 0.15 (ponder) / 0.5
+       * (analyze) literals in `analysis-service.ts`; the single
+       * registry-driven value applies to both modes per the user's
+       * 2026-05-15 simplification choice. Bound through the
+       * `engine.report-during-search-every` KnobDecl. Default 0.15;
+       * range [0.01, 4.0]. Schema-version 41 → 42 backfills.
+       */
+      reportDuringSearchEvery: number;
+      /**
+       * KataGo `firstReportDuringSearchAfter` cadence in seconds —
+       * wire field controlling when KataGo emits the FIRST in-
+       * search report for an analyze query, independent of the
+       * subsequent `reportDuringSearchEvery` cadence. A small value
+       * here closes the perceived "delay until first packet"
+       * friction on fresh ponder queries against unevaluated
+       * positions. Bound through the
+       * `engine.first-report-during-search-after` KnobDecl, whose
+       * `inputs[0].maxFromKnob` constrains it to be ≤ the cadence
+       * above (semantically: first-report-after a value larger
+       * than the cadence would delay first-paint past what would
+       * have been the second regular report). Default 0.05; range
+       * [0.01, 4.0]. Schema-version 41 → 42 backfills.
+       */
+      firstReportDuringSearchAfter: number;
       // Engine-side runtime overrides forwarded verbatim to KataGo as
       // the Analysis Engine's `overrideSettings` field. Documented at
       // the wire-shape boundary on `KataGoAnalysisQuery` in

@@ -2247,3 +2247,89 @@ describe('40 → 41: KnobDecl priority backfill (toolbar quick-access)', () => {
     expect(out.profile.settings.knobs).toEqual([]);
   });
 });
+
+// ── Per-migration: 41 → 42 ──────────────────────────────────────────
+
+describe('41 → 42: KataGo report-cadence registry promotion', () => {
+  function blobWithKatago(katago: Record<string, unknown>, knobs: Record<string, unknown> = {}): any {
+    return { profile: { settings: { engine: { katago }, knobs } } };
+  }
+
+  it('backfills reportDuringSearchEvery default 0.15 when absent', () => {
+    const blob = blobWithKatago({});
+    const out = step(41)(blob);
+    expect(out.profile.settings.engine.katago.reportDuringSearchEvery).toBe(0.15);
+  });
+
+  it('backfills firstReportDuringSearchAfter default 0.05 when absent', () => {
+    const blob = blobWithKatago({});
+    const out = step(41)(blob);
+    expect(out.profile.settings.engine.katago.firstReportDuringSearchAfter).toBe(0.05);
+  });
+
+  it('preserves a pre-existing finite reportDuringSearchEvery', () => {
+    const blob = blobWithKatago({ reportDuringSearchEvery: 0.4 });
+    const out = step(41)(blob);
+    expect(out.profile.settings.engine.katago.reportDuringSearchEvery).toBe(0.4);
+  });
+
+  it('preserves a pre-existing finite firstReportDuringSearchAfter', () => {
+    const blob = blobWithKatago({ firstReportDuringSearchAfter: 0.2 });
+    const out = step(41)(blob);
+    expect(out.profile.settings.engine.katago.firstReportDuringSearchAfter).toBe(0.2);
+  });
+
+  it('seeds the engine.report-during-search-every KnobDecl', () => {
+    const blob = blobWithKatago({});
+    const out = step(41)(blob);
+    const decl = out.profile.settings.knobs['engine.report-during-search-every'];
+    expect(decl).toBeDefined();
+    expect(decl.id).toBe('engine.report-during-search-every');
+    expect(decl.domain).toBe('engine');
+    expect(decl.inputs[0].range).toEqual([0.01, 4.0]);
+    expect(decl.outputs[0].path).toBe('profile.settings.engine.katago.reportDuringSearchEvery');
+    expect(decl.priority).toBe(70);
+  });
+
+  it('seeds the engine.first-report-during-search-after KnobDecl with maxFromKnob bound', () => {
+    const blob = blobWithKatago({});
+    const out = step(41)(blob);
+    const decl = out.profile.settings.knobs['engine.first-report-during-search-after'];
+    expect(decl).toBeDefined();
+    expect(decl.id).toBe('engine.first-report-during-search-after');
+    expect(decl.domain).toBe('engine');
+    expect(decl.inputs[0].range).toEqual([0.01, 4.0]);
+    expect(decl.inputs[0].maxFromKnob).toBe('engine.report-during-search-every');
+    expect(decl.outputs[0].path).toBe('profile.settings.engine.katago.firstReportDuringSearchAfter');
+    expect(decl.priority).toBe(80);
+  });
+
+  it('preserves a pre-existing KnobDecl entry verbatim (no clobber)', () => {
+    const customDecl = {
+      id: 'engine.report-during-search-every',
+      label: 'Custom user label',
+      domain: 'engine',
+      inputs: [{ range: [0.05, 2.0] }],
+      outputs: [{ path: 'profile.settings.engine.katago.reportDuringSearchEvery' }],
+      priority: 5,
+    };
+    const blob = blobWithKatago({}, { 'engine.report-during-search-every': customDecl });
+    const out = step(41)(blob);
+    expect(out.profile.settings.knobs['engine.report-during-search-every']).toEqual(customDecl);
+  });
+
+  it('is a no-op when engine.katago is absent (defensive)', () => {
+    const blob: any = { profile: { settings: {} } };
+    const out = step(41)(blob);
+    expect(out.profile.settings).toEqual({});
+  });
+
+  it('seeds knobs even when only katago is present (asymmetric absence)', () => {
+    const blob: any = { profile: { settings: { engine: { katago: {} } } } };
+    const out = step(41)(blob);
+    expect(out.profile.settings.engine.katago.reportDuringSearchEvery).toBe(0.15);
+    expect(out.profile.settings.engine.katago.firstReportDuringSearchAfter).toBe(0.05);
+    // No knobs container -> no decls seeded
+    expect(out.profile.settings.knobs).toBeUndefined();
+  });
+});

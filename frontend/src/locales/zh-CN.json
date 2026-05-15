@@ -39,6 +39,8 @@
   "knobRegistry.label.display.ownership-deadband-threshold": "领地覆盖死区",
   "knobRegistry.label.display.liveness-threshold":          "死活标记阈值",
   "knobRegistry.label.engine.watchdog-latency-threshold-ms": "看门狗延迟阈值 (ms)",
+  "knobRegistry.label.engine.report-during-search-every":    "报告间隔（秒）",
+  "knobRegistry.label.engine.first-report-during-search-after": "首次报告延迟（秒）",
 
   "cards.tab.decks":                      "卡组",
   "cards.tab.browse":                     "浏览",

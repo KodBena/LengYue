@@ -39,6 +39,8 @@
   "knobRegistry.label.display.ownership-deadband-threshold": "領地オーバーレイの不感帯",
   "knobRegistry.label.display.liveness-threshold":          "死活マーカーの閾値",
   "knobRegistry.label.engine.watchdog-latency-threshold-ms": "ウォッチドッグ遅延閾値 (ms)",
+  "knobRegistry.label.engine.report-during-search-every":    "報告間隔 (秒)",
+  "knobRegistry.label.engine.first-report-during-search-after": "初回報告までの時間 (秒)",
 
   "cards.tab.decks":                      "デッキ",
   "cards.tab.browse":                     "閲覧",

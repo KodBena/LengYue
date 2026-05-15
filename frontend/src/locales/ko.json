@@ -39,6 +39,8 @@
   "knobRegistry.label.display.ownership-deadband-threshold": "영지 오버레이 데드밴드",
   "knobRegistry.label.display.liveness-threshold":          "사활 마커 임계값",
   "knobRegistry.label.engine.watchdog-latency-threshold-ms": "워치독 지연 임계값 (ms)",
+  "knobRegistry.label.engine.report-during-search-every":    "보고 주기 (초)",
+  "knobRegistry.label.engine.first-report-during-search-after": "첫 보고 지연 (초)",
 
   "cards.tab.decks":                      "덱",
   "cards.tab.browse":                     "둘러보기",

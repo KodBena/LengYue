@@ -520,7 +520,25 @@ export class AnalysisService {
       komi, // Added Komi mapping
       maxVisits: visits,
       ...cacheFlags,
-      ...(isRealtime ? { reportDuringSearchEvery: 0.5 } : {}),
+      // Report cadences are user-tunable registry leaves
+      // (knob-registry Phase 6, 2026-05-15 promotion). The
+      // wire-side `Math.min` clamp enforces the semantic invariant
+      // `firstReportDuringSearchAfter ≤ reportDuringSearchEvery`
+      // even if the stored leaves drift (the KnobInputDecl's
+      // `maxFromKnob` constrains the slider's effective max but
+      // doesn't auto-clamp the persisted value when the cadence
+      // is reduced; the wire clamp is the defence-in-depth so
+      // KataGo always sees a coherent pair). Snapshot / review
+      // paths pass `isRealtime=false` and omit both fields
+      // entirely so during-search packets don't pollute the
+      // recorded analysis.
+      ...(isRealtime ? {
+        reportDuringSearchEvery: store.profile.settings.engine.katago.reportDuringSearchEvery,
+        firstReportDuringSearchAfter: Math.min(
+          store.profile.settings.engine.katago.firstReportDuringSearchAfter,
+          store.profile.settings.engine.katago.reportDuringSearchEvery,
+        ),
+      } : {}),
       analyzeTurns,
       ...(needsOwnership ? { includeOwnership: true } : {}),
       ...(hasOverrides ? { overrideSettings } : {}),
@@ -656,11 +674,22 @@ export class AnalysisService {
       komi, // Added Komi mapping
       ...(visits !== undefined ? { maxVisits: visits } : {}),
       ...cacheFlags,
-      // magic-literal: reportDuringSearchEvery cadences — 0.15s for ponder
-      // (frequent updates as ponder accumulates over long horizons), 0.5s
-      // for analysis (less frequent — bounded query, less to update).
-      // Mode-specific KataGo wire-protocol cadence; not a substrate scale.
-      ...(mode === 'ponder' ? { reportDuringSearchEvery: 0.15, maxVisits: store.profile.settings.engine.katago.ponderMaxVisits } : { reportDuringSearchEvery: 0.5 }),
+      // Report cadences are user-tunable registry leaves
+      // (knob-registry Phase 6, 2026-05-15 promotion). Single
+      // value applies to both ponder and analyze per the user's
+      // simplification choice; the prior 0.15 (ponder) / 0.5
+      // (analyze) tuning is replaced by `reportDuringSearchEvery`
+      // alone with a registry default of 0.15. The wire-side
+      // `Math.min` clamp enforces the invariant
+      // `firstReportDuringSearchAfter ≤ reportDuringSearchEvery`
+      // even if the stored leaves drift apart (see the
+      // analyzeRange site for the matching pattern).
+      reportDuringSearchEvery: store.profile.settings.engine.katago.reportDuringSearchEvery,
+      firstReportDuringSearchAfter: Math.min(
+        store.profile.settings.engine.katago.firstReportDuringSearchAfter,
+        store.profile.settings.engine.katago.reportDuringSearchEvery,
+      ),
+      ...(mode === 'ponder' ? { maxVisits: store.profile.settings.engine.katago.ponderMaxVisits } : {}),
       analyzeTurns: [currentIdx],
       ...(needsOwnership ? { includeOwnership: true } : {}),
       ...(hasOverrides ? { overrideSettings } : {}),

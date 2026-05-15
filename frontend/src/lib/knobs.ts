@@ -340,11 +340,16 @@ export function validateRegistry(
   registry: KnobRegistry,
 ): void {
   for (const [key, decl] of Object.entries(registry)) {
-    validateDecl(root, key, decl);
+    validateDecl(root, key, decl, registry);
   }
 }
 
-function validateDecl(root: object, key: string, decl: KnobDecl): void {
+function validateDecl(
+  root: object,
+  key: string,
+  decl: KnobDecl,
+  registry: KnobRegistry,
+): void {
   if (decl.id !== key) {
     throw new Error(
       `KnobRegistry validation: entry keyed "${key}" carries id ` +
@@ -370,6 +375,34 @@ function validateDecl(root: object, key: string, decl: KnobDecl): void {
         `KnobRegistry validation: knob "${key}" input[${i}] has invalid ` +
         `range [${lo}, ${hi}] (need finite numbers with lo < hi).`,
       );
+    }
+    // Cross-knob constraint: if `maxFromKnob` is set, the linked
+    // knob must exist in the registry and must declare at least one
+    // output path. Per ADR-0002, an unresolved reference is a
+    // startup-time loud failure rather than a silent runtime
+    // fallback to the static range max. Added 2026-05-15 with the
+    // KataGo cadence-knob pair.
+    const linked = decl.inputs[i].maxFromKnob;
+    if (linked !== undefined) {
+      const linkedDecl = registry[linked];
+      if (!linkedDecl) {
+        throw new Error(
+          `KnobRegistry validation: knob "${key}" input[${i}] declares ` +
+          `maxFromKnob="${linked}" but no KnobDecl is registered under ` +
+          `that id. Either the linked knob's id was renamed, or this ` +
+          `decl was authored against a registry that hasn't been ` +
+          `populated yet (check the migration order).`,
+        );
+      }
+      if (linkedDecl.outputs.length === 0 || !linkedDecl.outputs[0]?.path) {
+        throw new Error(
+          `KnobRegistry validation: knob "${key}" input[${i}] declares ` +
+          `maxFromKnob="${linked}" but that knob has no output path ` +
+          `the substrate can read. The linked knob's stored value is ` +
+          `the source of the effective max bound; without an output ` +
+          `path there's nothing to read.`,
+        );
+      }
     }
   }
   const transform: KnobTransform =
