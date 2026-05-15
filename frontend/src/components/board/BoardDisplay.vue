@@ -12,6 +12,7 @@ import {
   ALL_X_LABELS,
 } from '../../engine/constants';
 import type { StoneColor, Move } from '../../types';
+import type { HeatmapCell, HeatmapStyle } from './BoardHeatmapOverlay.vue';
 
 const props = defineProps<{
   size?: number;
@@ -26,6 +27,18 @@ const props = defineProps<{
   // the prop entirely rather than passing an empty map; keeps
   // the v-if reactive without an extra props comparison.
   moveNumbers?: Record<string, number>;
+  // Optional ownership-shading underlay. When provided, the cells
+  // render as cell-sized translucent squares INSIDE the SVG,
+  // between the hoshi and stones layers — so stones naturally
+  // occlude the underlay's centers while the corners remain
+  // visible at cell boundaries, giving the "spatial continuity"
+  // reading of the engine's ownership map. The caller
+  // (BoardWidget) feeds the same colour-map function it would
+  // pass to a standalone BoardHeatmapOverlay; the two paths
+  // share the `HeatmapCell` / `HeatmapStyle` types so the call-
+  // site contract is one-for-one with the overlay component.
+  underlayCells?: readonly HeatmapCell[];
+  underlayColorMap?: HeatmapStyle;
 }>();
 
 const emit = defineEmits<{
@@ -210,6 +223,26 @@ function onBoardClick(e: MouseEvent) {
         :r="STAR_R"
         fill="#222"
       />
+
+      <!-- 3b-bis. Ownership-shading underlay. Cell-sized squares
+           (half-extent = cell/2, so each square exactly tiles its
+           intersection's box) drawn BEFORE the stones so the stones
+           paint over the underlay's centers. The four corners of
+           each underlay square remain visible at the cell boundaries
+           — the result is a continuous ownership-tint shading
+           interrupted only by the stone discs themselves. -->
+      <g v-if="underlayCells && underlayColorMap && underlayCells.length > 0">
+        <rect
+          v-for="ucell in underlayCells"
+          :key="`under-${ucell.x},${ucell.y}`"
+          :x="toSVG(ucell.x, ucell.y).x - cell / 2"
+          :y="toSVG(ucell.x, ucell.y).y - cell / 2"
+          :width="cell"
+          :height="cell"
+          :fill="underlayColorMap(ucell.value).fill"
+          :opacity="underlayColorMap(ucell.value).opacity"
+        />
+      </g>
 
       <!-- 3c. Stones -->
       <g v-for="stone in stoneList" :key="stone.key">

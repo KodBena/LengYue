@@ -106,21 +106,29 @@ const decodedOwnership = computed(() => {
   return decodeBoardArray(raw, boardSize.value);
 });
 
-// Empty-intersection cells for the territory-style overlays. Stones
-// occlude their own position; their ownership is conveyed through the
-// liveness sub-mode instead.
-const emptyCells = computed(() => {
+// Split into two variants because the continuous-mode shading
+// extends across occupied vertices (rendered as an underlay
+// INSIDE BoardDisplay's SVG, between hoshi and stones — the
+// stones occlude the underlay's centers while the corners remain
+// visible at the cell boundaries, giving the "spatial
+// continuity" reading of the engine's ownership map). The
+// dots-mode markers stay empty-only — discrete markers on
+// stones aren't a meaningful signal.
+const allOwnershipCells = computed(() => {
+  return decodedOwnership.value ?? [];
+});
+const emptyOwnershipCells = computed(() => {
   const cells = decodedOwnership.value;
   if (!cells) return [];
   return cells.filter(({ x, y }) => !props.state.stones[`${x},${y}`]);
 });
 
 const continuousCells = computed(
-  () => store.session.ui.overlayLayers.ownership.continuous ? emptyCells.value : [],
+  () => store.session.ui.overlayLayers.ownership.continuous ? allOwnershipCells.value : [],
 );
 
 const dotsCells = computed(
-  () => store.session.ui.overlayLayers.ownership.dots ? emptyCells.value : [],
+  () => store.session.ui.overlayLayers.ownership.dots ? emptyOwnershipCells.value : [],
 );
 
 // Stone-position cells where the engine's predicted owner disagrees
@@ -242,16 +250,10 @@ function onShiftClick(x: number, y: number) {
       :last-move="lastMovePoint"
       :show-labels="true"
       :move-numbers="moveNumbersByCoord"
+      :underlay-cells="continuousCells"
+      :underlay-color-map="ownershipColor"
       @click="(x, y) => emit('move', x, y)"
       @shift-click="onShiftClick"
-    />
-    <BoardHeatmapOverlay
-      v-if="continuousCells.length > 0"
-      :cells="continuousCells"
-      :size="boardSize"
-      :color-map="ownershipColor"
-      shape="square"
-      :scale="0.5"
     />
     <BoardHeatmapOverlay
       v-if="dotsCells.length > 0"
