@@ -49,6 +49,16 @@ const emit = defineEmits<{
   // logic.ts:79–82, so moves that already exist as children of
   // the current node are descended into rather than duplicated.
   (e: 'paste-pv', pv: PvMove[]): void;
+  // Fires `true` when the user starts hovering a suggestion (PV
+  // preview becomes the user's mental context), `false` when they
+  // leave it. Consumed by `BoardWidget` to suppress the game-tree
+  // move-number annotation on actual played stones while the PV
+  // preview is up — those numbers belong to the played sequence,
+  // not to the hypothetical variation the user is reading. The
+  // PV's own per-move numbering (driven by `currentMoveNumber` +
+  // `cfg.annotation`) is rendered independently and is exactly
+  // what the user wants to see in this context.
+  (e: 'pv-preview-active', active: boolean): void;
 }>();
 
 const { t } = useI18n();
@@ -65,6 +75,19 @@ const { startPv, stopPv, displayStones, cfg: pvCfg } = usePvAnimation(
 );
 
 const hoveredIndex = ref<number | null>(null);
+
+// Surface "PV preview is up" to the parent so sibling overlays
+// (specifically `BoardWidget`'s game-tree move-number annotation)
+// can suppress themselves while the user is reading a hypothetical
+// variation. The derived boolean fires only on the
+// has-hover ↔ no-hover transition, not on every hover-target
+// change within the cluster, so the parent's reactive gate
+// toggles once per preview session rather than once per
+// suggestion-mouseover.
+watch(
+  () => hoveredIndex.value !== null,
+  (active) => emit('pv-preview-active', active),
+);
 
 // ── Logic ─────────────────────────────────────────────────────────────────────
 

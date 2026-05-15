@@ -177,8 +177,20 @@ const currentMoveNumber = computed(() => {
 // root's AB/AW properties have no `move` event and aren't included.
 // Returned undefined (not empty object) when the toggle is off so
 // BoardDisplay's v-if cleanly skips the render branch.
+// Tracks whether MoveSuggestions is currently previewing a PV
+// (the user is hovering a suggestion). Used to suppress the
+// game-tree move-number annotation on actual played stones while
+// the PV preview is up — the user is reading a hypothetical
+// variation whose numbering context is the PV's own annotation,
+// and the played-sequence numbers would conflict with that mental
+// frame. The signal is a derived boolean from MoveSuggestions'
+// `hoveredIndex !== null`, fired on the has-hover ↔ no-hover
+// transition; see that component's `pv-preview-active` emit.
+const pvHoverActive = ref(false);
+
 const moveNumbersByCoord = computed((): Record<string, number> | undefined => {
   if (!store.session.ui.showStoneMoveNumbers) return undefined;
+  if (pvHoverActive.value) return undefined;
   const rawNodes = toRaw(props.state.nodes);
   // Walk root → current first by collecting the parent chain, then
   // numbering forward. Walking forward via children is awkward
@@ -251,6 +263,7 @@ const moveNumbersByCoord = computed((): Record<string, number> | undefined => {
       :show-transposition-rings="store.session.ui.showTranspositionRings"
       @move="(x, y) => emit('move', x, y)"
       @paste-pv="(pv) => emit('paste-pv', pv)"
+      @pv-preview-active="pvHoverActive = $event"
     />
     <!-- Game-tree variations overlay: stroke-only colored rings (or
          A/B/C lettered rings) for sibling variations from the
