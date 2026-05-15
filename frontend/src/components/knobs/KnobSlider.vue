@@ -103,34 +103,60 @@ const effectiveMax = computed(() => {
 });
 
 /**
- * Step size derived from the range span. Target 100 discrete
- * steps across the slider — enough granularity that drag feels
- * continuous, tractable enough that the user can ratchet by
- * single steps with the keyboard. The 100 figure replaces the
- * earlier three-bucket heuristic (which produced ~40 steps on
- * spans like [0.01, 4.0] and ~5000 on [50, 5000]); span / 100
- * gives a uniformly smooth feel.
+ * Step size derived from the *effective* range span (after the
+ * `maxFromKnob` cross-knob constraint is applied), not the
+ * static range. Target 100 discrete steps across the slider —
+ * enough granularity that drag feels continuous, tractable
+ * enough that the user can ratchet by single steps with the
+ * keyboard.
  *
- * magic-literal: 100 is a nice round number for a smooth slider
- * — fine enough that adjacent positions feel adjacent on the
- * drag, coarse enough that the badge's `toFixed` precision
- * derivation below produces readable values for both small-
- * span knobs (opacity 0..1 → step 0.01) and large-span knobs
- * (watchdog 50..5000 → step 49.5, displays in 0-decimal-place
- * granularity).
+ * The effective-range derivation matters for linked knobs:
+ * the first-report-after knob's static range is [0.01, 4.0],
+ * but its effective max follows the cadence knob's stored
+ * value (typically 0.15 at default). Computing step from
+ * the static range gave only ~3-4 distinct positions on the
+ * effective range; computing from the effective span keeps
+ * the 100-step density honest as the linked-knob constraint
+ * narrows or widens the slider's reach.
+ *
+ * magic-literal: 100 is a nice round number for a smooth
+ * slider — fine enough that adjacent positions feel adjacent
+ * on the drag, coarse enough that adjacent step values stay
+ * distinguishable at the badge precision the formula below
+ * computes.
+ *
+ * Defensive: when the linked-knob constraint has collapsed the
+ * effective span to zero (linked-knob value at-or-below this
+ * knob's static min), the slider has no movement room anyway;
+ * fall back to the static-range step so the input element
+ * still renders with a positive step value (HTML's `<input
+ * type="range">` errors on step="0").
  */
 const TARGET_STEP_COUNT = 100;
 
 const step = computed(() => {
-  const span = range.value[1] - range.value[0];
-  return span / TARGET_STEP_COUNT;
+  const lo = range.value[0];
+  const effectiveSpan = effectiveMax.value - lo;
+  if (effectiveSpan > 0) {
+    return effectiveSpan / TARGET_STEP_COUNT;
+  }
+  return (range.value[1] - lo) / TARGET_STEP_COUNT;
 });
 
+/**
+ * Decimal places needed to distinguish adjacent step values in
+ * the badge display. `ceil(-log10(step))` is the smallest
+ * precision at which two adjacent values differ in the
+ * displayed string: step 0.04 → 2 dp ("0.04" vs "0.08"); step
+ * 0.0014 → 3 dp ("0.001" vs "0.003"); step 49.5 → 0 dp
+ * ("49" vs "99"). Clamped at 0 (no negative precisions) and
+ * defensive against non-finite or zero step (fallback 2 dp,
+ * the previous heuristic's default for small-span knobs).
+ */
 const precision = computed(() => {
   const s = step.value;
-  if (s >= 1) return 0;
-  if (s >= 0.1) return 1;
-  return 2;
+  if (!Number.isFinite(s) || s <= 0) return 2;
+  return Math.max(0, Math.ceil(-Math.log10(s)));
 });
 
 const value = computed(() => {
