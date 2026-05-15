@@ -26,8 +26,6 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'load-sgf'):     void;
-  (e: 'save-sgf'):     void;
   (e: 'toggle-engine'): void;
   (e: 'mint-card'):    void;
   (e: 'open-match'):   void;
@@ -236,8 +234,6 @@ const modelTooltip = computed(() => {
         :class="{ 'btn-stop-match': isMatchRunning }"
         @click="onMatchClick"
       >{{ matchBtnLabel }}</button>
-      <button class="toolbar-btn" @click="emit('load-sgf')">{{ $t('toolbar.loadSgf') }}</button>
-      <button class="toolbar-btn" @click="emit('save-sgf')">{{ $t('toolbar.saveSgf') }}</button>
       <button
         class="toolbar-btn"
         :class="{ 'btn-connected': isConnected }"

@@ -266,7 +266,11 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
     <MintCardModal ref="mintModalRef" />
     <ConfirmLoadModal ref="confirmLoadModalRef" />
     <EngineMatchModal ref="matchModalRef" @start-match="handleStartMatch" />
-    <SidebarWidget v-show="store.session.ui.sidebarExpanded" />
+    <SidebarWidget
+      v-show="store.session.ui.sidebarExpanded"
+      @load-sgf="openFileDialog"
+      @save-sgf="downloadActiveBoard"
+    />
 
     <div id="main-workspace">
       
@@ -279,8 +283,6 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
           :engine-status="engineControls.status.value"
           :metrics="engineControls.metrics.value"
           :is-match-running="matchControls.isRunning.value"
-          @load-sgf="openFileDialog"
-          @save-sgf="downloadActiveBoard"
           @toggle-engine="engineControls.toggle"
           @mint-card="triggerMint"
           @open-match="triggerMatch"
