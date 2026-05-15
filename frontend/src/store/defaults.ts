@@ -542,6 +542,15 @@ export const defaultSessionUI: UISession = {
   analysisLayout: 'horizontal',
   showMoveSuggestions: true,
   showStoneMoveNumbers: false,
+  // Off by default — preserves the historical "land on root after
+  // SGF upload" behaviour. When the user opts in via the
+  // Settings (UI) registry, `useSgfLoader` post-walks the loaded
+  // board to its active-variation leaf so the file-upload flow
+  // lands on the final position. See useSgfLoader.ts for the
+  // call-site rationale (file uploads only — card loads and
+  // review-session boards intentionally start at the card's
+  // recorded position).
+  loadSgfAtLastNode: false,
   // PV-preview animation defaults — kept in lockstep with
   // `composables/use-pv-animation.ts::PV_DEFAULTS` and the migration
   // 9→10 backfill. Three sources of truth that must agree.

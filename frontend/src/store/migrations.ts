@@ -77,7 +77,7 @@ import { archivedMigrations, type Migration } from './archived-migrations';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 43;
+export const CURRENT_SCHEMA_VERSION = 44;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -105,94 +105,6 @@ export const CURRENT_SCHEMA_VERSION = 43;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 41 → 42: KataGo report-cadence registry promotion. Two new
-  // preference-flavoured leaves under `engine.katago`, paired with
-  // two new KnobDecls under the `engine` domain:
-  //
-  //   (1) `profile.settings.engine.katago.reportDuringSearchEvery`
-  //       default 0.15 — replaces the prior hardcoded 0.15 (ponder)
-  //       / 0.5 (analyze) literals in `analysis-service.ts`. Single
-  //       value applies to both modes per the simplification choice
-  //       recorded with the user 2026-05-15.
-  //   (2) `profile.settings.engine.katago.firstReportDuringSearchAfter`
-  //       default 0.05 — new wire field on `KataGoAnalysisQuery`;
-  //       small default closes the perceived first-paint delay on
-  //       fresh ponder / analyze queries. Bounded above by the
-  //       cadence above at the registry widget level
-  //       (`KnobInputDecl.maxFromKnob`) and at the wire layer
-  //       (clamped in `analysis-service.ts`'s query-construction
-  //       sites).
-  //
-  // Seeds the two KnobDecls (`engine.report-during-search-every`
-  // priority 70; `engine.first-report-during-search-after`
-  // priority 80) mirroring the defaults-side fresh-install seed
-  // verbatim. The first-after decl's `inputs[0].maxFromKnob`
-  // references the cadence knob's id; `validateRegistry` (in
-  // `lib/knobs.ts`) checks the reference resolves at startup per
-  // ADR-0002.
-  //
-  // Idempotent: each leaf-backfill preserves a pre-existing
-  // number; each KnobDecl seed preserves a pre-existing entry
-  // under the same key (matching the 36 → 37 motivating-scalars
-  // migration's discipline so user-customised label / range edits
-  // survive).
-  //
-  // See `analysis-service.ts::analyzeRange` and `::analyzeActiveNode`
-  // for the consumer-site retargets that read these leaves and
-  // apply the wire-side `min(first, cadence)` clamp; see
-  // `docs/worklog/2026-05-15-katago-cadence-knobs.md` for the
-  // arc record including the substrate addition of
-  // `KnobInputDecl.maxFromKnob`.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const settings = out.profile?.settings;
-    if (settings && typeof settings === 'object') {
-      const katago = (settings as { engine?: { katago?: unknown } }).engine?.katago;
-      if (katago && typeof katago === 'object') {
-        const k = katago as {
-          reportDuringSearchEvery?: unknown;
-          firstReportDuringSearchAfter?: unknown;
-        };
-        if (typeof k.reportDuringSearchEvery !== 'number') {
-          k.reportDuringSearchEvery = 0.15;
-        }
-        if (typeof k.firstReportDuringSearchAfter !== 'number') {
-          k.firstReportDuringSearchAfter = 0.05;
-        }
-      }
-      const knobs = (settings as { knobs?: unknown }).knobs;
-      if (knobs && typeof knobs === 'object' && !Array.isArray(knobs)) {
-        const seeds: Record<string, unknown> = {
-          'engine.report-during-search-every': {
-            id: 'engine.report-during-search-every',
-            label: 'Report cadence (s)',
-            domain: 'engine',
-            inputs: [{ range: [0.01, 4.0] }],
-            outputs: [{ path: 'profile.settings.engine.katago.reportDuringSearchEvery' }],
-            priority: 70,
-          },
-          'engine.first-report-during-search-after': {
-            id: 'engine.first-report-during-search-after',
-            label: 'First report after (s)',
-            domain: 'engine',
-            inputs: [{
-              range: [0.01, 4.0],
-              maxFromKnob: 'engine.report-during-search-every',
-            }],
-            outputs: [{ path: 'profile.settings.engine.katago.firstReportDuringSearchAfter' }],
-            priority: 80,
-          },
-        };
-        const target = knobs as Record<string, unknown>;
-        for (const key of Object.keys(seeds)) {
-          if (!(key in target)) {
-            target[key] = seeds[key];
-          }
-        }
-      }
-    }
-    return out;
-  },
   // 42 → 43: KataGo first-report-after upstream-cliff floor. Adds
   // `inputs[0].minFloor = 0.035` to the persisted
   // `engine.first-report-during-search-after` KnobDecl so existing
@@ -239,6 +151,28 @@ export const migrations: Migration[] = [
             }
           }
         }
+      }
+    }
+    return out;
+  },
+  // 43 → 44: backfill `session.ui.loadSgfAtLastNode` (boolean,
+  // default false). The flag opts the user into a post-load walk
+  // to the active variation's leaf in `useSgfLoader.loadFile` —
+  // SGF file uploads land on the final mainline position instead
+  // of the root. Defaults to false on existing blobs to preserve
+  // the historical "land on root after SGF upload" behaviour.
+  //
+  // Idempotent: a pre-existing boolean is preserved unchanged (a
+  // user who toggled the setting via the Settings registry and
+  // then somehow ran a hand-edited blob through this migration
+  // keeps their choice).
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = out.session?.ui;
+    if (ui && typeof ui === 'object') {
+      const u = ui as { loadSgfAtLastNode?: unknown };
+      if (typeof u.loadSgfAtLastNode !== 'boolean') {
+        u.loadSgfAtLastNode = false;
       }
     }
     return out;
