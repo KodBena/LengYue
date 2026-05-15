@@ -459,11 +459,22 @@ export async function playEngineMatch(opts: PlayEngineMatchOptions): Promise<Boa
   const timeoutMs = opts.perMoveTimeoutMs ?? DEFAULT_TIMEOUT_MS;
   const client = await connectFresh(opts.katagoUrl);
   let board = opts.startBoard;
-  const startPathLength = getActiveVariationPath(board).length;
-  const targetPathLength = startPathLength + opts.numMoves;
+  // Count iterations directly rather than tracking active-path length
+  // growth. `applyGoMove` descends into a pre-existing matching child
+  // when the engine's top move duplicates an existing variation node,
+  // which leaves the active path's length unchanged — so a length-
+  // delta termination condition lets the loop silently run through
+  // every pre-existing forward node before counting any move toward
+  // `numMoves`. Concretely: starting at ply 37 in a tree that already
+  // extends to ply 148, a request for 20 moves used to descend 111
+  // plies first (each iteration still consults KataGo) and then
+  // create 20 new nodes, terminating at ply 168. The iteration
+  // counter makes the intent explicit — each engine turn counts
+  // exactly once, whether the move dedups into an existing child or
+  // creates a fresh one.
+  let movesPlayed = 0;
   try {
-    while (!(opts.shouldStop?.() ?? false)
-        && getActiveVariationPath(board).length < targetPathLength) {
+    while (!(opts.shouldStop?.() ?? false) && movesPlayed < opts.numMoves) {
       const turn = currentTurnNumber(board);
       const playerColor = board.turn;
       const side = playerColor === 'B' ? opts.black : opts.white;
@@ -493,6 +504,7 @@ export async function playEngineMatch(opts: PlayEngineMatchOptions): Promise<Boa
         throw new Error(`playEngineMatch: engine's top move ${best.move} is illegal at turn ${expectedTurn}`);
       }
       board = next;
+      movesPlayed++;
       opts.onMoveApplied?.(board);
     }
     return board;
