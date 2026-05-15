@@ -423,6 +423,21 @@ implementation is hard but because the testing matrix is wide
 configurations), and the failure modes need graceful fallback to
 the configured URL from item 22.
 
+**Detailed plan filed 2026-05-15** in response to the project
+author's renewed interest:
+`docs/notes/engine-connection-discovery-plan.md`
+(`design-note: planned`). Expanded scope from this Item 32's
+original framing — adds proxy advertisement alongside the
+originally-scoped backend advertisement, and pairs the
+zeroconf-discovery arc (Tier 2) with an immediate-relief
+in-toolbar quick-connect surface (Tier 1) that closes the
+registry-editor-navigation pain regardless of whether Tier 2
+ever ships. The design note's §5 captures three opening-move
+options (Tier 1 alone, Tier 1+2 together, hybrid); §8 captures
+the open questions for the project author's later executive
+review. This TODO entry stays open as the index pointer; the
+design note is the canonical detail.
+
 Status note: the frontend's pre-merger Completed table reused
 item number 32 for the "Tree-DSL test rewrite" work, which
 shipped under 32a/32a.2 in the Backend Completed table now
