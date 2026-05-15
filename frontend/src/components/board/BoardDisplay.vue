@@ -30,6 +30,13 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'click', x: number, y: number): void;
+  // Shift-click is routed separately so the consumer (BoardWidget)
+  // can dispatch it to navigation rather than play a move. The
+  // payload is the same (board-coords x, y); the modifier
+  // semantics live entirely at the emit boundary so neither this
+  // widget nor downstream consumers need to introspect
+  // `event.shiftKey` themselves.
+  (e: 'shift-click', x: number, y: number): void;
 }>();
 
 // Unique ID suffix to prevent gradient collisions between multiple boards/thumbnails
@@ -134,8 +141,13 @@ function onBoardClick(e: MouseEvent) {
 
   if (col >= 0 && col < s && row >= 0 && row < s) {
     const boardY = s - 1 - row;
-    console.log(`[BoardDisplay uid=${uid}] click svg=(${cursor.x.toFixed(1)},${cursor.y.toFixed(1)}) board=(${col},${boardY}) size=${s}`);
-    emit('click', col, boardY);
+    if (e.shiftKey) {
+      console.log(`[BoardDisplay uid=${uid}] shift-click svg=(${cursor.x.toFixed(1)},${cursor.y.toFixed(1)}) board=(${col},${boardY}) size=${s}`);
+      emit('shift-click', col, boardY);
+    } else {
+      console.log(`[BoardDisplay uid=${uid}] click svg=(${cursor.x.toFixed(1)},${cursor.y.toFixed(1)}) board=(${col},${boardY}) size=${s}`);
+      emit('click', col, boardY);
+    }
   }
 }
 </script>

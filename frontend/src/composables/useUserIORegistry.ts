@@ -52,6 +52,20 @@ export function useUserIORegistry() {
         nav.variation(1);
         break;
 
+      // ── Path Endpoints ──
+      // Home / End jump to the first / last node of the active
+      // variation path. The browser's default Home / End bindings
+      // (scroll-to-top / scroll-to-bottom) are pre-empted via
+      // `e.preventDefault()` below for the same reason Arrow keys
+      // are — the board surface owns these motions while a board
+      // is active.
+      case 'Home':
+        nav.home();
+        break;
+      case 'End':
+        nav.end();
+        break;
+
       // ── Engine Toggle ──
       case ' ':
         if (store.engine.status === 'connected') {
