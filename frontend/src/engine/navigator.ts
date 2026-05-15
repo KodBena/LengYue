@@ -6,6 +6,7 @@
  */
 
 import type { BoardState, GameNode, NodeId } from '../types';
+import { getActiveVariationPath } from './util';
 
 export function getPath(nodes: Record<NodeId, GameNode>, targetId: NodeId): NodeId[] {
   const path: NodeId[] = [];
@@ -119,4 +120,58 @@ export function navigateVariation(state: BoardState, direction: number) {
   if (nextIdx >= 0 && nextIdx < parent.children.length) {
     navigateTo(state, parent.children[nextIdx]);
   }
+}
+
+/**
+ * Find the active-path node closest to current where a move
+ * placed a stone at the clicked vertex (x, y). Searches backward
+ * first — the "where did this stone come from?" reading — then
+ * forward to handle empty intersections the active path will play
+ * later. Returns null when (x, y) is never played on the active
+ * path's move sequence.
+ *
+ * Notes:
+ *   - A stone placed at index N and later captured at N+k leaves
+ *     (x, y) visually empty for currentIdx > N+k. Backward search
+ *     still returns N (the placement) — the user sees the move
+ *     that placed the now-captured stone and can step forward to
+ *     observe the capture.
+ *   - The active path is the user-selected line via
+ *     `navigateVariation`; this helper does not search sibling
+ *     variations.
+ *   - Root setup stones (AB / AW properties for handicap and
+ *     problem-position imports) are not currently in the search
+ *     domain. Adding them is a single conditional on the root
+ *     node + the SGF-coord encoding navigator's setup-stone path
+ *     already uses, when a handicap use case surfaces.
+ */
+export function findPlacementOnActivePath(
+  state: BoardState,
+  x: number,
+  y: number,
+): NodeId | null {
+  const path = getActiveVariationPath(state);
+  if (path.length === 0) return null;
+  const currentIdx = path.indexOf(state.currentNodeId);
+  if (currentIdx === -1) return null;
+
+  function isPlacementAt(nodeId: NodeId): boolean {
+    const node = state.nodes[nodeId];
+    if (!node) return false;
+    return node.move?.type === 'place'
+        && node.move.x === x
+        && node.move.y === y;
+  }
+
+  // Backward — inclusive of current so shift-clicking the
+  // current-move's own vertex resolves to current (a coherent
+  // no-op rather than a fall-through to a forward search).
+  for (let i = currentIdx; i >= 0; i--) {
+    if (isPlacementAt(path[i])) return path[i];
+  }
+  // Forward — empty intersection the active path will play later.
+  for (let i = currentIdx + 1; i < path.length; i++) {
+    if (isPlacementAt(path[i])) return path[i];
+  }
+  return null;
 }

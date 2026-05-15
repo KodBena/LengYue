@@ -12,6 +12,7 @@ import type { BoardState, NodeId, GameNode } from '../../types';
 import { getBoardSize, decodeBoardArray } from '../../engine/util';
 import { useScopedScroll } from '../../composables/useScopedScroll';
 import { useNavigation } from '../../composables/useNavigation';
+import { findPlacementOnActivePath } from '../../engine/navigator';
 import { store } from '../../store';
 import { ledger } from '../../services/analysis-ledger';
 import { activeConfigHash } from '../../services/analysis-config';
@@ -216,6 +217,21 @@ const moveNumbersByCoord = computed((): Record<string, number> | undefined => {
   }
   return result;
 });
+
+/**
+ * Shift-click on a board vertex: navigate to the nearest node on
+ * the active variation path that placed a stone at (x, y), backward
+ * search first (the "where did this stone come from?" reading),
+ * forward second (an empty intersection the active path plays
+ * later). No-op when (x, y) is never played on the active line.
+ * The helper resolves the target nodeId; `nav.goTo` performs the
+ * navigation through the same `navigateTo` primitive the arrow-
+ * key handlers compose on top of.
+ */
+function onShiftClick(x: number, y: number) {
+  const targetId = findPlacementOnActivePath(props.state, x, y);
+  if (targetId !== null) nav.goTo(targetId);
+}
 </script>
 
 <template>
@@ -227,6 +243,7 @@ const moveNumbersByCoord = computed((): Record<string, number> | undefined => {
       :show-labels="true"
       :move-numbers="moveNumbersByCoord"
       @click="(x, y) => emit('move', x, y)"
+      @shift-click="onShiftClick"
     />
     <BoardHeatmapOverlay
       v-if="continuousCells.length > 0"
