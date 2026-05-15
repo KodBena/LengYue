@@ -131,6 +131,13 @@ const selectedModel = computed(() => store.engine.selectedModel);
 function onSelectModel(event: Event) {
   const target = event.target as HTMLSelectElement;
   setSelectedModel(target.value || null);
+  // Return focus to the document body so the global space-bar
+  // ponder toggle (wired in `useUserIORegistry`) fires correctly
+  // on the next keystroke. Without the blur, focus stays on the
+  // <select>, and `useUserIORegistry`'s `HTMLSelectElement` guard
+  // bails on the keydown — the user's "pick model, press space"
+  // workflow then needs an intervening click outside the toolbar.
+  target.blur();
 }
 const versionTooltip = computed(() => {
   const payload = store.engine.info.versionPayload;
