@@ -8,7 +8,9 @@ import { useI18n } from 'vue-i18n';
 import QeuboToolbar from '../qeubo/QeuboToolbar.vue';
 import EngineQueueTooltip from './EngineQueueTooltip.vue';
 import ToolbarSliderPopover from './ToolbarSliderPopover.vue';
-import { store, setSelectedModel } from '../../store';
+import { store, setSelectedModel, activeBoard } from '../../store';
+import { activeConfigHash } from '../../services/analysis-config';
+import { ledger } from '../../services/analysis-ledger';
 import type { EngineStatus, EngineMetrics } from '../../types';
 
 const { t } = useI18n();
@@ -151,6 +153,44 @@ const modelTooltip = computed(() => {
     ? `query_models response:\n${JSON.stringify(payload, null, 2)}`
     : t('toolbar.engineModelTooltipPending');
 });
+
+// Live engine-evaluation surface — slim-tier preview of the
+// "user-captured rootInfo display" arc. Reads winrate and
+// scoreLead directly from the canonical packet for the active
+// board's current node so the user can sense the engine's
+// view without activating move-suggestions and reading the blue
+// spot. The fuller arc (user picks which scalars + framing via
+// a filter-expression-style compiler, analogous to
+// `moveFilterExpression`) is its own future work unit; this
+// surface is two hardcoded metrics with W-framed display
+// matching the SPA-wide canonical framing in
+// `engine/katago/winrate-framing.ts`. When the fuller arc
+// lands, this fixed pair retires in favour of the configurable
+// slot.
+//
+// Reactive shape: `ledger.getRaw(hash, nodeId)` registers a
+// per-node version-ref dependency on the read, so the display
+// re-evaluates whenever the current node's packet is bumped by
+// `analysis-service::onAnalysisUpdate`. Hash separation across
+// config swaps mirrors `use-move-suggestions.ts:78`'s
+// established precedent.
+const rootInfo = computed(() => {
+  const board = activeBoard.value;
+  if (!board) return null;
+  const packet = ledger.getRaw(activeConfigHash.value, board.currentNodeId);
+  return packet?.rootInfo ?? null;
+});
+const winrateDisplay = computed(() => {
+  const r = rootInfo.value;
+  if (!r || !Number.isFinite(r.winrate)) return '—';
+  return `${(r.winrate * 100).toFixed(1)}%`;
+});
+const scoreLeadDisplay = computed(() => {
+  const r = rootInfo.value;
+  if (!r || !Number.isFinite(r.scoreLead)) return '—';
+  const sign = r.scoreLead >= 0 ? '+' : '';
+  return `${sign}${r.scoreLead.toFixed(1)}`;
+});
 </script>
 
 <template>
@@ -192,6 +232,22 @@ const modelTooltip = computed(() => {
           >{{ entry.label }}{{ entry.healthy ? '' : ' (unavailable)' }}</option>
         </select>
         <span v-else class="m-val engine-id-val">{{ engineInternalName ?? '—' }}</span>
+      </div>
+      <!-- Live engine evaluation — slim preview of the user-
+           captured rootInfo display arc (see the corresponding
+           computeds in <script>). Two hardcoded W-framed
+           scalars; tooltips name the framing so the value is
+           unambiguous without reading the source. Renders
+           unconditionally inside the connected-only metrics bar;
+           '—' placeholder when no packet exists for the active
+           node (pre-analysis, fresh navigation, or post-purge). -->
+      <div class="metric" :title="$t('toolbar.metric.winrateTooltip')">
+        <span class="m-lbl">{{ $t('toolbar.metric.winrate') }}</span>
+        <span class="m-val eval-val">{{ winrateDisplay }}</span>
+      </div>
+      <div class="metric" :title="$t('toolbar.metric.scoreLeadTooltip')">
+        <span class="m-lbl">{{ $t('toolbar.metric.scoreLead') }}</span>
+        <span class="m-val eval-val">{{ scoreLeadDisplay }}</span>
       </div>
       <div class="metric">
         <span class="m-lbl">{{ $t('toolbar.metric.pps') }}</span>
@@ -302,7 +358,7 @@ const modelTooltip = computed(() => {
   from { color: #00ff88; }
   to   { color: var(--state-attention); }
 }
-.engine-version-val, .engine-id-val { white-space: nowrap; cursor: help; }
+.engine-version-val, .engine-id-val, .eval-val { white-space: nowrap; cursor: help; }
 /* SELECTOR-mode model dropdown. The .m-val class on the same
    element supplies the accent colour + bold weight; this rule
    overrides only the chrome — transparent background + thin
