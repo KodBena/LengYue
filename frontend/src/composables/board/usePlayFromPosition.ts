@@ -43,6 +43,7 @@ import type { BoardId, BoardState } from '../../types';
 import { store, updateBoardState } from '../../store';
 import { applyGoMove } from '../../logic';
 import { gtpToBoard } from './use-move-suggestions';
+import { getPath } from '../../engine/navigator';
 import {
   getActiveVariationPath,
   getBoardSize,
@@ -215,7 +216,20 @@ function buildAnalyzeQuery(
   model?: string,
   capabilities?: Record<string, Record<string, unknown>>,
 ): { query: KataGoAnalysisQuery; expectedTurn: number } {
-  const path = getActiveVariationPath(board);
+  // Root-to-currentNodeId path — not root-to-leaf via
+  // `getActiveVariationPath`. The query asks KataGo "given the
+  // moves played to reach the current position, what's the best
+  // move at the next turn?" If we sent the active-variation path
+  // instead, KataGo would evaluate the position at the leaf of
+  // any pre-existing future variation (the user navigated INTO a
+  // tree that already extends past their cursor) and return the
+  // top move for the wrong position; `applyGoMove(board, …)`
+  // would then play that wrong-position move at the current node.
+  // For the match call site this manifests as "first move wrong,
+  // succeeding moves alright" — once a non-matching move is
+  // played, the active variation collapses to root→current and
+  // subsequent queries happen to use the correct expectedTurn.
+  const path = getPath(board.nodes, board.currentNodeId);
   const moves = path
     .map((id) => board.nodes[id]?.move ?? null)
     .filter((m): m is NonNullable<typeof m> => !!m)
