@@ -125,7 +125,7 @@ watch(
     if (!curr || !prev) return;            // mount, unmount, or no active board
     if (curr.id !== prev.id) return;       // board switch — not a "follow me" trigger
     if (curr.nodeId === prev.nodeId) return;
-    if (store.engine.activeMode[curr.id] === 'ponder') {
+    if (analysisService.isPondering(curr.id)) {
       analysisService.analyzeActiveNode(curr.id, 'ponder');
     }
   }

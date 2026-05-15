@@ -374,7 +374,19 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     //     review session never reads (waitForAnalysis filters on
     //     isDuringSearch=false; the intermediate packets just
     //     churn the ledger).
-    analysisService.analyzeRange(
+    // Capture the queryId so the post-wait cleanup can release the
+    // analysis-service entry explicitly. The implicit
+    // `stopBoardAnalysis`-at-the-head pattern that previously did
+    // this cleanup was removed when range / ponder / replay became
+    // coexistable on the same board (per
+    // `docs/notes/per-board-multi-query-model-plan.md`'s
+    // "Review-session audit"). All three terminal branches below
+    // (success, timeout, abort) call `analysisService.stopQuery`
+    // before transitioning so a leftover `activeQueries` entry can
+    // never accumulate across moves, and so the timeout branch
+    // actively terminates the hung query on the proxy side rather
+    // than letting it consume KataGo compute indefinitely.
+    const reviewQueryId = analysisService.analyzeRange(
       nextBoard.id,
       newPath,
       s_0_idx,
@@ -420,6 +432,18 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
         pendingAnalysisAborts.delete(bId);
       }
 
+      // Release the analysis-service entry. In the timeout branch
+      // this terminates the hung query on the proxy side; in the
+      // abort branch the wait was cancelled by the next
+      // loadCard/endSession/closeBoard and the query is now stale.
+      // `stopQuery` is idempotent on an already-released queryId
+      // (defensive against the rare case where closeBoard / disconnect
+      // raced the wait and already released the entry via the bulk
+      // path).
+      if (reviewQueryId !== null) {
+        analysisService.stopQuery(reviewQueryId);
+      }
+
       if (err instanceof AnalysisWaitError) {
         if (err.reason === 'timeout') {
           pushSystemMessage(
@@ -439,6 +463,17 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     // guarded against a later replacement having overwritten us.
     if (pendingAnalysisAborts.get(bId) === controller) {
       pendingAnalysisAborts.delete(bId);
+    }
+
+    // Release the analysis-service entry on success too. Both
+    // `waitForAnalysis` promises resolved on `isDuringSearch=false`
+    // packets, so the proxy has finished emitting for this query;
+    // the `terminate` wire packet `stopQuery` sends is a no-op on
+    // the proxy side but releases the SPA-side bookkeeping
+    // (`activeQueries`, `activeSubscriptions`, `restartCallbacks`,
+    // `boardToQueries`, telemetry).
+    if (reviewQueryId !== null) {
+      analysisService.stopQuery(reviewQueryId);
     }
 
     const userColor = nextBoard.nodes[s_1_id].move!.color;

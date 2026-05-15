@@ -170,11 +170,12 @@ export function setActiveBoard(index: number): void {
  * workspace dictionaries before mutating the surviving boards.
  * Four cleanups currently fire:
  *
- *   1. analysisService.stopBoardAnalysis — severs the in-flight
- *      analysis subscription so the proxy stops pondering for a
- *      board that no longer exists. The keep-alive middleware can't
- *      help here; the WS is shared with surviving boards and stays
- *      healthy.
+ *   1. analysisService.stopBoardAnalysis — severs *every* in-flight
+ *      analysis subscription this board owns (the bulk-stop path in
+ *      the multi-query model; iterates the board's `boardToQueries`
+ *      set and routes each queryId through `stopQuery`). The
+ *      keep-alive middleware can't help here; the WS is shared with
+ *      surviving boards and stays healthy.
  *   2. ledger.purgeBoard — drops cached analysis packets and the
  *      per-node reactive version refs for the closed board's nodes
  *      across every palette hash. Without it, the ledger's internal
@@ -184,8 +185,9 @@ export function setActiveBoard(index: number): void {
  *      `store.session.reviews` and round-trip to the backend via
  *      SyncService (which persists `store.session` deeply).
  *   4. delete store.engine.activeMode[boardId] — drops the
- *      `'none'` tombstone that stopBoardAnalysis writes for every
- *      stopped board. Same SyncService-payload concern as #3, plus
+ *      `'none'` tombstone that `stopBoardAnalysis`'s
+ *      `recomputeActiveMode` lands at when the last query is
+ *      released. Same SyncService-payload concern as #3, plus
  *      keeping the dictionary honest about which boards are still
  *      tracked.
  *   5. abortBoardReview — fires AbortController.abort() on the

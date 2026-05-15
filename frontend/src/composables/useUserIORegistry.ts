@@ -67,10 +67,17 @@ export function useUserIORegistry() {
         break;
 
       // ── Engine Toggle ──
+      // Ponder toggle. The predicate / start / stop trio is
+      // per-kind: spacebar only ever creates or releases a ponder
+      // query, never touches any range / replay running on the
+      // same board. `isPondering(boardId)` reads the per-board
+      // active-query set in the analysis service; the stop branch
+      // delegates to that service to release exactly the
+      // ponder-mode query.
       case ' ':
         if (store.engine.status === 'connected') {
-          if (store.engine.activeMode[boardId] === 'ponder') {
-            analysisService.stopBoardAnalysis(boardId);
+          if (analysisService.isPondering(boardId)) {
+            analysisService.stopPonderOnBoard(boardId);
           } else {
             analysisService.analyzeActiveNode(boardId, 'ponder');
           }
@@ -82,10 +89,19 @@ export function useUserIORegistry() {
         store.session.ui.showMoveSuggestions = !store.session.ui.showMoveSuggestions;
         break;
 
-      // Ownership overlay sub-modes — three orthogonal toggles. The
-      // watcher in useAppBootstrap restarts any active analyses so the
-      // shared `includeOwnership` wire flag flips correctly when the
-      // first sub-mode turns on or the last one turns off.
+      // Ownership overlay sub-modes — three orthogonal toggles.
+      // Pure display preferences: flipping a sub-mode does NOT
+      // auto-fire a fresh analysis. `BoardWidget.vue`'s
+      // `continuousCells` / `dotsCells` / `livenessCells` gate
+      // rendering on both the toggle state AND on
+      // `decodedOwnership` being non-null, so toggling on without
+      // an ownership-bearing packet shows nothing and the user
+      // re-runs analysis explicitly when they want fresh data.
+      // The rationale for the no-auto-restart posture is in
+      // commit 6a22369 (2026-05-08): a config-toggle that
+      // auto-fires an expensive engine query is the
+      // costly-and-unexpected side-effect class ADR-0002 is
+      // shaped to make explicit.
       //   'c' — continuous adjacent-square territory fill
       //   'd' — discrete confidence dots on empty intersections
       //   'l' — liveness highlight on disagreeing stones

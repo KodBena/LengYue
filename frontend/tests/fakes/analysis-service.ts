@@ -21,6 +21,17 @@
 import { vi } from 'vitest';
 import type { BoardId, NodeId } from '../../src/types';
 
+/**
+ * Sentinel queryId returned by `analyzeRange` after each
+ * `resetFakeAnalysisService()` call. The real service mints a
+ * `range-${boardId}-${Date.now()}` string at fire time; tests
+ * that care about the exact identity override the return per-test
+ * via `.mockReturnValueOnce(...)`. Tests that only care that
+ * `stopQuery` is invoked with *some* string consume this sentinel
+ * indirectly through `expect(stopQuery).toHaveBeenCalledWith(...)`.
+ */
+export const FAKE_QUERY_ID = 'fake-query-id';
+
 export const fakeAnalysisService = {
   analyzeRange: vi.fn<(
     boardId: BoardId,
@@ -29,15 +40,27 @@ export const fakeAnalysisService = {
     endTurn: number,
     visits: number,
     configOverride?: Record<string, unknown>,
-  ) => void>(),
+  ) => string | null>(),
   stopBoardAnalysis: vi.fn<(boardId: BoardId) => void>(),
   stopAllBoardAnalyses: vi.fn<() => void>(),
   restartActiveAnalyses: vi.fn<() => void>(),
+  // Per-query release. Called by `useReviewSession.processUserMove`
+  // in all three terminal branches (success, timeout, abort) to
+  // release the queryId returned from `analyzeRange`. The fake is a
+  // no-op spy; tests assert on the call shape, not on any per-query
+  // map state.
+  stopQuery: vi.fn<(queryId: string) => void>(),
 };
 
 export function resetFakeAnalysisService(): void {
   fakeAnalysisService.analyzeRange.mockReset();
+  // Re-arm the default return so production code's
+  // `if (reviewQueryId !== null) stopQuery(reviewQueryId)` branch
+  // exercises naturally; mockReset clears both calls AND any
+  // configured return, so the re-arm is necessary after every reset.
+  fakeAnalysisService.analyzeRange.mockReturnValue(FAKE_QUERY_ID);
   fakeAnalysisService.stopBoardAnalysis.mockReset();
   fakeAnalysisService.stopAllBoardAnalyses.mockReset();
   fakeAnalysisService.restartActiveAnalyses.mockReset();
+  fakeAnalysisService.stopQuery.mockReset();
 }

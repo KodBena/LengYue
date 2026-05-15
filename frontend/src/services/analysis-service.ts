@@ -45,18 +45,23 @@ const telemetry = useQueryTelemetry();
 
 export class AnalysisService {
   private client: KataGoClient;
-  private activeSubscriptions = new Map<BoardId, () => void>();
-  private activeQueryIds = new Map<BoardId, string>();
-  // Per-query bookkeeping. `framing` is the
-  // `reportAnalysisWinratesAs` value the wire query was sent with;
-  // every packet that arrives under this query is normalised through
-  // `normalizePacketToWhiteFraming(_, framing)` before reaching the
-  // ledger so consumers downstream see canonical 'WHITE' regardless
+  // Per-query bookkeeping. Keyed by queryId. `boardId` lets `stopQuery`
+  // release the matching `boardToQueries` entry without a reverse scan.
+  // `framing` is the `reportAnalysisWinratesAs` value the wire query was
+  // sent with; every packet that arrives under this query is normalised
+  // through `normalizePacketToWhiteFraming(_, framing)` before reaching
+  // the ledger so consumers downstream see canonical 'WHITE' regardless
   // of what the user picked in the registry. See
   // `engine/katago/winrate-framing.ts` for the normalisation contract
   // and the deliberate scope (raw signed scalars yes; proxy-applied
   // `extra.*` enrichment no).
   private activeQueries = new Map<string, {
+    boardId: BoardId,
+    // The kind of query. Discriminates the per-board projection
+    // used by `isPondering` and (in step 7) by the derived
+    // `store.engine.activeMode` view. Set at query mint time and
+    // never mutated.
+    mode: 'analyze' | 'ponder',
     path: NodeId[],
     hash: string,
     framing: WinrateFraming,
@@ -80,12 +85,24 @@ export class AnalysisService {
     // registry edits don't change what we report).
     ponderCeiling?: number,
   }>();
-  // Per-board thunks that re-issue the most recent active query.
-  // Keyed by BoardId; populated by analyzeRange/analyzeActiveNode and
-  // cleared by stopBoardAnalysis. Used by restartActiveAnalyses to
-  // re-fire active work when wire-flag-affecting state changes (e.g.,
-  // toggling the ownership overlay).
-  private restartCallbacks = new Map<BoardId, () => void>();
+  // Per-query subscription unsubscribers. Keyed by queryId.
+  // `stopQuery` reads and calls the entry; `stopBoardAnalysis`
+  // iterates `boardToQueries[boardId]` and delegates to `stopQuery`.
+  private activeSubscriptions = new Map<string, () => void>();
+  // Per-query restart thunks. Keyed by queryId. Each thunk re-issues
+  // the same query with the same parameters; `restartActiveAnalyses`
+  // iterates the map so a wire-flag-affecting state change re-fires
+  // every active query independently. The thunks are added by
+  // `analyzeRange` / `analyzeActiveNode` and removed by `stopQuery`.
+  private restartCallbacks = new Map<string, () => void>();
+  // Per-board index of active queries. `boardToQueries.get(boardId)`
+  // is the set of queryIds currently running on that board. The set
+  // is grown by the analyze methods (one entry per minted query) and
+  // shrunk by `stopQuery` (one entry per release). `stopBoardAnalysis`
+  // iterates the set to release every query the board owns; this is
+  // the path used by board-close, engine-disconnect, HMR-dispose, and
+  // the purge button.
+  private boardToQueries = new Map<BoardId, Set<string>>();
   private packetCount = 0;
   private metricsTimer: number | null = null;
   private watchdogTimer: number | null = null;
@@ -104,17 +121,18 @@ export class AnalysisService {
     
     this.client.connect(url, {
       onDisconnect: (code, reason) => {
-        // Per-board maps (activeQueryIds, activeSubscriptions,
-        // activeQueries, restartCallbacks) are intentionally NOT
+        // Bookkeeping maps (activeQueries, activeSubscriptions,
+        // restartCallbacks, boardToQueries) are intentionally NOT
         // cleared here. They hold closures over the now-dead WS,
-        // but each new analyze* call's stopBoardAnalysis-first
-        // pattern overwrites stale entries before issuing a fresh
-        // subscribe — the closures are no-op-functional and don't
-        // cause user-visible misbehavior. KataGoClient.subscribers
-        // has the same as-designed shape: stale entries persist
-        // through reconnect but get overwritten on next subscribe.
-        // Resource-ownership audit O15 (and the related O6
-        // verification on the subscribers side).
+        // but the analyze methods' `stopBoardAnalysis`-first pattern
+        // (for the bulk-purge case) and `stopQuery` removals (per-
+        // query) eventually overwrite stale entries — the closures
+        // are no-op-functional and don't cause user-visible
+        // misbehavior. KataGoClient.subscribers has the same
+        // as-designed shape: stale entries persist through reconnect
+        // but get overwritten on next subscribe. Resource-ownership
+        // audit O15 (and the related O6 verification on the
+        // subscribers side).
         //
         // Telemetry IS cleared here, separately from the closure
         // maps above: the user-visible queue tooltip needs to
@@ -127,7 +145,7 @@ export class AnalysisService {
         // queries (registered through `usePlayFromPosition`'s
         // separate `KataGoClient`) carry boardId=null and are
         // unaffected — they live on their own WS.
-        for (const queryId of this.activeQueryIds.values()) {
+        for (const queryId of this.activeQueries.keys()) {
           telemetry.unregisterQuery(queryId);
         }
         store.engine.status = 'disconnected';
@@ -352,7 +370,7 @@ export class AnalysisService {
     // which usually happens but isn't strictly guaranteed if the
     // client tears down synchronously). Match queries are
     // preserved by construction (boardId=null, not in this map).
-    for (const queryId of this.activeQueryIds.values()) {
+    for (const queryId of this.activeQueries.keys()) {
       telemetry.unregisterQuery(queryId);
     }
     this.client.disconnect();
@@ -373,11 +391,11 @@ export class AnalysisService {
     this.clearTimers();
   }
 
-  public analyzeFullGame(boardId: BoardId, visits: number) {
+  public analyzeFullGame(boardId: BoardId, visits: number): string | null {
     const board = store.boards.find(b => b.id === boardId);
-    if (!board || store.engine.status !== 'connected') return;
+    if (!board || store.engine.status !== 'connected') return null;
     const fullPath = getActiveVariationPath(board) as NodeId[];
-    this.analyzeRange(boardId, fullPath, 0, fullPath.length - 1, visits);
+    return this.analyzeRange(boardId, fullPath, 0, fullPath.length - 1, visits);
   }
 
   public analyzeRange(
@@ -390,13 +408,11 @@ export class AnalysisService {
     overrideSettingsOverride?: Record<string, unknown>,
     forReview: boolean = false,
     isRealtime: boolean = true,
-  ) {
+  ): string | null {
     const board = store.boards.find(b => b.id === boardId);
     if (board) (board as any).maxVisitsTarget = visits;
-    if (!board || store.engine.status !== 'connected') return;
-    if (fullPath.length === 0 || endTurn < startTurn) return;
-
-    this.stopBoardAnalysis(boardId);
+    if (!board || store.engine.status !== 'connected') return null;
+    if (fullPath.length === 0 || endTurn < startTurn) return null;
 
     const size = getBoardSize(board);
     const komi = getKomi(board);
@@ -450,16 +466,20 @@ export class AnalysisService {
     // doesn't desync the in-flight packets — they're still in the
     // framing of the ORIGINAL ask. The watcher in `useAppBootstrap`
     // / `restartActiveAnalyses` is the path that picks up registry
-    // edits cleanly, by stop-then-issue with the new framing.
+    // edits cleanly — each active query's restart thunk re-issues
+    // with the new framing (the thunk's closure captures the
+    // analyze-method call site, which re-reads the framing on
+    // each invocation).
     const framing = resolveWinrateFraming(overrideSettings);
 
-    this.activeQueries.set(queryId, { path: fullPath, hash, framing, startedAt: performance.now() });
+    this.activeQueries.set(queryId, { boardId, mode: 'analyze', path: fullPath, hash, framing, startedAt: performance.now() });
 
     // Queue telemetry — register at construction so the Toolbar's
     // queue tooltip can render this range query and its ETA.
-    // `cancel` defers to the standard stop-board path so the
-    // proxy gets a `terminate` and the local maps clean up
-    // identically to any other interruption.
+    // `cancel` releases *this* query only via `stopQuery`; sibling
+    // queries on the same board (a ponder, a forReview replay) are
+    // untouched. Per-row cancel UX in the tooltip composes with
+    // the mode-scoped invariant set up by the analyze methods.
     telemetry.registerQuery({
       queryId,
       kind:         'range',
@@ -469,7 +489,7 @@ export class AnalysisService {
       turnsTotal:   analyzeTurns.length,
       visitsPerTurn: visits,
       label:        forReview ? 'grading' : undefined,
-      cancel:       () => this.stopBoardAnalysis(boardId),
+      cancel:       () => this.stopQuery(queryId),
     });
 
     // The query is now type-honest end-to-end: KataGoAnalysisQuery declares
@@ -572,17 +592,32 @@ export class AnalysisService {
       ...(selectedModel !== null ? { model: selectedModel } : {}),
     };
 
-    store.engine.activeMode[boardId] = 'analyze';
     const unsubscribe = this.client.subscribe(query, (res) => {
       this.onAnalysisUpdate(res as KataAnalysisResponse, queryId);
     });
 
-    this.activeSubscriptions.set(boardId, unsubscribe);
-    this.activeQueryIds.set(boardId, queryId);
+    this.activeSubscriptions.set(queryId, unsubscribe);
+    // Restart thunk: when `restartActiveAnalyses` iterates, each
+    // thunk releases its OWN query (`stopQuery(queryId)`) before
+    // re-issuing with the same parameters. Without the self-stop,
+    // each restart would accumulate a stale entry alongside the
+    // fresh one (the implicit `stopBoardAnalysis`-at-the-head
+    // pattern previously did this cleanup for free; in the
+    // multi-query model the cleanup is per-query and must be
+    // wired explicitly). The new analyzeRange call mints a fresh
+    // queryId and a fresh restart thunk; the chain is
+    // self-renewing across repeated restart fires.
     this.restartCallbacks.set(
-      boardId,
-      () => this.analyzeRange(boardId, fullPath, startTurn, endTurn, visits, configOverride, overrideSettingsOverride, forReview, isRealtime),
+      queryId,
+      () => {
+        this.stopQuery(queryId);
+        this.analyzeRange(boardId, fullPath, startTurn, endTurn, visits, configOverride, overrideSettingsOverride, forReview, isRealtime);
+      },
     );
+    // `indexQueryOnBoard` also fires `recomputeActiveMode` for the
+    // freshly-multi-query-aware projection of `store.engine.activeMode`.
+    this.indexQueryOnBoard(boardId, queryId);
+    return queryId;
   }
 
   public analyzeActiveNode(
@@ -591,15 +626,30 @@ export class AnalysisService {
     visits?: number,
     configOverride?: Record<string, unknown>,
     overrideSettingsOverride?: Record<string, unknown>,
-  ) {
+  ): string | null {
     const board = store.boards.find(b => b.id === boardId);
-    if (!board || store.engine.status !== 'connected') return;
+    if (!board || store.engine.status !== 'connected') return null;
 
     const fullPath = getActiveVariationPath(board) as NodeId[];
     const currentIdx = fullPath.indexOf(board.currentNodeId as NodeId);
-    if (currentIdx === -1) return;
+    if (currentIdx === -1) return null;
 
-    this.stopBoardAnalysis(boardId);
+    // Mode-scoped implicit cleanup. "Ponder" semantically means
+    // "be pondering on whatever the current node is" — two
+    // simultaneous ponders on the same board are incoherent, so
+    // a fresh ponder fire releases the prior ponder before
+    // issuing the new one. Range / analyze queries on the same
+    // board are untouched. The "Follow Me" watcher in App.vue
+    // depends on this: as the user navigates while pondering, the
+    // watcher fires `analyzeActiveNode(boardId, 'ponder')` and
+    // the prior ponder is replaced rather than accumulated.
+    //
+    // For mode === 'analyze' (the one-shot deep-analyze-this-node
+    // path), no implicit cleanup — two such queries with different
+    // params can legitimately coexist.
+    if (mode === 'ponder') {
+      this.stopPonderOnBoard(boardId);
+    }
 
     const size = getBoardSize(board);
     const komi = getKomi(board);
@@ -636,15 +686,17 @@ export class AnalysisService {
       mode === 'ponder'
         ? store.profile.settings.engine.katago.ponderMaxVisits
         : undefined;
-    this.activeQueries.set(queryId, { path: fullPath, hash, framing, startedAt: performance.now(), ponderCeiling });
+    this.activeQueries.set(queryId, { boardId, mode, path: fullPath, hash, framing, startedAt: performance.now(), ponderCeiling });
 
     // Queue telemetry — single-turn entry. For ponder, the per-turn
     // visit budget is the ponderMaxVisits ceiling; for analyze, the
     // user-supplied / default visits target. Either way the tooltip
     // computes ETA from the per-model rolling visits/sec. `cancel`
-    // defers to `stopBoardAnalysis` for the same reason analyzeRange
-    // does — the proxy gets a `terminate` and the local maps clean
-    // up identically to any other interruption.
+    // releases *this* query only via `stopQuery`; sibling queries
+    // on the same board (a concurrent range, the qEUBO restart
+    // thunks, etc.) are untouched. Per-row cancel UX in the
+    // tooltip composes with the mode-scoped invariant set up by
+    // the analyze methods.
     telemetry.registerQuery({
       queryId,
       kind:         mode,
@@ -656,7 +708,7 @@ export class AnalysisService {
         mode === 'ponder'
           ? store.profile.settings.engine.katago.ponderMaxVisits
           : (visits ?? null),
-      cancel:       () => this.stopBoardAnalysis(boardId),
+      cancel:       () => this.stopQuery(queryId),
     });
 
     const ownershipModes = store.session.ui.overlayLayers.ownership;
@@ -732,30 +784,91 @@ export class AnalysisService {
       ...(selectedModel !== null ? { model: selectedModel } : {}),
     };
 
-    store.engine.activeMode[boardId] = mode;
     const unsubscribe = this.client.subscribe(query, (res) => {
       this.onAnalysisUpdate(res as KataAnalysisResponse, queryId);
     });
 
-    this.activeSubscriptions.set(boardId, unsubscribe);
-    this.activeQueryIds.set(boardId, queryId);
+    this.activeSubscriptions.set(queryId, unsubscribe);
+    // Self-stopping restart thunk — see the analyzeRange site
+    // above for the rationale. For mode === 'ponder' the
+    // `analyzeActiveNode(..., 'ponder')` call's own mode-scoped
+    // implicit cleanup (`stopPonderOnBoard`) would also release
+    // the prior ponder, so the explicit `stopQuery` here is
+    // belt-and-suspenders for ponder and load-bearing for the
+    // analyze-mode one-shot case.
     this.restartCallbacks.set(
-      boardId,
-      () => this.analyzeActiveNode(boardId, mode, visits, configOverride, overrideSettingsOverride),
+      queryId,
+      () => {
+        this.stopQuery(queryId);
+        this.analyzeActiveNode(boardId, mode, visits, configOverride, overrideSettingsOverride);
+      },
     );
+    // `indexQueryOnBoard` also fires `recomputeActiveMode` for the
+    // freshly-multi-query-aware projection of `store.engine.activeMode`.
+    this.indexQueryOnBoard(boardId, queryId);
+    return queryId;
   }
 
   /**
-   * Re-issue every currently-active analysis query. Used when a piece
-   * of state external to the query parameters (e.g., the overlay-layer
-   * toggle that gates `includeOwnership`) changes and must propagate
-   * into the engine's wire request. Each restart goes through the
-   * normal stop-then-issue path, so subscribers see the standard
-   * lifecycle.
+   * Re-issue every currently-active analysis query. Used when a
+   * piece of state external to the query parameters (the qEUBO
+   * toolbar-view toggle in `useAppBootstrap`'s
+   * `qeubo.toolbarView` watcher, currently the only caller) must
+   * propagate into the engine's wire request. Each restart fires
+   * the per-query thunk independently — with multiple coexisting
+   * queries on a board (a concurrent range + ponder), every one
+   * re-issues with the new parameters, which is the intended
+   * behaviour when the toggle affects the analysis posture
+   * uniformly.
+   *
+   * The per-query thunk's call site (`analyzeRange` /
+   * `analyzeActiveNode`) handles its own cleanup via the
+   * mode-scoped implicit primitives — ponder-replaces-ponder
+   * happens naturally, range queries re-fire as new entries
+   * alongside the (now-being-replaced) previous ones until the
+   * thunk's internal cleanup paths catch up.
    */
   public restartActiveAnalyses(): void {
     for (const cb of Array.from(this.restartCallbacks.values())) {
       cb();
+    }
+  }
+
+  /**
+   * Whether a ponder-mode query is currently active on `boardId`.
+   * Walks the board's active-query set; O(n) in the (small) number
+   * of concurrent queries on the board, evaluated imperatively at
+   * call time. Used by the spacebar toggle in `useUserIORegistry`
+   * and the "Follow Me" watcher in `App.vue` — both consume the
+   * predicate in response to a discrete event (key press,
+   * navigation tick), not as a reactive dependency.
+   */
+  public isPondering(boardId: BoardId): boolean {
+    const queryIds = this.boardToQueries.get(boardId);
+    if (queryIds === undefined) return false;
+    for (const qid of queryIds) {
+      const info = this.activeQueries.get(qid);
+      if (info?.mode === 'ponder') return true;
+    }
+    return false;
+  }
+
+  /**
+   * Release the ponder-mode query on `boardId`, if any. Per-kind
+   * cancel — leaves range / analyze queries on the same board
+   * untouched. Used by the spacebar toggle in `useUserIORegistry`.
+   * No-op if no ponder is active on the board. The mode-scoped
+   * invariant ("one ponder per board") makes this well-defined
+   * without a queryId parameter.
+   */
+  public stopPonderOnBoard(boardId: BoardId): void {
+    const queryIds = this.boardToQueries.get(boardId);
+    if (queryIds === undefined) return;
+    for (const qid of Array.from(queryIds)) {
+      const info = this.activeQueries.get(qid);
+      if (info?.mode === 'ponder') {
+        this.stopQuery(qid);
+      }
     }
   }
 
@@ -793,7 +906,7 @@ export class AnalysisService {
       // (WHITE framing, or SIDETOMOVE with currentPlayer === 'W').
       const normalized = normalizePacketToWhiteFraming(response, queryInfo.framing);
       ledger.record(queryInfo.hash, nodeId, normalized);
-      const board = store.boards.find(b => this.activeQueryIds.get(b.id) === queryId);
+      const board = store.boards.find(b => b.id === queryInfo.boardId);
       if (board) {
         board.lastActivity = Date.now();
         store.engine.metrics = { ...store.engine.metrics, lastResponseId: board.id };
@@ -826,23 +939,123 @@ export class AnalysisService {
     }
   }
 
-  public stopBoardAnalysis(boardId: BoardId) {
-    const prevId = this.activeQueryIds.get(boardId);
-    const unsub = this.activeSubscriptions.get(boardId);
-    if (unsub) unsub();
-    if (prevId) {
-      this.client.sendCommand({ id: `term-${Date.now()}`, action: 'terminate', terminateId: prevId });
-      this.activeQueries.delete(prevId);
-      // Release the telemetry entry too — the query is genuinely
-      // terminated. (Natural completion has its own auto-cleanup
-      // path inside the telemetry singleton; this branch handles
-      // explicit interruption.)
-      telemetry.unregisterQuery(prevId);
+  /**
+   * Index a freshly-minted queryId under its board so
+   * `stopBoardAnalysis(boardId)` can iterate every query the board
+   * owns. Paired with the per-query release in `stopQuery`, which
+   * removes the entry. Per-board entries get the empty set lazily
+   * on first insert.
+   */
+  private indexQueryOnBoard(boardId: BoardId, queryId: string): void {
+    let set = this.boardToQueries.get(boardId);
+    if (set === undefined) {
+      set = new Set();
+      this.boardToQueries.set(boardId, set);
     }
-    this.activeSubscriptions.delete(boardId);
-    this.activeQueryIds.delete(boardId);
-    this.restartCallbacks.delete(boardId);
-    store.engine.activeMode[boardId] = 'none';
+    set.add(queryId);
+    this.recomputeActiveMode(boardId);
+  }
+
+  /**
+   * Re-project `store.engine.activeMode[boardId]` from the current
+   * per-board query set. Called after every mutation that adds or
+   * removes a query (the analyze methods, `stopQuery`,
+   * `stopBoardAnalysis`). The per-board mode is now derived state
+   * — the field used to be written at each lifecycle point in a
+   * one-query-per-board world; with multiple coexistent queries
+   * it becomes a projection over the active set.
+   *
+   * **Priority:** `analyze` > `ponder` > `none`. A board with both
+   * an active range and an active ponder is "actively analyzing"
+   * — the user-initiated work takes display precedence over the
+   * passive background ponder. No current reader actually
+   * consumes this field (the two ex-readers in
+   * `useUserIORegistry` and `App.vue` now consume the
+   * `isPondering` predicate directly), but the writes are kept
+   * honest so persisted store snapshots stay coherent with
+   * runtime state — a future UI surface that reads activeMode
+   * should see the correctly-projected value, not a stale
+   * point-update from the prior single-slot regime.
+   */
+  private recomputeActiveMode(boardId: BoardId): void {
+    const queryIds = this.boardToQueries.get(boardId);
+    if (queryIds === undefined || queryIds.size === 0) {
+      store.engine.activeMode[boardId] = 'none';
+      return;
+    }
+    let hasAnalyze = false;
+    let hasPonder = false;
+    for (const qid of queryIds) {
+      const info = this.activeQueries.get(qid);
+      if (info?.mode === 'analyze') hasAnalyze = true;
+      else if (info?.mode === 'ponder') hasPonder = true;
+    }
+    store.engine.activeMode[boardId] = hasAnalyze ? 'analyze' : hasPonder ? 'ponder' : 'none';
+  }
+
+  /**
+   * Per-query release primitive. Detaches the client-side
+   * subscription, sends a `terminate` to the proxy carrying this
+   * query's id, and releases the per-query bookkeeping
+   * (`activeQueries`, `activeSubscriptions`, `restartCallbacks`,
+   * `boardToQueries`, telemetry). Idempotent on a queryId not in
+   * `activeQueries` — early-returns before doing any work, so the
+   * wire `terminate` is not emitted for already-released queries.
+   *
+   * `activeMode` is re-projected by `recomputeActiveMode` at the
+   * end — when the board's last query is released, the projection
+   * lands on `'none'`; when other queries remain, it lands on
+   * their priority (analyze > ponder).
+   */
+  public stopQuery(queryId: string): void {
+    const queryInfo = this.activeQueries.get(queryId);
+    if (queryInfo === undefined) {
+      return;
+    }
+
+    const unsub = this.activeSubscriptions.get(queryId);
+    if (unsub) unsub();
+    this.activeSubscriptions.delete(queryId);
+
+    this.restartCallbacks.delete(queryId);
+
+    const boardSet = this.boardToQueries.get(queryInfo.boardId);
+    if (boardSet !== undefined) {
+      boardSet.delete(queryId);
+      if (boardSet.size === 0) {
+        this.boardToQueries.delete(queryInfo.boardId);
+      }
+    }
+
+    this.client.sendCommand({ id: `term-${Date.now()}`, action: 'terminate', terminateId: queryId });
+    this.activeQueries.delete(queryId);
+    // Release the telemetry entry too — the query is genuinely
+    // terminated. (Natural completion has its own auto-cleanup
+    // path inside the telemetry singleton; this branch handles
+    // explicit interruption.)
+    telemetry.unregisterQuery(queryId);
+
+    this.recomputeActiveMode(queryInfo.boardId);
+  }
+
+  public stopBoardAnalysis(boardId: BoardId) {
+    const queryIds = this.boardToQueries.get(boardId);
+    if (queryIds !== undefined) {
+      // Snapshot before iteration — stopQuery mutates the set as
+      // it releases each entry; iterating the live set would skip
+      // some queries.
+      for (const qid of Array.from(queryIds)) {
+        this.stopQuery(qid);
+      }
+    }
+    // Defensive — stopQuery removes each entry as it goes (and
+    // each one re-projects activeMode along the way), so the
+    // map entry and the activeMode slot should already be settled.
+    // Belt-and-suspenders against any future leftover-state case
+    // where a query was registered without a stopQuery-reachable
+    // path. Idempotent.
+    this.boardToQueries.delete(boardId);
+    this.recomputeActiveMode(boardId);
   }
 
   /**
@@ -853,7 +1066,7 @@ export class AnalysisService {
    * the singleton holds.
    */
   public stopAllBoardAnalyses(): void {
-    const boardIds = Array.from(this.activeQueryIds.keys());
+    const boardIds = Array.from(this.boardToQueries.keys());
     for (const boardId of boardIds) {
       this.stopBoardAnalysis(boardId);
     }
