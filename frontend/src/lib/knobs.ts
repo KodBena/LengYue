@@ -404,6 +404,34 @@ function validateDecl(
         );
       }
     }
+    // Absolute lower bound: if `minFloor` is set, it must be a
+    // finite number and (when paired with a static range) must not
+    // exceed `range[1]`. Per ADR-0002, an incoherent declaration is
+    // a startup-time loud failure — a `NaN` floor or a floor above
+    // the static max would otherwise silently degrade the slider
+    // widget's effectiveMin computation at render time. Added
+    // 2026-05-15 to support the KataGo first-report-after upstream-
+    // cliff workaround.
+    const floor = decl.inputs[i].minFloor;
+    if (floor !== undefined) {
+      if (!Number.isFinite(floor)) {
+        throw new Error(
+          `KnobRegistry validation: knob "${key}" input[${i}] declares ` +
+          `minFloor=${floor} which is not a finite number. ` +
+          `The floor is the slider's effective lower bound and ` +
+          `must be a real numeric value in the knob's native unit.`,
+        );
+      }
+      if (floor > hi) {
+        throw new Error(
+          `KnobRegistry validation: knob "${key}" input[${i}] declares ` +
+          `minFloor=${floor} above the static range upper bound ${hi}. ` +
+          `A floor above the static max would collapse the slider's ` +
+          `effective range to zero; either lower the floor or raise ` +
+          `the static range.`,
+        );
+      }
+    }
   }
   const transform: KnobTransform =
     decl.transform ?? { kind: 'identity' };

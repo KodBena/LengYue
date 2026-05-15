@@ -103,6 +103,28 @@ const effectiveMax = computed(() => {
 });
 
 /**
+ * Absolute lower bound: when `decl.inputs[0].minFloor` is set, the
+ * slider's effective min is `max(range[0], minFloor)`. Drags below
+ * the floor pin to it. Used by the at-floor visual indicator below
+ * to surface to the user that the displayed value is at an
+ * external-constraint-induced lower bound rather than the knob's
+ * intrinsic minimum. The substrate's `validateRegistry` checks the
+ * floor is finite and within the static range; this widget is
+ * defensive — a non-finite floor at render time falls through to
+ * the static range[0] rather than throwing on the render path.
+ *
+ * Like `effectiveMax` above, the stored leaf is NOT auto-clamped
+ * when the floor is in force; user preference is preserved. The
+ * wire-layer consumer applies `Math.max(minFloor, …)` at send time
+ * so the contract reaching the dependency is always coherent.
+ */
+const effectiveMin = computed(() => {
+  const f = decl.value?.inputs[0]?.minFloor;
+  if (f === undefined || !Number.isFinite(f)) return range.value[0];
+  return Math.max(range.value[0], f);
+});
+
+/**
  * Step size derived from the *effective* range span (after the
  * `maxFromKnob` cross-knob constraint is applied), not the
  * static range. Target 100 discrete steps across the slider —
@@ -135,12 +157,12 @@ const effectiveMax = computed(() => {
 const TARGET_STEP_COUNT = 100;
 
 const step = computed(() => {
-  const lo = range.value[0];
+  const lo = effectiveMin.value;
   const effectiveSpan = effectiveMax.value - lo;
   if (effectiveSpan > 0) {
     return effectiveSpan / TARGET_STEP_COUNT;
   }
-  return (range.value[1] - lo) / TARGET_STEP_COUNT;
+  return (range.value[1] - range.value[0]) / TARGET_STEP_COUNT;
 });
 
 /**
@@ -173,13 +195,52 @@ const value = computed(() => {
   }
 });
 
-// Display clamped to effectiveMax so the badge agrees with the
-// slider thumb's pinned position when the linked-knob constraint
-// caps the bound below the stored value. Stored leaf preserves
-// the user's preference; only the display is clamped.
+// Display clamped to [effectiveMin, effectiveMax] so the badge
+// agrees with the slider thumb's pinned position when either the
+// linked-knob upper constraint OR the absolute lower-floor pin
+// caps the displayed value. Stored leaf preserves the user's
+// preference; only the display (and the wire-layer clamp at send
+// time) reflect the constraints.
 const displayValue = computed(() => {
-  const clamped = Math.min(value.value, effectiveMax.value);
+  const clamped = Math.min(
+    Math.max(value.value, effectiveMin.value),
+    effectiveMax.value,
+  );
   return clamped.toFixed(precision.value);
+});
+
+/**
+ * True when the displayed (clamped) value sits at the absolute
+ * lower-floor pin AND the floor is genuinely active (i.e. the floor
+ * is above the static range's lower bound — otherwise sitting at
+ * `range[0]` is just the natural slider-bottom position, not an
+ * upstream-constraint pin).
+ *
+ * When true, the badge gets a CSS marker (dotted underline + help
+ * cursor — the standard "more info on hover" convention) and a
+ * `title` tooltip looked up via i18n at
+ * `knobRegistry.floorTooltip.<knobId>`. The lookup falls back to
+ * the empty string if no catalogue entry exists, so the marker
+ * shows but no tooltip text appears — the per-knob explanation is
+ * opt-in via translation.
+ */
+const atFloor = computed(() => {
+  const floor = decl.value?.inputs[0]?.minFloor;
+  if (floor === undefined || !Number.isFinite(floor)) return false;
+  if (floor <= range.value[0]) return false;
+  // Compare against the *raw* stored value, not displayValue's
+  // string form — a user with a stored leaf below the floor sees
+  // the slider pinned at the floor (visual signal) and the tooltip
+  // available even if displayValue rounded equal to the floor for
+  // unrelated reasons.
+  return value.value <= effectiveMin.value;
+});
+
+const floorTooltip = computed<string>(() => {
+  if (!atFloor.value || !decl.value) return '';
+  const key = `knobRegistry.floorTooltip.${decl.value.id}`;
+  const translated = t(key);
+  return translated !== key ? translated : '';
 });
 
 /**
@@ -253,7 +314,7 @@ function onInput(event: Event) {
     <span class="knob-slider-label-text" :title="displayLabel">{{ displayLabel }}</span>
     <input
       type="range"
-      :min="range[0]"
+      :min="effectiveMin"
       :max="effectiveMax"
       :step="step"
       :value="value"
@@ -262,7 +323,10 @@ function onInput(event: Event) {
       class="knob-slider-input"
       @input="onInput"
     />
-    <span class="knob-slider-value">{{ displayValue }}</span>
+    <span
+      :class="['knob-slider-value', { 'knob-slider-value-at-floor': atFloor }]"
+      :title="floorTooltip"
+    >{{ displayValue }}</span>
   </div>
 </template>
 
@@ -291,6 +355,18 @@ function onInput(event: Event) {
   grid-area: value;
   font-family: monospace;
   color: var(--text-0);
+}
+/* At-floor marker: dotted-underline + help cursor are the
+   universal "more info on hover" convention. Composes with the
+   :title attribute set on the badge when the stored value pins
+   to an absolute lower-floor (e.g. the KataGo first-report-after
+   upstream cliff). No text change so the badge doesn't shift in
+   width as the user drags into and out of the floor. */
+.knob-slider-value-at-floor {
+  text-decoration: underline dotted;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  cursor: help;
 }
 .knob-slider-input {
   grid-area: slider;

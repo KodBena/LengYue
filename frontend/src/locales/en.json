@@ -41,6 +41,7 @@
   "knobRegistry.label.engine.watchdog-latency-threshold-ms": "Watchdog latency threshold (ms)",
   "knobRegistry.label.engine.report-during-search-every":    "Report cadence (s)",
   "knobRegistry.label.engine.first-report-during-search-after": "First report after (s)",
+  "knobRegistry.floorTooltip.engine.first-report-during-search-after": "Upstream floor: KataGo silently substitutes the cadence value for first-report timings below ~35 ms. Lower values do not take effect.",
 
   "cards.tab.decks":                      "Decks",
   "cards.tab.browse":                     "Browse",

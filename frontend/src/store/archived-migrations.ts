@@ -5,9 +5,9 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-05-14: migrations 1 → 2 through 38 → 39 (38
+ * Scope as of 2026-05-15: migrations 1 → 2 through 40 → 41 (40
  * entries). The first eight covered pre-v1.0.0 schema evolution;
- * the next thirty are the v1.0.x – v1.1.x active cycle. Both
+ * the next thirty-two are the v1.0.x – v1.1.x active cycle. All
  * are now consolidated here under the same archive contract.
  *
  * Why preserved (not deleted): the migration framework's `migrate()`
@@ -1753,6 +1753,62 @@ export const archivedMigrations: Migration[] = [
             target[key] = seeds[key];
           }
         }
+      }
+    }
+    return out;
+  },
+  // 40 → 41: Knob-registry priority backfill (toolbar-popover
+  // quick-access ask, 2026-05-14). The `KnobDecl.priority?: number`
+  // field was added in the same arc so editor surfaces can sort
+  // sliders by ascending render-order. This migration backfills
+  // priorities on the seven seeded decls to match the values
+  // `store/defaults.ts` ships for fresh installs:
+  //
+  //   display.move-filter-threshold       — 0  (most-likely-used)
+  //   display.ownership-opacity-ceiling   — 10
+  //   display.ownership-deadband-threshold — 20
+  //   display.liveness-threshold          — 30
+  //   display.hue-offset                  — 40
+  //   engine.watchdog-animation-ms        — 50
+  //   engine.watchdog-latency-threshold-ms — 60
+  //
+  // Idempotent: a decl whose `priority` is already a finite number
+  // is preserved unchanged (a future preference-learning surface,
+  // or a user who hand-tunes via a future editor, may already have
+  // written a different value). Decls without a registered priority
+  // here are left alone — runtime-added knobs (e.g. `qeubo.<name>`
+  // for analysis-env parameters) will simply sort last via the
+  // editor's `undefined → Infinity` fallback until something
+  // assigns them a priority.
+  //
+  // See `docs/notes/knob-registry-plan.md` and the
+  // KnobRegistryEditor / ToolbarSliderPopover for the consumer
+  // surfaces that act on this field.
+  //
+  // Moved from active body to archive 2026-05-15 per the rolling-
+  // archive cadence (`migrations.ts` keeps the latest two; this
+  // migration was the older of two when the 42 → 43 first-report-
+  // after floor migration landed).
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const knobs = out.profile?.settings?.knobs;
+    if (knobs && typeof knobs === 'object' && !Array.isArray(knobs)) {
+      const priorities: Record<string, number> = {
+        'display.move-filter-threshold': 0,
+        'display.ownership-opacity-ceiling': 10,
+        'display.ownership-deadband-threshold': 20,
+        'display.liveness-threshold': 30,
+        'display.hue-offset': 40,
+        'engine.watchdog-animation-ms': 50,
+        'engine.watchdog-latency-threshold-ms': 60,
+      };
+      const target = knobs as Record<string, unknown>;
+      for (const [knobId, defaultPriority] of Object.entries(priorities)) {
+        const decl = target[knobId];
+        if (!decl || typeof decl !== 'object') continue;
+        const current = (decl as { priority?: unknown }).priority;
+        if (typeof current === 'number' && Number.isFinite(current)) continue;
+        (decl as { priority?: unknown }).priority = defaultPriority;
       }
     }
     return out;
