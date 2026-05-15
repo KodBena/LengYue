@@ -42,8 +42,18 @@ function getOrCreateVersion(hash: string, nodeId: NodeId): Ref<number> {
 // for the same (hash, nodeId) within a frame collapse to one bump; multiple
 // distinct keys each bump exactly once at flush time.
 //
-// purgeBoard intentionally bumps directly: it is a one-shot user action
-// that wants immediate visual feedback, not a flood needing coalescing.
+// Two cases bypass the rAF coalescing and bump synchronously, both for the
+// same reason — they are one-shot transitions where immediate visual
+// feedback is the whole point:
+//
+//   - purgeBoard / purgeAll: user action wiping data; the cleared state
+//     must paint without one-frame lag.
+//   - First packet for a (hash, nodeId): the no-data → has-data
+//     transition. The user pressed space (or branched out of a game) and
+//     is waiting to see what the engine thinks; a one-frame rAF delay is
+//     specifically what they notice. Flood-coalescing is the wrong shape
+//     for a single packet arriving against an empty cache. See
+//     `docs/worklog/2026-05-15-ledger-first-packet-sync-bump.md`.
 
 const pendingBumps = new Set<string>();
 let flushScheduled = false;
@@ -130,13 +140,26 @@ export class AnalysisLedger {
     const merged = mergeAnalysisPacket(existing, packet);
     hashData.set(nodeId, merged);
 
-    // Ensure the version ref exists so consumers reading via getRaw
-    // can subscribe to it; the actual bump is deferred to the next
-    // animation frame so simultaneous arrivals collapse into one
-    // notification per (hash, nodeId).
-    getOrCreateVersion(hash, nodeId);
-    pendingBumps.add(`${hash}:${nodeId}`);
-    scheduleBumpFlush();
+    const version = getOrCreateVersion(hash, nodeId);
+    if (existing === undefined) {
+      // First packet for this (hash, nodeId): bump synchronously so the
+      // first paint lands without the rAF coalescer's one-frame delay.
+      // The flood-protection rationale documented above applies to
+      // sustained packet streams against an already-populated cache; a
+      // single packet arriving against an empty cache is the case where
+      // the user just pressed space (or branched off-game) and is
+      // waiting to see what the engine thinks. Same shape as the
+      // purgeBoard / purgeAll synchronous-bump bypass at the other end
+      // of the data lifecycle.
+      version.value++;
+    } else {
+      // Subsequent packets coalesce: data is updated synchronously above
+      // (mergeAnalysisPacket has already run); only the reactive
+      // notification defers to next-frame flush. NN-cache hits and
+      // proxy replay-cache replays go through this path.
+      pendingBumps.add(`${hash}:${nodeId}`);
+      scheduleBumpFlush();
+    }
   }
 
   public getRaw(hash: string, nodeId: NodeId): KataAnalysisResponse | null {
