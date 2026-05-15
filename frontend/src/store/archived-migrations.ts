@@ -5,9 +5,9 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-05-15: migrations 1 → 2 through 40 → 41 (40
+ * Scope as of 2026-05-15: migrations 1 → 2 through 41 → 42 (41
  * entries). The first eight covered pre-v1.0.0 schema evolution;
- * the next thirty-two are the v1.0.x – v1.1.x active cycle. All
+ * the next thirty-three are the v1.0.x – v1.1.x active cycle. All
  * are now consolidated here under the same archive contract.
  *
  * Why preserved (not deleted): the migration framework's `migrate()`
@@ -1809,6 +1809,99 @@ export const archivedMigrations: Migration[] = [
         const current = (decl as { priority?: unknown }).priority;
         if (typeof current === 'number' && Number.isFinite(current)) continue;
         (decl as { priority?: unknown }).priority = defaultPriority;
+      }
+    }
+    return out;
+  },
+  // 41 → 42: KataGo report-cadence registry promotion. Two new
+  // preference-flavoured leaves under `engine.katago`, paired with
+  // two new KnobDecls under the `engine` domain:
+  //
+  //   (1) `profile.settings.engine.katago.reportDuringSearchEvery`
+  //       default 0.15 — replaces the prior hardcoded 0.15 (ponder)
+  //       / 0.5 (analyze) literals in `analysis-service.ts`. Single
+  //       value applies to both modes per the simplification choice
+  //       recorded with the user 2026-05-15.
+  //   (2) `profile.settings.engine.katago.firstReportDuringSearchAfter`
+  //       default 0.05 — new wire field on `KataGoAnalysisQuery`;
+  //       small default closes the perceived first-paint delay on
+  //       fresh ponder / analyze queries. Bounded above by the
+  //       cadence above at the registry widget level
+  //       (`KnobInputDecl.maxFromKnob`) and at the wire layer
+  //       (clamped in `analysis-service.ts`'s query-construction
+  //       sites).
+  //
+  // Seeds the two KnobDecls (`engine.report-during-search-every`
+  // priority 70; `engine.first-report-during-search-after`
+  // priority 80) mirroring the defaults-side fresh-install seed
+  // verbatim. The first-after decl's `inputs[0].maxFromKnob`
+  // references the cadence knob's id; `validateRegistry` (in
+  // `lib/knobs.ts`) checks the reference resolves at startup per
+  // ADR-0002.
+  //
+  // Idempotent: each leaf-backfill preserves a pre-existing
+  // number; each KnobDecl seed preserves a pre-existing entry
+  // under the same key (matching the 36 → 37 motivating-scalars
+  // migration's discipline so user-customised label / range edits
+  // survive).
+  //
+  // See `analysis-service.ts::analyzeRange` and `::analyzeActiveNode`
+  // for the consumer-site retargets that read these leaves and
+  // apply the wire-side `min(first, cadence)` clamp; see
+  // `docs/worklog/2026-05-15-katago-cadence-knobs.md` for the
+  // arc record including the substrate addition of
+  // `KnobInputDecl.maxFromKnob`.
+  //
+  // Moved from active body to archive 2026-05-15 per the rolling-
+  // archive cadence (`migrations.ts` keeps the latest two; this
+  // migration was the older of two when the 43 → 44 SGF-load-at-
+  // last-node session-flag migration landed).
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const settings = out.profile?.settings;
+    if (settings && typeof settings === 'object') {
+      const katago = (settings as { engine?: { katago?: unknown } }).engine?.katago;
+      if (katago && typeof katago === 'object') {
+        const k = katago as {
+          reportDuringSearchEvery?: unknown;
+          firstReportDuringSearchAfter?: unknown;
+        };
+        if (typeof k.reportDuringSearchEvery !== 'number') {
+          k.reportDuringSearchEvery = 0.15;
+        }
+        if (typeof k.firstReportDuringSearchAfter !== 'number') {
+          k.firstReportDuringSearchAfter = 0.05;
+        }
+      }
+      const knobs = (settings as { knobs?: unknown }).knobs;
+      if (knobs && typeof knobs === 'object' && !Array.isArray(knobs)) {
+        const seeds: Record<string, unknown> = {
+          'engine.report-during-search-every': {
+            id: 'engine.report-during-search-every',
+            label: 'Report cadence (s)',
+            domain: 'engine',
+            inputs: [{ range: [0.01, 4.0] }],
+            outputs: [{ path: 'profile.settings.engine.katago.reportDuringSearchEvery' }],
+            priority: 70,
+          },
+          'engine.first-report-during-search-after': {
+            id: 'engine.first-report-during-search-after',
+            label: 'First report after (s)',
+            domain: 'engine',
+            inputs: [{
+              range: [0.01, 4.0],
+              maxFromKnob: 'engine.report-during-search-every',
+            }],
+            outputs: [{ path: 'profile.settings.engine.katago.firstReportDuringSearchAfter' }],
+            priority: 80,
+          },
+        };
+        const target = knobs as Record<string, unknown>;
+        for (const key of Object.keys(seeds)) {
+          if (!(key in target)) {
+            target[key] = seeds[key];
+          }
+        }
       }
     }
     return out;

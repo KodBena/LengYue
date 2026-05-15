@@ -1076,6 +1076,16 @@ export interface UISession {
   // Setup stones (root AB/AW properties) get no number — they
   // have no move ordinal to display.
   showStoneMoveNumbers: boolean;
+  // When true, the SGF-load path (file-upload via `useSgfLoader`)
+  // post-walks the freshly-loaded board to the leaf of its active
+  // variation. The user lands on the final position of the
+  // mainline instead of the root — natural for "open a complete
+  // game from disk" exploration, opt-in because card-load flows
+  // and review sessions intentionally start at a specific
+  // position rather than the leaf. Default false preserves
+  // pre-feature behaviour. Toggled via the Settings tab's
+  // `RegistryEditor` over `store.session.ui`.
+  loadSgfAtLastNode: boolean;
   // Per-board PV-preview animation settings — surfaces the knobs of
   // `usePvAnimation` (mode / timings / opacity / annotation / cycle)
   // through the registry editor. Schema-version 10 introduced the

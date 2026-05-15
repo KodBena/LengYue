@@ -2456,3 +2456,58 @@ describe('42 → 43: KataGo first-report-after upstream-cliff floor', () => {
     expect(out.profile.settings.knobs['engine.report-during-search-every']).toEqual(cadenceDecl);
   });
 });
+
+// ── Per-migration: 43 → 44 ──────────────────────────────────────────
+
+describe('43 → 44: session.ui.loadSgfAtLastNode boolean backfill', () => {
+  function blobWithUi(ui: Record<string, unknown>): any {
+    return { session: { ui } };
+  }
+
+  it('backfills loadSgfAtLastNode=false when absent', () => {
+    const blob = blobWithUi({});
+    const out = step(43)(blob);
+    expect(out.session.ui.loadSgfAtLastNode).toBe(false);
+  });
+
+  it('preserves a pre-existing true value', () => {
+    const blob = blobWithUi({ loadSgfAtLastNode: true });
+    const out = step(43)(blob);
+    expect(out.session.ui.loadSgfAtLastNode).toBe(true);
+  });
+
+  it('preserves a pre-existing false value', () => {
+    const blob = blobWithUi({ loadSgfAtLastNode: false });
+    const out = step(43)(blob);
+    expect(out.session.ui.loadSgfAtLastNode).toBe(false);
+  });
+
+  it('overwrites a non-boolean stored value (defensive)', () => {
+    const blob = blobWithUi({ loadSgfAtLastNode: 'oops' });
+    const out = step(43)(blob);
+    expect(out.session.ui.loadSgfAtLastNode).toBe(false);
+  });
+
+  it('does not touch sibling session.ui fields', () => {
+    const blob = blobWithUi({
+      showStoneMoveNumbers: true,
+      moveFilterThreshold: 0.1,
+    });
+    const out = step(43)(blob);
+    expect(out.session.ui.showStoneMoveNumbers).toBe(true);
+    expect(out.session.ui.moveFilterThreshold).toBe(0.1);
+    expect(out.session.ui.loadSgfAtLastNode).toBe(false);
+  });
+
+  it('is a no-op when session.ui is absent (legacy blob)', () => {
+    const blob: any = { session: {} };
+    const out = step(43)(blob);
+    expect(out.session.ui).toBeUndefined();
+  });
+
+  it('is a no-op when session is absent (very-legacy blob)', () => {
+    const blob: any = {};
+    const out = step(43)(blob);
+    expect(out.session).toBeUndefined();
+  });
+});

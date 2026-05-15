@@ -18,7 +18,9 @@
 // @ts-ignore — @sabaki/sgf has no type declarations
 import sgf from '@sabaki/sgf';
 import { loadSgf } from '../../engine/sgf-loader';
-import { addBoard } from '../../store';
+import { navigateTo } from '../../engine/navigator';
+import { getActiveVariationPath } from '../../engine/util';
+import { addBoard, store } from '../../store';
 
 // ── Public contract ───────────────────────────────────────────────────────────
 
@@ -42,6 +44,18 @@ export function useSgfLoader(): SgfLoaderActions {
       // the description fallback ladder. The raw filename (with
       // extension) is stored; the ladder strips `.sgf` for display.
       newBoard.sourceFileName = file.name;
+      // Optional post-walk to the leaf of the active variation: when
+      // the user has opted in via `session.ui.loadSgfAtLastNode`, the
+      // freshly-loaded board cursor lands on the final mainline
+      // position rather than the root. Scoped to file uploads only —
+      // card-load (`useDirtyBoardGuard.handleLoadCard`) and review-
+      // session (`useReviewSession.loadCard`) flows start at the
+      // card's recorded position by intent, and we don't want to
+      // override that with a "load at last node" rule.
+      if (store.session.ui.loadSgfAtLastNode) {
+        const path = getActiveVariationPath(newBoard);
+        if (path.length > 0) navigateTo(newBoard, path[path.length - 1]);
+      }
       addBoard(newBoard);
     } catch (err) {
       console.error('[useSgfLoader] Failed to load SGF:', err);
