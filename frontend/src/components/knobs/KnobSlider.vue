@@ -103,21 +103,27 @@ const effectiveMax = computed(() => {
 });
 
 /**
- * Step size derived from the range span — small enough to feel
- * smooth, coarse enough to land on tidy values. Three buckets:
+ * Step size derived from the range span. Target 100 discrete
+ * steps across the slider — enough granularity that drag feels
+ * continuous, tractable enough that the user can ratchet by
+ * single steps with the keyboard. The 100 figure replaces the
+ * earlier three-bucket heuristic (which produced ~40 steps on
+ * spans like [0.01, 4.0] and ~5000 on [50, 5000]); span / 100
+ * gives a uniformly smooth feel.
  *
- *   span ≤ 2  → 0.01  (e.g. opacity 0..1, threshold 0..1)
- *   span ≤ 50 → 0.1   (e.g. small float-range tunings)
- *   else      → 1     (e.g. hue offset -180..180, watchdog 50..5000)
- *
- * A future `KnobInputDecl.step` field would override; for v1 the
- * heuristic covers every motivating scalar.
+ * magic-literal: 100 is a nice round number for a smooth slider
+ * — fine enough that adjacent positions feel adjacent on the
+ * drag, coarse enough that the badge's `toFixed` precision
+ * derivation below produces readable values for both small-
+ * span knobs (opacity 0..1 → step 0.01) and large-span knobs
+ * (watchdog 50..5000 → step 49.5, displays in 0-decimal-place
+ * granularity).
  */
+const TARGET_STEP_COUNT = 100;
+
 const step = computed(() => {
   const span = range.value[1] - range.value[0];
-  if (span <= 2) return 0.01;
-  if (span <= 50) return 0.1;
-  return 1;
+  return span / TARGET_STEP_COUNT;
 });
 
 const precision = computed(() => {
