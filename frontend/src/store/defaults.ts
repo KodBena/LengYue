@@ -3,7 +3,7 @@
  * Pure constants — no Vue imports, no reactive state.
  */
 
-import type { AppSettings, ProfileState, UISession, ProfileId, ThumbnailSettings, CardSet } from '../types';
+import type { AppSettings, ProfileState, UISession, ProfileId, ThumbnailSettings, CardSet, KnobId } from '../types';
 import { detectBrowserLocale } from '../i18n/locales';
 
 export const NIL_UUID = '00000000-0000-0000-0000-000000000000';
@@ -81,6 +81,16 @@ export const defaultSettings = {
       // `engine.watchdog-latency-threshold-ms` KnobDecl. See
       // `AppSettings.engine.katago.watchdogLatencyThresholdMs`.
       watchdogLatencyThresholdMs: 500,
+      // KataGo report-cadence registry leaves (2026-05-15 promotion).
+      // The prior shape hardcoded 0.15 (ponder) and 0.5 (analyze) at
+      // the two analysis-service construction sites; the single
+      // registry-driven value applies to both modes per the
+      // simplification choice recorded with the user. The
+      // companion `firstReportDuringSearchAfter` closes the
+      // perceived first-paint delay on fresh ponder queries.
+      // Schema-version 41 → 42 backfills.
+      reportDuringSearchEvery: 0.15,
+      firstReportDuringSearchAfter: 0.05,
       // Engine-side runtime overrides forwarded as KataGo's
       // `overrideSettings` field on every analysis query. The seed
       // values are a sensible default analysis posture for the SR
@@ -365,6 +375,32 @@ export const defaultSettings = {
       inputs: [{ range: [50, 5000] as const }],
       outputs: [{ path: 'profile.settings.engine.katago.watchdogLatencyThresholdMs' }],
       priority: 60,
+    },
+    'engine.report-during-search-every': {
+      id: 'engine.report-during-search-every',
+      label: 'Report cadence (s)',
+      domain: 'engine',
+      inputs: [{ range: [0.01, 4.0] as const }],
+      outputs: [{ path: 'profile.settings.engine.katago.reportDuringSearchEvery' }],
+      priority: 70,
+    },
+    'engine.first-report-during-search-after': {
+      id: 'engine.first-report-during-search-after',
+      // Bounded above by the cadence knob via `maxFromKnob` —
+      // semantically a first-report-after value larger than the
+      // cadence would delay first-paint past what would have been
+      // the second regular report. The cross-knob constraint is
+      // declared at the substrate level so future widget consumers
+      // see the binding directly on the KnobDecl rather than
+      // having to re-derive it.
+      label: 'First report after (s)',
+      domain: 'engine',
+      inputs: [{
+        range: [0.01, 4.0] as const,
+        maxFromKnob: 'engine.report-during-search-every' as KnobId,
+      }],
+      outputs: [{ path: 'profile.settings.engine.katago.firstReportDuringSearchAfter' }],
+      priority: 80,
     },
   },
 } as const;

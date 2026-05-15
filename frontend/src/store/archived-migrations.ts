@@ -1676,4 +1676,85 @@ export const archivedMigrations: Migration[] = [
     }
     return out;
   },
+  // 39 → 40: Knob-registry Phase 6 magic-literals sweep. Three new
+  // preference-flavoured leaves promoted from inline literals:
+  //
+  //   (1) `profile.settings.appearance.ownershipDeadbandThreshold`
+  //       default 0.05 — was a `0.05` inline literal in
+  //       BoardWidget.vue's `ownershipColor`. Below this magnitude,
+  //       the territory overlay paints transparent to prevent
+  //       flicker.
+  //   (2) `profile.settings.appearance.livenessThreshold`
+  //       default 0.3 — was `LIVENESS_THRESHOLD = 0.3` const in
+  //       BoardWidget.vue. Stones with engine-disagreement below
+  //       this aren't flagged as dead.
+  //   (3) `profile.settings.engine.katago.watchdogLatencyThresholdMs`
+  //       default 500 — was `WATCHDOG_LATENCY_THRESHOLD_MS = 500`
+  //       const in Toolbar.vue. Latency cutoff for the un-animated
+  //       watchdog's color flip.
+  //
+  // Seeds three corresponding KnobDecls mirroring the defaults-side
+  // fresh-install seed verbatim (display.ownership-deadband-threshold,
+  // display.liveness-threshold, engine.watchdog-latency-threshold-ms).
+  //
+  // Idempotent: each leaf-backfill preserves a pre-existing number;
+  // each KnobDecl seed preserves a pre-existing entry under the
+  // same key (matching the 36 → 37 motivating-scalars migration's
+  // discipline so user-customised label / range edits survive).
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const settings = out.profile?.settings;
+    if (settings && typeof settings === 'object') {
+      const appearance = (settings as { appearance?: unknown }).appearance;
+      if (appearance && typeof appearance === 'object') {
+        const a = appearance as { ownershipDeadbandThreshold?: unknown; livenessThreshold?: unknown };
+        if (typeof a.ownershipDeadbandThreshold !== 'number') {
+          a.ownershipDeadbandThreshold = 0.05;
+        }
+        if (typeof a.livenessThreshold !== 'number') {
+          a.livenessThreshold = 0.3;
+        }
+      }
+      const katago = (settings as { engine?: { katago?: unknown } }).engine?.katago;
+      if (katago && typeof katago === 'object') {
+        const k = katago as { watchdogLatencyThresholdMs?: unknown };
+        if (typeof k.watchdogLatencyThresholdMs !== 'number') {
+          k.watchdogLatencyThresholdMs = 500;
+        }
+      }
+      const knobs = (settings as { knobs?: unknown }).knobs;
+      if (knobs && typeof knobs === 'object' && !Array.isArray(knobs)) {
+        const seeds: Record<string, unknown> = {
+          'display.ownership-deadband-threshold': {
+            id: 'display.ownership-deadband-threshold',
+            label: 'Ownership overlay dead-band',
+            domain: 'display',
+            inputs: [{ range: [0, 1] }],
+            outputs: [{ path: 'profile.settings.appearance.ownershipDeadbandThreshold' }],
+          },
+          'display.liveness-threshold': {
+            id: 'display.liveness-threshold',
+            label: 'Liveness marker threshold',
+            domain: 'display',
+            inputs: [{ range: [0, 1] }],
+            outputs: [{ path: 'profile.settings.appearance.livenessThreshold' }],
+          },
+          'engine.watchdog-latency-threshold-ms': {
+            id: 'engine.watchdog-latency-threshold-ms',
+            label: 'Watchdog latency threshold (ms)',
+            domain: 'engine',
+            inputs: [{ range: [50, 5000] }],
+            outputs: [{ path: 'profile.settings.engine.katago.watchdogLatencyThresholdMs' }],
+          },
+        };
+        const target = knobs as Record<string, unknown>;
+        for (const key of Object.keys(seeds)) {
+          if (!(key in target)) {
+            target[key] = seeds[key];
+          }
+        }
+      }
+    }
+    return out;
+  },
 ];

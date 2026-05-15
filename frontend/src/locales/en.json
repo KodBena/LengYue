@@ -39,6 +39,8 @@
   "knobRegistry.label.display.ownership-deadband-threshold": "Ownership overlay dead-band",
   "knobRegistry.label.display.liveness-threshold":          "Liveness marker threshold",
   "knobRegistry.label.engine.watchdog-latency-threshold-ms": "Watchdog latency threshold (ms)",
+  "knobRegistry.label.engine.report-during-search-every":    "Report cadence (s)",
+  "knobRegistry.label.engine.first-report-during-search-after": "First report after (s)",
 
   "cards.tab.decks":                      "Decks",
   "cards.tab.browse":                     "Browse",

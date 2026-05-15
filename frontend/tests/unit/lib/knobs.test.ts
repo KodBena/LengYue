@@ -55,7 +55,7 @@ function asKnobId(s: string): KnobId {
 
 function decl(partial: {
   id: string;
-  inputs?: ReadonlyArray<{ range: readonly [number, number] }>;
+  inputs?: ReadonlyArray<{ range: readonly [number, number]; maxFromKnob?: KnobId }>;
   outputs: ReadonlyArray<{ path: string }>;
   transform?: KnobTransform;
 }): KnobDecl {
@@ -495,6 +495,67 @@ describe('validateRegistry', () => {
     };
     expect(() => validateRegistry(root, zeroOutputs)).toThrow(
       /zero output paths/,
+    );
+  });
+
+  // ── maxFromKnob cross-knob constraint (added 2026-05-15) ────────
+  // The substrate's optional `KnobInputDecl.maxFromKnob` declares
+  // that this knob's effective max bound is read from another
+  // knob's stored value reactively. validateRegistry checks the
+  // reference resolves at startup so a dangling link doesn't
+  // silently fall back to the static max at runtime.
+
+  it('passes when maxFromKnob references a registered knob', () => {
+    const root = { a: 0.1, b: 0.05 };
+    const registry: KnobRegistry = {
+      cadence: decl({
+        id: 'cadence',
+        outputs: [{ path: 'a' }],
+      }),
+      first: decl({
+        id: 'first',
+        inputs: [{ range: [0.01, 4.0] as const, maxFromKnob: asKnobId('cadence') }],
+        outputs: [{ path: 'b' }],
+      }),
+    };
+    expect(() => validateRegistry(root, registry)).not.toThrow();
+  });
+
+  it('throws when maxFromKnob references a knob that does not exist', () => {
+    const root = { a: 0.05 };
+    const registry: KnobRegistry = {
+      first: decl({
+        id: 'first',
+        inputs: [{ range: [0.01, 4.0] as const, maxFromKnob: asKnobId('nonexistent') }],
+        outputs: [{ path: 'a' }],
+      }),
+    };
+    expect(() => validateRegistry(root, registry)).toThrow(
+      /maxFromKnob="nonexistent" but no KnobDecl is registered/,
+    );
+  });
+
+  it('throws when maxFromKnob references a knob with no output path', () => {
+    const root = { a: 0.05 };
+    const orphan: KnobDecl = {
+      id: asKnobId('orphan'),
+      domain: 'experimental',
+      inputs: [{ range: [0, 1] as const }],
+      outputs: [],
+    };
+    const first = decl({
+      id: 'first',
+      inputs: [{ range: [0.01, 4.0] as const, maxFromKnob: asKnobId('orphan') }],
+      outputs: [{ path: 'a' }],
+    });
+    const registry: KnobRegistry = { orphan, first };
+    // The orphan itself triggers the zero-outputs check first
+    // (iteration order over Object.entries is insertion order for
+    // string keys). Test asserts on the maxFromKnob target check
+    // by ordering `first` ahead of the orphan in the registry:
+    const registryFirstOrder: KnobRegistry = { first, orphan };
+    expect(() => validateRegistry(root, registryFirstOrder)).toThrow(
+      /maxFromKnob="orphan" but that knob has no output path/,
     );
   });
 });

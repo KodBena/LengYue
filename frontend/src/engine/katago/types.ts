@@ -95,6 +95,20 @@ export interface KataGoAnalysisQuery extends BaseQuery {
   // Pondering / Search Control
   readonly maxVisits?: number;
   readonly reportDuringSearchEvery?: number; // Seconds between updates
+  /**
+   * Seconds before KataGo emits the FIRST in-search report for
+   * this query, independent of the subsequent
+   * `reportDuringSearchEvery` cadence. A small value closes the
+   * perceived first-paint delay on fresh ponder / analyze queries.
+   * Bounded above by `reportDuringSearchEvery` at the registry
+   * widget level (`KnobInputDecl.maxFromKnob`) and at the wire
+   * layer (clamped in `analysis-service.ts`'s query-construction
+   * sites) — sending `firstReportDuringSearchAfter` larger than
+   * `reportDuringSearchEvery` would delay first-paint past what
+   * would have been the second regular report, which is
+   * semantically incoherent. Surface added 2026-05-15.
+   */
+  readonly firstReportDuringSearchAfter?: number;
   readonly priority?: number;
 
   // Feature Toggles
