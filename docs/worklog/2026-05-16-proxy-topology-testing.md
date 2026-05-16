@@ -354,82 +354,139 @@ and latency tracks per-query cost more closely.
 
 ## Heavy real-load demonstration (sales-pitch charts)
 
-A second mixed-workload run, much heavier than the §"Mixed
-workload" smoke above, drove **13,000 client queries totalling
-3,306,951 visits in 231.5 seconds = 14,287 sustained visits/sec**
-through the RELAY-under-test. The headline 4-panel chart and the
-companion concurrency-sweep chart together demonstrate the
-system's institutional-load characteristics:
+A series of heavier runs, sized against a measured ~20 K vps
+cluster ceiling and a generous 60 M-visit compute budget,
+characterises the system at institutional scale. Three chart
+families together demonstrate the system's load characteristics:
+headline (one comprehensive mixed-workload run), concurrency
+sweep (8 points: 1→128 client concurrency), and max_load sweep
+(6 points: 1→32 admission threshold). Total budget used: ~20.5 M
+visits.
+
+The **headline** drove **33,000 client queries totalling
+8,234,631 visits in 533.2 seconds = 15,445 sustained visits/sec**
+through the RELAY-under-test:
 
 ![Headline: KataProxy RELAY under realistic mixed workload](../assets/proxy-topology-testing/mixed-workload-headline.png)
 
-Reading the headline:
+Reading the headline (100 hot positions × 30 clients + 30,000
+distinct queries at balanced visit distribution, concurrency=24,
+RELAY_MAX_LOAD=2):
 
   - **Top-left (Load smoothness)**: per-upstream in-flight load
-    over the 231-second run. Raw values at low alpha; box-filter-
+    over the 533-second run. Raw values at low alpha; box-filter-
     smoothed lines superimposed. All three upstreams sustain
-    indistinguishable mean load (3.5 / 3.7 / 3.8 in-flight) the
+    indistinguishable mean load (3.7 / 3.6 / 3.6 in-flight) the
     entire run — the load balancer holds the cluster in tight
-    equilibrium despite 4× over-saturation against `max_load=2`.
+    equilibrium despite ~4× over-saturation against
+    `RELAY_MAX_LOAD=2`. The steady-state band is visible across
+    nearly nine minutes of continuous load.
   - **Top-right (Latency CDF by visit-cost bucket)**: 5 cost
     classes (hot/quick/medium/deep/very-deep) on a log-x axis.
-    Curves stack monotonically by cost; even the very-deep
-    (>2000v) class p99 stays under 2 seconds. Each class's CDF
-    is smooth and well-behaved (no fat-tail surprises).
+    n=3000 hot, 15,005 quick, 13,499 medium, 1,191 deep, 305
+    very-deep. Curves stack monotonically by cost; even the
+    very-deep (>2000v) class p99 stays at ~1.8 seconds. Each
+    class's CDF is smooth — no fat-tail surprises.
   - **Bottom-left (Distribution under load)**: per-upstream
     dispatch counts with 95% binomial CI band. All three upstreams
-    land within ±0.3σ of the ideal-uniform line (4017 each); the
-    32.1% fallback rate (annotated in the panel title) confirms
-    the load-aware walk fired for almost a third of dispatches —
-    yet the resulting distribution stayed near-perfect.
+    land within ±0.3σ of the ideal-uniform line (10,033 each);
+    actual 33.0% / 33.8% / 33.2%. The 32.9% fallback rate
+    (annotated in the panel title) confirms the load-aware walk
+    fired for almost a third of dispatches — yet the resulting
+    distribution stayed near-perfect.
   - **Bottom-right (Coalescing efficiency)**: log-y histogram of
-    subscribers per canonical. 12,000 singleton canonicals
-    (distinct queries) on the left, 50 canonicals with exactly 20
-    subscribers each on the right (the hot positions, all fully
-    coalesced). 950 of 13,000 client queries (7.3%) were served by
-    work-sharing existing canonicals — every hot position's 20
-    students hit one KataGo run, not twenty.
+    subscribers per canonical. 30,000 singleton canonicals
+    (distinct queries) on the left, 100 canonicals with exactly
+    30 subscribers each on the right (the hot positions, all
+    fully coalesced). 2,900 of 33,000 client queries (8.8%) were
+    served by sharing existing canonicals — every hot position's
+    30 students hit one KataGo run, not thirty.
 
-The companion **concurrency sweep** (5 points: 3, 6, 12, 24, 48)
-characterises how throughput and latency scale:
+The companion **concurrency sweep** (8 points: 1, 2, 4, 8, 16,
+32, 64, 128) characterises how throughput and latency scale
+across more than two orders of magnitude of client concurrency:
 
 ![Sweep: KataProxy RELAY scaling under concurrency](../assets/proxy-topology-testing/mixed-workload-sweep.png)
 
-Reading the sweep:
+Reading the sweep (each point: 3,000 distinct queries ≈ 875K
+visits, balanced visit distribution, `RELAY_MAX_LOAD=2`):
 
   - **Left (Throughput vs concurrency)**: visits/sec achieved on
-    the y-axis, client concurrency on a log-2 x-axis. Cluster
-    ceiling is ~17,500 vps; already 80% reached at concurrency=3
-    (14,055 vps). Going from 3 to 48 (16× concurrency) yields
-    only 24% throughput improvement — KataGo's analysis engine
-    handles per-upstream parallelism internally, so a single
-    in-flight per upstream already keeps the GPUs busy.
+    the y-axis, client concurrency on a log-2 x-axis. The cluster
+    ceiling is ~19,200 vps; already 57% reached at concurrency=1
+    (10,978 vps). Going from concurrency 1 to 128 (128× concurrency)
+    yields only a 75% throughput improvement, and the curve has
+    visibly flattened by concurrency 32 — KataGo's analysis engine
+    handles per-upstream parallelism internally, so even a single
+    in-flight per upstream keeps the GPUs nearly fully utilised.
   - **Right (Latency percentiles vs concurrency)**: log-y log-x.
-    Classic queueing-theory shape — p50 grows ~10× (50→550 ms)
-    and p99 grows ~8× (150→1200 ms) across the 16× concurrency
-    range. The interesting operator finding: latency is dominated
-    by client-side queueing, not by the proxy or the upstream.
-    Low concurrency gets nearly the same throughput at a
-    fraction of the latency.
+    Classic queueing-theory shape — p50 grows from ~24 ms (c=1)
+    to ~1700 ms (c=128); p99 from ~100 ms to ~1800 ms across the
+    same range. **The interesting operator finding: latency
+    is dominated by client-side queueing, not by the proxy or
+    the upstream.** Modest concurrency gets nearly all the
+    throughput at a small fraction of the latency.
+
+The third chart is the **max_load sweep** — the operator-facing
+tuning knob characterisation. `RELAY_MAX_LOAD` controls when the
+load-aware fallback walk fires; the question this sweep answers
+is "what should an operator set it to?":
+
+![max_load sweep: tuning the admission threshold](../assets/proxy-topology-testing/mixed-workload-maxload-sweep.png)
+
+Reading the max_load sweep (each point: 3,000 distinct queries
+≈ 873K visits, concurrency=24, max_load ∈ {1, 2, 4, 8, 16, 32}):
+
+  - **Top-left (Fallback rate)**: monotone decreasing as max_load
+    grows. At max_load=1: 36.6% of dispatches walk past a
+    saturated preferred upstream. At max_load=8: 7.7%. By
+    max_load=16: 0.0% — every dispatch lands on its hash-ring
+    preference because no upstream ever hits the threshold under
+    concurrency=24.
+  - **Top-right (Peak per-upstream in-flight)**: tracks the
+    `max_load` admission line within ordinary variance. The
+    fallback's "all-saturated → least-loaded" branch causes peaks
+    to slightly exceed `max_load`, as designed.
+  - **Bottom-left (Dispatch distribution)**: stays near-uniform
+    across the whole range. Mild drift away from ideal as
+    max_load grows past the saturation point (the load-aware
+    walk no longer smooths the hash-ring's natural variance);
+    well within statistical noise at this sample size.
+  - **Bottom-right (Latency percentiles)**: **essentially flat**
+    across max_load 1 → 32. p50 ≈ 410-430 ms, p95 ≈ 1010-1030 ms,
+    p99 ≈ 1180-1220 ms regardless of admission threshold.
+    Throughput is similarly flat (18,150-18,360 vps observed).
+    **The headline finding for operators**: at any reasonable
+    concurrency, `RELAY_MAX_LOAD` controls *how the proxy works*
+    (how often the load-aware walk fires), not *how fast the
+    cluster runs*. Defaults are fine.
 
 What this means for an operator provisioning the cluster:
 
-  - Coalescing means N students reviewing one position cost as
-    much as 1 student reviewing it. The 50 hot positions × 20
-    clients each cost 50 KataGo runs, not 1000.
-  - Load balancing makes capacity-planning straightforward:
-    aggregate per-upstream capacity is the throughput ceiling,
+  - **Coalescing means N students reviewing one position cost as
+    much as 1 student reviewing it.** The 100 hot positions × 30
+    clients each cost 100 KataGo runs, not 3000.
+  - **Load balancing makes capacity-planning straightforward.**
+    Aggregate per-upstream capacity is the throughput ceiling,
     and the system reaches that ceiling under modest client
     concurrency. Distribution stays uniform without tuning.
-  - The proxy doesn't add measurable latency overhead beyond
-    queueing inherent to over-saturation; for an institutional
+  - **The proxy doesn't add measurable latency overhead beyond
+    queueing inherent to over-saturation.** For an institutional
     deployment, operators can keep client concurrency near
     `K × max_load` and get cluster-max throughput with minimum
     queue depth.
+  - **`RELAY_MAX_LOAD` is a low-stakes knob.** Throughput is
+    insensitive to it across two orders of magnitude. Default
+    (10) is fine for most workloads; lower values just shift
+    work toward the load-aware fallback path without changing
+    the observable result.
 
-Total compute used for the heavy demonstration: ~5.8M visits
-(headline 3.3M + sweep 5×500K) — under 40% of the 18M
-visits/20-minute budget calibrated from the throughput probe.
+Total compute used for the demonstration: ~20.5M visits
+(headline 8.2M + concurrency sweep 7M + max_load sweep 5.2M)
+— ~34% of the 60M-visit GPU compute budget the operator
+allocated. Headroom remains for further sweeps (e.g.,
+coalescing-ratio sweep, very-low-concurrency time-series, or
+multi-RELAY chained topology tests) if those become useful.
 
 ## Theoretical context for the skew bound
 
@@ -491,7 +548,9 @@ future contributor doesn't re-derive):
     umbrella submodule pointer bump waits for the proxy's
     standard merge + tag arc and a separate umbrella-side PR.
   - **Chart assets:**
-    `docs/assets/proxy-topology-testing/mixed-workload-headline.png`
-    and `mixed-workload-sweep.png` — rendered from the heavy run's
-    `summary.json` files via `proxy/tests/plot_mixed_workload.py`
-    (committed as part of `b3175b7`).
+    `docs/assets/proxy-topology-testing/mixed-workload-headline.png`,
+    `mixed-workload-sweep.png`, and
+    `mixed-workload-maxload-sweep.png` — rendered from the heavy
+    runs' `summary.json` files via
+    `proxy/tests/plot_mixed_workload.py` (committed as part of
+    `b3175b7`).
