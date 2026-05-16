@@ -66,6 +66,16 @@ Four commits on the proxy branch:
     `RELAY_MAX_LOAD=2` — necessary for the load-aware fallback to
     actually fire under realistic concurrency without burning
     arbitrary numbers of upstream slots.
+  - `b3175b7` — **Variable visit distribution + JSON output + plot
+    script** (`tests/plot_mixed_workload.py` new;
+    `tests/diagnose_relay_mixed_workload_e2e.py` modified). Distinct
+    queries now sample from a weighted discrete distribution of
+    visit costs (default "balanced" preset mimics a study workload's
+    heavy-tailed shape; mean 270v); throughput reported in
+    visits/sec (the right unit when query cost is variable);
+    diagnostic writes `summary.json` to its log_dir; plot script
+    consumes `summary.json` files to render the headline and sweep
+    charts embedded below.
 
 ## Topologies under test
 
@@ -342,6 +352,85 @@ have p50=374ms despite KataGo's per-query time being well under
 At lower concurrency or higher `max_load`, the queue depth drops
 and latency tracks per-query cost more closely.
 
+## Heavy real-load demonstration (sales-pitch charts)
+
+A second mixed-workload run, much heavier than the §"Mixed
+workload" smoke above, drove **13,000 client queries totalling
+3,306,951 visits in 231.5 seconds = 14,287 sustained visits/sec**
+through the RELAY-under-test. The headline 4-panel chart and the
+companion concurrency-sweep chart together demonstrate the
+system's institutional-load characteristics:
+
+![Headline: KataProxy RELAY under realistic mixed workload](../assets/proxy-topology-testing/mixed-workload-headline.png)
+
+Reading the headline:
+
+  - **Top-left (Load smoothness)**: per-upstream in-flight load
+    over the 231-second run. Raw values at low alpha; box-filter-
+    smoothed lines superimposed. All three upstreams sustain
+    indistinguishable mean load (3.5 / 3.7 / 3.8 in-flight) the
+    entire run — the load balancer holds the cluster in tight
+    equilibrium despite 4× over-saturation against `max_load=2`.
+  - **Top-right (Latency CDF by visit-cost bucket)**: 5 cost
+    classes (hot/quick/medium/deep/very-deep) on a log-x axis.
+    Curves stack monotonically by cost; even the very-deep
+    (>2000v) class p99 stays under 2 seconds. Each class's CDF
+    is smooth and well-behaved (no fat-tail surprises).
+  - **Bottom-left (Distribution under load)**: per-upstream
+    dispatch counts with 95% binomial CI band. All three upstreams
+    land within ±0.3σ of the ideal-uniform line (4017 each); the
+    32.1% fallback rate (annotated in the panel title) confirms
+    the load-aware walk fired for almost a third of dispatches —
+    yet the resulting distribution stayed near-perfect.
+  - **Bottom-right (Coalescing efficiency)**: log-y histogram of
+    subscribers per canonical. 12,000 singleton canonicals
+    (distinct queries) on the left, 50 canonicals with exactly 20
+    subscribers each on the right (the hot positions, all fully
+    coalesced). 950 of 13,000 client queries (7.3%) were served by
+    work-sharing existing canonicals — every hot position's 20
+    students hit one KataGo run, not twenty.
+
+The companion **concurrency sweep** (5 points: 3, 6, 12, 24, 48)
+characterises how throughput and latency scale:
+
+![Sweep: KataProxy RELAY scaling under concurrency](../assets/proxy-topology-testing/mixed-workload-sweep.png)
+
+Reading the sweep:
+
+  - **Left (Throughput vs concurrency)**: visits/sec achieved on
+    the y-axis, client concurrency on a log-2 x-axis. Cluster
+    ceiling is ~17,500 vps; already 80% reached at concurrency=3
+    (14,055 vps). Going from 3 to 48 (16× concurrency) yields
+    only 24% throughput improvement — KataGo's analysis engine
+    handles per-upstream parallelism internally, so a single
+    in-flight per upstream already keeps the GPUs busy.
+  - **Right (Latency percentiles vs concurrency)**: log-y log-x.
+    Classic queueing-theory shape — p50 grows ~10× (50→550 ms)
+    and p99 grows ~8× (150→1200 ms) across the 16× concurrency
+    range. The interesting operator finding: latency is dominated
+    by client-side queueing, not by the proxy or the upstream.
+    Low concurrency gets nearly the same throughput at a
+    fraction of the latency.
+
+What this means for an operator provisioning the cluster:
+
+  - Coalescing means N students reviewing one position cost as
+    much as 1 student reviewing it. The 50 hot positions × 20
+    clients each cost 50 KataGo runs, not 1000.
+  - Load balancing makes capacity-planning straightforward:
+    aggregate per-upstream capacity is the throughput ceiling,
+    and the system reaches that ceiling under modest client
+    concurrency. Distribution stays uniform without tuning.
+  - The proxy doesn't add measurable latency overhead beyond
+    queueing inherent to over-saturation; for an institutional
+    deployment, operators can keep client concurrency near
+    `K × max_load` and get cluster-max throughput with minimum
+    queue depth.
+
+Total compute used for the heavy demonstration: ~5.8M visits
+(headline 3.3M + sweep 5×500K) — under 40% of the 18M
+visits/20-minute budget calibrated from the throughput probe.
+
 ## Theoretical context for the skew bound
 
 For RELAY-over-K upstreams with the default 150-replica
@@ -398,6 +487,11 @@ future contributor doesn't re-derive):
   - **Sibling postmortem (origin of the §5 disciplines):**
     `docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`.
   - **Proxy-side commits (on `feat/topology-testing-substrate`):**
-    `b3155c0`, `324cf98`, `de1071d`, `3647b54`. The umbrella
-    submodule pointer bump waits for the proxy's standard merge +
-    tag arc and a separate umbrella-side PR.
+    `b3155c0`, `324cf98`, `de1071d`, `3647b54`, `b3175b7`. The
+    umbrella submodule pointer bump waits for the proxy's
+    standard merge + tag arc and a separate umbrella-side PR.
+  - **Chart assets:**
+    `docs/assets/proxy-topology-testing/mixed-workload-headline.png`
+    and `mixed-workload-sweep.png` — rendered from the heavy run's
+    `summary.json` files via `proxy/tests/plot_mixed_workload.py`
+    (committed as part of `b3175b7`).
