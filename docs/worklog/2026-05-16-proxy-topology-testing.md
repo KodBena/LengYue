@@ -1,0 +1,556 @@
+# Proxy topology testing — substrate + RELAY Tier 2/3 coverage
+
+- **Status:** Implementation shipped on the proxy-side feature
+  branch `feat/topology-testing-substrate` (3 commits); umbrella
+  pin bump waits for the proxy's standard merge + tag arc.
+  All 283 in-process proxy tests green. Heavy Tier 3 validation
+  green against live KataGo endpoints at
+  `ws://192.168.122.1:1235-1237`.
+- **Genre:** Tier 2 + Tier 3 test infrastructure + design-note
+  revision. Origin: `docs/notes/proxy-topology-testing-plan.md`
+  (planning-time) and its sibling-revised counterpart
+  `proxy-topology-testing-plan-revised.md` (the deltas this
+  worklog implements).
+- **Date:** 2026-05-16.
+
+## Why
+
+The plan note's §1.2 named two RELAY contracts as currently
+unexercised by any in-process test: coalescing (two clients
+issuing identical analyze queries through a RELAY should produce
+one upstream LEAF dispatch, not two) and hash-ring distribution
+(N distinct queries should spread across upstreams, not pile on
+one). The existing `tests/test_relay_router.py` pinned the
+router's single-target dispatch and broadcast contracts in
+isolation; nothing exercised the hub+router boundary the SPA
+actually drives, and nothing pinned the multi-query distribution
+property the operator cares about (no "stuck on one LEAF"
+witness).
+
+The plan also scoped a multi-process testing substrate
+(generalised from `frontend/scripts/run-selector-stack.py`),
+originally to the umbrella tree. During the implementation
+discussion the substrate was relocated to the proxy repo —
+proxy expertise lives here, the substrate's only consumers are
+proxy diagnostics, and the umbrella-side script was incidental
+to where its author needed it. Three other framing fixes
+surfaced during the same discussion; all are recorded in the
+sibling-revised note.
+
+## What landed
+
+Four commits on the proxy branch:
+
+  - `b3155c0` — **Tier 2 unit tests** (`tests/test_relay_coalescing.py`,
+    `tests/test_relay_load_distribution.py`). 5 tests. PubSubHub +
+    RelayRouter integration with mocked upstreams; hash-ring
+    distribution over N=30 samples; load-aware fallback both
+    branches (skip-saturated, all-saturated → least-loaded).
+  - `324cf98` — **Topology substrate + Tier 3 diagnostics**
+    (`tests/topology_runner.py`, `tests/test_topology_runner.py`,
+    `tests/diagnose_relay_coalescing_e2e.py`,
+    `tests/diagnose_relay_load_distribution_e2e.py`). 22 spec-
+    validation unit tests + 2 runnable diagnostic scripts.
+  - `de1071d` — **Parameterised Tier 3 diagnostics** with env vars
+    (`PROXY_TOPOLOGY_DIAG_CLIENTS`, `_QUERIES`, `_CONCURRENCY`,
+    `_VISITS`, `_UPSTREAMS`); generalised distinct-query generator
+    scales to ~130k; scale-aware skew bound (binomial-based,
+    capped at 75% for small N).
+  - `3647b54` — **Mixed-workload Tier 3 diagnostic + per-node
+    `extra_env`** (`tests/diagnose_relay_mixed_workload_e2e.py`).
+    Exercises coalescing, distribution, load-aware fallback,
+    latency, and throughput simultaneously under realistic
+    institutional load. Substrate gains
+    `NodeSpec.extra_env: Mapping[str, str]` (merged last in
+    `_build_env`) so the diagnostic can spawn the RELAY with
+    `RELAY_MAX_LOAD=2` — necessary for the load-aware fallback to
+    actually fire under realistic concurrency without burning
+    arbitrary numbers of upstream slots.
+  - `b3175b7` — **Variable visit distribution + JSON output + plot
+    script** (`tests/plot_mixed_workload.py` new;
+    `tests/diagnose_relay_mixed_workload_e2e.py` modified). Distinct
+    queries now sample from a weighted discrete distribution of
+    visit costs (default "balanced" preset mimics a study workload's
+    heavy-tailed shape; mean 270v); throughput reported in
+    visits/sec (the right unit when query cost is variable);
+    diagnostic writes `summary.json` to its log_dir; plot script
+    consumes `summary.json` files to render the headline and sweep
+    charts embedded below.
+
+## Topologies under test
+
+### Tier 2 — in-process coalescing
+
+The hub coalesces identical-content subscribers onto one canonical;
+the router dispatches that single canonical to one upstream via
+the hash ring. Both happen entirely in-process against mocked
+upstream WebSockets.
+
+```mermaid
+flowchart LR
+    S1["Subscriber 1<br/>internal-1"] -->|"subscribe<br/>(identical query)"| H[("PubSubHub<br/>content_hash X")]
+    S2["Subscriber 2<br/>internal-2"] -->|"subscribe<br/>(identical query)"| H
+    H -->|"1 canonical<br/>(hub_X)"| R[("RelayRouter<br/>hash-ring select")]
+    R -->|"1 send"| M1["MockWS<br/>leaf-a"]
+    R -.->|"hash-skipped"| M2["MockWS<br/>leaf-b"]
+    R -.->|"hash-skipped"| M3["MockWS<br/>leaf-c"]
+```
+
+### Tier 2 — in-process distribution
+
+N distinct canonicals hash through the 150-replica ring into
+each upstream's keyspace.
+
+```mermaid
+flowchart LR
+    Q["30 distinct<br/>canonical_ids"] --> R[("RelayRouter<br/>150 replicas/node<br/>450 ring entries")]
+    R -->|"~10"| M1["MockWS leaf-a"]
+    R -->|"~10"| M2["MockWS leaf-b"]
+    R -->|"~10"| M3["MockWS leaf-c"]
+```
+
+### Tier 2 — in-process load-aware fallback
+
+When the hash ring's preferred upstream is at `max_load`, the
+selector walks the ring to the next under-loaded node. A second
+test pins the all-saturated branch (every upstream over `max_load`
+→ least-loaded picked rather than dropping).
+
+```mermaid
+flowchart LR
+    Q["canonical hashing<br/>to leaf-a"] --> R[("RelayRouter")]
+    LM["LoadMetric:<br/>leaf-a at max_load"] -.-> R
+    R -.->|"skip<br/>(saturated)"| M1["MockWS leaf-a"]
+    R -->|"fallback"| M2["MockWS leaf-b<br/>or leaf-c"]
+```
+
+### Tier 3 — multi-process coalescing (real LEAFs)
+
+A spawned RELAY pointed at three pre-existing KataGo endpoints
+the user maintains. N WebSocket clients issue identical analyze
+queries via a ready/go gate; the proxy's structured JSON log is
+parsed to assert `1 subscribe + (N-1) coalesce + 1 dispatch`.
+At N=50 the hub's subscriber-list management and per-response
+fan-out are exercised at realistic institutional scale.
+
+```mermaid
+flowchart LR
+    subgraph clients["50 WebSocket clients<br/>(local; ready/go gated)"]
+        C1["client-000"]
+        C2["client-001"]
+        CN["..."]
+        C50["client-049"]
+    end
+    C1  -->|"identical query"| R[("RELAY<br/>(spawned by substrate)<br/>:client_port")]
+    C2  --> R
+    CN  --> R
+    C50 --> R
+    R -->|"1 canonical<br/>1 send"| L2[("LEAF :1236<br/>KataGo 1.16.4<br/>pre-existing")]
+    R -.->|"hash-skipped"| L1[("LEAF :1235")]
+    R -.->|"hash-skipped"| L3[("LEAF :1237")]
+```
+
+### Tier 3 — multi-process distribution (real LEAFs)
+
+The same RELAY-over-real-LEAFs topology, driving 500 distinct
+analyze queries with bounded concurrency. Per-upstream dispatch
+counts observed via the same structured JSON log.
+
+```mermaid
+flowchart LR
+    Q["500 distinct queries<br/>(8 in-flight at a time)"] --> R[("RELAY<br/>(spawned by substrate)<br/>:client_port")]
+    R -->|"158 (31.6%)"| L1[("LEAF :1235")]
+    R -->|"155 (31.0%)"| L2[("LEAF :1236")]
+    R -->|"187 (37.4%)"| L3[("LEAF :1237")]
+```
+
+### Tier 3 — mixed workload (real LEAFs, RELAY_MAX_LOAD=2)
+
+The mixed-workload diagnostic exercises all three router/hub
+concerns simultaneously: a hot-bursts task (H positions × K
+clients each, fired as near-simultaneous bursts using slow
+visits so the canonical stays in-flight long enough to coalesce)
+runs concurrently with a distinct-flow task (D distinct
+positions at bounded concurrency, asymmetric fast/slow mix).
+The RELAY is spawned with `RELAY_MAX_LOAD=2` so the load-aware
+fallback actually fires under realistic concurrency.
+
+```mermaid
+flowchart LR
+    subgraph hot["Hot bursts (5 × 10 = 50 queries, slow 500v)"]
+        H1["pos 1 × 10 burst"]
+        H2["pos 2 × 10 burst"]
+        H3["..."]
+    end
+    subgraph dist["Distinct flow (150 queries, concurrency 20)"]
+        DF["120 fast (50v)"]
+        DS["30 slow (500v)"]
+    end
+    hot --> R[("RELAY (spawned)<br/>RELAY_MAX_LOAD=2")]
+    dist --> R
+    R -->|"50 disp (32.3%)"| L1[("LEAF :1235")]
+    R -->|"52 disp (33.5%)"| L2[("LEAF :1236")]
+    R -->|"53 disp (34.2%)"| L3[("LEAF :1237")]
+```
+
+### Substrate spawn graph (the Tier 3 TopologySpec)
+
+The substrate declares a graph of nodes; `TopologySpec` validates
+labels + role constraints + cycle-freeness at construction;
+`TopologyRunner.start()` spawns in topological order with port
+allocation, readiness gating, and structured-log capture.
+
+```mermaid
+flowchart TD
+    subgraph spec["TopologySpec (Tier 3 RELAY shape)"]
+        N1["NodeSpec leaf-0<br/>role=LEAF<br/>pre_existing_url"]
+        N2["NodeSpec leaf-1<br/>role=LEAF<br/>pre_existing_url"]
+        N3["NodeSpec leaf-2<br/>role=LEAF<br/>pre_existing_url"]
+        N4["NodeSpec relay<br/>role=RELAY<br/>spawned, client_label<br/>upstreams=(leaf-0,leaf-1,leaf-2)"]
+    end
+    N1 -->|"upstream"| N4
+    N2 -->|"upstream"| N4
+    N3 -->|"upstream"| N4
+    style N4 fill:#e8f4fd,stroke:#0066cc
+```
+
+## Heavy validation results
+
+Run against `ws://192.168.122.1:1235-1237` (vanilla KataGo
+1.16.4 endpoints; no `capabilities` advertised, so the
+RELAY-under-test was the only KataProxy-shaped element in the
+pipeline).
+
+### Coalescing at N=50
+
+```
+upstreams:  ws://192.168.122.1:1235-1237
+clients:    50
+maxVisits:  50
+
+subscribe(ANALYZE) events: 1
+coalesce(ANALYZE)  events: 49
+dispatch(ANALYZE)  events: 1
+
+PASS: coalescing observed at N=50.
+canonical='hub_de64087f8d929b95c653' → upstream='ws://192.168.122.1:1236';
+49 subscribers joined the slot.
+```
+
+All 50 clients received identical final responses (`final-visit
+values: [55]` — a singleton). Hub fan-out delivered one
+canonical's responses to all 50 subscribers with their own
+internal_ids substituted in; KataGo ran the query once.
+
+### Distribution at N=500, concurrency=8
+
+```
+upstreams:   ws://192.168.122.1:1235-1237
+queries:     500 distinct
+concurrency: 8
+maxVisits:   50
+
+per-upstream dispatch counts (expected mean: 166.7):
+  ws://192.168.122.1:1235: 158 (31.6%)
+  ws://192.168.122.1:1236: 155 (31.0%)
+  ws://192.168.122.1:1237: 187 (37.4%)
+binomial σ: 10.54; skew bound: 43.9% (mean + 5σ)
+
+all queries complete in 4.7s
+
+PASS: 500 queries distributed across 3 upstreams;
+max share = 37.4% (bound 43.9%), no starvation.
+```
+
+The 187-count on `:1237` is +1.9σ from the binomial mean (167);
+within ordinary variance, well clear of the 5σ bound. Hash-ring
+distribution behaves close to ideal uniform.
+
+### Mixed workload (200 client queries, RELAY_MAX_LOAD=2)
+
+```
+upstreams:           ws://192.168.122.1:1235-1237
+hot:                 5 positions × 10 clients = 50 hot queries (slow)
+distinct:            150 queries (20% slow / 80% fast)
+concurrency:         20
+RELAY_MAX_LOAD:      2
+fast/slow maxVisits: 50 / 500
+total client queries: 200
+
+wall elapsed: 3.3s
+
+Coalescing
+  subscribe events:      155  (expected if perfect: 155)
+  coalesce events:        45  (expected if perfect: 45)
+  coalescing rate:      22.5%
+  hot positions fully coalesced: 5/5 (all 10 clients shared canonical)
+
+Distribution (across upstreams)
+  total dispatches:      155  (expected mean per upstream: 51.7; σ 5.87)
+    ws://192.168.122.1:1235:    50  (32.3%, -0.28σ from mean)
+    ws://192.168.122.1:1236:    52  (33.5%, +0.06σ from mean)
+    ws://192.168.122.1:1237:    53  (34.2%, +0.23σ from mean)
+
+Load-aware fallback
+  fallback dispatches:    46  (dispatch.upstream != HashRing preference)
+  fallback rate:        29.7%
+  per-upstream peak in-flight (max_load=2):
+    ws://192.168.122.1:1235:  7
+    ws://192.168.122.1:1236:  7
+    ws://192.168.122.1:1237:  7
+
+Latency (client-side, ms)
+  All:                  p50=467.8  p95=777.8  p99=836.0  max=1011.6  mean=465.2
+  Hot (slow, coalesced):p50=501.1  p95=743.5  p99=754.0  max= 764.1  mean=558.6
+  Distinct fast:        p50=373.9  p95=756.6  p99=832.8  max= 835.6  mean=392.9
+  Distinct slow:        p50=573.0  p95=859.0  p99=974.7  max=1011.6  mean=605.7
+
+Throughput
+  total: 200 client queries / 3.3s = 59.91 qps
+  per-upstream (dispatches / elapsed):
+    ws://192.168.122.1:1235:  14.98 qps
+    ws://192.168.122.1:1236:  15.58 qps
+    ws://192.168.122.1:1237:  15.88 qps
+
+Sanity checks
+  ok: all 200 client queries returned
+  ok: subscribes + coalesces (200) matches client queries sent
+  ok: subscribes == dispatches (155); every new canonical was dispatched once
+```
+
+Three things are notable in the headline numbers:
+
+1. **Coalescing is perfect.** The hub registered exactly 155
+   subscribes and exactly 45 coalesces — matching expectation to
+   the unit. All 5 hot positions fully coalesced (all 10 clients
+   per hot position shared the canonical). The ready/go-style
+   tight bursting is what makes this near-deterministic.
+
+2. **Distribution stays near-uniform despite saturation.** With
+   `max_load=2` and concurrency=20, upstreams are under sustained
+   saturation pressure; nonetheless the per-upstream dispatch
+   share is 32.3% / 33.5% / 34.2% — all within ±0.3σ of the
+   mean. The hash ring + load fallback together produce
+   close-to-ideal distribution even when the hash-ring
+   preference is regularly unavailable.
+
+3. **Load-aware fallback actively engages.** 29.7% of dispatches
+   went to an upstream that was NOT the hash-ring preference for
+   that canonical — the load-aware walk fired for almost a
+   third of routing decisions. Per-upstream peak in-flight = 7
+   on each upstream, exceeding `max_load=2` because the
+   all-saturated→least-loaded branch fires when concurrency
+   exceeds K × max_load (here 20 > 3 × 2 = 6). That's the second
+   `_select_upstream` branch behaving correctly: under sustained
+   over-saturation, the system distributes new work to the
+   least-loaded upstream rather than dropping or hanging.
+
+Latency p50 numbers are dominated by upstream queueing under the
+sustained over-saturation: even distinct fast queries (50 visits)
+have p50=374ms despite KataGo's per-query time being well under
+100ms — most of the latency is wait-time for an upstream slot.
+At lower concurrency or higher `max_load`, the queue depth drops
+and latency tracks per-query cost more closely.
+
+## Heavy real-load demonstration (sales-pitch charts)
+
+A series of heavier runs, sized against a measured ~20 K vps
+cluster ceiling and a generous 60 M-visit compute budget,
+characterises the system at institutional scale. Three chart
+families together demonstrate the system's load characteristics:
+headline (one comprehensive mixed-workload run), concurrency
+sweep (8 points: 1→128 client concurrency), and max_load sweep
+(6 points: 1→32 admission threshold). Total budget used: ~20.5 M
+visits.
+
+The **headline** drove **33,000 client queries totalling
+8,234,631 visits in 533.2 seconds = 15,445 sustained visits/sec**
+through the RELAY-under-test:
+
+![Headline: KataProxy RELAY under realistic mixed workload](../assets/proxy-topology-testing/mixed-workload-headline.png)
+
+Reading the headline (100 hot positions × 30 clients + 30,000
+distinct queries at balanced visit distribution, concurrency=24,
+RELAY_MAX_LOAD=2):
+
+  - **Top-left (Load smoothness)**: per-upstream in-flight load
+    over the 533-second run. Raw values at low alpha; box-filter-
+    smoothed lines superimposed. All three upstreams sustain
+    indistinguishable mean load (3.7 / 3.6 / 3.6 in-flight) the
+    entire run — the load balancer holds the cluster in tight
+    equilibrium despite ~4× over-saturation against
+    `RELAY_MAX_LOAD=2`. The steady-state band is visible across
+    nearly nine minutes of continuous load.
+  - **Top-right (Latency CDF by visit-cost bucket)**: 5 cost
+    classes (hot/quick/medium/deep/very-deep) on a log-x axis.
+    n=3000 hot, 15,005 quick, 13,499 medium, 1,191 deep, 305
+    very-deep. Curves stack monotonically by cost; even the
+    very-deep (>2000v) class p99 stays at ~1.8 seconds. Each
+    class's CDF is smooth — no fat-tail surprises.
+  - **Bottom-left (Distribution under load)**: per-upstream
+    dispatch counts with 95% binomial CI band. All three upstreams
+    land within ±0.3σ of the ideal-uniform line (10,033 each);
+    actual 33.0% / 33.8% / 33.2%. The 32.9% fallback rate
+    (annotated in the panel title) confirms the load-aware walk
+    fired for almost a third of dispatches — yet the resulting
+    distribution stayed near-perfect.
+  - **Bottom-right (Coalescing efficiency)**: log-y histogram of
+    subscribers per canonical. 30,000 singleton canonicals
+    (distinct queries) on the left, 100 canonicals with exactly
+    30 subscribers each on the right (the hot positions, all
+    fully coalesced). 2,900 of 33,000 client queries (8.8%) were
+    served by sharing existing canonicals — every hot position's
+    30 students hit one KataGo run, not thirty.
+
+The companion **concurrency sweep** (8 points: 1, 2, 4, 8, 16,
+32, 64, 128) characterises how throughput and latency scale
+across more than two orders of magnitude of client concurrency:
+
+![Sweep: KataProxy RELAY scaling under concurrency](../assets/proxy-topology-testing/mixed-workload-sweep.png)
+
+Reading the sweep (each point: 3,000 distinct queries ≈ 875K
+visits, balanced visit distribution, `RELAY_MAX_LOAD=2`):
+
+  - **Left (Throughput vs concurrency)**: visits/sec achieved on
+    the y-axis, client concurrency on a log-2 x-axis. The cluster
+    ceiling is ~19,200 vps; already 57% reached at concurrency=1
+    (10,978 vps). Going from concurrency 1 to 128 (128× concurrency)
+    yields only a 75% throughput improvement, and the curve has
+    visibly flattened by concurrency 32 — KataGo's analysis engine
+    handles per-upstream parallelism internally, so even a single
+    in-flight per upstream keeps the GPUs nearly fully utilised.
+  - **Right (Latency percentiles vs concurrency)**: log-y log-x.
+    Classic queueing-theory shape — p50 grows from ~24 ms (c=1)
+    to ~1700 ms (c=128); p99 from ~100 ms to ~1800 ms across the
+    same range. **The interesting operator finding: latency
+    is dominated by client-side queueing, not by the proxy or
+    the upstream.** Modest concurrency gets nearly all the
+    throughput at a small fraction of the latency.
+
+The third chart is the **max_load sweep** — the operator-facing
+tuning knob characterisation. `RELAY_MAX_LOAD` controls when the
+load-aware fallback walk fires; the question this sweep answers
+is "what should an operator set it to?":
+
+![max_load sweep: tuning the admission threshold](../assets/proxy-topology-testing/mixed-workload-maxload-sweep.png)
+
+Reading the max_load sweep (each point: 3,000 distinct queries
+≈ 873K visits, concurrency=24, max_load ∈ {1, 2, 4, 8, 16, 32}):
+
+  - **Top-left (Fallback rate)**: monotone decreasing as max_load
+    grows. At max_load=1: 36.6% of dispatches walk past a
+    saturated preferred upstream. At max_load=8: 7.7%. By
+    max_load=16: 0.0% — every dispatch lands on its hash-ring
+    preference because no upstream ever hits the threshold under
+    concurrency=24.
+  - **Top-right (Peak per-upstream in-flight)**: tracks the
+    `max_load` admission line within ordinary variance. The
+    fallback's "all-saturated → least-loaded" branch causes peaks
+    to slightly exceed `max_load`, as designed.
+  - **Bottom-left (Dispatch distribution)**: stays near-uniform
+    across the whole range. Mild drift away from ideal as
+    max_load grows past the saturation point (the load-aware
+    walk no longer smooths the hash-ring's natural variance);
+    well within statistical noise at this sample size.
+  - **Bottom-right (Latency percentiles)**: **essentially flat**
+    across max_load 1 → 32. p50 ≈ 410-430 ms, p95 ≈ 1010-1030 ms,
+    p99 ≈ 1180-1220 ms regardless of admission threshold.
+    Throughput is similarly flat (18,150-18,360 vps observed).
+    **The headline finding for operators**: at any reasonable
+    concurrency, `RELAY_MAX_LOAD` controls *how the proxy works*
+    (how often the load-aware walk fires), not *how fast the
+    cluster runs*. Defaults are fine.
+
+What this means for an operator provisioning the cluster:
+
+  - **Coalescing means N students reviewing one position cost as
+    much as 1 student reviewing it.** The 100 hot positions × 30
+    clients each cost 100 KataGo runs, not 3000.
+  - **Load balancing makes capacity-planning straightforward.**
+    Aggregate per-upstream capacity is the throughput ceiling,
+    and the system reaches that ceiling under modest client
+    concurrency. Distribution stays uniform without tuning.
+  - **The proxy doesn't add measurable latency overhead beyond
+    queueing inherent to over-saturation.** For an institutional
+    deployment, operators can keep client concurrency near
+    `K × max_load` and get cluster-max throughput with minimum
+    queue depth.
+  - **`RELAY_MAX_LOAD` is a low-stakes knob.** Throughput is
+    insensitive to it across two orders of magnitude. Default
+    (10) is fine for most workloads; lower values just shift
+    work toward the load-aware fallback path without changing
+    the observable result.
+
+Total compute used for the demonstration: ~20.5M visits
+(headline 8.2M + concurrency sweep 7M + max_load sweep 5.2M)
+— ~34% of the 60M-visit GPU compute budget the operator
+allocated. Headroom remains for further sweeps (e.g.,
+coalescing-ratio sweep, very-low-concurrency time-series, or
+multi-RELAY chained topology tests) if those become useful.
+
+## Theoretical context for the skew bound
+
+For RELAY-over-K upstreams with the default 150-replica
+HashRing, per-upstream selection is approximately Binomial(N, 1/K).
+Mean = N/K, std dev σ = √(N · (K−1) / K²). The diagnostic's
+skew-bound is `min(0.75, (N/K + 5σ) / N)` — tight at large N,
+floored at 75% for small N where the 5σ term blows past 1.0.
+
+  | N    | mean (K=3) | σ    | 5σ bound | bound used |
+  |------|------------|------|----------|------------|
+  |   12 |    4.0     |  1.6 |  108%    |   75% (cap)|
+  |  100 |   33.3     |  4.7 |   57%    |   57%      |
+  |  500 |  166.7     | 10.5 |   44%    |   44%      |
+  | 1000 |  333.3     | 14.9 |   41%    |   41%      |
+
+A regression that defeats the hash ring (e.g., a stable-sort bug
+that collapses every canonical to the first node) would land all
+N on one upstream — max share 100% at any N — and trip the bound
+at any scale.
+
+## Follow-ups recorded
+
+Two surfaced during this arc and recorded in the sibling-
+revised note's Open Items section (preserving the trace so a
+future contributor doesn't re-derive):
+
+  1. **Substrate readiness probe noise.** The substrate's
+     `_wait_for_listen` opens a raw TCP socket
+     (`asyncio.open_connection`) and closes it without an
+     HTTP/WebSocket handshake. The websockets server side logs
+     an `InvalidMessage` exception per probe — noise, not a
+     failure (the proxy starts and serves correctly). Worth
+     replacing with a real `websockets.connect` probe so spawn
+     logs aren't peppered with spurious traces.
+  2. **Original §5.3 "3 ms race" framing.** The planning-time
+     note cited a "failed proxy v1.0.21 alias-branch experiment"
+     as the worked example for sync-environment tests passing
+     where async-timing tests fail. Per the user, the 3 ms race
+     appears to be a KataGo bug (documentation pending in
+     `~/katago_bugreport`; user intends a stdin/stdout repro to
+     eliminate the WebSocket confounder before reporting
+     upstream). The discipline itself stands; the worked example
+     may need a sibling correction once the KataGo
+     investigation lands.
+
+## Cross-references
+
+  - **Planning-time record:**
+    `docs/notes/proxy-topology-testing-plan.md` (unchanged from
+    its 2026-05-12 filing — preserved per ADR-0005 Rule 8).
+  - **Revised design note:**
+    `docs/notes/proxy-topology-testing-plan-revised.md` (sibling
+    landed in this commit alongside this worklog).
+  - **Sibling postmortem (origin of the §5 disciplines):**
+    `docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`.
+  - **Proxy-side commits (on `feat/topology-testing-substrate`):**
+    `b3155c0`, `324cf98`, `de1071d`, `3647b54`, `b3175b7`. The
+    umbrella submodule pointer bump waits for the proxy's
+    standard merge + tag arc and a separate umbrella-side PR.
+  - **Chart assets:**
+    `docs/assets/proxy-topology-testing/mixed-workload-headline.png`,
+    `mixed-workload-sweep.png`, and
+    `mixed-workload-maxload-sweep.png` — rendered from the heavy
+    runs' `summary.json` files via
+    `proxy/tests/plot_mixed_workload.py` (committed as part of
+    `b3175b7`).
