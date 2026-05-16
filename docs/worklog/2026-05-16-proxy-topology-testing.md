@@ -39,7 +39,7 @@ sibling-revised note.
 
 ## What landed
 
-Three commits on the proxy branch:
+Four commits on the proxy branch:
 
   - `b3155c0` — **Tier 2 unit tests** (`tests/test_relay_coalescing.py`,
     `tests/test_relay_load_distribution.py`). 5 tests. PubSubHub +
@@ -56,6 +56,16 @@ Three commits on the proxy branch:
     `_VISITS`, `_UPSTREAMS`); generalised distinct-query generator
     scales to ~130k; scale-aware skew bound (binomial-based,
     capped at 75% for small N).
+  - `3647b54` — **Mixed-workload Tier 3 diagnostic + per-node
+    `extra_env`** (`tests/diagnose_relay_mixed_workload_e2e.py`).
+    Exercises coalescing, distribution, load-aware fallback,
+    latency, and throughput simultaneously under realistic
+    institutional load. Substrate gains
+    `NodeSpec.extra_env: Mapping[str, str]` (merged last in
+    `_build_env`) so the diagnostic can spawn the RELAY with
+    `RELAY_MAX_LOAD=2` — necessary for the load-aware fallback to
+    actually fire under realistic concurrency without burning
+    arbitrary numbers of upstream slots.
 
 ## Topologies under test
 
@@ -144,6 +154,35 @@ flowchart LR
     R -->|"187 (37.4%)"| L3[("LEAF :1237")]
 ```
 
+### Tier 3 — mixed workload (real LEAFs, RELAY_MAX_LOAD=2)
+
+The mixed-workload diagnostic exercises all three router/hub
+concerns simultaneously: a hot-bursts task (H positions × K
+clients each, fired as near-simultaneous bursts using slow
+visits so the canonical stays in-flight long enough to coalesce)
+runs concurrently with a distinct-flow task (D distinct
+positions at bounded concurrency, asymmetric fast/slow mix).
+The RELAY is spawned with `RELAY_MAX_LOAD=2` so the load-aware
+fallback actually fires under realistic concurrency.
+
+```mermaid
+flowchart LR
+    subgraph hot["Hot bursts (5 × 10 = 50 queries, slow 500v)"]
+        H1["pos 1 × 10 burst"]
+        H2["pos 2 × 10 burst"]
+        H3["..."]
+    end
+    subgraph dist["Distinct flow (150 queries, concurrency 20)"]
+        DF["120 fast (50v)"]
+        DS["30 slow (500v)"]
+    end
+    hot --> R[("RELAY (spawned)<br/>RELAY_MAX_LOAD=2")]
+    dist --> R
+    R -->|"50 disp (32.3%)"| L1[("LEAF :1235")]
+    R -->|"52 disp (33.5%)"| L2[("LEAF :1236")]
+    R -->|"53 disp (34.2%)"| L3[("LEAF :1237")]
+```
+
 ### Substrate spawn graph (the Tier 3 TopologySpec)
 
 The substrate declares a graph of nodes; `TopologySpec` validates
@@ -217,6 +256,92 @@ The 187-count on `:1237` is +1.9σ from the binomial mean (167);
 within ordinary variance, well clear of the 5σ bound. Hash-ring
 distribution behaves close to ideal uniform.
 
+### Mixed workload (200 client queries, RELAY_MAX_LOAD=2)
+
+```
+upstreams:           ws://192.168.122.1:1235-1237
+hot:                 5 positions × 10 clients = 50 hot queries (slow)
+distinct:            150 queries (20% slow / 80% fast)
+concurrency:         20
+RELAY_MAX_LOAD:      2
+fast/slow maxVisits: 50 / 500
+total client queries: 200
+
+wall elapsed: 3.3s
+
+Coalescing
+  subscribe events:      155  (expected if perfect: 155)
+  coalesce events:        45  (expected if perfect: 45)
+  coalescing rate:      22.5%
+  hot positions fully coalesced: 5/5 (all 10 clients shared canonical)
+
+Distribution (across upstreams)
+  total dispatches:      155  (expected mean per upstream: 51.7; σ 5.87)
+    ws://192.168.122.1:1235:    50  (32.3%, -0.28σ from mean)
+    ws://192.168.122.1:1236:    52  (33.5%, +0.06σ from mean)
+    ws://192.168.122.1:1237:    53  (34.2%, +0.23σ from mean)
+
+Load-aware fallback
+  fallback dispatches:    46  (dispatch.upstream != HashRing preference)
+  fallback rate:        29.7%
+  per-upstream peak in-flight (max_load=2):
+    ws://192.168.122.1:1235:  7
+    ws://192.168.122.1:1236:  7
+    ws://192.168.122.1:1237:  7
+
+Latency (client-side, ms)
+  All:                  p50=467.8  p95=777.8  p99=836.0  max=1011.6  mean=465.2
+  Hot (slow, coalesced):p50=501.1  p95=743.5  p99=754.0  max= 764.1  mean=558.6
+  Distinct fast:        p50=373.9  p95=756.6  p99=832.8  max= 835.6  mean=392.9
+  Distinct slow:        p50=573.0  p95=859.0  p99=974.7  max=1011.6  mean=605.7
+
+Throughput
+  total: 200 client queries / 3.3s = 59.91 qps
+  per-upstream (dispatches / elapsed):
+    ws://192.168.122.1:1235:  14.98 qps
+    ws://192.168.122.1:1236:  15.58 qps
+    ws://192.168.122.1:1237:  15.88 qps
+
+Sanity checks
+  ok: all 200 client queries returned
+  ok: subscribes + coalesces (200) matches client queries sent
+  ok: subscribes == dispatches (155); every new canonical was dispatched once
+```
+
+Three things are notable in the headline numbers:
+
+1. **Coalescing is perfect.** The hub registered exactly 155
+   subscribes and exactly 45 coalesces — matching expectation to
+   the unit. All 5 hot positions fully coalesced (all 10 clients
+   per hot position shared the canonical). The ready/go-style
+   tight bursting is what makes this near-deterministic.
+
+2. **Distribution stays near-uniform despite saturation.** With
+   `max_load=2` and concurrency=20, upstreams are under sustained
+   saturation pressure; nonetheless the per-upstream dispatch
+   share is 32.3% / 33.5% / 34.2% — all within ±0.3σ of the
+   mean. The hash ring + load fallback together produce
+   close-to-ideal distribution even when the hash-ring
+   preference is regularly unavailable.
+
+3. **Load-aware fallback actively engages.** 29.7% of dispatches
+   went to an upstream that was NOT the hash-ring preference for
+   that canonical — the load-aware walk fired for almost a
+   third of routing decisions. Per-upstream peak in-flight = 7
+   on each upstream, exceeding `max_load=2` because the
+   all-saturated→least-loaded branch fires when concurrency
+   exceeds K × max_load (here 20 > 3 × 2 = 6). That's the second
+   `_select_upstream` branch behaving correctly: under sustained
+   over-saturation, the system distributes new work to the
+   least-loaded upstream rather than dropping or hanging.
+
+Latency p50 numbers are dominated by upstream queueing under the
+sustained over-saturation: even distinct fast queries (50 visits)
+have p50=374ms despite KataGo's per-query time being well under
+100ms — most of the latency is wait-time for an upstream slot.
+At lower concurrency or higher `max_load`, the queue depth drops
+and latency tracks per-query cost more closely.
+
 ## Theoretical context for the skew bound
 
 For RELAY-over-K upstreams with the default 150-replica
@@ -273,6 +398,6 @@ future contributor doesn't re-derive):
   - **Sibling postmortem (origin of the §5 disciplines):**
     `docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`.
   - **Proxy-side commits (on `feat/topology-testing-substrate`):**
-    `b3155c0`, `324cf98`, `de1071d`. The umbrella submodule
-    pointer bump waits for the proxy's standard merge + tag arc
-    and a separate umbrella-side PR.
+    `b3155c0`, `324cf98`, `de1071d`, `3647b54`. The umbrella
+    submodule pointer bump waits for the proxy's standard merge +
+    tag arc and a separate umbrella-side PR.
