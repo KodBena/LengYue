@@ -39,11 +39,11 @@ import {
   type Player,
   type KataCoord,
 } from '../../engine/katago/types';
-import type { BoardId, BoardState } from '../../types';
-import { store, updateBoardState } from '../../store';
+import type { BoardId, BoardState, GameNode, NodeId } from '../../types';
+import { store, mutateBoard, updateBoardState } from '../../store';
 import { applyGoMove } from '../../logic';
 import { gtpToBoard } from './use-move-suggestions';
-import { getPath } from '../../engine/navigator';
+import { getPath, navigateTo } from '../../engine/navigator';
 import {
   getActiveVariationPath,
   getBoardSize,
@@ -422,6 +422,50 @@ export interface PlayEngineMatchSide {
   readonly maxVisits: number;
 }
 
+/**
+ * Per-move delta the match emits to `onMoveApplied`. Replaces the
+ * earlier `(board: BoardState) => void` shape, which conflated two
+ * concepts: the match's internal cursor (where the engine just
+ * played from / to) and the store's user-visible cursor (where
+ * the user is currently looking). Passing the full `BoardState`
+ * forced the consumer to clobber the store wholesale, which in
+ * turn meant any user navigation during the match got snapped
+ * back to the match's cursor on the next move — and, more
+ * insidiously, that the match's local `board` variable was the
+ * same reactive object as the store's board, so user navigation
+ * mid-match mutated the match's cursor and the next engine query
+ * went out from where the user had navigated to.
+ *
+ * The delta-only shape removes both failure modes. The match
+ * carries its own deep-cloned `matchBoard` internally and emits
+ * just the per-move change here; the consumer
+ * (`usePlayMatch.start`'s `onMoveApplied`) does a surgical
+ * `mutateBoard` that appends the new child to the parent (or
+ * bumps `activeChildIndex` for an existing-child reuse) and
+ * navigates the user's view to the new pointer only when they
+ * were tracking — i.e., their `currentNodeId === previousPointer`
+ * at the moment the move lands.
+ */
+export interface MatchMoveApplied {
+  /** The node the match played FROM on this move. */
+  readonly previousPointer: NodeId;
+  /**
+   * The node the match is now at after applying its move. This is
+   * either a freshly-created node (when `newNode !== null`) or an
+   * existing child of `previousPointer` whose move duplicates what
+   * the engine recommended (when `newNode === null`).
+   */
+  readonly newPointer: NodeId;
+  /**
+   * The full `GameNode` for the newly-created child, when the
+   * engine's move did not duplicate an existing child of
+   * `previousPointer`. `null` when the move descended into an
+   * existing child instead — in that case the consumer only needs
+   * to bump the parent's `activeChildIndex`.
+   */
+  readonly newNode: GameNode | null;
+}
+
 export interface PlayEngineMatchOptions {
   readonly katagoUrl: string;
   readonly startBoard: BoardState;
@@ -436,7 +480,14 @@ export interface PlayEngineMatchOptions {
   readonly white: PlayEngineMatchSide;
   readonly perMoveTimeoutMs?: number;
   readonly shouldStop?: () => boolean;
-  readonly onMoveApplied?: (board: BoardState) => void;
+  /**
+   * Fires after each engine move is applied to the match's local
+   * board. The consumer is responsible for reconciling the delta
+   * into the store and deciding whether to follow with the user's
+   * view. See `MatchMoveApplied`'s docstring for the rationale and
+   * the surgical-merge contract.
+   */
+  readonly onMoveApplied?: (delta: MatchMoveApplied) => void;
   /**
    * Optional per-query capability opt-in forwarded verbatim on every
    * query. The match doesn't need `delta_analysis` for its own
@@ -452,27 +503,62 @@ export interface PlayEngineMatchOptions {
 /**
  * Play a match between two engines (or the same engine vs itself)
  * from `startBoard` for `numMoves` moves. Per-iteration the side to
- * move is read from `board.turn`; the corresponding `black` / `white`
- * options supply the SELECTOR `model` (when in SELECTOR mode) and
- * the per-side `maxVisits`.
+ * move is read from `matchBoard.turn`; the corresponding `black` /
+ * `white` options supply the SELECTOR `model` (when in SELECTOR mode)
+ * and the per-side `maxVisits`.
  *
  * Sibling to `playEngineMoves` — that one runs a single configured
- * engine; this one alternates per `board.turn`. The two share helpers
- * (`connectFresh`, `awaitFinalPacket`, `buildAnalyzeQuery`) but the
- * options shapes differ enough that one function with a discriminator
- * would be less clear than two siblings.
+ * engine; this one alternates per `matchBoard.turn`. The two share
+ * helpers (`connectFresh`, `awaitFinalPacket`, `buildAnalyzeQuery`)
+ * but the options shapes differ enough that one function with a
+ * discriminator would be less clear than two siblings.
+ *
+ * **Cursor independence from the store.** The match deep-clones
+ * `opts.startBoard` at the top so the internal `matchBoard` is
+ * fully independent of any reactive store object. Without this,
+ * `mutateBoard` and `navigateTo` (called from the SPA's
+ * user-navigation paths) would mutate the match's cursor and
+ * stones in place via shared object references — and the next
+ * engine query would go out from where the user navigated to,
+ * not from where the match was playing. The per-move
+ * `onMoveApplied` callback emits a `MatchMoveApplied` delta that
+ * lets the consumer reconcile the new node into the store
+ * surgically (and decide independently whether to follow with the
+ * user's view).
  *
  * Connection lifetime spans the whole match — one WS open per call,
  * regardless of how many moves are played; the SELECTOR's per-upstream
  * pool fans alternating queries out per-`model`. Returns the final
- * board state. Does NOT touch the global store; the optional
+ * matchBoard. Does NOT touch the global store; the optional
  * `onMoveApplied` callback is how the composable opt-in to store
  * mirroring.
  */
 export async function playEngineMatch(opts: PlayEngineMatchOptions): Promise<BoardState> {
   const timeoutMs = opts.perMoveTimeoutMs ?? DEFAULT_TIMEOUT_MS;
   const client = await connectFresh(opts.katagoUrl);
-  let board = opts.startBoard;
+  // Deep-clone so the match's local cursor is independent of the
+  // store. JSON round-trip is used deliberately:
+  //   - `structuredClone(opts.startBoard)` throws `DataCloneError`
+  //     when `opts.startBoard` is a Vue reactive proxy (Proxy
+  //     objects aren't in the structured-clone supported-types
+  //     list).
+  //   - `structuredClone(toRaw(opts.startBoard))` only unwraps the
+  //     top level — nested object reads still go through Vue's
+  //     reactivity layer and may yield proxies for the inner
+  //     payloads (`nodes`, `stones`, …), which then trip the
+  //     clone algorithm.
+  //   - `JSON.parse(JSON.stringify(_))` reads every property
+  //     through the proxy's [[Get]] traps (which Vue forwards to
+  //     the underlying data), produces a plain JSON tree, and
+  //     reifies a fresh POJO graph. `BoardState` is a pure POJO
+  //     shape (primitives, `Record`s, arrays, `Point | null`) —
+  //     no Dates / Maps / Sets / functions / undefined-fields-
+  //     that-matter — so the round-trip is lossless. The branded
+  //     `BoardId` / `NodeId` types erase at runtime, so the cast
+  //     back to `BoardState` is honest.
+  // See the docstring above for the rationale on why the match's
+  // cursor must be independent of the store at all.
+  let matchBoard: BoardState = JSON.parse(JSON.stringify(opts.startBoard));
   // Count iterations directly rather than tracking active-path length
   // growth. `applyGoMove` descends into a pre-existing matching child
   // when the engine's top move duplicates an existing variation node,
@@ -489,11 +575,11 @@ export async function playEngineMatch(opts: PlayEngineMatchOptions): Promise<Boa
   let movesPlayed = 0;
   try {
     while (!(opts.shouldStop?.() ?? false) && movesPlayed < opts.numMoves) {
-      const turn = currentTurnNumber(board);
-      const playerColor = board.turn;
+      const turn = currentTurnNumber(matchBoard);
+      const playerColor = matchBoard.turn;
       const side = playerColor === 'B' ? opts.black : opts.white;
       const { query, expectedTurn } = buildAnalyzeQuery(
-        board,
+        matchBoard,
         side.maxVisits,
         `match-${playerColor}-${turn}-${Date.now()}`,
         side.model,
@@ -513,15 +599,26 @@ export async function playEngineMatch(opts: PlayEngineMatchOptions): Promise<Boa
       if (!coords) {
         throw new Error(`playEngineMatch: engine recommended pass at turn ${expectedTurn}`);
       }
-      const next = applyGoMove(board, coords.x, coords.y);
+      const previousPointer = matchBoard.currentNodeId;
+      const next = applyGoMove(matchBoard, coords.x, coords.y);
       if (!next) {
         throw new Error(`playEngineMatch: engine's top move ${best.move} is illegal at turn ${expectedTurn}`);
       }
-      board = next;
+      const newPointer = next.currentNodeId;
+      // Existing-child reuse: when the engine's move duplicates an
+      // existing child of `previousPointer`, `applyGoMove` descends
+      // rather than creates. The consumer's reconciliation only
+      // needs to bump `activeChildIndex` in that case. The
+      // discriminator: was `newPointer` in the BEFORE-move
+      // `matchBoard.nodes`?
+      const isNewNode = !matchBoard.nodes[newPointer];
+      const newNode = isNewNode ? next.nodes[newPointer] : null;
+
+      matchBoard = next;
       movesPlayed++;
-      opts.onMoveApplied?.(board);
+      opts.onMoveApplied?.({ previousPointer, newPointer, newNode });
     }
-    return board;
+    return matchBoard;
   } finally {
     client.disconnect();
   }
@@ -577,14 +674,61 @@ export function usePlayMatch(boardIdRef: Ref<BoardId | null>) {
         white: opts.white,
         perMoveTimeoutMs: opts.perMoveTimeoutMs,
         shouldStop: () => stopRequested,
-        onMoveApplied: (next) => {
-          // Re-resolve the index — concurrent store mutations could
-          // have shifted positions. boardId is stable.
-          const writeIdx = store.boards.findIndex((b) => b.id === boardId);
-          if (writeIdx === -1) {
+        // Surgical merge — bring just the per-move delta into the
+        // store rather than overwriting the board wholesale. The
+        // "user-was-tracking" gate is the literal predicate
+        // `draft.currentNodeId === previousPointer`: if the user
+        // is sitting at the node the match just played from, pull
+        // their view forward to the new pointer; otherwise leave
+        // their navigation alone. This composes with the
+        // "re-track by navigating back" behaviour the spec asks
+        // for — on the *next* move, `previousPointer` will be the
+        // node the user is now at (the move that just landed), so
+        // the gate fires and they resume tracking from there.
+        //
+        // `mutateBoard` confirms the board still exists; the
+        // earlier `updateBoardState` path also re-resolved the
+        // index defensively for the same reason. Without the
+        // existence check, a board closed mid-match would throw
+        // from inside the navigator.
+        onMoveApplied: ({ previousPointer, newPointer, newNode }) => {
+          if (!store.boards.find((b) => b.id === boardId)) {
             throw new Error(`usePlayMatch: board ${boardId} disappeared mid-match`);
           }
-          updateBoardState(writeIdx, next);
+          mutateBoard(boardId, (draft) => {
+            const parent = draft.nodes[previousPointer];
+            if (parent === undefined) {
+              throw new Error(
+                `usePlayMatch: parent node ${previousPointer} missing from board ${boardId}`,
+              );
+            }
+            if (newNode !== null) {
+              // New-node case: append the child to the parent's
+              // children list and add the new node to draft.nodes.
+              // Use `parent.children.length` (the index of the
+              // new entry) as the active-child index, which
+              // matches `applyGoMove`'s convention for fresh
+              // nodes.
+              draft.nodes[previousPointer] = {
+                ...parent,
+                children: [...parent.children, newPointer],
+                activeChildIndex: parent.children.length,
+              };
+              draft.nodes[newPointer] = newNode;
+            } else {
+              // Existing-child reuse: just bump activeChildIndex
+              // so subsequent active-variation walks descend into
+              // the match's variation rather than whatever the
+              // user had selected.
+              const childIdx = parent.children.indexOf(newPointer);
+              if (childIdx !== -1) {
+                draft.nodes[previousPointer] = { ...parent, activeChildIndex: childIdx };
+              }
+            }
+            if (draft.currentNodeId === previousPointer) {
+              navigateTo(draft, newPointer);
+            }
+          });
         },
       });
     } catch (err) {
