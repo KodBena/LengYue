@@ -224,7 +224,7 @@ async function setParamQeuboControlled(name: string, checked: boolean): Promise<
     if (!isRangeValid(meta)) {
       pushSystemMessage(
         'error',
-        `qEUBO: parameter "${name}" needs a valid [min, max] range before it can be marked qeubo_controlled.`,
+        `PBO: parameter "${name}" needs a valid [min, max] range before it can be marked qeubo_controlled.`,
       );
       return;
     }
@@ -247,7 +247,7 @@ async function setParamQeuboControlled(name: string, checked: boolean): Promise<
   try {
     if (controlled.length === 0) {
       await qeubo.abortExperiment();
-      pushSystemMessage('info', 'qEUBO experiment dissolved (no controlled parameters).');
+      pushSystemMessage('info', 'PBO experiment dissolved (no controlled parameters).');
     } else {
       await qeubo.startNewExperiment(controlled);
       pushSystemMessage(

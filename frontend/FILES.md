@@ -101,9 +101,9 @@ frontend/src/
 │   ├── knobs/                               Per-knob widgets for the knob-registry editor surfaces.
 │   │   └── KnobSlider.vue             [B1]  Unified scalar slider — substrate-aware read/write, claim-state disable (Phase 3b).
 │   │
-│   ├── qeubo/                               qEUBO calibration UI surfaces.
+│   ├── qeubo/                               PBO (preference-based Bayesian optimisation) calibration UI surfaces. Code path retains the `qeubo` identifier (matches `useQeubo` / `qeubo-service.ts` / `/qeubo/*` routes); user-facing label is PBO.
 │   │   ├── QeuboBookmarks.vue         [B1]  Bookmark list (A/B candidates). Independent of experiment lifecycle.
-│   │   └── QeuboToolbar.vue           [B1]  Audition toggle / verdict pair / apply / pin / phase indicator.
+│   │   └── PboPopover.vue             [B1]  Toolbar hover popover — phase badge + audition toggle / verdict pair / apply / pin / debug. Consumes useHoverPopover.
 │   │
 │   └── tree/                                Tree-shaped surfaces: game tree, forest directory, timeline.
 │       ├── ForestDirectory.vue        [B2]  Master-Detail database explorer (Decks tab + Browse tab + chart).
@@ -155,6 +155,7 @@ frontend/src/
 │   │   └── useThumbnailCache.ts       [B3]  Shared board-thumbnail cache (module-scoped Map).
 │   │
 │   ├── chrome/                               UI-shell composables.
+│   │   ├── useHoverPopover.ts         [B1]  Hover-intent open/close primitive (open ref + mouseenter/mouseleave + 150 ms close-grace timer) shared by toolbar popovers.
 │   │   ├── useLocale.ts               [B1]  Locale read/write through GlobalStore + supported-locale registry.
 │   │   └── useResizablePanel.ts       [B2]  Horizontal resize-bar between tree and control panels.
 │   │

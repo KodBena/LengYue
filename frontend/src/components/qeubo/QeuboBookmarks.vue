@@ -1,6 +1,6 @@
 <!--
   src/components/qeubo/QeuboBookmarks.vue
-  Saved-bookmark list for qEUBO calibration. Independent of the
+  Saved-bookmark list for PBO calibration. Independent of the
   experiment lifecycle (per dispatch v1.2 §3.6 — bookmarks survive
   experiment changes, deletions, etc.).
   License: Public Domain (The Unlicense)
