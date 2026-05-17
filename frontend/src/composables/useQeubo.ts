@@ -303,21 +303,21 @@ function acquireExperimentClaims(controlledParams: readonly string[]): KnobId[] 
       // throw rather than silent slip-through. ADR-0002.
       for (const a of acquired) releaseKnob(a, QEUBO_CONSUMER_ID);
       throw new Error(
-        `qEUBO: parameter "${name}" has no range — cannot synthesize a KnobDecl.`,
+        `PBO: parameter "${name}" has no range — cannot synthesize a KnobDecl.`,
       );
     }
     const knobId = ensureKnobDecl(name, range);
     const result = claimKnob(knobId, {
       consumerId: QEUBO_CONSUMER_ID,
       policy: 'hard',
-      reason: 'qEUBO experiment in progress',
+      reason: 'PBO experiment in progress',
     });
     if (result.kind === 'rejected') {
       // Roll back every claim acquired in this loop so the substrate
       // doesn't carry a partial-acquire state.
       for (const a of acquired) releaseKnob(a, QEUBO_CONSUMER_ID);
       throw new Error(
-        `qEUBO: cannot claim knob "${knobId}" — currently held by ` +
+        `PBO: cannot claim knob "${knobId}" — currently held by ` +
         `"${result.holder.consumerId}" (${result.holder.reason ?? 'no reason given'}).`,
       );
     }
@@ -368,7 +368,7 @@ function rehydrateExperimentClaims(): void {
     const result = claimKnob(knobId, {
       consumerId: QEUBO_CONSUMER_ID,
       policy: 'hard',
-      reason: 'qEUBO experiment in progress',
+      reason: 'PBO experiment in progress',
     });
     if (result.kind === 'rejected') {
       console.warn(
@@ -522,7 +522,7 @@ async function bootstrap(): Promise<void> {
 
 async function startNewExperiment(controlledParams: string[]): Promise<void> {
   if (controlledParams.length === 0) {
-    throw new Error('qEUBO: cannot start an experiment with zero controlled parameters.');
+    throw new Error('PBO: cannot start an experiment with zero controlled parameters.');
   }
   const pm = store.profile.settings.engine.katago.analysis_env.parameter_meta ?? {};
   const ranges: Record<string, [number, number]> = {};
@@ -530,7 +530,7 @@ async function startNewExperiment(controlledParams: string[]): Promise<void> {
     const meta = pm[name];
     if (!meta?.range) {
       throw new Error(
-        `qEUBO: parameter "${name}" has no [min, max] range in parameter_meta. ` +
+        `PBO: parameter "${name}" has no [min, max] range in parameter_meta. ` +
         `Set the range in the Analysis Environment editor before enabling qeubo_controlled.`,
       );
     }
@@ -621,7 +621,7 @@ async function abortExperiment(): Promise<void> {
 async function submitPreference(preferred: 0 | 1): Promise<void> {
   const pair = _pairRef.value;
   if (!pair) {
-    throw new Error('qEUBO: cannot submit preference without a pending pair.');
+    throw new Error('PBO: cannot submit preference without a pending pair.');
   }
   _isBusyRef.value = true;
   try {
@@ -746,7 +746,7 @@ function reset(): void {
 function pinCurrent(name: string): void {
   const trimmed = name.trim();
   if (!trimmed) {
-    throw new Error('qEUBO: bookmark name must be non-empty.');
+    throw new Error('PBO: bookmark name must be non-empty.');
   }
   const eff = _effectiveParameterValues.value;
   const bookmark: QeuboBookmark = {
@@ -827,7 +827,7 @@ function applyBookmark(id: BookmarkId): void {
 function renameBookmark(id: BookmarkId, newName: string): void {
   const trimmed = newName.trim();
   if (!trimmed) {
-    throw new Error('qEUBO: bookmark name must be non-empty.');
+    throw new Error('PBO: bookmark name must be non-empty.');
   }
   const list = store.profile.qeuboPinnedBookmarks ?? [];
   const bookmark = list.find((b) => b.id === id);

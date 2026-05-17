@@ -5,7 +5,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import QeuboToolbar from '../qeubo/QeuboToolbar.vue';
+import PboPopover from '../qeubo/PboPopover.vue';
 import EngineQueueTooltip from './EngineQueueTooltip.vue';
 import ToolbarSliderPopover from './ToolbarSliderPopover.vue';
 import { store, setSelectedModel, activeBoard } from '../../store';
@@ -284,11 +284,18 @@ const scoreLeadDisplay = computed(() => {
          the discipline this placement preserves. -->
     <ToolbarSliderPopover />
 
-    <!-- qEUBO calibration cluster. Self-gating: renders only when an
-         experiment exists. Sits between metrics and engine controls
-         so it shares horizontal space with engine telemetry without
-         competing for the title region. -->
-    <QeuboToolbar />
+    <!-- PBO (preference-based Bayesian optimisation) calibration
+         popover. Self-gating on `calibrationEnabled &&
+         experimentExists` — feature constraint, not an inherited
+         engine-lifecycle gate (see
+         `docs/notes/postmortem-knob-toolbar-popover-2026-05.md`
+         for the band-coherence discipline). Sits between metrics
+         and engine controls so it shares horizontal space with
+         engine telemetry without competing for the title region.
+         The user-facing name is PBO; code identifiers and the
+         backend's `/qeubo/*` routes retain `qeubo` (the
+         acquisition function / library name). -->
+    <PboPopover />
 
     <div class="engine-controls">
       <button class="toolbar-btn highlight-btn" @click="emit('mint-card')">{{ $t('toolbar.mintCard') }}</button>

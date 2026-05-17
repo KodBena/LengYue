@@ -82,7 +82,7 @@ function extractStatus(err: unknown): number | null {
 function narrowPhase(s: string): QeuboPhase {
   if (s === 'init' || s === 'optimization') return s;
   throw new Error(
-    `qEUBO: backend reported phase=${JSON.stringify(s)}, expected 'init' or 'optimization'.`,
+    `PBO: backend reported phase=${JSON.stringify(s)}, expected 'init' or 'optimization'.`,
   );
 }
 
@@ -257,9 +257,9 @@ export class QeuboService {
 // ─── Error mapping ──────────────────────────────────────────────────────────
 
 const ERROR_MESSAGES = {
-  disabled: 'qEUBO calibration is not enabled on this backend (QEUBO_ENABLED=False).',
-  'no-experiment': 'No qEUBO experiment exists for the current user.',
-  'init-not-ready': 'qEUBO model not yet fitted; collect more init responses before asking for a posterior best.',
+  disabled: 'PBO calibration is not enabled on this backend (QEUBO_ENABLED=False).',
+  'no-experiment': 'No PBO experiment exists for the current user.',
+  'init-not-ready': 'PBO model not yet fitted; collect more init responses before asking for a posterior best.',
 } as const;
 
 /**

@@ -11,17 +11,13 @@
   Empty queue keeps the badge visible but dimmed; non-empty queue
   brightens it and shows the count.
 
-  Hover behaviour mirrors `ToolbarSliderPopover`: hover-open
-  boolean plus a hover-intent grace timer. The popover sits flush
-  against the badge (no `margin-top` dead zone) so the common
-  case is gap-less; the ~150ms close timer on `mouseleave`
-  handles overshoot. The grace timer is cancelled on any
-  subsequent `mouseenter` of the wrapper, which covers reentering
-  the badge or entering the popover (a DOM descendant). Both
-  popovers in `chrome/` carry the same shape; see the worklog
-  entry at `docs/worklog/2026-05-14-popover-hover-finickiness.md`
-  for the recurring-pattern audit note (third instance → extract
-  a composable).
+  Hover behaviour is provided by `useHoverPopover` (extracted on
+  2026-05-17 when the third instance — `PboPopover` — triggered
+  the composable-extraction threshold flagged in
+  `docs/worklog/2026-05-14-popover-hover-finickiness.md`). The
+  popover sits flush against the badge (no `margin-top` dead
+  zone) so the common case is gap-less; the composable's ~150ms
+  close-grace timer handles overshoot.
 
   Domain band (ADR-0003): truly agnostic. The strings the panel
   renders are about queries, models, turns, and visits — KataGo
@@ -31,45 +27,14 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from 'vue';
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQueryTelemetry, type InFlightQuery } from '../../composables/useQueryTelemetry';
+import { useHoverPopover } from '../../composables/chrome/useHoverPopover';
 
 const { t } = useI18n();
 const { inFlight, cancelQuery } = useQueryTelemetry();
-
-const open = ref(false);
-
-// Hover-intent close timer. Non-reactive `let` — it's a resource
-// handle, not state to render. Cleared on mouseenter into the
-// wrapper (including any descendant — the popover counts) and on
-// unmount per the resource-ownership-at-mutation-sites discipline
-// in `frontend/CLAUDE.md`. The 150ms grace window is the typical
-// pointer-overshoot reaction time; smaller feels finicky, larger
-// feels sluggish on intentional close. Same shape lives in
-// `ToolbarSliderPopover.vue`.
-let closeTimer: ReturnType<typeof setTimeout> | null = null;
-const CLOSE_DELAY_MS = 150;
-
-function onMouseEnter(): void {
-  if (closeTimer !== null) {
-    clearTimeout(closeTimer);
-    closeTimer = null;
-  }
-  open.value = true;
-}
-
-function onMouseLeave(): void {
-  if (closeTimer !== null) clearTimeout(closeTimer);
-  closeTimer = setTimeout(() => {
-    open.value = false;
-    closeTimer = null;
-  }, CLOSE_DELAY_MS);
-}
-
-onUnmounted(() => {
-  if (closeTimer !== null) clearTimeout(closeTimer);
-});
+const { open, onMouseEnter, onMouseLeave } = useHoverPopover();
 
 const count = computed(() => inFlight.value.length);
 
