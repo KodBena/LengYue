@@ -40,6 +40,7 @@ import RegistryEditor   from './components/editors/RegistryEditor.vue';
 import PaletteEditor    from './components/editors/PaletteEditor.vue';
 import CardSetEditor    from './components/editors/CardSetEditor.vue';
 import AnalysisControls from './components/editors/AnalysisControls.vue';
+import FOptimizerPanel  from './components/FOptimizerPanel.vue';
 import Toolbar          from './components/chrome/Toolbar.vue';
 import StatusBar        from './components/board/StatusBar.vue';
 import MintCardModal    from './components/modals/MintCardModal.vue';
@@ -418,6 +419,13 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
                   <summary><h3 class="sub-header">{{ $t('settings.section.sessionUI') }}</h3></summary>
                   <div class="registry-container">
                     <RegistryEditor :registry="store.session.ui" :defaults="DEFAULTS.session" @update="handleSessionUpdate"/>
+                  </div>
+                </details>
+
+                <details class="settings-section section-divider">
+                  <summary><h3 class="sub-header">{{ $t('settings.section.fOptimizer') }}</h3></summary>
+                  <div style="margin-top: var(--space-medium);">
+                    <FOptimizerPanel />
                   </div>
                 </details>
               </div>

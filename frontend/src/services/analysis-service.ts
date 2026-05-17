@@ -38,6 +38,7 @@ import {
 } from './analysis-config';
 import { KATAGO_WS_URL } from '../config/env';
 import { KATAGO_FIRST_REPORT_FLOOR_S } from '../engine/katago/limits';
+import { effectiveFirstReportS } from './optimize-f-cache';
 import { i18n } from '../i18n';
 import { useQueryTelemetry } from '../composables/useQueryTelemetry';
 
@@ -564,21 +565,27 @@ export class AnalysisService {
       // recorded analysis.
       ...(isRealtime ? {
         reportDuringSearchEvery: store.profile.settings.engine.katago.reportDuringSearchEvery,
-        // Clamp to [KATAGO_FIRST_REPORT_FLOOR_S, cadence]. The inner
-        // `Math.max(floor, stored)` enforces the upstream-cliff
-        // workaround (KataGo silently substitutes cadence for first-
-        // report timings below ~25ms; see limits.ts and the diagnosis
-        // worklog). The outer `Math.min(cadence, _)` enforces the
-        // semantic invariant that first-report ≤ cadence — sending a
-        // first-report larger than cadence would delay first-paint
-        // past what would have been the second regular report. When
-        // the user's cadence is itself below the floor, the outer
-        // Math.min wins (cadence pin), correctly degrading the
-        // first-paint promise to "cadence tick" since the upstream
-        // cliff makes sub-cadence first-paint impossible there.
+        // Effective F resolution:
+        //   1. If `optimize-f-cache` has an entry for the current
+        //      (selectedModel, cadence-bucket), use its `fS` directly.
+        //      The optimizer characterised the cliff for *this* model
+        //      empirically, so KATAGO_FIRST_REPORT_FLOOR_S — a defensive
+        //      hardcoded value picked for the original tested model —
+        //      no longer needs to apply.
+        //   2. Otherwise, fall back to the slider value, clamped up to
+        //      KATAGO_FIRST_REPORT_FLOOR_S so the upstream-cliff
+        //      workaround still applies (the user hasn't run the
+        //      optimizer for this configuration yet, so we don't know
+        //      the cliff position for sure).
+        //   3. Either way, clamp down to cadence so first-report ≤
+        //      reportDuringSearchEvery (a first-report later than the
+        //      second regular report is semantically incoherent).
         firstReportDuringSearchAfter: Math.min(
           store.profile.settings.engine.katago.reportDuringSearchEvery,
-          Math.max(
+          effectiveFirstReportS(
+            store.engine.selectedModel,
+            store.profile.settings.engine.katago.reportDuringSearchEvery,
+          ) ?? Math.max(
             KATAGO_FIRST_REPORT_FLOOR_S,
             store.profile.settings.engine.katago.firstReportDuringSearchAfter,
           ),
@@ -762,15 +769,16 @@ export class AnalysisService {
       // even if the stored leaves drift apart (see the
       // analyzeRange site for the matching pattern).
       reportDuringSearchEvery: store.profile.settings.engine.katago.reportDuringSearchEvery,
-      // Same clamp shape as analyzeRange's site above:
-      // `min(cadence, max(floor, stored))`. KATAGO_FIRST_REPORT_FLOOR_S
-      // is the SPA-side workaround for the upstream cliff (see
-      // limits.ts); the outer min preserves the
-      // `firstReportDuringSearchAfter ≤ reportDuringSearchEvery`
-      // semantic invariant.
+      // Same effective-F resolution as analyzeRange's site above: cache
+      // entry wins if present (model-specific cliff characterisation),
+      // otherwise clamp-up to the upstream-cliff floor. See the
+      // analyzeRange comment block for the full rationale.
       firstReportDuringSearchAfter: Math.min(
         store.profile.settings.engine.katago.reportDuringSearchEvery,
-        Math.max(
+        effectiveFirstReportS(
+          store.engine.selectedModel,
+          store.profile.settings.engine.katago.reportDuringSearchEvery,
+        ) ?? Math.max(
           KATAGO_FIRST_REPORT_FLOOR_S,
           store.profile.settings.engine.katago.firstReportDuringSearchAfter,
         ),
