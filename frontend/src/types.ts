@@ -1194,6 +1194,19 @@ export interface UISession {
   // `composables/useForestNavigation.ts` for the render-shape
   // projection.
   forestNav: ForestNavState;
+  // Per-board card-tree navigator state — persists the manual-expand
+  // axis the `CardTreeWidget` mutates on stub / bucket clicks so a
+  // board re-opened mid-session (or in a fresh browser session)
+  // restores the user's exploration path through the card forest.
+  // Schema-version 45 introduces the field. See `CardTreeNavState`
+  // declaration below for the persistence shape. Per-board cleanup
+  // fires from `closeBoard` (audit pair O14); `resetWorkspace`
+  // clears the whole dictionary via the `defaultSessionUI` reset.
+  // Per-slot cleanup also fires from `useCardTreeData::reset` so the
+  // user's exploration choices clear alongside the data they were
+  // applied to — they are no longer meaningful against the new
+  // forest.
+  cardTreeNav: Partial<Record<BoardId, CardTreeNavState>>;
 }
 
 export type CardId = Brand<number, 'CardId'>;
@@ -1228,6 +1241,21 @@ export type NavSelection =
 export interface ForestNavState {
   expanded: NavNodeId[];
   selection: NavSelection | null;
+}
+
+// ── Card-tree navigator persistence (UISession.cardTreeNav) ──────────────────
+//
+// Per-board manual-expand state for the `CardTreeWidget`. Keys come
+// from the projection's two key shapes (see `useCardTreeProjection.ts`):
+// `String(cardId)` for individual card expansion (cold internals
+// revealed by stub-click) and `bucket:${parentCardId}` for cold-leaf
+// bucket expansion. Schema-version 45 introduces the field.
+//
+// Array (not Set) so the value JSON-round-trips through SyncService
+// cleanly; `useCardTreeData::manualExpand` projects it into a
+// `ReadonlySet<string>` for the `useCardTreeProjection` contract.
+export interface CardTreeNavState {
+  manuallyExpanded: string[];
 }
 
 // ── Value Objects (readonly preserved) — SR domain ────────────────────────────

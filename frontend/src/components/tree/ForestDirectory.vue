@@ -401,11 +401,14 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
           :active-set="tree.activeSet.value"
           :cards="tree.cards.value"
           :forest-stats="tree.forestStats.value"
+          :manual-expand="tree.manualExpand.value"
           :orientation="orientation"
           :current-card-id="currentCardId"
           :selected-card-id="selectedCardId"
           @node-click="handleNodeClick"
           @request-card="tree.requestCard"
+          @toggle-manual-expand="tree.toggleManualExpand"
+          @collapse-tree="tree.clearManualExpandForTree"
         />
       </div>
 

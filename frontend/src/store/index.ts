@@ -146,6 +146,59 @@ export function mutateReviewSession(boardId: BoardId, fn: (draft: ReviewSessionD
   store.session.reviews[boardId] = { ...review };
 }
 
+/**
+ * Toggle a manual-expand key for the given board's card-tree
+ * navigator. Keys come from `useCardTreeProjection` —
+ * `String(cardId)` for stub expansion or `bucket:${parentCardId}`
+ * for cold-leaf bucket expansion. Creates the per-board slot on
+ * first call; entries persist through SyncService alongside the
+ * rest of `session.ui`.
+ *
+ * Reassigns the slot object (and its `manuallyExpanded` array) so
+ * SyncService's deep-watch picks up the mutation — mirrors the
+ * named-mutator discipline `useForestNavigation` already follows
+ * for the sibling `forestNav.expanded` field.
+ */
+export function toggleCardTreeManualExpand(boardId: BoardId, key: string): void {
+  const cur = store.session.ui.cardTreeNav[boardId];
+  if (!cur) {
+    store.session.ui.cardTreeNav[boardId] = { manuallyExpanded: [key] };
+    return;
+  }
+  const has = cur.manuallyExpanded.includes(key);
+  store.session.ui.cardTreeNav[boardId] = {
+    ...cur,
+    manuallyExpanded: has
+      ? cur.manuallyExpanded.filter(k => k !== key)
+      : [...cur.manuallyExpanded, key],
+  };
+}
+
+/**
+ * Replace the per-board manually-expanded array wholesale. Empty
+ * input drops the slot (vacuous-slot housekeeping so an empty
+ * board doesn't carry an empty entry); non-empty input reassigns
+ * the slot object with a fresh copy of the array so SyncService's
+ * deep-watch picks up the change.
+ *
+ * Used by `useCardTreeData::clearManualExpandForTree` to apply a
+ * per-tree clear without affecting other trees' expansion entries
+ * stored under the same board's slot. The single-key
+ * `toggleCardTreeManualExpand` covers the common case; this
+ * mutator covers the bulk replacement case. Per-board cleanup on
+ * board close happens inline in `closeBoard` (audit pair O14),
+ * not through a mutator.
+ */
+export function setCardTreeManualExpand(boardId: BoardId, keys: readonly string[]): void {
+  if (keys.length === 0) {
+    if (store.session.ui.cardTreeNav[boardId] !== undefined) {
+      delete store.session.ui.cardTreeNav[boardId];
+    }
+    return;
+  }
+  store.session.ui.cardTreeNav[boardId] = { manuallyExpanded: [...keys] };
+}
+
 export function addBoard(boardState: BoardState): void {
   store.boards.push(boardState);
   store.activeBoardIndex = store.boards.length - 1;
@@ -222,6 +275,12 @@ export function setActiveBoard(index: number): void {
  *      which they can't, so it's effectively orphan storage). The
  *      api-client surfaces non-2xx via the system log; no need
  *      to double-handle here. Resource-ownership audit O13.
+ *   9. delete store.session.ui.cardTreeNav[boardId] — drops the
+ *      per-board card-tree manual-expand slot. Without it, dead
+ *      entries accumulate in `session.ui.cardTreeNav` and round-
+ *      trip to the backend via SyncService (same SyncService-payload
+ *      concern as #3 and #4). Resource-ownership audit O14
+ *      (schema-version 45 introduces the slice).
  *
  * Order matters: stop the engine before purging the ledger so an
  * in-flight packet can't land between the two and re-populate the
@@ -261,12 +320,14 @@ export function closeBoard(boardId: BoardId): void {
   // surfaces non-2xx via the system log if it matters. Audit O13.
   analysisPersistenceService.discard(boardId).catch(() => { /* surfaced via api-client's system-message push */ });
 
-  // Drop the per-board workspace dictionary entries. Both keys are
-  // owned by this BoardId and have no meaning once the board is
+  // Drop the per-board workspace dictionary entries. All three keys
+  // are owned by this BoardId and have no meaning once the board is
   // gone; persisting them via SyncService would just bloat the
-  // user's document with tombstones over time.
+  // user's document with tombstones over time. Audit pairs O2 / O3
+  // / O14.
   delete store.session.reviews[boardId];
   delete store.engine.activeMode[boardId];
+  delete store.session.ui.cardTreeNav[boardId];
 
   // Abort any in-flight review-analysis wait for this board so the
   // 30s timeout doesn't fire later and resurrect the reviews row

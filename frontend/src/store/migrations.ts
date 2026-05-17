@@ -77,7 +77,7 @@ import { archivedMigrations, type Migration } from './archived-migrations';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 44;
+export const CURRENT_SCHEMA_VERSION = 45;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -105,56 +105,6 @@ export const CURRENT_SCHEMA_VERSION = 44;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 42 → 43: KataGo first-report-after upstream-cliff floor. Adds
-  // `inputs[0].minFloor = 0.035` to the persisted
-  // `engine.first-report-during-search-after` KnobDecl so existing
-  // users' slider widget enforces the floor exactly as fresh
-  // installs do. Companion to the wire-side clamp in
-  // `services/analysis-service.ts` that reads
-  // `KATAGO_FIRST_REPORT_FLOOR_S` from `engine/katago/limits.ts`.
-  //
-  // The floor is the empirically-characterised SPA-side workaround
-  // for an upstream KataGo cliff at ~25 ms — KataGo silently
-  // substitutes the cadence value for sub-floor first-report
-  // timings. Diagnosis arc and reproducers are staged at
-  // `~/katago_bugreport`; the umbrella worklog at
-  // `docs/worklog/2026-05-15-katago-first-report-cliff-diagnosis.md`
-  // names the upstream-bug filing trigger that would let this
-  // floor (and this migration's annotation) retire.
-  //
-  // Idempotent: a decl whose `inputs[0].minFloor` is already a
-  // finite number is preserved unchanged (a user-tuned value, or
-  // a forward-compat install where this migration has already
-  // run). A decl whose `inputs[0]` shape doesn't match what the
-  // cadence-knobs migration seeded is left alone — defensive
-  // against hand-edited blobs.
-  //
-  // Hardcodes 0.035 (the value of `KATAGO_FIRST_REPORT_FLOOR_S`
-  // at the time of authoring) rather than importing the
-  // constant, per migrations.ts's append-only invariant: a
-  // shipped migration's behaviour is frozen, and importing a
-  // mutable constant would let a future change silently retroactively
-  // alter what blobs in the wild were migrated to.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const knobs = out.profile?.settings?.knobs;
-    if (knobs && typeof knobs === 'object' && !Array.isArray(knobs)) {
-      const decl = (knobs as Record<string, unknown>)['engine.first-report-during-search-after'];
-      if (decl && typeof decl === 'object') {
-        const inputs = (decl as { inputs?: unknown }).inputs;
-        if (Array.isArray(inputs) && inputs.length > 0) {
-          const first = inputs[0];
-          if (first && typeof first === 'object') {
-            const f = (first as { minFloor?: unknown }).minFloor;
-            if (typeof f !== 'number' || !Number.isFinite(f)) {
-              (first as { minFloor?: unknown }).minFloor = 0.035;
-            }
-          }
-        }
-      }
-    }
-    return out;
-  },
   // 43 → 44: backfill `session.ui.loadSgfAtLastNode` (boolean,
   // default false). The flag opts the user into a post-load walk
   // to the active variation's leaf in `useSgfLoader.loadFile` —
@@ -173,6 +123,35 @@ export const migrations: Migration[] = [
       const u = ui as { loadSgfAtLastNode?: unknown };
       if (typeof u.loadSgfAtLastNode !== 'boolean') {
         u.loadSgfAtLastNode = false;
+      }
+    }
+    return out;
+  },
+  // 44 → 45: backfill `session.ui.cardTreeNav` (Partial<Record<BoardId,
+  // CardTreeNavState>>, default {}). The field persists the
+  // `CardTreeWidget`'s manual-expand axis per board so a board re-
+  // opened mid-session (or after a browser reload) restores the
+  // user's exploration path through the card forest. Item 1 of the
+  // post-v1.1.0 follow-up list — previously the expand state lived
+  // in a per-mount `ref<Set<string>>` and was lost on every
+  // navigation.
+  //
+  // Idempotent: a pre-existing plain-object value is preserved
+  // unchanged (so users who already have entries from a hand-edited
+  // blob or a prior forward-compat install keep them). A
+  // non-object / null / array value is replaced with `{}` — the
+  // shape contract is strict.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = out.session?.ui;
+    if (ui && typeof ui === 'object') {
+      const u = ui as { cardTreeNav?: unknown };
+      const cur = u.cardTreeNav;
+      const isPlainObject =
+        cur !== null && cur !== undefined &&
+        typeof cur === 'object' && !Array.isArray(cur);
+      if (!isPlainObject) {
+        u.cardTreeNav = {};
       }
     }
     return out;

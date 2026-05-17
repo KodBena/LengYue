@@ -7,8 +7,17 @@
   active/context/stub/bucket projection lives in
   `useCardTreeProjection`; chart lifecycle in
   `useEChartsForestRender`; the ECharts shape adapter in
-  `card-tree-echarts.ts`. This SFC owns manual-expand state, lazy
-  card-hydration requests, click dispatch, and presentation chrome.
+  `card-tree-echarts.ts`.
+
+  Pure presenter: manual-expand state arrives as a `ReadonlySet<string>`
+  prop and stub / bucket clicks emit `'toggle-manual-expand'` for the
+  parent to wire (typically `useCardTreeData::toggleManualExpand`,
+  which writes to the persisted `session.ui.cardTreeNav[boardId]`
+  slice — schema-version 45). Per-mount component state is limited to
+  accordion-expand (per-tree section) and lazy-hydration bookkeeping.
+
+  Lazy card-hydration requests, click dispatch, and presentation
+  chrome remain owned here.
 
   License: Public Domain (The Unlicense)
 -->
@@ -42,6 +51,13 @@ const props = withDefaults(
     activeSet: ReadonlySet<CardId>;
     cards: ReadonlyMap<CardId, ReviewCard>;
     forestStats: ReadonlyMap<CardId, ForestStat>;
+    // Manual-expand axis the widget projects against. Owned by the
+    // parent (via `useCardTreeData::manualExpand`, which reads from
+    // `store.session.ui.cardTreeNav[boardId]` — schema-version 45);
+    // stub / bucket clicks emit `'toggle-manual-expand'` for the
+    // parent to wire. Pure data-in / event-out shape, matching the
+    // other inputs to this widget.
+    manualExpand: ReadonlySet<string>;
     orientation?: 'horizontal' | 'vertical';
     maxNodes?: number;
     // Optional render-time overlay: when set, the matching `card` or
@@ -70,19 +86,32 @@ const emit = defineEmits<{
   (e: 'node-leave'): void;
   (e: 'request-card', cardId: CardId): void;
   (e: 'overflow', payload: { renderedNodeCount: number; cap: number }): void;
+  // Stub or bucket click — parent toggles persisted state. Key is
+  // `String(cardId)` for stubs or `bucket:${parentCardId}` for
+  // buckets, matching `useCardTreeProjection::cardExpandKeyFor` /
+  // `bucketIdFor`.
+  (e: 'toggle-manual-expand', key: string): void;
+  // "Collapse all" click on a tree's header — parent clears every
+  // manual-expand key belonging to that tree, leaving other trees'
+  // expansion entries (under the same board's persisted slot)
+  // intact.
+  (e: 'collapse-tree', rootCardId: CardId): void;
 }>();
 
-// State: manual-expand (per-node stub/bucket), accordion-expand
-// (per-tree section). Both reset on full input replacement.
+// Per-mount accordion-expand (per-tree section). manualExpand is a
+// prop now (parent-owned and persisted via the store); the data-layer
+// `useCardTreeData::reset` clears it when forest / activeSet are
+// replaced, so the widget no longer needs to mirror that reset.
 
-const manualExpand = ref<Set<string>>(new Set());
 const expandedRootId = ref<CardId | null>(null);
 
-// Composable expects `Set<CardId>`; widening from `ReadonlySet` is
-// safe here because the projection is read-only over its inputs.
+// Composable expects `Ref<Set<CardId>>` / `Ref<Set<string>>`;
+// widening from the `ReadonlySet`-typed props is safe here because
+// the projection is read-only over its inputs.
 const forestRef = computed(() => props.forest);
 const activeSetRef = computed(() => props.activeSet as Set<CardId>);
-const { renderForest } = useCardTreeProjection(forestRef, activeSetRef, manualExpand);
+const manualExpandRef = computed(() => props.manualExpand as Set<string>);
+const { renderForest } = useCardTreeProjection(forestRef, activeSetRef, manualExpandRef);
 
 const { resetHydration } = useCardTreeHydration(
   renderForest,
@@ -91,7 +120,6 @@ const { resetHydration } = useCardTreeHydration(
 );
 
 watch([() => props.forest, () => props.activeSet], () => {
-  manualExpand.value = new Set();
   resetHydration();
 });
 
@@ -116,20 +144,20 @@ watch(totalRendered, n => {
   if (n > props.maxNodes) emit('overflow', { renderedNodeCount: n, cap: props.maxNodes });
 });
 
-// Click dispatch: cards bubble up; stubs / buckets toggle
-// manual-expand. New Set instance so the projection's reactivity
-// sees the change.
+// Click dispatch: cards bubble up; stubs / buckets emit
+// `'toggle-manual-expand'` for the parent to wire to the persisted
+// slice. The parent's mutator reassigns the array (per the named-
+// mutator discipline), the `manualExpand` prop re-projects, and the
+// `useCardTreeProjection` computed re-fires.
 function handleClick(payload: NodePayload): void {
   if (payload.kind === 'card') {
     emit('node-click', { cardId: payload.cardId, role: payload.role });
     return;
   }
-  const next = new Set(manualExpand.value);
   const key = payload.kind === 'stub'
     ? cardExpandKeyFor(payload.cardId)
     : payload.bucketId;
-  if (next.has(key)) next.delete(key); else next.add(key);
-  manualExpand.value = next;
+  emit('toggle-manual-expand', key);
 }
 
 function handleHover(payload: NodePayload, x: number, y: number): void {
@@ -195,6 +223,18 @@ watch(
         >{{ headerLineFor(tree, props.forestStats).title }}</div>
         <div class="meta">{{ headerLineFor(tree, props.forestStats).meta }}</div>
         <div class="counts">{{ headerLineFor(tree, props.forestStats).counts }}</div>
+        <!-- "Collapse all" — shown only on the currently-expanded
+             tree-section's header. Clears every manual-expand key
+             belonging to this tree (other trees' entries under the
+             same board are preserved). `.stop` so the click doesn't
+             also toggle the accordion. -->
+        <button
+          v-if="tree.rootCardId === expandedRootId"
+          type="button"
+          class="collapse-all-btn"
+          :title="$t('cards.lineage.collapseAllTooltip')"
+          @click.stop="emit('collapse-tree', tree.rootCardId)"
+        >{{ $t('cards.lineage.collapseAll') }}</button>
       </div>
       <div
         v-if="tree.rootCardId === expandedRootId"
@@ -257,6 +297,12 @@ watch(
 .tree-header .title { font-size: var(--text-emphasis); color: var(--text-0); font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tree-header .meta { font-size: var(--text-body); color: var(--text-2); white-space: nowrap; }
 .tree-header .counts { margin-left: auto; font-size: var(--text-body); color: var(--accent-primary); white-space: nowrap; }
+/* "Collapse all" button on the expanded tree-section's header.
+   Matches the toolbar-btn aesthetic (compact, monospace, accent
+   colour) so it reads as a chrome action rather than a content
+   element. Visible only on the expanded tree; renders flush to
+   the right edge of the header beside `counts`. */
+.collapse-all-btn { background: var(--surface-2); color: var(--accent-primary); border: 1px solid var(--border-2); border-radius: var(--radius-default); padding: 1px 6px; font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: var(--tracking-tight); cursor: pointer; font-family: 'Courier New', monospace; flex-shrink: 0; }
 .tree-canvas { flex: 1; min-height: 0; width: 100%; cursor: crosshair; }
 .empty-state { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--border-3); font-size: var(--text-emphasis); }
 </style>

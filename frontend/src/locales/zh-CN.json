@@ -85,6 +85,8 @@
   "cards.lineage.loadingTree":            "加载树…",
   "cards.lineage.emptyDecks":             "运行卡组以填充视图。",
   "cards.lineage.emptyBrowse":            "在导航器中选择棋谱或根。",
+  "cards.lineage.collapseAll":            "全部折叠",
+  "cards.lineage.collapseAllTooltip":     "清除此树中所有手动展开的存根和分桶 (其他树的展开会被保留)",
 
   "auth.title":                           "登录",
   "auth.field.username":                  "用户名",

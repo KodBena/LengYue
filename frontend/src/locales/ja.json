@@ -85,6 +85,8 @@
   "cards.lineage.loadingTree":            "ツリー読み込み中…",
   "cards.lineage.emptyDecks":             "デッキを実行してビューを満たしてください。",
   "cards.lineage.emptyBrowse":            "ナビゲータでゲームかルートを選択してください。",
+  "cards.lineage.collapseAll":            "すべて折りたたむ",
+  "cards.lineage.collapseAllTooltip":     "このツリーで手動展開したすべてのスタブとバケットを解除 (他のツリーの展開は保持)",
 
   "auth.title":                           "サインイン",
   "auth.field.username":                  "ユーザー名",
