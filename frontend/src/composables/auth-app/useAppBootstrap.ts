@@ -32,7 +32,7 @@ import { store } from '../../store';
 import { i18n } from '../../i18n';
 import { isSupportedLocale, DEFAULT_LOCALE } from '../../i18n/locales';
 import type { BoardId } from '../../types';
-import { useQeubo, reconcileQeuboKnobs } from '../useQeubo';
+import { useQeubo, reconcileQeuboKnobs, rehydrateExperimentClaims } from '../useQeubo';
 import type { useAuth } from './useAuth';
 
 export function useAppBootstrap(
@@ -138,9 +138,29 @@ export function useAppBootstrap(
   // populated before the user touches anything. `deep: true` so
   // edits inside individual parameter_meta entries (range nudges,
   // qeubo_controlled toggles) fire the watcher.
+  //
+  // Also re-fires `rehydrateExperimentClaims` so the PBO claim
+  // map stays in sync with the persisted source of truth across
+  // the SyncService hydrate boundary. `qeubo.bootstrap()` runs
+  // immediately on auth-state flip and calls rehydrate against
+  // whatever `parameter_meta` is in the store at that moment —
+  // but `/qeubo/experiment/status` typically returns BEFORE
+  // SyncService's `/documents/{key}` hydrate completes, so the
+  // bootstrap-time rehydrate sees the default (empty) parameter_
+  // meta and claims nothing. This watcher catches the post-
+  // hydrate replacement of `store.profile` (the path-walked
+  // value changes identity, the watcher refires) and runs
+  // rehydrate again against the populated data. `rehydrate` is
+  // idempotent (guarded by `_statusRef.value !== null` and
+  // `_claimedKnobIds.has(knobId)` short-circuits), so the
+  // common case where bootstrap-time rehydrate already claimed
+  // everything is a no-op here.
   watch(
     () => store.profile.settings.engine.katago.analysis_env.parameter_meta,
-    () => reconcileQeuboKnobs(),
+    () => {
+      reconcileQeuboKnobs();
+      rehydrateExperimentClaims();
+    },
     { immediate: true, deep: true },
   );
 

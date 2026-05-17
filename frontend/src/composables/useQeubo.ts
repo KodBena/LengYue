@@ -343,22 +343,49 @@ function releaseAllExperimentClaims(): void {
 }
 
 /**
- * Re-claim every `qeubo_controlled: true` parameter at bootstrap
- * time. The substrate's claim map is module-scope and in-memory
- * only — a page reload wipes it back to all-unclaimed regardless
- * of whether the backend still carries an active experiment. This
- * helper restores the substrate's view from the only persistent
- * source of truth available on the frontend: `parameter_meta`'s
- * `qeubo_controlled` flags.
+ * Re-claim every `qeubo_controlled: true` parameter for the active
+ * PBO experiment. The substrate's claim map is module-scope and
+ * in-memory only — a page reload wipes it back to all-unclaimed
+ * regardless of whether the backend still carries an active
+ * experiment. This helper restores the substrate's view from the
+ * only persistent source of truth available on the frontend:
+ * `parameter_meta`'s `qeubo_controlled` flags.
+ *
+ * Called from two sites:
+ *
+ *   - `bootstrap()` — once per auth-state flip, immediately after
+ *     `/qeubo/experiment/status` returns. May find `parameter_meta`
+ *     empty if SyncService's `/documents/{key}` hydrate hasn't
+ *     completed yet (race: two concurrent HTTP fetches).
+ *
+ *   - `useAppBootstrap`'s `parameter_meta` watcher — fires when
+ *     hydrate completes and replaces `store.profile`. Catches the
+ *     post-hydrate populated state that the bootstrap-time call
+ *     may have missed.
+ *
+ * Both paths gate on `_statusRef.value !== null` (an active
+ * experiment exists). Pre-bootstrap or no-experiment states
+ * early-return so the watcher doesn't claim spuriously. Idempotent
+ * across repeated calls: `_claimedKnobIds.has(knobId)` short-
+ * circuits already-claimed entries; the underlying `claimKnob`
+ * also no-ops on same-consumer re-claims via `emitChange`'s
+ * `sameClaim` check.
  *
  * Conflicting claims (another consumer holds the knob) surface as
- * a console warning but don't abort bootstrap — a partial-substrate
- * recovery is strictly better than the pre-Phase-5 zero-enforcement
+ * a console warning but don't abort — a partial-substrate recovery
+ * is strictly better than the pre-Phase-5 zero-enforcement
  * baseline. The user-visible symptom (a slider that should be
  * locked is editable) is also visible in the editor's claim state,
  * so the gap isn't silent.
  */
 function rehydrateExperimentClaims(): void {
+  // Guard: no active experiment → nothing to claim. Covers two
+  // states: (a) pre-bootstrap (the /status probe hasn't returned
+  // yet, _statusRef is its initial null); (b) post-bootstrap
+  // 404-no-experiment (_statusRef reset to null in that branch).
+  // Without this guard the parameter_meta watcher would claim
+  // qeubo_controlled parameters even when PBO isn't running.
+  if (_statusRef.value === null) return;
   const pm = store.profile.settings.engine.katago.analysis_env.parameter_meta ?? {};
   for (const [name, meta] of Object.entries(pm)) {
     if (meta?.qeubo_controlled !== true) continue;
@@ -380,6 +407,8 @@ function rehydrateExperimentClaims(): void {
     _claimedKnobIds.add(knobId);
   }
 }
+
+export { rehydrateExperimentClaims };
 
 // ─── Toolbar-view bridge ─────────────────────────────────────────────────────
 // Proxy `session.ui.qeuboToolbarView` through a WritableComputedRef so
