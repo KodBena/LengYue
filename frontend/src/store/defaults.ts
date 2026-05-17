@@ -615,6 +615,14 @@ export const defaultSessionUI: UISession = {
     expanded: [],
     selection: null,
   },
+  // Per-board card-tree navigator: empty dictionary means a fresh
+  // user (or a fresh board) has no manually-expanded stubs or
+  // buckets — the projection's default expansion rules govern.
+  // Entries are added lazily on first stub / bucket click via
+  // `toggleCardTreeManualExpand`. Schema-version 45 introduces the
+  // field; the migration backfills existing blobs with the same
+  // empty default.
+  cardTreeNav: {},
 };
 
 export const DEFAULTS = {

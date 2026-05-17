@@ -24,6 +24,7 @@ import { computed, type ComputedRef, type Ref } from 'vue';
 import type {
   BoardId,
   CardId,
+  CardLineageNode,
   CardLineageTree,
   CardSet,
   ForestStat,
@@ -33,7 +34,12 @@ import type {
 } from '../../types';
 import { CardTreeOverflowError } from '../../types';
 import { backendService } from '../../services/backend-service';
-import { pushSystemMessage } from '../../store';
+import {
+  store,
+  pushSystemMessage,
+  toggleCardTreeManualExpand,
+  setCardTreeManualExpand,
+} from '../../store';
 import { i18n } from '../../i18n';
 import { substitute } from '../../lib/dsl-harness';
 import {
@@ -79,6 +85,28 @@ export interface CardTreeData {
   // and the panel re-read the new values without a follow-up
   // fetch. No-op when the active board's slot is missing.
   setCard: (card: ReviewCard) => void;
+  // Reactive read of the active board's persisted manual-expand
+  // state. Source-of-truth lives at `store.session.ui.cardTreeNav`
+  // (schema-version 45); this computed projects the persisted
+  // array into a `ReadonlySet<string>` to satisfy the
+  // `useCardTreeProjection` contract. Swaps atomically when
+  // `boardIdRef` changes — board-tab switch reveals each board's
+  // own exploration state.
+  manualExpand: ComputedRef<ReadonlySet<string>>;
+  // Toggle a manual-expand key (stub-click or bucket-click) on the
+  // active board's slot. Persists through SyncService; the widget's
+  // reactive read of `manualExpand` re-fires. No-op when
+  // `boardIdRef.value` is null.
+  toggleManualExpand: (key: string) => void;
+  // Clear every manual-expand key that belongs to the given tree
+  // in the active board's slot. Walks the underlying forest's
+  // `CardLineageNode` structure to enumerate the candidate keys
+  // (`String(cardId)` and `bucket:${cardId}` for every card under
+  // the tree's root) and filters the persisted array. Other trees'
+  // entries under the same board are preserved. No-op when the
+  // board's slot is missing or the tree isn't currently in the
+  // forest.
+  clearManualExpandForTree: (rootCardId: CardId) => void;
   // Re-hydrate the forest from a known queue of matched cards
   // without re-running the deck pipeline. Used by the cards-tab
   // re-hydrate path (browser reopen mid-session): the review
@@ -94,6 +122,7 @@ const EMPTY_FOREST: CardLineageTree[] = [];
 const EMPTY_ACTIVE_SET: ReadonlySet<CardId> = new Set();
 const EMPTY_CARDS: ReadonlyMap<CardId, ReviewCard> = new Map();
 const EMPTY_FOREST_STATS: ReadonlyMap<CardId, ForestStat> = new Map();
+const EMPTY_MANUAL_EXPAND: ReadonlySet<string> = new Set();
 
 // Per-composable-instance set of in-flight `requestCard` ids, scoped
 // across all boards the composable instance has seen. This is fine
@@ -128,12 +157,78 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
     return id ? (getBoardCardTree(id)?.error ?? null) : null;
   });
 
+  // Persisted manual-expand state for the active board. Reads
+  // `store.session.ui.cardTreeNav[id]` (schema-version 45) and
+  // projects the stored array into a Set for the projection. New
+  // Set instance per dependency change is fine — the projection
+  // composable's `computed` re-fires on `manualExpand.value`'s
+  // identity change, and the Set's contents are derived from a
+  // stable array.
+  const manualExpand = computed<ReadonlySet<string>>(() => {
+    const id = boardIdRef.value;
+    if (!id) return EMPTY_MANUAL_EXPAND;
+    const slot = store.session.ui.cardTreeNav[id];
+    return slot ? new Set(slot.manuallyExpanded) : EMPTY_MANUAL_EXPAND;
+  });
+
+  function toggleManualExpand(key: string): void {
+    const id = boardIdRef.value;
+    if (!id) return;
+    toggleCardTreeManualExpand(id, key);
+  }
+
+  function clearManualExpandForTree(rootCardId: CardId): void {
+    const id = boardIdRef.value;
+    if (!id) return;
+    const slot = getBoardCardTree(id);
+    if (!slot) return;
+    const tree = slot.forest.find(t => t.rootCardId === rootCardId);
+    if (!tree) return;
+    // Build the set of keys this tree could contribute to the
+    // persisted manual-expand array. The projection's two key
+    // shapes (see `useCardTreeProjection`: `cardExpandKeyFor` and
+    // `bucketIdFor`) are `String(cardId)` for stub-expanded card
+    // nodes and `bucket:${parentCardId}` for cold-leaf bucket
+    // expansion under that node — both forms cover every card in
+    // the tree, so walking the tree once collects every key the
+    // tree could contribute. Iterative walk (explicit stack)
+    // rather than recursion so deep trees don't risk a stack
+    // overflow on the largest forests.
+    const treeKeys = new Set<string>();
+    const stack: CardLineageNode[] = [tree.tree];
+    while (stack.length > 0) {
+      const node = stack.pop()!;
+      const idStr = String(node.id);
+      treeKeys.add(idStr);
+      treeKeys.add(`bucket:${idStr}`);
+      for (const c of node.children) stack.push(c);
+    }
+    const cur = store.session.ui.cardTreeNav[id];
+    if (!cur || cur.manuallyExpanded.length === 0) return;
+    const next = cur.manuallyExpanded.filter(k => !treeKeys.has(k));
+    if (next.length === cur.manuallyExpanded.length) return;
+    setCardTreeManualExpand(id, next);
+  }
+
   function reset(boardId: BoardId): void {
     const slot = getOrCreateBoardCardTree(boardId);
     slot.forest = [];
     slot.activeSet = new Set();
     slot.cards = new Map();
     slot.error = null;
+    // Manual-expand state is deliberately NOT cleared here. Its
+    // keys are CardId-based and stable across forest reloads: if
+    // the new forest contains the same cards, the entries remain
+    // meaningful and the user's exploration is restored; if some
+    // cards are gone, the orphaned entries are harmless dead
+    // weight (the projection simply doesn't match them). Clearing
+    // would re-introduce the bug the persistence work was meant
+    // to fix — `useForestBrowsePolicy`'s `immediate: true` watch
+    // fires `loadBrowse` on every mount of ForestDirectory,
+    // including the post-hydrate mount that restored the entries
+    // in the first place. The user-facing escape hatch for
+    // accumulated entries is the per-tree "Collapse all" button
+    // on CardTreeWidget (`clearManualExpandForTree`).
   }
 
   function setForestStats(stats: ForestStat[]): void {
@@ -434,6 +529,9 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
     requestCard,
     setCard,
     seedFromQueue,
+    manualExpand,
+    toggleManualExpand,
+    clearManualExpandForTree,
   };
 }
 

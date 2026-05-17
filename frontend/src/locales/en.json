@@ -85,6 +85,8 @@
   "cards.lineage.loadingTree":            "Loading tree…",
   "cards.lineage.emptyDecks":             "Run a deck to populate the view.",
   "cards.lineage.emptyBrowse":            "Select a game or root in the navigator.",
+  "cards.lineage.collapseAll":            "Collapse all",
+  "cards.lineage.collapseAllTooltip":     "Clear every manually-expanded stub and bucket in this tree (other trees' expansion is preserved)",
 
   "auth.title":                           "Sign In",
   "auth.field.username":                  "Username",
