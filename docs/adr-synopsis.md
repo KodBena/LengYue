@@ -161,9 +161,40 @@ content-aware. Refactoring oversized files is incremental, not a
 sweep, composing with ADR-0004's and ADR-0006's retrofit posture.
 Status as of authoring: Proposed.
 
+## ADR-0008: Classification Discipline
+
+**Decision.** When a choice involves classification — picking a
+value from a closed vocabulary (enum, ADR band, chrome
+neighborhood, documented pattern), placing a file in a taxonomy,
+naming a category — the choice is honest only if the vocabulary or
+taxonomy precisely fits the case. Two registers: the *positive*
+(refuse fuzzy matches against an inadequate vocabulary; revise the
+vocabulary instead of picking the closest fit) and the *negative*
+(refuse to fabricate categories under ambiguity; default to flat /
+top-level instead of inventing a synthetic parent or forcing a
+"least-bad" home). Severity is calibrated by the substitution test:
+what the same failure shape would cost on a critical surface, not
+the observed instance's user-visible cost. Four concrete rules
+(verify vocabulary fit, default to flat under ambiguity, surface
+the gap visibly, apply the substitution test); three documented
+exceptions (scheduled-for-revision misfits, prototype code,
+deliberately-imprecise tags like `[experimental]` / `[B?]`).
+
+**Why care.** ADR-0002 Rule 7 (closest-match selection surfaces
+too) had filed itself with a provisional-home flag, anticipating
+the broader principle would need its own tenet. This is that tenet.
+The substrate is three postmortems on positive-register failures
+(KnobDomain `'qeubo'` conflation, popover band/chrome-neighborhood
+mismatch, popover-hover-pattern imitation) and two records on
+negative-register failures (the `useNavigation` placement override,
+the backend source-tree reorganization deferral). Rule 7 stays in
+ADR-0002 as the fail-loudly-register instance with its
+provisional-home flag retired; ADR-0008 is the home of the broader
+principle.
+
 ## How to read these together
 
-The five tenets form a coherent posture:
+The six tenets form a coherent posture:
 
 - **ADR-0002** says fail audibly when invariants break.
 - **ADR-0004** says don't introduce silent failures by editing
@@ -174,6 +205,15 @@ The five tenets form a coherent posture:
   the cost of partial-visibility editing.
 - **ADR-0007** says keep files small enough that partial visibility
   is the rare case, not the default.
+- **ADR-0008** says refuse fuzzy matches against an inadequate
+  vocabulary and refuse synthetic fabrications under ambiguity —
+  classify only when the classification is honest.
+
+ADR-0002 and ADR-0008 form a sibling pair: ADR-0002 is the reactive
+register (when invariants break, surface), ADR-0008 is the proactive
+register (when categorising, refuse fuzzy matches and synthetic
+fabrications). Together they cover the same family of failures at
+different intervention points.
 
 The two decisions (ADR-0001, ADR-0003) describe specific structural
 choices that shape how the tenets get applied. ADR-0001's mutator
