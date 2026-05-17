@@ -32,6 +32,13 @@ optimize_f.py           Python reference implementation of the
                         the sweep CSV via the `validate` subcommand;
                         same algorithmic shape as the SPA's TypeScript
                         port at `frontend/src/engine/katago/optimize-f.ts`.
+render_figures.py       Self-contained matplotlib script that
+                        regenerates the six PNGs the retrospective
+                        embeds. Byte-identical to the committed
+                        figures when run against the gzipped sweep
+                        CSV in this directory. Run with `--out PATH`
+                        to write elsewhere (default:
+                        ../../notes/images/katago-f-optimizer/).
 reproducer.py           Three-cadence sweep over a WebSocket bridge
                         (single-file, dep: `websockets`).
 reproducer_node.mjs     Node 24 mirror of the Python reproducer.
@@ -49,11 +56,17 @@ repro_output.txt        Captured stdio-reproducer output. The
                         the cadence tick. Visit counts at first
                         packet are the smoking gun.
 sweep_results/
-  sweep_results.csv     15,800 trials. The data underlying every
-                        statistical claim in the retrospective.
-                        Columns: model, cadence_s, first_report_s,
-                        trial_idx, max_visits, dt_ms,
-                        visits_at_first_packet, error, timestamp.
+  sweep_results.csv.gz  15,800 trials, gzipped (1.1 MB → 327 KB).
+                        The data underlying every statistical claim
+                        in the retrospective. Columns: model,
+                        cadence_s, first_report_s, trial_idx,
+                        max_visits, dt_ms, visits_at_first_packet,
+                        error, timestamp. `render_figures.py` reads
+                        the gzipped form directly; the sweep /
+                        analyzer tools (`parameter_sweep.py`,
+                        `optimize_f.py`) expect the uncompressed
+                        path — `gunzip -k` to restore the original
+                        alongside the compressed version if needed.
 f_star_sweep.csv        Per-(model, cadence) optimizer recommendations
                         across the cadence grid. One row per cadence.
 logs/                   Three captured reproducer runs from the
@@ -70,6 +83,12 @@ The sweep tool requires `aiohttp`, `numpy`, `scipy`, `plotly`, and
 
 ```bash
 cd docs/archive/katago-f-optimizer/
+
+# The sweep tool expects an uncompressed CSV path for its `analyze`
+# / `plot` subcommands; expand the gzipped archive once. The `-k`
+# preserves the .gz so both representations coexist.
+gunzip -k sweep_results/sweep_results.csv.gz
+
 $VENV parameter_sweep.py run \
     --bind 0.0.0.0 \
     --port 8000 \
@@ -78,10 +97,19 @@ $VENV parameter_sweep.py run \
 
 The dashboard streams live results at the bound URL; the CSV grows in
 `sweep_results/sweep_results.csv` (resumable). The Python reference
-algorithm validates against the existing CSV:
+algorithm validates against the existing CSV (same `gunzip -k`
+prerequisite):
 
 ```bash
 $VENV optimize_f.py validate
+```
+
+Regenerating the retrospective figures works **without** unpacking
+— `render_figures.py` reads the gzipped CSV directly:
+
+```bash
+$VENV render_figures.py
+# (default writes to ../../notes/images/katago-f-optimizer/)
 ```
 
 For the stdio reproducer (no proxy needed; talks directly to a

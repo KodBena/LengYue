@@ -367,8 +367,9 @@ returns "no useful F" and the slider/floor fallback kicks in.
 | Upstream bug report | [`lightvector/KataGo#1197`](https://github.com/lightvector/KataGo/issues/1197) | Filed 2026-05-16. The canonical body lives on GitHub; SPA-side draft preserved at `docs/archive/katago-f-optimizer/findings.md` |
 | Archive — README | `docs/archive/katago-f-optimizer/README.md` | Pointer for archaeologists |
 | Archive — sweep tool (plotly service) | `docs/archive/katago-f-optimizer/parameter_sweep.py` | The 15 800-trial characterisation tool with the live dashboard. Re-runnable; see archive README |
-| Archive — Python reference algorithm | `docs/archive/katago-f-optimizer/optimize_f.py` | Precursor to the SPA port. `python optimize_f.py validate` for offline CSV-replay validation |
-| Archive — sweep CSV (raw data) | `docs/archive/katago-f-optimizer/sweep_results/sweep_results.csv` | 15 800 trials, ~1.1 MB. The data underlying every quantitative claim above |
+| Archive — Python reference algorithm | `docs/archive/katago-f-optimizer/optimize_f.py` | Precursor to the SPA port. `python optimize_f.py validate` for offline CSV-replay validation (requires `gunzip -k` of the gzipped CSV first) |
+| Archive — figure renderer | `docs/archive/katago-f-optimizer/render_figures.py` | Self-contained matplotlib script that regenerates the six retrospective PNGs from the gzipped CSV. Output byte-identical to the committed figures |
+| Archive — sweep CSV (raw data, gzipped) | `docs/archive/katago-f-optimizer/sweep_results/sweep_results.csv.gz` | 15 800 trials, ~327 KB compressed (1.1 MB uncompressed). The data underlying every quantitative claim above |
 | Archive — F* sweep CSV | `docs/archive/katago-f-optimizer/f_star_sweep.csv` | Per-(model, cadence) optimizer recommendations |
 | Archive — reproducers | `docs/archive/katago-f-optimizer/reproducer.py`, `reproducer_node.mjs`, `reproducer_stdio.py` | Three reproducers: WS-bridge Python, WS-bridge Node, direct stdio |
 | Archive — repro output | `docs/archive/katago-f-optimizer/repro_output.txt` | Stdio reproducer's captured output. The "100k visits before first packet" smoking-gun evidence |
