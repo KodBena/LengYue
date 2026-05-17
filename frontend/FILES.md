@@ -47,6 +47,7 @@ frontend/src/
 │
 ├── components/                              Vue SFCs. Thin renderers, minimum wiring to composables.
 │   ├── CardMetadataPanel.vue          [B3]  Inline-edit metadata panel for a single card (tags / numMoves / gamma / suspended / reset_prior).
+│   ├── FOptimizerPanel.vue            [B3]  Run + manage per-(model, cadence) F-optimizer cache. Self-contained; embeddable anywhere.
 │   ├── KnobRegistryEditor.vue         [B1]  Cross-domain knob-registry editor — lists every scalar knob, grouped by domain (Phase 3b).
 │   ├── ReviewSessionPanel.vue         [B3]  In-session SR controls: status, counter, intermission chart, hint visibility.
 │   │
@@ -113,6 +114,7 @@ frontend/src/
 │
 ├── composables/                             Logic layer. Pure-ish functions over reactive refs.
 │   ├── useEngineControls.ts           [B3]  Engine connect / disconnect / toggle lifecycle.
+│   ├── useFOptimizer.ts               [B3]  Drive an F-optimizer run; persist results into the cache.
 │   ├── useNavigation.ts               [B2]  Headless navigation within the game tree (next/prev/parent/child).
 │   ├── useQeubo.ts                    [B1]  qEUBO experiment state machine + audition + verdict.
 │   ├── useQueryTelemetry.ts           [B1]  Singleton in-flight KataGo query queue + per-model visits/sec ETA.
@@ -194,6 +196,7 @@ frontend/src/
 │       ├── capability-injection.ts    [B3]  Pure builder for the per-query `capabilities` dict (proxy v1.0.14+).
 │       ├── contract.ts                [B3]  KataGoClient black-box callback-registry contract.
 │       ├── katago-client.ts           [B3]  WebSocket transport for KataGo analysis engine.
+│       ├── optimize-f.ts              [B3]  Adaptive bisection finding the lowest-latency F for a (model, cadence). Engine-agnostic.
 │       ├── types.ts                   [B3]  SSOT for KataGo wire types + enrichment envelope.
 │       ├── version-probe.ts           [B3]  Pure parsers for `query_version` + `query_models` (SELECTOR-aware).
 │       └── winrate-framing.ts         [B3]  Resolves and normalises `reportAnalysisWinratesAs` framing.
@@ -206,6 +209,7 @@ frontend/src/
 │   ├── analysis-service.ts            [B3]  Bridges KataGo turns to the ledger nodes.
 │   ├── api-client.ts                  [B1]  Pure REST client; JWT injection; zero-friction local auth.
 │   ├── backend-service.ts             [B2]  ACL for the backend; wire snake_case → domain camelCase with branded ids.
+│   ├── optimize-f-cache.ts            [B3]  localStorage-backed per-(model, 50ms cadence-bucket) F* cache.
 │   ├── qeubo-service.ts               [B1]  ACL for qEUBO REST endpoints.
 │   ├── resource-service.ts            [B1]  Typed client for backend static resources.
 │   └── sync-service.ts                [B1]  Stateless persistence bridge; identity-aware document sync.
