@@ -1,0 +1,37 @@
+Cross-stack confirmation: Node 24 + native WebSocket against the same
+transparent proxy on the same KataGo 1.16.4 binary. Same cliff, same
+non-monotonic boundary. Used during the diagnosis arc to rule out any
+contribution from Python's asyncio scheduling or websockets library.
+
+$ KATAGO_WS_URL=ws://192.168.122.1:1232 node probe-firstreport-bisect-transparent.mjs
+[bisect-transparent] connecting to ws://192.168.122.1:1232
+[bisect-transparent] ws open
+Wire shape: native KataGo (no model/capabilities/cache),
+            position=39 moves, maxVisits=2000000,
+            overrideSettings={"reportAnalysisWinratesAs":"WHITE","rootNumSymmetriesToSample":8,"wideRootNoise":0.02},
+            includeOwnership=true.
+Vary firstReportDuringSearchAfter; cadence=2.1646s held constant.
+
+  firstReportAfter=  0.001s  →  first @ + 2238 ms  (expected ~    1 ms, ratio 2237.9x)  visits=  22478  [≈ CADENCE]
+  firstReportAfter=  0.002s  →  first @ + 2191 ms  (expected ~    2 ms, ratio 1095.7x)  visits=  30389  [≈ CADENCE]
+  firstReportAfter=  0.003s  →  first @ + 2197 ms  (expected ~    3 ms, ratio 732.3x)  visits=  33065  [≈ CADENCE]
+  firstReportAfter=  0.005s  →  first @ + 2189 ms  (expected ~    5 ms, ratio 437.9x)  visits=  36179  [≈ CADENCE]
+  firstReportAfter=  0.007s  →  first @ + 2200 ms  (expected ~    7 ms, ratio 314.4x)  visits=  37985  [≈ CADENCE]
+  firstReportAfter=   0.01s  →  first @ + 2192 ms  (expected ~   10 ms, ratio 219.2x)  visits=  38158  [≈ CADENCE]
+  firstReportAfter=  0.012s  →  first @ + 2220 ms  (expected ~   12 ms, ratio 185.0x)  visits=  38521  [≈ CADENCE]
+  firstReportAfter=  0.015s  →  first @ + 2211 ms  (expected ~   15 ms, ratio 147.4x)  visits=  40286  [≈ CADENCE]
+  firstReportAfter=  0.018s  →  first @ + 2232 ms  (expected ~   18 ms, ratio 124.0x)  visits=  40557  [≈ CADENCE]
+  firstReportAfter=   0.02s  →  first @ + 2224 ms  (expected ~   20 ms, ratio 111.2x)  visits=  41118  [≈ CADENCE]
+  firstReportAfter=  0.022s  →  first @ +   30 ms  (expected ~   22 ms, ratio  1.3x)  visits=     27  [fast]
+  firstReportAfter=  0.025s  →  first @ +   29 ms  (expected ~   25 ms, ratio  1.2x)  visits=    150  [fast]
+  firstReportAfter=  0.028s  →  first @ + 2217 ms  (expected ~   28 ms, ratio 79.2x)  visits=  38770  [≈ CADENCE]
+  firstReportAfter=   0.03s  →  first @ +   47 ms  (expected ~   30 ms, ratio  1.6x)  visits=    322  [fast]
+  firstReportAfter=  0.035s  →  first @ +   51 ms  (expected ~   35 ms, ratio  1.5x)  visits=    566  [fast]
+  firstReportAfter=   0.04s  →  first @ +   47 ms  (expected ~   40 ms, ratio  1.2x)  visits=     65  [fast]
+  firstReportAfter=   0.05s  →  first @ +   72 ms  (expected ~   50 ms, ratio  1.4x)  visits=    924  [fast]
+  firstReportAfter=   0.07s  →  first @ +  125 ms  (expected ~   70 ms, ratio  1.8x)  visits=   2151  [fast]
+  firstReportAfter=    0.1s  →  first @ +  124 ms  (expected ~  100 ms, ratio  1.2x)  visits=   2929  [fast]
+  firstReportAfter=   0.15s  →  first @ +  174 ms  (expected ~  150 ms, ratio  1.2x)  visits=   4429  [fast]
+  firstReportAfter=    0.3s  →  first @ +  347 ms  (expected ~  300 ms, ratio  1.2x)  visits=   8797  [fast]
+
+[bisect-transparent] done; closing

@@ -1,0 +1,13 @@
+model,cadence_s,best_f_s,expected_dt_ms,control_dt_ms,savings_ms,bracket_lo_s,bracket_hi_s,queries_total,note
+b18c384nbt,0.03,,,,,,,0,"short-circuited by monotonicity: cadence 100ms returned None, so smaller cadence 30ms is inferred dead without further queries"
+b18c384nbt,0.05,,,,,,,0,"short-circuited by monotonicity: cadence 100ms returned None, so smaller cadence 50ms is inferred dead without further queries"
+b18c384nbt,0.075,,,,,,,0,"short-circuited by monotonicity: cadence 100ms returned None, so smaller cadence 75ms is inferred dead without further queries"
+b18c384nbt,0.1,,,123.42480601370335,,,,120,"no honored F found in geometric scan over [1.0, 95.0] ms — cliff is above F_max (after 3 attempts)"
+b18c384nbt,0.125,0.098375,121.99897150695324,150.60141950845718,28.602448001503944,0.0955,0.096375,66,"cliff bracketed [95.50, 96.38] ms; recommended F = F_high + 2.0ms margin"
+b18c384nbt,0.15,0.07800000000000001,96.26936149597168,176.72474499046803,80.45538349449635,0.07550000000000001,0.07600000000000001,59,"cliff bracketed [75.50, 76.00] ms; recommended F = F_high + 2.0ms margin"
+b18c384nbt,0.2,0.1005,124.06791099905968,228.34926749765873,104.28135649859905,0.098,0.0985,77,"cliff bracketed [98.00, 98.50] ms; recommended F = F_high + 2.0ms margin"
+b18c384nbt,0.25,0.1,120.35420900583267,279.6362864971161,159.28207749128342,0.0975,0.098,71,"cliff bracketed [97.50, 98.00] ms; recommended F = F_high + 2.0ms margin"
+b18c384nbt,0.35,0.094,118.31218400597572,378.8629595041275,260.5507754981518,0.0915,0.092,60,"cliff bracketed [91.50, 92.00] ms; recommended F = F_high + 2.0ms margin"
+b18c384nbt,0.5,0.10250000000000001,126.58959251642227,529.4200044870377,402.8304119706154,0.1,0.1005,70,"cliff bracketed [100.00, 100.50] ms; recommended F = F_high + 2.0ms margin"
+b18c384nbt,0.75,0.10350000000000001,124.77639751136303,777.8428349941969,653.0664374828339,0.101,0.1015,70,"cliff bracketed [101.00, 101.50] ms; recommended F = F_high + 2.0ms margin"
+b18c384nbt,1.0,0.09,111.72701402008533,1030.9837689995766,919.2567549794912,0.0875,0.088,59,"cliff bracketed [87.50, 88.00] ms; recommended F = F_high + 2.0ms margin"

@@ -27,11 +27,11 @@ the truth is configuration-dependent in a way no static policy can
 capture.
 
 The longer answer is the rest of this document. The structural
-shape: KataGo's analysis engine has a bug (still upstream and
-unfiled at writing — the project author has the bug-report package
-staged but executive bandwidth has been short) where the first
-during-search report fires at `first_cadence_tick_after_eval_completion + F`
-rather than at `F`. For users who expected the documented behaviour
+shape: KataGo's analysis engine has a bug (filed upstream on
+2026-05-16 as
+[`lightvector/KataGo#1197`](https://github.com/lightvector/KataGo/issues/1197))
+where the first during-search report fires at
+`first_cadence_tick_after_eval_completion + F` rather than at `F`. For users who expected the documented behaviour
 ("first report after F seconds"), small F values produce surprisingly
 late first paints — sometimes by hundreds of milliseconds. The
 delay's magnitude depends on **the user's specific neural network
@@ -171,6 +171,41 @@ beats a hardcoded constant on most cells we tested.
    original report's "F substituted with C" framing got the
    user-visible effect right but the mechanism wrong; the
    "MAX rule" framing got neither right.
+
+   **The most dramatic version of the bug isn't "the engine
+   doesn't have work yet" — it's "the engine has work and
+   refuses to ship it"**. A stdio reproducer (no proxy on the
+   path) against a small model shows, at cadence = 10 s with
+   F = 0.001 s:
+
+   - dt to first packet: **10 022 ms** (essentially exactly
+     cadence).
+   - Node visits completed at first packet: **103 198**.
+
+   The engine has finished more than a hundred thousand node
+   visits. It has the rootInfo, the visit distributions, the
+   policy head, the ownership map — everything the report
+   protocol asks for. It just refuses to send the first packet
+   until the cadence tick fires. At C=2 s, F=0.001 s: 23 835
+   visits completed during the wait; at C=0.5 s: 4 321. The
+   pattern is clean. Captured at
+   `docs/archive/katago-f-optimizer/repro_output.txt`; figure 6
+   visualises the relationship across cadences:
+
+   ![Figure 6: visits at first packet](images/katago-f-optimizer/fig6-visits-at-first-packet.png)
+
+   *Figure 6. Node visits the engine had completed by the time
+   the first during-search packet was sent, vs F, for three
+   cadences. Sub-cliff F values produce visits counts in the
+   tens-to-hundreds of thousands; above the cliff the engine
+   fires after a few dozen to a few hundred visits. The
+   "engine doesn't know yet" interpretation is decisively
+   ruled out — the engine knows and is sitting on the answer.*
+
+   This sharpens the case for filing as an unambiguous bug:
+   it's not a missing feature or a fundamental scheduling
+   limitation; it's a report-loop predicate that delays output
+   the engine already has.
 
 7. **2026-05-17 — strip-flip characterisation.** Near the cliff,
    dt is bimodal: a single F value produces some honoured trials
@@ -329,31 +364,36 @@ returns "no useful F" and the slider/floor fallback kicks in.
 |---|---|---|
 | Live SPA optimizer | `frontend/src/engine/katago/optimize-f.ts` + cohort | Shipped (PR #254) |
 | SPA worklog | `docs/worklog/2026-05-17-katago-f-optimizer.md` | Shipped (PR #254) |
-| Sweep tool (plotly service) | `~/katago_bugreport/parameter_sweep.py` | Archaeological relic; left in place. Re-runnable: `pip install websockets plotly aiohttp numpy scipy && python parameter_sweep.py run --bind 0.0.0.0 --port 8000` |
-| Sweep CSV (raw data) | `~/katago_bugreport/sweep_results/sweep_results.csv` | 15 800 trials, ~1.1 MB |
-| Python reference algorithm | `~/katago_bugreport/optimize_f.py` | The Python prototype; precursor to the SPA port. `python optimize_f.py validate` for offline CSV-replay validation |
-| Bug-report package (for upstream) | `~/katago_bugreport/` | Staged but unfiled. Contains `findings.md`, `background_note.md`, reproducers, logs |
+| Upstream bug report | [`lightvector/KataGo#1197`](https://github.com/lightvector/KataGo/issues/1197) | Filed 2026-05-16. The canonical body lives on GitHub; SPA-side draft preserved at `docs/archive/katago-f-optimizer/findings.md` |
+| Archive — README | `docs/archive/katago-f-optimizer/README.md` | Pointer for archaeologists |
+| Archive — sweep tool (plotly service) | `docs/archive/katago-f-optimizer/parameter_sweep.py` | The 15 800-trial characterisation tool with the live dashboard. Re-runnable; see archive README |
+| Archive — Python reference algorithm | `docs/archive/katago-f-optimizer/optimize_f.py` | Precursor to the SPA port. `python optimize_f.py validate` for offline CSV-replay validation |
+| Archive — sweep CSV (raw data) | `docs/archive/katago-f-optimizer/sweep_results/sweep_results.csv` | 15 800 trials, ~1.1 MB. The data underlying every quantitative claim above |
+| Archive — F* sweep CSV | `docs/archive/katago-f-optimizer/f_star_sweep.csv` | Per-(model, cadence) optimizer recommendations |
+| Archive — reproducers | `docs/archive/katago-f-optimizer/reproducer.py`, `reproducer_node.mjs`, `reproducer_stdio.py` | Three reproducers: WS-bridge Python, WS-bridge Node, direct stdio |
+| Archive — repro output | `docs/archive/katago-f-optimizer/repro_output.txt` | Stdio reproducer's captured output. The "100k visits before first packet" smoking-gun evidence |
+| Archive — diagnosis-arc logs | `docs/archive/katago-f-optimizer/logs/` | Three captured runs from the original 2026-05-15 diagnosis |
 | Diagnosis worklog | `docs/worklog/2026-05-15-katago-first-report-cliff-diagnosis.md` | Shipped |
 | Earlier mitigation worklog | `docs/worklog/2026-05-15-katago-first-report-floor-mitigation.md` | Shipped; the 35 ms floor remains as a fallback for un-characterised configs |
 | ADR-0002 (fail loudly) | `docs/adr/0002-fail-loudly.md` | Governing tenet |
 | This retrospective | `docs/notes/retrospective-katago-f-optimizer-2026-05.md` | This file |
 
-The `~/katago_bugreport/` directory is intentionally outside the
-LengYue repo. It's a self-contained bug-report staging directory
-with its own `CLAUDE.md` documenting the holding-state contract:
-the reproducers, logs, and CSV are evidence and should not be
-modified except through a coordinated upstream filing. The
-optimizer's Python reference implementation
-(`optimize_f.py`) lives alongside as the artifact future
-investigators can run if they want to repeat the offline-CSV
-validation arc the SPA port was tested against.
+The `docs/archive/katago-f-optimizer/` directory is the
+**archaeological deposit** — every numeric claim in this
+retrospective can be reproduced from the data in
+`sweep_results/sweep_results.csv` and the Python tooling beside
+it. Pulled into the repo so the analysis stands on its own
+without depending on the project author's external staging
+directory.
 
-The plotly service (`parameter_sweep.py`) is the
-**archaeological relic**: it produced the data, the live
+The plotly service (`parameter_sweep.py`) is preserved in-repo
+as a re-runnable archive: it produced the data, the live
 dashboard, the cadence-sweep tool, and the validation framework
-that fed the SPA port. Re-running it requires the venv at
-`/home/bork/w/vdc/venvs/kataproxy/` and a KataProxy SELECTOR.
-The CSV the sweep produced is its enduring output.
+that fed the SPA port. Re-running it requires a KataProxy
+SELECTOR and the venv at `/home/bork/w/vdc/venvs/kataproxy/`
+(or any environment with `aiohttp`, `numpy`, `scipy`, `plotly`,
+`websockets`). The CSV the sweep produced is its enduring
+output.
 
 ---
 
@@ -381,5 +421,12 @@ over. The optimizer is the recovery from that — a recovery
 that uses ~1300 lines of code, two PRs, and 15 800 GPU-trials
 of data — but on the eight cells we measured, every one is
 materially faster than under the previous mitigation.
+
+The upstream bug is filed
+([`lightvector/KataGo#1197`](https://github.com/lightvector/KataGo/issues/1197),
+2026-05-16). When KataGo fixes it, the optimizer becomes
+unnecessary and the 35 ms floor can be retired. Until then,
+the optimizer earns its weight every time a user picks a model
+the previous mitigation happened to be wrong about.
 
 License: Public Domain (The Unlicense)

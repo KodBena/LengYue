@@ -1,0 +1,49 @@
+$ KATAGO_WS_URL=ws://192.168.122.1:1232 python3 reproducer.py
+[cadsweep] connecting to ws://192.168.122.1:1232
+[cadsweep] ws open
+Wire shape: native KataGo (transparent proxy),
+            position=39 moves, maxVisits=2000000,
+            overrideSettings={"reportAnalysisWinratesAs": "WHITE", "rootNumSymmetriesToSample": 8, "wideRootNoise": 0.02},
+            includeOwnership=true.
+Cadences sampled: [0.5, 2.0, 10.0]
+
+=== cadence = 0.5s ===
+  firstReportAfter= 0.001s ( 0.20% of cadence)  →  first @ +  540 ms  (ratio 539.8x)  visits=  12913  [≈ CADENCE]
+  firstReportAfter= 0.002s ( 0.40% of cadence)  →  first @ +  554 ms  (ratio 277.1x)  visits=  11435  [≈ CADENCE]
+  firstReportAfter= 0.005s ( 1.00% of cadence)  →  first @ +  570 ms  (ratio 114.0x)  visits=  13188  [≈ CADENCE]
+  firstReportAfter=  0.01s ( 2.00% of cadence)  →  first @ +  588 ms  (ratio  58.8x)  visits=  13463  [≈ CADENCE]
+  firstReportAfter= 0.015s ( 3.00% of cadence)  →  first @ +  568 ms  (ratio  37.9x)  visits=  13570  [≈ CADENCE]
+  firstReportAfter=  0.02s ( 4.00% of cadence)  →  first @ +  555 ms  (ratio  27.7x)  visits=  13697  [≈ CADENCE]
+  firstReportAfter= 0.025s ( 5.00% of cadence)  →  first @ +  587 ms  (ratio  23.5x)  visits=  12487  [≈ CADENCE]
+  firstReportAfter=  0.03s ( 6.00% of cadence)  →  first @ +   34 ms  (ratio   1.1x)  visits=     12  [fast]
+  firstReportAfter=  0.05s (10.00% of cadence)  →  first @ +   70 ms  (ratio   1.4x)  visits=    598  [fast]
+  firstReportAfter=   0.1s (20.00% of cadence)  →  first @ +  151 ms  (ratio   1.5x)  visits=   2848  [fast]
+  firstReportAfter=   0.3s (60.00% of cadence)  →  first @ +  331 ms  (ratio   1.1x)  visits=   8106  [fast]
+
+=== cadence = 2.0s ===
+  firstReportAfter= 0.001s ( 0.05% of cadence)  →  first @ + 2100 ms  (ratio 2100.3x)  visits=  39602  [≈ CADENCE]
+  firstReportAfter= 0.002s ( 0.10% of cadence)  →  first @ + 2163 ms  (ratio 1081.3x)  visits=  39781  [≈ CADENCE]
+  firstReportAfter= 0.005s ( 0.25% of cadence)  →  first @ + 2053 ms  (ratio 410.6x)  visits=  41510  [≈ CADENCE]
+  firstReportAfter=  0.01s ( 0.50% of cadence)  →  first @ + 2050 ms  (ratio 205.0x)  visits=  41756  [≈ CADENCE]
+  firstReportAfter= 0.015s ( 0.75% of cadence)  →  first @ + 2172 ms  (ratio 144.8x)  visits=  41919  [≈ CADENCE]
+  firstReportAfter=  0.02s ( 1.00% of cadence)  →  first @ + 2090 ms  (ratio 104.5x)  visits=  41579  [≈ CADENCE]
+  firstReportAfter= 0.025s ( 1.25% of cadence)  →  first @ + 2106 ms  (ratio  84.3x)  visits=  42304  [≈ CADENCE]
+  firstReportAfter=  0.03s ( 1.50% of cadence)  →  first @ +   37 ms  (ratio   1.2x)  visits=     25  [fast]
+  firstReportAfter=  0.05s ( 2.50% of cadence)  →  first @ +   81 ms  (ratio   1.6x)  visits=   1112  [fast]
+  firstReportAfter=   0.1s ( 5.00% of cadence)  →  first @ +  123 ms  (ratio   1.2x)  visits=   2567  [fast]
+  firstReportAfter=   0.3s (15.00% of cadence)  →  first @ +  359 ms  (ratio   1.2x)  visits=   8153  [fast]
+
+=== cadence = 10.0s ===
+  firstReportAfter= 0.001s ( 0.01% of cadence)  →  first @ +10072 ms  (ratio 10072.0x)  visits= 122140  [≈ CADENCE]
+  firstReportAfter= 0.002s ( 0.02% of cadence)  →  first @ +10073 ms  (ratio 5036.7x)  visits= 120609  [≈ CADENCE]
+  firstReportAfter= 0.005s ( 0.05% of cadence)  →  first @ +10056 ms  (ratio 2011.3x)  visits= 134505  [≈ CADENCE]
+  firstReportAfter=  0.01s ( 0.10% of cadence)  →  first @ +10081 ms  (ratio 1008.1x)  visits= 127331  [≈ CADENCE]
+  firstReportAfter= 0.015s ( 0.15% of cadence)  →  first @ +10070 ms  (ratio 671.4x)  visits= 142530  [≈ CADENCE]
+  firstReportAfter=  0.02s ( 0.20% of cadence)  →  first @ +10068 ms  (ratio 503.4x)  visits= 137955  [≈ CADENCE]
+  firstReportAfter= 0.025s ( 0.25% of cadence)  →  first @ +   56 ms  (ratio   2.2x)  visits=    177  [fast]
+  firstReportAfter=  0.03s ( 0.30% of cadence)  →  first @ +   45 ms  (ratio   1.5x)  visits=    260  [fast]
+  firstReportAfter=  0.05s ( 0.50% of cadence)  →  first @ +   73 ms  (ratio   1.5x)  visits=   1046  [fast]
+  firstReportAfter=   0.1s ( 1.00% of cadence)  →  first @ +  148 ms  (ratio   1.5x)  visits=   3084  [fast]
+  firstReportAfter=   0.3s ( 3.00% of cadence)  →  first @ +  358 ms  (ratio   1.2x)  visits=   8249  [fast]
+
+[cadsweep] done; closing

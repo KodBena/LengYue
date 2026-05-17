@@ -1,0 +1,57 @@
+Earlier single-cadence run (Python, transparent proxy, cadence held at
+~2.16s — the SPA's quantised default). Establishes the same boundary
+the cadence-scaling run later reproduces under three different cadences.
+
+$ KATAGO_WS_URL=ws://192.168.122.1:1232 python3 probe_firstreport_bisect.py
+[bisect-py] connecting to ws://192.168.122.1:1232
+[bisect-py] ws open
+Wire shape: native KataGo (no model/capabilities/cache),
+            position=39 moves, maxVisits=2000000,
+            overrideSettings={"reportAnalysisWinratesAs": "WHITE", "rootNumSymmetriesToSample": 8, "wideRootNoise": 0.02},
+            includeOwnership=true.
+Vary firstReportDuringSearchAfter; cadence=2.1646s held constant.
+
+  firstReportAfter=  0.001s  →  first @ + 2187 ms  (expected ~    1 ms, ratio 2186.9x)  visits=  38706  [≈ CADENCE]
+  firstReportAfter=  0.002s  →  first @ + 2197 ms  (expected ~    2 ms, ratio 1098.7x)  visits=  39111  [≈ CADENCE]
+  firstReportAfter=  0.003s  →  first @ + 2206 ms  (expected ~    3 ms, ratio 735.4x)  visits=  41376  [≈ CADENCE]
+  firstReportAfter=  0.005s  →  first @ + 2242 ms  (expected ~    5 ms, ratio 448.5x)  visits=  42664  [≈ CADENCE]
+  firstReportAfter=  0.007s  →  first @ + 2202 ms  (expected ~    7 ms, ratio 314.5x)  visits=  43497  [≈ CADENCE]
+  firstReportAfter=   0.01s  →  first @ + 2219 ms  (expected ~   10 ms, ratio 221.9x)  visits=  41629  [≈ CADENCE]
+  firstReportAfter=  0.012s  →  first @ + 2204 ms  (expected ~   12 ms, ratio 183.7x)  visits=  41276  [≈ CADENCE]
+  firstReportAfter=  0.015s  →  first @ + 2246 ms  (expected ~   15 ms, ratio 149.7x)  visits=  38952  [≈ CADENCE]
+  firstReportAfter=  0.018s  →  first @ + 2207 ms  (expected ~   18 ms, ratio 122.6x)  visits=  39754  [≈ CADENCE]
+  firstReportAfter=   0.02s  →  first @ +   27 ms  (expected ~   20 ms, ratio  1.4x)  visits=     11  [fast]
+  firstReportAfter=  0.022s  →  first @ + 2243 ms  (expected ~   22 ms, ratio 102.0x)  visits=  39510  [≈ CADENCE]
+  firstReportAfter=  0.025s  →  first @ +   33 ms  (expected ~   25 ms, ratio  1.3x)  visits=    136  [fast]
+  firstReportAfter=  0.028s  →  first @ +   36 ms  (expected ~   28 ms, ratio  1.3x)  visits=    156  [fast]
+  firstReportAfter=   0.03s  →  first @ +   39 ms  (expected ~   30 ms, ratio  1.3x)  visits=    125  [fast]
+  firstReportAfter=  0.035s  →  first @ +   53 ms  (expected ~   35 ms, ratio  1.5x)  visits=    529  [fast]
+  firstReportAfter=   0.04s  →  first @ +   51 ms  (expected ~   40 ms, ratio  1.3x)  visits=    113  [fast]
+  firstReportAfter=   0.05s  →  first @ +   62 ms  (expected ~   50 ms, ratio  1.2x)  visits=    799  [fast]
+  firstReportAfter=   0.07s  →  first @ +   89 ms  (expected ~   70 ms, ratio  1.3x)  visits=   1775  [fast]
+  firstReportAfter=    0.1s  →  first @ +  117 ms  (expected ~  100 ms, ratio  1.2x)  visits=   2439  [fast]
+  firstReportAfter=   0.15s  →  first @ +  178 ms  (expected ~  150 ms, ratio  1.2x)  visits=   3998  [fast]
+  firstReportAfter=    0.3s  →  first @ +  330 ms  (expected ~  300 ms, ratio  1.1x)  visits=   7407  [fast]
+
+[bisect-py] done; closing
+
+Note: the boundary in the 0.020–0.030s strip is non-deterministic.
+Two earlier Node runs and this Python run produce three different
+specific "flip" patterns in that range. Sample evidence (firstReport
+fast / cadence per run, same fixed-2.16s cadence):
+
+  firstReport   Node run #1   Node run #2   Python run
+  0.018         NO-PACKET*    NO-PACKET*    cadence
+  0.020         cadence       cadence       fast
+  0.022         cadence       fast          cadence
+  0.025         fast          fast          fast
+  0.028         cadence       fast          fast
+  0.030         fast          cadence       fast
+
+*The two NO-PACKET cells at firstReport=0.018 are a KataProxy-side
+artefact, not a KataGo one — those Node runs were against KataProxy's
+SELECTOR-role proxy, which has adaptive_reevaluate middleware engaged.
+The transparent-proxy Python run shows the same firstReport=0.018 value
+landing on the cadence pin (2207ms) cleanly. So the NO-PACKET shape is
+proxy-side, while the noisy fast/cadence flip in the 0.020–0.030 strip
+is KataGo-side.
