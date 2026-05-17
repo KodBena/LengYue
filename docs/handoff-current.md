@@ -5,7 +5,7 @@ to be useful to someone arriving at this codebase cold — whether
 to extend it, to maintain it, or to coordinate a release across
 the three sub-projects. Updated as the system evolves.
 
-For specific architectural decisions, see the seven ADRs in
+For specific architectural decisions, see the eight ADRs in
 `docs/adr/`. For active work, see `docs/TODO.md`. For backend
 architectural retrospective, see `docs/notes/reflection.md`. For
 the v1.0.0 release retrospective, see
@@ -458,8 +458,8 @@ documentation, see `proxy/README.md`, `proxy/FRAMEWORK.md`, and
 
 ## Architectural governance — ADRs and tenets
 
-The seven foundational architectural records live in `docs/adr/`,
-spread across two genres. **All seven apply project-wide**,
+The eight foundational architectural records live in `docs/adr/`,
+spread across two genres. **All eight apply project-wide**,
 regardless of which sub-project's history they originated in.
 
 ### Decisions
@@ -517,6 +517,19 @@ regardless of which sub-project's history they originated in.
   prohibition that logic must never be compressed to fit a
   budget. Prevents the condition under which ADR-0004's
   partial-visibility discipline has to apply.
+- **ADR-0008: Classification Discipline.** When choosing from a
+  closed vocabulary (enum, ADR band, chrome neighborhood,
+  documented pattern) or placing into a taxonomy, refuse fuzzy
+  matches against an inadequate vocabulary and refuse synthetic
+  fabrications under ambiguity — classify only when the
+  classification is honest. Two registers (positive: revise
+  vocabularies rather than picking closest-match; negative: leave
+  flat rather than inventing synthetic parents). Severity is
+  calibrated by the substitution test — what the failure shape
+  would cost on a critical surface, not the observed instance's
+  user-visible cost. ADR-0002's Rule 7 is its
+  fail-loudly-register instance; this tenet is the proactive
+  register that prevents the silent failures Rule 7 surfaces.
 
 Together they establish the codebase's architectural personality:
 honest types over aspirational annotations (ADR-0001); loud
@@ -525,9 +538,10 @@ premature abstraction (ADR-0003); surgical edits over speculative
 reconstruction (ADR-0004); documentation that doesn't drift into
 silence (ADR-0005); files that identify themselves (ADR-0006);
 working memory budgets that keep partial visibility rare
-(ADR-0007). Read all seven before making non-trivial changes; a
-contribution against the grain causes friction wherever it
-touches.
+(ADR-0007); honest classification refusing fuzzy matches and
+synthetic fabrications (ADR-0008). Read all eight before making
+non-trivial changes; a contribution against the grain causes
+friction wherever it touches.
 
 ---
 
@@ -740,7 +754,7 @@ messages so the receiving team finds it without archaeology.
 
 In rough order of priority for a new contributor:
 
-- **`docs/adr/`** — The seven ADRs. Read these first.
+- **`docs/adr/`** — The eight ADRs. Read these first.
 - **`docs/notes/tenancy.md`** — How multi-tenancy flows through
   the backend.
 - **`docs/notes/reflection.md`** — Backend architectural
@@ -784,7 +798,7 @@ In rough order of priority for a new contributor:
 ## Closing
 
 The codebase is in good shape. Six Ports cleanly composed on the
-backend, seven ADRs that capture the discipline, a tenancy spine
+backend, eight ADRs that capture the discipline, a tenancy spine
 that's honest about what it guarantees, migration tooling
 reusable for the next schema change. The frontend's analogous
 work (typed wire shapes, fail-loud surfacing, OpenAPI codegen)

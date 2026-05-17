@@ -19,6 +19,12 @@
   and warranted — is broader than fail-loudly proper, and may relocate
   to a future classification-discipline tenet when the wider tenet-space
   articulation matures. The Rule 7 body names this seam.
+  2026-05-17 — the broader principle Rule 7 anticipated has been
+  articulated as ADR-0008 (classification discipline). Rule 7's
+  provisional-home flag retires; Rule 7 remains here as the
+  fail-loudly-register instance, with ADR-0008 as the home of the
+  broader principle (positive + negative registers, substitution-test
+  severity calibration).
 - **Scope:** Codebase-wide. Applies to the frontend (`gogui`) and, as a
   design aspiration, to coordinated choices on the spaced-repetition backend.
 
@@ -247,6 +253,21 @@ A deviation is *not* surfaced loudly enough when:
    own discipline applied to its own placement: the next reader
    sees the placement as interim rather than reading it as
    authoritative.
+
+   **Provisional-home flag retired 2026-05-17.** ADR-0008
+   (classification discipline) has been articulated as the
+   broader-principle home this paragraph anticipated. The
+   "natural relocation point" was resolved via the
+   "standalone ADR" option (not the tenet-space refactoring
+   alternative). Rule 7 remains in ADR-0002 as the
+   fail-loudly-register instance; ADR-0008 is the home of the
+   broader principle, carrying both the positive register (this
+   rule's content) and the previously-implicit negative register
+   (refuse synthetic fabrications when no honest category exists),
+   plus the substitution-test severity calibration that this
+   register lacked. The two tenets compose: classification
+   discipline is the proactive register that prevents the silent
+   failures fail-loudly's reactive register surfaces.
 
 ## Consequences
 
