@@ -409,13 +409,9 @@ complexity. Defer the choice to the SPA integration session.
 | Modern val features | `~/benchmark_allocation/modern_validation_features.jsonl` | ~1800 rows |
 | Phase 3 retrospective | `docs/notes/retrospective-phase3-policy-benchmark-2026-05.md` | Shipped, PRs #258 + #259 |
 | Phase 3 archive | `docs/archive/phase3-allocation-benchmark/` | Shipped, PR #259 |
+| Phase 3.5 archive | `docs/archive/phase3.5-learned-vf/` | Shipped in this PR alongside the retrospective |
+| Phase 3.5 SPA roadmap | `docs/notes/roadmap-phase3.5-spa-integration.md` | Shipped in this PR |
 | This retrospective | `docs/notes/retrospective-phase3.5-learned-vf-2026-05.md` | This file |
-
-**Archival follow-up**: when Phase 3.5 ships, expand
-`docs/archive/phase3-allocation-benchmark/` (or create a sibling
-`docs/archive/phase3.5-learned-vf/`) with the four new scripts,
-the two trained model files, and the three feature files. Match
-the F-optimizer arc's archival discipline.
 
 ---
 
