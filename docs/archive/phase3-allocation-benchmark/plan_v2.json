@@ -1,0 +1,39 @@
+{
+  "version": "v2",
+  "config": {
+    "T_per_cell": 12,
+    "V_pre": 200,
+    "V_intermediate": 1000,
+    "V_oracle": 5000,
+    "n_seeds_stochastic": 10,
+    "budgets": [1000, 2000, 5000],
+    "window_stride": 12,
+    "window_start_min": 30,
+    "rng_seed": 42
+  },
+  "vps_per_model": {
+    "b10c128": 13060,
+    "b18c384nbt": 2239,
+    "b28c512nbt": 1055,
+    "fdx6d": 367
+  },
+  "n_cells_per_tier": {
+    "b10c128": 145,
+    "b18c384nbt": 145,
+    "b28c512nbt": 145,
+    "fdx6d": 25
+  },
+  "estimated_seconds_per_tier": {
+    "b10c128": 693,
+    "b18c384nbt": 4040,
+    "b28c512nbt": 8578,
+    "fdx6d": 4255
+  },
+  "estimated_total_hours": 4.88,
+  "tier_order": ["b10c128", "b18c384nbt", "b28c512nbt", "fdx6d"],
+  "tier_stop": {
+    "enabled": true,
+    "metric": "top3_policy_stability",
+    "consecutive_stable_transitions": 2
+  }
+}
