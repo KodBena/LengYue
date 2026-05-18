@@ -850,6 +850,19 @@ export interface AppSettings {
         enabled: boolean;
         worstQuantile: number;
         extraVisits: number;
+        // v1.0.26 — Phase 3.5 learned value-function opt-in.
+        // Empty string `""` (or `"default"`) means "use the proxy's
+        // built-in v1.0.24 worst-quantile allocation; no Phase 3
+        // fields sent." A `learned_*` string opts into the
+        // proxy-hosted LightGBM predictor with that version name
+        // (e.g. `"learned_v1"`); the SPA verifies the name appears
+        // in `adaptive_reevaluate.available_value_bindings` before
+        // sending it, hiding the dropdown option otherwise.
+        // Defaults to `""` for backward compatibility.
+        //
+        // Schema-version 31 introduces this field; the migration
+        // backfills `""` on existing blobs.
+        valueBinding: string;
       };
       // Ceiling on ponder mode's KataGo `maxVisits`. Ponder runs
       // indefinitely on the engine side; this is the practical

@@ -60,6 +60,11 @@ export const defaultSettings = {
         enabled: false,
         worstQuantile: 0.05,
         extraVisits: 800,
+        // v1.0.26 — Phase 3.5 learned-VF opt-in. Empty = the proxy's
+        // built-in v1.0.24 worst-quantile allocation (no Phase 3
+        // fields sent). User selects a `learned_*` version from the
+        // dropdown when the proxy advertises one.
+        valueBinding: '',
       },
       // Practical ceiling on ponder mode's maxVisits. The pre-v1.0.20
       // hardcoded ceiling of 100,000 was hit in seconds on weak

@@ -35,6 +35,21 @@ const adaptiveAdvertised = computed(() => {
   return caps !== null && 'adaptive_reevaluate' in caps;
 });
 
+// v1.0.26 — list of `learned_*` value-binding versions advertised by
+// the proxy. Empty array means the proxy doesn't host any learned
+// predictor (either lightgbm not installed, no bundled models, or
+// pre-v1.0.26 proxy); the dropdown only shows the "default"
+// (built-in) option in that case.
+const availableLearnedBindings = computed(() => {
+  const caps = store.engine.info.capabilities;
+  if (caps === null) return [] as readonly string[];
+  const meta = caps.adaptive_reevaluate;
+  if (!meta || typeof meta !== 'object') return [] as readonly string[];
+  const list = (meta as { available_value_bindings?: unknown }).available_value_bindings;
+  if (!Array.isArray(list)) return [] as readonly string[];
+  return list.filter((v): v is string => typeof v === 'string' && v.startsWith('learned_'));
+});
+
 // ── Persistence UI state ──────────────────────────────────────────────────
 //
 // `summary` is reactive on the service's per-board summaries Map.
@@ -187,6 +202,41 @@ function purgeLedger() {
               v-model.number="store.profile.settings.engine.katago.adaptiveReevaluate.extraVisits"
               class="dark-input adaptive-input"
             />
+          </label>
+          <!--
+            v1.0.26 — Phase 3.5 learned value-function selector.
+            Dropdown shows "default" (built-in worst-quantile, the
+            v1.0.24 behaviour) plus any `learned_*` versions the
+            proxy advertises in
+            `adaptive_reevaluate.available_value_bindings`. The
+            [experimental] tag is shown alongside learned options
+            until diverse-corpus retraining lands.
+          -->
+          <label
+            v-if="availableLearnedBindings.length > 0"
+            class="label-with-value adaptive-field-row"
+          >
+            <span>{{ $t('analysis.adaptive.valueBinding.label') }}</span>
+            <select
+              v-model="store.profile.settings.engine.katago.adaptiveReevaluate.valueBinding"
+              class="dark-input adaptive-input"
+            >
+              <option value="">
+                {{ $t('analysis.adaptive.valueBinding.default') }}
+              </option>
+              <option
+                v-for="vb in availableLearnedBindings"
+                :key="vb"
+                :value="vb"
+              >
+                {{ $t('analysis.adaptive.valueBinding.learnedLabel', { version: vb }) }}
+              </option>
+            </select>
+            <span
+              v-if="store.profile.settings.engine.katago.adaptiveReevaluate.valueBinding.startsWith('learned_')"
+              class="info-icon"
+              :title="$t('analysis.adaptive.valueBinding.experimentalTooltip')"
+            >?</span>
           </label>
           <p class="hint">{{ $t('analysis.adaptive.hint') }}</p>
         </div>

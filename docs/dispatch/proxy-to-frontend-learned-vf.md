@@ -51,8 +51,7 @@ When the user selects "learned" in the dropdown and the analyze query is dispatc
       "extra_visits": "<int from user setting>",
       "worst_quantile": "<float from user setting>",
       "value_binding": "learned_v1",
-      "visit_scaling_model": "monte_carlo_sqrt",
-      "allocation_algorithm": "greedy_eig"
+      "allocation_algorithm": "learned_piecewise"
     }
   }
 }
@@ -60,11 +59,15 @@ When the user selects "learned" in the dropdown and the analyze query is dispatc
 
 `value_binding: "learned_v1"` is the **proxy-hosted predictor name**. The `learned_` prefix is the reserved namespace marker; any string starting with `learned_` bypasses the substrate's normal symbol-table lookup and dispatches to a hard-wired predictor by name.
 
-### Important non-changes
+`allocation_algorithm: "learned_piecewise"` is the **paired-prediction allocator**. The substrate's existing four algorithms (`greedy_eig`, `knowledge_gradient`, `thompson_sampling`, `ucb`) consume one `Callable[[TurnView], float]`. The learned predictor exposes TWO predictions per turn (r_int = V=200→V=1000 entropy reduction, r_full = V=200→V=5000), and the principled allocation is segment-based water-fill on the piecewise-linear curve anchored at those two points. `learned_piecewise` is the new substrate algorithm that consumes both. It refuses if paired with a non-`learned_*` value binding (since hand-crafted symbols only expose one prediction). When the SPA selects a `learned_*` binding, the SPA MUST send `allocation_algorithm: "learned_piecewise"`; the substrate refuses otherwise.
+
+`visit_scaling_model` is OMITTED — the piecewise curve is empirically anchored at the model's two prediction points; no parametric scaling assumption is used. The substrate accepts the field for backward compatibility but ignores it under `learned_piecewise`.
+
+### Important changes (post-revision; reconciles frontend-side dispatch reply)
 
 - `analysis_config` is **optional** when `value_binding` is a `learned_*` name. The substrate's current eager validation requires `analysis_config.bindings.value_fn` to match `value_binding`, sourced from `analysis_config.symbols`. That check is bypassed for the `learned_*` namespace — the predictor is server-side code, not a user-authored expression.
-- The other three Phase 3 capability fields (`visit_scaling_model`, `allocation_algorithm`, `extra_visits`) are unchanged. The SPA's dropdown surfaces only the value-function choice; the other fields keep their existing controls or defaults.
-- **MVP uses single-value-function path.** The substrate's `AllocationAlgorithm.allocate(...)` consumes one `Callable[[TurnView], float]`. The Phase 3.5 model has TWO sub-models (r_full + r_int) and the principled efficiency at 0.93-0.97 uses both via piecewise water-fill. The MVP wire shape exposes only the r_full prediction (paired with `monte_carlo_sqrt` scaling → analytical sqrt-water-fill ≈ `greedy_eig` in the limit), giving ~0.76-0.78 efficiency modern-held-out. Lifting to the full piecewise path requires a substrate extension (a second `Callable` for r_int) and is deferred to a follow-up arc (Phase 3.5.1 / v1.0.27 candidate).
+- The `extra_visits` and `worst_quantile` fields keep their existing SPA-side controls (checkbox + two number inputs in `AnalysisControls.vue`). The SPA's new dropdown surfaces the value-function choice; for `learned_*` bindings, it implies the paired `allocation_algorithm: "learned_piecewise"` and the OMISSION of `visit_scaling_model` (under that algorithm the field is ignored anyway).
+- **Full piecewise path included.** The substrate's existing `AllocationAlgorithm` protocol consumes one `Callable[[TurnView], float]`. This dispatch's implementation adds a new algorithm class `LearnedPiecewiseAllocator` that consumes a `LearnedValueFn` predictor (which exposes BOTH `__call__(turn_view) → r_full` and `predict_int(turn_view) → r_int` methods). The new algorithm does segment-based water-fill on the piecewise-linear curve anchored at the model's two prediction points. This is the v1.0.26 substrate change, NOT deferred to v1.0.27. Expected efficiency: ~0.85-0.90 modern-held-out (per the Phase 3.5 retrospective's piecewise numbers).
 
 ### Refusal surface
 
@@ -145,7 +148,7 @@ The user-authored path stays intact. Existing SPA versions that send `value_bind
 ## Implementation notes (frontend side)
 
 - **`src/engine/katago/types.ts`**: extend the `AdaptiveReevaluateCapability` type with `available_value_bindings?: string[]` (proxy → SPA advertisement).
-- **`src/engine/katago/capability-injection.ts`**: when the user has selected a `learned_*` binding via the dropdown, include `value_binding`, `visit_scaling_model`, `allocation_algorithm` in the injected `adaptive_reevaluate` capability metadata.
+- **`src/engine/katago/capability-injection.ts`**: when the user has selected a `learned_*` binding via the dropdown, include `value_binding` and `allocation_algorithm: "learned_piecewise"` in the injected `adaptive_reevaluate` capability metadata. `visit_scaling_model` is NOT included under the learned path.
 - **`src/components/editors/AnalysisControls.vue`**: under the `adaptive-fields` block (currently lines ~170-191), add a `<select>` for value-function choice. Options:
   - `lcb_spread` *(default; universal)*
   - `score_stdev`
@@ -163,12 +166,27 @@ The user-authored path stays intact. Existing SPA versions that send `value_bind
 
 1. **Capability name shape.** Settled: reuse `value_binding` with the `learned_*` namespace convention. Rationale: keeps the existing wire field; adds a string-prefix convention that's documented here and won't drift. No new field added.
 2. **Where the model file lives.** Settled: `proxy/models/learned_value_fn/v1/`. Forward-compatible with multiple versions.
-3. **Model retraining trigger.** Settled: ship `learned_v1` as `[experimental]` after the diverse-corpus retraining lands. The retraining pass is what makes the model "ready for opt-in"; pre-retraining (the current state) is too era-OOD on b18/b28 to ship cleanly. The proxy can advertise `learned_v1` once the model bundle exists; the SPA's `[experimental]` tag and tooltip are the user-facing honesty about the OOD caveats.
-4. **Custom value-fn authorship preservation.** Settled: the dropdown shows "preset" choices (`lcb_spread`, `score_stdev`, `policy_entropy`, `learned_v1`); a separate "Custom (advanced)…" path retains the existing `analysis_config.symbols` editor for power users. The dropdown does not lock out hand-authored expressions; it's a convenience layer.
+3. **Model retraining trigger.** Settled: ship `learned_v1` as `[experimental]` with the **current model bundle** (the Phase 3.5 baseline, trained on ~2000-era modern games). The diverse-corpus retraining lands as `learned_v2` later — versioning lets us ship both in advertisement and the SPA picks the highest version it knows about. Per the Q3 answer below.
+4. **Custom value-fn authorship preservation.** Settled: the dropdown shows TWO categories: a "default (built-in)" option which sends no Phase 3 fields (the proxy's v1.0.24 worst-quantile path engages, baseline behaviour), and one option per `learned_*` version the proxy advertises. The hand-crafted presets (`lcb_spread`, `score_stdev`, `policy_entropy`) named in earlier dispatch drafts are NOT in the MVP dropdown — exposing them requires SPA-side seeding of the `analysis_config.symbols` table (Q2 below); the user-authored `analysis_config` path remains available via the existing "Custom (advanced)…" symbol-editor surface. A polish-PR follow-up may add preset rows to the dropdown that auto-author the matching `analysis_config` payload.
+
+## Frontend clarifications dispatch (2026-05-18 reply)
+
+Three operational questions filed in `docs/dispatch/frontend-to-proxy-learned-vf-clarifications.md`. Resolutions:
+
+### Q1 — Send `value_binding` on every opt-in, or only when non-default?
+
+**Settled: only when the user has picked a `learned_*` option.** The "default (built-in)" choice in the dropdown sends NO Phase 3 fields (no `value_binding`, no `allocation_algorithm`); the wire payload matches pre-v1.0.26 SPAs byte-for-byte under this choice. This preserves the v1.0.24 worst-quantile path as the universal default and avoids any chance of a surprise `allocation_invalid` refusal on a stock install.
+
+### Q2 — Are the three preset names seeded into the default palette's symbol table?
+
+**Settled: not in the MVP.** The dropdown shows only "default" + advertised `learned_*` versions. Exposing `lcb_spread` / `score_stdev` / `policy_entropy` as dropdown rows requires SPA-side seeding of the `analysis_config.symbols` table (the expressions are short — see `docs/archive/phase3.5-learned-vf/extract_features.py`'s `_vfn_*` functions for the formulas — but the seeding is plumbing work the dispatch defers). A polish PR may add this; the dispatch's earlier mention of four options anticipated it, but the MVP simplifies to "default" + "learned" only.
+
+### Q3 — Advertisement timing vs. SPA ship readiness
+
+**Settled: option (a) — ship the model bundle in the same v1.0.26 commit as the substrate changes.** The bundle lives at `proxy/models/learned_value_fn/v1/` and the proxy advertises `learned_v1` from startup. The `[experimental]` tag in the SPA's dropdown carries the user-facing honesty about the era-OOD caveats. Diverse-corpus retraining (filed as a separate data-collection arc) produces `learned_v2`, which ships as a new bundle alongside `v1`; the SPA's dropdown automatically picks up the new version from the advertisement.
 
 ## What this dispatch is NOT settling
 
-- The piecewise-water-fill path (r_full + r_int both) requires a substrate extension and is filed as Phase 3.5.1 (v1.0.27 candidate). MVP is sqrt-water-fill on r_full predictions only.
 - The diverse-corpus retraining itself — that's a data-collection arc independent of this dispatch. The model bundle's `metadata.json` will carry a training-corpus signature so the SPA can tell which model is loaded.
 - Telemetry of "which value function did the user pick, was the user satisfied" — separate design.
 
