@@ -480,28 +480,29 @@ runtime-visibility-first feedback memory earned its weight here.
 
 | Artefact | Path | Status |
 |---|---|---|
-| Working notes | `~/benchmark_allocation/NOTES.md` | Live; the in-process scratch that fed this retrospective. Contains retractions, firewall verdicts, and roadmap entries for Phase 3.5 / 3.7 / 4 |
-| Benchmark harness | `~/benchmark_allocation/benchmark_v2.py` | The sweep tool. Resume-capable; configurable via `plan_v2.json` |
-| Calibration tool | `~/benchmark_allocation/calibrate.py` | Measures per-model visits/sec; cached at `~/benchmark_allocation/calibration.json` |
-| OR planner | `~/benchmark_allocation/plan.py` | Trimmed-mean vps + budget allocation; cached at `~/benchmark_allocation/plan_v2.json` |
-| Live dashboard | `~/benchmark_allocation/dashboard_v2.py` | aiohttp + plotly; localhost:8001 |
-| Post-hoc analysis | `~/benchmark_allocation/analyze.py` | Cluster-robust SE; scaling-fit table; cross-model deltas; ranking robustness |
-| Raw results CSV | `~/benchmark_allocation/results_v2.csv` | 103,095 rows × 37 columns (4 oracles × 4 scalings = 16 efficiency cols + 4 spearman + 4 top3 + 13 identifier/allocation/timestamp). The data underlying every numeric claim above |
-| Per-cell raw measurements | `~/benchmark_allocation/cells_v2.jsonl` | 435 records; per-turn r_int and r_full for each of 4 oracle metrics |
+| Archive — README | `docs/archive/phase3-allocation-benchmark/README.md` | Pointer for archaeologists |
+| Archive — benchmark harness | `docs/archive/phase3-allocation-benchmark/benchmark_v2.py` | The sweep tool; resume-capable |
+| Archive — live dashboard | `docs/archive/phase3-allocation-benchmark/dashboard_v2.py` | aiohttp + plotly live view |
+| Archive — post-hoc analysis | `docs/archive/phase3-allocation-benchmark/analyze.py` | Cluster-robust + paired SE; scaling-fit; cross-model deltas; ranking robustness |
+| Archive — calibration tool | `docs/archive/phase3-allocation-benchmark/calibrate.py` + `calibration.json` | Per-model vps with cached output from the 2026-05-18 run |
+| Archive — OR planner | `docs/archive/phase3-allocation-benchmark/plan.py` + `plan_v2.json` | Compute-vs-data-variety budgeting + the chosen plan |
+| Archive — raw results (gzipped) | `docs/archive/phase3-allocation-benchmark/results_v2.csv.gz` | 103,095 rows × 37 columns, ~2.5 MB compressed (~38 MB uncompressed). The data underlying every numeric claim above. `gunzip -k` to decompress |
+| Archive — per-cell raw measurements (gzipped) | `docs/archive/phase3-allocation-benchmark/cells_v2.jsonl.gz` | 435 records; per-turn r_int and r_full for each of 4 oracle metrics |
+| Archive — working notes | `docs/archive/phase3-allocation-benchmark/NOTES.md` | In-process scratch with retractions, firewall verdicts, roadmap entries for Phase 3.5 / 3.7 / 4 |
 | Proxy v1.0.25 substrate | `proxy/middleware/allocation.py`, `middleware/visit_scaling.py`, `middleware/adaptive_reevaluate.py` | Shipped; bumped in umbrella at PR #257 |
 | Proxy v1.0.25 design note | `proxy/docs/roadmap-info-theoretic-allocation.md` | Authoritative for the substrate's design; this retrospective for the empirical follow-up |
 | F-optimizer retrospective | `docs/notes/retrospective-katago-f-optimizer-2026-05.md` | Methodological precedent (firewall pattern, archival discipline) |
 | This retrospective | `docs/notes/retrospective-phase3-policy-benchmark-2026-05.md` | This file |
 
-**Archival note**: as with the F-optimizer arc, the working
-directory `~/benchmark_allocation/` is **outside the repository**.
-Pulling the benchmark harness, the raw CSV, the cells JSONL, and
-the dashboard into an in-repo `docs/archive/phase3-allocation-
-benchmark/` is the natural next step so the analysis stands on its
-own without depending on the project author's external staging
-directory. Deferred until Phase 3.5 (LightGBM) work begins; the
-archive should bundle the benchmark data + a frozen analyze.py +
-the Phase 3.5 training scaffold as one consistent snapshot.
+The `docs/archive/phase3-allocation-benchmark/` directory is the
+**archaeological deposit** — every numeric claim in this
+retrospective can be reproduced from `results_v2.csv` and the
+Python tooling beside it. Pulled into the repo so the analysis
+stands on its own without depending on the project author's
+external staging directory. The archive's `README.md` is the
+orientation document for anyone arriving cold; it covers what's
+where, how to reproduce, and how to re-run the sweep against a
+running SELECTOR.
 
 ---
 
