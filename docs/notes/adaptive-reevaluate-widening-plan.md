@@ -81,6 +81,15 @@ branding (`ClientId` / `InternalId` / `CanonicalId` / `WireId`).
 The translation lives at one named seam; user expressions never
 see the open-coded arithmetic.
 
+A second substrate-level concern carried by Phase 2's multi-round
+shape: **across-iteration policy expression**. The framework
+exposes a defined state object accumulating per-unit history and
+round-level aggregates; selectors, value functions, and budget
+objects query it; tolerance thresholds, patience counters, and
+diminishing-returns detectors become first-class termination
+shapes orthogonal to budget accounting. See "Across-iteration
+policies" below.
+
 ## The substrate — two axes and the move/turn seam
 
 ### The two axes
@@ -401,7 +410,14 @@ bookkeeping. No framework changes required.
 
 ### Budget shapes
 
-Four shapes the budget abstraction admits:
+The budget abstraction has two layered concerns: **accounting**
+(what compute is consumed, terminating when exhausted) and
+**termination policies** (tolerance, patience, etc.; terminating
+when continuing would not help). They compose — a budget object
+can combine one or more accounting shapes with zero or more
+termination policies.
+
+Accounting shapes:
 
 - **Fixed K rounds.** Budget tracks remaining rounds; terminates
   at zero. Simplest. Suitable for "give me three rounds of
@@ -415,11 +431,14 @@ Four shapes the budget abstraction admits:
   terminates when threshold passes. Useful when the caller has a
   latency contract — review-session, autonomous-loop with
   deadlines.
-- **Convergence-driven.** No fixed budget; the budget object
-  observes responses and terminates when a stability metric stops
-  moving (e.g., the worst-quantile unit's selector value moved
-  less than ε in the last round). Useful when the question is
-  "deepen until we've learned what we're going to learn."
+
+Termination policies — tolerance thresholds, convergence checks,
+patience counters, diminishing-returns detectors — are
+conceptually orthogonal and treated as a first-class peer to the
+accounting shapes; see "Across-iteration policies" below for the
+detailed contract. A budget consisting only of termination
+policies (no compute cap) is valid — that is the
+"deepen until we have learned what we are going to learn" shape.
 
 ### Context-dependent profiles
 
@@ -479,13 +498,186 @@ empty-extra-from-sub-queries bug — applies unchanged.
 When no budget is named, the default is K=1 — single round,
 current behaviour. Wire-compatible in both directions.
 
+## Across-iteration policies
+
+KataGo's analysis at any visit count is an approximation, not an
+oracle. The substrate has no ground truth that would answer
+"have we deepened enough?" directly — the optimum is unknown in
+exactly the way optimization theory's tolerance-threshold tools
+were designed for. Across-iteration policies are how the
+substrate makes principled decisions about its own progress:
+when to stop (the iterate trajectory has stabilized), when to
+redirect (one selector axis has converged but another has not),
+when to spend more (last round was productive and the budget
+allows continuation). Without them, the substrate is blind to
+its own history and can only spend the budget it is given
+regardless of whether that spending buys clarity. With them,
+compute spends in proportion to remaining marginal benefit, and
+the standard optimization-theoretic toolbox — tolerance
+thresholds, patience counters, diminishing-returns detectors,
+restart strategies — becomes available.
+
+The autonomous-SR-loop note's territory is a natural
+generalization: cross-query / cross-session adaptation is the
+same substrate scaled up, where "iterations" span queries or
+sessions rather than rounds within one query. Phase 1-3's
+across-iteration substrate is the prerequisite for the
+autonomous-loop's per-card / per-user adaptive policies; Phase 4
+exposes the substrate directly to user-authored policies.
+
+### The state object's contract
+
+The framework's `AdaptiveState` object accumulates
+across-iteration data and exposes a defined query interface to
+selectors, value functions, and budget objects. Per-unit history
+(where "unit" is `MoveIndex` or `TurnIndex` depending on the
+active selector axis):
+
+- `state.selector_history(unit) -> list[float]` — selector
+  scalars for this unit, one per round in which the unit was a
+  candidate.
+- `state.deepened_count(unit) -> int` — number of rounds this
+  unit was in the deepening set.
+- `state.last_packet(unit) -> AnalyzePacket | None` — most
+  recent analyze response observed for this unit.
+
+Round-level aggregates:
+
+- `state.rounds_completed: int`
+- `state.total_visits_spent: int`
+- `state.wall_clock_elapsed: float`
+
+Named metric trajectories (user-configurable, populated by
+`state_fns`-style bindings evaluated per round, plus
+framework-default metrics like `worst_quantile_value` and
+`deepened_set_jaccard_to_previous`):
+
+- `state.metric(name) -> list[float]` — the named metric's
+  value history, one entry per completed round.
+
+The state object is the framework's responsibility — its
+lifetime matches the orchestration coroutine's, observation
+hooks update it as responses arrive, and cleanup happens at
+coroutine completion. Selectors, value functions, and budget
+objects read it; they do not write it directly. This mirrors
+`analysis_enricher`'s `request_cache` pattern applied at the
+orchestration-coroutine scope.
+
+### History exposure to selectors and value functions
+
+The per-iteration view object carries a `round_history` field
+exposing the state object's per-unit queries for the current
+unit, plus round-level aggregates:
+
+- `move_view.round_history.selector_values: list[float]`
+- `move_view.round_history.deepened: int`
+- `move_view.round_history.previous_packet: AnalyzePacket | None`
+- `move_view.round_history.rounds_completed: int`
+
+(Symmetric for `turn_view.round_history`.) Selectors thus author
+across-iteration logic naturally:
+
+```
+# Tighten attention on units already deepened multiple times
+selector_fn(x) = base_metric(x) * (1 + 0.3 * x.round_history.deepened)
+
+# Deprioritise units whose selector value did not move much last round
+selector_fn(x) = base_metric(x) * stability_decay(x.round_history.selector_values)
+```
+
+Where `base_metric` and `stability_decay` are user symbols
+defined in the `analysis_config.symbols` block. The expression
+substrate's authorship pattern (registry interpreter, single
+argument per binding, curated stdlib) is preserved; only the
+view's payload grows to include history.
+
+### Termination as composable with budget shape
+
+Tolerance-threshold termination is conceptually orthogonal to
+budget-shape accounting. A user may want both: "spend at most 5
+rounds AND at most 3000 extra-visits AND stop early if the
+worst-quantile value moves less than 0.05 between rounds." The
+budget object's `has_capacity(state)` check evaluates a composite
+predicate.
+
+Wire shape:
+
+```
+"budget": {
+  "max_rounds": 5,
+  "total_extra_visits": 3000,
+  "convergence": {
+    "metric": "worst_quantile_value",
+    "tolerance": 0.05,
+    "lookback": 1,
+    "scale": "absolute"
+  }
+}
+```
+
+Standard tolerance forms map to the `metric` / `tolerance` /
+`scale` fields:
+
+- Absolute on iterate (`|x_k - x_{k-1}| < ε`): scale=absolute,
+  metric=an iterate trajectory.
+- Relative on iterate (`|x_k - x_{k-1}| / |x_{k-1}| < ε`):
+  scale=relative.
+- Absolute on objective (`|f(x_k) - f(x_{k-1})| < ε`): metric=a
+  named objective trajectory, scale=absolute.
+- Patience (no improvement for N rounds): lookback=N, metric=a
+  best-observed trajectory.
+
+Multiple convergence checks compose:
+
+```
+"convergence": {
+  "all_of": [
+    {"metric": "worst_quantile_value", "tolerance": 0.05},
+    {"metric": "deepened_set_jaccard_to_previous", "tolerance": 0.9}
+  ]
+}
+```
+
+Composite termination is a first-class shape — not an addition
+sneaked into a "convergence-driven" budget alternative; the
+substrate exposes it as a peer field on the budget object,
+combinable with any accounting shape.
+
+### Composition with Phase 3 allocation algorithms
+
+Phase 3's named allocation algorithms rely on across-iteration
+state by construction:
+
+- **UCB-style** consults `state.deepened_count(unit)` to compute
+  the confidence-bound term.
+- **Thompson sampling** updates per-unit posteriors each round
+  from observations stored against `state.last_packet(unit)`.
+- **Knowledge-gradient** projects "after this round's deepening,
+  what would the value-function maximum be?" — requires the full
+  state to evaluate the projection.
+
+Phase 3 is thus a direct consumer of this section's substrate;
+the across-iteration state object is the prerequisite for any
+honest implementation of these algorithms versus a per-round
+sketch that ignores history.
+
+Phase 4 (user-authored policies) exposes the state object
+directly to a program-shaped binding, letting users author
+arbitrary across-iteration logic — selection, allocation,
+termination, axis-switching, restart strategies — at the
+substrate level. The state object's contract is also Phase 4's
+substrate.
+
 ## Phase 3 — Information-theoretic primitives
 
 The principled direction. Frames adaptation as a
 budget-constrained acquisition problem and ships the substrate
-for principled allocation. Inherits Phase 1's two-axis substrate:
-the value function (II below) can be authored on either axis,
-matching whichever axis the selector uses.
+for principled allocation. Inherits Phase 1's two-axis substrate
+(value functions can be authored on either axis, matching
+whichever axis the selector uses) and Phase 2's across-iteration
+substrate (UCB, Thompson sampling, and knowledge-gradient all
+rely on the state object's history queries to compute confidence
+bounds, update posteriors, and project allocation gains).
 
 ### Three pluggable layers
 
@@ -609,7 +801,8 @@ Each phase's wire-shape additions are layered on the existing
 | 1 | metadata | `selection_policy` | Per-color-quantile / pooled / threshold / top-k. |
 | 1 | metadata | `selector_axis` (optional) | Disambiguator when both selector bindings are set. |
 | 1 | (semantics) | `window_size` | For move-based: same-color predecessor count. |
-| 2 | metadata | `budget` | Profile name or raw budget shape. |
+| 2 | metadata | `budget` | Composite: accounting shapes (rounds / visits / wall-clock) + optional termination policies. Profile name OR raw object. |
+| 2 | metadata | `budget.convergence` | Termination block: named metric / tolerance / lookback / scale. Composable via `all_of` / `any_of`. |
 | 3 | metadata | `allocation` | Named allocation algorithm. |
 | 3 | `bindings` | `move_value_fn` / `turn_value_fn` | Names value-function symbol; axis-matched to selector. |
 | 3 | metadata | `visit_model` (optional) | Names the visit-scaling model; defaults to proxy default. |
@@ -665,6 +858,13 @@ Across all four phases:
   open-coded arithmetic in `_find_worst_turns` and
   `_build_deeper_query` migrates to use the seam; `mypy --strict`
   enforces non-confusion at the typecheck level.
+- **The `AdaptiveState` object's lifecycle matches existing
+  per-eid caching patterns.** Lives in the orchestration
+  coroutine's scope; observation hooks populate it from response
+  streams; cleanup at coroutine completion. Selectors, value
+  functions, and budget objects read it; they do not write it
+  directly. Mirrors `analysis_enricher`'s `request_cache` shape
+  applied to the orchestration-coroutine scope.
 
 ## Defaults and backwards compatibility — by phase
 
@@ -772,6 +972,22 @@ For inline review comments:
     in Phase 1 at the adaptive substrate's seam, or pushed
     broader (analysis_enricher, delta_analysis) as a substrate
     arc in parallel?
+13. **AdaptiveState observable surface.** What is the minimum
+    queryable surface? Per-unit selector history and deepened
+    count are the obvious starting point; should the framework
+    also auto-track per-unit derived metrics (variance
+    trajectories, gradient proxies), or leave those to user
+    authoring via per-round metric bindings?
+14. **Named-metric trajectory authoring.** Per-round metric
+    trajectories authored via existing `state_fns`-shaped
+    bindings (reused across rounds), or a new
+    `round_metric_fns` binding role specifically for cross-round
+    accumulators? Framework-default trajectories
+    (`worst_quantile_value`, `deepened_set_jaccard_to_previous`,
+    etc.) — which to ship in-tree?
+15. **Termination policy composition.** `all_of` / `any_of` as
+    the only composition modes for convergence checks, or
+    richer combinators (weighted, sequential, hierarchical)?
 
 ## References
 
