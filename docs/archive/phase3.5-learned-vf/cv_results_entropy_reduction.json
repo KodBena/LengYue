@@ -1,0 +1,555 @@
+{
+  "target": "target_visit_entropy_reduction",
+  "n_rows": 5220,
+  "n_cells": 435,
+  "n_sgfs": 145,
+  "n_features": 121,
+  "folds": [
+    {
+      "fold": 0,
+      "n_train": 4176,
+      "n_val": 1044,
+      "rmse": 0.7141212688331666,
+      "r2": 0.639727793387108,
+      "spearman_pred_vs_truth": 0.785520872074374,
+      "best_iteration": 104
+    },
+    {
+      "fold": 1,
+      "n_train": 4176,
+      "n_val": 1044,
+      "rmse": 0.7794218157210769,
+      "r2": 0.6940669351922009,
+      "spearman_pred_vs_truth": 0.823294387111242,
+      "best_iteration": 220
+    },
+    {
+      "fold": 2,
+      "n_train": 4176,
+      "n_val": 1044,
+      "rmse": 0.8282916280345528,
+      "r2": 0.6257693898683643,
+      "spearman_pred_vs_truth": 0.7669859570345567,
+      "best_iteration": 185
+    },
+    {
+      "fold": 3,
+      "n_train": 4176,
+      "n_val": 1044,
+      "rmse": 0.7610222364763959,
+      "r2": 0.7482443011334747,
+      "spearman_pred_vs_truth": 0.856202328631956,
+      "best_iteration": 325
+    },
+    {
+      "fold": 4,
+      "n_train": 4176,
+      "n_val": 1044,
+      "rmse": 0.755263181979525,
+      "r2": 0.6877295624724615,
+      "spearman_pred_vs_truth": 0.8147925219383072,
+      "best_iteration": 148
+    }
+  ],
+  "mean_rmse": 0.7676240262089434,
+  "mean_r2": 0.6791075964107218,
+  "mean_spearman": 0.8093592133580872,
+  "feature_importance": [
+    {
+      "feature": "f_weight_at_v200",
+      "gain": 20446.33766130805
+    },
+    {
+      "feature": "f_lcb_spread",
+      "gain": 8326.819958403707
+    },
+    {
+      "feature": "f_policy_entropy",
+      "gain": 5932.905968266726
+    },
+    {
+      "feature": "f_winrate",
+      "gain": 1866.0941348075867
+    },
+    {
+      "feature": "f_to_play_is_black",
+      "gain": 1858.886952227354
+    },
+    {
+      "feature": "f_raw_var_time_left",
+      "gain": 1210.6634387552738
+    },
+    {
+      "feature": "f_winrate_gap_top1_top2",
+      "gain": 1056.851542556286
+    },
+    {
+      "feature": "f_score_gap_top1_top2",
+      "gain": 857.6042914628982
+    },
+    {
+      "feature": "f_prior_entropy",
+      "gain": 837.1603506296873
+    },
+    {
+      "feature": "f_score_lead",
+      "gain": 770.1064893633127
+    },
+    {
+      "feature": "f_range_weight_at_v200_std",
+      "gain": 763.5891941905022
+    },
+    {
+      "feature": "f_visits_gini",
+      "gain": 689.2416624009609
+    },
+    {
+      "feature": "f_raw_winrate",
+      "gain": 646.6898642897606
+    },
+    {
+      "feature": "f_range_winrate_minus_raw_std",
+      "gain": 626.2355164051056
+    },
+    {
+      "feature": "f_visits_entropy",
+      "gain": 612.919801658392
+    },
+    {
+      "feature": "f_top1_visits_mass",
+      "gain": 606.73223477602
+    },
+    {
+      "feature": "f_range_raw_var_time_left_mean",
+      "gain": 572.2918476104736
+    },
+    {
+      "feature": "f_range_raw_var_time_left_max",
+      "gain": 553.7145618200302
+    },
+    {
+      "feature": "f_raw_lead",
+      "gain": 414.71109306812286
+    },
+    {
+      "feature": "f_range_winrate_std",
+      "gain": 399.9477439165115
+    },
+    {
+      "feature": "f_raw_noresult",
+      "gain": 397.4827907830477
+    },
+    {
+      "feature": "f_context_phase_fraction",
+      "gain": 378.49352679252627
+    },
+    {
+      "feature": "f_raw_score_selfplay",
+      "gain": 375.6562254011631
+    },
+    {
+      "feature": "f_winrate_minus_raw",
+      "gain": 328.19629269838333
+    },
+    {
+      "feature": "f_context_turn_start",
+      "gain": 319.269444668293
+    },
+    {
+      "feature": "f_score_lead_minus_raw",
+      "gain": 315.24276610612867
+    },
+    {
+      "feature": "f_range_raw_noresult_min",
+      "gain": 313.24297361969946
+    },
+    {
+      "feature": "f_range_winrate_min",
+      "gain": 292.26431341171264
+    },
+    {
+      "feature": "f_range_winrate_mean",
+      "gain": 279.0621977031231
+    },
+    {
+      "feature": "f_range_raw_var_time_left_min",
+      "gain": 276.6545216202736
+    },
+    {
+      "feature": "f_range_winrate_max",
+      "gain": 274.46410139799116
+    },
+    {
+      "feature": "f_range_score_lead_minus_raw_min",
+      "gain": 271.15285486578944
+    },
+    {
+      "feature": "f_range_lcb_spread_max",
+      "gain": 268.1381885051727
+    },
+    {
+      "feature": "f_range_weight_at_v200_max",
+      "gain": 250.75861529707907
+    },
+    {
+      "feature": "f_range_weight_at_v200_mean",
+      "gain": 244.37021294236183
+    },
+    {
+      "feature": "f_range_winrate_minus_raw_min",
+      "gain": 214.73374903798103
+    },
+    {
+      "feature": "f_pv_len",
+      "gain": 213.91540064811707
+    },
+    {
+      "feature": "f_context_n_moves",
+      "gain": 209.58516365289688
+    },
+    {
+      "feature": "f_score_stdev",
+      "gain": 209.13722190260887
+    },
+    {
+      "feature": "f_range_winrate_minus_raw_mean",
+      "gain": 189.02554184794425
+    },
+    {
+      "feature": "f_range_lcb_spread_min",
+      "gain": 187.03637061715125
+    },
+    {
+      "feature": "f_range_raw_winrate_std",
+      "gain": 186.46368433833123
+    },
+    {
+      "feature": "f_range_score_lead_max",
+      "gain": 182.3330681204796
+    },
+    {
+      "feature": "f_range_visits_entropy_max",
+      "gain": 174.81174803376197
+    },
+    {
+      "feature": "f_range_top1_visits_mass_std",
+      "gain": 172.08363196253777
+    },
+    {
+      "feature": "f_range_score_lead_minus_raw_mean",
+      "gain": 172.035730779171
+    },
+    {
+      "feature": "f_range_raw_winrate_max",
+      "gain": 168.55424044132232
+    },
+    {
+      "feature": "f_range_raw_lead_min",
+      "gain": 168.2753262758255
+    },
+    {
+      "feature": "f_range_winrate_minus_raw_max",
+      "gain": 167.36858868598938
+    },
+    {
+      "feature": "f_range_winrate_gap_top1_top2_mean",
+      "gain": 162.40477474331857
+    },
+    {
+      "feature": "f_range_weight_at_v200_min",
+      "gain": 156.93856319785118
+    },
+    {
+      "feature": "f_range_policy_entropy_mean",
+      "gain": 156.44824011921884
+    },
+    {
+      "feature": "f_range_visits_gini_min",
+      "gain": 154.82917823791504
+    },
+    {
+      "feature": "f_range_policy_entropy_max",
+      "gain": 151.3766891539097
+    },
+    {
+      "feature": "f_range_score_lead_mean",
+      "gain": 148.85548619031906
+    },
+    {
+      "feature": "f_range_score_lead_minus_raw_max",
+      "gain": 147.61360754966736
+    },
+    {
+      "feature": "f_range_score_gap_top1_top2_std",
+      "gain": 144.87522809505464
+    },
+    {
+      "feature": "f_range_top1_visits_mass_max",
+      "gain": 142.83213948607445
+    },
+    {
+      "feature": "f_range_top1_visits_mass_mean",
+      "gain": 142.81937270760537
+    },
+    {
+      "feature": "f_range_raw_score_selfplay_min",
+      "gain": 142.6062208175659
+    },
+    {
+      "feature": "f_range_pv_len_mean",
+      "gain": 137.99134069681168
+    },
+    {
+      "feature": "f_range_score_stdev_std",
+      "gain": 135.85626311004162
+    },
+    {
+      "feature": "f_range_raw_noresult_mean",
+      "gain": 135.2281678557396
+    },
+    {
+      "feature": "f_range_score_lead_min",
+      "gain": 131.69631725549698
+    },
+    {
+      "feature": "f_range_lcb_spread_mean",
+      "gain": 130.43342159390448
+    },
+    {
+      "feature": "f_range_lcb_spread_std",
+      "gain": 122.94855171442032
+    },
+    {
+      "feature": "f_range_score_lead_std",
+      "gain": 122.33486768603325
+    },
+    {
+      "feature": "f_range_policy_entropy_std",
+      "gain": 120.33199697732925
+    },
+    {
+      "feature": "f_range_winrate_gap_top1_top2_min",
+      "gain": 119.48852120637893
+    },
+    {
+      "feature": "f_range_raw_noresult_max",
+      "gain": 119.01633457541466
+    },
+    {
+      "feature": "f_range_policy_entropy_min",
+      "gain": 118.60997538566589
+    },
+    {
+      "feature": "f_range_raw_winrate_min",
+      "gain": 117.864866065979
+    },
+    {
+      "feature": "f_range_winrate_gap_top1_top2_std",
+      "gain": 117.54210985302925
+    },
+    {
+      "feature": "f_range_raw_score_selfplay_mean",
+      "gain": 117.24992184042931
+    },
+    {
+      "feature": "f_range_prior_entropy_max",
+      "gain": 117.12303896546364
+    },
+    {
+      "feature": "f_range_score_stdev_min",
+      "gain": 116.68576222062111
+    },
+    {
+      "feature": "f_range_prior_entropy_mean",
+      "gain": 116.15605226755142
+    },
+    {
+      "feature": "f_range_top1_visits_mass_min",
+      "gain": 113.09429816603661
+    },
+    {
+      "feature": "f_range_visits_entropy_std",
+      "gain": 109.89492244720459
+    },
+    {
+      "feature": "f_range_score_gap_top1_top2_max",
+      "gain": 109.0405859708786
+    },
+    {
+      "feature": "f_range_winrate_gap_top1_top2_max",
+      "gain": 107.63509977459907
+    },
+    {
+      "feature": "f_range_raw_lead_max",
+      "gain": 104.93754605650902
+    },
+    {
+      "feature": "f_range_score_gap_top1_top2_min",
+      "gain": 103.45959148406982
+    },
+    {
+      "feature": "f_range_raw_var_time_left_std",
+      "gain": 103.38129910230637
+    },
+    {
+      "feature": "f_range_raw_winrate_mean",
+      "gain": 102.77305045127869
+    },
+    {
+      "feature": "f_range_raw_lead_std",
+      "gain": 100.28781911730766
+    },
+    {
+      "feature": "f_range_visits_gini_mean",
+      "gain": 98.34018055796624
+    },
+    {
+      "feature": "f_range_pv_len_std",
+      "gain": 96.38403570055962
+    },
+    {
+      "feature": "f_range_score_stdev_max",
+      "gain": 95.67593249678612
+    },
+    {
+      "feature": "f_range_score_gap_top1_top2_mean",
+      "gain": 90.52273711562157
+    },
+    {
+      "feature": "f_range_visits_gini_max",
+      "gain": 89.40597641468048
+    },
+    {
+      "feature": "f_range_raw_score_selfplay_max",
+      "gain": 86.67579432725907
+    },
+    {
+      "feature": "f_range_visits_gini_std",
+      "gain": 83.79763518571853
+    },
+    {
+      "feature": "f_range_visits_at_v200_mean",
+      "gain": 83.37654449939728
+    },
+    {
+      "feature": "f_range_raw_lead_mean",
+      "gain": 82.34620782732964
+    },
+    {
+      "feature": "f_range_prior_entropy_min",
+      "gain": 81.31299188137055
+    },
+    {
+      "feature": "f_visits_at_v200",
+      "gain": 80.91497140526772
+    },
+    {
+      "feature": "f_range_raw_noresult_std",
+      "gain": 79.6748949110508
+    },
+    {
+      "feature": "f_range_visits_entropy_mean",
+      "gain": 76.63568600416184
+    },
+    {
+      "feature": "f_range_prior_entropy_std",
+      "gain": 75.19897366762162
+    },
+    {
+      "feature": "f_range_score_stdev_mean",
+      "gain": 70.69939361810684
+    },
+    {
+      "feature": "f_range_score_lead_minus_raw_std",
+      "gain": 67.52453912496567
+    },
+    {
+      "feature": "f_range_raw_score_selfplay_std",
+      "gain": 67.21210735440255
+    },
+    {
+      "feature": "f_range_visits_at_v200_std",
+      "gain": 55.93356124758721
+    },
+    {
+      "feature": "f_context_komi",
+      "gain": 45.62970517873764
+    },
+    {
+      "feature": "f_range_visits_entropy_min",
+      "gain": 42.003747653961184
+    },
+    {
+      "feature": "f_range_pv_len_max",
+      "gain": 35.84839464426041
+    },
+    {
+      "feature": "f_range_visits_at_v200_min",
+      "gain": 28.25106463432312
+    },
+    {
+      "feature": "f_range_visits_at_v200_max",
+      "gain": 24.107054746150972
+    },
+    {
+      "feature": "f_range_pv_len_min",
+      "gain": 22.27664968967438
+    },
+    {
+      "feature": "f_context_board_size",
+      "gain": 0.0
+    },
+    {
+      "feature": "f_context_turn_count",
+      "gain": 0.0
+    },
+    {
+      "feature": "f_pv_visit_decay_ratio",
+      "gain": 0.0
+    },
+    {
+      "feature": "f_range_pv_visit_decay_ratio_max",
+      "gain": 0.0
+    },
+    {
+      "feature": "f_range_pv_visit_decay_ratio_mean",
+      "gain": 0.0
+    },
+    {
+      "feature": "f_range_pv_visit_decay_ratio_min",
+      "gain": 0.0
+    },
+    {
+      "feature": "f_range_pv_visit_decay_ratio_std",
+      "gain": 0.0
+    },
+    {
+      "feature": "f_range_to_play_is_black_max",
+      "gain": 0.0
+    },
+    {
+      "feature": "f_range_to_play_is_black_mean",
+      "gain": 0.0
+    },
+    {
+      "feature": "f_range_to_play_is_black_min",
+      "gain": 0.0
+    },
+    {
+      "feature": "f_range_to_play_is_black_std",
+      "gain": 0.0
+    }
+  ],
+  "final_model_iterations": 196,
+  "lgb_params": {
+    "objective": "regression",
+    "metric": "rmse",
+    "num_leaves": 31,
+    "learning_rate": 0.05,
+    "feature_fraction": 0.9,
+    "bagging_fraction": 0.8,
+    "bagging_freq": 5,
+    "min_data_in_leaf": 10,
+    "verbose": -1
+  }
+}
