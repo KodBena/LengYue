@@ -72,6 +72,26 @@ export interface AdaptiveReevaluateInput {
    * continue the search from where the original left off.
    */
   readonly extraVisits: number;
+  /**
+   * Value-function selection for Phase 3 allocation (v1.0.26).
+   *
+   * Values:
+   *   - `"default"` (or `""`): use proxy's v1.0.24 worst-quantile
+   *     allocation; no Phase 3 fields sent.
+   *   - `"lcb_spread"` / `"score_stdev"` / `"policy_entropy"`:
+   *     hand-crafted value functions, sent via
+   *     `analysis_config.symbols`/`bindings`.
+   *   - `"learned_v1"` (or another `learned_*` name from the
+   *     proxy's `available_value_bindings` advertisement):
+   *     proxy-hosted LightGBM predictor; sent as the bare
+   *     `value_binding` field with `allocation_algorithm:
+   *     "learned_piecewise"`. Bypasses `analysis_config` per
+   *     docs/dispatch/proxy-to-frontend-learned-vf.md.
+   *
+   * The dropdown only shows `learned_*` options that appear in the
+   * proxy's advertisement; absent names are hidden from the UI.
+   */
+  readonly valueBinding: string;
 }
 
 export interface CapabilityInjectionInput {
@@ -168,10 +188,25 @@ export function buildPerQueryCapabilities(
     // schema (per the dispatch's Q4 sign-off). Registry uses
     // camelCase per the SPA's convention; the translation happens
     // here at the wire boundary.
-    out.adaptive_reevaluate = {
+    const adaptiveCap: Record<string, unknown> = {
       worst_quantile: input.adaptiveReevaluate.worstQuantile,
       extra_visits: input.adaptiveReevaluate.extraVisits,
     };
+    // v1.0.26 — Phase 3.5 learned value-function opt-in. When the
+    // user selects a `learned_*` binding from the dropdown AND the
+    // proxy advertises it under `available_value_bindings`, send
+    // the value_binding + matching allocation_algorithm. Bypasses
+    // analysis_config per docs/dispatch/proxy-to-frontend-learned-vf.md.
+    const vb = input.adaptiveReevaluate.valueBinding;
+    if (vb && vb.startsWith('learned_')) {
+      const adaptiveMeta = input.advertised.adaptive_reevaluate;
+      const available = (adaptiveMeta?.available_value_bindings ?? []) as readonly string[];
+      if (Array.isArray(available) && available.includes(vb)) {
+        adaptiveCap.value_binding = vb;
+        adaptiveCap.allocation_algorithm = 'learned_piecewise';
+      }
+    }
+    out.adaptive_reevaluate = adaptiveCap;
   }
 
   return out;

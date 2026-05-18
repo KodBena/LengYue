@@ -77,7 +77,7 @@ import { archivedMigrations, type Migration } from './archived-migrations';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 45;
+export const CURRENT_SCHEMA_VERSION = 46;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -105,28 +105,6 @@ export const CURRENT_SCHEMA_VERSION = 45;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 43 → 44: backfill `session.ui.loadSgfAtLastNode` (boolean,
-  // default false). The flag opts the user into a post-load walk
-  // to the active variation's leaf in `useSgfLoader.loadFile` —
-  // SGF file uploads land on the final mainline position instead
-  // of the root. Defaults to false on existing blobs to preserve
-  // the historical "land on root after SGF upload" behaviour.
-  //
-  // Idempotent: a pre-existing boolean is preserved unchanged (a
-  // user who toggled the setting via the Settings registry and
-  // then somehow ran a hand-edited blob through this migration
-  // keeps their choice).
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const ui = out.session?.ui;
-    if (ui && typeof ui === 'object') {
-      const u = ui as { loadSgfAtLastNode?: unknown };
-      if (typeof u.loadSgfAtLastNode !== 'boolean') {
-        u.loadSgfAtLastNode = false;
-      }
-    }
-    return out;
-  },
   // 44 → 45: backfill `session.ui.cardTreeNav` (Partial<Record<BoardId,
   // CardTreeNavState>>, default {}). The field persists the
   // `CardTreeWidget`'s manual-expand axis per board so a board re-
@@ -152,6 +130,33 @@ export const migrations: Migration[] = [
         typeof cur === 'object' && !Array.isArray(cur);
       if (!isPlainObject) {
         u.cardTreeNav = {};
+      }
+    }
+    return out;
+  },
+  // 45 → 46: backfill `engine.katago.adaptiveReevaluate.valueBinding`
+  // (string, default ''). v1.0.26 of the proxy ships a learned
+  // value function (the Phase 3.5 LightGBM-supervised regressor)
+  // selectable via this field. Empty string `''` (the default)
+  // means "use the proxy's built-in v1.0.24 worst-quantile
+  // allocation; do NOT send the Phase 3 fields." A `learned_*`
+  // string opts into the proxy-hosted predictor by version name
+  // (e.g. `'learned_v1'`); the capability-injection layer
+  // verifies the name appears in the proxy's
+  // `adaptive_reevaluate.available_value_bindings` advertisement
+  // before sending it on the wire.
+  //
+  // Idempotent: a pre-existing string is preserved unchanged.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const katago = out.settings?.engine?.katago;
+    if (katago && typeof katago === 'object') {
+      const adaptive = (katago as { adaptiveReevaluate?: unknown }).adaptiveReevaluate;
+      if (adaptive && typeof adaptive === 'object') {
+        const a = adaptive as { valueBinding?: unknown };
+        if (typeof a.valueBinding !== 'string') {
+          a.valueBinding = '';
+        }
       }
     }
     return out;

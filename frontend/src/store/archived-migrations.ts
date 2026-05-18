@@ -1961,4 +1961,26 @@ export const archivedMigrations: Migration[] = [
     }
     return out;
   },
+  // 43 → 44: backfill `session.ui.loadSgfAtLastNode` (boolean,
+  // default false). The flag opts the user into a post-load walk
+  // to the active variation's leaf in `useSgfLoader.loadFile` —
+  // SGF file uploads land on the final mainline position instead
+  // of the root. Defaults to false on existing blobs to preserve
+  // the historical "land on root after SGF upload" behaviour.
+  //
+  // Idempotent: a pre-existing boolean is preserved unchanged (a
+  // user who toggled the setting via the Settings registry and
+  // then somehow ran a hand-edited blob through this migration
+  // keeps their choice).
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = out.session?.ui;
+    if (ui && typeof ui === 'object') {
+      const u = ui as { loadSgfAtLastNode?: unknown };
+      if (typeof u.loadSgfAtLastNode !== 'boolean') {
+        u.loadSgfAtLastNode = false;
+      }
+    }
+    return out;
+  },
 ];

@@ -267,6 +267,10 @@
   "analysis.adaptive.worstQuantile":      "Worst quantile",
   "analysis.adaptive.extraVisits":        "Extra visits",
   "analysis.adaptive.hint":               "Worst quantile: fraction of moves to re-evaluate (0.05 = top 5% of worst moves; proxy default is 0.25). Extra visits: added to original maxVisits for the deeper pass (proxy default is 800; increment-not-absolute, so the NN cache continues from where the original left off).",
+  "analysis.adaptive.valueBinding.label":             "Value function",
+  "analysis.adaptive.valueBinding.default":           "default (built-in)",
+  "analysis.adaptive.valueBinding.learnedLabel":      "{version} [experimental]",
+  "analysis.adaptive.valueBinding.experimentalTooltip": "Phase 3.5 LightGBM-supervised predictor. Optimized for modern game positions (~2000+); historical professional records (Shusaku, Dosaku, Go Seigen, Huang Longshi, Fan Xiping, etc.) may benefit from the default built-in allocation instead. Expect ~0.85-0.90 efficiency on modern games vs ~0.46 for the built-in baseline.",
 
   "palette.sidebar.symbols":              "Symbols (λ)",
   "palette.sidebar.parameters":           "Parameters",
