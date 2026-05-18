@@ -9,28 +9,28 @@
   `proxy/docs/`, one per phase or grouped.
 
 This note proposes a widening of `adaptive_reevaluate` from its
-current single-shot, hardcoded-metric, symmetric-window shape into
-a pluggable adaptation-policy substrate. The widening is phased so
-the first arc ships small and immediately useful, with subsequent
-arcs mapping the destination.
+current single-shot, hardcoded-metric shape into a pluggable
+adaptation-policy substrate. The widening is phased so the first
+arc ships small and immediately useful, with subsequent arcs
+mapping the destination.
 
 ## Why this exists
 
 Three observations.
 
-**The current shape is calibrated to one phenomenon.**
-`_find_worst_turns` hardcodes "mean of `extra.<color>.deltas`" —
-averaged policy deltas — as the selector. This calibrates
-adaptive's intervention to the strong-player MCTS-vindication
-phenomenon, where deeper search shifts the visit distribution
-toward moves the player chose despite their initial low ranking.
-The phenomenon is real and the selector serves it well, but it is
-one phenomenon among several worth chasing: positions with high
-policy entropy (where KataGo is uncertain regardless of player
-strength), positions where the score lead is unstable across
-turns, positions where the played move diverges sharply from the
-policy head, positions where ownership flux is high. Each is a
-different study question; the current selector serves one of them.
+**The current shape implements one policy on one of two valid
+axes.** `_find_worst_turns` reads `extra.<color>.deltas`
+(per-color move-loss metrics emitted by the analysis-enricher
+transformer) and applies per-color quantile selection. That is
+one valid policy on the **move-based** axis — fundamentally a
+color-agnostic move-loss substrate with per-color quantile
+selection as one applied policy on top. Adjacent move-based
+policies (color-agnostic pooled, per-color with separate
+thresholds, alternate move-loss metrics) are unexpressed, and the
+entire **turn-based** axis (position-level metrics: policy
+entropy, score variance, ownership flux) does not exist in the
+substrate at all. Both axes are first-class concerns; the
+substrate should support either.
 
 **The orchestration substrate already supports multi-round
 adaptation; the abstraction is missing.** `OrchestrationContext.spawn`
@@ -38,199 +38,340 @@ returns an async iterator, and a coroutine can call it
 sequentially any number of times within one parent query. The
 framework's depth bound (`max_depth=4`) governs *nested*
 orchestration — a coroutine whose spawn triggers another
-orchestrator — not sequential spawns at the same depth. So a
+orchestrator — not sequential spawns at the same depth. A
 multi-round adaptive loop expressed as
 `for round in budget.rounds(): async for resp in ctx.spawn(deeper_k): yield resp`
 is mechanically supported today. Current `adaptive_reevaluate`
-does one round. The substrate is there; the abstraction is
-missing.
+does one round.
 
 **Real adaptation is a budgeted decision problem.** The current
 `extra_visits` parameter is a single per-deepening scalar —
 useful, but not a budget. A budgeted formulation asks: given a
 constraint (K rounds, total extra-visits, wall-clock time, a
 convergence threshold), what allocation maximises what the
-researcher values? Under that framing, the "worst by some
-metric" rule reads as a crude proxy for an acquisition function
-in the multi-armed-bandit sense; the principled framing has a
-value function (expected information gain) and an allocation
-algorithm (greedy, knowledge-gradient, Thompson sampling, UCB).
+researcher values? Under that framing, "worst by some metric"
+reads as a crude proxy for an acquisition function in the
+multi-armed-bandit sense; the principled framing has a value
+function (expected information gain) and an allocation algorithm
+(greedy, knowledge-gradient, Thompson sampling, UCB).
 
 ## Map of the design space
 
 Five threads, named for the rest of the note's organisation:
 
-- **(a) Selector pluggability** — which turns to deepen, authored
-  as expression.
+- **(a) Selector pluggability across two co-equal axes** —
+  move-based (transition-indexed, per-color) and turn-based
+  (position-indexed). Both first-class; neither subsumes the
+  other.
 - **(b) Multi-round adaptation** — loop the select-and-deepen K
   times.
 - **(c) Budget abstraction** — what does "K times" mean (rounds,
   visits, time, convergence; context-dependent profiles).
 - **(d) Information-theoretic allocation** — principled
   value-of-visits modelling and budget-constrained optimisation.
-- **(e) Window correction** — small bundled fix per the per-color
-  displacement observation.
+- **(e) Window correction** — move-space concept for move-based
+  selectors only; turn-based selectors get a separate turn-space
+  window or none.
 
-The phasing treats (a) + (e) as the immediately-shippable arc, (b)
-+ (c) as the next substantive widening, (d) as the principled
-direction, and a destination — user-authored policies on the same
-substrate — as charted but out of scope here.
+A substrate-level concern carried by Phase 1: **type branding at
+the move/turn seam**. `MoveIndex` (per-color, transition-indexed)
+versus `TurnIndex` (position-indexed) are runtime-equal `int`s
+but type-distinct, paralleling the proxy's v1.0.21 identity-type
+branding (`ClientId` / `InternalId` / `CanonicalId` / `WireId`).
+The translation lives at one named seam; user expressions never
+see the open-coded arithmetic.
 
-## Phase 1 — Selector pluggability + window correction
+## The substrate — two axes and the move/turn seam
 
-The immediately-shippable arc. Delivers user-named cheap-metric
-examples (policy entropy, score-lead variance, ownership flux,
-policy-vs-played divergence) without changing the loop structure,
-plus the window correction bundled in the same change.
+### The two axes
 
-### Selector as expression
+A **move-based selector** scores a transition between two
+positions. The natural data unit is the per-color move: for
+Black's m-th move (0-indexed within Black's move sequence), the
+view exposes the color, the move index, the per-arrival deltas
+emitted by the analysis-enricher transformer, and references to
+the before-position and after-position analysis packets. Move
+quality is per-move-per-color in its natural shape; selection
+policies (per-color quantile, pooled, per-color-with-different-
+thresholds) are applied policies on top.
 
-Add a fourth binding role to `RegistryInterpreter`'s vocabulary:
-`selector_fn` (working name; alternatives in the open-questions
-section). Same shape as the existing three roles (`delta_fn`,
-`summary_fn`, `state_fns`). The expression returns a per-turn
-scalar; lower is worse. The orchestration coroutine collects
-per-turn scalars, sorts, and selects the worst-quantile fraction
-as it does today — the only change is *how* the per-turn scalar
-is computed.
+A **turn-based selector** scores a single position. The natural
+data unit is the analyze response packet at that turn: the policy
+distribution over moveInfos, the visit distribution, the score
+lead, the ownership map, the rootInfo bundle. Color enters as
+"whose turn it is at this position" if the metric cares, but is
+not a partition over the data; most turn-based metrics (entropy,
+variance) are color-blind by nature.
 
-The substrate is already in place. The registry interpreter
-compiles user-supplied symbols against a curated stdlib
-(`entropy`, `normalized_entropy`, `mean`, `median`, `percentile`,
-`sliding_*`, `apply_window`, plus standard numpy reductions and
-arithmetic). The 2026-05-02 security audit settled the curation
-boundary: no arbitrary callables, refused-dtype gates,
-element-count caps, the `apply_window` higher-order combinator
-restricted to asteval-compiled procedures only. Adding a binding
-role rides this surface unchanged; no new attack surface.
+Examples by axis:
 
-### Example expressions
+| Axis | Example metric | Why it lives here |
+|---|---|---|
+| **Move-based** | Mean policy delta (the current default) | Per-color move-loss, the analysis-enricher's natural output. |
+| **Move-based** | Score-lead drop across the move | Quantity-of-change is a transition property. |
+| **Move-based** | Policy surprise (KL of played-move vs. policy prior) | The transition's policy commitment relative to the prior. |
+| **Turn-based** | Policy entropy at this position | Live on a single position's policy distribution. |
+| **Turn-based** | Score-lead variance over a window | Aggregation over consecutive turns; no transition needed. |
+| **Turn-based** | Ownership-map flux | Two-turn diff over the ownership grid; per-position framing. |
+| **Turn-based** | Visit distribution shape clarity | Live on the moveInfos distribution at one position. |
 
-The selector returns a per-turn scalar; lower-is-worse. Concrete
-examples:
+Neither axis subsumes the other. A move-based selector cannot
+naturally express position-level entropy (which has no
+transition); a turn-based selector cannot naturally express
+move-loss (which has no single-position scope).
 
-- **Mean policy delta** (the current default, restated as an
-  expression for parity). Negated because the current behaviour
-  treats low deltas as worst; lower-is-worse keeps the sort
-  orientation honest:
+### Type branding at the seam
 
-  ```
-  selector_fn(x) = -mean(x['deltas'])
-  ```
+`MoveIndex` and `TurnIndex` are introduced as
+`typing.NewType("...", int)` aliases — runtime-equal `int`s but
+type-distinct under `mypy --strict`. The pattern is the same one
+the proxy's v1.0.21 identity-type-branding migration applied to
+the namespace boundaries that earlier carried mappings as plain
+`str`s. The discipline:
+
+- **`MoveIndex`** — 0-indexed within a single color's move
+  sequence. Carries color context implicitly via the surrounding
+  value (`move_view.color`, `move_view.move_index`).
+- **`TurnIndex`** — position index, 0 = root. Position-only; the
+  surrounding value carries whose-turn-it-is when relevant.
+
+The framework owns one named translation seam:
+
+```python
+def move_to_turn_pair(color: Color, m: MoveIndex) -> tuple[TurnIndex, TurnIndex]:
+    """Translate a per-color move index to its (before, after) turn pair."""
+```
+
+All open-coded `2*t + displacement` arithmetic migrates to calls
+to this function. User-authored selectors never see `TurnIndex`
+when they're move-based and never see `MoveIndex` when they're
+turn-based — the framework keeps the kinds separated at the
+substrate seam.
+
+The motivation parallels the umbrella's branded-types posture on
+the frontend: bugs at the move/turn boundary are a recurring
+shape that types make mechanical to prevent. Proxy-side, the
+v1.0.21 arc established the precedent for `NewType`-based
+discipline at namespace seams; extending it to the move/turn axis
+is the natural next application.
+
+### Selector contracts (Phase 1 specifics)
+
+Two new binding roles in `RegistryInterpreter`'s vocabulary,
+either of which the user may set in `analysis_config.bindings`:
+
+- **`move_selector_fn(move_view) → scalar`** — lower is worse.
+  `move_view` carries `color`, `move_index: MoveIndex`, the per-
+  arrival `deltas` for this move, and references to the
+  before/after analyze packets.
+- **`turn_selector_fn(turn_view) → scalar`** — lower is worse.
+  `turn_view` carries `turn_index: TurnIndex`, the analyze packet
+  at this turn, and the side-to-play at this position.
+
+The expression substrate is the existing curated stdlib (entropy,
+normalized_entropy, mean, median, percentile, sliding_*,
+apply_window, plus the standard numpy reductions and arithmetic);
+the 2026-05-02 security audit's boundary holds unchanged.
+
+The framework iterates per-move (move-based) or per-turn
+(turn-based), collects scalars, applies the selection policy
+(below), and produces a worst-set. The translation from worst-set
+to deepening `analyze_turns` is the framework's responsibility:
+move-based worst-sets pass through `move_to_turn_pair`; turn-based
+worst-sets pass through identity plus optional turn-space window.
+
+## Phase 1 — Selectors + window correction
+
+The immediately-shippable arc. Substrate gain: two pluggable
+selector axes with type-branded contracts; recovery of the
+current adaptive policy as the move-based default; bundled
+window correction in move-space.
+
+### Turn-based selector examples
+
+The selector returns a per-turn scalar; lower is worse.
 
 - **Policy entropy.** High entropy means the policy distribution
-  is dispersed: KataGo is uncertain about the best move.
-  Negative because higher entropy is more interesting to deepen,
-  by hypothesis:
+  at this position is dispersed; KataGo is uncertain about the
+  best move. Negative because higher entropy is more interesting
+  to deepen, by hypothesis:
 
   ```
-  selector_fn(x) = -normalized_entropy([mi['policy'] for mi in x['moveInfos']])
+  turn_selector_fn(x) = -normalized_entropy([mi['policy'] for mi in x.packet['moveInfos']])
   ```
 
-- **Score-lead instability.** Variance over a sliding window of
-  consecutive turns' score leads:
+- **Score-lead variance over a window.** Variance of the score
+  lead across a sliding window of consecutive turns; high
+  variance flags positions where the game's state estimate is
+  unstable:
 
   ```
-  selector_fn(x) = -var(window_score_leads(x))
+  turn_selector_fn(x) = -var(window_score_leads(x))
   ```
 
-  Where `window_score_leads` is a user symbol built from
-  `apply_window`.
+  Where `window_score_leads` is a user symbol built on
+  `apply_window` and a precomputed state series.
 
-- **Policy-vs-played divergence.** How far is the move actually
-  played from the policy head's top suggestion:
+- **Ownership-map flux.** Magnitude of the ownership-grid change
+  between this turn and the previous (precomputed via `state_fns`
+  cross-turn series):
 
   ```
-  selector_fn(x) = abs(played_policy(x) - top1_policy(x))
+  turn_selector_fn(x) = -ownership_flux(x)
   ```
 
-- **Combinations.** Standard arithmetic over the above. The
-  substrate composes cleanly.
+- **Visit distribution shape clarity.** KL between the policy
+  head and the visit distribution at this position; flags
+  positions where search hasn't converged with the prior:
 
-### Expression input shape — open
+  ```
+  turn_selector_fn(x) = visit_policy_kl(x)
+  ```
 
-What does the selector see? Three candidate shapes:
+The selection policy default for turn-based is **pooled
+quantile** (the worst Q% of all turns enter the worst-set).
+Color-conditioned alternatives are available via metadata but
+not the default.
 
-1. **Per-turn packet alone:** `selector_fn(packet) → scalar`.
-   Matches the existing `delta_fn` shape. Simplest to author and
-   explain. Cross-turn metrics (windowed variance, multi-turn
-   aggregations) require pre-computation in `state_fns` plus a
-   value lookup in the selector. Curated `apply_window` makes
-   this tractable but indirect.
+### Move-based selector examples
 
-2. **List of all finals:** `selector_fn(finals) → list[scalar]`.
-   Returns one scalar per turn in one call. Enables global /
-   windowed metrics natively but breaks the "one function per
-   packet" mental model the rest of the substrate uses.
+The selector returns a per-move-per-color scalar; lower is worse.
 
-3. **Per-turn packet plus windowed context:**
-   `selector_fn(packet, neighbours) → scalar`. Middle ground.
-   Adds one argument; gives cross-turn access without changing
-   the per-packet shape.
+- **Mean policy delta (the current default, restated).** The
+  current adaptive policy expressed in the new substrate as the
+  fallback when no binding is named:
 
-Recommendation: shape (1), with cross-turn aggregations channeled
-through `state_fns` and `apply_window`. Shape (2) and (3) are
-available as later extensions if shape (1) proves too narrow in
-practice.
+  ```
+  move_selector_fn(x) = mean(x.deltas)
+  ```
 
-### Defaults and backwards compatibility
+  Lower per-arrival mean delta → worse move. (No negation; the
+  current code's "low deltas are worst" convention is preserved.)
 
-When no `metric_binding` is named (legacy clients, or
-capability-aware clients that don't author a metric), the selector
-falls back to the current hardcoded path. Wire-compatible in both
-directions. The hardcoded path remains the reference
-implementation for "what adaptive does without configuration."
+- **Score-lead drop across the move.** How much did the position
+  worsen for the moving side across this transition:
+
+  ```
+  move_selector_fn(x) = score_lead(x.after) - score_lead(x.before)
+  ```
+
+  (Sign convention: per-color framing makes this directly
+  signed — negative means "got worse from this color's
+  perspective.")
+
+- **Policy surprise.** KL between the played move's policy
+  weight and the prior's expectation. Flags moves that were
+  unlikely under the policy head and stayed unlikely under
+  deeper search (or vice versa):
+
+  ```
+  move_selector_fn(x) = -played_policy_kl(x)
+  ```
+
+- **Color-conditioned variations.** The same metric expressed
+  with side-specific thresholds, weights, or aggregations.
+
+The selection policy default for move-based is **per-color
+quantile** (the worst Q% of Black's moves and the worst Q% of
+White's moves both enter the worst-set), preserving the current
+adaptive policy's color-aware structure as the recovered default.
+
+### Selection policy as first-class metadata
+
+Selection policy is the question "given a sorted list of
+(unit, scalar) pairs, which units enter the worst-set?". Four
+named choices, all valid:
+
+- **`per_color_quantile`** (move-based default) — independent
+  per-color sort and threshold; both colors contribute their Q%.
+- **`pooled_quantile`** (turn-based default) — single sorted list
+  across all units; top Q% enter the set.
+- **`per_color_threshold`** — explicit per-color thresholds
+  rather than quantile fractions; useful when one color is
+  systematically harder than the other and the user wants
+  asymmetric attention.
+- **`top_k`** — fixed number of worst units regardless of
+  distribution shape.
+
+The selection policy lives in capability metadata as a string
+naming one of these. Default depends on the selector axis as
+listed; users override explicitly when they want a non-default.
 
 ### Wire shape
 
-The capability metadata gains an optional field:
+User authors the expression in `analysis_config.symbols` and
+binds it under one of the two new roles. Capability metadata
+carries the selection-policy choice and the existing scalar
+knobs:
 
 ```json
+"analysis_config": {
+  "bindings": {
+    "delta_fn": "default_delta_fn",
+    "state_fns": {...},
+    "summary_fn": "default_summary_fn",
+    "move_selector_fn": "my_score_drop_metric"
+  },
+  "symbols": {
+    "my_score_drop_metric": "score_lead(x.after) - score_lead(x.before)",
+    ...
+  }
+}
+
 "capabilities": {
   "adaptive_reevaluate": {
     "worst_quantile": 0.25,
     "extra_visits": 800,
-    "metric_binding": "my_entropy_metric"
+    "selection_policy": "per_color_quantile"
   }
 }
 ```
 
-The named binding resolves against the `analysis_config.symbols`
-block already carried for delta-analysis. One block; one
-expression world; the capability metadata names which symbol is
-the adaptive selector.
+Resolution: if `bindings.move_selector_fn` is set, use the
+move-based axis; if `bindings.turn_selector_fn` is set, use the
+turn-based axis; if both, capability metadata's discriminator
+field (working name `selector_axis: "move" | "turn"`) chooses; if
+neither, fall back to the hardcoded default (move-based,
+`mean(deltas)`, per-color quantile).
 
-The alternative shape — a sibling top-level wire field
-(`adaptive_config`) parallel to `analysis_config` — is named in
-the open-questions section.
+### Window correction — move-space, move-based only
 
-### Window correction (bundled)
+The current `_expand_window` adds adjacent turns symmetrically in
+turn-space (`range(-half, half+1)`). For a worst move whose two
+endpoints are already in the deepening set, this expansion
+crosses into the immediately-adjacent opposite-color move's
+endpoints — turns whose badness is independent of the current
+worst move. That is wasted GPU.
 
-The asymmetry: `_find_worst_turns` does per-color displacement at
-the worst-turn identification level (Black turns get
-`displacement=0`, White turns `displacement=1`), but
-`_expand_window` then applies a symmetric `range(-half, half+1)`
-expansion that ignores color. The asymmetry is a bug: for a Black
-move at turn T, the contextually-load-bearing neighbour is T-2
-(Black's own previous move), not T-1 (White's intervening move).
+The principled correction lives in move-space: extend by
+same-color move neighbours (`{m-1, m, m+1}` per color, default
+`{m-1, m}` for the user's named 2-element window), with the
+framework expanding each move to its two-turn pair via
+`move_to_turn_pair`. The window concept applies to **move-based
+selectors only**.
 
-Proposed: replace the symmetric expansion with same-color
-predecessor expansion. For each worst turn T, include T-2, T-4, …
-back through `window_size - 1` same-color predecessors. Default
-`window_size=2` (the worst turn plus its immediate same-color
-predecessor), matching the observation that 2-element per-color
-is more honest than the current symmetric ±1.
+Turn-based selectors get a separately-named turn-space window
+parameter, or none at all (most turn-based metrics don't benefit
+from neighbourhood expansion — the metric already aggregates
+where aggregation is wanted, via state_fns and apply_window).
 
-Backwards-compat: hard-flip on the version bump (one consumer is
-coordinated; the release annotation names the change). Alternative
-— opt-in via capability metadata — is named in the open-questions
-section.
+### Defaults and backwards compatibility (Phase 1)
+
+When no selector binding is named, the adaptive coroutine falls
+back to the hardcoded default: move-based axis, `mean(deltas)`
+selector, per-color quantile selection policy, current window
+(or window correction if hard-flipped — see backward-compat
+section below). Wire-compatible in both directions.
+
+The hardcoded path remains the reference implementation for
+"what adaptive does without configuration."
 
 ## Phase 2 — Multi-round adaptation + budget abstraction
 
 The first substantive widening. The coroutine grows a wrapping
-loop; the loop reads a budget abstraction from the capability
-metadata; each iteration is one round of select-and-deepen.
+loop; the loop reads a budget abstraction from capability
+metadata; each iteration is one round of select-and-deepen,
+inheriting Phase 1's selector axis choice.
 
 ### The loop
 
@@ -239,12 +380,13 @@ async def coro(parent, ctx):
     finals = await collect_originals(ctx)
     state = init_state(finals)
     budget = parse_budget(capability_metadata)
+    selector = resolve_selector(analysis_config, capability_metadata)
 
     while budget.has_capacity(state):
-        candidates = state.candidate_turns()
-        scalars = compute_scalars(candidates, state)
+        candidates = state.candidate_units(selector.axis)
+        scalars = selector(candidates)
         chosen = budget.allocate(candidates, scalars)
-        deeper = build_round_query(parent, chosen, budget.visits_for_round())
+        deeper = build_round_query(parent, chosen, budget.visits_for_round(), selector.axis)
         async for resp in ctx.spawn(deeper):
             yield resp
             state.observe(resp)
@@ -252,9 +394,10 @@ async def coro(parent, ctx):
 ```
 
 The framework owns parent-child relationships, response routing
-onto the parent's orig_id, cancellation propagation. The
-coroutine owns the loop logic and the budget bookkeeping. No
-framework changes required.
+onto the parent's orig_id, cancellation propagation, and the
+axis-aware translation of `chosen` units into deepening
+`analyze_turns`. The coroutine owns the loop logic and the budget
+bookkeeping. No framework changes required.
 
 ### Budget shapes
 
@@ -274,9 +417,9 @@ Four shapes the budget abstraction admits:
   deadlines.
 - **Convergence-driven.** No fixed budget; the budget object
   observes responses and terminates when a stability metric stops
-  moving (e.g., the worst-quantile turn's mean score moved less
-  than ε in the last round). Useful when the question is "deepen
-  until we've learned what we're going to learn."
+  moving (e.g., the worst-quantile unit's selector value moved
+  less than ε in the last round). Useful when the question is
+  "deepen until we've learned what we're going to learn."
 
 ### Context-dependent profiles
 
@@ -295,14 +438,14 @@ context. Three context profiles worth pre-curating:
   convergence-driven termination. The autonomous-SR-loop's variant
   when the loop has GPU minutes to spend per card.
 
-Wire shape: the capability metadata names a profile string, or
+Wire shape: capability metadata names a profile string, or
 carries a raw budget object for ad-hoc shapes:
 
 ```json
 "capabilities": {
   "adaptive_reevaluate": {
     "budget": "range-generous",
-    "metric_binding": "my_entropy_metric"
+    "move_selector_fn": "my_score_drop_metric"
   }
 }
 ```
@@ -331,23 +474,20 @@ throughout the adaptation, not just at the end. The
 merge-extra-into-existing logic — the v1.0.21 fix that closed the
 empty-extra-from-sub-queries bug — applies unchanged.
 
-### Defaults and backwards compatibility
+### Defaults and backwards compatibility (Phase 2)
 
-When no budget is named, the default is K=1 — single round, current
-behaviour. Wire-compatible in both directions. Legacy clients (and
-capability-aware clients that don't author a budget) see no
-behaviour change.
+When no budget is named, the default is K=1 — single round,
+current behaviour. Wire-compatible in both directions.
 
 ## Phase 3 — Information-theoretic primitives
 
-The principled direction. Frames adaptation as a budget-constrained
-acquisition problem and ships the substrate for principled
-allocation.
+The principled direction. Frames adaptation as a
+budget-constrained acquisition problem and ships the substrate
+for principled allocation. Inherits Phase 1's two-axis substrate:
+the value function (II below) can be authored on either axis,
+matching whichever axis the selector uses.
 
 ### Three pluggable layers
-
-The information-theoretic framing has three layers, each separately
-pluggable.
 
 **(I) Model of "what additional visits buy."** An empirical or
 theoretical f(V, current_visits) → expected entropy / variance
@@ -359,37 +499,43 @@ at a known rate. A calibrated model lets the proxy estimate
 entropy by Δ in expectation." The model is pluggable: the proxy
 can ship an empirical default and accept user-authored overrides.
 
-**(II) Value function over per-turn information.** What does the
-researcher value? Several candidates:
+**(II) Value function over per-unit information.** What does the
+researcher value? Several candidates, each natural on a specific
+axis:
 
-- **Confidence in best-move identity.** The probability that the
-  top-N visit distribution does not reshuffle with more visits.
-- **Tightness of score-trajectory estimates.** The variance of
-  the score-lead-through-the-game curve.
-- **Policy-distribution shape clarity.** The KL between the
-  policy head and the visit distribution; a measure of "has
-  search confirmed the prior?"
+- **Confidence in best-move identity** (turn-based) — the
+  probability that the top-N visit distribution does not
+  reshuffle with more visits.
+- **Tightness of score-trajectory estimates** (turn-based) — the
+  variance of the score-lead curve across positions.
+- **Move-loss precision** (move-based) — variance of the
+  per-arrival deltas for this move; lower variance means the
+  loss estimate is well-determined.
+- **Policy-distribution shape clarity** (turn-based) — KL
+  between the policy head and the visit distribution.
 
-A value function maps the per-turn analysis state to a scalar
+A value function maps the per-unit state to a scalar
 reward-per-unit-of-clarity-gained. The same expression substrate
-the selector uses (the registry interpreter with the curated
-stdlib) hosts it. One value function per query (named via
-capability metadata) suffices.
+the selectors use (registry interpreter with curated stdlib)
+hosts it. One value function per query (named via capability
+metadata as `move_value_fn` or `turn_value_fn` in `bindings`),
+matching the selector's axis.
 
-**(III) Allocation algorithm.** Given the model (I) and the value
-function (II), solve the budget-constrained allocation. Standard
-active-learning / Bayesian-experimental-design algorithms apply:
+**(III) Allocation algorithm.** Given the model (I) and the
+value function (II), solve the budget-constrained allocation.
+Standard active-learning / Bayesian-experimental-design
+algorithms apply:
 
-- **Greedy:** at each round, pick the turn whose expected
+- **Greedy:** at each round, pick the unit whose expected
   value-gain-per-visit is highest. Simple; surprisingly hard to
   beat in practice.
 - **Knowledge-gradient:** expected one-step improvement in the
-  maximum across all turns. Better at exploration; more expensive
-  to compute.
+  maximum across all units. Better at exploration; more
+  expensive to compute.
 - **Thompson sampling:** sample a possible "true" reward
-  distribution from each turn's posterior; pick the turn with
+  distribution from each unit's posterior; pick the unit with
   highest sampled reward. Self-regularising.
-- **UCB-style:** upper-confidence-bound on the per-turn reward.
+- **UCB-style:** upper-confidence-bound on the per-unit reward.
   Standard bandit toolkit.
 
 Curated set of named algorithms in capability metadata:
@@ -398,31 +544,29 @@ Curated set of named algorithms in capability metadata:
 "capabilities": {
   "adaptive_reevaluate": {
     "budget": "range-generous",
-    "metric_binding": "best_move_confidence",
-    "allocation": "knowledge_gradient",
-    "value_binding": "score_trajectory_tightness"
+    "allocation": "knowledge_gradient"
   }
 }
 ```
 
 The registry interpreter substrate remains the escape hatch for
-"I want my own allocation algorithm" — that's Phase 4's territory.
+"I want my own allocation algorithm" — Phase 4's territory.
 
 ### What's deliberately out of scope here
 
-The proxy substrate accepts pluggable models, value functions, and
-allocation algorithms. It does *not* ship a calibrated empirical
-visit-scaling model in-tree. That calibration is research work —
-fit f(V, current_visits) against many positions, validate against
-held-out positions, document the calibration's domain of validity.
-The research arc is separate from the substrate arc; the substrate
-ships first so calibration work has a target shape to fit into.
+The proxy substrate accepts pluggable models, value functions,
+and allocation algorithms. It does *not* ship a calibrated
+empirical visit-scaling model in-tree. That calibration is
+research work — fit f(V, current_visits) against many positions,
+validate against held-out positions, document the calibration's
+domain of validity. The research arc is separate from the
+substrate arc; the substrate ships first so calibration work has
+a target shape to fit into.
 
-In practice the substrate ships with an obvious default
-(e.g., a 1/√N variance-reduction model with a single calibration
-constant) so the system is not useless out of the box, but the
-default is explicitly named as "place-holder; calibrate against
-your workload."
+The substrate ships with an obvious default (e.g., a 1/√N
+variance-reduction model with a single calibration constant)
+explicitly named as "place-holder; calibrate against your
+workload."
 
 ## Phase 4 — User-authored adaptation policies (future direction)
 
@@ -431,40 +575,45 @@ substrate's eventual shape is honest.
 
 The fullest expression of the widening: the user authors the
 entire adaptation policy as a small program against curated
-primitives — `select`, `spawn`, `observe`, `update`, `terminate`.
-The substrate is the registry interpreter extended for
-program-shaped bindings rather than scalar-expression bindings.
-The program runs on the proxy in the same security envelope the
-scalar expressions do (curated callables only, no arbitrary
-Python).
+primitives — `select`, `spawn`, `observe`, `update`, `terminate`,
+operating on whichever axis (or both) the policy needs. The
+substrate is the registry interpreter extended for program-shaped
+bindings rather than scalar-expression bindings. The program runs
+on the proxy in the same security envelope the scalar expressions
+do (curated callables only, no arbitrary Python).
 
 What this enables: novel adaptation policies that don't fit any
-pre-curated allocation algorithm; cross-game adaptation policies
-(the autonomous-SR-loop note's territory); experimental policies
-during research without proxy code changes.
+pre-curated allocation algorithm; cross-axis policies that
+combine move-based and turn-based selectors; cross-game
+adaptation policies (the autonomous-SR-loop note's territory);
+experimental policies during research without proxy code changes.
 
 What this requires: substrate work on the registry interpreter to
-handle program-shaped bindings (control flow, state, observations)
-safely; a curated primitive set covering the policy verbs; a
-discipline for resource accounting (a runaway policy must
-terminate). Substantive arc; out of scope for an initial widening,
-but Phases 1-3 are designed so that the move to Phase 4 is
-additive, not a rewrite.
+handle program-shaped bindings (control flow, state,
+observations) safely; a curated primitive set covering the policy
+verbs; a discipline for resource accounting (a runaway policy
+must terminate). Substantive arc; out of scope for an initial
+widening, but Phases 1-3 are designed so that the move to Phase 4
+is additive, not a rewrite.
 
 ## Wire shape — by phase
 
 Each phase's wire-shape additions are layered on the existing
-`capabilities.adaptive_reevaluate.{...}` dict.
+`analysis_config.{bindings,symbols}` and
+`capabilities.adaptive_reevaluate.{...}` channels.
 
-| Phase | Field added | Type | Purpose |
+| Phase | Channel | Field | Purpose |
 |---|---|---|---|
-| 1 | `metric_binding` | str | Names the symbol in `analysis_config.symbols` that serves as the per-turn selector. |
-| 1 | `window_size` (semantics change) | int | Reinterpreted as same-color predecessor count. Default 2. |
-| 2 | `budget` | str \| object | Profile name or raw budget shape. |
-| 3 | `allocation` | str | Named allocation algorithm. |
-| 3 | `value_binding` | str | Names the value-function symbol. |
-| 3 | `visit_model` | str (optional) | Names the visit-scaling model; defaults to proxy default. |
-| 4 | `policy_binding` | str (or analogous) | Names a program-shaped user policy. |
+| 1 | `bindings` | `move_selector_fn` | Names a symbol; activates move-based axis. |
+| 1 | `bindings` | `turn_selector_fn` | Names a symbol; activates turn-based axis. |
+| 1 | metadata | `selection_policy` | Per-color-quantile / pooled / threshold / top-k. |
+| 1 | metadata | `selector_axis` (optional) | Disambiguator when both selector bindings are set. |
+| 1 | (semantics) | `window_size` | For move-based: same-color predecessor count. |
+| 2 | metadata | `budget` | Profile name or raw budget shape. |
+| 3 | metadata | `allocation` | Named allocation algorithm. |
+| 3 | `bindings` | `move_value_fn` / `turn_value_fn` | Names value-function symbol; axis-matched to selector. |
+| 3 | metadata | `visit_model` (optional) | Names the visit-scaling model; defaults to proxy default. |
+| 4 | `bindings` | `policy_binding` (or analogous) | Names a program-shaped user policy. |
 
 All additions are optional; absent fields fall back to per-phase
 defaults.
@@ -476,19 +625,19 @@ top-level field (`adaptive_config`) parallel to `analysis_config`,
 rather than naming bindings within the existing `analysis_config`
 block. Trade-off: separation of concerns (cleaner) versus
 reusing one expression world (less plumbing, one interpreter per
-query). Recommendation: ride on `analysis_config` (the
-`metric_binding: str` reference pattern) for Phase 1; revisit if
-Phase 3's value-function expression authoring proves unwieldy
-in shared symbols.
+query). Recommendation: ride on `analysis_config` for Phase 1;
+revisit if Phase 3's value-function expression authoring proves
+unwieldy in shared symbols.
 
 ## Composition with existing precedents
 
 Across all four phases:
 
 - **`RegistryInterpreter` is the expression substrate.** Phase 1
-  adds one binding role; Phase 3 adds two more; Phase 4 extends
-  the substrate itself. The 2026-05-02 security audit's boundary
-  holds across all phases.
+  adds two binding roles (`move_selector_fn`, `turn_selector_fn`);
+  Phase 3 adds two more (`move_value_fn`, `turn_value_fn`); Phase
+  4 extends the substrate itself. The 2026-05-02 security audit's
+  boundary holds across all phases.
 - **`CapabilityGatedMiddleware` is the gate.** Per-query opt-in
   remains the engagement mechanism; real GPU savings on opt-out
   preserved. Unchanged across all phases.
@@ -510,14 +659,20 @@ Across all four phases:
   `analysis_config` via opaque cloning; analysis_enricher engages
   on the sub-query; the sub-query's responses carry `extra`
   enrichment.
+- **Type branding follows the v1.0.21 identity-type-branding
+  precedent.** `MoveIndex` and `TurnIndex` as `NewType` aliases;
+  one named translation seam (`move_to_turn_pair`); existing
+  open-coded arithmetic in `_find_worst_turns` and
+  `_build_deeper_query` migrates to use the seam; `mypy --strict`
+  enforces non-confusion at the typecheck level.
 
 ## Defaults and backwards compatibility — by phase
 
 | Phase | What happens with no per-query metadata | Wire compatibility |
 |---|---|---|
-| 1 | Hardcoded "mean of `extra.<color>.deltas`" selector; current window shape (unless window correction is hard-flipped). | Legacy and capability-aware clients see today's behaviour modulo the window flip. |
+| 1 | Move-based axis; `mean(deltas)` selector; per-color quantile policy. Window: same-color predecessor (if window correction is hard-flipped) or current symmetric (if opt-in). | Legacy and capability-aware clients see today's behaviour modulo the window flip. |
 | 2 | K=1 single round (current behaviour). | Same. |
-| 3 | Greedy allocation by Phase 1 selector. | Same. |
+| 3 | Greedy allocation over Phase 1's default selector. | Same. |
 | 4 | (n/a yet) | (n/a yet) |
 
 The pattern: each phase's absent-metadata default is "the previous
@@ -526,7 +681,8 @@ breaking what came before.
 
 The one behavioural change visible on the wire across all clients
 is the window correction in Phase 1: changing the expansion from
-symmetric to same-color-predecessor. Two options for handling:
+symmetric (turn-space, color-blind) to same-color predecessor
+(move-space). Two options for handling:
 
 - **Hard-flip on the version bump.** Cleaner; one consumer (the
   SPA) is coordinated; the proxy's release annotation names the
@@ -544,20 +700,17 @@ bookkeeping.
 
 - **SPA-side authoring surface.** Phases 1-3 ship the proxy
   substrate; the SPA's palette editor extensions (a metric
-  authoring panel, a budget profile picker, a value-function
-  editor for Phase 3) are follow-on arcs once the wire contract
-  is settled. The SPA's `capability-injection.ts` would gain a
-  `metricBinding` field in Phase 1 and a `budget` field in
-  Phase 2 — the substantive UI work follows separately.
+  authoring panel per axis, a budget profile picker, a
+  value-function editor for Phase 3) are follow-on arcs once the
+  wire contract is settled. The SPA's `capability-injection.ts`
+  would gain selector-binding / axis / budget fields in the
+  follow-on arcs.
 - **Other capabilities.** `transposition` and `delta_analysis`
-  stay as they are. The widening is adaptive-specific; the
-  symmetry argument that prompted it does not generalise (the
-  two other capabilities are not decision problems in the same
-  sense).
+  stay as they are. The widening is adaptive-specific.
 - **Calibrating an empirical visit-scaling model in-tree.**
   Phase 3 ships the pluggable surface; calibration against a
-  real workload is research work that lives elsewhere. The
-  proxy ships a placeholder default explicitly named as such.
+  real workload is research work that lives elsewhere. The proxy
+  ships a placeholder default explicitly named as such.
 - **Cross-query and cross-session adaptation.** The
   autonomous-SR-loop note's territory. Adaptation that learns
   from many users' positions, or from one user's history across
@@ -573,52 +726,52 @@ bookkeeping.
 
 For inline review comments:
 
-1. **Binding-role name.** `selector_fn` / `worst_fn` / `metric_fn`
-   for Phase 1? The pre-existing pattern (`delta_fn`,
-   `summary_fn`) uses descriptive verb-shaped names;
-   `selector_fn` matches that pattern; `worst_fn` is more
-   literal but reads awkwardly.
-2. **Phase 1 selector input shape.** Per-turn packet
-   (recommended), list of finals, or per-turn plus windowed
-   context? The choice affects how cross-turn metrics are
-   authored.
-3. **Per-color displacement contract.** Does the selector see
-   displaced or pre-displaced turn numbers? The current
-   `_find_worst_turns` displaces internally; if the selector
-   is computed on displaced turns, the user's metric expression
-   does not see the per-color shift. Probably fine, but worth
-   naming.
-4. **Wire-shape choice.** Ride on `analysis_config` (recommended)
+1. **Selector-axis disambiguator naming.** `selector_axis: "move" | "turn"`
+   as the capability-metadata discriminator when both bindings
+   are set? Other names (`selector_kind`, `axis`)?
+2. **Default selection-policy split.** Per-color quantile
+   (move-based default) versus pooled quantile (turn-based
+   default) as proposed, or different defaults?
+3. **`move_view` and `turn_view` payload shape.** How much
+   precomputed state should each view expose? Minimal (deltas
+   only for move-based; analyze packet only for turn-based) or
+   richer (cross-turn series, value-function intermediates)?
+4. **Selection-policy enumeration vs. binding.** `selection_policy`
+   as a curated string enum (per-color quantile, pooled,
+   threshold, top-k) versus a fifth binding role
+   (`selection_policy_fn`) that the user authors? Curated for
+   Phase 1 is simpler; binding form is the natural Phase 4
+   extension.
+5. **Wire-shape choice.** Ride on `analysis_config` (recommended)
    versus sibling `adaptive_config`. Decision affects Phase 3's
    authoring ergonomics most.
-5. **Phasing — ship Phase 1 alone first, or
-   designed-as-substrate-implemented-incrementally?** Phase 1
-   alone is small and delivers user-named cheap-metric examples.
-   Phases 2+ are substantive. The question is whether the design
-   note ships as one substrate plan with phased implementation,
-   or whether Phase 1 ships as its own arc first and Phases 2-4
-   follow as their own arcs later.
-6. **Budget profile naming.** What context profiles to
-   pre-curate? `review-tight` / `range-generous` /
-   `loop-aggressive` as suggested, or other splits?
-7. **Window-correction back-compat.** Hard-flip (recommended) or
+6. **Phasing.** Ship Phase 1 alone first (small, immediately
+   useful) versus designed-as-substrate-implemented-incrementally
+   in one arc?
+7. **Budget profile naming.** What context profiles to pre-curate
+   (`review-tight` / `range-generous` / `loop-aggressive` as
+   suggested, or other splits)?
+8. **Window-correction back-compat.** Hard-flip (recommended) or
    opt-in-via-metadata?
-8. **Phase 3 algorithm curation.** Prescribe a specific named
-   set (greedy, knowledge-gradient, Thompson sampling, UCB) or
-   chart them as "future curation as workload surfaces use
-   cases"?
-9. **Phase 3 visit-scaling model calibration.** In-tree
-   empirical default with a clearly-marked placeholder
-   calibration, or always require operator configuration?
-10. **Sharing the registry interpreter with `analysis_enricher`.**
+9. **Phase 3 algorithm curation.** Prescribe a specific named set
+   (greedy, knowledge-gradient, Thompson sampling, UCB) or chart
+   them as "future curation as workload surfaces use cases"?
+10. **Phase 3 visit-scaling model calibration.** In-tree
+    empirical default with a clearly-marked placeholder
+    calibration, or always require operator configuration?
+11. **Sharing the registry interpreter with `analysis_enricher`.**
     Today `analysis_enricher.on_query` builds a per-eid
     interpreter for delta-analysis. When Phase 1's selector also
-    reads from `analysis_config`, does it share that interpreter
-    or build its own? Sharing saves work; isolating matches the
-    current per-consumer caching pattern. The
+    reads from `analysis_config`, does adaptive share that
+    interpreter or build its own? Sharing saves work; isolating
+    matches the current per-consumer caching pattern. The
     opaque-config-stripping bug surfaced by the 2026-05
     postmortem is relevant — careful cleanup at sub-query
     lifecycle boundaries matters.
+12. **Type-branding scope.** `MoveIndex` / `TurnIndex` introduced
+    in Phase 1 at the adaptive substrate's seam, or pushed
+    broader (analysis_enricher, delta_analysis) as a substrate
+    arc in parallel?
 
 ## References
 
@@ -638,6 +791,9 @@ For inline review comments:
   that established the capability-metadata pattern this extends.
 - `proxy/docs/roadmap-orchestration-middleware.md` — the design
   that established the orchestration shape adaptive runs on.
+- `proxy/docs/roadmap-identity-type-branding.md` — the v1.0.21
+  arc whose `NewType`-based discipline this note extends to the
+  move/turn seam.
 - `docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md` —
   flags `_find_worst_turns` as a hard-coded decision point whose
   architectural discussion was deferred to a separate session;
@@ -647,7 +803,7 @@ For inline review comments:
   this widening provides the substrate that direction would
   build on.
 - `frontend/src/engine/katago/capability-injection.ts` — the
-  SPA-side capability builder; gains a `metricBinding` field in
-  Phase 1 and a `budget` field in Phase 2 in the follow-on arcs.
+  SPA-side capability builder; gains selector-binding and budget
+  fields in the follow-on arcs.
 
 — end note —
