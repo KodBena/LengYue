@@ -65,6 +65,10 @@ export const defaultSettings = {
         // fields sent). User selects a `learned_*` version from the
         // dropdown when the proxy advertises one.
         valueBinding: '',
+        // v1.0.24 multi-round budget. 1 = single-shot
+        // (v1.0.23-compatible wire shape; `budget` field omitted on
+        // the wire). >1 engages the multi-round loop.
+        maxRounds: 1,
       },
       // Practical ceiling on ponder mode's maxVisits. The pre-v1.0.20
       // hardcoded ceiling of 100,000 was hit in seconds on weak

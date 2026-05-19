@@ -34,12 +34,16 @@ const ADAPTIVE_OFF: AdaptiveReevaluateInput = {
   enabled: false,
   worstQuantile: 0.05,
   extraVisits: 800,
+  valueBinding: '',
+  maxRounds: 1,
 };
 
 const ADAPTIVE_ON: AdaptiveReevaluateInput = {
   enabled: true,
   worstQuantile: 0.05,
   extraVisits: 800,
+  valueBinding: '',
+  maxRounds: 1,
 };
 
 // ── buildPerQueryCapabilities ────────────────────────────────────────────────
@@ -173,11 +177,75 @@ describe('buildPerQueryCapabilities', () => {
       isRangeBased: true,
       forReview: false,
       useTransposition: false,
-      adaptiveReevaluate: { enabled: true, worstQuantile: 0.1, extraVisits: 1600 },
+      adaptiveReevaluate: {
+        enabled: true, worstQuantile: 0.1, extraVisits: 1600,
+        valueBinding: '', maxRounds: 1,
+      },
     });
     expect(caps?.adaptive_reevaluate).toEqual({
       worst_quantile: 0.1,
       extra_visits: 1600,
+    });
+  });
+
+  it('omits budget when maxRounds is 1 (default; matches v1.0.23 wire shape)', () => {
+    // Pin the wire-compat contract: the SPA's default maxRounds=1
+    // produces a wire payload byte-identical to pre-v1.0.24 SPAs,
+    // so users who never touch the setting see no change.
+    const caps = buildPerQueryCapabilities({
+      advertised: { delta_analysis: {}, adaptive_reevaluate: {} },
+      isRangeBased: true,
+      forReview: false,
+      useTransposition: false,
+      adaptiveReevaluate: {
+        enabled: true, worstQuantile: 0.05, extraVisits: 800,
+        valueBinding: '', maxRounds: 1,
+      },
+    });
+    expect(caps?.adaptive_reevaluate).not.toHaveProperty('budget');
+  });
+
+  it('injects budget.max_rounds when maxRounds > 1', () => {
+    // Multi-round opt-in: registry value flows to
+    // `budget: {max_rounds: N}` on the wire. Proxy parses this
+    // via _parse_budget per roadmap-multi-round-adaptation.md §3.
+    const caps = buildPerQueryCapabilities({
+      advertised: { delta_analysis: {}, adaptive_reevaluate: {} },
+      isRangeBased: true,
+      forReview: false,
+      useTransposition: false,
+      adaptiveReevaluate: {
+        enabled: true, worstQuantile: 0.05, extraVisits: 800,
+        valueBinding: '', maxRounds: 5,
+      },
+    });
+    expect(caps?.adaptive_reevaluate).toMatchObject({
+      worst_quantile: 0.05,
+      extra_visits: 800,
+      budget: { max_rounds: 5 },
+    });
+  });
+
+  it('forwards maxRounds alongside learned value-binding (Phase 3 + multi-round composition)', () => {
+    const caps = buildPerQueryCapabilities({
+      advertised: {
+        delta_analysis: {},
+        adaptive_reevaluate: { available_value_bindings: ['learned_v1'] },
+      },
+      isRangeBased: true,
+      forReview: false,
+      useTransposition: false,
+      adaptiveReevaluate: {
+        enabled: true, worstQuantile: 0.25, extraVisits: 12800,
+        valueBinding: 'learned_v1', maxRounds: 3,
+      },
+    });
+    expect(caps?.adaptive_reevaluate).toEqual({
+      worst_quantile: 0.25,
+      extra_visits: 12800,
+      value_binding: 'learned_v1',
+      allocation_algorithm: 'learned_piecewise',
+      budget: { max_rounds: 3 },
     });
   });
 

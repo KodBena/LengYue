@@ -5,10 +5,10 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-05-17: migrations 1 → 2 through 42 → 43 (42
+ * Scope as of 2026-05-19: migrations 1 → 2 through 44 → 45 (44
  * entries). The first eight covered pre-v1.0.0 schema evolution;
- * the next thirty-four are the v1.0.x – v1.1.x active cycle. All
- * are now consolidated here under the same archive contract.
+ * the rest are the v1.0.x – v1.1.x active cycle. All are
+ * consolidated here under the same archive contract.
  *
  * Why preserved (not deleted): the migration framework's `migrate()`
  * function indexes a contiguous array — `migrations[i]` carries
@@ -1979,6 +1979,35 @@ export const archivedMigrations: Migration[] = [
       const u = ui as { loadSgfAtLastNode?: unknown };
       if (typeof u.loadSgfAtLastNode !== 'boolean') {
         u.loadSgfAtLastNode = false;
+      }
+    }
+    return out;
+  },
+  // 44 → 45: backfill `session.ui.cardTreeNav` (Partial<Record<BoardId,
+  // CardTreeNavState>>, default {}). The field persists the
+  // `CardTreeWidget`'s manual-expand axis per board so a board re-
+  // opened mid-session (or after a browser reload) restores the
+  // user's exploration path through the card forest. Item 1 of the
+  // post-v1.1.0 follow-up list — previously the expand state lived
+  // in a per-mount `ref<Set<string>>` and was lost on every
+  // navigation.
+  //
+  // Idempotent: a pre-existing plain-object value is preserved
+  // unchanged (so users who already have entries from a hand-edited
+  // blob or a prior forward-compat install keep them). A
+  // non-object / null / array value is replaced with `{}` — the
+  // shape contract is strict.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = out.session?.ui;
+    if (ui && typeof ui === 'object') {
+      const u = ui as { cardTreeNav?: unknown };
+      const cur = u.cardTreeNav;
+      const isPlainObject =
+        cur !== null && cur !== undefined &&
+        typeof cur === 'object' && !Array.isArray(cur);
+      if (!isPlainObject) {
+        u.cardTreeNav = {};
       }
     }
     return out;

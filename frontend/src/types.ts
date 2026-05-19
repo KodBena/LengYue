@@ -863,6 +863,24 @@ export interface AppSettings {
         // Schema-version 31 introduces this field; the migration
         // backfills `""` on existing blobs.
         valueBinding: string;
+        // v1.0.24 multi-round budget — proxy-side `budget.max_rounds`.
+        // 1 = single-shot select-and-deepen (v1.0.23-compatible
+        // wire shape; the `budget` field is omitted entirely). >1
+        // engages the multi-round loop; the allocator runs each
+        // round against the latest state, with the learned VF's
+        // r_int/r_full predictions rotating the deepening set as
+        // already-deepened turns collapse their predicted gain.
+        //
+        // Practical ceiling at default extra_visits / quantile is
+        // ~3-4 rounds before segment-1 capacities saturate the
+        // candidate set (see proxy/docs/roadmap-orchestration-output-
+        // channel.md's §"Severity calibration" and the 2026-05-19
+        // probe under proxy/middleware/allocation.py's
+        // LearnedPiecewiseAllocator). Defaults to 1.
+        //
+        // Schema-version 47 introduces this field; the migration
+        // backfills `1` on existing blobs.
+        maxRounds: number;
       };
       // Ceiling on ponder mode's KataGo `maxVisits`. Ponder runs
       // indefinitely on the engine side; this is the practical

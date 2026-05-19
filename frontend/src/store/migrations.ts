@@ -77,7 +77,7 @@ import { archivedMigrations, type Migration } from './archived-migrations';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 46;
+export const CURRENT_SCHEMA_VERSION = 47;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -105,35 +105,6 @@ export const CURRENT_SCHEMA_VERSION = 46;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 44 → 45: backfill `session.ui.cardTreeNav` (Partial<Record<BoardId,
-  // CardTreeNavState>>, default {}). The field persists the
-  // `CardTreeWidget`'s manual-expand axis per board so a board re-
-  // opened mid-session (or after a browser reload) restores the
-  // user's exploration path through the card forest. Item 1 of the
-  // post-v1.1.0 follow-up list — previously the expand state lived
-  // in a per-mount `ref<Set<string>>` and was lost on every
-  // navigation.
-  //
-  // Idempotent: a pre-existing plain-object value is preserved
-  // unchanged (so users who already have entries from a hand-edited
-  // blob or a prior forward-compat install keep them). A
-  // non-object / null / array value is replaced with `{}` — the
-  // shape contract is strict.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const ui = out.session?.ui;
-    if (ui && typeof ui === 'object') {
-      const u = ui as { cardTreeNav?: unknown };
-      const cur = u.cardTreeNav;
-      const isPlainObject =
-        cur !== null && cur !== undefined &&
-        typeof cur === 'object' && !Array.isArray(cur);
-      if (!isPlainObject) {
-        u.cardTreeNav = {};
-      }
-    }
-    return out;
-  },
   // 45 → 46: backfill `engine.katago.adaptiveReevaluate.valueBinding`
   // (string, default ''). v1.0.26 of the proxy ships a learned
   // value function (the Phase 3.5 LightGBM-supervised regressor)
@@ -156,6 +127,41 @@ export const migrations: Migration[] = [
         const a = adaptive as { valueBinding?: unknown };
         if (typeof a.valueBinding !== 'string') {
           a.valueBinding = '';
+        }
+      }
+    }
+    return out;
+  },
+  // 46 → 47: backfill `engine.katago.adaptiveReevaluate.maxRounds`
+  // (positive int, default 1). v1.0.24 of the proxy introduced
+  // the multi-round substrate; the SPA now surfaces it as a
+  // user-controllable input. Default 1 preserves the
+  // single-shot wire shape (the `budget` field is omitted on the
+  // wire when maxRounds == 1, byte-identical to pre-v1.0.24
+  // SPAs).
+  //
+  // Idempotent: a pre-existing positive-finite-int is preserved
+  // unchanged. A non-positive / non-finite / non-int / non-number
+  // value (including the pre-migration absence) coerces to 1 —
+  // the safe default per ADR-0002's UI-input-fallback exception
+  // (the user's invalid registry value is rejected at the typed
+  // input layer; this migration is the persistence-layer
+  // analogue).
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const katago = out.settings?.engine?.katago;
+    if (katago && typeof katago === 'object') {
+      const adaptive = (katago as { adaptiveReevaluate?: unknown }).adaptiveReevaluate;
+      if (adaptive && typeof adaptive === 'object') {
+        const a = adaptive as { maxRounds?: unknown };
+        const cur = a.maxRounds;
+        const ok =
+          typeof cur === 'number' &&
+          Number.isFinite(cur) &&
+          Number.isInteger(cur) &&
+          cur >= 1;
+        if (!ok) {
+          a.maxRounds = 1;
         }
       }
     }

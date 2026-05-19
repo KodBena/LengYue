@@ -92,6 +92,27 @@ export interface AdaptiveReevaluateInput {
    * proxy's advertisement; absent names are hidden from the UI.
    */
   readonly valueBinding: string;
+  /**
+   * Per-query `budget.max_rounds` metadata override (v1.0.24
+   * multi-round substrate). The proxy's middleware default is 1
+   * (single round = v1.0.23 select-and-deepen). Values >1 wire
+   * the loop into N successive rounds: each round re-runs the
+   * worst-quantile + allocation step against the latest state,
+   * with the learned VF's per-turn r_int / r_full predictions
+   * naturally rotating the deepening set as already-deepened
+   * turns collapse their predicted gain. See
+   * proxy/docs/roadmap-multi-round-adaptation.md §3 for the
+   * budget abstraction and §2.1 for the loop shape.
+   *
+   * Practical caveat surfaced via the 2026-05-19 probe: with the
+   * learned_piecewise allocator, going past 3-4 rounds at a fixed
+   * extra_visits budget is redundant — all worst-quantile
+   * candidates' segment-1 capacities fill in ~3 rounds and
+   * further rounds re-spawn cache-hit subqueries that don't add
+   * compute. Segment-2 only unlocks when extra_visits exceeds
+   * (candidate count) × 800. Defaults to 1 (single-round shape).
+   */
+  readonly maxRounds: number;
 }
 
 export interface CapabilityInjectionInput {
@@ -205,6 +226,14 @@ export function buildPerQueryCapabilities(
         adaptiveCap.value_binding = vb;
         adaptiveCap.allocation_algorithm = 'learned_piecewise';
       }
+    }
+    // v1.0.24 multi-round budget. Send `budget: {max_rounds: N}`
+    // only when N > 1 (the proxy's default is 1, so omitting the
+    // field matches both the proxy's default and the legacy
+    // single-round wire shape — keeps the wire byte-identical for
+    // users who don't touch the setting).
+    if (input.adaptiveReevaluate.maxRounds > 1) {
+      adaptiveCap.budget = { max_rounds: input.adaptiveReevaluate.maxRounds };
     }
     out.adaptive_reevaluate = adaptiveCap;
   }

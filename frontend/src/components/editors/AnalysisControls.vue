@@ -203,6 +203,17 @@ function purgeLedger() {
               class="dark-input adaptive-input"
             />
           </label>
+          <label class="label-with-value adaptive-field-row">
+            <span>{{ $t('analysis.adaptive.maxRounds') }}</span>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              v-model.number="store.profile.settings.engine.katago.adaptiveReevaluate.maxRounds"
+              class="dark-input adaptive-input"
+            />
+            <span class="info-icon" :title="$t('analysis.adaptive.maxRoundsTooltip')">?</span>
+          </label>
           <!--
             v1.0.26 — Phase 3.5 learned value-function selector.
             Dropdown shows "default" (built-in worst-quantile, the
