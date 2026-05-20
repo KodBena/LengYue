@@ -77,6 +77,25 @@ def value_winrate_drift(d: dict[str, np.ndarray], V_max_idx: int) -> np.ndarray:
     return drift_0 - drift
 
 
+def value_logit_winrate_drift(d: dict[str, np.ndarray], V_max_idx: int) -> np.ndarray:
+    """value(V) = drift₀ − |logit(winrate(V)) − logit(winrate(V_max))|
+
+    Logit(p) = ln(p / (1 − p)). For tilted games where winrate sits near
+    a boundary (0.99 or 0.01), raw winrate volatility is compressed by
+    the bound: a "1-move flip" from 0.99 → 0.5 looks like 0.49 in raw
+    winrate but 4.6 units in logit space. Captures the
+    user-flagged "settled-but-flippable" semeai case (2026-05-20).
+
+    Clipping: ε = 1e-6 to avoid logit at exact boundary.
+    """
+    wr = np.clip(d["winrate"].astype(np.float64), 1e-6, 1.0 - 1e-6)
+    logit = np.log(wr / (1.0 - wr))
+    target = logit[V_max_idx]
+    drift = np.abs(logit - target)
+    drift_0 = drift[0]
+    return drift_0 - drift
+
+
 def value_scorelead_drift(d: dict[str, np.ndarray], V_max_idx: int) -> np.ndarray:
     sl = d["scoreLead"]
     target = sl[V_max_idx]
@@ -119,6 +138,41 @@ def _visit_entropy(mi_row: np.ndarray) -> float:
     return float(-(p * np.log(p)).sum())
 
 
+def value_score_stdev_reduction(d: dict[str, np.ndarray], V_max_idx: int) -> np.ndarray:
+    """value(V) = scoreStdev(V₀) − scoreStdev(V).
+
+    Captures MCTS's own uncertainty narrowing with search. Distinct
+    from value-head scalar drifts because scoreStdev is the search's
+    internal posterior, not a downstream consequence of the value head.
+
+    Note: typically monotone-decreasing scoreStdev → monotone-increasing
+    value, but transient pathologies (PUCT reallocates to a fresh
+    branch with high prior variance) can spike. Added 2026-05-20.
+    """
+    if "scoreStdev" not in d:
+        return np.full(len(d["visits"]), np.nan, dtype=np.float64)
+    ss = d["scoreStdev"].astype(np.float64)
+    return ss[0] - ss
+
+
+def value_top_move_visit_fraction(d: dict[str, np.ndarray], V_max_idx: int) -> np.ndarray:
+    """value(V) = (top_visits(V) / total_visits(V)) − initial.
+
+    Captures "how decided" the search is. For "obvious-once-you-see-it"
+    positions where one move dominates, this saturates rapidly. For
+    contested positions where the search struggles to commit, it grows
+    slowly. Direct measure of PUCT visit concentration on the leader.
+    Added 2026-05-20.
+    """
+    if "miVisits" not in d:
+        return np.full(len(d["visits"]), np.nan, dtype=np.float64)
+    mi = d["miVisits"]   # (n_samples, TOP_K) — int visits per move
+    top = mi.max(axis=1).astype(np.float64)
+    total = mi.sum(axis=1).astype(np.float64)
+    fraction = np.where(total > 0, top / total, 0.0)
+    return fraction - fraction[0]
+
+
 def value_visit_entropy_reduction(d: dict[str, np.ndarray], V_max_idx: int) -> np.ndarray:
     """value(V) = H(visits_at_V₀) − H(visits_at_V).
 
@@ -153,6 +207,18 @@ VALUE_CANDIDATES: dict[str, Callable[[dict[str, np.ndarray], int], np.ndarray]] 
     "winrate_drift": value_winrate_drift,
     "scoreLead_drift": value_scorelead_drift,
     "L2_joint_drift": value_l2_joint_drift,
+    # Logit-space winrate drift: surfaces volatility near the
+    # winrate boundary (tilted-but-flippable) that raw winrate
+    # compresses. Added 2026-05-20 per user's "settled-but-flippable
+    # semeai" observation.
+    "logit_winrate_drift": value_logit_winrate_drift,
+    # Search's own uncertainty narrowing — orthogonal to value-head
+    # scalars. Added 2026-05-20.
+    "score_stdev_reduction": value_score_stdev_reduction,
+    # Visit-concentration on the leader. Saturates fast for
+    # "obvious-once-you-see-it" positions, slow for contested ones.
+    # Added 2026-05-20.
+    "top_move_visit_fraction": value_top_move_visit_fraction,
 }
 
 
