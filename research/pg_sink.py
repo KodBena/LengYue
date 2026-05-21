@@ -119,15 +119,25 @@ CREATE TABLE IF NOT EXISTS mcts_packet (
     visits           INTEGER NOT NULL,
     is_during_search BOOLEAN NOT NULL,
     msg              BYTEA NOT NULL,
+    msg_thin         BYTEA,
     PRIMARY KEY (realization_id, seq)
 );
+-- msg_thin: small projected pickle carrying only the rootInfo + moveInfos
+-- fields the stability extractors consume; drops ownership maps and full
+-- policy arrays. Nullable for back-compat with rows written before the
+-- column existed; backfill is one-time, then forward writes always set it.
 """
 
 
 def ensure_schema(conn: psycopg.Connection) -> None:
-    """Idempotent schema creation. Safe to call on every script start."""
+    """Idempotent schema creation. Safe to call on every script start.
+
+    The msg_thin column on mcts_packet was added 2026-05-22; the ADD
+    COLUMN IF NOT EXISTS keeps the call idempotent against older DBs
+    that have the table but lack the column."""
     with conn.cursor() as c:
         c.execute(_SCHEMA_SQL)
+        c.execute("ALTER TABLE mcts_packet ADD COLUMN IF NOT EXISTS msg_thin BYTEA")
 
 
 # ── Position / realization lifecycle ────────────────────────────────────────
@@ -216,6 +226,41 @@ def reset_packets(conn: psycopg.Connection, realization_id: int) -> None:
 
 # ── Per-packet writer ───────────────────────────────────────────────────────
 
+def project_thin(packet: dict[str, Any]) -> dict[str, Any]:
+    """Project a lossless KataGo response down to the small subset of
+    fields consumed by stability extractors in
+    `stability_trajectory.py`. Drops ownership maps (361 floats), full
+    policy arrays (362 floats), and other heavy fields no extractor
+    reads.
+
+    Carried fields:
+      - rootInfo.{scoreLead, winrate, visits}
+      - moveInfos[*].{move, visits, prior}   (full length, NOT truncated;
+        search_agrees_with_policy and top1_in_top3 scan all entries)
+
+    Adding a new extractor that needs a field not listed here means
+    extending this projection AND re-running the backfill against
+    existing rows (or falling back to the lossless `msg` column)."""
+    root = packet.get("rootInfo") or {}
+    mi = packet.get("moveInfos") or []
+    thin_mi = [
+        {
+            "move": m.get("move"),
+            "visits": m.get("visits"),
+            "prior": m.get("prior"),
+        }
+        for m in mi
+    ]
+    return {
+        "rootInfo": {
+            "scoreLead": root.get("scoreLead"),
+            "winrate": root.get("winrate"),
+            "visits": root.get("visits"),
+        },
+        "moveInfos": thin_mi,
+    }
+
+
 @dataclass
 class StreamWriter:
     """One-realization-of-one-position append-only writer. Each
@@ -230,11 +275,15 @@ class StreamWriter:
         visits = int(root.get("visits", 0))
         ids = bool(packet.get("isDuringSearch", False))
         blob = pickle.dumps(packet, protocol=pickle.HIGHEST_PROTOCOL)
+        thin_blob = pickle.dumps(
+            project_thin(packet), protocol=pickle.HIGHEST_PROTOCOL,
+        )
         with self.conn.cursor() as c:
             c.execute(
                 "INSERT INTO mcts_packet (realization_id, seq, t, visits, "
-                "is_during_search, msg) VALUES (%s, %s, %s, %s, %s, %s)",
-                (self.realization_id, self._seq, t, visits, ids, blob),
+                "is_during_search, msg, msg_thin) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                (self.realization_id, self._seq, t, visits, ids, blob, thin_blob),
             )
         self._seq += 1
 
@@ -472,6 +521,130 @@ def fetch_position_bundle(
             "miVisits": np.array(miVisits, dtype=np.int32),
         }
     return out
+
+
+def fetch_positions_bundle_lossless_batch(
+    conn: psycopg.Connection,
+    keys: list[tuple[str, int]],
+) -> dict[tuple[str, int], dict[int, list[tuple[float, dict[str, Any]]]]]:
+    """Bulk cross-position lossless fetch: returns the FULL packet
+    streams for a BATCH of (stem, turn) pairs in a single Postgres
+    round-trip. Result is keyed by (stem, turn) → realization_idx →
+    list[(t, packet_dict)].
+
+    Equivalent to calling `fetch_position_bundle_lossless` once per
+    position but pays the query-planning + per-query latency once for
+    the whole batch.
+
+    Batch size guidance: 5-10 positions per call returns ~10-100 MB of
+    packet data (10 realizations × ~200 packets × ~5 KB per packet ≈
+    10 MB per position). Larger batches exceed reasonable Python
+    memory; smaller batches don't amortize the round-trip cost. The
+    caller is responsible for chunking inputs.
+
+    See `feedback_pg_fetch_per_position_bundle` memory for the
+    per-position bundling motivation; this primitive extends the
+    optimization across positions.
+    """
+    if not keys:
+        return {}
+    from psycopg import sql
+    # Build a VALUES clause with literal stem/turn pairs.
+    # `psycopg.sql.Literal` safely quotes both strings and integers.
+    values_sql = sql.SQL(", ").join(
+        sql.SQL("({}, {})").format(sql.Literal(s), sql.Literal(int(t)))
+        for s, t in keys
+    )
+    query = sql.SQL("""
+        WITH wanted(stem, turn) AS (VALUES {values})
+        SELECT p.stem, p.turn, r.realization_idx, pk.t, pk.msg
+        FROM wanted w
+        JOIN mcts_position p ON p.stem = w.stem AND p.turn = w.turn
+        JOIN mcts_realization r ON r.position_id = p.id
+        JOIN mcts_packet pk ON pk.realization_id = r.id
+        WHERE r.status = 'complete'
+        ORDER BY p.stem, p.turn, r.realization_idx, pk.seq
+    """).format(values=values_sql)
+    with conn.cursor() as c:
+        c.execute(query)
+        rows = c.fetchall()
+    out: dict[tuple[str, int], dict[int, list[tuple[float, dict]]]] = {}
+    for stem, turn, ri, t, blob in rows:
+        try:
+            pkt = pickle.loads(blob)
+        except Exception as e:
+            print(f"  WARN: skipping malformed packet for "
+                  f"{stem}:t{turn}:r{ri}: {e}", file=sys.stderr)
+            continue
+        key = (str(stem), int(turn))
+        out.setdefault(key, {}).setdefault(int(ri), []).append((float(t), pkt))
+    return out
+
+
+def fetch_positions_bundle_thin_batch(
+    conn: psycopg.Connection,
+    keys: list[tuple[str, int]],
+) -> dict[tuple[str, int], dict[int, list[tuple[float, dict[str, Any]]]]]:
+    """Bulk cross-position THIN-projection fetch. Same shape as
+    `fetch_positions_bundle_lossless_batch` (returns {(stem, turn) →
+    realization_idx → list[(t, packet_dict)]}), but reads the
+    `msg_thin` BYTEA column populated by `project_thin` at write time.
+
+    The thin payload is ~14× smaller than the lossless `msg` (~350 B vs
+    ~5 KB) and `pickle.loads`-es ~10× faster because the heavy float
+    lists (ownership map, full policy array) are absent. This is the
+    hot-path fetch for the stability allocator's Phase A.
+
+    Rows whose `msg_thin` is NULL (pre-backfill) are skipped silently;
+    a startup audit in the caller should confirm coverage before
+    relying on this path.
+
+    See `project_thin` for the field-set carried by the thin pickle.
+    """
+    if not keys:
+        return {}
+    from psycopg import sql
+    values_sql = sql.SQL(", ").join(
+        sql.SQL("({}, {})").format(sql.Literal(s), sql.Literal(int(t)))
+        for s, t in keys
+    )
+    query = sql.SQL("""
+        WITH wanted(stem, turn) AS (VALUES {values})
+        SELECT p.stem, p.turn, r.realization_idx, pk.t, pk.msg_thin
+        FROM wanted w
+        JOIN mcts_position p ON p.stem = w.stem AND p.turn = w.turn
+        JOIN mcts_realization r ON r.position_id = p.id
+        JOIN mcts_packet pk ON pk.realization_id = r.id
+        WHERE r.status = 'complete' AND pk.msg_thin IS NOT NULL
+        ORDER BY p.stem, p.turn, r.realization_idx, pk.seq
+    """).format(values=values_sql)
+    with conn.cursor() as c:
+        c.execute(query)
+        rows = c.fetchall()
+    out: dict[tuple[str, int], dict[int, list[tuple[float, dict]]]] = {}
+    for stem, turn, ri, t, blob in rows:
+        try:
+            pkt = pickle.loads(blob)
+        except Exception as e:
+            print(f"  WARN: skipping malformed thin packet for "
+                  f"{stem}:t{turn}:r{ri}: {e}", file=sys.stderr)
+            continue
+        key = (str(stem), int(turn))
+        out.setdefault(key, {}).setdefault(int(ri), []).append((float(t), pkt))
+    return out
+
+
+def count_thin_coverage(conn: psycopg.Connection) -> tuple[int, int]:
+    """Diagnostic: returns (n_thin_populated, n_total) over mcts_packet.
+    Used by callers before relying on the thin-path fetch to confirm
+    the backfill has completed."""
+    with conn.cursor() as c:
+        c.execute(
+            "SELECT count(*) FILTER (WHERE msg_thin IS NOT NULL), count(*) "
+            "FROM mcts_packet"
+        )
+        row = c.fetchone()
+    return int(row[0]), int(row[1])
 
 
 def fetch_position_bundle_lossless(
