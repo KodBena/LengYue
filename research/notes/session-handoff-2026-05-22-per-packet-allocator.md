@@ -319,4 +319,94 @@ In rough order:
 - Postgres on `192.168.122.1` with `msg_thin` populated for all
   2.23M packets. `count_thin_coverage(conn)` is the smoke check.
 
+## Addendum — GRU null result and operational ROI assessment
+
+Added at session close. After the per-packet allocator landed and
+the marginal-value rule produced a null result, two more probes
+were tried before the user shelved the arc:
+
+1. **Multi-task GRU on per-V_grid-step sequences** (gru_per_step.py,
+   gru_hyperparam_search.py, gru_auc_stopping.py). Hyperparameter
+   sweep (partial, 18 of 48 combos) found h=16 / wd=1e-2 / do=0.0
+   as the best regularization corner. AUC OOD plateaus at **+0.6129**
+   — *below* the LightGBM baseline of **+0.6781** for top1_move at
+   f_max=0.85. A follow-up run with AUC-OOD-based early stopping
+   (instead of val_loss-based) yielded +0.6170 — only +0.004 above
+   the sweep's best, within the noise band of OOD-selection leak.
+
+   The val_loss vs AUC OOD discrepancy I initially read as
+   "we're picking the wrong checkpoint" turned out to be noise on
+   a flat plateau. Properly regularized, the model converges to a
+   low-capacity equilibrium where train/val losses are essentially
+   pinned around 0.446 from epoch 15 onward; AUC OOD wobbles ±0.01
+   around the plateau.
+
+   The truth-oracle 20pp agreement gap (cf. `compare_stopping_rules.py`)
+   remains uncapturable from the current feature set with the
+   current data scale. Three independent probes (marginal-value,
+   GRU sweep, GRU + AUC-OOD stopping) now agree on the same ceiling.
+   The bottleneck is upstream of model choice.
+
+2. **Postgres totals checked.** 1,164 positions total in `mcts_position`;
+   1,161 with ≥10 complete realizations. The trajectory_cache.npz
+   already covers these. **No rebuild would add data.** The corpus
+   is exhausted at b10c128.
+
+### Honest operational ROI assessment
+
+Before the user shelved the arc, we walked through what shipping
+the allocator would actually save in production:
+
+- **Best-case skip rate at production B=200+800**: ~55% (between
+  year2k ~61% and cards ~49%) → if comparing to "always fire
+  adaptive," **~44% compute saved**, ~7pp expected agreement loss
+  per batch.
+
+- **The relevant baseline isn't "always fire adaptive"** — it's
+  the current proxy `adaptive_reevaluate` quantile-of-worst-decision
+  rule, which already skips some positions. **That comparison
+  number isn't measured.** Without it, the savings-vs-status-quo
+  claim is speculative.
+
+- **Engineering cost**: multi-week to multi-month for proxy
+  capability dispatch + SPA-side classifier deployment + net-transfer
+  validation (b10 → b28) + cross-position batch allocation. Real
+  engineering across two sub-projects.
+
+- **Asymmetric risk for a study app**: compute savings are silent;
+  recommendation-quality regressions are visible. The 7pp agreement
+  cost on skipped positions is potentially user-visible.
+
+- **Comparable wall-clock gains likely available cheaper**: tune
+  the existing proxy adaptive threshold, smaller-but-fresher net,
+  cache analysis results.
+
+**My honest read** (delivered to the user, who agreed and shelved):
+the science is real, the operational ceiling is well-characterized,
+but the engineering payoff at b10 + 1,161 positions isn't strong
+enough to justify the dispatch work yet. The arc is complete as a
+research output; deployment is deferred.
+
+### What a future arc should do (if this work resumes)
+
+1. **Measure the current proxy `adaptive_reevaluate` skip rate** as
+   a one-shot diagnostic. Instrument the proxy, run a session,
+   log "would have fired: yes/no" per position. ~1 hour of work;
+   answers the missing-baseline question.
+
+2. **If the gap is large enough to justify shipping**, then proceed
+   to the capability dispatch + SPA-side deployment.
+
+3. **If the gap is small**, the arc's research output stands as a
+   complete characterisation of the visit-scaling problem at b10
+   scale, and the project's attention moves elsewhere.
+
+### Updated next-session focus
+
+The user is moving back to SPA polishing. This research arc closes
+with a usable per-packet allocator in code, a well-characterized
+ceiling, and a clear list of what would need to happen if/when the
+arc resumes. The dispatch draft is **deliberately not written**;
+that decision is on hold pending the missing baseline measurement.
+
 License: Public Domain (The Unlicense)
