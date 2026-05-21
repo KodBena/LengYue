@@ -14,6 +14,20 @@ Pareto curve of (visits-spent, top-1 agreement).
 
 ---
 
+## Morning verdict (overnight findings, before deeper inspection)
+
+- **Architecture: WINS, modestly.** The binary allocator's Pareto curve has points the always-V_max baseline cannot match. Specifically on `scoreLead_drift`, at τ=+0.25 the binary allocator achieves 0.871 top-1 agreement at 12018 avg visits — 20% visit savings for 3.6pp agreement cost. At τ=−0.25 it gets 0.9069 agreement at 14859 visits, a (tiny) free lunch over baseline 0.9065 at 15000. Same shape on the other 3 main targets; magnitudes differ.
+
+- **Feature engineering: target-specific.** Enriched features (ownership + policy distribution at 5 V-checkpoints) buy +1.1pp on `L2_joint_drift`, +0.6pp on `winrate_drift`, +0.5pp on `scoreLead_drift`, ~0pp on `visit_entropy_reduction`. The user's '2% of data is being used' instinct was directionally correct; the magnitude is real but per-target.
+
+- **Delta-reframe (firewall Tier 1): mixed signal — kill the regression-target reframe, keep the allocator-decision reframe.** Within-corpus R² on the delta target is ~5× lower than on hyperbolic-H (kill-criterion triggered for the regression task itself). BUT when the delta predictor is wired into the allocator's decision rule, the resulting Pareto curve is *target-specific*: dominates H-allocator in mid-budget regions for some targets (`scoreLead_drift`), loses to H-allocator at the same budget for others (`visit_entropy_reduction`). **Predictor R² ≠ allocator utility.**
+
+- **Hyperparameter sweep: +0.04 OOD R² achievable.** The default LightGBMWrap is slightly over-regularized; `num_leaves=8, min_data=3, lr=0.1, λ=0` gives OOD R²=+0.547 vs default +0.510 on the anchor cell. Worth applying to the production allocator predictor.
+
+- **Recommended morning move:** the capability dispatch to the proxy (per firewall consult turn 2, §5 Tier 2) is unblocked. The architecture has empirical support; the dispatch shape (`staged_analysis` capability advertising trajectory packets at SPA-declared visit budgets) doesn't depend on which predictor/reframe variant wins long-term — only on the proxy supporting the partial-search-observation primitive. Drafting can proceed in parallel with deeper allocator refinement.
+
+---
+
 ## 1. Allocator simulation Pareto curves
 
 Train on year2k, evaluate on cards.db OOD slice. Predictor: LightGBM on phase35 + trajectory window features over `V ≤ V_floor` (binary policy) or `V ≤ V_mid` (3-stage policy).
