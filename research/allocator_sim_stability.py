@@ -16,10 +16,13 @@ Per the user's reframe and firewall consult #4 refinements:
 
 Caching architecture (restartable, Redis + disk fallback):
   - Phase A (one-time Postgres pass): for each (position, realization),
-    extract trajectory + compute stable_fraction at V_term_floor for
-    every extractor. Cache as a structured artifact keyed by
-    (stem, turn, realization, extractor). Survives kill mid-pass via
-    incremental disk writes.
+    extract trajectory + compute log-V-weighted stable_fraction over the
+    [V_term, V_max_query] window for every extractor, where V_term and
+    V_max_query are derived per-position from log-budget fractions
+    (f_term, f_max). Cache as a structured artifact keyed by
+    (stem, turn) and stamped with (V_term, V_max, schema_version);
+    re-fetched when the stamp doesn't match. Survives kill mid-pass
+    via incremental disk writes.
   - Phase B (cheap, in-memory): for each (extractor, threshold τ),
     binarize the cached fractions → label, train classifier on year2k,
     eval OOD on cards.db, run allocator sim, plot Pareto.
@@ -89,9 +92,32 @@ def all_extractor_names() -> list[str]:
     return list(STATELESS_EXTRACTORS.keys()) + list(STATEFUL_EXTRACTORS.keys())
 
 
+def _modal_top1_at_idx(top1_realiz: np.ndarray, v_idx: int) -> int:
+    """Modal top-1 move at V-grid index `v_idx` across the realizations
+    of one position. Generalizes `allocator_sim.modal_top1_at_v_max`
+    (which was hardcoded to the last column) so the agreement-ground-truth
+    can be anchored to whatever budget endpoint f_max selects, rather
+    than the trajectory's V_hi.
+
+    Returns -1 if no realization has a valid (>= 0) top-1 at that index."""
+    from collections import Counter
+    col = top1_realiz[:, v_idx]
+    valid = col[col >= 0]
+    if valid.size == 0:
+        return -1
+    return Counter(valid.tolist()).most_common(1)[0][0]
+
+
 # ── Disk cache layout ───────────────────────────────────────────────────────
 
 CACHE_DIR = Path(__file__).resolve().parent / "data" / "stability_cache"
+
+# Cache schema version stamp. Bump when the cached-pickle shape changes
+# in a way that invalidates older entries (e.g. switching from linear-V
+# to log-V stable_fraction weighting on 2026-05-22). Cache-hit logic in
+# `phase_a_build_or_load_labels` rejects entries whose stamp doesn't
+# match.
+CACHE_SCHEMA_VERSION = "v2_logV"
 
 
 def cache_path_for_position(stem: str, turn: int) -> Path:
@@ -166,11 +192,12 @@ def redis_set_position(r, stem: str, turn: int, data: dict) -> None:
 # ── Phase A: build per-position stability data ──────────────────────────────
 
 def compute_position_stability_data(
-    bundle: dict, V_term_floor: float,
+    bundle: dict, V_term: float, V_max_query: float,
 ) -> dict | None:
     """For one position's lossless packet bundle (dict of realization_idx
     → list[(t, packet_dict)]), compute per-realization stable_fractions
-    at V_term_floor for every extractor. Returns a dict:
+    over the window [V_term, V_max_query] for every extractor under
+    LOG-V weighting. Returns a dict:
 
       {
         "realizations": {
@@ -181,14 +208,24 @@ def compute_position_stability_data(
         }
       }
 
-    Stable_fraction is the V-weighted fraction of [V_term_floor, V_max]
-    where the extracted quantity matches its value at V_term_floor. None
-    when the tail has no observable packets for that extractor.
+    Stable_fraction is the log-V-weighted fraction of
+    [V_term, V_max_query] where the extracted quantity matches its value
+    at V_term. None when the tail has no observable packets for that
+    extractor or the window is degenerate (V_max_query <= V_term).
+
+    Log-V weighting (vs the old linear-V form on
+    `StabilityTrajectory.stable_fraction_from`) makes the label invariant
+    to absolute budget rescaling: training labels computed at
+    V_max=15000 measure the same shape of "stability per log-doubling"
+    that would apply at deployment V_max=200. See firewall consult and
+    [[project_b10_testbed_intent]] in memory for context.
 
     Single-pass implementation: each realization's packets are walked
     once. At each packet, every extractor is invoked; per-extractor
     change-point streams are accumulated inline. This avoids the
     N_extractors-fold redundant packet-iteration of the prior shape."""
+    if V_max_query <= V_term or V_term <= 0.0:
+        return None
     out_reals: dict[int, dict] = {}
     stateless_items = list(STATELESS_EXTRACTORS.items())
     stateful_items = list(STATEFUL_EXTRACTORS.items())
@@ -225,7 +262,7 @@ def compute_position_stability_data(
             traj = StabilityTrajectory.from_changepoints(
                 cps_list[ei], V_max=last_V, n_packets=n_packets,
             )
-            frac, _ = traj.stable_fraction_from(V_term_floor)
+            frac, _ = traj.stable_fraction_logV(V_term, V_max=V_max_query)
             per_extr[name] = float(frac) if np.isfinite(frac) else None
         out_reals[int(r_idx)] = {"stable_fractions": per_extr}
     if not out_reals:
@@ -258,16 +295,19 @@ def _worker_init() -> None:
     _WORKER_CONN = connect()
 
 
-def _worker_fetch_and_compute(chunk: list[tuple[str, int, float]]) -> dict:
+def _worker_fetch_and_compute(
+    chunk: list[tuple[str, int, float, float]],
+) -> dict:
     """Worker function (module-level for multiprocessing): given a chunk
-    of (stem, turn, V_term_floor) tuples, runs ONE batched fetch for the
-    chunk's positions on the worker's persistent connection, computes
-    per-realization stability data, returns dict keyed by (stem, turn)
-    → position_stability_data (with V_term_floor stamped in).
+    of (stem, turn, V_term, V_max_query) tuples, runs ONE batched fetch
+    for the chunk's positions on the worker's persistent connection,
+    computes per-realization stability data, returns dict keyed by
+    (stem, turn) → position_stability_data (stamped with V_term, V_max,
+    and cache schema version).
 
     Relies on `_worker_init` having opened `_WORKER_CONN`. In serial mode
-    (workers=1), the caller's `_run_serial_chunks` opens the conn instead;
-    either path leaves `_WORKER_CONN` populated by the time this runs."""
+    (workers=1), the caller opens the conn instead; either path leaves
+    `_WORKER_CONN` populated by the time this runs."""
     if not chunk:
         return {}
     conn = _WORKER_CONN
@@ -279,7 +319,7 @@ def _worker_fetch_and_compute(chunk: list[tuple[str, int, float]]) -> dict:
     else:
         owned = False
     try:
-        keys = [(stem, turn) for stem, turn, _ in chunk]
+        keys = [(stem, turn) for stem, turn, _vt, _vm in chunk]
         # Use the thin-projection fetch (msg_thin column) when callers set
         # _USE_THIN; otherwise fall back to the lossless path. Selection
         # happens at module level in main() based on coverage audit.
@@ -293,14 +333,16 @@ def _worker_fetch_and_compute(chunk: list[tuple[str, int, float]]) -> dict:
         except Exception as e:
             return {"__error__": f"fetch failed: {e}"}
         out: dict = {}
-        for stem, turn, V_term_floor in chunk:
+        for stem, turn, V_term, V_max_query in chunk:
             bundle = bundles.get((stem, turn))
             if not bundle:
                 continue
-            data = compute_position_stability_data(bundle, V_term_floor)
+            data = compute_position_stability_data(bundle, V_term, V_max_query)
             if data is None:
                 continue
-            data["V_term_floor"] = V_term_floor
+            data["V_term"] = V_term
+            data["V_max"] = V_max_query
+            data["cache_schema_version"] = CACHE_SCHEMA_VERSION
             out[(stem, turn)] = data
         return out
     finally:
@@ -312,23 +354,45 @@ def _worker_fetch_and_compute(chunk: list[tuple[str, int, float]]) -> dict:
 
 
 def phase_a_build_or_load_labels(
-    cache: dict, window_floor_frac: float, force_rebuild: bool = False,
+    cache: dict, f_term: float, f_max: float = 1.0,
+    force_rebuild: bool = False,
     workers: int = 1, batch_size: int = 8,
 ) -> dict:
     """Phase A: per-position stable_fractions, cached to disk + Redis.
 
     Returns a dict: {(stem, turn): position_stability_data}.
 
-    Skip-done: if cache file exists and is well-formed, skip Postgres
-    fetch for that position. Resumable mid-pass."""
+    The window is parameterized by log-budget fractions
+    `(f_term, f_max)` in [0, 1]. Per-position absolute V values are
+    computed as `V_grid[round(N_GRID * f) - 1]` where V_grid is the
+    position's log-spaced grid. Default `f_max=1.0` reproduces "use
+    the full recorded trajectory"; smaller values simulate a
+    smaller-budget deployment.
+
+    Stability is computed under log-V weighting (see
+    `compute_position_stability_data`), so labels are invariant to
+    absolute budget rescaling.
+
+    Skip-done: if cache file exists and matches schema version +
+    (V_term, V_max), skip Postgres fetch for that position. Resumable
+    mid-pass."""
     stems = cache["stems"]
     turns = cache["turns"]
     V_lo_arr = cache["V_lo"]
     V_hi_arr = cache["V_hi"]
     N_GRID = int(np.asarray(cache["N_GRID"]).flat[0])
-    floor_idx = max(4, int(round(N_GRID * window_floor_frac))) - 1
+    if not (0.0 < f_term < f_max <= 1.0):
+        raise ValueError(
+            f"f_term and f_max must satisfy 0 < f_term < f_max <= 1.0; "
+            f"got f_term={f_term} f_max={f_max}"
+        )
+    term_idx = max(4, int(round(N_GRID * f_term))) - 1
+    max_idx = min(N_GRID - 1, max(term_idx + 1, int(round(N_GRID * f_max)) - 1))
     n_total = len(stems)
-    print(f"  N_GRID={N_GRID}, floor_idx={floor_idx}, window={window_floor_frac:.3f}",
+    print(f"  N_GRID={N_GRID}, term_idx={term_idx}, max_idx={max_idx}, "
+          f"f_term={f_term:.3f}, f_max={f_max:.3f}",
+          flush=True)
+    print(f"  schema={CACHE_SCHEMA_VERSION} (log-V weighted stable_fraction)",
           flush=True)
 
     r_client = _redis_client()
@@ -350,9 +414,26 @@ def phase_a_build_or_load_labels(
     # Pass 1: scan cache (disk + redis), build the to-fetch list. Emit
     # a progress line every 200 positions so tail -f isn't silent on
     # warm-cache runs where the scan dominates.
+    #
+    # Cache hit requires (V_term, V_max, schema_version) all to match —
+    # entries from the v1 (linear-V weighting, V_max=V_hi only) cache
+    # will fail the schema_version check and be re-fetched.
     t0 = time.monotonic()
-    to_fetch: list[tuple[str, int, float, int]] = []  # (stem, turn, V_term_floor, i)
+    # (stem, turn, V_term, V_max_query, i)
+    to_fetch: list[tuple[str, int, float, float, int]] = []
     scan_step = max(200, n_total // 8)
+
+    def _is_cache_hit(entry: dict | None, V_term: float, V_max_query: float) -> bool:
+        if entry is None:
+            return False
+        if entry.get("cache_schema_version") != CACHE_SCHEMA_VERSION:
+            return False
+        if entry.get("V_term") != V_term:
+            return False
+        if entry.get("V_max") != V_max_query:
+            return False
+        return True
+
     for i in range(n_total):
         stem = str(stems[i])
         turn = int(turns[i])
@@ -362,13 +443,12 @@ def phase_a_build_or_load_labels(
             n_skipped += 1
             continue
         V_grid = np.geomspace(V_lo, V_hi, N_GRID)
-        V_term_floor = float(V_grid[floor_idx])
+        V_term = float(V_grid[term_idx])
+        V_max_query = float(V_grid[max_idx])
 
         if not force_rebuild:
             cached_disk = load_cached_position(stem, turn)
-            if cached_disk is not None and cached_disk.get("V_term_floor") == V_term_floor:
-                # Disk is authoritative and survives VM restart; no need
-                # to push back to Redis on every read.
+            if _is_cache_hit(cached_disk, V_term, V_max_query):
                 results[(stem, turn)] = cached_disk
                 n_hit_disk += 1
                 if (i + 1) % scan_step == 0:
@@ -378,7 +458,7 @@ def phase_a_build_or_load_labels(
                           flush=True)
                 continue
             cached_redis = redis_get_position(r_client, stem, turn)
-            if cached_redis is not None and cached_redis.get("V_term_floor") == V_term_floor:
+            if _is_cache_hit(cached_redis, V_term, V_max_query):
                 results[(stem, turn)] = cached_redis
                 save_cached_position(stem, turn, cached_redis)
                 n_hit_redis += 1
@@ -388,7 +468,7 @@ def phase_a_build_or_load_labels(
                           f"skipped={n_skipped} pending={len(to_fetch)})",
                           flush=True)
                 continue
-        to_fetch.append((stem, turn, V_term_floor, i))
+        to_fetch.append((stem, turn, V_term, V_max_query, i))
         if (i + 1) % scan_step == 0:
             print(f"  scan progress: {i + 1}/{n_total} "
                   f"(disk_hits={n_hit_disk} redis_hits={n_hit_redis} "
@@ -406,10 +486,10 @@ def phase_a_build_or_load_labels(
     # Each worker opens its own Postgres connection (psycopg conns can't
     # cross process boundaries) and processes a chunk of positions via
     # one batched query + per-position stability computation.
-    chunks: list[list[tuple[str, int, float]]] = []
+    chunks: list[list[tuple[str, int, float, float]]] = []
     for k in range(0, len(to_fetch), batch_size):
-        chunk = [(stem, turn, V_term_floor)
-                 for stem, turn, V_term_floor, _ in to_fetch[k: k + batch_size]]
+        chunk = [(stem, turn, V_term, V_max_query)
+                 for stem, turn, V_term, V_max_query, _ in to_fetch[k: k + batch_size]]
         chunks.append(chunk)
     n_chunks = len(chunks)
     print(f"  parallel fetch: workers={workers}  chunks={n_chunks}  "
@@ -488,7 +568,7 @@ def phase_a_build_or_load_labels(
 # ── Phase B: per-(extractor, threshold) training + sim ──────────────────────
 
 def build_phase_b_substrate(
-    cache: dict, stability_data: dict, window_floor_frac: float,
+    cache: dict, stability_data: dict, f_term: float,
 ) -> dict:
     """One-time pass over the cache that materializes everything Phase B
     needs that is INVARIANT across (extractor, threshold) cells:
@@ -508,7 +588,6 @@ def build_phase_b_substrate(
     threshold and would be wrongly counted as 0 for NaN rows). Caller
     masks NaN rows out per-cell."""
     N_GRID = int(np.asarray(cache["N_GRID"]).flat[0])
-    floor_idx = max(4, int(round(N_GRID * window_floor_frac))) - 1  # noqa: F841
     domains = np.array(cache["domains"], dtype=object)
     stems_cache = np.array(cache["stems"], dtype=object)
     turns_cache = np.array(cache["turns"], dtype=np.int32)
@@ -535,7 +614,7 @@ def build_phase_b_substrate(
         if not np.isfinite(y_mean).all():
             continue
         row = build_feature_row(
-            cache["phase35"][i], V_grid, y_mean, window_frac=window_floor_frac,
+            cache["phase35"][i], V_grid, y_mean, window_frac=f_term,
         )
         if row is None:
             continue
@@ -683,15 +762,23 @@ def slice_cache(cache: dict, idx: np.ndarray) -> dict:
 
 
 def _precompute_cards_sim_substrate(
-    cards_data: dict, window_floor_frac: float,
+    cards_data: dict, f_term: float, f_max: float = 1.0,
 ) -> dict:
     """Per-position quantities the τ loop needs that are τ-independent
     AND extractor-independent. Computed once per allocator-sim call set
     on the same cards slice; reused across τ values within a call and
-    across (extractor, threshold) cells by the higher-level driver."""
+    across (extractor, threshold) cells by the higher-level driver.
+
+    f_max controls the upper-V bound used for the "full search" branch
+    of the allocator (the agreement-at-V_max ground truth). Default 1.0
+    reproduces "use V_grid[N_GRID-1]" semantics (anchored to V_hi). For
+    smaller-budget deployment simulations, set f_max < 1.0 so the
+    agreement metric is measured against the modal-top-1-at-budget
+    rather than at the asymptote."""
     n_pos = len(cards_data["stems"])
     N_GRID = int(cards_data["N_GRID"])
-    floor_idx = max(4, int(round(N_GRID * window_floor_frac))) - 1
+    term_idx = max(4, int(round(N_GRID * f_term))) - 1
+    max_idx = min(N_GRID - 1, max(term_idx + 1, int(round(N_GRID * f_max)) - 1))
 
     valid = np.zeros(n_pos, dtype=bool)
     feature_rows = np.full((n_pos, 0), 0.0)  # widened on first valid row
@@ -711,12 +798,15 @@ def _precompute_cards_sim_substrate(
         if not np.isfinite(y_mean).all():
             continue
         row = build_feature_row(
-            cards_data["phase35"][ci], V_grid, y_mean, window_frac=window_floor_frac,
+            cards_data["phase35"][ci], V_grid, y_mean, window_frac=f_term,
         )
         if row is None:
             continue
         top1_realiz = cards_data["top1_realiz"][ci]
-        modal_v_max = modal_top1_at_v_max(top1_realiz)
+        # Agreement ground truth at the budget endpoint, not the trajectory's
+        # full V_hi — so at f_max < 1.0 the metric matches what a
+        # smaller-budget deployment would actually see.
+        modal_v_max = _modal_top1_at_idx(top1_realiz, max_idx)
         if modal_v_max < 0:
             continue
         # Per-position invariants
@@ -724,11 +814,11 @@ def _precompute_cards_sim_substrate(
             first_row = row
             feature_rows = np.zeros((n_pos, row.shape[0]), dtype=np.float64)
         feature_rows[ci] = row
-        V_term_low[ci] = float(V_grid[floor_idx])
-        V_term_high[ci] = V_hi
+        V_term_low[ci] = float(V_grid[term_idx])
+        V_term_high[ci] = float(V_grid[max_idx])
         # Agreement at low-V (terminate path) and at V_max (full-search path),
         # averaged across realizations whose entry at that v_idx is observable.
-        for v_idx, agree_arr in ((floor_idx, agree_low), (N_GRID - 1, agree_high)):
+        for v_idx, agree_arr in ((term_idx, agree_low), (max_idx, agree_high)):
             agree_count = 0
             real_count = 0
             for r in range(top1_realiz.shape[0]):
@@ -826,7 +916,19 @@ def main() -> None:
     ap.add_argument("--out-dir",
                     default=Path.home() / "plots" / "allocator_pareto_stability",
                     type=Path)
-    ap.add_argument("--window-floor-frac", default=1.0/3.0, type=float)
+    ap.add_argument("--f-term", default=1.0/3.0, type=float,
+                    help="Log-budget fraction at which the allocator "
+                         "decides whether to terminate. Default 1/3 — "
+                         "tasting search at first third of the budget, "
+                         "decide whether to continue. "
+                         "Per-position absolute V_term = V_grid[round(N*f_term)-1].")
+    ap.add_argument("--f-max", default=1.0, type=float,
+                    help="Log-budget fraction defining the upper bound "
+                         "of the stability window. Default 1.0 = full "
+                         "recorded trajectory. Smaller values simulate a "
+                         "smaller-budget deployment (the classifier "
+                         "learns stability relative to that B). "
+                         "Per-position absolute V_max = V_grid[round(N*f_max)-1].")
     ap.add_argument("--n-folds", default=5, type=int)
     ap.add_argument("--force-rebuild", action="store_true",
                     help="Ignore disk/Redis caches; re-fetch all positions")
@@ -848,7 +950,7 @@ def main() -> None:
         list(STATELESS_EXTRACTORS.keys()) + list(STATEFUL_EXTRACTORS.keys())
     )
     print(f"=== stability-classifier allocator (cached labels) ===", flush=True)
-    print(f"  window_floor_frac={args.window_floor_frac}", flush=True)
+    print(f"  f_term={args.f_term:.4f}  f_max={args.f_max:.4f}", flush=True)
     print(f"  extractors: {extractors}", flush=True)
     print(f"  thresholds: {args.thresholds}", flush=True)
     print(f"  force_rebuild: {args.force_rebuild}", flush=True)
@@ -891,7 +993,8 @@ def main() -> None:
     # Phase A: build/load stability labels per position
     print("=== Phase A: build per-position stability data (cached) ===", flush=True)
     stability_data = phase_a_build_or_load_labels(
-        cache, args.window_floor_frac, force_rebuild=args.force_rebuild,
+        cache, args.f_term, args.f_max,
+        force_rebuild=args.force_rebuild,
         workers=args.workers, batch_size=args.batch_size,
     )
     print(f"  loaded {len(stability_data)} positions", flush=True)
@@ -911,9 +1014,9 @@ def main() -> None:
     print("=== Phase B substrate (one-time) ===", flush=True)
     t_sub = time.monotonic()
     phaseb_sub = build_phase_b_substrate(
-        cache, stability_data, args.window_floor_frac,
+        cache, stability_data, args.f_term,
     )
-    sim_sub = _precompute_cards_sim_substrate(cards_data, args.window_floor_frac)
+    sim_sub = _precompute_cards_sim_substrate(cards_data, args.f_term, args.f_max)
     print(f"  X={phaseb_sub['X'].shape}  cards_valid={int(sim_sub['valid'].sum())}/"
           f"{len(sim_sub['valid'])}  built in {time.monotonic() - t_sub:.1f}s",
           flush=True)
@@ -993,7 +1096,8 @@ def main() -> None:
     summary_path = args.out_dir / "summary_stability_sweep.txt"
     with summary_path.open("w") as f:
         f.write(f"# stability allocator τ ablation × extractor sweep\n")
-        f.write(f"# window_floor_frac={args.window_floor_frac}\n\n")
+        f.write(f"# f_term={args.f_term}  f_max={args.f_max}  "
+                f"schema={CACHE_SCHEMA_VERSION}\n\n")
         f.write(f"# baseline (always V_max): visits={baseline['avg_visits']:.0f}  "
                 f"agree={baseline['agreement']:.4f}  n={baseline['n']}\n\n")
         for entry in sweep_results:

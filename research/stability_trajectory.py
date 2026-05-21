@@ -338,11 +338,17 @@ class StabilityTrajectory(Generic[Q]):
                         / sum-of-V-intervals where value != _UNKNOWN.
         is_stable = fraction_stable >= threshold.
 
-        Intervals span [V_term, V_max], V-weighted (so a brief flip
+        Intervals span [V_term, V_max], LINEAR-V-weighted (so a brief flip
         contributes proportionally to its duration in V-space).
         Unknown intervals are dropped from both numerator and denominator.
 
-        Returns (NaN, False) if the tail has no observable packets."""
+        Returns (NaN, False) if the tail has no observable packets.
+
+        NOTE: linear-V weighting makes late-V intervals dominate the label
+        because the tail of a typical [V_term, V_max] interval carries most
+        of the V-mass. For budget-fraction-invariant labels (so the same
+        classifier transfers across deployment budgets), prefer
+        `stable_fraction_logV` which weights by log-doublings instead."""
         target = self.value_at(V_term)
         if target is self._UNKNOWN:
             return float("nan"), False
@@ -367,6 +373,72 @@ class StabilityTrajectory(Generic[Q]):
         # Final interval [last_cp_V, V_max]
         if self.V_max > prev_V:
             interval_len = self.V_max - prev_V
+            if prev_val is not self._UNKNOWN:
+                total_known += interval_len
+                if prev_val == target:
+                    total_match += interval_len
+        if total_known <= 0:
+            return float("nan"), False
+        frac = total_match / total_known
+        return frac, frac >= threshold
+
+    def stable_fraction_logV(
+        self,
+        V_term: float,
+        V_max: float | None = None,
+        threshold: float = 0.97,
+    ) -> tuple[float, bool]:
+        """Budget-fraction-invariant analog of `stable_fraction_from`:
+        interval weights are log-doublings (`log(V_cp / prev_V)`) instead
+        of linear V differences. The label is then invariant to absolute
+        budget rescaling — a classifier trained on labels computed under
+        log-V weighting at V_max=15000 measures the same shape of
+        "stability per log-doubling" that would apply at deployment
+        V_max=200.
+
+        `V_max` (optional): the upper bound of the window. Defaults to
+        the trajectory's recorded V_max. Pass a smaller V_max to evaluate
+        stability over a tighter post-V_term window (matches
+        budget-fraction inference where the deployment budget is less
+        than the recorded trajectory's ceiling).
+
+        Both `V_term` and `V_max` must be > 0 since log(0) is undefined.
+
+        Returns (NaN, False) if the tail has no observable packets or
+        the window is degenerate (V_max <= V_term).
+        """
+        if V_max is None:
+            V_max = self.V_max
+        if V_term <= 0.0 or V_max <= V_term:
+            return float("nan"), False
+        target = self.value_at(V_term)
+        if target is self._UNKNOWN:
+            return float("nan"), False
+        import math
+        log_V_term = math.log(V_term)
+        log_V_max = math.log(V_max)
+        total_known = 0.0
+        total_match = 0.0
+        i = bisect.bisect_right(self._cp_Vs, V_term)
+        prev_log_V = log_V_term
+        prev_val = target
+        while i < len(self.changepoints):
+            V_cp, val_cp = self.changepoints[i]
+            if V_cp >= V_max:
+                break
+            log_V_cp = math.log(V_cp)
+            interval_len = log_V_cp - prev_log_V
+            if interval_len > 0:
+                if prev_val is not self._UNKNOWN:
+                    total_known += interval_len
+                    if prev_val == target:
+                        total_match += interval_len
+            prev_log_V = log_V_cp
+            prev_val = val_cp
+            i += 1
+        # Final interval [last_cp_log_V, log_V_max]
+        if log_V_max > prev_log_V:
+            interval_len = log_V_max - prev_log_V
             if prev_val is not self._UNKNOWN:
                 total_known += interval_len
                 if prev_val == target:
