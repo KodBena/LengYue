@@ -103,12 +103,14 @@ def load_corpus(
     (Postgres BYTEA blob fetch + parse). For a 3440-sample corpus
     that's a ~4 min tax on every script. The pickled feature-matrix
     cache is stored in Redis at the URL given by `redis_url` (default
-    `redis://127.0.0.1:6379/0`, the qEUBO instance), keyed by the
+    `redis://127.0.0.1:6380/0`, the memory-only research-cache
+    instance — see `~/redis-memcache.conf`; configured with no RDB
+    persistence and allkeys-lru eviction at 1 GB cap). Keyed by the
     labels CSV identity (path + size + mtime + expand flag). On cache
     miss the corpus is rebuilt and the result stashed back; subsequent
     callers hit the cache in well under a second. A disk fallback
     under `research/data/corpus_cache/` is also written so the cache
-    survives `redis-cli FLUSHDB` and Redis restarts without RDB.
+    survives `redis-cli FLUSHDB` and Redis restarts.
 
     Returns dict with keys:
         sample_ids, X, feature_names, per_label, groups, per_realization,
@@ -122,7 +124,7 @@ def load_corpus(
     import pickle
     if redis_url is None:
         redis_url = os.environ.get(
-            "LENGYUE_RESEARCH_REDIS", "redis://127.0.0.1:6379/0",
+            "LENGYUE_RESEARCH_REDIS", "redis://127.0.0.1:6380/0",
         )
 
     csv_stat = labels_csv.stat()

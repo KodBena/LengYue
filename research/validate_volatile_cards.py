@@ -44,6 +44,7 @@ import re
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import matplotlib
@@ -195,6 +196,12 @@ def main() -> None:
                     type=Path)
     ap.add_argument("--skip-collect", action="store_true",
                     help="Skip collection (use existing Postgres rows)")
+    ap.add_argument("--skip-done", action="store_true",
+                    help="Per-SGF, skip if Postgres already has "
+                         "≥ n_realizations complete realizations")
+    ap.add_argument("--concurrency", default=1, type=int,
+                    help="Number of concurrent collect_trajectory subprocesses "
+                         "(default 1; raise to use idle GPU/CPU)")
     ap.add_argument("--families", nargs="+",
                     default=["hyperbolic"])
     args = ap.parse_args()
@@ -216,12 +223,35 @@ def main() -> None:
               flush=True)
 
     if not args.skip_collect:
+        # Filter out SGFs already at the target realization count
+        if args.skip_done:
+            check_conn = connect()
+            pending: list[tuple[Path, str, int]] = []
+            n_already = 0
+            for sgf, stem, turn in sgf_meta:
+                done_real = list_realizations(check_conn, stem, turn,
+                                                only_complete=True)
+                if len(done_real) >= args.n_realizations:
+                    n_already += 1
+                    continue
+                pending.append((sgf, stem, turn))
+            check_conn.close()
+            print(f"  --skip-done: {n_already}/{len(sgf_meta)} already "
+                  f"complete; {len(pending)} remaining", flush=True)
+            sgf_meta_run = pending
+        else:
+            sgf_meta_run = list(sgf_meta)
+
         t0 = time.monotonic()
-        print(f"\n=== collecting {len(sgf_meta)} positions × "
+        print(f"\n=== collecting {len(sgf_meta_run)} positions × "
               f"{args.n_realizations} realizations × "
-              f"{args.max_visits} visits ===", flush=True)
-        for i, (sgf, stem, turn) in enumerate(sgf_meta):
-            print(f"\n[{i+1}/{len(sgf_meta)}] {stem} (turn={turn})",
+              f"{args.max_visits} visits  "
+              f"(concurrency={args.concurrency}) ===", flush=True)
+
+        n_done = [0]
+
+        def _do_one(idx: int, sgf: Path, stem: str, turn: int):
+            print(f"\n[{idx+1}/{len(sgf_meta_run)}] {stem} (turn={turn}) START",
                   flush=True)
             ok = collect_for_sgf(
                 sgf_path=sgf, turn=turn,
@@ -231,13 +261,28 @@ def main() -> None:
                 report_every=args.report_every,
                 log_dir=args.collect_log_dir,
             )
-            if not ok:
-                print(f"  ⚠ collection failed for {stem}; continuing",
-                      flush=True)
+            n_done[0] += 1
             elapsed = time.monotonic() - t0
-            done = i + 1
-            eta = elapsed / done * (len(sgf_meta) - done)
-            print(f"  elapsed {elapsed:.0f}s  eta {eta:.0f}s", flush=True)
+            rate = n_done[0] / max(elapsed, 1e-9)
+            eta = (len(sgf_meta_run) - n_done[0]) / max(rate, 1e-9)
+            print(f"  [{n_done[0]}/{len(sgf_meta_run)}] {stem} "
+                  f"{'OK' if ok else 'FAIL'}  elapsed {elapsed:.0f}s "
+                  f"eta {eta:.0f}s", flush=True)
+            return ok
+
+        if args.concurrency <= 1:
+            for i, (sgf, stem, turn) in enumerate(sgf_meta_run):
+                _do_one(i, sgf, stem, turn)
+        else:
+            with ThreadPoolExecutor(max_workers=args.concurrency) as ex:
+                futures = [ex.submit(_do_one, i, sgf, stem, turn)
+                            for i, (sgf, stem, turn) in enumerate(sgf_meta_run)]
+                for f in as_completed(futures):
+                    try:
+                        f.result()
+                    except Exception as e:
+                        print(f"  ⚠ worker raised: {e}", flush=True)
+
         print(f"\n=== collection done in {time.monotonic()-t0:.0f}s ===",
               flush=True)
     else:

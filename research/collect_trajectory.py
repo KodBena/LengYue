@@ -36,9 +36,15 @@ import time
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import websockets
 from sgfmill import sgf
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from pg_sink import (  # noqa: E402
+    connect as pg_connect, ensure_schema, ensure_position,
+    next_realization_idx, start_realization, reset_packets,
+    StreamWriter, mark_realization,
+)
 
 
 PROXY = "ws://127.0.0.1:1235"
@@ -147,8 +153,9 @@ def build_query(
         "maxVisits": max_visits,
         "reportDuringSearchEvery": report_every,
         "firstReportDuringSearchAfter": min(report_every, 0.02),
-        "includePolicy": False,
-        "includeOwnership": False,
+        "includePolicy": True,
+        "includeOwnership": True,
+        "includePVVisits": True,
     }
     if initial_stones:
         q["initialStones"] = initial_stones
@@ -162,24 +169,27 @@ async def collect(
     turn: int,
     max_visits: int,
     report_every: float,
-    out_dir: Path,
     timeout_s: float,
     model: str,
     realization: int = 0,
-    n_realizations: int = 1,
-) -> Path:
+    pg_conn: Any = None,
+) -> dict[str, Any]:
+    """Collect one trajectory; every received packet is INSERT'd into
+    Postgres (`mcts_packet`, autocommit per packet) as it arrives.
+    Returns a summary dict on completion; the actual data lives in
+    Postgres under `mcts_realization` / `mcts_packet`.
+
+    Robustness: per-packet autocommit. Process crash mid-realization
+    leaves the row at `status='in_flight'` with all packets received
+    before the crash durably present.
+    """
     moves, initial_stones, board_size, komi, rules = load_sgf_moves(sgf_path, turn)
     if len(moves) < turn:
         raise RuntimeError(
             f"SGF {sgf_path.name} has only {len(moves)} moves; cannot analyze turn {turn}"
         )
 
-    # MoveInfos top-K: capture enough mass to compute visit-entropy
-    # robustly. K=12 covers >99% of root-visit mass in typical
-    # MCTS-Go searches (the long tail is sub-1% per move).
-    TOP_K = 12
-
-    qid = f"trajectory-{sgf_path.stem}-t{turn}-r{realization}-{int(time.time())}"
+    qid = f"trajectory-{sgf_path.stem}-t{turn}-r{realization}-{int(time.time()*1000)}"
     query = build_query(
         qid=qid,
         moves=moves,
@@ -193,107 +203,90 @@ async def collect(
         model=model,
     )
 
-    print(f"  SGF: {sgf_path}")
-    print(f"  turn: {turn} (of {len(moves)} moves loaded), realization={realization}")
-    print(f"  board: {board_size}x{board_size}, komi={komi}, rules={rules}")
-    print(f"  initialStones: {len(initial_stones)}")
-    print(f"  maxVisits={max_visits}, reportDuringSearchEvery={report_every}s")
-    print(f"  query id: {qid}")
-    print()
+    conn = pg_conn if pg_conn is not None else pg_connect()
+    own_conn = pg_conn is None
+    try:
+        ensure_schema(conn)
+        position_id = ensure_position(
+            conn, sgf_path=str(sgf_path), stem=sgf_path.stem, turn=turn,
+        )
+        realization_id = start_realization(
+            conn, position_id=position_id, realization_idx=realization,
+            qid=qid, model=model, max_visits=max_visits, report_every=report_every,
+        )
+        reset_packets(conn, realization_id)
+        writer = StreamWriter(conn=conn, realization_id=realization_id)
 
-    # Sample shape: (t, V, winrate, scoreLead, scoreStdev, ids, mi_visits[TOP_K])
-    samples_meta: list[tuple[float, int, float, float, float, bool]] = []
-    samples_mi: list[list[int]] = []   # per-sample top-K visits, padded with 0
-    t0 = time.monotonic()
-    final_received = False
+        print(f"  SGF: {sgf_path}")
+        print(f"  turn: {turn} (of {len(moves)} moves loaded), realization={realization}")
+        print(f"  board: {board_size}x{board_size}, komi={komi}, rules={rules}")
+        print(f"  initialStones: {len(initial_stones)}")
+        print(f"  maxVisits={max_visits}, reportDuringSearchEvery={report_every}s")
+        print(f"  query id: {qid}  position_id={position_id} realization_id={realization_id}")
 
-    async with websockets.connect(PROXY, max_size=2**24) as ws:
-        await ws.send(json.dumps(query))
-        deadline = t0 + timeout_s
-        while time.monotonic() < deadline and not final_received:
-            remaining = deadline - time.monotonic()
-            try:
-                raw = await asyncio.wait_for(ws.recv(), timeout=remaining)
-            except asyncio.TimeoutError:
-                print(f"  TIMEOUT after {timeout_s}s; only got {len(samples_meta)} samples")
-                break
-            now = time.monotonic() - t0
-            msg = json.loads(raw)
-            if "isDuringSearch" not in msg:
-                if "error" in msg or "warning" in msg:
-                    print(f"  ENGINE MESSAGE: {msg}")
-                continue
-            if msg.get("id") != qid:
-                continue
-            root = msg.get("rootInfo") or {}
-            visits = int(root.get("visits", 0))
-            winrate = float(root.get("winrate", 0.0))
-            score_lead = float(root.get("scoreLead", 0.0))
-            score_stdev = float(root.get("scoreStdev", 0.0))
-            ids = bool(msg.get("isDuringSearch"))
-            samples_meta.append((now, visits, winrate, score_lead, score_stdev, ids))
+        n_packets = 0
+        final_visits = 0
+        final_received = False
+        t0 = time.monotonic()
+        error = ""
 
-            # moveInfos[].visits — per-move visit allocation. Sorted by
-            # visits desc by KataGo convention. Pad/truncate to TOP_K.
-            mi = msg.get("moveInfos") or []
-            mi_visits = [int(m.get("visits", 0)) for m in mi[:TOP_K]]
-            mi_visits.extend([0] * (TOP_K - len(mi_visits)))
-            samples_mi.append(mi_visits)
+        async with websockets.connect(PROXY, max_size=2**24) as ws:
+            await ws.send(json.dumps(query))
+            deadline = t0 + timeout_s
+            while time.monotonic() < deadline and not final_received:
+                remaining = deadline - time.monotonic()
+                try:
+                    raw = await asyncio.wait_for(ws.recv(), timeout=remaining)
+                except asyncio.TimeoutError:
+                    error = f"timeout after {timeout_s}s, n_packets={n_packets}"
+                    print(f"  TIMEOUT after {timeout_s}s; only got {n_packets} packets")
+                    break
+                now = time.monotonic() - t0
+                msg = json.loads(raw)
+                if "isDuringSearch" not in msg:
+                    if "error" in msg or "warning" in msg:
+                        print(f"  ENGINE MESSAGE: {msg}")
+                        if "error" in msg:
+                            error = str(msg["error"])
+                            break
+                    continue
+                if msg.get("id") != qid:
+                    continue
+                writer.append(now, msg)
+                n_packets += 1
+                if not msg.get("isDuringSearch"):
+                    final_visits = int((msg.get("rootInfo") or {}).get("visits", 0))
+                    final_received = True
+                    print(f"  final @ {now:.2f}s, visits={final_visits}, n_packets={n_packets}")
 
-            if not ids:
-                final_received = True
-                print(f"  final received @ {now:.2f}s, visits={visits}, "
-                      f"top-K mass={sum(mi_visits)}/{visits} "
-                      f"= {sum(mi_visits)/max(visits,1):.3f}")
-
-    elapsed = time.monotonic() - t0
-    print(f"\n  collected {len(samples_meta)} samples in {elapsed:.2f}s")
-    if not samples_meta:
-        raise RuntimeError("no samples collected — engine error?")
-    if not final_received:
-        print(f"  WARNING: no is_during_search=False final observed; trajectory may be incomplete")
-
-    ts = np.array([s[0] for s in samples_meta], dtype=np.float32)
-    vs = np.array([s[1] for s in samples_meta], dtype=np.int32)
-    wr = np.array([s[2] for s in samples_meta], dtype=np.float32)
-    sl = np.array([s[3] for s in samples_meta], dtype=np.float32)
-    ss = np.array([s[4] for s in samples_meta], dtype=np.float32)
-    ids_arr = np.array([s[5] for s in samples_meta], dtype=np.bool_)
-    mi_arr = np.array(samples_mi, dtype=np.int32)   # (n_samples, TOP_K)
-
-    out_dir.mkdir(parents=True, exist_ok=True)
-    if realization == 0 and n_realizations == 1:
-        out_name = f"{sgf_path.stem}__turn{turn}.npz"
-    else:
-        out_name = f"{sgf_path.stem}__turn{turn}__r{realization}.npz"
-    out_path = out_dir / out_name
-    np.savez_compressed(
-        out_path,
-        t=ts,
-        visits=vs,
-        winrate=wr,
-        scoreLead=sl,
-        scoreStdev=ss,
-        isDuringSearch=ids_arr,
-        miVisits=mi_arr,   # (n_samples, TOP_K)
-        meta=np.array(
-            [
-                f"sgf={sgf_path.name}",
-                f"turn={turn}",
-                f"board={board_size}",
-                f"komi={komi}",
-                f"rules={rules}",
-                f"maxVisits={max_visits}",
-                f"reportEvery={report_every}",
-                f"model={model}",
-                f"realization={realization}",
-                f"topK={TOP_K}",
-                f"qid={qid}",
-            ]
-        ),
-    )
-    print(f"  saved: {out_path}")
-    return out_path
+        elapsed = time.monotonic() - t0
+        if final_received:
+            status = "complete"
+        elif error and "timeout" in error:
+            status = "timeout"
+        elif error:
+            status = "engine_error"
+        else:
+            status = "incomplete"
+        mark_realization(
+            conn,
+            realization_id=realization_id,
+            status=status,
+            final_visits=final_visits,
+            n_packets=n_packets,
+            elapsed_s=elapsed,
+            error=error,
+        )
+        if not final_received:
+            print(f"  WARNING: realization marked '{status}' ({error or 'no final'})")
+        return {
+            "status": status, "n_packets": n_packets, "elapsed_s": elapsed,
+            "final_visits": final_visits, "qid": qid, "error": error,
+            "position_id": position_id, "realization_id": realization_id,
+        }
+    finally:
+        if own_conn:
+            conn.close()
 
 
 # ── CLI ──────────────────────────────────────────────────────────────────────
@@ -304,11 +297,6 @@ def main() -> None:
     ap.add_argument("--turn", required=True, type=int)
     ap.add_argument("--max-visits", default=10000, type=int)
     ap.add_argument("--report-every", default=0.05, type=float)
-    ap.add_argument(
-        "--out-dir",
-        default=Path("/home/bork/w/omega/research/trajectories"),
-        type=Path,
-    )
     ap.add_argument("--timeout", default=180.0, type=float)
     ap.add_argument(
         "--model",
@@ -326,8 +314,8 @@ def main() -> None:
         type=int,
         help=(
             "Number of independent search realizations to collect for this "
-            "(SGF, turn). Each is a separate analyze query; the proxy's "
-            "replay cache should be bypassed (the qid changes per run)."
+            "(SGF, turn). Each is a separate analyze query; per-realization "
+            "data lives in Redis under traj:{stem}:t{turn}:r{i}."
         ),
     )
     args = ap.parse_args()
@@ -339,11 +327,9 @@ def main() -> None:
                 turn=args.turn,
                 max_visits=args.max_visits,
                 report_every=args.report_every,
-                out_dir=args.out_dir,
                 timeout_s=args.timeout,
                 model=args.model,
                 realization=r,
-                n_realizations=args.n_realizations,
             )
 
     asyncio.run(run_all())
