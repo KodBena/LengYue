@@ -363,7 +363,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
         <div
           id="control-panel"
           v-show="store.session.ui.controlsExpanded"
-          :style="{ flex: '1 1 0', minWidth: 0 }"
+          :style="{ flex: '1 1 0', minWidth: '220px' }"
         >
           <TabWidget
             :tabs="controlTabs"
@@ -501,11 +501,18 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
    below the height-natural max — drag-left grows the cap (board
    shrinks), drag-right shrinks the cap (board grows up to the
    height saturation point). When unset, no cap; the board
-   saturates at full square. */
+   saturates at full square.
+
+   `flex: 0 1 auto` (was `0 0 auto`): allow the column to shrink
+   below the height-natural square when the row is overconstrained
+   (e.g. narrow desktops, snapped half-screen). The control panel's
+   min-width:220px floor then keeps the tab strip on-screen; the
+   board column becomes a tall-narrow rectangle and the SVG
+   letterboxes via its viewBox preserveAspectRatio. */
 #board-column {
   display: flex;
   flex-direction: column;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   height: 100%;
   aspect-ratio: 1 / 1;
   max-width: var(--board-target-px, 100%);
