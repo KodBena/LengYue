@@ -92,9 +92,12 @@ def main() -> None:
     L.append("Pareto axes: avg visits spent vs top-1 move agreement against modal-top-1-across-realizations at V_max.")
     L.append("")
     for target in TARGETS:
-        # Combine baseline + enriched variants
-        for variant_suffix, variant_label in [("", "baseline (phase35 + trajectory windows)"),
-                                              ("_enriched", "enriched (+ ownership + policy distribution at 5 V-checkpoints)")]:
+        # Combine baseline + enriched + tuned variants
+        for variant_suffix, variant_label in [
+            ("", "baseline (phase35 + trajectory windows)"),
+            ("_enriched", "enriched (+ ownership + policy distribution at 5 V-checkpoints)"),
+            ("_tuned", "tuned hyperparams (num_leaves=8, min_data=3, lr=0.1, λ=0)"),
+        ]:
             summary_path = PLOTS / f"summary_{target}{variant_suffix}.txt"
             if not summary_path.exists():
                 continue

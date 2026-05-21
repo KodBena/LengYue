@@ -50,6 +50,27 @@ from extract_trajectory_features import (  # noqa: E402
 from regression import _LightGBMWrap, _signed_log1p  # noqa: E402
 
 
+class _LightGBMTuned:
+    """Hyperparam-sweep best config (idx=6 from hyperparam_sweep.py output):
+    num_leaves=8, min_data_in_leaf=3, learning_rate=0.1, lambda_l2=0,
+    n_estimators=200. Improves OOD R² by ~+0.04 over the default
+    _LightGBMWrap on the scoreLead_drift|first_third anchor cell."""
+
+    def __init__(self) -> None:
+        import lightgbm as lgb
+        self.m = lgb.LGBMRegressor(
+            n_estimators=200, num_leaves=8, min_data_in_leaf=3,
+            learning_rate=0.1, reg_lambda=0.0, verbose=-1,
+        )
+
+    def fit(self, X, y):
+        self.m.fit(X, y)
+        return self
+
+    def predict(self, X):
+        return self.m.predict(X)
+
+
 TRAJ_COLS = [
     "y_at_V_max", "y_min", "y_max", "y_range",
     "dip_depth", "rise_after_dip",
@@ -414,6 +435,7 @@ def baseline_always_vmax_agreement(cards_data: dict, target: str) -> dict:
 def train_predictor(
     cache: dict, target: str, window_frac: float | None,
     advanced_matrix: np.ndarray | None = None,
+    use_tuned_hp: bool = False,
 ) -> tuple[object, dict]:
     """Train a LightGBM head on year2k data, with features being
     phase35 + (optionally) trajectory features over the first
@@ -456,7 +478,7 @@ def train_predictor(
           f"feature dim={X.shape[1] if len(X) else 'NA'}", flush=True)
     if len(X) < 10:
         raise SystemExit(f"insufficient year2k training data for {target}")
-    predictor = _LightGBMWrap()
+    predictor = _LightGBMTuned() if use_tuned_hp else _LightGBMWrap()
     predictor.fit(X, y)
     return predictor, {"n_train": len(X), "feature_dim": X.shape[1]}
 
@@ -486,8 +508,17 @@ def main() -> None:
                          "advanced ownership+policy features are merged into "
                          "the predictor and sim. Output filenames will be "
                          "suffixed with '_enriched'.")
+    ap.add_argument("--use-tuned-hp", action="store_true",
+                    help="Use the hyperparam_sweep best config "
+                         "(num_leaves=8, min_data=3, lr=0.1, λ=0) instead of "
+                         "the default LightGBMWrap. Output filenames gain "
+                         "'_tuned' suffix.")
     args = ap.parse_args()
-    suffix = "_enriched" if args.advanced_csv else ""
+    suffix = ""
+    if args.advanced_csv:
+        suffix += "_enriched"
+    if args.use_tuned_hp:
+        suffix += "_tuned"
 
     print(f"=== allocator simulation: target={args.target} "
           f"window_floor={args.window_floor_frac:.3f} "
@@ -544,6 +575,7 @@ def main() -> None:
     predictor_floor, info_floor = train_predictor(
         cache, args.target, window_frac=args.window_floor_frac,
         advanced_matrix=advanced_matrix,
+        use_tuned_hp=args.use_tuned_hp,
     )
 
     # Train second predictor on first window_mid_frac of V-grid for 3-stage
@@ -553,6 +585,7 @@ def main() -> None:
     predictor_mid, info_mid = train_predictor(
         cache, args.target, window_frac=args.window_mid_frac,
         advanced_matrix=advanced_matrix,
+        use_tuned_hp=args.use_tuned_hp,
     )
 
     # Baseline

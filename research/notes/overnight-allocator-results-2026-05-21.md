@@ -98,6 +98,38 @@ Summary file: `~/plots/allocator_pareto/summary_scoreLead_drift.txt`
 
 Summary file: `~/plots/allocator_pareto/summary_scoreLead_drift_enriched.txt`
 
+### scoreLead_drift — tuned hyperparams (num_leaves=8, min_data=3, lr=0.1, λ=0)
+
+**Always-V_max reference:** avg_visits = 15000,  agreement = 0.9065,  n = 772
+
+**Binary policy** (V_floor → V_max) — sample of τ sweep:
+
+| τ | avg visits | agreement | terminate% |
+|---|---|---|---|
+| -2.000 | 15000 | +0.9065 | 0.00% |
+| -1.750 | 15000 | +0.9065 | 0.00% |
+| -1.500 | 15000 | +0.9065 | 0.00% |
+| -1.250 | 15000 | +0.9065 | 0.00% |
+| -1.000 | 15000 | +0.9065 | 0.00% |
+| -0.750 | 14982 | +0.9065 | 0.13% |
+| -0.500 | 14930 | +0.9065 | 0.52% |
+| -0.250 | 14894 | +0.9069 | 0.78% |
+| +0.000 | 14753 | +0.9047 | 1.81% |
+| +0.250 | 11792 | +0.8671 | 23.83% |
+| +0.500 | 8344 | +0.8225 | 49.48% |
+| +0.750 | 5830 | +0.8070 | 68.13% |
+
+**3-stage policy** (V_floor → V_mid → V_max) — see full sweep in summary file.
+
+![binary Pareto for scoreLead_drift_tuned](file:///home/bork/plots/allocator_pareto/binary_scoreLead_drift_tuned.png)
+
+![3stage Pareto for scoreLead_drift_tuned](file:///home/bork/plots/allocator_pareto/3stage_scoreLead_drift_tuned.png)
+
+![combined Pareto for scoreLead_drift_tuned](file:///home/bork/plots/allocator_pareto/combined_scoreLead_drift_tuned.png)
+
+
+Summary file: `~/plots/allocator_pareto/summary_scoreLead_drift_tuned.txt`
+
 ### winrate_drift — baseline (phase35 + trajectory windows)
 
 **Always-V_max reference:** avg_visits = 15000,  agreement = 0.9065,  n = 772
@@ -161,6 +193,38 @@ Summary file: `~/plots/allocator_pareto/summary_winrate_drift.txt`
 
 
 Summary file: `~/plots/allocator_pareto/summary_winrate_drift_enriched.txt`
+
+### winrate_drift — tuned hyperparams (num_leaves=8, min_data=3, lr=0.1, λ=0)
+
+**Always-V_max reference:** avg_visits = 15000,  agreement = 0.9065,  n = 772
+
+**Binary policy** (V_floor → V_max) — sample of τ sweep:
+
+| τ | avg visits | agreement | terminate% |
+|---|---|---|---|
+| -2.000 | 15000 | +0.9065 | 0.00% |
+| -1.750 | 15000 | +0.9065 | 0.00% |
+| -1.500 | 15000 | +0.9065 | 0.00% |
+| -1.250 | 15000 | +0.9065 | 0.00% |
+| -1.000 | 15000 | +0.9065 | 0.00% |
+| -0.750 | 15000 | +0.9065 | 0.00% |
+| -0.500 | 15000 | +0.9065 | 0.00% |
+| -0.250 | 15000 | +0.9065 | 0.00% |
+| +0.000 | 13941 | +0.8926 | 7.90% |
+| +0.250 | 1797 | +0.7598 | 98.06% |
+| +0.500 | 1552 | +0.7541 | 99.87% |
+| +0.750 | 1534 | +0.7541 | 100.00% |
+
+**3-stage policy** (V_floor → V_mid → V_max) — see full sweep in summary file.
+
+![binary Pareto for winrate_drift_tuned](file:///home/bork/plots/allocator_pareto/binary_winrate_drift_tuned.png)
+
+![3stage Pareto for winrate_drift_tuned](file:///home/bork/plots/allocator_pareto/3stage_winrate_drift_tuned.png)
+
+![combined Pareto for winrate_drift_tuned](file:///home/bork/plots/allocator_pareto/combined_winrate_drift_tuned.png)
+
+
+Summary file: `~/plots/allocator_pareto/summary_winrate_drift_tuned.txt`
 
 ### visit_entropy_reduction — baseline (phase35 + trajectory windows)
 
@@ -226,6 +290,38 @@ Summary file: `~/plots/allocator_pareto/summary_visit_entropy_reduction.txt`
 
 Summary file: `~/plots/allocator_pareto/summary_visit_entropy_reduction_enriched.txt`
 
+### visit_entropy_reduction — tuned hyperparams (num_leaves=8, min_data=3, lr=0.1, λ=0)
+
+**Always-V_max reference:** avg_visits = 15000,  agreement = 0.9065,  n = 772
+
+**Binary policy** (V_floor → V_max) — sample of τ sweep:
+
+| τ | avg visits | agreement | terminate% |
+|---|---|---|---|
+| -2.000 | 15000 | +0.9065 | 0.00% |
+| -1.750 | 15000 | +0.9065 | 0.00% |
+| -1.500 | 15000 | +0.9065 | 0.00% |
+| -1.250 | 15000 | +0.9065 | 0.00% |
+| -1.000 | 15000 | +0.9065 | 0.00% |
+| -0.750 | 15000 | +0.9065 | 0.00% |
+| -0.500 | 15000 | +0.9065 | 0.00% |
+| -0.250 | 15000 | +0.9065 | 0.00% |
+| +0.000 | 14965 | +0.9069 | 0.26% |
+| +0.250 | 13284 | +0.9023 | 12.69% |
+| +0.500 | 10746 | +0.8894 | 31.48% |
+| +0.750 | 9441 | +0.8812 | 41.19% |
+
+**3-stage policy** (V_floor → V_mid → V_max) — see full sweep in summary file.
+
+![binary Pareto for visit_entropy_reduction_tuned](file:///home/bork/plots/allocator_pareto/binary_visit_entropy_reduction_tuned.png)
+
+![3stage Pareto for visit_entropy_reduction_tuned](file:///home/bork/plots/allocator_pareto/3stage_visit_entropy_reduction_tuned.png)
+
+![combined Pareto for visit_entropy_reduction_tuned](file:///home/bork/plots/allocator_pareto/combined_visit_entropy_reduction_tuned.png)
+
+
+Summary file: `~/plots/allocator_pareto/summary_visit_entropy_reduction_tuned.txt`
+
 ### L2_joint_drift — baseline (phase35 + trajectory windows)
 
 **Always-V_max reference:** avg_visits = 15000,  agreement = 0.9065,  n = 772
@@ -289,6 +385,38 @@ Summary file: `~/plots/allocator_pareto/summary_L2_joint_drift.txt`
 
 
 Summary file: `~/plots/allocator_pareto/summary_L2_joint_drift_enriched.txt`
+
+### L2_joint_drift — tuned hyperparams (num_leaves=8, min_data=3, lr=0.1, λ=0)
+
+**Always-V_max reference:** avg_visits = 15000,  agreement = 0.9065,  n = 772
+
+**Binary policy** (V_floor → V_max) — sample of τ sweep:
+
+| τ | avg visits | agreement | terminate% |
+|---|---|---|---|
+| -2.000 | 15000 | +0.9065 | 0.00% |
+| -1.750 | 15000 | +0.9065 | 0.00% |
+| -1.500 | 15000 | +0.9065 | 0.00% |
+| -1.250 | 15000 | +0.9065 | 0.00% |
+| -1.000 | 15000 | +0.9065 | 0.00% |
+| -0.750 | 15000 | +0.9065 | 0.00% |
+| -0.500 | 15000 | +0.9065 | 0.00% |
+| -0.250 | 15000 | +0.9065 | 0.00% |
+| +0.000 | 13364 | +0.8808 | 12.18% |
+| +0.250 | 2603 | +0.7622 | 92.10% |
+| +0.500 | 2008 | +0.7587 | 96.50% |
+| +0.750 | 1728 | +0.7553 | 98.58% |
+
+**3-stage policy** (V_floor → V_mid → V_max) — see full sweep in summary file.
+
+![binary Pareto for L2_joint_drift_tuned](file:///home/bork/plots/allocator_pareto/binary_L2_joint_drift_tuned.png)
+
+![3stage Pareto for L2_joint_drift_tuned](file:///home/bork/plots/allocator_pareto/3stage_L2_joint_drift_tuned.png)
+
+![combined Pareto for L2_joint_drift_tuned](file:///home/bork/plots/allocator_pareto/combined_L2_joint_drift_tuned.png)
+
+
+Summary file: `~/plots/allocator_pareto/summary_L2_joint_drift_tuned.txt`
 
 ---
 
