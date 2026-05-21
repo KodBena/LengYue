@@ -347,9 +347,12 @@ def phase_a_build_or_load_labels(
     n_skipped = 0
     conn = None  # opened lazily
 
-    # Pass 1: scan cache (disk + redis), build the to-fetch list.
+    # Pass 1: scan cache (disk + redis), build the to-fetch list. Emit
+    # a progress line every 200 positions so tail -f isn't silent on
+    # warm-cache runs where the scan dominates.
     t0 = time.monotonic()
     to_fetch: list[tuple[str, int, float, int]] = []  # (stem, turn, V_term_floor, i)
+    scan_step = max(200, n_total // 8)
     for i in range(n_total):
         stem = str(stems[i])
         turn = int(turns[i])
@@ -368,14 +371,29 @@ def phase_a_build_or_load_labels(
                 # to push back to Redis on every read.
                 results[(stem, turn)] = cached_disk
                 n_hit_disk += 1
+                if (i + 1) % scan_step == 0:
+                    print(f"  scan progress: {i + 1}/{n_total} "
+                          f"(disk_hits={n_hit_disk} redis_hits={n_hit_redis} "
+                          f"skipped={n_skipped} pending={len(to_fetch)})",
+                          flush=True)
                 continue
             cached_redis = redis_get_position(r_client, stem, turn)
             if cached_redis is not None and cached_redis.get("V_term_floor") == V_term_floor:
                 results[(stem, turn)] = cached_redis
                 save_cached_position(stem, turn, cached_redis)
                 n_hit_redis += 1
+                if (i + 1) % scan_step == 0:
+                    print(f"  scan progress: {i + 1}/{n_total} "
+                          f"(disk_hits={n_hit_disk} redis_hits={n_hit_redis} "
+                          f"skipped={n_skipped} pending={len(to_fetch)})",
+                          flush=True)
                 continue
         to_fetch.append((stem, turn, V_term_floor, i))
+        if (i + 1) % scan_step == 0:
+            print(f"  scan progress: {i + 1}/{n_total} "
+                  f"(disk_hits={n_hit_disk} redis_hits={n_hit_redis} "
+                  f"skipped={n_skipped} pending={len(to_fetch)})",
+                  flush=True)
 
     print(f"  cache scan: {n_hit_disk} disk hits, {n_hit_redis} redis hits, "
           f"{n_skipped} skipped, {len(to_fetch)} to fetch from Postgres",
@@ -421,14 +439,16 @@ def phase_a_build_or_load_labels(
                 n_fetched += 1
             chunks_done += 1
             positions_done = min(chunks_done * batch_size, len(to_fetch))
-            if chunks_done % max(1, n_chunks // 25) == 0 or chunks_done == n_chunks:
-                dt = time.monotonic() - t_fetch_start
-                rate = positions_done / max(dt, 1e-9)
-                eta = (len(to_fetch) - positions_done) / max(rate, 1e-9)
-                print(f"  batch [{chunks_done}/{n_chunks}] positions {positions_done}/{len(to_fetch)} "
-                      f"{rate:.1f} pos/s  elapsed {dt:.0f}s eta {eta:.0f}s  "
-                      f"fetch_total={n_fetched} skip_total={n_skipped} err={n_errors}",
-                      flush=True)
+            # Per-chunk print: one line per ~batch_size positions
+            # finishes, so tail -f reads a steady cadence rather than
+            # 25 widely-spaced lines.
+            dt = time.monotonic() - t_fetch_start
+            rate = positions_done / max(dt, 1e-9)
+            eta = (len(to_fetch) - positions_done) / max(rate, 1e-9)
+            print(f"  batch [{chunks_done}/{n_chunks}] positions {positions_done}/{len(to_fetch)} "
+                  f"{rate:.1f} pos/s  elapsed {dt:.0f}s eta {eta:.0f}s  "
+                  f"fetch_total={n_fetched} skip_total={n_skipped} err={n_errors}",
+                  flush=True)
         try:
             _WORKER_CONN.close()  # type: ignore[union-attr]
         except Exception:
