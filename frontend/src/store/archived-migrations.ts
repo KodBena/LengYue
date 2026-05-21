@@ -1983,4 +1983,33 @@ export const archivedMigrations: Migration[] = [
     }
     return out;
   },
+  // 44 → 45: backfill `session.ui.cardTreeNav` (Partial<Record<BoardId,
+  // CardTreeNavState>>, default {}). The field persists the
+  // `CardTreeWidget`'s manual-expand axis per board so a board re-
+  // opened mid-session (or after a browser reload) restores the
+  // user's exploration path through the card forest. Item 1 of the
+  // post-v1.1.0 follow-up list — previously the expand state lived
+  // in a per-mount `ref<Set<string>>` and was lost on every
+  // navigation.
+  //
+  // Idempotent: a pre-existing plain-object value is preserved
+  // unchanged (so users who already have entries from a hand-edited
+  // blob or a prior forward-compat install keep them). A
+  // non-object / null / array value is replaced with `{}` — the
+  // shape contract is strict.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = out.session?.ui;
+    if (ui && typeof ui === 'object') {
+      const u = ui as { cardTreeNav?: unknown };
+      const cur = u.cardTreeNav;
+      const isPlainObject =
+        cur !== null && cur !== undefined &&
+        typeof cur === 'object' && !Array.isArray(cur);
+      if (!isPlainObject) {
+        u.cardTreeNav = {};
+      }
+    }
+    return out;
+  },
 ];

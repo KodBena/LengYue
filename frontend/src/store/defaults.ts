@@ -304,6 +304,9 @@ export const defaultSettings = {
     // 0.3` const during the Phase-6 sweep. Bound through the
     // `display.liveness-threshold` KnobDecl.
     livenessThreshold: 0.3,
+    // 60ms preserves the prior hardcoded inline `transition: opacity
+    // 60ms ease` behaviour of MoveSuggestions.vue. See types.ts comment.
+    moveSuggestionsFadeMs: 60,
     locale: detectBrowserLocale(),
   },
   minting: {
@@ -365,6 +368,28 @@ export const defaultSettings = {
       inputs: [{ range: [-180, 180] as const }],
       outputs: [{ path: 'profile.settings.appearance.intensityHueShift' }],
       priority: 40,
+    },
+    // Animation-duration knobs (promoted from inline magic literals
+    // by the user 2026-05-22). Both surface adjacent in the toolbar
+    // slider popover via the `display` domain ordering. Range [0, …]
+    // permits an explicit "off" position; setting to 0 disables the
+    // corresponding ease transition (the CSS interprets `0ms ease`
+    // as a no-op).
+    'display.move-suggestions-fade-ms': {
+      id: 'display.move-suggestions-fade-ms',
+      label: 'Move-suggestion fade (ms)',
+      domain: 'display',
+      inputs: [{ range: [0, 200] as const }],
+      outputs: [{ path: 'profile.settings.appearance.moveSuggestionsFadeMs' }],
+      priority: 45,
+    },
+    'display.pv-fade-ms': {
+      id: 'display.pv-fade-ms',
+      label: 'PV preview fade (ms)',
+      domain: 'display',
+      inputs: [{ range: [0, 500] as const }],
+      outputs: [{ path: 'session.ui.pvAnimation.fadeDurationMs' }],
+      priority: 47,
     },
     'engine.watchdog-animation-ms': {
       id: 'engine.watchdog-animation-ms',
