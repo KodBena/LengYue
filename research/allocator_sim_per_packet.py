@@ -809,6 +809,134 @@ def _precompute_cards_per_packet_sim_substrate(
     }
 
 
+def _predict_per_cutoff(
+    sim_substrate: dict, predictor,
+) -> np.ndarray:
+    """Helper: predict_proba at each cutoff for the valid cards.db
+    positions. Returns P_by_cutoff array of shape (K, n_pos) with NaN
+    where features were unbuildable or predictor failed.
+
+    Both the threshold-rule sim and the marginal-value sim need this;
+    we factor it out so the experiments share one batched predict pass.
+    """
+    valid = sim_substrate["valid"]
+    feature_rows_by_cutoff = sim_substrate["feature_rows_by_cutoff"]
+    K = len(feature_rows_by_cutoff)
+    n_pos = len(valid)
+    P_by_cutoff = np.full((K, n_pos), np.nan)
+    for k in range(K):
+        X = feature_rows_by_cutoff[k]
+        row_ok = np.isfinite(X).all(axis=1) & valid
+        if not row_ok.any():
+            continue
+        try:
+            P = predictor.predict_proba(X[row_ok])[:, 1]
+            P_by_cutoff[k, row_ok] = P
+        except Exception:
+            pass
+    return P_by_cutoff
+
+
+def simulate_marginal_value_allocator(
+    sim_substrate: dict,
+    predictor,
+    lambda_grid: np.ndarray,
+    use_true_agreement: bool = False,
+) -> dict:
+    """Marginal-value (cost-utility) stopping rule sweep.
+
+    For each λ in lambda_grid, the per-position decision is:
+        chosen_k = argmax_k ( score[k] - λ · V_at_cutoff[k] )
+    where:
+        - score[k] = P_stable_k from the classifier (use_true_agreement=False), or
+        - score[k] = agree_at_cutoff[k] from ground truth (=True; oracle)
+
+    The first form represents what a learnable look-ahead policy could
+    in principle achieve given the classifier's per-cutoff predictions
+    are observable in advance (i.e. with perfect foresight along the
+    *classifier's* trajectory). The second form is the absolute upper
+    bound — argmax against the truth — and isolates "is the classifier
+    good enough to follow the true marginal-value rule?" from "is the
+    marginal-value rule any good at all?".
+
+    Compared to simulate_per_packet_allocator (threshold rule), this
+    sim assumes the SPA can look across all cutoffs and pick the best
+    one. That's NOT deployment-feasible without a continuation-value
+    estimator; this sim is an upper-bound benchmark for a future
+    deployment-feasible variant."""
+    valid = sim_substrate["valid"]
+    if not valid.any():
+        zeros = np.zeros(len(lambda_grid))
+        return {
+            "lambda": lambda_grid,
+            "avg_visits": zeros,
+            "agreement": zeros,
+            "terminate_frac": zeros,
+            "mean_stop_cutoff_idx": zeros,
+        }
+    V_at_cutoff = sim_substrate["V_at_cutoff"]
+    agree_at_cutoff = sim_substrate["agree_at_cutoff"]
+    V_max_arr = sim_substrate["V_max"]
+    agree_at_V_max = sim_substrate["agree_at_V_max"]
+    K, n_pos = V_at_cutoff.shape
+
+    if use_true_agreement:
+        scores = agree_at_cutoff
+    else:
+        scores = _predict_per_cutoff(sim_substrate, predictor)
+
+    # Always offer V_max as a (K+1)-th implicit option: terminate at
+    # the full budget endpoint. That's what a position that's not
+    # confidently stable at any cutoff should default to. For the
+    # marginal-value rule this means picking the (K+1) options
+    # {(score_k, V_k) for k in [0..K-1]} ∪ {(agree_at_V_max, V_max)}.
+    if use_true_agreement:
+        v_max_score = agree_at_V_max
+    else:
+        # Approximate "score if we go to V_max" as 1.0 — by construction
+        # a position that goes to V_max gets the classifier's
+        # asymptotic prediction. We use the per-position agreement at
+        # V_max as a proxy; if you don't trust that, swap for a learned
+        # estimate later.
+        v_max_score = agree_at_V_max
+    scores_ext = np.vstack([scores, v_max_score[None, :]])  # (K+1, n_pos)
+    V_ext = np.vstack([V_at_cutoff, V_max_arr[None, :]])     # (K+1, n_pos)
+    agree_ext = np.vstack([agree_at_cutoff, agree_at_V_max[None, :]])
+
+    avg_visits = np.zeros(len(lambda_grid))
+    agreement = np.zeros(len(lambda_grid))
+    terminate_frac = np.zeros(len(lambda_grid))
+    mean_stop_idx = np.zeros(len(lambda_grid))
+
+    pos_idx = np.arange(n_pos)
+    for li, lam in enumerate(lambda_grid):
+        utility = scores_ext - lam * V_ext
+        # Mask invalid entries (NaN scores or V) by setting utility to -inf
+        utility = np.where(np.isfinite(utility), utility, -np.inf)
+        chosen_k = utility.argmax(axis=0)
+        V_picked = V_ext[chosen_k, pos_idx]
+        A_picked = agree_ext[chosen_k, pos_idx]
+        keep = valid & np.isfinite(V_picked) & np.isfinite(A_picked)
+        if not keep.any():
+            continue
+        avg_visits[li] = V_picked[keep].mean()
+        agreement[li] = A_picked[keep].mean()
+        terminated_below_v_max = chosen_k[keep] < K
+        terminate_frac[li] = float(terminated_below_v_max.sum() / keep.sum())
+        if terminated_below_v_max.any():
+            mean_stop_idx[li] = float(chosen_k[keep][terminated_below_v_max].mean())
+        else:
+            mean_stop_idx[li] = float(K)  # all went to V_max
+
+    return {
+        "lambda": lambda_grid,
+        "avg_visits": avg_visits,
+        "agreement": agreement,
+        "terminate_frac": terminate_frac,
+        "mean_stop_cutoff_idx": mean_stop_idx,
+    }
+
+
 def simulate_per_packet_allocator(
     sim_substrate: dict, predictor, tau_grid: np.ndarray,
 ) -> dict:
