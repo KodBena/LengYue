@@ -80,47 +80,47 @@ def main() -> None:
                 continue
             L.append(f"### {target} — {variant_label}")
             L.append("")
-        # Extract key numbers from summary
-        body = summary_path.read_text()
-        # Baseline numbers
-        bm = re.search(r"avg_visits = (\S+)", body)
-        am = re.search(r"agreement\s*= (\S+)", body)
-        nm = re.search(r"n_positions = (\S+)", body)
-        if bm and am:
-            L.append(f"**Baseline (always V_max):** avg_visits = {bm.group(1)},  "
-                     f"agreement = {am.group(1)}"
-                     + (f",  n = {nm.group(1)}" if nm else ""))
-            L.append("")
-        # Binary table — first few + Pareto-frontier rows
-        bin_block = re.search(
-            r"# binary policy.*?\n  +tau.*?\n((?:.|\n)*?)(?=\n# 3-stage|\Z)", body)
-        if bin_block:
-            lines = bin_block.group(1).strip().splitlines()
-            L.append("**Binary policy** (V_floor → V_max) — sample of τ sweep:")
-            L.append("")
-            L.append("| τ | avg visits | agreement | terminate% |")
-            L.append("|---|---|---|---|")
-            shown = 0
-            for line in lines:
-                parts = line.split()
-                if len(parts) >= 4:
-                    L.append(f"| {parts[0]} | {parts[1]} | {parts[2]} | {parts[3]} |")
-                    shown += 1
-                if shown >= 12:
-                    break
-            L.append("")
-        # 3-stage best (max agreement / visit budget)
-        L.append("**3-stage policy** (V_floor → V_mid → V_max) — see full sweep in summary file.")
-        L.append("")
-        # Plot embedding
-        for plot_kind in ["binary", "3stage", "combined"]:
-            png_path = PLOTS / f"{plot_kind}_{target}{variant_suffix}.png"
-            if png_path.exists():
-                L.append(f"![{plot_kind} Pareto for {target}{variant_suffix}](file://{png_path})")
+            # Extract key numbers from summary
+            body = summary_path.read_text()
+            # Baseline numbers
+            bm = re.search(r"avg_visits = (\S+)", body)
+            am = re.search(r"agreement\s*= (\S+)", body)
+            nm = re.search(r"n_positions = (\S+)", body)
+            if bm and am:
+                L.append(f"**Always-V_max reference:** avg_visits = {bm.group(1)},  "
+                         f"agreement = {am.group(1)}"
+                         + (f",  n = {nm.group(1)}" if nm else ""))
                 L.append("")
-        L.append("")
-        L.append(f"Summary file: `~/plots/allocator_pareto/summary_{target}{variant_suffix}.txt`")
-        L.append("")
+            # Binary table — first few + Pareto-frontier rows
+            bin_block = re.search(
+                r"# binary policy.*?\n  +tau.*?\n((?:.|\n)*?)(?=\n# 3-stage|\Z)", body)
+            if bin_block:
+                lines = bin_block.group(1).strip().splitlines()
+                L.append("**Binary policy** (V_floor → V_max) — sample of τ sweep:")
+                L.append("")
+                L.append("| τ | avg visits | agreement | terminate% |")
+                L.append("|---|---|---|---|")
+                shown = 0
+                for line in lines:
+                    parts = line.split()
+                    if len(parts) >= 4:
+                        L.append(f"| {parts[0]} | {parts[1]} | {parts[2]} | {parts[3]} |")
+                        shown += 1
+                    if shown >= 12:
+                        break
+                L.append("")
+            # 3-stage best (max agreement / visit budget)
+            L.append("**3-stage policy** (V_floor → V_mid → V_max) — see full sweep in summary file.")
+            L.append("")
+            # Plot embedding
+            for plot_kind in ["binary", "3stage", "combined"]:
+                png_path = PLOTS / f"{plot_kind}_{target}{variant_suffix}.png"
+                if png_path.exists():
+                    L.append(f"![{plot_kind} Pareto for {target}{variant_suffix}](file://{png_path})")
+                    L.append("")
+            L.append("")
+            L.append(f"Summary file: `~/plots/allocator_pareto/summary_{target}{variant_suffix}.txt`")
+            L.append("")
 
     # ---- Delta-reframe results ----
     L.append("---")

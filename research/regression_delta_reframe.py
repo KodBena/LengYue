@@ -64,13 +64,11 @@ def main() -> None:
                             "regression_delta_reframe",
                     type=Path)
     ap.add_argument("--target", default="scoreLead_drift")
-    ap.add_argument("--V-floor", default=500.0, type=float)
     ap.add_argument("--n-folds", default=5, type=int)
     args = ap.parse_args()
 
     print(f"=== regression_delta_reframe: {args.target} ===", flush=True)
     print(f"  cache: {args.cache}", flush=True)
-    print(f"  V_floor: {args.V_floor}", flush=True)
     print(flush=True)
 
     cache = np.load(args.cache, allow_pickle=True)
@@ -84,11 +82,17 @@ def main() -> None:
           flush=True)
     print(flush=True)
 
-    # Anchor V_current values
-    V_currents = [args.V_floor, args.V_floor * 4.0, args.V_floor * 16.0]
-    # For each V_current, V_target anchors at V_current × 4, × 16, V_max
-    # Use K=3 V_targets per V_current as the firewall spec suggested.
-    # We'll compute deltas at three fixed multipliers + V_max.
+    # Anchor V_current as fractions of the V-grid (index-based).
+    # The firewall's spec was V_current ∈ {V_floor, ×4, ×16}; with
+    # index-based windows that becomes window fractions {1/6, 1/3, 2/3}
+    # — three increasingly-deep search budgets.
+    V_current_fracs = [1.0/6.0, 1.0/3.0, 2.0/3.0]
+    # K=3 V_target anchors per V_current: at +2×, +4×, and the V_max end.
+    V_target_fracs_per_current = {
+        1.0/6.0: [1.0/3.0, 2.0/3.0, 1.0],
+        1.0/3.0: [1.0/2.0, 2.0/3.0, 1.0],
+        2.0/3.0: [5.0/6.0, 11.0/12.0, 1.0],
+    }
 
     rows: list[dict] = []
     print("  building (V_current, V_target) labels + features per position...",
@@ -105,45 +109,40 @@ def main() -> None:
         y_realiz = cache[f"y_realiz_{args.target}"][i]  # (R, N_GRID)
         V_grid = np.geomspace(V_lo, V_hi, N_GRID)
         # σ_position: across-realization stdev of y at midrange (a stable point)
-        mid_idx = N_GRID // 2
-        valid_r = ~np.isnan(y_realiz[:, mid_idx])
+        sigma_pos_idx = N_GRID // 2
+        valid_r = ~np.isnan(y_realiz[:, sigma_pos_idx])
         if valid_r.sum() < 2:
             sigma_pos = 1.0
         else:
-            sigma_pos = float(np.std(y_realiz[valid_r, mid_idx], ddof=1))
+            sigma_pos = float(np.std(y_realiz[valid_r, sigma_pos_idx], ddof=1))
         if sigma_pos < 1e-6:
             sigma_pos = 1e-6
         n_real_pos = int(cache["n_realizations"][i])
-        for V_current in V_currents:
-            if not (V_lo < V_current < V_hi):
-                continue
-            # Feature row at V_current
+        for V_current_frac in V_current_fracs:
+            cur_idx = max(4, int(round(N_GRID * V_current_frac))) - 1
+            # Feature row over first V_current_frac of V-grid
             feat_row = build_feature_row(
-                cache["phase35"][i], V_grid, y_mean, V_cutoff=V_current,
+                cache["phase35"][i], V_grid, y_mean,
+                window_frac=V_current_frac,
             )
             if feat_row is None:
                 continue
             # Append n_realizations as an additional feature (per firewall spec)
             feat_row = np.append(feat_row, [float(n_real_pos),
                                             np.log1p(n_real_pos)])
-            y_at_current = float(np.interp(V_current, V_grid, y_mean))
-            # K=3 V_target anchors: 4×, 16×V_current, or V_max
-            V_targets = [
-                min(V_current * 4.0, V_hi),
-                min(V_current * 16.0, V_hi),
-                V_hi,
-            ]
+            y_at_current = float(y_mean[cur_idx])
             deltas = []
-            for V_target in V_targets:
-                if V_target <= V_current * 1.5:
+            for V_target_frac in V_target_fracs_per_current[V_current_frac]:
+                tgt_idx = max(cur_idx + 1, int(round(N_GRID * V_target_frac)) - 1)
+                if tgt_idx >= N_GRID or tgt_idx <= cur_idx:
                     deltas.append(np.nan)
                     continue
-                y_at_target = float(np.interp(V_target, V_grid, y_mean))
+                y_at_target = float(y_mean[tgt_idx])
                 delta = (y_at_target - y_at_current) / sigma_pos
                 deltas.append(delta)
             rows.append({
                 "i_pos": i,
-                "V_current": V_current,
+                "V_current_frac": V_current_frac,
                 "feat": feat_row,
                 "deltas": deltas,
                 "domain": cache["domains"][i],
@@ -164,23 +163,23 @@ def main() -> None:
 
     out_lines: list[str] = []
     out_lines.append("# regression_delta_reframe — per-V_current, K=3 V_target anchors")
-    out_lines.append(f"# target: {args.target}  V_floor: {args.V_floor}")
+    out_lines.append(f"# target: {args.target}")
     out_lines.append("# delta normalized by per-position σ; label averaged across realizations")
     out_lines.append("")
     header = (
-        f"  {'V_current':>10} {'V_target':>10} {'n_total':>8} "
+        f"  {'V_curr_frac':>12} {'V_tgt_frac':>11} {'n_total':>8} "
         f"{'n_y2k':>7} {'n_cards':>7}  "
         f"{'within_R2':>10} {'OOD_R2':>9} {'OOD/within':>11}"
     )
     print(header, flush=True)
     out_lines.append(header)
 
-    for vci, V_current in enumerate(V_currents):
-        # Collect rows for this V_current
-        rows_vc = [r for r in rows if r["V_current"] == V_current]
+    for vci, V_current_frac in enumerate(V_current_fracs):
+        rows_vc = [r for r in rows if r["V_current_frac"] == V_current_frac]
         if not rows_vc:
             continue
-        for vti in range(3):  # K=3 V_target anchors
+        target_fracs = V_target_fracs_per_current[V_current_frac]
+        for vti, V_target_frac in enumerate(target_fracs):
             X = []
             y = []
             g = []
@@ -205,7 +204,6 @@ def main() -> None:
             n_cards_v = int(cards_mask.sum())
             if n_y2k_v < 4 * args.n_folds:
                 continue
-            # Within-corpus 5-fold GroupKFold on year2k
             X_y2k = X[y2k_mask]
             y_y2k = y[y2k_mask]
             g_y2k = g[y2k_mask]
@@ -216,7 +214,6 @@ def main() -> None:
                 m.fit(X_y2k[tr], y_y2k[tr])
                 preds[te] = m.predict(X_y2k[te])
             r2_within = r2_score(y_y2k, preds)
-            # OOD: train on year2k, predict on cards
             r2_ood = float("nan")
             if n_cards_v >= 5:
                 m = _LightGBMWrap()
@@ -224,17 +221,17 @@ def main() -> None:
                 preds_ood = m.predict(X[cards_mask])
                 r2_ood = r2_score(y[cards_mask], preds_ood)
             ratio = r2_ood / r2_within if r2_within > 0 else float("nan")
-            v_target_label = f"V_c×{[4,16,'max'][vti]}"
             line = (
-                f"  {V_current:>10.0f} {v_target_label:>10} "
+                f"  {V_current_frac:>12.4f} {V_target_frac:>11.4f} "
                 f"{len(X):>8} {n_y2k_v:>7} {n_cards_v:>7}  "
                 f"{r2_within:>+10.4f} {r2_ood:>+9.4f} {ratio:>+11.4f}"
             )
             print(line, flush=True)
             out_lines.append(line)
             if tb is not None:
-                tb.add_scalar(f"R2_within/V_current_{int(V_current)}", r2_within, vti)
-                tb.add_scalar(f"R2_OOD/V_current_{int(V_current)}", r2_ood, vti)
+                cur_tag = f"V_curr_{int(round(V_current_frac*100))}pct"
+                tb.add_scalar(f"R2_within/{cur_tag}", r2_within, vti)
+                tb.add_scalar(f"R2_OOD/{cur_tag}", r2_ood, vti)
 
     if tb is not None:
         tb.flush()

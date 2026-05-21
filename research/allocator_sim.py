@@ -59,12 +59,17 @@ TRAJ_COLS = [
 ]
 
 
-def trajectory_features_up_to(V_grid: np.ndarray, y: np.ndarray, V_cutoff: float) -> dict | None:
-    """Extract trajectory features over the V <= V_cutoff prefix."""
-    mask = V_grid <= V_cutoff
-    if mask.sum() < 4:
+def trajectory_features_for_window(
+    V_grid: np.ndarray, y: np.ndarray, window_frac: float,
+) -> dict | None:
+    """Extract trajectory features over the first `window_frac` of the
+    V-grid (by index). Index-based because KataGo's V reporting is
+    irregular and per-position V_lo varies (median ~520 visits)."""
+    n = len(V_grid)
+    cutoff = max(4, int(round(n * window_frac)))
+    if cutoff < 4 or cutoff > n:
         return None
-    feats = extract_trajectory_features(V_grid[mask], y[mask])
+    feats = extract_trajectory_features(V_grid[:cutoff], y[:cutoff])
     if feats.get("status") != "clean":
         return None
     return feats
@@ -74,19 +79,19 @@ def build_feature_row(
     phase35_row: np.ndarray,
     V_grid: np.ndarray,
     y_mean: np.ndarray,
-    V_cutoff: float | None,
+    window_frac: float | None,
     advanced_row: np.ndarray | None = None,
 ) -> np.ndarray | None:
-    """Concatenate phase35 + (optionally) trajectory features over V <= V_cutoff
-    + (optionally) advanced multi-timestep ownership/policy features.
-    Returns None if features are not extractable."""
+    """Concatenate phase35 + (optionally) trajectory features over the
+    first window_frac of the V-grid + (optionally) advanced multi-timestep
+    ownership/policy features. Returns None if features are not extractable."""
     base = list(phase35_row)
     if any(not np.isfinite(v) for v in base):
         return None
-    if V_cutoff is None:
+    if window_frac is None:
         row = np.array(base, dtype=np.float64)
     else:
-        feats = trajectory_features_up_to(V_grid, y_mean, V_cutoff)
+        feats = trajectory_features_for_window(V_grid, y_mean, window_frac)
         if feats is None:
             return None
         extra = []
@@ -168,20 +173,22 @@ def simulate_binary(
     predictor,
     feature_names_baseline: list[str],
     cards_data: dict,
-    V_floor: float,
+    window_floor_frac: float,
     tau_grid: np.ndarray,
     target: str,
     advanced_matrix: np.ndarray | None = None,
 ) -> dict:
     """For each τ, simulate binary allocator on each cards position:
-    - At V_floor, build feature row using trajectory[:V_floor]
-    - Predict H (in signed_log1p space)
-    - Estimate remaining gain = predicted_H_log - signed_log1p(y_at_V_floor)
-    - If remaining_gain < τ, terminate at V_floor. Else V_max.
-    - Measure top-1 agreement: top1_at_V_term == modal_top1_at_V_max
-    Returns avg_visits, agreement_rate per τ.
+    - Observe the first `window_floor_frac` of the V-grid trajectory.
+    - At V_term_floor = V_grid[cutoff-1], build feature row using
+      trajectory[:cutoff]; query predictor for the asymptote.
+    - Estimate remaining gain = predicted_log_H - signed_log1p(y_at_floor).
+    - If remaining_gain < τ → terminate at V_term_floor; else V_max.
+    - Measure top-1 agreement vs modal-top-1-across-realizations at V_max.
     """
     n_pos = len(cards_data["stems"])
+    N_GRID = int(cards_data["N_GRID"])
+    floor_idx = max(4, int(round(N_GRID * window_floor_frac))) - 1
     avg_visits = np.zeros(len(tau_grid))
     agreement = np.zeros(len(tau_grid))
     decision_terminate = np.zeros(len(tau_grid))
@@ -193,9 +200,9 @@ def simulate_binary(
         for i in range(n_pos):
             V_lo = float(cards_data["V_lo"][i])
             V_hi = float(cards_data["V_hi"][i])
-            if not (V_lo < V_floor < V_hi):
+            if not np.isfinite(V_lo) or not np.isfinite(V_hi) or V_lo >= V_hi:
                 continue
-            V_grid = np.geomspace(V_lo, V_hi, cards_data["N_GRID"])
+            V_grid = np.geomspace(V_lo, V_hi, N_GRID)
             y_mean = cards_data[f"y_mean_{target}"][i]
             if not np.isfinite(y_mean).all():
                 continue
@@ -203,28 +210,29 @@ def simulate_binary(
             modal_v_max = modal_top1_at_v_max(top1_realiz)
             if modal_v_max < 0:
                 continue
-            # Feature row at V_floor (trajectory observed up to V_floor)
+            # Feature row over first window_floor_frac of trajectory
             adv_row = advanced_matrix[i] if advanced_matrix is not None else None
             row = build_feature_row(
-                cards_data["phase35"][i], V_grid, y_mean, V_cutoff=V_floor,
-                advanced_row=adv_row,
+                cards_data["phase35"][i], V_grid, y_mean,
+                window_frac=window_floor_frac, advanced_row=adv_row,
             )
             if row is None:
                 continue
             log_H_pred = float(predictor.predict(row[None, :])[0])
-            y_at_floor = float(np.interp(V_floor, V_grid, y_mean))
+            V_term_floor = float(V_grid[floor_idx])
+            y_at_floor = float(y_mean[floor_idx])
             y_at_floor_log = float(_signed_log1p(np.array([y_at_floor]))[0])
             remaining_gain_log = log_H_pred - y_at_floor_log
             if remaining_gain_log < tau:
-                V_term = V_floor
+                V_term = V_term_floor
+                v_idx = floor_idx
                 terminate = True
             else:
-                V_term = V_hi  # full search
+                V_term = V_hi
+                v_idx = N_GRID - 1
                 terminate = False
             if terminate:
                 n_terminate += 1
-            v_idx = find_v_index(V_grid, V_term)
-            # Per-realization agreement at V_term
             agree_count = 0
             real_count = 0
             for r in range(top1_realiz.shape[0]):
@@ -254,29 +262,31 @@ def simulate_binary(
 def simulate_3stage(
     predictor,
     cards_data: dict,
-    V_floor: float,
-    V_mid_mult: float,
+    window_floor_frac: float,
+    window_mid_frac: float,
     tau1_grid: np.ndarray,
     tau2_grid: np.ndarray,
     target: str,
     advanced_matrix: np.ndarray | None = None,
 ) -> dict:
-    """3-stage allocator: V_floor → V_mid → V_max with two thresholds.
+    """3-stage allocator with two trajectory windows + V_max.
     Returns a 2D grid over (tau1, tau2)."""
     n_pos = len(cards_data["stems"])
-    V_mid_target = V_floor * V_mid_mult
+    N_GRID = int(cards_data["N_GRID"])
+    floor_idx = max(4, int(round(N_GRID * window_floor_frac))) - 1
+    mid_idx = max(4, int(round(N_GRID * window_mid_frac))) - 1
+    max_idx = N_GRID - 1
     avg_visits = np.zeros((len(tau1_grid), len(tau2_grid)))
     agreement = np.zeros((len(tau1_grid), len(tau2_grid)))
     counts = np.zeros((len(tau1_grid), len(tau2_grid)), dtype=np.int64)
 
-    # Pre-compute per-position state for speed
     pos_state = []
     for i in range(n_pos):
         V_lo = float(cards_data["V_lo"][i])
         V_hi = float(cards_data["V_hi"][i])
-        if not (V_lo < V_floor < V_mid_target < V_hi):
+        if not np.isfinite(V_lo) or not np.isfinite(V_hi) or V_lo >= V_hi:
             continue
-        V_grid = np.geomspace(V_lo, V_hi, cards_data["N_GRID"])
+        V_grid = np.geomspace(V_lo, V_hi, N_GRID)
         y_mean = cards_data[f"y_mean_{target}"][i]
         if not np.isfinite(y_mean).all():
             continue
@@ -286,27 +296,26 @@ def simulate_3stage(
             continue
         adv_row = advanced_matrix[i] if advanced_matrix is not None else None
         row_floor = build_feature_row(
-            cards_data["phase35"][i], V_grid, y_mean, V_cutoff=V_floor,
-            advanced_row=adv_row,
+            cards_data["phase35"][i], V_grid, y_mean,
+            window_frac=window_floor_frac, advanced_row=adv_row,
         )
         row_mid = build_feature_row(
-            cards_data["phase35"][i], V_grid, y_mean, V_cutoff=V_mid_target,
-            advanced_row=adv_row,
+            cards_data["phase35"][i], V_grid, y_mean,
+            window_frac=window_mid_frac, advanced_row=adv_row,
         )
         if row_floor is None or row_mid is None:
             continue
         log_H_pred_floor = float(predictor.predict(row_floor[None, :])[0])
         log_H_pred_mid = float(predictor.predict(row_mid[None, :])[0])
-        y_at_floor = float(np.interp(V_floor, V_grid, y_mean))
-        y_at_mid = float(np.interp(V_mid_target, V_grid, y_mean))
+        y_at_floor = float(y_mean[floor_idx])
+        y_at_mid = float(y_mean[mid_idx])
         y_floor_log = float(_signed_log1p(np.array([y_at_floor]))[0])
         y_mid_log = float(_signed_log1p(np.array([y_at_mid]))[0])
         gain1 = log_H_pred_floor - y_floor_log
         gain2 = log_H_pred_mid - y_mid_log
-        floor_idx = find_v_index(V_grid, V_floor)
-        mid_idx = find_v_index(V_grid, V_mid_target)
-        max_idx = len(V_grid) - 1
-        # Per-V-stage top-1 agreement vectors
+        V_term_floor = float(V_grid[floor_idx])
+        V_term_mid = float(V_grid[mid_idx])
+        # Per-stage top-1 agreement vectors
         agree_floor = 0
         agree_mid = 0
         agree_max = 0
@@ -328,13 +337,12 @@ def simulate_3stage(
             continue
         pos_state.append({
             "gain1": gain1, "gain2": gain2,
-            "V_floor": V_floor, "V_mid": V_mid_target, "V_max": V_hi,
+            "V_floor": V_term_floor, "V_mid": V_term_mid, "V_max": V_hi,
             "ag_floor": agree_floor / real_count,
             "ag_mid": agree_mid / real_count,
             "ag_max": agree_max / real_count,
         })
 
-    # Now sweep (tau1, tau2)
     for a, tau1 in enumerate(tau1_grid):
         for b, tau2 in enumerate(tau2_grid):
             tv = 0.0
@@ -404,22 +412,20 @@ def baseline_always_vmax_agreement(cards_data: dict, target: str) -> dict:
 
 
 def train_predictor(
-    cache: dict, target: str, V_anchor: float | None,
+    cache: dict, target: str, window_frac: float | None,
     advanced_matrix: np.ndarray | None = None,
 ) -> tuple[object, dict]:
     """Train a LightGBM head on year2k data, with features being
-    phase35 + (optionally) trajectory features over V <= V_anchor
-    + (optionally) advanced multi-timestep ownership/policy features.
-    Label is signed_log1p(H_target).
-
-    Returns (fitted_predictor, info_dict).
-    """
+    phase35 + (optionally) trajectory features over the first
+    `window_frac` of the V-grid + (optionally) advanced multi-timestep
+    ownership/policy features. Label is signed_log1p(H_target)."""
     n = len(cache["stems"])
     domains = np.array(cache["domains"], dtype=object)
     y2k_mask = domains == "year2k"
     H = cache[f"H_{target}"]
     clean = cache[f"clean_{target}"]
     keep = y2k_mask & clean & np.isfinite(H)
+    N_GRID = int(np.asarray(cache["N_GRID"]).flat[0])
     X_rows = []
     y_rows = []
     g_rows = []
@@ -430,13 +436,13 @@ def train_predictor(
         V_hi = float(cache["V_hi"][i])
         if not np.isfinite(V_lo) or not np.isfinite(V_hi) or V_lo >= V_hi:
             continue
-        V_grid = np.geomspace(V_lo, V_hi, cache["N_GRID"])
+        V_grid = np.geomspace(V_lo, V_hi, N_GRID)
         y_mean = cache[f"y_mean_{target}"][i]
         if not np.isfinite(y_mean).all():
             continue
         adv_row = advanced_matrix[i] if advanced_matrix is not None else None
         row = build_feature_row(
-            cache["phase35"][i], V_grid, y_mean, V_cutoff=V_anchor,
+            cache["phase35"][i], V_grid, y_mean, window_frac=window_frac,
             advanced_row=adv_row,
         )
         if row is None:
@@ -465,10 +471,14 @@ def main() -> None:
                     default=Path.home() / "plots" / "allocator_pareto",
                     type=Path)
     ap.add_argument("--target", default="scoreLead_drift")
-    ap.add_argument("--V-floor", default=500.0, type=float,
-                    help="The smallest budget the allocator considers (visits)")
-    ap.add_argument("--V-mid-mult", default=4.0, type=float,
-                    help="3-stage middle budget = V_floor × this")
+    ap.add_argument("--window-floor-frac", default=1.0/3.0, type=float,
+                    help="fraction of V-grid observed before the 'floor' "
+                         "decision in the binary allocator (default 1/3 ≈ "
+                         "first ~17 of 50 V-grid points, V ≈ 2000 typically)")
+    ap.add_argument("--window-mid-frac", default=2.0/3.0, type=float,
+                    help="fraction of V-grid observed before the 'mid' "
+                         "decision in the 3-stage allocator (default 2/3 ≈ "
+                         "first ~33 of 50 V-grid points, V ≈ 7500 typically)")
     ap.add_argument("--n-tau", default=25, type=int,
                     help="number of τ values to sweep")
     ap.add_argument("--advanced-csv", type=Path, default=None,
@@ -479,7 +489,9 @@ def main() -> None:
     args = ap.parse_args()
     suffix = "_enriched" if args.advanced_csv else ""
 
-    print(f"=== allocator simulation: target={args.target} V_floor={args.V_floor} ===",
+    print(f"=== allocator simulation: target={args.target} "
+          f"window_floor={args.window_floor_frac:.3f} "
+          f"window_mid={args.window_mid_frac:.3f} ===",
           flush=True)
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -525,22 +537,21 @@ def main() -> None:
         else:
             print(f"  WARN: --advanced-csv was given but CSV produced no rows", flush=True)
 
-    # ---- Train predictor with V_floor-window features ----
-    print(f"\n--- training predictor with V<=V_floor features"
-          f"{' + advanced' if advanced_matrix is not None else ''} ---",
+    # ---- Train predictor with floor-window features ----
+    print(f"\n--- training predictor on first {args.window_floor_frac:.2f} "
+          f"of V-grid{' + advanced' if advanced_matrix is not None else ''} ---",
           flush=True)
     predictor_floor, info_floor = train_predictor(
-        cache, args.target, V_anchor=args.V_floor,
+        cache, args.target, window_frac=args.window_floor_frac,
         advanced_matrix=advanced_matrix,
     )
 
-    # Train second predictor with V<=V_mid features for 3-stage
-    V_mid = args.V_floor * args.V_mid_mult
-    print(f"\n--- training predictor with V<=V_mid={V_mid} features"
-          f"{' + advanced' if advanced_matrix is not None else ''} ---",
+    # Train second predictor on first window_mid_frac of V-grid for 3-stage
+    print(f"\n--- training predictor on first {args.window_mid_frac:.2f} "
+          f"of V-grid{' + advanced' if advanced_matrix is not None else ''} ---",
           flush=True)
     predictor_mid, info_mid = train_predictor(
-        cache, args.target, V_anchor=V_mid,
+        cache, args.target, window_frac=args.window_mid_frac,
         advanced_matrix=advanced_matrix,
     )
 
@@ -560,7 +571,7 @@ def main() -> None:
     t0 = time.monotonic()
     binary_res = simulate_binary(
         predictor_floor, cache["phase35_names"], cards_data,
-        args.V_floor, tau_grid, args.target,
+        args.window_floor_frac, tau_grid, args.target,
         advanced_matrix=advanced_cards,
     )
     print(f"  binary done in {time.monotonic()-t0:.1f}s", flush=True)
@@ -578,7 +589,8 @@ def main() -> None:
     # Use the V_mid predictor for the 3-stage simulation (both gains)
     stage3_res = simulate_3stage(
         predictor_mid, cards_data,
-        args.V_floor, args.V_mid_mult, tau1_grid, tau2_grid, args.target,
+        args.window_floor_frac, args.window_mid_frac,
+        tau1_grid, tau2_grid, args.target,
         advanced_matrix=advanced_cards,
     )
     print(f"  3-stage done in {time.monotonic()-t0:.1f}s", flush=True)
@@ -591,7 +603,8 @@ def main() -> None:
     summary_path = args.out_dir / f"summary_{args.target}{suffix}.txt"
     with summary_path.open("w") as f:
         f.write(f"# allocator simulation summary: {args.target}\n")
-        f.write(f"# V_floor={args.V_floor}  V_mid={V_mid}\n\n")
+        f.write(f"# window_floor_frac={args.window_floor_frac:.3f}  "
+                f"window_mid_frac={args.window_mid_frac:.3f}\n\n")
         f.write(f"# baseline (always V_max)\n")
         f.write(f"  avg_visits = {bl['avg_visits']:.0f}\n")
         f.write(f"  agreement  = {bl['agreement']:.4f}\n")
