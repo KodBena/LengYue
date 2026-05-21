@@ -618,6 +618,46 @@ def train_classifier_and_eval(
 
 # ── Allocator sim: walk cutoffs, stop at first P > τ ───────────────────────
 
+def pareto_frontier_indices(
+    visits: np.ndarray, agreement: np.ndarray,
+) -> np.ndarray:
+    """Indices into (visits, agreement) of the Pareto-optimal subset
+    (minimize visits, maximize agreement).
+
+    A point i is dominated iff there exists some j with
+        visits[j] <= visits[i]  AND  agreement[j] >= agreement[i]
+        AND (visits[j] < visits[i]  OR  agreement[j] > agreement[i]).
+    The frontier is the non-dominated subset, returned sorted by
+    visits ascending.
+
+    O(N²) brute force; N=19 here so this is fine. For our τ sweep the
+    frontier filters out τ values that produce strictly worse operating
+    points than smaller τ values."""
+    n = len(visits)
+    if n == 0:
+        return np.empty(0, dtype=np.int64)
+    keep = np.zeros(n, dtype=bool)
+    for i in range(n):
+        vi, ai = float(visits[i]), float(agreement[i])
+        if not (np.isfinite(vi) and np.isfinite(ai)):
+            continue
+        dominated = False
+        for j in range(n):
+            if i == j:
+                continue
+            vj, aj = float(visits[j]), float(agreement[j])
+            if not (np.isfinite(vj) and np.isfinite(aj)):
+                continue
+            if vj <= vi and aj >= ai and (vj < vi or aj > ai):
+                dominated = True
+                break
+        if not dominated:
+            keep[i] = True
+    idx = np.where(keep)[0]
+    order = np.argsort(visits[idx])
+    return idx[order]
+
+
 def _precompute_cards_per_packet_sim_substrate(
     cards_data: dict, f_max: float = 1.0,
 ) -> dict:
@@ -1050,6 +1090,23 @@ def main() -> None:
             f.write(f"  {'tau':>6} {'visits':>9} {'agree':>9} {'term%':>7} "
                     f"{'stop_k':>7}\n")
             for ti in range(len(sim["tau"])):
+                f.write(f"  {sim['tau'][ti]:>6.3f} "
+                        f"{sim['avg_visits'][ti]:>9.0f} "
+                        f"{sim['agreement'][ti]:>+9.4f} "
+                        f"{sim['terminate_frac'][ti]:>7.2%} "
+                        f"{sim['mean_stop_cutoff_idx'][ti]:>7.2f}\n")
+            # Pareto frontier — dominance-filtered subset of (visits,
+            # agreement). Filters out τ values that produce strictly
+            # worse operating points than smaller τ values. The
+            # remaining points are the operationally meaningful
+            # trade-offs the allocator can hit.
+            front_idx = pareto_frontier_indices(
+                sim["avg_visits"], sim["agreement"],
+            )
+            f.write(f"  -- Pareto frontier ({len(front_idx)}/{len(sim['tau'])} points):\n")
+            f.write(f"  {'tau':>6} {'visits':>9} {'agree':>9} {'term%':>7} "
+                    f"{'stop_k':>7}\n")
+            for ti in front_idx:
                 f.write(f"  {sim['tau'][ti]:>6.3f} "
                         f"{sim['avg_visits'][ti]:>9.0f} "
                         f"{sim['agreement'][ti]:>+9.4f} "
