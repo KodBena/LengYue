@@ -301,6 +301,18 @@ this file.
   `magic-literals-audit-inventory.md`'s adjacent observations
   and the geometry-ratios PR's worklog).
 
+- **Partial resolution (2026-05-22):** the `magic-literal: 60ms
+  suggestion-ring/disk fade` block that previously sat alongside
+  these five multipliers and referenced this entry has been
+  promoted to a user-controlled knob
+  (`display.move-suggestions-fade-ms`, range [0, 200] ms,
+  default 60). The original deferral rationale ("calibration
+  context would be lost if we extracted the value individually")
+  no longer applies for that piece — the user is now the one
+  choosing the calibration. The five typography multipliers
+  documented above remain deferred; only the fade duration
+  was promoted.
+
 ### PV-animation defaults — pairwise-calibration question
 
 - **Surfaced:** 2026-05-03 (during magic-literals audit Pass 1

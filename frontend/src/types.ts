@@ -1029,6 +1029,25 @@ export interface AppSettings {
      * Schema-version 39 → 40 backfills the field.
      */
     livenessThreshold: number;
+    /**
+     * Fade duration (ms) for the suggestion-ring outline + suggestion-
+     * disk opacity transitions in `MoveSuggestions.vue`. Promoted from
+     * a hardcoded `transition: opacity 60ms ease` inline literal that
+     * the magic-literals audit (Pass 2) had left deferred — the
+     * calibration concern named in `deferred-items.md`'s
+     * PV-overlay-typography-proportions entry is satisfied by
+     * surfacing the value as a user knob (the user is now the one
+     * choosing the calibration, so internal pairwise-tuning no longer
+     * applies).
+     *
+     * Range [0, 200] ms; 0 = no animation (CSS interprets `0ms ease`
+     * as a no-op — the value snaps without an intermediate frame).
+     * Default 60 preserves the prior behaviour.
+     *
+     * Knob: `display.move-suggestions-fade-ms`.
+     * Schema-version 46 → 47 backfills this field.
+     */
+    moveSuggestionsFadeMs: number;
     // Active UI locale. Mirrored onto `<html lang="...">` and
     // `i18n.global.locale.value` by useAppBootstrap. Schema-version
     // 24 introduces this field; the migration backfills existing
