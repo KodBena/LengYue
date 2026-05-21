@@ -81,7 +81,18 @@ CUTOFF_INDICES = (4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44)
 
 # ── Cache layout ───────────────────────────────────────────────────────────
 
-CACHE_DIR = Path(__file__).resolve().parent / "data" / "stability_cache_per_packet"
+CACHE_ROOT = Path(__file__).resolve().parent / "data" / "stability_cache_per_packet"
+
+
+def cache_dir_for_f_max(f_max: float) -> Path:
+    """Per-f_max cache subdirectory. Each f_max value carries its own
+    (cutoff_Vs, V_max_query) pair so running sweeps without
+    cross-contamination requires distinct directories."""
+    return CACHE_ROOT / f"f_max_{f_max:.3f}"
+
+
+# Legacy global preserved for callers that don't pass f_max.
+CACHE_DIR = CACHE_ROOT
 
 # v3_per_packet: array-of-K stable_fractions per (realization, extractor)
 # instead of v2's scalar; cutoff_indices and V_max_query are stamped so
@@ -89,13 +100,13 @@ CACHE_DIR = Path(__file__).resolve().parent / "data" / "stability_cache_per_pack
 CACHE_SCHEMA_VERSION = "v3_per_packet"
 
 
-def cache_path_for_position(stem: str, turn: int) -> Path:
+def cache_path_for_position(stem: str, turn: int, cache_dir: Path) -> Path:
     shard = stem[:1] if stem else "_"
-    return CACHE_DIR / shard / f"{stem}_t{turn}.pkl"
+    return cache_dir / shard / f"{stem}_t{turn}.pkl"
 
 
-def load_cached_position(stem: str, turn: int) -> dict | None:
-    p = cache_path_for_position(stem, turn)
+def load_cached_position(stem: str, turn: int, cache_dir: Path) -> dict | None:
+    p = cache_path_for_position(stem, turn, cache_dir)
     if not p.exists():
         return None
     try:
@@ -105,8 +116,10 @@ def load_cached_position(stem: str, turn: int) -> dict | None:
         return None
 
 
-def save_cached_position(stem: str, turn: int, data: dict) -> None:
-    p = cache_path_for_position(stem, turn)
+def save_cached_position(
+    stem: str, turn: int, data: dict, cache_dir: Path,
+) -> None:
+    p = cache_path_for_position(stem, turn, cache_dir)
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_suffix(".tmp")
     with tmp.open("wb") as f:
@@ -266,16 +279,30 @@ def phase_a_build_per_packet(
     V_hi_arr = cache["V_hi"]
     N_GRID = int(np.asarray(cache["N_GRID"]).flat[0])
     n_total = len(stems)
-    cutoff_indices = list(CUTOFF_INDICES)
     if not (0.0 < f_max <= 1.0):
         raise ValueError(f"f_max must be in (0, 1]; got {f_max}")
-    max_idx = min(N_GRID - 1, max(max(cutoff_indices) + 1,
-                                  int(round(N_GRID * f_max)) - 1))
+    max_idx = min(N_GRID - 1, int(round(N_GRID * f_max)) - 1)
+    # Filter the base CUTOFF_INDICES to only those strictly below the
+    # budget endpoint. At small f_max, the upper cutoffs simply drop
+    # out (their absolute V would exceed V_max_query). At least one
+    # cutoff must remain; raise loudly per ADR-0002 if the f_max is
+    # too small to support any cutoff.
+    cutoff_indices = [c for c in CUTOFF_INDICES if c < max_idx]
+    if not cutoff_indices:
+        raise ValueError(
+            f"f_max={f_max:.3f} (max_idx={max_idx}) leaves no cutoff "
+            f"below the budget endpoint. CUTOFF_INDICES={list(CUTOFF_INDICES)}. "
+            f"Use a larger f_max."
+        )
 
-    print(f"  N_GRID={N_GRID}, cutoff_indices={cutoff_indices}, max_idx={max_idx}, "
-          f"f_max={f_max:.3f}", flush=True)
+    cache_dir = cache_dir_for_f_max(f_max)
+    print(f"  N_GRID={N_GRID}, max_idx={max_idx}, f_max={f_max:.3f}",
+          flush=True)
+    print(f"  cutoff_indices (filtered): {cutoff_indices}  "
+          f"({len(cutoff_indices)} of {len(CUTOFF_INDICES)})", flush=True)
     print(f"  schema={CACHE_SCHEMA_VERSION} (per-packet log-V weighted)", flush=True)
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    print(f"  cache_dir: {cache_dir}", flush=True)
+    cache_dir.mkdir(parents=True, exist_ok=True)
 
     results: dict[tuple[str, int], dict] = {}
     n_hit_disk = 0
@@ -316,7 +343,7 @@ def phase_a_build_per_packet(
         V_max_query = float(V_grid[max_idx])
 
         if not force_rebuild:
-            cached = load_cached_position(stem, turn)
+            cached = load_cached_position(stem, turn, cache_dir)
             if _is_cache_hit(cached, cutoff_Vs, V_max_query):
                 results[(stem, turn)] = cached
                 n_hit_disk += 1
@@ -356,7 +383,7 @@ def phase_a_build_per_packet(
                 n_errors += 1
             else:
                 for (s, t), data in res.items():
-                    save_cached_position(s, t, data)
+                    save_cached_position(s, t, data, cache_dir)
                     results[(s, t)] = data
                     n_fetched += 1
             chunks_done += 1
@@ -376,6 +403,7 @@ def phase_a_build_per_packet(
 
 def build_phase_b_substrate_per_packet(
     cache: dict, stability_data: dict, f_max: float = 1.0,
+    cutoff_indices: list[int] | None = None,
 ) -> dict:
     """Build the Phase B substrate where each (position, realization,
     cutoff_idx) is one row. Features:
@@ -383,6 +411,10 @@ def build_phase_b_substrate_per_packet(
       - trajectory features over [V_lo, V_grid[cutoff_idx]]  (13 dims)
       - log(V_t)                                              (1 dim)
       - cutoff_idx / (N_GRID - 1)                             (1 dim)
+
+    cutoff_indices defaults to the global CUTOFF_INDICES filtered to
+    those below max_idx(f_max). Pass explicitly to override (e.g.
+    to match a stability_data cache built with different cutoffs).
 
     Per-row labels per extractor are computed downstream by
     `materialize_labels_for_cell`. The substrate carries the
@@ -394,7 +426,9 @@ def build_phase_b_substrate_per_packet(
     turns_cache = np.array(cache["turns"], dtype=np.int32)
     V_lo_arr = np.asarray(cache["V_lo"], dtype=np.float64)
     V_hi_arr = np.asarray(cache["V_hi"], dtype=np.float64)
-    cutoff_indices = list(CUTOFF_INDICES)
+    if cutoff_indices is None:
+        max_idx = min(N_GRID - 1, int(round(N_GRID * f_max)) - 1)
+        cutoff_indices = [c for c in CUTOFF_INDICES if c < max_idx]
     K = len(cutoff_indices)
     extractor_names = all_extractor_names()
 
@@ -660,6 +694,7 @@ def pareto_frontier_indices(
 
 def _precompute_cards_per_packet_sim_substrate(
     cards_data: dict, f_max: float = 1.0,
+    cutoff_indices: list[int] | None = None,
 ) -> dict:
     """Per-cards-position precomputation for the per-packet sim. Builds:
       - feature_rows_by_cutoff[k]: (n_pos, F) array of features at
@@ -677,10 +712,14 @@ def _precompute_cards_per_packet_sim_substrate(
       - agreement = agree_at_cutoff[k] if k else agree_at_V_max"""
     n_pos = len(cards_data["stems"])
     N_GRID = int(cards_data["N_GRID"])
-    cutoff_indices = list(CUTOFF_INDICES)
+    max_idx = min(N_GRID - 1, int(round(N_GRID * f_max)) - 1)
+    if cutoff_indices is None:
+        cutoff_indices = [c for c in CUTOFF_INDICES if c < max_idx]
+    if not cutoff_indices:
+        raise ValueError(
+            f"f_max={f_max:.3f} leaves no cutoff for sim substrate."
+        )
     K = len(cutoff_indices)
-    max_idx = min(N_GRID - 1, max(max(cutoff_indices) + 1,
-                                  int(round(N_GRID * f_max)) - 1))
 
     log_N = float(N_GRID - 1)
     F_template: np.ndarray | None = None
@@ -949,6 +988,20 @@ def main() -> None:
         _USE_THIN = False
     print(flush=True)
 
+    # Resolve cutoff_indices from f_max (drop cutoffs at or above the
+    # budget endpoint). All downstream substrates use this filtered set.
+    N_GRID_main = int(np.asarray(cache["N_GRID"]).flat[0])
+    max_idx_main = min(N_GRID_main - 1,
+                        int(round(N_GRID_main * args.f_max)) - 1)
+    runtime_cutoff_indices = [c for c in CUTOFF_INDICES if c < max_idx_main]
+    if not runtime_cutoff_indices:
+        print(f"  ERROR: f_max={args.f_max:.3f} leaves no cutoff. "
+              f"Pick a larger f_max.", flush=True)
+        sys.exit(2)
+    print(f"  runtime cutoff_indices: {runtime_cutoff_indices}  "
+          f"(filtered from {list(CUTOFF_INDICES)})", flush=True)
+    print(flush=True)
+
     # Phase A
     print("=== Phase A: per-packet stability data ===", flush=True)
     stability_data = phase_a_build_per_packet(
@@ -963,6 +1016,7 @@ def main() -> None:
     t_sub = time.monotonic()
     phaseb_sub = build_phase_b_substrate_per_packet(
         cache, stability_data, f_max=args.f_max,
+        cutoff_indices=runtime_cutoff_indices,
     )
     print(f"  substrate built in {time.monotonic() - t_sub:.1f}s", flush=True)
     print(f"  X shape: {phaseb_sub['X'].shape}  "
@@ -980,6 +1034,7 @@ def main() -> None:
     t_sim_sub = time.monotonic()
     sim_sub = _precompute_cards_per_packet_sim_substrate(
         cards_data, f_max=args.f_max,
+        cutoff_indices=runtime_cutoff_indices,
     )
     print(f"  sim substrate built in {time.monotonic() - t_sim_sub:.1f}s",
           flush=True)
