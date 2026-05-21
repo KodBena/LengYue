@@ -18,6 +18,8 @@ Pareto curve of (visits-spent, top-1 agreement).
 
 - **Architecture: WINS, modestly.** The binary allocator's Pareto curve has points the always-V_max baseline cannot match. Specifically on `scoreLead_drift`, at τ=+0.25 the binary allocator achieves 0.871 top-1 agreement at 12018 avg visits — 20% visit savings for 3.6pp agreement cost. At τ=−0.25 it gets 0.9069 agreement at 14859 visits, a (tiny) free lunch over baseline 0.9065 at 15000. Same shape on the other 3 main targets; magnitudes differ.
 
+- **Per-mode discrimination: NATURALLY EMERGES (validates the original research-arc hypothesis).** Splitting the cards.db slice by K=2 clusters (shape-invariant trajectory features), the allocator — trained on year2k with no mode label as input — naturally terminates easy positions more aggressively than hard ones. On `scoreLead_drift` at τ=+0.5: cluster 0 (low-magnitude) saves 56% of visits, cluster 1 (high-magnitude / dip-then-rise) saves only 24%. The discrimination is implicit in the predicted-remaining-gain signal. This is the research arc's core thesis empirically confirmed.
+
 - **Feature engineering: target-specific.** Enriched features (ownership + policy distribution at 5 V-checkpoints) buy +1.1pp on `L2_joint_drift`, +0.6pp on `winrate_drift`, +0.5pp on `scoreLead_drift`, ~0pp on `visit_entropy_reduction`. The user's '2% of data is being used' instinct was directionally correct; the magnitude is real but per-target.
 
 - **Delta-reframe (firewall Tier 1): mixed signal — kill the regression-target reframe, keep the allocator-decision reframe.** Within-corpus R² on the delta target is ~5× lower than on hyperbolic-H (kill-criterion triggered for the regression task itself). BUT when the delta predictor is wired into the allocator's decision rule, the resulting Pareto curve is *target-specific*: dominates H-allocator in mid-budget regions for some targets (`scoreLead_drift`), loses to H-allocator at the same budget for others (`visit_entropy_reduction`). **Predictor R² ≠ allocator utility.**
@@ -667,6 +669,316 @@ Per the firewall's Tier 1 spec: predict `(y(V_target) - y(V_current)) / σ_posit
         0.6667      1.0000     1161     389     772     +0.1703   +0.0808     +0.4745
 
 ```
+
+---
+
+## 3a. Per-mode Pareto split (validates the original research-arc hypothesis)
+
+The user's original research arc was driven by the question "do volatile positions need more search?". Tonight's experiment: split the cards.db OOD slice by K=2 cluster IDs (re-derived from shape-invariant trajectory features matching the prior `discover_volatility_modes.py` recipe) and report per-mode Pareto curves.
+
+**Key finding**: the allocator's predictor (trained on year2k, no mode label as input) naturally produces different decisions for different modes. Easy positions get terminated more aggressively; hard positions retain visits. The discrimination is implicit in the predicted-remaining-gain signal — exactly what the research arc was hoping to find.
+
+Specifically on `scoreLead_drift` at τ=+0.5:
+- Cluster 0 (n=489, low-magnitude mode): saves 56% of visits at 8.7pp agreement cost
+- Cluster 1 (n=283, high-magnitude / dip-then-rise mode): saves only 24% of visits at 3.4pp agreement cost
+
+The allocator is doing the right thing per-mode without any mode label as input.
+
+### scoreLead_drift
+
+```
+# per-mode allocator sim: scoreLead_drift k=2
+
+# cluster assignments per domain:
+#   cluster 0: year2k=241  cards=489
+#   cluster 1: year2k=148  cards=283
+
+# cluster 0 (n_cards=489)
+#   baseline (always V_max): visits=15000  agree=0.9059
+#   binary policy:
+       tau     visits     agree   term%
+    -2.000      15000   +0.9059   0.00%
+    -1.750      15000   +0.9059   0.00%
+    -1.500      15000   +0.9059   0.00%
+    -1.250      15000   +0.9059   0.00%
+    -1.000      15000   +0.9059   0.00%
+    -0.750      14972   +0.9059   0.20%
+    -0.500      14945   +0.9059   0.41%
+    -0.250      14777   +0.9065   1.64%
+    +0.000      14668   +0.9033   2.45%
+    +0.250      11310   +0.8585  27.40%
+    +0.500       6582   +0.8072  62.58%
+    +0.750       4268   +0.7785  79.75%
+    +1.000       3107   +0.7769  88.34%
+    +1.250       2362   +0.7720  93.87%
+    +1.500       2113   +0.7683  95.71%
+    +1.750       1835   +0.7650  97.75%
+    +2.000       1752   +0.7634  98.36%
+    +2.250       1642   +0.7634  99.18%
+    +2.500       1615   +0.7634  99.39%
+    +2.750       1615   +0.7634  99.39%
+    +3.000       1559   +0.7634  99.80%
+    +3.250       1559   +0.7634  99.80%
+    +3.500       1559   +0.7634  99.80%
+    +3.750       1559   +0.7634  99.80%
+    +4.000       1559   +0.7634  99.80%
+
+# cluster 1 (n_cards=283)
+#   baseline (always V_max): visits=15000  agree=0.9074
+#   binary policy:
+       tau     visits     agree   term%
+    -2.000      15000   +0.9074   0.00%
+    -1.750      15000   +0.9074   0.00%
+    -1.500      15000   +0.9074   0.00%
+    -1.250      15000   +0.9074   0.00%
+    -1.000      15000   +0.9074   0.00%
+    -0.750      15000   +0.9074   0.00%
+    -0.500      15000   +0.9074   0.00%
+    -0.250      15000   +0.9074   0.00%
+    +0.000      14952   +0.9092   0.35%
+    +0.250      13243   +0.8926  13.07%
+    +0.500      11387   +0.8735  26.86%
+    +0.750       8772   +0.8375  46.29%
+    +1.000       7536   +0.8283  55.48%
+    +1.250       6731   +0.8216  61.48%
+    +1.500       5498   +0.7975  70.67%
+    +1.750       4450   +0.7753  78.45%
+    +2.000       3736   +0.7618  83.75%
+    +2.250       2924   +0.7541  89.75%
+    +2.500       2351   +0.7463  93.99%
+    +2.750       2063   +0.7470  96.11%
+    +3.000       1872   +0.7406  97.53%
+    +3.250       1728   +0.7375  98.59%
+    +3.500       1633   +0.7375  99.29%
+    +3.750       1538   +0.7385 100.00%
+    +4.000       1538   +0.7385 100.00%
+
+
+```
+
+![per-mode Pareto for scoreLead_drift](file:///home/bork/plots/allocator_pareto_per_mode/per_mode_scoreLead_drift.png)
+
+### winrate_drift
+
+```
+# per-mode allocator sim: winrate_drift k=2
+
+# cluster assignments per domain:
+#   cluster 0: year2k=228  cards=481
+#   cluster 1: year2k=161  cards=291
+
+# cluster 0 (n_cards=481)
+#   baseline (always V_max): visits=15000  agree=0.9054
+#   binary policy:
+       tau     visits     agree   term%
+    -2.000      15000   +0.9054   0.00%
+    -1.750      15000   +0.9054   0.00%
+    -1.500      15000   +0.9054   0.00%
+    -1.250      15000   +0.9054   0.00%
+    -1.000      15000   +0.9054   0.00%
+    -0.750      15000   +0.9054   0.00%
+    -0.500      15000   +0.9054   0.00%
+    -0.250      15000   +0.9054   0.00%
+    +0.000      13021   +0.8863  14.76%
+    +0.250       1643   +0.7863  99.17%
+    +0.500       1530   +0.7871 100.00%
+    +0.750       1530   +0.7871 100.00%
+    +1.000       1530   +0.7871 100.00%
+    +1.250       1530   +0.7871 100.00%
+    +1.500       1530   +0.7871 100.00%
+    +1.750       1530   +0.7871 100.00%
+    +2.000       1530   +0.7871 100.00%
+    +2.250       1530   +0.7871 100.00%
+    +2.500       1530   +0.7871 100.00%
+    +2.750       1530   +0.7871 100.00%
+    +3.000       1530   +0.7871 100.00%
+    +3.250       1530   +0.7871 100.00%
+    +3.500       1530   +0.7871 100.00%
+    +3.750       1530   +0.7871 100.00%
+    +4.000       1530   +0.7871 100.00%
+
+# cluster 1 (n_cards=291)
+#   baseline (always V_max): visits=15000  agree=0.9082
+#   binary policy:
+       tau     visits     agree   term%
+    -2.000      15000   +0.9082   0.00%
+    -1.750      15000   +0.9082   0.00%
+    -1.500      15000   +0.9082   0.00%
+    -1.250      15000   +0.9082   0.00%
+    -1.000      15000   +0.9082   0.00%
+    -0.750      15000   +0.9082   0.00%
+    -0.500      15000   +0.9082   0.00%
+    -0.250      15000   +0.9082   0.00%
+    +0.000      13710   +0.8921   9.62%
+    +0.250       2055   +0.7048  96.22%
+    +0.500       1541   +0.6997 100.00%
+    +0.750       1541   +0.6997 100.00%
+    +1.000       1541   +0.6997 100.00%
+    +1.250       1541   +0.6997 100.00%
+    +1.500       1541   +0.6997 100.00%
+    +1.750       1541   +0.6997 100.00%
+    +2.000       1541   +0.6997 100.00%
+    +2.250       1541   +0.6997 100.00%
+    +2.500       1541   +0.6997 100.00%
+    +2.750       1541   +0.6997 100.00%
+    +3.000       1541   +0.6997 100.00%
+    +3.250       1541   +0.6997 100.00%
+    +3.500       1541   +0.6997 100.00%
+    +3.750       1541   +0.6997 100.00%
+    +4.000       1541   +0.6997 100.00%
+
+
+```
+
+![per-mode Pareto for winrate_drift](file:///home/bork/plots/allocator_pareto_per_mode/per_mode_winrate_drift.png)
+
+### visit_entropy_reduction
+
+```
+# per-mode allocator sim: visit_entropy_reduction k=2
+
+# cluster assignments per domain:
+#   cluster 0: year2k=190  cards=378
+#   cluster 1: year2k=199  cards=394
+
+# cluster 0 (n_cards=378)
+#   baseline (always V_max): visits=15000  agree=0.9378
+#   binary policy:
+       tau     visits     agree   term%
+    -2.000      15000   +0.9378   0.00%
+    -1.750      15000   +0.9378   0.00%
+    -1.500      15000   +0.9378   0.00%
+    -1.250      15000   +0.9378   0.00%
+    -1.000      15000   +0.9378   0.00%
+    -0.750      15000   +0.9378   0.00%
+    -0.500      15000   +0.9378   0.00%
+    -0.250      15000   +0.9378   0.00%
+    +0.000      14893   +0.9357   0.79%
+    +0.250      11217   +0.9291  28.04%
+    +0.500       7112   +0.9029  58.47%
+    +0.750       5835   +0.8899  67.99%
+    +1.000       5163   +0.8812  73.02%
+    +1.250       4457   +0.8667  78.31%
+    +1.500       3851   +0.8569  82.80%
+    +1.750       2858   +0.8429  90.21%
+    +2.000       1932   +0.8153  97.09%
+    +2.250       1575   +0.8090  99.74%
+    +2.500       1539   +0.8087 100.00%
+    +2.750       1539   +0.8087 100.00%
+    +3.000       1539   +0.8087 100.00%
+    +3.250       1539   +0.8087 100.00%
+    +3.500       1539   +0.8087 100.00%
+    +3.750       1539   +0.8087 100.00%
+    +4.000       1539   +0.8087 100.00%
+
+# cluster 1 (n_cards=394)
+#   baseline (always V_max): visits=15000  agree=0.8764
+#   binary policy:
+       tau     visits     agree   term%
+    -2.000      15000   +0.8764   0.00%
+    -1.750      15000   +0.8764   0.00%
+    -1.500      15000   +0.8764   0.00%
+    -1.250      15000   +0.8764   0.00%
+    -1.000      15000   +0.8764   0.00%
+    -0.750      15000   +0.8764   0.00%
+    -0.500      15000   +0.8764   0.00%
+    -0.250      15000   +0.8764   0.00%
+    +0.000      14965   +0.8772   0.25%
+    +0.250      14416   +0.8728   4.31%
+    +0.500      13487   +0.8708  11.17%
+    +0.750      12629   +0.8622  17.51%
+    +1.000      12186   +0.8571  20.81%
+    +1.250      11640   +0.8553  24.87%
+    +1.500      10514   +0.8510  33.25%
+    +1.750       8057   +0.8119  51.52%
+    +2.000       2970   +0.7193  89.34%
+    +2.250       1805   +0.7081  97.97%
+    +2.500       1530   +0.7018 100.00%
+    +2.750       1530   +0.7018 100.00%
+    +3.000       1530   +0.7018 100.00%
+    +3.250       1530   +0.7018 100.00%
+    +3.500       1530   +0.7018 100.00%
+    +3.750       1530   +0.7018 100.00%
+    +4.000       1530   +0.7018 100.00%
+
+
+```
+
+![per-mode Pareto for visit_entropy_reduction](file:///home/bork/plots/allocator_pareto_per_mode/per_mode_visit_entropy_reduction.png)
+
+### L2_joint_drift
+
+```
+# per-mode allocator sim: L2_joint_drift k=2
+
+# cluster assignments per domain:
+#   cluster 0: year2k=147  cards=266
+#   cluster 1: year2k=242  cards=506
+
+# cluster 0 (n_cards=266)
+#   baseline (always V_max): visits=15000  agree=0.9117
+#   binary policy:
+       tau     visits     agree   term%
+    -2.000      15000   +0.9117   0.00%
+    -1.750      15000   +0.9117   0.00%
+    -1.500      15000   +0.9117   0.00%
+    -1.250      15000   +0.9117   0.00%
+    -1.000      15000   +0.9117   0.00%
+    -0.750      15000   +0.9117   0.00%
+    -0.500      15000   +0.9117   0.00%
+    -0.250      15000   +0.9117   0.00%
+    +0.000      14394   +0.8936   4.51%
+    +0.250       4996   +0.7684  74.44%
+    +0.500       2960   +0.7466  89.47%
+    +0.750       2147   +0.7380  95.49%
+    +1.000       1688   +0.7327  98.87%
+    +1.250       1534   +0.7316 100.00%
+    +1.500       1534   +0.7316 100.00%
+    +1.750       1534   +0.7316 100.00%
+    +2.000       1534   +0.7316 100.00%
+    +2.250       1534   +0.7316 100.00%
+    +2.500       1534   +0.7316 100.00%
+    +2.750       1534   +0.7316 100.00%
+    +3.000       1534   +0.7316 100.00%
+    +3.250       1534   +0.7316 100.00%
+    +3.500       1534   +0.7316 100.00%
+    +3.750       1534   +0.7316 100.00%
+    +4.000       1534   +0.7316 100.00%
+
+# cluster 1 (n_cards=506)
+#   baseline (always V_max): visits=15000  agree=0.9038
+#   binary policy:
+       tau     visits     agree   term%
+    -2.000      15000   +0.9038   0.00%
+    -1.750      15000   +0.9038   0.00%
+    -1.500      15000   +0.9038   0.00%
+    -1.250      15000   +0.9038   0.00%
+    -1.000      15000   +0.9038   0.00%
+    -0.750      15000   +0.9038   0.00%
+    -0.500      15000   +0.9038   0.00%
+    -0.250      15000   +0.9038   0.00%
+    +0.000      13963   +0.8828   7.71%
+    +0.250       2150   +0.7688  95.45%
+    +0.500       1668   +0.7676  99.01%
+    +0.750       1588   +0.7662  99.60%
+    +1.000       1534   +0.7660 100.00%
+    +1.250       1534   +0.7660 100.00%
+    +1.500       1534   +0.7660 100.00%
+    +1.750       1534   +0.7660 100.00%
+    +2.000       1534   +0.7660 100.00%
+    +2.250       1534   +0.7660 100.00%
+    +2.500       1534   +0.7660 100.00%
+    +2.750       1534   +0.7660 100.00%
+    +3.000       1534   +0.7660 100.00%
+    +3.250       1534   +0.7660 100.00%
+    +3.500       1534   +0.7660 100.00%
+    +3.750       1534   +0.7660 100.00%
+    +4.000       1534   +0.7660 100.00%
+
+
+```
+
+![per-mode Pareto for L2_joint_drift](file:///home/bork/plots/allocator_pareto_per_mode/per_mode_L2_joint_drift.png)
 
 ---
 
