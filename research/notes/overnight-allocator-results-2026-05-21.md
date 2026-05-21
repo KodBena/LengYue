@@ -284,16 +284,19 @@ Per the firewall's Tier 1 spec: predict `(y(V_target) - y(V_current)) / σ_posit
 
 ```
 # regression_delta_reframe — per-V_current, K=3 V_target anchors
-# target: scoreLead_drift  V_floor: 500.0
+# target: scoreLead_drift
 # delta normalized by per-position σ; label averaged across realizations
 
-   V_current   V_target  n_total   n_y2k n_cards   within_R2    OOD_R2  OOD/within
-        2000      V_c×4     1161     389     772     +0.1495   -0.1674     -1.1197
-        2000     V_c×16     1161     389     772     +0.1767   -0.2168     -1.2267
-        2000    V_c×max     1161     389     772     +0.1767   -0.2168     -1.2267
-        8000      V_c×4     1161     389     772     +0.0294   -0.0709     -2.4107
-        8000     V_c×16     1161     389     772     +0.0294   -0.0709     -2.4107
-        8000    V_c×max     1161     389     772     +0.0294   -0.0709     -2.4107
+   V_curr_frac  V_tgt_frac  n_total   n_y2k n_cards   within_R2    OOD_R2  OOD/within
+        0.1667      0.3333     1161     389     772     -0.2173   -0.0061        +nan
+        0.1667      0.6667     1161     389     772     -0.1352   -0.2200        +nan
+        0.1667      1.0000     1161     389     772     -0.0731   -0.0922        +nan
+        0.3333      0.5000     1161     389     772     -0.1053   -0.7349        +nan
+        0.3333      0.6667     1161     389     772     -0.1115   -0.5989        +nan
+        0.3333      1.0000     1161     389     772     +0.1179   -0.2665     -2.2592
+        0.6667      0.8333     1161     389     772     +0.0422   +0.0601     +1.4255
+        0.6667      0.9167     1161     389     772     +0.0563   +0.0950     +1.6855
+        0.6667      1.0000     1161     389     772     +0.1271   +0.0928     +0.7300
 
 ```
 
