@@ -86,8 +86,16 @@ const { hint } = useTransientHint();
 </template>
 
 <style scoped>
+/* `min-height: 20px` was `height: 20px`. The fixed height clipped
+   content vertically: the `.move-badge` (font-size --text-body +
+   1px padding top/bottom + bold weight) plus the player-names
+   line-box pushed total content height above the bar's 19px
+   interior (20 - 1px border-top), and `align-items: center`
+   distributed the overflow equally above and below — visibly
+   crossing the border-top line. `min-height` lets the bar grow to
+   fit content while keeping 20px as the at-rest floor. */
 .status-bar {
-  height: 20px;
+  min-height: 20px;
   background: var(--surface-2);
   border-top: 1px solid var(--border-1);
   display: flex;
