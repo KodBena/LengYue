@@ -27,38 +27,21 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQueryTelemetry, type InFlightQuery } from '../../composables/useQueryTelemetry';
 import { useHoverPopover } from '../../composables/chrome/useHoverPopover';
+import { usePopoverEdgeClamp } from '../../composables/chrome/usePopoverEdgeClamp';
 
 const { t } = useI18n();
 const { inFlight, cancelQuery } = useQueryTelemetry();
 const { open, onMouseEnter, onMouseLeave } = useHoverPopover();
+// `left: 0`-anchored — the composable handles both anchor
+// directions symmetrically (clamps the offending edge whichever
+// it is); no per-popover direction config needed.
+const { setPopoverEl, xShift } = usePopoverEdgeClamp(open);
 
 const count = computed(() => inFlight.value.length);
-
-// Mirror-image of iter-8/9's left-edge clamp: this popover uses
-// `left: 0` anchor so it overflows the RIGHT edge when the trigger
-// sits near the right of the viewport. After open, translateX
-// leftward when rect.right would exceed (viewport - 4).
-const popoverEl = ref<HTMLElement | null>(null);
-const xShift = ref(0);
-
-watch(open, async (isOpen) => {
-  if (!isOpen) {
-    xShift.value = 0;
-    return;
-  }
-  await nextTick();
-  if (!popoverEl.value) return;
-  const rect = popoverEl.value.getBoundingClientRect();
-  const VIEWPORT_MARGIN = 4;
-  const rightLimit = window.innerWidth - VIEWPORT_MARGIN;
-  if (rect.right > rightLimit) {
-    xShift.value = rightLimit - rect.right;
-  }
-});
 
 function onCancelClick(queryId: string): void {
   cancelQuery(queryId);
@@ -114,7 +97,7 @@ function fmtProgress(q: InFlightQuery): string {
     <span class="m-lbl">{{ $t('toolbar.metric.queue') }}</span>
     <span class="m-val queue-count">{{ count }}</span>
 
-    <div v-if="open" ref="popoverEl" class="queue-popover" role="tooltip" :style="{ transform: `translateX(${xShift}px)` }">
+    <div v-if="open" :ref="setPopoverEl" class="queue-popover" role="tooltip" :style="{ transform: `translateX(${xShift}px)` }">
       <div v-if="count === 0" class="popover-empty">
         {{ $t('toolbar.queue.empty') }}
       </div>

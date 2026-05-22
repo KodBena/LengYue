@@ -159,6 +159,7 @@ frontend/src/
 │   ├── chrome/                               UI-shell composables.
 │   │   ├── useHoverPopover.ts         [B1]  Hover-intent open/close primitive (open ref + mouseenter/mouseleave + 150 ms close-grace timer) shared by toolbar popovers.
 │   │   ├── useLocale.ts               [B1]  Locale read/write through GlobalStore + supported-locale registry.
+│   │   ├── usePopoverEdgeClamp.ts     [B1]  Viewport-edge clamp for hover popovers (setPopoverEl function-ref + xShift) — translateX shifts the rendered popover inward when its CSS anchor would push it off-screen.
 │   │   └── useResizablePanel.ts       [B2]  Horizontal resize-bar between tree and control panels.
 │   │
 │   ├── forest/                               Forest / game-tree expansion + navigation.
