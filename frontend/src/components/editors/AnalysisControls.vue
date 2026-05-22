@@ -275,7 +275,12 @@ function purgeLedger() {
 </template>
 
 <style scoped>
-.tab-padding { padding: 0; }
+/* Flex chain for the parent-relative dashboard height (iter-12).
+   AnalysisControls renders settings rows above a chart-container
+   that should consume remaining vertical space. The settings rows
+   sit at content height; the chart-container is the flex: 1 child
+   that absorbs whatever's left under the tab-body's allocation. */
+.tab-padding { padding: 0; display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-default); }
 h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--accent-primary); }
 .status-indicator { font-weight: bold; color: var(--text-0); }
@@ -316,14 +321,12 @@ h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--accent-primary
 .value-badge { padding: 0 var(--space-default); border-radius: var(--radius-default); color: var(--accent-primary); font-family: monospace; }
 .range-slider { width: 100%; accent-color: var(--accent-primary); cursor: pointer; }
 .hint { font-size: var(--text-body); color: var(--text-0); margin: 0; }
-/* `min-height: 200px` was removed. Iter-2 audit Finding C: the
-   200px floor here disagreed silently with AnalysisDashboard's
-   `calc(100vh - 165px)` height (`AnalysisDashboard.vue:101`). At
-   viewports below 365px tall, the calc resolved below 200 and the
-   more-permissive floor here won — the inner dashboard then
-   rendered larger than its flex-chain allocation. No symptom at
-   common viewports; removing the silent conflict so the dashboard
-   is the single source of truth on the analysis surface height. */
-.chart-container-outer { margin-top: 0; }
+/* Iter-2 audit Finding C: the 200px floor that lived here
+   disagreed silently with AnalysisDashboard's prior
+   `calc(100vh - 165px)` height. Iter-12 rewires the dashboard's
+   height to be parent-relative; this wrapper now claims the
+   remaining vertical space inside `.tab-padding`'s flex column,
+   passing it through to the dashboard via `height: 100%`. */
+.chart-container-outer { margin-top: 0; flex: 1; min-height: 0; display: flex; flex-direction: column; }
 </style>
 
