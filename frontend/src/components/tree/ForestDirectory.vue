@@ -451,12 +451,24 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
 .forest-container { display: flex; flex: 1; height: 100%; min-height: 0; min-width: 0; overflow: hidden; background: var(--surface-0); }
 .left-panel { width: 280px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--surface-3); flex-shrink: 0; }
 
-/* When the wrapper is narrower than ~480 px (panels can't fit
-   side-by-side), stack vertically. Left-panel takes full container
-   width with a soft ~40% max-height; tree-panel takes remaining
-   height below. Right border on left-panel becomes bottom border. */
+/* magic-literal: 479px CQ threshold — derived, not arbitrary. The
+   side-by-side layout needs `.left-panel`'s natural width (280px,
+   set immediately above) plus `.tree-panel`'s usable minimum
+   (~200px, the threshold below which the lineage explorer's
+   ECharts forest renders unintelligibly). 280 + 200 = 480; the
+   query fires below that. If the left-panel's natural width or the
+   tree-panel's usable floor changes, this threshold needs to track
+   them. */
 @container (max-width: 479px) {
   .forest-container { flex-direction: column; }
+  /* magic-literal: 40% max-height on stacked left-panel — leaves
+     ~60% for the tree-panel below. Picked so the lineage explorer
+     gets the larger share (it's the visualization the user came to
+     this tab for); left-panel is navigation + form chrome and 40%
+     of a ~700px stacked container is ~280px, enough for the
+     deck-selector form to render without internal scroll in the
+     common case. Soft cap — if left-panel content is shorter than
+     40%, it sizes to content. */
   .left-panel { width: 100%; max-height: 40%; border-right: none; border-bottom: 1px solid var(--surface-3); flex-shrink: 1; }
 }
 .panel-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-tight) var(--space-default); border-bottom: 1px solid var(--surface-3); background: var(--surface-2); font-size: var(--text-emphasis); text-transform: uppercase; color: var(--text-0); letter-spacing: var(--tracking-default); flex-shrink: 0; }
