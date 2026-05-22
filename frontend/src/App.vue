@@ -542,7 +542,19 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
 #content { flex: 1; display: flex; justify-content: center; align-items: center; min-height: 0; }
 
-#vue-tree-panel { width: 220px; display: flex; flex-direction: column; border-left: 1px solid var(--surface-1); background: var(--border-1); min-height: 0; flex-shrink: 0; padding-right: 5px; }
+/* magic-literal: 140px `#vue-tree-panel` width — was 220px (iter-21
+   slim-down). The tree-panel is not currently resizable; user said
+   they're "less confident" about the right value because they
+   haven't recently exercised variation-heavy tree navigation. 140
+   is conservative-aggressive: gives the centre column +80px back
+   while preserving room for single-column main-line walks and 1–2
+   side variations at the standard tree-widget node size. If the
+   user finds variation-heavy trees clipping at this width, dial up
+   (180-200) or add a resizer. magic-literal: 5px padding-right —
+   preserved from prior; gives the tree the standard tight margin
+   against the right chrome edge without affecting tree-widget
+   layout. */
+#vue-tree-panel { width: 140px; display: flex; flex-direction: column; border-left: 1px solid var(--surface-1); background: var(--border-1); min-height: 0; flex-shrink: 0; padding-right: 5px; }
 #tree-panel-header { height: 20px; background: var(--surface-0); border-bottom: 1px solid var(--surface-1); display: flex; align-items: center; padding: 0 var(--space-default); font-size: var(--text-tiny); letter-spacing: var(--tracking-wide); color: var(--text-2); text-transform: uppercase; flex-shrink: 0; }
 #control-panel { border-left: 1px solid var(--surface-1); background: var(--surface-3); flex-shrink: 0; display: flex; flex-direction: column; }
 
