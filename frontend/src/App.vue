@@ -480,10 +480,14 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
   background: var(--surface-0);
 }
 
-/* The top nav bar always spans the full width of main-workspace */
+/* The top nav bar always spans the full width of main-workspace.
+   `min-height: 32px` (was `height: 32px`) so the inner Toolbar can
+   wrap to multiple rows at narrow widths (iter-13, audit Finding G).
+   At wide viewports the nav bar stays at 32px; at narrow viewports
+   it grows to match the wrapped toolbar's actual height. */
 .top-nav-bar {
   display: flex; align-items: center; background: var(--surface-0);
-  border-bottom: 1px solid var(--surface-1); padding: 0 var(--space-default); height: 32px; flex-shrink: 0;
+  border-bottom: 1px solid var(--surface-1); padding: 0 var(--space-default); min-height: 32px; flex-shrink: 0;
 }
 
 /* The lower area where the resizer lives */
