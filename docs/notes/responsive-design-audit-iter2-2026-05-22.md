@@ -1,7 +1,12 @@
 # Responsive design audit (iteration 2) — 2026-05-22
 
-- **Status:** Active (audit / observation record; no remediation plan
-  yet)
+- **Status:** **Closed 2026-05-22.** Per-finding resolution below in
+  the "Resolution by finding" section appended at the bottom of this
+  document. The iter-2 audit's findings A, B, C, F, G, H all
+  resolved during the responsive arc; D and E are explicitly
+  deferred (recorded in `docs/TODO.md`'s "Responsive design —
+  deferred items"). Closure date matches the predecessor audit's
+  closure (`responsive-design-audit-2026-05-22.md`).
 - **Scope:** `frontend/` Vue 3 + TypeScript SPA, **connected /
   actively-analyzing state** specifically
 - **Priority:** Desktop use. Mobile findings are documented as a
@@ -440,6 +445,70 @@ is even less usable when the chart area beside it is collapsed.
 - `docs/notes/responsive-design-audit-2026-05-22.md` — iter1
   predecessor.
 - `/tmp/audit-iter2.py` — driver script preserved for re-run.
+
+---
+
+## Resolution by finding (close-out)
+
+The 23-iter responsive arc on `feat/responsive` addressed the iter-2
+audit's findings as follows. See the predecessor audit's "Resolution
+by iter" section for the cross-cutting iter-1 findings; this block
+covers iter-2's eight surface-specific findings only.
+
+- **Finding A — chart area collapses to a 29 px sliver in linear
+  panels** — **resolved by iter-2** (commit `3efc1a0`). Container
+  query `@container (max-width: 379px)` on `.linear-content` hides
+  `.preview-box` below the 380 px threshold, letting `.chart-area`
+  claim the full row. Threshold is content-derived (140 + 240 = 380,
+  documented as `magic-literal:` in `AnalysisChartPanel.vue`).
+- **Finding B — `AnalysisDashboard.vue:101` magic-height
+  `calc(100vh - 165px)`** — **resolved by iter-12** (commit
+  `67d816a`). Parent-relative `height: 100%` plus `min-height: 0`
+  flex chain end-to-end through `.tab-body → .tab-pane → .tab-padding
+  → .chart-container-outer → .dashboard`. The chain's
+  `flex-direction: column` on `.chart-container-outer` is load-
+  bearing (without it the horizontal axis collapses; the user spotted
+  the regression during interactive test and the corrective shipped
+  in the same iter).
+- **Finding C — `.chart-container-outer { min-height: 200px }`
+  silently conflicts with the dashboard's calc-derived height** —
+  **resolved by iter-5** (commit `ba8f0cc`). Removed the 200 px
+  floor; the dashboard's parent-relative height (after iter-12) is
+  the single source of truth on the analysis surface's vertical
+  extent.
+- **Finding D — `AnalysisTimelinePanel` rug plot fixed at 16 px** —
+  **deferred.** Conjectural in terms of user perception per the
+  audit's own framing; the rug-plot's intended density (1 px/ply at
+  narrow widths is the "gradient is the signal" affordance) is
+  preserved. Recorded in TODO.md's deferred items.
+- **Finding E — preview-box content sized in the same fixed 140 px
+  as wrapper** — **subsumed by Finding A's resolution.** Hiding the
+  preview-box below 380 px container width removes the geometric
+  inversion this finding named at narrow viewports.
+- **Finding F — `BaseChart` `grid.left: '10%'` consumes 10% of an
+  already-narrow chart-area** — **resolved by iter-3** (commit
+  `d47d379`). `grid.left` changed from `'10%'` to `30` (absolute
+  px), sized to fit the longest expected y-axis label at fontSize 9
+  with breathing room. Documented as `magic-literal:` in
+  `BaseChart.vue:301`.
+- **Finding G — toolbar metric clusters crushed at 1440×900 in the
+  connected state** — **resolved by iter-13** (commit `aa114eb`).
+  `.toolbar { min-height: 28px; flex-wrap: wrap }` plus parent
+  `.top-nav-bar { min-height: 32px }`. Wrap engages organically when
+  the metric cluster's natural width pushes the row over container
+  width.
+- **Finding H — `.registry-container { max-height: 400px }` ignores
+  tall viewports** — **resolved by iter-4** (commit `06288a0`).
+  Default container uses `clamp(400px, 60vh, 800px)`; Card Sets
+  inline override uses `clamp(500px, 70vh, 900px)` for its richer
+  table. Floor preserves prior behaviour on short viewports; cap
+  prevents 4K runaway.
+
+The connected-state surfaces that the iter-2 audit recorded as the
+"chart-sliver pathology" at 17% chart fraction at 1024×768 and below
+now render at 100% chart fraction below the 380 px CQ threshold
+(preview hidden) or at the prior 86% at wider viewports (preview
+visible).
 
 ## License
 
