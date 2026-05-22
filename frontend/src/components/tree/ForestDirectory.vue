@@ -303,6 +303,15 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
 </script>
 
 <template>
+  <!-- Container-query wrapper (iter-17). The CQ container must be
+       an ancestor — not the queried element itself. iter-16 placed
+       `container-type` on `.forest-container` and tried to style
+       `.forest-container { flex-direction: column }` inside its own
+       `@container` block, which never matches (you can't query an
+       element from its own descendants). The wrapper moves the
+       container-type up one level so `.forest-container` and its
+       children become proper descendants. -->
+  <div class="forest-cq-wrapper">
   <div class="forest-container">
 
     <!-- LEFT PANEL: Navigation -->
@@ -428,25 +437,24 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
     <HyperparamPromptModal ref="harnessModalRef" />
 
   </div>
+  </div>
 </template>
 
 <style scoped>
-/* `container-type: inline-size` (iter-16) opens the door to a
-   container-query stack pattern below. The threshold is content-
-   derived (left-panel natural width 280 + tree-panel min-width
-   ≈200 = 480), not viewport-derived — so a user widening the
-   control panel above ~480 px gets the side-by-side layout
-   regardless of the actual viewport. */
-.forest-container { display: flex; flex: 1; height: 100%; min-height: 0; min-width: 0; overflow: hidden; background: var(--surface-0); container-type: inline-size; }
+/* Container-query wrapper (iter-17 correction of iter-16). The CQ
+   container is the wrapper `.forest-cq-wrapper`; `.forest-container`
+   is its descendant. Threshold 479 px is content-derived (left-panel
+   natural width 280 + tree-panel min-width ≈200 = 480), not viewport-
+   derived — a user widening the control panel above ~480 px gets the
+   side-by-side layout regardless of the actual viewport. */
+.forest-cq-wrapper { display: flex; flex: 1; height: 100%; min-height: 0; min-width: 0; container-type: inline-size; }
+.forest-container { display: flex; flex: 1; height: 100%; min-height: 0; min-width: 0; overflow: hidden; background: var(--surface-0); }
 .left-panel { width: 280px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--surface-3); flex-shrink: 0; }
 
-/* Container-query stack pattern: when the forest container is
-   narrower than ~480 px (i.e. the panels can't fit side-by-side
-   without one clipping), stack them vertically. Left-panel sits
-   atop the tree-panel; the right-edge `border-right` becomes a
-   bottom border for visual continuity. Left-panel claims its
-   content height up to a soft ~40% cap so the tree-panel keeps
-   workable height; both panels span full container width. */
+/* When the wrapper is narrower than ~480 px (panels can't fit
+   side-by-side), stack vertically. Left-panel takes full container
+   width with a soft ~40% max-height; tree-panel takes remaining
+   height below. Right border on left-panel becomes bottom border. */
 @container (max-width: 479px) {
   .forest-container { flex-direction: column; }
   .left-panel { width: 100%; max-height: 40%; border-right: none; border-bottom: 1px solid var(--surface-3); flex-shrink: 1; }
