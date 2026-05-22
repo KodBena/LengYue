@@ -398,7 +398,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
                 <details class="settings-section section-divider" open>
                   <summary><h3 class="sub-header">{{ $t('settings.section.cardSets') }}</h3></summary>
-                  <div class="registry-container" style="max-height: 500px; padding-bottom: var(--space-medium);">
+                  <div class="registry-container" style="max-height: clamp(500px, 70vh, 900px); padding-bottom: var(--space-medium);">
                     <CardSetEditor
                       :cardSets="store.profile.cardSets"
                       :activeCardSetId="store.session.ui.activeCardSetId"
@@ -573,7 +573,15 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
 .action-btn-large { background: var(--accent-primary); color: var(--text-0); border: none; padding: var(--space-tight) var(--space-medium); cursor: pointer; border-radius: var(--radius-default); font-weight: bold; width: 100%; }
 .toolbar-btn-sm { border: 1px solid var(--border-3); color: var(--text-1); padding: 1px 4px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); }
-.registry-container { margin-top: 0; background: var(--surface-2); border: 1px solid var(--surface-3); border-radius: var(--radius-default); max-height: 400px; overflow-y: auto; }
+/* `max-height: clamp(400px, 60vh, 800px)` was `400px`. Iter-2 audit
+   Finding H: the fixed 400px on tall viewports forced an inner
+   scrollbar inside an otherwise spacious tab-body, wasting vertical
+   space. Clamp scales with viewport between a 400px floor (short
+   viewports keep the prior cap) and an 800px ceiling (tall
+   viewports get more rows visible). The 60vh preferred value gives
+   a natural growth curve in between. The Card Sets section's
+   inline override uses a 500/70vh/900 clamp for the same reason. */
+.registry-container { margin-top: 0; background: var(--surface-2); border: 1px solid var(--surface-3); border-radius: var(--radius-default); max-height: clamp(400px, 60vh, 800px); overflow-y: auto; }
 
 .collapse-btn { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-2); height: 18px; padding: 0 var(--space-tight); cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-default); font-size: var(--text-body); }
 .right-toggles { display: flex; gap: var(--space-default); margin-left: auto; }
