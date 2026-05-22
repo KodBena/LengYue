@@ -50,10 +50,10 @@ const { hint } = useTransientHint();
     <div class="status-left">
       <span class="move-badge">{{ $t('statusBar.move', { n: moveNumber }) }}</span>
       <span class="player-names">
-        <span class="stone-chip stone-chip--black" aria-hidden="true"></span>
+        <span class="stone-chip stone-chip--black" :class="{ active: turn === 'B' }" :aria-label="turn === 'B' ? $t('statusBar.blackToPlay') : undefined"></span>
         {{ metadata?.blackName }}
         {{ $t('statusBar.versus') }}
-        <span class="stone-chip stone-chip--white" aria-hidden="true"></span>
+        <span class="stone-chip stone-chip--white" :class="{ active: turn === 'W' }" :aria-label="turn === 'W' ? $t('statusBar.whiteToPlay') : undefined"></span>
         {{ metadata?.whiteName }}
       </span>
       <span class="game-info">
@@ -76,9 +76,6 @@ const { hint } = useTransientHint();
         :title="$t('statusBar.toggleMoveNumbers')"
         @click="store.session.ui.showStoneMoveNumbers = !store.session.ui.showStoneMoveNumbers"
       >#</button>
-      <span class="turn-indicator" :class="turn">
-        {{ turn === 'B' ? $t('statusBar.blackToPlay') : $t('statusBar.whiteToPlay') }}
-      </span>
       <span class="caps">B: {{ captures.B }} · W: {{ captures.W }}</span>
       <UserBadge />
     </div>
@@ -145,6 +142,23 @@ const { hint } = useTransientHint();
 .stone-chip--black { background: #000; }
 .stone-chip--white { background: #fff; border: 1px solid var(--border-3); }
 
+/* Active-turn ring (iter-23). Replaces the prior text turn-indicator
+   ("Black to play" / "White to play") which forced the status bar to
+   wrap at 1024×768 and resize the board. `box-shadow` here paints an
+   outer ring that takes no layout space — the chip's position
+   doesn't shift, so the surrounding text and the bar's height stay
+   put. The orange (--accent-secondary, the CTA/SR colour) carries
+   the "this player acts next" signal in the chrome's already-
+   established colour vocabulary. No transition: the swap is
+   instantaneous to match the discrete nature of a move.
+   magic-literal: 2px ring thickness — wide enough to read at the
+   ~13px chip diameter (0.85em × text-emphasis), narrow enough that
+   the ring doesn't visually merge with the chip's own border on the
+   white side. */
+.stone-chip.active {
+  box-shadow: 0 0 0 2px var(--accent-secondary);
+}
+
 .komi-input {
   width: 42px;
   background: transparent;
@@ -172,10 +186,6 @@ const { hint } = useTransientHint();
 .komi-input {
   -moz-appearance: textfield;
 }
-
-.turn-indicator { font-weight: bold; }
-.turn-indicator.B { color: var(--accent-primary); }
-.turn-indicator.W { color: var(--accent-secondary); }
 
 .caps { font-family: monospace; color: var(--text-2); font-size: var(--text-body); }
 
