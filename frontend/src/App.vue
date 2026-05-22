@@ -360,6 +360,15 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
         <div v-show="store.session.ui.controlsExpanded" class="panel-resizer" @mousedown="startResize"></div>
 
+        <!-- magic-literal: 220px #control-panel min-width — derived
+             from the tab strip's natural width at the smallest legible
+             font scale (4 tabs × ~50px each + gaps). The audit's
+             cross-cutting Finding #1 was that without a floor, the
+             tab strip's right-most tab fell off-screen at 1024×768.
+             Coupled with the iter-17 container-query threshold (479px)
+             via the Cards-tab `.tree-panel`'s 200px usable floor —
+             changing 220 here would invalidate the 479 derivation
+             in `ForestDirectory.vue`. -->
         <div
           id="control-panel"
           v-show="store.session.ui.controlsExpanded"
@@ -398,6 +407,11 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
                 <details class="settings-section section-divider" open>
                   <summary><h3 class="sub-header">{{ $t('settings.section.cardSets') }}</h3></summary>
+                  <!-- magic-literal: clamp(500px, 70vh, 900px) — taller than the
+                       default `.registry-container` clamp (400/60vh/800) because Card
+                       Sets renders a richer table (many columns + per-row controls)
+                       and needs more vertical room before scrolling kicks in. 70vh
+                       proportional vs 60vh = card-sets gets ~17% more height share. -->
                   <div class="registry-container" style="max-height: clamp(500px, 70vh, 900px); padding-bottom: var(--space-medium);">
                     <CardSetEditor
                       :cardSets="store.profile.cardSets"
@@ -480,11 +494,13 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
   background: var(--surface-0);
 }
 
-/* The top nav bar always spans the full width of main-workspace.
-   `min-height: 32px` (was `height: 32px`) so the inner Toolbar can
-   wrap to multiple rows at narrow widths (iter-13, audit Finding G).
-   At wide viewports the nav bar stays at 32px; at narrow viewports
-   it grows to match the wrapped toolbar's actual height. */
+/* magic-literal: 32px `.top-nav-bar` min-height. The bar hosts the
+   sidebar-toggle button + Toolbar + right-side toggles. 32 is enough
+   for the toggle buttons (text-emphasis font at ~14px line-box) plus
+   2-3px of top/bottom margin so the bar reads as chrome, not crammed.
+   `min-height` (not `height`) so iter-13's Toolbar `flex-wrap` can
+   grow the bar vertically at narrow widths; if Toolbar's height
+   changes from its current 28px floor, retune in tandem. */
 .top-nav-bar {
   display: flex; align-items: center; background: var(--surface-0);
   border-bottom: 1px solid var(--surface-1); padding: 0 var(--space-default); min-height: 32px; flex-shrink: 0;
@@ -577,7 +593,12 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
 .action-btn-large { background: var(--accent-primary); color: var(--text-0); border: none; padding: var(--space-tight) var(--space-medium); cursor: pointer; border-radius: var(--radius-default); font-weight: bold; width: 100%; }
 .toolbar-btn-sm { border: 1px solid var(--border-3); color: var(--text-1); padding: 1px 4px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); }
-/* `max-height: clamp(400px, 60vh, 800px)` was `400px`. Iter-2 audit
+/* magic-literal: clamp(400px, 60vh, 800px) `.registry-container` max-height.
+   Floor 400: preserves the prior fixed 400px on short viewports (≤700px
+   tall, where 60vh ≤ 400). Cap 800: prevents runaway at 4K (≥1334px tall,
+   where 60vh ≥ 800) — the Settings tab is meant to scroll inside the
+   registry, not the registry inside an unbounded tab. 60vh is the
+   proportional middle that scales with viewport. Iter-2 audit
    Finding H: the fixed 400px on tall viewports forced an inner
    scrollbar inside an otherwise spacious tab-body, wasting vertical
    space. Clamp scales with viewport between a 400px floor (short

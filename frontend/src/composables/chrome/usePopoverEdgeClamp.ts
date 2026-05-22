@@ -60,6 +60,13 @@
 
 import { nextTick, ref, watch, type ComponentPublicInstance, type Ref } from 'vue';
 
+// magic-literal: 4px viewport margin — the breathing room kept
+// between the clamped popover edge and the viewport edge. Small
+// enough to be invisible at typical zoom levels (it's "the popover
+// didn't kiss the screen edge" rather than a visible gap) but large
+// enough that the popover's border isn't shaved by sub-pixel
+// rendering. Tuneable per call site via `viewportMarginPx`; full
+// rationale on the option in the file's docstring above.
 const DEFAULT_VIEWPORT_MARGIN_PX = 4;
 
 export interface PopoverEdgeClampHandle {

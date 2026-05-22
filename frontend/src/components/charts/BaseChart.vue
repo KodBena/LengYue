@@ -291,13 +291,14 @@ const updateOptions = () => {
       axisPointer: { type: 'line', lineStyle: { color: themeColor('--accent-primary'), opacity: 0.5 } }
     },
     grid: {
-      // `left` was '10%' — at narrow chart-area widths (29px in the
-      // iter-2 audit, pre-fix) that resolved to ~3px, below the 9px
-      // fontSize of the y-axis label and the labels clipped silently.
-      // 30px is enough for a "0.50"-shaped label at fontSize 9 with
-      // a few pixels of breathing room; stable regardless of chart
-      // width, so the y-axis stays legible at narrow control-panel
-      // widths after iter-2's preview-box hide.
+      // magic-literal: 30px y-axis-grid `left` margin — replaces the
+      // prior '10%' which at narrow chart-area widths (29px in the
+      // iter-2 audit pre-fix) resolved to ~3px, below the 9px y-axis
+      // label fontSize and clipped silently. 30 is enough for a
+      // "0.50"-shaped label at fontSize 9 with a few px of breathing
+      // room; stable regardless of chart width. If the y-axis label
+      // fontSize grows (currently 9, set immediately below), or the
+      // longest expected label widens past "0.50"/"+99", retune.
       left: 30,
       right: props.reservedWidth ? `${props.reservedWidth + 20}px` : '5%',
       bottom: props.reservedHeight ? `${props.reservedHeight + 10}px` : '15%',
