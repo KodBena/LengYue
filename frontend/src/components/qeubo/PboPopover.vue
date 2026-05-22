@@ -61,7 +61,7 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQeubo } from '../../composables/useQeubo';
 import { useHoverPopover } from '../../composables/chrome/useHoverPopover';
@@ -70,6 +70,27 @@ import { pushSystemMessage } from '../../store';
 const { t } = useI18n();
 const q = useQeubo();
 const { open, onMouseEnter, onMouseLeave } = useHoverPopover();
+
+// Same left-edge clamp as ToolbarSliderPopover (iter-8): the
+// popover's `right: 0` anchor can put the left edge offscreen
+// at narrow viewports. After open, translateX rightward to keep
+// the left edge ≥4px from the viewport.
+const popoverEl = ref<HTMLElement | null>(null);
+const xShift = ref(0);
+
+watch(open, async (isOpen) => {
+  if (!isOpen) {
+    xShift.value = 0;
+    return;
+  }
+  await nextTick();
+  if (!popoverEl.value) return;
+  const rect = popoverEl.value.getBoundingClientRect();
+  const VIEWPORT_MARGIN = 4;
+  if (rect.left < VIEWPORT_MARGIN) {
+    xShift.value = VIEWPORT_MARGIN - rect.left;
+  }
+});
 
 // Render gate: hide entirely when calibration is disabled (503 from
 // the backend) or the user has no experiment configured. Same
@@ -158,7 +179,7 @@ function onPin(): void {
     </span>
     <span v-if="q.isBusy.value" class="busy-dot" :aria-label="$t('qeubo.aria.busy')">●</span>
 
-    <div v-if="open" class="pbo-popover" role="tooltip">
+    <div v-if="open" ref="popoverEl" class="pbo-popover" role="tooltip" :style="{ transform: `translateX(${xShift}px)` }">
       <!-- Audition toggle. v-model on q.toolbarView would also
            work but explicit click handlers give us per-button
            styling and keyboard semantics. -->
