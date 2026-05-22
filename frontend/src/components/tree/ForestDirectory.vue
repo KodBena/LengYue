@@ -303,6 +303,15 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
 </script>
 
 <template>
+  <!-- Container-query wrapper (iter-17). The CQ container must be
+       an ancestor — not the queried element itself. iter-16 placed
+       `container-type` on `.forest-container` and tried to style
+       `.forest-container { flex-direction: column }` inside its own
+       `@container` block, which never matches (you can't query an
+       element from its own descendants). The wrapper moves the
+       container-type up one level so `.forest-container` and its
+       children become proper descendants. -->
+  <div class="forest-cq-wrapper">
   <div class="forest-container">
 
     <!-- LEFT PANEL: Navigation -->
@@ -428,11 +437,40 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
     <HyperparamPromptModal ref="harnessModalRef" />
 
   </div>
+  </div>
 </template>
 
 <style scoped>
+/* Container-query wrapper (iter-17 correction of iter-16). The CQ
+   container is the wrapper `.forest-cq-wrapper`; `.forest-container`
+   is its descendant. Threshold 479 px is content-derived (left-panel
+   natural width 280 + tree-panel min-width ≈200 = 480), not viewport-
+   derived — a user widening the control panel above ~480 px gets the
+   side-by-side layout regardless of the actual viewport. */
+.forest-cq-wrapper { display: flex; flex: 1; height: 100%; min-height: 0; min-width: 0; container-type: inline-size; }
 .forest-container { display: flex; flex: 1; height: 100%; min-height: 0; min-width: 0; overflow: hidden; background: var(--surface-0); }
 .left-panel { width: 280px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--surface-3); flex-shrink: 0; }
+
+/* magic-literal: 479px CQ threshold — derived, not arbitrary. The
+   side-by-side layout needs `.left-panel`'s natural width (280px,
+   set immediately above) plus `.tree-panel`'s usable minimum
+   (~200px, the threshold below which the lineage explorer's
+   ECharts forest renders unintelligibly). 280 + 200 = 480; the
+   query fires below that. If the left-panel's natural width or the
+   tree-panel's usable floor changes, this threshold needs to track
+   them. */
+@container (max-width: 479px) {
+  .forest-container { flex-direction: column; }
+  /* magic-literal: 40% max-height on stacked left-panel — leaves
+     ~60% for the tree-panel below. Picked so the lineage explorer
+     gets the larger share (it's the visualization the user came to
+     this tab for); left-panel is navigation + form chrome and 40%
+     of a ~700px stacked container is ~280px, enough for the
+     deck-selector form to render without internal scroll in the
+     common case. Soft cap — if left-panel content is shorter than
+     40%, it sizes to content. */
+  .left-panel { width: 100%; max-height: 40%; border-right: none; border-bottom: 1px solid var(--surface-3); flex-shrink: 1; }
+}
 .panel-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-tight) var(--space-default); border-bottom: 1px solid var(--surface-3); background: var(--surface-2); font-size: var(--text-emphasis); text-transform: uppercase; color: var(--text-0); letter-spacing: var(--tracking-default); flex-shrink: 0; }
 .tab-switcher { padding: 0; display: flex; }
 .tab-switcher button { flex: 1; background: transparent; border: none; color: var(--text-2); padding: var(--space-tight) 0; font-size: var(--text-body); text-transform: uppercase; letter-spacing: var(--tracking-default); cursor: pointer; border-bottom: 2px solid transparent; }

@@ -280,6 +280,7 @@ function onShiftClick(x: number, y: number) {
       :pv-config="store.session.ui.pvAnimation"
       :current-move-number="currentMoveNumber"
       :show-transposition-rings="store.session.ui.showTranspositionRings"
+      :move-suggestions-fade-ms="store.profile.settings.appearance.moveSuggestionsFadeMs"
       @move="(x, y) => emit('move', x, y)"
       @paste-pv="(pv) => emit('paste-pv', pv)"
       @pv-preview-active="pvHoverActive = $event"

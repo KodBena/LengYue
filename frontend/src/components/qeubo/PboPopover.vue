@@ -65,11 +65,14 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQeubo } from '../../composables/useQeubo';
 import { useHoverPopover } from '../../composables/chrome/useHoverPopover';
+import { usePopoverEdgeClamp } from '../../composables/chrome/usePopoverEdgeClamp';
 import { pushSystemMessage } from '../../store';
 
 const { t } = useI18n();
 const q = useQeubo();
 const { open, onMouseEnter, onMouseLeave } = useHoverPopover();
+// `right: 0`-anchored — see usePopoverEdgeClamp's behaviour notes.
+const { setPopoverEl, xShift } = usePopoverEdgeClamp(open);
 
 // Render gate: hide entirely when calibration is disabled (503 from
 // the backend) or the user has no experiment configured. Same
@@ -158,7 +161,7 @@ function onPin(): void {
     </span>
     <span v-if="q.isBusy.value" class="busy-dot" :aria-label="$t('qeubo.aria.busy')">●</span>
 
-    <div v-if="open" class="pbo-popover" role="tooltip">
+    <div v-if="open" :ref="setPopoverEl" class="pbo-popover" role="tooltip" :style="{ transform: `translateX(${xShift}px)` }">
       <!-- Audition toggle. v-model on q.toolbarView would also
            work but explicit click handlers give us per-button
            styling and keyboard semantics. -->

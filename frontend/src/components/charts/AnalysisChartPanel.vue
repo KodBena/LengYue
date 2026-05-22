@@ -66,9 +66,27 @@ const expanded = ref(true);
 .header { padding: 0 var(--space-medium); display: flex; justify-content: space-between; cursor: pointer; font-size: var(--text-body); font-weight: bold; color: var(--text-0); text-transform: uppercase; background: var(--surface-3); letter-spacing: var(--tracking-default); }
 .header:hover { background: var(--surface-3); color: var(--text-1); }
 .content { border-top: 1px solid var(--surface-3); background: var(--surface-0); }
-.linear-content { display: flex; height: 160px; align-items: stretch; }
+/* container-type: inline-size enables the @container query below
+   so we can hide the preview-box when this row is too narrow for
+   both the chart and the 140px thumbnail. Without it, the chart
+   collapses to a sliver (~29px at 1024×768) because the
+   preview-box has no flex-shrink and claims its width absolutely
+   while the chart-area is the sacrificial flex child. */
+.linear-content { display: flex; height: 160px; align-items: stretch; container-type: inline-size; }
 .chart-area { flex: 1; min-width: 0; }
 .preview-box { width: 140px; background: var(--surface-0); border-left: 1px solid var(--surface-3); display: flex; align-items: center; justify-content: center; }
+
+/* magic-literal: 379px CQ threshold for hiding `.preview-box` —
+   derived, not arbitrary. It's the crossing point where the 140px
+   preview + a ~240px chart-area still leaves the line traces
+   legible (140 + 240 = 380; <380 hides the preview). 240 is the
+   project author's eyeballed legibility floor for the analysis
+   line charts; if the chart's renderer changes (axis margins,
+   font sizes, point density) and the floor shifts, this threshold
+   moves too. */
+@container (max-width: 379px) {
+  .preview-box { display: none; }
+}
 .preview-box div { width: 100%; height: 100%; }
 .marker-b { border-left: 3px solid var(--player-black); }
 .marker-w { border-left: 3px solid var(--player-white); }

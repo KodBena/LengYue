@@ -32,6 +32,15 @@ const props = defineProps<{
   // `session.ui.showTranspositionRings` flag through here so the
   // setting can be flipped without remounting MoveSuggestions.
   showTranspositionRings?: boolean;
+  // Fade duration (ms) for the suggestion-ring outline + suggestion-
+  // disk opacity transitions. Threaded from
+  // `profile.settings.appearance.moveSuggestionsFadeMs` (knob:
+  // `display.move-suggestions-fade-ms`). Value 0 → no animation (CSS
+  // interprets `0ms ease` as a no-op; the value snaps without an
+  // intermediate frame). Default 60 preserves the prior hardcoded
+  // inline `transition: opacity 60ms ease` behaviour for callers
+  // that don't pass the prop.
+  moveSuggestionsFadeMs?: number;
 }>();
 
 const hoveredClusterId = computed(() => {
@@ -192,6 +201,18 @@ function toSvg(x: number, y: number): { x: number; y: number } {
 // gated on window mode, leaving instant / sequential to snap stones
 // in/out — see the composable's header comment for the rationale.
 const pvTransition = computed(() => `opacity ${pvCfg.fadeDurationMs}ms ease`);
+
+// Suggestion-ring outline + suggestion-disk fade. Driven by the
+// `appearance.moveSuggestionsFadeMs` knob (default 60). Setting to 0
+// makes the ring/disk snap; the CSS `0ms ease` shape is the right
+// no-op (browser produces no intermediate frames). Previously
+// hardcoded as `opacity 60ms ease` literals on the two `:style`
+// bindings below — see deferred-items.md PV-overlay-typography-
+// proportions entry for the original calibration concern (now
+// satisfied: the user chooses the value).
+const suggestionTransition = computed(
+  () => `opacity ${props.moveSuggestionsFadeMs ?? 60}ms ease`,
+);
 </script>
 
 <template>
@@ -227,11 +248,12 @@ const pvTransition = computed(() => `opacity ${pvCfg.fadeDurationMs}ms ease`);
       @mousedown="(e) => onSuggestionMousedown(e, s.moveIndex)"
       :style="{ pointerEvents: (hoveredIndex !== null && s.moveIndex !== hoveredIndex) ? 'none' : 'all' }"
     >
-      <!-- magic-literal: 60ms suggestion-ring/disk fade (transition values
-           in :style below) — band-2 game-tree-coupled, intentionally
-           faster than chrome's --duration-default (200ms). Likely
-           co-tuned with the PV-overlay typography proportions; see
-           deferred-items.md PV-overlay-typography-proportions entry. -->
+      <!-- Suggestion-ring/disk fade is now user-controllable via the
+           `display.move-suggestions-fade-ms` knob. The transition string
+           is computed once above as `suggestionTransition` (default 60ms
+           ease, configurable to 0 for "snap" or up to 200ms). Both the
+           ring and disk read from the same computed so they stay in
+           lockstep when the user adjusts the knob. -->
       <circle
         v-if="s.clusterColor && (showTranspositionRings ?? true)"
         :cx="toSvg(s.x, s.y).x"
@@ -240,12 +262,12 @@ const pvTransition = computed(() => `opacity ${pvCfg.fadeDurationMs}ms ease`);
         fill="none"
         :stroke="s.clusterColor"
         stroke-width="2.5"
-          :style="{
-    opacity: (hoveredIndex === null || s.moveIndex === hoveredIndex || (s.clusterId !== undefined && s.clusterId === hoveredClusterId)) ? 0.8 : 0,
-    transition: 'opacity 60ms ease'
-  }"
+        :style="{
+          opacity: (hoveredIndex === null || s.moveIndex === hoveredIndex || (s.clusterId !== undefined && s.clusterId === hoveredClusterId)) ? 0.8 : 0,
+          transition: suggestionTransition,
+        }"
       />
-      
+
       <circle
         :cx="toSvg(s.x, s.y).x"
         :cy="toSvg(s.x, s.y).y"
@@ -254,7 +276,7 @@ const pvTransition = computed(() => `opacity ${pvCfg.fadeDurationMs}ms ease`);
         class="suggestion-disk"
         :style="{
           opacity: hoveredIndex !== null ? 0 : 1,
-          transition: 'opacity 60ms ease'
+          transition: suggestionTransition,
         }"
       />
       <!--

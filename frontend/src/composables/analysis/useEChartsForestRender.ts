@@ -140,6 +140,15 @@ export function useEChartsForestRender<P>(): ForestChartHandle<P> {
         borderColor: themeColor('--accent-primary'),
         textStyle: { color: themeColor('--text-1'), fontSize: 11 },
         enterable: true,
+        // Keep the tooltip inside the chart's bounding rect — without
+        // this, ECharts positions the tooltip outside the chart when
+        // hovering near an edge, and the chart's ancestor
+        // `.forest-container { overflow: hidden }` then clips it. The
+        // visible symptom was "tooltip falls under the adjacent pane"
+        // at 4K and 1024×768 (1024×768 worse because the chart is
+        // narrower; tooltip exits sooner). Same fix as `BaseChart.vue`
+        // for the analysis charts; iter-18 backfilled it here.
+        confine: true,
         formatter: (info: { data?: { payload?: P } }) => {
           const payload = info.data?.payload;
           if (payload === undefined) return '';

@@ -314,7 +314,20 @@ const scoreLeadDisplay = computed(() => {
 </template>
 
 <style scoped>
-.toolbar { height: 28px; background: var(--surface-0); display: flex; align-items: center; padding: 0 var(--space-default); gap: var(--space-default); justify-content: space-between; border-bottom: 1px solid var(--surface-1); flex-shrink: 0; }
+/* magic-literal: 28px `.toolbar` min-height. The toolbar renders
+   one row of metric badges + engine-controls at the project author's
+   text-emphasis font (~13px). 28 leaves the badges room for their
+   ~1px vertical padding plus the line-box without crowding the
+   border-bottom. Composes with `.top-nav-bar`'s 32px (parent in
+   App.vue) — the 4px gap is implicit centring room inside the parent.
+   `min-height` (not `height`) + `flex-wrap: wrap` (iter-13, audit
+   Finding G): at narrow viewports the metric cluster previously got
+   crushed while `engine-identity` / `engine-controls` (both
+   flex-shrink: 0) kept their full width — labels became unreadable,
+   CONNECT clipped off the right edge. Wrapping lets the toolbar
+   grow vertically instead. `justify-content: space-between` still
+   spreads items within each wrapped row. */
+.toolbar { min-height: 28px; background: var(--surface-0); display: flex; flex-wrap: wrap; align-items: center; padding: 0 var(--space-default); gap: var(--space-default); justify-content: space-between; border-bottom: 1px solid var(--surface-1); flex-shrink: 0; }
 .toolbar-title { font-size: var(--text-body); color: var(--text-0); text-transform: uppercase; letter-spacing: var(--tracking-default); white-space: nowrap; }
 .engine-metrics-bar { display: flex; gap: var(--space-medium); font-family: monospace; font-size: var(--text-emphasis); align-items: center; min-width: 0; }
 .metric { display: flex; align-items: center; gap: var(--space-tight); min-width: 0; }

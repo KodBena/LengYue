@@ -115,10 +115,19 @@ function onRangeUpdate(r: [number, number]): void {
   font-variant-numeric: tabular-nums;
 }
 .timeline-body { padding: var(--space-default) var(--space-medium) var(--space-tight); }
+/* `flex-wrap: wrap` + `row-gap` (iter-14): at narrow control-panel
+   widths the VISITS label + 72px input + Analyse-Selection button
+   together exceeded available width. The button (flex: 1) used to
+   squeeze to a sliver because its `min-width` defaulted to content
+   size, which was wider than its allocated flex space. Wrap drops
+   the button to its own row when the parent narrows below the
+   threshold. */
 .timeline-controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-default);
+  row-gap: var(--space-default);
   padding: var(--space-default) var(--space-medium) var(--space-default);
 }
 .visits-label { font-size: var(--text-emphasis); color: var(--text-0); flex-shrink: 0; }
@@ -139,6 +148,11 @@ function onRangeUpdate(r: [number, number]): void {
    subdued-action-button aesthetic. Future substrate work could add
    accent-tone variants. */
 .analyze-btn {
+  /* `flex: 1` without `min-width: 0` is intentional: the button
+     claims its natural content min-width, which forces the row to
+     overflow at narrow widths and triggers `.timeline-controls`'s
+     `flex-wrap` — the button then gets its own row and `flex: 1`
+     stretches it to full row width with text fitting cleanly. */
   flex: 1;
   background: var(--surface-0);
   border: 1px solid #2a5a7a;

@@ -360,10 +360,19 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
         <div v-show="store.session.ui.controlsExpanded" class="panel-resizer" @mousedown="startResize"></div>
 
+        <!-- magic-literal: 220px #control-panel min-width — derived
+             from the tab strip's natural width at the smallest legible
+             font scale (4 tabs × ~50px each + gaps). The audit's
+             cross-cutting Finding #1 was that without a floor, the
+             tab strip's right-most tab fell off-screen at 1024×768.
+             Coupled with the iter-17 container-query threshold (479px)
+             via the Cards-tab `.tree-panel`'s 200px usable floor —
+             changing 220 here would invalidate the 479 derivation
+             in `ForestDirectory.vue`. -->
         <div
           id="control-panel"
           v-show="store.session.ui.controlsExpanded"
-          :style="{ flex: '1 1 0', minWidth: 0 }"
+          :style="{ flex: '1 1 0', minWidth: '220px' }"
         >
           <TabWidget
             :tabs="controlTabs"
@@ -398,7 +407,12 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
                 <details class="settings-section section-divider" open>
                   <summary><h3 class="sub-header">{{ $t('settings.section.cardSets') }}</h3></summary>
-                  <div class="registry-container" style="max-height: 500px; padding-bottom: var(--space-medium);">
+                  <!-- magic-literal: clamp(500px, 70vh, 900px) — taller than the
+                       default `.registry-container` clamp (400/60vh/800) because Card
+                       Sets renders a richer table (many columns + per-row controls)
+                       and needs more vertical room before scrolling kicks in. 70vh
+                       proportional vs 60vh = card-sets gets ~17% more height share. -->
+                  <div class="registry-container" style="max-height: clamp(500px, 70vh, 900px); padding-bottom: var(--space-medium);">
                     <CardSetEditor
                       :cardSets="store.profile.cardSets"
                       :activeCardSetId="store.session.ui.activeCardSetId"
@@ -480,10 +494,16 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
   background: var(--surface-0);
 }
 
-/* The top nav bar always spans the full width of main-workspace */
+/* magic-literal: 32px `.top-nav-bar` min-height. The bar hosts the
+   sidebar-toggle button + Toolbar + right-side toggles. 32 is enough
+   for the toggle buttons (text-emphasis font at ~14px line-box) plus
+   2-3px of top/bottom margin so the bar reads as chrome, not crammed.
+   `min-height` (not `height`) so iter-13's Toolbar `flex-wrap` can
+   grow the bar vertically at narrow widths; if Toolbar's height
+   changes from its current 28px floor, retune in tandem. */
 .top-nav-bar {
   display: flex; align-items: center; background: var(--surface-0);
-  border-bottom: 1px solid var(--surface-1); padding: 0 var(--space-default); height: 32px; flex-shrink: 0;
+  border-bottom: 1px solid var(--surface-1); padding: 0 var(--space-default); min-height: 32px; flex-shrink: 0;
 }
 
 /* The lower area where the resizer lives */
@@ -501,11 +521,18 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
    below the height-natural max — drag-left grows the cap (board
    shrinks), drag-right shrinks the cap (board grows up to the
    height saturation point). When unset, no cap; the board
-   saturates at full square. */
+   saturates at full square.
+
+   `flex: 0 1 auto` (was `0 0 auto`): allow the column to shrink
+   below the height-natural square when the row is overconstrained
+   (e.g. narrow desktops, snapped half-screen). The control panel's
+   min-width:220px floor then keeps the tab strip on-screen; the
+   board column becomes a tall-narrow rectangle and the SVG
+   letterboxes via its viewBox preserveAspectRatio. */
 #board-column {
   display: flex;
   flex-direction: column;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   height: 100%;
   aspect-ratio: 1 / 1;
   max-width: var(--board-target-px, 100%);
@@ -515,7 +542,19 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
 #content { flex: 1; display: flex; justify-content: center; align-items: center; min-height: 0; }
 
-#vue-tree-panel { width: 220px; display: flex; flex-direction: column; border-left: 1px solid var(--surface-1); background: var(--border-1); min-height: 0; flex-shrink: 0; padding-right: 5px; }
+/* magic-literal: 140px `#vue-tree-panel` width — was 220px (iter-21
+   slim-down). The tree-panel is not currently resizable; user said
+   they're "less confident" about the right value because they
+   haven't recently exercised variation-heavy tree navigation. 140
+   is conservative-aggressive: gives the centre column +80px back
+   while preserving room for single-column main-line walks and 1–2
+   side variations at the standard tree-widget node size. If the
+   user finds variation-heavy trees clipping at this width, dial up
+   (180-200) or add a resizer. magic-literal: 5px padding-right —
+   preserved from prior; gives the tree the standard tight margin
+   against the right chrome edge without affecting tree-widget
+   layout. */
+#vue-tree-panel { width: 140px; display: flex; flex-direction: column; border-left: 1px solid var(--surface-1); background: var(--border-1); min-height: 0; flex-shrink: 0; padding-right: 5px; }
 #tree-panel-header { height: 20px; background: var(--surface-0); border-bottom: 1px solid var(--surface-1); display: flex; align-items: center; padding: 0 var(--space-default); font-size: var(--text-tiny); letter-spacing: var(--tracking-wide); color: var(--text-2); text-transform: uppercase; flex-shrink: 0; }
 #control-panel { border-left: 1px solid var(--surface-1); background: var(--surface-3); flex-shrink: 0; display: flex; flex-direction: column; }
 
@@ -566,7 +605,20 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
 .action-btn-large { background: var(--accent-primary); color: var(--text-0); border: none; padding: var(--space-tight) var(--space-medium); cursor: pointer; border-radius: var(--radius-default); font-weight: bold; width: 100%; }
 .toolbar-btn-sm { border: 1px solid var(--border-3); color: var(--text-1); padding: 1px 4px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); }
-.registry-container { margin-top: 0; background: var(--surface-2); border: 1px solid var(--surface-3); border-radius: var(--radius-default); max-height: 400px; overflow-y: auto; }
+/* magic-literal: clamp(400px, 60vh, 800px) `.registry-container` max-height.
+   Floor 400: preserves the prior fixed 400px on short viewports (≤700px
+   tall, where 60vh ≤ 400). Cap 800: prevents runaway at 4K (≥1334px tall,
+   where 60vh ≥ 800) — the Settings tab is meant to scroll inside the
+   registry, not the registry inside an unbounded tab. 60vh is the
+   proportional middle that scales with viewport. Iter-2 audit
+   Finding H: the fixed 400px on tall viewports forced an inner
+   scrollbar inside an otherwise spacious tab-body, wasting vertical
+   space. Clamp scales with viewport between a 400px floor (short
+   viewports keep the prior cap) and an 800px ceiling (tall
+   viewports get more rows visible). The 60vh preferred value gives
+   a natural growth curve in between. The Card Sets section's
+   inline override uses a 500/70vh/900 clamp for the same reason. */
+.registry-container { margin-top: 0; background: var(--surface-2); border: 1px solid var(--surface-3); border-radius: var(--radius-default); max-height: clamp(400px, 60vh, 800px); overflow-y: auto; }
 
 .collapse-btn { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-2); height: 18px; padding: 0 var(--space-tight); cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-default); font-size: var(--text-body); }
 .right-toggles { display: flex; gap: var(--space-default); margin-left: auto; }

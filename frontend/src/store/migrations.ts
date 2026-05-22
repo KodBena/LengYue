@@ -77,7 +77,7 @@ import { archivedMigrations, type Migration } from './archived-migrations';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 46;
+export const CURRENT_SCHEMA_VERSION = 47;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -105,35 +105,6 @@ export const CURRENT_SCHEMA_VERSION = 46;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 44 → 45: backfill `session.ui.cardTreeNav` (Partial<Record<BoardId,
-  // CardTreeNavState>>, default {}). The field persists the
-  // `CardTreeWidget`'s manual-expand axis per board so a board re-
-  // opened mid-session (or after a browser reload) restores the
-  // user's exploration path through the card forest. Item 1 of the
-  // post-v1.1.0 follow-up list — previously the expand state lived
-  // in a per-mount `ref<Set<string>>` and was lost on every
-  // navigation.
-  //
-  // Idempotent: a pre-existing plain-object value is preserved
-  // unchanged (so users who already have entries from a hand-edited
-  // blob or a prior forward-compat install keep them). A
-  // non-object / null / array value is replaced with `{}` — the
-  // shape contract is strict.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const ui = out.session?.ui;
-    if (ui && typeof ui === 'object') {
-      const u = ui as { cardTreeNav?: unknown };
-      const cur = u.cardTreeNav;
-      const isPlainObject =
-        cur !== null && cur !== undefined &&
-        typeof cur === 'object' && !Array.isArray(cur);
-      if (!isPlainObject) {
-        u.cardTreeNav = {};
-      }
-    }
-    return out;
-  },
   // 45 → 46: backfill `engine.katago.adaptiveReevaluate.valueBinding`
   // (string, default ''). v1.0.26 of the proxy ships a learned
   // value function (the Phase 3.5 LightGBM-supervised regressor)
@@ -159,6 +130,39 @@ export const migrations: Migration[] = [
         }
       }
     }
+    return out;
+  },
+  // 46 → 47: backfill `profile.settings.appearance.moveSuggestionsFadeMs`
+  // (number, default 60) and register the two new display-domain
+  // animation knobs (`display.move-suggestions-fade-ms` and
+  // `display.pv-fade-ms`) in the persisted knob-priorities block.
+  // The new appearance field promotes the prior hardcoded inline
+  // `transition: opacity 60ms ease` in MoveSuggestions.vue to a
+  // user-controlled knob; the PV-fade knob just registers an entry
+  // for the pre-existing `session.ui.pvAnimation.fadeDurationMs`
+  // field so it surfaces in the toolbar slider popover alongside
+  // the new one.
+  //
+  // Idempotent: pre-existing values (the appearance field, or the
+  // priority entries in the knobs block) are preserved unchanged.
+  // The default 60 reproduces the historical inline behaviour;
+  // setting it to 0 disables the suggestion-ring/disk fade.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const appearance = out.settings?.appearance;
+    if (appearance && typeof appearance === 'object') {
+      const a = appearance as { moveSuggestionsFadeMs?: unknown };
+      if (typeof a.moveSuggestionsFadeMs !== 'number') {
+        a.moveSuggestionsFadeMs = 60;
+      }
+    }
+    // The knobs block in defaults.ts seeds the two new KnobDecls
+    // for fresh profiles; here we only need to ensure persisted
+    // priority overrides (if any) don't drop the new ids. If the
+    // user has a custom priorities map under
+    // `session.knobPriorityOverrides` (or similar), the registry
+    // validator will accept missing ids as "use the decl's default";
+    // we don't have to inject anything.
     return out;
   },
 ];

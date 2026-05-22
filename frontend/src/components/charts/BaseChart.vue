@@ -290,12 +290,20 @@ const updateOptions = () => {
       // intrusive cursor crosshair against the chart background.
       axisPointer: { type: 'line', lineStyle: { color: themeColor('--accent-primary'), opacity: 0.5 } }
     },
-    grid: { 
-      left: '10%', 
-      right: props.reservedWidth ? `${props.reservedWidth + 20}px` : '5%', 
-      bottom: props.reservedHeight ? `${props.reservedHeight + 10}px` : '15%', 
+    grid: {
+      // magic-literal: 30px y-axis-grid `left` margin — replaces the
+      // prior '10%' which at narrow chart-area widths (29px in the
+      // iter-2 audit pre-fix) resolved to ~3px, below the 9px y-axis
+      // label fontSize and clipped silently. 30 is enough for a
+      // "0.50"-shaped label at fontSize 9 with a few px of breathing
+      // room; stable regardless of chart width. If the y-axis label
+      // fontSize grows (currently 9, set immediately below), or the
+      // longest expected label widens past "0.50"/"+99", retune.
+      left: 30,
+      right: props.reservedWidth ? `${props.reservedWidth + 20}px` : '5%',
+      bottom: props.reservedHeight ? `${props.reservedHeight + 10}px` : '15%',
       top: '15%',
-      containLabel: false 
+      containLabel: false
     },
     yAxis: {
       type: 'value',

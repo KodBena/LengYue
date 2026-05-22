@@ -143,7 +143,7 @@ function purgeLedger() {
         </span>
       </p>
 
-      <div style="display: flex; gap: var(--space-default);">
+      <div style="display: flex; flex-wrap: wrap; gap: var(--space-default); min-width: 0;">
         <div class="palette-selector">
           <label>{{ $t('analysis.paletteLabel') }}</label>
           <select v-model="store.profile.settings.engine.katago.analysis_env.activePaletteId" class="dark-select">
@@ -275,14 +275,26 @@ function purgeLedger() {
 </template>
 
 <style scoped>
-.tab-padding { padding: 0; }
-.header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-default); }
+/* Flex chain for the parent-relative dashboard height (iter-12).
+   AnalysisControls renders settings rows above a chart-container
+   that should consume remaining vertical space. The settings rows
+   sit at content height; the chart-container is the flex: 1 child
+   that absorbs whatever's left under the tab-body's allocation. */
+.tab-padding { padding: 0; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+/* Iter-14: `flex-wrap: wrap` lets the right-side cluster
+   (palette-selector + PURGE button) drop to a second row when the
+   header overflows. At 1024×768 the control panel is pinned to
+   220px by iter-1's #control-panel min-width; the right-side div
+   alone is ~314px wide, so it was overflowing the row by ~143px
+   and pushing PURGE entirely off-screen. `row-gap` keeps a
+   little vertical breathing room when wrap engages. */
+.header-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: var(--space-default); row-gap: var(--space-default); }
 h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--accent-primary); }
 .status-indicator { font-weight: bold; color: var(--text-0); }
 .status-indicator.connected { color: var(--state-success); }
 
-.palette-selector { display: flex; align-items: center; gap: var(--space-default); font-size: var(--text-body); color: var(--text-1); text-transform: uppercase; }
-.dark-select { border: 1px solid var(--border-2); color: var(--accent-primary); padding: 2px 6px; border-radius: var(--radius-default); font-size: var(--text-body); outline: none; cursor: pointer; text-transform: uppercase; }
+.palette-selector { display: flex; align-items: center; gap: var(--space-default); font-size: var(--text-body); color: var(--text-1); text-transform: uppercase; min-width: 0; }
+.dark-select { border: 1px solid var(--border-2); color: var(--accent-primary); padding: 2px 6px; border-radius: var(--radius-default); font-size: var(--text-body); outline: none; cursor: pointer; text-transform: uppercase; max-width: 100%; min-width: 0; }
 
 /* theme-exception: .warning-btn uses muted-state-error variants
    (#5a1a1a border, #3a1a1a hover bg) — same pattern as
@@ -316,6 +328,12 @@ h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--accent-primary
 .value-badge { padding: 0 var(--space-default); border-radius: var(--radius-default); color: var(--accent-primary); font-family: monospace; }
 .range-slider { width: 100%; accent-color: var(--accent-primary); cursor: pointer; }
 .hint { font-size: var(--text-body); color: var(--text-0); margin: 0; }
-.chart-container-outer { margin-top: 0; min-height: 200px; }
+/* Iter-2 audit Finding C: the 200px floor that lived here
+   disagreed silently with AnalysisDashboard's prior
+   `calc(100vh - 165px)` height. Iter-12 rewires the dashboard's
+   height to be parent-relative; this wrapper now claims the
+   remaining vertical space inside `.tab-padding`'s flex column,
+   passing it through to the dashboard via `height: 100%`. */
+.chart-container-outer { margin-top: 0; flex: 1; min-height: 0; display: flex; flex-direction: column; }
 </style>
 

@@ -145,10 +145,23 @@ const rugPlot = computed(() => {
 </template>
 
 <style scoped>
-.thumb-container { display: flex; flex-direction: column; align-items: center; margin-bottom: var(--space-default); width: 88px; }
+/* magic-literal: 86px sidebar-tab outer width (iter-21). Was 88
+   across both `.thumb-container` and `.tab-thumb`; hoisted into a
+   single scoped CSS custom property `--tab-width` so the two
+   consumers can't drift. 86 trims 2px back to the gutter inside
+   `#sidebar-widget` (currently 90px wide → 4px total gutter at this
+   value), giving the chrome a tighter wrap without crowding the
+   tab-label. `.thumb-container` sets the var; `.tab-thumb` (a
+   descendant) inherits it through the cascade. If you retune, the
+   sidebar width in `SidebarWidget.vue` (`#sidebar-widget`) needs to
+   keep at least 2-4px of headroom over this value for the gutter
+   to read as breathing room. The 32px height on `.tab-thumb` is
+   separate — the thumb's portrait/landscape aspect (88×32 → now
+   86×32) reads as a short label band rather than a card. */
+.thumb-container { --tab-width: 86px; display: flex; flex-direction: column; align-items: center; width: var(--tab-width); }
 
 .tab-thumb {
-  width: 88px; height: 32px; border: 2px solid var(--surface-3); background: var(--surface-0);
+  width: var(--tab-width); height: 32px; border: 2px solid var(--surface-3); background: var(--surface-0);
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   transition: border-color var(--duration-default) ease, background var(--duration-default) ease;
   position: relative; border-radius: var(--radius-default);
@@ -194,7 +207,7 @@ const rugPlot = computed(() => {
    detail on a 4px-tall element. */
 .analysis-meter {
   flex: 1; height: 4px; background: var(--surface-0); border-radius: 1px;
-  margin-right: var(--space-default); display: flex; overflow: hidden; border: 1px solid var(--surface-1);
+  display: flex; overflow: hidden;
 }
 
 .meter-slice { height: 100%; }

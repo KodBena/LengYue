@@ -31,10 +31,15 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQueryTelemetry, type InFlightQuery } from '../../composables/useQueryTelemetry';
 import { useHoverPopover } from '../../composables/chrome/useHoverPopover';
+import { usePopoverEdgeClamp } from '../../composables/chrome/usePopoverEdgeClamp';
 
 const { t } = useI18n();
 const { inFlight, cancelQuery } = useQueryTelemetry();
 const { open, onMouseEnter, onMouseLeave } = useHoverPopover();
+// `left: 0`-anchored — the composable handles both anchor
+// directions symmetrically (clamps the offending edge whichever
+// it is); no per-popover direction config needed.
+const { setPopoverEl, xShift } = usePopoverEdgeClamp(open);
 
 const count = computed(() => inFlight.value.length);
 
@@ -92,7 +97,7 @@ function fmtProgress(q: InFlightQuery): string {
     <span class="m-lbl">{{ $t('toolbar.metric.queue') }}</span>
     <span class="m-val queue-count">{{ count }}</span>
 
-    <div v-if="open" class="queue-popover" role="tooltip">
+    <div v-if="open" :ref="setPopoverEl" class="queue-popover" role="tooltip" :style="{ transform: `translateX(${xShift}px)` }">
       <div v-if="count === 0" class="popover-empty">
         {{ $t('toolbar.queue.empty') }}
       </div>

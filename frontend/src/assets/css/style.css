@@ -2,13 +2,26 @@
  * src/assets/css/style.css
  *
  * Application-wide chrome stylesheet — global resets, layout
- * primitives (sidebar, toolbar, tree panel, status bar). Most
- * SFC-level chrome lives in scoped <style> blocks; this file
- * hosts the rules whose selectors are document-wide.
+ * primitives, native range-input theming. Most chrome lives in
+ * SFC-scoped <style> blocks; this file hosts rules whose
+ * selectors are document-wide.
  *
  * Chrome anchors are imported from theme.css (declared in
  * App.vue's <style> block); see docs/notes/frontend-theming-plan.md
  * for the SSOT contract.
+ *
+ * Iter-1 audit Finding #4 (responsive-design-audit-2026-05-22.md):
+ * the prior file declared many ID selectors that no longer exist
+ * in the markup (`#toolbar`, `#sidebar` vs the active
+ * `#sidebar-widget`, `#status-bar`, `#tree-panel`, `#tabs`,
+ * `#centre`, `#board-area`, and the `#control-tabs` / `#ct-sr` /
+ * `#ct-settings` / `#ct-analysis` / `#control-content` chain).
+ * Those have been removed; the active chrome is rendered by
+ * SFC-scoped styles in `Toolbar.vue`, `SidebarWidget.vue`, etc.
+ * Class-level globals that the SFC scoped styles fully shadow
+ * (`.toolbar-btn` / `.toolbar-btn.active` from this file vs
+ * Toolbar.vue's scoped versions, `.tab-load-btn` with no live
+ * element) have also been removed.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -35,28 +48,14 @@ body {
   flex-direction: column;
 }
 
-/* ── Main row: sidebar | centre | tree panel ──────────────────────── */
+/* ── Main row container ──────────────────────────────────────────── */
 #main-area {
   display: flex;
   flex: 1;
   min-height: 0;
 }
 
-/* ── Sidebar ─────────────────────────────────────────────────────── */
-#sidebar {
-  width: 108px;
-  background: var(--default-bg);
-  border-right: 1px solid var(--border-1);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: var(--space-medium) 0;
-  gap: var(--space-default);
-  overflow-y: auto;
-  overflow-x: hidden;
-  flex-shrink: 0;
-}
-
+/* ── Sidebar children (used by SidebarWidget.vue and BoardTab.vue) ─ */
 .tab-thumb {
   width: 88px;
   height: 88px;
@@ -93,84 +92,18 @@ body {
   transition: border-color var(--duration-default), color var(--duration-default);
 }
 
-.tab-load-btn {
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-circle);
-  background: transparent;
-  border: 1px solid var(--border-1);
-  color: var(--text-2);
-  font-size: var(--text-heading);
-  line-height: 1;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: border-color var(--duration-default), color var(--duration-default);
-}
-
-
-/* ── Centre column ─────────────────────────────────────────────── */
-#centre {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0; /* Add this: allows the container to shrink below its content size */
-}
-
-#tabs {
-  width: 300px; /* Give your tabs a fixed or percentage width */
-  min-width: 200px;
-  flex-shrink: 0; /* Prevent the tabs from disappearing entirely */
-  overflow-y: auto; /* Allow scrolling inside tabs if the window is short */
-}
-
-/* Toolbar */
-#toolbar {
-  height: 34px;
-  background: var(--default-bg);
-  border-bottom: 1px solid var(--border-1);
-  display: flex;
-  align-items: center;
-  padding: 0 var(--space-medium);
-  gap: var(--space-default);
-  flex-shrink: 0;
-}
-
-#toolbar-title {
-  font-size: var(--text-body);
-  color: var(--text-0);
-  text-transform: uppercase;
-  margin-right: auto;
-}
-
-.toolbar-btn {
-  background: var(--surface-0);
-  border: 1px solid var(--border-1);
-  color: var(--text-2);
-  padding: 1px 1px;
-  font-size: var(--text-body);
-  text-transform: uppercase;
-  cursor: pointer;
-  border-radius: var(--radius-default);
-  font-family: 'Courier New', monospace;
-}
-.toolbar-btn.active { border-color: var(--accent-primary); color: var(--text-0); }
-
+/* ── Centre column content area (used by App.vue's #content) ─────── */
+/* Iter-21: padding `var(--space-medium)` → `var(--space-tight)` —
+   the medium pad wasted vertical+horizontal room around the board
+   that compressed the centre column. Substrate token, no magic-
+   literal tag needed; rationale is the slim-down arc itself. */
 #content {
   display: flex;
-  flex: 1;            /* Take up all remaining vertical space in #centre */
-  min-height: 0;      /* Crucial for nested flex scrolling */
-  justify-content: center;
-  align-items: center; /* Centers the board vertically */
-  padding: var(--space-medium);
-}
-
-#board-area {
-  width: 100%;
-  height: 100%;       /* Take full height of #content */
-  max-width: 100%;
-  display: flex;
+  flex: 1;
+  min-height: 0;
   justify-content: center;
   align-items: center;
+  padding: var(--space-tight);
 }
 
 .board-svg {
@@ -182,6 +115,11 @@ body {
   flex-shrink: 1;     /* Allow the SVG itself to shrink */
 }
 
+/* `#control-panel`'s `overflow: auto` and `justify-content: right`
+   here are NOT redundant with App.vue's scoped `#control-panel`
+   (which sets border, background, flex-shrink, display,
+   flex-direction). Keep until a follow-up consolidates control-
+   panel styling onto a single declaration site. */
 #control-panel {
   flex: 1;
   overflow: auto;
@@ -190,74 +128,12 @@ body {
   justify-content: right;
 }
 
-#control-tabs {
-  display: flex;
-  flex-direction: row;
-}
-
-#ct-sr {
-  flex: 1;
-  font-size: var(--text-body);
-  letter-spacing: var(--tracking-wide);
-  color: var(--text-2);
-  text-transform: uppercase;
-  margin-right: auto;
-}
-
-#ct-settings {
-  flex: 1;
-  font-size: var(--text-body);
-  letter-spacing: var(--tracking-wide);
-  color: var(--text-2);
-  text-transform: uppercase;
-  margin-right: auto;
-}
-
-#ct-analysis {
-  flex: 1;
-  font-size: var(--text-body);
-  letter-spacing: var(--tracking-wide);
-  color: var(--text-2);
-  text-transform: uppercase;
-  margin-right: auto;
-}
-
-#control-content {
-  margin-top: var(--space-medium);
-}
-
 /* Applied to every board SVG by BoardRenderer */
 .board-svg {
   flex-shrink: 0;
 }
 
-/* Status bar */
-#status-bar {
-  height: 26px;
-  background: var(--default-bg);
-  border-top: 1px solid var(--border-1);
-  display: flex;
-  align-items: center;
-  padding: 0 var(--space-medium);
-  font-size: var(--text-body);
-  color: var(--text-2);
-  letter-spacing: var(--tracking-tight);
-  flex-shrink: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ── Tree panel (right, toggleable) ───────────────────────────────── */
-#tree-panel {
-  width: 272px;
-  background: var(--default-bg);
-  border-left: 1px solid var(--border-1);
-  display: none;
-  flex-direction: column;
-  flex-shrink: 0;
-}
-
+/* Tree-panel header (used by App.vue:519's #tree-panel-header) */
 #tree-panel-header {
   height: 28px;
   background: var(--default-bg);
@@ -271,15 +147,6 @@ body {
   text-transform: uppercase;
   flex-shrink: 0;
 }
-
-#tree-container {
-  flex: 1;
-  overflow: auto;
-  scrollbar-width: thin;
-}
-#tree-container::-webkit-scrollbar       { width: 6px; height: 6px; }
-#tree-container::-webkit-scrollbar-track { background: var(--surface-1); }
-#tree-container::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: var(--radius-default); }
 
 /* ── Native range-input styling (theme-exception) ─────────────────────
    Browser form-control aesthetic — the lightblue track and mid-grey

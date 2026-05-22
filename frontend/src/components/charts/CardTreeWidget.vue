@@ -283,11 +283,24 @@ watch(
    panel-resizer to small heights without the chart being pushed
    outside its container. */
 .tree-section.expanded { flex: 1; min-height: 0; }
+/* `flex-wrap: wrap` + `row-gap` (iter-20): the header row hosts
+   chevron + title (shrinks via ellipsis) + meta + counts +
+   collapse-all-btn. All non-title children carry `white-space: nowrap`
+   and most have `flex-shrink: 0`, so at narrow tree-panel widths
+   (1024×768 stacked layout from iter-17, or any narrow control-panel
+   width) the right end overflows. Parent `.tree-section { overflow:
+   hidden }` (load-bearing for ECharts containment) then clipped the
+   collapse-all button on the right edge. Wrap lets the counts +
+   collapse-all-btn drop to a second row when room runs out; on the
+   wrapped row, `.counts { margin-left: auto }` keeps the trailing
+   pair pushed to the right edge as before. */
 .tree-header {
   padding: var(--space-default) var(--space-medium);
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: var(--space-medium);
+  row-gap: var(--space-tight);
   flex-shrink: 0;
   cursor: pointer;
   user-select: none;

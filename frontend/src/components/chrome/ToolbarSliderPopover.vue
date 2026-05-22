@@ -42,10 +42,15 @@
 import { computed } from 'vue';
 import { store } from '../../store';
 import { useHoverPopover } from '../../composables/chrome/useHoverPopover';
+import { usePopoverEdgeClamp } from '../../composables/chrome/usePopoverEdgeClamp';
 import KnobSlider from '../knobs/KnobSlider.vue';
 import type { KnobDecl, KnobId } from '../../types';
 
 const { open, onMouseEnter, onMouseLeave } = useHoverPopover();
+// Iter-2 audit: the `right: 0` anchor overflows the left edge at
+// narrow viewports, clipping the knob-label column. Composable
+// handles the measurement + translateX shift.
+const { setPopoverEl, xShift } = usePopoverEdgeClamp(open);
 
 /**
  * Every scalar (inputs.length === 1) knob in the registry, sorted
@@ -81,7 +86,7 @@ const count = computed(() => orderedKnobs.value.length);
     <span class="m-lbl">{{ $t('toolbar.metric.sliders') }}</span>
     <span class="m-val sliders-count">{{ count }}</span>
 
-    <div v-if="open" class="sliders-popover" role="tooltip">
+    <div v-if="open" :ref="setPopoverEl" class="sliders-popover" role="tooltip" :style="{ transform: `translateX(${xShift}px)` }">
       <div v-if="count === 0" class="popover-empty">
         {{ $t('toolbar.sliders.empty') }}
       </div>
