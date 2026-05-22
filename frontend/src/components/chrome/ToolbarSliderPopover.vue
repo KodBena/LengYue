@@ -39,13 +39,37 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { store } from '../../store';
 import { useHoverPopover } from '../../composables/chrome/useHoverPopover';
 import KnobSlider from '../knobs/KnobSlider.vue';
 import type { KnobDecl, KnobId } from '../../types';
 
 const { open, onMouseEnter, onMouseLeave } = useHoverPopover();
+
+// Iter-2 audit confirmed: at narrow viewports the popover's
+// `right: 0` anchor causes it to overflow the LEFT edge — the
+// label column ends up clipped (`"rea…"`, `"thre…"`, etc.).
+// After open, measure the rendered popover's bounding rect and
+// translateX it rightward by enough to bring the left edge inside
+// the viewport. translateX shifts the visual position without
+// disturbing layout flow.
+const popoverEl = ref<HTMLElement | null>(null);
+const xShift = ref(0);
+
+watch(open, async (isOpen) => {
+  if (!isOpen) {
+    xShift.value = 0;
+    return;
+  }
+  await nextTick();
+  if (!popoverEl.value) return;
+  const rect = popoverEl.value.getBoundingClientRect();
+  const VIEWPORT_MARGIN = 4;
+  if (rect.left < VIEWPORT_MARGIN) {
+    xShift.value = VIEWPORT_MARGIN - rect.left;
+  }
+});
 
 /**
  * Every scalar (inputs.length === 1) knob in the registry, sorted
@@ -81,7 +105,7 @@ const count = computed(() => orderedKnobs.value.length);
     <span class="m-lbl">{{ $t('toolbar.metric.sliders') }}</span>
     <span class="m-val sliders-count">{{ count }}</span>
 
-    <div v-if="open" class="sliders-popover" role="tooltip">
+    <div v-if="open" ref="popoverEl" class="sliders-popover" role="tooltip" :style="{ transform: `translateX(${xShift}px)` }">
       <div v-if="count === 0" class="popover-empty">
         {{ $t('toolbar.sliders.empty') }}
       </div>
