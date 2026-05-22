@@ -89,10 +89,19 @@ function onHoverLeave() {
 </template>
 
 <style scoped>
+/* magic-literal: 90px `#sidebar-widget` width — was 108px (iter-21
+   slim-down). Tab-thumb's rendered outer width is `--tab-width`
+   (currently 86px, defined in `BoardTab.vue` as a scoped CSS
+   custom property; box-sizing: border-box keeps the 2px border
+   inside that). Centring inside a 90px sidebar leaves a 4px gutter
+   (2px each side) — verified visually by the project author. If
+   `--tab-width` changes, retune this in tandem; the floor is
+   `--tab-width` itself (zero gutter) — below that the thumb clips
+   against the chrome edge. */
 #sidebar-widget {
   display: flex; flex-direction: column; align-items: center;
   padding: var(--space-medium) 0; background: var(--surface-0); height: 100%;
-  border-right: 1px solid var(--surface-1); width: 108px;
+  border-right: 1px solid var(--surface-1); width: 90px;
 }
 
 .thumb-list {

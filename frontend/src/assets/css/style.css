@@ -93,13 +93,17 @@ body {
 }
 
 /* ── Centre column content area (used by App.vue's #content) ─────── */
+/* Iter-21: padding `var(--space-medium)` → `var(--space-tight)` —
+   the medium pad wasted vertical+horizontal room around the board
+   that compressed the centre column. Substrate token, no magic-
+   literal tag needed; rationale is the slim-down arc itself. */
 #content {
   display: flex;
   flex: 1;
   min-height: 0;
   justify-content: center;
   align-items: center;
-  padding: var(--space-medium);
+  padding: var(--space-tight);
 }
 
 .board-svg {
