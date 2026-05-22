@@ -1,6 +1,11 @@
 # Responsive design audit — 2026-05-22
 
-- **Status:** Active (audit / observation record; no remediation plan yet)
+- **Status:** **Closed 2026-05-22.** Per-finding resolution below in the
+  "Resolution by iter" section appended at the bottom of this document.
+  The arc landed 23 iterations on `feat/responsive`, merged into `next`
+  on close-out date. The branch stays alive for the explicitly-deferred
+  follow-ups recorded in `docs/TODO.md`'s "Responsive design — deferred
+  items" section.
 - **Scope:** `frontend/` Vue 3 + TypeScript SPA
 - **Priority:** Desktop use. Mobile findings documented as a formality
   but are not the active concern; the project's deployment surface is
@@ -475,6 +480,113 @@ geometry-level usability defeated by a thumb.
 - `docs/notes/deferred-items.md` — adjacent open questions some
   of which intersect this audit (e.g., the PV-overlay typography
   proportions)
+
+---
+
+## Resolution by iter (close-out)
+
+The 23-iter responsive arc on `feat/responsive` (commits between
+`d3c0714` and the closure merge into `next`) addressed the audit's
+findings as follows. Iters that don't appear by number are
+documentation, magic-literal hygiene, or composable extractions
+without their own surface-resolution.
+
+### Cross-cutting findings
+
+- **#1 Zero `@media` queries** — partially addressed. iter-2 and
+  iter-16/17 introduce CSS *container* queries (`@container`) rather
+  than viewport-relative `@media`. Threshold derivations are
+  content-derived (each documented inline as `magic-literal:`).
+  Pure-`@media` adoption was not pursued; container queries fit the
+  control-panel-pinned layout better.
+- **#2 Hardcoded panel widths sum to ~608 px** — partially addressed.
+  iter-21 reclaimed ~98 px (sidebar 108 → 90, tree-panel 220 → 140,
+  `#content` padding `space-medium → space-tight`); iter-17 makes the
+  Cards-tab `ForestDirectory` stack vertically below 480 px container
+  width. The remaining structural pin (`#control-panel min-width:
+  220px` from iter-1) is now load-bearing — its 220 + the new sidebar
+  90 + tree-panel 140 sum to 450 px before content, well below the
+  608 starting point.
+- **#3 `body` and `#app` both set `overflow: hidden`** — unchanged.
+  The layout doesn't want body-level overflow; chrome surfaces grow
+  via `min-height` (iter-13 toolbar, iter-15 status bar, iter-12
+  parent-relative dashboard) rather than via scroll.
+- **#4 Two parallel CSS systems with dead-code overlap** —
+  **resolved by iter-6.** 17 dead selectors removed from
+  `style.css`; 347 → 209 lines.
+- **#5 Documented z-index ladder not consistently used by popovers**
+  — unchanged. Out of scope for this arc; flagged as a separate
+  hygiene sweep.
+- **#6 Body font is literally 10 px** — unchanged. Accessibility
+  question deferred (would ripple through the entire layout); the
+  user's explicit choice to defer recorded in TODO.md's deferred
+  items.
+
+### Board surface
+
+- **Visual decoupling of resize handle and target** — unchanged.
+  Reframing this requires either a different handle location or a
+  resizer composable rewire; deferred.
+- **Toolbar has no `flex-wrap`** — **resolved by iter-13**
+  (`Toolbar.vue:317` `min-height: 28px` + `flex-wrap: wrap`, parent
+  `.top-nav-bar` `min-height: 32px`).
+- **Scroll hijacking inside the board** — unchanged. Behavioural
+  change; deferred per the user's explicit triage.
+- **`AnalysisDashboard.vue:101` `calc(100vh - 165px)` magic height**
+  — **resolved by iter-12** (parent-relative `height: 100%` with
+  `min-height: 0` flex chain from `.tab-body → .tab-pane →
+  .tab-padding → .chart-container-outer → .dashboard`).
+
+### Cards / review session
+
+- **`min-width: 0` discipline** — was already well-handled; unchanged.
+- **Ellipsis-on-overflow for tree-node titles** — was already
+  well-handled; unchanged.
+- **ECharts forest re-layout on container resize** — was already
+  well-handled; unchanged.
+- **Magic-number height** — same as the board-surface finding;
+  resolved by iter-12.
+- **Render-cap for game-source lists (`VIRT_THRESHOLD = 50`)** —
+  unchanged. UX question deferred.
+- **Mixed-posture inputs in card-metadata** — unchanged. Cosmetic
+  inconsistency, low priority.
+
+### Chrome / settings / toolbar popovers
+
+- **Modal viewport clamping** — was already well-handled; unchanged.
+- **Toolbar popovers anchor without clamping** — **resolved by iter-8
+  (`ToolbarSliderPopover`), iter-9 (`PboPopover`), iter-10
+  (`EngineQueueTooltip`); iter-11 extracted the shared
+  `usePopoverEdgeClamp` composable.**
+- **`FloatingThumbnail.vue:20` no clamp** — **resolved by iter-7**
+  (`THUMB_BOX = 154` + `Math.max(0, Math.min(proposed, viewport -
+  154))` clamp inside `show()`).
+- **Settings tab one large nested-scroll container** — partially
+  addressed by iter-4 (made the registry-container `max-height`
+  adaptive via `clamp(400px, 60vh, 800px)` instead of a fixed 400 px).
+- **`<details open>` for all settings sections** — unchanged. UX
+  question deferred.
+- **`KnobSlider` grid columns** — unchanged. Composes with the iter-15
+  survey's Sev-2 finding on knob labels truncating at narrow widths;
+  deferred together.
+- **`SidebarWidget` is `v-show` not `v-if`** — unchanged. Minor; not
+  user-visible.
+
+### Live-verification findings
+
+- **Control-panel tab strip unreachable at 1024×768** — **resolved by
+  iter-1** (the pre-audit-closure d3c0714 commit; pinned
+  `#control-panel { min-width: 220px }`).
+- **Control Panel entirely absent from DOM render at 800×600** —
+  addressed by iter-1's pin; the panel renders at all viewports
+  iter-15 survey reached.
+- **Popover label column clips at left edge** — **resolved by iter-8**.
+
+### Mobile findings
+
+Out of scope per the audit's framing (desktop priority). The findings
+remain accurate documentation of mobile-class gaps; no iter targeted
+them.
 
 ## License
 

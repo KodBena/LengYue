@@ -247,6 +247,100 @@ frontend + backend sweeps can ship as a single coordinated
 change is on the table, or proactively as a focused audit
 session. Not blocking on a release.
 
+#### Responsive design — deferred items `[frontend]`
+
+The 23-iter responsive-design arc on `feat/responsive` closed
+2026-05-22 (merged into `next` on close-out date). The two audit
+notes (`docs/notes/responsive-design-audit-2026-05-22.md` and
+`docs/notes/responsive-design-audit-iter2-2026-05-22.md`) carry
+per-finding resolution sections; this entry captures the items
+explicitly deferred — none are user-blocking at the project
+author's default 4K viewport, but each is a real bug-class
+finding at narrower viewports or under specific UX flows. The
+`feat/responsive` branch stays alive for resumption rather than
+being deleted.
+
+The user-discretionary deferrals (UX or accessibility choices,
+recorded for traceability):
+
+- **Body font is literally 10 px** — `theme.css:348`'s
+  `--text-body: 10px` ignores user browser font-size preferences
+  (a user with an 18 px default still sees the SPA at 10 px). At
+  the `--text-tiny: 9 px` floor, WCAG 1.4.4 puts the 200%-zoom
+  target at 18 px — just at the accessibility floor. Fixing this
+  ripples through the entire layout (every literal sized in `em`-
+  derived assumptions would shift); deferred per the user's
+  explicit triage.
+- **`<details open>` for all five settings sections** — the
+  Settings tab renders as a long nested-scroll even when the user
+  only wants one section. Closing some by default is a UX choice
+  pending input on which to close.
+- **Scroll hijacking inside the board** — `useScopedScroll.ts`
+  is wheel-only with `passive: false`, consuming scroll events
+  inside the board. Combined with `body { overflow: hidden }`,
+  there is no escape; a user whose viewport is filled by the
+  board cannot scroll past it. Behavioural change; deferred.
+- **`SidebarWidget` is `v-show` not `v-if`** — minor refactor;
+  zero user-visible impact at present.
+
+The bug-class deferrals (real defects, narrow-viewport):
+
+- **Settings tab registry-editor right-pane wraps into a ~30 px
+  column at 1024×768.** "Select an item to edit" renders as
+  "Sel an ite to edi" inside the editable-symbols list's right
+  pane. Cause is the 2-column flex layout inside the
+  `<details>` body at 203 px container width. Single-file fix
+  in the registry-editor component (path noted in iter-15
+  survey artifacts under `/tmp/survey-1024-iter15/`).
+- **Tree panel 20 px bottom overflow at 1024×768.** The
+  `.tree-widget-wrapper` is positioned at y=52 (below 20 px
+  header) with `height: 736` — bottom y=788, 20 px past the
+  768-tall viewport. Internal scroll handles the content, but
+  the wrapper itself clips. Fix is to subtract the header
+  height from the wrapper's allocation.
+- **Settings — Force Persistence button wraps into the
+  Analysis Environment `<summary>`** at 203 px summary width.
+  Cosmetic-but-awkward; fix is to relocate the button below
+  the summary or shrink it.
+- **`KnobSlider` grid columns truncate labels at narrow
+  widths.** `KnobSlider.vue:384`'s `grid-template-columns:
+  minmax(0, 1fr) minmax(120px, 2fr) auto` reserves a fixed
+  120 px for the slider track, leaving the label `1fr` with
+  too few pixels at 203 px container. Labels render as
+  "Move-suggestion filter thresh…" with ellipsis. Composes
+  with the iter-1 audit's "KnobSlider grid template" finding.
+- **Timeline rug-plot 6 px clipped on the right** at narrow
+  widths. `.timeline-container { overflow: hidden }` at
+  169 × 16, scrollWidth=173 — selection handles or the last-
+  position pixel clipped silently.
+- **System log auto-reveal consumes 137 px vertical** when
+  `transientLogReveal` flashes. At 1024×768 that's ~18% of
+  viewport height; the board column at 472×599 (instead of
+  ~736) is a direct consequence. Compresses every panel below.
+
+Lower-priority hygiene:
+
+- **Pre-existing untagged literals in files I touched** —
+  iter-19 swept the literals I introduced or substantively
+  moved across iter-1..iter-15; pre-existing literals in
+  files I touched (e.g., `.preview-box { width: 140px }` in
+  `AnalysisChartPanel.vue`) were deliberately excluded per the
+  audit close-out's "Future PRs are responsible for
+  maintaining the convention on any new literals they
+  introduce" framing. A broader sweep-as-you-go retrofit is
+  the right shape; would extend the convention coverage at
+  modest cost.
+- **`docs/notes/responsive-design-audit-2026-05-22.md`'s mobile
+  findings** — out of scope per the audit's framing, but
+  documented for completeness. If the project ever adopts a
+  mobile or touch-first deployment surface, those findings
+  are the right starting list (`100vh` → `100dvh`, touch
+  handlers on the board, 44 px touch-target sweep, etc.).
+
+Trigger: user-prioritised. The user works in interleaved
+sessions on this branch — picking up any of these between
+other feature work is the expected cadence.
+
 #### Save → disconnect clears the analysis graph; companion "always persist" registry option `[frontend]`
 
 When the user clicks "Save analyses" on a board and then
