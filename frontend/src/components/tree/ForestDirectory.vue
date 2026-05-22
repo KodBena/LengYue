@@ -431,8 +431,26 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
 </template>
 
 <style scoped>
-.forest-container { display: flex; flex: 1; height: 100%; min-height: 0; min-width: 0; overflow: hidden; background: var(--surface-0); }
+/* `container-type: inline-size` (iter-16) opens the door to a
+   container-query stack pattern below. The threshold is content-
+   derived (left-panel natural width 280 + tree-panel min-width
+   ≈200 = 480), not viewport-derived — so a user widening the
+   control panel above ~480 px gets the side-by-side layout
+   regardless of the actual viewport. */
+.forest-container { display: flex; flex: 1; height: 100%; min-height: 0; min-width: 0; overflow: hidden; background: var(--surface-0); container-type: inline-size; }
 .left-panel { width: 280px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--surface-3); flex-shrink: 0; }
+
+/* Container-query stack pattern: when the forest container is
+   narrower than ~480 px (i.e. the panels can't fit side-by-side
+   without one clipping), stack them vertically. Left-panel sits
+   atop the tree-panel; the right-edge `border-right` becomes a
+   bottom border for visual continuity. Left-panel claims its
+   content height up to a soft ~40% cap so the tree-panel keeps
+   workable height; both panels span full container width. */
+@container (max-width: 479px) {
+  .forest-container { flex-direction: column; }
+  .left-panel { width: 100%; max-height: 40%; border-right: none; border-bottom: 1px solid var(--surface-3); flex-shrink: 1; }
+}
 .panel-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-tight) var(--space-default); border-bottom: 1px solid var(--surface-3); background: var(--surface-2); font-size: var(--text-emphasis); text-transform: uppercase; color: var(--text-0); letter-spacing: var(--tracking-default); flex-shrink: 0; }
 .tab-switcher { padding: 0; display: flex; }
 .tab-switcher button { flex: 1; background: transparent; border: none; color: var(--text-2); padding: var(--space-tight) 0; font-size: var(--text-body); text-transform: uppercase; letter-spacing: var(--tracking-default); cursor: pointer; border-bottom: 2px solid transparent; }
