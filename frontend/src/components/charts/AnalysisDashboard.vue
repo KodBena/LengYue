@@ -95,10 +95,21 @@ const engineConnected = computed(() => store.engine.status === 'connected');
 </template>
 
 <style scoped>
+/* Iter-2 audit Finding B: `height: calc(100vh - 165px)` was the
+   prior shape — viewport-relative, with 165px hand-summed from the
+   chrome heights (toolbar 28 + nav-bar 32 + status-bar 20 +
+   tree-panel-header 20 + various). Brittle to any chrome-height
+   change. Iter-12 rewires the chain to be parent-relative:
+   `.tab-body → .tab-pane → AnalysisControls's .tab-padding →
+   .chart-container-outer → .dashboard`, each link a flex-column
+   with `flex: 1; min-height: 0`. The dashboard now takes whatever
+   vertical space the analysis tab actually has, regardless of
+   chrome geometry above. */
 .dashboard {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 165px);
+  height: 100%;
+  min-height: 0;
   overflow: hidden;
   background: var(--surface-0);
   gap: var(--space-default);
