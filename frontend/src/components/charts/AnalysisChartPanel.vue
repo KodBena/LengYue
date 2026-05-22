@@ -76,12 +76,14 @@ const expanded = ref(true);
 .chart-area { flex: 1; min-width: 0; }
 .preview-box { width: 140px; background: var(--surface-0); border-left: 1px solid var(--surface-3); display: flex; align-items: center; justify-content: center; }
 
-/* Below 380px container width, the on-board-thumbnail preview is
-   suppressed so the chart claims the full row. 380 is the crossing
-   point where the 140px preview + a ~240px chart still leaves the
-   line traces legible; below that, prioritise the chart. The
-   hover-thumbnail computation in the parent still runs (cheap);
-   the rendered surface just absents itself. */
+/* magic-literal: 379px CQ threshold for hiding `.preview-box` —
+   derived, not arbitrary. It's the crossing point where the 140px
+   preview + a ~240px chart-area still leaves the line traces
+   legible (140 + 240 = 380; <380 hides the preview). 240 is the
+   project author's eyeballed legibility floor for the analysis
+   line charts; if the chart's renderer changes (axis margins,
+   font sizes, point density) and the floor shifts, this threshold
+   moves too. */
 @container (max-width: 379px) {
   .preview-box { display: none; }
 }
