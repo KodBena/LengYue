@@ -316,6 +316,14 @@ h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--accent-primary
 .value-badge { padding: 0 var(--space-default); border-radius: var(--radius-default); color: var(--accent-primary); font-family: monospace; }
 .range-slider { width: 100%; accent-color: var(--accent-primary); cursor: pointer; }
 .hint { font-size: var(--text-body); color: var(--text-0); margin: 0; }
-.chart-container-outer { margin-top: 0; min-height: 200px; }
+/* `min-height: 200px` was removed. Iter-2 audit Finding C: the
+   200px floor here disagreed silently with AnalysisDashboard's
+   `calc(100vh - 165px)` height (`AnalysisDashboard.vue:101`). At
+   viewports below 365px tall, the calc resolved below 200 and the
+   more-permissive floor here won — the inner dashboard then
+   rendered larger than its flex-chain allocation. No symptom at
+   common viewports; removing the silent conflict so the dashboard
+   is the single source of truth on the analysis surface height. */
+.chart-container-outer { margin-top: 0; }
 </style>
 
