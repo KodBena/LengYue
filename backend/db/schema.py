@@ -119,11 +119,19 @@ normalized_position = Table(
 # promoting a property from extras to a typed column: when the
 # list view wants to sort or filter on it.
 #
-# created_at is server_default=now() and effectively non-null at
-# runtime — every insert path gets a default. The column is
-# declared nullable (matching card.creation_date) so existing
-# rows backfill cleanly without ALTER COLUMN SET NOT NULL, which
-# SQLite doesn't support.
+# created_at carries both `default=func.now()` and
+# `server_default=func.now()`. The DDL default works for fresh
+# CREATE TABLE installs (SQLAlchemy emits DEFAULT (CURRENT_TIMESTAMP)
+# / DEFAULT NOW()), but SQLite ADD COLUMN — which the migration
+# uses to extend the existing table — cannot accept a non-constant
+# default in every dialect-compatible form, so the existing column
+# on migrated DBs ends up without a DDL default. The Python-side
+# `default=func.now()` closes that gap: SQLAlchemy emits the
+# CURRENT_TIMESTAMP / NOW() expression in every INSERT, so the
+# value lands on the row regardless of whether the column itself
+# carries a DDL default. The column is declared nullable (matching
+# card.creation_date) so existing rows backfill cleanly without
+# ALTER COLUMN SET NOT NULL, which SQLite doesn't support.
 #
 # Per ADR-0008's classification discipline: the typed columns
 # (date, result, ruleset, board_size, player_white, player_black)
@@ -145,7 +153,7 @@ game_source = Table(
     Column("raw_content", String, nullable=True),
     Column("description", String, nullable=True),
     Column("client_game_id", Uuid, nullable=True),
-    Column("created_at", DateTime(timezone=True), server_default=func.now()),
+    Column("created_at", DateTime(timezone=True), default=func.now(), server_default=func.now()),
     Column("date", String, nullable=True),
     Column("result", String, nullable=True),
     Column("ruleset", String, nullable=True),
