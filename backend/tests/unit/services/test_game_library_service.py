@@ -33,7 +33,10 @@ import pytest
 
 from domain.auth import UserId
 from domain.errors import BatchTooLargeError
-from domain.game_library import GameListFilter
+from domain.game_library import (
+    GameImportInput,
+    GameListFilter,
+)
 from services.game_library_service import GameLibraryService
 from tests.fakes import FakeGameLibraryRepository, FakeNormalizer
 
@@ -70,7 +73,7 @@ async def test_import_games_raises_batch_too_large_above_cap():
     with pytest.raises(BatchTooLargeError) as exc_info:
         await svc.import_games(
             user_id=ALICE,
-            raw_contents=["a", "b", "c", "d"],
+            inputs=[GameImportInput(raw_content="a"), GameImportInput(raw_content="b"), GameImportInput(raw_content="c"), GameImportInput(raw_content="d")],
         )
     assert exc_info.value.received == 4
     assert exc_info.value.maximum == 3
@@ -82,7 +85,7 @@ async def test_import_games_at_cap_succeeds():
         normalizer.set_metadata(raw, {"player_white": "X"})
     outcomes = await svc.import_games(
         user_id=ALICE,
-        raw_contents=["a", "b", "c"],
+        inputs=[GameImportInput(raw_content="a"), GameImportInput(raw_content="b"), GameImportInput(raw_content="c")],
     )
     assert len(outcomes) == 3
     assert all(o.status == "created" for o in outcomes)
@@ -93,7 +96,7 @@ async def test_import_games_at_cap_succeeds():
 
 async def test_import_games_empty_returns_empty():
     svc, _, _ = _make_service()
-    outcomes = await svc.import_games(user_id=ALICE, raw_contents=[])
+    outcomes = await svc.import_games(user_id=ALICE, inputs=[])
     assert outcomes == []
 
 
@@ -102,7 +105,7 @@ async def test_import_games_happy_path_returns_created():
     normalizer.set_metadata("raw-a", {"player_white": "Alice"})
     outcomes = await svc.import_games(
         user_id=ALICE,
-        raw_contents=["raw-a"],
+        inputs=[GameImportInput(raw_content="raw-a")],
     )
     assert len(outcomes) == 1
     assert outcomes[0].status == "created"
@@ -115,7 +118,7 @@ async def test_import_games_duplicate_returns_deduplicated():
     # dedups against the first.
     outcomes = await svc.import_games(
         user_id=ALICE,
-        raw_contents=["raw-x", "raw-x"],
+        inputs=[GameImportInput(raw_content="raw-x"), GameImportInput(raw_content="raw-x")],
     )
     assert outcomes[0].status == "created"
     assert outcomes[1].status == "deduplicated"
@@ -131,7 +134,7 @@ async def test_import_games_malformed_sgf_surfaces_errored_outcome():
     normalizer.raises_for("bad", message="bad sgf")
     outcomes = await svc.import_games(
         user_id=ALICE,
-        raw_contents=["good-1", "bad", "good-2"],
+        inputs=[GameImportInput(raw_content="good-1"), GameImportInput(raw_content="bad"), GameImportInput(raw_content="good-2")],
     )
     assert outcomes[0].status == "created"
     assert outcomes[1].status == "errored"
@@ -149,7 +152,7 @@ async def test_import_games_adapter_failure_surfaces_errored_outcome():
 
     outcomes = await svc.import_games(
         user_id=ALICE,
-        raw_contents=["good-row", "bad-row", "other-good-row"],
+        inputs=[GameImportInput(raw_content="good-row"), GameImportInput(raw_content="bad-row"), GameImportInput(raw_content="other-good-row")],
     )
     assert outcomes[0].status == "created"
     assert outcomes[1].status == "errored"
@@ -276,3 +279,34 @@ async def test_list_players_cross_tenant_isolation():
 async def test_list_players_empty_when_no_rows():
     svc, _, _ = _make_service()
     assert await svc.list_players(user_id=ALICE) == []
+
+
+# ─── import_games: source_path provenance round-trip ────────────────────────
+
+
+async def test_import_games_source_path_lands_in_metadata_extra():
+    """A source_path on the input surfaces via get_game's metadata_extra."""
+    svc, _, _ = _make_service()
+    outcomes = await svc.import_games(
+        user_id=ALICE,
+        inputs=[GameImportInput(
+            raw_content="(;FF[4]C[A])",
+            source_path="sgf_db/1996/cho-vs-lee.sgf",
+        )],
+    )
+    assert outcomes[0].status == "created"
+    game = await svc.get_game(user_id=ALICE, game_id=outcomes[0].game_id)
+    assert game is not None
+    assert game.metadata_extra["source_path"] == "sgf_db/1996/cho-vs-lee.sgf"
+
+
+async def test_import_games_no_source_path_omits_key():
+    """When source_path is None, the metadata_extra key isn't set."""
+    svc, _, _ = _make_service()
+    outcomes = await svc.import_games(
+        user_id=ALICE,
+        inputs=[GameImportInput(raw_content="(;FF[4]C[B])")],
+    )
+    game = await svc.get_game(user_id=ALICE, game_id=outcomes[0].game_id)
+    assert game is not None
+    assert "source_path" not in game.metadata_extra

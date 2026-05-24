@@ -347,11 +347,21 @@ the Port via SQLAlchemy 2.0 async. Key behaviors:
 surface. Five endpoints:
 
 - `POST /library/games/import` — request body
-  `{games: [{raw_content: str}, ...]}`, response
-  `{outcomes: [ImportOutcome, ...]}`. 422 for malformed body;
-  per-file errors surface as Errored outcomes (200 response).
+  `{games: [{raw_content: str, source_path?: str}, ...]}`,
+  response `{outcomes: [ImportOutcome, ...]}`. 422 for malformed
+  body; per-file errors surface as Errored outcomes (200 response).
   Limit on `games` array length (e.g., 1000) to bound a single
   request's work — larger batches client-side-chunked.
+
+  ``source_path`` is the optional provenance field for
+  directory-upload UX: the SPA reads
+  ``File.webkitRelativePath`` and forwards it so the user's
+  on-disk organisation (e.g. ``sgf_db/1996/cho-vs-lee.sgf``)
+  is preserved inside ``metadata_extra["source_path"]``. The
+  field is non-namespaced lowercase to avoid colliding with
+  uppercase SGF property keys (PB / PW / DT / KM / HA / EV / RO /
+  …). Single-file uploads, curl clients, and existing scripts
+  omit the field — nothing is stored then.
 
 - `GET /library/games?sort=&filter[col]=&offset=&limit=` —
   list endpoint.

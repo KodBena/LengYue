@@ -481,3 +481,42 @@ async def test_list_players_cross_tenant_isolation(async_session):
     )
     assert await repo.list_players(user_id=ALICE) == ["Alice"]
     assert await repo.list_players(user_id=BOB) == ["Bob"]
+
+
+# ─── source_path provenance round-trips into metadata_extra ─────────────────
+
+
+async def test_import_with_source_path_persists_in_metadata_extra(async_session):
+    session = async_session
+    await _seed_user(session, user_id=ALICE)
+    repo = GameLibraryRepository(session)
+
+    # _request() doesn't set source_path; build the request directly here.
+    digest = hashlib.sha256("(;FF[4]C[A])".encode()).digest()
+    req = GameLibraryImportRequest(
+        raw_content="(;FF[4]C[A])",
+        canonical_content="(;FF[4]C[A])",
+        content_hash=digest,
+        metadata=SgfMetadata(extras={"KM": "6.5"}),
+        source_path="sgf_db/1980/game-A.sgf",
+    )
+    outcomes = await repo.import_games(user_id=ALICE, requests=[req])
+    game = await repo.get_game(user_id=ALICE, game_id=outcomes[0].game_id)
+    assert game is not None
+    # source_path coexists with SGF extras under metadata_extra.
+    assert game.metadata_extra["source_path"] == "sgf_db/1980/game-A.sgf"
+    assert game.metadata_extra["KM"] == "6.5"
+
+
+async def test_import_without_source_path_omits_key(async_session):
+    session = async_session
+    await _seed_user(session, user_id=ALICE)
+    repo = GameLibraryRepository(session)
+    outcomes = await repo.import_games(
+        user_id=ALICE,
+        requests=[_request(canonical="(;FF[4]C[B])", extras={"KM": "7.5"})],
+    )
+    game = await repo.get_game(user_id=ALICE, game_id=outcomes[0].game_id)
+    assert game is not None
+    assert "source_path" not in game.metadata_extra
+    assert game.metadata_extra["KM"] == "7.5"

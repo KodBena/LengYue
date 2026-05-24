@@ -412,6 +412,40 @@ async def test_players_orders_by_descending_frequency(client, session):
     assert players[1:] == ["Alice", "Carol", "Dan"]
 
 
+async def test_import_with_source_path_round_trips_in_detail(client, session):
+    """source_path on the import body surfaces via GET /library/games/{id}."""
+    await seed_user(session, user_id=ALICE_ID)
+    import_resp = await client.post(
+        "/library/games/import",
+        json={"games": [{
+            "raw_content": _sgf("with-path"),
+            "source_path": "sgf_db/1996/cho-vs-lee.sgf",
+        }]},
+        headers=auth_header(ALICE_ID),
+    )
+    assert import_resp.status_code == 200
+    gid = import_resp.json()["outcomes"][0]["game_id"]
+
+    detail = await client.get(f"/library/games/{gid}", headers=auth_header(ALICE_ID))
+    assert detail.status_code == 200
+    body = detail.json()
+    assert body["metadata_extra"]["source_path"] == "sgf_db/1996/cho-vs-lee.sgf"
+
+
+async def test_import_without_source_path_omits_key(client, session):
+    """When the import body omits source_path, the key isn't added."""
+    await seed_user(session, user_id=ALICE_ID)
+    import_resp = await client.post(
+        "/library/games/import",
+        json={"games": [{"raw_content": _sgf("no-path")}]},
+        headers=auth_header(ALICE_ID),
+    )
+    gid = import_resp.json()["outcomes"][0]["game_id"]
+    detail = await client.get(f"/library/games/{gid}", headers=auth_header(ALICE_ID))
+    assert detail.status_code == 200
+    assert "source_path" not in detail.json()["metadata_extra"]
+
+
 async def test_players_cross_tenant_isolation(client, session):
     """Bob asking for /library/players sees only Bob's names, not Alice's."""
     await seed_user(session, user_id=ALICE_ID)

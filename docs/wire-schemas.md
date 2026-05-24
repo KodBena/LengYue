@@ -542,6 +542,16 @@ is kept out of the persisted workspace document deliberately —
 workspace is for user-authored state; library player names are
 imported data.
 
+**Provenance via `source_path`.** `POST /library/games/import`
+accepts an optional `source_path` on each item — the SPA's
+directory-upload UX reads `File.webkitRelativePath` and forwards
+it so the user's on-disk layout (e.g.
+`sgf_db/1996/cho-vs-lee.sgf`) survives into
+`metadata_extra["source_path"]`. The lowercase key namespace
+deliberately avoids collision with uppercase SGF property keys
+(PB / PW / DT / KM / HA / …). Single-file uploads and curl
+clients omit the field; nothing is stored for those.
+
 **Per-file outcomes.** `POST /library/games/import` returns a
 discriminated outcome list rather than 4xx-on-any-failure: a
 batch with one malformed SGF among ten produces nine `created`

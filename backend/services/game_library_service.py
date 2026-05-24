@@ -30,6 +30,7 @@ from typing import List, Optional, Tuple
 from domain.auth import UserId
 from domain.errors import BatchTooLargeError
 from domain.game_library import (
+    GameImportInput,
     GameLibraryImportRequest,
     GameListFilter,
     GameListSort,
@@ -68,31 +69,36 @@ class GameLibraryService:
         self,
         *,
         user_id: UserId,
-        raw_contents: List[str],
+        inputs: List[GameImportInput],
     ) -> List[ImportOutcome]:
         """
         Normalize each SGF and import the batch.
 
         Returns a per-file outcome list in the same order as
-        ``raw_contents``. The frontend correlates by index — index
-        N of the response corresponds to index N of the request.
+        ``inputs``. The frontend correlates by index — index N of
+        the response corresponds to index N of the request.
+
+        Each ``GameImportInput`` carries the raw SGF plus optional
+        out-of-band fields (e.g., ``source_path`` captured from a
+        directory-upload's ``webkitRelativePath``) that the
+        normalizer doesn't see; the service folds them through to
+        the adapter so they land in ``metadata_extra`` at INSERT.
 
         Failure paths surfaced:
 
-        - ``BatchTooLargeError`` when ``len(raw_contents) >
+        - ``BatchTooLargeError`` when ``len(inputs) >
           import_batch_max``. Raised before any work; the route maps
-          to 422 with a structured detail naming the cap.
+          to 413 with a structured detail naming the cap.
         - Per-file: ``ImportOutcomeErrored`` when the normalizer
           raises ``ValueError`` (malformed SGF) or the adapter's
           SAVEPOINT-per-file path produces a structured failure.
           Successful files in the same batch are unaffected.
 
-        Empty ``raw_contents`` returns an empty list (the natural
-        no-op).
+        Empty ``inputs`` returns an empty list (the natural no-op).
         """
-        if len(raw_contents) > self.import_batch_max:
+        if len(inputs) > self.import_batch_max:
             raise BatchTooLargeError(
-                received=len(raw_contents),
+                received=len(inputs),
                 maximum=self.import_batch_max,
             )
 
@@ -102,19 +108,20 @@ class GameLibraryService:
         # built ``GameLibraryImportRequest`` (success) or an
         # ``ImportOutcomeErrored`` (normalizer failure).
         slots: List[GameLibraryImportRequest | ImportOutcomeErrored] = []
-        for raw in raw_contents:
+        for inp in inputs:
             try:
-                normalized = self.normalizer.normalize(raw)
+                normalized = self.normalizer.normalize(inp.raw_content)
             except ValueError as exc:
                 slots.append(ImportOutcomeErrored(error=str(exc)))
                 continue
             metadata = SgfMetadata.from_normalizer_meta(normalized.metadata)
             slots.append(
                 GameLibraryImportRequest(
-                    raw_content=raw,
+                    raw_content=inp.raw_content,
                     canonical_content=normalized.canonical_content,
                     content_hash=normalized.content_hash,
                     metadata=metadata,
+                    source_path=inp.source_path,
                 )
             )
 

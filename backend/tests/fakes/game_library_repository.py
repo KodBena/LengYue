@@ -161,6 +161,9 @@ class FakeGameLibraryRepository:
         row_id = self._next_id
         self._next_id += 1
         new_uuid = uuid4()
+        extras = dict(req.metadata.extras)
+        if req.source_path is not None:
+            extras["source_path"] = req.source_path
         self._rows[row_id] = _Row(
             id=row_id,
             user_id=int(user_id),
@@ -173,7 +176,7 @@ class FakeGameLibraryRepository:
             result=req.metadata.result,
             ruleset=req.metadata.ruleset,
             board_size=req.metadata.board_size,
-            metadata_extra=dict(req.metadata.extras),
+            metadata_extra=extras,
         )
         return ImportOutcomeCreated(
             game_id=row_id,

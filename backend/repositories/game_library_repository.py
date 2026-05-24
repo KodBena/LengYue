@@ -129,6 +129,14 @@ class GameLibraryRepository(GameLibraryRepositoryPort):
 
         # Miss → INSERT new row with a freshly generated UUID and the
         # full typed-metadata + extras populated from the request.
+        # `source_path` (if supplied by the SPA's directory upload)
+        # lands inside metadata_extra under the lowercase
+        # ``source_path`` key — distinguished from uppercase SGF
+        # property keys (KM, HA, EV, RO, …) so the namespaces don't
+        # collide as future provenance fields are added.
+        extras = dict(req.metadata.extras)
+        if req.source_path is not None:
+            extras["source_path"] = req.source_path
         new_uuid = uuid4()
         stmt = (
             insert(game_source)
@@ -144,7 +152,7 @@ class GameLibraryRepository(GameLibraryRepositoryPort):
                 result=req.metadata.result,
                 ruleset=req.metadata.ruleset,
                 board_size=req.metadata.board_size,
-                metadata_extra=dict(req.metadata.extras) or None,
+                metadata_extra=extras or None,
             )
             .returning(game_source.c.id)
         )

@@ -265,6 +265,29 @@ without an explicit identifier.
 """
 
 
+class GameImportInput(BaseModel):
+    """
+    Service-level input for one file in a batch import.
+
+    Carries the raw SGF plus optional out-of-band fields the
+    normalizer doesn't see (currently just ``source_path`` —
+    the filesystem-relative path captured from
+    ``File.webkitRelativePath`` on a directory upload). The
+    service folds these into the post-normalization
+    ``GameLibraryImportRequest`` so the adapter can lift them
+    into ``metadata_extra`` at INSERT time.
+
+    Distinct from ``GameLibraryImportRequest`` because that one
+    is the POST-normalization shape (carries
+    ``canonical_content``, ``content_hash``, ``metadata``); this
+    is the PRE-normalization shape (raw text + provenance).
+    """
+    model_config = ConfigDict(frozen=True)
+
+    raw_content: str
+    source_path: Optional[str] = None
+
+
 class GameLibraryImportRequest(BaseModel):
     """
     Per-file input to the adapter's batch import.
@@ -284,6 +307,12 @@ class GameLibraryImportRequest(BaseModel):
       ``normalized_position`` row.
     - ``metadata``: typed metadata for the typed columns + the
       extras dict for ``metadata_extra``.
+    - ``source_path``: optional filesystem-relative path captured
+      at import time (typically the user's directory layout when
+      uploading via the SPA's directory picker). Lifted into
+      ``metadata_extra["source_path"]`` at INSERT. ``None`` when
+      the import came in without provenance (single-file upload,
+      drag-and-drop of a single file, curl client, etc.).
     """
     model_config = ConfigDict(frozen=True)
 
@@ -291,3 +320,4 @@ class GameLibraryImportRequest(BaseModel):
     canonical_content: str
     content_hash: bytes
     metadata: SgfMetadata
+    source_path: Optional[str] = None

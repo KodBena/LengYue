@@ -40,6 +40,7 @@ from api.dependencies import (
 from domain.auth import UserId
 from domain.errors import BatchTooLargeError
 from domain.game_library import (
+    GameImportInput,
     GameListFilter,
     GameListSort,
     GameListSortDirection,
@@ -58,9 +59,20 @@ router = APIRouter(prefix="/library", tags=["library"])
 
 
 class ImportGameItem(BaseModel):
-    """One SGF in a batch import request."""
+    """
+    One SGF in a batch import request.
+
+    ``source_path`` is an optional provenance field: the SPA's
+    directory-upload UX populates it from
+    ``File.webkitRelativePath`` so the user's on-disk organisation
+    (e.g., ``sgf_db/1980/1980-09-24.sgf``) survives into
+    ``metadata_extra["source_path"]``. Single-file uploads, curl
+    clients, and existing scripts can omit the field — the
+    backend stores nothing for it then.
+    """
     model_config = ConfigDict(frozen=True)
     raw_content: str
+    source_path: Optional[str] = None
 
 
 class ImportGamesRequest(BaseModel):
@@ -132,12 +144,18 @@ async def import_games(
       with larger collections chunk client-side.
     - 422: malformed request body (Pydantic validation).
     """
-    raws = [item.raw_content for item in body.games]
+    inputs = [
+        GameImportInput(
+            raw_content=item.raw_content,
+            source_path=item.source_path,
+        )
+        for item in body.games
+    ]
     try:
         async with db.begin():
             outcomes = await service.import_games(
                 user_id=user_id,
-                raw_contents=raws,
+                inputs=inputs,
             )
     except BatchTooLargeError as e:
         raise HTTPException(
