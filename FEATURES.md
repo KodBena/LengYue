@@ -341,6 +341,96 @@ A file-manager-style navigator alongside a card-tree chart.
   session, the current card paints orange so the user can see
   where they are in the deck's forest.
 
+## SGF library — the Library tab
+
+A first-class repository for the user's collection of SGF
+files: import a directory of games, browse them in a
+sortable / filterable table, preview the position on a
+scrubbable mini-board, open one on the active board for
+analysis or card creation.
+
+### Importing
+
+Three entry points, all converging on the same chunked-
+upload pipeline:
+
+- **Drag-and-drop** an SGF file or a folder of SGFs onto the
+  import zone at the top of the Library tab. The dropped
+  directory is walked recursively; non-`.sgf` files (READMEs,
+  `.DS_Store`, thumbnails) are filtered client-side.
+- **Pick files…** opens the native multi-select file picker.
+- **Pick directory…** opens the native directory picker.
+  Yields every `.sgf` under the chosen root with its
+  on-disk path preserved into the library entry's
+  `metadata_extra.source_path`, so a collection organised
+  by `sgf_db/1996/cho-vs-lee.sgf` keeps that lineage for
+  any future collection-grouping feature.
+
+Uploads chunk at 1000 files per request (matching the
+backend's per-request cap); progress shows "Reading N / M",
+then "Uploading chunk X / Y" with running counts of
+`created` / `deduplicated` / `errored` outcomes. Duplicate
+SGFs (same canonical content, same user) deduplicate at
+import — re-importing a folder is idempotent.
+
+### Browsing
+
+A master-detail layout: virtual-scrolled table on the left,
+preview pane on the right. The table renders at 25k+ rows
+without lag — only the visible window plus a small overscan
+is in the DOM at any time, with the rest occupying the
+scrollbar via a tall spacer.
+
+- **Sortable headers.** Click `Date`, `White`, `Black`,
+  `Result`, `Rules`, or `Size` to sort; click again to
+  reverse. Stable secondary sort on row id so ties don't
+  shuffle across pages.
+- **Player filters.** Two autocomplete inputs (one per
+  side); type a prefix and pick from the dropdown. The
+  cache is the distinct player set across the user's
+  library, frequency-ordered, fetched once at tab mount
+  and refreshed after imports.
+- **Click selects, double-click opens.** Click a row to
+  populate the preview pane; double-click to send the game
+  to the active board (passing through the shared
+  dirty-board guard — same modal + remembered preference
+  as Browse-mode card loads).
+
+### Preview pane
+
+Header carries player names + date + result + ruleset +
+board size. The mini-board renders via the same SVG
+renderer the card-tree thumbnails use. A scrub slider
+underneath traverses the main variation move by move —
+useful for quickly checking "does this game match what I
+thought it was" before opening it on a full board.
+
+Two action buttons:
+
+- **Open in board** routes through the dirty-board guard
+  (asks-or-honours-preference depending on
+  `navigation.actionOnDirtyBoard`), stamping the
+  library row's `client_game_id` onto the loaded board so
+  a subsequent card mint reuses the existing library row
+  via the backend's `get_or_create_game_source_by_client_id`
+  dedup — the library is the seed bed, not a parallel
+  namespace.
+- **Delete from library** removes the row; cards minted
+  from this game survive (cascade is `ON DELETE SET NULL`)
+  but lose the source link.
+
+### What's deferred
+
+- Player-name normalisation (Cho Chikun / 趙治勳 / Cho U
+  variants stay as raw strings; query-time normalisation
+  when it bites).
+- Collection / tag grouping at the library level (different
+  from card tags; absent until a concrete use case).
+- Full-text search on player names or descriptions (simple
+  LIKE filters suffice).
+
+Design rationale: `docs/notes/sgf-library-plan.md`.
+
 ## Power-user customisation
 
 The application's working philosophy is "transparent depth" —

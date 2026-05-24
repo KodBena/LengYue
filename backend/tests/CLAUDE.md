@@ -97,6 +97,11 @@ Existing fakes:
 - `FakeAnalysisBundleRepository` — satisfies
   `AnalysisBundleRepositoryPort`. Tracks per-user aggregate byte
   size for the atomic-quota path.
+- `FakeGameLibraryRepository` — satisfies
+  `GameLibraryRepositoryPort`. Tenant-scoped row store keyed by
+  `(user_id, content_hash)` for dedup; `_raise_on[content_hash]`
+  injects the SAVEPOINT-error path for batch-import isolation
+  tests.
 - `FakeStaticResourceRepository` — satisfies
   `StaticResourceRepositoryPort`. Backed by a `{name: content}`
   dict.

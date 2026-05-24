@@ -32,6 +32,7 @@ maintains.
 - [§6 — `/analysis-bundles` REST API](#6--analysis-bundles-rest-api) — backend ↔ SPA
 - [§7 — `_PROXY_ONLY_FIELDS` central wire-strip](#7--_proxy_only_fields-central-wire-strip) — invariant governing §1, §3, §5
 - [§8 — Future evolution: AsyncAPI](#8--future-evolution-asyncapi) — when this doc's discipline is no longer enough
+- [§9 — `/library` REST API](#9--library-rest-api) — backend ↔ SPA, SGF library
 
 ---
 
@@ -472,6 +473,100 @@ maintain separate parsers and can drift). When §8 lifts, §5.3
 becomes implementable without the SSOT risk — the diagnostic
 fields would be schema-defined and code-generated parallel to
 the production wire.
+
+---
+
+## §9 — `/library` REST API
+
+**Direction.** SPA ↔ backend, HTTP REST.
+
+**Authoritative source.** Producer-side (backend route
+definitions).
+
+- Producer (FastAPI routes):
+  `backend/api/routes/library.py`. Five endpoints:
+  ```
+  POST   /library/games/import   — batch import of raw SGFs
+  GET    /library/games          — paginated list with sort + filter + total count
+  GET    /library/games/{id}     — fetch one game including raw_content
+  DELETE /library/games/{id}     — delete one game
+  GET    /library/players        — distinct player-name set for SPA autocomplete
+  ```
+- Producer (Pydantic schemas):
+  Inline at the top of the route file per backend CLAUDE.md
+  ("inline at the route until a second consumer appears"). The
+  list-row / detail shapes reuse the domain value objects
+  `LibraryGameListItem` / `LibraryGame` directly as
+  `response_model` — those are the OpenAPI-published wire
+  shapes.
+- Producer (domain value objects):
+  `backend/domain/game_library.py`. Closed-vocabulary `GameListSort`
+  enum (per ADR-0008's classification discipline); discriminated
+  `ImportOutcome` union (`created` / `deduplicated` / `errored`)
+  with `status` as the dispatch field.
+- Consumer (SPA):
+  Not yet implemented at this section's authoring date. Will land
+  as a separate frontend arc; once shipped, the ACL boundary will
+  be `frontend/src/services/game-library-service.ts` (consistent
+  with the existing `analysis-persistence-service.ts` shape).
+- Generated TS type:
+  `frontend/src/types/backend.ts`. Will be regenerated via
+  `npm run gen:api` after backend ship.
+
+**Cross-boundary discipline.** Same generated-types pattern as
+§6 — FastAPI's OpenAPI emit is the SSOT, the SPA's ACL consumes
+the generated bindings. A backend wire-shape change produces
+TypeScript compile errors on the SPA side.
+
+**Pagination contract.** Random-walk-friendly `offset` + `limit`,
+not cursor. The choice was deliberate (cursors are forward-only
+and fight scrollbar-drag-to-arbitrary-row UX); design rationale
+in `docs/notes/sgf-library-plan.md`. Sort + filter changes reset
+`offset` to 0; the wire response carries `total_count` so the
+SPA's virtual scroll can size the scrollbar without seeing every
+row.
+
+**Column projection.** `GET /library/games` list rows exclude
+`raw_content` (the ~2 KB SGF body). The SPA fetches
+`raw_content` on demand via `GET /library/games/{id}` when a
+thumbnail needs to render. Prefetching N rows ahead of the scroll
+position is the SPA's concern, not the wire contract's.
+
+**Player autocomplete.** `GET /library/players` returns the
+deduplicated union of `player_white` and `player_black` across
+the caller's library, frequency-ordered (most common first;
+alphabetical ties). The SPA fetches once on Library tab mount,
+caches in memory, and runs autocomplete client-side against the
+in-memory list. Re-fetched after an import completes. The list
+is kept out of the persisted workspace document deliberately —
+workspace is for user-authored state; library player names are
+imported data.
+
+**Provenance via `source_path`.** `POST /library/games/import`
+accepts an optional `source_path` on each item — the SPA's
+directory-upload UX reads `File.webkitRelativePath` and forwards
+it so the user's on-disk layout (e.g.
+`sgf_db/1996/cho-vs-lee.sgf`) survives into
+`metadata_extra["source_path"]`. The lowercase key namespace
+deliberately avoids collision with uppercase SGF property keys
+(PB / PW / DT / KM / HA / …). Single-file uploads and curl
+clients omit the field; nothing is stored for those.
+
+**Per-file outcomes.** `POST /library/games/import` returns a
+discriminated outcome list rather than 4xx-on-any-failure: a
+batch with one malformed SGF among ten produces nine `created`
+outcomes and one `errored` outcome at the right index, with the
+HTTP status remaining 200. The adapter's SAVEPOINT-per-row
+isolation makes this honest at the SQL level.
+
+**Failure paths.**
+- 413 `{kind: "batch_too_large", received, maximum, ...}` when
+  the batch size exceeds `SGF_LIBRARY_IMPORT_BATCH_MAX`.
+- 422 on invalid sort column (Pydantic Literal validation), out-of-range
+  offset/limit, or malformed request body.
+- 404 on missing or cross-tenant detail/delete (404-not-403
+  invariant per `docs/notes/tenancy.md`).
+- 401 on missing/invalid bearer token (auth-spine).
 
 ---
 

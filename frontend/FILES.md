@@ -102,6 +102,13 @@ frontend/src/
 │   ├── knobs/                               Per-knob widgets for the knob-registry editor surfaces.
 │   │   └── KnobSlider.vue             [B1]  Unified scalar slider — substrate-aware read/write, claim-state disable (Phase 3b).
 │   │
+│   ├── library/                             SGF library surface: import + sortable table + preview pane.
+│   │   ├── LibraryImportPanel.vue     [B1]  Drag-drop + picker + progress UI for useLibraryImport.
+│   │   ├── LibraryPlayerFilter.vue    [B1]  Autocomplete input fed by useLibraryPlayerSuggest.
+│   │   ├── LibraryPreviewPane.vue     [B3]  Mini-board (via renderBoardToSvg) + scrubber + action buttons.
+│   │   ├── LibraryTab.vue             [B1]  Master-detail orchestrator wiring the four library composables.
+│   │   └── LibraryTable.vue           [B1]  Virtual-scrolled table with sortable headers; emits select / open / visible-range.
+│   │
 │   ├── qeubo/                               PBO (preference-based Bayesian optimisation) calibration UI surfaces. Code path retains the `qeubo` identifier (matches `useQeubo` / `qeubo-service.ts` / `/qeubo/*` routes); user-facing label is PBO.
 │   │   ├── QeuboBookmarks.vue         [B1]  Bookmark list (A/B candidates). Independent of experiment lifecycle.
 │   │   └── PboPopover.vue             [B1]  Toolbar hover popover — phase badge + audition toggle / verdict pair / apply / pin / debug. Consumes useHoverPopover.
@@ -142,7 +149,7 @@ frontend/src/
 │   ├── board/                                Board-surface composables. Mostly B3.
 │   │   ├── autonomous-srs.ts          [B3]  Policy/Driver/Recorder abstractions for the autonomous SRS loop.
 │   │   ├── useActivePath.ts           [B2]  NodeId lineage root → current node.
-│   │   ├── useDirtyBoardGuard.ts      [B3]  Dirty-board guard: confirm-load modal, SGF parse, navigate-to-leaf.
+│   │   ├── useDirtyBoardGuard.ts      [B3]  Dirty-board guard: confirm-load modal + SGF parse + navigate-to-leaf for cards AND library games.
 │   │   ├── use-move-suggestions.ts    [B3]  Refined intensity-mapping for KataGo move suggestions.
 │   │   ├── usePlayFromPosition.ts     [B3]  "Engine plays from here" — looped applyGoMove against a KataGo URL.
 │   │   ├── use-pv-animation.ts        [B3]  PV stone-sequence animation (window / instant / sequential modes).
@@ -167,6 +174,13 @@ frontend/src/
 │   │   ├── useForestNavigation.ts     [B2]  Tree-shaping for the file-manager-style navigator (games → roots).
 │   │   ├── useTreeExpansion.ts        [B2]  Variation-hiding expansion state; enforces "current-always-visible" invariant.
 │   │   └── useTreeLayout.ts           [B2]  Pluggable tree-layout composable (watchEffect-driven).
+│   │
+│   ├── library/                              SGF library surface composables.
+│   │   ├── useLibraryImport.ts        [B3]  File picker / directory picker / drag-drop with webkitGetAsEntry walk + chunked upload with progress.
+│   │   ├── useLibraryPlayerSuggest.ts [B1]  In-memory player-name autocomplete (frequency-ordered cache + substring filter).
+│   │   ├── useLibraryPreview.ts       [B3]  Selected-row state + lazy getGame + SGF parse + scrub navigation.
+│   │   ├── useLibraryQuery.ts         [B1]  Sparse-buffer pagination over /library/games with sort + filter + generation-counter race protection.
+│   │   └── useVirtualRowList.ts       [B1]  Tiny fixed-row-height virtual-scroll primitive (no deps; ~50 LOC).
 │   │
 │   ├── review/                               Spaced-repetition session.
 │   │   ├── useMinting.ts              [B3]  Mint flashcards from boards (Go-board → backend mint payload).
@@ -210,6 +224,7 @@ frontend/src/
 │   ├── analysis-service.ts            [B3]  Bridges KataGo turns to the ledger nodes.
 │   ├── api-client.ts                  [B1]  Pure REST client; JWT injection; zero-friction local auth.
 │   ├── backend-service.ts             [B2]  ACL for the backend; wire snake_case → domain camelCase with branded ids.
+│   ├── library-service.ts             [B1]  ACL for the /library endpoints; chunked import with progress callback.
 │   ├── optimize-f-cache.ts            [B3]  localStorage-backed per-(model, 50ms cadence-bucket) F* cache.
 │   ├── qeubo-service.ts               [B1]  ACL for qEUBO REST endpoints.
 │   ├── resource-service.ts            [B1]  Typed client for backend static resources.

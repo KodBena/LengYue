@@ -30,6 +30,7 @@ from api.routes import (
     cards,
     documents,
     forests,
+    library,
     lineage,
     resources,
     stats,
@@ -59,6 +60,7 @@ def _build_test_app(db: Database) -> FastAPI:
     app.include_router(cards.router)
     app.include_router(forests.router)
     app.include_router(documents.router)
+    app.include_router(library.router)
     app.include_router(lineage.router)
     app.include_router(resources.router)
     app.include_router(stats.router)

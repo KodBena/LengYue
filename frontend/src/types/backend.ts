@@ -311,6 +311,138 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/library/games/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Games
+         * @description Batch import of SGFs into the caller's games library.
+         *
+         *     Per-file outcomes (``created`` / ``deduplicated`` / ``errored``)
+         *     return in input order, regardless of mix — one malformed SGF in
+         *     the batch does not fail the batch (the adapter wraps each row in
+         *     a SAVEPOINT).
+         *
+         *     Failure paths surfaced as HTTP errors:
+         *
+         *     - 413 ``batch_too_large``: ``len(games)`` exceeds the configured
+         *       per-request cap (``SGF_LIBRARY_IMPORT_BATCH_MAX``). Clients
+         *       with larger collections chunk client-side.
+         *     - 422: malformed request body (Pydantic validation).
+         */
+        post: operations["import_games_library_games_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/library/games": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Games
+         * @description Paginated list of the caller's library games plus the total
+         *     match count under the same filter.
+         *
+         *     Sort column is validated against the closed Literal vocabulary
+         *     by FastAPI's Pydantic gateway (invalid values → 422); the
+         *     service layer asserts pagination bounds defensively. ``limit``
+         *     is capped at ``SGF_LIBRARY_LIST_LIMIT_MAX`` (currently 500).
+         *
+         *     ``raw_content`` is omitted from list rows — fetch via
+         *     ``GET /library/games/{id}`` when needed.
+         */
+        get: operations["list_games_library_games_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/library/games/{game_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Game
+         * @description Fetch one library game by id, including ``raw_content``.
+         *
+         *     404 if no row exists OR if it exists but belongs to a different
+         *     tenant (404-not-403 invariant).
+         */
+        get: operations["get_game_library_games__game_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Game
+         * @description Delete one library game by id.
+         *
+         *     Cascade behaviour on dependent ``card_source`` rows is
+         *     ``ON DELETE SET NULL`` (the existing schema clause): cards
+         *     minted from this game survive the delete with their
+         *     ``game_source_id`` nulled out. Cards retain their position via
+         *     ``normalized_position_id``; they just lose the source link.
+         *
+         *     404 if no row exists OR if it belongs to a different tenant —
+         *     the 404-not-403 invariant preserved with the service's boolean
+         *     return.
+         */
+        delete: operations["delete_game_library_games__game_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/library/players": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Players
+         * @description Distinct player-name set for the caller's library, ordered by
+         *     descending frequency.
+         *
+         *     The SPA fetches this once on Library-tab mount, caches in memory
+         *     (not in the persisted workspace document), and runs autocomplete
+         *     against the in-memory list as the user types into the
+         *     player_white / player_black filter inputs. Re-fetch after an
+         *     import completes.
+         *
+         *     Combined (white + black) rather than per-color: the slight
+         *     imprecision — suggesting a name that's only ever been black for
+         *     the player_white filter input — is cosmetic, and the
+         *     implementation is trivially simpler. Cardinality at typical
+         *     library size (~thousands of distinct names) makes the full list
+         *     cheap to ship in one go.
+         */
+        get: operations["list_players_library_players_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/lineage/resolve-roots": {
         parameters: {
             query?: never;
@@ -1260,6 +1392,105 @@ export interface components {
             /** Total Responses */
             total_responses: number;
         };
+        /**
+         * ImportGameItem
+         * @description One SGF in a batch import request.
+         *
+         *     ``source_path`` is an optional provenance field: the SPA's
+         *     directory-upload UX populates it from
+         *     ``File.webkitRelativePath`` so the user's on-disk organisation
+         *     (e.g., ``sgf_db/1980/1980-09-24.sgf``) survives into
+         *     ``metadata_extra["source_path"]``. Single-file uploads, curl
+         *     clients, and existing scripts can omit the field — the
+         *     backend stores nothing for it then.
+         */
+        ImportGameItem: {
+            /** Raw Content */
+            raw_content: string;
+            /** Source Path */
+            source_path?: string | null;
+        };
+        /**
+         * ImportGamesRequest
+         * @description Batch import request body.
+         */
+        ImportGamesRequest: {
+            /** Games */
+            games: components["schemas"]["ImportGameItem"][];
+        };
+        /**
+         * ImportGamesResponse
+         * @description Batch import response — per-file outcomes in input order.
+         *
+         *     Each entry is one of:
+         *       - ``{"status": "created", "game_id": N, "client_game_id": "..."}}``
+         *       - ``{"status": "deduplicated", "game_id": N, "client_game_id": "..."|null}}``
+         *       - ``{"status": "errored", "error": "..."}``
+         */
+        ImportGamesResponse: {
+            /** Outcomes */
+            outcomes: (components["schemas"]["ImportOutcomeCreated"] | components["schemas"]["ImportOutcomeDeduplicated"] | components["schemas"]["ImportOutcomeErrored"])[];
+        };
+        /**
+         * ImportOutcomeCreated
+         * @description A new game_source row was inserted for this SGF.
+         *
+         *     The ``client_game_id`` UUID is stamped at insertion time and
+         *     returned so the frontend can open the imported game as a board
+         *     without a follow-up ``GET /library/games/{id}`` round-trip — the
+         *     existing card-mint dedup path keys on the same UUID.
+         */
+        ImportOutcomeCreated: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            status: "created";
+            /** Game Id */
+            game_id: number;
+            /**
+             * Client Game Id
+             * Format: uuid
+             */
+            client_game_id: string;
+        };
+        /**
+         * ImportOutcomeDeduplicated
+         * @description The SGF normalized to a position already in the user's library;
+         *     the existing row's id is returned without inserting a duplicate.
+         *
+         *     ``client_game_id`` is the existing row's UUID, which may be
+         *     ``None`` for legacy rows that pre-date the dedup arc (rows
+         *     minted via the card flow before ``client_game_id`` rolled out).
+         *     The frontend handles None by falling back to ``game_id`` as
+         *     the row's identity.
+         */
+        ImportOutcomeDeduplicated: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            status: "deduplicated";
+            /** Game Id */
+            game_id: number;
+            /** Client Game Id */
+            client_game_id: string | null;
+        };
+        /**
+         * ImportOutcomeErrored
+         * @description The SGF failed to parse or otherwise produced a structured
+         *     error. The remaining files in the batch keep processing per
+         *     the SAVEPOINT-per-file isolation contract.
+         */
+        ImportOutcomeErrored: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            status: "errored";
+            /** Error */
+            error: string;
+        };
         /** IntersectSelection */
         IntersectSelection: {
             /**
@@ -1281,6 +1512,106 @@ export interface components {
             type: "LexicographicOrder";
             /** Keys */
             keys: (components["schemas"]["DepthKey"] | components["schemas"]["HeightKey"] | components["schemas"]["SubtreeSizeKey"] | components["schemas"]["HeavyPathRankKey"] | components["schemas"]["CentroidRankKey"] | components["schemas"]["NumReviewsKey"] | components["schemas"]["NumMovesKey"] | components["schemas"]["EbisuRecallKey"] | components["schemas"]["Negated"] | components["schemas"]["LexicographicOrder"] | components["schemas"]["WeightedSumOrder"] | components["schemas"]["BfsOrder"] | components["schemas"]["DfsPreorder"] | components["schemas"]["DfsPostorder"] | components["schemas"]["FringeFirst"] | components["schemas"]["CentroidOrder"] | components["schemas"]["MainLineFirst"])[];
+        };
+        /**
+         * LibraryGame
+         * @description Full library game row including ``raw_content``. The detail-view
+         *     shape returned by ``GET /library/games/{id}``.
+         *
+         *     ``metadata_extra`` is the JSON column's content — every SGF
+         *     property not lifted into a typed column. Typed as
+         *     ``Dict[str, Any]`` because the values are heterogeneous (some
+         *     SGF properties are lists, some are structured); the column
+         *     stores whatever the importer wrote.
+         */
+        LibraryGame: {
+            /** Id */
+            id: number;
+            /** Client Game Id */
+            client_game_id: string | null;
+            /** Player White */
+            player_white: string | null;
+            /** Player Black */
+            player_black: string | null;
+            /** Date */
+            date: string | null;
+            /** Result */
+            result: string | null;
+            /** Ruleset */
+            ruleset: string | null;
+            /** Board Size */
+            board_size: number | null;
+            /** Metadata Extra */
+            metadata_extra: {
+                [key: string]: unknown;
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Raw Content */
+            raw_content: string;
+        };
+        /**
+         * LibraryGameListItem
+         * @description Projection of a ``game_source`` row for the library list endpoint.
+         *
+         *     Excludes ``raw_content`` — the SGF body ships only via the detail
+         *     endpoint per the column-projection discipline. Includes
+         *     ``client_game_id`` so the frontend can open the row as a board
+         *     using the same identifier the existing card-mint dedup path
+         *     keys on.
+         */
+        LibraryGameListItem: {
+            /** Id */
+            id: number;
+            /** Client Game Id */
+            client_game_id: string | null;
+            /** Player White */
+            player_white: string | null;
+            /** Player Black */
+            player_black: string | null;
+            /** Date */
+            date: string | null;
+            /** Result */
+            result: string | null;
+            /** Ruleset */
+            ruleset: string | null;
+            /** Board Size */
+            board_size: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * ListGamesResponse
+         * @description Paginated list response.
+         */
+        ListGamesResponse: {
+            /** Rows */
+            rows: components["schemas"]["LibraryGameListItem"][];
+            /** Total Count */
+            total_count: number;
+        };
+        /**
+         * ListPlayersResponse
+         * @description Distinct-player-names + game-count response.
+         *
+         *     Each entry pairs a player's name with the number of games it
+         *     appears in (either colour) across the caller's library. The
+         *     list is the deduplicated union of ``player_white`` and
+         *     ``player_black`` values, ordered by descending frequency so
+         *     common players surface first in both the autocomplete dropdown
+         *     and the SPA's two-column player accordion. The SPA fetches
+         *     once on Library tab mount and re-fetches after an import
+         *     completes.
+         */
+        ListPlayersResponse: {
+            /** Players */
+            players: components["schemas"]["PlayerCount"][];
         };
         /**
          * MainLineFirst
@@ -1354,6 +1685,26 @@ export interface components {
             iteration: number;
             /** Reissued */
             reissued: boolean;
+        };
+        /**
+         * PlayerCount
+         * @description One row of the distinct-players-with-counts view.
+         *
+         *     The SPA renders the player list as a two-column accordion
+         *     (name + game count); ``count`` carries the precomputed
+         *     ``COUNT(*)`` from the repository so the frontend doesn't
+         *     need a second round-trip per name.
+         *
+         *     ``count`` semantics: number of games where this name appears
+         *     in EITHER the ``player_white`` OR ``player_black`` column.
+         *     A game where the same name plays both sides counts as 2 —
+         *     pathological in real Go but the natural union-sum reading.
+         */
+        PlayerCount: {
+            /** Name */
+            name: string;
+            /** Count */
+            count: number;
         };
         /** PreferenceRequest */
         PreferenceRequest: {
@@ -2099,6 +2450,164 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_games_library_games_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportGamesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportGamesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_games_library_games_get: {
+        parameters: {
+            query?: {
+                /** @description Column to sort by. Must be in the closed vocabulary. */
+                sort?: "created_at" | "date" | "player_white" | "player_black" | "result" | "ruleset" | "board_size";
+                /** @description Sort direction. */
+                direction?: "asc" | "desc";
+                /** @description Substring match against player_white OR player_black — any-color player filter. Composes (AND) with the per-color predicates below. */
+                player_like?: string | null;
+                player_white_like?: string | null;
+                player_black_like?: string | null;
+                date_from?: string | null;
+                date_to?: string | null;
+                result_eq?: string | null;
+                ruleset_eq?: string | null;
+                board_size_eq?: number | null;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListGamesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_game_library_games__game_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryGame"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_game_library_games__game_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_players_library_players_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListPlayersResponse"];
                 };
             };
         };

@@ -47,6 +47,7 @@ import MintCardModal    from './components/modals/MintCardModal.vue';
 import ConfirmLoadModal from './components/modals/ConfirmLoadModal.vue';
 import EngineMatchModal from './components/modals/EngineMatchModal.vue';
 import ForestDirectory  from './components/tree/ForestDirectory.vue';
+import LibraryTab       from './components/library/LibraryTab.vue';
 import SystemLogPanel   from './components/chrome/SystemLogPanel.vue';
 import RootErrorBoundary from './components/chrome/RootErrorBoundary.vue';
 import LocalePicker     from './components/chrome/LocalePicker.vue';
@@ -150,7 +151,7 @@ function handleUpdateKomi(newKomi: number) {
 }
 
 const confirmLoadModalRef = vueRef<InstanceType<typeof ConfirmLoadModal> | null>(null);
-const { handleLoadCard } = useDirtyBoardGuard(confirmLoadModalRef);
+const { handleLoadCard, handleLoadLibraryGame } = useDirtyBoardGuard(confirmLoadModalRef);
 
 const { startResize } = useResizablePanel();
 
@@ -165,6 +166,7 @@ const transientLogReveal = useTransientLogReveal();
 // renders `tab.label` directly; Vue's reactivity passes through the
 // prop, so a locale flip propagates without per-tab re-mounting.
 const controlTabs = computed(() => [
+  { id: 'library',  label: t('app.tabs.library')  },
   { id: 'cards',    label: t('app.tabs.cards')    },
   { id: 'settings', label: t('app.tabs.settings') },
   { id: 'analysis', label: t('app.tabs.analysis') },
@@ -378,6 +380,12 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
             :tabs="controlTabs"
             v-model="(store.session.ui.activeTab as string)"
           >
+
+            <template #library>
+              <div style="flex: 1; display: flex; min-height: 0; width: 100%;">
+                <LibraryTab @open-library-game="handleLoadLibraryGame" />
+              </div>
+            </template>
 
             <template #cards>
               <div style="flex: 1; display: flex; min-height: 0; width: 100%;">
