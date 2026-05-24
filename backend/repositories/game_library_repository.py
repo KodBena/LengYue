@@ -66,6 +66,21 @@ _SORT_COLUMNS = {
 }
 
 
+def _is_library_entry():
+    """
+    SQL predicate: row was imported via the library flow.
+
+    The `metadata_extra->>'imported_via'` key is stamped by
+    `_import_one` on every library insert; card-mint rows never
+    write it. The list and players endpoints both filter on this
+    so the shared `game_source` table only surfaces library
+    entries on the library surface. SQLAlchemy's JSON `[key]`
+    accessor compiles dialect-portably (``JSON_EXTRACT(...)`` on
+    SQLite, ``->>`` on Postgres) via ``.as_string()``.
+    """
+    return game_source.c.metadata_extra["imported_via"].as_string() == "library"
+
+
 class GameLibraryRepository(GameLibraryRepositoryPort):
     """
     Concrete adapter. Constructor takes only the session — same
@@ -134,9 +149,20 @@ class GameLibraryRepository(GameLibraryRepositoryPort):
         # ``source_path`` key — distinguished from uppercase SGF
         # property keys (KM, HA, EV, RO, …) so the namespaces don't
         # collide as future provenance fields are added.
+        #
+        # `imported_via="library"` is the provenance stamp that
+        # distinguishes library-import rows from card-mint rows in
+        # the shared `game_source` table. The list and players
+        # endpoints filter on this key so the library view shows
+        # entries the user imported via the library flow, not the
+        # ~4000 incidental card-mint rows the table also carries.
+        # `client_game_id` alone can't distinguish — the card-mint
+        # dedup arc also sets it on its rows — so a dedicated stamp
+        # in the forward-compat JSON extras is the cleanest cut.
         extras = dict(req.metadata.extras)
         if req.source_path is not None:
             extras["source_path"] = req.source_path
+        extras["imported_via"] = "library"
         new_uuid = uuid4()
         stmt = (
             insert(game_source)
@@ -225,9 +251,14 @@ class GameLibraryRepository(GameLibraryRepositoryPort):
         )
 
         # Compose filter predicates conditionally; absent predicates
-        # don't contribute a WHERE term. Tenancy filter is always
-        # present.
-        where_terms = [game_source.c.user_id == user_id]
+        # don't contribute a WHERE term. Tenancy filter and the
+        # library-provenance filter are always present — the table
+        # is shared with card-mint and we only want library entries
+        # here. See `_import_one` for the `imported_via` stamp.
+        where_terms = [
+            game_source.c.user_id == user_id,
+            _is_library_entry(),
+        ]
         if filt.player_white_like is not None:
             where_terms.append(
                 game_source.c.player_white.like(f"%{filt.player_white_like}%")
@@ -366,6 +397,7 @@ class GameLibraryRepository(GameLibraryRepositoryPort):
             stmt = (
                 select(col, func.count())
                 .where(game_source.c.user_id == user_id)
+                .where(_is_library_entry())
                 .where(col.isnot(None))
                 .where(col != "")
                 .group_by(col)

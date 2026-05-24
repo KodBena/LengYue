@@ -365,7 +365,15 @@ async def test_get_game_carries_metadata_extra(async_session):
     )
     game = await repo.get_game(user_id=ALICE, game_id=outcomes[0].game_id)
     assert game is not None
-    assert game.metadata_extra == {"KM": "6.5", "HA": "0", "EV": "Test"}
+    # The repository stamps `imported_via=library` on every library
+    # import so the list endpoint can distinguish library entries
+    # from card-mint rows in the shared `game_source` table; see
+    # `_import_one` for the stamp and `_is_library_entry()` for the
+    # consuming predicate.
+    assert game.metadata_extra == {
+        "KM": "6.5", "HA": "0", "EV": "Test",
+        "imported_via": "library",
+    }
 
 
 # ─── delete_game: tenancy ────────────────────────────────────────────────────
