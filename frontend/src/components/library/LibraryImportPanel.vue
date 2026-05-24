@@ -91,8 +91,7 @@ function onDragOver(ev: DragEvent): void {
   padding: var(--space-medium);
   border: 2px dashed var(--border-subtle);
   border-radius: var(--radius-default);
-  background: var(--surface-2);
-  transition: border-color 0.15s, background 0.15s;
+  background: var(--surface-0);
 }
 .library-import-panel.is-active {
   border-style: solid;
@@ -100,7 +99,6 @@ function onDragOver(ev: DragEvent): void {
 }
 .library-import-panel:hover:not(.is-active) {
   border-color: var(--accent-primary);
-  background: var(--surface-1);
 }
 .import-hint {
   margin: 0;
@@ -114,7 +112,7 @@ function onDragOver(ev: DragEvent): void {
 .import-btn {
   padding: var(--space-tiny) var(--space-small);
   font-size: var(--text-body);
-  background: var(--surface-1);
+  background: var(--surface-0);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-default);
   color: var(--text-default);

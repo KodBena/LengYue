@@ -126,17 +126,33 @@ function onRowDblclick(idx: number): void {
   const row = props.rowAt(idx);
   if (row) emit('open', row);
 }
+
+// Native-title tooltip on each row — shows every column the
+// rendered grid drops (Ruleset, Size) plus the truncated bits of
+// the visible columns. Long player names that ellipsis off in the
+// row stay readable on hover this way. Empty fields render as
+// `—` to keep the layout legible.
+function rowTitle(idx: number): string {
+  const r = props.rowAt(idx);
+  if (!r) return '';
+  return [
+    `Black:  ${r.playerBlack ?? '—'}`,
+    `White:  ${r.playerWhite ?? '—'}`,
+    `Date:   ${r.date ?? '—'}`,
+    `Result: ${r.result ?? '—'}`,
+    `Rules:  ${r.ruleset ?? '—'}`,
+    `Size:   ${r.boardSize ?? '—'}`,
+  ].join('\n');
+}
 </script>
 
 <template>
   <div class="library-table">
     <div class="library-table-header">
-      <button class="th col-date" @click="onHeaderClick('date')">Date{{ sortIndicator('date') }}</button>
-      <button class="th col-player" @click="onHeaderClick('playerWhite')">White{{ sortIndicator('playerWhite') }}</button>
       <button class="th col-player" @click="onHeaderClick('playerBlack')">Black{{ sortIndicator('playerBlack') }}</button>
+      <button class="th col-player" @click="onHeaderClick('playerWhite')">White{{ sortIndicator('playerWhite') }}</button>
+      <button class="th col-date" @click="onHeaderClick('date')">Date{{ sortIndicator('date') }}</button>
       <button class="th col-result" @click="onHeaderClick('result')">Result{{ sortIndicator('result') }}</button>
-      <button class="th col-ruleset" @click="onHeaderClick('ruleset')">Rules{{ sortIndicator('ruleset') }}</button>
-      <button class="th col-size" @click="onHeaderClick('boardSize')">Size{{ sortIndicator('boardSize') }}</button>
     </div>
     <div ref="scrollContainer" class="library-table-scroll">
       <div
@@ -165,16 +181,15 @@ function onRowDblclick(idx: number): void {
               selected: rowAt(i)?.id === selectedId,
             }"
             :style="{ height: ROW_HEIGHT_PX + 'px' }"
+            :title="rowTitle(i)"
             @click="onRowClick(i)"
             @dblclick="onRowDblclick(i)"
           >
             <template v-if="rowAt(i)">
-              <span class="td col-date">{{ rowAt(i)?.date ?? '—' }}</span>
-              <span class="td col-player">{{ rowAt(i)?.playerWhite ?? '—' }}</span>
               <span class="td col-player">{{ rowAt(i)?.playerBlack ?? '—' }}</span>
+              <span class="td col-player">{{ rowAt(i)?.playerWhite ?? '—' }}</span>
+              <span class="td col-date">{{ rowAt(i)?.date ?? '—' }}</span>
               <span class="td col-result">{{ rowAt(i)?.result ?? '—' }}</span>
-              <span class="td col-ruleset">{{ rowAt(i)?.ruleset ?? '—' }}</span>
-              <span class="td col-size">{{ rowAt(i)?.boardSize ?? '—' }}</span>
             </template>
             <template v-else>
               <span class="td loading-cell" style="grid-column: 1 / -1;">…</span>
@@ -192,11 +207,14 @@ function onRowDblclick(idx: number): void {
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  background: var(--surface-1);
+  background: var(--surface-0);
 }
 .library-table-header {
   display: grid;
-  grid-template-columns: 110px 1fr 1fr 80px 90px 60px;
+  /* Black, White, Date, Result. The two player columns grow
+     equally with the available width; Date and Result are
+     fixed so player names get the maximum room. */
+  grid-template-columns: 1fr 1fr 110px 80px;
   gap: var(--space-tiny);
   padding: var(--space-tiny) var(--space-small);
   background: var(--surface-2);
@@ -229,7 +247,7 @@ function onRowDblclick(idx: number): void {
 }
 .library-row {
   display: grid;
-  grid-template-columns: 110px 1fr 1fr 80px 90px 60px;
+  grid-template-columns: 1fr 1fr 110px 80px;
   gap: var(--space-tiny);
   padding: 0 var(--space-small);
   font-size: var(--text-body);

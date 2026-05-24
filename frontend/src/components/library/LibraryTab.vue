@@ -72,6 +72,17 @@ function onOpenFromPreview(): void {
   if (game !== null) emit('open-library-game', game);
 }
 
+// Click a player chip in the "All players" accordion → fill the
+// White filter input with that name. The accordion is meant for
+// "I want to look at all of X's games"; defaulting to White (and
+// leaving the Black filter alone) means a follow-up click into
+// the Black filter or a `LibraryPlayerFilter` retype is a single
+// extra action when the user wants Black-side filtering. The
+// disclosure stays open after the click — the user folds it
+// manually per their stated workflow.
+function onPlayerChipClick(name: string): void {
+  query.filter.playerWhiteLike = name;
+}
 </script>
 
 <template>
@@ -94,6 +105,20 @@ function onOpenFromPreview(): void {
         :suggest="suggest.suggest"
       />
     </div>
+
+    <details class="library-players">
+      <summary class="library-players-summary">
+        All players ({{ suggest.players.value?.length ?? 0 }})
+      </summary>
+      <div v-if="suggest.players.value" class="library-players-list">
+        <button
+          v-for="name in suggest.players.value"
+          :key="name"
+          class="library-player-chip"
+          @click="onPlayerChipClick(name)"
+        >{{ name }}</button>
+      </div>
+    </details>
 
     <div class="library-split">
       <div class="library-split-list">
@@ -144,6 +169,57 @@ function onOpenFromPreview(): void {
   grid-template-columns: 1fr 1fr;
   gap: var(--space-small);
   flex: 0 0 auto;
+}
+
+.library-players {
+  flex: 0 0 auto;
+  background: var(--surface-0);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-default);
+}
+.library-players-summary {
+  cursor: pointer;
+  padding: var(--space-tiny) var(--space-small);
+  font-size: var(--text-small);
+  color: var(--text-muted);
+  list-style: none;
+  user-select: none;
+}
+.library-players-summary::-webkit-details-marker { display: none; }
+.library-players-summary::before {
+  content: '▶';
+  display: inline-block;
+  margin-right: var(--space-small);
+  font-size: var(--text-tiny);
+}
+.library-players[open] .library-players-summary::before {
+  content: '▼';
+}
+.library-players-list {
+  padding: var(--space-tiny) var(--space-small) var(--space-small);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-tiny);
+  /* magic-literal: 180px max-height — ~6 rows of chips before the
+     internal scrollbar kicks in. Tuned so the accordion-open
+     state doesn't dominate the library-tab vertical budget; the
+     scroll inside the accordion picks up the slack for larger
+     libraries (hundreds of distinct names). */
+  max-height: 180px;
+  overflow-y: auto;
+}
+.library-player-chip {
+  padding: 2px var(--space-small);
+  font-size: var(--text-small);
+  background: var(--surface-1);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-default);
+  color: var(--text-default);
+  cursor: pointer;
+}
+.library-player-chip:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
 }
 .library-split {
   flex: 1 1 0;

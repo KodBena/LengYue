@@ -94,8 +94,8 @@ function onBlur(): void {
 .filter-input {
   padding: var(--space-tiny) var(--space-small);
   font-size: var(--text-body);
-  background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  background: var(--surface-0);
+  border: 1px solid var(--border-2);
   border-radius: var(--radius-default);
   color: var(--text-default);
 }
