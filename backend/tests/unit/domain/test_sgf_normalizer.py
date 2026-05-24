@@ -70,16 +70,18 @@ def test_normalize_sgf_main_line_collapses_variations():
 
 
 def test_normalize_sgf_extracts_pw_pb_metadata():
-    """PB and PW round-trip into the meta side-band."""
+    """PB and PW round-trip into the meta side-band (legacy keys)."""
     raw = "(;FF[4]SZ[19]PW[Alice]PB[Bob];B[pd];W[dp])"
     result = normalize_sgf(raw)
-    assert result["meta"] == {"white": "Alice", "black": "Bob"}
+    assert result["meta"]["white"] == "Alice"
+    assert result["meta"]["black"] == "Bob"
 
 
 def test_normalize_sgf_missing_pw_pb_defaults_to_unknown():
-    """Empty player metadata maps to 'Unknown' rather than raising."""
+    """Empty player metadata maps to 'Unknown' on the legacy keys."""
     result = normalize_sgf("(;FF[4]SZ[19];B[pd];W[dp])")
-    assert result["meta"] == {"white": "Unknown", "black": "Unknown"}
+    assert result["meta"]["white"] == "Unknown"
+    assert result["meta"]["black"] == "Unknown"
 
 
 def test_normalize_sgf_hash_is_sha256_of_content():
@@ -163,7 +165,8 @@ def test_sgf_normalizer_translates_dict_to_dto():
 
     assert out.canonical_content
     assert isinstance(out.content_hash, bytes)
-    assert out.metadata == {"white": "Alice", "black": "Bob"}
+    assert out.metadata["white"] == "Alice"
+    assert out.metadata["black"] == "Bob"
 
 
 def test_sgf_normalizer_propagates_value_error():

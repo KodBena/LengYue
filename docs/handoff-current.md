@@ -359,6 +359,25 @@ single-machine deployment this works well; for multi-region or
 read-replica topologies, Alembic-equivalent tooling becomes
 worthwhile.
 
+**The SGF library surface ships backend-side.** Backend half of
+the SGF-library arc (design note:
+`docs/notes/sgf-library-plan.md`) extends `game_source` to be a
+first-class games repository, not only a card-mint side-effect.
+Six new columns on `game_source` (`created_at`, `date`,
+`result`, `ruleset`, `board_size`, `metadata_extra`); eight new
+compound `(user_id, sort_col, id)` indexes supporting paginated
+list with stable secondary sort. The seventh Port,
+`GameLibraryRepositoryPort`, lives at
+`repositories/game_library_repository.py`; the
+`GameLibraryService` use case orchestrates batch import with
+SAVEPOINT-per-file isolation. Four REST endpoints at
+`api/routes/games.py`: `POST /games/import`, `GET /games`,
+`GET /games/{id}`, `DELETE /games/{id}`. Pagination is offset +
+limit with `total_count` in the response — chosen over cursor
+because cursors are forward-only and the surface's random-walk
+UX requires arbitrary-row jumps. Frontend consumption is queued
+as a separate arc.
+
 ### Known gaps (backend)
 
 - *(retired 2026-05-12)* ~~`domain/tag_dsl.py` is structurally

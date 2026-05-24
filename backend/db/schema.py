@@ -107,6 +107,34 @@ normalized_position = Table(
 # Existing installs must run
 # scripts/migrate_add_client_game_id_to_game_source.py before
 # pulling this schema.
+#
+# SGF library arc: created_at + the typed metadata columns
+# (date, result, ruleset, board_size) plus the metadata_extra
+# JSON column extend game_source to serve as a first-class games
+# library, not only a card-mint side-effect. The typed columns
+# are the ones the list view sorts and filters on; metadata_extra
+# is the forward-compat lever absorbing every SGF property that
+# isn't (yet) sort-worthy (komi, handicap, time controls, event
+# name, round number, every other SGF property). The rule for
+# promoting a property from extras to a typed column: when the
+# list view wants to sort or filter on it.
+#
+# created_at is server_default=now() and effectively non-null at
+# runtime — every insert path gets a default. The column is
+# declared nullable (matching card.creation_date) so existing
+# rows backfill cleanly without ALTER COLUMN SET NOT NULL, which
+# SQLite doesn't support.
+#
+# Per ADR-0008's classification discipline: the typed columns
+# (date, result, ruleset, board_size, player_white, player_black)
+# are Band-1-portable — chess has all the same shapes. Komi and
+# handicap are Go-specific and live in metadata_extra for that
+# reason. A Chess adoption populates the same typed columns from
+# PGN's tag pairs without schema change.
+#
+# Existing installs must run
+# scripts/migrate_add_sgf_library_columns.py before pulling this
+# schema. Design rationale at docs/notes/sgf-library-plan.md.
 game_source = Table(
     "game_source", metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
@@ -116,7 +144,13 @@ game_source = Table(
     Column("player_black", String, nullable=True),
     Column("raw_content", String, nullable=True),
     Column("description", String, nullable=True),
-    Column("client_game_id", Uuid, nullable=True)
+    Column("client_game_id", Uuid, nullable=True),
+    Column("created_at", DateTime(timezone=True), server_default=func.now()),
+    Column("date", String, nullable=True),
+    Column("result", String, nullable=True),
+    Column("ruleset", String, nullable=True),
+    Column("board_size", Integer, nullable=True),
+    Column("metadata_extra", JSON, nullable=True),
 )
 
 # Game-source dedup: partial unique index on (user_id, client_game_id) where
@@ -133,6 +167,71 @@ Index(
     unique=True,
     sqlite_where=game_source.c.client_game_id.isnot(None),
     postgresql_where=game_source.c.client_game_id.isnot(None),
+)
+
+# SGF library arc: compound `(user_id, sort_col, id)` indexes.
+#
+# Every library list query filters on user_id (per the tenancy
+# spine's 404-not-403 invariant) then sorts on one of the
+# typed columns with `id` as the deterministic tiebreaker. The
+# leading user_id makes the index a perfect covering scan for
+# the list query — no sort, no per-row filter, just an index
+# range scan bounded by limit + offset.
+#
+# The (user_id, position_id) index supports the library
+# service's dedup check (`SELECT id FROM game_source WHERE
+# user_id = :user AND position_id = :pos`) without a sequential
+# scan. Non-unique because the existing card-mint flow can
+# produce multiple game_source rows for one (user_id,
+# position_id) when two distinct boards loaded the same SGF
+# pre-dedup; only client_game_id-based dedup is enforced at
+# the DB level.
+Index(
+    "ix_game_source_user_position",
+    game_source.c.user_id,
+    game_source.c.position_id,
+)
+Index(
+    "ix_game_source_user_created_at_id",
+    game_source.c.user_id,
+    game_source.c.created_at,
+    game_source.c.id,
+)
+Index(
+    "ix_game_source_user_date_id",
+    game_source.c.user_id,
+    game_source.c.date,
+    game_source.c.id,
+)
+Index(
+    "ix_game_source_user_player_white_id",
+    game_source.c.user_id,
+    game_source.c.player_white,
+    game_source.c.id,
+)
+Index(
+    "ix_game_source_user_player_black_id",
+    game_source.c.user_id,
+    game_source.c.player_black,
+    game_source.c.id,
+)
+Index(
+    "ix_game_source_user_result_id",
+    game_source.c.user_id,
+    game_source.c.result,
+    game_source.c.id,
+)
+Index(
+    "ix_game_source_user_ruleset_id",
+    game_source.c.user_id,
+    game_source.c.ruleset,
+    game_source.c.id,
+)
+Index(
+    "ix_game_source_user_board_size_id",
+    game_source.c.user_id,
+    game_source.c.board_size,
+    game_source.c.id,
 )
 
 # 4. Cards

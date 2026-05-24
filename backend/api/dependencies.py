@@ -28,11 +28,13 @@ from domain.resource import StaticResourceRepositoryPort
 from domain.sgf_normalizer import SgfNormalizer
 from repositories.analysis_bundle_repository import AnalysisBundleRepository
 from repositories.card_repository import CardRepository
+from repositories.game_library_repository import GameLibraryRepository
 from repositories.lineage_repository import LineageRepository
 from repositories.ports import (
     AnalysisBundleRepositoryPort,
     CardRepositoryPort,
     CardWriteRepositoryPort,
+    GameLibraryRepositoryPort,
     LineageRepositoryPort,
     StatsRepositoryPort,
     TagFilterRepositoryPort,
@@ -42,6 +44,7 @@ from repositories.stats_repository import StatsRepository
 from repositories.tag_filter_repository import TagFilterRepository
 from services.analysis_bundle_service import AnalysisBundleService
 from services.card_service import CardService
+from services.game_library_service import GameLibraryService
 from services.resource_service import ResourceService
 from services.review_service import ReviewService
 from services.stats_service import StatsService
@@ -328,4 +331,34 @@ async def get_analysis_bundle_service(
     return AnalysisBundleService(
         repository=repo,
         bundle_max_bytes=config.ANALYSIS_PERSISTENCE_BUNDLE_MAX_BYTES,
+    )
+
+
+async def get_game_library_repo(
+    db: AsyncSession = Depends(get_db),
+) -> GameLibraryRepositoryPort:
+    """Construct the SQLAlchemy adapter for the SGF library."""
+    return GameLibraryRepository(db)
+
+
+async def get_game_library_service(
+    repo: GameLibraryRepositoryPort = Depends(get_game_library_repo),
+    normalizer: PositionNormalizerPort = Depends(get_position_normalizer),
+) -> GameLibraryService:
+    """
+    Compose the library Port + the existing SGF normalizer into the
+    use case, with the batch-import cap and the list-limit cap
+    threaded from config.
+
+    The normalizer is shared with ``CardService`` — same stateless
+    ``SgfNormalizer`` instance per request. The library service
+    doesn't extend the normalizer's contract; it consumes the same
+    ``meta`` dict, projecting it onto the typed metadata bundle at
+    its own boundary.
+    """
+    return GameLibraryService(
+        repository=repo,
+        normalizer=normalizer,
+        import_batch_max=config.SGF_LIBRARY_IMPORT_BATCH_MAX,
+        list_limit_max=config.SGF_LIBRARY_LIST_LIMIT_MAX,
     )

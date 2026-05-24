@@ -24,7 +24,7 @@ from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from sqlalchemy.engine.url import make_url  # noqa: E402
 
-from api.routes import analysis_bundles, auth, cards, documents, forests, lineage, qeubo, resources, stats  # noqa: E402
+from api.routes import analysis_bundles, auth, cards, documents, forests, games, lineage, qeubo, resources, stats  # noqa: E402
 from core.config import config  # noqa: E402
 from core.database import Database  # noqa: E402
 from db.schema import metadata  # noqa: E402
@@ -154,6 +154,7 @@ app.include_router(auth.router)
 app.include_router(cards.router)
 app.include_router(forests.router)
 app.include_router(documents.router)
+app.include_router(games.router)
 app.include_router(lineage.router)
 app.include_router(qeubo.router)
 app.include_router(resources.router)

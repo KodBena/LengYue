@@ -28,6 +28,7 @@ License: Public Domain (The Unlicense)
 """
 from tests.fakes.analysis_bundle_repository import FakeAnalysisBundleRepository
 from tests.fakes.card_repository import FakeCardRepository
+from tests.fakes.game_library_repository import FakeGameLibraryRepository
 from tests.fakes.lineage_repository import FakeLineageRepository
 from tests.fakes.normalizer import FakeNormalizer
 from tests.fakes.resource_repository import FakeStaticResourceRepository
@@ -37,6 +38,7 @@ from tests.fakes.tag_filter_repository import FakeTagFilterRepository
 __all__ = [
     "FakeAnalysisBundleRepository",
     "FakeCardRepository",
+    "FakeGameLibraryRepository",
     "FakeLineageRepository",
     "FakeNormalizer",
     "FakeStaticResourceRepository",

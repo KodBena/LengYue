@@ -341,6 +341,55 @@ A file-manager-style navigator alongside a card-tree chart.
   session, the current card paints orange so the user can see
   where they are in the deck's forest.
 
+## SGF library `[partial]`
+
+A relational repository for the user's collection of SGF files.
+The backend half ships as part of this arc; the SPA-side
+browseable list with sortable headers, filter inputs, and
+thumbnail preview pane is queued behind the frontend
+consumption arc.
+
+**What it does.** A user with a collection of SGF files
+(personal play, professional games, problem sets) imports them
+in batches and browses them in a list-with-preview UX
+reminiscent of a tab-manager or relational-DB front-end. Each
+row carries the SGF's typed metadata — players, date, result,
+ruleset, board size — and click-to-preview pulls the full SGF
+for thumbnail rendering. Sort by any column header; filter on
+player names, date range, result, ruleset, board size.
+
+**Card creation from library entries.** Opening a library game
+on a board carries its `client_game_id` through; subsequent
+card mints from that board dedup against the existing library
+row rather than creating a parallel entry. The library is the
+seed bed, not a parallel namespace.
+
+**What's in scope.**
+
+- Backend: schema additions to `game_source` for the typed
+  metadata columns (`date`, `result`, `ruleset`, `board_size`)
+  plus a `metadata_extra` JSON column for every other SGF
+  property; four REST endpoints (`POST /games/import`,
+  `GET /games`, `GET /games/{id}`, `DELETE /games/{id}`) with
+  pagination, sort, filter, and per-user dedup.
+- Frontend (queued): the list view, the preview pane, the
+  filter / sort UX. Virtual scrolling for collections sized
+  in the tens of thousands.
+
+**What's deferred.**
+
+- Player-name normalisation (Cho Chikun / 趙治勳 / Cho U
+  variants stay as raw strings; query-time normalisation when
+  it bites).
+- Collection / tag grouping at the library level (different
+  from card tags; absent until needed).
+- Full-text search on player names or descriptions (simple
+  LIKE filters suffice).
+- "Unknown"-fallback unification across card-mint and
+  library-import flows.
+
+Design rationale: `docs/notes/sgf-library-plan.md`.
+
 ## Power-user customisation
 
 The application's working philosophy is "transparent depth" —

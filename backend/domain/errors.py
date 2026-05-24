@@ -15,6 +15,7 @@ Three-axis structure:
     │   └── LineageOverflowError   "tree exceeds caller-supplied node cap"
     ├── ResourceLimitError         "the request would exceed a resource limit"
     │   ├── BundleTooLargeError
+    │   ├── BatchTooLargeError
     │   └── UserQuotaExceededError
     └── UnknownSchemeError         "a stored row carries an unrecognised codec scheme"
 
@@ -137,6 +138,28 @@ class BundleTooLargeError(ResourceLimitError):
         super().__init__(
             f"analysis bundle exceeds per-bundle cap "
             f"(request_bytes={request_bytes}, cap_bytes={cap_bytes})"
+        )
+
+
+class BatchTooLargeError(ResourceLimitError):
+    """A batch-import request exceeds the configured per-request cap.
+
+    Raised by `GameLibraryService.import_games` when
+    `len(raw_contents) > config.SGF_LIBRARY_IMPORT_BATCH_MAX`. The
+    route projects this to 413 with body
+    `{kind: "batch_too_large", detail, received, maximum}`.
+
+    Clients with larger collections chunk the import client-side;
+    the operation is idempotent on `(user_id, position_id)` so a
+    re-chunked retry is safe.
+    """
+
+    def __init__(self, *, received: int, maximum: int):
+        self.received = received
+        self.maximum = maximum
+        super().__init__(
+            f"import batch exceeds per-request cap "
+            f"(received={received}, maximum={maximum})"
         )
 
 

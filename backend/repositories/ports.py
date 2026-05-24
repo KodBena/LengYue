@@ -43,7 +43,18 @@ from uuid import UUID
 from domain.analysis_bundle import AnalysisBundle, AnalysisBundleSummary
 from domain.auth import UserId
 from domain.card import Card
+from domain.game_library import (
+    GameLibraryImportRequest,
+    GameListFilter,
+    GameListSort,
+    GameListSortDirection,
+    ImportOutcome,
+    LibraryGame,
+    LibraryGameListItem,
+    SgfMetadata,
+)
 from domain.lineage import RootedTree, RootResolution
+from domain.normalizer import NormalizedPosition
 from domain.pipeline_dsl import BaseSelection
 from domain.stats import ForestMemberRow
 from domain.tree_engine import CardNode
@@ -693,5 +704,172 @@ class AnalysisBundleRepositoryPort(Protocol):
 
         Tenancy: WHERE clause filters on `user_id` — the caller
         cannot observe other tenants' bundle metadata.
+        """
+        ...
+
+
+class GameLibraryRepositoryPort(Protocol):
+    """
+    The games-library contract. GameLibraryService depends on this.
+
+    Introduced for the SGF-library arc (see
+    ``docs/notes/sgf-library-plan.md``). Four methods: batch import,
+    list with sort + filter + offset + limit + total count, single-game
+    detail fetch, single-game delete. All tenant-scoped — the
+    ``user_id`` parameter is non-optional on every method and filters
+    every WHERE clause to preserve the codebase's 404-not-403
+    invariant.
+
+    The Port is separate from ``CardWriteRepositoryPort`` rather than
+    a method-set extension: the read operations (``list_games``,
+    ``get_game``) are not card-write concerns, and the library's
+    consumer (``GameLibraryService``) is a distinct use case from
+    ``CardService``. Per the project's pattern, a Port per concern
+    even when the underlying table is shared.
+    """
+
+    async def import_games(
+        self,
+        *,
+        user_id: UserId,
+        requests: List[GameLibraryImportRequest],
+    ) -> List[ImportOutcome]:
+        """
+        Insert a batch of pre-normalized SGFs as library entries.
+
+        The adapter wraps each per-file write in a SAVEPOINT
+        (``session.begin_nested()``); a per-row failure rolls back
+        only that SAVEPOINT, not the surrounding batch transaction.
+        The returned list is in the same order as ``requests`` — index
+        N of the outcomes list corresponds to index N of the input.
+
+        Per-file behaviour:
+
+        - Resolve or create the ``normalized_position`` row via
+          content_hash dedup (the existing global dedup chain that
+          ``get_or_create_position`` services for cards).
+        - Look up ``(user_id, position_id)`` in ``game_source``. If a
+          row already exists, return ``ImportOutcomeDeduplicated`` with
+          that row's id and ``client_game_id`` (which may be ``None``
+          for legacy rows that pre-date the dedup arc). The existing
+          row's metadata is preserved as-is — first-mint-wins,
+          consistent with ``get_or_create_game_source_by_client_id``.
+        - Otherwise, INSERT a new ``game_source`` row with a freshly
+          generated ``client_game_id`` UUID, the typed metadata
+          columns populated from ``request.metadata``, the JSON
+          ``metadata_extra`` populated from ``request.metadata.extras``,
+          and ``created_at`` set by the column default. Return
+          ``ImportOutcomeCreated`` with the new id and UUID.
+        - If the per-row write raises (unique constraint, dialect
+          oddity, anything else), the SAVEPOINT rolls back and the
+          outcome is ``ImportOutcomeErrored`` carrying the error
+          string. The batch continues with the next file.
+
+        Tenancy: every WHERE clause filters on ``user_id``. The
+        per-user dedup index ``ix_game_source_user_position``
+        supports the existence check without a sequential scan.
+
+        Empty ``requests`` returns an empty list.
+        """
+        ...
+
+    async def list_games(
+        self,
+        *,
+        user_id: UserId,
+        sort: GameListSort,
+        direction: GameListSortDirection,
+        filt: GameListFilter,
+        offset: int,
+        limit: int,
+    ) -> Tuple[List[LibraryGameListItem], int]:
+        """
+        Paginated list of the caller's library games, plus the total
+        match count under the same filter.
+
+        The returned tuple is ``(rows, total_count)``. ``rows`` is the
+        page (length up to ``limit``); ``total_count`` is the number
+        of rows matching the filter regardless of pagination — what
+        the SPA needs to size the virtual scroll's scrollbar without
+        having seen every row.
+
+        Sort handling:
+
+        - The ``sort`` column comes from a closed Literal vocabulary
+          (validated at the route boundary; the adapter trusts the
+          input). A compound index ``(user_id, sort_col, id)`` exists
+          for every sort column.
+        - ``direction`` is ``"asc"`` or ``"desc"``. The secondary sort
+          is always ``id`` in the same direction — sort determinism
+          across pages.
+        - Rows with NULL in the sort column sort to the end on ``asc``,
+          the start on ``desc`` (the dialect default ordering for
+          NULLs varies; the adapter is responsible for normalizing).
+
+        Filter handling:
+
+        - Predicates compose into the WHERE clause; absent predicates
+          don't constrain the query.
+        - ``player_white_like`` / ``player_black_like``: substring
+          match (``LIKE '%val%'``).
+        - ``date_from`` / ``date_to``: lexicographic comparison on the
+          ``date`` string.
+        - ``result_eq`` / ``ruleset_eq`` / ``board_size_eq``: exact
+          match.
+
+        Column projection: the returned rows exclude ``raw_content``.
+        The detail endpoint ships SGF bodies one row at a time per
+        the column-projection discipline (``raw_content`` averages
+        ~2 KB per row; listing 100 rows without it is ~15 KB instead
+        of ~200 KB).
+
+        Tenancy: WHERE clause always filters on ``user_id``. The
+        total_count COUNT(*) uses the same filtered WHERE.
+        """
+        ...
+
+    async def get_game(
+        self,
+        *,
+        user_id: UserId,
+        game_id: int,
+    ) -> Optional[LibraryGame]:
+        """
+        Fetch a single library game by id, including ``raw_content``.
+
+        Returns ``None`` when the row doesn't exist OR when it
+        exists but belongs to a different tenant. The route maps
+        ``None`` to 404 — the 404-not-403 invariant per
+        ``docs/notes/tenancy.md``.
+
+        ``metadata_extra`` is the JSON column's content (every SGF
+        property not lifted into a typed column). It comes back as
+        the JSON the adapter wrote — typically a flat string→string
+        dict mirroring ``SgfMetadata.extras`` from the import path.
+        """
+        ...
+
+    async def delete_game(
+        self,
+        *,
+        user_id: UserId,
+        game_id: int,
+    ) -> bool:
+        """
+        Delete the library game identified by ``game_id``, restricted
+        to rows owned by ``user_id``. Returns ``True`` on a real
+        deletion, ``False`` when no row matched (the row didn't
+        exist OR belonged to a different tenant).
+
+        Cascade behaviour on dependent ``card_source`` rows is
+        ``ON DELETE SET NULL`` per the existing schema — cards minted
+        from this game survive the delete with their
+        ``game_source_id`` nulled out. Cards retain their position
+        via ``normalized_position_id``; they just lose the source
+        link.
+
+        Tenancy: WHERE clause filters on ``user_id``. A delete for
+        another tenant's ``game_id`` affects zero rows and returns
+        ``False``.
         """
         ...
