@@ -103,8 +103,37 @@ export DATABASE_URI="postgresql+asyncpg://user@host/db"
 fastapi dev main.py --host 127.0.0.1 --port 8764
 ```
 
-Schema is created on first run via SQLAlchemy's `metadata.create_all`.
-For existing installs, see the migration scripts in `scripts/`.
+Schema is bootstrapped on every backend start via two phases in
+the FastAPI lifespan:
+
+1. **`metadata.create_all`** — SQLAlchemy creates any table or
+   index declared in `db/schema.py` that the live DB doesn't
+   already have. Idempotent; doesn't touch existing tables.
+2. **Alembic auto-upgrade** — the lifespan probes the DB's schema
+   state, stamps `alembic_version` at the appropriate revision
+   for installs not yet Alembic-managed (e.g., users upgrading
+   from before this PR), and then runs `alembic upgrade head` to
+   apply any pending revisions. End-users on this release onwards
+   don't run migration scripts by hand for schema changes that
+   ship as Alembic revisions; the lifespan handles it.
+
+Operator commands (run from `backend/`):
+
+```bash
+alembic current        # what revision is the DB at
+alembic history        # show migration chain
+alembic upgrade head   # apply pending revisions (also runs at startup)
+alembic downgrade -1   # roll back one revision (rarely needed)
+```
+
+For pre-v1.0 installs (no `client_game_id` column on `game_source`),
+the bootstrap probe refuses to stamp automatically and points to
+the prior `scripts/migrate_*.py` to reach v1.0 baseline first.
+From v1.0 onwards, restart-to-upgrade is transparent.
+
+The legacy `scripts/migrate_*.py` files remain as historical record
+of the manual-migration era. Schema changes from this PR onwards
+land as Alembic revisions under `alembic/versions/`.
 
 ### Loading a populated sample workspace (optional)
 
@@ -271,10 +300,22 @@ carry no Go-isms in their schema. Domains that don't need a
 - Tests: currently limited; the tree-DSL and tag-DSL semantics have
   coverage, the rest is pending a rewrite against the Port-based
   architecture introduced in Path B (items 30–34).
-- Migrations: hand-rolled scripts in `scripts/`. No Alembic yet.
-- Schema changes: edit `db/schema.py`, write a migration script
-  for existing installs, document in the migration script's
-  docstring.
+- Migrations: Alembic revisions under `alembic/versions/`, run
+  automatically by the lifespan on backend start. The legacy
+  `scripts/migrate_*.py` files predate Alembic adoption and stay
+  as historical record.
+- Schema changes: edit `db/schema.py`, then
+  `alembic revision --autogenerate -m "describe change"`. Review
+  the generated file — `autogenerate` misses renames, custom
+  column types, and some constraint nuances; edit by hand where
+  needed. Test with `alembic upgrade head && alembic downgrade -1
+  && alembic upgrade head`. Commit the schema change and the
+  revision file together.
+- When a new revision adds a column the bootstrap probe should
+  recognise post-stamp, also append a `(table, column, revision)`
+  entry to `REVISION_MARKERS` in `db/alembic_bootstrap.py`. This
+  keeps the bootstrap correct for end-users upgrading across
+  multiple revisions in one restart.
 
 ## Status
 

@@ -27,6 +27,7 @@ from sqlalchemy.engine.url import make_url  # noqa: E402
 from api.routes import analysis_bundles, auth, cards, documents, forests, lineage, qeubo, resources, stats  # noqa: E402
 from core.config import config  # noqa: E402
 from core.database import Database  # noqa: E402
+from db.alembic_bootstrap import bootstrap_alembic  # noqa: E402
 from db.schema import metadata  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -117,11 +118,33 @@ async def lifespan(app: FastAPI):
     app.state.qeubo_service = qeubo_service
 
     try:
-        # Schema bootstrap: idempotent CREATE TABLE / CREATE INDEX IF NOT EXISTS.
-        # Won't overwrite migrated data; will add new tables and indexes on
-        # subsequent restarts (this is how item 21b's new indexes appear).
+        # Schema bootstrap, two phases:
+        #
+        # 1. metadata.create_all — idempotent CREATE TABLE / CREATE INDEX
+        #    IF NOT EXISTS. Materialises any table or index the live
+        #    schema declares but the DB doesn't yet carry. The historical
+        #    mechanism for landing new tables and indexes on operator
+        #    restart (item 21b's new indexes were the worked example).
+        # 2. bootstrap_alembic — probe the DB's schema state, stamp the
+        #    `alembic_version` table at the appropriate revision if the
+        #    DB isn't yet Alembic-managed, then run `alembic upgrade head`
+        #    to apply any pending revisions. End-users on this PR onwards
+        #    don't need to remember to run `scripts/migrate_*.py` for
+        #    schema changes that ship as Alembic revisions; the lifespan
+        #    handles it. Idempotent on already-upgraded DBs.
+        #
+        # The order matters: create_all first so fresh installs have a
+        # full schema before the probe runs (the probe's "marker"
+        # detection assumes the live schema is materialised). Alembic
+        # revisions still run AFTER create_all because revisions
+        # represent deltas the static schema doesn't (yet) reflect —
+        # if you've just pulled, your db/schema.py declares the new
+        # columns but the DB's existing table doesn't have them; only
+        # the revision's `op.add_column` adds them at the actual DB.
         async with db.engine.begin() as conn:
             await conn.run_sync(metadata.create_all)
+        backend_root = str(Path(__file__).parent.resolve())
+        await bootstrap_alembic(db.engine, backend_root)
         yield
     finally:
         if qeubo_executor is not None:
