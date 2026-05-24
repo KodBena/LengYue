@@ -352,12 +352,20 @@ and 26 (in-code documentation). The single config flag
 switch that flips the system between "transparent local install"
 and "multi-tenant deployment."
 
-**Migration tooling is hand-rolled, not Alembic.** Each
-migration is a one-shot script in `backend/scripts/`,
-idempotent, dialect-aware (SQLite + Postgres). For
-single-machine deployment this works well; for multi-region or
-read-replica topologies, Alembic-equivalent tooling becomes
-worthwhile.
+**Migration tooling is Alembic, auto-applied at startup.** The
+lifespan in `backend/main.py` runs `metadata.create_all`
+followed by `db.alembic_bootstrap.bootstrap_alembic`, which
+probes the live DB's schema state, stamps `alembic_version` at
+the appropriate revision for installs not yet Alembic-managed,
+and runs `alembic upgrade head`. End-users on the post-Alembic-
+arc releases don't run migration scripts by hand. Pre-v1.0
+installs are brought forward automatically: the bootstrap runs
+the pre-Alembic `backend/scripts/migrate_*.py` ``migrate()``
+functions in dependency order (each idempotent) before stamping,
+so a restart is enough to upgrade from any prior shape. The
+legacy scripts remain in-tree as the mechanism the bootstrap
+calls into; new schema changes ship as Alembic revisions under
+`backend/alembic/versions/`.
 
 ### Known gaps (backend)
 
@@ -728,9 +736,15 @@ pip install -r requirements.txt
 fastapi dev main.py --host 127.0.0.1 --port 8764
 ```
 
-Schema is created on first run via SQLAlchemy's
-`metadata.create_all`. For existing installs, see the migration
-scripts in `backend/scripts/`.
+Schema is bootstrapped on every backend start: `metadata.create_all`
+plus `db.alembic_bootstrap.bootstrap_alembic` together apply any
+pending Alembic revisions automatically. End-users pulling a new
+release just restart the backend; the lifespan migrates the DB
+forward. Operator commands (`alembic current`, `history`,
+`upgrade head`, `downgrade -1`) are documented in
+`backend/README.md`. Pre-v1.0 installs run the legacy
+`backend/scripts/migrate_*.py` once to reach v1.0 baseline before
+the bootstrap can stamp them.
 
 **Proxy.** See `proxy/README.md`. The five roles (LEAF / RELAY /
 SELECTOR / ECHO / REDIRECT) are env-var-driven; built-in auth/TLS

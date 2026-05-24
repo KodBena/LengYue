@@ -11,17 +11,30 @@ the JSON exclusively.
 
 Idempotency
 -----------
-The script scans every card row, reads the column value, and writes
-the JSON merge. If a row already has
-`grading_parameter.data.default_visits` populated with the same value
-as the column, the row is considered up-to-date and the UPDATE is
-skipped. Safe to re-run (e.g., after a deploy wobble).
+The script first probes whether `default_visits` still exists on
+`card`. If the column has already been dropped (by
+`migrate_34b_drop_default_visits_column`, or because the live
+`db/schema.py` never declared it on a fresh install), this script
+is a no-op. Otherwise it scans every card row, reads the column
+value, and writes the JSON merge. If a row already has
+`grading_parameter.data.default_visits` populated with the same
+value as the column, the row is considered up-to-date and the
+UPDATE is skipped. Safe to re-run (e.g., after a deploy wobble).
+
+The early-return probe is what lets the Alembic-bootstrap legacy
+chain call this script's `migrate()` against any pre-Alembic DB
+shape without needing the live `db/schema.py` to still declare
+the now-dropped column. The migration body uses raw SQL via
+`sqlalchemy.text` rather than the schema-coupled `card.c.*`
+accessors so the script is self-contained — calling it after
+the schema has evolved past this migration's snapshot stays safe.
 
 Dialect support
 ---------------
-Uses SQLAlchemy Core for reads and writes, so the same code runs
-against SQLite (JSON stored as TEXT with SQLAlchemy JSON type) and
-Postgres (native JSONB).
+Raw SQL for the row scan and per-row UPDATE keeps the same code
+working against SQLite (JSON stored as TEXT) and Postgres
+(native JSON/JSONB). The JSON column write uses a `bindparam`
+with `type_=JSON` so SQLAlchemy serialises dialect-appropriately.
 
 Performance
 -----------
@@ -41,22 +54,59 @@ Reads DATABASE_URI from core.config; override via environment
 variable if running against a non-default database.
 """
 import asyncio
+import json
 import logging
 import os
 import sys
 from copy import deepcopy
 from typing import Any, Dict, Optional, Tuple
 
-from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from sqlalchemy import JSON, bindparam, text
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.config import config  # noqa: E402
 from core.logging_config import configure_logging  # noqa: E402
-from db.schema import card  # noqa: E402
 
 logger = logging.getLogger(__name__)
+
+
+async def _card_columns(conn, dialect: str) -> set[str]:
+    """Return the set of column names currently declared on the
+    `card` table. Dialect-aware so the same probe works against
+    SQLite (PRAGMA) and Postgres (information_schema)."""
+    if dialect == "sqlite":
+        result = await conn.execute(text("PRAGMA table_info(card)"))
+        return {row.name for row in result.fetchall()}
+    if dialect in ("postgresql", "postgres"):
+        result = await conn.execute(
+            text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'card'"
+            )
+        )
+        return {row[0] for row in result.fetchall()}
+    raise RuntimeError(f"Unsupported dialect: {dialect!r}")
+
+
+def _normalize_gp(raw: Any) -> Optional[Dict[str, Any]]:
+    """Normalize the `grading_parameter` value returned by a raw
+    `text()` SELECT. SQLite stores JSON as TEXT and returns a
+    string here; Postgres' driver typically decodes to dict.
+    Tolerate both, plus the NULL case."""
+    if raw is None:
+        return None
+    if isinstance(raw, str):
+        if not raw:
+            return None
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+    if isinstance(raw, dict):
+        return raw
+    return None
 
 
 def _compute_merged(
@@ -102,9 +152,35 @@ async def migrate() -> None:
     logger.info(f"Database: {config.DATABASE_URI}")
     logger.info(f"Dialect:  {dialect}")
     logger.info("")
+
+    # Idempotency probe: if `default_visits` has already been dropped,
+    # the relocate work has nothing to do (the column source is gone).
+    # This guard is what makes the script safe to call from contexts
+    # where the live `db/schema.py` no longer declares the column —
+    # the Alembic bootstrap's legacy chain depends on it.
+    async with engine.connect() as conn:
+        cols = await _card_columns(conn, dialect)
+
+    if "default_visits" not in cols:
+        logger.info(
+            "default_visits column already absent on card; "
+            "relocate is a no-op."
+        )
+        await engine.dispose()
+        return
+
     logger.info("Relocating default_visits into grading_parameter.data...")
 
     async_session = async_sessionmaker(engine, expire_on_commit=False)
+
+    # Raw `text()` queries (not `card.c.*`) so the script stays
+    # self-contained — no live schema dependency for the column.
+    select_stmt = text(
+        "SELECT id, default_visits, grading_parameter FROM card"
+    )
+    update_stmt = text(
+        "UPDATE card SET grading_parameter = :gp WHERE id = :id"
+    ).bindparams(bindparam("gp", type_=JSON))
 
     updated = 0
     skipped = 0
@@ -116,18 +192,12 @@ async def migrate() -> None:
             # this codebase is expected to stay well under the "paginate
             # this" threshold; if the app ever grows into that regime,
             # chunk by primary-key ranges.
-            result = await session.execute(
-                select(
-                    card.c.id,
-                    card.c.default_visits,
-                    card.c.grading_parameter,
-                )
-            )
+            result = await session.execute(select_stmt)
 
             for row in result.fetchall():
                 total += 1
                 new_gp, needs_update = _compute_merged(
-                    row.grading_parameter,
+                    _normalize_gp(row.grading_parameter),
                     row.default_visits,
                 )
 
@@ -136,9 +206,8 @@ async def migrate() -> None:
                     continue
 
                 await session.execute(
-                    update(card)
-                    .where(card.c.id == row.id)
-                    .values(grading_parameter=new_gp)
+                    update_stmt,
+                    {"gp": new_gp, "id": row.id},
                 )
                 updated += 1
 
@@ -152,8 +221,9 @@ async def migrate() -> None:
     logger.info("Migration complete.")
     logger.info(
         "The `default_visits` column is NOT dropped by this script. "
-        "It stays in the schema during the 34b transition; Commit 3 "
-        "drops it once the frontend has fully switched."
+        "It stays in the schema during the 34b transition; "
+        "`migrate_34b_drop_default_visits_column` drops it once the "
+        "frontend has fully switched."
     )
 
 
