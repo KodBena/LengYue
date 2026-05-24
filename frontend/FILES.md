@@ -102,6 +102,13 @@ frontend/src/
 │   ├── knobs/                               Per-knob widgets for the knob-registry editor surfaces.
 │   │   └── KnobSlider.vue             [B1]  Unified scalar slider — substrate-aware read/write, claim-state disable (Phase 3b).
 │   │
+│   ├── library/                             SGF library surface: import + sortable table + preview pane.
+│   │   ├── LibraryImportPanel.vue     [B1]  Drag-drop + picker + progress UI for useLibraryImport.
+│   │   ├── LibraryPlayerFilter.vue    [B1]  Autocomplete input fed by useLibraryPlayerSuggest.
+│   │   ├── LibraryPreviewPane.vue     [B3]  Mini-board (via renderBoardToSvg) + scrubber + action buttons.
+│   │   ├── LibraryTab.vue             [B1]  Master-detail orchestrator wiring the four library composables.
+│   │   └── LibraryTable.vue           [B1]  Virtual-scrolled table with sortable headers; emits select / open / visible-range.
+│   │
 │   ├── qeubo/                               PBO (preference-based Bayesian optimisation) calibration UI surfaces. Code path retains the `qeubo` identifier (matches `useQeubo` / `qeubo-service.ts` / `/qeubo/*` routes); user-facing label is PBO.
 │   │   ├── QeuboBookmarks.vue         [B1]  Bookmark list (A/B candidates). Independent of experiment lifecycle.
 │   │   └── PboPopover.vue             [B1]  Toolbar hover popover — phase badge + audition toggle / verdict pair / apply / pin / debug. Consumes useHoverPopover.

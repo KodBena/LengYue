@@ -1932,14 +1932,20 @@ export interface LibraryGame {
 // fields don't constrain the query. Substring-match (`*Like`) on
 // player names, lexicographic range on date string, exact match on
 // result / ruleset / boardSize.
+//
+// Per ADR-0001 (state containers drop `readonly`): this is a
+// reactive state container — `useLibraryQuery` holds it via
+// Vue's `reactive(...)` and the SPA's filter inputs v-model
+// fields on it directly to trigger refetches. Keep mutability
+// honest at the type level.
 export interface LibraryFilter {
-  readonly playerWhiteLike: string | null;
-  readonly playerBlackLike: string | null;
-  readonly dateFrom: string | null;
-  readonly dateTo: string | null;
-  readonly resultEq: string | null;
-  readonly rulesetEq: string | null;
-  readonly boardSizeEq: number | null;
+  playerWhiteLike: string | null;
+  playerBlackLike: string | null;
+  dateFrom: string | null;
+  dateTo: string | null;
+  resultEq: string | null;
+  rulesetEq: string | null;
+  boardSizeEq: number | null;
 }
 
 // Per-file input to the batch-import endpoint. `sourcePath` carries
