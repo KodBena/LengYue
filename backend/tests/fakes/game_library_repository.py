@@ -262,6 +262,23 @@ class FakeGameLibraryRepository:
         del self._rows[game_id]
         return True
 
+    async def list_players(
+        self,
+        *,
+        user_id: UserId,
+    ) -> List[str]:
+        owned = [r for r in self._rows.values() if r.user_id == int(user_id)]
+        from collections import Counter
+        counter: Counter[str] = Counter()
+        for r in owned:
+            for name in (r.player_white, r.player_black):
+                if name:
+                    counter[name] += 1
+        return [
+            name for name, _ in
+            sorted(counter.items(), key=lambda kv: (-kv[1], kv[0]))
+        ]
+
 
 def _matches(row: _Row, filt: GameListFilter) -> bool:
     if filt.player_white_like is not None:

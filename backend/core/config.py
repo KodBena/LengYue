@@ -183,11 +183,12 @@ class Settings(BaseSettings):
     ANALYSIS_PERSISTENCE_USER_QUOTA_BYTES: int = 2 * 1024 * 1024 * 1024  # 2 GB
 
     # SGF-library batch import: maximum number of SGFs accepted in a
-    # single `POST /games/import` request. Bounds server-side memory
-    # during the per-file normalize pass and bounds the duration of
-    # the surrounding transaction. Clients with collections larger
-    # than this chunk the import; the operation is idempotent on
-    # `(user_id, position_id)` so a chunked import is safe to retry.
+    # single `POST /library/games/import` request. Bounds server-side
+    # memory during the per-file normalize pass and bounds the
+    # duration of the surrounding transaction. Clients with
+    # collections larger than this chunk the import; the operation is
+    # idempotent on `(user_id, position_id)` so a chunked import is
+    # safe to retry.
     SGF_LIBRARY_IMPORT_BATCH_MAX: int = 1000
 
     # SGF-library list endpoint: hard cap on `limit` query parameter.

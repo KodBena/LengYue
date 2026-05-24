@@ -369,8 +369,10 @@ seed bed, not a parallel namespace.
 - Backend: schema additions to `game_source` for the typed
   metadata columns (`date`, `result`, `ruleset`, `board_size`)
   plus a `metadata_extra` JSON column for every other SGF
-  property; four REST endpoints (`POST /games/import`,
-  `GET /games`, `GET /games/{id}`, `DELETE /games/{id}`) with
+  property; five REST endpoints under `/library`
+  (`POST /library/games/import`, `GET /library/games`,
+  `GET /library/games/{id}`, `DELETE /library/games/{id}`,
+  `GET /library/players` for the filter-input autocomplete) with
   pagination, sort, filter, and per-user dedup.
 - Frontend (queued): the list view, the preview pane, the
   filter / sort UX. Virtual scrolling for collections sized

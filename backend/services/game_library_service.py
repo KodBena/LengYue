@@ -213,3 +213,14 @@ class GameLibraryService:
             user_id=user_id,
             game_id=game_id,
         )
+
+    async def list_players(
+        self,
+        *,
+        user_id: UserId,
+    ) -> List[str]:
+        """Distinct player-name set for autocomplete. Pure
+        pass-through to the Port — no service-level work beyond
+        threading ``user_id`` through.
+        """
+        return await self.repository.list_players(user_id=user_id)

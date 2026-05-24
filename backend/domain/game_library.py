@@ -8,7 +8,7 @@ Frozen Pydantic entities for the library's typed surfaces:
   columns.
 - ``LibraryGameListItem`` is the list-view row projection (no
   ``raw_content`` — that field stays on the backend until ``GET
-  /games/{id}`` is hit).
+  /library/games/{id}`` is hit).
 - ``LibraryGame`` is the full game row including ``raw_content``,
   the detail-view shape.
 - ``GameListSort`` is the closed-vocabulary sort enum. Per
@@ -124,7 +124,7 @@ class LibraryGameListItem(BaseModel):
 class LibraryGame(BaseModel):
     """
     Full library game row including ``raw_content``. The detail-view
-    shape returned by ``GET /games/{id}``.
+    shape returned by ``GET /library/games/{id}``.
 
     ``metadata_extra`` is the JSON column's content — every SGF
     property not lifted into a typed column. Typed as
@@ -213,7 +213,7 @@ class ImportOutcomeCreated(BaseModel):
 
     The ``client_game_id`` UUID is stamped at insertion time and
     returned so the frontend can open the imported game as a board
-    without a follow-up ``GET /games/{id}`` round-trip — the
+    without a follow-up ``GET /library/games/{id}`` round-trip — the
     existing card-mint dedup path keys on the same UUID.
     """
     model_config = ConfigDict(frozen=True)

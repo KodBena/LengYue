@@ -26,6 +26,7 @@ Two design choices worth naming:
 License: Public Domain (The Unlicense)
 """
 import logging
+from collections import Counter
 from uuid import uuid4
 
 from sqlalchemy import delete, func, insert, select
@@ -337,3 +338,40 @@ class GameLibraryRepository(GameLibraryRepositoryPort):
         )
         result = await self.session.execute(stmt)
         return (result.rowcount or 0) > 0
+
+    # ─── players ────────────────────────────────────────────────────────
+
+    async def list_players(
+        self,
+        *,
+        user_id: UserId,
+    ) -> list[str]:
+        # Two grouped counts merged in Python. A single SQL UNION ALL
+        # subquery with a GROUP BY in the outer scope would be marginally
+        # more efficient but harder to read; at hobby scale (~thousands
+        # of distinct names) the two indexed group-bys plus a Counter
+        # merge are sub-millisecond. The covering indexes
+        # `ix_game_source_user_player_white_id` and
+        # `ix_game_source_user_player_black_id` make each subquery an
+        # index range scan with no table access for grouping.
+        async def _grouped(col):
+            stmt = (
+                select(col, func.count())
+                .where(game_source.c.user_id == user_id)
+                .where(col.isnot(None))
+                .where(col != "")
+                .group_by(col)
+            )
+            return (await self.session.execute(stmt)).all()
+
+        counter: Counter[str] = Counter()
+        for name, cnt in await _grouped(game_source.c.player_white):
+            counter[name] += cnt
+        for name, cnt in await _grouped(game_source.c.player_black):
+            counter[name] += cnt
+
+        # Descending by count, alphabetical on ties for determinism.
+        return [
+            name for name, _ in
+            sorted(counter.items(), key=lambda kv: (-kv[1], kv[0]))
+        ]

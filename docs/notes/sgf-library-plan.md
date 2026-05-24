@@ -342,16 +342,19 @@ the Port via SQLAlchemy 2.0 async. Key behaviors:
 
 ## Routes (Phase 6)
 
-`backend/api/routes/games.py`:
+`backend/api/routes/library.py` — surface-named router prefix
+``/library`` so the URL surface matches the SPA's product
+surface. Five endpoints:
 
-- `POST /games/import` — request body
+- `POST /library/games/import` — request body
   `{games: [{raw_content: str}, ...]}`, response
   `{outcomes: [ImportOutcome, ...]}`. 422 for malformed body;
   per-file errors surface as Errored outcomes (200 response).
   Limit on `games` array length (e.g., 1000) to bound a single
   request's work — larger batches client-side-chunked.
 
-- `GET /games?sort=&filter[col]=&offset=&limit=` — list endpoint.
+- `GET /library/games?sort=&filter[col]=&offset=&limit=` —
+  list endpoint.
   - `sort` defaults to `created_at`.
   - `filter[col]=val` query params for each filter dimension.
   - `offset` defaults to 0; `limit` defaults to 100, max 500.
@@ -359,14 +362,20 @@ the Port via SQLAlchemy 2.0 async. Key behaviors:
     sort → 422 with structured message naming the valid set.
   - Response: `{rows: [...], total_count: N}`.
 
-- `GET /games/{id}` — detail with `raw_content`. 404 on miss
-  or cross-tenant.
+- `GET /library/games/{id}` — detail with `raw_content`. 404 on
+  miss or cross-tenant.
 
-- `DELETE /games/{id}` — 204 on success, 404 on miss or
+- `DELETE /library/games/{id}` — 204 on success, 404 on miss or
   cross-tenant.
 
+- `GET /library/players` — distinct player-name set across the
+  caller's library, frequency-ordered. Drives the SPA's filter-
+  input autocomplete; fetched once on tab mount, re-fetched
+  after imports. Held in SPA memory, not persisted in the
+  workspace document.
+
 Pydantic request/response schemas inline at the top of the
-route file per backend CLAUDE.md (no `schemas/games.py` until
+route file per backend CLAUDE.md (no `schemas/library.py` until
 a second consumer appears).
 
 ## Tests (Phase 7)
@@ -440,7 +449,7 @@ the wrong tool for random walk because cursors encode "next
 after this row" rather than "row at rank N."
 
 The thumbnail rapid-scan UX is solved frontend-side via
-prefetching `GET /games/{id}` for a lookahead window of rows
+prefetching `GET /library/games/{id}` for a lookahead window of rows
 around the user's scroll position. Prefetching is a frontend
 concern; the wire contract stays simple.
 

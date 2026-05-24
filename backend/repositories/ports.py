@@ -873,3 +873,26 @@ class GameLibraryRepositoryPort(Protocol):
         ``False``.
         """
         ...
+
+    async def list_players(
+        self,
+        *,
+        user_id: UserId,
+    ) -> List[str]:
+        """
+        Distinct player names across the caller's library, ordered
+        by descending frequency.
+
+        The list is the deduplicated union of ``player_white`` and
+        ``player_black`` values across every ``game_source`` row
+        owned by ``user_id``. NULL and empty strings are excluded.
+        Ordering: most-frequent first (so common players surface at
+        the top of the SPA's autocomplete dropdown); ties broken
+        alphabetically for determinism.
+
+        Tenancy: WHERE clause filters on ``user_id``. A caller
+        cannot observe another tenant's player names.
+
+        Empty library returns an empty list.
+        """
+        ...

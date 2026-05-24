@@ -249,3 +249,30 @@ async def test_delete_game_returns_true_for_owner():
     alice_id = repo.seed_row(user_id=ALICE)
     assert await svc.delete_game(user_id=ALICE, game_id=alice_id) is True
     assert await svc.get_game(user_id=ALICE, game_id=alice_id) is None
+
+
+# ─── list_players: pass-through with tenancy ─────────────────────────────────
+
+
+async def test_list_players_returns_distinct_union_with_frequency_order():
+    svc, repo, _ = _make_service()
+    repo.seed_row(user_id=ALICE, player_white="Bob", player_black="Alice")
+    repo.seed_row(user_id=ALICE, player_white="Bob", player_black="Carol")
+    repo.seed_row(user_id=ALICE, player_white="Dan", player_black="Bob")
+    players = await svc.list_players(user_id=ALICE)
+    # Bob appears 3 times, others 1 each.
+    assert players[0] == "Bob"
+    assert set(players) == {"Alice", "Bob", "Carol", "Dan"}
+
+
+async def test_list_players_cross_tenant_isolation():
+    svc, repo, _ = _make_service()
+    repo.seed_row(user_id=ALICE, player_white="Alice")
+    repo.seed_row(user_id=BOB, player_white="Bob")
+    assert await svc.list_players(user_id=ALICE) == ["Alice"]
+    assert await svc.list_players(user_id=BOB) == ["Bob"]
+
+
+async def test_list_players_empty_when_no_rows():
+    svc, _, _ = _make_service()
+    assert await svc.list_players(user_id=ALICE) == []

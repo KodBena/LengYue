@@ -405,3 +405,79 @@ async def test_delete_game_returns_false_for_nonexistent(async_session):
 
     repo = GameLibraryRepository(session)
     assert await repo.delete_game(user_id=ALICE, game_id=999_999) is False
+
+
+# ─── list_players: distinct union + frequency order + tenancy ───────────────
+
+
+async def test_list_players_empty_library_returns_empty(async_session):
+    session = async_session
+    await _seed_user(session, user_id=ALICE)
+    repo = GameLibraryRepository(session)
+    assert await repo.list_players(user_id=ALICE) == []
+
+
+async def test_list_players_returns_distinct_union(async_session):
+    session = async_session
+    await _seed_user(session, user_id=ALICE)
+    repo = GameLibraryRepository(session)
+    await repo.import_games(
+        user_id=ALICE,
+        requests=[
+            _request(canonical="(;FF[4]C[A])", player_white="Alice", player_black="Bob"),
+            _request(canonical="(;FF[4]C[B])", player_white="Carol", player_black="Bob"),
+            _request(canonical="(;FF[4]C[C])", player_white="Bob", player_black="Alice"),
+        ],
+    )
+    players = await repo.list_players(user_id=ALICE)
+    assert set(players) == {"Alice", "Bob", "Carol"}
+
+
+async def test_list_players_frequency_order_with_alphabetical_tiebreak(async_session):
+    session = async_session
+    await _seed_user(session, user_id=ALICE)
+    repo = GameLibraryRepository(session)
+    # Bob: 3 appearances (2 white, 1 black). Alice, Carol, Dan: 1 each.
+    await repo.import_games(
+        user_id=ALICE,
+        requests=[
+            _request(canonical="(;FF[4]C[A])", player_white="Bob", player_black="Alice"),
+            _request(canonical="(;FF[4]C[B])", player_white="Bob", player_black="Carol"),
+            _request(canonical="(;FF[4]C[C])", player_white="Dan", player_black="Bob"),
+        ],
+    )
+    players = await repo.list_players(user_id=ALICE)
+    assert players[0] == "Bob"
+    assert players[1:] == ["Alice", "Carol", "Dan"]
+
+
+async def test_list_players_excludes_null_and_empty(async_session):
+    session = async_session
+    await _seed_user(session, user_id=ALICE)
+    repo = GameLibraryRepository(session)
+    await repo.import_games(
+        user_id=ALICE,
+        requests=[
+            _request(canonical="(;FF[4]C[A])", player_white="Alice", player_black=None),
+            _request(canonical="(;FF[4]C[B])", player_white=None, player_black=""),
+        ],
+    )
+    players = await repo.list_players(user_id=ALICE)
+    assert players == ["Alice"]
+
+
+async def test_list_players_cross_tenant_isolation(async_session):
+    session = async_session
+    await _seed_user(session, user_id=ALICE)
+    await _seed_user(session, user_id=BOB)
+    repo = GameLibraryRepository(session)
+    await repo.import_games(
+        user_id=ALICE,
+        requests=[_request(canonical="(;FF[4]C[A])", player_white="Alice")],
+    )
+    await repo.import_games(
+        user_id=BOB,
+        requests=[_request(canonical="(;FF[4]C[B])", player_white="Bob")],
+    )
+    assert await repo.list_players(user_id=ALICE) == ["Alice"]
+    assert await repo.list_players(user_id=BOB) == ["Bob"]

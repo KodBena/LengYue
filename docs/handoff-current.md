@@ -371,9 +371,11 @@ list with stable secondary sort. The seventh Port,
 `repositories/game_library_repository.py`; the
 `GameLibraryService` use case orchestrates batch import with
 SAVEPOINT-per-file isolation. Four REST endpoints at
-`api/routes/games.py`: `POST /games/import`, `GET /games`,
-`GET /games/{id}`, `DELETE /games/{id}`. Pagination is offset +
-limit with `total_count` in the response — chosen over cursor
+`api/routes/library.py`: `POST /library/games/import`,
+`GET /library/games`, `GET /library/games/{id}`,
+`DELETE /library/games/{id}`, `GET /library/players` (distinct
+player names for SPA filter autocomplete). Pagination is offset
++ limit with `total_count` in the response — chosen over cursor
 because cursors are forward-only and the surface's random-walk
 UX requires arbitrary-row jumps. Frontend consumption is queued
 as a separate arc.

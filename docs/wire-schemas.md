@@ -32,7 +32,7 @@ maintains.
 - [§6 — `/analysis-bundles` REST API](#6--analysis-bundles-rest-api) — backend ↔ SPA
 - [§7 — `_PROXY_ONLY_FIELDS` central wire-strip](#7--_proxy_only_fields-central-wire-strip) — invariant governing §1, §3, §5
 - [§8 — Future evolution: AsyncAPI](#8--future-evolution-asyncapi) — when this doc's discipline is no longer enough
-- [§9 — `/games` REST API](#9--games-rest-api) — backend ↔ SPA, SGF library
+- [§9 — `/library` REST API](#9--library-rest-api) — backend ↔ SPA, SGF library
 
 ---
 
@@ -476,7 +476,7 @@ the production wire.
 
 ---
 
-## §9 — `/games` REST API
+## §9 — `/library` REST API
 
 **Direction.** SPA ↔ backend, HTTP REST.
 
@@ -484,12 +484,13 @@ the production wire.
 definitions).
 
 - Producer (FastAPI routes):
-  `backend/api/routes/games.py`. Four endpoints:
+  `backend/api/routes/library.py`. Five endpoints:
   ```
-  POST   /games/import   — batch import of raw SGFs
-  GET    /games          — paginated list with sort + filter + total count
-  GET    /games/{id}     — fetch one game including raw_content
-  DELETE /games/{id}     — delete one game
+  POST   /library/games/import   — batch import of raw SGFs
+  GET    /library/games          — paginated list with sort + filter + total count
+  GET    /library/games/{id}     — fetch one game including raw_content
+  DELETE /library/games/{id}     — delete one game
+  GET    /library/players        — distinct player-name set for SPA autocomplete
   ```
 - Producer (Pydantic schemas):
   Inline at the top of the route file per backend CLAUDE.md
@@ -525,13 +526,23 @@ in `docs/notes/sgf-library-plan.md`. Sort + filter changes reset
 SPA's virtual scroll can size the scrollbar without seeing every
 row.
 
-**Column projection.** `GET /games` list rows exclude
+**Column projection.** `GET /library/games` list rows exclude
 `raw_content` (the ~2 KB SGF body). The SPA fetches
-`raw_content` on demand via `GET /games/{id}` when a thumbnail
-needs to render. Prefetching N rows ahead of the scroll position
-is the SPA's concern, not the wire contract's.
+`raw_content` on demand via `GET /library/games/{id}` when a
+thumbnail needs to render. Prefetching N rows ahead of the scroll
+position is the SPA's concern, not the wire contract's.
 
-**Per-file outcomes.** `POST /games/import` returns a
+**Player autocomplete.** `GET /library/players` returns the
+deduplicated union of `player_white` and `player_black` across
+the caller's library, frequency-ordered (most common first;
+alphabetical ties). The SPA fetches once on Library tab mount,
+caches in memory, and runs autocomplete client-side against the
+in-memory list. Re-fetched after an import completes. The list
+is kept out of the persisted workspace document deliberately —
+workspace is for user-authored state; library player names are
+imported data.
+
+**Per-file outcomes.** `POST /library/games/import` returns a
 discriminated outcome list rather than 4xx-on-any-failure: a
 batch with one malformed SGF among ten produces nine `created`
 outcomes and one `errored` outcome at the right index, with the

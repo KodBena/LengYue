@@ -1,14 +1,17 @@
 """
-api/routes/games.py
+api/routes/library.py
 
-FastAPI router for the SGF games library.
+FastAPI router for the SGF games library — namespaced under
+``/library`` so the surface name in the URL matches the
+product surface name in the SPA.
 
-Four endpoints, all under ``/games``:
+Five endpoints, all under ``/library``:
 
-    POST   /games/import   — batch import of raw SGFs
-    GET    /games          — paginated list with sort + filter
-    GET    /games/{id}     — fetch one game including raw_content
-    DELETE /games/{id}     — delete one game (cascade-nulls card_source)
+    POST   /library/games/import   — batch import of raw SGFs
+    GET    /library/games          — paginated list with sort + filter
+    GET    /library/games/{id}     — fetch one game including raw_content
+    DELETE /library/games/{id}     — delete one game (cascade-nulls card_source)
+    GET    /library/players        — distinct player-name set for autocomplete
 
 Wire-shape contract is recorded in ``docs/notes/sgf-library-plan.md``
 and (post-ship) at ``docs/dispatch/backend-to-frontend-sgf-library-status.md``.
@@ -48,7 +51,7 @@ from services.game_library_service import GameLibraryService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/games", tags=["games"])
+router = APIRouter(prefix="/library", tags=["library"])
 
 
 # ─── Request / Response wire shapes ───────────────────────────────────
@@ -86,11 +89,25 @@ class ListGamesResponse(BaseModel):
     total_count: int
 
 
+class ListPlayersResponse(BaseModel):
+    """
+    Distinct-player-names response for the SPA's filter autocomplete.
+
+    The list is the deduplicated union of ``player_white`` and
+    ``player_black`` values across the caller's library, ordered by
+    descending frequency so common players surface first in the
+    autocomplete dropdown. The SPA fetches once on Library tab
+    mount and re-fetches after an import completes.
+    """
+    model_config = ConfigDict(frozen=True)
+    players: List[str]
+
+
 # ─── Routes ───────────────────────────────────────────────────────────
 
 
 @router.post(
-    "/import",
+    "/games/import",
     response_model=ImportGamesResponse,
     status_code=status.HTTP_200_OK,
 )
@@ -135,7 +152,7 @@ async def import_games(
     return ImportGamesResponse(outcomes=outcomes)
 
 
-@router.get("", response_model=ListGamesResponse)
+@router.get("/games", response_model=ListGamesResponse)
 async def list_games(
     sort: GameListSort = Query(
         default="created_at",
@@ -167,7 +184,7 @@ async def list_games(
     is capped at ``SGF_LIBRARY_LIST_LIMIT_MAX`` (currently 500).
 
     ``raw_content`` is omitted from list rows — fetch via
-    ``GET /games/{id}`` when needed.
+    ``GET /library/games/{id}`` when needed.
     """
     filt = GameListFilter(
         player_white_like=player_white_like,
@@ -195,7 +212,7 @@ async def list_games(
     return ListGamesResponse(rows=rows, total_count=total)
 
 
-@router.get("/{game_id}", response_model=LibraryGame)
+@router.get("/games/{game_id}", response_model=LibraryGame)
 async def get_game(
     game_id: int,
     service: GameLibraryService = Depends(get_game_library_service),
@@ -216,7 +233,7 @@ async def get_game(
     return game
 
 
-@router.delete("/{game_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/games/{game_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_game(
     game_id: int,
     service: GameLibraryService = Depends(get_game_library_service),
@@ -243,3 +260,29 @@ async def delete_game(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Library game not found",
         )
+
+
+@router.get("/players", response_model=ListPlayersResponse)
+async def list_players(
+    service: GameLibraryService = Depends(get_game_library_service),
+    user_id: UserId = Depends(get_current_user_id),
+):
+    """
+    Distinct player-name set for the caller's library, ordered by
+    descending frequency.
+
+    The SPA fetches this once on Library-tab mount, caches in memory
+    (not in the persisted workspace document), and runs autocomplete
+    against the in-memory list as the user types into the
+    player_white / player_black filter inputs. Re-fetch after an
+    import completes.
+
+    Combined (white + black) rather than per-color: the slight
+    imprecision — suggesting a name that's only ever been black for
+    the player_white filter input — is cosmetic, and the
+    implementation is trivially simpler. Cardinality at typical
+    library size (~thousands of distinct names) makes the full list
+    cheap to ship in one go.
+    """
+    players = await service.list_players(user_id=user_id)
+    return ListPlayersResponse(players=players)
