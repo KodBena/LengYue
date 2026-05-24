@@ -2471,6 +2471,8 @@ export interface operations {
                 sort?: "created_at" | "date" | "player_white" | "player_black" | "result" | "ruleset" | "board_size";
                 /** @description Sort direction. */
                 direction?: "asc" | "desc";
+                /** @description Substring match against player_white OR player_black — any-color player filter. Composes (AND) with the per-color predicates below. */
+                player_like?: string | null;
                 player_white_like?: string | null;
                 player_black_like?: string | null;
                 date_from?: string | null;

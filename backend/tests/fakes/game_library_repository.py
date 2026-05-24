@@ -284,6 +284,11 @@ class FakeGameLibraryRepository:
 
 
 def _matches(row: _Row, filt: GameListFilter) -> bool:
+    if filt.player_like is not None:
+        in_white = row.player_white is not None and filt.player_like in row.player_white
+        in_black = row.player_black is not None and filt.player_like in row.player_black
+        if not (in_white or in_black):
+            return False
     if filt.player_white_like is not None:
         if row.player_white is None or filt.player_white_like not in row.player_white:
             return False

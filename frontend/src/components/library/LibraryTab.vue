@@ -73,15 +73,18 @@ function onOpenFromPreview(): void {
 }
 
 // Click a player chip in the "All players" accordion → fill the
-// White filter input with that name. The accordion is meant for
-// "I want to look at all of X's games"; defaulting to White (and
-// leaving the Black filter alone) means a follow-up click into
-// the Black filter or a `LibraryPlayerFilter` retype is a single
-// extra action when the user wants Black-side filtering. The
-// disclosure stays open after the click — the user folds it
-// manually per their stated workflow.
+// any-color Player filter with that name and clear the per-color
+// filters. "Show me X's games" is the natural intent, regardless
+// of which color X played; the per-color inputs above remain for
+// the explicit "X as White" / "X as Black" cases the user can
+// reach by typing into them directly. Clearing prevents the chip
+// click from silently composing with leftover per-color filters
+// in ways the user doesn't expect. The disclosure stays open —
+// the user folds it manually per their stated workflow.
 function onPlayerChipClick(name: string): void {
-  query.filter.playerWhiteLike = name;
+  query.filter.playerLike = name;
+  query.filter.playerWhiteLike = null;
+  query.filter.playerBlackLike = null;
 }
 </script>
 
@@ -91,16 +94,23 @@ function onPlayerChipClick(name: string): void {
 
     <div class="library-filters">
       <LibraryPlayerFilter
+        :model-value="query.filter.playerLike"
+        @update:model-value="query.filter.playerLike = $event"
+        label="Player (any color)"
+        placeholder="e.g. Cho"
+        :suggest="suggest.suggest"
+      />
+      <LibraryPlayerFilter
         :model-value="query.filter.playerWhiteLike"
         @update:model-value="query.filter.playerWhiteLike = $event"
-        label="White player"
+        label="White"
         placeholder="e.g. Cho"
         :suggest="suggest.suggest"
       />
       <LibraryPlayerFilter
         :model-value="query.filter.playerBlackLike"
         @update:model-value="query.filter.playerBlackLike = $event"
-        label="Black player"
+        label="Black"
         placeholder="e.g. Lee"
         :suggest="suggest.suggest"
       />
@@ -166,7 +176,7 @@ function onPlayerChipClick(name: string): void {
 .library-import-zone { flex: 0 0 auto; }
 .library-filters {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: var(--space-small);
   flex: 0 0 auto;
 }

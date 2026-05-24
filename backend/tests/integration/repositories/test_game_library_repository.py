@@ -255,6 +255,68 @@ async def test_list_games_offset_skips_pages(async_session):
     assert [r.id for r in page1 + page2 + page3] == all_ids_asc
 
 
+async def test_list_games_player_like_matches_either_color(async_session):
+    """`player_like` ORs across player_white and player_black."""
+    session = async_session
+    await _seed_user(session, user_id=ALICE)
+
+    repo = GameLibraryRepository(session)
+    await repo.import_games(
+        user_id=ALICE,
+        requests=[
+            # Cho-as-White vs anyone
+            _request(canonical="(;FF[4]C[A])", player_white="Cho Chikun", player_black="Rin Kaiho"),
+            # Cho-as-Black vs anyone
+            _request(canonical="(;FF[4]C[B])", player_white="Kim In", player_black="Cho Hun-hyeon"),
+            # Neither side is Cho
+            _request(canonical="(;FF[4]C[C])", player_white="Fujisawa Hideyuki", player_black="Ishii Kunio"),
+        ],
+    )
+
+    rows, total = await repo.list_games(
+        user_id=ALICE,
+        sort="created_at",
+        direction="asc",
+        filt=GameListFilter(player_like="Cho"),
+        offset=0,
+        limit=10,
+    )
+    assert total == 2
+    matched_players = {(r.player_white, r.player_black) for r in rows}
+    assert matched_players == {
+        ("Cho Chikun", "Rin Kaiho"),
+        ("Kim In", "Cho Hun-hyeon"),
+    }
+
+
+async def test_list_games_player_like_ands_with_per_color(async_session):
+    """`player_like` and per-color filters AND together."""
+    session = async_session
+    await _seed_user(session, user_id=ALICE)
+
+    repo = GameLibraryRepository(session)
+    await repo.import_games(
+        user_id=ALICE,
+        requests=[
+            _request(canonical="(;FF[4]C[A])", player_white="Cho Chikun", player_black="Lee Sedol"),
+            _request(canonical="(;FF[4]C[B])", player_white="Cho Hun-hyeon", player_black="Rin Kaiho"),
+            _request(canonical="(;FF[4]C[C])", player_white="Kim In", player_black="Cho Hun-hyeon"),
+        ],
+    )
+
+    # "Any Cho" AND "Lee as black" → only the first row.
+    rows, total = await repo.list_games(
+        user_id=ALICE,
+        sort="created_at",
+        direction="asc",
+        filt=GameListFilter(player_like="Cho", player_black_like="Lee"),
+        offset=0,
+        limit=10,
+    )
+    assert total == 1
+    assert rows[0].player_white == "Cho Chikun"
+
+
 async def test_list_games_filter_predicates_compose(async_session):
     session = async_session
     await _seed_user(session, user_id=ALICE)

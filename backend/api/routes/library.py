@@ -180,6 +180,14 @@ async def list_games(
         default="desc",
         description="Sort direction.",
     ),
+    player_like: Optional[str] = Query(
+        default=None,
+        description=(
+            "Substring match against player_white OR player_black — "
+            "any-color player filter. Composes (AND) with the "
+            "per-color predicates below."
+        ),
+    ),
     player_white_like: Optional[str] = Query(default=None),
     player_black_like: Optional[str] = Query(default=None),
     date_from: Optional[str] = Query(default=None),
@@ -205,6 +213,7 @@ async def list_games(
     ``GET /library/games/{id}`` when needed.
     """
     filt = GameListFilter(
+        player_like=player_like,
         player_white_like=player_white_like,
         player_black_like=player_black_like,
         date_from=date_from,

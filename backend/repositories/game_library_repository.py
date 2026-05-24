@@ -29,7 +29,7 @@ import logging
 from collections import Counter
 from uuid import uuid4
 
-from sqlalchemy import delete, func, insert, select
+from sqlalchemy import delete, func, insert, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.schema import game_source, normalized_position
@@ -259,6 +259,18 @@ class GameLibraryRepository(GameLibraryRepositoryPort):
             game_source.c.user_id == user_id,
             _is_library_entry(),
         ]
+        if filt.player_like is not None:
+            # "Any color" match — substring on either player column.
+            # Composes (AND) with per-color filters below: a user
+            # combining `player_like=X` with `player_white_like=Y`
+            # asks for "games where Y was white against any X".
+            pl = f"%{filt.player_like}%"
+            where_terms.append(
+                or_(
+                    game_source.c.player_white.like(pl),
+                    game_source.c.player_black.like(pl),
+                )
+            )
         if filt.player_white_like is not None:
             where_terms.append(
                 game_source.c.player_white.like(f"%{filt.player_white_like}%")

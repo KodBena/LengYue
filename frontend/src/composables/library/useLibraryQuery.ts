@@ -41,6 +41,7 @@ import type {
 export const PAGE_SIZE = 100;
 
 const EMPTY_FILTER: LibraryFilter = {
+  playerLike: null,
   playerWhiteLike: null,
   playerBlackLike: null,
   dateFrom: null,
@@ -148,6 +149,7 @@ export function useLibraryQuery(initial?: Partial<{
           // Snapshot the filter values so a concurrent mutation
           // doesn't change them mid-request.
           filter: {
+            playerLike: filter.playerLike,
             playerWhiteLike: filter.playerWhiteLike,
             playerBlackLike: filter.playerBlackLike,
             dateFrom: filter.dateFrom,

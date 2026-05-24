@@ -195,6 +195,7 @@ export class LibraryService {
     params.set('sort', SORT_TO_WIRE[query.sort]);
     params.set('direction', query.direction);
     const f = query.filter;
+    if (f.playerLike !== null) params.set('player_like', f.playerLike);
     if (f.playerWhiteLike !== null) params.set('player_white_like', f.playerWhiteLike);
     if (f.playerBlackLike !== null) params.set('player_black_like', f.playerBlackLike);
     if (f.dateFrom !== null) params.set('date_from', f.dateFrom);

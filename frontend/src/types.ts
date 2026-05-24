@@ -1939,6 +1939,12 @@ export interface LibraryGame {
 // fields on it directly to trigger refetches. Keep mutability
 // honest at the type level.
 export interface LibraryFilter {
+  // Any-color player filter — ORs across player_white / player_black
+  // on the backend. The "show me all of X's games regardless of
+  // colour" affordance, distinct from the per-color filters below
+  // which target one side specifically. All three filters AND
+  // together when set simultaneously.
+  playerLike: string | null;
   playerWhiteLike: string | null;
   playerBlackLike: string | null;
   dateFrom: string | null;

@@ -179,6 +179,13 @@ class GameListFilter(BaseModel):
     All fields are optional; omitted fields don't constrain the
     query. Predicate semantics:
 
+    - ``player_like``: substring match against ``player_white`` OR
+      ``player_black`` — matches games where the player appears in
+      either position. Composes (AND) with the per-color filters
+      below, so e.g. ``player_like="Cho", player_white_like="Lee"``
+      finds games where Lee played white against any Cho. The
+      "show me all of X's games regardless of color" affordance
+      used by the player-list accordion in the SPA.
     - ``player_white_like`` / ``player_black_like``: substring match
       (SQL ``LIKE '%val%'``) on the respective column. Case-sensitivity
       follows the database default (SQLite: insensitive; Postgres:
@@ -195,6 +202,7 @@ class GameListFilter(BaseModel):
     Not frozen — request models are constructed from query params
     and the construction site is the only mutation.
     """
+    player_like: Optional[str] = None
     player_white_like: Optional[str] = None
     player_black_like: Optional[str] = None
     date_from: Optional[str] = None
