@@ -142,7 +142,7 @@ frontend/src/
 │   ├── board/                                Board-surface composables. Mostly B3.
 │   │   ├── autonomous-srs.ts          [B3]  Policy/Driver/Recorder abstractions for the autonomous SRS loop.
 │   │   ├── useActivePath.ts           [B2]  NodeId lineage root → current node.
-│   │   ├── useDirtyBoardGuard.ts      [B3]  Dirty-board guard: confirm-load modal, SGF parse, navigate-to-leaf.
+│   │   ├── useDirtyBoardGuard.ts      [B3]  Dirty-board guard: confirm-load modal + SGF parse + navigate-to-leaf for cards AND library games.
 │   │   ├── use-move-suggestions.ts    [B3]  Refined intensity-mapping for KataGo move suggestions.
 │   │   ├── usePlayFromPosition.ts     [B3]  "Engine plays from here" — looped applyGoMove against a KataGo URL.
 │   │   ├── use-pv-animation.ts        [B3]  PV stone-sequence animation (window / instant / sequential modes).
@@ -167,6 +167,11 @@ frontend/src/
 │   │   ├── useForestNavigation.ts     [B2]  Tree-shaping for the file-manager-style navigator (games → roots).
 │   │   ├── useTreeExpansion.ts        [B2]  Variation-hiding expansion state; enforces "current-always-visible" invariant.
 │   │   └── useTreeLayout.ts           [B2]  Pluggable tree-layout composable (watchEffect-driven).
+│   │
+│   ├── library/                              SGF library surface composables.
+│   │   ├── useLibraryPlayerSuggest.ts [B1]  In-memory player-name autocomplete (frequency-ordered cache + substring filter).
+│   │   ├── useLibraryPreview.ts       [B3]  Selected-row state + lazy getGame + SGF parse + scrub navigation.
+│   │   └── useLibraryQuery.ts         [B1]  Sparse-buffer pagination over /library/games with sort + filter + generation-counter race protection.
 │   │
 │   ├── review/                               Spaced-repetition session.
 │   │   ├── useMinting.ts              [B3]  Mint flashcards from boards (Go-board → backend mint payload).
