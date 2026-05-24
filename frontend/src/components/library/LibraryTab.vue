@@ -125,6 +125,11 @@ async function onDelete(): Promise<void> {
 .library-tab {
   display: flex;
   flex-direction: column;
+  /* The slot wrapper in App.vue is `display: flex` row-direction;
+     without `flex: 1` the tab sizes to intrinsic content width and
+     collapses to its padding. ForestDirectory's wrapper is the
+     established pattern. */
+  flex: 1;
   gap: var(--space-medium);
   height: 100%;
   min-height: 0;
