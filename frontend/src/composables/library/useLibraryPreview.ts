@@ -33,7 +33,7 @@
 
 // @ts-ignore — @sabaki/sgf has no published types
 import sgf from '@sabaki/sgf';
-import { computed, ref, shallowReadonly, shallowRef, watch } from 'vue';
+import { computed, ref, shallowReadonly, shallowRef, triggerRef, watch } from 'vue';
 import type { ComputedRef, Ref } from 'vue';
 import { libraryService } from '../../services/library-service';
 import { loadSgf } from '../../engine/sgf-loader';
@@ -158,20 +158,19 @@ export function useLibraryPreview(): LibraryPreview {
   });
 
   // When the scrub position changes, navigate the parsed board.
-  // The shallowRef's value identity stays the same, but we trigger
-  // by reassigning to itself after the mutation so dependents that
-  // read `parsedBoard.value.stones` reactively pick up the change.
+  // The shallowRef's value identity stays the same after an in-place
+  // mutation, so a `parsedBoard.value = parsedBoard.value` self-
+  // assign would no-op (Vue 3.5's ref setter does an `Object.is`
+  // check and skips the trigger when old === new). `triggerRef`
+  // is the documented primitive for forcing dependents to re-run
+  // against a shallowRef whose internal state has been mutated.
   watch(scrubPosition, (pos) => {
     const board = parsedBoard.value;
     const path = variationPath.value;
     if (board === null || path.length === 0) return;
     const clamped = Math.max(0, Math.min(pos, path.length - 1));
     navigateTo(board, path[clamped] as NodeId);
-    // Trigger reactivity on the shallowRef without rebuilding the
-    // object graph. parsedBoard.value's identity is preserved so
-    // structural sharing with the original parse stays intact.
-    // eslint-disable-next-line no-self-assign
-    parsedBoard.value = parsedBoard.value;
+    triggerRef(parsedBoard);
   });
 
   const totalMoves = computed(() =>

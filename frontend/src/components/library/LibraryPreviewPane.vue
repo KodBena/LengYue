@@ -22,7 +22,6 @@ interface Props {
 }
 interface Emits {
   (e: 'open-game'): void;
-  (e: 'delete-game'): void;
 }
 
 const props = defineProps<Props>();
@@ -93,9 +92,6 @@ const scrubMax = computed(() => props.preview.totalMoves.value);
       <div class="preview-actions">
         <button class="preview-btn primary" @click="emit('open-game')">
           Open in board
-        </button>
-        <button class="preview-btn danger" @click="emit('delete-game')">
-          Delete from library
         </button>
       </div>
     </template>
@@ -172,6 +168,4 @@ const scrubMax = computed(() => props.preview.totalMoves.value);
 }
 .preview-btn:hover { border-color: var(--accent-primary); }
 .preview-btn.primary { background: var(--accent-primary); color: var(--surface-1); border-color: var(--accent-primary); }
-.preview-btn.danger { color: var(--accent-negative, #c75450); }
-.preview-btn.danger:hover { border-color: var(--accent-negative, #c75450); }
 </style>

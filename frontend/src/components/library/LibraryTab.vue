@@ -72,20 +72,6 @@ function onOpenFromPreview(): void {
   if (game !== null) emit('open-library-game', game);
 }
 
-async function onDelete(): Promise<void> {
-  const row = preview.selectedRow.value;
-  if (row === null) return;
-  // Coarse confirm — the action is destructive but cascade is
-  // benign (cards minted from this row keep their position via
-  // ON DELETE SET NULL).
-  const ok = window.confirm(
-    `Delete this game from the library? Cards minted from it keep their position, but lose the source link.`,
-  );
-  if (!ok) return;
-  await libraryService.deleteGame(row.id as GameSourceId);
-  preview.selectedRow.value = null;
-  await query.refresh();
-}
 </script>
 
 <template>
@@ -129,7 +115,6 @@ async function onDelete(): Promise<void> {
         <LibraryPreviewPane
           :preview="preview"
           @open-game="onOpenFromPreview"
-          @delete-game="onDelete"
         />
       </div>
     </div>
