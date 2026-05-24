@@ -211,7 +211,7 @@ function onPlayerChipClick(name: string): void {
 .library-player-chip {
   padding: 2px var(--space-small);
   font-size: var(--text-small);
-  background: var(--surface-1);
+  background: var(--surface-0);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-default);
   color: var(--text-default);
