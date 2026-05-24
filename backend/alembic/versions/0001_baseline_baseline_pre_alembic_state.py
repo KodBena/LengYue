@@ -20,12 +20,13 @@ From this point forward, every schema change ships as an Alembic
 revision and the auto-upgrade in the lifespan handles end-user
 deployment without a manual ``scripts/migrate_*.py`` step.
 
-Operator note: existing installs without ``client_game_id``
-(running pre-v1.0 code) cannot bootstrap into Alembic via the
-probe; the bootstrap fails loudly and points operators at the
-prior manual scripts to reach v1.0 baseline first. See
-``main.py``'s ``_bootstrap_alembic_version`` for the exact
-detection.
+Operator note: pre-v1.0 installs (without ``client_game_id``)
+are brought forward to baseline automatically by the bootstrap's
+legacy chain — the pre-Alembic ``scripts/migrate_*.py``
+``migrate()`` functions, invoked in dependency order. End-users
+restart-to-upgrade from any prior shape without manual
+intervention. See ``db/alembic_bootstrap.py`` for the chain
+definition and ``REVISION_MARKERS`` registry.
 
 License: Public Domain (The Unlicense)
 """

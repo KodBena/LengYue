@@ -359,11 +359,13 @@ probes the live DB's schema state, stamps `alembic_version` at
 the appropriate revision for installs not yet Alembic-managed,
 and runs `alembic upgrade head`. End-users on the post-Alembic-
 arc releases don't run migration scripts by hand. Pre-v1.0
-installs (lacking `game_source.client_game_id`) refuse to
-bootstrap and point operators at the legacy
-`backend/scripts/migrate_*.py` to reach v1.0 baseline first.
-Those scripts remain as historical record; new schema changes
-ship as Alembic revisions under `backend/alembic/versions/`.
+installs are brought forward automatically: the bootstrap runs
+the pre-Alembic `backend/scripts/migrate_*.py` ``migrate()``
+functions in dependency order (each idempotent) before stamping,
+so a restart is enough to upgrade from any prior shape. The
+legacy scripts remain in-tree as the mechanism the bootstrap
+calls into; new schema changes ship as Alembic revisions under
+`backend/alembic/versions/`.
 
 ### Known gaps (backend)
 

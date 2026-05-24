@@ -126,14 +126,20 @@ alembic upgrade head   # apply pending revisions (also runs at startup)
 alembic downgrade -1   # roll back one revision (rarely needed)
 ```
 
-For pre-v1.0 installs (no `client_game_id` column on `game_source`),
-the bootstrap probe refuses to stamp automatically and points to
-the prior `scripts/migrate_*.py` to reach v1.0 baseline first.
-From v1.0 onwards, restart-to-upgrade is transparent.
+Pre-v1.0 installs (lacking `game_source.client_game_id`) are
+brought forward to baseline automatically — the bootstrap runs
+the legacy `scripts/migrate_*.py` ``migrate()`` functions in
+dependency order, each idempotent, before stamping. End-users
+upgrading from any pre-Alembic shape just restart the backend;
+no manual `scripts/` invocation needed regardless of how old the
+install is.
 
-The legacy `scripts/migrate_*.py` files remain as historical record
-of the manual-migration era. Schema changes from this PR onwards
-land as Alembic revisions under `alembic/versions/`.
+The legacy `scripts/migrate_*.py` files remain in the tree as the
+mechanism the legacy-chain calls into; they're no longer the
+human-invoked surface for end-users (though running them by hand
+is still safe — idempotency holds). Schema changes from this PR
+onwards land as Alembic revisions under `alembic/versions/`,
+applied by `alembic upgrade head` on top of the baseline.
 
 ### Loading a populated sample workspace (optional)
 

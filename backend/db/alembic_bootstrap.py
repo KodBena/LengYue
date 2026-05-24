@@ -42,7 +42,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import List, Optional, Tuple
+from typing import Awaitable, Callable, List, Optional, Tuple
 
 from alembic import command
 from alembic.config import Config
@@ -67,6 +67,71 @@ REVISION_MARKERS: List[Tuple[str, str, str]] = [
     # (table, column, revision_id)
     ("game_source", "client_game_id", "0001_baseline"),
 ]
+
+
+def _load_legacy_chain() -> List[Tuple[str, Callable[[], Awaitable[None]]]]:
+    """Import the legacy migration scripts and return the
+    dependency-ordered chain that brings a pre-Alembic schema
+    forward to the v1.0 baseline.
+
+    Deferred-import so that test runs against fresh DBs don't pay
+    the cost of loading seven modules they won't exercise; the
+    chain is only consulted on the rare-but-real pre-v1.0
+    bootstrap path.
+
+    Each script's ``migrate()`` is idempotent — calls on
+    already-applied schemas detect the existing state and skip
+    the relevant DDL. The chain is therefore safe to run on any
+    pre-baseline state; missing pieces apply, present pieces are
+    no-ops.
+
+    Order is dependency-driven (not strictly numerical):
+
+    - 23 / 24: add ``user_id`` to ``documents`` / ``game_source``.
+      Tenancy plumbing; independent of each other but both must
+      land before later migrations that filter on user_id.
+    - 34a: rename ``pos_hash → content_hash``,
+      ``normalized_sgf → canonical_content`` on
+      ``normalized_position``.
+    - 34b (relocate then drop): move ``default_visits`` from a
+      column to a JSON field in ``grading_parameter``; drop the
+      now-unused column. Relocate before drop.
+    - ``add_client_game_id``: requires ``game_source.user_id``
+      (from 24).
+    - ``create_analysis_bundles``: a new table; no prior
+      dependency.
+    """
+    from scripts import (  # noqa: E402 — deferred per the docstring
+        migrate_23_add_user_id_to_documents,
+        migrate_24_add_user_id_to_game_source,
+        migrate_34a_rename_columns,
+        migrate_34b_drop_default_visits_column,
+        migrate_34b_relocate_default_visits,
+        migrate_add_client_game_id_to_game_source,
+        migrate_create_analysis_bundles,
+    )
+
+    return [
+        ("23: documents.user_id", migrate_23_add_user_id_to_documents.migrate),
+        ("24: game_source.user_id", migrate_24_add_user_id_to_game_source.migrate),
+        ("34a: rename pos_hash → content_hash etc.", migrate_34a_rename_columns.migrate),
+        (
+            "34b: relocate default_visits into grading_parameter",
+            migrate_34b_relocate_default_visits.migrate,
+        ),
+        (
+            "34b: drop default_visits column",
+            migrate_34b_drop_default_visits_column.migrate,
+        ),
+        (
+            "add_client_game_id: game_source.client_game_id + partial unique",
+            migrate_add_client_game_id_to_game_source.migrate,
+        ),
+        (
+            "create_analysis_bundles: new table",
+            migrate_create_analysis_bundles.migrate,
+        ),
+    ]
 
 
 def _alembic_config(backend_root: str) -> Config:
@@ -131,16 +196,27 @@ async def bootstrap_alembic(engine: AsyncEngine, backend_root: str) -> None:
        Skip stamping; run ``upgrade head`` to apply any pending
        revisions.
     2. Else probe schema markers:
+
        - Any marker satisfied → stamp at that revision, then
          ``upgrade head``.
        - No marker satisfied AND the ``game_source`` table doesn't
-         exist → fresh DB. ``metadata.create_all`` has already
-         materialised every table in the current declared schema;
-         the LATEST marker should now be satisfied. (Re-probe; if
-         still unmatched, raise.)
-       - No marker satisfied AND ``game_source`` exists → ancient
-         pre-v1.0 schema. Raise ``SchemaBootstrapError`` with
-         operator guidance.
+         exist → ``metadata.create_all`` should have created
+         ``game_source`` before this bootstrap ran. If it didn't,
+         the lifespan order is wrong; raise loudly.
+       - No marker satisfied AND ``game_source`` exists → pre-v1.0
+         schema. Run the legacy migration chain (the pre-Alembic
+         ``scripts/migrate_*.py`` ``migrate()`` functions, invoked
+         in dependency order; each is idempotent) to bring the
+         schema forward to the v1.0 baseline. Re-probe. If the
+         post-chain probe still finds no marker, raise — the
+         chain didn't reach a known baseline, which is a defect
+         in the chain definition rather than a user error.
+
+    The pre-v1.0 path is what makes the bootstrap robust against
+    real legacy installs and the (intentionally pre-v1.0) sample
+    DB shipped under ``samples/``. End-users on any pre-Alembic
+    schema get a one-restart upgrade; no manual ``migrate_*.py``
+    invocations required.
 
     Args:
         engine: live async SQLAlchemy engine.
@@ -157,23 +233,33 @@ async def bootstrap_alembic(engine: AsyncEngine, backend_root: str) -> None:
     revision = await _probe_revision(engine)
     if revision is None:
         # No marker satisfied. Distinguish "no game_source at all"
-        # (fresh, post-create_all should have populated markers) from
-        # "game_source exists but at an unrecognised state" (pre-v1.0
-        # schema we can't bootstrap from).
+        # (post-create_all should have populated markers — defect)
+        # from "game_source exists at a pre-v1.0 state" (real
+        # legacy install — recoverable via the chain).
         if not await _table_exists(engine, "game_source"):
             raise SchemaBootstrapError(
                 "alembic_bootstrap: no marker satisfied and game_source is absent. "
                 "metadata.create_all should have created game_source before this "
                 "bootstrap ran. Confirm db/schema.py imports and the lifespan order."
             )
-        raise SchemaBootstrapError(
-            "alembic_bootstrap: existing game_source table lacks expected "
-            "v1.0 baseline columns (client_game_id). The database appears to "
-            "be at a pre-v1.0 schema state that can't be bootstrapped into "
-            "Alembic automatically. Run the prior manual migration scripts in "
-            "backend/scripts/ (in numerical order) to reach the v1.0 baseline, "
-            "then restart the backend."
+
+        logger.info(
+            "alembic_bootstrap: pre-v1.0 schema detected (game_source present, "
+            "no v1.0 markers) — running legacy migration chain to reach baseline"
         )
+        await _run_legacy_chain(engine)
+
+        # Re-probe. The chain ran every legacy migration in order;
+        # if no marker is now satisfied, the chain is mis-defined
+        # relative to the actual baseline state Alembic stamps to.
+        revision = await _probe_revision(engine)
+        if revision is None:
+            raise SchemaBootstrapError(
+                "alembic_bootstrap: legacy migration chain ran but the post-chain "
+                "schema still doesn't satisfy any REVISION_MARKERS entry. The chain "
+                "definition in `_load_legacy_chain` is out of step with the marker "
+                "registry; this is a defect in the bootstrap, not a user error."
+            )
 
     logger.info(
         "alembic_bootstrap: stamping alembic_version at revision %s",
@@ -182,3 +268,28 @@ async def bootstrap_alembic(engine: AsyncEngine, backend_root: str) -> None:
     await asyncio.to_thread(command.stamp, cfg, revision)
     logger.info("alembic_bootstrap: running upgrade head")
     await asyncio.to_thread(command.upgrade, cfg, "head")
+
+
+async def _run_legacy_chain(engine: AsyncEngine) -> None:
+    """Walk the dependency-ordered chain of pre-Alembic migration
+    scripts, invoking each ``migrate()`` in turn. The scripts open
+    their own engines via ``core.config.DATABASE_URI`` — the same
+    URI this bootstrap's engine uses — so no engine-sharing is
+    required.
+
+    Each script's ``migrate()`` is idempotent. Running the full
+    chain on a partially-migrated DB applies only the missing
+    steps; running it on an already-v1.0 DB is a chain of no-ops
+    (but in practice that case is handled upstream by the marker
+    probe and never reaches here).
+
+    The ``engine`` argument is unused — the legacy scripts manage
+    their own engines — but accepted for symmetry with the rest
+    of the bootstrap API and to make this function easier to
+    extend if a future migration needs the bootstrap's existing
+    connection.
+    """
+    del engine  # parameter accepted for API symmetry; see docstring
+    for description, migrate_fn in _load_legacy_chain():
+        logger.info("alembic_bootstrap: legacy chain — %s", description)
+        await migrate_fn()
