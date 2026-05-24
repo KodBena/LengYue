@@ -27,6 +27,9 @@ import pytest_asyncio
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
+from alembic.config import Config
+from alembic.script import ScriptDirectory
+
 from db.alembic_bootstrap import bootstrap_alembic
 from db.schema import metadata
 
@@ -36,6 +39,19 @@ pytestmark = pytest.mark.integration
 BACKEND_ROOT = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 )
+
+
+def _alembic_head() -> str:
+    """The current head revision per the alembic/versions/ directory.
+
+    Read dynamically rather than hardcoded so this test file doesn't
+    need editing every time a new revision lands — the bootstrap's
+    contract is "reach head", regardless of which revision is at the
+    tip of the chain right now.
+    """
+    cfg = Config(os.path.join(BACKEND_ROOT, "alembic.ini"))
+    cfg.set_main_option("script_location", os.path.join(BACKEND_ROOT, "alembic"))
+    return ScriptDirectory.from_config(cfg).get_current_head()
 
 
 @pytest_asyncio.fixture
@@ -102,16 +118,19 @@ async def _alembic_version(engine: AsyncEngine) -> str | None:
 # ─── Fresh DB ───────────────────────────────────────────────────────────────
 
 
-async def test_bootstrap_on_fresh_db_stamps_baseline(temp_db_engine):
-    """A fresh DB with the current schema (post-create_all) stamps
-    at the latest revision matching the live schema state — for the
-    Alembic arc PR alone, that's ``0001_baseline``."""
+async def test_bootstrap_on_fresh_db_stamps_at_head(temp_db_engine):
+    """A fresh DB created by ``metadata.create_all`` already has
+    every column the live ``db/schema.py`` declares — including
+    those introduced by later Alembic revisions. The bootstrap
+    probe walks REVISION_MARKERS latest-to-earliest and matches
+    the most-recent revision whose marker column is present,
+    which on a fresh DB is the head revision."""
     async with temp_db_engine.begin() as conn:
         await conn.run_sync(metadata.create_all)
 
     await bootstrap_alembic(temp_db_engine, BACKEND_ROOT)
 
-    assert await _alembic_version(temp_db_engine) == "0001_baseline"
+    assert await _alembic_version(temp_db_engine) == _alembic_head()
 
 
 # ─── Already-Alembic-managed DB ─────────────────────────────────────────────
@@ -128,30 +147,58 @@ async def test_bootstrap_is_idempotent(temp_db_engine):
     await bootstrap_alembic(temp_db_engine, BACKEND_ROOT)
     second_stamp = await _alembic_version(temp_db_engine)
 
-    assert first_stamp == "0001_baseline"
-    assert second_stamp == "0001_baseline"
+    head = _alembic_head()
+    assert first_stamp == head
+    assert second_stamp == head
 
 
 # ─── Existing pre-Alembic DB (marker present, alembic_version absent) ───────
 
 
-async def test_bootstrap_existing_pre_alembic_db(temp_db_engine):
-    """A DB that has run the prior manual migrations (so the marker
-    column is present) but never seen Alembic gets stamped at the
-    matched baseline. Simulated by running ``create_all`` to seed
-    the schema, then running the bootstrap fresh."""
-    # create_all yields the same state an existing v1.0 install
-    # would be in after the prior manual migrations were applied,
-    # because schema.py here doesn't yet include any post-baseline
-    # columns.
+async def test_bootstrap_v1_baseline_db_upgrades_to_head(temp_db_engine):
+    """A DB at v1.0 baseline (post-Alembic-bootstrap merge, before
+    later schema work landed) is brought forward to head by
+    ``alembic upgrade head`` after the probe stamps at baseline.
+    Simulate by running ``create_all``, then surgically reverting
+    the post-baseline columns so the schema looks like a v1.0
+    install that never saw the library revision."""
     async with temp_db_engine.begin() as conn:
         await conn.run_sync(metadata.create_all)
+        # Strip the indexes + columns that 0002_sgf_library_columns
+        # adds, so the bootstrap's probe matches the earlier
+        # client_game_id marker (stamp at baseline) and then
+        # `alembic upgrade head` runs the library revision to bring
+        # the schema forward. Indexes must drop first — SQLite
+        # refuses DROP COLUMN while an index references the column.
+        for idx in (
+            "ix_game_source_user_position",
+            "ix_game_source_user_created_at_id",
+            "ix_game_source_user_date_id",
+            "ix_game_source_user_player_white_id",
+            "ix_game_source_user_player_black_id",
+            "ix_game_source_user_result_id",
+            "ix_game_source_user_ruleset_id",
+            "ix_game_source_user_board_size_id",
+        ):
+            await conn.execute(text(f"DROP INDEX IF EXISTS {idx}"))
+        for col in ("created_at", "date", "result", "ruleset",
+                    "board_size", "metadata_extra"):
+            await conn.execute(text(f"ALTER TABLE game_source DROP COLUMN {col}"))
 
     # Confirm alembic_version doesn't exist yet.
     assert await _alembic_version(temp_db_engine) is None
 
     await bootstrap_alembic(temp_db_engine, BACKEND_ROOT)
-    assert await _alembic_version(temp_db_engine) == "0001_baseline"
+
+    # The bootstrap should stamp at baseline (the earlier marker)
+    # and then run alembic upgrade head, landing at the library
+    # revision. The end state has all six library columns back.
+    assert await _alembic_version(temp_db_engine) == _alembic_head()
+    async with temp_db_engine.connect() as conn:
+        info = await conn.execute(text("PRAGMA table_info(game_source)"))
+        cols = {row[1] for row in info.fetchall()}
+        assert {"created_at", "date", "result", "ruleset",
+                "board_size", "metadata_extra"} <= cols
 
 
 # ─── Pre-v1.0 schema → legacy chain runs → baseline reached ─────────────────
@@ -187,13 +234,19 @@ async def test_bootstrap_brings_pre_v1_schema_forward_via_legacy_chain(
 
     await bootstrap_alembic(temp_db_engine, BACKEND_ROOT)
 
-    assert await _alembic_version(temp_db_engine) == "0001_baseline"
-    # The chain should have added client_game_id and created
-    # analysis_bundles on the way to baseline.
+    # The bootstrap runs the legacy chain to reach v1.0 baseline,
+    # then `alembic upgrade head` continues forward through every
+    # Alembic revision (including the library columns). End state
+    # is at head.
+    assert await _alembic_version(temp_db_engine) == _alembic_head()
     async with temp_db_engine.connect() as conn:
         info = await conn.execute(text("PRAGMA table_info(game_source)"))
         cols = {row[1] for row in info.fetchall()}
+        # Baseline marker (added by legacy chain) + library columns
+        # (added by 0002_sgf_library_columns) both present.
         assert "client_game_id" in cols
+        assert {"created_at", "date", "result", "ruleset",
+                "board_size", "metadata_extra"} <= cols
         tbls = await conn.execute(text(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='analysis_bundles'"
         ))
@@ -203,11 +256,13 @@ async def test_bootstrap_brings_pre_v1_schema_forward_via_legacy_chain(
 # ─── Regression: the shipped sample DB bootstraps cleanly ───────────────────
 
 
-async def test_bootstrap_on_shipped_sample_db_reaches_baseline(temp_db_engine):
+async def test_bootstrap_on_shipped_sample_db_reaches_head(temp_db_engine):
     """The pre-v1.0 sample under ``samples/cards.sample.db`` is the
     regression fixture for the legacy chain. Copy it over the test
     DB path and run the bootstrap; the chain should bring it
-    forward without losing any of its content.
+    forward to v1.0 baseline, and then ``alembic upgrade head``
+    continues through every revision (including library columns)
+    to land at head.
 
     This is the load-bearing test for the "user runs load_sample.py
     on a fresh install, restarts the backend, everything works"
@@ -246,7 +301,13 @@ async def test_bootstrap_on_shipped_sample_db_reaches_baseline(temp_db_engine):
             assert cards > 0
             assert game_sources > 0
 
-        # The chain reached baseline.
-        assert await _alembic_version(new_engine) == "0001_baseline"
+        # The chain reached baseline and the upgrade continued to head.
+        assert await _alembic_version(new_engine) == _alembic_head()
+        # Library columns landed via the upgrade post-baseline.
+        async with new_engine.connect() as conn:
+            info = await conn.execute(text("PRAGMA table_info(game_source)"))
+            cols = {row[1] for row in info.fetchall()}
+            assert {"created_at", "date", "result", "ruleset",
+                    "board_size", "metadata_extra"} <= cols
     finally:
         await new_engine.dispose()

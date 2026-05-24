@@ -66,6 +66,7 @@ class SchemaBootstrapError(RuntimeError):
 REVISION_MARKERS: List[Tuple[str, str, str]] = [
     # (table, column, revision_id)
     ("game_source", "client_game_id", "0001_baseline"),
+    ("game_source", "created_at", "0002_sgf_library_columns"),
 ]
 
 
