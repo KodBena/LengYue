@@ -51,6 +51,7 @@ from domain.game_library import (
     ImportOutcome,
     LibraryGame,
     LibraryGameListItem,
+    PlayerCount,
     SgfMetadata,
 )
 from domain.lineage import RootedTree, RootResolution
@@ -878,17 +879,20 @@ class GameLibraryRepositoryPort(Protocol):
         self,
         *,
         user_id: UserId,
-    ) -> List[str]:
+    ) -> List[PlayerCount]:
         """
-        Distinct player names across the caller's library, ordered
-        by descending frequency.
+        Distinct player names across the caller's library plus the
+        game count for each, ordered by descending frequency.
 
         The list is the deduplicated union of ``player_white`` and
         ``player_black`` values across every ``game_source`` row
         owned by ``user_id``. NULL and empty strings are excluded.
         Ordering: most-frequent first (so common players surface at
         the top of the SPA's autocomplete dropdown); ties broken
-        alphabetically for determinism.
+        alphabetically for determinism. Each entry carries the
+        precomputed ``count`` of games the name appears in (either
+        colour) so the SPA's player-list accordion can render
+        "name (N)" without a per-name follow-up.
 
         Tenancy: WHERE clause filters on ``user_id``. A caller
         cannot observe another tenant's player names.

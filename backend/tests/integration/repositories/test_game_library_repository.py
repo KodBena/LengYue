@@ -500,7 +500,10 @@ async def test_list_players_returns_distinct_union(async_session):
         ],
     )
     players = await repo.list_players(user_id=ALICE)
-    assert set(players) == {"Alice", "Bob", "Carol"}
+    assert {p.name for p in players} == {"Alice", "Bob", "Carol"}
+    # Counts: Bob in 3 games (2W + 1B), Alice in 2, Carol in 1.
+    by_name = {p.name: p.count for p in players}
+    assert by_name == {"Bob": 3, "Alice": 2, "Carol": 1}
 
 
 async def test_list_players_frequency_order_with_alphabetical_tiebreak(async_session):
@@ -517,8 +520,10 @@ async def test_list_players_frequency_order_with_alphabetical_tiebreak(async_ses
         ],
     )
     players = await repo.list_players(user_id=ALICE)
-    assert players[0] == "Bob"
-    assert players[1:] == ["Alice", "Carol", "Dan"]
+    assert players[0].name == "Bob"
+    assert players[0].count == 3
+    assert [p.name for p in players[1:]] == ["Alice", "Carol", "Dan"]
+    assert all(p.count == 1 for p in players[1:])
 
 
 async def test_list_players_excludes_null_and_empty(async_session):
@@ -533,7 +538,8 @@ async def test_list_players_excludes_null_and_empty(async_session):
         ],
     )
     players = await repo.list_players(user_id=ALICE)
-    assert players == ["Alice"]
+    assert [p.name for p in players] == ["Alice"]
+    assert players[0].count == 1
 
 
 async def test_list_players_cross_tenant_isolation(async_session):
@@ -549,8 +555,10 @@ async def test_list_players_cross_tenant_isolation(async_session):
         user_id=BOB,
         requests=[_request(canonical="(;FF[4]C[B])", player_white="Bob")],
     )
-    assert await repo.list_players(user_id=ALICE) == ["Alice"]
-    assert await repo.list_players(user_id=BOB) == ["Bob"]
+    alice_players = await repo.list_players(user_id=ALICE)
+    bob_players = await repo.list_players(user_id=BOB)
+    assert [p.name for p in alice_players] == ["Alice"]
+    assert [p.name for p in bob_players] == ["Bob"]
 
 
 # ─── source_path provenance round-trips into metadata_extra ─────────────────

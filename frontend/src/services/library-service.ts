@@ -38,6 +38,7 @@ import type {
   LibraryImportOutcome,
   LibrarySortColumn,
   LibrarySortDirection,
+  PlayerCount,
 } from '../types';
 import type { components } from '../types/backend';
 
@@ -263,11 +264,14 @@ export class LibraryService {
    * imported data). The F3 composable re-fetches after an
    * import completes.
    */
-  public async listPlayers(): Promise<readonly string[]> {
+  public async listPlayers(): Promise<readonly PlayerCount[]> {
     const wire = await api.request<ListPlayersResponseWire>(
       'GET',
       '/library/players',
     );
+    // Wire shape is structurally identical to PlayerCount — same
+    // field names, same types — so no projection is needed beyond
+    // typing the result. Both surfaces consume the same array.
     return wire.players;
   }
 

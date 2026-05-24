@@ -23,10 +23,17 @@
 import { ref, shallowReadonly } from 'vue';
 import type { Ref } from 'vue';
 import { libraryService } from '../../services/library-service';
+import type { PlayerCount } from '../../types';
 
 export interface LibraryPlayerSuggest {
-  /** Cached player list. `null` while the initial fetch is in flight. */
-  readonly players: Readonly<Ref<readonly string[] | null>>;
+  /**
+   * Cached player list with per-player game counts. `null` while
+   * the initial fetch is in flight. The two consumers — the
+   * autocomplete dropdown in the per-color filter inputs and the
+   * two-column accordion in the Library tab — share this single
+   * cache.
+   */
+  readonly players: Readonly<Ref<readonly PlayerCount[] | null>>;
 
   /** True while a fetch is in flight; the UI may grey out the input. */
   readonly loading: Readonly<Ref<boolean>>;
@@ -36,7 +43,8 @@ export interface LibraryPlayerSuggest {
    * `prefix` (case-insensitive substring match). Returns at most
    * `limit` results (default 20). The cache's order — frequency
    * then alphabetical — is preserved, so common players appear
-   * first in the dropdown.
+   * first in the dropdown. Returns name strings only; the
+   * autocomplete dropdown doesn't surface counts.
    *
    * Returns an empty array when the cache hasn't loaded yet —
    * the UI can show "loading…" or simply nothing during that
@@ -55,7 +63,7 @@ export interface LibraryPlayerSuggest {
 const DEFAULT_SUGGEST_LIMIT = 20;
 
 export function useLibraryPlayerSuggest(): LibraryPlayerSuggest {
-  const players = ref<readonly string[] | null>(null);
+  const players = ref<readonly PlayerCount[] | null>(null);
   const loading = ref(false);
 
   async function refresh(): Promise<void> {
@@ -70,12 +78,12 @@ export function useLibraryPlayerSuggest(): LibraryPlayerSuggest {
   function suggest(prefix: string, limit: number = DEFAULT_SUGGEST_LIMIT): readonly string[] {
     const pool = players.value;
     if (pool === null) return [];
-    if (prefix === '') return pool.slice(0, limit);
+    if (prefix === '') return pool.slice(0, limit).map(p => p.name);
     const needle = prefix.toLowerCase();
     const out: string[] = [];
-    for (const name of pool) {
-      if (name.toLowerCase().includes(needle)) {
-        out.push(name);
+    for (const p of pool) {
+      if (p.name.toLowerCase().includes(needle)) {
+        out.push(p.name);
         if (out.length >= limit) break;
       }
     }

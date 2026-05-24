@@ -200,11 +200,16 @@ describe('LibraryService.deleteGame', () => {
 // ─── listPlayers ────────────────────────────────────────────────────────────
 
 describe('LibraryService.listPlayers', () => {
-  it('returns the players array from the wire response', async () => {
-    mockRequest.mockResolvedValueOnce({ players: ['Bob', 'Alice', 'Carol'] });
+  it('returns the players array (name + count) from the wire response', async () => {
+    const wireRows = [
+      { name: 'Bob', count: 3 },
+      { name: 'Alice', count: 1 },
+      { name: 'Carol', count: 1 },
+    ];
+    mockRequest.mockResolvedValueOnce({ players: wireRows });
     const svc = new LibraryService();
     const result = await svc.listPlayers();
-    expect(result).toEqual(['Bob', 'Alice', 'Carol']);
+    expect(result).toEqual(wireRows);
   });
 });
 

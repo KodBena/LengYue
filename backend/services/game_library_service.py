@@ -39,6 +39,7 @@ from domain.game_library import (
     ImportOutcomeErrored,
     LibraryGame,
     LibraryGameListItem,
+    PlayerCount,
     SgfMetadata,
 )
 from domain.normalizer import PositionNormalizerPort
@@ -225,9 +226,9 @@ class GameLibraryService:
         self,
         *,
         user_id: UserId,
-    ) -> List[str]:
-        """Distinct player-name set for autocomplete. Pure
-        pass-through to the Port — no service-level work beyond
-        threading ``user_id`` through.
+    ) -> List[PlayerCount]:
+        """Distinct player-name + game-count pairs for the SPA's
+        player accordion. Pure pass-through to the Port — no
+        service-level work beyond threading ``user_id`` through.
         """
         return await self.repository.list_players(user_id=user_id)

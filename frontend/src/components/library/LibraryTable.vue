@@ -256,7 +256,12 @@ function rowTitle(idx: number): string {
   border-bottom: 1px solid var(--border-subtle);
 }
 .library-row:hover { background: var(--surface-2); }
-.library-row.selected { background: var(--accent-primary); color: var(--surface-1); }
+/* Selection highlight: only the background changes. Forcing a
+   foreground colour against the accent-primary substrate produced
+   a low-contrast grey-on-blue that was hard to read; inheriting
+   the default body text colour keeps readability constant
+   between selected and unselected rows. */
+.library-row.selected { background: var(--accent-primary); }
 .library-row.loading { opacity: 0.5; }
 .td {
   white-space: nowrap;

@@ -122,11 +122,14 @@ function onPlayerChipClick(name: string): void {
       </summary>
       <div v-if="suggest.players.value" class="library-players-list">
         <button
-          v-for="name in suggest.players.value"
-          :key="name"
-          class="library-player-chip"
-          @click="onPlayerChipClick(name)"
-        >{{ name }}</button>
+          v-for="p in suggest.players.value"
+          :key="p.name"
+          class="library-player-row"
+          @click="onPlayerChipClick(p.name)"
+        >
+          <span class="library-player-name">{{ p.name }}</span>
+          <span class="library-player-count">{{ p.count }}</span>
+        </button>
       </div>
     </details>
 
@@ -208,17 +211,23 @@ function onPlayerChipClick(name: string): void {
 .library-players-list {
   padding: var(--space-tiny) var(--space-small) var(--space-small);
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: var(--space-tiny);
-  /* magic-literal: 180px max-height — ~6 rows of chips before the
-     internal scrollbar kicks in. Tuned so the accordion-open
-     state doesn't dominate the library-tab vertical budget; the
-     scroll inside the accordion picks up the slack for larger
-     libraries (hundreds of distinct names). */
-  max-height: 180px;
+  /* magic-literal: 240px max-height — ~10 rows of name+count
+     before the internal scrollbar kicks in. The accordion is a
+     scan-and-pick tool; once the user finds a name they fold the
+     disclosure, so the open-state vertical budget is bounded.
+     Increase if a typical library grows past low hundreds of
+     distinct names where 10 rows feels too small. */
+  max-height: 240px;
   overflow-y: auto;
 }
-.library-player-chip {
+.library-player-row {
+  display: grid;
+  /* Name column grows; count column sized to content (right). */
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: var(--space-small);
   padding: 2px var(--space-small);
   font-size: var(--text-small);
   background: var(--surface-0);
@@ -226,9 +235,23 @@ function onPlayerChipClick(name: string): void {
   border-radius: var(--radius-default);
   color: var(--text-default);
   cursor: pointer;
+  text-align: left;
+  font-family: inherit;
 }
-.library-player-chip:hover {
+.library-player-row:hover {
   border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+.library-player-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.library-player-count {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.library-player-row:hover .library-player-count {
   color: var(--accent-primary);
 }
 .library-split {

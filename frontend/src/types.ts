@@ -1894,6 +1894,16 @@ export type LibrarySortColumn =
 
 export type LibrarySortDirection = 'asc' | 'desc';
 
+// Distinct-player view row — name + the number of games the player
+// appears in across either colour. Backend computes the counts; the
+// SPA renders a two-column accordion (name, count) and feeds names
+// into the autocomplete suggest. Both surfaces consume the same
+// frequency-ordered list.
+export interface PlayerCount {
+  readonly name: string;
+  readonly count: number;
+}
+
 // One library row in the list view. Excludes `rawContent` — the SGF
 // body ships only via the detail endpoint per the column-projection
 // discipline (~2 KB/row × 100 rows would dwarf the metadata).

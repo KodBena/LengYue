@@ -264,16 +264,19 @@ async def test_list_players_returns_distinct_union_with_frequency_order():
     repo.seed_row(user_id=ALICE, player_white="Dan", player_black="Bob")
     players = await svc.list_players(user_id=ALICE)
     # Bob appears 3 times, others 1 each.
-    assert players[0] == "Bob"
-    assert set(players) == {"Alice", "Bob", "Carol", "Dan"}
+    assert players[0].name == "Bob"
+    assert players[0].count == 3
+    assert {p.name for p in players} == {"Alice", "Bob", "Carol", "Dan"}
 
 
 async def test_list_players_cross_tenant_isolation():
     svc, repo, _ = _make_service()
     repo.seed_row(user_id=ALICE, player_white="Alice")
     repo.seed_row(user_id=BOB, player_white="Bob")
-    assert await svc.list_players(user_id=ALICE) == ["Alice"]
-    assert await svc.list_players(user_id=BOB) == ["Bob"]
+    alice = await svc.list_players(user_id=ALICE)
+    bob = await svc.list_players(user_id=BOB)
+    assert [p.name for p in alice] == ["Alice"]
+    assert [p.name for p in bob] == ["Bob"]
 
 
 async def test_list_players_empty_when_no_rows():

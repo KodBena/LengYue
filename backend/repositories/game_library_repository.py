@@ -45,6 +45,7 @@ from domain.game_library import (
     ImportOutcomeErrored,
     LibraryGame,
     LibraryGameListItem,
+    PlayerCount,
 )
 from repositories.ports import GameLibraryRepositoryPort
 
@@ -396,7 +397,7 @@ class GameLibraryRepository(GameLibraryRepositoryPort):
         self,
         *,
         user_id: UserId,
-    ) -> list[str]:
+    ) -> list[PlayerCount]:
         # Two grouped counts merged in Python. A single SQL UNION ALL
         # subquery with a GROUP BY in the outer scope would be marginally
         # more efficient but harder to read; at hobby scale (~thousands
@@ -424,6 +425,7 @@ class GameLibraryRepository(GameLibraryRepositoryPort):
 
         # Descending by count, alphabetical on ties for determinism.
         return [
-            name for name, _ in
+            PlayerCount(name=name, count=cnt)
+            for name, cnt in
             sorted(counter.items(), key=lambda kv: (-kv[1], kv[0]))
         ]

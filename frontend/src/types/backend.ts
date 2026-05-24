@@ -1598,17 +1598,20 @@ export interface components {
         };
         /**
          * ListPlayersResponse
-         * @description Distinct-player-names response for the SPA's filter autocomplete.
+         * @description Distinct-player-names + game-count response.
          *
-         *     The list is the deduplicated union of ``player_white`` and
-         *     ``player_black`` values across the caller's library, ordered by
-         *     descending frequency so common players surface first in the
-         *     autocomplete dropdown. The SPA fetches once on Library tab
-         *     mount and re-fetches after an import completes.
+         *     Each entry pairs a player's name with the number of games it
+         *     appears in (either colour) across the caller's library. The
+         *     list is the deduplicated union of ``player_white`` and
+         *     ``player_black`` values, ordered by descending frequency so
+         *     common players surface first in both the autocomplete dropdown
+         *     and the SPA's two-column player accordion. The SPA fetches
+         *     once on Library tab mount and re-fetches after an import
+         *     completes.
          */
         ListPlayersResponse: {
             /** Players */
-            players: string[];
+            players: components["schemas"]["PlayerCount"][];
         };
         /**
          * MainLineFirst
@@ -1682,6 +1685,26 @@ export interface components {
             iteration: number;
             /** Reissued */
             reissued: boolean;
+        };
+        /**
+         * PlayerCount
+         * @description One row of the distinct-players-with-counts view.
+         *
+         *     The SPA renders the player list as a two-column accordion
+         *     (name + game count); ``count`` carries the precomputed
+         *     ``COUNT(*)`` from the repository so the frontend doesn't
+         *     need a second round-trip per name.
+         *
+         *     ``count`` semantics: number of games where this name appears
+         *     in EITHER the ``player_white`` OR ``player_black`` column.
+         *     A game where the same name plays both sides counts as 2 —
+         *     pathological in real Go but the natural union-sum reading.
+         */
+        PlayerCount: {
+            /** Name */
+            name: string;
+            /** Count */
+            count: number;
         };
         /** PreferenceRequest */
         PreferenceRequest: {

@@ -43,6 +43,7 @@ from domain.game_library import (
     ImportOutcomeErrored,
     LibraryGame,
     LibraryGameListItem,
+    PlayerCount,
 )
 
 
@@ -269,7 +270,7 @@ class FakeGameLibraryRepository:
         self,
         *,
         user_id: UserId,
-    ) -> List[str]:
+    ) -> List[PlayerCount]:
         owned = [r for r in self._rows.values() if r.user_id == int(user_id)]
         from collections import Counter
         counter: Counter[str] = Counter()
@@ -278,7 +279,8 @@ class FakeGameLibraryRepository:
                 if name:
                     counter[name] += 1
         return [
-            name for name, _ in
+            PlayerCount(name=name, count=cnt)
+            for name, cnt in
             sorted(counter.items(), key=lambda kv: (-kv[1], kv[0]))
         ]
 

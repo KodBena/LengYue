@@ -147,6 +147,29 @@ class LibraryGame(BaseModel):
     raw_content: str
 
 
+# ─── Aggregate views ─────────────────────────────────────────────────────────
+
+
+class PlayerCount(BaseModel):
+    """
+    One row of the distinct-players-with-counts view.
+
+    The SPA renders the player list as a two-column accordion
+    (name + game count); ``count`` carries the precomputed
+    ``COUNT(*)`` from the repository so the frontend doesn't
+    need a second round-trip per name.
+
+    ``count`` semantics: number of games where this name appears
+    in EITHER the ``player_white`` OR ``player_black`` column.
+    A game where the same name plays both sides counts as 2 —
+    pathological in real Go but the natural union-sum reading.
+    """
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    count: int
+
+
 # ─── List request shape ──────────────────────────────────────────────────────
 
 

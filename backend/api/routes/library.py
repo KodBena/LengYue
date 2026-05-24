@@ -47,6 +47,7 @@ from domain.game_library import (
     ImportOutcome,
     LibraryGame,
     LibraryGameListItem,
+    PlayerCount,
 )
 from services.game_library_service import GameLibraryService
 
@@ -103,16 +104,19 @@ class ListGamesResponse(BaseModel):
 
 class ListPlayersResponse(BaseModel):
     """
-    Distinct-player-names response for the SPA's filter autocomplete.
+    Distinct-player-names + game-count response.
 
-    The list is the deduplicated union of ``player_white`` and
-    ``player_black`` values across the caller's library, ordered by
-    descending frequency so common players surface first in the
-    autocomplete dropdown. The SPA fetches once on Library tab
-    mount and re-fetches after an import completes.
+    Each entry pairs a player's name with the number of games it
+    appears in (either colour) across the caller's library. The
+    list is the deduplicated union of ``player_white`` and
+    ``player_black`` values, ordered by descending frequency so
+    common players surface first in both the autocomplete dropdown
+    and the SPA's two-column player accordion. The SPA fetches
+    once on Library tab mount and re-fetches after an import
+    completes.
     """
     model_config = ConfigDict(frozen=True)
-    players: List[str]
+    players: List[PlayerCount]
 
 
 # ─── Routes ───────────────────────────────────────────────────────────

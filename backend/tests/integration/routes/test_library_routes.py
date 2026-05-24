@@ -388,7 +388,10 @@ async def test_players_returns_distinct_union_of_white_and_black(client, session
     resp = await client.get("/library/players", headers=auth_header(ALICE_ID))
     assert resp.status_code == 200
     players = resp.json()["players"]
-    assert set(players) == {"Alice", "Bob", "Carol"}
+    assert {p["name"] for p in players} == {"Alice", "Bob", "Carol"}
+    # Counts: Bob in 3 games (2W + 1B), Alice in 2, Carol in 1.
+    by_name = {p["name"]: p["count"] for p in players}
+    assert by_name == {"Bob": 3, "Alice": 2, "Carol": 1}
 
 
 async def test_players_orders_by_descending_frequency(client, session):
@@ -407,9 +410,10 @@ async def test_players_orders_by_descending_frequency(client, session):
     resp = await client.get("/library/players", headers=auth_header(ALICE_ID))
     players = resp.json()["players"]
     # Bob appears 3 times, everyone else 1 — Bob first.
-    assert players[0] == "Bob"
-    # Ties broken alphabetically.
-    assert players[1:] == ["Alice", "Carol", "Dan"]
+    assert players[0] == {"name": "Bob", "count": 3}
+    # Ties broken alphabetically; each appears once.
+    assert [p["name"] for p in players[1:]] == ["Alice", "Carol", "Dan"]
+    assert all(p["count"] == 1 for p in players[1:])
 
 
 async def test_import_with_source_path_round_trips_in_detail(client, session):
@@ -462,5 +466,5 @@ async def test_players_cross_tenant_isolation(client, session):
     )
     alice = (await client.get("/library/players", headers=auth_header(ALICE_ID))).json()
     bob = (await client.get("/library/players", headers=auth_header(BOB_ID))).json()
-    assert set(alice["players"]) == {"Alice", "Anne"}
-    assert set(bob["players"]) == {"Bob", "Bert"}
+    assert {p["name"] for p in alice["players"]} == {"Alice", "Anne"}
+    assert {p["name"] for p in bob["players"]} == {"Bob", "Bert"}
