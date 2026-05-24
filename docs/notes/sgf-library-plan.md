@@ -1,13 +1,16 @@
 # SGF Library — Design Note
 
-- **Status:** `design-note: backend-implemented`. The backend
-  arc (Phases 1–7 of the original roadmap) is landed locally —
-  schema migration, normalizer extension, domain value objects,
-  Port, Service, Adapter, four REST endpoints, full four-tier
-  test coverage (57 new tests). The frontend consumption arc is
-  queued. Transitions to `design-note: implemented` when the
-  frontend's library list + preview UX ships and the user has
-  tested end-to-end.
+- **Status:** `design-note: locally-implemented`. Both halves
+  of the arc are landed on `feat/sgf-library` — backend
+  (schema migration, normalizer extension, domain types, Port,
+  Service, Adapter, five REST endpoints under `/library`) and
+  frontend (regen'd OpenAPI types, ACL service, five
+  composables + a no-dep virtual-scroll primitive, five SFCs,
+  App.vue tab wiring, i18n keys across en/ja/ko/zh-CN). Full
+  test sweep on both sides clean. Transitions to
+  `design-note: implemented` after the user exercises the
+  end-to-end flow against their ~/w/vdc/sgf_db directory and
+  the branch merges to `next`.
 - **Genre:** Design note — the planning record per ADR-0005's
   author-as-decide rule. The conversation that produced this
   shape is the substrate; the document records the decisions.

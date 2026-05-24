@@ -359,26 +359,70 @@ single-machine deployment this works well; for multi-region or
 read-replica topologies, Alembic-equivalent tooling becomes
 worthwhile.
 
-**The SGF library surface ships backend-side.** Backend half of
+**The SGF library surface ships end-to-end.** Both halves of
 the SGF-library arc (design note:
-`docs/notes/sgf-library-plan.md`) extends `game_source` to be a
-first-class games repository, not only a card-mint side-effect.
-Six new columns on `game_source` (`created_at`, `date`,
-`result`, `ruleset`, `board_size`, `metadata_extra`); eight new
-compound `(user_id, sort_col, id)` indexes supporting paginated
-list with stable secondary sort. The seventh Port,
+`docs/notes/sgf-library-plan.md`) are landed on
+`feat/sgf-library`.
+
+Backend extends `game_source` to be a first-class games
+repository, not only a card-mint side-effect. Six new columns
+on `game_source` (`created_at`, `date`, `result`, `ruleset`,
+`board_size`, `metadata_extra`); eight new compound
+`(user_id, sort_col, id)` indexes supporting paginated list
+with stable secondary sort. The seventh Port,
 `GameLibraryRepositoryPort`, lives at
 `repositories/game_library_repository.py`; the
 `GameLibraryService` use case orchestrates batch import with
-SAVEPOINT-per-file isolation. Four REST endpoints at
+SAVEPOINT-per-file isolation. Five REST endpoints at
 `api/routes/library.py`: `POST /library/games/import`,
 `GET /library/games`, `GET /library/games/{id}`,
 `DELETE /library/games/{id}`, `GET /library/players` (distinct
-player names for SPA filter autocomplete). Pagination is offset
-+ limit with `total_count` in the response — chosen over cursor
-because cursors are forward-only and the surface's random-walk
-UX requires arbitrary-row jumps. Frontend consumption is queued
-as a separate arc.
+player names for SPA filter autocomplete). Pagination is
+offset + limit with `total_count` in the response — chosen
+over cursor because cursors are forward-only and the
+surface's random-walk UX requires arbitrary-row jumps. The
+`POST /library/games/import` body accepts an optional
+`source_path` per file, lifted into
+`metadata_extra.source_path` at INSERT so directory-upload
+provenance survives into the row.
+
+Frontend lands the Library tab as the leading entry in the
+control-tabs strip. Layered:
+
+- ACL (`src/services/library-service.ts`) wraps the five
+  endpoints; brands ids at the boundary; client-side chunks
+  imports at `IMPORT_CHUNK_SIZE = 1000` to match the
+  backend cap.
+- Composables (`src/composables/library/`): `useLibraryQuery`
+  (sparse-buffer pagination with generation-counter race
+  protection), `useLibraryPlayerSuggest` (in-memory
+  frequency-ordered autocomplete cache), `useLibraryPreview`
+  (lazy SGF parse + scrub navigation), `useLibraryImport`
+  (file / directory / drag-drop with progressive phase state),
+  `useVirtualRowList` (no-dependency virtual-scroll primitive
+  — explicitly rolled rather than pulling `@tanstack/vue-virtual`
+  or `vue-virtual-scroller` per the XZ-utils-shaped supply-
+  chain caution).
+- `useDirtyBoardGuard` was refactored to share its
+  decide-then-load core between `handleLoadCard` and the new
+  `handleLoadLibraryGame`, so library opens go through the
+  same confirm-load modal + `navigation.actionOnDirtyBoard`
+  preference as card opens. Card-mint integration: the
+  library row's `client_game_id` stamps onto the loaded
+  board, hitting the existing
+  `get_or_create_game_source_by_client_id` dedup path on a
+  subsequent mint.
+- Components (`src/components/library/`): five SFCs —
+  `LibraryTab` master-detail orchestrator, `LibraryTable`
+  with sortable headers, `LibraryPlayerFilter` autocomplete,
+  `LibraryPreviewPane` mini-board + scrubber + actions,
+  `LibraryImportPanel` drag-drop + picker + progress.
+
+96 new tests across the four backend tiers (unit, service-
+with-fakes, adapter integration, route) and the two frontend
+tiers (unit, integration); full suite 648 backend / 596
+frontend / clean `vue-tsc -b`. Branch awaits user
+end-to-end test before merging to `next`.
 
 ### Known gaps (backend)
 

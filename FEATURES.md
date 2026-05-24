@@ -341,54 +341,93 @@ A file-manager-style navigator alongside a card-tree chart.
   session, the current card paints orange so the user can see
   where they are in the deck's forest.
 
-## SGF library `[partial]`
+## SGF library — the Library tab
 
-A relational repository for the user's collection of SGF files.
-The backend half ships as part of this arc; the SPA-side
-browseable list with sortable headers, filter inputs, and
-thumbnail preview pane is queued behind the frontend
-consumption arc.
+A first-class repository for the user's collection of SGF
+files: import a directory of games, browse them in a
+sortable / filterable table, preview the position on a
+scrubbable mini-board, open one on the active board for
+analysis or card creation.
 
-**What it does.** A user with a collection of SGF files
-(personal play, professional games, problem sets) imports them
-in batches and browses them in a list-with-preview UX
-reminiscent of a tab-manager or relational-DB front-end. Each
-row carries the SGF's typed metadata — players, date, result,
-ruleset, board size — and click-to-preview pulls the full SGF
-for thumbnail rendering. Sort by any column header; filter on
-player names, date range, result, ruleset, board size.
+### Importing
 
-**Card creation from library entries.** Opening a library game
-on a board carries its `client_game_id` through; subsequent
-card mints from that board dedup against the existing library
-row rather than creating a parallel entry. The library is the
-seed bed, not a parallel namespace.
+Three entry points, all converging on the same chunked-
+upload pipeline:
 
-**What's in scope.**
+- **Drag-and-drop** an SGF file or a folder of SGFs onto the
+  import zone at the top of the Library tab. The dropped
+  directory is walked recursively; non-`.sgf` files (READMEs,
+  `.DS_Store`, thumbnails) are filtered client-side.
+- **Pick files…** opens the native multi-select file picker.
+- **Pick directory…** opens the native directory picker.
+  Yields every `.sgf` under the chosen root with its
+  on-disk path preserved into the library entry's
+  `metadata_extra.source_path`, so a collection organised
+  by `sgf_db/1996/cho-vs-lee.sgf` keeps that lineage for
+  any future collection-grouping feature.
 
-- Backend: schema additions to `game_source` for the typed
-  metadata columns (`date`, `result`, `ruleset`, `board_size`)
-  plus a `metadata_extra` JSON column for every other SGF
-  property; five REST endpoints under `/library`
-  (`POST /library/games/import`, `GET /library/games`,
-  `GET /library/games/{id}`, `DELETE /library/games/{id}`,
-  `GET /library/players` for the filter-input autocomplete) with
-  pagination, sort, filter, and per-user dedup.
-- Frontend (queued): the list view, the preview pane, the
-  filter / sort UX. Virtual scrolling for collections sized
-  in the tens of thousands.
+Uploads chunk at 1000 files per request (matching the
+backend's per-request cap); progress shows "Reading N / M",
+then "Uploading chunk X / Y" with running counts of
+`created` / `deduplicated` / `errored` outcomes. Duplicate
+SGFs (same canonical content, same user) deduplicate at
+import — re-importing a folder is idempotent.
 
-**What's deferred.**
+### Browsing
+
+A master-detail layout: virtual-scrolled table on the left,
+preview pane on the right. The table renders at 25k+ rows
+without lag — only the visible window plus a small overscan
+is in the DOM at any time, with the rest occupying the
+scrollbar via a tall spacer.
+
+- **Sortable headers.** Click `Date`, `White`, `Black`,
+  `Result`, `Rules`, or `Size` to sort; click again to
+  reverse. Stable secondary sort on row id so ties don't
+  shuffle across pages.
+- **Player filters.** Two autocomplete inputs (one per
+  side); type a prefix and pick from the dropdown. The
+  cache is the distinct player set across the user's
+  library, frequency-ordered, fetched once at tab mount
+  and refreshed after imports.
+- **Click selects, double-click opens.** Click a row to
+  populate the preview pane; double-click to send the game
+  to the active board (passing through the shared
+  dirty-board guard — same modal + remembered preference
+  as Browse-mode card loads).
+
+### Preview pane
+
+Header carries player names + date + result + ruleset +
+board size. The mini-board renders via the same SVG
+renderer the card-tree thumbnails use. A scrub slider
+underneath traverses the main variation move by move —
+useful for quickly checking "does this game match what I
+thought it was" before opening it on a full board.
+
+Two action buttons:
+
+- **Open in board** routes through the dirty-board guard
+  (asks-or-honours-preference depending on
+  `navigation.actionOnDirtyBoard`), stamping the
+  library row's `client_game_id` onto the loaded board so
+  a subsequent card mint reuses the existing library row
+  via the backend's `get_or_create_game_source_by_client_id`
+  dedup — the library is the seed bed, not a parallel
+  namespace.
+- **Delete from library** removes the row; cards minted
+  from this game survive (cascade is `ON DELETE SET NULL`)
+  but lose the source link.
+
+### What's deferred
 
 - Player-name normalisation (Cho Chikun / 趙治勳 / Cho U
-  variants stay as raw strings; query-time normalisation when
-  it bites).
+  variants stay as raw strings; query-time normalisation
+  when it bites).
 - Collection / tag grouping at the library level (different
-  from card tags; absent until needed).
+  from card tags; absent until a concrete use case).
 - Full-text search on player names or descriptions (simple
   LIKE filters suffice).
-- "Unknown"-fallback unification across card-mint and
-  library-import flows.
 
 Design rationale: `docs/notes/sgf-library-plan.md`.
 
