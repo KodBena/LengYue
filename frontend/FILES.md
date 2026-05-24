@@ -210,6 +210,7 @@ frontend/src/
 │   ├── analysis-service.ts            [B3]  Bridges KataGo turns to the ledger nodes.
 │   ├── api-client.ts                  [B1]  Pure REST client; JWT injection; zero-friction local auth.
 │   ├── backend-service.ts             [B2]  ACL for the backend; wire snake_case → domain camelCase with branded ids.
+│   ├── library-service.ts             [B1]  ACL for the /library endpoints; chunked import with progress callback.
 │   ├── optimize-f-cache.ts            [B3]  localStorage-backed per-(model, 50ms cadence-bucket) F* cache.
 │   ├── qeubo-service.ts               [B1]  ACL for qEUBO REST endpoints.
 │   ├── resource-service.ts            [B1]  Typed client for backend static resources.
