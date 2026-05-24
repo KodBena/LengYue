@@ -169,6 +169,7 @@ frontend/src/
 │   │   └── useTreeLayout.ts           [B2]  Pluggable tree-layout composable (watchEffect-driven).
 │   │
 │   ├── library/                              SGF library surface composables.
+│   │   ├── useLibraryImport.ts        [B3]  File picker / directory picker / drag-drop with webkitGetAsEntry walk + chunked upload with progress.
 │   │   ├── useLibraryPlayerSuggest.ts [B1]  In-memory player-name autocomplete (frequency-ordered cache + substring filter).
 │   │   ├── useLibraryPreview.ts       [B3]  Selected-row state + lazy getGame + SGF parse + scrub navigation.
 │   │   └── useLibraryQuery.ts         [B1]  Sparse-buffer pagination over /library/games with sort + filter + generation-counter race protection.
