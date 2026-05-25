@@ -40,7 +40,11 @@ License: Public Domain (The Unlicense)
 from typing import Any, Dict, List, Optional, Protocol, Set, Tuple
 from uuid import UUID
 
-from domain.analysis_bundle import AnalysisBundle, AnalysisBundleSummary
+from domain.analysis_bundle import (
+    AnalysisBundle,
+    AnalysisBundleSummary,
+    AnalysisBundleUpload,
+)
 from domain.auth import UserId
 from domain.card import Card
 from domain.game_library import (
@@ -595,9 +599,15 @@ class AnalysisBundleRepositoryPort(Protocol):
     from a GET / DELETE for a non-existent bundle.
 
     The codec dispatch (encoding bundles to the configured write
-    scheme; decoding stored payloads regardless of their scheme)
-    lives entirely inside the adapter. The Port speaks domain
-    DTOs (AnalysisBundle / AnalysisBundleSummary), never raw bytes.
+    scheme for v1, brotli-wrapping raw bytes for v2; decoding stored
+    payloads regardless of their scheme) lives entirely inside the
+    adapter. The Port speaks domain DTOs
+    (AnalysisBundleUpload / AnalysisBundleSummary), never raw bytes.
+
+    Wire-shape polymorphism: ``AnalysisBundleUpload`` is the v1/v2
+    discriminated union from ``domain.analysis_bundle``. The adapter
+    dispatches on ``bundle.wire_format`` internally; the Port surface
+    accepts either shape.
     """
 
     async def upsert(
@@ -605,7 +615,7 @@ class AnalysisBundleRepositoryPort(Protocol):
         *,
         board_id: UUID,
         user_id: UserId,
-        bundle: AnalysisBundle,
+        bundle: AnalysisBundleUpload,
     ) -> AnalysisBundleSummary:
         """
         Insert or replace the bundle stored under
@@ -649,12 +659,15 @@ class AnalysisBundleRepositoryPort(Protocol):
         *,
         board_id: UUID,
         user_id: UserId,
-    ) -> Optional[AnalysisBundle]:
+    ) -> Optional[AnalysisBundleUpload]:
         """
         Fetch the bundle stored under `(user_id, board_id)`,
-        decoded back to canonical-JSON shape via the row's
-        recorded `scheme`. Returns None if no bundle exists OR if
-        the bundle exists but belongs to a different tenant.
+        decoded back to its wire shape via the row's recorded
+        ``scheme``. v1 rows reconstruct as ``AnalysisBundleV1``
+        (canonical-JSON records); v2 rows reconstruct as
+        ``AnalysisBundleV2`` (SPA-encoded opaque bytes +
+        descriptor). Returns None if no bundle exists OR if the
+        bundle exists but belongs to a different tenant.
 
         The codec dispatcher in the adapter handles every scheme
         the backend has ever written — old rows with older schemes

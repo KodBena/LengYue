@@ -36,6 +36,7 @@ from db.schema import analysis_bundles, users
 from domain.analysis_bundle import (
     AnalysisBundle,
     AnalysisBundleRecord,
+    AnalysisBundleV2,
 )
 from domain.auth import UserId
 from domain.errors import UnknownSchemeError, UserQuotaExceededError
@@ -377,3 +378,180 @@ async def test_upsert_replaces_existing_row_in_place(async_session):
     fetched = await repo.get(board_id=board, user_id=ALICE)
     assert fetched is not None
     assert len(fetched.records) == 5
+
+
+# ─── v2-brotli wire shape: round-trip + storage shape ───────────────────────
+
+
+import base64
+
+
+def _make_v2_bundle(*, raw_payload: bytes, record_count: int = 3,
+                    uncompressed: int = 12345) -> AnalysisBundleV2:
+    """Construct a V2 bundle from an arbitrary raw byte payload.
+    The fixture mimics what an SPA encoder would produce: pre-
+    encoded bytes (in real use: JSON-projected, quantised) carried
+    in ``data_b64`` together with a descriptor and the SPA's
+    size/record assertions."""
+    return AnalysisBundleV2(
+        wire_format="v2",
+        schema_version=1,
+        format_descriptor={"scheme": "ofb-q4-q8", "version": 1},
+        record_count=record_count,
+        uncompressed_byte_size=uncompressed,
+        data_b64=base64.b64encode(raw_payload).decode("ascii"),
+    )
+
+
+async def test_v2_upsert_then_get_round_trips_data_b64(async_session):
+    """A v2 upsert stores the brotli-wrapped raw bytes; a subsequent
+    get unwraps and re-encodes to base64. The data_b64 round-trips
+    bit-identically."""
+    session = async_session
+    await _seed_user(session, user_id=ALICE)
+
+    repo = AnalysisBundleRepository(
+        session, write_scheme="json", user_quota_bytes=10**9,
+    )
+    board = uuid4()
+    raw = b"arbitrary SPA-encoded bytes " + bytes(range(256))
+    in_bundle = _make_v2_bundle(raw_payload=raw)
+
+    await repo.upsert(board_id=board, user_id=ALICE, bundle=in_bundle)
+    fetched = await repo.get(board_id=board, user_id=ALICE)
+
+    assert isinstance(fetched, AnalysisBundleV2)
+    assert fetched.wire_format == "v2"
+    # Raw bytes survive the brotli round-trip.
+    assert base64.b64decode(fetched.data_b64) == raw
+
+
+async def test_v2_upsert_preserves_format_descriptor(async_session):
+    session = async_session
+    await _seed_user(session, user_id=ALICE)
+
+    repo = AnalysisBundleRepository(
+        session, write_scheme="json", user_quota_bytes=10**9,
+    )
+    board = uuid4()
+    in_bundle = _make_v2_bundle(raw_payload=b"x" * 100)
+    await repo.upsert(board_id=board, user_id=ALICE, bundle=in_bundle)
+
+    fetched = await repo.get(board_id=board, user_id=ALICE)
+    assert fetched.format_descriptor == {"scheme": "ofb-q4-q8", "version": 1}
+    assert fetched.uncompressed_byte_size == 12345
+    assert fetched.record_count == 3
+
+
+async def test_v2_upsert_writes_scheme_v2_brotli_regardless_of_config(
+    async_session,
+):
+    """The configured ``write_scheme`` only applies to v1 uploads;
+    v2 uploads always land with ``scheme='v2-brotli'``."""
+    session = async_session
+    await _seed_user(session, user_id=ALICE)
+
+    repo = AnalysisBundleRepository(
+        session, write_scheme="json+gzip", user_quota_bytes=10**9,
+    )
+    board = uuid4()
+    summary = await repo.upsert(
+        board_id=board,
+        user_id=ALICE,
+        bundle=_make_v2_bundle(raw_payload=b"hello"),
+    )
+    assert summary.stored_scheme == "v2-brotli"
+
+    row = (await session.execute(
+        select(analysis_bundles.c.scheme).where(
+            analysis_bundles.c.board_id == board
+        )
+    )).scalar_one()
+    assert row == "v2-brotli"
+
+
+async def test_v2_summary_carries_uncompressed_byte_size(async_session):
+    """The new ``uncompressed_byte_size`` field surfaces in the
+    upsert response and in list_summaries."""
+    session = async_session
+    await _seed_user(session, user_id=ALICE)
+
+    repo = AnalysisBundleRepository(
+        session, write_scheme="json", user_quota_bytes=10**9,
+    )
+    board = uuid4()
+    summary = await repo.upsert(
+        board_id=board,
+        user_id=ALICE,
+        bundle=_make_v2_bundle(raw_payload=b"x" * 50, uncompressed=99_999),
+    )
+    assert summary.uncompressed_byte_size == 99_999
+
+    listed = await repo.list_summaries(user_id=ALICE)
+    assert len(listed) == 1
+    assert listed[0].uncompressed_byte_size == 99_999
+    assert listed[0].format_descriptor == {"scheme": "ofb-q4-q8", "version": 1}
+
+
+async def test_v1_summary_has_null_v2_fields(async_session):
+    """v1 uploads leave format_descriptor + uncompressed_byte_size
+    NULL — the summary surfaces None for both."""
+    session = async_session
+    await _seed_user(session, user_id=ALICE)
+
+    repo = AnalysisBundleRepository(
+        session, write_scheme="json", user_quota_bytes=10**9,
+    )
+    board = uuid4()
+    summary = await repo.upsert(
+        board_id=board, user_id=ALICE, bundle=_make_bundle(record_count=3),
+    )
+    assert summary.format_descriptor is None
+    assert summary.uncompressed_byte_size is None
+
+    listed = await repo.list_summaries(user_id=ALICE)
+    assert len(listed) == 1
+    assert listed[0].format_descriptor is None
+    assert listed[0].uncompressed_byte_size is None
+
+
+async def test_v2_replacing_v1_row_transitions_columns_correctly(
+    async_session,
+):
+    """An UPDATE that replaces a v1 row with a v2 bundle populates
+    the v2 columns; the reverse case (v1 over v2) clears them."""
+    session = async_session
+    await _seed_user(session, user_id=ALICE)
+
+    repo = AnalysisBundleRepository(
+        session, write_scheme="json", user_quota_bytes=10**9,
+    )
+    board = uuid4()
+
+    # v1 first
+    await repo.upsert(
+        board_id=board, user_id=ALICE, bundle=_make_bundle(record_count=2),
+    )
+    first = await repo.get(board_id=board, user_id=ALICE)
+    assert isinstance(first, AnalysisBundle)
+
+    # v2 replaces
+    await repo.upsert(
+        board_id=board,
+        user_id=ALICE,
+        bundle=_make_v2_bundle(raw_payload=b"xx", record_count=7),
+    )
+    second = await repo.get(board_id=board, user_id=ALICE)
+    assert isinstance(second, AnalysisBundleV2)
+    assert second.record_count == 7
+
+    # v1 again clears the v2 columns
+    await repo.upsert(
+        board_id=board, user_id=ALICE, bundle=_make_bundle(record_count=4),
+    )
+    third = await repo.get(board_id=board, user_id=ALICE)
+    assert isinstance(third, AnalysisBundle)
+    assert len(third.records) == 4
+    listed = await repo.list_summaries(user_id=ALICE)
+    assert listed[0].format_descriptor is None
+    assert listed[0].uncompressed_byte_size is None

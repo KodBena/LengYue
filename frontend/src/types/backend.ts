@@ -13,10 +13,16 @@ export interface paths {
         };
         /**
          * Get Analysis Bundle
-         * @description Fetch the bundle stored under `(user_id, board_id)`, decoded
-         *     back to canonical-JSON shape. 404 if no bundle exists OR if
-         *     the bundle exists but belongs to a different tenant
-         *     (404-not-403 invariant).
+         * @description Fetch the bundle stored under ``(user_id, board_id)``. 404 if
+         *     no bundle exists OR if the bundle exists but belongs to a
+         *     different tenant (404-not-403 invariant).
+         *
+         *     Response shape: discriminated on ``wire_format``. v1 stored
+         *     rows return the canonical-JSON ``{wire_format: "v1",
+         *     schema_version, records}`` shape; v2 stored rows return
+         *     ``{wire_format: "v2", schema_version, format_descriptor,
+         *     record_count, uncompressed_byte_size, data_b64}``. The SPA's
+         *     decoder dispatches on the discriminator.
          */
         get: operations["get_analysis_bundle_analysis_bundles__board_id__get"];
         /**
@@ -26,13 +32,20 @@ export interface paths {
          *     is the canonical caller — one PUT replaces the whole bundle
          *     for that board.
          *
-         *     The request body's `schema_version` is gated by Pydantic's
-         *     `Literal[1]` validator on `AnalysisBundle` (Confirmation C2's
-         *     schemaVersion gate; a v2 bundle is a 422 against a v1-only
-         *     backend). The two caps — per-bundle (this route's responsibility,
-         *     via the service) and per-user (the adapter's, atomic with the
-         *     upsert) — both raise to 413 with a structured detail body
-         *     discriminated by `kind`.
+         *     Polymorphic body: the request body is a discriminated union
+         *     on ``wire_format``. A v1 payload (the historical canonical-JSON
+         *     shape; ``wire_format`` defaults to ``"v1"`` when absent) takes
+         *     the existing path through the json / json+gzip codecs. A v2
+         *     payload (``wire_format="v2"`` required, plus the SPA-encoded
+         *     ``data_b64`` + descriptor + size assertions) takes the new
+         *     v2-brotli path. Pydantic's union resolution raises 422 for
+         *     any body that fits neither shape.
+         *
+         *     The request body's ``schema_version`` is gated by Pydantic's
+         *     ``Literal[1]`` validator on each variant. The two caps —
+         *     per-bundle (this route's responsibility, via the service) and
+         *     per-user (the adapter's, atomic with the upsert) — both raise
+         *     to 413 with a structured detail body discriminated by ``kind``.
          */
         put: operations["upsert_analysis_bundle_analysis_bundles__board_id__put"];
         post?: never;
@@ -764,29 +777,6 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
-         * AnalysisBundle
-         * @description The bundle stored under one (user_id, board_id) pair.
-         *
-         *     The upsert wire shape; also the GET response shape (since the
-         *     backend reconstructs a canonical-JSON bundle from its stored
-         *     `(scheme, payload)` tuple).
-         *
-         *     `schema_version` gates forward compatibility. The backend
-         *     accepts only versions in its known set (today: {1}); a future
-         *     v2 bundle adds fields to records without breaking v1 readers,
-         *     and the gate prevents a v1-only backend from silently
-         *     accepting a v2 bundle it would mis-project.
-         */
-        AnalysisBundle: {
-            /**
-             * Schema Version
-             * @constant
-             */
-            schema_version: 1;
-            /** Records */
-            records: components["schemas"]["AnalysisBundleRecord"][];
-        };
-        /**
          * AnalysisBundleRecord
          * @description One persisted (config_hash, node_id, packet) tuple.
          *
@@ -809,18 +799,27 @@ export interface components {
          * AnalysisBundleSummary
          * @description Metadata about a stored bundle — no payload.
          *
-         *     The return shape of both `upsert` (the write response) and
-         *     `list_summaries` (the per-board listing). The dispatch named
-         *     the upsert-return as AnalysisBundleStored and the list-element
-         *     as AnalysisBundleSummary, but the two shapes are identical and
-         *     the semantic is the same ("metadata about a stored bundle"),
-         *     so they collapse to one DTO here.
+         *     The return shape of both ``upsert`` (the write response) and
+         *     ``list_summaries`` (the per-board listing). The two shapes are
+         *     identical so they collapse to one DTO.
          *
-         *     `stored_byte_size` is the post-transcoding byte count — the
-         *     same value the per-user quota check sums (Confirmation C3 in
-         *     the dispatch). The frontend's storage panel sums this across
-         *     a list response to display "X of 2 GB used"; backend's quota
-         *     check on the next PUT operates on the same value.
+         *     ``stored_byte_size`` is the post-transcoding byte count — the
+         *     same value the per-user quota check sums. The frontend's
+         *     storage panel sums this across a list response to display
+         *     "X of 2 GB used".
+         *
+         *     v2-specific fields:
+         *     - ``uncompressed_byte_size`` — SPA-asserted pre-compression
+         *       byte count. NULL for v1 bundles (the backend didn't track
+         *       this concept under v1; legacy rows surface as None).
+         *     - ``format_descriptor`` — SPA-supplied encoding metadata for
+         *       v2 bundles. NULL for v1 bundles (the backend's own codec
+         *       dispatch carries the v1 encoding info).
+         *
+         *     These two fields are Optional because the analysis_bundles
+         *     table has v1 rows from before the v2 arc shipped; backfilling
+         *     synthetic values would be dishonest, so the wire shape carries
+         *     None for legacy rows and the SPA renders accordingly.
          */
         AnalysisBundleSummary: {
             /**
@@ -839,6 +838,79 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Uncompressed Byte Size */
+            uncompressed_byte_size?: number | null;
+            /** Format Descriptor */
+            format_descriptor?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /**
+         * AnalysisBundleV1
+         * @description v1 wire shape — canonical-JSON records, backend-introspectable.
+         *
+         *     The upsert wire shape AND the GET response shape for v1 stored
+         *     bundles. ``wire_format`` defaults to ``"v1"`` so pre-cutover
+         *     SPAs that send only ``{schema_version, records}`` continue to
+         *     validate without changes.
+         */
+        AnalysisBundleV1: {
+            /**
+             * Wire Format
+             * @default v1
+             * @constant
+             */
+            wire_format: "v1";
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 1;
+            /** Records */
+            records: components["schemas"]["AnalysisBundleRecord"][];
+        };
+        /**
+         * AnalysisBundleV2
+         * @description v2 wire shape — SPA-encoded opaque bytes.
+         *
+         *     The upsert wire shape AND the GET response shape for v2 stored
+         *     bundles. The SPA owns the entire encoding pipeline (projection
+         *     allow-list, ownership / policy uniform quantisation); the
+         *     backend brotli-wraps unconditionally for the column-level
+         *     storage win and stores the descriptor + size assertions
+         *     alongside.
+         *
+         *     Why the per-field assertions live on the wire:
+         *     - ``record_count`` — the backend can't derive this from the
+         *       opaque bytes; the SPA's summary surface and the per-user
+         *       storage panel both want it without forcing a per-bundle
+         *       decode. The SPA's assertion is trusted.
+         *     - ``uncompressed_byte_size`` — the backend can't measure this
+         *       either (the SPA already projected + quantised before
+         *       encoding). Surfaced to the user as the "saved X%" figure.
+         *       The SPA's assertion is trusted.
+         */
+        AnalysisBundleV2: {
+            /**
+             * Wire Format
+             * @constant
+             */
+            wire_format: "v2";
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 1;
+            /** Format Descriptor */
+            format_descriptor: {
+                [key: string]: unknown;
+            };
+            /** Record Count */
+            record_count: number;
+            /** Uncompressed Byte Size */
+            uncompressed_byte_size: number;
+            /** Data B64 */
+            data_b64: string;
         };
         /**
          * AncestorSelection
@@ -2035,7 +2107,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AnalysisBundle"];
+                    "application/json": components["schemas"]["AnalysisBundleV1"] | components["schemas"]["AnalysisBundleV2"];
                 };
             };
             /** @description Validation Error */
@@ -2060,7 +2132,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AnalysisBundle"];
+                "application/json": components["schemas"]["AnalysisBundleV1"] | components["schemas"]["AnalysisBundleV2"];
             };
         };
         responses: {

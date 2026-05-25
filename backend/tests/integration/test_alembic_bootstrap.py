@@ -164,11 +164,10 @@ async def test_bootstrap_v1_baseline_db_upgrades_to_head(temp_db_engine):
     install that never saw the library revision."""
     async with temp_db_engine.begin() as conn:
         await conn.run_sync(metadata.create_all)
-        # Strip the indexes + columns that 0002_sgf_library_columns
-        # adds, so the bootstrap's probe matches the earlier
-        # client_game_id marker (stamp at baseline) and then
-        # `alembic upgrade head` runs the library revision to bring
-        # the schema forward. Indexes must drop first — SQLite
+        # Strip every post-baseline column so the bootstrap's probe
+        # matches the earliest marker (client_game_id → baseline) and
+        # then `alembic upgrade head` walks the chain forward through
+        # all later revisions. Indexes must drop first — SQLite
         # refuses DROP COLUMN while an index references the column.
         for idx in (
             "ix_game_source_user_position",
@@ -181,9 +180,13 @@ async def test_bootstrap_v1_baseline_db_upgrades_to_head(temp_db_engine):
             "ix_game_source_user_board_size_id",
         ):
             await conn.execute(text(f"DROP INDEX IF EXISTS {idx}"))
+        # 0002 added these to game_source.
         for col in ("created_at", "date", "result", "ruleset",
                     "board_size", "metadata_extra"):
             await conn.execute(text(f"ALTER TABLE game_source DROP COLUMN {col}"))
+        # 0003 added these to analysis_bundles.
+        for col in ("format_descriptor", "uncompressed_byte_size"):
+            await conn.execute(text(f"ALTER TABLE analysis_bundles DROP COLUMN {col}"))
 
     # Confirm alembic_version doesn't exist yet.
     assert await _alembic_version(temp_db_engine) is None
@@ -191,14 +194,17 @@ async def test_bootstrap_v1_baseline_db_upgrades_to_head(temp_db_engine):
     await bootstrap_alembic(temp_db_engine, BACKEND_ROOT)
 
     # The bootstrap should stamp at baseline (the earlier marker)
-    # and then run alembic upgrade head, landing at the library
-    # revision. The end state has all six library columns back.
+    # and then run alembic upgrade head, landing at the head
+    # revision. The end state has every post-baseline column back.
     assert await _alembic_version(temp_db_engine) == _alembic_head()
     async with temp_db_engine.connect() as conn:
         info = await conn.execute(text("PRAGMA table_info(game_source)"))
         cols = {row[1] for row in info.fetchall()}
         assert {"created_at", "date", "result", "ruleset",
                 "board_size", "metadata_extra"} <= cols
+        info = await conn.execute(text("PRAGMA table_info(analysis_bundles)"))
+        ab_cols = {row[1] for row in info.fetchall()}
+        assert {"format_descriptor", "uncompressed_byte_size"} <= ab_cols
 
 
 # ─── Pre-v1.0 schema → legacy chain runs → baseline reached ─────────────────

@@ -195,6 +195,7 @@
   "analysis.persist.title":               "保存済み解析",
   "analysis.persist.notSaved":            "未保存",
   "analysis.persist.savedSummary":        "{count} 件の解析 · {size}",
+  "analysis.persist.savedSummaryWithSavings": "{count} 件の解析 · {size}（{uncompressed} から {savings}% 削減）",
   "analysis.persist.save":                "保存",
   "analysis.persist.saving":              "保存中…",
   "analysis.persist.discard":             "破棄",

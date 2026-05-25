@@ -195,6 +195,7 @@
   "analysis.persist.title":               "已保存的分析",
   "analysis.persist.notSaved":            "未保存",
   "analysis.persist.savedSummary":        "{count} 项分析 · {size}",
+  "analysis.persist.savedSummaryWithSavings": "{count} 项分析 · {size}（从 {uncompressed} 节省 {savings}%）",
   "analysis.persist.save":                "保存",
   "analysis.persist.saving":              "保存中…",
   "analysis.persist.discard":             "丢弃",

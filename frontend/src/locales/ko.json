@@ -195,6 +195,7 @@
   "analysis.persist.title":               "저장된 분석",
   "analysis.persist.notSaved":            "저장되지 않음",
   "analysis.persist.savedSummary":        "{count}개 분석 · {size}",
+  "analysis.persist.savedSummaryWithSavings": "{count}개 분석 · {size} ({uncompressed}에서 {savings}% 절약)",
   "analysis.persist.save":                "저장",
   "analysis.persist.saving":              "저장 중…",
   "analysis.persist.discard":             "삭제",

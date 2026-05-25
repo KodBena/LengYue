@@ -732,6 +732,37 @@ export interface NavigationSettings {
   actionOnDirtyBoard: 'ask' | 'new' | 'overwrite';
 }
 
+/**
+ * Analysis-bundle wire-format choices. `'v1-json'` is the legacy
+ * canonical-JSON wire (backend codec: json / json+gzip);
+ * `'json-projected-v1'` is the cross/analysis-bundle-compression-v2
+ * arc's lossless leaf (frontend projects + JSON-stringifies +
+ * UTF-8s; backend brotli-wraps unconditionally for storage). See
+ * `AppSettings.engine.katago.bundleCompressionScheme` below for
+ * the contract and `services/analysis-bundle/encoder.ts` for the
+ * encoder hierarchy. Tuple-then-type pattern mirrors
+ * `WINRATE_FRAMINGS` in `engine/katago/types.ts`; consumers
+ * (RegistryEditor's PATH_ENUMS, the auto-save composable) import
+ * the const tuple directly so this declaration is the single
+ * source of truth.
+ */
+/**
+ * The user-facing registry values name the wire-format choice
+ * (`'v1'` = legacy canonical-JSON, `'v2-projected'` = v2 with
+ * the SPA-side projection encoder). The encoder's *internal*
+ * scheme tag — the string the backend stores in
+ * `format_descriptor.scheme` forever — is `'json-projected-v1'`
+ * (declared in `services/analysis-bundle/encoder.ts`); the
+ * registry-to-encoder mapping lives in
+ * `analysis-persistence-service.ts::readCompressionScheme`.
+ * Decoupling the two strings keeps the user-facing names
+ * versionable (`'v2-projected'` may grow `'v2-projected-q4'`
+ * later) without breaking the on-wire scheme tag's stable
+ * identity.
+ */
+export const BUNDLE_COMPRESSION_SCHEMES = ['v1', 'v2-projected', 'v2-quantized'] as const;
+export type BundleCompressionScheme = typeof BUNDLE_COMPRESSION_SCHEMES[number];
+
 export interface AppSettings {
   engine: {
     katago: {
@@ -809,6 +840,43 @@ export interface AppSettings {
       // re-firing on every subsequent record. The toggle itself
       // stays true so the user's preference isn't silently flipped.
       analysisAutoSave: boolean;
+      // Wire-format choice for analysis-bundle persistence. The
+      // 'v1-json' value preserves the historical wire shape (the
+      // backend's `json` / `json+gzip` codecs round-trip canonical
+      // JSON record arrays). 'json-projected-v1' (the
+      // cross/analysis-bundle-compression-v2 arc's lossless leaf)
+      // projects each packet through the SPA's typed-shape allow-
+      // list before upload, dropping fields the SPA doesn't read
+      // (`scoreStdev`, `scoreMean`, per-move `ownership`, etc.) —
+      // backend brotli-wraps the projected bytes unconditionally
+      // for further storage win.
+      //
+      // Default `'v1-json'`: existing users see no behavioural
+      // change until they explicitly opt into the projected scheme
+      // via the registry editor. The 'v1-json' tag IS the v1 wire
+      // shape; flipping to it later from 'json-projected-v1'
+      // returns the SPA to verbatim canonical-JSON upload. v2-side
+      // stored rows decode-on-read regardless of this toggle — the
+      // server-side `format_descriptor` is the read-time discriminator.
+      //
+      // Loss profile of 'json-projected-v1': reconstruction is
+      // bit-identical for every field the SPA's typed shape
+      // declares. Fields the SPA *never reads* are dropped on
+      // encode and absent on decode; the SPA's runtime path
+      // therefore sees no behaviour change. A CI gate in
+      // `services/analysis-bundle/projection.ts` enforces that the
+      // allow-list stays in sync with the typed shape — adding a
+      // key to `KataMoveInfo` (etc.) without registering it in the
+      // allow-list is a build error at `vue-tsc -b`.
+      //
+      // Design rationale at
+      // `docs/notes/analysis-bundle-compression-plan.md`. The set
+      // of accepted values is exported as the const tuple
+      // `BUNDLE_COMPRESSION_SCHEMES` below — the RegistryEditor's
+      // `PATH_ENUMS` table imports it (the same pattern as
+      // `WINRATE_FRAMINGS`) so the dropdown options stay in sync
+      // with this type union without separate hand-listing.
+      bundleCompressionScheme: BundleCompressionScheme;
       // Whether the analysis-service ACL injects the `transposition`
       // capability into outgoing analysis queries (proxy v1.0.14+
       // capability-negotiation contract). When the proxy advertises

@@ -1,9 +1,13 @@
 # Analysis Bundle Compression — Implementation Plan
 
-- **Status:** Open. Pre-implementation. Specifies the wire-shape,
-  frontend framework, backend storage adapter, and CI gate for an
-  upcoming cross-team arc to land compression on
-  `analysis-persistence-service`.
+- **Status:** `design-note: implemented` (2026-05-25). Shipped on
+  the `cross/analysis-bundle-compression-v2` branch across eight
+  commits (`7bd7248` schema → `6616fba` v2-quantized leader); see
+  the closing amendment at the foot of this note for the
+  commit-by-commit ledger. The body below was the pre-
+  implementation spec and reads as a planning-time record per
+  ADR-0005 Rule 8; the firewall amendment and the gate-framework
+  amendment likewise preserved in place.
 - **Genre:** Design note. Picks up from the research arc summarised
   at `docs/archive/notes/analysis-bundle-compression-research-2026-05-25.md`;
   every "why" question here is answered there in more detail.
@@ -1023,5 +1027,92 @@ artifacts to that recommendation:
 
 The implementation arc proceeds on the Option A wire-shape with
 the gates as specified.
+
+---
+
+## Closing amendment: implementation ledger (2026-05-25)
+
+The arc shipped on `cross/analysis-bundle-compression-v2` over
+eight commits. Recording the chain here per the ADR-0005 Rule 8
+sibling-revisions pattern so this design note's "design-note:
+implemented" status transition is grounded in the source.
+
+### Commit ledger
+
+| # | Commit | Layer | What landed |
+|---|---|---|---|
+| 1 | `7bd7248` | Backend | Schema + Alembic 0003: two nullable columns (`format_descriptor`, `uncompressed_byte_size`); column-presence-idempotent migration; legacy `migrate_create_analysis_bundles` frozen at v1.0 baseline shape so the bootstrap probe stays correct. |
+| 2 | `71005a6` | Backend | `AnalysisBundleV1` / `AnalysisBundleV2` Pydantic discriminated union on `wire_format`; `AnalysisBundle` aliases V1 for backward-compatible imports; summary extended with `uncompressed_byte_size` and `format_descriptor` optional fields. |
+| 3 | `ac02204` | Backend | `v2-brotli` codec in the repository adapter; `wire_format`-keyed dispatch in `upsert` / `get`; port + fake widened to `AnalysisBundleUpload`; quality-6 brotli (compression-ratio/CPU sweet spot per the research arc). |
+| 4 | `a6be376` | Backend | Service + route accept the polymorphic body; existing per-bundle cap continues to operate on the outer request-body bytes regardless of wire shape. |
+| 5 | `670a1a5` | Frontend | Allow-list with compile-time drift gate (`AllowListDriftGate`); `JsonProjected` encoder; v1/v2 ACL dispatch; registry knob; schema migration 50 → 51. |
+| 6 | `0e06705` | Frontend | RegistryEditor dropdown + tooltip; "saved X% from Y" subtitle in AnalysisControls when the summary carries an `uncompressedByteSize` (v2 rows). |
+| 7 | `af3c3d6` | Frontend | Registry-value rename — `'v1-json'` → `'v1'`, `'json-projected-v1'` → `'v2-projected'` — for dropdown clarity. Encoder-scheme tags (the byte-stable wire identities) unchanged. |
+| 8 | `6616fba` | Frontend | `v2-quantized` lossy leader from the research arc: Q4 uniform on ownership (analytic max-abs ≤ 0.0625), Q8 uniform with bitmap-factored sentinels on policy (analytic max-abs ≤ 1/512 on legals; illegal cells exact). |
+
+### What this commit chain shipped vs. what the body specified
+
+- **Wire shape** — landed as specified. Polymorphic single
+  endpoint; `wire_format` discriminator; v1 default; legacy v1
+  reads remain available indefinitely via the codec dispatch.
+- **Frontend compression hierarchy** — landed with the lossless
+  leaf (`JSON_PROJECTED_V1`) and the leader lossy leaf
+  (`OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1`). The framework admits
+  further variants (PRVQ, learned codebooks, etc.) — they'd land
+  as additional entries in `ENCODERS_BY_SCHEME` plus a single
+  new tuple member in `BUNDLE_COMPRESSION_SCHEMES`.
+- **Gates** — the *analytic* hard gate is satisfied by
+  construction for the two shipped uniform-quant encoders (their
+  worst-case error is bounded by half the bin width, both well
+  under the design note's thresholds). Runtime per-packet hard-
+  gate enforcement is not implemented; it would matter only for
+  encoders whose worst-case error is data-dependent (learned
+  variants), none of which ship in this arc. The *softhard
+  gate* is implicit in the research arc's variant selection —
+  the corpus-p95 thresholds picked the quantisation bit-depths
+  that ship here.
+- **CI gate for allow-list drift** — landed as
+  `AllowListDriftGate` in
+  `frontend/src/services/analysis-bundle/projection.ts`. Adding
+  a key to any of the five typed shapes
+  (`KataAnalysisResponse` / `KataMoveInfo` / `KataRootInfo` /
+  `KataExtra` / `KataPlayerExtra`) without registering it in the
+  corresponding `ALLOWED_*_KEYS` array is a build failure at
+  the next `vue-tsc -b`.
+
+### What was deferred
+
+- **A/B comparison UX surface** — open question §3 in the body;
+  user explicitly deferred ("requires design decisions I don't
+  have bandwidth for"). The softhard gate stands in for the
+  encoder's automatic "skip the A/B" judgement until the manual
+  surface is built.
+- **Worst-reconstruction surface** — design note section
+  "Opportunistic worst-reconstruction surface". Same deferral.
+- **Per-card vs. global quantiser-codebook economics** for
+  learned schemes — out of scope; the framework admits them but
+  the research arc's findings (per the archaeology at
+  `docs/archive/notes/nncache-prvq-archaeology-2026-05-25.md`)
+  don't transfer to LengYue's bundle size cleanly.
+- **AnalysisBundleSummary `uncompressed_byte_size` in a
+  storage panel** — partially shipped (the AnalysisControls
+  subtitle renders the savings when applicable); a per-user
+  storage panel summing both numbers across all bundles
+  remains a small follow-up.
+
+### Empirical confirmation
+
+User-reported observation from a live save of a 307-record
+bundle:
+
+- `v1` → backend stored 1.3 MB (json+gzip on full canonical JSON).
+- `v2-projected` → backend stored 795 KB; savings vs. canonical
+  JSON were 78%. Subtitle: *"307 analyses · 795.2 KB (saved 78%
+  from 3.6 MB)"*.
+
+The lossless leaf delivered the projection win without lossy
+quantisation. The `v2-quantized` ratio (design note's leader,
+~87%) is available via the dropdown but un-benchmarked on the
+user's live data at the time of this amendment.
 
 License: Public Domain (The Unlicense)

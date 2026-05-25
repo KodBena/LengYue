@@ -67,6 +67,21 @@ REVISION_MARKERS: List[Tuple[str, str, str]] = [
     # (table, column, revision_id)
     ("game_source", "client_game_id", "0001_baseline"),
     ("game_source", "created_at", "0002_sgf_library_columns"),
+    # Note on marker selection: probe markers MUST live on tables
+    # that pre-date v1.0 (currently only ``game_source`` qualifies).
+    # ``analysis_bundles`` is post-baseline (added in v1.0 via
+    # ``scripts/migrate_create_analysis_bundles.py``), so on a
+    # pre-v1.0 DB ``metadata.create_all`` populates it with the live
+    # schema's current shape — including any post-baseline columns.
+    # A probe marker on such a column would silently match even
+    # when later Alembic revisions haven't run, causing the
+    # bootstrap to stamp ahead and skip intermediate revisions.
+    # Revision 0003 (analysis_bundles.format_descriptor +
+    # uncompressed_byte_size) therefore declines a probe marker
+    # entirely; its upgrade() is column-presence-idempotent so the
+    # earlier markers' stamp-then-upgrade path lands correctly
+    # regardless of whether create_all already populated the
+    # columns.
 ]
 
 

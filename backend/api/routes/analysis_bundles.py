@@ -38,7 +38,10 @@ from api.dependencies import (
     get_current_user_id,
     get_db,
 )
-from domain.analysis_bundle import AnalysisBundle, AnalysisBundleSummary
+from domain.analysis_bundle import (
+    AnalysisBundleSummary,
+    AnalysisBundleUpload,
+)
 from domain.auth import UserId
 from domain.errors import (
     BundleTooLargeError,
@@ -55,7 +58,7 @@ router = APIRouter(prefix="/analysis-bundles", tags=["analysis-bundles"])
 @router.put("/{board_id}", response_model=AnalysisBundleSummary)
 async def upsert_analysis_bundle(
     board_id: UUID,
-    bundle: AnalysisBundle,
+    bundle: AnalysisBundleUpload,
     request: Request,
     service: AnalysisBundleService = Depends(get_analysis_bundle_service),
     db: AsyncSession = Depends(get_db),
@@ -67,20 +70,31 @@ async def upsert_analysis_bundle(
     is the canonical caller — one PUT replaces the whole bundle
     for that board.
 
-    The request body's `schema_version` is gated by Pydantic's
-    `Literal[1]` validator on `AnalysisBundle` (Confirmation C2's
-    schemaVersion gate; a v2 bundle is a 422 against a v1-only
-    backend). The two caps — per-bundle (this route's responsibility,
-    via the service) and per-user (the adapter's, atomic with the
-    upsert) — both raise to 413 with a structured detail body
-    discriminated by `kind`.
+    Polymorphic body: the request body is a discriminated union
+    on ``wire_format``. A v1 payload (the historical canonical-JSON
+    shape; ``wire_format`` defaults to ``"v1"`` when absent) takes
+    the existing path through the json / json+gzip codecs. A v2
+    payload (``wire_format="v2"`` required, plus the SPA-encoded
+    ``data_b64`` + descriptor + size assertions) takes the new
+    v2-brotli path. Pydantic's union resolution raises 422 for
+    any body that fits neither shape.
+
+    The request body's ``schema_version`` is gated by Pydantic's
+    ``Literal[1]`` validator on each variant. The two caps —
+    per-bundle (this route's responsibility, via the service) and
+    per-user (the adapter's, atomic with the upsert) — both raise
+    to 413 with a structured detail body discriminated by ``kind``.
     """
     # Capture request body size for the per-bundle cap check.
     # Content-Length is the cheap path; if the client sent chunked
     # encoding (no Content-Length header), fall back to
     # re-serialising the parsed bundle. The fallback's byte count
     # differs from the raw body by whitespace and key-ordering
-    # only — bounded enough that the cap stays meaningful.
+    # only — bounded enough that the cap stays meaningful. The
+    # cap is measured against the OUTER wire body regardless of
+    # wire_format; v2 bodies carry base64-encoded payloads, which
+    # inflates the byte count by ~4/3 vs the raw bytes — that's
+    # honest because base64 is what the user actually uploaded.
     content_length = request.headers.get("content-length")
     if content_length is not None:
         request_body_bytes = int(content_length)
@@ -135,17 +149,23 @@ async def upsert_analysis_bundle(
         )
 
 
-@router.get("/{board_id}", response_model=AnalysisBundle)
+@router.get("/{board_id}", response_model=AnalysisBundleUpload)
 async def get_analysis_bundle(
     board_id: UUID,
     service: AnalysisBundleService = Depends(get_analysis_bundle_service),
     user_id: UserId = Depends(get_current_user_id),
 ):
     """
-    Fetch the bundle stored under `(user_id, board_id)`, decoded
-    back to canonical-JSON shape. 404 if no bundle exists OR if
-    the bundle exists but belongs to a different tenant
-    (404-not-403 invariant).
+    Fetch the bundle stored under ``(user_id, board_id)``. 404 if
+    no bundle exists OR if the bundle exists but belongs to a
+    different tenant (404-not-403 invariant).
+
+    Response shape: discriminated on ``wire_format``. v1 stored
+    rows return the canonical-JSON ``{wire_format: "v1",
+    schema_version, records}`` shape; v2 stored rows return
+    ``{wire_format: "v2", schema_version, format_descriptor,
+    record_count, uncompressed_byte_size, data_b64}``. The SPA's
+    decoder dispatches on the discriminator.
     """
     try:
         bundle = await service.get(board_id=board_id, user_id=user_id)

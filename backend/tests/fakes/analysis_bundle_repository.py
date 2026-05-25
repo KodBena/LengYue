@@ -10,18 +10,20 @@ The fake reproduces the production adapter's contract:
 
   - ``upsert`` honors a per-user byte quota; raising
     ``UserQuotaExceededError`` when the would-be total exceeds
-    the configured cap.
+    the configured cap. Accepts both v1 and v2 wire shapes.
   - ``get`` returns ``None`` for cross-tenant or missing
-    ``(user_id, board_id)``.
+    ``(user_id, board_id)``; returns the originally-stored bundle
+    (V1 or V2) on a hit.
   - ``delete`` is idempotent across both missing-row and
     cross-tenant cases.
   - ``list_summaries`` returns one ``AnalysisBundleSummary`` per
-    bundle the caller owns.
+    bundle the caller owns, with v2-specific fields populated for
+    v2 rows.
 
 The fake does not exercise the codec dispatch layer — the bundle
 round-trips through Python state, not a transcoded payload. The
 codec path is the SQLAlchemy adapter's responsibility and gets
-covered by Phase 2 integration tests against the real
+covered by the integration tests against the real
 ``AnalysisBundleRepository``.
 
 License: Public Domain (The Unlicense)
@@ -32,7 +34,11 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 from uuid import UUID
 
-from domain.analysis_bundle import AnalysisBundle, AnalysisBundleSummary
+from domain.analysis_bundle import (
+    AnalysisBundleSummary,
+    AnalysisBundleUpload,
+    AnalysisBundleV2,
+)
 from domain.auth import UserId
 from domain.errors import UserQuotaExceededError
 
@@ -43,19 +49,10 @@ class FakeAnalysisBundleRepository:
 
     Construction takes an optional per-user quota in bytes (default
     very large so simple tests don't need to opt out) and the
-    "stored scheme" the summary should advertise (defaults to
-    ``"json"``).
-
-    Test usage::
-
-        repo = FakeAnalysisBundleRepository(
-            user_quota_bytes=1_000_000,
-        )
-
-        # Service-level write:
-        await repo.upsert(
-            user_id=UserId(1), board_id=uuid4(), bundle=AnalysisBundle(...)
-        )
+    "stored scheme" the summary should advertise for v1 bundles
+    (defaults to ``"json"``). v2 bundles always surface as
+    ``stored_scheme="v2-brotli"`` regardless of the configured
+    default, matching the production adapter.
     """
 
     def __init__(
@@ -66,13 +63,13 @@ class FakeAnalysisBundleRepository:
         bytes_per_record: int = 100,
     ) -> None:
         self._bundles: Dict[
-            Tuple[int, UUID], Tuple[AnalysisBundle, AnalysisBundleSummary]
+            Tuple[int, UUID], Tuple[AnalysisBundleUpload, AnalysisBundleSummary]
         ] = {}
         self._user_quota = user_quota_bytes
         self._scheme = stored_scheme
-        # Used to compute a deterministic byte_size per record so a
-        # quota-exceeded test can construct deterministic boundary
-        # conditions without round-tripping bytes.
+        # Deterministic byte_size per record for quota-boundary tests
+        # — for v2 bundles we use the same convention so test setup
+        # doesn't have to think about brotli sizes.
         self._bytes_per_record = bytes_per_record
 
     def _user_total_bytes(
@@ -89,9 +86,19 @@ class FakeAnalysisBundleRepository:
         *,
         board_id: UUID,
         user_id: UserId,
-        bundle: AnalysisBundle,
+        bundle: AnalysisBundleUpload,
     ) -> AnalysisBundleSummary:
-        record_count = len(bundle.records)
+        if isinstance(bundle, AnalysisBundleV2):
+            record_count = bundle.record_count
+            stored_scheme = "v2-brotli"
+            format_descriptor = bundle.format_descriptor
+            uncompressed_byte_size = bundle.uncompressed_byte_size
+        else:
+            record_count = len(bundle.records)
+            stored_scheme = self._scheme
+            format_descriptor = None
+            uncompressed_byte_size = None
+
         new_byte_size = record_count * self._bytes_per_record
 
         existing_total = self._user_total_bytes(
@@ -106,9 +113,11 @@ class FakeAnalysisBundleRepository:
         summary = AnalysisBundleSummary(
             board_id=board_id,
             record_count=record_count,
-            stored_scheme=self._scheme,
+            stored_scheme=stored_scheme,
             stored_byte_size=new_byte_size,
             updated_at=datetime.now(timezone.utc),
+            format_descriptor=format_descriptor,
+            uncompressed_byte_size=uncompressed_byte_size,
         )
         self._bundles[(int(user_id), board_id)] = (bundle, summary)
         return summary
@@ -118,7 +127,7 @@ class FakeAnalysisBundleRepository:
         *,
         board_id: UUID,
         user_id: UserId,
-    ) -> Optional[AnalysisBundle]:
+    ) -> Optional[AnalysisBundleUpload]:
         entry = self._bundles.get((int(user_id), board_id))
         if entry is None:
             return None

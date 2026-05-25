@@ -377,6 +377,20 @@ documents = Table(
 # Existing installs must run
 # scripts/migrate_create_analysis_bundles.py before pulling this
 # schema. Fresh installs pick up the table via metadata.create_all.
+# `format_descriptor` and `uncompressed_byte_size`: added for the
+# v2 wire shape (cross/analysis-bundle-compression-v2 arc). v1 rows
+# (scheme ∈ {"json", "json+gzip"}) leave both NULL — the backend
+# can introspect those rows' payloads and `record_count`/`byte_size`
+# already cover everything the storage panel needs. v2 rows
+# (scheme = "v2-brotli") cannot be introspected backend-side
+# (payloads are SPA-encoded then brotli-wrapped); the SPA-provided
+# `format_descriptor` is the encoding metadata the SPA's decoder
+# needs to undo what it did, and `uncompressed_byte_size` is the
+# pre-compression byte count surfaced to the user as the "saved
+# X% vs. unencoded" figure. Both nullable because v1 rows don't
+# have meaningful values and we don't want to backfill synthetic
+# data. Design rationale at
+# docs/notes/analysis-bundle-compression-plan.md.
 analysis_bundles = Table(
     "analysis_bundles", metadata,
     Column("user_id", Integer, ForeignKey("users.id"), primary_key=True, default=1),
@@ -385,6 +399,8 @@ analysis_bundles = Table(
     Column("payload", LargeBinary, nullable=False),
     Column("record_count", Integer, nullable=False),
     Column("byte_size", Integer, nullable=False),
+    Column("format_descriptor", JSON, nullable=True),
+    Column("uncompressed_byte_size", Integer, nullable=True),
     Column(
         "updated_at",
         DateTime(timezone=True),

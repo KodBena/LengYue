@@ -7,6 +7,7 @@
 import { ref, computed } from 'vue';
 import { SUPPORTED_LOCALES } from '../../i18n/locales';
 import { WINRATE_FRAMINGS } from '../../engine/katago/types';
+import { BUNDLE_COMPRESSION_SCHEMES } from '../../types';
 
 const props = defineProps<{
   registry: any;
@@ -74,6 +75,12 @@ const PATH_ENUMS: Record<string, readonly string[]> = {
   // `engine/katago/types.ts`; importing rather than re-listing keeps
   // the two sites from drifting.
   'engine.katago.overrideSettings.reportAnalysisWinratesAs': [...WINRATE_FRAMINGS],
+  // Analysis-bundle wire-format choice. The tuple's source-of-truth
+  // declaration lives in `src/types.ts` (alongside the union type
+  // that AppSettings.engine.katago.bundleCompressionScheme uses),
+  // so adding a new scheme is a one-line touch there and the
+  // dropdown picks it up automatically here.
+  'engine.katago.bundleCompressionScheme': [...BUNDLE_COMPRESSION_SCHEMES],
   // session-ui root (store.session.ui)
   'analysisLayout':                ['horizontal', 'vertical'],
   'pvAnimation.mode':              ['instant', 'sequential', 'window'],
@@ -119,6 +126,23 @@ const PATH_TOOLTIPS: Record<string, string> = {
     'succeeds or you toggle this leaf off and back on. Requires ' +
     'analysisStorageEnabled to be true; flipping the parent off ' +
     'implicitly disables auto-save.',
+  'engine.katago.bundleCompressionScheme':
+    "Wire-format choice for analysis-bundle persistence. 'v1' is the " +
+    'legacy wire (canonical JSON, gzip on backend). ' +
+    "'v2-projected' is lossless on the SPA's typed shape — the SPA " +
+    'projects each packet through the typed-shape allow-list (drops ' +
+    'unmodelled KataGo fields like scoreStdev / scoreMean / per-move ' +
+    'ownership) and the backend brotli-wraps the result. ' +
+    "'v2-quantized' is lossy: in addition to projection, ownership is " +
+    "uniform-quantised at 4 bits per cell (max-abs error ≤ 0.0625) and " +
+    'policy is bitmap-factored with 8-bit quantisation on legal cells ' +
+    '(max-abs error ≤ 0.00195 on legals; illegal cells exact). ' +
+    'Reconstruction is bit-identical for every typed-shape field under ' +
+    "'v2-projected'; 'v2-quantized' is the leader from the 2026-05-25 " +
+    'research arc (typically ~85% smaller than canonical JSON). ' +
+    'Stored rows decode regardless of the current setting, so flipping ' +
+    'this leaf only affects writes from this point forward — existing ' +
+    'saved bundles remain accessible.',
 };
 
 function tooltipText(key: string): string | undefined {

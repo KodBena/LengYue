@@ -2127,4 +2127,45 @@ export const archivedMigrations: Migration[] = [
     }
     return out;
   },
+  // 48 → 49: corrective for the 47 → 48 above. The first attempt
+  // at the F-optimizer-retirement migration walked
+  // `out.settings?.knobs` instead of the correct
+  // `out.profile?.settings?.knobs` and silently did nothing on
+  // every blob, stamping to v48 without rewriting the persisted
+  // `minFloor`. Caught locally by the project author before the
+  // arc shipped beyond the dev branch; the in-place fix above
+  // restores the v47 → v48 path for any blob still at v47, and
+  // this migration catches up any v48 blob the broken version
+  // ran against.
+  //
+  // Body is the same `minFloor: > 0.001 → 0.001` rewrite as 47 →
+  // 48 above, with the correct path. localStorage cleanup is
+  // not repeated — it was the one side-effect of the 47 → 48
+  // migration's body that worked correctly (no path dependency),
+  // and `removeItem` had already cleared the orphan cache key
+  // when the v48 stamp landed.
+  //
+  // Idempotent: a v48 blob that was created by a fresh install
+  // (i.e. populated from defaults.ts at v48, with `minFloor`
+  // already at 0.001) passes through unchanged.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const knobs = out.profile?.settings?.knobs;
+    if (knobs && typeof knobs === 'object' && !Array.isArray(knobs)) {
+      const decl = (knobs as Record<string, unknown>)['engine.first-report-during-search-after'];
+      if (decl && typeof decl === 'object') {
+        const inputs = (decl as { inputs?: unknown }).inputs;
+        if (Array.isArray(inputs) && inputs.length > 0) {
+          const first = inputs[0];
+          if (first && typeof first === 'object') {
+            const f = (first as { minFloor?: unknown }).minFloor;
+            if (typeof f === 'number' && f > 0.001) {
+              (first as { minFloor?: unknown }).minFloor = 0.001;
+            }
+          }
+        }
+      }
+    }
+    return out;
+  },
 ];

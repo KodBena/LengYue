@@ -3,18 +3,26 @@ repositories/analysis_bundle_repository.py
 
 SQLAlchemy adapter for AnalysisBundleRepositoryPort.
 
-The cross/analysis-persistence arc's persistence side. Holds the
-codec dispatch table (encode bundles to the configured write
-scheme; decode stored payloads regardless of their scheme) and
-the atomic quota check.
+Holds the codec dispatch (encode bundles to the configured write
+scheme for v1; brotli-wrap raw bytes for v2; decode any stored
+scheme on read) and the atomic per-user quota check.
 
-The codec dispatch is the load-bearing flexibility: today the
-backend writes "json+gzip" and reads both "json" and "json+gzip";
-adding a future scheme (e.g., "json+zstd") is one new entry in
-each dispatch table plus flipping the write-scheme config knob.
-Old rows with older schemes remain readable forever — the
-dispatch only grows. The wire-shape and rationale are recorded
-in docs/dispatch/backend-to-frontend-analysis-persistence-status.md.
+The codec dispatch is the module's flexibility hinge. The original
+arc shipped two v1-style codecs (``json`` and ``json+gzip``) that
+take/return canonical-JSON dicts. The
+cross/analysis-bundle-compression-v2 arc adds a v2-style codec
+(``v2-brotli``) that takes/returns raw bytes — the SPA owns the
+projection + quantisation pipeline before encoding, and the
+backend simply brotli-wraps for the column-level storage win. Old
+rows with old scheme tags remain readable forever — the dispatch
+only grows. The wire-shape and rationale are recorded in
+``docs/notes/analysis-bundle-compression-plan.md``.
+
+Dispatch shape: the v1 codecs are ``dict ↔ bytes``; the v2 codec
+is ``bytes ↔ bytes``. The two families live in separate dispatch
+tables to keep the signatures honest; ``upsert`` and ``get`` choose
+which family applies by inspecting ``bundle.wire_format`` on write
+and ``row.scheme`` on read.
 
 The atomic quota check inside upsert is one extra SELECT before
 the INSERT/UPDATE, all within the caller's transaction. Cheap at
@@ -24,19 +32,23 @@ nothing can interleave inside the transaction.
 
 License: Public Domain (The Unlicense)
 """
+import base64
 import gzip
 import json
 import logging
 from typing import Callable, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import delete, func, insert, select, update
+import brotli
+from sqlalchemy import delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.schema import analysis_bundles
 from domain.analysis_bundle import (
-    AnalysisBundle,
     AnalysisBundleSummary,
+    AnalysisBundleUpload,
+    AnalysisBundleV1,
+    AnalysisBundleV2,
 )
 from domain.auth import UserId
 from domain.errors import UnknownSchemeError, UserQuotaExceededError
@@ -46,19 +58,19 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------
-# Codec dispatch.
+# v1-style codec dispatch (dict ↔ bytes).
 #
 # Each function takes/returns the canonical bundle dict shape
-# (`bundle.model_dump()` / a dict that AnalysisBundle.model_validate
-# accepts). The bytes the database stores are whatever the writer
-# produces — the column is opaque LargeBinary.
+# (``bundle.model_dump()`` / a dict that ``AnalysisBundleV1.
+# model_validate`` accepts). The bytes the database stores are
+# whatever the writer produces — the column is opaque LargeBinary.
 #
-# Adding a new scheme:
-#   1. Define `_encode_<name>` and `_decode_<name>`.
-#   2. Add them to the corresponding dispatch table below.
+# Adding a v1-style scheme:
+#   1. Define ``_encode_<name>`` and ``_decode_<name>``.
+#   2. Add them to ``_ENCODERS`` / ``_DECODERS`` below.
 #   3. Optionally flip ANALYSIS_PERSISTENCE_WRITE_SCHEME to the
-#      new tag so newly-written rows use it. Old rows with the
-#      old tag continue to decode correctly via their own entry.
+#      new tag so newly-written v1 rows use it. Old rows continue
+#      to decode via their own entry.
 # ---------------------------------------------------------------
 
 
@@ -105,6 +117,30 @@ def _decode(scheme: str, payload: bytes) -> dict:
 
 
 # ---------------------------------------------------------------
+# v2-style codec — bytes ↔ bytes, brotli-wrapped.
+#
+# The SPA produces opaque pre-encoded bytes (projection +
+# quantisation already applied); the adapter brotli-wraps for the
+# column-level storage win and unwraps on read. Brotli quality 6
+# matches the research arc's measurements — the
+# compression-ratio-vs-CPU sweet spot for the bundle shapes we
+# actually ship.
+# ---------------------------------------------------------------
+
+
+SCHEME_V2_BROTLI = "v2-brotli"
+_V2_BROTLI_QUALITY = 6
+
+
+def _encode_v2_brotli(raw_bytes: bytes) -> bytes:
+    return brotli.compress(raw_bytes, quality=_V2_BROTLI_QUALITY)
+
+
+def _decode_v2_brotli(payload: bytes) -> bytes:
+    return brotli.decompress(payload)
+
+
+# ---------------------------------------------------------------
 # Adapter.
 # ---------------------------------------------------------------
 
@@ -114,14 +150,19 @@ class AnalysisBundleRepository(AnalysisBundleRepositoryPort):
     SQLAlchemy adapter satisfying AnalysisBundleRepositoryPort.
 
     Construction takes the session plus the two deployment-level
-    knobs the adapter needs (write scheme, user quota). The DI
-    factory in api/dependencies.py reads them from `core.config`
-    and passes them in; tests can construct the adapter with
-    arbitrary values to exercise the codec dispatch and quota
-    check independently.
+    knobs the adapter needs (write scheme for v1, user quota). The
+    DI factory in api/dependencies.py reads them from
+    ``core.config`` and passes them in; tests can construct the
+    adapter with arbitrary values to exercise the codec dispatch
+    and quota check independently.
+
+    v1 vs v2: the ``write_scheme`` knob applies only to v1 uploads
+    — v2 uploads ignore it and always store with
+    ``scheme=v2-brotli`` (because the v2 wire shape carries its
+    own pre-encoded bytes and the brotli wrap is unconditional).
 
     No method here commits. Transaction boundaries are owned by
-    the route via `async with db.begin():` — the upsert's quota
+    the route via ``async with db.begin():`` — the upsert's quota
     check and the INSERT/UPDATE complete atomically because the
     surrounding transaction holds them together.
     """
@@ -142,15 +183,31 @@ class AnalysisBundleRepository(AnalysisBundleRepositoryPort):
         *,
         board_id: UUID,
         user_id: UserId,
-        bundle: AnalysisBundle,
+        bundle: AnalysisBundleUpload,
     ) -> AnalysisBundleSummary:
-        # 1. Encode the bundle. The byte_size is post-transcoding;
-        # this is the value the per-user quota counts (Confirmation
-        # C3 in the dispatch).
-        bundle_dict = bundle.model_dump()
-        payload = _encode(self.write_scheme, bundle_dict)
+        # 1. Encode the bundle. Dispatch on wire_format:
+        #    - v1: route through the configured write_scheme codec;
+        #      format_descriptor + uncompressed_byte_size stay NULL.
+        #    - v2: brotli-wrap the raw bytes the SPA pre-encoded;
+        #      format_descriptor + uncompressed_byte_size carry the
+        #      SPA's assertions.
+        # ``byte_size`` is post-transcoding regardless — this is the
+        # value the per-user quota counts.
+        if isinstance(bundle, AnalysisBundleV2):
+            raw_bytes = base64.b64decode(bundle.data_b64)
+            payload = _encode_v2_brotli(raw_bytes)
+            scheme = SCHEME_V2_BROTLI
+            record_count = bundle.record_count
+            format_descriptor = bundle.format_descriptor
+            uncompressed_byte_size = bundle.uncompressed_byte_size
+        else:
+            bundle_dict = bundle.model_dump()
+            payload = _encode(self.write_scheme, bundle_dict)
+            scheme = self.write_scheme
+            record_count = len(bundle.records)
+            format_descriptor = None
+            uncompressed_byte_size = None
         byte_size = len(payload)
-        record_count = len(bundle.records)
 
         # 2. Atomic quota check. One SELECT covers both:
         #    - the existing row's byte_size (None if no row exists)
@@ -185,17 +242,20 @@ class AnalysisBundleRepository(AnalysisBundleRepositoryPort):
         # agnosticism (the documents.py upsert pattern). The
         # existence check piggybacks on the SELECT we already did
         # for the quota math — no extra round-trip.
+        common_values = dict(
+            scheme=scheme,
+            payload=payload,
+            record_count=record_count,
+            byte_size=byte_size,
+            format_descriptor=format_descriptor,
+            uncompressed_byte_size=uncompressed_byte_size,
+        )
         if existing is not None:
             stmt = (
                 update(analysis_bundles)
                 .where(analysis_bundles.c.user_id == user_id)
                 .where(analysis_bundles.c.board_id == board_id)
-                .values(
-                    scheme=self.write_scheme,
-                    payload=payload,
-                    record_count=record_count,
-                    byte_size=byte_size,
-                )
+                .values(**common_values)
                 .returning(analysis_bundles.c.updated_at)
             )
         else:
@@ -204,14 +264,11 @@ class AnalysisBundleRepository(AnalysisBundleRepositoryPort):
                 .values(
                     user_id=user_id,
                     board_id=board_id,
-                    scheme=self.write_scheme,
-                    payload=payload,
-                    record_count=record_count,
-                    byte_size=byte_size,
+                    **common_values,
                 )
                 .returning(analysis_bundles.c.updated_at)
             )
-        # `updated_at` is server-defaulted on INSERT (server_default
+        # ``updated_at`` is server-defaulted on INSERT (server_default
         # = func.now()) and refreshed on UPDATE (onupdate =
         # func.now()); RETURNING gives us the database-resolved
         # timestamp without an extra SELECT.
@@ -220,9 +277,11 @@ class AnalysisBundleRepository(AnalysisBundleRepositoryPort):
         return AnalysisBundleSummary(
             board_id=board_id,
             record_count=record_count,
-            stored_scheme=self.write_scheme,
+            stored_scheme=scheme,
             stored_byte_size=byte_size,
             updated_at=updated_at,
+            format_descriptor=format_descriptor,
+            uncompressed_byte_size=uncompressed_byte_size,
         )
 
     async def get(
@@ -230,7 +289,7 @@ class AnalysisBundleRepository(AnalysisBundleRepositoryPort):
         *,
         board_id: UUID,
         user_id: UserId,
-    ) -> Optional[AnalysisBundle]:
+    ) -> Optional[AnalysisBundleUpload]:
         # WHERE clause fuses (board_id, user_id) — the 404-not-403
         # invariant: cross-tenant access returns the same None as
         # a non-existent bundle.
@@ -238,6 +297,9 @@ class AnalysisBundleRepository(AnalysisBundleRepositoryPort):
             select(
                 analysis_bundles.c.scheme,
                 analysis_bundles.c.payload,
+                analysis_bundles.c.record_count,
+                analysis_bundles.c.format_descriptor,
+                analysis_bundles.c.uncompressed_byte_size,
             )
             .where(analysis_bundles.c.user_id == user_id)
             .where(analysis_bundles.c.board_id == board_id)
@@ -245,11 +307,28 @@ class AnalysisBundleRepository(AnalysisBundleRepositoryPort):
         if row is None:
             return None
 
-        # `_decode` raises UnknownSchemeError if the row's scheme
-        # isn't in the dispatch table — propagated to the route as
-        # a structured 500 (Confirmation C2).
+        if row.scheme == SCHEME_V2_BROTLI:
+            # v2 path: brotli-unwrap and reconstruct the V2 wire shape
+            # from the row's columns. The format_descriptor and
+            # uncompressed_byte_size columns are populated at write
+            # time for every v2 row; if they're NULL here, the row
+            # is corrupt and Pydantic will raise loudly per ADR-0002.
+            raw_bytes = _decode_v2_brotli(row.payload)
+            data_b64 = base64.b64encode(raw_bytes).decode("ascii")
+            return AnalysisBundleV2(
+                wire_format="v2",
+                schema_version=1,
+                format_descriptor=row.format_descriptor,
+                record_count=row.record_count,
+                uncompressed_byte_size=row.uncompressed_byte_size,
+                data_b64=data_b64,
+            )
+
+        # v1 path: ``_decode`` raises UnknownSchemeError if the row's
+        # scheme isn't in the v1 dispatch table — propagated to the
+        # route as a structured 500.
         bundle_dict = _decode(row.scheme, row.payload)
-        return AnalysisBundle.model_validate(bundle_dict)
+        return AnalysisBundleV1.model_validate(bundle_dict)
 
     async def delete(
         self,
@@ -278,6 +357,8 @@ class AnalysisBundleRepository(AnalysisBundleRepositoryPort):
                 analysis_bundles.c.scheme,
                 analysis_bundles.c.byte_size,
                 analysis_bundles.c.updated_at,
+                analysis_bundles.c.format_descriptor,
+                analysis_bundles.c.uncompressed_byte_size,
             ).where(analysis_bundles.c.user_id == user_id)
         )).fetchall()
         return [
@@ -287,6 +368,8 @@ class AnalysisBundleRepository(AnalysisBundleRepositoryPort):
                 stored_scheme=row.scheme,
                 stored_byte_size=row.byte_size,
                 updated_at=row.updated_at,
+                format_descriptor=row.format_descriptor,
+                uncompressed_byte_size=row.uncompressed_byte_size,
             )
             for row in rows
         ]
