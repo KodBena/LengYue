@@ -127,19 +127,21 @@ const PATH_TOOLTIPS: Record<string, string> = {
     'analysisStorageEnabled to be true; flipping the parent off ' +
     'implicitly disables auto-save.',
   'engine.katago.bundleCompressionScheme':
-    "Wire-format choice for analysis-bundle persistence. 'v1' is the " +
-    'legacy wire (canonical JSON, gzip on backend). ' +
+    "Wire-format choice for analysis-bundle persistence. " +
+    "'v1' is the legacy wire (canonical JSON, gzip on backend). " +
     "'v2-projected' is lossless on the SPA's typed shape — the SPA " +
     'projects each packet through the typed-shape allow-list (drops ' +
     'unmodelled KataGo fields like scoreStdev / scoreMean / per-move ' +
     'ownership) and the backend brotli-wraps the result. ' +
     "'v2-quantized' is lossy: in addition to projection, ownership is " +
-    "uniform-quantised at 4 bits per cell (max-abs error ≤ 0.0625) and " +
-    'policy is bitmap-factored with 8-bit quantisation on legal cells ' +
-    '(max-abs error ≤ 0.00195 on legals; illegal cells exact). ' +
-    'Reconstruction is bit-identical for every typed-shape field under ' +
-    "'v2-projected'; 'v2-quantized' is the leader from the 2026-05-25 " +
-    'research arc (typically ~85% smaller than canonical JSON). ' +
+    'Q4-quantised (max-abs error ≤ 0.0625) and policy is bitmap- ' +
+    'factored with Q8 on legal cells (max-abs error ≤ 0.00195 on ' +
+    'legals; illegal cells exact). The byte leader from the 2026-05-25 ' +
+    'research arc (typically ~85% smaller than canonical JSON); the ' +
+    'Q4 step-size on ownership is visible as banding on slowly ' +
+    "drifting cells. 'v2-quantized-hifi' is the same shape but with " +
+    'Q8 on ownership (max-abs error ≤ 1/256 ≈ 0.0039), trading ~6% of ' +
+    'the savings for perceptually-imperceptible ownership precision. ' +
     'Stored rows decode regardless of the current setting, so flipping ' +
     'this leaf only affects writes from this point forward — existing ' +
     'saved bundles remain accessible.',
