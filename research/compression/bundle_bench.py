@@ -42,7 +42,14 @@ from .bundle import (
     ZstdBundle,
 )
 from .identity import IdentityLossless, JsonBrotliLossless
-from .ownership import RawOwnership, TransposedOwnership
+from .ownership import (
+    DeltaOwnership,
+    FlatSortedDeltaOwnership,
+    RawOwnership,
+    SortedDeltaOwnership,
+    TransposedDeltaOwnership,
+    TransposedOwnership,
+)
 from .packed import PackedBrotliLossless, PackedLossless
 
 
@@ -67,6 +74,30 @@ ALL_BUNDLE_COMPRESSORS: list[LosslessBundleCompressor] = [
     GzipBundle(OwnershipFactoredBundle(IdentityLossless(), TransposedOwnership())),
     ZstdBundle(OwnershipFactoredBundle(IdentityLossless(), TransposedOwnership())),
     BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), TransposedOwnership())),
+    # — Ownership-factored: JSON-the-rest + packet-major XOR-DELTA —
+    OwnershipFactoredBundle(IdentityLossless(), DeltaOwnership()),
+    GzipBundle(OwnershipFactoredBundle(IdentityLossless(), DeltaOwnership())),
+    ZstdBundle(OwnershipFactoredBundle(IdentityLossless(), DeltaOwnership())),
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), DeltaOwnership())),
+    # — Ownership-factored: JSON-the-rest + coord-major XOR-DELTA (the
+    #   variant the transpose was building toward) —
+    OwnershipFactoredBundle(IdentityLossless(), TransposedDeltaOwnership()),
+    GzipBundle(OwnershipFactoredBundle(IdentityLossless(), TransposedDeltaOwnership())),
+    ZstdBundle(OwnershipFactoredBundle(IdentityLossless(), TransposedDeltaOwnership())),
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), TransposedDeltaOwnership())),
+    # — Per-packet SORTED XOR-DELTA: sort each map's 361 cells before
+    #   delta-encoding; uint16 permutation stored per packet —
+    OwnershipFactoredBundle(IdentityLossless(), SortedDeltaOwnership()),
+    GzipBundle(OwnershipFactoredBundle(IdentityLossless(), SortedDeltaOwnership())),
+    ZstdBundle(OwnershipFactoredBundle(IdentityLossless(), SortedDeltaOwnership())),
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), SortedDeltaOwnership())),
+    # — Flat SORTED XOR-DELTA: flatten N×W matrix, sort globally,
+    #   delta-encode the sorted sequence; uint32 permutation across
+    #   the full bundle —
+    OwnershipFactoredBundle(IdentityLossless(), FlatSortedDeltaOwnership()),
+    GzipBundle(OwnershipFactoredBundle(IdentityLossless(), FlatSortedDeltaOwnership())),
+    ZstdBundle(OwnershipFactoredBundle(IdentityLossless(), FlatSortedDeltaOwnership())),
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), FlatSortedDeltaOwnership())),
 ]
 
 

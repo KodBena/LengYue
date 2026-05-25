@@ -24,7 +24,14 @@ from .bundle import (
     ZstdBundle,
 )
 from .identity import IdentityLossless
-from .ownership import RawOwnership, TransposedOwnership
+from .ownership import (
+    DeltaOwnership,
+    FlatSortedDeltaOwnership,
+    RawOwnership,
+    SortedDeltaOwnership,
+    TransposedDeltaOwnership,
+    TransposedOwnership,
+)
 from .packed import PackedLossless
 from .test_packed import _synthesise_packet
 
@@ -33,10 +40,15 @@ REGISTRY: list[LosslessBundleCompressor] = [
     PerPacketBundle(PackedLossless()),
     OwnershipFactoredBundle(IdentityLossless(), RawOwnership()),
     OwnershipFactoredBundle(IdentityLossless(), TransposedOwnership()),
+    OwnershipFactoredBundle(IdentityLossless(), DeltaOwnership()),
+    OwnershipFactoredBundle(IdentityLossless(), TransposedDeltaOwnership()),
+    OwnershipFactoredBundle(IdentityLossless(), SortedDeltaOwnership()),
+    OwnershipFactoredBundle(IdentityLossless(), FlatSortedDeltaOwnership()),
     GzipBundle(OwnershipFactoredBundle(IdentityLossless(), RawOwnership())),
-    GzipBundle(OwnershipFactoredBundle(IdentityLossless(), TransposedOwnership())),
-    ZstdBundle(OwnershipFactoredBundle(IdentityLossless(), RawOwnership())),
-    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), TransposedOwnership())),
+    GzipBundle(OwnershipFactoredBundle(IdentityLossless(), SortedDeltaOwnership())),
+    GzipBundle(OwnershipFactoredBundle(IdentityLossless(), FlatSortedDeltaOwnership())),
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), SortedDeltaOwnership())),
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), FlatSortedDeltaOwnership())),
 ]
 
 
@@ -76,6 +88,55 @@ def test_multi_packet_bundle() -> None:
     ]
     _roundtrip(bundle)
     print("  test_multi_packet_bundle: OK")
+
+
+def test_delta_byte_count_matches_raw() -> None:
+    """Delta and TransposedDelta encodings must produce blobs of
+    the same byte count as Raw — XOR-delta is a per-cell transform
+    that preserves the N×W×8 payload size; the byte content
+    differs, the count doesn't."""
+    bundle = [
+        _synthesise_packet(turn_number=t, n_move_infos=5, pv_len=2, state_max_turn=t)
+        for t in range(1, 21)
+    ]
+    raw_sz = len(OwnershipFactoredBundle(IdentityLossless(), RawOwnership()).encode(bundle))
+    delta_sz = len(OwnershipFactoredBundle(IdentityLossless(), DeltaOwnership()).encode(bundle))
+    td_sz = len(OwnershipFactoredBundle(IdentityLossless(), TransposedDeltaOwnership()).encode(bundle))
+    assert raw_sz == delta_sz == td_sz, (
+        f"byte counts differ: raw={raw_sz} delta={delta_sz} td={td_sz}"
+    )
+    print(f"  test_delta_byte_count_matches_raw: OK ({raw_sz}B)")
+
+
+def test_delta_bit_exact_varied_floats() -> None:
+    """A bundle whose ownership values exercise the full float64
+    bit pattern space — not just the {0.5} fixture default. XOR-
+    delta must round-trip bit-exact on these; FP subtraction would
+    introduce rounding errors that break dict-`==` equality."""
+    import math
+    import random
+    rng = random.Random(20260525)
+    bundle = []
+    for t in range(1, 16):
+        p = _synthesise_packet(turn_number=t, n_move_infos=5, pv_len=2, state_max_turn=t)
+        # Replace ownership with a varied bit-pattern. Values include
+        # exact integers, irrationals (pi, e), small near-zeros,
+        # large near-±1, and a deliberate sign-flip across packets to
+        # exercise the rare XOR-with-sign-bit case.
+        own = [
+            (math.pi - 3.0),                # 0.14159...
+            -math.pi + 3.0,                 # -0.14159...
+            0.999999 - 0.0001 * t,          # near +1, drifting
+            -0.999999 + 0.0001 * t,         # near -1, drifting
+            math.sin(0.1 * t),              # smooth oscillation
+            1.0 if t < 8 else -1.0,         # sign flip mid-bundle
+        ]
+        # Pad with a deterministic pseudo-random tail to 361.
+        own.extend(rng.uniform(-1, 1) for _ in range(361 - len(own)))
+        p["ownership"] = own
+        bundle.append(p)
+    _roundtrip(bundle)
+    print("  test_delta_bit_exact_varied_floats: OK")
 
 
 def test_transpose_byte_count_matches_raw() -> None:
@@ -160,6 +221,8 @@ def main() -> int:
     test_single_packet_bundle()
     test_multi_packet_bundle()
     test_transpose_byte_count_matches_raw()
+    test_delta_byte_count_matches_raw()
+    test_delta_bit_exact_varied_floats()
     test_bundle_with_missing_ownership()
     test_corpus_bundle_roundtrip()
     print("all tests passed.")
