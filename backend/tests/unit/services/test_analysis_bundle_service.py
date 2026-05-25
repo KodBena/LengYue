@@ -30,7 +30,11 @@ from uuid import uuid4
 
 import pytest
 
-from domain.analysis_bundle import AnalysisBundle, AnalysisBundleRecord
+from domain.analysis_bundle import (
+    AnalysisBundle,
+    AnalysisBundleRecord,
+    AnalysisBundleV2,
+)
 from domain.auth import UserId
 from domain.errors import BundleTooLargeError, UserQuotaExceededError
 from services.analysis_bundle_service import AnalysisBundleService
@@ -258,3 +262,76 @@ async def test_list_summaries_empty_for_user_with_no_bundles():
     repo = FakeAnalysisBundleRepository()
     svc = AnalysisBundleService(repository=repo, bundle_max_bytes=10_000)
     assert await svc.list_summaries(user_id=ALICE) == []
+
+
+# ─── v2 wire shape: service-level orchestration ──────────────────────────────
+
+
+import base64
+
+
+def _make_v2_bundle(record_count: int = 3) -> AnalysisBundleV2:
+    return AnalysisBundleV2(
+        wire_format="v2",
+        schema_version=1,
+        format_descriptor={"scheme": "ofb-q4-q8"},
+        record_count=record_count,
+        uncompressed_byte_size=4096,
+        data_b64=base64.b64encode(b"opaque bytes").decode("ascii"),
+    )
+
+
+async def test_v2_upsert_under_cap_delegates_and_returns_v2_summary():
+    """v2 upload under the per-bundle cap reaches the Port and the
+    summary carries the v2-specific fields the fake propagates."""
+    repo = FakeAnalysisBundleRepository()
+    svc = AnalysisBundleService(repository=repo, bundle_max_bytes=1_000_000)
+
+    summary = await svc.upsert(
+        board_id=uuid4(),
+        bundle=_make_v2_bundle(record_count=5),
+        request_body_bytes=200,
+        user_id=ALICE,
+    )
+
+    assert summary.record_count == 5
+    assert summary.stored_scheme == "v2-brotli"
+    assert summary.uncompressed_byte_size == 4096
+    assert summary.format_descriptor == {"scheme": "ofb-q4-q8"}
+
+
+async def test_v2_upsert_over_cap_raises_before_reaching_port():
+    """v2 upload over the per-bundle cap raises BundleTooLargeError
+    before the Port sees the bundle — the per-bundle cap is
+    enforced on ``request_body_bytes`` regardless of wire shape."""
+    repo = FakeAnalysisBundleRepository()
+    svc = AnalysisBundleService(repository=repo, bundle_max_bytes=100)
+
+    with pytest.raises(BundleTooLargeError):
+        await svc.upsert(
+            board_id=uuid4(),
+            bundle=_make_v2_bundle(),
+            request_body_bytes=101,
+            user_id=ALICE,
+        )
+
+
+async def test_v2_get_returns_v2_shape_for_v2_stored_bundle():
+    """A v2 bundle written via upsert is returned through get with
+    its v2 wire shape preserved (fake's behaviour mirrors the
+    real adapter's wire_format dispatch)."""
+    repo = FakeAnalysisBundleRepository()
+    svc = AnalysisBundleService(repository=repo, bundle_max_bytes=1_000_000)
+    board_id = uuid4()
+
+    in_bundle = _make_v2_bundle(record_count=2)
+    await svc.upsert(
+        board_id=board_id,
+        bundle=in_bundle,
+        request_body_bytes=200,
+        user_id=ALICE,
+    )
+
+    fetched = await svc.get(board_id=board_id, user_id=ALICE)
+    assert isinstance(fetched, AnalysisBundleV2)
+    assert fetched.format_descriptor == {"scheme": "ofb-q4-q8"}

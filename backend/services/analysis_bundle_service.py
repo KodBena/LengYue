@@ -31,7 +31,10 @@ License: Public Domain (The Unlicense)
 from typing import List, Optional
 from uuid import UUID
 
-from domain.analysis_bundle import AnalysisBundle, AnalysisBundleSummary
+from domain.analysis_bundle import (
+    AnalysisBundleSummary,
+    AnalysisBundleUpload,
+)
 from domain.auth import UserId
 from domain.errors import BundleTooLargeError
 from repositories.ports import AnalysisBundleRepositoryPort
@@ -58,7 +61,7 @@ class AnalysisBundleService:
         self,
         *,
         board_id: UUID,
-        bundle: AnalysisBundle,
+        bundle: AnalysisBundleUpload,
         request_body_bytes: int,
         user_id: UserId,
     ) -> AnalysisBundleSummary:
@@ -96,8 +99,15 @@ class AnalysisBundleService:
         *,
         board_id: UUID,
         user_id: UserId,
-    ) -> Optional[AnalysisBundle]:
-        """Pass-through. None on miss; the route maps to 404."""
+    ) -> Optional[AnalysisBundleUpload]:
+        """Pass-through. None on miss; the route maps to 404.
+
+        The return shape is v1 (``AnalysisBundleV1``) for rows
+        stored under ``json`` / ``json+gzip`` schemes and v2
+        (``AnalysisBundleV2``) for rows stored under
+        ``v2-brotli`` — the SPA's decoder dispatches on
+        ``wire_format``.
+        """
         return await self.repository.get(
             board_id=board_id, user_id=user_id,
         )

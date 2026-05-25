@@ -351,3 +351,150 @@ async def test_routes_without_bearer_return_401(client):
         f"/analysis-bundles/{board}",
     )).status_code == 401
     assert (await client.get("/analysis-bundles")).status_code == 401
+
+
+# ─── v2 wire shape: route-level dispatch ─────────────────────────────────────
+
+
+import base64
+
+
+def _v2_bundle_dict(*, record_count: int = 3,
+                    uncompressed: int = 8192) -> dict:
+    return {
+        "wire_format": "v2",
+        "schema_version": 1,
+        "format_descriptor": {"scheme": "ofb-q4-q8", "version": 1},
+        "record_count": record_count,
+        "uncompressed_byte_size": uncompressed,
+        "data_b64": base64.b64encode(b"opaque SPA-encoded bytes").decode("ascii"),
+    }
+
+
+async def test_put_v2_bundle_creates_row_and_returns_v2_summary(
+    client, session,
+):
+    """A v2 PUT payload is accepted; the summary surfaces the new
+    fields populated."""
+    await seed_user(session, user_id=ALICE_ID)
+    board = uuid4()
+
+    response = await client.put(
+        f"/analysis-bundles/{board}",
+        json=_v2_bundle_dict(record_count=4, uncompressed=9999),
+        headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["record_count"] == 4
+    assert body["stored_scheme"] == "v2-brotli"
+    assert body["uncompressed_byte_size"] == 9999
+    assert body["format_descriptor"] == {"scheme": "ofb-q4-q8", "version": 1}
+
+
+async def test_get_v2_stored_bundle_returns_v2_wire_shape(client, session):
+    """A bundle written via the v2 path returns its v2 shape on
+    GET: ``wire_format='v2'`` + the SPA's descriptor + the
+    round-tripped data_b64."""
+    await seed_user(session, user_id=ALICE_ID)
+    board = uuid4()
+    payload = _v2_bundle_dict()
+    await client.put(
+        f"/analysis-bundles/{board}",
+        json=payload,
+        headers=auth_header(ALICE_ID),
+    )
+
+    response = await client.get(
+        f"/analysis-bundles/{board}", headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["wire_format"] == "v2"
+    assert body["format_descriptor"] == payload["format_descriptor"]
+    assert body["record_count"] == payload["record_count"]
+    assert body["uncompressed_byte_size"] == payload["uncompressed_byte_size"]
+    # Round-tripped bytes: base64 decode round-trips to the original
+    # raw payload regardless of brotli's middle.
+    assert base64.b64decode(body["data_b64"]) == \
+        base64.b64decode(payload["data_b64"])
+
+
+async def test_get_v1_stored_bundle_returns_v1_wire_shape(client, session):
+    """A v1 bundle returns ``wire_format='v1'`` on GET — the
+    backend's response is discriminated by what's stored, not by
+    what's requested."""
+    await seed_user(session, user_id=ALICE_ID)
+    board = uuid4()
+    await client.put(
+        f"/analysis-bundles/{board}",
+        json=_bundle_dict(record_count=2),
+        headers=auth_header(ALICE_ID),
+    )
+
+    response = await client.get(
+        f"/analysis-bundles/{board}", headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["wire_format"] == "v1"
+    assert len(body["records"]) == 2
+
+
+async def test_put_v2_with_unknown_wire_format_returns_422(client, session):
+    """An unknown ``wire_format`` value is a 422 — neither v1 nor
+    v2 accepts it."""
+    await seed_user(session, user_id=ALICE_ID)
+    payload = _v2_bundle_dict()
+    payload["wire_format"] = "v99"
+    response = await client.put(
+        f"/analysis-bundles/{uuid4()}",
+        json=payload,
+        headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 422
+
+
+async def test_put_v2_missing_format_descriptor_returns_422(client, session):
+    """Required v2 fields raise 422 when absent."""
+    await seed_user(session, user_id=ALICE_ID)
+    payload = _v2_bundle_dict()
+    del payload["format_descriptor"]
+    response = await client.put(
+        f"/analysis-bundles/{uuid4()}",
+        json=payload,
+        headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 422
+
+
+async def test_list_summaries_includes_v2_fields_for_v2_bundles(
+    client, session,
+):
+    await seed_user(session, user_id=ALICE_ID)
+    a, b = uuid4(), uuid4()
+    # one v1, one v2
+    await client.put(
+        f"/analysis-bundles/{a}",
+        json=_bundle_dict(record_count=1),
+        headers=auth_header(ALICE_ID),
+    )
+    await client.put(
+        f"/analysis-bundles/{b}",
+        json=_v2_bundle_dict(record_count=2, uncompressed=5000),
+        headers=auth_header(ALICE_ID),
+    )
+
+    response = await client.get(
+        "/analysis-bundles", headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 200
+    by_id = {s["board_id"]: s for s in response.json()}
+    v1 = by_id[str(a)]
+    v2 = by_id[str(b)]
+    # v1 summary has the new fields as null
+    assert v1["uncompressed_byte_size"] is None
+    assert v1["format_descriptor"] is None
+    # v2 summary has them populated
+    assert v2["uncompressed_byte_size"] == 5000
+    assert v2["stored_scheme"] == "v2-brotli"
