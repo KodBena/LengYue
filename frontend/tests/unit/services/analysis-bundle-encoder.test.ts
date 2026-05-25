@@ -29,6 +29,12 @@ import {
   _JSON_PROJECTED_V1 as JSON_PROJECTED_V1,
   type BundleEncoder,
 } from '../../../src/services/analysis-bundle/encoder';
+import {
+  OWNERSHIP_CELL_COUNT,
+  OWNERSHIP_Q4_MAX_ABS_ANALYTIC,
+  POLICY_CELL_COUNT,
+  POLICY_Q8_FACTORED_MAX_ABS_LEGAL_ANALYTIC,
+} from '../../../src/services/analysis-bundle/quantization';
 import type { AnalysisBundle, AnalysisRecord } from '../../../src/services/analysis-bundle';
 import type { NodeId } from '../../../src/types';
 
@@ -208,5 +214,123 @@ describe('base64 helpers', () => {
     const empty = new Uint8Array(0);
     expect(uint8ArrayToBase64(empty)).toBe('');
     expect(base64ToUint8Array('').length).toBe(0);
+  });
+});
+
+// ── OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1 encoder (lossy leader) ──────────────
+
+describe('ownership-q4-policy-q8-factored-v1 encoder', () => {
+  function _quantPacket(): Record<string, unknown> {
+    // Build a packet with concrete ownership + policy arrays so
+    // the lossy encoder has fields to quantise. Otherwise the
+    // scheme degenerates to JSON_PROJECTED_V1 behaviour.
+    const ownership = new Array(OWNERSHIP_CELL_COUNT).fill(0).map((_, i) =>
+      -1 + (2 * i) / (OWNERSHIP_CELL_COUNT - 1),
+    );
+    const policy = new Array(POLICY_CELL_COUNT).fill(-1.0);
+    policy[10] = 0.5;
+    policy[100] = 0.1;
+    policy[200] = 0.9;
+    return { ..._MIN_PACKET, ownership, policy };
+  }
+
+  function _bundleWithQuant(): AnalysisBundle {
+    return _bundle([_record(_quantPacket())]);
+  }
+
+  it('is registered under the expected scheme tag', () => {
+    const enc = getEncoderForScheme('ownership-q4-policy-q8-factored-v1');
+    expect(enc).toBeDefined();
+    expect((enc as BundleEncoder).scheme).toBe('ownership-q4-policy-q8-factored-v1');
+  });
+
+  it('listKnownSchemes includes the lossy scheme', () => {
+    expect(listKnownSchemes()).toContain('ownership-q4-policy-q8-factored-v1');
+  });
+
+  it('round-trip preserves ownership within analytic max-abs', () => {
+    const enc = getEncoderForScheme(
+      'ownership-q4-policy-q8-factored-v1',
+    ) as BundleEncoder;
+    const bundle = _bundleWithQuant();
+    const encoded = enc.encode(bundle);
+    const decoded = enc.decode(encoded.bytes);
+    const original = bundle.records[0].packet.ownership!;
+    const recovered = decoded.records[0].packet.ownership!;
+    expect(recovered.length).toBe(original.length);
+    for (let i = 0; i < original.length; i++) {
+      expect(Math.abs(recovered[i] - original[i]))
+        .toBeLessThanOrEqual(OWNERSHIP_Q4_MAX_ABS_ANALYTIC + 1e-12);
+    }
+  });
+
+  it('round-trip preserves policy: -1 exact on illegal cells, within max-abs on legals', () => {
+    const enc = getEncoderForScheme(
+      'ownership-q4-policy-q8-factored-v1',
+    ) as BundleEncoder;
+    const bundle = _bundleWithQuant();
+    const encoded = enc.encode(bundle);
+    const decoded = enc.decode(encoded.bytes);
+    const original = bundle.records[0].packet.policy!;
+    const recovered = decoded.records[0].packet.policy!;
+    expect(recovered.length).toBe(original.length);
+    for (let i = 0; i < original.length; i++) {
+      if (original[i] === -1.0) {
+        expect(recovered[i]).toBe(-1.0);
+      } else {
+        expect(Math.abs(recovered[i] - original[i]))
+          .toBeLessThanOrEqual(POLICY_Q8_FACTORED_MAX_ABS_LEGAL_ANALYTIC + 1e-12);
+      }
+    }
+  });
+
+  it('preserves non-quantised fields bit-identically', () => {
+    const enc = getEncoderForScheme(
+      'ownership-q4-policy-q8-factored-v1',
+    ) as BundleEncoder;
+    const bundle = _bundleWithQuant();
+    const encoded = enc.encode(bundle);
+    const decoded = enc.decode(encoded.bytes);
+    const origPacket = bundle.records[0].packet;
+    const recPacket = decoded.records[0].packet;
+    expect(recPacket.id).toBe(origPacket.id);
+    expect(recPacket.turnNumber).toBe(origPacket.turnNumber);
+    expect(recPacket.rootInfo).toEqual(origPacket.rootInfo);
+    expect(recPacket.moveInfos).toEqual(origPacket.moveInfos);
+  });
+
+  it('drops unmodelled fields just like the projected variant', () => {
+    const enc = getEncoderForScheme(
+      'ownership-q4-policy-q8-factored-v1',
+    ) as BundleEncoder;
+    const packet = { ..._quantPacket(), junkField: 'should be dropped' };
+    const bundle = _bundle([_record(packet)]);
+    const encoded = enc.encode(bundle);
+    const decoded = enc.decode(encoded.bytes);
+    const recovered = decoded.records[0].packet as unknown as Record<string, unknown>;
+    expect(recovered).not.toHaveProperty('junkField');
+  });
+
+  it('produces a payload smaller than the canonical-JSON size', () => {
+    const enc = getEncoderForScheme(
+      'ownership-q4-policy-q8-factored-v1',
+    ) as BundleEncoder;
+    const bundle = _bundleWithQuant();
+    const encoded = enc.encode(bundle);
+    // The quantised payload before brotli is already smaller than
+    // the canonical JSON (which carries full float arrays); brotli
+    // amplifies the win further on the backend side.
+    expect(encoded.bytes.length).toBeLessThan(encoded.uncompressedByteSize);
+  });
+
+  it('round-trips a bundle with no ownership/policy (encoder is a no-op on absent fields)', () => {
+    const enc = getEncoderForScheme(
+      'ownership-q4-policy-q8-factored-v1',
+    ) as BundleEncoder;
+    // _MIN_PACKET intentionally omits ownership / policy.
+    const bundle = _bundle([_record(_MIN_PACKET)]);
+    const encoded = enc.encode(bundle);
+    const decoded = enc.decode(encoded.bytes);
+    expect(decoded).toEqual(bundle);
   });
 });

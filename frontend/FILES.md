@@ -215,8 +215,9 @@ frontend/src/
 │
 ├── services/                                Effectful singletons: API calls, WebSocket clients, persistence.
 │   ├── analysis-bundle/                      Analysis-bundle compression-v2 hierarchy (cross-arc).
-│   │   ├── encoder.ts                 [B3]  BundleEncoder interface + JSON_PROJECTED_V1 lossless leaf + base64 helpers.
-│   │   └── projection.ts              [B3]  SPA-typed-shape allow-list with compile-time drift gate.
+│   │   ├── encoder.ts                 [B3]  BundleEncoder interface + JSON_PROJECTED_V1 + OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1 + base64 helpers.
+│   │   ├── projection.ts              [B3]  SPA-typed-shape allow-list with compile-time drift gate.
+│   │   └── quantization.ts            [B3]  Q4 ownership + Q8-factored policy primitives for the lossy leaf.
 │   ├── analysis-bundle.ts             [B3]  Pure projection ledger ↔ wire bundle.
 │   ├── analysis-config.ts             [B3]  Palette compile + ledger hash.
 │   ├── analysis-ledger.ts             [B3]  Per-(configHash, nodeId) merged KataGo packet store.

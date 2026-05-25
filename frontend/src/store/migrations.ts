@@ -130,13 +130,14 @@ export const migrations: Migration[] = [
   },
   // 50 → 51: backfill
   // `profile.settings.engine.katago.bundleCompressionScheme`
-  // (string enum: 'v1' | 'v2-projected', default 'v1'). The
-  // wire-format choice for analysis-bundle persistence — the
-  // cross/analysis-bundle-compression-v2 arc's lossless leaf.
-  // Default 'v1' preserves the historical wire shape; users opt
-  // into 'v2-projected' via the registry editor for the
-  // projection win (typically ~30% pre-brotli, additional wins
-  // from the backend's unconditional brotli wrap). See
+  // (string enum from `BUNDLE_COMPRESSION_SCHEMES` in types.ts,
+  // default 'v1'). The wire-format choice for analysis-bundle
+  // persistence — the cross/analysis-bundle-compression-v2 arc's
+  // lossless + lossy leaves. Default 'v1' preserves the
+  // historical wire shape; users opt into 'v2-projected' (the
+  // lossless projection win) or 'v2-quantized' (projection +
+  // Q4 ownership + Q8-factored policy, the leader from the
+  // research arc) via the registry editor. See
   // AppSettings.engine.katago.bundleCompressionScheme in
   // types.ts for the contract.
   //
@@ -147,8 +148,8 @@ export const migrations: Migration[] = [
   //   - Pre-existing branch-test value 'v1-json' → 'v1'.
   //   - Pre-existing branch-test value 'json-projected-v1' →
   //     'v2-projected'.
-  //   - Already-valid current values ('v1' / 'v2-projected') →
-  //     preserved unchanged.
+  //   - Already-valid current values ('v1' / 'v2-projected' /
+  //     'v2-quantized') → preserved unchanged.
   //   - Anything else (typo, hand-edited blob, future scheme
   //     downgraded into a present client) → reset to 'v1' (the
   //     safe default: the SPA never tries to write a wire shape
@@ -162,7 +163,7 @@ export const migrations: Migration[] = [
     if (katago && typeof katago === 'object') {
       const k = katago as { bundleCompressionScheme?: unknown };
       const v = k.bundleCompressionScheme;
-      if (v === 'v1' || v === 'v2-projected') {
+      if (v === 'v1' || v === 'v2-projected' || v === 'v2-quantized') {
         // already valid
       } else if (v === 'v1-json') {
         k.bundleCompressionScheme = 'v1';

@@ -35,7 +35,15 @@
  * License: Public Domain (The Unlicense)
  */
 import type { AnalysisBundle } from '../analysis-bundle';
+import type { KataAnalysisResponse } from '../../engine/katago/types';
 import { projectPacket } from './projection';
+import {
+  dequantiseOwnershipQ4,
+  dequantisePolicyQ8Factored,
+  quantiseOwnershipQ4,
+  quantisePolicyQ8Factored,
+  type PolicyQ8FactoredPacked,
+} from './quantization';
 
 // ── Descriptor / encoded-bundle types ──────────────────────────────────────
 
@@ -162,10 +170,170 @@ const JSON_PROJECTED_V1: BundleEncoder = {
   },
 };
 
+// ── OwnershipQ4 + PolicyQ8-factored: the leader lossy scheme ───────────────
+
+const OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1_SCHEME =
+  'ownership-q4-policy-q8-factored-v1';
+
+/**
+ * Internal wire shape carried inside the encoded packet's JSON
+ * body in place of `ownership` and `policy`. Both arrays are
+ * base64-encoded bytes from the quantisation primitives in
+ * `./quantization.ts`. The wrapper objects' field names use a
+ * `_q4` / `_q8_factored` suffix to keep them syntactically
+ * distinct from the typed-shape's `ownership` / `policy` (which
+ * carry `number[]`s), so a decoder reading either kind of
+ * packet doesn't need to discriminate before parsing.
+ */
+type QuantisedOwnership = {
+  readonly _q4_b64: string;
+};
+
+type QuantisedPolicy = {
+  readonly _q8_factored: {
+    readonly bitmap_b64: string;
+    readonly legal_count: number;
+    readonly values_b64: string;
+  };
+};
+
+function encodePacketLossy(packet: KataAnalysisResponse): KataAnalysisResponse {
+  const out = { ...packet } as Record<string, unknown>;
+  if (Array.isArray(packet.ownership)) {
+    const packed = quantiseOwnershipQ4(packet.ownership);
+    const wrap: QuantisedOwnership = { _q4_b64: uint8ArrayToBase64(packed) };
+    out.ownership = wrap;
+  }
+  if (Array.isArray(packet.policy)) {
+    const p = quantisePolicyQ8Factored(packet.policy);
+    const wrap: QuantisedPolicy = {
+      _q8_factored: {
+        bitmap_b64: uint8ArrayToBase64(p.bitmap),
+        legal_count: p.legalCount,
+        values_b64: uint8ArrayToBase64(p.values),
+      },
+    };
+    out.policy = wrap;
+  }
+  return out as unknown as KataAnalysisResponse;
+}
+
+function decodePacketLossy(packet: KataAnalysisResponse): KataAnalysisResponse {
+  // Pacets that round-trip through the lossy encoder may carry
+  // the typed-shape `ownership` / `policy` slots filled with a
+  // quantised-wrapper object instead of a `number[]`. Detect and
+  // un-pack to the typed-shape `number[]`.
+  const out = { ...packet } as Record<string, unknown>;
+  const own = out.ownership as unknown;
+  if (
+    own && typeof own === 'object' && !Array.isArray(own) &&
+    typeof (own as { _q4_b64?: unknown })._q4_b64 === 'string'
+  ) {
+    const packed = base64ToUint8Array((own as QuantisedOwnership)._q4_b64);
+    out.ownership = dequantiseOwnershipQ4(packed);
+  }
+  const pol = out.policy as unknown;
+  if (
+    pol && typeof pol === 'object' && !Array.isArray(pol) &&
+    (pol as { _q8_factored?: unknown })._q8_factored &&
+    typeof (pol as { _q8_factored?: unknown })._q8_factored === 'object'
+  ) {
+    const wrap = (pol as QuantisedPolicy)._q8_factored;
+    const packed: PolicyQ8FactoredPacked = {
+      bitmap: base64ToUint8Array(wrap.bitmap_b64),
+      legalCount: wrap.legal_count,
+      values: base64ToUint8Array(wrap.values_b64),
+    };
+    out.policy = dequantisePolicyQ8Factored(packed);
+  }
+  return out as unknown as KataAnalysisResponse;
+}
+
+/**
+ * Leader lossy encoder from the 2026-05-25 research arc:
+ * projection + Q4 uniform on ownership + Q8 uniform-with-bitmap-
+ * factor on policy.
+ *
+ * Max-abs reconstruction error analytically bounded by the
+ * quantisers:
+ *   - ownership cell: ≤ 0.0625 (half of Q4 bin width on [-1, 1])
+ *   - policy legal cell: ≤ 1/512 ≈ 0.00195 (half of Q8 bin width
+ *     on [0, 1])
+ *   - policy illegal cell: exact (bitmap preserves sentinels)
+ *
+ * Hard gate passes by construction — the analytic bounds are
+ * comfortably under the design note's thresholds (≤ 0.10 ownership
+ * max-abs / ≤ 0.005 policy max-abs).
+ */
+const OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1: BundleEncoder = {
+  scheme: OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1_SCHEME,
+
+  encode(bundle: AnalysisBundle): EncodedBundle {
+    const projected: AnalysisBundle = {
+      schemaVersion: bundle.schemaVersion,
+      records: bundle.records.map((r) => ({
+        configHash: r.configHash,
+        nodeId: r.nodeId,
+        packet: encodePacketLossy(projectPacket(r.packet)),
+      })),
+    };
+
+    const projectedJson = JSON.stringify(projected);
+    const canonicalJson = JSON.stringify(bundle);
+    const encoder = new TextEncoder();
+
+    return {
+      bytes: encoder.encode(projectedJson),
+      descriptor: {
+        scheme: OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1_SCHEME,
+        version: 1,
+      },
+      recordCount: bundle.records.length,
+      uncompressedByteSize: encoder.encode(canonicalJson).length,
+    };
+  },
+
+  decode(bytes: Uint8Array): AnalysisBundle {
+    const text = new TextDecoder('utf-8').decode(bytes);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch (e) {
+      throw new Error(
+        `analysis-bundle/encoder: JSON parse failed for scheme ` +
+        `'${OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1_SCHEME}': ` +
+        `${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+    if (
+      !parsed ||
+      typeof parsed !== 'object' ||
+      typeof (parsed as { schemaVersion?: unknown }).schemaVersion !== 'number' ||
+      !Array.isArray((parsed as { records?: unknown }).records)
+    ) {
+      throw new Error(
+        `analysis-bundle/encoder: decoded payload doesn't match the ` +
+        `AnalysisBundle shape for scheme ` +
+        `'${OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1_SCHEME}'`,
+      );
+    }
+    const bundle = parsed as AnalysisBundle;
+    return {
+      schemaVersion: bundle.schemaVersion,
+      records: bundle.records.map((r) => ({
+        configHash: r.configHash,
+        nodeId: r.nodeId,
+        packet: decodePacketLossy(r.packet),
+      })),
+    };
+  },
+};
+
 // ── Dispatch ───────────────────────────────────────────────────────────────
 
 const ENCODERS_BY_SCHEME: Readonly<Record<string, BundleEncoder>> = {
   [JSON_PROJECTED_V1.scheme]: JSON_PROJECTED_V1,
+  [OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1.scheme]: OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1,
 };
 
 /**

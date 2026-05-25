@@ -760,7 +760,7 @@ export interface NavigationSettings {
  * later) without breaking the on-wire scheme tag's stable
  * identity.
  */
-export const BUNDLE_COMPRESSION_SCHEMES = ['v1', 'v2-projected'] as const;
+export const BUNDLE_COMPRESSION_SCHEMES = ['v1', 'v2-projected', 'v2-quantized'] as const;
 export type BundleCompressionScheme = typeof BUNDLE_COMPRESSION_SCHEMES[number];
 
 export interface AppSettings {
