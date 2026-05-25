@@ -746,7 +746,21 @@ export interface NavigationSettings {
  * the const tuple directly so this declaration is the single
  * source of truth.
  */
-export const BUNDLE_COMPRESSION_SCHEMES = ['v1-json', 'json-projected-v1'] as const;
+/**
+ * The user-facing registry values name the wire-format choice
+ * (`'v1'` = legacy canonical-JSON, `'v2-projected'` = v2 with
+ * the SPA-side projection encoder). The encoder's *internal*
+ * scheme tag — the string the backend stores in
+ * `format_descriptor.scheme` forever — is `'json-projected-v1'`
+ * (declared in `services/analysis-bundle/encoder.ts`); the
+ * registry-to-encoder mapping lives in
+ * `analysis-persistence-service.ts::readCompressionScheme`.
+ * Decoupling the two strings keeps the user-facing names
+ * versionable (`'v2-projected'` may grow `'v2-projected-q4'`
+ * later) without breaking the on-wire scheme tag's stable
+ * identity.
+ */
+export const BUNDLE_COMPRESSION_SCHEMES = ['v1', 'v2-projected'] as const;
 export type BundleCompressionScheme = typeof BUNDLE_COMPRESSION_SCHEMES[number];
 
 export interface AppSettings {

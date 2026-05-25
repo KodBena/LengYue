@@ -192,14 +192,36 @@ function fromWireSummary(wire: AnalysisBundleSummaryWire): AnalysisBundleSummary
 
 import { store } from '../store';
 
-function readCompressionScheme(): 'v1-json' | 'json-projected-v1' {
+/**
+ * Reads the user-facing wire-format choice from the registry and
+ * maps it to the internal value the save() dispatcher consumes:
+ *
+ *   - `'v1'`           → write the legacy v1 wire (toWireBundle)
+ *   - `'v2-projected'` → write the v2 wire with the
+ *                        `'json-projected-v1'` encoder scheme tag
+ *
+ * The split between the user-facing registry value and the
+ * internal encoder.scheme tag is deliberate: the encoder tag
+ * (`'json-projected-v1'`) is what the backend stores in
+ * `format_descriptor.scheme` and must stay byte-stable forever
+ * (changing it would orphan every existing v2 row), while the
+ * registry value is a UX-level name that can evolve as more
+ * schemes ship (e.g. `'v2-projected-q4'`, `'v2-projected-q8'`,
+ * etc.) without touching the encoder dispatch table.
+ *
+ * Returns the literal `'v1'` to mean "skip the v2 path", or the
+ * encoder-scheme tag string otherwise. The save() path uses the
+ * `'v1'` sentinel to choose between toWireBundle and
+ * toWireBundleV2.
+ */
+function readCompressionScheme(): 'v1' | string {
   // The migration above (50 → 51) backfills the field; defensive
   // read in case a future migration drifts and the value is
   // absent. Fall back to the safe default rather than throw so
   // save() doesn't fail on first persistence after a hot-reload.
   const scheme = store.profile?.settings?.engine?.katago?.bundleCompressionScheme;
-  if (scheme === 'json-projected-v1') return 'json-projected-v1';
-  return 'v1-json';
+  if (scheme === 'v2-projected') return 'json-projected-v1';
+  return 'v1';
 }
 
 // ── Typed-error rethrow ──────────────────────────────────────────────────────
@@ -251,11 +273,18 @@ export class AnalysisPersistenceService {
    * summaries cache as a side effect so the UI's "saved at X"
    * subtitle flips immediately.
    *
-   * Wire-format dispatch: the registry knob `bundle.compressionScheme`
-   * picks v1 (legacy canonical-JSON wire) or v2 (SPA-encoded
-   * with brotli-on-backend). The knob's default is `'v1-json'`
-   * for unbroken backward compatibility — no user sees the v2
-   * path until they explicitly opt in.
+   * Wire-format dispatch: the registry knob
+   * `engine.katago.bundleCompressionScheme` picks v1 (legacy
+   * canonical-JSON wire) or v2-projected (SPA-encoded with
+   * brotli-on-backend). The knob's default is `'v1'` for
+   * unbroken backward compatibility — no user sees the v2 path
+   * until they explicitly opt in via the registry editor.
+   *
+   * `readCompressionScheme()` returns the sentinel `'v1'` for
+   * the legacy path or an encoder-scheme tag for v2 (today only
+   * `'json-projected-v1'`); the dispatch below maps the
+   * sentinel to `toWireBundle` and any other value to
+   * `toWireBundleV2` with the scheme tag threaded through.
    *
    * Throws AnalysisBundleStorageError on per-bundle cap (413
    * bundle_too_large) or per-user quota (413 user_quota_exceeded);
@@ -265,7 +294,7 @@ export class AnalysisPersistenceService {
     const bundle = projectLedgerToBundle(boardId);
     const scheme = readCompressionScheme();
     const body =
-      scheme === 'v1-json'
+      scheme === 'v1'
         ? (toWireBundle(bundle) as AnalysisBundleWire)
         : (toWireBundleV2(bundle, scheme) as AnalysisBundleWire);
     try {

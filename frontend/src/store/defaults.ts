@@ -42,11 +42,11 @@ export const defaultSettings = {
       analysisAutoSave: false,
       // Analysis-bundle wire-format choice. See
       // AppSettings.engine.katago.bundleCompressionScheme for the
-      // contract. Default `'v1-json'` preserves the historical
-      // wire shape — existing users see no behavioural change
-      // until they explicitly opt into the projected scheme via
-      // the registry editor.
-      bundleCompressionScheme: 'v1-json' as const,
+      // contract. Default `'v1'` preserves the historical wire
+      // shape — existing users see no behavioural change until
+      // they explicitly opt into `'v2-projected'` via the
+      // registry editor.
+      bundleCompressionScheme: 'v1' as const,
       // Wire-request gate for the `transposition` capability under
       // the proxy v1.0.14+ capability-negotiation contract. Default
       // `true` preserves the pre-v1.0.14 behaviour where the proxy's
