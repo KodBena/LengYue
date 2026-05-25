@@ -848,4 +848,180 @@ a future contributor sees the trigger for revisiting.
 
 The implementation arc proceeds on the Option A wire-shape.
 
+---
+
+## Amendment: empirical gate framework and recommended thresholds (2026-05-25)
+
+A second research session extended the corpus from 3 to 40 games
+(8 102 authoritative packets) to characterise the lossy schemes'
+reconstruction-error distributions well enough to inform encoder-side
+gating. This amendment records the gate framework and the recommended
+thresholds for the leader scheme.
+
+### The two-tier gate framework
+
+Both gates are **runtime per-packet refusals**. The encoder computes
+the gate metrics on the about-to-emit bytes; if either threshold is
+exceeded, the encoder falls back to the next-tier scheme (lossless
+on SPA-observable schema, then identity-lossless). The gates differ
+in the failure semantics they protect against:
+
+- **Hard gate (max-abs).** Threshold: "this packet's worst cell is
+  visibly wrong; never let it through." Fallout of a false negative
+  (a bad packet slipping past): silently degraded heatmap with a
+  cell rendering as a clearly impossible value. Set tight enough
+  that the deployed quantiser's analytic bound is comfortably under
+  the threshold — under uniform-quant, this gate almost never trips,
+  but it provides defence-in-depth against future learned quantisers
+  whose worst-cell error is not analytically bounded.
+
+- **Softhard gate (RMSE / JSD over the corpus's p95).** Threshold:
+  "this packet's typical-cell error is in the worst 5% of what our
+  research corpus saw under this scheme; refuse to be safe." Fallout
+  of a false positive (a fine packet getting refused): one
+  unnecessary fallback to a larger scheme — bandwidth waste, not
+  data integrity loss. The user calibrated this as **"best effort to
+  spare the A/B test"** — for users who don't want to manually verify
+  every variant, the softhard gate is the encoder's automatic
+  judgement that this packet probably exceeds what the scheme
+  handles cleanly.
+
+The asymmetry is deliberate: hard-gate fallout is unrecoverable
+(bad data shipped); softhard-gate fallout is bandwidth only. The
+two thresholds carry different conservatism budgets accordingly.
+
+### Recommended thresholds for the leader scheme
+
+The leader from the research arc is **OwnershipFactored[JsonProjected,
+UniformQ4b ownership, Q8-factored policy]+Brotli**. Measured on the
+40-game corpus:
+
+| field | quantiser | analytic max-abs | corpus p95 RMSE | corpus p95 (JSD) |
+|---|---|---|---|---|
+| ownership | Q4 over [-1, 1] | 0.0625 | 0.049 | n/a |
+| policy (legals) | Q8 over [0, 1] | 0.00195 | 0.0018 | 0.190 (JSD) |
+
+Recommended gate thresholds:
+
+| gate | field | metric | threshold | rationale |
+|---|---|---|---|---|
+| hard | ownership | max-abs | **0.10** | 60% margin above Q4 analytic 0.0625; reserved against future quantiser misconfiguration |
+| softhard | ownership | RMSE | **0.05** | rounded from measured p95 of 0.049 |
+| hard | policy | max-abs on legals | **0.005** | 2.5× above Q8-factored analytic 0.00195 |
+| softhard | policy | JSD | **0.20** | rounded from measured p95 of 0.190 |
+
+Policy uses JSD (Jensen-Shannon divergence, normalised to [0, 1] via
+log base 2) for the softhard gate because the policy field IS a
+probability distribution over legal moves; L2 in probability space
+is structurally less informative than JSD. Ownership is not a
+distribution; L2 / RMSE is the natural choice. Both fields use
+max-abs for the hard gate (the per-cell guarantee is the same
+question regardless of the field's semantic interpretation).
+
+For deployed uniform quantisation specifically, the hard gate is
+analytic and unconditional — max-abs is bounded by half-bin-width,
+which is below the threshold by construction. The hard gate's
+real value is **defence-in-depth for future learned quantisers**
+whose worst-cell error is data-dependent. The softhard gate has
+real informational content for both quantiser families.
+
+### Empirical basis
+
+The measurements live under `research/compression/`:
+
+- `measure_policy_quant.py` — per-packet RMSE / max-abs / JSD for
+  policy under four uniform-quant variants (Q4/Q8 × [-1,1]/factored);
+  emits per-packet CSV for downstream plotting
+- `measure_ownership_quant.py` — same for ownership Q4 over [-1, 1]
+- `plot_policy_quant.py` — CDFs / box-plots / scatter from the
+  policy per-packet CSV (rendered to `~/plots/policy-quant-*.png`)
+- `collect_compression_corpus.py` — proxy-driven collection of the
+  40-game corpus into redis
+
+Corpus shape: 40 games, 8 102 authoritative (non-during-search)
+packets. Hosted in a local Redis at `127.0.0.1:6380` per the
+"durable per-packet sink" pattern in `research/redis_sink.py`. Not
+in the umbrella repo's data set — bytes are too noisy for git;
+collection is reproducible via the script + the proxy.
+
+### What was ruled out empirically
+
+The session probed FAISS-based **pure Residual Vector Quantisation**
+(no product structure) as an alternative to uniform quant for
+policy, prompted by the structural intuition that learned codebooks
+should capture cross-cell correlations uniform quant can't. The
+probe (`research/compression/probe_policy_rq.py`) trained a FAISS
+`ResidualQuantizer` at byte budgets 2–32 per vector on an 80/20
+game-wise train/test split and compared against Q8-factored on the
+test set. Result: **even at 32 bytes per vector (≈10× smaller than
+Q8-factored's raw budget), pure RQ is 270× worse on RMSE and
+produces max-abs > 1.0** (out of the [-1, 1] policy range
+entirely — every packet would fail the hard gate). Two structural
+reasons: codebook undertraining at our corpus size (FAISS warns
+"please provide at least 9984 training points" against our 6 494
+training vectors at K=256), and the natural sparsity+peakiness of
+the policy distribution defeating dense codebooks.
+
+The probe is on the feature branch as record of the negative
+result; uniform quant remains the recommendation.
+
+### Cross-reference: nncache_prvq archaeology
+
+While diagnosing the FAISS RQ failure, the user surfaced a prior
+"battle-tested" PRVQ implementation at `~/nncache_prvq` from a
+neural-net-cache compression use case. An Opus 4.7 subagent read
+that repo end to end; the archaeology is at
+`docs/archive/notes/nncache-prvq-archaeology-2026-05-25.md`. Key
+findings load-bearing for LengYue applicability:
+
+- The sort-by-magnitude transformation the user recalled is **not
+  present** in that repo. What is present is a different
+  battle-tested answer to the same difficulty: a **mask-aware PRVQ**
+  where the illegal-move mask threads through every distance
+  computation and centroid update. The codebooks learn position-
+  conditioned residual structure under the mask distribution
+  rather than being canonicalised away.
+- **Per-card codebooks** trained on the card's own contents,
+  shipped inline (~2.4 MB overhead per archive). This is the
+  economic question that doesn't transfer: LengYue bundles are
+  far smaller than the prior use case's ~133k-sample training
+  corpora.
+- **Probability ↔ logit ↔ masked-softmax** conversion on the L2
+  path. Suited to the nncache scheme's incentives (learned
+  codebooks, JSD-natural metric); structurally wrong for
+  LengYue's heatmap-rendering use case (logit-space L2 preserves
+  the long tail at the cost of degrading visible large values).
+
+Both nncache structural innovations (mask-conditioning,
+logit-space L2) presuppose a learned codebook. They become
+relevant only if a future arc revisits learned quantisation for
+LengYue — which would need to solve the per-card codebook
+economics first. For the current uniform-quant arc, the
+archaeology is filed reference, not actionable input.
+
+### Where this leaves the design
+
+The body's recommendation stands: ship Option A, leader scheme
+OwnershipFactored[JsonProjected, UniformQ4b, Q8-factored
+policy]+Brotli. The amendment adds three concrete operational
+artifacts to that recommendation:
+
+1. **Encoder gate framework** — two runtime per-packet gates per
+   lossy field, with the thresholds tabulated above. Implementation
+   sketch: a `LossGate` value object on the frontend's encoder
+   pipeline; `apply()` returns `Ok(bytes)` or `Refused(reason)`;
+   the encoder catches `Refused` and falls back one tier.
+2. **A/B comparison surface** — open question §3 above ("worst-
+   reconstruction-UX surface") is now better-informed: the softhard
+   gate IS the encoder's automatic-A/B; the UX surface is the
+   manual-A/B for users who want to verify before opting in.
+3. **Negative-result corpus** — the FAISS RQ probe rules out
+   learned scalar/vector quantisation at our corpus size. Future
+   learned-quant work needs to either grow the corpus by ~10× or
+   adopt the mask-conditioning architectural insight from the
+   nncache archaeology (and solve per-card codebook economics).
+
+The implementation arc proceeds on the Option A wire-shape with
+the gates as specified.
+
 License: Public Domain (The Unlicense)
