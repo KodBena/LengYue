@@ -77,7 +77,7 @@ import { archivedMigrations, type Migration } from './archived-migrations';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 49;
+export const CURRENT_SCHEMA_VERSION = 50;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -105,94 +105,6 @@ export const CURRENT_SCHEMA_VERSION = 49;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 46 → 47: backfill `profile.settings.appearance.moveSuggestionsFadeMs`
-  // (number, default 60) and register the two new display-domain
-  // animation knobs (`display.move-suggestions-fade-ms` and
-  // `display.pv-fade-ms`) in the persisted knob-priorities block.
-  // The new appearance field promotes the prior hardcoded inline
-  // `transition: opacity 60ms ease` in MoveSuggestions.vue to a
-  // user-controlled knob; the PV-fade knob just registers an entry
-  // for the pre-existing `session.ui.pvAnimation.fadeDurationMs`
-  // field so it surfaces in the toolbar slider popover alongside
-  // the new one.
-  //
-  // Idempotent: pre-existing values (the appearance field, or the
-  // priority entries in the knobs block) are preserved unchanged.
-  // The default 60 reproduces the historical inline behaviour;
-  // setting it to 0 disables the suggestion-ring/disk fade.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const appearance = out.settings?.appearance;
-    if (appearance && typeof appearance === 'object') {
-      const a = appearance as { moveSuggestionsFadeMs?: unknown };
-      if (typeof a.moveSuggestionsFadeMs !== 'number') {
-        a.moveSuggestionsFadeMs = 60;
-      }
-    }
-    // The knobs block in defaults.ts seeds the two new KnobDecls
-    // for fresh profiles; here we only need to ensure persisted
-    // priority overrides (if any) don't drop the new ids. If the
-    // user has a custom priorities map under
-    // `session.knobPriorityOverrides` (or similar), the registry
-    // validator will accept missing ids as "use the decl's default";
-    // we don't have to inject anything.
-    return out;
-  },
-  // 47 → 48: retire the KataGo F-optimizer cohort. The optimizer
-  // was an SPA-side workaround for `lightvector/KataGo#1197` — the
-  // engine refusing to ship the first during-search report until
-  // a cadence-aligned eval-completion tick. The bug was fixed
-  // upstream against KataGo 1.16.5; this migration walks
-  // pre-fix workspaces forward by:
-  //
-  //   1. Rewriting the persisted
-  //      `engine.first-report-during-search-after` decl's
-  //      `inputs[0].minFloor` from the workaround value 0.035 down
-  //      to the KataGo protocol-documented minimum 0.001 (the
-  //      KATAGO_FIRST_REPORT_FLOOR_S constant's current value).
-  //      Idempotent — already-0.001 leaves and absent fields pass
-  //      through.
-  //
-  //   2. Clearing the orphan `lengyue.fOptimizerCache.v1`
-  //      localStorage key (per-machine cache of optimizer results;
-  //      no longer read by any code path). Side-effect departure
-  //      from the migration ledger's normal blob-only discipline,
-  //      taken once at this retirement point. `removeItem` is
-  //      idempotent and a no-op when the key is absent.
-  //
-  // See `docs/notes/retrospective-katago-f-optimizer-2026-05.md`
-  // and `docs/worklog/2026-05-25-katago-f-optimizer-retirement.md`
-  // for the arc.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const knobs = out.profile?.settings?.knobs;
-    if (knobs && typeof knobs === 'object' && !Array.isArray(knobs)) {
-      const decl = (knobs as Record<string, unknown>)['engine.first-report-during-search-after'];
-      if (decl && typeof decl === 'object') {
-        const inputs = (decl as { inputs?: unknown }).inputs;
-        if (Array.isArray(inputs) && inputs.length > 0) {
-          const first = inputs[0];
-          if (first && typeof first === 'object') {
-            const f = (first as { minFloor?: unknown }).minFloor;
-            if (typeof f === 'number' && f > 0.001) {
-              (first as { minFloor?: unknown }).minFloor = 0.001;
-            }
-          }
-        }
-      }
-    }
-    try {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.removeItem('lengyue.fOptimizerCache.v1');
-      }
-    } catch {
-      // localStorage may be disabled by the browser or unavailable
-      // in non-browser environments (tests, SSR). The orphan key
-      // is cosmetic — not clearing it is harmless once nothing
-      // reads it — so swallow the failure here.
-    }
-    return out;
-  },
   // 48 → 49: corrective for the 47 → 48 above. The first attempt
   // at the F-optimizer-retirement migration walked
   // `out.settings?.knobs` instead of the correct
@@ -230,6 +142,29 @@ export const migrations: Migration[] = [
             }
           }
         }
+      }
+    }
+    return out;
+  },
+  // 49 → 50: backfill `profile.settings.engine.katago.analysisAutoSave`
+  // (boolean, default false). The auto-save policy for the
+  // experimental analysis-persistence feature lands as an opt-in
+  // toggle in the registry editor under engine → katago, gated on
+  // the parent `analysisStorageEnabled`. See
+  // `composables/useAutoSaveAnalyses.ts` for the policy and
+  // `AppSettings.engine.katago.analysisAutoSave` in `types.ts` for
+  // the contract.
+  //
+  // Idempotent: a pre-existing boolean is preserved unchanged so a
+  // forward-compat install that already flipped the toggle keeps
+  // its choice.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const katago = out.profile?.settings?.engine?.katago;
+    if (katago && typeof katago === 'object') {
+      const k = katago as { analysisAutoSave?: unknown };
+      if (typeof k.analysisAutoSave !== 'boolean') {
+        k.analysisAutoSave = false;
       }
     }
     return out;

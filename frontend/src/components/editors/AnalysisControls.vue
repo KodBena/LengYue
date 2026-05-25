@@ -57,10 +57,23 @@ const availableLearnedBindings = computed(() => {
 // computed and the subtitle updates without manual invalidation.
 // `saving` is purely local — disables the Save button during the
 // PUT round-trip. `lastError` shows the most recent typed error
-// inline; cleared on the next attempt.
+// inline; cleared on the next attempt. `autoSave` reflects the
+// registry toggle; the Save button stays available even when
+// auto-save is on (relabelled "Save now" to imply throttle
+// bypass), while a small "AUTO" badge advertises the policy in
+// the title row. `autoSaveError` surfaces the persistent-error
+// pause state owned by useAutoSaveAnalyses via the service's
+// reactive per-board slot.
 const saving = ref(false);
 const lastError = ref<string | null>(null);
 const summary = computed(() => analysisPersistenceService.summaryFor(props.boardId));
+const autoSave = computed(() => store.profile.settings.engine.katago.analysisAutoSave);
+const autoSaveError = computed(() => analysisPersistenceService.autoSaveErrorFor(props.boardId));
+const autoSaveErrorText = computed(() => {
+  const err = autoSaveError.value;
+  if (!err) return null;
+  return t('analysis.persist.autoSavePaused', { reason: describeError(err) });
+});
 
 const summarySubtitle = computed(() => {
   const s = summary.value;
@@ -249,18 +262,22 @@ function purgeLedger() {
           <span class="persist-title-row">
             {{ $t('analysis.persist.title') }}
             <span class="experimental-tag">{{ $t('analysis.persist.experimentalTag') }}</span>
+            <span v-if="autoSave" class="auto-badge">{{ $t('analysis.persist.autoSaveLabel') }}</span>
             <span class="info-icon" :title="$t('analysis.persist.tooltip')">?</span>
           </span>
           <span class="value-badge">{{ summarySubtitle }}</span>
         </label>
         <div class="persist-btn-row">
           <button class="toolbar-btn-sm" :disabled="saving" @click="onSave">
-            {{ saving ? $t('analysis.persist.saving') : $t('analysis.persist.save') }}
+            {{ saving
+              ? $t('analysis.persist.saving')
+              : (autoSave ? $t('analysis.persist.saveNow') : $t('analysis.persist.save')) }}
           </button>
           <button v-if="summary" class="toolbar-btn-sm warning-btn" @click="onDiscard">
             {{ $t('analysis.persist.discard') }}
           </button>
         </div>
+        <p v-if="autoSaveErrorText" class="hint error-hint">{{ autoSaveErrorText }}</p>
         <p v-if="lastError" class="hint error-hint">{{ lastError }}</p>
       </div>
     </div>
@@ -322,6 +339,11 @@ h3 { margin-top: 0; font-size: var(--text-emphasis); color: var(--accent-primary
 .error-hint { color: var(--state-error); }
 .persist-title-row { display: inline-flex; align-items: center; gap: var(--space-default); }
 .experimental-tag { font-size: var(--text-tiny); padding: 0 var(--space-default); border: 1px solid var(--state-warning); color: var(--state-warning); border-radius: var(--radius-default); text-transform: uppercase; line-height: 1.4; }
+/* AUTO badge mirrors the experimental-tag shape but uses the
+   accent-primary palette to signal "active policy" rather than
+   "danger / caution". Sits inline with the experimental-tag in
+   the title row when analysisAutoSave is on. */
+.auto-badge { font-size: var(--text-tiny); padding: 0 var(--space-default); border: 1px solid var(--accent-primary); color: var(--accent-primary); border-radius: var(--radius-default); text-transform: uppercase; line-height: 1.4; }
 .info-icon { display: inline-block; width: 13px; height: 13px; border-radius: 50%; border: 1px solid var(--text-1); text-align: center; font-size: 9px; line-height: 11px; color: var(--text-1); cursor: help; }
 .settings-row { display: flex; flex-direction: column; gap: 3px; }
 .label-with-value { display: flex; justify-content: space-between; align-items: center; font-size: var(--text-body); color: var(--text-1); }

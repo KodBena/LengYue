@@ -26,6 +26,7 @@ import { resourceService } from '../../services/resource-service';
 import { backendService } from '../../services/backend-service';
 import { analysisService } from '../../services/analysis-service';
 import { analysisPersistenceService } from '../../services/analysis-persistence-service';
+import { useAutoSaveAnalyses } from '../useAutoSaveAnalyses';
 import { setIntensityHueShift } from '../../engine/suggestion-colors';
 import { validateRegistry } from '../../lib/knobs';
 import { store } from '../../store';
@@ -40,6 +41,14 @@ export function useAppBootstrap(
 ): { sync: SyncService } {
   const sync = new SyncService('user_workspace_01', auth);
   const qeubo = useQeubo();
+
+  // Mount the auto-save policy once at bootstrap. The composable
+  // returns a `stop()` we never call: the watcher and its timers
+  // live for the App's lifetime, matching the SyncService / qeubo
+  // shape above. Identity-flip resets are handled inside the
+  // composable via the gating + persistenceService.forgetAll()
+  // already wired into resetWorkspace's audit pair.
+  useAutoSaveAnalyses();
 
   // ── Overlay-layer toggles are UI-only ──────────────────────────────
   // No watcher on `store.session.ui.overlayLayers` here, deliberately.

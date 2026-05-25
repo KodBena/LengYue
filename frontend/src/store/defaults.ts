@@ -33,6 +33,13 @@ export const defaultSettings = {
       // panel via the registry editor; the save action is manual
       // regardless of this toggle.
       analysisStorageEnabled: true,
+      // Auto-save toggle (see AppSettings.engine.katago.analysisAutoSave).
+      // Default `false`: opt-in, per the experimental status of the
+      // persistence feature. A user who wants continuous saves flips
+      // it on via the registry editor (engine → katago →
+      // analysisAutoSave), reads the inline `⚠` warning about
+      // bandwidth / quota cost, and accepts the implication.
+      analysisAutoSave: false,
       // Wire-request gate for the `transposition` capability under
       // the proxy v1.0.14+ capability-negotiation contract. Default
       // `true` preserves the pre-v1.0.14 behaviour where the proxy's

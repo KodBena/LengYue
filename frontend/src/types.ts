@@ -774,6 +774,41 @@ export interface AppSettings {
       // itself is always manual regardless; the toggle controls only
       // the panel's visibility, not auto-save behaviour.
       analysisStorageEnabled: boolean;
+      // Auto-save toggle for the experimental analysis-persistence
+      // feature. When `true` AND `analysisStorageEnabled` is also
+      // `true`, the SPA debounces a `PUT /analysis-bundles/{boardId}`
+      // after every authoritative (final-packet) ledger record for
+      // that board, so the user no longer has to click Save manually.
+      // Default `false`: opt-in. The toggle is itself experimental —
+      // it inherits the persistence feature's warning surface (the
+      // `?` tooltip on the persist-box and the `⚠` glyph on the
+      // registry-editor leaf), with an additional callout about the
+      // continuous bandwidth / quota cost of continuous saving.
+      //
+      // Gating: auto-save is only active when both
+      // `analysisStorageEnabled` AND `analysisAutoSave` are true. The
+      // first is the panel-visibility / overall feature toggle; the
+      // second is the manual-vs-automatic distinction. Flipping
+      // `analysisStorageEnabled` off implicitly disables auto-save
+      // (no save path exists for the user to see anyway).
+      //
+      // Trigger semantics: the auto-save composable
+      // (`composables/useAutoSaveAnalyses.ts`) watches a per-BoardId
+      // dirty counter (incremented by `analysis-service.ts` on every
+      // `!response.isDuringSearch` ledger.record call) and debounces
+      // the actual `save()` by `AUTO_SAVE_DEBOUNCE_MS` (see the
+      // composable). During-search previews don't trigger saves —
+      // only the authoritative finals do — so a burst of analyze
+      // updates produces at most one save per debounce window.
+      //
+      // Failure handling: per ADR-0002's fail-loud-on-expensive-ops
+      // calibration, persistent quota / too-large failures disable
+      // auto-save in-memory (per board, until either a manual save
+      // succeeds or the user toggles the leaf off and back on),
+      // surfacing the error in the persist-box rather than
+      // re-firing on every subsequent record. The toggle itself
+      // stays true so the user's preference isn't silently flipped.
+      analysisAutoSave: boolean;
       // Whether the analysis-service ACL injects the `transposition`
       // capability into outgoing analysis queries (proxy v1.0.14+
       // capability-negotiation contract). When the proxy advertises

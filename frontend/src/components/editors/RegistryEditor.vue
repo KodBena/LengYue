@@ -110,6 +110,15 @@ const PATH_TOOLTIPS: Record<string, string> = {
     'but palette enrichment runs in the wire framing on the proxy side, ' +
     'so charts using the seeded `winrate` / `score_lead` symbols will ' +
     'display in the wire framing rather than canonical WHITE.',
+  'engine.katago.analysisAutoSave':
+    'Experimental — opt-in. When on, the SPA PUTs the per-board analysis ' +
+    "bundle to the server after every authoritative analysis packet " +
+    '(debounced ~2 s). Continuous saving consumes bandwidth and counts ' +
+    "against your per-user storage quota; a quota or per-bundle-cap " +
+    'failure pauses auto-save for the affected board until a manual Save ' +
+    'succeeds or you toggle this leaf off and back on. Requires ' +
+    'analysisStorageEnabled to be true; flipping the parent off ' +
+    'implicitly disables auto-save.',
 };
 
 function tooltipText(key: string): string | undefined {

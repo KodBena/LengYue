@@ -42,6 +42,7 @@ import {
   projectLedgerToBundle,
   replayBundleIntoLedger,
   type AnalysisBundle,
+  type AnalysisBundleStorageError,
   type AnalysisBundleSummary,
   type AnalysisRecord,
 } from './analysis-bundle';
@@ -134,6 +135,28 @@ export class AnalysisPersistenceService {
   // reads observe future mutations.
   private readonly summaries = reactive(new Map<BoardId, AnalysisBundleSummary>());
 
+  // Reactive per-board dirty counter, monotonically incremented by
+  // markDirty() on each authoritative ledger.record landing for a
+  // board (final-packet path only — during-search previews don't
+  // bump). The composable layer (`useAutoSaveAnalyses`) watches
+  // dirtyVersionFor() for rising-edge save triggers; the counter
+  // itself never resets, so a fresh composable mount can sync to
+  // the current version without losing prior bumps.
+  private readonly dirtyVersions = reactive(new Map<BoardId, number>());
+
+  // Reactive per-board "auto-save is paused on persistent error"
+  // signal. Set by the auto-save composable when a save fails with
+  // an AnalysisBundleStorageError (quota / too-large — the same
+  // input would fail again, so re-firing on every subsequent
+  // markDirty would burn bandwidth into the same wall). Cleared by
+  // (a) a successful save() call, (b) clearAutoSaveError() called
+  // when the user toggles analysisAutoSave off→on via the registry
+  // editor. AnalysisControls.vue renders this entry so the user
+  // sees why auto-save stopped firing.
+  private readonly autoSaveErrors = reactive(
+    new Map<BoardId, AnalysisBundleStorageError>(),
+  );
+
   /**
    * PUT the projection of the AnalysisLedger for `boardId` to the
    * server. Returns the server-side metadata; updates the local
@@ -155,6 +178,11 @@ export class AnalysisPersistenceService {
       );
       const summary = fromWireSummary(wire);
       this.summaries.set(summary.boardId, summary);
+      // Successful save clears any "auto-save paused on error" entry
+      // for this board — the user fixed whatever blocked auto-save
+      // (freed quota by discarding another bundle, ran a smaller
+      // analysis, etc.) and the next markDirty should resume.
+      this.autoSaveErrors.delete(boardId);
       return summary;
     } catch (err) {
       rethrowAsStorageError(err);
@@ -237,6 +265,76 @@ export class AnalysisPersistenceService {
   }
 
   /**
+   * Bump the per-board dirty counter. Called by `analysis-service`
+   * after each authoritative (`!isDuringSearch`) ledger.record
+   * landing — i.e. each final analyze packet that contributes to
+   * the bundle a future save() would project. During-search
+   * previews are deliberately excluded: their packets get merged
+   * into the ledger entry that the next final supersedes, so
+   * triggering auto-save off them would re-PUT half-finished data.
+   *
+   * Counter never resets; the auto-save composable tracks its
+   * own "last-seen" version per board for rising-edge detection.
+   */
+  public markDirty(boardId: BoardId): void {
+    const current = this.dirtyVersions.get(boardId) ?? 0;
+    this.dirtyVersions.set(boardId, current + 1);
+  }
+
+  /**
+   * Reactive read of the per-board dirty counter. The auto-save
+   * composable subscribes via Vue's Map reactivity; absent entries
+   * read as 0 so the rising-edge comparison against a tracked
+   * "last-seen" version naturally fires on the first markDirty.
+   */
+  public dirtyVersionFor(boardId: BoardId): number {
+    return this.dirtyVersions.get(boardId) ?? 0;
+  }
+
+  /**
+   * Set by the auto-save composable when a save call fails with a
+   * persistent `AnalysisBundleStorageError` (quota / too-large —
+   * the next markDirty would fail against the same wall, so the
+   * composable pauses itself for this board until either a manual
+   * save() succeeds, the user toggles `analysisAutoSave` off→on,
+   * or `clearAutoSaveError()` is called directly.
+   */
+  public setAutoSaveError(boardId: BoardId, err: AnalysisBundleStorageError): void {
+    this.autoSaveErrors.set(boardId, err);
+  }
+
+  /**
+   * Reactive read of the per-board auto-save pause state.
+   * AnalysisControls.vue surfaces a non-null result as an inline
+   * notice ("Auto-save paused: {reason}; resume by Save or by
+   * toggling the leaf").
+   */
+  public autoSaveErrorFor(boardId: BoardId): AnalysisBundleStorageError | undefined {
+    return this.autoSaveErrors.get(boardId);
+  }
+
+  /**
+   * Clear the auto-save pause for `boardId`. Called by the
+   * auto-save composable on the `analysisAutoSave` false→true
+   * rising edge (the user actively re-enabling the feature is the
+   * gesture that should resume firing). save()'s success path
+   * already calls `autoSaveErrors.delete()` directly; this method
+   * is the explicit re-arm seam.
+   */
+  public clearAutoSaveError(boardId: BoardId): void {
+    this.autoSaveErrors.delete(boardId);
+  }
+
+  /**
+   * Clear every auto-save pause entry. Used by the auto-save
+   * composable on the gate false→true transition (re-arming all
+   * boards at once) and by forgetAll() on identity flip.
+   */
+  public clearAllAutoSaveErrors(): void {
+    this.autoSaveErrors.clear();
+  }
+
+  /**
    * Drop the cached summary for `boardId` without making an HTTP
    * call. Used by closeBoard when the user closes a board whose
    * server bundle should be deleted — the discard() above does
@@ -263,6 +361,8 @@ export class AnalysisPersistenceService {
    */
   public forgetAll(): void {
     this.summaries.clear();
+    this.dirtyVersions.clear();
+    this.autoSaveErrors.clear();
   }
 }
 

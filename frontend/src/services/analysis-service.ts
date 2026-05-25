@@ -29,6 +29,7 @@ import { type BoardId, type NodeId } from '../types';
 import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi, getInitialStones } from '../engine/util';
 import { store, pushSystemMessage } from '../store';
 import { ledger } from './analysis-ledger';
+import { analysisPersistenceService } from './analysis-persistence-service';
 import {
   compileAnalysisConfig,
   compileEngineOverrides,
@@ -908,6 +909,17 @@ export class AnalysisService {
       if (board) {
         board.lastActivity = Date.now();
         store.engine.metrics = { ...store.engine.metrics, lastResponseId: board.id };
+      }
+      // Auto-save dirty signal: only authoritative finals trigger
+      // the per-board dirty bump. During-search previews merge into
+      // the existing ledger entry that the final supersedes, so
+      // letting them bump dirty would auto-save half-finished
+      // packets repeatedly. `useAutoSaveAnalyses` watches this
+      // counter for rising-edge save triggers; gated by the
+      // `analysisAutoSave` + `analysisStorageEnabled` pair at the
+      // composable layer, so this hook always fires regardless.
+      if (!response.isDuringSearch) {
+        analysisPersistenceService.markDirty(queryInfo.boardId);
       }
     }
 
