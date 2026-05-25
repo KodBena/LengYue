@@ -40,18 +40,26 @@ export type AnalysisBundle = {
 
 // Server-side metadata about a stored bundle; the response shape of
 // both `PUT /analysis-bundles/{board_id}` (write) and items in
-// `GET /analysis-bundles` (list). All five fields come straight from
-// the wire (snake_case → camelCase, board_id branded). storedByteSize
-// is the post-transcoding count — the same value the per-user quota
-// check sums against, so a frontend storage panel summing
-// storedByteSize across the list shows the same number that would
-// trigger a 413 on next save.
+// `GET /analysis-bundles` (list). storedByteSize is the post-
+// transcoding count — the same value the per-user quota check sums
+// against, so a frontend storage panel summing storedByteSize
+// across the list shows the same number that would trigger a 413
+// on next save.
+//
+// uncompressedByteSize and formatDescriptor are populated for v2
+// stored bundles (the cross/analysis-bundle-compression-v2 arc);
+// v1 bundles surface null for both because the backend doesn't
+// track those quantities under v1's codec dispatch. The storage
+// panel renders null as "—" (unknown / not applicable) rather than
+// zero.
 export type AnalysisBundleSummary = {
   readonly boardId: BoardId;
   readonly recordCount: number;
   readonly storedScheme: string;
   readonly storedByteSize: number;
   readonly updatedAt: string; // ISO-8601
+  readonly uncompressedByteSize: number | null;
+  readonly formatDescriptor: Readonly<Record<string, unknown>> | null;
 };
 
 // ── Storage-error envelope ────────────────────────────────────────────────────

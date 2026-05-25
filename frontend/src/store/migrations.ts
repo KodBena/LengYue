@@ -77,7 +77,7 @@ import { archivedMigrations, type Migration } from './archived-migrations';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 50;
+export const CURRENT_SCHEMA_VERSION = 51;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -105,47 +105,6 @@ export const CURRENT_SCHEMA_VERSION = 50;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 48 → 49: corrective for the 47 → 48 above. The first attempt
-  // at the F-optimizer-retirement migration walked
-  // `out.settings?.knobs` instead of the correct
-  // `out.profile?.settings?.knobs` and silently did nothing on
-  // every blob, stamping to v48 without rewriting the persisted
-  // `minFloor`. Caught locally by the project author before the
-  // arc shipped beyond the dev branch; the in-place fix above
-  // restores the v47 → v48 path for any blob still at v47, and
-  // this migration catches up any v48 blob the broken version
-  // ran against.
-  //
-  // Body is the same `minFloor: > 0.001 → 0.001` rewrite as 47 →
-  // 48 above, with the correct path. localStorage cleanup is
-  // not repeated — it was the one side-effect of the 47 → 48
-  // migration's body that worked correctly (no path dependency),
-  // and `removeItem` had already cleared the orphan cache key
-  // when the v48 stamp landed.
-  //
-  // Idempotent: a v48 blob that was created by a fresh install
-  // (i.e. populated from defaults.ts at v48, with `minFloor`
-  // already at 0.001) passes through unchanged.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const knobs = out.profile?.settings?.knobs;
-    if (knobs && typeof knobs === 'object' && !Array.isArray(knobs)) {
-      const decl = (knobs as Record<string, unknown>)['engine.first-report-during-search-after'];
-      if (decl && typeof decl === 'object') {
-        const inputs = (decl as { inputs?: unknown }).inputs;
-        if (Array.isArray(inputs) && inputs.length > 0) {
-          const first = inputs[0];
-          if (first && typeof first === 'object') {
-            const f = (first as { minFloor?: unknown }).minFloor;
-            if (typeof f === 'number' && f > 0.001) {
-              (first as { minFloor?: unknown }).minFloor = 0.001;
-            }
-          }
-        }
-      }
-    }
-    return out;
-  },
   // 49 → 50: backfill `profile.settings.engine.katago.analysisAutoSave`
   // (boolean, default false). The auto-save policy for the
   // experimental analysis-persistence feature lands as an opt-in
@@ -165,6 +124,41 @@ export const migrations: Migration[] = [
       const k = katago as { analysisAutoSave?: unknown };
       if (typeof k.analysisAutoSave !== 'boolean') {
         k.analysisAutoSave = false;
+      }
+    }
+    return out;
+  },
+  // 50 → 51: backfill
+  // `profile.settings.engine.katago.bundleCompressionScheme`
+  // (string enum: 'v1-json' | 'json-projected-v1', default
+  // 'v1-json'). The wire-format choice for analysis-bundle
+  // persistence — the cross/analysis-bundle-compression-v2 arc's
+  // lossless leaf. The default 'v1-json' preserves the historical
+  // wire shape; users opt into 'json-projected-v1' via the
+  // registry editor for the projection win (typically ~30%
+  // pre-brotli, additional wins from the backend's unconditional
+  // brotli wrap). See AppSettings.engine.katago.bundleCompressionScheme
+  // in types.ts for the contract and loss profile.
+  //
+  // Idempotent: a pre-existing valid value (one of the two
+  // known scheme tags) is preserved unchanged. An unknown value
+  // — a future scheme tag downgraded into a present client, or
+  // a hand-edited blob with a typo — is reset to the safe
+  // default 'v1-json' so the SPA never tries to write a wire
+  // shape it can't construct. This is the silent-default
+  // exception ADR-0002 names for non-load-bearing config drift
+  // (the user-visible effect is "your saves go via v1 instead
+  // of v2"; data integrity is preserved).
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const katago = out.profile?.settings?.engine?.katago;
+    if (katago && typeof katago === 'object') {
+      const k = katago as { bundleCompressionScheme?: unknown };
+      if (
+        k.bundleCompressionScheme !== 'v1-json' &&
+        k.bundleCompressionScheme !== 'json-projected-v1'
+      ) {
+        k.bundleCompressionScheme = 'v1-json';
       }
     }
     return out;

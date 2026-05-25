@@ -809,6 +809,38 @@ export interface AppSettings {
       // re-firing on every subsequent record. The toggle itself
       // stays true so the user's preference isn't silently flipped.
       analysisAutoSave: boolean;
+      // Wire-format choice for analysis-bundle persistence. The
+      // 'v1-json' value preserves the historical wire shape (the
+      // backend's `json` / `json+gzip` codecs round-trip canonical
+      // JSON record arrays). 'json-projected-v1' (the
+      // cross/analysis-bundle-compression-v2 arc's lossless leaf)
+      // projects each packet through the SPA's typed-shape allow-
+      // list before upload, dropping fields the SPA doesn't read
+      // (`scoreStdev`, `scoreMean`, per-move `ownership`, etc.) —
+      // backend brotli-wraps the projected bytes unconditionally
+      // for further storage win.
+      //
+      // Default `'v1-json'`: existing users see no behavioural
+      // change until they explicitly opt into the projected scheme
+      // via the registry editor. The 'v1-json' tag IS the v1 wire
+      // shape; flipping to it later from 'json-projected-v1'
+      // returns the SPA to verbatim canonical-JSON upload. v2-side
+      // stored rows decode-on-read regardless of this toggle — the
+      // server-side `format_descriptor` is the read-time discriminator.
+      //
+      // Loss profile of 'json-projected-v1': reconstruction is
+      // bit-identical for every field the SPA's typed shape
+      // declares. Fields the SPA *never reads* are dropped on
+      // encode and absent on decode; the SPA's runtime path
+      // therefore sees no behaviour change. A CI gate in
+      // `services/analysis-bundle/projection.ts` enforces that the
+      // allow-list stays in sync with the typed shape — adding a
+      // key to `KataMoveInfo` (etc.) without registering it in the
+      // allow-list is a build error at `vue-tsc -b`.
+      //
+      // Design rationale at
+      // `docs/notes/analysis-bundle-compression-plan.md`.
+      bundleCompressionScheme: 'v1-json' | 'json-projected-v1';
       // Whether the analysis-service ACL injects the `transposition`
       // capability into outgoing analysis queries (proxy v1.0.14+
       // capability-negotiation contract). When the proxy advertises
