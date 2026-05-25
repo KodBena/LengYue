@@ -207,10 +207,33 @@ packets, keyed by `(configHash, nodeId)`.
 
 - **Analysis bundle persistence.** Save the active board's
   analysis ledger as a per-board bundle on the backend; restore
-  on next session for the same board. Manual gate — the
-  user chooses when to save / discard, no silent uploads. The
-  AnalysisControls panel exposes the save/discard surface with
-  a reactive subtitle ("Saved 2 minutes ago, 142 nodes").
+  on next session for the same board. Manual save via the
+  AnalysisControls panel (or auto-save if `analysisAutoSave`
+  is on, debounced after each authoritative ledger record).
+  The panel's subtitle reports record count + stored size, plus
+  a savings ratio when the bundle was uploaded under a
+  compressing scheme ("307 analyses · 795 KB, saved 78% from
+  3.6 MB").
+
+- **Analysis bundle compression** *[experimental]*. The
+  registry editor exposes a wire-format choice under engine →
+  katago → bundleCompressionScheme:
+    - `'v1'` — the historical wire (JSON + gzip on the backend).
+    - `'v2-projected'` — lossless on the SPA's typed shape. The
+      frontend projects each packet through the typed-shape
+      allow-list (drops every KataGo field the SPA never reads,
+      like `scoreStdev` / per-move `ownership`); the backend
+      brotli-wraps the result. Reconstruction is bit-identical
+      for every field the SPA reads.
+    - `'v2-quantized'` — lossy. In addition to projection,
+      ownership is 4-bit-uniform-quantised (max-abs error ≤
+      0.0625) and policy is 8-bit-quantised over its legal
+      cells (max-abs error ≤ 0.002 on legals; illegal cells
+      exact). The leader scheme from the 2026-05-25 research
+      arc; ~85% smaller than canonical JSON.
+  Default is `'v1'`. Stored bundles always decode regardless
+  of the current selection — flipping the toggle only affects
+  future saves.
 
 ## Spaced-repetition study — the Cards tab
 
