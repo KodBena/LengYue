@@ -133,7 +133,7 @@ const effectiveMin = computed(() => {
  * keyboard.
  *
  * The effective-range derivation matters for linked knobs:
- * the first-report-after knob's static range is [0.01, 4.0],
+ * the first-report-after knob's static range is [0.001, 4.0],
  * but its effective max follows the cadence knob's stored
  * value (typically 0.15 at default). Computing step from
  * the static range gave only ~3-4 distinct positions on the
@@ -359,9 +359,9 @@ function onInput(event: Event) {
 /* At-floor marker: dotted-underline + help cursor are the
    universal "more info on hover" convention. Composes with the
    :title attribute set on the badge when the stored value pins
-   to an absolute lower-floor (e.g. the KataGo first-report-after
-   upstream cliff). No text change so the badge doesn't shift in
-   width as the user drags into and out of the floor. */
+   to an absolute lower-floor above the knob's static range. No
+   text change so the badge doesn't shift in width as the user
+   drags into and out of the floor. */
 .knob-slider-value-at-floor {
   text-decoration: underline dotted;
   text-decoration-thickness: 1px;

@@ -426,19 +426,16 @@ export const defaultSettings = {
       // having to re-derive it.
       //
       // Bounded below by `minFloor: KATAGO_FIRST_REPORT_FLOOR_S` —
-      // an SPA-side workaround for an upstream KataGo cliff at
-      // ~25 ms where the binary silently substitutes the cadence
-      // value for sub-floor first-report timings. The KnobSlider
-      // widget pins drags to the floor; the wire-layer clamp in
-      // `analysis-service.ts` reads from `limits.ts` for SSOT
-      // defence-in-depth. See the diagnosis arc worklog
-      // `docs/worklog/2026-05-15-katago-first-report-cliff-diagnosis.md`
-      // and the staged bug-report package at `~/katago_bugreport`
-      // for the upstream artefact.
+      // the protocol-documented minimum from KataGo's analysis-engine
+      // source. The range's lower edge matches the floor so the
+      // slider can reach it; the `minFloor` is retained as the SSOT
+      // for the wire-layer defence-in-depth clamp in
+      // `analysis-service.ts` against direct-leaf writes below the
+      // protocol minimum.
       label: 'First report after (s)',
       domain: 'engine',
       inputs: [{
-        range: [0.01, 4.0] as const,
+        range: [0.001, 4.0] as const,
         maxFromKnob: 'engine.report-during-search-every' as KnobId,
         minFloor: KATAGO_FIRST_REPORT_FLOOR_S,
       }],

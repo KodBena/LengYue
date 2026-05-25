@@ -42,7 +42,6 @@
   "knobRegistry.label.engine.watchdog-latency-threshold-ms": "看门狗延迟阈值 (ms)",
   "knobRegistry.label.engine.report-during-search-every":    "报告间隔（秒）",
   "knobRegistry.label.engine.first-report-during-search-after": "首次报告延迟（秒）",
-  "knobRegistry.floorTooltip.engine.first-report-during-search-after": "上游下限：KataGo 会将约 35 ms 以下的首次报告时间静默替换为报告间隔的值。低于此值的设置不会生效。",
 
   "cards.tab.decks":                      "卡组",
   "cards.tab.browse":                     "浏览",

@@ -393,32 +393,29 @@ export interface KnobInputDecl {
   /**
    * Optional absolute lower bound, in the knob's native unit.
    * Distinct from `range[0]`: `range[0]` describes the knob's
-   * intrinsic meaningful range; `minFloor` represents an
-   * external-constraint-induced lower bound — typically an
-   * upstream limitation that is expected to be removable when the
-   * constraint is lifted. The substrate keeps the two separate so
-   * that retiring the workaround is a single-field drop rather than
-   * a re-derivation of what `range[0]` ought to be.
+   * intrinsic meaningful range from the SPA's perspective;
+   * `minFloor` represents an external-constraint-induced lower
+   * bound — typically an upstream protocol minimum or a
+   * dependency-imposed limitation. The substrate keeps the two
+   * separate so the SSOT for the upstream constraint is one
+   * field rather than entangled with `range[0]`'s editorial
+   * choice.
    *
    * When set, the KnobSlider widget's effective min is
    * `max(range[0], minFloor)` — drags below the floor pin to it.
    * The stored leaf is NOT auto-clamped (user preference is
-   * preserved while the constraint is in force); the wire-layer
-   * consumer should `Math.max(minFloor, …)` as defence-in-depth
-   * so the contract reaching the dependency respects the floor
-   * regardless of stored-leaf state. `analysis-service.ts`'s
-   * first-report-after sites are the worked example.
+   * preserved); the wire-layer consumer should
+   * `Math.max(minFloor, …)` as defence-in-depth so the contract
+   * reaching the dependency respects the floor regardless of
+   * stored-leaf state. `analysis-service.ts`'s first-report-after
+   * sites are the worked example: the KataGo protocol-documented
+   * minimum is exported from `engine/katago/limits.ts` and
+   * clamped at send time.
    *
    * `validateRegistry` (`lib/knobs.ts`) checks that `minFloor` is
    * a finite number when present and (when both are set) does not
    * exceed `range[1]`. Per ADR-0002, an incoherent declaration is
    * a loud startup failure rather than a silent runtime fallback.
-   *
-   * Added 2026-05-15 to land an SPA-side mitigation for an upstream
-   * KataGo cliff at ~25 ms on `firstReportDuringSearchAfter` — see
-   * `src/engine/katago/limits.ts` and the umbrella worklog
-   * `docs/worklog/2026-05-15-katago-first-report-cliff-diagnosis.md`
-   * for the diagnosis arc.
    */
   readonly minFloor?: number;
 }
@@ -949,7 +946,7 @@ export interface AppSettings {
        * above (semantically: first-report-after a value larger
        * than the cadence would delay first-paint past what would
        * have been the second regular report). Default 0.05; range
-       * [0.01, 4.0]. Schema-version 41 → 42 backfills.
+       * [0.001, 4.0]. Schema-version 41 → 42 backfills.
        */
       firstReportDuringSearchAfter: number;
       // Engine-side runtime overrides forwarded verbatim to KataGo as

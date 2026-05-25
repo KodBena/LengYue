@@ -2012,4 +2012,31 @@ export const archivedMigrations: Migration[] = [
     }
     return out;
   },
+  // 45 → 46: backfill `engine.katago.adaptiveReevaluate.valueBinding`
+  // (string, default ''). v1.0.26 of the proxy ships a learned
+  // value function (the Phase 3.5 LightGBM-supervised regressor)
+  // selectable via this field. Empty string `''` (the default)
+  // means "use the proxy's built-in v1.0.24 worst-quantile
+  // allocation; do NOT send the Phase 3 fields." A `learned_*`
+  // string opts into the proxy-hosted predictor by version name
+  // (e.g. `'learned_v1'`); the capability-injection layer
+  // verifies the name appears in the proxy's
+  // `adaptive_reevaluate.available_value_bindings` advertisement
+  // before sending it on the wire.
+  //
+  // Idempotent: a pre-existing string is preserved unchanged.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const katago = out.settings?.engine?.katago;
+    if (katago && typeof katago === 'object') {
+      const adaptive = (katago as { adaptiveReevaluate?: unknown }).adaptiveReevaluate;
+      if (adaptive && typeof adaptive === 'object') {
+        const a = adaptive as { valueBinding?: unknown };
+        if (typeof a.valueBinding !== 'string') {
+          a.valueBinding = '';
+        }
+      }
+    }
+    return out;
+  },
 ];

@@ -77,7 +77,7 @@ import { archivedMigrations, type Migration } from './archived-migrations';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 47;
+export const CURRENT_SCHEMA_VERSION = 49;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -105,33 +105,6 @@ export const CURRENT_SCHEMA_VERSION = 47;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 45 → 46: backfill `engine.katago.adaptiveReevaluate.valueBinding`
-  // (string, default ''). v1.0.26 of the proxy ships a learned
-  // value function (the Phase 3.5 LightGBM-supervised regressor)
-  // selectable via this field. Empty string `''` (the default)
-  // means "use the proxy's built-in v1.0.24 worst-quantile
-  // allocation; do NOT send the Phase 3 fields." A `learned_*`
-  // string opts into the proxy-hosted predictor by version name
-  // (e.g. `'learned_v1'`); the capability-injection layer
-  // verifies the name appears in the proxy's
-  // `adaptive_reevaluate.available_value_bindings` advertisement
-  // before sending it on the wire.
-  //
-  // Idempotent: a pre-existing string is preserved unchanged.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const katago = out.settings?.engine?.katago;
-    if (katago && typeof katago === 'object') {
-      const adaptive = (katago as { adaptiveReevaluate?: unknown }).adaptiveReevaluate;
-      if (adaptive && typeof adaptive === 'object') {
-        const a = adaptive as { valueBinding?: unknown };
-        if (typeof a.valueBinding !== 'string') {
-          a.valueBinding = '';
-        }
-      }
-    }
-    return out;
-  },
   // 46 → 47: backfill `profile.settings.appearance.moveSuggestionsFadeMs`
   // (number, default 60) and register the two new display-domain
   // animation knobs (`display.move-suggestions-fade-ms` and
@@ -163,6 +136,102 @@ export const migrations: Migration[] = [
     // `session.knobPriorityOverrides` (or similar), the registry
     // validator will accept missing ids as "use the decl's default";
     // we don't have to inject anything.
+    return out;
+  },
+  // 47 → 48: retire the KataGo F-optimizer cohort. The optimizer
+  // was an SPA-side workaround for `lightvector/KataGo#1197` — the
+  // engine refusing to ship the first during-search report until
+  // a cadence-aligned eval-completion tick. The bug was fixed
+  // upstream against KataGo 1.16.5; this migration walks
+  // pre-fix workspaces forward by:
+  //
+  //   1. Rewriting the persisted
+  //      `engine.first-report-during-search-after` decl's
+  //      `inputs[0].minFloor` from the workaround value 0.035 down
+  //      to the KataGo protocol-documented minimum 0.001 (the
+  //      KATAGO_FIRST_REPORT_FLOOR_S constant's current value).
+  //      Idempotent — already-0.001 leaves and absent fields pass
+  //      through.
+  //
+  //   2. Clearing the orphan `lengyue.fOptimizerCache.v1`
+  //      localStorage key (per-machine cache of optimizer results;
+  //      no longer read by any code path). Side-effect departure
+  //      from the migration ledger's normal blob-only discipline,
+  //      taken once at this retirement point. `removeItem` is
+  //      idempotent and a no-op when the key is absent.
+  //
+  // See `docs/notes/retrospective-katago-f-optimizer-2026-05.md`
+  // and `docs/worklog/2026-05-25-katago-f-optimizer-retirement.md`
+  // for the arc.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const knobs = out.profile?.settings?.knobs;
+    if (knobs && typeof knobs === 'object' && !Array.isArray(knobs)) {
+      const decl = (knobs as Record<string, unknown>)['engine.first-report-during-search-after'];
+      if (decl && typeof decl === 'object') {
+        const inputs = (decl as { inputs?: unknown }).inputs;
+        if (Array.isArray(inputs) && inputs.length > 0) {
+          const first = inputs[0];
+          if (first && typeof first === 'object') {
+            const f = (first as { minFloor?: unknown }).minFloor;
+            if (typeof f === 'number' && f > 0.001) {
+              (first as { minFloor?: unknown }).minFloor = 0.001;
+            }
+          }
+        }
+      }
+    }
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('lengyue.fOptimizerCache.v1');
+      }
+    } catch {
+      // localStorage may be disabled by the browser or unavailable
+      // in non-browser environments (tests, SSR). The orphan key
+      // is cosmetic — not clearing it is harmless once nothing
+      // reads it — so swallow the failure here.
+    }
+    return out;
+  },
+  // 48 → 49: corrective for the 47 → 48 above. The first attempt
+  // at the F-optimizer-retirement migration walked
+  // `out.settings?.knobs` instead of the correct
+  // `out.profile?.settings?.knobs` and silently did nothing on
+  // every blob, stamping to v48 without rewriting the persisted
+  // `minFloor`. Caught locally by the project author before the
+  // arc shipped beyond the dev branch; the in-place fix above
+  // restores the v47 → v48 path for any blob still at v47, and
+  // this migration catches up any v48 blob the broken version
+  // ran against.
+  //
+  // Body is the same `minFloor: > 0.001 → 0.001` rewrite as 47 →
+  // 48 above, with the correct path. localStorage cleanup is
+  // not repeated — it was the one side-effect of the 47 → 48
+  // migration's body that worked correctly (no path dependency),
+  // and `removeItem` had already cleared the orphan cache key
+  // when the v48 stamp landed.
+  //
+  // Idempotent: a v48 blob that was created by a fresh install
+  // (i.e. populated from defaults.ts at v48, with `minFloor`
+  // already at 0.001) passes through unchanged.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const knobs = out.profile?.settings?.knobs;
+    if (knobs && typeof knobs === 'object' && !Array.isArray(knobs)) {
+      const decl = (knobs as Record<string, unknown>)['engine.first-report-during-search-after'];
+      if (decl && typeof decl === 'object') {
+        const inputs = (decl as { inputs?: unknown }).inputs;
+        if (Array.isArray(inputs) && inputs.length > 0) {
+          const first = inputs[0];
+          if (first && typeof first === 'object') {
+            const f = (first as { minFloor?: unknown }).minFloor;
+            if (typeof f === 'number' && f > 0.001) {
+              (first as { minFloor?: unknown }).minFloor = 0.001;
+            }
+          }
+        }
+      }
+    }
     return out;
   },
 ];

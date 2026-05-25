@@ -38,7 +38,6 @@ import {
 } from './analysis-config';
 import { KATAGO_WS_URL } from '../config/env';
 import { KATAGO_FIRST_REPORT_FLOOR_S } from '../engine/katago/limits';
-import { effectiveFirstReportS } from './optimize-f-cache';
 import { i18n } from '../i18n';
 import { useQueryTelemetry } from '../composables/useQueryTelemetry';
 
@@ -565,27 +564,21 @@ export class AnalysisService {
       // recorded analysis.
       ...(isRealtime ? {
         reportDuringSearchEvery: store.profile.settings.engine.katago.reportDuringSearchEvery,
-        // Effective F resolution:
-        //   1. If `optimize-f-cache` has an entry for the current
-        //      (selectedModel, cadence-bucket), use its `fS` directly.
-        //      The optimizer characterised the cliff for *this* model
-        //      empirically, so KATAGO_FIRST_REPORT_FLOOR_S — a defensive
-        //      hardcoded value picked for the original tested model —
-        //      no longer needs to apply.
-        //   2. Otherwise, fall back to the slider value, clamped up to
-        //      KATAGO_FIRST_REPORT_FLOOR_S so the upstream-cliff
-        //      workaround still applies (the user hasn't run the
-        //      optimizer for this configuration yet, so we don't know
-        //      the cliff position for sure).
-        //   3. Either way, clamp down to cadence so first-report ≤
-        //      reportDuringSearchEvery (a first-report later than the
-        //      second regular report is semantically incoherent).
+        // Wire-side resolution of `firstReportDuringSearchAfter`:
+        //   1. `Math.max(KATAGO_FIRST_REPORT_FLOOR_S, slider)` enforces
+        //      the KataGo protocol-documented minimum as
+        //      defence-in-depth. The slider's `minFloor` already pins
+        //      drags above this; the wire clamp catches direct-leaf
+        //      writes (e.g. via the registry editor) that bypass the
+        //      widget.
+        //   2. `Math.min(cadence, …)` enforces the semantic invariant
+        //      `firstReportDuringSearchAfter ≤ reportDuringSearchEvery`
+        //      even when the stored leaves drift (the KnobInputDecl's
+        //      `maxFromKnob` constrains the slider's effective max but
+        //      doesn't auto-clamp the persisted value).
         firstReportDuringSearchAfter: Math.min(
           store.profile.settings.engine.katago.reportDuringSearchEvery,
-          effectiveFirstReportS(
-            store.engine.selectedModel,
-            store.profile.settings.engine.katago.reportDuringSearchEvery,
-          ) ?? Math.max(
+          Math.max(
             KATAGO_FIRST_REPORT_FLOOR_S,
             store.profile.settings.engine.katago.firstReportDuringSearchAfter,
           ),
@@ -769,16 +762,13 @@ export class AnalysisService {
       // even if the stored leaves drift apart (see the
       // analyzeRange site for the matching pattern).
       reportDuringSearchEvery: store.profile.settings.engine.katago.reportDuringSearchEvery,
-      // Same effective-F resolution as analyzeRange's site above: cache
-      // entry wins if present (model-specific cliff characterisation),
-      // otherwise clamp-up to the upstream-cliff floor. See the
-      // analyzeRange comment block for the full rationale.
+      // Same wire-side clamp as analyzeRange's site above: protocol-
+      // minimum floor as defence-in-depth, then cadence-cap for the
+      // first-report ≤ cadence invariant. See the analyzeRange comment
+      // block for the full rationale.
       firstReportDuringSearchAfter: Math.min(
         store.profile.settings.engine.katago.reportDuringSearchEvery,
-        effectiveFirstReportS(
-          store.engine.selectedModel,
-          store.profile.settings.engine.katago.reportDuringSearchEvery,
-        ) ?? Math.max(
+        Math.max(
           KATAGO_FIRST_REPORT_FLOOR_S,
           store.profile.settings.engine.katago.firstReportDuringSearchAfter,
         ),

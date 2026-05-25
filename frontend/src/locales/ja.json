@@ -42,7 +42,6 @@
   "knobRegistry.label.engine.watchdog-latency-threshold-ms": "ウォッチドッグ遅延閾値 (ms)",
   "knobRegistry.label.engine.report-during-search-every":    "報告間隔 (秒)",
   "knobRegistry.label.engine.first-report-during-search-after": "初回報告までの時間 (秒)",
-  "knobRegistry.floorTooltip.engine.first-report-during-search-after": "上流側の下限: KataGo は約 35 ms 未満の初回報告時間を内部的に報告間隔の値へ置き換えます。これより小さい値は反映されません。",
 
   "cards.tab.decks":                      "デッキ",
   "cards.tab.browse":                     "閲覧",

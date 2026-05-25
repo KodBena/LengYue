@@ -1,7 +1,11 @@
 # Retrospective: the KataGo F-optimizer arc
 
-- **Status:** Closed. Shipped via #254 (frontend feature + worklog).
-- **Date:** 2026-05-17.
+- **Status:** Retired 2026-05-25. KataGo fixed
+  [`lightvector/KataGo#1197`](https://github.com/lightvector/KataGo/issues/1197)
+  upstream against KataGo 1.16.5; the optimizer cohort and the
+  35 ms-floor workaround are wound down per the §Retirement
+  section below. The original arc shipped via #254 on 2026-05-17.
+- **Date:** 2026-05-17 (shipped), 2026-05-25 (retired).
 - **Scope:** Whole arc, from the initial "first paint feels stuck"
   symptom report through the upstream-bug diagnosis, the
   characterisation sweep, the algorithm design, and the SPA
@@ -429,5 +433,54 @@ The upstream bug is filed
 unnecessary and the 35 ms floor can be retired. Until then,
 the optimizer earns its weight every time a user picks a model
 the previous mitigation happened to be wrong about.
+
+---
+
+## Retirement (2026-05-25)
+
+KataGo fixed `#1197` upstream against KataGo 1.16.5. The
+project author re-ran the bug-report reproducers against the
+fixed binary and confirmed the cliff is gone: sub-cliff F values
+are now honoured directly, and the "engine sits on the answer
+until the cadence tick" smoking-gun pattern from §6 no longer
+reproduces. Closing the workaround as anticipated by the
+retrospective's closing paragraph.
+
+The retirement is recorded in
+`docs/worklog/2026-05-25-katago-f-optimizer-retirement.md`. The
+shape of the change:
+
+- `KATAGO_FIRST_REPORT_FLOOR_S` in `frontend/src/engine/katago/limits.ts`
+  drops from `0.035` to `0.001`, the protocol-documented minimum
+  from KataGo's analysis-engine source. The constant survives as
+  the SSOT for the wire-side defence-in-depth clamp; the
+  workaround framing is gone from its doc comment.
+- The F-optimizer cohort is deleted entirely:
+  `optimize-f.ts`, `optimize-f-live-engine.ts`, `optimize-f-cache.ts`,
+  `useFOptimizer.ts`, `FOptimizerPanel.vue`, and the
+  `optimize-f.test.ts` unit suite. The `effectiveFirstReportS`
+  read sites in `analysis-service.ts` collapse to the plain
+  wire-side `Math.max(FLOOR, slider)` clamp.
+- The persisted KnobDecl's `minFloor` walks forward from `0.035`
+  to `0.001` via schema-version 47 → 48; the same migration
+  clears the orphan `lengyue.fOptimizerCache.v1` localStorage key.
+
+The archaeological deposit under `docs/archive/katago-f-optimizer/`
+is preserved unchanged — every numeric claim in this retrospective
+remains reproducible from the gzipped CSV and the Python tooling
+beside it. The artefact-table rows above describe the cohort as
+it was at the 2026-05-17 ship; the live SPA optimizer row and the
+SPA worklog row are now historical (the live code is removed; the
+worklog stays as a moment-in-time record).
+
+The retirement closes the closing-observation arc the original
+retrospective named: a workaround that *fails silently to be a
+fix* is a worse silent failure than the original bug it patched
+over. With KataGo's source fixed, the workaround is no longer
+needed; the path is clean, the cliff is gone, and the codebase
+stops carrying ~1300 lines of compensation for an upstream defect
+that no longer exists.
+
+---
 
 License: Public Domain (The Unlicense)

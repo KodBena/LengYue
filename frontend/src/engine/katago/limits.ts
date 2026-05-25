@@ -21,32 +21,24 @@
  * Lower bound (seconds) for the `firstReportDuringSearchAfter` value
  * sent on KataGo analysis queries.
  *
- * Upstream KataGo (verified against `1.16.4`) silently substitutes
- * `reportDuringSearchEvery` for the first-report timing when the
- * requested `firstReportDuringSearchAfter` value is below an absolute
- * threshold of approximately 25 ms. The substitution is independent of
- * cadence, non-deterministic in the 0.020 – 0.030 s strip, and produces
- * a perceived first-paint at `cadence + ~70 ms` instead of at the
- * requested value. Full diagnosis arc and reproducers staged at
- * `~/katago_bugreport`; umbrella worklog
- * `docs/worklog/2026-05-15-katago-first-report-cliff-diagnosis.md`.
- *
- * The 0.035 s floor sits comfortably above the noisy 0.020 – 0.030 s
- * strip — empirically every value at-or-above 0.035 is honoured
- * reliably across three independent client stacks. The slider's
- * `KnobInputDecl.minFloor` carries this value as decl-level metadata
- * so the substrate (`KnobSlider.vue`) clamps drag positions to the
+ * KataGo's analysis-engine source documents `0.001` as the protocol
+ * minimum for `firstReportDuringSearchAfter`. The SPA enforces it at
+ * two layers: the `KnobInputDecl.minFloor` carries this value as decl-
+ * level metadata so the slider widget clamps drag positions to the
  * floor; the wire-side defence-in-depth clamp in
  * `services/analysis-service.ts` reads from here to guarantee the
  * contract reaching the engine respects the floor regardless of
- * stored-leaf state.
+ * stored-leaf state (the substrate preserves user-stored leaves below
+ * a floor — only the visual slider and the wire layer enforce).
  *
- * **Removal trigger.** When the upstream bug is fixed and confirmed
- * against a target KataGo version (re-run `reproducer.py` from the
- * bug-report package; check the table at §"Observed" no longer shows
- * cadence-pin for sub-0.025 values), drop this constant and remove the
- * `minFloor` field from the first-report-after KnobDecl in
- * `store/defaults.ts`. A schema migration that strips the field from
- * existing persisted decls is the clean way to retire the workaround.
+ * Historical note: a 0.035 s floor previously occupied this constant
+ * as an SPA-side workaround for a KataGo bug
+ * ([`lightvector/KataGo#1197`](https://github.com/lightvector/KataGo/issues/1197),
+ * 2026-05-16) where the engine refused to ship the first during-search
+ * report until a cadence-aligned eval-completion tick. The bug was
+ * fixed upstream; this constant reverted to the protocol-documented
+ * minimum on 2026-05-25 alongside the retirement of the F-optimizer
+ * cohort. See `docs/notes/retrospective-katago-f-optimizer-2026-05.md`
+ * for the arc.
  */
-export const KATAGO_FIRST_REPORT_FLOOR_S = 0.035;
+export const KATAGO_FIRST_REPORT_FLOOR_S = 0.001;

@@ -42,7 +42,6 @@
   "knobRegistry.label.engine.watchdog-latency-threshold-ms": "워치독 지연 임계값 (ms)",
   "knobRegistry.label.engine.report-during-search-every":    "보고 주기 (초)",
   "knobRegistry.label.engine.first-report-during-search-after": "첫 보고 지연 (초)",
-  "knobRegistry.floorTooltip.engine.first-report-during-search-after": "상류측 하한: KataGo는 약 35 ms 미만의 첫 보고 시간을 내부적으로 보고 주기 값으로 대체합니다. 이보다 작은 값은 적용되지 않습니다.",
 
   "cards.tab.decks":                      "덱",
   "cards.tab.browse":                     "둘러보기",
