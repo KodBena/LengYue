@@ -25,3 +25,4 @@ ebisu==2.2.0
 alembic==1.18.1
 annotated-doc==0.0.4
 annotated-types==0.7.0
+Brotli==1.2.0
