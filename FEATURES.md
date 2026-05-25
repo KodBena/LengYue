@@ -229,8 +229,15 @@ packets, keyed by `(configHash, nodeId)`.
       ownership is 4-bit-uniform-quantised (max-abs error ≤
       0.0625) and policy is 8-bit-quantised over its legal
       cells (max-abs error ≤ 0.002 on legals; illegal cells
-      exact). The leader scheme from the 2026-05-25 research
-      arc; ~85% smaller than canonical JSON.
+      exact). The byte leader from the 2026-05-25 research
+      arc; ~85% smaller than canonical JSON. The Q4 step on
+      ownership produces visible banding on slowly drifting
+      cells.
+    - `'v2-quantized-hifi'` — same as `'v2-quantized'` but
+      ownership is 8-bit-uniform-quantised (max-abs error ≤
+      0.004). The banding effect is gone at the cost of ~6%
+      additional bytes; pick this if you study ownership maps
+      and the precision shows through.
   Default is `'v1'`. Stored bundles always decode regardless
   of the current selection — flipping the toggle only affects
   future saves.

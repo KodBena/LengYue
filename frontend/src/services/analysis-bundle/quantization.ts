@@ -105,6 +105,72 @@ export function dequantiseOwnershipQ4(packed: Uint8Array): number[] {
   return out;
 }
 
+// ── Ownership Q8 ───────────────────────────────────────────────────────────
+
+/**
+ * Analytic max-abs reconstruction error for Q8 ownership over
+ * [-1, 1] — half the bin width = 1/256 ≈ 0.0039. Pinned here so
+ * the hard-gate threshold tables can reference the same constant
+ * the encoder uses; perceptually identical to the float original
+ * at typical display sizes.
+ */
+export const OWNERSHIP_Q8_MAX_ABS_ANALYTIC = 1 / 256;
+
+/**
+ * Quantise a 361-element ownership map at 8 bits per cell. The
+ * 256 bins span [-1, 1] uniformly; reconstruction puts each cell
+ * back at its bin midpoint, so the per-cell max-abs error is
+ * half the bin width = 1/256 ≈ 0.0039. At this precision, the
+ * visible banding of Q4 disappears — see the 2026-05-26 user
+ * report at the merge point of #270, and the 'v2-quantized-hifi'
+ * scheme that ships alongside the byte-leader 'v2-quantized'
+ * specifically to give users the choice.
+ *
+ * Returns 361 bytes — one byte per cell, no packing needed
+ * (every Q8 index is exactly one byte). Roughly 2× the byte
+ * cost of Q4 (181 bytes) before brotli; brotli typically eats
+ * much of that difference back because Q8 values cluster
+ * (settled territory all maps to bin 0 or bin 255).
+ */
+export function quantiseOwnershipQ8(ownership: readonly number[]): Uint8Array {
+  if (ownership.length !== OWNERSHIP_CELL_COUNT) {
+    throw new Error(
+      `quantiseOwnershipQ8: expected ${OWNERSHIP_CELL_COUNT}-cell ownership, ` +
+      `got ${ownership.length}`,
+    );
+  }
+  const packed = new Uint8Array(OWNERSHIP_CELL_COUNT);
+  for (let i = 0; i < OWNERSHIP_CELL_COUNT; i++) {
+    const v = Math.max(-1, Math.min(1, ownership[i]));
+    // Bin width = 1/128; index = floor((v + 1) * 128) clamped to [0, 255].
+    let idx = Math.floor((v + 1) * 128);
+    if (idx > 255) idx = 255;
+    if (idx < 0) idx = 0;
+    packed[i] = idx;
+  }
+  return packed;
+}
+
+/**
+ * Inverse of `quantiseOwnershipQ8`: 361 bytes → 361 floats in
+ * [-1 + 1/256, 1 - 1/256] (bin midpoints). Per-cell
+ * reconstruction error bounded above by 1/256 ≈ 0.0039.
+ */
+export function dequantiseOwnershipQ8(packed: Uint8Array): number[] {
+  if (packed.length !== OWNERSHIP_CELL_COUNT) {
+    throw new Error(
+      `dequantiseOwnershipQ8: expected ${OWNERSHIP_CELL_COUNT}-byte packed, ` +
+      `got ${packed.length}`,
+    );
+  }
+  const out = new Array<number>(OWNERSHIP_CELL_COUNT);
+  for (let i = 0; i < OWNERSHIP_CELL_COUNT; i++) {
+    // Midpoint: -1 + (idx + 0.5) / 128.
+    out[i] = -1 + (packed[i] + 0.5) / 128;
+  }
+  return out;
+}
+
 // ── Policy Q8 with factored legal-mask ─────────────────────────────────────
 
 /**

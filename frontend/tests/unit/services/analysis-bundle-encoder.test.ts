@@ -32,6 +32,7 @@ import {
 import {
   OWNERSHIP_CELL_COUNT,
   OWNERSHIP_Q4_MAX_ABS_ANALYTIC,
+  OWNERSHIP_Q8_MAX_ABS_ANALYTIC,
   POLICY_CELL_COUNT,
   POLICY_Q8_FACTORED_MAX_ABS_LEGAL_ANALYTIC,
 } from '../../../src/services/analysis-bundle/quantization';
@@ -332,5 +333,98 @@ describe('ownership-q4-policy-q8-factored-v1 encoder', () => {
     const encoded = enc.encode(bundle);
     const decoded = enc.decode(encoded.bytes);
     expect(decoded).toEqual(bundle);
+  });
+});
+
+// ── ownership-q8-policy-q8-factored-v1 (hifi variant) ──────────────────────
+
+describe('ownership-q8-policy-q8-factored-v1 encoder (hifi)', () => {
+  function _quantPacket(): Record<string, unknown> {
+    const ownership = new Array(OWNERSHIP_CELL_COUNT).fill(0).map((_, i) =>
+      -1 + (2 * i) / (OWNERSHIP_CELL_COUNT - 1),
+    );
+    const policy = new Array(POLICY_CELL_COUNT).fill(-1.0);
+    policy[10] = 0.5;
+    policy[100] = 0.1;
+    policy[200] = 0.9;
+    return { ..._MIN_PACKET, ownership, policy };
+  }
+
+  it('is registered under the expected scheme tag', () => {
+    const enc = getEncoderForScheme('ownership-q8-policy-q8-factored-v1');
+    expect(enc).toBeDefined();
+    expect((enc as BundleEncoder).scheme).toBe('ownership-q8-policy-q8-factored-v1');
+  });
+
+  it('listKnownSchemes includes the hifi scheme', () => {
+    expect(listKnownSchemes()).toContain('ownership-q8-policy-q8-factored-v1');
+  });
+
+  it('preserves ownership within the analytic Q8 max-abs (≤ 1/256)', () => {
+    const enc = getEncoderForScheme(
+      'ownership-q8-policy-q8-factored-v1',
+    ) as BundleEncoder;
+    const bundle = _bundle([_record(_quantPacket())]);
+    const encoded = enc.encode(bundle);
+    const decoded = enc.decode(encoded.bytes);
+    const original = bundle.records[0].packet.ownership!;
+    const recovered = decoded.records[0].packet.ownership!;
+    for (let i = 0; i < original.length; i++) {
+      expect(Math.abs(recovered[i] - original[i]))
+        .toBeLessThanOrEqual(OWNERSHIP_Q8_MAX_ABS_ANALYTIC + 1e-12);
+    }
+  });
+
+  it('produces strictly more accurate ownership reconstruction than the Q4 variant', () => {
+    const encQ4 = getEncoderForScheme(
+      'ownership-q4-policy-q8-factored-v1',
+    ) as BundleEncoder;
+    const encQ8 = getEncoderForScheme(
+      'ownership-q8-policy-q8-factored-v1',
+    ) as BundleEncoder;
+    const bundle = _bundle([_record(_quantPacket())]);
+    const orig = bundle.records[0].packet.ownership!;
+    const recQ4 = encQ4.decode(encQ4.encode(bundle).bytes)
+      .records[0].packet.ownership!;
+    const recQ8 = encQ8.decode(encQ8.encode(bundle).bytes)
+      .records[0].packet.ownership!;
+    let sseQ4 = 0;
+    let sseQ8 = 0;
+    for (let i = 0; i < orig.length; i++) {
+      sseQ4 += (recQ4[i] - orig[i]) ** 2;
+      sseQ8 += (recQ8[i] - orig[i]) ** 2;
+    }
+    expect(sseQ8).toBeLessThan(sseQ4);
+  });
+
+  it('costs more bytes than the Q4 variant for the same packet', () => {
+    const encQ4 = getEncoderForScheme(
+      'ownership-q4-policy-q8-factored-v1',
+    ) as BundleEncoder;
+    const encQ8 = getEncoderForScheme(
+      'ownership-q8-policy-q8-factored-v1',
+    ) as BundleEncoder;
+    const bundle = _bundle([_record(_quantPacket())]);
+    expect(encQ8.encode(bundle).bytes.length)
+      .toBeGreaterThan(encQ4.encode(bundle).bytes.length);
+  });
+
+  it('preserves the policy round-trip (illegal cells exact, legals within max-abs)', () => {
+    const enc = getEncoderForScheme(
+      'ownership-q8-policy-q8-factored-v1',
+    ) as BundleEncoder;
+    const bundle = _bundle([_record(_quantPacket())]);
+    const encoded = enc.encode(bundle);
+    const decoded = enc.decode(encoded.bytes);
+    const original = bundle.records[0].packet.policy!;
+    const recovered = decoded.records[0].packet.policy!;
+    for (let i = 0; i < original.length; i++) {
+      if (original[i] === -1.0) {
+        expect(recovered[i]).toBe(-1.0);
+      } else {
+        expect(Math.abs(recovered[i] - original[i]))
+          .toBeLessThanOrEqual(POLICY_Q8_FACTORED_MAX_ABS_LEGAL_ANALYTIC + 1e-12);
+      }
+    }
   });
 });

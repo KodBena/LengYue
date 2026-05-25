@@ -222,6 +222,7 @@ function readCompressionScheme(): 'v1' | string {
   const scheme = store.profile?.settings?.engine?.katago?.bundleCompressionScheme;
   if (scheme === 'v2-projected') return 'json-projected-v1';
   if (scheme === 'v2-quantized') return 'ownership-q4-policy-q8-factored-v1';
+  if (scheme === 'v2-quantized-hifi') return 'ownership-q8-policy-q8-factored-v1';
   return 'v1';
 }
 

@@ -19,11 +19,14 @@ import { describe, it, expect } from 'vitest';
 import {
   OWNERSHIP_CELL_COUNT,
   OWNERSHIP_Q4_MAX_ABS_ANALYTIC,
+  OWNERSHIP_Q8_MAX_ABS_ANALYTIC,
   POLICY_CELL_COUNT,
   POLICY_Q8_FACTORED_MAX_ABS_LEGAL_ANALYTIC,
   dequantiseOwnershipQ4,
+  dequantiseOwnershipQ8,
   dequantisePolicyQ8Factored,
   quantiseOwnershipQ4,
+  quantiseOwnershipQ8,
   quantisePolicyQ8Factored,
 } from '../../../src/services/analysis-bundle/quantization';
 
@@ -199,5 +202,79 @@ describe('Q8-factored policy', () => {
     expect(decoded[0]).toBeLessThan(1.01);
     expect(decoded[1]).toBeLessThan(0.01);
     expect(decoded[2]).toBeGreaterThan(0.99);
+  });
+});
+
+// ── Ownership Q8 (hifi variant) ────────────────────────────────────────────
+
+describe('Q8 ownership', () => {
+  it('analytic max-abs is 1/256 ≈ 0.00391', () => {
+    expect(OWNERSHIP_Q8_MAX_ABS_ANALYTIC).toBe(1 / 256);
+  });
+
+  it('rejects ownership arrays of unexpected length', () => {
+    expect(() => quantiseOwnershipQ8([0, 1, 2])).toThrow();
+    expect(() => quantiseOwnershipQ8(new Array(360).fill(0))).toThrow();
+  });
+
+  it('rejects dequantise input of unexpected length', () => {
+    expect(() => dequantiseOwnershipQ8(new Uint8Array(360))).toThrow();
+  });
+
+  it('packs 361 cells into 361 bytes (one per cell)', () => {
+    const ownership = new Array(OWNERSHIP_CELL_COUNT).fill(0);
+    const packed = quantiseOwnershipQ8(ownership);
+    expect(packed.length).toBe(361);
+  });
+
+  it('per-cell max-abs error never exceeds 1/256 across [-1, 1] sweep', () => {
+    const ownership: number[] = [];
+    for (let i = 0; i < OWNERSHIP_CELL_COUNT; i++) {
+      ownership.push(-1 + (2 * i) / (OWNERSHIP_CELL_COUNT - 1));
+    }
+    const decoded = dequantiseOwnershipQ8(quantiseOwnershipQ8(ownership));
+    for (let i = 0; i < OWNERSHIP_CELL_COUNT; i++) {
+      const err = Math.abs(decoded[i] - ownership[i]);
+      expect(err).toBeLessThanOrEqual(OWNERSHIP_Q8_MAX_ABS_ANALYTIC + 1e-12);
+    }
+  });
+
+  it('round-trips +1 / -1 / 0 to nearest bin midpoint', () => {
+    const ownership = new Array(OWNERSHIP_CELL_COUNT).fill(0);
+    ownership[0] = 1.0;
+    ownership[1] = -1.0;
+    ownership[2] = 0.0;
+    const decoded = dequantiseOwnershipQ8(quantiseOwnershipQ8(ownership));
+    expect(Math.abs(decoded[0] - 1.0)).toBeLessThan(OWNERSHIP_Q8_MAX_ABS_ANALYTIC + 1e-12);
+    expect(Math.abs(decoded[1] - -1.0)).toBeLessThan(OWNERSHIP_Q8_MAX_ABS_ANALYTIC + 1e-12);
+    expect(Math.abs(decoded[2] - 0.0)).toBeLessThan(OWNERSHIP_Q8_MAX_ABS_ANALYTIC + 1e-12);
+  });
+
+  it('clamps out-of-range inputs without throwing', () => {
+    const ownership = new Array(OWNERSHIP_CELL_COUNT).fill(0);
+    ownership[0] = 2.0;   // way over +1
+    ownership[1] = -2.0;  // way under -1
+    const decoded = dequantiseOwnershipQ8(quantiseOwnershipQ8(ownership));
+    expect(decoded[0]).toBeGreaterThan(0.99);
+    expect(decoded[1]).toBeLessThan(-0.99);
+  });
+
+  it('produces strictly more precise reconstruction than Q4', () => {
+    const ownership: number[] = [];
+    for (let i = 0; i < OWNERSHIP_CELL_COUNT; i++) {
+      ownership.push(-1 + (2 * i) / (OWNERSHIP_CELL_COUNT - 1));
+    }
+    const q4Decoded = dequantiseOwnershipQ4(quantiseOwnershipQ4(ownership));
+    const q8Decoded = dequantiseOwnershipQ8(quantiseOwnershipQ8(ownership));
+    let q4SumSq = 0;
+    let q8SumSq = 0;
+    for (let i = 0; i < OWNERSHIP_CELL_COUNT; i++) {
+      q4SumSq += (q4Decoded[i] - ownership[i]) ** 2;
+      q8SumSq += (q8Decoded[i] - ownership[i]) ** 2;
+    }
+    // Q8 should be measurably better. The exact ratio depends on
+    // the input distribution; for the linear sweep we use here Q8
+    // is roughly 16× smaller squared-error than Q4.
+    expect(q8SumSq).toBeLessThan(q4SumSq);
   });
 });

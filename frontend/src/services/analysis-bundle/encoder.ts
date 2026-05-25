@@ -39,8 +39,10 @@ import type { KataAnalysisResponse } from '../../engine/katago/types';
 import { projectPacket } from './projection';
 import {
   dequantiseOwnershipQ4,
+  dequantiseOwnershipQ8,
   dequantisePolicyQ8Factored,
   quantiseOwnershipQ4,
+  quantiseOwnershipQ8,
   quantisePolicyQ8Factored,
   type PolicyQ8FactoredPacked,
 } from './quantization';
@@ -174,19 +176,21 @@ const JSON_PROJECTED_V1: BundleEncoder = {
 
 const OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1_SCHEME =
   'ownership-q4-policy-q8-factored-v1';
+const OWNERSHIP_Q8_POLICY_Q8_FACTORED_V1_SCHEME =
+  'ownership-q8-policy-q8-factored-v1';
 
 /**
  * Internal wire shape carried inside the encoded packet's JSON
- * body in place of `ownership` and `policy`. Both arrays are
- * base64-encoded bytes from the quantisation primitives in
- * `./quantization.ts`. The wrapper objects' field names use a
- * `_q4` / `_q8_factored` suffix to keep them syntactically
- * distinct from the typed-shape's `ownership` / `policy` (which
- * carry `number[]`s), so a decoder reading either kind of
- * packet doesn't need to discriminate before parsing.
+ * body in place of `ownership` and `policy`. The ownership
+ * wrapper carries a `_q_bits` discriminator (4 or 8) plus the
+ * base64-encoded packed bytes; the policy wrapper carries the
+ * factored Q8 envelope. Both shapes occupy the typed-shape's
+ * `ownership` / `policy` slot at JSON time and get un-packed back
+ * to `number[]`s by the decoder.
  */
 type QuantisedOwnership = {
-  readonly _q4_b64: string;
+  readonly _q_bits: 4 | 8;
+  readonly _b64: string;
 };
 
 type QuantisedPolicy = {
@@ -197,11 +201,19 @@ type QuantisedPolicy = {
   };
 };
 
-function encodePacketLossy(packet: KataAnalysisResponse): KataAnalysisResponse {
+function encodePacketLossy(
+  packet: KataAnalysisResponse,
+  ownershipBits: 4 | 8,
+): KataAnalysisResponse {
   const out = { ...packet } as Record<string, unknown>;
   if (Array.isArray(packet.ownership)) {
-    const packed = quantiseOwnershipQ4(packet.ownership);
-    const wrap: QuantisedOwnership = { _q4_b64: uint8ArrayToBase64(packed) };
+    const packed = ownershipBits === 4
+      ? quantiseOwnershipQ4(packet.ownership)
+      : quantiseOwnershipQ8(packet.ownership);
+    const wrap: QuantisedOwnership = {
+      _q_bits: ownershipBits,
+      _b64: uint8ArrayToBase64(packed),
+    };
     out.ownership = wrap;
   }
   if (Array.isArray(packet.policy)) {
@@ -219,18 +231,32 @@ function encodePacketLossy(packet: KataAnalysisResponse): KataAnalysisResponse {
 }
 
 function decodePacketLossy(packet: KataAnalysisResponse): KataAnalysisResponse {
-  // Pacets that round-trip through the lossy encoder may carry
-  // the typed-shape `ownership` / `policy` slots filled with a
+  // Packets that round-trip through a lossy encoder carry the
+  // typed-shape `ownership` / `policy` slots filled with a
   // quantised-wrapper object instead of a `number[]`. Detect and
-  // un-pack to the typed-shape `number[]`.
+  // un-pack to the typed-shape `number[]`. The ownership
+  // wrapper's `_q_bits` discriminator picks the dequantiser, so
+  // a single decode() handles both 'v2-quantized' (Q4) and
+  // 'v2-quantized-hifi' (Q8) outputs without scheme-name lookup.
   const out = { ...packet } as Record<string, unknown>;
   const own = out.ownership as unknown;
   if (
     own && typeof own === 'object' && !Array.isArray(own) &&
-    typeof (own as { _q4_b64?: unknown })._q4_b64 === 'string'
+    typeof (own as { _b64?: unknown })._b64 === 'string' &&
+    typeof (own as { _q_bits?: unknown })._q_bits === 'number'
   ) {
-    const packed = base64ToUint8Array((own as QuantisedOwnership)._q4_b64);
-    out.ownership = dequantiseOwnershipQ4(packed);
+    const wrap = own as QuantisedOwnership;
+    const packed = base64ToUint8Array(wrap._b64);
+    if (wrap._q_bits === 4) {
+      out.ownership = dequantiseOwnershipQ4(packed);
+    } else if (wrap._q_bits === 8) {
+      out.ownership = dequantiseOwnershipQ8(packed);
+    } else {
+      throw new Error(
+        `analysis-bundle/encoder: unsupported _q_bits=${wrap._q_bits} on ` +
+        `ownership wrapper; this client supports 4 and 8`,
+      );
+    }
   }
   const pol = out.policy as unknown;
   if (
@@ -250,7 +276,73 @@ function decodePacketLossy(packet: KataAnalysisResponse): KataAnalysisResponse {
 }
 
 /**
- * Leader lossy encoder from the 2026-05-25 research arc:
+ * Factory: build a `BundleEncoder` that applies projection +
+ * ownership quantisation (at the given bit depth) + Q8-factored
+ * policy quantisation. The encode/decode pair is symmetric on
+ * the JSON envelope; the only knob is the ownership bit depth.
+ */
+function makeLossyEncoder(
+  scheme: string,
+  ownershipBits: 4 | 8,
+): BundleEncoder {
+  return {
+    scheme,
+    encode(bundle: AnalysisBundle): EncodedBundle {
+      const projected: AnalysisBundle = {
+        schemaVersion: bundle.schemaVersion,
+        records: bundle.records.map((r) => ({
+          configHash: r.configHash,
+          nodeId: r.nodeId,
+          packet: encodePacketLossy(projectPacket(r.packet), ownershipBits),
+        })),
+      };
+      const projectedJson = JSON.stringify(projected);
+      const canonicalJson = JSON.stringify(bundle);
+      const encoder = new TextEncoder();
+      return {
+        bytes: encoder.encode(projectedJson),
+        descriptor: { scheme, version: 1 },
+        recordCount: bundle.records.length,
+        uncompressedByteSize: encoder.encode(canonicalJson).length,
+      };
+    },
+    decode(bytes: Uint8Array): AnalysisBundle {
+      const text = new TextDecoder('utf-8').decode(bytes);
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(text);
+      } catch (e) {
+        throw new Error(
+          `analysis-bundle/encoder: JSON parse failed for scheme ` +
+          `'${scheme}': ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+      if (
+        !parsed ||
+        typeof parsed !== 'object' ||
+        typeof (parsed as { schemaVersion?: unknown }).schemaVersion !== 'number' ||
+        !Array.isArray((parsed as { records?: unknown }).records)
+      ) {
+        throw new Error(
+          `analysis-bundle/encoder: decoded payload doesn't match the ` +
+          `AnalysisBundle shape for scheme '${scheme}'`,
+        );
+      }
+      const bundle = parsed as AnalysisBundle;
+      return {
+        schemaVersion: bundle.schemaVersion,
+        records: bundle.records.map((r) => ({
+          configHash: r.configHash,
+          nodeId: r.nodeId,
+          packet: decodePacketLossy(r.packet),
+        })),
+      };
+    },
+  };
+}
+
+/**
+ * Byte-leader lossy encoder from the 2026-05-25 research arc:
  * projection + Q4 uniform on ownership + Q8 uniform-with-bitmap-
  * factor on policy.
  *
@@ -265,75 +357,38 @@ function decodePacketLossy(packet: KataAnalysisResponse): KataAnalysisResponse {
  * comfortably under the design note's thresholds (≤ 0.10 ownership
  * max-abs / ≤ 0.005 policy max-abs).
  */
-const OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1: BundleEncoder = {
-  scheme: OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1_SCHEME,
+const OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1: BundleEncoder = makeLossyEncoder(
+  OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1_SCHEME,
+  4,
+);
 
-  encode(bundle: AnalysisBundle): EncodedBundle {
-    const projected: AnalysisBundle = {
-      schemaVersion: bundle.schemaVersion,
-      records: bundle.records.map((r) => ({
-        configHash: r.configHash,
-        nodeId: r.nodeId,
-        packet: encodePacketLossy(projectPacket(r.packet)),
-      })),
-    };
-
-    const projectedJson = JSON.stringify(projected);
-    const canonicalJson = JSON.stringify(bundle);
-    const encoder = new TextEncoder();
-
-    return {
-      bytes: encoder.encode(projectedJson),
-      descriptor: {
-        scheme: OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1_SCHEME,
-        version: 1,
-      },
-      recordCount: bundle.records.length,
-      uncompressedByteSize: encoder.encode(canonicalJson).length,
-    };
-  },
-
-  decode(bytes: Uint8Array): AnalysisBundle {
-    const text = new TextDecoder('utf-8').decode(bytes);
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(text);
-    } catch (e) {
-      throw new Error(
-        `analysis-bundle/encoder: JSON parse failed for scheme ` +
-        `'${OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1_SCHEME}': ` +
-        `${e instanceof Error ? e.message : String(e)}`,
-      );
-    }
-    if (
-      !parsed ||
-      typeof parsed !== 'object' ||
-      typeof (parsed as { schemaVersion?: unknown }).schemaVersion !== 'number' ||
-      !Array.isArray((parsed as { records?: unknown }).records)
-    ) {
-      throw new Error(
-        `analysis-bundle/encoder: decoded payload doesn't match the ` +
-        `AnalysisBundle shape for scheme ` +
-        `'${OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1_SCHEME}'`,
-      );
-    }
-    const bundle = parsed as AnalysisBundle;
-    return {
-      schemaVersion: bundle.schemaVersion,
-      records: bundle.records.map((r) => ({
-        configHash: r.configHash,
-        nodeId: r.nodeId,
-        packet: decodePacketLossy(r.packet),
-      })),
-    };
-  },
-};
+/**
+ * High-fidelity lossy variant: projection + Q8 ownership + Q8
+ * factored policy. The 2026-05-26 user report after #270 merged
+ * noted that Q4 ownership is visibly clamped on slowly-drifting
+ * cells (bin width 0.125 is enough to perceive); Q8 reduces the
+ * max-abs to 1/256 ≈ 0.0039, well below typical display
+ * sensitivity. Costs ~180 extra bytes per packet (361 vs 181
+ * before brotli) — call it ~6% size increase on a typical
+ * bundle, less after brotli. Trade the byte leader for the
+ * perceptual leader; user picks per board via the registry.
+ *
+ * Max-abs reconstruction:
+ *   - ownership cell: ≤ 1/256 ≈ 0.00391
+ *   - policy legal cell: ≤ 1/512 ≈ 0.00195
+ *   - policy illegal cell: exact
+ */
+const OWNERSHIP_Q8_POLICY_Q8_FACTORED_V1: BundleEncoder = makeLossyEncoder(
+  OWNERSHIP_Q8_POLICY_Q8_FACTORED_V1_SCHEME,
+  8,
+);
 
 // ── Dispatch ───────────────────────────────────────────────────────────────
 
 const ENCODERS_BY_SCHEME: Readonly<Record<string, BundleEncoder>> = {
   [JSON_PROJECTED_V1.scheme]: JSON_PROJECTED_V1,
   [OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1.scheme]: OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1,
+  [OWNERSHIP_Q8_POLICY_Q8_FACTORED_V1.scheme]: OWNERSHIP_Q8_POLICY_Q8_FACTORED_V1,
 };
 
 /**
