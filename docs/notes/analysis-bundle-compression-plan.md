@@ -490,4 +490,362 @@ These are decisions worth pinning down in the dispatch chain.
 - A UI mockup. The A/B comparison surface is SPA-side and
   designed separately.
 
+---
+
+## Amendment: rationale for the frontend-owned compression locus (2026-05-25)
+
+The body above proposes that the compression abstractions —
+projection, ownership quantisation, the inheritance hierarchy
+from the research arc — live entirely on the frontend, with the
+backend reduced to "store the SPA's pre-encoded bytes; apply
+brotli unconditionally; return them on read." The project author
+flagged this as a design choice they wanted independently
+validated before committing to. This amendment records that
+review.
+
+### The author's rationale for an alternative shape
+
+The author's instinct was that the research arc's inheritance
+hierarchy should port to the backend rather than the frontend,
+on the principle that **abstractions exist to make the code
+easier to reason about** — a property they value enough that
+they constrained the research arc to inheritance-first from the
+start. Their first articulation:
+
+> I'm thinking that the abstractions used during this
+> investigation can probably survive into the backend code, but
+> I'm not familiar with how the hexagonal infrastructure is
+> supposed to work, so I'll let you be the judge of that;
+> though, FWIW abstractions for me serve to make the code easier
+> to reason about, which is why I started with the constraint
+> of having the investigation proceed under an inheritance
+> paradigm.
+
+And after a mis-framed initial firewall request was caught, a
+clarification of what the genuine alternative is:
+
+> I'm not saying that the alternative design is that the
+> infrastructure should live on the backend essentially as
+> documentation, but rather that the frontend is not responsible
+> for compression in any capacity other than configuration
+> (keys + boolean on quantization).
+
+So **Option B** — the author's preference — is that the SPA
+sends the raw uncompressed bundle plus a configuration object,
+and the backend owns the entire encoding pipeline (projection,
+quantisation, brotli, storage). The Python inheritance hierarchy
+from the research arc ports verbatim to `backend/services/
+compression/`. The frontend is config-only.
+
+**Option A** — what the body above proposes — keeps the
+encoding on the frontend (TypeScript port of the inheritance
+hierarchy), with the backend reduced to brotli-wrap + opaque
+byte storage.
+
+### The firewall request (verbatim)
+
+> You're an analytic firewall — fresh eyes, no parent-session
+> context. The project author asks for an independent honest
+> assessment on one design choice. They value honest
+> disagreement; please don't rubber-stamp.
+>
+> ## Context
+>
+> LengYue is a spaced-repetition study tool for the game of Go,
+> structured as a soft monorepo of three peer sub-projects:
+> `frontend/` (Vue 3 SPA), `backend/` (FastAPI + SQLAlchemy 2.0,
+> Clean / Hexagonal Architecture with Ports), and `proxy/`
+> (KataProxy git submodule). Analysis bundles (per-board KataGo
+> response dicts) are stored server-side via an
+> `AnalysisBundleStoragePort` whose only current responsibility
+> is "save/load bytes keyed by (user_id, board_id)".
+>
+> A research arc (`bork/research/analysis-bundle-compression-2026-05-25`,
+> 9 commits) just characterised compression schemes empirically.
+> The leader is **ratio 0.127** (7.9× smaller than uncompressed
+> JSON) and decomposes into two cheap wins on top of always-on
+> Brotli:
+>
+> - **Projection** of the JSON-rest through the SPA's typed-
+>   shape allow-list. Drops fields KataGo emits but the SPA
+>   doesn't read (`playSelectionValue`, `rawScoreSelfplay`, etc.
+>   — ~13 unmodelled fields per moveInfo, ~14 per rootInfo). The
+>   allow-list is the union of `keyof KataMoveInfo`, `keyof
+>   KataRootInfo`, etc. from `frontend/src/engine/katago/
+>   types.ts`.
+> - **Uniform scalar quantisation** on ownership (361 floats in
+>   [-1, 1]) at 4 bits per cell. Max-abs reconstruction error
+>   analytically bounded at 1/2^bits = 0.0625.
+>
+> Brotli is universally beneficial and applied unconditionally.
+>
+> The research code used an inheritance hierarchy (`Compressor`
+> → `IdentityLossless` / `JsonProjectedLossless` /
+> `PackedLossless`; `OwnershipCompressor` → `RawOwnership` /
+> `UniformScalarQuantOwnership`; `BundleCompressor` →
+> `PerPacketBundle` / `OwnershipFactoredBundle` + codec
+> wrappers). The user values inheritance for reasoning-ease,
+> not just code reuse.
+>
+> ## The two design options
+>
+> **Option A — Frontend owns the compression logic** (what the
+> current draft of `docs/notes/analysis-bundle-compression-plan.md`
+> proposes):
+>
+> - Frontend ports the Python research inheritance hierarchy to
+>   TypeScript.
+> - Frontend encodes the bundle (projection + quantisation) into
+>   compressed bytes; sends `{format_descriptor, data_b64}` to
+>   backend.
+> - Backend brotli-wraps the bytes (always); stores
+>   `format_descriptor` as JSONB + the brotli-compressed bytes.
+> - On read: backend brotli-decompresses, returns
+>   `{format_descriptor, data_b64}` verbatim. Frontend decodes.
+> - Hexagonal `AnalysisBundleStoragePort` stays "save/load
+>   bytes by (user, board)". No compression abstractions on
+>   backend.
+> - Wire upload size = post-projection, post-quantisation
+>   (small).
+>
+> **Option B — Backend owns the compression logic** (the
+> project author's preferred design):
+>
+> - Frontend sends the raw bundle (full uncompressed JSON, all
+>   KataGo fields, all 361 ownership floats) + configuration
+>   `{projection_keys, quantise: {scheme, bits}}`.
+> - Backend receives, applies projection per the allow-list,
+>   applies quantisation, applies brotli, stores.
+> - On read: backend brotli-decompresses, dequantises, returns
+>   reconstructed JSON bundle to frontend.
+> - The Python inheritance hierarchy from the research arc ports
+>   to the backend essentially verbatim (`backend/services/
+>   compression/`).
+> - Frontend's role: configuration only. No encoding code.
+> - Wire upload size = full raw bundle (large).
+>
+> The project author's rationale for Option B (their words):
+>
+> > "I'm thinking that the abstractions used during this
+> > investigation can probably survive into the backend code,
+> > but I'm not familiar with how the hexagonal infrastructure
+> > is supposed to work, so I'll let you be the judge of that;
+> > though, FWIW abstractions for me serve to make the code
+> > easier to reason about, which is why I started with the
+> > constraint of having the investigation proceed under an
+> > inheritance paradigm."
+>
+> And then they corrected my earlier (badly-framed) framing of
+> "compression abstractions on both sides" with:
+>
+> > "I'm not saying that the alternative design is that the
+> > infrastructure should live on the backend essentially as
+> > documentation, but rather that the frontend is not
+> > responsible for compression in any capacity other than
+> > configuration (keys + boolean on quantization)."
+>
+> So Option B is the genuine alternative: frontend is config-
+> only; backend does all the encoding/decoding work.
+>
+> ## Constraints worth knowing
+>
+> - **`analysisAutoSave` is opt-in** (default off, shipped to
+>   `main`): when on, the SPA PUTs a bundle ~every 2s of analysis
+>   activity. Auto-save makes upload-bandwidth a continuous
+>   concern, not a per-click one.
+> - **The schema-projection allow-list lives in `frontend/src/
+>   engine/katago/types.ts`** (the SPA's typed-shape interfaces).
+>   Option A's CI gate uses TypeScript's type system
+>   (`Exclude<keyof InterfaceName, ProjectedKey>` reduced to
+>   `never`) for free at build time. Option B's gate would need
+>   a different mechanism — either the frontend computes the
+>   allow-list and ships it on the wire (still TypeScript-gated),
+>   or the backend has its own schema definition and the gate is
+>   cross-team.
+> - **ADR-0002 (fail loudly)** is the project's most consequential
+>   tenet — silent type drift across cross-team boundaries is
+>   exactly what it forbids.
+> - **The backend's `AnalysisBundleStoragePort`** is currently
+>   extremely thin. The current design (storedScheme dispatch
+>   on json / json+gzip) has the backend handle codec choice
+>   today, so there's precedent for backend involvement.
+> - **The empirical leader's ratio is 0.127**, but the wire
+>   upload in Option B carries the full ~16.8 KB/packet raw
+>   JSON, while in Option A it carries the ~2.1 KB compressed-
+>   bundle. Bundles in active SR usage can have hundreds of
+>   packets — Option B's upload bandwidth is ~8× Option A's for
+>   the same persisted state.
+>
+> ## Your task
+>
+> 1. Read the design note at `/home/bork/w/omega/docs/notes/
+>    analysis-bundle-compression-plan.md` (currently on this
+>    branch) end-to-end. Note: the note as written presupposes
+>    Option A; for this analysis, treat its arguments as Option
+>    A's case-in-chief and look for what's missing or weak.
+>
+> 2. Lay out the pros and cons of each option **on this
+>    project's specifics**, not in the abstract. Consider at
+>    minimum:
+>    - Reasoning-ease (the author's stated reason for
+>      inheritance)
+>    - Cross-team coupling cost and the version-drift failure
+>      mode ADR-0002 cares about
+>    - Upload bandwidth under the auto-save constraint
+>    - Where the schema-projection allow-list authoritatively
+>      lives
+>    - Hexagonal Port discipline and what the right Port surface
+>      is
+>    - Compute cost (whose CPU pays for quantisation /
+>      encoding?)
+>    - Audit and observability (server-side ability to introspect
+>      stored bundles for quota dashboards, etc.)
+>    - Forward-compat: which option degrades more gracefully if
+>      compression schemes evolve
+>
+> 3. **Your verdict.** Which option would you ship, and why?
+>    If you'd push back on the design note's current position
+>    (Option A), say so directly. The author's preference is
+>    Option B — also push back on that if you think it's wrong.
+>    They value an independent take.
+>
+> 4. **If neither is clearly best**, name the conditions /
+>    constraints that determine the answer, and which question(s)
+>    the author should resolve before locking in.
+>
+> Output: a structured response. Under 700 words. The user will
+> read your response verbatim alongside their own rationale and
+> this prompt, in a doc amendment.
+
+### The firewall's response (verbatim)
+
+> I've read the design note end-to-end. Forming my independent
+> view.
+>
+> # Independent assessment: Option A vs Option B
+>
+> ## Option A (frontend owns encoding) — pros
+>
+> - **Single source of truth for the projection allow-list.**
+>   Lives next to `KataMoveInfo` / `KataRootInfo` in
+>   `frontend/src/engine/katago/types.ts`; the `vue-tsc` gate
+>   (`Exclude<keyof I, K> extends never`) is free, runs on every
+>   PR, and surfaces drift exactly where ADR-0002 wants it
+>   surfaced — at the compile-time boundary owned by the team
+>   that maintains the interface.
+> - **Upload bandwidth.** Under `analysisAutoSave` (PUT every
+>   ~2s, bundles with hundreds of packets), Option A ships
+>   ~2.1 KB/packet, Option B ships ~16.8 KB/packet. That's ~8×
+>   the egress from the SPA's network at the exact cadence the
+>   user just opted into. Mobile / hotspot users feel this.
+> - **CPU placement.** Quantisation and projection are linear-in-
+>   bundle work; doing them client-side amortises across users
+>   instead of concentrating on a single backend process serving
+>   N users at 0.5 Hz each.
+> - **Hexagonal cleanliness.** `AnalysisBundleStoragePort` stays
+>   "save/load bytes by (user, board)" — a minimal Port.
+>   Compression is not a backend domain concept under Option A.
+> - **Loss is declared at the boundary the lossy decision is
+>   made.** The SPA is the only side that knows whether it has
+>   the lossless original still in memory; making it the encoder
+>   keeps that decision local.
+>
+> ## Option A — cons
+>
+> - The TypeScript port is real work (research code was Python).
+>   The inheritance hierarchy survives, but the bit-level
+>   encoders (quantisation packing, brotli-or-not) must be re-
+>   implemented and unit-tested in TS.
+> - Backend can't introspect stored bundles without a
+>   deserializer it doesn't own.
+>
+> ## Option B (backend owns encoding) — pros
+>
+> - **Inheritance hierarchy ports verbatim** from research
+>   Python. This is the author's stated reason — reasoning-ease
+>   via the abstractions that already exist.
+> - **One canonical encoder.** No risk of TS-vs-Python encoder
+>   divergence.
+> - **Backend can introspect** stored bundles for quota
+>   dashboards, batch re-encoding, format-migration arcs,
+>   server-side compression A/B experiments.
+> - **Codec evolution is server-only.** Adding a new
+>   quantisation scheme doesn't require an SPA release.
+>
+> ## Option B — cons (the load-bearing ones)
+>
+> - **The allow-list authority problem.** The schema-projection
+>   allow-list *is* the SPA's typed contract. Putting the
+>   encoder on the backend means either (a) the backend has its
+>   own schema definition — now two sources of truth, exactly
+>   the ADR-0002 silent-drift failure mode — or (b) the SPA
+>   ships the allow-list on the wire per-request, in which case
+>   the backend is just executing the SPA's declared projection
+>   and the inheritance "lives on the backend" only nominally.
+> - **Upload bandwidth under auto-save.** ~8× egress at 0.5 Hz
+>   is not a thought experiment; it's the steady-state cost of
+>   the feature the user just shipped to main. This alone is
+>   close to dispositive.
+> - **Hexagonal smell.** `AnalysisBundleStoragePort` would need
+>   compression-scheme awareness to do its job, which puts a
+>   frontend-shaped concept (which fields the SPA reads) into
+>   the backend's domain model.
+> - **The reasoning-ease win is real but the inheritance
+>   hierarchy is small** (~3 abstract classes, ~6 concrete).
+>   Porting to TS preserves it; it doesn't have to live server-
+>   side to remain legible.
+>
+> ## Verdict
+>
+> **Ship Option A.** The author's preference for B is grounded
+> in a real value (reasoning-ease via inheritance), but the
+> inheritance survives under A — it just lives in TypeScript
+> instead of Python. The decisive factor isn't the abstraction's
+> home; it's that under B the projection allow-list either
+> duplicates across language boundaries (ADR-0002 drift) or
+> rides the wire as configuration (in which case B's "backend
+> owns compression" claim is mostly cosmetic, and you've paid
+> the 8× upload cost for the cosmetic). The auto-save bandwidth
+> multiplier is the second independent reason — continuous,
+> user-visible, asymmetric with no upside.
+>
+> **Push back on the design note:** it makes the right call but
+> undersells the auto-save bandwidth argument (currently only
+> implicit) and the allow-list-authority argument (mentioned
+> but not framed as ADR-0002). Both deserve to be in the wire-
+> shape rationale section explicitly.
+>
+> **Push back on the author:** the "abstractions survive into
+> the backend" instinct is sound for *research-to-production*,
+> but the abstractions don't care which language they're in.
+> Port them to TS; the reasoning-ease property travels with the
+> class graph, not with the interpreter.
+>
+> **One conditional caveat:** if a future arc needs server-side
+> bundle introspection (quota analytics over decoded content,
+> batch re-quantisation, cross-user dedup), the calculus shifts.
+> None of those are in scope today; revisit if/when they arrive.
+
+### Where this leaves the design
+
+The body of the note above presupposes Option A. The firewall's
+verdict reinforces it on two specific axes the body underplays:
+
+1. **`analysisAutoSave` upload bandwidth** — Option B's ~8×
+   multiplier (full raw JSON every ~2s during active analysis)
+   is steady-state, user-visible, and asymmetric. The body's
+   wire-shape rationale doesn't surface this; it should.
+2. **Allow-list authority is an ADR-0002 concern** — duplicated
+   schema (interface in TS + projection-key list in backend
+   Python) is exactly the silent-drift failure mode the tenet
+   forbids. The body mentions this implicitly as "single point
+   of compression logic"; framing it as ADR-0002 is sharper.
+
+Both points are absorbed at implementation time. The conditional
+caveat the firewall raises — server-side introspection becoming
+useful for a future quota / re-encoding arc — is filed here so
+a future contributor sees the trigger for revisiting.
+
+The implementation arc proceeds on the Option A wire-shape.
+
 License: Public Domain (The Unlicense)
