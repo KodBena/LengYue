@@ -33,9 +33,16 @@ from .packed import _read_uvarint, _write_uvarint
 
 
 class OwnershipCompressor(ABC):
-    """Abstract base for ownership-sequence codecs."""
+    """Abstract base for ownership-sequence codecs.
+
+    `is_lossless` (default True) is the round-trip contract flag.
+    Lossy subclasses (`LossyOwnershipCompressor` in
+    `lossy_ownership.py`) override to False, and the bench harness
+    switches from bit-equality assertion to reconstruction-error
+    measurement based on this flag."""
 
     name: str
+    is_lossless: bool = True
 
     @abstractmethod
     def encode(self, arrays: list[list[float]]) -> bytes:

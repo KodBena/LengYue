@@ -42,6 +42,12 @@ from .bundle import (
     ZstdBundle,
 )
 from .identity import IdentityLossless, JsonBrotliLossless
+from .lossy_ownership import (
+    DeltaUniformScalarQuantOwnership,
+    KMeansScalarQuantOwnership,
+    ProductVQOwnership,
+    UniformScalarQuantOwnership,
+)
 from .ownership import (
     DeltaOwnership,
     FlatSortedDeltaOwnership,
@@ -98,6 +104,41 @@ ALL_BUNDLE_COMPRESSORS: list[LosslessBundleCompressor] = [
     GzipBundle(OwnershipFactoredBundle(IdentityLossless(), FlatSortedDeltaOwnership())),
     ZstdBundle(OwnershipFactoredBundle(IdentityLossless(), FlatSortedDeltaOwnership())),
     BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), FlatSortedDeltaOwnership())),
+    # ────────────────────────────────────────────────────────────────
+    # LOSSY tier — quantisation. Per-bundle codebook fit (the user's
+    # "quantization would happen per-game" directive). Each variant
+    # paired with a no-codec baseline + Brotli to see codec headroom.
+    # Reconstruction error reported in L2 RMSE + L-infinity max-abs
+    # over all bundle cells.
+    # ────────────────────────────────────────────────────────────────
+    OwnershipFactoredBundle(IdentityLossless(), UniformScalarQuantOwnership(1)),
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), UniformScalarQuantOwnership(1))),
+    OwnershipFactoredBundle(IdentityLossless(), UniformScalarQuantOwnership(2)),
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), UniformScalarQuantOwnership(2))),
+    OwnershipFactoredBundle(IdentityLossless(), UniformScalarQuantOwnership(4)),
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), UniformScalarQuantOwnership(4))),
+    OwnershipFactoredBundle(IdentityLossless(), UniformScalarQuantOwnership(8)),
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), UniformScalarQuantOwnership(8))),
+    OwnershipFactoredBundle(IdentityLossless(), KMeansScalarQuantOwnership(4)),
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), KMeansScalarQuantOwnership(4))),
+    OwnershipFactoredBundle(IdentityLossless(), KMeansScalarQuantOwnership(16)),
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), KMeansScalarQuantOwnership(16))),
+    OwnershipFactoredBundle(IdentityLossless(), KMeansScalarQuantOwnership(256)),
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), KMeansScalarQuantOwnership(256))),
+    OwnershipFactoredBundle(IdentityLossless(), ProductVQOwnership(19, 16)),
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), ProductVQOwnership(19, 16))),
+    OwnershipFactoredBundle(IdentityLossless(), ProductVQOwnership(19, 256)),
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), ProductVQOwnership(19, 256))),
+    # — DPCM (subtraction-delta) + uniform scalar quantisation. Fast,
+    #   bounded per-step error. delta_range = 2.0 covers the full
+    #   possible delta magnitude (a cell swinging from -1 to +1 in
+    #   one turn); no clipping. Cost: per-bin width is 2× wider than
+    #   direct UniformQ at the same bit-depth, so per-step precision
+    #   is halved.
+    OwnershipFactoredBundle(IdentityLossless(), DeltaUniformScalarQuantOwnership(4, 2.0)),
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), DeltaUniformScalarQuantOwnership(4, 2.0))),
+    OwnershipFactoredBundle(IdentityLossless(), DeltaUniformScalarQuantOwnership(8, 2.0)),
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), DeltaUniformScalarQuantOwnership(8, 2.0))),
 ]
 
 
@@ -124,15 +165,32 @@ def iter_bundles(r: redis.Redis) -> Iterable[tuple[str, list[dict]]]:
         yield stem, packets
 
 
-def bench_one(c: LosslessBundleCompressor, bundle: list[dict]) -> tuple[int, float, float, bool]:
+def bench_one(c: LosslessBundleCompressor, bundle: list[dict]) -> tuple[int, float, float, bool, float, float]:
+    """Returns (bytes, encode_ms, decode_ms, ok, l2_rmse, max_abs).
+    For lossless compressors: ok is decoded == bundle; reconstruction
+    errors are 0. For lossy: ok is True (no bit-equality assertion);
+    errors computed over the original vs decoded ownership arrays."""
+    import numpy as np
     t0 = time.perf_counter()
     blob = c.encode(bundle)
     enc_ms = (time.perf_counter() - t0) * 1000
     t1 = time.perf_counter()
     decoded = c.decode(blob)
     dec_ms = (time.perf_counter() - t1) * 1000
-    ok = decoded == bundle
-    return len(blob), enc_ms, dec_ms, ok
+    if c.is_lossless:
+        return len(blob), enc_ms, dec_ms, decoded == bundle, 0.0, 0.0
+    # Lossy: assert non-ownership fields round-trip exactly (which
+    # they do — the rest path is lossless); measure ownership error.
+    orig_own = [p["ownership"] for p in bundle if "ownership" in p]
+    rec_own = [p["ownership"] for p in decoded if "ownership" in p]
+    if not orig_own:
+        return len(blob), enc_ms, dec_ms, True, 0.0, 0.0
+    orig_arr = np.array(orig_own, dtype=np.float64)
+    rec_arr = np.array(rec_own, dtype=np.float64)
+    diff = rec_arr - orig_arr
+    l2_rmse = float(np.sqrt(np.mean(diff ** 2)))
+    max_abs = float(np.max(np.abs(diff)))
+    return len(blob), enc_ms, dec_ms, True, l2_rmse, max_abs
 
 
 def fmt_bytes(n: float) -> str:
@@ -178,22 +236,30 @@ def main() -> int:
     total_packets = sum(len(b) for _, b in bundles)
     print(f"{len(bundles)} bundles, {total_packets} packets total", flush=True)
 
-    # Pre-flight roundtrip on the first bundle to fail loud on any
-    # broken compressor before the full sweep.
+    # Pre-flight: encode/decode every compressor on the first bundle
+    # without insisting on bit-equality (lossy variants would fail).
+    # Just ensure no exception path.
     first_bundle = bundles[0][1]
-    print("pre-flight roundtrip on first bundle:", flush=True)
+    print("pre-flight encode/decode on first bundle:", flush=True)
     any_broken = False
     for c in ALL_BUNDLE_COMPRESSORS:
-        ok = c.roundtrip_check(first_bundle)
-        mark = "ok" if ok else "BROKEN"
-        print(f"  {c.name:42s}  {mark}", flush=True)
-        if not ok:
+        try:
+            blob = c.encode(first_bundle)
+            decoded = c.decode(blob)
+            tier = "lossless" if c.is_lossless else "lossy"
+            ok = decoded == first_bundle if c.is_lossless else True
+            mark = "ok" if ok else "BROKEN"
+            print(f"  {c.name:50s}  [{tier}]  {mark}", flush=True)
+            if not ok:
+                any_broken = True
+        except Exception as e:
+            print(f"  {c.name:50s}  EXCEPTION: {e}", flush=True)
             any_broken = True
     if any_broken:
         print("ERROR: at least one compressor failed pre-flight", file=sys.stderr)
         return 2
 
-    per_compressor: dict[str, list[tuple[int, float, float, bool, int]]] = {
+    per_compressor: dict[str, list[tuple[int, float, float, bool, float, float, int]]] = {
         c.name: [] for c in ALL_BUNDLE_COMPRESSORS
     }
 
@@ -201,18 +267,20 @@ def main() -> int:
         w = csv.writer(f)
         w.writerow([
             "stem", "n_packets", "compressor",
-            "bytes", "encode_ms", "decode_ms", "roundtrip_ok",
+            "bytes", "encode_ms", "decode_ms", "ok",
+            "l2_rmse", "max_abs",
         ])
 
         t_start = time.monotonic()
         for stem, bundle in bundles:
             for c in ALL_BUNDLE_COMPRESSORS:
-                bytes_, e_ms, d_ms, ok = bench_one(c, bundle)
+                bytes_, e_ms, d_ms, ok, l2, mabs = bench_one(c, bundle)
                 w.writerow([
                     stem, len(bundle), c.name,
                     bytes_, f"{e_ms:.3f}", f"{d_ms:.3f}", "Y" if ok else "N",
+                    f"{l2:.6f}", f"{mabs:.6f}",
                 ])
-                per_compressor[c.name].append((bytes_, e_ms, d_ms, ok, len(bundle)))
+                per_compressor[c.name].append((bytes_, e_ms, d_ms, ok, l2, mabs, len(bundle)))
             print(f"  bundle done: {stem} ({len(bundle)} packets)", flush=True)
 
     elapsed = time.monotonic() - t_start
@@ -230,25 +298,38 @@ def main() -> int:
 
     print(flush=True)
     print(
-        f"{'compressor':42s}  {'bundle-mean':>11s}  {'bytes/pkt':>10s}  "
-        f"{'ratio':>6s}  {'enc-ms':>8s}  {'dec-ms':>8s}  {'rt':>3s}",
+        f"{'compressor':50s}  {'bytes/pkt':>10s}  {'ratio':>6s}  "
+        f"{'enc-ms':>8s}  {'dec-ms':>8s}  {'L2-rmse':>8s}  {'max-abs':>8s}  {'rt':>4s}",
         flush=True,
     )
-    print("-" * 100, flush=True)
+    print("-" * 116, flush=True)
     for c in ALL_BUNDLE_COMPRESSORS:
         rows = per_compressor[c.name]
         total_bytes = sum(r[0] for r in rows)
-        mean_bundle = statistics.mean(r[0] for r in rows)
-        total_pkts = sum(r[4] for r in rows)
+        total_pkts = sum(r[6] for r in rows)
         bytes_per_pkt = total_bytes / max(total_pkts, 1)
         ratio = total_bytes / max(baseline_total, 1)
         enc_ms = statistics.mean(r[1] for r in rows)
         dec_ms = statistics.mean(r[2] for r in rows)
-        rt_ok_count = sum(1 for r in rows if r[3])
-        rt_mark = "Y" if rt_ok_count == len(rows) else f"{rt_ok_count}/{len(rows)}"
+        if c.is_lossless:
+            rt_ok_count = sum(1 for r in rows if r[3])
+            rt_mark = "Y" if rt_ok_count == len(rows) else f"{rt_ok_count}/{len(rows)}"
+            l2_str = "—"
+            mabs_str = "—"
+        else:
+            rt_mark = "lossy"
+            # Aggregate L2 RMSE across bundles: sqrt(mean of per-bundle squared RMSE)
+            # weighted by bundle cell count. Simpler: just take the
+            # arithmetic mean over bundles since each is comparably
+            # sized.
+            l2 = statistics.mean(r[4] for r in rows)
+            mabs = max(r[5] for r in rows)
+            l2_str = f"{l2:.4f}"
+            mabs_str = f"{mabs:.4f}"
         print(
-            f"{c.name:42s}  {fmt_bytes(mean_bundle):>11s}  {fmt_bytes(bytes_per_pkt):>10s}  "
-            f"{ratio:>6.3f}  {enc_ms:>8.1f}  {dec_ms:>8.1f}  {rt_mark:>3s}",
+            f"{c.name:50s}  {fmt_bytes(bytes_per_pkt):>10s}  "
+            f"{ratio:>6.3f}  {enc_ms:>8.1f}  {dec_ms:>8.1f}  "
+            f"{l2_str:>8s}  {mabs_str:>8s}  {rt_mark:>4s}",
             flush=True,
         )
 

@@ -24,6 +24,12 @@ from .bundle import (
     ZstdBundle,
 )
 from .identity import IdentityLossless
+from .lossy_ownership import (
+    DeltaUniformScalarQuantOwnership,
+    KMeansScalarQuantOwnership,
+    ProductVQOwnership,
+    UniformScalarQuantOwnership,
+)
 from .ownership import (
     DeltaOwnership,
     FlatSortedDeltaOwnership,
@@ -174,6 +180,117 @@ def test_bundle_with_missing_ownership() -> None:
     print("  test_bundle_with_missing_ownership: OK")
 
 
+def test_uniform_quant_error_bounded() -> None:
+    """UniformScalarQuant(bits) has max-abs reconstruction error
+    bounded by half-bin-width = 1/2^bits. Verify the bound holds
+    on a synthetic bundle with varied float values."""
+    import math
+    bundle = []
+    for t in range(1, 11):
+        p = _synthesise_packet(turn_number=t, n_move_infos=3, pv_len=2, state_max_turn=t)
+        # Spread values across [-1, 1] to exercise all bins.
+        p["ownership"] = [
+            math.sin(0.5 * t + 0.01 * i)
+            for i in range(361)
+        ]
+        bundle.append(p)
+    for bits in (1, 2, 4, 8):
+        c = OwnershipFactoredBundle(IdentityLossless(), UniformScalarQuantOwnership(bits))
+        decoded = c.decode(c.encode(bundle))
+        assert not c.is_lossless, "UniformQuant should not claim losslessness"
+        # Non-ownership fields must still round-trip exactly.
+        for orig, rec in zip(bundle, decoded):
+            for k in orig:
+                if k != "ownership":
+                    assert orig[k] == rec[k], f"non-ownership field {k} drift at bits={bits}"
+        # Ownership max-abs ≤ half-bin-width = 1/2^bits.
+        bound = 1.0 / (1 << bits)
+        for orig, rec in zip(bundle, decoded):
+            mabs = max(abs(o - r) for o, r in zip(orig["ownership"], rec["ownership"]))
+            assert mabs <= bound + 1e-12, (
+                f"UniformQ{bits}b: max-abs {mabs} exceeds bound {bound}"
+            )
+    print("  test_uniform_quant_error_bounded: OK")
+
+
+def test_kmeans_quant_runs() -> None:
+    """KMeansScalarQuant fits a 1D codebook and round-trips through
+    the bundle. Reconstruction error isn't bounded analytically
+    (depends on data distribution); we just check the variant
+    runs and the rest of the packet round-trips."""
+    bundle = []
+    for t in range(1, 21):
+        p = _synthesise_packet(turn_number=t, n_move_infos=3, pv_len=2, state_max_turn=t)
+        # Clustered ownership: half cells near -1, half near +1.
+        p["ownership"] = (
+            [-1.0 + 0.001 * t] * 180
+            + [0.0 + 0.001 * t] * 1
+            + [1.0 - 0.001 * t] * 180
+        )
+        bundle.append(p)
+    for k in (4, 16, 256):
+        c = OwnershipFactoredBundle(IdentityLossless(), KMeansScalarQuantOwnership(k))
+        decoded = c.decode(c.encode(bundle))
+        assert not c.is_lossless
+        for orig, rec in zip(bundle, decoded):
+            for fld in orig:
+                if fld != "ownership":
+                    assert orig[fld] == rec[fld]
+    print("  test_kmeans_quant_runs: OK")
+
+
+def test_delta_uniform_quant_runs() -> None:
+    """DeltaUniformScalarQuant runs end-to-end on a varied bundle.
+    Reconstruction uses the same DPCM loop as the encoder, so error
+    is bounded per-step by delta_range / 2^bits."""
+    import math
+    bundle = []
+    for t in range(1, 21):
+        p = _synthesise_packet(turn_number=t, n_move_infos=3, pv_len=2, state_max_turn=t)
+        # Slowly drifting ownership — exercises the DPCM loop's
+        # accumulation behaviour.
+        p["ownership"] = [
+            0.9 * math.sin(0.1 * t + 0.01 * i) for i in range(361)
+        ]
+        bundle.append(p)
+    for bits, dr in [(4, 2.0), (8, 2.0), (4, 0.5)]:
+        c = OwnershipFactoredBundle(
+            IdentityLossless(), DeltaUniformScalarQuantOwnership(bits, dr),
+        )
+        decoded = c.decode(c.encode(bundle))
+        assert not c.is_lossless
+        # Non-ownership fields exact.
+        for orig, rec in zip(bundle, decoded):
+            for k in orig:
+                if k != "ownership":
+                    assert orig[k] == rec[k]
+    print("  test_delta_uniform_quant_runs: OK")
+
+
+def test_product_vq_runs() -> None:
+    """ProductVQ requires W divisible by M. For W=361, M=19 works
+    (361 / 19 = 19). Test runs without error and recovers a non-
+    ownership-equal bundle (lossy on ownership only)."""
+    bundle = []
+    for t in range(1, 21):
+        p = _synthesise_packet(turn_number=t, n_move_infos=3, pv_len=2, state_max_turn=t)
+        # Vary ownership a bit so K-means has structure to find.
+        p["ownership"] = [
+            (-1.0 if (i // 19) % 2 == 0 else 1.0) + 0.001 * t
+            for i in range(361)
+        ]
+        bundle.append(p)
+    for k in (16, 256):
+        c = OwnershipFactoredBundle(IdentityLossless(), ProductVQOwnership(19, k))
+        decoded = c.decode(c.encode(bundle))
+        assert not c.is_lossless
+        for orig, rec in zip(bundle, decoded):
+            for fld in orig:
+                if fld != "ownership":
+                    assert orig[fld] == rec[fld]
+    print("  test_product_vq_runs: OK")
+
+
 def test_corpus_bundle_roundtrip() -> None:
     """Group corpus by stem and roundtrip each bundle through every
     registered compressor."""
@@ -224,6 +341,10 @@ def main() -> int:
     test_delta_byte_count_matches_raw()
     test_delta_bit_exact_varied_floats()
     test_bundle_with_missing_ownership()
+    test_uniform_quant_error_bounded()
+    test_kmeans_quant_runs()
+    test_product_vq_runs()
+    test_delta_uniform_quant_runs()
     test_corpus_bundle_roundtrip()
     print("all tests passed.")
     return 0

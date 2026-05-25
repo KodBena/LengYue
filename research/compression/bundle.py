@@ -41,9 +41,17 @@ from .packed import _read_uvarint, _write_uvarint
 
 
 class BundleCompressor(ABC):
-    """Abstract root for bundle-level codecs."""
+    """Abstract root for bundle-level codecs.
+
+    `is_lossless` is a contract flag the bench harness reads to
+    decide between bit-equality assertion and reconstruction-
+    error measurement. Subclasses that wrap an inner
+    BundleCompressor (codec wrappers) propagate the flag; ones
+    that compose lower-level compressors (OwnershipFactoredBundle)
+    derive it from their inputs in `__init__`."""
 
     name: str
+    is_lossless: bool = True
 
     @abstractmethod
     def encode(self, bundle: list[dict[str, Any]]) -> bytes:
@@ -58,7 +66,10 @@ class LosslessBundleCompressor(BundleCompressor):
     """Round-trip contract: `decode(encode(b)) == b` at the list-of-
     dicts level. Equality is Python's `==`: same length, same
     packet values in same positions (each packet compared with
-    dict-`==`)."""
+    dict-`==`).
+
+    Concrete subclasses inherit `is_lossless = True`; instances
+    composed with lossy components flip it to False in `__init__`."""
 
     def roundtrip_check(self, bundle: list[dict[str, Any]]) -> bool:
         try:
@@ -139,6 +150,10 @@ class OwnershipFactoredBundle(LosslessBundleCompressor):
         self.rest = rest
         self.own = own
         self.name = f"OFB[{rest.name},{own.name}]"
+        # Bundle losslessness = both halves lossless. `rest` is the
+        # per-packet Compressor (always lossless in the current
+        # hierarchy); `own` may be lossy.
+        self.is_lossless = own.is_lossless
 
     def encode(self, bundle: list[dict[str, Any]]) -> bytes:
         n = len(bundle)
@@ -208,6 +223,9 @@ class _BundleCodecBase(LosslessBundleCompressor):
     def __init__(self, inner: LosslessBundleCompressor) -> None:
         self.inner = inner
         self.name = f"{inner.name}+{self.suffix}"
+        # Codec layer doesn't change the inner bundle's
+        # losslessness contract — propagate.
+        self.is_lossless = inner.is_lossless
 
     def encode(self, bundle: list[dict[str, Any]]) -> bytes:
         return self._compress(self.inner.encode(bundle))
