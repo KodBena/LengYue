@@ -92,6 +92,10 @@ class PerPacketBundle(LosslessBundleCompressor):
     def __init__(self, inner: LosslessCompressor) -> None:
         self.inner = inner
         self.name = f"Bundle[{inner.name}]"
+        # Propagate the per-packet contract — a projection-style
+        # "Lossless" Compressor that drops fields still flips the
+        # bundle to lossy.
+        self.is_lossless = getattr(inner, "is_lossless", True)
 
     def encode(self, bundle: list[dict[str, Any]]) -> bytes:
         out = io.BytesIO()
@@ -150,10 +154,10 @@ class OwnershipFactoredBundle(LosslessBundleCompressor):
         self.rest = rest
         self.own = own
         self.name = f"OFB[{rest.name},{own.name}]"
-        # Bundle losslessness = both halves lossless. `rest` is the
-        # per-packet Compressor (always lossless in the current
-        # hierarchy); `own` may be lossy.
-        self.is_lossless = own.is_lossless
+        # Bundle losslessness = both halves lossless. Either half
+        # being lossy (projection-rest or quant-ownership) makes
+        # the whole bundle lossy.
+        self.is_lossless = getattr(rest, "is_lossless", True) and own.is_lossless
 
     def encode(self, bundle: list[dict[str, Any]]) -> bytes:
         n = len(bundle)

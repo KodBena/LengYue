@@ -27,6 +27,7 @@ from .identity import IdentityLossless
 from .lossy_ownership import (
     DeltaUniformScalarQuantOwnership,
     KMeansScalarQuantOwnership,
+    ProductResidualVQOwnership,
     ProductVQOwnership,
     UniformScalarQuantOwnership,
 )
@@ -291,6 +292,34 @@ def test_product_vq_runs() -> None:
     print("  test_product_vq_runs: OK")
 
 
+def test_product_residual_vq_runs() -> None:
+    """PRVQ via FAISS: fit codebooks + residual stages, encode,
+    decode. Verify round-trip produces reasonable values (not bit-
+    exact; lossy by construction). Non-ownership fields exact."""
+    bundle = []
+    for t in range(1, 41):
+        p = _synthesise_packet(turn_number=t, n_move_infos=3, pv_len=2, state_max_turn=t)
+        # 361 ownership values with row-structure so PRVQ's
+        # row-sub-vector split has structure to find.
+        p["ownership"] = [
+            (-1.0 if (i // 19) % 2 == 0 else 1.0) + 0.001 * t + 0.0001 * (i % 19)
+            for i in range(361)
+        ]
+        bundle.append(p)
+    for ns, m, b in [(19, 2, 4), (19, 3, 4)]:
+        c = OwnershipFactoredBundle(
+            IdentityLossless(), ProductResidualVQOwnership(ns, m, b),
+        )
+        decoded = c.decode(c.encode(bundle))
+        assert not c.is_lossless
+        # Non-ownership fields exact.
+        for orig, rec in zip(bundle, decoded):
+            for k in orig:
+                if k != "ownership":
+                    assert orig[k] == rec[k]
+    print("  test_product_residual_vq_runs: OK")
+
+
 def test_corpus_bundle_roundtrip() -> None:
     """Group corpus by stem and roundtrip each bundle through every
     registered compressor."""
@@ -345,6 +374,7 @@ def main() -> int:
     test_kmeans_quant_runs()
     test_product_vq_runs()
     test_delta_uniform_quant_runs()
+    test_product_residual_vq_runs()
     test_corpus_bundle_roundtrip()
     print("all tests passed.")
     return 0

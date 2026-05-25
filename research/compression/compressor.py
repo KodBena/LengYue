@@ -39,6 +39,15 @@ class Compressor(ABC):
     class attribute that the bench harness uses for the row label;
     every concrete compressor implements `encode` and `decode`.
 
+    `is_lossless` (default True) is the runtime round-trip contract
+    flag. Subclasses with `decode(encode(p)) != p` for some
+    well-formed `p` set this to False. Note this is independent of
+    inheritance from `LosslessCompressor`: a per-packet projector
+    that intentionally drops unmodelled fields inherits the JSON-
+    family encode/decode machinery from `LosslessCompressor` but
+    declares `is_lossless = False` to be honest with the bench
+    harness.
+
     Subclasses are not instantiated with parameters by default —
     each codec subclass carries its level / quality as a class
     attribute so the bench harness can spin a list of zero-arg
@@ -47,6 +56,7 @@ class Compressor(ABC):
     attribute on the instance."""
 
     name: str
+    is_lossless: bool = True
 
     @abstractmethod
     def encode(self, packet: dict[str, Any]) -> bytes:

@@ -41,10 +41,16 @@ from .bundle import (
     PerPacketBundle,
     ZstdBundle,
 )
-from .identity import IdentityLossless, JsonBrotliLossless
+from .identity import (
+    IdentityLossless,
+    JsonBrotliLossless,
+    JsonProjectedBrotliLossless,
+    JsonProjectedLossless,
+)
 from .lossy_ownership import (
     DeltaUniformScalarQuantOwnership,
     KMeansScalarQuantOwnership,
+    ProductResidualVQOwnership,
     ProductVQOwnership,
     UniformScalarQuantOwnership,
 )
@@ -139,6 +145,53 @@ ALL_BUNDLE_COMPRESSORS: list[LosslessBundleCompressor] = [
     BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), DeltaUniformScalarQuantOwnership(4, 2.0))),
     OwnershipFactoredBundle(IdentityLossless(), DeltaUniformScalarQuantOwnership(8, 2.0)),
     BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), DeltaUniformScalarQuantOwnership(8, 2.0))),
+    # — Product-residual VQ via FAISS. nsplits=19 = one board row per
+    #   sub-vector; M_sub residual stages; K = 2^nbits codes per
+    #   stage. Smaller K is easier to train (FAISS wants ~40×K
+    #   training points; we have ~200 per bundle). The product of
+    #   M_sub × nbits is the bit budget per sub-vector — we sweep
+    #   the (M_sub, nbits) pair at fixed budget to see whether
+    #   "many shallow stages" beats "few deep stages".
+    OwnershipFactoredBundle(IdentityLossless(), ProductResidualVQOwnership(19, 2, 4)),
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), ProductResidualVQOwnership(19, 2, 4))),
+    OwnershipFactoredBundle(IdentityLossless(), ProductResidualVQOwnership(19, 3, 4)),
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), ProductResidualVQOwnership(19, 3, 4))),
+    OwnershipFactoredBundle(IdentityLossless(), ProductResidualVQOwnership(19, 4, 4)),
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), ProductResidualVQOwnership(19, 4, 4))),
+    # — K=4 (nbits=2): bit-budget-matched alternatives to the above —
+    OwnershipFactoredBundle(IdentityLossless(), ProductResidualVQOwnership(19, 4, 2)),  # 8 bits ≡ M2_b4
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), ProductResidualVQOwnership(19, 4, 2))),
+    OwnershipFactoredBundle(IdentityLossless(), ProductResidualVQOwnership(19, 6, 2)),  # 12 bits ≡ M3_b4
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), ProductResidualVQOwnership(19, 6, 2))),
+    OwnershipFactoredBundle(IdentityLossless(), ProductResidualVQOwnership(19, 8, 2)),  # 16 bits ≡ M4_b4
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), ProductResidualVQOwnership(19, 8, 2))),
+    # — K=8 (nbits=3): in between K=4 and K=16 —
+    OwnershipFactoredBundle(IdentityLossless(), ProductResidualVQOwnership(19, 3, 3)),  # 9 bits
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), ProductResidualVQOwnership(19, 3, 3))),
+    OwnershipFactoredBundle(IdentityLossless(), ProductResidualVQOwnership(19, 4, 3)),  # 12 bits ≡ M3_b4
+    BrotliBundle(OwnershipFactoredBundle(IdentityLossless(), ProductResidualVQOwnership(19, 4, 3))),
+    # ────────────────────────────────────────────────────────────────
+    # (a) Packed-the-rest variants. Test whether the schema-aware
+    # binary serialiser beats JSON-the-rest under the same lossy
+    # ownership + brotli pipeline. Hypothesis: probably similar or
+    # slightly worse, because Packed has already deduplicated the
+    # field names that brotli loves.
+    # ────────────────────────────────────────────────────────────────
+    OwnershipFactoredBundle(PackedLossless(), RawOwnership()),
+    BrotliBundle(OwnershipFactoredBundle(PackedLossless(), RawOwnership())),
+    OwnershipFactoredBundle(PackedLossless(), UniformScalarQuantOwnership(4)),
+    BrotliBundle(OwnershipFactoredBundle(PackedLossless(), UniformScalarQuantOwnership(4))),
+    # ────────────────────────────────────────────────────────────────
+    # (b) JSON-projected variants. Drop the SPA-unmodelled fields
+    # (~13/moveInfo, ~14/rootInfo) before JSON-encoding. Loses fields
+    # the SPA can't read; preserves what it can.
+    # ────────────────────────────────────────────────────────────────
+    PerPacketBundle(JsonProjectedLossless()),
+    PerPacketBundle(JsonProjectedBrotliLossless()),
+    OwnershipFactoredBundle(JsonProjectedLossless(), RawOwnership()),
+    BrotliBundle(OwnershipFactoredBundle(JsonProjectedLossless(), RawOwnership())),
+    OwnershipFactoredBundle(JsonProjectedLossless(), UniformScalarQuantOwnership(4)),
+    BrotliBundle(OwnershipFactoredBundle(JsonProjectedLossless(), UniformScalarQuantOwnership(4))),
 ]
 
 

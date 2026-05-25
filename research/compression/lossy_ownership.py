@@ -44,6 +44,14 @@ from typing import Any
 import numpy as np
 from sklearn.cluster import KMeans
 
+# faiss is the standard library for vector-quantization codecs. We
+# use it for ProductResidualQuantizer (PRVQ) since hand-rolling a
+# correct residual-stage quantiser would be substantial work — and
+# we want the result to be a fair baseline rather than a homegrown
+# approximation. `faiss-cpu` is the CPU-only build; GPU not needed
+# at our corpus size.
+import faiss
+
 from .ownership import OwnershipCompressor, _check_uniform_width
 from .packed import _read_uvarint, _write_uvarint
 
@@ -407,6 +415,117 @@ class KMeansScalarQuantOwnership(LossyOwnershipCompressor):
 
 
 # ── Product Vector Quantization ─────────────────────────────────────────────
+
+
+class ProductResidualVQOwnership(LossyOwnershipCompressor):
+    """Product-residual vector quantisation via
+    `faiss.ProductResidualQuantizer`. Splits each W-dim ownership
+    vector into `nsplits` sub-vectors of W/nsplits dims; quantises
+    each sub-vector in M_sub residual stages, with 2^nbits codes
+    per stage. Total bits per packet = nsplits × M_sub × nbits.
+
+    Why this should win over plain PVQ (no residual): residual
+    stages refine the per-sub-vector reconstruction iteratively —
+    stage 1 captures the dominant mode, stage 2 quantises the
+    leftover residual, etc. Each additional stage halves the
+    expected per-cell error (roughly) at the cost of more bits and
+    a bigger codebook.
+
+    Cost vs benefit at our corpus size (N=200ish maps per bundle):
+    FAISS's clustering subroutine wants ~40×K training points to
+    fit K centroids reliably; we have ~N, so for nbits=4 (K=16)
+    we're at ~12× — borderline. FAISS warns ("clustering N points
+    to K centroids") but proceeds; trained quality is somewhat
+    degraded.
+
+    Blob layout:
+      [varint N] [varint W] [1 byte nsplits] [1 byte M_sub] [1 byte nbits]
+      [1 byte code_size]
+      [codebook: M_sub × 2^nbits × W float32s — total floats =
+       M_sub × 2^nbits × W]
+      [N × code_size bytes of codes]
+    """
+
+    def __init__(self, nsplits: int, m_sub: int, nbits: int) -> None:
+        if nbits < 1 or nbits > 8:
+            raise ValueError(f"nbits must be in [1, 8]; got {nbits}")
+        if nsplits < 1 or m_sub < 1:
+            raise ValueError(f"nsplits and m_sub must be >= 1")
+        self.nsplits = nsplits
+        self.m_sub = m_sub
+        self.nbits = nbits
+        self.name = f"PRVQ_ns{nsplits}_M{m_sub}_b{nbits}"
+
+    def _make_quantiser(self, w: int) -> "faiss.ProductResidualQuantizer":
+        if w % self.nsplits != 0:
+            raise ValueError(
+                f"PRVQ: W={w} not divisible by nsplits={self.nsplits}"
+            )
+        return faiss.ProductResidualQuantizer(
+            w, self.nsplits, self.m_sub, self.nbits,
+        )
+
+    def encode(self, arrays: list[list[float]]) -> bytes:
+        n = len(arrays)
+        w = _check_uniform_width(arrays)
+        out = io.BytesIO()
+        _write_uvarint(out, n)
+        _write_uvarint(out, w)
+        if n == 0 or w == 0:
+            # Header-only; downstream code can detect by N=0.
+            out.write(bytes([self.nsplits, self.m_sub, self.nbits, 0]))
+            return out.getvalue()
+
+        X = np.array(arrays, dtype=np.float32)
+        prq = self._make_quantiser(w)
+        # FAISS prints "WARNING clustering ..." to stderr when the
+        # data-per-centroid ratio is below ~40; that's noisy in a
+        # bench loop and we accept the trained-quality hit as the
+        # cost of doing PRVQ on small bundles. Could suppress via
+        # faiss.cvar.distance_compute_min_k_reservoir or similar
+        # but not done here.
+        prq.train(X)
+        codes = prq.compute_codes(X)  # shape (N, code_size)
+        codebook = faiss.vector_to_array(prq.codebooks).astype(np.float32, copy=False)
+
+        out.write(bytes([self.nsplits, self.m_sub, self.nbits, prq.code_size]))
+        out.write(codebook.tobytes())
+        out.write(codes.tobytes())
+        return out.getvalue()
+
+    def decode(self, blob: bytes) -> list[list[float]]:
+        n, pos = _read_uvarint(blob, 0)
+        w, pos = _read_uvarint(blob, pos)
+        nsplits = blob[pos]
+        m_sub = blob[pos + 1]
+        nbits = blob[pos + 2]
+        code_size = blob[pos + 3]
+        pos += 4
+        if n == 0 or w == 0:
+            return []
+        if (nsplits, m_sub, nbits) != (self.nsplits, self.m_sub, self.nbits):
+            raise ValueError(
+                f"blob params ({nsplits}, {m_sub}, {nbits}) mismatch decoder "
+                f"({self.nsplits}, {self.m_sub}, {self.nbits})"
+            )
+
+        prq = self._make_quantiser(w)
+        # The codebook count: M_sub × 2^nbits per split × all splits.
+        # Total floats = nsplits × M_sub × 2^nbits × (W/nsplits) =
+        # M_sub × 2^nbits × W.
+        cb_floats = m_sub * (1 << nbits) * w
+        codebook = np.frombuffer(blob, dtype=np.float32, count=cb_floats, offset=pos).copy()
+        pos += cb_floats * 4
+        # Mark trained (we're providing the codebook directly) and
+        # restore via copy_array_to_vector.
+        prq.is_trained = True
+        faiss.copy_array_to_vector(codebook, prq.codebooks)
+
+        codes = np.frombuffer(blob, dtype=np.uint8, count=n * code_size, offset=pos).reshape(n, code_size)
+        pos += n * code_size
+        # FAISS expects contiguous uint8 codes.
+        recon = prq.decode(np.ascontiguousarray(codes))
+        return recon.astype(np.float64).tolist()
 
 
 class ProductVQOwnership(LossyOwnershipCompressor):
