@@ -78,6 +78,26 @@ const autoSaveErrorText = computed(() => {
 const summarySubtitle = computed(() => {
   const s = summary.value;
   if (!s) return t('analysis.persist.notSaved');
+  // For v2-stored bundles the backend reports the SPA-asserted
+  // pre-compression byte size; surface the savings ratio so the
+  // user sees the payoff of the projected/quantised scheme. For
+  // v1 bundles (null uncompressedByteSize), the basic line still
+  // shows just the stored size — the v1 codec has no honest
+  // "before" value to compare against from the SPA's POV.
+  if (
+    typeof s.uncompressedByteSize === 'number' &&
+    s.uncompressedByteSize > s.storedByteSize
+  ) {
+    const savings = Math.round(
+      (1 - s.storedByteSize / s.uncompressedByteSize) * 100,
+    );
+    return t('analysis.persist.savedSummaryWithSavings', {
+      count: s.recordCount,
+      size: formatBytes(s.storedByteSize),
+      uncompressed: formatBytes(s.uncompressedByteSize),
+      savings,
+    });
+  }
   return t('analysis.persist.savedSummary', {
     count: s.recordCount,
     size: formatBytes(s.storedByteSize),

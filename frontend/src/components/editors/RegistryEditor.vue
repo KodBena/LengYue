@@ -7,6 +7,7 @@
 import { ref, computed } from 'vue';
 import { SUPPORTED_LOCALES } from '../../i18n/locales';
 import { WINRATE_FRAMINGS } from '../../engine/katago/types';
+import { BUNDLE_COMPRESSION_SCHEMES } from '../../types';
 
 const props = defineProps<{
   registry: any;
@@ -74,6 +75,12 @@ const PATH_ENUMS: Record<string, readonly string[]> = {
   // `engine/katago/types.ts`; importing rather than re-listing keeps
   // the two sites from drifting.
   'engine.katago.overrideSettings.reportAnalysisWinratesAs': [...WINRATE_FRAMINGS],
+  // Analysis-bundle wire-format choice. The tuple's source-of-truth
+  // declaration lives in `src/types.ts` (alongside the union type
+  // that AppSettings.engine.katago.bundleCompressionScheme uses),
+  // so adding a new scheme is a one-line touch there and the
+  // dropdown picks it up automatically here.
+  'engine.katago.bundleCompressionScheme': [...BUNDLE_COMPRESSION_SCHEMES],
   // session-ui root (store.session.ui)
   'analysisLayout':                ['horizontal', 'vertical'],
   'pvAnimation.mode':              ['instant', 'sequential', 'window'],
@@ -119,6 +126,17 @@ const PATH_TOOLTIPS: Record<string, string> = {
     'succeeds or you toggle this leaf off and back on. Requires ' +
     'analysisStorageEnabled to be true; flipping the parent off ' +
     'implicitly disables auto-save.',
+  'engine.katago.bundleCompressionScheme':
+    "Wire-format choice for analysis-bundle persistence. 'v1-json' is " +
+    'the legacy wire (canonical JSON, gzip on backend); ' +
+    "'json-projected-v1' is the new path — the SPA projects each packet " +
+    "through the typed-shape allow-list (drops unmodelled KataGo fields " +
+    'like scoreStdev / scoreMean / per-move ownership) and the backend ' +
+    'brotli-wraps the result. Reconstruction is bit-identical for every ' +
+    'field the SPA actually reads; dropped fields were never consumed. ' +
+    'Stored rows decode regardless of the current setting, so flipping ' +
+    'this leaf only affects writes from this point forward — existing ' +
+    'saved bundles remain accessible.',
 };
 
 function tooltipText(key: string): string | undefined {

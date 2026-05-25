@@ -732,6 +732,23 @@ export interface NavigationSettings {
   actionOnDirtyBoard: 'ask' | 'new' | 'overwrite';
 }
 
+/**
+ * Analysis-bundle wire-format choices. `'v1-json'` is the legacy
+ * canonical-JSON wire (backend codec: json / json+gzip);
+ * `'json-projected-v1'` is the cross/analysis-bundle-compression-v2
+ * arc's lossless leaf (frontend projects + JSON-stringifies +
+ * UTF-8s; backend brotli-wraps unconditionally for storage). See
+ * `AppSettings.engine.katago.bundleCompressionScheme` below for
+ * the contract and `services/analysis-bundle/encoder.ts` for the
+ * encoder hierarchy. Tuple-then-type pattern mirrors
+ * `WINRATE_FRAMINGS` in `engine/katago/types.ts`; consumers
+ * (RegistryEditor's PATH_ENUMS, the auto-save composable) import
+ * the const tuple directly so this declaration is the single
+ * source of truth.
+ */
+export const BUNDLE_COMPRESSION_SCHEMES = ['v1-json', 'json-projected-v1'] as const;
+export type BundleCompressionScheme = typeof BUNDLE_COMPRESSION_SCHEMES[number];
+
 export interface AppSettings {
   engine: {
     katago: {
@@ -839,8 +856,13 @@ export interface AppSettings {
       // allow-list is a build error at `vue-tsc -b`.
       //
       // Design rationale at
-      // `docs/notes/analysis-bundle-compression-plan.md`.
-      bundleCompressionScheme: 'v1-json' | 'json-projected-v1';
+      // `docs/notes/analysis-bundle-compression-plan.md`. The set
+      // of accepted values is exported as the const tuple
+      // `BUNDLE_COMPRESSION_SCHEMES` below — the RegistryEditor's
+      // `PATH_ENUMS` table imports it (the same pattern as
+      // `WINRATE_FRAMINGS`) so the dropdown options stay in sync
+      // with this type union without separate hand-listing.
+      bundleCompressionScheme: BundleCompressionScheme;
       // Whether the analysis-service ACL injects the `transposition`
       // capability into outgoing analysis queries (proxy v1.0.14+
       // capability-negotiation contract). When the proxy advertises

@@ -218,6 +218,7 @@
   "analysis.persist.title":               "Saved Analyses",
   "analysis.persist.notSaved":            "Not saved",
   "analysis.persist.savedSummary":        "{count} analyses · {size}",
+  "analysis.persist.savedSummaryWithSavings": "{count} analyses · {size} (saved {savings}% from {uncompressed})",
   "analysis.persist.save":                "Save",
   "analysis.persist.saving":              "Saving…",
   "analysis.persist.discard":             "Discard",
