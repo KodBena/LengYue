@@ -142,9 +142,16 @@ const PATH_TOOLTIPS: Record<string, string> = {
     "drifting cells. 'v2-quantized-hifi' is the same shape but with " +
     'Q8 on ownership (max-abs error ≤ 1/256 ≈ 0.0039), trading ~6% of ' +
     'the savings for perceptually-imperceptible ownership precision. ' +
-    'Stored rows decode regardless of the current setting, so flipping ' +
-    'this leaf only affects writes from this point forward — existing ' +
-    'saved bundles remain accessible.',
+    "'v2-quantized-hifi-xor' adds byte-level XOR delta encoding " +
+    'across consecutive packets on the Q8 ownership bytes; ' +
+    'reconstruction is byte-identical to v2-quantized-hifi (XOR is ' +
+    'algebraic, no precision loss), but the 2026-05-26 framework ' +
+    'probe measured ~23% additional post-brotli savings since brotli ' +
+    'compresses the literal-zero bytes the XOR produces when ' +
+    'consecutive packets share Q8 bin values. Stored rows decode ' +
+    'regardless of the current setting, so flipping this leaf only ' +
+    'affects writes from this point forward — existing saved bundles ' +
+    'remain accessible.',
 };
 
 function tooltipText(key: string): string | undefined {

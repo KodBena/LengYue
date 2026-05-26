@@ -428,3 +428,137 @@ describe('ownership-q8-policy-q8-factored-v1 encoder (hifi)', () => {
     }
   });
 });
+
+// ── ownership-q8-policy-q8-factored-xor-v1 (hifi + byte-XOR) ───────────────
+
+describe('ownership-q8-policy-q8-factored-xor-v1 encoder (hifi-xor)', () => {
+  function _quantPacketSeeded(seed: number): Record<string, unknown> {
+    // Produce a packet whose ownership cells vary slightly per
+    // seed so consecutive packets in a bundle have related-but-
+    // not-identical Q8 values. This is the regime byte-XOR
+    // exploits. Values clamped strictly to [-1, 1] so the
+    // analytic Q8 max-abs (≤ 1/256) is the true bound — without
+    // the clamp, the quantiser clips at the range edges and
+    // injects errors larger than the in-range analytic bound.
+    const ownership = new Array(OWNERSHIP_CELL_COUNT).fill(0).map((_, i) => {
+      const raw = -1 + (2 * i) / (OWNERSHIP_CELL_COUNT - 1) + 0.001 * seed;
+      return Math.max(-1, Math.min(1, raw));
+    });
+    const policy = new Array(POLICY_CELL_COUNT).fill(-1.0);
+    policy[10] = Math.min(1, 0.5 + 0.01 * seed);
+    policy[100] = 0.1;
+    policy[200] = 0.9;
+    return { ..._MIN_PACKET, ownership, policy };
+  }
+
+  function _multiPacketBundle(n: number): AnalysisBundle {
+    const records: AnalysisRecord[] = [];
+    for (let i = 0; i < n; i++) {
+      records.push({
+        configHash: `cfg-${i}`,
+        nodeId: `node-${i}` as NodeId,
+        packet: _quantPacketSeeded(i) as unknown as AnalysisRecord['packet'],
+      });
+    }
+    return { schemaVersion: 1, records };
+  }
+
+  it('is registered under the expected scheme tag', () => {
+    const enc = getEncoderForScheme('ownership-q8-policy-q8-factored-xor-v1');
+    expect(enc).toBeDefined();
+    expect((enc as BundleEncoder).scheme).toBe(
+      'ownership-q8-policy-q8-factored-xor-v1',
+    );
+  });
+
+  it('listKnownSchemes includes the hifi-xor scheme', () => {
+    expect(listKnownSchemes()).toContain('ownership-q8-policy-q8-factored-xor-v1');
+  });
+
+  it('round-trip is byte-identical to plain hifi (XOR is algebraic)', () => {
+    const enc = getEncoderForScheme(
+      'ownership-q8-policy-q8-factored-xor-v1',
+    ) as BundleEncoder;
+    const encHifi = getEncoderForScheme(
+      'ownership-q8-policy-q8-factored-v1',
+    ) as BundleEncoder;
+    const bundle = _multiPacketBundle(10);
+    const recXor = enc.decode(enc.encode(bundle).bytes);
+    const recHifi = encHifi.decode(encHifi.encode(bundle).bytes);
+    expect(recXor.records.length).toBe(recHifi.records.length);
+    for (let i = 0; i < recXor.records.length; i++) {
+      const a = recXor.records[i].packet.ownership!;
+      const b = recHifi.records[i].packet.ownership!;
+      expect(a.length).toBe(b.length);
+      for (let j = 0; j < a.length; j++) {
+        expect(a[j]).toBe(b[j]);
+      }
+    }
+  });
+
+  it('encoded byte count is within JSON-marker overhead of plain hifi', () => {
+    // XOR is byte-permutation-preserving on the BINARY ownership
+    // payload, but the JSON envelope adds `"_xor_delta":true`
+    // (~18 bytes) per P-frame wrapper. So the byte count is
+    // marginally larger; what brotli sees on the wire is what
+    // matters, not this pre-brotli count.
+    const enc = getEncoderForScheme(
+      'ownership-q8-policy-q8-factored-xor-v1',
+    ) as BundleEncoder;
+    const encHifi = getEncoderForScheme(
+      'ownership-q8-policy-q8-factored-v1',
+    ) as BundleEncoder;
+    const N = 5;
+    const bundle = _multiPacketBundle(N);
+    const xorBytes = enc.encode(bundle).bytes.length;
+    const hifiBytes = encHifi.encode(bundle).bytes.length;
+    const overhead = xorBytes - hifiBytes;
+    // Per P-frame: `"_xor_delta":true,` is 18 bytes; bundle has
+    // (N - 1) P-frames. Allow 1.5× margin for JSON-stringify
+    // ordering / key-position effects.
+    const maxOverhead = (N - 1) * 30;
+    expect(overhead).toBeGreaterThan(0);
+    expect(overhead).toBeLessThanOrEqual(maxOverhead);
+  });
+
+  it('preserves L∞ bound across a longer bundle (no drift accumulation)', () => {
+    const enc = getEncoderForScheme(
+      'ownership-q8-policy-q8-factored-xor-v1',
+    ) as BundleEncoder;
+    const bundle = _multiPacketBundle(25);
+    const decoded = enc.decode(enc.encode(bundle).bytes);
+    for (let i = 0; i < bundle.records.length; i++) {
+      const original = bundle.records[i].packet.ownership!;
+      const recovered = decoded.records[i].packet.ownership!;
+      for (let j = 0; j < original.length; j++) {
+        expect(Math.abs(recovered[j] - original[j]))
+          .toBeLessThanOrEqual(OWNERSHIP_Q8_MAX_ABS_ANALYTIC + 1e-12);
+      }
+    }
+  });
+
+  it('round-trips a single-packet bundle (I-frame only, no P-frames)', () => {
+    const enc = getEncoderForScheme(
+      'ownership-q8-policy-q8-factored-xor-v1',
+    ) as BundleEncoder;
+    const bundle = _multiPacketBundle(1);
+    const decoded = enc.decode(enc.encode(bundle).bytes);
+    expect(decoded.records.length).toBe(1);
+    const original = bundle.records[0].packet.ownership!;
+    const recovered = decoded.records[0].packet.ownership!;
+    for (let j = 0; j < original.length; j++) {
+      expect(Math.abs(recovered[j] - original[j]))
+        .toBeLessThanOrEqual(OWNERSHIP_Q8_MAX_ABS_ANALYTIC + 1e-12);
+    }
+  });
+
+  it('round-trips a packet without ownership (encoder is a no-op on absent fields)', () => {
+    const enc = getEncoderForScheme(
+      'ownership-q8-policy-q8-factored-xor-v1',
+    ) as BundleEncoder;
+    const bundle = _bundle([_record(_MIN_PACKET)]);
+    const encoded = enc.encode(bundle);
+    const decoded = enc.decode(encoded.bytes);
+    expect(decoded).toEqual(bundle);
+  });
+});

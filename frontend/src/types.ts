@@ -765,6 +765,7 @@ export const BUNDLE_COMPRESSION_SCHEMES = [
   'v2-projected',
   'v2-quantized',
   'v2-quantized-hifi',
+  'v2-quantized-hifi-xor',
 ] as const;
 export type BundleCompressionScheme = typeof BUNDLE_COMPRESSION_SCHEMES[number];
 

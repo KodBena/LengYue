@@ -238,6 +238,16 @@ packets, keyed by `(configHash, nodeId)`.
       0.004). The banding effect is gone at the cost of ~6%
       additional bytes; pick this if you study ownership maps
       and the precision shows through.
+    - `'v2-quantized-hifi-xor'` — same shape and reconstruction
+      quality as `'v2-quantized-hifi'`, with byte-level XOR
+      delta encoding across consecutive packets in a bundle.
+      Brotli compresses the literal-zero bytes the XOR produces
+      when consecutive packets share Q8 bin values; the
+      2026-05-26 compression-evaluation framework probe
+      measured ~23% additional post-brotli savings vs. the
+      plain hifi variant on a 40-game corpus. Reconstruction is
+      byte-identical to hifi (XOR is algebraic, no precision
+      loss).
   Default is `'v1'`. Stored bundles always decode regardless
   of the current selection — flipping the toggle only affects
   future saves.

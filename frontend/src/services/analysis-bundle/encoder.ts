@@ -178,6 +178,8 @@ const OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1_SCHEME =
   'ownership-q4-policy-q8-factored-v1';
 const OWNERSHIP_Q8_POLICY_Q8_FACTORED_V1_SCHEME =
   'ownership-q8-policy-q8-factored-v1';
+const OWNERSHIP_Q8_POLICY_Q8_FACTORED_XOR_V1_SCHEME =
+  'ownership-q8-policy-q8-factored-xor-v1';
 
 /**
  * Internal wire shape carried inside the encoded packet's JSON
@@ -187,10 +189,25 @@ const OWNERSHIP_Q8_POLICY_Q8_FACTORED_V1_SCHEME =
  * factored Q8 envelope. Both shapes occupy the typed-shape's
  * `ownership` / `policy` slot at JSON time and get un-packed back
  * to `number[]`s by the decoder.
+ *
+ * The optional `_xor_delta: true` field marks a P-frame packet
+ * whose `_b64` payload is XOR'd against the prior packet's
+ * decoded ownership bytes (byte-XOR delta encoding). The first
+ * packet in a bundle never has `_xor_delta` set — it's an
+ * I-frame containing literal Q8 bytes. The decoder walks packets
+ * in order, maintaining the running prior-packet reference; for
+ * each P-frame, the XOR-undo against the prior recovers the
+ * current's literal Q8 bytes.
+ *
+ * Brotli (applied by the backend, unconditionally) eats the
+ * literal-zero bytes produced when consecutive packets share Q8
+ * bin indices; the 2026-05-26 framework probe measured ~23%
+ * additional post-brotli savings over the literal Q8 path.
  */
 type QuantisedOwnership = {
   readonly _q_bits: 4 | 8;
   readonly _b64: string;
+  readonly _xor_delta?: boolean;
 };
 
 type QuantisedPolicy = {
@@ -204,15 +221,30 @@ type QuantisedPolicy = {
 function encodePacketLossy(
   packet: KataAnalysisResponse,
   ownershipBits: 4 | 8,
-): KataAnalysisResponse {
+  byteXorDelta: boolean = false,
+  prevOwnership?: Uint8Array,
+): { packet: KataAnalysisResponse; ownershipBytes: Uint8Array | undefined } {
   const out = { ...packet } as Record<string, unknown>;
+  let ownershipBytes: Uint8Array | undefined;
   if (Array.isArray(packet.ownership)) {
     const packed = ownershipBits === 4
       ? quantiseOwnershipQ4(packet.ownership)
       : quantiseOwnershipQ8(packet.ownership);
+    ownershipBytes = packed;
+    let payloadBytes = packed;
+    let isXorDelta = false;
+    if (byteXorDelta && prevOwnership && prevOwnership.length === packed.length) {
+      // P-frame: XOR against prior packet's literal Q8 bytes.
+      payloadBytes = new Uint8Array(packed.length);
+      for (let i = 0; i < packed.length; i++) {
+        payloadBytes[i] = packed[i] ^ prevOwnership[i];
+      }
+      isXorDelta = true;
+    }
     const wrap: QuantisedOwnership = {
       _q_bits: ownershipBits,
-      _b64: uint8ArrayToBase64(packed),
+      _b64: uint8ArrayToBase64(payloadBytes),
+      ...(isXorDelta ? { _xor_delta: true } : {}),
     };
     out.ownership = wrap;
   }
@@ -227,10 +259,16 @@ function encodePacketLossy(
     };
     out.policy = wrap;
   }
-  return out as unknown as KataAnalysisResponse;
+  return {
+    packet: out as unknown as KataAnalysisResponse,
+    ownershipBytes,
+  };
 }
 
-function decodePacketLossy(packet: KataAnalysisResponse): KataAnalysisResponse {
+function decodePacketLossy(
+  packet: KataAnalysisResponse,
+  prevOwnership?: Uint8Array,
+): { packet: KataAnalysisResponse; ownershipBytes: Uint8Array | undefined } {
   // Packets that round-trip through a lossy encoder carry the
   // typed-shape `ownership` / `policy` slots filled with a
   // quantised-wrapper object instead of a `number[]`. Detect and
@@ -238,7 +276,14 @@ function decodePacketLossy(packet: KataAnalysisResponse): KataAnalysisResponse {
   // wrapper's `_q_bits` discriminator picks the dequantiser, so
   // a single decode() handles both 'v2-quantized' (Q4) and
   // 'v2-quantized-hifi' (Q8) outputs without scheme-name lookup.
+  //
+  // The optional `_xor_delta: true` field signals a P-frame: the
+  // `_b64` payload is XOR'd against the prior packet's literal
+  // ownership bytes. The caller threads `prevOwnership` through
+  // packets in bundle order; the decoder XOR-undoes and recovers
+  // the current's literal bytes.
   const out = { ...packet } as Record<string, unknown>;
+  let ownershipBytes: Uint8Array | undefined;
   const own = out.ownership as unknown;
   if (
     own && typeof own === 'object' && !Array.isArray(own) &&
@@ -246,7 +291,22 @@ function decodePacketLossy(packet: KataAnalysisResponse): KataAnalysisResponse {
     typeof (own as { _q_bits?: unknown })._q_bits === 'number'
   ) {
     const wrap = own as QuantisedOwnership;
-    const packed = base64ToUint8Array(wrap._b64);
+    let packed = base64ToUint8Array(wrap._b64);
+    if (wrap._xor_delta === true) {
+      if (!prevOwnership || prevOwnership.length !== packed.length) {
+        throw new Error(
+          `analysis-bundle/encoder: _xor_delta packet without a valid ` +
+          `prior ownership reference; the bundle's records are out of order ` +
+          `or the first packet is mis-marked`,
+        );
+      }
+      const undone = new Uint8Array(packed.length);
+      for (let i = 0; i < packed.length; i++) {
+        undone[i] = packed[i] ^ prevOwnership[i];
+      }
+      packed = undone;
+    }
+    ownershipBytes = packed;
     if (wrap._q_bits === 4) {
       out.ownership = dequantiseOwnershipQ4(packed);
     } else if (wrap._q_bits === 8) {
@@ -272,29 +332,53 @@ function decodePacketLossy(packet: KataAnalysisResponse): KataAnalysisResponse {
     };
     out.policy = dequantisePolicyQ8Factored(packed);
   }
-  return out as unknown as KataAnalysisResponse;
+  return {
+    packet: out as unknown as KataAnalysisResponse,
+    ownershipBytes,
+  };
 }
 
 /**
  * Factory: build a `BundleEncoder` that applies projection +
  * ownership quantisation (at the given bit depth) + Q8-factored
  * policy quantisation. The encode/decode pair is symmetric on
- * the JSON envelope; the only knob is the ownership bit depth.
+ * the JSON envelope. Two knobs:
+ *
+ *   - ownershipBits: 4 or 8 (max-abs ≤ 0.0625 vs ≤ 1/256 ≈ 0.0039)
+ *   - byteXorDelta: when true, every non-first packet's Q8 (or
+ *     Q4) ownership bytes are XOR'd against the prior packet's
+ *     literal bytes. The 2026-05-26 framework probe measured
+ *     ~23% additional post-brotli savings for the Q8 case. The
+ *     encoder threads the prior-packet state through the records
+ *     in order; the decoder mirrors via `prevOwnership`.
  */
 function makeLossyEncoder(
   scheme: string,
   ownershipBits: 4 | 8,
+  byteXorDelta: boolean = false,
 ): BundleEncoder {
   return {
     scheme,
     encode(bundle: AnalysisBundle): EncodedBundle {
-      const projected: AnalysisBundle = {
-        schemaVersion: bundle.schemaVersion,
-        records: bundle.records.map((r) => ({
+      const records: AnalysisBundle['records'][number][] = [];
+      let prevOwnership: Uint8Array | undefined = undefined;
+      for (const r of bundle.records) {
+        const { packet, ownershipBytes } = encodePacketLossy(
+          projectPacket(r.packet),
+          ownershipBits,
+          byteXorDelta,
+          prevOwnership,
+        );
+        records.push({
           configHash: r.configHash,
           nodeId: r.nodeId,
-          packet: encodePacketLossy(projectPacket(r.packet), ownershipBits),
-        })),
+          packet,
+        });
+        prevOwnership = ownershipBytes;
+      }
+      const projected: AnalysisBundle = {
+        schemaVersion: bundle.schemaVersion,
+        records,
       };
       const projectedJson = JSON.stringify(projected);
       const canonicalJson = JSON.stringify(bundle);
@@ -329,13 +413,23 @@ function makeLossyEncoder(
         );
       }
       const bundle = parsed as AnalysisBundle;
-      return {
-        schemaVersion: bundle.schemaVersion,
-        records: bundle.records.map((r) => ({
+      const records: AnalysisBundle['records'][number][] = [];
+      let prevOwnership: Uint8Array | undefined = undefined;
+      for (const r of bundle.records) {
+        const { packet, ownershipBytes } = decodePacketLossy(
+          r.packet,
+          prevOwnership,
+        );
+        records.push({
           configHash: r.configHash,
           nodeId: r.nodeId,
-          packet: decodePacketLossy(r.packet),
-        })),
+          packet,
+        });
+        prevOwnership = ownershipBytes;
+      }
+      return {
+        schemaVersion: bundle.schemaVersion,
+        records,
       };
     },
   };
@@ -383,12 +477,43 @@ const OWNERSHIP_Q8_POLICY_Q8_FACTORED_V1: BundleEncoder = makeLossyEncoder(
   8,
 );
 
+/**
+ * Hi-fi + byte-XOR delta: same Q8 ownership + Q8-factored policy
+ * as the plain hifi variant, but with byte-level XOR delta
+ * across consecutive packets. The 2026-05-26 compression-
+ * evaluation-framework probe measured ~23% additional
+ * post-brotli savings vs literal Q8 on the 40-game corpus.
+ * Reconstruction is byte-identical to the plain hifi variant
+ * — XOR is algebraic — so L∞ and L₂ are unchanged at
+ * ≤ 1/256 ≈ 0.0039 / ≤ 1/512 ≈ 0.0020.
+ *
+ * Why the framework's headline ~23%: at 8 bits per cell, two
+ * consecutive packets with the same Q8 bin value give an
+ * identical byte; XOR produces a zero, and brotli's
+ * literal-zero detection compresses long runs aggressively.
+ * The same trick on Q4 only yields ~4% because byte-level
+ * identity requires BOTH nibble-paired cells to match.
+ *
+ * Tradeoff vs plain hifi: stateful decode (each packet's
+ * reconstruction needs the prior packet's literal bytes), no
+ * material complexity increase on the encoder side. Stored
+ * rows decode regardless of the current registry setting; the
+ * scheme tag in `format_descriptor.scheme` is the read-time
+ * discriminator.
+ */
+const OWNERSHIP_Q8_POLICY_Q8_FACTORED_XOR_V1: BundleEncoder = makeLossyEncoder(
+  OWNERSHIP_Q8_POLICY_Q8_FACTORED_XOR_V1_SCHEME,
+  8,
+  true,  // byteXorDelta
+);
+
 // ── Dispatch ───────────────────────────────────────────────────────────────
 
 const ENCODERS_BY_SCHEME: Readonly<Record<string, BundleEncoder>> = {
   [JSON_PROJECTED_V1.scheme]: JSON_PROJECTED_V1,
   [OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1.scheme]: OWNERSHIP_Q4_POLICY_Q8_FACTORED_V1,
   [OWNERSHIP_Q8_POLICY_Q8_FACTORED_V1.scheme]: OWNERSHIP_Q8_POLICY_Q8_FACTORED_V1,
+  [OWNERSHIP_Q8_POLICY_Q8_FACTORED_XOR_V1.scheme]: OWNERSHIP_Q8_POLICY_Q8_FACTORED_XOR_V1,
 };
 
 /**
