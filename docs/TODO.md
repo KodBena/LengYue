@@ -374,81 +374,35 @@ Trigger: user-prioritised. Companion to the inline-edit arc
 in that the registry-editor visibility for the toggle is
 where the warning lands.
 
-#### Byte-XOR delta on the Q8 ownership wire `[frontend]`
+#### ~~Byte-XOR delta on the Q8 ownership wire~~ `[frontend]` *(shipped 2026-05-26)*
 
-Ship a new lossy variant: `v2-quantized-hifi-xor` (Q8 ownership +
-byte-level XOR delta + Q8-factored policy). The 2026-05-26
-compression-evaluation-framework probe under
-`research/compression/framework/` measured **23% post-brotli
-savings** on Q8 byte-XOR over uniform-Q8 on the 40-game corpus —
-much larger than the analogous 4% savings the same byte-XOR
-trick gives on Q4. Hifi users see meaningful bandwidth reduction
-without any visual quality change (max-abs unchanged at ≤
-1/256). Decision rationale:
-`docs/notes/compression-research-followups.md`'s closing summary;
-framework report:
+Shipped via PR #272 (commit `355b1e2` on
+`frontend/analysis-bundle-hifi-xor`, merged to `main`). The
+registry value `'v2-quantized-hifi-xor'` and the byte-stable
+encoder scheme tag `'ownership-q8-policy-q8-factored-xor-v1'`
+land together; the `makeLossyEncoder` factory absorbs a
+`byteXorDelta: boolean` parameter to thread the optional XOR
+delta through encode/decode. Reconstruction is byte-identical
+to plain hifi (XOR is algebraic). No backend changes; brotli
+applies unconditionally on the SPA-emitted bytes and the
+`format_descriptor.scheme` round-trips verbatim.
+
+Ship worklog: `docs/worklog/2026-05-26-byte-xor-hifi-ship.md`.
+Sibling saturation worklog (research arc that surfaced this
+as the sole Pareto-improving operating point):
+`docs/worklog/2026-05-26-compression-arc-saturation.md`.
+Findings ledger:
+`docs/notes/compression-research-followups.md`. Framework
+report:
 `research/compression/framework/baselines_report_2026-05-26.txt`.
 
-**Minimal information to get it right:**
-
-- **Encoder scheme tag** (stored forever in `format_descriptor.scheme`,
-  byte-stable on wire): `'ownership-q8-policy-q8-factored-xor-v1'`.
-  Stable string; changing it later orphans every stored row.
-- **Registry user-facing value**:
-  `'v2-quantized-hifi-xor'`. Add to
-  `BUNDLE_COMPRESSION_SCHEMES` tuple in `src/types.ts`.
-  Tooltip update in `RegistryEditor.vue`'s `PATH_TOOLTIPS`.
-  Migration `50 → 51`'s safe-default-on-unknown branch handles
-  downgrades; no new migration needed.
-- **Encoder implementation**: extend
-  `services/analysis-bundle/encoder.ts`'s `makeLossyEncoder`
-  factory to take a `byteXorDelta: boolean` flag. When true, the
-  encoder emits the first packet's Q8 bytes literally
-  (I-frame), then each subsequent packet's bytes XOR'd against
-  the prior packet's raw Q8 bytes (P-frames, same 361-byte size
-  per packet as the I-frame). Wire-shape envelope unchanged —
-  the only difference vs `v2-quantized-hifi` is the byte values
-  in the `data_b64` payload. Brotli (on the backend) eats the
-  XOR's literal-zero bytes efficiently.
-- **Decoder**: stateful walk; maintain a running "prior packet
-  Q8 bytes" reference; for each P-frame, XOR with prior to
-  recover current. The `_q_bits` discriminator on the existing
-  ownership wrapper already supports Q8; the new factory
-  variation just changes how the bytes between packets relate.
-  Consider adding a `_xor_delta: true` field to the wrapper to
-  make the decode dispatch explicit (the SPA's existing decoder
-  reads `_q_bits` and assumes literal Q8 bytes; needs the new
-  branch).
-- **Encoder.scheme dispatch** in
-  `analysis-persistence-service.ts::readCompressionScheme`:
-  the new registry value `'v2-quantized-hifi-xor'` maps to the
-  encoder.scheme tag above.
-- **Tests**: round-trip on the existing per-cell test fixtures
-  (extends `analysis-bundle-encoder.test.ts`). Verify that the
-  reconstruction is byte-identical to uniform Q8 (since XOR
-  preserves every Q8 bin index — the relationship is
-  algebraic). Verify the encoded byte count matches uniform-Q8
-  exactly (XOR is byte-permutation-preserving).
-- **FEATURES.md**: add a fifth bullet under "Analysis bundle
-  compression" with the savings rationale ("~23% additional
-  bandwidth reduction over `'v2-quantized-hifi'`, no quality
-  change").
-- **No backend changes needed.** Backend stays opaque to the
-  scheme tag's meaning; brotli is applied unconditionally on
-  whatever bytes the SPA sends. The new
-  `format_descriptor.scheme` value gets stored verbatim and
-  returned verbatim on read.
-
-**Scope ceiling**: ~150 LOC frontend + ~50 LOC tests. Follows
-the same pattern as the Q4 ↔ Q8 hifi addition in PR #271.
-Friendly to a `frontend/analysis-bundle-hifi-xor` branch off
-main.
-
-**Followup after shipping**: continue the framework-driven
-investigation per `docs/notes/compression-research-followups.md`
-— specifically the Q4-plus-residual hybrid and the ICA / sparse
-PCA conditional probes from §4 of the linear-projection
-investigation note.
+Framework-driven followup probes against ownership
+compression remain open-ended — any new method can plug into
+`research/compression/run_framework_baselines.py` and produce
+a row directly comparable to the published baseline table.
+The Q4-plus-residual variants and the ICA K10/20/50/100
+sweep were both included in the 2026-05-26 baseline run; the
+per-variant verdicts are in the followups ledger.
 
 ### Large — structural changes that introduce new abstractions
 
