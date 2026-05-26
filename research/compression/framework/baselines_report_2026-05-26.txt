@@ -1,0 +1,346 @@
+loading corpus from redis (127.0.0.1:6380)...
+  40 games, 8102 ownership maps
+
+[1/14] computing corpus variance decomposition...
+  ss_total = 1126400.649
+  fractions: B=0.0008 T_B=0.0011 S=0.0372 BS=0.6603 R=0.3005 (sum_check=1.000000)
+[2/14] measuring 'identity-float32'...
+[3/14] measuring 'uniform-q4'...
+[4/14] measuring 'uniform-q8'...
+[5/14] measuring 'byte-xor-q4'...
+[6/14] measuring 'byte-xor-q8'...
+[7/14] measuring 'bundle-mean+q4-residual'...
+[8/14] measuring 'bundle-mean+q4-residual+xor'...
+[9/14] measuring 'bundle-mean+q4-residual-percell'...
+[10/14] measuring 'bundle-mean+q4-residual-percell+xor'...
+[11/14] measuring 'bundle-mean+ica-K10'...
+[12/14] measuring 'bundle-mean+ica-K20'...
+[13/14] measuring 'bundle-mean+ica-K50'...
+[14/14] measuring 'bundle-mean+ica-K100'...
+
+==============================================================================
+Compression evaluation framework — report
+==============================================================================
+
+Corpus variance decomposition (SS-based 5-way nested ANOVA)
+------------------------------------------------------------------------------
+  Total SS:    1126400.649
+  fraction_B   (bundle main effect):           0.0008
+  fraction_T_B (packet within bundle):         0.0011
+  fraction_S   (cell main effect):             0.0372
+  fraction_BS  (bundle × cell interaction):    0.6603
+  fraction_R   (joint residual):               0.3005
+  sum check (should ≈ 1.0):                    1.000000
+
+Reading: V_R / V_total is the 'irreducible joint structure' — what
+compression actually has to capture beyond the marginals.
+
+Per-method results
+------------------------------------------------------------------------------
+
+## identity-float32
+   Rate (bytes per bundle):
+     raw:           292,482  (total  11,699,288)
+     +brotli:       265,426  (total  10,617,059)
+   Distortion vector:
+     L∞ (corpus worst):       0.000000
+     L∞ p95 (per-bundle):     0.000000
+     L∞ p99 (per-bundle):     0.000000
+     L2 RMS (corpus):         0.000000
+     L2 mean per-bundle RMS:  0.000000
+     JSD mean:                0.000000
+     JSD p95:                 0.000000
+   Structure-capture profile:
+     C_B   (Bundle        ):   1.0000
+     C_T_B (Packet/bundle ):   1.0000
+     C_S   (Cell          ):   1.0000
+     C_BS  (Bundle×Cell   ):   1.0000
+     C_R   (Joint residual):   1.0000
+     error fraction of total: 0.000000
+   Operational cost:
+     encode/bundle:    0.1 ms  (0.000 ms/packet)
+     decode/bundle:    0.0 ms  (0.000 ms/packet)
+
+## uniform-q4
+   Rate (bytes per bundle):
+     raw:            36,664  (total   1,466,542)
+     +brotli:        11,510  (total     460,409)
+   Distortion vector:
+     L∞ (corpus worst):       0.062500
+     L∞ p95 (per-bundle):     0.062500
+     L∞ p99 (per-bundle):     0.062500
+     L2 RMS (corpus):         0.037807
+     L2 mean per-bundle RMS:  0.037306
+     JSD mean:                0.001421
+     JSD p95:                 0.006742
+   Structure-capture profile:
+     C_B   (Bundle        ):   0.9966
+     C_T_B (Packet/bundle ):   0.9819
+     C_S   (Cell          ):   0.9996
+     C_BS  (Bundle×Cell   ):   0.9993
+     C_R   (Joint residual):   0.9892
+     error fraction of total: 0.003711
+   Operational cost:
+     encode/bundle:   16.2 ms  (0.088 ms/packet)
+     decode/bundle:   13.0 ms  (0.070 ms/packet)
+
+## uniform-q8
+   Rate (bytes per bundle):
+     raw:            73,123  (total   2,924,902)
+     +brotli:        54,108  (total   2,164,319)
+   Distortion vector:
+     L∞ (corpus worst):       0.003906
+     L∞ p95 (per-bundle):     0.003906
+     L∞ p99 (per-bundle):     0.003906
+     L2 RMS (corpus):         0.002241
+     L2 mean per-bundle RMS:  0.002243
+     JSD mean:                0.000009
+     JSD p95:                 0.000046
+   Structure-capture profile:
+     C_B   (Bundle        ):   1.0000
+     C_T_B (Packet/bundle ):   1.0000
+     C_S   (Cell          ):   1.0000
+     C_BS  (Bundle×Cell   ):   1.0000
+     C_R   (Joint residual):   1.0000
+     error fraction of total: 0.000013
+   Operational cost:
+     encode/bundle:    2.3 ms  (0.012 ms/packet)
+     decode/bundle:    0.9 ms  (0.005 ms/packet)
+
+## byte-xor-q4
+   Rate (bytes per bundle):
+     raw:            36,664  (total   1,466,542)
+     +brotli:        11,049  (total     441,947)
+   Distortion vector:
+     L∞ (corpus worst):       0.062500
+     L∞ p95 (per-bundle):     0.062500
+     L∞ p99 (per-bundle):     0.062500
+     L2 RMS (corpus):         0.037807
+     L2 mean per-bundle RMS:  0.037306
+     JSD mean:                0.001421
+     JSD p95:                 0.006742
+   Structure-capture profile:
+     C_B   (Bundle        ):   0.9966
+     C_T_B (Packet/bundle ):   0.9819
+     C_S   (Cell          ):   0.9996
+     C_BS  (Bundle×Cell   ):   0.9993
+     C_R   (Joint residual):   0.9892
+     error fraction of total: 0.003711
+   Operational cost:
+     encode/bundle:   18.9 ms  (0.102 ms/packet)
+     decode/bundle:   16.1 ms  (0.087 ms/packet)
+
+## byte-xor-q8
+   Rate (bytes per bundle):
+     raw:            73,123  (total   2,924,902)
+     +brotli:        41,412  (total   1,656,493)
+   Distortion vector:
+     L∞ (corpus worst):       0.003906
+     L∞ p95 (per-bundle):     0.003906
+     L∞ p99 (per-bundle):     0.003906
+     L2 RMS (corpus):         0.002241
+     L2 mean per-bundle RMS:  0.002243
+     JSD mean:                0.000009
+     JSD p95:                 0.000046
+   Structure-capture profile:
+     C_B   (Bundle        ):   1.0000
+     C_T_B (Packet/bundle ):   1.0000
+     C_S   (Cell          ):   1.0000
+     C_BS  (Bundle×Cell   ):   1.0000
+     C_R   (Joint residual):   1.0000
+     error fraction of total: 0.000013
+   Operational cost:
+     encode/bundle:    6.6 ms  (0.035 ms/packet)
+     decode/bundle:    5.3 ms  (0.028 ms/packet)
+
+## bundle-mean+q4-residual
+   Rate (bytes per bundle):
+     raw:            37,033  (total   1,481,302)
+     +brotli:         9,720  (total     388,797)
+   Distortion vector:
+     L∞ (corpus worst):       0.099746
+     L∞ p95 (per-bundle):     0.098617
+     L∞ p99 (per-bundle):     0.099378
+     L2 RMS (corpus):         0.050214
+     L2 mean per-bundle RMS:  0.049123
+     JSD mean:                0.001349
+     JSD p95:                 0.003249
+   Structure-capture profile:
+     C_B   (Bundle        ):   0.9930
+     C_T_B (Packet/bundle ):   0.9768
+     C_S   (Cell          ):   0.9995
+     C_BS  (Bundle×Cell   ):   0.9990
+     C_R   (Joint residual):   0.9805
+     error fraction of total: 0.006547
+   Operational cost:
+     encode/bundle:   16.6 ms  (0.090 ms/packet)
+     decode/bundle:   13.4 ms  (0.073 ms/packet)
+
+## bundle-mean+q4-residual+xor
+   Rate (bytes per bundle):
+     raw:            37,033  (total   1,481,302)
+     +brotli:         9,961  (total     398,446)
+   Distortion vector:
+     L∞ (corpus worst):       0.099746
+     L∞ p95 (per-bundle):     0.098617
+     L∞ p99 (per-bundle):     0.099378
+     L2 RMS (corpus):         0.050214
+     L2 mean per-bundle RMS:  0.049123
+     JSD mean:                0.001349
+     JSD p95:                 0.003249
+   Structure-capture profile:
+     C_B   (Bundle        ):   0.9930
+     C_T_B (Packet/bundle ):   0.9768
+     C_S   (Cell          ):   0.9995
+     C_BS  (Bundle×Cell   ):   0.9990
+     C_R   (Joint residual):   0.9805
+     error fraction of total: 0.006547
+   Operational cost:
+     encode/bundle:   19.0 ms  (0.103 ms/packet)
+     decode/bundle:   15.8 ms  (0.085 ms/packet)
+
+## bundle-mean+q4-residual-percell
+   Rate (bytes per bundle):
+     raw:            37,747  (total   1,509,862)
+     +brotli:        17,631  (total     705,247)
+   Distortion vector:
+     L∞ (corpus worst):       0.070166
+     L∞ p95 (per-bundle):     0.069833
+     L∞ p99 (per-bundle):     0.070040
+     L2 RMS (corpus):         0.023433
+     L2 mean per-bundle RMS:  0.022292
+     JSD mean:                0.000708
+     JSD p95:                 0.003748
+   Structure-capture profile:
+     C_B   (Bundle        ):   0.9981
+     C_T_B (Packet/bundle ):   0.9939
+     C_S   (Cell          ):   0.9999
+     C_BS  (Bundle×Cell   ):   0.9997
+     C_R   (Joint residual):   0.9959
+     error fraction of total: 0.001426
+   Operational cost:
+     encode/bundle:   17.4 ms  (0.094 ms/packet)
+     decode/bundle:   42.4 ms  (0.229 ms/packet)
+
+## bundle-mean+q4-residual-percell+xor
+   Rate (bytes per bundle):
+     raw:            37,747  (total   1,509,862)
+     +brotli:        16,025  (total     641,009)
+   Distortion vector:
+     L∞ (corpus worst):       0.070166
+     L∞ p95 (per-bundle):     0.069833
+     L∞ p99 (per-bundle):     0.070040
+     L2 RMS (corpus):         0.023433
+     L2 mean per-bundle RMS:  0.022292
+     JSD mean:                0.000708
+     JSD p95:                 0.003748
+   Structure-capture profile:
+     C_B   (Bundle        ):   0.9981
+     C_T_B (Packet/bundle ):   0.9939
+     C_S   (Cell          ):   0.9999
+     C_BS  (Bundle×Cell   ):   0.9997
+     C_R   (Joint residual):   0.9959
+     error fraction of total: 0.001426
+   Operational cost:
+     encode/bundle:   19.8 ms  (0.107 ms/packet)
+     decode/bundle:   44.8 ms  (0.242 ms/packet)
+
+## bundle-mean+ica-K10
+   state-init: 1600.1 ms (one-time)
+   Rate (bytes per bundle):
+     raw:             2,595  (total     103,802)
+     +brotli:         2,232  (total      89,260)
+     codebook:       30,404 (amortised across 40 bundles → 760 per bundle)
+   Distortion vector:
+     L∞ (corpus worst):       1.815067
+     L∞ p95 (per-bundle):     1.643813
+     L∞ p99 (per-bundle):     1.762703
+     L2 RMS (corpus):         0.254806
+     L2 mean per-bundle RMS:  0.247523
+     JSD mean:                0.019485
+     JSD p95:                 0.043788
+   Structure-capture profile:
+     C_B   (Bundle        ):   0.9998
+     C_T_B (Packet/bundle ):   0.9885
+     C_S   (Cell          ):   1.0000
+     C_BS  (Bundle×Cell   ):   1.0000
+     C_R   (Joint residual):   0.4390
+     error fraction of total: 0.168588
+   Operational cost:
+     encode/bundle:    0.7 ms  (0.004 ms/packet)
+     decode/bundle:    0.5 ms  (0.003 ms/packet)
+
+## bundle-mean+ica-K20
+   state-init: 765.2 ms (one-time)
+   Rate (bytes per bundle):
+     raw:             4,621  (total     184,822)
+     +brotli:         3,689  (total     147,548)
+     codebook:       59,364 (amortised across 40 bundles → 1,484 per bundle)
+   Distortion vector:
+     L∞ (corpus worst):       1.826627
+     L∞ p95 (per-bundle):     1.628597
+     L∞ p99 (per-bundle):     1.751161
+     L2 RMS (corpus):         0.202925
+     L2 mean per-bundle RMS:  0.199322
+     JSD mean:                0.012432
+     JSD p95:                 0.026085
+   Structure-capture profile:
+     C_B   (Bundle        ):   0.9998
+     C_T_B (Packet/bundle ):   0.9885
+     C_S   (Cell          ):   1.0000
+     C_BS  (Bundle×Cell   ):   1.0000
+     C_R   (Joint residual):   0.6442
+     error fraction of total: 0.106925
+   Operational cost:
+     encode/bundle:    0.9 ms  (0.005 ms/packet)
+     decode/bundle:    0.5 ms  (0.003 ms/packet)
+
+## bundle-mean+ica-K50
+   state-init: 1435.5 ms (one-time)
+   Rate (bytes per bundle):
+     raw:            10,697  (total     427,882)
+     +brotli:         8,388  (total     335,505)
+     codebook:      146,244 (amortised across 40 bundles → 3,656 per bundle)
+   Distortion vector:
+     L∞ (corpus worst):       1.348268
+     L∞ p95 (per-bundle):     1.329133
+     L∞ p99 (per-bundle):     1.347758
+     L2 RMS (corpus):         0.126702
+     L2 mean per-bundle RMS:  0.124708
+     JSD mean:                0.005309
+     JSD p95:                 0.010782
+   Structure-capture profile:
+     C_B   (Bundle        ):   0.9998
+     C_T_B (Packet/bundle ):   0.9885
+     C_S   (Cell          ):   1.0000
+     C_BS  (Bundle×Cell   ):   1.0000
+     C_R   (Joint residual):   0.8614
+     error fraction of total: 0.041684
+   Operational cost:
+     encode/bundle:    1.7 ms  (0.009 ms/packet)
+     decode/bundle:    1.6 ms  (0.008 ms/packet)
+
+## bundle-mean+ica-K100
+   state-init: 7922.3 ms (one-time)
+   Rate (bytes per bundle):
+     raw:            20,825  (total     832,982)
+     +brotli:        18,563  (total     742,512)
+     codebook:      291,044 (amortised across 40 bundles → 7,276 per bundle)
+   Distortion vector:
+     L∞ (corpus worst):       1.246679
+     L∞ p95 (per-bundle):     1.011387
+     L∞ p99 (per-bundle):     1.171766
+     L2 RMS (corpus):         0.078233
+     L2 mean per-bundle RMS:  0.076851
+     JSD mean:                0.002355
+     JSD p95:                 0.005348
+   Structure-capture profile:
+     C_B   (Bundle        ):   0.9998
+     C_T_B (Packet/bundle ):   0.9885
+     C_S   (Cell          ):   1.0000
+     C_BS  (Bundle×Cell   ):   1.0000
+     C_R   (Joint residual):   0.9472
+     error fraction of total: 0.015892
+   Operational cost:
+     encode/bundle:    2.8 ms  (0.015 ms/packet)
+     decode/bundle:    1.4 ms  (0.008 ms/packet)
