@@ -52,6 +52,41 @@ canonical live reference is `docs/notes/tenancy.md`.
 
 ## Active
 
+### Small — local refactors with no contract impact
+
+#### `ForestDirectory` Decks/Browse strip → nested `<TabWidget>` `[frontend]`
+
+`src/components/tree/ForestDirectory.vue` (lines 320–321) implements
+its Decks/Browse sub-tab strip with plain `<button>` elements driven
+by a local `ref<'decks' | 'browse'>`, rather than mounting the
+reusable `<TabWidget>` at `src/components/chrome/TabWidget.vue` that
+every other tab strip in the SPA uses (top-level Library / Cards /
+Settings / Analysis / Other, and — once Phase 3 of the
+keybindings-plan arc lands — the Settings General / Keybindings
+sub-tabs). Functional behaviour is identical; the visual treatment
+differs because the buttons don't inherit `TabWidget`'s scoped CSS
+(`.vue-tabs`, `.tab-header li`, `.active` underline, hover
+transitions).
+
+This is a duplication of pattern — a reusable component exists for
+exactly this purpose, and the SPA grows a third tab-strip shape if
+the next surface that needs sub-tabs follows ForestDirectory's
+example instead of TabWidget's. Refactor: replace the
+`<div class="tab-header"><button>…</button></div>` block with a
+`<TabWidget :tabs="[{id:'decks',label:…},{id:'browse',label:…}]"
+v-model="activeTab">` mount, move the two `v-if` branches into
+named slots, drop the local CSS for the button strip. The
+`activeTab` ref's type narrows to `string` (TabWidget's modelValue
+shape) — a small loss of literal-union precision worth taking for
+the unification.
+
+Surfaced 2026-05-27 during the keybindings Phase 3 substrate
+orientation. Not blocking — the pattern works, it just isn't the
+canonical one.
+
+Trigger: picked up alongside any other `ForestDirectory.vue` work,
+or as a focused single-file refactor session.
+
 ### Medium — touches contracts or requires coordinated changes
 
 #### Internationalization (i18n) — string sweep `[frontend]`

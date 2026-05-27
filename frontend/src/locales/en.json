@@ -15,6 +15,8 @@
   "localePicker.machineTranslatedNotice": "* machine-translated — contributions welcome",
   "localePicker.machineTranslatedTooltip": "This catalog was produced by machine translation and is awaiting native-speaker review. Contributions are welcome on GitHub.",
 
+  "settings.subtab.general":              "General",
+  "settings.subtab.keybindings":          "Keybindings",
   "settings.section.analysisEnv":         "Analysis Environment",
   "settings.section.cardSets":            "Card Sets (Decks)",
   "settings.section.advancedRegistry":    "Advanced Registry",
@@ -186,6 +188,11 @@
   "keybindings.action.displayToggleOwnershipDots.description": "Show or hide the discrete confidence dots on empty intersections in the ownership overlay.",
   "keybindings.action.displayToggleOwnershipLiveness.label":   "Toggle ownership: liveness highlight",
   "keybindings.action.displayToggleOwnershipLiveness.description": "Show or hide the liveness highlight on stones the engine disagrees with about ownership.",
+
+  "keybindings.section.nav":                                   "Navigation",
+  "keybindings.section.display":                               "Display",
+  "keybindings.section.engine":                                "Engine",
+  "keybindings.unbound":                                       "(unbound)",
 
   "sidebar.newBoard":                     "New Board",
 

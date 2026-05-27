@@ -19,14 +19,12 @@ import {
   updateBoardState,
   mutateBoard,
   pushSystemMessage,
-  DEFAULTS,
 } from './store';
 
 import type { BoardId, NodeId, GameNode, BoardState }   from './types';
 import { applyGoMove }    from './logic';
 import type { PvMove }    from './composables/board/use-pv-animation';
 import { navigateTo }     from './engine/navigator';
-import { updateRegistry } from './engine/util';
 
 import { analysisService } from './services/analysis-service';
 import { KATAGO_WS_URL } from './config/env';
@@ -37,9 +35,7 @@ import BoardWidget      from './components/board/BoardWidget.vue';
 import SidebarWidget    from './components/chrome/SidebarWidget.vue';
 import TreeWidget       from './components/tree/TreeWidget.vue';
 import TabWidget        from './components/chrome/TabWidget.vue';
-import RegistryEditor   from './components/editors/RegistryEditor.vue';
-import PaletteEditor    from './components/editors/PaletteEditor.vue';
-import CardSetEditor    from './components/editors/CardSetEditor.vue';
+import SettingsTab      from './components/SettingsTab.vue';
 import AnalysisControls from './components/editors/AnalysisControls.vue';
 import Toolbar          from './components/chrome/Toolbar.vue';
 import StatusBar        from './components/board/StatusBar.vue';
@@ -375,9 +371,6 @@ function handleNodeSelect(nodeId: NodeId): void {
   mutateBoard(activeBoard.value.id, draft => navigateTo(draft, nodeId));
 }
 
-function handleSettingsUpdate(e: { path: string[]; value: any }): void { updateRegistry(store.profile.settings, e.path, e.value); }
-function handleSessionUpdate(e: { path: string[]; value: any }): void { updateRegistry(store.session.ui, e.path, e.value); }
-function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRegistry(store.profile, e.path, e.value); }
 </script>
 
 <template>
@@ -521,56 +514,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
             </template>
 
             <template #settings>
-              <!--
-                Each subsection is a native <details> disclosure. Open by
-                default — no behavior change for users opening the tab the
-                first time after this lands; collapsing is purely an
-                opt-in space-saver. @click.stop on the Force Persistence
-                button keeps clicks from bubbling up to <summary>'s
-                toggle.
-              -->
-              <div class="tab-padding">
-                <details class="settings-section" open>
-                  <summary>
-                    <h3 class="sub-header">{{ $t('settings.section.analysisEnv') }}</h3>
-                    <button class="toolbar-btn-sm" @click.stop="sync.forceSave()">{{ $t('settings.button.forcePersistence') }}</button>
-                  </summary>
-                  <div style="margin-top: var(--space-medium);">
-                    <PaletteEditor :env="store.profile.settings.engine.katago.analysis_env" @update="handleSettingsUpdate"/>
-                  </div>
-                </details>
-
-                <details class="settings-section section-divider" open>
-                  <summary><h3 class="sub-header">{{ $t('settings.section.cardSets') }}</h3></summary>
-                  <!-- magic-literal: clamp(500px, 70vh, 900px) — taller than the
-                       default `.registry-container` clamp (400/60vh/800) because Card
-                       Sets renders a richer table (many columns + per-row controls)
-                       and needs more vertical room before scrolling kicks in. 70vh
-                       proportional vs 60vh = card-sets gets ~17% more height share. -->
-                  <div class="registry-container" style="max-height: clamp(500px, 70vh, 900px); padding-bottom: var(--space-medium);">
-                    <CardSetEditor
-                      :cardSets="store.profile.cardSets"
-                      :activeCardSetId="store.session.ui.activeCardSetId"
-                      @update="handleProfileUpdate"
-                      @update-active="(id) => store.session.ui.activeCardSetId = id"
-                    />
-                  </div>
-                </details>
-
-                <details class="settings-section section-divider" open>
-                  <summary><h3 class="sub-header">{{ $t('settings.section.advancedRegistry') }}</h3></summary>
-                  <div class="registry-container">
-                    <RegistryEditor :registry="store.profile.settings" :defaults="DEFAULTS.profile" @update="handleSettingsUpdate"/>
-                  </div>
-                </details>
-
-                <details class="settings-section section-divider" open>
-                  <summary><h3 class="sub-header">{{ $t('settings.section.sessionUI') }}</h3></summary>
-                  <div class="registry-container">
-                    <RegistryEditor :registry="store.session.ui" :defaults="DEFAULTS.session" @update="handleSessionUpdate"/>
-                  </div>
-                </details>
-              </div>
+              <SettingsTab @force-save="sync.forceSave()" />
             </template>
 
             <template #analysis>
