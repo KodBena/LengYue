@@ -29,6 +29,11 @@ import type { GameSourceId, LibraryGame, LibraryGameListItem } from '../../types
 
 const emit = defineEmits<{
   (e: 'open-library-game', game: LibraryGame): void;
+  // Middle-click or Ctrl/Cmd-click on a row: open in a new board
+  // rather than the active one. Handled by App.vue's
+  // `handleLoadLibraryGameInNewBoard` which bypasses the dirty-
+  // board guard (no overwrite concern when creating a fresh tab).
+  (e: 'open-library-game-new-tab', game: LibraryGame): void;
 }>();
 
 const query = useLibraryQuery();
@@ -70,6 +75,14 @@ async function onOpen(row: LibraryGameListItem): Promise<void> {
 function onOpenFromPreview(): void {
   const game = preview.selectedGame.value;
   if (game !== null) emit('open-library-game', game);
+}
+
+// "Open in new tab" path from LibraryTable's middle-click /
+// Ctrl-click. Don't touch the preview selection — the new-tab
+// affordance is "open without disturbing the active context".
+async function onOpenNewTab(row: LibraryGameListItem): Promise<void> {
+  const game = await libraryService.getGame(row.id as GameSourceId);
+  if (game !== null) emit('open-library-game-new-tab', game);
 }
 
 // Click a player chip in the "All players" accordion → fill the
@@ -146,6 +159,7 @@ function onPlayerChipClick(name: string): void {
           @update:direction="query.direction.value = $event"
           @select="onSelect"
           @open="onOpen"
+          @open-new-tab="onOpenNewTab"
           @visible-range="(s, e) => query.ensureRange(s, e)"
         />
       </div>

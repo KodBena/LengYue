@@ -19,7 +19,7 @@ const HANDLED_KEYS = new Set<string>([
   'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight',
   'Home', 'End',
   ' ',
-  'm', 'M', 'c', 'C', 'd', 'D', 'l', 'L',
+  'm', 'M', 'n', 'N', 'c', 'C', 'd', 'D', 'l', 'L',
 ]);
 
 // Subset of HANDLED_KEYS whose action is rAF-coalesced. Holding
@@ -111,6 +111,16 @@ export function useUserIORegistry() {
       case 'm':
       case 'M':
         store.session.ui.showMoveSuggestions = !store.session.ui.showMoveSuggestions;
+        break;
+
+      // Move-number annotation on played stones. Sibling toggle to
+      // the StatusBar's `.move-numbers-btn` (the "#" button at
+      // `src/components/board/StatusBar.vue:74`); both flip the same
+      // `showStoneMoveNumbers` flag, so keyboard and chrome
+      // affordances stay in lockstep.
+      case 'n':
+      case 'N':
+        store.session.ui.showStoneMoveNumbers = !store.session.ui.showStoneMoveNumbers;
         break;
 
       // Ownership overlay sub-modes — three orthogonal toggles.
