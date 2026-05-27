@@ -376,10 +376,25 @@ Each row shows: the action's i18n label (truncate-ellipsis with
 hover-title for the full description), the current binding key,
 and two buttons:
 
-- **Edit** — opens an inline binding-capture: the row's key cell
-  highlights, the user presses a key, the new binding is
-  recorded (with conflict check + warning if the key was
-  already bound). Escape cancels capture.
+- **Edit** — opens an inline binding-capture flow. The row's
+  key cell highlights with a "Press a key…" prompt; pressing
+  a key records the new binding (with conflict check + warning
+  surface per the "Conflict handling" section above before
+  committing). The inline editor also surfaces an **Unbind**
+  control adjacent to the capture prompt — clicking it stores
+  the binding as `null` (per the storage shape's distinction
+  between "absent = use default" and "null = explicit user
+  unbind") so the action becomes unreachable from the keyboard
+  even when it has a default. Escape cancels the capture
+  without modifying the binding.
+
+  Unbind folds into the Edit flow rather than living as a
+  separate row-level button so each row stays visually
+  compact at two controls — three buttons in a row was
+  cluttered. The trade-off is one extra click to unbind
+  (Edit → Unbind) vs (Unbind directly); acceptable because
+  unbind is a less-common operation than rebind.
+
 - **Reset** — restores the action's default binding (disabled
   if the current binding == the default).
 
@@ -507,51 +522,58 @@ PV suggestions), which the "What's NOT in scope" section below
 flags separately. The deferred audit could naturally absorb
 those too.
 
-## Open questions for review
+## Decisions
 
-1. **Action id format.** Proposed `domain.verb` (e.g.,
-   `nav.next`). Alternatives: kebab-case (`nav-next`),
-   single-segment (`navNext`), namespaced (`gogui.nav.next`).
-   `domain.verb` matches the knob registry's `domain.knob`
-   convention (e.g., `engine.first-report-during-search-after`)
-   loosely; the user has stronger calibration on the naming
-   conventions in this codebase.
+Resolved 2026-05-27 per user review (original "Open questions"
+framing kept the prompts; the answers are committed below).
+Deferred items are explicitly flagged.
 
-2. **Inline-capture vs modal-capture for the Edit affordance.**
-   Inline (row highlights, capture next keypress) is faster and
-   matches VSCode's pattern. Modal (popup dialog, single field)
-   is more discoverable. Defaulting to inline; happy to switch
-   if the user wants modal.
+1. **Action id format: `domain.verb`** (e.g., `nav.next`,
+   `display.toggleMoveNumbers`, `engine.ponderToggle`). Matches
+   the knob registry's `domain.knob` precedent loosely; reads
+   naturally in tooltips, diagnostic logs, and persisted-blob
+   inspection. Alternatives considered (kebab-case,
+   single-segment, fully-namespaced) — not chosen.
 
-3. **Should "always-on" actions exist?** The current
-   `enabledWhen: 'always'` case is theoretical — every current
-   action gates on `activeBoardExists` or `engineConnected`.
-   Reserved for future actions; mention here to verify the
-   case is wanted.
+2. **Inline-capture for the Edit affordance** (row highlights,
+   capture next keypress; Unbind folds into the inline flow
+   per the Action rows section above). Faster than a modal;
+   matches the VSCode pattern this codebase's audience is
+   likely familiar with. Modal-capture not chosen.
 
-4. **`Escape` and other reserved keys.** The dispatcher
-   currently ignores keys not in the registry — so binding
-   `Escape` to an action would suppress its modal-close use.
-   Options: (a) blacklist reserved keys at editor time;
-   (b) allow user to bind anything and let them shoot
-   themselves in the foot; (c) document the reserved set in
-   the sub-tab. Defaulting to (a) with a documented blacklist
-   shown to the user.
+3. **Reserved "always-on" `enabledWhen` case** stays in the
+   enum even though no current action uses it. Future actions
+   whose dispatch should ignore the active-board /
+   engine-connected gates have a place to land without
+   widening the enum mid-feature.
+
+4. **Reserved-key blacklist at editor time (Option (a))**.
+   The Editor refuses to bind a small documented set of keys
+   that are load-bearing for the SPA's other input surfaces
+   (modal close via `Escape`, etc.). The blacklist's exact
+   contents + the user-facing discovery surface (probably a
+   "Reserved keys" disclosure in the sub-tab footer) resolve
+   at Phase 4 implementation; the design here just commits to
+   the approach. Options (b) "allow anything, user shoots
+   themselves" and (c) "document but don't block" not
+   chosen.
 
 5. **Browser-default keybindings** (Ctrl+R reload, Ctrl+F
-   find-in-page, etc.). Same blacklist question. These don't
-   currently fire because the dispatcher's `e.preventDefault()`
-   only runs for registry-bound keys — browser defaults pass
-   through untouched. If a user binds, say, `Ctrl+R` (once
-   modifier support lands), the suppress would steal the
-   reload. Future concern; flagging for completeness.
+   find-in-page, etc.) — same blacklist approach extends to
+   modifier-key combinations when modifier support lands in a
+   future arc. Currently a non-issue (no current keybinding
+   uses modifiers; the dispatcher's `e.preventDefault()` only
+   runs for registry-bound keys). Flagged here so the
+   future-arc that adds modifier support also extends the
+   blacklist.
 
-6. **Should the registry surface be a *third* register (after
-   General and Keybindings) in the Settings sub-tab strip — a
-   "Reference" / "Cheatsheet" view?** Same data, different
-   layout (compact card showing all bindings at a glance,
-   intended for screenshot / print). Probably out of scope
-   for v1; flag for later.
+6. **Third "Reference" / "Cheatsheet" sub-tab — deferred.**
+   The Keybindings sub-tab's table view already serves the
+   reference role for the current ~12-action registry; a
+   separate compact view doesn't add enough to justify its
+   own surface yet. Reconsider if the registry grows past
+   ~30 actions and the in-table reference becomes too
+   scroll-heavy for at-a-glance lookup.
 
 ## What's NOT in scope
 
