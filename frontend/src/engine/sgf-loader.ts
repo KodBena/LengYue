@@ -29,17 +29,25 @@ export function loadSgf(sabakiOutput: any): BoardState {
   // `sourceFileName` field is populated by useSgfLoader after this
   // call returns, since the filename is a File-API artifact the
   // engine layer doesn't see.
+  // All required BoardState fields populated up-front; the prior
+  // `as unknown as BoardState` cast was hiding `lastActivity` and
+  // (after schema 52) the `games` field — the missing `games`
+  // surfaced as a runtime "can't convert undefined to object"
+  // when a freshly-loaded board flowed into App.vue's
+  // `activeBoardGameHeadIds` computed.
   const state: BoardState = {
-    id: generateUUID(), // BoardId is UUID-shaped (migration 24 → 25)
-    rootNodeId: rootId, // Will be cast to NodeId elsewhere
+    id: generateUUID() as unknown as BoardState['id'], // BoardId is UUID-shaped (migration 24 → 25)
+    rootNodeId: rootId as unknown as BoardState['rootNodeId'], // brand on the way in
     stones: {},
     captures: { B: 0, W: 0 },
-    currentNodeId: rootId,
-    nodes,
+    currentNodeId: rootId as unknown as BoardState['currentNodeId'],
+    nodes: nodes as unknown as BoardState['nodes'],
     koPoint: null,
     turn: 'B',
+    lastActivity: 0,
     clientGameId: generateUUID(),
-  } as unknown as BoardState;
+    games: {},
+  };
 
   // 3. Project root setup stones (AB/AW on the root node) into the board.
   const rootNode = nodes[rootId];
