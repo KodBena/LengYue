@@ -50,6 +50,15 @@ export const fakeAnalysisService = {
   // no-op spy; tests assert on the call shape, not on any per-query
   // map state.
   stopQuery: vi.fn<(queryId: string) => void>(),
+  // Ponder lifecycle. Exercised by useUserIORegistry's space-key
+  // handler (the keybindings registry's `engine.ponderToggle`
+  // action). The integration tests for the dispatcher need
+  // `isPondering` returning false so the toggle branches into
+  // `analyzeActiveNode`; the fake's mockReturnValue is re-armed in
+  // resetFakeAnalysisService.
+  isPondering: vi.fn<(boardId: BoardId) => boolean>(),
+  stopPonderOnBoard: vi.fn<(boardId: BoardId) => void>(),
+  analyzeActiveNode: vi.fn<(boardId: BoardId, mode: 'ponder' | 'analyze') => void>(),
 };
 
 export function resetFakeAnalysisService(): void {
@@ -63,4 +72,12 @@ export function resetFakeAnalysisService(): void {
   fakeAnalysisService.stopAllBoardAnalyses.mockReset();
   fakeAnalysisService.restartActiveAnalyses.mockReset();
   fakeAnalysisService.stopQuery.mockReset();
+  fakeAnalysisService.isPondering.mockReset();
+  // Default: not pondering — the keybindings ponderToggle handler
+  // branches into `analyzeActiveNode` (start), which matches the
+  // common test entry state. Tests that exercise the stop branch
+  // override with `.mockReturnValueOnce(true)`.
+  fakeAnalysisService.isPondering.mockReturnValue(false);
+  fakeAnalysisService.stopPonderOnBoard.mockReset();
+  fakeAnalysisService.analyzeActiveNode.mockReset();
 }
