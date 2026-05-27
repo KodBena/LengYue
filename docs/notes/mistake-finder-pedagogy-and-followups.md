@@ -49,6 +49,29 @@ shouldn't filter or down-rank it on the basis of "the
 opponent didn't capitalise." Filtering by punishment-status
 would import the win-attribution paradigm by the back door.
 
+### The winning-vs-improving distinction (motivating the stance)
+
+The author's motivation for rejecting the win-attribution
+paradigm sharpens into a population-level observation about
+how it harms its adherents:
+
+> Think of it as a hint to beginning learners who are
+> serious about improving, not just about winning (and you
+> can see the distinction easily — those who are just out
+> to win fall behind precisely because they have a
+> blind-spot of "opponent failed to punish, therefore my
+> move was fantastic".)
+
+The winning-vs-improving distinction is the cohort axis
+the project's pedagogy serves. The blind-spot framing
+("opponent failed to punish, therefore my move was
+fantastic") is the *exact* expression of the cognitive bias
+the next section names — at the individual move level for
+the player, and at the population level for the paradigm.
+The two sections — win-attribution rejection and
+under-processing-of-un-punished-mistakes — are the same
+phenomenon read at two scales.
+
 ## The cognitive bias when reviewing one's own mistakes
 
 The author's observation, in the dual perspective — applied
@@ -151,19 +174,31 @@ concrete consequences:
    so the proxy already has the PV available; the SPA-side
    mistake-finder needs to consume and display it.
 
-3. **Card-mint integration: prompt for the original
-   reasoning.** When a mistake is minted into an SR card,
-   the mint flow should *prompt* for the original-move
-   reasoning (a small text field, "why did you play it?").
-   The card content then carries both halves — the wrong
-   model and the corrective. This is a small UX addition,
-   but it's the load-bearing one for honoring the discriminate-
-   via-contrast pedagogy. The flow can optionally pre-populate
-   from a placeholder if the user wants to skip (the field
-   itself is the prompt; whether the user fills it is their
-   choice), and the existing `gradingParameter.data` opaque
-   field on the card is a natural carrier for the freeform
-   text.
+3. **The "reason for the move" principle is a pedagogical
+   hint, not an API requirement.** Earlier in this note the
+   discriminate-via-contrast pedagogy was translated into "the
+   mint flow should prompt for original-move reasoning" — that
+   was overreach. The project author corrected the framing
+   (2026-05-28):
+
+   > "capturing original reasoning" was more like my
+   > expert(-ish, I'm mid-high dan amateur) pedagogical
+   > opinion on what users should keep in mind. Of course
+   > the cards themselves can record this and surface that
+   > accommodation (...) but it will be a great deal of work
+   > for the card set curator, probably more than any
+   > player is willing to commit to.
+
+   The technical capability exists: SR cards can carry
+   freeform text (via `gradingParameter.data` or analogous),
+   and a card-set curator who chooses to author original-
+   reasoning notes can do so. Whether the *mint flow*
+   surfaces a prompt for it is a UX cost-benefit call
+   weighing pedagogical value against authoring burden, and
+   the author's view is that the cost is too high to make it
+   a default prompt. The pedagogy belongs in user-facing
+   guidance (the eventual long-term home named below), not
+   in a hard-coded mint-flow step.
 
 These three together are the "API" — not in the wire-shape
 sense, but in the sense of what the feature commits to as a
@@ -262,16 +297,12 @@ this note carries the substance.
 
 ## What this note does not settle
 
-- **The exact card-mint UX for capturing the original
-  reasoning.** "Prompt for a text field" is the principle;
-  the UX specifics (when in the flow it appears, default
-  populations, optional vs. required, character limits) are
-  for the implementing arc. The existing card-metadata
-  inline-edit work (`docs/dispatch/backend-to-frontend-
-  card-metadata-inline-edit-arc*-shipped.md`) shipped the
-  schema and PATCH route that would carry the freeform
-  text; whether to extend the card shape further or to use
-  `gradingParameter.data` is an authoring-time decision.
+- **Whether the eventual user-facing pedagogy doc surfaces
+  the "reason for the move" principle as guidance.** Per the
+  author's clarification, this is the right home for it (a
+  hint to serious-improvement learners), as opposed to a
+  mint-flow prompt. The exact framing and wording is for the
+  doc author when that doc materialises.
 - **Where un-punished-mistake annotation lives.** The
   recommendation says "surface the punishment alongside
   the mistake" but doesn't pin down whether
