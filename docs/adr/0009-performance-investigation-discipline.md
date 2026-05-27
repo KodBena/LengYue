@@ -123,8 +123,15 @@ considered complete:
 ### Tools — canonical surface
 
 Two tools earn canonical-tool status as of this tenet's
-codification, on the strength of having directly addressed
-diagnostic gaps in the 2026-05-27 investigation:
+codification. The diagnostic uplift each delivers is
+empirically established, not anticipated: the 2026-05-27
+side-by-side comparison documented in
+`docs/archive/notes/perf-investigation-tooling-comparison-2026-05-27.md`
+ran the same investigation question through an ad-hoc `jq`
+method and a tooled method against the same profile substrate,
+and the tooled method closed the per-component attribution gap
+the ad-hoc method could not reach while collapsing wall-clock
+investigation time from ~30+ minutes to ~10.
 
 - **Firefox DevTools Performance**, with the frontend's
   `app.config.performance = true` setting enabled in dev. The
@@ -133,18 +140,23 @@ diagnostic gaps in the 2026-05-27 investigation:
   patch, and unmount. These markers surface in the same profile
   timeline as everything else and attribute per-frame work to
   specific components / composables — the attribution gap whose
-  absence forced the 2026-05-27 investigation into
-  marker-only-no-stacks territory.
+  absence had forced the ad-hoc investigation into
+  marker-only-no-stacks territory, and which the tooled
+  investigation closed with a single `thread markers
+  --auto-group` query.
 - **`@firefox-devtools/profiler-cli`** as the canonical parser
   for the Firefox profile JSON format. Replaces the ad-hoc
   `jq` reverse-engineering future investigations would
-  otherwise re-derive. Per the worklog: *"reduces a multi-step
-  `jq` reverse-engineering session to a few canonical queries."*
+  otherwise re-derive. The empirical 30-min → 10-min reduction
+  recorded in the comparison report establishes the uplift.
 
-Adoption of either tool into the project's dev-tooling
-surface ships as its own arc; this tenet names them as the
-recommended surface for the perf-investigation register and
-the substrate the metric vocabulary below assumes.
+The mechanical wiring that lands this decision is a small
+follow-up arc: the one-line DEV-gated `app.config.performance
+= true` should ship in `frontend/src/main.ts`, and a
+contributor-doc pointer for `profiler-cli` usage should land
+under `frontend/`'s README. Neither is structurally open;
+this ADR records the decision and the wiring is the residual
+action.
 
 ### Metric vocabulary
 
@@ -226,34 +238,77 @@ cover, not a fuzzy-fit claim against the closed vocabulary.
 ## Calibration on perception
 
 A user-perceived performance issue is legitimate triggering
-evidence even when quantitative confirmation is absent or
-contradicts. The project's existing posture, recorded in the
-author's memory record: *trust user signal over synthetic
-probe when they contradict*. The 2026-05-27 investigation
-worked the corollary: a near-threshold jitter perception
-produced a substantive investigation, the investigation's
-quantitative findings did not isolate a Phase 2 regression,
-and the response was to ship defensive micro-optimisations
-the perception had pointed at while accepting the
-modality-inherent verdict the data supported.
+evidence. Perception substantiates the *trigger*; the
+investigation is the attempt to substantiate the *diagnosis*.
+The two are different acts and this tenet does not collapse
+them. The investigation's substantiation lives in the captured
+profile and the conclusion drawn from it, whichever way that
+conclusion lands.
 
-This tenet does not require quantitative confirmation before
-acting on perception. Perception is itself the substantiation
-of the *trigger*; the investigation is the attempt to
-substantiate the diagnosis. The two are different acts and
-this tenet does not collapse them. The investigation's
-substantiation lives in the captured profile, not in whether
-the profile confirmed the perception — a profile that does
-not confirm the perception is still substantiation that the
-investigation took place and reached the conclusion it
-reached.
+The investigation's outcome falls into one of three
+distinguishable classes, each with its own correct response:
 
-The failure mode this tenet does forbid is the inverse: a
-perf claim made without an investigation having taken place.
-"Faster" / "no regression" asserted on author intuition alone,
-unaccompanied by either a captured profile or an explicit
-"unsubstantiated" qualifier, is the silent-failure shape this
-tenet exists to prevent.
+1. **User perceives, measurement substantiates.** The
+   investigation grounds the diagnosis; the fix follows from
+   what the measurement shows. Standard case; no further
+   calibration needed.
+
+2. **User perceives, measurement finds nothing.** The
+   investigation legitimately concludes the perception was not
+   measurable. Possible causes include environmental factors
+   on the user's side, confirmation bias, imagination, or a
+   real effect below the measurement floor of the chosen
+   tools. The user being wrong about a perception is itself a
+   legitimate measurement outcome to surface, not a failure
+   of the investigation. Acceptable responses include:
+   (a) ship defensive structural improvements the perception
+   pointed at if they are separately warranted on their own
+   merits; (b) acknowledge the null finding and accept it as
+   the verdict; or both. Choice between (a), (b), or the
+   combination is per-arc judgement; this tenet does not
+   mandate either. The 2026-05-27 arc happened to land both —
+   defensive Phase 2.1 micro-optimisations and the null
+   verdict on the Phase 2 regression question — but a future
+   arc that lands only the null finding is equally
+   well-formed under this tenet.
+
+3. **User perceives, measurement contradicts.** This is the
+   case the project's existing *trust user signal over
+   synthetic probe when they contradict* posture covers. The
+   correct response is to investigate whether the probe is
+   under-specified before generalising its negative finding —
+   the probe may be measuring the wrong axis, the wrong
+   window, or at the wrong granularity.
+
+Cases 2 and 3 are orthogonal, not the same situation
+differently described. In case 2 the measurement is taken to
+be sound and the perception is taken to be the thing under
+question; in case 3 the measurement is taken to be suspect
+and the perception is taken to be the thing the measurement
+should have caught. The 2026-05-27 investigation was case 2
+(per-component attribution via the Vue flag closed the
+measurement gap the prior investigation lacked, and the
+resulting measurement found no regression). The orthogonality
+matters because the *trust user signal* posture, applied
+unaltered, would produce the wrong answer in case 2:
+contradictory measurement is not always evidence of an
+under-specified probe.
+
+The discipline survives all three cases: investigate the gap
+honestly, report the finding (whether it confirms or
+contradicts the perception), do not pre-commit to either
+side being privileged. The
+`docs/archive/notes/perf-investigation-tooling-comparison-2026-05-27.md`
+report's §"The orthogonal posture this null finding
+illustrates" carries the worked example of the case-2 / case-3
+distinction.
+
+The failure mode this tenet does forbid is the inverse of all
+three: a perf claim made without an investigation having
+taken place at all. "Faster" / "no regression" asserted on
+author intuition alone, unaccompanied by either a captured
+profile or an explicit "unsubstantiated" qualifier, is the
+silent-failure shape this tenet exists to prevent.
 
 ## Consequences
 
@@ -411,6 +466,17 @@ This tenet would be worth reconsidering if:
   cause section, multi-tasking preservation requirements, per-
   fix verification gates. The shape this tenet encourages for
   investigation-class worklogs.
+- **`docs/archive/notes/perf-investigation-tooling-comparison-2026-05-27.md`** —
+  the side-by-side comparison of ad-hoc `jq` against
+  `profiler-cli` + Vue's `app.config.performance` flag, on the
+  same investigation question. Empirically substantiates the
+  canonical-tool decision in the Tools section above, and
+  documents the case-2 (measurement-finds-nothing) outcome the
+  Calibration section names. Optional grounding for agents
+  who want concrete detail on the investigation that informed
+  this ADR — not required reading; this ADR's body stands on
+  its own and the report's depth is available for those who
+  want it.
 - **`docs/worklog/2026-05-27-keybindings-phase2.1-micro-optimizations.md`** —
   the worklog whose investigation triggered the codification
   of this tenet. The "Perf tooling notes" section of that
@@ -463,21 +529,14 @@ the user rather than being pre-decided here:
    a recommendation, or defer to per-contributor choice is a
    call the user is best placed to make. The current draft
    leans recommendation, not mandate.
-2. **`profiler-cli` adoption depth.** The tenet names it as
-   the canonical parser; whether to adopt it as a documented
-   dev dependency (a `package.json` entry, a `README` section
-   under `frontend/`) or to leave it as a "recommended
-   install" with no project-level wiring is a separate arc.
-   The current draft leaves the adoption-depth question to a
-   follow-up.
-3. **Acceptance-criteria stringency.** This draft sets the
+2. **Acceptance-criteria stringency.** This draft sets the
    bar at "attach a profile pair OR explicitly mark
    unsubstantiated." A stricter posture would block landing
    perf-claimed PRs without the pair; a looser posture would
    leave the marking entirely to author judgement without the
    explicit-qualifier requirement. The current draft is the
    middle position.
-4. **Tenet vs. decision classification.** The drafter filed
+3. **Tenet vs. decision classification.** The drafter filed
    this as a tenet on the same grounds ADR-0007 used (an
    authoring discipline, not a one-time structural choice).
    If the user reads it as more decision-shaped — e.g., "we
