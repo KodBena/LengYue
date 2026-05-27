@@ -259,6 +259,7 @@ frontend/src/
 │
 ├── lib/
 │   ├── dsl-harness.ts                 [B1]  Pipeline-DSL hyperparameter harness: JSON5+holes parser/formatter, validator, substitute.
+│   ├── keybindings.ts                 [B1]  Keybindings registry substrate: declarative `KeybindingActionDecl` catalog, `ACTIONS` const, `effectiveKey` / `isActionEnabled` / `validateKeybindingsRegistry` helpers. Authoritative list of every user-rebindable keyboard action. Phase 1 of `docs/notes/keybindings-plan.md`.
 │   ├── knobs.ts                       [B1]  Knob-registry substrate: path-walk accessors, named-transform library, startup validation, ownership state machine, policy-aware writeKnobValue.
 │   └── utils.ts                       [B1]  debounce helper (the only inhabitant; lib/utils merger flagged separately).
 │
