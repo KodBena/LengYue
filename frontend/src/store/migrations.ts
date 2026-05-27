@@ -77,7 +77,7 @@ import { archivedMigrations, type Migration } from './archived-migrations';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 51;
+export const CURRENT_SCHEMA_VERSION = 52;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -105,29 +105,6 @@ export const CURRENT_SCHEMA_VERSION = 51;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 49 → 50: backfill `profile.settings.engine.katago.analysisAutoSave`
-  // (boolean, default false). The auto-save policy for the
-  // experimental analysis-persistence feature lands as an opt-in
-  // toggle in the registry editor under engine → katago, gated on
-  // the parent `analysisStorageEnabled`. See
-  // `composables/useAutoSaveAnalyses.ts` for the policy and
-  // `AppSettings.engine.katago.analysisAutoSave` in `types.ts` for
-  // the contract.
-  //
-  // Idempotent: a pre-existing boolean is preserved unchanged so a
-  // forward-compat install that already flipped the toggle keeps
-  // its choice.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const katago = out.profile?.settings?.engine?.katago;
-    if (katago && typeof katago === 'object') {
-      const k = katago as { analysisAutoSave?: unknown };
-      if (typeof k.analysisAutoSave !== 'boolean') {
-        k.analysisAutoSave = false;
-      }
-    }
-    return out;
-  },
   // 50 → 51: backfill
   // `profile.settings.engine.katago.bundleCompressionScheme`
   // (string enum from `BUNDLE_COMPRESSION_SCHEMES` in types.ts,
@@ -171,6 +148,31 @@ export const migrations: Migration[] = [
         k.bundleCompressionScheme = 'v2-projected';
       } else {
         k.bundleCompressionScheme = 'v1';
+      }
+    }
+    return out;
+  },
+  // 51 → 52: backfill `BoardState.games` (per-board "play vs
+  // engine" game-root annotations, keyed by `NodeId`). New
+  // BoardState field introduced by the "play vs engine /
+  // game-roots" feature: each entry on a board is a game-root
+  // node mapped to its engine config (user color, engine model,
+  // max visits); the engine responds when the user navigates
+  // within the game-root's descendant tree at a position where
+  // it's the engine's color's turn. See the `games` field's doc
+  // on `BoardState` in `types.ts` for the full contract, and
+  // `useEngineResponder` for the trigger semantics.
+  //
+  // Idempotent: a pre-existing `games` object is preserved
+  // unchanged so a forward-compat install that already wrote
+  // game-roots keeps them.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    if (Array.isArray(out.boards)) {
+      for (const board of out.boards) {
+        if (board && typeof board === 'object' && !board.games) {
+          board.games = {};
+        }
       }
     }
     return out;

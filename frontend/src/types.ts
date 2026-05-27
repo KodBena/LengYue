@@ -221,6 +221,40 @@ export interface BoardState {
   // stores the raw filename so a future surfacing (e.g., a tooltip
   // showing "loaded from <file>") doesn't have to reconstruct it.
   sourceFileName?: string;
+  /**
+   * "Play vs engine" game-root annotations, keyed by NodeId. Each
+   * entry marks a node as the root of a game where the user plays
+   * against the engine; the entry's value is the engine config to
+   * use whenever the user is at a descendant of this node and it's
+   * the engine's color's turn. Multiple games can coexist on one
+   * board — engine responds wherever the cursor lands inside any
+   * of them.
+   *
+   * Two games whose descendant trees overlap → behaviour undefined
+   * (the engine response uses whichever game-root the ancestor
+   * walk finds first; KataGo's per-query nondeterminism means the
+   * user is unlikely to notice in practice).
+   *
+   * Schema-version 52 introduces this field; the migration
+   * backfills `{}` on existing persisted boards.
+   */
+  games: Record<NodeId, EnginePlayGameConfig>;
+}
+
+/**
+ * Per-game config for a "play vs engine" session whose root is a
+ * specific node in a board's game tree. Stored in
+ * `BoardState.games` keyed by the root `NodeId`. See the `games`
+ * field's doc on `BoardState` for the lifecycle / trigger
+ * semantics.
+ */
+export interface EnginePlayGameConfig {
+  /** Color the user plays — the engine plays the other. */
+  userColor: StoneColor;
+  /** Max visits the engine uses per move. */
+  engineMaxVisits: number;
+  /** SELECTOR-mode model label, or null on LEAF / non-SELECTOR. */
+  engineModel: string | null;
 }
 
 // EngineMetrics is a value object (immutable, swapped wholesale); the

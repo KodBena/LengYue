@@ -69,5 +69,6 @@ export function createInitialBoard(): BoardState {
     turn: 'B',
     lastActivity: 0,
     clientGameId: generateUUID(),
+    games: {},
   };
 }

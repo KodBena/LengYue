@@ -650,5 +650,6 @@ function normalizeBoard(raw: any): BoardState {
     lastActivity:    raw.lastActivity    ?? 0,
     maxVisitsTarget: raw.maxVisitsTarget ?? 1000,
     nodes:           raw.nodes           ?? {},
+    games:           raw.games           ?? {},
   };
 }
