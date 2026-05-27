@@ -2,22 +2,29 @@
 /**
  * src/components/KeybindingsView.vue
  *
- * Read-only reference view of the keybindings registry, grouped
- * by domain (`nav` / `display` / `engine`). Phase 3 of
- * docs/notes/keybindings-plan.md — discoverability lands here
- * even without the edit affordance. Phase 4 adds Edit / Reset /
- * Unbind per-row controls and a Reset-all button.
+ * The Keybindings sub-tab of the Settings surface. Walks
+ * KEYBINDINGS_REGISTRY, groups actions by domain prefix
+ * (`nav` / `display` / `engine`) in plan-sketch order, and
+ * delegates each row's render + edit affordance to
+ * KeybindingRow. Phase 4 of docs/notes/keybindings-plan.md
+ * lands the row-level Edit / Reset / Unbind controls plus the
+ * Reset-all button + reserved-keys disclosure at the foot;
+ * Phase 3 (the read-only precursor) shipped 2026-05-27.
  *
  * License: Public Domain (The Unlicense)
  */
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { store } from '../store';
+import KeybindingRow from './KeybindingRow.vue';
+import ResetAllKeybindingsModal from './modals/ResetAllKeybindingsModal.vue';
 import {
   KEYBINDINGS_REGISTRY,
-  effectiveKey,
   type KeybindingActionDecl,
 } from '../lib/keybindings';
+import {
+  RESERVED_KEYS,
+  resetAllBindings,
+} from '../lib/keybindings-capture';
 
 const { t } = useI18n();
 
@@ -40,11 +47,21 @@ const grouped = computed<ReadonlyArray<readonly [Domain, ReadonlyArray<Keybindin
   return KNOWN_DOMAINS.map((d) => [d, groups[d]] as const);
 });
 
-function displayKey(action: KeybindingActionDecl): string {
-  const key = effectiveKey(action, store.profile.settings.keybindings);
-  if (key === null) return t('keybindings.unbound');
-  if (key === ' ') return 'Space';
-  return key;
+// Reserved-key disclosure body — comma-separated list of the
+// keys the editor refuses to bind. Sorted alphabetically (the
+// Set's iteration order is insertion order; alphabetical reads
+// more naturally to the user than "the order the dev typed them").
+const reservedKeysDisplay = computed<string>(() => {
+  return [...RESERVED_KEYS].sort().join(', ');
+});
+
+const resetAllModalRef = ref<InstanceType<typeof ResetAllKeybindingsModal> | null>(null);
+
+async function handleResetAll(): Promise<void> {
+  const confirmed = await resetAllModalRef.value?.open();
+  if (confirmed === true) {
+    resetAllBindings();
+  }
 }
 </script>
 
@@ -58,15 +75,28 @@ function displayKey(action: KeybindingActionDecl): string {
       <h3 class="sub-header">{{ t(`keybindings.section.${domain}`) }}</h3>
       <table class="keybindings-table">
         <tbody>
-          <tr v-for="action in actions" :key="action.id">
-            <td class="action-label" :title="t(action.descriptionKey)">
-              {{ t(action.labelKey) }}
-            </td>
-            <td class="action-key">{{ displayKey(action) }}</td>
-          </tr>
+          <KeybindingRow
+            v-for="action in actions"
+            :key="action.id"
+            :action="action"
+          />
         </tbody>
       </table>
     </section>
+
+    <div class="keybindings-footer">
+      <button class="reset-all-btn" @click="handleResetAll">
+        {{ t('keybindings.button.resetAll') }}
+      </button>
+      <details class="reserved-keys-disclosure">
+        <summary>{{ t('keybindings.reservedKeys.label') }}</summary>
+        <p class="reserved-keys-body">
+          {{ t('keybindings.reservedKeys.body', { keys: reservedKeysDisplay }) }}
+        </p>
+      </details>
+    </div>
+
+    <ResetAllKeybindingsModal ref="resetAllModalRef" />
   </div>
 </template>
 
@@ -88,21 +118,42 @@ function displayKey(action: KeybindingActionDecl): string {
   border-collapse: collapse;
 }
 
-.keybindings-table td {
-  padding: var(--space-tiny) var(--space-small);
-  border-bottom: 1px solid var(--surface-1);
+.keybindings-footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-medium);
+  margin-top: var(--space-loose);
+  padding-top: var(--space-medium);
+  border-top: 1px solid var(--surface-1);
 }
 
-.action-label {
-  text-align: left;
-  color: var(--text-0);
+.reset-all-btn {
+  align-self: flex-start;
+  background: transparent;
+  border: 1px solid var(--state-attention);
+  color: var(--state-attention);
+  padding: var(--space-default) var(--space-medium);
+  border-radius: var(--radius-default);
+  cursor: pointer;
+  font-size: var(--text-emphasis);
 }
 
-.action-key {
-  text-align: right;
+.reset-all-btn:hover {
+  background: var(--state-attention);
+  color: var(--surface-1);
+}
+
+.reserved-keys-disclosure > summary {
+  cursor: pointer;
   color: var(--text-1);
-  font-family: monospace;
-  white-space: nowrap;
-  min-width: 6ch;
+  font-size: var(--text-small);
+  user-select: none;
+}
+
+.reserved-keys-body {
+  margin-top: var(--space-small);
+  color: var(--text-2);
+  font-size: var(--text-small);
+  line-height: 1.5;
 }
 </style>
