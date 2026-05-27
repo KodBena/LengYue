@@ -44,6 +44,26 @@ export { CURRENT_SCHEMA_VERSION, migrate } from './migrations';
 
 export const boardsVersion = ref(0);
 
+/**
+ * Counter incremented only on board *set* changes (add / remove /
+ * replace), not on per-board content mutations. Composables that
+ * maintain per-board watchers (e.g., `useAutoSaveAnalyses`,
+ * `useAppBootstrap`'s analysis-persistence restore) reconcile
+ * against this rather than against `boardsVersion` — `boardsVersion`
+ * fires on every `mutateBoard` and would force the iterate-all-
+ * boards work the per-board pattern is meant to avoid.
+ *
+ * Bumped at: `addBoard`, `closeBoard`, `updateBoardState`
+ * (conservative — id may change across SGF-load paths),
+ * `resetWorkspace`, `updateFromRemote`. NOT bumped at:
+ * `mutateBoard`, `setActiveBoard`, `mutateReviewSession` (per-board
+ * content / per-board UI state).
+ *
+ * Per `docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md` Bug A
+ * (secondary causes).
+ */
+export const boardsSetVersion = ref(0);
+
 export const store = reactive<GlobalStore>({
   activeBoardIndex: 0,
   boards: [createInitialBoard()],
@@ -203,6 +223,7 @@ export function addBoard(boardState: BoardState): void {
   store.boards.push(boardState);
   store.activeBoardIndex = store.boards.length - 1;
   boardsVersion.value++;
+  boardsSetVersion.value++;
 }
 
 export function createBoard(): void {
@@ -350,6 +371,7 @@ export function closeBoard(boardId: BoardId): void {
     store.boards = [createInitialBoard()];
     store.activeBoardIndex = 0;
     boardsVersion.value++;
+    boardsSetVersion.value++;
     return;
   }
 
@@ -364,12 +386,21 @@ export function closeBoard(boardId: BoardId): void {
   }
 
   boardsVersion.value++;
+  boardsSetVersion.value++;
 }
 
 export function updateBoardState(index: number, newState: BoardState): void {
   if (store.boards[index]) {
     store.boards[index] = newState;
     boardsVersion.value++;
+    // Conservative: bump the set-version even though most callers
+    // preserve the board id. SGF-load paths (useDirtyBoardGuard,
+    // useReviewSession) replace with freshly-parsed boards whose
+    // id may differ; missing the bump would leave per-board
+    // watchers stale for the old id and uninstalled for the new
+    // one. A redundant bump (same id case) just fires reconcile
+    // with no diff — cheap.
+    boardsSetVersion.value++;
   }
 }
 
@@ -492,6 +523,7 @@ export function resetWorkspace(): void {
     reviews: {},
   };
   boardsVersion.value++;
+  boardsSetVersion.value++;
 }
 
 export function updateFromRemote(
@@ -540,6 +572,7 @@ export function updateFromRemote(
   }
 
   boardsVersion.value++;
+  boardsSetVersion.value++;
 }
 
 /**
