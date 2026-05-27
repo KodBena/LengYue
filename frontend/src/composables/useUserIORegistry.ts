@@ -1,158 +1,91 @@
 /**
  * src/composables/useUserIORegistry.ts
- * Unified Input Manager (Hardware Adapter).
- * Maps hardware events to Domain Verbs.
+ * Registry-driven keyboard dispatcher.
+ *
+ * Reads `KEYBINDINGS_REGISTRY` from `src/lib/keybindings.ts` and
+ * dispatches keydown events to the matching action's handler.
+ * The map from key string to action is built reactively by
+ * resolving each action's `effectiveKey(action, overrides)`
+ * against `store.profile.settings.keybindings` — so a user
+ * rebinding (Phase 4 UI) immediately reflects without a remount.
+ *
+ * Per-action `dispatchMode` decides immediate-vs-coalesced firing
+ * (rAF coalesce for navigation, synchronous for toggles — same
+ * posture perf Fix #1 introduced and the now-removed hardcoded
+ * `COALESCED_NAV_KEYS` set tracked). Per-action `enabledWhen`
+ * gates dispatch (active-board / engine-connected / always —
+ * replaces the prior global `if (!activeBoard.value) return`
+ * early-return). `preventDefault` fires for any registry-bound
+ * key regardless of `enabledWhen` so a key the SPA owns doesn't
+ * silently fall through to the browser default when its action
+ * happens to be currently disabled (e.g., Space when the engine
+ * is disconnected stays "claimed" — the page doesn't scroll).
+ *
+ * Letter-key normalisation: lookup keys are lowercased so a
+ * default binding to `m` matches both `m` (no shift) and `M`
+ * (shift held). The registry's `defaultKey` strings are already
+ * lowercase; the lookup-side `.toLowerCase()` handles the
+ * shift-variant `event.key`.
+ *
+ * Phase 2 of the keybindings arc (per
+ * `docs/notes/keybindings-plan.md`). Phase 1 added the registry;
+ * this commit makes the dispatcher consume it. Phase 3 adds the
+ * Settings sub-tab + read-only Keybindings view; Phase 4 adds
+ * the Edit / Reset / Unbind UI.
+ *
  * License: Public Domain (The Unlicense)
  */
 
-import { onMounted, onUnmounted } from 'vue';
-import { store, activeBoard } from '../store';
-import { useNavigation } from './useNavigation';
-import { analysisService } from '../services/analysis-service';
+import { computed, onMounted, onUnmounted } from 'vue';
+import { store } from '../store';
+import {
+  KEYBINDINGS_REGISTRY,
+  effectiveKey,
+  isActionEnabled,
+  type KeybindingActionDecl,
+} from '../lib/keybindings';
 
-// Keys this composable owns. Membership decides both whether to
-// `preventDefault` synchronously (the browser's default-action
-// gate runs before the event-loop returns to us, so the suppress
-// decision cannot be deferred into the rAF tick) and whether to
-// route to the action dispatch at all.
-const HANDLED_KEYS = new Set<string>([
-  'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight',
-  'Home', 'End',
-  ' ',
-  'm', 'M', 'n', 'N', 'c', 'C', 'd', 'D', 'l', 'L',
-]);
-
-// Subset of HANDLED_KEYS whose action is rAF-coalesced. Holding
-// a navigation key under OS key-repeat back-pressures into at
-// most one nav step per browser frame — under heavier downstream
-// cost where rAF can't keep up, intermediate steps drop rather
-// than queue. Toggles (space / m / c / d / l) stay synchronous:
-// one keypress is one toggle, and rAF-coalescing would
-// unpredictably drop presses depending on frame boundaries.
-// Mirrors `useScopedScroll`'s wheel-event posture. Diagnosed in
-// `docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md` Bug B.
-const COALESCED_NAV_KEYS = new Set<string>([
-  'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight',
-  'Home', 'End',
-]);
+/**
+ * Letter keys (A–Z / a–z) normalise to lowercase for both
+ * registration and lookup, so a binding to `m` triggers on
+ * `event.key === 'm'` AND `event.key === 'M'` (Shift held).
+ * Non-letter keys (Arrow*, Home, End, ' ', etc.) pass through
+ * unchanged.
+ */
+function normalizeKey(key: string): string {
+  if (key.length === 1 && /^[a-zA-Z]$/.test(key)) return key.toLowerCase();
+  return key;
+}
 
 export function useUserIORegistry() {
-  const nav = useNavigation();
-
-  // rAF coalesce state for navigation keys. `pendingNavKey` is
-  // the most-recent navigation key whose action is queued for
-  // the next frame; `rafId` is the scheduled callback handle so
-  // it can be cancelled (latest-key-wins) and torn down at
-  // unmount.
-  let rafId: number | null = null;
-  let pendingNavKey: string | null = null;
-
-  // Single dispatch — same switch the original handler had,
-  // called either synchronously (toggles) or from inside an rAF
-  // callback (nav). Re-checks `activeBoard.value` at execution
-  // time because the rAF tick fires one frame after the keydown
-  // event; the active board may have changed in the interim,
-  // matching `useScopedScroll`'s posture of reading current
-  // state at fire time.
-  const runAction = (key: string) => {
-    if (!activeBoard.value) return;
-    const boardId = activeBoard.value.id;
-
-    switch (key) {
-      // ── Depth Navigation (Vertical) ──
-      case 'ArrowDown':
-        nav.next();
-        break;
-      case 'ArrowUp':
-        nav.prev();
-        break;
-
-      // ── Variation Navigation (Lateral) ──
-      case 'ArrowLeft':
-        nav.variation(-1);
-        break;
-      case 'ArrowRight':
-        nav.variation(1);
-        break;
-
-      // ── Path Endpoints ──
-      // Home / End jump to the first / last node of the active
-      // variation path. The browser's default Home / End
-      // bindings (scroll-to-top / scroll-to-bottom) are
-      // pre-empted via the synchronous `e.preventDefault()` in
-      // the handler below for the same reason Arrow keys are —
-      // the board surface owns these motions while a board is
-      // active.
-      case 'Home':
-        nav.home();
-        break;
-      case 'End':
-        nav.end();
-        break;
-
-      // ── Engine Toggle ──
-      // Ponder toggle. The predicate / start / stop trio is
-      // per-kind: spacebar only ever creates or releases a
-      // ponder query, never touches any range / replay running
-      // on the same board. `isPondering(boardId)` reads the
-      // per-board active-query set in the analysis service;
-      // the stop branch delegates to that service to release
-      // exactly the ponder-mode query.
-      case ' ':
-        if (store.engine.status === 'connected') {
-          if (analysisService.isPondering(boardId)) {
-            analysisService.stopPonderOnBoard(boardId);
-          } else {
-            analysisService.analyzeActiveNode(boardId, 'ponder');
-          }
-        }
-        break;
-
-      case 'm':
-      case 'M':
-        store.session.ui.showMoveSuggestions = !store.session.ui.showMoveSuggestions;
-        break;
-
-      // Move-number annotation on played stones. Sibling toggle to
-      // the StatusBar's `.move-numbers-btn` (the "#" button at
-      // `src/components/board/StatusBar.vue:74`); both flip the same
-      // `showStoneMoveNumbers` flag, so keyboard and chrome
-      // affordances stay in lockstep.
-      case 'n':
-      case 'N':
-        store.session.ui.showStoneMoveNumbers = !store.session.ui.showStoneMoveNumbers;
-        break;
-
-      // Ownership overlay sub-modes — three orthogonal toggles.
-      // Pure display preferences: flipping a sub-mode does NOT
-      // auto-fire a fresh analysis. `BoardWidget.vue`'s
-      // `continuousCells` / `dotsCells` / `livenessCells` gate
-      // rendering on both the toggle state AND on
-      // `decodedOwnership` being non-null, so toggling on
-      // without an ownership-bearing packet shows nothing and
-      // the user re-runs analysis explicitly when they want
-      // fresh data. The rationale for the no-auto-restart
-      // posture is in commit 6a22369 (2026-05-08): a
-      // config-toggle that auto-fires an expensive engine
-      // query is the costly-and-unexpected side-effect class
-      // ADR-0002 is shaped to make explicit.
-      //   'c' — continuous adjacent-square territory fill
-      //   'd' — discrete confidence dots on empty intersections
-      //   'l' — liveness highlight on disagreeing stones
-      case 'c':
-      case 'C':
-        store.session.ui.overlayLayers.ownership.continuous = !store.session.ui.overlayLayers.ownership.continuous;
-        break;
-      case 'd':
-      case 'D':
-        store.session.ui.overlayLayers.ownership.dots = !store.session.ui.overlayLayers.ownership.dots;
-        break;
-      case 'l':
-      case 'L':
-        store.session.ui.overlayLayers.ownership.liveness = !store.session.ui.overlayLayers.ownership.liveness;
-        break;
+  // Reactive key→action map. Recomputes when `store.profile.settings.keybindings`
+  // changes (user rebinding via the Phase 4 editor); the registry
+  // itself is module-static so its iteration is stable.
+  //
+  // Conflict resolution: first-wins by `KEYBINDINGS_REGISTRY`
+  // registration order. The `validateKeybindingsRegistry`
+  // call in `useAppBootstrap` already rejects default-key
+  // conflicts at ship time; user-set conflicts are surfaced by
+  // the Phase 4 editor before they're persisted.
+  const keyToAction = computed(() => {
+    const overrides = store.profile.settings.keybindings;
+    const map = new Map<string, KeybindingActionDecl>();
+    for (const action of KEYBINDINGS_REGISTRY) {
+      const key = effectiveKey(action, overrides);
+      if (key === null) continue;
+      const normalized = normalizeKey(key);
+      if (!map.has(normalized)) map.set(normalized, action);
     }
-  };
+    return map;
+  });
+
+  // rAF coalesce state for `dispatchMode: 'coalesced'` actions
+  // (navigation). Holds the most-recent pending action; latest-
+  // wins per frame. Re-checks `isActionEnabled` at rAF fire time
+  // so a state change between schedule and fire (rare) drops the
+  // dispatch cleanly. Matches the perf Fix #1 posture.
+  let rafId: number | null = null;
+  let pendingAction: KeybindingActionDecl | null = null;
 
   const handleKeyDown = (e: KeyboardEvent) => {
     // Context Guard: ignore hardware events when user is typing.
@@ -171,41 +104,46 @@ export function useUserIORegistry() {
     if (target instanceof HTMLTextAreaElement) return;
     if (target instanceof HTMLSelectElement) return;
     if (target instanceof HTMLElement && target.isContentEditable) return;
-    if (!activeBoard.value) return;
-    if (!HANDLED_KEYS.has(e.key)) return;
 
-    // preventDefault synchronously — the browser's default-action
-    // decision happens before the event loop returns to us, so
-    // the suppress must precede the rAF schedule. Mirrors
-    // `useScopedScroll.ts`.
+    const action = keyToAction.value.get(normalizeKey(e.key));
+    if (action === undefined) return;
+
+    // preventDefault for any registry-bound key — fires even when
+    // the action's enabledWhen currently returns false so the
+    // SPA stays the authority over claimed keys (e.g., Space
+    // stays claimed when engine disconnected; page doesn't
+    // scroll). The browser's default-action gate runs before the
+    // event-loop returns to us, so this MUST be synchronous and
+    // MUST precede any rAF schedule.
     e.preventDefault();
 
-    if (COALESCED_NAV_KEYS.has(e.key)) {
-      pendingNavKey = e.key;
+    if (!isActionEnabled(action)) return;
+
+    if (action.dispatchMode === 'coalesced') {
+      pendingAction = action;
       if (rafId !== null) cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
-        const key = pendingNavKey;
-        pendingNavKey = null;
+        const act = pendingAction;
+        pendingAction = null;
         rafId = null;
-        if (key !== null) runAction(key);
+        if (act !== null && isActionEnabled(act)) act.handler();
       });
     } else {
-      runAction(e.key);
+      action.handler();
     }
   };
 
   onMounted(() => window.addEventListener('keydown', handleKeyDown));
   onUnmounted(() => {
     window.removeEventListener('keydown', handleKeyDown);
-    // Drop any pending nav step queued by the last keydown.
-    // Without this, the rAF callback would fire after the
-    // listener is removed and execute against a teardown state
-    // the closure no longer rightly reaches. Pair with the
+    // Drop any pending coalesced action queued by the last
+    // keydown — a rAF callback firing after listener removal
+    // would execute against teardown state. Pair with the
     // `requestAnimationFrame` schedule in the handler above.
     if (rafId !== null) {
       cancelAnimationFrame(rafId);
       rafId = null;
-      pendingNavKey = null;
+      pendingAction = null;
     }
   });
 }
