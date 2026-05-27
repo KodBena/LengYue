@@ -279,6 +279,24 @@ export function effectiveKey(
   return action.defaultKey;
 }
 
+// ── normalizeKey ─────────────────────────────────────────────
+
+/**
+ * Letter keys (A–Z / a–z) normalise to lowercase for both
+ * registration and lookup, so a binding to `m` triggers on
+ * `event.key === 'm'` AND `event.key === 'M'` (Shift held).
+ * Non-letter keys (Arrow*, Home, End, ' ', etc.) pass through
+ * unchanged.
+ *
+ * Used by `useUserIORegistry` at lookup time and by the Phase 4
+ * capture helper at write time, so what the user sees recorded
+ * matches what the dispatcher will dispatch on.
+ */
+export function normalizeKey(key: string): string {
+  if (key.length === 1 && /^[a-zA-Z]$/.test(key)) return key.toLowerCase();
+  return key;
+}
+
 // ── enabledWhen evaluation ───────────────────────────────────
 
 /**

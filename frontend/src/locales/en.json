@@ -194,6 +194,24 @@
   "keybindings.section.engine":                                "Engine",
   "keybindings.unbound":                                       "(unbound)",
 
+  "keybindings.button.edit":                                   "Edit",
+  "keybindings.button.reset":                                  "Reset",
+  "keybindings.button.unbind":                                 "Unbind",
+  "keybindings.button.cancel":                                 "Cancel",
+  "keybindings.button.replace":                                "Replace",
+  "keybindings.button.resetAll":                               "Reset all to defaults",
+
+  "keybindings.capture.prompt":                                "Press a key…",
+  "keybindings.capture.reservedNotice":                        "\"{key}\" is reserved — please choose another.",
+  "keybindings.capture.conflict":                              "\"{key}\" is already bound to \"{action}\"",
+
+  "keybindings.resetAll.title":                                "Reset all keybindings?",
+  "keybindings.resetAll.body":                                 "This restores every action to its default key, removing any customisations you've made. This cannot be undone.",
+  "keybindings.resetAll.confirm":                              "Reset all",
+
+  "keybindings.reservedKeys.label":                            "Reserved keys",
+  "keybindings.reservedKeys.body":                             "These keys are reserved by the SPA's modal-dismiss, focus-traversal, and form-submit behaviours and cannot be bound: {keys}.",
+
   "sidebar.newBoard":                     "New Board",
 
   "toolbar.connect":                      "Connect",

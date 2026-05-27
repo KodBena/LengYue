@@ -47,7 +47,8 @@ frontend/src/
 │
 ├── components/                              Vue SFCs. Thin renderers, minimum wiring to composables.
 │   ├── CardMetadataPanel.vue          [B3]  Inline-edit metadata panel for a single card (tags / numMoves / gamma / suspended / reset_prior).
-│   ├── KeybindingsView.vue            [B1]  Read-only registry view of keybindings, grouped by domain (Phase 3 of keybindings-plan).
+│   ├── KeybindingRow.vue              [B1]  Per-action row in the Keybindings view — idle/capture/conflict state machine + Edit/Reset/Unbind buttons.
+│   ├── KeybindingsView.vue            [B1]  Keybindings sub-tab: per-domain registry list + Reset-all + reserved-keys disclosure.
 │   ├── KnobRegistryEditor.vue         [B1]  Cross-domain knob-registry editor — lists every scalar knob, grouped by domain (Phase 3b).
 │   ├── ReviewSessionPanel.vue         [B3]  In-session SR controls: status, counter, intermission chart, hint visibility.
 │   ├── SettingsTab.vue                [B2]  Settings tab surface: General / Keybindings sub-tabs via TabWidget.
@@ -99,7 +100,8 @@ frontend/src/
 │   │   ├── HyperparamPromptModal.vue  [B1]  Bind-time prompt for deck-pipeline hyperparameters (defaults pre-filled, per-field validation).
 │   │   ├── LoginModal.vue             [B1]  Sign-in / register / switch-user / sign-out.
 │   │   ├── MintCardModal.vue          [B3]  Flashcard mint dialog (SGF → backend mint).
-│   │   └── PlayEngineModal.vue        [B3]  "Play vs engine" session manager: lists active sessions (start + current-head move) on the board with End buttons; start form for a new session at the current node.
+│   │   ├── PlayEngineModal.vue        [B3]  "Play vs engine" session manager: lists active sessions (start + current-head move) on the board with End buttons; start form for a new session at the current node.
+│   │   └── ResetAllKeybindingsModal.vue [B1] Destructive-confirm modal for the Keybindings sub-tab's Reset-all action.
 │   │
 │   ├── knobs/                               Per-knob widgets for the knob-registry editor surfaces.
 │   │   └── KnobSlider.vue             [B1]  Unified scalar slider — substrate-aware read/write, claim-state disable (Phase 3b).
@@ -261,7 +263,8 @@ frontend/src/
 │
 ├── lib/
 │   ├── dsl-harness.ts                 [B1]  Pipeline-DSL hyperparameter harness: JSON5+holes parser/formatter, validator, substitute.
-│   ├── keybindings.ts                 [B1]  Keybindings registry substrate: declarative `KeybindingActionDecl` catalog, `ACTIONS` const, `effectiveKey` / `isActionEnabled` / `validateKeybindingsRegistry` helpers. Authoritative list of every user-rebindable keyboard action. Phase 1 of `docs/notes/keybindings-plan.md`.
+│   ├── keybindings.ts                 [B1]  Keybindings registry substrate: declarative `KeybindingActionDecl` catalog, `ACTIONS` const, `effectiveKey` / `isActionEnabled` / `normalizeKey` / `validateKeybindingsRegistry` helpers. Authoritative list of every user-rebindable keyboard action. Phase 1 of `docs/notes/keybindings-plan.md`.
+│   ├── keybindings-capture.ts         [B1]  Capture-mode + binding-mutation helpers for the editor (Phase 4): `captureMode` ref, `setBinding` / `resetBinding` / `resetAllBindings`, `RESERVED_KEYS`, `findActionByKey` conflict detection.
 │   ├── knobs.ts                       [B1]  Knob-registry substrate: path-walk accessors, named-transform library, startup validation, ownership state machine, policy-aware writeKnobValue.
 │   └── utils.ts                       [B1]  debounce helper (the only inhabitant; lib/utils merger flagged separately).
 │

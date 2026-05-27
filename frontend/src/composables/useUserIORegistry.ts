@@ -42,20 +42,10 @@ import {
   KEYBINDINGS_REGISTRY,
   effectiveKey,
   isActionEnabled,
+  normalizeKey,
   type KeybindingActionDecl,
 } from '../lib/keybindings';
-
-/**
- * Letter keys (A–Z / a–z) normalise to lowercase for both
- * registration and lookup, so a binding to `m` triggers on
- * `event.key === 'm'` AND `event.key === 'M'` (Shift held).
- * Non-letter keys (Arrow*, Home, End, ' ', etc.) pass through
- * unchanged.
- */
-function normalizeKey(key: string): string {
-  if (key.length === 1 && /^[a-zA-Z]$/.test(key)) return key.toLowerCase();
-  return key;
-}
+import { captureMode } from '../lib/keybindings-capture';
 
 export function useUserIORegistry() {
   // Reactive key→action map. Recomputes when `store.profile.settings.keybindings`
@@ -88,6 +78,17 @@ export function useUserIORegistry() {
   let pendingAction: KeybindingActionDecl | null = null;
 
   const handleKeyDown = (e: KeyboardEvent) => {
+    // Capture-mode guard: when a KeybindingRow is mid-edit
+    // (waiting for the user to press a key to bind), suppress
+    // dispatch entirely. The row's own keydown listener records
+    // the press; firing the action that key currently maps to
+    // would both record the binding AND fire the old action,
+    // which is the wrong UX. preventDefault is also intentionally
+    // skipped — the row's handler owns the event during capture.
+    // See `src/lib/keybindings-capture.ts` for the flag's
+    // lifecycle.
+    if (captureMode.value !== null) return;
+
     // Context Guard: ignore hardware events when user is typing.
     //
     // The form-control branches (HTMLInputElement, HTMLTextAreaElement,

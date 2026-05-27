@@ -23,7 +23,7 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import TabWidget from './chrome/TabWidget.vue';
 import KeybindingsView from './KeybindingsView.vue';
@@ -32,6 +32,7 @@ import CardSetEditor from './editors/CardSetEditor.vue';
 import RegistryEditor from './editors/RegistryEditor.vue';
 import { store, DEFAULTS } from '../store';
 import { updateRegistry } from '../engine/util';
+import { cancelCapture } from '../lib/keybindings-capture';
 
 const { t } = useI18n();
 
@@ -45,6 +46,22 @@ const subTabs = computed(() => [
   { id: 'general',     label: t('settings.subtab.general') },
   { id: 'keybindings', label: t('settings.subtab.keybindings') },
 ]);
+
+// With keepMounted=true on the inner TabWidget below, switching
+// from Keybindings to General leaves KeybindingsView mounted-but-
+// hidden (v-show false). Any KeybindingRow mid-capture would
+// otherwise keep its window-level keydown listener installed,
+// silently intercepting keypresses meant for the General view's
+// inputs. Cancelling capture whenever the sub-tab leaves
+// Keybindings releases the listener and clears the mode flag.
+// (Switching INTO Keybindings can't have anything in capture
+// mode by construction — capture is only ever started by a click
+// inside the Keybindings view itself.)
+watch(activeSubTab, (next) => {
+  if (next !== 'keybindings') {
+    cancelCapture();
+  }
+});
 
 function handleSettingsUpdate(e: { path: string[]; value: unknown }): void {
   updateRegistry(store.profile.settings, e.path, e.value);
