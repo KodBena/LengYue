@@ -53,6 +53,7 @@ export function useDirtyBoardGuard(
 ): {
   handleLoadCard: (card: ReviewCard) => Promise<void>;
   handleLoadLibraryGame: (game: LibraryGame) => Promise<void>;
+  handleLoadLibraryGameInNewBoard: (game: LibraryGame) => Promise<void>;
 } {
   /**
    * Resolve where the next load should write: return the target
@@ -163,5 +164,26 @@ export function useDirtyBoardGuard(
     });
   }
 
-  return { handleLoadCard, handleLoadLibraryGame };
+  /**
+   * "Open in new tab" path: always create a fresh board and load
+   * the library game into it, bypassing the dirty-board guard
+   * entirely. The user's intent with middle-click / ctrl-click is
+   * "open without touching the active context" — no overwrite
+   * concern, so the resolveTargetBoard / confirm-load detour is
+   * irrelevant. Mirrors the load+stamp body of
+   * `handleLoadLibraryGame` exactly so library-row provenance
+   * (`clientGameId` → backend dedup) stays consistent between the
+   * two paths.
+   */
+  async function handleLoadLibraryGameInNewBoard(game: LibraryGame): Promise<void> {
+    createBoard();
+    const targetBoardId = store.boards[store.activeBoardIndex].id;
+    loadSgfIntoBoard(targetBoardId, game.rawContent, board => {
+      if (game.clientGameId !== null) {
+        board.clientGameId = game.clientGameId;
+      }
+    });
+  }
+
+  return { handleLoadCard, handleLoadLibraryGame, handleLoadLibraryGameInNewBoard };
 }

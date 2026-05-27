@@ -150,7 +150,11 @@ function handleUpdateKomi(newKomi: number) {
 }
 
 const confirmLoadModalRef = vueRef<InstanceType<typeof ConfirmLoadModal> | null>(null);
-const { handleLoadCard, handleLoadLibraryGame } = useDirtyBoardGuard(confirmLoadModalRef);
+const {
+  handleLoadCard,
+  handleLoadLibraryGame,
+  handleLoadLibraryGameInNewBoard,
+} = useDirtyBoardGuard(confirmLoadModalRef);
 
 const { startResize } = useResizablePanel();
 
@@ -382,7 +386,10 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
 
             <template #library>
               <div style="flex: 1; display: flex; min-height: 0; width: 100%;">
-                <LibraryTab @open-library-game="handleLoadLibraryGame" />
+                <LibraryTab
+                  @open-library-game="handleLoadLibraryGame"
+                  @open-library-game-new-tab="handleLoadLibraryGameInNewBoard"
+                />
               </div>
             </template>
 

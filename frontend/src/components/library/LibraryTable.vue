@@ -20,6 +20,7 @@
  */
 import { computed, onMounted, onUnmounted, ref, watch, type Ref } from 'vue';
 import { useVirtualRowList } from '../../composables/library/useVirtualRowList';
+import { isPasteClick, isMiddleButtonMousedown } from '../../utils/modifier-key';
 import type {
   GameSourceId,
   LibraryGameListItem,
@@ -40,6 +41,11 @@ interface Emits {
   (e: 'update:direction', dir: LibrarySortDirection): void;
   (e: 'select', row: LibraryGameListItem): void;
   (e: 'open', row: LibraryGameListItem): void;
+  // Modifier-click (Ctrl/Cmd) or middle-click on a row: open the
+  // game in a NEW board rather than the active one (browser-link
+  // "open in new tab" convention; same modifier semantics as the
+  // MoveSuggestions PV-paste affordance).
+  (e: 'open-new-tab', row: LibraryGameListItem): void;
   (e: 'visible-range', start: number, end: number): void;
 }
 
@@ -118,13 +124,32 @@ function sortIndicator(col: LibrarySortColumn): string {
   return props.direction === 'asc' ? ' ▲' : ' ▼';
 }
 
-function onRowClick(idx: number): void {
+function onRowClick(event: MouseEvent, idx: number): void {
   const row = props.rowAt(idx);
-  if (row) emit('select', row);
+  if (!row) return;
+  // Ctrl/Cmd-click → "open in new tab" semantics. Same modifier
+  // convention as browser links and the MoveSuggestions PV-paste
+  // affordance.
+  if (isPasteClick(event)) {
+    emit('open-new-tab', row);
+    return;
+  }
+  emit('select', row);
 }
 function onRowDblclick(idx: number): void {
   const row = props.rowAt(idx);
   if (row) emit('open', row);
+}
+function onRowMousedown(event: MouseEvent, idx: number): void {
+  if (!isMiddleButtonMousedown(event)) return;
+  // Middle-click also gets "open in new tab" semantics. `mousedown`
+  // (not `click` / `auxclick`) for cross-browser portability —
+  // matches the MoveSuggestions middle-button pattern. The
+  // `preventDefault()` suppresses the platform's middle-button
+  // auto-scroll cursor on Win/Linux.
+  event.preventDefault();
+  const row = props.rowAt(idx);
+  if (row) emit('open-new-tab', row);
 }
 
 // Native-title tooltip on each row — shows every column the
@@ -182,8 +207,9 @@ function rowTitle(idx: number): string {
             }"
             :style="{ height: ROW_HEIGHT_PX + 'px' }"
             :title="rowTitle(i)"
-            @click="onRowClick(i)"
+            @click="(e) => onRowClick(e, i)"
             @dblclick="onRowDblclick(i)"
+            @mousedown="(e) => onRowMousedown(e, i)"
           >
             <template v-if="rowAt(i)">
               <span class="td col-player">{{ rowAt(i)?.playerBlack ?? '—' }}</span>
