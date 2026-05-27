@@ -20,6 +20,14 @@ if (import.meta.env.DEV) {
 
 const app = createApp(App);
 
+// ADR-0009: emit Vue's performance.mark() / performance.measure()
+// points (component setup, render, patch, unmount) so Firefox
+// DevTools Performance profiles attribute per-frame work to
+// specific components. Dev-only; no effect in production builds.
+if (import.meta.env.DEV) {
+  app.config.performance = true;
+}
+
 // vue-i18n plugin. Initialised at DEFAULT_LOCALE; useAppBootstrap's
 // watch on `store.profile.settings.appearance.locale` flips it to
 // the (post-hydration or default) workspace value once Vue mounts.
