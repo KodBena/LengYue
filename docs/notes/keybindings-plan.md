@@ -1,7 +1,22 @@
 # User-Configurable Keybindings — Design Note
 
-- **Status:** `design-note: planning` — pre-implementation. Branch:
-  `frontend/keybindings-plan`.
+- **Status:** `design-note: implemented` (transitioned 2026-05-27
+  with the merge of Phase 5 — the Vitest integration-test arc for
+  the dispatcher and capture-state machine). All five phases of
+  the Implementation plan landed sequentially: substrate
+  (Phase 1), dispatcher rewrite (Phase 2) + speculative micro-
+  optimisations (Phase 2.1, surfaced from a near-threshold-jitter
+  investigation that became ADR-0009's substrate), Settings
+  sub-tab + read-only view (Phase 3, PR #287), Edit / Reset /
+  Unbind + Reset-all + reserved-key blacklist (Phase 4, PR #288),
+  and the test safety net (Phase 5, 81 tests across two Tier-1
+  unit files and one Tier-3 integration file). The plan's open
+  Decisions all resolved in-flight per their original sequencing;
+  the deferred items (modifier support, chord bindings, mouse-
+  binding overrides, mousewheel-action audit) remain as named.
+
+  **The original status line** read: `design-note: planning` —
+  pre-implementation. Branch: `frontend/keybindings-plan`.
 - **Date:** 2026-05-27.
 - **Cross-references:**
   - `todo_local.gitignore` new #8b (the substrate half of the
