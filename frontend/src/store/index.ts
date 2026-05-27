@@ -98,6 +98,30 @@ export const activeBoardSize = computed((): number => {
   return sz ? parseInt(sz, 10) : 19;
 });
 
+/**
+ * Per-id index of `store.boards`, derived. Provides O(1) board
+ * lookup by `BoardId`, replacing the O(N) `store.boards.find(...)`
+ * walks that previously composed with the N consumers of
+ * `useVariationPath` (one per BoardTab) into O(N²) reactivity work
+ * per nav step. Computed rather than a hand-maintained dictionary
+ * so the invariant "every board in `store.boards` is keyed in
+ * `boardsById`" needs no maintenance discipline at the six
+ * mutation sites (`mutateBoard`, `addBoard`, `closeBoard`,
+ * `updateBoardState`, `resetWorkspace`, `updateFromRemote`) — the
+ * computed re-derives on every change to the boards array. The
+ * inner BoardState references are the same reactive proxies held
+ * in `store.boards`, so deep reads on the looked-up board
+ * register the usual fine-grained deps. Diagnosed in
+ * `docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md` Bug A.
+ */
+export const boardsById = computed((): Record<BoardId, BoardState> => {
+  const out = {} as Record<BoardId, BoardState>;
+  for (const board of store.boards) {
+    out[board.id] = board;
+  }
+  return out;
+});
+
 // ── Actions (Named Mutations) ─────────────────────────────────────────────────
 
 export function mutateBoard(boardId: BoardId, fn: (draft: BoardState) => void): void {
