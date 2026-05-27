@@ -126,7 +126,16 @@ export function useUserIORegistry() {
         const act = pendingAction;
         pendingAction = null;
         rafId = null;
-        if (act !== null && isActionEnabled(act)) act.handler();
+        // The schedule-time `isActionEnabled` check above is the
+        // load-bearing gate; the rAF callback doesn't recheck.
+        // Every current handler does its own internal
+        // context-check where needed (`nav.*` / engine-ponder
+        // check `activeBoard.value` internally before mutating;
+        // display toggles are state-independent). State changes
+        // in the 16.7 ms window between schedule and fire are
+        // absorbed by those per-handler checks. Trims one Proxy
+        // trap (reactive read) per coalesced dispatch.
+        if (act !== null) act.handler();
       });
     } else {
       action.handler();
