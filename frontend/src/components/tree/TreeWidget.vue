@@ -44,6 +44,14 @@ const props = withDefaults(
     currentNodeId: NodeId;
     boardId: BoardId;
     orientation?: 'vertical' | 'horizontal';
+    // Set of NodeIds that are "game-root" nodes — roots of
+    // "play vs engine" sessions on this board. Each game-root
+    // renders a green ring (distinct from the current-node's
+    // accent ring) so the user can see at a glance which nodes
+    // have games anchored to them. Reads `board.games` keys
+    // upstream; per-game config is opaque here — the tree only
+    // needs identity.
+    gameRootIds?: ReadonlySet<NodeId>;
   }>(),
   { orientation: 'vertical' },
 );
@@ -171,6 +179,7 @@ const nodeList = computed(() => {
     id: NodeId; px: number; py: number; ix: number; iy: number;
     move: GameNode['move']; isBranching: boolean; isExpanded: boolean;
     parentIdForToggle: NodeId | '';
+    isGameRoot: boolean;
   }> = [];
 
   layout.value.positions.forEach((pos, id) => {
@@ -178,7 +187,7 @@ const nodeList = computed(() => {
     if (!node) return;
     const { x: px, y: py } = toPixels(pos.gx, pos.gy);
     const { x: ix, y: iy } = indicatorPixels(pos.gx, pos.gy);
-    
+
     // --- NEW LOGIC: Attach to the mainline child instead of the parent ---
     let hasSiblings = false;
     let parentIdForToggle: NodeId | '' = '';
@@ -194,12 +203,13 @@ const nodeList = computed(() => {
       }
     }
 
-    items.push({ 
-      id, px, py, ix, iy, 
-      move: node.move, 
-      isBranching: hasSiblings, 
+    items.push({
+      id, px, py, ix, iy,
+      move: node.move,
+      isBranching: hasSiblings,
       isExpanded: isParentExpanded,
-      parentIdForToggle // Pass to template
+      parentIdForToggle, // Pass to template
+      isGameRoot: !!props.gameRootIds?.has(id),
     });
   });
   return items;
@@ -233,7 +243,13 @@ const edges = computed(() => {
           <path v-for="edge in edges" :key="edge.id" :d="edge.d" />
         </g>
 
-        <g v-for="item in nodeList" :key="item.id" v-memo="[item.id === currentNodeId, item.move?.color, item.isBranching, item.isExpanded]">
+        <g v-for="item in nodeList" :key="item.id" v-memo="[item.id === currentNodeId, item.isGameRoot, item.move?.color, item.isBranching, item.isExpanded]">
+          <!-- Game-root marker — outermost ring (NODE_R + 5) so it
+               stays visible when the active-ring (NODE_R + 3) also
+               applies on the current node. Green = "play vs engine
+               session anchored here". See PlayEngineModal /
+               useEngineResponder for the lifecycle. -->
+          <circle v-if="item.isGameRoot" :cx="item.px" :cy="item.py" :r="NODE_R + 5" class="game-root-ring" stroke-width="1.5" />
           <circle v-if="item.id === currentNodeId" :cx="item.px" :cy="item.py" :r="NODE_R + 3" class="active-ring" stroke-width="1" />
           <circle :cx="item.px" :cy="item.py" :r="NODE_R" :fill="nodeFill(item)" :stroke="nodeStroke(item)" stroke-width="1" class="node-circle" @click="emit('select-node', item.id)" />
 
@@ -259,6 +275,7 @@ const edges = computed(() => {
 .tree-svg { display: block; }
 .tree-edges { fill: none; stroke: var(--border-3); }
 .active-ring { fill: color-mix(in srgb, var(--accent-primary) 15%, transparent); stroke: var(--accent-primary); }
+.game-root-ring { fill: color-mix(in srgb, var(--state-success) 15%, transparent); stroke: var(--state-success); }
 .node-circle { cursor: pointer; transition: filter var(--duration-default); }
 .node-circle:hover { filter: brightness(1.4) drop-shadow(0 0 3px var(--accent-primary)); }
 .toggle-group { cursor: pointer; }

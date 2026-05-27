@@ -96,7 +96,8 @@ frontend/src/
 │   │   ├── EngineMatchModal.vue       [B3]  Engine-vs-engine match config (model picker, visits, num moves).
 │   │   ├── HyperparamPromptModal.vue  [B1]  Bind-time prompt for deck-pipeline hyperparameters (defaults pre-filled, per-field validation).
 │   │   ├── LoginModal.vue             [B1]  Sign-in / register / switch-user / sign-out.
-│   │   └── MintCardModal.vue          [B3]  Flashcard mint dialog (SGF → backend mint).
+│   │   ├── MintCardModal.vue          [B3]  Flashcard mint dialog (SGF → backend mint).
+│   │   └── PlayEngineModal.vue        [B3]  "Play vs engine" session manager: lists active games on the board, starts new ones at the current node.
 │   │
 │   ├── knobs/                               Per-knob widgets for the knob-registry editor surfaces.
 │   │   └── KnobSlider.vue             [B1]  Unified scalar slider — substrate-aware read/write, claim-state disable (Phase 3b).
@@ -148,6 +149,7 @@ frontend/src/
 │   │   ├── autonomous-srs.ts          [B3]  Policy/Driver/Recorder abstractions for the autonomous SRS loop.
 │   │   ├── useActivePath.ts           [B2]  NodeId lineage root → current node.
 │   │   ├── useDirtyBoardGuard.ts      [B3]  Dirty-board guard: confirm-load modal + SGF parse + navigate-to-leaf for cards AND library games.
+│   │   ├── useEngineResponder.ts      [B3]  "Play vs engine" trigger: watches cursor + per-board games map, fires engine response at engine-turn nodes inside a game-root's descendant tree.
 │   │   ├── use-move-suggestions.ts    [B3]  Refined intensity-mapping for KataGo move suggestions.
 │   │   ├── usePlayFromPosition.ts     [B3]  "Engine plays from here" — looped applyGoMove against a KataGo URL.
 │   │   ├── use-pv-animation.ts        [B3]  PV stone-sequence animation (window / instant / sequential modes).

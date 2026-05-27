@@ -31,6 +31,7 @@ import { updateRegistry } from './engine/util';
 import { analysisService } from './services/analysis-service';
 import { KATAGO_WS_URL } from './config/env';
 import { usePlayMatch } from './composables/board/usePlayFromPosition';
+import { useEngineResponder } from './composables/board/useEngineResponder';
 
 import BoardWidget      from './components/board/BoardWidget.vue';
 import SidebarWidget    from './components/chrome/SidebarWidget.vue';
@@ -45,6 +46,7 @@ import StatusBar        from './components/board/StatusBar.vue';
 import MintCardModal    from './components/modals/MintCardModal.vue';
 import ConfirmLoadModal from './components/modals/ConfirmLoadModal.vue';
 import EngineMatchModal from './components/modals/EngineMatchModal.vue';
+import PlayEngineModal  from './components/modals/PlayEngineModal.vue';
 import ForestDirectory  from './components/tree/ForestDirectory.vue';
 import LibraryTab       from './components/library/LibraryTab.vue';
 import SystemLogPanel   from './components/chrome/SystemLogPanel.vue';
@@ -69,6 +71,18 @@ const activeBoardId = computed(() => activeBoard.value?.id as BoardId | null);
 const reviewSession = useReviewSession(activeBoardId);
 const mintModalRef = vueRef<InstanceType<typeof MintCardModal> | null>(null);
 const matchModalRef = vueRef<InstanceType<typeof EngineMatchModal> | null>(null);
+const playModalRef  = vueRef<InstanceType<typeof PlayEngineModal>  | null>(null);
+
+// "Play vs engine" responder — watches the active board's cursor +
+// games map and fires engine responses at engine-turn nodes inside
+// a game-root's descendant tree. Mounted at App scope so the
+// watcher lives for the app lifetime; identity-flip teardown is
+// handled by `resetWorkspace`'s `boards = [createInitialBoard()]`
+// which bumps `boardsSetVersion` and (through the responder's
+// `gamesKey` fingerprint) re-evaluates from scratch. See
+// `useEngineResponder` and the play-vs-engine worklog for the
+// trigger contract.
+const engineResponder = useEngineResponder();
 
 // Engine-vs-engine match controls. Lifecycle is independent of the
 // singleton analysis-service: `usePlayMatch.start` opens its own
@@ -108,6 +122,64 @@ function handleStartMatch(opts: {
 function handleStopMatch() {
   matchControls.stop();
 }
+
+// ── "Play vs Engine" wiring ──────────────────────────────────────────────────
+//
+// Modal surface lives in `PlayEngineModal.vue`; per-board game-root
+// entries live on `BoardState.games` (schema 52). App.vue is the
+// orchestrator that owns the modal ref and the mutateBoard calls,
+// matching the existing modal pattern (MintCardModal, EngineMatchModal,
+// ConfirmLoadModal). The engine responder watches the games map
+// reactively and fires queries when conditions match; the start-game
+// handler also kicks it synchronously so the engine opens the game
+// without waiting for the next reactive tick if it's its color's turn
+// at the start position.
+function triggerPlay() {
+  if (activeBoardId.value) {
+    playModalRef.value?.open();
+  }
+}
+
+function handleStartGame(opts: {
+  userColor: 'B' | 'W';
+  engineMaxVisits: number;
+  engineModel: string | null;
+}) {
+  const board = activeBoard.value;
+  if (!board) return;
+  const startNodeId = board.currentNodeId;
+  mutateBoard(board.id, draft => {
+    draft.games[startNodeId] = {
+      userColor: opts.userColor,
+      engineMaxVisits: opts.engineMaxVisits,
+      engineModel: opts.engineModel,
+    };
+  });
+  // Kick the responder synchronously so the engine plays the first
+  // move if it's its turn at the start position. The reactive
+  // watcher in `useEngineResponder` would also catch this on the
+  // next tick (gamesKey changed), but calling here avoids the
+  // tick delay and keeps the start-game UX snappy.
+  void engineResponder.tryFireResponder(board.id);
+}
+
+function handleEndGame(nodeId: NodeId) {
+  const board = activeBoard.value;
+  if (!board) return;
+  mutateBoard(board.id, draft => {
+    delete draft.games[nodeId];
+  });
+}
+
+// Game-root NodeIds for the active board — passed to TreeWidget as
+// a ReadonlySet so the tree can render the green ring on each
+// game-root node. Recomputes when `activeBoard.value.games` changes
+// (Object.keys iteration registers reactive deps on the games map).
+const activeBoardGameRootIds = computed((): ReadonlySet<NodeId> | undefined => {
+  const board = activeBoard.value;
+  if (!board) return undefined;
+  return new Set(Object.keys(board.games) as NodeId[]);
+});
 
 // ─── "Follow Me" Ponder Watcher ──────────────────────────────────────────────
 // Automatically restarts pondering when the user navigates or plays a move on
@@ -291,6 +363,11 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
     <MintCardModal ref="mintModalRef" />
     <ConfirmLoadModal ref="confirmLoadModalRef" />
     <EngineMatchModal ref="matchModalRef" @start-match="handleStartMatch" />
+    <PlayEngineModal
+      ref="playModalRef"
+      @start-game="handleStartGame"
+      @end-game="handleEndGame"
+    />
     <SidebarWidget
       v-show="store.session.ui.sidebarExpanded"
       @load-sgf="openFileDialog"
@@ -312,6 +389,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
           @mint-card="triggerMint"
           @open-match="triggerMatch"
           @stop-match="handleStopMatch"
+          @open-play="triggerPlay"
           style="flex: 1; border-bottom: none;"
         />
 
@@ -378,6 +456,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
             :nodes="activeBoard.nodes"
             :current-node-id="activeBoard.currentNodeId"
             :board-id="activeBoard.id"
+            :game-root-ids="activeBoardGameRootIds"
             @select-node="handleNodeSelect"
           />
         </div>
