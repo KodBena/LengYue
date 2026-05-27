@@ -169,6 +169,56 @@ whole point.
 
 ---
 
+## Performance investigation tooling
+
+ADR-0009 (`docs/adr/0009-performance-investigation-discipline.md`)
+names two canonical tools for perf investigations. The
+substantiating side-by-side comparison lives at
+`docs/archive/notes/perf-investigation-tooling-comparison-2026-05-27.md`;
+the discipline lives in the ADR. This section is the
+contributor-side how-to.
+
+### `app.config.performance = true`
+
+Wired in `src/main.ts`, DEV-gated. When the dev server is
+running, Vue emits `performance.mark()` and `performance.measure()`
+points for component setup, render, patch, and unmount — these
+surface as `UserTiming` markers in any Firefox DevTools Performance
+profile captured against the dev build, and let the profile
+attribute per-frame work to specific components / composables.
+
+Zero cost in production: `import.meta.env.DEV` is statically false
+in `vite build`, so the flag-set is dead-code-eliminated.
+
+### `@firefox-devtools/profiler-cli`
+
+The canonical CLI parser for the Firefox profile JSON format.
+Not added to `package.json` — invoke ad-hoc via `npx`:
+
+```sh
+# Load a profile (starts a session; returns a session id).
+npx -y @firefox-devtools/profiler-cli load ~/path/to/profile.json.gz
+
+# Per-component patch/render breakdown (auto-grouped UserTiming).
+npx -y @firefox-devtools/profiler-cli thread markers --auto-group --top-n 20
+
+# Drill into a specific marker outlier.
+npx -y @firefox-devtools/profiler-cli marker info m-1192
+```
+
+Multiple profiles can be loaded simultaneously; `session use <id>`
+switches the active session for side-by-side comparison.
+
+### When to reach for these
+
+Per ADR-0009: before claiming a perf improvement landed, when
+investigating user-reported feel issues, and before/after
+structural refactors that touch hot paths (keydown dispatcher,
+reactivity graph, per-frame paint cadence). Profile artefacts
+are user-local; the project does not version them.
+
+---
+
 ## Tenancy
 
 The frontend operates against a backend that's **multi-tenant

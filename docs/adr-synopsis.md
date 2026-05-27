@@ -192,9 +192,48 @@ ADR-0002 as the fail-loudly-register instance with its
 provisional-home flag retired; ADR-0008 is the home of the broader
 principle.
 
+## ADR-0009: Performance Investigation Discipline
+
+**Decision.** A perf-property claim — improvement, regression, or
+null result — is honest only when the investigation behind it is
+captured in a form the next reader can reproduce. Three triggers
+warrant a profile capture before work is considered complete
+(before claiming improvement, when investigating user-reported
+feel issues, before/after structural refactors of hot paths); two
+canonical tools (Firefox DevTools Performance with Vue's
+`app.config.performance = true` enabled in dev;
+`@firefox-devtools/profiler-cli` as the canonical parser); a
+starting metric vocabulary (per-handler / per-frame
+`RefreshObserver` / `LongTask` / GC / inter-arrival distributions);
+a user-local profile-share convention referenced by path +
+timestamp + size, not pasted inline. Three exceptions: trivial
+structural-by-inspection changes, unsubstantiated-by-design
+speculative ships under explicit qualifier, worklog-internal
+exploratory observations. Calibration on perception names three
+orthogonal outcome classes (measurement-substantiates /
+measurement-finds-nothing / measurement-contradicts), each with
+its own correct response; the user being wrong about a perception
+is itself a legitimate measurement outcome, not an investigation
+failure.
+
+**Why care.** The 2026-05-27 perf arc surfaced four sequenced
+fixes shipped under perf-improvement worklogs and a Phase 2
+keybindings dispatcher refactor that produced a near-threshold
+user perception report — investigated ad-hoc via `jq` over
+Firefox profile JSON with no canonical metric vocabulary, no
+shared profile-share format, no pre-Phase-2 baseline. The same
+week's side-by-side comparison (archived at
+`docs/archive/notes/perf-investigation-tooling-comparison-2026-05-27.md`)
+empirically substantiated the canonical-tool decision: per-
+component attribution closed via Vue's flag, investigation time
+30+min → 10min via `profiler-cli`. The pattern's structural root
+is the unsubstantiated-claim shape ADR-0002 names at the runtime
+register and ADR-0008 at the classification register — the perf
+register was the missing piece and this tenet fills it.
+
 ## How to read these together
 
-The six tenets form a coherent posture:
+The seven tenets form a coherent posture:
 
 - **ADR-0002** says fail audibly when invariants break.
 - **ADR-0004** says don't introduce silent failures by editing
@@ -208,12 +247,20 @@ The six tenets form a coherent posture:
 - **ADR-0008** says refuse fuzzy matches against an inadequate
   vocabulary and refuse synthetic fabrications under ambiguity —
   classify only when the classification is honest.
+- **ADR-0009** says perf claims are a closed vocabulary that must
+  be substantiated by captured investigation, not author
+  intuition — and perception is the legitimate trigger for
+  investigation, never a substitute for it.
 
-ADR-0002 and ADR-0008 form a sibling pair: ADR-0002 is the reactive
-register (when invariants break, surface), ADR-0008 is the proactive
-register (when categorising, refuse fuzzy matches and synthetic
-fabrications). Together they cover the same family of failures at
-different intervention points.
+ADR-0002, ADR-0008, and ADR-0009 form a family of
+unsubstantiated-claim disciplines at three intervention points:
+ADR-0002 is the reactive register (when invariants break,
+surface); ADR-0008 is the proactive classification register (when
+categorising, refuse fuzzy matches and synthetic fabrications);
+ADR-0009 is the per-domain instance for the performance
+vocabulary (when asserting perf properties, attach the
+substantiation). Together they cover the same family of failures
+at different intervention points.
 
 The two decisions (ADR-0001, ADR-0003) describe specific structural
 choices that shape how the tenets get applied. ADR-0001's mutator

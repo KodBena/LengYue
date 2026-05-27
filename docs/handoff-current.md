@@ -5,7 +5,7 @@ to be useful to someone arriving at this codebase cold — whether
 to extend it, to maintain it, or to coordinate a release across
 the three sub-projects. Updated as the system evolves.
 
-For specific architectural decisions, see the eight ADRs in
+For specific architectural decisions, see the nine ADRs in
 `docs/adr/`. For active work, see `docs/TODO.md`. For backend
 architectural retrospective, see `docs/notes/reflection.md`. For
 the v1.0.0 release retrospective, see
@@ -531,8 +531,8 @@ documentation, see `proxy/README.md`, `proxy/FRAMEWORK.md`, and
 
 ## Architectural governance — ADRs and tenets
 
-The eight foundational architectural records live in `docs/adr/`,
-spread across two genres. **All eight apply project-wide**,
+The nine foundational architectural records live in `docs/adr/`,
+spread across two genres. **All nine apply project-wide**,
 regardless of which sub-project's history they originated in.
 
 ### Decisions
@@ -603,6 +603,22 @@ regardless of which sub-project's history they originated in.
   user-visible cost. ADR-0002's Rule 7 is its
   fail-loudly-register instance; this tenet is the proactive
   register that prevents the silent failures Rule 7 surfaces.
+- **ADR-0009: Performance Investigation Discipline.** A perf
+  claim — improvement, regression, or null result — is honest
+  only when the investigation behind it is captured in a form
+  the next reader can reproduce. Three triggers (before claiming
+  improvement, when investigating user-reported feel issues,
+  before/after structural refactors of hot paths); two canonical
+  tools (Firefox DevTools Performance with Vue's
+  `app.config.performance = true`; `@firefox-devtools/profiler-cli`
+  as the canonical parser); a starting metric vocabulary
+  (per-handler / per-frame / LongTask / GC / inter-arrival
+  distributions). Calibration on perception names three
+  orthogonal outcome classes (measurement substantiates / finds
+  nothing / contradicts), each with its own correct response.
+  Composes with ADR-0002 and ADR-0008 as the per-domain instance
+  of the unsubstantiated-claim family of failures for the
+  performance vocabulary.
 
 Together they establish the codebase's architectural personality:
 honest types over aspirational annotations (ADR-0001); loud
