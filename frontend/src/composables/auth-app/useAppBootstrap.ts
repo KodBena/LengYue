@@ -20,7 +20,7 @@
  *
  * License: Public Domain (The Unlicense).
  */
-import { onMounted, watch, watchEffect } from 'vue';
+import { onMounted, watch } from 'vue';
 import { SyncService } from '../../services/sync-service';
 import { resourceService } from '../../services/resource-service';
 import { backendService } from '../../services/backend-service';
@@ -29,7 +29,7 @@ import { analysisPersistenceService } from '../../services/analysis-persistence-
 import { useAutoSaveAnalyses } from '../useAutoSaveAnalyses';
 import { setIntensityHueShift } from '../../engine/suggestion-colors';
 import { validateRegistry } from '../../lib/knobs';
-import { store } from '../../store';
+import { store, boardsSetVersion } from '../../store';
 import { i18n } from '../../i18n';
 import { isSupportedLocale, DEFAULT_LOCALE } from '../../i18n/locales';
 import type { BoardId } from '../../types';
@@ -292,34 +292,92 @@ export function useAppBootstrap(
       const isAuth = next.kind === 'authenticated';
       if (isAuth && !wasAuth) {
         analysisPersistenceService.refreshSummaries().catch(() => { /* surfaced via api-client */ });
+      } else if (!isAuth && wasAuth) {
+        // Identity-out: clear the per-board restore dedup so a
+        // re-login as the same user can re-hydrate fresh. The
+        // service-side caches are cleared via SyncService's
+        // resetWorkspace branch (which calls
+        // analysisPersistenceService.forgetAll() — audit pair
+        // O13). The per-board restore watchers themselves are
+        // torn down via the reconcile below once resetWorkspace
+        // bumps `boardsSetVersion`.
+        restoredBoards.clear();
       }
-      // Identity-out cleanup is handled by SyncService's
-      // resetWorkspace branch, which calls
-      // analysisPersistenceService.forgetAll() (audit pair O13).
-      // The restoredBoards Set below is cleared in the watchEffect
-      // below when auth flips to non-authenticated.
     },
   );
 
+  // Per-board restore watcher state. `restoredBoards` dedups across
+  // the session (cleared on identity-out by the auth watcher above);
+  // `restoreWatcherStops` holds per-board dispose callables for the
+  // reconcile to manage. Audit pair O16 — paired with the reconcile
+  // teardown below.
+  //
+  // The prior shape (a single `watchEffect` iterating `store.boards`
+  // and reading `summaryFor(id)` per board) re-fired on every
+  // `mutateBoard` because the iteration registered reactive deps on
+  // every board entry — O(N) work per nav step. The per-board
+  // pattern subscribes each watcher to ONE key in the reactive
+  // `summaries` Map, so `mutateBoard` doesn't fire any of them; only
+  // the actual `summaries.set(boardId, ...)` from `refreshSummaries`
+  // or `save` does. Diagnosed in
+  // `docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md` Bug A
+  // (secondary causes).
   const restoredBoards = new Set<BoardId>();
-  watchEffect(() => {
-    if (auth.state.value.kind !== 'authenticated') {
-      restoredBoards.clear();
-      return;
-    }
-    // Touch the reactive boards array and the reactive summaries
-    // Map (via summaryFor). The effect re-fires when either
-    // changes — so a hydrate that populates boards AND a separate
-    // refreshSummaries that populates the cache both converge on
-    // the same restore loop without duplicate dispatches.
-    for (const board of store.boards) {
-      const id = board.id;
-      if (restoredBoards.has(id)) continue;
-      if (!analysisPersistenceService.summaryFor(id)) continue;
-      restoredBoards.add(id);
-      analysisPersistenceService.restore(id).catch(() => { /* surfaced via api-client */ });
-    }
-  });
+  const restoreWatcherStops = new Map<BoardId, () => void>();
+
+  function setupRestoreWatcher(boardId: BoardId): void {
+    if (restoreWatcherStops.has(boardId)) return;
+    const stop = watch(
+      // Vue 3 reactive Map fires the per-key dep on every
+      // set/delete for this key — including the first set after
+      // the key was previously absent, which is the "hydrate
+      // populated this board's summary, kick off restore" case
+      // the prior watchEffect handled implicitly.
+      () => analysisPersistenceService.summaryFor(boardId),
+      (summary) => {
+        if (auth.state.value.kind !== 'authenticated') return;
+        if (restoredBoards.has(boardId)) return;
+        if (!summary) return;
+        restoredBoards.add(boardId);
+        analysisPersistenceService.restore(boardId).catch(() => { /* surfaced via api-client */ });
+      },
+      { immediate: true },
+    );
+    restoreWatcherStops.set(boardId, stop);
+  }
+
+  function teardownRestoreWatcher(boardId: BoardId): void {
+    restoreWatcherStops.get(boardId)?.();
+    restoreWatcherStops.delete(boardId);
+    // Don't remove from `restoredBoards` — if the same id comes
+    // back later in this session, dedup is still wanted. The
+    // identity-flip clear in the auth watcher above covers the
+    // legitimate re-hydrate-fresh case.
+  }
+
+  // Reconcile per-board restore watchers against the current board
+  // set. Fires immediately to set up watchers for boards present at
+  // composable mount, then on every board-set change
+  // (`boardsSetVersion` bumps) — NOT on per-board content mutations.
+  // Same shape as `useAutoSaveAnalyses`'s reconcile; the two
+  // composables subscribe to the same signal.
+  watch(
+    boardsSetVersion,
+    () => {
+      const currentIds = new Set<BoardId>();
+      for (const board of store.boards) currentIds.add(board.id);
+
+      // Snapshot keys before iterating because teardown mutates
+      // the map.
+      for (const boardId of [...restoreWatcherStops.keys()]) {
+        if (!currentIds.has(boardId)) teardownRestoreWatcher(boardId);
+      }
+      for (const id of currentIds) {
+        if (!restoreWatcherStops.has(id)) setupRestoreWatcher(id);
+      }
+    },
+    { immediate: true },
+  );
 
   onMounted(async () => {
     // Establish auth identity FIRST. Subsequent calls (sync.connect's
