@@ -122,6 +122,17 @@ const nav = useNavigation();
 
 export const KEYBINDINGS_REGISTRY: ReadonlyArray<KeybindingActionDecl> = [
   // ── Navigation (coalesced) ─────────────────────────────────
+  //
+  // Parameterless nav handlers use direct method references
+  // rather than `() => nav.method()` wrappers — eliminates one
+  // function-call frame per coalesced dispatch (the four
+  // arrow-rate actions, which dominate sustained-hold cost).
+  // The variation handlers still need closures (parameter pass).
+  // Per-handler internal `if (activeBoard.value)` checks in
+  // `useNavigation` cover the schedule-vs-fire state-change
+  // window; the dispatcher's redundant `isActionEnabled`
+  // recheck dropped in this commit's sibling change to
+  // `useUserIORegistry.ts`.
   {
     id: ACTIONS.navNext,
     labelKey: 'keybindings.action.navNext.label',
@@ -129,7 +140,7 @@ export const KEYBINDINGS_REGISTRY: ReadonlyArray<KeybindingActionDecl> = [
     defaultKey: 'ArrowDown',
     dispatchMode: 'coalesced',
     enabledWhen: 'activeBoardExists',
-    handler: () => nav.next(),
+    handler: nav.next,
   },
   {
     id: ACTIONS.navPrev,
@@ -138,7 +149,7 @@ export const KEYBINDINGS_REGISTRY: ReadonlyArray<KeybindingActionDecl> = [
     defaultKey: 'ArrowUp',
     dispatchMode: 'coalesced',
     enabledWhen: 'activeBoardExists',
-    handler: () => nav.prev(),
+    handler: nav.prev,
   },
   {
     id: ACTIONS.navVariationPrev,
@@ -165,7 +176,7 @@ export const KEYBINDINGS_REGISTRY: ReadonlyArray<KeybindingActionDecl> = [
     defaultKey: 'Home',
     dispatchMode: 'coalesced',
     enabledWhen: 'activeBoardExists',
-    handler: () => nav.home(),
+    handler: nav.home,
   },
   {
     id: ACTIONS.navEnd,
@@ -174,7 +185,7 @@ export const KEYBINDINGS_REGISTRY: ReadonlyArray<KeybindingActionDecl> = [
     defaultKey: 'End',
     dispatchMode: 'coalesced',
     enabledWhen: 'activeBoardExists',
-    handler: () => nav.end(),
+    handler: nav.end,
   },
   // ── Engine (immediate) ─────────────────────────────────────
   {
