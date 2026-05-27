@@ -47,8 +47,10 @@ frontend/src/
 │
 ├── components/                              Vue SFCs. Thin renderers, minimum wiring to composables.
 │   ├── CardMetadataPanel.vue          [B3]  Inline-edit metadata panel for a single card (tags / numMoves / gamma / suspended / reset_prior).
+│   ├── KeybindingsView.vue            [B1]  Read-only registry view of keybindings, grouped by domain (Phase 3 of keybindings-plan).
 │   ├── KnobRegistryEditor.vue         [B1]  Cross-domain knob-registry editor — lists every scalar knob, grouped by domain (Phase 3b).
 │   ├── ReviewSessionPanel.vue         [B3]  In-session SR controls: status, counter, intermission chart, hint visibility.
+│   ├── SettingsTab.vue                [B2]  Settings tab surface: General / Keybindings sub-tabs via TabWidget.
 │   │
 │   ├── board/                                Go-board surface. Renderers + overlays.
 │   │   ├── BoardDisplay.vue           [B3]  Stateless SVG Go board with stone gradients, hoshi, last-move ring, move-number text.

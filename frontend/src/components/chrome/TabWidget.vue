@@ -14,10 +14,30 @@ interface Tab {
   label: string;
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   tabs: Tab[];
   modelValue: string; // The active tab ID from the Session store
-}>();
+  /**
+   * When true, every tab's slot is mounted eagerly and `v-show`
+   * alone controls visibility; switching tabs preserves the
+   * leaving tab's DOM (including native element state like
+   * `<details open>`, scroll position, contenteditable selection).
+   *
+   * Default false matches the prior lazy-mount semantics — used
+   * by top-level tab strips where each tab's content is heavy
+   * enough that mounting all of them on Settings-open would cost
+   * more than the user expects, and where per-tab state is not
+   * expected to survive switching anyway.
+   *
+   * Opt in for sub-tab strips where the tabs are facets of one
+   * conceptual surface (e.g. Settings > General / Keybindings)
+   * and users reasonably expect disclosure state and scroll
+   * position to persist across tab switches.
+   */
+  keepMounted?: boolean;
+}>(), {
+  keepMounted: false,
+});
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void;
@@ -43,8 +63,8 @@ function selectTab(id: string) {
     
     <div class="tab-body">
       <div v-for="tab in tabs" :key="tab.id" class="tab-pane" v-show="modelValue === tab.id">
-        <!-- Render slot only if it is the active tab -->
-        <slot :name="tab.id" v-if="modelValue === tab.id"></slot>
+        <!-- Eager-mount when keepMounted; otherwise lazy. See prop docstring. -->
+        <slot :name="tab.id" v-if="keepMounted || modelValue === tab.id"></slot>
       </div>
     </div>
   </div>
