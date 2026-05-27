@@ -458,6 +458,55 @@ customisation; Phase 5 is the safety net.
   locales pick up in the next i18n sweep PR per the established
   per-locale-tier discipline.
 
+## Considered but deferred — mousewheel / multi-modality
+
+The board's mouse-wheel handler (via `useScopedScroll` mounted in
+`TreeWidget.vue`) and the keyboard's ArrowUp/ArrowDown bindings
+(via `useUserIORegistry`) both currently invoke `nav.next` and
+`nav.prev`. The keybindings registry as designed above covers
+the keyboard surface only — wheel events are a different DOM
+event type, scoped to specific elements rather than `window`,
+and don't fit the registry's `key: string` shape.
+
+This means under the registry-driven design, the wheel handler
+would continue to invoke `nav.next` / `nav.prev` directly (the
+function references that the action handlers also point at),
+NOT route through the registry's dispatch. Two input modalities,
+one set of actions, two trigger paths.
+
+A decision on whether to fold mousewheel into the registry — or
+some other shape that unifies "user-input-modality → action"
+across keyboard and wheel — is **deferred for want of more
+careful design-space analysis**. The note here is to make three
+things explicit:
+
+1. **The interaction has been considered** — the registry isn't
+   designed in ignorance of the wheel-as-nav input modality;
+   the omission is intentional pending the deferred analysis.
+2. **Implementation MUST be backwards-compatible** with the
+   current mousewheel behaviour. The wheel handler keeps
+   invoking `nav.next` / `nav.prev` (whether via registry or
+   directly is the deferred-decision axis); the user-visible
+   wheel-scroll-as-nav UX doesn't change as a side effect of
+   the keybindings substrate landing.
+3. **A completely unbiased micro-audit** should investigate
+   whether this impedance (two input modalities, one set of
+   actions, parallel trigger paths) is a code smell — and
+   document the conclusion. Plausible outcomes range from
+   "smell, unify under a broader input-action registry" through
+   "intentional separation, document the boundary" to "smell
+   but not worth the refactor cost". The audit's conclusion is
+   the gate for whether mousewheel migrates into the registry
+   in a future arc, stays separate by design, or motivates a
+   different abstraction entirely. The conclusion lives in its
+   own doc note when the audit lands.
+
+The same impedance applies to mouse-button modalities (the
+modifier-click and middle-click affordances on library rows and
+PV suggestions), which the "What's NOT in scope" section below
+flags separately. The deferred audit could naturally absorb
+those too.
+
 ## Open questions for review
 
 1. **Action id format.** Proposed `domain.verb` (e.g.,
