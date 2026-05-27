@@ -1,125 +1,152 @@
-# Play vs Engine — game-roots as tree-node annotations
+# Play vs Engine — head-pointer per session
 
 - **Status:** Branch `frontend/play-vs-engine`; awaiting user
-  end-to-end test before PR open. Multiple commits on the branch
-  for bisectability (data model first, then composable + UI).
+  end-to-end test before PR open. Three commits on the branch
+  reflecting the iteration: data-model foundation (`eab103e`),
+  initial composable + UI (`e5db545`), design revision per user
+  clarification (this commit).
 - **Genre:** New feature. Per-board state addition (schema 52),
-  one new composable, one new modal, Toolbar + App.vue + TreeWidget
-  wiring, 16 new i18n strings.
+  one new composable, one new modal, Toolbar + App.vue +
+  TreeWidget wiring, 16 new i18n strings.
 - **Date:** 2026-05-27.
 
 ## Design
 
-**Game identity = node identity.** Starting a "play vs engine"
-session records the *current node* as a "game-root" on the active
-board with the chosen engine config. The annotation is persistent
-on the board (round-trips through `SyncService`); the engine
-watches the cursor and responds whenever the user is at a
-descendant of any game-root and it's the engine's color's turn.
+**Game identity = session.** Starting a "play vs engine" session
+records the *current node* as the session's start (immutable
+identity key on the board) along with the engine config. Each
+session has exactly ONE green ring at any time — its
+`currentHeadNodeId` — and that ring moves forward as the game
+progresses.
 
-The user can have multiple game-roots on a single board (multiple
-parallel games on the same board, each with its own config). The
-engine "follows the cursor" — navigating into a game-root's
-descendant tree at an engine-turn node triggers the engine response.
-Navigating elsewhere does nothing.
+The user plays a move FROM the green ring → the engine queries
+the resulting position → the engine plays its response → the
+green ring advances to the position AFTER the engine's response
+(the new user-turn node).
 
-Persistence: per-board `games` map lives inside `BoardState` → the
-existing SyncService deep-watch handles round-tripping. A schema-52
-migration backfills `games: {}` for legacy persisted boards.
+- Off-line navigation does nothing (cursor away from the head =
+  no trigger).
+- Plays from non-head nodes don't fire the engine (the user can
+  freely explore variations).
+- Multiple sessions on one board → multiple green rings, one per
+  session. The user navigates to whichever head they want to
+  play in.
+- Sessions persist across browser restarts via SyncService's
+  existing deep-watch.
 
-Multi-board: each board has its own `games` map; the responder
-watches the active board only, but games on background boards
-persist and resume when the user switches to them.
+**Stop affordance:** the modal's "Active games on this board"
+list shows each session with start move + current head move + its
+config; "End" removes the whole session entry.
 
-Stop affordance: the modal's "Active games on this board" section
-lists every game-root with an "End" button. Per the design
-discussion, no separate tree-context-menu path in v1 — the modal
-is the single management surface.
-
-Behaviour explicitly undefined: two games whose descendant trees
-overlap. KataGo's nondeterminism makes collision rare; the
-responder picks whichever game-root the ancestor walk finds first.
+**Collisions explicitly undefined:** two sessions whose heads
+coincide → the responder picks whichever entry it iterates first.
+KataGo's per-query nondeterminism makes the case rare; the user
+flagged this as acceptable.
 
 ## Shape of the change
 
-### Data model (commit `eab103e`)
+### Data model (commit `eab103e`, value shape revised in this commit)
 
-- `types.ts` — new `EnginePlayGameConfig` interface
-  (`userColor`, `engineMaxVisits`, `engineModel`); new `games:
-  Record<NodeId, EnginePlayGameConfig>` field on `BoardState`.
+- `types.ts` — `EnginePlayGameConfig` (frozen at session start)
+  + `EnginePlayGameSession` (`{ config, currentHeadNodeId }`).
+  `BoardState.games: Record<NodeId, EnginePlayGameSession>` —
+  keyed by the session's start NodeId (stable identity), value's
+  `currentHeadNodeId` advances each round.
 - `board-factory.ts` — fresh boards start with `games: {}`.
-- `store/index.ts` — `normalizeBoard` backfills `games: raw.games
-  ?? {}` for legacy persisted boards arriving via SyncService
-  hydrate.
-- `migrations.ts` — schema bump 51 → 52 with backfill migration;
-  per the rolling-archive discipline, migration 49 → 50 moves to
-  `archived-migrations.ts` so the active file keeps the two
-  latest as style anchors.
+- `store/index.ts` — `normalizeBoard` backfills `games: {}` and
+  drops legacy entries that don't conform to the
+  `{ config, currentHeadNodeId }` shape (defensive against
+  in-branch test data from the prior descendant-tree design;
+  persisted blobs from main never have either shape because the
+  schema-52 migration backfills `{}`).
+- Schema bump 51 → 52 with backfill migration; per the
+  rolling-archive discipline, migration 49 → 50 moves to
+  `archived-migrations.ts`.
 
 ### Engine responder (`useEngineResponder.ts`)
 
-Watches the active board's `(currentNodeId, gamesKey)` tuple. On
-change: walks parents from currentNodeId to find a game-root
-ancestor; if found and it's the engine's color's turn at the
-current node, fires `queryEngineMove` (the pure primitive from
-`usePlayFromPosition`) using the per-game `engineMaxVisits` and
-`engineModel`. The engine query opens its own KataGoClient via
-`connectFresh` — same posture as `usePlayMatch`, independent of
-the analysis-service singleton.
+Single async verb: `fireAndAdvanceHead(boardId, gameStartNodeId)`.
+Queries the engine at the board's current position via
+`queryEngineMove` (the pure primitive from `usePlayFromPosition`
+— opens its own KataGoClient via `connectFresh`, independent of
+the analysis-service singleton), applies the engine's top move
+via `applyGoMove` + `updateBoardState`, then mutates the named
+session's `currentHeadNodeId` to the post-engine-move position.
 
-Doesn't fire on board-switch (matches the "Follow Me" ponder
-watcher's posture in `App.vue`). Per-board `inFlight` flag prevents
-double-firing. Stale-query guard: if the user navigates away
-mid-query, the response is dropped silently rather than played at
-the (now-different) position.
+No reactive watcher — the responder is invoked explicitly by
+the caller (`App.vue::handleBoardMove` when the user plays from
+a head, or `handleStartGame` when start-position is an
+engine-turn node). This is the "much simpler" shape the user
+called for, vs the prior subtree-walking responder that fired on
+any cursor change inside a game's descendant tree.
 
-Exposes `tryFireResponder(boardId)` for synchronous kick from the
-modal's "Start game" handler — the engine opens the game
-immediately if it's its color's turn at the start position, without
-waiting for the reactive watcher's next tick.
+Per-board `inFlight` flag guards re-entry. Stale-query guards
+(cursor moved during query, session ended during query) drop
+the response silently rather than playing into an unrelated
+position.
+
+`findGameByHead(board, headNodeId)` is exported for App.vue's
+use — walks `board.games` looking for a session whose head
+matches; returns the start NodeId so the caller can pass it back
+to `fireAndAdvanceHead`. O(games-per-board) per call, which is
+bounded by a small constant in practice.
 
 ### Modal (`PlayEngineModal.vue`)
 
 Two sections in one surface:
 
-1. **Active games on this board** — every game-root listed with
-   its config summary ("Move N, you play [B/W], V visits") and an
-   "End" button per row. Empty state when no games active.
-2. **Start new game at current position** — form mirroring
-   `EngineMatchModal`'s shape: user color (B/W), engine model
-   (SELECTOR-mode dropdown), engine max visits. SELECTOR-mode
-   gating identical to the match modal so the LEAF-mode collapse
-   reads as one consistent UX.
+1. **Active games on this board** — every session listed with
+   start move number + current head move number + user color +
+   visits, plus a per-row "End" button. Empty state when no
+   sessions.
+2. **Start new game at current position** — form (user color,
+   engine model if SELECTOR, engine max visits).
 
-Emits `start-game` (App.vue's handler adds a `games[currentNodeId]`
-entry and kicks the responder) and `end-game` (removes the entry).
+Emits `start-game` (App.vue creates the session entry and kicks
+the responder if the start position is engine's turn) and
+`end-game` with the start NodeId (App.vue deletes the entry).
 
 ### Tree highlight (`TreeWidget.vue`)
 
-New optional `gameRootIds?: ReadonlySet<NodeId>` prop. Each game-
-root node renders a green ring at radius `NODE_R + 5` —
-outermost ring so the existing current-node accent ring at
-`NODE_R + 3` stays visible when both apply (the user is on a game-
-root). `--state-success` is the green substrate token (sibling to
+Optional `gameHeadIds?: ReadonlySet<NodeId>` prop. Each node
+whose id is in the set renders a green ring at radius
+`NODE_R + 5` — outermost ring so the existing current-node
+accent ring at `NODE_R + 3` stays visible when both apply.
+`--state-success` is the green substrate token (sibling to
 `--state-attention` red used for the modal's "End" buttons and
 the Stop Match border).
 
-App.vue computes `activeBoardGameRootIds` from
-`Object.keys(activeBoard.value.games)` and passes it through.
+App.vue computes `activeBoardGameHeadIds` from
+`Object.values(activeBoard.value.games).map(g => g.currentHeadNodeId)`
+and threads it through. Reactive: `currentHeadNodeId` updates
+on each engine response, so the green ring relocates without
+manual re-render.
 
 ### Toolbar + App.vue wiring
 
-- `Toolbar.vue` — new PLAY button next to MATCH; emits `open-play`.
-- `App.vue` — imports the modal + composable, mounts the
-  responder, holds the modal ref, handles the start-game /
-  end-game events (mutateBoard + responder kick on start), wires
-  the toolbar listener, threads the game-root ids to TreeWidget.
+- `Toolbar.vue` — new PLAY button next to MATCH; emits
+  `open-play`.
+- `App.vue`:
+  - Imports modal + composable; mounts the responder.
+  - Holds the modal ref; `triggerPlay` opens it on toolbar click.
+  - `handleStartGame`: writes the new session
+    (`currentHeadNodeId = start`); if start's `board.turn` ==
+    engine's color, immediately fires `fireAndAdvanceHead` so
+    the engine plays first.
+  - `handleEndGame(startNodeId)`: deletes the entry.
+  - `handleBoardMove`: captures `prevNodeId` and
+    `findGameByHead(...)` BEFORE `applyGoMove`. After the move
+    lands (`applyGoMove` + `updateBoardState`), if `prevNodeId`
+    was a game's head, fires `fireAndAdvanceHead` for that
+    session. Off-line moves (cursor not at a head) don't trigger.
+  - `activeBoardGameHeadIds` computed → TreeWidget's `game-head-ids`.
 
 ### i18n strings
 
-16 new keys in `en.json` (`playEngine.*` and `toolbar.play`).
-Other locale catalogs (`zh-CN / ja / ko`) intentionally not
-updated here — vue-i18n's fallback chain renders the English
+16 new `en.json` keys: `playEngine.*` (modal title, subtitle,
+field labels, button labels, error messages, active-game-list
+labels) + `toolbar.play`. Other locale catalogs intentionally
+not updated here — vue-i18n's fallback chain renders the English
 source until the next i18n sweep PR backfills translations
 (matches the existing per-locale-tier discipline).
 
@@ -131,67 +158,72 @@ source until the next i18n sweep PR backfills translations
 
 User-side validation:
 
-1. Open a board (any position). Click PLAY on the toolbar → modal
-   opens.
-2. With no games yet, the "Active games" list is empty. Pick a
-   color, pick the engine (if SELECTOR), set visits, click "Start
-   game". Modal closes. The current node's tree marker gets a
-   green ring. If it's the engine's turn at the start, the engine
-   plays immediately.
-3. Play your color's move (click the board). The engine should
-   respond shortly after. Continue back and forth.
-4. Navigate to an earlier position inside the game's tree. If
-   it's the engine's turn there, engine plays (creating a branch
-   if a different continuation than the existing one). If it's
-   your turn, engine waits.
-5. Navigate to a position OUTSIDE the game's tree (e.g., a
-   sibling variation not descended from the game-root). Engine
-   doesn't fire.
-6. Open the modal again — the active game appears in the list.
-   Click "End" — the green ring disappears; the engine stops
-   responding to that game's tree.
-7. Start a SECOND game at a different position. Both games' roots
-   should have green rings; engine responds in whichever you're
-   inside.
-8. Reload the page (or restart the SPA). The games persist via
-   SyncService — same green markers, same configs, engine resumes
-   following the cursor.
-9. Switch to another board. The first board's games are still
-   there (unaffected by board switch); the active board's games
-   are what the responder follows.
-10. Multi-tasking: a range / ponder query on a non-active board
+1. Open a board, click PLAY → modal opens with empty active-
+   games list. Pick a color (whichever you want to play), pick
+   the engine (if SELECTOR), set visits, "Start game". Modal
+   closes; current node gets a green ring.
+2. If it's the engine's turn at the start (e.g., you picked
+   White at a White-to-play position), the engine plays
+   immediately and the green ring advances to the
+   post-engine-move position (your turn).
+3. Click the board to play your move. The engine responds; the
+   green ring advances forward to the new user-turn position.
+   The PREVIOUS green ring is gone.
+4. Play several moves back and forth. Each round, the green
+   ring tracks the current user-play position.
+5. Navigate to an earlier position in the game's line (off the
+   head). No green ring at the earlier position (heads have
+   moved on); playing from there → no engine response (you're
+   off-line, free exploration).
+6. Navigate to a position OUTSIDE the game's line entirely (a
+   sibling variation you're studying). Same as #5 — no engine
+   trigger.
+7. Navigate back to the head (where the green ring still is) →
+   playing from there → engine resumes.
+8. Open the modal again. The active game appears with start +
+   current head move numbers. Click "End" — green ring
+   disappears, session removed.
+9. Start a SECOND session at a different position. Two green
+   rings on the board, one per session. Play from either —
+   that session's ring advances; the other is unaffected.
+10. Reload the SPA. Sessions persist (schema 52 + SyncService).
+11. Switch boards. The first board's sessions are still there;
+    the active board's sessions are what the responder operates
+    on.
+12. Multi-tasking: a range / ponder query on a non-active board
     keeps flowing while you're playing vs engine on the active
     board.
 
 ## Scope-explicit non-goals
 
-- **Tree-context-menu path for end-game.** Modal-based delete is
-  sufficient for v1; a tree-node right-click context menu would
-  need new infra and felt out of scope. Adding it later is
-  additive (the modal stays as the canonical management surface).
-- **Per-game-config editing post-start.** End and re-create.
-- **Visual indicator on game-DESCENDANT nodes.** The green ring
-  marks game-roots only; descendants get no special chrome.
-  Could be added if the user wants "you're inside game X"
-  feedback beyond the engine playing.
-- **Pause / resume semantics.** A game-root annotation either
-  exists (engine plays when conditions match) or doesn't (no
-  trigger). No paused state.
+- **Tree-context-menu path for end-game.** The modal is the
+  canonical management surface in v1.
+- **Per-session config editing post-start.** End + restart.
+- **Highlight on prior-head nodes (game history).** The green
+  ring is exactly the current head per the user's clarification
+  ("only one node that is responsive to that modality of
+  interacting with the SPA"). No history coloring.
+- **Pause / resume semantics.** A session either exists
+  (engine responds at head) or doesn't.
 - **"Engine is thinking" indicator on the board.** The toolbar's
   existing queue tooltip surfaces in-flight queries; no extra
   per-board indicator was added.
 - **i18n catalogs other than `en`.** Deferred to the next i18n
   sweep PR.
+- **Pass moves.** Out of scope for v1; handleBoardMove takes
+  (x, y), no pass routing.
 
 ## What stays
 
-The `games` substrate is now available for any future per-board
-node-keyed annotation pattern. The responder's
-`findGameRootAncestor` helper is exported so a future surface
-(e.g., a tree-tooltip explaining the green ring) can query the
-same ancestor relation. The "modal-as-management-surface for
-per-board annotated state" pattern composes naturally with
-similar features (favourite-position bookmarks, custom-named
-positions, etc.) if those land later.
+The `games: Record<NodeId, EnginePlayGameSession>` substrate is
+now available for similar per-board node-keyed annotation
+patterns (favourite-position bookmarks, custom-named positions,
+etc.) if those land later. The "single moving green ring" pattern
+generalises: any feature that wants a per-session cursor in the
+game tree can follow the same shape.
+
+The responder's `findGameByHead` helper is exported so a future
+surface (e.g., a tree-tooltip explaining the green ring) can
+query the same head relation.
 
 License: Public Domain (The Unlicense)

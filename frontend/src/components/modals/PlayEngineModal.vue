@@ -67,19 +67,23 @@ function getMoveNumber(board: BoardState, nodeId: NodeId): number {
   return count;
 }
 
-// Active games on the current board, sorted by move number for
-// stable display. Re-evaluates reactively as `activeBoard.games`
+// Active games on the current board, sorted by start move number
+// for stable display. Re-evaluates reactively as `activeBoard.games`
 // changes (the store's reactive proxy + `Object.entries` walk).
+// Each row shows the START position (the session's stable identity)
+// and the CURRENT HEAD position (the single green ring's location;
+// moves forward as the game progresses).
 const activeGames = computed(() => {
   const board = activeBoard.value;
   if (!board) return [];
   return Object.entries(board.games)
-    .map(([nodeId, cfg]) => ({
-      nodeId: nodeId as NodeId,
-      config: cfg,
-      moveNumber: getMoveNumber(board, nodeId as NodeId),
+    .map(([startNodeId, session]) => ({
+      startNodeId: startNodeId as NodeId,
+      config: session.config,
+      startMoveNumber: getMoveNumber(board, startNodeId as NodeId),
+      headMoveNumber: getMoveNumber(board, session.currentHeadNodeId),
     }))
-    .sort((a, b) => a.moveNumber - b.moveNumber);
+    .sort((a, b) => a.startMoveNumber - b.startMoveNumber);
 });
 
 const emit = defineEmits<{
@@ -149,15 +153,16 @@ function colorLabel(c: StoneColor): string {
           {{ t('playEngine.activeGamesEmpty') }}
         </div>
         <ul v-else class="active-games-list">
-          <li v-for="g in activeGames" :key="g.nodeId" class="active-game-row">
+          <li v-for="g in activeGames" :key="g.startNodeId" class="active-game-row">
             <span class="active-game-label">
               {{ t('playEngine.activeGameLabel', {
-                move: g.moveNumber,
+                start: g.startMoveNumber,
+                head: g.headMoveNumber,
                 color: colorLabel(g.config.userColor),
                 visits: g.config.engineMaxVisits,
               }) }}
             </span>
-            <button class="end-btn" @click="endGame(g.nodeId)">
+            <button class="end-btn" @click="endGame(g.startNodeId)">
               {{ t('playEngine.activeGameEndBtn') }}
             </button>
           </li>

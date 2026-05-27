@@ -1,50 +1,51 @@
 /**
  * src/composables/board/useEngineResponder.ts
  *
- * "Play vs engine" trigger surface. Watches the active board's
- * cursor (currentNodeId) and the per-board `games` map; when the
- * user is at a descendant of any game-root and it's the engine's
- * turn (per that game's config), fires a single engine query and
- * applies the result via `applyGoMove` + `updateBoardState`.
+ * "Play vs engine" trigger surface. Exposes a single async verb:
+ * `fireAndAdvanceHead(boardId, gameStartNodeId)` — queries the
+ * engine at the board's current position, applies the engine's
+ * top move via `applyGoMove` + `updateBoardState`, then advances
+ * the named game's `currentHeadNodeId` to the post-engine-move
+ * position so the single green ring tracks the new user-turn
+ * position.
  *
- * Trigger semantics (per the design recorded in the worklog
+ * Design (per the user's clarification on
  * `docs/worklog/2026-05-27-play-vs-engine.md`):
  *
- *   - Game identity = node identity. Each entry in `board.games`
- *     marks a game-root NodeId with its engine config. The engine
- *     "follows the cursor" — wherever the user navigates inside
- *     a game-root's descendant tree, the engine plays when it's
- *     its color's turn.
- *   - Single watcher on the active board's
- *     (currentNodeId, gamesKey) tuple. Doesn't fire on
- *     board-switch (same posture as the "Follow Me" ponder
- *     watcher in `App.vue`).
- *   - Per-board in-flight flag prevents double-firing if multiple
- *     reactive changes land in quick succession.
+ *   - Green ring marks exactly one node per game (the current
+ *     head); engine fires only when the user makes a move FROM
+ *     the head. Off-line navigation does not fire. The head
+ *     advances forward each round, and the prior head is no
+ *     longer green.
+ *   - No reactive watcher — the caller (App.vue's
+ *     `handleBoardMove`) explicitly invokes the responder when
+ *     it detects a move from a current head. This is the
+ *     "much simpler" shape the user contrasted against the
+ *     prior descendant-tree responder (which fired on any
+ *     cursor change inside a game's subtree).
+ *   - Start-game with an engine-turn position: caller invokes
+ *     this verb right after creating the game entry; the
+ *     responder plays one move and advances the head past the
+ *     engine's response so the user can resume from a user-turn
+ *     head.
  *
  * Engine query: uses `queryEngineMove` from `usePlayFromPosition`,
  * which opens its own KataGoClient via `connectFresh` — same
  * posture as `usePlayMatch`, independent of the analysis-service
- * singleton's ponder/range traffic. The per-game `engineMaxVisits`
- * and `engineModel` are threaded through.
+ * singleton's ponder/range traffic.
  *
  * Errors surface via `pushSystemMessage`; the engine query is
- * best-effort (if KataGo can't be reached, the user can still
- * navigate / explore — the game-root annotation persists in
- * `board.games` and the responder resumes when the engine is
- * back). The exposed `tryFireResponder(boardId)` lets callers
- * (e.g., the modal's "Start game" handler) synchronously trigger
- * the responder after mutating `board.games`, so the engine
- * opens the game if it's its color's turn at the start position.
+ * best-effort (if KataGo can't be reached, the head stays at its
+ * current position so the next attempt retries from the same
+ * state).
  *
  * License: Public Domain (The Unlicense)
  */
 
-import { watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   store,
-  activeBoard,
+  mutateBoard,
   updateBoardState,
   pushSystemMessage,
 } from '../../store';
@@ -54,77 +55,82 @@ import { KATAGO_WS_URL } from '../../config/env';
 import type {
   BoardId,
   BoardState,
-  EnginePlayGameConfig,
+  EnginePlayGameSession,
   NodeId,
+  StoneColor,
 } from '../../types';
 
 /**
- * Walk parents bottom-up from `nodeId`, returning the closest
- * game-root ancestor (a node with an entry in `board.games`) and
- * its config, or null if none found. The walk is O(depth) per
- * call — depth is bounded by the variation path length.
+ * Find the game (if any) whose `currentHeadNodeId` equals
+ * `headNodeId`. Used by `App.vue::handleBoardMove` to detect
+ * "user played a move from a green-ringed head" — captured BEFORE
+ * `applyGoMove` so the responder can fire after.
  *
- * Exported for `useEngineResponder`'s callers that need to query
- * the same "am I inside a game?" relation (e.g., a future
- * tree-tooltip that explains why a node has the green ring).
+ * Returns the start NodeId (the game's stable identity key) plus
+ * the session, or null if no game is at this head.
  */
-export function findGameRootAncestor(
+export function findGameByHead(
   board: BoardState,
-  nodeId: NodeId,
-): { rootId: NodeId; config: EnginePlayGameConfig } | null {
-  let cur: NodeId | null = nodeId;
-  while (cur !== null) {
-    const config = board.games[cur];
-    if (config !== undefined) {
-      return { rootId: cur, config };
+  headNodeId: NodeId,
+): { startNodeId: NodeId; session: EnginePlayGameSession } | null {
+  for (const [startNodeId, session] of Object.entries(board.games)) {
+    if (session.currentHeadNodeId === headNodeId) {
+      return { startNodeId: startNodeId as NodeId, session };
     }
-    cur = board.nodes[cur]?.parent ?? null;
   }
   return null;
 }
 
+/** Engine's color = whichever the user is not playing. */
+export function engineColorFor(userColor: StoneColor): StoneColor {
+  return userColor === 'B' ? 'W' : 'B';
+}
+
 export interface EngineResponderHandle {
   /**
-   * Synchronously check + fire the responder for the given board
-   * id. Used by callers that mutate `board.games` and want the
-   * engine to open the game immediately if it's its color's turn
-   * at the start position (the reactive watcher also catches the
-   * change, but firing synchronously avoids waiting for the next
-   * tick of Vue's scheduler — keeps the modal's "Start game"
-   * feel snappy).
+   * Fire one engine move at the board's current position, apply
+   * it, and advance the named game's `currentHeadNodeId` to the
+   * post-engine-move position. Idempotent under concurrent
+   * invocation: a per-board `inFlight` flag short-circuits
+   * re-entry.
    *
-   * Safe to call at any time; no-ops if conditions aren't met
-   * (no game-root ancestor at currentNodeId, not engine's turn,
-   * already in-flight for this board, engine not connected).
+   * Preconditions checked at call time (no-op if any fails):
+   *   - The board still exists in the store.
+   *   - The named game still exists on the board (caller may
+   *     have ended it concurrently).
+   *   - It's the engine's color's turn at the board's current
+   *     position (the caller is expected to invoke this only
+   *     in that case, but defensive recheck guards races).
+   *   - The engine is connected (else surfaces a system-warning
+   *     and skips; the head stays at the current position so
+   *     the next attempt retries).
+   *
+   * Errors during the engine query surface via system-message
+   * push; the head is NOT advanced (retry-on-next-attempt
+   * semantics).
    */
-  tryFireResponder: (boardId: BoardId) => Promise<void>;
+  fireAndAdvanceHead: (boardId: BoardId, gameStartNodeId: NodeId) => Promise<void>;
 }
 
 export function useEngineResponder(): EngineResponderHandle {
   const { t } = useI18n();
 
-  // Per-board in-flight flag — prevents double-firing if multiple
-  // reactive changes land in quick succession (e.g., the cursor
-  // moves while an existing query is still resolving).
   const inFlight = new Set<BoardId>();
 
-  async function tryFireResponder(boardId: BoardId): Promise<void> {
+  async function fireAndAdvanceHead(boardId: BoardId, gameStartNodeId: NodeId): Promise<void> {
     if (inFlight.has(boardId)) return;
     const idx = store.boards.findIndex(b => b.id === boardId);
     if (idx === -1) return;
     const board = store.boards[idx];
-    const ancestor = findGameRootAncestor(board, board.currentNodeId);
-    if (!ancestor) return;
-    // `board.turn` reflects who moves NEXT at currentNodeId. The
-    // engine plays whichever color the user is not playing — so
-    // we fire when `board.turn` matches the engine's color.
-    const engineColor = ancestor.config.userColor === 'B' ? 'W' : 'B';
+    const session = board.games[gameStartNodeId];
+    if (!session) return;
+    const engineColor = engineColorFor(session.config.userColor);
     if (board.turn !== engineColor) return;
     if (store.engine.status !== 'connected') {
-      // Engine not connected — surface a user-visible warning and
-      // skip. The game-root annotation persists in board.games;
-      // when the engine reconnects, the next navigation / move /
-      // game-add fires the watcher and the responder retries.
+      // Engine not connected — surface a warning and skip. The
+      // head stays put; the next attempt (user moves from head
+      // again after reconnect, or game-start triggers a retry)
+      // tries fresh.
       pushSystemMessage('warning', t('playEngine.notConnected'));
       return;
     }
@@ -134,21 +140,29 @@ export function useEngineResponder(): EngineResponderHandle {
       const result = await queryEngineMove({
         katagoUrl: url,
         board,
-        maxVisits: ancestor.config.engineMaxVisits,
-        model: ancestor.config.engineModel ?? undefined,
+        maxVisits: session.config.engineMaxVisits,
+        model: session.config.engineModel ?? undefined,
       });
-      // Re-resolve the board index — it may have shifted while
-      // the query was in flight. Also re-read the board's current
-      // state in case the user navigated away mid-query: if
-      // currentNodeId changed, the response is stale relative to
-      // the user's intent and we drop it silently rather than
-      // playing a move at the (now-different) position.
+      // Re-resolve after async — the user may have closed boards
+      // or the cursor may have moved. Both invalidate the
+      // response.
       const writeIdx = store.boards.findIndex(b => b.id === boardId);
       if (writeIdx === -1) return;
-      const after = store.boards[writeIdx];
-      if (after.currentNodeId !== board.currentNodeId) return;
-      const next = applyGoMove(after, result.x, result.y);
-      if (next) updateBoardState(writeIdx, next);
+      const beforeMove = store.boards[writeIdx];
+      if (beforeMove.currentNodeId !== board.currentNodeId) return;
+      // Re-check session — user may have ended it mid-query.
+      if (!beforeMove.games[gameStartNodeId]) return;
+      const next = applyGoMove(beforeMove, result.x, result.y);
+      if (!next) return;
+      updateBoardState(writeIdx, next);
+      // Advance the head. `next.currentNodeId` is the new
+      // user-turn position; the green ring re-renders there
+      // automatically via the reactive `Object.values(games)`
+      // computed in App.vue.
+      mutateBoard(boardId, draft => {
+        const s = draft.games[gameStartNodeId];
+        if (s) s.currentHeadNodeId = next.currentNodeId;
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       pushSystemMessage('error', t('playEngine.queryFailed', { error: msg }));
@@ -157,38 +171,5 @@ export function useEngineResponder(): EngineResponderHandle {
     }
   }
 
-  // Reactive trigger: watcher on the active board's (currentNodeId,
-  // gamesKey) tuple. Doesn't fire on board-switch (the prev / curr
-  // id check matches the "Follow Me" ponder watcher's posture in
-  // App.vue — switching to a board where it's the engine's turn
-  // doesn't auto-fire; the user navigating or playing within the
-  // game IS the trigger). Doesn't fire when nothing relevant
-  // changed (the explicit nodeId + gamesKey equality check covers
-  // the case where the watcher re-runs due to another field on the
-  // tuple, which shouldn't happen but stays defensive).
-  watch(
-    () => activeBoard.value
-      ? {
-          id: activeBoard.value.id,
-          nodeId: activeBoard.value.currentNodeId,
-          // `Object.keys().join` is a cheap fingerprint of the
-          // games-map keys. Watching the keys directly (not the
-          // map's reference identity) means same-content reassignments
-          // don't fire spuriously, and key-set changes (add / remove
-          // a game-root) DO fire. Values aren't part of the
-          // fingerprint — editing a game's `engineMaxVisits` post-
-          // start doesn't re-fire the responder (no current UI path
-          // does this; if one is added, extend the fingerprint).
-          gamesKey: Object.keys(activeBoard.value.games).join('|'),
-        }
-      : null,
-    (curr, prev) => {
-      if (!curr || !prev) return;
-      if (curr.id !== prev.id) return;
-      if (curr.nodeId === prev.nodeId && curr.gamesKey === prev.gamesKey) return;
-      void tryFireResponder(curr.id);
-    },
-  );
-
-  return { tryFireResponder };
+  return { fireAndAdvanceHead };
 }

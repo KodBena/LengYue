@@ -222,31 +222,60 @@ export interface BoardState {
   // showing "loaded from <file>") doesn't have to reconstruct it.
   sourceFileName?: string;
   /**
-   * "Play vs engine" game-root annotations, keyed by NodeId. Each
-   * entry marks a node as the root of a game where the user plays
-   * against the engine; the entry's value is the engine config to
-   * use whenever the user is at a descendant of this node and it's
-   * the engine's color's turn. Multiple games can coexist on one
-   * board — engine responds wherever the cursor lands inside any
-   * of them.
+   * "Play vs engine" sessions on this board, keyed by the
+   * session's start NodeId (stable game identity). Each session
+   * has a frozen `config` and a moving `currentHeadNodeId` that
+   * tracks the single green-ring position where the engine will
+   * respond to the user's next move.
    *
-   * Two games whose descendant trees overlap → behaviour undefined
-   * (the engine response uses whichever game-root the ancestor
-   * walk finds first; KataGo's per-query nondeterminism means the
-   * user is unlikely to notice in practice).
+   * Lifecycle per session:
+   *   - Start: user clicks "Start game" in the modal at some
+   *     node X. `games[X] = { config, currentHeadNodeId: X }`.
+   *     If it's the engine's color's turn at X, the engine plays
+   *     immediately (one auto-fire on creation) and `currentHeadNodeId`
+   *     advances to the engine-response result.
+   *   - Step: user plays a move FROM the current head. The
+   *     engine queries the resulting position, plays its
+   *     response, and `currentHeadNodeId` advances to the
+   *     engine-response result (the new user-turn position).
+   *   - End: user clicks "End" in the modal — entry deleted.
+   *     Off-line navigation (cursor away from head) does not
+   *     advance the head; engine doesn't fire on non-head moves.
+   *
+   * Multiple sessions can coexist on one board — each has its
+   * own green ring at its current head. Two sessions whose heads
+   * collide → behaviour undefined (the responder picks
+   * whichever entry it iterates first; KataGo's nondeterminism
+   * means collision is unlikely in practice).
    *
    * Schema-version 52 introduces this field; the migration
    * backfills `{}` on existing persisted boards.
    */
-  games: Record<NodeId, EnginePlayGameConfig>;
+  games: Record<NodeId, EnginePlayGameSession>;
 }
 
 /**
- * Per-game config for a "play vs engine" session whose root is a
- * specific node in a board's game tree. Stored in
- * `BoardState.games` keyed by the root `NodeId`. See the `games`
- * field's doc on `BoardState` for the lifecycle / trigger
- * semantics.
+ * Per-session state for a "play vs engine" game. The `config`
+ * is captured at session-start and frozen for the session's
+ * lifetime; `currentHeadNodeId` advances each round to track
+ * the single green-ring position. See the `games` field's doc
+ * on `BoardState` for the lifecycle semantics.
+ */
+export interface EnginePlayGameSession {
+  config: EnginePlayGameConfig;
+  /**
+   * The single green-ring position for this session — the node
+   * where the engine will respond to the user's next move.
+   * Advances on each engine response. Distinct from the
+   * session's key (the start NodeId), which never moves.
+   */
+  currentHeadNodeId: NodeId;
+}
+
+/**
+ * Engine config for a "play vs engine" session — captured at
+ * session-start and frozen. Per-session, lives inside
+ * `EnginePlayGameSession.config`.
  */
 export interface EnginePlayGameConfig {
   /** Color the user plays — the engine plays the other. */

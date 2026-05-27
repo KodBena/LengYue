@@ -31,7 +31,7 @@ import { updateRegistry } from './engine/util';
 import { analysisService } from './services/analysis-service';
 import { KATAGO_WS_URL } from './config/env';
 import { usePlayMatch } from './composables/board/usePlayFromPosition';
-import { useEngineResponder } from './composables/board/useEngineResponder';
+import { useEngineResponder, findGameByHead } from './composables/board/useEngineResponder';
 
 import BoardWidget      from './components/board/BoardWidget.vue';
 import SidebarWidget    from './components/chrome/SidebarWidget.vue';
@@ -150,17 +150,26 @@ function handleStartGame(opts: {
   const startNodeId = board.currentNodeId;
   mutateBoard(board.id, draft => {
     draft.games[startNodeId] = {
-      userColor: opts.userColor,
-      engineMaxVisits: opts.engineMaxVisits,
-      engineModel: opts.engineModel,
+      config: {
+        userColor: opts.userColor,
+        engineMaxVisits: opts.engineMaxVisits,
+        engineModel: opts.engineModel,
+      },
+      currentHeadNodeId: startNodeId,
     };
   });
-  // Kick the responder synchronously so the engine plays the first
-  // move if it's its turn at the start position. The reactive
-  // watcher in `useEngineResponder` would also catch this on the
-  // next tick (gamesKey changed), but calling here avoids the
-  // tick delay and keeps the start-game UX snappy.
-  void engineResponder.tryFireResponder(board.id);
+  // If it's the engine's color's turn at the start position, fire
+  // one engine move so the game kicks off without the user being
+  // stuck at an engine-turn head. After the engine plays, the
+  // responder advances `currentHeadNodeId` to the post-engine-move
+  // position, which is the user's turn — a normal head the user
+  // can play from. If it's the user's turn at start, no kick;
+  // the user plays first, which then triggers the responder
+  // (handleBoardMove's branch).
+  const engineColor = opts.userColor === 'B' ? 'W' : 'B';
+  if (board.turn === engineColor) {
+    void engineResponder.fireAndAdvanceHead(board.id, startNodeId);
+  }
 }
 
 function handleEndGame(nodeId: NodeId) {
@@ -171,14 +180,16 @@ function handleEndGame(nodeId: NodeId) {
   });
 }
 
-// Game-root NodeIds for the active board — passed to TreeWidget as
-// a ReadonlySet so the tree can render the green ring on each
-// game-root node. Recomputes when `activeBoard.value.games` changes
-// (Object.keys iteration registers reactive deps on the games map).
-const activeBoardGameRootIds = computed((): ReadonlySet<NodeId> | undefined => {
+// Currently-active green-ring NodeIds for the active board — one
+// per game-session, at that session's `currentHeadNodeId`. Passed
+// to TreeWidget as a ReadonlySet so the tree renders the green
+// ring on each head. Recomputes when `activeBoard.value.games`
+// changes (Object.values iteration registers reactive deps on the
+// games map and each session's currentHeadNodeId field).
+const activeBoardGameHeadIds = computed((): ReadonlySet<NodeId> | undefined => {
   const board = activeBoard.value;
   if (!board) return undefined;
-  return new Set(Object.keys(board.games) as NodeId[]);
+  return new Set(Object.values(board.games).map(g => g.currentHeadNodeId));
 });
 
 // ─── "Follow Me" Ponder Watcher ──────────────────────────────────────────────
@@ -299,8 +310,20 @@ function handleBoardMove(x: number, y: number): void {
   // `handlePastePv`'s policy of allowing exploration in
   // non-AWAITING_MOVE states.
   if (!activeBoard.value) return;
+  // "Play vs engine" trigger: if the cursor was at a green-ringed
+  // game head BEFORE this move, fire the responder AFTER the move
+  // lands so the engine answers. Capture the head-game BEFORE
+  // applyGoMove so we know which game (if any) to advance.
+  // Off-line moves (cursor not at a head) don't trigger.
+  const prevNodeId = activeBoard.value.currentNodeId;
+  const boardId = activeBoard.value.id;
+  const gameAtHead = findGameByHead(activeBoard.value, prevNodeId);
   const next = applyGoMove(activeBoard.value, x, y);
-  if (next) updateBoardState(store.activeBoardIndex, next);
+  if (!next) return;
+  updateBoardState(store.activeBoardIndex, next);
+  if (gameAtHead !== null) {
+    void engineResponder.fireAndAdvanceHead(boardId, gameAtHead.startNodeId);
+  }
 }
 
 /**
@@ -456,7 +479,7 @@ function handleProfileUpdate(e: { path: string[]; value: any }): void { updateRe
             :nodes="activeBoard.nodes"
             :current-node-id="activeBoard.currentNodeId"
             :board-id="activeBoard.id"
-            :game-root-ids="activeBoardGameRootIds"
+            :game-head-ids="activeBoardGameHeadIds"
             @select-node="handleNodeSelect"
           />
         </div>

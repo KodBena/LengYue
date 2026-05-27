@@ -145,11 +145,11 @@
   "match.failed":                         "Engine match failed: {error}",
 
   "playEngine.title":                     "Play vs Engine",
-  "playEngine.subtitle":                  "Start a game from the current position. The engine plays whenever you're at a node inside the game's tree and it's the engine's turn — navigate the tree freely; the engine waits at user-turn nodes and resumes at engine-turn nodes.",
+  "playEngine.subtitle":                  "Start a game from the current position. The green ring marks the single node where the engine will respond to your next move; play a move from the green node and the engine answers, advancing the ring forward to the new position. Off-line exploration (navigating away from the ring) doesn't trigger the engine.",
   "playEngine.singleEngineNote":          "Proxy is not in SELECTOR mode — engine plays through the single connected engine ({label}).",
   "playEngine.activeGamesHeading":        "Active games on this board",
   "playEngine.activeGamesEmpty":          "No games active on this board yet.",
-  "playEngine.activeGameLabel":           "Move {move}, you play {color}, {visits} visits",
+  "playEngine.activeGameLabel":           "From move {start} (now at {head}), you play {color}, {visits} visits",
   "playEngine.activeGameEndBtn":          "End",
   "playEngine.startHeading":              "Start new game at current position",
   "playEngine.field.userColor":           "You play",
