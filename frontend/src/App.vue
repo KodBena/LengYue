@@ -196,13 +196,32 @@ const moveNumber = computed((): number => {
 });
 
 function handleBoardMove(x: number, y: number): void {
-  if (reviewSession.state.value !== 'IDLE') {
-    if (reviewSession.state.value === 'AWAITING_MOVE') {
-      reviewSession.processUserMove(x, y);
-    }
+  // AWAITING_MOVE: route to the review session's single-move
+  // handler. The session enforces N-move discipline and grades
+  // each move; a free-play applyGoMove here would silently bypass
+  // both the count and the grading.
+  if (reviewSession.state.value === 'AWAITING_MOVE') {
+    reviewSession.processUserMove(x, y);
     return;
   }
-
+  // LOADING / ANALYZING: transient SR states. Board is mid-load
+  // or mid-evaluation; free play here would race the SR lifecycle
+  // (LOADING's positioning, or ANALYZING's reading of the
+  // just-played position to compute the grade).
+  if (
+    reviewSession.state.value === 'LOADING' ||
+    reviewSession.state.value === 'ANALYZING'
+  ) {
+    return;
+  }
+  // IDLE (no review running) or FINISHED (intermission — post-
+  // evaluation exploration phase): free play. Intermission is when
+  // the user reads branches off the evaluated position; per the
+  // pedagogy in the umbrella handoff doc ("heredity tracking
+  // offloads branching problems"), exploration here is part of
+  // the learning experience the SR loop serves. Matches
+  // `handlePastePv`'s policy of allowing exploration in
+  // non-AWAITING_MOVE states.
   if (!activeBoard.value) return;
   const next = applyGoMove(activeBoard.value, x, y);
   if (next) updateBoardState(store.activeBoardIndex, next);
