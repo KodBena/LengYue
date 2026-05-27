@@ -77,7 +77,7 @@ import { archivedMigrations, type Migration } from './archived-migrations';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 52;
+export const CURRENT_SCHEMA_VERSION = 53;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -105,53 +105,6 @@ export const CURRENT_SCHEMA_VERSION = 52;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 50 → 51: backfill
-  // `profile.settings.engine.katago.bundleCompressionScheme`
-  // (string enum from `BUNDLE_COMPRESSION_SCHEMES` in types.ts,
-  // default 'v1'). The wire-format choice for analysis-bundle
-  // persistence — the cross/analysis-bundle-compression-v2 arc's
-  // lossless + lossy leaves. Default 'v1' preserves the
-  // historical wire shape; users opt into 'v2-projected' (the
-  // lossless projection win) or 'v2-quantized' (projection +
-  // Q4 ownership + Q8-factored policy, the leader from the
-  // research arc) via the registry editor. See
-  // AppSettings.engine.katago.bundleCompressionScheme in
-  // types.ts for the contract.
-  //
-  // Transition mapping the body handles (this migration is still
-  // pre-merge on the cross/ branch; values weren't user-visible
-  // before the dropdown landed, so an in-place body edit is
-  // acceptable here rather than a sibling correction migration):
-  //   - Pre-existing branch-test value 'v1-json' → 'v1'.
-  //   - Pre-existing branch-test value 'json-projected-v1' →
-  //     'v2-projected'.
-  //   - Already-valid current values ('v1' / 'v2-projected' /
-  //     'v2-quantized') → preserved unchanged.
-  //   - Anything else (typo, hand-edited blob, future scheme
-  //     downgraded into a present client) → reset to 'v1' (the
-  //     safe default: the SPA never tries to write a wire shape
-  //     it can't construct). This is the silent-default
-  //     exception ADR-0002 names for non-load-bearing config
-  //     drift — the user-visible effect is "your saves go via
-  //     v1 instead of v2"; data integrity is preserved.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const katago = out.profile?.settings?.engine?.katago;
-    if (katago && typeof katago === 'object') {
-      const k = katago as { bundleCompressionScheme?: unknown };
-      const v = k.bundleCompressionScheme;
-      if (v === 'v1' || v === 'v2-projected' || v === 'v2-quantized') {
-        // already valid
-      } else if (v === 'v1-json') {
-        k.bundleCompressionScheme = 'v1';
-      } else if (v === 'json-projected-v1') {
-        k.bundleCompressionScheme = 'v2-projected';
-      } else {
-        k.bundleCompressionScheme = 'v1';
-      }
-    }
-    return out;
-  },
   // 51 → 52: backfill `BoardState.games` (per-board "play vs
   // engine" game-root annotations, keyed by `NodeId`). New
   // BoardState field introduced by the "play vs engine /
@@ -173,6 +126,27 @@ export const migrations: Migration[] = [
         if (board && typeof board === 'object' && !board.games) {
           board.games = {};
         }
+      }
+    }
+    return out;
+  },
+  // 52 → 53: backfill `profile.settings.keybindings` (sparse map
+  // keyed by `KeybindingActionId`, default `{}` meaning "use
+  // registry defaults for all actions"). Phase 1 of the
+  // keybindings substrate (`docs/notes/keybindings-plan.md`):
+  // the field is defined and persisted but `useUserIORegistry`
+  // doesn't yet consume it — substrate-only landing.
+  //
+  // Idempotent: a pre-existing object is preserved unchanged so
+  // a forward-compat install that already wrote overrides keeps
+  // them.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const settings = out.profile?.settings;
+    if (settings && typeof settings === 'object') {
+      const s = settings as { keybindings?: unknown };
+      if (typeof s.keybindings !== 'object' || s.keybindings === null || Array.isArray(s.keybindings)) {
+        s.keybindings = {};
       }
     }
     return out;

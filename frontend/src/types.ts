@@ -86,6 +86,15 @@ export type NodeId     = Brand<string, 'NodeId'>;
 export type ProfileId  = Brand<string, 'ProfileId'>;
 export type SessionId  = Brand<string, 'SessionId'>;
 export type BookmarkId = Brand<string, 'BookmarkId'>;
+/**
+ * Stable identifier for a user-rebindable keyboard action. Branded
+ * to prevent string typos from silently mis-routing key dispatch.
+ * Naming convention: `<domain>.<verb>` (e.g., `nav.next`,
+ * `display.toggleMoveNumbers`). Authoritative constructor and
+ * registry live at `src/lib/keybindings.ts`. See
+ * `docs/notes/keybindings-plan.md` for the substrate design.
+ */
+export type KeybindingActionId = Brand<string, 'KeybindingActionId'>;
 
 // Two distinct ways to count moves in a game; the project's prior practice
 // of typing both as bare `number` admitted a class of off-by-color bugs
@@ -1247,6 +1256,19 @@ export interface AppSettings {
    * `docs/notes/knob-registry-plan.md` for the design.
    */
   knobs: KnobRegistry;
+  /**
+   * User overrides for keybinding actions. Sparse map keyed by
+   * `KeybindingActionId` — absence means "use the registry's
+   * `defaultKey`"; explicit `null` means "user has unbound this
+   * action even though it has a default". The registry itself
+   * (`src/lib/keybindings.ts::KEYBINDINGS_REGISTRY`) holds the
+   * authoritative action list with their default keys; this
+   * field stores only the deltas the user has authored. Per the
+   * keybindings-plan design, fresh installs serialise to `{}`
+   * (defaults rule); migration 52 → 53 backfills the same on
+   * legacy persisted blobs.
+   */
+  keybindings: Partial<Record<KeybindingActionId, string | null>>;
 }
 
 export interface UISession {
