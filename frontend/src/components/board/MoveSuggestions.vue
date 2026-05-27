@@ -121,19 +121,39 @@ function getAnnotatedPv(moveIndex: number): PvMove[] {
  */
 function onDiskEnter(moveIndex: number) {
   hoveredIndex.value = moveIndex;
-  startPv(getAnnotatedPv(moveIndex));
+  const pv = getAnnotatedPv(moveIndex);
+  // Seed the fingerprint so the packet watcher's first post-hover
+  // fire short-circuits when the arriving packet's PV is identical
+  // to the one we just rendered (the common case for the same node
+  // mid-ponder / mid-range-query). See the watcher block below.
+  prevPvFingerprint = pvFingerprint(pv);
+  startPv(pv);
   setHint(t('moveSuggestions.pasteHint', { key: pasteModifierLabel() }));
 }
 
 /**
  * Real-time Update Guard:
  * When pondering/analysis data arrives, update the displayed stones instantly
- * ONLY if the user is in 'instant' mode.
+ * ONLY if the user is in 'instant' mode. The fingerprint short-circuit prevents
+ * the re-render cascade (startPv → clearTimers + new `visible` Set + new
+ * `pvMoves` array → `displayStones` invalidation → SVG diff over all PV stones,
+ * re-evaluating every stone's `:style` binding) when the arriving packet's PV
+ * for the hovered suggestion is structurally identical to the prior one — the
+ * common case during a range query, where most packets carry updated visit
+ * counts and winrate but the same continuation. Diagnosed in
+ * `docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md` Bug C.
  */
+let prevPvFingerprint = '';
+function pvFingerprint(pv: PvMove[]): string {
+  return pv.map(m => `${m.x}.${m.y}.${m.color}.${m.moveNumber}`).join('|');
+}
 watch(packet, () => {
-  if (hoveredIndex.value !== null && pvCfg.mode === 'instant') {
-    startPv(getAnnotatedPv(hoveredIndex.value));
-  }
+  if (hoveredIndex.value === null || pvCfg.mode !== 'instant') return;
+  const pv = getAnnotatedPv(hoveredIndex.value);
+  const fp = pvFingerprint(pv);
+  if (fp === prevPvFingerprint) return;
+  prevPvFingerprint = fp;
+  startPv(pv);
 });
 
 /**
@@ -148,6 +168,10 @@ function onLeave(): void {
   hoveredIndex.value = null;
   stopPv();
   clearHint();
+  // Reset the PV-change guard so a fresh hover (even on the same
+  // suggestion) starts from a known-empty fingerprint and the
+  // initial seed in `onDiskEnter` is the only authority.
+  prevPvFingerprint = '';
 }
 
 /**
