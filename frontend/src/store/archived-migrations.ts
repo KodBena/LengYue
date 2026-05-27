@@ -2168,4 +2168,27 @@ export const archivedMigrations: Migration[] = [
     }
     return out;
   },
+  // 49 → 50: backfill `profile.settings.engine.katago.analysisAutoSave`
+  // (boolean, default false). The auto-save policy for the
+  // experimental analysis-persistence feature lands as an opt-in
+  // toggle in the registry editor under engine → katago, gated on
+  // the parent `analysisStorageEnabled`. See
+  // `composables/useAutoSaveAnalyses.ts` for the policy and
+  // `AppSettings.engine.katago.analysisAutoSave` in `types.ts` for
+  // the contract.
+  //
+  // Idempotent: a pre-existing boolean is preserved unchanged so a
+  // forward-compat install that already flipped the toggle keeps
+  // its choice.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const katago = out.profile?.settings?.engine?.katago;
+    if (katago && typeof katago === 'object') {
+      const k = katago as { analysisAutoSave?: unknown };
+      if (typeof k.analysisAutoSave !== 'boolean') {
+        k.analysisAutoSave = false;
+      }
+    }
+    return out;
+  },
 ];

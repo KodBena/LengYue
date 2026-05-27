@@ -650,5 +650,31 @@ function normalizeBoard(raw: any): BoardState {
     lastActivity:    raw.lastActivity    ?? 0,
     maxVisitsTarget: raw.maxVisitsTarget ?? 1000,
     nodes:           raw.nodes           ?? {},
+    games:           normalizeGames(raw.games),
   };
+}
+
+// Drop legacy `games` entries that don't conform to the current
+// `EnginePlayGameSession` shape. The shape evolved from a flat
+// `EnginePlayGameConfig` value (descendant-tree responder design)
+// to a `{ config, currentHeadNodeId }` head-pointer shape during
+// the play-vs-engine branch's design iteration; legacy entries
+// from the descendant-tree design (created during in-branch
+// testing) lack the `currentHeadNodeId` key and would crash the
+// new responder if not dropped. Persisted blobs from main never
+// have either shape (schema-52 migration backfills `{}`); this
+// only matters for users who tested the play-vs-engine branch
+// before the design revision.
+function normalizeGames(rawGames: any): BoardState['games'] {
+  if (!rawGames || typeof rawGames !== 'object') return {};
+  const out: BoardState['games'] = {};
+  for (const [k, v] of Object.entries(rawGames)) {
+    if (
+      v && typeof v === 'object' &&
+      'config' in v && 'currentHeadNodeId' in v
+    ) {
+      out[k as keyof BoardState['games']] = v as BoardState['games'][keyof BoardState['games']];
+    }
+  }
+  return out;
 }

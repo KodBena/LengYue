@@ -32,6 +32,7 @@ const emit = defineEmits<{
   (e: 'mint-card'):    void;
   (e: 'open-match'):   void;
   (e: 'stop-match'):   void;
+  (e: 'open-play'):    void;
 }>();
 
 // Two distinct watchdog-dot modes, gated by
@@ -299,6 +300,13 @@ const scoreLeadDisplay = computed(() => {
 
     <div class="engine-controls">
       <button class="toolbar-btn highlight-btn" @click="emit('mint-card')">{{ $t('toolbar.mintCard') }}</button>
+      <!-- PLAY opens the manage-games-on-this-board modal. Single
+           surface for both "start new game vs engine" and "end an
+           existing game" — see `PlayEngineModal.vue` for the
+           shape. Sibling to MATCH (engine-vs-engine self-play)
+           and intentionally adjacent so the two engine-driven
+           game affordances are visually grouped. -->
+      <button class="toolbar-btn" @click="emit('open-play')">{{ $t('toolbar.play') }}</button>
       <button
         class="toolbar-btn"
         :class="{ 'btn-stop-match': isMatchRunning }"
