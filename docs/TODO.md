@@ -439,6 +439,43 @@ The Q4-plus-residual variants and the ICA K10/20/50/100
 sweep were both included in the 2026-05-26 baseline run; the
 per-variant verdicts are in the followups ledger.
 
+#### ~~Navigation re-render localization — App-decouple (perf Arc 2)~~ `[frontend]` *(implemented 2026-05-29, branch `bork/perf/nav-arc1-rail-localization`; worklog `docs/worklog/2026-05-29-perf-nav-arc2-app-decouple.md`)*
+
+The 2026-05-28 game-scroll perf audit
+(`docs/notes/perf-audit-game-scroll-2026-05-28.md`) found that App.vue
+re-renders the whole component tree on every move-navigation step,
+because its template reads the move cursor directly
+(`activeBoard.currentNodeId`, `.turn`, `.captures`, and the
+`moveNumber` computed). Arc 1 (shipped — board-rail localization via
+`mutateBoard` in-place mutation + `SidebarWidget` `v-memo`) cut the
+rail cost; this Arc 2 moves the cursor reads out of App.vue into the
+leaf components that consume them (`StatusBar` self-sources
+turn/captures/moveNumber; `TreeWidget` self-sources currentNodeId) so
+App stops re-rendering on navigation — eliminating the per-step
+whole-tree patch (`RootErrorBoundary patch`, ~4.7ms post-Arc-1) and the
+`v-show`-forced child updates. Touches the App/StatusBar/TreeWidget
+prop contracts (ADR-0004: read those SFCs in full before editing).
+Before/after profile pair per ADR-0009; baseline
+`game_scroll_ee1ae205.json.gz`.
+
+#### Navigation-during-range-query perf (regime B) `[frontend]` (+ proxy via dispatch?)
+
+The same audit distinguished regime A (pure navigation — profiled and
+addressed by Arc 1/2) from regime B (navigating *while* a live range
+query streams, with parallel tasks such as a background match) — the
+user-perceived sluggishness. The regime-A baseline already has ~zero
+frame headroom, so per-packet work in B reliably drops frames. Needs a
+regime-B capture (`game_scroll_during_range_*.json.gz`) to attribute
+the per-packet cost, then addresses the synchronous/unchunked packet
+receive path (`analysis-service.ts::onAnalysisUpdate`; synchronous
+winrate normalization; `useEnrichedData`/`visitVector` invalidation →
+`BaseChart` `setOption`) — see
+`docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md` Bug C and its
+incidental finds. Deferred until after Arc 2. Composes with the
+analysis-panel refactor (the "Analysis tab — user-customisable
+sub-tabs" Future project below), which owns the analysis-subtree
+over-render the same audit flagged as inseparable from the packet path.
+
 ### Large — structural changes that introduce new abstractions
 
 #### ~~Unified user-controllable-scalar surface~~ `[frontend]` *(shipped 2026-05-14)*

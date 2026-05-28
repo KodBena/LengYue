@@ -18,6 +18,7 @@ import { useNavigation }    from '../../composables/useNavigation';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
 import { themeColor }        from '../../utils/theme-color';
 import FloatingThumbnail    from '../chrome/FloatingThumbnail.vue';
+import { boardsById }        from '../../store';
 import type { GameNode, NodeId, BoardId } from '../../types';
 
 /**
@@ -29,11 +30,17 @@ import type { GameNode, NodeId, BoardId } from '../../types';
  * through to the consumer (App.vue).
  *
  * Caller side: App.vue passes `activeBoard.nodes` (already
- * Record<NodeId, GameNode>), `activeBoard.currentNodeId` (NodeId), and
- * `activeBoard.id` (BoardId). All three already match the new signature
- * with no caller-side change needed.
+ * Record<NodeId, GameNode>) and `activeBoard.id` (BoardId). Both are
+ * nav-stable, so App's template reading them does not re-render on
+ * navigation.
  *
- * The select-node emit's `nodeId` is now NodeId, which forces the
+ * `currentNodeId` is NOT a prop (Arc 2 / App-decouple —
+ * docs/notes/perf-audit-game-scroll-2026-05-28.md): it is self-sourced
+ * below from the store's `boardsById` index, so App.vue's template no
+ * longer reads the move cursor and thus no longer re-renders the whole
+ * tree on every navigation step.
+ *
+ * The select-node emit's `nodeId` is NodeId, which forces the
  * App.vue handler to receive NodeId — closing one of the looseness
  * leaks at the component boundary.
  * ──────────────────────────────────────────────────────────────────────────
@@ -41,7 +48,6 @@ import type { GameNode, NodeId, BoardId } from '../../types';
 const props = withDefaults(
   defineProps<{
     nodes: Record<NodeId, GameNode>;
-    currentNodeId: NodeId;
     boardId: BoardId;
     orientation?: 'vertical' | 'horizontal';
     // Set of NodeIds that are current "game heads" — the single
@@ -83,6 +89,14 @@ const { getVariationThumbnail } = useThumbnailCache();
 
 const nodesRef  = toRef(props, 'nodes');
 const { layout } = useTreeLayout(nodesRef, undefined, expansion);
+
+// Self-sourced current node (Arc 2 / App-decouple). Reads the cursor
+// off the store's O(1) `boardsById` index keyed by the `boardId` prop
+// rather than receiving it from App.vue. After Arc 1's in-place
+// `mutateBoard`, the `currentNodeId` field dep fires on navigation
+// while `boardsById` itself does not re-derive — so this recomputes on
+// nav without App's template having to read the cursor.
+const currentNodeId = computed(() => boardsById.value[props.boardId]?.currentNodeId);
 
 // ── Variation Hover Logic ─────────────────────────────────────────────────────
 
@@ -146,7 +160,8 @@ const svgHeight = computed(() =>
 // invariant the composable's header documents. Covers all three
 // trigger cases (mount, lateral nav, multi-step PV paste) uniformly.
 
-watch(() => props.currentNodeId, async (newId, _oldId) => {
+watch(currentNodeId, async (newId, _oldId) => {
+  if (!newId) return;
   expansion.ensureVisible(props.nodes, newId);
 
   // Wait for Vue to trigger useTreeLayout and patch the DOM.

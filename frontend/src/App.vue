@@ -21,7 +21,7 @@ import {
   pushSystemMessage,
 } from './store';
 
-import type { BoardId, NodeId, GameNode, BoardState }   from './types';
+import type { BoardId, NodeId, BoardState }   from './types';
 import { applyGoMove }    from './logic';
 import type { PvMove }    from './composables/board/use-pv-animation';
 import { navigateTo }     from './engine/navigator';
@@ -255,29 +255,6 @@ const controlTabs = computed(() => [
   { id: 'other',    label: t('app.tabs.other')    },
 ]);
 
-const moveNumber = computed((): number => {
-  const board = activeBoard.value;
-  if (!board) return 0;
-  let count = 0;
-  // Tightened from `string | null` to `NodeId | null`. The walk starts
-  // at `board.currentNodeId` (NodeId) and proceeds via `node.parent`
-  // (NodeId | null); the loose `string` was a signature lie that
-  // forced a Record-indexing error at the next line. With the branded
-  // type, board.nodes[currId] is type-safe with no cast.
-  let currId: NodeId | null = board.currentNodeId;
-  while (currId) {
-    // Explicit annotation breaks TS7022 circular inference. After
-    // ADR-0001's readonly removal, TS can no longer use the readonly
-    // hint to break the cycle between `node`'s inferred type and
-    // `currId`'s reassignment from `node.parent`. Annotating `node`
-    // breaks the cycle by removing one side of the inference.
-    const node: GameNode | undefined = board.nodes[currId];
-    if (node?.move?.type === 'place') count++;
-    currId = node?.parent ?? null;
-  }
-  return count;
-});
-
 function handleBoardMove(x: number, y: number): void {
   // AWAITING_MOVE: route to the review session's single-move
   // handler. The session enforces N-move discipline and grades
@@ -457,10 +434,8 @@ function handleNodeSelect(nodeId: NodeId): void {
           </div>
           <StatusBar
             v-if="activeBoard"
-            :move-number="moveNumber"
+            :board="activeBoard"
             :metadata="metadata"
-            :turn="activeBoard.turn"
-            :captures="activeBoard.captures"
             @update-komi="handleUpdateKomi"
           />
         </div>
@@ -470,7 +445,6 @@ function handleNodeSelect(nodeId: NodeId): void {
           <TreeWidget
             v-if="activeBoard"
             :nodes="activeBoard.nodes"
-            :current-node-id="activeBoard.currentNodeId"
             :board-id="activeBoard.id"
             :game-head-ids="activeBoardGameHeadIds"
             @select-node="handleNodeSelect"

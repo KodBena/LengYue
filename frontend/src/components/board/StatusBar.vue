@@ -19,7 +19,8 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import type { StoneColor } from '../../types';
+import { computed } from 'vue';
+import type { StoneColor, BoardState, GameNode, NodeId } from '../../types';
 import UserBadge from '../chrome/UserBadge.vue';
 import { useTransientHint } from '../../composables/useTransientHint';
 import { store } from '../../store';
@@ -31,11 +32,19 @@ interface StatusMetadata {
   readonly rules:     string;
 }
 
-defineProps<{
-  moveNumber: number;
-  metadata:   StatusMetadata | null;
-  turn:       StoneColor;
-  captures:   { B: number; W: number };
+// Arc 2 (App-decouple — docs/notes/perf-audit-game-scroll-2026-05-28.md):
+// the board is passed by reference (stable identity after Arc 1's
+// in-place `mutateBoard`) and the move-cursor-dependent display values
+// (turn, captures, move number) are derived HERE rather than threaded
+// in as pre-extracted props. Reading those fields in App.vue's template
+// made App re-render the whole tree on every navigation step; deriving
+// them in the leaf that shows them confines the per-nav re-render to
+// this bar. `metadata` stays a prop — it is board-root-derived
+// (useMetadata) and nav-stable, so App passing it costs no per-nav
+// re-render.
+const props = defineProps<{
+  board:    BoardState;
+  metadata: StatusMetadata | null;
 }>();
 
 const emit = defineEmits<{
@@ -43,6 +52,22 @@ const emit = defineEmits<{
 }>();
 
 const { hint } = useTransientHint();
+
+const turn = computed<StoneColor>(() => props.board.turn);
+const captures = computed(() => props.board.captures);
+
+// Move number = count of 'place' moves from root to the current node.
+// Moved verbatim from App.vue's template-consumed computed (Arc 2).
+const moveNumber = computed((): number => {
+  let count = 0;
+  let currId: NodeId | null = props.board.currentNodeId;
+  while (currId) {
+    const node: GameNode | undefined = props.board.nodes[currId];
+    if (node?.move?.type === 'place') count++;
+    currId = node?.parent ?? null;
+  }
+  return count;
+});
 </script>
 
 <template>
