@@ -245,19 +245,22 @@ These three together are the "API" — not in the wire-shape
 sense, but in the sense of what the feature commits to as a
 contract with the user's workflow.
 
-## Two follow-up SPA features (tangentially related)
+## Two follow-up distribution-visualisation surfaces (tangentially related)
 
-The author named two visualisation components that have been
-"pensile" for a while:
+The author named two distribution-display components that
+have been "pensile" for a while. The right visualisation
+shape differs by surface because the underlying axes do:
 
-### Histogram of gaps between mistakes
+### Histogram of gaps between mistakes (discrete)
 
 Distribution of move-count distances between consecutive
 mistakes within a game (or analysis range, or session). The
-input is the same per-move ranking signal the mistake-finder
-consumes (per-palette `move_selector_fn` output thresholded
-or filtered to a worst-set); the histogram's bins are
-move-count gaps.
+input is the same per-move signal the mistake-finder consumes
+(per the design note's Option α: `delta_fn` output oriented by
+the palette's `delta_ordering` flag, thresholded or filtered
+to a worst-set); bins are move-count gaps. Histogram is the
+appropriate shape because the underlying axis (move counts) is
+discrete.
 
 Possible uses include: spotting "patches" of high-mistake
 density vs. clean stretches; comparing across games or across
@@ -266,31 +269,82 @@ project author has not enumerated specific reads they want
 from this view; the histogram is the substrate that supports
 whichever reads emerge.
 
-### Histogram of deltas
+### KDE of delta evaluations (continuous)
 
-Distribution of per-move `delta_fn` output across the
-analysis range or session. The input is the raw per-move
-move-evaluation signal already on the wire as
-`extra.<color>.deltas`; the histogram's bins are
-delta-value ranges.
+Continuous density estimate of per-move `delta_fn` output
+across the analysis range or session. The input is the raw
+per-move move-evaluation signal already on the wire as
+`extra.<color>.deltas`.
 
-This is essentially a "what does the move-evaluation
-distribution look like for this game?" view — calibration-
-adjacent. Useful for spotting whether the bulk of moves are
-near a palette's neutral point with a long tail, or whether
-the distribution is bimodal (which would suggest a different
-character of play than a unimodal one).
+The project author's framing (2026-05-28) on why KDE rather
+than histogram here: a KDE **preserves magnitude** (no bin
+quantisation discards fine-grained variation) and **subsumes
+any thresholding decision** — the viewer sees the full
+continuous distribution and can mentally apply any threshold
+as a vertical line on the curve, rather than the visualisation
+pre-committing to bin boundaries the way a histogram does.
+
+This composes neatly with the mistake-finder design note's
+"threshold is a knob" framing: the visualisation stays
+threshold-agnostic while the consumer's
+threshold-via-knob-registry carries the user's actual
+selection. The view doesn't have to be re-rendered when the
+threshold changes; the threshold is a UI overlay on the
+already-rendered density curve.
+
+Useful for spotting whether the bulk of moves are near a
+palette's neutral point with a long tail, or whether the
+distribution is bimodal (which would suggest a different
+character of play than a unimodal one). Bimodality and
+fat-tail characteristics that histograms can hide behind bin
+choices are visible in a KDE without re-binning.
+
+### Generic distribution-visualisation primitive
+
+The project author flagged (2026-05-28) a preference for
+**distribution-visualisation as a generic component shape**
+rather than two one-off implementations for the named cases.
+Quoted framing:
+
+> I have a general affinity for visual representation of
+> distributions so histograms should be a generic component.
+
+The implementing arc should design the primitive for reuse
+across the SPA's chart surface — at minimum with a histogram
+variant (discrete axis) and a KDE variant (continuous axis);
+the two sibling visualisations above are the first two
+consumers, and they shake out the discrete/continuous
+distinction the primitive has to honour.
+
+Cross-domain evidence supporting the generic-primitive bet:
+
+> I've seen in chess-like go GUIs they have histograms on PV
+> vs visits, — PV-lists being a chess-classic — though I
+> don't like the view it certainly shows that consumers of
+> that interface abound in this application.
+
+The project author does not favour PV-vs-visits histograms
+specifically (the view is not on this project's roadmap);
+the observation worth keeping is the surrounding signal —
+**distribution-display as a UI shape has audience in the
+Go-GUI ecosystem beyond the two cases named here**. Building
+the primitive for reuse rather than for these two siblings
+alone is forward-compatibility for whatever distribution
+views the implementing arc (or its successors) wants to
+surface next.
 
 ### Placement and scoping
 
-Both are chart-components, candidate homes under
-`src/components/charts/`. They consume the per-move signals
-the mistake-finder already requires, so they compose with
-its implementation arc rather than competing with it — once
-the per-move severity wire is honest (whether by the
-mistake-finder's α option emitting `move_selector_fn` output
-or otherwise), both histograms are downstream consumers of
-the same data.
+Both surfaces are chart-components, candidate homes under
+`src/components/charts/` (or a `src/components/charts/
+distributions/` sub-directory if the generic primitive lands
+with multiple instances at once). They consume the per-move
+signals the mistake-finder already requires, so they compose
+with its implementation arc rather than competing with it —
+under the mistake-finder design note's Option α (`delta_fn`
+oriented by `delta_ordering`, on the already-wire
+`extra.<color>.deltas`), both views are downstream consumers
+of the same data without additional wire work.
 
 They are explicitly *not* on the mistake-finder's critical
 path; they're independent features that share substrate. The
