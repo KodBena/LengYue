@@ -15,7 +15,7 @@ import type { BoardId } from '../../types';
 import AnalysisTimelinePanel from './AnalysisTimelinePanel.vue';
 import ScoreLeadPanel        from './ScoreLeadPanel.vue';
 import MergedDeltaPanel      from './MergedDeltaPanel.vue';
-import StabilityPanel        from './StabilityPanel.vue';
+import MultiresolutionIntervalPanel from './MultiresolutionIntervalPanel.vue';
 
 // Branded-type signature discipline (Commit 5a): boardId is tightened
 // from `string` to BoardId. The caller (App.vue) passes `activeBoard.id`
@@ -84,7 +84,7 @@ const engineConnected = computed(() => store.engine.status === 'connected');
         :selection-range="selectionRange"
       />
 
-      <StabilityPanel
+      <MultiresolutionIntervalPanel
         :board-id="boardId"
         :variation-path="variationPath"
         :selection-range="selectionRange"
