@@ -180,7 +180,16 @@ Three reasons compose into the shelf decision:
 2. **The relevant baseline is unmeasured.** Skip-rate vs
    "current proxy `adaptive_reevaluate` quantile-of-worst
    policy" was never measured; without it, the
-   savings-vs-status-quo claim is speculative.
+   savings-vs-status-quo claim is speculative. *c.f.* the
+   recent ADR-0009 (Performance Investigation Discipline) —
+   this is the exact failure shape the tenet names: a perf
+   claim (compute savings) made without the captured
+   investigation needed to substantiate it against the
+   relevant baseline. The shelf decision was practicing
+   ADR-0009's discipline organically; ADR-0009 itself was
+   authored after the visit-scaling research concluded, so the
+   formal tenet did not yet exist when the shelf decision was
+   made.
 3. **Asymmetric risk.** Silent compute savings vs visible
    recommendation-quality regressions. The 7pp agreement cost
    on skipped positions is potentially user-visible on an
@@ -191,6 +200,22 @@ inspection. They argue against shipping the classifier as an
 automated gate on adaptive deepening. The user-judgement surface
 is downstream of the same substrate but doesn't need the
 classifier to ship.
+
+### If the deployment arc resumes — a precursor question
+
+Flagged by the project author for the record (2026-05-28): if
+the visit-scaling deployment arc is ever revived, the first
+investigation is whether the KataGo response stream can be
+downsampled. Storage was a primary constraint during the
+original research — the per-packet trajectory data for the
+relatively few collected positions consumed more capacity than
+the GPU compute at the time — and any future arc would need to
+size storage realistically before committing to per-packet
+emission at scale. This is precursor work to the
+`staged_analysis` capability dispatch (Option β below); the
+existing capability sketches assumed full per-packet emission
+without addressing the storage envelope that constrained the
+research arc's own data collection.
 
 ## The design question
 
