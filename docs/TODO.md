@@ -709,6 +709,135 @@ Open questions before implementation:
 Trigger: user prioritization. Not blocking any current arc; the
 heatmap throttle bought enough headroom to defer indefinitely.
 
+### Analysis tab — user-customisable sub-tabs binding chart components `[frontend]`
+
+The Analysis tab now hosts ~8 panels stacked vertically:
+`AnalysisTimelinePanel`, `ScoreLeadPanel`, `MergedDeltaPanel`
+(with the mistake-finder dot overlay),
+`MultiresolutionIntervalPanel`, `StabilityPanel`,
+`StabilityCrossCorrelationPanel`, plus two `DistributionChart`
+instances (per-color delta KDE + own-color mistake-gap
+histogram). Several are collapsible-by-default-expanded; one
+(`StabilityCrossCorrelationPanel`) is collapsed-by-default;
+all live in a single scrollable column. The density has
+crossed the "nuisance" threshold per project author
+2026-05-28 — different users care about different subsets,
+and forcing every user to see every panel privileges no
+specific research / study posture.
+
+Proposal: the user defines named sub-tabs inside the Analysis
+tab and binds analysis components (charts + tables) to each.
+Each component carries a registry-known ID; tabs are an
+ordered list of `(name, [componentId])`. The persisted
+`profile` blob carries the tab configuration. A factory-
+default tab structure (a single "All" tab with every
+component bound, ordered as today) preserves current
+behaviour for users who never touch the editor.
+
+The substrate composes naturally with the user-controllable-
+scalar-surface posture (the shipped knob-registry —
+`docs/notes/knob-registry-plan.md`). Same *authoring tenets*
+(declarative substrate; components self-register; consumers
+iterate the registry rather than hardcoding; cross-domain
+editor surface) — different substrate *shape* (a tab is an
+ordered list of bound IDs, not a scalar with input/output
+paths). The knob-registry pattern won't drop in literally,
+but its lessons apply: declare available components in a
+registry analogous to `KnobRegistry`, expose a cross-domain
+editor analogous to `KnobRegistryEditor`, persist via the
+workspace blob through a schema migration.
+
+User motivation (project author, 2026-05-28, verbatim):
+
+> I personally find the multiresolution analysis a bit hard
+> to "interpret" (I mean, it's interpretation is plain as
+> day but it's rendered as a heatmap so you always look for
+> patterns that may not be there, not to mention it's
+> arguably a 1-d view unfolded into two dimensions, which
+> makes sense since it summarizes that many intervals, but
+> that's an aside).
+
+The customisation refactor lets users with that read of the
+multiresolution panel hide it on their default tab — without
+removing it for users who use it. That's the
+quality-of-life-shaped value of the refactor: respect
+divergent research postures instead of imposing one default.
+
+#### Substrate sketch (open to revision)
+
+- **Component registry.** A `Map<ComponentId, ComponentDecl>`
+  analogous to `STABILITY_EXTRACTORS` — declared once per
+  analysis component, names the SFC + a human-readable label
+  + any props the component needs from the dashboard
+  (boardId, variationPath, selectionRange). Mounted via
+  `<component :is="...">` dispatch.
+- **Tab schema.** `AnalysisTabSpec = { id, name, componentIds: ComponentId[] }`
+  persisted under `profile.session.ui.analysisTabs` (or
+  similar — naming worth bikeshedding once shape is settled).
+  Default = single tab, all components, current order.
+- **Editor surface.** Inside the Analysis tab itself
+  (an "Edit tabs" affordance) or in Settings (cleaner
+  separation; less discoverable). Project author's call —
+  the in-tab approach is more discoverable but couples the
+  editor to the surface it edits.
+- **Reordering.** Drag-and-drop is the natural shape;
+  up/down buttons are the lower-effort fallback. v1 can
+  ship buttons and grow to drag-and-drop later.
+
+#### v1 scope question
+
+Two reasonable starting points:
+
+1. **Show/hide only (smaller v1).** A single Analysis tab
+   keeps its current shape; user gets per-component
+   visibility toggles. Solves the immediate "too many
+   panels" pain. Substrate: a per-component boolean in the
+   workspace blob; no multi-tab framework yet.
+2. **Full multi-tab (the proposal as stated).** Larger
+   substrate change (tab schema + editor + persistence
+   migration), but matches the eventual end-state. Users
+   can define a "quality" tab (mistake-finder + delta
+   distribution + stability) separate from an "interval"
+   tab (multiresolution + others) and switch between them.
+
+The proposal as written is the full multi-tab shape. The
+show/hide subset is worth flagging as a stepping-stone if
+implementation appetite is constrained — it's a strict
+subset of the multi-tab substrate (the "All" default tab
+with per-component visibility ≈ show/hide), so the
+implementation work is mostly reusable.
+
+#### Open design questions
+
+- **Per-tab state vs. shared state.** The selection range
+  (`selectionRange`), the active palette, the threshold
+  knobs — these affect every panel that consumes them. Are
+  they per-tab (each tab owns its own state) or shared
+  (changing the selection on tab A also changes it on
+  tab B)? Shared seems simpler and matches user intuition
+  ("I'm analysing one position with one palette"); per-tab
+  is more powerful but probably YAGNI for v1.
+- **Component IDs over schema versions.** When a component
+  is renamed or removed, persisted tabs referencing the old
+  ID need migration. The migration discipline already
+  documented in `frontend/src/store/migrations.ts`'s
+  rolling-archive applies.
+- **Knob-registry composition.** Per-tab knob overrides
+  (e.g., one tab uses a different mistake threshold) is a
+  natural extension, but adds another axis of state. Defer
+  to v2.
+- **Cross-component coupling.** Some components currently
+  share state implicitly via `globalLegendState` (the
+  ECharts legend toggle memory). If two tabs both host
+  `MergedDeltaPanel`, toggling Black Delta on one tab
+  toggles it on the other (same series name, module-scoped
+  singleton). Acceptable for v1; revisit if per-tab legend
+  independence is asked for.
+
+Trigger: project-author appetite for the refactor. Not
+blocking any current arc. The eight-panel density makes
+this *valuable*, not *urgent*.
+
 ### Content-addressed card identity — auditability investigation `[both]`
 
 Investigation, not implementation. Surfaced 2026-05-28 as a
