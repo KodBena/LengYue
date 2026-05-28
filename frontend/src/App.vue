@@ -375,8 +375,6 @@ function handleNodeSelect(nodeId: NodeId): void {
         </button>
 
         <Toolbar
-          :engine-status="engineControls.status.value"
-          :metrics="engineControls.metrics.value"
           :is-match-running="matchControls.isRunning.value"
           @toggle-engine="engineControls.toggle"
           @mint-card="triggerMint"
