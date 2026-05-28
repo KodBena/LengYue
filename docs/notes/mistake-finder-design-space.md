@@ -220,70 +220,81 @@ longer roadmap.
 
 ## Design options
 
-### Option α — Per-palette severity declaration via existing `move_selector_fn`
+### Option α — Per-palette `delta_ordering` flag, with `move_selector_fn` as escalation
 
-The mistake-finder reads a per-palette ranking expression
-that the palette author authors and the palette declares.
-The substrate already has the exact shape: `move_selector_fn`
-in `analysis_config.bindings`, with the documented convention
-"lower selector value = worse." Each shipped palette declares
-its own `move_selector_fn` consistent with its own `delta_fn`
-semantics:
+Add a binary direction flag to `AnalysisPalette` —
+`delta_ordering: 'lower_is_worse' | 'higher_is_worse'` (or
+analogous naming; the bikeshed isn't load-bearing). Each
+shipped palette declares which direction of its own
+`delta_fn`'s output counts as bad:
 
-- The robust child palette's `move_selector_fn` reads
-  goodness from the MoveView and returns it directly (lower
-  goodness = worse, matches the convention).
-- A score-loss palette with "positive = loss" convention
-  declares a `move_selector_fn` returning `-score_loss`
-  (so the most-negative selector value picks out the
-  worst — biggest loss).
-- A score-loss palette with the opposite sign convention
-  declares a `move_selector_fn` returning `score_loss`
-  directly.
-- A palette author who doesn't want to be ranked by `delta_fn`
-  output at all (e.g., wants ranking by visit margin)
-  authors a `move_selector_fn` reading whatever they want
-  from the MoveView.
+- Robust child palette (goodness in [0, 1], higher = better):
+  `delta_ordering: 'lower_is_worse'`.
+- Score-loss palette with "positive = loss" convention:
+  `delta_ordering: 'higher_is_worse'`.
+- Score-loss palette with the negated convention:
+  `delta_ordering: 'lower_is_worse'`.
+- Rank, default, and any other shipped palette: one bit each.
 
-The SPA's mistake-finder reads per-move selector values from
-the wire (or computes them locally if the proxy emits the
-inputs) and applies SPA-side selection — top-K, percentile,
-threshold — with the knob-registry-controlled parameters.
-Substrate growth: zero. The shape `move_selector_fn` was
-designed for is exactly this kind of per-palette ranking
-declaration; the mistake-finder is a second consumer of an
-already-extant substrate.
+The SPA's mistake-finder reads `extra.<color>.deltas` from
+the existing wire (already populated by the analysis
+enricher), orients by the flag's implied sign, ranks
+ascending (lower-after-orientation = worse), and applies
+the selection-policy primitives. Substrate growth: one enum
+field on the palette schema.
 
-**Tradeoffs.** Honest about the non-opinionation constraint
-— the palette author owns the ranking semantics, the
-consumer just reads the declaration. Reuses the substrate
-that already exists; doesn't grow it. The cost lives at the
-*entanglement seam* — `move_selector_fn` today is consumed
-by `adaptive_reevaluate` for deepening choices; the
-mistake-finder would become a second consumer of the same
-expression. If a palette ever wants "rank by X for adaptive
-deepening, by Y for user-visible mistakes" the namespace has
-to bifurcate (split into `adaptive_move_selector_fn` and
-`mistake_move_selector_fn`, or similar). The substrate
-bifurcation is cheap-when-needed, ADR-0003-shaped — "extract
-when the second concrete consumer demands it" — and the
-default of "same expression for both purposes" is honest
-when adaptive's notion of "worst move for deepening" and
-user-visible "worst move as mistake" coincide, which they do
-for every shipped palette today.
+For the small set of cases where a direction flag isn't
+enough — phase-weighted severity ("endgame mistakes count
+more"), MoveView-context-dependent ranking ("rank by search
+confidence drop, not by `delta_fn` magnitude"), scalene
+per-color metrics on incommensurable scales — the palette
+author falls back to authoring a `move_selector_fn`
+expression in `analysis_config.bindings`. The substrate
+already supports this (it's how adaptive_reevaluate's
+pluggable selection works); `move_selector_fn` becomes the
+escalation path for palettes that genuinely need expressive
+ranking. The substrate precedence rule:
+`move_selector_fn` if present, else `delta_fn` oriented by
+`delta_ordering`.
 
-There's a sub-question α has to answer: **does the proxy emit
-per-move `move_selector_fn` output on non-adaptive queries
-today?** If yes, the SPA reads the output and ranks. If no,
-either (a) the SPA computes the selector itself from
-available inputs (the MoveView's `deltas: list[float]` is
-already on the wire via `extra.<color>.deltas`; the MoveView's
-`before` / `after` AnalyzeResponse references may or may not
-be reconstructible from the SPA's stream), or (b) the proxy
-adds wire-level emission of selector output, which is a
-small change relative to the rest of α's surface. This is the
-load-bearing wire-shape question α has to resolve before
-implementation.
+**Tradeoffs.** Honest about substrate cost — one schema
+field, not zero. The cost the proposal absorbs (a direction
+declaration per palette) is a more legible UI affordance
+than an expression-authoring surface: a dropdown in the
+palette editor, not a code-editing widget. Respects the
+project's non-opinionation about `delta_fn`'s sign
+convention (the palette author still owns the choice; the
+flag just records what they chose). The "huge swath" claim
+is honest for shipped palettes and for any near-future
+palette that ranks moves by a monotonic function of
+`delta_fn`'s output; phase-weighting, difficulty-weighting,
+and scalene-on-incommensurable-scales fall outside the swath
+and route to `move_selector_fn` escalation.
+
+The wire-shape prerequisite simplifies relative to earlier
+formulations of α: `extra.<color>.deltas` is already on the
+wire, so no new proxy-side emission is needed for the
+binary-flag path. The pedagogy note's separate wire-shape
+requirement — surfacing the punishment alongside the
+mistake (PV reachability from `MoveView.before`) — is
+independent and unchanged; it's a separate read from the
+enricher emission path.
+
+### Historical note on the prior α formulation
+
+Earlier versions of this note recommended an Option α where
+each shipped palette authored a `move_selector_fn` expression
+to declare its per-palette severity semantics. The
+formulation was correct on substrate (`move_selector_fn`
+exists, fits the shape) but overspecified the per-palette
+authoring cost: the semantic content of "which direction is
+worse" for the shipped palettes is one bit, not an expression.
+The 2026-05-28 round-table (project author's binary-flag
+proposal + firewall consult endorsement) converged on
+sizing the substrate to the actual cost. `move_selector_fn`
+moves to the escalation path; the binary flag is the v1
+carrier. This sub-section preserves the historical record
+per ADR-0005 Rule 8 (sibling revisions over silent edits).
 
 ### Option β — Surface the existing selector + selection-policy machinery at the wire
 
@@ -350,105 +361,113 @@ reason is named explicitly.
 
 ## Recommendation
 
-Option α — reuse the existing `move_selector_fn` binding as
-the per-palette severity declaration. The substrate already
-has the shape; the user's non-opinionation about `delta_fn`'s
-sign convention is honoured because each palette author
-declares their own ranking expression; no substrate growth.
+Option α as currently formulated — the binary `delta_ordering`
+flag with `move_selector_fn` as the escalation path for
+expressive cases. The 2026-05-28 round-table converged on this
+shape as the right v1: one enum field per palette, no
+expression-authoring required for the shipped catalogue,
+escalation via the existing `move_selector_fn` substrate for
+the small minority of cases that need full expressiveness.
 
-The reasoning, in light of the corrected substrate picture:
+The reasoning:
 
 - The user's non-opinionation about `delta_fn` semantics
   rules out any consumer-side default that hardcodes a sign
   or bound assumption.
-- Per-palette severity *declaration* is now genuinely needed
-  (not deferrable, as the earlier note version supposed) —
-  but the substrate already has the right shape via
-  `move_selector_fn`.
-- ADR-0008 classification discipline applies in the
-  *refuse-fuzzy-match* direction: don't add a new
-  `severity_fn` substrate category when an existing category
-  (`move_selector_fn`) already fits. If the categories
-  diverge later (deepening rank ≠ user-visible rank), they
-  split *then*; until then, "one selector expression for both
-  purposes" is the honest classification.
-- The load-bearing wire-shape question (does the proxy emit
-  per-move `move_selector_fn` output on non-adaptive
-  queries?) is the implementation prerequisite. If it
-  doesn't, the dispatch to the proxy is small — emit the
-  per-move scalar — and is sized closer to a clarification
-  than a capability arc.
+- Per-palette severity *declaration* is genuinely needed,
+  but the declaration content for shipped palettes is one
+  bit each — direction-of-badness. Routing this through
+  full expression-authoring (the earlier α formulation) was
+  overspecified; sizing the substrate to the actual cost is
+  the honest move.
+- ADR-0008 classification discipline applies twice: refuse a
+  new `severity_fn` substrate category when an existing
+  category fits (still true; the binary flag is the better
+  fit for shipped palettes' actual content); and refuse
+  expression-authoring when the actual decision is
+  enum-shaped (the round-table finding).
+- The wire-shape prerequisite simplifies relative to earlier
+  α formulations: no new proxy-side emission is needed
+  because `extra.<color>.deltas` is already on the wire; the
+  SPA orients by the flag and ranks.
 
 The user's instruction to "be very circumspect in how we
 encode the framework around mistake detection and ordering"
-is honoured by α: zero substrate vocabulary growth, no
-pre-commitment to a sign convention, no consumer-side
-assumption about `delta_fn`'s output bounds, no reserved-key
-convention. The framework's only commitment is the substrate's
-*existing* documented convention for `move_selector_fn`:
-lower = worse.
+is honoured: one schema field, no expression authoring for
+v1, escalation path preserved for genuine expressive needs,
+existing `move_selector_fn` substrate untouched for
+adaptive_reevaluate's consumers.
 
 Options β (proxy-side worst-set computation) and γ (new
-`severity_fn` family) are escalations that compose with α.
-β escalates wire efficiency without changing the
-per-palette declaration. γ escalates the naming clarity at
-substrate cost; the right time is when a palette demonstrates
-that "deepening rank" and "mistake rank" need to diverge.
+`severity_fn` family) remain escalation paths above α.
+β escalates wire efficiency without changing the per-palette
+declaration. γ stays the wrong move — the same ADR-0008
+reasoning that killed it under the prior α formulation still
+applies; the binary flag fits the actual semantic content of
+severity-declaration better than a new function family would.
 
 The SPA-side ranking composable — `(items, scoreOf, policy)
-→ items[]` — is the load-bearing reusable piece. Under α
-its `scoreOf` is "per-move selector value as emitted by the
-palette's bound expression"; the composable doesn't need to
-know what the palette's `delta_fn` semantics are, only that
-the convention "lower = worse" is honoured by the bound
-expression. The selection-policy parameters (K, quantile,
-threshold) are knob-registry entries composing with the
-existing knob substrate.
+→ items[]` — is the load-bearing reusable piece. Under the
+current α its `scoreOf` is "per-move signed delta-magnitude"
+(`delta_fn` output multiplied by the flag's implied sign);
+the composable doesn't need to know what the palette's
+`delta_fn` semantics are, only that the orientation flag
+gives a consistent direction. The selection-policy
+parameters (K, quantile, threshold) are knob-registry
+entries composing with the existing knob substrate.
 
 ### What the predicate question collapses to
 
 The project author's "simple predicate as a function of
-deltas" framing is honest with one substrate correction: the
-predicate is `move_selector_fn(move_view) < threshold`,
-where the palette's bound expression carries the per-palette
-sign-and-magnitude convention and the threshold is a
-knob-registry entry. The deltas (the substrate input to the
-expression) are exposed via the MoveView the substrate
-already documents. No predicate-as-substrate-concept needs
-adding; the boolean flag is the threshold's result; the
-continuous severity is the negated selector value (under
-the documented lower=worse convention).
+deltas" framing is restored as honest in nearly its original
+form: a mistake predicate is `delta_fn(move) op threshold`,
+where `op` is `<` or `>` per the palette's `delta_ordering`
+flag and the threshold is a knob-registry entry. The
+substrate exposes the predicate directly without any
+expression layer; the palette's flag records which direction
+of `delta_fn`'s output crosses the threshold into "this is a
+mistake." No predicate-as-substrate-concept needs adding.
 
 ### What the ranking question collapses to
 
 Top-K and quantile-based selection live in a SPA-side
-composable that reads the collection of per-move selector
-values, sorts ascending (lower-first, per substrate
-convention), and slices. The selection composable is
-naturally a sibling of `useAnalysisProjection` or a successor
-under `src/composables/analysis/`. The author's concern that
-`summary_fn`-for-collection would feel hacky is preserved by
-*not doing it* — the ranking lives where the consumer lives,
-not in the per-range summary.
+composable that reads the collection of per-move
+delta-magnitudes (oriented by the palette's
+`delta_ordering`), sorts, and slices. The selection
+composable is naturally a sibling of `useAnalysisProjection`
+or a successor under `src/composables/analysis/`. The
+author's concern that `summary_fn`-for-collection would feel
+hacky is preserved by *not doing it* — the ranking lives
+where the consumer lives, not in the per-range summary.
 
 ## What this note does not settle
 
-- **The wire-shape prerequisite.** Does the proxy emit
-  per-move `move_selector_fn` output on non-adaptive
-  queries today? If yes, α is shippable SPA-only. If no, a
-  small proxy-side dispatch is needed — emit the per-move
-  selector scalar as part of `extra.<color>.*` or analogous.
-  Resolving this is the first concrete step on the
-  implementation path; a worklog-style code read of the
-  enricher's emission path settles it.
-- **The default `move_selector_fn` binding per shipped
-  palette.** Each shipped palette (robust child, the score-loss
-  palettes, the rank palette, the default palette) needs a
-  declared `move_selector_fn` for the mistake-finder consumer
-  to be honest. Authoring those defaults is a per-palette
-  calibration question — what the palette author considers
-  "worst move" — and is the substantive work of the v1
-  shipment beyond the consumer-side code.
+- **The `delta_ordering` value per shipped palette.** Each
+  shipped palette (robust child, the score-loss family, rank,
+  default) needs a declared direction. The declaration is
+  one of two enum values per palette; the calibration content
+  is the palette author's read of "which direction of my
+  `delta_fn`'s output counts as bad." Per the round-table
+  reading, this is the actual v1 cost — much smaller than the
+  prior formulation suggested.
+- **Schema migration and storage.** Adding the field is a
+  forward-compatible schema change. Existing stored palettes
+  need either a migration that picks a default or a
+  nullable-with-default reading at the ACL. The migration
+  discipline is recorded in `src/store/migrations.ts`'s
+  rolling-archive pattern (per the frontend CLAUDE.md's
+  "Rolling-archive discipline" section); the schema bump is
+  one revision.
+- **The phase-weighting / difficulty-weighting escalation
+  triggers.** The binary flag's "huge swath" claim is honest
+  for palettes that rank by a monotonic function of
+  `delta_fn`'s output. Palettes that want phase-aware
+  severity (endgame mistakes count more), difficulty-aware
+  severity (mistakes against low-prior moves count
+  differently), or scalene per-color metrics on
+  incommensurable scales fall outside the swath and route to
+  `move_selector_fn` authoring. None ship today; the
+  escalation path exists for when they do.
 - **Q1 — `severity_fn` as separate substrate family.** Option
   γ above is the concrete shape if the answer is "yes."
   Recommended *against* in v1 because `move_selector_fn`

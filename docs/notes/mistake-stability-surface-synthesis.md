@@ -322,21 +322,26 @@ The unification option fails on the axis-difference rock; the
 strict-separation option fails on the duplication rock; the
 sibling option splits the difference honestly.
 
-The symmetry between the two surfaces' v1 shapes is itself the
-load-bearing finding of this synthesis. Both notes' recommended
-v1s look the same shape (with the project author's explicit
-signal on the stability side that the research catalogue is
-broad enough to fix without losing important coverage):
+The symmetry between the two surfaces' v1 shapes is itself
+the load-bearing finding of this synthesis, and it cleaned up
+further after the 2026-05-28 round-table refined the
+mistake-side substrate from "per-palette `move_selector_fn`
+authoring" to "per-palette binary `delta_ordering` flag." Both
+v1s are now genuinely curated-enum-of-options shapes (binary
+direction flag on the mistake side; six-entry extractor
+registry on the stability side); both keep their DSL paths as
+deferred third arcs. The "ship curated, plumb for DSL" framing
+is honest on both sides:
 
 | | Mistake-surface v1 | Stability-surface v1 |
 |---|---|---|
-| Authoring shape | per-palette `move_selector_fn` binding declares the ranking expression; substrate convention is "lower = worse" | curated extractor registry (6 of 8 research entries) |
-| Substrate growth | zero new vocabulary (`move_selector_fn` already exists) — but per-palette work to declare the binding on each shipped palette | zero proxy-side; modest SPA-side (trajectory storage + registry) |
-| Per-palette calibration | yes — palette author authors their own ranking expression consistent with the palette's `delta_fn` sign convention | no — the curated extractors are fixed across palettes |
-| Ranking | SPA-side `(items, scoreOf, policy) → items[]` | (deferred — stability is per-position; aggregation across positions is a UI question) |
+| Authoring shape | per-palette `delta_ordering` binary flag (enum field); `move_selector_fn` is the escalation path for the small minority of expressive cases | curated extractor registry (6 of 8 research entries) |
+| Substrate growth | one enum field on the palette schema; existing `move_selector_fn` substrate untouched for adaptive use | zero proxy-side; modest SPA-side (trajectory storage + registry) |
+| Per-palette calibration | one bit per palette (direction declaration); escalation cases author `move_selector_fn` | no — the curated extractors are fixed across palettes |
+| Ranking | SPA-side `(items, scoreOf, policy) → items[]` over `delta_fn` magnitudes oriented by the palette's flag | (deferred — stability is per-position; aggregation across positions is a UI question) |
 | Selection parameters | knob-registry | knob-registry |
-| Forward-compat to DSL | already DSL-shaped (`move_selector_fn` is a palette-author expression); reuses an existing binding | registry indirection + key-prefixed namespace |
-| Cross-team work | one wire-shape clarification (does the proxy emit per-move selector output on non-adaptive queries?); a small dispatch if it doesn't | none for cadence (`reportDuringSearchEvery` is the SPA's lever); `staged_analysis` only if V-precise cutoffs become operationally necessary |
+| Forward-compat to DSL | curated enum on v1; the `move_selector_fn` escalation path is the DSL substrate (post-v1) | registry indirection + key-prefixed namespace; the DSL authoring layer is the post-v1 third arc |
+| Cross-team work | none for v1 (`extra.<color>.deltas` already on the wire) | none for cadence (`reportDuringSearchEvery` is the SPA's lever); `staged_analysis` only if V-precise cutoffs become operationally necessary |
 | Deferred substrate questions | separate `severity_fn` family (γ); `delta_fn` overload (δ); namespace bifurcation if deepening-rank ≠ mistake-rank | full DSL authoring layer with stateful closures |
 
 The "ship curated, plumb for DSL" shape on both sides means
@@ -348,17 +353,20 @@ diagnostic), not the *authoring-side* DSL.
 
 Concretely:
 
-1. **Mistake-surface v1** (Option α from its note — reuse
-   the existing `move_selector_fn` binding as the
-   per-palette severity declaration) is still the
-   smaller-substrate arc but now carries genuine per-palette
-   calibration work: each shipped palette declares its own
-   `move_selector_fn` consistent with its own `delta_fn`
-   sign convention. The SPA reads per-move selector values
-   and applies an SPA-side ranking composable backed by a
-   selection-policy knob set. The wire-shape prerequisite —
-   does the proxy emit per-move selector output on
-   non-adaptive queries? — is the first concrete step.
+1. **Mistake-surface v1** (Option α from its note, in its
+   2026-05-28 round-table-revised form) ships a one-enum-field
+   schema addition: each shipped palette declares
+   `delta_ordering ∈ {'lower_is_worse', 'higher_is_worse'}`
+   indicating which direction of its own `delta_fn`'s output
+   counts as bad. The SPA reads `extra.<color>.deltas` from
+   the existing wire, orients by the flag, ranks, and applies
+   the SPA-side ranking composable backed by a selection-policy
+   knob set. No new wire emission needed; `move_selector_fn`
+   remains as the escalation path for palettes that need
+   expressive ranking. The earlier formulation of α (per-palette
+   `move_selector_fn` expression authoring) was overspecified;
+   the binary flag sizes the substrate to the actual semantic
+   content.
 2. **Stability-surface v1** (Option α from its note, in the
    "curated catalogue, forward-compatible plumbing" framing)
    ships next or concurrently. The wire cadence is solved by
