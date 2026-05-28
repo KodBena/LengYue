@@ -439,7 +439,7 @@ The Q4-plus-residual variants and the ICA K10/20/50/100
 sweep were both included in the 2026-05-26 baseline run; the
 per-variant verdicts are in the followups ledger.
 
-#### Navigation re-render localization — App-decouple (perf Arc 2) `[frontend]`
+#### ~~Navigation re-render localization — App-decouple (perf Arc 2)~~ `[frontend]` *(implemented 2026-05-29, branch `bork/perf/nav-arc1-rail-localization`; worklog `docs/worklog/2026-05-29-perf-nav-arc2-app-decouple.md`)*
 
 The 2026-05-28 game-scroll perf audit
 (`docs/notes/perf-audit-game-scroll-2026-05-28.md`) found that App.vue
