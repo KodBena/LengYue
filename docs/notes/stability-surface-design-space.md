@@ -280,9 +280,9 @@ change-point trajectories via a TypeScript port of
 `StabilityTrajectory[Q]`, computes the derived-metric
 vocabulary (log-V-weighted stable-fraction, change-count,
 last-change-V) per named extractor, and surfaces the results
-in the existing chart panel (currently file-named
-`StabilityPanel.vue`, displayed as "Multiresolution Interval
-Analysis" since commit b8b7c43).
+in the existing chart panel (`MultiresolutionIntervalPanel.vue`,
+displayed as "Multiresolution Interval Analysis" since commit
+b8b7c43; file renamed from `StabilityPanel.vue` on 2026-05-28).
 
 The forward-compatibility discipline is the load-bearing
 authoring constraint: the curated extractors are fixed in v1,
@@ -400,12 +400,14 @@ Concretely the v1 shape is:
    metric vocabulary (stable-fraction with a configurable
    V-window, change-count, last-change-V) is a small fixed
    set; the V-window parameter is a knob-registry entry.
-5. **Display integration** in the existing chart panel.
-   `StabilityPanel.vue`'s file name should follow the
-   already-shipped display rename to "Multiresolution …"
-   (commit b8b7c43); the new stability-display work is the
-   natural moment to settle the file rename if it hasn't been
-   addressed by then.
+5. **Display integration** in the existing chart panel
+   (`MultiresolutionIntervalPanel.vue`, renamed from
+   `StabilityPanel.vue` on 2026-05-28 ahead of this arc so
+   the new stability surface lands without the misnamed-host
+   confusion). The open sub-question is whether the new
+   stability metrics share the panel with the multiresolution
+   heatmap or live as sibling components under a shared
+   parent.
 
 The arc's gradient to Option β is preserved: if user demand
 for V-precise cutoffs materialises, the curated infrastructure
@@ -434,14 +436,15 @@ path.
   doesn't directly apply because stability isn't a per-move
   scalar — it's per-position over the V-axis of that position's
   trajectory.
-- **`StabilityPanel.vue`'s file-name lag.** The displayed
-  title has matched "Multiresolution Interval Analysis" since
-  commit b8b7c43; the filename was left as-is. The
-  stability-display arc this note motivates is the natural
-  moment to settle the file rename (and reconsider whether
-  the same panel hosts both the multiresolution heatmap and
-  the new stability metrics, or whether they live as sibling
-  components under a shared parent).
+- **Panel composition for the new stability metrics.** The
+  filename-lag half of this open question closed on 2026-05-28
+  with the rename of `StabilityPanel.vue` to
+  `MultiresolutionIntervalPanel.vue` (the file no longer
+  carries a stability-suggestive name it doesn't earn). The
+  remaining sub-question is whether the new stability metrics
+  share `MultiresolutionIntervalPanel.vue` or live as sibling
+  components under a shared parent — deferred to the
+  implementing arc.
 - **TypeScript port shape.** The `StabilityTrajectory[Q]`
   substrate exists today in Python on the research branch.
   The SPA needs a TypeScript port. The port is mechanical
@@ -466,11 +469,12 @@ path.
   `research/notes/session-handoff-2026-05-22-per-packet-allocator.md`,
   `research/stability_trajectory.py` lines 1-320 (the registry,
   the trajectory data class, three constructors).
-- Read partially: `frontend/src/components/charts/StabilityPanel.vue`
-  header comment; `frontend/src/types.ts` palette section. The
-  `StabilityPanel`'s implementation past its header was not
-  read in full — claims about what it hosts beyond the
-  multiresolution heatmap are not made.
+- Read partially: `frontend/src/components/charts/MultiresolutionIntervalPanel.vue`
+  (the file then-named `StabilityPanel.vue`) header comment;
+  `frontend/src/types.ts` palette section. The panel's
+  implementation past its header was not read in full —
+  claims about what it hosts beyond the multiresolution
+  heatmap are not made.
 - Not read: the proxy's wire-emission code for
   `is_during_search=True` previews (the
   `reportDuringSearchEvery` cadence is the SPA's lever per the

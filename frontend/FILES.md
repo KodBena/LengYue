@@ -73,7 +73,7 @@ frontend/src/
 │   │   ├── HeatmapChart.vue           [B1]  Stateless ECharts heatmap renderer.
 │   │   ├── MergedDeltaPanel.vue       [B3]  Both-players delta chart on a parity-interleaved x-axis.
 │   │   ├── ScoreLeadPanel.vue         [B3]  ScoreLead chart panel.
-│   │   └── StabilityPanel.vue         [B3]  Triangular multiresolution-interval heatmap.
+│   │   └── MultiresolutionIntervalPanel.vue  [B3]  Triangular multiresolution-interval heatmap.
 │   │
 │   ├── chrome/                              Application shell. Generic UI primitives.
 │   │   ├── EngineQueueTooltip.vue     [B1]  Toolbar badge + hover panel listing in-flight KataGo queries with ETA.
