@@ -327,10 +327,20 @@ export interface ThumbnailSettings {
 }
 
 // AnalysisPalette is mutated through the PaletteEditor.
+//
+// `delta_ordering` declares which direction of `delta_fn`'s output
+// counts as worse (a mistake). SPA-side consumer-only — the proxy
+// emits `extra.<color>.deltas` as the user-authored `delta_fn`
+// returns it; this flag tells consumers (mistake-finder, future
+// ranking composables) how to orient those scalars for severity.
+// The substrate stays non-opinionated about `delta_fn`'s sign
+// convention; the flag records the palette author's choice.
+// See `docs/notes/mistake-finder-design-space.md` §Option α.
 export interface AnalysisPalette {
   id: string;
   name: string;
   delta_fn: string;
+  delta_ordering: 'lower_is_worse' | 'higher_is_worse';
   summary_fn: string;
   state_fns: Record<string, string>;
 }

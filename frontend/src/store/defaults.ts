@@ -237,6 +237,7 @@ export const defaultSettings = {
             id: 'default',
             name: 'Standard Evaluation',
             delta_fn: 'quality_delta',
+            delta_ordering: 'lower_is_worse',
             summary_fn: 'min_summary',
             state_fns: {
               'Complexity':      'complexity',
@@ -251,6 +252,7 @@ export const defaultSettings = {
             id: 'quality',
             name: 'Quality (Robust-Child Calibrated)',
             delta_fn: 'quality_delta',
+            delta_ordering: 'lower_is_worse',
             summary_fn: 'min_summary',
             state_fns: {
               'Complexity':      'complexity',
@@ -266,6 +268,7 @@ export const defaultSettings = {
             id: 'score',
             name: 'Score Loss',
             delta_fn: 'scoreLead_loss_topvsuser',
+            delta_ordering: 'higher_is_worse',
             summary_fn: 'mean_summary',
             state_fns: {
               'Volatility':      'score_volatility',
@@ -279,6 +282,7 @@ export const defaultSettings = {
             id: 'rank',
             name: 'Engine Rank',
             delta_fn: 'rank_quality',
+            delta_ordering: 'lower_is_worse',
             summary_fn: 'mean_summary',
             state_fns: {
               'Complexity':      'complexity',
