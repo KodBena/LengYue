@@ -203,6 +203,37 @@ differently. Notation:
 - $W_\text{known} = \sum_{v(V_i) \ne \bot} w_i$ — total
   weight of intervals with known values inside the window.
 
+**On the name "V_term" — etymological note (uncertain).** The
+variable name is inherited from the research-branch Python
+original (`research/stability_trajectory.py` on branch
+`bork/research/visit-scaling-memo-2026-05-21`). The author
+did not document the choice in code or docstring, so what
+follows is **my reading, not authoritative** — if you want
+the canonical answer ask the project author directly.
+
+My best guess: "term" stands for *early-termination*. The
+research arc was investigating "for which positions can
+`adaptive_reevaluate` stop the search early without losing
+correctness?" — and V_term was the candidate stopping point
+being evaluated. The stability fraction then answers "if we
+had terminated at V=V_term, would the answer have held up
+through V=V_max?" That fits the research context cleanly.
+
+An alternative reading I considered is "*terminus of the
+early/chaotic phase*" — V_term as the visit count past
+which the search is presumed settled. Same window semantics,
+different etymology.
+
+In this SPA's display context, the early-stopping framing is
+not load-bearing — we display stability against whatever
+V_max KataGo ran to; we're not making stopping decisions.
+V_term here functions as "anchor visit count" or "lower
+window bound", and a future substrate-rename arc could
+honestly call it `V_anchor` or `V_lower` for clarity. The
+research-side name is kept here to preserve cross-reference
+with the Python original; mentally rename to "anchor visit
+count" if the literal "term" reads strangely.
+
 ### Anchored at V_term (canonical; design-note default)
 
 $$
