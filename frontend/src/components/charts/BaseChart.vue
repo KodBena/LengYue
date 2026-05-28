@@ -1,9 +1,20 @@
 <script lang="ts">
+import { reactive } from 'vue';
+
 /**
- * Module-scoped singleton. Preserves user legend selections 
+ * Module-scoped singleton. Preserves user legend selections
  * across component unmounts (tab switches, game switches).
+ *
+ * Reactive so downstream panels can observe it — e.g.
+ * `MergedDeltaPanel` filters its mistake-finder scatter to
+ * hide black mistakes when "Black Delta" is toggled off, and
+ * white mistakes when "White Delta" is. ECharts handles the
+ * line series natively (one series ↔ one legend entry); panels
+ * that overlay derived series whose visibility should track
+ * another series's legend toggle read this map. Keyed by
+ * series `name`; absent / `true` = visible, `false` = hidden.
  */
-const globalLegendState: Record<string, boolean> = {};
+export const globalLegendState: Record<string, boolean> = reactive({});
 </script>
 
 <script setup lang="ts">
@@ -339,13 +350,20 @@ const updateOptions = () => {
     series: getDisplaySeries().map(s => ({
       name: s.name,
       data: s.data,
-      type: 'line',
+      // Default 'line' preserved; scatter / bar / etc. opt in by
+      // setting `s.type` on the series object. Per-datum styling
+      // (itemStyle, symbolSize) is honoured by ECharts and is the
+      // canonical channel for variable-per-point appearance —
+      // mistake-finder dots (variable color + size per severity)
+      // ride here without further BaseChart plumbing.
+      type: s.type ?? 'line',
       smooth: false,
       animation: false,
       symbol: s.showPoints ? 'circle' : 'none',
       symbolSize: s.showPoints ? 4 : 0,
       lineStyle: { width: 2 },
       itemStyle: s.color ? { color: s.color } : undefined,
+      z: s.z,
       markPoint: { data: [] }
     }))
   }, { notMerge: namesChanged, lazyUpdate: true });

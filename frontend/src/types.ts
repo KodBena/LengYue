@@ -1218,6 +1218,19 @@ export interface AppSettings {
      */
     livenessThreshold: number;
     /**
+     * Mistake-finder severity quantile threshold ∈ [0, 1]. The
+     * mistake-finder composable surfaces dots on the delta charts
+     * for moves whose oriented `delta_fn` output (oriented by the
+     * palette's `delta_ordering`) lands in the worst per-board
+     * quantile: 0.15 means "show the worst 15% of moves on this
+     * board". 0 disables the overlay entirely. Per-board (not
+     * per-color), so a quiet game has fewer dots and a chaotic
+     * game more — the threshold is a display calibration, not a
+     * substrate constant. Wired through the
+     * `display.mistake-finder-threshold` knob. Default 0.15.
+     */
+    mistakeFinderThresholdQuantile: number;
+    /**
      * Fade duration (ms) for the suggestion-ring outline + suggestion-
      * disk opacity transitions in `MoveSuggestions.vue`. Promoted from
      * a hardcoded `transition: opacity 60ms ease` inline literal that

@@ -8,6 +8,7 @@ import { computed, watch } from 'vue';
 
 import { useAnalysisProjection } from '../../composables/analysis/useAnalysisProjection';
 import { useChartNavigation } from '../../composables/analysis/useChartNavigation';
+import { useMistakeFinder } from '../../composables/analysis/useMistakeFinder';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
 import { store } from '../../store';
 import type { BoardId } from '../../types';
@@ -42,6 +43,11 @@ const { warmPath } = useThumbnailCache();
 // without per-call-site casts. This is the proper architectural shape:
 // one boundary cast at the source, zero downstream casts.
 const navigation = useChartNavigation(variationPath, props.boardId);
+
+// Mistake-finder calculated property: per-move severity + un-punished
+// flag, derived from `enriched.deltaSeries` and the active palette's
+// `delta_ordering`. Surfaces as dots on the merged-delta panel.
+const mistakes = useMistakeFinder(enriched);
 
 watch(variationPath, (path) => {
   warmPath(path, props.boardId);
@@ -79,6 +85,7 @@ const engineConnected = computed(() => store.engine.status === 'connected');
       <MergedDeltaPanel
         :black-series="enriched.deltaSeries.black"
         :white-series="enriched.deltaSeries.white"
+        :mistakes="mistakes"
         :board-id="boardId"
         :variation-path="variationPath"
         :selection-range="selectionRange"
