@@ -237,6 +237,7 @@ export const defaultSettings = {
             id: 'default',
             name: 'Standard Evaluation',
             delta_fn: 'quality_delta',
+            delta_ordering: 'lower_is_worse',
             summary_fn: 'min_summary',
             state_fns: {
               'Complexity':      'complexity',
@@ -251,6 +252,7 @@ export const defaultSettings = {
             id: 'quality',
             name: 'Quality (Robust-Child Calibrated)',
             delta_fn: 'quality_delta',
+            delta_ordering: 'lower_is_worse',
             summary_fn: 'min_summary',
             state_fns: {
               'Complexity':      'complexity',
@@ -266,6 +268,7 @@ export const defaultSettings = {
             id: 'score',
             name: 'Score Loss',
             delta_fn: 'scoreLead_loss_topvsuser',
+            delta_ordering: 'higher_is_worse',
             summary_fn: 'mean_summary',
             state_fns: {
               'Volatility':      'score_volatility',
@@ -279,6 +282,7 @@ export const defaultSettings = {
             id: 'rank',
             name: 'Engine Rank',
             delta_fn: 'rank_quality',
+            delta_ordering: 'lower_is_worse',
             summary_fn: 'mean_summary',
             state_fns: {
               'Complexity':      'complexity',
@@ -321,6 +325,10 @@ export const defaultSettings = {
     // 60ms preserves the prior hardcoded inline `transition: opacity
     // 60ms ease` behaviour of MoveSuggestions.vue. See types.ts comment.
     moveSuggestionsFadeMs: 60,
+    // Mistake-finder threshold (worst-quantile per-board). 0.15
+    // shows the worst 15% of moves as dots on the delta chart.
+    // Set to 0 to disable the overlay.
+    mistakeFinderThresholdQuantile: 0.15,
     locale: detectBrowserLocale(),
   },
   minting: {
@@ -396,6 +404,14 @@ export const defaultSettings = {
       inputs: [{ range: [0, 200] as const }],
       outputs: [{ path: 'profile.settings.appearance.moveSuggestionsFadeMs' }],
       priority: 45,
+    },
+    'display.mistake-finder-threshold': {
+      id: 'display.mistake-finder-threshold',
+      label: 'Mistake-finder threshold (worst-quantile)',
+      domain: 'display',
+      inputs: [{ range: [0, 1] as const }],
+      outputs: [{ path: 'profile.settings.appearance.mistakeFinderThresholdQuantile' }],
+      priority: 46,
     },
     'display.pv-fade-ms': {
       id: 'display.pv-fade-ms',

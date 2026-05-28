@@ -371,6 +371,217 @@ this file.
   `magic-literals-audit-inventory.md`'s adjacent observations
   and category N verdict).
 
+### Mistake-finder un-punished-flag brittleness
+
+- **Surfaced:** 2026-05-28.
+- **Concern:** The un-punished red-flag heuristic in
+  `useMistakeFinder` (Stage 2 of the mistake-finder substrate)
+  uses a per-board quantile threshold (default worst 15%) to
+  decide what counts as a mistake, then flags consecutive
+  user-mistake → opponent-mistake pairs as un-punished. In a
+  clean game with few real mistakes, the worst-15% bracket
+  pulls in marginal moves that aren't mistakes in any absolute
+  sense; a marginal move followed by a marginal opponent move
+  then surfaces as a false-positive un-punished red flag.
+- **Surfacing case (2026-05-28, project author, verbatim):**
+  > there's a "not-really-a-mistake" that is marked as a
+  > flagged mistake because the opponent didn't play as the
+  > neural net wanted on the follow-up. In reality, my move
+  > was the second preferred move for the weakest net, the
+  > preferred for the strongest net, and the opponent played
+  > the second-preferred move for the strongest net. So, it
+  > is brittle, but that is expected — after all, it's an
+  > under-explored area of knowledge acquisition.
+- **Why deferred:** detecting mistakes in Go from a single
+  net's terminal eval is the brittle special case, not a
+  fix-able bug in the heuristic. The substrate already has —
+  or is queued to grow — the equipment a future de-brittling
+  arc would draw from. Stage 2's scope was to land the
+  consumer-side substrate honestly; de-brittling is its own
+  arc with its own design question.
+- **Avenues to revisit (none on the critical path; pick
+  whichever the surfacing case justifies):**
+  1. **Absolute-severity floor alongside the quantile.** A
+     move qualifies only if oriented-delta crosses both the
+     per-board quantile AND a palette-specific absolute
+     magnitude. Cheap; modest improvement; doesn't address
+     marginal cross-net mistakes.
+  2. **Cross-net agreement via SELECTOR routing.** The
+     surfacing example is a cross-net divergence: weak-net
+     and strong-net disagree on the move's ranking. The
+     SELECTOR capability shipped on the proxy side (v1.0.15+);
+     a frontend extension would issue parallel queries to a
+     labelled model pool and treat agreement as a confidence
+     signal. Substantial cross-team arc.
+  3. **Within-position stability.** The stability-surface arc
+     (`stability-surface-design-space.md`) is a different axis
+     (V-axis within a single net's search trajectory) but
+     composes: a marginal-call mistake by a single net's
+     terminal eval might be unstable across V, which the
+     stability surface would surface. A future un-punished
+     gate could require both moves to be stably-bad.
+  4. **Cross-palette agreement.** A move that quality_delta,
+     scoreLead_loss, and rank_quality all flag is more
+     credible than one only flagged by quality_delta. No new
+     substrate; a multi-palette consumer over the existing
+     per-palette outputs.
+- **Glossary note (terminology surfaced in the same exchange):**
+  the closest standard label for the broader question is
+  *applied epistemology*; skill-domain corners include
+  *deliberate practice* (Ericsson, Chase & Simon),
+  *calibration* (Lichtenstein–Fischhoff, Tetlock),
+  *performance epistemology* (Sosa), and chess's
+  *centipawn-loss analysis* for engine-substantiated error
+  attribution. The Go-equivalent vocabulary has not
+  crystallised; the palette substrate is the surface where it
+  would.
+
+### Stability surface: distribution-level (information-geometric) metric
+
+- **Surfaced:** 2026-05-28.
+- **Concern:** The Stage 4 stability substrate operates on
+  *categorical* extractors (`Q → packet`-mapping returning a
+  primitive value like `top1_move` or `winrate_quintile`). Four
+  metric variants aggregate the resulting per-V categorical
+  trajectory: anchored-at-V_term, anchored-at-V_max, longest-run-
+  fraction, and inverse-change-rate. None of these capture the
+  user's stated intuition for what "stability" should mean —
+  *"the search visit distribution is stable, integrated in some
+  sense over the range of packets observed"* (project author,
+  2026-05-28). That intuition is asking for a distribution-level
+  metric that operates on the full visit distribution as a
+  continuous probability vector, not a categorical reduction.
+- **Surfacing framing (2026-05-28, project author, verbatim):**
+  > my intuition on "stability" is that the search visit
+  > distribution is stable, integrated in some sense over the
+  > range of packets observed, I guess there's a technical term
+  > that names an integral whose summands are Bayesian
+  > transition functionals or something.
+- **Why deferred:** different abstraction class than the v1
+  substrate. The extractor framework returns scalars;
+  distribution-level metrics need the full per-packet visit
+  distribution (a probability vector over moveInfos entries).
+  That changes the trajectory storage (changepoint compression
+  doesn't apply to continuous distributions — every packet's
+  vector contributes), the extractor signature (`packet →
+  ProbabilityVector` not `packet → Q`), the metric registry
+  (functions over distribution streams, not categorical
+  changepoint lists), and the panel interpretation
+  ("information traveled" reads differently from "value
+  persisted"). Reasonable to ship as a parallel substrate
+  alongside the v1 categorical one rather than retrofitting.
+- **Technical references the substrate would draw from:**
+  - **Information length** (Wootters 1981; Heseltine & Kim
+    2016) — geodesic length in distribution space under the
+    Fisher–Rao metric, L = ∫√I(θ)dt where I is Fisher
+    information. The continuous analog of cumulative Bayesian
+    surprise.
+  - **Cumulative Bayesian surprise** (Itti & Baldi 2009) —
+    discrete sum Σ KL(p_{i+1} ‖ p_i) over successive belief
+    states. Operationally simpler than information length; same
+    "did the posterior move" reading.
+  - **Jensen–Shannon divergence** between adjacent packets —
+    symmetric variant of KL; bounded in [0, log 2] which makes
+    [0, 1] normalisation straightforward.
+  - **Stein discrepancy** / **information geometry of MCMC
+    convergence** for the broader framing; tangential to the
+    immediate Go-search application but the same family of ideas.
+- **Concrete v1 substrate shape if implemented:**
+  - New extractor class: `distill: packet → ProbabilityVector`
+    (alongside the existing categorical `extract: packet → Q`).
+    One canonical implementation surfaces the moveInfos visit
+    distribution as a probability vector over the top-K moves
+    (K=10 say, padded with zeros).
+  - New trajectory storage parallel to
+    `StabilityTrajectory<Q>`: keeps the distribution per
+    packet (no changepoint compression).
+  - New metric registry: functions over distribution streams.
+    Candidates: total-information-length, mean-pairwise-KL,
+    max-pairwise-JS. All map to [0, 1] via 1/(1+L) or exp(-L).
+  - Sibling panel (or extension of `StabilityPanel.vue`) with
+    the new metric registry alongside the categorical one.
+- **What this would settle:** the user's exchange flagged the
+  current categorical metrics as not quite matching their
+  intuition. The distribution-level metric is the canonical
+  mathematical formalisation of "did the posterior actually
+  move" — exactly the reading the user named. Composes
+  cleanly with the existing per-turn time-series and
+  cross-correlation infrastructure (the distribution metric is
+  just another column in the cross-correlation matrix).
+
+### KDE boundary bias for bounded-support palettes
+
+- **Surfaced:** 2026-05-28.
+- **Concern:** The Stage 3 distribution primitive uses standard
+  fixed-bandwidth Gaussian KDE, which exhibits well-known
+  *boundary bias* near the edges of a bounded support. For
+  palettes whose `delta_fn` output lives on a known compact
+  interval — `quality_delta` and `rank_quality` are both [0, 1]
+  — the estimated density visibly extends past the support
+  boundary (the project author observed nonzero density at
+  x < 0 on the [0, 1]-supported quality palette). The Gaussian
+  kernel has infinite support; each sample's kernel "leaks"
+  mass across any bounded edge, biasing the density downward
+  at the boundary itself and producing a cosmetic tail outside.
+- **Surfacing question (2026-05-28, project author, verbatim):**
+  > Density shows negative for this [0,1] quantity. So then
+  > naturally the question becomes whether it's possible to
+  > constrain the shape of the estimated density (including
+  > derived uncertainty estimates? or maybe not?) if the range
+  > is e.g. known to be compact (as here — it's actually an
+  > exponentially smoothed visit ratio so that could tell us
+  > even more I suppose) or the distribution is having certain
+  > known moments or functionals etc etc.
+- **Why deferred:** functional impact today is cosmetic. The
+  integral over the displayed range slightly exceeds 1 by the
+  leaked mass (typically <5% for moderate sample sizes); the
+  density curve is readable near boundaries with the
+  understanding that the tail extending past the support is a
+  smoothing artefact, not a probability statement. Stage 3's
+  scope was the generic distribution primitive, not per-palette
+  KDE specialisation.
+- **Disciplined approaches (rough order of complexity):**
+  1. **Reflection method** (Schuster 1985; Silverman 1986
+     §2.10). For each sample s and boundary a, add a reflected
+     kernel contribution at 2a − s; same for the upper
+     boundary. Effectively folds the leaked mass back inside
+     the support — exactly compensates for the boundary
+     loss. Output clipped to the support. ~5 lines in
+     `distributions.ts`'s KDE loop; the SE formula needs a
+     minor adjustment (the equivalent kernel is no longer
+     Gaussian-symmetric near the boundary; effective n at the
+     boundary is roughly doubled). Cheapest disciplined fix.
+  2. **Boundary kernels** (Müller 1991; Jones 1993). Modified
+     kernel near the boundary that integrates to 1 within
+     support. More principled, more parameters to choose.
+  3. **Transformation method.** Map the support to (−∞, ∞)
+     (logit for [0, 1]: u = log(x/(1−x))), run standard KDE on
+     the transformed samples, transform back with the Jacobian
+     correction. Eliminates boundary bias by construction.
+     Composes naturally with the author's observation that the
+     quantity is an exponentially-smoothed visit ratio — a
+     tailored transformation exploiting the visit-ratio's
+     functional form could surface more structure still.
+  4. **Beta-kernel KDE** (Chen 1999). Beta-distribution kernels
+     are naturally [0, 1]-supported — no boundary correction
+     needed. Cleanest match for the specific case but doesn't
+     generalise to other supports.
+- **Substrate shape if implemented:** add a per-palette
+  `support?: [number, number]` field to `AnalysisPalette`
+  (parallel to `delta_ordering`), threaded through to the KDE
+  consumer. Only the bounded-support palettes (quality, rank)
+  declare it; score-loss palettes leave it unset. The KDE
+  variant of DistributionChart accepts a `support` option and
+  applies the chosen method (reflection is the recommended
+  default given its complexity / benefit ratio). Upper-bound
+  band clipping at the support edge is a natural companion:
+  a ±1.96·SE band reaching above 1 on a [0, 1] support is
+  honestly informative ("the curve estimate has more
+  uncertainty than the support's full width") but visually
+  conflates with the (true) fact that density can exceed 1 on
+  bounded intervals, so clipping to the support per convention
+  is the safer call.
+
 ---
 
 ## Closed items

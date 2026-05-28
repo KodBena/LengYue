@@ -66,10 +66,40 @@
  *     bumps CURRENT_SCHEMA_VERSION without registering the
  *     migration.
  *
+ * ── Dev-only hazard: HMR + version bump ───────────────────────────
+ * In `npm run dev`, Vite hot-reloads modules in-process without
+ * re-running `updateFromRemote`. If this module is hot-swapped
+ * with a bumped CURRENT_SCHEMA_VERSION, the in-memory store still
+ * carries un-migrated content; the next debounced save then stamps
+ * the new version onto that content and poisons the persisted
+ * blob (claims migrated, body wasn't). On any subsequent cold
+ * hydrate the walker won't re-run because version >= target — the
+ * silent failure ADR-0002 forbids, in the dev register.
+ *
+ * Mitigation: the `import.meta.hot.accept(() => location.reload())`
+ * guard below opts this module out of in-process HMR — any edit
+ * triggers a full page reload, which forces a fresh hydrate so
+ * the migration runs on the un-migrated remote blob the way
+ * production users will experience it. The same call lives in
+ * `archived-migrations.ts` (rolling-archive moves are migration
+ * edits) so the guard holds across both files.
+ *
+ * Recovery for a poisoned blob: SQL-demote the blob's
+ * schemaVersion to the prior value (`UPDATE documents SET data =
+ * json_set(data, '$.schemaVersion', N-1) WHERE ...`); the next
+ * cold reload migrates correctly.
+ *
  * License: Public Domain (The Unlicense)
  */
 
 import { archivedMigrations, type Migration } from './archived-migrations';
+
+// See "Dev-only hazard" above. The accept-then-reload pattern
+// intercepts the HMR update and forces a full page reload
+// instead. No-op in production builds — `import.meta.hot` is
+// undefined when Vite emits the production bundle, so this
+// guard exists only in `npm run dev`.
+if (import.meta.hot) import.meta.hot.accept(() => location.reload());
 
 /**
  * The current schema version. Bump only when the GlobalStore
@@ -77,13 +107,13 @@ import { archivedMigrations, type Migration } from './archived-migrations';
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 53;
+export const CURRENT_SCHEMA_VERSION = 54;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 38 → 39) are
+ * The first `N` entries (currently 1 → 2 through 51 → 52) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -105,31 +135,6 @@ export const CURRENT_SCHEMA_VERSION = 53;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 51 → 52: backfill `BoardState.games` (per-board "play vs
-  // engine" game-root annotations, keyed by `NodeId`). New
-  // BoardState field introduced by the "play vs engine /
-  // game-roots" feature: each entry on a board is a game-root
-  // node mapped to its engine config (user color, engine model,
-  // max visits); the engine responds when the user navigates
-  // within the game-root's descendant tree at a position where
-  // it's the engine's color's turn. See the `games` field's doc
-  // on `BoardState` in `types.ts` for the full contract, and
-  // `useEngineResponder` for the trigger semantics.
-  //
-  // Idempotent: a pre-existing `games` object is preserved
-  // unchanged so a forward-compat install that already wrote
-  // game-roots keeps them.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    if (Array.isArray(out.boards)) {
-      for (const board of out.boards) {
-        if (board && typeof board === 'object' && !board.games) {
-          board.games = {};
-        }
-      }
-    }
-    return out;
-  },
   // 52 → 53: backfill `profile.settings.keybindings` (sparse map
   // keyed by `KeybindingActionId`, default `{}` meaning "use
   // registry defaults for all actions"). Phase 1 of the
@@ -147,6 +152,36 @@ export const migrations: Migration[] = [
       const s = settings as { keybindings?: unknown };
       if (typeof s.keybindings !== 'object' || s.keybindings === null || Array.isArray(s.keybindings)) {
         s.keybindings = {};
+      }
+    }
+    return out;
+  },
+  // 53 → 54: backfill `delta_ordering` on every analysis palette.
+  // Mistake-finder substrate (`docs/notes/mistake-finder-design-space.md`
+  // §Option α): each palette declares which direction of its
+  // `delta_fn`'s output counts as a mistake. Consumer-side flag;
+  // no proxy-side or wire change.
+  //
+  // Per-id backfill for the four seeded palettes:
+  //   - 'score'   → 'higher_is_worse' (scoreLead_loss_topvsuser:
+  //                  positive = points lost)
+  //   - 'default' / 'quality' / 'rank' → 'lower_is_worse'
+  //                  (quality_delta in [0,1] and rank_quality in
+  //                  (0,1] are both higher-is-better).
+  // User-customized palettes (unknown id) default to
+  // 'lower_is_worse' — the project-author-canonical robust-child
+  // convention. The user can override in the PaletteEditor.
+  //
+  // Idempotent: a pre-existing valid `delta_ordering` is preserved.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const env = out.profile?.settings?.engine?.katago?.analysis_env;
+    if (env && Array.isArray(env.palettes)) {
+      for (const p of env.palettes) {
+        if (!p || typeof p !== 'object') continue;
+        const existing = (p as { delta_ordering?: unknown }).delta_ordering;
+        if (existing === 'lower_is_worse' || existing === 'higher_is_worse') continue;
+        p.delta_ordering = p.id === 'score' ? 'higher_is_worse' : 'lower_is_worse';
       }
     }
     return out;

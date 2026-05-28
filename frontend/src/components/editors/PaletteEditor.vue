@@ -270,6 +270,7 @@ function addPalette() {
     id,
     name,
     delta_fn: symbolKeys.value[0] || '',
+    delta_ordering: 'lower_is_worse',
     summary_fn: symbolKeys.value[0] || '',
     state_fns: {}
   });
@@ -476,6 +477,12 @@ function deleteItem() {
             <label>{{ $t('palette.field.deltaFn') }}</label>
             <select class="dark-select" :value="env.palettes.find(p => p.id === selectedId)?.delta_fn" @change="(e: any) => updatePaletteField(selectedId, 'delta_fn', e.target.value)">
               <option v-for="sym in symbolKeys" :key="sym" :value="sym">{{ sym }}</option>
+            </select>
+
+            <label>{{ $t('palette.field.deltaOrdering') }}</label>
+            <select class="dark-select" :value="env.palettes.find(p => p.id === selectedId)?.delta_ordering" @change="(e: any) => updatePaletteField(selectedId, 'delta_ordering', e.target.value)">
+              <option value="lower_is_worse">{{ $t('palette.option.lowerIsWorse') }}</option>
+              <option value="higher_is_worse">{{ $t('palette.option.higherIsWorse') }}</option>
             </select>
 
             <label>{{ $t('palette.field.summaryFn') }}</label>

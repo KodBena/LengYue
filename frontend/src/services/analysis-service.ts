@@ -29,6 +29,7 @@ import { type BoardId, type NodeId } from '../types';
 import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi, getInitialStones } from '../engine/util';
 import { store, pushSystemMessage } from '../store';
 import { ledger } from './analysis-ledger';
+import { stabilityTrajectoryStore } from './stability-trajectory-store';
 import { analysisPersistenceService } from './analysis-persistence-service';
 import {
   compileAnalysisConfig,
@@ -905,6 +906,14 @@ export class AnalysisService {
       // (WHITE framing, or SIDETOMOVE with currentPlayer === 'W').
       const normalized = normalizePacketToWhiteFraming(response, queryInfo.framing);
       ledger.record(queryInfo.hash, nodeId, normalized);
+      // Stability-trajectory ingestion: every packet — preview and
+      // final alike — contributes a V-axis observation to the per-
+      // extractor trajectories for this (hash, nodeId). Composes
+      // with the ledger record above (same hash, same nodeId, same
+      // normalised packet); the trajectory store's change-point
+      // compression keeps storage bounded. See
+      // `docs/notes/stability-surface-design-space.md` §"Option α".
+      stabilityTrajectoryStore.record(queryInfo.hash, nodeId, normalized);
       const board = store.boards.find(b => b.id === queryInfo.boardId);
       if (board) {
         board.lastActivity = Date.now();

@@ -25,6 +25,9 @@ const props = defineProps<{
   /** Forwarded to BaseChart; see its `formatXAxis` / `formatXTooltip` prop docs. */
   formatXAxis?: (val: number) => string;
   formatXTooltip?: (val: number) => string;
+  /** Forwarded to BaseChart; full-tooltip override. See BaseChart's
+   *  `tooltipFormatter` prop docs. */
+  tooltipFormatter?: (params: any[]) => string;
 }>();
 
 const expanded = ref(true);
@@ -50,6 +53,7 @@ const expanded = ref(true);
           :normalize="normalize"
           :format-x-axis="formatXAxis"
           :format-x-tooltip="formatXTooltip"
+          :tooltip-formatter="tooltipFormatter"
           @index-hover="onIndexHover"
           @index-click="onIndexClick"
         />

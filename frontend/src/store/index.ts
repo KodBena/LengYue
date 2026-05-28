@@ -32,6 +32,7 @@ import { createInitialBoard } from './board-factory';
 import { migrate, CURRENT_SCHEMA_VERSION } from './migrations';
 import { analysisService } from '../services/analysis-service';
 import { ledger } from '../services/analysis-ledger';
+import { stabilityTrajectoryStore } from '../services/stability-trajectory-store';
 import { analysisPersistenceService } from '../services/analysis-persistence-service';
 import { clearCardThumbnailCache } from '../composables/cards/useCardThumbnail';
 import { abortAllReviews, abortBoardReview } from '../composables/review/useReviewSession';
@@ -357,6 +358,12 @@ export function closeBoard(boardId: BoardId): void {
   // docstring above for the full rationale.
   analysisService.stopBoardAnalysis(boardId);
   ledger.purgeBoard(boardId);
+  // Stability-trajectory store: symmetric to ledger.purgeBoard for
+  // the per-(hash, extractor, nodeId) trajectories accumulated from
+  // analysis-service's preview ingestion. Bounded leak if omitted
+  // (trajectory entries are per-extractor compact change-point
+  // lists) but the per-board hygiene is the same shape.
+  stabilityTrajectoryStore.purgeBoard(boardId);
 
   // Release the server-side persisted bundle if one exists. Sym-
   // metric to ledger.purgeBoard but for the row stored by the
@@ -521,6 +528,10 @@ export function resetWorkspace(): void {
   // privacy-relevant (raw-CardId collisions across users); the
   // other two are memory hygiene over UUID-keyed entries.
   ledger.purgeAll();
+  // Stability-trajectory store: symmetric to ledger.purgeAll for the
+  // per-(hash, extractor, nodeId) trajectories. UUID-keyed; same
+  // memory-hygiene-over-privacy framing as the ledger purge.
+  stabilityTrajectoryStore.purgeAll();
   purgeAllThumbnails();
   clearCardThumbnailCache();
   clearAllBoardCardTrees();

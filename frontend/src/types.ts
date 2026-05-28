@@ -327,10 +327,20 @@ export interface ThumbnailSettings {
 }
 
 // AnalysisPalette is mutated through the PaletteEditor.
+//
+// `delta_ordering` declares which direction of `delta_fn`'s output
+// counts as worse (a mistake). SPA-side consumer-only — the proxy
+// emits `extra.<color>.deltas` as the user-authored `delta_fn`
+// returns it; this flag tells consumers (mistake-finder, future
+// ranking composables) how to orient those scalars for severity.
+// The substrate stays non-opinionated about `delta_fn`'s sign
+// convention; the flag records the palette author's choice.
+// See `docs/notes/mistake-finder-design-space.md` §Option α.
 export interface AnalysisPalette {
   id: string;
   name: string;
   delta_fn: string;
+  delta_ordering: 'lower_is_worse' | 'higher_is_worse';
   summary_fn: string;
   state_fns: Record<string, string>;
 }
@@ -1207,6 +1217,19 @@ export interface AppSettings {
      * Schema-version 39 → 40 backfills the field.
      */
     livenessThreshold: number;
+    /**
+     * Mistake-finder severity quantile threshold ∈ [0, 1]. The
+     * mistake-finder composable surfaces dots on the delta charts
+     * for moves whose oriented `delta_fn` output (oriented by the
+     * palette's `delta_ordering`) lands in the worst per-board
+     * quantile: 0.15 means "show the worst 15% of moves on this
+     * board". 0 disables the overlay entirely. Per-board (not
+     * per-color), so a quiet game has fewer dots and a chaotic
+     * game more — the threshold is a display calibration, not a
+     * substrate constant. Wired through the
+     * `display.mistake-finder-threshold` knob. Default 0.15.
+     */
+    mistakeFinderThresholdQuantile: number;
     /**
      * Fade duration (ms) for the suggestion-ring outline + suggestion-
      * disk opacity transitions in `MoveSuggestions.vue`. Promoted from

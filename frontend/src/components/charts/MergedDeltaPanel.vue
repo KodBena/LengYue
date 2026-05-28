@@ -45,16 +45,20 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import AnalysisChartPanel from './AnalysisChartPanel.vue';
+import { globalLegendState } from './BaseChart.vue';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
 import { mutateBoard, store } from '../../store';
 import { navigateTo } from '../../engine/navigator';
 import { colorMoveToPly } from '../../composables/analysis/useTriangularHeatmap';
+import { themeColor } from '../../utils/theme-color';
 import type { EnrichedSeries } from '../../composables/analysis/useEnrichedData';
+import type { MistakeMarker } from '../../composables/analysis/useMistakeFinder';
 import type { BoardId, ColorMoveIndex, NodeId, PlyIndex } from '../../types';
 
 const props = defineProps<{
   blackSeries:    EnrichedSeries[];
   whiteSeries:    EnrichedSeries[];
+  mistakes:       MistakeMarker[];
   boardId:        BoardId;
   variationPath:  NodeId[];
   selectionRange: [PlyIndex, PlyIndex];
@@ -65,9 +69,16 @@ const preview = ref('');
 
 // Re-index each side's colour-local data onto a shared
 // parity-interleaved x-axis: black move K → x=2K, white
-// move K → x=2K+1.
-const mergedSeries = computed<EnrichedSeries[]>(() => {
-  const out: EnrichedSeries[] = [];
+// move K → x=2K+1. Mistake-finder dots ride on the same
+// chart as a scatter series whose datums carry per-point
+// itemStyle (severity-gradient hue / always-red for unpunished)
+// and symbolSize (severity-scaled / fixed-larger for unpunished).
+// `any[]` because the scatter series carries fields (type,
+// showPoints, per-datum object datums) that don't fit
+// EnrichedSeries's tighter line-only shape; BaseChart's prop
+// is `any[]` anyway, so the loosening doesn't propagate.
+const mergedSeries = computed<any[]>(() => {
+  const out: any[] = [];
   for (const s of props.blackSeries) {
     out.push({
       ...s,
@@ -78,6 +89,60 @@ const mergedSeries = computed<EnrichedSeries[]>(() => {
     out.push({
       ...s,
       data: s.data.map(([k, v]) => [2 * k + 1, v] as [number, number | null]),
+    });
+  }
+  const visibleMistakes = props.mistakes.filter(m => {
+    // Per-color filter: when the user hides "Black Delta" or
+    // "White Delta" via the chart legend, the corresponding dots
+    // disappear too. Pedagogy framing (per the project author's
+    // 2026-05-28 clarification): a stronger player reviewing a
+    // weaker student's game doesn't need their own mistakes
+    // surfaced — but the un-punished-by-opponent class still
+    // composes correctly because un-punished is a property of
+    // the move at ply P (not its follow-up); hiding the
+    // opponent's chart doesn't change which of *your* mistakes
+    // they failed to punish, only the visual reminder of theirs.
+    if (m.color === 'B' && globalLegendState['Black Delta'] === false) return false;
+    if (m.color === 'W' && globalLegendState['White Delta'] === false) return false;
+    return true;
+  });
+  if (visibleMistakes.length > 0) {
+    const blackRing = themeColor('--player-black');
+    const whiteRing = themeColor('--player-white');
+    out.push({
+      name: 'Mistakes',
+      type: 'scatter',
+      // showPoints: true gives BaseChart's series mapping a 'circle'
+      // symbol at series level — required because scatter series
+      // would otherwise inherit the line-default `symbol: 'none'`
+      // and render no dots. Per-datum symbolSize and itemStyle
+      // override the series-level defaults below.
+      showPoints: true,
+      // z above the lines so dots aren't occluded by overlapping
+      // segments.
+      z: 10,
+      data: visibleMistakes.map(m => ({
+        value: [m.ply, m.deltaValue],
+        itemStyle: {
+          // Fill: severity-gradient warm orange/amber by default;
+          // bright red when un-punished (the consecutive user-
+          // mistake → opponent-mistake pattern the pedagogy note
+          // demands surface with emphasis the user cannot
+          // accidentally hide).
+          color: m.unpunished
+            ? '#ff2828'
+            : `hsla(35, 95%, 55%, ${0.45 + 0.55 * m.severity})`,
+          // Outer ring identifies the player whose mistake it is
+          // (themeColor() reads the live --player-black / --player-white
+          // tokens — they're tuned to be legible against the chart
+          // background). Un-punished gets a thicker ring so the
+          // player-identity signal stays visible alongside the
+          // alert-red fill.
+          borderColor: m.color === 'B' ? blackRing : whiteRing,
+          borderWidth: m.unpunished ? 3 : 2,
+        },
+        symbolSize: m.unpunished ? 14 : 8 + 6 * m.severity,
+      })),
     });
   }
   return out;
