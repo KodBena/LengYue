@@ -460,21 +460,24 @@ Before/after profile pair per ADR-0009; baseline
 
 #### Navigation-during-range-query perf (regime B) `[frontend]` (+ proxy via dispatch?)
 
-The same audit distinguished regime A (pure navigation — profiled and
-addressed by Arc 1/2) from regime B (navigating *while* a live range
-query streams, with parallel tasks such as a background match) — the
-user-perceived sluggishness. The regime-A baseline already has ~zero
-frame headroom, so per-packet work in B reliably drops frames. Needs a
-regime-B capture (`game_scroll_during_range_*.json.gz`) to attribute
-the per-packet cost, then addresses the synchronous/unchunked packet
-receive path (`analysis-service.ts::onAnalysisUpdate`; synchronous
-winrate normalization; `useEnrichedData`/`visitVector` invalidation →
-`BaseChart` `setOption`) — see
-`docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md` Bug C and its
-incidental finds. Deferred until after Arc 2. Composes with the
-analysis-panel refactor (the "Analysis tab — user-customisable
-sub-tabs" Future project below), which owns the analysis-subtree
-over-render the same audit flagged as inseparable from the packet path.
+Profiled 2026-05-29 (`docs/notes/perf-audit-range-query-nav-2026-05-29.md`):
+during a live range query the median frame is ~47 ms (≈3.3× the 60fps
+budget) — the user-perceived sluggishness, substantiated. Three levers:
+
+- ~~**RB-1 — App ↔ engine-metrics decouple**~~ *(shipped 2026-05-29, worklog
+  `docs/worklog/2026-05-29-perf-nav-rb1-toolbar-metrics-decouple.md`)*. App
+  re-rendered the whole tree on every metric tick (531×); `Toolbar` now
+  self-sources status/metrics → 0. Cleared the metric-driven whole-tree
+  re-render (~1 s). Modest frame impact alone — the big costs are RB-2/RB-3.
+- **RB-2 — analysis-panel chart-update coalescing** *(the dominant ~4.5 s;
+  ECharts `setOption` per packet + `AnalysisChartPanel` ~2.6× thrash per
+  update)* → owned by the analysis-panel refactor (the "Analysis tab —
+  user-customisable sub-tabs" Future project below).
+- **RB-3 — packet-receive-path chunking** *(~2.35 s; synchronous
+  normalize+merge in `analysis-service.ts::onAnalysisUpdate`, 73 ms
+  main-thread blocks)* — its own arc, medium risk. See
+  `docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md` Bug C + its
+  incidental finds.
 
 ### Large — structural changes that introduce new abstractions
 

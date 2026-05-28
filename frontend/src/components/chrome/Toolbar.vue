@@ -11,13 +11,20 @@ import ToolbarSliderPopover from './ToolbarSliderPopover.vue';
 import { store, setSelectedModel, activeBoard } from '../../store';
 import { activeConfigHash } from '../../services/analysis-config';
 import { ledger } from '../../services/analysis-ledger';
-import type { EngineStatus, EngineMetrics } from '../../types';
+import { useEngineControls } from '../../composables/useEngineControls';
 
 const { t } = useI18n();
 
+// RB-1 (App-decouple from engine metrics —
+// docs/notes/perf-audit-range-query-nav-2026-05-29.md): status/metrics are
+// self-sourced via useEngineControls (store-backed computeds) rather than
+// received as props, so App.vue's template no longer reads the streaming
+// engine metrics and thus no longer re-renders the whole tree on every
+// metric tick during analysis. Toolbar still re-renders on metric updates
+// (it displays live PPS / latency) — that work is genuine and confined here.
+const { metrics, isConnected } = useEngineControls();
+
 const props = defineProps<{
-  engineStatus: EngineStatus;
-  metrics:      EngineMetrics;
   title?:       string;
   // Match-running state from `usePlayMatch.isRunning`. When true the
   // MATCH button switches into STOP MATCH mode and emits the stop
@@ -66,11 +73,11 @@ const emit = defineEmits<{
 // via the `engine.watchdog-latency-threshold-ms` KnobDecl.
 const watchdogClasses = computed(() => {
   if (store.session.ui.watchdogColorTransition) {
-    return store.engine.metrics.pingPendingSince !== null
+    return metrics.value.pingPendingSince !== null
       ? 'watchdog-pinging'
       : '';
   }
-  return props.metrics.latencyMs >= store.profile.settings.engine.katago.watchdogLatencyThresholdMs
+  return metrics.value.latencyMs >= store.profile.settings.engine.katago.watchdogLatencyThresholdMs
     ? 'watchdog-bad'
     : '';
 });
@@ -87,7 +94,7 @@ const watchdogStyle = computed(() => ({
   '--watchdog-animation-ms': `${store.profile.settings.engine.katago.watchdogAnimationMs}ms`,
 }));
 
-const isConnected   = computed(() => props.engineStatus === 'connected');
+// isConnected is destructured from useEngineControls() above (RB-1).
 // Symmetric verb pairing with the disconnected label; the connected
 // branch previously read 'Engine', which left the action ambiguous.
 const engineBtnLabel = computed(() => isConnected.value ? t('toolbar.disconnect') : t('toolbar.connect'));
