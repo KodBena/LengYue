@@ -149,8 +149,21 @@ export function mutateBoard(boardId: BoardId, fn: (draft: BoardState) => void): 
   const index = store.boards.findIndex(b => b.id === boardId);
   if (index === -1) return;
   const board = store.boards[index];
+  // `board` is the deep-reactive proxy held in `store.boards`, so the
+  // in-place mutations `fn` performs (navigateTo et al. mutate
+  // currentNodeId / stones / captures in place) already fire the
+  // fine-grained field deps every reader needs. The prior
+  // `store.boards[index] = { ...board }` additionally swapped the
+  // object identity, which fired the *array* dep and invalidated
+  // every coarse reader of "the board" / "the boards array" — App.vue
+  // and the SidebarWidget v-for re-rendered the whole tree on every
+  // navigation step even though only the cursor moved. Dropping the
+  // identity swap localises navigation to the components that read the
+  // mutated fields. `boardsVersion` stays as the explicit coarse
+  // signal SyncService watches for debounced persistence (it keys on
+  // the counter, not identity — see sync-service.ts). Diagnosed in
+  // docs/notes/perf-audit-game-scroll-2026-05-28.md (Arc 1).
   fn(board);
-  store.boards[index] = { ...board };
   boardsVersion.value++;
 }
 

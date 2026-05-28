@@ -70,9 +70,23 @@ function onHoverLeave() {
     </div>
 
     <div class="thumb-list">
+      <!-- v-memo skips the parent-forced re-render of each tab. App.vue
+           re-renders on every navigation, and this widget's `v-show`
+           makes Vue force-update it on each parent render — which would
+           re-render every BoardTab (and its rug-plot meter, a full
+           variation-path walk) per nav step, including the inactive
+           board's. The memo key carries only the parent-driven inputs a
+           BoardTab cannot self-source: `board` (object identity — catches
+           the move-play replacement via updateBoardState), `index` (the
+           "Board N" label after a close-induced reindex), active-highlight,
+           and review-border state. Cursor / analysis-depth / geiger updates
+           flow through BoardTab's OWN reactive effects, which v-memo does
+           not block (it suppresses parent-driven patches, not the child's
+           own render effect). See docs/notes/perf-audit-game-scroll-2026-05-28.md. -->
       <BoardTab
         v-for="(board, index) in store.boards"
         :key="board.id"
+        v-memo="[board, index, store.activeBoardIndex === index, getReviewState(board.id)]"
         :state="board"
         :index="index"
         :isActive="store.activeBoardIndex === index"
