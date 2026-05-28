@@ -5,10 +5,10 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-05-17: migrations 1 → 2 through 42 → 43 (42
+ * Scope as of 2026-05-28: migrations 1 → 2 through 51 → 52 (51
  * entries). The first eight covered pre-v1.0.0 schema evolution;
- * the next thirty-four are the v1.0.x – v1.1.x active cycle. All
- * are now consolidated here under the same archive contract.
+ * the rest are the v1.0.x – v1.1.x active cycle, archived in
+ * per-PR rolling fashion under the same archive contract.
  *
  * Why preserved (not deleted): the migration framework's `migrate()`
  * function indexes a contiguous array — `migrations[i]` carries
@@ -34,6 +34,16 @@ import {
 import type { SystemMessage } from '../types';
 
 export type Migration = (blob: any) => any;
+
+// HMR opt-out — pair to the same guard in `migrations.ts`. A
+// rolling-archive move is a migration edit; hot-swapping this
+// module while a dev session is hydrated would silently shift
+// migrations[i] indexing under a still-running walker. The
+// accept-then-reload pattern intercepts the HMR update and forces
+// a full page reload, mirroring how a production user will see
+// the change. See `migrations.ts`'s "Dev-only hazard" header
+// section for the failure mode and recovery recipe.
+if (import.meta.hot) import.meta.hot.accept(() => location.reload());
 
 export const archivedMigrations: Migration[] = [
   // 1 → 2: De-brand three identifiers in the persisted blob.
@@ -2234,6 +2244,31 @@ export const archivedMigrations: Migration[] = [
         k.bundleCompressionScheme = 'v2-projected';
       } else {
         k.bundleCompressionScheme = 'v1';
+      }
+    }
+    return out;
+  },
+  // 51 → 52: backfill `BoardState.games` (per-board "play vs
+  // engine" game-root annotations, keyed by `NodeId`). New
+  // BoardState field introduced by the "play vs engine /
+  // game-roots" feature: each entry on a board is a game-root
+  // node mapped to its engine config (user color, engine model,
+  // max visits); the engine responds when the user navigates
+  // within the game-root's descendant tree at a position where
+  // it's the engine's color's turn. See the `games` field's doc
+  // on `BoardState` in `types.ts` for the full contract, and
+  // `useEngineResponder` for the trigger semantics.
+  //
+  // Idempotent: a pre-existing `games` object is preserved
+  // unchanged so a forward-compat install that already wrote
+  // game-roots keeps them.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    if (Array.isArray(out.boards)) {
+      for (const board of out.boards) {
+        if (board && typeof board === 'object' && !board.games) {
+          board.games = {};
+        }
       }
     }
     return out;

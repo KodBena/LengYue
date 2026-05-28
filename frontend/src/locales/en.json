@@ -339,7 +339,10 @@
   "palette.param.qeuboRangeInvalidPassive": "Set a valid [min, max] range to enable PBO control.",
   "palette.field.name":                   "Name:",
   "palette.field.deltaFn":                "Delta Function:",
+  "palette.field.deltaOrdering":          "Delta Ordering:",
   "palette.field.summaryFn":              "Summary Function:",
+  "palette.option.lowerIsWorse":          "Lower is worse",
+  "palette.option.higherIsWorse":         "Higher is worse",
   "palette.field.charts":                 "Charts (State Functions)",
   "palette.field.addChart":               "+ Chart",
 
