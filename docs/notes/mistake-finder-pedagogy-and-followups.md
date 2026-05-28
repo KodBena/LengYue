@@ -154,25 +154,66 @@ The pedagogical posture above isn't ornamental — it shapes
 what the mistake-finder must do and must not do. Three
 concrete consequences:
 
-1. **Don't filter or down-rank un-punished mistakes.** The
-   mistake-finder ranks by the substrate's per-move severity
-   (per the `mistake-finder-design-space.md` recommendation:
-   the palette's `move_selector_fn` output). Whether the
-   opponent punished is downstream information — useful for
-   the user to *see*, never to filter on. Filtering would
-   import the win-attribution paradigm the author explicitly
-   rejects.
+1. **Un-punished mistakes deserve *active emphasis*, not parity.**
+   Earlier framing of this item ("don't filter or down-rank
+   un-punished mistakes") was too weak; the project author
+   clarified (2026-05-28) that un-punished mistakes are
+   *more* important to surface than punished ones, because
+   they require red-flagging against the user's natural
+   laziness. The diligent-student UI behaviour is to study
+   one's own delta panel and hide the opponent's chart to
+   unclutter — exactly the move that conceals when an
+   opponent failed to punish. The mistake-finder must
+   counterweight this: detect the "user-mistake followed by
+   opponent-mistake" consecutive pattern and surface it with
+   emphasis the user cannot accidentally hide.
 
-2. **Surface the punishment alongside the mistake.** When the
-   mistake-finder identifies a move as a mistake, the UI
-   should present the move *and* what KataGo considered the
-   correct response (the principal variation from the
-   pre-mistake position) — so the user authoring a card
-   doesn't have to dig for it. This is what the substrate
-   already gives the consumer: `MoveView.before` /
+   The substrate already provides the data: both colours'
+   per-move severity scalars flow through the per-palette
+   ranking (`mistake-finder-design-space.md` Option α —
+   `delta_fn` oriented by the palette's `delta_ordering`
+   flag); the consecutive-mistakes pattern is a join across
+   moves the SPA can compute locally.
+
+2. **The opponent's-follow-up position is where the diligent
+   card goes.** A subtle but load-bearing pedagogy point the
+   earlier note framing inverted. When you mint an SR card to
+   learn from your mistake, the *position of interest* is not
+   your move — it's the position *after* your move, where the
+   opponent's punishment was or should-have-been played. The
+   project author's framing, verbatim:
+
+   > we played a mistake because we couldn't see the
+   > punishment.
+
+   The diligent student adds the card on the opponent's
+   follow-up position because that's where they need to be
+   able to read the punishment to recognize, at their *own*
+   move, that the move was bad. The mistake-finder's
+   card-mint affordance should default-target the
+   opponent's-follow-up position, not the user's mistake
+   position. The user's mistake position is the *finding*
+   that surfaces the card; the opponent's-follow-up
+   position is the *study target* the card carries.
+
+   The substrate has the data: `MoveView.before` /
    `MoveView.after` carry the full pre/post `AnalyzeResponse`,
-   so the proxy already has the PV available; the SPA-side
-   mistake-finder needs to consume and display it.
+   and the principal variation from the pre-mistake position
+   names the punishment. The SPA-side mistake-finder needs
+   to consume the PV and the post-mistake position; the
+   former populates the card's "what should have been
+   played" surface, the latter is the position the card
+   actually points at.
+
+   **Target-audience caveat.** The project author flagged
+   that this pedagogy is "for the ideal and diligent
+   student, not players given to trickplay and other
+   insincere people." Trick-play players' worldview is
+   win-attribution-shaped — find moves that work because the
+   opponent fails to punish — and excluded from the pedagogy
+   this note articulates. The mistake-finder is designed for
+   the diligent cohort; it does not need to defend against
+   trick-play readings of its output.
 
 3. **The "reason for the move" principle is a pedagogical
    hint, not an API requirement.** Earlier in this note the
