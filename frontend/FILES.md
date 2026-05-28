@@ -73,6 +73,7 @@ frontend/src/
 │   │   ├── HeatmapChart.vue           [B1]  Stateless ECharts heatmap renderer.
 │   │   ├── MergedDeltaPanel.vue       [B3]  Both-players delta chart on a parity-interleaved x-axis.
 │   │   ├── ScoreLeadPanel.vue         [B3]  ScoreLead chart panel.
+│   │   ├── DistributionChart.vue      [B1]  Generic histogram/KDE primitive (variant-dispatched ECharts mount).
 │   │   └── MultiresolutionIntervalPanel.vue  [B3]  Triangular multiresolution-interval heatmap.
 │   │
 │   ├── chrome/                              Application shell. Generic UI primitives.
@@ -263,6 +264,7 @@ frontend/src/
 │   └── theme-color.ts                 [B1]  Runtime CSS-variable accessor for ECharts adapter configs.
 │
 ├── lib/
+│   ├── distributions.ts               [B1]  Histogram binning (integer-aware + Freedman–Diaconis) and Gaussian-kernel KDE with Silverman's-rule bandwidth.
 │   ├── dsl-harness.ts                 [B1]  Pipeline-DSL hyperparameter harness: JSON5+holes parser/formatter, validator, substitute.
 │   ├── keybindings.ts                 [B1]  Keybindings registry substrate: declarative `KeybindingActionDecl` catalog, `ACTIONS` const, `effectiveKey` / `isActionEnabled` / `normalizeKey` / `validateKeybindingsRegistry` helpers. Authoritative list of every user-rebindable keyboard action. Phase 1 of `docs/notes/keybindings-plan.md`.
 │   ├── keybindings-capture.ts         [B1]  Capture-mode + binding-mutation helpers for the editor (Phase 4): `captureMode` ref, `setBinding` / `resetBinding` / `resetAllBindings`, `RESERVED_KEYS`, `findActionByKey` conflict detection.
