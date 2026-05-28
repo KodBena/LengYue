@@ -20,6 +20,8 @@ import AnalysisTimelinePanel from './AnalysisTimelinePanel.vue';
 import ScoreLeadPanel        from './ScoreLeadPanel.vue';
 import MergedDeltaPanel      from './MergedDeltaPanel.vue';
 import MultiresolutionIntervalPanel from './MultiresolutionIntervalPanel.vue';
+import StabilityPanel        from './StabilityPanel.vue';
+import StabilityCrossCorrelationPanel from './StabilityCrossCorrelationPanel.vue';
 import DistributionChart, { type DistributionSeries } from './DistributionChart.vue';
 
 // Branded-type signature discipline (Commit 5a): boardId is tightened
@@ -138,6 +140,16 @@ const engineConnected = computed(() => store.engine.status === 'connected');
         :variation-path="variationPath"
         :selection-range="selectionRange"
         @update:selection-range="setSelectionRange"
+      />
+
+      <StabilityPanel
+        :board-id="boardId"
+        :variation-path="variationPath"
+        :selection-range="selectionRange"
+      />
+
+      <StabilityCrossCorrelationPanel
+        :variation-path="variationPath"
       />
 
       <DistributionChart

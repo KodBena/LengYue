@@ -77,6 +77,20 @@ const props = defineProps<{
    */
   formatXAxis?: (val: number) => string;
   formatXTooltip?: (val: number) => string;
+
+  /**
+   * Optional full-tooltip override. When supplied, replaces the
+   * built-in formatter end-to-end — including the X-header and the
+   * per-series-row body. Use for charts whose datums carry custom
+   * diagnostic fields beyond `[x, y]` (e.g.,
+   * `StabilityPanel`'s n_packets + V_max per turn) that the
+   * default formatter can't surface. The function receives ECharts'
+   * raw params array; consumers can read `params[i].data` for the
+   * full datum object (when datums are passed in object form) and
+   * render whatever HTML the panel wants. Returning the empty
+   * string suppresses the tooltip body entirely.
+   */
+  tooltipFormatter?: (params: any[]) => string;
 }>();
 
 let markerTimer: number | null = null;
@@ -266,12 +280,18 @@ const updateOptions = () => {
     tooltip: {
       trigger: 'axis',
       showContent: true,
-      backgroundColor: themeColor('--surface-1'),
+      // surface-0 + text-1 matches the SPA's canonical popover
+      // styling (e.g., EngineQueueTooltip) rather than the prior
+      // surface-1 which is invisible against text-2 in light themes
+      // where surface-1 and text-2 both resolve to the same
+      // cluster value (per the cluster-12 palette's chrome
+      // convention).
+      backgroundColor: themeColor('--surface-0'),
       borderColor: themeColor('--border-2'),
       textStyle: { color: themeColor('--text-1'), fontSize: 8 },
       confine: true,
       padding: 0,
-      formatter: (params: any[]) => {
+      formatter: props.tooltipFormatter ?? ((params: any[]) => {
         let res = `<div style="line-height: 1.2; padding: var(--space-tight);">`;
         const firstParam = params[0];
         const xVal = Array.isArray(firstParam.value) ? firstParam.value[0] : firstParam.value;
@@ -295,7 +315,7 @@ const updateOptions = () => {
         });
         res += `</div>`;
         return res;
-      },
+      }),
       // magic-literal: axisPointer opacity 0.5 — chart-visualization role,
       // distinct from --alpha-disabled. Hand-tuned for visible-but-not-
       // intrusive cursor crosshair against the chart background.

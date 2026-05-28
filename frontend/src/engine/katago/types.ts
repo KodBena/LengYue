@@ -331,6 +331,16 @@ export interface KataMoveInfo {
   readonly pv: readonly KataCoord[];
   readonly order: number;
   readonly clusterId?: string | number;
+  /**
+   * Network's prior probability for this move (the policy head's
+   * output for the move, restricted to moveInfos entries — distinct
+   * from `KataAnalysisResponse.policy` which is the full 362-element
+   * distribution). Emitted by KataGo's analysis-engine per move per
+   * packet; consumed by stability extractors that compare search-
+   * derived rankings against the prior (e.g.,
+   * `search_agrees_with_policy`).
+   */
+  readonly prior?: number;
 }
 
 export interface KataRootInfo {

@@ -83,6 +83,13 @@ export const ALLOWED_MOVE_INFO_KEYS = [
   'pv',
   'order',
   'clusterId',
+  // Network's prior probability for this move. Surfaced on the wire
+  // by KataGo's analysis-engine; consumed by the stability-finder's
+  // `search_agrees_with_policy` extractor (and any future stability
+  // extractor that wants to compare search-derived rankings against
+  // the prior). Bundled so re-derivation of stability metrics from a
+  // stored bundle stays faithful.
+  'prior',
 ] as const satisfies readonly (keyof KataMoveInfo)[];
 
 // ── KataRootInfo (position-level data) ─────────────────────────────────────
