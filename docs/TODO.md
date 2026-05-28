@@ -709,6 +709,63 @@ Open questions before implementation:
 Trigger: user prioritization. Not blocking any current arc; the
 heatmap throttle bought enough headroom to defer indefinitely.
 
+### Content-addressed card identity — auditability investigation `[both]`
+
+Investigation, not implementation. Surfaced 2026-05-28 as a
+terminology aside: would committing harder to treating cards as
+content-addressed indices into a canonical position space
+(rather than rows carrying their own SGF payload joined to
+`game_source`) improve auditability of the SPA or backend?
+
+The system already has the partial form. Items 34 / 34a / 34b
+(2026-04) renamed Go-specific `sgf` / `pos_hash` to neutral
+`canonical_content` / `content_hash`; the latter is a
+content-addressed identifier in everything but final
+commitment. "Commit harder" means: make `content_hash` the
+primary card identity, with `game_source` joins becoming
+incidental provenance rather than load-bearing relation. UI
+code talks about positions via the canonical key; SGF data
+becomes a representation dereferenceable via the key, not
+something cards directly carry.
+
+Conceptually adjacent: hash-consing in PL implementation,
+content-addressed storage (git blobs, IPFS), semantic-web URI
+dereferencing, intensional (vs extensional) data representation.
+The shift is from extensional storage (the SGF lives in the
+card row) to intensional / content-addressed storage (the card
+carries a key into a canonical position space).
+
+Plausible benefits cited:
+
+- Equality is value-based — two cards reference the same
+  position iff their keys match; no SGF-text comparison or
+  transformation-equivalence handling at comparison time.
+- Joins become key lookups; conceptually cleaner abstraction
+  boundary at the card subsystem's interface.
+- Canonicalization (symmetry, color-swap, normalization)
+  lives at key-derivation rather than scattered through
+  comparison logic.
+
+Open questions the investigation would settle:
+
+- **What does "canonical position" mean in this system?** Board
+  state alone? Including move number? Ko-banned points? Whose
+  turn? Canonicalization-as-design-problem is where the hard
+  work lives, and the answer determines whether equivalences are
+  meaningful or accidentally over-aggressive.
+- **Auditability of what specifically?** The SPA's reasoning
+  about cards-as-positions? The backend's tenancy / provenance
+  audit trail? Different read paths surface different
+  affordances under the framing.
+- **Schema-migration vs interface-code cost.** Existing
+  `cards.db` rows already carry `content_hash`; the commitment
+  is mostly about how upstream code talks to the cards
+  subsystem, not the storage shape itself.
+
+Trigger: investigation findings (would committing harder
+improve auditability?). The investigation is the work to
+schedule; implementation follows only if the answer is yes.
+
 ---
 
 ## Implementation order recommendation
