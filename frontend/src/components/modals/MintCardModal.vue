@@ -202,8 +202,7 @@ async function submit() {
   }
 
   try {
-    const newId = await commitMint(draft.value);
-    console.log(`[Minting] Successfully created card ${newId}`);
+    await commitMint(draft.value);
     close();
   } catch (err) {
     console.error('[Minting] Failed to create card:', err);

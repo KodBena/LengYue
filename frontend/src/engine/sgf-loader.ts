@@ -13,9 +13,6 @@ export function loadSgf(sabakiOutput: any): BoardState {
   const nodes: Record<string, GameNode> = {};
 
   const size = parseInt(sabakiRoot.data['SZ']?.[0] ?? '19', 10);
-  if (import.meta.env.DEV) {
-    console.log(`[SgfLoader] loading SGF, board size=${size}`);
-  }
 
   const rootId = transform(sabakiRoot, null, nodes, size);
 
@@ -60,9 +57,6 @@ export function loadSgf(sabakiOutput: any): BoardState {
     }
   }
 
-  if (import.meta.env.DEV) {
-    console.log(`[SgfLoader] done: rootId=${rootId} nodeCount=${Object.keys(nodes).length} setupStones=${Object.keys(state.stones).length}`);
-  }
   return state;
 }
 

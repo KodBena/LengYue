@@ -54,7 +54,6 @@ function serializeSubtree(nodeId: NodeId, nodes: Record<NodeId, GameNode>): stri
     return props + serializeSubtree(node.children[0], nodes);
   }
 
-  if (import.meta.env.DEV) console.log(`[SgfWriter] node ${nodeId} has ${node.children.length} children — branching`);
   const branches = node.children
     .map(childId => '(' + serializeSubtree(childId, nodes) + ')')
     .join('');
@@ -62,7 +61,6 @@ function serializeSubtree(nodeId: NodeId, nodes: Record<NodeId, GameNode>): stri
 }
 
 export function serializeBoard(state: BoardState): string {
-  if (import.meta.env.DEV) console.log(`[SgfWriter] serializeBoard boardId=${state.id}`);
   const result = '(' + serializeSubtree(state.rootNodeId, state.nodes) + ')';
   return result;
 }
@@ -85,8 +83,6 @@ export function serializeActivePath(state: BoardState): string {
     path.unshift(curr);
     curr = node.parent;
   }
-
-  if (import.meta.env.DEV) console.log(`[SgfWriter] serializeActivePath boardId=${state.id} pathLength=${path.length}`);
 
   let out = '(';
   for (const nodeId of path) {

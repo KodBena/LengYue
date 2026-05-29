@@ -143,7 +143,6 @@ export class SyncService {
       if (gen !== this.hydrationGeneration) return;  // superseded
       if (doc && doc.data) updateFromRemote(doc.data);
       this.hydratedForUserId = userId;
-      console.log('[Sync] Hydration complete for user', userId);
       pushSystemMessage('info', i18n.global.t('sync.workspaceLoaded'));
     } catch (err) {
       if (gen !== this.hydrationGeneration) return;
@@ -278,7 +277,6 @@ export class SyncService {
 
     try {
       await api.request('PUT', `/documents/${this.docKey}`, { data: payload });
-      if (import.meta.env.DEV) console.log('[Sync] Document saved.');
     } catch (err) {
       console.error('[Sync] Failed to save document:', err);
       pushSystemMessage('error', i18n.global.t('sync.saveFailed'));

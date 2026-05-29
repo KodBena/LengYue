@@ -54,7 +54,6 @@ export class ResourceService {
     try {
       const data = await fetchResource<any>('visit-distribution');
       initializeIntensityFactory(data);
-      console.log('[ResourceService] Visit distribution loaded and factory initialized.');
     } catch (err) {
       // api.request has already pushed the HTTP-level error to the
       // system log; this catch just prevents the unhandled rejection

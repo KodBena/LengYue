@@ -155,10 +155,8 @@ function onBoardClick(e: MouseEvent) {
   if (col >= 0 && col < s && row >= 0 && row < s) {
     const boardY = s - 1 - row;
     if (e.shiftKey) {
-      console.log(`[BoardDisplay uid=${uid}] shift-click svg=(${cursor.x.toFixed(1)},${cursor.y.toFixed(1)}) board=(${col},${boardY}) size=${s}`);
       emit('shift-click', col, boardY);
     } else {
-      console.log(`[BoardDisplay uid=${uid}] click svg=(${cursor.x.toFixed(1)},${cursor.y.toFixed(1)}) board=(${col},${boardY}) size=${s}`);
       emit('click', col, boardY);
     }
   }
