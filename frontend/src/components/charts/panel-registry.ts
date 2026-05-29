@@ -33,6 +33,13 @@ import MistakeGapPanel from './MistakeGapPanel.vue';
 export interface AnalysisPanelDescriptor {
   /** Frozen-forever persistence / lookup key (see `panel-ids.ts`). */
   readonly id: AnalysisPanelId;
+  /**
+   * Human display name — used by the Phase-3 tab editor to label the
+   * panel (the id is the persistence key, not user-facing). Literal
+   * (matches each panel's own SFC header); i18n of panel names is a
+   * separate sweep, deferred with the panels' own titles.
+   */
+  readonly label: string;
   /** The panel SFC. Prop-less; reads AnalysisContext via inject. */
   readonly component: Component;
 }
@@ -43,13 +50,13 @@ export interface AnalysisPanelDescriptor {
  * tab layout applies.
  */
 export const ANALYSIS_PANELS: readonly AnalysisPanelDescriptor[] = [
-  { id: PANEL_ID.scoreLead, component: ScoreLeadPanel },
-  { id: PANEL_ID.mergedDelta, component: MergedDeltaPanel },
-  { id: PANEL_ID.multiresolutionInterval, component: MultiresolutionIntervalPanel },
-  { id: PANEL_ID.stability, component: StabilityPanel },
-  { id: PANEL_ID.stabilityCrossCorrelation, component: StabilityCrossCorrelationPanel },
-  { id: PANEL_ID.deltaDistribution, component: DeltaDistributionPanel },
-  { id: PANEL_ID.mistakeGap, component: MistakeGapPanel },
+  { id: PANEL_ID.scoreLead, label: 'Score Lead', component: ScoreLeadPanel },
+  { id: PANEL_ID.mergedDelta, label: 'Merged Delta', component: MergedDeltaPanel },
+  { id: PANEL_ID.multiresolutionInterval, label: 'Multiresolution Interval', component: MultiresolutionIntervalPanel },
+  { id: PANEL_ID.stability, label: 'Stability', component: StabilityPanel },
+  { id: PANEL_ID.stabilityCrossCorrelation, label: 'Cross-correlations', component: StabilityCrossCorrelationPanel },
+  { id: PANEL_ID.deltaDistribution, label: 'Delta Distribution', component: DeltaDistributionPanel },
+  { id: PANEL_ID.mistakeGap, label: 'Mistake Gap', component: MistakeGapPanel },
 ];
 
 /** id → descriptor, for resolving a tab's stored `panelIds` at render. */

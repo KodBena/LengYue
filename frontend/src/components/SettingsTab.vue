@@ -30,6 +30,7 @@ import KeybindingsView from './KeybindingsView.vue';
 import PaletteEditor from './editors/PaletteEditor.vue';
 import CardSetEditor from './editors/CardSetEditor.vue';
 import RegistryEditor from './editors/RegistryEditor.vue';
+import AnalysisTabsEditor from './editors/AnalysisTabsEditor.vue';
 import { store, DEFAULTS } from '../store';
 import { updateRegistry } from '../engine/util';
 import { cancelCapture } from '../lib/keybindings-capture';
@@ -40,10 +41,11 @@ defineEmits<{
   (e: 'force-save'): void;
 }>();
 
-const activeSubTab = ref<'general' | 'keybindings'>('general');
+const activeSubTab = ref<'general' | 'analysis' | 'keybindings'>('general');
 
 const subTabs = computed(() => [
   { id: 'general',     label: t('settings.subtab.general') },
+  { id: 'analysis',    label: t('settings.subtab.analysis') },
   { id: 'keybindings', label: t('settings.subtab.keybindings') },
 ]);
 
@@ -127,6 +129,12 @@ function handleProfileUpdate(e: { path: string[]; value: unknown }): void {
             <RegistryEditor :registry="store.session.ui" :defaults="DEFAULTS.session" @update="handleSessionUpdate"/>
           </div>
         </details>
+      </div>
+    </template>
+
+    <template #analysis>
+      <div class="tab-padding">
+        <AnalysisTabsEditor :tabs="store.profile.settings.analysisTabs" @update="handleSettingsUpdate" />
       </div>
     </template>
 
