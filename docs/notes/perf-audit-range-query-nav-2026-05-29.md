@@ -71,6 +71,16 @@ so the Arc-2 cursor decoupling holds. The residual App re-renders are a
   anywhere in the packet receive path"). Cross-cutting (feeds both charts
   and overlays); its own arc, medium risk. The lever that most directly
   removes the long blocks behind the jank.
+  **UPDATE (2026-05-29) — measured, NOT a bottleneck.** Instrumented and
+  re-measured on current `main` (post analysis-panel refactor): the receive
+  handler is **~99 ms total** (p50 0.2 ms/packet). The "73 ms" was the
+  version-bump render cascade + pre-refactor chart work (since cut by the
+  refactor), never the normalize+merge. **RB-3-chunking is closed.** The
+  residual regime-B cost is the render cascade (microtask flushes ~9.9 s —
+  death by a thousand cuts: analysis charts ~2.7 s cheap-per-op, board/tree
+  ~1.5 s, reactive recomputes ~5.4 s), not the receive path. The structural
+  lever is Vapor Mode; further micro-opts are diminishing returns. See
+  `docs/worklog/2026-05-29-perf-rb3-diagnosis.md`.
 
 ## ADR-0004 note (for the RB-1 edit)
 
