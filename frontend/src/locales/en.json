@@ -229,6 +229,12 @@
 
   "toolbar.connect":                      "Connect",
   "toolbar.disconnect":                   "Disconnect",
+  "toolbar.clearCache":                   "Clear cache",
+  "engine.clearCache.title":              "Clear the KataGo engine cache (dev — cold-cache benchmarking)",
+  "engine.clearCache.ok":                 "KataGo cache cleared.",
+  "engine.clearCache.okButLookupCache":   "KataGo cache cleared — but lookup_cache is on, so the proxy may replay cached streams without reaching the engine. Disable lookup_cache (or restart the proxy) for a true cold-cache measurement.",
+  "engine.clearCache.failed":             "Clear cache failed: {error}",
+  "engine.clearCache.notConnected":       "Clear cache: engine not connected.",
   "toolbar.mintCard":                     "Mint Card",
   "toolbar.match":                        "Match",
   "toolbar.stopMatch":                    "Stop Match",
