@@ -145,6 +145,59 @@ the follow-up consult's "where does FULL Effect-TS earn its weight"
 subsection of §2c, offered there as the most defensible candidate
 rather than a benchmarked claim.
 
+## 5b. Forward-compatibility — the light stack is a precursor to Effect-TS, not a dead-end
+
+*(Added 2026-05-29 at the maintainer's request, elaborating §5's "held
+in reserve." This records the case for why adopting the light stack now
+keeps full Effect-TS cheap to reach later; it does not revise the §5
+decision.)*
+
+"Stacking Effect-TS on top of the light stack" is the wrong mental model:
+Effect does not layer over `neverthrow` / branded `IO<T>` — it **replaces**
+the wrapper. The right model is a **migration**, and the light stack is a
+**forward-compatible precursor** to it, for four reasons:
+
+1. **The hard part of an Effect migration is lifting effects into a marked
+   wrapper at the boundaries — which is exactly what the light stack
+   does.** Going light-stack → Effect is "swap the wrapper type and adapt
+   the combinators"; going plain-TS → Effect is "discover and lift every
+   effect from scratch." The first hop pays down the bulk of the second.
+   Adopting the light stack now makes a later Effect migration *easier*,
+   not harder.
+2. **The type-level mapping is mechanical.** `Result<T, E>` /
+   `ResultAsync<T, E>` correspond to `Effect<T, E, never>`; a branded
+   `IO<T>` / `Task<T>` thunk lifts via `Effect.sync` / `Effect.promise`.
+   The error channel and async-ness the light stack already documents are
+   the same channels Effect carries.
+3. **The purity-audit backstop (§2b) is orthogonal and survives the
+   migration untouched.** It operates on *plain* TypeScript to *find*
+   impure-mixed functions; §3 already establishes Effect would not replace
+   it. So part (b) is forward-compatible by independence.
+4. **The discipline is paradigm-portable.** "Mark every effect at the
+   boundary; the absence of a mark is the audit flag" (§3) holds whether
+   the mark is `Result`, `IO`, or `Effect`. The codebase's training —
+   authors lift effects at the ACL — carries over wholesale; only the
+   mark's underlying type changes.
+
+**Refinement to §8 Q2 (neverthrow vs. branded wrapper).** If
+forward-compatibility to Effect is weighted, the **branded `IO<T>` /
+`Task<T>` wrapper is marginally the more forward-compatible** choice: it
+is the project's own thin type, so the migration surface is a handful of
+adapters under the maintainer's control, versus unwinding `neverthrow`'s
+`.map` / `.andThen` / `.match` chains into Effect's `pipe` /
+`Effect.flatMap`. A tie-breaker, not a decisive factor — both are
+forward-compatible.
+
+**Net (the low-regret framing).** The light stack delivers the
+documentation + purity-audit value immediately and carries no foundation
+risk (§5 sequencing). The *only* cost of adopting it before Effect — a
+swap-and-adapt migration — is paid **only if RB-3 proves the Effect
+runtime (fiber / `Scope` / interruption) is actually needed**, which is
+precisely the §5 reserve trigger RB-3 is sequenced to reveal (§6). If
+RB-3's concurrency turns out to be served by a lighter `AbortController` +
+chunking scheduler, the light stack simply stays and the migration is
+never paid. Neither branch is foreclosed by adopting the light stack now.
+
 ## 6. The deferral and its sequencing rationale
 
 The arc is **deferred until the current analysis-panel refactor /
