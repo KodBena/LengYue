@@ -926,6 +926,14 @@ export class AnalysisService {
 
     const nodeId = queryInfo.path[response.turnNumber];
     if (nodeId) {
+      // RB-3 (ADR-0009): per-packet receive-work timing — the before-anchor
+      // for the packet-receive chunking arc. DEV-only (dead-code-eliminated
+      // in prod). Measures normalize + merge + stability + board mutation;
+      // it EXCLUDES the version-bump render Vue flushes after this returns
+      // (that is counted via `rb3:firstBump` in analysis-ledger.ts). NB the
+      // existing per-packet DEV console.log above inflates the surrounding
+      // LongTask but not this marker — read the marker for per-packet work.
+      const rb3Start = import.meta.env.DEV ? performance.now() : 0;
       // Normalise to canonical 'WHITE' framing before recording so
       // every consumer downstream — `waitForAnalysis`, the chart
       // composables, the ownership renderer, the bundle export —
@@ -959,6 +967,7 @@ export class AnalysisService {
       if (!response.isDuringSearch) {
         analysisPersistenceService.markDirty(queryInfo.boardId);
       }
+      if (import.meta.env.DEV) performance.measure('rb3:handler', { start: rb3Start });
     }
 
     // Ponder-ceiling-reached warning. A ponder-mode query is
