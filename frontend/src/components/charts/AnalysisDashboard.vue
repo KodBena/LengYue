@@ -7,6 +7,10 @@
   packet no longer re-renders the whole subtree (the render-coupling fix —
   see useAnalysisContext and docs/notes/postmortem-render-coupling-at-
   composition-nodes-2026-05-29.md, Recommendation 2).
+
+  The scrollable panel set + order is the panel-registry (rendered via
+  <component :is>); the timeline scrubber is the persistent header, not a
+  registry panel. Phase 2 will assign registry subsets to tabs.
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
@@ -16,13 +20,7 @@ import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
 import type { BoardId } from '../../types';
 
 import AnalysisTimelinePanel from './AnalysisTimelinePanel.vue';
-import ScoreLeadPanel        from './ScoreLeadPanel.vue';
-import MergedDeltaPanel      from './MergedDeltaPanel.vue';
-import MultiresolutionIntervalPanel from './MultiresolutionIntervalPanel.vue';
-import StabilityPanel        from './StabilityPanel.vue';
-import StabilityCrossCorrelationPanel from './StabilityCrossCorrelationPanel.vue';
-import DeltaDistributionPanel from './DeltaDistributionPanel.vue';
-import MistakeGapPanel       from './MistakeGapPanel.vue';
+import { ANALYSIS_PANELS } from './panel-registry';
 
 const props = defineProps<{ boardId: BoardId }>();
 
@@ -46,13 +44,11 @@ watch(ctx.variationPath, (path) => {
     <AnalysisTimelinePanel />
 
     <div class="scrollable-content">
-      <ScoreLeadPanel />
-      <MergedDeltaPanel />
-      <MultiresolutionIntervalPanel />
-      <StabilityPanel />
-      <StabilityCrossCorrelationPanel />
-      <DeltaDistributionPanel />
-      <MistakeGapPanel />
+      <component
+        v-for="panel in ANALYSIS_PANELS"
+        :is="panel.component"
+        :key="panel.id"
+      />
     </div>
   </div>
 </template>

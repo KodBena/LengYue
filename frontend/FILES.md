@@ -64,7 +64,8 @@ frontend/src/
 │   │
 │   ├── charts/                              ECharts wrappers. Mostly B2/B3; the renderer itself is generic.
 │   │   ├── AnalysisChartPanel.vue     [B3]  Standardised analysis chart panel host (visits, winrate, scoreLead, …).
-│   │   ├── AnalysisDashboard.vue      [B3]  Provides the per-board AnalysisContext + lays out chart panels (which self-source via inject).
+│   │   ├── AnalysisDashboard.vue      [B3]  Provides the per-board AnalysisContext + renders the panel-registry via <component :is> (panels self-source via inject); timeline is the persistent header.
+│   │   ├── panel-registry.ts          [B3]  Ordered registry of the Analysis-tab scrollable panels (id → component); AnalysisDashboard's render source + Phase-2 tab-assignment SSOT.
 │   │   ├── AnalysisTimelinePanel.vue  [B3]  Rug-plot timeline + visits input + "Analyse selection" controls.
 │   │   ├── BaseChart.vue              [B1]  Generic ECharts wrapper with module-scoped legend memoisation.
 │   │   ├── card-tree-echarts.ts       [B2]  ECharts node/tooltip composer for the card-tree forest.
