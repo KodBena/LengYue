@@ -172,6 +172,16 @@ A per-board "Analysis" tab hosts the chart cluster — every
 chart reads from the same in-memory ledger of merged KataGo
 packets, keyed by `(configHash, nodeId)`.
 
+- **Tabbed layout.** The charts are organised into tabs — the
+  default split is **Basic** (score lead + delta), **Distributions**,
+  **Stability**, and **Multiresolution** — and only the active tab's
+  panels are rendered, so switching tabs focuses the view (and keeps
+  the panels you aren't looking at from recomputing as packets
+  stream). The timeline rugplot stays pinned above the tabs. The
+  whole tab set is customisable — create, rename, reorder, and assign
+  panels under **Settings → Analysis Layout** (see Power-user
+  customisation).
+
 - **Timeline / rugplot.** Per-move visit pressure rendered as
   a rug along the variation path; densest segments draw the
   eye to where the engine has spent the most cycles. Includes
@@ -483,6 +493,14 @@ every abstraction the system uses is exposed and editable.
   `safe()`, `entropy()`, `player_sign(x)` are available. Add
   your own metrics; reuse them in charts, in card-grading
   pipelines, anywhere the palette is consulted.
+
+- **Analysis layout editor.** Organise the Analysis tab's charts
+  into your own tabs (Settings → Analysis Layout): add, rename,
+  reorder, and delete tabs, and assign each panel to a tab. Only
+  the active tab renders, so a focused tab is also lighter while
+  analysis streams; panels left unassigned are hidden. The default
+  is a four-tab split (Basic / Distributions / Stability /
+  Multiresolution).
 
 - **Registry editor.** A dynamic editor over the entire
   AppSettings tree — engine URL, KataGo override settings,

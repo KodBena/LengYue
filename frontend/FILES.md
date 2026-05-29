@@ -96,6 +96,7 @@ frontend/src/
 │   │
 │   ├── editors/                             Settings / palette / pipeline editors.
 │   │   ├── AnalysisControls.vue       [B3]  Per-board analysis controls (engine status, palette picker, bundle persistence, …).
+│   │   ├── AnalysisTabsEditor.vue     [B3]  Controlled editor for the analysis-tab layout (AppSettings.analysisTabs): add/rename/reorder/delete tabs, assign panels (partition). Hosted in Settings → Analysis Layout.
 │   │   ├── CardSetEditor.vue          [B2]  Master-Detail Tree-DSL pipeline editor (CodeMirror 6) with JSON5+holes dialect.
 │   │   ├── HyperparameterPanel.vue    [B1]  Declarations editor (name/type/default/constraints) for a deck's harness.
 │   │   ├── PaletteEditor.vue          [B3]  Master-Detail Analysis-Environment editor.
