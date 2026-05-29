@@ -16,6 +16,14 @@ session.
    wall-second → more packets → a "busier" capture. Raw CPU and marker
    sums scale with this, not with the change under test. Use a **fresh
    game** for a cold-cache capture, and note the cache state per capture.
+   To force cold *without* a fresh game, use the dev **clear-cache**
+   toolbar button (sends `clear_cache` — clears the upstream KataGo cache;
+   broadcasts to all healthy upstreams on a SELECTOR proxy, verified
+   v1.0.27). **Caveat:** `clear_cache` does **not** flush the proxy's own
+   analysis *replay* cache, so keep **`lookup_cache` off** (the default) —
+   otherwise the proxy can replay a stored stream and never reach the
+   now-cold engine, silently warming a nominally "cold" capture. (The
+   button's success message warns when `lookup_cache` is on.)
 2. **Variable capture framing.** The wall-clock from hitting *record* to
    focusing the app and starting to navigate (and back out to *stop*)
    varies per capture, so the active window is offset- and
