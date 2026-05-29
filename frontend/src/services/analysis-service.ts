@@ -393,6 +393,35 @@ export class AnalysisService {
     this.clearTimers();
   }
 
+  /**
+   * Clear the upstream KataGo NN/search cache (`clear_cache` action). A
+   * dev affordance for cold-cache benchmarking. Works on a direct engine
+   * and through every proxy role — on a SELECTOR proxy it broadcasts to
+   * each healthy upstream (verified against proxy v1.0.27).
+   *
+   * NB this clears the *upstream engine* cache, NOT the proxy's own
+   * analysis replay cache. If `lookup_cache` is enabled the proxy can
+   * replay a stored stream and never reach the now-cold engine — so the
+   * success message warns when `lookup_cache` is on (a true cold-cache
+   * capture needs it off, or a proxy restart).
+   */
+  public async clearCache(): Promise<void> {
+    if (store.engine.status !== 'connected') {
+      pushSystemMessage('warning', i18n.global.t('engine.clearCache.notConnected'));
+      return;
+    }
+    try {
+      await this.client.sendCommand({ id: `clear-${Date.now()}`, action: 'clear_cache' });
+      const lookupCacheOn = store.profile.settings.engine.katago.lookup_cache === true;
+      pushSystemMessage(
+        lookupCacheOn ? 'warning' : 'info',
+        i18n.global.t(lookupCacheOn ? 'engine.clearCache.okButLookupCache' : 'engine.clearCache.ok'),
+      );
+    } catch (err) {
+      pushSystemMessage('error', i18n.global.t('engine.clearCache.failed', { error: String(err) }));
+    }
+  }
+
   public analyzeFullGame(boardId: BoardId, visits: number): string | null {
     const board = store.boards.find(b => b.id === boardId);
     if (!board || store.engine.status !== 'connected') return null;

@@ -22,7 +22,12 @@ const { t } = useI18n();
 // engine metrics and thus no longer re-renders the whole tree on every
 // metric tick during analysis. Toolbar still re-renders on metric updates
 // (it displays live PPS / latency) — that work is genuine and confined here.
-const { metrics, isConnected } = useEngineControls();
+const { metrics, isConnected, clearCache } = useEngineControls();
+
+// Dev affordance: the clear-cache button (cold-cache benchmarking) only
+// renders in dev builds. import.meta.env.DEV is statically folded, so the
+// button and its handler dead-code-eliminate in production.
+const isDevBuild = import.meta.env.DEV;
 
 const props = defineProps<{
   title?:       string;
@@ -319,6 +324,14 @@ const scoreLeadDisplay = computed(() => {
         :class="{ 'btn-stop-match': isMatchRunning }"
         @click="onMatchClick"
       >{{ matchBtnLabel }}</button>
+      <!-- Dev-only cold-cache affordance, beside connect/disconnect. -->
+      <button
+        v-if="isDevBuild"
+        class="toolbar-btn"
+        :disabled="!isConnected"
+        :title="$t('engine.clearCache.title')"
+        @click="clearCache"
+      >{{ $t('toolbar.clearCache') }}</button>
       <button
         class="toolbar-btn"
         :class="{ 'btn-connected': isConnected }"

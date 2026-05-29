@@ -36,6 +36,10 @@ export interface EngineControls {
   disconnect: () => void;
   /** Connect if disconnected; disconnect if connected. */
   toggle: () => void;
+  /** Clear the upstream KataGo cache (`clear_cache`). Dev affordance for
+   *  cold-cache benchmarking; fire-and-forget (the service surfaces the
+   *  result as a system message). */
+  clearCache: () => void;
 }
 
 // ── Composable ────────────────────────────────────────────────────────────────
@@ -48,6 +52,7 @@ export function useEngineControls(): EngineControls {
   const connect    = () => analysisService.connect();
   const disconnect = () => analysisService.disconnect();
   const toggle     = () => (isConnected.value ? disconnect() : connect());
+  const clearCache = () => { void analysisService.clearCache(); };
 
-  return { isConnected, status, metrics, connect, disconnect, toggle };
+  return { isConnected, status, metrics, connect, disconnect, toggle, clearCache };
 }
