@@ -107,13 +107,13 @@ if (import.meta.hot) import.meta.hot.accept(() => location.reload());
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 54;
+export const CURRENT_SCHEMA_VERSION = 55;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 51 → 52) are
+ * The first `N` entries (currently 1 → 2 through 52 → 53) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -135,27 +135,6 @@ export const CURRENT_SCHEMA_VERSION = 54;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 52 → 53: backfill `profile.settings.keybindings` (sparse map
-  // keyed by `KeybindingActionId`, default `{}` meaning "use
-  // registry defaults for all actions"). Phase 1 of the
-  // keybindings substrate (`docs/notes/keybindings-plan.md`):
-  // the field is defined and persisted but `useUserIORegistry`
-  // doesn't yet consume it — substrate-only landing.
-  //
-  // Idempotent: a pre-existing object is preserved unchanged so
-  // a forward-compat install that already wrote overrides keeps
-  // them.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const settings = out.profile?.settings;
-    if (settings && typeof settings === 'object') {
-      const s = settings as { keybindings?: unknown };
-      if (typeof s.keybindings !== 'object' || s.keybindings === null || Array.isArray(s.keybindings)) {
-        s.keybindings = {};
-      }
-    }
-    return out;
-  },
   // 53 → 54: backfill `delta_ordering` on every analysis palette.
   // Mistake-finder substrate (`docs/notes/mistake-finder-design-space.md`
   // §Option α): each palette declares which direction of its
@@ -182,6 +161,33 @@ export const migrations: Migration[] = [
         const existing = (p as { delta_ordering?: unknown }).delta_ordering;
         if (existing === 'lower_is_worse' || existing === 'higher_is_worse') continue;
         p.delta_ordering = p.id === 'score' ? 'higher_is_worse' : 'lower_is_worse';
+      }
+    }
+    return out;
+  },
+  // 54 → 55: backfill `profile.settings.analysisTabs` — the Analysis-tab
+  // layout (an ordered list of tabs, each a named subset of the panel
+  // registry). Phase 2 of the analysis-panel refactor. The default is the
+  // four-tab Basic / Distributions / Stability / Multiresolution split.
+  //
+  // FROZEN literal (do NOT edit to track a future re-default — that is a
+  // new migration): panel ids are the frozen registry values
+  // (`components/charts/panel-ids.ts`); the persisted blob is plain JSON,
+  // so no branding is applied here.
+  //
+  // Idempotent: a pre-existing non-empty `analysisTabs` array is preserved.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const settings = out.profile?.settings;
+    if (settings && typeof settings === 'object') {
+      const s = settings as { analysisTabs?: unknown };
+      if (!Array.isArray(s.analysisTabs) || s.analysisTabs.length === 0) {
+        s.analysisTabs = [
+          { id: 'basic', label: 'Basic', panelIds: ['score-lead', 'merged-delta'] },
+          { id: 'distributions', label: 'Distributions', panelIds: ['delta-distribution', 'mistake-gap'] },
+          { id: 'stability', label: 'Stability', panelIds: ['stability', 'stability-cross-correlation'] },
+          { id: 'multiresolution', label: 'Multiresolution', panelIds: ['multiresolution-interval'] },
+        ];
       }
     }
     return out;

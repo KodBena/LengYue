@@ -64,8 +64,9 @@ frontend/src/
 │   │
 │   ├── charts/                              ECharts wrappers. Mostly B2/B3; the renderer itself is generic.
 │   │   ├── AnalysisChartPanel.vue     [B3]  Standardised analysis chart panel host (visits, winrate, scoreLead, …).
-│   │   ├── AnalysisDashboard.vue      [B3]  Provides the per-board AnalysisContext + renders the panel-registry via <component :is> (panels self-source via inject); timeline is the persistent header.
-│   │   ├── panel-registry.ts          [B3]  Ordered registry of the Analysis-tab scrollable panels (id → component); AnalysisDashboard's render source + Phase-2 tab-assignment SSOT.
+│   │   ├── AnalysisDashboard.vue      [B3]  Provides the per-board AnalysisContext + tab strip; renders only the active tab's panels via <component :is> (panels self-source via inject); timeline is the persistent header.
+│   │   ├── panel-ids.ts               [B3]  SFC-free SSOT for the frozen analysis-panel id values (PANEL_ID); importable by the store (defaults/migration) without pulling SFCs.
+│   │   ├── panel-registry.ts          [B3]  Analysis-panel registry: id → component descriptors + ANALYSIS_PANELS_BY_ID lookup. Render source for AnalysisDashboard; resolves persisted tab panelIds.
 │   │   ├── AnalysisTimelinePanel.vue  [B3]  Rug-plot timeline + visits input + "Analyse selection" controls.
 │   │   ├── BaseChart.vue              [B1]  Generic ECharts wrapper with module-scoped legend memoisation.
 │   │   ├── card-tree-echarts.ts       [B2]  ECharts node/tooltip composer for the card-tree forest.
@@ -142,6 +143,7 @@ frontend/src/
 │   ├── analysis/                             KataGo-derived view models and chart wiring.
 │   │   ├── useActivityDecay.ts        [B1]  Leaky-integrator exponential-decay model (generic math).
 │   │   ├── useAnalysisContext.ts      [B3]  Per-board analysis context (projection + derived) shared to panels via provide/inject.
+│   │   ├── useAnalysisTabs.ts         [B3]  Analysis-tab state: persisted tab list (AppSettings.analysisTabs) + ephemeral active-tab selection. No component imports (resolution is the dashboard's job).
 │   │   ├── useAnalysisProjection.ts   [B3]  Projects raw board + analysis ledger to UI-ready view model.
 │   │   ├── useAnalysisTimeline.ts     [B3]  Owns the chart selection range + visit-vector from the ledger.
 │   │   ├── useChartNavigation.ts      [B3]  Pure black-box click+thumbnail handler for analysis charts.

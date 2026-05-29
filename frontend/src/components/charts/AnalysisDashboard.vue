@@ -8,19 +8,22 @@
   see useAnalysisContext and docs/notes/postmortem-render-coupling-at-
   composition-nodes-2026-05-29.md, Recommendation 2).
 
-  The scrollable panel set + order is the panel-registry (rendered via
-  <component :is>); the timeline scrubber is the persistent header, not a
-  registry panel. Phase 2 will assign registry subsets to tabs.
+  Panel layout (Phase 2): the scrollable panels are organised into
+  user-defined tabs (AppSettings.analysisTabs, resolved through the
+  panel-registry). Only the *active* tab's panels are rendered — the v-for
+  over `activePanels` unmounts the inactive tabs' panels entirely, so they
+  leave the frame (the regime-B win). The timeline scrubber is the
+  persistent header, above the tab strip; it is not a registry panel.
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { watch } from 'vue';
+import { computed, watch } from 'vue';
 import { provideAnalysisContext } from '../../composables/analysis/useAnalysisContext';
+import { useAnalysisTabs } from '../../composables/analysis/useAnalysisTabs';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
-import type { BoardId } from '../../types';
-
+import type { BoardId, AnalysisTabId } from '../../types';
 import AnalysisTimelinePanel from './AnalysisTimelinePanel.vue';
-import { ANALYSIS_PANELS } from './panel-registry';
+import { ANALYSIS_PANELS_BY_ID, type AnalysisPanelDescriptor } from './panel-registry';
 
 const props = defineProps<{ boardId: BoardId }>();
 
@@ -37,15 +40,52 @@ const { warmPath } = useThumbnailCache();
 watch(ctx.variationPath, (path) => {
   warmPath(path, props.boardId);
 }, { immediate: true });
+
+// Tab layout. Render only the active tab's panels.
+const { tabs, activeTab, setActiveTab } = useAnalysisTabs();
+
+// Resolve the active tab's panelIds to registry descriptors. A panelId not
+// in the registry (a removed/renamed panel orphaning a saved tab) is
+// dropped with a warning rather than crashing the render — ADR-0002
+// non-fatal degradation.
+const activePanels = computed<AnalysisPanelDescriptor[]>(() => {
+  const t = activeTab.value;
+  if (!t) return [];
+  const out: AnalysisPanelDescriptor[] = [];
+  for (const id of t.panelIds) {
+    const d = ANALYSIS_PANELS_BY_ID.get(id);
+    if (d) out.push(d);
+    else console.warn(`[AnalysisDashboard] tab "${t.label}" references unknown panel id "${id}" — dropping.`);
+  }
+  return out;
+});
+
+function onTabClick(id: AnalysisTabId): void {
+  setActiveTab(id);
+}
 </script>
 
 <template>
   <div class="dashboard">
     <AnalysisTimelinePanel />
 
+    <!-- Tab strip — hidden when there is only one tab (nothing to switch). -->
+    <div v-if="tabs.length > 1" class="tab-strip" role="tablist">
+      <button
+        v-for="tab in tabs"
+        :key="tab.id"
+        type="button"
+        role="tab"
+        class="tab"
+        :class="{ active: tab.id === activeTab?.id }"
+        :aria-selected="tab.id === activeTab?.id"
+        @click="onTabClick(tab.id)"
+      >{{ tab.label }}</button>
+    </div>
+
     <div class="scrollable-content">
       <component
-        v-for="panel in ANALYSIS_PANELS"
+        v-for="panel in activePanels"
         :is="panel.component"
         :key="panel.id"
       />
@@ -73,6 +113,27 @@ watch(ctx.variationPath, (path) => {
   background: var(--surface-0);
   gap: var(--space-default);
   padding: var(--space-medium);
+}
+.tab-strip {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+  border-bottom: 1px solid var(--surface-3);
+}
+.tab {
+  padding: 2px 10px;
+  font-size: var(--text-emphasis);
+  color: var(--text-2);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color var(--duration-default), border-color var(--duration-default);
+}
+.tab:hover { color: var(--text-1); }
+.tab.active {
+  color: var(--text-0);
+  border-bottom-color: var(--accent-primary);
 }
 .scrollable-content {
   flex: 1;
