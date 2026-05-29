@@ -2273,4 +2273,25 @@ export const archivedMigrations: Migration[] = [
     }
     return out;
   },
+  // 52 → 53: backfill `profile.settings.keybindings` (sparse map
+  // keyed by `KeybindingActionId`, default `{}` meaning "use
+  // registry defaults for all actions"). Phase 1 of the
+  // keybindings substrate (`docs/notes/keybindings-plan.md`):
+  // the field is defined and persisted but `useUserIORegistry`
+  // doesn't yet consume it — substrate-only landing.
+  //
+  // Idempotent: a pre-existing object is preserved unchanged so
+  // a forward-compat install that already wrote overrides keeps
+  // them.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const settings = out.profile?.settings;
+    if (settings && typeof settings === 'object') {
+      const s = settings as { keybindings?: unknown };
+      if (typeof s.keybindings !== 'object' || s.keybindings === null || Array.isArray(s.keybindings)) {
+        s.keybindings = {};
+      }
+    }
+    return out;
+  },
 ];

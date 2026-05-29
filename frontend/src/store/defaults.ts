@@ -6,6 +6,8 @@
 import type { AppSettings, ProfileState, UISession, ProfileId, ThumbnailSettings, CardSet, KnobId } from '../types';
 import { detectBrowserLocale } from '../i18n/locales';
 import { KATAGO_FIRST_REPORT_FLOOR_S } from '../engine/katago/limits';
+// SFC-free panel-id SSOT (no Vue imports — keeps this module pure).
+import { PANEL_ID } from '../components/charts/panel-ids';
 
 export const NIL_UUID = '00000000-0000-0000-0000-000000000000';
 
@@ -481,6 +483,17 @@ export const defaultSettings = {
   // authoritative action list with their default keys. See
   // `docs/notes/keybindings-plan.md` Phase 1.
   keybindings: {},
+  // Default Analysis-tab layout (see AppSettings.analysisTabs). Four tabs
+  // over the panel registry, Basic first (most-used). The Settings editor
+  // (Phase 3) lets users re-tab; migration 54 → 55 backfills this shape on
+  // legacy persisted blobs. Tab ids are branded via the trailing
+  // `as unknown as AppSettings` cast; panelIds use the PANEL_ID SSOT.
+  analysisTabs: [
+    { id: 'basic', label: 'Basic', panelIds: [PANEL_ID.scoreLead, PANEL_ID.mergedDelta] },
+    { id: 'distributions', label: 'Distributions', panelIds: [PANEL_ID.deltaDistribution, PANEL_ID.mistakeGap] },
+    { id: 'stability', label: 'Stability', panelIds: [PANEL_ID.stability, PANEL_ID.stabilityCrossCorrelation] },
+    { id: 'multiresolution', label: 'Multiresolution', panelIds: [PANEL_ID.multiresolutionInterval] },
+  ],
 } as const;
 
 export const defaultThumbnailSettings: ThumbnailSettings = {

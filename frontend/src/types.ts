@@ -96,6 +96,32 @@ export type BookmarkId = Brand<string, 'BookmarkId'>;
  */
 export type KeybindingActionId = Brand<string, 'KeybindingActionId'>;
 
+/**
+ * Stable identity of an analysis panel (the scrollable charts on the
+ * Analysis tab). Frozen-forever: it is the persistence key by which an
+ * `AnalysisTab` references a panel, so renaming one orphans any saved
+ * tab that points at it. Canonical id values live in the SFC-free
+ * `components/charts/panel-ids.ts`; the id→component registry is
+ * `components/charts/panel-registry.ts`.
+ */
+export type AnalysisPanelId = Brand<string, 'AnalysisPanelId'>;
+
+/** Stable identity of a user-defined analysis tab. */
+export type AnalysisTabId = Brand<string, 'AnalysisTabId'>;
+
+/**
+ * A user-defined Analysis-tab: a named, ordered subset of the panel
+ * registry. Persisted in `AppSettings.analysisTabs`; rendered one tab
+ * at a time (inactive tabs' panels unmount). `panelIds` referencing a
+ * panel no longer in the registry are dropped at resolution time
+ * (ADR-0002 — a removed/renamed panel, logged not crashed).
+ */
+export interface AnalysisTab {
+  readonly id: AnalysisTabId;
+  label: string;
+  panelIds: AnalysisPanelId[];
+}
+
 // Two distinct ways to count moves in a game; the project's prior practice
 // of typing both as bare `number` admitted a class of off-by-color bugs
 // (heatmap thumbnail hint indexed `variationPath` with a color-local move
@@ -1292,6 +1318,14 @@ export interface AppSettings {
    * legacy persisted blobs.
    */
   keybindings: Partial<Record<KeybindingActionId, string | null>>;
+  /**
+   * User-defined Analysis-tab layout: an ordered list of tabs, each a
+   * named, ordered subset of the panel registry. The default (migration
+   * 54 → 55 / `defaults.ts`) is the four-tab Basic / Distributions /
+   * Stability / Multiresolution split. Phase 3's Settings editor mutates
+   * this; the dashboard renders only the active tab.
+   */
+  analysisTabs: AnalysisTab[];
 }
 
 export interface UISession {
