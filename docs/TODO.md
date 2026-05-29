@@ -477,7 +477,11 @@ budget) — the user-perceived sluggishness, substantiated. Three levers:
   normalize+merge in `analysis-service.ts::onAnalysisUpdate`, 73 ms
   main-thread blocks)* — its own arc, medium risk. See
   `docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md` Bug C + its
-  incidental finds.
+  incidental finds. RB-3's concurrency / cancellation / subscription-
+  lifetime surface is the named revisit trigger for full Effect-TS,
+  held in reserve by the typed-effect-documentation plan
+  (`docs/notes/typed-effect-documentation-plan.md`, deferred until the
+  current analysis-panel refactor / perf arc completes).
 
 ### Large — structural changes that introduce new abstractions
 
