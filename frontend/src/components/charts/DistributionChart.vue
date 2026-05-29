@@ -293,12 +293,17 @@ function renderChart() {
   // during streaming the structure is stable (same cohorts, same band
   // presence), so the hot path is the cheap merge. Mirrors BaseChart's
   // `namesChanged` gate. Lossless: same KDE, same resolution, same
-  // data — only the ECharts write path differs. lazyUpdate batches the
-  // canvas render into the next frame, off the setTimeout callback.
+  // data — only the ECharts write path differs.
+  //
+  // No lazyUpdate: a single throttled redraw per window has nothing to
+  // batch, and deferring the paint into the next rAF only loads the
+  // already-saturated regime-B frames (measured: +9% RefreshDriverTick
+  // p50 when lazyUpdate was on). Keeping the now-incremental paint
+  // synchronous in the throttle's setTimeout holds it off the frame path.
   const sig = option.series.map((s: { name: string; type: string }) => `${s.name}:${s.type}`).join('|');
   const structureChanged = sig !== lastStructureSig;
   lastStructureSig = sig;
-  chartInstance.setOption(option, { notMerge: structureChanged, lazyUpdate: true });
+  chartInstance.setOption(option, { notMerge: structureChanged });
 }
 
 /**
