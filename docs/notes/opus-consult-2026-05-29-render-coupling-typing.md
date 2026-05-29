@@ -218,3 +218,51 @@ So the theory's verdict, mapped onto the project: **the bug class is the compone
 - The [devblogs.sh writeup](https://devblogs.sh/posts/seven-implementations-of-incremental) and SolidJS tutorial pages returned HTTP 403 to the fetcher; their content is represented here only via search-result summaries.
 
 **Asserted from general PL knowledge, NOT empirically verified (Issue 1c):** the analysis of phantom/capability types, effect systems (row-typed effects as the theoretical home for "reads a reactive cell"), and linear/affine types being the wrong tool. These are reasoning about type-system capabilities, not citations.
+
+---
+
+## Appendix — verbatim prompt used to elicit this consult
+
+Added 2026-05-29 at the maintainer's request, for reproducibility. The exact
+brief given to the firewall agent (Opus 4.8, independent, web-enabled):
+
+````text
+You are providing an independent "analytic firewall" second opinion for the maintainer of a Vue 3 + TypeScript SPA. You have NO stake in the prior conclusion below — reason independently, and you are explicitly invited to challenge, refine, or OVERTURN the claim under review. Use web search/fetch for the empirical parts (issues 2 and 3). Your verbatim output will be saved to disk as a consult record, so make it self-contained, well-structured, and citeable (include URLs you actually fetched/verified, and clearly mark anything you could not verify).
+
+## Background — the concrete situation (stated neutrally)
+
+A Vue 3 + TypeScript SPA went through a performance arc. The relevant Vue mechanic: when a component's *render function* reads a reactive value (a `ref`/`computed`/`reactive`-object property), that component's render effect subscribes to it; when the value changes the component re-renders — re-running its render fn and patching its subtree. This granularity is **per-component**: reading a reactive value in a component high in the tree re-renders that component and walks/patches its whole subtree (descendant components bail out only if their props/directives are unchanged).
+
+A recurring performance anti-pattern was found and fixed. Shape: a **composition / orchestration / chrome** component — one whose job is wiring children together, NOT displaying the datum — reads a **high-frequency** reactive value in its render (typically to thread it down as a prop), coupling its whole subtree's re-render rate to that value's update frequency. Found in four places: the app root reading the move-cursor (re-renders per navigation keypress) and engine telemetry metrics (~25 updates/sec during analysis); an analysis-panel "orchestrator" reading packet-derived chart series (re-renders per streamed engine packet); and a toolbar reading live evaluation data. The fixes moved the reads down to the leaf that actually displays the datum (leaves "self-source" the value from the global store / composables) so the orchestrator stops re-rendering.
+
+The distinguishing test used was role-based: a *leaf that displays* the value reading it is correct; a *composition node* reading it is the bug.
+
+## The claim under review (verbatim from the postmortem)
+
+> "Through TypeScript's type system: no [this could not have been prevented]. The coupling is a property of *when and where a reactive read happens at runtime*, not of any value's *shape*. TS types describe shapes; they cannot encode 'this ref updates at 25 Hz' or 'this read occurs in a render at tree depth 1.' Branded types, discriminated unions, `readonly` — none can express 'do not read me in a composition node's render.' ... typing no; convention + lint + profiling, partially."
+
+The maintainer does not disagree in principle but suspects "there's room for thinking around it." Your job is to give a deeper, independent take. Address THREE loosely-related issues:
+
+### Issue 1 — Type-system / API-design angle
+In plain terms of TypeScript classes/contracts/interfaces, parametric polymorphism, and abstractions for pub/sub: is the claim right that types can't help? Push harder than vanilla branded types. Consider at least:
+- Crossing component boundaries with **accessors/getters** (`type Accessor<T> = () => T`, the SolidJS pattern) or **observables/streams** rather than eagerly-read values, so the *read* is deferred to the consumer (the leaf). Is this type-expressible? Does it structurally prevent the coupling, or merely relocate it? Is *this* the honest answer the maintainer is reaching for?
+- Phantom/capability types, "high-frequency" branded markers, effect systems, linear/affine types — can any make "eager read at a composition boundary" a *type error*, or at least *loud at the boundary*?
+- Be precise about the line between "the TS type-CHECKER cannot catch this" (probably true) and "a typed API/CONTRACT can make the anti-pattern unrepresentable or loud" (possibly true and the more useful framing). Distinguish what the checker can enforce vs. what an API shape can structurally prevent.
+
+### Issue 2 — Is this a recognized issue in Vue?
+Search the Vue project and ecosystem for whether this over-rendering-from-reading-reactive-state-high-in-the-tree pattern is recognized. Look at https://github.com/vuejs/core and https://github.com/vuejs/docs (issues, discussions, RFCs, docs), and Vue core-team writing. Specifically investigate:
+- Official docs guidance on render granularity, `v-memo`, props stability, `shouldComponentUpdate`-equivalents.
+- **Vapor mode** and the signals / fine-grained-reactivity direction in Vue 3.5/3.6+ — does Vue's own roadmap make this anti-pattern structurally obsolete (i.e., in a signals/Vapor model, does reading a reactive value high in the tree still re-render the subtree, or does it update only the specific binding)?
+- Any official framing of "component-granularity re-render vs fine-grained reactivity." Cite specific issues/RFCs/docs/URLs you verify.
+
+### Issue 3 — Reactive-systems research / theory
+Survey the relevant framing:
+- Fine-grained reactivity / signals (SolidJS, Svelte 5 runes, Vue Vapor, Knockout-lineage) vs virtual-DOM component-granularity reactivity — characterize precisely how the "where you read it" coupling exists in one model and largely vanishes in the other, and what that costs (the tradeoff).
+- FRP and incremental computation: Jane Street's "Breaking down FRP" (fetch https://blog.janestreet.com/breaking-down-frp/) and the Incremental library lineage. The maintainer recalls Yaron Minsky describing a reactivity-scoped "trilemma" in the "Seven Implementations of Incremental" talk — a writeup may not exist. Search for it; if you cannot find the exact trilemma, say so plainly and reconstruct the closest well-attested tradeoff framing (e.g. granularity vs. overhead vs. simplicity; push vs. pull vs. glitch-freedom; the FRP "first-order vs higher-order" and space-leak tradeoffs).
+- The general principle: is "read locality" a known concern with a known theory, and what does the theory say the right *structural* fix is?
+
+## Deliverable
+An independent assessment that (a) states clearly whether the "typing: no" claim is RIGHT, TOO STRONG, or TOO WEAK, and exactly why; (b) addresses all three issues with verifiable citations (URLs); (c) gives the maintainer the concrete "room for thinking" — the most defensible position on "could typing / abstraction / architecture have prevented this class, and what is the honest framing." Be adversarial toward the claim where warranted; corroborate only where the evidence supports it. Flag clearly anything you assert from general knowledge vs. anything you verified via fetch. Structured prose with headers; it will be saved verbatim as a consult record.
+
+Optional references in the repo if you want the full original context (read independently, do not anchor on its conclusions): `docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md` and the sibling `perf-audit-game-scroll-2026-05-28.md` / `perf-audit-range-query-nav-2026-05-29.md`.
+````

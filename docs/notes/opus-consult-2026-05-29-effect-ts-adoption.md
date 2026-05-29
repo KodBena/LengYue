@@ -633,3 +633,42 @@ primary sentence):**
   benchmarked claim. It is the most defensible *candidate*, offered as such.
 - The "buying the runtime to get the type-row" proportionality framing is an
   analytic judgment, not a citation.
+
+---
+
+## Appendix — verbatim prompt used to elicit this consult
+
+Added 2026-05-29 at the maintainer's request, for reproducibility (repo-root
+paths normalized to repo-relative). The exact brief given to the follow-up
+firewall agent (Opus 4.8, independent, web-enabled):
+
+````text
+You are providing a follow-up "analytic firewall" second opinion for the maintainer of a Vue 3 + TypeScript SPA. Reason independently; be adversarial where warranted; use web search/fetch for empirical claims and cite verifiable URLs, flagging clearly what you verified vs. asserted from general knowledge. Your verbatim output will be saved as a follow-up consult record, so make it self-contained and well-structured.
+
+## Continuity (read these first, for context — do not anchor on their conclusions)
+- Prior firewall consult (your predecessor's findings): `docs/notes/opus-consult-2026-05-29-render-coupling-typing.md`. Key prior conclusions you can take as established: (i) a render-coupling anti-pattern exists in this app (composition components reading high-frequency reactive state in their render couple a whole subtree's re-render); (ii) TypeScript's type-CHECKER can't detect it but a typed CONTRACT (accessors `() => T`) can dissolve it; (iii) Vue's Vapor Mode / Vue 3.6 (fine-grained, alien-signals) makes the class structurally obsolete.
+- The postmortem the maintainer is iterating on: `docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`.
+
+## The new question
+The maintainer is weighing whether to adopt **Effect-TS** (the `effect` library, effect.website) **project-wide**, and has CLARIFIED the motivation — this reframes everything, so calibrate to it:
+
+- The motivation is **NOT primarily to fix the Vue reactivity coupling.** He explicitly accepts that Effect-TS may not be ergonomic for Vue reactivity, and that's fine — under Vapor that benefit fades anyway. **Do not spend effort on "can Effect-TS model Vue reactive reads."**
+- **PRIMARY value sought:** effectful typing as **documentation** for *reasonable effectful computations generally* — errors, async, dependencies/DI, IO/resource — made explicit in type signatures.
+- **SECONDARY named goal:** using the effect-typed surface to **audit pure-vs-impure code smells** — surfacing functions/methods that shouldn't do both pure and impure work.
+
+The maintainer has a Haskell / formal-methods background; effect-system concepts (IO monad, algebraic effects, row-typed effects) are familiar — calibrate the depth accordingly. The project's stated primary ethos is "type sanity / comprehensive typing as documentation," so Motivation B is in-character, not a tangent.
+
+Research and answer THREE sharpened questions, each with verifiable citations:
+
+### Q1 — Effect-TS maturity + incremental-adoption viability
+Current maturity / API stability / churn / ecosystem health / production track record of Effect-TS **as of now** (check version, release cadence, notable adopters, whether the API is still moving). Crucially: **can it be adopted incrementally** in an existing mid-sized Vue 3 + TS SPA — effectful boundaries first (HTTP/API client, WebSocket, persistence, services) — interoperating with plain TS and the Vue Composition API, WITHOUT an all-or-nothing rewrite? What does a realistic gradual-adoption path, learning curve, and blast radius look like? Cite docs/issues/adopter reports.
+
+### Q2 — Documentation + purity-audit fit (the maintainer's actual goal), and proportionality
+Setting reactivity aside: (a) How well does Effect-TS serve as typed in-signature documentation of effectful computation (errors `E`, requirements `R`, async, resource)? (b) Does its `Effect`-typed surface actually help **audit pure-vs-impure boundaries** — i.e., does adopting it make "this function mixes pure and effectful work" visible/lintable, flagging functions that shouldn't do both? Is there established practice/tooling for that purity-audit use? (c) ADVERSARIAL: are there **lighter alternatives** that achieve the documentation + purity-audit goals at materially lower cost — e.g., `neverthrow` (typed errors), `fp-ts`, `eslint-plugin-functional` or a custom purity lint, effect-suffix naming conventions, or a thin `IO<T>`/branded-impure wrapper? Where does the full Effect-TS paradigm *earn its weight* over those, given the maintainer's specific goals (documentation + purity audit, NOT the broader concurrency/fiber/scheduling machinery Effect-TS is famous for)? Be honest about whether the maintainer would be paying for a large runtime + paradigm to get a documentation/audit benefit a lighter tool could give.
+
+### Q3 — Coexistence with a future Vapor migration, and sequencing
+Effect-TS is render-model-orthogonal, but verify: any known friction between Effect-TS patterns and Vue SFCs / Composition API / `<script setup>` (e.g., running `Effect` programs from composables, lifecycle, reactivity interop pitfalls)? Does Vapor Mode change anything relevant to Effect-TS coexistence? Plus Vapor's current maturity/timeline — does it argue for adopting Effect-TS now, or sequencing the two (and in which order)?
+
+## Deliverable
+An independent, citeable, self-contained assessment answering Q1–Q3, with an explicit bottom-line recommendation framed around the maintainer's actual goals (documentation + purity audit), including the adversarial "is Effect-TS proportionate, or is a lighter tool the better fit" verdict. Structured prose with headers; saveable verbatim. Mark verified-vs-asserted throughout.
+````
