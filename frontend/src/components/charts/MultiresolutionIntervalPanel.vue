@@ -17,29 +17,26 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 import HeatmapChart             from './HeatmapChart.vue';
 import {
   colorMoveToPly,
   useTriangularHeatmap,
   type HeatmapCell,
 } from '../../composables/analysis/useTriangularHeatmap';
-import type { BoardId, NodeId, PlyIndex } from '../../types.ts';
+import { injectAnalysisContext } from '../../composables/analysis/useAnalysisContext';
 
-const props = defineProps<{
-  boardId:        BoardId;
-  variationPath:  NodeId[];
-  selectionRange: [PlyIndex, PlyIndex];
-}>();
-
-const emit = defineEmits<{
-  (e: 'update:selectionRange', value: [PlyIndex, PlyIndex]): void;
-}>();
+// Phase-0 projection seam: self-source from the injected AnalysisContext;
+// the cell-click selection routes through the context mutator (was an
+// emit the dashboard re-wired to setSelectionRange).
+const ctx = injectAnalysisContext();
+const boardId        = ctx.boardId;
+const variationPath  = ctx.variationPath;
+const selectionRange = ctx.selectionRange;
 
 const expanded = ref(true);
 
-const pathRef = computed(() => props.variationPath);
-const heatmapResults = useTriangularHeatmap(pathRef);
+const heatmapResults = useTriangularHeatmap(variationPath);
 
 function handleCellClick(cell: HeatmapCell) {
   // s ≤ t holds by the proxy's Triangular() contract, so order-preserving
@@ -48,7 +45,7 @@ function handleCellClick(cell: HeatmapCell) {
   // tooltip uses.
   const startTurn = colorMoveToPly(cell.s, cell.color);
   const endTurn   = colorMoveToPly(cell.t, cell.color);
-  emit('update:selectionRange', [startTurn, endTurn]);
+  ctx.setSelectionRange([startTurn, endTurn]);
 }
 </script>
 

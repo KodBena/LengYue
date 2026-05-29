@@ -8,18 +8,16 @@
 import { computed, ref } from 'vue';
 import HorizontalTimelineVisualizer from '../tree/HorizontalTimelineVisualizer.vue';
 import { store } from '../../store';
+import { injectAnalysisContext } from '../../composables/analysis/useAnalysisContext';
 import type { PlyIndex } from '../../types';
 
-const props = defineProps<{
-  visitVector:    number[];
-  selectionRange: [PlyIndex, PlyIndex];
-  engineConnected: boolean;
-}>();
-
-const emit = defineEmits<{
-  (e: 'update:selectionRange', value: [PlyIndex, PlyIndex]): void;
-  (e: 'analyze', visits: number): void;
-}>();
+// Phase-0 projection seam: self-source from the injected AnalysisContext.
+// The range-select and analyse actions call the context's mutators
+// directly (was: emits the dashboard re-wired to the same mutators).
+const ctx = injectAnalysisContext();
+const visitVector     = ctx.visitVector;
+const selectionRange  = ctx.selectionRange;
+const engineConnected = ctx.engineConnected;
 
 const visits = ref(200);
 
@@ -30,7 +28,7 @@ const visits = ref(200);
 const visitsMax = computed(() => store.profile.settings.engine.katago.ponderMaxVisits);
 
 const selectionNodeCount = computed(() =>
-  Math.max(0, Math.round(props.selectionRange[1] - props.selectionRange[0]))
+  Math.max(0, Math.round(selectionRange.value[1] - selectionRange.value[0]))
 );
 
 // Boundary brand-cast: HorizontalTimelineVisualizer is band-1
@@ -41,7 +39,11 @@ const selectionNodeCount = computed(() =>
 // by construction. One cast at the band-1 → branded boundary; consumers
 // above (the store, useAnalysisTimeline) see the brand.
 function onRangeUpdate(r: [number, number]): void {
-  emit('update:selectionRange', r as [PlyIndex, PlyIndex]);
+  ctx.setSelectionRange(r as [PlyIndex, PlyIndex]);
+}
+
+function onAnalyze(): void {
+  ctx.analyzeSelection(visits.value);
 }
 </script>
 
@@ -78,7 +80,7 @@ function onRangeUpdate(r: [number, number]): void {
       <button
         class="analyze-btn"
         :disabled="!engineConnected || selectionNodeCount === 0"
-        @click="emit('analyze', visits)"
+        @click="onAnalyze"
       >
         {{ $t('analysisTimeline.analyseSelection', { n: selectionNodeCount }) }}
       </button>

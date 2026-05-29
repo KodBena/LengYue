@@ -6,41 +6,29 @@
 import { ref, watch } from 'vue';
 import AnalysisChartPanel from './AnalysisChartPanel.vue';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
-import type { BoardId, NodeId, PlyIndex } from '../../types';
+import { injectAnalysisContext } from '../../composables/analysis/useAnalysisContext';
 
-// Branded-type signature discipline (Commit 5a): boardId and variationPath
-// are tightened from `string` and `string[]` to BoardId/NodeId[]. Both
-// values flow down from AnalysisDashboard, ultimately sourced from
-// BoardState. The previous loose signature was a signature lie that
-// forced a downstream type mismatch when variationPath[idx] is passed
-// to getThumbnailSvg (whose parameter was tightened in Commit 2a).
-//
-// selectionRange is `[PlyIndex, PlyIndex]` per `BoardState.analysisRange`'s
-// brand. activeIndex stays bare `number | null`: ScoreLeadPanel's series
-// indexes the variation path, so semantically it's a PlyIndex, but
-// AnalysisChartPanel's shared activeIndex prop is consumed polymorphically
-// (PlayerPanel passes ColorMoveIndex), so the brand belongs at this
-// caller's API surface only if/when ScoreLeadPanel itself becomes a
-// brand boundary. Leaving it bare here matches the design call recorded
-// in the PlayerPanel brand commit's closure note.
-const props = defineProps<{
-  series:         any[];
-  boardId:        BoardId;
-  variationPath:  NodeId[];
-  selectionRange: [PlyIndex, PlyIndex];
-  activeIndex:    number | null;
-  onIndexClick?: (turnIdx: number) => void;
-}>();
+// Phase-0 projection seam: self-source the chart's view-model from the
+// injected AnalysisContext rather than prop-drilled slices, so the
+// dashboard no longer re-renders to feed this panel. The local names
+// mirror the prior props, so the template bindings are unchanged.
+const ctx = injectAnalysisContext();
+const series         = ctx.mainSeries;
+const boardId        = ctx.boardId;
+const variationPath  = ctx.variationPath;
+const selectionRange = ctx.selectionRange;
+const activeIndex    = ctx.activeMainIndex;
+const onIndexClick   = ctx.navigation.handleMainClick;
 
 const { getThumbnailSvg } = useThumbnailCache();
 const preview = ref('');
 
 /** Reverts the preview box to the current board position */
 async function resetPreview() {
-  if (props.activeIndex !== null) {
-    const nodeId = props.variationPath[props.activeIndex];
+  if (activeIndex.value !== null) {
+    const nodeId = variationPath.value[activeIndex.value];
     if (nodeId) {
-      preview.value = await getThumbnailSvg(nodeId, props.boardId, false);
+      preview.value = await getThumbnailSvg(nodeId, boardId, false);
     }
   } else {
     preview.value = '';
@@ -48,12 +36,12 @@ async function resetPreview() {
 }
 
 // Watch activeIndex to ensure the default view stays current
-watch(() => props.activeIndex, resetPreview, { immediate: true });
+watch(activeIndex, resetPreview, { immediate: true });
 
 async function handleHover(turnIdx: number) {
-  const nodeId = props.variationPath[turnIdx];
+  const nodeId = variationPath.value[turnIdx];
   if (nodeId) {
-    preview.value = await getThumbnailSvg(nodeId, props.boardId, false);
+    preview.value = await getThumbnailSvg(nodeId, boardId, false);
   }
 }
 
