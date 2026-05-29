@@ -473,15 +473,20 @@ budget) — the user-perceived sluggishness, substantiated. Three levers:
   ECharts `setOption` per packet + `AnalysisChartPanel` ~2.6× thrash per
   update)* → owned by the analysis-panel refactor (the "Analysis tab —
   user-customisable sub-tabs" Future project below).
-- **RB-3 — packet-receive-path chunking** *(~2.35 s; synchronous
-  normalize+merge in `analysis-service.ts::onAnalysisUpdate`, 73 ms
-  main-thread blocks)* — its own arc, medium risk. See
-  `docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md` Bug C + its
-  incidental finds. RB-3's concurrency / cancellation / subscription-
-  lifetime surface is the named revisit trigger for full Effect-TS,
-  held in reserve by the typed-effect-documentation plan
-  (`docs/notes/typed-effect-documentation-plan.md`, deferred until the
-  current analysis-panel refactor / perf arc completes).
+- ~~**RB-3 — packet-receive-path chunking**~~ *(measured 2026-05-29 —
+  **NOT a bottleneck; closed**)*. Instrumented and re-measured on current
+  `main` (post analysis-panel refactor): the `onAnalysisUpdate` receive
+  handler is ~99 ms total (p50 0.2 ms/packet), not the "~2.35 s / 73 ms"
+  the pre-refactor audit attributed to it — that was the version-bump
+  render cascade + pre-refactor chart work since cut. No chunking lever to
+  build. The residual regime-B cost is the render cascade itself (~9.9 s of
+  microtask flushes — death by a thousand cuts, no single fat target); the
+  structural lever is Vapor Mode, micro-opts are diminishing returns.
+  **The named Effect-TS reserve trigger therefore did NOT fire** — there is
+  no concurrency / resource-scoping arc here, so the light stack remains
+  sufficient (`docs/notes/typed-effect-documentation-plan.md` §5/§6; add a
+  sibling note there when that arc opens). Diagnosis:
+  `docs/worklog/2026-05-29-perf-rb3-diagnosis.md`.
 
 ### Large — structural changes that introduce new abstractions
 
