@@ -14,6 +14,7 @@ import {
   type HeatmapDatum,
 } from '../../composables/analysis/useTriangularHeatmap';
 import type { BoardId, NodeId } from '../../types';
+import { STABILITY_HEATMAP_REDRAW_THROTTLE_MS as THROTTLE_MS } from '../../lib/timing';
 
 const { getSync } = useThumbnailCache();
 
@@ -73,11 +74,6 @@ let initTimeout: number | null = null;
 // in `docs/TODO.md` — when ECharts is replaced for this surface the
 // throttle constant and the split-path machinery become renderer
 // configuration rather than ECharts-specific workarounds.
-
-// magic-literal: 250ms throttle window. Chosen as the crossover where
-// 4 Hz still feels responsive for slow-moving summary data while
-// reducing redraw work ~15× vs. the upstream RAF rate.
-const THROTTLE_MS = 250;
 
 type UpdateMode = 'full' | 'data' | 'axes';
 const modeRank: Record<UpdateMode, number> = { axes: 0, data: 1, full: 2 };

@@ -66,20 +66,8 @@ import { store, boardsSetVersion } from '../store';
 import { analysisPersistenceService } from '../services/analysis-persistence-service';
 import { parseStorageError } from '../services/analysis-bundle';
 import type { BoardId } from '../types';
-
-/**
- * Debounce window for the leading-edge schedule.
- *
- * magic-literal: 2000 ms is the trailing edge of the analyze-
- * burst pattern. A typical analyze-range completing N final
- * packets at ~10-50 ms intervals settles within a few hundred
- * milliseconds; setting the window to 2 s absorbs the typical
- * burst while keeping the user-visible "Saved … just now"
- * subtitle responsive on the persist-box. Larger windows would
- * coalesce more aggressively but feel laggy; smaller windows
- * would PUT-spam mid-burst.
- */
-const AUTO_SAVE_DEBOUNCE_MS = 2000;
+// Coalescing window centralised in the timing catalog (auditable surface).
+import { AUTO_SAVE_DEBOUNCE_MS } from '../lib/timing';
 
 export interface AutoSaveHandle {
   /** Cancel all pending timers and tear down the watcher. */

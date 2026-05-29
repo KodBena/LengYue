@@ -38,6 +38,7 @@ import {
   type KdePoint,
 } from '../../lib/distributions';
 import { themeColor } from '../../utils/theme-color';
+import { DISTRIBUTION_REDRAW_THROTTLE_MS as THROTTLE_MS } from '../../lib/timing';
 
 export interface DistributionSeries {
   /** Legend entry + tooltip key. ECharts toggles all series sharing
@@ -72,17 +73,6 @@ const chartRef = ref<HTMLElement | null>(null);
 let chartInstance: echarts.ECharts | null = null;
 let resizeObserver: ResizeObserver | null = null;
 
-// magic-literal: 250 ms trailing-throttle window for redraws. Matches
-// HeatmapChart's THROTTLE_MS — 4 Hz keeps a slow-moving summary
-// distribution responsive while collapsing the adaptive-query delta
-// floods into one redraw per window. (During an adaptive query's
-// adaptive phase every packet that touches a previously-seen turn
-// forwards a fresh delta for that turn and its delta-window neighbours,
-// so the KDE source churns at the packet rate — a data-changed gate
-// wouldn't help there; only a time window does.) Each redraw is a full
-// `notMerge: true` KDE rebuild whose cost is tail-heavy (p99 ~75 ms),
-// so coalescing bursts directly cuts the dropped-frame pileups.
-const THROTTLE_MS = 250;
 let pendingTimer: number | null = null;
 let lastRenderAt = -Infinity;
 // Last-rendered ECharts series structure signature (cohort names ×

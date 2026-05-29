@@ -1,5 +1,6 @@
 import { ref, computed, watch, type Ref } from 'vue';
 import { debounce } from '../../lib/utils';
+import { TIMELINE_SELECTION_DEBOUNCE_MS } from '../../lib/timing';
 
 export interface Segment {
   start: number;
@@ -16,7 +17,7 @@ export interface Segment {
  * Composable for timeline logic.
  * Handles contiguous segment calculation, selection range state, and debounced updates.
  */
-export function useTimelineLogic(dataVector: Ref<number[]>, debounceMs = 150) {
+export function useTimelineLogic(dataVector: Ref<number[]>, debounceMs = TIMELINE_SELECTION_DEBOUNCE_MS) {
   /**
    * Computes contiguous segments where values are > 0.
    * A segment is defined as a contiguous block of indices where data is present.

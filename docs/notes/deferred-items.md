@@ -33,6 +33,29 @@ this file.
 
 ## Open items
 
+### Scattered non-coalescing timing literals
+
+- **Surfaced:** 2026-05-29.
+- **Concern:** `frontend/src/lib/timing.ts` now centralises the
+  reactivity-*coalescing* windows (debounce / throttle intervals)
+  into one auditable surface. The adjacent timing literals of a
+  *different* category remain scattered — each named and documented
+  at its use-site, but not catalogued together: timeouts
+  (`KATAGO_ANALYSIS_TIMEOUT_MS` 30 s in `useReviewSession`,
+  `DEFAULT_TIMEOUT_MS` 60 s in `usePlayFromPosition`), display
+  durations (`REVEAL_DURATION_MS` 8 s in `useTransientLogReveal`),
+  and interaction delays (`DEFAULT_CLOSE_DELAY_MS` 150 ms in
+  `useHoverPopover`). They were deliberately kept out of the
+  coalescing refactor to preserve its semantic clarity — folding
+  "how long before we give up" together with "how often we redraw"
+  dilutes the "this is the coalescing tuning surface" reading.
+- **Suggested next action:** Decide whether to (a) leave them in
+  place (each is already magic-literal compliant — this is an
+  auditability nicety, not a compliance gap), (b) add a sibling
+  `timeouts` / `durations` catalog, or (c) extend `timing.ts` with
+  clearly-sectioned categories. Low priority; the coalescing
+  surface was the actual smell flagged by the user.
+
 ### ADR-effectiveness audits
 
 - **Surfaced:** 2026-04-26.
