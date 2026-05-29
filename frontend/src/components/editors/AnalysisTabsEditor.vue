@@ -145,7 +145,10 @@ function reassignPanel(panelId: AnalysisPanelId, toTabId: string): void {
 .tab-block {
   border: 1px solid var(--surface-3);
   border-radius: var(--radius-default);
-  background: var(--surface-1);
+  /* --surface-0, not --surface-1: on the default "cluster" theme
+     --surface-1 is dark-grey and low-contrast under the black default
+     text (see memory: --surface-1 is exception-only in this SPA). */
+  background: var(--surface-0);
   padding: var(--space-default);
 }
 .tab-head { display: flex; align-items: center; gap: 4px; margin-bottom: var(--space-default); }

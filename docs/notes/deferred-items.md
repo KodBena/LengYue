@@ -33,6 +33,22 @@ this file.
 
 ## Open items
 
+### `--surface-1` backgrounds (low-contrast on the default theme)
+
+- **Surfaced:** 2026-05-29 (Phase-3 tab-editor review).
+- **Concern:** `var(--surface-1)` resolves to a dark-grey on the
+  default "cluster" theme; under the black default text it reads as
+  low-contrast and tiring. It is almost never the right background —
+  `--surface-0` is the default for content / cards / inputs, and any
+  `--surface-1` should be a justified exception. The Phase-3 editor's
+  `.tab-block` shipped with `--surface-1` and was fixed to `--surface-0`;
+  a few other call sites still use it, unaudited.
+- **Suggested next action:** `grep -rn "surface-1" frontend/src` and
+  excise the non-deliberate usages (→ `--surface-0`, or annotate the
+  genuine exceptions with a justification comment). Low priority —
+  cosmetic/contrast, not functional. The convention is recorded in the
+  assistant memory `feedback-surface-1-exception-only`.
+
 ### Scattered non-coalescing timing literals
 
 - **Surfaced:** 2026-05-29.
