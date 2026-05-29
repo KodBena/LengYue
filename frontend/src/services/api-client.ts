@@ -244,7 +244,6 @@ export class ApiClient {
     const res = await this.request<any>('POST', '/auth/token', params);
     this.token = res.access_token;
     localStorage.setItem(USER_KEY, username);
-    console.log(`[API] Logged in as ${username}`);
   }
 
   /**
@@ -256,7 +255,6 @@ export class ApiClient {
     if (password) body.password = password;
 
     await this.request('POST', '/auth/register', body);
-    console.log(`[API] Registered ${username}`);
   }
 
   /**
@@ -293,7 +291,6 @@ export class ApiClient {
   public clearToken(): void {
     this.token = null;
     localStorage.removeItem(USER_KEY);
-    console.log('[API] Token cleared.');
   }
 
   /**
@@ -350,7 +347,6 @@ export class ApiClient {
     try {
       await this.login(defaultUser);
     } catch (err) {
-      console.log('[API] local_user login failed. Attempting registration...');
       try {
          await this.register(defaultUser);
          await this.login(defaultUser);

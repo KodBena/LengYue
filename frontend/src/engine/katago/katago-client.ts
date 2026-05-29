@@ -44,17 +44,14 @@ export class KataGoClient {
     this.callbacks = callbacks;
 
     if (this.ws?.readyState === WebSocket.OPEN || this.isConnecting) {
-      if (import.meta.env.DEV) console.log(`[katago-client] Already connected or connecting to ${this.url}`);
       return;
     }
 
-    if (import.meta.env.DEV) console.log(`[katago-client] Attempting connection to ${this.url}`);
     this.isConnecting = true;
     this.ws = new WebSocket(this.url);
 
     this.ws.onopen = () => {
       this.isConnecting = false;
-      if (import.meta.env.DEV) console.log(`[katago-client] Connected to KataGo backend.`);
       // Notify parent of fresh connection so it can probe the
       // engine identity (version + models). Fires on each open —
       // initial connection and every reconnect — so a service
@@ -69,8 +66,7 @@ export class KataGoClient {
     this.ws.onclose = (event) => {
       this.isConnecting = false;
       this.ws = null;
-      if (import.meta.env.DEV) console.log(`[katago-client] Disconnected. Code: ${event.code}`);
-      
+
       // Notify parent of unexpected disconnects
       if (this.callbacks) {
         this.callbacks.onDisconnect(event.code, event.reason);
@@ -122,7 +118,6 @@ export class KataGoClient {
     this.sendRaw(query);
 
     return () => {
-      if (import.meta.env.DEV) console.log(`[katago-client] Removing listener for id=${id}`);
       const callbacks = this.subscribers.get(id);
       if (callbacks) {
         callbacks.delete(onUpdate);
@@ -151,8 +146,6 @@ export class KataGoClient {
   }
 
   public disconnect(): void {
-    if (import.meta.env.DEV) console.log(`[katago-client] Closing connection.`);
-    
     // Unset callbacks so intentional disconnects don't trigger the error UI
     this.callbacks = undefined;
     this.ws?.close();
