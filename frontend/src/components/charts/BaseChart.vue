@@ -21,6 +21,7 @@ export const globalLegendState: Record<string, boolean> = reactive({});
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import * as echarts from 'echarts';
 import { themeColor } from '../../utils/theme-color';
+import { CHART_MARKER_DEBOUNCE_MS as DEBOUNCE_MS } from '../../lib/timing';
 
 const props = defineProps<{
   series: any[];
@@ -95,7 +96,6 @@ const props = defineProps<{
 
 let markerTimer: number | null = null;
 let lastMarkerTime = 0;
-const DEBOUNCE_MS = 60; 
 
 // Two pieces of dead code were removed from this module during the
 // strict-mode build sweep:
