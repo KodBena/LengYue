@@ -31,34 +31,66 @@ context instead of props.
 
 ## Measurement (ADR-0009)
 
-Before/after pair, regime B (navigate while a range query streams), ~31 s,
-~1708 / ~1801 keydowns.
+Before/after pair, regime B (navigate while a range query streams).
 
-- before: `~/perf-profiles/capture-during-range-query.json.gz`
-- after:  `~/perf-profiles/capture-during-range-query-phase0.json.gz`
+- before: `~/perf-profiles/capture-during-range-query-rb1.json.gz` (post-RB-1,
+  the correct pre-Phase-0 baseline — 30.56 s, 1774 keydowns)
+- after:  `~/perf-profiles/capture-during-range-query-phase0.json.gz` (30.99 s,
+  1801 keydowns)
 
-| Marker | Before | After | Δ |
+> **Baseline correction.** An earlier draft of this table compared against
+> `capture-during-range-query.json.gz` — the *original, pre-RB-1* profile —
+> which conflated RB-1's Toolbar-decouple win with Phase 0 and produced
+> inflated frame/microtask deltas (the discarded −12% / −25% figures). The
+> table below is the corrected pre-Phase-0 (`-rb1`) comparison.
+
+| Marker | rb1 (pre-Phase-0) | phase0 | Δ |
 |---|---|---|---|
-| **AnalysisDashboard render + patch** | 225× / ~4.6 s | **0** | orchestrator re-render eliminated |
-| AnalysisChartPanel patch (= ScoreLead + MergedDelta + Stability charts) | 956× / 2466 ms | 921× / 2475 ms | ~unchanged |
-| ScoreLead + MergedDelta + Stability patch | ~2735 ms | ~2749 ms | ~unchanged |
-| DistributionChart patch | 168× / 10 ms | 148× / 10 ms | ~unchanged |
-| RefreshObserver (frame) p50 | 47.06 ms | 41.55 ms | −12% |
-| Perform microtasks p50 | 4.14 ms | 3.12 ms | −25% |
+| **AnalysisDashboard render + patch** | 405× / ~3983 ms | **0** | orchestrator re-render eliminated |
+| AnalysisChartPanel patch | 1764× / 2520 ms | 1841× / 2541 ms | ~unchanged |
+| DistributionChart (direct child) | 264× / 34 ms | — | extracted into wrapper panels |
+| DeltaDistributionPanel (new) render+patch | — | 148× / ~1678 ms | encloses the KDE `setOption` |
+| MistakeGapPanel (new) render+patch | — | 148× / ~1142 ms | encloses the histogram `setOption` |
+| RefreshObserver (frame) p50 | 44.94 ms | 41.55 ms | −7.5% |
+| Perform microtasks p50 | 3.36 ms | 3.12 ms | −7% |
+| Total CPU (GeckoMain) | 12870 ms | 13995 ms | +8.7% (packet-count — see note) |
 
 **Result:** the `AnalysisDashboard` orchestrator's per-update re-render is
-eliminated (225 → 0) — render-coupling instance #3 dissolved, and the
-container is immune-by-construction for the tab phases. Net ~1.1 s of
-orchestrator overhead removed over the capture (its own render + regenerating
-all panel vnodes + the distribution recompute, per update) → frame p50 −12%,
-microtask-flush p50 −25%.
+eliminated (405 → 0 markers, ~4.0 s of orchestrator work removed) —
+render-coupling instance #3 dissolved, and the container is
+immune-by-construction for the tab phases. Per-event costs dropped modestly
+(frame p50 −7.5%, microtask-flush p50 −7%).
+
+**The +8.7% total-CPU is scenario, not regression.** The phase0 capture
+streamed ~11% more analysis packets than the rb1 capture: Toolbar render
+markers +12.7%, microtask-flush count 932 → 1032 (+10.7%), while keydowns were
+flat (+1.5%). Per-event costs are flat-to-down, so the higher total CPU tracks
+the higher packet count, not Phase 0 — and mechanically it cannot be Phase 0,
+since the per-packet render counts are flat once divided by the packet delta.
+The captures were not packet-count-matched; a matched recapture (deferred)
+would isolate it cleanly, but the per-event deltas already settle it.
+
+**Where the KDE/histogram cost went.** Before Phase 0, the two
+`DistributionChart` instances were direct children of `AnalysisDashboard`, so
+their synchronous `'pre'`-watcher `setOption` was attributed to the
+*dashboard's* patch. Phase 0 extracts them into `DeltaDistributionPanel` /
+`MistakeGapPanel`, so that pre-existing per-packet `setOption` (~12 ms
+KDE-with-uncertainty, ~8 ms histogram) now surfaces as the wrapper panels'
+patches (~1678 / ~1142 ms over the capture). It was re-attributed, not
+increased.
 
 **Honest scope of the win:** the *visible panels' own per-packet re-renders
 are unchanged* (the `AnalysisChartPanel` count is flat) — they still
-`setOption` on their packet-driven data. Reducing that is the chart-renderer
-Port (per-redraw cost) and the tab phases (fewer mounted panels), not Phase 0.
-Phase 0 delivered exactly its target: the structural decoupling plus a
-modest frame win; the larger regime-B lever is the later phases.
+`setOption` on their packet-driven data. A follow-up capture with the
+cross-correlations panel open (`~/perf-profiles/cc.json.gz`) confirmed (a) the
+regime-B per-frame cost is ~78 % of wall-clock spent in
+`requestAnimationFrame` chart-redraw callbacks — ~780 ms/s, *identical* across
+rb1 / phase0 / cc — and (b) the cross-correlations panel itself is cheap (total
+CPU flat-to-lower with it open; its own markers sum ~602 ms). Reducing the
+per-frame redraw cost is the **coalescing arc** (gate chart redraws on actual
+data-change + a frame budget) and the tab phases (fewer mounted panels), not
+Phase 0. Phase 0 delivered exactly its target: the structural decoupling plus a
+modest per-event frame win.
 
 ## Verification
 
