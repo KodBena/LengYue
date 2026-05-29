@@ -112,15 +112,75 @@ a reorganization.
 
 ## Could stronger typing have prevented it?
 
-**Through TypeScript's type system: no.** The coupling is a property of
-*when and where a reactive read happens at runtime*, not of any value's
-*shape*. TS types describe shapes; they cannot encode "this ref updates at
-25 Hz" or "this read occurs in a render at tree depth 1." Branded types,
-discriminated unions, `readonly` — none can express "do not read me in a
-composition node's render." The project's type discipline is excellent and
-caught none of these, because they are not type errors.
+An earlier draft of this section answered a flat "no." That was too strong;
+it conflated two different propositions. The precise position, after an
+independent review (`opus-consult-2026-05-29-render-coupling-typing.md`, in
+this PR):
 
-Partial preventive levers that *could* help, in increasing cost:
+**The type *checker* cannot *detect* it.** The coupling is an operational
+property — *when and where a reactive read fires at runtime* — not a property
+of any value's *shape*. TypeScript erases to JS and has no model of "this
+expression executes inside a render's reactive-tracking scope," "this
+component is a composition node," or "this ref updates at 25 Hz." Branded
+types, discriminated unions, and `readonly` discriminate *values* and
+constrain *mutation*; none reach a runtime read-site. This is the same
+category as "the type-checker can't catch a deadlock or an N+1 query." The
+project's (excellent) branded-type discipline caught none of these because
+they are not type errors. Vue's own docs confirm the mechanism — *"each
+component instance creates a reactive effect to render and update the DOM."*
+
+**But a typed *contract* can make the easy version *unrepresentable* and the
+residual version *loud*.** The decisive move is to change *what crosses a
+component boundary*: pass an **accessor** (`type Accessor<T> = () => T`, the
+SolidJS shape) or a signal/observable handle rather than an eagerly-read
+value. A function value is *not read at the boundary*; the reactive
+subscription is established only where the consumer *invokes* it inside its
+own tracking scope — i.e., at the leaf. The composition node then holds an
+unevaluated thunk and never subscribes, so the coupling is **dissolved, not
+relocated**. Passing `T` where `Accessor<T>` is expected is a boundary-local
+*type error* — the eager read becomes loud exactly where it would otherwise
+be silent. (Residual footgun: reading the accessor outside a tracking scope,
+e.g. via destructuring — real, but louder and harder to hit than the original;
+SolidJS ships `splitProps`/`mergeProps` to manage it.)
+
+**Vue recognizes this exact pattern, and its convention is leaky.** The
+Performance guide's "Props stability" example — "whenever `activeId` changes,
+*every* `<ListItem>` updates … move the computation up, pass a stable prop
+down" — is isomorphic to the App.vue cases; the project independently
+rediscovered official guidance. And the convention-only fix is itself
+fragile: [vuejs/core#13157](https://github.com/vuejs/core/issues/13157) shows
+an inline handler silently destabilizing a prop and defeating the
+optimization, the type-checker none the wiser. That fragility is the
+strongest argument *for* a structural (contract-level) fix over convention.
+
+**The theoretical home is an effect system; the structural endgame is
+fine-grained reactivity.** "Reads a reactive cell" *is* an effect, and a
+row-typed effect system (or a TS encoding such as Effect-TS) is the
+type-level construct that could carry it — as documentation, and at a
+boundary as a constraint. Independently, the *whole class* is an artifact of
+Vue's current component-granularity virtual-DOM model: under **Vapor Mode /
+Vue 3.6** (a Solid-inspired, signals-based compilation on the `alien-signals`
+reactivity refactor), updates are per-binding — a composition node reading a
+reactive value updates one binding, not a subtree — and the coupling
+*structurally evaporates*. So the accessor/effect-typed contract is,
+operationally, a manual emulation of what fine-grained reactivity does
+automatically; once Vapor is in play the reactivity-contract benefit becomes
+a near-no-op, though the documentation value of effect-typing would persist
+on its own merits. In the reactive-systems literature this is the
+*granularity* axis of a known tradeoff (and, for FRP, the four-way tension
+in Jane Street's "Breaking Down FRP" — history / efficiency / dynamism /
+reasoning, *"history is made tractable by limiting dynamism"*). The
+structural fix the theory endorses is "make the recomputation unit
+fine-grained" — exactly Vapor, exactly what accessor-passing emulates by hand.
+
+**So the honest answer is not "typing can't help."** It is: *the checker
+can't detect it; a typed contract (accessors today, or effect-typed reads)
+can make the easy version unrepresentable and the residual loud; and the
+structural endgame (fine-grained reactivity / Vapor) makes the class
+obsolete.* Which of these — if any — the project adopts is an open
+architectural decision (see Recommendation 6), not a foregone conclusion.
+
+The lighter operational levers remain available regardless of that decision:
 
 - **A named convention** (cheapest, highest leverage) — see Recommendation 1.
 - **A best-effort lint heuristic** — flag template/computed reads of a
@@ -130,8 +190,6 @@ Partial preventive levers that *could* help, in increasing cost:
   a real signal at the boundary that matters.
 - **Profiling discipline (ADR-0009)** — already adopted; the standing net,
   but reactive (post-ship), not preventive.
-
-So: typing no; convention + heuristic + profiling, partially and in layers.
 
 ## Are there others? Could there be?
 
@@ -187,8 +245,32 @@ Ordered by leverage-per-effort; none are mandates.
    across Arc 1 / Arc 2 / RB-1 is the model.
 
 The combination 1 + 2 is what would actually *eliminate the class* rather
-than play whack-a-mole: a name so it stops being authored, and a shared-state
-idiom so the tempting shortcut is no longer the only DRY option.
+than play whack-a-mole *within the current model*: a name so it stops being
+authored, and a shared-state idiom so the tempting shortcut is no longer the
+only DRY option.
+
+6. **Larger structural directions — open, not decided.** Beyond the current
+   model, two directions would *dissolve* the class rather than discipline it:
+   - **Typed-contract boundaries.** Cross reactive values between components
+     as accessors (`() => T`) or effect-typed reads rather than eagerly-read
+     values, so the coupling is structurally dissolved and the eager read
+     becomes a boundary-local type error. A spectrum from lightweight
+     (per-boundary accessors / capability-branded sources) to heavyweight
+     (an effect system such as Effect-TS adopted project-wide, where
+     effect-typed reads double as documentation).
+   - **Vapor Mode (fine-grained reactivity).** Vue's own roadmap; per-binding
+     updates make the class obsolete by construction — the contract
+     approaches above are its manual emulation.
+   Open questions before any commitment: (a) effect-system maturity, and
+   whether its effect-tracking can model Vue reactive reads without a large
+   bespoke integration; (b) forward-compatibility with Vapor — and whether a
+   reactivity-contract benefit is worth *building* if Vapor will subsume it,
+   versus effect-typing's **standalone documentation value**, which would
+   persist regardless; (c) migration cost / blast radius. These are live
+   architectural decisions for the maintainer; this postmortem scopes the
+   *problem* and the *option space*, not the commitment. Detailed backing is
+   the independent typing review in
+   `opus-consult-2026-05-29-render-coupling-typing.md` (this PR).
 
 ## Scope and caveats
 
@@ -205,11 +287,27 @@ idiom so the tempting shortcut is no longer the only DRY option.
 
 ## References
 
+- `docs/notes/opus-consult-2026-05-29-render-coupling-typing.md` — the
+  independent typing review backing the revised "Could stronger typing have
+  prevented it?" section (verified citations for the Vue / Vapor / FRP claims
+  below).
 - `docs/notes/perf-audit-game-scroll-2026-05-28.md` — instances 1–2 (Arc 1/2).
 - `docs/notes/perf-audit-range-query-nav-2026-05-29.md` — instance 2/3/4
   context (regime B; RB-1 fixed, RB-2/RB-3 open).
 - `docs/adr/0009-performance-investigation-discipline.md` — the reactive net
   that surfaced both fixed instances.
+- Vue: [Reactivity in Depth](https://vuejs.org/guide/extras/reactivity-in-depth.html)
+  (component-level render effect; the "Connection to Signals" / Vapor note),
+  [Performance — "Props stability"](https://vuejs.org/guide/best-practices/performance)
+  (the isomorphic documented anti-pattern + `v-memo`),
+  [vuejs/core#13157](https://github.com/vuejs/core/issues/13157) (the
+  convention's leakiness),
+  [v3.6.0-beta.1 / Vapor Mode](https://github.com/vuejs/core/releases/tag/v3.6.0-beta.1).
+- Theory: Jane Street, ["Breaking Down FRP"](https://blog.janestreet.com/breaking-down-frp/)
+  (the four-way tradeoff the maintainer intended — history / efficiency /
+  dynamism / reasoning); the reactivity-algorithms granularity tension. (No
+  citable "trilemma" from the "Seven Implementations of Incremental" talk was
+  located — the consult treats the recollection as the tetralemma above.)
 - ADR-0002 (fail loudly) — the silent-failure family this belongs to;
   ADR-0007 (file size) — the amplifier condition; ADR-0003 (domain bands) /
   ADR-0001 (mutation) — the existing disciplines that do *not* cover read
