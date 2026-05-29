@@ -51,18 +51,20 @@ import { mutateBoard, store } from '../../store';
 import { navigateTo } from '../../engine/navigator';
 import { colorMoveToPly } from '../../composables/analysis/useTriangularHeatmap';
 import { themeColor } from '../../utils/theme-color';
-import type { EnrichedSeries } from '../../composables/analysis/useEnrichedData';
-import type { MistakeMarker } from '../../composables/analysis/useMistakeFinder';
-import type { BoardId, ColorMoveIndex, NodeId, PlyIndex } from '../../types';
+import { injectAnalysisContext } from '../../composables/analysis/useAnalysisContext';
+import type { ColorMoveIndex } from '../../types';
 
-const props = defineProps<{
-  blackSeries:    EnrichedSeries[];
-  whiteSeries:    EnrichedSeries[];
-  mistakes:       MistakeMarker[];
-  boardId:        BoardId;
-  variationPath:  NodeId[];
-  selectionRange: [PlyIndex, PlyIndex];
-}>();
+// Phase-0 projection seam: self-source from the injected AnalysisContext
+// rather than prop-drilled slices. activeMergedIndex keeps its own
+// per-colour computation (it is not the shared activeMainIndex); it sources
+// boardId / variationPath from the context.
+const ctx = injectAnalysisContext();
+const blackSeries    = computed(() => ctx.enriched.value.deltaSeries.black);
+const whiteSeries    = computed(() => ctx.enriched.value.deltaSeries.white);
+const mistakes       = ctx.mistakes;
+const boardId        = ctx.boardId;
+const variationPath  = ctx.variationPath;
+const selectionRange = ctx.selectionRange;
 
 const { getThumbnailSvg } = useThumbnailCache();
 const preview = ref('');
@@ -79,19 +81,19 @@ const preview = ref('');
 // is `any[]` anyway, so the loosening doesn't propagate.
 const mergedSeries = computed<any[]>(() => {
   const out: any[] = [];
-  for (const s of props.blackSeries) {
+  for (const s of blackSeries.value) {
     out.push({
       ...s,
       data: s.data.map(([k, v]) => [2 * k, v] as [number, number | null]),
     });
   }
-  for (const s of props.whiteSeries) {
+  for (const s of whiteSeries.value) {
     out.push({
       ...s,
       data: s.data.map(([k, v]) => [2 * k + 1, v] as [number, number | null]),
     });
   }
-  const visibleMistakes = props.mistakes.filter(m => {
+  const visibleMistakes = mistakes.value.filter(m => {
     // Per-color filter: when the user hides "Black Delta" or
     // "White Delta" via the chart legend, the corresponding dots
     // disappear too. Pedagogy framing (per the project author's
@@ -154,10 +156,10 @@ const mergedSeries = computed<any[]>(() => {
 // root (handled by the colour-local count starting at 0 for
 // black, which is correct for "B's first upcoming move").
 const activeMergedIndex = computed<number | null>(() => {
-  const board = store.boards.find(b => b.id === props.boardId);
+  const board = store.boards.find(b => b.id === boardId);
   if (!board) return null;
   const id = board.currentNodeId;
-  const plyIdx = props.variationPath.indexOf(id);
+  const plyIdx = variationPath.value.indexOf(id);
   if (plyIdx === -1) return null;
 
   // Tally moves per colour up to and including the current
@@ -167,7 +169,7 @@ const activeMergedIndex = computed<number | null>(() => {
   let blackCount = 0;
   let whiteCount = 0;
   for (let i = 0; i <= plyIdx; i++) {
-    const n = board.nodes[props.variationPath[i]];
+    const n = board.nodes[variationPath.value[i]];
     if (n?.move?.type !== 'place') continue;
     if (n.move.color === 'B') blackCount++;
     else                       whiteCount++;
@@ -192,8 +194,8 @@ const activeMergedIndex = computed<number | null>(() => {
 // uses the same 0-indexed-from-root convention as
 // variationPath, so passing it through unchanged is correct.
 const zoomRange = computed<[number, number]>(() => [
-  Math.max(0, props.selectionRange[0] - 1),
-  Math.max(0, props.selectionRange[1] - 1),
+  Math.max(0, selectionRange.value[0] - 1),
+  Math.max(0, selectionRange.value[1] - 1),
 ]);
 
 // Convert the chart's parity-interleaved x to the colour-local
@@ -219,7 +221,7 @@ function colorLocalIndex(rawIdx: number, color: 'B' | 'W'): number {
 function colorAt(moveIdx: number, _yClicked: number): 'B' | 'W' | null {
   const candidate: 'B' | 'W' = moveIdx % 2 === 0 ? 'B' : 'W';
   const k = colorLocalIndex(moveIdx, candidate);
-  const series = candidate === 'B' ? props.blackSeries : props.whiteSeries;
+  const series = candidate === 'B' ? blackSeries.value : whiteSeries.value;
   for (const s of series) {
     const pt = s.data.find(([j]) => j === k);
     if (pt && pt[1] != null) return candidate;
@@ -247,9 +249,9 @@ async function resetPreview() {
   const color: 'B' | 'W' = x % 2 === 0 ? 'B' : 'W';
   const k = colorLocalIndex(x, color);
   const nodeIdx = colorMoveToPly(k as ColorMoveIndex, color);
-  const nodeId = props.variationPath[nodeIdx];
+  const nodeId = variationPath.value[nodeIdx];
   if (nodeId) {
-    preview.value = await getThumbnailSvg(nodeId, props.boardId, true);
+    preview.value = await getThumbnailSvg(nodeId, boardId, true);
   } else {
     preview.value = '';
   }
@@ -263,9 +265,9 @@ async function handleHover(rawIdx: number, yClicked?: number) {
   if (!color) return;
   const k = colorLocalIndex(rawIdx, color);
   const nodeIdx = colorMoveToPly(k as ColorMoveIndex, color);
-  const nodeId = props.variationPath[nodeIdx];
+  const nodeId = variationPath.value[nodeIdx];
   if (nodeId) {
-    preview.value = await getThumbnailSvg(nodeId, props.boardId, true);
+    preview.value = await getThumbnailSvg(nodeId, boardId, true);
   }
 }
 
@@ -275,9 +277,9 @@ function handleClick(rawIdx: number, yClicked?: number) {
   if (!color) return;
   const k = colorLocalIndex(rawIdx, color);
   const turnIdx = colorMoveToPly(k as ColorMoveIndex, color) - 1;
-  const nodeId = props.variationPath[turnIdx];
+  const nodeId = variationPath.value[turnIdx];
   if (nodeId) {
-    mutateBoard(props.boardId, draft => navigateTo(draft, nodeId));
+    mutateBoard(boardId, draft => navigateTo(draft, nodeId));
   }
 }
 

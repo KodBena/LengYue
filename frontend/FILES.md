@@ -64,7 +64,7 @@ frontend/src/
 │   │
 │   ├── charts/                              ECharts wrappers. Mostly B2/B3; the renderer itself is generic.
 │   │   ├── AnalysisChartPanel.vue     [B3]  Standardised analysis chart panel host (visits, winrate, scoreLead, …).
-│   │   ├── AnalysisDashboard.vue      [B3]  Orchestrator binding chart panels to useChartNavigation.
+│   │   ├── AnalysisDashboard.vue      [B3]  Provides the per-board AnalysisContext + lays out chart panels (which self-source via inject).
 │   │   ├── AnalysisTimelinePanel.vue  [B3]  Rug-plot timeline + visits input + "Analyse selection" controls.
 │   │   ├── BaseChart.vue              [B1]  Generic ECharts wrapper with module-scoped legend memoisation.
 │   │   ├── card-tree-echarts.ts       [B2]  ECharts node/tooltip composer for the card-tree forest.
@@ -74,6 +74,8 @@ frontend/src/
 │   │   ├── MergedDeltaPanel.vue       [B3]  Both-players delta chart on a parity-interleaved x-axis.
 │   │   ├── ScoreLeadPanel.vue         [B3]  ScoreLead chart panel.
 │   │   ├── DistributionChart.vue      [B1]  Generic histogram/KDE primitive (variant-dispatched ECharts mount).
+│   │   ├── DeltaDistributionPanel.vue [B3]  Per-colour delta-KDE panel (injects AnalysisContext; wraps DistributionChart).
+│   │   ├── MistakeGapPanel.vue        [B3]  Own-colour mistake-gap histogram panel (injects AnalysisContext; wraps DistributionChart).
 │   │   ├── MultiresolutionIntervalPanel.vue  [B3]  Triangular multiresolution-interval heatmap.
 │   │   ├── StabilityCrossCorrelationPanel.vue [B3]  Pairwise Pearson over extractor × extractor and metric × metric. Collapsed by default.
 │   │   └── StabilityPanel.vue         [B3]  Per-position stability metric over the variation path; extractor-selectable.
@@ -138,6 +140,7 @@ frontend/src/
 │   │
 │   ├── analysis/                             KataGo-derived view models and chart wiring.
 │   │   ├── useActivityDecay.ts        [B1]  Leaky-integrator exponential-decay model (generic math).
+│   │   ├── useAnalysisContext.ts      [B3]  Per-board analysis context (projection + derived) shared to panels via provide/inject.
 │   │   ├── useAnalysisProjection.ts   [B3]  Projects raw board + analysis ledger to UI-ready view model.
 │   │   ├── useAnalysisTimeline.ts     [B3]  Owns the chart selection range + visit-vector from the ledger.
 │   │   ├── useChartNavigation.ts      [B3]  Pure black-box click+thumbnail handler for analysis charts.

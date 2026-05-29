@@ -34,17 +34,19 @@ import {
   STABILITY_METRIC_LABELS,
   STABILITY_METRIC_EXPLANATIONS,
 } from '../../lib/stability-trajectory';
-import { mutateBoard, store } from '../../store';
+import { mutateBoard } from '../../store';
 import { navigateTo } from '../../engine/navigator';
 import { themeColor } from '../../utils/theme-color';
 import type { EnrichedSeries } from '../../composables/analysis/useEnrichedData';
-import type { BoardId, NodeId, PlyIndex } from '../../types';
+import { injectAnalysisContext } from '../../composables/analysis/useAnalysisContext';
 
-const props = defineProps<{
-  boardId:        BoardId;
-  variationPath:  NodeId[];
-  selectionRange: [PlyIndex, PlyIndex];
-}>();
+// Phase-0 projection seam: self-source from the injected AnalysisContext.
+// The active index now reads the context's shared activeMainIndex
+// (previously recomputed locally via store.boards.find).
+const ctx = injectAnalysisContext();
+const boardId        = ctx.boardId;
+const variationPath  = ctx.variationPath;
+const selectionRange = ctx.selectionRange;
 
 // V_term constant — duplicated from the useStabilityMetrics default
 // so the help text can reference the same value the composable
@@ -104,8 +106,7 @@ const helpTitle = computed(() => {
   ].join('\n');
 });
 
-const variationPathRef = computed(() => props.variationPath);
-const metrics = useStabilityMetrics(variationPathRef, selectedExtractor, selectedMetric);
+const metrics = useStabilityMetrics(variationPath, selectedExtractor, selectedMetric);
 
 const series = computed<EnrichedSeries[]>(() => {
   // Per-datum object shape: ECharts honours `value: [x, y]` as the
@@ -128,22 +129,17 @@ const series = computed<EnrichedSeries[]>(() => {
   }];
 });
 
-const activeIndex = computed<number | null>(() => {
-  const board = store.boards.find(b => b.id === props.boardId);
-  if (!board) return null;
-  const idx = props.variationPath.indexOf(board.currentNodeId);
-  return idx === -1 ? null : idx;
-});
+const activeIndex = ctx.activeMainIndex;
 
 const zoomRange = computed<[number, number]>(() => [
-  Math.max(0, props.selectionRange[0]),
-  Math.max(0, props.selectionRange[1]),
+  Math.max(0, selectionRange.value[0]),
+  Math.max(0, selectionRange.value[1]),
 ]);
 
 function handleClick(idx: number) {
-  const nodeId = props.variationPath[idx];
+  const nodeId = variationPath.value[idx];
   if (nodeId) {
-    mutateBoard(props.boardId, draft => navigateTo(draft, nodeId));
+    mutateBoard(boardId, draft => navigateTo(draft, nodeId));
   }
 }
 

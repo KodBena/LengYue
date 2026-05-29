@@ -30,11 +30,12 @@ import {
 } from '../../composables/analysis/useStabilityCrossCorrelations';
 import { STABILITY_EXTRACTOR_LABELS } from '../../engine/analysis/stability-extractors';
 import { STABILITY_METRIC_LABELS } from '../../lib/stability-trajectory';
-import type { NodeId } from '../../types';
+import { injectAnalysisContext } from '../../composables/analysis/useAnalysisContext';
 
-const props = defineProps<{
-  variationPath: NodeId[];
-}>();
+// Phase-0 projection seam: self-source the variation path from the
+// injected AnalysisContext rather than a prop.
+const ctx = injectAnalysisContext();
+const variationPath = ctx.variationPath;
 
 const expanded = ref(false);
 
@@ -50,9 +51,8 @@ const metricChoices = computed<{ id: string; label: string }[]>(() =>
   Array.from(STABILITY_METRIC_LABELS, ([id, label]) => ({ id, label })),
 );
 
-const variationPathRef = computed(() => props.variationPath);
 const correlations = useStabilityCrossCorrelations(
-  variationPathRef,
+  variationPath,
   fixedExtractor,
   fixedMetric,
 );
