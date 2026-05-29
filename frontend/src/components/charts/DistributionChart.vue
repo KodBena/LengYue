@@ -72,6 +72,24 @@ const chartRef = ref<HTMLElement | null>(null);
 let chartInstance: echarts.ECharts | null = null;
 let resizeObserver: ResizeObserver | null = null;
 
+// magic-literal: 250 ms trailing-throttle window for redraws. Matches
+// HeatmapChart's THROTTLE_MS — 4 Hz keeps a slow-moving summary
+// distribution responsive while collapsing the adaptive-query delta
+// floods into one redraw per window. (During an adaptive query's
+// adaptive phase every packet that touches a previously-seen turn
+// forwards a fresh delta for that turn and its delta-window neighbours,
+// so the KDE source churns at the packet rate — a data-changed gate
+// wouldn't help there; only a time window does.) Each redraw is a full
+// `notMerge: true` KDE rebuild whose cost is tail-heavy (p99 ~75 ms),
+// so coalescing bursts directly cuts the dropped-frame pileups.
+const THROTTLE_MS = 250;
+let pendingTimer: number | null = null;
+let lastRenderAt = -Infinity;
+// Last-rendered ECharts series structure signature (cohort names ×
+// types × count). When it is unchanged we merge data into the live
+// chart instead of purging+rebuilding it — see renderChart.
+let lastStructureSig = '';
+
 // Cache the per-series computed shape (KDE points or histogram
 // bins). `computed` keeps it reactive to props changes.
 const seriesData = computed(() => {
@@ -264,18 +282,60 @@ function buildOption() {
 
 function renderChart() {
   if (!chartInstance) return;
-  chartInstance.setOption(buildOption(), { notMerge: true });
+  const option = buildOption();
+  // Incremental-merge unless the series STRUCTURE changes. ECharts
+  // merges each series' `data` cheaply with notMerge:false, but a
+  // *shrinking* series set — the uncertainty-band sub-series
+  // disappearing, a variant switch, a cohort dropping out — leaves
+  // stale ghost series behind unless purged (the exact failure the
+  // band-toggling note in buildKdeSeries warns about). So purge
+  // (notMerge:true) exactly when the structure signature changes;
+  // during streaming the structure is stable (same cohorts, same band
+  // presence), so the hot path is the cheap merge. Mirrors BaseChart's
+  // `namesChanged` gate. Lossless: same KDE, same resolution, same
+  // data — only the ECharts write path differs. lazyUpdate batches the
+  // canvas render into the next frame, off the setTimeout callback.
+  const sig = option.series.map((s: { name: string; type: string }) => `${s.name}:${s.type}`).join('|');
+  const structureChanged = sig !== lastStructureSig;
+  lastStructureSig = sig;
+  chartInstance.setOption(option, { notMerge: structureChanged, lazyUpdate: true });
+}
+
+/**
+ * Trailing+leading throttle around `renderChart`. A chart that has been
+ * quiet renders on the next tick; a chart under a packet flood renders
+ * at most once per `THROTTLE_MS`. Collapsed panels schedule nothing —
+ * `v-show` keeps the chart mounted, so without this gate a hidden panel
+ * would pay the full KDE + `setOption` on every source change; the
+ * `watch(expanded)` handler renders the current state when it re-opens.
+ */
+function scheduleRender() {
+  if (!chartInstance || !expanded.value || pendingTimer !== null) return;
+  const wait = Math.max(0, THROTTLE_MS - (performance.now() - lastRenderAt));
+  pendingTimer = window.setTimeout(() => {
+    pendingTimer = null;
+    lastRenderAt = performance.now();
+    renderChart();
+  }, wait);
 }
 
 onMounted(() => {
   if (!chartRef.value) return;
   chartInstance = echarts.init(chartRef.value);
   renderChart();
+  lastRenderAt = performance.now();
   resizeObserver = new ResizeObserver(() => chartInstance?.resize());
   resizeObserver.observe(chartRef.value);
 });
 
 onUnmounted(() => {
+  // The throttle timer's callback closes over chartInstance; a pending
+  // redraw firing after dispose() would setOption on a disposed chart.
+  // Clear it before disposal (ordering is load-bearing).
+  if (pendingTimer !== null) {
+    clearTimeout(pendingTimer);
+    pendingTimer = null;
+  }
   resizeObserver?.disconnect();
   resizeObserver = null;
   chartInstance?.dispose();
@@ -290,7 +350,7 @@ watch(
     props.kdeOptions,
     props.showUncertainty,
   ],
-  renderChart,
+  scheduleRender,
   { deep: true },
 );
 watch(expanded, async (now) => {
