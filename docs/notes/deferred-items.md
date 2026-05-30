@@ -33,6 +33,28 @@ this file.
 
 ## Open items
 
+### Analysis-chart layout affordance (Settings → Analysis Layout) + collapsed charts still process packets
+
+- **Surfaced:** 2026-05-30 (green-perf arc; the "hidden charts" capture).
+- **Want:** A Settings → Analysis Layout affordance to configure / disable the
+  analysis charts (Score Lead, Merged Delta, the distribution / stability
+  panels, …) for performance or aesthetic reasons. When a chart is disabled
+  there it should be UNMOUNTED (`v-if`), not merely hidden — a disabled chart
+  should cost nothing.
+- **Bug it exposed:** "rolling up" a chart panel today toggles `v-show`
+  (`display:none`), which keeps it MOUNTED — so a collapsed/hidden chart still
+  re-renders and runs ECharts `setOption` on every analysis packet (~250 ms of
+  patch work in the 2026-05-30 hidden-charts capture, while it was supposedly
+  off). The collapse should unmount (`v-if`) OR the chart work should gate on
+  `expanded` (the BaseChart line charts don't; only DistributionChart gates
+  today). `v-show` is only justified if instant re-expand + chart-state (zoom /
+  legend) retention is a real requirement — in which case gate-on-collapsed
+  gets both (mounted-but-idle); otherwise unmount. Maintainer's call: unmount
+  unless there's a real reason not to.
+- **Where:** `AnalysisChartPanel.vue` (`v-show="expanded"`), `BaseChart.vue`
+  (ungated `series` watch → `setOption`), the analysis dashboard layout, and
+  the future Settings → Analysis Layout registry surface.
+
 ### Adaptive-query cancellation leak (mid-adaptive `terminate` — likely proxy-side)
 
 - **Surfaced:** 2026-05-29 (RB-3 scoping; maintainer-reported).
