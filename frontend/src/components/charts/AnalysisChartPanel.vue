@@ -10,7 +10,7 @@ import ChartPreviewBox from './ChartPreviewBox.vue';
 const props = defineProps<{
   label: string;
   series: any[];
-  activeIndex: number | null;
+  activeIndexAccessor?: () => number | null;
   zoomRange: [number, number];
   // Accessor (not a value) for the hover / position thumbnail, rendered by
   // the isolated <ChartPreviewBox> leaf. Passing `() => preview.value` keeps
@@ -54,7 +54,7 @@ const expanded = ref(true);
       <div class="chart-area">
         <BaseChart
           :series="series"
-          :active-index="activeIndex"
+          :active-index-accessor="activeIndexAccessor"
           :zoom-range="zoomRange"
           :normalize="normalize"
           :format-x-axis="formatXAxis"

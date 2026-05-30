@@ -28,7 +28,11 @@ const props = defineProps<{
   title?: string;
   reservedWidth?: number;
   reservedHeight?: number;
-  activeIndex?: number | null;
+  // Cursor ACCESSOR (not a value): invoked only in updateMarker / the marker
+  // watch below — never in this component's template — so a per-nav cursor
+  // move updates the ECharts marker without re-rendering this chart (nor the
+  // host / panel that forward it). Accessor contract: see ChartPreviewBox.vue.
+  activeIndexAccessor?: () => number | null;
   zoomRange?: [number, number] | null;
   /**
    * Y-axis scaling discipline:
@@ -407,7 +411,10 @@ const updateAxisOnly = () => {
 };
 
 const updateMarker = () => {
-  if (!chartInstance || props.activeIndex == null || !isInitialized) {
+  // Read the cursor through the accessor; the marker path is this function +
+  // the watch below, decoupled from the Vue render tree.
+  const activeIdx = props.activeIndexAccessor ? props.activeIndexAccessor() : null;
+  if (!chartInstance || activeIdx == null || !isInitialized) {
     if (chartInstance) {
       chartInstance.setOption({
         series: props.series.map(() => ({ markPoint: { data: [] } }))
@@ -416,7 +423,6 @@ const updateMarker = () => {
     return;
   }
 
-  const activeIdx = props.activeIndex;
   // Use the same display-series transformation the chart's setOption
   // path uses, so the marker is placed at the normalised Y coordinate
   // in per-series mode (otherwise it would land off-chart at the raw
@@ -527,7 +533,7 @@ const initChart = async () => {
 
 watch(() => props.zoomRange, updateOptions, { deep: false });
 watch(() => props.series, updateOptions, { deep: false });
-watch(() => props.activeIndex, debouncedUpdateMarker);
+watch(() => (props.activeIndexAccessor ? props.activeIndexAccessor() : null), debouncedUpdateMarker);
 
 
 onMounted(initChart);

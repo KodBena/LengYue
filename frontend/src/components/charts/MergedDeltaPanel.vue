@@ -262,6 +262,7 @@ async function resetPreview() {
 }
 
 watch(activeMergedIndex, resetPreview, { immediate: true });
+const getActiveMergedIndex = () => activeMergedIndex.value;
 
 async function handleHover(rawIdx: number, yClicked?: number) {
   if (yClicked === undefined) return;
@@ -314,7 +315,7 @@ function formatXTooltip(val: number): string {
   <AnalysisChartPanel
     label="Per-Player Performance (Moves)"
     :series="mergedSeries"
-    :active-index="activeMergedIndex"
+    :active-index-accessor="getActiveMergedIndex"
     :zoom-range="zoomRange"
     :format-x-axis="formatXAxis"
     :format-x-tooltip="formatXTooltip"

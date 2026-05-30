@@ -18,6 +18,7 @@ const boardId        = ctx.boardId;
 const variationPath  = ctx.variationPath;
 const selectionRange = ctx.selectionRange;
 const activeIndex    = ctx.activeMainIndex;
+const getActiveIndex = () => activeIndex.value;
 const onIndexClick   = ctx.navigation.handleMainClick;
 
 const { getThumbnailSvg } = useThumbnailCache();
@@ -63,7 +64,7 @@ function formatPlyTooltip(val: number): string {
   <AnalysisChartPanel
     label="Game State (Turns)"
     :series="series"
-    :active-index="activeIndex"
+    :active-index-accessor="getActiveIndex"
     :zoom-range="selectionRange"
     :on-index-click="onIndexClick"
     :on-index-hover="handleHover"
