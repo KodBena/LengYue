@@ -81,7 +81,18 @@ export function useTreeExpansion(): TreeExpansionState {
       cur = nodes[cur]?.parent ?? null;
     }
     if (ancestors.length === 0) return;
-    const next = new Set(expandedNodes.value);
+    // Only reassign when an ancestor is actually missing. The previous
+    // unconditional `new Set` reassignment fired the `expandedNodes` dep on
+    // every call — including linear navigation (mainline descent), where
+    // every ancestor is already expanded — which recomputed the entire tree
+    // layout via useTreeLayout's watchEffect on each nav step, and defeated
+    // TreeWidget's edge/node memos (the recomputed layout handed them fresh
+    // array refs). On the common path this now returns without touching the
+    // ref, so the layout stays stable and the memos skip. Lateral nav into a
+    // collapsed variation still expands (an ancestor is genuinely absent).
+    const current = expandedNodes.value;
+    if (ancestors.every(id => current.has(id))) return;
+    const next = new Set(current);
     for (const id of ancestors) next.add(id);
     expandedNodes.value = next;
   };
