@@ -27,8 +27,8 @@ export function loadSgf(sabakiOutput: any): BoardState {
   // call returns, since the filename is a File-API artifact the
   // engine layer doesn't see.
   // All required BoardState fields populated up-front; the prior
-  // `as unknown as BoardState` cast was hiding `lastActivity` and
-  // (after schema 52) the `games` field — the missing `games`
+  // `as unknown as BoardState` cast was hiding (after schema 52)
+  // the `games` field — the missing `games`
   // surfaced as a runtime "can't convert undefined to object"
   // when a freshly-loaded board flowed into App.vue's
   // `activeBoardGameHeadIds` computed.
@@ -41,7 +41,6 @@ export function loadSgf(sabakiOutput: any): BoardState {
     nodes: nodes as unknown as BoardState['nodes'],
     koPoint: null,
     turn: 'B',
-    lastActivity: 0,
     clientGameId: generateUUID(),
     games: {},
   };

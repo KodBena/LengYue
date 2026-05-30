@@ -198,7 +198,6 @@ export interface BoardState {
   koPoint: Point | null;
   turn: StoneColor;
   nodes: Record<NodeId, GameNode>;
-  lastActivity: number;
   maxVisitsTarget?: number;
   // Analysis-chart selection range as [startPly, endPly] indices into
   // the active variation path. Branded `[PlyIndex, PlyIndex]` so the

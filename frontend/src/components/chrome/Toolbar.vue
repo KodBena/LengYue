@@ -12,6 +12,7 @@ import { store, setSelectedModel, activeBoard } from '../../store';
 import { activeConfigHash } from '../../services/analysis-config';
 import { ledger } from '../../services/analysis-ledger';
 import { useEngineControls } from '../../composables/useEngineControls';
+import { useAutoNavigatePerf } from '../../composables/useAutoNavigatePerf';
 
 const { t } = useI18n();
 
@@ -28,6 +29,11 @@ const { metrics, isConnected, clearCache } = useEngineControls();
 // renders in dev builds. import.meta.env.DEV is statically folded, so the
 // button and its handler dead-code-eliminate in production.
 const isDevBuild = import.meta.env.DEV;
+
+// Dev affordance: auto-navigate-for-perf-capture harness. Obtained
+// unconditionally (matching clearCache above); the button is dev-gated, so
+// the loop is unreachable in production and start() never fires there.
+const { isRunning: autoNavRunning, toggle: toggleAutoNav } = useAutoNavigatePerf();
 
 const props = defineProps<{
   title?:       string;
@@ -332,6 +338,14 @@ const scoreLeadDisplay = computed(() => {
         :title="$t('engine.clearCache.title')"
         @click="clearCache"
       >{{ $t('toolbar.clearCache') }}</button>
+      <!-- Dev-only auto-navigate-for-perf-capture affordance (useAutoNavigatePerf). -->
+      <button
+        v-if="isDevBuild"
+        class="toolbar-btn"
+        :class="{ 'btn-connected': autoNavRunning }"
+        :title="$t('toolbar.autoNavPerf.title')"
+        @click="toggleAutoNav"
+      >{{ autoNavRunning ? $t('toolbar.autoNavPerf.stop') : $t('toolbar.autoNavPerf.start') }}</button>
       <button
         class="toolbar-btn"
         :class="{ 'btn-connected': isConnected }"

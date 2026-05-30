@@ -1,14 +1,13 @@
 <!--
   src/components/board/BoardTab.vue
   Tab item in the board-list rail. Carries the board's label, close
-  button, the analysis-meter rugplot, and the activity (geiger) dot.
+  button, and the analysis-meter rugplot.
   The hover-thumbnail is a separate component (FloatingThumbnail.vue)
   triggered by the hover-enter / hover-leave events emitted from here.
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useActivityDecay } from '../../composables/analysis/useActivityDecay';
 import { getIntensityColorLinear } from '../../engine/suggestion-colors';
 import { store } from '../../store';
 import type { BoardState } from '../../types';
@@ -29,7 +28,6 @@ const emit = defineEmits<{
   (e: 'hover-leave'): void;
 }>();
 
-const energy = useActivityDecay(() => props.state.lastActivity);
 const path = useVariationPath(() => props.state.id);
 
 // Per-node analysis depth, surfaced as a colour stripe per move along
@@ -134,12 +132,6 @@ const rugPlot = computed(() => {
             : $t('boardTab.meterMove', { idx: slice.idx, visits: slice.visits.toLocaleString() })"
         ></div>
       </div>
-      <div class="geiger-dot-wrap">
-        <!-- magic-literal: geiger-dot scale derivation `0.6 + energy * 0.4`
-             produces a 0.6→1.0 scale range as energy decays from 0 to 1.
-             Hand-tuned for visible-but-not-distracting pulse. -->
-        <div class="geiger-dot" :style="{ opacity: energy, transform: `scale(${0.6 + energy * 0.4})` }"></div>
-      </div>
     </div>
   </div>
 </template>
@@ -211,9 +203,4 @@ const rugPlot = computed(() => {
 }
 
 .meter-slice { height: 100%; }
-.geiger-dot-wrap { width: 10px; height: 10px; display: flex; align-items: center; justify-content: center; }
-/* theme-exception: #00ff88 is an intentionally vivid activity indicator
-   color, outside the muted semantic-state spectrum and not part of the
-   chrome substrate's vocabulary. */
-.geiger-dot { width: 6px; height: 6px; background: #00ff88; border-radius: var(--radius-circle); box-shadow: 0 0 8px #00ff88; }
 </style>

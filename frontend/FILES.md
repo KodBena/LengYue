@@ -56,7 +56,7 @@ frontend/src/
 │   ├── board/                                Go-board surface. Renderers + overlays.
 │   │   ├── BoardDisplay.vue           [B3]  Stateless SVG Go board with stone gradients, hoshi, last-move ring, move-number text.
 │   │   ├── BoardHeatmapOverlay.vue    [B3]  Stateless per-intersection heatmap (ownership / liveness / dots).
-│   │   ├── BoardTab.vue               [B3]  Tab row in the board-list rail (label, close, rugplot, activity dot).
+│   │   ├── BoardTab.vue               [B3]  Tab row in the board-list rail (label, close, rugplot).
 │   │   ├── BoardVariationsOverlay.vue [B3]  Sibling-variation rings + active-next-move hint on the board.
 │   │   ├── BoardWidget.vue            [B3]  Hosts BoardDisplay + overlays + MoveSuggestions; computes derived view-model.
 │   │   ├── MoveSuggestions.vue        [B3]  KataGo move-suggestion overlay; PV preview on hover; paste-pv on modifier/middle-click.
@@ -132,6 +132,7 @@ frontend/src/
 │       └── TreeWidget.vue             [B2]  SVG game-tree viewer; enforces current-node-visible invariant via ensureVisible.
 │
 ├── composables/                             Logic layer. Pure-ish functions over reactive refs.
+│   ├── useAutoNavigatePerf.ts         [B2]  Dev-only: rAF-drives next() at ~60/s to the last node, emitting autonav:step perf marks tagged with analysis-queue state (regime A/B/other-board). Button gated to dev builds.
 │   ├── useEngineControls.ts           [B3]  Engine connect / disconnect / toggle lifecycle.
 │   ├── useNavigation.ts               [B2]  Headless navigation within the game tree (next/prev/parent/child).
 │   ├── useQeubo.ts                    [B1]  qEUBO experiment state machine + audition + verdict.
@@ -142,7 +143,6 @@ frontend/src/
 │   ├── useUserIORegistry.ts           [B2]  Hardware-event → domain-verb adapter (keyboard nav, suggestion toggle, …).
 │   │
 │   ├── analysis/                             KataGo-derived view models and chart wiring.
-│   │   ├── useActivityDecay.ts        [B1]  Leaky-integrator exponential-decay model (generic math).
 │   │   ├── useAnalysisContext.ts      [B3]  Per-board analysis context (projection + derived) shared to panels via provide/inject.
 │   │   ├── useAnalysisTabs.ts         [B3]  Analysis-tab state: persisted tab list (AppSettings.analysisTabs) + ephemeral active-tab selection. No component imports (resolution is the dashboard's job).
 │   │   ├── useAnalysisProjection.ts   [B3]  Projects raw board + analysis ledger to UI-ready view model.
