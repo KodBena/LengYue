@@ -119,6 +119,24 @@ export const TOOLBAR_METRICS_REDRAW_THROTTLE_MS = 250;
  */
 export const BOARD_TAB_RUGPLOT_REDRAW_THROTTLE_MS = 250;
 
+/**
+ * BaseChart (line / scatter) series-data redraw throttle (trailing+
+ * leading). Same 4 Hz rationale as the heatmap / distribution chart
+ * throttles. The analysis panels (ScoreLead / MergedDelta / Stability)
+ * re-map their `series` prop on every analysis packet, so BaseChart's
+ * series watch fires `updateOptions` → ECharts `setOption` (the expensive
+ * option-merge) at the packet rate (~24/s). Coalescing the data-driven
+ * redraw to 4 Hz cuts that ~6× while the line still visibly refines. Only
+ * the streaming data path is throttled — zoom updates stay prompt (they're
+ * user-driven and debounced upstream via TIMELINE_SELECTION_DEBOUNCE_MS).
+ * NOTE: an earlier rAF (~60 Hz) coalesce of this path was inert because
+ * packets are sub-frame-rate; the 4 Hz window is coarser than the packet
+ * rate, which is what makes it bite. Distinct from the other chart
+ * throttles despite the shared 250 ms: different consumer, independently
+ * tunable.
+ */
+export const BASE_CHART_REDRAW_THROTTLE_MS = 250;
+
 // User-configurable cadences — NOT owned here, listed so this surface is
 // a complete map of the application's coalescing behaviour:
 //   • persistence sync debounce —

@@ -64,6 +64,16 @@ so the Arc-2 cursor decoupling holds. The residual App re-renders are a
   Don't `setOption` per packet — batch to a frame / short-circuit unchanged
   data; fix AnalysisChartPanel's ~2.6× thrash per update. **Belongs to the
   analysis-panel refactor** (this profile is its before-anchor too).
+  **UPDATE (2026-05-30) — streaming-side coalesce landed; count-effective,
+  frame-inert.** A 4 Hz `setOption` throttle on BaseChart's series path cut
+  heavy redraws 7.3× (~2.2 s CPU removed in a no-nav range fetch) — but the
+  LongTask count was unchanged, so the charts are NOT the frame bottleneck
+  (a single setOption was always sub-LongTask; the >50 ms blocks are
+  elsewhere, ~1/s, native-heavy). Kept as a battery win; the nav-responsive
+  benefit is plausible but unmeasured. NB "batch to a frame" specifically is
+  inert — packets are sub-frame-rate, so only a window coarser than the
+  packet rate (4 Hz) bites. See
+  `docs/worklog/2026-05-30-perf-basechart-redraw-throttle.md`.
 
 - **RB-3 — packet-receive-path chunking** *(~2.35 s, the 73 ms blocks).* Get
   the synchronous normalize+merge in `onAnalysisUpdate` off the main thread
