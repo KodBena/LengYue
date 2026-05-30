@@ -137,6 +137,20 @@ export const BOARD_TAB_RUGPLOT_REDRAW_THROTTLE_MS = 250;
  */
 export const BASE_CHART_REDRAW_THROTTLE_MS = 250;
 
+/**
+ * Analysis-timeline rug-plot redraw throttle (trailing+leading). Same 4 Hz
+ * rationale as the other streaming-redraw throttles, and the consistency
+ * partner that keeps the timeline from being the one un-coalesced streaming
+ * surface. `AnalysisTimelinePanel`'s `visitVector` (the per-turn visit
+ * counts feeding HorizontalTimelineVisualizer) is rebuilt on every analysis
+ * packet, redrawing the rug-plot at the packet rate; snapshotting it to 4 Hz
+ * coalesces the visualiser's redraw. Lives in the analysis-specific panel,
+ * not the band-1 visualiser (which stays cadence-agnostic). Distinct from
+ * the other throttles despite the shared 250 ms: different consumer,
+ * independently tunable.
+ */
+export const ANALYSIS_TIMELINE_REDRAW_THROTTLE_MS = 250;
+
 // User-configurable cadences — NOT owned here, listed so this surface is
 // a complete map of the application's coalescing behaviour:
 //   • persistence sync debounce —
