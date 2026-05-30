@@ -4,18 +4,23 @@
  * Auto-save policy for the experimental analysis-persistence
  * feature. Watches each open board's `dirtyVersion` counter on
  * `analysisPersistenceService` (incremented by `analysis-service`
- * after every authoritative ledger.record landing), and on a
- * rising edge schedules a throttled `save(boardId)` call. Gated on
+ * after every authoritative ledger.record landing), and debounces a
+ * `save(boardId)` call on the trailing edge. Gated on
  * `engine.katago.analysisStorageEnabled && engine.katago.analysisAutoSave`;
  * flipping either toggle off cancels any pending timer.
  *
- * Throttle shape: leading-edge schedule with trailing-edge save.
- * The first dirty bump in a quiet period schedules a save at
- * `now + AUTO_SAVE_DEBOUNCE_MS`; further bumps within the window
- * are absorbed (no reschedule, no extra timer). The save call
- * captures the dirty version at fire time, so any post-window
- * bumps that arrive during the in-flight PUT will trigger a
- * follow-up save on the next markDirty after the PUT completes.
+ * Throttle shape: trailing-edge debounce. Each dirty bump
+ * (re)schedules the save at `now + AUTO_SAVE_DEBOUNCE_MS`, cancelling
+ * any pending fire. During a continuous range query — a dirty bump per
+ * authoritative packet — the timer keeps resetting, so NO save fires
+ * mid-stream: the bundle is projected / quantized / PUT once, ~2 s after
+ * analysis settles, rather than every window throughout. This replaced a
+ * leading-edge schedule whose synchronous re-serialize of the float-heavy
+ * bundle (ownership + policy across every node) was the dominant
+ * main-thread block during a live query — 50-157 ms every ~2 s; see
+ * `docs/worklog/2026-05-30-perf-autosave-trailing-debounce.md`. The save
+ * still captures the dirty version at fire time, so a bump arriving during
+ * the in-flight PUT triggers a follow-up save on the next markDirty.
  *
  * Persistent-error pause: when `save()` throws an
  * `AnalysisBundleStorageError` (quota exceeded, bundle over cap,
@@ -139,7 +144,6 @@ export function useAutoSaveAnalyses(): AutoSaveHandle {
   }
 
   function scheduleSaveIfNeeded(boardId: BoardId): void {
-    if (pendingTimers.has(boardId)) return;  // already scheduled this window
     if (analysisPersistenceService.autoSaveErrorFor(boardId)) return;  // paused
 
     const currentVersion = analysisPersistenceService.dirtyVersionFor(boardId);
@@ -154,6 +158,16 @@ export function useAutoSaveAnalyses(): AutoSaveHandle {
       return;
     }
 
+    // Trailing-edge debounce: a fresh dirty bump pushes the save out to
+    // now + AUTO_SAVE_DEBOUNCE_MS, cancelling any pending fire. During a
+    // continuous range query (a dirty bump per authoritative packet) the
+    // timer keeps resetting, so no save fires mid-stream — the float-heavy
+    // bundle is projected / quantized / PUT once, ~2 s after analysis
+    // settles, instead of every window throughout. The prior leading-edge
+    // schedule (fire-every-2 s) was the dominant main-thread block during a
+    // live query (50-157 ms each); see the worklog cited in the header.
+    const existing = pendingTimers.get(boardId);
+    if (existing !== undefined) clearTimeout(existing);
     const timer = setTimeout(() => fireSave(boardId, currentVersion), AUTO_SAVE_DEBOUNCE_MS);
     pendingTimers.set(boardId, timer);
   }
