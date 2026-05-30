@@ -7,13 +7,14 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch, onUnmounted } from 'vue';
 import { getIntensityColorLinear } from '../../engine/suggestion-colors';
 import { store } from '../../store';
 import type { BoardState } from '../../types';
 import { ledger } from '../../services/analysis-ledger';
 import { useVariationPath } from '../../composables/board/useVariationPath';
 import { activeConfigHash } from '../../services/analysis-config';
+import { BOARD_TAB_RUGPLOT_REDRAW_THROTTLE_MS } from '../../lib/timing';
 
 const props = defineProps<{
   state: BoardState;
@@ -30,8 +31,55 @@ const emit = defineEmits<{
 
 const path = useVariationPath(() => props.state.id);
 
+// ── Throttled rugplot source (per-node visit scan) ────────────────────
+// `rugPlot` below colours a per-move depth meter from every node on the
+// path. The colour-LUT walk is O(path), and the per-node ledger version
+// refs bump on essentially every analysis packet, so without coalescing
+// the whole meter recolours + re-renders ~16/s during a range query. Split
+// the work: `rugVisits` is the cheap, per-packet-reactive half — it stays
+// subscribed to the ledger (so it tracks every packet) but does only map
+// lookups, no colour maths. A trailing+leading throttle snapshots it into
+// `displayedVisits` at most ~4 Hz, and `rugPlot` derives the colours from
+// that snapshot — so the expensive walk AND the re-render both run at 4 Hz
+// while the meter still reflects ongoing analysis. Same hand-rolled
+// throttle shape as the chart / queue / metrics consumers of this catalog.
+const rugVisits = computed<number[]>(() => {
+  const hash = activeConfigHash.value;
+  return path.value.map(id => ledger.getRaw(hash, id)?.rootInfo?.visits ?? 0);
+});
+
+const displayedVisits = ref<number[]>(rugVisits.value);
+
+let pendingTimer: number | null = null;
+let lastBuiltAt = performance.now();
+function scheduleVisitsSnapshot(): void {
+  if (pendingTimer !== null) return;
+  const wait = Math.max(0, BOARD_TAB_RUGPLOT_REDRAW_THROTTLE_MS - (performance.now() - lastBuiltAt));
+  pendingTimer = window.setTimeout(() => {
+    pendingTimer = null;
+    lastBuiltAt = performance.now();
+    displayedVisits.value = rugVisits.value;
+  }, wait);
+}
+
+// `rugVisits` returns a fresh array every packet, so this fires per packet;
+// the throttle coalesces the snapshot to ~4 Hz. `displayedVisits` is seeded
+// synchronously above, so the meter paints immediately on mount.
+watch(rugVisits, scheduleVisitsSnapshot);
+
+// Resource ownership at the unmount site: the throttle's pending timer must
+// not fire a snapshot into a torn-down component.
+onUnmounted(() => {
+  if (pendingTimer !== null) {
+    clearTimeout(pendingTimer);
+    pendingTimer = null;
+  }
+});
+
 // Per-node analysis depth, surfaced as a colour stripe per move along
-// the active variation.
+// the active variation. Derived from the throttled `displayedVisits`
+// snapshot above (not the live ledger), so the colour-LUT walk runs at the
+// snapshot's ~4 Hz rather than per packet.
 //
 // Three visual decisions distinct from how the intensity gradient is
 // consumed elsewhere (move suggestions, ColorDebugStrip):
@@ -80,14 +128,12 @@ const path = useVariationPath(() => props.state.id);
 //     meter's dark background shows through. Encoding "no data" as a
 //     specific gradient endpoint would lie about the absence.
 const rugPlot = computed(() => {
-  const nodeIds = path.value;
-  if (nodeIds.length === 0) return [];
+  const visitsList = displayedVisits.value;
+  if (visitsList.length === 0) return [];
   const ponderCeiling = store.profile.settings.engine.katago.ponderMaxVisits;
   const target = Math.max(props.state.maxVisitsTarget ?? 0, ponderCeiling);
   const targetLog = Math.log1p(target);
-  return nodeIds.map((id, idx) => {
-    const packet = ledger.getRaw(activeConfigHash.value, id);
-    const visits = packet?.rootInfo?.visits ?? 0;
+  return visitsList.map((visits, idx) => {
     if (visits === 0) {
       return { idx, visits, color: 'transparent' };
     }

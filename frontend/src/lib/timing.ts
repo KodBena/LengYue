@@ -105,6 +105,20 @@ export const QUEUE_TOOLTIP_REDRAW_THROTTLE_MS = 250;
  */
 export const TOOLBAR_METRICS_REDRAW_THROTTLE_MS = 250;
 
+/**
+ * Board-rail tab rugplot redraw throttle (trailing+leading). Same 4 Hz
+ * rationale as the other redraw throttles. `BoardTab`'s `rugPlot` reads
+ * every node on the board's variation path from the ledger to colour a
+ * per-move depth meter; during a range query the per-node version refs bump
+ * on essentially every packet, so the O(path) colour walk re-runs ~16/s.
+ * The cheap per-node visit scan stays live (it must, to track the ledger),
+ * but the colour mapping + re-render is coalesced to 4 Hz — a peripheral
+ * sidebar strip the user isn't watching mid-stream doesn't need per-packet
+ * precision. Distinct from the other throttles despite the shared 250 ms:
+ * different consumer, independently tunable.
+ */
+export const BOARD_TAB_RUGPLOT_REDRAW_THROTTLE_MS = 250;
+
 // User-configurable cadences — NOT owned here, listed so this surface is
 // a complete map of the application's coalescing behaviour:
 //   • persistence sync debounce —
