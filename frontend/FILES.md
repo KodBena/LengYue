@@ -91,7 +91,8 @@ frontend/src/
 │   │   ├── SidebarWidget.vue          [B1]  Sidebar layout container.
 │   │   ├── SystemLogPanel.vue         [B1]  Always-visible system log bar with idle row.
 │   │   ├── TabWidget.vue              [B1]  Controlled tabbed navigation.
-│   │   ├── Toolbar.vue                [B3]  Application toolbar (engine controls, match button, ponder controls, …).
+│   │   ├── Toolbar.vue                [B3]  Application toolbar shell (title, buttons, popover mounts). Reads only `isConnected`; telemetry lives in ToolbarEngineMetrics so the shell doesn't re-render per packet.
+│   │   ├── ToolbarEngineMetrics.vue   [B3]  Live engine-telemetry strip leaf (version/model/winrate/scoreLead/PPS/latency/watchdog + queue tooltip); self-sources the per-packet/per-tick reads, extracted out of Toolbar (render-coupling fix).
 │   │   ├── ToolbarSliderPopover.vue   [B1]  Toolbar badge + hover popover: compact priority-ordered list of every scalar knob (quick-access surface for the knob registry).
 │   │   └── UserBadge.vue              [B1]  Auth-identity badge; opens LoginModal on click.
 │   │
@@ -134,6 +135,7 @@ frontend/src/
 │
 ├── composables/                             Logic layer. Pure-ish functions over reactive refs.
 │   ├── useAutoNavigatePerf.ts         [B2]  Dev-only: rAF-drives next() at ~60/s to the last node, emitting autonav:step perf marks tagged with analysis-queue state (regime A/B/other-board). Button gated to dev builds.
+│   ├── useAutoPopoverPerf.ts          [B1]  Dev-only: toggles a target popover open/closed at ~2/s (via useHoverPopover's force hook), emitting popover:open/close marks tagged with queue state — for the popover-toggle-cost measurement.
 │   ├── useEngineControls.ts           [B3]  Engine connect / disconnect / toggle lifecycle.
 │   ├── useNavigation.ts               [B2]  Headless navigation within the game tree (next/prev/parent/child).
 │   ├── useQeubo.ts                    [B1]  qEUBO experiment state machine + audition + verdict.
