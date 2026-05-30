@@ -197,7 +197,15 @@ function onBoardClick(e: MouseEvent) {
          strip between the SVG edge and the nearest edge-row stone via
          labelOffset / LABEL_INSET_RATIO). Rendered on all four sides
          per the Lizzie/Sabaki/KaTrain/KGS/OGS convention. -->
-    <g v-if="showLabels" :fill="LABEL_COLOR" :font-size="LABEL_FONT_SIZE" font-weight="bold" font-family="monospace" text-anchor="middle" dominant-baseline="middle">
+    <!-- Per-nav render discipline: this SVG re-renders every nav step (stones /
+         last-move / move-numbers change), but the geometry layers — labels,
+         grid, hoshi — depend only on `boardSize` (nav-invariant), so they are
+         v-memo'd on it and skip. The stones and move-numbers are per-item
+         v-memo'd (the :key carries position, so only the 1-2 changed stones
+         re-render). Pre-memo this re-created ~500 vnodes/nav for a ~2-stone
+         delta. (`boardSize` is genuinely stable during nav — unlike
+         TreeWidget's churning layout, so these memos actually skip.) -->
+    <g v-if="showLabels" v-memo="[boardSize]" :fill="LABEL_COLOR" :font-size="LABEL_FONT_SIZE" font-weight="bold" font-family="monospace" text-anchor="middle" dominant-baseline="middle">
       <text v-for="(label, i) in xLabels" :key="'lxt'+i" :x="LABEL_BAND + pad + i * cell" :y="labelOffset">{{ label }}</text>
       <text v-for="(label, i) in xLabels" :key="'lxb'+i" :x="LABEL_BAND + pad + i * cell" :y="TOTAL_PX - labelOffset">{{ label }}</text>
       <text v-for="i in boardSize"         :key="'lyl'+i" :x="labelOffset"                  :y="LABEL_BAND + pad + (boardSize - i) * cell">{{ i }}</text>
@@ -208,7 +216,7 @@ function onBoardClick(e: MouseEvent) {
          into the inner box so the geometry below stays inner-board-relative. -->
     <g :transform="`translate(${LABEL_BAND}, ${LABEL_BAND})`">
       <!-- 3a. Grid -->
-      <g :stroke="LINE_COLOR" stroke-width="0.8" opacity="0.8">
+      <g :stroke="LINE_COLOR" stroke-width="0.8" opacity="0.8" v-memo="[boardSize]">
         <line v-for="(l, i) in lines" :key="i" :x1="l.x1" :y1="l.y1" :x2="l.x2" :y2="l.y2" />
       </g>
 
@@ -216,6 +224,7 @@ function onBoardClick(e: MouseEvent) {
       <circle
         v-for="(h, i) in hoshi"
         :key="'h'+i"
+        v-memo="[boardSize]"
         :cx="toSVG(h[0], h[1]).x"
         :cy="toSVG(h[0], h[1]).y"
         :r="STAR_R"
@@ -243,7 +252,7 @@ function onBoardClick(e: MouseEvent) {
       </g>
 
       <!-- 3c. Stones -->
-      <g v-for="stone in stoneList" :key="stone.key">
+      <g v-for="stone in stoneList" :key="stone.key" v-memo="[stone.color, stone.x, stone.y]">
         <circle
           :cx="stone.x"
           :cy="stone.y"
@@ -284,6 +293,7 @@ function onBoardClick(e: MouseEvent) {
         <template v-for="stone in stoneList" :key="`mn-${stone.key}`">
           <text
             v-if="moveNumbers[stone.key] !== undefined"
+            v-memo="[moveNumbers[stone.key], stone.x, stone.y, stone.color]"
             :x="stone.x"
             :y="stone.y + 1"
             :font-size="stoneR * (moveNumbers[stone.key] >= 100 ? 0.5 : moveNumbers[stone.key] >= 10 ? 0.6 : 0.7)"
