@@ -75,6 +75,19 @@ export const STABILITY_HEATMAP_REDRAW_THROTTLE_MS = 250;
  */
 export const DISTRIBUTION_REDRAW_THROTTLE_MS = 250;
 
+/**
+ * Engine queue-tooltip open-list redraw throttle (trailing+leading).
+ * Same 4 Hz rationale as the heatmap / distribution throttles. While the
+ * hover panel is open, every analysis packet churns each row's progress
+ * and ETA (`q.progress` / `q.etaMs`), which would re-render the whole
+ * table at the packet rate — illegible at that speed. The time cap is
+ * the lever, not a data-changed gate: those values change every packet
+ * by construction, so a dirty-check coalesces nothing. Distinct from the
+ * heatmap / distribution throttles despite the shared 250 ms value:
+ * different consumer, independently tunable.
+ */
+export const QUEUE_TOOLTIP_REDRAW_THROTTLE_MS = 250;
+
 // User-configurable cadences — NOT owned here, listed so this surface is
 // a complete map of the application's coalescing behaviour:
 //   • persistence sync debounce —
