@@ -150,6 +150,18 @@ const svgHeight = computed(() =>
     : layout.value.rows * CELL + PAD * 2,
 );
 
+// Pixel position of the active-node ring — the one nav-reactive piece of
+// the tree, decoupled from the node loop (see template) so a nav step
+// updates only the ring <circle> and leaves the edge / node groups fully
+// memoised. Null when the current node has no layout position yet
+// (transiently, before the ensureVisible watch expands its ancestors).
+const activeRingPos = computed(() => {
+  const id = currentNodeId.value;
+  if (!id) return null;
+  const pos = layout.value.positions.get(id);
+  return pos ? toPixels(pos.gx, pos.gy) : null;
+});
+
 // ── Viewport Centering & Auto-Expand ──────────────────────────────────────────
 //
 // `immediate: true` so the invariant fires on mount (the SPA-reload
@@ -254,22 +266,46 @@ const edges = computed(() => {
   <div class="tree-widget-wrapper">
     <div ref="outerRef" class="tree-widget-outer">
       <svg :width="svgWidth" :height="svgHeight" class="tree-svg">
+        <!-- The current-node ring is decoupled out of the node loop (the
+             BaseChart marker pattern) so a cursor-only nav step doesn't touch
+             the tree. Edges and nodes then memoise PER ITEM, not as one
+             group: `layout` is a shallowRef reassigned to a fresh object on
+             every recompute, so a v-memo keyed on the whole `edges` /
+             `nodeList` array busts on ANY layout change and re-renders the
+             entire tree in one O(N) burst (the 30 ms render spikes / 347 ms
+             LongTasks seen during streaming, when node mutations churn the
+             layout). Per-item keys re-render only the items that actually
+             changed — on a layout bust that moved nothing, every item skips.
+             The guard in useTreeExpansion.ensureVisible is what keeps the
+             layout reference stable on linear nav in the first place. -->
         <g class="tree-edges" stroke-width="1.2" stroke-linecap="round">
-          <path v-for="edge in edges" :key="edge.id" :d="edge.d" />
+          <path v-for="edge in edges" :key="edge.id" v-memo="[edge.d]" :d="edge.d" />
         </g>
 
-        <g v-for="item in nodeList" :key="item.id" v-memo="[item.id === currentNodeId, item.isGameHead, item.move?.color, item.isBranching, item.isExpanded]">
-          <!-- Game-head marker — outermost ring (NODE_R + 5) so it
-               stays visible when the active-ring (NODE_R + 3) also
-               applies on the current node. Green = "play vs engine
-               session's head — engine will respond to your next
-               move from here". Exactly one head per session;
-               the head advances as the game progresses, so
-               previously-green nodes no longer render the ring.
-               See PlayEngineModal / useEngineResponder for the
-               lifecycle. -->
+        <!-- Active-node ring — the ONLY per-nav element. Drawn between edges
+             and nodes for z-order: behind the node circle (annulus shows),
+             in front of the edges. -->
+        <circle v-if="activeRingPos" :cx="activeRingPos.x" :cy="activeRingPos.y" :r="NODE_R + 3" class="active-ring" stroke-width="1" />
+
+        <!-- Nodes: per-item memo, keyed on everything a node's vnodes read
+             that can change — position (px/py: a layout recompute can move a
+             node) plus game-head / move colour / branching / expansion. The
+             cursor is NOT in the key (it lives in the decoupled ring above),
+             so a cursor-only nav step skips every node; a layout bust
+             re-renders only the nodes that genuinely moved or changed. -->
+        <g
+          v-for="item in nodeList"
+          :key="item.id"
+          v-memo="[item.isGameHead, item.move?.color, item.isBranching, item.isExpanded, item.px, item.py]"
+        >
+          <!-- Game-head marker — outermost ring (NODE_R + 5) so it stays
+               visible when the active-ring (NODE_R + 3) also applies on the
+               current node. Green = "play vs engine session's head — engine
+               will respond to your next move from here". Exactly one head
+               per session; the head advances as the game progresses, so
+               previously-green nodes no longer render the ring. See
+               PlayEngineModal / useEngineResponder for the lifecycle. -->
           <circle v-if="item.isGameHead" :cx="item.px" :cy="item.py" :r="NODE_R + 5" class="game-head-ring" stroke-width="1.5" />
-          <circle v-if="item.id === currentNodeId" :cx="item.px" :cy="item.py" :r="NODE_R + 3" class="active-ring" stroke-width="1" />
           <circle :cx="item.px" :cy="item.py" :r="NODE_R" :fill="nodeFill(item)" :stroke="nodeStroke(item)" stroke-width="1" class="node-circle" @click="emit('select-node', item.id)" />
 
           <g v-if="item.isBranching" class="toggle-group" @click.stop="expansion.toggle(item.parentIdForToggle)" @mouseenter="e => onToggleEnter(e, item.parentIdForToggle as NodeId)" @mouseleave="onToggleLeave">
