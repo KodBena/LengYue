@@ -42,9 +42,10 @@ The extraction *isolated* the per-packet telemetry but did not *reduce* it —
 `<ToolbarEngineMetrics>` now absorbs the whole-shell coupling's render rate
 (567 here; 716 in the later capture L). That made the leaf the largest
 per-packet renderer remaining and the next green candidate: throttle its
-displayed scalars to ~4 Hz via the `lib/timing` catalog, validated by the
-same popover-stress capture method. Taken as the immediate follow-up on this
-branch.
+displayed scalars to ~4 Hz via the `lib/timing` catalog. Taken as the
+immediate follow-up on this branch — see
+`docs/worklog/2026-05-30-perf-toolbar-metrics-throttle.md` (validated 716 →
+127 renders, 9× load-normalized).
 
 ## Docs
 

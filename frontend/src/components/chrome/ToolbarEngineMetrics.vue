@@ -13,13 +13,14 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import EngineQueueTooltip from './EngineQueueTooltip.vue';
 import { store, setSelectedModel, activeBoard } from '../../store';
 import { activeConfigHash } from '../../services/analysis-config';
 import { ledger } from '../../services/analysis-ledger';
 import { useEngineControls } from '../../composables/useEngineControls';
+import { TOOLBAR_METRICS_REDRAW_THROTTLE_MS } from '../../lib/timing';
 
 const { t } = useI18n();
 
@@ -168,6 +169,66 @@ const scoreLeadDisplay = computed(() => {
   const sign = r.scoreLead >= 0 ? '+' : '';
   return `${sign}${r.scoreLead.toFixed(1)}`;
 });
+
+// ── Throttled metrics snapshot ────────────────────────────────────────
+// This strip re-renders on two per-packet sources: `rootInfo` (winrate /
+// scoreLead refine every packet) and `store.engine.metrics`, which
+// analysis-service replaces wholesale on every response (the
+// `lastResponseId` bump in `onAnalysisUpdate`) — so even the 1 Hz PPS and
+// 5 s latency reads churn at the packet rate through object identity. We
+// snapshot the four displayed scalars into plain values on a
+// trailing+leading throttle so the strip redraws at most ~4 Hz
+// (TOOLBAR_METRICS_REDRAW_THROTTLE_MS); the headline numbers to one decimal
+// don't change meaningfully faster. The watchdog dot is left LIVE below:
+// its computed short-circuits on a stable class string (no per-packet
+// render), and staying live lets a latency spike flip it promptly rather
+// than up to a throttle-window late. Same hand-rolled throttle shape as the
+// chart / queue-tooltip consumers of this timing catalog.
+interface MetricsDisplay {
+  winrate:   string;
+  scoreLead: string;
+  pps:       number;
+  latency:   number;
+}
+
+const displayed = ref<MetricsDisplay>({ winrate: '—', scoreLead: '—', pps: 0, latency: 0 });
+
+function rebuildDisplay(): void {
+  displayed.value = {
+    winrate:   winrateDisplay.value,
+    scoreLead: scoreLeadDisplay.value,
+    pps:       metrics.value.packetsPerSecond,
+    latency:   metrics.value.latencyMs,
+  };
+}
+
+let pendingTimer: number | null = null;
+let lastBuiltAt = 0;
+function scheduleDisplayRebuild(): void {
+  if (pendingTimer !== null) return;
+  const wait = Math.max(0, TOOLBAR_METRICS_REDRAW_THROTTLE_MS - (performance.now() - lastBuiltAt));
+  pendingTimer = window.setTimeout(() => {
+    pendingTimer = null;
+    lastBuiltAt = performance.now();
+    rebuildDisplay();
+  }, wait);
+}
+
+// Seed synchronously so the first paint shows real values (no placeholder
+// flash when the leaf mounts mid-stream on reconnect); throttled updates
+// follow on every rootInfo / metrics change.
+rebuildDisplay();
+lastBuiltAt = performance.now();
+watch([rootInfo, metrics], scheduleDisplayRebuild);
+
+// Resource ownership at the unmount site: the throttle's pending timer
+// must not fire a rebuild into a torn-down component.
+onUnmounted(() => {
+  if (pendingTimer !== null) {
+    clearTimeout(pendingTimer);
+    pendingTimer = null;
+  }
+});
 </script>
 
 <template>
@@ -213,19 +274,19 @@ const scoreLeadDisplay = computed(() => {
          node (pre-analysis, fresh navigation, or post-purge). -->
     <div class="metric" :title="$t('toolbar.metric.winrateTooltip')">
       <span class="m-lbl">{{ $t('toolbar.metric.winrate') }}</span>
-      <span class="m-val eval-val">{{ winrateDisplay }}</span>
+      <span class="m-val eval-val">{{ displayed.winrate }}</span>
     </div>
     <div class="metric" :title="$t('toolbar.metric.scoreLeadTooltip')">
       <span class="m-lbl">{{ $t('toolbar.metric.scoreLead') }}</span>
-      <span class="m-val eval-val">{{ scoreLeadDisplay }}</span>
+      <span class="m-val eval-val">{{ displayed.scoreLead }}</span>
     </div>
     <div class="metric">
       <span class="m-lbl">{{ $t('toolbar.metric.pps') }}</span>
-      <span class="m-val">{{ metrics.packetsPerSecond }}</span>
+      <span class="m-val">{{ displayed.pps }}</span>
     </div>
     <div class="metric">
       <span class="m-lbl">{{ $t('toolbar.metric.latency') }}</span>
-      <span class="m-val">{{ $t('toolbar.metric.latencyValue', { ms: metrics.latencyMs }) }}</span>
+      <span class="m-val">{{ $t('toolbar.metric.latencyValue', { ms: displayed.latency }) }}</span>
     </div>
     <div class="metric">
       <span class="m-lbl">{{ $t('toolbar.metric.watchdog') }}</span>

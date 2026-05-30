@@ -88,6 +88,23 @@ export const DISTRIBUTION_REDRAW_THROTTLE_MS = 250;
  */
 export const QUEUE_TOOLTIP_REDRAW_THROTTLE_MS = 250;
 
+/**
+ * Toolbar engine-metrics strip redraw throttle (trailing+leading). Same
+ * 4 Hz rationale as the other redraw throttles. `<ToolbarEngineMetrics>`
+ * re-renders on two per-packet sources: the current node's `rootInfo`
+ * (winrate / scoreLead refine every packet) and `store.engine.metrics`,
+ * which analysis-service replaces wholesale on every response (the
+ * `lastResponseId` bump in `onAnalysisUpdate`) — so even the 1 Hz PPS and
+ * 5 s latency reads churn at the packet rate through object identity.
+ * Coalescing the displayed scalars to 4 Hz drops the strip from
+ * ~packet-rate to ~4 redraws/sec; the headline numbers to one decimal
+ * don't change meaningfully faster. The watchdog dot is intentionally NOT
+ * throttled (it stays live so a latency spike flips it promptly).
+ * Distinct from the chart / queue throttles despite the shared 250 ms:
+ * different consumer, independently tunable.
+ */
+export const TOOLBAR_METRICS_REDRAW_THROTTLE_MS = 250;
+
 // User-configurable cadences — NOT owned here, listed so this surface is
 // a complete map of the application's coalescing behaviour:
 //   • persistence sync debounce —
