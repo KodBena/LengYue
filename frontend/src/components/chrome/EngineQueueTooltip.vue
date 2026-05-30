@@ -35,7 +35,7 @@ import { usePopoverEdgeClamp } from '../../composables/chrome/usePopoverEdgeClam
 
 const { t } = useI18n();
 const { inFlight, cancelQuery } = useQueryTelemetry();
-const { open, onMouseEnter, onMouseLeave } = useHoverPopover();
+const { open, onMouseEnter, onMouseLeave } = useHoverPopover({ devId: 'queue' });
 // `left: 0`-anchored — the composable handles both anchor
 // directions symmetrically (clamps the offending edge whichever
 // it is); no per-popover direction config needed.

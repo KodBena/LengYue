@@ -46,7 +46,7 @@ import { usePopoverEdgeClamp } from '../../composables/chrome/usePopoverEdgeClam
 import KnobSlider from '../knobs/KnobSlider.vue';
 import type { KnobDecl, KnobId } from '../../types';
 
-const { open, onMouseEnter, onMouseLeave } = useHoverPopover();
+const { open, onMouseEnter, onMouseLeave } = useHoverPopover({ devId: 'sliders' });
 // Iter-2 audit: the `right: 0` anchor overflows the left edge at
 // narrow viewports, clipping the knob-label column. Composable
 // handles the measurement + translateX shift.

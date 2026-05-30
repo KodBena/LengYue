@@ -49,9 +49,22 @@
  * License: Public Domain (The Unlicense)
  */
 
-import { onUnmounted, ref, type Ref } from 'vue';
+import { onUnmounted, ref, watch, type Ref } from 'vue';
 
 const DEFAULT_CLOSE_DELAY_MS = 150;
+
+// DEV-only: lets the popover perf harness (useAutoPopoverPerf) force a
+// specific popover open by id, programmatically, in place of physical hover.
+// Module-scoped so one harness drives whichever popover it targets. The
+// consuming watch (below) and this ref's writes are DEV-gated, so a
+// production build carries only an unread ref.
+const devForcedOpenId = ref<string | null>(null);
+
+/** DEV-only: force the popover whose `devId` matches `id` open (or pass null
+ *  to release). No-op in production. Used by the perf-capture harness. */
+export function __devForcePopoverOpen(id: string | null): void {
+  if (import.meta.env.DEV) devForcedOpenId.value = id;
+}
 
 export interface HoverPopoverHandle {
   /** Open/closed state. Template binds via `v-if="open"`. */
@@ -72,6 +85,12 @@ export interface UseHoverPopoverOptions {
    * the default for cross-popover consistency.
    */
   closeDelayMs?: number;
+  /**
+   * DEV-only identifier so the popover perf harness can force this popover
+   * open by id (programmatic stress in place of hover). No effect in
+   * production. Omit for popovers that never need harness-driving.
+   */
+  devId?: string;
 }
 
 export function useHoverPopover(
@@ -99,6 +118,16 @@ export function useHoverPopover(
       open.value = false;
       closeTimer = null;
     }, closeDelayMs);
+  }
+
+  // DEV-only harness hook: when the perf harness targets this popover's
+  // devId, drive `open` directly (the same boolean the hover handlers write),
+  // so a programmatic open/close exercises the real render / edge-clamp path
+  // without synthetic pointer events. The whole block DCEs in production.
+  if (import.meta.env.DEV && options.devId !== undefined) {
+    watch(devForcedOpenId, (forced) => {
+      open.value = forced === options.devId;
+    });
   }
 
   onUnmounted(() => {
