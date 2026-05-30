@@ -68,6 +68,10 @@ const selectionRange = ctx.selectionRange;
 
 const { getThumbnailSvg } = useThumbnailCache();
 const preview = ref('');
+// Accessor passed down instead of the value: the per-nav thumbnail update
+// then re-renders only the <ChartPreviewBox> leaf, not this panel or the
+// chart host (render-coupling postmortem, 2026-05-29).
+const getPreview = () => preview.value;
 
 // Re-index each side's colour-local data onto a shared
 // parity-interleaved x-axis: black move K → x=2K, white
@@ -317,6 +321,6 @@ function formatXTooltip(val: number): string {
     :on-index-click="handleClick"
     :on-index-hover="handleHover"
     :on-mouse-leave="resetPreview"
-    :preview-html="preview"
+    :preview-accessor="getPreview"
   />
 </template>

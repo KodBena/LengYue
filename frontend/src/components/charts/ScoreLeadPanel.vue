@@ -22,6 +22,10 @@ const onIndexClick   = ctx.navigation.handleMainClick;
 
 const { getThumbnailSvg } = useThumbnailCache();
 const preview = ref('');
+// Accessor passed down instead of the value: the per-nav thumbnail update
+// then re-renders only the <ChartPreviewBox> leaf, not this panel or the
+// chart host (render-coupling postmortem, 2026-05-29).
+const getPreview = () => preview.value;
 
 /** Reverts the preview box to the current board position */
 async function resetPreview() {
@@ -64,7 +68,7 @@ function formatPlyTooltip(val: number): string {
     :on-index-click="onIndexClick"
     :on-index-hover="handleHover"
     :on-mouse-leave="resetPreview"
-    :preview-html="preview"
+    :preview-accessor="getPreview"
     :format-x-tooltip="formatPlyTooltip"
     normalize="per-series"
   />
