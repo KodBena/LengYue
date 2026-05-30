@@ -152,6 +152,11 @@ export class AnalysisLedger {
       // purgeBoard / purgeAll synchronous-bump bypass at the other end
       // of the data lifecycle.
       version.value++;
+      // RB-3 (ADR-0009): count first-packet synchronous bumps — each queues
+      // a render Vue flushes inside the receiving task (vs the rAF-coalesced
+      // subsequent path below). Frequency here gates lever 2 (defer
+      // first-bumps to rAF). DEV-only; dead-code-eliminated in prod.
+      if (import.meta.env.DEV) performance.mark('rb3:firstBump');
     } else {
       // Subsequent packets coalesce: data is updated synchronously above
       // (mergeAnalysisPacket has already run); only the reactive

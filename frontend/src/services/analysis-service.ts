@@ -45,6 +45,12 @@ import { useQueryTelemetry } from '../composables/useQueryTelemetry';
 
 const telemetry = useQueryTelemetry();
 
+// Flip to true locally to trace every analysis packet to the console while
+// debugging the WebSocket path (RB-3 / the adaptive-cancel investigation).
+// Default false: the per-packet log is hundreds of lines per range query
+// and skews dev profiles — a flip-to-debug tool, not always-on spam.
+const DEBUG_PACKETS = false;
+
 export class AnalysisService {
   private client: KataGoClient;
   // Per-query bookkeeping. Keyed by queryId. `boardId` lets `stopQuery`
@@ -903,7 +909,7 @@ export class AnalysisService {
 
   private onAnalysisUpdate(response: KataAnalysisResponse, queryId: string) {
     this.packetCount++;
-    if (import.meta.env.DEV) {
+    if (DEBUG_PACKETS) {
       const q = this.activeQueries.get(queryId);
       const dt = q ? (performance.now() - q.startedAt).toFixed(1) : 'n/a';
       console.log(
@@ -926,6 +932,12 @@ export class AnalysisService {
 
     const nodeId = queryInfo.path[response.turnNumber];
     if (nodeId) {
+      // RB-3 (ADR-0009): per-packet receive-work timing — the before-anchor
+      // for the packet-receive chunking arc. DEV-only (dead-code-eliminated
+      // in prod). Measures normalize + merge + stability + board mutation;
+      // it EXCLUDES the version-bump render Vue flushes after this returns
+      // (that is counted via `rb3:firstBump` in analysis-ledger.ts).
+      const rb3Start = import.meta.env.DEV ? performance.now() : 0;
       // Normalise to canonical 'WHITE' framing before recording so
       // every consumer downstream — `waitForAnalysis`, the chart
       // composables, the ownership renderer, the bundle export —
@@ -959,6 +971,7 @@ export class AnalysisService {
       if (!response.isDuringSearch) {
         analysisPersistenceService.markDirty(queryInfo.boardId);
       }
+      if (import.meta.env.DEV) performance.measure('rb3:handler', { start: rb3Start });
     }
 
     // Ponder-ceiling-reached warning. A ponder-mode query is
