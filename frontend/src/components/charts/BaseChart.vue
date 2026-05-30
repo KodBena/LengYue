@@ -22,6 +22,7 @@ import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import * as echarts from 'echarts';
 import { themeColor } from '../../utils/theme-color';
 import { CHART_MARKER_DEBOUNCE_MS as DEBOUNCE_MS, BASE_CHART_REDRAW_THROTTLE_MS } from '../../lib/timing';
+import { createTrailingThrottle } from '../../composables/useThrottledSnapshot';
 
 const props = defineProps<{
   series: any[];
@@ -531,27 +532,17 @@ const initChart = async () => {
   updateOptions();
 };
 
-// Series-data redraw throttle (see lib/timing.ts). The parent re-maps
-// `series` (new refs) on every analysis packet, so without coalescing the
-// per-packet `updateOptions` -> setOption (the expensive ECharts
-// option-merge) runs at the packet rate (~24/s). Schedule it on a 4 Hz
-// trailing+leading throttle; `updateOptions` reads the latest props at
-// execution time, so the coalesced redraw always reflects the newest data.
-// The zoom watch below stays prompt (user-driven, debounced upstream).
-let dataPendingTimer: number | null = null;
-let lastDataDrawAt = 0;
-const scheduleDataUpdate = () => {
-  if (dataPendingTimer !== null) return;
-  const wait = Math.max(0, BASE_CHART_REDRAW_THROTTLE_MS - (performance.now() - lastDataDrawAt));
-  dataPendingTimer = window.setTimeout(() => {
-    dataPendingTimer = null;
-    lastDataDrawAt = performance.now();
-    updateOptions();
-  }, wait);
-};
+// Series-data redraw throttle (the shared subscriber-projection mechanism).
+// The parent re-maps `series` (new refs) on every analysis packet; without
+// coalescing, `updateOptions` -> setOption (the expensive ECharts
+// option-merge) would run at the packet rate (~24/s). `updateOptions` reads
+// the latest props at execution time, so the coalesced redraw always reflects
+// the newest data. The zoom watch below stays prompt (user-driven, debounced
+// upstream).
+const dataThrottle = createTrailingThrottle(updateOptions, BASE_CHART_REDRAW_THROTTLE_MS);
 
 watch(() => props.zoomRange, updateOptions, { deep: false });
-watch(() => props.series, scheduleDataUpdate, { deep: false });
+watch(() => props.series, dataThrottle.schedule, { deep: false });
 watch(() => (props.activeIndexAccessor ? props.activeIndexAccessor() : null), debouncedUpdateMarker);
 
 
@@ -564,7 +555,7 @@ onUnmounted(() => {
   if (markerTimer) clearTimeout(markerTimer);
   // Release the data-redraw throttle timer too, so a pending setOption
   // can't fire into a disposed chartInstance.
-  if (dataPendingTimer) clearTimeout(dataPendingTimer);
+  dataThrottle.cancel();
   if (resizeObserver && chartRef.value) {
     resizeObserver.unobserve(chartRef.value);
     resizeObserver.disconnect();

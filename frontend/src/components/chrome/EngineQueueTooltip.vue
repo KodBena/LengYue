@@ -32,6 +32,7 @@ import { useI18n } from 'vue-i18n';
 import { useQueryTelemetry, type InFlightQuery } from '../../composables/useQueryTelemetry';
 import { useHoverPopover } from '../../composables/chrome/useHoverPopover';
 import { usePopoverEdgeClamp } from '../../composables/chrome/usePopoverEdgeClamp';
+import { createTrailingThrottle } from '../../composables/useThrottledSnapshot';
 import { QUEUE_TOOLTIP_REDRAW_THROTTLE_MS } from '../../lib/timing';
 
 const { t } = useI18n();
@@ -124,47 +125,19 @@ function rebuildRows(): void {
   }));
 }
 
-// A closed popover schedules nothing — its list isn't rendered, so
-// rebuilding `displayRows` would be pure waste (mirrors
-// DistributionChart's collapsed-panel gate). `pendingTimer` coalesces a
-// burst of packets into one trailing rebuild per throttle window.
-let pendingTimer: number | null = null;
-let lastBuiltAt = 0;
-function scheduleRowsRebuild(): void {
-  if (!open.value || pendingTimer !== null) return;
-  const wait = Math.max(0, QUEUE_TOOLTIP_REDRAW_THROTTLE_MS - (performance.now() - lastBuiltAt));
-  pendingTimer = window.setTimeout(() => {
-    pendingTimer = null;
-    lastBuiltAt = performance.now();
-    rebuildRows();
-  }, wait);
-}
+// Shared trailing throttle (the subscriber-projection mechanism), but gated:
+// a closed popover's list isn't rendered, so don't rebuild when closed —
+// schedule only while open. `inFlight` is replaced wholesale per packet, so
+// the watch fires per packet; the throttle coalesces to ~4 Hz.
+const rowsThrottle = createTrailingThrottle(rebuildRows, QUEUE_TOOLTIP_REDRAW_THROTTLE_MS);
+watch(inFlight, () => { if (open.value) rowsThrottle.schedule(); });
 
-// `inFlight` is replaced wholesale every packet, so this fires per
-// packet; the throttle coalesces it. No `immediate` — the open watch
-// below seeds the first frame.
-watch(inFlight, scheduleRowsRebuild);
+// Seed synchronously on open (bypassing the throttle) so the list is fresh
+// the instant the popover shows; the default 'pre' flush runs before the
+// popover renders, so there's no stale/empty flash.
+watch(open, (isOpen) => { if (isOpen) rebuildRows(); });
 
-// Seed synchronously on open (bypassing the throttle) so the list is
-// fresh the instant the popover shows; throttled updates take over while
-// it stays open. The default 'pre' flush runs this before the popover
-// renders, so there's no stale/empty flash on open.
-watch(open, (isOpen) => {
-  if (isOpen) {
-    lastBuiltAt = performance.now();
-    rebuildRows();
-  }
-});
-
-// Resource ownership at the unmount site: the throttle's pending timer
-// must not fire a rebuild into a torn-down component. Clear before
-// teardown (ordering mirrors DistributionChart's onUnmounted).
-onUnmounted(() => {
-  if (pendingTimer !== null) {
-    clearTimeout(pendingTimer);
-    pendingTimer = null;
-  }
-});
+onUnmounted(rowsThrottle.cancel);
 </script>
 
 <template>

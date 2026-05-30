@@ -15,6 +15,7 @@ import {
 } from '../../composables/analysis/useTriangularHeatmap';
 import type { BoardId, NodeId } from '../../types';
 import { STABILITY_HEATMAP_REDRAW_THROTTLE_MS as THROTTLE_MS } from '../../lib/timing';
+import { createTrailingThrottle } from '../../composables/useThrottledSnapshot';
 
 const { getSync } = useThumbnailCache();
 
@@ -78,8 +79,6 @@ let initTimeout: number | null = null;
 type UpdateMode = 'full' | 'data' | 'axes';
 const modeRank: Record<UpdateMode, number> = { axes: 0, data: 1, full: 2 };
 
-let pendingTimer: number | null = null;
-let lastRenderAt = -Infinity;
 let pendingMode: UpdateMode | null = null;
 
 const buildOptions = () => {
@@ -211,8 +210,6 @@ const applyAxes = () => {
 };
 
 const flushUpdate = () => {
-  pendingTimer = null;
-  lastRenderAt = performance.now();
   const mode = pendingMode;
   pendingMode = null;
   if (!chartInstance || !mode) return;
@@ -220,6 +217,10 @@ const flushUpdate = () => {
   else if (mode === 'data') applyData();
   else applyAxes();
 };
+
+// Shared subscriber-projection throttle; the mode-accumulation above is the
+// consumer-specific part (promote to the most-thorough mode in the window).
+const updateThrottle = createTrailingThrottle(flushUpdate, THROTTLE_MS);
 
 // Trailing-edge throttle. Coalesces changes within THROTTLE_MS into one
 // render and promotes pendingMode to the most-thorough mode requested
@@ -230,10 +231,7 @@ const scheduleUpdate = (mode: UpdateMode) => {
   if (pendingMode === null || modeRank[mode] > modeRank[pendingMode]) {
     pendingMode = mode;
   }
-  if (pendingTimer !== null) return;
-  const elapsed = performance.now() - lastRenderAt;
-  const wait = Math.max(0, THROTTLE_MS - elapsed);
-  pendingTimer = window.setTimeout(flushUpdate, wait);
+  updateThrottle.schedule();
 };
 
 const initChart = () => {
@@ -269,7 +267,6 @@ const initChart = () => {
   resizeObserver.observe(chartRef.value);
 
   applyFull();
-  lastRenderAt = performance.now();
 };
 
 onMounted(() => {
@@ -291,7 +288,7 @@ onUnmounted(() => {
   // flushUpdate would short-circuit safely, but discipline-correct shape
   // is to release the timer at the unmount site (mirrors BaseChart's
   // markerTimer cleanup).
-  if (pendingTimer) clearTimeout(pendingTimer);
+  updateThrottle.cancel();
   if (initTimeout) clearTimeout(initTimeout);
   if (resizeObserver && chartRef.value) resizeObserver.unobserve(chartRef.value);
   chartInstance?.dispose();

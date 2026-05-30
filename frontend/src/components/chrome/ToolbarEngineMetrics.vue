@@ -13,7 +13,8 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed, ref, watch, onUnmounted } from 'vue';
+import { computed } from 'vue';
+import { useThrottledSnapshot } from '../../composables/useThrottledSnapshot';
 import { useI18n } from 'vue-i18n';
 import EngineQueueTooltip from './EngineQueueTooltip.vue';
 import { store, setSelectedModel, activeBoard } from '../../store';
@@ -173,17 +174,13 @@ const scoreLeadDisplay = computed(() => {
 // ── Throttled metrics snapshot ────────────────────────────────────────
 // This strip re-renders on two per-packet sources: `rootInfo` (winrate /
 // scoreLead refine every packet) and `store.engine.metrics`, which
-// analysis-service replaces wholesale on every response (the
-// `lastResponseId` bump in `onAnalysisUpdate`) — so even the 1 Hz PPS and
-// 5 s latency reads churn at the packet rate through object identity. We
-// snapshot the four displayed scalars into plain values on a
-// trailing+leading throttle so the strip redraws at most ~4 Hz
-// (TOOLBAR_METRICS_REDRAW_THROTTLE_MS); the headline numbers to one decimal
-// don't change meaningfully faster. The watchdog dot is left LIVE below:
-// its computed short-circuits on a stable class string (no per-packet
-// render), and staying live lets a latency spike flip it promptly rather
-// than up to a throttle-window late. Same hand-rolled throttle shape as the
-// chart / queue-tooltip consumers of this timing catalog.
+// analysis-service replaces wholesale on every response (the `lastResponseId`
+// bump) — so even the 1 Hz PPS and 5 s latency reads churn at the packet rate
+// through object identity. Project the four displayed scalars into a derived
+// object and publish it to the template via the shared subscriber-projection
+// throttle, so the strip redraws at most ~4 Hz. The watchdog dot is left LIVE
+// below: its computed short-circuits on a stable class string (no per-packet
+// render), and staying live lets a latency spike flip it promptly.
 interface MetricsDisplay {
   winrate:   string;
   scoreLead: string;
@@ -191,44 +188,13 @@ interface MetricsDisplay {
   latency:   number;
 }
 
-const displayed = ref<MetricsDisplay>({ winrate: '—', scoreLead: '—', pps: 0, latency: 0 });
-
-function rebuildDisplay(): void {
-  displayed.value = {
-    winrate:   winrateDisplay.value,
-    scoreLead: scoreLeadDisplay.value,
-    pps:       metrics.value.packetsPerSecond,
-    latency:   metrics.value.latencyMs,
-  };
-}
-
-let pendingTimer: number | null = null;
-let lastBuiltAt = 0;
-function scheduleDisplayRebuild(): void {
-  if (pendingTimer !== null) return;
-  const wait = Math.max(0, TOOLBAR_METRICS_REDRAW_THROTTLE_MS - (performance.now() - lastBuiltAt));
-  pendingTimer = window.setTimeout(() => {
-    pendingTimer = null;
-    lastBuiltAt = performance.now();
-    rebuildDisplay();
-  }, wait);
-}
-
-// Seed synchronously so the first paint shows real values (no placeholder
-// flash when the leaf mounts mid-stream on reconnect); throttled updates
-// follow on every rootInfo / metrics change.
-rebuildDisplay();
-lastBuiltAt = performance.now();
-watch([rootInfo, metrics], scheduleDisplayRebuild);
-
-// Resource ownership at the unmount site: the throttle's pending timer
-// must not fire a rebuild into a torn-down component.
-onUnmounted(() => {
-  if (pendingTimer !== null) {
-    clearTimeout(pendingTimer);
-    pendingTimer = null;
-  }
-});
+const liveMetrics = computed<MetricsDisplay>(() => ({
+  winrate:   winrateDisplay.value,
+  scoreLead: scoreLeadDisplay.value,
+  pps:       metrics.value.packetsPerSecond,
+  latency:   metrics.value.latencyMs,
+}));
+const displayed = useThrottledSnapshot(liveMetrics, TOOLBAR_METRICS_REDRAW_THROTTLE_MS);
 </script>
 
 <template>

@@ -39,6 +39,7 @@ import {
 } from '../../lib/distributions';
 import { themeColor } from '../../utils/theme-color';
 import { DISTRIBUTION_REDRAW_THROTTLE_MS as THROTTLE_MS } from '../../lib/timing';
+import { createTrailingThrottle } from '../../composables/useThrottledSnapshot';
 
 export interface DistributionSeries {
   /** Legend entry + tooltip key. ECharts toggles all series sharing
@@ -73,8 +74,6 @@ const chartRef = ref<HTMLElement | null>(null);
 let chartInstance: echarts.ECharts | null = null;
 let resizeObserver: ResizeObserver | null = null;
 
-let pendingTimer: number | null = null;
-let lastRenderAt = -Infinity;
 // Last-rendered ECharts series structure signature (cohort names ×
 // types × count). When it is unchanged we merge data into the live
 // chart instead of purging+rebuilding it — see renderChart.
@@ -304,21 +303,17 @@ function renderChart() {
  * would pay the full KDE + `setOption` on every source change; the
  * `watch(expanded)` handler renders the current state when it re-opens.
  */
+const renderThrottle = createTrailingThrottle(renderChart, THROTTLE_MS);
 function scheduleRender() {
-  if (!chartInstance || !expanded.value || pendingTimer !== null) return;
-  const wait = Math.max(0, THROTTLE_MS - (performance.now() - lastRenderAt));
-  pendingTimer = window.setTimeout(() => {
-    pendingTimer = null;
-    lastRenderAt = performance.now();
-    renderChart();
-  }, wait);
+  // Collapsed panels schedule nothing (see the doc above); the shared
+  // subscriber-projection throttle owns the timer.
+  if (chartInstance && expanded.value) renderThrottle.schedule();
 }
 
 onMounted(() => {
   if (!chartRef.value) return;
   chartInstance = echarts.init(chartRef.value);
   renderChart();
-  lastRenderAt = performance.now();
   resizeObserver = new ResizeObserver(() => chartInstance?.resize());
   resizeObserver.observe(chartRef.value);
 });
@@ -326,11 +321,8 @@ onMounted(() => {
 onUnmounted(() => {
   // The throttle timer's callback closes over chartInstance; a pending
   // redraw firing after dispose() would setOption on a disposed chart.
-  // Clear it before disposal (ordering is load-bearing).
-  if (pendingTimer !== null) {
-    clearTimeout(pendingTimer);
-    pendingTimer = null;
-  }
+  // Cancel it before disposal (ordering is load-bearing).
+  renderThrottle.cancel();
   resizeObserver?.disconnect();
   resizeObserver = null;
   chartInstance?.dispose();

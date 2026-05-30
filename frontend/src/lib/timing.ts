@@ -14,12 +14,18 @@
  * application's coalescing behaviour. Co-locating them makes that
  * surface auditable.
  *
- * They are deliberately NOT deduplicated. Two knobs that share a value
- * today (the two 250 ms chart-redraw throttles) remain distinct
- * constants, because they answer to different consumers and must be
- * independently tunable — collapsing them would couple unrelated tuning
- * decisions, which is the failure this catalog exists to prevent, not
- * cause.
+ * Family discipline. The subscriber-projection redraw throttles (queue /
+ * metrics / BoardTab / the charts / the analysis timeline — views that
+ * subscribe to the live engine/analysis data and project it at a refresh
+ * cadence) are ONE family and share a default via
+ * SUBSCRIBER_PROJECTION_REDRAW_THROTTLE_MS, so the common cadence is one
+ * ergonomic knob. Each still has its own named constant — the per-constant
+ * "independently tunable" notes below still hold: a single surface diverges
+ * by sourcing a literal instead of the shared default (override, not
+ * collapse). Constants in OTHER families (the marker / selection debounces,
+ * the auto-save window) answer to genuinely unrelated decisions and stay
+ * fully independent — collapsing THOSE would couple unrelated tuning, the
+ * failure this catalog exists to prevent.
  *
  * Scope: reactivity-coalescing windows only. Timeouts (analysis /
  * play-from-position), display durations (transient log reveal), and
@@ -58,11 +64,26 @@ export const CHART_MARKER_DEBOUNCE_MS = 60;
 export const TIMELINE_SELECTION_DEBOUNCE_MS = 150;
 
 /**
+ * Subscriber-projection redraw cadence — the shared default for the family
+ * of throttles below (queue / metrics / BoardTab / the charts / the analysis
+ * timeline). These are the views that subscribe to the live engine/analysis
+ * data and project it at a refresh cadence; this one knob is "how fast do
+ * live-projected views refresh." 4 Hz is the crossover where such a view
+ * still feels responsive while coalescing per-packet churn ~6–15× down to a
+ * human-comfortable rate. The per-surface constants source this; override one
+ * to a literal to diverge. The MECHANISM these throttles share is
+ * `composables/useThrottledSnapshot.ts`; the CADENCE they share is here.
+ * NOT a global clock — each surface keeps its own timer, so their fires stay
+ * phase-offset and the redraw load stays distributed.
+ */
+export const SUBSCRIBER_PROJECTION_REDRAW_THROTTLE_MS = 250;
+
+/**
  * Stability-heatmap redraw throttle (trailing+leading). 250 ms is the
  * crossover where 4 Hz still feels responsive for slow-moving summary
  * data while reducing redraw work ~15× vs. the upstream packet rate.
  */
-export const STABILITY_HEATMAP_REDRAW_THROTTLE_MS = 250;
+export const STABILITY_HEATMAP_REDRAW_THROTTLE_MS = SUBSCRIBER_PROJECTION_REDRAW_THROTTLE_MS;
 
 /**
  * Distribution-chart (KDE / histogram) redraw throttle (trailing+
@@ -73,7 +94,7 @@ export const STABILITY_HEATMAP_REDRAW_THROTTLE_MS = 250;
  * the heatmap throttle despite the shared value: different consumer,
  * independently tunable.
  */
-export const DISTRIBUTION_REDRAW_THROTTLE_MS = 250;
+export const DISTRIBUTION_REDRAW_THROTTLE_MS = SUBSCRIBER_PROJECTION_REDRAW_THROTTLE_MS;
 
 /**
  * Engine queue-tooltip open-list redraw throttle (trailing+leading).
@@ -86,7 +107,7 @@ export const DISTRIBUTION_REDRAW_THROTTLE_MS = 250;
  * heatmap / distribution throttles despite the shared 250 ms value:
  * different consumer, independently tunable.
  */
-export const QUEUE_TOOLTIP_REDRAW_THROTTLE_MS = 250;
+export const QUEUE_TOOLTIP_REDRAW_THROTTLE_MS = SUBSCRIBER_PROJECTION_REDRAW_THROTTLE_MS;
 
 /**
  * Toolbar engine-metrics strip redraw throttle (trailing+leading). Same
@@ -103,7 +124,7 @@ export const QUEUE_TOOLTIP_REDRAW_THROTTLE_MS = 250;
  * Distinct from the chart / queue throttles despite the shared 250 ms:
  * different consumer, independently tunable.
  */
-export const TOOLBAR_METRICS_REDRAW_THROTTLE_MS = 250;
+export const TOOLBAR_METRICS_REDRAW_THROTTLE_MS = SUBSCRIBER_PROJECTION_REDRAW_THROTTLE_MS;
 
 /**
  * Board-rail tab rugplot redraw throttle (trailing+leading). Same 4 Hz
@@ -117,7 +138,7 @@ export const TOOLBAR_METRICS_REDRAW_THROTTLE_MS = 250;
  * precision. Distinct from the other throttles despite the shared 250 ms:
  * different consumer, independently tunable.
  */
-export const BOARD_TAB_RUGPLOT_REDRAW_THROTTLE_MS = 250;
+export const BOARD_TAB_RUGPLOT_REDRAW_THROTTLE_MS = SUBSCRIBER_PROJECTION_REDRAW_THROTTLE_MS;
 
 /**
  * BaseChart (line / scatter) series-data redraw throttle (trailing+
@@ -135,7 +156,7 @@ export const BOARD_TAB_RUGPLOT_REDRAW_THROTTLE_MS = 250;
  * throttles despite the shared 250 ms: different consumer, independently
  * tunable.
  */
-export const BASE_CHART_REDRAW_THROTTLE_MS = 250;
+export const BASE_CHART_REDRAW_THROTTLE_MS = SUBSCRIBER_PROJECTION_REDRAW_THROTTLE_MS;
 
 /**
  * Analysis-timeline rug-plot redraw throttle (trailing+leading). Same 4 Hz
@@ -149,7 +170,7 @@ export const BASE_CHART_REDRAW_THROTTLE_MS = 250;
  * the other throttles despite the shared 250 ms: different consumer,
  * independently tunable.
  */
-export const ANALYSIS_TIMELINE_REDRAW_THROTTLE_MS = 250;
+export const ANALYSIS_TIMELINE_REDRAW_THROTTLE_MS = SUBSCRIBER_PROJECTION_REDRAW_THROTTLE_MS;
 
 // User-configurable cadences — NOT owned here, listed so this surface is
 // a complete map of the application's coalescing behaviour:

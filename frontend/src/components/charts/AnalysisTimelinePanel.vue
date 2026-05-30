@@ -5,10 +5,11 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed, ref, watch, onUnmounted } from 'vue';
+import { computed, ref } from 'vue';
 import HorizontalTimelineVisualizer from '../tree/HorizontalTimelineVisualizer.vue';
 import { store } from '../../store';
 import { injectAnalysisContext } from '../../composables/analysis/useAnalysisContext';
+import { useThrottledSnapshot } from '../../composables/useThrottledSnapshot';
 import { ANALYSIS_TIMELINE_REDRAW_THROTTLE_MS } from '../../lib/timing';
 import type { PlyIndex } from '../../types';
 
@@ -21,33 +22,11 @@ const selectionRange  = ctx.selectionRange;
 const engineConnected = ctx.engineConnected;
 
 // Throttled rug-plot data. `visitVector` (the per-turn visit counts) is
-// rebuilt on every analysis packet, so binding the visualiser straight to it
-// redraws the rug-plot at the packet rate — the one streaming surface left
-// un-coalesced. Snapshot it to a plain ref on a trailing+leading throttle so
-// the visualiser redraws at most ~4 Hz, consistent with the chart / BoardTab
-// / metrics throttles. The template binds the snapshot, not the live ref;
-// selectionRange (user drag) stays prompt on its own binding.
-const displayedVisitVector = ref<number[]>(visitVector.value);
-let pendingTimer: number | null = null;
-let lastBuiltAt = performance.now();
-function scheduleVectorSnapshot(): void {
-  if (pendingTimer !== null) return;
-  const wait = Math.max(0, ANALYSIS_TIMELINE_REDRAW_THROTTLE_MS - (performance.now() - lastBuiltAt));
-  pendingTimer = window.setTimeout(() => {
-    pendingTimer = null;
-    lastBuiltAt = performance.now();
-    displayedVisitVector.value = visitVector.value;
-  }, wait);
-}
-// `visitVector` is replaced per packet, so this fires per packet; the
-// throttle coalesces the snapshot. Seeded synchronously above for first paint.
-watch(visitVector, scheduleVectorSnapshot);
-onUnmounted(() => {
-  if (pendingTimer !== null) {
-    clearTimeout(pendingTimer);
-    pendingTimer = null;
-  }
-});
+// rebuilt every analysis packet; snapshot it to ~4 Hz (the subscriber-
+// projection family cadence) so the visualiser redraws at that rate, not the
+// packet rate. The template binds the snapshot; selectionRange (user drag)
+// stays prompt on its own binding.
+const displayedVisitVector = useThrottledSnapshot(visitVector, ANALYSIS_TIMELINE_REDRAW_THROTTLE_MS);
 
 const visits = ref(200);
 
