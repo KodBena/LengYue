@@ -146,6 +146,71 @@ Use `ref`, `computed`, and `watch` deliberately, not reflexively:
 If reactivity isn't needed, don't reach for it. Pure functions over
 plain values are simpler than reactive computations and easier to test.
 
+## Render locality and data-dense visuals (ADR-0010)
+
+ADR-0010 names two authoring rules that recurred as bugs *after* the
+codebase had paid to learn each once. Read it end to end before
+authoring a new composition node or a new data-bound visual; the
+practitioner-facing form:
+
+- **Canvas rule.** A fixed-size visual whose element count scales
+  with the data and that has no per-element layout or hit-test is a
+  `<canvas>` job, not a `v-for` of DOM/SVG nodes. The authoring
+  question: *"does this `v-for` produce sub-pixel or non-interactive
+  elements at realistic data sizes?"* If yes, draw on a canvas.
+  `HeatmapChart` is the precedent; the `BoardTab` analysis-depth
+  rugplot and `HorizontalTimelineVisualizer`'s data track are the
+  generalisations.
+
+- **Read-locality rule.** A component reads a high-frequency
+  reactive value — a per-navigation cursor field, a per-packet
+  analysis derivation, a per-tick engine metric — **only if its own
+  job is to display it.** Orchestration / chrome / composition nodes
+  read structural or low-frequency state and let leaves self-source:
+  an accessor (`() => T`) at the boundary so the subscription is
+  established only where the leaf invokes it inside its own tracking
+  scope, or an imperative escape (see the pattern below). The
+  distinguishing test is **role, not mechanism**: does this
+  component exist to *display* the value or to *compose* others?
+
+  **Corollary, verbatim — the trap `TreeWidget` fell into:**
+  *`v-memo` and "pull the element out of the loop" fix the patch,
+  not the render; a reactive read anywhere in a template re-runs the
+  whole render function; render ≫ patch is the tell.* `v-memo` and
+  pulling an element out of a `v-for` short-circuit only the
+  subsequent diff. The render function re-runs on *any* reactive
+  value it read, regardless of where in the template the read sits.
+  The only fix for render-coupling is to stop the composition node's
+  render from reading the high-frequency value at all.
+
+### The imperative-escape pattern (sanctioned, used 4× in the perf arc)
+
+When a leaf must reflect a high-frequency value without re-rendering
+(or a data-dense visual must draw off the render path), the
+sanctioned idiom — used in `BoardTab`'s rugplot canvas, the timeline
+canvas, `TreeWidget`'s active-node ring, and the
+`ResizeObserver`-cached-dims shape — is:
+
+1. **A static element/canvas in the template** that reads *nothing*
+   high-frequency (`<canvas ref="...">`, `<circle ref="...">`), so
+   the component's render function does not subscribe.
+2. **A `watch`-driven imperative update** that writes the element
+   directly on change (`ctx.draw(...)`, `circle.value.setAttribute`),
+   off the render path.
+3. **`ResizeObserver`-cached geometry** — dimensions read once on
+   resize at a layout-clean time and cached, never read
+   synchronously on the hot path (which would force a reflow).
+4. **An `onUnmounted` release** of the observer / listener.
+
+Step 4 is not optional: this is exactly the
+resource-ownership-at-mutation-sites discipline (see below). Each
+imperative-escape registers a `ResizeObserver` or a passive
+listener that *must* be released in `onUnmounted` — name the
+resource and the failure mode at the registration site, the same
+way `closeBoard` / `resetWorkspace` do. An imperative-escape that
+registers an observer without the matching release is the
+silent-leak failure that discipline exists to catch.
+
 ## Vue Single-File Components
 
 SFCs hold three things: template, script, style. Keep the script's

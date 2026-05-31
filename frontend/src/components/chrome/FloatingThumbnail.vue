@@ -47,6 +47,7 @@ defineExpose({
 
 <template>
   <div v-if="visible" class="floating-thumb" :style="{ left: posX + 'px', top: posY + 'px' }">
+    <!-- eslint-disable-next-line vue/no-v-html -- deliberate board-SVG string projection from the trusted board-geometry renderer (no user-authored HTML); see ADR-0010 string-vs-reactive board projection -->
     <div v-html="svgContent" class="svg-wrap"></div>
   </div>
 </template>

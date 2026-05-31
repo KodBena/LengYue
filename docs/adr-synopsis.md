@@ -231,9 +231,41 @@ is the unsubstantiated-claim shape ADR-0002 names at the runtime
 register and ADR-0008 at the classification register — the perf
 register was the missing piece and this tenet fills it.
 
+## ADR-0010: Render Locality and Canvas for Data-Dense Visuals
+
+**Decision.** Two named frontend-authoring rules. **Canvas rule:**
+a fixed-size visual whose element count scales with the data and
+that has no per-element layout/hit-test is a `<canvas>` job, not a
+`v-for` of DOM/SVG nodes — the authoring question is "does this
+`v-for` produce sub-pixel or non-interactive elements at realistic
+data sizes?". **Read-locality rule:** a component reads a
+high-frequency reactive value (per-nav cursor, per-packet
+derivation, per-tick metric) only if its own job is to display it;
+orchestration / chrome / composition nodes read structural or
+low-frequency state and let leaves self-source (accessor `() => T`
+at the boundary, or imperative escape via a `ref` + `watch`). The
+distinguishing test is role, not mechanism. **Corollary (verbatim):**
+*`v-memo` and "pull the element out of the loop" fix the patch, not
+the render; a reactive read anywhere in a template re-runs the whole
+render function; render ≫ patch is the tell.*
+
+**Why care.** Both patterns recurred *after* the codebase had paid
+to learn each once — `HeatmapChart`'s canvas precedent left
+un-generalised until the `BoardTab` rugplot / timeline shipped as
+~340 sub-pixel DOM nodes rebuilt per render; the render-coupling
+postmortem (`postmortem-render-coupling-at-composition-nodes-2026-05-29.md`)
+named the second pattern and proposed exactly this tenet as its
+Recommendation 1, then `TreeWidget` reproduced it days later (a
+partially-hardened component whose standalone `<circle>` still read
+nav-reactive state, re-running the whole 762 ms render while `v-memo`
+spared only the 59.8 ms patch). The proof that a describing-only
+postmortem doesn't stop recurrence; the preventive sibling of
+ADR-0009's reactive net. Backing: the green-arc audit
+(`opus-audit-green-perf-arc-2026-05-31.md`, Question 2 / P1).
+
 ## How to read these together
 
-The seven tenets form a coherent posture:
+The eight tenets form a coherent posture:
 
 - **ADR-0002** says fail audibly when invariants break.
 - **ADR-0004** says don't introduce silent failures by editing
@@ -251,6 +283,10 @@ The seven tenets form a coherent posture:
   be substantiated by captured investigation, not author
   intuition — and perception is the legitimate trigger for
   investigation, never a substitute for it.
+- **ADR-0010** says data-dense fixed-size visuals are a canvas job,
+  and high-frequency reactive reads belong in the leaves that
+  display them, not in the composition nodes that wire them — the
+  preventive name for what ADR-0009's profile catches.
 
 ADR-0002, ADR-0008, and ADR-0009 form a family of
 unsubstantiated-claim disciplines at three intervention points:

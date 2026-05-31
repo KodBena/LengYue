@@ -179,6 +179,16 @@ codified here as the project's starting set:
   gap between events of the same class, useful when the
   question is "is the dispatcher backing up?".
 
+- **Per-component cost ranking** aggregates *both* the `render`
+  and the `patch` UserTiming marks Vue emits (under
+  `app.config.performance`), not `render` alone; a component whose
+  `render` cost dominates its `patch` cost (`render` ≫ `patch`) is
+  read as render-coupling — the whole render function re-running on
+  a reactive read it should not hold (see ADR-0010). Ranking by
+  `render` alone hid the #1 cost (`TreeWidget render`) for most of
+  the 2026-05-31 "green" arc; the `patch` marks were present in the
+  same profile all along.
+
 Reusing the same vocabulary across investigations is the
 discipline; the vocabulary itself is expected to extend as new
 investigation classes surface. Additions go here, not in
