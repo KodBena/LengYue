@@ -130,7 +130,7 @@ frontend/src/
 │   └── tree/                                Tree-shaped surfaces: game tree, forest directory, timeline.
 │       ├── ForestDirectory.vue        [B2]  Master-Detail database explorer (Decks tab + Browse tab + chart).
 │       ├── ForestTreeNav.vue          [B2]  File-manager-style hierarchical navigator (games → roots).
-│       ├── HorizontalTimelineVisualizer.vue [B2]  Horizontal timeline of cards / reviews.
+│       ├── HorizontalTimelineVisualizer.vue [B2]  Horizontal timeline rug-plot + draggable selection. Data track drawn on a canvas off the render path; slider/handles/grid stay DOM.
 │       └── TreeWidget.vue             [B2]  SVG game-tree viewer; enforces current-node-visible invariant via ensureVisible.
 │
 ├── composables/                             Logic layer. Pure-ish functions over reactive refs.
