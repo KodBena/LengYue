@@ -7,16 +7,38 @@
  * signal. This config carries a small, targeted, high-value ruleset and
  * grows as the discipline matures (per ADR-0010's "Revisit when").
  *
+ * Rule-rationale discipline: every rule here carries a rationale. A lint
+ * rule is an impedance on authoring, and the rationale names that impedance
+ * explicitly so it can be questioned — never imposed as a bare, unexplained
+ * restriction (ADR-0002 in spirit). The annotation is an invitation to ask,
+ * not a certification that the rule is correct: when the friction is felt,
+ * the open question is whether to bridge it (adapt the code), revise or drop
+ * the rule, or leave it as-is. Epistemic humility — not a tribunal the rule
+ * has already won. The rationale lives in this header per rule, in a
+ * `// rationale:` comment at the rule site, and — for the
+ * no-restricted-imports rules — ALSO in the `message` field shown to the
+ * developer when the rule fires.
+ *
  * Rules, by layer:
  *
  *   Template (Vue SFCs):
- *     - vue/no-v-html        — flags every new `v-html` sink. The two
+ *     - vue/no-v-html        — rationale: `v-html` writes an unescaped
+ *                              string into innerHTML, bypassing Vue's
+ *                              template escaping — an XSS / injection sink
+ *                              for any non-constant content. The two
  *                              legitimate board-SVG string projections
  *                              (FloatingThumbnail.vue, LibraryPreviewPane.vue)
  *                              carry an inline `eslint-disable-next-line`
- *                              with a justification, so a NEW v-html is
- *                              still caught. See ADR-0010.
- *     - vue/require-v-for-key — a cheap correctness foothold.
+ *                              with a justification, so a NEW sink is still
+ *                              caught. See ADR-0010.
+ *     - vue/require-v-for-key — rationale: without a `:key`, Vue's list diff
+ *                              falls back to in-place index patching and
+ *                              reuses a DOM / component instance for a
+ *                              different logical item — silently corrupting
+ *                              per-item local state, focus, and transitions.
+ *                              The key restores stable identity. A
+ *                              correctness rule, not a style nit: the failure
+ *                              is a wrong-state render.
  *
  *   Import boundaries (`.ts` + `.vue`, via no-restricted-imports):
  *     - The OpenAPI-generated wire types (`src/types/backend.ts`,
@@ -29,7 +51,15 @@
  *     - Components may not import the effectful service *singletons*
  *       directly (the layering tenet: components are thin renderers; logic
  *       lives in composables; effects live in services and are called FROM
- *       composables). This deliberately restricts only the effectful
+ *       composables). Rationale, chiefly testability: the three-tier test
+ *       architecture (tests/CLAUDE.md) drives a composable against service
+ *       fakes WITHOUT mounting a component, so effect-orchestration living
+ *       in a composable is cheaply testable — the same call embedded in a
+ *       component is reachable only via the component tests the project
+ *       defers as low-ROI. Secondary: the component stays a thin renderer
+ *       (ADR-0007), and effect lifecycle stays co-located with the
+ *       resource-ownership-at-mutation-sites discipline. This deliberately
+ *       restricts only the effectful
  *       singletons, NOT the reactive-state modules (`analysis-ledger`,
  *       `analysis-config`) — a display LEAF reading the reactive value it
  *       displays is sanctioned by ADR-0010's read-locality rule. Four
@@ -134,13 +164,21 @@ export default [
       },
     },
     rules: {
+      // rationale: v-html bypasses Vue's HTML-escaping → XSS sink (header).
       'vue/no-v-html': 'error',
+      // rationale: a missing :key makes Vue reuse an instance for the wrong
+      // list item, corrupting local state / transitions — a correctness bug,
+      // not a style nit (header).
       'vue/require-v-for-key': 'error',
     },
   },
 
-  // Wire-type boundary: enforced across all src code EXCEPT the ACL layer
-  // (services/**) and the type-level alias boundary (types.ts).
+  // Wire-type boundary. rationale: backend.ts is snake_case wire shapes;
+  // the ACL is the single boundary where they become branded domain types,
+  // so an import anywhere else is snake_case leaking into the domain — the
+  // ADR-0002 silent-divergence class. (Full message shown on fire below.)
+  // Enforced across all src code EXCEPT the ACL layer (services/**) and the
+  // type-level alias boundary (types.ts).
   {
     files: ['src/**/*.ts', 'src/**/*.vue'],
     ignores: ['src/services/**', 'src/types.ts'],
@@ -150,6 +188,10 @@ export default [
   },
 
   // Components additionally may not import the effectful service singletons.
+  // rationale: an effectful service call is orchestration logic; it belongs
+  // in a composable (testable against fakes per tests/CLAUDE.md; keeps the
+  // component a thin renderer per ADR-0007). Reactive-state reads are exempt
+  // (ADR-0010). Full rationale in the header; dev-facing form in the message.
   // This block matches component files too, so it must RE-STATE the wire-type
   // pattern (a later no-restricted-imports config replaces, not merges with,
   // the earlier one for files it matches).
