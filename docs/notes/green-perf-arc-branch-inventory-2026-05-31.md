@@ -85,7 +85,14 @@ suite.
 
 ## State as of this note
 - All 10 commits committed; working trees clean.
-- Backup-pushed to origin: **(pending)**.
-- Integration branch: **(pending)**.
+- **Backup-pushed to origin: done** — all four branches are on origin.
+- **Integration branch: done** — `bork/perf/green-integration` (off the session
+  tip) merges all four. Zero merge conflicts (the overlapping `FILES.md` /
+  `MergedDeltaPanel.vue` edits fell in different sections and auto-merged;
+  verified `MergedDeltaPanel` carries both the BoardSnapshot preview *and* the
+  themeColor relayer). Build green; suite 753 passed (only the 2 pre-existing
+  `useAutoSaveAnalyses` flakes fail). This is the branch to test everything
+  *combined* on — including the heatmap separated-boards preview window. Not
+  pushed (untested-combined; awaiting maintainer QA).
 
 License: Public Domain (The Unlicense).
