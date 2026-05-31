@@ -1,6 +1,6 @@
 # ADR-0009: Performance Investigation Discipline
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Genre:** Tenet (cross-cutting authoring discipline) — the
   seventh tenet in this codebase, after ADR-0002 (fail-loudly),
   ADR-0004 (minimal-touch), ADR-0005 (documentation discipline),
@@ -528,31 +528,24 @@ This tenet would be worth reconsidering if:
   register cover the broader family of failures this is one
   instance of.
 
-## Open questions for user review
+## Resolved (user review, 2026-05-31)
 
-The drafter flagged the following as decisions that belong to
-the user rather than being pre-decided here:
+The drafter flagged three decisions for the user; resolved on
+acceptance:
 
-1. **Profile-share location.** This ADR records the project
-   author's `~/perf-profiles/` convention as the
-   recommendation; whether to mandate the path, leave it as
-   a recommendation, or defer to per-contributor choice is a
-   call the user is best placed to make. The current draft
-   leans recommendation, not mandate.
-2. **Acceptance-criteria stringency.** This draft sets the
-   bar at "attach a profile pair OR explicitly mark
-   unsubstantiated." A stricter posture would block landing
-   perf-claimed PRs without the pair; a looser posture would
-   leave the marking entirely to author judgement without the
-   explicit-qualifier requirement. The current draft is the
-   middle position.
-3. **Tenet vs. decision classification.** The drafter filed
-   this as a tenet on the same grounds ADR-0007 used (an
-   authoring discipline, not a one-time structural choice).
-   If the user reads it as more decision-shaped — e.g., "we
-   adopt these specific tools as the canonical surface" reads
-   as decision-flavoured to them — the genre line is the
-   first thing to update.
+1. **Profile-share location.** `~/perf-profiles/` **is** the
+   location — the settled convention captures live under, referenced
+   from worklogs and PRs by the path + timestamp + gzipped-size shape
+   above. (Not mandated as a hard gate; it is the project convention,
+   consistent with the non-blocking posture in #2.)
+2. **Acceptance-criteria stringency.** The middle position stands:
+   **pragmatic but rigorous, and non-blocking.** A perf-claimed change
+   is *not* gated on the profile pair — but an unsubstantiated claim
+   must carry the explicit qualifier rather than reading as a
+   closed-vocabulary assertion. The discipline is the loud-marking, not
+   a merge gate.
+3. **Tenet vs. decision classification.** A **tenet** — a cross-cutting
+   authoring discipline, as the drafter filed it.
 
 ## License
 

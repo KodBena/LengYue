@@ -1,6 +1,6 @@
 # ADR-0010: Render Locality and Canvas for Data-Dense Visuals
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Genre:** Tenet (cross-cutting authoring discipline) — the
   eighth tenet in this codebase, after ADR-0002 (fail-loudly),
   ADR-0004 (minimal-touch), ADR-0005 (documentation discipline),

@@ -5,7 +5,7 @@ to be useful to someone arriving at this codebase cold — whether
 to extend it, to maintain it, or to coordinate a release across
 the three sub-projects. Updated as the system evolves.
 
-For specific architectural decisions, see the nine ADRs in
+For specific architectural decisions, see the ten ADRs in
 `docs/adr/`. For active work, see `docs/TODO.md`. For backend
 architectural retrospective, see `docs/notes/reflection.md`. For
 the v1.0.0 release retrospective, see
@@ -551,8 +551,8 @@ documentation, see `proxy/README.md`, `proxy/FRAMEWORK.md`, and
 
 ## Architectural governance — ADRs and tenets
 
-The nine foundational architectural records live in `docs/adr/`,
-spread across two genres. **All nine apply project-wide**,
+The ten foundational architectural records live in `docs/adr/`,
+spread across two genres. **All ten apply project-wide**,
 regardless of which sub-project's history they originated in.
 
 ### Decisions
@@ -640,7 +640,7 @@ regardless of which sub-project's history they originated in.
   of the unsubstantiated-claim family of failures for the
   performance vocabulary.
 - **ADR-0010: Render Locality and Canvas for Data-Dense Visuals.**
-  *(Status: Proposed.)* Two frontend-authoring rules. Canvas rule:
+  Two frontend-authoring rules. Canvas rule:
   a fixed-size visual whose element count scales with the data and
   has no per-element layout/hit-test is a `<canvas>` job, not a
   `v-for` of DOM/SVG nodes. Read-locality rule: a component reads a
