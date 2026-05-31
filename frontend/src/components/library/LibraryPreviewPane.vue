@@ -73,6 +73,7 @@ const scrubMax = computed(() => props.preview.totalMoves.value);
         </div>
       </div>
 
+      <!-- eslint-disable-next-line vue/no-v-html -- deliberate board-SVG string projection from renderBoardToSvg (trusted, no user-authored HTML); see ADR-0010 string-vs-reactive board projection -->
       <div class="preview-board" v-html="previewSvg"></div>
 
       <div class="preview-scrub">
