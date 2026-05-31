@@ -11,6 +11,9 @@ deeper "why."
 - `frontend/README.md` — build / lifecycle / contributor workflow.
 - `frontend/CLAUDE.md` — authoring discipline (layering tenet,
   type-driven design, reactivity rules).
+- `frontend/IDENTIFIERS.md` — the identifier namespace map: every
+  branded/aliased id with construction site, lifetime, cardinality,
+  and soundness notes. This map's sibling (files ↔ identifiers).
 - `docs/handoff-current.md` — system-level orientation.
 - `docs/adr/0003-frontend-portability-and-domain-boundaries.md` —
   the canonical band definitions referenced below.
