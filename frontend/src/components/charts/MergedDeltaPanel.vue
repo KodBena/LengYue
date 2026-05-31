@@ -86,15 +86,18 @@ const getPreview = () => preview.value;
 // is `any[]` anyway, so the loosening doesn't propagate.
 const mergedSeries = computed<any[]>(() => {
   const out: any[] = [];
+  // Colour is applied here (presentation), not in the data projection.
   for (const s of blackSeries.value) {
     out.push({
       ...s,
+      color: themeColor('--player-black'),
       data: s.data.map(([k, v]) => [2 * k, v] as [number, number | null]),
     });
   }
   for (const s of whiteSeries.value) {
     out.push({
       ...s,
+      color: themeColor('--player-white'),
       data: s.data.map(([k, v]) => [2 * k + 1, v] as [number, number | null]),
     });
   }
