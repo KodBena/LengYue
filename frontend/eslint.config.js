@@ -7,17 +7,25 @@
  * signal. This config carries a small, targeted, high-value ruleset and
  * grows as the discipline matures (per ADR-0010's "Revisit when").
  *
- * Rule-rationale discipline: every rule here carries a rationale. A lint
- * rule is an impedance on authoring, and the rationale names that impedance
- * explicitly so it can be questioned — never imposed as a bare, unexplained
- * restriction (ADR-0002 in spirit). The annotation is an invitation to ask,
- * not a certification that the rule is correct: when the friction is felt,
- * the open question is whether to bridge it (adapt the code), revise or drop
- * the rule, or leave it as-is. Epistemic humility — not a tribunal the rule
- * has already won. The rationale lives in this header per rule, in a
- * `// rationale:` comment at the rule site, and — for the
- * no-restricted-imports rules — ALSO in the `message` field shown to the
- * developer when the rule fires.
+ * Rule-rationale discipline: every rule here carries a rationale. The
+ * impedance a rule imposes is NOT the code's to absorb — code is the fluid
+ * ether that fills whatever gaps the architectural discipline (the
+ * ADRs/tenets) and the project's concrete ambitions carve out; it conforms
+ * freely and is never itself the thing in tension. The real impedance is
+ * reasoning under possibly-contradictory DIRECTIVES: a rule can rest on one
+ * sound rationale (e.g. CLAUDE.md's layering tenet) while another sound
+ * directive on independent grounds (e.g. ADR-0010's read-locality) pulls
+ * the other way. So a rationale must name not only why the rule exists but,
+ * where directives meet, which ones are in tension and whether they are
+ * reconciled or held unresolved. Surfacing that tension is the obligation
+ * (ADR-0002) — owed even, and especially, when there is no bandwidth to
+ * resolve it now; whether two directives can ultimately be bridged into one
+ * coherent principle is a separate, later question. The annotation is an
+ * invitation to ask, not a certification the rule is correct.
+ *
+ * The rationale lives in this header per rule, in a `// rationale:` comment
+ * at the rule site, and — for the no-restricted-imports rules — ALSO in the
+ * `message` field shown to the developer when the rule fires.
  *
  * Rules, by layer:
  *
@@ -62,7 +70,15 @@
  *       restricts only the effectful
  *       singletons, NOT the reactive-state modules (`analysis-ledger`,
  *       `analysis-config`) — a display LEAF reading the reactive value it
- *       displays is sanctioned by ADR-0010's read-locality rule. Four
+ *       displays is sanctioned by ADR-0010's read-locality rule. That
+ *       effectful-vs-reactive split is the SEAM where two directives meet —
+ *       CLAUDE.md's layering tenet (effects flow component→composable→
+ *       service) and ADR-0010's read-locality (a display leaf reads the
+ *       reactive value it displays, wherever that value lives). The split is
+ *       a working reconciliation, not a proven bridge: whether the two
+ *       directives fully resolve into one coherent principle, or carry
+ *       residual tension, is an OPEN question — documented here per ADR-0002,
+ *       deferred for bandwidth, not settled by this rule. Four
  *       components violate this today (ReviewSessionPanel, ForestDirectory,
  *       LibraryTab, AnalysisControls) across five import sites
  *       (AnalysisControls imports two services) — surfaced as honest
