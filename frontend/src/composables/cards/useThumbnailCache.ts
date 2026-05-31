@@ -4,11 +4,11 @@
  *
  * The cache stores the replayed `BoardSnapshot` per node — the expensive
  * part. Two projections derive from it: the SVG string (`getThumbnailSvg` /
- * `getSync` / `getVariationThumbnail`, for `v-html` and ECharts-innerHTML
- * sinks) and the snapshot itself (`getSnapshot` / `getSnapshotSync`, read
- * directly by the reactive MiniBoard component consumers). Keying on nodeId
- * alone (not `${nodeId}:${showMarker}`) — showMarker is a render option, not
- * data.
+ * `getVariationThumbnail`, for the `v-html` thumbnail sinks — FloatingThumbnail,
+ * LibraryPreviewPane, card thumbnails) and the snapshot itself (`getSnapshot` /
+ * `getSnapshotSync`, read directly by the reactive MiniBoard component
+ * consumers). Keying on nodeId alone (not `${nodeId}:${showMarker}`) —
+ * showMarker is a render option, not data.
  *
  * The cache Map lives at module level so every call to
  * `useThumbnailCache()` returns functions that close over the
@@ -177,11 +177,6 @@ export function useThumbnailCache() {
     return snap ? snapshotToSvg(snap, nodeId, showMarker) : '';
   }
 
-  function getSync(nodeId: NodeId, showMarker: boolean): string {
-    const snap = getSnapshotSync(nodeId);
-    return snap ? snapshotToSvg(snap, nodeId, showMarker) : '';
-  }
-
   async function warmPath(nodeIds: NodeId[], boardId: BoardId): Promise<void> {
     if (nodeIds.length === lastWarmedPath.value.length &&
         nodeIds.every((id, i) => id === lastWarmedPath.value[i])) {
@@ -227,7 +222,6 @@ export function useThumbnailCache() {
     getSnapshotSync,
     getThumbnailSvg,
     getVariationThumbnail,
-    getSync,
     warmPath,
   } as const;
 }

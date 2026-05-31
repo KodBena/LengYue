@@ -74,13 +74,13 @@ frontend/src/
 │   │   ├── CardTreeWidget.vue         [B2]  Card-tree forest display (one tree-section per CardLineageTree, accordion).
 │   │   ├── ChartPreviewBox.vue        [B3]  Isolated leaf rendering a panel's hover/position thumbnail (MiniBoard) via a `() => BoardSnapshot` accessor — keeps the per-nav preview update off the chart host's render.
 │   │   ├── ColorDebugStrip.vue        [B1]  Dual-track gradient-calibration debug strip.
-│   │   ├── HeatmapChart.vue           [B1]  Stateless ECharts heatmap renderer.
+│   │   ├── HeatmapChart.vue           [B1]  Stateless generic ECharts heatmap renderer; emits cell-click / cell-hover / cell-leave (no tooltip — the host renders any preview).
 │   │   ├── MergedDeltaPanel.vue       [B3]  Both-players delta chart on a parity-interleaved x-axis.
 │   │   ├── ScoreLeadPanel.vue         [B3]  ScoreLead chart panel.
 │   │   ├── DistributionChart.vue      [B1]  Generic histogram/KDE primitive (variant-dispatched ECharts mount).
 │   │   ├── DeltaDistributionPanel.vue [B3]  Per-colour delta-KDE panel (injects AnalysisContext; wraps DistributionChart).
 │   │   ├── MistakeGapPanel.vue        [B3]  Own-colour mistake-gap histogram panel (injects AnalysisContext; wraps DistributionChart).
-│   │   ├── MultiresolutionIntervalPanel.vue  [B3]  Triangular multiresolution-interval heatmap.
+│   │   ├── MultiresolutionIntervalPanel.vue  [B3]  Triangular multiresolution-interval heatmap + fixed interval-preview window (hovered cell → start/end MiniBoards).
 │   │   ├── StabilityCrossCorrelationPanel.vue [B3]  Pairwise Pearson over extractor × extractor and metric × metric. Collapsed by default.
 │   │   └── StabilityPanel.vue         [B3]  Per-position stability metric over the variation path; extractor-selectable.
 │   │

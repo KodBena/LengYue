@@ -199,10 +199,12 @@ packets, keyed by `(configHash, nodeId)`.
   heatmap rendered from KataProxy's `triangular` enrichment.
   Each cell encodes the engine's evaluation of a slice of the
   variation at a given resolution; clicking a cell projects to
-  the matching ply range and re-evaluates. (Previously labelled
-  "Stability Interval Analysis" — renamed in chart code; the
-  earlier nomenclature was misrepresenting what the panel
-  actually shows.)
+  the matching ply range and re-evaluates. Hovering a cell fills
+  a fixed preview window below the heatmap with the start and end
+  board positions of that interval (plus the colour, move range
+  and value). (Previously labelled "Stability Interval Analysis"
+  — renamed in chart code; the earlier nomenclature was
+  misrepresenting what the panel actually shows.)
 
 - **Custom palette state functions.** Every visible metric is
   defined by a user-editable expression over KataGo's response
