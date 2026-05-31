@@ -72,7 +72,7 @@ frontend/src/
 │   │   ├── BaseChart.vue              [B1]  Generic ECharts wrapper with module-scoped legend memoisation.
 │   │   ├── card-tree-echarts.ts       [B2]  ECharts node/tooltip composer for the card-tree forest.
 │   │   ├── CardTreeWidget.vue         [B2]  Card-tree forest display (one tree-section per CardLineageTree, accordion).
-│   │   ├── ChartPreviewBox.vue        [B1]  Isolated leaf rendering a panel's hover/position thumbnail via an accessor — keeps the per-nav preview update off the chart host's render.
+│   │   ├── ChartPreviewBox.vue        [B3]  Isolated leaf rendering a panel's hover/position thumbnail (MiniBoard) via a `() => BoardSnapshot` accessor — keeps the per-nav preview update off the chart host's render.
 │   │   ├── ColorDebugStrip.vue        [B1]  Dual-track gradient-calibration debug strip.
 │   │   ├── HeatmapChart.vue           [B1]  Stateless ECharts heatmap renderer.
 │   │   ├── MergedDeltaPanel.vue       [B3]  Both-players delta chart on a parity-interleaved x-axis.
