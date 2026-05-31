@@ -213,7 +213,8 @@ frontend/src/
 │
 ├── engine/                                  Pure Go-engine code: rules, SGF, KataGo wire, board rendering.
 │   ├── analysis-config-curation.ts    [B3]  Bit-equivalent rewriter for KataGo `analysis_config` symbol bodies.
-│   ├── board-renderer.ts              [B3]  Pure SVG Go board rendering (used by thumbnails).
+│   ├── board-geometry.ts              [B3]  SSOT for board rendering geometry (pad/cell/stoneR/toSVG, gridLines) + the BoardSnapshot position primitive; shared by renderBoardToSvg (string) and the Vue board components so projections can't drift.
+│   ├── board-renderer.ts              [B3]  Pure SVG Go board rendering → string (v-html / ECharts-innerHTML sinks); geometry from board-geometry.
 │   ├── constants.ts                   [B3]  Board geometry, stone-radius ratio, label-band width, etc.
 │   ├── helper.ts                      [B1]  Piecewise cubic Hermite interpolation (pure math).
 │   ├── navigator.ts                   [B3]  LCA-based game-tree traversal with setup-stone + capture tracking.

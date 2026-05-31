@@ -6,11 +6,12 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import {
-  BOARD_PX, BOARD_COLOR, LINE_COLOR, LABEL_COLOR,
+  BOARD_COLOR, LINE_COLOR, LABEL_COLOR,
   LABEL_BAND, LABEL_FONT_SIZE, LABEL_INSET_RATIO, TOTAL_PX,
-  STONE_RADIUS_RATIO, MARKER_INNER_RATIO,
+  MARKER_INNER_RATIO,
   ALL_X_LABELS,
 } from '../../engine/constants';
+import { boardGeometry, gridLines } from '../../engine/board-geometry';
 import type { StoneColor, Move } from '../../types';
 import type { HeatmapCell, HeatmapStyle } from './BoardHeatmapOverlay.vue';
 
@@ -57,14 +58,16 @@ const uid = Math.random().toString(36).substring(2, 6);
 
 const boardSize = computed(() => props.size ?? 19);
 
-// Inner-board geometry. `pad` is the inset within the playable area from
-// the area edge to the first grid line (one cell wide, by Go-board
-// convention). LABEL_BAND sits *outside* this — the playing-area group is
-// translated by (LABEL_BAND, LABEL_BAND) inside the SVG, so the formulas
-// below remain inner-board-relative and don't carry the offset themselves.
-const pad     = computed(() => BOARD_PX / (boardSize.value + 1));
-const cell    = computed(() => (BOARD_PX - 2 * pad.value) / (boardSize.value - 1));
-const stoneR  = computed(() => cell.value * STONE_RADIUS_RATIO);
+// Inner-board geometry from the shared SSOT (src/engine/board-geometry.ts).
+// `pad` is the inset within the playable area from the area edge to the
+// first grid line (one cell wide, by Go-board convention). LABEL_BAND sits
+// *outside* this — the playing-area group is translated by (LABEL_BAND,
+// LABEL_BAND) inside the SVG, so these inner-board-relative coords don't
+// carry the offset themselves.
+const geo     = computed(() => boardGeometry(boardSize.value));
+const pad     = computed(() => geo.value.pad);
+const cell    = computed(() => geo.value.cell);
+const stoneR  = computed(() => geo.value.stoneR);
 const STAR_R  = 2.5; // Fixed dot size — does not need to scale with the board.
 
 // Coordinate-label offset from the SVG edge (viewBox-units). The label
@@ -100,27 +103,8 @@ const hoshi = computed((): [number, number][] => {
   return [];
 });
 
-// `lines` previously had a `{ cache: true }` second-argument options object.
-// Vue 3.5+ removed the `cache` option from computed() — the option doesn't
-// exist on DebuggerOptions and triggers a TS2769 overload error. The default
-// behavior of computed (memoize the result, recompute when tracked deps
-// change) is exactly what we want here. The `cache: true` was either
-// cargo-culted or a relic from a Vue 2/3-early reactivity tweak; either
-// way, the dep-tracked memoization in current Vue does the right thing
-// without it.
-const lines = computed(() => {
-  const result = [];
-  const p = pad.value;
-  const c = cell.value;
-  const s = boardSize.value;
-  const end = p + (s - 1) * c;
-  for (let i = 0; i < s; i++) {
-    const pos = p + i * c;
-    result.push({ x1: pos, y1: p, x2: pos, y2: end }); // vertical
-    result.push({ x1: p, y1: pos, x2: end, y2: pos }); // horizontal
-  }
-  return result;
-});
+// Grid line set from the shared SSOT (gridLines), memoised on size.
+const lines = computed(() => gridLines(boardSize.value));
 
 const stoneList = computed(() => {
   return Object.entries(props.stones).map(([key, color]) => {
@@ -130,13 +114,11 @@ const stoneList = computed(() => {
   });
 });
 function toSVG(bx: number, by: number): { x: number; y: number } {
-  // Board y=0 is at the bottom; SVG y increases downward, so we flip.
-  // The playing-area group is translated by (LABEL_BAND, LABEL_BAND) in
-  // the template, so these are inner-board coordinates.
-  return {
-    x: pad.value + bx * cell.value,
-    y: pad.value + (boardSize.value - 1 - by) * cell.value,
-  };
+  // Board y=0 is at the bottom; SVG y increases downward, so we flip
+  // (handled by the shared geometry). The playing-area group is translated
+  // by (LABEL_BAND, LABEL_BAND) in the template, so these are inner-board
+  // coordinates.
+  return geo.value.toSVG(bx, by);
 }
 
 function onBoardClick(e: MouseEvent) {

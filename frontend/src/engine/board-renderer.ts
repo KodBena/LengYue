@@ -2,7 +2,8 @@
  * src/engine/board-renderer.ts
  * Pure SVG Go board rendering. Added: markerLabels.
  */
-import { BOARD_PX, BOARD_COLOR, LINE_COLOR, STONE_RADIUS_RATIO, MARKER_INNER_RATIO } from './constants';
+import { BOARD_PX, BOARD_COLOR, LINE_COLOR, MARKER_INNER_RATIO } from './constants';
+import { boardGeometry, gridLines } from './board-geometry';
 import type { StoneColor, Point } from '../types';
 
 export function renderBoardToSvg(props: {
@@ -16,10 +17,9 @@ export function renderBoardToSvg(props: {
 }): string {
   const { size, stones, lastMove, showMarker, uid, markerLabels } = props;
   const safeUid = uid.replace(/[^a-z0-9]/gi, '');
-  const pad = BOARD_PX / (size + 1);
-  const cell = (BOARD_PX - 2 * pad) / (size - 1);
-  const stoneR = cell * STONE_RADIUS_RATIO;
-  const toSVG = (bx: number, by: number) => ({ x: pad + bx * cell, y: pad + (size - 1 - by) * cell });
+  // Geometry from the shared SSOT (src/engine/board-geometry.ts) so the
+  // string projection cannot drift from the component renderers.
+  const { stoneR, toSVG } = boardGeometry(size);
 
   let stonesSvg = '';
   for (const key in stones) {
@@ -58,7 +58,7 @@ export function renderBoardToSvg(props: {
       </defs>
       <rect width="100%" height="100%" fill="${BOARD_COLOR}" /><rect width="100%" height="100%" fill="url(#wd-${safeUid})" />
       <g stroke="${LINE_COLOR}" stroke-width="0.8" opacity="0.3">
-        ${Array.from({ length: size }, (_, i) => { const p = pad + i * cell; const end = pad + (size - 1) * cell; return `<line x1="${p}" y1="${pad}" x2="${p}" y2="${end}" /><line x1="${pad}" y1="${p}" x2="${end}" y2="${p}" />`; }).join('')}
+        ${gridLines(size).map(l => `<line x1="${l.x1}" y1="${l.y1}" x2="${l.x2}" y2="${l.y2}" />`).join('')}
       </g>
       ${stonesSvg}${markerSvg}${labelSvg}
     </svg>`.trim();
