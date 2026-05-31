@@ -54,25 +54,37 @@ because the render pipeline (RefreshDriverTick ~82%) dominates wall-time. We
 confirmed this repeatedly — `marker stack`, function sampling, and the flat
 LongTask rate all agree.
 
-## Honest verdict
+## Honest verdict (revised — the first cut undersold it)
 
-This is a **CPU / battery / responsiveness + code-health** release, **not** a
-combined-stress frame-rate release:
+There are **two different axes**, and the first draft of this verdict conflated
+them:
 
-- **Real wins:** the two `per-render`-expensive components (BoardTab, timeline)
-  are gone; ChartPreviewBox's forced-Styles teardown is gone; the thumbnail
-  pipeline is a clean SSOT; the projection is exact-incremental with a test; a
-  forced-reflow and a smooth-scroll battery-thief are gone. These reduce JS/CPU
-  work and improve per-surface responsiveness — they matter for battery and for
-  the non-pathological (single-subsystem) cases.
-- **Not moved:** the combined-everything-at-once LongTask ceiling, which is the
-  native paint pipeline. Moving that is a different class of work (DOM/paint
-  complexity reduction, the container-query tax, MiniBoard frequency) and was
-  out of scope here.
+1. **Per-interaction latency** — the main-thread JS between an input (nav,
+   click, hover) and the visible response. *This is what "feels crisp."*
+2. **Sustained-maximal-load frame ceiling** — the LongTask rate when popover +
+   streaming analysis + navigation all run at once. This is native
+   style/layout/paint-bound (RefreshDriverTick ~80%).
 
-Calling it "highly beneficial" is fair on the battery/CPU/hygiene axis and on
-per-surface latency; it would be over-claiming on the combined-stress frame
-ceiling.
+The arc moved **(1) enormously** and **(2) barely** — and (1) is the axis users
+actually feel. We removed the *wasteful synchronous work on the interaction
+critical path*: TreeWidget's full re-render per nav (762 ms → **0**), BoardTab's
+rugplot (782 ms → **0**), the timeline data track (304 ms → 13.5 ms),
+ChartPreviewBox's forced-Styles `v-html` teardown, a per-nav forced reflow, and
+a smooth-scroll animation. What remains on the per-interaction path is *necessary*
+work (MiniBoard draws the actual position preview — 686 renders ≈ 343 turns × 2).
+
+So: **per-interaction responsiveness is night-and-day better** (maintainer's
+felt report: "rxvt vs Konsole"), and that is *fully earned* by the numbers — the
+biggest per-nav JS costs are gone, not throttled or hidden. Battery/CPU and code
+health are real wins too (incremental projection O(N)→O(1)/packet; thumbnail
+SSOT; the test).
+
+The only thing genuinely *not* moved is the absolute worst-case LongTask count
+under simultaneous maximal load, which is the native paint pipeline — a
+different, narrower class of work, and **not** what normal interactive use
+feels. The earlier "would over-claim on highly-beneficial" hedge was about *that*
+narrow axis; letting it shade the headline was a mistake. **"Highly beneficial"
+is accurate.**
 
 ## Correction (2026-05-31, post-Chrome-capture)
 
