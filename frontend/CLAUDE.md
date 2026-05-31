@@ -102,6 +102,43 @@ where there isn't any is the failure mode to avoid. The band
 tag can also be `[B?]` (unclassified) for files whose
 domain-coupling hasn't crystallised yet.
 
+## Identifier map
+
+`frontend/IDENTIFIERS.md` is the per-identifier "namespace
+repository": every identifier type in the SPA listed with its
+primitive, encoding (`Brand<>` / template-literal union / bare
+alias), origin class (server UUID / client UUID / local id / static
+config-key vocabulary / ephemeral index), construction site
+(`file:line`), lifetime, cardinality, and soundness notes. It exists
+because `src/types.ts` mixes the identifier types in with value
+objects, state containers, and the `GlobalStore` schema, making it an
+inconvenient place to look up "what ids exist, how is each
+constructed, what is its lifetime and representation cost." Use it
+when:
+
+- Looking up where an id is constructed (factory, ACL re-brand site,
+  or a raw cast) and whether that construction is sound.
+- Deciding the encoding and origin class for a new identifier — the
+  groupings indicate the natural home and the "Type-driven design"
+  rules below apply.
+- Assessing representation cost — the "Where representation cost is
+  load-bearing" section names the one place (`NodeId`) the
+  string-vs-number tradeoff plausibly bites.
+
+Like FILES.md it is a **lookup reference, not an end-to-end
+orientation document**; partial consultation is the intended mode and
+the read-end-to-end discipline above explicitly does not apply. Its
+"Known erosions" section documents the current soft spots (`[leaky]` /
+`[under-determined]` / `[dead]` tags) honestly; those are documented,
+not scheduled — fixing them is maintainer-directed work, not a licence
+to refactor.
+
+**Updating it:** when a new branded id is added, add a row; when a
+construction site moves, update its `file:line`; when a type is
+deleted, remove the row; when an erosion is fixed, drop its status
+tag — same PR, mirroring the FILES.md cadence. The doc's own
+"Updating this map" section carries the full discipline.
+
 ## Type-driven design
 
 Use the type system as a specification, not a decoration:

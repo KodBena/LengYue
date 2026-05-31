@@ -267,6 +267,15 @@ and the branch inventory alongside it. Deferred follow-ups (the
 analysis-panel container-query recompute; the native paint floor)
 are in `docs/notes/deferred-items.md`.
 
+**Frontend identifier types have a lookup map.** `frontend/IDENTIFIERS.md`
+— the namespace-repository sibling of `frontend/FILES.md` — catalogues
+every branded or aliased identifier type with its primitive, encoding
+(`Brand<>` / template-literal / bare alias), origin class, construction
+site, lifetime, cardinality, and known soundness erosions, so the
+identifier subset of the 2233-line `src/types.ts` is navigable without
+trawling the file. A lookup reference (partial consultation), not an
+end-to-end document. Added 2026-05-31.
+
 The frontend is **domain-specific to Go**. ADR-0003 documents
 this honestly: roughly 30-40% of the frontend is Go-bound (the
 SGF parsing, board renderer, KataGo wire vocabulary), with the
@@ -884,7 +893,7 @@ messages so the receiving team finds it without archaeology.
 
 In rough order of priority for a new contributor:
 
-- **`docs/adr/`** — The eight ADRs. Read these first.
+- **`docs/adr/`** — The ten ADRs. Read these first.
 - **`docs/notes/tenancy.md`** — How multi-tenancy flows through
   the backend.
 - **`docs/notes/reflection.md`** — Backend architectural
@@ -928,7 +937,7 @@ In rough order of priority for a new contributor:
 ## Closing
 
 The codebase is in good shape. Six Ports cleanly composed on the
-backend, eight ADRs that capture the discipline, a tenancy spine
+backend, ten ADRs that capture the discipline, a tenancy spine
 that's honest about what it guarantees, migration tooling
 reusable for the next schema change. The frontend's analogous
 work (typed wire shapes, fail-loud surfacing, OpenAPI codegen)
