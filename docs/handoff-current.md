@@ -639,6 +639,21 @@ regardless of which sub-project's history they originated in.
   Composes with ADR-0002 and ADR-0008 as the per-domain instance
   of the unsubstantiated-claim family of failures for the
   performance vocabulary.
+- **ADR-0010: Render Locality and Canvas for Data-Dense Visuals.**
+  *(Status: Proposed.)* Two frontend-authoring rules. Canvas rule:
+  a fixed-size visual whose element count scales with the data and
+  has no per-element layout/hit-test is a `<canvas>` job, not a
+  `v-for` of DOM/SVG nodes. Read-locality rule: a component reads a
+  high-frequency reactive value only if its own job is to display
+  it; composition / orchestration / chrome nodes read structural or
+  low-frequency state and let leaves self-source (accessor or
+  imperative escape). Corollary (verbatim): *`v-memo` and "pull the
+  element out of the loop" fix the patch, not the render; a reactive
+  read anywhere in a template re-runs the whole render function;
+  render ≫ patch is the tell.* The preventive sibling of ADR-0009's
+  reactive net — both patterns recurred after being learned once
+  (the render-coupling postmortem proposed this tenet as
+  Recommendation 1; `TreeWidget` reproduced the bug days later).
 
 Together they establish the codebase's architectural personality:
 honest types over aspirational annotations (ADR-0001); loud
