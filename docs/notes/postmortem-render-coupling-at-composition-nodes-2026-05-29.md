@@ -220,6 +220,16 @@ Ordered by leverage-per-effort; none are mandates.
    corrective that addresses root cause #3 directly, and it gives review and
    ADR-0009 a name to check against. Cheapest, highest leverage.
 
+   > **Adopted (2026-05-31).** Both candidate homes were taken: the tenet
+   > shipped as **ADR-0010** (with the sibling canvas rule and the
+   > render≫patch corollary the green arc proved), *and* the frontend
+   > `CLAUDE.md` gained the practitioner-facing render-locality section.
+   > The trigger was the recurrence this recommendation anticipated —
+   > `TreeWidget` reproduced the bug days after this note was written. See
+   > `docs/notes/opus-audit-green-perf-arc-2026-05-31.md` (P1) for the
+   > decision, and `frontend/tests/integration/render-count/` for the
+   > regression harness (P4) that mechanises a slice of the convention.
+
 2. **Resolve the DRY ↔ locality tension structurally** (informs the RB-2
    refactor). The reason prop-drilling is tempting is real: `AnalysisDashboard`
    computes the projection *once* and shares it, vs. N panels each recomputing.
