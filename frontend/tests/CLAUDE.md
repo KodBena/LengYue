@@ -67,10 +67,64 @@ Three tiers, each with a different boundary:
    the composable layer has broad coverage and the gap shows
    up empirically.
 
+   **Narrow exception — render-count regression guards
+   (`tests/integration/render-count/`).** These mount a component
+   but assert nothing about its render *output*; they assert its
+   render *frequency* — that the render function does not re-run on
+   a high-frequency reactive event it should not subscribe to.
+   That is the ADR-0010 render-locality invariant, statically
+   undecidable and otherwise visible only under a profiler
+   (ADR-0009). They are the preventive analog of ADR-0009's
+   reactive net — a render-coupling regression fails CI here
+   instead of surviving to a capture. See the harness section below.
+
 The split between Tier 1 and Tier 2 is the same as the split
 between pure logic and effect orchestration in the production
 code. A unit test verifies arithmetic; an integration test
 verifies the composable's wiring of pure logic to effects.
+
+## Render-count regression harness (ADR-0010 / P4)
+
+`tests/integration/render-count/` converts render-coupling — a
+component whose entire render function re-runs on a per-nav /
+per-packet read it should not hold — from a profile-only finding
+into a CI-catchable one. Files:
+
+- `render-count.ts` — `mountWithRenderCount(component, options)`.
+  Wraps a counting shim around the component's compiled `render`
+  option (a `<script setup>` SFC exposes one) on a shallow clone,
+  so each render-function invocation increments a counter the test
+  reads via `renderCount()`. The signal is the *render*, not the
+  *patch*: it counts render-function executions, which is exactly
+  what `v-memo` / element-extraction do NOT suppress and what
+  render-coupling makes expensive. `onUpdated` or DOM-diff
+  observation would measure the patch and miss the bug.
+- `jsdom-stubs.ts` — `installRenderEnvStubs()` /
+  `removeRenderEnvStubs()`. jsdom lacks the theme CSS custom
+  properties `themeColor(…)` reads (it throws loudly per ADR-0002),
+  `ResizeObserver`, and `Element.prototype.scrollTo`; the imperative-
+  escape composables the green arc introduced need all three to
+  mount. The stubs are no-ops / placeholders — render-count tests
+  assert on render frequency, not on resolved colour or layout.
+- `*.render-count.test.ts` — one per guarded component
+  (`TreeWidget`, `BoardTab`). Each drives N synthetic nav / packet
+  events through the *production* path (`mutateBoard(id,
+  navigateNext)` for nav, `ledger.record(...)` for packets),
+  awaits `nextTick()` after each, and asserts `renderCount()` stays
+  at the meaningful bound (`0` for "this event must not re-render
+  it"). A paired positive-control test changes a value the render
+  *does* read (a tree-structure / chrome-state change) and asserts
+  `renderCount() ≥ 1`, so a dead counter cannot pass silently.
+
+**Authoring a new guard.** Pick the high-frequency event the
+component must NOT re-render on and the structural event it must.
+Watch out for legitimate re-render causes that ride the same event
+(TreeWidget's `ensureVisible` expands the tree the first time a node
+is visited — a real structure-visibility change); control for them
+by warming that state before resetting the counter. Verify the guard
+is live by temporarily injecting the coupling (a template read of the
+high-frequency value) and confirming the test goes red — a
+render-count test that cannot fail is worse than none.
 
 ## The fake pattern
 
