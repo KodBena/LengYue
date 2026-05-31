@@ -380,8 +380,6 @@
 
   "boardTab.label":                       "보드 {n}",
   "boardTab.close":                       "보드 닫기",
-  "boardTab.meterRoot":                   "루트 · 방문 {visits}회",
-  "boardTab.meterMove":                   "{idx}수 · 방문 {visits}회",
 
   "systemLog.title":                      "시스템 진단",
   "systemLog.clearAll":                   "모두 지우기",

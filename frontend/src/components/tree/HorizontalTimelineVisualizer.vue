@@ -19,43 +19,19 @@
       ></div>
     </div>
 
-    <!-- Data Track (Rug Plot Style) -->
-    <svg class="data-svg" preserveAspectRatio="none">
-      <defs>
-        <linearGradient 
-          v-for="(segment, index) in processedSegments" 
-          :key="`grad-${index}`" 
-          :id="`grad-${id}-${index}`"
-          x1="0" y1="0" x2="1" y2="0"
-        >
-          <template v-if="colorMode === 'aggregate'">
-            <stop offset="0%" :stop-color="getColor(segment.stats.mean)" />
-            <stop offset="100%" :stop-color="getColor(segment.stats.mean)" />
-          </template>
-          <template v-else>
-            <!-- FIX: Safely computed stops prevent NaN% division by zero -->
-            <stop 
-              v-for="(stop, vIdx) in segment.stops" 
-              :key="vIdx"
-              :offset="stop.offset"
-              :stop-color="stop.color"
-            />
-          </template>
-        </linearGradient>
-      </defs>
-
-      <rect
-        v-for="(segment, index) in processedSegments"
-        :key="index"
-        :x="`${(segment.start / dataVector.length) * 100}%`"
-        :width="`${((segment.end - segment.start + 1) / dataVector.length) * 100}%`"
-        height="100%"
-        :fill="`url(#grad-${id}-${index})`"
-        class="segment-rect"
-        @mousedown.stop="handleSegmentClick(segment)"
-        @touchstart.stop.passive="handleSegmentClick(segment)"
-      />
-    </svg>
+    <!-- Data Track (Rug Plot Style) — drawn on a canvas off the Vue render
+         path. Previously an <svg> with one <stop> per turn + a <rect>/
+         <linearGradient> per segment (~N SVG nodes rebuilt every render);
+         see the script's drawTrack for the canvas reproduction. The
+         per-segment click is preserved via the canvas mousedown handler;
+         the per-segment hover-brighten is dropped (a minor affordance not
+         worth a mousemove redraw loop). -->
+    <canvas
+      ref="dataCanvas"
+      class="data-svg"
+      @mousedown.stop="onDataMouseDown"
+      @touchstart.stop.passive="onDataMouseDown"
+    ></canvas>
 
     <!-- Selection Slider -->
     <div
@@ -84,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onUnmounted, toRefs } from 'vue';
+import { computed, ref, watch, onMounted, onUnmounted, toRefs } from 'vue';
 import { useTimelineLogic, type Segment } from '../../composables/analysis/useTimelineLogic';
 import { getIntensityColorLinear } from '../../engine/suggestion-colors';
 
@@ -124,7 +100,6 @@ const props = withDefaults(defineProps<Props>(), {
   colorMode: 'global'
 });
 
-const id = Math.random().toString(36).substring(7);
 const emit = defineEmits<{
   (e: 'update:modelValue', value: [number, number]): void;
   (e: 'segmentClick', segment: Segment): void;
@@ -255,6 +230,78 @@ const processedSegments = computed(() => {
   });
 });
 
+// ── Canvas data-track rendering ───────────────────────────────────────────
+// processedSegments is consumed only here (imperatively), not in the
+// template, so analysis-driven data updates redraw the canvas without
+// re-rendering the component. Backing store sized to clientWidth×dpr, cached
+// from a ResizeObserver (no forced reflow on the draw path). Each segment is
+// one fillRect — either a flat colour (aggregate mode) or a horizontal
+// linear-gradient whose stops reproduce the prior per-turn SVG stops.
+const dataCanvas = ref<HTMLCanvasElement | null>(null);
+let trackW = 0;
+let trackH = 0;
+let trackResizeObs: ResizeObserver | null = null;
+
+function drawTrack(): void {
+  const canvas = dataCanvas.value;
+  if (!canvas || trackW === 0 || trackH === 0) return;
+  const dpr = window.devicePixelRatio || 1;
+  const bw = Math.max(1, Math.round(trackW * dpr));
+  const bh = Math.max(1, Math.round(trackH * dpr));
+  if (canvas.width !== bw) canvas.width = bw;
+  if (canvas.height !== bh) canvas.height = bh;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.clearRect(0, 0, bw, bh); // transparent turns → CSS background shows through
+
+  const total = props.dataVector.length;
+  if (total === 0) return;
+  for (const segment of processedSegments.value) {
+    const x0 = (segment.start / total) * bw;
+    const x1 = ((segment.end + 1) / total) * bw;
+    if (x1 <= x0) continue;
+
+    if (props.colorMode === 'aggregate') {
+      const color = getColor(segment.stats.mean);
+      if (color === 'transparent') continue;
+      ctx.fillStyle = color;
+    } else {
+      const grad = ctx.createLinearGradient(x0, 0, x1, 0);
+      const stops = segment.stops;
+      const n = stops.length;
+      for (let i = 0; i < n; i++) {
+        const off = n <= 1 ? 0 : i / (n - 1);
+        grad.addColorStop(off, stops[i].color);
+      }
+      ctx.fillStyle = grad;
+    }
+    ctx.fillRect(x0, 0, x1 - x0, bh);
+  }
+}
+
+// Click a data segment → select its range (reproduces the per-rect mousedown).
+const onDataMouseDown = (e: MouseEvent | TouchEvent) => {
+  const idx = getIndexFromEvent(e);
+  const segment = segments.value.find(s => idx >= s.start && idx <= s.end);
+  if (segment) handleSegmentClick(segment);
+};
+
+onMounted(() => {
+  const canvas = dataCanvas.value;
+  if (!canvas) return;
+  trackResizeObs = new ResizeObserver(() => {
+    trackW = canvas.clientWidth;
+    trackH = canvas.clientHeight;
+    drawTrack();
+  });
+  trackResizeObs.observe(canvas);
+  trackW = canvas.clientWidth;
+  trackH = canvas.clientHeight;
+  drawTrack();
+});
+
+watch(processedSegments, drawTrack);
+
 const getIndexFromEvent = (e: MouseEvent | TouchEvent) => {
   if (!containerRef.value) return 0;
   const rect = containerRef.value.getBoundingClientRect();
@@ -357,7 +404,11 @@ const attachListeners = () => {
   window.addEventListener('touchend', stopDragging);
 };
 
-onUnmounted(() => stopDragging());
+onUnmounted(() => {
+  stopDragging();
+  trackResizeObs?.disconnect();
+  trackResizeObs = null;
+});
 </script>
 
 <style scoped>
@@ -405,16 +456,9 @@ onUnmounted(() => stopDragging());
   inset: 0;
   width: 100%;
   height: 100%;
-}
-
-.segment-rect {
-  cursor: pointer;
+  display: block;
   pointer-events: auto;
-  transition: filter var(--duration-default);
-}
-
-.segment-rect:hover {
-  filter: brightness(1.25);
+  cursor: pointer;
 }
 
 .selection-slider {
