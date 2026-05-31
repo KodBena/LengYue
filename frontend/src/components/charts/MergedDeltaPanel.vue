@@ -47,6 +47,7 @@ import { ref, computed, watch } from 'vue';
 import AnalysisChartPanel from './AnalysisChartPanel.vue';
 import { globalLegendState } from './BaseChart.vue';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
+import type { BoardSnapshot } from '../../engine/board-geometry';
 import { mutateBoard, store } from '../../store';
 import { navigateTo } from '../../engine/navigator';
 import { colorMoveToPly } from '../../composables/analysis/useTriangularHeatmap';
@@ -66,8 +67,12 @@ const boardId        = ctx.boardId;
 const variationPath  = ctx.variationPath;
 const selectionRange = ctx.selectionRange;
 
-const { getThumbnailSvg } = useThumbnailCache();
-const preview = ref('');
+const { getSnapshot } = useThumbnailCache();
+const preview = ref<BoardSnapshot | null>(null);
+// Accessor passed down instead of the value: the per-nav thumbnail update
+// then re-renders only the <ChartPreviewBox> leaf, not this panel or the
+// chart host (render-coupling postmortem, 2026-05-29).
+const getPreview = () => preview.value;
 
 // Re-index each side's colour-local data onto a shared
 // parity-interleaved x-axis: black move K → x=2K, white
@@ -81,15 +86,18 @@ const preview = ref('');
 // is `any[]` anyway, so the loosening doesn't propagate.
 const mergedSeries = computed<any[]>(() => {
   const out: any[] = [];
+  // Colour is applied here (presentation), not in the data projection.
   for (const s of blackSeries.value) {
     out.push({
       ...s,
+      color: themeColor('--player-black'),
       data: s.data.map(([k, v]) => [2 * k, v] as [number, number | null]),
     });
   }
   for (const s of whiteSeries.value) {
     out.push({
       ...s,
+      color: themeColor('--player-white'),
       data: s.data.map(([k, v]) => [2 * k + 1, v] as [number, number | null]),
     });
   }
@@ -243,7 +251,7 @@ async function resetPreview() {
   // `handleHover`, sourced from `activeMergedIndex`.
   const x = activeMergedIndex.value;
   if (x === null) {
-    preview.value = '';
+    preview.value = null;
     return;
   }
   const color: 'B' | 'W' = x % 2 === 0 ? 'B' : 'W';
@@ -251,13 +259,14 @@ async function resetPreview() {
   const nodeIdx = colorMoveToPly(k as ColorMoveIndex, color);
   const nodeId = variationPath.value[nodeIdx];
   if (nodeId) {
-    preview.value = await getThumbnailSvg(nodeId, boardId, true);
+    preview.value = await getSnapshot(nodeId, boardId);
   } else {
-    preview.value = '';
+    preview.value = null;
   }
 }
 
 watch(activeMergedIndex, resetPreview, { immediate: true });
+const getActiveMergedIndex = () => activeMergedIndex.value;
 
 async function handleHover(rawIdx: number, yClicked?: number) {
   if (yClicked === undefined) return;
@@ -267,7 +276,7 @@ async function handleHover(rawIdx: number, yClicked?: number) {
   const nodeIdx = colorMoveToPly(k as ColorMoveIndex, color);
   const nodeId = variationPath.value[nodeIdx];
   if (nodeId) {
-    preview.value = await getThumbnailSvg(nodeId, boardId, true);
+    preview.value = await getSnapshot(nodeId, boardId);
   }
 }
 
@@ -310,13 +319,14 @@ function formatXTooltip(val: number): string {
   <AnalysisChartPanel
     label="Per-Player Performance (Moves)"
     :series="mergedSeries"
-    :active-index="activeMergedIndex"
+    :active-index-accessor="getActiveMergedIndex"
     :zoom-range="zoomRange"
     :format-x-axis="formatXAxis"
     :format-x-tooltip="formatXTooltip"
     :on-index-click="handleClick"
     :on-index-hover="handleHover"
     :on-mouse-leave="resetPreview"
-    :preview-html="preview"
+    :preview-accessor="getPreview"
+    :preview-show-marker="true"
   />
 </template>

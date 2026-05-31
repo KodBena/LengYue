@@ -247,6 +247,26 @@ postmortem's §7 names six discipline-recommendations
 calibrated to the catastrophe-by-substitution test the
 incident surfaced.
 
+**A render-performance ("green") arc landed 2026-05-31.** Six
+validated wins targeting per-interaction latency under streaming
+analysis: the per-nav forced reflow in TreeWidget's auto-center
+(observe-don't-poll via `useViewportFollow`); a thumbnail-rendering
+SSOT (`board-geometry` + `BoardSnapshot` + the reactive `MiniBoard`,
+excising ChartPreviewBox's `v-html` teardown and the heatmap's
+ECharts tooltip → a fixed dual-board preview window); an
+exact-incremental analysis projection (`enriched-accumulator`,
+O(N)/frame → O(1)/packet, equivalence-tested); canvas rug-plots for
+BoardTab and the timeline (off the Vue render path); and decoupling
+TreeWidget's render from navigation (imperative active ring —
+`<TreeWidget> render` 762 ms → 0 in nav-heavy combined-stress). The
+net is a large drop in per-interaction main-thread JS (the felt
+"crispness" axis); the native style/layout/paint ceiling under
+simultaneous maximal load is unchanged (a separate, narrower axis).
+Full record: `docs/notes/green-perf-arc-retrospective-2026-05-31.md`
+and the branch inventory alongside it. Deferred follow-ups (the
+analysis-panel container-query recompute; the native paint floor)
+are in `docs/notes/deferred-items.md`.
+
 The frontend is **domain-specific to Go**. ADR-0003 documents
 this honestly: roughly 30-40% of the frontend is Go-bound (the
 SGF parsing, board renderer, KataGo wire vocabulary), with the

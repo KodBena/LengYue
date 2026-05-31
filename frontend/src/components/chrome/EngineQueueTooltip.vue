@@ -27,15 +27,17 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQueryTelemetry, type InFlightQuery } from '../../composables/useQueryTelemetry';
 import { useHoverPopover } from '../../composables/chrome/useHoverPopover';
 import { usePopoverEdgeClamp } from '../../composables/chrome/usePopoverEdgeClamp';
+import { createTrailingThrottle } from '../../composables/useThrottledSnapshot';
+import { QUEUE_TOOLTIP_REDRAW_THROTTLE_MS } from '../../lib/timing';
 
 const { t } = useI18n();
 const { inFlight, cancelQuery } = useQueryTelemetry();
-const { open, onMouseEnter, onMouseLeave } = useHoverPopover();
+const { open, onMouseEnter, onMouseLeave } = useHoverPopover({ devId: 'queue' });
 // `left: 0`-anchored — the composable handles both anchor
 // directions symmetrically (clamps the offending edge whichever
 // it is); no per-popover direction config needed.
@@ -85,6 +87,57 @@ function fmtProgress(q: InFlightQuery): string {
     ? `${visits.toLocaleString()} / ${ceiling.toLocaleString()}`
     : visits.toLocaleString();
 }
+
+// ── Throttled open-list snapshot ──────────────────────────────────────
+// The badge `count` is live (it changes only on query add/remove). The
+// OPEN list, by contrast, reads each row's progress + ETA — values the
+// telemetry singleton churns on EVERY analysis packet — so binding the
+// `v-for` straight to `inFlight` redraws the whole table at the packet
+// rate (hundreds of redraws across one range query, none of it legible
+// at that speed). We snapshot the rows into plain, pre-formatted strings
+// on a trailing+leading throttle (QUEUE_TOOLTIP_REDRAW_THROTTLE_MS) so
+// the list redraws at most ~4 Hz. Formatting the reactive fields HERE
+// and storing plain values is what decouples the template from the
+// packet stream — it no longer touches `q.progress` / `q.etaMs`. Same
+// shape as the redraw throttles in DistributionChart / HeatmapChart, the
+// sibling consumers of this timing catalog.
+interface QueueRow {
+  queryId:      string;
+  kindText:     string;
+  label?:       string;
+  modelText:    string;
+  progressText: string;
+  etaText:      string;
+  canCancel:    boolean;
+}
+
+const displayRows = ref<QueueRow[]>([]);
+
+function rebuildRows(): void {
+  displayRows.value = inFlight.value.map((q): QueueRow => ({
+    queryId:      q.queryId,
+    kindText:     fmtKind(q.kind),
+    label:        q.label,
+    modelText:    fmtModel(q.model),
+    progressText: fmtProgress(q),
+    etaText:      fmtEta(q.etaMs),
+    canCancel:    q.cancel !== undefined,
+  }));
+}
+
+// Shared trailing throttle (the subscriber-projection mechanism), but gated:
+// a closed popover's list isn't rendered, so don't rebuild when closed —
+// schedule only while open. `inFlight` is replaced wholesale per packet, so
+// the watch fires per packet; the throttle coalesces to ~4 Hz.
+const rowsThrottle = createTrailingThrottle(rebuildRows, QUEUE_TOOLTIP_REDRAW_THROTTLE_MS);
+watch(inFlight, () => { if (open.value) rowsThrottle.schedule(); });
+
+// Seed synchronously on open (bypassing the throttle) so the list is fresh
+// the instant the popover shows; the default 'pre' flush runs before the
+// popover renders, so there's no stale/empty flash.
+watch(open, (isOpen) => { if (isOpen) rebuildRows(); });
+
+onUnmounted(rowsThrottle.cancel);
 </script>
 
 <template>
@@ -98,12 +151,12 @@ function fmtProgress(q: InFlightQuery): string {
     <span class="m-val queue-count">{{ count }}</span>
 
     <div v-if="open" :ref="setPopoverEl" class="queue-popover" role="tooltip" :style="{ transform: `translateX(${xShift}px)` }">
-      <div v-if="count === 0" class="popover-empty">
+      <div v-if="displayRows.length === 0" class="popover-empty">
         {{ $t('toolbar.queue.empty') }}
       </div>
       <div v-else class="popover-table">
         <div class="popover-header">
-          {{ $t('toolbar.queue.header', { n: count }) }}
+          {{ $t('toolbar.queue.header', { n: displayRows.length }) }}
         </div>
         <table>
           <thead>
@@ -116,25 +169,25 @@ function fmtProgress(q: InFlightQuery): string {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="q in inFlight" :key="q.queryId">
+            <tr v-for="row in displayRows" :key="row.queryId">
               <td>
-                <span class="kind-label">{{ fmtKind(q.kind) }}</span>
-                <span v-if="q.label" class="kind-suffix">[{{ q.label }}]</span>
+                <span class="kind-label">{{ row.kindText }}</span>
+                <span v-if="row.label" class="kind-suffix">[{{ row.label }}]</span>
               </td>
-              <td>{{ fmtModel(q.model) }}</td>
-              <td>{{ fmtProgress(q) }}</td>
-              <td class="eta-col">{{ fmtEta(q.etaMs) }}</td>
+              <td>{{ row.modelText }}</td>
+              <td>{{ row.progressText }}</td>
+              <td class="eta-col">{{ row.etaText }}</td>
               <td class="cancel-col">
                 <!-- Cancel button shows only when the registrant
                      supplied a `cancel` hook. For probes (which
                      finish quickly and aren't worth cancelling)
                      no hook is registered, so no button renders. -->
                 <button
-                  v-if="q.cancel !== undefined"
+                  v-if="row.canCancel"
                   class="cancel-btn"
                   :title="$t('toolbar.queue.cancel')"
                   :aria-label="$t('toolbar.queue.cancel')"
-                  @click="onCancelClick(q.queryId)"
+                  @click="onCancelClick(row.queryId)"
                 >✕</button>
               </td>
             </tr>

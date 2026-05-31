@@ -10,10 +10,11 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed, ref, toRef, watch, nextTick } from 'vue';
+import { computed, ref, toRef, watch, nextTick, onMounted } from 'vue';
 import { useTreeLayout }    from '../../composables/forest/useTreeLayout';
 import { useTreeExpansion } from '../../composables/forest/useTreeExpansion';
 import { useScopedScroll }  from '../../composables/useScopedScroll';
+import { useViewportFollow } from '../../composables/useViewportFollow';
 import { useNavigation }    from '../../composables/useNavigation';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
 import { themeColor }        from '../../utils/theme-color';
@@ -84,6 +85,12 @@ useScopedScroll(outerRef, deltaY => {
   else nav.prev();
 });
 
+// Viewport-follow: centres `outerRef` on the active node without reading
+// scroll/viewport geometry in the navigation hot path (it caches both from
+// a passive scroll listener + ResizeObserver). See the composable header
+// for why a synchronous read — or a rAF-deferred one — forces a reflow.
+const viewportFollow = useViewportFollow(outerRef);
+
 const expansion = useTreeExpansion();
 const { getVariationThumbnail } = useThumbnailCache();
 
@@ -150,6 +157,41 @@ const svgHeight = computed(() =>
     : layout.value.rows * CELL + PAD * 2,
 );
 
+// Pixel position of the active-node ring — the one nav-reactive piece of
+// the tree. Null when the current node has no layout position yet
+// (transiently, before the ensureVisible watch expands its ancestors).
+const activeRingPos = computed(() => {
+  const id = currentNodeId.value;
+  if (!id) return null;
+  const pos = layout.value.positions.get(id);
+  return pos ? toPixels(pos.gx, pos.gy) : null;
+});
+
+// The ring is updated IMPERATIVELY (a `<circle ref>` patched in a watch),
+// NOT bound reactively in the template. Decoupling it into a standalone
+// element wasn't enough: reading `activeRingPos` in the template still re-runs
+// TreeWidget's whole render function on every nav (the full v-for over edges +
+// nodeList, evaluating every v-memo key) — the per-item v-memo only spares the
+// *patch*, not the render. Chrome profiling showed `<TreeWidget> render` at
+// ~24% self-time, the single biggest JS cost, driven entirely by this read.
+// Moving the ring off the render path (same trick as the canvas rug-plots)
+// means a cursor-only nav touches one circle's attributes and TreeWidget's
+// render runs only on genuine tree-structure change.
+const activeRingEl = ref<SVGCircleElement | null>(null);
+function updateActiveRing(pos: { x: number; y: number } | null): void {
+  const el = activeRingEl.value;
+  if (!el) return;
+  if (pos) {
+    el.setAttribute('cx', String(pos.x));
+    el.setAttribute('cy', String(pos.y));
+    el.style.display = '';
+  } else {
+    el.style.display = 'none';
+  }
+}
+watch(activeRingPos, updateActiveRing);
+onMounted(() => updateActiveRing(activeRingPos.value)); // seed (the ref is null at setup)
+
 // ── Viewport Centering & Auto-Expand ──────────────────────────────────────────
 //
 // `immediate: true` so the invariant fires on mount (the SPA-reload
@@ -167,18 +209,15 @@ watch(currentNodeId, async (newId, _oldId) => {
   // Wait for Vue to trigger useTreeLayout and patch the DOM.
   await nextTick();
 
-  // Center the newly revealed node. On the initial-mount run
-  // outerRef is null and the early return is the right behaviour;
-  // first paint scrolls to its own default and subsequent navigation
-  // takes over.
+  // Center the newly revealed node. On the initial-mount run the layout
+  // position may not exist yet; the early return is the right behaviour
+  // (first paint scrolls to its own default and subsequent navigation
+  // takes over). `centerOn` reads only cached geometry — no synchronous
+  // reflow — and no-ops when the node is already comfortably in view.
   const pos = layout.value.positions.get(newId);
-  if (!pos || !outerRef.value) return;
+  if (!pos) return;
   const { x, y } = toPixels(pos.gx, pos.gy);
-  const el = outerRef.value;
-  const outOfBounds = x < el.scrollLeft + 50 || x > el.scrollLeft + el.clientWidth - 50 || y < el.scrollTop + 50 || y > el.scrollTop + el.clientHeight - 50;
-  if (outOfBounds) {
-    el.scrollTo({ left: x - el.clientWidth / 2, top: y - el.clientHeight / 2, behavior: 'smooth' });
-  }
+  viewportFollow.centerOn(x, y);
 }, { immediate: true });
 
 // ── Derived display lists ─────────────────────────────────────────────────────
@@ -254,22 +293,49 @@ const edges = computed(() => {
   <div class="tree-widget-wrapper">
     <div ref="outerRef" class="tree-widget-outer">
       <svg :width="svgWidth" :height="svgHeight" class="tree-svg">
+        <!-- The current-node ring is decoupled out of the node loop (the
+             BaseChart marker pattern) so a cursor-only nav step doesn't touch
+             the tree. Edges and nodes then memoise PER ITEM, not as one
+             group: `layout` is a shallowRef reassigned to a fresh object on
+             every recompute, so a v-memo keyed on the whole `edges` /
+             `nodeList` array busts on ANY layout change and re-renders the
+             entire tree in one O(N) burst (the 30 ms render spikes / 347 ms
+             LongTasks seen during streaming, when node mutations churn the
+             layout). Per-item keys re-render only the items that actually
+             changed — on a layout bust that moved nothing, every item skips.
+             The guard in useTreeExpansion.ensureVisible is what keeps the
+             layout reference stable on linear nav in the first place. -->
         <g class="tree-edges" stroke-width="1.2" stroke-linecap="round">
-          <path v-for="edge in edges" :key="edge.id" :d="edge.d" />
+          <path v-for="edge in edges" :key="edge.id" v-memo="[edge.d]" :d="edge.d" />
         </g>
 
-        <g v-for="item in nodeList" :key="item.id" v-memo="[item.id === currentNodeId, item.isGameHead, item.move?.color, item.isBranching, item.isExpanded]">
-          <!-- Game-head marker — outermost ring (NODE_R + 5) so it
-               stays visible when the active-ring (NODE_R + 3) also
-               applies on the current node. Green = "play vs engine
-               session's head — engine will respond to your next
-               move from here". Exactly one head per session;
-               the head advances as the game progresses, so
-               previously-green nodes no longer render the ring.
-               See PlayEngineModal / useEngineResponder for the
-               lifecycle. -->
+        <!-- Active-node ring — updated IMPERATIVELY (cx/cy/display set in a
+             watch on activeRingPos; see script). It is NOT bound reactively
+             here: a reactive read would re-run TreeWidget's whole render on
+             every nav. Drawn between edges and nodes for z-order: behind the
+             node circle (annulus shows), in front of the edges. Starts hidden;
+             the onMounted seed positions it. -->
+        <circle ref="activeRingEl" :r="NODE_R + 3" class="active-ring" stroke-width="1" style="display:none" />
+
+        <!-- Nodes: per-item memo, keyed on everything a node's vnodes read
+             that can change — position (px/py: a layout recompute can move a
+             node) plus game-head / move colour / branching / expansion. The
+             cursor is NOT in the key (it lives in the decoupled ring above),
+             so a cursor-only nav step skips every node; a layout bust
+             re-renders only the nodes that genuinely moved or changed. -->
+        <g
+          v-for="item in nodeList"
+          :key="item.id"
+          v-memo="[item.isGameHead, item.move?.color, item.isBranching, item.isExpanded, item.px, item.py]"
+        >
+          <!-- Game-head marker — outermost ring (NODE_R + 5) so it stays
+               visible when the active-ring (NODE_R + 3) also applies on the
+               current node. Green = "play vs engine session's head — engine
+               will respond to your next move from here". Exactly one head
+               per session; the head advances as the game progresses, so
+               previously-green nodes no longer render the ring. See
+               PlayEngineModal / useEngineResponder for the lifecycle. -->
           <circle v-if="item.isGameHead" :cx="item.px" :cy="item.py" :r="NODE_R + 5" class="game-head-ring" stroke-width="1.5" />
-          <circle v-if="item.id === currentNodeId" :cx="item.px" :cy="item.py" :r="NODE_R + 3" class="active-ring" stroke-width="1" />
           <circle :cx="item.px" :cy="item.py" :r="NODE_R" :fill="nodeFill(item)" :stroke="nodeStroke(item)" stroke-width="1" class="node-circle" @click="emit('select-node', item.id)" />
 
           <g v-if="item.isBranching" class="toggle-group" @click.stop="expansion.toggle(item.parentIdForToggle)" @mouseenter="e => onToggleEnter(e, item.parentIdForToggle as NodeId)" @mouseleave="onToggleLeave">

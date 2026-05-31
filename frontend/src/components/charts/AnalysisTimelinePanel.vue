@@ -9,6 +9,8 @@ import { computed, ref } from 'vue';
 import HorizontalTimelineVisualizer from '../tree/HorizontalTimelineVisualizer.vue';
 import { store } from '../../store';
 import { injectAnalysisContext } from '../../composables/analysis/useAnalysisContext';
+import { useThrottledSnapshot } from '../../composables/useThrottledSnapshot';
+import { ANALYSIS_TIMELINE_REDRAW_THROTTLE_MS } from '../../lib/timing';
 import type { PlyIndex } from '../../types';
 
 // Phase-0 projection seam: self-source from the injected AnalysisContext.
@@ -18,6 +20,13 @@ const ctx = injectAnalysisContext();
 const visitVector     = ctx.visitVector;
 const selectionRange  = ctx.selectionRange;
 const engineConnected = ctx.engineConnected;
+
+// Throttled rug-plot data. `visitVector` (the per-turn visit counts) is
+// rebuilt every analysis packet; snapshot it to ~4 Hz (the subscriber-
+// projection family cadence) so the visualiser redraws at that rate, not the
+// packet rate. The template binds the snapshot; selectionRange (user drag)
+// stays prompt on its own binding.
+const displayedVisitVector = useThrottledSnapshot(visitVector, ANALYSIS_TIMELINE_REDRAW_THROTTLE_MS);
 
 const visits = ref(200);
 
@@ -61,7 +70,7 @@ function onAnalyze(): void {
 
     <div class="timeline-body">
       <HorizontalTimelineVisualizer
-        :data-vector="visitVector"
+        :data-vector="displayedVisitVector"
         :model-value="selectionRange"
         color-mode="quantile"
         @update:model-value="onRangeUpdate"

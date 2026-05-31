@@ -6,6 +6,7 @@
 import { ref, watch } from 'vue';
 import AnalysisChartPanel from './AnalysisChartPanel.vue';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
+import type { BoardSnapshot } from '../../engine/board-geometry';
 import { injectAnalysisContext } from '../../composables/analysis/useAnalysisContext';
 
 // Phase-0 projection seam: self-source the chart's view-model from the
@@ -18,20 +19,25 @@ const boardId        = ctx.boardId;
 const variationPath  = ctx.variationPath;
 const selectionRange = ctx.selectionRange;
 const activeIndex    = ctx.activeMainIndex;
+const getActiveIndex = () => activeIndex.value;
 const onIndexClick   = ctx.navigation.handleMainClick;
 
-const { getThumbnailSvg } = useThumbnailCache();
-const preview = ref('');
+const { getSnapshot } = useThumbnailCache();
+const preview = ref<BoardSnapshot | null>(null);
+// Accessor passed down instead of the value: the per-nav thumbnail update
+// then re-renders only the <ChartPreviewBox> leaf, not this panel or the
+// chart host (render-coupling postmortem, 2026-05-29).
+const getPreview = () => preview.value;
 
 /** Reverts the preview box to the current board position */
 async function resetPreview() {
   if (activeIndex.value !== null) {
     const nodeId = variationPath.value[activeIndex.value];
     if (nodeId) {
-      preview.value = await getThumbnailSvg(nodeId, boardId, false);
+      preview.value = await getSnapshot(nodeId, boardId);
     }
   } else {
-    preview.value = '';
+    preview.value = null;
   }
 }
 
@@ -41,7 +47,7 @@ watch(activeIndex, resetPreview, { immediate: true });
 async function handleHover(turnIdx: number) {
   const nodeId = variationPath.value[turnIdx];
   if (nodeId) {
-    preview.value = await getThumbnailSvg(nodeId, boardId, false);
+    preview.value = await getSnapshot(nodeId, boardId);
   }
 }
 
@@ -59,12 +65,12 @@ function formatPlyTooltip(val: number): string {
   <AnalysisChartPanel
     label="Game State (Turns)"
     :series="series"
-    :active-index="activeIndex"
+    :active-index-accessor="getActiveIndex"
     :zoom-range="selectionRange"
     :on-index-click="onIndexClick"
     :on-index-hover="handleHover"
     :on-mouse-leave="resetPreview"
-    :preview-html="preview"
+    :preview-accessor="getPreview"
     :format-x-tooltip="formatPlyTooltip"
     normalize="per-series"
   />

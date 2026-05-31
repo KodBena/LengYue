@@ -79,7 +79,7 @@ function onHoverLeave() {
            BoardTab cannot self-source: `board` (object identity — catches
            the move-play replacement via updateBoardState), `index` (the
            "Board N" label after a close-induced reindex), active-highlight,
-           and review-border state. Cursor / analysis-depth / geiger updates
+           and review-border state. Cursor / analysis-depth updates
            flow through BoardTab's OWN reactive effects, which v-memo does
            not block (it suppresses parent-driven patches, not the child's
            own render effect). See docs/notes/perf-audit-game-scroll-2026-05-28.md. -->

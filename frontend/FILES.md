@@ -56,9 +56,10 @@ frontend/src/
 │   ├── board/                                Go-board surface. Renderers + overlays.
 │   │   ├── BoardDisplay.vue           [B3]  Stateless SVG Go board with stone gradients, hoshi, last-move ring, move-number text.
 │   │   ├── BoardHeatmapOverlay.vue    [B3]  Stateless per-intersection heatmap (ownership / liveness / dots).
-│   │   ├── BoardTab.vue               [B3]  Tab row in the board-list rail (label, close, rugplot, activity dot).
+│   │   ├── BoardTab.vue               [B3]  Tab row in the board-list rail (label, close, canvas analysis-depth rugplot drawn imperatively off the render path).
 │   │   ├── BoardVariationsOverlay.vue [B3]  Sibling-variation rings + active-next-move hint on the board.
 │   │   ├── BoardWidget.vue            [B3]  Hosts BoardDisplay + overlays + MoveSuggestions; computes derived view-model.
+│   │   ├── MiniBoard.vue             [B3]  Reactive thumbnail board — component projection of a BoardSnapshot (memoised grid + per-stone v-memo). Replaces per-nav v-html frame-teardown; used by ChartPreviewBox + heatmap preview.
 │   │   ├── MoveSuggestions.vue        [B3]  KataGo move-suggestion overlay; PV preview on hover; paste-pv on modifier/middle-click.
 │   │   └── StatusBar.vue              [B3]  Move number, player names, komi, turn indicator, captures, transient hint, # toggle.
 │   │
@@ -71,14 +72,15 @@ frontend/src/
 │   │   ├── BaseChart.vue              [B1]  Generic ECharts wrapper with module-scoped legend memoisation.
 │   │   ├── card-tree-echarts.ts       [B2]  ECharts node/tooltip composer for the card-tree forest.
 │   │   ├── CardTreeWidget.vue         [B2]  Card-tree forest display (one tree-section per CardLineageTree, accordion).
+│   │   ├── ChartPreviewBox.vue        [B3]  Isolated leaf rendering a panel's hover/position thumbnail (MiniBoard) via a `() => BoardSnapshot` accessor — keeps the per-nav preview update off the chart host's render.
 │   │   ├── ColorDebugStrip.vue        [B1]  Dual-track gradient-calibration debug strip.
-│   │   ├── HeatmapChart.vue           [B1]  Stateless ECharts heatmap renderer.
+│   │   ├── HeatmapChart.vue           [B1]  Stateless generic ECharts heatmap renderer; emits cell-click / cell-hover / cell-leave (no tooltip — the host renders any preview).
 │   │   ├── MergedDeltaPanel.vue       [B3]  Both-players delta chart on a parity-interleaved x-axis.
 │   │   ├── ScoreLeadPanel.vue         [B3]  ScoreLead chart panel.
 │   │   ├── DistributionChart.vue      [B1]  Generic histogram/KDE primitive (variant-dispatched ECharts mount).
 │   │   ├── DeltaDistributionPanel.vue [B3]  Per-colour delta-KDE panel (injects AnalysisContext; wraps DistributionChart).
 │   │   ├── MistakeGapPanel.vue        [B3]  Own-colour mistake-gap histogram panel (injects AnalysisContext; wraps DistributionChart).
-│   │   ├── MultiresolutionIntervalPanel.vue  [B3]  Triangular multiresolution-interval heatmap.
+│   │   ├── MultiresolutionIntervalPanel.vue  [B3]  Triangular multiresolution-interval heatmap + fixed interval-preview window (hovered cell → start/end MiniBoards).
 │   │   ├── StabilityCrossCorrelationPanel.vue [B3]  Pairwise Pearson over extractor × extractor and metric × metric. Collapsed by default.
 │   │   └── StabilityPanel.vue         [B3]  Per-position stability metric over the variation path; extractor-selectable.
 │   │
@@ -90,7 +92,8 @@ frontend/src/
 │   │   ├── SidebarWidget.vue          [B1]  Sidebar layout container.
 │   │   ├── SystemLogPanel.vue         [B1]  Always-visible system log bar with idle row.
 │   │   ├── TabWidget.vue              [B1]  Controlled tabbed navigation.
-│   │   ├── Toolbar.vue                [B3]  Application toolbar (engine controls, match button, ponder controls, …).
+│   │   ├── Toolbar.vue                [B3]  Application toolbar shell (title, buttons, popover mounts). Reads only `isConnected`; telemetry lives in ToolbarEngineMetrics so the shell doesn't re-render per packet.
+│   │   ├── ToolbarEngineMetrics.vue   [B3]  Live engine-telemetry strip leaf (version/model/winrate/scoreLead/PPS/latency/watchdog + queue tooltip); self-sources the per-packet/per-tick reads, extracted out of Toolbar (render-coupling fix).
 │   │   ├── ToolbarSliderPopover.vue   [B1]  Toolbar badge + hover popover: compact priority-ordered list of every scalar knob (quick-access surface for the knob registry).
 │   │   └── UserBadge.vue              [B1]  Auth-identity badge; opens LoginModal on click.
 │   │
@@ -128,28 +131,32 @@ frontend/src/
 │   └── tree/                                Tree-shaped surfaces: game tree, forest directory, timeline.
 │       ├── ForestDirectory.vue        [B2]  Master-Detail database explorer (Decks tab + Browse tab + chart).
 │       ├── ForestTreeNav.vue          [B2]  File-manager-style hierarchical navigator (games → roots).
-│       ├── HorizontalTimelineVisualizer.vue [B2]  Horizontal timeline of cards / reviews.
+│       ├── HorizontalTimelineVisualizer.vue [B2]  Horizontal timeline rug-plot + draggable selection. Data track drawn on a canvas off the render path; slider/handles/grid stay DOM.
 │       └── TreeWidget.vue             [B2]  SVG game-tree viewer; enforces current-node-visible invariant via ensureVisible.
 │
 ├── composables/                             Logic layer. Pure-ish functions over reactive refs.
+│   ├── useAutoNavigatePerf.ts         [B2]  Dev-only: rAF-drives next() at ~60/s to the last node, emitting autonav:step perf marks tagged with analysis-queue state (regime A/B/other-board). Button gated to dev builds.
+│   ├── useAutoPopoverPerf.ts          [B1]  Dev-only: toggles a target popover open/closed at ~2/s (via useHoverPopover's force hook), emitting popover:open/close marks tagged with queue state — for the popover-toggle-cost measurement.
 │   ├── useEngineControls.ts           [B3]  Engine connect / disconnect / toggle lifecycle.
 │   ├── useNavigation.ts               [B2]  Headless navigation within the game tree (next/prev/parent/child).
 │   ├── useQeubo.ts                    [B1]  qEUBO experiment state machine + audition + verdict.
 │   ├── useQueryTelemetry.ts           [B1]  Singleton in-flight KataGo query queue + per-model visits/sec ETA.
 │   ├── useScopedScroll.ts             [B1]  Wheel-event scoped scroll (board + tree both consume).
+│   ├── useViewportFollow.ts           [B1]  Centre a scroll container on a moving target via cached scroll/dims (passive scroll listener + ResizeObserver) — no synchronous layout read in the nav hot path. TreeWidget auto-center.
+│   ├── useThrottledSnapshot.ts        [B1]  Shared trailing-throttle: createTrailingThrottle primitive + useThrottledSnapshot sugar — the rate limiter behind the subscriber-projection redraw throttles (queue/metrics/BoardTab/charts/timeline).
 │   ├── useTransientHint.ts            [B1]  Module-scoped reactive hint string surfaced by StatusBar.
 │   ├── useTransientLogReveal.ts       [B1]  Auto-reveals system-log panel on error/warning bursts.
 │   ├── useUserIORegistry.ts           [B2]  Hardware-event → domain-verb adapter (keyboard nav, suggestion toggle, …).
 │   │
 │   ├── analysis/                             KataGo-derived view models and chart wiring.
-│   │   ├── useActivityDecay.ts        [B1]  Leaky-integrator exponential-decay model (generic math).
 │   │   ├── useAnalysisContext.ts      [B3]  Per-board analysis context (projection + derived) shared to panels via provide/inject.
 │   │   ├── useAnalysisTabs.ts         [B3]  Analysis-tab state: persisted tab list (AppSettings.analysisTabs) + ephemeral active-tab selection. No component imports (resolution is the dashboard's job).
 │   │   ├── useAnalysisProjection.ts   [B3]  Projects raw board + analysis ledger to UI-ready view model.
 │   │   ├── useAnalysisTimeline.ts     [B3]  Owns the chart selection range + visit-vector from the ledger.
 │   │   ├── useChartNavigation.ts      [B3]  Pure black-box click+thumbnail handler for analysis charts.
 │   │   ├── useEChartsForestRender.ts  [B2]  Per-tree ECharts lifecycle (init, dispose, resize) for card-tree forests.
-│   │   ├── useEnrichedData.ts         [B3]  Reactive transformation of enriched KataGo packets.
+│   │   ├── enriched-accumulator.ts    [B3]  Pure incremental derivation of the enriched series (patchNode O(1) vs full O(N) rebuild); last-path-order delta arbitration. Equivalence-tested.
+│   │   ├── useEnrichedData.ts         [B3]  Reactive enriched series — shallowRef driven by structural watch (rebuild) + ledger changed-key signal (incremental patch); no per-frame O(N) re-derive.
 │   │   ├── useMistakeFinder.ts        [B3]  Calculated property: per-move mistake severity + un-punished red-flag.
 │   │   ├── useStabilityCrossCorrelations.ts [B3] Pairwise Pearson over the extractor and metric axes of stability series.
 │   │   ├── useStabilityMetrics.ts     [B3]  Per-move stability fractions from the trajectory store for a chosen extractor + metric.
@@ -209,7 +216,8 @@ frontend/src/
 │
 ├── engine/                                  Pure Go-engine code: rules, SGF, KataGo wire, board rendering.
 │   ├── analysis-config-curation.ts    [B3]  Bit-equivalent rewriter for KataGo `analysis_config` symbol bodies.
-│   ├── board-renderer.ts              [B3]  Pure SVG Go board rendering (used by thumbnails).
+│   ├── board-geometry.ts              [B3]  SSOT for board rendering geometry (pad/cell/stoneR/toSVG, gridLines) + the BoardSnapshot position primitive; shared by renderBoardToSvg (string) and the Vue board components so projections can't drift.
+│   ├── board-renderer.ts              [B3]  Pure SVG Go board rendering → string (v-html / ECharts-innerHTML sinks); geometry from board-geometry.
 │   ├── constants.ts                   [B3]  Board geometry, stone-radius ratio, label-band width, etc.
 │   ├── helper.ts                      [B1]  Piecewise cubic Hermite interpolation (pure math).
 │   ├── navigator.ts                   [B3]  LCA-based game-tree traversal with setup-stone + capture tracking.
@@ -240,7 +248,7 @@ frontend/src/
 │   │   └── quantization.ts            [B3]  Q4 ownership + Q8-factored policy primitives for the lossy leaf.
 │   ├── analysis-bundle.ts             [B3]  Pure projection ledger ↔ wire bundle.
 │   ├── analysis-config.ts             [B3]  Palette compile + ledger hash.
-│   ├── analysis-ledger.ts             [B3]  Per-(configHash, nodeId) merged KataGo packet store.
+│   ├── analysis-ledger.ts             [B3]  Per-(configHash, nodeId) merged KataGo packet store. Per-node version refs (pull consumers) + `onLedgerFlush` changed-key signal (incremental push consumers).
 │   ├── analysis-persistence-service.ts [B3] HTTP boundary for analysis-bundle persistence (save/restore/discard).
 │   ├── analysis-service.ts            [B3]  Bridges KataGo turns to the ledger nodes.
 │   ├── api-client.ts                  [B1]  Pure REST client; JWT injection; zero-friction local auth.

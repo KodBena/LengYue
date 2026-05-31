@@ -671,7 +671,6 @@ export function dismissSystemMessage(id: string) {
 function normalizeBoard(raw: any): BoardState {
   return {
     ...raw,
-    lastActivity:    raw.lastActivity    ?? 0,
     maxVisitsTarget: raw.maxVisitsTarget ?? 1000,
     nodes:           raw.nodes           ?? {},
     games:           normalizeGames(raw.games),

@@ -235,6 +235,12 @@
   "engine.clearCache.okButLookupCache":   "KataGo cache cleared — but lookup_cache is on, so the proxy may replay cached streams without reaching the engine. Disable lookup_cache (or restart the proxy) for a true cold-cache measurement.",
   "engine.clearCache.failed":             "Clear cache failed: {error}",
   "engine.clearCache.notConnected":       "Clear cache: engine not connected.",
+  "toolbar.autoNavPerf.start":            "Auto-nav ▶",
+  "toolbar.autoNavPerf.stop":             "Auto-nav ◼",
+  "toolbar.autoNavPerf.title":            "Dev: auto-navigate to the last node at ~60/s on Analysis/Basic, emitting perf markers for profiler capture (see perf-capture-normalization-protocol.md).",
+  "toolbar.popoverStress.start":          "Popover ⟳",
+  "toolbar.popoverStress.stop":           "Popover ◼",
+  "toolbar.popoverStress.title":          "Dev: toggle the queue popover open/closed at ~2/s, emitting popover:open/close markers tagged with queue state — run while a range query streams to measure popover toggle cost.",
   "toolbar.mintCard":                     "Mint Card",
   "toolbar.match":                        "Match",
   "toolbar.stopMatch":                    "Stop Match",
@@ -522,8 +528,6 @@
 
   "boardTab.label":                       "Board {n}",
   "boardTab.close":                       "Close board",
-  "boardTab.meterRoot":                   "Root · {visits} visits",
-  "boardTab.meterMove":                   "Move {idx} · {visits} visits",
 
   "systemLog.title":                      "System Diagnostics",
   "systemLog.clearAll":                   "Clear All",

@@ -21,14 +21,19 @@ export const globalLegendState: Record<string, boolean> = reactive({});
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import * as echarts from 'echarts';
 import { themeColor } from '../../utils/theme-color';
-import { CHART_MARKER_DEBOUNCE_MS as DEBOUNCE_MS } from '../../lib/timing';
+import { CHART_MARKER_DEBOUNCE_MS as DEBOUNCE_MS, BASE_CHART_REDRAW_THROTTLE_MS } from '../../lib/timing';
+import { createTrailingThrottle } from '../../composables/useThrottledSnapshot';
 
 const props = defineProps<{
   series: any[];
   title?: string;
   reservedWidth?: number;
   reservedHeight?: number;
-  activeIndex?: number | null;
+  // Cursor ACCESSOR (not a value): invoked only in updateMarker / the marker
+  // watch below — never in this component's template — so a per-nav cursor
+  // move updates the ECharts marker without re-rendering this chart (nor the
+  // host / panel that forward it). Accessor contract: see ChartPreviewBox.vue.
+  activeIndexAccessor?: () => number | null;
   zoomRange?: [number, number] | null;
   /**
    * Y-axis scaling discipline:
@@ -407,7 +412,10 @@ const updateAxisOnly = () => {
 };
 
 const updateMarker = () => {
-  if (!chartInstance || props.activeIndex == null || !isInitialized) {
+  // Read the cursor through the accessor; the marker path is this function +
+  // the watch below, decoupled from the Vue render tree.
+  const activeIdx = props.activeIndexAccessor ? props.activeIndexAccessor() : null;
+  if (!chartInstance || activeIdx == null || !isInitialized) {
     if (chartInstance) {
       chartInstance.setOption({
         series: props.series.map(() => ({ markPoint: { data: [] } }))
@@ -416,7 +424,6 @@ const updateMarker = () => {
     return;
   }
 
-  const activeIdx = props.activeIndex;
   // Use the same display-series transformation the chart's setOption
   // path uses, so the marker is placed at the normalised Y coordinate
   // in per-series mode (otherwise it would land off-chart at the raw
@@ -525,9 +532,18 @@ const initChart = async () => {
   updateOptions();
 };
 
+// Series-data redraw throttle (the shared subscriber-projection mechanism).
+// The parent re-maps `series` (new refs) on every analysis packet; without
+// coalescing, `updateOptions` -> setOption (the expensive ECharts
+// option-merge) would run at the packet rate (~24/s). `updateOptions` reads
+// the latest props at execution time, so the coalesced redraw always reflects
+// the newest data. The zoom watch below stays prompt (user-driven, debounced
+// upstream).
+const dataThrottle = createTrailingThrottle(updateOptions, BASE_CHART_REDRAW_THROTTLE_MS);
+
 watch(() => props.zoomRange, updateOptions, { deep: false });
-watch(() => props.series, updateOptions, { deep: false });
-watch(() => props.activeIndex, debouncedUpdateMarker);
+watch(() => props.series, dataThrottle.schedule, { deep: false });
+watch(() => (props.activeIndexAccessor ? props.activeIndexAccessor() : null), debouncedUpdateMarker);
 
 
 onMounted(initChart);
@@ -537,6 +553,9 @@ onUnmounted(() => {
   // existing callback's null-check would short-circuit safely, but
   // releasing the timer on unmount is the discipline-correct shape.
   if (markerTimer) clearTimeout(markerTimer);
+  // Release the data-redraw throttle timer too, so a pending setOption
+  // can't fire into a disposed chartInstance.
+  dataThrottle.cancel();
   if (resizeObserver && chartRef.value) {
     resizeObserver.unobserve(chartRef.value);
     resizeObserver.disconnect();

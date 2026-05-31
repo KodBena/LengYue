@@ -1,175 +1,110 @@
 /**
  * src/composables/analysis/useEnrichedData.ts
- * Reactive transformation of enriched KataGo data.
+ * Reactive transformation of enriched KataGo data — incrementally maintained.
  *
  * ## Design
  *
- * This composable accepts a reactive path (`Ref<NodeId[]>`) and returns
- * a single `ComputedRef<EnrichedResult>` that:
+ * This composable accepts a reactive path (`Ref<NodeId[]>`) and returns a
+ * `Ref<EnrichedResult>` derived from each path node's merged analysis packet.
  *
- *   1. Reads each node's packet directly via `ledger.getRaw()`, which now
- *      carries its own per-node reactive dependency (see analysis-ledger.ts).
- *      This means the output reactive re-evaluates only when a node in the
- *      path actually receives new analysis data — not on every packet globally.
+ * The derivation is O(path length). The prior shape was a `computed` that
+ * re-ran the whole pass whenever *any* path node received a packet — and the
+ * chart watchers access it eagerly every frame, so under a packet flood it
+ * re-derived the entire game per frame (the dominant per-packet reactive cost
+ * in the combined-stress profile: ~N `ledger.getRaw` reactive reads × per
+ * frame). A `computed` cannot be made incremental — it recomputes wholesale on
+ * access-while-dirty.
  *
- *   2. Combines key-discovery and value-population into a *single pass* over
- *      the sequence, using a Map<string, (number|null)[]> to accumulate state
- *      metric series. The previous implementation made two full passes: one
- *      to discover metric names, one to populate arrays.
+ * So the derivation moves into a pure `EnrichedAccumulator` and the reactivity
+ * is split:
  *
- * ## Why getRaw() instead of getSequenceForPath()
+ *   - **Structural changes** (path, config hash, active-palette state_fn names,
+ *     theme) → `watch` → full `rebuild`. Rare; O(N) is fine here.
+ *   - **Per-node data changes** → the ledger's `onLedgerFlush` changed-key
+ *     signal → `patchNode` on just the node(s) that moved → O(1). This reads
+ *     `getRaw` for *only* the changed node, not all N, which is the win.
  *
- * `getSequenceForPath()` returns a ComputedRef. Calling it inside another
- * computed() creates an orphaned inner ComputedRef on every evaluation —
- * wasteful and opaque. Using `getRaw()` directly inside the outer computed
- * is both simpler and correct: each call to `getRaw(id)` reads that node's
- * version ref, which Vue's tracking system transparently registers as a
- * dependency of the enclosing computed.
+ * The output is a `shallowRef`; each batch publishes a fresh `EnrichedResult`
+ * reference so downstream consumers (charts) detect the change. The projection
+ * stays exactly live — no throttle, no shown-vs-live asymmetry — and the
+ * incremental path is pinned byte-equal to the full rebuild by
+ * `enriched-accumulator.test.ts`.
+ *
+ * Note the per-node version refs in the ledger remain the reactive surface for
+ * *other* `getRaw` consumers (move suggestions, wait-for-analysis, the
+ * timeline visit vector); this composable simply no longer subscribes to them,
+ * driving off the changed-key signal instead.
  *
  * License: Public Domain (The Unlicense)
  */
 
-import { computed, type Ref } from 'vue';
-import { ledger } from '../../services/analysis-ledger';
+import { shallowRef, watch, onUnmounted, type Ref } from 'vue';
+import { ledger, onLedgerFlush } from '../../services/analysis-ledger';
 import { store } from '../../store';
 import { type NodeId } from '../../types';
 import { activeConfigHash } from '../../services/analysis-config';
-import { themeColor } from '../../utils/theme-color';
+import {
+  EnrichedAccumulator,
+  EMPTY_ENRICHED,
+  type EnrichedResult,
+} from './enriched-accumulator';
 
-// ── Output contract ───────────────────────────────────────────────────────────
+// Re-export the output contract so existing consumers importing it from here
+// (e.g. useAnalysisContext) keep compiling unchanged.
+export type { EnrichedResult, EnrichedSeries } from './enriched-accumulator';
 
-/**
- * A chart-ready series entry: a name and an array of [index, value|null] pairs.
- * The `any[]` on the outer type is intentional — ECharts consumes these directly.
- */
-export interface EnrichedSeries {
-  name: string;
-  data: [number, number | null][];
-  color?: string;
+/** The active palette's state_fn names — the series-seed set. */
+function activeSeedNames(): string[] {
+  const env = store.profile.settings.engine.katago.analysis_env;
+  const palette = env.palettes.find(p => p.id === env.activePaletteId);
+  return palette ? Object.keys(palette.state_fns) : [];
 }
 
-export interface EnrichedResult {
-  /** One series per backend-defined state metric (e.g. Complexity, Win Probability). */
-  stateSeries: EnrichedSeries[];
-  /** Per-player move-quality delta series. */
-  deltaSeries: {
-    black: EnrichedSeries[];
-    white: EnrichedSeries[];
-  };
-}
+export function useEnrichedData(pathIdsRef: Ref<NodeId[]>): Ref<EnrichedResult> {
+  const acc = new EnrichedAccumulator();
+  const out = shallowRef<EnrichedResult>(EMPTY_ENRICHED);
 
-const EMPTY_RESULT: EnrichedResult = {
-  stateSeries: [],
-  deltaSeries: { black: [], white: [] },
-};
+  // Full rebuild for a structural change. Reads getRaw for every path node —
+  // but only on structural changes (nav / config / palette / theme), not per
+  // packet.
+  function rebuild(): void {
+    const hash = activeConfigHash.value;
+    acc.reset({
+      pathIds: pathIdsRef.value,
+      seedNames: activeSeedNames(),
+    });
+    acc.rebuild((nodeId) => ledger.getRaw(hash, nodeId));
+    out.value = acc.snapshot();
+  }
 
-// ── Composable ────────────────────────────────────────────────────────────────
+  // Structural-change watcher. The palette seed set is reduced to a stable
+  // string (JSON.stringify) so the watch fires only when the *names* change,
+  // not on every analysis_env mutation. JSON.stringify rather than a join: the
+  // seed names are display strings that contain spaces ("Win Probability",
+  // "Score Advantage"), so a space- (or any printable-char-) joined signal
+  // could collide; JSON escaping makes the signal unambiguous.
+  watch(
+    [pathIdsRef, activeConfigHash, () => JSON.stringify(activeSeedNames())],
+    rebuild,
+    { immediate: true },
+  );
 
-/**
- * Returns a ComputedRef<EnrichedResult> that re-evaluates when:
- *   - the path changes (pathIdsRef.value changes), OR
- *   - any node in the current path receives new analysis data.
- *
- * The second condition is handled transparently by per-node reactive version
- * refs inside `ledger.getRaw()`. No explicit `watch` or `ledgerVersion` needed.
- */
-export function useEnrichedData(pathIdsRef: Ref<NodeId[]>) {
-  return computed<EnrichedResult>(() => {
-    const pathIds = pathIdsRef.value;
-    if (pathIds.length === 0) return EMPTY_RESULT;
-
-    // Pre-size the delta arrays based on the number of half-moves per player.
-    const halfLen = Math.ceil(pathIds.length / 2);
-    const blackDeltas: (number | null)[] = new Array(halfLen).fill(null);
-    const whiteDeltas: (number | null)[] = new Array(halfLen).fill(null);
-
-    // State metric accumulator: metric-name → per-index value array.
-    //
-    // Pre-seeded from the active palette's state_fn names so that every
-    // metric in the user's chosen palette has a stub series of the right
-    // length even before any packets land. Without this seed, the Game
-    // State chart would have no series (empty mainSeries) until the first
-    // packet arrives, and hover-to-navigate-thumbnails wouldn't work —
-    // the PlayerPanel deltas worked because their producer always emits
-    // a `Black Delta` / `White Delta` stub series regardless of data
-    // presence; this brings the Game State chart to parity. Packets that
-    // arrive later fill in real values where they exist; positions on
-    // the variation that never receive analysis stay null and render as
-    // gaps in the lines without breaking the index→turn mapping the
-    // chart's hover handlers rely on. A metric name that's NOT in the
-    // active palette but DOES appear in a packet (e.g., legacy data,
-    // palette swap mid-stream) is still added via the lazy-initialise
-    // branch below.
-    const stateMetrics = new Map<string, (number | null)[]>();
-    const env = store.profile.settings.engine.katago.analysis_env;
-    const activePalette = env.palettes.find(p => p.id === env.activePaletteId);
-    if (activePalette) {
-      for (const name of Object.keys(activePalette.state_fns)) {
-        stateMetrics.set(name, new Array(pathIds.length).fill(null));
-      }
+  // Per-node incremental patching, driven by the ledger's changed-key signal.
+  const stopFlush = onLedgerFlush((changedKeys) => {
+    const hash = activeConfigHash.value;
+    let dirty = false;
+    for (const key of changedKeys) {
+      // key = `${hash}:${nodeId}` — split on the first ':' (hashes carry none,
+      // NodeIds are UUID-style).
+      const sep = key.indexOf(':');
+      if (sep < 0 || key.slice(0, sep) !== hash) continue;
+      const nodeId = key.slice(sep + 1) as NodeId;
+      if (acc.patchNode(nodeId, ledger.getRaw(hash, nodeId))) dirty = true;
     }
-
-    // Single pass: for each node in the path, read its packet and populate
-    // all three outputs simultaneously. Each getRaw() call registers a
-    // fine-grained reactive dependency on that specific node.
-    for (let idx = 0; idx < pathIds.length; idx++) {
-      const packet = ledger.getRaw(activeConfigHash.value, pathIds[idx]);
-      if (!packet?.extra) continue;
-
-      const turnStr = packet.turnNumber.toString();
-
-      // ── State metrics ──────────────────────────────────────────────────────
-      const turnMetrics = packet.extra.state?.[turnStr];
-      if (turnMetrics) {
-        for (const [key, value] of Object.entries(turnMetrics)) {
-          // Lazily initialise each metric's array on first encounter.
-          // Pre-seeded names from the active palette are already in the
-          // Map; this fallback catches names that come through a packet
-          // but aren't in the active palette (legacy data / palette
-          // mid-swap).
-          if (!stateMetrics.has(key)) {
-            stateMetrics.set(key, new Array(pathIds.length).fill(null));
-          }
-          stateMetrics.get(key)![idx] = value;
-        }
-      }
-
-      // ── Per-player deltas ──────────────────────────────────────────────────
-      if (packet.extra.black?.deltas) {
-        for (const [mIdx, val] of Object.entries(packet.extra.black.deltas)) {
-          blackDeltas[parseInt(mIdx)] = val;
-        }
-      }
-      if (packet.extra.white?.deltas) {
-        for (const [mIdx, val] of Object.entries(packet.extra.white.deltas)) {
-          whiteDeltas[parseInt(mIdx)] = val;
-        }
-      }
-    }
-
-    // ── Assemble output ────────────────────────────────────────────────────────
-    const stateSeries: EnrichedSeries[] = Array.from(
-      stateMetrics.entries(),
-      ([name, values]) => ({
-        name,
-        data: values.map((v, i) => [i, v] as [number, number | null]),
-      })
-    );
-
-    return {
-      stateSeries,
-      deltaSeries: {
-        black: [{
-          name: 'Black Delta',
-          data: blackDeltas.map((v, i) => [i, v] as [number, number | null]),
-          color: themeColor('--player-black'),
-        }],
-        white: [{
-          name: 'White Delta',
-          data: whiteDeltas.map((v, i) => [i, v] as [number, number | null]),
-          color: themeColor('--player-white'),
-        }],
-      },
-    };
+    if (dirty) out.value = acc.snapshot();
   });
+
+  onUnmounted(stopFlush);
+
+  return out;
 }

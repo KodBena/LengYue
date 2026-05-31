@@ -6,11 +6,12 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import {
-  BOARD_PX, BOARD_COLOR, LINE_COLOR, LABEL_COLOR,
+  BOARD_COLOR, LINE_COLOR, LABEL_COLOR,
   LABEL_BAND, LABEL_FONT_SIZE, LABEL_INSET_RATIO, TOTAL_PX,
-  STONE_RADIUS_RATIO, MARKER_INNER_RATIO,
+  MARKER_INNER_RATIO,
   ALL_X_LABELS,
 } from '../../engine/constants';
+import { boardGeometry, gridLines } from '../../engine/board-geometry';
 import type { StoneColor, Move } from '../../types';
 import type { HeatmapCell, HeatmapStyle } from './BoardHeatmapOverlay.vue';
 
@@ -57,14 +58,16 @@ const uid = Math.random().toString(36).substring(2, 6);
 
 const boardSize = computed(() => props.size ?? 19);
 
-// Inner-board geometry. `pad` is the inset within the playable area from
-// the area edge to the first grid line (one cell wide, by Go-board
-// convention). LABEL_BAND sits *outside* this — the playing-area group is
-// translated by (LABEL_BAND, LABEL_BAND) inside the SVG, so the formulas
-// below remain inner-board-relative and don't carry the offset themselves.
-const pad     = computed(() => BOARD_PX / (boardSize.value + 1));
-const cell    = computed(() => (BOARD_PX - 2 * pad.value) / (boardSize.value - 1));
-const stoneR  = computed(() => cell.value * STONE_RADIUS_RATIO);
+// Inner-board geometry from the shared SSOT (src/engine/board-geometry.ts).
+// `pad` is the inset within the playable area from the area edge to the
+// first grid line (one cell wide, by Go-board convention). LABEL_BAND sits
+// *outside* this — the playing-area group is translated by (LABEL_BAND,
+// LABEL_BAND) inside the SVG, so these inner-board-relative coords don't
+// carry the offset themselves.
+const geo     = computed(() => boardGeometry(boardSize.value));
+const pad     = computed(() => geo.value.pad);
+const cell    = computed(() => geo.value.cell);
+const stoneR  = computed(() => geo.value.stoneR);
 const STAR_R  = 2.5; // Fixed dot size — does not need to scale with the board.
 
 // Coordinate-label offset from the SVG edge (viewBox-units). The label
@@ -100,27 +103,8 @@ const hoshi = computed((): [number, number][] => {
   return [];
 });
 
-// `lines` previously had a `{ cache: true }` second-argument options object.
-// Vue 3.5+ removed the `cache` option from computed() — the option doesn't
-// exist on DebuggerOptions and triggers a TS2769 overload error. The default
-// behavior of computed (memoize the result, recompute when tracked deps
-// change) is exactly what we want here. The `cache: true` was either
-// cargo-culted or a relic from a Vue 2/3-early reactivity tweak; either
-// way, the dep-tracked memoization in current Vue does the right thing
-// without it.
-const lines = computed(() => {
-  const result = [];
-  const p = pad.value;
-  const c = cell.value;
-  const s = boardSize.value;
-  const end = p + (s - 1) * c;
-  for (let i = 0; i < s; i++) {
-    const pos = p + i * c;
-    result.push({ x1: pos, y1: p, x2: pos, y2: end }); // vertical
-    result.push({ x1: p, y1: pos, x2: end, y2: pos }); // horizontal
-  }
-  return result;
-});
+// Grid line set from the shared SSOT (gridLines), memoised on size.
+const lines = computed(() => gridLines(boardSize.value));
 
 const stoneList = computed(() => {
   return Object.entries(props.stones).map(([key, color]) => {
@@ -130,13 +114,11 @@ const stoneList = computed(() => {
   });
 });
 function toSVG(bx: number, by: number): { x: number; y: number } {
-  // Board y=0 is at the bottom; SVG y increases downward, so we flip.
-  // The playing-area group is translated by (LABEL_BAND, LABEL_BAND) in
-  // the template, so these are inner-board coordinates.
-  return {
-    x: pad.value + bx * cell.value,
-    y: pad.value + (boardSize.value - 1 - by) * cell.value,
-  };
+  // Board y=0 is at the bottom; SVG y increases downward, so we flip
+  // (handled by the shared geometry). The playing-area group is translated
+  // by (LABEL_BAND, LABEL_BAND) in the template, so these are inner-board
+  // coordinates.
+  return geo.value.toSVG(bx, by);
 }
 
 function onBoardClick(e: MouseEvent) {
@@ -197,7 +179,15 @@ function onBoardClick(e: MouseEvent) {
          strip between the SVG edge and the nearest edge-row stone via
          labelOffset / LABEL_INSET_RATIO). Rendered on all four sides
          per the Lizzie/Sabaki/KaTrain/KGS/OGS convention. -->
-    <g v-if="showLabels" :fill="LABEL_COLOR" :font-size="LABEL_FONT_SIZE" font-weight="bold" font-family="monospace" text-anchor="middle" dominant-baseline="middle">
+    <!-- Per-nav render discipline: this SVG re-renders every nav step (stones /
+         last-move / move-numbers change), but the geometry layers — labels,
+         grid, hoshi — depend only on `boardSize` (nav-invariant), so they are
+         v-memo'd on it and skip. The stones and move-numbers are per-item
+         v-memo'd (the :key carries position, so only the 1-2 changed stones
+         re-render). Pre-memo this re-created ~500 vnodes/nav for a ~2-stone
+         delta. (`boardSize` is genuinely stable during nav — unlike
+         TreeWidget's churning layout, so these memos actually skip.) -->
+    <g v-if="showLabels" v-memo="[boardSize]" :fill="LABEL_COLOR" :font-size="LABEL_FONT_SIZE" font-weight="bold" font-family="monospace" text-anchor="middle" dominant-baseline="middle">
       <text v-for="(label, i) in xLabels" :key="'lxt'+i" :x="LABEL_BAND + pad + i * cell" :y="labelOffset">{{ label }}</text>
       <text v-for="(label, i) in xLabels" :key="'lxb'+i" :x="LABEL_BAND + pad + i * cell" :y="TOTAL_PX - labelOffset">{{ label }}</text>
       <text v-for="i in boardSize"         :key="'lyl'+i" :x="labelOffset"                  :y="LABEL_BAND + pad + (boardSize - i) * cell">{{ i }}</text>
@@ -208,7 +198,7 @@ function onBoardClick(e: MouseEvent) {
          into the inner box so the geometry below stays inner-board-relative. -->
     <g :transform="`translate(${LABEL_BAND}, ${LABEL_BAND})`">
       <!-- 3a. Grid -->
-      <g :stroke="LINE_COLOR" stroke-width="0.8" opacity="0.8">
+      <g :stroke="LINE_COLOR" stroke-width="0.8" opacity="0.8" v-memo="[boardSize]">
         <line v-for="(l, i) in lines" :key="i" :x1="l.x1" :y1="l.y1" :x2="l.x2" :y2="l.y2" />
       </g>
 
@@ -216,6 +206,7 @@ function onBoardClick(e: MouseEvent) {
       <circle
         v-for="(h, i) in hoshi"
         :key="'h'+i"
+        v-memo="[boardSize]"
         :cx="toSVG(h[0], h[1]).x"
         :cy="toSVG(h[0], h[1]).y"
         :r="STAR_R"
@@ -243,7 +234,7 @@ function onBoardClick(e: MouseEvent) {
       </g>
 
       <!-- 3c. Stones -->
-      <g v-for="stone in stoneList" :key="stone.key">
+      <g v-for="stone in stoneList" :key="stone.key" v-memo="[stone.color, stone.x, stone.y]">
         <circle
           :cx="stone.x"
           :cy="stone.y"
@@ -284,6 +275,7 @@ function onBoardClick(e: MouseEvent) {
         <template v-for="stone in stoneList" :key="`mn-${stone.key}`">
           <text
             v-if="moveNumbers[stone.key] !== undefined"
+            v-memo="[moveNumbers[stone.key], stone.x, stone.y, stone.color]"
             :x="stone.x"
             :y="stone.y + 1"
             :font-size="stoneR * (moveNumbers[stone.key] >= 100 ? 0.5 : moveNumbers[stone.key] >= 10 ? 0.6 : 0.7)"

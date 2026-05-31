@@ -130,6 +130,7 @@ const series = computed<EnrichedSeries[]>(() => {
 });
 
 const activeIndex = ctx.activeMainIndex;
+const getActiveIndex = () => activeIndex.value;
 
 const zoomRange = computed<[number, number]>(() => [
   Math.max(0, selectionRange.value[0]),
@@ -245,7 +246,7 @@ function tooltipFormatter(params: any[]): string {
     <AnalysisChartPanel
       label="Per-Turn Stability (log-V weighted)"
       :series="series"
-      :active-index="activeIndex"
+      :active-index-accessor="getActiveIndex"
       :zoom-range="zoomRange"
       :format-x-tooltip="formatXTooltip"
       :tooltip-formatter="tooltipFormatter"

@@ -46,7 +46,7 @@
  * License: Public Domain (The Unlicense)
  */
 
-import { computed, type ComputedRef } from 'vue';
+import { computed, type ComputedRef, type Ref } from 'vue';
 import { store } from '../../store';
 import type { EnrichedResult } from './useEnrichedData';
 
@@ -66,7 +66,9 @@ export interface MistakeMarker {
 }
 
 export function useMistakeFinder(
-  enriched: ComputedRef<EnrichedResult>,
+  // Accepts any Ref — `useEnrichedData` now returns a shallowRef (incrementally
+  // maintained) rather than a computed; the read contract is identical.
+  enriched: Ref<EnrichedResult>,
 ): ComputedRef<MistakeMarker[]> {
   return computed<MistakeMarker[]>(() => {
     const env = store.profile.settings.engine.katago.analysis_env;

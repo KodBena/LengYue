@@ -67,7 +67,6 @@ export function createInitialBoard(): BoardState {
     nodes: { [rootId]: rootNode },
     koPoint: null,
     turn: 'B',
-    lastActivity: 0,
     clientGameId: generateUUID(),
     games: {},
   };

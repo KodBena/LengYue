@@ -72,7 +72,38 @@ slices are compared like-for-like. In practice the 2026-05-29 arc used the
 coarser per-keydown / per-frame-median approach above. Reach for the
 fixed-window clip only if a future arc needs tighter comparison than a
 per-event median provides; it is recorded here so it isn't re-derived from
-scratch.
+scratch. **Update (2026-05-30):** the in-app harness below now emits a
+monotonic `step` index per navigation, which *is* the keydown-index this
+clip wants — slicing on a fixed `[step_lo, step_hi]` range no longer needs
+the autorepeat-delay arithmetic, since the harness drives a deterministic
+cadence with no 195 ms initial delay.
+
+## In-app capture harness (dev)
+
+The stimulus side of the manual protocol is now mechanized by a dev-only
+toolbar button (`frontend/src/composables/useAutoNavigatePerf.ts`, gated on
+`import.meta.env.DEV`). Clicking it normalizes the scenario to **Analysis /
+Basic**, then rAF-drives `useNavigation().next()` at ~60 steps/sec (the
+`xset r rate 195 62` effective cadence, refresh-rate-independent) until the
+active line's last node. It eliminates confound #3 (navigation amount —
+fixed to the line length) and tightens #2 (the active navigation window is
+deterministic from click to leaf, though the record→click offset stays
+manual). The held-key autorepeat jitter and back-pressure are gone too —
+the intended trade: a clean, repeatable cadence over fidelity to the finger.
+
+Each step emits `performance.mark('autonav:step', { detail })`, bracketed by
+`autonav:start` / `autonav:end`. The detail carries the per-step
+analysis-queue state — `queryOnCurrentBoard`, `queryOnOtherBoard`,
+`activeQueryCount`, `queryKinds` — so a single capture partitions post-hoc
+into regime A (no query), regime B (query on the navigated board), and the
+analysis-on-another-board case, instead of needing three sessions. Read them
+via `thread markers --search autonav:step --json` and group on the detail
+fields.
+
+What it does **not** mechanize: the Firefox profiler record/stop (still a
+manual click) and the profiler-cli normalization analysis (still run by hand,
+per the Tooling section). It is the *stimulus + marker* layer, not an
+end-to-end capture pipeline.
 
 ## Tooling
 

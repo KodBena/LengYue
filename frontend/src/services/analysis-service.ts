@@ -957,7 +957,6 @@ export class AnalysisService {
       stabilityTrajectoryStore.record(queryInfo.hash, nodeId, normalized);
       const board = store.boards.find(b => b.id === queryInfo.boardId);
       if (board) {
-        board.lastActivity = Date.now();
         store.engine.metrics = { ...store.engine.metrics, lastResponseId: board.id };
       }
       // Auto-save dirty signal: only authoritative finals trigger

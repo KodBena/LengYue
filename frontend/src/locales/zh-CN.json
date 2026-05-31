@@ -380,8 +380,6 @@
 
   "boardTab.label":                       "棋盘 {n}",
   "boardTab.close":                       "关闭棋盘",
-  "boardTab.meterRoot":                   "根 · 访问 {visits} 次",
-  "boardTab.meterMove":                   "第 {idx} 手 · 访问 {visits} 次",
 
   "systemLog.title":                      "系统诊断",
   "systemLog.clearAll":                   "清除全部",
