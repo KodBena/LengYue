@@ -23,6 +23,31 @@ import { store } from '../store';
 const data = new Map<string, Map<NodeId, KataAnalysisResponse>>();
 const nodeVersions = new Map<string, Ref<number>>();
 
+// ── Changed-key notification (for incremental consumers) ─────────────
+// The per-node version refs above are the reactive surface for *pull*
+// consumers (a `getRaw` read inside a computed re-runs that computed when
+// the node bumps). They don't tell a consumer *which* node changed — fine
+// for a full re-derive, useless for an O(1) incremental patch. This
+// listener surface carries the changed `${hash}:${nodeId}` key-set to push
+// consumers (useEnrichedData's incremental accumulator) so they patch only
+// the nodes that moved. It fires at every bump site — the rAF-coalesced
+// flush, the first-packet synchronous bump, and the purges — so the key-set
+// is exhaustive. Keys use the same `${hash}:${nodeId}` shape as
+// `getOrCreateVersion`.
+type LedgerFlushListener = (changedKeys: ReadonlySet<string>) => void;
+const flushListeners = new Set<LedgerFlushListener>();
+
+/** Subscribe to changed-key notifications. Returns an unsubscribe fn. */
+export function onLedgerFlush(fn: LedgerFlushListener): () => void {
+  flushListeners.add(fn);
+  return () => { flushListeners.delete(fn); };
+}
+
+function emitChanged(keys: ReadonlySet<string>): void {
+  if (keys.size === 0 || flushListeners.size === 0) return;
+  for (const fn of flushListeners) fn(keys);
+}
+
 function getOrCreateVersion(hash: string, nodeId: NodeId): Ref<number> {
   const key = `${hash}:${nodeId}`;
   let v = nodeVersions.get(key);
@@ -67,6 +92,8 @@ function scheduleBumpFlush(): void {
       const v = nodeVersions.get(key);
       if (v) v.value++;
     }
+    // Notify push consumers of the coalesced change-set before clearing.
+    emitChanged(pendingBumps);
     pendingBumps.clear();
   });
 }
@@ -152,6 +179,7 @@ export class AnalysisLedger {
       // purgeBoard / purgeAll synchronous-bump bypass at the other end
       // of the data lifecycle.
       version.value++;
+      emitChanged(new Set([`${hash}:${nodeId}`]));
       // RB-3 (ADR-0009): count first-packet synchronous bumps — each queues
       // a render Vue flushes inside the receiving task (vs the rAF-coalesced
       // subsequent path below). Frequency here gates lever 2 (defer
@@ -213,11 +241,15 @@ export class AnalysisLedger {
    * clear (O10).
    */
   public purgeAll(): void {
+    const cleared = new Set(nodeVersions.keys());
     for (const v of nodeVersions.values()) {
       v.value++;
     }
     data.clear();
     nodeVersions.clear();
+    // Notify push consumers so their accumulators clear the purged nodes
+    // (a subsequent getRaw returns null → the node's contribution drops).
+    emitChanged(cleared);
   }
 
   public purgeBoard(boardId: BoardId): void {
@@ -225,6 +257,7 @@ export class AnalysisLedger {
     if (!board) return;
     const nodeIds = Object.keys(board.nodes) as NodeId[];
 
+    const cleared = new Set<string>();
     for (const [hash, hashMap] of data.entries()) {
       for (const nodeId of nodeIds) {
         if (hashMap.has(nodeId)) {
@@ -241,9 +274,11 @@ export class AnalysisLedger {
             v.value++;
             nodeVersions.delete(key);
           }
+          cleared.add(key);
         }
       }
     }
+    emitChanged(cleared);
   }
 }
 

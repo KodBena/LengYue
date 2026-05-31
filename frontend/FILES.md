@@ -153,7 +153,8 @@ frontend/src/
 │   │   ├── useAnalysisTimeline.ts     [B3]  Owns the chart selection range + visit-vector from the ledger.
 │   │   ├── useChartNavigation.ts      [B3]  Pure black-box click+thumbnail handler for analysis charts.
 │   │   ├── useEChartsForestRender.ts  [B2]  Per-tree ECharts lifecycle (init, dispose, resize) for card-tree forests.
-│   │   ├── useEnrichedData.ts         [B3]  Reactive transformation of enriched KataGo packets.
+│   │   ├── enriched-accumulator.ts    [B3]  Pure incremental derivation of the enriched series (patchNode O(1) vs full O(N) rebuild); last-path-order delta arbitration. Equivalence-tested.
+│   │   ├── useEnrichedData.ts         [B3]  Reactive enriched series — shallowRef driven by structural watch (rebuild) + ledger changed-key signal (incremental patch); no per-frame O(N) re-derive.
 │   │   ├── useMistakeFinder.ts        [B3]  Calculated property: per-move mistake severity + un-punished red-flag.
 │   │   ├── useStabilityCrossCorrelations.ts [B3] Pairwise Pearson over the extractor and metric axes of stability series.
 │   │   ├── useStabilityMetrics.ts     [B3]  Per-move stability fractions from the trajectory store for a chosen extractor + metric.
@@ -244,7 +245,7 @@ frontend/src/
 │   │   └── quantization.ts            [B3]  Q4 ownership + Q8-factored policy primitives for the lossy leaf.
 │   ├── analysis-bundle.ts             [B3]  Pure projection ledger ↔ wire bundle.
 │   ├── analysis-config.ts             [B3]  Palette compile + ledger hash.
-│   ├── analysis-ledger.ts             [B3]  Per-(configHash, nodeId) merged KataGo packet store.
+│   ├── analysis-ledger.ts             [B3]  Per-(configHash, nodeId) merged KataGo packet store. Per-node version refs (pull consumers) + `onLedgerFlush` changed-key signal (incremental push consumers).
 │   ├── analysis-persistence-service.ts [B3] HTTP boundary for analysis-bundle persistence (save/restore/discard).
 │   ├── analysis-service.ts            [B3]  Bridges KataGo turns to the ledger nodes.
 │   ├── api-client.ts                  [B1]  Pure REST client; JWT injection; zero-friction local auth.
