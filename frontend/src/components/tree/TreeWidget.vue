@@ -14,6 +14,7 @@ import { computed, ref, toRef, watch, nextTick } from 'vue';
 import { useTreeLayout }    from '../../composables/forest/useTreeLayout';
 import { useTreeExpansion } from '../../composables/forest/useTreeExpansion';
 import { useScopedScroll }  from '../../composables/useScopedScroll';
+import { useViewportFollow } from '../../composables/useViewportFollow';
 import { useNavigation }    from '../../composables/useNavigation';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
 import { themeColor }        from '../../utils/theme-color';
@@ -83,6 +84,12 @@ useScopedScroll(outerRef, deltaY => {
   if (deltaY > 0) nav.next();
   else nav.prev();
 });
+
+// Viewport-follow: centres `outerRef` on the active node without reading
+// scroll/viewport geometry in the navigation hot path (it caches both from
+// a passive scroll listener + ResizeObserver). See the composable header
+// for why a synchronous read — or a rAF-deferred one — forces a reflow.
+const viewportFollow = useViewportFollow(outerRef);
 
 const expansion = useTreeExpansion();
 const { getVariationThumbnail } = useThumbnailCache();
@@ -179,18 +186,15 @@ watch(currentNodeId, async (newId, _oldId) => {
   // Wait for Vue to trigger useTreeLayout and patch the DOM.
   await nextTick();
 
-  // Center the newly revealed node. On the initial-mount run
-  // outerRef is null and the early return is the right behaviour;
-  // first paint scrolls to its own default and subsequent navigation
-  // takes over.
+  // Center the newly revealed node. On the initial-mount run the layout
+  // position may not exist yet; the early return is the right behaviour
+  // (first paint scrolls to its own default and subsequent navigation
+  // takes over). `centerOn` reads only cached geometry — no synchronous
+  // reflow — and no-ops when the node is already comfortably in view.
   const pos = layout.value.positions.get(newId);
-  if (!pos || !outerRef.value) return;
+  if (!pos) return;
   const { x, y } = toPixels(pos.gx, pos.gy);
-  const el = outerRef.value;
-  const outOfBounds = x < el.scrollLeft + 50 || x > el.scrollLeft + el.clientWidth - 50 || y < el.scrollTop + 50 || y > el.scrollTop + el.clientHeight - 50;
-  if (outOfBounds) {
-    el.scrollTo({ left: x - el.clientWidth / 2, top: y - el.clientHeight / 2, behavior: 'smooth' });
-  }
+  viewportFollow.centerOn(x, y);
 }, { immediate: true });
 
 // ── Derived display lists ─────────────────────────────────────────────────────

@@ -141,6 +141,7 @@ frontend/src/
 │   ├── useQeubo.ts                    [B1]  qEUBO experiment state machine + audition + verdict.
 │   ├── useQueryTelemetry.ts           [B1]  Singleton in-flight KataGo query queue + per-model visits/sec ETA.
 │   ├── useScopedScroll.ts             [B1]  Wheel-event scoped scroll (board + tree both consume).
+│   ├── useViewportFollow.ts           [B1]  Centre a scroll container on a moving target via cached scroll/dims (passive scroll listener + ResizeObserver) — no synchronous layout read in the nav hot path. TreeWidget auto-center.
 │   ├── useThrottledSnapshot.ts        [B1]  Shared trailing-throttle: createTrailingThrottle primitive + useThrottledSnapshot sugar — the rate limiter behind the subscriber-projection redraw throttles (queue/metrics/BoardTab/charts/timeline).
 │   ├── useTransientHint.ts            [B1]  Module-scoped reactive hint string surfaced by StatusBar.
 │   ├── useTransientLogReveal.ts       [B1]  Auto-reveals system-log panel on error/warning bursts.
