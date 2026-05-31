@@ -528,8 +528,6 @@
 
   "boardTab.label":                       "Board {n}",
   "boardTab.close":                       "Close board",
-  "boardTab.meterRoot":                   "Root · {visits} visits",
-  "boardTab.meterMove":                   "Move {idx} · {visits} visits",
 
   "systemLog.title":                      "System Diagnostics",
   "systemLog.clearAll":                   "Clear All",

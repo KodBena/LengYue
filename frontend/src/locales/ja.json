@@ -380,8 +380,6 @@
 
   "boardTab.label":                       "ボード {n}",
   "boardTab.close":                       "ボードを閉じる",
-  "boardTab.meterRoot":                   "ルート · 訪問 {visits} 回",
-  "boardTab.meterMove":                   "{idx} 手目 · 訪問 {visits} 回",
 
   "systemLog.title":                      "システム診断",
   "systemLog.clearAll":                   "すべてクリア",
