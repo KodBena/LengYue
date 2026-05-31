@@ -59,6 +59,7 @@ frontend/src/
 │   │   ├── BoardTab.vue               [B3]  Tab row in the board-list rail (label, close, rugplot).
 │   │   ├── BoardVariationsOverlay.vue [B3]  Sibling-variation rings + active-next-move hint on the board.
 │   │   ├── BoardWidget.vue            [B3]  Hosts BoardDisplay + overlays + MoveSuggestions; computes derived view-model.
+│   │   ├── MiniBoard.vue             [B3]  Reactive thumbnail board — component projection of a BoardSnapshot (memoised grid + per-stone v-memo). Replaces per-nav v-html frame-teardown; used by ChartPreviewBox + heatmap preview.
 │   │   ├── MoveSuggestions.vue        [B3]  KataGo move-suggestion overlay; PV preview on hover; paste-pv on modifier/middle-click.
 │   │   └── StatusBar.vue              [B3]  Move number, player names, komi, turn indicator, captures, transient hint, # toggle.
 │   │
