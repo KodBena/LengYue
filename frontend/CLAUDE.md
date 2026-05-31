@@ -59,6 +59,20 @@ Logic does not live in components. Effects do not live in composables
 (they live in services and are called from composables). The ACL is
 the only place wire shapes appear; no other module sees snake_case.
 
+**Tension with ADR-0010 read-locality (documented, unresolved).** The
+"no direct service calls" rule above meets ADR-0010's read-locality
+rule at one seam: read-locality has a display *leaf* read the reactive
+value it displays *wherever that value lives*, which sanctions a leaf
+reading directly from a reactive-state module in the services layer
+(`analysis-ledger`, `analysis-config`). The ESLint import-boundary
+(`frontend/eslint.config.js`) encodes the working split — effectful
+service *singletons* are restricted in components; reactive-state
+modules are exempt. Whether that split is a true reconciliation of the
+two directives or a heuristic holding an irreducible tension apart is
+an open question, surfaced per ADR-0002 — see ADR-0010's "Revisit
+when…" #4. Flagged here so the seam is visible from the tenet itself,
+not only from the lint that forced the choice.
+
 ## File map
 
 `frontend/FILES.md` is the per-file navigation map: every

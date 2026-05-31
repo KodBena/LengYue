@@ -206,6 +206,25 @@ component-cost ranking is the signature that diagnoses it.
    telemetry feed, a worker-thread tick) that the curated source
    set does not cover. The rule's *conditions* are durable; the
    enumerated sources extend.
+4. **The layering tenet and Rule 2 (read-locality) are reconciled,
+   or found irreducibly in tension.** Rule 2 has a display leaf read
+   the high-frequency reactive value it displays *wherever that value
+   lives* — which sanctions a leaf reading directly from a
+   reactive-state module in the services layer (`analysis-ledger`,
+   `analysis-config`). `frontend/CLAUDE.md`'s layering tenet says
+   components do not call services. These are two sound directives on
+   independent grounds — render-locality vs. the effect-orchestration
+   boundary — meeting at one concrete seam: the ESLint import-boundary
+   (`frontend/eslint.config.js`) restricts *effectful service
+   singletons* in components but exempts *reactive-state modules*. That
+   split is a working reconciliation, not a proven bridge. Revisit when
+   a case appears that the split cannot cleanly classify — a
+   services-layer module that is both an effectful singleton and a
+   legitimate leaf-read source — or when there is bandwidth to ask
+   whether the two directives collapse into one coherent principle
+   (e.g. relocating reactive-state modules out of `services/`) rather
+   than being held apart by a lint heuristic. Surfaced per ADR-0002;
+   not resolved here.
 
 ## Related
 
