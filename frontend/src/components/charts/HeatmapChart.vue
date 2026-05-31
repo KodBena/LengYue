@@ -6,39 +6,31 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 import * as echarts from 'echarts';
-import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
 import { themeColor } from '../../utils/theme-color';
 import {
-  colorMoveToPly,
   type HeatmapCell,
   type HeatmapDatum,
 } from '../../composables/analysis/useTriangularHeatmap';
-import type { BoardId, NodeId } from '../../types';
 import { STABILITY_HEATMAP_REDRAW_THROTTLE_MS as THROTTLE_MS } from '../../lib/timing';
 import { createTrailingThrottle } from '../../composables/useThrottledSnapshot';
 
-const { getSync } = useThumbnailCache();
-
-// Branded-type signature discipline: boardId and variationPath are
-// branded BoardId / NodeId[]; data is HeatmapDatum[] (objects carrying
-// both the visual [x,y,v] tuple and the typed HeatmapCell), so the
-// formatter and click handler recover colour and colour-local move
-// indices directly rather than reconstructing them from the visual
-// triangle half. The conversion to absolute ply for variationPath
-// indexing routes through `colorMoveToPly` — indexing variationPath
-// with a ColorMoveIndex is now a compile error.
+// Generic heatmap renderer: `data` is HeatmapDatum[] (objects carrying both
+// the visual [x,y,v] tuple and the typed HeatmapCell), so the click / hover
+// handlers recover the typed cell directly. Position-thumbnail preview is the
+// host's concern, not this renderer's — it emits cell-hover / cell-leave and
+// the host (MultiresolutionIntervalPanel) renders the boards.
 const props = defineProps<{
   data: HeatmapDatum[];
   maxMoveIndex: number;
   minVal: number;
   maxVal: number;
-  boardId?: BoardId;
-  variationPath?: NodeId[];
   zoomRange?: [number, number] | null;
 }>();
 
 const emit = defineEmits<{
   'cell-click': [HeatmapCell];
+  'cell-hover': [HeatmapCell];
+  'cell-leave': [];
 }>();
 
 const chartRef = ref<HTMLElement | null>(null);
@@ -89,41 +81,10 @@ const buildOptions = () => {
     coordinateSystem: 'cartesian2d',
     square: true,
     backgroundColor: 'transparent',
-    tooltip: {
-      show: true,
-      enterable: true,
-      backgroundColor: themeColor('--surface-1'),
-      borderColor: themeColor('--border-2'),
-      textStyle: { color: themeColor('--text-1') },
-      formatter: (p: any) => {
-        if (!p.data?.cell) return '';
-        const cell = p.data.cell as HeatmapCell;
-        const colorLabel = cell.color === 'B' ? 'Black' : 'White';
-        const label = `${colorLabel}: moves ${cell.s}–${cell.t} &nbsp; ${cell.value.toFixed(3)}`;
-
-        if (!props.boardId || !props.variationPath) return label;
-
-        const startPly = colorMoveToPly(cell.s, cell.color);
-        const endPly   = colorMoveToPly(cell.t, cell.color);
-        // Pondering can paint a cell whose endpoint is past the live tail
-        // of the known variationPath. Per ADR-0002 this is hover UX, not
-        // a state-transition contract: degrade to label-only rather than
-        // index out-of-bounds.
-        const startNode = props.variationPath[startPly];
-        const endNode   = props.variationPath[endPly];
-        if (!startNode || !endNode) return label;
-
-        const startSvg = getSync(startNode, false);
-        const endSvg   = getSync(endNode, false);
-        const thumb = `width:80px;height:80px;display:inline-block;border:1px solid ${themeColor('--border-2')};background:${themeColor('--surface-0')};`;
-        return `
-          <div style="font-size:var(--text-emphasis);color:${themeColor('--text-1')};margin-bottom:var(--space-default);">${label}</div>
-          <div style="display:flex;gap:var(--space-default);">
-            <div style="${thumb}">${startSvg}</div>
-            <div style="${thumb}">${endSvg}</div>
-          </div>`;
-      }
-    },
+    // No ECharts tooltip: the cell info + start/end position boards render in
+    // the host's fixed preview window (driven by cell-hover). Emphasis-on-
+    // hover highlight still gives the which-cell feedback.
+    tooltip: { show: false },
     xAxis: {
       type: 'category',
       data: categories,
@@ -259,6 +220,16 @@ const initChart = () => {
       emit('cell-click', params.data.cell as HeatmapCell);
     }
   });
+
+  // Hover drives the host's fixed preview window (replaces the old thumbnail
+  // tooltip). `globalout` fires when the cursor leaves the chart entirely.
+  chartInstance.on('mouseover', (params: any) => {
+    if (params.componentType === 'series' && params.seriesType === 'heatmap' && params.data?.cell) {
+      emit('cell-hover', params.data.cell as HeatmapCell);
+    }
+  });
+  chartInstance.on('mouseout', () => emit('cell-leave'));
+  chartInstance.on('globalout', () => emit('cell-leave'));
 
   resizeObserver = new ResizeObserver(() => {
     if (!chartRef.value || chartRef.value.clientWidth < 10) return;

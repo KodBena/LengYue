@@ -6,6 +6,7 @@
 import { ref } from 'vue';
 import BaseChart from './BaseChart.vue';
 import ChartPreviewBox from './ChartPreviewBox.vue';
+import type { BoardSnapshot } from '../../engine/board-geometry';
 
 const props = defineProps<{
   label: string;
@@ -17,7 +18,10 @@ const props = defineProps<{
   // the per-nav thumbnail read OUT of this host's render, so a thumbnail
   // update re-renders only the leaf — not this host or the panel above it
   // (render-coupling postmortem, 2026-05-29).
-  previewAccessor?: () => string;
+  previewAccessor?: () => BoardSnapshot | null;
+  // Draw the last-move ring in the preview (the delta panel wants it; the
+  // others don't). Static per panel — forwarded to MiniBoard.
+  previewShowMarker?: boolean;
   // Second arg is the raw y-coordinate at the cursor (in
   // seriesIndex-0's data space). Optional because most consumers
   // (single-series panels) don't need it; the merged-delta panel
@@ -65,7 +69,7 @@ const expanded = ref(true);
         />
       </div>
       <div class="preview-box" :class="playerColor === 'B' ? 'marker-b' : playerColor === 'W' ? 'marker-w' : ''">
-        <ChartPreviewBox :accessor="previewAccessor" />
+        <ChartPreviewBox :accessor="previewAccessor" :show-marker="previewShowMarker" />
       </div>
     </div>
   </div>

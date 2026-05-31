@@ -47,6 +47,7 @@ import { ref, computed, watch } from 'vue';
 import AnalysisChartPanel from './AnalysisChartPanel.vue';
 import { globalLegendState } from './BaseChart.vue';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
+import type { BoardSnapshot } from '../../engine/board-geometry';
 import { mutateBoard, store } from '../../store';
 import { navigateTo } from '../../engine/navigator';
 import { colorMoveToPly } from '../../composables/analysis/useTriangularHeatmap';
@@ -66,8 +67,8 @@ const boardId        = ctx.boardId;
 const variationPath  = ctx.variationPath;
 const selectionRange = ctx.selectionRange;
 
-const { getThumbnailSvg } = useThumbnailCache();
-const preview = ref('');
+const { getSnapshot } = useThumbnailCache();
+const preview = ref<BoardSnapshot | null>(null);
 // Accessor passed down instead of the value: the per-nav thumbnail update
 // then re-renders only the <ChartPreviewBox> leaf, not this panel or the
 // chart host (render-coupling postmortem, 2026-05-29).
@@ -247,7 +248,7 @@ async function resetPreview() {
   // `handleHover`, sourced from `activeMergedIndex`.
   const x = activeMergedIndex.value;
   if (x === null) {
-    preview.value = '';
+    preview.value = null;
     return;
   }
   const color: 'B' | 'W' = x % 2 === 0 ? 'B' : 'W';
@@ -255,9 +256,9 @@ async function resetPreview() {
   const nodeIdx = colorMoveToPly(k as ColorMoveIndex, color);
   const nodeId = variationPath.value[nodeIdx];
   if (nodeId) {
-    preview.value = await getThumbnailSvg(nodeId, boardId, true);
+    preview.value = await getSnapshot(nodeId, boardId);
   } else {
-    preview.value = '';
+    preview.value = null;
   }
 }
 
@@ -272,7 +273,7 @@ async function handleHover(rawIdx: number, yClicked?: number) {
   const nodeIdx = colorMoveToPly(k as ColorMoveIndex, color);
   const nodeId = variationPath.value[nodeIdx];
   if (nodeId) {
-    preview.value = await getThumbnailSvg(nodeId, boardId, true);
+    preview.value = await getSnapshot(nodeId, boardId);
   }
 }
 
@@ -323,5 +324,6 @@ function formatXTooltip(val: number): string {
     :on-index-hover="handleHover"
     :on-mouse-leave="resetPreview"
     :preview-accessor="getPreview"
+    :preview-show-marker="true"
   />
 </template>
