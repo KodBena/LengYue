@@ -74,13 +74,37 @@ Calling it "highly beneficial" is fair on the battery/CPU/hygiene axis and on
 per-surface latency; it would be over-claiming on the combined-stress frame
 ceiling.
 
-## Remaining levers (all deferred / lower-ROI)
+## Correction (2026-05-31, post-Chrome-capture)
 
-- `MiniBoard` render frequency (the new #1 component render — per-packet preview
-  coupling?).
+The "diffuse / lower-ROI remainder" framing below was **wrong on the biggest
+item.** A maintainer Chrome capture showed `<TreeWidget> render` at **762 ms /
+24.1% self — the single biggest JS cost** (`<TreeWidget> patch` only 59.8 ms).
+The render≫patch split is the tell: the per-item `v-memo` we'd added spares the
+*patch*, not the *render*, and the render re-ran on every nav because the
+template read `activeRingPos` (→ `currentNodeId`). This was an **analysis gap**,
+not a tooling one — the `<Component> patch` marks are present in the Firefox
+captures too (5,822 of them); the analysis had only ever aggregated `render`.
+
+**Process lesson:** when ranking component cost, aggregate **both** `render` and
+`patch` marks, and read render≫patch as render-coupling (re-render then
+memo-skip-the-diff). Folded into the Firefox analysis workflow; no Chrome CLI
+tooling required.
+
+Fixed in `bork/perf/treewidget-render-decouple` (imperative ring, off the render
+path — merged into `green-integration`). Pending Firefox re-capture to confirm.
+
+Caveat: the Chrome (nav-heavy) and `green_checkpoint_1` (preview-heavy) captures
+disagree on #1 by workload. The **robustly-large** lever across both is the
+MiniBoard/preview subtree (`ChartPreviewBox patch` 865 ms in Firefox, 604 ms in
+Chrome); TreeWidget render dominates *nav-heavy* use specifically.
+
+## Remaining levers
+
+- **MiniBoard / preview subtree** — the robust top lever across both captures
+  (`ChartPreviewBox patch` total ~865 ms). Per-packet/nav preview coupling; the
+  next real target.
 - Analysis-panel container-query recompute (deferred-items entry; ~2%).
-- `TreeWidget` / `BoardDisplay` nav-driven render *count* (already memoised;
-  structural).
+- `BoardWidget` / `BoardDisplay` patch subtree (nav-driven board re-render).
 - The native RefreshDriverTick floor (DOM/paint complexity — the real ceiling).
 - Pre-existing `useAutoSaveAnalyses` fake-timer test flakes (unrelated; worth a
   separate look).

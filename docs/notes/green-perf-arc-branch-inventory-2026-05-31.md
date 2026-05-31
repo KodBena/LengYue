@@ -70,6 +70,19 @@ Base (session tip): `bork/perf/autonav-harness-geiger-excision`.
 - Touches: `BoardTab.vue`, `HorizontalTimelineVisualizer.vue`, 4 locale JSONs,
   FILES.md, worklogs.
 
+### 5. `bork/perf/treewidget-render-decouple` — 1 commit (added post-retrospective)
+- `…` perf(tree): decouple TreeWidget render from navigation (imperative ring)
+- **What:** A Chrome capture exposed `<TreeWidget> render` as the #1 JS cost
+  (762ms/24.1% self; patch only 59.8ms) — the per-item v-memo spared the patch,
+  not the render, which re-ran every nav because the template read
+  `activeRingPos`. Made the active ring imperative (static `<circle ref>` set in
+  a watch), so TreeWidget renders only on tree-structure change.
+- **Status:** Build green; pending Firefox re-capture. Already merged into
+  `green-integration`.
+- Touches: `TreeWidget.vue`, worklog. (Also corrected the retrospective's
+  "diffuse remainder" misjudgment + recorded the pull-both-render-and-patch
+  analysis lesson.)
+
 ## Integration notes (for the merge / integration branch)
 
 Expected conflicts when integrating all four onto one branch:
@@ -84,8 +97,9 @@ base (confirmed by stash) — **not** from this arc; ignore them when checking t
 suite.
 
 ## State as of this note
-- All 10 commits committed; working trees clean.
-- **Backup-pushed to origin: done** — all four branches are on origin.
+- Five branches (the original four + `treewidget-render-decouple`); all commits
+  committed, working trees clean.
+- **Backup-pushed to origin: done** — all five branches are on origin.
 - **Integration branch: done** — `bork/perf/green-integration` (off the session
   tip) merges all four. Zero merge conflicts (the overlapping `FILES.md` /
   `MergedDeltaPanel.vue` edits fell in different sections and auto-merged;
