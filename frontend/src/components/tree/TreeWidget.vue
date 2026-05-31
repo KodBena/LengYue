@@ -10,7 +10,7 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { computed, ref, toRef, watch, nextTick } from 'vue';
+import { computed, ref, toRef, watch, nextTick, onMounted } from 'vue';
 import { useTreeLayout }    from '../../composables/forest/useTreeLayout';
 import { useTreeExpansion } from '../../composables/forest/useTreeExpansion';
 import { useScopedScroll }  from '../../composables/useScopedScroll';
@@ -151,9 +151,7 @@ const svgHeight = computed(() =>
 );
 
 // Pixel position of the active-node ring — the one nav-reactive piece of
-// the tree, decoupled from the node loop (see template) so a nav step
-// updates only the ring <circle> and leaves the edge / node groups fully
-// memoised. Null when the current node has no layout position yet
+// the tree. Null when the current node has no layout position yet
 // (transiently, before the ensureVisible watch expands its ancestors).
 const activeRingPos = computed(() => {
   const id = currentNodeId.value;
@@ -161,6 +159,31 @@ const activeRingPos = computed(() => {
   const pos = layout.value.positions.get(id);
   return pos ? toPixels(pos.gx, pos.gy) : null;
 });
+
+// The ring is updated IMPERATIVELY (a `<circle ref>` patched in a watch),
+// NOT bound reactively in the template. Decoupling it into a standalone
+// element wasn't enough: reading `activeRingPos` in the template still re-runs
+// TreeWidget's whole render function on every nav (the full v-for over edges +
+// nodeList, evaluating every v-memo key) — the per-item v-memo only spares the
+// *patch*, not the render. Chrome profiling showed `<TreeWidget> render` at
+// ~24% self-time, the single biggest JS cost, driven entirely by this read.
+// Moving the ring off the render path (same trick as the canvas rug-plots)
+// means a cursor-only nav touches one circle's attributes and TreeWidget's
+// render runs only on genuine tree-structure change.
+const activeRingEl = ref<SVGCircleElement | null>(null);
+function updateActiveRing(pos: { x: number; y: number } | null): void {
+  const el = activeRingEl.value;
+  if (!el) return;
+  if (pos) {
+    el.setAttribute('cx', String(pos.x));
+    el.setAttribute('cy', String(pos.y));
+    el.style.display = '';
+  } else {
+    el.style.display = 'none';
+  }
+}
+watch(activeRingPos, updateActiveRing);
+onMounted(() => updateActiveRing(activeRingPos.value)); // seed (the ref is null at setup)
 
 // ── Viewport Centering & Auto-Expand ──────────────────────────────────────────
 //
@@ -282,10 +305,13 @@ const edges = computed(() => {
           <path v-for="edge in edges" :key="edge.id" v-memo="[edge.d]" :d="edge.d" />
         </g>
 
-        <!-- Active-node ring — the ONLY per-nav element. Drawn between edges
-             and nodes for z-order: behind the node circle (annulus shows),
-             in front of the edges. -->
-        <circle v-if="activeRingPos" :cx="activeRingPos.x" :cy="activeRingPos.y" :r="NODE_R + 3" class="active-ring" stroke-width="1" />
+        <!-- Active-node ring — updated IMPERATIVELY (cx/cy/display set in a
+             watch on activeRingPos; see script). It is NOT bound reactively
+             here: a reactive read would re-run TreeWidget's whole render on
+             every nav. Drawn between edges and nodes for z-order: behind the
+             node circle (annulus shows), in front of the edges. Starts hidden;
+             the onMounted seed positions it. -->
+        <circle ref="activeRingEl" :r="NODE_R + 3" class="active-ring" stroke-width="1" style="display:none" />
 
         <!-- Nodes: per-item memo, keyed on everything a node's vnodes read
              that can change — position (px/py: a layout recompute can move a
