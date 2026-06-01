@@ -84,6 +84,15 @@ export interface LibraryPreview {
 
   /** `true` while a getGame fetch is in flight. */
   readonly loading: Readonly<Ref<boolean>>;
+
+  /**
+   * Fetch a full `LibraryGame` by id, bypassing the selection watcher —
+   * for open-on-board paths that need the game in hand without racing
+   * `selectedRow`. The same call the watcher uses; keeps the
+   * `libraryService` import inside the composable so components don't
+   * cross the effectful-service boundary (frontend CLAUDE.md layering).
+   */
+  fetchGame(id: GameSourceId): Promise<LibraryGame | null>;
 }
 
 export function useLibraryPreview(): LibraryPreview {
@@ -177,6 +186,10 @@ export function useLibraryPreview(): LibraryPreview {
     Math.max(0, variationPath.value.length - 1),
   );
 
+  function fetchGame(id: GameSourceId): Promise<LibraryGame | null> {
+    return libraryService.getGame(id);
+  }
+
   return {
     selectedRow,
     selectedGame: shallowReadonly(selectedGame),
@@ -185,5 +198,6 @@ export function useLibraryPreview(): LibraryPreview {
     scrubPosition,
     totalMoves,
     loading: shallowReadonly(loading),
+    fetchGame,
   };
 }

@@ -15,11 +15,12 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { store, activeBoard, pushSystemMessage } from '../../store';
-import { backendService } from '../../services/backend-service';
 import type { BoardId, CardId, CardMetadataPatch, ForestStat, ReviewCard } from '../../types';
 import { useCardTreeData } from '../../composables/cards/useCardTreeData';
+import { useCardMetadata } from '../../composables/cards/useCardMetadata';
 import { useForestNavigation } from '../../composables/forest/useForestNavigation';
 import { useForestBrowsePolicy } from '../../composables/forest/useForestBrowsePolicy';
+import { useForestStats } from '../../composables/forest/useForestStats';
 import { useReviewSession } from '../../composables/review/useReviewSession';
 import { expandContextIdMacros } from '../../utils/context-id-macros';
 import CardTreeWidget from '../charts/CardTreeWidget.vue';
@@ -54,6 +55,8 @@ const browseError = ref<string | null>(null);
 const boardIdRef = computed<BoardId | null>(() => activeBoard.value?.id ?? null);
 const tree = useCardTreeData(boardIdRef);
 const nav = useForestNavigation(roots);
+const forestStats = useForestStats();
+const cardMetadata = useCardMetadata();
 const reviewSession = useReviewSession(boardIdRef);
 const selectedDeckId = ref<string>(store.session.ui.activeCardSetId);
 const orientation = ref<'horizontal' | 'vertical'>('vertical');
@@ -86,7 +89,7 @@ function toggleOrientation(): void {
 onMounted(async () => {
   isLoadingRoots.value = true;
   try {
-    roots.value = await backendService.getForestStats();
+    roots.value = await forestStats.fetchForestStats();
     tree.setForestStats(roots.value);
     // The selection watcher below (immediate: true) drives the
     // right pane from the persisted `nav.selection` once roots
@@ -146,7 +149,7 @@ watch(
 useForestBrowsePolicy(nav, tree, browseError);
 
 async function reloadRoots(): Promise<void> {
-  roots.value = await backendService.getForestStats();
+  roots.value = await forestStats.fetchForestStats();
   tree.setForestStats(roots.value);
 }
 
@@ -284,7 +287,7 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
   if (!card) return;
   cardMetadataSaving.value = true;
   try {
-    const updated = await backendService.updateCardMetadata(card.id, patch);
+    const updated = await cardMetadata.updateMetadata(card.id, patch);
     // Splice the updated card back into the tree composable's
     // local card map so the panel's reactive props.card picks
     // up the new values. The composable's Map is the source of

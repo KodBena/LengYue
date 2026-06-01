@@ -451,5 +451,8 @@ Run modes: `npm test` (Vitest watch mode for development),
 form), `npm run test:coverage` (one-shot with v8 coverage
 report). Build still gates on `npm run build` (`vue-tsc -b &&
 vite build`); the test suite is a strict-add safety net at
-this stage, not a build prerequisite. CI integration is a
-follow-up item.
+this stage, not a local build prerequisite. **CI landed
+2026-06-01** (`.github/workflows/frontend-ci.yml`): build +
+`eslint .` + `npm run test:run` run on every frontend PR, so
+the suite, the import-boundary lint, and the render-count
+guards now gate merges.

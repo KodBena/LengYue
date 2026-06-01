@@ -1,0 +1,47 @@
+# .github/workflows/frontend-ci.yml
+#
+# Frontend CI gate. The SPA's safety nets — the strict typecheck
+# (`vue-tsc -b`), the ESLint import-boundary + type-checked rules, and the
+# Vitest suite (incl. the ADR-0010 render-count regression guards) — run
+# only locally until now; this makes them load-bearing on every PR.
+# Rationale: single-maintainer project (no second reviewer), so an
+# automated gate is the substitute that catches a boundary violation,
+# render-coupling regression, or type error before it lands.
+#
+# Scope: frontend/ only. The proxy/ submodule has its own workflows
+# (proxy/.github/workflows/); the backend is independent. The env-gated
+# e2e suites (tests/e2e/*, describe.skipIf on proxy-URL env vars) skip
+# automatically here — no live backend/proxy in CI.
+#
+# License: Public Domain (The Unlicense)
+name: frontend-ci
+
+on:
+  pull_request:
+    paths: ['frontend/**', '.github/workflows/frontend-ci.yml']
+  push:
+    branches: [main]
+    paths: ['frontend/**', '.github/workflows/frontend-ci.yml']
+
+defaults:
+  run:
+    working-directory: frontend
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Typecheck + build (vue-tsc -b && vite build)
+        run: npm run build
+      - name: Lint (import boundaries + type-checked rules)
+        run: npx eslint .
+      - name: Test (unit + integration + render-count guards)
+        run: npm run test:run

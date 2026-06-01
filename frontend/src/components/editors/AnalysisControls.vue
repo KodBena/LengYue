@@ -13,13 +13,13 @@ import { useI18n } from 'vue-i18n';
 import type { BoardId } from '../../types';
 import { store } from '../../store';
 import { ledger } from '../../services/analysis-ledger';
-import { analysisService } from '../../services/analysis-service';
-import { analysisPersistenceService } from '../../services/analysis-persistence-service';
+import { useAnalysisPersistence } from '../../composables/analysis/useAnalysisPersistence';
 import type { AnalysisBundleStorageError } from '../../services/analysis-bundle';
 import AnalysisDashboard from '../charts/AnalysisDashboard.vue';
 
 const { t } = useI18n();
 const props = defineProps<{ boardId: BoardId; }>();
+const persist = useAnalysisPersistence(() => props.boardId);
 const palettes = computed(() => store.profile.settings.engine.katago.analysis_env.palettes);
 
 // Adaptive-reevaluate UI is gated on the proxy actually advertising
@@ -66,9 +66,9 @@ const availableLearnedBindings = computed(() => {
 // reactive per-board slot.
 const saving = ref(false);
 const lastError = ref<string | null>(null);
-const summary = computed(() => analysisPersistenceService.summaryFor(props.boardId));
+const summary = persist.summary;
 const autoSave = computed(() => store.profile.settings.engine.katago.analysisAutoSave);
-const autoSaveError = computed(() => analysisPersistenceService.autoSaveErrorFor(props.boardId));
+const autoSaveError = persist.autoSaveError;
 const autoSaveErrorText = computed(() => {
   const err = autoSaveError.value;
   if (!err) return null;
@@ -140,7 +140,7 @@ async function onSave() {
   saving.value = true;
   lastError.value = null;
   try {
-    await analysisPersistenceService.save(props.boardId);
+    await persist.save();
   } catch (err) {
     lastError.value = describeError(err);
   } finally {
@@ -151,7 +151,7 @@ async function onSave() {
 async function onDiscard() {
   if (!confirm(t('analysis.persist.confirmDiscard'))) return;
   try {
-    await analysisPersistenceService.discard(props.boardId);
+    await persist.discard();
     lastError.value = null;
   } catch (err) {
     lastError.value = describeError(err);
@@ -160,7 +160,7 @@ async function onDiscard() {
 
 function purgeLedger() {
   if (confirm(t('analysis.confirmPurge'))) {
-    analysisService.stopBoardAnalysis(props.boardId);
+    persist.stopAnalysis();
     ledger.purgeBoard(props.boardId);
   }
 }

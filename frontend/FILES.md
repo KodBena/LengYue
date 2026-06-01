@@ -156,6 +156,7 @@ frontend/src/
 │   │   ├── useAnalysisContext.ts      [B3]  Per-board analysis context (projection + derived) shared to panels via provide/inject.
 │   │   ├── useAnalysisTabs.ts         [B3]  Analysis-tab state: persisted tab list (AppSettings.analysisTabs) + ephemeral active-tab selection. No component imports (resolution is the dashboard's job).
 │   │   ├── useAnalysisProjection.ts   [B3]  Projects raw board + analysis ledger to UI-ready view model.
+│   │   ├── useAnalysisPersistence.ts  [B2]  Effectful boundary for AnalysisControls' save/discard + reactive summary/auto-save-error + stopBoardAnalysis; keeps the analysisPersistenceService/analysisService imports out of the component.
 │   │   ├── useAnalysisTimeline.ts     [B3]  Owns the chart selection range + visit-vector from the ledger.
 │   │   ├── useChartNavigation.ts      [B3]  Pure black-box click+thumbnail handler for analysis charts.
 │   │   ├── useEChartsForestRender.ts  [B2]  Per-tree ECharts lifecycle (init, dispose, resize) for card-tree forests.
@@ -188,6 +189,7 @@ frontend/src/
 │   │   ├── useCardThumbnail.ts        [B3]  Memoised SGF → SVG renderer for tooltips.
 │   │   ├── useCardTreeData.ts         [B2]  Per-board card-tree projection + loadBrowse / runPipeline entry points.
 │   │   ├── useCardTreeHydration.ts    [B2]  Lazy-hydration walker over the render forest.
+│   │   ├── useCardMetadata.ts         [B2]  Effectful boundary for card-metadata edits (updateCardMetadata); shared by ReviewSessionPanel + ForestDirectory, which splice the returned card into their own state.
 │   │   ├── useCardTreeProjection.ts   [B2]  Pure projection: forest + active-set + manual-expand → role-annotated render forest.
 │   │   └── useThumbnailCache.ts       [B3]  Shared board-thumbnail cache (module-scoped Map).
 │   │
@@ -199,6 +201,7 @@ frontend/src/
 │   │
 │   ├── forest/                               Forest / game-tree expansion + navigation.
 │   │   ├── useForestBrowsePolicy.ts   [B2]  Forest-Directory selection → fetch-behaviour dispatcher.
+│   │   ├── useForestStats.ts          [B2]  Effectful boundary for the Browse forest's data source (getForestStats); ForestDirectory reads its roots through this rather than the backend singleton.
 │   │   ├── useForestNavigation.ts     [B2]  Tree-shaping for the file-manager-style navigator (games → roots).
 │   │   ├── useTreeExpansion.ts        [B2]  Variation-hiding expansion state; enforces "current-always-visible" invariant.
 │   │   └── useTreeLayout.ts           [B2]  Pluggable tree-layout composable (watchEffect-driven).

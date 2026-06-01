@@ -26,14 +26,15 @@ import { useI18n } from 'vue-i18n';
 import BaseChart from './charts/BaseChart.vue';
 import CardMetadataPanel from './CardMetadataPanel.vue';
 import { useReviewSession } from '../composables/review/useReviewSession';
+import { useCardMetadata } from '../composables/cards/useCardMetadata';
 import { activeBoard, mutateBoard, mutateReviewSession, store, pushSystemMessage } from '../store';
 import { getActiveVariationPath } from '../engine/util';
 import { navigateTo } from '../engine/navigator';
 import { themeColor } from '../utils/theme-color';
-import { backendService } from '../services/backend-service';
 import type { BoardId, CardMetadataPatch, CardId, ReviewCard } from '../types';
 
 const { t } = useI18n();
+const cardMetadata = useCardMetadata();
 
 // The composable is per-board: it projects the active board's
 // `store.session.reviews[boardId]` slot. ForestDirectory composes
@@ -136,7 +137,7 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
   if (!card) return;
   cardMetadataSaving.value = true;
   try {
-    const updated: ReviewCard = await backendService.updateCardMetadata(card.id, patch);
+    const updated: ReviewCard = await cardMetadata.updateMetadata(card.id, patch);
     // Splice the updated card into the queue at the same index.
     // `mutateReviewSession` is the named-mutator path the rest of
     // the SR composable already uses; assigning a fresh array

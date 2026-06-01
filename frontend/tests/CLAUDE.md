@@ -266,9 +266,11 @@ composable with `onTestFinished` teardown.
 - `npm run test:coverage` — one-shot with v8 coverage report.
   Report lands in `coverage/`.
 
-The build (`npm run build`, `vue-tsc -b && vite build`) does
-not currently gate on the test suite — tests are a strict-add
-safety net at Phase 0. CI integration (running tests on PR
-push) is a follow-up.
+The local build (`npm run build`, `vue-tsc -b && vite build`)
+does not gate on the test suite — tests are a strict-add safety
+net at Phase 0. **CI does, as of 2026-06-01**
+(`.github/workflows/frontend-ci.yml`): `npm run test:run` runs
+alongside build + `eslint .` on every frontend PR, so a failing
+test (or a render-count regression guard) blocks merge.
 
 License: Public Domain (The Unlicense)
