@@ -68,7 +68,14 @@ Implementation is incomplete until the documentation graph reflects
 it. Before declaring a task done or filing a PR, audit:
 
 - Does `docs/TODO.md` need updating to mark items complete or to
-  record items the work surfaced?
+  record items the work surfaced? This explicitly includes **retiring a
+  Future-projects entry — or a `docs/notes/deferred-items.md` want — that
+  the work *closes*.** A shipped feature still documented as open is the
+  silent doc-failure the 2026-06-01 RCA records
+  (`docs/notes/rca-discipline-lapses-2026-06-01.md`, Lapse 2); because the
+  status lives in more than one doc, retire it in each. (A stopgap: the
+  durable fix is a machine-readable work-status SSOT, of which `TODO.md`
+  becomes a projection — tracked as RCA guard G5.)
 - Does `docs/handoff-current.md` describe a surface this change
   affects, and is the description still accurate?
 - Does `FEATURES.md` need a new entry, an updated description, or
@@ -85,8 +92,10 @@ it. Before declaring a task done or filing a PR, audit:
   this — it lists dangling cross-references — so consult it; the
   relation-vs-content judgment (ADR-0005 Rule 3) is still yours.
 - **Did this change touch documentation *structure*?** The doc-graph
-  artifact (`docs/doc-graph.{json,svg,md}` + `docs/doc-graph-report.md`)
-  is **committed and CI-gated for freshness** (`doc-graph-ci`), but the
+  artifact (`docs/doc-graph.json` + `docs/doc-graph.md` +
+  `docs/doc-graph-report.md`; the SVG picture is rendered locally and
+  `.gitignore`d, not committed — see `docs/notes/deferred-items.md`) is
+  **committed and CI-gated for freshness** (`doc-graph-ci`), but the
   gate compares **graph structure only** — the node set, edges, and
   resolution — not the heatmap, which the committed manifest stores as a
   stable snapshot (bucket + dates, never the raw HEAD-relative

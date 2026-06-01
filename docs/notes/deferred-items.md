@@ -59,27 +59,48 @@ this file.
   local graphviz 14.1.2 — so reproduce against the apt version.
 - **Where:** `tools/doc-graph/generate.mjs` (`buildDot` / `renderSvg`).
 
+### Doc-graph SVG — render off-tree (committed SVG removed as interim honest step)
+
+- **Surfaced / decided:** 2026-06-01.
+- **State:** `docs/doc-graph.svg` was **removed from the repository** and
+  `.gitignore`d. It re-layouts wholesale on any structural change and GitHub
+  counts every line of it — and `.gitattributes -diff` does **not** decount on
+  GitHub (it only affects local `git`), confirmed on PRs #332 and #334. The
+  committed manifest (`docs/doc-graph.json`) stays the source of truth; the
+  generator still renders the SVG locally (`node tools/doc-graph/generate.mjs`,
+  needs `dot`) for browsing. Per the maintainer: links inside the SVG no longer
+  resolve on GitHub (it isn't there), but the local picture is still useful.
+  This is the interim honest step; the real fix is below.
+- **The honest fix (planned):** render the SVG *off the counted tree* — a CI job
+  renders from the committed manifest and publishes to a dedicated render branch
+  (GitHub renders a committed `.svg` in the blob view with `xlink:href` links
+  intact) or to GitHub Pages, with the index linking to it. Pairs with sorting
+  the committed manifest's edges deterministically so a structural change is a
+  minimal JSON diff. A contained tooling arc, separable from the broader
+  doc-graph consolidation (the "ADR-effectiveness audits" entry above).
+- **Where:** `tools/doc-graph/generate.mjs` (`renderSvg` / `writeArtifacts` /
+  `checkDrift`), `.gitignore`, `.gitattributes`, `docs/doc-graph.md`.
+
 ### Analysis-chart layout affordance (Settings → Analysis Layout) + collapsed charts still process packets
 
 - **Surfaced:** 2026-05-30 (green-perf arc; the "hidden charts" capture).
-- **Want:** A Settings → Analysis Layout affordance to configure / disable the
-  analysis charts (Score Lead, Merged Delta, the distribution / stability
-  panels, …) for performance or aesthetic reasons. When a chart is disabled
-  there it should be UNMOUNTED (`v-if`), not merely hidden — a disabled chart
-  should cost nothing.
-- **Bug it exposed:** "rolling up" a chart panel today toggles `v-show`
-  (`display:none`), which keeps it MOUNTED — so a collapsed/hidden chart still
-  re-renders and runs ECharts `setOption` on every analysis packet (~250 ms of
-  patch work in the 2026-05-30 hidden-charts capture, while it was supposedly
-  off). The collapse should unmount (`v-if`) OR the chart work should gate on
-  `expanded` (the BaseChart line charts don't; only DistributionChart gates
-  today). `v-show` is only justified if instant re-expand + chart-state (zoom /
-  legend) retention is a real requirement — in which case gate-on-collapsed
-  gets both (mounted-but-idle); otherwise unmount. Maintainer's call: unmount
-  unless there's a real reason not to.
-- **Where:** `AnalysisChartPanel.vue` (`v-show="expanded"`), `BaseChart.vue`
-  (ungated `series` watch → `setOption`), the analysis dashboard layout, and
-  the future Settings → Analysis Layout registry surface.
+- **Closed:** 2026-06-01 — both halves resolved. The **want** (a Settings →
+  Analysis Layout affordance that disables charts by *unmounting* them) shipped
+  2026-05-29 as the three-phase analysis-panel refactor: the panel registry
+  (`src/components/charts/panel-registry.ts` / `panel-ids.ts`), multi-tab
+  rendering that mounts only the active tab's panels
+  (`src/composables/analysis/useAnalysisTabs.ts`,
+  `src/components/charts/AnalysisDashboard.vue`), and the Settings editor
+  (`src/components/editors/AnalysisTabsEditor.vue`). The **bug** (a
+  `v-show`-collapsed chart still running ECharts `setOption` per packet) was
+  closed by PR #329's `BaseChart` `active`-prop gate (collapsed →
+  `pendingRedraw`, catch-up on re-expand) plus render-active-tab-only — so the
+  ungated `series` watch the entry named no longer fires while collapsed.
+  Whether the measured frame cost is fully retired wants a re-profile
+  (ADR-0009); the mechanism is in place.
+- **Note (self-referential irony):** this entry was authored 2026-05-30, a day
+  *after* the surface it called "future" had shipped — it is the worked Lapse-2
+  exhibit in `docs/notes/rca-discipline-lapses-2026-06-01.md`.
 
 ### Analysis-panel container-query recompute under chart redraw (de-CQ the responsive preview-hide)
 
@@ -221,6 +242,19 @@ this file.
   prescribes a per-tenet audit checklist, an audit ledger
   destination, and a cadence trigger (every N months, or every
   major umbrella event).
+- **Maintainer decision (2026-06-01).** Acting on the RCA
+  (`rca-discipline-lapses-2026-06-01.md`), the maintainer settled this
+  audit's doc-consolidation leg: consolidate the three status-bearing docs
+  (this ledger, `TODO.md`, `handoff-current.md`) onto a single
+  machine-readable work-status SSOT that `TODO.md` *projects* from (RCA guard
+  G5; the doc-graph's manifest-first shape), with a forward-compatible
+  best-effort schema since future items are unknown-unknowns. Broader
+  recognition: the whole doc-graph wants consolidation on several fronts and a
+  *mandated* reorganization discipline — doc retirement, taxonomy, and a
+  hierarchy for `docs/notes/` (now flat past honesty). Scheduled as a future
+  arc; deliberately not actioned 2026-06-01 (single-maintainer
+  decision-capacity is the live constraint the RCA names). Recorded here so the
+  decision does not live only in memory — the exact failure the RCA documents.
 
 ### Serial numbers on compiler-generated artifacts
 
@@ -799,7 +833,20 @@ this file.
   silently degrades to "unknown error." That is exactly the
   silent-failure class ADR-0002 forbids, reached *through* the
   error-handling path that is supposed to be the loud one.
-- **The audit (deferred).** Enumerate every stringly-encoded-then-
+- **The audit — closed 2026-06-01 (exhaustive; 0 new sites).** Run as an
+  Opus-agent sweep; report at
+  `docs/notes/audit-stringly-typed-contracts-2026-06-01.md`. The strong-form
+  result the entry asked for: **the six PR-#318 sites ARE the complete
+  population** — no stringly-typed-then-reparsed contract exists beyond them.
+  The other five custom Error classes (`AnalysisWaitError`, `QeuboError`,
+  `CardTreeOverflowError`, `ParseFailure`, `UnboundHoleError`) were born
+  field-discriminated (never message-reparsed); the non-API boundaries
+  (proxy/WebSocket, SGF parse, store migrations, the DSL harness) treat caught
+  errors as opaque; zero error-format regexes survive in `src`. Residual: the
+  now-vestigial `ApiError.message` could re-open the hazard if a future
+  `.includes('API Error')` lands with no compile gate — exactly the
+  missing-lint question the RCA's guard G1 addresses. Original scope, retained
+  as the method record: enumerate every stringly-encoded-then-
   reparsed contract — the six above may not be exhaustive, and the
   pattern may exist beyond API errors (any `.match` / `.includes` on a
   thrown message is suspect). The fix is known and in-idiom: a
@@ -812,7 +859,16 @@ this file.
   consult named as the real win — library-free, via a plain typed class
   in the existing `CardTreeOverflowError` / `QeuboError` idiom — and so
   subsumes that consult's deferred (e) residual.
-- **The RCA (deferred, maintainer-requested).** Determine what allowed
+- **The RCA — drafted 2026-06-01 (pending maintainer review).** Draft at
+  `docs/notes/rca-discipline-lapses-2026-06-01.md`. It root-causes this lapse
+  *and* a sibling doc-discipline lapse (a shipped feature left documented as
+  open) as two instances of one failure: a discipline in force but guarded only
+  by a single maintainer's attention, where each act is locally correct and the
+  defect lives in the accumulation — the same diagnosis the render-coupling
+  postmortem reached on a third (perf) surface. Recommended guards (adoption is
+  the maintainer's call): G1 ESLint ban on `.match`/`.includes` over error
+  messages, G4 a retire-on-ship checklist item, G5 a single work-status SSOT.
+  Original scope: determine what allowed
   the anti-pattern to *proliferate* across six sites while ADR-0002 and
   the type-driven-design tenet were in force the whole time. Open
   questions for the RCA, not pre-judged here: did the first reparse site

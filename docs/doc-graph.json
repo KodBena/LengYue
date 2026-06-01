@@ -1,6 +1,6 @@
 {
-  "node_count": 332,
-  "edge_count": 1673,
+  "node_count": 334,
+  "edge_count": 1691,
   "age_buckets": [
     {
       "name": "fresh",
@@ -170,7 +170,7 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-06-01",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
@@ -1533,6 +1533,14 @@
       "age_bucket": "stale"
     },
     {
+      "path": "docs/notes/audit-stringly-typed-contracts-2026-06-01.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": "2026-06-01",
+      "last_committed": "2026-06-01",
+      "age_bucket": "fresh"
+    },
+    {
       "path": "docs/notes/auditor-notes.md",
       "genre": "note",
       "is_hub": false,
@@ -1899,6 +1907,14 @@
       "first_committed": "2026-05-07",
       "last_committed": "2026-05-14",
       "age_bucket": "stale"
+    },
+    {
+      "path": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": "2026-06-01",
+      "last_committed": "2026-06-01",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/reflection.md",
@@ -2546,7 +2562,7 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-05-31",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-05-31-perf-incremental-enriched-projection.md",
@@ -2554,7 +2570,7 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-05-31",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-05-31-perf-timeline-rugplot-canvas.md",
@@ -2562,7 +2578,7 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-05-31",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-05-31-perf-treewidget-autocenter-reflow.md",
@@ -2570,7 +2586,7 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-05-31",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-05-31-perf-treewidget-render-decouple.md",
@@ -2578,7 +2594,7 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-05-31",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-01-collapsed-chart-gate.md",
@@ -2594,7 +2610,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-01-doc-graph-artifact.md",
@@ -2634,7 +2650,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-01-perf-scenario-harness.md",
@@ -2650,7 +2666,7 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-06-01",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "frontend/FILES.md",
@@ -2658,7 +2674,7 @@
       "is_hub": false,
       "first_committed": "2026-05-11",
       "last_committed": "2026-06-01",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "frontend/IDENTIFIERS.md",
@@ -2729,6 +2745,20 @@
     },
     {
       "from": "CLAUDE.md",
+      "to": "docs/notes/deferred-items.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/deferred-items.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "CLAUDE.md",
+      "to": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/rca-discipline-lapses-2026-06-01.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "CLAUDE.md",
       "to": "frontend/FILES.md",
       "kind": "path-mention",
       "site": "`frontend/FILES.md`",
@@ -2743,9 +2773,9 @@
     },
     {
       "from": "CLAUDE.md",
-      "to": "docs/notes/deferred-items.md",
+      "to": "docs/doc-graph.md",
       "kind": "path-mention",
-      "site": "`docs/notes/deferred-items.md`",
+      "site": "`docs/doc-graph.md`",
       "resolved": "resolved"
     },
     {
@@ -3271,6 +3301,13 @@
       "to": "docs/notes/deferred-items.md",
       "kind": "path-mention",
       "site": "`docs/notes/deferred-items.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/TODO.md",
+      "to": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/rca-discipline-lapses-2026-06-01.md`",
       "resolved": "resolved"
     },
     {
@@ -9245,6 +9282,20 @@
       "resolved": "resolved"
     },
     {
+      "from": "docs/notes/audit-stringly-typed-contracts-2026-06-01.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit-stringly-typed-contracts-2026-06-01.md",
+      "to": "docs/notes/deferred-items.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/deferred-items.md`",
+      "resolved": "resolved"
+    },
+    {
       "from": "docs/notes/auditor-notes.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
@@ -9519,6 +9570,13 @@
     },
     {
       "from": "docs/notes/deferred-items.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/deferred-items.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
       "site": "ADR-0002",
@@ -9582,9 +9640,30 @@
     },
     {
       "from": "docs/notes/deferred-items.md",
+      "to": "docs/doc-graph.md",
+      "kind": "path-mention",
+      "site": "`docs/doc-graph.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/deferred-items.md",
+      "to": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/rca-discipline-lapses-2026-06-01.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/deferred-items.md",
       "to": "docs/notes/typed-effect-documentation-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/typed-effect-documentation-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/deferred-items.md",
+      "to": "docs/notes/audit-stringly-typed-contracts-2026-06-01.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit-stringly-typed-contracts-2026-06-01.md`",
       "resolved": "resolved"
     },
     {
@@ -11020,6 +11099,69 @@
       "to": "docs/archive/notes/dsl-hyperparameter-harness-plan.md",
       "kind": "path-mention",
       "site": "`docs/archive/notes/dsl-hyperparameter-harness-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "to": "docs/notes/deferred-items.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/deferred-items.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "to": "docs/TODO.md",
+      "kind": "path-mention",
+      "site": "`docs/TODO.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "to": "docs/handoff-current.md",
+      "kind": "path-mention",
+      "site": "`docs/handoff-current.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "to": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "path-mention",
+      "site": "`docs/adr/0005-documentation-discipline.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "to": "docs/notes/documentation-graph-artifact-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/documentation-graph-artifact-plan.md`",
       "resolved": "resolved"
     },
     {

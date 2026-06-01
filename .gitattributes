@@ -18,7 +18,8 @@
 # reads it; suppressing its DISPLAY does not weaken the freshness gate. See
 # ADR-0005 (Alternative C, partly adopted) and the umbrella CLAUDE.md
 # "Documentation is part of the work" doc-graph audit item.
-docs/doc-graph.svg          linguist-generated=true -diff
+# docs/doc-graph.svg removed 2026-06-01 — it is now rendered locally and
+# .gitignore'd, not committed (`-diff` never decounted it on GitHub anyway).
 docs/doc-graph.json         linguist-generated=true -diff
 docs/doc-graph.md           linguist-generated=true
 docs/doc-graph-report.md    linguist-generated=true
