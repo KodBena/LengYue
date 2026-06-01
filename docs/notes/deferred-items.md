@@ -724,6 +724,115 @@ this file.
 
 ---
 
+### Stringly-encoded API errors reverse-engineered downstream (brittleness-hazard audit + RCA)
+
+- **Surfaced:** 2026-06-01, as a serendipitous finding of the
+  effect-typing consult arc — the `neverthrow` consult measured the
+  error channel as content-thin at the service boundaries; tracing
+  *why* exposed this. The maintainer classes it not merely a code
+  smell but a serious brittleness-hazard violation of engineering
+  discipline (ADR-0002 fail-loudly + the type-driven-design tenet),
+  warranting both an audit and an RCA — neither scheduled now.
+- **The anti-pattern.** `api-client.ts:218` throws a *stringly-typed*
+  error whose message is `API Error <status>: <body>`, discarding the
+  structured `status` / `body` it holds at the throw site. Six consumer
+  sites then reverse-engineer that structure back out by regex /
+  substring on the message:
+  - `library-service.ts:236`, `analysis-persistence-service.ts:346` — `/^API Error 404:/`
+  - `analysis-bundle.ts:122` — `/^API Error (\d+):\s*(.*)$/`, rebuilding the `AnalysisBundleStorageError` union
+  - `backend-service.ts:345` — `/^API Error 422:/`, rebuilding `CardTreeOverflowError`
+  - `qeubo-service.ts:71` — `/^API Error (\d+):/`, rebuilding `QeuboError`
+  - `useAuth.ts:141` — `msg.includes('API Error 401')`
+
+  The codebase already names the hazard in passing — `useAuth.ts:122`
+  ("Brittle in principle") and `api-client.ts:216`.
+- **Why it's a brittleness hazard, not cosmetics.** The error contract
+  is a *string format*, not a type. A change to that format — or a
+  response body that doesn't match a consumer's regex — silently breaks
+  every consumer's error branching with **no compile error**: the regex
+  stops matching and a typed failure (overflow / quota / 404 / 401)
+  silently degrades to "unknown error." That is exactly the
+  silent-failure class ADR-0002 forbids, reached *through* the
+  error-handling path that is supposed to be the loud one.
+- **The audit (deferred).** Enumerate every stringly-encoded-then-
+  reparsed contract — the six above may not be exhaustive, and the
+  pattern may exist beyond API errors (any `.match` / `.includes` on a
+  thrown message is suspect). The fix is known and in-idiom: a
+  structured `class ApiError extends Error` carrying `status: number`
+  and `body: string` as fields, with consumers branching on
+  `err instanceof ApiError && err.status === …` and reading `err.body`
+  directly. Incrementally safe — `ApiError` can keep the same `.message`
+  string, so un-migrated consumers keep working during the sweep. It
+  also delivers the "information-bearing error channel" the `neverthrow`
+  consult named as the real win — library-free, via a plain typed class
+  in the existing `CardTreeOverflowError` / `QeuboError` idiom — and so
+  subsumes that consult's deferred (e) residual.
+- **The RCA (deferred, maintainer-requested).** Determine what allowed
+  the anti-pattern to *proliferate* across six sites while ADR-0002 and
+  the type-driven-design tenet were in force the whole time. Open
+  questions for the RCA, not pre-judged here: did the first reparse site
+  set a precedent the others copied? did the api-client's deliberate
+  "keep the string format" choice (`api-client.ts:216`) entrench it? is
+  there a missing lint / type gate that would flag a thrown-string
+  contract or a `.match` on an error message? did review not catch the
+  spread because each instance looked locally reasonable? The RCA's job
+  is the organizational / process lapse, not the per-site fix.
+- **Cross-references.** `docs/notes/opus-consult-2026-06-01-neverthrow-overhaul.md`
+  (where the thin error channel was first measured); the "Effect-typing
+  as documentation" entry in `docs/notes/decisions-deferred.md` (the
+  deferred (e) residual this subsumes).
+
+---
+
+### Semantic-clarity refactors surfaced by the effect-typing consult arc (analysis-service multiplexer; error-encoding consistency)
+
+- **Surfaced:** 2026-06-01, alongside the stringly-typed-error item
+  above — the effect-typing consults named the code's actual semantics
+  sharply enough to expose two further spots where structure lags those
+  semantics. Distinct from that item: these are *liked in principle but
+  undecided*, lower-stakes, no discipline hazard — parked for a later
+  decision, not an audit. The maintainer likes both in principle and is
+  settled on neither.
+
+**(a) Name the analysis-service packet multiplexer (nuanced).**
+`onAnalysisUpdate` (`analysis-service.ts:910-1000`) is an *implicit*
+fan-out hub: one normalised packet pushed inline to ~5 disjoint stateful
+sinks — `telemetry.recordPacket`, `ledger.record`,
+`stabilityTrajectoryStore.record`, the `store.engine.metrics` bump,
+`analysisPersistenceService.markDirty` (finals-only), plus the
+ponder-ceiling warning. The true semantics (per the Effect-TS
+architectural-merits consult) is a multiplexing *Subject*, but the code
+doesn't name it, and the service imports all five spokes — a hub
+depending on every consumer. **The caveat that keeps it undecided:** the
+sinks are *heterogeneous* (different packet projections, different firing
+conditions), so a clean generic `Subject<packet>` interface may obscure
+more than it clarifies. The cheaper, likelier-correct win is smaller —
+extract the dispatch into a named unit and consider *inverting the
+dependency* (sinks register with the hub rather than the hub importing
+them). Decide the shape (full Subject vs. named-dispatch + dependency
+inversion vs. leave) when revisited.
+
+**(b) Unify the multi-variant error encoding (marginal; overlaps the (e) residual).**
+The typed-error spaces use three encodings for one concept: a `class`
+with a discriminant field (`AnalysisWaitError.reason`), a `class` without
+one (`CardTreeOverflowError`), and a discriminated `type` union
+(`AnalysisBundleStorageError`). A reader learns three idioms. Picking one
+— the discriminated union + `never`-default exhaustiveness, the project's
+type-driven-design idiom — would unify and enable compiler-enforced
+exhaustive handling at callers. **Overlaps** the deferred (e) residual in
+`decisions-deferred.md` ("Effect-typing as documentation") and is
+**substantially subsumed** by the structured-`ApiError` audit above
+(which upgrades the error channel library-free); best revisited *after /
+together with* that audit, since it may shrink to "just unify the ≤4
+hand-rolled spaces' encoding" once `ApiError` lands.
+
+- **Cross-references.** `docs/notes/opus-consult-2026-06-01-effect-ts-architectural-merits.md`
+  (the Subject characterisation), `docs/notes/opus-consult-2026-06-01-neverthrow-overhaul.md`
+  (the error-encoding inventory), the stringly-typed-error item above, and
+  the (e) residual in `docs/notes/decisions-deferred.md`.
+
+---
+
 ## Closed items
 
 ### ForestStat / TagStat — wire-shape passthrough at the ACL boundary
