@@ -21,7 +21,7 @@ of truth and the picture is a projection of it.
 - **Nodes:** 330 documents.
 - **Edges:** 1663 cross-references
   (1417 resolved, 246 dangling, 0 ambiguous).
-- **Generated at HEAD:** `90fcbb17460e`
+- **Generated at HEAD:** `bba42ff5d64d`
   (997 commits deep).
 
 ## Staleness heatmap (buckets)

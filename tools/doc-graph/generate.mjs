@@ -574,11 +574,32 @@ function renderSvg(dotSource) {
   // maxBuffer raised: the rendered SVG for a 300-plus-node graph exceeds the
   // 1 MB execFileSync default. magic-literal: 64 MB output ceiling — generous
   // headroom for the doc tree's growth, not a substrate token.
-  return execFileSync("dot", ["-Tsvg"], {
-    input: dotSource,
-    encoding: "utf8",
-    maxBuffer: 64 * 1024 * 1024,
-  });
+  try {
+    return execFileSync("dot", ["-Tsvg"], {
+      input: dotSource,
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+    });
+  } catch (err) {
+    // `dot` exits non-zero on a recoverable spline-routing warning (e.g.
+    // "in routesplines, cannot find NORMAL edge") on a large/dense graph
+    // while STILL emitting a complete SVG — execFileSync throws on the
+    // non-zero exit, discarding that valid output. Use the SVG if dot
+    // produced one (log the warning); fail loud only when there is genuinely
+    // no picture (ADR-0002: fail on a real failure, not on a warning that
+    // still drew the graph). Seen in CI with the apt `dot`; the local WASM
+    // shim the artifact was first verified against does not raise it.
+    const svg = typeof err?.stdout === "string" ? err.stdout : "";
+    if (svg.includes("</svg>")) {
+      if (err?.stderr) {
+        process.stderr.write(
+          `[doc-graph] dot reported a non-fatal layout warning (SVG still produced):\n${err.stderr}\n`,
+        );
+      }
+      return svg;
+    }
+    throw err;
+  }
 }
 
 /**
