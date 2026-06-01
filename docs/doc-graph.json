@@ -1,6 +1,6 @@
 {
-  "node_count": 334,
-  "edge_count": 1691,
+  "node_count": 335,
+  "edge_count": 1695,
   "age_buckets": [
     {
       "name": "fresh",
@@ -34,7 +34,7 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-05-31",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "README.md",
@@ -2613,6 +2613,14 @@
       "age_bucket": "recent"
     },
     {
+      "path": "docs/worklog/2026-06-01-de-cq-preview-hide.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
       "path": "docs/worklog/2026-06-01-doc-graph-artifact.md",
       "genre": "worklog",
       "is_hub": false,
@@ -2642,7 +2650,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-01-memory-profiling-session.md",
@@ -9654,6 +9662,13 @@
     },
     {
       "from": "docs/notes/deferred-items.md",
+      "to": "docs/worklog/2026-06-01-de-cq-preview-hide.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-06-01-de-cq-preview-hide.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/deferred-items.md",
       "to": "docs/notes/typed-effect-documentation-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/typed-effect-documentation-plan.md`",
@@ -13983,6 +13998,27 @@
       "to": "frontend/CLAUDE.md",
       "kind": "path-mention",
       "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-01-de-cq-preview-hide.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-01-de-cq-preview-hide.md",
+      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-01-de-cq-preview-hide.md",
+      "to": "docs/notes/deferred-items.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/deferred-items.md`",
       "resolved": "resolved"
     },
     {
