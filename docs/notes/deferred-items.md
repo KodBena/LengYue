@@ -901,6 +901,13 @@ hand-rolled spaces' encoding" once `ApiError` lands.
   and the umbrella "Documentation is part of the work" rule — this makes the
   doc-graph's *shape and staleness* a first-class inspectable artifact rather
   than an implicit structure carried in maintainer memory.
+- **Design note (2026-06-01):** `docs/notes/documentation-graph-artifact-plan.md`
+  works the open questions above (manifest-first → the picture + a doc-link
+  *validator* fall out of one pass; staleness via commit-distance, both values
+  in the manifest; `dot`→committed `.svg` primary + pruned Mermaid; docs-only
+  nodes, typed/directed edges; committed + CI-verified-fresh). Sibling to the
+  `doc-graph-discipline-plan.md` frontmatter-substrate plan, not a replacement.
+  Implementation not yet scheduled.
 
 ---
 
