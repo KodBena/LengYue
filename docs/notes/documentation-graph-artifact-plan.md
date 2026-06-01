@@ -136,6 +136,20 @@ counts-not-wall-clock perf posture and immune to the "no commits for a
 week" calendar artifact. The bucket label is a node attribute in the
 manifest; the colour is the projection.
 
+> **Amendment (2026-06-01, churn-reduction).** The "both values go in the
+> manifest regardless" decision above was refined once the artifact shipped: the
+> raw commit-distances are computed in-memory (they still drive the bucket
+> assignment and the staleness-table ordering) but are **not written to the
+> committed manifest**. Being HEAD-relative they shifted on every commit —
+> ~700 lines of churn per commit, the symptom being routine doc PRs reporting
+> +5k/−5k line diffs — for no structural change. The committed
+> `docs/doc-graph.json` now carries only the **stable** projection: the discrete
+> `age_bucket` plus the absolute first/last-commit *dates* (and the SVG tooltip
+> and staleness table likewise show bucket + date, never the raw number). The
+> freshness gate was already structure-only (it never compared the distances),
+> so the contract is unchanged; only the per-commit byte-churn went away. See
+> `docs/worklog/2026-06-01-doc-graph-churn-reduction.md`.
+
 ## The output format — GitHub-rendering reality decides it
 
 The maintainer's leaning is **Graphviz `dot` → committed `.svg`**, and

@@ -18,54 +18,54 @@ of truth and the picture is a projection of it.
 
 ## At a glance
 
-- **Nodes:** 331 documents.
-- **Edges:** 1668 cross-references
-  (1422 resolved, 246 dangling, 0 ambiguous).
-- **Generated at HEAD:** `dce83543189a`
-  (1003 commits deep).
+- **Nodes:** 332 documents.
+- **Edges:** 1673 cross-references
+  (1427 resolved, 246 dangling, 0 ambiguous).
 
 ## Staleness heatmap (buckets)
 
 Each node is coloured by commit-distance since its last touch
 (`git rev-list --count <last-touch>..HEAD`) — counts, not wall-clock. Buckets:
-**fresh** (≤ 20), **recent** (≤ 80), **aging** (≤ 250), **stale** (> 250). Absolute age (since first commit) is also in the manifest but is
-*not* the gradient — a foundational ADR should be old and untouched; that is
-not rot.
+**fresh** (≤ 20), **recent** (≤ 80), **aging** (≤ 250), **stale** (> 250). The first-commit date (`first_committed`) is recorded per node
+too, but absolute age is deliberately *not* the gradient — a foundational ADR
+should be old and untouched; that is not rot. (The raw commit-distances are
+computed but not committed; the bucket and the dates are the stable record —
+see the Regeneration note.)
 
 ### Most-stale documents (top 30 by commit-distance)
 
-| Document | Bucket | Commits behind HEAD (last touch) | Since first commit |
-|---|---|---|---|
-| `backend/docs/tree-dsl.md` | stale | 1001 | 1001 |
-| `docs/adr/0001-state-mutation-and-readonly.md` | stale | 1001 | 1001 |
-| `docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md` | stale | 1001 | 1001 |
-| `docs/archive/34b-complete-status.md` | stale | 1001 | 1001 |
-| `docs/archive/34b-frontend-brief.md` | stale | 1001 | 1001 |
-| `docs/archive/34b-parallel-frontend-work.md` | stale | 1001 | 1001 |
-| `docs/archive/handoff-2026-04-frontend-pre-umbrella.md` | stale | 1001 | 1001 |
-| `docs/adr/0003-frontend-portability-and-domain-boundaries.md` | stale | 999 | 1001 |
-| `docs/playbooks/monorepo/editorial-cleanup-plan.md` | stale | 998 | 999 |
-| `docs/playbooks/monorepo/monorepo-plan-framing.md` | stale | 998 | 1001 |
-| `docs/adr/0006-source-file-headers.md` | stale | 997 | 997 |
-| `docs/notes/audit-reflections.md` | stale | 997 | 997 |
-| `docs/adr/0007-file-size-and-information-density.md` | stale | 991 | 991 |
-| `docs/rfcs/README.md` | stale | 979 | 979 |
-| `docs/rfcs/0001-adr-meta-review.md` | stale | 964 | 979 |
-| `docs/notes/doc-graph-discipline-plan.md` | stale | 954 | 954 |
-| `backend/docs/redis-local-resource.md` | stale | 920 | 922 |
-| `docs/playbooks/monorepo/monorepo-plan.md` | stale | 898 | 1001 |
-| `docs/notes/tenancy.md` | stale | 891 | 1001 |
-| `docs/archive/release-scope-2026-04.md` | stale | 866 | 866 |
-| `docs/notes/distribution-packaging.md` | stale | 866 | 866 |
-| `docs/notes/auditor-notes.md` | stale | 776 | 981 |
-| `docs/dispatch/proxy-to-proxy-id-translation-near-miss.md` | stale | 741 | 741 |
-| `docs/dispatch/proxy-to-proxy-post-v1.0.13-followups.md` | stale | 647 | 647 |
-| `docs/archive/TODO-completed-2026-05-06.md` | stale | 646 | 646 |
-| `docs/adr/0005-documentation-discipline.md` | stale | 577 | 997 |
-| `docs/archive/dispatch/backend-to-frontend-analysis-persistence-status.md` | stale | 554 | 554 |
-| `docs/archive/dispatch/backend-to-frontend-auth-me-status.md` | stale | 554 | 554 |
-| `docs/archive/dispatch/backend-to-frontend-card-tree-status.md` | stale | 554 | 554 |
-| `docs/archive/dispatch/backend-to-frontend-game-source-dedup-status.md` | stale | 554 | 554 |
+| Document | Bucket | Last touched |
+|---|---|---|
+| `backend/docs/tree-dsl.md` | stale | 2026-04-26 |
+| `docs/adr/0001-state-mutation-and-readonly.md` | stale | 2026-04-26 |
+| `docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md` | stale | 2026-04-26 |
+| `docs/archive/34b-complete-status.md` | stale | 2026-04-26 |
+| `docs/archive/34b-frontend-brief.md` | stale | 2026-04-26 |
+| `docs/archive/34b-parallel-frontend-work.md` | stale | 2026-04-26 |
+| `docs/archive/handoff-2026-04-frontend-pre-umbrella.md` | stale | 2026-04-26 |
+| `docs/adr/0003-frontend-portability-and-domain-boundaries.md` | stale | 2026-04-26 |
+| `docs/playbooks/monorepo/editorial-cleanup-plan.md` | stale | 2026-04-26 |
+| `docs/playbooks/monorepo/monorepo-plan-framing.md` | stale | 2026-04-26 |
+| `docs/adr/0006-source-file-headers.md` | stale | 2026-04-26 |
+| `docs/notes/audit-reflections.md` | stale | 2026-04-26 |
+| `docs/adr/0007-file-size-and-information-density.md` | stale | 2026-04-26 |
+| `docs/rfcs/README.md` | stale | 2026-04-27 |
+| `docs/rfcs/0001-adr-meta-review.md` | stale | 2026-04-27 |
+| `docs/notes/doc-graph-discipline-plan.md` | stale | 2026-04-28 |
+| `backend/docs/redis-local-resource.md` | stale | 2026-04-28 |
+| `docs/playbooks/monorepo/monorepo-plan.md` | stale | 2026-04-29 |
+| `docs/notes/tenancy.md` | stale | 2026-04-29 |
+| `docs/archive/release-scope-2026-04.md` | stale | 2026-04-30 |
+| `docs/notes/distribution-packaging.md` | stale | 2026-04-30 |
+| `docs/notes/auditor-notes.md` | stale | 2026-05-03 |
+| `docs/dispatch/proxy-to-proxy-id-translation-near-miss.md` | stale | 2026-05-03 |
+| `docs/dispatch/proxy-to-proxy-post-v1.0.13-followups.md` | stale | 2026-05-06 |
+| `docs/archive/TODO-completed-2026-05-06.md` | stale | 2026-05-06 |
+| `docs/archive/dispatch/backend-to-frontend-analysis-persistence-status.md` | stale | 2026-05-08 |
+| `docs/archive/dispatch/backend-to-frontend-auth-me-status.md` | stale | 2026-05-08 |
+| `docs/archive/dispatch/backend-to-frontend-card-tree-status.md` | stale | 2026-05-08 |
+| `docs/archive/dispatch/backend-to-frontend-game-source-dedup-status.md` | stale | 2026-05-08 |
+| `docs/archive/dispatch/backend-to-frontend-openapi-title-debrand.md` | stale | 2026-05-08 |
 
 ## Pruned graph (inline)
 
@@ -158,15 +158,19 @@ flowchart LR
 
 ## Regeneration
 
-This artifact is committed and CI-verified-fresh: a workflow regenerates it on
-every doc-touching PR and fails iff the committed manifest's **graph structure**
-(node set, edges, resolution) drifts from a fresh run — a committed-but-stale
-doc-graph would be self-refuting. The check is scoped to graph structure, not
-the raw bytes, because the heatmap fields (commit-distance, bucket) are
-HEAD-relative and shift uniformly as the repo moves: a doc untouched for one
-more commit is legitimately one commit staler. So the committed heatmap is a
-snapshot at its last regeneration and refreshes whenever a doc-touching change
-regenerates the artifact. To regenerate locally:
+This artifact is committed and CI-verified-fresh: a workflow checks that the
+committed manifest's **graph structure** (node set, edges, resolution) matches a
+fresh run, and fails iff it drifts — a committed-but-stale doc-graph would be
+self-refuting. The check is scoped to graph structure, not the raw bytes: the
+committed manifest stores only **stable** heatmap fields (the discrete
+`age_bucket` and the absolute first/last-commit dates), never the raw
+HEAD-relative commit-distances, so it changes only when a doc is added, removed,
+re-genred, re-cross-referenced, *or actually touched* (its date/bucket move) —
+not on every commit. A **structural** change must be regenerated in the same PR
+or the gate fails; a **content-only** edit need not (the gate guards structure,
+and the heatmap is an explicit snapshot — regenerating refreshes the touched
+doc's freshness, a small bounded diff, but skipping it only leaves that one node
+a bucket stale until the next structural regeneration). To regenerate locally:
 
 ```
 node tools/doc-graph/generate.mjs
