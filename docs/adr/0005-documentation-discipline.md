@@ -12,6 +12,15 @@
   surfaces too), in the same shape that Rule 7 of this tenet was
   already identified in the Related section as the documentation
   register of ADR-0002 Rule 1 ("no silent retry queue").
+  2026-06-01 — recorded that **Revisit-when #2 (documentation
+  tooling matures) has fired**: the doc-graph artifact + freshness
+  CI gate (PR #330) mechanize the *cross-reference-resolution*
+  subset of this discipline — broken-link detection (the validator's
+  `docs/doc-graph-report.md`) and committed-artifact freshness.
+  Updated the Negative "no automated check" bullet, Alternative C,
+  Revisit-when #2, and Related accordingly. No rule was added; the
+  judgment-heavy rules (Rule 3, Rule 6) remain policy, so Alternative
+  C's core reasoning holds for them.
 - **Scope:** All authoring of documentation across the three
   sub-projects. Includes ADRs, notes, READMEs, TODO entries,
   HANDOFFs, playbooks, and inter-team communications.
@@ -219,9 +228,14 @@ relationship is anchored in the codebase's authoring vocabulary.
 - **Per-write authoring overhead.** Each documentation event
   takes slightly longer because the rules are non-trivial. The
   cost is small per write but real.
-- **Discipline is policy, not mechanism.** Like ADR-0002 and
-  ADR-0004, this tenet lives in code review and authoring
-  habit. There is no automated check that catches a violation.
+- **Discipline is largely policy, not mechanism.** Like ADR-0002
+  and ADR-0004, this tenet lives mostly in code review and
+  authoring habit. *(Partly mechanized 2026-06-01:* the doc-graph
+  `doc-graph-ci` freshness gate + the broken-link validator
+  (`docs/doc-graph-report.md`) catch dangling cross-references and a
+  stale committed doc-graph — the resolution subset. The
+  judgment-heavy rules — Rule 3's relation-vs-content, Rule 6's
+  lifecycle — still have no automated check.)
 - **Some rules require judgment.** "Document body doesn't
   bare-name its siblings" is unambiguous; "descriptions describe
   relations" requires a small evaluation each time. Reasonable
@@ -260,6 +274,15 @@ Rule 3 (descriptions describe relations) is human-judgment-
 shaped. As tooling matures, partial mechanization becomes
 attractive; not yet.
 
+*Partly adopted 2026-06-01 (PR #330):* the doc-graph artifact
+mechanized the **cross-reference-resolution** subset — whether a
+reference resolves is *not* soft (a path either points at an
+existing doc or it doesn't), so it became a CI validator
+(`docs/doc-graph-report.md`, listing dangling refs) plus a
+committed-artifact freshness gate. Rule 4 and the
+judgment-shaped rules (Rule 3, Rule 6) remain unmechanized; the
+core reasoning above still holds for those.
+
 ## Revisit when…
 
 This tenet is worth revisiting if:
@@ -270,7 +293,11 @@ This tenet is worth revisiting if:
    the discipline.** A linter for Rule 4 (no bare-named
    filenames) is the easiest candidate; a checker for unsynced
    TODO items between parallel documents is harder but not
-   infeasible.
+   infeasible. **(Fired 2026-06-01.)** The doc-graph artifact
+   (PR #330) mechanized the cross-reference-*resolution* subset —
+   the validator + freshness gate (see Alternative C and the
+   Amendments line). Rule 4's linter and the parallel-TODO checker
+   remain the open candidates; this trigger stays live for them.
 3. **A genuinely new failure pattern surfaces** that isn't
    covered by the existing rules. At that point, append the rule
    rather than starting a new tenet — this tenet is shaped to
@@ -302,6 +329,15 @@ This tenet is worth revisiting if:
 - **`docs/notes/audit-reflections.md`.** The auditor's-perspective
   companion to `reflection.md`, recording observations from this
   restructure.
+- **The doc-graph artifact** (`tools/doc-graph/generate.mjs` →
+  `docs/doc-graph.{json,svg,md}` + `docs/doc-graph-report.md`;
+  design note `docs/notes/documentation-graph-artifact-plan.md`).
+  The partial mechanization of this tenet (Alternative C, partly
+  adopted): the validator surfaces dangling cross-references and the
+  freshness gate keeps the committed graph honest. Doc-touching
+  changes regenerate it — the authoring requirement is recorded in
+  the umbrella `CLAUDE.md`'s "Documentation is part of the work"
+  audit.
 
 ## What this tenet does NOT mean
 
