@@ -1,6 +1,6 @@
 {
-  "node_count": 336,
-  "edge_count": 1696,
+  "node_count": 337,
+  "edge_count": 1701,
   "age_buckets": [
     {
       "name": "fresh",
@@ -1837,6 +1837,14 @@
       "age_bucket": "aging"
     },
     {
+      "path": "docs/notes/perf-forced-reflow-attribution-2026-06-01.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
       "path": "docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md",
       "genre": "note",
       "is_hub": false,
@@ -2664,9 +2672,9 @@
       "path": "docs/worklog/2026-06-01-perf-miniboard-canvas-renderer.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-01",
+      "last_committed": "2026-06-01",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-01-perf-scenario-harness.md",
@@ -2690,7 +2698,7 @@
       "is_hub": false,
       "first_committed": "2026-05-11",
       "last_committed": "2026-06-01",
-      "age_bucket": "recent"
+      "age_bucket": "fresh"
     },
     {
       "path": "frontend/IDENTIFIERS.md",
@@ -9593,6 +9601,13 @@
     },
     {
       "from": "docs/notes/deferred-items.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/deferred-items.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
       "site": "ADR-0002",
@@ -9673,6 +9688,13 @@
       "to": "docs/worklog/2026-06-01-de-cq-preview-hide.md",
       "kind": "path-mention",
       "site": "`docs/worklog/2026-06-01-de-cq-preview-hide.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/deferred-items.md",
+      "to": "docs/notes/perf-forced-reflow-attribution-2026-06-01.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/perf-forced-reflow-attribution-2026-06-01.md`",
       "resolved": "resolved"
     },
     {
@@ -10674,6 +10696,27 @@
       "to": "docs/notes/perf-audit-range-query-nav-2026-05-29.md",
       "kind": "path-mention",
       "site": "`docs/notes/perf-audit-range-query-nav-2026-05-29.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/perf-forced-reflow-attribution-2026-06-01.md",
+      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/perf-forced-reflow-attribution-2026-06-01.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/perf-forced-reflow-attribution-2026-06-01.md",
+      "to": "docs/worklog/2026-06-01-collapsed-chart-gate.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-06-01-collapsed-chart-gate.md`",
       "resolved": "resolved"
     },
     {

@@ -149,6 +149,91 @@ this file.
 - **Where:** `AnalysisChartPanel.vue:89` (`.linear-content { container-type:
   inline-size }`), `:101` (`@container (max-width: 379px)`).
 
+### Headless-exposure surfaces — inventory + the "graphing-adjacent" taxonomy question
+
+- **Surfaced:** 2026-06-02 (during the forced-reflow / long-task attribution
+  arc, `docs/notes/perf-forced-reflow-attribution-2026-06-01.md`, when the clean
+  collapse-charts measurement had no headless path to reach the panel's
+  collapsed state).
+- **The trigger (concrete).** To isolate chart *data-derivation* cost from chart
+  *render* cost — the gating number for the deferred AoS→SoA data-organisation
+  idea — the perf-capture harness needs to drive an `AnalysisChartPanel` into its
+  collapsed state (the `BaseChart` `active=false` gate then skips ECharts
+  `setOption` while the `props.series` computed still runs, separating derivation
+  from render). It **can't**: `expanded` is a component-local `ref(true)`
+  (`AnalysisChartPanel.vue:43`), unreachable from the store / scenario layer the
+  headless harness drives. The fix-in-the-small is a dev-only hook mirroring
+  autonav's existing `__devForceActiveAnalysisTab`
+  (`composables/analysis/useAnalysisTabs.ts`). Rather than bolt on a second
+  ad-hoc hook, the maintainer chose to **audit the category first**.
+- **The architectural question (maintainer, 2026-06-02).** Is "the measurement
+  harness needs a hook to reach product-owned UI state" an architectural smell?
+  Tentative read: *probably not.* ADR-0003 bands code by **domain coupling**
+  (B1/B2/B3); a `__devForce*` hook's defining property is not its domain coupling
+  but that it exists to let the **measurement environment reach state the product
+  UI owns privately**. The maintainer floated this as a second axis ADR-0003
+  doesn't span, named "**graphing-adjacent**," for which there is **no taxonomic
+  epithet in the doc graph** yet.
+- **Refinement (maintainer, 2026-06-02): the second axis is *oblique* to domain,
+  not orthogonal.** "Graphs" (the analysis charts / data-visualisations)
+  *correlate* with analysis-rich domains but are neither entailed by a domain nor
+  exclusive to one — a generic education app might carry graphs, or might not. So
+  the charting concern rides alongside the domain axis rather than perpendicular
+  to it, which makes clean banding *harder*, not easier: a chart is generic
+  ECharts machinery (B1) and a Go-analysis surface (B3) at once, depending where
+  you cut. That obliquity is itself a finding for the audit.
+- **And the denotation is unsettled** (flagged honestly — this entry's first
+  draft fused two readings). "Graphing-adjacent" might name the
+  **chart/visualisation product surface** — the sense the education-app example
+  points at, and the likelier primary reading — or the **harness-exposure hooks**
+  the inventory below catalogues; the two are entangled, since it was a *charting*
+  surface that resisted headless exposure (the hook need is plausibly a *symptom*
+  of the charting concern, not a separate axis). Which it is, and whether it earns
+  a name, is exactly what the audit settles — not an armchair verdict (epistemic
+  humility; the impedance-as-contradictory-directives posture).
+- **The audit (what to inventory).** Enumerate every surface that exists — or
+  would need to exist — so the headless perf-capture harness can *drive or
+  observe* UI / runtime state it cannot otherwise reach:
+  - **Existing:** the `__devForce*` hooks (`__devForceActiveAnalysisTab`), the
+    perf scenario context + driver (`composables/perf/`, `autonav`), the
+    `:active` collapsed-gate on `BaseChart`, the `clearCache` / `window.__perfScenario`
+    surface, and the `performance.mark`/`measure` render-instrumentation marks the
+    traces read.
+  - **Gaps:** state the harness currently can't reach — chart collapse is the
+    first concrete one; popover / modal / per-panel-zoom state are likely
+    siblings once looked for.
+- **Then decide (do not pre-decide):** whether these constitute a coherent
+  category worth a name + convention (a band-analog, a naming convention
+  formalising the `__dev*` prefix already in use, or its own ADR), or whether they
+  are better left as scattered, locally-justified `__dev*` hooks. Default-to-flat
+  unless the audit makes the category obvious (the forced-classification-is-
+  synthetic / Chesterton's-fence posture).
+- **Decision lens (maintainer rumination, 2026-06-02).** Evaluate "bespoke hook
+  vs. architectural overhaul that yields exposure for free" against ADR-0003's
+  *implicit telos* — derivability / forkability / modularity (likely the bands'
+  unstated rationale; **not yet confirmed against the ADR's prose**). The
+  downstream consumer of the decision is the **polymorphic reach** of the
+  resulting infra: a `__devForce*` hook has reach = 1 (the harness, nothing else),
+  whereas making the state externally addressable serves an open set
+  (layout-persistence, URL-shareable view state, a fork of the charting subsystem,
+  future measurement). The catch — the oblique cost — is that reach is bought
+  against *encapsulation*: forkability is served by BOTH a self-contained module
+  (clean local ownership) AND a widely-reusable boundary (global reach), and those
+  pull opposite here, so "modularity" does not uniquely resolve it. Practical
+  heuristic the audit could adopt: **count real consumers of the exposed
+  boundary** — one ⇒ local hook (don't pay for reach you can't demonstrate); two+
+  ⇒ the overhaul earns its abstraction. Guards against premature generalisation
+  (an abstraction general in name, coupled in practice).
+- **Postponed:** the chart-collapse hook itself, until the audit. So the
+  collapse-charts measurement — and therefore the AoS→SoA derivation-vs-render
+  split — waits on this. Recorded so the dependency chain (AoS→SoA ⟵ collapse
+  measurement ⟵ collapse hook ⟵ this audit) is visible, not lost.
+- **Where:** `src/components/charts/AnalysisChartPanel.vue:43` (component-local
+  `expanded`), `src/composables/analysis/useAnalysisTabs.ts`
+  (`__devForceActiveAnalysisTab` — the hook pattern to mirror),
+  `src/composables/perf/` (the harness), `docs/notes/perf-forced-reflow-attribution-2026-06-01.md`
+  (the surfacing investigation).
+
 ### Adaptive-query cancellation leak (mid-adaptive `terminate` — likely proxy-side)
 
 - **Surfaced:** 2026-05-29 (RB-3 scoping; maintainer-reported).
