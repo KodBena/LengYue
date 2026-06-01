@@ -58,6 +58,7 @@ const expanded = ref(true);
       <div class="chart-area">
         <BaseChart
           :series="series"
+          :active="expanded"
           :active-index-accessor="activeIndexAccessor"
           :zoom-range="zoomRange"
           :normalize="normalize"
