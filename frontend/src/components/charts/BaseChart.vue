@@ -29,6 +29,15 @@ const props = defineProps<{
   title?: string;
   reservedWidth?: number;
   reservedHeight?: number;
+  /**
+   * Whether the chart is visible/active. When explicitly `false` (the
+   * host panel is collapsed), the data/marker `setOption` paths are gated:
+   * the chart stays mounted (legend + zoom state retained, instant
+   * re-expand) but does NO ECharts work on analysis packets while hidden.
+   * On re-activation a single catch-up redraw reflects the latest data.
+   * Omitted/`true` ⇒ always active (other BaseChart consumers unaffected).
+   */
+  active?: boolean;
   // Cursor ACCESSOR (not a value): invoked only in updateMarker / the marker
   // watch below — never in this component's template — so a per-nav cursor
   // move updates the ECharts marker without re-rendering this chart (nor the
@@ -117,6 +126,9 @@ let isInitialized = false;
 const emit = defineEmits(['index-click', 'index-hover']);
 const chartRef = ref<HTMLElement | null>(null);
 let chartInstance: echarts.ECharts | null = null;
+// Set when a data/marker redraw was suppressed because the chart was
+// inactive (collapsed); flushed by the `active` watch on re-expand.
+let pendingRedraw = false;
 
 /**
  * Calculates the strictly visible min/max of Y values, respecting X-zoom and Legend toggles.
@@ -217,6 +229,9 @@ const getSelectionMap = () => {
  */
 const updateOptions = () => {
   if (!chartInstance) return;
+  // Collapsed: skip the ECharts option-merge entirely (the per-packet cost
+  // this gate exists to eliminate) and remember to catch up on re-expand.
+  if (props.active === false) { pendingRedraw = true; return; }
 
   // 1. Check if references changed (O(Series) cost).
   // Because the parent's computed re-maps data on change, refs are reliable.
@@ -412,6 +427,8 @@ const updateAxisOnly = () => {
 };
 
 const updateMarker = () => {
+  // Collapsed: defer the marker setOption too (per-nav work while hidden).
+  if (props.active === false) { pendingRedraw = true; return; }
   // Read the cursor through the accessor; the marker path is this function +
   // the watch below, decoupled from the Vue render tree.
   const activeIdx = props.activeIndexAccessor ? props.activeIndexAccessor() : null;
@@ -544,6 +561,17 @@ const dataThrottle = createTrailingThrottle(updateOptions, BASE_CHART_REDRAW_THR
 watch(() => props.zoomRange, updateOptions, { deep: false });
 watch(() => props.series, dataThrottle.schedule, { deep: false });
 watch(() => (props.activeIndexAccessor ? props.activeIndexAccessor() : null), debouncedUpdateMarker);
+// Re-expand: flush the redraw/marker deferred while collapsed, so the chart
+// catches up to the latest data in one pass (vs having run setOption per
+// packet while hidden). Only AnalysisChartPanel passes `active`; consumers
+// that omit it never gate, so this watch never fires for them.
+watch(() => props.active, (now) => {
+  if (now !== false && pendingRedraw) {
+    pendingRedraw = false;
+    updateOptions();
+    updateMarker();
+  }
+});
 
 
 onMounted(initChart);

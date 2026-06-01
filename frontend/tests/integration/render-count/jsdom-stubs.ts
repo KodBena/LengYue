@@ -29,7 +29,10 @@ const STUBBED_VARS: Record<string, string> = {
   '--accent-primary': '#4aaef0',
   '--surface-0': '#101010',
   '--surface-1': '#181818',
+  '--surface-3': '#303030',
+  '--text-0': '#ffffff',
   '--text-1': '#e0e0e0',
+  '--text-2': '#a0a0a0',
 };
 
 /**
