@@ -68,7 +68,14 @@ Implementation is incomplete until the documentation graph reflects
 it. Before declaring a task done or filing a PR, audit:
 
 - Does `docs/TODO.md` need updating to mark items complete or to
-  record items the work surfaced?
+  record items the work surfaced? This explicitly includes **retiring a
+  Future-projects entry — or a `docs/notes/deferred-items.md` want — that
+  the work *closes*.** A shipped feature still documented as open is the
+  silent doc-failure the 2026-06-01 RCA records
+  (`docs/notes/rca-discipline-lapses-2026-06-01.md`, Lapse 2); because the
+  status lives in more than one doc, retire it in each. (A stopgap: the
+  durable fix is a machine-readable work-status SSOT, of which `TODO.md`
+  becomes a projection — tracked as RCA guard G5.)
 - Does `docs/handoff-current.md` describe a surface this change
   affects, and is the description still accurate?
 - Does `FEATURES.md` need a new entry, an updated description, or
