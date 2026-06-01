@@ -1,8 +1,8 @@
 {
-  "generated_at_head": 997,
-  "head_sha": "bba42ff5d64d3f1b0414eeeac0e48f134bfbdf69",
-  "node_count": 330,
-  "edge_count": 1663,
+  "generated_at_head": 1001,
+  "head_sha": "7f036822aaa3cd084ceff495d9bf0a2d3d84fe61",
+  "node_count": 331,
+  "edge_count": 1664,
   "age_buckets": [
     {
       "name": "fresh",
@@ -28,8 +28,8 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-05-13",
-      "commit_distance": 458,
-      "commit_distance_since_first": 980,
+      "commit_distance": 462,
+      "commit_distance_since_first": 984,
       "age_bucket": "stale"
     },
     {
@@ -38,8 +38,8 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-05-31",
-      "commit_distance": 66,
-      "commit_distance_since_first": 491,
+      "commit_distance": 70,
+      "commit_distance_since_first": 495,
       "age_bucket": "recent"
     },
     {
@@ -48,8 +48,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-05-12",
-      "commit_distance": 485,
-      "commit_distance_since_first": 993,
+      "commit_distance": 489,
+      "commit_distance_since_first": 997,
       "age_bucket": "stale"
     },
     {
@@ -58,8 +58,8 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-05-24",
-      "commit_distance": 253,
-      "commit_distance_since_first": 980,
+      "commit_distance": 257,
+      "commit_distance_since_first": 984,
       "age_bucket": "stale"
     },
     {
@@ -68,9 +68,9 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-05-24",
-      "commit_distance": 250,
-      "commit_distance_since_first": 995,
-      "age_bucket": "aging"
+      "commit_distance": 254,
+      "commit_distance_since_first": 999,
+      "age_bucket": "stale"
     },
     {
       "path": "backend/docs/redis-local-resource.md",
@@ -78,8 +78,8 @@
       "is_hub": false,
       "first_committed": "2026-04-28",
       "last_committed": "2026-04-28",
-      "commit_distance": 914,
-      "commit_distance_since_first": 916,
+      "commit_distance": 918,
+      "commit_distance_since_first": 920,
       "age_bucket": "stale"
     },
     {
@@ -88,8 +88,8 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-05-12",
-      "commit_distance": 470,
-      "commit_distance_since_first": 475,
+      "commit_distance": 474,
+      "commit_distance_since_first": 479,
       "age_bucket": "stale"
     },
     {
@@ -98,8 +98,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-04-26",
-      "commit_distance": 995,
-      "commit_distance_since_first": 995,
+      "commit_distance": 999,
+      "commit_distance_since_first": 999,
       "age_bucket": "stale"
     },
     {
@@ -108,8 +108,8 @@
       "is_hub": true,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-01",
-      "commit_distance": 10,
-      "commit_distance_since_first": 995,
+      "commit_distance": 14,
+      "commit_distance_since_first": 999,
       "age_bucket": "fresh"
     },
     {
@@ -118,8 +118,8 @@
       "is_hub": true,
       "first_committed": "2026-04-26",
       "last_committed": "2026-05-31",
-      "commit_distance": 46,
-      "commit_distance_since_first": 985,
+      "commit_distance": 50,
+      "commit_distance_since_first": 989,
       "age_bucket": "recent"
     },
     {
@@ -128,8 +128,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-04-26",
-      "commit_distance": 995,
-      "commit_distance_since_first": 995,
+      "commit_distance": 999,
+      "commit_distance_since_first": 999,
       "age_bucket": "stale"
     },
     {
@@ -138,8 +138,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-05-17",
-      "commit_distance": 333,
-      "commit_distance_since_first": 995,
+      "commit_distance": 337,
+      "commit_distance_since_first": 999,
       "age_bucket": "stale"
     },
     {
@@ -148,8 +148,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-04-26",
-      "commit_distance": 993,
-      "commit_distance_since_first": 995,
+      "commit_distance": 997,
+      "commit_distance_since_first": 999,
       "age_bucket": "stale"
     },
     {
@@ -158,8 +158,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-04-26",
-      "commit_distance": 995,
-      "commit_distance_since_first": 995,
+      "commit_distance": 999,
+      "commit_distance_since_first": 999,
       "age_bucket": "stale"
     },
     {
@@ -168,8 +168,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-05-07",
-      "commit_distance": 571,
-      "commit_distance_since_first": 991,
+      "commit_distance": 575,
+      "commit_distance_since_first": 995,
       "age_bucket": "stale"
     },
     {
@@ -178,8 +178,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-04-26",
-      "commit_distance": 991,
-      "commit_distance_since_first": 991,
+      "commit_distance": 995,
+      "commit_distance_since_first": 995,
       "age_bucket": "stale"
     },
     {
@@ -188,8 +188,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-04-26",
-      "commit_distance": 985,
-      "commit_distance_since_first": 985,
+      "commit_distance": 989,
+      "commit_distance_since_first": 989,
       "age_bucket": "stale"
     },
     {
@@ -198,8 +198,8 @@
       "is_hub": false,
       "first_committed": "2026-05-17",
       "last_committed": "2026-05-17",
-      "commit_distance": 333,
-      "commit_distance_since_first": 333,
+      "commit_distance": 337,
+      "commit_distance_since_first": 337,
       "age_bucket": "stale"
     },
     {
@@ -208,8 +208,8 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-06-01",
-      "commit_distance": 10,
-      "commit_distance_since_first": 170,
+      "commit_distance": 14,
+      "commit_distance_since_first": 174,
       "age_bucket": "fresh"
     },
     {
@@ -218,8 +218,8 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-05-31",
-      "commit_distance": 33,
-      "commit_distance_since_first": 46,
+      "commit_distance": 37,
+      "commit_distance_since_first": 50,
       "age_bucket": "recent"
     },
     {
@@ -228,8 +228,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-04-26",
-      "commit_distance": 995,
-      "commit_distance_since_first": 995,
+      "commit_distance": 999,
+      "commit_distance_since_first": 999,
       "age_bucket": "stale"
     },
     {
@@ -238,8 +238,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-04-26",
-      "commit_distance": 995,
-      "commit_distance_since_first": 995,
+      "commit_distance": 999,
+      "commit_distance_since_first": 999,
       "age_bucket": "stale"
     },
     {
@@ -248,8 +248,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-04-26",
-      "commit_distance": 995,
-      "commit_distance_since_first": 995,
+      "commit_distance": 999,
+      "commit_distance_since_first": 999,
       "age_bucket": "stale"
     },
     {
@@ -258,8 +258,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-05-08",
-      "commit_distance": 547,
-      "commit_distance_since_first": 993,
+      "commit_distance": 551,
+      "commit_distance_since_first": 997,
       "age_bucket": "stale"
     },
     {
@@ -268,8 +268,8 @@
       "is_hub": false,
       "first_committed": "2026-05-06",
       "last_committed": "2026-05-06",
-      "commit_distance": 640,
-      "commit_distance_since_first": 640,
+      "commit_distance": 644,
+      "commit_distance_since_first": 644,
       "age_bucket": "stale"
     },
     {
@@ -278,8 +278,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -288,8 +288,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -298,8 +298,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -308,8 +308,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -318,8 +318,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -328,8 +328,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -338,8 +338,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -348,8 +348,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -358,8 +358,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -368,8 +368,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -378,8 +378,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -388,8 +388,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -398,8 +398,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -408,8 +408,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -418,8 +418,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -428,8 +428,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -438,8 +438,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -448,8 +448,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -458,8 +458,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -468,8 +468,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -478,8 +478,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-04-26",
-      "commit_distance": 995,
-      "commit_distance_since_first": 995,
+      "commit_distance": 999,
+      "commit_distance_since_first": 999,
       "age_bucket": "stale"
     },
     {
@@ -488,8 +488,8 @@
       "is_hub": false,
       "first_committed": "2026-05-17",
       "last_committed": "2026-05-17",
-      "commit_distance": 329,
-      "commit_distance_since_first": 330,
+      "commit_distance": 333,
+      "commit_distance_since_first": 334,
       "age_bucket": "stale"
     },
     {
@@ -498,8 +498,8 @@
       "is_hub": false,
       "first_committed": "2026-05-17",
       "last_committed": "2026-05-17",
-      "commit_distance": 330,
-      "commit_distance_since_first": 330,
+      "commit_distance": 334,
+      "commit_distance_since_first": 334,
       "age_bucket": "stale"
     },
     {
@@ -508,8 +508,8 @@
       "is_hub": false,
       "first_committed": "2026-05-17",
       "last_committed": "2026-05-17",
-      "commit_distance": 330,
-      "commit_distance_since_first": 330,
+      "commit_distance": 334,
+      "commit_distance_since_first": 334,
       "age_bucket": "stale"
     },
     {
@@ -518,8 +518,8 @@
       "is_hub": false,
       "first_committed": "2026-05-25",
       "last_committed": "2026-05-25",
-      "commit_distance": 222,
-      "commit_distance_since_first": 222,
+      "commit_distance": 226,
+      "commit_distance_since_first": 226,
       "age_bucket": "aging"
     },
     {
@@ -528,8 +528,8 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-05-12",
-      "commit_distance": 486,
-      "commit_distance_since_first": 486,
+      "commit_distance": 490,
+      "commit_distance_since_first": 490,
       "age_bucket": "stale"
     },
     {
@@ -538,8 +538,8 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-05-12",
-      "commit_distance": 486,
-      "commit_distance_since_first": 486,
+      "commit_distance": 490,
+      "commit_distance_since_first": 490,
       "age_bucket": "stale"
     },
     {
@@ -548,8 +548,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -558,8 +558,8 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-05-12",
-      "commit_distance": 486,
-      "commit_distance_since_first": 486,
+      "commit_distance": 490,
+      "commit_distance_since_first": 490,
       "age_bucket": "stale"
     },
     {
@@ -568,8 +568,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -578,8 +578,8 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-05-12",
-      "commit_distance": 486,
-      "commit_distance_since_first": 486,
+      "commit_distance": 490,
+      "commit_distance_since_first": 490,
       "age_bucket": "stale"
     },
     {
@@ -588,8 +588,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -598,8 +598,8 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-05-12",
-      "commit_distance": 485,
-      "commit_distance_since_first": 485,
+      "commit_distance": 489,
+      "commit_distance_since_first": 489,
       "age_bucket": "stale"
     },
     {
@@ -608,8 +608,8 @@
       "is_hub": false,
       "first_committed": "2026-05-26",
       "last_committed": "2026-05-26",
-      "commit_distance": 205,
-      "commit_distance_since_first": 205,
+      "commit_distance": 209,
+      "commit_distance_since_first": 209,
       "age_bucket": "aging"
     },
     {
@@ -618,8 +618,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -628,8 +628,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -638,8 +638,8 @@
       "is_hub": false,
       "first_committed": "2026-05-13",
       "last_committed": "2026-05-13",
-      "commit_distance": 454,
-      "commit_distance_since_first": 454,
+      "commit_distance": 458,
+      "commit_distance_since_first": 458,
       "age_bucket": "stale"
     },
     {
@@ -648,8 +648,8 @@
       "is_hub": false,
       "first_committed": "2026-05-25",
       "last_committed": "2026-05-25",
-      "commit_distance": 219,
-      "commit_distance_since_first": 219,
+      "commit_distance": 223,
+      "commit_distance_since_first": 223,
       "age_bucket": "aging"
     },
     {
@@ -658,8 +658,8 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "commit_distance": 169,
-      "commit_distance_since_first": 169,
+      "commit_distance": 173,
+      "commit_distance_since_first": 173,
       "age_bucket": "aging"
     },
     {
@@ -668,8 +668,8 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-05-12",
-      "commit_distance": 485,
-      "commit_distance_since_first": 485,
+      "commit_distance": 489,
+      "commit_distance_since_first": 489,
       "age_bucket": "stale"
     },
     {
@@ -678,8 +678,8 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-05-12",
-      "commit_distance": 486,
-      "commit_distance_since_first": 486,
+      "commit_distance": 490,
+      "commit_distance_since_first": 490,
       "age_bucket": "stale"
     },
     {
@@ -688,8 +688,8 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-05-12",
-      "commit_distance": 485,
-      "commit_distance_since_first": 485,
+      "commit_distance": 489,
+      "commit_distance_since_first": 489,
       "age_bucket": "stale"
     },
     {
@@ -698,8 +698,8 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-05-12",
-      "commit_distance": 485,
-      "commit_distance_since_first": 485,
+      "commit_distance": 489,
+      "commit_distance_since_first": 489,
       "age_bucket": "stale"
     },
     {
@@ -708,8 +708,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -718,8 +718,8 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-05-12",
-      "commit_distance": 473,
-      "commit_distance_since_first": 473,
+      "commit_distance": 477,
+      "commit_distance_since_first": 477,
       "age_bucket": "stale"
     },
     {
@@ -728,8 +728,8 @@
       "is_hub": false,
       "first_committed": "2026-05-18",
       "last_committed": "2026-05-18",
-      "commit_distance": 319,
-      "commit_distance_since_first": 319,
+      "commit_distance": 323,
+      "commit_distance_since_first": 323,
       "age_bucket": "stale"
     },
     {
@@ -738,8 +738,8 @@
       "is_hub": false,
       "first_committed": "2026-05-18",
       "last_committed": "2026-05-18",
-      "commit_distance": 319,
-      "commit_distance_since_first": 319,
+      "commit_distance": 323,
+      "commit_distance_since_first": 323,
       "age_bucket": "stale"
     },
     {
@@ -748,8 +748,8 @@
       "is_hub": false,
       "first_committed": "2026-05-18",
       "last_committed": "2026-05-18",
-      "commit_distance": 316,
-      "commit_distance_since_first": 316,
+      "commit_distance": 320,
+      "commit_distance_since_first": 320,
       "age_bucket": "stale"
     },
     {
@@ -758,8 +758,8 @@
       "is_hub": false,
       "first_committed": "2026-04-30",
       "last_committed": "2026-04-30",
-      "commit_distance": 860,
-      "commit_distance_since_first": 860,
+      "commit_distance": 864,
+      "commit_distance_since_first": 864,
       "age_bucket": "stale"
     },
     {
@@ -768,8 +768,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -778,8 +778,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -788,8 +788,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -798,8 +798,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -808,8 +808,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -818,8 +818,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -828,8 +828,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -838,8 +838,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -848,8 +848,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -858,8 +858,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -868,8 +868,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -878,8 +878,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -888,8 +888,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -898,8 +898,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -908,8 +908,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -918,8 +918,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -928,8 +928,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -938,8 +938,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -948,8 +948,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -958,8 +958,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -968,8 +968,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -978,8 +978,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -988,8 +988,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -998,8 +998,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1008,8 +1008,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1018,8 +1018,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1028,8 +1028,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1038,8 +1038,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1048,8 +1048,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1058,8 +1058,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1068,8 +1068,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1078,8 +1078,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1088,8 +1088,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1098,8 +1098,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1108,8 +1108,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1118,8 +1118,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1128,8 +1128,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1138,8 +1138,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1148,8 +1148,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1158,8 +1158,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1168,8 +1168,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1178,8 +1178,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1188,8 +1188,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1198,8 +1198,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1208,8 +1208,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1218,8 +1218,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1228,8 +1228,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1238,8 +1238,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1248,8 +1248,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1258,8 +1258,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1268,8 +1268,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1278,8 +1278,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1288,8 +1288,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1298,8 +1298,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1308,8 +1308,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1318,8 +1318,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1328,8 +1328,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1338,8 +1338,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1348,8 +1348,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1358,8 +1358,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1368,8 +1368,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1378,8 +1378,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1388,8 +1388,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1398,8 +1398,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1408,8 +1408,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1418,8 +1418,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1428,8 +1428,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1438,8 +1438,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1448,8 +1448,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1458,8 +1458,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1468,8 +1468,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1478,8 +1478,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1488,8 +1488,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1498,8 +1498,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1508,8 +1508,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1518,8 +1518,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1528,8 +1528,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1538,8 +1538,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1548,8 +1548,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1558,8 +1558,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1568,8 +1568,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1578,8 +1578,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1588,8 +1588,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1598,8 +1598,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1608,8 +1608,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1618,8 +1618,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1628,8 +1628,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1638,8 +1638,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1648,8 +1648,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1658,8 +1658,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1668,8 +1668,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1678,8 +1678,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1688,8 +1688,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1698,8 +1698,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
-      "commit_distance": 548,
-      "commit_distance_since_first": 548,
+      "commit_distance": 552,
+      "commit_distance_since_first": 552,
       "age_bucket": "stale"
     },
     {
@@ -1708,8 +1708,8 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-05-12",
-      "commit_distance": 473,
-      "commit_distance_since_first": 482,
+      "commit_distance": 477,
+      "commit_distance_since_first": 486,
       "age_bucket": "stale"
     },
     {
@@ -1718,8 +1718,8 @@
       "is_hub": false,
       "first_committed": "2026-05-13",
       "last_committed": "2026-05-13",
-      "commit_distance": 439,
-      "commit_distance_since_first": 439,
+      "commit_distance": 443,
+      "commit_distance_since_first": 443,
       "age_bucket": "stale"
     },
     {
@@ -1728,8 +1728,8 @@
       "is_hub": false,
       "first_committed": "2026-05-13",
       "last_committed": "2026-05-13",
-      "commit_distance": 436,
-      "commit_distance_since_first": 436,
+      "commit_distance": 440,
+      "commit_distance_since_first": 440,
       "age_bucket": "stale"
     },
     {
@@ -1738,8 +1738,8 @@
       "is_hub": false,
       "first_committed": "2026-05-13",
       "last_committed": "2026-05-13",
-      "commit_distance": 436,
-      "commit_distance_since_first": 442,
+      "commit_distance": 440,
+      "commit_distance_since_first": 446,
       "age_bucket": "stale"
     },
     {
@@ -1748,8 +1748,8 @@
       "is_hub": false,
       "first_committed": "2026-05-14",
       "last_committed": "2026-05-14",
-      "commit_distance": 409,
-      "commit_distance_since_first": 409,
+      "commit_distance": 413,
+      "commit_distance_since_first": 413,
       "age_bucket": "stale"
     },
     {
@@ -1758,8 +1758,8 @@
       "is_hub": false,
       "first_committed": "2026-05-14",
       "last_committed": "2026-05-14",
-      "commit_distance": 409,
-      "commit_distance_since_first": 409,
+      "commit_distance": 413,
+      "commit_distance_since_first": 413,
       "age_bucket": "stale"
     },
     {
@@ -1768,8 +1768,8 @@
       "is_hub": false,
       "first_committed": "2026-05-13",
       "last_committed": "2026-05-13",
-      "commit_distance": 454,
-      "commit_distance_since_first": 454,
+      "commit_distance": 458,
+      "commit_distance_since_first": 458,
       "age_bucket": "stale"
     },
     {
@@ -1778,8 +1778,8 @@
       "is_hub": false,
       "first_committed": "2026-05-28",
       "last_committed": "2026-05-28",
-      "commit_distance": 137,
-      "commit_distance_since_first": 137,
+      "commit_distance": 141,
+      "commit_distance_since_first": 141,
       "age_bucket": "aging"
     },
     {
@@ -1788,8 +1788,8 @@
       "is_hub": false,
       "first_committed": "2026-05-18",
       "last_committed": "2026-05-18",
-      "commit_distance": 312,
-      "commit_distance_since_first": 312,
+      "commit_distance": 316,
+      "commit_distance_since_first": 316,
       "age_bucket": "stale"
     },
     {
@@ -1798,8 +1798,8 @@
       "is_hub": false,
       "first_committed": "2026-05-09",
       "last_committed": "2026-05-12",
-      "commit_distance": 486,
-      "commit_distance_since_first": 541,
+      "commit_distance": 490,
+      "commit_distance_since_first": 545,
       "age_bucket": "stale"
     },
     {
@@ -1808,8 +1808,8 @@
       "is_hub": false,
       "first_committed": "2026-05-18",
       "last_committed": "2026-05-18",
-      "commit_distance": 312,
-      "commit_distance_since_first": 313,
+      "commit_distance": 316,
+      "commit_distance_since_first": 317,
       "age_bucket": "stale"
     },
     {
@@ -1818,8 +1818,8 @@
       "is_hub": false,
       "first_committed": "2026-05-09",
       "last_committed": "2026-05-10",
-      "commit_distance": 533,
-      "commit_distance_since_first": 539,
+      "commit_distance": 537,
+      "commit_distance_since_first": 543,
       "age_bucket": "stale"
     },
     {
@@ -1828,8 +1828,8 @@
       "is_hub": false,
       "first_committed": "2026-05-03",
       "last_committed": "2026-05-03",
-      "commit_distance": 735,
-      "commit_distance_since_first": 735,
+      "commit_distance": 739,
+      "commit_distance_since_first": 739,
       "age_bucket": "stale"
     },
     {
@@ -1838,8 +1838,8 @@
       "is_hub": false,
       "first_committed": "2026-05-06",
       "last_committed": "2026-05-06",
-      "commit_distance": 641,
-      "commit_distance_since_first": 641,
+      "commit_distance": 645,
+      "commit_distance_since_first": 645,
       "age_bucket": "stale"
     },
     {
@@ -1848,8 +1848,8 @@
       "is_hub": false,
       "first_committed": "2026-05-09",
       "last_committed": "2026-05-09",
-      "commit_distance": 538,
-      "commit_distance_since_first": 540,
+      "commit_distance": 542,
+      "commit_distance_since_first": 544,
       "age_bucket": "stale"
     },
     {
@@ -1858,8 +1858,8 @@
       "is_hub": true,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-01",
-      "commit_distance": 14,
-      "commit_distance_since_first": 992,
+      "commit_distance": 18,
+      "commit_distance_since_first": 996,
       "age_bucket": "fresh"
     },
     {
@@ -1868,8 +1868,8 @@
       "is_hub": false,
       "first_committed": "2026-05-18",
       "last_committed": "2026-05-18",
-      "commit_distance": 323,
-      "commit_distance_since_first": 325,
+      "commit_distance": 327,
+      "commit_distance_since_first": 329,
       "age_bucket": "stale"
     },
     {
@@ -1878,8 +1878,8 @@
       "is_hub": false,
       "first_committed": "2026-05-25",
       "last_committed": "2026-05-25",
-      "commit_distance": 209,
-      "commit_distance_since_first": 222,
+      "commit_distance": 213,
+      "commit_distance_since_first": 226,
       "age_bucket": "aging"
     },
     {
@@ -1888,8 +1888,8 @@
       "is_hub": false,
       "first_committed": "2026-05-26",
       "last_committed": "2026-05-26",
-      "commit_distance": 203,
-      "commit_distance_since_first": 203,
+      "commit_distance": 207,
+      "commit_distance_since_first": 207,
       "age_bucket": "aging"
     },
     {
@@ -1898,8 +1898,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-05-08",
-      "commit_distance": 547,
-      "commit_distance_since_first": 995,
+      "commit_distance": 551,
+      "commit_distance_since_first": 999,
       "age_bucket": "stale"
     },
     {
@@ -1908,8 +1908,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-04-26",
-      "commit_distance": 991,
-      "commit_distance_since_first": 991,
+      "commit_distance": 995,
+      "commit_distance_since_first": 995,
       "age_bucket": "stale"
     },
     {
@@ -1918,8 +1918,8 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-05-03",
-      "commit_distance": 770,
-      "commit_distance_since_first": 975,
+      "commit_distance": 774,
+      "commit_distance_since_first": 979,
       "age_bucket": "stale"
     },
     {
@@ -1928,8 +1928,8 @@
       "is_hub": false,
       "first_committed": "2026-05-10",
       "last_committed": "2026-05-12",
-      "commit_distance": 486,
-      "commit_distance_since_first": 530,
+      "commit_distance": 490,
+      "commit_distance_since_first": 534,
       "age_bucket": "stale"
     },
     {
@@ -1938,8 +1938,8 @@
       "is_hub": false,
       "first_committed": "2026-05-09",
       "last_committed": "2026-05-09",
-      "commit_distance": 543,
-      "commit_distance_since_first": 543,
+      "commit_distance": 547,
+      "commit_distance_since_first": 547,
       "age_bucket": "stale"
     },
     {
@@ -1948,8 +1948,8 @@
       "is_hub": false,
       "first_committed": "2026-05-26",
       "last_committed": "2026-05-26",
-      "commit_distance": 205,
-      "commit_distance_since_first": 205,
+      "commit_distance": 209,
+      "commit_distance_since_first": 209,
       "age_bucket": "aging"
     },
     {
@@ -1958,8 +1958,8 @@
       "is_hub": false,
       "first_committed": "2026-05-30",
       "last_committed": "2026-05-30",
-      "commit_distance": 89,
-      "commit_distance_since_first": 89,
+      "commit_distance": 93,
+      "commit_distance_since_first": 93,
       "age_bucket": "aging"
     },
     {
@@ -1968,8 +1968,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-01",
-      "commit_distance": 29,
-      "commit_distance_since_first": 991,
+      "commit_distance": 33,
+      "commit_distance_since_first": 995,
       "age_bucket": "recent"
     },
     {
@@ -1978,8 +1978,8 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-06-01",
-      "commit_distance": 0,
-      "commit_distance_since_first": 980,
+      "commit_distance": 1,
+      "commit_distance_since_first": 984,
       "age_bucket": "fresh"
     },
     {
@@ -1988,8 +1988,8 @@
       "is_hub": false,
       "first_committed": "2026-04-30",
       "last_committed": "2026-04-30",
-      "commit_distance": 860,
-      "commit_distance_since_first": 860,
+      "commit_distance": 864,
+      "commit_distance_since_first": 864,
       "age_bucket": "stale"
     },
     {
@@ -1998,8 +1998,8 @@
       "is_hub": false,
       "first_committed": "2026-04-28",
       "last_committed": "2026-04-28",
-      "commit_distance": 948,
-      "commit_distance_since_first": 948,
+      "commit_distance": 952,
+      "commit_distance_since_first": 952,
       "age_bucket": "stale"
     },
     {
@@ -2008,8 +2008,8 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "commit_distance": 0,
-      "commit_distance_since_first": 6,
+      "commit_distance": 1,
+      "commit_distance_since_first": 10,
       "age_bucket": "fresh"
     },
     {
@@ -2018,8 +2018,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-05-11",
-      "commit_distance": 504,
-      "commit_distance_since_first": 995,
+      "commit_distance": 508,
+      "commit_distance_since_first": 999,
       "age_bucket": "stale"
     },
     {
@@ -2028,8 +2028,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-12",
-      "commit_distance": 485,
-      "commit_distance_since_first": 564,
+      "commit_distance": 489,
+      "commit_distance_since_first": 568,
       "age_bucket": "stale"
     },
     {
@@ -2038,8 +2038,8 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-05-31",
-      "commit_distance": 52,
-      "commit_distance_since_first": 68,
+      "commit_distance": 56,
+      "commit_distance_since_first": 72,
       "age_bucket": "recent"
     },
     {
@@ -2048,8 +2048,8 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-05-31",
-      "commit_distance": 51,
-      "commit_distance_since_first": 55,
+      "commit_distance": 55,
+      "commit_distance_since_first": 59,
       "age_bucket": "recent"
     },
     {
@@ -2058,8 +2058,8 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "commit_distance": 159,
-      "commit_distance_since_first": 180,
+      "commit_distance": 163,
+      "commit_distance_since_first": 184,
       "age_bucket": "aging"
     },
     {
@@ -2068,8 +2068,8 @@
       "is_hub": false,
       "first_committed": "2026-05-14",
       "last_committed": "2026-05-14",
-      "commit_distance": 392,
-      "commit_distance_since_first": 418,
+      "commit_distance": 396,
+      "commit_distance_since_first": 422,
       "age_bucket": "stale"
     },
     {
@@ -2078,8 +2078,8 @@
       "is_hub": false,
       "first_committed": "2026-05-14",
       "last_committed": "2026-05-14",
-      "commit_distance": 411,
-      "commit_distance_since_first": 413,
+      "commit_distance": 415,
+      "commit_distance_since_first": 417,
       "age_bucket": "stale"
     },
     {
@@ -2088,8 +2088,8 @@
       "is_hub": false,
       "first_committed": "2026-05-28",
       "last_committed": "2026-05-28",
-      "commit_distance": 154,
-      "commit_distance_since_first": 156,
+      "commit_distance": 158,
+      "commit_distance_since_first": 160,
       "age_bucket": "aging"
     },
     {
@@ -2098,8 +2098,8 @@
       "is_hub": false,
       "first_committed": "2026-05-28",
       "last_committed": "2026-05-28",
-      "commit_distance": 147,
-      "commit_distance_since_first": 156,
+      "commit_distance": 151,
+      "commit_distance_since_first": 160,
       "age_bucket": "aging"
     },
     {
@@ -2108,8 +2108,8 @@
       "is_hub": false,
       "first_committed": "2026-05-28",
       "last_committed": "2026-05-28",
-      "commit_distance": 154,
-      "commit_distance_since_first": 154,
+      "commit_distance": 158,
+      "commit_distance_since_first": 158,
       "age_bucket": "aging"
     },
     {
@@ -2118,8 +2118,8 @@
       "is_hub": false,
       "first_committed": "2026-05-28",
       "last_committed": "2026-05-28",
-      "commit_distance": 154,
-      "commit_distance_since_first": 156,
+      "commit_distance": 158,
+      "commit_distance_since_first": 160,
       "age_bucket": "aging"
     },
     {
@@ -2128,8 +2128,8 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-05-31",
-      "commit_distance": 47,
-      "commit_distance_since_first": 47,
+      "commit_distance": 51,
+      "commit_distance_since_first": 51,
       "age_bucket": "recent"
     },
     {
@@ -2138,8 +2138,8 @@
       "is_hub": false,
       "first_committed": "2026-05-29",
       "last_committed": "2026-06-01",
-      "commit_distance": 31,
-      "commit_distance_since_first": 127,
+      "commit_distance": 35,
+      "commit_distance_since_first": 131,
       "age_bucket": "recent"
     },
     {
@@ -2148,8 +2148,8 @@
       "is_hub": false,
       "first_committed": "2026-05-29",
       "last_committed": "2026-05-29",
-      "commit_distance": 126,
-      "commit_distance_since_first": 129,
+      "commit_distance": 130,
+      "commit_distance_since_first": 133,
       "age_bucket": "aging"
     },
     {
@@ -2158,8 +2158,8 @@
       "is_hub": false,
       "first_committed": "2026-05-30",
       "last_committed": "2026-05-30",
-      "commit_distance": 89,
-      "commit_distance_since_first": 89,
+      "commit_distance": 93,
+      "commit_distance_since_first": 93,
       "age_bucket": "aging"
     },
     {
@@ -2168,8 +2168,8 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "commit_distance": 29,
-      "commit_distance_since_first": 29,
+      "commit_distance": 33,
+      "commit_distance_since_first": 33,
       "age_bucket": "recent"
     },
     {
@@ -2178,8 +2178,8 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "commit_distance": 31,
-      "commit_distance_since_first": 31,
+      "commit_distance": 35,
+      "commit_distance_since_first": 35,
       "age_bucket": "recent"
     },
     {
@@ -2188,12 +2188,52 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "commit_distance": 30,
-      "commit_distance_since_first": 30,
+      "commit_distance": 34,
+      "commit_distance_since_first": 34,
       "age_bucket": "recent"
     },
     {
       "path": "docs/notes/opus-consult-2026-06-01-perf-capture-automation-design-space.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": "2026-06-01",
+      "last_committed": "2026-06-01",
+      "commit_distance": 22,
+      "commit_distance_since_first": 22,
+      "age_bucket": "recent"
+    },
+    {
+      "path": "docs/notes/opus-consults-2026-05-28-audit.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": "2026-05-28",
+      "last_committed": "2026-05-28",
+      "commit_distance": 153,
+      "commit_distance_since_first": 153,
+      "age_bucket": "aging"
+    },
+    {
+      "path": "docs/notes/per-board-multi-query-model-plan.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": "2026-05-16",
+      "last_committed": "2026-05-16",
+      "commit_distance": 355,
+      "commit_distance_since_first": 355,
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/notes/per-turn-analysis-extension-guide.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": "2026-05-28",
+      "last_committed": "2026-05-28",
+      "commit_distance": 143,
+      "commit_distance_since_first": 144,
+      "age_bucket": "aging"
+    },
+    {
+      "path": "docs/notes/perceptual-event-projection-plan.md",
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-06-01",
@@ -2203,53 +2243,13 @@
       "age_bucket": "fresh"
     },
     {
-      "path": "docs/notes/opus-consults-2026-05-28-audit.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-28",
-      "last_committed": "2026-05-28",
-      "commit_distance": 149,
-      "commit_distance_since_first": 149,
-      "age_bucket": "aging"
-    },
-    {
-      "path": "docs/notes/per-board-multi-query-model-plan.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-16",
-      "last_committed": "2026-05-16",
-      "commit_distance": 351,
-      "commit_distance_since_first": 351,
-      "age_bucket": "stale"
-    },
-    {
-      "path": "docs/notes/per-turn-analysis-extension-guide.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-28",
-      "last_committed": "2026-05-28",
-      "commit_distance": 139,
-      "commit_distance_since_first": 140,
-      "age_bucket": "aging"
-    },
-    {
-      "path": "docs/notes/perceptual-event-projection-plan.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-06-01",
-      "last_committed": "2026-06-01",
-      "commit_distance": 14,
-      "commit_distance_since_first": 14,
-      "age_bucket": "fresh"
-    },
-    {
       "path": "docs/notes/perf-audit-game-scroll-2026-05-28.md",
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-05-29",
       "last_committed": "2026-05-29",
-      "commit_distance": 135,
-      "commit_distance_since_first": 135,
+      "commit_distance": 139,
+      "commit_distance_since_first": 139,
       "age_bucket": "aging"
     },
     {
@@ -2258,8 +2258,8 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "commit_distance": 202,
-      "commit_distance_since_first": 202,
+      "commit_distance": 206,
+      "commit_distance_since_first": 206,
       "age_bucket": "aging"
     },
     {
@@ -2268,9 +2268,9 @@
       "is_hub": false,
       "first_committed": "2026-05-29",
       "last_committed": "2026-05-30",
-      "commit_distance": 80,
-      "commit_distance_since_first": 132,
-      "age_bucket": "recent"
+      "commit_distance": 84,
+      "commit_distance_since_first": 136,
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/perf-capture-normalization-protocol.md",
@@ -2278,8 +2278,8 @@
       "is_hub": false,
       "first_committed": "2026-05-29",
       "last_committed": "2026-05-30",
-      "commit_distance": 89,
-      "commit_distance_since_first": 99,
+      "commit_distance": 93,
+      "commit_distance_since_first": 103,
       "age_bucket": "aging"
     },
     {
@@ -2288,8 +2288,8 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-05-13",
-      "commit_distance": 458,
-      "commit_distance_since_first": 468,
+      "commit_distance": 462,
+      "commit_distance_since_first": 472,
       "age_bucket": "stale"
     },
     {
@@ -2298,8 +2298,8 @@
       "is_hub": false,
       "first_committed": "2026-05-14",
       "last_committed": "2026-05-15",
-      "commit_distance": 383,
-      "commit_distance_since_first": 400,
+      "commit_distance": 387,
+      "commit_distance_since_first": 404,
       "age_bucket": "stale"
     },
     {
@@ -2308,8 +2308,8 @@
       "is_hub": false,
       "first_committed": "2026-05-14",
       "last_committed": "2026-05-15",
-      "commit_distance": 383,
-      "commit_distance_since_first": 388,
+      "commit_distance": 387,
+      "commit_distance_since_first": 392,
       "age_bucket": "stale"
     },
     {
@@ -2318,8 +2318,8 @@
       "is_hub": false,
       "first_committed": "2026-05-15",
       "last_committed": "2026-05-15",
-      "commit_distance": 359,
-      "commit_distance_since_first": 359,
+      "commit_distance": 363,
+      "commit_distance_since_first": 363,
       "age_bucket": "stale"
     },
     {
@@ -2328,8 +2328,8 @@
       "is_hub": false,
       "first_committed": "2026-05-17",
       "last_committed": "2026-05-17",
-      "commit_distance": 335,
-      "commit_distance_since_first": 335,
+      "commit_distance": 339,
+      "commit_distance_since_first": 339,
       "age_bucket": "stale"
     },
     {
@@ -2338,8 +2338,8 @@
       "is_hub": false,
       "first_committed": "2026-05-29",
       "last_committed": "2026-05-31",
-      "commit_distance": 43,
-      "commit_distance_since_first": 130,
+      "commit_distance": 47,
+      "commit_distance_since_first": 134,
       "age_bucket": "recent"
     },
     {
@@ -2348,8 +2348,8 @@
       "is_hub": false,
       "first_committed": "2026-05-16",
       "last_committed": "2026-05-16",
-      "commit_distance": 347,
-      "commit_distance_since_first": 347,
+      "commit_distance": 351,
+      "commit_distance_since_first": 351,
       "age_bucket": "stale"
     },
     {
@@ -2358,8 +2358,8 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-05-12",
-      "commit_distance": 466,
-      "commit_distance_since_first": 466,
+      "commit_distance": 470,
+      "commit_distance_since_first": 470,
       "age_bucket": "stale"
     },
     {
@@ -2368,8 +2368,8 @@
       "is_hub": false,
       "first_committed": "2026-05-07",
       "last_committed": "2026-05-14",
-      "commit_distance": 418,
-      "commit_distance_since_first": 573,
+      "commit_distance": 422,
+      "commit_distance_since_first": 577,
       "age_bucket": "stale"
     },
     {
@@ -2378,8 +2378,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-05-12",
-      "commit_distance": 473,
-      "commit_distance_since_first": 995,
+      "commit_distance": 477,
+      "commit_distance_since_first": 999,
       "age_bucket": "stale"
     },
     {
@@ -2388,8 +2388,8 @@
       "is_hub": false,
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-12",
-      "commit_distance": 485,
-      "commit_distance_since_first": 557,
+      "commit_distance": 489,
+      "commit_distance_since_first": 561,
       "age_bucket": "stale"
     },
     {
@@ -2398,8 +2398,8 @@
       "is_hub": false,
       "first_committed": "2026-05-22",
       "last_committed": "2026-05-22",
-      "commit_distance": 256,
-      "commit_distance_since_first": 305,
+      "commit_distance": 260,
+      "commit_distance_since_first": 309,
       "age_bucket": "stale"
     },
     {
@@ -2408,8 +2408,8 @@
       "is_hub": false,
       "first_committed": "2026-05-22",
       "last_committed": "2026-05-22",
-      "commit_distance": 256,
-      "commit_distance_since_first": 301,
+      "commit_distance": 260,
+      "commit_distance_since_first": 305,
       "age_bucket": "stale"
     },
     {
@@ -2418,8 +2418,8 @@
       "is_hub": false,
       "first_committed": "2026-05-17",
       "last_committed": "2026-05-25",
-      "commit_distance": 224,
-      "commit_distance_since_first": 331,
+      "commit_distance": 228,
+      "commit_distance_since_first": 335,
       "age_bucket": "aging"
     },
     {
@@ -2428,8 +2428,8 @@
       "is_hub": false,
       "first_committed": "2026-05-18",
       "last_committed": "2026-05-18",
-      "commit_distance": 319,
-      "commit_distance_since_first": 321,
+      "commit_distance": 323,
+      "commit_distance_since_first": 325,
       "age_bucket": "stale"
     },
     {
@@ -2438,8 +2438,8 @@
       "is_hub": false,
       "first_committed": "2026-05-18",
       "last_committed": "2026-05-18",
-      "commit_distance": 316,
-      "commit_distance_since_first": 317,
+      "commit_distance": 320,
+      "commit_distance_since_first": 321,
       "age_bucket": "stale"
     },
     {
@@ -2448,8 +2448,8 @@
       "is_hub": false,
       "first_committed": "2026-05-09",
       "last_committed": "2026-05-09",
-      "commit_distance": 543,
-      "commit_distance_since_first": 543,
+      "commit_distance": 547,
+      "commit_distance_since_first": 547,
       "age_bucket": "stale"
     },
     {
@@ -2458,8 +2458,8 @@
       "is_hub": false,
       "first_committed": "2026-05-18",
       "last_committed": "2026-05-18",
-      "commit_distance": 316,
-      "commit_distance_since_first": 316,
+      "commit_distance": 320,
+      "commit_distance_since_first": 320,
       "age_bucket": "stale"
     },
     {
@@ -2468,8 +2468,8 @@
       "is_hub": false,
       "first_committed": "2026-05-24",
       "last_committed": "2026-05-24",
-      "commit_distance": 243,
-      "commit_distance_since_first": 253,
+      "commit_distance": 247,
+      "commit_distance_since_first": 257,
       "age_bucket": "aging"
     },
     {
@@ -2478,8 +2478,8 @@
       "is_hub": false,
       "first_committed": "2026-05-28",
       "last_committed": "2026-05-28",
-      "commit_distance": 145,
-      "commit_distance_since_first": 156,
+      "commit_distance": 149,
+      "commit_distance_since_first": 160,
       "age_bucket": "aging"
     },
     {
@@ -2488,8 +2488,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-04-29",
-      "commit_distance": 885,
-      "commit_distance_since_first": 995,
+      "commit_distance": 889,
+      "commit_distance_since_first": 999,
       "age_bucket": "stale"
     },
     {
@@ -2498,8 +2498,8 @@
       "is_hub": false,
       "first_committed": "2026-05-07",
       "last_committed": "2026-05-12",
-      "commit_distance": 485,
-      "commit_distance_since_first": 582,
+      "commit_distance": 489,
+      "commit_distance_since_first": 586,
       "age_bucket": "stale"
     },
     {
@@ -2508,8 +2508,8 @@
       "is_hub": false,
       "first_committed": "2026-05-29",
       "last_committed": "2026-05-29",
-      "commit_distance": 105,
-      "commit_distance_since_first": 124,
+      "commit_distance": 109,
+      "commit_distance_since_first": 128,
       "age_bucket": "aging"
     },
     {
@@ -2518,8 +2518,8 @@
       "is_hub": false,
       "first_committed": "2026-04-28",
       "last_committed": "2026-05-12",
-      "commit_distance": 485,
-      "commit_distance_since_first": 920,
+      "commit_distance": 489,
+      "commit_distance_since_first": 924,
       "age_bucket": "stale"
     },
     {
@@ -2528,8 +2528,8 @@
       "is_hub": false,
       "first_committed": "2026-04-28",
       "last_committed": "2026-05-12",
-      "commit_distance": 485,
-      "commit_distance_since_first": 920,
+      "commit_distance": 489,
+      "commit_distance_since_first": 924,
       "age_bucket": "stale"
     },
     {
@@ -2538,8 +2538,8 @@
       "is_hub": false,
       "first_committed": "2026-04-28",
       "last_committed": "2026-05-08",
-      "commit_distance": 547,
-      "commit_distance_since_first": 920,
+      "commit_distance": 551,
+      "commit_distance_since_first": 924,
       "age_bucket": "stale"
     },
     {
@@ -2548,8 +2548,8 @@
       "is_hub": false,
       "first_committed": "2026-05-04",
       "last_committed": "2026-05-09",
-      "commit_distance": 537,
-      "commit_distance_since_first": 725,
+      "commit_distance": 541,
+      "commit_distance_since_first": 729,
       "age_bucket": "stale"
     },
     {
@@ -2558,8 +2558,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-04-26",
-      "commit_distance": 992,
-      "commit_distance_since_first": 993,
+      "commit_distance": 996,
+      "commit_distance_since_first": 997,
       "age_bucket": "stale"
     },
     {
@@ -2568,8 +2568,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-04-26",
-      "commit_distance": 992,
-      "commit_distance_since_first": 995,
+      "commit_distance": 996,
+      "commit_distance_since_first": 999,
       "age_bucket": "stale"
     },
     {
@@ -2578,8 +2578,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-04-29",
-      "commit_distance": 892,
-      "commit_distance_since_first": 995,
+      "commit_distance": 896,
+      "commit_distance_since_first": 999,
       "age_bucket": "stale"
     },
     {
@@ -2588,8 +2588,8 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-04-27",
-      "commit_distance": 958,
-      "commit_distance_since_first": 973,
+      "commit_distance": 962,
+      "commit_distance_since_first": 977,
       "age_bucket": "stale"
     },
     {
@@ -2598,8 +2598,8 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-04-27",
-      "commit_distance": 973,
-      "commit_distance_since_first": 973,
+      "commit_distance": 977,
+      "commit_distance_since_first": 977,
       "age_bucket": "stale"
     },
     {
@@ -2608,8 +2608,8 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-05-24",
-      "commit_distance": 251,
-      "commit_distance_since_first": 462,
+      "commit_distance": 255,
+      "commit_distance_since_first": 466,
       "age_bucket": "stale"
     },
     {
@@ -2618,8 +2618,8 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-05-12",
-      "commit_distance": 486,
-      "commit_distance_since_first": 488,
+      "commit_distance": 490,
+      "commit_distance_since_first": 492,
       "age_bucket": "stale"
     },
     {
@@ -2628,8 +2628,8 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-05-12",
-      "commit_distance": 473,
-      "commit_distance_since_first": 473,
+      "commit_distance": 477,
+      "commit_distance_since_first": 477,
       "age_bucket": "stale"
     },
     {
@@ -2638,8 +2638,8 @@
       "is_hub": false,
       "first_committed": "2026-05-14",
       "last_committed": "2026-05-14",
-      "commit_distance": 392,
-      "commit_distance_since_first": 392,
+      "commit_distance": 396,
+      "commit_distance_since_first": 396,
       "age_bucket": "stale"
     },
     {
@@ -2648,8 +2648,8 @@
       "is_hub": false,
       "first_committed": "2026-05-14",
       "last_committed": "2026-05-15",
-      "commit_distance": 383,
-      "commit_distance_since_first": 385,
+      "commit_distance": 387,
+      "commit_distance_since_first": 389,
       "age_bucket": "stale"
     },
     {
@@ -2658,8 +2658,8 @@
       "is_hub": false,
       "first_committed": "2026-05-14",
       "last_committed": "2026-05-14",
-      "commit_distance": 387,
-      "commit_distance_since_first": 388,
+      "commit_distance": 391,
+      "commit_distance_since_first": 392,
       "age_bucket": "stale"
     },
     {
@@ -2668,8 +2668,8 @@
       "is_hub": false,
       "first_committed": "2026-05-15",
       "last_committed": "2026-05-15",
-      "commit_distance": 381,
-      "commit_distance_since_first": 381,
+      "commit_distance": 385,
+      "commit_distance_since_first": 385,
       "age_bucket": "stale"
     },
     {
@@ -2678,8 +2678,8 @@
       "is_hub": false,
       "first_committed": "2026-05-15",
       "last_committed": "2026-05-15",
-      "commit_distance": 373,
-      "commit_distance_since_first": 373,
+      "commit_distance": 377,
+      "commit_distance_since_first": 377,
       "age_bucket": "stale"
     },
     {
@@ -2688,8 +2688,8 @@
       "is_hub": false,
       "first_committed": "2026-05-15",
       "last_committed": "2026-05-15",
-      "commit_distance": 373,
-      "commit_distance_since_first": 373,
+      "commit_distance": 377,
+      "commit_distance_since_first": 377,
       "age_bucket": "stale"
     },
     {
@@ -2698,8 +2698,8 @@
       "is_hub": false,
       "first_committed": "2026-05-15",
       "last_committed": "2026-05-15",
-      "commit_distance": 381,
-      "commit_distance_since_first": 381,
+      "commit_distance": 385,
+      "commit_distance_since_first": 385,
       "age_bucket": "stale"
     },
     {
@@ -2708,8 +2708,8 @@
       "is_hub": false,
       "first_committed": "2026-05-15",
       "last_committed": "2026-05-15",
-      "commit_distance": 359,
-      "commit_distance_since_first": 359,
+      "commit_distance": 363,
+      "commit_distance_since_first": 363,
       "age_bucket": "stale"
     },
     {
@@ -2718,8 +2718,8 @@
       "is_hub": false,
       "first_committed": "2026-05-15",
       "last_committed": "2026-05-15",
-      "commit_distance": 371,
-      "commit_distance_since_first": 371,
+      "commit_distance": 375,
+      "commit_distance_since_first": 375,
       "age_bucket": "stale"
     },
     {
@@ -2728,8 +2728,8 @@
       "is_hub": false,
       "first_committed": "2026-05-16",
       "last_committed": "2026-05-16",
-      "commit_distance": 349,
-      "commit_distance_since_first": 349,
+      "commit_distance": 353,
+      "commit_distance_since_first": 353,
       "age_bucket": "stale"
     },
     {
@@ -2738,8 +2738,8 @@
       "is_hub": false,
       "first_committed": "2026-05-16",
       "last_committed": "2026-05-16",
-      "commit_distance": 351,
-      "commit_distance_since_first": 351,
+      "commit_distance": 355,
+      "commit_distance_since_first": 355,
       "age_bucket": "stale"
     },
     {
@@ -2748,12 +2748,32 @@
       "is_hub": false,
       "first_committed": "2026-05-16",
       "last_committed": "2026-05-16",
-      "commit_distance": 344,
-      "commit_distance_since_first": 347,
+      "commit_distance": 348,
+      "commit_distance_since_first": 351,
       "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-17-card-forest-navigation-persistence.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-05-17",
+      "last_committed": "2026-05-17",
+      "commit_distance": 343,
+      "commit_distance_since_first": 343,
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/worklog/2026-05-17-katago-f-optimizer.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-05-17",
+      "last_committed": "2026-05-17",
+      "commit_distance": 335,
+      "commit_distance_since_first": 335,
+      "age_bucket": "stale"
+    },
+    {
+      "path": "docs/worklog/2026-05-17-pbo-claim-rehydration-fix.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": "2026-05-17",
@@ -2763,33 +2783,13 @@
       "age_bucket": "stale"
     },
     {
-      "path": "docs/worklog/2026-05-17-katago-f-optimizer.md",
-      "genre": "worklog",
-      "is_hub": false,
-      "first_committed": "2026-05-17",
-      "last_committed": "2026-05-17",
-      "commit_distance": 331,
-      "commit_distance_since_first": 331,
-      "age_bucket": "stale"
-    },
-    {
-      "path": "docs/worklog/2026-05-17-pbo-claim-rehydration-fix.md",
-      "genre": "worklog",
-      "is_hub": false,
-      "first_committed": "2026-05-17",
-      "last_committed": "2026-05-17",
-      "commit_distance": 335,
-      "commit_distance_since_first": 335,
-      "age_bucket": "stale"
-    },
-    {
       "path": "docs/worklog/2026-05-17-pbo-popover-and-rename.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": "2026-05-17",
       "last_committed": "2026-05-17",
-      "commit_distance": 337,
-      "commit_distance_since_first": 337,
+      "commit_distance": 341,
+      "commit_distance_since_first": 341,
       "age_bucket": "stale"
     },
     {
@@ -2798,8 +2798,8 @@
       "is_hub": false,
       "first_committed": "2026-05-22",
       "last_committed": "2026-05-22",
-      "commit_distance": 256,
-      "commit_distance_since_first": 256,
+      "commit_distance": 260,
+      "commit_distance_since_first": 260,
       "age_bucket": "stale"
     },
     {
@@ -2808,8 +2808,8 @@
       "is_hub": false,
       "first_committed": "2026-05-25",
       "last_committed": "2026-05-25",
-      "commit_distance": 224,
-      "commit_distance_since_first": 224,
+      "commit_distance": 228,
+      "commit_distance_since_first": 228,
       "age_bucket": "aging"
     },
     {
@@ -2818,8 +2818,8 @@
       "is_hub": false,
       "first_committed": "2026-05-26",
       "last_committed": "2026-05-26",
-      "commit_distance": 204,
-      "commit_distance_since_first": 204,
+      "commit_distance": 208,
+      "commit_distance_since_first": 208,
       "age_bucket": "aging"
     },
     {
@@ -2828,8 +2828,8 @@
       "is_hub": false,
       "first_committed": "2026-05-26",
       "last_committed": "2026-05-26",
-      "commit_distance": 204,
-      "commit_distance_since_first": 204,
+      "commit_distance": 208,
+      "commit_distance_since_first": 208,
       "age_bucket": "aging"
     },
     {
@@ -2838,8 +2838,8 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "commit_distance": 176,
-      "commit_distance_since_first": 176,
+      "commit_distance": 180,
+      "commit_distance_since_first": 180,
       "age_bucket": "aging"
     },
     {
@@ -2848,8 +2848,8 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "commit_distance": 174,
-      "commit_distance_since_first": 174,
+      "commit_distance": 178,
+      "commit_distance_since_first": 178,
       "age_bucket": "aging"
     },
     {
@@ -2858,8 +2858,8 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "commit_distance": 173,
-      "commit_distance_since_first": 173,
+      "commit_distance": 177,
+      "commit_distance_since_first": 177,
       "age_bucket": "aging"
     },
     {
@@ -2868,8 +2868,8 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "commit_distance": 158,
-      "commit_distance_since_first": 158,
+      "commit_distance": 162,
+      "commit_distance_since_first": 162,
       "age_bucket": "aging"
     },
     {
@@ -2878,8 +2878,8 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "commit_distance": 190,
-      "commit_distance_since_first": 190,
+      "commit_distance": 194,
+      "commit_distance_since_first": 194,
       "age_bucket": "aging"
     },
     {
@@ -2888,8 +2888,8 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "commit_distance": 191,
-      "commit_distance_since_first": 191,
+      "commit_distance": 195,
+      "commit_distance_since_first": 195,
       "age_bucket": "aging"
     },
     {
@@ -2898,8 +2898,8 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "commit_distance": 201,
-      "commit_distance_since_first": 201,
+      "commit_distance": 205,
+      "commit_distance_since_first": 205,
       "age_bucket": "aging"
     },
     {
@@ -2908,8 +2908,8 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "commit_distance": 202,
-      "commit_distance_since_first": 202,
+      "commit_distance": 206,
+      "commit_distance_since_first": 206,
       "age_bucket": "aging"
     },
     {
@@ -2918,8 +2918,8 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "commit_distance": 202,
-      "commit_distance_since_first": 202,
+      "commit_distance": 206,
+      "commit_distance_since_first": 206,
       "age_bucket": "aging"
     },
     {
@@ -2928,8 +2928,8 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "commit_distance": 202,
-      "commit_distance_since_first": 202,
+      "commit_distance": 206,
+      "commit_distance_since_first": 206,
       "age_bucket": "aging"
     },
     {
@@ -2938,8 +2938,8 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "commit_distance": 184,
-      "commit_distance_since_first": 185,
+      "commit_distance": 188,
+      "commit_distance_since_first": 189,
       "age_bucket": "aging"
     },
     {
@@ -2948,8 +2948,8 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "commit_distance": 191,
-      "commit_distance_since_first": 191,
+      "commit_distance": 195,
+      "commit_distance_since_first": 195,
       "age_bucket": "aging"
     },
     {
@@ -2958,8 +2958,8 @@
       "is_hub": false,
       "first_committed": "2026-05-29",
       "last_committed": "2026-05-29",
-      "commit_distance": 99,
-      "commit_distance_since_first": 99,
+      "commit_distance": 103,
+      "commit_distance_since_first": 103,
       "age_bucket": "aging"
     },
     {
@@ -2968,8 +2968,8 @@
       "is_hub": false,
       "first_committed": "2026-05-29",
       "last_committed": "2026-05-29",
-      "commit_distance": 119,
-      "commit_distance_since_first": 119,
+      "commit_distance": 123,
+      "commit_distance_since_first": 123,
       "age_bucket": "aging"
     },
     {
@@ -2978,8 +2978,8 @@
       "is_hub": false,
       "first_committed": "2026-05-29",
       "last_committed": "2026-05-29",
-      "commit_distance": 135,
-      "commit_distance_since_first": 135,
+      "commit_distance": 139,
+      "commit_distance_since_first": 139,
       "age_bucket": "aging"
     },
     {
@@ -2988,8 +2988,8 @@
       "is_hub": false,
       "first_committed": "2026-05-29",
       "last_committed": "2026-05-29",
-      "commit_distance": 134,
-      "commit_distance_since_first": 134,
+      "commit_distance": 138,
+      "commit_distance_since_first": 138,
       "age_bucket": "aging"
     },
     {
@@ -2998,8 +2998,8 @@
       "is_hub": false,
       "first_committed": "2026-05-29",
       "last_committed": "2026-05-29",
-      "commit_distance": 132,
-      "commit_distance_since_first": 132,
+      "commit_distance": 136,
+      "commit_distance_since_first": 136,
       "age_bucket": "aging"
     },
     {
@@ -3008,8 +3008,8 @@
       "is_hub": false,
       "first_committed": "2026-05-29",
       "last_committed": "2026-05-29",
-      "commit_distance": 99,
-      "commit_distance_since_first": 99,
+      "commit_distance": 103,
+      "commit_distance_since_first": 103,
       "age_bucket": "aging"
     },
     {
@@ -3018,8 +3018,8 @@
       "is_hub": false,
       "first_committed": "2026-05-29",
       "last_committed": "2026-05-29",
-      "commit_distance": 122,
-      "commit_distance_since_first": 123,
+      "commit_distance": 126,
+      "commit_distance_since_first": 127,
       "age_bucket": "aging"
     },
     {
@@ -3028,8 +3028,8 @@
       "is_hub": false,
       "first_committed": "2026-05-29",
       "last_committed": "2026-05-29",
-      "commit_distance": 116,
-      "commit_distance_since_first": 116,
+      "commit_distance": 120,
+      "commit_distance_since_first": 120,
       "age_bucket": "aging"
     },
     {
@@ -3038,8 +3038,8 @@
       "is_hub": false,
       "first_committed": "2026-05-29",
       "last_committed": "2026-05-29",
-      "commit_distance": 110,
-      "commit_distance_since_first": 110,
+      "commit_distance": 114,
+      "commit_distance_since_first": 114,
       "age_bucket": "aging"
     },
     {
@@ -3048,8 +3048,8 @@
       "is_hub": false,
       "first_committed": "2026-05-30",
       "last_committed": "2026-05-30",
-      "commit_distance": 89,
-      "commit_distance_since_first": 89,
+      "commit_distance": 93,
+      "commit_distance_since_first": 93,
       "age_bucket": "aging"
     },
     {
@@ -3058,22 +3058,12 @@
       "is_hub": false,
       "first_committed": "2026-05-30",
       "last_committed": "2026-05-30",
-      "commit_distance": 83,
-      "commit_distance_since_first": 83,
+      "commit_distance": 87,
+      "commit_distance_since_first": 87,
       "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-05-30-perf-analysis-timeline-throttle.md",
-      "genre": "worklog",
-      "is_hub": false,
-      "first_committed": "2026-05-30",
-      "last_committed": "2026-05-30",
-      "commit_distance": 75,
-      "commit_distance_since_first": 75,
-      "age_bucket": "recent"
-    },
-    {
-      "path": "docs/worklog/2026-05-30-perf-autosave-trailing-debounce.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": "2026-05-30",
@@ -3083,37 +3073,7 @@
       "age_bucket": "recent"
     },
     {
-      "path": "docs/worklog/2026-05-30-perf-basechart-redraw-throttle.md",
-      "genre": "worklog",
-      "is_hub": false,
-      "first_committed": "2026-05-30",
-      "last_committed": "2026-05-30",
-      "commit_distance": 80,
-      "commit_distance_since_first": 80,
-      "age_bucket": "recent"
-    },
-    {
-      "path": "docs/worklog/2026-05-30-perf-boarddisplay-memo.md",
-      "genre": "worklog",
-      "is_hub": false,
-      "first_committed": "2026-05-30",
-      "last_committed": "2026-05-30",
-      "commit_distance": 72,
-      "commit_distance_since_first": 72,
-      "age_bucket": "recent"
-    },
-    {
-      "path": "docs/worklog/2026-05-30-perf-boardtab-rugplot-throttle.md",
-      "genre": "worklog",
-      "is_hub": false,
-      "first_committed": "2026-05-30",
-      "last_committed": "2026-05-30",
-      "commit_distance": 81,
-      "commit_distance_since_first": 81,
-      "age_bucket": "aging"
-    },
-    {
-      "path": "docs/worklog/2026-05-30-perf-chart-accessor-decoupling.md",
+      "path": "docs/worklog/2026-05-30-perf-autosave-trailing-debounce.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": "2026-05-30",
@@ -3123,7 +3083,7 @@
       "age_bucket": "aging"
     },
     {
-      "path": "docs/worklog/2026-05-30-perf-queue-tooltip-throttle.md",
+      "path": "docs/worklog/2026-05-30-perf-basechart-redraw-throttle.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": "2026-05-30",
@@ -3133,27 +3093,7 @@
       "age_bucket": "aging"
     },
     {
-      "path": "docs/worklog/2026-05-30-perf-toolbar-metrics-extraction.md",
-      "genre": "worklog",
-      "is_hub": false,
-      "first_committed": "2026-05-30",
-      "last_committed": "2026-05-30",
-      "commit_distance": 82,
-      "commit_distance_since_first": 83,
-      "age_bucket": "aging"
-    },
-    {
-      "path": "docs/worklog/2026-05-30-perf-toolbar-metrics-throttle.md",
-      "genre": "worklog",
-      "is_hub": false,
-      "first_committed": "2026-05-30",
-      "last_committed": "2026-05-30",
-      "commit_distance": 82,
-      "commit_distance_since_first": 82,
-      "age_bucket": "aging"
-    },
-    {
-      "path": "docs/worklog/2026-05-30-perf-treewidget-nav-cost.md",
+      "path": "docs/worklog/2026-05-30-perf-boarddisplay-memo.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": "2026-05-30",
@@ -3163,13 +3103,73 @@
       "age_bucket": "recent"
     },
     {
+      "path": "docs/worklog/2026-05-30-perf-boardtab-rugplot-throttle.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-05-30",
+      "last_committed": "2026-05-30",
+      "commit_distance": 85,
+      "commit_distance_since_first": 85,
+      "age_bucket": "aging"
+    },
+    {
+      "path": "docs/worklog/2026-05-30-perf-chart-accessor-decoupling.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-05-30",
+      "last_committed": "2026-05-30",
+      "commit_distance": 87,
+      "commit_distance_since_first": 87,
+      "age_bucket": "aging"
+    },
+    {
+      "path": "docs/worklog/2026-05-30-perf-queue-tooltip-throttle.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-05-30",
+      "last_committed": "2026-05-30",
+      "commit_distance": 88,
+      "commit_distance_since_first": 88,
+      "age_bucket": "aging"
+    },
+    {
+      "path": "docs/worklog/2026-05-30-perf-toolbar-metrics-extraction.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-05-30",
+      "last_committed": "2026-05-30",
+      "commit_distance": 86,
+      "commit_distance_since_first": 87,
+      "age_bucket": "aging"
+    },
+    {
+      "path": "docs/worklog/2026-05-30-perf-toolbar-metrics-throttle.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-05-30",
+      "last_committed": "2026-05-30",
+      "commit_distance": 86,
+      "commit_distance_since_first": 86,
+      "age_bucket": "aging"
+    },
+    {
+      "path": "docs/worklog/2026-05-30-perf-treewidget-nav-cost.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-05-30",
+      "last_committed": "2026-05-30",
+      "commit_distance": 80,
+      "commit_distance_since_first": 80,
+      "age_bucket": "recent"
+    },
+    {
       "path": "docs/worklog/2026-05-30-refactor-shared-throttle-mechanism.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": "2026-05-30",
       "last_committed": "2026-05-30",
-      "commit_distance": 74,
-      "commit_distance_since_first": 74,
+      "commit_distance": 78,
+      "commit_distance_since_first": 78,
       "age_bucket": "recent"
     },
     {
@@ -3178,8 +3178,8 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-05-31",
-      "commit_distance": 70,
-      "commit_distance_since_first": 70,
+      "commit_distance": 74,
+      "commit_distance_since_first": 74,
       "age_bucket": "recent"
     },
     {
@@ -3188,8 +3188,8 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-05-31",
-      "commit_distance": 70,
-      "commit_distance_since_first": 70,
+      "commit_distance": 74,
+      "commit_distance_since_first": 74,
       "age_bucket": "recent"
     },
     {
@@ -3198,8 +3198,8 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-05-31",
-      "commit_distance": 69,
-      "commit_distance_since_first": 69,
+      "commit_distance": 73,
+      "commit_distance_since_first": 73,
       "age_bucket": "recent"
     },
     {
@@ -3208,8 +3208,8 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-05-31",
-      "commit_distance": 70,
-      "commit_distance_since_first": 70,
+      "commit_distance": 74,
+      "commit_distance_since_first": 74,
       "age_bucket": "recent"
     },
     {
@@ -3218,8 +3218,8 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-05-31",
-      "commit_distance": 70,
-      "commit_distance_since_first": 70,
+      "commit_distance": 74,
+      "commit_distance_since_first": 74,
       "age_bucket": "recent"
     },
     {
@@ -3228,8 +3228,8 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "commit_distance": 5,
-      "commit_distance_since_first": 5,
+      "commit_distance": 9,
+      "commit_distance_since_first": 9,
       "age_bucket": "fresh"
     },
     {
@@ -3238,8 +3238,8 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "commit_distance": 8,
-      "commit_distance_since_first": 8,
+      "commit_distance": 12,
+      "commit_distance_since_first": 12,
       "age_bucket": "fresh"
     },
     {
@@ -3248,8 +3248,18 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "commit_distance": 0,
-      "commit_distance_since_first": 0,
+      "commit_distance": 1,
+      "commit_distance_since_first": 1,
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-01-drop-jquery.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-01",
+      "last_committed": "2026-06-01",
+      "commit_distance": 3,
+      "commit_distance_since_first": 4,
       "age_bucket": "fresh"
     },
     {
@@ -3258,8 +3268,8 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "commit_distance": 6,
-      "commit_distance_since_first": 6,
+      "commit_distance": 10,
+      "commit_distance_since_first": 10,
       "age_bucket": "fresh"
     },
     {
@@ -3268,8 +3278,8 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "commit_distance": 10,
-      "commit_distance_since_first": 12,
+      "commit_distance": 14,
+      "commit_distance_since_first": 16,
       "age_bucket": "fresh"
     },
     {
@@ -3278,8 +3288,8 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "commit_distance": 14,
-      "commit_distance_since_first": 14,
+      "commit_distance": 18,
+      "commit_distance_since_first": 18,
       "age_bucket": "fresh"
     },
     {
@@ -3288,8 +3298,8 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-06-01",
-      "commit_distance": 8,
-      "commit_distance_since_first": 980,
+      "commit_distance": 12,
+      "commit_distance_since_first": 984,
       "age_bucket": "fresh"
     },
     {
@@ -3298,8 +3308,8 @@
       "is_hub": false,
       "first_committed": "2026-05-11",
       "last_committed": "2026-06-01",
-      "commit_distance": 8,
-      "commit_distance_since_first": 494,
+      "commit_distance": 12,
+      "commit_distance_since_first": 498,
       "age_bucket": "fresh"
     },
     {
@@ -3308,8 +3318,8 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-05-31",
-      "commit_distance": 38,
-      "commit_distance_since_first": 38,
+      "commit_distance": 42,
+      "commit_distance_since_first": 42,
       "age_bucket": "recent"
     },
     {
@@ -3318,8 +3328,8 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-05-27",
-      "commit_distance": 166,
-      "commit_distance_since_first": 995,
+      "commit_distance": 170,
+      "commit_distance_since_first": 999,
       "age_bucket": "aging"
     }
   ],
@@ -14558,6 +14568,13 @@
       "kind": "path-mention",
       "site": "`backend/routers/REFERENCE.md`",
       "resolved": "dangling"
+    },
+    {
+      "from": "docs/worklog/2026-06-01-drop-jquery.md",
+      "to": "docs/worklog/2026-06-01-memory-profiling-session.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-06-01-memory-profiling-session.md`",
+      "resolved": "resolved"
     },
     {
       "from": "docs/worklog/2026-06-01-memory-profiling-session.md",

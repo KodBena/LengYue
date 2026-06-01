@@ -588,7 +588,10 @@ function renderSvg(dotSource) {
     // produced one (log the warning); fail loud only when there is genuinely
     // no picture (ADR-0002: fail on a real failure, not on a warning that
     // still drew the graph). Seen in CI with the apt `dot`; the local WASM
-    // shim the artifact was first verified against does not raise it.
+    // shim the artifact was first verified against does not raise it. NB this
+    // is a STOPGAP — the underlying dot orth/curve spline-routing layout
+    // failure (one edge routed degenerately) is tracked for investigation in
+    // docs/notes/deferred-items.md; it is not "just a warning to ignore."
     const svg = typeof err?.stdout === "string" ? err.stdout : "";
     if (svg.includes("</svg>")) {
       if (err?.stderr) {

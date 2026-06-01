@@ -18,11 +18,11 @@ of truth and the picture is a projection of it.
 
 ## At a glance
 
-- **Nodes:** 330 documents.
-- **Edges:** 1663 cross-references
-  (1417 resolved, 246 dangling, 0 ambiguous).
-- **Generated at HEAD:** `bba42ff5d64d`
-  (997 commits deep).
+- **Nodes:** 331 documents.
+- **Edges:** 1664 cross-references
+  (1418 resolved, 246 dangling, 0 ambiguous).
+- **Generated at HEAD:** `7f036822aaa3`
+  (1001 commits deep).
 
 ## Staleness heatmap (buckets)
 
@@ -36,36 +36,36 @@ not rot.
 
 | Document | Bucket | Commits behind HEAD (last touch) | Since first commit |
 |---|---|---|---|
-| `backend/docs/tree-dsl.md` | stale | 995 | 995 |
-| `docs/adr/0001-state-mutation-and-readonly.md` | stale | 995 | 995 |
-| `docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md` | stale | 995 | 995 |
-| `docs/archive/34b-complete-status.md` | stale | 995 | 995 |
-| `docs/archive/34b-frontend-brief.md` | stale | 995 | 995 |
-| `docs/archive/34b-parallel-frontend-work.md` | stale | 995 | 995 |
-| `docs/archive/handoff-2026-04-frontend-pre-umbrella.md` | stale | 995 | 995 |
-| `docs/adr/0003-frontend-portability-and-domain-boundaries.md` | stale | 993 | 995 |
-| `docs/playbooks/monorepo/editorial-cleanup-plan.md` | stale | 992 | 993 |
-| `docs/playbooks/monorepo/monorepo-plan-framing.md` | stale | 992 | 995 |
-| `docs/adr/0006-source-file-headers.md` | stale | 991 | 991 |
-| `docs/notes/audit-reflections.md` | stale | 991 | 991 |
-| `docs/adr/0007-file-size-and-information-density.md` | stale | 985 | 985 |
-| `docs/rfcs/README.md` | stale | 973 | 973 |
-| `docs/rfcs/0001-adr-meta-review.md` | stale | 958 | 973 |
-| `docs/notes/doc-graph-discipline-plan.md` | stale | 948 | 948 |
-| `backend/docs/redis-local-resource.md` | stale | 914 | 916 |
-| `docs/playbooks/monorepo/monorepo-plan.md` | stale | 892 | 995 |
-| `docs/notes/tenancy.md` | stale | 885 | 995 |
-| `docs/archive/release-scope-2026-04.md` | stale | 860 | 860 |
-| `docs/notes/distribution-packaging.md` | stale | 860 | 860 |
-| `docs/notes/auditor-notes.md` | stale | 770 | 975 |
-| `docs/dispatch/proxy-to-proxy-id-translation-near-miss.md` | stale | 735 | 735 |
-| `docs/dispatch/proxy-to-proxy-post-v1.0.13-followups.md` | stale | 641 | 641 |
-| `docs/archive/TODO-completed-2026-05-06.md` | stale | 640 | 640 |
-| `docs/adr/0005-documentation-discipline.md` | stale | 571 | 991 |
-| `docs/archive/dispatch/backend-to-frontend-analysis-persistence-status.md` | stale | 548 | 548 |
-| `docs/archive/dispatch/backend-to-frontend-auth-me-status.md` | stale | 548 | 548 |
-| `docs/archive/dispatch/backend-to-frontend-card-tree-status.md` | stale | 548 | 548 |
-| `docs/archive/dispatch/backend-to-frontend-game-source-dedup-status.md` | stale | 548 | 548 |
+| `backend/docs/tree-dsl.md` | stale | 999 | 999 |
+| `docs/adr/0001-state-mutation-and-readonly.md` | stale | 999 | 999 |
+| `docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md` | stale | 999 | 999 |
+| `docs/archive/34b-complete-status.md` | stale | 999 | 999 |
+| `docs/archive/34b-frontend-brief.md` | stale | 999 | 999 |
+| `docs/archive/34b-parallel-frontend-work.md` | stale | 999 | 999 |
+| `docs/archive/handoff-2026-04-frontend-pre-umbrella.md` | stale | 999 | 999 |
+| `docs/adr/0003-frontend-portability-and-domain-boundaries.md` | stale | 997 | 999 |
+| `docs/playbooks/monorepo/editorial-cleanup-plan.md` | stale | 996 | 997 |
+| `docs/playbooks/monorepo/monorepo-plan-framing.md` | stale | 996 | 999 |
+| `docs/adr/0006-source-file-headers.md` | stale | 995 | 995 |
+| `docs/notes/audit-reflections.md` | stale | 995 | 995 |
+| `docs/adr/0007-file-size-and-information-density.md` | stale | 989 | 989 |
+| `docs/rfcs/README.md` | stale | 977 | 977 |
+| `docs/rfcs/0001-adr-meta-review.md` | stale | 962 | 977 |
+| `docs/notes/doc-graph-discipline-plan.md` | stale | 952 | 952 |
+| `backend/docs/redis-local-resource.md` | stale | 918 | 920 |
+| `docs/playbooks/monorepo/monorepo-plan.md` | stale | 896 | 999 |
+| `docs/notes/tenancy.md` | stale | 889 | 999 |
+| `docs/archive/release-scope-2026-04.md` | stale | 864 | 864 |
+| `docs/notes/distribution-packaging.md` | stale | 864 | 864 |
+| `docs/notes/auditor-notes.md` | stale | 774 | 979 |
+| `docs/dispatch/proxy-to-proxy-id-translation-near-miss.md` | stale | 739 | 739 |
+| `docs/dispatch/proxy-to-proxy-post-v1.0.13-followups.md` | stale | 645 | 645 |
+| `docs/archive/TODO-completed-2026-05-06.md` | stale | 644 | 644 |
+| `docs/adr/0005-documentation-discipline.md` | stale | 575 | 995 |
+| `docs/archive/dispatch/backend-to-frontend-analysis-persistence-status.md` | stale | 552 | 552 |
+| `docs/archive/dispatch/backend-to-frontend-auth-me-status.md` | stale | 552 | 552 |
+| `docs/archive/dispatch/backend-to-frontend-card-tree-status.md` | stale | 552 | 552 |
+| `docs/archive/dispatch/backend-to-frontend-game-source-dedup-status.md` | stale | 552 | 552 |
 
 ## Pruned graph (inline)
 
