@@ -116,8 +116,9 @@ export class SyncService {
 
     if (next.kind === 'authenticated' && next.userId !== undefined) {
       // hydrate's updateFromRemote will replace the store; no
-      // explicit reset needed on this branch.
-      this.hydrate(next.userId);
+      // explicit reset needed on this branch. Fire-and-forget; hydrate
+      // self-handles (catch → system message). void = intentional non-await.
+      void this.hydrate(next.userId);
     } else if (wasHydrated) {
       // We were synced to an identity; we're not anymore. Clear
       // the workspace so the next user (or no-user) doesn't see
@@ -210,7 +211,8 @@ export class SyncService {
     const interval = store.profile.settings.persistence?.debounceInterval ?? 1000;
     this.pendingTimer = window.setTimeout(() => {
       this.pendingTimer = null;
-      this.sendSync();
+      // Fire-and-forget (debounced); sendSync self-handles (catch → message).
+      void this.sendSync();
     }, interval);
   }
 
@@ -223,7 +225,8 @@ export class SyncService {
       clearTimeout(this.pendingTimer);
       this.pendingTimer = null;
     }
-    this.sendSync();
+    // Fire-and-forget; sendSync self-handles (catch → system message).
+    void this.sendSync();
   }
 
   /**

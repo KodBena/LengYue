@@ -250,7 +250,9 @@ export function useAppBootstrap(
       const wasAuth = prev?.kind === 'authenticated';
       const isAuth = next.kind === 'authenticated';
       if (isAuth && !wasAuth) {
-        qeubo.bootstrap();
+        // Fire-and-forget reaction; bootstrap self-handles its errors
+        // (QeuboError kinds + generic). void = intentional non-await.
+        void qeubo.bootstrap();
       } else if (!isAuth && wasAuth) {
         qeubo.reset();
       }
@@ -403,7 +405,8 @@ export function useAppBootstrap(
     await auth.tryAutoLogin();
 
     sync.connect();
-    resourceService.loadVisitDistribution();
+    // Fire-and-forget; loadVisitDistribution self-handles (catches + logs).
+    void resourceService.loadVisitDistribution();
     try {
       const tags = await backendService.getTags();
       store.profile = { ...store.profile, knownTags: tags.map(t => t.name) };
