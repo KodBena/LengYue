@@ -138,7 +138,8 @@ frontend/src/
 │       └── TreeWidget.vue             [B2]  SVG game-tree viewer; enforces current-node-visible invariant via ensureVisible.
 │
 ├── composables/                             Logic layer. Pure-ish functions over reactive refs.
-│   ├── useAutoNavigatePerf.ts         [B2]  Dev-only: rAF-drives next() at ~60/s to the last node, emitting autonav:step perf marks tagged with analysis-queue state (regime A/B/other-board). Button gated to dev builds.
+│   ├── reactive-settle.ts             [B1]  waitForCondition — the reactive-settle bridge (resolve a promise when a reactive predicate flips true). Shared by the autonomous-SRS driver and the perf-scenario context.
+│   ├── useAutoNavigatePerf.ts         [B2]  Dev-only: dev-toolbar toggle wrapper (start/stop/isRunning) over the shared autonav loop core in perf/autonav.ts. Button gated to dev builds.
 │   ├── useAutoPopoverPerf.ts          [B1]  Dev-only: toggles a target popover open/closed at ~2/s (via useHoverPopover's force hook), emitting popover:open/close marks tagged with queue state — for the popover-toggle-cost measurement.
 │   ├── useEngineControls.ts           [B3]  Engine connect / disconnect / toggle lifecycle.
 │   ├── useNavigation.ts               [B2]  Headless navigation within the game tree (next/prev/parent/child).
@@ -175,7 +176,7 @@ frontend/src/
 │   ├── board/                                Board-surface composables. Mostly B3.
 │   │   ├── autonomous-srs.ts          [B3]  Policy/Driver/Recorder abstractions for the autonomous SRS loop.
 │   │   ├── useActivePath.ts           [B2]  NodeId lineage root → current node.
-│   │   ├── useDirtyBoardGuard.ts      [B3]  Dirty-board guard: confirm-load modal + SGF parse + navigate-to-leaf for cards AND library games.
+│   │   ├── useDirtyBoardGuard.ts      [B3]  Dirty-board guard: confirm-load modal + dirty-board policy for cards AND library games; delegates the SGF load to sgf/loadIntoBoard (swallow-and-log over the fail-loud primitive).
 │   │   ├── useEngineResponder.ts      [B3]  "Play vs engine" trigger: `fireAndAdvanceHead(boardId, gameStartNodeId)` queries the engine at the board's current position and advances the game's single green-ring head; invoked from App.vue when the user plays from a head.
 │   │   ├── use-move-suggestions.ts    [B3]  Refined intensity-mapping for KataGo move suggestions.
 │   │   ├── usePlayFromPosition.ts     [B3]  "Engine plays from here" — looped applyGoMove against a KataGo URL.
@@ -209,11 +210,20 @@ frontend/src/
 │   │   ├── useLibraryQuery.ts         [B1]  Sparse-buffer pagination over /library/games with sort + filter + generation-counter race protection.
 │   │   └── useVirtualRowList.ts       [B1]  Tiny fixed-row-height virtual-scroll primitive (no deps; ~50 LOC).
 │   │
+│   ├── perf/                                 Dev-only performance-capture harness (no perf claim; ADR-0009).
+│   │   ├── autonav.ts                 [B2]  SSOT autonav loop core: awaitable rAF walk of next() to leaf at ~60 Hz, emitting <prefix>:start/step/end marks. Consumed by useAutoNavigatePerf (toggle) and the scenario context (awaitable).
+│   │   ├── fixtures.ts                [B2]  buildSpacedFixtureSgf — generated even-grid game (legal, no captures) + DEFAULT_FIXTURE_SGF; deterministic deep main line for scenarios.
+│   │   ├── scenarioContext.ts         [B2]  createScenarioContext + runScenario: the imperative app-action façade (createBoard / loadSgf / connectEngine / clearCache / analyzeRange / autonav / spawn / measure) + the stimulus-teardown runner.
+│   │   ├── scenarios.ts               [B2]  Scenario registry + built-ins (nav-only / nav-range / full-stress; analysis preamble connects engine + cold-cache, protocol defaults 1000 visits / no-adapt / SELECTOR) + window.__perfScenario (run / list / disconnect) install.
+│   │   ├── stimuli.ts                 [B1]  popoverStress — background ScenarioStimulus toggling a popover via __devForcePopoverOpen (the useAutoPopoverPerf core, composable form).
+│   │   └── types.ts                   [B2]  PerfScenario / ScenarioContext / QueryHandle / ScenarioStimulus / RangeOpts contracts.
+│   │
 │   ├── review/                               Spaced-repetition session.
 │   │   ├── useMinting.ts              [B3]  Mint flashcards from boards (Go-board → backend mint payload).
 │   │   └── useReviewSession.ts        [B3]  SR-session state machine: AWAITING_MOVE / INTERMISSION / FINISHED.
 │   │
 │   └── sgf/                                  SGF I/O.
+│       ├── loadIntoBoard.ts           [B2]  loadSgfIntoBoard — parse + overwrite an existing board + navigate-to-leaf. The bare load primitive (fail-loud); useDirtyBoardGuard wraps it with the confirm-modal, the perf context calls it directly.
 │       ├── useSgfDownload.ts          [B3]  Export the active board to an SGF file.
 │       └── useSgfLoader.ts            [B3]  SGF file-dialog loader; parse + create-board sequence.
 │

@@ -33,19 +33,14 @@
  * License: Public Domain (The Unlicense).
  */
 import type { Ref } from 'vue';
-// @ts-ignore — @sabaki/sgf has no published types
-import sgf from '@sabaki/sgf';
 import {
   store,
   activeBoard,
-  updateBoardState,
-  mutateBoard,
   createBoard,
 } from '../../store';
-import { loadSgf } from '../../engine/sgf-loader';
-import { navigateTo } from '../../engine/navigator';
-import { updateRegistry, getActiveVariationPath } from '../../engine/util';
-import type { BoardId, BoardState, LibraryGame, NodeId, ReviewCard } from '../../types';
+import { updateRegistry } from '../../engine/util';
+import { loadSgfIntoBoard } from '../sgf/loadIntoBoard';
+import type { BoardId, BoardState, LibraryGame, ReviewCard } from '../../types';
 import ConfirmLoadModal from '../../components/modals/ConfirmLoadModal.vue';
 
 export function useDirtyBoardGuard(
@@ -102,35 +97,20 @@ export function useDirtyBoardGuard(
   }
 
   /**
-   * Parse an SGF body, write it into the target board, and
-   * navigate to the active variation's leaf. The optional `stamp`
-   * callback mutates the parsed board before commit — used by
-   * each caller to attach load-specific provenance
-   * (`sourceCardId` for cards, `clientGameId` for library games).
-   *
-   * Errors during parse / load surface to the console — the dirty-
-   * board decision has already been made by the time we get here,
-   * so a parse failure shouldn't reopen the modal; logging is the
-   * right behaviour and matches the pre-refactor shape.
+   * Guard-local wrapper over the shared `loadSgfIntoBoard` primitive
+   * (`composables/sgf/loadIntoBoard.ts`). The primitive is fail-loud;
+   * the guard deliberately swallows-and-logs — the dirty-board decision
+   * has already been made by the time we get here, so a parse failure
+   * must not reopen the modal. Logging is the right behaviour and
+   * matches the pre-extraction shape.
    */
-  function loadSgfIntoBoard(
+  function loadOrLog(
     targetBoardId: BoardId,
     sgfContent: string,
     stamp?: (board: BoardState) => void,
   ): void {
     try {
-      const sabakiTrees = sgf.parse(sgfContent);
-      const parsedBoard = loadSgf(sabakiTrees);
-      parsedBoard.id = targetBoardId as any;
-      stamp?.(parsedBoard);
-
-      const idx = store.boards.findIndex(b => b.id === targetBoardId);
-      if (idx !== -1) {
-        updateBoardState(idx, parsedBoard);
-        const path = getActiveVariationPath(parsedBoard);
-        const leafId = path[path.length - 1];
-        mutateBoard(targetBoardId, draft => navigateTo(draft, leafId as NodeId));
-      }
+      loadSgfIntoBoard(targetBoardId, sgfContent, stamp);
     } catch (err) {
       console.error('Failed to load SGF into board:', err);
     }
@@ -139,7 +119,7 @@ export function useDirtyBoardGuard(
   async function handleLoadCard(card: ReviewCard): Promise<void> {
     const targetBoardId = await resolveTargetBoard();
     if (targetBoardId === null) return;
-    loadSgfIntoBoard(targetBoardId, card.sgf, board => {
+    loadOrLog(targetBoardId, card.sgf, board => {
       // Stamp the lineage source onto the board so a subsequent
       // mint from this exploration session populates
       // `parent_card_id` correctly (consumed by
@@ -151,7 +131,7 @@ export function useDirtyBoardGuard(
   async function handleLoadLibraryGame(game: LibraryGame): Promise<void> {
     const targetBoardId = await resolveTargetBoard();
     if (targetBoardId === null) return;
-    loadSgfIntoBoard(targetBoardId, game.rawContent, board => {
+    loadOrLog(targetBoardId, game.rawContent, board => {
       // Stamp the library row's `client_game_id` so a subsequent
       // mint reuses the existing `game_source` row via the
       // backend's `get_or_create_game_source_by_client_id` dedup.
@@ -178,7 +158,7 @@ export function useDirtyBoardGuard(
   async function handleLoadLibraryGameInNewBoard(game: LibraryGame): Promise<void> {
     createBoard();
     const targetBoardId = store.boards[store.activeBoardIndex].id;
-    loadSgfIntoBoard(targetBoardId, game.rawContent, board => {
+    loadOrLog(targetBoardId, game.rawContent, board => {
       if (game.clientGameId !== null) {
         board.clientGameId = game.clientGameId;
       }

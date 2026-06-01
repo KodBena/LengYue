@@ -149,14 +149,31 @@ investigation time from ~30+ minutes to ~10.
   `jq` reverse-engineering future investigations would
   otherwise re-derive. The empirical 30-min → 10-min reduction
   recorded in the comparison report establishes the uplift.
+- **Chrome DevTools Performance + CDP-over-Playwright capture**,
+  for *automated* and *concurrent-load (regime-B)* captures —
+  added 2026-06-01 (see the amendment below). `profiler-cli`
+  parses the Firefox profile format **only**: it cannot ingest a
+  Chrome trace (`Image is not defined` — its Chrome-trace importer
+  is browser-UI-only). A Chrome DevTools trace nonetheless carries
+  every signal the metric vocabulary below names (per-component
+  `render` / `patch` UserTiming spans, the harness marks), so the
+  Chrome path uses a dedicated dependency-free parser
+  (`frontend/scripts/perf-trace-parse.mjs`) rather than
+  `profiler-cli`. Capture is scripted via
+  `frontend/scripts/perf-capture.mjs` (Playwright drives the system
+  Chromium through CDP `Tracing`). Firefox DevTools + `profiler-cli`
+  remain canonical for **manual Firefox** investigation; the
+  Chrome/CDP path is canonical for **automated / repeatable**
+  capture.
 
-The mechanical wiring that lands this decision is a small
-follow-up arc: the one-line DEV-gated `app.config.performance
-= true` should ship in `frontend/src/main.ts`, and a
-contributor-doc pointer for `profiler-cli` usage should land
-under `frontend/`'s README. Neither is structurally open;
-this ADR records the decision and the wiring is the residual
-action.
+The mechanical wiring that lands this decision: the one-line
+DEV-gated `app.config.performance = true` ships in
+`frontend/src/main.ts` (done), a contributor-doc pointer for
+`profiler-cli` usage lands under `frontend/`'s README, and the
+Chrome/CDP capture + parse scripts plus the pluggable scenario
+harness (`frontend/src/composables/perf/`) land the automated path
+(done 2026-06-01; see the amendment below). This ADR records the
+decision; the wiring is the residual action.
 
 ### Metric vocabulary
 
@@ -214,6 +231,14 @@ reader knows which substrate to request if they want to
 reproduce the analysis. The 2026-05-27 keybindings Phase 2.1
 worklog is the first instance of the convention applied at
 authoring time.
+
+The location is user-local and may vary by machine (Revisit #5):
+on the current dev host, Chrome DevTools traces (which are large
+— tens of MB uncompressed) live under `~/w/vdc/chromium_profiles/`
+for space reasons, overriding the `~/perf-profiles/` default for
+that trace class. The discipline (reference by path + timestamp +
+size; binaries stay out of the repo) is unchanged; only the path
+differs.
 
 ### Acceptance criteria for perf-claimed changes
 
@@ -546,6 +571,49 @@ acceptance:
    a merge gate.
 3. **Tenet vs. decision classification.** A **tenet** — a cross-cutting
    authoring discipline, as the drafter filed it.
+
+## Amended (2026-06-01): Chrome/CDP capture path + scenario harness
+
+Revisit trigger **#2** ("the canonical-tool surface needs replacement …
+an alternate profiling stack becomes substantially better") fired, in the
+specific form the trigger anticipated: an *automated, repeatable* capture
+stack became available where the manual Firefox-DevTools flow could not
+reach. The discipline survives the substitution unchanged; only the tool
+surface extends. What changed:
+
+- **A second canonical capture surface** — Chrome DevTools Performance via
+  CDP-over-Playwright — is added for automated and concurrent-load
+  (regime-B) captures, recorded in the Tools section above. The empirical
+  fact forcing the split: `@firefox-devtools/profiler-cli` cannot ingest a
+  Chrome trace (`Image is not defined`), so the Chrome path gets a
+  dedicated dependency-free parser (`frontend/scripts/perf-trace-parse.mjs`)
+  that produces the same metric vocabulary (per-component `render`/`patch`
+  ranking, the render≫patch render-coupling tell) the Firefox tooling does.
+
+- **A pluggable scenario harness** (`frontend/src/composables/perf/`,
+  `window.__perfScenario`) addresses the "same reproducible scenario" the
+  acceptance criteria require for before/after pairs — the thing the
+  Consequences §Neutral "No mandate on a specific benchmark suite or
+  harness" deliberately left to per-arc judgement. **This is still not a
+  mandate.** The harness is the *recommended* way to achieve a reproducible
+  scenario (especially regime-B: UI navigation concurrent with a streaming
+  range analysis, which the manual hold-arrow flow could not reproduce);
+  per-arc judgement still governs whether to use it. The Neutral clause is
+  not overturned — a harness now *exists* and is recommended; the tenet
+  still does not *require* it.
+
+- **The capture protocol is a contributor choice, recorded per-capture.**
+  The first sanity capture used b10 / 1000 visits-per-move / no adaptive
+  re-evaluation / cold cache (the protocol the green arc used implicitly).
+  The harness pins these explicitly (`connectEngine({model, adaptive})`,
+  `clearCache()`) so a capture is self-describing rather than dependent on
+  ambient browser state — directly serving the reproducibility this tenet
+  exists to protect. Cold-cache is load-bearing: a warm KataGo result cache
+  returns cached packets instantly, suppressing the per-packet render work
+  the capture is meant to measure (see the perf-capture normalization
+  protocol).
+
+Full record: `docs/worklog/2026-06-01-perf-scenario-harness.md`.
 
 ## License
 

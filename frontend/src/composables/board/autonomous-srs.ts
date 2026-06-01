@@ -32,10 +32,11 @@
  * License: Public Domain (The Unlicense)
  */
 
-import { ref, watchEffect, type Ref } from 'vue';
+import { ref, type Ref } from 'vue';
 import type { BoardId, BoardState, CardId, NodeId, ReviewCard, ReviewStatus } from '../../types';
 import { store } from '../../store';
 import { useReviewSession } from '../review/useReviewSession';
+import { waitForCondition } from '../reactive-settle';
 import { queryEngineMove } from './usePlayFromPosition';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -173,29 +174,12 @@ export function fixedNetworkPolicy(opts: FixedNetworkPolicyOptions): Policy {
 
 // ─── Driver ───────────────────────────────────────────────────────────────────
 
-/**
- * Wait until a reactive predicate flips true. Used to bridge between
- * the driver's procedural loop and the review session's reactive state
- * machine — `nextCard()` triggers a state transition through Vue's
- * reactivity graph; the driver awaits the transition before issuing
- * the next move.
- *
- * Resolves immediately if the predicate is already true.
- */
-function waitForCondition(predicate: () => boolean): Promise<void> {
-  return new Promise((resolve) => {
-    if (predicate()) {
-      resolve();
-      return;
-    }
-    const stop = watchEffect(() => {
-      if (predicate()) {
-        stop();
-        resolve();
-      }
-    });
-  });
-}
+// The reactive-settle bridge (`waitForCondition`) lives in
+// `composables/reactive-settle.ts` — extracted as a shared B1 primitive
+// so the performance-scenario context reuses the same bridge. Here it
+// bridges the driver's procedural loop to the review session's reactive
+// state machine: `nextCard()` triggers a transition through Vue's
+// reactivity graph; the driver awaits it before issuing the next move.
 
 /**
  * Snapshot the latest engine system message for failure-mode

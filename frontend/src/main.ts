@@ -10,12 +10,16 @@ import './style.css';
 import App from './App.vue';
 import { store, pushSystemMessage } from './store';
 import { serializeBoard, serializeActivePath } from './engine/sgf-writer';
+import { installPerfScenarios } from './composables/perf/scenarios';
 import { i18n } from './i18n';
 
 // Expose the reactive store to the browser console for verification ONLY in DEV.
 if (import.meta.env.DEV) {
   (window as any).store = store;
   (window as any).Writer = { serializeBoard, serializeActivePath };
+  // Install `window.__perfScenario` so the Playwright capture driver (and
+  // the dev-toolbar picker) can launch pluggable perf scenarios by name.
+  installPerfScenarios();
 }
 
 const app = createApp(App);
