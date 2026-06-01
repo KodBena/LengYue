@@ -307,6 +307,11 @@ export const defaultSettings = {
   // mirrored onto vue-i18n by useAppBootstrap's watch on this field.
   appearance:  {
     theme: 'cluster',
+    // MiniBoard thumbnail renderer (analysis preview boards + heatmap preview).
+    // 'svg' (default) preserves the pre-split declarative SVG; 'canvas' is the
+    // ADR-0010 canvas variant (lighter paint/jank). User-selectable in the
+    // RegistryEditor; MiniBoard.vue dispatches. Schema 55 → 56 backfills 'svg'.
+    miniBoardRenderer: 'svg',
     intensityHueShift: -43,
     // Ceiling on the territory-overlay opacity in BoardWidget.vue's
     // `ownershipColor`. Promoted from a hardcoded 0.55 literal to a

@@ -63,6 +63,7 @@ function isObject(val: any) {
 const PATH_ENUMS: Record<string, readonly string[]> = {
   // settings root (store.profile.settings)
   'appearance.theme':              ['dark', 'cluster'],
+  'appearance.miniBoardRenderer':  ['svg', 'canvas'],
   'appearance.locale':             [...SUPPORTED_LOCALES],
   'navigation.actionOnDirtyBoard': ['ask', 'new', 'overwrite'],
   // KataGo `overrideSettings` keys with frontend-side meaning. Most
