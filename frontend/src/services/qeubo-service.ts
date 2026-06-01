@@ -29,7 +29,7 @@
  * propagate as the generic `Error` thrown by `api-client.ts`.
  */
 
-import { api } from './api-client';
+import { api, ApiError } from './api-client';
 import {
   QeuboError,
   type QeuboBest,
@@ -60,18 +60,13 @@ type HistoryWire = components['schemas']['HistoryResponse'];
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
- * Pull the HTTP status out of an `Error` thrown by `api-client.ts`.
- * Matches the message format `"API Error <status>: <body>"` documented
- * on `ApiClient.request`. Returns null when the error wasn't shaped by
- * api-client (network failure, code bug, etc.) — those propagate as
- * generic errors per ADR-0002's no-silent-fallback rule.
+ * Pull the HTTP status out of an `ApiError` thrown by `api-client.ts`.
+ * Returns null when the error wasn't an `ApiError` (network failure,
+ * code bug, etc.) — those propagate as generic errors per ADR-0002's
+ * no-silent-fallback rule.
  */
 function extractStatus(err: unknown): number | null {
-  if (err instanceof Error) {
-    const m = err.message.match(/^API Error (\d+):/);
-    if (m) return parseInt(m[1], 10);
-  }
-  return null;
+  return err instanceof ApiError ? err.status : null;
 }
 
 /**

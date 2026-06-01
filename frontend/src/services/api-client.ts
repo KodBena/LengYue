@@ -12,6 +12,30 @@ import type { components } from '../types/backend';
 
 type AuthMeResponse = components['schemas']['AuthMeResponse'];
 
+/**
+ * Structured error thrown by `ApiClient.request` on a non-2xx response.
+ * Carries the HTTP `status` and the raw response `body` as fields, so a
+ * consumer branches on `err instanceof ApiError && err.status === N` and
+ * reads `err.body` directly — no parsing of the message string. The
+ * `.message` is preserved as `API Error <status>: <body>` for any site
+ * still matching on it during the migration off that stringly-typed idiom
+ * (see the deferred-items audit, 2026-06-01).
+ */
+export class ApiError extends Error {
+  // Explicit instance fields assigned in the body, not constructor
+  // parameter properties — the latter emit runtime code and are
+  // forbidden under `erasableSyntaxOnly` (cf. AnalysisWaitError).
+  readonly status: number;
+  readonly body: string;
+
+  constructor(status: number, body: string) {
+    super(`API Error ${status}: ${body}`);
+    this.name = 'ApiError';
+    this.status = status;
+    this.body = body;
+  }
+}
+
 const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'auth_username';
 
@@ -93,10 +117,11 @@ export class ApiClient {
    * Error surfacing (item 20):
    *   - Network failures (fetch throws before any response) emit an
    *     'error' SystemMessage and rethrow.
-   *   - Non-2xx responses emit an 'error' SystemMessage and throw the
-   *     same Error shape as before ("API Error ${status}: ${body}"),
-   *     preserving backward compatibility for callers that pattern-
-   *     match on err.message.
+   *   - Non-2xx responses emit an 'error' SystemMessage and throw a
+   *     typed `ApiError` carrying `status` + `body`. Its `.message` is
+   *     preserved as "API Error ${status}: ${body}" for backward
+   *     compatibility, but consumers should branch on
+   *     `err instanceof ApiError && err.status === N`, not the string.
    *   - console.error is kept in both paths as a secondary debug
    *     surface; the system log is primary.
    *
@@ -117,9 +142,9 @@ export class ApiClient {
    *   - Per-call list of HTTP status codes the caller considers
    *     in-contract for the specific route. When the server returns
    *     one of these, the system-log error and console.error are
-   *     suppressed; the request still throws with the same `Error`
-   *     shape so callers can pattern-match on `err.message` (and the
-   *     qeubo-service ACL re-throws as a typed `QeuboError`).
+   *     suppressed; the request still throws the same typed `ApiError`
+   *     so callers can branch on `err.status` (e.g. the qeubo-service
+   *     ACL re-throws as a typed `QeuboError`).
    *   - Used for route-specific status codes that are part of the
    *     route's documented contract rather than a deviation
    *     (qEUBO's 404 = "no experiment exists" / 409 = "init phase" /
@@ -212,10 +237,11 @@ export class ApiClient {
         pushSystemMessage('error', userMsg);
         console.error('[API]', userMsg);
       }
-      // Thrown message format is preserved verbatim so that callers
-      // doing `err.message.includes('404')` continue to work — even
-      // when the system-log surface is suppressed via silentStatuses.
-      throw new Error(`API Error ${response.status}: ${errText}`);
+      // Structured throw: status + raw body as fields. `.message` keeps
+      // the "API Error <status>: <body>" format (ApiError's super) for
+      // back-compat, but consumers should branch on `err instanceof
+      // ApiError && err.status === N` rather than parse the string.
+      throw new ApiError(response.status, errText);
     }
 
     // Empty-body responses (204 No Content; any 2xx with empty body)
@@ -302,9 +328,8 @@ export class ApiClient {
    * consumer does the domain translation.
    *
    * Throws on 401 (token rejected by server), on other non-2xx, or
-   * on network failure. Callers that need to differentiate must
-   * inspect the thrown Error's message — the format is "API Error
-   * ${status}: ${body}" per request().
+   * on network failure. Callers that need to differentiate branch on
+   * `err instanceof ApiError && err.status === N` (per request()).
    */
   public async getMe(): Promise<AuthMeResponse> {
     return this.request<AuthMeResponse>('GET', '/auth/me');

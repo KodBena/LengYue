@@ -27,7 +27,7 @@
  * License: Public Domain (The Unlicense)
  */
 
-import { api } from './api-client';
+import { api, ApiError } from './api-client';
 import { asBoardId } from '../store/board-factory';
 import type {
   GameSourceId,
@@ -233,7 +233,7 @@ export class LibraryService {
       );
       return fromWireGame(wire);
     } catch (err) {
-      if (err instanceof Error && /^API Error 404:/.test(err.message)) {
+      if (err instanceof ApiError && err.status === 404) {
         return null;
       }
       throw err;

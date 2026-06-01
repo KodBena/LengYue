@@ -35,7 +35,7 @@
  */
 
 import { reactive } from 'vue';
-import { api } from './api-client';
+import { api, ApiError } from './api-client';
 import {
   asBoardId,
   parseStorageError,
@@ -343,7 +343,7 @@ export class AnalysisPersistenceService {
         { silentStatuses: GET_SILENT },
       );
     } catch (err) {
-      if (err instanceof Error && /^API Error 404:/.test(err.message)) {
+      if (err instanceof ApiError && err.status === 404) {
         return null;
       }
       rethrowAsStorageError(err);

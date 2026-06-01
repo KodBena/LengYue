@@ -49,6 +49,7 @@ import {
 } from '../fakes/analysis-persistence-service';
 import { resetFakeAnalysisService } from '../fakes/analysis-service';
 import type { BoardId } from '../../src/types';
+import { ApiError } from '../../src/services/api-client';
 
 const DEBOUNCE_MS = 2000;
 
@@ -164,7 +165,7 @@ describe('useAutoSaveAnalyses', () => {
   it('pauses auto-save for a board on bundle_too_large error', async () => {
     enableAutoSave();
     fakeAnalysisPersistenceService.save.mockRejectedValueOnce(
-      new Error('API Error 413: {"detail":{"kind":"bundle_too_large","request_bytes":1000000,"cap_bytes":500000,"detail":"bundle exceeds cap"}}'),
+      new ApiError(413, '{"detail":{"kind":"bundle_too_large","request_bytes":1000000,"cap_bytes":500000,"detail":"bundle exceeds cap"}}'),
     );
     const handle = useAutoSaveAnalyses();
     const boardId = await addBoardAndGetId();

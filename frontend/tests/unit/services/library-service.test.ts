@@ -20,15 +20,22 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Hoisted mock — replaces the api singleton before the service
 // module loads.
-vi.mock('../../../src/services/api-client', () => {
+// Spread the real module (so the real `ApiError` class is preserved for
+// the service's `instanceof ApiError` check — tests/CLAUDE.md "Partially
+// mocking a module") and override only the `api` singleton's request.
+vi.mock('../../../src/services/api-client', async () => {
+  const actual = await vi.importActual<typeof import('../../../src/services/api-client')>(
+    '../../../src/services/api-client',
+  );
   return {
+    ...actual,
     api: {
       request: vi.fn(),
     },
   };
 });
 
-import { api } from '../../../src/services/api-client';
+import { api, ApiError } from '../../../src/services/api-client';
 import {
   LibraryService,
   IMPORT_CHUNK_SIZE,
@@ -149,14 +156,14 @@ describe('LibraryService.listGames', () => {
 
 describe('LibraryService.getGame', () => {
   it('returns null on 404', async () => {
-    mockRequest.mockRejectedValueOnce(new Error('API Error 404: Library game not found'));
+    mockRequest.mockRejectedValueOnce(new ApiError(404, 'Library game not found'));
     const svc = new LibraryService();
     const result = await svc.getGame(999 as never);
     expect(result).toBeNull();
   });
 
   it('rethrows non-404 errors', async () => {
-    mockRequest.mockRejectedValueOnce(new Error('API Error 500: oops'));
+    mockRequest.mockRejectedValueOnce(new ApiError(500, 'oops'));
     const svc = new LibraryService();
     await expect(svc.getGame(1 as never)).rejects.toThrow(/500/);
   });

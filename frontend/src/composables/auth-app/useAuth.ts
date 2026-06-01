@@ -55,7 +55,7 @@
  */
 
 import { ref, computed, readonly, type ComputedRef, type Ref } from 'vue';
-import { api } from '../../services/api-client';
+import { api, ApiError } from '../../services/api-client';
 import { pushSystemMessage } from '../../store';
 import { i18n } from '../../i18n';
 import type { AuthState } from '../../types';
@@ -118,10 +118,9 @@ api.onTokenInvalidated(() => {
  *         identity, leave userId undefined, flag the unverified
  *         state via system log per ADR-0002.
  *
- * The 401 detection keys on the error message format thrown by
- * api.request ("API Error 401: ..."). Brittle in principle but the
- * format is part of api-client's shipped contract; a deliberate
- * refactor that changes it would also update this site.
+ * The 401 detection branches on `err instanceof ApiError &&
+ * err.status === 401` — the structured error api.request now throws,
+ * rather than parsing its message string.
  */
 async function _setAuthenticatedAfterVerify(typedUsername: string): Promise<void> {
   try {
@@ -138,7 +137,7 @@ async function _setAuthenticatedAfterVerify(typedUsername: string): Promise<void
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
 
-    if (msg.includes('API Error 401')) {
+    if (err instanceof ApiError && err.status === 401) {
       // Token is invalid by the server's reckoning; the cached
       // identity is meaningless. Clear and route to unauthenticated.
       api.clearToken();
