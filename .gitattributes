@@ -1,0 +1,24 @@
+# Generated documentation-graph artifacts (tools/doc-graph/generate.mjs).
+#
+# These are committed for GitHub-navigability but are machine-generated and
+# re-render heavily on every structure-changing regeneration — the SVG is a
+# full dot re-layout, and the JSON manifest's per-node commit-distance fields
+# are HEAD-relative, so they shift on essentially every commit. Left unmarked,
+# a routine doc change produces a ~10k-line diff that floods review, skews the
+# repo's language stats, inflates the PR +/- line count (misleading, and the
+# churn shape that trips scraper / abuse heuristics).
+#
+# `linguist-generated=true` → collapse in diffs + exclude from language stats.
+# `-diff` on the two large machine-rendered files → GitHub treats them as
+# binary ("not shown"), so their re-render neither floods review nor counts
+# toward the +/- total. The small human-readable index + validator report stay
+# diffable (you DO want to see staleness-table / dangling-ref changes).
+#
+# The manifest (docs/doc-graph.json) remains the source of truth — `--check`
+# reads it; suppressing its DISPLAY does not weaken the freshness gate. See
+# ADR-0005 (Alternative C, partly adopted) and the umbrella CLAUDE.md
+# "Documentation is part of the work" doc-graph audit item.
+docs/doc-graph.svg          linguist-generated=true -diff
+docs/doc-graph.json         linguist-generated=true -diff
+docs/doc-graph.md           linguist-generated=true
+docs/doc-graph-report.md    linguist-generated=true
