@@ -165,6 +165,15 @@ investigation time from ~30+ minutes to ~10.
   remain canonical for **manual Firefox** investigation; the
   Chrome/CDP path is canonical for **automated / repeatable**
   capture.
+- **CDP `HeapProfiler` (memory)**, for the leak-detection class —
+  added 2026-06-01. The same Playwright/CDP harness drives it:
+  `frontend/scripts/perf-heap.mjs` runs a scenario N times, forces GC
+  and reads the retained heap each cycle (the *retained-heap
+  tail-slope* metric below), and optionally writes a `.heapsnapshot`
+  for attribution. Distinct from `Tracing` — the Chrome Performance
+  "Memory" checkbox adds heap *counters* to a trace (a coarse
+  grow-during-run signal, foldable onto `perf-capture.mjs`), whereas
+  leak *detection* and *attribution* are the `HeapProfiler` domain.
 
 The mechanical wiring that lands this decision: the one-line
 DEV-gated `app.config.performance = true` ships in
@@ -205,6 +214,24 @@ codified here as the project's starting set:
   `render` alone hid the #1 cost (`TreeWidget render`) for most of
   the 2026-05-31 "green" arc; the `patch` marks were present in the
   same profile all along.
+
+- **Retained-heap tail-slope per cycle** is the memory-leak metric
+  (added 2026-06-01). A leak surfaces only under *repetition*: drive a
+  scenario N times, force a major GC between cycles (CDP
+  `HeapProfiler.collectGarbage`), and read the *retained* heap
+  (`Runtime.getHeapUsage` post-GC). The discriminant is the **slope of
+  the retained-heap series over the steady-state tail** (last third),
+  in KB/cycle — NOT the whole-series slope. **Calibration
+  (warmup-vs-leak):** one-time allocations — V8 inline-cache / compiled-
+  code warming, lazy singletons, bounded caches filling — inflate the
+  *early* cycles, so the whole-series slope over-reads them; a genuine
+  unbounded leak (module-scope state keyed by an id a cleanup forgot, a
+  listener never removed) keeps the *same* per-cycle delta into the
+  tail. A high whole-slope with a flat/sub-threshold tail-slope is
+  bounded warmup, NOT a leak. A `--warmup` run before the baseline
+  absorbs the one-time init so only steady-state growth is measured.
+  Attribution (which constructor / retainer) is a `.heapsnapshot`
+  (`HeapProfiler.takeHeapSnapshot`) opened in DevTools → Memory.
 
 Reusing the same vocabulary across investigations is the
 discipline; the vocabulary itself is expected to extend as new
@@ -612,6 +639,16 @@ surface extends. What changed:
   returns cached packets instantly, suppressing the per-packet render work
   the capture is meant to measure (see the perf-capture normalization
   protocol).
+
+- **Memory profiling folds onto the same harness** (the quartet's item 3).
+  `frontend/scripts/perf-heap.mjs` drives a scenario N times, forces GC and
+  reads the retained heap per cycle (CDP `HeapProfiler`) → the
+  *retained-heap tail-slope* metric added to the vocabulary above. The
+  first session found the board-lifecycle and analysis-lifecycle paths
+  (create → load → analyze → `closeBoard`, ×40 and ×12) **leak-free**:
+  retained heap plateaus, tail-slope flat — the resource-ownership
+  cleanups hold. Full record:
+  `docs/worklog/2026-06-01-memory-profiling-session.md`.
 
 Full record: `docs/worklog/2026-06-01-perf-scenario-harness.md`.
 

@@ -506,32 +506,26 @@ on the faithful `--headed`/`--connect` capture path, since a headless
 trace's paint timing would yield a confidently-wrong chart). Full
 design note: `docs/notes/perceptual-event-projection-plan.md`.
 
-#### Memory-profiling discipline — fold onto the perf-capture harness `[frontend]`
+#### Memory-profiling discipline — fold onto the perf-capture harness `[frontend]` *(first session shipped 2026-06-01)*
 
-The quartet's item 3 (memory-profiling discipline). It **folds onto the
-2026-06-01 perf-scenario harness** rather than standing alone — the same
-`PerfScenario` + engine-prep + Playwright/CDP capture drives it, via two
-CDP mechanisms:
+The quartet's item 3. **Folded onto the perf-scenario harness** as planned.
+Shipped: `scripts/perf-heap.mjs` (`npm run perf:heap`) — a CDP
+`HeapProfiler` driver (run scenario N×, GC + retained-heap per cycle,
+`--snapshot` for attribution), the **retained-heap tail-slope** metric +
+warmup-vs-leak calibration added to ADR-0009's vocabulary. First session
+found the board- and analysis-lifecycle paths (create → load → analyze →
+`closeBoard`, ×40 / ×12) **leak-free** — `closeBoard`'s resource ownership
+holds. Record: `docs/worklog/2026-06-01-memory-profiling-session.md`.
 
-- **Trace memory counters** (Chrome DevTools Performance "Memory"
-  checkbox): a `--memory` trace-config flag on `scripts/perf-capture.mjs`
-  adds the `UpdateCounters` events (JS heap / documents / nodes / listeners
-  over time) to the trace — a coarse "does this scenario grow heap during
-  the run" signal, parseable by the same `perf-trace-parse.mjs` front end.
-  (Exact trace categories to verify in the arc — do not assume.)
-- **Heap snapshots / allocation sampling** (CDP `HeapProfiler` domain —
-  the real leak tool, separate from `Tracing`): run a scenario, take
-  before/after heap snapshots, diff retained growth. The natural scenario
-  is a **resource-ownership leak harness** — open/close N boards, reset the
-  workspace N times — exercising `closeBoard` / `resetWorkspace` /
-  ADR-0010 §4 cleanups, asserting retained heap (and leaked listener / node
-  counts) do not grow per cycle. The "good memory profiling session" the
-  quartet anticipated.
-
-Likely lands as an **ADR-0009 metric-vocabulary extension** (retained-heap-
-after-N-cycles, leaked-listener/node counts — via the append-a-rule
-pattern) rather than a separate tenet (per the maintainer's "not sure I
-want it separate from ADR-0009"). Depends on item 4 (shipped).
+Remaining (deferred):
+- **Trace memory counters** — a `--memory` trace-config flag on
+  `scripts/perf-capture.mjs` (the Chrome "Memory" checkbox =
+  `UpdateCounters` heap/node/listener timeline), a coarse grow-during-run
+  signal foldable onto the existing trace capture. (Exact trace categories
+  to verify — do not assume.)
+- **`resetWorkspace`-churn scenario** — stress the *other* named cleanup
+  (the first session covered the high-traffic `closeBoard` paths); assert
+  retained heap + leaked listener/node counts don't grow per reset.
 
 #### ~~Unified user-controllable-scalar surface~~ `[frontend]` *(shipped 2026-05-14)*
 
