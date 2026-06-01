@@ -1087,7 +1087,9 @@ export class AnalysisService {
       }
     }
 
-    this.client.sendCommand({ id: `term-${Date.now()}`, action: 'terminate', terminateId: queryId });
+    // Best-effort terminate; sendCommand's promise only ever resolves
+    // (never rejects), so void marks the intentional fire-and-forget.
+    void this.client.sendCommand({ id: `term-${Date.now()}`, action: 'terminate', terminateId: queryId });
     this.activeQueries.delete(queryId);
     // Release the telemetry entry too — the query is genuinely
     // terminated. (Natural completion has its own auto-cleanup

@@ -85,6 +85,20 @@
  *       layering debt, not disabled-as-accepted; they await adjudication
  *       (refactor to a composable, or a justified exception).
  *
+ *   Type-checked (`src/**` `.ts`, via the TS project service):
+ *     - @typescript-eslint/switch-exhaustiveness-check — rationale: a switch
+ *       over a union that doesn't handle every member (and has no default)
+ *       silently ignores a case. The compiler-enforced form of the
+ *       discriminated-union `never`-default exhaustiveness discipline. 0
+ *       violations at adoption (the discipline already held) — a clean
+ *       regression gate.
+ *     - @typescript-eslint/no-floating-promises — rationale: an unawaited
+ *       promise that can reject with no handler is the ADR-0002 silent-async
+ *       class (the effect fails, nothing surfaces it). Satisfied by await /
+ *       `.catch` / an explicit `void` for an intentional fire-and-forget whose
+ *       callee self-handles. 7 sites at adoption, all resolved (each a
+ *       verified self-handling fire-and-forget → `void` + rationale).
+ *
  * This `.ts` linting is new: the prior config parsed `.vue` only, so
  * TypeScript modules went unlinted. The `@typescript-eslint/parser` was
  * already a dependency; this wires it for `.ts` files so the import
@@ -98,15 +112,18 @@
  * purity-audit leg HERE — `eslint-plugin-functional` scoped via overrides
  * to a `.pure.ts`/band convention. These import-boundary rules are an
  * orthogonal foundation it sits beside; nothing here pre-commits that work.
- * Type-checked rules (`@typescript-eslint` switch-exhaustiveness,
- * no-floating-promises, no-explicit-any) are a separate, later decision —
- * they require the rules plugin + a tsconfig project.
+ * Type-checked rules now run via the rules plugin + the TS project service
+ * (switch-exhaustiveness-check + no-floating-promises — see "Type-checked"
+ * above). Still deferred as a separate, later decision: `no-explicit-any`
+ * (~152 sites) and `max-lines` (~69 files over 250) — backlog-surfacing
+ * rather than clean gates, so warn-as-backlog candidates, not adopted here.
  *
  * License: Public Domain (The Unlicense)
  */
 
 import pluginVue from 'eslint-plugin-vue';
 import tsParser from '@typescript-eslint/parser';
+import tsPlugin from '@typescript-eslint/eslint-plugin';
 
 // The wire-type boundary: backend.ts is importable only at the ACL.
 // Applied everywhere EXCEPT src/services/** and src/types.ts (see block
@@ -218,6 +235,38 @@ export default [
         'error',
         { patterns: [WIRE_TYPE_PATTERN, EFFECTFUL_SERVICE_PATTERN] },
       ],
+    },
+  },
+
+  // ── Type-checked discipline rules (src/**/*.ts; TS project service) ───
+  // Two type-aware rules mechanising existing prose disciplines, adopted as
+  // `error` after measuring on src — switch-exhaustiveness: 0 violations
+  // (already clean); no-floating-promises: 7, all resolved (each an
+  // intentional fire-and-forget whose callee self-handles, now `void`+comment).
+  //   - switch-exhaustiveness-check → rationale: a switch over a union that
+  //     doesn't handle every member (and lacks a default) silently ignores a
+  //     case — this is the compiler-enforced form of the discriminated-union
+  //     `never`-default exhaustiveness discipline (type-driven design).
+  //   - no-floating-promises → rationale: an unawaited promise that can reject
+  //     with no handler is the ADR-0002 silent-async class (the effect fails,
+  //     nothing surfaces it). Satisfied by await / `.catch` / an explicit
+  //     `void` (the last documents an intentional fire-and-forget whose callee
+  //     self-handles its own errors).
+  // Type info comes from the TS project service — slower than syntactic
+  // linting, so it runs in `npm run lint` / CI (which don't gate the build).
+  {
+    files: ['src/**/*.ts'],
+    plugins: { '@typescript-eslint': tsPlugin },
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      '@typescript-eslint/switch-exhaustiveness-check': 'error',
+      '@typescript-eslint/no-floating-promises': 'error',
     },
   },
 ];

@@ -573,7 +573,8 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
 
   function nextCard() {
     if (currentIndex.value + 1 < queue.value.length) {
-      loadCard(currentIndex.value + 1);
+      // Fire-and-forget; loadCard self-handles (catch → status IDLE).
+      void loadCard(currentIndex.value + 1);
     } else {
       // No more cards in the queue — end the session and let the
       // host UI return to its idle shape (deck-config form). The
