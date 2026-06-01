@@ -99,6 +99,25 @@
  *       callee self-handles. 7 sites at adoption, all resolved (each a
  *       verified self-handling fire-and-forget → `void` + rationale).
  *
+ *   Syntactic guards (`src/**` `.ts` + `.vue`, via no-restricted-syntax):
+ *     - no error-message reverse-engineering — rationale: a throw site that
+ *       bakes structure into an error MESSAGE, reparsed downstream by
+ *       `.match`/`.includes`/regex `.test`, is a brittleness hazard — a format
+ *       drift silently degrades a typed failure to "unknown error" with NO
+ *       compile error (the ADR-0002 silent class, reached THROUGH the error
+ *       path that should be the loud one). Fix: a structured Error subclass
+ *       with fields (`ApiError { status, body }`) consumed by `instanceof` +
+ *       field branch. The 2026-06-01 exhaustiveness audit found the six known
+ *       reparse sites were the complete population (converted, PR #318); this
+ *       rule keeps it at zero. Best-effort + syntactic: catches
+ *       `err.message.includes(...)` and `/re/.test(err.message)`, NOT a message
+ *       routed through an intermediate variable — the gap named per ADR-0002,
+ *       not papered over. Measured 0 hits on `src/` at adoption (corroborating
+ *       the audit's complete-population finding), so adopted at `error` — a
+ *       future non-error `.message` read trips it and takes an inline
+ *       `eslint-disable` + justification (the `vue/no-v-html` model). Guard
+ *       rationale + RCA: docs/notes/rca-discipline-lapses-2026-06-01.md (G1).
+ *
  * This `.ts` linting is new: the prior config parsed `.vue` only, so
  * TypeScript modules went unlinted. The `@typescript-eslint/parser` was
  * already a dependency; this wires it for `.ts` files so the import
@@ -267,6 +286,45 @@ export default [
     rules: {
       '@typescript-eslint/switch-exhaustiveness-check': 'error',
       '@typescript-eslint/no-floating-promises': 'error',
+    },
+  },
+
+  // ── Brittleness guard: no reverse-engineering error-message strings ──
+  // rationale: structure baked into an error MESSAGE and reparsed by string-
+  // matching is the ADR-0002 silent-failure class reached through the error
+  // path — a format drift degrades a typed failure to "unknown error" with no
+  // compile error. Fix: a structured Error subclass with fields, consumed by
+  // `instanceof` + field branch (api-client.ts's ApiError is the worked form).
+  // Syntactic best-effort (catches the direct `.message.{includes,match,…}`
+  // and `/re/.test(err.message)` shapes; NOT a message via an intermediate
+  // variable — gap named per ADR-0002). Measured 0 hits on src at adoption →
+  // adopted at `error`; a future non-error `.message` read takes an inline
+  // eslint-disable + justification (the vue/no-v-html model). Full rationale
+  // in the header; G1 in docs/notes/rca-discipline-lapses-2026-06-01.md.
+  {
+    files: ['src/**/*.ts', 'src/**/*.vue'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "CallExpression[callee.property.name=/^(includes|match|startsWith|endsWith|indexOf|search)$/][callee.object.property.name='message']",
+          message:
+            "Don't reverse-engineer structure out of an error MESSAGE string " +
+            '(ADR-0002 brittleness hazard). Throw/consume a structured Error ' +
+            'subclass with fields (e.g. ApiError { status, body }) and branch ' +
+            'on `instanceof` + the field. See ' +
+            'docs/notes/rca-discipline-lapses-2026-06-01.md (G1).',
+        },
+        {
+          selector:
+            "CallExpression[callee.property.name=/^(test|exec)$/][arguments.0.type='MemberExpression'][arguments.0.property.name='message']",
+          message:
+            "Don't match a regex against an error MESSAGE to recover structure " +
+            '(ADR-0002 brittleness hazard). Use a structured Error subclass ' +
+            'with fields. See docs/notes/rca-discipline-lapses-2026-06-01.md (G1).',
+        },
+      ],
     },
   },
 ];
