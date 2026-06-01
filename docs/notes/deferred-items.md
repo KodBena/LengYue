@@ -33,6 +33,32 @@ this file.
 
 ## Open items
 
+### Doc-graph SVG — Graphviz `dot` orth/curve spline-routing layout failure
+
+- **Surfaced:** 2026-06-01 (doc-graph artifact CI, PR #330).
+- **Symptom:** rendering the full doc-graph (`dot -Tsvg`, ~330 nodes / 1663
+  edges) makes `dot` exit non-zero with `Error: in routesplines, cannot find
+  NORMAL edge` while still emitting a complete SVG. It is **not** "just a
+  warning to ignore" — it is a real **layout failure in dot's orthogonal /
+  curved spline routing** for at least one edge on this large, clustered,
+  hub-heavy graph (the failed edge is routed degenerately or dropped). It is
+  also **not critical** — the manifest is the source of truth and the picture
+  is a projection; one mis-routed edge among 1663 doesn't compromise the
+  artifact's usefulness.
+- **Current handling (stopgap, not a fix):** `tools/doc-graph/generate.mjs`
+  `renderSvg` tolerates the non-zero exit — it uses the SVG `dot` produced
+  and logs the warning, failing loud only on genuinely-empty output (so CI's
+  freshness gate passes). This swallows the symptom; it does not address the
+  layout failure.
+- **Investigate when convenient:** which edge(s) fail routing and why; whether
+  it's the `splines=` mode (ortho/curved/polyline), the hub-edge bundling,
+  the directory clustering, or a degenerate self-/parallel-edge interacting
+  with the spline router. Likely fixes: a different `splines` setting, more
+  aggressive hub-edge pruning in the *picture* (manifest unaffected), or a
+  layout tweak. Version-sensitive — surfaces on CI's apt `dot` (older), not on
+  local graphviz 14.1.2 — so reproduce against the apt version.
+- **Where:** `tools/doc-graph/generate.mjs` (`buildDot` / `renderSvg`).
+
 ### Analysis-chart layout affordance (Settings → Analysis Layout) + collapsed charts still process packets
 
 - **Surfaced:** 2026-05-30 (green-perf arc; the "hidden charts" capture).
@@ -858,6 +884,15 @@ hand-rolled spaces' encoding" once `ApiError` lands.
 
 ### Explicit documentation-graph artifact with commit-age heatmap
 
+- **Implemented:** 2026-06-01 on branch `bork/tooling/doc-graph-artifact`.
+  Generator at `tools/doc-graph/generate.mjs` (zero-dep Node, shells out to
+  `dot`); committed artifacts `docs/doc-graph.{json,svg,md}` +
+  `docs/doc-graph-report.md`; CI freshness gate at
+  `.github/workflows/doc-graph-ci.yml`. Measured: 330 doc nodes,
+  1663 edges (1417 resolved, 246 dangling — 67 from live docs / 179 expected
+  archive drift — 0 ambiguous). Worklog:
+  `docs/worklog/2026-06-01-doc-graph-artifact.md`; design note (the spec)
+  transitioned to `implemented`.
 - **Surfaced:** 2026-06-01. The documentation graph (the READMEs, the
   handoff, the ten ADRs, the CLAUDE.md tree, FILES.md / IDENTIFIERS.md,
   the growing `docs/notes/` incl. the consult records, decisions-deferred,
@@ -907,7 +942,7 @@ hand-rolled spaces' encoding" once `ApiError` lands.
   in the manifest; `dot`→committed `.svg` primary + pruned Mermaid; docs-only
   nodes, typed/directed edges; committed + CI-verified-fresh). Sibling to the
   `doc-graph-discipline-plan.md` frontmatter-substrate plan, not a replacement.
-  Implementation not yet scheduled.
+  Implemented 2026-06-01 (see the **Implemented** line at the top of this entry).
 
 ---
 

@@ -1,9 +1,14 @@
 # Documentation-graph artifact — design note
 
-Status: idea / design-note, not scheduled. Captured at the maintainer's
+Status: implemented (2026-06-01). Captured at the maintainer's
 request following the 2026-06-01 deferred-items entry "Explicit
 documentation-graph artifact with commit-age heatmap"
-(`docs/notes/deferred-items.md`). A small-to-medium subproject — a
+(`docs/notes/deferred-items.md`), then implemented as designed — the
+generator lives at `tools/doc-graph/generate.mjs`, the committed
+artifacts at `docs/doc-graph.{json,svg,md}` + `docs/doc-graph-report.md`,
+and the CI freshness gate at `.github/workflows/doc-graph-ci.yml`. The
+worklog is `docs/worklog/2026-06-01-doc-graph-artifact.md`. A
+small-to-medium subproject — a
 git-driven generator plus a rendered artifact; documented here with an
 honest feasibility assessment (verdict: doable, with one recall seam
 named below and one prerequisite that turns out **not** to be a blocker).
