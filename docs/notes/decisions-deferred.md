@@ -430,11 +430,30 @@ grounded decision.
    effect is stored, passed unrun, retried, or raced *without* being
    run immediately, a bare `IO`/`Task` begins to pay for itself —
    adopt it there, scoped to that need.
-3. **Proxy fan-out concurrency / resource-scope.** Range-query
-   fan-out + cancellation + subscription lifetime (the prior
-   consult's "real earn-its-weight" case for Effect), where the right
-   algebra is `Stream` + `Scope` — notably the same `analysis-service`
-   that resists `Task` today.
+3. **Proxy fan-out concurrency / resource-scope.** This was Effect's
+   one named earn-its-weight candidate (range-query fan-out,
+   cancellation, subscription lifetime). **Evaluated on architectural
+   merit with maturity bracketed, 2026-06-01**
+   (`opus-consult-2026-06-01-effect-ts-architectural-merits.md`):
+   Effect is **declined at all scopes** — over-built even here. The
+   hand-rolled code reads as solid and better-fit: `Scope` owns the
+   wrong axis (resources are owned by long-lived *entities* —
+   `BoardId`, identity — released at *domain events*, not by
+   computations over lexical extents; `resetWorkspace` deliberately
+   *keeps* the live socket across an identity flip, which a
+   release-on-exit `Scope` cannot express — `store/index.ts`),
+   `Stream` models the wrong half (`analyzeRange`/`onAnalysisUpdate`
+   fan each packet to ~5 disjoint sinks — a multiplexing subject, not
+   a single-consumer back-pressured stream — `analysis-service.ts`),
+   `Fiber` interruption is already delivered by `AbortController` + an
+   idempotent `settle()` race (`wait-for-analysis.ts`), and the
+   2026-05-04 resource-ownership audit already closed the leak class
+   `Scope` would prevent. The narrowed, concrete shape-changes that
+   *would* flip the verdict: (i) a real single-consumer back-pressured
+   pipeline appears; (ii) N-way join-race orchestration appears; (iii)
+   the codebase goes multi-author and wants compiler-enforced
+   ownership. Until one of those, the existing entity-keyed `Map` +
+   `AbortController` + resource-ownership discipline is the better fit.
 
 Absent one of these, effect-typing stays out; a `Promise<T>` returned
 from `src/services/` carries the "effectful" signal the architecture
