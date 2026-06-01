@@ -4,7 +4,7 @@
  * License: Public Domain (The Unlicense)
  */
 
-import { api } from './api-client';
+import { api, ApiError } from './api-client';
 import type {
   CardId,
   CardMetadataPatch,
@@ -339,19 +339,17 @@ export class BackendService {
         tree: this.mapTreeNode(raw.tree),
       };
     } catch (err) {
-      // The api-client throws `Error` with message "API Error 422: <body>".
-      // Parse the structured detail to a typed error for ADR-0002 surfacing.
-      if (err instanceof Error) {
-        const match = err.message.match(/^API Error 422: (.+)$/s);
-        if (match) {
-          const body422 = parse422Body(match[1]);
-          if (body422) {
-            throw new CardTreeOverflowError(
-              rootCardId,
-              body422.actualSize,
-              body422.maxNodes,
-            );
-          }
+      // The api-client throws `ApiError` carrying the HTTP status and raw
+      // body. Parse the 422 structured detail to a typed error for ADR-0002
+      // surfacing; anything else propagates unchanged.
+      if (err instanceof ApiError && err.status === 422) {
+        const body422 = parse422Body(err.body);
+        if (body422) {
+          throw new CardTreeOverflowError(
+            rootCardId,
+            body422.actualSize,
+            body422.maxNodes,
+          );
         }
       }
       throw err;

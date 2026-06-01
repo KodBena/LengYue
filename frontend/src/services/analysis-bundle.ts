@@ -23,6 +23,7 @@ import type { BoardId, NodeId } from '../types';
 import { asBoardId } from '../store/board-factory';
 import { ledger } from './analysis-ledger';
 import { store } from '../store';
+import { ApiError } from './api-client';
 
 export const BUNDLE_SCHEMA_VERSION = 1 as const;
 export type BundleSchemaVersion = typeof BUNDLE_SCHEMA_VERSION;
@@ -98,8 +99,8 @@ export type AnalysisBundleStorageError =
     };
 
 /**
- * Parse the message of an `Error` thrown by `api-client.ts` into a
- * typed `AnalysisBundleStorageError`, if the body shape matches one
+ * Parse the `ApiError` thrown by `api-client.ts` into a typed
+ * `AnalysisBundleStorageError`, if the status + body shape match one
  * of the three storage-error envelopes.
  *
  * Returns null when the error wasn't shaped by the api-client (e.g.,
@@ -113,16 +114,13 @@ export type AnalysisBundleStorageError =
  * Pure function: no I/O, no side effects, no shared state.
  */
 export function parseStorageError(err: unknown): AnalysisBundleStorageError | null {
-  if (!(err instanceof Error)) return null;
-  // api-client throws with the shape "API Error <status>: <body>".
-  // The body is whatever FastAPI put on the wire — typically JSON
-  // with a top-level `detail` field carrying our discriminated
-  // body. We match against a numeric status and JSON-shaped body;
-  // anything else returns null.
-  const m = err.message.match(/^API Error (\d+):\s*(.*)$/s);
-  if (!m) return null;
-  const status = parseInt(m[1], 10);
-  const bodyText = m[2];
+  if (!(err instanceof ApiError)) return null;
+  // api-client throws ApiError carrying the HTTP status and raw body.
+  // The body is whatever FastAPI put on the wire — typically JSON with
+  // a top-level `detail` field carrying our discriminated body. Anything
+  // that isn't JSON / doesn't carry the expected envelope returns null.
+  const status = err.status;
+  const bodyText = err.body;
 
   let parsed: unknown;
   try {

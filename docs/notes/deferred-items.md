@@ -733,6 +733,25 @@ this file.
   smell but a serious brittleness-hazard violation of engineering
   discipline (ADR-0002 fail-loudly + the type-driven-design tenet),
   warranting both an audit and an RCA — neither scheduled now.
+- **Emergency fix applied (PR #318, 2026-06-01).** Classed an
+  *emergency*, not merely a latent hazard: in a single-maintainer
+  project the bus factor turns an un-defused stringly-typed landmine
+  into a project-continuity risk — no second maintainer catches the
+  regression when the message format drifts, and the reparse sites
+  live only in one person's memory. The fix introduced the structured
+  `class ApiError extends Error { status, body }` in
+  `api-client.ts` and converted all six known reparse sites
+  (library-service, analysis-persistence-service, analysis-bundle,
+  backend-service, qeubo-service, useAuth) to branch on
+  `err instanceof ApiError && err.status === N` / read `err.body`; the
+  `.message` is preserved for back-compat. Typecheck green; the
+  `parseStorageError` → typed-union path is locked by a new tier-1 test
+  (`analysis-bundle-storage-error.test.ts`). **This does NOT close the
+  item.** The fix removed the *known* instances; it did not establish
+  the set is complete, nor explain how the pattern proliferated. The
+  **exhaustiveness audit** (any stringly-typed contract beyond these
+  six — non-API thrown-string contracts; any `.match` / `.includes` on
+  a thrown message) and the **RCA** below both remain open.
 - **The anti-pattern.** `api-client.ts:218` throws a *stringly-typed*
   error whose message is `API Error <status>: <body>`, discarding the
   structured `status` / `body` it holds at the throw site. Six consumer
@@ -775,8 +794,12 @@ this file.
   "keep the string format" choice (`api-client.ts:216`) entrench it? is
   there a missing lint / type gate that would flag a thrown-string
   contract or a `.match` on an error message? did review not catch the
-  spread because each instance looked locally reasonable? The RCA's job
-  is the organizational / process lapse, not the per-site fix.
+  spread because each instance looked locally reasonable? The
+  single-maintainer context is part of that frame — with no second
+  reviewer, the discipline's only guard is one person's attention and
+  memory, which is precisely the lapse-surface to examine (not to treat
+  as exculpatory). The RCA's job is the organizational / process lapse,
+  not the per-site fix.
 - **Cross-references.** `docs/notes/opus-consult-2026-06-01-neverthrow-overhaul.md`
   (where the thin error channel was first measured); the "Effect-typing
   as documentation" entry in `docs/notes/decisions-deferred.md` (the
