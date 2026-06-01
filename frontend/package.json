@@ -11,7 +11,9 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint .",
-    "gen:api": "openapi-typescript http://127.0.0.1:8764/openapi.json -o src/types/backend.ts"
+    "gen:api": "openapi-typescript http://127.0.0.1:8764/openapi.json -o src/types/backend.ts",
+    "perf:capture": "node scripts/perf-capture.mjs",
+    "perf:trace": "node scripts/perf-trace-parse.mjs"
   },
   "dependencies": {
     "@codemirror/lang-python": "^6.2.1",
@@ -41,6 +43,7 @@
     "eslint-plugin-vue": "^10.9.1",
     "jsdom": "^29.1.1",
     "openapi-typescript": "^7.4.0",
+    "playwright-core": "^1.60.0",
     "typescript": "~5.9.3",
     "vite": "^8.0.1",
     "vitest": "^4.1.5",

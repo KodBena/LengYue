@@ -267,6 +267,27 @@ and the branch inventory alongside it. Deferred follow-ups (the
 analysis-panel container-query recompute; the native paint floor)
 are in `docs/notes/deferred-items.md`.
 
+**A repeatable perf-capture harness landed 2026-06-01.** The green
+arc's manual rigamarole (Firefox DevTools + hold-arrow nav) is now
+backed by a pluggable scenario harness: `window.__perfScenario.run(name,
+cfg)` (dev-gated) drives `composables/perf/` scenarios — `nav-only`
+(regime-A), `nav-range` and `full-stress` (regime-B: navigation +
+popover churn *concurrent with* a streaming range analysis, the case
+the manual flow could not reproduce). `scripts/perf-capture.mjs`
+captures a Chrome DevTools trace via CDP-over-Playwright (the system
+Chromium; trace saved under `~/w/vdc/chromium_profiles/`), and
+`scripts/perf-trace-parse.mjs` ranks per-component render/patch from it.
+ADR-0009's canonical parser (`@firefox-devtools/profiler-cli`) is
+**Firefox-only** — it cannot ingest a Chrome trace — so the Chrome path
+uses the dedicated parser; **ADR-0009 was amended 2026-06-01** to record
+the Chrome/CDP surface (Revisit trigger #2). Built atop two primitives
+extracted as SSOT shared with the autonomous-SRS driver
+(`waitForCondition`, `loadSgfIntoBoard`). The first sanity capture
+(b10 / 1000 visits / no-adapt / cold cache) reproduced the regime-B
+signature — analysis chart components top the render/patch ranking under
+streaming analysis, no surviving render-coupling. Full record:
+`docs/worklog/2026-06-01-perf-scenario-harness.md`.
+
 **Frontend identifier types have a lookup map.** `frontend/IDENTIFIERS.md`
 — the namespace-repository sibling of `frontend/FILES.md` — catalogues
 every branded or aliased identifier type with its primitive, encoding

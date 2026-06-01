@@ -490,6 +490,49 @@ budget) — the user-perceived sluggishness, substantiated. Three levers:
 
 ### Large — structural changes that introduce new abstractions
 
+#### Perceptual event projection — faithful user-observable event-stream chart `[frontend]`
+
+From a captured perf trace, reconstruct the event stream **as the user
+observes it** (input → visual response latency, stalls, async-update
+lag) — the perceptual dual of `scripts/perf-trace-parse.mjs`'s
+code-structural render/patch ranking. The load-bearing idea is an
+**ACL**: a perceptual-event vocabulary defined *independent of the
+SPA's markers*, with an adapter mapping trace events onto it (parallel
+to `backend-service.ts` mapping wire→domain). Chart is a canvas
+swimlane timeline with latency connectors ("gantt-like but not
+gantt-proper"; ADR-0010 canvas rule). Feasibility: doable — two named
+caveats (causal attribution is heuristic → confidence-tagged; depends
+on the faithful `--headed`/`--connect` capture path, since a headless
+trace's paint timing would yield a confidently-wrong chart). Full
+design note: `docs/notes/perceptual-event-projection-plan.md`.
+
+#### Memory-profiling discipline — fold onto the perf-capture harness `[frontend]`
+
+The quartet's item 3 (memory-profiling discipline). It **folds onto the
+2026-06-01 perf-scenario harness** rather than standing alone — the same
+`PerfScenario` + engine-prep + Playwright/CDP capture drives it, via two
+CDP mechanisms:
+
+- **Trace memory counters** (Chrome DevTools Performance "Memory"
+  checkbox): a `--memory` trace-config flag on `scripts/perf-capture.mjs`
+  adds the `UpdateCounters` events (JS heap / documents / nodes / listeners
+  over time) to the trace — a coarse "does this scenario grow heap during
+  the run" signal, parseable by the same `perf-trace-parse.mjs` front end.
+  (Exact trace categories to verify in the arc — do not assume.)
+- **Heap snapshots / allocation sampling** (CDP `HeapProfiler` domain —
+  the real leak tool, separate from `Tracing`): run a scenario, take
+  before/after heap snapshots, diff retained growth. The natural scenario
+  is a **resource-ownership leak harness** — open/close N boards, reset the
+  workspace N times — exercising `closeBoard` / `resetWorkspace` /
+  ADR-0010 §4 cleanups, asserting retained heap (and leaked listener / node
+  counts) do not grow per cycle. The "good memory profiling session" the
+  quartet anticipated.
+
+Likely lands as an **ADR-0009 metric-vocabulary extension** (retained-heap-
+after-N-cycles, leaked-listener/node counts — via the append-a-rule
+pattern) rather than a separate tenet (per the maintainer's "not sure I
+want it separate from ADR-0009"). Depends on item 4 (shipped).
+
 #### ~~Unified user-controllable-scalar surface~~ `[frontend]` *(shipped 2026-05-14)*
 
 Shipped via PR #223 (`KodBena/feat/knob-registry`, 14 commits).
