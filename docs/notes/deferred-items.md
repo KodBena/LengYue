@@ -107,6 +107,17 @@ this file.
 - **Surfaced:** 2026-05-31 (board-render-ssot arc; the `x1.json.gz`
   charts-visible sanity capture, after the ChartPreviewBox `v-html`
   excision landed).
+- **Closed:** 2026-06-01 — replaced the `@container` query with a
+  ResizeObserver-toggled `.narrow` class in `AnalysisChartPanel.vue` (fires only
+  on real width changes, not per style flush). Headless before/after (15+15
+  cold-cache `nav-range` runs): forced style+layout invocations **−19.4%**
+  (417→336 median count), forced-flushes-per-chart-render **−21%** (1.03→0.81),
+  `Layout` duration −7.3%, recalc/layout-tree time flat; **no regression**
+  (layout fell, so dropping `container-type`'s containment was safe). The
+  Firefox "907 `UpdateContainerQueryStyles`" has no Chrome-named event, but the
+  CQ's forced extra passes are countable as `ForcedStyleAndLayout`. Worklog:
+  `docs/worklog/2026-06-01-de-cq-preview-hide.md`. The diagnosis below is
+  retained as the method record.
 - **Concern:** With the analysis charts visible, a per-nav jank tax is the
   container-query recompute storm — `x1.json.gz` (9.24 s) shows **907
   `UpdateContainerQueryStyles` / ~186 ms** (it was 0 with charts hidden).
