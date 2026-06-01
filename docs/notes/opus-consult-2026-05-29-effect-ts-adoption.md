@@ -23,6 +23,16 @@ The clarified motivation, which calibrates everything below:
 Saved verbatim for auditability per the consult-record convention. License:
 Public Domain (The Unlicense).
 
+> **Follow-up (2026-06-01).** The maintainer pursued this consult's
+> bare-`IO<T>` leg (deferring the `neverthrow` / typed-error leg). It
+> was built as a worked example on `backend-service.ts` and then
+> reverted as over-built for an eager ACL — see
+> `docs/notes/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md`
+> and the decision record in `docs/notes/decisions-deferred.md`
+> ("Effect-typing as documentation"). The `neverthrow` / typed-error
+> leg this consult identified as the information-bearing win is being
+> consulted on separately.
+
 ---
 
 # Analytic Firewall — Second Opinion: "Should LengYue's frontend adopt Effect-TS project-wide, for documentation + purity-audit value?"
