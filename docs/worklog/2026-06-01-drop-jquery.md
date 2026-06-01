@@ -30,6 +30,21 @@ So they were pure dead weight loaded into every page.
 - `package.json`: removed `jquery`, `jquery-ui-dist`, `@types/jquery`,
   `@types/jqueryui`; `npm install` updated the lock.
 
+### Also: unused `lodash-es` (tree hygiene, not a bundle change)
+
+The same dead-dep sweep found `lodash-es` declared but **never imported**
+(0 mentions in `src/`). Removed it too. Because nothing imported it, it was
+never bundled — so the bundle is unchanged; this is dependency-tree hygiene
+(one fewer install, no dead direct dep), not a further size cut.
+
+### Kept: `buffer` (verified load-bearing)
+
+`buffer` *looked* dead (0 `Buffer` mentions in `src/`) but is **needed** —
+`vite.config.ts` aliases `buffer: 'buffer/'` to polyfill Node's `Buffer` for
+`@sabaki/sgf` (its `tokenize.js` / `main.js` use it), so removing it would
+break SGF parsing in the browser. Kept. (The "look before you delete" check
+earning its keep — `buffer`'s consumer is a dependency, not our `src`.)
+
 ## Measured win
 
 | | raw | gzip |
