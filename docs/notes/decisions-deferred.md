@@ -409,8 +409,23 @@ grounded decision.
    failures `backend-service` already constructs by hand
    (`CardTreeOverflowError`, the 404/422 paths). This is the
    information-bearing documentation the 2026-05-29 consult named as
-   the real win — it is being consulted on next, but remains optional
-   and merit-gated, not automatic compensation for this revert.
+   the real win. **Consulted 2026-06-01**
+   (`opus-consult-2026-06-01-neverthrow-overhaul.md`): a full or
+   ACL-wide `neverthrow` overhaul is **declined** — ADR-0002 Rule 3
+   already blesses the discriminated-union result shape
+   (`{ ok, value } | { ok: false, reason }`) and the codebase already
+   hand-rolls it (`AnalysisBundleStorageError`). The one categorical
+   win (compiler-enforced exhaustive handling, which `try/catch`
+   cannot give and ADR-0002 admits it cannot enforce) accrues only at
+   the ≤4 multi-variant error spaces (`QeuboError`,
+   `AnalysisBundleStorageError`, `AnalysisWaitError`,
+   `CardTreeOverflowError`) and is a property of the union +
+   `never`-default `switch`, not the library — no `andThen` chains
+   exist, and ~32 of ~36 boundaries carry a single opaque `Error` no
+   caller branches on. Residual option: a ~12-line home-grown
+   `Result`/`match`, exhaustively handled at those ≤4 sites — pending
+   maintainer decision, merit-gated; status quo (ADR-0002 + the
+   existing typed-error classes) holds everywhere else.
 2. **The first effect genuinely deferred.** The moment a service
    effect is stored, passed unrun, retried, or raced *without* being
    run immediately, a bare `IO`/`Task` begins to pay for itself —
