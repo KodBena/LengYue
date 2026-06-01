@@ -5,8 +5,8 @@
  * driving `analysisPersistenceService.save()` on per-board dirty
  * bumps. The composable orchestrates: a reactive `watch` over the
  * service's per-board dirty counter (plus the two gating leaves
- * on `store.profile.settings.engine.katago`), a leading-edge
- * throttle that schedules a save 2 s after the first bump in a
+ * on `store.profile.settings.engine.katago`), a trailing-edge
+ * debounce that (re)schedules a save 2 s after the LAST bump in a
  * quiet period, and a persistent-error pause that writes to the
  * service's `autoSaveError` slot when `save()` rejects with a
  * typed `AnalysisBundleStorageError`.
@@ -20,7 +20,7 @@
  * License: Public Domain (The Unlicense)
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, onTestFinished } from 'vitest';
 import { flushPromises } from '@vue/test-utils';
 
 vi.mock('../../src/services/analysis-persistence-service', async () => {
@@ -68,6 +68,18 @@ async function addBoardAndGetId(): Promise<BoardId> {
   return store.boards[store.boards.length - 1].id;
 }
 
+// Mount the auto-save composable with failure-safe teardown.
+// `onTestFinished` runs on pass AND fail — unlike an in-body
+// `handle.stop()`, which a thrown assertion skips, leaking the
+// composable's per-board watcher into the next test. That leak is what
+// made the `bundle_too_large` failure masquerade as unrelated to the
+// (real) `coalesces` timing bug; registering teardown here defuses the
+// whole class.
+function mountAutoSave(): void {
+  const h = useAutoSaveAnalyses();
+  onTestFinished(() => h.stop());
+}
+
 describe('useAutoSaveAnalyses', () => {
   beforeEach(() => {
     resetWorkspace();
@@ -90,7 +102,7 @@ describe('useAutoSaveAnalyses', () => {
   it('does not fire when analysisAutoSave is off', async () => {
     store.profile.settings.engine.katago.analysisStorageEnabled = true;
     store.profile.settings.engine.katago.analysisAutoSave = false;
-    const handle = useAutoSaveAnalyses();
+    mountAutoSave();
     const boardId = await addBoardAndGetId();
 
     fakeAnalysisPersistenceService.markDirty(boardId);
@@ -98,14 +110,12 @@ describe('useAutoSaveAnalyses', () => {
     vi.advanceTimersByTime(DEBOUNCE_MS * 2);
     await flushPromises();
 
-    expect(fakeAnalysisPersistenceService.save).not.toHaveBeenCalled();
-    handle.stop();
-  });
+    expect(fakeAnalysisPersistenceService.save).not.toHaveBeenCalled();  });
 
   it('does not fire when analysisStorageEnabled is off (even if analysisAutoSave is on)', async () => {
     store.profile.settings.engine.katago.analysisStorageEnabled = false;
     store.profile.settings.engine.katago.analysisAutoSave = true;
-    const handle = useAutoSaveAnalyses();
+    mountAutoSave();
     const boardId = await addBoardAndGetId();
 
     fakeAnalysisPersistenceService.markDirty(boardId);
@@ -113,13 +123,11 @@ describe('useAutoSaveAnalyses', () => {
     vi.advanceTimersByTime(DEBOUNCE_MS * 2);
     await flushPromises();
 
-    expect(fakeAnalysisPersistenceService.save).not.toHaveBeenCalled();
-    handle.stop();
-  });
+    expect(fakeAnalysisPersistenceService.save).not.toHaveBeenCalled();  });
 
   it('fires save once after a dirty bump + debounce window', async () => {
     enableAutoSave();
-    const handle = useAutoSaveAnalyses();
+    mountAutoSave();
     const boardId = await addBoardAndGetId();
 
     fakeAnalysisPersistenceService.markDirty(boardId);
@@ -134,13 +142,11 @@ describe('useAutoSaveAnalyses', () => {
     vi.advanceTimersByTime(1);
     await flushPromises();
     expect(fakeAnalysisPersistenceService.save).toHaveBeenCalledTimes(1);
-    expect(fakeAnalysisPersistenceService.save).toHaveBeenCalledWith(boardId);
-    handle.stop();
-  });
+    expect(fakeAnalysisPersistenceService.save).toHaveBeenCalledWith(boardId);  });
 
   it('coalesces multiple bumps within the window into one save', async () => {
     enableAutoSave();
-    const handle = useAutoSaveAnalyses();
+    mountAutoSave();
     const boardId = await addBoardAndGetId();
 
     fakeAnalysisPersistenceService.markDirty(boardId);
@@ -152,22 +158,23 @@ describe('useAutoSaveAnalyses', () => {
     fakeAnalysisPersistenceService.markDirty(boardId);
     await flushPromises();
 
-    // Total elapsed: 1000 ms — still within window from the first bump.
+    // Nothing yet: trailing-edge debounce — each bump reset the timer, so the
+    // single live timer is scheduled 2000 ms after the LAST bump (t=1000),
+    // i.e. at t=3000. (This test predated the leading-edge → trailing-edge
+    // refactor; see the composable header / the 2026-05-30 worklog.)
     expect(fakeAnalysisPersistenceService.save).not.toHaveBeenCalled();
 
-    // Cross from first-bump-at-zero: total 2000 ms.
-    vi.advanceTimersByTime(1000);
+    // Cross the debounce window measured from the last bump.
+    vi.advanceTimersByTime(DEBOUNCE_MS);
     await flushPromises();
-    expect(fakeAnalysisPersistenceService.save).toHaveBeenCalledTimes(1);
-    handle.stop();
-  });
+    expect(fakeAnalysisPersistenceService.save).toHaveBeenCalledTimes(1);  });
 
   it('pauses auto-save for a board on bundle_too_large error', async () => {
     enableAutoSave();
     fakeAnalysisPersistenceService.save.mockRejectedValueOnce(
       new ApiError(413, '{"detail":{"kind":"bundle_too_large","request_bytes":1000000,"cap_bytes":500000,"detail":"bundle exceeds cap"}}'),
     );
-    const handle = useAutoSaveAnalyses();
+    mountAutoSave();
     const boardId = await addBoardAndGetId();
 
     fakeAnalysisPersistenceService.markDirty(boardId);
@@ -182,13 +189,11 @@ describe('useAutoSaveAnalyses', () => {
     await flushPromises();
     vi.advanceTimersByTime(DEBOUNCE_MS * 2);
     await flushPromises();
-    expect(fakeAnalysisPersistenceService.save).toHaveBeenCalledTimes(1);
-    handle.stop();
-  });
+    expect(fakeAnalysisPersistenceService.save).toHaveBeenCalledTimes(1);  });
 
   it('re-arms paused boards on analysisAutoSave false → true transition', async () => {
     enableAutoSave();
-    const handle = useAutoSaveAnalyses();
+    mountAutoSave();
     const boardId = await addBoardAndGetId();
 
     // Pre-populate an error slot (as if a prior save failed) so we
@@ -207,13 +212,11 @@ describe('useAutoSaveAnalyses', () => {
     enableAutoSave();
     await flushPromises();
 
-    expect(fakeAnalysisPersistenceService.autoSaveErrorFor(boardId)).toBeUndefined();
-    handle.stop();
-  });
+    expect(fakeAnalysisPersistenceService.autoSaveErrorFor(boardId)).toBeUndefined();  });
 
   it('cancels pending timers when analysisAutoSave flips off mid-window', async () => {
     enableAutoSave();
-    const handle = useAutoSaveAnalyses();
+    mountAutoSave();
     const boardId = await addBoardAndGetId();
 
     fakeAnalysisPersistenceService.markDirty(boardId);
@@ -224,7 +227,5 @@ describe('useAutoSaveAnalyses', () => {
     vi.advanceTimersByTime(DEBOUNCE_MS * 2);
     await flushPromises();
 
-    expect(fakeAnalysisPersistenceService.save).not.toHaveBeenCalled();
-    handle.stop();
-  });
+    expect(fakeAnalysisPersistenceService.save).not.toHaveBeenCalled();  });
 });

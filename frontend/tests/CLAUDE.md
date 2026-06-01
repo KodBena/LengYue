@@ -241,6 +241,23 @@ same file unless explicitly cleared. The exported
 `abortAllReviews()` clears every entry; `abortBoardReview(id)`
 clears one.
 
+**Failure-safe teardown.** A test that creates a resource needing
+cleanup — a composable handle, a mounted watcher, a registered
+listener — must tear it down in a way that runs even when the test
+*fails*. End-of-body cleanup (`const h = useX(); … ; h.stop();` as the
+last statement) is skipped the moment an earlier assertion throws,
+leaking the resource into the next test. That cascade is **its own
+bug**, not a side-effect of the triggering failure: a leaked failure
+*falsifies* the suite's diagnostic signal — one real failure
+metastasises into several false ones that point away from the cause,
+strictly worse than a single honest red. Register teardown at creation
+with `onTestFinished(() => h.stop())` (or an `afterEach`), which runs
+on pass *and* fail. Worked example: the 2026-06-01 `useAutoSaveAnalyses`
+diagnosis, where a stale-timing failure in one test skipped its
+end-of-body `stop()` and silently broke the next, masking the real
+cause — the fix added a `mountAutoSave()` helper that wraps the
+composable with `onTestFinished` teardown.
+
 ## Run modes
 
 - `npm test` — Vitest watch mode. Use during local development.
