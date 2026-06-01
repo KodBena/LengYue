@@ -3,8 +3,6 @@
  * License: Public Domain (The Unlicense)
  */
 
-import './jquery-bridge';
-import 'jquery-ui-dist/jquery-ui';
 import { createApp } from 'vue';
 import './style.css';
 import App from './App.vue';
