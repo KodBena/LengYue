@@ -92,8 +92,10 @@ it. Before declaring a task done or filing a PR, audit:
   this — it lists dangling cross-references — so consult it; the
   relation-vs-content judgment (ADR-0005 Rule 3) is still yours.
 - **Did this change touch documentation *structure*?** The doc-graph
-  artifact (`docs/doc-graph.{json,svg,md}` + `docs/doc-graph-report.md`)
-  is **committed and CI-gated for freshness** (`doc-graph-ci`), but the
+  artifact (`docs/doc-graph.json` + `docs/doc-graph.md` +
+  `docs/doc-graph-report.md`; the SVG picture is rendered locally and
+  `.gitignore`d, not committed — see `docs/notes/deferred-items.md`) is
+  **committed and CI-gated for freshness** (`doc-graph-ci`), but the
   gate compares **graph structure only** — the node set, edges, and
   resolution — not the heatmap, which the committed manifest stores as a
   stable snapshot (bucket + dates, never the raw HEAD-relative

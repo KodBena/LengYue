@@ -1,6 +1,6 @@
 {
   "node_count": 334,
-  "edge_count": 1689,
+  "edge_count": 1691,
   "age_buckets": [
     {
       "name": "fresh",
@@ -90,7 +90,7 @@
       "is_hub": true,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-01",
-      "age_bucket": "recent"
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/adr-synopsis.md",
@@ -1536,9 +1536,9 @@
       "path": "docs/notes/audit-stringly-typed-contracts-2026-06-01.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-01",
+      "last_committed": "2026-06-01",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/auditor-notes.md",
@@ -1912,9 +1912,9 @@
       "path": "docs/notes/rca-discipline-lapses-2026-06-01.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-01",
+      "last_committed": "2026-06-01",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/reflection.md",
@@ -2578,7 +2578,7 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-05-31",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-05-31-perf-treewidget-autocenter-reflow.md",
@@ -2610,7 +2610,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-01-doc-graph-artifact.md",
@@ -2666,7 +2666,7 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-06-01",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "frontend/FILES.md",
@@ -2674,7 +2674,7 @@
       "is_hub": false,
       "first_committed": "2026-05-11",
       "last_committed": "2026-06-01",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "frontend/IDENTIFIERS.md",
@@ -2769,6 +2769,13 @@
       "to": "docs/doc-graph-report.md",
       "kind": "path-mention",
       "site": "`docs/doc-graph-report.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "CLAUDE.md",
+      "to": "docs/doc-graph.md",
+      "kind": "path-mention",
+      "site": "`docs/doc-graph.md`",
       "resolved": "resolved"
     },
     {
@@ -9629,6 +9636,13 @@
       "to": "docs/notes/decisions-deferred.md",
       "kind": "path-mention",
       "site": "`docs/notes/decisions-deferred.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/deferred-items.md",
+      "to": "docs/doc-graph.md",
+      "kind": "path-mention",
+      "site": "`docs/doc-graph.md`",
       "resolved": "resolved"
     },
     {

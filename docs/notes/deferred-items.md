@@ -59,6 +59,28 @@ this file.
   local graphviz 14.1.2 — so reproduce against the apt version.
 - **Where:** `tools/doc-graph/generate.mjs` (`buildDot` / `renderSvg`).
 
+### Doc-graph SVG — render off-tree (committed SVG removed as interim honest step)
+
+- **Surfaced / decided:** 2026-06-01.
+- **State:** `docs/doc-graph.svg` was **removed from the repository** and
+  `.gitignore`d. It re-layouts wholesale on any structural change and GitHub
+  counts every line of it — and `.gitattributes -diff` does **not** decount on
+  GitHub (it only affects local `git`), confirmed on PRs #332 and #334. The
+  committed manifest (`docs/doc-graph.json`) stays the source of truth; the
+  generator still renders the SVG locally (`node tools/doc-graph/generate.mjs`,
+  needs `dot`) for browsing. Per the maintainer: links inside the SVG no longer
+  resolve on GitHub (it isn't there), but the local picture is still useful.
+  This is the interim honest step; the real fix is below.
+- **The honest fix (planned):** render the SVG *off the counted tree* — a CI job
+  renders from the committed manifest and publishes to a dedicated render branch
+  (GitHub renders a committed `.svg` in the blob view with `xlink:href` links
+  intact) or to GitHub Pages, with the index linking to it. Pairs with sorting
+  the committed manifest's edges deterministically so a structural change is a
+  minimal JSON diff. A contained tooling arc, separable from the broader
+  doc-graph consolidation (the "ADR-effectiveness audits" entry above).
+- **Where:** `tools/doc-graph/generate.mjs` (`renderSvg` / `writeArtifacts` /
+  `checkDrift`), `.gitignore`, `.gitattributes`, `docs/doc-graph.md`.
+
 ### Analysis-chart layout affordance (Settings → Analysis Layout) + collapsed charts still process packets
 
 - **Surfaced:** 2026-05-30 (green-perf arc; the "hidden charts" capture).
