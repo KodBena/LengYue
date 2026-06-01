@@ -724,6 +724,66 @@ this file.
 
 ---
 
+### Stringly-encoded API errors reverse-engineered downstream (brittleness-hazard audit + RCA)
+
+- **Surfaced:** 2026-06-01, as a serendipitous finding of the
+  effect-typing consult arc — the `neverthrow` consult measured the
+  error channel as content-thin at the service boundaries; tracing
+  *why* exposed this. The maintainer classes it not merely a code
+  smell but a serious brittleness-hazard violation of engineering
+  discipline (ADR-0002 fail-loudly + the type-driven-design tenet),
+  warranting both an audit and an RCA — neither scheduled now.
+- **The anti-pattern.** `api-client.ts:218` throws a *stringly-typed*
+  error whose message is `API Error <status>: <body>`, discarding the
+  structured `status` / `body` it holds at the throw site. Six consumer
+  sites then reverse-engineer that structure back out by regex /
+  substring on the message:
+  - `library-service.ts:236`, `analysis-persistence-service.ts:346` — `/^API Error 404:/`
+  - `analysis-bundle.ts:122` — `/^API Error (\d+):\s*(.*)$/`, rebuilding the `AnalysisBundleStorageError` union
+  - `backend-service.ts:345` — `/^API Error 422:/`, rebuilding `CardTreeOverflowError`
+  - `qeubo-service.ts:71` — `/^API Error (\d+):/`, rebuilding `QeuboError`
+  - `useAuth.ts:141` — `msg.includes('API Error 401')`
+
+  The codebase already names the hazard in passing — `useAuth.ts:122`
+  ("Brittle in principle") and `api-client.ts:216`.
+- **Why it's a brittleness hazard, not cosmetics.** The error contract
+  is a *string format*, not a type. A change to that format — or a
+  response body that doesn't match a consumer's regex — silently breaks
+  every consumer's error branching with **no compile error**: the regex
+  stops matching and a typed failure (overflow / quota / 404 / 401)
+  silently degrades to "unknown error." That is exactly the
+  silent-failure class ADR-0002 forbids, reached *through* the
+  error-handling path that is supposed to be the loud one.
+- **The audit (deferred).** Enumerate every stringly-encoded-then-
+  reparsed contract — the six above may not be exhaustive, and the
+  pattern may exist beyond API errors (any `.match` / `.includes` on a
+  thrown message is suspect). The fix is known and in-idiom: a
+  structured `class ApiError extends Error` carrying `status: number`
+  and `body: string` as fields, with consumers branching on
+  `err instanceof ApiError && err.status === …` and reading `err.body`
+  directly. Incrementally safe — `ApiError` can keep the same `.message`
+  string, so un-migrated consumers keep working during the sweep. It
+  also delivers the "information-bearing error channel" the `neverthrow`
+  consult named as the real win — library-free, via a plain typed class
+  in the existing `CardTreeOverflowError` / `QeuboError` idiom — and so
+  subsumes that consult's deferred (e) residual.
+- **The RCA (deferred, maintainer-requested).** Determine what allowed
+  the anti-pattern to *proliferate* across six sites while ADR-0002 and
+  the type-driven-design tenet were in force the whole time. Open
+  questions for the RCA, not pre-judged here: did the first reparse site
+  set a precedent the others copied? did the api-client's deliberate
+  "keep the string format" choice (`api-client.ts:216`) entrench it? is
+  there a missing lint / type gate that would flag a thrown-string
+  contract or a `.match` on an error message? did review not catch the
+  spread because each instance looked locally reasonable? The RCA's job
+  is the organizational / process lapse, not the per-site fix.
+- **Cross-references.** `docs/notes/opus-consult-2026-06-01-neverthrow-overhaul.md`
+  (where the thin error channel was first measured); the "Effect-typing
+  as documentation" entry in `docs/notes/decisions-deferred.md` (the
+  deferred (e) residual this subsumes).
+
+---
+
 ## Closed items
 
 ### ForestStat / TagStat — wire-shape passthrough at the ACL boundary
