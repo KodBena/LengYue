@@ -1,0 +1,79 @@
+# .github/workflows/doc-graph-ci.yml
+#
+# Doc-graph freshness gate (umbrella-level). The documentation-graph artifact
+# (docs/doc-graph.{json,svg,md} + docs/doc-graph-report.md) is committed and
+# must stay in sync with a fresh run of tools/doc-graph/generate.mjs — a
+# committed-but-stale doc-graph would be self-refuting (its own heatmap is meant
+# to flag staleness). This workflow regenerates the artifact and fails iff the
+# committed manifest's GRAPH STRUCTURE (node set, edges, resolution) drifts from
+# the fresh run. The check is scoped to structure, not raw bytes: the heatmap
+# fields (commit-distance, bucket) are HEAD-relative and shift uniformly as the
+# repo advances, so byte-equality would spuriously fail on every later commit.
+# The committed heatmap is a snapshot at last regeneration; structural drift is
+# the real "forgot to regenerate" failure the gate exists to catch.
+#
+# Scope: it checks *freshness only*. It does NOT block merges on broken
+# references — the validator's broken-link report (docs/doc-graph-report.md) is
+# a report the maintainer reviews, not a gate, because existing doc drift would
+# make every PR red. The freshness check is clean (no existing-drift problem):
+# whatever the generator produces is, by definition, fresh.
+#
+# Rationale: single-maintainer project (no second reviewer); the gate is the
+# substitute that catches a forgotten regeneration before it lands. Mirrors the
+# posture of .github/workflows/frontend-ci.yml.
+#
+# `git log` history is required for the commit-distance heatmap, so the checkout
+# uses fetch-depth: 0. `dot` (Graphviz) is the SVG renderer; the generator fails
+# loudly (ADR-0002) if it is absent, so the workflow installs it explicitly.
+#
+# License: Public Domain (The Unlicense)
+name: doc-graph-ci
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'CLAUDE.md'
+      - 'FEATURES.md'
+      - 'frontend/README.md'
+      - 'frontend/CLAUDE.md'
+      - 'frontend/FILES.md'
+      - 'frontend/IDENTIFIERS.md'
+      - 'backend/README.md'
+      - 'backend/CLAUDE.md'
+      - 'tools/doc-graph/**'
+      - '.github/workflows/doc-graph-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'CLAUDE.md'
+      - 'FEATURES.md'
+      - 'frontend/README.md'
+      - 'frontend/CLAUDE.md'
+      - 'frontend/FILES.md'
+      - 'frontend/IDENTIFIERS.md'
+      - 'backend/README.md'
+      - 'backend/CLAUDE.md'
+      - 'tools/doc-graph/**'
+      - '.github/workflows/doc-graph-ci.yml'
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: commit-distance (the heatmap) needs git log/rev-list.
+          fetch-depth: 0
+          # Submodules excluded: proxy/ is out of scope for the doc-graph.
+          submodules: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Graphviz (dot — the SVG renderer)
+        run: sudo apt-get update && sudo apt-get install -y graphviz
+      - name: Check doc-graph artifact freshness
+        run: node tools/doc-graph/generate.mjs --check
