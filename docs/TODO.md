@@ -517,15 +517,20 @@ found the board- and analysis-lifecycle paths (create → load → analyze →
 `closeBoard`, ×40 / ×12) **leak-free** — `closeBoard`'s resource ownership
 holds. Record: `docs/worklog/2026-06-01-memory-profiling-session.md`.
 
-Remaining (deferred):
-- **Trace memory counters** — a `--memory` trace-config flag on
-  `scripts/perf-capture.mjs` (the Chrome "Memory" checkbox =
-  `UpdateCounters` heap/node/listener timeline), a coarse grow-during-run
-  signal foldable onto the existing trace capture. (Exact trace categories
-  to verify — do not assume.)
-- **`resetWorkspace`-churn scenario** — stress the *other* named cleanup
-  (the first session covered the high-traffic `closeBoard` paths); assert
-  retained heap + leaked listener/node counts don't grow per reset.
+Deferred items — both landed 2026-06-01 (second session):
+- **Trace memory counters** *(done — no flag needed)*. Verified the
+  `UpdateCounters` events (jsHeapSizeUsed / nodes / jsEventListeners /
+  documents) are **already** in every capture — `disabled-by-default-
+  devtools.timeline` (already in the category set) emits them; the DevTools
+  "Memory" checkbox only toggles the *display* lane. So no `--memory`
+  capture flag: `perf-trace-parse.mjs` now surfaces the intra-run heap
+  timeline (min / peak / final + node / listener peaks) directly.
+- **`resetWorkspace`-churn scenario** *(done — clean)*. `workspace-reset`
+  scenario + `ctx.resetWorkspace()`; `perf-heap.mjs` defaults to
+  `--no-persist` (route-blocks `/documents/` writes) so a reset can't clear
+  the synced workspace. Both the pure-workspace (×30) and reset-while-
+  analysis-in-flight (×12, bulk `stopAllBoardAnalyses` / `forgetAll`) paths
+  are **leak-free** — retained heap plateaus, tail-slope flat.
 
 #### ~~Unified user-controllable-scalar surface~~ `[frontend]` *(shipped 2026-05-14)*
 

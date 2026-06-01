@@ -104,13 +104,29 @@ Added **retained-heap tail-slope per cycle** to the metric vocabulary (with
 the warmup-vs-leak calibration), and CDP `HeapProfiler` (`perf-heap.mjs`)
 to the canonical tools — via the append-a-rule pattern, not a new tenet.
 
-## Open / deferred
+## Follow-up — both deferred items landed (same day, second session)
 
-- A `--memory` trace-counter flag on `perf-capture.mjs` (the Chrome
-  "Memory" checkbox = `UpdateCounters` heap/node/listener timeline) — a
-  coarse grow-during-run signal foldable onto the existing trace capture.
-- A `resetWorkspace`-churn scenario to stress the *other* named cleanup
-  (this session covered the high-traffic `closeBoard` paths).
+- **Trace memory counters — no flag needed.** Probing first (the deferred
+  note said "verify, don't assume") showed the `UpdateCounters` events
+  (`jsHeapSizeUsed` / `nodes` / `jsEventListeners` / `documents`) are
+  **already** in every capture: `disabled-by-default-devtools.timeline`
+  (already in the category set) emits them; the DevTools "Memory" checkbox
+  only toggles the *display* lane, not the recording. So the planned
+  `--memory` capture flag was unnecessary — `perf-trace-parse.mjs` now
+  surfaces the intra-run heap timeline directly (first→last, min/peak, node
+  & listener peaks). Caveat baked into the output: this is the
+  *intra-run* heap (GC sawtooth), **not** a leak metric — cross-cycle
+  retained heap (`perf-heap.mjs`) is the leak signal.
+- **`resetWorkspace` is leak-free.** Added a `workspace-reset` scenario +
+  `ctx.resetWorkspace()`; `perf-heap.mjs` defaults to `--no-persist`
+  (route-blocks `/documents/` writes) so a reset can't clear the synced
+  workspace. Both variants clean: pure-workspace ×30 (tail-slope 5.6
+  KB/cyc, +2.7 MB bounded) and reset-while-analysis-in-flight ×12
+  (elevated during engine/analysis warmup, then flat from cycle 6;
+  tail-slope 10.7 KB/cyc) — the bulk `stopAllBoardAnalyses` / `forgetAll`
+  teardown releases cleanly. Both named resource-ownership cleanups
+  (`closeBoard`, `resetWorkspace`) now have a leak-free verdict under
+  repetition.
 
 ## License
 

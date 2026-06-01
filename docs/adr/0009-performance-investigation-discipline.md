@@ -170,9 +170,12 @@ investigation time from ~30+ minutes to ~10.
   `frontend/scripts/perf-heap.mjs` runs a scenario N times, forces GC
   and reads the retained heap each cycle (the *retained-heap
   tail-slope* metric below), and optionally writes a `.heapsnapshot`
-  for attribution. Distinct from `Tracing` — the Chrome Performance
-  "Memory" checkbox adds heap *counters* to a trace (a coarse
-  grow-during-run signal, foldable onto `perf-capture.mjs`), whereas
+  for attribution. Distinct from `Tracing` — the intra-run heap
+  *counters* (`UpdateCounters`: heap / nodes / listeners / documents)
+  are already in every capture (`disabled-by-default-devtools.timeline`
+  emits them; the DevTools "Memory" checkbox only toggles the display
+  lane), so `perf-trace-parse.mjs` surfaces that coarse grow-during-run
+  timeline directly — but it is GC-sawtooth intra-run, NOT a leak metric;
   leak *detection* and *attribution* are the `HeapProfiler` domain.
 
 The mechanical wiring that lands this decision: the one-line

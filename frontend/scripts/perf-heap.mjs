@@ -54,6 +54,13 @@ const warmup = Number(flag('warmup', '1'));
 const headed = argv.includes('--headed');
 const connectUrl = flag('connect', undefined);
 const wantSnapshot = argv.includes('--snapshot');
+// A memory profiler should be side-effect-free on the user's synced
+// workspace. By default we block /documents/ WRITES (stub 200) so scenario
+// mutations — especially `workspace-reset`, which CLEARS boards — never
+// persist to the shared local_user document. Reads still hydrate. `--persist`
+// opts out. (In --connect mode this affects the user's live tabs for the run;
+// prefer launch mode for no-persist runs.)
+const persist = argv.includes('--persist');
 const cfg = {};
 if (flag('visits', undefined) !== undefined) cfg.visits = Number(flag('visits'));
 if (flag('proxy-url', undefined) !== undefined) cfg.proxyUrl = flag('proxy-url');
@@ -74,6 +81,13 @@ const browser = connectUrl
 let page = null;
 try {
   const context = connectUrl ? (browser.contexts()[0] ?? await browser.newContext()) : await browser.newContext();
+  if (!persist) {
+    await context.route('**/documents/**', (route) =>
+      route.request().method() === 'GET'
+        ? route.continue()
+        : route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }));
+    console.log('[perf-heap] workspace persistence blocked (--persist to allow)');
+  }
   page = await context.newPage();
   page.on('pageerror', (e) => console.error(`  [page:error] ${e.message}`));
 

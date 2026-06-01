@@ -81,6 +81,13 @@ export interface ScenarioContext {
   loadSgf(rawContent: string, stamp?: (board: BoardState) => void): BoardId;
   /** Fetch a library game and load it into a fresh board; returns its id. */
   loadLibraryGameById(gameId: GameSourceId): Promise<BoardId>;
+  /**
+   * Clear the whole workspace (boards, active index, per-board reviews) and
+   * fire the bulk resource cleanups (`stopAllBoardAnalyses`, persistence
+   * `forgetAll`). The other named resource-ownership mutation alongside
+   * `closeBoard` — a leak-churn target.
+   */
+  resetWorkspace(): void;
 
   // ── engine prep (session config the protocol pins) ──
   /**

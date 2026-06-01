@@ -108,6 +108,33 @@ const REGISTRY: ReadonlyMap<string, ScenarioFactory> = new Map<string, ScenarioF
     }),
   ],
   [
+    // Workspace-reset churn — the leak-churn target for `resetWorkspace`
+    // (the other named resource-ownership cleanup alongside closeBoard).
+    // Each cycle builds workspace state then resets it; perf-heap repeats
+    // and checks retained heap doesn't grow per reset. If `model` is given,
+    // an in-flight analysis is left running into the reset so the bulk
+    // stopAllBoardAnalyses / forgetAll path is exercised under load. Run
+    // under perf-heap (default no-persist) — resetWorkspace clears boards.
+    'workspace-reset',
+    (cfg) => ({
+      name: 'workspace-reset',
+      async run(ctx) {
+        const board = ctx.loadSgf(cfg.sgf ?? DEFAULT_FIXTURE_SGF);
+        ctx.nav.home();
+        if (cfg.model) {
+          await ctx.connectEngine({
+            url: cfg.proxyUrl ?? DEFAULT_PROXY_URL,
+            model: cfg.model,
+            adaptive: cfg.adaptive ?? false,
+          });
+          // Fire-and-forget — left in flight so the reset tears it down.
+          ctx.analyzeRange(board, { full: true, visits: cfg.visits ?? DEFAULT_VISITS });
+        }
+        ctx.resetWorkspace();
+      },
+    }),
+  ],
+  [
     'full-stress',
     (cfg) => ({
       name: 'full-stress',

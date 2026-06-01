@@ -213,8 +213,8 @@ frontend/src/
 │   ├── perf/                                 Dev-only performance-capture harness (no perf claim; ADR-0009).
 │   │   ├── autonav.ts                 [B2]  SSOT autonav loop core: awaitable rAF walk of next() to leaf at ~60 Hz, emitting <prefix>:start/step/end marks. Consumed by useAutoNavigatePerf (toggle) and the scenario context (awaitable).
 │   │   ├── fixtures.ts                [B2]  buildSpacedFixtureSgf — generated even-grid game (legal, no captures) + DEFAULT_FIXTURE_SGF; deterministic deep main line for scenarios.
-│   │   ├── scenarioContext.ts         [B2]  createScenarioContext + runScenario: the imperative app-action façade (createBoard / loadSgf / connectEngine / clearCache / analyzeRange / autonav / spawn / measure) + the stimulus-teardown runner.
-│   │   ├── scenarios.ts               [B2]  Scenario registry + built-ins (nav-only / nav-range / full-stress; analysis preamble connects engine + cold-cache, protocol defaults 1000 visits / no-adapt / SELECTOR) + window.__perfScenario (run / list / disconnect) install.
+│   │   ├── scenarioContext.ts         [B2]  createScenarioContext + runScenario: the imperative app-action façade (createBoard / loadSgf / resetWorkspace / connectEngine / clearCache / analyzeRange / autonav / spawn / measure) + the stimulus-teardown runner.
+│   │   ├── scenarios.ts               [B2]  Scenario registry + built-ins (nav-only / nav-range / full-stress / workspace-reset; analysis preamble connects engine + cold-cache, protocol defaults 1000 visits / no-adapt / SELECTOR) + window.__perfScenario (run / list / disconnect) install.
 │   │   ├── stimuli.ts                 [B1]  popoverStress — background ScenarioStimulus toggling a popover via __devForcePopoverOpen (the useAutoPopoverPerf core, composable form).
 │   │   └── types.ts                   [B2]  PerfScenario / ScenarioContext / QueryHandle / ScenarioStimulus / RangeOpts contracts.
 │   │
