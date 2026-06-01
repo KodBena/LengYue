@@ -87,6 +87,14 @@ const inWindow = (e) => !window || (typeof e.ts === 'number' && e.ts >= window.s
 // ── tally ───────────────────────────────────────────────────────────────────────
 const ut = events.filter((e) => typeof e.cat === 'string' && e.cat.includes('blink.user_timing') && inWindow(e));
 
+// Memory counters (the DevTools "Memory" lane): `UpdateCounters` instant
+// events carry {jsHeapSizeUsed, nodes, jsEventListeners, documents}, emitted
+// by `disabled-by-default-devtools.timeline` — already in every capture, no
+// flag needed. Sampled over the window → the coarse grow-during-run signal.
+const memSamples = events
+  .filter((e) => e.name === 'UpdateCounters' && e.args?.data && inWindow(e))
+  .map((e) => e.args.data);
+
 // Per-component render/patch from measure begins (ph 'b'); one per operation.
 const COMPONENT_RE = /^<(.+)> (render|patch)$/;
 const components = new Map(); // comp -> { render, patch }
@@ -156,4 +164,20 @@ const harnessRows = [...harness.entries()].sort((a, b) => b[1] - a[1]);
 if (harnessRows.length === 0) console.log('  (none — trace predates the scenario harness, or marks fell outside the window)');
 for (const [n, c] of harnessRows.slice(0, topN)) {
   console.log(`  ${String(c).padStart(8)}  ${n}`);
+}
+
+if (memSamples.length) {
+  const heapMB = memSamples.map((d) => d.jsHeapSizeUsed / (1024 * 1024));
+  const peakField = (f) => memSamples.reduce((m, d) => Math.max(m, d[f] ?? 0), 0);
+  const first = heapMB[0];
+  const last = heapMB[heapMB.length - 1];
+  const min = Math.min(...heapMB);
+  const max = Math.max(...heapMB);
+  console.log('');
+  console.log(`=== Memory counters (UpdateCounters, ${memSamples.length} samples over window) ===`);
+  console.log(`  JS heap used ........ first ${first.toFixed(1)} → last ${last.toFixed(1)} MB  (min ${min.toFixed(1)} / peak ${max.toFixed(1)})`);
+  console.log(`  in-window delta ..... ${last - first >= 0 ? '+' : ''}${(last - first).toFixed(1)} MB  (intra-run; GC sawtooth — NOT a leak metric, see perf-heap.mjs for cross-cycle retained)`);
+  console.log(`  DOM nodes (peak) .... ${peakField('nodes')}`);
+  console.log(`  JS listeners (peak) . ${peakField('jsEventListeners')}`);
+  console.log(`  documents (peak) .... ${peakField('documents')}`);
 }

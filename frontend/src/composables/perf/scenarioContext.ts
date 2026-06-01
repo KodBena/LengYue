@@ -18,7 +18,7 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import { store, activeBoard, createBoard as storeCreateBoard, closeBoard, setSelectedModel } from '../../store';
+import { store, activeBoard, createBoard as storeCreateBoard, closeBoard, resetWorkspace as storeResetWorkspace, setSelectedModel } from '../../store';
 import { useNavigation } from '../useNavigation';
 import { useQueryTelemetry } from '../useQueryTelemetry';
 import { waitForCondition } from '../reactive-settle';
@@ -90,6 +90,13 @@ function createScenarioContext(name: string): {
       createdBoards.push(id);
       loadSgfIntoBoard(id, rawContent, stamp);
       return id;
+    },
+
+    resetWorkspace(): void {
+      storeResetWorkspace();
+      // The created-board tracking is moot now — resetWorkspace cleared every
+      // board; drop the ids so teardown doesn't no-op-close stale ones.
+      createdBoards.length = 0;
     },
 
     async loadLibraryGameById(gameId: GameSourceId): Promise<BoardId> {
