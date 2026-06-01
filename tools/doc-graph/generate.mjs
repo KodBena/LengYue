@@ -30,9 +30,17 @@
  * marks `resolved: "ambiguous"` / `resolved: "dangling"` and surfaces it.
  *
  * Heatmap: staleness via commit-distance (`git rev-list --count
- * <last-touch-sha>..HEAD`), discrete buckets, counts-not-wall-clock. Both age
- * values (since-last-touch AND since-first-commit) live in the manifest; the
- * gradient projects staleness only.
+ * <last-touch-sha>..HEAD`), discrete buckets, counts-not-wall-clock. The raw
+ * distances are computed in-memory — they drive the bucket assignment and the
+ * staleness-table ordering — but are deliberately NOT written to the committed
+ * manifest: being HEAD-relative they shift on every commit, which churned the
+ * artifact ~700 lines per commit for no structural reason (the +5k/-5k PR-diff
+ * symptom the churn-reduction worklog records). The committed manifest carries
+ * only the STABLE projection — the discrete `age_bucket` plus the absolute
+ * first/last-commit dates — so a content-only doc change produces a small,
+ * bounded diff (or none, if not regenerated) rather than a wholesale re-render.
+ * See `committedManifest` for the projection and `manifestSkeleton` for why the
+ * freshness gate was already structure-only. The gradient projects staleness.
  *
  * `dot` (Graphviz) is a hard dependency: if it is absent the generator fails
  * loudly (ADR-0002) rather than silently skipping the SVG. Install graphviz
@@ -199,22 +207,21 @@ function enumerateNodes() {
 
 // ── Git commit-distance (the heatmap substrate) ──────────────────────────────
 
-/** HEAD commit count — the reference point for commit-distance. */
-function headCommitCount() {
-  return Number(git(["rev-list", "--count", "HEAD"]).trim());
-}
-
 function git(args) {
   return execFileSync("git", args, { cwd: REPO_ROOT, encoding: "utf8" });
 }
 
 /**
- * For a node, returns { firstCommitted, lastCommitted, distanceLastTouch,
- * distanceFirstCommit }. Distances are commit-counts behind HEAD. A node with
- * no commit history yet (newly created, unstaged) fails loudly: its age is
- * undefined and the caller must decide — we surface distance:null rather than
- * coercing a sentinel (ADR-0002, the silent-default class the umbrella memory
- * flags at contract boundaries).
+ * For a node, returns { firstCommitted, lastCommitted, distanceLastTouch }.
+ * `distanceLastTouch` is the commit-count behind HEAD since the last touch —
+ * the staleness metric that drives the bucket and the table ordering; it is NOT
+ * committed (HEAD-relative; see `committedManifest`). The dates ARE committed.
+ * A node with no commit history yet (newly created, unstaged) fails loudly: its
+ * age is undefined and the caller must decide — we surface distance:null rather
+ * than coercing a sentinel (ADR-0002, the silent-default class the umbrella
+ * memory flags at contract boundaries). (Absolute age in *commits* since first
+ * commit is no longer derived — only the first-commit date is kept — so the
+ * per-node `firstSha..HEAD` rev-list it cost is gone.)
  */
 function nodeAge(relPath) {
   const lastSha = git(["log", "-1", "--format=%H", "--", relPath]).trim();
@@ -226,18 +233,15 @@ function nodeAge(relPath) {
       firstCommitted: null,
       lastCommitted: null,
       distanceLastTouch: null,
-      distanceFirstCommit: null,
     };
   }
   const lastDate = git(["log", "-1", "--format=%cs", "--", relPath]).trim();
   const firstDate = git(["log", "-1", "--format=%cs", firstSha]).trim();
   const distLast = Number(git(["rev-list", "--count", `${lastSha}..HEAD`]).trim());
-  const distFirst = Number(git(["rev-list", "--count", `${firstSha}..HEAD`]).trim());
   return {
     firstCommitted: firstDate,
     lastCommitted: lastDate,
     distanceLastTouch: distLast,
-    distanceFirstCommit: distFirst,
   };
 }
 
@@ -432,7 +436,6 @@ function dispatchPairEdges(nodes) {
 function buildManifest() {
   const nodes = enumerateNodes();
   const nodeSet = new Set(nodes);
-  const headCount = headCommitCount();
   const adrIndex = buildAdrIndex(nodes);
   const basenameIndex = buildBasenameIndex(nodes);
 
@@ -444,8 +447,7 @@ function buildManifest() {
       is_hub: HUB_NODES.has(path),
       first_committed: age.firstCommitted,
       last_committed: age.lastCommitted,
-      commit_distance: age.distanceLastTouch, // staleness (since last touch)
-      commit_distance_since_first: age.distanceFirstCommit, // absolute age
+      commit_distance: age.distanceLastTouch, // in-memory only (bucket + table sort)
       age_bucket: bucketFor(age.distanceLastTouch),
     };
   });
@@ -458,14 +460,45 @@ function buildManifest() {
   }
   edges.push(...dispatchPairEdges(nodes));
 
+  // The in-memory manifest keeps the raw commit-distances (manifestNodes
+  // carries them) because buildDot's bucket fill, the staleness-table ordering,
+  // and the bucket assignment all read them. `committedManifest` strips them
+  // (and the HEAD-relative top-level provenance) from the projection written to
+  // disk — that is the churn boundary.
   return {
-    generated_at_head: headCount, // HEAD commit count (reproducible reference)
-    head_sha: git(["rev-parse", "HEAD"]).trim(),
     node_count: manifestNodes.length,
     edge_count: edges.length,
     age_buckets: AGE_BUCKETS.map((b) => ({ name: b.name, max_distance: b.maxDistance })),
     nodes: manifestNodes,
     edges,
+  };
+}
+
+/**
+ * The committed-JSON projection: the in-memory manifest minus its HEAD-relative
+ * fields. The per-node `commit_distance` is computed for the bucket + table sort
+ * but is NOT committed (HEAD-relative → it shifts every commit, the ~700-line
+ * churn source); the absolute first/last-commit dates and the discrete
+ * `age_bucket` ARE committed (they change only when a doc is actually touched or
+ * crosses a bucket boundary). The former top-level `generated_at_head` /
+ * `head_sha` are likewise dropped — git's own history of this file records which
+ * commit generated it. The freshness gate reads only the structural skeleton
+ * (see `manifestSkeleton`), so stripping these does not weaken it.
+ */
+function committedManifest(m) {
+  return {
+    node_count: m.node_count,
+    edge_count: m.edge_count,
+    age_buckets: m.age_buckets,
+    nodes: m.nodes.map((n) => ({
+      path: n.path,
+      genre: n.genre,
+      is_hub: n.is_hub,
+      first_committed: n.first_committed,
+      last_committed: n.last_committed,
+      age_bucket: n.age_bucket,
+    })),
+    edges: m.edges,
   };
 }
 
@@ -523,9 +556,12 @@ function buildDot(manifest) {
       const fill = colorByName[n.age_bucket] || "#ffffff";
       const peripheries = n.is_hub ? 2 : 1;
       lines.push(
+        // Tooltip reads only STABLE fields (bucket + last-touched date), never
+        // the raw commit-distance — embedding the distance would re-churn the
+        // SVG every commit, defeating committedManifest's whole purpose.
         `    "${dotEscape(n.path)}" [label="${dotEscape(nodeLabel(n.path))}", ` +
         `fillcolor="${fill}", URL="${dotEscape(nodeUrl(n.path))}", ` +
-        `tooltip="${dotEscape(n.path)} — ${n.age_bucket} (${n.commit_distance ?? "n/a"} commits behind)", ` +
+        `tooltip="${dotEscape(n.path)} — ${n.age_bucket}${n.last_committed ? `, last touched ${n.last_committed}` : ""}", ` +
         `peripheries=${peripheries}];`
       );
     }
@@ -644,20 +680,26 @@ function buildMermaid(manifest) {
   return lines.join("\n");
 }
 
-/** Build the human-readable staleness table (most-stale first). */
+/**
+ * Build the human-readable staleness table (most-stale first). Ordered by the
+ * in-memory commit-distance (the true staleness metric, counts-not-wall-clock),
+ * but the DISPLAYED columns are stable — the discrete bucket and the absolute
+ * last-touched date — never the raw distance, which would re-churn this table
+ * (and the index page it lives in) every commit. The row order therefore shifts
+ * only when a doc is actually touched (its distance resets), not on every HEAD
+ * advance.
+ */
 function buildStalenessTable(manifest) {
   const rows = [...manifest.nodes]
     .filter((n) => n.commit_distance !== null)
     .sort((a, b) => b.commit_distance - a.commit_distance)
     .slice(0, 30);
   const lines = [
-    "| Document | Bucket | Commits behind HEAD (last touch) | Since first commit |",
-    "|---|---|---|---|",
+    "| Document | Bucket | Last touched |",
+    "|---|---|---|",
   ];
   for (const n of rows) {
-    lines.push(
-      `| \`${n.path}\` | ${n.age_bucket} | ${n.commit_distance} | ${n.commit_distance_since_first} |`
-    );
+    lines.push(`| \`${n.path}\` | ${n.age_bucket} | ${n.last_committed ?? "uncommitted"} |`);
   }
   return lines.join("\n");
 }
@@ -713,8 +755,6 @@ of truth and the picture is a projection of it.
 - **Nodes:** ${manifest.node_count} documents.
 - **Edges:** ${manifest.edge_count} cross-references
   (${resolved} resolved, ${dangling} dangling, ${ambiguous} ambiguous).
-- **Generated at HEAD:** \`${manifest.head_sha.slice(0, 12)}\`
-  (${manifest.generated_at_head} commits deep).
 
 ## Staleness heatmap (buckets)
 
@@ -724,9 +764,11 @@ ${AGE_BUCKETS.map((b) =>
   b.maxDistance === Infinity
     ? `**${b.name}** (> ${AGE_BUCKETS[AGE_BUCKETS.length - 2].maxDistance})`
     : `**${b.name}** (≤ ${b.maxDistance})`
-).join(", ")}. Absolute age (since first commit) is also in the manifest but is
-*not* the gradient — a foundational ADR should be old and untouched; that is
-not rot.
+).join(", ")}. The first-commit date (\`first_committed\`) is recorded per node
+too, but absolute age is deliberately *not* the gradient — a foundational ADR
+should be old and untouched; that is not rot. (The raw commit-distances are
+computed but not committed; the bucket and the dates are the stable record —
+see the Regeneration note.)
 
 ### Most-stale documents (top 30 by commit-distance)
 
@@ -753,15 +795,19 @@ ${dangling + ambiguous === 0
 
 ## Regeneration
 
-This artifact is committed and CI-verified-fresh: a workflow regenerates it on
-every doc-touching PR and fails iff the committed manifest's **graph structure**
-(node set, edges, resolution) drifts from a fresh run — a committed-but-stale
-doc-graph would be self-refuting. The check is scoped to graph structure, not
-the raw bytes, because the heatmap fields (commit-distance, bucket) are
-HEAD-relative and shift uniformly as the repo moves: a doc untouched for one
-more commit is legitimately one commit staler. So the committed heatmap is a
-snapshot at its last regeneration and refreshes whenever a doc-touching change
-regenerates the artifact. To regenerate locally:
+This artifact is committed and CI-verified-fresh: a workflow checks that the
+committed manifest's **graph structure** (node set, edges, resolution) matches a
+fresh run, and fails iff it drifts — a committed-but-stale doc-graph would be
+self-refuting. The check is scoped to graph structure, not the raw bytes: the
+committed manifest stores only **stable** heatmap fields (the discrete
+\`age_bucket\` and the absolute first/last-commit dates), never the raw
+HEAD-relative commit-distances, so it changes only when a doc is added, removed,
+re-genred, re-cross-referenced, *or actually touched* (its date/bucket move) —
+not on every commit. A **structural** change must be regenerated in the same PR
+or the gate fails; a **content-only** edit need not (the gate guards structure,
+and the heatmap is an explicit snapshot — regenerating refreshes the touched
+doc's freshness, a small bounded diff, but skipping it only leaves that one node
+a bucket stale until the next structural regeneration). To regenerate locally:
 
 \`\`\`
 node tools/doc-graph/generate.mjs
@@ -852,7 +898,9 @@ function generate() {
   const index = buildIndexPage(manifest, mermaid);
   const report = buildReportPage(manifest);
   return {
-    [OUT_JSON]: JSON.stringify(manifest, null, 2) + "\n",
+    // Committed JSON is the STABLE projection (committedManifest); the full
+    // in-memory manifest is returned as _manifest for the --check skeleton.
+    [OUT_JSON]: JSON.stringify(committedManifest(manifest), null, 2) + "\n",
     [OUT_SVG]: svg,
     [OUT_INDEX]: index,
     [OUT_REPORT]: report,
@@ -868,22 +916,24 @@ function writeArtifacts(artifacts) {
 }
 
 /**
- * Structural skeleton of the manifest — everything that is NOT HEAD-relative.
- * The freshness gate compares this, not the raw bytes, because the heatmap
- * fields (`commit_distance`, `age_bucket`, `generated_at_head`, `head_sha`)
- * shift uniformly every time HEAD advances: a doc untouched for one more commit
- * is one commit "staler," which is the heatmap working as intended, not drift
- * the contributor must chase. The skeleton is the node set (path + genre +
- * hub-ness), the edge set (from/to/kind/resolved), and the broken-ref report —
- * the *graph structure*. A change there means a real "forgot to regenerate"
- * drift (a doc added/removed/re-genred, an edge resolution changed); a change
- * only in the heatmap numbers does not.
+ * Structural skeleton of the manifest — the node set (path + genre + hub-ness)
+ * and the edge set (from/to/kind/resolved), sorted. The freshness gate compares
+ * this, not the raw bytes, for two reasons:
  *
- * Consequence (named honestly per ADR-0002): the committed SVG/index heatmap is
- * a snapshot-at-commit-time and goes stale as HEAD advances between
- * regenerations — exactly the staleness the artifact is meant to surface.
- * Regenerating on any doc-touching change refreshes it; the gate guards the
- * structure, not the pixels.
+ *   1. The committed manifest no longer carries the raw HEAD-relative
+ *      commit-distances at all (`committedManifest` strips them); the staleness
+ *      data it does carry — `age_bucket` plus the first/last-commit dates — is a
+ *      deliberate snapshot. A doc crossing a bucket boundary as HEAD advances,
+ *      with no edit, is the heatmap working as intended, not a "forgot to
+ *      regenerate" drift; comparing buckets would fail the gate spuriously on it.
+ *   2. Structure is the honest definition of "did the graph change": a doc
+ *      added / removed / re-genred, or an edge whose resolution flipped. That,
+ *      and only that, is what a committed-but-stale artifact would misrepresent.
+ *
+ * Consequence (named per ADR-0002): the committed bucket/date heatmap is a
+ * snapshot and can lag reality by up to a bucket between structural
+ * regenerations — exactly the staleness the artifact is meant to surface. The
+ * gate guards the structure, not the snapshot.
  */
 function manifestSkeleton(manifest) {
   return JSON.stringify({

@@ -84,17 +84,25 @@ it. Before declaring a task done or filing a PR, audit:
   (`docs/doc-graph-report.md`) mechanizes the *resolution* half of
   this — it lists dangling cross-references — so consult it; the
   relation-vs-content judgment (ADR-0005 Rule 3) is still yours.
-- **Did this change touch any documentation?** The doc-graph
+- **Did this change touch documentation *structure*?** The doc-graph
   artifact (`docs/doc-graph.{json,svg,md}` + `docs/doc-graph-report.md`)
-  is **committed and CI-gated for freshness** (`doc-graph-ci`).
-  Regenerate it in the same change — `node tools/doc-graph/generate.mjs`
-  (needs Graphviz `dot`) — or the freshness gate fails on the PR *and*
-  on push to main. A doc PR that doesn't regenerate is an incomplete
-  delivery the same way a code-only PR with doc implications is. (When
-  two doc-touching PRs are in flight, the second to merge must be
-  rebased + regenerated against the first, or main's committed graph
-  goes stale — see `docs/notes/deferred-items.md` and the doc-graph
-  worklog for the worked case.)
+  is **committed and CI-gated for freshness** (`doc-graph-ci`), but the
+  gate compares **graph structure only** — the node set, edges, and
+  resolution — not the heatmap, which the committed manifest stores as a
+  stable snapshot (bucket + dates, never the raw HEAD-relative
+  distances). So a change that **adds, removes, renames, or
+  re-cross-references** a doc must regenerate in the same change —
+  `node tools/doc-graph/generate.mjs` (needs Graphviz `dot`) — or the
+  gate fails on the PR *and* on push to main. A **content-only** edit
+  need not: regenerating refreshes that one doc's freshness (a small,
+  bounded diff), but skipping it only leaves that node a bucket stale
+  until the next structural regeneration. A structural doc PR that
+  doesn't regenerate is an incomplete delivery the same way a code-only
+  PR with doc implications is. (When two structural doc PRs are in
+  flight, the second to merge must be rebased + regenerated against the
+  first, or main's committed graph goes stale — see
+  `docs/notes/deferred-items.md` and the doc-graph worklogs for the
+  worked case.)
 - Per ADR-0006, if files were touched under full visibility and lack
   the standard header, retrofit it.
 
