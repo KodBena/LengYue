@@ -50,6 +50,7 @@ import { loadSgf } from '../../src/engine/sgf-loader';
 import { addBoard, mutateBoard, resetWorkspace, store } from '../../src/store';
 import { navigateTo } from '../../src/engine/navigator';
 import { useAnalysisProjection } from '../../src/composables/analysis/useAnalysisProjection';
+import { withSetup } from './with-setup';
 import { resetFakeAnalysisService } from '../fakes/analysis-service';
 import { resetFakeAnalysisPersistenceService } from '../fakes/analysis-persistence-service';
 import type { BoardId, BoardState, NodeId } from '../../src/types';
@@ -91,13 +92,13 @@ function navigateToPathIndex(boardId: BoardId, idx: number): void {
 describe('useAnalysisProjection.activeMainIndex', () => {
   it('is 0 when the cursor is at the root', () => {
     const { boardId } = setup('(;FF[4]GM[1]SZ[19];B[pd];W[dp];B[pp])');
-    const projection = useAnalysisProjection(boardId);
+    const projection = withSetup(() => useAnalysisProjection(boardId));
     expect(projection.activeMainIndex.value).toBe(0);
   });
 
   it('matches the path index of the current node after navigation', () => {
     const { boardId } = setup('(;FF[4]GM[1]SZ[19];B[pd];W[dp];B[pp])');
-    const projection = useAnalysisProjection(boardId);
+    const projection = withSetup(() => useAnalysisProjection(boardId));
 
     navigateToPathIndex(boardId, 2); // W[dp]
     expect(projection.activeMainIndex.value).toBe(2);
@@ -122,7 +123,7 @@ describe('useAnalysisProjection.activeBlackIndex / activeWhiteIndex', () => {
 
   it('returns 0 for both colours at the root (no moves played)', () => {
     const { boardId } = setup('(;FF[4]GM[1]SZ[19];B[pd];W[dp];B[pp];W[dd])');
-    const projection = useAnalysisProjection(boardId);
+    const projection = withSetup(() => useAnalysisProjection(boardId));
 
     expect(projection.activeBlackIndex.value).toBe(0);
     expect(projection.activeWhiteIndex.value).toBe(0);
@@ -130,7 +131,7 @@ describe('useAnalysisProjection.activeBlackIndex / activeWhiteIndex', () => {
 
   it('returns null for activeBlackIndex when the active node is itself a Black move', () => {
     const { boardId } = setup('(;FF[4]GM[1]SZ[19];B[pd];W[dp];B[pp])');
-    const projection = useAnalysisProjection(boardId);
+    const projection = withSetup(() => useAnalysisProjection(boardId));
 
     navigateToPathIndex(boardId, 1); // B[pd] — Black just moved
     expect(projection.activeBlackIndex.value).toBeNull();
@@ -140,7 +141,7 @@ describe('useAnalysisProjection.activeBlackIndex / activeWhiteIndex', () => {
 
   it('returns null for activeWhiteIndex when the active node is itself a White move', () => {
     const { boardId } = setup('(;FF[4]GM[1]SZ[19];B[pd];W[dp];B[pp])');
-    const projection = useAnalysisProjection(boardId);
+    const projection = withSetup(() => useAnalysisProjection(boardId));
 
     navigateToPathIndex(boardId, 2); // W[dp] — White just moved
     expect(projection.activeWhiteIndex.value).toBeNull();
@@ -154,7 +155,7 @@ describe('useAnalysisProjection.activeBlackIndex / activeWhiteIndex', () => {
     //   - activeWhiteIndex: null (W just moved)
     //   - activeBlackIndex: 2 (two B moves at indices 1 and 3)
     const { boardId } = setup('(;FF[4]GM[1]SZ[19];B[pd];W[dp];B[pp];W[dd])');
-    const projection = useAnalysisProjection(boardId);
+    const projection = withSetup(() => useAnalysisProjection(boardId));
 
     navigateToPathIndex(boardId, 4);
     expect(projection.activeBlackIndex.value).toBe(2);
@@ -170,7 +171,7 @@ describe('useAnalysisProjection.activeBlackIndex / activeWhiteIndex', () => {
 describe('useAnalysisProjection — variationPath / pass-throughs', () => {
   it('exposes a variationPath ref that mirrors the board\'s active variation', () => {
     const { boardId } = setup('(;FF[4]GM[1]SZ[19];B[pd];W[dp])');
-    const projection = useAnalysisProjection(boardId);
+    const projection = withSetup(() => useAnalysisProjection(boardId));
 
     expect(projection.variationPath.value).toHaveLength(3); // root + 2 moves
   });

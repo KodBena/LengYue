@@ -258,6 +258,33 @@ end-of-body `stop()` and silently broke the next, masking the real
 cause — the fix added a `mountAutoSave()` helper that wraps the
 composable with `onTestFinished` teardown.
 
+**Composable lifecycle in integration tests (`withSetup`).** A bare
+`const x = useComposable()` in a test runs the composable with **no
+active component instance**. If the composable (or anything in its
+dependency chain) registers `onUnmounted` or creates a `watch`, two
+things go wrong: Vue warns "onUnmounted is called when there is no
+active component instance" (stderr noise that buries real warnings in
+CI), and — the real bug — the cleanup never runs and the watchers are
+created in no scope, so they **leak across tests**, firing on the
+shared store in later cases (the same non-hermeticity the
+failure-safe-teardown gotcha names). `effectScope` is insufficient —
+`onUnmounted` needs a component instance. Wrap the instantiation in
+`withSetup` (`tests/integration/with-setup.ts`), which mounts a
+render-less host whose `setup` runs the composable and unmounts it via
+`onTestFinished` (so cleanup fires on pass *and* fail):
+
+```ts
+import { withSetup } from './with-setup';
+const projection = withSetup(() => useAnalysisProjection(boardId));
+```
+
+Worked example: `useAnalysisProjection.test.ts` — its chain transits
+`useEnrichedData` (`onUnmounted(stopFlush)` + a `watch`), so seven bare
+calls leaked seven flush-watchers and emitted the warning; `withSetup`
+silenced it and reclaimed the watchers. Use it for any
+composable-integration test where the subject registers lifecycle hooks
+or watchers.
+
 ## Run modes
 
 - `npm test` — Vitest watch mode. Use during local development.

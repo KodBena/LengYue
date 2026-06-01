@@ -14,7 +14,7 @@
  * License: Public Domain (The Unlicense)
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, onTestFinished } from 'vitest';
 import {
   sgfToMove,
   moveToKataCoord,
@@ -88,8 +88,17 @@ describe('toGtp', () => {
   });
 
   it('returns "pass" with a console warning when x is out of range', () => {
+    // Spy + suppress: the warning is the documented behaviour, so assert it
+    // fires (the test's own claim) rather than letting it print to stderr.
+    // Restore failure-safe (no restoreMocks config) so a thrown assertion
+    // can't leak the silenced console.warn into later tests.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    onTestFinished(() => warn.mockRestore());
+
     expect(toGtp(-1, 0)).toBe('pass');
     expect(toGtp(100, 0)).toBe('pass');
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('out of GTP range'));
   });
 });
 
