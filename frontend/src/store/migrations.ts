@@ -107,7 +107,7 @@ if (import.meta.hot) import.meta.hot.accept(() => location.reload());
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 55;
+export const CURRENT_SCHEMA_VERSION = 56;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -135,36 +135,6 @@ export const CURRENT_SCHEMA_VERSION = 55;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 53 → 54: backfill `delta_ordering` on every analysis palette.
-  // Mistake-finder substrate (`docs/notes/mistake-finder-design-space.md`
-  // §Option α): each palette declares which direction of its
-  // `delta_fn`'s output counts as a mistake. Consumer-side flag;
-  // no proxy-side or wire change.
-  //
-  // Per-id backfill for the four seeded palettes:
-  //   - 'score'   → 'higher_is_worse' (scoreLead_loss_topvsuser:
-  //                  positive = points lost)
-  //   - 'default' / 'quality' / 'rank' → 'lower_is_worse'
-  //                  (quality_delta in [0,1] and rank_quality in
-  //                  (0,1] are both higher-is-better).
-  // User-customized palettes (unknown id) default to
-  // 'lower_is_worse' — the project-author-canonical robust-child
-  // convention. The user can override in the PaletteEditor.
-  //
-  // Idempotent: a pre-existing valid `delta_ordering` is preserved.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const env = out.profile?.settings?.engine?.katago?.analysis_env;
-    if (env && Array.isArray(env.palettes)) {
-      for (const p of env.palettes) {
-        if (!p || typeof p !== 'object') continue;
-        const existing = (p as { delta_ordering?: unknown }).delta_ordering;
-        if (existing === 'lower_is_worse' || existing === 'higher_is_worse') continue;
-        p.delta_ordering = p.id === 'score' ? 'higher_is_worse' : 'lower_is_worse';
-      }
-    }
-    return out;
-  },
   // 54 → 55: backfill `profile.settings.analysisTabs` — the Analysis-tab
   // layout (an ordered list of tabs, each a named subset of the panel
   // registry). Phase 2 of the analysis-panel refactor. The default is the
@@ -188,6 +158,24 @@ export const migrations: Migration[] = [
           { id: 'stability', label: 'Stability', panelIds: ['stability', 'stability-cross-correlation'] },
           { id: 'multiresolution', label: 'Multiresolution', panelIds: ['multiresolution-interval'] },
         ];
+      }
+    }
+    return out;
+  },
+  // 55 → 56: backfill `profile.settings.appearance.miniBoardRenderer` — the
+  // MiniBoard thumbnail renderer choice (SVG vs canvas; AppSettings.appearance).
+  // Default 'svg' preserves the pre-split behaviour; the canvas renderer is
+  // opt-in via the RegistryEditor. Consumer-side display preference; no wire or
+  // proxy change.
+  //
+  // Idempotent: a pre-existing 'svg' | 'canvas' value is preserved.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const appearance = out.profile?.settings?.appearance;
+    if (appearance && typeof appearance === 'object') {
+      const a = appearance as { miniBoardRenderer?: unknown };
+      if (a.miniBoardRenderer !== 'svg' && a.miniBoardRenderer !== 'canvas') {
+        a.miniBoardRenderer = 'svg';
       }
     }
     return out;

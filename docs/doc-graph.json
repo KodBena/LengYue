@@ -1,6 +1,6 @@
 {
-  "node_count": 335,
-  "edge_count": 1695,
+  "node_count": 336,
+  "edge_count": 1696,
   "age_buckets": [
     {
       "name": "fresh",
@@ -2602,7 +2602,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-01-component-service-boundaries-and-ci.md",
@@ -2616,9 +2616,9 @@
       "path": "docs/worklog/2026-06-01-de-cq-preview-hide.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-01",
+      "last_committed": "2026-06-01",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-01-doc-graph-artifact.md",
@@ -2659,6 +2659,14 @@
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
       "age_bucket": "recent"
+    },
+    {
+      "path": "docs/worklog/2026-06-01-perf-miniboard-canvas-renderer.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "docs/worklog/2026-06-01-perf-scenario-harness.md",
@@ -14180,6 +14188,13 @@
       "to": "docs/worklog/2026-06-01-perf-scenario-harness.md",
       "kind": "path-mention",
       "site": "`docs/worklog/2026-06-01-perf-scenario-harness.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-01-perf-miniboard-canvas-renderer.md",
+      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
       "resolved": "resolved"
     },
     {

@@ -62,7 +62,9 @@ frontend/src/
 │   │   ├── BoardTab.vue               [B3]  Tab row in the board-list rail (label, close, canvas analysis-depth rugplot drawn imperatively off the render path).
 │   │   ├── BoardVariationsOverlay.vue [B3]  Sibling-variation rings + active-next-move hint on the board.
 │   │   ├── BoardWidget.vue            [B3]  Hosts BoardDisplay + overlays + MoveSuggestions; computes derived view-model.
-│   │   ├── MiniBoard.vue             [B3]  Reactive thumbnail board — component projection of a BoardSnapshot (memoised grid + per-stone v-memo). Replaces per-nav v-html frame-teardown; used by ChartPreviewBox + heatmap preview.
+│   │   ├── MiniBoard.vue             [B3]  Renderer dispatcher — mounts MiniBoardSvg or MiniBoardCanvas per `appearance.miniBoardRenderer` (v-if; only the chosen path mounts, so neither affects the other's perf). Used by ChartPreviewBox + heatmap preview.
+│   │   ├── MiniBoardCanvas.vue       [B3]  Canvas renderer (opt-in) — imperative draw off a watch, ResizeObserver-cached dims, sprite-blitted stones (ADR-0010 canvas rule). No render fn on the nav hot path.
+│   │   ├── MiniBoardSvg.vue          [B3]  SVG renderer (default) — memoised grid + per-stone v-memo; the carried-over pre-split MiniBoard body, parity-tested against a frozen reference (MiniBoardSvg.parity.test.ts).
 │   │   ├── MoveSuggestions.vue        [B3]  KataGo move-suggestion overlay; PV preview on hover; paste-pv on modifier/middle-click.
 │   │   └── StatusBar.vue              [B3]  Move number, player names, komi, turn indicator, captures, transient hint, # toggle.
 │   │

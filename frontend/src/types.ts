@@ -1205,6 +1205,18 @@ export interface AppSettings {
     // theme.css, extend RegistryEditor's PATH_ENUMS, append a
     // migration if a prior valid value retires.
     theme: 'dark' | 'cluster';
+    /**
+     * MiniBoard thumbnail renderer (the analysis-chart preview boards + the
+     * multiresolution heatmap preview). `'svg'` is the declarative SVG
+     * projection (default; slightly more prominent last-move ring); `'canvas'`
+     * is the ADR-0010 canvas projection (lighter paint/jank at high stone
+     * counts — measured in a live Firefox profile). Only the chosen renderer
+     * mounts (`MiniBoard.vue` dispatches on this), so neither path's performance
+     * is affected by the other. Selectable via the RegistryEditor enum dropdown
+     * (extend PATH_ENUMS for a new value). Schema-version 55 → 56 backfills
+     * `'svg'`.
+     */
+    miniBoardRenderer: 'svg' | 'canvas';
     // Hue-rotation offset (degrees) applied uniformly across the
     // intensity gradient in CIELAB space. Default -43° is a
     // hand-applied orientation chosen for typical-trichromat
