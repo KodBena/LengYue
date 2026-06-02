@@ -76,7 +76,7 @@ it. Before declaring a task done or filing a PR, audit:
   CI-gated) validates it. `docs/TODO.md` is a thin human **projection** of
   the SSOT — do not record status there. A shipped feature still documented
   as open is the silent doc-failure the 2026-06-01 RCA records
-  (`docs/notes/rca-discipline-lapses-2026-06-01.md`, Lapse 2); recording
+  (`docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md`, Lapse 2); recording
   status in one canonical place is the structural fix.
 - Does `docs/handoff-current.md` describe an *orientation* surface this
   change affects (the product/pedagogy framing, the architecture and
@@ -328,7 +328,7 @@ ADR-0002 applied to debugging forbids — the alternative is a
 fragmentary diagnosis that may misidentify the failure surface
 (as the 2026-05-12 adaptive-deeper-enrichment investigation did
 before the user surfaced the visibility gap; see
-`docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md` §3
+`docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md` §3
 for the diagnosis arc).
 
 This composes with ADR-0002 the same way the rest of the

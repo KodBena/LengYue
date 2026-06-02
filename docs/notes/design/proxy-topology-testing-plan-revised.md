@@ -114,7 +114,7 @@ to it too.
 The original §7 names a wire-schema reference doc as a deferred
 adjacent arc. Per `docs/handoff-current.md` and the sibling
 postmortem at
-`docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md` §5.1,
+`docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md` §5.1,
 this shipped as `docs/wire-schemas.md` (umbrella PR #204) before
 this revision was filed. The deferred-arc framing in the original
 §7 is therefore stale.
@@ -222,7 +222,7 @@ a fresh sibling marked `revised` per the same Rule 8 pattern.
 
   - `docs/notes/design/proxy-topology-testing-plan.md` — the original
     planning-time record this sibling supersedes.
-  - `docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`
+  - `docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md`
     — the sibling postmortem the original §5 disciplines distil.
     The §3.5 transposition_enricher discussion above composes
     with this postmortem's Option A discussion of

@@ -33,7 +33,7 @@ keystroke had to consult.
 
 ### The render-coupling recurrence
 
-`docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`
+`docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`
 spent ~300 lines naming the first pattern: **a component whose job
 is orchestration / layout / chrome reads a high-frequency reactive
 value in its render, coupling a whole subtree's re-render to that
@@ -228,12 +228,12 @@ component-cost ranking is the signature that diagnoses it.
 
 ## Related
 
-- **`docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`**
+- **`docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`**
   — the postmortem this tenet adopts (its Recommendation 1, the
   un-adopted "reactive-read locality" tenet). The instances table,
   the typing analysis, and the DRY ↔ locality tension are the
   backing detail this ADR compresses.
-- **`docs/notes/opus-audit-green-perf-arc-2026-05-31.md`** — the
+- **`docs/notes/audit/opus-audit-green-perf-arc-2026-05-31.md`** — the
   audit whose Question 2 ranks this tenet as the highest-leverage
   prevention (P1), with the `TreeWidget` recurrence as the proof
   that a name-without-enforcement does not stop recurrence.

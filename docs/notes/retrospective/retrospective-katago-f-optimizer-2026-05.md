@@ -381,7 +381,7 @@ returns "no useful F" and the slider/floor fallback kicks in.
 | Diagnosis worklog | `docs/worklog/2026-05-15-katago-first-report-cliff-diagnosis.md` | Shipped |
 | Earlier mitigation worklog | `docs/worklog/2026-05-15-katago-first-report-floor-mitigation.md` | Shipped; the 35 ms floor remains as a fallback for un-characterised configs |
 | ADR-0002 (fail loudly) | `docs/adr/0002-fail-loudly.md` | Governing tenet |
-| This retrospective | `docs/notes/retrospective-katago-f-optimizer-2026-05.md` | This file |
+| This retrospective | `docs/notes/retrospective/retrospective-katago-f-optimizer-2026-05.md` | This file |
 
 The `docs/archive/katago-f-optimizer/` directory is the
 **archaeological deposit** — every numeric claim in this

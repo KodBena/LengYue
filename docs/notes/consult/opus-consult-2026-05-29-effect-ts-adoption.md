@@ -657,7 +657,7 @@ You are providing a follow-up "analytic firewall" second opinion for the maintai
 
 ## Continuity (read these first, for context — do not anchor on their conclusions)
 - Prior firewall consult (your predecessor's findings): `docs/notes/consult/opus-consult-2026-05-29-render-coupling-typing.md`. Key prior conclusions you can take as established: (i) a render-coupling anti-pattern exists in this app (composition components reading high-frequency reactive state in their render couple a whole subtree's re-render); (ii) TypeScript's type-CHECKER can't detect it but a typed CONTRACT (accessors `() => T`) can dissolve it; (iii) Vue's Vapor Mode / Vue 3.6 (fine-grained, alien-signals) makes the class structurally obsolete.
-- The postmortem the maintainer is iterating on: `docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`.
+- The postmortem the maintainer is iterating on: `docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`.
 
 ## The new question
 The maintainer is weighing whether to adopt **Effect-TS** (the `effect` library, effect.website) **project-wide**, and has CLARIFIED the motivation — this reframes everything, so calibrate to it:

@@ -525,7 +525,7 @@ This tenet would be worth reconsidering if:
   register. The two tenets compose the same way ADR-0002 and
   ADR-0008 do — different intervention points on the same
   family of unsubstantiated-claim failures.
-- **`docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md`** —
+- **`docs/notes/audit/perf-audit-nav-and-pv-hover-2026-05-27.md`** —
   the worked example of a more-structured perf investigation:
   symptom matrix, root causes ranked by severity, eliminated-as-
   cause section, multi-tasking preservation requirements, per-

@@ -8,7 +8,7 @@
 
 ## Why this dispatch exists
 
-Per the proxy's CLAUDE.md: "Do not unilaterally widen the wire to satisfy a consumer." Per the frontend's CLAUDE.md: the proxy's wire vocabulary is bounded by `src/engine/katago/types.ts`. The Phase 3.5 retrospective + SPA-integration roadmap (`docs/notes/retrospective-phase3.5-learned-vf-2026-05.md`, `docs/notes/roadmap-phase3.5-spa-integration.md`) name a UI surface (a dropdown in the same subwidget that toggles `adaptiveReevaluate.enabled`) but defer the wire-shape decisions to this dispatch.
+Per the proxy's CLAUDE.md: "Do not unilaterally widen the wire to satisfy a consumer." Per the frontend's CLAUDE.md: the proxy's wire vocabulary is bounded by `src/engine/katago/types.ts`. The Phase 3.5 retrospective + SPA-integration roadmap (`docs/notes/retrospective/retrospective-phase3.5-learned-vf-2026-05.md`, `docs/notes/roadmap-phase3.5-spa-integration.md`) name a UI surface (a dropdown in the same subwidget that toggles `adaptiveReevaluate.enabled`) but defer the wire-shape decisions to this dispatch.
 
 The wire shape needs to be pinned before either side codes:
 
@@ -192,9 +192,9 @@ Three operational questions filed in `docs/dispatch/frontend-to-proxy-learned-vf
 
 ## References
 
-- `docs/notes/retrospective-phase3.5-learned-vf-2026-05.md` — Phase 3.5 retrospective.
+- `docs/notes/retrospective/retrospective-phase3.5-learned-vf-2026-05.md` — Phase 3.5 retrospective.
 - `docs/notes/roadmap-phase3.5-spa-integration.md` — SPA-integration roadmap.
-- `docs/notes/retrospective-phase3-policy-benchmark-2026-05.md` — Phase 3 benchmark (the upstream).
+- `docs/notes/retrospective/retrospective-phase3-policy-benchmark-2026-05.md` — Phase 3 benchmark (the upstream).
 - `docs/archive/phase3.5-learned-vf/` — reproducibility deposit (model files, scripts, validation data).
 - `proxy/CLAUDE.md` — proxy's architecture + release discipline.
 - `frontend/CLAUDE.md` — frontend's architecture + testing posture.

@@ -881,9 +881,9 @@ silently editing this one — the worked example being
   note's structural template; the numeric slice this schema composes
   with via `knob-ref` (§6). Its §8 (declarative-vs-imperative design
   space) and §14 (deferred path-typing) are directly relevant.
-- `docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md` — the
+- `docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md` — the
   category-error the subsume fork would risk repeating (§6).
-- `docs/notes/postmortem-knob-toolbar-popover-2026-05.md` — the
+- `docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md` — the
   band/mount-site gating failure the declared `band` / `visibleWhen`
   fields prevent (§10.8); its §7.5 substitution test calibrates
   severity.

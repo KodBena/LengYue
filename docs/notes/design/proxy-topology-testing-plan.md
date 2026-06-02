@@ -10,7 +10,7 @@
   consumer materialises.
 - **Origin:** the 2026-05-12 adaptive-deeper-enrichment
   investigation (umbrella PRs #200-series, proxy PR #26).
-  `docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`
+  `docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md`
   is the sibling postmortem capturing the investigation lessons
   this note's discipline sections distil.
 
@@ -524,7 +524,7 @@ as such.
 ## 5. Debugging discipline — lessons from 2026-05
 
 The postmortem at
-`docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`
+`docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md`
 captures the investigation-side lessons in full. This section
 distils them into actionable disciplines for future cross-
 boundary bug investigations.
@@ -699,7 +699,7 @@ both). Each phase is a separate PR.
 
 ## 8. Related documents
 
-- `docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`
+- `docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md`
   — the investigation this note's §5 disciplines distil.
 - `docs/adr/0002-fail-loudly.md` — the loud-failure tenet §3's
   decision shape mirrors.

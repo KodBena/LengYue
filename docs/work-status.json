@@ -100,7 +100,7 @@
       "disposition": "active",
       "scope": "frontend",
       "tier": "medium",
-      "refs": [{ "kind": "design-note", "target": "docs/notes/perf-audit-range-query-nav-2026-05-29.md" }]
+      "refs": [{ "kind": "design-note", "target": "docs/notes/audit/perf-audit-range-query-nav-2026-05-29.md" }]
     },
     {
       "id": "rb1-toolbar-metrics-decouple",
@@ -206,7 +206,7 @@
       "disposition": "active",
       "scope": "umbrella",
       "tier": "small",
-      "refs": [{ "kind": "design-note", "target": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md" }]
+      "refs": [{ "kind": "design-note", "target": "docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md" }]
     },
     {
       "id": "classification-discipline-tenet-rule7-relocation",
@@ -425,7 +425,7 @@
       "disposition": "active",
       "scope": "umbrella",
       "tier": "large",
-      "refs": [{ "kind": "design-note", "target": "docs/notes/rca-discipline-lapses-2026-06-01.md" }]
+      "refs": [{ "kind": "design-note", "target": "docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md" }]
     },
     {
       "id": "serial-numbers-generated-artifacts",
@@ -579,8 +579,8 @@
       "tier": "medium",
       "refs": [
         { "kind": "pr", "target": "318" },
-        { "kind": "design-note", "target": "docs/notes/audit-stringly-typed-contracts-2026-06-01.md" },
-        { "kind": "design-note", "target": "docs/notes/rca-discipline-lapses-2026-06-01.md" }
+        { "kind": "design-note", "target": "docs/notes/audit/audit-stringly-typed-contracts-2026-06-01.md" },
+        { "kind": "design-note", "target": "docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md" }
       ]
     },
     {

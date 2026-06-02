@@ -4,7 +4,7 @@ Analytic-firewall second opinion (Opus 4.8, independent agent with web
 access), requested by the maintainer to stress-test the postmortem's claim
 that TypeScript could not have prevented the
 render-coupling-at-composition-nodes class
-(`docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`).
+(`docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`).
 The agent was given the neutral facts + the claim under review and explicitly
 tasked to challenge — not defend — it, across three issues: (1) type-system /
 API-design (parametric polymorphism, pub/sub abstractions); (2) whether Vue
@@ -264,5 +264,5 @@ Survey the relevant framing:
 ## Deliverable
 An independent assessment that (a) states clearly whether the "typing: no" claim is RIGHT, TOO STRONG, or TOO WEAK, and exactly why; (b) addresses all three issues with verifiable citations (URLs); (c) gives the maintainer the concrete "room for thinking" — the most defensible position on "could typing / abstraction / architecture have prevented this class, and what is the honest framing." Be adversarial toward the claim where warranted; corroborate only where the evidence supports it. Flag clearly anything you assert from general knowledge vs. anything you verified via fetch. Structured prose with headers; it will be saved verbatim as a consult record.
 
-Optional references in the repo if you want the full original context (read independently, do not anchor on its conclusions): `docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md` and the sibling `perf-audit-game-scroll-2026-05-28.md` / `perf-audit-range-query-nav-2026-05-29.md`.
+Optional references in the repo if you want the full original context (read independently, do not anchor on its conclusions): `docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md` and the sibling `perf-audit-game-scroll-2026-05-28.md` / `perf-audit-range-query-nav-2026-05-29.md`.
 ````

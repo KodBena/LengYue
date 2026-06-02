@@ -3,7 +3,7 @@
 Profile-substantiated diagnosis of the user-perceived sluggishness when
 navigating *while* a range query streams (with parallel async work). This
 is the "regime B" the game-scroll audit
-(`docs/notes/perf-audit-game-scroll-2026-05-28.md`) deferred. Investigation
+(`docs/notes/audit/perf-audit-game-scroll-2026-05-28.md`) deferred. Investigation
 read-only; this note is the **before** anchor for the regime-B fix arcs and
 the ledger of which lever each contributor belongs to.
 
@@ -117,9 +117,9 @@ self-sourcing status/metrics is consistent with its existing shape.
 
 ## References
 
-- `docs/notes/perf-audit-game-scroll-2026-05-28.md` — regime-A audit + the
+- `docs/notes/audit/perf-audit-game-scroll-2026-05-28.md` — regime-A audit + the
   Arc 1/2 that this builds on.
-- `docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md` — Bug C + the
+- `docs/notes/audit/perf-audit-nav-and-pv-hover-2026-05-27.md` — Bug C + the
   packet-path incidental finds (the RB-3 substrate).
 - `docs/adr/0009-performance-investigation-discipline.md`.
 
