@@ -388,7 +388,7 @@ This tenet is worth revisiting if:
   restructure.
 - **The doc-graph artifact** (`tools/doc-graph/generate.mjs` →
   `docs/doc-graph.{json,svg,md}` + `docs/doc-graph-report.md`;
-  design note `docs/notes/documentation-graph-artifact-plan.md`).
+  design note `docs/archive/notes/design/documentation-graph-artifact-plan.md`).
   The partial mechanization of this tenet (Alternative C, partly
   adopted): the validator surfaces dangling cross-references and the
   freshness gate keeps the committed graph honest. Doc-touching

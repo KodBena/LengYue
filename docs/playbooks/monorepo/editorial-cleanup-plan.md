@@ -275,7 +275,7 @@ in older forms:
   `frontend/docs/tenets/0002-fail-loudly.md`. The renaming is
   ADR-0002 throughout the post-Phase-3a documentation; align.
 - `docs/ANALYSIS_PERSISTENCE_PLAN.md` →
-  `docs/notes/analysis-persistence-plan.md`. Same Phase 3
+  `docs/archive/notes/design/analysis-persistence-plan.md`. Same Phase 3
   rename.
 - Any reference to `frontend/docs/HANDOFF.md` →
   `docs/archive/handoff-2026-04-frontend-pre-umbrella.md`.

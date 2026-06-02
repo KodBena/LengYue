@@ -2,7 +2,7 @@
 
 Status: design-note: revised (2026-05-09, post-SELECTOR + capability-
 negotiation shipping). Supersedes the planning-time record at
-`docs/notes/autonomous-srs-loop.md` per ADR-0005 Rule 8 (sibling
+`docs/notes/design/autonomous-srs-loop.md` per ADR-0005 Rule 8 (sibling
 revisions over silent edits). The original captured the idea-space
 when the load-bearing components were still speculation; this
 revision is the pre-implementation note now that those components

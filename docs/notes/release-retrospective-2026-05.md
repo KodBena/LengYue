@@ -197,7 +197,7 @@ The largest single feature of the cycle. Designed in
 `docs/archive/dispatch/frontend-to-backend-analysis-persistence.md` and
 its three status replies; shipped on the `cross/analysis-persistence`
 branch and merged 2026-05-07. System-level reference:
-`docs/notes/analysis-persistence-plan.md`.
+`docs/archive/notes/design/analysis-persistence-plan.md`.
 
 The motivation: KataGo analyses cost real GPU time and are
 currently held in an in-memory ledger that's lost on browser
@@ -401,7 +401,7 @@ and ADR-0005 going forward.
 ### Doc-graph staleness sweep (PRs #149, #150)
 
 Shipped 2026-05-04. Filed as a planning note at
-`docs/notes/doc-graph-discipline-plan.md`; first cleanup pass
+`docs/notes/design/doc-graph-discipline-plan.md`; first cleanup pass
 shipped at #149 retiring stale claims across the umbrella +
 frontend; second pass at #150 archived completed TODO sections
 and trimmed the live tracker from 773 → 426 lines. The full

@@ -943,7 +943,7 @@ is gated behind a cheap test rather than built on faith.
 > first step, framed so the maintainer can decide without being a browser-automation
 > expert. Be honest where the ecosystem is immature or a path is bespoke. Then WRITE
 > the verbatim assessment to
-> `docs/notes/opus-consult-2026-06-01-perf-capture-automation-design-space.md` —
+> `docs/notes/consult/opus-consult-2026-06-01-perf-capture-automation-design-space.md` —
 > self-contained, markdown with headers, verified-vs-asserted marked throughout,
 > with a "Verification status of load-bearing claims" section and an "Appendix —
 > verbatim prompt" + `License: Public Domain (The Unlicense).` Match the

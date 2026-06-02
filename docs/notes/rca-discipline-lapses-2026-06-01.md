@@ -530,7 +530,7 @@ evidence.
   `no-restricted-imports`) where G1/G2/G3 would sit.
 - `tools/doc-graph/generate.mjs` — the commit-distance staleness
   mechanism (Finding 2e); design note
-  `docs/notes/documentation-graph-artifact-plan.md`.
+  `docs/archive/notes/design/documentation-graph-artifact-plan.md`.
 - Git evidence: throw format `e5c857b`; first reparse + hazard comment
   `eb2ba5d`; further reparse sites `a059703`, `d698d47`, `060ebf2`,
   `f6e53ee`, `8d44c35`; ApiError fix `5a88178` (PR #318). Feature ship

@@ -136,7 +136,7 @@ substitution framing — §4 — is the load-bearing point.
 
 | Step | Artifact | What it did |
 |---|---|---|
-| 1 | `docs/notes/knob-registry-plan.md` (Phase 6 of §12, authored 2026-05-14) | Named "toolbar-hover quick-access surface" only as eventual future work; no design for placement, no mount-site rationale. |
+| 1 | `docs/archive/notes/design/knob-registry-plan.md` (Phase 6 of §12, authored 2026-05-14) | Named "toolbar-hover quick-access surface" only as eventual future work; no design for placement, no mount-site rationale. |
 | 2 | `docs/worklog/2026-05-14-knob-registry.md` §"What's deferred" line 300 | Named the same surface as "author's eventual UX vision for low-friction slider access ... current state is transitional." Single line of forward reference. |
 | 3 | PR #225 (`KodBena/feat/knob-toolbar-popover`, merged 2026-05-14 as `9c17283`) | Shipped `ToolbarSliderPopover.vue` + `priority` field on `KnobDecl` with **no companion documentation**. Merge subject literally reads "Knob registry — toolbar quick-access popover + priority field (ships with bugs)". |
 | 4 | `src/components/chrome/ToolbarSliderPopover.vue` (SFC header) | Self-described as "sibling to PPS, LATENCY, WATCHDOG, QUEUE" and explicitly declared "ADR-0003 band 1". Both true; their combination is the bug. |
@@ -185,7 +185,7 @@ failure discipline forbids in other contexts.
 
 ### 3.1 Spec gap
 
-The knob-registry plan (`docs/notes/knob-registry-plan.md`) named
+The knob-registry plan (`docs/archive/notes/design/knob-registry-plan.md`) named
 the toolbar-hover quick-access surface only as deferred future
 work. The worklog gave it one line in §"What's deferred". Neither
 document discussed:
@@ -578,7 +578,7 @@ fit instead of to runtime-error-handling.
 
 ## 8. References
 
-- `docs/notes/knob-registry-plan.md` — the plan; the toolbar-hover
+- `docs/archive/notes/design/knob-registry-plan.md` — the plan; the toolbar-hover
   quick-access surface is named in §12 Phase 6 and §"What's
   deferred" of the worklog only.
 - `docs/worklog/2026-05-14-knob-registry.md` — the parent arc's

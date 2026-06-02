@@ -341,7 +341,7 @@ deferral, not as a snapshot of the deferral's content.
 - **Considered:** Whether to adopt an effect-typed documentation
   vocabulary at the frontend's service ACL — the lighter-stack
   alternative to full Effect-TS recommended in
-  `docs/notes/opus-consult-2026-05-29-effect-ts-adoption.md`. That
+  `docs/notes/consult/opus-consult-2026-05-29-effect-ts-adoption.md`. That
   consult named two legs: a typed-error channel (`neverthrow` /
   `Result`) and "a thin branded `IO<T>`." The maintainer deferred the
   `neverthrow` leg and chose the bare-`IO<T>` leg: a branded deferred
@@ -358,7 +358,7 @@ deferral, not as a snapshot of the deferral's content.
 ### Rationale
 
 A third, independent consult
-(`docs/notes/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md`,
+(`docs/notes/consult/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md`,
 written 2026-06-01 05:37 local) — requested because the maintainer and
 the AI collaborator were *both* leaning the same way and wanted a
 disinterested check before tearing out just-built work — found the

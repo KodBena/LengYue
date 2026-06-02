@@ -585,7 +585,7 @@ In rough order of priority for a new contributor:
   identifier types without trawling source.
 - **`backend/docs/tree-dsl.md`** — Tree-DSL reference for the pipeline
   executor.
-- **`docs/notes/autonomous-srs-loop-revised.md`** — Pre-implementation
+- **`docs/notes/design/autonomous-srs-loop-revised.md`** — Pre-implementation
   design note for the autonomous spaced-repetition loop (post-SELECTOR +
   capability-negotiation shipping). Companion sibling
   `autonomous-srs-loop.md` is the planning-time record retained per ADR-0005

@@ -2,7 +2,7 @@
 
 A working scratch-pad for compression-research ideas that haven't
 been tested (or that we tested and want to revisit later). Pairs
-with `docs/notes/analysis-bundle-compression-plan.md` (the
+with `docs/archive/notes/design/analysis-bundle-compression-plan.md` (the
 implementation note) and
 `docs/archive/notes/analysis-bundle-compression-research-2026-05-25.md`
 (the original research arc's summary).

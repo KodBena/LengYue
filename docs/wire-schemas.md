@@ -521,7 +521,7 @@ TypeScript compile errors on the SPA side.
 **Pagination contract.** Random-walk-friendly `offset` + `limit`,
 not cursor. The choice was deliberate (cursors are forward-only
 and fight scrollbar-drag-to-arbitrary-row UX); design rationale
-in `docs/notes/sgf-library-plan.md`. Sort + filter changes reset
+in `docs/archive/notes/design/sgf-library-plan.md`. Sort + filter changes reset
 `offset` to 0; the wire response carries `total_count` so the
 SPA's virtual scroll can size the scrollbar without seeing every
 row.
@@ -575,7 +575,7 @@ isolation makes this honest at the SQL level.
 - `docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`
   — investigation lessons that motivated this doc's §5.1
   recommendation. §5.3 there is deferred against §8 here.
-- `docs/notes/proxy-topology-testing-plan.md` — the topology
+- `docs/notes/design/proxy-topology-testing-plan.md` — the topology
   testing substrate; references §3 (capability opt-in) and §5
   (SELECTOR model) for the operator-declarative
   `PROXY_ENABLE_<CAPABILITY>` pattern its §3 designs.

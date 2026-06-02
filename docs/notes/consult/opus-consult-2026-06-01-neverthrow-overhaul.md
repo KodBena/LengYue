@@ -731,8 +731,8 @@ You are an independent "analytic firewall" — a fresh, disinterested opinion fo
 ## Essential context (read these — they're on disk)
 
 Two prior consults set the stage; read both end to end:
-- `docs/notes/opus-consult-2026-05-29-effect-ts-adoption.md` — declined full Effect-TS for the stated goals (effect-typing as documentation + purity audit); recommended a lighter stack: `neverthrow` (typed errors) + `eslint-plugin-functional` (purity). Named the **typed-error channel** as the information-bearing documentation win.
-- `docs/notes/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md` — the maintainer instead tried the *other* leg first (a bare deferred `IO<T>`), built it on `backend-service.ts`, and **just reverted it** as over-built for an eager ACL (laziness never spent; contentless token; `runTask` pure ceremony). Note especially its "eager ACL = every call is a bridge" reasoning and the bridge-tax critique — `neverthrow` may face the SAME structural problem (every `Result` unwrapped immediately at the composable). Assess that head-on.
+- `docs/notes/consult/opus-consult-2026-05-29-effect-ts-adoption.md` — declined full Effect-TS for the stated goals (effect-typing as documentation + purity audit); recommended a lighter stack: `neverthrow` (typed errors) + `eslint-plugin-functional` (purity). Named the **typed-error channel** as the information-bearing documentation win.
+- `docs/notes/consult/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md` — the maintainer instead tried the *other* leg first (a bare deferred `IO<T>`), built it on `backend-service.ts`, and **just reverted it** as over-built for an eager ACL (laziness never spent; contentless token; `runTask` pure ceremony). Note especially its "eager ACL = every call is a bridge" reasoning and the bridge-tax critique — `neverthrow` may face the SAME structural problem (every `Result` unwrapped immediately at the composable). Assess that head-on.
 
 ## Ground the assessment in the ACTUAL current error-handling surface (re-read; backend-service was just reverted to plain Promise/throw)
 
@@ -752,5 +752,5 @@ Two prior consults set the stage; read both end to end:
 
 ## Deliverable
 
-A least-regret recommendation with reasoning, answering "what does it buy and is it worth it," explicitly addressing the bridge-tax parallel to the just-reverted `IO<T>`. Don't split the difference to be diplomatic. Then WRITE your verbatim assessment to `docs/notes/opus-consult-2026-06-01-neverthrow-overhaul.md` — self-contained, markdown with headers, verified-vs-asserted marked, with an "Appendix — verbatim prompt" section (this prompt, repo-relative paths) and a `License: Public Domain (The Unlicense)` line; match the structure/tone of the two prior consult records. Return a short bottom-line summary to me (the file is the full record).
+A least-regret recommendation with reasoning, answering "what does it buy and is it worth it," explicitly addressing the bridge-tax parallel to the just-reverted `IO<T>`. Don't split the difference to be diplomatic. Then WRITE your verbatim assessment to `docs/notes/consult/opus-consult-2026-06-01-neverthrow-overhaul.md` — self-contained, markdown with headers, verified-vs-asserted marked, with an "Appendix — verbatim prompt" section (this prompt, repo-relative paths) and a `License: Public Domain (The Unlicense)` line; match the structure/tone of the two prior consult records. Return a short bottom-line summary to me (the file is the full record).
 ````

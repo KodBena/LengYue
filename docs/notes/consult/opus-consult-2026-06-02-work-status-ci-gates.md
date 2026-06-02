@@ -10,13 +10,13 @@ This is a *scoped* consult: automation is one aspect of a larger SSOT design,
 not the whole thing. The maintainer has already decided to build the SSOT (the
 2026-06-01 decision in `docs/notes/deferred-items.md`'s "ADR-effectiveness
 audits" entry; RCA guard G5). The current thinking has also moved past the
-original design note (`docs/notes/work-status-ssot-plan.md`): the SSOT is now a
+original design note (`docs/archive/notes/design/work-status-ssot-plan.md`): the SSOT is now a
 **single authored structured file that IS the source of truth** (the three
 status-bearing prose docs merge their status into it and stop asserting it
 independently), with a two-field `state`+`resolution` shape, faceted independent
 fields, typed directional inter-item relations, opaque stable ids, closed-but-
 amendable vocabularies, and tombstone+compaction retirement. The prior firewall
-(`docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md`) argued *against*
+(`docs/notes/consult/opus-consult-2026-06-02-work-status-ssot-plan.md`) argued *against*
 the authored-upstream design in favour of a derived cache; this consult does
 **not** re-litigate that — it takes the fixed-authored-schema as given and asks
 what automation it buys.
@@ -324,10 +324,10 @@ Then synthesize: **which schema features earn their place by unlocking a high-va
 
 ## Read on disk (end to end — this project treats partial reading of a cited doc as an ADR-0002 violation)
 
-- `docs/notes/work-status-ssot-plan.md` — the original design note. NOTE: partly superseded (see "current thinking" below); read for its manifest/projection/validator framing and schema sketch.
-- `docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md` — the FIRST firewall on this design; especially its "validator falls out for free" analysis and its "a check between two hand-maintained artifacts is not ground-truth validation" argument. Your question is partly: which automations survive that critique.
+- `docs/archive/notes/design/work-status-ssot-plan.md` — the original design note. NOTE: partly superseded (see "current thinking" below); read for its manifest/projection/validator framing and schema sketch.
+- `docs/notes/consult/opus-consult-2026-06-02-work-status-ssot-plan.md` — the FIRST firewall on this design; especially its "validator falls out for free" analysis and its "a check between two hand-maintained artifacts is not ground-truth validation" argument. Your question is partly: which automations survive that critique.
 - `docs/notes/rca-discipline-lapses-2026-06-01.md` — the origin. G1 (lint), G4 (checklist), G5 (SSOT), and especially **G6** (semantic-staleness: "low precision, never a gate") and Lapse 2 (the shipped-but-documented-open failure any ground-truth automation is ultimately trying to catch). Finding 2e (commit-freshness ≠ semantic truth) is directly on point.
-- `docs/notes/documentation-graph-artifact-plan.md`, `docs/doc-graph.md`, `tools/doc-graph/generate.mjs` (skim), `.github/workflows/doc-graph-ci.yml` — the EXISTING precedent: a Node generator + a structure-only CI freshness gate + a dangling-reference validator. Mine it for which check-kinds already work here and which transfer to a work-status schema.
+- `docs/archive/notes/design/documentation-graph-artifact-plan.md`, `docs/doc-graph.md`, `tools/doc-graph/generate.mjs` (skim), `.github/workflows/doc-graph-ci.yml` — the EXISTING precedent: a Node generator + a structure-only CI freshness gate + a dangling-reference validator. Mine it for which check-kinds already work here and which transfer to a work-status schema.
 - `docs/adr/0002-fail-loudly.md` — the loudness hierarchy (compile/build/CI rank highest; closed-vocabulary fail-loud). The frame for "is a gate appropriate here."
 - `docs/TODO.md` and `docs/notes/deferred-items.md` — the ACTUAL items. Ground the analysis in real data: the RB-1/2/3 nested sub-items (each with own status), the "30c pairs with 30d, do 30d first" dependency, the `~~strikethrough~~ *(shipped PR#N)*` markers, supersession cases. Use these to test whether a proposed check would actually fire usefully on real items.
 
@@ -339,7 +339,7 @@ Then synthesize: **which schema features earn their place by unlocking a high-va
 
 ## Deliverable
 
-A least-regret, honestly-rated account: the enumerated automations (each: what / gate-vs-advisory / value / feasibility / required-schema-feature), ranked, and the synthesized feedback into schema shape (which features pay for themselves in checks; which unlock nothing). Be willing to conclude the valuable hard-gate set is a thin sliver. Mark every load-bearing claim **verified** (repo read) vs **asserted** (reasoning). Web search is allowed if useful (e.g., what JSON Schema / CUE can and cannot express, or how real trackers gate), but the core is reasoning about THIS codebase. WRITE your verbatim assessment to `docs/notes/opus-consult-2026-06-02-work-status-ci-gates.md` — self-contained, markdown, bottom-line-up-front, verified-vs-asserted marked, matching the structure/tone of the prior consult records (see `docs/notes/opus-consult-2026-06-01-neverthrow-overhaul.md` and `docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md`). Open with a short framing paragraph (what this is — an analytic-firewall consult on the CI/automation value of a fixed work-status schema — its provenance, and the "saved verbatim for auditability / License: Public Domain (The Unlicense)" convention). END with an "## Appendix — verbatim prompt" section containing this ENTIRE brief in a fenced block, plus a `License: Public Domain (The Unlicense).` line. Do NOT run git or modify any other file; just write that one record. Return a short bottom-line summary to me.
+A least-regret, honestly-rated account: the enumerated automations (each: what / gate-vs-advisory / value / feasibility / required-schema-feature), ranked, and the synthesized feedback into schema shape (which features pay for themselves in checks; which unlock nothing). Be willing to conclude the valuable hard-gate set is a thin sliver. Mark every load-bearing claim **verified** (repo read) vs **asserted** (reasoning). Web search is allowed if useful (e.g., what JSON Schema / CUE can and cannot express, or how real trackers gate), but the core is reasoning about THIS codebase. WRITE your verbatim assessment to `docs/notes/consult/opus-consult-2026-06-02-work-status-ci-gates.md` — self-contained, markdown, bottom-line-up-front, verified-vs-asserted marked, matching the structure/tone of the prior consult records (see `docs/notes/consult/opus-consult-2026-06-01-neverthrow-overhaul.md` and `docs/notes/consult/opus-consult-2026-06-02-work-status-ssot-plan.md`). Open with a short framing paragraph (what this is — an analytic-firewall consult on the CI/automation value of a fixed work-status schema — its provenance, and the "saved verbatim for auditability / License: Public Domain (The Unlicense)" convention). END with an "## Appendix — verbatim prompt" section containing this ENTIRE brief in a fenced block, plus a `License: Public Domain (The Unlicense).` line. Do NOT run git or modify any other file; just write that one record. Return a short bottom-line summary to me.
 ````
 
 License: Public Domain (The Unlicense).

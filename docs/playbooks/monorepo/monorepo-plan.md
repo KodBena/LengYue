@@ -175,7 +175,7 @@ exists at the target before removing the source.
 | `frontend/docs/HANDOFF.md` | `docs/archive/handoff-2026-04-frontend-pre-umbrella.md` | Archived snapshot. The synthesis of a new `docs/handoff-current.md` is a Part B task (see "TODO merger" pattern). |
 | `backend/docs/HANDOFF.md` | `docs/archive/34b-frontend-brief.md` | **Deviation.** Already at destination under its self-describing name; original is deleted via Files to DELETE. See "Backend HANDOFF deviation" note below the move table. |
 | `backend/docs/HANDOFF-companion.md` | `docs/archive/34b-parallel-frontend-work.md` | **Deviation.** Already at destination under its self-describing name; original is deleted via Files to DELETE. See "Backend HANDOFF deviation" note below the move table. |
-| `frontend/ANALYSIS_PERSISTENCE_PLAN.md` | `docs/notes/analysis-persistence-plan.md` | Renamed kebab-case |
+| `frontend/ANALYSIS_PERSISTENCE_PLAN.md` | `docs/archive/notes/design/analysis-persistence-plan.md` | Renamed kebab-case |
 | `frontend/34b-complete-status.md` | `docs/archive/34b-complete-status.md` | Verbatim; honest about archival status |
 | `frontend/TODO` (no extension) | `docs/notes/frontend-backlog.md` | Renamed; preserves the dual-genre mix |
 | `frontend/TODO.md` | merged into `docs/TODO.md` | See merger note below |

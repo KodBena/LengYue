@@ -21,7 +21,7 @@
 
 The umbrella has long named an "automatic mistake finder" as a
 forward-looking surface — the autonomous-SR-loop notes
-(`docs/notes/autonomous-srs-loop-revised.md`) sketch the broader
+(`docs/notes/design/autonomous-srs-loop-revised.md`) sketch the broader
 shape, where loaded SGFs surface their worst moments as candidate
 SR cards without manual marking. The proxy-side palette substrate
 is where the per-move signal lives today; the question is what
@@ -488,7 +488,7 @@ where the consumer lives, not in the per-range summary.
   the SPA is in the loop. The autonomous-SR loop's "headless
   mistake finder" use case is where Option β becomes
   load-bearing; that arc has its own design document
-  (`docs/notes/autonomous-srs-loop-revised.md`) and the
+  (`docs/notes/design/autonomous-srs-loop-revised.md`) and the
   intersection deserves a dispatch when the work approaches.
 - **Cross-team status.** Option α with proxy-side emission of
   per-move selector output is small enough that a

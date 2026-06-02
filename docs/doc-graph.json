@@ -1,6 +1,6 @@
 {
   "node_count": 374,
-  "edge_count": 1766,
+  "edge_count": 1768,
   "age_buckets": [
     {
       "name": "fresh",
@@ -137,8 +137,8 @@
       "genre": "adr",
       "is_hub": false,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-06-01",
-      "age_bucket": "recent"
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/adr/0006-source-file-headers.md",
@@ -443,6 +443,70 @@
       "first_committed": "2026-05-08",
       "last_committed": "2026-05-08",
       "age_bucket": "stale"
+    },
+    {
+      "path": "docs/archive/notes/design/analysis-bundle-compression-plan.md",
+      "genre": "archive",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/archive/notes/design/analysis-persistence-plan.md",
+      "genre": "archive",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
+      "genre": "archive",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/archive/notes/design/keybindings-plan.md",
+      "genre": "archive",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/archive/notes/design/knob-registry-plan.md",
+      "genre": "archive",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/archive/notes/design/per-board-multi-query-model-plan.md",
+      "genre": "archive",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/archive/notes/design/sgf-library-plan.md",
+      "genre": "archive",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/archive/notes/design/work-status-ssot-plan.md",
+      "genre": "archive",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "docs/archive/notes/dsl-hyperparameter-harness-plan.md",
@@ -1573,36 +1637,12 @@
       "age_bucket": "fresh"
     },
     {
-      "path": "docs/notes/adaptive-reevaluate-widening-plan.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-18",
-      "last_committed": "2026-05-18",
-      "age_bucket": "stale"
-    },
-    {
-      "path": "docs/notes/analysis-bundle-compression-plan.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-25",
-      "last_committed": "2026-05-25",
-      "age_bucket": "aging"
-    },
-    {
       "path": "docs/notes/analysis-persistence-followups.md",
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-05-26",
       "last_committed": "2026-05-26",
       "age_bucket": "aging"
-    },
-    {
-      "path": "docs/notes/analysis-persistence-plan.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-04-26",
-      "last_committed": "2026-05-08",
-      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/audit-reflections.md",
@@ -1637,35 +1677,11 @@
       "age_bucket": "stale"
     },
     {
-      "path": "docs/notes/autonomous-srs-loop-revised.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-10",
-      "last_committed": "2026-05-12",
-      "age_bucket": "stale"
-    },
-    {
-      "path": "docs/notes/autonomous-srs-loop.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-09",
-      "last_committed": "2026-05-09",
-      "age_bucket": "stale"
-    },
-    {
       "path": "docs/notes/compression-research-followups.md",
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-05-26",
       "last_committed": "2026-05-26",
-      "age_bucket": "aging"
-    },
-    {
-      "path": "docs/notes/config-schema-projection-plan.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-30",
-      "last_committed": "2026-05-30",
       "age_bucket": "aging"
     },
     {
@@ -1678,6 +1694,94 @@
     },
     {
       "path": "docs/notes/consult/README.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/notes/consult/mistake-stability-firewall-consult.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/consult/opus-consult-2026-05-29-effect-ts-adoption.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/consult/opus-consult-2026-05-29-render-coupling-typing.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/consult/opus-consult-2026-05-30-config-schema-refactor.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/consult/opus-consult-2026-06-01-effect-ts-architectural-merits.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/consult/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/consult/opus-consult-2026-06-01-neverthrow-overhaul.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/consult/opus-consult-2026-06-01-perf-capture-automation-design-space.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/consult/opus-consult-2026-06-02-work-status-ci-gates.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/consult/opus-consult-2026-06-02-work-status-ssot-plan.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/consult/opus-consults-2026-05-28-audit.md",
       "genre": "note",
       "is_hub": false,
       "first_committed": null,
@@ -1696,6 +1800,126 @@
       "path": "docs/notes/design/README.md",
       "genre": "note",
       "is_hub": false,
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/notes/design/adaptive-reevaluate-widening-plan.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/design/autonomous-srs-loop-revised.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/design/autonomous-srs-loop.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/design/config-schema-projection-plan.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/design/doc-graph-discipline-plan.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/design/migration-test-rotation-plan.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/design/mistake-finder-design-space.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/design/mistake-finder-pedagogy-and-followups.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/design/mistake-stability-surface-synthesis.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/design/perceptual-event-projection-plan.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/design/proxy-topology-testing-plan-revised.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/design/proxy-topology-testing-plan.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/design/qeubo-namespace-unification-plan.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/design/stability-surface-design-space.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/design/typed-effect-documentation-plan.md",
+      "genre": "note",
+      "is_hub": false,
       "first_committed": null,
       "last_committed": null,
       "age_bucket": "uncommitted"
@@ -1707,22 +1931,6 @@
       "first_committed": "2026-04-30",
       "last_committed": "2026-04-30",
       "age_bucket": "stale"
-    },
-    {
-      "path": "docs/notes/doc-graph-discipline-plan.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-04-28",
-      "last_committed": "2026-04-28",
-      "age_bucket": "stale"
-    },
-    {
-      "path": "docs/notes/documentation-graph-artifact-plan.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-06-01",
-      "last_committed": "2026-06-01",
-      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/frontend-backlog.md",
@@ -1773,62 +1981,6 @@
       "age_bucket": "fresh"
     },
     {
-      "path": "docs/notes/keybindings-plan.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-27",
-      "last_committed": "2026-05-27",
-      "age_bucket": "aging"
-    },
-    {
-      "path": "docs/notes/knob-registry-plan.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-14",
-      "last_committed": "2026-05-14",
-      "age_bucket": "stale"
-    },
-    {
-      "path": "docs/notes/migration-test-rotation-plan.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-14",
-      "last_committed": "2026-05-14",
-      "age_bucket": "stale"
-    },
-    {
-      "path": "docs/notes/mistake-finder-design-space.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-28",
-      "last_committed": "2026-05-28",
-      "age_bucket": "aging"
-    },
-    {
-      "path": "docs/notes/mistake-finder-pedagogy-and-followups.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-28",
-      "last_committed": "2026-05-28",
-      "age_bucket": "aging"
-    },
-    {
-      "path": "docs/notes/mistake-stability-firewall-consult.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-28",
-      "last_committed": "2026-05-28",
-      "age_bucket": "aging"
-    },
-    {
-      "path": "docs/notes/mistake-stability-surface-synthesis.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-28",
-      "last_committed": "2026-05-28",
-      "age_bucket": "aging"
-    },
-    {
       "path": "docs/notes/opus-audit-green-perf-arc-2026-05-31.md",
       "genre": "note",
       "is_hub": false,
@@ -1837,108 +1989,12 @@
       "age_bucket": "aging"
     },
     {
-      "path": "docs/notes/opus-consult-2026-05-29-effect-ts-adoption.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-29",
-      "last_committed": "2026-06-01",
-      "age_bucket": "recent"
-    },
-    {
-      "path": "docs/notes/opus-consult-2026-05-29-render-coupling-typing.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-29",
-      "last_committed": "2026-05-29",
-      "age_bucket": "aging"
-    },
-    {
-      "path": "docs/notes/opus-consult-2026-05-30-config-schema-refactor.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-30",
-      "last_committed": "2026-05-30",
-      "age_bucket": "aging"
-    },
-    {
-      "path": "docs/notes/opus-consult-2026-06-01-effect-ts-architectural-merits.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-06-01",
-      "last_committed": "2026-06-01",
-      "age_bucket": "recent"
-    },
-    {
-      "path": "docs/notes/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-06-01",
-      "last_committed": "2026-06-01",
-      "age_bucket": "recent"
-    },
-    {
-      "path": "docs/notes/opus-consult-2026-06-01-neverthrow-overhaul.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-06-01",
-      "last_committed": "2026-06-01",
-      "age_bucket": "recent"
-    },
-    {
-      "path": "docs/notes/opus-consult-2026-06-01-perf-capture-automation-design-space.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-06-01",
-      "last_committed": "2026-06-01",
-      "age_bucket": "recent"
-    },
-    {
-      "path": "docs/notes/opus-consult-2026-06-02-work-status-ci-gates.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-06-02",
-      "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
-    },
-    {
-      "path": "docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-06-02",
-      "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
-    },
-    {
-      "path": "docs/notes/opus-consults-2026-05-28-audit.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-28",
-      "last_committed": "2026-05-28",
-      "age_bucket": "aging"
-    },
-    {
-      "path": "docs/notes/per-board-multi-query-model-plan.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-16",
-      "last_committed": "2026-05-16",
-      "age_bucket": "stale"
-    },
-    {
       "path": "docs/notes/per-turn-analysis-extension-guide.md",
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-05-28",
       "last_committed": "2026-06-02",
       "age_bucket": "fresh"
-    },
-    {
-      "path": "docs/notes/perceptual-event-projection-plan.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-06-01",
-      "last_committed": "2026-06-01",
-      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/perf-audit-game-scroll-2026-05-28.md",
@@ -2021,30 +2077,6 @@
       "age_bucket": "aging"
     },
     {
-      "path": "docs/notes/proxy-topology-testing-plan-revised.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-16",
-      "last_committed": "2026-05-16",
-      "age_bucket": "stale"
-    },
-    {
-      "path": "docs/notes/proxy-topology-testing-plan.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-12",
-      "last_committed": "2026-05-12",
-      "age_bucket": "stale"
-    },
-    {
-      "path": "docs/notes/qeubo-namespace-unification-plan.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-07",
-      "last_committed": "2026-05-14",
-      "age_bucket": "stale"
-    },
-    {
       "path": "docs/notes/rca-discipline-lapses-2026-06-01.md",
       "genre": "note",
       "is_hub": false,
@@ -2125,22 +2157,6 @@
       "age_bucket": "stale"
     },
     {
-      "path": "docs/notes/sgf-library-plan.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-24",
-      "last_committed": "2026-05-24",
-      "age_bucket": "stale"
-    },
-    {
-      "path": "docs/notes/stability-surface-design-space.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-28",
-      "last_committed": "2026-05-28",
-      "age_bucket": "aging"
-    },
-    {
       "path": "docs/notes/tenancy.md",
       "genre": "note",
       "is_hub": false,
@@ -2155,14 +2171,6 @@
       "first_committed": "2026-05-07",
       "last_committed": "2026-05-12",
       "age_bucket": "stale"
-    },
-    {
-      "path": "docs/notes/typed-effect-documentation-plan.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-29",
-      "last_committed": "2026-05-29",
-      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/vestige/deferred-items/README.md",
@@ -2315,14 +2323,6 @@
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
       "age_bucket": "fresh"
-    },
-    {
-      "path": "docs/notes/work-status-ssot-plan.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-06-02",
-      "last_committed": "2026-06-02",
-      "age_bucket": "recent"
     },
     {
       "path": "docs/onboarding/backend.md",
@@ -3002,7 +3002,7 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-05-31",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "frontend/README.md",
@@ -3156,9 +3156,9 @@
     },
     {
       "from": "FEATURES.md",
-      "to": "docs/notes/sgf-library-plan.md",
+      "to": "docs/archive/notes/design/sgf-library-plan.md",
       "kind": "path-mention",
-      "site": "`docs/notes/sgf-library-plan.md`",
+      "site": "`docs/archive/notes/design/sgf-library-plan.md`",
       "resolved": "resolved"
     },
     {
@@ -3492,9 +3492,9 @@
     },
     {
       "from": "docs/adr/0002-fail-loudly.md",
-      "to": "docs/notes/qeubo-namespace-unification-plan.md",
+      "to": "docs/notes/design/qeubo-namespace-unification-plan.md",
       "kind": "path-mention",
-      "site": "`docs/notes/qeubo-namespace-unification-plan.md`",
+      "site": "`docs/notes/design/qeubo-namespace-unification-plan.md`",
       "resolved": "resolved"
     },
     {
@@ -3590,9 +3590,9 @@
     },
     {
       "from": "docs/adr/0005-documentation-discipline.md",
-      "to": "docs/notes/documentation-graph-artifact-plan.md",
+      "to": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
       "kind": "path-mention",
-      "site": "`docs/notes/documentation-graph-artifact-plan.md`",
+      "site": "`docs/archive/notes/design/documentation-graph-artifact-plan.md`",
       "resolved": "resolved"
     },
     {
@@ -4440,7 +4440,7 @@
       "to": "docs/notes/analysis-persistence-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/analysis-persistence-plan.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/archive/TODO-completed-2026-05-06.md",
@@ -4692,7 +4692,7 @@
       "to": "docs/notes/analysis-persistence-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/analysis-persistence-plan.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/archive/dispatch/frontend-to-backend-analysis-persistence.md",
@@ -5343,7 +5343,7 @@
       "to": "docs/notes/analysis-bundle-compression-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/analysis-bundle-compression-plan.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/archive/notes/card-tree-backend-spec.md",
@@ -5512,6 +5512,559 @@
       "kind": "path-mention",
       "site": "`docs/notes/cards-tab-merge-plan.md`",
       "resolved": "dangling"
+    },
+    {
+      "from": "docs/archive/notes/design/analysis-bundle-compression-plan.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/analysis-bundle-compression-plan.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/analysis-bundle-compression-plan.md",
+      "to": "docs/archive/notes/analysis-bundle-compression-research-2026-05-25.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/analysis-bundle-compression-research-2026-05-25.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/analysis-bundle-compression-plan.md",
+      "to": "docs/dispatch/frontend-to-backend-analysis-bundle-compression-v2.md",
+      "kind": "path-mention",
+      "site": "`docs/dispatch/frontend-to-backend-analysis-bundle-compression-v2.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/archive/notes/design/analysis-bundle-compression-plan.md",
+      "to": "docs/dispatch/backend-to-frontend-analysis-bundle-compression-v2-status.md",
+      "kind": "path-mention",
+      "site": "`docs/dispatch/backend-to-frontend-analysis-bundle-compression-v2-status.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/archive/notes/design/analysis-bundle-compression-plan.md",
+      "to": "docs/notes/analysis-bundle-compression-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/analysis-bundle-compression-plan.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/archive/notes/design/analysis-bundle-compression-plan.md",
+      "to": "docs/archive/notes/nncache-prvq-archaeology-2026-05-25.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/nncache-prvq-archaeology-2026-05-25.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/analysis-persistence-plan.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/analysis-persistence-plan.md",
+      "to": "docs/archive/dispatch/frontend-to-backend-analysis-persistence.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/dispatch/frontend-to-backend-analysis-persistence.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/analysis-persistence-plan.md",
+      "to": "docs/archive/dispatch/backend-to-frontend-analysis-persistence-status.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/dispatch/backend-to-frontend-analysis-persistence-status.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/analysis-persistence-plan.md",
+      "to": "docs/archive/dispatch/frontend-to-backend-analysis-persistence-status.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/dispatch/frontend-to-backend-analysis-persistence-status.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/analysis-persistence-plan.md",
+      "to": "docs/notes/tenancy.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/tenancy.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
+      "to": "docs/notes/deferred-items.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/deferred-items.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
+      "to": "docs/doc-graph-report.md",
+      "kind": "path-mention",
+      "site": "`docs/doc-graph-report.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
+      "to": "docs/worklog/2026-06-01-doc-graph-artifact.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-06-01-doc-graph-artifact.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
+      "to": "docs/notes/doc-graph-discipline-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/doc-graph-discipline-plan.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
+      "to": "docs/handoff-current.md",
+      "kind": "path-mention",
+      "site": "`docs/handoff-current.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
+      "to": "docs/adr-synopsis.md",
+      "kind": "path-mention",
+      "site": "`docs/adr-synopsis.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
+      "to": "frontend/IDENTIFIERS.md",
+      "kind": "path-mention",
+      "site": "`frontend/IDENTIFIERS.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
+      "to": "docs/TODO.md",
+      "kind": "path-mention",
+      "site": "`docs/TODO.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
+      "to": "docs/worklog/2026-06-01-doc-graph-churn-reduction.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-06-01-doc-graph-churn-reduction.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
+      "to": "docs/doc-graph.md",
+      "kind": "path-mention",
+      "site": "`docs/doc-graph.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
+      "to": "docs/audits/README.md",
+      "kind": "path-mention",
+      "site": "`docs/audits/README.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
+      "to": "docs/adr/0008-adr-meta-review.md",
+      "kind": "path-mention",
+      "site": "`docs/adr/0008-adr-meta-review.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
+      "to": "docs/ANALYSIS_PERSISTENCE_PLAN.md",
+      "kind": "path-mention",
+      "site": "`docs/ANALYSIS_PERSISTENCE_PLAN.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
+      "to": "docs/archive/notes/qeubo-namespace-unification-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/qeubo-namespace-unification-plan.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
+      "to": "docs/INDEX.md",
+      "kind": "path-mention",
+      "site": "`docs/INDEX.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
+      "to": "docs/rfcs/0001-adr-meta-review.md",
+      "kind": "path-mention",
+      "site": "`docs/rfcs/0001-adr-meta-review.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
+      "to": "docs/worklog/2026-05-31-perf-treewidget-render-decouple.md",
+      "kind": "path-mention",
+      "site": "`2026-05-31-perf-treewidget-render-decouple.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "path-mention",
+      "site": "`0002-fail-loudly.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/keybindings-plan.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/keybindings-plan.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/keybindings-plan.md",
+      "to": "docs/notes/knob-registry-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/knob-registry-plan.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/archive/notes/design/keybindings-plan.md",
+      "to": "docs/worklog/2026-05-27-perf-fix1-raf-coalesce-keydown.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-05-27-perf-fix1-raf-coalesce-keydown.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/keybindings-plan.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/knob-registry-plan.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/knob-registry-plan.md",
+      "to": "docs/adr/0001-state-mutation-and-readonly.md",
+      "kind": "adr-related",
+      "site": "ADR-0001",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/knob-registry-plan.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/knob-registry-plan.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/knob-registry-plan.md",
+      "to": "docs/adr/0006-source-file-headers.md",
+      "kind": "adr-related",
+      "site": "ADR-0006",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/knob-registry-plan.md",
+      "to": "docs/worklog/2026-05-14-knob-registry.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-05-14-knob-registry.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/knob-registry-plan.md",
+      "to": "docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/knob-registry-plan.md",
+      "to": "docs/archive/notes/magic-literals-audit-inventory.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/magic-literals-audit-inventory.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/knob-registry-plan.md",
+      "to": "docs/notes/qeubo-namespace-unification-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/qeubo-namespace-unification-plan.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/archive/notes/design/knob-registry-plan.md",
+      "to": "docs/archive/notes/frontend-theming-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/frontend-theming-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/knob-registry-plan.md",
+      "to": "docs/archive/notes/qEUBO.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/qEUBO.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/knob-registry-plan.md",
+      "to": "docs/archive/dispatch/frontend-to-backend-qeubo-integration.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/dispatch/frontend-to-backend-qeubo-integration.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/per-board-multi-query-model-plan.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/per-board-multi-query-model-plan.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/per-board-multi-query-model-plan.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/per-board-multi-query-model-plan.md",
+      "to": "docs/worklog/2026-05-16-per-board-multi-query.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-05-16-per-board-multi-query.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/per-board-multi-query-model-plan.md",
+      "to": "docs/playbooks/monorepo/monorepo-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/playbooks/monorepo/monorepo-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/per-board-multi-query-model-plan.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/sgf-library-plan.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/sgf-library-plan.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/sgf-library-plan.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/sgf-library-plan.md",
+      "to": "docs/adr/0006-source-file-headers.md",
+      "kind": "adr-related",
+      "site": "ADR-0006",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/sgf-library-plan.md",
+      "to": "docs/handoff-current.md",
+      "kind": "path-mention",
+      "site": "`docs/handoff-current.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/sgf-library-plan.md",
+      "to": "docs/wire-schemas.md",
+      "kind": "path-mention",
+      "site": "`docs/wire-schemas.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/sgf-library-plan.md",
+      "to": "docs/dispatch/backend-to-frontend-sgf-library-status.md",
+      "kind": "path-mention",
+      "site": "`docs/dispatch/backend-to-frontend-sgf-library-status.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/archive/notes/design/sgf-library-plan.md",
+      "to": "docs/notes/tenancy.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/tenancy.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/work-status-ssot-plan.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/work-status-ssot-plan.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/work-status-ssot-plan.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/work-status-ssot-plan.md",
+      "to": "docs/notes/deferred-items.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/deferred-items.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/archive/notes/design/work-status-ssot-plan.md",
+      "to": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/rca-discipline-lapses-2026-06-01.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/work-status-ssot-plan.md",
+      "to": "docs/notes/documentation-graph-artifact-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/documentation-graph-artifact-plan.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/archive/notes/design/work-status-ssot-plan.md",
+      "to": "docs/doc-graph.md",
+      "kind": "path-mention",
+      "site": "`docs/doc-graph.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/work-status-ssot-plan.md",
+      "to": "docs/TODO.md",
+      "kind": "path-mention",
+      "site": "`docs/TODO.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/work-status-ssot-plan.md",
+      "to": "docs/work-status.md",
+      "kind": "path-mention",
+      "site": "`docs/work-status.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/archive/notes/design/work-status-ssot-plan.md",
+      "to": "docs/handoff-current.md",
+      "kind": "path-mention",
+      "site": "`docs/handoff-current.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/work-status-ssot-plan.md",
+      "to": "docs/notes/decisions-deferred.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/decisions-deferred.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/work-status-ssot-plan.md",
+      "to": "docs/notes/doc-graph-discipline-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/doc-graph-discipline-plan.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/archive/notes/design/work-status-ssot-plan.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "path-mention",
+      "site": "`docs/adr/0005-documentation-discipline.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/archive/notes/design/work-status-ssot-plan.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "path-mention",
+      "site": "`docs/adr/0008-classification-discipline.md`",
+      "resolved": "resolved"
     },
     {
       "from": "docs/archive/notes/dsl-hyperparameter-harness-plan.md",
@@ -5756,7 +6309,7 @@
       "to": "docs/notes/knob-registry-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/knob-registry-plan.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/archive/notes/handoff-current-vestige.md",
@@ -5833,7 +6386,7 @@
       "to": "docs/notes/sgf-library-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/sgf-library-plan.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/archive/notes/handoff-current-vestige.md",
@@ -5896,7 +6449,7 @@
       "to": "docs/notes/analysis-persistence-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/analysis-persistence-plan.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/archive/notes/handoff-current-vestige.md",
@@ -6218,7 +6771,7 @@
       "to": "docs/notes/analysis-persistence-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/analysis-persistence-plan.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/archive/notes/resource-ownership-audit-plan.md",
@@ -6449,7 +7002,7 @@
       "to": "docs/notes/documentation-graph-artifact-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/documentation-graph-artifact-plan.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/archive/notes/vestige/deferred-items/foreststat-tagstat-acl.md",
@@ -6519,7 +7072,7 @@
       "to": "docs/notes/opus-consult-2026-06-01-neverthrow-overhaul.md",
       "kind": "path-mention",
       "site": "`docs/notes/opus-consult-2026-06-01-neverthrow-overhaul.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/archive/notes/vestige/deferred-items/stringly-typed-api-errors.md",
@@ -6638,7 +7191,7 @@
       "to": "docs/notes/analysis-persistence-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/analysis-persistence-plan.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/archive/release-scope-2026-04.md",
@@ -9400,9 +9953,9 @@
     },
     {
       "from": "docs/handoff-current.md",
-      "to": "docs/notes/autonomous-srs-loop-revised.md",
+      "to": "docs/notes/design/autonomous-srs-loop-revised.md",
       "kind": "path-mention",
-      "site": "`docs/notes/autonomous-srs-loop-revised.md`",
+      "site": "`docs/notes/design/autonomous-srs-loop-revised.md`",
       "resolved": "resolved"
     },
     {
@@ -9413,101 +9966,10 @@
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/adaptive-reevaluate-widening-plan.md",
-      "to": "docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/adaptive-reevaluate-widening-plan.md",
-      "to": "docs/notes/autonomous-srs-loop-revised.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/autonomous-srs-loop-revised.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/analysis-bundle-compression-plan.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0005",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/analysis-bundle-compression-plan.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/analysis-bundle-compression-plan.md",
-      "to": "docs/archive/notes/analysis-bundle-compression-research-2026-05-25.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/notes/analysis-bundle-compression-research-2026-05-25.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/analysis-bundle-compression-plan.md",
-      "to": "docs/dispatch/frontend-to-backend-analysis-bundle-compression-v2.md",
-      "kind": "path-mention",
-      "site": "`docs/dispatch/frontend-to-backend-analysis-bundle-compression-v2.md`",
-      "resolved": "dangling"
-    },
-    {
-      "from": "docs/notes/analysis-bundle-compression-plan.md",
-      "to": "docs/dispatch/backend-to-frontend-analysis-bundle-compression-v2-status.md",
-      "kind": "path-mention",
-      "site": "`docs/dispatch/backend-to-frontend-analysis-bundle-compression-v2-status.md`",
-      "resolved": "dangling"
-    },
-    {
-      "from": "docs/notes/analysis-bundle-compression-plan.md",
-      "to": "docs/archive/notes/nncache-prvq-archaeology-2026-05-25.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/notes/nncache-prvq-archaeology-2026-05-25.md`",
-      "resolved": "resolved"
-    },
-    {
       "from": "docs/notes/analysis-persistence-followups.md",
-      "to": "docs/notes/analysis-persistence-plan.md",
+      "to": "docs/archive/notes/design/analysis-persistence-plan.md",
       "kind": "path-mention",
-      "site": "`docs/notes/analysis-persistence-plan.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/analysis-persistence-plan.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/analysis-persistence-plan.md",
-      "to": "docs/archive/dispatch/frontend-to-backend-analysis-persistence.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/dispatch/frontend-to-backend-analysis-persistence.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/analysis-persistence-plan.md",
-      "to": "docs/archive/dispatch/backend-to-frontend-analysis-persistence-status.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/dispatch/backend-to-frontend-analysis-persistence-status.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/analysis-persistence-plan.md",
-      "to": "docs/archive/dispatch/frontend-to-backend-analysis-persistence-status.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/dispatch/frontend-to-backend-analysis-persistence-status.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/analysis-persistence-plan.md",
-      "to": "docs/notes/tenancy.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/tenancy.md`",
+      "site": "`docs/archive/notes/design/analysis-persistence-plan.md`",
       "resolved": "resolved"
     },
     {
@@ -9680,9 +10142,9 @@
     },
     {
       "from": "docs/notes/auditor-notes.md",
-      "to": "docs/notes/doc-graph-discipline-plan.md",
+      "to": "docs/notes/design/doc-graph-discipline-plan.md",
       "kind": "path-mention",
-      "site": "`docs/notes/doc-graph-discipline-plan.md`",
+      "site": "`docs/notes/design/doc-graph-discipline-plan.md`",
       "resolved": "resolved"
     },
     {
@@ -9693,31 +10155,10 @@
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/autonomous-srs-loop-revised.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0005",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/autonomous-srs-loop-revised.md",
-      "to": "docs/notes/autonomous-srs-loop.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/autonomous-srs-loop.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/autonomous-srs-loop-revised.md",
-      "to": "docs/archive/notes/proxy-selector-and-capability-negotiation.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/notes/proxy-selector-and-capability-negotiation.md`",
-      "resolved": "resolved"
-    },
-    {
       "from": "docs/notes/compression-research-followups.md",
-      "to": "docs/notes/analysis-bundle-compression-plan.md",
+      "to": "docs/archive/notes/design/analysis-bundle-compression-plan.md",
       "kind": "path-mention",
-      "site": "`docs/notes/analysis-bundle-compression-plan.md`",
+      "site": "`docs/archive/notes/design/analysis-bundle-compression-plan.md`",
       "resolved": "resolved"
     },
     {
@@ -9732,97 +10173,6 @@
       "to": "docs/archive/notes/linear-projection-compression-investigation-2026-05-26.md",
       "kind": "path-mention",
       "site": "`docs/archive/notes/linear-projection-compression-investigation-2026-05-26.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/config-schema-projection-plan.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/config-schema-projection-plan.md",
-      "to": "docs/adr/0008-classification-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0008",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/config-schema-projection-plan.md",
-      "to": "docs/adr/0001-state-mutation-and-readonly.md",
-      "kind": "adr-related",
-      "site": "ADR-0001",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/config-schema-projection-plan.md",
-      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
-      "kind": "adr-related",
-      "site": "ADR-0003",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/config-schema-projection-plan.md",
-      "to": "docs/adr/0007-file-size-and-information-density.md",
-      "kind": "adr-related",
-      "site": "ADR-0007",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/config-schema-projection-plan.md",
-      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
-      "kind": "adr-related",
-      "site": "ADR-0004",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/config-schema-projection-plan.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0005",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/config-schema-projection-plan.md",
-      "to": "docs/notes/knob-registry-plan.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/knob-registry-plan.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/config-schema-projection-plan.md",
-      "to": "frontend/CLAUDE.md",
-      "kind": "path-mention",
-      "site": "`frontend/CLAUDE.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/config-schema-projection-plan.md",
-      "to": "docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/config-schema-projection-plan.md",
-      "to": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/postmortem-knob-toolbar-popover-2026-05.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/config-schema-projection-plan.md",
-      "to": "docs/archive/notes/dsl-hyperparameter-harness-plan.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/notes/dsl-hyperparameter-harness-plan.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/config-schema-projection-plan.md",
-      "to": "docs/notes/opus-consult-2026-05-30-config-schema-refactor.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/opus-consult-2026-05-30-config-schema-refactor.md`",
       "resolved": "resolved"
     },
     {
@@ -9872,6 +10222,321 @@
       "to": "docs/adr/0005-documentation-discipline.md",
       "kind": "adr-related",
       "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/mistake-stability-firewall-consult.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/mistake-stability-firewall-consult.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/mistake-stability-firewall-consult.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-05-29-effect-ts-adoption.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-05-29-effect-ts-adoption.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-05-29-effect-ts-adoption.md",
+      "to": "docs/notes/consult/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/consult/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-05-29-effect-ts-adoption.md",
+      "to": "docs/notes/decisions-deferred.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/decisions-deferred.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-05-29-render-coupling-typing.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-05-29-render-coupling-typing.md",
+      "to": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-05-30-config-schema-refactor.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-05-30-config-schema-refactor.md",
+      "to": "docs/notes/design/config-schema-projection-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/design/config-schema-projection-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-01-effect-ts-architectural-merits.md",
+      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-01-effect-ts-architectural-merits.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-01-effect-ts-architectural-merits.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-01-neverthrow-overhaul.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-01-neverthrow-overhaul.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "path-mention",
+      "site": "`docs/adr/0002-fail-loudly.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-01-perf-capture-automation-design-space.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-01-perf-capture-automation-design-space.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-01-perf-capture-automation-design-space.md",
+      "to": "docs/notes/perf-capture-normalization-protocol.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/perf-capture-normalization-protocol.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-01-perf-capture-automation-design-space.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "path-mention",
+      "site": "`docs/adr/0009-performance-investigation-discipline.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-01-perf-capture-automation-design-space.md",
+      "to": "docs/notes/green-perf-arc-retrospective-2026-05-31.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/green-perf-arc-retrospective-2026-05-31.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-01-perf-capture-automation-design-space.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-02-work-status-ci-gates.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-02-work-status-ci-gates.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-02-work-status-ci-gates.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-02-work-status-ci-gates.md",
+      "to": "docs/notes/deferred-items.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/deferred-items.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-02-work-status-ci-gates.md",
+      "to": "docs/archive/notes/design/work-status-ssot-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/design/work-status-ssot-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-02-work-status-ci-gates.md",
+      "to": "docs/notes/consult/opus-consult-2026-06-02-work-status-ssot-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/consult/opus-consult-2026-06-02-work-status-ssot-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-02-work-status-ci-gates.md",
+      "to": "docs/doc-graph.md",
+      "kind": "path-mention",
+      "site": "`docs/doc-graph.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-02-work-status-ci-gates.md",
+      "to": "docs/TODO.md",
+      "kind": "path-mention",
+      "site": "`docs/TODO.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-02-work-status-ssot-plan.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-02-work-status-ssot-plan.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-02-work-status-ssot-plan.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-02-work-status-ssot-plan.md",
+      "to": "docs/archive/notes/design/work-status-ssot-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/design/work-status-ssot-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-02-work-status-ssot-plan.md",
+      "to": "docs/TODO.md",
+      "kind": "path-mention",
+      "site": "`docs/TODO.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-02-work-status-ssot-plan.md",
+      "to": "docs/notes/deferred-items.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/deferred-items.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-02-work-status-ssot-plan.md",
+      "to": "docs/handoff-current.md",
+      "kind": "path-mention",
+      "site": "`docs/handoff-current.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-02-work-status-ssot-plan.md",
+      "to": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/rca-discipline-lapses-2026-06-01.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consults-2026-05-28-audit.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consults-2026-05-28-audit.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consults-2026-05-28-audit.md",
+      "to": "docs/notes/consult/mistake-stability-firewall-consult.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/consult/mistake-stability-firewall-consult.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consults-2026-05-28-audit.md",
+      "to": "docs/notes/design/mistake-finder-design-space.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/design/mistake-finder-design-space.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consults-2026-05-28-audit.md",
+      "to": "docs/notes/design/mistake-stability-surface-synthesis.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/design/mistake-stability-surface-synthesis.md`",
       "resolved": "resolved"
     },
     {
@@ -9925,16 +10590,16 @@
     },
     {
       "from": "docs/notes/decisions-deferred.md",
-      "to": "docs/notes/opus-consult-2026-05-29-effect-ts-adoption.md",
+      "to": "docs/notes/consult/opus-consult-2026-05-29-effect-ts-adoption.md",
       "kind": "path-mention",
-      "site": "`docs/notes/opus-consult-2026-05-29-effect-ts-adoption.md`",
+      "site": "`docs/notes/consult/opus-consult-2026-05-29-effect-ts-adoption.md`",
       "resolved": "resolved"
     },
     {
       "from": "docs/notes/decisions-deferred.md",
-      "to": "docs/notes/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md",
+      "to": "docs/notes/consult/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md",
       "kind": "path-mention",
-      "site": "`docs/notes/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md`",
+      "site": "`docs/notes/consult/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md`",
       "resolved": "resolved"
     },
     {
@@ -9949,6 +10614,552 @@
       "to": "docs/adr/0008-classification-discipline.md",
       "kind": "adr-related",
       "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/adaptive-reevaluate-widening-plan.md",
+      "to": "docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/adaptive-reevaluate-widening-plan.md",
+      "to": "docs/notes/design/autonomous-srs-loop-revised.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/design/autonomous-srs-loop-revised.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/autonomous-srs-loop-revised.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/autonomous-srs-loop-revised.md",
+      "to": "docs/notes/design/autonomous-srs-loop.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/design/autonomous-srs-loop.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/autonomous-srs-loop-revised.md",
+      "to": "docs/archive/notes/proxy-selector-and-capability-negotiation.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/proxy-selector-and-capability-negotiation.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/config-schema-projection-plan.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/config-schema-projection-plan.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/config-schema-projection-plan.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/config-schema-projection-plan.md",
+      "to": "docs/adr/0001-state-mutation-and-readonly.md",
+      "kind": "adr-related",
+      "site": "ADR-0001",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/config-schema-projection-plan.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/config-schema-projection-plan.md",
+      "to": "docs/adr/0007-file-size-and-information-density.md",
+      "kind": "adr-related",
+      "site": "ADR-0007",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/config-schema-projection-plan.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/config-schema-projection-plan.md",
+      "to": "docs/archive/notes/design/knob-registry-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/design/knob-registry-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/config-schema-projection-plan.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/config-schema-projection-plan.md",
+      "to": "docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/config-schema-projection-plan.md",
+      "to": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/postmortem-knob-toolbar-popover-2026-05.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/config-schema-projection-plan.md",
+      "to": "docs/archive/notes/dsl-hyperparameter-harness-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/dsl-hyperparameter-harness-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/config-schema-projection-plan.md",
+      "to": "docs/notes/consult/opus-consult-2026-05-30-config-schema-refactor.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/consult/opus-consult-2026-05-30-config-schema-refactor.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/doc-graph-discipline-plan.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/doc-graph-discipline-plan.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/doc-graph-discipline-plan.md",
+      "to": "docs/INDEX.md",
+      "kind": "path-mention",
+      "site": "`docs/INDEX.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/notes/design/doc-graph-discipline-plan.md",
+      "to": "backend/docs/tree-dsl.md",
+      "kind": "path-mention",
+      "site": "`backend/docs/tree-dsl.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/doc-graph-discipline-plan.md",
+      "to": "docs/notes/decisions-deferred.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/decisions-deferred.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/migration-test-rotation-plan.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/migration-test-rotation-plan.md",
+      "to": "docs/adr/0007-file-size-and-information-density.md",
+      "kind": "adr-related",
+      "site": "ADR-0007",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/migration-test-rotation-plan.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/migration-test-rotation-plan.md",
+      "to": "frontend/tests/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/tests/CLAUDE.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/notes/design/mistake-finder-design-space.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/mistake-finder-design-space.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/mistake-finder-design-space.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/mistake-finder-design-space.md",
+      "to": "docs/notes/design/autonomous-srs-loop-revised.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/design/autonomous-srs-loop-revised.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/mistake-finder-pedagogy-and-followups.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/mistake-finder-pedagogy-and-followups.md",
+      "to": "docs/handoff-current.md",
+      "kind": "path-mention",
+      "site": "`docs/handoff-current.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/mistake-finder-pedagogy-and-followups.md",
+      "to": "docs/pedagogy.md",
+      "kind": "path-mention",
+      "site": "`docs/pedagogy.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/notes/design/mistake-finder-pedagogy-and-followups.md",
+      "to": "docs/notes/pedagogy.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/pedagogy.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/notes/design/mistake-stability-surface-synthesis.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/mistake-stability-surface-synthesis.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/mistake-stability-surface-synthesis.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/mistake-stability-surface-synthesis.md",
+      "to": "docs/notes/design/autonomous-srs-loop-revised.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/design/autonomous-srs-loop-revised.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/mistake-stability-surface-synthesis.md",
+      "to": "docs/wire-schemas.md",
+      "kind": "path-mention",
+      "site": "`docs/wire-schemas.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/perceptual-event-projection-plan.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/perceptual-event-projection-plan.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/perceptual-event-projection-plan.md",
+      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/perceptual-event-projection-plan.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/proxy-topology-testing-plan-revised.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/proxy-topology-testing-plan-revised.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/proxy-topology-testing-plan-revised.md",
+      "to": "docs/notes/design/proxy-topology-testing-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/design/proxy-topology-testing-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/proxy-topology-testing-plan-revised.md",
+      "to": "docs/handoff-current.md",
+      "kind": "path-mention",
+      "site": "`docs/handoff-current.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/proxy-topology-testing-plan-revised.md",
+      "to": "docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/proxy-topology-testing-plan-revised.md",
+      "to": "docs/wire-schemas.md",
+      "kind": "path-mention",
+      "site": "`docs/wire-schemas.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/proxy-topology-testing-plan-revised.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "path-mention",
+      "site": "`docs/adr/0002-fail-loudly.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/proxy-topology-testing-plan-revised.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "path-mention",
+      "site": "`docs/adr/0005-documentation-discipline.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/proxy-topology-testing-plan.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/proxy-topology-testing-plan.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/proxy-topology-testing-plan.md",
+      "to": "docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/proxy-topology-testing-plan.md",
+      "to": "docs/wire-schemas.md",
+      "kind": "path-mention",
+      "site": "`docs/wire-schemas.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/proxy-topology-testing-plan.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "path-mention",
+      "site": "`docs/adr/0002-fail-loudly.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/proxy-topology-testing-plan.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "path-mention",
+      "site": "`docs/adr/0005-documentation-discipline.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/qeubo-namespace-unification-plan.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/qeubo-namespace-unification-plan.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/qeubo-namespace-unification-plan.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/qeubo-namespace-unification-plan.md",
+      "to": "docs/archive/notes/design/knob-registry-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/design/knob-registry-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/qeubo-namespace-unification-plan.md",
+      "to": "docs/archive/dispatch/frontend-to-frontend-session-handoff-2026-05-02.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/dispatch/frontend-to-frontend-session-handoff-2026-05-02.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/qeubo-namespace-unification-plan.md",
+      "to": "docs/archive/worklog/2026-05-v1.0-to-v1.1/2026-05-02-theme-substrate-a4.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/worklog/2026-05-v1.0-to-v1.1/2026-05-02-theme-substrate-a4.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/qeubo-namespace-unification-plan.md",
+      "to": "docs/archive/notes/qEUBO.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/qEUBO.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/qeubo-namespace-unification-plan.md",
+      "to": "docs/archive/dispatch/frontend-to-backend-qeubo-integration.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/dispatch/frontend-to-backend-qeubo-integration.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/qeubo-namespace-unification-plan.md",
+      "to": "docs/archive/notes/frontend-theming-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/frontend-theming-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/qeubo-namespace-unification-plan.md",
+      "to": "docs/archive/notes/dsl-hyperparameter-harness-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/dsl-hyperparameter-harness-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/stability-surface-design-space.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/stability-surface-design-space.md",
+      "to": "docs/wire-schemas.md",
+      "kind": "path-mention",
+      "site": "`docs/wire-schemas.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/typed-effect-documentation-plan.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/typed-effect-documentation-plan.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/typed-effect-documentation-plan.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/typed-effect-documentation-plan.md",
+      "to": "docs/adr/0006-source-file-headers.md",
+      "kind": "adr-related",
+      "site": "ADR-0006",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/typed-effect-documentation-plan.md",
+      "to": "docs/notes/consult/opus-consult-2026-05-29-effect-ts-adoption.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/consult/opus-consult-2026-05-29-effect-ts-adoption.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/typed-effect-documentation-plan.md",
+      "to": "docs/notes/consult/opus-consult-2026-05-29-render-coupling-typing.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/consult/opus-consult-2026-05-29-render-coupling-typing.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/typed-effect-documentation-plan.md",
+      "to": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/typed-effect-documentation-plan.md",
+      "to": "docs/TODO.md",
+      "kind": "path-mention",
+      "site": "`docs/TODO.md`",
       "resolved": "resolved"
     },
     {
@@ -9978,195 +11189,6 @@
       "kind": "path-mention",
       "site": "`docs/notes/distribution-tauri-plan.md`",
       "resolved": "dangling"
-    },
-    {
-      "from": "docs/notes/doc-graph-discipline-plan.md",
-      "to": "docs/adr/0008-classification-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0008",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/doc-graph-discipline-plan.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0005",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/doc-graph-discipline-plan.md",
-      "to": "docs/INDEX.md",
-      "kind": "path-mention",
-      "site": "`docs/INDEX.md`",
-      "resolved": "dangling"
-    },
-    {
-      "from": "docs/notes/doc-graph-discipline-plan.md",
-      "to": "backend/docs/tree-dsl.md",
-      "kind": "path-mention",
-      "site": "`backend/docs/tree-dsl.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/doc-graph-discipline-plan.md",
-      "to": "docs/notes/decisions-deferred.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/decisions-deferred.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/documentation-graph-artifact-plan.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/documentation-graph-artifact-plan.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0005",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/documentation-graph-artifact-plan.md",
-      "to": "docs/notes/deferred-items.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/deferred-items.md`",
-      "resolved": "dangling"
-    },
-    {
-      "from": "docs/notes/documentation-graph-artifact-plan.md",
-      "to": "docs/doc-graph-report.md",
-      "kind": "path-mention",
-      "site": "`docs/doc-graph-report.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/documentation-graph-artifact-plan.md",
-      "to": "docs/worklog/2026-06-01-doc-graph-artifact.md",
-      "kind": "path-mention",
-      "site": "`docs/worklog/2026-06-01-doc-graph-artifact.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/documentation-graph-artifact-plan.md",
-      "to": "docs/notes/doc-graph-discipline-plan.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/doc-graph-discipline-plan.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/documentation-graph-artifact-plan.md",
-      "to": "docs/handoff-current.md",
-      "kind": "path-mention",
-      "site": "`docs/handoff-current.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/documentation-graph-artifact-plan.md",
-      "to": "docs/adr-synopsis.md",
-      "kind": "path-mention",
-      "site": "`docs/adr-synopsis.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/documentation-graph-artifact-plan.md",
-      "to": "frontend/FILES.md",
-      "kind": "path-mention",
-      "site": "`frontend/FILES.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/documentation-graph-artifact-plan.md",
-      "to": "frontend/IDENTIFIERS.md",
-      "kind": "path-mention",
-      "site": "`frontend/IDENTIFIERS.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/documentation-graph-artifact-plan.md",
-      "to": "docs/TODO.md",
-      "kind": "path-mention",
-      "site": "`docs/TODO.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/documentation-graph-artifact-plan.md",
-      "to": "frontend/CLAUDE.md",
-      "kind": "path-mention",
-      "site": "`frontend/CLAUDE.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/documentation-graph-artifact-plan.md",
-      "to": "docs/worklog/2026-06-01-doc-graph-churn-reduction.md",
-      "kind": "path-mention",
-      "site": "`docs/worklog/2026-06-01-doc-graph-churn-reduction.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/documentation-graph-artifact-plan.md",
-      "to": "docs/doc-graph.md",
-      "kind": "path-mention",
-      "site": "`docs/doc-graph.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/documentation-graph-artifact-plan.md",
-      "to": "docs/audits/README.md",
-      "kind": "path-mention",
-      "site": "`docs/audits/README.md`",
-      "resolved": "dangling"
-    },
-    {
-      "from": "docs/notes/documentation-graph-artifact-plan.md",
-      "to": "docs/adr/0008-adr-meta-review.md",
-      "kind": "path-mention",
-      "site": "`docs/adr/0008-adr-meta-review.md`",
-      "resolved": "dangling"
-    },
-    {
-      "from": "docs/notes/documentation-graph-artifact-plan.md",
-      "to": "docs/ANALYSIS_PERSISTENCE_PLAN.md",
-      "kind": "path-mention",
-      "site": "`docs/ANALYSIS_PERSISTENCE_PLAN.md`",
-      "resolved": "dangling"
-    },
-    {
-      "from": "docs/notes/documentation-graph-artifact-plan.md",
-      "to": "docs/archive/notes/qeubo-namespace-unification-plan.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/notes/qeubo-namespace-unification-plan.md`",
-      "resolved": "dangling"
-    },
-    {
-      "from": "docs/notes/documentation-graph-artifact-plan.md",
-      "to": "docs/INDEX.md",
-      "kind": "path-mention",
-      "site": "`docs/INDEX.md`",
-      "resolved": "dangling"
-    },
-    {
-      "from": "docs/notes/documentation-graph-artifact-plan.md",
-      "to": "docs/rfcs/0001-adr-meta-review.md",
-      "kind": "path-mention",
-      "site": "`docs/rfcs/0001-adr-meta-review.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/documentation-graph-artifact-plan.md",
-      "to": "docs/worklog/2026-05-31-perf-treewidget-render-decouple.md",
-      "kind": "path-mention",
-      "site": "`2026-05-31-perf-treewidget-render-decouple.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/documentation-graph-artifact-plan.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "path-mention",
-      "site": "`0002-fail-loudly.md`",
-      "resolved": "resolved"
     },
     {
       "from": "docs/notes/frontend-backlog.md",
@@ -10323,265 +11345,6 @@
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/keybindings-plan.md",
-      "to": "docs/adr/0009-performance-investigation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0009",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/keybindings-plan.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/keybindings-plan.md",
-      "to": "docs/notes/knob-registry-plan.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/knob-registry-plan.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/keybindings-plan.md",
-      "to": "docs/worklog/2026-05-27-perf-fix1-raf-coalesce-keydown.md",
-      "kind": "path-mention",
-      "site": "`docs/worklog/2026-05-27-perf-fix1-raf-coalesce-keydown.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/keybindings-plan.md",
-      "to": "frontend/CLAUDE.md",
-      "kind": "path-mention",
-      "site": "`frontend/CLAUDE.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/knob-registry-plan.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0005",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/knob-registry-plan.md",
-      "to": "docs/adr/0001-state-mutation-and-readonly.md",
-      "kind": "adr-related",
-      "site": "ADR-0001",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/knob-registry-plan.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/knob-registry-plan.md",
-      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
-      "kind": "adr-related",
-      "site": "ADR-0003",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/knob-registry-plan.md",
-      "to": "docs/adr/0006-source-file-headers.md",
-      "kind": "adr-related",
-      "site": "ADR-0006",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/knob-registry-plan.md",
-      "to": "docs/worklog/2026-05-14-knob-registry.md",
-      "kind": "path-mention",
-      "site": "`docs/worklog/2026-05-14-knob-registry.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/knob-registry-plan.md",
-      "to": "docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/knob-registry-plan.md",
-      "to": "docs/archive/notes/magic-literals-audit-inventory.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/notes/magic-literals-audit-inventory.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/knob-registry-plan.md",
-      "to": "docs/notes/qeubo-namespace-unification-plan.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/qeubo-namespace-unification-plan.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/knob-registry-plan.md",
-      "to": "docs/archive/notes/frontend-theming-plan.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/notes/frontend-theming-plan.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/knob-registry-plan.md",
-      "to": "docs/archive/notes/qEUBO.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/notes/qEUBO.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/knob-registry-plan.md",
-      "to": "docs/archive/dispatch/frontend-to-backend-qeubo-integration.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/dispatch/frontend-to-backend-qeubo-integration.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/migration-test-rotation-plan.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/migration-test-rotation-plan.md",
-      "to": "docs/adr/0007-file-size-and-information-density.md",
-      "kind": "adr-related",
-      "site": "ADR-0007",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/migration-test-rotation-plan.md",
-      "to": "frontend/CLAUDE.md",
-      "kind": "path-mention",
-      "site": "`frontend/CLAUDE.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/migration-test-rotation-plan.md",
-      "to": "frontend/tests/CLAUDE.md",
-      "kind": "path-mention",
-      "site": "`frontend/tests/CLAUDE.md`",
-      "resolved": "dangling"
-    },
-    {
-      "from": "docs/notes/mistake-finder-design-space.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0005",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/mistake-finder-design-space.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/mistake-finder-design-space.md",
-      "to": "docs/adr/0008-classification-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0008",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/mistake-finder-design-space.md",
-      "to": "docs/notes/autonomous-srs-loop-revised.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/autonomous-srs-loop-revised.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/mistake-finder-pedagogy-and-followups.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0005",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/mistake-finder-pedagogy-and-followups.md",
-      "to": "docs/handoff-current.md",
-      "kind": "path-mention",
-      "site": "`docs/handoff-current.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/mistake-finder-pedagogy-and-followups.md",
-      "to": "docs/pedagogy.md",
-      "kind": "path-mention",
-      "site": "`docs/pedagogy.md`",
-      "resolved": "dangling"
-    },
-    {
-      "from": "docs/notes/mistake-finder-pedagogy-and-followups.md",
-      "to": "docs/notes/pedagogy.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/pedagogy.md`",
-      "resolved": "dangling"
-    },
-    {
-      "from": "docs/notes/mistake-stability-firewall-consult.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/mistake-stability-firewall-consult.md",
-      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
-      "kind": "adr-related",
-      "site": "ADR-0003",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/mistake-stability-firewall-consult.md",
-      "to": "docs/adr/0008-classification-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0008",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/mistake-stability-surface-synthesis.md",
-      "to": "docs/adr/0008-classification-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0008",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/mistake-stability-surface-synthesis.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0005",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/mistake-stability-surface-synthesis.md",
-      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
-      "kind": "adr-related",
-      "site": "ADR-0003",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/mistake-stability-surface-synthesis.md",
-      "to": "docs/notes/autonomous-srs-loop-revised.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/autonomous-srs-loop-revised.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/mistake-stability-surface-synthesis.md",
-      "to": "docs/wire-schemas.md",
-      "kind": "path-mention",
-      "site": "`docs/wire-schemas.md`",
-      "resolved": "resolved"
-    },
-    {
       "from": "docs/notes/opus-audit-green-perf-arc-2026-05-31.md",
       "to": "docs/adr/0009-performance-investigation-discipline.md",
       "kind": "adr-related",
@@ -10597,342 +11360,6 @@
     },
     {
       "from": "docs/notes/opus-audit-green-perf-arc-2026-05-31.md",
-      "to": "frontend/CLAUDE.md",
-      "kind": "path-mention",
-      "site": "`frontend/CLAUDE.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-05-29-effect-ts-adoption.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-05-29-effect-ts-adoption.md",
-      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
-      "kind": "adr-related",
-      "site": "ADR-0003",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-05-29-effect-ts-adoption.md",
-      "to": "docs/notes/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-05-29-effect-ts-adoption.md",
-      "to": "docs/notes/decisions-deferred.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/decisions-deferred.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-05-29-render-coupling-typing.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-05-29-render-coupling-typing.md",
-      "to": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-05-30-config-schema-refactor.md",
-      "to": "docs/adr/0008-classification-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0008",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-05-30-config-schema-refactor.md",
-      "to": "docs/notes/config-schema-projection-plan.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/config-schema-projection-plan.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-01-effect-ts-architectural-merits.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
-      "kind": "adr-related",
-      "site": "ADR-0010",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-01-effect-ts-architectural-merits.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-01-effect-ts-architectural-merits.md",
-      "to": "frontend/CLAUDE.md",
-      "kind": "path-mention",
-      "site": "`frontend/CLAUDE.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md",
-      "to": "frontend/CLAUDE.md",
-      "kind": "path-mention",
-      "site": "`frontend/CLAUDE.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-01-neverthrow-overhaul.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-01-neverthrow-overhaul.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "path-mention",
-      "site": "`docs/adr/0002-fail-loudly.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-01-perf-capture-automation-design-space.md",
-      "to": "docs/adr/0009-performance-investigation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0009",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-01-perf-capture-automation-design-space.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-01-perf-capture-automation-design-space.md",
-      "to": "docs/notes/perf-capture-normalization-protocol.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/perf-capture-normalization-protocol.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-01-perf-capture-automation-design-space.md",
-      "to": "docs/adr/0009-performance-investigation-discipline.md",
-      "kind": "path-mention",
-      "site": "`docs/adr/0009-performance-investigation-discipline.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-01-perf-capture-automation-design-space.md",
-      "to": "docs/notes/green-perf-arc-retrospective-2026-05-31.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/green-perf-arc-retrospective-2026-05-31.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-01-perf-capture-automation-design-space.md",
-      "to": "frontend/CLAUDE.md",
-      "kind": "path-mention",
-      "site": "`frontend/CLAUDE.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-02-work-status-ci-gates.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-02-work-status-ci-gates.md",
-      "to": "docs/adr/0008-classification-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0008",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-02-work-status-ci-gates.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0005",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-02-work-status-ci-gates.md",
-      "to": "docs/notes/deferred-items.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/deferred-items.md`",
-      "resolved": "dangling"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-02-work-status-ci-gates.md",
-      "to": "docs/notes/work-status-ssot-plan.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/work-status-ssot-plan.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-02-work-status-ci-gates.md",
-      "to": "docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-02-work-status-ci-gates.md",
-      "to": "docs/doc-graph.md",
-      "kind": "path-mention",
-      "site": "`docs/doc-graph.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-02-work-status-ci-gates.md",
-      "to": "docs/TODO.md",
-      "kind": "path-mention",
-      "site": "`docs/TODO.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0005",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md",
-      "to": "docs/adr/0008-classification-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0008",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md",
-      "to": "docs/notes/work-status-ssot-plan.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/work-status-ssot-plan.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md",
-      "to": "docs/TODO.md",
-      "kind": "path-mention",
-      "site": "`docs/TODO.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md",
-      "to": "docs/notes/deferred-items.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/deferred-items.md`",
-      "resolved": "dangling"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md",
-      "to": "docs/handoff-current.md",
-      "kind": "path-mention",
-      "site": "`docs/handoff-current.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md",
-      "to": "docs/notes/rca-discipline-lapses-2026-06-01.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/rca-discipline-lapses-2026-06-01.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consults-2026-05-28-audit.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0005",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consults-2026-05-28-audit.md",
-      "to": "docs/adr/0009-performance-investigation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0009",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consults-2026-05-28-audit.md",
-      "to": "docs/notes/mistake-stability-firewall-consult.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/mistake-stability-firewall-consult.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consults-2026-05-28-audit.md",
-      "to": "docs/notes/mistake-finder-design-space.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/mistake-finder-design-space.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-consults-2026-05-28-audit.md",
-      "to": "docs/notes/mistake-stability-surface-synthesis.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/mistake-stability-surface-synthesis.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/per-board-multi-query-model-plan.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0005",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/per-board-multi-query-model-plan.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/per-board-multi-query-model-plan.md",
-      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
-      "kind": "adr-related",
-      "site": "ADR-0004",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/per-board-multi-query-model-plan.md",
-      "to": "docs/worklog/2026-05-16-per-board-multi-query.md",
-      "kind": "path-mention",
-      "site": "`docs/worklog/2026-05-16-per-board-multi-query.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/per-board-multi-query-model-plan.md",
-      "to": "docs/playbooks/monorepo/monorepo-plan.md",
-      "kind": "path-mention",
-      "site": "`docs/playbooks/monorepo/monorepo-plan.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/per-board-multi-query-model-plan.md",
       "to": "frontend/CLAUDE.md",
       "kind": "path-mention",
       "site": "`frontend/CLAUDE.md`",
@@ -10964,27 +11391,6 @@
       "to": "docs/notes/vestige/deferred-items/kde-boundary-bias.md",
       "kind": "path-mention",
       "site": "`docs/notes/vestige/deferred-items/kde-boundary-bias.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/perceptual-event-projection-plan.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/perceptual-event-projection-plan.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
-      "kind": "adr-related",
-      "site": "ADR-0010",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/perceptual-event-projection-plan.md",
-      "to": "docs/adr/0009-performance-investigation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0009",
       "resolved": "resolved"
     },
     {
@@ -11164,9 +11570,9 @@
     },
     {
       "from": "docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md",
-      "to": "docs/notes/knob-registry-plan.md",
+      "to": "docs/archive/notes/design/knob-registry-plan.md",
       "kind": "path-mention",
-      "site": "`docs/notes/knob-registry-plan.md`",
+      "site": "`docs/archive/notes/design/knob-registry-plan.md`",
       "resolved": "resolved"
     },
     {
@@ -11206,9 +11612,9 @@
     },
     {
       "from": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md",
-      "to": "docs/notes/knob-registry-plan.md",
+      "to": "docs/archive/notes/design/knob-registry-plan.md",
       "kind": "path-mention",
-      "site": "`docs/notes/knob-registry-plan.md`",
+      "site": "`docs/archive/notes/design/knob-registry-plan.md`",
       "resolved": "resolved"
     },
     {
@@ -11360,9 +11766,9 @@
     },
     {
       "from": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
-      "to": "docs/notes/opus-consult-2026-05-29-render-coupling-typing.md",
+      "to": "docs/notes/consult/opus-consult-2026-05-29-render-coupling-typing.md",
       "kind": "path-mention",
-      "site": "`docs/notes/opus-consult-2026-05-29-render-coupling-typing.md`",
+      "site": "`docs/notes/consult/opus-consult-2026-05-29-render-coupling-typing.md`",
       "resolved": "resolved"
     },
     {
@@ -11384,174 +11790,6 @@
       "to": "docs/adr/0009-performance-investigation-discipline.md",
       "kind": "path-mention",
       "site": "`docs/adr/0009-performance-investigation-discipline.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/proxy-topology-testing-plan-revised.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0005",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/proxy-topology-testing-plan-revised.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/proxy-topology-testing-plan-revised.md",
-      "to": "docs/notes/proxy-topology-testing-plan.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/proxy-topology-testing-plan.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/proxy-topology-testing-plan-revised.md",
-      "to": "docs/handoff-current.md",
-      "kind": "path-mention",
-      "site": "`docs/handoff-current.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/proxy-topology-testing-plan-revised.md",
-      "to": "docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/proxy-topology-testing-plan-revised.md",
-      "to": "docs/wire-schemas.md",
-      "kind": "path-mention",
-      "site": "`docs/wire-schemas.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/proxy-topology-testing-plan-revised.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "path-mention",
-      "site": "`docs/adr/0002-fail-loudly.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/proxy-topology-testing-plan-revised.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
-      "kind": "path-mention",
-      "site": "`docs/adr/0005-documentation-discipline.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/proxy-topology-testing-plan.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0005",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/proxy-topology-testing-plan.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/proxy-topology-testing-plan.md",
-      "to": "docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/proxy-topology-testing-plan.md",
-      "to": "docs/wire-schemas.md",
-      "kind": "path-mention",
-      "site": "`docs/wire-schemas.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/proxy-topology-testing-plan.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "path-mention",
-      "site": "`docs/adr/0002-fail-loudly.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/proxy-topology-testing-plan.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
-      "kind": "path-mention",
-      "site": "`docs/adr/0005-documentation-discipline.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/qeubo-namespace-unification-plan.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0005",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/qeubo-namespace-unification-plan.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/qeubo-namespace-unification-plan.md",
-      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
-      "kind": "adr-related",
-      "site": "ADR-0003",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/qeubo-namespace-unification-plan.md",
-      "to": "docs/notes/knob-registry-plan.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/knob-registry-plan.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/qeubo-namespace-unification-plan.md",
-      "to": "docs/archive/dispatch/frontend-to-frontend-session-handoff-2026-05-02.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/dispatch/frontend-to-frontend-session-handoff-2026-05-02.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/qeubo-namespace-unification-plan.md",
-      "to": "docs/archive/worklog/2026-05-v1.0-to-v1.1/2026-05-02-theme-substrate-a4.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/worklog/2026-05-v1.0-to-v1.1/2026-05-02-theme-substrate-a4.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/qeubo-namespace-unification-plan.md",
-      "to": "docs/archive/notes/qEUBO.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/notes/qEUBO.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/qeubo-namespace-unification-plan.md",
-      "to": "docs/archive/dispatch/frontend-to-backend-qeubo-integration.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/dispatch/frontend-to-backend-qeubo-integration.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/qeubo-namespace-unification-plan.md",
-      "to": "docs/archive/notes/frontend-theming-plan.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/notes/frontend-theming-plan.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/qeubo-namespace-unification-plan.md",
-      "to": "docs/archive/notes/dsl-hyperparameter-harness-plan.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/notes/dsl-hyperparameter-harness-plan.md`",
       "resolved": "resolved"
     },
     {
@@ -11612,9 +11850,9 @@
     },
     {
       "from": "docs/notes/rca-discipline-lapses-2026-06-01.md",
-      "to": "docs/notes/documentation-graph-artifact-plan.md",
+      "to": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
       "kind": "path-mention",
-      "site": "`docs/notes/documentation-graph-artifact-plan.md`",
+      "site": "`docs/archive/notes/design/documentation-graph-artifact-plan.md`",
       "resolved": "resolved"
     },
     {
@@ -11703,9 +11941,9 @@
     },
     {
       "from": "docs/notes/release-retrospective-2026-05.md",
-      "to": "docs/notes/analysis-persistence-plan.md",
+      "to": "docs/archive/notes/design/analysis-persistence-plan.md",
       "kind": "path-mention",
-      "site": "`docs/notes/analysis-persistence-plan.md`",
+      "site": "`docs/archive/notes/design/analysis-persistence-plan.md`",
       "resolved": "resolved"
     },
     {
@@ -11745,9 +11983,9 @@
     },
     {
       "from": "docs/notes/release-retrospective-2026-05.md",
-      "to": "docs/notes/doc-graph-discipline-plan.md",
+      "to": "docs/notes/design/doc-graph-discipline-plan.md",
       "kind": "path-mention",
-      "site": "`docs/notes/doc-graph-discipline-plan.md`",
+      "site": "`docs/notes/design/doc-graph-discipline-plan.md`",
       "resolved": "resolved"
     },
     {
@@ -11975,76 +12213,6 @@
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/sgf-library-plan.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0005",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/sgf-library-plan.md",
-      "to": "docs/adr/0008-classification-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0008",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/sgf-library-plan.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/sgf-library-plan.md",
-      "to": "docs/adr/0006-source-file-headers.md",
-      "kind": "adr-related",
-      "site": "ADR-0006",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/sgf-library-plan.md",
-      "to": "docs/handoff-current.md",
-      "kind": "path-mention",
-      "site": "`docs/handoff-current.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/sgf-library-plan.md",
-      "to": "docs/wire-schemas.md",
-      "kind": "path-mention",
-      "site": "`docs/wire-schemas.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/sgf-library-plan.md",
-      "to": "docs/dispatch/backend-to-frontend-sgf-library-status.md",
-      "kind": "path-mention",
-      "site": "`docs/dispatch/backend-to-frontend-sgf-library-status.md`",
-      "resolved": "dangling"
-    },
-    {
-      "from": "docs/notes/sgf-library-plan.md",
-      "to": "docs/notes/tenancy.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/tenancy.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/stability-surface-design-space.md",
-      "to": "docs/adr/0009-performance-investigation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0009",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/stability-surface-design-space.md",
-      "to": "docs/wire-schemas.md",
-      "kind": "path-mention",
-      "site": "`docs/wire-schemas.md`",
-      "resolved": "resolved"
-    },
-    {
       "from": "docs/notes/tenancy.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
@@ -12115,62 +12283,6 @@
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/typed-effect-documentation-plan.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/typed-effect-documentation-plan.md",
-      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
-      "kind": "adr-related",
-      "site": "ADR-0003",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/typed-effect-documentation-plan.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0005",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/typed-effect-documentation-plan.md",
-      "to": "docs/adr/0006-source-file-headers.md",
-      "kind": "adr-related",
-      "site": "ADR-0006",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/typed-effect-documentation-plan.md",
-      "to": "docs/notes/opus-consult-2026-05-29-effect-ts-adoption.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/opus-consult-2026-05-29-effect-ts-adoption.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/typed-effect-documentation-plan.md",
-      "to": "docs/notes/opus-consult-2026-05-29-render-coupling-typing.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/opus-consult-2026-05-29-render-coupling-typing.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/typed-effect-documentation-plan.md",
-      "to": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/typed-effect-documentation-plan.md",
-      "to": "docs/TODO.md",
-      "kind": "path-mention",
-      "site": "`docs/TODO.md`",
-      "resolved": "resolved"
-    },
-    {
       "from": "docs/notes/vestige/deferred-items/README.md",
       "to": "docs/notes/deferred-items.md",
       "kind": "path-mention",
@@ -12193,9 +12305,9 @@
     },
     {
       "from": "docs/notes/vestige/deferred-items/adaptive-query-cancellation-leak.md",
-      "to": "docs/notes/typed-effect-documentation-plan.md",
+      "to": "docs/notes/design/typed-effect-documentation-plan.md",
       "kind": "path-mention",
-      "site": "`docs/notes/typed-effect-documentation-plan.md`",
+      "site": "`docs/notes/design/typed-effect-documentation-plan.md`",
       "resolved": "resolved"
     },
     {
@@ -12368,16 +12480,16 @@
     },
     {
       "from": "docs/notes/vestige/deferred-items/semantic-clarity-refactors-effect-typing.md",
-      "to": "docs/notes/opus-consult-2026-06-01-effect-ts-architectural-merits.md",
+      "to": "docs/notes/consult/opus-consult-2026-06-01-effect-ts-architectural-merits.md",
       "kind": "path-mention",
-      "site": "`docs/notes/opus-consult-2026-06-01-effect-ts-architectural-merits.md`",
+      "site": "`docs/notes/consult/opus-consult-2026-06-01-effect-ts-architectural-merits.md`",
       "resolved": "resolved"
     },
     {
       "from": "docs/notes/vestige/deferred-items/semantic-clarity-refactors-effect-typing.md",
-      "to": "docs/notes/opus-consult-2026-06-01-neverthrow-overhaul.md",
+      "to": "docs/notes/consult/opus-consult-2026-06-01-neverthrow-overhaul.md",
       "kind": "path-mention",
-      "site": "`docs/notes/opus-consult-2026-06-01-neverthrow-overhaul.md`",
+      "site": "`docs/notes/consult/opus-consult-2026-06-01-neverthrow-overhaul.md`",
       "resolved": "resolved"
     },
     {
@@ -12414,104 +12526,6 @@
       "kind": "path-mention",
       "site": "`docs/notes/deferred-items.md`",
       "resolved": "dangling"
-    },
-    {
-      "from": "docs/notes/work-status-ssot-plan.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0005",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/work-status-ssot-plan.md",
-      "to": "docs/adr/0008-classification-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0008",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/work-status-ssot-plan.md",
-      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
-      "kind": "adr-related",
-      "site": "ADR-0004",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/work-status-ssot-plan.md",
-      "to": "docs/notes/deferred-items.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/deferred-items.md`",
-      "resolved": "dangling"
-    },
-    {
-      "from": "docs/notes/work-status-ssot-plan.md",
-      "to": "docs/notes/rca-discipline-lapses-2026-06-01.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/rca-discipline-lapses-2026-06-01.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/work-status-ssot-plan.md",
-      "to": "docs/notes/documentation-graph-artifact-plan.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/documentation-graph-artifact-plan.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/work-status-ssot-plan.md",
-      "to": "docs/doc-graph.md",
-      "kind": "path-mention",
-      "site": "`docs/doc-graph.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/work-status-ssot-plan.md",
-      "to": "docs/TODO.md",
-      "kind": "path-mention",
-      "site": "`docs/TODO.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/work-status-ssot-plan.md",
-      "to": "docs/work-status.md",
-      "kind": "path-mention",
-      "site": "`docs/work-status.md`",
-      "resolved": "dangling"
-    },
-    {
-      "from": "docs/notes/work-status-ssot-plan.md",
-      "to": "docs/handoff-current.md",
-      "kind": "path-mention",
-      "site": "`docs/handoff-current.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/work-status-ssot-plan.md",
-      "to": "docs/notes/decisions-deferred.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/decisions-deferred.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/work-status-ssot-plan.md",
-      "to": "docs/notes/doc-graph-discipline-plan.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/doc-graph-discipline-plan.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/work-status-ssot-plan.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
-      "kind": "path-mention",
-      "site": "`docs/adr/0005-documentation-discipline.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/work-status-ssot-plan.md",
-      "to": "docs/adr/0008-classification-discipline.md",
-      "kind": "path-mention",
-      "site": "`docs/adr/0008-classification-discipline.md`",
-      "resolved": "resolved"
     },
     {
       "from": "docs/onboarding/backend.md",
@@ -12599,9 +12613,9 @@
     },
     {
       "from": "docs/onboarding/backend.md",
-      "to": "docs/notes/analysis-persistence-plan.md",
+      "to": "docs/archive/notes/design/analysis-persistence-plan.md",
       "kind": "path-mention",
-      "site": "`docs/notes/analysis-persistence-plan.md`",
+      "site": "`docs/archive/notes/design/analysis-persistence-plan.md`",
       "resolved": "resolved"
     },
     {
@@ -13047,9 +13061,9 @@
     },
     {
       "from": "docs/playbooks/monorepo/editorial-cleanup-plan.md",
-      "to": "docs/notes/analysis-persistence-plan.md",
+      "to": "docs/archive/notes/design/analysis-persistence-plan.md",
       "kind": "path-mention",
-      "site": "`docs/notes/analysis-persistence-plan.md`",
+      "site": "`docs/archive/notes/design/analysis-persistence-plan.md`",
       "resolved": "resolved"
     },
     {
@@ -13271,9 +13285,9 @@
     },
     {
       "from": "docs/playbooks/monorepo/monorepo-plan.md",
-      "to": "docs/notes/analysis-persistence-plan.md",
+      "to": "docs/archive/notes/design/analysis-persistence-plan.md",
       "kind": "path-mention",
-      "site": "`docs/notes/analysis-persistence-plan.md`",
+      "site": "`docs/archive/notes/design/analysis-persistence-plan.md`",
       "resolved": "resolved"
     },
     {
@@ -13537,9 +13551,9 @@
     },
     {
       "from": "docs/wire-schemas.md",
-      "to": "docs/notes/sgf-library-plan.md",
+      "to": "docs/archive/notes/design/sgf-library-plan.md",
       "kind": "path-mention",
-      "site": "`docs/notes/sgf-library-plan.md`",
+      "site": "`docs/archive/notes/design/sgf-library-plan.md`",
       "resolved": "resolved"
     },
     {
@@ -13551,9 +13565,9 @@
     },
     {
       "from": "docs/wire-schemas.md",
-      "to": "docs/notes/proxy-topology-testing-plan.md",
+      "to": "docs/notes/design/proxy-topology-testing-plan.md",
       "kind": "path-mention",
-      "site": "`docs/notes/proxy-topology-testing-plan.md`",
+      "site": "`docs/notes/design/proxy-topology-testing-plan.md`",
       "resolved": "resolved"
     },
     {
@@ -13687,7 +13701,7 @@
       "to": "docs/notes/knob-registry-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/knob-registry-plan.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-14-knob-registry.md",
@@ -13799,7 +13813,7 @@
       "to": "docs/notes/knob-registry-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/knob-registry-plan.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-14-toolbar-popover-band-mismatch.md",
@@ -13841,7 +13855,7 @@
       "to": "docs/notes/knob-registry-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/knob-registry-plan.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-15-katago-cadence-knobs.md",
@@ -14044,7 +14058,7 @@
       "to": "docs/notes/per-board-multi-query-model-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/per-board-multi-query-model-plan.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-16-per-board-multi-query.md",
@@ -14065,14 +14079,14 @@
       "to": "docs/notes/proxy-topology-testing-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/proxy-topology-testing-plan.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-16-proxy-topology-testing.md",
       "to": "docs/notes/proxy-topology-testing-plan-revised.md",
       "kind": "path-mention",
       "site": "`docs/notes/proxy-topology-testing-plan-revised.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-16-proxy-topology-testing.md",
@@ -14331,14 +14345,14 @@
       "to": "docs/notes/keybindings-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/keybindings-plan.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-27-keybindings-phase2-dispatcher.md",
       "to": "docs/notes/keybindings-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/keybindings-plan.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-27-keybindings-phase2-dispatcher.md",
@@ -14366,7 +14380,7 @@
       "to": "docs/notes/keybindings-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/keybindings-plan.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-27-keybindings-phase5-tests.md",
@@ -14821,7 +14835,7 @@
       "to": "docs/notes/documentation-graph-artifact-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/documentation-graph-artifact-plan.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-06-01-doc-graph-artifact.md",
@@ -14919,7 +14933,7 @@
       "to": "docs/notes/documentation-graph-artifact-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/documentation-graph-artifact-plan.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-06-01-doc-graph-churn-reduction.md",
@@ -14996,14 +15010,14 @@
       "to": "docs/notes/opus-consult-2026-06-01-perf-capture-automation-design-space.md",
       "kind": "path-mention",
       "site": "`docs/notes/opus-consult-2026-06-01-perf-capture-automation-design-space.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-06-01-perf-scenario-harness.md",
       "to": "docs/notes/perceptual-event-projection-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/perceptual-event-projection-plan.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-06-02-design-note-retirement-gate.md",
@@ -15017,7 +15031,7 @@
       "to": "docs/notes/documentation-graph-artifact-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/documentation-graph-artifact-plan.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-06-02-design-note-retirement-gate.md",

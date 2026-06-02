@@ -1014,7 +1014,7 @@ For inline review comments:
   flags `_find_worst_turns` as a hard-coded decision point whose
   architectural discussion was deferred to a separate session;
   this note is that session's output.
-- `docs/notes/autonomous-srs-loop-revised.md` — sketches
+- `docs/notes/design/autonomous-srs-loop-revised.md` — sketches
   per-policy adaptive metric authoring as a future direction;
   this widening provides the substrate that direction would
   build on.

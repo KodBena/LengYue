@@ -3,7 +3,7 @@
 Analytic-firewall review (Opus 4.8, independent agent), requested by the
 maintainer to pressure-test a **documentation-tooling design note** before
 any code is written. The note under review is
-`docs/notes/work-status-ssot-plan.md`: it specs a hand-authored,
+`docs/archive/notes/design/work-status-ssot-plan.md`: it specs a hand-authored,
 machine-readable **work-status SSOT** manifest from which `docs/TODO.md`
 is *projected* and to which `docs/notes/deferred-items.md` and
 `docs/handoff-current.md` *delegate* open/shipped/deferred status. The
@@ -150,7 +150,7 @@ A design note proposes a **machine-readable work-status SSOT** — a hand-author
 
 ## The artifact under review (read end to end)
 
-- `docs/notes/work-status-ssot-plan.md` — THE design note. The thing you are assessing.
+- `docs/archive/notes/design/work-status-ssot-plan.md` — THE design note. The thing you are assessing.
 
 ## Provenance (context, not endorsement)
 
@@ -159,12 +159,12 @@ This implements a maintainer decision recorded 2026-06-01 (the "ADR-effectivenes
 ## Essential context (read end to end — this project treats partial reading of a cited doc as a discipline violation, ADR-0002 applied to documentation)
 
 - `docs/notes/rca-discipline-lapses-2026-06-01.md` — the RCA. Foundational. Note especially: Lapse 2 (a shipped feature stayed documented as open across three unreconciled prose docs — Findings 2a–2e), the common root cause (§3), and the recommended guards G4 (retire-on-ship checklist), G5 (single work-status SSOT), G6 (semantic-staleness advisory — note its "do NOT over-scope / low precision / never a gate" framing), and the genuinely-open questions (§5, esp. #3 TODO.md-vs-dedicated-surface and #5 does-this-warrant-a-tenet).
-- `docs/notes/documentation-graph-artifact-plan.md` — the SIBLING design note the work-status note is modelled on. The "manifest-first" framing, the "validator falls out for free" claim, "committed + CI-verified-fresh." The work-status note claims a *generation-direction inversion* against this; assess whether that distinction is real and load-bearing or a dressed-up restatement.
+- `docs/archive/notes/design/documentation-graph-artifact-plan.md` — the SIBLING design note the work-status note is modelled on. The "manifest-first" framing, the "validator falls out for free" claim, "committed + CI-verified-fresh." The work-status note claims a *generation-direction inversion* against this; assess whether that distinction is real and load-bearing or a dressed-up restatement.
 - `docs/doc-graph.md`, `.github/workflows/doc-graph-ci.yml`, and skim `tools/doc-graph/generate.mjs` — the EXISTING manifest-first artifact (the precedent). Understand how its committed manifest + structure-only CI freshness gate actually works, because the work-status note proposes a *consistency* check by analogy and you should judge whether the analogy holds when the manifest is authored rather than derived.
 - `docs/TODO.md` — the projection target. Its prose-heaviness is central to the note's P1/P2/P3 "projection mechanism" fork. Judge whether "TODO.md projects from the manifest" is actually achievable without either losing irreplaceable prose or reintroducing markdown-in-JSON.
 - `docs/notes/deferred-items.md` — read at least the "ADR-effectiveness audits" entry (the decision, verbatim) and the "Analysis-chart layout affordance" entry (the Lapse-2 exhibit); the rest is reference. This is a long live-ledger.
 - `docs/notes/decisions-deferred.md` — the fourth genre the note rules OUT of scope; judge that boundary.
-- `docs/notes/doc-graph-discipline-plan.md` — the per-document frontmatter substrate (status: draft). The note claims the work-status SSOT is the orthogonal *per-item* layer this plan's `live-ledger` genre ("entries within carry their own state") deliberately left open. Assess that composition claim.
+- `docs/notes/design/doc-graph-discipline-plan.md` — the per-document frontmatter substrate (status: draft). The note claims the work-status SSOT is the orthogonal *per-item* layer this plan's `live-ledger` genre ("entries within carry their own state") deliberately left open. Assess that composition claim.
 - `docs/adr/0005-documentation-discipline.md` (Rule 1 SSOT-per-handle, Rule 3 relations-not-snapshots), `docs/adr/0002-fail-loudly.md` (the loudness hierarchy; closed-vocabulary fail-loud), `docs/adr/0008-classification-discipline.md` (closed-but-amendable vocabulary; the substitution test) — read end to end; the note leans on all three.
 - `CLAUDE.md` (umbrella, repo root) — the "Documentation is part of the work" rule and the single-maintainer / decision-capacity framing.
 
@@ -180,7 +180,7 @@ This implements a maintainer decision recorded 2026-06-01 (the "ADR-effectivenes
 
 ## Deliverable
 
-A least-regret recommendation with reasoning — "does it earn its weight, and are the load-bearing claims sound" — willing to say the manifest is over-built, or that the inversion framing papers over a weakness, or that a lighter fix dominates. Mark every load-bearing claim **verified** (by repo read) vs **asserted** (reasoning). Then WRITE your verbatim assessment to `docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md` — self-contained, markdown with headers, a "bottom line up front," verified-vs-asserted marked, matching the structure and tone of the prior consult records (see `docs/notes/opus-consult-2026-06-01-neverthrow-overhaul.md` for the canonical format). Open the file with a short framing paragraph naming it an analytic-firewall review of the work-status SSOT design note, its provenance (the 2026-06-01 maintainer decision + RCA G5), and the "saved verbatim for auditability / License: Public Domain (The Unlicense)" convention. END the file with an "## Appendix — verbatim prompt" section containing this ENTIRE brief (repo-relative paths preserved) in a fenced block, plus a `License: Public Domain (The Unlicense).` line. Do NOT run any git commands or commit, and do NOT modify any file other than creating that one consult record; just write the file. Return a short (a few sentences) bottom-line summary to me; the file is the full record.
+A least-regret recommendation with reasoning — "does it earn its weight, and are the load-bearing claims sound" — willing to say the manifest is over-built, or that the inversion framing papers over a weakness, or that a lighter fix dominates. Mark every load-bearing claim **verified** (by repo read) vs **asserted** (reasoning). Then WRITE your verbatim assessment to `docs/notes/consult/opus-consult-2026-06-02-work-status-ssot-plan.md` — self-contained, markdown with headers, a "bottom line up front," verified-vs-asserted marked, matching the structure and tone of the prior consult records (see `docs/notes/consult/opus-consult-2026-06-01-neverthrow-overhaul.md` for the canonical format). Open the file with a short framing paragraph naming it an analytic-firewall review of the work-status SSOT design note, its provenance (the 2026-06-01 maintainer decision + RCA G5), and the "saved verbatim for auditability / License: Public Domain (The Unlicense)" convention. END the file with an "## Appendix — verbatim prompt" section containing this ENTIRE brief (repo-relative paths preserved) in a fenced block, plus a `License: Public Domain (The Unlicense).` line. Do NOT run any git commands or commit, and do NOT modify any file other than creating that one consult record; just write the file. Return a short (a few sentences) bottom-line summary to me; the file is the full record.
 ````
 
 License: Public Domain (The Unlicense).

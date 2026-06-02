@@ -263,12 +263,12 @@ collapsed into one arc.
 
 ## 9. Cross-references
 
-- `docs/notes/opus-consult-2026-05-29-effect-ts-adoption.md` — the
+- `docs/notes/consult/opus-consult-2026-05-29-effect-ts-adoption.md` — the
   follow-up firewall consult that this note's decision adopts. It is
   the independent second opinion on adopting Effect-TS project-wide
   for documentation + purity-audit value; this note is the record of
   the maintainer's resulting decision and its rationale.
-- `docs/notes/opus-consult-2026-05-29-render-coupling-typing.md` — the
+- `docs/notes/consult/opus-consult-2026-05-29-render-coupling-typing.md` — the
   predecessor firewall consult, on whether typing could prevent the
   render-coupling class. It is the note from which the effect-typing
   thread was clarified and separated from the reactivity concern; this
