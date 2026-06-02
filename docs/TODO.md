@@ -106,7 +106,6 @@ references.
 - `mistake-finder-unpunished-brittleness` — Mistake-finder un-punished-flag brittleness `[frontend]`
 - `offload-layout-to-libraries` — Offload styling/layout to ecosystem libraries `[frontend]`
 - `semantic-clarity-refactors-effect-typing` — Semantic-clarity refactors surfaced by the effect-typing consult arc `[frontend]`
-- `design-note-retirement-archive-gate` — CI advisory: retire shipped design notes into the archive `[umbrella]`
 
 #### Large
 - `bulk-card-management` — Bulk card management over sub-trees `[both]`
@@ -123,7 +122,7 @@ references.
 
 ---
 
-*56 open items as of 2026-06-02 (26 active / in-progress, 30 future). The
+*55 open items as of 2026-06-02 (26 active / in-progress, 29 future). The
 old multi-paragraph TODO entries, the Completed-work tables, and the
 implementation-order recommendation are superseded by the SSOT; the
 v1.0/v1.1 completed-work tables remain archived at

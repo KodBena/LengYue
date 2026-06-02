@@ -1,6 +1,6 @@
 {
-  "node_count": 371,
-  "edge_count": 1759,
+  "node_count": 372,
+  "edge_count": 1762,
   "age_buckets": [
     {
       "name": "fresh",
@@ -25,8 +25,8 @@
       "genre": "umbrella-root",
       "is_hub": false,
       "first_committed": "2026-04-27",
-      "last_committed": "2026-06-01",
-      "age_bucket": "recent"
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "FEATURES.md",
@@ -1913,8 +1913,8 @@
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-05-28",
-      "last_committed": "2026-05-28",
-      "age_bucket": "aging"
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/perceptual-event-projection-plan.md",
@@ -2946,7 +2946,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-01-perf-scenario-harness.md",
@@ -2955,6 +2955,14 @@
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
       "age_bucket": "recent"
+    },
+    {
+      "path": "docs/worklog/2026-06-02-design-note-retirement-gate.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "frontend/CLAUDE.md",
@@ -2970,7 +2978,7 @@
       "is_hub": false,
       "first_committed": "2026-05-11",
       "last_committed": "2026-06-01",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "frontend/IDENTIFIERS.md",
@@ -14951,6 +14959,27 @@
       "to": "docs/notes/perceptual-event-projection-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/perceptual-event-projection-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-02-design-note-retirement-gate.md",
+      "to": "docs/notes/consolidation-xref-fallout.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/consolidation-xref-fallout.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-02-design-note-retirement-gate.md",
+      "to": "docs/notes/documentation-graph-artifact-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/documentation-graph-artifact-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-02-design-note-retirement-gate.md",
+      "to": "docs/notes/audit-stringly-typed-contracts-2026-06-01.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit-stringly-typed-contracts-2026-06-01.md`",
       "resolved": "resolved"
     },
     {
