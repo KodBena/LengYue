@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "items": [
+    {
+      "id": "analysis-customisable-subtabs",
+      "title": "Analysis tab — user-customisable sub-tabs binding chart components",
+      "description": "Panel registry + multi-tab over it (render only the active tab's panels) + a Settings tab-layout editor; schema migration 54→55 backfills default named tabs. Subsumes the collapsed-chart per-packet setOption concern. (This is the worked Lapse-2 exhibit from the 2026-06-01 RCA: it stood documented as an open Future project for two days after shipping.)",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-05-29",
+      "scope": "frontend",
+      "tier": "future",
+      "refs": [
+        { "kind": "pr", "target": "301" },
+        { "kind": "pr", "target": "302" },
+        { "kind": "pr", "target": "304" },
+        { "kind": "source", "target": "frontend/src/components/editors/AnalysisTabsEditor.vue" },
+        { "kind": "source", "target": "frontend/src/components/charts/panel-registry.ts" }
+      ]
+    },
+    {
+      "id": "consolidate-recursive-cte",
+      "title": "Consolidate the four recursive-CTE implementations",
+      "description": "Extract one `_build_lineage_cte(root_predicate, max_depth)` helper; the four current call sites (tree_engine.fetch_lineage, tree_engine.build_selection_cte, tree_queries.get_lineage_cte, tree_dsl.SubtreeSelection.to_cte) delegate to it. Closes the hole where a bug-fix to one variant never propagates to the others. Trigger: backend architectural bandwidth.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "backend",
+      "tier": "large",
+      "legacy_number": "30d"
+    },
+    {
+      "id": "single-cte-per-pipeline-run",
+      "title": "Single CTE per pipeline run",
+      "description": "PipelineExecutor.run loops over context_ids issuing one CTE round-trip per id; replace with one CTE keyed off `WHERE card_source.card_id IN (:context_ids)`, first-seen-wins becoming MIN(depth) GROUP BY. Observable behaviour identical; latency drops linearly with context count. Trigger: pairs with 30d — do 30d first, then this becomes a one-liner.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "backend",
+      "tier": "large",
+      "legacy_number": "30c",
+      "depends_on": ["consolidate-recursive-cte"]
+    },
+    {
+      "id": "nav-during-range-query-perf",
+      "title": "Navigation-during-range-query perf (regime B)",
+      "description": "During a live range query the median frame ran ~47ms (~3.3× the 60fps budget) — the user-perceived sluggishness, substantiated 2026-05-29. Umbrella item over three levers (RB-1/RB-2/RB-3, tracked as child items). RB-1 and RB-2 shipped; RB-3 was measured and dropped. Residual: whether the regime-B frame cost is fully retired wants a re-profile (ADR-0009) before the win is claimed. Trigger: user-prioritised.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "frontend",
+      "tier": "medium",
+      "refs": [
+        { "kind": "design-note", "target": "docs/notes/perf-audit-range-query-nav-2026-05-29.md" }
+      ]
+    },
+    {
+      "id": "rb1-toolbar-metrics-decouple",
+      "title": "RB-1 — App ↔ engine-metrics decouple",
+      "description": "App re-rendered the whole tree on every metric tick (531×); Toolbar now self-sources status/metrics → 0. Cleared the metric-driven whole-tree re-render (~1s). Modest frame impact alone; the big costs were RB-2/RB-3.",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-05-29",
+      "scope": "frontend",
+      "parent": "nav-during-range-query-perf",
+      "refs": [
+        { "kind": "worklog", "target": "docs/worklog/2026-05-29-perf-nav-rb1-toolbar-metrics-decouple.md" }
+      ]
+    },
+    {
+      "id": "rb3-packet-receive-chunking",
+      "title": "RB-3 — packet-receive-path chunking",
+      "description": "Hypothesised chunking lever for the packet-receive path. Instrumented and re-measured on current main: the onAnalysisUpdate handler is ~99ms total (p50 0.2ms/packet), NOT the ~2.35s the pre-refactor audit attributed to it. No bottleneck, no chunking lever to build — dropped. The named Effect-TS reserve trigger did not fire.",
+      "state": "closed",
+      "resolution": "dropped",
+      "closed_on": "2026-05-29",
+      "scope": "frontend",
+      "parent": "nav-during-range-query-perf",
+      "refs": [
+        { "kind": "worklog", "target": "docs/worklog/2026-05-29-perf-rb3-diagnosis.md" }
+      ]
+    },
+    {
+      "id": "polymorphic-chart-renderer",
+      "title": "Polymorphic chart renderer abstraction",
+      "description": "Introduce a ChartRenderer Port-equivalent (ADR-0003) so the chart surface can host alternative backends (custom canvas, D3+canvas, Plotly) without rewriting every consumer — motivated by ECharts' destroy-and-recreate-every-Rect heatmap redraw. Open design questions (seam location, Port surface, theme-substrate coupling, bundle weight) are substantial enough to warrant a dedicated design note before implementation; not blocking any current arc. Trigger: user prioritisation.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "frontend",
+      "tier": "large"
+    }
+  ]
+}

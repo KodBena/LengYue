@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://lengyue.local/work-status.schema.json",
+  "title": "LengYue work-status SSOT",
+  "$comment": "Single source of truth for work-actionable item status. The hand-authored docs/work-status.json is both the machine- and human-readable canonical record; docs/TODO.md, docs/notes/deferred-items.md, and docs/handoff-current.md reference it and do NOT independently assert status. The closed enums are amendable (edit the enum deliberately; an unknown VALUE is an error, ADR-0002/ADR-0008). additionalProperties:true at the item level keeps the schema forward-compatible: unknown future FIELDS are tolerated, unknown enum VALUES are rejected. License: Public Domain (The Unlicense).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "items"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "items": { "type": "array", "items": { "$ref": "#/$defs/item" } }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "$comment": "Opaque, stable kebab-slug. Assigned once; never derived from the mutable title or status (status is anti-rigid)."
+    },
+    "ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "target"],
+      "properties": {
+        "kind": { "enum": ["worklog", "design-note", "adr", "dispatch", "source", "pr", "commit"] },
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "$comment": "Repo-relative path for doc/source kinds; PR number or commit sha for pr/commit kinds."
+        }
+      }
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "title", "description", "state", "scope"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "title": { "type": "string", "minLength": 1 },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "$comment": "Human-readable body. The SSOT's human face. Triggers/rationale live here; a fuller design exploration is a separate design-note referenced via refs."
+        },
+        "state": { "enum": ["open", "closed"] },
+        "disposition": { "enum": ["active", "in-progress", "future"] },
+        "resolution": { "enum": ["shipped", "superseded", "dropped", "deferred"] },
+        "scope": { "enum": ["frontend", "backend", "both", "proxy", "umbrella"] },
+        "tier": { "enum": ["small", "medium", "large", "future"] },
+        "closed_on": { "type": "string", "format": "date" },
+        "parent": { "$ref": "#/$defs/id" },
+        "depends_on": { "type": "array", "items": { "$ref": "#/$defs/id" } },
+        "superseded_by": { "$ref": "#/$defs/id" },
+        "refs": { "type": "array", "items": { "$ref": "#/$defs/ref" } },
+        "legacy_number": { "type": ["string", "null"] }
+      },
+      "allOf": [
+        {
+          "$comment": "Open items carry an open-side refinement and no resolution.",
+          "if": { "required": ["state"], "properties": { "state": { "const": "open" } } },
+          "then": { "required": ["disposition"], "not": { "required": ["resolution"] } }
+        },
+        {
+          "$comment": "Closed items carry a closure reason and a close date, and no open-side disposition.",
+          "if": { "required": ["state"], "properties": { "state": { "const": "closed" } } },
+          "then": { "required": ["resolution", "closed_on"], "not": { "required": ["disposition"] } }
+        },
+        {
+          "$comment": "A shipped item must point at ship evidence (a PR, commit, or worklog). Lenient by design: any one suffices.",
+          "if": { "required": ["resolution"], "properties": { "resolution": { "const": "shipped" } } },
+          "then": {
+            "required": ["refs"],
+            "properties": {
+              "refs": {
+                "contains": { "required": ["kind"], "properties": { "kind": { "enum": ["pr", "commit", "worklog"] } } }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
