@@ -193,32 +193,45 @@
     {
       "id": "classification-discipline-tenet-rule7-relocation",
       "title": "Classification-discipline principle as its own tenet; Rule 7 relocation",
-      "description": "Articulate the classification-discipline principle in its own right (a standalone ADR or a tenet-space refactor) and relocate ADR-0002 Rule 7 there. Trigger: a fourth clearly-non-fail-loudly closest-match instance, or appetite for the tenet-space refactor.",
-      "state": "open",
-      "disposition": "future",
+      "description": "Discharged by ADR-0008 (Classification Discipline, Accepted 2026-05-17) — the standalone-tenet articulation this item asked for. The literal 'relocate ADR-0002 Rule 7' was deliberately declined: Rule 7 stays in ADR-0002 as the fail-loudly-register instance with its provisional-home flag retired, while ADR-0008 hosts the broader principle. The tenet got its own home, so superseded rather than shipped.",
+      "state": "closed",
+      "resolution": "superseded",
+      "closed_on": "2026-05-17",
       "scope": "umbrella",
-      "tier": "small"
+      "tier": "small",
+      "refs": [{ "kind": "adr", "target": "docs/adr/0008-classification-discipline.md" }]
     },
     {
       "id": "single-cte-per-pipeline-run",
       "title": "Single CTE per pipeline run",
-      "description": "PipelineExecutor.run loops over context_ids issuing one CTE round-trip per id; replace with one CTE keyed off WHERE card_source.card_id IN (:context_ids), first-seen-wins becoming MIN(depth) GROUP BY. Observable behaviour identical; latency drops linearly. Trigger: pairs with 30d — do 30d first, then this is a one-liner.",
-      "state": "open",
-      "disposition": "active",
+      "description": "PipelineExecutor.run makes one fetch_selection call covering all context_ids (one CTE keyed off card_source.card_id IN (:context_ids), first-seen-by-MIN(depth) dedup in Python). Shipped silently inside the item-32a port-purification arc, which predates the PR-tracked history; 2026-04-26 is the squash-floor 'present-by' date (helpers exist comment-tagged 'Item 30c' in the initial commit), not a proven landing date. The old 'do 30d first' dependency is moot (both present in the same tree).",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-04-26",
       "scope": "backend",
       "tier": "large",
       "legacy_number": "30c",
-      "depends_on": ["consolidate-recursive-cte"]
+      "refs": [
+        { "kind": "commit", "target": "e5c857b" },
+        { "kind": "source", "target": "backend/domain/pipeline.py" },
+        { "kind": "source", "target": "backend/repositories/lineage_repository.py" }
+      ]
     },
     {
       "id": "consolidate-recursive-cte",
       "title": "Consolidate the four recursive-CTE implementations",
-      "description": "Extract one _build_lineage_cte(root_predicate, max_depth) helper; the four call sites (tree_engine.fetch_lineage, tree_engine.build_selection_cte, tree_queries.get_lineage_cte, tree_dsl.SubtreeSelection.to_cte) delegate. Closes the hole where a bug-fix to one variant never propagates.",
-      "state": "open",
-      "disposition": "active",
+      "description": "Shipped as the single _recursive_descent_cte helper (renamed from the proposed _build_lineage_cte) that the live sites delegate to (fetch_lineage, _build_selection_cte, fetch_tree_by_root) — the 'one recursive skeleton, bug-fixes propagate' goal is met. Landed inside the item-32a port-purification arc (which relocated two of the originally-cited sites); the literal four-site framing was overtaken by 32a. 2026-04-26 is the squash-floor 'present-by' date. The two un-folded duplicates (tree_queries.py, tree_dsl.py) are dead/test-only, tracked separately as remove-dead-recursive-cte-duplicates.",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-04-26",
       "scope": "backend",
       "tier": "large",
-      "legacy_number": "30d"
+      "legacy_number": "30d",
+      "refs": [
+        { "kind": "source", "target": "backend/repositories/lineage_repository.py" },
+        { "kind": "worklog", "target": "docs/archive/TODO-completed-2026-05-06.md" },
+        { "kind": "commit", "target": "e5c857b" }
+      ]
     },
     {
       "id": "item-27-etag-multitab",
@@ -396,7 +409,7 @@
       "closed_on": "2026-04-27",
       "scope": "frontend",
       "tier": "small",
-      "refs": [{ "kind": "commit", "target": "frontend/c2.2-use-dirty-board-guard" }]
+      "refs": [{ "kind": "commit", "target": "5bd5d1b" }]
     },
     {
       "id": "silent-guard-handleloadcard",
@@ -407,7 +420,7 @@
       "closed_on": "2026-04-27",
       "scope": "frontend",
       "tier": "small",
-      "refs": [{ "kind": "commit", "target": "frontend/c2.2-use-dirty-board-guard" }]
+      "refs": [{ "kind": "commit", "target": "5bd5d1b" }]
     },
     {
       "id": "engine-connection-lifecycle-logout",
@@ -441,11 +454,15 @@
     {
       "id": "refactoring-queue-adr0007",
       "title": "Refactoring queue from ADR-0007",
-      "description": "Files failing ADR-0007's single-view test (>300 lines): PaletteEditor.vue (531), useReviewSession.ts (483, state-machine exception likely), HorizontalTimelineVisualizer.vue (392), MintCardModal.vue (393), BaseChart.vue (345), ForestDirectory.vue (~335); App.vue (513, trending down); types.ts (953, type-catalogue exception). No batch refactor — incremental per ADR-0004. PaletteEditor and useReviewSession are the natural next targets.",
+      "description": "The C2 arc (2026-04-27) shipped the ADR-0007 file-size refactor for App.vue (593→500 via three composable extractions: useResizablePanel, useDirtyBoardGuard, useAppBootstrap), and concluded the strict ≤250 SFC target is especially hard in .vue files (bulk is template+styles, not logic). Operative policy since: incremental-per-ADR-0004 + CSS-contraction (ADR-0007 §Format single-line styling) + bounded-stopping, never compress logic. This item now tracks only the residual backlog — files still over budget, most GROWN since (illustrative snapshot, not per-file status: App.vue ~708, PaletteEditor ~626, useReviewSession ~664, BaseChart ~597, ForestDirectory ~500, HorizontalTimelineVisualizer ~513 at components/tree/, MintCardModal ~396; types.ts ~2245 keeps the type-catalogue exception). Handled on touch; no batch, no named next-targets (the priority-queue framing was retired by the bounded-stopping posture).",
       "state": "open",
       "disposition": "active",
       "scope": "frontend",
-      "tier": "medium"
+      "tier": "medium",
+      "refs": [
+        { "kind": "adr", "target": "docs/adr/0007-file-size-and-information-density.md" },
+        { "kind": "worklog", "target": "docs/archive/worklog/2026-04-pre-v1.0/2026-04-27-c2.3-extract-use-app-bootstrap.md" }
+      ]
     },
     {
       "id": "review-state-convention-inconsistency",
@@ -506,9 +523,10 @@
     {
       "id": "stringly-typed-api-errors",
       "title": "Stringly-encoded API errors reverse-engineered downstream (audit + RCA)",
-      "description": "api-client threw a stringly-typed API Error <status>: <body>; six consumers reparsed it by regex — a brittleness hazard (silent degrade on format drift, no compile error). Emergency fix (PR #318) introduced class ApiError { status, body } and converted all six. The exhaustiveness audit closed 2026-06-01 (the six ARE the complete population; 0 new sites). The RCA is drafted, pending maintainer review.",
-      "state": "open",
-      "disposition": "active",
+      "description": "api-client threw a stringly-typed API Error <status>: <body>; six consumers reparsed it by regex — a brittleness hazard (silent degrade on format drift, no compile error). Emergency fix (PR #318) introduced class ApiError { status, body } and converted all six. The exhaustiveness audit closed 2026-06-01 (the six ARE the complete population; 0 new sites), and the RCA's pending-review residual resolved on merge to origin/main.",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-06-01",
       "scope": "frontend",
       "tier": "medium",
       "refs": [
@@ -608,6 +626,20 @@
       "disposition": "future",
       "scope": "both",
       "tier": "small"
+    },
+    {
+      "id": "remove-dead-recursive-cte-duplicates",
+      "title": "Remove the dead recursive-CTE duplicates + retire the D-5/D-6 dead-code tests",
+      "description": "Residual the 30d/32a consolidation left behind. Delete domain/tree_queries.py::get_lineage_cte (zero importers anywhere) and domain/tree_dsl.py::SubtreeSelection.to_cte (imported only by the D-5/D-6 tests in test_cte_lineage.py, which document bugs in code production cannot reach — the live SubtreeSelection/ContextSelection are the unrelated pipeline_dsl.py classes). Retire D-5/D-6; keep CTE-1…8, which exercise the live LineageRepository.fetch_lineage path. Closes the dead-variant hazard that undercuts 30d's 'one place' goal.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "backend",
+      "tier": "small",
+      "refs": [
+        { "kind": "source", "target": "backend/domain/tree_queries.py" },
+        { "kind": "source", "target": "backend/domain/tree_dsl.py" },
+        { "kind": "source", "target": "backend/tests/integration/test_cte_lineage.py" }
+      ]
     }
   ]
 }
