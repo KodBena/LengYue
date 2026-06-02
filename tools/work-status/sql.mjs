@@ -21,6 +21,7 @@
  *         closed_on,parent,superseded_by,legacy_number)
  *   deps(item_id, depends_on)     -- one row per depends_on edge
  *   refs(item_id, kind, target)   -- one row per ref
+ *   labels(item_id, label)        -- one row per label tag
  *
  * Zero external deps (Node built-in node:sqlite). Fails loud (ADR-0002):
  * a missing/malformed SSOT or a SQL error exits non-zero with a message.
@@ -62,15 +63,18 @@ function loadDb() {
     CREATE TABLE items (${ITEM_COLS.map(c => `${c} TEXT`).join(', ')});
     CREATE TABLE deps (item_id TEXT, depends_on TEXT);
     CREATE TABLE refs (item_id TEXT, kind TEXT, target TEXT);
+    CREATE TABLE labels (item_id TEXT, label TEXT);
   `);
   const insItem = db.prepare(
     `INSERT INTO items (${ITEM_COLS.join(',')}) VALUES (${ITEM_COLS.map(() => '?').join(',')})`);
   const insDep = db.prepare('INSERT INTO deps (item_id, depends_on) VALUES (?, ?)');
   const insRef = db.prepare('INSERT INTO refs (item_id, kind, target) VALUES (?, ?, ?)');
+  const insLabel = db.prepare('INSERT INTO labels (item_id, label) VALUES (?, ?)');
   for (const it of data.items) {
     insItem.run(...ITEM_COLS.map(c => (it[c] == null ? null : String(it[c]))));
     for (const d of it.depends_on ?? []) insDep.run(it.id, d);
     for (const r of it.refs ?? []) insRef.run(it.id, r.kind, r.target);
+    for (const l of it.labels ?? []) insLabel.run(it.id, l);
   }
   return { db, data };
 }
@@ -103,6 +107,7 @@ function schema() {
   console.log('items(' + ITEM_COLS.join(', ') + ')');
   console.log('deps(item_id, depends_on)     -- one row per depends_on edge');
   console.log('refs(item_id, kind, target)   -- one row per ref');
+  console.log('labels(item_id, label)        -- one row per label tag');
 }
 
 // Round-trip validation: the loader is the trust anchor (if it mis-normalizes,
@@ -119,6 +124,8 @@ function selftest() {
     items.reduce((s, it) => s + (it.depends_on?.length ?? 0), 0), 'deps count');
   eq(db.prepare('SELECT count(*) n FROM refs').get().n,
     items.reduce((s, it) => s + (it.refs?.length ?? 0), 0), 'refs count');
+  eq(db.prepare('SELECT count(*) n FROM labels').get().n,
+    items.reduce((s, it) => s + (it.labels?.length ?? 0), 0), 'labels count');
 
   const get = db.prepare(`SELECT ${ITEM_COLS.join(',')} FROM items WHERE id=?`);
   for (const it of items) {

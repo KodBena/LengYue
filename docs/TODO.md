@@ -67,7 +67,6 @@ references.
 - `tags-fetch-hydration-race` — Tags-fetch hydration race (useAppBootstrap.ts) `[frontend]`
 - `doc-graph-svg-spline-failure` — Doc-graph SVG — Graphviz dot spline-routing layout failure `[umbrella]`
 - `pre-merge-checklist-doc` — docs/pre-merge-checklist.md as an actual file `[umbrella]`
-- `work-status-labels-facet` — Add a GitHub-style labels facet to the work-status schema `[umbrella]`
 
 #### Medium
 - `chess-clone` — Chess clone (domain port) `[both]`
@@ -126,7 +125,7 @@ references.
 
 ---
 
-*55 open items as of 2026-06-02 (26 active / in-progress, 29 future). The
+*54 open items as of 2026-06-02 (25 active / in-progress, 29 future). The
 old multi-paragraph TODO entries, the Completed-work tables, and the
 implementation-order recommendation are superseded by the SSOT; the
 v1.0/v1.1 completed-work tables remain archived at
