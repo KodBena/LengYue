@@ -21,7 +21,7 @@ References from **live** documents are the genuine-action candidates.
 
 ## Summary
 
-- **Dangling from LIVE documents** (genuine-action candidates): **67**.
+- **Dangling from LIVE documents** (genuine-action candidates): **68**.
 - **Dangling from frozen archive** (expected historical drift): **179**.
 - **Ambiguous references** (bare filename matches more than one node — never
   silently resolved, per ADR-0002): **0**.
@@ -50,6 +50,7 @@ References from **live** documents are the genuine-action candidates.
 - `docs/notes/release-retrospective-2026-05.md` → `frontend/docs/i18n.md` *(path-mention)* — target `frontend/docs/i18n.md` does not resolve to any node.
 - `docs/notes/release-retrospective-2026-05.md` → `frontend/tests/CLAUDE.md` *(path-mention)* — target `frontend/tests/CLAUDE.md` does not resolve to any node.
 - `docs/notes/sgf-library-plan.md` → `docs/dispatch/backend-to-frontend-sgf-library-status.md` *(path-mention)* — target `docs/dispatch/backend-to-frontend-sgf-library-status.md` does not resolve to any node.
+- `docs/notes/work-status-ssot-plan.md` → `docs/work-status.md` *(path-mention)* — target `docs/work-status.md` does not resolve to any node.
 - `docs/playbooks/monorepo/editorial-cleanup-plan.md` → `backend/docs/HANDOFF.md` *(path-mention)* — target `backend/docs/HANDOFF.md` does not resolve to any node.
 - `docs/playbooks/monorepo/editorial-cleanup-plan.md` → `docs/ANALYSIS_PERSISTENCE_PLAN.md` *(path-mention)* — target `docs/ANALYSIS_PERSISTENCE_PLAN.md` does not resolve to any node.
 - `docs/playbooks/monorepo/editorial-cleanup-plan.md` → `docs/old-todos/TODO-backend.md` *(path-mention)* — target `docs/old-todos/TODO-backend.md` does not resolve to any node.

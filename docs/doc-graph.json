@@ -1,6 +1,6 @@
 {
-  "node_count": 336,
-  "edge_count": 1696,
+  "node_count": 337,
+  "edge_count": 1710,
   "age_buckets": [
     {
       "name": "fresh",
@@ -2029,6 +2029,14 @@
       "age_bucket": "aging"
     },
     {
+      "path": "docs/notes/work-status-ssot-plan.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
       "path": "docs/onboarding/backend.md",
       "genre": "doc-root",
       "is_hub": false,
@@ -2664,9 +2672,9 @@
       "path": "docs/worklog/2026-06-01-perf-miniboard-canvas-renderer.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-01",
+      "last_committed": "2026-06-01",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-01-perf-scenario-harness.md",
@@ -2690,7 +2698,7 @@
       "is_hub": false,
       "first_committed": "2026-05-11",
       "last_committed": "2026-06-01",
-      "age_bucket": "recent"
+      "age_bucket": "fresh"
     },
     {
       "path": "frontend/IDENTIFIERS.md",
@@ -11738,6 +11746,104 @@
       "to": "docs/TODO.md",
       "kind": "path-mention",
       "site": "`docs/TODO.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/work-status-ssot-plan.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/work-status-ssot-plan.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/work-status-ssot-plan.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/work-status-ssot-plan.md",
+      "to": "docs/notes/deferred-items.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/deferred-items.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/work-status-ssot-plan.md",
+      "to": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/rca-discipline-lapses-2026-06-01.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/work-status-ssot-plan.md",
+      "to": "docs/notes/documentation-graph-artifact-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/documentation-graph-artifact-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/work-status-ssot-plan.md",
+      "to": "docs/doc-graph.md",
+      "kind": "path-mention",
+      "site": "`docs/doc-graph.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/work-status-ssot-plan.md",
+      "to": "docs/TODO.md",
+      "kind": "path-mention",
+      "site": "`docs/TODO.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/work-status-ssot-plan.md",
+      "to": "docs/work-status.md",
+      "kind": "path-mention",
+      "site": "`docs/work-status.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/notes/work-status-ssot-plan.md",
+      "to": "docs/handoff-current.md",
+      "kind": "path-mention",
+      "site": "`docs/handoff-current.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/work-status-ssot-plan.md",
+      "to": "docs/notes/decisions-deferred.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/decisions-deferred.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/work-status-ssot-plan.md",
+      "to": "docs/notes/doc-graph-discipline-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/doc-graph-discipline-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/work-status-ssot-plan.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "path-mention",
+      "site": "`docs/adr/0005-documentation-discipline.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/work-status-ssot-plan.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "path-mention",
+      "site": "`docs/adr/0008-classification-discipline.md`",
       "resolved": "resolved"
     },
     {
