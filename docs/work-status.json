@@ -291,7 +291,7 @@
       "resolution": "shipped",
       "closed_on": "2026-05-29",
       "scope": "frontend",
-      "tier": "future",
+      "tier": "large",
       "refs": [
         { "kind": "pr", "target": "301" },
         { "kind": "pr", "target": "302" },
@@ -436,7 +436,7 @@
       "disposition": "active",
       "scope": "frontend",
       "tier": "small",
-      "refs": [{ "kind": "source", "target": "frontend/src/composables/useAppBootstrap.ts" }]
+      "refs": [{ "kind": "source", "target": "frontend/src/composables/auth-app/useAppBootstrap.ts" }]
     },
     {
       "id": "refactoring-queue-adr0007",
@@ -464,7 +464,7 @@
       "disposition": "future",
       "scope": "frontend",
       "tier": "small",
-      "refs": [{ "kind": "source", "target": "frontend/src/components/MoveSuggestions.vue" }]
+      "refs": [{ "kind": "source", "target": "frontend/src/components/board/MoveSuggestions.vue" }]
     },
     {
       "id": "pv-animation-defaults-calibration",
@@ -474,7 +474,7 @@
       "disposition": "future",
       "scope": "frontend",
       "tier": "small",
-      "refs": [{ "kind": "source", "target": "frontend/src/composables/use-pv-animation.ts" }]
+      "refs": [{ "kind": "source", "target": "frontend/src/composables/board/use-pv-animation.ts" }]
     },
     {
       "id": "mistake-finder-unpunished-brittleness",

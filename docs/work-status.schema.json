@@ -45,7 +45,7 @@
         "disposition": { "enum": ["active", "in-progress", "future"] },
         "resolution": { "enum": ["shipped", "superseded", "dropped", "deferred"] },
         "scope": { "enum": ["frontend", "backend", "both", "proxy", "umbrella"] },
-        "tier": { "enum": ["small", "medium", "large", "future"] },
+        "tier": { "enum": ["small", "medium", "large"] },
         "closed_on": { "type": "string", "format": "date" },
         "parent": { "$ref": "#/$defs/id" },
         "depends_on": { "type": "array", "items": { "$ref": "#/$defs/id" } },
