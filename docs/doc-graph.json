@@ -1,6 +1,6 @@
 {
-  "node_count": 337,
-  "edge_count": 1710,
+  "node_count": 338,
+  "edge_count": 1718,
   "age_buckets": [
     {
       "name": "fresh",
@@ -1773,6 +1773,14 @@
       "age_bucket": "recent"
     },
     {
+      "path": "docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
       "path": "docs/notes/opus-consults-2026-05-28-audit.md",
       "genre": "note",
       "is_hub": false,
@@ -2032,9 +2040,9 @@
       "path": "docs/notes/work-status-ssot-plan.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/onboarding/backend.md",
@@ -10458,6 +10466,62 @@
       "to": "frontend/CLAUDE.md",
       "kind": "path-mention",
       "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md",
+      "to": "docs/notes/work-status-ssot-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/work-status-ssot-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md",
+      "to": "docs/TODO.md",
+      "kind": "path-mention",
+      "site": "`docs/TODO.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md",
+      "to": "docs/notes/deferred-items.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/deferred-items.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md",
+      "to": "docs/handoff-current.md",
+      "kind": "path-mention",
+      "site": "`docs/handoff-current.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md",
+      "to": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/rca-discipline-lapses-2026-06-01.md`",
       "resolved": "resolved"
     },
     {
