@@ -21,7 +21,7 @@ References from **live** documents are the genuine-action candidates.
 
 ## Summary
 
-- **Dangling from LIVE documents** (genuine-action candidates): **68**.
+- **Dangling from LIVE documents** (genuine-action candidates): **69**.
 - **Dangling from frozen archive** (expected historical drift): **179**.
 - **Ambiguous references** (bare filename matches more than one node — never
   silently resolved, per ADR-0002): **0**.
@@ -32,6 +32,7 @@ References from **live** documents are the genuine-action candidates.
 - `docs/adr/0005-documentation-discipline.md` → `backend/routers/REFERENCE.md` *(path-mention)* — target `backend/routers/REFERENCE.md` does not resolve to any node.
 - `docs/notes/analysis-bundle-compression-plan.md` → `docs/dispatch/backend-to-frontend-analysis-bundle-compression-v2-status.md` *(path-mention)* — target `docs/dispatch/backend-to-frontend-analysis-bundle-compression-v2-status.md` does not resolve to any node.
 - `docs/notes/analysis-bundle-compression-plan.md` → `docs/dispatch/frontend-to-backend-analysis-bundle-compression-v2.md` *(path-mention)* — target `docs/dispatch/frontend-to-backend-analysis-bundle-compression-v2.md` does not resolve to any node.
+- `docs/notes/audit-work-status-liveness-2026-06-02.md` → `docs/pre-merge-checklist.md` *(path-mention)* — target `docs/pre-merge-checklist.md` does not resolve to any node.
 - `docs/notes/decisions-deferred.md` → `docs/release-scope.md` *(path-mention)* — target `docs/release-scope.md` does not resolve to any node.
 - `docs/notes/distribution-packaging.md` → `docs/notes/distribution-tauri-plan.md` *(path-mention)* — target `docs/notes/distribution-tauri-plan.md` does not resolve to any node.
 - `docs/notes/distribution-packaging.md` → `docs/release-scope.md` *(path-mention)* — target `docs/release-scope.md` does not resolve to any node.
