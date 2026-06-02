@@ -640,6 +640,61 @@
         { "kind": "source", "target": "backend/domain/tree_dsl.py" },
         { "kind": "source", "target": "backend/tests/integration/test_cte_lineage.py" }
       ]
+    },
+    {
+      "id": "board-close-minimize-restore",
+      "title": "Close / minimize / restore open boards (tab-management UX)",
+      "description": "A way to close, minimize, and restore open games — tab-manager browser extensions are possible inspiration. Related rough edge: closing a board renames the others (reasonable but confusing). From the frontend backlog.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "frontend",
+      "tier": "medium"
+    },
+    {
+      "id": "policy-head-overlay",
+      "title": "Policy-head outputs overlay",
+      "description": "Render KataGo policy-head outputs as a board overlay, reusing the parameterised BoardHeatmapOverlay.vue + decodeBoardArray (frontend-side linear→2D mapping; strip the trailing 'pass' slot before decode), so no proxy middleware extension is needed. The open residual of the shipped ownership-maps work.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "frontend",
+      "tier": "small",
+      "refs": [{ "kind": "source", "target": "frontend/src/components/board/BoardHeatmapOverlay.vue" }]
+    },
+    {
+      "id": "pv-manual-scroll-stepping",
+      "title": "Mouse-scrollable PV stepping",
+      "description": "PVs should be steppable manually via the scroll-wheel — a manual analog of the existing animated PV display. From the frontend backlog.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "frontend",
+      "tier": "small"
+    },
+    {
+      "id": "offload-layout-to-libraries",
+      "title": "Offload styling/layout to ecosystem libraries",
+      "description": "Direction (unspecified): offload some styling/layout to existing JS/TS/Vue libraries (grid-layout, Monaco/CodeMirror, etc.) rather than hand-rolling. Composes with the responsive-design work. From the frontend backlog.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "frontend",
+      "tier": "medium"
+    },
+    {
+      "id": "card-metadata-during-review",
+      "title": "Card metadata display during active review sessions",
+      "description": "The SR session shows status/counter/scores but not the card's tags, parent lineage, or notes — useful when reviewing a card pulled from a months-old game. The half of the visits-override bullet that didn't ship.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "frontend",
+      "tier": "small"
+    },
+    {
+      "id": "card-editor",
+      "title": "Card editor",
+      "description": "A dedicated card editor; likely shares DRY/reuse with card-metadata-during-review and the inline-edit panel. From the frontend backlog.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "frontend",
+      "tier": "medium"
     }
   ]
 }
