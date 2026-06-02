@@ -1,6 +1,6 @@
 {
-  "node_count": 338,
-  "edge_count": 1718,
+  "node_count": 339,
+  "edge_count": 1726,
   "age_buckets": [
     {
       "name": "fresh",
@@ -1773,12 +1773,20 @@
       "age_bucket": "recent"
     },
     {
-      "path": "docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md",
+      "path": "docs/notes/opus-consult-2026-06-02-work-status-ci-gates.md",
       "genre": "note",
       "is_hub": false,
       "first_committed": null,
       "last_committed": null,
       "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/opus-consults-2026-05-28-audit.md",
@@ -10466,6 +10474,62 @@
       "to": "frontend/CLAUDE.md",
       "kind": "path-mention",
       "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/opus-consult-2026-06-02-work-status-ci-gates.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/opus-consult-2026-06-02-work-status-ci-gates.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/opus-consult-2026-06-02-work-status-ci-gates.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/opus-consult-2026-06-02-work-status-ci-gates.md",
+      "to": "docs/notes/deferred-items.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/deferred-items.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/opus-consult-2026-06-02-work-status-ci-gates.md",
+      "to": "docs/notes/work-status-ssot-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/work-status-ssot-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/opus-consult-2026-06-02-work-status-ci-gates.md",
+      "to": "docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/opus-consult-2026-06-02-work-status-ci-gates.md",
+      "to": "docs/doc-graph.md",
+      "kind": "path-mention",
+      "site": "`docs/doc-graph.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/opus-consult-2026-06-02-work-status-ci-gates.md",
+      "to": "docs/TODO.md",
+      "kind": "path-mention",
+      "site": "`docs/TODO.md`",
       "resolved": "resolved"
     },
     {
