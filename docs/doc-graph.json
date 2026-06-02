@@ -1,6 +1,6 @@
 {
-  "node_count": 339,
-  "edge_count": 1726,
+  "node_count": 340,
+  "edge_count": 1732,
   "age_buckets": [
     {
       "name": "fresh",
@@ -1541,6 +1541,14 @@
       "age_bucket": "fresh"
     },
     {
+      "path": "docs/notes/audit-work-status-liveness-2026-06-02.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
       "path": "docs/notes/auditor-notes.md",
       "genre": "note",
       "is_hub": false,
@@ -1776,9 +1784,9 @@
       "path": "docs/notes/opus-consult-2026-06-02-work-status-ci-gates.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md",
@@ -2650,7 +2658,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-01-doc-graph-churn-reduction.md",
@@ -2666,7 +2674,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-01-integration-test-hermeticity.md",
@@ -9333,6 +9341,48 @@
       "to": "docs/notes/deferred-items.md",
       "kind": "path-mention",
       "site": "`docs/notes/deferred-items.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit-work-status-liveness-2026-06-02.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit-work-status-liveness-2026-06-02.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit-work-status-liveness-2026-06-02.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit-work-status-liveness-2026-06-02.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "path-mention",
+      "site": "`docs/adr/0008-classification-discipline.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit-work-status-liveness-2026-06-02.md",
+      "to": "docs/pre-merge-checklist.md",
+      "kind": "path-mention",
+      "site": "`docs/pre-merge-checklist.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/notes/audit-work-status-liveness-2026-06-02.md",
+      "to": "docs/worklog/2026-05-29-perf-rb3-diagnosis.md",
+      "kind": "path-mention",
+      "site": "`2026-05-29-perf-rb3-diagnosis.md`",
       "resolved": "resolved"
     },
     {
