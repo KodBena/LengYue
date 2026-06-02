@@ -1,0 +1,50 @@
+# .github/workflows/cochange-advisory-ci.yml
+#
+# Co-change advisory (umbrella-level). Some docs are content projections of
+# others (the ADR synopsis summarizes the ADRs; docs/TODO.md projects from
+# docs/work-status.json). The doc-graph resolves their cross-reference edges
+# and tracks node age, but neither catches a *source* changing while its
+# *derived* doc silently lags — the ADR-0005 Rule 3 staleness hazard. This
+# workflow runs tools/doc-graph/cochange-advisory.mjs, which flags any derived
+# doc (declaring `<!-- derived-from: <glob> -->`) whose source changed in this
+# PR but which was not itself updated.
+#
+# Per-PR-diff, not state-based: it fires only on the PR whose diff actually
+# changes a source-without-its-derived, computed from origin/main...HEAD, so it
+# cannot re-fire on later PRs. To silence a genuine non-update, add
+# `cochange-ack: <derived-doc> — <reason>` to any commit in the PR.
+#
+# Advisory only: the run always exits 0 and never blocks a merge (a source
+# change does not always oblige a derived-doc update — ADR-0005 Alternative C,
+# too soft to gate). The --selftest step IS gating: it guards the tool itself.
+#
+# Zero external dependencies: pure Node. No Graphviz, no node_modules.
+#
+# License: Public Domain (The Unlicense)
+name: cochange-advisory-ci
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'tools/doc-graph/cochange-advisory.mjs'
+      - '.github/workflows/cochange-advisory-ci.yml'
+
+jobs:
+  cochange:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so origin/main...HEAD (the PR diff) + the PR's commit
+          # messages (for cochange-ack tokens) are both available.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Self-test the advisory (gating — guards the tool)
+        run: node tools/doc-graph/cochange-advisory.mjs --selftest
+      - name: Co-change advisory (review aid; never gates)
+        run: |
+          git fetch origin main --quiet
+          node tools/doc-graph/cochange-advisory.mjs origin/main

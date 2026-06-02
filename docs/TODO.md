@@ -10,8 +10,12 @@ reader who wants the lay of the land before querying.
 Do not record status here. To change an item's status, edit
 `docs/work-status.json` (the checker at `tools/work-status/check.mjs`,
 CI-gated, validates it). This index is a hand-maintained **projection** of
-the SSOT as of **2026-06-02**; it drifts the moment the SSOT changes.
-Regenerate it from the SSOT rather than editing item status by hand.
+the SSOT as of **2026-06-02**; it drifts the moment the SSOT changes
+(the co-change advisory `tools/doc-graph/cochange-advisory.mjs` flags this
+file in CI when `work-status.json` changes without it). Regenerate it from
+the SSOT rather than editing item status by hand.
+
+<!-- derived-from: docs/work-status.json -->
 (Auto-generation of this projection is the tracked future step — RCA guard
 G5; until then it is refreshed by hand.)
 

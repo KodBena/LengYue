@@ -9,7 +9,11 @@ This document is a navigational aid — primarily for LLM contributors
 arriving cold and needing the codebase's architectural personality
 in one read — and a quick refresher for human contributors. It is
 not authoritative; the ADRs themselves are. If this synopsis disagrees
-with an ADR, the ADR wins, and the synopsis needs updating.
+with an ADR, the ADR wins, and the synopsis needs updating. A co-change
+advisory (`tools/doc-graph/cochange-advisory.mjs`) flags this file in CI
+when an ADR changes without it.
+
+<!-- derived-from: docs/adr/*.md -->
 
 ## ADR-0001: State Mutation and `readonly` Policy
 
