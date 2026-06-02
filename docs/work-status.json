@@ -695,6 +695,86 @@
       "disposition": "future",
       "scope": "frontend",
       "tier": "medium"
+    },
+    {
+      "id": "many-boards-open-slowness",
+      "title": "Many open boards slow the app down",
+      "description": "With many boards open the whole application gets slower, noticed when fast-navigating a game (scroll-wheel or held arrow keys). A scaling/perf bug, distinct from the regime-B range-query cost.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "frontend",
+      "tier": "medium"
+    },
+    {
+      "id": "pv-hover-jank-range-query",
+      "title": "PV-hover jank during a live range query",
+      "description": "Hovering a PV is janky while a range query is running; cause unclear. Treated as a bug; needs investigation (missed during the last perf session). Adjacent to the regime-B perf cluster but a distinct hover-path symptom.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "frontend",
+      "tier": "medium"
+    },
+    {
+      "id": "library-tag-favorite",
+      "title": "Tag / favorite games in the library",
+      "description": "Let users tag and favorite games in the library. The forward-compatible shape is unsettled (shape TBD). Touches game_source (backend) + the library UI.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "both",
+      "tier": "medium"
+    },
+    {
+      "id": "config-schema-projections",
+      "title": "Configuration schema + equivariant projections",
+      "description": "Introduce one declarative configuration schema S as the SSOT for each config path's structure, presentation, grouping, and gating, and derive every config UI as a pure projection of S — the recursive registry editor, the generated Settings sub-tabs/rolldowns, the knob editor, and the toolbar quick-access popover. Equivariance: every projection of a leaf reduces to one canonical write(path, v) (Law 1), and a schema change propagates to all projections with no per-projection bookkeeping (Law 2). Composes with (does not subsume) the knob registry via a knob-ref widget. Schema-first: phases 0-3 are additive metadata describing the existing tree (no data migration) — P0 schema types + instance + a bijection test, P1 registry editor reads S, P2 sections generated from declared placement, P3 one schema-validated mutator + knob delegation; P4 (deferred) = end-user/LLM authorability via a visual designer or a card-set-style schema DSL. The 'hierarchical options menu' the toolbar-sliders backlog bullet asked for falls out as one projection. design-note: planned.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "frontend",
+      "tier": "large",
+      "refs": [
+        { "kind": "design-note", "target": "docs/notes/config-schema-projection-plan.md" },
+        { "kind": "design-note", "target": "docs/notes/opus-consult-2026-05-30-config-schema-refactor.md" }
+      ]
+    },
+    {
+      "id": "browse-tag-dsl-filter",
+      "title": "Tag-DSL-filterable browse directory (+ fetch-all deck-DSL)",
+      "description": "Make the browse directory tag-DSL filterable; and investigate a tree/deck-DSL form that fetches all cards, so the browse fetcher could be a deck fetcher rather than a distinct endpoint — consolidating duplicated code and reducing drift. Shape unsettled. Touches the DSL (backend) + browse UI.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "both",
+      "tier": "medium"
+    },
+    {
+      "id": "bulk-card-management",
+      "title": "Bulk card management over sub-trees",
+      "description": "Bulk operations over card sub-corpuses: suspend/unsuspend a subtree (or by game provenance), bulk tagging, and changing visits across a subtree (e.g. when better-but-costlier weights ship) — an fmap-over-subtree shape. May warrant baking 'suspended' into the tree-DSL and refactoring the DSL. Shape unsettled.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "both",
+      "tier": "large"
+    },
+    {
+      "id": "rename-tag",
+      "title": "Rename a tag",
+      "description": "Let users rename an existing tag. From the local frontend backlog.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "both",
+      "tier": "small"
+    },
+    {
+      "id": "design-note-retirement-archive-gate",
+      "title": "CI advisory: retire shipped design notes into the archive",
+      "description": "Design notes are proliferating (load-bearing, must-read docs that accumulate). The SSOT links shipped items to their design-note refs, so a check can flag live design notes (in docs/notes/, not docs/archive/) whose only referencing SSOT items are closed → archival candidates. Advisory, not a hard gate (archival is an editorial judgment; a note may retain residual value). Archival breaks cross-references, so it costs a cross-reference audit to reach homeostasis — the consolidation-xref-fallout.md pattern is the template. Sequenced for immediately after the surrender-status step. Part of the adr-effectiveness-audits doc-retirement leg.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "umbrella",
+      "tier": "medium",
+      "refs": [
+        { "kind": "source", "target": "tools/doc-graph/generate.mjs" },
+        { "kind": "design-note", "target": "docs/notes/consolidation-xref-fallout.md" }
+      ]
     }
   ]
 }
