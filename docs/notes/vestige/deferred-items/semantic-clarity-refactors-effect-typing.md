@@ -43,8 +43,8 @@ exhaustive handling at callers. **Overlaps** the deferred (e) residual in
 together with* that audit, since it may shrink to "just unify the ≤4
 hand-rolled spaces' encoding" once `ApiError` lands.
 
-- **Cross-references.** `docs/notes/opus-consult-2026-06-01-effect-ts-architectural-merits.md`
-  (the Subject characterisation), `docs/notes/opus-consult-2026-06-01-neverthrow-overhaul.md`
+- **Cross-references.** `docs/notes/consult/opus-consult-2026-06-01-effect-ts-architectural-merits.md`
+  (the Subject characterisation), `docs/notes/consult/opus-consult-2026-06-01-neverthrow-overhaul.md`
   (the error-encoding inventory), the stringly-typed-error item above, and
   the (e) residual in `docs/notes/decisions-deferred.md`.
 

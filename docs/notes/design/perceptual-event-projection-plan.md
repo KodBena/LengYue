@@ -1,5 +1,8 @@
 # Perceptual event projection — design note
 
+> SSOT: `perceptual-event-projection` — status lives in the work-status SSOT
+> (ADR-0005 Rule 9); this note's lifecycle is that item's state.
+
 Status: idea / design-note, not scheduled. Captured at the maintainer's
 request during the 2026-06-01 perf-scenario-harness work. A medium-sized
 subproject; documented here so it is not lost, with an honest feasibility

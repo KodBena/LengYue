@@ -2,7 +2,7 @@
 
 A working backlog for analysis-persistence issues that surfaced
 post-ship but aren't on a current arc. Pairs with
-`docs/notes/analysis-persistence-plan.md` (the system note for
+`docs/archive/notes/design/analysis-persistence-plan.md` (the system note for
 the shipped backend + frontend halves).
 
 - **Status:** Open backlog. Items here may become focused PRs

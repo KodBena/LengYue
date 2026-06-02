@@ -297,7 +297,7 @@ only DRY option.
 
 ## References
 
-- `docs/notes/opus-consult-2026-05-29-render-coupling-typing.md` — the
+- `docs/notes/consult/opus-consult-2026-05-29-render-coupling-typing.md` — the
   independent typing review backing the revised "Could stronger typing have
   prevented it?" section (verified citations for the Vue / Vapor / FRP claims
   below).

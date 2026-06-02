@@ -131,7 +131,7 @@ build once.
 
 ### 5. Both compose with the autonomous-SR loop
 
-The autonomous-SR loop note (`docs/notes/autonomous-srs-loop-revised.md`)
+The autonomous-SR loop note (`docs/notes/design/autonomous-srs-loop-revised.md`)
 sketches a pipeline where loaded SGFs surface candidate cards
 without manual marking. The mistake-surface and the
 stability-surface are both signals that loop could read.
@@ -432,7 +432,7 @@ Concretely:
   §"Gaps in this note's grounding" and
   `stability-surface-design-space.md` §"Gaps in this note's
   grounding".
-- Not consulted: `docs/notes/autonomous-srs-loop-revised.md`
+- Not consulted: `docs/notes/design/autonomous-srs-loop-revised.md`
   in full. Claims about how the autonomous-SR loop would
   consume either surface are sketched, not verified against
   that note's contents end to end.

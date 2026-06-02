@@ -179,7 +179,7 @@ A deviation is *not* surfaced loudly enough when:
    documentation analog of Rule 1 ("no silent retry queue"), and
    ADR-0005 Rule 8 is the documentation analog of this rule. The
    maintenance contracts on `docs/archive/notes/dsl-hyperparameter-harness-plan.md`
-   and `docs/notes/qeubo-namespace-unification-plan.md` are the
+   and `docs/notes/design/qeubo-namespace-unification-plan.md` are the
    first design-note instances applying the discipline at authoring
    time.
 7. **Closest-match selection surfaces too.** *(Appended 2026-05-15.)*

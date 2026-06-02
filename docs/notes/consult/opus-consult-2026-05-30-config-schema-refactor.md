@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-30.
 **Context:** Verbatim record of an Opus sub-agent's adversarial review
-of the design note `docs/notes/config-schema-projection-plan.md`
+of the design note `docs/notes/design/config-schema-projection-plan.md`
 (citation audit + design stress + missed-fallout + overclaim check).
 Saved for auditability per standing practice (conversation context is
 not durable across sessions). The note was revised in response; the

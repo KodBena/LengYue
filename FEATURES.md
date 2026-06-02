@@ -481,7 +481,7 @@ Two action buttons:
 - Full-text search on player names or descriptions (simple
   LIKE filters suffice).
 
-Design rationale: `docs/notes/sgf-library-plan.md`.
+Design rationale: `docs/archive/notes/design/sgf-library-plan.md`.
 
 ## Power-user customisation
 

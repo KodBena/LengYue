@@ -20,7 +20,7 @@ into `main` as PR #290, commit `cf36cd4`). Two of those
 artifacts were Opus 4.7 consult agent invocations:
 
 1. **Firewall consult** — fresh review of the four design notes;
-   the agent wrote `docs/notes/mistake-stability-firewall-consult.md`
+   the agent wrote `docs/notes/consult/mistake-stability-firewall-consult.md`
    directly to disk (467 lines). The agent's output is on disk
    verbatim.
 2. **Round-table consult** — follow-up on the project author's
@@ -42,7 +42,7 @@ prompt and the full verbatim response.
 | Worktree isolation | none | none |
 | Approximate duration | ~6 min | ~2 min |
 | Approximate token cost | ~90k | ~75k |
-| Verbatim response location | `docs/notes/mistake-stability-firewall-consult.md` (on disk) | inline below |
+| Verbatim response location | `docs/notes/consult/mistake-stability-firewall-consult.md` (on disk) | inline below |
 
 ## Consult 1 — Firewall review of the four design notes
 
@@ -88,21 +88,21 @@ that have been missed.
 **Read end to end (no skimming) — these are the primary
 target:**
 
-1. `/home/bork/w/omega/docs/notes/mistake-finder-design-space.md`
+1. `/home/bork/w/omega/docs/notes/design/mistake-finder-design-space.md`
    — the per-move mistake-detection substrate. Three sequential
    revisions are visible in the prose: a channel correction
    (`state_fns` is per-turn, `delta_fn` is per-move), a
    goodness-in-[0,1] universality retraction, and a per-palette
    non-opinionation constraint that reshapes the recommendation.
-2. `/home/bork/w/omega/docs/notes/stability-surface-design-space.md`
+2. `/home/bork/w/omega/docs/notes/design/stability-surface-design-space.md`
    — exposing the shelved visit-scaling research arc's stability
    metrics for user judgement. The recommendation is a curated
    extractor catalogue (SPA-side) with forward-compatibility
    plumbing.
-3. `/home/bork/w/omega/docs/notes/mistake-stability-surface-synthesis.md`
+3. `/home/bork/w/omega/docs/notes/design/mistake-stability-surface-synthesis.md`
    — the cross-cutting view; recommends sibling surfaces with
    shared consumer-side infrastructure.
-4. `/home/bork/w/omega/docs/notes/mistake-finder-pedagogy-and-followups.md`
+4. `/home/bork/w/omega/docs/notes/design/mistake-finder-pedagogy-and-followups.md`
    — companion note covering: the win-attribution paradigm and
    the project's stance against it; a cognitive bias around
    un-punished mistakes; the "reason for the move" pedagogical
@@ -130,7 +130,7 @@ implementation. If a note flags an unverified assumption, treat
 it as a flagged assumption rather than a research target.
 
 **Produce:** a single note at
-`/home/bork/w/omega/docs/notes/mistake-stability-firewall-consult.md`,
+`/home/bork/w/omega/docs/notes/consult/mistake-stability-firewall-consult.md`,
 length **250–400 lines** (hand-wavy, not strict; quality over
 count). Frontmatter following the other notes' style (Status /
 Date / Scope / Genre). Date is 2026-05-28.
@@ -186,7 +186,7 @@ at the seams.
 ### Response
 
 The agent wrote the response directly to disk at
-`docs/notes/mistake-stability-firewall-consult.md` (lines 1-466
+`docs/notes/consult/mistake-stability-firewall-consult.md` (lines 1-466
 in its initial form, 467 with trailing newline; extended later
 to 585 lines by the round-table follow-up appendix authored by
 the original note author, not the consult agent). The original
@@ -242,14 +242,14 @@ made to the design notes.
 You are continuing the firewall consult role on the
 mistake-finder substrate question. The previous consult
 delivered an end-to-end synthesis at
-`/home/bork/w/omega/docs/notes/mistake-stability-firewall-consult.md`
+`/home/bork/w/omega/docs/notes/consult/mistake-stability-firewall-consult.md`
 — please read that note end-to-end first, then read the four
 original design notes if you need to refresh context:
 
-1. `/home/bork/w/omega/docs/notes/mistake-finder-design-space.md`
-2. `/home/bork/w/omega/docs/notes/stability-surface-design-space.md`
-3. `/home/bork/w/omega/docs/notes/mistake-stability-surface-synthesis.md`
-4. `/home/bork/w/omega/docs/notes/mistake-finder-pedagogy-and-followups.md`
+1. `/home/bork/w/omega/docs/notes/design/mistake-finder-design-space.md`
+2. `/home/bork/w/omega/docs/notes/design/stability-surface-design-space.md`
+3. `/home/bork/w/omega/docs/notes/design/mistake-stability-surface-synthesis.md`
+4. `/home/bork/w/omega/docs/notes/design/mistake-finder-pedagogy-and-followups.md`
 
 The project author has now surfaced a follow-up proposal on the
 mistake-finder substrate question. The framing for this
@@ -689,17 +689,17 @@ would want amending.
 The agent's response landed cleanly into the subsequent
 amendments:
 
-- `docs/notes/mistake-finder-design-space.md` — Option α
+- `docs/notes/design/mistake-finder-design-space.md` — Option α
   reformulated from `move_selector_fn` reuse to binary
   `delta_ordering` flag; `move_selector_fn` retreats to
   escalation path. A "Historical note on the prior α
   formulation" sub-section preserves the prior framing per
   ADR-0005 Rule 8.
-- `docs/notes/mistake-stability-surface-synthesis.md` —
+- `docs/notes/design/mistake-stability-surface-synthesis.md` —
   comparison table updated; the "Forward-compat to DSL: already
   DSL-shaped" row (the vestigial framing the agent flagged) is
   retired.
-- `docs/notes/mistake-stability-firewall-consult.md` — a
+- `docs/notes/consult/mistake-stability-firewall-consult.md` — a
   "Round-table follow-up (2026-05-28)" appendix records the
   exchange and quotes selected paragraphs from this consult.
   The full verbatim record lives here.

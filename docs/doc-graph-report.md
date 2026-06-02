@@ -21,8 +21,8 @@ References from **live** documents are the genuine-action candidates.
 
 ## Summary
 
-- **Dangling from LIVE documents** (genuine-action candidates): **98**.
-- **Dangling from frozen archive** (expected historical drift): **208**.
+- **Dangling from LIVE documents** (genuine-action candidates): **101**.
+- **Dangling from frozen archive** (expected historical drift): **235**.
 - **Ambiguous references** (bare filename matches more than one node — never
   silently resolved, per ADR-0002): **0**.
 
@@ -30,36 +30,27 @@ References from **live** documents are the genuine-action candidates.
 
 - `backend/README.md` → `backend/samples/README.md` *(path-mention)* — target `backend/samples/README.md` does not resolve to any node.
 - `docs/adr/0005-documentation-discipline.md` → `backend/routers/REFERENCE.md` *(path-mention)* — target `backend/routers/REFERENCE.md` does not resolve to any node.
-- `docs/notes/analysis-bundle-compression-plan.md` → `docs/dispatch/backend-to-frontend-analysis-bundle-compression-v2-status.md` *(path-mention)* — target `docs/dispatch/backend-to-frontend-analysis-bundle-compression-v2-status.md` does not resolve to any node.
-- `docs/notes/analysis-bundle-compression-plan.md` → `docs/dispatch/frontend-to-backend-analysis-bundle-compression-v2.md` *(path-mention)* — target `docs/dispatch/frontend-to-backend-analysis-bundle-compression-v2.md` does not resolve to any node.
 - `docs/notes/audit-stringly-typed-contracts-2026-06-01.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/notes/audit-work-status-liveness-2026-06-02.md` → `docs/pre-merge-checklist.md` *(path-mention)* — target `docs/pre-merge-checklist.md` does not resolve to any node.
 - `docs/notes/auditor-notes.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/notes/consolidation-xref-fallout.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
+- `docs/notes/consult/opus-consult-2026-06-02-work-status-ci-gates.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
+- `docs/notes/consult/opus-consult-2026-06-02-work-status-ssot-plan.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/notes/decisions-deferred.md` → `docs/release-scope.md` *(path-mention)* — target `docs/release-scope.md` does not resolve to any node.
+- `docs/notes/design/doc-graph-discipline-plan.md` → `docs/INDEX.md` *(path-mention)* — target `docs/INDEX.md` does not resolve to any node.
+- `docs/notes/design/migration-test-rotation-plan.md` → `frontend/tests/CLAUDE.md` *(path-mention)* — target `frontend/tests/CLAUDE.md` does not resolve to any node.
+- `docs/notes/design/mistake-finder-pedagogy-and-followups.md` → `docs/notes/pedagogy.md` *(path-mention)* — target `docs/notes/pedagogy.md` does not resolve to any node.
+- `docs/notes/design/mistake-finder-pedagogy-and-followups.md` → `docs/pedagogy.md` *(path-mention)* — target `docs/pedagogy.md` does not resolve to any node.
 - `docs/notes/distribution-packaging.md` → `docs/notes/distribution-tauri-plan.md` *(path-mention)* — target `docs/notes/distribution-tauri-plan.md` does not resolve to any node.
 - `docs/notes/distribution-packaging.md` → `docs/release-scope.md` *(path-mention)* — target `docs/release-scope.md` does not resolve to any node.
-- `docs/notes/doc-graph-discipline-plan.md` → `docs/INDEX.md` *(path-mention)* — target `docs/INDEX.md` does not resolve to any node.
-- `docs/notes/documentation-graph-artifact-plan.md` → `docs/adr/0008-adr-meta-review.md` *(path-mention)* — target `docs/adr/0008-adr-meta-review.md` does not resolve to any node.
-- `docs/notes/documentation-graph-artifact-plan.md` → `docs/ANALYSIS_PERSISTENCE_PLAN.md` *(path-mention)* — target `docs/ANALYSIS_PERSISTENCE_PLAN.md` does not resolve to any node.
-- `docs/notes/documentation-graph-artifact-plan.md` → `docs/archive/notes/qeubo-namespace-unification-plan.md` *(path-mention)* — target `docs/archive/notes/qeubo-namespace-unification-plan.md` does not resolve to any node.
-- `docs/notes/documentation-graph-artifact-plan.md` → `docs/audits/README.md` *(path-mention)* — target `docs/audits/README.md` does not resolve to any node.
-- `docs/notes/documentation-graph-artifact-plan.md` → `docs/INDEX.md` *(path-mention)* — target `docs/INDEX.md` does not resolve to any node.
-- `docs/notes/documentation-graph-artifact-plan.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/notes/frontend-test-coverage-2026-05.md` → `frontend/tests/CLAUDE.md` *(path-mention)* — target `frontend/tests/CLAUDE.md` does not resolve to any node.
 - `docs/notes/investigation-refactoring-queue-adr0007-2026-06-02.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
-- `docs/notes/migration-test-rotation-plan.md` → `frontend/tests/CLAUDE.md` *(path-mention)* — target `frontend/tests/CLAUDE.md` does not resolve to any node.
-- `docs/notes/mistake-finder-pedagogy-and-followups.md` → `docs/notes/pedagogy.md` *(path-mention)* — target `docs/notes/pedagogy.md` does not resolve to any node.
-- `docs/notes/mistake-finder-pedagogy-and-followups.md` → `docs/pedagogy.md` *(path-mention)* — target `docs/pedagogy.md` does not resolve to any node.
-- `docs/notes/opus-consult-2026-06-02-work-status-ci-gates.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
-- `docs/notes/opus-consult-2026-06-02-work-status-ssot-plan.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md` → `docs/dispatch/frontend-to-proxy-wire-diagnostic-channel.md` *(path-mention)* — target `docs/dispatch/frontend-to-proxy-wire-diagnostic-channel.md` does not resolve to any node.
 - `docs/notes/postmortem-knob-toolbar-popover-2026-05.md` → `docs/pre-merge-checklist.md` *(path-mention)* — target `docs/pre-merge-checklist.md` does not resolve to any node.
 - `docs/notes/rca-discipline-lapses-2026-06-01.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/notes/release-retrospective-2026-05.md` → `frontend/docs/i18n.md` *(path-mention)* — target `frontend/docs/i18n.md` does not resolve to any node.
 - `docs/notes/release-retrospective-2026-05.md` → `frontend/tests/CLAUDE.md` *(path-mention)* — target `frontend/tests/CLAUDE.md` does not resolve to any node.
 - `docs/notes/responsive-design-audit-2026-05-22.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
-- `docs/notes/sgf-library-plan.md` → `docs/dispatch/backend-to-frontend-sgf-library-status.md` *(path-mention)* — target `docs/dispatch/backend-to-frontend-sgf-library-status.md` does not resolve to any node.
 - `docs/notes/vestige/deferred-items/adaptive-query-cancellation-leak.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/notes/vestige/deferred-items/adr-effectiveness-audits.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/notes/vestige/deferred-items/doc-graph-svg-render-off-tree.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
@@ -79,8 +70,6 @@ References from **live** documents are the genuine-action candidates.
 - `docs/notes/vestige/deferred-items/stability-surface-distribution-metric.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/notes/vestige/deferred-items/surface-1-backgrounds-audit.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/notes/vestige/deferred-items/tags-fetch-hydration-race.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
-- `docs/notes/work-status-ssot-plan.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
-- `docs/notes/work-status-ssot-plan.md` → `docs/work-status.md` *(path-mention)* — target `docs/work-status.md` does not resolve to any node.
 - `docs/playbooks/monorepo/editorial-cleanup-plan.md` → `backend/docs/HANDOFF.md` *(path-mention)* — target `backend/docs/HANDOFF.md` does not resolve to any node.
 - `docs/playbooks/monorepo/editorial-cleanup-plan.md` → `docs/ANALYSIS_PERSISTENCE_PLAN.md` *(path-mention)* — target `docs/ANALYSIS_PERSISTENCE_PLAN.md` does not resolve to any node.
 - `docs/playbooks/monorepo/editorial-cleanup-plan.md` → `docs/old-todos/TODO-backend.md` *(path-mention)* — target `docs/old-todos/TODO-backend.md` does not resolve to any node.
@@ -111,7 +100,16 @@ References from **live** documents are the genuine-action candidates.
 - `docs/rfcs/0001-adr-meta-review.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/worklog/2026-05-12-tag-dsl-macro-language.md` → `docs/notes/tag-dsl-macro-language-plan.md` *(path-mention)* — target `docs/notes/tag-dsl-macro-language-plan.md` does not resolve to any node.
 - `docs/worklog/2026-05-14-knob-registry.md` → `docs/archive/notes/qeubo-namespace-unification-plan.md` *(path-mention)* — target `docs/archive/notes/qeubo-namespace-unification-plan.md` does not resolve to any node.
+- `docs/worklog/2026-05-14-knob-registry.md` → `docs/notes/knob-registry-plan.md` *(path-mention)* — target `docs/notes/knob-registry-plan.md` does not resolve to any node.
+- `docs/worklog/2026-05-14-toolbar-popover-band-mismatch.md` → `docs/notes/knob-registry-plan.md` *(path-mention)* — target `docs/notes/knob-registry-plan.md` does not resolve to any node.
 - `docs/worklog/2026-05-14-toolbar-popover-band-mismatch.md` → `docs/pre-merge-checklist.md` *(path-mention)* — target `docs/pre-merge-checklist.md` does not resolve to any node.
+- `docs/worklog/2026-05-15-katago-cadence-knobs.md` → `docs/notes/knob-registry-plan.md` *(path-mention)* — target `docs/notes/knob-registry-plan.md` does not resolve to any node.
+- `docs/worklog/2026-05-16-per-board-multi-query.md` → `docs/notes/per-board-multi-query-model-plan.md` *(path-mention)* — target `docs/notes/per-board-multi-query-model-plan.md` does not resolve to any node.
+- `docs/worklog/2026-05-16-proxy-topology-testing.md` → `docs/notes/proxy-topology-testing-plan-revised.md` *(path-mention)* — target `docs/notes/proxy-topology-testing-plan-revised.md` does not resolve to any node.
+- `docs/worklog/2026-05-16-proxy-topology-testing.md` → `docs/notes/proxy-topology-testing-plan.md` *(path-mention)* — target `docs/notes/proxy-topology-testing-plan.md` does not resolve to any node.
+- `docs/worklog/2026-05-27-keybindings-phase1-substrate.md` → `docs/notes/keybindings-plan.md` *(path-mention)* — target `docs/notes/keybindings-plan.md` does not resolve to any node.
+- `docs/worklog/2026-05-27-keybindings-phase2-dispatcher.md` → `docs/notes/keybindings-plan.md` *(path-mention)* — target `docs/notes/keybindings-plan.md` does not resolve to any node.
+- `docs/worklog/2026-05-27-keybindings-phase5-tests.md` → `docs/notes/keybindings-plan.md` *(path-mention)* — target `docs/notes/keybindings-plan.md` does not resolve to any node.
 - `docs/worklog/2026-05-29-perf-distribution-redraw-coalescing.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/worklog/2026-06-01-collapsed-chart-gate.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/worklog/2026-06-01-de-cq-preview-hide.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
@@ -122,9 +120,14 @@ References from **live** documents are the genuine-action candidates.
 - `docs/worklog/2026-06-01-doc-graph-artifact.md` → `docs/archive/notes/qeubo-namespace-unification-plan.md` *(path-mention)* — target `docs/archive/notes/qeubo-namespace-unification-plan.md` does not resolve to any node.
 - `docs/worklog/2026-06-01-doc-graph-artifact.md` → `docs/audits/README.md` *(path-mention)* — target `docs/audits/README.md` does not resolve to any node.
 - `docs/worklog/2026-06-01-doc-graph-artifact.md` → `docs/INDEX.md` *(path-mention)* — target `docs/INDEX.md` does not resolve to any node.
+- `docs/worklog/2026-06-01-doc-graph-artifact.md` → `docs/notes/documentation-graph-artifact-plan.md` *(path-mention)* — target `docs/notes/documentation-graph-artifact-plan.md` does not resolve to any node.
 - `docs/worklog/2026-06-01-doc-graph-artifact.md` → `docs/notes/frontend-theming-plan.md` *(path-mention)* — target `docs/notes/frontend-theming-plan.md` does not resolve to any node.
 - `docs/worklog/2026-06-01-doc-graph-artifact.md` → `frontend/ANALYSIS_PERSISTENCE_PLAN.md` *(path-mention)* — target `frontend/ANALYSIS_PERSISTENCE_PLAN.md` does not resolve to any node.
 - `docs/worklog/2026-06-01-doc-graph-artifact.md` → `frontend/TODO.md` *(path-mention)* — target `frontend/TODO.md` does not resolve to any node.
+- `docs/worklog/2026-06-01-doc-graph-churn-reduction.md` → `docs/notes/documentation-graph-artifact-plan.md` *(path-mention)* — target `docs/notes/documentation-graph-artifact-plan.md` does not resolve to any node.
+- `docs/worklog/2026-06-01-perf-scenario-harness.md` → `docs/notes/opus-consult-2026-06-01-perf-capture-automation-design-space.md` *(path-mention)* — target `docs/notes/opus-consult-2026-06-01-perf-capture-automation-design-space.md` does not resolve to any node.
+- `docs/worklog/2026-06-01-perf-scenario-harness.md` → `docs/notes/perceptual-event-projection-plan.md` *(path-mention)* — target `docs/notes/perceptual-event-projection-plan.md` does not resolve to any node.
+- `docs/worklog/2026-06-02-design-note-retirement-gate.md` → `docs/notes/documentation-graph-artifact-plan.md` *(path-mention)* — target `docs/notes/documentation-graph-artifact-plan.md` does not resolve to any node.
 - `README.md` → `backend/samples/README.md` *(path-mention)* — target `backend/samples/README.md` does not resolve to any node.
 
 ## Ambiguous references
@@ -152,6 +155,7 @@ file is being un-frozen.
 - `docs/archive/dispatch/frontend-to-audit-formalize-planned-work-logging.md` → `docs/worklog/2026-04-27-c1-dirty-board-guard.md` *(path-mention)* — target `docs/worklog/2026-04-27-c1-dirty-board-guard.md` does not resolve to any node.
 - `docs/archive/dispatch/frontend-to-backend-analysis-persistence-status.md` → `docs/dispatch/backend-to-frontend-analysis-persistence-status.md` *(path-mention)* — target `docs/dispatch/backend-to-frontend-analysis-persistence-status.md` does not resolve to any node.
 - `docs/archive/dispatch/frontend-to-backend-analysis-persistence.md` → `docs/dispatch/backend-to-frontend-analysis-persistence-status.md` *(path-mention)* — target `docs/dispatch/backend-to-frontend-analysis-persistence-status.md` does not resolve to any node.
+- `docs/archive/dispatch/frontend-to-backend-analysis-persistence.md` → `docs/notes/analysis-persistence-plan.md` *(path-mention)* — target `docs/notes/analysis-persistence-plan.md` does not resolve to any node.
 - `docs/archive/dispatch/frontend-to-backend-auth-me.md` → `docs/dispatch/backend-to-frontend-auth-me-status.md` *(path-mention)* — target `docs/dispatch/backend-to-frontend-auth-me-status.md` does not resolve to any node.
 - `docs/archive/dispatch/frontend-to-backend-auth-me.md` → `docs/dispatch/frontend-to-backend-auth-me.md` *(path-mention)* — target `docs/dispatch/frontend-to-backend-auth-me.md` does not resolve to any node.
 - `docs/archive/dispatch/frontend-to-backend-card-tree-status.md` → `docs/dispatch/backend-to-frontend-card-tree-status.md` *(path-mention)* — target `docs/dispatch/backend-to-frontend-card-tree-status.md` does not resolve to any node.
@@ -178,15 +182,36 @@ file is being un-frozen.
 - `docs/archive/dispatch/proxy-to-frontend-keep-alive-middleware-status.md` → `docs/dispatch/frontend-to-proxy-keep-alive-middleware.md` *(path-mention)* — target `docs/dispatch/frontend-to-proxy-keep-alive-middleware.md` does not resolve to any node.
 - `docs/archive/dispatch/proxy-to-frontend-keep-alive-middleware-status.md` → `docs/dispatch/proxy-to-frontend-keep-alive-middleware-status.md` *(path-mention)* — target `docs/dispatch/proxy-to-frontend-keep-alive-middleware-status.md` does not resolve to any node.
 - `docs/archive/handoff-2026-04-frontend-pre-umbrella.md` → `docs/ANALYSIS_PERSISTENCE_PLAN.md` *(path-mention)* — target `docs/ANALYSIS_PERSISTENCE_PLAN.md` does not resolve to any node.
+- `docs/archive/notes/analysis-bundle-compression-research-2026-05-25.md` → `docs/notes/analysis-bundle-compression-plan.md` *(path-mention)* — target `docs/notes/analysis-bundle-compression-plan.md` does not resolve to any node.
 - `docs/archive/notes/cards-tab-merge-plan.md` → `docs/notes/card-tree-frontend-spec.md` *(path-mention)* — target `docs/notes/card-tree-frontend-spec.md` does not resolve to any node.
 - `docs/archive/notes/cards-tab-merge-plan.md` → `docs/notes/cards-tab-merge-plan.md` *(path-mention)* — target `docs/notes/cards-tab-merge-plan.md` does not resolve to any node.
 - `docs/archive/notes/cards-tab-merge-plan.md` → `docs/worklog/2026-05-06-cards-tab-merge-pr1-per-board-forest.md` *(path-mention)* — target `docs/worklog/2026-05-06-cards-tab-merge-pr1-per-board-forest.md` does not resolve to any node.
 - `docs/archive/notes/cards-tab-merge-plan.md` → `docs/worklog/2026-05-06-cards-tab-merge-pr2-tab-restructure.md` *(path-mention)* — target `docs/worklog/2026-05-06-cards-tab-merge-pr2-tab-restructure.md` does not resolve to any node.
+- `docs/archive/notes/design/analysis-bundle-compression-plan.md` → `docs/dispatch/backend-to-frontend-analysis-bundle-compression-v2-status.md` *(path-mention)* — target `docs/dispatch/backend-to-frontend-analysis-bundle-compression-v2-status.md` does not resolve to any node.
+- `docs/archive/notes/design/analysis-bundle-compression-plan.md` → `docs/dispatch/frontend-to-backend-analysis-bundle-compression-v2.md` *(path-mention)* — target `docs/dispatch/frontend-to-backend-analysis-bundle-compression-v2.md` does not resolve to any node.
+- `docs/archive/notes/design/analysis-bundle-compression-plan.md` → `docs/notes/analysis-bundle-compression-plan.md` *(path-mention)* — target `docs/notes/analysis-bundle-compression-plan.md` does not resolve to any node.
+- `docs/archive/notes/design/documentation-graph-artifact-plan.md` → `docs/adr/0008-adr-meta-review.md` *(path-mention)* — target `docs/adr/0008-adr-meta-review.md` does not resolve to any node.
+- `docs/archive/notes/design/documentation-graph-artifact-plan.md` → `docs/ANALYSIS_PERSISTENCE_PLAN.md` *(path-mention)* — target `docs/ANALYSIS_PERSISTENCE_PLAN.md` does not resolve to any node.
+- `docs/archive/notes/design/documentation-graph-artifact-plan.md` → `docs/archive/notes/qeubo-namespace-unification-plan.md` *(path-mention)* — target `docs/archive/notes/qeubo-namespace-unification-plan.md` does not resolve to any node.
+- `docs/archive/notes/design/documentation-graph-artifact-plan.md` → `docs/audits/README.md` *(path-mention)* — target `docs/audits/README.md` does not resolve to any node.
+- `docs/archive/notes/design/documentation-graph-artifact-plan.md` → `docs/INDEX.md` *(path-mention)* — target `docs/INDEX.md` does not resolve to any node.
+- `docs/archive/notes/design/documentation-graph-artifact-plan.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
+- `docs/archive/notes/design/documentation-graph-artifact-plan.md` → `docs/notes/doc-graph-discipline-plan.md` *(path-mention)* — target `docs/notes/doc-graph-discipline-plan.md` does not resolve to any node.
+- `docs/archive/notes/design/keybindings-plan.md` → `docs/notes/knob-registry-plan.md` *(path-mention)* — target `docs/notes/knob-registry-plan.md` does not resolve to any node.
+- `docs/archive/notes/design/knob-registry-plan.md` → `docs/notes/qeubo-namespace-unification-plan.md` *(path-mention)* — target `docs/notes/qeubo-namespace-unification-plan.md` does not resolve to any node.
+- `docs/archive/notes/design/sgf-library-plan.md` → `docs/dispatch/backend-to-frontend-sgf-library-status.md` *(path-mention)* — target `docs/dispatch/backend-to-frontend-sgf-library-status.md` does not resolve to any node.
+- `docs/archive/notes/design/work-status-ssot-plan.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
+- `docs/archive/notes/design/work-status-ssot-plan.md` → `docs/notes/doc-graph-discipline-plan.md` *(path-mention)* — target `docs/notes/doc-graph-discipline-plan.md` does not resolve to any node.
+- `docs/archive/notes/design/work-status-ssot-plan.md` → `docs/notes/documentation-graph-artifact-plan.md` *(path-mention)* — target `docs/notes/documentation-graph-artifact-plan.md` does not resolve to any node.
+- `docs/archive/notes/design/work-status-ssot-plan.md` → `docs/work-status.md` *(path-mention)* — target `docs/work-status.md` does not resolve to any node.
 - `docs/archive/notes/forest-directory-hierarchy-redesign.md` → `docs/worklog/2026-05-06-forest-navigation-composable.md` *(path-mention)* — target `docs/worklog/2026-05-06-forest-navigation-composable.md` does not resolve to any node.
 - `docs/archive/notes/forest-directory-hierarchy-redesign.md` → `docs/worklog/2026-05-06-forest-tree-nav-component.md` *(path-mention)* — target `docs/worklog/2026-05-06-forest-tree-nav-component.md` does not resolve to any node.
 - `docs/archive/notes/forest-directory-hierarchy-redesign.md` → `docs/worklog/2026-05-06-forest-tree-nav-wire-in.md` *(path-mention)* — target `docs/worklog/2026-05-06-forest-tree-nav-wire-in.md` does not resolve to any node.
 - `docs/archive/notes/forest-directory-hierarchy-redesign.md` → `docs/worklog/2026-05-06-foreststat-tagstat-acl-translator.md` *(path-mention)* — target `docs/worklog/2026-05-06-foreststat-tagstat-acl-translator.md` does not resolve to any node.
 - `docs/archive/notes/frontend-source-tree-reorganization.md` → `docs/notes/qEUBO.md` *(path-mention)* — target `docs/notes/qEUBO.md` does not resolve to any node.
+- `docs/archive/notes/handoff-current-vestige.md` → `docs/notes/analysis-persistence-plan.md` *(path-mention)* — target `docs/notes/analysis-persistence-plan.md` does not resolve to any node.
+- `docs/archive/notes/handoff-current-vestige.md` → `docs/notes/knob-registry-plan.md` *(path-mention)* — target `docs/notes/knob-registry-plan.md` does not resolve to any node.
+- `docs/archive/notes/handoff-current-vestige.md` → `docs/notes/sgf-library-plan.md` *(path-mention)* — target `docs/notes/sgf-library-plan.md` does not resolve to any node.
 - `docs/archive/notes/i18n-plan.md` → `frontend/docs/i18n.md` *(path-mention)* — target `frontend/docs/i18n.md` does not resolve to any node.
 - `docs/archive/notes/magic-literals-audit-inventory.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/archive/notes/magic-literals-audit-inventory.md` → `docs/notes/magic-literals-audit-plan.md` *(path-mention)* — target `docs/notes/magic-literals-audit-plan.md` does not resolve to any node.
@@ -194,6 +219,7 @@ file is being un-frozen.
 - `docs/archive/notes/magic-literals-audit-plan.md` → `docs/notes/frontend-theming-plan.md` *(path-mention)* — target `docs/notes/frontend-theming-plan.md` does not resolve to any node.
 - `docs/archive/notes/magic-literals-audit-plan.md` → `docs/notes/magic-literals-audit-inventory.md` *(path-mention)* — target `docs/notes/magic-literals-audit-inventory.md` does not resolve to any node.
 - `docs/archive/notes/qEUBO.md` → `backend/qeubo/README.md` *(path-mention)* — target `backend/qeubo/README.md` does not resolve to any node.
+- `docs/archive/notes/release-retrospective-2026-04.md` → `docs/notes/analysis-persistence-plan.md` *(path-mention)* — target `docs/notes/analysis-persistence-plan.md` does not resolve to any node.
 - `docs/archive/notes/release-retrospective-2026-04.md` → `docs/notes/qEUBO.md` *(path-mention)* — target `docs/notes/qEUBO.md` does not resolve to any node.
 - `docs/archive/notes/release-retrospective-2026-04.md` → `docs/release-scope.md` *(path-mention)* — target `docs/release-scope.md` does not resolve to any node.
 - `docs/archive/notes/resource-ownership-audit-plan.md` → `docs/notes/magic-literals-audit-plan.md` *(path-mention)* — target `docs/notes/magic-literals-audit-plan.md` does not resolve to any node.
@@ -202,16 +228,19 @@ file is being un-frozen.
 - `docs/archive/notes/vestige/deferred-items/anchor-role-overloading.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/archive/notes/vestige/deferred-items/de-cq-preview-hide.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/archive/notes/vestige/deferred-items/doc-graph-artifact.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
+- `docs/archive/notes/vestige/deferred-items/doc-graph-artifact.md` → `docs/notes/documentation-graph-artifact-plan.md` *(path-mention)* — target `docs/notes/documentation-graph-artifact-plan.md` does not resolve to any node.
 - `docs/archive/notes/vestige/deferred-items/foreststat-tagstat-acl.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/archive/notes/vestige/deferred-items/loadaction-type-dishonest.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/archive/notes/vestige/deferred-items/README.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/archive/notes/vestige/deferred-items/silent-guard-handleloadcard.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/archive/notes/vestige/deferred-items/stringly-typed-api-errors.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
+- `docs/archive/notes/vestige/deferred-items/stringly-typed-api-errors.md` → `docs/notes/opus-consult-2026-06-01-neverthrow-overhaul.md` *(path-mention)* — target `docs/notes/opus-consult-2026-06-01-neverthrow-overhaul.md` does not resolve to any node.
 - `docs/archive/README.md` → `backend/docs/HANDOFF-companion.md` *(path-mention)* — target `backend/docs/HANDOFF-companion.md` does not resolve to any node.
 - `docs/archive/README.md` → `backend/docs/HANDOFF.md` *(path-mention)* — target `backend/docs/HANDOFF.md` does not resolve to any node.
 - `docs/archive/README.md` → `frontend/34b-complete-status.md` *(path-mention)* — target `frontend/34b-complete-status.md` does not resolve to any node.
 - `docs/archive/README.md` → `frontend/docs/HANDOFF.md` *(path-mention)* — target `frontend/docs/HANDOFF.md` does not resolve to any node.
 - `docs/archive/release-scope-2026-04.md` → `docs/dispatch/frontend-to-frontend-default-palette-metrics-spec.md` *(path-mention)* — target `docs/dispatch/frontend-to-frontend-default-palette-metrics-spec.md` does not resolve to any node.
+- `docs/archive/release-scope-2026-04.md` → `docs/notes/analysis-persistence-plan.md` *(path-mention)* — target `docs/notes/analysis-persistence-plan.md` does not resolve to any node.
 - `docs/archive/release-scope-2026-04.md` → `docs/notes/card-tree-backend-spec.md` *(path-mention)* — target `docs/notes/card-tree-backend-spec.md` does not resolve to any node.
 - `docs/archive/release-scope-2026-04.md` → `docs/notes/card-tree-frontend-spec.md` *(path-mention)* — target `docs/notes/card-tree-frontend-spec.md` does not resolve to any node.
 - `docs/archive/release-scope-2026-04.md` → `docs/notes/qEUBO.md` *(path-mention)* — target `docs/notes/qEUBO.md` does not resolve to any node.
@@ -222,6 +251,7 @@ file is being un-frozen.
 - `docs/archive/TODO-completed-2026-05-06.md` → `docs/dispatch/frontend-to-backend-card-tree-status.md` *(path-mention)* — target `docs/dispatch/frontend-to-backend-card-tree-status.md` does not resolve to any node.
 - `docs/archive/TODO-completed-2026-05-06.md` → `docs/dispatch/frontend-to-backend-qeubo-integration.md` *(path-mention)* — target `docs/dispatch/frontend-to-backend-qeubo-integration.md` does not resolve to any node.
 - `docs/archive/TODO-completed-2026-05-06.md` → `docs/dispatch/frontend-to-frontend-default-palette-metrics-spec.md` *(path-mention)* — target `docs/dispatch/frontend-to-frontend-default-palette-metrics-spec.md` does not resolve to any node.
+- `docs/archive/TODO-completed-2026-05-06.md` → `docs/notes/analysis-persistence-plan.md` *(path-mention)* — target `docs/notes/analysis-persistence-plan.md` does not resolve to any node.
 - `docs/archive/TODO-completed-2026-05-06.md` → `docs/notes/card-tree-backend-spec.md` *(path-mention)* — target `docs/notes/card-tree-backend-spec.md` does not resolve to any node.
 - `docs/archive/TODO-completed-2026-05-06.md` → `docs/notes/card-tree-frontend-spec.md` *(path-mention)* — target `docs/notes/card-tree-frontend-spec.md` does not resolve to any node.
 - `docs/archive/TODO-completed-2026-05-06.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.

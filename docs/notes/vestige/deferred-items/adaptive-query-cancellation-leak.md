@@ -38,7 +38,7 @@
 - **Bears on the typed-effect decision.** On the corrected
   (single-id-is-correct) understanding this does **not** fire the §5
   Effect-TS reserve trigger on the SPA side
-  (`docs/notes/typed-effect-documentation-plan.md`); record the
+  (`docs/notes/design/typed-effect-documentation-plan.md`); record the
   trigger-status there once the diagnosis confirms the side.
 - **Code refs:** `src/services/analysis-service.ts` `stopQuery` (1029–1058),
   `onAnalysisUpdate` guard (895–896); wire `terminate` shape

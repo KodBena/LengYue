@@ -134,7 +134,7 @@
       "disposition": "active",
       "scope": "frontend",
       "tier": "large",
-      "refs": [{ "kind": "design-note", "target": "docs/notes/perceptual-event-projection-plan.md" }]
+      "refs": [{ "kind": "design-note", "target": "docs/notes/design/perceptual-event-projection-plan.md" }]
     },
     {
       "id": "memory-profiling-discipline",
@@ -555,7 +555,7 @@
       "tier": "large",
       "refs": [
         { "kind": "worklog", "target": "docs/worklog/2026-06-01-doc-graph-artifact.md" },
-        { "kind": "design-note", "target": "docs/notes/documentation-graph-artifact-plan.md" }
+        { "kind": "design-note", "target": "docs/archive/notes/design/documentation-graph-artifact-plan.md" }
       ]
     },
     {
@@ -732,8 +732,8 @@
       "scope": "frontend",
       "tier": "large",
       "refs": [
-        { "kind": "design-note", "target": "docs/notes/config-schema-projection-plan.md" },
-        { "kind": "design-note", "target": "docs/notes/opus-consult-2026-05-30-config-schema-refactor.md" }
+        { "kind": "design-note", "target": "docs/notes/design/config-schema-projection-plan.md" },
+        { "kind": "design-note", "target": "docs/notes/consult/opus-consult-2026-05-30-config-schema-refactor.md" }
       ]
     },
     {

@@ -250,7 +250,7 @@ directories like `dispatch/` and `worklog/`, where most entries are
 historical), and LLMs onboarding to a sub-project or the umbrella
 waste cycles classifying which docs will improve their grasp vs.
 which are time-sinks. Plan drafted at
-`docs/notes/doc-graph-discipline-plan.md` (status: `draft`). It
+`docs/notes/design/doc-graph-discipline-plan.md` (status: `draft`). It
 proposes ten genres in a closed enumeration, per-genre status
 vocabulary, YAML frontmatter as the single source of truth for
 metadata, an optional generated `INDEX.md`, a one-time back-catalog

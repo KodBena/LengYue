@@ -25,9 +25,9 @@
  *                               ambiguous cross-references, after the
  *                               ADR-0005 Rule 4 code-block/placeholder filter).
  *
- * Design note (the SPEC): `docs/notes/documentation-graph-artifact-plan.md`.
- * Substrate plan: `docs/notes/doc-graph-discipline-plan.md`.
- * Originating entry: `docs/notes/deferred-items.md`.
+ * Design note (the SPEC): `docs/archive/notes/design/documentation-graph-artifact-plan.md`.
+ * Substrate plan: `docs/notes/design/doc-graph-discipline-plan.md`.
+ * Originating entry: `docs/archive/notes/vestige/deferred-items/doc-graph-artifact.md`.
  *
  * Manifest-first (the load-bearing inversion): the picture and the validator
  * are both projections of the same manifest. Per ADR-0002, the validator
@@ -755,7 +755,7 @@ of truth and the picture is a projection of it.
   render is the planned fix.
 - **Broken-reference report:** [\`docs/doc-graph-report.md\`](./doc-graph-report.md).
 - **Design note (the spec):**
-  [\`docs/notes/documentation-graph-artifact-plan.md\`](./notes/documentation-graph-artifact-plan.md).
+  [\`docs/archive/notes/design/documentation-graph-artifact-plan.md\`](./archive/notes/design/documentation-graph-artifact-plan.md).
 
 ## At a glance
 

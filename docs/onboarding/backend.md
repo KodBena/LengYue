@@ -59,7 +59,7 @@ bind every edit.
 
 - `backend/docs/tree-dsl.md` — Tree-DSL reference; required for
   any pipeline work.
-- `docs/notes/analysis-persistence-plan.md` — Design note for the
+- `docs/archive/notes/design/analysis-persistence-plan.md` — Design note for the
   planned analysis-persistence feature; not yet implemented.
 - `docs/archive/notes/card-tree-backend-spec.md` — Backend capability spec
   for the card-tree widget.

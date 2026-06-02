@@ -27,7 +27,7 @@ Public Domain (The Unlicense).
 > bare-`IO<T>` leg (deferring the `neverthrow` / typed-error leg). It
 > was built as a worked example on `backend-service.ts` and then
 > reverted as over-built for an eager ACL — see
-> `docs/notes/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md`
+> `docs/notes/consult/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md`
 > and the decision record in `docs/notes/decisions-deferred.md`
 > ("Effect-typing as documentation"). The `neverthrow` / typed-error
 > leg this consult identified as the information-bearing win is being
@@ -656,7 +656,7 @@ firewall agent (Opus 4.8, independent, web-enabled):
 You are providing a follow-up "analytic firewall" second opinion for the maintainer of a Vue 3 + TypeScript SPA. Reason independently; be adversarial where warranted; use web search/fetch for empirical claims and cite verifiable URLs, flagging clearly what you verified vs. asserted from general knowledge. Your verbatim output will be saved as a follow-up consult record, so make it self-contained and well-structured.
 
 ## Continuity (read these first, for context — do not anchor on their conclusions)
-- Prior firewall consult (your predecessor's findings): `docs/notes/opus-consult-2026-05-29-render-coupling-typing.md`. Key prior conclusions you can take as established: (i) a render-coupling anti-pattern exists in this app (composition components reading high-frequency reactive state in their render couple a whole subtree's re-render); (ii) TypeScript's type-CHECKER can't detect it but a typed CONTRACT (accessors `() => T`) can dissolve it; (iii) Vue's Vapor Mode / Vue 3.6 (fine-grained, alien-signals) makes the class structurally obsolete.
+- Prior firewall consult (your predecessor's findings): `docs/notes/consult/opus-consult-2026-05-29-render-coupling-typing.md`. Key prior conclusions you can take as established: (i) a render-coupling anti-pattern exists in this app (composition components reading high-frequency reactive state in their render couple a whole subtree's re-render); (ii) TypeScript's type-CHECKER can't detect it but a typed CONTRACT (accessors `() => T`) can dissolve it; (iii) Vue's Vapor Mode / Vue 3.6 (fine-grained, alien-signals) makes the class structurally obsolete.
 - The postmortem the maintainer is iterating on: `docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`.
 
 ## The new question

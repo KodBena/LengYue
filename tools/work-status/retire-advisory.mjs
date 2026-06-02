@@ -26,14 +26,24 @@
  *     the deliberate limit: retirement is keyed on the SSOT linkage, not on a
  *     filesystem sweep of `*-plan.md`.
  *
+ * A transitional section (OLD_STYLE_ALLOWLIST) additionally watches the
+ * pre-consolidation design notes that are NOT yet SSOT-anchored — the forward
+ * gate cannot see them (no `design-note` ref), so it reads their own
+ * `design-note:` / `Status:` marker and flags any that has gone terminal. It
+ * is **self-retiring**: when the allowlist empties (every old-style note
+ * anchored, implemented, or archived), the section is deleted and the bespoke
+ * check leaves CI (ADR-0005 Rule 7 + Rule 9). New design notes never land
+ * here — they are SSOT-anchored from the start.
+ *
  * Zero-dep (pure Node, built-ins only). `--selftest` proves it flags an
  * all-closed-referencer note and spares notes with any open referencer, any
- * already-archived target, and any non-`docs/notes/` target.
+ * already-archived target, and any non-`docs/notes/` target, and that the
+ * old-style marker parse treats `revised` as open (not terminal).
  *
  * License: Public Domain (The Unlicense).
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -62,6 +72,73 @@ function archivalCandidates(items) {
   return candidates;
 }
 
+// ---- transitional: pre-SSOT design notes (sunset allowlist) ----
+//
+// MORATORIUM (ADR-0005 Rule 7 + Rule 9). These are pre-consolidation design
+// notes relocated into docs/notes/design/ but not yet SSOT-anchored, so the
+// forward gate above cannot see them. Until each is anchored, implemented, or
+// archived we watch its own `design-note:` / `Status:` marker and flag any
+// that has gone terminal. This section is bespoke and self-retiring: WHEN
+// OLD_STYLE_ALLOWLIST IS EMPTY, DELETE THIS WHOLE SECTION, its call in main(),
+// and its selftest case — the bespoke check is then purged from CI.
+const OLD_STYLE_ALLOWLIST = [
+  'docs/notes/design/adaptive-reevaluate-widening-plan.md',
+  'docs/notes/design/autonomous-srs-loop.md',
+  'docs/notes/design/autonomous-srs-loop-revised.md',
+  'docs/notes/design/doc-graph-discipline-plan.md',
+  'docs/notes/design/migration-test-rotation-plan.md',
+  'docs/notes/design/mistake-finder-design-space.md',
+  'docs/notes/design/mistake-finder-pedagogy-and-followups.md',
+  'docs/notes/design/mistake-stability-surface-synthesis.md',
+  'docs/notes/design/proxy-topology-testing-plan.md',
+  'docs/notes/design/proxy-topology-testing-plan-revised.md',
+  'docs/notes/design/qeubo-namespace-unification-plan.md',
+  'docs/notes/design/stability-surface-design-space.md',
+  'docs/notes/design/typed-effect-documentation-plan.md',
+];
+
+// Terminal markers = the note's work is done → archival candidate. `revised`
+// is deliberately NOT terminal: a revised edition is the *current*
+// pre-implementation note (e.g. autonomous-srs-loop-revised), not a finished
+// one — treating it as done would wrongly archive live work.
+const TERMINAL_MARKERS = new Set(['implemented', 'locally-implemented', 'closed-with-rationale']);
+
+// Extract a design-note lifecycle marker from a note's head — matches both
+// `design-note: <status>` and a bare `Status: <status>` line.
+function parseMarker(text) {
+  const m = text.slice(0, 1500).match(/(?:design-note:\s*`?|^\s*\*{0,2}Status:?\*{0,2}\s*`?(?:design-note:\s*)?)([a-z][a-z-]+)/im);
+  return m ? m[1].toLowerCase() : null;
+}
+
+// Old-style notes whose own marker is terminal (→ archive + drop from list),
+// plus allowlist entries that have vanished (→ drop; the list self-shrinks).
+function oldStyleCandidates() {
+  const terminal = [], stale = [];
+  for (const rel of OLD_STYLE_ALLOWLIST) {
+    const abs = resolve(REPO, rel);
+    if (!existsSync(abs)) { stale.push(rel); continue; }
+    const marker = parseMarker(readFileSync(abs, 'utf8'));
+    if (marker && TERMINAL_MARKERS.has(marker)) terminal.push({ path: rel, marker });
+  }
+  return { terminal, stale };
+}
+
+function oldStyleReport({ terminal, stale }) {
+  if (!OLD_STYLE_ALLOWLIST.length) return null; // section retired; delete it
+  const lines = ['', `— transitional: pre-SSOT old-style notes (sunset allowlist, ${OLD_STYLE_ALLOWLIST.length} tracked) —`];
+  if (terminal.length) {
+    lines.push(`${terminal.length} whose own marker is terminal → archive + drop from allowlist:`);
+    for (const t of terminal) lines.push(`  ${t.path}  [design-note: ${t.marker}]`);
+  } else {
+    lines.push('none terminal yet (all still planned / in-progress / exploratory / revised).');
+  }
+  if (stale.length) {
+    lines.push('allowlist entries no longer present — drop them:');
+    for (const s of stale) lines.push(`  ${s}`);
+  }
+  return lines.join('\n');
+}
+
 function report(candidates) {
   const lines = [];
   if (!candidates.length) {
@@ -84,8 +161,9 @@ function report(candidates) {
 
 function main() {
   const data = JSON.parse(readFileSync(DATA, 'utf8'));
-  const candidates = archivalCandidates(data.items ?? []);
-  console.log(report(candidates));
+  console.log(report(archivalCandidates(data.items ?? [])));
+  const old = oldStyleReport(oldStyleCandidates());
+  if (old) console.log(old);
   // Advisory only: never gates CI.
   process.exit(0);
 }
@@ -112,7 +190,24 @@ function selftest() {
     process.exit(1);
   }
   console.log(`ok    flags all-closed-referencer note; spares open/mixed/archived/out-of-tree/other-kind`);
-  console.log(`\nselftest: 1 case, 0 failure(s)`);
+
+  // 2. old-style marker parse: terminal-vs-open, with `revised` = open.
+  const mk = [
+    ['- **Status:** `design-note: implemented`', 'implemented'],
+    ['Status: design-note: revised (2026-05-09)', 'revised'],
+    ['**Status:** `design-note: planned`.', 'planned'],
+    ['# Foo\nStatus: implemented (2026-06-01).', 'implemented'],
+  ];
+  for (const [txt, want] of mk) {
+    const got = parseMarker(txt);
+    if (got !== want) { console.error(`MISS  parseMarker(${JSON.stringify(txt)}) = ${got}, want ${want}`); process.exit(1); }
+  }
+  const termOk = ['implemented', 'locally-implemented', 'closed-with-rationale'].every(m => TERMINAL_MARKERS.has(m))
+    && !TERMINAL_MARKERS.has('revised') && !TERMINAL_MARKERS.has('planned');
+  if (!termOk) { console.error('MISS  TERMINAL_MARKERS classification'); process.exit(1); }
+  console.log(`ok    parseMarker + terminal classification (revised is NOT terminal)`);
+
+  console.log(`\nselftest: 2 cases, 0 failure(s)`);
   process.exit(0);
 }
 

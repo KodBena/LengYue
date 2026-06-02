@@ -306,7 +306,7 @@ frontend/src/
 │   ├── correlation.ts                 [B1]  Pairwise Pearson with NaN-pair dropping.
 │   ├── distributions.ts               [B1]  Histogram binning (integer-aware + Freedman–Diaconis) and Gaussian-kernel KDE with Silverman's-rule bandwidth.
 │   ├── dsl-harness.ts                 [B1]  Pipeline-DSL hyperparameter harness: JSON5+holes parser/formatter, validator, substitute.
-│   ├── keybindings.ts                 [B1]  Keybindings registry substrate: declarative `KeybindingActionDecl` catalog, `ACTIONS` const, `effectiveKey` / `isActionEnabled` / `normalizeKey` / `validateKeybindingsRegistry` helpers. Authoritative list of every user-rebindable keyboard action. Phase 1 of `docs/notes/keybindings-plan.md`.
+│   ├── keybindings.ts                 [B1]  Keybindings registry substrate: declarative `KeybindingActionDecl` catalog, `ACTIONS` const, `effectiveKey` / `isActionEnabled` / `normalizeKey` / `validateKeybindingsRegistry` helpers. Authoritative list of every user-rebindable keyboard action. Phase 1 of `docs/archive/notes/design/keybindings-plan.md`.
 │   ├── keybindings-capture.ts         [B1]  Capture-mode + binding-mutation helpers for the editor (Phase 4): `captureMode` ref, `setBinding` / `resetBinding` / `resetAllBindings`, `RESERVED_KEYS`, `findActionByKey` conflict detection.
 │   ├── knobs.ts                       [B1]  Knob-registry substrate: path-walk accessors, named-transform library, startup validation, ownership state machine, policy-aware writeKnobValue.
 │   ├── stability-trajectory.ts        [B1]  Generic change-point-compressed V-axis trajectory + log-V-weighted stable-fraction.

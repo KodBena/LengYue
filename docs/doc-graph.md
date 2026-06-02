@@ -16,13 +16,13 @@ of truth and the picture is a projection of it.
   render is the planned fix.
 - **Broken-reference report:** [`docs/doc-graph-report.md`](./doc-graph-report.md).
 - **Design note (the spec):**
-  [`docs/notes/documentation-graph-artifact-plan.md`](./notes/documentation-graph-artifact-plan.md).
+  [`docs/archive/notes/design/documentation-graph-artifact-plan.md`](./archive/notes/design/documentation-graph-artifact-plan.md).
 
 ## At a glance
 
 - **Nodes:** 374 documents.
-- **Edges:** 1766 cross-references
-  (1460 resolved, 306 dangling, 0 ambiguous).
+- **Edges:** 1768 cross-references
+  (1432 resolved, 336 dangling, 0 ambiguous).
 
 ## Staleness heatmap (buckets)
 
@@ -53,7 +53,6 @@ see the Regeneration note.)
 | `docs/adr/0007-file-size-and-information-density.md` | stale | 2026-04-26 |
 | `docs/rfcs/README.md` | stale | 2026-04-27 |
 | `docs/rfcs/0001-adr-meta-review.md` | stale | 2026-04-27 |
-| `docs/notes/doc-graph-discipline-plan.md` | stale | 2026-04-28 |
 | `backend/docs/redis-local-resource.md` | stale | 2026-04-28 |
 | `docs/playbooks/monorepo/monorepo-plan.md` | stale | 2026-04-29 |
 | `docs/notes/tenancy.md` | stale | 2026-04-29 |
@@ -68,6 +67,7 @@ see the Regeneration note.)
 | `docs/archive/dispatch/backend-to-frontend-card-tree-status.md` | stale | 2026-05-08 |
 | `docs/archive/dispatch/backend-to-frontend-game-source-dedup-status.md` | stale | 2026-05-08 |
 | `docs/archive/dispatch/backend-to-frontend-openapi-title-debrand.md` | stale | 2026-05-08 |
+| `docs/archive/dispatch/backend-to-frontend-qeubo-status.md` | stale | 2026-05-08 |
 
 ## Pruned graph (inline)
 
@@ -152,7 +152,7 @@ flowchart LR
 
 ## Broken-reference report
 
-**98** dangling references from **live** documents (genuine-action candidates), 208 from frozen archive (expected drift), and 0 ambiguous, after the ADR-0005 Rule 4 code-block/placeholder filter. See [`docs/doc-graph-report.md`](./doc-graph-report.md) for the full list, split by origin — the maintainer reviews it; nothing is auto-fixed.
+**101** dangling references from **live** documents (genuine-action candidates), 235 from frozen archive (expected drift), and 0 ambiguous, after the ADR-0005 Rule 4 code-block/placeholder filter. See [`docs/doc-graph-report.md`](./doc-graph-report.md) for the full list, split by origin — the maintainer reviews it; nothing is auto-fixed.
 
 ## Regeneration
 

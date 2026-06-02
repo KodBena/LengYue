@@ -2,7 +2,7 @@
 
 Status: `design-note: revised` (2026-05-16). Supersedes the
 planning-time record at
-`docs/notes/proxy-topology-testing-plan.md` per ADR-0005 Rule 8
+`docs/notes/design/proxy-topology-testing-plan.md` per ADR-0005 Rule 8
 (sibling revisions over silent edits). The original captured the
 design when the substrate was scoped to the umbrella tree and the
 chained-enrichment loud-failure was framed as the load-bearing
@@ -220,7 +220,7 @@ a fresh sibling marked `revised` per the same Rule 8 pattern.
 
 ## Related documents
 
-  - `docs/notes/proxy-topology-testing-plan.md` — the original
+  - `docs/notes/design/proxy-topology-testing-plan.md` — the original
     planning-time record this sibling supersedes.
   - `docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`
     — the sibling postmortem the original §5 disciplines distil.

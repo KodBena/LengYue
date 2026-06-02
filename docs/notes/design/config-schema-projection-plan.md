@@ -1,5 +1,8 @@
 # Configuration Schema & Equivariant Projections — Design Note
 
+> SSOT: `config-schema-projections` — status lives in the work-status SSOT
+> (ADR-0005 Rule 9); this note's lifecycle is that item's state.
+
 **Status:** `design-note: planned`.
 
 **Genre.** Architecture-and-roadmap. Names a substrate that does not
@@ -14,7 +17,7 @@ with this note.
 **Author audience.** A future implementer of the settings/registry
 refactor, and a future reader reconstructing why the configuration
 surface has the shape it has. Assumes the reader has read
-`docs/notes/knob-registry-plan.md` — the closest existing substrate
+`docs/archive/notes/design/knob-registry-plan.md` — the closest existing substrate
 and the structural template for this note — and the two postmortems
 it spawned (`postmortem-knob-registry-qeubo-domain-2026-05.md`,
 `postmortem-knob-toolbar-popover-2026-05.md`).
@@ -874,7 +877,7 @@ silently editing this one — the worked example being
 
 ## 14. Cross-references
 
-- `docs/notes/knob-registry-plan.md` — the closest substrate and this
+- `docs/archive/notes/design/knob-registry-plan.md` — the closest substrate and this
   note's structural template; the numeric slice this schema composes
   with via `knob-ref` (§6). Its §8 (declarative-vs-imperative design
   space) and §14 (deferred path-typing) are directly relevant.
@@ -887,7 +890,7 @@ silently editing this one — the worked example being
 - `docs/archive/notes/dsl-hyperparameter-harness-plan.md` — the
   card-set JSON5+holes dialect that is the forward-compat DSL
   precedent (§7, §8).
-- `docs/notes/opus-consult-2026-05-30-config-schema-refactor.md` — the
+- `docs/notes/consult/opus-consult-2026-05-30-config-schema-refactor.md` — the
   adversarial review of this note (citation audit + design stress);
   its findings are folded into §3.2, §4.1, §10.4, §10.6, §10.9, §12.4.
 - ADR-0002, ADR-0003, ADR-0004, ADR-0007, ADR-0008 — the tenets §11

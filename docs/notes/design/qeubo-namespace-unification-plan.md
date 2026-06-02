@@ -2,7 +2,7 @@
 
 **Status:** `design-note: revised` (transitioned 2026-05-14
 per ADR-0005 Rule 8). **Superseded as the canonical handle by
-`docs/notes/knob-registry-plan.md`** for the
+`docs/archive/notes/design/knob-registry-plan.md`** for the
 substrate-vs-consumer reframing the 2026-05-14 session
 surfaced and the infrastructure-first implementation roadmap
 chosen against the sequencing tension the TODO entry of the

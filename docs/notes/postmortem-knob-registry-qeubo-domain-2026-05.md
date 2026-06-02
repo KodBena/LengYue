@@ -54,7 +54,7 @@ Concrete remediation is in §6. Lessons in §7.
 
 | Step | Artifact | What it said about `'qeubo'` |
 |---|---|---|
-| 1 | `docs/notes/knob-registry-plan.md` §3 (authored 2026-05-14) | `domain: 'display' \| 'engine' \| 'review' \| 'qeubo' \| 'experimental'` — listed without commentary. |
+| 1 | `docs/archive/notes/design/knob-registry-plan.md` §3 (authored 2026-05-14) | `domain: 'display' \| 'engine' \| 'review' \| 'qeubo' \| 'experimental'` — listed without commentary. |
 | 2 | Phase 1 commit `ab82c66` — `src/types.ts:137` | Copied the enum verbatim into the production `KnobDomain` type. |
 | 3 | Phase 1 commit `ab82c66` — `src/types.ts:337` | Wrote `consumerId: string; // 'qeubo' \| 'autonomous-sr' \| ...` — same symbol, different role. The doubling was now in code; no review caught it. |
 | 4 | Phase 5 commit `a1dbe76` — `src/store/migrations.ts:265` | Migration 37 → 38 seeded `qeubo.*` KnobDecls with `domain: 'qeubo'`. |
@@ -227,7 +227,7 @@ Targets a single follow-up commit on `KodBena/feat/knob-registry`:
    "Palette".
 5. **Plan-note revision** — append a sibling design-note
    revision per ADR-0005 Rule 8 to
-   `docs/notes/knob-registry-plan.md` recording: the category
+   `docs/archive/notes/design/knob-registry-plan.md` recording: the category
    error, this postmortem's location, and the corrected
    `KnobDomain` enum.
 
@@ -315,7 +315,7 @@ file these without ceremony.
 
 ## 8. References
 
-- `docs/notes/knob-registry-plan.md` — the spec under audit;
+- `docs/archive/notes/design/knob-registry-plan.md` — the spec under audit;
   the §3 enum is the locus of the category error.
 - `src/types.ts` — production `KnobDomain` enum (the
   authoritative type).

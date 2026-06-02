@@ -1,5 +1,10 @@
 # Work-status SSOT — design note
 
+> **Archived 2026-06-02 — planning record.** The work-status SSOT
+> consolidation this note plans shipped via PR #338; this is its
+> planning-time record (ADR-0005 Rule 8), not a current design. SSOT item:
+> the consolidation is recorded across the work-status SSOT and CLAUDE.md.
+
 Status: draft — a roadmap/spec for maintainer sign-off **before** any
 code. Captured 2026-06-02 at the maintainer's request, acting on the
 `docs/notes/deferred-items.md` "ADR-effectiveness audits" entry's
