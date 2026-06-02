@@ -20,9 +20,9 @@ of truth and the picture is a projection of it.
 
 ## At a glance
 
-- **Nodes:** 336 documents.
-- **Edges:** 1696 cross-references
-  (1450 resolved, 246 dangling, 0 ambiguous).
+- **Nodes:** 371 documents.
+- **Edges:** 1759 cross-references
+  (1453 resolved, 306 dangling, 0 ambiguous).
 
 ## Staleness heatmap (buckets)
 
@@ -93,12 +93,7 @@ flowchart LR
   n10["0009-performance-investigation-discipline"]
   n11["0010-render-locality-and-canvas-for-data-dense-visuals"]
   n12["handoff-current"]
-  n0 --> n4
-  n0 --> n3
-  n0 --> n5
-  n0 --> n10
-  n0 --> n11
-  n0 --> n1
+  n0 --> n8
   n0 --> n12
   n3 --> n2
   n3 --> n6
@@ -141,22 +136,22 @@ flowchart LR
   n11 --> n9
   n11 --> n10
   n11 --> n4
-  n12 --> n5
-  n12 --> n10
   n12 --> n4
   n12 --> n2
   n12 --> n3
+  n12 --> n5
   n12 --> n6
   n12 --> n7
   n12 --> n8
   n12 --> n9
+  n12 --> n10
   n12 --> n11
   n12 --> n0
 ```
 
 ## Broken-reference report
 
-**67** dangling references from **live** documents (genuine-action candidates), 179 from frozen archive (expected drift), and 0 ambiguous, after the ADR-0005 Rule 4 code-block/placeholder filter. See [`docs/doc-graph-report.md`](./doc-graph-report.md) for the full list, split by origin — the maintainer reviews it; nothing is auto-fixed.
+**98** dangling references from **live** documents (genuine-action candidates), 208 from frozen archive (expected drift), and 0 ambiguous, after the ADR-0005 Rule 4 code-block/placeholder filter. See [`docs/doc-graph-report.md`](./doc-graph-report.md) for the full list, split by origin — the maintainer reviews it; nothing is auto-fixed.
 
 ## Regeneration
 

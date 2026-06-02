@@ -67,17 +67,24 @@ unread, read it; either way, do not bluff.
 Implementation is incomplete until the documentation graph reflects
 it. Before declaring a task done or filing a PR, audit:
 
-- Does `docs/TODO.md` need updating to mark items complete or to
-  record items the work surfaced? This explicitly includes **retiring a
-  Future-projects entry — or a `docs/notes/deferred-items.md` want — that
-  the work *closes*.** A shipped feature still documented as open is the
-  silent doc-failure the 2026-06-01 RCA records
-  (`docs/notes/rca-discipline-lapses-2026-06-01.md`, Lapse 2); because the
-  status lives in more than one doc, retire it in each. (A stopgap: the
-  durable fix is a machine-readable work-status SSOT, of which `TODO.md`
-  becomes a projection — tracked as RCA guard G5.)
-- Does `docs/handoff-current.md` describe a surface this change
-  affects, and is the description still accurate?
+- Does the work-status SSOT (`docs/work-status.json`) need updating —
+  a status transition (open → closed), a new item, or a retire-on-ship
+  closure? It is the **single source of truth** for open / shipped /
+  deferred work status (RCA guard G5, now in force). Query it with
+  `node tools/work-status/sql.mjs '<SQL>'`; edit `docs/work-status.json`
+  directly to change status; the checker (`tools/work-status/check.mjs`,
+  CI-gated) validates it. `docs/TODO.md` is a thin human **projection** of
+  the SSOT — do not record status there. A shipped feature still documented
+  as open is the silent doc-failure the 2026-06-01 RCA records
+  (`docs/notes/rca-discipline-lapses-2026-06-01.md`, Lapse 2); recording
+  status in one canonical place is the structural fix.
+- Does `docs/handoff-current.md` describe an *orientation* surface this
+  change affects (the product/pedagogy framing, the architecture and
+  integration model, or the implementation-context a still-open
+  work-status item needs), and is it still accurate? Handoff carries
+  orientation and open-work context, **not** work status — status lives in
+  the SSOT, and delivered descriptions are cut to its archive vestige
+  (`docs/archive/notes/handoff-current-vestige.md`).
 - Does `FEATURES.md` need a new entry, an updated description, or
   a removed entry? See "User-facing tour (FEATURES.md)" below for
   the full discipline.
@@ -94,7 +101,8 @@ it. Before declaring a task done or filing a PR, audit:
 - **Did this change touch documentation *structure*?** The doc-graph
   artifact (`docs/doc-graph.json` + `docs/doc-graph.md` +
   `docs/doc-graph-report.md`; the SVG picture is rendered locally and
-  `.gitignore`d, not committed — see `docs/notes/deferred-items.md`) is
+  `.gitignore`d, not committed — see
+  `docs/notes/vestige/deferred-items/doc-graph-svg-render-off-tree.md`) is
   **committed and CI-gated for freshness** (`doc-graph-ci`), but the
   gate compares **graph structure only** — the node set, edges, and
   resolution — not the heatmap, which the committed manifest stores as a
@@ -110,8 +118,8 @@ it. Before declaring a task done or filing a PR, audit:
   PR with doc implications is. (When two structural doc PRs are in
   flight, the second to merge must be rebased + regenerated against the
   first, or main's committed graph goes stale — see
-  `docs/notes/deferred-items.md` and the doc-graph worklogs for the
-  worked case.)
+  `docs/notes/vestige/deferred-items/doc-graph-svg-render-off-tree.md` and
+  the doc-graph worklogs for the worked case.)
 - Per ADR-0006, if files were touched under full visibility and lack
   the standard header, retrofit it.
 
@@ -168,9 +176,10 @@ crystallised).
 - Build / lifecycle / contributor workflow. Lives in the
   per-sub-project `README.md`.
 - Architectural decisions. Live in `docs/adr/`.
-- Project-level status (release retrospectives, current
-  in-flight work). Lives in `docs/handoff-current.md` and
-  `docs/notes/release-retrospective-*.md`.
+- Project-level status — open / shipped / in-flight work status lives in
+  the work-status SSOT (`docs/work-status.json`); release retrospectives
+  live in `docs/notes/release-retrospective-*.md` and `docs/archive/notes/`.
+  (Orientation prose stays in `docs/handoff-current.md`.)
 
 The tour describes capabilities a user can exercise; it doesn't
 describe how the team builds them.
