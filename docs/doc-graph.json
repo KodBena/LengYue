@@ -1,6 +1,6 @@
 {
-  "node_count": 374,
-  "edge_count": 1768,
+  "node_count": 375,
+  "edge_count": 1772,
   "age_buckets": [
     {
       "name": "fresh",
@@ -97,8 +97,8 @@
       "genre": "doc-root",
       "is_hub": true,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-05-31",
-      "age_bucket": "aging"
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/adr/0001-state-mutation-and-readonly.md",
@@ -562,7 +562,7 @@
       "is_hub": false,
       "first_committed": "2026-05-26",
       "last_committed": "2026-05-26",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/archive/notes/magic-literals-audit-inventory.md",
@@ -2570,7 +2570,7 @@
       "is_hub": false,
       "first_committed": "2026-05-26",
       "last_committed": "2026-05-26",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-26-compression-arc-saturation.md",
@@ -2578,7 +2578,7 @@
       "is_hub": false,
       "first_committed": "2026-05-26",
       "last_committed": "2026-05-26",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-27-keybindings-phase1-substrate.md",
@@ -2971,6 +2971,14 @@
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
       "age_bucket": "recent"
+    },
+    {
+      "path": "docs/worklog/2026-06-02-cochange-advisory.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "docs/worklog/2026-06-02-design-note-retirement-gate.md",
@@ -15018,6 +15026,34 @@
       "kind": "path-mention",
       "site": "`docs/notes/perceptual-event-projection-plan.md`",
       "resolved": "dangling"
+    },
+    {
+      "from": "docs/worklog/2026-06-02-cochange-advisory.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-02-cochange-advisory.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-02-cochange-advisory.md",
+      "to": "docs/adr-synopsis.md",
+      "kind": "path-mention",
+      "site": "`docs/adr-synopsis.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-02-cochange-advisory.md",
+      "to": "docs/TODO.md",
+      "kind": "path-mention",
+      "site": "`docs/TODO.md`",
+      "resolved": "resolved"
     },
     {
       "from": "docs/worklog/2026-06-02-design-note-retirement-gate.md",

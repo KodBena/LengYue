@@ -786,6 +786,20 @@
       "disposition": "active",
       "scope": "umbrella",
       "tier": "small"
+    },
+    {
+      "id": "cochange-advisory",
+      "title": "Co-change advisory for derived docs (source-changed-without-derived)",
+      "description": "A derived doc declares its sources inline (`<!-- derived-from: <glob> -->`); on a PR, tools/doc-graph/cochange-advisory.mjs flags any derived doc whose source changed but which was not itself updated — closing the gap the stale ADR synopsis exposed (the doc-graph resolves edges + tracks age, but not derivation-direction content staleness; ADR-0005 Rule 3 hazard). Per-PR-diff (origin/main...HEAD), not state-based, so it cannot nag forever; silence a genuine non-update with `cochange-ack: <derived-doc> — <reason>` in a commit (per-PR, self-documenting). Advisory only (exit 0). Initial curated declarations: adr-synopsis.md ⟵ docs/adr/*.md, TODO.md ⟵ work-status.json.",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-06-02",
+      "scope": "umbrella",
+      "tier": "small",
+      "refs": [
+        { "kind": "source", "target": "tools/doc-graph/cochange-advisory.mjs" },
+        { "kind": "worklog", "target": "docs/worklog/2026-06-02-cochange-advisory.md" }
+      ]
     }
   ]
 }
