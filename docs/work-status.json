@@ -2,9 +2,291 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "forestdirectory-tabwidget-refactor",
+      "title": "ForestDirectory Decks/Browse strip → nested TabWidget",
+      "description": "ForestDirectory.vue implements its Decks/Browse sub-tab strip with plain buttons + a local ref rather than the reusable TabWidget every other tab strip uses. Functional parity; refactor unifies the pattern (loses a little literal-union precision). Trigger: alongside other ForestDirectory work, or a focused single-file session.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "frontend",
+      "tier": "small",
+      "refs": [{ "kind": "source", "target": "frontend/src/components/tree/ForestDirectory.vue" }]
+    },
+    {
+      "id": "i18n-string-sweep",
+      "title": "Internationalization (i18n) — string sweep",
+      "description": "vue-i18n plumbing + the 150-300 hardcoded-string sweep landed (schema 23→24, LocalePicker, en source + zh-CN/ja/ko LLM-drafted stubs). Residual: native-speaker review per locale before each catalog is marked Active. A future structured-backend-error-codes arc is its own dispatch.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "frontend",
+      "tier": "medium",
+      "refs": [{ "kind": "design-note", "target": "frontend/docs/i18n.md" }]
+    },
+    {
+      "id": "chess-clone",
+      "title": "Chess clone (domain port)",
+      "description": "Per ADR-0003 portability: implement PositionNormalizerPort for PGN (backend), replace the ~30-40% Band-3 frontend surface (SGF/board/KataGo wire), add a Stockfish/Leela engine bridge, substitute the palette stdlib. Trigger: a chess-playing contributor with a PoC and willingness to do the engine bridge.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "both",
+      "tier": "medium"
+    },
+    {
+      "id": "silent-coercion-protocol-boundaries-audit",
+      "title": "Silent-coercion-at-protocol-boundaries audit",
+      "description": "Sweep for closed-set wire vocabularies parsed with an open-set default that silently coerces unknown values (the ADR-0002 silent-coercion shape; bitten more than once). Cure: enum/Literal witness, one source of truth for the wire-string↔enum map, distinguish missing-key from unknown-value, two-tier loudness. Frontend + backend; proxy via dispatch.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "both",
+      "tier": "medium"
+    },
+    {
+      "id": "responsive-design-deferred",
+      "title": "Responsive design — deferred items",
+      "description": "Items deferred from the 23-iter responsive arc: user-discretionary (10px body font ignoring browser prefs, details-open defaults, board scroll-hijack, SidebarWidget v-show) and narrow-viewport bug-class (registry-editor right-pane wrap, tree-panel overflow, KnobSlider label truncation, timeline clip, log auto-reveal). None user-blocking at 4K. Trigger: user-prioritised, interleaved on feat/responsive.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "frontend",
+      "tier": "medium",
+      "refs": [{ "kind": "design-note", "target": "docs/notes/responsive-design-audit-2026-05-22.md" }]
+    },
+    {
+      "id": "save-disconnect-clears-graph",
+      "title": "Save → disconnect clears the analysis graph; companion always-persist option",
+      "description": "Clicking Save then disconnecting clears the in-memory analysis graph (staleness-avoidance default, sound but UX-surprising). Two-part fix: keep the default; add an [experimental] profile.settings.engine.katago.alwaysPersistGraphs toggle with a strong resource-cost warning (~1 MB per game-worth). Trigger: user-prioritised.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "frontend",
+      "tier": "medium"
+    },
+    {
+      "id": "byte-xor-q8-ownership",
+      "title": "Byte-XOR delta on the Q8 ownership wire",
+      "description": "Registry value v2-quantized-hifi-xor + a byte-stable encoder scheme tag; makeLossyEncoder absorbs a byteXorDelta param. Reconstruction byte-identical to plain hifi (XOR is algebraic); no backend changes. The sole Pareto-improving operating point from the compression saturation arc.",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-05-26",
+      "scope": "frontend",
+      "tier": "medium",
+      "refs": [
+        { "kind": "pr", "target": "272" },
+        { "kind": "worklog", "target": "docs/worklog/2026-05-26-byte-xor-hifi-ship.md" }
+      ]
+    },
+    {
+      "id": "nav-rerender-localization-app-decouple",
+      "title": "Navigation re-render localization — App-decouple (perf Arc 2)",
+      "description": "App.vue re-rendered the whole tree on every nav step (reading the move cursor in its template). Arc 2 moved cursor reads into leaf components (StatusBar self-sources turn/captures/moveNumber; TreeWidget self-sources currentNodeId) so App stops re-rendering on navigation, eliminating the per-step whole-tree patch.",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-05-29",
+      "scope": "frontend",
+      "tier": "medium",
+      "refs": [{ "kind": "worklog", "target": "docs/worklog/2026-05-29-perf-nav-arc2-app-decouple.md" }]
+    },
+    {
+      "id": "nav-during-range-query-perf",
+      "title": "Navigation-during-range-query perf (regime B)",
+      "description": "During a live range query the median frame ran ~47ms (~3.3x the 60fps budget), substantiated 2026-05-29. Umbrella over three levers (RB-1/RB-2/RB-3, tracked as children). RB-1/RB-2 shipped; RB-3 dropped. Residual: whether the regime-B frame cost is fully retired wants a re-profile (ADR-0009). Trigger: user-prioritised.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "frontend",
+      "tier": "medium",
+      "refs": [{ "kind": "design-note", "target": "docs/notes/perf-audit-range-query-nav-2026-05-29.md" }]
+    },
+    {
+      "id": "rb1-toolbar-metrics-decouple",
+      "title": "RB-1 — App ↔ engine-metrics decouple",
+      "description": "App re-rendered the whole tree on every metric tick (531x); Toolbar now self-sources status/metrics → 0. Cleared the metric-driven whole-tree re-render (~1s). Modest frame impact alone.",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-05-29",
+      "scope": "frontend",
+      "parent": "nav-during-range-query-perf",
+      "refs": [{ "kind": "worklog", "target": "docs/worklog/2026-05-29-perf-nav-rb1-toolbar-metrics-decouple.md" }]
+    },
+    {
+      "id": "rb2-analysis-panel-coalescing",
+      "title": "RB-2 — analysis-panel chart-update coalescing",
+      "description": "The dominant ~4.5s cost (ECharts setOption per packet + AnalysisChartPanel thrash). Resolved by the analysis-panel refactor (render active tab only over the panel registry) plus PR #329's collapsed-chart active-gate; inactive/collapsed panels no longer run setOption. Re-profile pending before the win is claimed.",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-05-29",
+      "scope": "frontend",
+      "parent": "nav-during-range-query-perf",
+      "refs": [{ "kind": "pr", "target": "329" }]
+    },
+    {
+      "id": "rb3-packet-receive-chunking",
+      "title": "RB-3 — packet-receive-path chunking",
+      "description": "Hypothesised chunking lever. Re-measured on current main: onAnalysisUpdate is ~99ms total (p50 0.2ms/packet), NOT the ~2.35s the pre-refactor audit attributed to it. No bottleneck, no lever — dropped. The named Effect-TS reserve trigger did not fire.",
+      "state": "closed",
+      "resolution": "dropped",
+      "closed_on": "2026-05-29",
+      "scope": "frontend",
+      "parent": "nav-during-range-query-perf",
+      "refs": [{ "kind": "worklog", "target": "docs/worklog/2026-05-29-perf-rb3-diagnosis.md" }]
+    },
+    {
+      "id": "perceptual-event-projection",
+      "title": "Perceptual event projection — user-observable event-stream chart",
+      "description": "From a captured perf trace, reconstruct the event stream as the user observes it (input→visual-response latency, stalls). The load-bearing idea is an ACL: a perceptual-event vocabulary independent of the SPA's markers, with a trace→vocabulary adapter. Canvas swimlane timeline (ADR-0010). Depends on the faithful headed-capture path.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "frontend",
+      "tier": "large",
+      "refs": [{ "kind": "design-note", "target": "docs/notes/perceptual-event-projection-plan.md" }]
+    },
+    {
+      "id": "memory-profiling-discipline",
+      "title": "Memory-profiling discipline — fold onto the perf-capture harness",
+      "description": "scripts/perf-heap.mjs (CDP HeapProfiler driver; retained-heap tail-slope metric added to ADR-0009). Board/analysis lifecycle paths found leak-free; trace memory counters surfaced without a flag; resetWorkspace-churn scenario clean. Both follow-on sessions landed 2026-06-01.",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-06-01",
+      "scope": "frontend",
+      "tier": "large",
+      "refs": [{ "kind": "worklog", "target": "docs/worklog/2026-06-01-memory-profiling-session.md" }]
+    },
+    {
+      "id": "unified-user-controllable-scalar",
+      "title": "Unified user-controllable-scalar surface (knob registry)",
+      "description": "Knob-registry substrate (types + path-walk accessors + named-transform library + ownership state machine), the cross-domain KnobRegistryEditor, the qEUBO consumer migration, and the first magic-literals promotion batch. Open follow-ups tracked as separate items.",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-05-14",
+      "scope": "frontend",
+      "tier": "large",
+      "refs": [
+        { "kind": "pr", "target": "223" },
+        { "kind": "worklog", "target": "docs/worklog/2026-05-14-knob-registry.md" }
+      ]
+    },
+    {
+      "id": "knob-bookmark-schema-reshape",
+      "title": "qEUBO bookmark schema reshape",
+      "description": "Reshape qEUBO bookmarks from Record<string,number> to Record<KnobId,number[]>. Deferred follow-up from the knob-registry arc.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "frontend",
+      "tier": "small",
+      "refs": [{ "kind": "worklog", "target": "docs/worklog/2026-05-14-knob-registry.md" }]
+    },
+    {
+      "id": "knob-wire-key-derivation",
+      "title": "Wire-key derivation from KnobDecl ids for qEUBO controlled_parameters",
+      "description": "Derive qEUBO's controlled_parameters wire keys from KnobDecl ids. Backend coordination via dispatch if pursued. Deferred follow-up from the knob-registry arc.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "both",
+      "tier": "small"
+    },
+    {
+      "id": "pre-merge-checklist-doc",
+      "title": "docs/pre-merge-checklist.md as an actual file",
+      "description": "A template the trusted rotation consults when filing retroactive correctives (NOT a merge-blocking gate — that framing was the wrong enforcement point). Surfaced by the toolbar-popover postmortem; one focused PR closes it.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "umbrella",
+      "tier": "small",
+      "refs": [{ "kind": "design-note", "target": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md" }]
+    },
+    {
+      "id": "classification-discipline-tenet-rule7-relocation",
+      "title": "Classification-discipline principle as its own tenet; Rule 7 relocation",
+      "description": "Articulate the classification-discipline principle in its own right (a standalone ADR or a tenet-space refactor) and relocate ADR-0002 Rule 7 there. Trigger: a fourth clearly-non-fail-loudly closest-match instance, or appetite for the tenet-space refactor.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "umbrella",
+      "tier": "small"
+    },
+    {
+      "id": "single-cte-per-pipeline-run",
+      "title": "Single CTE per pipeline run",
+      "description": "PipelineExecutor.run loops over context_ids issuing one CTE round-trip per id; replace with one CTE keyed off WHERE card_source.card_id IN (:context_ids), first-seen-wins becoming MIN(depth) GROUP BY. Observable behaviour identical; latency drops linearly. Trigger: pairs with 30d — do 30d first, then this is a one-liner.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "backend",
+      "tier": "large",
+      "legacy_number": "30c",
+      "depends_on": ["consolidate-recursive-cte"]
+    },
+    {
+      "id": "consolidate-recursive-cte",
+      "title": "Consolidate the four recursive-CTE implementations",
+      "description": "Extract one _build_lineage_cte(root_predicate, max_depth) helper; the four call sites (tree_engine.fetch_lineage, tree_engine.build_selection_cte, tree_queries.get_lineage_cte, tree_dsl.SubtreeSelection.to_cte) delegate. Closes the hole where a bug-fix to one variant never propagates.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "backend",
+      "tier": "large",
+      "legacy_number": "30d"
+    },
+    {
+      "id": "item-27-etag-multitab",
+      "title": "Item 27 full — ETag-based multi-tab coordination",
+      "description": "Multi-tab use isn't a known workflow; SyncService is last-write-wins (documented, item 27-min shipped). If multi-tab becomes real, an ETag-based coordination layer is the right design (sketch in the SyncService::sendSync() comment).",
+      "state": "open",
+      "disposition": "future",
+      "scope": "frontend",
+      "tier": "large",
+      "legacy_number": "27"
+    },
+    {
+      "id": "item-32-zeroconf-discovery",
+      "title": "Item 32 — zeroconf / mDNS service discovery",
+      "description": "Backend zeroconf advertisement + frontend discovery, replacing the fixed-URL config. Large because the test matrix is wide (3 OSes x browsers x network configs) and failure modes need graceful fallback to the configured URL. Constraints: no mandatory Linux deps (no Avahi), Windows OOTB, Firefox without extensions.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "both",
+      "tier": "large",
+      "legacy_number": "32"
+    },
+    {
+      "id": "tag-dsl-macro-language",
+      "title": "Tag-DSL virtual-tag macro language",
+      "description": "Shipped across PRs #197 (file split), #198 (macro language + three caps), #199 (reference + REPL). Negation-in-definitions and parenthesised grouping now supported. Closed the long-carrying tag_dsl.py-is-an-adapter rough edge.",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-05-12",
+      "scope": "backend",
+      "tier": "large",
+      "refs": [
+        { "kind": "pr", "target": "197" },
+        { "kind": "pr", "target": "198" },
+        { "kind": "pr", "target": "199" },
+        { "kind": "worklog", "target": "docs/worklog/2026-05-12-tag-dsl-macro-language.md" }
+      ]
+    },
+    {
+      "id": "automatic-mistake-discovery",
+      "title": "Automatic mistake discovery",
+      "description": "Surface engine-defined mistake candidates from a played-out game as a review queue. Open design questions: mistake definition (delta-from-best / cluster / palette-signal), threshold scalar(s) (KnobDecl candidates), affordance (live / batch / both), heredity (spawn child cards or standalone). MergedDeltaPanel peaks are a useful candidate source. Needs the design decisions settled.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "frontend",
+      "tier": "large"
+    },
+    {
+      "id": "inline-analysis-config-editing",
+      "title": "Inline analysis_config editing in the card-metadata panel",
+      "description": "The arc-2 inline-edit panel treats analysis_config as read-only (deferred). Backend reads only gamma; the rest is opaque pass-through, so the frontend owns the shape. Today users edit it via the registry editor's full-shape JSON UI; question is whether an inline surface adds enough common-case affordance. Trigger: user thought-time.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "frontend",
+      "tier": "medium"
+    },
+    {
+      "id": "polymorphic-chart-renderer",
+      "title": "Polymorphic chart renderer abstraction",
+      "description": "A ChartRenderer Port-equivalent (ADR-0003) so the chart surface can host alternative backends (custom canvas, D3+canvas, Plotly), motivated by ECharts' destroy-and-recreate-every-Rect heatmap redraw. Open questions: seam location, Port surface, theme coupling, bundle weight. Not blocking; the heatmap throttle bought headroom to defer.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "frontend",
+      "tier": "large"
+    },
+    {
       "id": "analysis-customisable-subtabs",
       "title": "Analysis tab — user-customisable sub-tabs binding chart components",
-      "description": "Panel registry + multi-tab over it (render only the active tab's panels) + a Settings tab-layout editor; schema migration 54→55 backfills default named tabs. Subsumes the collapsed-chart per-packet setOption concern. (This is the worked Lapse-2 exhibit from the 2026-06-01 RCA: it stood documented as an open Future project for two days after shipping.)",
+      "description": "Panel registry + multi-tab (render only the active tab's panels) + a Settings tab-layout editor; migration 54→55 backfills default named tabs. Subsumes the collapsed-chart per-packet setOption concern that docs/notes/deferred-items.md separately tracked. (The worked Lapse-2 exhibit in the 2026-06-01 RCA: documented open for two days after shipping.)",
       "state": "closed",
       "resolution": "shipped",
       "closed_on": "2026-05-29",
@@ -19,72 +301,313 @@
       ]
     },
     {
-      "id": "consolidate-recursive-cte",
-      "title": "Consolidate the four recursive-CTE implementations",
-      "description": "Extract one `_build_lineage_cte(root_predicate, max_depth)` helper; the four current call sites (tree_engine.fetch_lineage, tree_engine.build_selection_cte, tree_queries.get_lineage_cte, tree_dsl.SubtreeSelection.to_cte) delegate to it. Closes the hole where a bug-fix to one variant never propagates to the others. Trigger: backend architectural bandwidth.",
+      "id": "content-addressed-card-identity",
+      "title": "Content-addressed card identity — auditability investigation",
+      "description": "Investigation, not implementation: would making content_hash the primary card identity (game_source joins as incidental provenance) improve auditability? Open questions: what 'canonical position' means, auditability of what specifically, schema-migration vs interface-code cost. Implementation follows only if the investigation answers yes.",
       "state": "open",
-      "disposition": "active",
-      "scope": "backend",
-      "tier": "large",
-      "legacy_number": "30d"
+      "disposition": "future",
+      "scope": "both",
+      "tier": "large"
     },
     {
-      "id": "single-cte-per-pipeline-run",
-      "title": "Single CTE per pipeline run",
-      "description": "PipelineExecutor.run loops over context_ids issuing one CTE round-trip per id; replace with one CTE keyed off `WHERE card_source.card_id IN (:context_ids)`, first-seen-wins becoming MIN(depth) GROUP BY. Observable behaviour identical; latency drops linearly with context count. Trigger: pairs with 30d — do 30d first, then this becomes a one-liner.",
+      "id": "doc-graph-svg-spline-failure",
+      "title": "Doc-graph SVG — Graphviz dot spline-routing layout failure",
+      "description": "dot -Tsvg on the ~330-node graph exits non-zero (routesplines: cannot find NORMAL edge) while still emitting a complete SVG — a real layout failure for ≥1 edge, not just a warning. Non-critical (manifest is SoT). Stopgap tolerates the non-zero exit. Version-sensitive (CI's apt dot, not local 14.1.2).",
       "state": "open",
       "disposition": "active",
-      "scope": "backend",
-      "tier": "large",
-      "legacy_number": "30c",
-      "depends_on": ["consolidate-recursive-cte"]
+      "scope": "umbrella",
+      "tier": "small",
+      "refs": [{ "kind": "source", "target": "tools/doc-graph/generate.mjs" }]
     },
     {
-      "id": "nav-during-range-query-perf",
-      "title": "Navigation-during-range-query perf (regime B)",
-      "description": "During a live range query the median frame ran ~47ms (~3.3× the 60fps budget) — the user-perceived sluggishness, substantiated 2026-05-29. Umbrella item over three levers (RB-1/RB-2/RB-3, tracked as child items). RB-1 and RB-2 shipped; RB-3 was measured and dropped. Residual: whether the regime-B frame cost is fully retired wants a re-profile (ADR-0009) before the win is claimed. Trigger: user-prioritised.",
+      "id": "doc-graph-svg-render-off-tree",
+      "title": "Doc-graph SVG — render off the counted tree",
+      "description": "The committed SVG was removed and gitignored (GitHub counts every line; .gitattributes -diff doesn't decount). Interim honest step. The real fix: a CI job renders from the committed manifest to a dedicated render branch or Pages, with deterministic edge sorting so structural changes are minimal JSON diffs.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "umbrella",
+      "tier": "medium",
+      "refs": [{ "kind": "source", "target": "tools/doc-graph/generate.mjs" }]
+    },
+    {
+      "id": "de-cq-preview-hide",
+      "title": "Analysis-panel container-query recompute under chart redraw (de-CQ the preview-hide)",
+      "description": "Replaced the @container query with a ResizeObserver-toggled .narrow class in AnalysisChartPanel.vue (fires on real width changes, not per style flush). Headless before/after: forced style+layout invocations −19.4%, no regression. Modest (~2% of wall) but clean.",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-06-01",
+      "scope": "frontend",
+      "tier": "small",
+      "refs": [{ "kind": "worklog", "target": "docs/worklog/2026-06-01-de-cq-preview-hide.md" }]
+    },
+    {
+      "id": "adaptive-query-cancellation-leak",
+      "title": "Adaptive-query cancellation leak (mid-adaptive terminate — likely proxy-side)",
+      "description": "Cancelling an adaptive range query mid-adaptive leaves the proxy query running while the SPA drops further packets. The SPA's one-id/one-terminate model is correct per the unified-id contract; leading hypothesis is proxy-side (terminate not routed to the running adaptive sub-query). Not confirmed — needs proxy runtime visibility before drawing conclusions. If proxy-side, file a dispatch + coordinated bump.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "proxy",
+      "tier": "medium",
+      "refs": [{ "kind": "source", "target": "frontend/src/services/analysis-service.ts" }]
+    },
+    {
+      "id": "surface-1-backgrounds-audit",
+      "title": "--surface-1 backgrounds (low-contrast on the default theme)",
+      "description": "var(--surface-1) resolves dark-grey under black default text — almost never the right background (--surface-0 is the default). The Phase-3 editor was fixed; a few other call sites remain unaudited. grep + excise non-deliberate usages or annotate the genuine exceptions. Low priority.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "frontend",
+      "tier": "small"
+    },
+    {
+      "id": "scattered-timing-literals",
+      "title": "Scattered non-coalescing timing literals",
+      "description": "timing.ts centralises coalescing windows; the adjacent timeouts/durations/interaction-delays (KATAGO_ANALYSIS_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, REVEAL_DURATION_MS, DEFAULT_CLOSE_DELAY_MS) remain scattered — each magic-literal compliant but not catalogued. Decide: leave / sibling catalog / sectioned timing.ts. Low priority.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "frontend",
+      "tier": "small"
+    },
+    {
+      "id": "adr-effectiveness-audits",
+      "title": "ADR-effectiveness audits + doc-graph consolidation discipline",
+      "description": "The ADRs are policy, not mechanism; a periodic per-tenet audit (where does this tenet not hold, and why) would surface drift. ADR-0002 most overdue. The maintainer settled the doc-consolidation leg 2026-06-01 (the work-status SSOT, RCA G5 — being built now); the broader mandated reorganization discipline (doc retirement, taxonomy, docs/notes hierarchy) and the per-tenet audit cadence remain open.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "umbrella",
+      "tier": "large",
+      "refs": [{ "kind": "design-note", "target": "docs/notes/rca-discipline-lapses-2026-06-01.md" }]
+    },
+    {
+      "id": "serial-numbers-generated-artifacts",
+      "title": "Serial numbers on compiler-generated artifacts",
+      "description": "Generated files (notably frontend/src/types/backend.ts) carry no in-file marker of which backend revision they correspond to. A short serial (timestamp / content hash / git SHA) in a header comment would let downstream readers verify the version. Draft an RFC (format, generation hook, embedding location, consumer validation) before any implementation.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "both",
+      "tier": "small"
+    },
+    {
+      "id": "loadaction-type-dishonest",
+      "title": "LoadAction type is dishonest (ConfirmLoadModal.vue)",
+      "description": "ConfirmLoadModal now exposes Promise<LoadResult> with the structured { action, remember } pair; the as-LoadAction cast is gone.",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-04-27",
+      "scope": "frontend",
+      "tier": "small",
+      "refs": [{ "kind": "commit", "target": "frontend/c2.2-use-dirty-board-guard" }]
+    },
+    {
+      "id": "silent-guard-handleloadcard",
+      "title": "Silent guard fail in handleLoadCardFromDatabase (App.vue)",
+      "description": "useDirtyBoardGuard owns the policy; the silent early-return is replaced with an explicit throw if the modal ref is null. The old App.vue handler no longer exists; the contract is in the composable's JSDoc.",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-04-27",
+      "scope": "frontend",
+      "tier": "small",
+      "refs": [{ "kind": "commit", "target": "frontend/c2.2-use-dirty-board-guard" }]
+    },
+    {
+      "id": "engine-connection-lifecycle-logout",
+      "title": "Engine connection lifecycle on logout (deployment-model-dependent)",
+      "description": "resetWorkspace intentionally does NOT reset store.engine: today the WebSocket URL is not user-keyed, so the same socket serves both users honestly; half-resetting would be an ADR-0001 lie. Revisit when the deployment model makes the WS URL user-keyed (cloud KataGo, rented per-user analysis, auth-bearing tokens) — then reset engine + wire analysisService.disconnect() into the reset.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "frontend",
+      "tier": "medium"
+    },
+    {
+      "id": "remove-legacy-auth-key-shim",
+      "title": "Remove legacy auth-key compat shim (api-client.ts)",
+      "description": "api-client.ts carries a one-shot migrateLegacyAuthKeys() shim (ebisu_* → auth_* on module init). Per ADR-0002 exception #3, a bounded-and-scheduled-for-removal shim. Remove the function + its single call (~30 lines) once monitoring confirms no users carry the legacy keys.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "frontend",
+      "tier": "small",
+      "refs": [{ "kind": "source", "target": "frontend/src/services/api-client.ts" }]
+    },
+    {
+      "id": "tags-fetch-hydration-race",
+      "title": "Tags-fetch hydration race (useAppBootstrap.ts)",
+      "description": "useAppBootstrap fires getTags() concurrently with sync.connect()'s hydration; if getTags wins, hydration's updateFromRemote overwrites the profile and drops knownTags. Pre-existing, benign (knownTags is re-fetchable), but a real ordering bug. Fix: await hydration before the tags fetch, or move knownTags to a watcher that re-applies on identity change.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "frontend",
+      "tier": "small",
+      "refs": [{ "kind": "source", "target": "frontend/src/composables/useAppBootstrap.ts" }]
+    },
+    {
+      "id": "refactoring-queue-adr0007",
+      "title": "Refactoring queue from ADR-0007",
+      "description": "Files failing ADR-0007's single-view test (>300 lines): PaletteEditor.vue (531), useReviewSession.ts (483, state-machine exception likely), HorizontalTimelineVisualizer.vue (392), MintCardModal.vue (393), BaseChart.vue (345), ForestDirectory.vue (~335); App.vue (513, trending down); types.ts (953, type-catalogue exception). No batch refactor — incremental per ADR-0004. PaletteEditor and useReviewSession are the natural next targets.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "frontend",
+      "tier": "medium"
+    },
+    {
+      "id": "review-state-convention-inconsistency",
+      "title": "Review-state convention inconsistency between App.vue and BoardTab.vue",
+      "description": "BoardTab.vue .review-complete uses --state-success (green); App.vue's review-state ternary uses --accent-secondary (orange) on FINISHED, --state-attention (red) otherwise. Either legitimately different anchors needing clearer naming, or off-convention. Decide what each renders, then adopt the --review-* aliases on App.vue or introduce a separate anchor.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "frontend",
+      "tier": "small"
+    },
+    {
+      "id": "pv-overlay-typography-calibration",
+      "title": "PV-overlay typography proportions — calibration question",
+      "description": "MoveSuggestions.vue carries five stoneR-relative multipliers (1.01 outline; 0.72/0.58/0.82 font-size hierarchy; 0.62 score-label offset) likely co-calibrated by eye for the PV-preview rhythm. Naming them individually without naming the calibration loses context. The 60ms fade was promoted to a knob (2026-05-22); the five multipliers remain deferred.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "frontend",
+      "tier": "small",
+      "refs": [{ "kind": "source", "target": "frontend/src/components/MoveSuggestions.vue" }]
+    },
+    {
+      "id": "pv-animation-defaults-calibration",
+      "title": "PV-animation defaults — pairwise-calibration question",
+      "description": "use-pv-animation.ts declares its own stepDelayMs/windowDurationMs/fadeDurationMs/pvOpacity defaults, duplicating defaults.ts. They may be pairwise-calibrated for the repeating-window rhythm (co-tuned constants — a third pattern beyond snap-by-cluster and decouple-via-alias). Determine whether coupled; if so name the calibration, else consolidate-via-import.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "frontend",
+      "tier": "small",
+      "refs": [{ "kind": "source", "target": "frontend/src/composables/use-pv-animation.ts" }]
+    },
+    {
+      "id": "mistake-finder-unpunished-brittleness",
+      "title": "Mistake-finder un-punished-flag brittleness",
+      "description": "The un-punished red-flag heuristic (per-board worst-15% quantile) false-positives on clean games (marginal move + marginal opponent move). Detecting mistakes from a single net's terminal eval is the brittle special case, not a fixable heuristic bug. Avenues: absolute-severity floor, cross-net agreement via SELECTOR, within-position stability, cross-palette agreement.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "frontend",
+      "tier": "medium"
+    },
+    {
+      "id": "stability-surface-distribution-metric",
+      "title": "Stability surface — distribution-level (information-geometric) metric",
+      "description": "The Stage-4 stability substrate uses categorical extractors; the maintainer's intuition wants a distribution-level metric over the full visit distribution (information length / cumulative Bayesian surprise / pairwise JS). Different abstraction class (packet→ProbabilityVector, no changepoint compression). Reasonable as a parallel substrate alongside the v1 categorical one.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "frontend",
+      "tier": "large"
+    },
+    {
+      "id": "kde-boundary-bias",
+      "title": "KDE boundary bias for bounded-support palettes",
+      "description": "The Stage-3 Gaussian KDE leaks mass past bounded supports ([0,1] quality/rank palettes show nonzero density at x<0). Functional impact cosmetic today. Disciplined fixes: reflection method (cheapest), boundary kernels, transformation (logit), beta-kernel KDE. Substrate: a per-palette support?:[number,number] field threaded to the KDE consumer.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "frontend",
+      "tier": "medium"
+    },
+    {
+      "id": "stringly-typed-api-errors",
+      "title": "Stringly-encoded API errors reverse-engineered downstream (audit + RCA)",
+      "description": "api-client threw a stringly-typed API Error <status>: <body>; six consumers reparsed it by regex — a brittleness hazard (silent degrade on format drift, no compile error). Emergency fix (PR #318) introduced class ApiError { status, body } and converted all six. The exhaustiveness audit closed 2026-06-01 (the six ARE the complete population; 0 new sites). The RCA is drafted, pending maintainer review.",
       "state": "open",
       "disposition": "active",
       "scope": "frontend",
       "tier": "medium",
       "refs": [
-        { "kind": "design-note", "target": "docs/notes/perf-audit-range-query-nav-2026-05-29.md" }
+        { "kind": "pr", "target": "318" },
+        { "kind": "design-note", "target": "docs/notes/audit-stringly-typed-contracts-2026-06-01.md" },
+        { "kind": "design-note", "target": "docs/notes/rca-discipline-lapses-2026-06-01.md" }
       ]
     },
     {
-      "id": "rb1-toolbar-metrics-decouple",
-      "title": "RB-1 — App ↔ engine-metrics decouple",
-      "description": "App re-rendered the whole tree on every metric tick (531×); Toolbar now self-sources status/metrics → 0. Cleared the metric-driven whole-tree re-render (~1s). Modest frame impact alone; the big costs were RB-2/RB-3.",
-      "state": "closed",
-      "resolution": "shipped",
-      "closed_on": "2026-05-29",
-      "scope": "frontend",
-      "parent": "nav-during-range-query-perf",
-      "refs": [
-        { "kind": "worklog", "target": "docs/worklog/2026-05-29-perf-nav-rb1-toolbar-metrics-decouple.md" }
-      ]
-    },
-    {
-      "id": "rb3-packet-receive-chunking",
-      "title": "RB-3 — packet-receive-path chunking",
-      "description": "Hypothesised chunking lever for the packet-receive path. Instrumented and re-measured on current main: the onAnalysisUpdate handler is ~99ms total (p50 0.2ms/packet), NOT the ~2.35s the pre-refactor audit attributed to it. No bottleneck, no chunking lever to build — dropped. The named Effect-TS reserve trigger did not fire.",
-      "state": "closed",
-      "resolution": "dropped",
-      "closed_on": "2026-05-29",
-      "scope": "frontend",
-      "parent": "nav-during-range-query-perf",
-      "refs": [
-        { "kind": "worklog", "target": "docs/worklog/2026-05-29-perf-rb3-diagnosis.md" }
-      ]
-    },
-    {
-      "id": "polymorphic-chart-renderer",
-      "title": "Polymorphic chart renderer abstraction",
-      "description": "Introduce a ChartRenderer Port-equivalent (ADR-0003) so the chart surface can host alternative backends (custom canvas, D3+canvas, Plotly) without rewriting every consumer — motivated by ECharts' destroy-and-recreate-every-Rect heatmap redraw. Open design questions (seam location, Port surface, theme-substrate coupling, bundle weight) are substantial enough to warrant a dedicated design note before implementation; not blocking any current arc. Trigger: user prioritisation.",
+      "id": "semantic-clarity-refactors-effect-typing",
+      "title": "Semantic-clarity refactors surfaced by the effect-typing consult arc",
+      "description": "Two liked-in-principle-but-undecided refactors: (a) name the analysis-service packet multiplexer (onAnalysisUpdate fans one packet to ~5 disjoint sinks — a Subject; caveat: sinks are heterogeneous, so named-dispatch + dependency-inversion may beat a generic Subject); (b) unify the three multi-variant error encodings onto the discriminated-union + never-default idiom (overlaps/subsumed by the ApiError work).",
       "state": "open",
       "disposition": "future",
       "scope": "frontend",
+      "tier": "medium"
+    },
+    {
+      "id": "doc-graph-artifact",
+      "title": "Explicit documentation-graph artifact with commit-age heatmap",
+      "description": "A git-driven generator (zero-dep Node, shells to dot) emitting a machine-readable manifest + a rendered graph + a staleness heatmap + a broken-reference report; committed and CI-verified-fresh. 330 nodes / 1663 edges at ship. Manifest-first: the doc-link validator falls out of the same pass.",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-06-01",
+      "scope": "umbrella",
+      "tier": "large",
+      "refs": [
+        { "kind": "worklog", "target": "docs/worklog/2026-06-01-doc-graph-artifact.md" },
+        { "kind": "design-note", "target": "docs/notes/documentation-graph-artifact-plan.md" }
+      ]
+    },
+    {
+      "id": "foreststat-tagstat-acl",
+      "title": "ForestStat / TagStat — wire-shape passthrough at the ACL boundary",
+      "description": "mapForestStat translator added; ForestStat rewritten to camelCase with branded ids, nullable metadata preserved per ADR-0002. mapTagStat added as a structural-redundancy stub (field-identical) with a doc comment naming the redundancy — settled direction for future accidental-passthrough ACLs.",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-05-06",
+      "scope": "frontend",
+      "tier": "small",
+      "refs": [{ "kind": "worklog", "target": "docs/archive/worklog/2026-05-v1.0-to-v1.1/2026-05-06-foreststat-tagstat-acl-translator.md" }]
+    },
+    {
+      "id": "anchor-role-overloading",
+      "title": "Anchor role overloading in the chrome substrate",
+      "description": "Decouple-via-alias landed: five role aliases (--player-black/-white, --review-active/-intermission/-complete) added to theme.css and ChromeAnchor; chart and review-state sites swept to use them. Visual unchanged; future tuning can break the aliasing without disturbing chrome. Settled direction recorded in the theming plan.",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-05-03",
+      "scope": "frontend",
+      "tier": "small",
+      "refs": [{ "kind": "worklog", "target": "docs/archive/worklog/2026-05-v1.0-to-v1.1/2026-05-03-anchor-decouple-via-alias.md" }]
+    },
+    {
+      "id": "distribution-packaging",
+      "title": "Distribution packaging",
+      "description": "Make the software installable for users without Node/Python toolchains — the leading edge of the post-v1 arc and the structural blocker between 'tenancy spine works' and 'hosted deployment ships'. Options memo on disk.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "both",
+      "tier": "large",
+      "refs": [{ "kind": "design-note", "target": "docs/notes/distribution-packaging.md" }]
+    },
+    {
+      "id": "public-deployment",
+      "title": "Public deployment (hosted service)",
+      "description": "Once tenancy is real and distribution packaging lands, move from local-install to hosted service. The proxy's RELAY-over-LEAF pattern makes the engine side scalable.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "both",
       "tier": "large"
+    },
+    {
+      "id": "qeubo-e2e-validation",
+      "title": "qEUBO palette calibration — end-to-end validation",
+      "description": "qEUBO is feature-complete (backend wrapper, REST routes, useQeubo, toolbar A/B, parameter-meta editor, bookmarks UI). End-to-end UI smoke with Redis is the remaining validation gate; runtime is opt-in (QEUBO_ENABLED=False). On validation, transition the qEUBO design note to implemented.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "both",
+      "tier": "medium",
+      "refs": [{ "kind": "design-note", "target": "docs/archive/notes/qEUBO.md" }]
+    },
+    {
+      "id": "community-palette-library",
+      "title": "Community palette library",
+      "description": "Palettes are JSON; a share-my-palette upload/download flow, hosted alongside the backend or as a static-site feature. Depends on whether palette calibration produces results the community wants to share. Longer-term horizon.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "both",
+      "tier": "large"
+    },
+    {
+      "id": "gradingparameter-opacity-typing",
+      "title": "gradingParameter opacity — tighten if the inner shape stabilizes",
+      "description": "gradingParameter is Record<string,any> because the inner shape is application-defined and changes; the SR composable reads gradingParameter.data.analysis_config per card. If the inner shape stabilizes enough to deserve a typed schema, formalize it in types.ts and tighten the access sites rather than letting Record<string,any> become permanent through inertia.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "both",
+      "tier": "small"
     }
   ]
 }
