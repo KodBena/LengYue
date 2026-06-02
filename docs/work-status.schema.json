@@ -51,6 +51,12 @@
         "depends_on": { "type": "array", "items": { "$ref": "#/$defs/id" } },
         "superseded_by": { "$ref": "#/$defs/id" },
         "refs": { "type": "array", "items": { "$ref": "#/$defs/ref" } },
+        "labels": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["bug", "feature", "performance", "refactor", "architectural-cruft", "investigation", "docs", "tooling", "test", "ux", "security"] },
+          "$comment": "GitHub-style multi-valued tags for free specificity (a perf bug = [bug, performance]; an issue is specified by its kind-label, not a top-level issue|feature split). Optional and deliberately NOT a kind-taxonomy — a deep hierarchy invites the ADR-0008 forced-classification trap; these labels are long-lived and battle-tested. Closed-but-amendable: an unknown value is an error (widen the enum deliberately), and the values are disjoint from every other facet enum (the disjointness meta-lint guards it). Leave an item unlabeled rather than force a fuzzy label (ADR-0008 negative register)."
+        },
         "legacy_number": { "type": ["string", "null"] }
       },
       "allOf": [

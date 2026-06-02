@@ -81,6 +81,8 @@ function validate(value, schema, root, path, errs) {
     if (schema.items) value.forEach((el, i) => validate(el, schema.items, root, `${path}[${i}]`, errs));
     if (schema.contains && !value.some(el => passes(el, schema.contains, root)))
       errs.push(`${path}: no element satisfies 'contains'`);
+    if (schema.uniqueItems && new Set(value.map(v => JSON.stringify(v))).size !== value.length)
+      errs.push(`${path}: array has duplicate items`);
   }
   if (isObj(value)) {
     for (const k of schema.required ?? []) if (!(k in value)) errs.push(`${path}: missing required '${k}'`);
@@ -102,7 +104,10 @@ const passes = (value, schema, root) => validate(value, schema, root, '', []).le
 
 function lintEnumDisjointness(schema) {
   const fieldEnums = {};
-  for (const [f, s] of Object.entries(schema.$defs.item.properties)) if (s.enum) fieldEnums[f] = s.enum;
+  for (const [f, s] of Object.entries(schema.$defs.item.properties)) {
+    if (s.enum) fieldEnums[f] = s.enum;
+    else if (s.items?.enum) fieldEnums[f] = s.items.enum; // array-of-enum facets (labels)
+  }
   const refKind = schema.$defs.ref?.properties?.kind;
   if (refKind?.enum) fieldEnums['ref.kind'] = refKind.enum;
   const seen = {};
@@ -265,6 +270,12 @@ function selftest() {
   { const d = clone(baseData); d.bogus = 1; cases.push(['unexpected top-level property', baseSchema, d, true]); }
   // 11. unresolvable commit ref → ADVISORY (not a hard gate)
   { const d = clone(baseData); d.items[0] = { ...d.items[0], refs: [{ kind: 'commit', target: '0000000000000000000000000000000000000000' }] }; cases.push(['unresolvable commit ref → advisory', baseSchema, d, false, true]); }
+  // 12. bad label value (the labels facet is a closed-set enum)
+  { const d = clone(baseData); d.items[0] = { ...d.items[0], labels: ['not-a-label'] }; cases.push(['bad label value', baseSchema, d, true]); }
+  // 13. a label colliding with another facet's enum (disjointness meta-lint covers items.enum)
+  { const s = clone(baseSchema); s.$defs.item.properties.labels.items.enum.push('backend'); cases.push(['label collides with scope enum', s, baseData, true]); }
+  // 14. duplicate labels (uniqueItems)
+  { const d = clone(baseData); d.items[0] = { ...d.items[0], labels: ['bug', 'bug'] }; cases.push(['duplicate labels', baseSchema, d, true]); }
 
   let failures = 0;
   for (const [name, s, d, expectErr, expectAdvisory] of cases) {

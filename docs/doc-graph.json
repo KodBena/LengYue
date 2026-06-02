@@ -1,6 +1,6 @@
 {
-  "node_count": 375,
-  "edge_count": 1772,
+  "node_count": 376,
+  "edge_count": 1775,
   "age_buckets": [
     {
       "name": "fresh",
@@ -178,7 +178,7 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-05-31",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/archive/34b-complete-status.md",
@@ -1666,7 +1666,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/auditor-notes.md",
@@ -2976,9 +2976,9 @@
       "path": "docs/worklog/2026-06-02-cochange-advisory.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-02-design-note-retirement-gate.md",
@@ -2987,6 +2987,14 @@
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
       "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-02-labels-facet.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "frontend/CLAUDE.md",
@@ -15074,6 +15082,27 @@
       "to": "docs/notes/audit-stringly-typed-contracts-2026-06-01.md",
       "kind": "path-mention",
       "site": "`docs/notes/audit-stringly-typed-contracts-2026-06-01.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-02-labels-facet.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-02-labels-facet.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-02-labels-facet.md",
+      "to": "docs/TODO.md",
+      "kind": "path-mention",
+      "site": "`docs/TODO.md`",
       "resolved": "resolved"
     },
     {
