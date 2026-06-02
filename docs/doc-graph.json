@@ -1,6 +1,6 @@
 {
-  "node_count": 372,
-  "edge_count": 1762,
+  "node_count": 374,
+  "edge_count": 1766,
   "age_buckets": [
     {
       "name": "fresh",
@@ -1677,12 +1677,28 @@
       "age_bucket": "fresh"
     },
     {
+      "path": "docs/notes/consult/README.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
       "path": "docs/notes/decisions-deferred.md",
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-01",
       "age_bucket": "recent"
+    },
+    {
+      "path": "docs/notes/design/README.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "docs/notes/distribution-packaging.md",
@@ -2306,7 +2322,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/onboarding/backend.md",
@@ -2960,9 +2976,9 @@
       "path": "docs/worklog/2026-06-02-design-note-retirement-gate.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "frontend/CLAUDE.md",
@@ -3521,6 +3537,13 @@
       "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
       "kind": "adr-related",
       "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0005-documentation-discipline.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
       "resolved": "resolved"
     },
     {
@@ -9845,6 +9868,13 @@
       "resolved": "resolved"
     },
     {
+      "from": "docs/notes/consult/README.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
       "from": "docs/notes/decisions-deferred.md",
       "to": "docs/adr/0005-documentation-discipline.md",
       "kind": "adr-related",
@@ -9905,6 +9935,20 @@
       "to": "docs/notes/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md",
       "kind": "path-mention",
       "site": "`docs/notes/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/README.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/design/README.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
       "resolved": "resolved"
     },
     {
