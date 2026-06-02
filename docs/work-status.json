@@ -767,12 +767,14 @@
       "id": "design-note-retirement-archive-gate",
       "title": "CI advisory: retire shipped design notes into the archive",
       "description": "Design notes are proliferating (load-bearing, must-read docs that accumulate). The SSOT links shipped items to their design-note refs, so a check can flag live design notes (in docs/notes/, not docs/archive/) whose only referencing SSOT items are closed → archival candidates. Advisory, not a hard gate (archival is an editorial judgment; a note may retain residual value). Archival breaks cross-references, so it costs a cross-reference audit to reach homeostasis — the consolidation-xref-fallout.md pattern is the template. Sequenced for immediately after the surrender-status step. Part of the adr-effectiveness-audits doc-retirement leg.",
-      "state": "open",
-      "disposition": "future",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-06-02",
       "scope": "umbrella",
       "tier": "medium",
       "refs": [
-        { "kind": "source", "target": "tools/doc-graph/generate.mjs" },
+        { "kind": "source", "target": "tools/work-status/retire-advisory.mjs" },
+        { "kind": "worklog", "target": "docs/worklog/2026-06-02-design-note-retirement-gate.md" },
         { "kind": "design-note", "target": "docs/notes/consolidation-xref-fallout.md" }
       ]
     },

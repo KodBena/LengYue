@@ -18,6 +18,12 @@
 # itself, and the SQL tool's JSON→SQLite loader (the trust anchor for queries),
 # are verified on every change — not just the data.
 #
+# It additionally runs tools/work-status/retire-advisory.mjs — the SSOT-driven
+# design-note retirement advisory: it names live design notes (under
+# docs/notes/) whose every referencing SSOT item is closed as archival
+# candidates. Advisory only (exit 0, never gates), like the checker's
+# path/git-ref advisories; archival itself is an editorial judgment.
+#
 # Rationale: single-maintainer project (no second reviewer); the gate is the
 # mechanical substitute that catches a malformed SSOT — or a schema that lets a
 # value leak onto the wrong facet — before it lands. Mirrors doc-graph-ci.yml.
@@ -61,3 +67,7 @@ jobs:
         run: node tools/work-status/check.mjs --selftest
       - name: Self-test the SQL query tool's JSON→SQLite loader
         run: node tools/work-status/sql.mjs --selftest
+      - name: Design-note retirement advisory (archival candidates; never gates)
+        run: node tools/work-status/retire-advisory.mjs
+      - name: Self-test the retirement advisory
+        run: node tools/work-status/retire-advisory.mjs --selftest

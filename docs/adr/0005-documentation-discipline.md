@@ -21,6 +21,17 @@
   Revisit-when #2, and Related accordingly. No rule was added; the
   judgment-heavy rules (Rule 3, Rule 6) remain policy, so Alternative
   C's core reasoning holds for them.
+  2026-06-02 — appended **Rule 9** (design notes are SSOT-anchored): per the
+  work-status SSOT consolidation (RCA guard G5), design notes move to
+  `docs/notes/design/`, anchor to exactly one work-status SSOT item via a
+  `design-note` ref, and delegate status to it — retiring the per-note
+  `design-note: <status>` marker Rule 8 names, in favor of SSOT delegation
+  (Rule 1). The design-note-retirement advisory
+  (`tools/work-status/retire-advisory.mjs`) flags a note for archival once its
+  owning item closes. Rule 8's sibling-revision *principle* is unchanged; only
+  its status-marker vocabulary is superseded (a forward-pointer is added at
+  Rule 8). Pre-SSOT design notes are relocated ad-hoc, with any un-anchorable
+  residue carried by a sunsetting allowlist per Rule 7.
 - **Scope:** All authoring of documentation across the three
   sub-projects. Includes ADRs, notes, READMEs, TODO entries,
   HANDOFFs, playbooks, and inter-team communications.
@@ -206,6 +217,52 @@ structural fact rather than a Related-section observation: the
 documentation discipline is fail-loudly applied to the
 documentation graph, and these two rule pairings are how that
 relationship is anchored in the codebase's authoring vocabulary.
+
+*(Updated 2026-06-02.)* Rule 9 retires the `design-note: <status>` marker
+vocabulary named above in favor of SSOT delegation: the sibling-revision
+*principle* here is unchanged, but a design note's status is now read from its
+owning work-status SSOT item, not a per-note marker. See Rule 9.
+
+### Rule 9: Design notes are SSOT-anchored
+
+*(Appended 2026-06-02.)*
+
+The work-status SSOT consolidation (RCA guard G5 — `docs/work-status.json` as
+the single source of truth for work status) extends to design-note lifecycle.
+A design note is the planning record for a unit of work; that work's status is
+an SSOT concern, so the note delegates to it rather than carrying its own.
+
+- **Location (Rule 5).** Design notes live in `docs/notes/design/`; consult
+  records in `docs/notes/consult/` — taxa extracted from the flat
+  `docs/notes/` root once each grew numerous enough to be a category rather
+  than a synthetic guess (the classification threshold ADR-0008 governs).
+- **Anchoring (Rule 1).** Every design note is referenced by exactly one
+  owning work-status SSOT item via a `design-note` ref, and is not authored
+  without it. The note carries a one-line header pointer (`> SSOT: \`<id>\``);
+  its lifecycle *is* that item's state. There is no per-note
+  `design-note: <status>` marker — that is a parallel status authority, the
+  drift Rule 1 forbids.
+- **Retirement.** When the owning item closes, the design-note-retirement
+  advisory (`tools/work-status/retire-advisory.mjs`, SSOT-driven, CI) names
+  the note an archival candidate; it moves to `docs/archive/notes/design/`.
+  Archival is editorial (a note may retain residual value) and costs a
+  cross-reference audit, so the advisory flags — it does not gate.
+- **Revision (Rule 8).** Sibling-revision-over-silent-edit is unchanged: a
+  superseded note is preserved and a sibling authored. The supersession
+  relation is carried by the SSOT (`superseded_by`) and a cross-link between
+  the notes, not by a `design-note: revised` marker.
+
+Pre-consolidation design notes predate the SSOT and are not retroactively
+rewritten (the Neutral clause + ADR-0004). They are relocated into
+`docs/notes/design/` (or archived if already implemented) as a one-time
+ad-hoc pass; any that cannot be cleanly SSOT-anchored are carried by a
+**sunsetting allowlist** in the retirement advisory (Rule 7 — the allowlist
+names its own retirement: when the last old-style note is implemented or
+retired, the bespoke check is purged from CI).
+
+This rule is the design-note register of the consolidation that made
+`docs/work-status.json` canonical for work status: status lives in one place,
+and the documents that describe work delegate to it.
 
 ## Consequences
 
