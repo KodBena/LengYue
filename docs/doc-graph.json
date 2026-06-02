@@ -1,6 +1,6 @@
 {
-  "node_count": 340,
-  "edge_count": 1732,
+  "node_count": 343,
+  "edge_count": 1751,
   "age_buckets": [
     {
       "name": "fresh",
@@ -138,7 +138,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-01",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/adr/0006-source-file-headers.md",
@@ -418,7 +418,7 @@
       "is_hub": false,
       "first_committed": "2026-05-25",
       "last_committed": "2026-05-25",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/archive/notes/card-tree-backend-spec.md",
@@ -1544,9 +1544,9 @@
       "path": "docs/notes/audit-work-status-liveness-2026-06-02.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/auditor-notes.md",
@@ -1589,6 +1589,14 @@
       "age_bucket": "aging"
     },
     {
+      "path": "docs/notes/consolidation-xref-fallout.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
+    },
+    {
       "path": "docs/notes/decisions-deferred.md",
       "genre": "note",
       "is_hub": false,
@@ -1626,7 +1634,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/frontend-backlog.md",
@@ -1650,7 +1658,7 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-05-31",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/green-perf-arc-retrospective-2026-05-31.md",
@@ -1658,7 +1666,23 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-05-31",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
+    },
+    {
+      "path": "docs/notes/investigation-cte-consolidation-2026-06-02.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/investigation-refactoring-queue-adr0007-2026-06-02.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "docs/notes/keybindings-plan.md",
@@ -1978,7 +2002,7 @@
       "is_hub": false,
       "first_committed": "2026-05-17",
       "last_committed": "2026-05-25",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/retrospective-phase3-policy-benchmark-2026-05.md",
@@ -2298,7 +2322,7 @@
       "is_hub": false,
       "first_committed": "2026-05-25",
       "last_committed": "2026-05-25",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-26-byte-xor-hifi-ship.md",
@@ -2666,7 +2690,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-01-drop-jquery.md",
@@ -9596,6 +9620,48 @@
       "resolved": "resolved"
     },
     {
+      "from": "docs/notes/consolidation-xref-fallout.md",
+      "to": "docs/TODO.md",
+      "kind": "path-mention",
+      "site": "`docs/TODO.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consolidation-xref-fallout.md",
+      "to": "docs/notes/deferred-items.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/deferred-items.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consolidation-xref-fallout.md",
+      "to": "docs/handoff-current.md",
+      "kind": "path-mention",
+      "site": "`docs/handoff-current.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consolidation-xref-fallout.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consolidation-xref-fallout.md",
+      "to": "backend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`backend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consolidation-xref-fallout.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
       "from": "docs/notes/decisions-deferred.md",
       "to": "docs/adr/0005-documentation-discipline.md",
       "kind": "adr-related",
@@ -10097,6 +10163,97 @@
       "to": "docs/TODO.md",
       "kind": "path-mention",
       "site": "`docs/TODO.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/investigation-cte-consolidation-2026-06-02.md",
+      "to": "docs/adr/0006-source-file-headers.md",
+      "kind": "adr-related",
+      "site": "ADR-0006",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/investigation-cte-consolidation-2026-06-02.md",
+      "to": "backend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`backend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/investigation-refactoring-queue-adr0007-2026-06-02.md",
+      "to": "docs/adr/0007-file-size-and-information-density.md",
+      "kind": "adr-related",
+      "site": "ADR-0007",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/investigation-refactoring-queue-adr0007-2026-06-02.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/investigation-refactoring-queue-adr0007-2026-06-02.md",
+      "to": "docs/archive/worklog/2026-04-pre-v1.0/2026-04-27-c1-dirty-board-guard.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/worklog/2026-04-pre-v1.0/2026-04-27-c1-dirty-board-guard.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/investigation-refactoring-queue-adr0007-2026-06-02.md",
+      "to": "docs/archive/worklog/2026-04-pre-v1.0/2026-04-27-c2.1-extract-use-resizable-panel.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/worklog/2026-04-pre-v1.0/2026-04-27-c2.1-extract-use-resizable-panel.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/investigation-refactoring-queue-adr0007-2026-06-02.md",
+      "to": "docs/archive/worklog/2026-04-pre-v1.0/2026-04-27-c2.2-extract-use-dirty-board-guard.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/worklog/2026-04-pre-v1.0/2026-04-27-c2.2-extract-use-dirty-board-guard.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/investigation-refactoring-queue-adr0007-2026-06-02.md",
+      "to": "docs/archive/worklog/2026-04-pre-v1.0/2026-04-27-c2.3-extract-use-app-bootstrap.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/worklog/2026-04-pre-v1.0/2026-04-27-c2.3-extract-use-app-bootstrap.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/investigation-refactoring-queue-adr0007-2026-06-02.md",
+      "to": "docs/archive/dispatch/frontend-to-frontend-session-handoff-2026-04-27.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/dispatch/frontend-to-frontend-session-handoff-2026-04-27.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/investigation-refactoring-queue-adr0007-2026-06-02.md",
+      "to": "docs/notes/deferred-items.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/deferred-items.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/investigation-refactoring-queue-adr0007-2026-06-02.md",
+      "to": "docs/adr/0007-file-size-and-information-density.md",
+      "kind": "path-mention",
+      "site": "`docs/adr/0007-file-size-and-information-density.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/investigation-refactoring-queue-adr0007-2026-06-02.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/investigation-refactoring-queue-adr0007-2026-06-02.md",
+      "to": "docs/rfcs/0001-adr-meta-review.md",
+      "kind": "path-mention",
+      "site": "`docs/rfcs/0001-adr-meta-review.md`",
       "resolved": "resolved"
     },
     {
