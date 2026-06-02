@@ -20,7 +20,8 @@
   `mistake-stability-surface-synthesis.md`) carry the
   exploratory rationale; this guide is the operational
   reference. Open extension arcs and brittleness caveats
-  live in `deferred-items.md`.
+  live in the dissolved deferred-items vestige
+  (`docs/notes/vestige/deferred-items/`).
 
 ## What the substrate does
 
@@ -413,7 +414,7 @@ src/
     └── StabilityCrossCorrelationPanel.vue  # collapsed-by-default
 ```
 
-## Open extension arcs (see deferred-items.md)
+## Open extension arcs (see `docs/notes/vestige/deferred-items/`)
 
 - **Stage-5: distribution-level (information-geometric)
   stability metric.** The v1 substrate operates on
@@ -425,8 +426,8 @@ src/
   and requires parallel substrate (per-packet distribution
   storage without changepoint compression, distribution-
   stream metrics, sibling panel). Recorded with canonical
-  references in `deferred-items.md` §"Stability surface:
-  distribution-level (information-geometric) metric".
+  references in
+  `docs/notes/vestige/deferred-items/stability-surface-distribution-metric.md`.
 
 - **Mistake-finder de-brittling.** The un-punished red-flag
   heuristic uses per-board quantile thresholds; in clean
@@ -434,8 +435,7 @@ src/
   documented: absolute-severity floor, cross-net agreement
   via the proxy's SELECTOR capability, stability-gated
   un-punished detection, cross-palette agreement. See
-  `deferred-items.md` §"Mistake-finder un-punished-flag
-  brittleness".
+  `docs/notes/vestige/deferred-items/mistake-finder-unpunished-brittleness.md`.
 
 - **KDE boundary bias for bounded-support palettes.** The
   generic KDE primitive shows density past the support
@@ -443,8 +443,8 @@ src/
   fixes documented (reflection method, boundary kernels,
   transformation method, Beta-kernel KDE) plus the
   substrate shape if implemented (per-palette `support?:
-  [number, number]` field). See `deferred-items.md`
-  §"KDE boundary bias for bounded-support palettes".
+  [number, number]` field). See
+  `docs/notes/vestige/deferred-items/kde-boundary-bias.md`.
 
 ## Glossary
 
