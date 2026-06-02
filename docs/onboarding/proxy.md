@@ -16,9 +16,9 @@ assumes you have already read the generic orientation
    the load-bearing invariant; the Transformer-vs-Middleware
    extension-surface choice; the licensing boundary; the
    submodule release arc).
-2. `proxy/README.md` — the operator entry point. Names the four
-   operational roles (LEAF / RELAY / ECHO / REDIRECT), the
-   environment-variable configuration, and the LEAF startup
+2. `proxy/README.md` — the operator entry point. Names the five
+   operational roles (LEAF / RELAY / SELECTOR / ECHO / REDIRECT),
+   the environment-variable configuration, and the LEAF startup
    behaviour (`LeafStartupError` if KataGo cannot start —
    ADR-0002's canonical worked example for this codebase).
 3. `proxy/ARCHITECTURE.md` — the extender's mental model.
@@ -103,11 +103,11 @@ spine.
 
 ## ADR map (proxy-relevant)
 
-The umbrella's seven ADRs apply selectively. ADR-0001's
-mutation policy is a frontend concern; ADR-0003's bands do not
-apply inside the proxy (it sits entirely in the KataGo-coupled
-tier — single-band by construction). The remaining tenets bind
-every edit:
+The umbrella's ten ADRs apply selectively. ADR-0001's mutation
+policy is a frontend concern; ADR-0003's bands do not apply inside
+the proxy (it sits entirely in the KataGo-coupled tier — single-band
+by construction); ADR-0009 (perf investigation) and ADR-0010 (render
+locality) are frontend tenets. The remaining tenets bind every edit:
 
 - **ADR-0002** — Fail loudly. The LEAF role's `LeafStartupError`
   is the canonical worked example: missing model, missing
@@ -124,6 +124,12 @@ every edit:
   dispatches close out coordination loops.
 - **ADR-0006** — Per-file headers. Python module docstrings at
   the top of each `.py` file are the header form.
+- **ADR-0008** — Classification discipline. Directly proxy-relevant:
+  the silent-coercion-at-protocol-boundaries family (the v1.0.13
+  `action_map.get(…, ANALYZE)` query bug and the metadata-response
+  field fabrication) is its fail-loudly sibling — refuse an open-set
+  default over a closed wire vocabulary. ADR-0007's file-size /
+  density budgets apply to the proxy's `.py` too.
 
 ## Reference material (consult on demand)
 
@@ -194,8 +200,9 @@ every edit:
   versions; unused in the live code path.
 - `docs/archive/`, `docs/playbooks/monorepo/`, `docs/rfcs/`,
   `docs/notes/auditor-notes.md`, `audit-reflections.md`,
-  `decisions-deferred.md`, `deferred-items.md`,
-  `doc-graph-discipline-plan.md`.
+  `decisions-deferred.md`,
+  `docs/notes/design/doc-graph-discipline-plan.md`,
+  `docs/notes/vestige/deferred-items/` (the dissolved ledger).
 
 ## Output discipline
 

@@ -3,11 +3,13 @@
 Meta-orientation for the LengYue doc graph. Written for an LLM
 contributor arriving cold; tells you what to read first, what is
 reference material, and what is safe to skip during the onboarding
-turn. The doc graph is mid-reorganization, so this note is a
-temporary switchboard — it does not replace any canonical
-document, only points at the ones that matter for a fresh
-session. Read this, then the subproject-specific onboarding note
-for the work you have been asked to do.
+turn. It does not replace any canonical document — it *sequences*
+them, and names what to skip — over a doc graph that is now
+organized and machine-inspectable: the committed doc-graph artifact
+(`docs/doc-graph.{json,md}` + `docs/doc-graph-report.md`) maps the
+cross-reference structure and flags stale or dangling nodes. Read
+this, then the subproject-specific onboarding note for the work you
+have been asked to do.
 
 ## What the project is
 
@@ -36,12 +38,13 @@ In order:
    is the project's authoring posture and overrides defaults.
 2. This document — you are reading it.
 3. `README.md` at the repo root — the orientation entry point.
-4. `docs/adr-synopsis.md` — the condensed posture across all seven
+4. `docs/adr-synopsis.md` — the condensed posture across all ten
    ADRs. Read the whole synopsis. Pull a specific ADR only when
    the synopsis points there or your task obviously touches one.
-5. `docs/handoff-current.md` — the umbrella's living
-   state-of-the-system note. Read the sub-project section that
-   matches your task; skim the rest.
+5. `docs/handoff-current.md` — the umbrella's living orientation
+   note (architecture, integration model, pedagogy). Work-status
+   now lives in the SSOT, not here. Read the sub-project section
+   that matches your task; skim the rest.
 6. The subproject-specific onboarding note in this directory
    (`frontend.md`, `backend.md`, or `proxy.md`).
 
@@ -50,20 +53,27 @@ calls for a specific reference document.
 
 ## Reference material (consult on demand, do not pre-read)
 
-- `docs/adr/` — The seven ADRs in full. The synopsis covers them,
-  but pull the full text on a judgement call; ADR-0002, 0004,
-  0005, 0006 are the cross-cutting tenets binding contributors.
-- `docs/TODO.md` — Active and queued work, sorted by implementation
-  complexity. Consult when picking up an item, the task references
-  item numbers, or you surface newly discovered work.
+- `docs/adr/` — The ten ADRs in full. The synopsis covers them,
+  but pull the full text on a judgement call; the tenets binding
+  contributors are ADR-0002 (fail loudly), 0004 (minimal-touch),
+  0005 (doc discipline), 0006 (headers), 0007 (file size), 0008
+  (classification), 0009 (perf investigation), 0010 (render
+  locality); 0001 and 0003 are decisions.
+- `docs/work-status.json` — the work-status SSOT: every open /
+  shipped / deferred work-actionable item, with typed status,
+  faceted scope/tier, labels, and structured references. Query it
+  with `node tools/work-status/sql.mjs '<SQL>'`. This is the
+  canonical work surface; `docs/TODO.md` is a thin human index over
+  it. When you pick up or surface work, the item lives in the SSOT
+  (TODO is its projection, not the source).
 - `docs/notes/tenancy.md` — Multi-tenancy in the backend. Required
   before any backend work that touches a read path or `user_id`.
 - `docs/notes/reflection.md` — Backend architectural retro; the
   "Rough edges" section is unusually candid.
-- `docs/notes/` (other) — Design notes and feature specs
-  (`analysis-persistence-plan.md`, `card-tree-*-spec.md`,
-  `qEUBO.md`, `frontend-backlog.md`). Read only what your task
-  touches.
+- `docs/notes/design/` — design notes (SSOT-anchored per ADR-0005
+  Rule 9; each carries a `> SSOT:` pointer to its owning item).
+  `docs/notes/consult/` — analytic-firewall consult records. Read
+  only what your task touches.
 - `docs/dispatch/` — Cross-team communication ledger. **Always**
   scan it at session start for open requests addressed to your
   sub-project. Do not silently implement against a dispatch; flag
@@ -92,9 +102,11 @@ calls for a specific reference document.
   paths point at whichever location is current.
 - `docs/rfcs/` — Proposals under discussion. Not authoritative.
 - `docs/notes/auditor-notes.md`, `audit-reflections.md`,
-  `decisions-deferred.md`, `deferred-items.md`,
-  `doc-graph-discipline-plan.md` — Working-memory and audit
-  ledgers. Useful only for meta-work on the doc graph itself.
+  `decisions-deferred.md`, `docs/notes/design/doc-graph-discipline-plan.md`,
+  the `docs/notes/{postmortem,audit,retrospective}/` genre taxa, and
+  `docs/notes/vestige/deferred-items/` (the dissolved deferred-items
+  ledger) — working-memory, audit, and historical ledgers. Useful
+  only for meta-work on the doc graph itself.
 
 ## Working posture
 
