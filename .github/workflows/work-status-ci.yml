@@ -49,6 +49,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Full history: the checker's commit-ref advisory uses `git rev-parse`.
+          fetch-depth: 0
           submodules: false
       - uses: actions/setup-node@v4
         with:

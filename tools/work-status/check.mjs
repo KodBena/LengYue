@@ -33,6 +33,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SCHEMA = resolve(REPO, 'docs/work-status.schema.json');
@@ -181,6 +182,28 @@ function graphChecks(items) {
   return { hard, advisory };
 }
 
+// ---- git-coupled ref checks (ADVISORY; offline + deterministic, no gh) ----
+// Validates that commit-kind ref targets resolve via `git rev-parse` and
+// pr-kind targets are numeric. Advisory, not a gate — coupling status to git
+// is a heuristic the project keeps as a report, never a hard fail (the audit's
+// `loadaction` branch-name-as-commit bug is the poster child this catches).
+
+function gitRefChecks(items) {
+  const advisory = [];
+  for (const it of items) for (const r of it.refs ?? []) {
+    if (r.kind === 'commit') {
+      try {
+        execFileSync('git', ['rev-parse', '--verify', '-q', `${r.target}^{commit}`], { cwd: REPO, stdio: 'pipe' });
+      } catch {
+        advisory.push(`${it.id}: commit ref '${r.target}' does not resolve via git rev-parse`);
+      }
+    } else if (r.kind === 'pr' && !/^\d+$/.test(r.target)) {
+      advisory.push(`${it.id}: pr ref '${r.target}' is not a numeric PR id`);
+    }
+  }
+  return advisory;
+}
+
 // ---- run ----
 
 function run(schemaObj, dataObj) {
@@ -191,6 +214,7 @@ function run(schemaObj, dataObj) {
   const g = graphChecks(dataObj.items ?? []);
   hard.push(...g.hard.map(e => `[graph] ${e}`));
   advisory.push(...g.advisory.map(e => `[advisory] ${e}`));
+  advisory.push(...gitRefChecks(dataObj.items ?? []).map(e => `[advisory] ${e}`));
   return { hard, advisory };
 }
 
@@ -239,14 +263,17 @@ function selftest() {
   { const d = clone(baseData); d.items[0].depends_on = [d.items[1].id]; d.items[1].depends_on = [d.items[0].id]; cases.push(['depends_on cycle', baseSchema, d, true]); }
   // 10. unexpected top-level property
   { const d = clone(baseData); d.bogus = 1; cases.push(['unexpected top-level property', baseSchema, d, true]); }
+  // 11. unresolvable commit ref → ADVISORY (not a hard gate)
+  { const d = clone(baseData); d.items[0] = { ...d.items[0], refs: [{ kind: 'commit', target: '0000000000000000000000000000000000000000' }] }; cases.push(['unresolvable commit ref → advisory', baseSchema, d, false, true]); }
 
   let failures = 0;
-  for (const [name, s, d, expectErr] of cases) {
-    const { hard } = run(s, d);
+  for (const [name, s, d, expectErr, expectAdvisory] of cases) {
+    const { hard, advisory } = run(s, d);
     const caught = hard.length > 0;
-    const ok = caught === expectErr;
-    if (!ok) { failures++; console.error(`MISS  ${name}: expected hard error=${expectErr}, got ${caught}`); }
-    else console.log(`ok    ${name}${expectErr ? ` (caught: ${hard[0]})` : ''}`);
+    const advOk = expectAdvisory === undefined || (advisory.length > 0) === expectAdvisory;
+    const ok = caught === expectErr && advOk;
+    if (!ok) { failures++; console.error(`MISS  ${name}: expected hard=${expectErr}${expectAdvisory !== undefined ? ` advisory=${expectAdvisory}` : ''}, got hard=${caught} advisory=${advisory.length > 0}`); }
+    else console.log(`ok    ${name}${expectErr ? ` (caught: ${hard[0]})` : expectAdvisory ? ` (advisory: ${advisory[0]})` : ''}`);
   }
   console.log(`\nselftest: ${cases.length} cases, ${failures} failure(s)`);
   process.exit(failures ? 1 : 0);
