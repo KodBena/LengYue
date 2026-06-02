@@ -775,6 +775,15 @@
         { "kind": "source", "target": "tools/doc-graph/generate.mjs" },
         { "kind": "design-note", "target": "docs/notes/consolidation-xref-fallout.md" }
       ]
+    },
+    {
+      "id": "work-status-labels-facet",
+      "title": "Add a GitHub-style labels facet to the work-status schema",
+      "description": "Add an optional, multi-valued `labels` facet (GitHub-style tags) to work-status items for free specificity — e.g. bug, feature-request, performance, architectural-cruft, refactor, investigation. Decided 2026-06-02 AGAINST a deep closed kind-taxonomy (issue|feature|refactor|…): labels are long-lived and battle-tested, and a deep taxonomy invites the ADR-0008 forced-classification trap. The issue⊃bug relation (an issue need not be a bug; a bug is always an issue) and cross-cutting concerns like performance are expressed via labels, not a kind hierarchy. Labels drawn from a closed-but-amendable allowed set (type-sane; prevents perf/performance drift; reversible to free-form if set-maintenance grates). Backfill across the corpus is incremental. Sequenced after the surrender-status step.",
+      "state": "open",
+      "disposition": "active",
+      "scope": "umbrella",
+      "tier": "small"
     }
   ]
 }
