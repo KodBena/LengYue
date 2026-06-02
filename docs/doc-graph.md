@@ -46,7 +46,6 @@ see the Regeneration note.)
 | `docs/archive/34b-parallel-frontend-work.md` | stale | 2026-04-26 |
 | `docs/archive/handoff-2026-04-frontend-pre-umbrella.md` | stale | 2026-04-26 |
 | `docs/adr/0003-frontend-portability-and-domain-boundaries.md` | stale | 2026-04-26 |
-| `docs/playbooks/monorepo/editorial-cleanup-plan.md` | stale | 2026-04-26 |
 | `docs/playbooks/monorepo/monorepo-plan-framing.md` | stale | 2026-04-26 |
 | `docs/adr/0006-source-file-headers.md` | stale | 2026-04-26 |
 | `docs/notes/audit-reflections.md` | stale | 2026-04-26 |
@@ -54,11 +53,9 @@ see the Regeneration note.)
 | `docs/rfcs/README.md` | stale | 2026-04-27 |
 | `docs/rfcs/0001-adr-meta-review.md` | stale | 2026-04-27 |
 | `backend/docs/redis-local-resource.md` | stale | 2026-04-28 |
-| `docs/playbooks/monorepo/monorepo-plan.md` | stale | 2026-04-29 |
 | `docs/notes/tenancy.md` | stale | 2026-04-29 |
 | `docs/archive/release-scope-2026-04.md` | stale | 2026-04-30 |
 | `docs/notes/distribution-packaging.md` | stale | 2026-04-30 |
-| `docs/notes/auditor-notes.md` | stale | 2026-05-03 |
 | `docs/dispatch/proxy-to-proxy-id-translation-near-miss.md` | stale | 2026-05-03 |
 | `docs/dispatch/proxy-to-proxy-post-v1.0.13-followups.md` | stale | 2026-05-06 |
 | `docs/archive/TODO-completed-2026-05-06.md` | stale | 2026-05-06 |
@@ -68,6 +65,9 @@ see the Regeneration note.)
 | `docs/archive/dispatch/backend-to-frontend-game-source-dedup-status.md` | stale | 2026-05-08 |
 | `docs/archive/dispatch/backend-to-frontend-openapi-title-debrand.md` | stale | 2026-05-08 |
 | `docs/archive/dispatch/backend-to-frontend-qeubo-status.md` | stale | 2026-05-08 |
+| `docs/archive/dispatch/frontend-to-audit-formalize-planned-work-logging.md` | stale | 2026-05-08 |
+| `docs/archive/dispatch/frontend-to-backend-analysis-persistence-status.md` | stale | 2026-05-08 |
+| `docs/archive/dispatch/frontend-to-backend-analysis-persistence.md` | stale | 2026-05-08 |
 
 ## Pruned graph (inline)
 

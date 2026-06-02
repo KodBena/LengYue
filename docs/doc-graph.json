@@ -33,8 +33,8 @@
       "genre": "umbrella-root",
       "is_hub": false,
       "first_committed": "2026-05-12",
-      "last_committed": "2026-05-31",
-      "age_bucket": "aging"
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "README.md",
@@ -113,8 +113,8 @@
       "genre": "adr",
       "is_hub": false,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-05-17",
-      "age_bucket": "stale"
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
@@ -448,65 +448,65 @@
       "path": "docs/archive/notes/design/analysis-bundle-compression-plan.md",
       "genre": "archive",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/archive/notes/design/analysis-persistence-plan.md",
       "genre": "archive",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
       "genre": "archive",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/archive/notes/design/keybindings-plan.md",
       "genre": "archive",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/archive/notes/design/knob-registry-plan.md",
       "genre": "archive",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/archive/notes/design/per-board-multi-query-model-plan.md",
       "genre": "archive",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/archive/notes/design/sgf-library-plan.md",
       "genre": "archive",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/archive/notes/design/work-status-ssot-plan.md",
       "genre": "archive",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/archive/notes/dsl-hyperparameter-harness-plan.md",
@@ -1641,8 +1641,8 @@
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-05-26",
-      "last_committed": "2026-05-26",
-      "age_bucket": "aging"
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/audit-reflections.md",
@@ -1673,16 +1673,16 @@
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-04-27",
-      "last_committed": "2026-05-03",
-      "age_bucket": "stale"
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/compression-research-followups.md",
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-05-26",
-      "last_committed": "2026-05-26",
-      "age_bucket": "aging"
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/consolidation-xref-fallout.md",
@@ -1704,97 +1704,97 @@
       "path": "docs/notes/consult/mistake-stability-firewall-consult.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-05-29-effect-ts-adoption.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-05-29-render-coupling-typing.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-05-30-config-schema-refactor.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-01-effect-ts-architectural-merits.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-01-neverthrow-overhaul.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-01-perf-capture-automation-design-space.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-02-work-status-ci-gates.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-02-work-status-ssot-plan.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/consult/opus-consults-2026-05-28-audit.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/decisions-deferred.md",
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-06-01",
-      "age_bucket": "recent"
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/design/README.md",
@@ -1808,121 +1808,121 @@
       "path": "docs/notes/design/adaptive-reevaluate-widening-plan.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/design/autonomous-srs-loop-revised.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/design/autonomous-srs-loop.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/design/config-schema-projection-plan.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/design/doc-graph-discipline-plan.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/design/migration-test-rotation-plan.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/design/mistake-finder-design-space.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/design/mistake-finder-pedagogy-and-followups.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/design/mistake-stability-surface-synthesis.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/design/perceptual-event-projection-plan.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/design/proxy-topology-testing-plan-revised.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/design/proxy-topology-testing-plan.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/design/qeubo-namespace-unification-plan.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/design/stability-surface-design-space.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/design/typed-effect-documentation-plan.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/distribution-packaging.md",
@@ -2041,16 +2041,16 @@
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-05-14",
-      "last_committed": "2026-05-15",
-      "age_bucket": "stale"
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md",
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-05-14",
-      "last_committed": "2026-05-15",
-      "age_bucket": "stale"
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/postmortem-match-pre-existing-variation-2026-05.md",
@@ -2073,16 +2073,16 @@
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-05-29",
-      "last_committed": "2026-05-31",
-      "age_bucket": "aging"
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/rca-discipline-lapses-2026-06-01.md",
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-06-01",
-      "last_committed": "2026-06-01",
-      "age_bucket": "recent"
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/reflection.md",
@@ -2097,8 +2097,8 @@
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-05-08",
-      "last_committed": "2026-05-12",
-      "age_bucket": "stale"
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/responsive-design-audit-2026-05-22.md",
@@ -2329,8 +2329,8 @@
       "genre": "doc-root",
       "is_hub": false,
       "first_committed": "2026-04-28",
-      "last_committed": "2026-05-12",
-      "age_bucket": "stale"
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/onboarding/frontend.md",
@@ -2361,8 +2361,8 @@
       "genre": "playbook",
       "is_hub": false,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-04-26",
-      "age_bucket": "stale"
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/playbooks/monorepo/monorepo-plan-framing.md",
@@ -2377,8 +2377,8 @@
       "genre": "playbook",
       "is_hub": false,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-04-29",
-      "age_bucket": "stale"
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/rfcs/0001-adr-meta-review.md",
@@ -2401,8 +2401,8 @@
       "genre": "doc-root",
       "is_hub": false,
       "first_committed": "2026-05-12",
-      "last_committed": "2026-05-24",
-      "age_bucket": "stale"
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-05-12-dsl-hyperparameter-harness.md",
@@ -2993,8 +2993,8 @@
       "genre": "subproject-frontend",
       "is_hub": false,
       "first_committed": "2026-05-11",
-      "last_committed": "2026-06-01",
-      "age_bucket": "recent"
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "frontend/IDENTIFIERS.md",
@@ -3401,6 +3401,13 @@
     },
     {
       "from": "docs/adr-synopsis.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "synopsis-of",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr-synopsis.md",
       "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
       "kind": "synopsis-of",
       "site": "ADR-0003",
@@ -3425,13 +3432,6 @@
       "to": "docs/adr/0007-file-size-and-information-density.md",
       "kind": "synopsis-of",
       "site": "ADR-0007",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/adr-synopsis.md",
-      "to": "docs/adr/0008-classification-discipline.md",
-      "kind": "synopsis-of",
-      "site": "ADR-0008",
       "resolved": "resolved"
     },
     {

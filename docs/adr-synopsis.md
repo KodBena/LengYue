@@ -47,11 +47,10 @@ selection surfaces too (Rule 7, appended 2026-05-15 — extends the
 principle to vocabulary-fit decisions: closest-match in a closed
 vocabulary that lacks a true match for the case is a silent failure,
 filed visibly via sibling-note / amendment / TODO / inline-comment
-when revision is out of scope. Filed under ADR-0002 with an explicit
-provisional-home flag — the rule's deeper subject, refusing fuzzy
-matching when sharper classification is available, is broader than
-fail-loudly proper and may relocate when the wider tenet-space
-articulation matures).
+when revision is out of scope. Filed under ADR-0002 as the
+fail-loudly-register instance; its provisional-home flag retired 2026-05-17,
+the deeper subject — refusing fuzzy matching when sharper classification is
+available — having since been articulated as its own tenet, ADR-0008).
 
 **Why care.** This is the most consequential single tenet in the
 codebase. It is why the KataGo timeout cancels rather than retries,
@@ -101,7 +100,7 @@ authoring pattern that produces it.
 
 ## ADR-0005: Documentation Discipline
 
-**Decision.** Eight rules for authoring documentation: (1) single
+**Decision.** Nine rules for authoring documentation: (1) single
 source of truth per nominal handle; (2) a shared dispatch ledger for
 cross-team communications under `docs/dispatch/`; (3) reference
 descriptions describe relations between documents, not content
@@ -112,7 +111,13 @@ you decide, not in retrospect; (7) transitional sections carry
 explicit retirement plans; (8) sibling revisions over silent edits
 (Rule 8, appended 2026-05-07 — the doc-graph plan's `design-note:
 revised` pattern made explicit at the tenet level; the documentation
-register of ADR-0002 Rule 6).
+register of ADR-0002 Rule 6); (9) design notes are SSOT-anchored (Rule 9,
+appended 2026-06-02 — design notes live under `docs/notes/design/` and consult
+records under `docs/notes/consult/`; each design note is referenced by exactly
+one owning work-status SSOT item via a `design-note` ref and delegates status
+to it, retiring the per-note `design-note: <status>` marker, and a
+self-retiring advisory flags a note for archival when its item closes; the
+design-note register of the work-status SSOT consolidation).
 
 **Why care.** The umbrella restructure surfaced a recurring failure
 pattern: documentation written reactively decays into low-trust
