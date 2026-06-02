@@ -287,7 +287,7 @@ The components, stated as the maintainer framed them:
   aggregate.
 
 This is the same diagnosis the render-coupling postmortem
-(`docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`)
+(`docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`)
 reached for a *third*, unrelated lapse: "the absence of a preventive
 convention / mechanical net, not a failure of management or review
 diligence — review cannot catch what nothing taught it to look for." The
@@ -522,7 +522,7 @@ evidence.
   handle), Rule 3 (relations not snapshots), Rule 7 (transitional docs
   sunset), Alternative C and Revisit-when #2 (the partial mechanization
   via the doc-graph).
-- `docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`
+- `docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`
   — the third instance of the common shape; the tone and
   recommendation-register model for this RCA.
 - `frontend/eslint.config.js` — the existing ADR-0002-flavored lint block

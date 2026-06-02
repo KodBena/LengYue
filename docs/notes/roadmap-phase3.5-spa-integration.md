@@ -8,7 +8,7 @@
   subwidget. First-cut deployment: experimental opt-in alongside
   the existing hand-crafted alternatives.
 
-Companion: `docs/notes/retrospective-phase3.5-learned-vf-2026-05.md`.
+Companion: `docs/notes/retrospective/retrospective-phase3.5-learned-vf-2026-05.md`.
 
 ---
 
@@ -297,7 +297,7 @@ CLAUDE.md anticipates this for cross-sub-project work.
 
 | Artefact | Path | Status |
 |---|---|---|
-| Phase 3.5 retrospective | `docs/notes/retrospective-phase3.5-learned-vf-2026-05.md` | Shipped (PR #260) |
+| Phase 3.5 retrospective | `docs/notes/retrospective/retrospective-phase3.5-learned-vf-2026-05.md` | Shipped (PR #260) |
 | Phase 3.5 archive (planned) | `docs/archive/phase3.5-learned-vf/` | TODO |
 | This roadmap | `docs/notes/roadmap-phase3.5-spa-integration.md` | This file |
 | Proxy substrate design note | `proxy/docs/roadmap-info-theoretic-allocation.md` | Shipped in v1.0.25 |

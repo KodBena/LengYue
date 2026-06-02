@@ -491,8 +491,8 @@ runtime-visibility-first feedback memory earned its weight here.
 | Archive — working notes | `docs/archive/phase3-allocation-benchmark/NOTES.md` | In-process scratch with retractions, firewall verdicts, roadmap entries for Phase 3.5 / 3.7 / 4 |
 | Proxy v1.0.25 substrate | `proxy/middleware/allocation.py`, `middleware/visit_scaling.py`, `middleware/adaptive_reevaluate.py` | Shipped; bumped in umbrella at PR #257 |
 | Proxy v1.0.25 design note | `proxy/docs/roadmap-info-theoretic-allocation.md` | Authoritative for the substrate's design; this retrospective for the empirical follow-up |
-| F-optimizer retrospective | `docs/notes/retrospective-katago-f-optimizer-2026-05.md` | Methodological precedent (firewall pattern, archival discipline) |
-| This retrospective | `docs/notes/retrospective-phase3-policy-benchmark-2026-05.md` | This file |
+| F-optimizer retrospective | `docs/notes/retrospective/retrospective-katago-f-optimizer-2026-05.md` | Methodological precedent (firewall pattern, archival discipline) |
+| This retrospective | `docs/notes/retrospective/retrospective-phase3-policy-benchmark-2026-05.md` | This file |
 
 The `docs/archive/phase3-allocation-benchmark/` directory is the
 **archaeological deposit** — every numeric claim in this

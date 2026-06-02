@@ -124,7 +124,7 @@ end-to-end capture pipeline.
 - `docs/adr/0009-performance-investigation-discipline.md` — the parent
   discipline (before/after captures; the case-1/2/3
   perception-vs-measurement framing).
-- `docs/notes/perf-audit-range-query-nav-2026-05-29.md` — the regime-B
+- `docs/notes/audit/perf-audit-range-query-nav-2026-05-29.md` — the regime-B
   audit this protocol was exercised on.
 
 License: Public Domain (The Unlicense).

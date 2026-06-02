@@ -171,7 +171,7 @@ lifecycle answer without anything reconciling the two.
 
 This is the same failure shape as the qEUBO-domain category
 error documented in
-`docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md` —
+`docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md` —
 *closest-match selection* in a vocabulary that doesn't actually
 have a true match, taken without flagging the missing category.
 There, the vocabulary was the `KnobDomain` enum; here, it was the
@@ -584,7 +584,7 @@ fit instead of to runtime-error-handling.
 - `docs/worklog/2026-05-14-knob-registry.md` — the parent arc's
   worklog; §"What's deferred" names the toolbar surface as
   "author's eventual UX vision for low-friction slider access."
-- `docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md` —
+- `docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md` —
   the sibling postmortem from the same arc; shares the closest-
   match failure pattern.
 - `src/components/chrome/ToolbarSliderPopover.vue` — the popover

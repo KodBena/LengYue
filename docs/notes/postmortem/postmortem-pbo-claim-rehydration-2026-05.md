@@ -397,8 +397,8 @@ the chain's growth.
 - ADR-0002 (fail loudly) — applied at the binding-lifecycle layer:
   silent drift between substrate and persisted intent is the
   failure shape this corrective forbids structurally.
-- `docs/notes/postmortem-knob-toolbar-popover-2026-05.md` and
-  `docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md` —
+- `docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md` and
+  `docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md` —
   sibling postmortems from the same knob-registry arc; share the
   pattern of "the closest-match imperative shape silently
   misbinds." This one extends to closest-match-async-timing.

@@ -1010,7 +1010,7 @@ For inline review comments:
 - `proxy/docs/roadmap-identity-type-branding.md` — the v1.0.21
   arc whose `NewType`-based discipline this note extends to the
   move/turn seam.
-- `docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md` —
+- `docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md` —
   flags `_find_worst_turns` as a hard-coded decision point whose
   architectural discussion was deferred to a separate session;
   this note is that session's output.

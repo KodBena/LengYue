@@ -1,6 +1,6 @@
 {
-  "node_count": 376,
-  "edge_count": 1775,
+  "node_count": 379,
+  "edge_count": 1778,
   "age_buckets": [
     {
       "name": "fresh",
@@ -1653,20 +1653,60 @@
       "age_bucket": "stale"
     },
     {
-      "path": "docs/notes/audit-stringly-typed-contracts-2026-06-01.md",
+      "path": "docs/notes/audit/README.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": "2026-06-01",
-      "last_committed": "2026-06-01",
-      "age_bucket": "recent"
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
-      "path": "docs/notes/audit-work-status-liveness-2026-06-02.md",
+      "path": "docs/notes/audit/audit-stringly-typed-contracts-2026-06-01.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": "2026-06-02",
-      "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/audit/audit-work-status-liveness-2026-06-02.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/audit/opus-audit-green-perf-arc-2026-05-31.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/audit/perf-audit-game-scroll-2026-05-28.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/audit/perf-audit-nav-and-pv-hover-2026-05-27.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/audit/perf-audit-range-query-nav-2026-05-29.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "docs/notes/auditor-notes.md",
@@ -1981,44 +2021,12 @@
       "age_bucket": "fresh"
     },
     {
-      "path": "docs/notes/opus-audit-green-perf-arc-2026-05-31.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-31",
-      "last_committed": "2026-05-31",
-      "age_bucket": "aging"
-    },
-    {
       "path": "docs/notes/per-turn-analysis-extension-guide.md",
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-05-28",
       "last_committed": "2026-06-02",
       "age_bucket": "fresh"
-    },
-    {
-      "path": "docs/notes/perf-audit-game-scroll-2026-05-28.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-29",
-      "last_committed": "2026-05-29",
-      "age_bucket": "aging"
-    },
-    {
-      "path": "docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-27",
-      "last_committed": "2026-05-27",
-      "age_bucket": "aging"
-    },
-    {
-      "path": "docs/notes/perf-audit-range-query-nav-2026-05-29.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-29",
-      "last_committed": "2026-05-30",
-      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/perf-capture-normalization-protocol.md",
@@ -2029,60 +2037,68 @@
       "age_bucket": "aging"
     },
     {
-      "path": "docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md",
+      "path": "docs/notes/postmortem/README.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": "2026-05-12",
-      "last_committed": "2026-05-13",
-      "age_bucket": "stale"
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
-      "path": "docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md",
+      "path": "docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": "2026-05-14",
-      "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
-      "path": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md",
+      "path": "docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": "2026-05-14",
-      "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
-      "path": "docs/notes/postmortem-match-pre-existing-variation-2026-05.md",
+      "path": "docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": "2026-05-15",
-      "last_committed": "2026-05-15",
-      "age_bucket": "stale"
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
-      "path": "docs/notes/postmortem-pbo-claim-rehydration-2026-05.md",
+      "path": "docs/notes/postmortem/postmortem-match-pre-existing-variation-2026-05.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": "2026-05-17",
-      "last_committed": "2026-05-17",
-      "age_bucket": "stale"
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
-      "path": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
+      "path": "docs/notes/postmortem/postmortem-pbo-claim-rehydration-2026-05.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": "2026-05-29",
-      "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
-      "path": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "path": "docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": "2026-06-01",
-      "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "docs/notes/reflection.md",
@@ -2091,14 +2107,6 @@
       "first_committed": "2026-04-26",
       "last_committed": "2026-05-12",
       "age_bucket": "stale"
-    },
-    {
-      "path": "docs/notes/release-retrospective-2026-05.md",
-      "genre": "note",
-      "is_hub": false,
-      "first_committed": "2026-05-08",
-      "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/responsive-design-audit-2026-05-22.md",
@@ -2117,28 +2125,44 @@
       "age_bucket": "stale"
     },
     {
-      "path": "docs/notes/retrospective-katago-f-optimizer-2026-05.md",
+      "path": "docs/notes/retrospective/README.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": "2026-05-17",
-      "last_committed": "2026-05-25",
-      "age_bucket": "stale"
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
-      "path": "docs/notes/retrospective-phase3-policy-benchmark-2026-05.md",
+      "path": "docs/notes/retrospective/release-retrospective-2026-05.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": "2026-05-18",
-      "last_committed": "2026-05-18",
-      "age_bucket": "stale"
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
-      "path": "docs/notes/retrospective-phase3.5-learned-vf-2026-05.md",
+      "path": "docs/notes/retrospective/retrospective-katago-f-optimizer-2026-05.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": "2026-05-18",
-      "last_committed": "2026-05-18",
-      "age_bucket": "stale"
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/retrospective/retrospective-phase3-policy-benchmark-2026-05.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/retrospective/retrospective-phase3.5-learned-vf-2026-05.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "docs/notes/review-session-deltas-investigation.md",
@@ -2634,7 +2658,7 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-27-perf-fix2-boards-by-id-lookup.md",
@@ -2642,7 +2666,7 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-27-perf-fix3-pv-hover-watch-guard.md",
@@ -2650,7 +2674,7 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-27-perf-fix4-per-board-watchers.md",
@@ -2658,7 +2682,7 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-27-play-vs-engine.md",
@@ -2992,9 +3016,9 @@
       "path": "docs/worklog/2026-06-02-labels-facet.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-02",
+      "last_committed": "2026-06-02",
+      "age_bucket": "fresh"
     },
     {
       "path": "frontend/CLAUDE.md",
@@ -3081,9 +3105,9 @@
     },
     {
       "from": "CLAUDE.md",
-      "to": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "to": "docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md",
       "kind": "path-mention",
-      "site": "`docs/notes/rca-discipline-lapses-2026-06-01.md`",
+      "site": "`docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md`",
       "resolved": "resolved"
     },
     {
@@ -3137,9 +3161,9 @@
     },
     {
       "from": "CLAUDE.md",
-      "to": "docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md",
+      "to": "docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md",
       "kind": "path-mention",
-      "site": "`docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`",
+      "site": "`docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md`",
       "resolved": "resolved"
     },
     {
@@ -3718,16 +3742,16 @@
     },
     {
       "from": "docs/adr/0008-classification-discipline.md",
-      "to": "docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md",
+      "to": "docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md",
       "kind": "path-mention",
-      "site": "`docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`",
+      "site": "`docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md`",
       "resolved": "resolved"
     },
     {
       "from": "docs/adr/0008-classification-discipline.md",
-      "to": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md",
+      "to": "docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md",
       "kind": "path-mention",
-      "site": "`docs/notes/postmortem-knob-toolbar-popover-2026-05.md`",
+      "site": "`docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md`",
       "resolved": "resolved"
     },
     {
@@ -3809,9 +3833,9 @@
     },
     {
       "from": "docs/adr/0009-performance-investigation-discipline.md",
-      "to": "docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md",
+      "to": "docs/notes/audit/perf-audit-nav-and-pv-hover-2026-05-27.md",
       "kind": "path-mention",
-      "site": "`docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md`",
+      "site": "`docs/notes/audit/perf-audit-nav-and-pv-hover-2026-05-27.md`",
       "resolved": "resolved"
     },
     {
@@ -3921,9 +3945,9 @@
     },
     {
       "from": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
-      "to": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
+      "to": "docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
       "kind": "path-mention",
-      "site": "`docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`",
+      "site": "`docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`",
       "resolved": "resolved"
     },
     {
@@ -3935,9 +3959,9 @@
     },
     {
       "from": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
-      "to": "docs/notes/opus-audit-green-perf-arc-2026-05-31.md",
+      "to": "docs/notes/audit/opus-audit-green-perf-arc-2026-05-31.md",
       "kind": "path-mention",
-      "site": "`docs/notes/opus-audit-green-perf-arc-2026-05-31.md`",
+      "site": "`docs/notes/audit/opus-audit-green-perf-arc-2026-05-31.md`",
       "resolved": "resolved"
     },
     {
@@ -5849,7 +5873,7 @@
       "to": "docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md",
       "kind": "path-mention",
       "site": "`docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/archive/notes/design/knob-registry-plan.md",
@@ -6017,7 +6041,7 @@
       "to": "docs/notes/rca-discipline-lapses-2026-06-01.md",
       "kind": "path-mention",
       "site": "`docs/notes/rca-discipline-lapses-2026-06-01.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/archive/notes/design/work-status-ssot-plan.md",
@@ -6339,14 +6363,14 @@
       "to": "docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md",
       "kind": "path-mention",
       "site": "`docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/archive/notes/handoff-current-vestige.md",
       "to": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md",
       "kind": "path-mention",
       "site": "`docs/notes/postmortem-knob-toolbar-popover-2026-05.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/archive/notes/handoff-current-vestige.md",
@@ -6430,7 +6454,7 @@
       "to": "docs/notes/release-retrospective-2026-05.md",
       "kind": "path-mention",
       "site": "`docs/notes/release-retrospective-2026-05.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/archive/notes/handoff-current-vestige.md",
@@ -6948,7 +6972,7 @@
       "to": "docs/notes/rca-discipline-lapses-2026-06-01.md",
       "kind": "path-mention",
       "site": "`docs/notes/rca-discipline-lapses-2026-06-01.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/archive/notes/vestige/deferred-items/anchor-role-overloading.md",
@@ -7074,14 +7098,14 @@
       "to": "docs/notes/audit-stringly-typed-contracts-2026-06-01.md",
       "kind": "path-mention",
       "site": "`docs/notes/audit-stringly-typed-contracts-2026-06-01.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/archive/notes/vestige/deferred-items/stringly-typed-api-errors.md",
       "to": "docs/notes/rca-discipline-lapses-2026-06-01.md",
       "kind": "path-mention",
       "site": "`docs/notes/rca-discipline-lapses-2026-06-01.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/archive/notes/vestige/deferred-items/stringly-typed-api-errors.md",
@@ -7102,21 +7126,21 @@
       "to": "docs/notes/retrospective-phase3-policy-benchmark-2026-05.md",
       "kind": "path-mention",
       "site": "`docs/notes/retrospective-phase3-policy-benchmark-2026-05.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/archive/phase3-allocation-benchmark/README.md",
       "to": "docs/notes/retrospective-katago-f-optimizer-2026-05.md",
       "kind": "path-mention",
       "site": "`docs/notes/retrospective-katago-f-optimizer-2026-05.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/archive/phase3.5-learned-vf/README.md",
       "to": "docs/notes/retrospective-phase3.5-learned-vf-2026-05.md",
       "kind": "path-mention",
       "site": "`docs/notes/retrospective-phase3.5-learned-vf-2026-05.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/archive/release-scope-2026-04.md",
@@ -9703,9 +9727,9 @@
     },
     {
       "from": "docs/dispatch/proxy-to-frontend-learned-vf.md",
-      "to": "docs/notes/retrospective-phase3.5-learned-vf-2026-05.md",
+      "to": "docs/notes/retrospective/retrospective-phase3.5-learned-vf-2026-05.md",
       "kind": "path-mention",
-      "site": "`docs/notes/retrospective-phase3.5-learned-vf-2026-05.md`",
+      "site": "`docs/notes/retrospective/retrospective-phase3.5-learned-vf-2026-05.md`",
       "resolved": "resolved"
     },
     {
@@ -9724,9 +9748,9 @@
     },
     {
       "from": "docs/dispatch/proxy-to-frontend-learned-vf.md",
-      "to": "docs/notes/retrospective-phase3-policy-benchmark-2026-05.md",
+      "to": "docs/notes/retrospective/retrospective-phase3-policy-benchmark-2026-05.md",
       "kind": "path-mention",
-      "site": "`docs/notes/retrospective-phase3-policy-benchmark-2026-05.md`",
+      "site": "`docs/notes/retrospective/retrospective-phase3-policy-benchmark-2026-05.md`",
       "resolved": "resolved"
     },
     {
@@ -10038,59 +10062,185 @@
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/audit-stringly-typed-contracts-2026-06-01.md",
+      "from": "docs/notes/audit/README.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-stringly-typed-contracts-2026-06-01.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
       "site": "ADR-0002",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/audit-stringly-typed-contracts-2026-06-01.md",
+      "from": "docs/notes/audit/audit-stringly-typed-contracts-2026-06-01.md",
       "to": "docs/notes/deferred-items.md",
       "kind": "path-mention",
       "site": "`docs/notes/deferred-items.md`",
       "resolved": "dangling"
     },
     {
-      "from": "docs/notes/audit-work-status-liveness-2026-06-02.md",
+      "from": "docs/notes/audit/audit-work-status-liveness-2026-06-02.md",
       "to": "docs/adr/0008-classification-discipline.md",
       "kind": "adr-related",
       "site": "ADR-0008",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/audit-work-status-liveness-2026-06-02.md",
+      "from": "docs/notes/audit/audit-work-status-liveness-2026-06-02.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
       "site": "ADR-0002",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/audit-work-status-liveness-2026-06-02.md",
+      "from": "docs/notes/audit/audit-work-status-liveness-2026-06-02.md",
       "to": "docs/adr/0009-performance-investigation-discipline.md",
       "kind": "adr-related",
       "site": "ADR-0009",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/audit-work-status-liveness-2026-06-02.md",
+      "from": "docs/notes/audit/audit-work-status-liveness-2026-06-02.md",
       "to": "docs/adr/0008-classification-discipline.md",
       "kind": "path-mention",
       "site": "`docs/adr/0008-classification-discipline.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/audit-work-status-liveness-2026-06-02.md",
+      "from": "docs/notes/audit/audit-work-status-liveness-2026-06-02.md",
       "to": "docs/pre-merge-checklist.md",
       "kind": "path-mention",
       "site": "`docs/pre-merge-checklist.md`",
       "resolved": "dangling"
     },
     {
-      "from": "docs/notes/audit-work-status-liveness-2026-06-02.md",
+      "from": "docs/notes/audit/audit-work-status-liveness-2026-06-02.md",
       "to": "docs/worklog/2026-05-29-perf-rb3-diagnosis.md",
       "kind": "path-mention",
       "site": "`2026-05-29-perf-rb3-diagnosis.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/opus-audit-green-perf-arc-2026-05-31.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/opus-audit-green-perf-arc-2026-05-31.md",
+      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/opus-audit-green-perf-arc-2026-05-31.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/perf-audit-game-scroll-2026-05-28.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/perf-audit-game-scroll-2026-05-28.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/perf-audit-game-scroll-2026-05-28.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/perf-audit-game-scroll-2026-05-28.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "path-mention",
+      "site": "`docs/adr/0009-performance-investigation-discipline.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/perf-audit-game-scroll-2026-05-28.md",
+      "to": "docs/notes/audit/perf-audit-nav-and-pv-hover-2026-05-27.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/perf-audit-nav-and-pv-hover-2026-05-27.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/perf-audit-nav-and-pv-hover-2026-05-27.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/perf-audit-nav-and-pv-hover-2026-05-27.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/perf-audit-range-query-nav-2026-05-29.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/perf-audit-range-query-nav-2026-05-29.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/perf-audit-range-query-nav-2026-05-29.md",
+      "to": "docs/notes/audit/perf-audit-game-scroll-2026-05-28.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/perf-audit-game-scroll-2026-05-28.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/perf-audit-range-query-nav-2026-05-29.md",
+      "to": "docs/worklog/2026-05-30-perf-basechart-redraw-throttle.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-05-30-perf-basechart-redraw-throttle.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/perf-audit-range-query-nav-2026-05-29.md",
+      "to": "docs/worklog/2026-05-29-perf-rb3-diagnosis.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-05-29-perf-rb3-diagnosis.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/perf-audit-range-query-nav-2026-05-29.md",
+      "to": "docs/notes/audit/perf-audit-nav-and-pv-hover-2026-05-27.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/perf-audit-nav-and-pv-hover-2026-05-27.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/perf-audit-range-query-nav-2026-05-29.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "path-mention",
+      "site": "`docs/adr/0009-performance-investigation-discipline.md`",
       "resolved": "resolved"
     },
     {
@@ -10298,9 +10448,9 @@
     },
     {
       "from": "docs/notes/consult/opus-consult-2026-05-29-render-coupling-typing.md",
-      "to": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
+      "to": "docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
       "kind": "path-mention",
-      "site": "`docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`",
+      "site": "`docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`",
       "resolved": "resolved"
     },
     {
@@ -10515,9 +10665,9 @@
     },
     {
       "from": "docs/notes/consult/opus-consult-2026-06-02-work-status-ssot-plan.md",
-      "to": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "to": "docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md",
       "kind": "path-mention",
-      "site": "`docs/notes/rca-discipline-lapses-2026-06-01.md`",
+      "site": "`docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md`",
       "resolved": "resolved"
     },
     {
@@ -10634,9 +10784,9 @@
     },
     {
       "from": "docs/notes/design/adaptive-reevaluate-widening-plan.md",
-      "to": "docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md",
+      "to": "docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md",
       "kind": "path-mention",
-      "site": "`docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`",
+      "site": "`docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md`",
       "resolved": "resolved"
     },
     {
@@ -10732,16 +10882,16 @@
     },
     {
       "from": "docs/notes/design/config-schema-projection-plan.md",
-      "to": "docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md",
+      "to": "docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md",
       "kind": "path-mention",
-      "site": "`docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`",
+      "site": "`docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md`",
       "resolved": "resolved"
     },
     {
       "from": "docs/notes/design/config-schema-projection-plan.md",
-      "to": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md",
+      "to": "docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md",
       "kind": "path-mention",
-      "site": "`docs/notes/postmortem-knob-toolbar-popover-2026-05.md`",
+      "site": "`docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md`",
       "resolved": "resolved"
     },
     {
@@ -10970,9 +11120,9 @@
     },
     {
       "from": "docs/notes/design/proxy-topology-testing-plan-revised.md",
-      "to": "docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md",
+      "to": "docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md",
       "kind": "path-mention",
-      "site": "`docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`",
+      "site": "`docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md`",
       "resolved": "resolved"
     },
     {
@@ -11012,9 +11162,9 @@
     },
     {
       "from": "docs/notes/design/proxy-topology-testing-plan.md",
-      "to": "docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md",
+      "to": "docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md",
       "kind": "path-mention",
-      "site": "`docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`",
+      "site": "`docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md`",
       "resolved": "resolved"
     },
     {
@@ -11166,9 +11316,9 @@
     },
     {
       "from": "docs/notes/design/typed-effect-documentation-plan.md",
-      "to": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
+      "to": "docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
       "kind": "path-mention",
-      "site": "`docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`",
+      "site": "`docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`",
       "resolved": "resolved"
     },
     {
@@ -11361,27 +11511,6 @@
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/opus-audit-green-perf-arc-2026-05-31.md",
-      "to": "docs/adr/0009-performance-investigation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0009",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-audit-green-perf-arc-2026-05-31.md",
-      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
-      "kind": "adr-related",
-      "site": "ADR-0010",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/opus-audit-green-perf-arc-2026-05-31.md",
-      "to": "frontend/CLAUDE.md",
-      "kind": "path-mention",
-      "site": "`frontend/CLAUDE.md`",
-      "resolved": "resolved"
-    },
-    {
       "from": "docs/notes/per-turn-analysis-extension-guide.md",
       "to": "backend/docs/tree-dsl.md",
       "kind": "path-mention",
@@ -11410,104 +11539,6 @@
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/perf-audit-game-scroll-2026-05-28.md",
-      "to": "docs/adr/0009-performance-investigation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0009",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/perf-audit-game-scroll-2026-05-28.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/perf-audit-game-scroll-2026-05-28.md",
-      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
-      "kind": "adr-related",
-      "site": "ADR-0004",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/perf-audit-game-scroll-2026-05-28.md",
-      "to": "docs/adr/0009-performance-investigation-discipline.md",
-      "kind": "path-mention",
-      "site": "`docs/adr/0009-performance-investigation-discipline.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/perf-audit-game-scroll-2026-05-28.md",
-      "to": "docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md",
-      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
-      "kind": "adr-related",
-      "site": "ADR-0004",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/perf-audit-range-query-nav-2026-05-29.md",
-      "to": "docs/adr/0009-performance-investigation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0009",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/perf-audit-range-query-nav-2026-05-29.md",
-      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
-      "kind": "adr-related",
-      "site": "ADR-0004",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/perf-audit-range-query-nav-2026-05-29.md",
-      "to": "docs/notes/perf-audit-game-scroll-2026-05-28.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/perf-audit-game-scroll-2026-05-28.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/perf-audit-range-query-nav-2026-05-29.md",
-      "to": "docs/worklog/2026-05-30-perf-basechart-redraw-throttle.md",
-      "kind": "path-mention",
-      "site": "`docs/worklog/2026-05-30-perf-basechart-redraw-throttle.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/perf-audit-range-query-nav-2026-05-29.md",
-      "to": "docs/worklog/2026-05-29-perf-rb3-diagnosis.md",
-      "kind": "path-mention",
-      "site": "`docs/worklog/2026-05-29-perf-rb3-diagnosis.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/perf-audit-range-query-nav-2026-05-29.md",
-      "to": "docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/perf-audit-range-query-nav-2026-05-29.md",
-      "to": "docs/adr/0009-performance-investigation-discipline.md",
-      "kind": "path-mention",
-      "site": "`docs/adr/0009-performance-investigation-discipline.md`",
-      "resolved": "resolved"
-    },
-    {
       "from": "docs/notes/perf-capture-normalization-protocol.md",
       "to": "docs/adr/0009-performance-investigation-discipline.md",
       "kind": "adr-related",
@@ -11523,349 +11554,356 @@
     },
     {
       "from": "docs/notes/perf-capture-normalization-protocol.md",
-      "to": "docs/notes/perf-audit-range-query-nav-2026-05-29.md",
+      "to": "docs/notes/audit/perf-audit-range-query-nav-2026-05-29.md",
       "kind": "path-mention",
-      "site": "`docs/notes/perf-audit-range-query-nav-2026-05-29.md`",
+      "site": "`docs/notes/audit/perf-audit-range-query-nav-2026-05-29.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md",
+      "from": "docs/notes/postmortem/README.md",
       "to": "docs/adr/0005-documentation-discipline.md",
       "kind": "adr-related",
       "site": "ADR-0005",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md",
       "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
       "kind": "adr-related",
       "site": "ADR-0003",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md",
       "to": "docs/dispatch/proxy-to-proxy-selector-canonical-key-near-miss.md",
       "kind": "path-mention",
       "site": "`docs/dispatch/proxy-to-proxy-selector-canonical-key-near-miss.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md",
       "to": "docs/wire-schemas.md",
       "kind": "path-mention",
       "site": "`docs/wire-schemas.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md",
       "to": "docs/dispatch/frontend-to-proxy-wire-diagnostic-channel.md",
       "kind": "path-mention",
       "site": "`docs/dispatch/frontend-to-proxy-wire-diagnostic-channel.md`",
       "resolved": "dangling"
     },
     {
-      "from": "docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
       "site": "ADR-0002",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md",
       "to": "docs/adr/0005-documentation-discipline.md",
       "kind": "adr-related",
       "site": "ADR-0005",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md",
       "to": "docs/archive/notes/design/knob-registry-plan.md",
       "kind": "path-mention",
       "site": "`docs/archive/notes/design/knob-registry-plan.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md",
-      "to": "docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md",
+      "to": "docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md",
       "kind": "path-mention",
-      "site": "`docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`",
+      "site": "`docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md",
       "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
       "kind": "adr-related",
       "site": "ADR-0003",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md",
       "to": "docs/adr/0005-documentation-discipline.md",
       "kind": "adr-related",
       "site": "ADR-0005",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
       "site": "ADR-0002",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md",
       "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
       "kind": "adr-related",
       "site": "ADR-0004",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md",
       "to": "docs/archive/notes/design/knob-registry-plan.md",
       "kind": "path-mention",
       "site": "`docs/archive/notes/design/knob-registry-plan.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md",
       "to": "docs/worklog/2026-05-14-knob-registry.md",
       "kind": "path-mention",
       "site": "`docs/worklog/2026-05-14-knob-registry.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md",
-      "to": "docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md",
+      "to": "docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md",
       "kind": "path-mention",
-      "site": "`docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`",
+      "site": "`docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md",
       "to": "docs/handoff-current.md",
       "kind": "path-mention",
       "site": "`docs/handoff-current.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md",
       "to": "frontend/FILES.md",
       "kind": "path-mention",
       "site": "`frontend/FILES.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md",
       "to": "docs/pre-merge-checklist.md",
       "kind": "path-mention",
       "site": "`docs/pre-merge-checklist.md`",
       "resolved": "dangling"
     },
     {
-      "from": "docs/notes/postmortem-match-pre-existing-variation-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-match-pre-existing-variation-2026-05.md",
       "to": "docs/adr/0001-state-mutation-and-readonly.md",
       "kind": "adr-related",
       "site": "ADR-0001",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-match-pre-existing-variation-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-match-pre-existing-variation-2026-05.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
       "site": "ADR-0002",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-match-pre-existing-variation-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-match-pre-existing-variation-2026-05.md",
       "to": "docs/adr/0005-documentation-discipline.md",
       "kind": "adr-related",
       "site": "ADR-0005",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-match-pre-existing-variation-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-match-pre-existing-variation-2026-05.md",
       "to": "docs/worklog/2026-05-15-match-pre-existing-variation-fixes.md",
       "kind": "path-mention",
       "site": "`docs/worklog/2026-05-15-match-pre-existing-variation-fixes.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-pbo-claim-rehydration-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-pbo-claim-rehydration-2026-05.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
       "site": "ADR-0002",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-pbo-claim-rehydration-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-pbo-claim-rehydration-2026-05.md",
       "to": "docs/worklog/2026-05-17-pbo-claim-rehydration-fix.md",
       "kind": "path-mention",
       "site": "`docs/worklog/2026-05-17-pbo-claim-rehydration-fix.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-pbo-claim-rehydration-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-pbo-claim-rehydration-2026-05.md",
       "to": "frontend/CLAUDE.md",
       "kind": "path-mention",
       "site": "`frontend/CLAUDE.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-pbo-claim-rehydration-2026-05.md",
-      "to": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-pbo-claim-rehydration-2026-05.md",
+      "to": "docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md",
       "kind": "path-mention",
-      "site": "`docs/notes/postmortem-knob-toolbar-popover-2026-05.md`",
+      "site": "`docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-pbo-claim-rehydration-2026-05.md",
-      "to": "docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md",
+      "from": "docs/notes/postmortem/postmortem-pbo-claim-rehydration-2026-05.md",
+      "to": "docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md",
       "kind": "path-mention",
-      "site": "`docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`",
+      "site": "`docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
+      "from": "docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
       "site": "ADR-0002",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
+      "from": "docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
       "to": "docs/adr/0009-performance-investigation-discipline.md",
       "kind": "adr-related",
       "site": "ADR-0009",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
+      "from": "docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
       "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
       "kind": "adr-related",
       "site": "ADR-0003",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
+      "from": "docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
       "to": "docs/adr/0001-state-mutation-and-readonly.md",
       "kind": "adr-related",
       "site": "ADR-0001",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
+      "from": "docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
       "to": "docs/adr/0007-file-size-and-information-density.md",
       "kind": "adr-related",
       "site": "ADR-0007",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
+      "from": "docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
       "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
-      "to": "docs/notes/opus-audit-green-perf-arc-2026-05-31.md",
+      "from": "docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
+      "to": "docs/notes/audit/opus-audit-green-perf-arc-2026-05-31.md",
       "kind": "path-mention",
-      "site": "`docs/notes/opus-audit-green-perf-arc-2026-05-31.md`",
+      "site": "`docs/notes/audit/opus-audit-green-perf-arc-2026-05-31.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
+      "from": "docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
       "to": "docs/notes/consult/opus-consult-2026-05-29-render-coupling-typing.md",
       "kind": "path-mention",
       "site": "`docs/notes/consult/opus-consult-2026-05-29-render-coupling-typing.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
-      "to": "docs/notes/perf-audit-game-scroll-2026-05-28.md",
+      "from": "docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
+      "to": "docs/notes/audit/perf-audit-game-scroll-2026-05-28.md",
       "kind": "path-mention",
-      "site": "`docs/notes/perf-audit-game-scroll-2026-05-28.md`",
+      "site": "`docs/notes/audit/perf-audit-game-scroll-2026-05-28.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
-      "to": "docs/notes/perf-audit-range-query-nav-2026-05-29.md",
+      "from": "docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
+      "to": "docs/notes/audit/perf-audit-range-query-nav-2026-05-29.md",
       "kind": "path-mention",
-      "site": "`docs/notes/perf-audit-range-query-nav-2026-05-29.md`",
+      "site": "`docs/notes/audit/perf-audit-range-query-nav-2026-05-29.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
+      "from": "docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
       "to": "docs/adr/0009-performance-investigation-discipline.md",
       "kind": "path-mention",
       "site": "`docs/adr/0009-performance-investigation-discipline.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "from": "docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
       "site": "ADR-0002",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "from": "docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md",
       "to": "docs/adr/0005-documentation-discipline.md",
       "kind": "adr-related",
       "site": "ADR-0005",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "from": "docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md",
       "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
       "kind": "adr-related",
       "site": "ADR-0010",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "from": "docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md",
       "to": "docs/notes/deferred-items.md",
       "kind": "path-mention",
       "site": "`docs/notes/deferred-items.md`",
       "resolved": "dangling"
     },
     {
-      "from": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "from": "docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md",
       "to": "docs/TODO.md",
       "kind": "path-mention",
       "site": "`docs/TODO.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "from": "docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md",
       "to": "docs/handoff-current.md",
       "kind": "path-mention",
       "site": "`docs/handoff-current.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/rca-discipline-lapses-2026-06-01.md",
-      "to": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
+      "from": "docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md",
+      "to": "docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
       "kind": "path-mention",
-      "site": "`docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`",
+      "site": "`docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "from": "docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md",
       "to": "docs/adr/0005-documentation-discipline.md",
       "kind": "path-mention",
       "site": "`docs/adr/0005-documentation-discipline.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/rca-discipline-lapses-2026-06-01.md",
+      "from": "docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md",
       "to": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
       "kind": "path-mention",
       "site": "`docs/archive/notes/design/documentation-graph-artifact-plan.md`",
@@ -11911,139 +11949,6 @@
       "to": "docs/worklog/2026-05-12-tag-dsl-macro-language.md",
       "kind": "path-mention",
       "site": "`docs/worklog/2026-05-12-tag-dsl-macro-language.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/release-retrospective-2026-05.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
-      "kind": "adr-related",
-      "site": "ADR-0005",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/release-retrospective-2026-05.md",
-      "to": "docs/adr/0002-fail-loudly.md",
-      "kind": "adr-related",
-      "site": "ADR-0002",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/release-retrospective-2026-05.md",
-      "to": "docs/archive/notes/release-retrospective-2026-04.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/notes/release-retrospective-2026-04.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/release-retrospective-2026-05.md",
-      "to": "frontend/CLAUDE.md",
-      "kind": "path-mention",
-      "site": "`frontend/CLAUDE.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/release-retrospective-2026-05.md",
-      "to": "docs/archive/notes/cards-tab-merge-plan.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/notes/cards-tab-merge-plan.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/release-retrospective-2026-05.md",
-      "to": "docs/archive/dispatch/frontend-to-backend-analysis-persistence.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/dispatch/frontend-to-backend-analysis-persistence.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/release-retrospective-2026-05.md",
-      "to": "docs/archive/notes/design/analysis-persistence-plan.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/notes/design/analysis-persistence-plan.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/release-retrospective-2026-05.md",
-      "to": "frontend/docs/i18n.md",
-      "kind": "path-mention",
-      "site": "`frontend/docs/i18n.md`",
-      "resolved": "dangling"
-    },
-    {
-      "from": "docs/notes/release-retrospective-2026-05.md",
-      "to": "docs/notes/test-coverage-2026-05.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/test-coverage-2026-05.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/release-retrospective-2026-05.md",
-      "to": "backend/CLAUDE.md",
-      "kind": "path-mention",
-      "site": "`backend/CLAUDE.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/release-retrospective-2026-05.md",
-      "to": "docs/notes/frontend-test-coverage-2026-05.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/frontend-test-coverage-2026-05.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/release-retrospective-2026-05.md",
-      "to": "frontend/tests/CLAUDE.md",
-      "kind": "path-mention",
-      "site": "`frontend/tests/CLAUDE.md`",
-      "resolved": "dangling"
-    },
-    {
-      "from": "docs/notes/release-retrospective-2026-05.md",
-      "to": "docs/notes/design/doc-graph-discipline-plan.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/design/doc-graph-discipline-plan.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/release-retrospective-2026-05.md",
-      "to": "docs/archive/TODO-completed-2026-05-06.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/TODO-completed-2026-05-06.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/release-retrospective-2026-05.md",
-      "to": "docs/TODO.md",
-      "kind": "path-mention",
-      "site": "`docs/TODO.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/release-retrospective-2026-05.md",
-      "to": "docs/handoff-current.md",
-      "kind": "path-mention",
-      "site": "`docs/handoff-current.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/release-retrospective-2026-05.md",
-      "to": "docs/notes/distribution-packaging.md",
-      "kind": "path-mention",
-      "site": "`docs/notes/distribution-packaging.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/release-retrospective-2026-05.md",
-      "to": "docs/archive/notes/dsl-hyperparameter-harness-plan.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/notes/dsl-hyperparameter-harness-plan.md`",
-      "resolved": "resolved"
-    },
-    {
-      "from": "docs/notes/release-retrospective-2026-05.md",
-      "to": "docs/archive/notes/qEUBO.md",
-      "kind": "path-mention",
-      "site": "`docs/archive/notes/qEUBO.md`",
       "resolved": "resolved"
     },
     {
@@ -12096,112 +12001,252 @@
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/retrospective-katago-f-optimizer-2026-05.md",
+      "from": "docs/notes/retrospective/README.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/retrospective/release-retrospective-2026-05.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/retrospective/release-retrospective-2026-05.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
       "site": "ADR-0002",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/retrospective-katago-f-optimizer-2026-05.md",
+      "from": "docs/notes/retrospective/release-retrospective-2026-05.md",
+      "to": "docs/archive/notes/release-retrospective-2026-04.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/release-retrospective-2026-04.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/retrospective/release-retrospective-2026-05.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/retrospective/release-retrospective-2026-05.md",
+      "to": "docs/archive/notes/cards-tab-merge-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/cards-tab-merge-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/retrospective/release-retrospective-2026-05.md",
+      "to": "docs/archive/dispatch/frontend-to-backend-analysis-persistence.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/dispatch/frontend-to-backend-analysis-persistence.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/retrospective/release-retrospective-2026-05.md",
+      "to": "docs/archive/notes/design/analysis-persistence-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/design/analysis-persistence-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/retrospective/release-retrospective-2026-05.md",
+      "to": "frontend/docs/i18n.md",
+      "kind": "path-mention",
+      "site": "`frontend/docs/i18n.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/notes/retrospective/release-retrospective-2026-05.md",
+      "to": "docs/notes/test-coverage-2026-05.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/test-coverage-2026-05.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/retrospective/release-retrospective-2026-05.md",
+      "to": "backend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`backend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/retrospective/release-retrospective-2026-05.md",
+      "to": "docs/notes/frontend-test-coverage-2026-05.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/frontend-test-coverage-2026-05.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/retrospective/release-retrospective-2026-05.md",
+      "to": "frontend/tests/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/tests/CLAUDE.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/notes/retrospective/release-retrospective-2026-05.md",
+      "to": "docs/notes/design/doc-graph-discipline-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/design/doc-graph-discipline-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/retrospective/release-retrospective-2026-05.md",
+      "to": "docs/archive/TODO-completed-2026-05-06.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/TODO-completed-2026-05-06.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/retrospective/release-retrospective-2026-05.md",
+      "to": "docs/TODO.md",
+      "kind": "path-mention",
+      "site": "`docs/TODO.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/retrospective/release-retrospective-2026-05.md",
+      "to": "docs/handoff-current.md",
+      "kind": "path-mention",
+      "site": "`docs/handoff-current.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/retrospective/release-retrospective-2026-05.md",
+      "to": "docs/notes/distribution-packaging.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/distribution-packaging.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/retrospective/release-retrospective-2026-05.md",
+      "to": "docs/archive/notes/dsl-hyperparameter-harness-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/dsl-hyperparameter-harness-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/retrospective/release-retrospective-2026-05.md",
+      "to": "docs/archive/notes/qEUBO.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/qEUBO.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/retrospective/retrospective-katago-f-optimizer-2026-05.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/retrospective/retrospective-katago-f-optimizer-2026-05.md",
       "to": "docs/worklog/2026-05-17-katago-f-optimizer.md",
       "kind": "path-mention",
       "site": "`docs/worklog/2026-05-17-katago-f-optimizer.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/retrospective-katago-f-optimizer-2026-05.md",
+      "from": "docs/notes/retrospective/retrospective-katago-f-optimizer-2026-05.md",
       "to": "docs/archive/katago-f-optimizer/findings.md",
       "kind": "path-mention",
       "site": "`docs/archive/katago-f-optimizer/findings.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/retrospective-katago-f-optimizer-2026-05.md",
+      "from": "docs/notes/retrospective/retrospective-katago-f-optimizer-2026-05.md",
       "to": "docs/archive/katago-f-optimizer/README.md",
       "kind": "path-mention",
       "site": "`docs/archive/katago-f-optimizer/README.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/retrospective-katago-f-optimizer-2026-05.md",
+      "from": "docs/notes/retrospective/retrospective-katago-f-optimizer-2026-05.md",
       "to": "docs/worklog/2026-05-15-katago-first-report-cliff-diagnosis.md",
       "kind": "path-mention",
       "site": "`docs/worklog/2026-05-15-katago-first-report-cliff-diagnosis.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/retrospective-katago-f-optimizer-2026-05.md",
+      "from": "docs/notes/retrospective/retrospective-katago-f-optimizer-2026-05.md",
       "to": "docs/worklog/2026-05-15-katago-first-report-floor-mitigation.md",
       "kind": "path-mention",
       "site": "`docs/worklog/2026-05-15-katago-first-report-floor-mitigation.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/retrospective-katago-f-optimizer-2026-05.md",
+      "from": "docs/notes/retrospective/retrospective-katago-f-optimizer-2026-05.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "path-mention",
       "site": "`docs/adr/0002-fail-loudly.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/retrospective-katago-f-optimizer-2026-05.md",
+      "from": "docs/notes/retrospective/retrospective-katago-f-optimizer-2026-05.md",
       "to": "docs/worklog/2026-05-25-katago-f-optimizer-retirement.md",
       "kind": "path-mention",
       "site": "`docs/worklog/2026-05-25-katago-f-optimizer-retirement.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/retrospective-katago-f-optimizer-2026-05.md",
+      "from": "docs/notes/retrospective/retrospective-katago-f-optimizer-2026-05.md",
       "to": "docs/worklog/2026-05-15-katago-cadence-knobs.md",
       "kind": "path-mention",
       "site": "`2026-05-15-katago-cadence-knobs.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/retrospective-phase3-policy-benchmark-2026-05.md",
+      "from": "docs/notes/retrospective/retrospective-phase3-policy-benchmark-2026-05.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
       "site": "ADR-0002",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/retrospective-phase3-policy-benchmark-2026-05.md",
+      "from": "docs/notes/retrospective/retrospective-phase3-policy-benchmark-2026-05.md",
       "to": "docs/archive/phase3-allocation-benchmark/README.md",
       "kind": "path-mention",
       "site": "`docs/archive/phase3-allocation-benchmark/README.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/retrospective-phase3-policy-benchmark-2026-05.md",
+      "from": "docs/notes/retrospective/retrospective-phase3-policy-benchmark-2026-05.md",
       "to": "docs/archive/phase3-allocation-benchmark/NOTES.md",
       "kind": "path-mention",
       "site": "`docs/archive/phase3-allocation-benchmark/NOTES.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/retrospective-phase3-policy-benchmark-2026-05.md",
-      "to": "docs/notes/retrospective-katago-f-optimizer-2026-05.md",
+      "from": "docs/notes/retrospective/retrospective-phase3-policy-benchmark-2026-05.md",
+      "to": "docs/notes/retrospective/retrospective-katago-f-optimizer-2026-05.md",
       "kind": "path-mention",
-      "site": "`docs/notes/retrospective-katago-f-optimizer-2026-05.md`",
+      "site": "`docs/notes/retrospective/retrospective-katago-f-optimizer-2026-05.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/retrospective-phase3.5-learned-vf-2026-05.md",
+      "from": "docs/notes/retrospective/retrospective-phase3.5-learned-vf-2026-05.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
       "site": "ADR-0002",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/retrospective-phase3.5-learned-vf-2026-05.md",
-      "to": "docs/notes/retrospective-phase3-policy-benchmark-2026-05.md",
+      "from": "docs/notes/retrospective/retrospective-phase3.5-learned-vf-2026-05.md",
+      "to": "docs/notes/retrospective/retrospective-phase3-policy-benchmark-2026-05.md",
       "kind": "path-mention",
-      "site": "`docs/notes/retrospective-phase3-policy-benchmark-2026-05.md`",
+      "site": "`docs/notes/retrospective/retrospective-phase3-policy-benchmark-2026-05.md`",
       "resolved": "resolved"
     },
     {
-      "from": "docs/notes/retrospective-phase3.5-learned-vf-2026-05.md",
+      "from": "docs/notes/retrospective/retrospective-phase3.5-learned-vf-2026-05.md",
       "to": "docs/notes/roadmap-phase3.5-spa-integration.md",
       "kind": "path-mention",
       "site": "`docs/notes/roadmap-phase3.5-spa-integration.md`",
@@ -12216,9 +12261,9 @@
     },
     {
       "from": "docs/notes/roadmap-phase3.5-spa-integration.md",
-      "to": "docs/notes/retrospective-phase3.5-learned-vf-2026-05.md",
+      "to": "docs/notes/retrospective/retrospective-phase3.5-learned-vf-2026-05.md",
       "kind": "path-mention",
-      "site": "`docs/notes/retrospective-phase3.5-learned-vf-2026-05.md`",
+      "site": "`docs/notes/retrospective/retrospective-phase3.5-learned-vf-2026-05.md`",
       "resolved": "resolved"
     },
     {
@@ -13539,9 +13584,9 @@
     },
     {
       "from": "docs/wire-schemas.md",
-      "to": "docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md",
+      "to": "docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md",
       "kind": "path-mention",
-      "site": "`docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`",
+      "site": "`docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md`",
       "resolved": "resolved"
     },
     {
@@ -13724,7 +13769,7 @@
       "to": "docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md",
       "kind": "path-mention",
       "site": "`docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-14-knob-registry.md",
@@ -13766,7 +13811,7 @@
       "to": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md",
       "kind": "path-mention",
       "site": "`docs/notes/postmortem-knob-toolbar-popover-2026-05.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-14-popover-hover-finickiness.md",
@@ -13801,7 +13846,7 @@
       "to": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md",
       "kind": "path-mention",
       "site": "`docs/notes/postmortem-knob-toolbar-popover-2026-05.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-14-toolbar-popover-band-mismatch.md",
@@ -13822,7 +13867,7 @@
       "to": "docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md",
       "kind": "path-mention",
       "site": "`docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-14-toolbar-popover-band-mismatch.md",
@@ -13983,7 +14028,7 @@
       "to": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md",
       "kind": "path-mention",
       "site": "`docs/notes/postmortem-knob-toolbar-popover-2026-05.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-15-match-pre-existing-variation-fixes.md",
@@ -14011,7 +14056,7 @@
       "to": "docs/notes/postmortem-match-pre-existing-variation-2026-05.md",
       "kind": "path-mention",
       "site": "`docs/notes/postmortem-match-pre-existing-variation-2026-05.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-15-toolbar-rootinfo-slim.md",
@@ -14109,7 +14154,7 @@
       "to": "docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md",
       "kind": "path-mention",
       "site": "`docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-17-card-forest-navigation-persistence.md",
@@ -14179,7 +14224,7 @@
       "to": "docs/notes/postmortem-pbo-claim-rehydration-2026-05.md",
       "kind": "path-mention",
       "site": "`docs/notes/postmortem-pbo-claim-rehydration-2026-05.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-17-pbo-claim-rehydration-fix.md",
@@ -14207,7 +14252,7 @@
       "to": "docs/notes/postmortem-knob-toolbar-popover-2026-05.md",
       "kind": "path-mention",
       "site": "`docs/notes/postmortem-knob-toolbar-popover-2026-05.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-17-pbo-popover-and-rename.md",
@@ -14221,7 +14266,7 @@
       "to": "docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md",
       "kind": "path-mention",
       "site": "`docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-17-pbo-popover-and-rename.md",
@@ -14263,7 +14308,7 @@
       "to": "docs/notes/retrospective-katago-f-optimizer-2026-05.md",
       "kind": "path-mention",
       "site": "`docs/notes/retrospective-katago-f-optimizer-2026-05.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-25-katago-f-optimizer-retirement.md",
@@ -14417,28 +14462,28 @@
       "to": "docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md",
       "kind": "path-mention",
       "site": "`docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-27-perf-fix2-boards-by-id-lookup.md",
       "to": "docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md",
       "kind": "path-mention",
       "site": "`docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-27-perf-fix3-pv-hover-watch-guard.md",
       "to": "docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md",
       "kind": "path-mention",
       "site": "`docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-27-perf-fix4-per-board-watchers.md",
       "to": "docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md",
       "kind": "path-mention",
       "site": "`docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-29-feat-clear-cache-affordance.md",
@@ -14494,7 +14539,7 @@
       "to": "docs/notes/perf-audit-game-scroll-2026-05-28.md",
       "kind": "path-mention",
       "site": "`docs/notes/perf-audit-game-scroll-2026-05-28.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-29-perf-nav-arc1-rail-localization.md",
@@ -14515,7 +14560,7 @@
       "to": "docs/notes/perf-audit-game-scroll-2026-05-28.md",
       "kind": "path-mention",
       "site": "`docs/notes/perf-audit-game-scroll-2026-05-28.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-29-perf-nav-arc2-app-decouple.md",
@@ -14550,7 +14595,7 @@
       "to": "docs/notes/perf-audit-range-query-nav-2026-05-29.md",
       "kind": "path-mention",
       "site": "`docs/notes/perf-audit-range-query-nav-2026-05-29.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-29-perf-rb3-diagnosis.md",
@@ -14578,7 +14623,7 @@
       "to": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
       "kind": "path-mention",
       "site": "`docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-29-refactor-analysis-panel-phase2-tabs.md",
@@ -14697,7 +14742,7 @@
       "to": "docs/notes/perf-audit-range-query-nav-2026-05-29.md",
       "kind": "path-mention",
       "site": "`docs/notes/perf-audit-range-query-nav-2026-05-29.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-30-perf-boardtab-rugplot-throttle.md",
@@ -14711,14 +14756,14 @@
       "to": "docs/notes/perf-audit-range-query-nav-2026-05-29.md",
       "kind": "path-mention",
       "site": "`docs/notes/perf-audit-range-query-nav-2026-05-29.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-30-perf-chart-accessor-decoupling.md",
       "to": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
       "kind": "path-mention",
       "site": "`docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-30-perf-chart-accessor-decoupling.md",
@@ -14739,7 +14784,7 @@
       "to": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
       "kind": "path-mention",
       "site": "`docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-30-perf-toolbar-metrics-extraction.md",
@@ -14760,7 +14805,7 @@
       "to": "docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
       "kind": "path-mention",
       "site": "`docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-05-30-perf-toolbar-metrics-extraction.md",
@@ -15082,7 +15127,7 @@
       "to": "docs/notes/audit-stringly-typed-contracts-2026-06-01.md",
       "kind": "path-mention",
       "site": "`docs/notes/audit-stringly-typed-contracts-2026-06-01.md`",
-      "resolved": "resolved"
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-06-02-labels-facet.md",

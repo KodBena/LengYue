@@ -323,7 +323,7 @@ file these without ceremony.
   - `ab82c66` Phase 1 (enum imported into code)
   - `a1dbe76` Phase 5 (first `domain: 'qeubo'` seeds)
   - `3c8e59c` reconcile fix (third `domain: 'qeubo'` site)
-- `docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`
+- `docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md`
   — companion postmortem from the same project, sibling format.
 - ADR-0002 (fail loudly) — the loud-failure tenet the
   closest-match failure mode violates.

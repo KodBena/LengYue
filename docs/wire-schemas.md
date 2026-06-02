@@ -280,7 +280,7 @@ that flows through analysis_enricher carries an `extra` envelope
 reflecting the analyzer's current snapshot at the queried slot —
 even when the reactive_pipeline's `_are_equal` short-circuit
 prevented the incremental update from firing. See
-`docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md` for
+`docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md` for
 the bug-and-fix arc that established this invariant.
 
 ---
@@ -462,7 +462,7 @@ slots into `frontend/package.json` alongside `npm run gen:api`
 (which does the same for the backend↔SPA boundary).
 
 **Dependency for postmortem §5.3.** The
-`docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`
+`docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md`
 §5.3 proposal for a wire-attached diagnostic envelope is
 deferred against this same principled answer. Until generated
 types exist, attaching diagnostic metadata to responses
@@ -572,7 +572,7 @@ isolation makes this honest at the SQL level.
 
 ## Related documents
 
-- `docs/notes/postmortem-adaptive-deeper-enrichment-2026-05.md`
+- `docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md`
   — investigation lessons that motivated this doc's §5.1
   recommendation. §5.3 there is deferred against §8 here.
 - `docs/notes/design/proxy-topology-testing-plan.md` — the topology

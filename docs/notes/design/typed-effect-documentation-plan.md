@@ -274,7 +274,7 @@ collapsed into one arc.
   thread was clarified and separated from the reactivity concern; this
   note inherits the typed-checker-vs-typed-contract distinction it
   drew (§4).
-- `docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`
+- `docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`
   — the postmortem that scopes the render-coupling problem and its
   option space. It is the surface that §7 distinguishes this arc
   *from*; its larger-structural-directions section is where the

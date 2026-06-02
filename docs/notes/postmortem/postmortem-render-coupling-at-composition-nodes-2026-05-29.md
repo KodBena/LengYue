@@ -226,7 +226,7 @@ Ordered by leverage-per-effort; none are mandates.
    > `CLAUDE.md` gained the practitioner-facing render-locality section.
    > The trigger was the recurrence this recommendation anticipated —
    > `TreeWidget` reproduced the bug days after this note was written. See
-   > `docs/notes/opus-audit-green-perf-arc-2026-05-31.md` (P1) for the
+   > `docs/notes/audit/opus-audit-green-perf-arc-2026-05-31.md` (P1) for the
    > decision, and `frontend/tests/integration/render-count/` for the
    > regression harness (P4) that mechanises a slice of the convention.
 
@@ -301,8 +301,8 @@ only DRY option.
   independent typing review backing the revised "Could stronger typing have
   prevented it?" section (verified citations for the Vue / Vapor / FRP claims
   below).
-- `docs/notes/perf-audit-game-scroll-2026-05-28.md` — instances 1–2 (Arc 1/2).
-- `docs/notes/perf-audit-range-query-nav-2026-05-29.md` — instance 2/3/4
+- `docs/notes/audit/perf-audit-game-scroll-2026-05-28.md` — instances 1–2 (Arc 1/2).
+- `docs/notes/audit/perf-audit-range-query-nav-2026-05-29.md` — instance 2/3/4
   context (regime B; RB-1 fixed, RB-2/RB-3 open).
 - `docs/adr/0009-performance-investigation-discipline.md` — the reactive net
   that surfaced both fixed instances.

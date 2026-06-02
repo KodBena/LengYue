@@ -50,7 +50,7 @@ fabrications) named together.
    parameters was `'palette'`, which the enum lacked. The implementer
    took the closest available match. The mislabel propagated through
    six commits before surfacing on first user-facing inspection.
-   (`docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`)
+   (`docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md`)
 
 2. **Toolbar popover band / chrome-neighborhood mismatch.**
    `ToolbarSliderPopover.vue` was mounted as a visual sibling of the
@@ -61,7 +61,7 @@ fabrications) named together.
    neighborhoods"; no neighborhood was a true match for a band-1
    always-visible badge. Substitution-test severity (next section)
    was user-surfaced for this case.
-   (`docs/notes/postmortem-knob-toolbar-popover-2026-05.md`)
+   (`docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md`)
 
 3. **Popover-hover-pattern imitation.** `ToolbarSliderPopover.vue`
    copied its docstring — and its `@mouseenter`/`@mouseleave` +
@@ -344,8 +344,8 @@ fuzzy-fit is the discipline working as intended.
 - **ADR-0007 (file size and information density).** Both tenets
   share an authoring-posture orientation; both rely on the same
   incremental-retrofit composition with ADR-0004 and ADR-0006.
-- **`docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`**,
-  **`docs/notes/postmortem-knob-toolbar-popover-2026-05.md`**,
+- **`docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md`**,
+  **`docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md`**,
   **`docs/worklog/2026-05-14-popover-hover-finickiness.md`** — the
   three substrate postmortems / worklog whose pattern-recurrence
   triggered this tenet.

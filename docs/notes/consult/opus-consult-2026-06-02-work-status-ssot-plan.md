@@ -9,7 +9,7 @@ is *projected* and to which `docs/notes/deferred-items.md` and
 `docs/handoff-current.md` *delegate* open/shipped/deferred status. The
 note implements a maintainer decision recorded 2026-06-01 (the
 "ADR-effectiveness audits" entry in `docs/notes/deferred-items.md`) and
-guard **G5** of `docs/notes/rca-discipline-lapses-2026-06-01.md`. The
+guard **G5** of `docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md`. The
 maintainer has *decided* to pursue a work-status SSOT; this firewall was
 commissioned to question both the spec and its foundations — whether a
 lighter intervention (a checklist, a lint, or the existing docs) suffices,
@@ -158,7 +158,7 @@ This implements a maintainer decision recorded 2026-06-01 (the "ADR-effectivenes
 
 ## Essential context (read end to end — this project treats partial reading of a cited doc as a discipline violation, ADR-0002 applied to documentation)
 
-- `docs/notes/rca-discipline-lapses-2026-06-01.md` — the RCA. Foundational. Note especially: Lapse 2 (a shipped feature stayed documented as open across three unreconciled prose docs — Findings 2a–2e), the common root cause (§3), and the recommended guards G4 (retire-on-ship checklist), G5 (single work-status SSOT), G6 (semantic-staleness advisory — note its "do NOT over-scope / low precision / never a gate" framing), and the genuinely-open questions (§5, esp. #3 TODO.md-vs-dedicated-surface and #5 does-this-warrant-a-tenet).
+- `docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md` — the RCA. Foundational. Note especially: Lapse 2 (a shipped feature stayed documented as open across three unreconciled prose docs — Findings 2a–2e), the common root cause (§3), and the recommended guards G4 (retire-on-ship checklist), G5 (single work-status SSOT), G6 (semantic-staleness advisory — note its "do NOT over-scope / low precision / never a gate" framing), and the genuinely-open questions (§5, esp. #3 TODO.md-vs-dedicated-surface and #5 does-this-warrant-a-tenet).
 - `docs/archive/notes/design/documentation-graph-artifact-plan.md` — the SIBLING design note the work-status note is modelled on. The "manifest-first" framing, the "validator falls out for free" claim, "committed + CI-verified-fresh." The work-status note claims a *generation-direction inversion* against this; assess whether that distinction is real and load-bearing or a dressed-up restatement.
 - `docs/doc-graph.md`, `.github/workflows/doc-graph-ci.yml`, and skim `tools/doc-graph/generate.mjs` — the EXISTING manifest-first artifact (the precedent). Understand how its committed manifest + structure-only CI freshness gate actually works, because the work-status note proposes a *consistency* check by analogy and you should judge whether the analogy holds when the manifest is authored rather than derived.
 - `docs/TODO.md` — the projection target. Its prose-heaviness is central to the note's P1/P2/P3 "projection mechanism" fork. Judge whether "TODO.md projects from the manifest" is actually achievable without either losing irreplaceable prose or reintroducing markdown-in-JSON.

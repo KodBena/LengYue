@@ -11,7 +11,7 @@
   preserved at `~/benchmark_allocation/`.
 
 The companion retrospective
-`docs/notes/retrospective-phase3-policy-benchmark-2026-05.md`
+`docs/notes/retrospective/retrospective-phase3-policy-benchmark-2026-05.md`
 covers the upstream Phase 3 substrate benchmark. This one starts
 from there.
 
@@ -407,11 +407,11 @@ complexity. Defer the choice to the SPA integration session.
 | Training features | `~/benchmark_allocation/training_features.jsonl` | 5220 rows × 121 features + 8 targets |
 | Historical val features | `~/benchmark_allocation/validation_features.jsonl` | ~2400 rows |
 | Modern val features | `~/benchmark_allocation/modern_validation_features.jsonl` | ~1800 rows |
-| Phase 3 retrospective | `docs/notes/retrospective-phase3-policy-benchmark-2026-05.md` | Shipped, PRs #258 + #259 |
+| Phase 3 retrospective | `docs/notes/retrospective/retrospective-phase3-policy-benchmark-2026-05.md` | Shipped, PRs #258 + #259 |
 | Phase 3 archive | `docs/archive/phase3-allocation-benchmark/` | Shipped, PR #259 |
 | Phase 3.5 archive | `docs/archive/phase3.5-learned-vf/` | Shipped in this PR alongside the retrospective |
 | Phase 3.5 SPA roadmap | `docs/notes/roadmap-phase3.5-spa-integration.md` | Shipped in this PR |
-| This retrospective | `docs/notes/retrospective-phase3.5-learned-vf-2026-05.md` | This file |
+| This retrospective | `docs/notes/retrospective/retrospective-phase3.5-learned-vf-2026-05.md` | This file |
 
 ---
 

@@ -180,7 +180,7 @@ identity stable so the own-effects fire on in-place mutation.
 ## References
 
 - `docs/adr/0009-performance-investigation-discipline.md`
-- `docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md` — sibling
+- `docs/notes/audit/perf-audit-nav-and-pv-hover-2026-05-27.md` — sibling
   arc; its Bug C + incidental finds are the regime-B substrate.
 - ADR-0004 (minimal-touch) — gated the store edit above.
 
