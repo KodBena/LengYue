@@ -34,11 +34,19 @@ import { _resetClaimStateForTests, claimKnob } from '../../src/lib/knobs';
 import type { BookmarkId, KnobId, QeuboBookmark } from '../../src/types';
 
 function bookmark(name: string, parameters: Record<string, number>): QeuboBookmark {
+  // Call sites pass the readable param-name → scalar map; the helper
+  // reshapes it into the stored KnobId-keyed / vector form
+  // (`qeubo.<name>` → [scalar]) so the fixtures stay legible while the
+  // bookmark matches the post-56→57 schema.
+  const reshaped: Record<KnobId, number[]> = {};
+  for (const [k, v] of Object.entries(parameters)) {
+    reshaped[('qeubo.' + k) as KnobId] = [v];
+  }
   return {
     id: ('bm-' + name) as unknown as BookmarkId,
     name,
     createdAt: Date.now(),
-    parameters,
+    parameters: reshaped,
   };
 }
 

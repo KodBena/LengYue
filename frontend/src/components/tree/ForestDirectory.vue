@@ -27,6 +27,7 @@ import CardTreeWidget from '../charts/CardTreeWidget.vue';
 import ForestTreeNav from './ForestTreeNav.vue';
 import ReviewSessionPanel from '../ReviewSessionPanel.vue';
 import CardMetadataPanel from '../CardMetadataPanel.vue';
+import TabWidget from '../chrome/TabWidget.vue';
 import HyperparamPromptModal, { type HyperparamValues } from '../modals/HyperparamPromptModal.vue';
 
 const { t } = useI18n();
@@ -35,7 +36,17 @@ const emit = defineEmits<{
   (e: 'load-card', card: ReviewCard): void;
 }>();
 
-const activeTab = ref<'decks' | 'browse'>('decks');
+// Decks / Browse sub-tab strip, driven by the shared TabWidget (the
+// pattern every other tab strip in the app uses). `activeTab` widens
+// to `string` because TabWidget's `update:modelValue` contract is
+// `string`, not a per-call literal union — the small precision loss
+// the unification trades for one tab-strip implementation. The
+// labels recompute reactively so a locale switch retitles the strip.
+const activeTab = ref<string>('decks');
+const tabs = computed(() => [
+  { id: 'decks', label: t('cards.tab.decks') },
+  { id: 'browse', label: t('cards.tab.browse') },
+]);
 
 // Browse-pane state. `roots` is the source for both the navigator
 // (`useForestNavigation` consumes it) and the chart's tooltip
@@ -317,68 +328,69 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
   <div class="forest-cq-wrapper">
   <div class="forest-container">
 
-    <!-- LEFT PANEL: Navigation -->
+    <!-- LEFT PANEL: Navigation — Decks / Browse via the shared TabWidget -->
     <div class="left-panel">
-      <div class="panel-header tab-switcher">
-        <button :class="{ active: activeTab === 'decks' }" @click="activeTab = 'decks'">{{ $t('cards.tab.decks') }}</button>
-        <button :class="{ active: activeTab === 'browse' }" @click="activeTab = 'browse'">{{ $t('cards.tab.browse') }}</button>
-      </div>
+      <TabWidget :tabs="tabs" v-model="activeTab">
+        <!-- TAB 1: DECKS — deck-config form when idle, ReviewSessionPanel when a session is running -->
+        <template #decks>
+          <div class="decks-view">
+            <ReviewSessionPanel v-if="inReviewSession" />
+            <div v-else class="deck-selector-box">
+              <label>{{ $t('cards.decks.selectDeck') }}</label>
+              <select v-model="selectedDeckId" class="dark-select deck-dropdown">
+                <option v-for="set in store.profile.cardSets" :key="set.id" :value="set.id">
+                  {{ set.name }}
+                </option>
+              </select>
+              <p class="hint">{{ store.profile.cardSets[selectedDeckId]?.description }}</p>
 
-      <!-- TAB 1: DECKS — deck-config form when idle, ReviewSessionPanel when a session is running -->
-      <div v-if="activeTab === 'decks'" class="decks-view">
-        <ReviewSessionPanel v-if="inReviewSession" />
-        <div v-else class="deck-selector-box">
-          <label>{{ $t('cards.decks.selectDeck') }}</label>
-          <select v-model="selectedDeckId" class="dark-select deck-dropdown">
-            <option v-for="set in store.profile.cardSets" :key="set.id" :value="set.id">
-              {{ set.name }}
-            </option>
-          </select>
-          <p class="hint">{{ store.profile.cardSets[selectedDeckId]?.description }}</p>
+              <label style="margin-top: var(--space-default);">{{ $t('cards.decks.contextIds') }}</label>
+              <input
+                type="text"
+                class="dark-input deck-dropdown"
+                :placeholder="$t('cards.decks.contextIdsPlaceholder', ['${12}'])"
+                :value="contextIdInput"
+                @input="(e: any) => updateContextIds(e.target.value)"
+                :title="$t('cards.decks.contextIdsTooltip', ['${N}', '${N, M, ...}'])"
+              />
+              <p v-if="hasContextIdMacro" class="macro-hint">
+                {{ $t('cards.decks.expandsTo', { ids: store.session.ui.cardsContextIds.join(', ') || $t('cards.decks.expandsToEmpty') }) }}
+              </p>
 
-          <label style="margin-top: var(--space-default);">{{ $t('cards.decks.contextIds') }}</label>
-          <input
-            type="text"
-            class="dark-input deck-dropdown"
-            :placeholder="$t('cards.decks.contextIdsPlaceholder', ['${12}'])"
-            :value="contextIdInput"
-            @input="(e: any) => updateContextIds(e.target.value)"
-            :title="$t('cards.decks.contextIdsTooltip', ['${N}', '${N, M, ...}'])"
-          />
-          <p v-if="hasContextIdMacro" class="macro-hint">
-            {{ $t('cards.decks.expandsTo', { ids: store.session.ui.cardsContextIds.join(', ') || $t('cards.decks.expandsToEmpty') }) }}
-          </p>
+              <button
+                class="action-btn-large start-review-btn"
+                @click="startReviewFromConfig"
+                :disabled="!store.profile.cardSets[selectedDeckId]"
+                :title="$t('cards.decks.startReviewTooltip')"
+              >
+                {{ $t('cards.decks.startReview') }}
+              </button>
+              <button
+                class="action-btn-large"
+                @click="runDeck"
+                :disabled="!store.profile.cardSets[selectedDeckId]"
+                :title="$t('cards.decks.runPipelineTooltip')"
+              >
+                {{ $t('cards.decks.runPipeline') }}
+              </button>
+            </div>
+          </div>
+        </template>
 
-          <button
-            class="action-btn-large start-review-btn"
-            @click="startReviewFromConfig"
-            :disabled="!store.profile.cardSets[selectedDeckId]"
-            :title="$t('cards.decks.startReviewTooltip')"
-          >
-            {{ $t('cards.decks.startReview') }}
-          </button>
-          <button
-            class="action-btn-large"
-            @click="runDeck"
-            :disabled="!store.profile.cardSets[selectedDeckId]"
-            :title="$t('cards.decks.runPipelineTooltip')"
-          >
-            {{ $t('cards.decks.runPipeline') }}
-          </button>
-        </div>
-      </div>
+        <!-- TAB 2: BROWSE — file-manager hierarchy (games → roots) -->
+        <template #browse>
+          <div class="browse-view">
+            <div class="tools-row">
+              <span style="font-size: var(--text-body); color: var(--text-2);">{{ $t('cards.browse.allGameSources') }}</span>
+              <button class="reload-btn" @click="reloadRoots">↻</button>
+            </div>
 
-      <!-- TAB 2: BROWSE — file-manager hierarchy (games → roots) -->
-      <div v-if="activeTab === 'browse'" class="browse-view">
-        <div class="tools-row">
-          <span style="font-size: var(--text-body); color: var(--text-2);">{{ $t('cards.browse.allGameSources') }}</span>
-          <button class="reload-btn" @click="reloadRoots">↻</button>
-        </div>
-
-        <div v-if="isLoadingRoots" class="empty-state">{{ $t('cards.browse.loading') }}</div>
-        <div v-else-if="roots.length === 0" class="empty-state">{{ $t('cards.browse.empty') }}</div>
-        <ForestTreeNav v-else :nav="nav" />
-      </div>
+            <div v-if="isLoadingRoots" class="empty-state">{{ $t('cards.browse.loading') }}</div>
+            <div v-else-if="roots.length === 0" class="empty-state">{{ $t('cards.browse.empty') }}</div>
+            <ForestTreeNav v-else :nav="nav" />
+          </div>
+        </template>
+      </TabWidget>
     </div>
 
     <!-- RIGHT PANEL: Card-tree widget -->
@@ -475,9 +487,6 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
   .left-panel { width: 100%; max-height: 40%; border-right: none; border-bottom: 1px solid var(--surface-3); flex-shrink: 1; }
 }
 .panel-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-tight) var(--space-default); border-bottom: 1px solid var(--surface-3); background: var(--surface-2); font-size: var(--text-emphasis); text-transform: uppercase; color: var(--text-0); letter-spacing: var(--tracking-default); flex-shrink: 0; }
-.tab-switcher { padding: 0; display: flex; }
-.tab-switcher button { flex: 1; background: transparent; border: none; color: var(--text-2); padding: var(--space-tight) 0; font-size: var(--text-body); text-transform: uppercase; letter-spacing: var(--tracking-default); cursor: pointer; border-bottom: 2px solid transparent; }
-.tab-switcher button.active { color: var(--accent-primary); border-bottom-color: var(--accent-primary); background: var(--surface-2); }
 .decks-view, .browse-view { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .deck-selector-box { padding: var(--space-default); border-bottom: 1px solid var(--surface-3); }
 .deck-selector-box label { font-size: var(--text-emphasis); color: var(--text-2); display: block; margin-bottom: 3px; text-transform: uppercase; }

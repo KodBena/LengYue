@@ -5,7 +5,7 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-05-28: migrations 1 → 2 through 51 → 52 (51
+ * Scope as of 2026-06-03: migrations 1 → 2 through 54 → 55 (54
  * entries). The first eight covered pre-v1.0.0 schema evolution;
  * the rest are the v1.0.x – v1.1.x active cycle, archived in
  * per-PR rolling fashion under the same archive contract.
@@ -2320,6 +2320,33 @@ export const archivedMigrations: Migration[] = [
         const existing = (p as { delta_ordering?: unknown }).delta_ordering;
         if (existing === 'lower_is_worse' || existing === 'higher_is_worse') continue;
         p.delta_ordering = p.id === 'score' ? 'higher_is_worse' : 'lower_is_worse';
+      }
+    }
+    return out;
+  },
+  // 54 → 55: backfill `profile.settings.analysisTabs` — the Analysis-tab
+  // layout (an ordered list of tabs, each a named subset of the panel
+  // registry). Phase 2 of the analysis-panel refactor. The default is the
+  // four-tab Basic / Distributions / Stability / Multiresolution split.
+  //
+  // FROZEN literal (do NOT edit to track a future re-default — that is a
+  // new migration): panel ids are the frozen registry values
+  // (`components/charts/panel-ids.ts`); the persisted blob is plain JSON,
+  // so no branding is applied here.
+  //
+  // Idempotent: a pre-existing non-empty `analysisTabs` array is preserved.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const settings = out.profile?.settings;
+    if (settings && typeof settings === 'object') {
+      const s = settings as { analysisTabs?: unknown };
+      if (!Array.isArray(s.analysisTabs) || s.analysisTabs.length === 0) {
+        s.analysisTabs = [
+          { id: 'basic', label: 'Basic', panelIds: ['score-lead', 'merged-delta'] },
+          { id: 'distributions', label: 'Distributions', panelIds: ['delta-distribution', 'mistake-gap'] },
+          { id: 'stability', label: 'Stability', panelIds: ['stability', 'stability-cross-correlation'] },
+          { id: 'multiresolution', label: 'Multiresolution', panelIds: ['multiresolution-interval'] },
+        ];
       }
     }
     return out;

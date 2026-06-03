@@ -58,8 +58,6 @@ references.
 #### Small
 - `remove-dead-recursive-cte-duplicates` — Remove the dead recursive-CTE duplicates + retire the D-5/D-6 dead-code tests `[backend]`
 - `knob-wire-key-derivation` — Wire-key derivation from KnobDecl ids for qEUBO controlled_parameters `[both]`
-- `forestdirectory-tabwidget-refactor` — ForestDirectory Decks/Browse strip → nested TabWidget `[frontend]`
-- `knob-bookmark-schema-reshape` — qEUBO bookmark schema reshape `[frontend]`
 - `remove-legacy-auth-key-shim` — Remove legacy auth-key compat shim (api-client.ts) `[frontend]`
 - `review-state-convention-inconsistency` — Review-state convention inconsistency between App.vue and BoardTab.vue `[frontend]`
 - `scattered-timing-literals` — Scattered non-coalescing timing literals `[frontend]`

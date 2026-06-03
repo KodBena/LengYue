@@ -107,13 +107,13 @@ if (import.meta.hot) import.meta.hot.accept(() => location.reload());
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 56;
+export const CURRENT_SCHEMA_VERSION = 57;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 52 → 53) are
+ * The first `N` entries (currently 1 → 2 through 54 → 55) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -135,33 +135,6 @@ export const CURRENT_SCHEMA_VERSION = 56;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 54 → 55: backfill `profile.settings.analysisTabs` — the Analysis-tab
-  // layout (an ordered list of tabs, each a named subset of the panel
-  // registry). Phase 2 of the analysis-panel refactor. The default is the
-  // four-tab Basic / Distributions / Stability / Multiresolution split.
-  //
-  // FROZEN literal (do NOT edit to track a future re-default — that is a
-  // new migration): panel ids are the frozen registry values
-  // (`components/charts/panel-ids.ts`); the persisted blob is plain JSON,
-  // so no branding is applied here.
-  //
-  // Idempotent: a pre-existing non-empty `analysisTabs` array is preserved.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const settings = out.profile?.settings;
-    if (settings && typeof settings === 'object') {
-      const s = settings as { analysisTabs?: unknown };
-      if (!Array.isArray(s.analysisTabs) || s.analysisTabs.length === 0) {
-        s.analysisTabs = [
-          { id: 'basic', label: 'Basic', panelIds: ['score-lead', 'merged-delta'] },
-          { id: 'distributions', label: 'Distributions', panelIds: ['delta-distribution', 'mistake-gap'] },
-          { id: 'stability', label: 'Stability', panelIds: ['stability', 'stability-cross-correlation'] },
-          { id: 'multiresolution', label: 'Multiresolution', panelIds: ['multiresolution-interval'] },
-        ];
-      }
-    }
-    return out;
-  },
   // 55 → 56: backfill `profile.settings.appearance.miniBoardRenderer` — the
   // MiniBoard thumbnail renderer choice (SVG vs canvas; AppSettings.appearance).
   // Default 'svg' preserves the pre-split behaviour; the canvas renderer is
@@ -176,6 +149,42 @@ export const migrations: Migration[] = [
       const a = appearance as { miniBoardRenderer?: unknown };
       if (a.miniBoardRenderer !== 'svg' && a.miniBoardRenderer !== 'canvas') {
         a.miniBoardRenderer = 'svg';
+      }
+    }
+    return out;
+  },
+  // 56 → 57: reshape `profile.qeuboPinnedBookmarks[].parameters` from the
+  // flat `Record<string, number>` (bare analysis_env param name → scalar)
+  // to the knob-registry-native `Record<KnobId, number[]>` (`qeubo.<name>`
+  // key → value vector). Aligns the bookmark with the substrate so
+  // `applyBookmark` hands the vector straight to `writeKnobValue`. qEUBO
+  // params are scalar knobs, so each migrated vector is length 1.
+  //
+  // FROZEN literal (do NOT edit to track a future prefix change — that is
+  // a new migration): the `qeubo.` namespace prefix is frozen here as the
+  // value it carried when this migration shipped (the runtime SSOT is
+  // `useQeubo.ts`'s `QEUBO_KNOB_PREFIX`, but a migration must not import a
+  // mutable constant). The blob is plain JSON; no branding is applied (the
+  // runtime re-brands the keys on read).
+  //
+  // Idempotent: an entry whose value is already an array is preserved
+  // verbatim (already-reshaped key kept as-is), so a re-run is a no-op.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const list = out.profile?.qeuboPinnedBookmarks;
+    if (Array.isArray(list)) {
+      for (const bm of list) {
+        const params = bm?.parameters;
+        if (!params || typeof params !== 'object') continue;
+        const reshaped: Record<string, number[]> = {};
+        for (const [key, value] of Object.entries(params)) {
+          if (Array.isArray(value)) {
+            reshaped[key] = value as number[];
+          } else if (typeof value === 'number') {
+            reshaped[`qeubo.${key}`] = [value];
+          }
+        }
+        bm.parameters = reshaped;
       }
     }
     return out;

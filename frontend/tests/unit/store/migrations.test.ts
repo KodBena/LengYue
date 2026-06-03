@@ -2511,3 +2511,68 @@ describe('43 → 44: session.ui.loadSgfAtLastNode boolean backfill', () => {
     expect(out.session).toBeUndefined();
   });
 });
+
+describe('56 → 57: qEUBO bookmark parameters Record<string,number> → Record<KnobId,number[]>', () => {
+  it('reshapes a flat bookmark to qeubo-prefixed keys with length-1 vectors', () => {
+    const blob: any = {
+      profile: {
+        qeuboPinnedBookmarks: [
+          { id: 'bm-a', name: 'a', createdAt: 0, parameters: { alpha: 0.4, beta: 0.7 } },
+        ],
+      },
+    };
+    const out = step(56)(blob);
+    expect(out.profile.qeuboPinnedBookmarks[0].parameters).toEqual({
+      'qeubo.alpha': [0.4],
+      'qeubo.beta': [0.7],
+    });
+  });
+
+  it('reshapes every bookmark in the list independently', () => {
+    const blob: any = {
+      profile: {
+        qeuboPinnedBookmarks: [
+          { id: 'bm-a', name: 'a', createdAt: 0, parameters: { alpha: 0.1 } },
+          { id: 'bm-b', name: 'b', createdAt: 1, parameters: { gamma: 0.9 } },
+        ],
+      },
+    };
+    const out = step(56)(blob);
+    expect(out.profile.qeuboPinnedBookmarks[0].parameters).toEqual({ 'qeubo.alpha': [0.1] });
+    expect(out.profile.qeuboPinnedBookmarks[1].parameters).toEqual({ 'qeubo.gamma': [0.9] });
+  });
+
+  it('is idempotent — an already-reshaped bookmark is preserved verbatim', () => {
+    const blob: any = {
+      profile: {
+        qeuboPinnedBookmarks: [
+          { id: 'bm-a', name: 'a', createdAt: 0, parameters: { 'qeubo.alpha': [0.4] } },
+        ],
+      },
+    };
+    const out = step(56)(blob);
+    expect(out.profile.qeuboPinnedBookmarks[0].parameters).toEqual({ 'qeubo.alpha': [0.4] });
+  });
+
+  it('handles an empty parameters map', () => {
+    const blob: any = {
+      profile: {
+        qeuboPinnedBookmarks: [{ id: 'bm-a', name: 'a', createdAt: 0, parameters: {} }],
+      },
+    };
+    const out = step(56)(blob);
+    expect(out.profile.qeuboPinnedBookmarks[0].parameters).toEqual({});
+  });
+
+  it('is a no-op when qeuboPinnedBookmarks is absent (legacy blob)', () => {
+    const blob: any = { profile: {} };
+    const out = step(56)(blob);
+    expect(out.profile.qeuboPinnedBookmarks).toBeUndefined();
+  });
+
+  it('is a no-op when profile is absent (very-legacy blob)', () => {
+    const blob: any = {};
+    const out = step(56)(blob);
+    expect(out.profile).toBeUndefined();
+  });
+});

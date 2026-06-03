@@ -6,11 +6,15 @@
       "labels": ["refactor"],
       "title": "ForestDirectory Decks/Browse strip → nested TabWidget",
       "description": "ForestDirectory.vue implements its Decks/Browse sub-tab strip with plain buttons + a local ref rather than the reusable TabWidget every other tab strip uses. Functional parity; refactor unifies the pattern (loses a little literal-union precision). Trigger: alongside other ForestDirectory work, or a focused single-file session.",
-      "state": "open",
-      "disposition": "active",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-06-03",
       "scope": "frontend",
       "tier": "small",
-      "refs": [{ "kind": "source", "target": "frontend/src/components/tree/ForestDirectory.vue" }]
+      "refs": [
+        { "kind": "source", "target": "frontend/src/components/tree/ForestDirectory.vue" },
+        { "kind": "worklog", "target": "docs/worklog/2026-06-03-forestdirectory-tabwidget.md" }
+      ]
     },
     {
       "id": "i18n-string-sweep",
@@ -181,11 +185,15 @@
       "labels": ["refactor"],
       "title": "qEUBO bookmark schema reshape",
       "description": "Reshape qEUBO bookmarks from Record<string,number> to Record<KnobId,number[]>. Deferred follow-up from the knob-registry arc.",
-      "state": "open",
-      "disposition": "active",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-06-03",
       "scope": "frontend",
       "tier": "small",
-      "refs": [{ "kind": "worklog", "target": "docs/worklog/2026-05-14-knob-registry.md" }]
+      "refs": [
+        { "kind": "worklog", "target": "docs/worklog/2026-05-14-knob-registry.md" },
+        { "kind": "worklog", "target": "docs/worklog/2026-06-03-knob-bookmark-schema-reshape.md" }
+      ]
     },
     {
       "id": "knob-wire-key-derivation",

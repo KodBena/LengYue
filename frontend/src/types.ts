@@ -1761,11 +1761,21 @@ export interface CardSet {
 // deleting an experiment does not affect the bookmark list). The
 // id is generated frontend-side at pin time; createdAt is unix
 // ms; parameters is a value-snapshot, not a reference.
+//
+// `parameters` is keyed by the substrate-native `KnobId`
+// (`qeubo.<param-name>`) and holds each knob's value *vector*, not a
+// bare scalar — aligning the bookmark with the knob-registry's own
+// representation so an apply is a direct `writeKnobValue` pass-through.
+// qEUBO parameters are scalar knobs today, so the arrays are length-1
+// in practice; the `number[]` shape is what lets a future vector knob
+// be bookmarked without another schema reshape. The flat
+// `Record<string, number>` (bare param name → scalar) it replaced is
+// migrated forward by schema migration 56 → 57.
 export interface QeuboBookmark {
   id: BookmarkId;
   name: string;
   createdAt: number;
-  parameters: Record<string, number>;
+  parameters: Record<KnobId, number[]>;
 }
 
 export interface ProfileState {

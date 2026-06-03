@@ -8,9 +8,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useQeubo } from '../../composables/useQeubo';
+import { useQeubo, paramNameForKnobId } from '../../composables/useQeubo';
 import { pushSystemMessage, store } from '../../store';
-import type { QeuboBookmark } from '../../types';
+import type { KnobId, QeuboBookmark } from '../../types';
 
 const { t } = useI18n();
 const q = useQeubo();
@@ -27,16 +27,27 @@ function formatDate(ts: number): string {
 }
 
 /**
- * Compact one-line summary of a bookmark's parameters. Sorted by
- * name for stability across reads. Numbers rendered with up to 4
- * decimals, trailing zeros trimmed.
+ * Compact one-line summary of a bookmark's parameters. The store
+ * shape is KnobId-keyed (`qeubo.<name>`) with value vectors; the
+ * display strips back to the bare param name and renders the value
+ * (a scalar for the length-1 vectors qEUBO produces today, or a
+ * bracketed list for a vector knob). Sorted by param name for
+ * stability across reads; numbers up to 4 decimals, trailing zeros
+ * trimmed.
  */
-function formatParameters(params: Record<string, number>): string {
-  const entries = Object.entries(params).sort(([a], [b]) => a.localeCompare(b));
+function formatParameters(params: Record<KnobId, number[]>): string {
+  const entries = (Object.entries(params) as [KnobId, number[]][])
+    .map(([knobId, values]) => [paramNameForKnobId(knobId), values] as const)
+    .sort(([a], [b]) => a.localeCompare(b));
   if (entries.length === 0) return t('qeuboBookmarks.noParameters');
   return entries
-    .map(([k, v]) => `${k}=${trimZeros(v.toFixed(4))}`)
+    .map(([name, values]) => `${name}=${formatVector(values)}`)
     .join(', ');
+}
+
+function formatVector(values: number[]): string {
+  const rendered = values.map((v) => trimZeros(v.toFixed(4)));
+  return rendered.length === 1 ? rendered[0] : `[${rendered.join(', ')}]`;
 }
 
 function trimZeros(s: string): string {
