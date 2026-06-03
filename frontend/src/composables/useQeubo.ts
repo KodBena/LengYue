@@ -129,6 +129,16 @@ const _claimedKnobIds = new Set<string>();
 const QEUBO_CONSUMER_ID = 'qeubo';
 
 /**
+ * The namespace prefix every qEUBO-owned KnobDecl id carries. qEUBO
+ * parameters live in the registry under `qeubo.<param-name>`; this
+ * constant is the single source for that convention, threaded through
+ * `knobIdForParam` / `paramNameForKnobId` (the bijection) and the
+ * reconcile sweep below. Distinct from `QEUBO_CONSUMER_ID` (the
+ * claim-API identity) even though both happen to read "qeubo".
+ */
+const QEUBO_KNOB_PREFIX = 'qeubo.';
+
+/**
  * Compute the KnobDecl id from an analysis_env parameter name. The
  * Phase 5 migration seeds decls under `qeubo.<name>`; the
  * `ensureKnobDecl` helper below adds new ones for parameters that
@@ -137,8 +147,24 @@ const QEUBO_CONSUMER_ID = 'qeubo';
  * user's authored intent) to the registry.
  */
 function knobIdForParam(name: string): KnobId {
-  return `qeubo.${name}` as KnobId;
+  return `${QEUBO_KNOB_PREFIX}${name}` as KnobId;
 }
+
+/**
+ * Inverse of `knobIdForParam`: recover the analysis_env parameter
+ * name from a qEUBO KnobDecl id. Used where a qEUBO-keyed structure —
+ * a reshaped bookmark — has to write back to `analysis_env.parameters`,
+ * which is keyed by bare param name. The prefix is present by
+ * construction for every qEUBO knob (a bookmark only ever holds
+ * `knobIdForParam` outputs); a knobId without it is returned verbatim
+ * since no qEUBO knob is shaped that way.
+ */
+function paramNameForKnobId(knobId: KnobId): string {
+  return knobId.startsWith(QEUBO_KNOB_PREFIX)
+    ? knobId.slice(QEUBO_KNOB_PREFIX.length)
+    : knobId;
+}
+export { paramNameForKnobId };
 
 /**
  * Self-heal the registry — if no KnobDecl exists for `qeubo.<name>`,
@@ -212,7 +238,7 @@ function reconcileQeuboKnobs(): void {
   const pm =
     store.profile.settings.engine.katago.analysis_env.parameter_meta ?? {};
   const knobs = store.profile.settings.knobs;
-  const KNOB_PREFIX = 'qeubo.';
+  const KNOB_PREFIX = QEUBO_KNOB_PREFIX;
 
   // Pass 1 — add / update from parameter_meta.
   for (const [name, meta] of Object.entries(pm)) {
@@ -778,11 +804,21 @@ function pinCurrent(name: string): void {
     throw new Error('PBO: bookmark name must be non-empty.');
   }
   const eff = _effectiveParameterValues.value;
+  // Reshape the effective scalar-per-name view into the bookmark's
+  // substrate-native shape: KnobId key, value vector. qEUBO params are
+  // scalar knobs, so each vector is length 1 — but storing the vector
+  // (not the bare scalar) is what lets `applyBookmark` hand it straight
+  // to `writeKnobValue` without re-wrapping, and what a future vector
+  // knob would need.
+  const parameters: Record<KnobId, number[]> = {};
+  for (const [paramName, value] of Object.entries(eff)) {
+    parameters[knobIdForParam(paramName)] = [value];
+  }
   const bookmark: QeuboBookmark = {
     id: generateUUID() as BookmarkId,
     name: trimmed,
     createdAt: Date.now(),
-    parameters: { ...eff },
+    parameters,
   };
   if (!store.profile.qeuboPinnedBookmarks) {
     store.profile.qeuboPinnedBookmarks = [];
@@ -806,14 +842,17 @@ function applyBookmark(id: BookmarkId): void {
   // refuse the claimed ones) would leave the bookmark's joint
   // intent half-realised, which is exactly the silent failure mode
   // ADR-0002 forbids.
+  // Bookmark keys are KnobIds (`qeubo.<param>`) post-reshape, so the
+  // conflict check reads the claim directly off the key — no
+  // param-name → KnobId derivation needed. `paramNameForKnobId` is
+  // only for the user-facing conflict label.
   const registry = store.profile.settings.knobs;
   const conflicts: string[] = [];
-  for (const name of Object.keys(bookmark.parameters)) {
-    const knobId = knobIdForParam(name);
+  for (const knobId of Object.keys(bookmark.parameters) as KnobId[]) {
     if (!(knobId in registry)) continue;
     const claim = currentClaim(knobId);
     if (claim?.policy === 'hard') {
-      conflicts.push(`${name} (held by ${claim.consumerId})`);
+      conflicts.push(`${paramNameForKnobId(knobId)} (held by ${claim.consumerId})`);
     }
   }
   if (conflicts.length > 0) {
@@ -828,25 +867,30 @@ function applyBookmark(id: BookmarkId): void {
   // No conflicts — write per-key through the substrate so future
   // PaletteEditor-style claim watchers see the change reactively
   // and any soft-claim-aware paths fire the standard release event.
+  // The value vector goes straight to `writeKnobValue` (no re-wrap).
   // Keys without a KnobDecl fall through to the direct write (the
-  // legacy path; same shape as `applyEffective`).
+  // legacy path; same shape as `applyEffective`) — those are scalar
+  // analysis-env params, so the length-1 vector's `[0]` is the value.
   const params = store.profile.settings.engine.katago.analysis_env.parameters;
-  for (const [name, value] of Object.entries(bookmark.parameters)) {
-    const knobId = knobIdForParam(name);
+  for (const [knobId, value] of Object.entries(bookmark.parameters) as [KnobId, number[]][]) {
     if (knobId in registry) {
-      writeKnobValue(store, registry, knobId, [value], { kind: 'manual' });
+      writeKnobValue(store, registry, knobId, value, { kind: 'manual' });
     } else {
-      params[name] = value;
+      params[paramNameForKnobId(knobId)] = value[0];
     }
   }
   // Bookmarks may also delete keys the current parameters hold —
   // the prior whole-record reseat (`= { ...bookmark.parameters }`)
   // erased any key not in the bookmark. Preserve that semantic by
-  // deleting parameters not named in the bookmark. The
-  // substrate-claim conflict check above runs against bookmark.keys
-  // only; deletions of unclaimed-extra keys are safe by definition.
+  // deleting parameters whose name isn't among the bookmark's keys
+  // (mapped back through `paramNameForKnobId`). The substrate-claim
+  // conflict check above runs against the bookmark's keys only;
+  // deletions of unclaimed-extra keys are safe by definition.
+  const bookmarkedNames = new Set(
+    (Object.keys(bookmark.parameters) as KnobId[]).map(paramNameForKnobId),
+  );
   for (const name of Object.keys(params)) {
-    if (!(name in bookmark.parameters)) {
+    if (!bookmarkedNames.has(name)) {
       delete params[name];
     }
   }

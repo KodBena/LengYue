@@ -20,9 +20,9 @@ of truth and the picture is a projection of it.
 
 ## At a glance
 
-- **Nodes:** 380 documents.
-- **Edges:** 1793 cross-references
-  (1421 resolved, 372 dangling, 0 ambiguous).
+- **Nodes:** 382 documents.
+- **Edges:** 1794 cross-references
+  (1422 resolved, 372 dangling, 0 ambiguous).
 
 ## Staleness heatmap (buckets)
 
@@ -55,7 +55,6 @@ see the Regeneration note.)
 | `backend/docs/redis-local-resource.md` | stale | 2026-04-28 |
 | `docs/notes/tenancy.md` | stale | 2026-04-29 |
 | `docs/archive/release-scope-2026-04.md` | stale | 2026-04-30 |
-| `docs/notes/distribution-packaging.md` | stale | 2026-04-30 |
 | `docs/dispatch/proxy-to-proxy-id-translation-near-miss.md` | stale | 2026-05-03 |
 | `docs/dispatch/proxy-to-proxy-post-v1.0.13-followups.md` | stale | 2026-05-06 |
 | `docs/archive/TODO-completed-2026-05-06.md` | stale | 2026-05-06 |
@@ -68,6 +67,7 @@ see the Regeneration note.)
 | `docs/archive/dispatch/frontend-to-audit-formalize-planned-work-logging.md` | stale | 2026-05-08 |
 | `docs/archive/dispatch/frontend-to-backend-analysis-persistence-status.md` | stale | 2026-05-08 |
 | `docs/archive/dispatch/frontend-to-backend-analysis-persistence.md` | stale | 2026-05-08 |
+| `docs/archive/dispatch/frontend-to-backend-auth-me.md` | stale | 2026-05-08 |
 
 ## Pruned graph (inline)
 
