@@ -420,10 +420,9 @@
       "id": "scattered-timing-literals",
       "labels": ["architectural-cruft"],
       "title": "Scattered non-coalescing timing literals",
-      "description": "timing.ts centralises coalescing windows; the adjacent timeouts/durations/interaction-delays (KATAGO_ANALYSIS_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, REVEAL_DURATION_MS, DEFAULT_CLOSE_DELAY_MS) remain scattered — each magic-literal compliant but not catalogued. Decide: leave / sibling catalog / sectioned timing.ts. Low priority. RESOLVED 2026-06-03: decided LEAVE — every literal is already compliant and lives closest to its consumer; consolidating unrelated tuning would couple decisions with nothing in common (ADR-0008 synthetic-classification + timing.ts's family discipline). Re-open without prejudice if a concrete need to tune them as a set surfaces.",
-      "state": "closed",
-      "resolution": "dropped",
-      "closed_on": "2026-06-03",
+      "description": "timing.ts centralises coalescing windows; the adjacent timeouts/durations/interaction-delays (KATAGO_ANALYSIS_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, REVEAL_DURATION_MS, DEFAULT_CLOSE_DELAY_MS) remain scattered — each magic-literal compliant but not catalogued. Decide: leave / sibling catalog / sectioned timing.ts. Low priority. Inventory captured 2026-06-03 in the referenced worklog (durable, for review). Decision DEFERRED pending maintainer review of that inventory — the motivating leverage for consolidation is tuning ergonomy (one surface to tune related timing behaviour), not magic-literal compliance (already satisfied); the counter-axis is timing.ts's family discipline (don't couple genuinely-unrelated tuning).",
+      "state": "open",
+      "disposition": "active",
       "scope": "frontend",
       "tier": "small",
       "refs": [{ "kind": "worklog", "target": "docs/worklog/2026-06-03-scattered-timing-literals-decision.md" }]
