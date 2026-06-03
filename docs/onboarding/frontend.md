@@ -14,11 +14,13 @@ note assumes you have already read the generic orientation
    `npm run gen:api` section is load-bearing; read it before any
    change to code that touches the wire boundary.
 3. `docs/handoff-current.md`, "The frontend" section — the
-   architectural snapshot. The durable known gap is **no test
-   suite yet**; earlier-named gaps (Pipeline DSL `any[]`,
-   `useVariationPath` boundary cleanup) have closed. Always
-   verify a "known gap" claim against `docs/TODO.md`'s
-   Completed table before treating it as still open.
+   architectural snapshot and the open gaps (e.g. the
+   `reportAnalysisWinratesAs` proxy-side enrichment gap). The
+   frontend test suite shipped (100 tests across three tiers), so
+   the old "no tests" gap is closed. Verify any "known gap" claim
+   against the work-status SSOT
+   (`node tools/work-status/sql.mjs "SELECT * FROM items WHERE …"`)
+   before treating it as still open.
 4. Scan `docs/dispatch/` for open requests addressed to the
    frontend (filenames containing `to-frontend` or
    `frontend-to-frontend`). Surface unaddressed ones at the start
@@ -47,6 +49,17 @@ generated in `src/types/backend.ts`) become domain types
   top of the `<script>` block in SFCs.
 - **ADR-0007** — SFC budget ≤ 250 lines, no section exceeding
   ~150. Never compress logic to fit.
+- **ADR-0008** — Classification discipline. Refuse fuzzy matches
+  against an inadequate vocabulary; leave flat rather than invent a
+  synthetic parent.
+- **ADR-0009** — Performance investigation discipline. A perf claim
+  (improvement / regression / null) is honest only with a
+  reproducible capture behind it (the `scripts/perf-*` harness).
+- **ADR-0010** — Render locality + canvas for data-dense visuals. A
+  high-frequency reactive read belongs in the leaf that displays it,
+  not the composition node; `render ≫ patch` is the tell. The two
+  most recently-learned frontend tenets — read them before perf or
+  chart-rendering work.
 
 ADR-0002 (fail loudly), ADR-0004 (minimal-touch), and ADR-0005
 (documentation discipline) bind every edit.
@@ -54,7 +67,8 @@ ADR-0002 (fail loudly), ADR-0004 (minimal-touch), and ADR-0005
 ## Reference material (consult on demand)
 
 - `docs/notes/frontend-backlog.md` — Raw frontend backlog (UI/UX
-  items not in the canonical `docs/TODO.md`).
+  items; the canonical work surface is the work-status SSOT
+  `docs/work-status.json`, queried via `tools/work-status/sql.mjs`).
 - `docs/archive/notes/card-tree-frontend-spec.md` — Frontend widget spec
   for the card-tree view.
 - `docs/archive/notes/qEUBO.md` — Successor-session map for qEUBO work.
@@ -75,8 +89,9 @@ ADR-0002 (fail loudly), ADR-0004 (minimal-touch), and ADR-0005
 - Anything proxy-internal beyond `src/engine/katago/types.ts`.
 - `docs/archive/`, `docs/playbooks/monorepo/`, `docs/rfcs/`,
   `docs/notes/auditor-notes.md`, `audit-reflections.md`,
-  `decisions-deferred.md`, `deferred-items.md`,
-  `doc-graph-discipline-plan.md`.
+  `decisions-deferred.md`,
+  `docs/notes/design/doc-graph-discipline-plan.md`,
+  `docs/notes/vestige/deferred-items/` (the dissolved ledger).
 
 ## Output discipline
 

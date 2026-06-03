@@ -13,11 +13,13 @@ This note assumes you have already read the generic orientation
    "Adopting for another domain" section is the worked example of
    how the Port architecture is intended to scale.
 3. `docs/handoff-current.md`, "The backend" section — the
-   architectural snapshot, including known gaps (`tag_dsl.py` is
-   structurally an adapter and misfiled in `domain/`;
-   `PipelineExecutor.run()` couples lineage and tag-filter; no
-   row-level audit log; no tenant deletion path; uneven test
-   coverage).
+   architectural snapshot and the open gaps
+   (`PipelineExecutor.run()` couples lineage and tag-filter; no
+   row-level audit log; no tenant deletion path). The `tag_dsl.py`
+   adapter-misfiling and the test-coverage gaps have **closed**
+   (the tag-DSL file split + the 442-test backend arc); verify a
+   "known gap" against the work-status SSOT, not this prose, if
+   unsure.
 4. `docs/notes/tenancy.md` — required reading before any work that
    touches a read path, the JWT, or `user_id` threading. The
    404-not-403 invariant is load-bearing.
@@ -51,6 +53,14 @@ speculatively.
   (domain-agnostic) by design; Band 2/3 placement is deliberate.
 - **ADR-0006** — Module docstring (path + purpose + license) at
   the top of every `.py` file. `__init__.py` is exempt.
+- **ADR-0007** — File-size / information-density budgets; the
+  density + never-compress-logic-to-fit principle applies to `.py`
+  as much as to the frontend.
+- **ADR-0008** — Classification discipline. Refuse fuzzy matches
+  against an inadequate closed vocabulary (an enum, a
+  discriminated-union tag); leave flat rather than invent a
+  synthetic parent. The silent-coercion-at-protocol-boundaries
+  family is its fail-loudly sibling.
 
 ADR-0004 (minimal-touch) and ADR-0005 (documentation discipline)
 bind every edit.
@@ -59,13 +69,17 @@ bind every edit.
 
 - `backend/docs/tree-dsl.md` — Tree-DSL reference; required for
   any pipeline work.
-- `docs/archive/notes/design/analysis-persistence-plan.md` — Design note for the
-  planned analysis-persistence feature; not yet implemented.
+- `docs/archive/notes/design/analysis-persistence-plan.md` — Design note for
+  the analysis-persistence feature, which **shipped** (the note is
+  archived as its planning record, ADR-0005 Rule 9).
 - `docs/archive/notes/card-tree-backend-spec.md` — Backend capability spec
   for the card-tree widget.
 - `docs/archive/notes/qEUBO.md` — Successor-session map for qEUBO work.
-- `docs/TODO.md` — Tenancy spine items 13–26 are the next major
-  milestone; items 32 and 34 closed the wire-rename work.
+- `docs/work-status.json` — the work-status SSOT (query via
+  `tools/work-status/sql.mjs`); `docs/TODO.md` is its thin human
+  index. The tenancy spine **shipped end-to-end** and the
+  de-branding / wire-rename work (items 34 / 34a / 34b) closed —
+  both were "next major milestone" framing that is now historical.
 - `backend/scripts/` — Hand-rolled migration scripts. One-shot,
   idempotent, dialect-aware (SQLite + Postgres). No Alembic.
 - `docs/worklog/` — Per-PR records for the current cycle; useful
@@ -78,8 +92,9 @@ bind every edit.
 - Anything proxy-internal.
 - `docs/archive/`, `docs/playbooks/monorepo/`, `docs/rfcs/`,
   `docs/notes/auditor-notes.md`, `audit-reflections.md`,
-  `decisions-deferred.md`, `deferred-items.md`,
-  `doc-graph-discipline-plan.md`.
+  `decisions-deferred.md`,
+  `docs/notes/design/doc-graph-discipline-plan.md`,
+  `docs/notes/vestige/deferred-items/` (the dissolved ledger).
 
 ## Output discipline
 
