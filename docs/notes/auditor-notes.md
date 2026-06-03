@@ -214,10 +214,14 @@ listen to the handoff.
   user values restraint over feature accretion. A clean refusal
   beats a fix that has to be retired later. If something looks
   half-baked, say so before implementing.
-- **The proxy is frozen.** `proxy/` is the KataProxy submodule
-  pinned at v1.0.0. It is not your concern. If you find yourself
-  wanting to modify it, you've drifted out of scope. Stop and
-  surface the cross-boundary nature.
+- **The proxy is out of scope by default.** `proxy/` is the
+  KataProxy submodule, pinned to a specific tag (the current pin is
+  recorded in the umbrella `CLAUDE.md`; the original pre-release
+  freeze was lifted during the v1.0.0 window and the pin now
+  advances through coordinated bumps). It is still not your concern
+  for unilateral edits. If you find yourself wanting to modify it,
+  you've drifted out of scope. Stop and surface the cross-boundary
+  nature.
 - **Git hygiene is not the user's strong suit, by their own
   admission.** They appreciate it when you push back on bad
   commit messages, surfacing of generated-file hand-edits,

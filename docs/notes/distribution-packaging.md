@@ -170,9 +170,9 @@ Native installers can use OS-native update channels (Windows
 Update for MSI? Mac App Store? Hand-rolled?) or a simple
 "check on startup" flow.
 
-The proxy is pinned to v1.0.0 currently per the umbrella
-`CLAUDE.md`; updates that advance the proxy version need
-coordinated frontend / backend updates. The auto-update flow
+The proxy is pinned to a specific tag (the current pin is recorded
+in the umbrella `CLAUDE.md`); updates that advance the proxy version
+need coordinated frontend / backend updates. The auto-update flow
 should treat the three pieces as one bundle, not independently
 versioned.
 
