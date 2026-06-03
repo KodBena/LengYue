@@ -501,7 +501,7 @@
       "id": "tags-fetch-hydration-race",
       "labels": ["bug"],
       "title": "Tags-fetch hydration race (useAppBootstrap.ts)",
-      "description": "useAppBootstrap fires getTags() concurrently with sync.connect()'s hydration; if getTags wins, hydration's updateFromRemote overwrites the profile and drops knownTags. Pre-existing, benign (knownTags is re-fetchable), but a real ordering bug. Fix: await hydration before the tags fetch, or move knownTags to a watcher that re-applies on identity change.",
+      "description": "useAppBootstrap fires getTags() concurrently with sync.connect()'s (un-awaited) hydration. Mechanism (corrected 2026-06-03 vs current code — the original 2026-04-27 note said hydration 'overwrites the entire profile, dropping knownTags', which predates the move to deepMerge): updateFromRemote does deepMerge(store.profile, remote.profile) (store/index.ts ~L600) and deepMerge (lib/utils.ts) REPLACES array values, so if getTags wins the race its fresh knownTags is overwritten by the persisted snapshot's knownTags — i.e. reverts to last-saved, not dropped to empty, and only when the persisted profile carries a knownTags key. Pre-existing, benign (knownTags is the re-fetchable tag-autocomplete dictionary, not user-authored), but a real ordering bug. Fix options: (1) await hydration before the tags fetch (needs a SyncService.whenHydrated()); (2) re-apply knownTags via a watcher on profile-replacement (in-file precedent: the qEUBO reconcile / rehydrateExperimentClaims watchers); (3) move knownTags out of the persisted profile entirely (server-derived, not user data) so hydration can't touch it.",
       "state": "open",
       "disposition": "active",
       "scope": "frontend",
