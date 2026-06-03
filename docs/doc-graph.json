@@ -1,6 +1,6 @@
 {
-  "node_count": 385,
-  "edge_count": 1796,
+  "node_count": 389,
+  "edge_count": 1799,
   "age_buckets": [
     {
       "name": "fresh",
@@ -98,7 +98,7 @@
       "is_hub": true,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/adr/0001-state-mutation-and-readonly.md",
@@ -162,7 +162,7 @@
       "is_hub": false,
       "first_committed": "2026-05-17",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/adr/0009-performance-investigation-discipline.md",
@@ -170,7 +170,7 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
@@ -178,7 +178,7 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/archive/34b-complete-status.md",
@@ -1594,7 +1594,7 @@
       "is_hub": false,
       "first_committed": "2026-05-18",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/dispatch/proxy-to-frontend-selector-and-capabilities-status.md",
@@ -1658,7 +1658,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/audit/audit-stringly-typed-contracts-2026-06-01.md",
@@ -1666,7 +1666,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/audit/audit-work-status-liveness-2026-06-02.md",
@@ -1674,7 +1674,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/audit/opus-audit-green-perf-arc-2026-05-31.md",
@@ -1682,7 +1682,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/audit/perf-audit-game-scroll-2026-05-28.md",
@@ -1690,7 +1690,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/audit/perf-audit-nav-and-pv-hover-2026-05-27.md",
@@ -1698,7 +1698,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/audit/perf-audit-range-query-nav-2026-05-29.md",
@@ -1706,7 +1706,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/auditor-notes.md",
@@ -1754,7 +1754,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-05-29-render-coupling-typing.md",
@@ -1762,7 +1762,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-05-30-config-schema-refactor.md",
@@ -1810,7 +1810,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-02-work-status-ssot-plan.md",
@@ -1818,6 +1818,22 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
+      "age_bucket": "recent"
+    },
+    {
+      "path": "docs/notes/consult/opus-consult-2026-06-03-knowntags-fence-and-boot-ordering.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": "2026-06-03",
+      "last_committed": "2026-06-03",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/notes/consult/opus-consult-2026-06-03-tag-ssot-and-tenancy-leak.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": "2026-06-03",
+      "last_committed": "2026-06-03",
       "age_bucket": "fresh"
     },
     {
@@ -1850,7 +1866,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/design/autonomous-srs-loop-revised.md",
@@ -1874,7 +1890,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/design/doc-graph-discipline-plan.md",
@@ -1930,7 +1946,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/design/proxy-topology-testing-plan.md",
@@ -1938,7 +1954,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/design/qeubo-namespace-unification-plan.md",
@@ -1962,7 +1978,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/distribution-packaging.md",
@@ -2034,7 +2050,7 @@
       "is_hub": false,
       "first_committed": "2026-05-29",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/postmortem/README.md",
@@ -2042,7 +2058,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md",
@@ -2050,7 +2066,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md",
@@ -2058,7 +2074,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md",
@@ -2066,7 +2082,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/postmortem/postmortem-match-pre-existing-variation-2026-05.md",
@@ -2074,7 +2090,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/postmortem/postmortem-pbo-claim-rehydration-2026-05.md",
@@ -2082,7 +2098,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
@@ -2090,7 +2106,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md",
@@ -2098,7 +2114,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/reflection.md",
@@ -2130,7 +2146,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/retrospective/release-retrospective-2026-05.md",
@@ -2138,7 +2154,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/retrospective/retrospective-doc-consolidation-2026-06.md",
@@ -2146,7 +2162,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/retrospective/retrospective-katago-f-optimizer-2026-05.md",
@@ -2154,7 +2170,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/retrospective/retrospective-phase3-policy-benchmark-2026-05.md",
@@ -2162,7 +2178,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/retrospective/retrospective-phase3.5-learned-vf-2026-05.md",
@@ -2170,7 +2186,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/review-session-deltas-investigation.md",
@@ -2186,7 +2202,7 @@
       "is_hub": false,
       "first_committed": "2026-05-18",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/tenancy.md",
@@ -2434,7 +2450,7 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-05-12-dsl-hyperparameter-harness.md",
@@ -2618,7 +2634,7 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-27-keybindings-phase2-dispatcher.md",
@@ -2938,7 +2954,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-01-de-cq-preview-hide.md",
@@ -2978,7 +2994,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-01-memory-profiling-session.md",
@@ -2986,7 +3002,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-01-perf-miniboard-canvas-renderer.md",
@@ -3010,7 +3026,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-02-design-note-retirement-gate.md",
@@ -3026,7 +3042,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-03-forestdirectory-tabwidget.md",
@@ -3064,9 +3080,25 @@
       "path": "docs/worklog/2026-06-03-surface-1-backgrounds-audit.md",
       "genre": "worklog",
       "is_hub": false,
+      "first_committed": "2026-06-03",
+      "last_committed": "2026-06-03",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-03-tag-mutation-and-tenancy-fixes.md",
+      "genre": "worklog",
+      "is_hub": false,
       "first_committed": null,
       "last_committed": null,
       "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/worklog/2026-06-03-tags-fetch-hydration-race-fix.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-03",
+      "last_committed": "2026-06-03",
+      "age_bucket": "fresh"
     },
     {
       "path": "frontend/CLAUDE.md",
@@ -3074,7 +3106,7 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-06-01",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "frontend/FILES.md",
@@ -10719,6 +10751,13 @@
       "resolved": "resolved"
     },
     {
+      "from": "docs/notes/consult/opus-consult-2026-06-03-knowntags-fence-and-boot-ordering.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
       "from": "docs/notes/consult/opus-consults-2026-05-28-audit.md",
       "to": "docs/adr/0005-documentation-discipline.md",
       "kind": "adr-related",
@@ -15322,6 +15361,20 @@
       "to": "docs/adr/0008-classification-discipline.md",
       "kind": "adr-related",
       "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-03-tag-mutation-and-tenancy-fixes.md",
+      "to": "docs/notes/consult/opus-consult-2026-06-03-tag-ssot-and-tenancy-leak.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/consult/opus-consult-2026-06-03-tag-ssot-and-tenancy-leak.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-03-tags-fetch-hydration-race-fix.md",
+      "to": "docs/notes/consult/opus-consult-2026-06-03-knowntags-fence-and-boot-ordering.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/consult/opus-consult-2026-06-03-knowntags-fence-and-boot-ordering.md`",
       "resolved": "resolved"
     },
     {

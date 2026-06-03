@@ -27,7 +27,7 @@ import type {
   SystemMessage,
 } from '../types';
 
-import { defaultProfile, defaultSessionUI, NIL_UUID } from './defaults';
+import { defaultProfile, defaultSessionUI, defaultKnownTags, NIL_UUID } from './defaults';
 import { createInitialBoard } from './board-factory';
 import { migrate, CURRENT_SCHEMA_VERSION } from './migrations';
 import { analysisService } from '../services/analysis-service';
@@ -69,6 +69,10 @@ export const store = reactive<GlobalStore>({
   activeBoardIndex: 0,
   boards: [createInitialBoard()],
   profile: defaultProfile,
+  // Non-persisted server-derived tag dictionary (see GlobalStore /
+  // ProfileState). Cloned so the boot fetch / commitMint don't mutate
+  // the module-level default array.
+  knownTags: structuredClone(defaultKnownTags),
   session: {
     id: '00000000-0000-0000-0000-000000000000' as SessionId,
     profileId: '00000000-0000-0000-0000-000000000000' as ProfileId,
@@ -449,6 +453,44 @@ export function updateBoardState(index: number, newState: BoardState): void {
 }
 
 /**
+ * Registry of identity-scoped MODULE caches — module-scope state that
+ * holds one identity's fetched/derived data and MUST be dropped on
+ * identity flip (logout / switch-user), or it leaks across the tenancy
+ * boundary. `resetWorkspace` drains this list; the tenancy test in
+ * `tests/integration/store-mutators.test.ts` asserts each entry actually
+ * clears. **Adding identity-scoped module state? Add a row here** — this
+ * is the single place, so the clear can't be silently forgotten (the
+ * structural successor to the prior hand-wired O8–O13 clears).
+ *
+ * Order is load-bearing: the engine stop (`stopAllBoardAnalyses`) runs
+ * FIRST so an in-flight response can't re-populate the ledger after it's
+ * purged (same discipline as `closeBoard`). The card-thumbnail and
+ * card-tree clears are privacy-relevant (raw-CardId keys collide across
+ * tenants); the rest are UUID-keyed memory hygiene.
+ *
+ * SCOPE: module-scope caches only. Component-instance fetched data
+ * (ForestDirectory's `roots`, LibraryTab's query/preview state) is
+ * unreachable from here — that leak is closed by remounting those
+ * subtrees on identity flip via the control-panel identity `:key` in
+ * `App.vue`.
+ */
+const IDENTITY_SCOPED_CACHES: ReadonlyArray<{ label: string; clear: () => void }> = [
+  { label: 'analysis:active-board-analyses', clear: () => analysisService.stopAllBoardAnalyses() },
+  { label: 'analysis-ledger', clear: () => ledger.purgeAll() },
+  { label: 'stability-trajectories', clear: () => stabilityTrajectoryStore.purgeAll() },
+  { label: 'board-thumbnails', clear: () => purgeAllThumbnails() },
+  { label: 'card-thumbnails', clear: () => clearCardThumbnailCache() },
+  { label: 'board-card-trees', clear: () => clearAllBoardCardTrees() },
+  { label: 'analysis-bundle-summaries', clear: () => analysisPersistenceService.forgetAll() },
+];
+
+/** Labels of every registered identity-scoped cache — the tenancy
+ *  completeness test asserts this set is non-empty and fully drained. */
+export function identityScopedCacheLabels(): readonly string[] {
+  return IDENTITY_SCOPED_CACHES.map(c => c.label);
+}
+
+/**
  * Resets user-owned reactive workspace state (boards,
  * activeBoardIndex, profile, session) to defaults.
  *
@@ -510,7 +552,8 @@ export function updateBoardState(index: number, newState: BoardState): void {
  * shifts to user-keyed endpoints (cloud-compute, rented
  * per-user engines), full engine reset + actual
  * analysisService.disconnect() becomes the right move; tracked
- * in `docs/notes/deferred-items.md`. The per-board cleanup
+ * in the work-status SSOT (`engine-connection-lifecycle-logout`).
+ * The per-board cleanup
  * shipped here is a strict subset of that future work — it
  * releases workspace-keyed state without touching the WS.
  *
@@ -533,28 +576,12 @@ export function resetWorkspace(): void {
   // cleanup but applied to every active board at once. The WS
   // itself stays open per the docstring's deployment-model
   // reasoning.
-  analysisService.stopAllBoardAnalyses();
-
-  // Drop bounded module-scope caches that would otherwise
-  // accumulate the prior identity's data across the session
-  // boundary. Both card-thumbnail and card-tree clears are
-  // privacy-relevant (raw-CardId collisions across users); the
-  // other two are memory hygiene over UUID-keyed entries.
-  ledger.purgeAll();
-  // Stability-trajectory store: symmetric to ledger.purgeAll for the
-  // per-(hash, extractor, nodeId) trajectories. UUID-keyed; same
-  // memory-hygiene-over-privacy framing as the ledger purge.
-  stabilityTrajectoryStore.purgeAll();
-  purgeAllThumbnails();
-  clearCardThumbnailCache();
-  clearAllBoardCardTrees();
-
-  // Drop cached AnalysisBundleSummary entries — pure local-cache
-  // release per the docstring's tenancy reasoning above. The
-  // server-side rows belong to the prior identity and stay there
-  // (the WHERE-clause fusion in the backend's adapter ensures
-  // they're 404-not-403 to the new identity). Audit pair O13.
-  analysisPersistenceService.forgetAll();
+  // Drain every identity-scoped module cache in dependency order (see
+  // IDENTITY_SCOPED_CACHES above — engine-stop first, then the data
+  // caches). Replaces the prior hand-wired O8–O13 clears with one
+  // registry, so a future cache can't be silently left out of the
+  // tenancy reset.
+  for (const cache of IDENTITY_SCOPED_CACHES) cache.clear();
 
   // Abort every in-flight review-analysis wait so prior-identity
   // timeouts can't fire 30s into the new identity's session and
@@ -564,6 +591,12 @@ export function resetWorkspace(): void {
   store.boards = [createInitialBoard()];
   store.activeBoardIndex = 0;
   store.profile = structuredClone(defaultProfile);
+  // Re-seed the non-persisted tag dictionary on identity-out: it no
+  // longer rides profile's clone-reset (it's a top-level GlobalStore
+  // field now), so without this the prior identity's knownTags would
+  // leak into the next session until the boot getTags() fetch
+  // overwrote it. Server-derived cache; see the ProfileState invariant.
+  store.knownTags = structuredClone(defaultKnownTags);
   store.session = {
     id: NIL_UUID as SessionId,
     profileId: NIL_UUID as ProfileId,

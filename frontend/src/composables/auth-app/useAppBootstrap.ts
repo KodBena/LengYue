@@ -409,7 +409,14 @@ export function useAppBootstrap(
     void resourceService.loadVisitDistribution();
     try {
       const tags = await backendService.getTags();
-      store.profile = { ...store.profile, knownTags: tags.map(t => t.name) };
+      // Write the non-persisted top-level tag dictionary, NOT
+      // store.profile. The prior `store.profile = { ...store.profile,
+      // knownTags }` raced sync.connect()'s un-awaited hydration: if
+      // getTags won, hydration's deepMerge reverted knownTags to the
+      // persisted snapshot (tags-fetch-hydration-race). Moving knownTags
+      // out of the persisted profile makes the two writes target
+      // different fields, so order no longer matters.
+      store.knownTags = tags.map(t => t.name);
     } catch (err) {
       console.warn('Could not load tag dictionary:', err);
     }

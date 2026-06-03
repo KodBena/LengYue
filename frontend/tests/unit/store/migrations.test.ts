@@ -2576,3 +2576,39 @@ describe('56 → 57: qEUBO bookmark parameters Record<string,number> → Record<
     expect(out.profile).toBeUndefined();
   });
 });
+
+describe('57 → 58: strip stale profile.knownTags (moved to non-persisted GlobalStore field)', () => {
+  it('deletes profile.knownTags when present', () => {
+    const blob: any = {
+      profile: { username: 'u', knownTags: ['$mistake', 'fuseki'], cardSets: {} },
+    };
+    const out = step(57)(blob);
+    expect('knownTags' in out.profile).toBe(false);
+    // Sibling profile fields are preserved.
+    expect(out.profile.username).toBe('u');
+    expect(out.profile.cardSets).toEqual({});
+  });
+
+  it('is idempotent — a no-op when profile.knownTags is already absent', () => {
+    const blob: any = { profile: { username: 'u' } };
+    const out = step(57)(blob);
+    expect('knownTags' in out.profile).toBe(false);
+    expect(out.profile.username).toBe('u');
+  });
+
+  it('is a no-op when profile is absent (legacy/partial blob)', () => {
+    const blob: any = { session: {} };
+    const out = step(57)(blob);
+    expect(out.profile).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v57 blob with profile.knownTags reaches CURRENT with the key gone', () => {
+    const blob: any = {
+      schemaVersion: 57,
+      profile: { username: 'u', knownTags: ['x'], cardSets: {} },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect('knownTags' in out.profile).toBe(false);
+  });
+});

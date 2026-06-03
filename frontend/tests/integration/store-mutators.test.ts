@@ -71,8 +71,10 @@ import {
   addBoard,
   closeBoard,
   resetWorkspace,
+  identityScopedCacheLabels,
 } from '../../src/store';
 import { createInitialBoard } from '../../src/store/board-factory';
+import { defaultKnownTags } from '../../src/store/defaults';
 import { ledger } from '../../src/services/analysis-ledger';
 import { fakeAnalysisService, resetFakeAnalysisService } from '../fakes/analysis-service';
 import {
@@ -250,5 +252,40 @@ describe('resetWorkspace — identity-flip cleanup chain', () => {
     // activeMode dictionary is wiped (it's keyed by BoardIds
     // belonging to the prior identity).
     expect(store.engine.status).toBe('connected');
+  });
+});
+
+describe('resetWorkspace — tenancy: knownTags + the identity-scoped-cache registry', () => {
+  it('re-seeds store.knownTags to defaults on identity-out (no prior-user dictionary leak)', () => {
+    // Simulate the prior identity having a populated, non-default tag
+    // dictionary; after the flip it must NOT carry into the next session.
+    store.knownTags = ['prior-user-secret-tag', '$mistake'];
+
+    resetWorkspace();
+
+    expect(store.knownTags).toEqual(defaultKnownTags);
+    // Fresh array identity (cloned, not the module-level default).
+    expect(store.knownTags).not.toBe(defaultKnownTags);
+  });
+
+  it('the identity-scoped-cache registry covers exactly the known caches', () => {
+    // The registry is the single place identity-scoped MODULE caches
+    // register their clear; resetWorkspace drains it. This guard fails
+    // the moment a cache is added to or removed from the registry
+    // without a deliberate update here — so a clear can't be silently
+    // dropped (a cross-tenant leak) nor a cache silently un-registered.
+    const labels = identityScopedCacheLabels();
+    expect(labels).toEqual(
+      expect.arrayContaining([
+        'analysis:active-board-analyses',
+        'analysis-ledger',
+        'stability-trajectories',
+        'board-thumbnails',
+        'card-thumbnails',
+        'board-card-trees',
+        'analysis-bundle-summaries',
+      ]),
+    );
+    expect(labels).toHaveLength(7);
   });
 });

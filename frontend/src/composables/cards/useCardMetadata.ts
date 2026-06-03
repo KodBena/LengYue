@@ -16,14 +16,22 @@
  * License: Public Domain (The Unlicense)
  */
 import { backendService } from '../../services/backend-service';
+import { learnTags } from './useTags';
 import type { CardId, CardMetadataPatch, ReviewCard } from '../../types';
 
 export function useCardMetadata(): {
   updateMetadata: (cardId: CardId, patch: CardMetadataPatch) => Promise<ReviewCard>;
 } {
   /** Persist a metadata patch; resolves to the updated card. */
-  function updateMetadata(cardId: CardId, patch: CardMetadataPatch): Promise<ReviewCard> {
-    return backendService.updateCardMetadata(cardId, patch);
+  async function updateMetadata(cardId: CardId, patch: CardMetadataPatch): Promise<ReviewCard> {
+    const updated = await backendService.updateCardMetadata(cardId, patch);
+    // Tag-dictionary chokepoint (see useTags.ts): fold the updated
+    // card's tags into store.knownTags so a tag added through the
+    // metadata editor is immediately known to autocomplete — the SSOT
+    // gap this path used to have. Idempotent; the returned card's tag
+    // set is authoritative.
+    learnTags(updated.tags ?? []);
+    return updated;
   }
   return { updateMetadata };
 }

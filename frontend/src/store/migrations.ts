@@ -107,13 +107,13 @@ if (import.meta.hot) import.meta.hot.accept(() => location.reload());
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 57;
+export const CURRENT_SCHEMA_VERSION = 58;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 54 → 55) are
+ * The first `N` entries (currently 1 → 2 through 55 → 56) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -135,24 +135,6 @@ export const CURRENT_SCHEMA_VERSION = 57;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 55 → 56: backfill `profile.settings.appearance.miniBoardRenderer` — the
-  // MiniBoard thumbnail renderer choice (SVG vs canvas; AppSettings.appearance).
-  // Default 'svg' preserves the pre-split behaviour; the canvas renderer is
-  // opt-in via the RegistryEditor. Consumer-side display preference; no wire or
-  // proxy change.
-  //
-  // Idempotent: a pre-existing 'svg' | 'canvas' value is preserved.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const appearance = out.profile?.settings?.appearance;
-    if (appearance && typeof appearance === 'object') {
-      const a = appearance as { miniBoardRenderer?: unknown };
-      if (a.miniBoardRenderer !== 'svg' && a.miniBoardRenderer !== 'canvas') {
-        a.miniBoardRenderer = 'svg';
-      }
-    }
-    return out;
-  },
   // 56 → 57: reshape `profile.qeuboPinnedBookmarks[].parameters` from the
   // flat `Record<string, number>` (bare analysis_env param name → scalar)
   // to the knob-registry-native `Record<KnobId, number[]>` (`qeubo.<name>`
@@ -186,6 +168,24 @@ export const migrations: Migration[] = [
         }
         bm.parameters = reshaped;
       }
+    }
+    return out;
+  },
+  // 57 → 58: strip the now-stale `profile.knownTags` from persisted blobs.
+  // knownTags moved out of the persisted profile to a non-persisted
+  // top-level `GlobalStore` field (it's a server-derived cache re-fetched
+  // every boot — see the ProfileState invariant; closes the
+  // tags-fetch-hydration-race). Without this strip, an old blob's
+  // `profile.knownTags` would survive `updateFromRemote`'s deepMerge as a
+  // stray runtime key on `store.profile` and get re-persisted forever —
+  // half-defeating the move. No value is carried forward (the boot fetch
+  // repopulates the new field); we just delete the dead key.
+  //
+  // Idempotent: `delete` is a no-op when the key is already absent.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    if (out.profile && typeof out.profile === 'object') {
+      delete (out.profile as { knownTags?: unknown }).knownTags;
     }
     return out;
   },

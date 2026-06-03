@@ -501,12 +501,62 @@
       "id": "tags-fetch-hydration-race",
       "labels": ["bug"],
       "title": "Tags-fetch hydration race (useAppBootstrap.ts)",
-      "description": "useAppBootstrap fires getTags() concurrently with sync.connect()'s hydration; if getTags wins, hydration's updateFromRemote overwrites the profile and drops knownTags. Pre-existing, benign (knownTags is re-fetchable), but a real ordering bug. Fix: await hydration before the tags fetch, or move knownTags to a watcher that re-applies on identity change.",
-      "state": "open",
-      "disposition": "active",
+      "description": "useAppBootstrap fires getTags() concurrently with sync.connect()'s (un-awaited) hydration. Mechanism (corrected 2026-06-03 vs current code — the original 2026-04-27 note said hydration 'overwrites the entire profile, dropping knownTags', which predates the move to deepMerge): updateFromRemote does deepMerge(store.profile, remote.profile) (store/index.ts ~L600) and deepMerge (lib/utils.ts) REPLACES array values, so if getTags wins the race its fresh knownTags is overwritten by the persisted snapshot's knownTags — i.e. reverts to last-saved, not dropped to empty, and only when the persisted profile carries a knownTags key. Pre-existing, benign (knownTags is the re-fetchable tag-autocomplete dictionary, not user-authored), but a real ordering bug. Fix options: (1) await hydration before the tags fetch (needs a SyncService.whenHydrated()); (2) re-apply knownTags via a watcher on profile-replacement (in-file precedent: the qEUBO reconcile / rehydrateExperimentClaims watchers); (3) move knownTags out of the persisted profile entirely (server-derived, not user data) so hydration can't touch it.",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-06-03",
       "scope": "frontend",
       "tier": "small",
-      "refs": [{ "kind": "source", "target": "frontend/src/composables/auth-app/useAppBootstrap.ts" }]
+      "refs": [
+        { "kind": "source", "target": "frontend/src/composables/auth-app/useAppBootstrap.ts" },
+        { "kind": "worklog", "target": "docs/worklog/2026-06-03-tags-fetch-hydration-race-fix.md" }
+      ]
+    },
+    {
+      "id": "mint-uncommitted-tag-drop",
+      "labels": ["bug"],
+      "title": "Mint silently drops a typed-but-uncommitted tag",
+      "description": "MintCardModal.submit ignored tagInput: a tag typed but not turned into a chip (no Enter/comma) never reached draft.tags, so the card minted without it. The create→attach_tags→/stats/tags wire path is correct end to end (Opus investigation 2026-06-03) — purely the un-flushed input. Fix: submit() flushes a non-empty tagInput via addTag before commitMint. Pre-existing; found while testing the knownTags fix.",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-06-03",
+      "scope": "frontend",
+      "tier": "small",
+      "refs": [
+        { "kind": "source", "target": "frontend/src/components/modals/MintCardModal.vue" },
+        { "kind": "worklog", "target": "docs/worklog/2026-06-03-tag-mutation-and-tenancy-fixes.md" }
+      ]
+    },
+    {
+      "id": "tag-mutation-ssot",
+      "labels": ["bug", "architectural-cruft"],
+      "title": "Tag-mutation SSOT: metadata-edit didn't update knownTags",
+      "description": "Only the mint path folded new tags into store.knownTags; the metadata-edit path (CardMetadataPanel → useCardMetadata.updateMetadata, used by ReviewSessionPanel + ForestDirectory) attached the tag to the card server-side but never told the local dictionary, so a tag added via the editor was invisible to autocomplete until the next boot's getTags(). Fix: a useTags().learnTags() chokepoint that both the mint path and useCardMetadata.updateMetadata route through (the latter is the single shared site for both editors). Pre-existing; found while testing the knownTags fix.",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-06-03",
+      "scope": "frontend",
+      "tier": "small",
+      "refs": [
+        { "kind": "source", "target": "frontend/src/composables/cards/useTags.ts" },
+        { "kind": "worklog", "target": "docs/worklog/2026-06-03-tag-mutation-and-tenancy-fixes.md" }
+      ]
+    },
+    {
+      "id": "tenancy-instance-cache-leak",
+      "labels": ["bug"],
+      "title": "Tenancy leak: component-instance fetched data survives identity flip",
+      "description": "resetWorkspace clears every module cache on identity flip but cannot reach component-instance state in components not remounted on the flip — ForestDirectory's roots (fetched forest/card-set list) and LibraryTab's query/preview state. With no identity :key, onMounted never re-fired, so user B saw user A's fetched data (a live ForestDirectory watch even re-injected A's roots into B's reset board slot). Fix: an identity :key on the control-panel TabWidget (App.vue, keyed on username) remounts the Cards/Library subtrees on identity change; plus resetWorkspace's hand-wired O8–O13 clears become a single IDENTITY_SCOPED_CACHES registry so a module-cache clear can't be silently forgotten. Pre-existing; found while testing the knownTags fix (Opus investigation 2026-06-03).",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-06-03",
+      "scope": "frontend",
+      "tier": "medium",
+      "refs": [
+        { "kind": "source", "target": "frontend/src/App.vue" },
+        { "kind": "source", "target": "frontend/src/store/index.ts" },
+        { "kind": "worklog", "target": "docs/worklog/2026-06-03-tag-mutation-and-tenancy-fixes.md" }
+      ]
     },
     {
       "id": "refactoring-queue-adr0007",

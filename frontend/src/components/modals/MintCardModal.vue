@@ -72,7 +72,7 @@ const gamma = computed<number>({
 const filteredTags = computed(() => {
   const query = tagInput.value.toLowerCase().trim();
   if (!query) return [];
-  return store.profile.knownTags.filter(t => 
+  return store.knownTags.filter(t =>
     t.toLowerCase().includes(query) && !draft.value?.tags.includes(t)
   ).slice(0, 8); // Max 8 suggestions
 });
@@ -169,6 +169,13 @@ onUnmounted(() => {
 async function submit() {
   if (!draft.value) return;
   isLoading.value = true;
+
+  // Flush a typed-but-uncommitted tag. A user who types a tag and
+  // clicks Mint without pressing Enter/comma (so it never became a
+  // chip) would otherwise have it silently dropped — it lives in
+  // `tagInput`, never pushed to `draft.tags`, so the card mints
+  // without it. `addTag` normalizes + dedups and clears `tagInput`.
+  if (tagInput.value.trim()) addTag(tagInput.value);
 
   // Apply Palette Override if one was specifically chosen.
   // 34b: The override rebuilds `grading_parameter` from the palette, so we

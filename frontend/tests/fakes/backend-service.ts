@@ -27,12 +27,16 @@
  */
 
 import { vi } from 'vitest';
-import type { CardId, ReviewCard } from '../../src/types';
+import type { CardId, CardCreatePayload, CardMetadataPatch, ReviewCard } from '../../src/types';
 
 export const fakeBackendService = {
   submitReview: vi.fn<(cardId: CardId, scores: number[]) => Promise<ReviewCard>>(),
+  createCard: vi.fn<(payload: CardCreatePayload) => Promise<number>>(),
+  updateCardMetadata: vi.fn<(cardId: CardId, patch: CardMetadataPatch) => Promise<ReviewCard>>(),
 };
 
 export function resetFakeBackendService(): void {
   fakeBackendService.submitReview.mockReset();
+  fakeBackendService.createCard.mockReset();
+  fakeBackendService.updateCardMetadata.mockReset();
 }

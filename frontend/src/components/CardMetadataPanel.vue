@@ -106,7 +106,7 @@ const numMovesDirty = computed(
 const tagSuggestions = computed(() => {
   const q = tagInput.value.trim().toLowerCase();
   if (!q) return [];
-  return store.profile.knownTags
+  return store.knownTags
     .filter(s => s.toLowerCase().includes(q) && !localTags.value.includes(s))
     .slice(0, 8);
 });
