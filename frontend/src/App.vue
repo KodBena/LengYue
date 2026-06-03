@@ -9,6 +9,7 @@ import { useSgfDownload }    from './composables/sgf/useSgfDownload';
 import { useEngineControls } from './composables/useEngineControls';
 import { useUserIORegistry } from './composables/useUserIORegistry';
 import { useAuth }           from './composables/auth-app/useAuth';
+import { workspaceIdentityKey } from './composables/auth-app/workspace-identity-key';
 import { useResizablePanel } from './composables/chrome/useResizablePanel';
 import { useDirtyBoardGuard } from './composables/board/useDirtyBoardGuard';
 import { useAppBootstrap } from './composables/auth-app/useAppBootstrap';
@@ -64,6 +65,14 @@ const metadata           = useMetadata(activeBoard);
 const auth               = useAuth();
 
 const activeBoardId = computed(() => activeBoard.value?.id as BoardId | null);
+
+// Identity key for the control panel. Remounts the Cards / Library tabs
+// when the logged-in identity changes, so user B never sees user A's
+// component-instance fetched data (ForestDirectory's `roots`, LibraryTab's
+// query/preview state) — the leak `resetWorkspace`'s cache registry can't
+// reach, since that state lives in component instances, not module scope.
+// Derivation (and why username, not userId) in workspace-identity-key.ts.
+const controlPanelIdentityKey = computed(() => workspaceIdentityKey(auth.state.value));
 const reviewSession = useReviewSession(activeBoardId);
 const mintModalRef = vueRef<InstanceType<typeof MintCardModal> | null>(null);
 const matchModalRef = vueRef<InstanceType<typeof EngineMatchModal> | null>(null);
@@ -466,6 +475,7 @@ function handleNodeSelect(nodeId: NodeId): void {
           :style="{ flex: '1 1 0', minWidth: '220px' }"
         >
           <TabWidget
+            :key="controlPanelIdentityKey"
             :tabs="controlTabs"
             v-model="(store.session.ui.activeTab as string)"
           >

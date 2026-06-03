@@ -10,6 +10,7 @@ import { serializeActivePath } from '../../engine/sgf-writer';
 import { resolveGameName } from '../../engine/util';
 import { compileAnalysisConfig, compileEngineOverrides } from '../../services/analysis-config';
 import { useMetadata } from '../auth-app/useMetadata';
+import { learnTags } from '../cards/useTags';
 import { computed } from 'vue';
 import type { BoardId, CardCreatePayload, GameMetadataPayload } from '../../types';
 
@@ -163,25 +164,11 @@ export function useMinting() {
    */
   async function commitMint(payload: CardCreatePayload): Promise<number> {
     const newCardId = await backendService.createCard(payload);
-    
-    // Update the (non-persisted) tag dictionary so autocomplete
-    // remembers just-minted tags for the session — /stats/tags won't
-    // surface them until the next boot fetch. See the ProfileState
-    // invariant: knownTags is a server-derived cache on GlobalStore,
-    // not in the persisted profile.
-    const currentTags = new Set(store.knownTags);
-    let tagsChanged = false;
 
-    for (const tag of payload.tags) {
-      if (!currentTags.has(tag)) {
-        currentTags.add(tag);
-        tagsChanged = true;
-      }
-    }
-
-    if (tagsChanged) {
-      store.knownTags = Array.from(currentTags);
-    }
+    // Route the just-minted tags through the tag-dictionary chokepoint
+    // so autocomplete remembers them this session (the metadata-edit
+    // path does the same via useCardMetadata — see useTags.ts).
+    learnTags(payload.tags);
 
     return newCardId;
   }
