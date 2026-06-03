@@ -1,6 +1,6 @@
 {
-  "node_count": 385,
-  "edge_count": 1796,
+  "node_count": 386,
+  "edge_count": 1797,
   "age_buckets": [
     {
       "name": "fresh",
@@ -98,7 +98,7 @@
       "is_hub": true,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/adr/0001-state-mutation-and-readonly.md",
@@ -1821,6 +1821,14 @@
       "age_bucket": "fresh"
     },
     {
+      "path": "docs/notes/consult/opus-consult-2026-06-03-knowntags-fence-and-boot-ordering.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
       "path": "docs/notes/consult/opus-consults-2026-05-28-audit.md",
       "genre": "note",
       "is_hub": false,
@@ -2986,7 +2994,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-01-perf-miniboard-canvas-renderer.md",
@@ -3010,7 +3018,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-02-design-note-retirement-gate.md",
@@ -3026,7 +3034,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-03-forestdirectory-tabwidget.md",
@@ -3064,9 +3072,9 @@
       "path": "docs/worklog/2026-06-03-surface-1-backgrounds-audit.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-03",
+      "last_committed": "2026-06-03",
+      "age_bucket": "fresh"
     },
     {
       "path": "frontend/CLAUDE.md",
@@ -10716,6 +10724,13 @@
       "to": "docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md",
       "kind": "path-mention",
       "site": "`docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-03-knowntags-fence-and-boot-ordering.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
       "resolved": "resolved"
     },
     {
