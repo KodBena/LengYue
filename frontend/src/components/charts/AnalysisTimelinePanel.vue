@@ -144,7 +144,7 @@ function onAnalyze(): void {
 .visits-label { font-size: var(--text-emphasis); color: var(--text-0); flex-shrink: 0; }
 .visits-input {
   width: 72px;
-  background: var(--surface-1);
+  background: var(--surface-0);
   border: 1px solid var(--border-2);
   color: var(--text-1);
   padding: 3px 6px;

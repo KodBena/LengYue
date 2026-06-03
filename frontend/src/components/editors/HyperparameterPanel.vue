@@ -277,7 +277,7 @@ function optionsStr(decl: HyperparamDecl): string {
 }
 .harness-table td:first-child { padding-left: 0; }
 .dark-input {
-  background: var(--surface-1); border: 1px solid var(--border-2); color: var(--text-0);
+  background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
   padding: var(--space-tight) var(--space-default); border-radius: var(--radius-default);
   font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
 }

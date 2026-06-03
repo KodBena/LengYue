@@ -1,6 +1,6 @@
 {
-  "node_count": 382,
-  "edge_count": 1794,
+  "node_count": 385,
+  "edge_count": 1796,
   "age_buckets": [
     {
       "name": "fresh",
@@ -34,7 +34,7 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "README.md",
@@ -114,7 +114,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
@@ -138,7 +138,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/adr/0006-source-file-headers.md",
@@ -450,7 +450,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/archive/notes/design/analysis-persistence-plan.md",
@@ -458,7 +458,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
@@ -466,7 +466,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/archive/notes/design/keybindings-plan.md",
@@ -474,7 +474,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/archive/notes/design/knob-registry-plan.md",
@@ -482,7 +482,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/archive/notes/design/per-board-multi-query-model-plan.md",
@@ -490,7 +490,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/archive/notes/design/sgf-library-plan.md",
@@ -498,7 +498,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/archive/notes/design/work-status-ssot-plan.md",
@@ -506,7 +506,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/archive/notes/dsl-hyperparameter-harness-plan.md",
@@ -1634,7 +1634,7 @@
       "is_hub": true,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/analysis-persistence-followups.md",
@@ -1642,7 +1642,7 @@
       "is_hub": false,
       "first_committed": "2026-05-26",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/audit-reflections.md",
@@ -1722,7 +1722,7 @@
       "is_hub": false,
       "first_committed": "2026-05-26",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/consolidation-xref-fallout.md",
@@ -1746,7 +1746,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-05-29-effect-ts-adoption.md",
@@ -1770,7 +1770,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-01-effect-ts-architectural-merits.md",
@@ -1778,7 +1778,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md",
@@ -1786,7 +1786,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-01-neverthrow-overhaul.md",
@@ -1794,7 +1794,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-01-perf-capture-automation-design-space.md",
@@ -1802,7 +1802,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-02-work-status-ci-gates.md",
@@ -1826,7 +1826,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/decisions-deferred.md",
@@ -1834,7 +1834,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/design/README.md",
@@ -1858,7 +1858,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/design/autonomous-srs-loop.md",
@@ -1866,7 +1866,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/design/config-schema-projection-plan.md",
@@ -1882,7 +1882,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/design/migration-test-rotation-plan.md",
@@ -1890,7 +1890,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/design/mistake-finder-design-space.md",
@@ -1898,7 +1898,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/design/mistake-finder-pedagogy-and-followups.md",
@@ -1906,7 +1906,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/design/mistake-stability-surface-synthesis.md",
@@ -1914,7 +1914,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/design/perceptual-event-projection-plan.md",
@@ -1922,7 +1922,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/design/proxy-topology-testing-plan-revised.md",
@@ -1946,7 +1946,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/design/stability-surface-design-space.md",
@@ -1954,7 +1954,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/design/typed-effect-documentation-plan.md",
@@ -2218,7 +2218,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/vestige/deferred-items/adr-effectiveness-audits.md",
@@ -2322,7 +2322,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/vestige/deferred-items/serial-numbers-generated-artifacts.md",
@@ -2394,7 +2394,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/playbooks/monorepo/monorepo-plan-framing.md",
@@ -2410,7 +2410,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/rfcs/0001-adr-meta-review.md",
@@ -2698,7 +2698,7 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-27-review-intermission-move-block.md",
@@ -3002,7 +3002,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-02-cochange-advisory.md",
@@ -3040,6 +3040,30 @@
       "path": "docs/worklog/2026-06-03-knob-bookmark-schema-reshape.md",
       "genre": "worklog",
       "is_hub": false,
+      "first_committed": "2026-06-03",
+      "last_committed": "2026-06-03",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-03-remove-legacy-auth-key-shim.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-03",
+      "last_committed": "2026-06-03",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-03-scattered-timing-literals-decision.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-03",
+      "last_committed": "2026-06-03",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-03-surface-1-backgrounds-audit.md",
+      "genre": "worklog",
+      "is_hub": false,
       "first_committed": null,
       "last_committed": null,
       "age_bucket": "uncommitted"
@@ -3058,7 +3082,7 @@
       "is_hub": false,
       "first_committed": "2026-05-11",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "frontend/IDENTIFIERS.md",
@@ -15284,6 +15308,20 @@
       "to": "docs/worklog/2026-05-14-knob-registry.md",
       "kind": "path-mention",
       "site": "`docs/worklog/2026-05-14-knob-registry.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-03-remove-legacy-auth-key-shim.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-03-scattered-timing-literals-decision.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
       "resolved": "resolved"
     },
     {

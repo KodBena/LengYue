@@ -50,7 +50,7 @@ const hasMessages = computed(() => store.engine.messages.length > 0);
 
 <style scoped>
 .system-log-panel {
-  background: var(--surface-1);
+  background: var(--surface-0);
   border-bottom: 1px solid var(--border-2);
   display: flex;
   flex-direction: column;

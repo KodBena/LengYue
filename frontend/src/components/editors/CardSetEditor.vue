@@ -245,7 +245,7 @@ function updateHyperparameters(decls: HyperparamDecl[]) {
   border-radius: var(--radius-default); overflow: hidden; font-family: 'Consolas', monospace;
 }
 
-.sidebar { width: 200px; background: var(--surface-1); border-right: 1px solid var(--surface-3); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
+.sidebar { width: 200px; background: var(--surface-0); border-right: 1px solid var(--surface-3); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
 .section { border-bottom: 1px solid var(--surface-2); }
 .section-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-default) var(--space-medium); background: var(--surface-2); color: var(--text-1); font-size: var(--text-body); text-transform: uppercase; }
 .pipeline-header { margin-top: var(--space-medium); border-top: 1px solid #1a1a1a; }
@@ -270,7 +270,7 @@ function updateHyperparameters(decls: HyperparamDecl[]) {
 
 .form-grid { padding: var(--space-medium); display: grid; grid-template-columns: 100px 1fr; gap: var(--space-medium); align-items: center; }
 .form-grid label { font-size: var(--text-emphasis); color: var(--text-2); }
-.dark-input { background: var(--surface-1); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default); border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none; }
+.dark-input { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default); border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none; }
 .dark-input:focus { border-color: var(--accent-primary); }
 
 .editor-wrap { flex: 1; min-height: 150px; overflow: auto; border-top: 1px solid var(--surface-3); transition: border-color var(--duration-default); }

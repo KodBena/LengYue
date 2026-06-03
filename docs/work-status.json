@@ -409,20 +409,23 @@
       "labels": ["ux"],
       "title": "--surface-1 backgrounds (low-contrast on the default theme)",
       "description": "var(--surface-1) resolves dark-grey under black default text — almost never the right background (--surface-0 is the default). The Phase-3 editor was fixed; a few other call sites remain unaudited. grep + excise non-deliberate usages or annotate the genuine exceptions. Low priority.",
-      "state": "open",
-      "disposition": "active",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-06-03",
       "scope": "frontend",
-      "tier": "small"
+      "tier": "small",
+      "refs": [{ "kind": "worklog", "target": "docs/worklog/2026-06-03-surface-1-backgrounds-audit.md" }]
     },
     {
       "id": "scattered-timing-literals",
       "labels": ["architectural-cruft"],
       "title": "Scattered non-coalescing timing literals",
-      "description": "timing.ts centralises coalescing windows; the adjacent timeouts/durations/interaction-delays (KATAGO_ANALYSIS_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, REVEAL_DURATION_MS, DEFAULT_CLOSE_DELAY_MS) remain scattered — each magic-literal compliant but not catalogued. Decide: leave / sibling catalog / sectioned timing.ts. Low priority.",
+      "description": "timing.ts centralises coalescing windows; the adjacent timeouts/durations/interaction-delays (KATAGO_ANALYSIS_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, REVEAL_DURATION_MS, DEFAULT_CLOSE_DELAY_MS) remain scattered — each magic-literal compliant but not catalogued. Decide: leave / sibling catalog / sectioned timing.ts. Low priority. Inventory captured 2026-06-03 in the referenced worklog (durable, for review). Decision DEFERRED pending maintainer review of that inventory — the motivating leverage for consolidation is tuning ergonomy (one surface to tune related timing behaviour), not magic-literal compliance (already satisfied); the counter-axis is timing.ts's family discipline (don't couple genuinely-unrelated tuning).",
       "state": "open",
       "disposition": "active",
       "scope": "frontend",
-      "tier": "small"
+      "tier": "small",
+      "refs": [{ "kind": "worklog", "target": "docs/worklog/2026-06-03-scattered-timing-literals-decision.md" }]
     },
     {
       "id": "adr-effectiveness-audits",
@@ -484,11 +487,15 @@
       "labels": ["refactor"],
       "title": "Remove legacy auth-key compat shim (api-client.ts)",
       "description": "api-client.ts carries a one-shot migrateLegacyAuthKeys() shim (ebisu_* → auth_* on module init). Per ADR-0002 exception #3, a bounded-and-scheduled-for-removal shim. Remove the function + its single call (~30 lines) once monitoring confirms no users carry the legacy keys.",
-      "state": "open",
-      "disposition": "active",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-06-03",
       "scope": "frontend",
       "tier": "small",
-      "refs": [{ "kind": "source", "target": "frontend/src/services/api-client.ts" }]
+      "refs": [
+        { "kind": "source", "target": "frontend/src/services/api-client.ts" },
+        { "kind": "worklog", "target": "docs/worklog/2026-06-03-remove-legacy-auth-key-shim.md" }
+      ]
     },
     {
       "id": "tags-fetch-hydration-race",

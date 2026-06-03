@@ -526,7 +526,7 @@ function deleteItem() {
 
 .sidebar {
   width: 200px;
-  background: var(--surface-1);
+  background: var(--surface-0);
   border-right: 1px solid var(--surface-3);
   display: flex;
   flex-direction: column;
@@ -599,14 +599,14 @@ function deleteItem() {
 }
 
 .dark-input {
-  background: var(--surface-1); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default); border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
+  background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default); border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
 }
 .dark-select {
   border: 1px solid var(--border-2); color: var(--text-0); padding: var(--space-default); border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
 }
 .dark-input:focus, .dark-select:focus { border-color: var(--accent-primary); }
 
-.state-fn-row { display: flex; align-items: center; gap: var(--space-medium); margin-top: var(--space-default); padding: var(--space-default); background: var(--surface-1); border-radius: var(--radius-default); border: 1px solid var(--surface-3); }
+.state-fn-row { display: flex; align-items: center; gap: var(--space-medium); margin-top: var(--space-default); padding: var(--space-default); background: var(--surface-0); border-radius: var(--radius-default); border: 1px solid var(--surface-3); }
 .chart-name { font-size: var(--text-emphasis); color: var(--text-0); font-weight: bold; width: 120px; }
 .arrow { color: var(--border-3); }
 .flex-1 { flex: 1; }

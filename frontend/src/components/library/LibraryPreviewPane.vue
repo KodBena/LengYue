@@ -136,7 +136,7 @@ const scrubMax = computed(() => props.preview.totalMoves.value);
   /* Reserve a square so the SVG mini-board renders aspect-1:1 */
   aspect-ratio: 1 / 1;
   max-width: 360px;
-  background: var(--surface-1);
+  background: var(--surface-0);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-default);
 }
@@ -161,7 +161,7 @@ const scrubMax = computed(() => props.preview.totalMoves.value);
 .preview-btn {
   padding: var(--space-tiny) var(--space-small);
   font-size: var(--text-body);
-  background: var(--surface-1);
+  background: var(--surface-0);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-default);
   color: var(--text-default);

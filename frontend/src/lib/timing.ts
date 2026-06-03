@@ -30,8 +30,13 @@
  * Scope: reactivity-coalescing windows only. Timeouts (analysis /
  * play-from-position), display durations (transient log reveal), and
  * interaction delays (hover popover) are a different category and are
- * intentionally NOT catalogued here — see docs/notes/deferred-items.md
- * ("Scattered non-coalescing timing literals"). User-configurable
+ * intentionally NOT catalogued *here* — each is already a named,
+ * magic-literal-compliant constant living closest to its consumer.
+ * Whether those scattered timing constants should themselves be
+ * consolidated onto one tuning surface (the leverage is tuning ergonomy,
+ * not magic-literal compliance — which they already have) is an OPEN
+ * question tracked in the work-status SSOT (`scattered-timing-literals`);
+ * the full inventory lives in that item's worklog. User-configurable
  * cadences live in the settings registry, not here; they are noted at
  * the foot of this file as pointers, not owned.
  *

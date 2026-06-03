@@ -39,39 +39,6 @@ export class ApiError extends Error {
 const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'auth_username';
 
-/**
- * One-shot localStorage compat shim — migrate auth keys from the
- * pre-de-branding identifiers (`ebisu_jwt_token`, `ebisu_username`)
- * to the canonical `auth_token` / `auth_username`. Runs at module
- * init; subsequent reads/writes use the new keys exclusively.
- *
- * Per ADR-0002 documented exception #3 (bounded-and-scheduled-for-
- * removal compat shim). Filed in `docs/notes/deferred-items.md` as
- * a removal target for a future cleanup PR once monitoring confirms
- * no users still carry the legacy keys.
- *
- * The `localStorage.getItem(newKey) === null` guard preserves any
- * already-present new key (e.g., from a partial migration). The
- * legacy key is always removed once observed.
- */
-function migrateLegacyAuthKeys(): void {
-  const pairs: Array<[string, string]> = [
-    ['ebisu_jwt_token', TOKEN_KEY],
-    ['ebisu_username', USER_KEY],
-  ];
-  for (const [oldKey, newKey] of pairs) {
-    const oldVal = localStorage.getItem(oldKey);
-    if (oldVal !== null) {
-      if (localStorage.getItem(newKey) === null) {
-        localStorage.setItem(newKey, oldVal);
-      }
-      localStorage.removeItem(oldKey);
-    }
-  }
-}
-
-migrateLegacyAuthKeys();
-
 // Cap error-body excerpts so we don't flood the system log with
 // multi-kilobyte FastAPI validation payloads. The full body is still
 // visible via the thrown Error's message and in the browser's Network
