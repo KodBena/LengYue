@@ -418,11 +418,13 @@
       "id": "scattered-timing-literals",
       "labels": ["architectural-cruft"],
       "title": "Scattered non-coalescing timing literals",
-      "description": "timing.ts centralises coalescing windows; the adjacent timeouts/durations/interaction-delays (KATAGO_ANALYSIS_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, REVEAL_DURATION_MS, DEFAULT_CLOSE_DELAY_MS) remain scattered — each magic-literal compliant but not catalogued. Decide: leave / sibling catalog / sectioned timing.ts. Low priority.",
-      "state": "open",
-      "disposition": "active",
+      "description": "timing.ts centralises coalescing windows; the adjacent timeouts/durations/interaction-delays (KATAGO_ANALYSIS_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, REVEAL_DURATION_MS, DEFAULT_CLOSE_DELAY_MS) remain scattered — each magic-literal compliant but not catalogued. Decide: leave / sibling catalog / sectioned timing.ts. Low priority. RESOLVED 2026-06-03: decided LEAVE — every literal is already compliant and lives closest to its consumer; consolidating unrelated tuning would couple decisions with nothing in common (ADR-0008 synthetic-classification + timing.ts's family discipline). Re-open without prejudice if a concrete need to tune them as a set surfaces.",
+      "state": "closed",
+      "resolution": "dropped",
+      "closed_on": "2026-06-03",
       "scope": "frontend",
-      "tier": "small"
+      "tier": "small",
+      "refs": [{ "kind": "worklog", "target": "docs/worklog/2026-06-03-scattered-timing-literals-decision.md" }]
     },
     {
       "id": "adr-effectiveness-audits",
@@ -484,11 +486,15 @@
       "labels": ["refactor"],
       "title": "Remove legacy auth-key compat shim (api-client.ts)",
       "description": "api-client.ts carries a one-shot migrateLegacyAuthKeys() shim (ebisu_* → auth_* on module init). Per ADR-0002 exception #3, a bounded-and-scheduled-for-removal shim. Remove the function + its single call (~30 lines) once monitoring confirms no users carry the legacy keys.",
-      "state": "open",
-      "disposition": "active",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-06-03",
       "scope": "frontend",
       "tier": "small",
-      "refs": [{ "kind": "source", "target": "frontend/src/services/api-client.ts" }]
+      "refs": [
+        { "kind": "source", "target": "frontend/src/services/api-client.ts" },
+        { "kind": "worklog", "target": "docs/worklog/2026-06-03-remove-legacy-auth-key-shim.md" }
+      ]
     },
     {
       "id": "tags-fetch-hydration-race",

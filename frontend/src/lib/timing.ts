@@ -30,10 +30,15 @@
  * Scope: reactivity-coalescing windows only. Timeouts (analysis /
  * play-from-position), display durations (transient log reveal), and
  * interaction delays (hover popover) are a different category and are
- * intentionally NOT catalogued here — see docs/notes/deferred-items.md
- * ("Scattered non-coalescing timing literals"). User-configurable
- * cadences live in the settings registry, not here; they are noted at
- * the foot of this file as pointers, not owned.
+ * intentionally NOT catalogued here: each is already a named,
+ * magic-literal-compliant constant living closest to its consumer, and
+ * folding unrelated tuning into one module would couple decisions with
+ * nothing in common (the family-discipline failure named above). The
+ * question of whether to consolidate them into a sibling catalog or a
+ * sectioned timing.ts was weighed and settled as "leave in place" — the
+ * distribution is correct, not accidental. User-configurable cadences
+ * live in the settings registry, not here; they are noted at the foot
+ * of this file as pointers, not owned.
  *
  * License: Public Domain (The Unlicense)
  */
