@@ -11,10 +11,14 @@
  * validator's job (docs/work-status.schema.json), not the query layer's.
  *
  * Usage:
- *   node tools/work-status/sql.mjs "<SQL>"          run a query (table output)
- *   node tools/work-status/sql.mjs --json "<SQL>"   run a query (NDJSON rows)
- *   node tools/work-status/sql.mjs --schema         show the table columns
- *   node tools/work-status/sql.mjs --selftest       round-trip-validate the loader
+ *   node tools/work-status/sql.mjs "<SQL>"           run a query (table; full cells)
+ *   node tools/work-status/sql.mjs --max-col N "<SQL>"  cap+…-truncate columns at N
+ *   node tools/work-status/sql.mjs --json "<SQL>"    run a query (NDJSON rows)
+ *   node tools/work-status/sql.mjs --schema          show the table columns
+ *   node tools/work-status/sql.mjs --selftest        round-trip-validate the loader
+ *
+ * Table output prints every cell in full by default (no truncation); pass
+ * `--max-col N` for a compact, `…`-truncated view aligned to N columns.
  *
  * Tables (the relational decomposition of the SSOT):
  *   items(id,title,description,state,disposition,resolution,scope,tier,
@@ -79,28 +83,39 @@ function loadDb() {
   return { db, data };
 }
 
-function printTable(rows) {
+// Table renderer. By default prints every cell in full — the table is the
+// SSOT's honest read surface, and silently eliding a long `description` with a
+// trailing `…` is exactly the kind of boundary data-loss ADR-0002 forbids (it
+// reads as complete when it isn't). `maxCol` (from `--max-col N`) opts into a
+// compact, `…`-truncated view when the caller wants column alignment over
+// completeness. Whitespace within a cell is still collapsed so one row is one
+// line; the final column is never padded (trailing run of spaces is noise).
+function printTable(rows, maxCol) {
   if (rows.length === 0) { console.log('(0 rows)'); return; }
   const cols = Object.keys(rows[0]);
-  const CAP = 70;
+  const cap = maxCol ?? null; // null ⇒ no truncation (the default)
   const cell = v => (v == null ? '' : String(v)).replace(/\s+/g, ' ');
-  const trunc = s => (s.length > CAP ? s.slice(0, CAP - 1) + '…' : s);
+  const fit = s => (cap != null && s.length > cap ? s.slice(0, cap - 1) + '…' : s);
   const w = {};
-  for (const c of cols) w[c] = Math.min(CAP, Math.max(c.length, ...rows.map(r => cell(r[c]).length)));
-  const fmt = r => cols.map(c => trunc(cell(r[c])).padEnd(w[c])).join('  ');
-  console.log(cols.map(c => c.padEnd(w[c])).join('  '));
-  console.log(cols.map(c => '-'.repeat(w[c])).join('  '));
-  for (const r of rows) console.log(fmt(r));
+  for (const c of cols) {
+    const max = Math.max(c.length, ...rows.map(r => cell(r[c]).length));
+    w[c] = cap != null ? Math.min(cap, max) : max;
+  }
+  const lastIdx = cols.length - 1;
+  const lay = vals => vals.map((v, i) => (i === lastIdx ? v : v.padEnd(w[cols[i]]))).join('  ');
+  console.log(lay(cols.map(c => fit(c))));
+  console.log(lay(cols.map(c => '-'.repeat(w[c]))));
+  for (const r of rows) console.log(lay(cols.map(c => fit(cell(r[c])))));
   console.error(`(${rows.length} row${rows.length === 1 ? '' : 's'})`);
 }
 
-function runQuery(sql, json) {
+function runQuery(sql, json, maxCol) {
   const { db } = loadDb();
   let rows;
   try { rows = db.prepare(sql).all(); }
   catch (e) { console.error(`SQL error: ${e.message}`); process.exit(2); }
   if (json) { for (const r of rows) console.log(JSON.stringify(r)); console.error(`(${rows.length} rows)`); }
-  else printTable(rows);
+  else printTable(rows, maxCol);
 }
 
 function schema() {
@@ -156,10 +171,11 @@ function selftest() {
 const argv = process.argv.slice(2);
 if (argv.length === 0 || argv[0] === '--help' || argv[0] === '-h') {
   console.log(`usage:
-  node tools/work-status/sql.mjs "<SQL>"          run a query (table output)
-  node tools/work-status/sql.mjs --json "<SQL>"   run a query (NDJSON rows)
-  node tools/work-status/sql.mjs --schema         show the table columns
-  node tools/work-status/sql.mjs --selftest       round-trip-validate the loader
+  node tools/work-status/sql.mjs "<SQL>"              run a query (table; full cells)
+  node tools/work-status/sql.mjs --max-col N "<SQL>"  table, columns capped + …-truncated at N
+  node tools/work-status/sql.mjs --json "<SQL>"       run a query (NDJSON rows)
+  node tools/work-status/sql.mjs --schema             show the table columns
+  node tools/work-status/sql.mjs --selftest           round-trip-validate the loader
 
 tables:`);
   schema();
@@ -167,7 +183,28 @@ tables:`);
 }
 if (argv[0] === '--schema') { schema(); process.exit(0); }
 if (argv[0] === '--selftest') { selftest(); process.exit(0); }
-const json = argv[0] === '--json';
-const sql = (json ? argv.slice(1) : argv).join(' ');
+
+// Parse flags from anywhere in argv; everything else joins into the SQL. Both
+// `--json` and `--max-col N` / `--max-col=N` are position-independent. Fail
+// loud (ADR-0002) on a `--max-col` without a positive-integer value.
+let json = false;
+let maxCol = null;
+const sqlParts = [];
+function parseMaxCol(v) {
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 1) {
+    console.error(`--max-col needs a positive integer, got ${JSON.stringify(v)}`);
+    process.exit(1);
+  }
+  return n;
+}
+for (let i = 0; i < argv.length; i++) {
+  const a = argv[i];
+  if (a === '--json') { json = true; continue; }
+  if (a === '--max-col') { maxCol = parseMaxCol(argv[++i]); continue; }
+  if (a.startsWith('--max-col=')) { maxCol = parseMaxCol(a.slice('--max-col='.length)); continue; }
+  sqlParts.push(a);
+}
+const sql = sqlParts.join(' ');
 if (!sql.trim()) { console.error('no SQL query given'); process.exit(1); }
-runQuery(sql, json);
+runQuery(sql, json, maxCol);
