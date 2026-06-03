@@ -50,6 +50,10 @@ const DEFAULT_VISITS = 1000;
 // dev-resources convention; see reference_dev_resources / umbrella CLAUDE.md).
 // The env default (config/env.ts KATAGO_WS_URL → :41948) is the wrong target
 // for a fresh capture context, so analysis scenarios pin the SELECTOR here.
+// 127.0.0.1 is correct on-VM (the harness runs here); connectEngine applies it
+// TRANSIENTLY via analysisService.connect() and never persists it, so a
+// capture does not clobber the maintainer's profile proxy host (which is
+// ws://192.168.122.68:1235 — the LAN IP their browser reaches).
 const DEFAULT_PROXY_URL = 'ws://127.0.0.1:1235';
 
 type ScenarioFactory = (cfg: ScenarioConfig) => PerfScenario;

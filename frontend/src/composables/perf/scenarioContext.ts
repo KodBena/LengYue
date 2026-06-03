@@ -47,6 +47,12 @@ function createScenarioContext(name: string): {
   // the shared `local_user` and auto-saves the board list; leaving the
   // scenario's board behind would accumulate one throwaway board per run).
   const createdBoards: BoardId[] = [];
+  // Same capture-neutrality intent for the engine settings a scenario changes:
+  // the proxy URL is passed transiently to analysisService.connect() and never
+  // written to the profile; the adaptive toggle IS read per-query from the
+  // store, so it must live there during the run — snapshot it here (once) and
+  // restore it in teardown so a capture doesn't clobber the user's setting.
+  let savedAdaptiveEnabled: boolean | undefined;
 
   function mark(markName: string, detail?: unknown): void {
     performance.mark(
@@ -110,14 +116,21 @@ function createScenarioContext(name: string): {
     },
 
     async connectEngine(opts = {}): Promise<void> {
-      if (opts.url) store.profile.settings.engine.katago.url = opts.url;
       if (opts.adaptive !== undefined) {
         // adaptiveReevaluate is a config object { enabled, worstQuantile, … };
-        // `.enabled` is the gate buildPerQueryCapabilities reads.
+        // `.enabled` is the gate buildPerQueryCapabilities reads per-query, so
+        // it must live in the store during the run. Snapshot the original once
+        // and restore in teardown (capture-neutrality, like createdBoards).
+        savedAdaptiveEnabled ??= store.profile.settings.engine.katago.adaptiveReevaluate.enabled;
         store.profile.settings.engine.katago.adaptiveReevaluate.enabled = opts.adaptive;
       }
       if (store.engine.status !== 'connected') {
-        analysisService.connect();
+        // Transient URL: passed to connect() directly, NOT written to the
+        // persisted profile setting — so a capture never clobbers the user's
+        // proxy host (e.g. 192.168.122.68:1235) with the harness default
+        // (127.0.0.1:1235). connect() with no arg keeps the user's setting;
+        // if the engine is already connected we use that connection as-is.
+        analysisService.connect(opts.url);
         await waitForCondition(() => store.engine.status === 'connected');
       }
       if (opts.model) {
@@ -214,6 +227,13 @@ function createScenarioContext(name: string): {
       }
     }
     createdBoards.length = 0;
+    // Restore the adaptive toggle the scenario changed (URL was never written
+    // to the profile — it goes transiently through connect()). Keeps the
+    // capture neutral on the user's persisted engine settings.
+    if (savedAdaptiveEnabled !== undefined) {
+      store.profile.settings.engine.katago.adaptiveReevaluate.enabled = savedAdaptiveEnabled;
+      savedAdaptiveEnabled = undefined;
+    }
   }
 
   return { ctx, teardown };
