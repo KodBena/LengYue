@@ -877,6 +877,19 @@
         { "kind": "source", "target": "tools/doc-graph/cochange-advisory.mjs" },
         { "kind": "worklog", "target": "docs/worklog/2026-06-02-cochange-advisory.md" }
       ]
+    },
+    {
+      "id": "syncservice-suspend-resume",
+      "labels": ["refactor", "architectural-cruft"],
+      "title": "SyncService suspend/resume affordance (capture-neutral persistence)",
+      "description": "The perf-capture harness — and prospectively the headless-capture, perceptual-event-projection, and autonomous-SRS drivers — drive the SPA programmatically but must not mutate the user's persisted profile. Today this is handled per-setting and fragile: scenarioContext passes the proxy URL transiently to analysisService.connect() and snapshots/restores the adaptive toggle in teardown (the PR #348 stop-gap), and separately closes scenario-created boards — each a hand-rolled neutrality patch, and every new setting a capture touches needs its own. The robust solution is a first-class affordance to SUSPEND and RESUME SyncService persistence around an ephemeral run, so the whole run is capture-neutral by construction (subsuming the board-cleanup + the URL/adaptive restore). Design forks to weigh at pickup: the --connect-to-a-live-session case — suspending persistence in the maintainer's real session must NOT silently drop genuine concurrent edits, so the suspend scopes to harness-owned contexts; the precise primitive (suspend/resume vs. an ephemeral scratch-profile overlay vs. a dry-run flag); and app-wide fallout. Deliberately deferred 2026-06-03 — it needs fallout analysis and composes with the headless / projection / autonomous-SRS arcs, better done as one considered refactor than piecemeal. PR #348's per-setting handling is the interim stop-gap.",
+      "state": "open",
+      "disposition": "future",
+      "scope": "frontend",
+      "tier": "medium",
+      "refs": [
+        { "kind": "source", "target": "frontend/src/composables/perf/scenarioContext.ts" }
+      ]
     }
   ]
 }

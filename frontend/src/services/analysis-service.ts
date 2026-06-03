@@ -119,13 +119,15 @@ export class AnalysisService {
     this.client = new KataGoClient('');
   }
 
-  public connect() {
+  public connect(urlOverride?: string) {
     const settings = store.profile.settings.engine as any;
-    // URL resolution: user's profile setting wins; env-var default is the
-    // out-of-the-box fallback for fresh installs where the profile hasn't
-    // been configured yet. `||` (not `??`) is intentional so that an
-    // empty-string setting (user cleared the field) also falls through.
-    const url = settings?.katago?.url || KATAGO_WS_URL;
+    // URL resolution: an explicit transient override wins (the perf harness
+    // connects to a capture-specific proxy WITHOUT persisting it to the
+    // profile — see scenarioContext.connectEngine); then the user's profile
+    // setting; then the env-var default for fresh installs. `||` (not `??`)
+    // is intentional so an empty-string setting (user cleared the field)
+    // also falls through.
+    const url = urlOverride || settings?.katago?.url || KATAGO_WS_URL;
     
     this.client.connect(url, {
       onDisconnect: (code, reason) => {
