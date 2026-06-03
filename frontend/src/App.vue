@@ -644,7 +644,7 @@ function handleNodeSelect(nodeId: NodeId): void {
 
 .deck-selector-box { background: var(--surface-2); padding: var(--space-medium); border-radius: var(--radius-default); border: 1px solid var(--surface-3); margin-bottom: var(--space-loose); text-align: left; }
 .deck-selector-box label { font-size: var(--text-emphasis); color: var(--text-2); display: block; margin-bottom: var(--space-default); text-transform: uppercase; }
-.deck-dropdown { width: 100%; padding: var(--space-default); font-size: var(--text-emphasis); margin-bottom: var(--space-default); background: var(--surface-1); color: var(--text-0); border: 1px solid var(--border-2); border-radius: var(--radius-default); outline: none; }
+.deck-dropdown { width: 100%; padding: var(--space-default); font-size: var(--text-emphasis); margin-bottom: var(--space-default); background: var(--surface-0); color: var(--text-0); border: 1px solid var(--border-2); border-radius: var(--radius-default); outline: none; }
 .deck-dropdown:focus { border-color: var(--accent-primary); }
 
 .action-btn-large { background: var(--accent-primary); color: var(--text-0); border: none; padding: var(--space-tight) var(--space-medium); cursor: pointer; border-radius: var(--radius-default); font-weight: bold; width: 100%; }

@@ -72,7 +72,7 @@ const samples = computed(() => {
 <style scoped>
 .debug-strip-container {
   padding: var(--space-medium);
-  background: var(--surface-1);
+  background: var(--surface-0);
   border: 1px solid var(--surface-3);
   border-radius: var(--radius-default);
   margin-top: var(--space-medium);

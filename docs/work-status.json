@@ -409,10 +409,12 @@
       "labels": ["ux"],
       "title": "--surface-1 backgrounds (low-contrast on the default theme)",
       "description": "var(--surface-1) resolves dark-grey under black default text — almost never the right background (--surface-0 is the default). The Phase-3 editor was fixed; a few other call sites remain unaudited. grep + excise non-deliberate usages or annotate the genuine exceptions. Low priority.",
-      "state": "open",
-      "disposition": "active",
+      "state": "closed",
+      "resolution": "shipped",
+      "closed_on": "2026-06-03",
       "scope": "frontend",
-      "tier": "small"
+      "tier": "small",
+      "refs": [{ "kind": "worklog", "target": "docs/worklog/2026-06-03-surface-1-backgrounds-audit.md" }]
     },
     {
       "id": "scattered-timing-literals",

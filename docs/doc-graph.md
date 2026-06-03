@@ -20,7 +20,7 @@ of truth and the picture is a projection of it.
 
 ## At a glance
 
-- **Nodes:** 384 documents.
+- **Nodes:** 385 documents.
 - **Edges:** 1796 cross-references
   (1424 resolved, 372 dangling, 0 ambiguous).
 

@@ -60,7 +60,7 @@ function handle(confirmed: boolean): void {
    enough to feel focused on non-tiny screens, wide enough for the
    destructive-confirm body text. */
 .modal-content {
-  background: var(--surface-1); border: 1px solid var(--border-2); border-radius: var(--radius-default);
+  background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default);
   width: 420px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
   display: flex; flex-direction: column; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }

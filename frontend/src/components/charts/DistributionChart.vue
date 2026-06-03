@@ -241,7 +241,7 @@ function buildOption() {
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: props.variant === 'kde' ? 'line' : 'shadow' },
-      backgroundColor: themeColor('--surface-1'),
+      backgroundColor: themeColor('--surface-0'),
       borderColor: themeColor('--border-2'),
       textStyle: { color: themeColor('--text-1'), fontSize: 10 },
     },

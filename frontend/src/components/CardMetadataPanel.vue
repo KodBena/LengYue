@@ -483,7 +483,7 @@ function resetPriorStandalone(): void {
   left: 0;
   right: 0;
   z-index: 10;
-  background: var(--surface-1);
+  background: var(--surface-0);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-default);
   list-style: none;

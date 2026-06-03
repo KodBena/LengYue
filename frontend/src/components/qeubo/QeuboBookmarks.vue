@@ -140,7 +140,7 @@ function onDelete(b: QeuboBookmark): void {
 .empty-state code { background: var(--surface-2); padding: 1px 5px; border-radius: var(--radius-default); color: var(--text-1); font-size: var(--text-body); }
 
 .bookmark-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-default); }
-.bookmark-row { display: flex; align-items: center; gap: var(--space-medium); padding: var(--space-medium); background: var(--surface-1); border: 1px solid var(--surface-3); border-radius: var(--radius-default); }
+.bookmark-row { display: flex; align-items: center; gap: var(--space-medium); padding: var(--space-medium); background: var(--surface-0); border: 1px solid var(--surface-3); border-radius: var(--radius-default); }
 .bookmark-row:hover { border-color: var(--border-2); }
 .bookmark-meta { flex: 1; min-width: 0; }
 .bookmark-name { font-size: var(--text-emphasis); color: var(--text-0); font-weight: bold; margin-bottom: 2px; }

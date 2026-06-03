@@ -1,5 +1,5 @@
 {
-  "node_count": 384,
+  "node_count": 385,
   "edge_count": 1796,
   "age_buckets": [
     {
@@ -3048,12 +3048,20 @@
       "path": "docs/worklog/2026-06-03-remove-legacy-auth-key-shim.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-03",
+      "last_committed": "2026-06-03",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-03-scattered-timing-literals-decision.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-03",
+      "last_committed": "2026-06-03",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-03-surface-1-backgrounds-audit.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": null,
