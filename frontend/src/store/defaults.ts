@@ -604,9 +604,16 @@ export const defaultProfile: ProfileState = {
   settings: defaultSettings as unknown as AppSettings,
   thumbnailSettings: defaultThumbnailSettings,
   cardSets: defaultCardSets,
-  knownTags: ['$mistake', '$opening', '$joseki', '$life_and_death'],
   qeuboPinnedBookmarks: [],
 };
+
+/**
+ * Seed for the non-persisted `GlobalStore.knownTags` tag dictionary
+ * (a server-derived cache — see the invariant on `ProfileState`).
+ * Used at store-init and re-seeded by `resetWorkspace` on identity
+ * flip; overwritten by the boot-time `getTags()` fetch.
+ */
+export const defaultKnownTags: string[] = ['$mistake', '$opening', '$joseki', '$life_and_death'];
 
 export const defaultSessionUI: UISession = {
   activeTab: 'cards',

@@ -72,7 +72,7 @@ const gamma = computed<number>({
 const filteredTags = computed(() => {
   const query = tagInput.value.toLowerCase().trim();
   if (!query) return [];
-  return store.profile.knownTags.filter(t => 
+  return store.knownTags.filter(t =>
     t.toLowerCase().includes(query) && !draft.value?.tags.includes(t)
   ).slice(0, 8); // Max 8 suggestions
 });

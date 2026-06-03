@@ -5,7 +5,7 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-06-03: migrations 1 → 2 through 54 → 55 (54
+ * Scope as of 2026-06-03: migrations 1 → 2 through 55 → 56 (55
  * entries). The first eight covered pre-v1.0.0 schema evolution;
  * the rest are the v1.0.x – v1.1.x active cycle, archived in
  * per-PR rolling fashion under the same archive contract.
@@ -2347,6 +2347,24 @@ export const archivedMigrations: Migration[] = [
           { id: 'stability', label: 'Stability', panelIds: ['stability', 'stability-cross-correlation'] },
           { id: 'multiresolution', label: 'Multiresolution', panelIds: ['multiresolution-interval'] },
         ];
+      }
+    }
+    return out;
+  },
+  // 55 → 56: backfill `profile.settings.appearance.miniBoardRenderer` — the
+  // MiniBoard thumbnail renderer choice (SVG vs canvas; AppSettings.appearance).
+  // Default 'svg' preserves the pre-split behaviour; the canvas renderer is
+  // opt-in via the RegistryEditor. Consumer-side display preference; no wire or
+  // proxy change.
+  //
+  // Idempotent: a pre-existing 'svg' | 'canvas' value is preserved.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const appearance = out.profile?.settings?.appearance;
+    if (appearance && typeof appearance === 'object') {
+      const a = appearance as { miniBoardRenderer?: unknown };
+      if (a.miniBoardRenderer !== 'svg' && a.miniBoardRenderer !== 'canvas') {
+        a.miniBoardRenderer = 'svg';
       }
     }
     return out;

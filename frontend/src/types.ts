@@ -1778,13 +1778,24 @@ export interface QeuboBookmark {
   parameters: Record<KnobId, number[]>;
 }
 
+// User-authored, persisted profile state.
+//
+// INVARIANT: the persisted profile holds user-authored data only.
+// Server-derived caches (the tag dictionary, stats, …) must NOT live
+// here — they carry no user intent, are re-fetched every boot, and
+// persisting one means hydration's deepMerge races whatever wrote it
+// at cold-start. Put such caches as non-persisted top-level
+// `GlobalStore` fields instead (see `GlobalStore.knownTags`). A
+// server-cache wedged into the profile is the category error that
+// produced the boot-time hydrate-vs-fetch race
+// (`tags-fetch-hydration-race`); keeping them out is what makes that
+// class of race structurally impossible.
 export interface ProfileState {
   id: ProfileId;
   username: string;
   settings: AppSettings;
   thumbnailSettings: ThumbnailSettings;
   cardSets: Record<string, CardSet>;
-  knownTags: string[];
   qeuboPinnedBookmarks?: QeuboBookmark[];
 }
 
@@ -1810,6 +1821,14 @@ export interface GlobalStore {
   profile: ProfileState;
   session: SessionState;
   engine: EngineState;
+  // Server-derived tag dictionary for autocomplete. NON-PERSISTED:
+  // excluded from `buildPersistencePayload`, untouched by
+  // `updateFromRemote`, re-fetched every boot via
+  // `backendService.getTags()`; `useMinting.commitMint` unions
+  // just-minted tags in for the session. It lives here rather than in
+  // `profile` per the ProfileState invariant — out of the persisted
+  // blob, it can't be clobbered by the hydrate-vs-fetch race.
+  knownTags: string[];
 }
 
 export type EngineStatus = 'disconnected' | 'connecting' | 'connected';

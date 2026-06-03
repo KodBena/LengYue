@@ -27,7 +27,7 @@ import type {
   SystemMessage,
 } from '../types';
 
-import { defaultProfile, defaultSessionUI, NIL_UUID } from './defaults';
+import { defaultProfile, defaultSessionUI, defaultKnownTags, NIL_UUID } from './defaults';
 import { createInitialBoard } from './board-factory';
 import { migrate, CURRENT_SCHEMA_VERSION } from './migrations';
 import { analysisService } from '../services/analysis-service';
@@ -69,6 +69,10 @@ export const store = reactive<GlobalStore>({
   activeBoardIndex: 0,
   boards: [createInitialBoard()],
   profile: defaultProfile,
+  // Non-persisted server-derived tag dictionary (see GlobalStore /
+  // ProfileState). Cloned so the boot fetch / commitMint don't mutate
+  // the module-level default array.
+  knownTags: structuredClone(defaultKnownTags),
   session: {
     id: '00000000-0000-0000-0000-000000000000' as SessionId,
     profileId: '00000000-0000-0000-0000-000000000000' as ProfileId,
@@ -564,6 +568,12 @@ export function resetWorkspace(): void {
   store.boards = [createInitialBoard()];
   store.activeBoardIndex = 0;
   store.profile = structuredClone(defaultProfile);
+  // Re-seed the non-persisted tag dictionary on identity-out: it no
+  // longer rides profile's clone-reset (it's a top-level GlobalStore
+  // field now), so without this the prior identity's knownTags would
+  // leak into the next session until the boot getTags() fetch
+  // overwrote it. Server-derived cache; see the ProfileState invariant.
+  store.knownTags = structuredClone(defaultKnownTags);
   store.session = {
     id: NIL_UUID as SessionId,
     profileId: NIL_UUID as ProfileId,

@@ -164,22 +164,23 @@ export function useMinting() {
   async function commitMint(payload: CardCreatePayload): Promise<number> {
     const newCardId = await backendService.createCard(payload);
     
-    // Update profile's known tags so autocomplete remembers them locally
-    const currentTags = new Set(store.profile.knownTags);
+    // Update the (non-persisted) tag dictionary so autocomplete
+    // remembers just-minted tags for the session — /stats/tags won't
+    // surface them until the next boot fetch. See the ProfileState
+    // invariant: knownTags is a server-derived cache on GlobalStore,
+    // not in the persisted profile.
+    const currentTags = new Set(store.knownTags);
     let tagsChanged = false;
-    
+
     for (const tag of payload.tags) {
       if (!currentTags.has(tag)) {
         currentTags.add(tag);
         tagsChanged = true;
       }
     }
-    
+
     if (tagsChanged) {
-      store.profile = {
-        ...store.profile,
-        knownTags: Array.from(currentTags)
-      };
+      store.knownTags = Array.from(currentTags);
     }
 
     return newCardId;

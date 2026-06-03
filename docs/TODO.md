@@ -60,7 +60,6 @@ references.
 - `knob-wire-key-derivation` — Wire-key derivation from KnobDecl ids for qEUBO controlled_parameters `[both]`
 - `review-state-convention-inconsistency` — Review-state convention inconsistency between App.vue and BoardTab.vue `[frontend]`
 - `scattered-timing-literals` — Scattered non-coalescing timing literals (inventory captured; decision deferred) `[frontend]`
-- `tags-fetch-hydration-race` — Tags-fetch hydration race (useAppBootstrap.ts) `[frontend]`
 - `doc-graph-svg-spline-failure` — Doc-graph SVG — Graphviz dot spline-routing layout failure `[umbrella]`
 - `pre-merge-checklist-doc` — docs/pre-merge-checklist.md as an actual file `[umbrella]`
 
