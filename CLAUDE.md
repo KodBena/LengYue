@@ -211,7 +211,7 @@ tree without surfacing the cross-boundary nature first.
 originally covered the proxy was lifted during the umbrella's v1.0.0
 release window — a bug surfaced (empty-board ponder via
 `analysis_config` leakage) that warranted a coordinated proxy bump
-rather than a frontend-only workaround. The current pin is **v1.0.21**;
+rather than a frontend-only workaround. The current pin is **v1.0.27**;
 later bumps follow the same coordinated arc. The proxy's tag
 annotations carry the full per-release changelog; the prose below
 sketches the recent arc only deeply enough to orient cross-boundary
@@ -290,6 +290,38 @@ guards against future brand-confusion regressions. Design
 rationale in `proxy/docs/roadmap-identity-type-branding.md`;
 namespace-contract regression tests in
 `proxy/tests/test_identity_types.py`.
+
+The v1.0.22–v1.0.27 arc is the `adaptive_reevaluate` evolution —
+the substrate widening that takes adaptive from a single hardcoded
+policy to a pluggable, multi-round, budget-driven loop. v1.0.22
+branded adaptive's two integer axes (`MoveIndex` / `TurnIndex` as
+`typing.NewType` over `int`, with a named `move_to_turn_pair` seam),
+the move/turn register of v1.0.21's identity branding. v1.0.23 made
+the worst-set policy pluggable: user-authored `move_selector_fn` /
+`turn_selector_fn` expressions over two co-equal axes, a curated set
+of four selection policies, a same-color window correction, and —
+per the umbrella's expensive-ops fail-loud calibration — hard
+refusal of malformed configuration at construction
+(`AdaptiveConfigurationError` with structured `detail`) rather than
+silent coercion. v1.0.24 generalised the middleware to a multi-round
+loop driven by an AND-composable `budget` (max_rounds /
+total_extra_visits / wall_clock_seconds / convergence, with three
+pre-curated context profiles), collapsing finalization to a single
+end-of-loop stage that preserves the "exactly one
+`is_during_search=False` per analyzed turn" protocol contract. The
+untagged intermediate work folded into the v1.0.27 line added the
+information-theoretic allocation substrate (VisitScalingModel /
+AllocationAlgorithm; "v1.0.25") and the Phase 3.5 learned
+value-function substrate ("v1.0.26"). v1.0.27 itself is two
+orchestration-substrate fixes that unblocked SPA-side adaptive
+reaping: a deep-copy snapshot of the parent query's opaque dict
+before Layer 2 strips `capabilities`, and a push-based output
+channel (`SessionCapabilities.send_response`) that replaces the
+event-loop-iteration-fragile output-queue drain so trailing
+finalizations reliably reach the wire. The `budget` wire field, the
+selector bindings, and the `AdaptiveConfigurationError` codes are
+the cross-boundary-relevant surfaces; see the per-tag annotations
+and the `proxy/docs/roadmap-*.md` design notes for the contracts.
 
 The proxy is independently developed with its own architecture
 (see `proxy/README.md`, `proxy/ARCHITECTURE.md`, `proxy/FRAMEWORK.md`)
