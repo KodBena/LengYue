@@ -1,6 +1,6 @@
 # Remove legacy auth-key compat shim (api-client.ts)
 
-> **Dissolved deferred-items entry — open.** Work status is canonical in the work-status SSOT: see item `remove-legacy-auth-key-shim` in `docs/work-status.json` (query: `node tools/work-status/sql.mjs "SELECT * FROM items WHERE id='remove-legacy-auth-key-shim'"`). This file preserves the working-memory prose of the original `docs/notes/deferred-items.md` entry and carries no authoritative status of its own. It moves to `docs/archive/notes/vestige/deferred-items/` when the item ships.
+> **Dissolved deferred-items entry — open.** Work status is canonical in the work-status store: see item `remove-legacy-auth-key-shim` in the `todo` Postgres store (query: `psql -h 192.168.122.1 -d todo -c "SELECT * FROM items WHERE id='remove-legacy-auth-key-shim'"`). This file preserves the working-memory prose of the original `docs/notes/deferred-items.md` entry and carries no authoritative status of its own. It moves to `docs/archive/notes/vestige/deferred-items/` when the item ships.
 
 
 - **Surfaced:** 2026-04-27 (during de-branding round 2).

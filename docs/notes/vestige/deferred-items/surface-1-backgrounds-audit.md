@@ -1,6 +1,6 @@
 # `--surface-1` backgrounds (low-contrast on the default theme)
 
-> **Dissolved deferred-items entry — open.** Work status is canonical in the work-status SSOT: see item `surface-1-backgrounds-audit` in `docs/work-status.json` (query: `node tools/work-status/sql.mjs "SELECT * FROM items WHERE id='surface-1-backgrounds-audit'"`). This file preserves the working-memory prose of the original `docs/notes/deferred-items.md` entry and carries no authoritative status of its own. It moves to `docs/archive/notes/vestige/deferred-items/` when the item ships.
+> **Dissolved deferred-items entry — open.** Work status is canonical in the work-status store: see item `surface-1-backgrounds-audit` in the `todo` Postgres store (query: `psql -h 192.168.122.1 -d todo -c "SELECT * FROM items WHERE id='surface-1-backgrounds-audit'"`). This file preserves the working-memory prose of the original `docs/notes/deferred-items.md` entry and carries no authoritative status of its own. It moves to `docs/archive/notes/vestige/deferred-items/` when the item ships.
 
 
 - **Surfaced:** 2026-05-29 (Phase-3 tab-editor review).

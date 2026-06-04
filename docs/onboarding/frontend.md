@@ -18,8 +18,8 @@ note assumes you have already read the generic orientation
    `reportAnalysisWinratesAs` proxy-side enrichment gap). The
    frontend test suite shipped (100 tests across three tiers), so
    the old "no tests" gap is closed. Verify any "known gap" claim
-   against the work-status SSOT
-   (`node tools/work-status/sql.mjs "SELECT * FROM items WHERE …"`)
+   against the work-status store
+   (`psql -h 192.168.122.1 -d todo -c "SELECT * FROM items WHERE …"`)
    before treating it as still open.
 4. Scan `docs/dispatch/` for open requests addressed to the
    frontend (filenames containing `to-frontend` or
@@ -67,8 +67,8 @@ ADR-0002 (fail loudly), ADR-0004 (minimal-touch), and ADR-0005
 ## Reference material (consult on demand)
 
 - `docs/notes/frontend-backlog.md` — Raw frontend backlog (UI/UX
-  items; the canonical work surface is the work-status SSOT
-  `docs/work-status.json`, queried via `tools/work-status/sql.mjs`).
+  items; the canonical work surface is the work-status store, the
+  `todo` Postgres DB, queried via `psql`).
 - `docs/archive/notes/card-tree-frontend-spec.md` — Frontend widget spec
   for the card-tree view.
 - `docs/archive/notes/qEUBO.md` — Successor-session map for qEUBO work.

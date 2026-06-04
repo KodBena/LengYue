@@ -19,13 +19,14 @@ brief:
 
 - **Status delegated.** A design note has no per-note `design-note: <status>`
   marker. Its lifecycle *is* its owning item's state — query it:
-  `node tools/work-status/sql.mjs "SELECT state, resolution FROM items WHERE id='<item-id>'"`.
+  `psql -h 192.168.122.1 -d todo -c "SELECT state, resolution FROM items WHERE id='<item-id>'"`.
   (Status in one place; the note delegates — ADR-0005 Rule 1.)
 
-- **Retirement.** When the owning item closes, the design-note-retirement
-  advisory (`tools/work-status/retire-advisory.mjs`) names the note an
-  archival candidate; it moves to `docs/archive/notes/design/`. Advisory, not
-  a gate — archival is editorial and costs a cross-reference audit.
+- **Retirement.** When the owning item closes, that closure is the retirement
+  signal — query the work-status store for `design-note` refs whose item is
+  `closed`; such a note is an archival candidate and moves to
+  `docs/archive/notes/design/`. Advisory, not a gate — archival is editorial
+  and costs a cross-reference audit.
 
 - **Revision.** Superseding a note preserves the original and authors a
   sibling (ADR-0005 Rule 8); the relation is carried by the SSOT

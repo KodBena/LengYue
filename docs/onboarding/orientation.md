@@ -59,13 +59,14 @@ calls for a specific reference document.
   0005 (doc discipline), 0006 (headers), 0007 (file size), 0008
   (classification), 0009 (perf investigation), 0010 (render
   locality); 0001 and 0003 are decisions.
-- `docs/work-status.json` — the work-status SSOT: every open /
+- the `todo` Postgres database — the work-status store: every open /
   shipped / deferred work-actionable item, with typed status,
   faceted scope/tier, labels, and structured references. Query it
-  with `node tools/work-status/sql.mjs '<SQL>'`. This is the
-  canonical work surface; `docs/TODO.md` is a thin human index over
-  it. When you pick up or surface work, the item lives in the SSOT
-  (TODO is its projection, not the source).
+  with `psql -h 192.168.122.1 -d todo` (connection facts in
+  `services_local.gitignore`). This is the canonical work surface;
+  `docs/TODO.md` is a thin human index over it. When you pick up or
+  surface work, the item lives in the store (TODO is its projection,
+  not the source).
 - `docs/notes/tenancy.md` — Multi-tenancy in the backend. Required
   before any backend work that touches a read path or `user_id`.
 - `docs/notes/reflection.md` — Backend architectural retro; the

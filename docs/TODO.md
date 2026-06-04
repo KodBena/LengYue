@@ -1,46 +1,48 @@
-# TODO — human index over the work-status SSOT
+# TODO — human index over the work-status store
 
 **Work status is no longer recorded here.** The canonical record of every
-open / shipped / deferred work-actionable item is the work-status SSOT,
-`docs/work-status.json` — typed status, faceted scope/tier, structured
-inter-item references, and the full per-item description. This file is a
-**thin human index** over it: one scannable line per open item, for a
-reader who wants the lay of the land before querying.
+open / shipped / deferred work-actionable item is the work-status store —
+the **`todo` PostgreSQL database** (`psql -h 192.168.122.1 -d todo`), with
+typed status, faceted scope/tier, structured inter-item references, and the
+full per-item description. This file is a **thin human index** over it: one
+scannable line per open item, for a reader who wants the lay of the land
+before querying.
 
-Do not record status here. To change an item's status, edit
-`docs/work-status.json` (the checker at `tools/work-status/check.mjs`,
-CI-gated, validates it). This index is a hand-maintained **projection** of
-the SSOT as of **2026-06-02**; it drifts the moment the SSOT changes
-(the co-change advisory `tools/doc-graph/cochange-advisory.mjs` flags this
-file in CI when `work-status.json` changes without it). Regenerate it from
-the SSOT rather than editing item status by hand.
+Do not record status here. To change an item's status, write to the store by
+SQL through psql (`UPDATE` / `INSERT`); the table constraints reject a
+malformed write loudly, and `SELECT * FROM work_status_violations` is the
+cross-row invariant gate. There is no longer a file to hand-edit. This index
+is a hand-maintained **projection** of the store as of **2026-06-02**; it
+drifts the moment the store changes, so regenerate it from the store rather
+than editing item status here. (Co-change can no longer track this projection
+by file diff — the source is a database — so the old CI co-change flag for
+this file is gone.)
 
-<!-- derived-from: docs/work-status.json -->
-(Auto-generation of this projection is the tracked future step — RCA guard
-G5; until then it is refreshed by hand.)
+(Auto-generating this projection from the store is the tracked future step —
+RCA guard G5; until then it is refreshed by hand.)
 
-## Querying the SSOT
+## Querying the store
 
-The SQL tool loads `docs/work-status.json` into an ephemeral in-memory
-SQLite view (the JSON is the source of truth; nothing is persisted) and
-runs ad-hoc SQL over `items` / `deps` / `refs`:
+Run SQL straight against the `todo` database with psql (connection facts in
+`services_local.gitignore`). The relational shape — `items`, `deps`, `refs`,
+`labels` — is defined in `tools/work-status/schema.sql`:
 
 ```bash
 # every open item, by tier and scope
-node tools/work-status/sql.mjs "SELECT id, tier, scope, title FROM items \
+psql -h 192.168.122.1 -d todo -c "SELECT id, tier, scope, title FROM items \
   WHERE state='open' ORDER BY tier, scope"
 
 # what's queued right now (active / in-progress, not parked)
-node tools/work-status/sql.mjs "SELECT id, title FROM items \
+psql -h 192.168.122.1 -d todo -c "SELECT id, title FROM items \
   WHERE state='open' AND disposition IN ('active','in-progress')"
 
-# the schema, and the JSON shape of one item
-node tools/work-status/sql.mjs --schema
-node tools/work-status/sql.mjs --json "SELECT * FROM items WHERE id='chess-clone'"
+# one item in full, as JSON
+psql -h 192.168.122.1 -d todo -tAc \
+  "SELECT to_jsonb(i) FROM items i WHERE id='chess-clone'"
 ```
 
 Closed work (`state='closed'`, with `resolution` shipped / superseded /
-dropped / deferred) is in the SSOT too; the shipped-feature narratives that
+dropped / deferred) is in the store too; the shipped-feature narratives that
 used to live in prose are in `docs/handoff-current.md`'s vestige
 (`docs/archive/notes/handoff-current-vestige.md`) and the worklogs.
 

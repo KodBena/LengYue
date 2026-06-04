@@ -75,8 +75,8 @@ bind every edit.
 - `docs/archive/notes/card-tree-backend-spec.md` — Backend capability spec
   for the card-tree widget.
 - `docs/archive/notes/qEUBO.md` — Successor-session map for qEUBO work.
-- `docs/work-status.json` — the work-status SSOT (query via
-  `tools/work-status/sql.mjs`); `docs/TODO.md` is its thin human
+- the `todo` Postgres database — the work-status store (query via
+  `psql -h 192.168.122.1 -d todo`); `docs/TODO.md` is its thin human
   index. The tenancy spine **shipped end-to-end** and the
   de-branding / wire-rename work (items 34 / 34a / 34b) closed —
   both were "next major milestone" framing that is now historical.

@@ -26,9 +26,9 @@
   `docs/notes/design/`, anchor to exactly one work-status SSOT item via a
   `design-note` ref, and delegate status to it — retiring the per-note
   `design-note: <status>` marker Rule 8 names, in favor of SSOT delegation
-  (Rule 1). The design-note-retirement advisory
-  (`tools/work-status/retire-advisory.mjs`) flags a note for archival once its
-  owning item closes. Rule 8's sibling-revision *principle* is unchanged; only
+  (Rule 1). A design note becomes an archival candidate once its owning item
+  closes — query the work-status store for `design-note` refs whose item is
+  `closed`. Rule 8's sibling-revision *principle* is unchanged; only
   its status-marker vocabulary is superseded (a forward-pointer is added at
   Rule 8). Pre-SSOT design notes are relocated ad-hoc, with any un-anchorable
   residue carried by a sunsetting allowlist per Rule 7.
@@ -242,11 +242,12 @@ an SSOT concern, so the note delegates to it rather than carrying its own.
   its lifecycle *is* that item's state. There is no per-note
   `design-note: <status>` marker — that is a parallel status authority, the
   drift Rule 1 forbids.
-- **Retirement.** When the owning item closes, the design-note-retirement
-  advisory (`tools/work-status/retire-advisory.mjs`, SSOT-driven, CI) names
-  the note an archival candidate; it moves to `docs/archive/notes/design/`.
-  Archival is editorial (a note may retain residual value) and costs a
-  cross-reference audit, so the advisory flags — it does not gate.
+- **Retirement.** When the owning item closes, that closure is the
+  retirement signal — query the work-status store for `design-note` refs
+  whose owning item is `closed`; such a note is an archival candidate and
+  moves to `docs/archive/notes/design/`. Archival is editorial (a note may
+  retain residual value) and costs a cross-reference audit, so this is an
+  advisory signal — it does not gate.
 - **Revision (Rule 8).** Sibling-revision-over-silent-edit is unchanged: a
   superseded note is preserved and a sibling authored. The supersession
   relation is carried by the SSOT (`superseded_by`) and a cross-link between

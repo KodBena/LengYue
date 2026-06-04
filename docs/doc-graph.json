@@ -2378,7 +2378,7 @@
       "is_hub": false,
       "first_committed": "2026-04-28",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/onboarding/frontend.md",
@@ -2386,7 +2386,7 @@
       "is_hub": false,
       "first_committed": "2026-04-28",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/onboarding/orientation.md",
@@ -2394,7 +2394,7 @@
       "is_hub": false,
       "first_committed": "2026-04-28",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/onboarding/proxy.md",
@@ -2402,7 +2402,7 @@
       "is_hub": false,
       "first_committed": "2026-05-04",
       "last_committed": "2026-06-02",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/playbooks/monorepo/editorial-cleanup-plan.md",
@@ -2642,7 +2642,7 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-27-keybindings-phase2.1-micro-optimizations.md",
@@ -2946,7 +2946,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-01-component-service-boundaries-and-ci.md",
@@ -3088,9 +3088,9 @@
       "path": "docs/worklog/2026-06-03-tag-mutation-and-tenancy-fixes.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-03",
+      "last_committed": "2026-06-03",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-03-tags-fetch-hydration-race-fix.md",

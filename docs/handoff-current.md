@@ -6,9 +6,9 @@ to maintain it, or to coordinate a release across the three sub-projects.
 Updated as the system evolves.
 
 This document carries **orientation, not work-status**. The canonical
-record of what is open / shipped / deferred is the work-status SSOT
-(`docs/work-status.json`, queried via `tools/work-status/sql.mjs`);
-`docs/TODO.md` is a human index over it. The per-feature "X shipped"
+record of what is open / shipped / deferred is the work-status store
+(the `todo` Postgres DB, queried via `psql`; connection facts in
+`services_local.gitignore`); `docs/TODO.md` is a human index over it. The per-feature "X shipped"
 narratives and shipped-release roadmap this document used to carry inline
 were cut to `docs/archive/notes/handoff-current-vestige.md` on 2026-06-02;
 when an open item this document carries implementation-context for ships,
@@ -562,10 +562,11 @@ to the frontend ended up in three different places.)
 In rough order of priority for a new contributor:
 
 - **`docs/adr/`** — The ten ADRs. Read these first.
-- **`docs/work-status.json`** — The work-status SSOT: every open / shipped
-  / deferred work-actionable item, with structured references and typed
-  status. Query it with `node tools/work-status/sql.mjs '<SQL>'`;
-  `docs/TODO.md` is a human index over it.
+- **The `todo` Postgres database** — The work-status store: every open /
+  shipped / deferred work-actionable item, with structured references and
+  typed status. Query it with `psql -h 192.168.122.1 -d todo` (relational
+  schema in `tools/work-status/schema.sql`); `docs/TODO.md` is a human
+  index over it.
 - **`docs/notes/tenancy.md`** — How multi-tenancy flows through the backend.
 - **`docs/notes/reflection.md`** — Backend architectural retrospective. The
   "Rough edges to know about" section is unusually candid.

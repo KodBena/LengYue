@@ -1,4 +1,11 @@
 # CLAUDE.md — Umbrella
+## Personality & Tone Rules (Swedish Humility / Lagom Style)
+
+- **Default Tone:** Grounded, unpretentious, objective, and measured. Act as a capable but quiet peer, not an over-eager marketer or a self-proclaimed expert.
+- **No Toxic Positivity or Hype:** Never use empty corporate fluff, exclamation-heavy enthusiasm, or unearned confidence ("Absolutely!", "Great choice!", "I can easily do that!"). Start directly with the substance.
+- **Intellectual Honesty over Bluffing:** If a solution has tradeoffs, alternative approaches, or uncertainties, state them upfront. Prefer saying "This usually works well, but we should watch out for X" over "This is the best and most optimal solution."
+- **Embrace Understatement:** Avoid superlatives ("perfectly," "amazing," "revolutionary"). Use precise, realistic descriptors. 
+- **Collaborative Frame:** Frame suggestions as ideas for you to consider rather than definitive directives. Use phrases like "One approach could be...", "We might want to look at...", or "From what I can see..." instead of declaring "You must do X."
 
 You are working on **LengYue**, a spaced-repetition study tool for the
 game of Go. The codebase is a soft monorepo of three peer sub-projects:
@@ -67,23 +74,30 @@ unread, read it; either way, do not bluff.
 Implementation is incomplete until the documentation graph reflects
 it. Before declaring a task done or filing a PR, audit:
 
-- Does the work-status SSOT (`docs/work-status.json`) need updating —
-  a status transition (open → closed), a new item, or a retire-on-ship
-  closure? It is the **single source of truth** for open / shipped /
-  deferred work status (RCA guard G5, now in force). Query it with
-  `node tools/work-status/sql.mjs '<SQL>'`; edit `docs/work-status.json`
-  directly to change status; the checker (`tools/work-status/check.mjs`,
-  CI-gated) validates it. `docs/TODO.md` is a thin human **projection** of
-  the SSOT — do not record status there. A shipped feature still documented
-  as open is the silent doc-failure the 2026-06-01 RCA records
-  (`docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md`, Lapse 2); recording
-  status in one canonical place is the structural fix.
+- Does the work-status store need updating — a status transition
+  (open → closed), a new item, or a retire-on-ship closure? It is the
+  canonical record of open / shipped / deferred work status — the single
+  source of truth for that one duty (RCA guard G5, now in force; "SSOT" is
+  the role this file plays, not a proper noun for it). The store is the
+  **`todo` PostgreSQL database** on the libvirt host, reached only through
+  structured SQL: `psql -h 192.168.122.1 -d todo` (connection facts in
+  `services_local.gitignore`; relational schema in
+  `tools/work-status/schema.sql`). Query and change status by SQL through
+  psql — there is no hand-editable file. Malformed writes are rejected
+  loudly by the table constraints (ADR-0002); the cross-row invariant gate
+  is `SELECT * FROM work_status_violations` (empty ⇒ clean). `docs/TODO.md`
+  is a thin human **projection** of the store — do not record status there.
+  A shipped feature still recorded as open is the silent doc-failure the
+  2026-06-01 RCA records
+  (`docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md`, Lapse 2);
+  keeping status in one canonical place is the structural fix.
 - Does `docs/handoff-current.md` describe an *orientation* surface this
   change affects (the product/pedagogy framing, the architecture and
   integration model, or the implementation-context a still-open
   work-status item needs), and is it still accurate? Handoff carries
   orientation and open-work context, **not** work status — status lives in
-  the SSOT, and delivered descriptions are cut to its archive vestige
+  the work-status store (the `todo` DB), and delivered descriptions are cut
+  to its archive vestige
   (`docs/archive/notes/handoff-current-vestige.md`).
 - Does `FEATURES.md` need a new entry, an updated description, or
   a removed entry? See "User-facing tour (FEATURES.md)" below for
@@ -177,7 +191,8 @@ crystallised).
   per-sub-project `README.md`.
 - Architectural decisions. Live in `docs/adr/`.
 - Project-level status — open / shipped / in-flight work status lives in
-  the work-status SSOT (`docs/work-status.json`); release retrospectives
+  the work-status store (the `todo` Postgres DB; see "work-status store"
+  above); release retrospectives
   live in `docs/notes/release-retrospective-*.md` and `docs/archive/notes/`.
   (Orientation prose stays in `docs/handoff-current.md`.)
 

@@ -15,10 +15,10 @@ accumulate quietly in a tidy ledger.
 How it works:
 
 - **Status is not here.** Each item's canonical open/closed status lives in
-  the work-status SSOT (`docs/work-status.json`). The filename *is* the
+  the work-status store (the `todo` Postgres DB). The filename *is* the
   back-reference: a file `surface-1-backgrounds-audit.md` is the prose for
-  SSOT item `surface-1-backgrounds-audit`. Query it:
-  `node tools/work-status/sql.mjs "SELECT * FROM items WHERE id='<id>'"`.
+  store item `surface-1-backgrounds-audit`. Query it:
+  `psql -h 192.168.122.1 -d todo -c "SELECT * FROM items WHERE id='<id>'"`.
 - **Open only.** These are the *unresolved* items. When one ships, its file
   moves to the archive counterpart,
   `docs/archive/notes/vestige/deferred-items/` (implemented work belongs in

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://lengyue.local/work-status.schema.json",
   "title": "LengYue work-status SSOT",
-  "$comment": "Single source of truth for work-actionable item status. The hand-authored docs/work-status.json is both the machine- and human-readable canonical record; docs/TODO.md, docs/notes/deferred-items.md, and docs/handoff-current.md reference it and do NOT independently assert status. The closed enums are amendable (edit the enum deliberately; an unknown VALUE is an error, ADR-0002/ADR-0008). additionalProperties:true at the item level keeps the schema forward-compatible: unknown future FIELDS are tolerated, unknown enum VALUES are rejected. License: Public Domain (The Unlicense).",
+  "$comment": "Schema for work-actionable item status. As of 2026-06-04 the canonical record is the todo PostgreSQL database (psql -h 192.168.122.1 -d todo), whose relational DDL (tools/work-status/schema.sql) mirrors this schema; docs/work-status.json is the frozen seed it was migrated from, and this file remains the contract reference for fields/enums. docs/TODO.md is a human projection and does NOT independently assert status. The closed enums are amendable (edit the enum deliberately; an unknown VALUE is an error, ADR-0002/ADR-0008). additionalProperties:true at the item level keeps the schema forward-compatible: unknown future FIELDS are tolerated (the DB hoists them into an extra jsonb column), unknown enum VALUES are rejected. License: Public Domain (The Unlicense).",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "items"],
