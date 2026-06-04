@@ -1,6 +1,6 @@
 {
-  "node_count": 390,
-  "edge_count": 1805,
+  "node_count": 391,
+  "edge_count": 1806,
   "age_buckets": [
     {
       "name": "fresh",
@@ -625,8 +625,8 @@
       "genre": "archive",
       "is_hub": false,
       "first_committed": "2026-05-12",
-      "last_committed": "2026-05-12",
-      "age_bucket": "stale"
+      "last_committed": "2026-06-04",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/archive/notes/release-retrospective-2026-04.md",
@@ -3102,6 +3102,14 @@
     },
     {
       "path": "docs/worklog/2026-06-04-qeubo-e2e-validation-harness.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-04",
+      "last_committed": "2026-06-04",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-04-remove-dead-recursive-cte-duplicates.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": null,
@@ -15422,6 +15430,13 @@
     },
     {
       "from": "docs/worklog/2026-06-04-qeubo-e2e-validation-harness.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-04-remove-dead-recursive-cte-duplicates.md",
       "to": "frontend/FILES.md",
       "kind": "path-mention",
       "site": "`frontend/FILES.md`",

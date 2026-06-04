@@ -27,14 +27,15 @@ Verified Contracts
 - Nonexistent context_id returns an empty list.
 - parent_id population on returned CardNode (carried via Card.card_source_id).
 
-Documented Defects (preserved per the testing posture in tests/CLAUDE.md)
------------------------------------------------------------------------
-- D-5: ``SubtreeSelection`` ancestor walk (n parameter) is not
-        implemented. The test proves the n=1 case gives the same
-        result as n=0.
-- D-6: ``ContextSelection.to_cte()`` declares recursive=True with no
-        UNION ALL. Verified that it still executes without error, but
-        generates misleading SQL.
+Retired tests
+-------------
+The former D-5 / D-6 tests exercised the pre-consolidation stubs in
+``domain/tree_dsl.py`` (since deleted as dead code). Their still-applicable
+coverage lives against the consolidated path:
+- SubtreeSelection ancestor-walk (n=1 anchors at the parent) →
+  ``test_pipeline_e2e.py::test_subtree_selection_n1_walks_up_one_ancestor``.
+- ContextSelection returns only the context card →
+  ``test_lineage_repository.py::test_fetch_selection_context_returns_only_the_context_card``.
 """
 import pytest
 
@@ -287,97 +288,3 @@ async def test_fetch_lineage_parent_id_populated(seeded_session):
     )
     assert child_a.parent_id == ids["r"], "a's parent must be the root"
     assert child_b.parent_id == ids["a"], "b's parent must be a"
-
-
-# ─── D-5: SubtreeSelection ancestor walk not implemented ─────────────────────
-
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "D-5: SubtreeSelection.to_cte() has a comment 'Internal recursive logic "
-        "to find Nth ancestor omitted for brevity'. The n parameter is stored "
-        "but not used; n=1 produces the same result as n=0 (context as root). "
-        "Fix: implement the upward-walk CTE to find the Nth ancestor."
-    ),
-)
-async def test_subtree_selection_ancestor_walk_n1(seeded_session):
-    """
-    D-5: SubtreeSelection(ancestors=1) should root the selection at the
-    context's PARENT, returning the parent and all its descendants.
-
-    Tree: grand → parent → ctx → child
-    SubtreeSelection(ancestors=1) from ctx should return
-    [parent, ctx, child] (3 nodes rooted at parent).
-
-    Today the implementation ignores ancestors=1 and returns
-    [ctx, child] (2 nodes rooted at ctx) — same as ancestors=0.
-    """
-    from domain.tree_dsl import SubtreeSelection
-    session, builder = seeded_session
-    ids = await builder.build({
-        "grand": None,
-        "parent": "grand",
-        "ctx": "parent",
-        "child": "ctx",
-    })
-
-    # Fetch via the CTE (bypassing PipelineExecutor for a focused test).
-    cte = SubtreeSelection(
-        context_id=ids["ctx"],
-        ancestors=1,
-    ).to_cte()
-
-    from sqlalchemy import select
-    from db.schema import card, card_source, normalized_position
-    stmt = select(card_source.c.card_id, card_source.c.card_source_id).select_from(cte)
-    result = await session.execute(stmt)
-    rows = result.fetchall()
-    returned_ids = {r[0] for r in rows}
-
-    # With a correct n=1 implementation, parent and its full subtree come back.
-    assert ids["parent"] in returned_ids, "n=1 should root at parent"
-    assert ids["ctx"] in returned_ids
-    assert ids["child"] in returned_ids
-    assert ids["grand"] not in returned_ids, "grandparent is above the n=1 ancestor"
-    assert len(returned_ids) == 3
-
-
-# ─── D-6: ContextSelection declares RECURSIVE with no UNION ALL ──────────────
-
-async def test_context_selection_cte_executes_without_error(seeded_session):
-    """
-    D-6: ContextSelection.to_cte() calls .cte(recursive=True) but has no
-    UNION ALL recursive step.  This generates SQL containing 'WITH RECURSIVE'
-    on a non-recursive CTE.
-
-    While PostgreSQL and SQLite tolerate this, it is a correctness hazard and
-    generates misleading SQL.
-
-    This test verifies that the CTE at least EXECUTES without error and
-    returns the single expected row.  A companion assertion checks for the
-    presence of RECURSIVE in the compiled SQL.
-    """
-    from domain.tree_dsl import ContextSelection
-    from sqlalchemy import select, text
-
-    session, builder = seeded_session
-    ids = await builder.build({"r": None, "a": "r"})
-
-    cte = ContextSelection(context_id=ids["r"]).to_cte()
-    stmt = select(cte.c.card_id)
-    result = await session.execute(stmt)
-    rows = result.fetchall()
-
-    assert len(rows) == 1, "ContextSelection must return exactly the context card"
-    assert rows[0][0] == ids["r"]
-
-    # Inspect the compiled SQL for the RECURSIVE keyword.
-    compiled_sql = str(stmt.compile(compile_kwargs={"literal_binds": True}))
-    # Document: the word RECURSIVE appears even though the CTE is not recursive.
-    # This is the D-6 anomaly.  When fixed, RECURSIVE should be absent.
-    if "RECURSIVE" in compiled_sql.upper():
-        pytest.skip(
-            "D-6 anomaly confirmed in compiled SQL: non-recursive CTE is "
-            "declared WITH RECURSIVE.  The test passes because execution still "
-            "works, but the generated SQL is semantically misleading."
-        )
