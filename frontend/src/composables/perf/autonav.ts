@@ -31,6 +31,7 @@ import { useNavigation } from '../useNavigation';
 import { useQueryTelemetry, type QueryKind, type InFlightQuery } from '../useQueryTelemetry';
 import { __devForceActiveAnalysisTab } from '../analysis/useAnalysisTabs';
 import type { BoardId } from '../../types';
+import { AUTONAV_MIN_STEP_INTERVAL_MS } from '../../lib/timing';
 
 // magic-literal: App.vue `controlTabs` id for the Analysis pane; selecting
 // it mounts AnalysisControls → AnalysisDashboard so the per-packet chart
@@ -41,13 +42,6 @@ const MAIN_TAB_ANALYSIS = 'analysis';
 // so captures are comparable.
 const ANALYSIS_SUBTAB_BASIC = 'basic';
 
-// magic-literal: target navigation cadence. The manual protocol under
-// `xset r rate 195 62` produced ~58–60 effective navigations/sec (one per
-// frame after the dispatcher's rAF coalescing). 60 Hz pins the auto-driven
-// rate independent of the monitor's refresh rate (a 120/144 Hz panel would
-// otherwise over-drive). See docs/notes/perf-capture-normalization-protocol.md.
-const TARGET_NAV_HZ = 60;
-const MIN_STEP_INTERVAL_MS = 1000 / TARGET_NAV_HZ;
 
 // Query kinds that represent analysis load on a board. `probe` (version /
 // models metadata) and `match` (off-store engine-vs-engine self-play) are
@@ -177,11 +171,11 @@ export function runAutonav(opts: AutonavOptions = {}): AutonavHandle {
     // display refresh rate, and cap the accumulator so a janky frame does
     // not burst-navigate to "catch up" — we emulate steady key-repeat, not
     // a backlog flush.
-    acc += prevTs === null ? MIN_STEP_INTERVAL_MS : ts - prevTs;
+    acc += prevTs === null ? AUTONAV_MIN_STEP_INTERVAL_MS : ts - prevTs;
     prevTs = ts;
 
-    if (acc >= MIN_STEP_INTERVAL_MS) {
-      acc = Math.min(acc - MIN_STEP_INTERVAL_MS, MIN_STEP_INTERVAL_MS);
+    if (acc >= AUTONAV_MIN_STEP_INTERVAL_MS) {
+      acc = Math.min(acc - AUTONAV_MIN_STEP_INTERVAL_MS, AUTONAV_MIN_STEP_INTERVAL_MS);
       if (atLastNode()) {
         finish();
         return;

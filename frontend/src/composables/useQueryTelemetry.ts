@@ -32,6 +32,7 @@
 
 import { computed, ref, type ComputedRef } from 'vue';
 import type { BoardId } from '../types';
+import { QUERY_ETA_TICK_MS } from '../lib/timing';
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -174,7 +175,7 @@ const tick = ref(0);
 let tickTimer: number | null = null;
 function ensureTickTimer(): void {
   if (tickTimer !== null) return;
-  tickTimer = window.setInterval(() => { tick.value++; }, 1000);
+  tickTimer = window.setInterval(() => { tick.value++; }, QUERY_ETA_TICK_MS);
 }
 
 // In-flight queries keyed by queryId. The value carries both the

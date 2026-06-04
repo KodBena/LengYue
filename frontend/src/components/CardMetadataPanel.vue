@@ -41,6 +41,7 @@ import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { ReviewCard, CardMetadataPatch } from '../types';
 import { store } from '../store';
+import { INTERACTION_DISMISS_DELAY_MS } from '../lib/timing';
 
 const { t } = useI18n();
 
@@ -154,10 +155,10 @@ function handleTagKeydown(e: KeyboardEvent): void {
 // Why the delayed hide: a click on a suggestion <li> needs the
 // element to still be in the DOM when its mousedown handler
 // fires; the @blur on the input would otherwise hide the list
-// before mousedown lands. Same 150 ms window as
-// `MintCardModal`'s autocomplete.
+// before mousedown lands. Uses the shared interaction-dismiss
+// grace from the timing catalog (`lib/timing`).
 function hideTagSuggestionsSoon(): void {
-  setTimeout(() => { showTagSuggestions.value = false; }, 150);
+  setTimeout(() => { showTagSuggestions.value = false; }, INTERACTION_DISMISS_DELAY_MS);
 }
 
 function commitNumMoves(): void {

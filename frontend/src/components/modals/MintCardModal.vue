@@ -9,6 +9,7 @@ import { useI18n } from 'vue-i18n';
 import { store } from '../../store';
 import { useMinting } from '../../composables/review/useMinting';
 import type { BoardId, CardCreatePayload } from '../../types';
+import { INTERACTION_DISMISS_DELAY_MS } from '../../lib/timing';
 
 const { t } = useI18n();
 const { prepareDraft, commitMint } = useMinting();
@@ -151,13 +152,13 @@ function hideSuggestionsDelayed() {
   if (suggestionsHideTimer !== null) {
     clearTimeout(suggestionsHideTimer);
   }
-  // magic-literal: 150ms suggestions-hide delay — gives the user time to
-  // mousedown on a suggestion before the dropdown closes on input blur.
-  // Hand-tuned for the responsiveness of typical click sequences.
+  // Suggestions-hide delay — gives the user time to mousedown on a
+  // suggestion before the dropdown closes on input blur. The shared
+  // interaction-dismiss grace from the timing catalog (`lib/timing`).
   suggestionsHideTimer = window.setTimeout(() => {
     showSuggestions.value = false;
     suggestionsHideTimer = null;
-  }, 150);
+  }, INTERACTION_DISMISS_DELAY_MS);
 }
 
 onUnmounted(() => {

@@ -31,12 +31,7 @@ import { activeBoard } from '../store';
 import { useQueryTelemetry } from './useQueryTelemetry';
 import { summarizeAnalysisQueue } from './useAutoNavigatePerf';
 import { __devForcePopoverOpen } from './chrome/useHoverPopover';
-
-// magic-literal: half-period of the open/close cycle. 250 ms open, 250 ms
-// closed => ~2 full toggles/sec — fast enough to stress, slow enough that
-// each open and each close completes a render + paint, so the per-toggle
-// cost is cleanly attributable to one cycle.
-const HALF_PERIOD_MS = 250;
+import { POPOVER_STRESS_HALF_PERIOD_MS } from '../lib/timing';
 
 export function useAutoPopoverPerf() {
   const telemetry = useQueryTelemetry();
@@ -67,7 +62,7 @@ export function useAutoPopoverPerf() {
       __devForcePopoverOpen(null);
       cycle += 1;
     }
-    timer = setTimeout(tick, HALF_PERIOD_MS);
+    timer = setTimeout(tick, POPOVER_STRESS_HALF_PERIOD_MS);
   }
 
   function start(id: string): void {
@@ -77,7 +72,7 @@ export function useAutoPopoverPerf() {
     cycle = 0;
     isRunning.value = true;
     performance.mark('popover:stress-start', { detail: { target: id } });
-    timer = setTimeout(tick, HALF_PERIOD_MS);
+    timer = setTimeout(tick, POPOVER_STRESS_HALF_PERIOD_MS);
   }
 
   function stop(): void {

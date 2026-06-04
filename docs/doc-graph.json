@@ -1,6 +1,6 @@
 {
-  "node_count": 392,
-  "edge_count": 1816,
+  "node_count": 393,
+  "edge_count": 1820,
   "age_buckets": [
     {
       "name": "fresh",
@@ -2432,9 +2432,9 @@
       "path": "docs/pre-merge-checklist.md",
       "genre": "doc-root",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-04",
+      "last_committed": "2026-06-04",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/rfcs/0001-adr-meta-review.md",
@@ -2978,7 +2978,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-01-doc-graph-churn-reduction.md",
@@ -3058,7 +3058,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-03-knob-bookmark-schema-reshape.md",
@@ -3123,6 +3123,14 @@
       "first_committed": "2026-06-04",
       "last_committed": "2026-06-04",
       "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-04-timing-literals-consolidation.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "frontend/CLAUDE.md",
@@ -15515,6 +15523,34 @@
     },
     {
       "from": "docs/worklog/2026-06-04-remove-dead-recursive-cte-duplicates.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-04-timing-literals-consolidation.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-04-timing-literals-consolidation.md",
+      "to": "docs/worklog/2026-06-03-scattered-timing-literals-decision.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-06-03-scattered-timing-literals-decision.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-04-timing-literals-consolidation.md",
+      "to": "docs/pre-merge-checklist.md",
+      "kind": "path-mention",
+      "site": "`docs/pre-merge-checklist.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-04-timing-literals-consolidation.md",
       "to": "frontend/FILES.md",
       "kind": "path-mention",
       "site": "`frontend/FILES.md`",

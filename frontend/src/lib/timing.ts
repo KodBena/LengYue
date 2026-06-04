@@ -1,47 +1,56 @@
 /**
  * src/lib/timing.ts
  *
- * Central catalog of the application's reactivity-coalescing windows —
- * the debounce and throttle intervals that govern how high-frequency
- * reactive churn (analysis packets, navigation, selection drags,
- * persistence dirty-edges) is batched before it reaches an effectful or
- * expensive consumer.
+ * Central catalog of the application's timing constants — every
+ * authored time-based literal (debounce/throttle windows, timeouts,
+ * display durations, interaction delays, polling cadences, render
+ * retries, and the engine wire-protocol floor), co-located on one
+ * auditable surface.
  *
- * Why this surface exists. Each interval below was already a named,
- * documented constant at its use-site (so each was magic-literal
- * compliant), but they were scattered across composables, components,
- * and services — there was no single place to audit or tune the
- * application's coalescing behaviour. Co-locating them makes that
- * surface auditable.
+ * Co-location is NOT collapse. Each constant is its own named export
+ * with its own value; tuning one does not move another. The only
+ * shared values are the genuine families — the subscriber-projection
+ * redraw throttle (§1) and the cases where the same decision was
+ * literally duplicated across sites (the interaction-dismiss grace,
+ * the chart render-retry). Constants that answer to unrelated
+ * decisions keep independent values even when they happen to coincide
+ * today; collapsing THOSE would couple unrelated tuning, the failure
+ * this catalog exists to prevent.
  *
- * Family discipline. The subscriber-projection redraw throttles (queue /
- * metrics / BoardTab / the charts / the analysis timeline — views that
- * subscribe to the live engine/analysis data and project it at a refresh
- * cadence) are ONE family and share a default via
- * SUBSCRIBER_PROJECTION_REDRAW_THROTTLE_MS, so the common cadence is one
- * ergonomic knob. Each still has its own named constant — the per-constant
- * "independently tunable" notes below still hold: a single surface diverges
- * by sourcing a literal instead of the shared default (override, not
- * collapse). Constants in OTHER families (the marker / selection debounces,
- * the auto-save window) answer to genuinely unrelated decisions and stay
- * fully independent — collapsing THOSE would couple unrelated tuning, the
- * failure this catalog exists to prevent.
+ * Bands (ADR-0003). Most of this file is band-1 (substrate timing, no
+ * game/engine vocabulary — a chess/shogi port reuses it). §7 is
+ * engine-coupled (band-2/3): it names KataGo / engine-session timing.
+ * The sections are labelled so the band boundary is explicit rather
+ * than silently mixed; `frontend/FILES.md` tags this file accordingly.
  *
- * Scope: reactivity-coalescing windows only. Timeouts (analysis /
- * play-from-position), display durations (transient log reveal), and
- * interaction delays (hover popover) are a different category and are
- * intentionally NOT catalogued *here* — each is already a named,
- * magic-literal-compliant constant living closest to its consumer.
- * Whether those scattered timing constants should themselves be
- * consolidated onto one tuning surface (the leverage is tuning ergonomy,
- * not magic-literal compliance — which they already have) is an OPEN
- * question tracked in the work-status SSOT (`scattered-timing-literals`);
- * the full inventory lives in that item's worklog. User-configurable
- * cadences live in the settings registry, not here; they are noted at
- * the foot of this file as pointers, not owned.
+ * NOT owned here (pointers, not values):
+ *   - User-configurable cadences live in the settings registry
+ *     (`store/defaults.ts`): persistence sync debounce, the KataGo
+ *     report cadences, the persisted PV-animation timings
+ *     (`session.ui.pvAnimation`), and the move-suggestions fade (a
+ *     knob default). These are runtime-user-owned, not constants.
+ *   - CSS transition durations are theme tokens
+ *     (`assets/css/theme.css`: `--duration-default`, `--duration-slow`),
+ *     reachable from CSS, not TS.
+ *   - `waitForAnalysis`'s timeout is caller-supplied (a parameter,
+ *     not a constant).
+ *
+ * Why this surface exists. Each value below was already a named or
+ * commented literal at its use-site (magic-literal compliant), but
+ * they were scattered across composables, components, services, and
+ * the engine layer — there was no single place to audit or tune the
+ * application's time-based behaviour. Co-locating them makes that
+ * surface auditable (work-status `scattered-timing-literals`).
  *
  * License: Public Domain (The Unlicense)
  */
+
+// ═══════════════════════════════════════════════════════════════════
+// §1 — Reactivity-coalescing windows  [band-1]
+// Debounce/throttle intervals that batch high-frequency reactive churn
+// (analysis packets, navigation, selection drags, persistence dirty-
+// edges) before it reaches an effectful or expensive consumer.
+// ═══════════════════════════════════════════════════════════════════
 
 /**
  * Auto-save of analysis bundles: leading-edge schedule, trailing-edge
@@ -177,11 +186,155 @@ export const BASE_CHART_REDRAW_THROTTLE_MS = SUBSCRIBER_PROJECTION_REDRAW_THROTT
  */
 export const ANALYSIS_TIMELINE_REDRAW_THROTTLE_MS = SUBSCRIBER_PROJECTION_REDRAW_THROTTLE_MS;
 
+// ═══════════════════════════════════════════════════════════════════
+// §2 — Interaction-dismiss grace  [band-1]
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Grace window before a transient interactive surface (hover popover,
+ * autocomplete suggestion list) hides itself after the interaction that
+ * sustained it ends. Long enough that a click/`mousedown` on a
+ * suggestion `<li>` lands before the `@blur`-driven hide fires; short
+ * enough to feel immediate. Shared by the hover-popover close grace
+ * (`useHoverPopover`) and the tag/player suggestion-hide delays
+ * (`CardMetadataPanel`, `LibraryPlayerFilter`, `MintCardModal`) — one
+ * decision, formerly copied as four `150` literals.
+ */
+export const INTERACTION_DISMISS_DELAY_MS = 150;
+
+// ═══════════════════════════════════════════════════════════════════
+// §3 — Display durations  [band-1]
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Auto-hide for the transient log reveal (`useTransientLogReveal`): how
+ * long a freshly-arrived system message stays surfaced before the reveal
+ * collapses. 8 s is long enough to read a short message, short enough
+ * not to linger.
+ */
+export const TRANSIENT_LOG_REVEAL_MS = 8000;
+
+// ═══════════════════════════════════════════════════════════════════
+// §4 — Chart render-retry  [band-1]
+// Re-attempt intervals while an ECharts container is awaiting layout.
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * ECharts init re-attempt delay while the chart container has not yet
+ * acquired layout (clientHeight/clientWidth still 0). Empirically
+ * reliable for the codebase's flex-based chart wrappers. Shared by
+ * `BaseChart` and `HeatmapChart` — one decision, formerly two `100`
+ * literals hand-synced by comment.
+ */
+export const CHART_INIT_RETRY_MS = 100;
+
+/**
+ * Forest-render re-attempt delay while the ECharts forest instance is
+ * not yet sized (`useEChartsForestRender`). Shorter than CHART_INIT_RETRY_MS
+ * — a distinct consumer with its own tuned value; independently tunable.
+ */
+export const FOREST_RENDER_RETRY_MS = 50;
+
+// ═══════════════════════════════════════════════════════════════════
+// §5 — Micro-scheduling  [band-1]
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Next-tick visibility-flip defer (`use-pv-animation`): pushes a state
+ * change out of the current synchronous batch so Vue's reactive tracking
+ * sees it as a separate update cycle. Functionally a `queueMicrotask`
+ * made explicit as a 1 ms timeout.
+ */
+export const NEXT_TICK_DEFER_MS = 1;
+
+// ═══════════════════════════════════════════════════════════════════
+// §6 — Dev-only perf harness  [band-1, DEV]
+// Stress-cadence constants for the perf-capture harness; no production
+// runtime reads these.
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Half-period of the popover open/close stress cycle (`useAutoPopoverPerf`,
+ * `perf/stimuli`). 250 ms open + 250 ms closed (~2 toggles/sec) is fast
+ * enough to stress, slow enough that each phase completes a render + paint
+ * so per-toggle cost is cleanly attributable. Formerly duplicated as
+ * `HALF_PERIOD_MS` / `DEFAULT_HALF_PERIOD_MS`.
+ */
+export const POPOVER_STRESS_HALF_PERIOD_MS = 250;
+
+/**
+ * Target auto-navigation cadence for the perf harness (`perf/autonav`).
+ * 60 Hz pins the auto-driven rate independent of the monitor refresh rate
+ * (a 120/144 Hz panel would otherwise over-drive). See
+ * `docs/notes/perf-capture-normalization-protocol.md`.
+ */
+export const AUTONAV_TARGET_HZ = 60;
+
+/** Fixed-timestep interval derived from {@link AUTONAV_TARGET_HZ}. */
+export const AUTONAV_MIN_STEP_INTERVAL_MS = 1000 / AUTONAV_TARGET_HZ;
+
+// ═══════════════════════════════════════════════════════════════════
+// §7 — Engine-coupled timing  [band-2/3 — KataGo / engine-session vocabulary]
+// These name engine-analysis and engine-session timing; they are NOT
+// portable to a non-KataGo backend unchanged, so they are band-2/3 and
+// sectioned apart from the substrate timing above.
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Maximum wait for the KataGo final analysis after a user's submitted
+ * review move (`useReviewSession`). Exceeding it is treated as a hang:
+ * the review is cancelled (status → IDLE) and a warning surfaced. Auto-
+ * retry is deliberately NOT implemented — it would mask real engine
+ * problems behind silent repeated timeouts.
+ */
+export const KATAGO_ANALYSIS_TIMEOUT_MS = 30_000;
+
+/**
+ * Default per-move timeout in the engine-play loop (`usePlayFromPosition`):
+ * how long to wait for an engine move before giving up. (Renamed from the
+ * generic `DEFAULT_TIMEOUT_MS` for catalog clarity.)
+ */
+export const ENGINE_PLAY_MOVE_TIMEOUT_MS = 60_000;
+
+/**
+ * Query-ETA decrement tick (`useQueryTelemetry`): keeps the displayed ETA
+ * counting down between analysis packets (e.g. during the proxy's queue-
+ * wait), so it doesn't freeze when no packets arrive.
+ */
+export const QUERY_ETA_TICK_MS = 1000;
+
+/**
+ * Engine metrics-update interval (`analysis-service`): once-per-second
+ * packet-rate (PPS) refresh — the conventional cadence for engine-status
+ * displays.
+ */
+export const ENGINE_METRICS_TICK_MS = 1000;
+
+/**
+ * Engine version/heartbeat poll interval (`analysis-service`): re-reads the
+ * upstream version payload on a slow cadence to keep `store.engine.info`
+ * current and the session alive.
+ */
+export const ENGINE_HEARTBEAT_POLL_MS = 5000;
+
+/**
+ * KataGo `firstReportDuringSearchAfter` protocol floor (seconds). The
+ * minimum the wire protocol documents; reverted to it 2026-05-25 with the
+ * retirement of the F-optimizer cohort (see
+ * `docs/notes/retrospective-katago-f-optimizer-2026-05.md`). Distinct unit
+ * (seconds, not ms) — it is a wire-protocol parameter, not a UI delay.
+ */
+export const KATAGO_FIRST_REPORT_FLOOR_S = 0.001;
+
 // User-configurable cadences — NOT owned here, listed so this surface is
-// a complete map of the application's coalescing behaviour:
+// a complete map of the application's timing behaviour:
 //   • persistence sync debounce —
 //     store.profile.settings.persistence.debounceInterval (default
 //     1000 ms; src/store/defaults.ts), consumed by sync-service.ts.
 //   • KataGo report cadence —
 //     store.profile.settings.engine.katago.reportDuringSearchEvery
 //     (default 0.15 s) and .firstReportDuringSearchAfter (default 0.05 s).
+//   • PV-animation timings — store.profile.session.ui.pvAnimation
+//     (stepDelayMs / windowDurationMs / fadeDurationMs; defaults in
+//     src/store/defaults.ts and use-pv-animation's PV_DEFAULTS seed).
+//   • Move-suggestions fade — a knob default (moveSuggestionsFadeMs).

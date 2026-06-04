@@ -18,6 +18,7 @@ import * as echarts from 'echarts';
 import type { EChartsTreeNode } from '../../components/charts/card-tree-echarts';
 import { themeColor } from '../../utils/theme-color';
 import { store } from '../../store';
+import { FOREST_RENDER_RETRY_MS } from '../../lib/timing';
 
 export interface ForestChartConfig<P> {
   /** Per-tree key (stable identifier ECharts instances are stored under). */
@@ -124,10 +125,11 @@ export function useEChartsForestRender<P>(): ForestChartHandle<P> {
     if (!inst) {
       // Container not yet sized — try again on next tick. Mirrors
       // LineageTreeChart's initial-mount race-window pattern.
-      // magic-literal: 50ms render-retry — short enough to feel
-      // immediate after layout settles, long enough that the next tick
-      // has actually happened. Empirically tuned.
-      setTimeout(() => render(cfg), 50);
+      // Render-retry — short enough to feel immediate after layout
+      // settles, long enough that the next tick has actually happened.
+      // The forest render-retry constant from the timing catalog
+      // (`lib/timing`).
+      setTimeout(() => render(cfg), FOREST_RENDER_RETRY_MS);
       return;
     }
     const isMassive = cfg.renderedNodeCount > 500;

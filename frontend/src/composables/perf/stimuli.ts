@@ -18,12 +18,7 @@
  */
 import { __devForcePopoverOpen } from '../chrome/useHoverPopover';
 import type { ScenarioContext, ScenarioStimulus } from './types';
-
-// magic-literal: half-period of the open/close cycle, matching
-// `useAutoPopoverPerf`'s HALF_PERIOD_MS. 250 ms open + 250 ms closed
-// (~2 toggles/sec) is fast enough to stress, slow enough that each phase
-// completes a render + paint so the per-toggle cost is cleanly attributable.
-const DEFAULT_HALF_PERIOD_MS = 250;
+import { POPOVER_STRESS_HALF_PERIOD_MS } from '../../lib/timing';
 
 // magic-literal: default popover devId. `'queue'` is the EngineQueueTooltip
 // (src/components/chrome/EngineQueueTooltip.vue) — the popover the manual
@@ -41,7 +36,7 @@ export function popoverStress(
   targetId: string = DEFAULT_POPOVER_TARGET,
   opts: { halfPeriodMs?: number } = {},
 ): ScenarioStimulus {
-  const half = opts.halfPeriodMs ?? DEFAULT_HALF_PERIOD_MS;
+  const half = opts.halfPeriodMs ?? POPOVER_STRESS_HALF_PERIOD_MS;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let openPhase = false;
   let cycle = 0;

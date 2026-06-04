@@ -310,7 +310,7 @@ frontend/src/
 │   ├── keybindings-capture.ts         [B1]  Capture-mode + binding-mutation helpers for the editor (Phase 4): `captureMode` ref, `setBinding` / `resetBinding` / `resetAllBindings`, `RESERVED_KEYS`, `findActionByKey` conflict detection.
 │   ├── knobs.ts                       [B1]  Knob-registry substrate: path-walk accessors, named-transform library, startup validation, ownership state machine, policy-aware writeKnobValue.
 │   ├── stability-trajectory.ts        [B1]  Generic change-point-compressed V-axis trajectory + log-V-weighted stable-fraction.
-│   ├── timing.ts                      [B1]  Central catalog of reactivity-coalescing windows (debounce/throttle intervals): individually-named, independently-tunable constants — the auditable tuning surface.
+│   ├── timing.ts                      [B1]  Complete application-timing catalog: every authored time literal (coalescing windows, interaction-dismiss grace, display durations, render retries, micro-scheduling, perf-harness cadences, engine-session timing) as individually-named, independently-tunable constants — the auditable tuning surface. (Structurally B1 — imports nothing domain-specific — though §7 catalogs engine-coupled, band-2/3 timing *values*.)
 │   └── utils.ts                       [B1]  debounce helper (the only inhabitant; lib/utils merger flagged separately).
 │
 └── config/

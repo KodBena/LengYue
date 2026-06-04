@@ -51,8 +51,7 @@ import {
   getInitialStones,
   moveToKataCoord,
 } from '../../engine/util';
-
-const DEFAULT_TIMEOUT_MS = 60_000;
+import { ENGINE_PLAY_MOVE_TIMEOUT_MS } from '../../lib/timing';
 
 // ── Pure WS primitives ───────────────────────────────────────────────────────
 
@@ -320,7 +319,7 @@ export interface PlayEngineMovesOptions {
  * regardless of how many moves are played.
  */
 export async function playEngineMoves(opts: PlayEngineMovesOptions): Promise<BoardState> {
-  const timeoutMs = opts.perMoveTimeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const timeoutMs = opts.perMoveTimeoutMs ?? ENGINE_PLAY_MOVE_TIMEOUT_MS;
   const client = await connectFresh(opts.katagoUrl);
   let board = opts.startBoard;
   try {
@@ -390,7 +389,7 @@ export async function queryEngineMove(opts: QueryEngineMoveOptions): Promise<Eng
       opts.model,
       opts.capabilities,
     );
-    const packet = await awaitFinalPacket(client, query, expectedTurn, opts.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+    const packet = await awaitFinalPacket(client, query, expectedTurn, opts.timeoutMs ?? ENGINE_PLAY_MOVE_TIMEOUT_MS);
     const best = packet.moveInfos.find((m) => m.order === 0);
     if (!best) {
       throw new Error(`queryEngineMove: turn ${expectedTurn} packet has no order-0 moveInfo`);
@@ -534,7 +533,7 @@ export interface PlayEngineMatchOptions {
  * mirroring.
  */
 export async function playEngineMatch(opts: PlayEngineMatchOptions): Promise<BoardState> {
-  const timeoutMs = opts.perMoveTimeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const timeoutMs = opts.perMoveTimeoutMs ?? ENGINE_PLAY_MOVE_TIMEOUT_MS;
   const client = await connectFresh(opts.katagoUrl);
   // Deep-clone so the match's local cursor is independent of the
   // store. JSON round-trip is used deliberately:

@@ -21,7 +21,7 @@ export const globalLegendState: Record<string, boolean> = reactive({});
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import * as echarts from 'echarts';
 import { themeColor } from '../../utils/theme-color';
-import { CHART_MARKER_DEBOUNCE_MS as DEBOUNCE_MS, BASE_CHART_REDRAW_THROTTLE_MS } from '../../lib/timing';
+import { CHART_MARKER_DEBOUNCE_MS as DEBOUNCE_MS, BASE_CHART_REDRAW_THROTTLE_MS, CHART_INIT_RETRY_MS } from '../../lib/timing';
 import { createTrailingThrottle } from '../../composables/useThrottledSnapshot';
 
 const props = defineProps<{
@@ -503,10 +503,10 @@ let resizeObserver: ResizeObserver | null = null;
 const initChart = async () => {
   await nextTick();
   if (!chartRef.value || chartRef.value.clientHeight === 0) {
-    // magic-literal: 100ms re-init delay — gives the ECharts container
-    // time to acquire layout. Same 100ms pattern in HeatmapChart.vue;
-    // empirically reliable for the codebase's flex-based chart wrappers.
-    setTimeout(initChart, 100);
+    // Re-init delay — gives the ECharts container time to acquire
+    // layout. The shared chart init-retry constant from the timing
+    // catalog (`lib/timing`), also used by HeatmapChart.
+    setTimeout(initChart, CHART_INIT_RETRY_MS);
     return;
   }
 

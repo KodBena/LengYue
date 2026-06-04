@@ -39,7 +39,11 @@ import {
   hashConfig,
 } from './analysis-config';
 import { KATAGO_WS_URL } from '../config/env';
-import { KATAGO_FIRST_REPORT_FLOOR_S } from '../engine/katago/limits';
+import {
+  KATAGO_FIRST_REPORT_FLOOR_S,
+  ENGINE_METRICS_TICK_MS,
+  ENGINE_HEARTBEAT_POLL_MS,
+} from '../lib/timing';
 import { i18n } from '../i18n';
 import { useQueryTelemetry } from '../composables/useQueryTelemetry';
 
@@ -313,13 +317,13 @@ export class AnalysisService {
 
   private startMetrics() {
     if (this.metricsTimer) clearInterval(this.metricsTimer);
-    // magic-literal: 1000ms metrics-update interval — once-per-second
-    // packet-rate refresh is the conventional cadence for engine-status
-    // displays. Distinct role from --duration-* CSS scale.
+    // Metrics-update interval — once-per-second packet-rate refresh,
+    // the conventional cadence for engine-status displays. The
+    // engine-metrics tick from the timing catalog (`lib/timing`).
     this.metricsTimer = window.setInterval(() => {
       store.engine.metrics = { ...store.engine.metrics, packetsPerSecond: this.packetCount };
       this.packetCount = 0;
-    }, 1000);
+    }, ENGINE_METRICS_TICK_MS);
   }
 
   private startWatchdog() {
@@ -365,7 +369,10 @@ export class AnalysisService {
           versionPayload,
         };
       }
-    }, 5000);
+      // Version/heartbeat poll interval — slow cadence that keeps
+      // `store.engine.info` current and the session alive. The
+      // engine-heartbeat poll from the timing catalog (`lib/timing`).
+    }, ENGINE_HEARTBEAT_POLL_MS);
   }
 
   private clearTimers() {

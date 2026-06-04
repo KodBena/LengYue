@@ -50,8 +50,7 @@
  */
 
 import { onUnmounted, ref, watch, type Ref } from 'vue';
-
-const DEFAULT_CLOSE_DELAY_MS = 150;
+import { INTERACTION_DISMISS_DELAY_MS } from '../../lib/timing';
 
 // DEV-only: lets the popover perf harness (useAutoPopoverPerf) force a
 // specific popover open by id, programmatically, in place of physical hover.
@@ -96,7 +95,7 @@ export interface UseHoverPopoverOptions {
 export function useHoverPopover(
   options: UseHoverPopoverOptions = {},
 ): HoverPopoverHandle {
-  const closeDelayMs = options.closeDelayMs ?? DEFAULT_CLOSE_DELAY_MS;
+  const closeDelayMs = options.closeDelayMs ?? INTERACTION_DISMISS_DELAY_MS;
   const open = ref<boolean>(false);
 
   // Non-reactive `let` — it's a resource handle, not state to

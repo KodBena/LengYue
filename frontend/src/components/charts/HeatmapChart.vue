@@ -11,7 +11,7 @@ import {
   type HeatmapCell,
   type HeatmapDatum,
 } from '../../composables/analysis/useTriangularHeatmap';
-import { STABILITY_HEATMAP_REDRAW_THROTTLE_MS as THROTTLE_MS } from '../../lib/timing';
+import { STABILITY_HEATMAP_REDRAW_THROTTLE_MS as THROTTLE_MS, CHART_INIT_RETRY_MS } from '../../lib/timing';
 import { createTrailingThrottle } from '../../composables/useThrottledSnapshot';
 
 // Generic heatmap renderer: `data` is HeatmapDatum[] (objects carrying both
@@ -199,9 +199,10 @@ const initChart = () => {
   if (!chartRef.value) return;
 
   if (chartRef.value.clientWidth < 10 || chartRef.value.clientHeight < 10) {
-    // magic-literal: 100ms re-init delay matching BaseChart.vue's pattern;
-    // gives the ECharts container time to acquire layout.
-    initTimeout = window.setTimeout(initChart, 100);
+    // Re-init delay — gives the ECharts container time to acquire
+    // layout. The shared chart init-retry constant from the timing
+    // catalog (`lib/timing`).
+    initTimeout = window.setTimeout(initChart, CHART_INIT_RETRY_MS);
     return;
   }
 
