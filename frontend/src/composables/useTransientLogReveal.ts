@@ -16,7 +16,7 @@
  * Mechanism: a watcher on the head of `store.engine.messages` flips
  * a local `transientReveal` ref to `true` when a new error- or
  * warning-level message arrives. A timer clears it after
- * `REVEAL_DURATION_MS`. A second event during the reveal window
+ * `TRANSIENT_LOG_REVEAL_MS`. A second event during the reveal window
  * resets the timer (latest-wins) so a burst keeps the panel visible
  * until the burst settles.
  *
@@ -39,8 +39,7 @@
 
 import { onUnmounted, readonly, ref, watch, type Ref } from 'vue';
 import { store } from '../store';
-
-const REVEAL_DURATION_MS = 8000;
+import { TRANSIENT_LOG_REVEAL_MS } from '../lib/timing';
 
 export function useTransientLogReveal(): Readonly<Ref<boolean>> {
   const transientReveal = ref(false);
@@ -65,7 +64,7 @@ export function useTransientLogReveal(): Readonly<Ref<boolean>> {
       timeoutId = setTimeout(() => {
         transientReveal.value = false;
         timeoutId = null;
-      }, REVEAL_DURATION_MS);
+      }, TRANSIENT_LOG_REVEAL_MS);
     },
     { immediate: true },
   );

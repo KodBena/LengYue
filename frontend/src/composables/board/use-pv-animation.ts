@@ -40,6 +40,7 @@
 
 import { computed, onUnmounted, reactive, ref, watchEffect } from 'vue';
 import type { StoneColor } from '../../types';
+import { NEXT_TICK_DEFER_MS } from '../../lib/timing';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -205,11 +206,11 @@ export function usePvAnimation(getConfig: () => PvConfig | undefined = () => und
       case 'instant':
         moves.forEach(m => {
           if (!retained.has(m.moveNumber)) {
-            // magic-literal: 1ms next-tick scheduler — defers visibility
-            // flip out of the current synchronous batch so Vue's reactive
-            // tracking sees the state change as a separate update cycle.
-            // Functionally equivalent to queueMicrotask but explicit.
-            timers.push(setTimeout(() => setVisible(m.moveNumber, true), 1));
+            // Next-tick scheduler — defers visibility flip out of the
+            // current synchronous batch so Vue's reactive tracking sees
+            // the state change as a separate update cycle. The next-tick
+            // defer constant from the timing catalog (`lib/timing`).
+            timers.push(setTimeout(() => setVisible(m.moveNumber, true), NEXT_TICK_DEFER_MS));
           }
         });
         break;
@@ -217,7 +218,7 @@ export function usePvAnimation(getConfig: () => PvConfig | undefined = () => und
       case 'sequential':
         moves.forEach((m, i) => {
           timers.push(
-            setTimeout(() => setVisible(m.moveNumber, true), cfg.stepDelayMs * i + 1)
+            setTimeout(() => setVisible(m.moveNumber, true), cfg.stepDelayMs * i + NEXT_TICK_DEFER_MS)
           );
         });
         break;

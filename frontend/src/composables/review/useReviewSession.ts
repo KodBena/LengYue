@@ -18,6 +18,7 @@ import {
   compileAnalysisDescriptorFromParts,
 } from '../../services/analysis-config';
 import { waitForAnalysis, AnalysisWaitError } from '../analysis/wait-for-analysis';
+import { KATAGO_ANALYSIS_TIMEOUT_MS } from '../../lib/timing';
 
 // @ts-ignore
 import sgf from '@sabaki/sgf';
@@ -34,18 +35,6 @@ import { gtpToBoard } from '../board/use-move-suggestions';
  * carry a default_visits from the minting modal.
  */
 const ABSOLUTE_FALLBACK_VISITS = 1000;
-
-/**
- * Maximum time we wait for KataGo to return a final analysis packet
- * for a user's submitted move. Exceeding this is treated as a hang:
- * we cancel the review entirely (status → IDLE), surface a warning
- * to the system log, and let the user decide whether to restart.
- *
- * Auto-retry is deliberately NOT implemented — it would mask real
- * engine problems (e.g., a mis-configured KataGo backend) behind
- * silent repeated timeouts.
- */
-const KATAGO_ANALYSIS_TIMEOUT_MS = 30_000;
 
 /**
  * Per-board in-flight analysis-wait controllers.

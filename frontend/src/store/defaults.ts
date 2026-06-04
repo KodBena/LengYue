@@ -5,7 +5,7 @@
 
 import type { AppSettings, ProfileState, UISession, ProfileId, ThumbnailSettings, CardSet, KnobId } from '../types';
 import { detectBrowserLocale } from '../i18n/locales';
-import { KATAGO_FIRST_REPORT_FLOOR_S } from '../engine/katago/limits';
+import { KATAGO_FIRST_REPORT_FLOOR_S } from '../lib/timing';
 // SFC-free panel-id SSOT (no Vue imports — keeps this module pure).
 import { PANEL_ID } from '../components/charts/panel-ids';
 

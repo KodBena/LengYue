@@ -516,8 +516,8 @@ export interface KnobInputDecl {
    * reaching the dependency respects the floor regardless of
    * stored-leaf state. `analysis-service.ts`'s first-report-after
    * sites are the worked example: the KataGo protocol-documented
-   * minimum is exported from `engine/katago/limits.ts` and
-   * clamped at send time.
+   * minimum (`KATAGO_FIRST_REPORT_FLOOR_S`) is exported from the
+   * timing catalog (`lib/timing.ts`, §7) and clamped at send time.
    *
    * `validateRegistry` (`lib/knobs.ts`) checks that `minFloor` is
    * a finite number when present and (when both are set) does not

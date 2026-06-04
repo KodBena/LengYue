@@ -14,6 +14,7 @@
  * License: Public Domain (The Unlicense)
  */
 import { computed, ref } from 'vue';
+import { INTERACTION_DISMISS_DELAY_MS } from '../../lib/timing';
 
 interface Props {
   modelValue: string | null;
@@ -52,9 +53,9 @@ function onBlur(): void {
   // Defer the close so a mousedown on a suggestion can fire first
   // (`mousedown.prevent` on the list item suppresses focus loss in
   // most browsers but the timing isn't synchronous across all of
-  // them; the 150 ms window matches the popover close-grace pattern
-  // elsewhere in the codebase).
-  setTimeout(() => { focused.value = false; }, 150);
+  // them; the grace window is the shared interaction-dismiss
+  // constant from the timing catalog (`lib/timing`).
+  setTimeout(() => { focused.value = false; }, INTERACTION_DISMISS_DELAY_MS);
 }
 </script>
 
