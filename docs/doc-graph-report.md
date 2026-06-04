@@ -21,7 +21,7 @@ References from **live** documents are the genuine-action candidates.
 
 ## Summary
 
-- **Dangling from LIVE documents** (genuine-action candidates): **127**.
+- **Dangling from LIVE documents** (genuine-action candidates): **124**.
 - **Dangling from frozen archive** (expected historical drift): **246**.
 - **Ambiguous references** (bare filename matches more than one node — never
   silently resolved, per ADR-0002): **0**.
@@ -31,7 +31,6 @@ References from **live** documents are the genuine-action candidates.
 - `backend/README.md` → `backend/samples/README.md` *(path-mention)* — target `backend/samples/README.md` does not resolve to any node.
 - `docs/adr/0005-documentation-discipline.md` → `backend/routers/REFERENCE.md` *(path-mention)* — target `backend/routers/REFERENCE.md` does not resolve to any node.
 - `docs/notes/audit/audit-stringly-typed-contracts-2026-06-01.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
-- `docs/notes/audit/audit-work-status-liveness-2026-06-02.md` → `docs/pre-merge-checklist.md` *(path-mention)* — target `docs/pre-merge-checklist.md` does not resolve to any node.
 - `docs/notes/auditor-notes.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/notes/consolidation-xref-fallout.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/notes/consult/opus-consult-2026-06-02-work-status-ci-gates.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
@@ -46,7 +45,6 @@ References from **live** documents are the genuine-action candidates.
 - `docs/notes/frontend-test-coverage-2026-05.md` → `frontend/tests/CLAUDE.md` *(path-mention)* — target `frontend/tests/CLAUDE.md` does not resolve to any node.
 - `docs/notes/investigation-refactoring-queue-adr0007-2026-06-02.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md` → `docs/dispatch/frontend-to-proxy-wire-diagnostic-channel.md` *(path-mention)* — target `docs/dispatch/frontend-to-proxy-wire-diagnostic-channel.md` does not resolve to any node.
-- `docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md` → `docs/pre-merge-checklist.md` *(path-mention)* — target `docs/pre-merge-checklist.md` does not resolve to any node.
 - `docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/notes/responsive-design-audit-2026-05-22.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/notes/retrospective/release-retrospective-2026-05.md` → `frontend/docs/i18n.md` *(path-mention)* — target `frontend/docs/i18n.md` does not resolve to any node.
@@ -106,7 +104,6 @@ References from **live** documents are the genuine-action candidates.
 - `docs/worklog/2026-05-14-toolbar-popover-band-mismatch.md` → `docs/notes/knob-registry-plan.md` *(path-mention)* — target `docs/notes/knob-registry-plan.md` does not resolve to any node.
 - `docs/worklog/2026-05-14-toolbar-popover-band-mismatch.md` → `docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md` *(path-mention)* — target `docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md` does not resolve to any node.
 - `docs/worklog/2026-05-14-toolbar-popover-band-mismatch.md` → `docs/notes/postmortem-knob-toolbar-popover-2026-05.md` *(path-mention)* — target `docs/notes/postmortem-knob-toolbar-popover-2026-05.md` does not resolve to any node.
-- `docs/worklog/2026-05-14-toolbar-popover-band-mismatch.md` → `docs/pre-merge-checklist.md` *(path-mention)* — target `docs/pre-merge-checklist.md` does not resolve to any node.
 - `docs/worklog/2026-05-15-katago-cadence-knobs.md` → `docs/notes/knob-registry-plan.md` *(path-mention)* — target `docs/notes/knob-registry-plan.md` does not resolve to any node.
 - `docs/worklog/2026-05-15-ledger-first-packet-sync-bump.md` → `docs/notes/postmortem-knob-toolbar-popover-2026-05.md` *(path-mention)* — target `docs/notes/postmortem-knob-toolbar-popover-2026-05.md` does not resolve to any node.
 - `docs/worklog/2026-05-15-match-pre-existing-variation-fixes.md` → `docs/notes/postmortem-match-pre-existing-variation-2026-05.md` *(path-mention)* — target `docs/notes/postmortem-match-pre-existing-variation-2026-05.md` does not resolve to any node.

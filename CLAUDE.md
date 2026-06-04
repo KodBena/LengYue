@@ -141,6 +141,15 @@ If yes to any, propose the documentation edits as part of the same
 change. Code-only PRs that have documentation implications are
 incomplete deliveries.
 
+`docs/pre-merge-checklist.md` collects this enumeration alongside the
+band-coherence, state-axis, defect-recording, severity, and
+closest-match disciplines as a walk-through template. It is **not** a
+merge-blocking gate (that framing was tried and retracted — see the
+§7.3 amendment in
+`docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md`): it
+is the template a trusted session consults when filing a retroactive
+corrective, so the corrective is predictably shaped.
+
 ## User-facing tour (FEATURES.md)
 
 `FEATURES.md` at the umbrella root is a descriptive tour of every

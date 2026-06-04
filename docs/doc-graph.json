@@ -1,6 +1,6 @@
 {
-  "node_count": 391,
-  "edge_count": 1806,
+  "node_count": 392,
+  "edge_count": 1816,
   "age_buckets": [
     {
       "name": "fresh",
@@ -602,7 +602,7 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/archive/notes/postmortem-selector-watchdog-2026-05.md",
@@ -1714,7 +1714,7 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-06-03",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/compression-research-followups.md",
@@ -1986,7 +1986,7 @@
       "is_hub": false,
       "first_committed": "2026-04-30",
       "last_committed": "2026-06-03",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/frontend-backlog.md",
@@ -2427,6 +2427,14 @@
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-02",
       "age_bucket": "recent"
+    },
+    {
+      "path": "docs/pre-merge-checklist.md",
+      "genre": "doc-root",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "docs/rfcs/0001-adr-meta-review.md",
@@ -2986,7 +2994,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-01-integration-test-hermeticity.md",
@@ -3112,9 +3120,9 @@
       "path": "docs/worklog/2026-06-04-remove-dead-recursive-cte-duplicates.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-04",
+      "last_committed": "2026-06-04",
+      "age_bucket": "fresh"
     },
     {
       "path": "frontend/CLAUDE.md",
@@ -3239,6 +3247,20 @@
       "to": "docs/notes/vestige/deferred-items/doc-graph-svg-render-off-tree.md",
       "kind": "path-mention",
       "site": "`docs/notes/vestige/deferred-items/doc-graph-svg-render-off-tree.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "CLAUDE.md",
+      "to": "docs/pre-merge-checklist.md",
+      "kind": "path-mention",
+      "site": "`docs/pre-merge-checklist.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "CLAUDE.md",
+      "to": "docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md`",
       "resolved": "resolved"
     },
     {
@@ -10218,7 +10240,7 @@
       "to": "docs/pre-merge-checklist.md",
       "kind": "path-mention",
       "site": "`docs/pre-merge-checklist.md`",
-      "resolved": "dangling"
+      "resolved": "resolved"
     },
     {
       "from": "docs/notes/audit/audit-work-status-liveness-2026-06-02.md",
@@ -11814,7 +11836,7 @@
       "to": "docs/pre-merge-checklist.md",
       "kind": "path-mention",
       "site": "`docs/pre-merge-checklist.md`",
-      "resolved": "dangling"
+      "resolved": "resolved"
     },
     {
       "from": "docs/notes/postmortem/postmortem-match-pre-existing-variation-2026-05.md",
@@ -13672,6 +13694,62 @@
       "resolved": "resolved"
     },
     {
+      "from": "docs/pre-merge-checklist.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/pre-merge-checklist.md",
+      "to": "docs/adr/0006-source-file-headers.md",
+      "kind": "adr-related",
+      "site": "ADR-0006",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/pre-merge-checklist.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/pre-merge-checklist.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/pre-merge-checklist.md",
+      "to": "docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/pre-merge-checklist.md",
+      "to": "docs/handoff-current.md",
+      "kind": "path-mention",
+      "site": "`docs/handoff-current.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/pre-merge-checklist.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/pre-merge-checklist.md",
+      "to": "docs/doc-graph-report.md",
+      "kind": "path-mention",
+      "site": "`docs/doc-graph-report.md`",
+      "resolved": "resolved"
+    },
+    {
       "from": "docs/rfcs/0001-adr-meta-review.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
@@ -14075,7 +14153,7 @@
       "to": "docs/pre-merge-checklist.md",
       "kind": "path-mention",
       "site": "`docs/pre-merge-checklist.md`",
-      "resolved": "dangling"
+      "resolved": "resolved"
     },
     {
       "from": "docs/worklog/2026-05-14-toolbar-popover-band-mismatch.md",
