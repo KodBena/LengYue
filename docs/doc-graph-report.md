@@ -21,7 +21,7 @@ References from **live** documents are the genuine-action candidates.
 
 ## Summary
 
-- **Dangling from LIVE documents** (genuine-action candidates): **126**.
+- **Dangling from LIVE documents** (genuine-action candidates): **127**.
 - **Dangling from frozen archive** (expected historical drift): **246**.
 - **Ambiguous references** (bare filename matches more than one node — never
   silently resolved, per ADR-0002): **0**.
@@ -153,6 +153,7 @@ References from **live** documents are the genuine-action candidates.
 - `docs/worklog/2026-06-01-perf-scenario-harness.md` → `docs/notes/perceptual-event-projection-plan.md` *(path-mention)* — target `docs/notes/perceptual-event-projection-plan.md` does not resolve to any node.
 - `docs/worklog/2026-06-02-design-note-retirement-gate.md` → `docs/notes/audit-stringly-typed-contracts-2026-06-01.md` *(path-mention)* — target `docs/notes/audit-stringly-typed-contracts-2026-06-01.md` does not resolve to any node.
 - `docs/worklog/2026-06-02-design-note-retirement-gate.md` → `docs/notes/documentation-graph-artifact-plan.md` *(path-mention)* — target `docs/notes/documentation-graph-artifact-plan.md` does not resolve to any node.
+- `docs/worklog/2026-06-04-qeubo-e2e-validation-harness.md` → `backend/qeubo/README.md` *(path-mention)* — target `backend/qeubo/README.md` does not resolve to any node.
 - `README.md` → `backend/samples/README.md` *(path-mention)* — target `backend/samples/README.md` does not resolve to any node.
 
 ## Ambiguous references

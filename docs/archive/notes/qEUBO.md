@@ -93,12 +93,19 @@ When reviewing a successor's qEUBO PR:
 | Frontend toolbar A/B cluster (toggle + verdict + apply + pin) | Merged | #33 | 62efec8 |
 | Frontend parameter-meta editor (in PaletteEditor) | Merged | #34 | c286492 |
 | Frontend bookmarks UI | Merged | — | (worklog `2026-04-28-qeubo-frontend-bookmarks-ui.md`) |
-| End-to-end verification with Redis | Partial (wire layer verified via curl 2026-04-28; UI smoke pending) | — | — |
+| End-to-end verification with Redis | Mechanized + green locally 2026-06-04 (pending merge); see worklog | — | — |
 
-The qEUBO integration is feature-complete; the only remaining
-gate is the end-to-end UI smoke with Redis. Once that closes,
-this note transitions per its maintenance contract from
-`living-doc` to `design-note: implemented`.
+The qEUBO integration is feature-complete; the remaining gate —
+the end-to-end validation with Redis — is now **mechanized** and
+green locally across three layers (backend route-contract tests,
+a backend service contract + generous-convergence test, and a
+cross-layer `useQeubo` UI smoke). See
+`docs/worklog/2026-06-04-qeubo-e2e-validation-harness.md` for the
+harness, the run recipe, and the validation results. That work is
+not yet committed/merged; on merge, the work-status item
+`qeubo-e2e-validation` closes (`shipped`) and this note transitions
+per its maintenance contract from `living-doc` to
+`design-note: implemented`.
 
 ## Outstanding open items
 
