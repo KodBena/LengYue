@@ -93,19 +93,19 @@ When reviewing a successor's qEUBO PR:
 | Frontend toolbar A/B cluster (toggle + verdict + apply + pin) | Merged | #33 | 62efec8 |
 | Frontend parameter-meta editor (in PaletteEditor) | Merged | #34 | c286492 |
 | Frontend bookmarks UI | Merged | — | (worklog `2026-04-28-qeubo-frontend-bookmarks-ui.md`) |
-| End-to-end verification with Redis | Mechanized + green locally 2026-06-04 (pending merge); see worklog | — | — |
+| End-to-end verification with Redis | Merged | — | 0d762ce |
 
-The qEUBO integration is feature-complete; the remaining gate —
-the end-to-end validation with Redis — is now **mechanized** and
-green locally across three layers (backend route-contract tests,
-a backend service contract + generous-convergence test, and a
-cross-layer `useQeubo` UI smoke). See
+The qEUBO integration is fully shipped. The final gate — the
+end-to-end validation with Redis — is **mechanized** and was run
+green across three layers (backend route-contract tests, a backend
+service contract + generous-convergence test, and a cross-layer
+`useQeubo` UI smoke) before merge in `0d762ce` (2026-06-04). See
 `docs/worklog/2026-06-04-qeubo-e2e-validation-harness.md` for the
-harness, the run recipe, and the validation results. That work is
-not yet committed/merged; on merge, the work-status item
-`qeubo-e2e-validation` closes (`shipped`) and this note transitions
-per its maintenance contract from `living-doc` to
-`design-note: implemented`.
+harness, the run recipe, and the validation results. The work-status
+item `qeubo-e2e-validation` is closed (`shipped`, 2026-06-04). Every
+row in the status table above is now "Merged", so per the maintenance
+contract this note has transitioned from `living-doc` to
+**`design-note: implemented`**.
 
 ## Outstanding open items
 
