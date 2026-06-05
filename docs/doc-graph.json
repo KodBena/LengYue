@@ -1,6 +1,6 @@
 {
-  "node_count": 393,
-  "edge_count": 1820,
+  "node_count": 394,
+  "edge_count": 1826,
   "age_buckets": [
     {
       "name": "fresh",
@@ -1661,6 +1661,14 @@
       "age_bucket": "recent"
     },
     {
+      "path": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
       "path": "docs/notes/audit/audit-stringly-typed-contracts-2026-06-01.md",
       "genre": "note",
       "is_hub": false,
@@ -3066,7 +3074,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-03-remove-legacy-auth-key-shim.md",
@@ -3128,9 +3136,9 @@
       "path": "docs/worklog/2026-06-04-timing-literals-consolidation.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-04",
+      "last_committed": "2026-06-04",
+      "age_bucket": "fresh"
     },
     {
       "path": "frontend/CLAUDE.md",
@@ -3145,8 +3153,8 @@
       "genre": "subproject-frontend",
       "is_hub": false,
       "first_committed": "2026-05-11",
-      "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "last_committed": "2026-06-04",
+      "age_bucket": "fresh"
     },
     {
       "path": "frontend/IDENTIFIERS.md",
@@ -3162,7 +3170,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-05-27",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     }
   ],
   "edges": [
@@ -10200,6 +10208,48 @@
       "kind": "adr-related",
       "site": "ADR-0005",
       "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
+      "to": "docs/adr/0001-state-mutation-and-readonly.md",
+      "kind": "adr-related",
+      "site": "ADR-0001",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
+      "to": "docs/notes/tenancy.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/tenancy.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
+      "to": "frontend/docs/notes/board-scope.md",
+      "kind": "path-mention",
+      "site": "`frontend/docs/notes/board-scope.md`",
+      "resolved": "dangling"
     },
     {
       "from": "docs/notes/audit/audit-stringly-typed-contracts-2026-06-01.md",
