@@ -1,6 +1,6 @@
 {
   "node_count": 394,
-  "edge_count": 1826,
+  "edge_count": 1827,
   "age_buckets": [
     {
       "name": "fresh",
@@ -1664,9 +1664,9 @@
       "path": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-05",
+      "last_committed": "2026-06-05",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/audit/audit-stringly-typed-contracts-2026-06-01.md",
@@ -10242,6 +10242,13 @@
       "to": "frontend/CLAUDE.md",
       "kind": "path-mention",
       "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
+      "to": "docs/archive/notes/resource-ownership-audit-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/resource-ownership-audit-plan.md`",
       "resolved": "resolved"
     },
     {

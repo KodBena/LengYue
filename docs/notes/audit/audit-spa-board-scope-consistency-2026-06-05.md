@@ -35,8 +35,9 @@ play-vs-engine games, card-tree manual-expand) is consistently keyed on
 `BoardId` and consistently torn down at `closeBoard` / `resetWorkspace`
 through two well-documented registries (the `closeBoard` cleanup list and
 `IDENTITY_SCOPED_CACHES`). Resource ownership is the strongest part of the
-codebase — the O1–O14 audit pairs are genuinely complete for the data
-surfaces.
+codebase — the O1–O14 audit pairs (the resource-ownership audit's numbered
+per-board owner→cleanup pairs; defined in §4) are genuinely complete for the
+data surfaces.
 
 The incoherence is concentrated in **`store.session.ui.*`**, which is a
 single flat bag mixing three different scopes with no signal of which is
@@ -188,6 +189,16 @@ Everything else classifies as (a) correctly-scoped.
 
 This is the codebase's strongest area and is **not** the problem.
 
+**What "O-pairs" / "O1–O14" mean.** They are the numbered owner→cleanup pairs
+catalogued by the resource-ownership audit
+(`docs/archive/notes/resource-ownership-audit-plan.md`): each pair couples a
+per-board resource that some entity *owns* with the `closeBoard` step that
+*releases* it. `closeBoard`'s inline comments cite them directly ("Audit O12",
+"Audit pairs O2 / O3 / O14", "Audit O13", …). They are the per-board analog of
+the identity scope's `IDENTITY_SCOPED_CACHES` registry — except the board pairs
+are **hand-wired** in `closeBoard` rather than auto-registered, which is the
+ergonomic gap the new **P1b** recommendation (§6) closes.
+
 - `closeBoard` (`index.ts:371-438`) releases all PB resources in a
   documented, order-load-bearing sequence (O1–O14): analysis subscriptions,
   ledger, stability trajectories, persisted bundle, `reviews` row,
@@ -310,6 +321,35 @@ scope note is its natural sibling).
 - **Why P1:** this is what makes P0 durable. Without it, the next nav-style
   field repeats #2.
 
+### P1b — Generalize the identity-scoped-cache registry to the board scope
+
+The identity scope already has the *registry* form of teardown:
+`IDENTITY_SCOPED_CACHES` (`store/index.ts:477-485`), which `resetWorkspace`
+drains so a new identity-scoped cache cannot be silently forgotten (a
+completeness test asserts it). The **board** scope has no equivalent — its
+teardown is the hand-wired O1–O14 list in `closeBoard` (§4), which is exactly
+the "you can forget an O-pair" risk §5 names.
+
+Generalize the pattern: a board-scope teardown registry of the same shape, into
+which each per-board surface registers its `delete(boardId)` at its creation
+site; `closeBoard` then drains the registry instead of maintaining the O-list by
+hand. This is the storage-plus-lifecycle `Scoped<S, T>` the generification
+follow-up (§8) describes — instantiated for the board scope, reusing a pattern
+already proven in-tree for identity.
+
+- **Files:** `store/index.ts` (the registry + the `closeBoard` drain), and the
+  per-board surfaces registering at creation (`board-card-trees.ts`, the
+  `reviews` / `activeMode` / `cardTreeNav` / `forestNav` accessors, the
+  `analysis-service` per-board maps, `useReviewSession.pendingAnalysisAborts`).
+- **Risk:** moderate — touches every per-board teardown site, but each move is
+  mechanical and the identity registry is the worked precedent. Best done
+  *after* P0, so `forestNav` is already per-board and registers like the rest.
+- **Why:** collapses the O-list, makes "forgot a teardown" structurally
+  impossible (the audit's core ergonomic defect, §5), and unifies the two
+  teardown disciplines (identity + board) under one mechanism. This is the
+  refactor/simplification leverage in the generification idea — the part that
+  removes code rather than adding a framework.
+
 ### P2 — Fix the latent global-read in `useAnalysisProjection`
 
 Change `activeMainIndex` (`useAnalysisProjection.ts:44`) to read
@@ -373,6 +413,52 @@ redundant and can remove it); fold P2 in opportunistically.
 
 ---
 
+## 8. Generification follow-up — partitioning vs visibility
+
+A follow-up consult (external Claude instance, lacking repo context) proposed
+unifying `PerBoard<T>` and the backend's `PerTenant<T>` as one `Scoped<S, T>`
+functor over a poset of scopes, separating two concerns: **partitioning**
+(where state lives / how it's addressed — a plain `ScopeId → T` family) and
+**visibility / trust** (whether one cell may observe another, as a *guarantee*
+vs a convention). That distinction is the valuable part; the unification needs
+re-aiming for this codebase. Maintainer-reviewed conclusions:
+
+- **Board and tenant cannot share one functor here.** Board is frontend,
+  TypeScript, in-memory reactive state; tenant is backend, Python, enforced in
+  SQL (`WHERE user_id = …`). Different sub-projects, different languages — no
+  `Scoped<S, T>` is instantiable as both. Tenancy is an **analog**, not a
+  consolidation target (as §1 / the scope note already frame it). So the "one
+  object, two instantiations across board and tenant" framing does not apply.
+- **Where partitioning generification *does* apply: frontend-internal.** The
+  SPA has three scope families — **per-board** (`BoardId`), **per-node**
+  (`NodeId` / `configHash`), **per-identity** (user). Per-board and per-node are
+  **pure partitioning** (organizational, not adversarial — boards are all the
+  user's own data, no trust boundary). Per-identity carries the one
+  visibility-grade obligation (clear-on-identity-flip; the
+  `tenancy-instance-cache-leak` class), and that is **already** handled by the
+  `IDENTITY_SCOPED_CACHES` registry. So the consult's partitioning/visibility
+  split maps cleanly: give boards the **functor + lifecycle**, not a lattice.
+- **The right-sized take = P1 + P1b.** `PerBoard<T>` (P1) is the partitioning
+  alias; the board-scope teardown registry (P1b) is the lifecycle half — i.e.
+  exactly the consult's `Scoped<S, T>` (storage + teardown), instantiated for
+  the board scope by generalizing the identity registry. The consult's
+  reframing of the latent global-read (P2) as a *scope leak* (resolving ambient
+  scope from the global frame instead of walking the chain) is a useful lens and
+  matches #3.
+- **What to skip.** The cross-sub-project unification (impossible/wrong here);
+  and the heavier information-flow machinery (Denning lattice / Bell–LaPadula /
+  MCS) and the maximal-generality forms (**presheaf / sheaf**, **faceted
+  values**). Board isn't a trust boundary, so it needs none of the visibility
+  lattice — the consult's own bottom line. Worth knowing the names; not worth
+  building.
+
+Net: the generification is leverage *iff* scoped to the frontend, partitioning
+only, as the P1 + P1b pair. Pushed further it becomes more abstraction than the
+problem repays — and, across the sub-project line, would risk diluting the one
+real trust boundary (backend tenant isolation) through a shared abstraction.
+
+---
+
 ## Sub-agent accounting
 
 **Sub-agents spawned: 0.** The Task/Agent tool was not available in this
@@ -384,3 +470,51 @@ service/ledger/stability stores, and the seed bug's full call chain
 `useCardTreeData` → `board-card-trees`). Coverage breadth matches what a
 fan-out would have produced; no subsystem in the requested scope was left
 un-read.
+
+---
+
+## Appendix A — Audit commission prompt (verbatim)
+
+Per project standing practice, the prompt the auditor was commissioned with is
+recorded here for auditability. It was dispatched to a background Opus
+`general-purpose` agent. Note the fork permission it grants did not take effect
+(the Agent tool was not exposed to the spawned agent in this harness — see the
+Sub-agent accounting above).
+
+```text
+You are an architecture auditor for the LengYue SPA at `/home/bork/w/omega/frontend` (a Vue 3 + TypeScript app; umbrella repo at `/home/bork/w/omega`). This is a READ-ONLY audit — do NOT modify code. Your deliverable is actionable architectural guidance the maintainer can act on directly.
+
+You correspond to work-status item `spa-board-scope-consistency-audit`. You MAY fork your own sub-agents (you have the Agent tool) to parallelize the inventory across subsystems — auditors are permitted to do so. Use `Explore` sub-agents for breadth (they can't fork further) or `general-purpose` for deeper threads. Synthesize their findings yourself.
+
+## The question
+
+Is the SPA architecturally coherent in how it exposes **board-specific** (per-`BoardId`) vs **board-generic** (workspace-global) state, in a way that makes documentation, extension, and reasoning ERGONOMIC? Where is the per-board/global split principled, and where is it accidental or inconsistent? What architectural misfeatures should be fixed — and in what priority?
+
+## The motivating example (already diagnosed — your seed, and a worked case to generalize from)
+
+A bug ("card-metadata-during-review"): during an active review, the Cards-tab lineage-explorer forest vanishes after switching the top-level tab away and back. Runtime-confirmed root cause:
+- The forest slot (`src/composables/cards/board-card-trees.ts`, a module-scope `reactive(Map<BoardId, …>)`) and the review session (`store.session.reviews[boardId]`) are **per-board** (keyed on `boardIdRef = activeBoard.id`).
+- But `nav.selection` (`store.session.ui.forestNav.selection`, read via `useForestNavigation`) is **workspace-GLOBAL**.
+- `useForestBrowsePolicy` (`src/composables/forest/useForestBrowsePolicy.ts`) translates that ONE global selection into a fetch/clear on whichever board is **active**. Its `if (!sel) tree.clearBrowse()` branch (clearBrowse → `reset(boardId)` → empties the slot) wiped the per-board review forest on remount, *after* the per-board re-hydrate (`seedFromQueue`) had restored it. A per-board surface being driven/cleared by a global selection = a scope collision.
+- The top-level tab strip (`TabWidget.vue`, `keepMounted: false`) `v-if`-unmounts the cards tab, so this fires on every tab switch; it also fails to re-hydrate on full reload.
+
+I considered a fix (gate the browse policy on the active board's `inReviewSession`), but the global-vs-per-board mismatch suggests this is a symptom of a broader pattern, hence this audit. The maintainer wants to fix architectural misfeatures FIRST, before patching this one surface.
+
+## What to produce
+
+1. **Inventory** (the backbone): a table of the SPA's exposed reactive/state surfaces, each classified **per-board** vs **workspace-global** (vs per-something-else), with where it lives (store path under `store.session.*` / `store.profile.*`, or a module-scope composable store like `board-card-trees.ts`) and how it's keyed. Cover at least: `store.session.reviews`, `store.session.ui.*` (forestNav, cardTreeNav, activeTab, qeuboToolbarView, cardsContextIds, activeCardSetId, selector model, …), `board-card-trees`, analysis ledger/per-board analysis state, engine/connection state, PV/hover state, and the `boards[]` themselves. Read `src/store/index.ts`, `src/store/defaults.ts`, `src/types.ts` (the `SessionState`/`GlobalStore` shapes), and the composables keyed on `boardIdRef` (`useReviewSession`, `useCardTreeData`, `useForestNavigation`, `useAnalysis*`, etc.).
+2. **Coherence assessment**: classify each surface as (a) correctly-scoped, (b) misscoped (should be per-board but is global, or vice versa), or (c) straddling/ambiguous. The `forestNav.selection`-drives-a-per-board-pane case is one (b)/(c); find the others. Note any surface where a global value drives or mutates per-board state, or where per-board state leaks across boards.
+3. **Resource ownership**: are per-board surfaces consistently created and cleaned up on `closeBoard` / `resetWorkspace` (see the ownership-audit discipline, "O12" per-board card-tree state; `board-card-trees.ts` header)? Identify leaks or asymmetric cleanup.
+4. **Ergonomics/discoverability**: is the per-board-vs-global model documented and conventionally signalled (naming, types, a tenancy-style note)? The backend has `docs/notes/tenancy.md`; is there a frontend analog, and should there be? Recommend a convention (e.g., a branded `PerBoard<T>` pattern, a naming rule, or a doc) that makes scope obvious at authoring time.
+5. **Prioritized, actionable recommendations**: concrete fixes for the misfeatures, ordered by leverage/risk. For each, name the files and the shape of the change. CRUCIALLY, answer: should `forestNav.selection` (and similar global UI selections) become per-board? Is there a unifying refactor (a single per-board-state pattern) worth doing? And: **can the card-metadata-during-review fix (the `inReviewSession` gate) land safely on its own, or should a foundational scope fix precede it?**
+
+## Discipline
+- Honor the project's doc-reading rule (umbrella + `frontend/CLAUDE.md`, ADR-0001/0003/0010, `frontend/FILES.md` as a lookup, `docs/notes/tenancy.md` for the backend analog): read what you cite, end to end; don't bluff citations.
+- Ground every claim in `file:line` evidence. Distinguish confirmed findings from hypotheses.
+- Scope: the frontend SPA's board model. The backend's per-user tenancy is a separate concern (reference only as an analog).
+
+## Output
+Write the full report to `/home/bork/w/omega/docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md` (an untracked draft — do NOT commit, do NOT run git). Then return, as your final message: an executive summary (≤ ~400 words), the inventory's misscoped/straddling rows, the top prioritized recommendations, and the explicit answer on whether the card-metadata fix can land independently. Report how many sub-agents you spawned and what each covered.
+```
+
+*(The "do NOT commit" instruction above was the original commission; the maintainer subsequently asked for the report to be PR'd for review, which is why it is now committed — see the Status line at the head.)*
