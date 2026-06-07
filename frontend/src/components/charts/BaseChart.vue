@@ -24,7 +24,7 @@ import { themeColor } from '../../utils/theme-color';
 import { CHART_MARKER_DEBOUNCE_MS as DEBOUNCE_MS, BASE_CHART_REDRAW_THROTTLE_MS, CHART_INIT_RETRY_MS } from '../../lib/timing';
 import { createTrailingThrottle } from '../../composables/useThrottledSnapshot';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   series: any[];
   title?: string;
   reservedWidth?: number;
@@ -106,7 +106,16 @@ const props = defineProps<{
    * string suppresses the tooltip body entirely.
    */
   tooltipFormatter?: (params: any[]) => string;
-}>();
+}>(), {
+  // Vue casts an omitted `boolean`-typed prop to `false`, not `undefined`.
+  // Without this default, every consumer that omits `active` (the
+  // ReviewSessionPanel intermission chart) would read `active === false`
+  // and the updateOptions/updateMarker gate below would suppress the
+  // chart's first setOption forever — a blank chart plus a live zr handler
+  // calling containPixel on an unconfigured (`_model`-less) instance. The
+  // gate is opt-in: omitted ⇒ always active.
+  active: true,
+});
 
 let markerTimer: number | null = null;
 let lastMarkerTime = 0;
@@ -531,7 +540,14 @@ const initChart = async () => {
   // JavaScript's positional-args slack; the merged-delta panel
   // consumes the y to disambiguate which of its overlaid series
   // the user clicked closest to (per-color move dispatch).
+  // `containPixel` dereferences the chart's internal `_model`, which is
+  // only built by the first `setOption` (updateOptions). A chart can be
+  // init'd-but-not-yet-configured — e.g. it mounts while collapsed
+  // (`active === false`) and the gate defers the first setOption. Guard on
+  // `isInitialized` (set true exactly when setOption first runs) so a stray
+  // pointer event over an unconfigured instance is a no-op, not a crash.
   zr.on('click', (params) => {
+    if (!isInitialized) return;
     const point = [params.offsetX, params.offsetY];
     if (chartInstance!.containPixel('grid', point)) {
       const data = chartInstance!.convertFromPixel({ seriesIndex: 0 }, point);
@@ -539,6 +555,7 @@ const initChart = async () => {
     }
   });
   zr.on('mousemove', (params) => {
+    if (!isInitialized) return;
     const point = [params.offsetX, params.offsetY];
     if (chartInstance!.containPixel('grid', point)) {
       const data = chartInstance!.convertFromPixel({ seriesIndex: 0 }, point);

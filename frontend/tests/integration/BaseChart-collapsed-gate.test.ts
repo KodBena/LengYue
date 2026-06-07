@@ -73,12 +73,26 @@ describe('BaseChart — collapsed gate', () => {
     expect(chart.setOption.mock.calls.length).toBe(0);
 
     // Re-expand → exactly the catch-up the gate promises (active=true ⇒ the
-    // ECharts work runs). This also confirms the active path is intact;
-    // `active` omitted (undefined) is not gated by inspection — the gate is
-    // strictly `props.active === false`, so other BaseChart consumers that
-    // never pass `active` are unaffected.
+    // ECharts work runs).
     await wrapper.setProps({ active: true });
     await flushPromises();
+    expect(chart.setOption.mock.calls.length).toBeGreaterThan(0);
+
+    wrapper.unmount();
+  });
+
+  // Regression guard for the intermission-chart blank-render + ecModel crash
+  // (ReviewSessionPanel omits `active`). Vue casts an omitted `boolean`-typed
+  // prop to `false` (not `undefined`), so a `withDefaults`-less BaseChart read
+  // `active === false` for every such consumer and never ran the first
+  // setOption — a blank chart, plus a live zr handler calling containPixel on
+  // an unconfigured (`_model`-less) instance. With `active` defaulted to
+  // `true`, omission ⇒ active. Remove the `active: true` default → red.
+  it('runs setOption when `active` is omitted (Vue would otherwise cast it to false)', async () => {
+    const wrapper = mount(BaseChart, { props: { series: SERIES } });
+    await flushPromises(); // initChart: await nextTick → echarts.init → updateOptions
+
+    const chart = spiedChart();
     expect(chart.setOption.mock.calls.length).toBeGreaterThan(0);
 
     wrapper.unmount();
