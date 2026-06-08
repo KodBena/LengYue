@@ -200,9 +200,11 @@ describe('closeBoard — resource-ownership cleanup chain', () => {
 });
 
 describe('closeBoard — board-scoped store-cell registry (P1b)', () => {
-  // The board analog of the tenancy completeness test: the registry collapses
-  // the per-board store-cell deletes, and THIS test — not the registry or the
-  // type system — is the completeness guarantee (board-scope audit P1b).
+  // The registry collapses the per-board store-cell deletes; these tests verify
+  // it drains correctly + per-board and tripwire its coverage list. They do NOT
+  // independently enumerate the store's per-board fields (TS can't), so they
+  // catch a forgotten teardown only via the deliberate coverage-list update —
+  // see frontend/docs/notes/board-scope.md (board-scope audit P1b).
 
   it('the board-scoped store-cell registry covers exactly the known cells', () => {
     // Fails the moment a per-board store cell is added to or removed from

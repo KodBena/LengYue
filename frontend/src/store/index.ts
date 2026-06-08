@@ -294,8 +294,13 @@ export function setActiveBoard(index: number): void {
  * `ledger.purgeBoard`) stay inline in `closeBoard`: folding them in would
  * relocate load-bearing ordering from documented inline code into array
  * position — a legibility regression for no safety gain (the audit's §4 found
- * no leaks). The completeness guarantee is the board-completeness *test*, not
- * this registry or the type system — see `frontend/docs/notes/board-scope.md`.
+ * no leaks). The board-completeness *test* verifies this registry drains
+ * correctly and per-board, and tripwires changes to its coverage list — but it
+ * does NOT enumerate the store's per-board fields independently (TypeScript
+ * can't, and no lint guards it today), so a newly-added cell is caught only if
+ * its author both registers it here and extends that test. Registering a new
+ * per-board cell is a discipline step, not an automatically-caught one — see
+ * `frontend/docs/notes/board-scope.md`.
  *
  * Cells are order-independent of each other; the drain runs after
  * `stopBoardAnalysis` (so the deletes overwrite the activeMode 'none'
@@ -308,9 +313,10 @@ const BOARD_SCOPED_STORE_CELLS: ReadonlyArray<{ label: string; clear: (b: BoardI
   { label: 'session.ui.forestNav.selection', clear: b => { delete store.session.ui.forestNav.selection[b]; } },
 ];
 
-/** Labels of every board-scoped store cell — the board-completeness test
- *  asserts this set matches the cells `closeBoard` drains, so a new per-board
- *  store cell can't be silently left out of teardown. The board analog of
+/** Labels of every board-scoped store cell. The board-completeness test pins
+ *  this set as a tripwire so the registry's coverage can't change without a
+ *  deliberate test update; it does not (and cannot, in TS) prove the registry
+ *  is exhaustive over the store's per-board fields. The board analog of
  *  `identityScopedCacheLabels`. */
 export function boardScopedStoreCellLabels(): readonly string[] {
   return BOARD_SCOPED_STORE_CELLS.map(c => c.label);

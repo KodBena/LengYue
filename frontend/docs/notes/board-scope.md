@@ -74,12 +74,15 @@ typechecks. The guarantee comes from the test (below), not the type.
 So the registry is bounded to Class A on purpose (board-scope audit P1b; the
 scope-exhaustiveness consult under the umbrella `docs/notes/consult/`).
 
-**The completeness guarantee is a test, not the registry or the type system.**
-TypeScript cannot enumerate "every scoped surface" to demand each is torn down.
-The board-completeness test (`tests/integration/store-mutators.test.ts`) is what
-catches a forgotten teardown: populate every per-board surface on two boards,
-close one, assert its cells — and only its — are gone. Write/extend that test
-whenever you add a per-board surface, registry or not.
+**TypeScript cannot enumerate "every per-board surface" to demand each is torn
+down** — so the registry's coverage is a *convention*, not a proof. The
+board-completeness test (`tests/integration/store-mutators.test.ts`) verifies the
+registry drains correctly and per-board, and tripwires its coverage list so it
+can't change un-deliberately; it does **not** independently catch a newly-added
+cell that was never registered (that would need a lint rule the consult judged
+not worth building for a non-leak). So adding a per-board surface is a
+discipline step — register it, populate-and-assert it in that test — not an
+automatically-guarded one.
 
 ## The authoring recipe
 
@@ -125,7 +128,10 @@ producers: the review session (`seedFromQueue`) and the browse policy
 selection on remount cleared a slot the review owned, wiping the review forest
 (`seedFromQueue` is idempotent and won't restore it). The arbitration is
 ownership: while a review owns the slot, the browse policy's null-clear is
-suppressed (`isReviewActive` gates it). When a per-board surface has more than
-one writer, give it an owner; don't let the writers race.
+suppressed (`isReviewActive` gates it). The gate guards only that destructive
+null-clear — an explicit browse selection still loads during a review (and
+deselecting then leaves the browse forest, the review forest already gone), the
+inherent cost of one slot with two producers. When a per-board surface has more
+than one writer, give it an owner; don't let the writers race.
 
 License: Public Domain (The Unlicense).
