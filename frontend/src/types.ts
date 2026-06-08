@@ -88,6 +88,20 @@ export type NodeId     = Brand<string, 'NodeId'>;
 export type ProfileId  = Brand<string, 'ProfileId'>;
 export type SessionId  = Brand<string, 'SessionId'>;
 export type BookmarkId = Brand<string, 'BookmarkId'>;
+
+/**
+ * Per-board store partitioning. A `Partial<Record<BoardId, T>>`: cells are
+ * added lazily per board, torn down by `closeBoard` (each a teardown O-pair),
+ * and cleared wholesale by `resetWorkspace`. The alias makes board-scope a
+ * named, greppable property of the type — `grep 'PerBoard<'` enumerates every
+ * per-board store surface. `Partial<>` (not bare `Record<>`) is load-bearing:
+ * it keeps indexed reads honest about the `undefined`-after-delete contract
+ * (ADR-0001 reflects runtime reality; ADR-0002 forbids the unjustified
+ * bare-Record read). The board-scope analog of the backend's `user_id`
+ * tenancy spec — see `frontend/docs/notes/board-scope.md`.
+ */
+export type PerBoard<T> = Partial<Record<BoardId, T>>;
+
 /**
  * Stable identifier for a user-rebindable keyboard action. Branded
  * to prevent string typos from silently mis-routing key dispatch.
@@ -1560,7 +1574,7 @@ export interface UISession {
   // user's exploration choices clear alongside the data they were
   // applied to — they are no longer meaningful against the new
   // forest.
-  cardTreeNav: Partial<Record<BoardId, CardTreeNavState>>;
+  cardTreeNav: PerBoard<CardTreeNavState>;
 }
 
 export type CardId = Brand<number, 'CardId'>;
@@ -1875,7 +1889,7 @@ export interface SessionState {
   // runtime would return `undefined` after a delete. Per ADR-0001
   // (types reflect runtime reality) and ADR-0002 (type assertions
   // must be justified — bare-Record reads were unjustified).
-  reviews: Partial<Record<BoardId, ReviewSessionData>>;
+  reviews: PerBoard<ReviewSessionData>;
 }
 
 export interface GlobalStore {
@@ -1946,7 +1960,7 @@ export interface EngineState {
   // ADR-0001 / ADR-0002 reasoning as `reviews` above. Consumers
   // (App.vue, useUserIORegistry) compare against `'ponder'`, which
   // is correct against both `'none'` and `undefined`.
-  activeMode: Partial<Record<BoardId, AnalysisMode>>;
+  activeMode: PerBoard<AnalysisMode>;
   messages: SystemMessage[];
   // Engine identity captured from the upstream KataGo backend on
   // every fresh WebSocket open: `query_version` returns the engine
