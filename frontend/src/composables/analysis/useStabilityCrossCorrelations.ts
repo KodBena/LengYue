@@ -22,14 +22,14 @@
 
 import { computed, type ComputedRef, type Ref } from 'vue';
 import { stabilityTrajectoryStore } from '../../services/stability-trajectory-store';
-import { activeConfigHash } from '../../services/analysis-config';
+import { activeAnalysisKeys } from '../../services/analysis-config';
 import {
   STABILITY_METRICS,
   STABILITY_METRIC_LABELS,
 } from '../../lib/stability-trajectory';
 import { STABILITY_EXTRACTORS, STABILITY_EXTRACTOR_LABELS } from '../../engine/analysis/stability-extractors';
 import { pearson, type CorrelationResult } from '../../lib/correlation';
-import type { NodeId } from '../../types';
+import type { NodeId, RawKey } from '../../types';
 
 export interface CorrelationMatrix {
   /** Row / column labels in display order. */
@@ -60,7 +60,7 @@ export interface CrossCorrelationOptions {
 
 function computeSeries(
   path: NodeId[],
-  hash: string,
+  rawKey: RawKey,
   extractorId: string,
   metricFn: (typeof STABILITY_METRICS) extends ReadonlyMap<string, infer F> ? F : never,
   vTerm: number,
@@ -68,7 +68,7 @@ function computeSeries(
 ): number[] {
   const out: number[] = new Array(path.length);
   for (let i = 0; i < path.length; i++) {
-    const trajectory = stabilityTrajectoryStore.getTrajectory(hash, extractorId, path[i]);
+    const trajectory = stabilityTrajectoryStore.getTrajectory(rawKey, extractorId, path[i]);
     if (!trajectory) {
       out[i] = NaN;
       continue;
@@ -110,7 +110,7 @@ export function useStabilityCrossCorrelations(
   return computed<StabilityCrossCorrelations>(() => {
     const vTerm = options.vTerm ?? 20;
     const threshold = options.threshold ?? 0.97;
-    const hash = activeConfigHash.value;
+    const rawKey = activeAnalysisKeys.value.rawKey;
     const path = variationPath.value;
     const fixedExtractor = fixedExtractorId.value;
     const fixedMetric = fixedMetricId.value;
@@ -124,7 +124,7 @@ export function useStabilityCrossCorrelations(
     const extractorSeries = new Map<string, number[]>();
     if (metricFn) {
       for (const id of extractorIds) {
-        extractorSeries.set(id, computeSeries(path, hash, id, metricFn, vTerm, threshold));
+        extractorSeries.set(id, computeSeries(path, rawKey, id, metricFn, vTerm, threshold));
       }
     } else {
       for (const id of extractorIds) extractorSeries.set(id, []);
@@ -142,7 +142,7 @@ export function useStabilityCrossCorrelations(
         metricSeries.set(id, []);
         continue;
       }
-      metricSeries.set(id, computeSeries(path, hash, fixedExtractor, fn, vTerm, threshold));
+      metricSeries.set(id, computeSeries(path, rawKey, fixedExtractor, fn, vTerm, threshold));
     }
 
     return {

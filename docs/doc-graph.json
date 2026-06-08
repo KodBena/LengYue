@@ -1,6 +1,6 @@
 {
-  "node_count": 396,
-  "edge_count": 1832,
+  "node_count": 397,
+  "edge_count": 1833,
   "age_buckets": [
     {
       "name": "fresh",
@@ -1826,7 +1826,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-03-tag-ssot-and-tenancy-leak.md",
@@ -3114,7 +3114,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-04-qeubo-e2e-validation-harness.md",
@@ -3152,6 +3152,14 @@
       "path": "docs/worklog/2026-06-08-ledger-stratified-keying.md",
       "genre": "worklog",
       "is_hub": false,
+      "first_committed": "2026-06-08",
+      "last_committed": "2026-06-08",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-08-stability-trajectory-stratified-keying.md",
+      "genre": "worklog",
+      "is_hub": false,
       "first_committed": null,
       "last_committed": null,
       "age_bucket": "uncommitted"
@@ -3177,8 +3185,8 @@
       "genre": "subproject-frontend",
       "is_hub": false,
       "first_committed": "2026-05-31",
-      "last_committed": "2026-05-31",
-      "age_bucket": "aging"
+      "last_committed": "2026-06-08",
+      "age_bucket": "fresh"
     },
     {
       "path": "frontend/README.md",
@@ -15655,6 +15663,13 @@
       "to": "docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md",
       "kind": "path-mention",
       "site": "`docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-08-stability-trajectory-stratified-keying.md",
+      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
       "resolved": "resolved"
     },
     {

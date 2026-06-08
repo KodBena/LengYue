@@ -965,14 +965,15 @@ export class AnalysisService {
       const { extra, ...raw } = normalized;
       ledger.recordRaw(queryInfo.rawKey, nodeId, raw);
       if (extra) ledger.recordEnrichment(queryInfo.enrichedKey, nodeId, extra);
-      // Stability-trajectory ingestion: every packet — preview and
-      // final alike — contributes a V-axis observation to the per-
-      // extractor trajectories for this (enrichedKey, nodeId). The
-      // trajectory store still keys by the full composite (== enrichedKey),
-      // and consumes the whole normalised packet; its change-point
-      // compression keeps storage bounded. See
-      // `docs/notes/stability-surface-design-space.md` §"Option α".
-      stabilityTrajectoryStore.record(queryInfo.enrichedKey, nodeId, normalized);
+      // Stability-trajectory ingestion: every packet — preview and final
+      // alike — contributes a V-axis observation to the per-extractor
+      // trajectories for this (rawKey, nodeId). Keyed by `rawKey` (not the
+      // enriched composite): every stability extractor reads only raw packet
+      // fields, so the trajectory is palette-independent and must survive a
+      // palette swap — mirrors the ledger raw store. The store consumes the
+      // whole normalised packet; its change-point compression keeps storage
+      // bounded. See `docs/notes/stability-surface-design-space.md` §"Option α".
+      stabilityTrajectoryStore.record(queryInfo.rawKey, nodeId, normalized);
       const board = store.boards.find(b => b.id === queryInfo.boardId);
       if (board) {
         store.engine.metrics = { ...store.engine.metrics, lastResponseId: board.id };
