@@ -27,7 +27,7 @@ import { getActiveVariationPath } from '../../engine/util';
 import { analysisService } from '../../services/analysis-service';
 import { libraryService } from '../../services/library-service';
 import { runAutonav } from './autonav';
-import type { BoardId, GameSourceId, NodeId } from '../../types';
+import type { BoardId, GameSourceId, NodeId, QueryId } from '../../types';
 import type { PerfScenario, QueryHandle, RangeOpts, ScenarioContext, ScenarioStimulus } from './types';
 
 /**
@@ -67,7 +67,7 @@ function createScenarioContext(name: string): {
     return b.id;
   }
 
-  function makeHandle(queryId: string): QueryHandle {
+  function makeHandle(queryId: QueryId): QueryHandle {
     // Sound because `analysisService.analyzeRange` registers the query in
     // telemetry synchronously before returning the id, so the predicate is
     // false at handle-creation and the settle-bridge waits for the query to

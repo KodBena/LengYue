@@ -1,5 +1,5 @@
 {
-  "node_count": 397,
+  "node_count": 398,
   "edge_count": 1833,
   "age_buckets": [
     {
@@ -1834,7 +1834,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md",
@@ -2978,7 +2978,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-01-doc-graph-artifact.md",
@@ -3106,7 +3106,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-03-tags-fetch-hydration-race-fix.md",
@@ -3149,6 +3149,14 @@
       "age_bucket": "fresh"
     },
     {
+      "path": "docs/worklog/2026-06-08-key-brand-tightening.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
       "path": "docs/worklog/2026-06-08-ledger-stratified-keying.md",
       "genre": "worklog",
       "is_hub": false,
@@ -3160,9 +3168,9 @@
       "path": "docs/worklog/2026-06-08-stability-trajectory-stratified-keying.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-08",
+      "last_committed": "2026-06-08",
+      "age_bucket": "fresh"
     },
     {
       "path": "frontend/CLAUDE.md",

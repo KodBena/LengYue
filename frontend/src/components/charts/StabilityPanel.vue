@@ -29,11 +29,13 @@
 import { ref, computed } from 'vue';
 import AnalysisChartPanel from './AnalysisChartPanel.vue';
 import { useStabilityMetrics } from '../../composables/analysis/useStabilityMetrics';
-import { STABILITY_EXTRACTOR_LABELS } from '../../engine/analysis/stability-extractors';
+import { STABILITY_EXTRACTOR_LABELS, DEFAULT_EXTRACTOR_ID } from '../../engine/analysis/stability-extractors';
 import {
   STABILITY_METRIC_LABELS,
   STABILITY_METRIC_EXPLANATIONS,
+  DEFAULT_METRIC_ID,
 } from '../../lib/stability-trajectory';
+import type { ExtractorId, MetricId } from '../../types';
 import { mutateBoard } from '../../store';
 import { navigateTo } from '../../engine/navigator';
 import { themeColor } from '../../utils/theme-color';
@@ -59,19 +61,19 @@ const V_TERM = 20;
 // practice and produces non-NaN fractions earliest in the search
 // trajectory — useful as a starting view that "shows something"
 // even with light analysis.
-const selectedExtractor = ref<string>('top1_move');
+const selectedExtractor = ref<ExtractorId>(DEFAULT_EXTRACTOR_ID);
 
 // Default metric: anchored_at_v_term matches the design note's
 // canonical choice (and the prior single-metric behaviour). The
 // other three are experimental alternatives — see each one's
 // explanation in the help icon.
-const selectedMetric = ref<string>('anchored_at_v_term');
+const selectedMetric = ref<MetricId>(DEFAULT_METRIC_ID);
 
-const extractorChoices = computed<{ id: string; label: string }[]>(() =>
+const extractorChoices = computed<{ id: ExtractorId; label: string }[]>(() =>
   Array.from(STABILITY_EXTRACTOR_LABELS, ([id, label]) => ({ id, label })),
 );
 
-const metricChoices = computed<{ id: string; label: string }[]>(() =>
+const metricChoices = computed<{ id: MetricId; label: string }[]>(() =>
   Array.from(STABILITY_METRIC_LABELS, ([id, label]) => ({ id, label })),
 );
 

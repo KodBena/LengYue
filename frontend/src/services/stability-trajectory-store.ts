@@ -32,7 +32,7 @@
 
 import { ref, type Ref } from 'vue';
 import type { KataAnalysisResponse } from '../engine/katago/types';
-import type { NodeId, BoardId, RawKey } from '../types';
+import type { NodeId, BoardId, RawKey, ExtractorId } from '../types';
 import {
   STABILITY_EXTRACTORS,
   type StabilityExtractor,
@@ -52,7 +52,7 @@ type Key = string; // `${rawKey}|${extractorId}|${nodeId}`
 const trajectories = new Map<Key, StabilityTrajectory<StabilityValue>>();
 const trajectoryVersions = new Map<Key, Ref<number>>();
 
-function keyOf(rawKey: RawKey, extractorId: string, nodeId: NodeId): Key {
+function keyOf(rawKey: RawKey, extractorId: ExtractorId, nodeId: NodeId): Key {
   return `${rawKey}|${extractorId}|${nodeId}`;
 }
 
@@ -143,7 +143,7 @@ export class StabilityTrajectoryStore {
    */
   public getTrajectory(
     rawKey: RawKey,
-    extractorId: string,
+    extractorId: ExtractorId,
     nodeId: NodeId,
   ): StabilityTrajectory<StabilityValue> | null {
     const key = keyOf(rawKey, extractorId, nodeId);

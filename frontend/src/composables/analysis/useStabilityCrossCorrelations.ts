@@ -29,7 +29,7 @@ import {
 } from '../../lib/stability-trajectory';
 import { STABILITY_EXTRACTORS, STABILITY_EXTRACTOR_LABELS } from '../../engine/analysis/stability-extractors';
 import { pearson, type CorrelationResult } from '../../lib/correlation';
-import type { NodeId, RawKey } from '../../types';
+import type { NodeId, RawKey, ExtractorId, MetricId } from '../../types';
 
 export interface CorrelationMatrix {
   /** Row / column labels in display order. */
@@ -49,8 +49,8 @@ export interface StabilityCrossCorrelations {
   metric: CorrelationMatrix;
   /** The fixed axes used for the matrices — exposed for the panel
    *  header so the user knows what cross-section they're looking at. */
-  fixedExtractorId: string;
-  fixedMetricId: string;
+  fixedExtractorId: ExtractorId;
+  fixedMetricId: MetricId;
 }
 
 export interface CrossCorrelationOptions {
@@ -61,8 +61,8 @@ export interface CrossCorrelationOptions {
 function computeSeries(
   path: NodeId[],
   rawKey: RawKey,
-  extractorId: string,
-  metricFn: (typeof STABILITY_METRICS) extends ReadonlyMap<string, infer F> ? F : never,
+  extractorId: ExtractorId,
+  metricFn: (typeof STABILITY_METRICS) extends ReadonlyMap<MetricId, infer F> ? F : never,
   vTerm: number,
   threshold: number,
 ): number[] {
@@ -79,10 +79,10 @@ function computeSeries(
   return out;
 }
 
-function buildMatrix(
-  ids: string[],
+function buildMatrix<Id extends string>(
+  ids: Id[],
   labels: string[],
-  seriesById: Map<string, number[]>,
+  seriesById: Map<Id, number[]>,
 ): CorrelationMatrix {
   // Compute every cell. Pearson is symmetric so the lower-triangle-
   // only optimisation is tempting, but mirroring requires that the
@@ -103,8 +103,8 @@ function buildMatrix(
 
 export function useStabilityCrossCorrelations(
   variationPath: Ref<NodeId[]>,
-  fixedExtractorId: Ref<string>,
-  fixedMetricId: Ref<string>,
+  fixedExtractorId: Ref<ExtractorId>,
+  fixedMetricId: Ref<MetricId>,
   options: CrossCorrelationOptions = {},
 ): ComputedRef<StabilityCrossCorrelations> {
   return computed<StabilityCrossCorrelations>(() => {
@@ -121,7 +121,7 @@ export function useStabilityCrossCorrelations(
       id => STABILITY_EXTRACTOR_LABELS.get(id) ?? id,
     );
     const metricFn = STABILITY_METRICS.get(fixedMetric);
-    const extractorSeries = new Map<string, number[]>();
+    const extractorSeries = new Map<ExtractorId, number[]>();
     if (metricFn) {
       for (const id of extractorIds) {
         extractorSeries.set(id, computeSeries(path, rawKey, id, metricFn, vTerm, threshold));
@@ -135,7 +135,7 @@ export function useStabilityCrossCorrelations(
     const metricLabels = metricIds.map(
       id => STABILITY_METRIC_LABELS.get(id) ?? id,
     );
-    const metricSeries = new Map<string, number[]>();
+    const metricSeries = new Map<MetricId, number[]>();
     for (const id of metricIds) {
       const fn = STABILITY_METRICS.get(id);
       if (!fn) {

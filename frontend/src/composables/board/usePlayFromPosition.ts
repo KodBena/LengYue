@@ -39,7 +39,8 @@ import {
   type Player,
   type KataCoord,
 } from '../../engine/katago/types';
-import type { BoardId, BoardState, GameNode, NodeId } from '../../types';
+import type { BoardId, BoardState, GameNode, NodeId, QueryId } from '../../types';
+import { asQueryId } from '../../services/query-id';
 import { store, mutateBoard, updateBoardState } from '../../store';
 import { applyGoMove } from '../../logic';
 import { gtpToBoard } from './use-move-suggestions';
@@ -128,6 +129,10 @@ function awaitFinalPacket(
   telemetryMeta?: AwaitTelemetryMeta,
 ): Promise<KataAnalysisResponse> {
   return new Promise((resolve, reject) => {
+    // `query.id` is the QueryId the caller minted (passed via buildAnalyzeQuery,
+    // stored into the wire-string `id`); lift it back to the brand for the
+    // telemetry calls below — the one re-brand boundary in this module.
+    const qid = asQueryId(query.id);
     let unsub: (() => void) | null = null;
     let settled = false;
     const settle = (fn: () => void) => {
@@ -135,12 +140,12 @@ function awaitFinalPacket(
       settled = true;
       clearTimeout(timer);
       unsub?.();
-      if (telemetryMeta) telemetry.unregisterQuery(query.id);
+      if (telemetryMeta) telemetry.unregisterQuery(qid);
       fn();
     };
     if (telemetryMeta) {
       telemetry.registerQuery({
-        queryId:       query.id,
+        queryId:       qid,
         kind:          telemetryMeta.kind,
         boardId:       null,
         model:         telemetryMeta.model,
@@ -182,7 +187,7 @@ function awaitFinalPacket(
       const r = res as KataAnalysisResponse;
       if (telemetryMeta) {
         const rootVisits = r.rootInfo?.visits ?? 0;
-        telemetry.recordPacket(query.id, r.turnNumber, rootVisits, r.isDuringSearch);
+        telemetry.recordPacket(qid, r.turnNumber, rootVisits, r.isDuringSearch);
       }
       if (r.turnNumber === expectedTurn && r.isDuringSearch === false) {
         settle(() => resolve(r));
@@ -211,7 +216,7 @@ function awaitFinalPacket(
 function buildAnalyzeQuery(
   board: BoardState,
   maxVisits: number,
-  queryId: string,
+  queryId: QueryId,
   model?: string,
   capabilities?: Record<string, Record<string, unknown>>,
 ): { query: KataGoAnalysisQuery; expectedTurn: number } {
@@ -329,7 +334,7 @@ export async function playEngineMoves(opts: PlayEngineMovesOptions): Promise<Boa
       const { query, expectedTurn } = buildAnalyzeQuery(
         board,
         opts.maxVisits,
-        `play-${turn}-${Date.now()}`,
+        asQueryId(`play-${turn}-${Date.now()}`),
         opts.model,
         opts.capabilities,
       );
@@ -385,7 +390,7 @@ export async function queryEngineMove(opts: QueryEngineMoveOptions): Promise<Eng
     const { query, expectedTurn } = buildAnalyzeQuery(
       opts.board,
       opts.maxVisits,
-      `query-${Date.now()}`,
+      asQueryId(`query-${Date.now()}`),
       opts.model,
       opts.capabilities,
     );
@@ -580,7 +585,7 @@ export async function playEngineMatch(opts: PlayEngineMatchOptions): Promise<Boa
       const { query, expectedTurn } = buildAnalyzeQuery(
         matchBoard,
         side.maxVisits,
-        `match-${playerColor}-${turn}-${Date.now()}`,
+        asQueryId(`match-${playerColor}-${turn}-${Date.now()}`),
         side.model,
         opts.capabilities,
       );

@@ -24,10 +24,10 @@ import { ref, type Ref } from 'vue';
 import type { GameNode, NodeId } from '../../types';
 
 export interface TreeExpansionState {
-  readonly expandedNodes: Ref<ReadonlySet<string>>;
-  readonly isExpanded: (nodeId: string) => boolean;
-  readonly toggle: (nodeId: string) => void;
-  readonly expandMany: (nodeIds: readonly string[]) => void;
+  readonly expandedNodes: Ref<ReadonlySet<NodeId>>;
+  readonly isExpanded: (nodeId: NodeId) => boolean;
+  readonly toggle: (nodeId: NodeId) => void;
+  readonly expandMany: (nodeIds: readonly NodeId[]) => void;
   readonly collapseAll: () => void;
   /**
    * Ensure `nodeId` is reachable from the root by expanding every
@@ -45,12 +45,12 @@ export interface TreeExpansionState {
 export function useTreeExpansion(): TreeExpansionState {
   // Tracks nodes whose variations ARE showing. Default empty =
   // all variations collapsed.
-  const expandedNodes = ref<ReadonlySet<string>>(new Set<string>());
+  const expandedNodes = ref<ReadonlySet<NodeId>>(new Set<NodeId>());
 
-  const isExpanded = (nodeId: string): boolean =>
+  const isExpanded = (nodeId: NodeId): boolean =>
     expandedNodes.value.has(nodeId);
 
-  const toggle = (nodeId: string): void => {
+  const toggle = (nodeId: NodeId): void => {
     const next = new Set(expandedNodes.value);
     if (next.has(nodeId)) {
       next.delete(nodeId);
@@ -60,14 +60,14 @@ export function useTreeExpansion(): TreeExpansionState {
     expandedNodes.value = next;
   };
 
-  const expandMany = (nodeIds: readonly string[]): void => {
+  const expandMany = (nodeIds: readonly NodeId[]): void => {
     const next = new Set(expandedNodes.value);
     for (const id of nodeIds) next.add(id);
     expandedNodes.value = next;
   };
 
   const collapseAll = (): void => {
-    expandedNodes.value = new Set<string>();
+    expandedNodes.value = new Set<NodeId>();
   };
 
   const ensureVisible = (

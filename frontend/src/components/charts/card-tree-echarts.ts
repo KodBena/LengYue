@@ -9,7 +9,7 @@
  * License: Public Domain (The Unlicense)
  */
 
-import type { CardId, ForestStat, ReviewCard } from '../../types';
+import type { CardId, ForestStat, ReviewCard, CardTreeExpandKey } from '../../types';
 import type { RenderNode, RenderTree } from '../../composables/cards/useCardTreeProjection';
 import { getCardThumbnailSync } from '../../composables/cards/useCardThumbnail';
 import { themeColor } from '../../utils/theme-color';
@@ -29,7 +29,7 @@ const t = i18n.global.t;
 export type NodePayload =
   | { kind: 'card'; cardId: CardId; role: 'active' | 'context' }
   | { kind: 'stub'; cardId: CardId }
-  | { kind: 'bucket'; bucketId: string; parentCardId: CardId };
+  | { kind: 'bucket'; bucketId: CardTreeExpandKey; parentCardId: CardId };
 
 export interface EChartsTreeNode {
   name: string;
@@ -244,9 +244,9 @@ export function tooltipFor(
       ${t('cardTree.tooltip.loading')}
     </div>`;
   }
-  // The cardId widening matches LineageTreeChart's existing pattern;
-  // `getCardThumbnailSync` keys its memo cache by raw number.
-  const svg = getCardThumbnailSync(card.id as unknown as number, card.sgf);
+  // `getCardThumbnailSync` keys its memo cache by the branded `CardId`;
+  // `card.id` is already a `CardId`, so it threads through without a cast.
+  const svg = getCardThumbnailSync(card.id, card.sgf);
   const ebisuT = card.model.t.toFixed(4);
   const cardHeaderKey = payload.role === 'active'
     ? 'cardTree.tooltip.cardHeaderActive'

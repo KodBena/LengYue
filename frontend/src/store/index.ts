@@ -25,6 +25,7 @@ import type {
   SessionId,
   ReviewSessionData,
   SystemMessage,
+  CardTreeExpandKey,
 } from '../types';
 
 import { defaultProfile, defaultSessionUI, defaultKnownTags, NIL_UUID } from './defaults';
@@ -221,7 +222,7 @@ export function mutateReviewSession(boardId: BoardId, fn: (draft: ReviewSessionD
  * named-mutator discipline `useForestNavigation` already follows
  * for the sibling `forestNav.expanded` field.
  */
-export function toggleCardTreeManualExpand(boardId: BoardId, key: string): void {
+export function toggleCardTreeManualExpand(boardId: BoardId, key: CardTreeExpandKey): void {
   const cur = store.session.ui.cardTreeNav[boardId];
   if (!cur) {
     store.session.ui.cardTreeNav[boardId] = { manuallyExpanded: [key] };
@@ -251,7 +252,7 @@ export function toggleCardTreeManualExpand(boardId: BoardId, key: string): void 
  * board close happens inline in `closeBoard` (audit pair O14),
  * not through a mutator.
  */
-export function setCardTreeManualExpand(boardId: BoardId, keys: readonly string[]): void {
+export function setCardTreeManualExpand(boardId: BoardId, keys: readonly CardTreeExpandKey[]): void {
   if (keys.length === 0) {
     if (store.session.ui.cardTreeNav[boardId] !== undefined) {
       delete store.session.ui.cardTreeNav[boardId];

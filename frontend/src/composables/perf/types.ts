@@ -22,7 +22,7 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import type { BoardId, BoardState, GameSourceId } from '../../types';
+import type { BoardId, BoardState, GameSourceId, QueryId } from '../../types';
 import type { useNavigation } from '../useNavigation';
 import type { store } from '../../store';
 
@@ -47,7 +47,7 @@ export interface RangeOpts {
  * or `await handle.settled` when a scenario measures completion instead.
  */
 export interface QueryHandle {
-  readonly queryId: string;
+  readonly queryId: QueryId;
   /** Resolves when the query finishes streaming (leaves the telemetry
    *  in-flight set). Never rejects. */
   readonly settled: Promise<void>;

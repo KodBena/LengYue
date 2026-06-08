@@ -36,6 +36,7 @@
 
 import type { KataAnalysisResponse } from '../katago/types';
 import type { StabilityValue } from '../../lib/stability-trajectory';
+import type { ExtractorId } from '../../types';
 
 export type StabilityExtractor<Q extends StabilityValue = StabilityValue> =
   (packet: KataAnalysisResponse) => Q | null;
@@ -141,22 +142,28 @@ export const extractTop2MarginQuintile: StabilityExtractor<number> = (packet) =>
  *  note's "DSL extension is a third arc" framing) can register
  *  dynamically without consumer-side changes. UI consumers should
  *  iterate this map for the available-extractors menu. */
-export const STABILITY_EXTRACTORS: ReadonlyMap<string, StabilityExtractor> = new Map([
-  ['scoreLead_sign', extractScoreLeadSign as StabilityExtractor],
-  ['winrate_quintile', extractWinrateQuintile as StabilityExtractor],
-  ['search_agrees_with_policy', extractSearchAgreesWithPolicy as StabilityExtractor],
-  ['top1_move', extractTop1Move as StabilityExtractor],
-  ['top3_set', extractTop3Set as StabilityExtractor],
-  ['top2_margin_quintile', extractTop2MarginQuintile as StabilityExtractor],
-]);
+// This map is the authoritative `ExtractorId` vocabulary; the single
+// array cast below is the brand's construction site (the keys are minted
+// here, not at consumers).
+export const STABILITY_EXTRACTORS: ReadonlyMap<ExtractorId, StabilityExtractor> = new Map(([
+  ['scoreLead_sign', extractScoreLeadSign],
+  ['winrate_quintile', extractWinrateQuintile],
+  ['search_agrees_with_policy', extractSearchAgreesWithPolicy],
+  ['top1_move', extractTop1Move],
+  ['top3_set', extractTop3Set],
+  ['top2_margin_quintile', extractTop2MarginQuintile],
+] as [ExtractorId, StabilityExtractor][]));
 
 /** Human-readable labels for the registered extractors. UI dropdown
  *  surfaces these alongside the registry keys. */
-export const STABILITY_EXTRACTOR_LABELS: ReadonlyMap<string, string> = new Map([
+export const STABILITY_EXTRACTOR_LABELS: ReadonlyMap<ExtractorId, string> = new Map(([
   ['scoreLead_sign', 'Score-lead sign (B leads / tied / W leads)'],
   ['winrate_quintile', 'Winrate quintile'],
   ['search_agrees_with_policy', "Search agrees with network's prior"],
   ['top1_move', 'Top-1 move'],
   ['top3_set', 'Top-3 move set'],
   ['top2_margin_quintile', 'Top-1 vs top-2 confidence margin'],
-]);
+] as [ExtractorId, string][]));
+
+/** Default selected extractor for the stability panels (a vocabulary member). */
+export const DEFAULT_EXTRACTOR_ID = 'top1_move' as ExtractorId;

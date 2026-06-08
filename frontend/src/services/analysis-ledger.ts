@@ -42,6 +42,14 @@ import {
 import { type NodeId, type BoardId, type RawKey, type EnrichedKey } from '../types';
 import { store } from '../store';
 
+/**
+ * Either store's key. The shared version-ref + flush machinery accepts a key
+ * from *either* provenance layer (the two key spaces are disjoint strings);
+ * the public read/record API stays narrowly typed (`RawKey` vs `EnrichedKey`)
+ * so a wrong-store read is still a compile error.
+ */
+type LedgerKey = RawKey | EnrichedKey;
+
 // ── Internal storage (Key -> NodeId -> Value), one per provenance layer ──────
 const rawData = new Map<RawKey, Map<NodeId, RawAnalysis>>();
 const enrData = new Map<EnrichedKey, Map<NodeId, Enrichment>>();
@@ -74,7 +82,7 @@ function emitChanged(keys: ReadonlySet<string>): void {
   for (const fn of flushListeners) fn(keys);
 }
 
-function getOrCreateVersion(key: string, nodeId: NodeId): Ref<number> {
+function getOrCreateVersion(key: LedgerKey, nodeId: NodeId): Ref<number> {
   const vkey = `${key}:${nodeId}`;
   let v = nodeVersions.get(vkey);
   if (!v) {
@@ -132,7 +140,7 @@ function scheduleBumpFlush(): void {
 // scheduler already coalesces the synchronous raw+enrichment double-bump into
 // one render per tick, so deferring enrichment merely de-batches it across two
 // frames. Keeping both synchronous is the win.
-function bump(key: string, nodeId: NodeId, firstPacket: boolean, isRaw: boolean): void {
+function bump(key: LedgerKey, nodeId: NodeId, firstPacket: boolean, isRaw: boolean): void {
   const version = getOrCreateVersion(key, nodeId);
   if (firstPacket) {
     version.value++;

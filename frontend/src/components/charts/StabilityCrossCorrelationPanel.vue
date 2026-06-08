@@ -28,9 +28,10 @@ import {
   useStabilityCrossCorrelations,
   type CorrelationMatrix,
 } from '../../composables/analysis/useStabilityCrossCorrelations';
-import { STABILITY_EXTRACTOR_LABELS } from '../../engine/analysis/stability-extractors';
-import { STABILITY_METRIC_LABELS } from '../../lib/stability-trajectory';
+import { STABILITY_EXTRACTOR_LABELS, DEFAULT_EXTRACTOR_ID } from '../../engine/analysis/stability-extractors';
+import { STABILITY_METRIC_LABELS, DEFAULT_METRIC_ID } from '../../lib/stability-trajectory';
 import { injectAnalysisContext } from '../../composables/analysis/useAnalysisContext';
+import type { ExtractorId, MetricId } from '../../types';
 
 // Phase-0 projection seam: self-source the variation path from the
 // injected AnalysisContext rather than a prop.
@@ -41,13 +42,13 @@ const expanded = ref(false);
 
 // Fixed-axis selections — defaults match StabilityPanel's so the
 // two views start coherent, but they're independently mutable.
-const fixedExtractor = ref<string>('top1_move');
-const fixedMetric = ref<string>('anchored_at_v_term');
+const fixedExtractor = ref<ExtractorId>(DEFAULT_EXTRACTOR_ID);
+const fixedMetric = ref<MetricId>(DEFAULT_METRIC_ID);
 
-const extractorChoices = computed<{ id: string; label: string }[]>(() =>
+const extractorChoices = computed<{ id: ExtractorId; label: string }[]>(() =>
   Array.from(STABILITY_EXTRACTOR_LABELS, ([id, label]) => ({ id, label })),
 );
-const metricChoices = computed<{ id: string; label: string }[]>(() =>
+const metricChoices = computed<{ id: MetricId; label: string }[]>(() =>
   Array.from(STABILITY_METRIC_LABELS, ([id, label]) => ({ id, label })),
 );
 
