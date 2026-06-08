@@ -1,39 +1,73 @@
 /**
  * src/services/analysis-ledger.ts
- * Per-(configHash, nodeId) store of merged KataGo analysis packets,
- * with per-node reactive version refs as the change-notification
- * surface. Consumers (composables, charts) subscribe by reading via
- * `getRaw`, which touches the relevant version ref.
+ * Provenance-stratified store of merged KataGo analysis data, split into a
+ * RAW store (keyed by `RawKey` = model + engine-overrides) and an
+ * ENRICHMENT store (keyed by `EnrichedKey` = model + overrides + palette),
+ * with per-(key, nodeId) reactive version refs as the change-notification
+ * surface. Consumers subscribe by reading via `getRaw` / `getEnrichment`
+ * (which touch the relevant version ref) or `getCombined` (which touches
+ * both).
  *
- * Version-bump notifications are coalesced via requestAnimationFrame
- * so high-frequency packet floods (KataGo NN-cache hits, proxy
- * replay-cache replays) collapse into one redraw per browser frame.
- * The merged packet is stored synchronously in record(); only the
- * reactive notification is batched.
+ * Why two stores: raw KataGo output (`moveInfos` / `rootInfo` / `ownership`
+ * / `policy`) depends only on the network + engine overrides; palette
+ * enrichment (`extra`) additionally depends on the palette. Keying both by
+ * the full composite over-keyed the raw data, so a palette swap stranded the
+ * raw board overlays (move suggestions, ownership) even though the raw bytes
+ * were unchanged. Stratifying the keys makes raw survive a palette swap by
+ * construction — a palette-only change re-mints `EnrichedKey` but not
+ * `RawKey`, so raw consumers' version refs don't bump and they keep reading
+ * their bucket. Branding the two key kinds makes a wrong-key read a compile
+ * error (ADR-0002, strongest channel). Rationale and prior-art survey:
+ * `docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md`.
+ *
+ * The two key spaces are distinct strings (different serialisations), so a
+ * single `nodeVersions` map and a single `onLedgerFlush` channel keyed by
+ * `${key}:${nodeId}` disambiguate them without tagging.
+ *
+ * Version-bump notifications are coalesced via requestAnimationFrame so
+ * high-frequency packet floods (KataGo NN-cache hits, proxy replay-cache
+ * replays) collapse into one redraw per browser frame. Data is stored
+ * synchronously in record*(); only the reactive notification is batched.
  *
  * License: Public Domain (The Unlicense)
  */
 import { ref, type Ref } from 'vue';
-import { type KataAnalysisResponse, type KataExtra, type KataPlayerExtra } from '../engine/katago/types';
-import { type NodeId, type BoardId } from '../types';
+import {
+  type KataExtra,
+  type KataPlayerExtra,
+  type KataAnalysisResponse,
+  type RawAnalysis,
+  type Enrichment,
+} from '../engine/katago/types';
+import { type NodeId, type BoardId, type RawKey, type EnrichedKey } from '../types';
 import { store } from '../store';
 
-// ── Internal storage (Hash -> NodeId -> Packet) ──────────────────────
+/**
+ * Either store's key. The shared version-ref + flush machinery accepts a key
+ * from *either* provenance layer (the two key spaces are disjoint strings);
+ * the public read/record API stays narrowly typed (`RawKey` vs `EnrichedKey`)
+ * so a wrong-store read is still a compile error.
+ */
+type LedgerKey = RawKey | EnrichedKey;
 
-const data = new Map<string, Map<NodeId, KataAnalysisResponse>>();
+// ── Internal storage (Key -> NodeId -> Value), one per provenance layer ──────
+const rawData = new Map<RawKey, Map<NodeId, RawAnalysis>>();
+const enrData = new Map<EnrichedKey, Map<NodeId, Enrichment>>();
 const nodeVersions = new Map<string, Ref<number>>();
 
 // ── Changed-key notification (for incremental consumers) ─────────────
 // The per-node version refs above are the reactive surface for *pull*
-// consumers (a `getRaw` read inside a computed re-runs that computed when
-// the node bumps). They don't tell a consumer *which* node changed — fine
-// for a full re-derive, useless for an O(1) incremental patch. This
-// listener surface carries the changed `${hash}:${nodeId}` key-set to push
-// consumers (useEnrichedData's incremental accumulator) so they patch only
-// the nodes that moved. It fires at every bump site — the rAF-coalesced
+// consumers (a `getRaw` / `getEnrichment` read inside a computed re-runs that
+// computed when the node bumps). They don't tell a consumer *which* node
+// changed — fine for a full re-derive, useless for an O(1) incremental patch.
+// This listener surface carries the changed `${key}:${nodeId}` key-set to
+// push consumers (useEnrichedData's incremental accumulator) so they patch
+// only the nodes that moved. It fires at every bump site — the rAF-coalesced
 // flush, the first-packet synchronous bump, and the purges — so the key-set
-// is exhaustive. Keys use the same `${hash}:${nodeId}` shape as
-// `getOrCreateVersion`.
+// is exhaustive. Keys use the same `${key}:${nodeId}` shape as
+// `getOrCreateVersion`, where `key` is *either* a RawKey or an EnrichedKey
+// string; the two spaces are disjoint, so a push consumer holding both keys
+// matches a changed key against either and re-reads the relevant store.
 type LedgerFlushListener = (changedKeys: ReadonlySet<string>) => void;
 const flushListeners = new Set<LedgerFlushListener>();
 
@@ -48,12 +82,12 @@ function emitChanged(keys: ReadonlySet<string>): void {
   for (const fn of flushListeners) fn(keys);
 }
 
-function getOrCreateVersion(hash: string, nodeId: NodeId): Ref<number> {
-  const key = `${hash}:${nodeId}`;
-  let v = nodeVersions.get(key);
+function getOrCreateVersion(key: LedgerKey, nodeId: NodeId): Ref<number> {
+  const vkey = `${key}:${nodeId}`;
+  let v = nodeVersions.get(vkey);
   if (!v) {
     v = ref(0);
-    nodeVersions.set(key, v);
+    nodeVersions.set(vkey, v);
   }
   return v;
 }
@@ -63,8 +97,8 @@ function getOrCreateVersion(hash: string, nodeId: NodeId): Ref<number> {
 // high-frequency packet arrivals (NN-cache hits, proxy replay-cache replays)
 // don't saturate the main thread re-running every consumer's computed and
 // re-firing every chart's setOption. Data is updated synchronously in
-// record(); only the reactive notification is deferred. Multiple packets
-// for the same (hash, nodeId) within a frame collapse to one bump; multiple
+// record*(); only the reactive notification is deferred. Multiple packets
+// for the same (key, nodeId) within a frame collapse to one bump; multiple
 // distinct keys each bump exactly once at flush time.
 //
 // Two cases bypass the rAF coalescing and bump synchronously, both for the
@@ -73,11 +107,11 @@ function getOrCreateVersion(hash: string, nodeId: NodeId): Ref<number> {
 //
 //   - purgeBoard / purgeAll: user action wiping data; the cleared state
 //     must paint without one-frame lag.
-//   - First packet for a (hash, nodeId): the no-data → has-data
-//     transition. The user pressed space (or branched out of a game) and
-//     is waiting to see what the engine thinks; a one-frame rAF delay is
-//     specifically what they notice. Flood-coalescing is the wrong shape
-//     for a single packet arriving against an empty cache. See
+//   - First packet for a (key, nodeId): the no-data → has-data transition.
+//     The user pressed space (or branched out of a game) and is waiting to
+//     see what the engine thinks; a one-frame rAF delay is specifically what
+//     they notice. Flood-coalescing is the wrong shape for a single packet
+//     arriving against an empty cache. See
 //     `docs/worklog/2026-05-15-ledger-first-packet-sync-bump.md`.
 
 const pendingBumps = new Set<string>();
@@ -96,6 +130,54 @@ function scheduleBumpFlush(): void {
     emitChanged(pendingBumps);
     pendingBumps.clear();
   });
+}
+
+// Shared bump logic for both stores: the first packet for a (key, nodeId)
+// bumps synchronously (UX-critical first-paint); subsequent packets coalesce
+// to the rAF flush. Both raw and enrichment first-packets bump synchronously
+// — a measured claw-back that deferred enrichment first-packets to the rAF
+// path regressed render ops ~2-6% (full-stress battery, 2026-06-08): Vue's
+// scheduler already coalesces the synchronous raw+enrichment double-bump into
+// one render per tick, so deferring enrichment merely de-batches it across two
+// frames. Keeping both synchronous is the win.
+function bump(key: LedgerKey, nodeId: NodeId, firstPacket: boolean, isRaw: boolean): void {
+  const version = getOrCreateVersion(key, nodeId);
+  if (firstPacket) {
+    version.value++;
+    emitChanged(new Set([`${key}:${nodeId}`]));
+    // RB-3 (ADR-0009): count first-packet synchronous bumps on the RAW path
+    // — each queues a render Vue flushes inside the receiving task (vs the
+    // rAF-coalesced subsequent path). Raw is the overlay-blocking path the
+    // lever-2 perf decision gates on. DEV-only; dead-code-eliminated in prod.
+    if (isRaw && import.meta.env.DEV) performance.mark('rb3:firstBump');
+  } else {
+    pendingBumps.add(`${key}:${nodeId}`);
+    scheduleBumpFlush();
+  }
+}
+
+// Drop the given nodeIds from a store map, bumping-then-deleting each
+// affected version ref (so subscribed consumers re-run and observe cleared
+// data) and accumulating the cleared keys for the push-consumer notify.
+function purgeNodesFrom<K extends string, V>(
+  m: Map<K, Map<NodeId, V>>,
+  nodeIds: readonly NodeId[],
+  cleared: Set<string>,
+): void {
+  for (const [key, hashMap] of m.entries()) {
+    for (const nodeId of nodeIds) {
+      if (hashMap.has(nodeId)) {
+        hashMap.delete(nodeId);
+        const vkey = `${key}:${nodeId}`;
+        const v = nodeVersions.get(vkey);
+        if (v) {
+          v.value++;
+          nodeVersions.delete(vkey);
+        }
+        cleared.add(vkey);
+      }
+    }
+  }
 }
 
 // ── Merge helpers ─────────────────────────────────────────────────────────────
@@ -148,136 +230,142 @@ function mergeKataExtra(existing?: KataExtra, incoming?: KataExtra): KataExtra |
   };
 }
 
-export function mergeAnalysisPacket(existing: KataAnalysisResponse | null | undefined, incoming: KataAnalysisResponse): KataAnalysisResponse {
+/**
+ * Raw merge — gated by `rootInfo.visits`: a lower-visit packet (a stale
+ * during-search update arriving after a deeper result) is discarded in
+ * favour of the existing one. Raw fields *are* the visit-gated content.
+ */
+export function mergeRawAnalysis(existing: RawAnalysis | null | undefined, incoming: RawAnalysis): RawAnalysis {
   if (!existing) return incoming;
   const existingVisits = existing.rootInfo?.visits ?? 0;
   const incomingVisits = incoming.rootInfo?.visits ?? 0;
   if (incomingVisits < existingVisits) return existing;
-  return { ...incoming, extra: mergeKataExtra(existing.extra, incoming.extra) };
+  return incoming;
+}
+
+/**
+ * Enrichment merge — additive, last-writer-wins per leaf, NO visit gate. The
+ * enrichment store cannot see `rootInfo.visits` (a raw field) after the
+ * split, and re-coupling the stores to thread it through would defeat the
+ * stratification. This is exactly the behaviour the old combined merge ran
+ * inside its success branch, minus the raw-visit gate that could previously
+ * discard a whole enrichment update. Acceptable because enrichment is
+ * ~monotone and the accumulator's last-path-order-wins arbitration already
+ * tolerates minor disagreement.
+ */
+export function mergeEnrichment(existing: Enrichment | undefined, incoming: Enrichment): Enrichment {
+  return mergeKataExtra(existing, incoming) ?? incoming;
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export class AnalysisLedger {
-  public record(hash: string, nodeId: NodeId, packet: KataAnalysisResponse): void {
-    if (!data.has(hash)) data.set(hash, new Map());
-    const hashData = data.get(hash)!;
-
-    const existing = hashData.get(nodeId);
-    const merged = mergeAnalysisPacket(existing, packet);
-    hashData.set(nodeId, merged);
-
-    const version = getOrCreateVersion(hash, nodeId);
-    if (existing === undefined) {
-      // First packet for this (hash, nodeId): bump synchronously so the
-      // first paint lands without the rAF coalescer's one-frame delay.
-      // The flood-protection rationale documented above applies to
-      // sustained packet streams against an already-populated cache; a
-      // single packet arriving against an empty cache is the case where
-      // the user just pressed space (or branched off-game) and is
-      // waiting to see what the engine thinks. Same shape as the
-      // purgeBoard / purgeAll synchronous-bump bypass at the other end
-      // of the data lifecycle.
-      version.value++;
-      emitChanged(new Set([`${hash}:${nodeId}`]));
-      // RB-3 (ADR-0009): count first-packet synchronous bumps — each queues
-      // a render Vue flushes inside the receiving task (vs the rAF-coalesced
-      // subsequent path below). Frequency here gates lever 2 (defer
-      // first-bumps to rAF). DEV-only; dead-code-eliminated in prod.
-      if (import.meta.env.DEV) performance.mark('rb3:firstBump');
-    } else {
-      // Subsequent packets coalesce: data is updated synchronously above
-      // (mergeAnalysisPacket has already run); only the reactive
-      // notification defers to next-frame flush. NN-cache hits and
-      // proxy replay-cache replays go through this path.
-      pendingBumps.add(`${hash}:${nodeId}`);
-      scheduleBumpFlush();
-    }
+  /** Record the raw half of a packet under its palette-independent RawKey. */
+  public recordRaw(key: RawKey, nodeId: NodeId, raw: RawAnalysis): void {
+    let layer = rawData.get(key);
+    if (!layer) { layer = new Map(); rawData.set(key, layer); }
+    const existing = layer.get(nodeId);
+    layer.set(nodeId, mergeRawAnalysis(existing, raw));
+    bump(key, nodeId, existing === undefined, true);
   }
 
-  public getRaw(hash: string, nodeId: NodeId): KataAnalysisResponse | null {
-    getOrCreateVersion(hash, nodeId).value;
-    return data.get(hash)?.get(nodeId) ?? null;
+  /** Record the palette-derived enrichment half under its EnrichedKey. */
+  public recordEnrichment(key: EnrichedKey, nodeId: NodeId, enr: Enrichment): void {
+    let layer = enrData.get(key);
+    if (!layer) { layer = new Map(); enrData.set(key, layer); }
+    const existing = layer.get(nodeId);
+    layer.set(nodeId, mergeEnrichment(existing, enr));
+    bump(key, nodeId, existing === undefined, false);
+  }
+
+  /** Read the raw half. Branded `RawKey` param — passing an EnrichedKey is a compile error. */
+  public getRaw(key: RawKey, nodeId: NodeId): RawAnalysis | null {
+    getOrCreateVersion(key, nodeId).value;
+    return rawData.get(key)?.get(nodeId) ?? null;
+  }
+
+  /** Read the enrichment half. Branded `EnrichedKey` param — passing a RawKey is a compile error. */
+  public getEnrichment(key: EnrichedKey, nodeId: NodeId): Enrichment | null {
+    getOrCreateVersion(key, nodeId).value;
+    return enrData.get(key)?.get(nodeId) ?? null;
   }
 
   /**
-   * Non-reactive batch read across every configHash, restricted
-   * to the given nodeIds. Intended for one-shot snapshots like
-   * the analysis-persistence bundle export, not for reactive
-   * views (no version-ref subscriptions are registered). Order
-   * of returned entries is unspecified.
+   * Reconstitute the full `KataAnalysisResponse` (raw + optional extra) for a
+   * node, subscribing to *both* version refs. Returns `null` when no raw half
+   * exists (enrichment without raw is never surfaced — the raw half is the
+   * existence anchor). This is the read the enriched-accumulator consumes, so
+   * its byte-equality contract is preserved unchanged.
    */
-  public listEntriesForNodes(
+  public getCombined(rawKey: RawKey, enrichedKey: EnrichedKey, nodeId: NodeId): KataAnalysisResponse | null {
+    const raw = this.getRaw(rawKey, nodeId);
+    if (!raw) return null;
+    const enr = this.getEnrichment(enrichedKey, nodeId);
+    return enr ? { ...raw, extra: enr } : raw;
+  }
+
+  /**
+   * Non-reactive batch read of the RAW store restricted to the given nodeIds,
+   * for one-shot snapshots (analysis-persistence export). Order unspecified.
+   */
+  public listRawForNodes(
     nodeIds: readonly NodeId[]
-  ): readonly { configHash: string; nodeId: NodeId; packet: KataAnalysisResponse }[] {
-    const wantedNodes = new Set<NodeId>(nodeIds);
-    const out: { configHash: string; nodeId: NodeId; packet: KataAnalysisResponse }[] = [];
-    for (const [hash, hashMap] of data.entries()) {
-      for (const [nodeId, packet] of hashMap.entries()) {
-        if (wantedNodes.has(nodeId)) {
-          out.push({ configHash: hash, nodeId, packet });
-        }
+  ): readonly { rawKey: RawKey; nodeId: NodeId; raw: RawAnalysis }[] {
+    const wanted = new Set<NodeId>(nodeIds);
+    const out: { rawKey: RawKey; nodeId: NodeId; raw: RawAnalysis }[] = [];
+    for (const [rawKey, layer] of rawData.entries()) {
+      for (const [nodeId, raw] of layer.entries()) {
+        if (wanted.has(nodeId)) out.push({ rawKey, nodeId, raw });
+      }
+    }
+    return out;
+  }
+
+  /** Non-reactive batch read of the ENRICHMENT store, restricted to nodeIds. */
+  public listEnrichmentForNodes(
+    nodeIds: readonly NodeId[]
+  ): readonly { enrichedKey: EnrichedKey; nodeId: NodeId; enr: Enrichment }[] {
+    const wanted = new Set<NodeId>(nodeIds);
+    const out: { enrichedKey: EnrichedKey; nodeId: NodeId; enr: Enrichment }[] = [];
+    for (const [enrichedKey, layer] of enrData.entries()) {
+      for (const [nodeId, enr] of layer.entries()) {
+        if (wanted.has(nodeId)) out.push({ enrichedKey, nodeId, enr });
       }
     }
     return out;
   }
 
   /**
-   * Drop every cached packet and per-node version ref. Called from
-   * `resetWorkspace` on identity flip so the prior identity's
-   * analysis state doesn't accumulate in the singleton across
-   * the session boundary.
-   *
-   * Bumps every existing version ref before clearing so any
-   * subscribed consumer's computed re-runs and observes the
-   * cleared data — same bump-then-delete contract as `purgeBoard`,
-   * applied to all entries at once. Consumers re-attach to fresh
-   * refs through `getOrCreateVersion` on their next compute run
-   * (the pattern getRaw uses).
-   *
-   * Resource-ownership audit O8. NodeIds are UUID-style and don't
-   * collide across users, so this is bounded-memory hygiene rather
-   * than the privacy concern that motivates the useCardThumbnail
-   * clear (O10).
+   * Drop every cached entry (both stores) and per-node version ref. Called
+   * from `resetWorkspace` on identity flip so the prior identity's analysis
+   * state doesn't accumulate across the session boundary. Bumps every version
+   * ref before clearing so subscribed consumers re-run and observe the
+   * cleared data. Resource-ownership audit O8.
    */
   public purgeAll(): void {
     const cleared = new Set(nodeVersions.keys());
     for (const v of nodeVersions.values()) {
       v.value++;
     }
-    data.clear();
+    rawData.clear();
+    enrData.clear();
     nodeVersions.clear();
-    // Notify push consumers so their accumulators clear the purged nodes
-    // (a subsequent getRaw returns null → the node's contribution drops).
     emitChanged(cleared);
   }
 
+  /**
+   * Drop every cached entry for a board's nodes from BOTH stores, with the
+   * bump-then-delete contract (consumers re-run and observe cleared data; a
+   * subsequent read returns null). A re-record on the same nodeId creates a
+   * fresh ref via `getOrCreateVersion`.
+   */
   public purgeBoard(boardId: BoardId): void {
     const board = store.boards.find(b => b.id === boardId);
     if (!board) return;
     const nodeIds = Object.keys(board.nodes) as NodeId[];
-
     const cleared = new Set<string>();
-    for (const [hash, hashMap] of data.entries()) {
-      for (const nodeId of nodeIds) {
-        if (hashMap.has(nodeId)) {
-          hashMap.delete(nodeId);
-          const key = `${hash}:${nodeId}`;
-          const v = nodeVersions.get(key);
-          if (v) {
-            // Bump first so any subscribed consumer's computed re-runs
-            // and observes the cleared data, then drop the ref so it
-            // isn't retained for nodes that no longer have data. A
-            // re-record on the same nodeId creates a fresh ref via
-            // getOrCreateVersion; consumers re-attach through the same
-            // call inside their read body (see getRaw above).
-            v.value++;
-            nodeVersions.delete(key);
-          }
-          cleared.add(key);
-        }
-      }
-    }
+    purgeNodesFrom(rawData, nodeIds, cleared);
+    purgeNodesFrom(enrData, nodeIds, cleared);
     emitChanged(cleared);
   }
 }

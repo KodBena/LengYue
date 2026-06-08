@@ -23,9 +23,9 @@ import { loadSgf } from '../../engine/sgf-loader';
 import { getActiveVariationPath, getBoardSize } from '../../engine/util';
 import { renderBoardToSvg } from '../../engine/board-renderer';
 import { navigateTo } from '../../engine/navigator';
-import type { NodeId } from '../../types';
+import type { NodeId, CardId } from '../../types';
 
-const cache = new Map<number, string>();
+const cache = new Map<CardId, string>();
 
 /**
  * Drop every cached card thumbnail. Called from `resetWorkspace` on
@@ -43,7 +43,7 @@ export function clearCardThumbnailCache(): void {
  * current identity; see file header for the identity-flip clear
  * contract.
  */
-export function getCardThumbnailSync(cardId: number, cardSgf: string): string {
+export function getCardThumbnailSync(cardId: CardId, cardSgf: string): string {
   if (cache.has(cardId)) {
     return cache.get(cardId)!;
   }

@@ -31,7 +31,7 @@
  */
 
 import { computed, ref, type ComputedRef } from 'vue';
-import type { BoardId } from '../types';
+import type { BoardId, QueryId } from '../types';
 import { QUERY_ETA_TICK_MS } from '../lib/timing';
 
 // ── Public types ──────────────────────────────────────────────────────────────
@@ -44,7 +44,7 @@ export type QueryKind =
   | 'probe';    // version / models metadata probe
 
 export interface QueryMeta {
-  readonly queryId: string;
+  readonly queryId: QueryId;
   readonly kind: QueryKind;
   /** null for non-board-scoped queries (probes, match-loop turns). */
   readonly boardId: BoardId | null;
@@ -184,7 +184,7 @@ interface Entry {
   meta: QueryMeta;
   progress: QueryProgress;
 }
-const queries = ref<Map<string, Entry>>(new Map());
+const queries = ref<Map<QueryId, Entry>>(new Map());
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
@@ -235,7 +235,7 @@ function registerQuery(meta: QueryMeta): void {
  * on terminal packet observation OR on explicit cancellation
  * (`stopBoardAnalysis`); whichever fires first.
  */
-function unregisterQuery(queryId: string): void {
+function unregisterQuery(queryId: QueryId): void {
   if (!queries.value.has(queryId)) return;
   const fresh = new Map(queries.value);
   fresh.delete(queryId);
@@ -254,7 +254,7 @@ function unregisterQuery(queryId: string): void {
  * packet arriving post-unregister), the call is a silent no-op.
  */
 function recordPacket(
-  queryId: string,
+  queryId: QueryId,
   turnNumber: number,
   visits: number,
   isDuringSearch: boolean,
@@ -313,7 +313,7 @@ function recordPacket(
  * (unsubscribe / terminate / promise rejection) are what
  * eventually trigger `unregisterQuery`.
  */
-function cancelQuery(queryId: string): void {
+function cancelQuery(queryId: QueryId): void {
   const entry = queries.value.get(queryId);
   if (!entry) return;
   entry.meta.cancel?.();

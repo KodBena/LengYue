@@ -261,7 +261,7 @@ export function useAppBootstrap(
 
   // Restart active analyses whenever the qEUBO audition toggle
   // changes the parameters the engine should see. The
-  // analysis-service's `activeConfigHash` is reactive on
+  // analysis-service's `activeAnalysisKeys` is reactive on
   // qeubo.effectiveParameterValues (via compileAnalysisConfig), so
   // the existing restart-on-config-change mechanism would fire
   // anyway — but the explicit watcher here makes the dependency

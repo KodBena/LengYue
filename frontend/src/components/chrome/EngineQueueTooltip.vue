@@ -34,6 +34,7 @@ import { useHoverPopover } from '../../composables/chrome/useHoverPopover';
 import { usePopoverEdgeClamp } from '../../composables/chrome/usePopoverEdgeClamp';
 import { createTrailingThrottle } from '../../composables/useThrottledSnapshot';
 import { QUEUE_TOOLTIP_REDRAW_THROTTLE_MS } from '../../lib/timing';
+import type { QueryId } from '../../types';
 
 const { t } = useI18n();
 const { inFlight, cancelQuery } = useQueryTelemetry();
@@ -45,7 +46,7 @@ const { setPopoverEl, xShift } = usePopoverEdgeClamp(open);
 
 const count = computed(() => inFlight.value.length);
 
-function onCancelClick(queryId: string): void {
+function onCancelClick(queryId: QueryId): void {
   cancelQuery(queryId);
 }
 
@@ -102,7 +103,7 @@ function fmtProgress(q: InFlightQuery): string {
 // shape as the redraw throttles in DistributionChart / HeatmapChart, the
 // sibling consumers of this timing catalog.
 interface QueueRow {
-  queryId:      string;
+  queryId:      QueryId;
   kindText:     string;
   label?:       string;
   modelText:    string;

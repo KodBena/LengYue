@@ -31,6 +31,7 @@ import type {
   ResolveRootsResult,
   ReviewCard,
   RootGroup,
+  CardTreeExpandKey,
 } from '../../types';
 import { CardTreeOverflowError } from '../../types';
 import { backendService } from '../../services/backend-service';
@@ -46,6 +47,7 @@ import {
   getOrCreateBoardCardTree,
   getBoardCardTree,
 } from './board-card-trees';
+import { cardExpandKeyFor, bucketIdFor } from './useCardTreeProjection';
 
 export interface CardTreeData {
   // Render inputs for `CardTreeWidget`. These are computeds projecting
@@ -92,12 +94,12 @@ export interface CardTreeData {
   // `useCardTreeProjection` contract. Swaps atomically when
   // `boardIdRef` changes — board-tab switch reveals each board's
   // own exploration state.
-  manualExpand: ComputedRef<ReadonlySet<string>>;
+  manualExpand: ComputedRef<ReadonlySet<CardTreeExpandKey>>;
   // Toggle a manual-expand key (stub-click or bucket-click) on the
   // active board's slot. Persists through SyncService; the widget's
   // reactive read of `manualExpand` re-fires. No-op when
   // `boardIdRef.value` is null.
-  toggleManualExpand: (key: string) => void;
+  toggleManualExpand: (key: CardTreeExpandKey) => void;
   // Clear every manual-expand key that belongs to the given tree
   // in the active board's slot. Walks the underlying forest's
   // `CardLineageNode` structure to enumerate the candidate keys
@@ -122,7 +124,7 @@ const EMPTY_FOREST: CardLineageTree[] = [];
 const EMPTY_ACTIVE_SET: ReadonlySet<CardId> = new Set();
 const EMPTY_CARDS: ReadonlyMap<CardId, ReviewCard> = new Map();
 const EMPTY_FOREST_STATS: ReadonlyMap<CardId, ForestStat> = new Map();
-const EMPTY_MANUAL_EXPAND: ReadonlySet<string> = new Set();
+const EMPTY_MANUAL_EXPAND: ReadonlySet<CardTreeExpandKey> = new Set();
 
 // Per-composable-instance set of in-flight `requestCard` ids, scoped
 // across all boards the composable instance has seen. This is fine
@@ -164,14 +166,14 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
   // composable's `computed` re-fires on `manualExpand.value`'s
   // identity change, and the Set's contents are derived from a
   // stable array.
-  const manualExpand = computed<ReadonlySet<string>>(() => {
+  const manualExpand = computed<ReadonlySet<CardTreeExpandKey>>(() => {
     const id = boardIdRef.value;
     if (!id) return EMPTY_MANUAL_EXPAND;
     const slot = store.session.ui.cardTreeNav[id];
     return slot ? new Set(slot.manuallyExpanded) : EMPTY_MANUAL_EXPAND;
   });
 
-  function toggleManualExpand(key: string): void {
+  function toggleManualExpand(key: CardTreeExpandKey): void {
     const id = boardIdRef.value;
     if (!id) return;
     toggleCardTreeManualExpand(id, key);
@@ -194,13 +196,14 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
     // tree could contribute. Iterative walk (explicit stack)
     // rather than recursion so deep trees don't risk a stack
     // overflow on the largest forests.
-    const treeKeys = new Set<string>();
+    const treeKeys = new Set<CardTreeExpandKey>();
     const stack: CardLineageNode[] = [tree.tree];
     while (stack.length > 0) {
       const node = stack.pop()!;
-      const idStr = String(node.id);
-      treeKeys.add(idStr);
-      treeKeys.add(`bucket:${idStr}`);
+      // Use the canonical factories rather than re-spelling the two key
+      // shapes inline, so this set can't drift from `useCardTreeProjection`.
+      treeKeys.add(cardExpandKeyFor(node.id));
+      treeKeys.add(bucketIdFor(node.id));
       for (const c of node.children) stack.push(c);
     }
     const cur = store.session.ui.cardTreeNav[id];

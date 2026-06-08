@@ -50,6 +50,8 @@ export type {
   KataAnalysisResponse,
   KataExtra,
   KataPlayerExtra,
+  RawAnalysis,
+  Enrichment,
 } from './engine/katago/types';
 
 // ── Re-exports: PV animation settings shape ───────────────────────────────────
@@ -95,6 +97,67 @@ export type BookmarkId = Brand<string, 'BookmarkId'>;
  * `docs/notes/keybindings-plan.md` for the substrate design.
  */
 export type KeybindingActionId = Brand<string, 'KeybindingActionId'>;
+
+/**
+ * Derived content-hash bucket keys for the analysis ledger's two
+ * provenance-stratified stores. These are NOT entity identities — they are
+ * DJB2 hashes over a structured analysis descriptor, branded distinct so a
+ * raw-store read cannot be issued with an enrichment key (or vice versa):
+ * the wrong-key read becomes a compile error (ADR-0002, strongest channel).
+ *
+ * `RawKey` = hash(model + overrideSettings) — palette-independent.
+ * `EnrichedKey` = hash(model + overrideSettings + palette).
+ *
+ * Sole construction site: `deriveAnalysisKeys` in
+ * `services/analysis-config.ts` (no raw `as RawKey` casts at consumers).
+ * Soundness: bucket keys, not collision-free identities — collision risk is
+ * the DJB2 birthday bound, identical to the prior single composite hash.
+ * See `IDENTIFIERS.md` ("Derived content hashes") and the stratification
+ * consult under `docs/notes/consult/`.
+ */
+export type RawKey      = Brand<string, 'RawKey'>;
+export type EnrichedKey = Brand<string, 'EnrichedKey'>;
+
+/**
+ * Ephemeral correlation id for an in-flight engine query — minted by the SPA,
+ * echoed back by the proxy as the wire `id`, and used to correlate a query
+ * across the analysis-service bookkeeping maps (activeQueries /
+ * activeSubscriptions / restartCallbacks / boardToQueries) and the
+ * queue-telemetry store. Session-scoped, not persisted. Sole factory:
+ * `mintQueryId` / `asQueryId` in `services/query-id.ts`; the wire-response
+ * `id` is re-branded to `QueryId` at the analysis-service correlation
+ * boundary (a justified ACL cast — the proxy echoes back the SPA's own id).
+ */
+export type QueryId = Brand<string, 'QueryId'>;
+
+/**
+ * Identifier for a registered stability extractor (a fixed vocabulary: the
+ * keys of `STABILITY_EXTRACTORS` in `engine/analysis/stability-extractors.ts`,
+ * e.g. `scoreLead_sign`, `top1_move`). Branded so an extractor id can't be
+ * confused with a metric id or a bare string in the stability composables and
+ * the trajectory store's composite key. The `STABILITY_EXTRACTORS` map is the
+ * authoritative vocabulary.
+ */
+export type ExtractorId = Brand<string, 'ExtractorId'>;
+
+/**
+ * Identifier for a registered stability metric (a fixed vocabulary: the keys
+ * of `STABILITY_METRICS` in `engine/analysis/stability-extractors.ts`).
+ * Branded as the symmetric sibling of `ExtractorId` so the two parallel
+ * stability vocabularies can't be swapped.
+ */
+export type MetricId = Brand<string, 'MetricId'>;
+
+/**
+ * Discriminated expand-key for the card-tree view: either a stringified
+ * `CardId` (a card row) or a `bucket:<cardId>` bucket header. Branded so the
+ * dual-shape key can't be confused with a bare string or a `CardId`; the
+ * shape discriminator (`isBucketKey`) and the factories
+ * (`cardExpandKeyFor` / `bucketIdFor`) live in
+ * `composables/cards/useCardTreeProjection.ts`. Persisted in
+ * `CardTreeNavState.manuallyExpanded`.
+ */
+export type CardTreeExpandKey = Brand<string, 'CardTreeExpandKey'>;
 
 /**
  * Stable identity of an analysis panel (the scrollable charts on the
@@ -1546,7 +1609,7 @@ export interface ForestNavState {
 // cleanly; `useCardTreeData::manualExpand` projects it into a
 // `ReadonlySet<string>` for the `useCardTreeProjection` contract.
 export interface CardTreeNavState {
-  manuallyExpanded: string[];
+  manuallyExpanded: CardTreeExpandKey[];
 }
 
 // ── Value Objects (readonly preserved) — SR domain ────────────────────────────

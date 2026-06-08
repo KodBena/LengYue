@@ -10,8 +10,9 @@ governs).
 brief:
 
 - **SSOT-anchored.** Every design note is referenced by exactly one owning
-  work-status SSOT item (`docs/work-status.json`) via a `design-note` ref, and
-  is not authored without it. The note carries a one-line header pointer:
+  work-status SSOT item (in the `todo` Postgres store) via a `design-note`
+  ref, and is not authored without it. The note carries a one-line header
+  pointer:
 
   ```
   > SSOT: `<item-id>`

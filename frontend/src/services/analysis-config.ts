@@ -33,7 +33,7 @@
  * through the `parameters` field. When an experiment exists and
  * the toolbar is in 'A' or 'B' mode, the corresponding pair's
  * decoded values overlay `env.parameters`; the engine sees the
- * audition without the audition being persisted. `activeConfigHash`
+ * audition without the audition being persisted. `activeAnalysisKeys`
  * is reactive on this overlay so analyses re-issue automatically
  * when the user toggles the audition. See `useQeubo.ts` for the
  * computed (`effectiveParameterValues`) the overlay is derived from.
@@ -44,6 +44,7 @@
 import { computed } from 'vue';
 import { useQeubo } from '../composables/useQeubo';
 import { store } from '../store';
+import type { RawKey, EnrichedKey } from '../types';
 
 const qeubo = useQeubo();
 
@@ -104,8 +105,9 @@ export function compileEngineOverrides(): Record<string, unknown> | undefined {
 
 /**
  * Holistic descriptor of every input that determines an analysis
- * packet's content. Used as the hashing input for `activeConfigHash`
- * and for the per-query hash in `analysis-service.ts`. Kept
+ * packet's content. Used as the hashing input for `deriveAnalysisKeys`
+ * / `activeAnalysisKeys` and for the per-query keys in
+ * `analysis-service.ts`. Kept
  * structural rather than wire-shaped so the proxy and KataGo each
  * see only the field that concerns them: `analysis_config`
  * (palette) goes to the proxy; `overrideSettings` goes to KataGo;
@@ -170,13 +172,65 @@ export function hashConfig(config: any): string {
 }
 
 /**
- * A reactive computed for UI composables to track the current active hash.
- * Changes instantly when a palette is swapped, a symbol is edited, a
- * key in `engine.katago.overrideSettings` is added / removed / retyped,
- * OR the SELECTOR Toolbar dropdown selects a different network.
- * Including all three legs in the hash is what prevents two analyses
- * with different inputs (palette, KataGo runtime settings like winrate
- * framing flipped from 'WHITE' to 'BLACK', or routing target like
- * weak vs. strong network) from sharing a ledger bucket.
+ * The raw-half descriptor: the subset of the analysis descriptor the raw
+ * KataGo output actually depends on (network + engine `overrideSettings`),
+ * with the palette (`analysis_config`) leg dropped entirely. `model` last,
+ * matching `compileAnalysisDescriptorFromParts`'s omit-when-undefined
+ * convention; there is no back-compat constraint here (no persisted bundle
+ * ever stored a raw key). Returns `undefined` when both legs are undefined
+ * so `hashConfig(undefined) === 'default'` is preserved, mirroring the
+ * enriched descriptor's contract.
  */
-export const activeConfigHash = computed(() => hashConfig(compileAnalysisDescriptor()));
+function compileRawDescriptorFromParts(
+  overrideSettings: Record<string, unknown> | undefined,
+  model?: string,
+) {
+  if (overrideSettings === undefined && model === undefined) return undefined;
+  return { overrideSettings, model };
+}
+
+/**
+ * Derive both provenance-stratified ledger keys from one structured
+ * descriptor — the SOLE construction site for the `RawKey` / `EnrichedKey`
+ * brands (no raw casts at consumers).
+ *
+ *   - `enrichedKey` = hash(palette + overrides + model). Built via the
+ *     existing `compileAnalysisDescriptorFromParts`, so it is **byte-identical
+ *     to the legacy `configHash`** — the documented model-last back-compat
+ *     invariant is preserved automatically, and a legacy persisted bundle's
+ *     `config_hash` equals this enriched key (load-bearing for v1 replay).
+ *   - `rawKey` = hash(overrides + model). Palette-independent, so a palette
+ *     swap leaves it unchanged and raw consumers keep reading their bucket.
+ *
+ * Both are derived from the same parts so the two keys can never drift on
+ * which legs feed which.
+ */
+export function deriveAnalysisKeys(
+  analysis_config: unknown,
+  overrideSettings: Record<string, unknown> | undefined,
+  model?: string,
+): { rawKey: RawKey; enrichedKey: EnrichedKey } {
+  const enrichedKey = hashConfig(
+    compileAnalysisDescriptorFromParts(analysis_config, overrideSettings, model),
+  ) as EnrichedKey;
+  const rawKey = hashConfig(
+    compileRawDescriptorFromParts(overrideSettings, model),
+  ) as RawKey;
+  return { rawKey, enrichedKey };
+}
+
+/**
+ * A reactive computed of the two active ledger keys, derived from live
+ * settings. Recomputes when a palette is swapped, a symbol is edited, an
+ * `engine.katago.overrideSettings` key is added / removed / retyped, OR the
+ * SELECTOR Toolbar dropdown selects a different network. A palette-only
+ * change re-mints `enrichedKey` while leaving `rawKey` stable — the property
+ * the raw-overlay consumers rely on to survive a palette swap.
+ */
+export const activeAnalysisKeys = computed(() =>
+  deriveAnalysisKeys(
+    compileAnalysisConfig(),
+    compileEngineOverrides(),
+    store.engine.selectedModel ?? undefined,
+  ),
+);

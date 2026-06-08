@@ -22,14 +22,14 @@
 
 import { computed, type ComputedRef, type Ref } from 'vue';
 import { stabilityTrajectoryStore } from '../../services/stability-trajectory-store';
-import { activeConfigHash } from '../../services/analysis-config';
+import { activeAnalysisKeys } from '../../services/analysis-config';
 import {
   STABILITY_METRICS,
   STABILITY_METRIC_LABELS,
 } from '../../lib/stability-trajectory';
 import { STABILITY_EXTRACTORS, STABILITY_EXTRACTOR_LABELS } from '../../engine/analysis/stability-extractors';
 import { pearson, type CorrelationResult } from '../../lib/correlation';
-import type { NodeId } from '../../types';
+import type { NodeId, RawKey, ExtractorId, MetricId } from '../../types';
 
 export interface CorrelationMatrix {
   /** Row / column labels in display order. */
@@ -49,8 +49,8 @@ export interface StabilityCrossCorrelations {
   metric: CorrelationMatrix;
   /** The fixed axes used for the matrices — exposed for the panel
    *  header so the user knows what cross-section they're looking at. */
-  fixedExtractorId: string;
-  fixedMetricId: string;
+  fixedExtractorId: ExtractorId;
+  fixedMetricId: MetricId;
 }
 
 export interface CrossCorrelationOptions {
@@ -60,15 +60,15 @@ export interface CrossCorrelationOptions {
 
 function computeSeries(
   path: NodeId[],
-  hash: string,
-  extractorId: string,
-  metricFn: (typeof STABILITY_METRICS) extends ReadonlyMap<string, infer F> ? F : never,
+  rawKey: RawKey,
+  extractorId: ExtractorId,
+  metricFn: (typeof STABILITY_METRICS) extends ReadonlyMap<MetricId, infer F> ? F : never,
   vTerm: number,
   threshold: number,
 ): number[] {
   const out: number[] = new Array(path.length);
   for (let i = 0; i < path.length; i++) {
-    const trajectory = stabilityTrajectoryStore.getTrajectory(hash, extractorId, path[i]);
+    const trajectory = stabilityTrajectoryStore.getTrajectory(rawKey, extractorId, path[i]);
     if (!trajectory) {
       out[i] = NaN;
       continue;
@@ -79,10 +79,10 @@ function computeSeries(
   return out;
 }
 
-function buildMatrix(
-  ids: string[],
+function buildMatrix<Id extends string>(
+  ids: Id[],
   labels: string[],
-  seriesById: Map<string, number[]>,
+  seriesById: Map<Id, number[]>,
 ): CorrelationMatrix {
   // Compute every cell. Pearson is symmetric so the lower-triangle-
   // only optimisation is tempting, but mirroring requires that the
@@ -103,14 +103,14 @@ function buildMatrix(
 
 export function useStabilityCrossCorrelations(
   variationPath: Ref<NodeId[]>,
-  fixedExtractorId: Ref<string>,
-  fixedMetricId: Ref<string>,
+  fixedExtractorId: Ref<ExtractorId>,
+  fixedMetricId: Ref<MetricId>,
   options: CrossCorrelationOptions = {},
 ): ComputedRef<StabilityCrossCorrelations> {
   return computed<StabilityCrossCorrelations>(() => {
     const vTerm = options.vTerm ?? 20;
     const threshold = options.threshold ?? 0.97;
-    const hash = activeConfigHash.value;
+    const rawKey = activeAnalysisKeys.value.rawKey;
     const path = variationPath.value;
     const fixedExtractor = fixedExtractorId.value;
     const fixedMetric = fixedMetricId.value;
@@ -121,10 +121,10 @@ export function useStabilityCrossCorrelations(
       id => STABILITY_EXTRACTOR_LABELS.get(id) ?? id,
     );
     const metricFn = STABILITY_METRICS.get(fixedMetric);
-    const extractorSeries = new Map<string, number[]>();
+    const extractorSeries = new Map<ExtractorId, number[]>();
     if (metricFn) {
       for (const id of extractorIds) {
-        extractorSeries.set(id, computeSeries(path, hash, id, metricFn, vTerm, threshold));
+        extractorSeries.set(id, computeSeries(path, rawKey, id, metricFn, vTerm, threshold));
       }
     } else {
       for (const id of extractorIds) extractorSeries.set(id, []);
@@ -135,14 +135,14 @@ export function useStabilityCrossCorrelations(
     const metricLabels = metricIds.map(
       id => STABILITY_METRIC_LABELS.get(id) ?? id,
     );
-    const metricSeries = new Map<string, number[]>();
+    const metricSeries = new Map<MetricId, number[]>();
     for (const id of metricIds) {
       const fn = STABILITY_METRICS.get(id);
       if (!fn) {
         metricSeries.set(id, []);
         continue;
       }
-      metricSeries.set(id, computeSeries(path, hash, fixedExtractor, fn, vTerm, threshold));
+      metricSeries.set(id, computeSeries(path, rawKey, fixedExtractor, fn, vTerm, threshold));
     }
 
     return {

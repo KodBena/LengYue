@@ -28,12 +28,12 @@
 
 import { computed, type ComputedRef, type Ref } from 'vue';
 import { stabilityTrajectoryStore } from '../../services/stability-trajectory-store';
-import { activeConfigHash } from '../../services/analysis-config';
+import { activeAnalysisKeys } from '../../services/analysis-config';
 import {
   STABILITY_METRICS,
   anchoredAtVTerm,
 } from '../../lib/stability-trajectory';
-import type { NodeId } from '../../types';
+import type { NodeId, ExtractorId, MetricId } from '../../types';
 
 export interface TurnStabilityMetric {
   nodeId: NodeId;
@@ -96,14 +96,14 @@ export interface StabilityMetricsOptions {
 
 export function useStabilityMetrics(
   variationPath: Ref<NodeId[]>,
-  extractorId: Ref<string>,
-  metricId: Ref<string>,
+  extractorId: Ref<ExtractorId>,
+  metricId: Ref<MetricId>,
   options: StabilityMetricsOptions = {},
 ): ComputedRef<TurnStabilityMetric[]> {
   return computed<TurnStabilityMetric[]>(() => {
     const vTerm = options.vTerm ?? 20;
     const threshold = options.threshold ?? 0.97;
-    const hash = activeConfigHash.value;
+    const rawKey = activeAnalysisKeys.value.rawKey;
     const path = variationPath.value;
     const extractor = extractorId.value;
     // Anchored-at-V_term is the default fallback so an unknown
@@ -120,7 +120,7 @@ export function useStabilityMetrics(
     const out: TurnStabilityMetric[] = new Array(path.length);
     for (let turn = 0; turn < path.length; turn++) {
       const nodeId = path[turn];
-      const trajectory = stabilityTrajectoryStore.getTrajectory(hash, extractor, nodeId);
+      const trajectory = stabilityTrajectoryStore.getTrajectory(rawKey, extractor, nodeId);
       if (!trajectory) {
         out[turn] = {
           nodeId, turn, fraction: NaN,

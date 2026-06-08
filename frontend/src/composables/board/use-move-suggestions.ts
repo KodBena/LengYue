@@ -6,7 +6,7 @@
 import { computed } from 'vue';
 import { ledger } from '../../services/analysis-ledger';
 import { store } from '../../store';
-import type { KataAnalysisResponse } from '../../engine/katago/types';
+import type { RawAnalysis } from '../../engine/katago/types';
 import type { StoneColor, NodeId } from '../../types';
 import { 
   BEST_MOVE_COLOR, 
@@ -15,7 +15,7 @@ import {
 } from '../../engine/suggestion-colors';
 import { groupMovesByCluster } from '../../engine/analysis/clustering';
 import type { PvMove } from './use-pv-animation';
-import { activeConfigHash } from '../../services/analysis-config';
+import { activeAnalysisKeys } from '../../services/analysis-config';
 
 const GTP_ALPHABET = 'ABCDEFGHJKLMNOPQRSTUVWXYZ';
 
@@ -74,8 +74,8 @@ export interface SuggestionDisk {
 export function useMoveSuggestions(
   getNodeId: () => NodeId
 ) {
-  const packet = computed<KataAnalysisResponse | null>(() => 
-    ledger.getRaw(activeConfigHash.value, getNodeId())
+  const packet = computed<RawAnalysis | null>(() =>
+    ledger.getRaw(activeAnalysisKeys.value.rawKey, getNodeId())
   );
 
   const compiledFilter = computed(() => {

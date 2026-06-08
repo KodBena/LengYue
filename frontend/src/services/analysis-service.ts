@@ -25,7 +25,8 @@ import {
   buildPerQueryCapabilities,
   shouldWarnTranspositionUnmet,
 } from '../engine/katago/capability-injection';
-import { type BoardId, type NodeId } from '../types';
+import { type BoardId, type NodeId, type RawKey, type EnrichedKey, type QueryId } from '../types';
+import { asQueryId } from './query-id';
 import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi, getInitialStones } from '../engine/util';
 import { store, pushSystemMessage } from '../store';
 import { ledger } from './analysis-ledger';
@@ -34,9 +35,8 @@ import { analysisPersistenceService } from './analysis-persistence-service';
 import {
   compileAnalysisConfig,
   compileEngineOverrides,
-  compileAnalysisDescriptorFromParts,
-  activeConfigHash,
-  hashConfig,
+  deriveAnalysisKeys,
+  activeAnalysisKeys,
 } from './analysis-config';
 import { KATAGO_WS_URL } from '../config/env';
 import {
@@ -67,7 +67,7 @@ export class AnalysisService {
   // `engine/katago/winrate-framing.ts` for the normalisation contract
   // and the deliberate scope (raw signed scalars yes; proxy-applied
   // `extra.*` enrichment no).
-  private activeQueries = new Map<string, {
+  private activeQueries = new Map<QueryId, {
     boardId: BoardId,
     // The kind of query. Discriminates the per-board projection
     // used by `isPondering` and (in step 7) by the derived
@@ -75,7 +75,11 @@ export class AnalysisService {
     // never mutated.
     mode: 'analyze' | 'ponder',
     path: NodeId[],
-    hash: string,
+    // The two provenance-stratified ledger keys for this query. `rawKey`
+    // (model + overrides) keys the raw store; `enrichedKey` (+ palette) keys
+    // the enrichment store and equals the legacy composite hash.
+    rawKey: RawKey,
+    enrichedKey: EnrichedKey,
     framing: WinrateFraming,
     // Wall-clock anchor (performance.now()) captured at query-submit
     // time. Used by the DEV-only per-packet timing log in
@@ -100,13 +104,13 @@ export class AnalysisService {
   // Per-query subscription unsubscribers. Keyed by queryId.
   // `stopQuery` reads and calls the entry; `stopBoardAnalysis`
   // iterates `boardToQueries[boardId]` and delegates to `stopQuery`.
-  private activeSubscriptions = new Map<string, () => void>();
+  private activeSubscriptions = new Map<QueryId, () => void>();
   // Per-query restart thunks. Keyed by queryId. Each thunk re-issues
   // the same query with the same parameters; `restartActiveAnalyses`
   // iterates the map so a wire-flag-affecting state change re-fires
   // every active query independently. The thunks are added by
   // `analyzeRange` / `analyzeActiveNode` and removed by `stopQuery`.
-  private restartCallbacks = new Map<string, () => void>();
+  private restartCallbacks = new Map<QueryId, () => void>();
   // Per-board index of active queries. `boardToQueries.get(boardId)`
   // is the set of queryIds currently running on that board. The set
   // is grown by the analyze methods (one entry per minted query) and
@@ -114,7 +118,7 @@ export class AnalysisService {
   // iterates the set to release every query the board owns; this is
   // the path used by board-close, engine-disconnect, HMR-dispose, and
   // the purge button.
-  private boardToQueries = new Map<BoardId, Set<string>>();
+  private boardToQueries = new Map<BoardId, Set<QueryId>>();
   private packetCount = 0;
   private metricsTimer: number | null = null;
   private watchdogTimer: number | null = null;
@@ -437,7 +441,7 @@ export class AnalysisService {
     }
   }
 
-  public analyzeFullGame(boardId: BoardId, visits: number): string | null {
+  public analyzeFullGame(boardId: BoardId, visits: number): QueryId | null {
     const board = store.boards.find(b => b.id === boardId);
     if (!board || store.engine.status !== 'connected') return null;
     const fullPath = getActiveVariationPath(board) as NodeId[];
@@ -454,7 +458,7 @@ export class AnalysisService {
     overrideSettingsOverride?: Record<string, unknown>,
     forReview: boolean = false,
     isRealtime: boolean = true,
-  ): string | null {
+  ): QueryId | null {
     const board = store.boards.find(b => b.id === boardId);
     if (board) (board as any).maxVisitsTarget = visits;
     if (!board || store.engine.status !== 'connected') return null;
@@ -472,7 +476,7 @@ export class AnalysisService {
     const initialStones = getInitialStones(board);
 
     const analyzeTurns = Array.from({ length: endTurn - startTurn + 1 }, (_, i) => startTurn + i);
-    const queryId = `range-${boardId}-${Date.now()}`;
+    const queryId = asQueryId(`range-${boardId}-${Date.now()}`);
 
     // When the caller supplied a `configOverride` it provided BOTH
     // analysis_config and overrideSettings; both legs come from the
@@ -496,13 +500,13 @@ export class AnalysisService {
     // The current SELECTOR target is read live in both branches — a
     // query that targets a different network produces different
     // packets and must bucket separately in the ledger from one
-    // targeting another network. `activeConfigHash` already accounts
+    // targeting another network. `activeAnalysisKeys` already accounts
     // for this in the live branch (it reads the same source).
-    const hash = hasConfigOverride
-      ? hashConfig(compileAnalysisDescriptorFromParts(
+    const keys = hasConfigOverride
+      ? deriveAnalysisKeys(
           analysis_config, overrideSettings, store.engine.selectedModel ?? undefined,
-        ))
-      : activeConfigHash.value;
+        )
+      : activeAnalysisKeys.value;
     // Resolve the framing the wire is about to ask KataGo for and
     // cache it on the active-query entry; `onAnalysisUpdate`
     // normalises every response packet through this value before
@@ -518,7 +522,7 @@ export class AnalysisService {
     // each invocation).
     const framing = resolveWinrateFraming(overrideSettings);
 
-    this.activeQueries.set(queryId, { boardId, mode: 'analyze', path: fullPath, hash, framing, startedAt: performance.now() });
+    this.activeQueries.set(queryId, { boardId, mode: 'analyze', path: fullPath, rawKey: keys.rawKey, enrichedKey: keys.enrichedKey, framing, startedAt: performance.now() });
 
     // Queue telemetry — register at construction so the Toolbar's
     // queue tooltip can render this range query and its ETA.
@@ -672,7 +676,7 @@ export class AnalysisService {
     visits?: number,
     configOverride?: Record<string, unknown>,
     overrideSettingsOverride?: Record<string, unknown>,
-  ): string | null {
+  ): QueryId | null {
     const board = store.boards.find(b => b.id === boardId);
     if (!board || store.engine.status !== 'connected') return null;
 
@@ -708,7 +712,7 @@ export class AnalysisService {
 
     const initialStones = getInitialStones(board);
 
-    const queryId = `${mode}-${boardId}-${Date.now()}`;
+    const queryId = asQueryId(`${mode}-${boardId}-${Date.now()}`);
     // See analyzeRange above for the configOverride-vs-live rationale.
     const hasConfigOverride = configOverride !== undefined;
     const analysis_config = configOverride ?? compileAnalysisConfig();
@@ -716,11 +720,11 @@ export class AnalysisService {
       ? overrideSettingsOverride
       : compileEngineOverrides();
     // See analyzeRange above for the SELECTOR-model hash rationale.
-    const hash = hasConfigOverride
-      ? hashConfig(compileAnalysisDescriptorFromParts(
+    const keys = hasConfigOverride
+      ? deriveAnalysisKeys(
           analysis_config, overrideSettings, store.engine.selectedModel ?? undefined,
-        ))
-      : activeConfigHash.value;
+        )
+      : activeAnalysisKeys.value;
     // See analyzeRange above for the framing-resolution rationale.
     const framing = resolveWinrateFraming(overrideSettings);
 
@@ -732,7 +736,7 @@ export class AnalysisService {
       mode === 'ponder'
         ? store.profile.settings.engine.katago.ponderMaxVisits
         : undefined;
-    this.activeQueries.set(queryId, { boardId, mode, path: fullPath, hash, framing, startedAt: performance.now(), ponderCeiling });
+    this.activeQueries.set(queryId, { boardId, mode, path: fullPath, rawKey: keys.rawKey, enrichedKey: keys.enrichedKey, framing, startedAt: performance.now(), ponderCeiling });
 
     // Queue telemetry — single-turn entry. For ponder, the per-turn
     // visit budget is the ponderMaxVisits ceiling; for analyze, the
@@ -916,7 +920,7 @@ export class AnalysisService {
     }
   }
 
-  private onAnalysisUpdate(response: KataAnalysisResponse, queryId: string) {
+  private onAnalysisUpdate(response: KataAnalysisResponse, queryId: QueryId) {
     this.packetCount++;
     if (DEBUG_PACKETS) {
       const q = this.activeQueries.get(queryId);
@@ -955,15 +959,22 @@ export class AnalysisService {
       // scalars; identity-returns the input when no flip is needed
       // (WHITE framing, or SIDETOMOVE with currentPlayer === 'W').
       const normalized = normalizePacketToWhiteFraming(response, queryInfo.framing);
-      ledger.record(queryInfo.hash, nodeId, normalized);
-      // Stability-trajectory ingestion: every packet — preview and
-      // final alike — contributes a V-axis observation to the per-
-      // extractor trajectories for this (hash, nodeId). Composes
-      // with the ledger record above (same hash, same nodeId, same
-      // normalised packet); the trajectory store's change-point
-      // compression keeps storage bounded. See
-      // `docs/notes/stability-surface-design-space.md` §"Option α".
-      stabilityTrajectoryStore.record(queryInfo.hash, nodeId, normalized);
+      // Split the normalized packet into its provenance halves and record
+      // each under its own key: the raw half (palette-independent) under
+      // `rawKey`, the palette enrichment under `enrichedKey`. winrate-framing
+      // flips raw signed scalars only, never `extra`, so the split is clean.
+      const { extra, ...raw } = normalized;
+      ledger.recordRaw(queryInfo.rawKey, nodeId, raw);
+      if (extra) ledger.recordEnrichment(queryInfo.enrichedKey, nodeId, extra);
+      // Stability-trajectory ingestion: every packet — preview and final
+      // alike — contributes a V-axis observation to the per-extractor
+      // trajectories for this (rawKey, nodeId). Keyed by `rawKey` (not the
+      // enriched composite): every stability extractor reads only raw packet
+      // fields, so the trajectory is palette-independent and must survive a
+      // palette swap — mirrors the ledger raw store. The store consumes the
+      // whole normalised packet; its change-point compression keeps storage
+      // bounded. See `docs/notes/stability-surface-design-space.md` §"Option α".
+      stabilityTrajectoryStore.record(queryInfo.rawKey, nodeId, normalized);
       const board = store.boards.find(b => b.id === queryInfo.boardId);
       if (board) {
         store.engine.metrics = { ...store.engine.metrics, lastResponseId: board.id };
@@ -1015,7 +1026,7 @@ export class AnalysisService {
    * removes the entry. Per-board entries get the empty set lazily
    * on first insert.
    */
-  private indexQueryOnBoard(boardId: BoardId, queryId: string): void {
+  private indexQueryOnBoard(boardId: BoardId, queryId: QueryId): void {
     let set = this.boardToQueries.get(boardId);
     if (set === undefined) {
       set = new Set();
@@ -1076,7 +1087,7 @@ export class AnalysisService {
    * lands on `'none'`; when other queries remain, it lands on
    * their priority (analyze > ponder).
    */
-  public stopQuery(queryId: string): void {
+  public stopQuery(queryId: QueryId): void {
     const queryInfo = this.activeQueries.get(queryId);
     if (queryInfo === undefined) {
       return;

@@ -28,6 +28,7 @@ import type {
   CardLineageTree,
   ForestStat,
   ReviewCard,
+  CardTreeExpandKey,
 } from '../../types';
 import {
   useCardTreeProjection,
@@ -57,7 +58,7 @@ const props = withDefaults(
     // stub / bucket clicks emit `'toggle-manual-expand'` for the
     // parent to wire. Pure data-in / event-out shape, matching the
     // other inputs to this widget.
-    manualExpand: ReadonlySet<string>;
+    manualExpand: ReadonlySet<CardTreeExpandKey>;
     orientation?: 'horizontal' | 'vertical';
     maxNodes?: number;
     // Optional render-time overlay: when set, the matching `card` or
@@ -90,7 +91,7 @@ const emit = defineEmits<{
   // `String(cardId)` for stubs or `bucket:${parentCardId}` for
   // buckets, matching `useCardTreeProjection::cardExpandKeyFor` /
   // `bucketIdFor`.
-  (e: 'toggle-manual-expand', key: string): void;
+  (e: 'toggle-manual-expand', key: CardTreeExpandKey): void;
   // "Collapse all" click on a tree's header — parent clears every
   // manual-expand key belonging to that tree, leaving other trees'
   // expansion entries (under the same board's persisted slot)
@@ -110,7 +111,7 @@ const expandedRootId = ref<CardId | null>(null);
 // the projection is read-only over its inputs.
 const forestRef = computed(() => props.forest);
 const activeSetRef = computed(() => props.activeSet as Set<CardId>);
-const manualExpandRef = computed(() => props.manualExpand as Set<string>);
+const manualExpandRef = computed(() => props.manualExpand as Set<CardTreeExpandKey>);
 const { renderForest } = useCardTreeProjection(forestRef, activeSetRef, manualExpandRef);
 
 const { resetHydration } = useCardTreeHydration(
