@@ -38,6 +38,20 @@ import type {
   ReviewCard,
 } from '../../types';
 
+/**
+ * Which producer last populated the slot's forest. The slot has three
+ * writers — the deck pipeline (`runPipeline`), the review session
+ * (`seedFromQueue`), and the navigator browse (`loadBrowse` /
+ * `loadBrowseForest`) — but only ONE clearer: the browse policy's
+ * null-selection `clearBrowse`. Tracking ownership lets that clear target
+ * ONLY browse-loaded content and leave a slot a pipeline or review owns;
+ * clearing those is the card-metadata-during-review / pipeline-preview-
+ * vanishes bug. `'browse'` = navigator-selection content; `'matched'` =
+ * pipeline OR review content (both flow through `populateSlotFromMatched`);
+ * `null` = empty. See `frontend/docs/notes/board-scope.md`.
+ */
+export type ForestSource = 'browse' | 'matched' | null;
+
 export interface BoardCardTreeState {
   forest: CardLineageTree[];
   activeSet: ReadonlySet<CardId>;
@@ -45,6 +59,10 @@ export interface BoardCardTreeState {
   forestStats: ReadonlyMap<CardId, ForestStat>;
   isLoading: boolean;
   error: string | null;
+  // Ownership of the current forest (see `ForestSource`) — drives whether
+  // `clearBrowse` may clear this slot. Ephemeral/module-scope like the rest
+  // of the slot; not persisted.
+  source: ForestSource;
 }
 
 const emptyState = (): BoardCardTreeState => ({
@@ -54,6 +72,7 @@ const emptyState = (): BoardCardTreeState => ({
   forestStats: new Map(),
   isLoading: false,
   error: null,
+  source: null,
 });
 
 // Reactive map so consumers' `computed`s and `watch`es re-fire when a

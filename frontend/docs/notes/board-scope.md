@@ -120,18 +120,31 @@ bug. The fix (P0) re-scoped *only the selection axis* — not "mirror
 expansion. When you add a navigator-style field, decide the scope of each axis
 deliberately; don't inherit a neighbour's shape by reflex.
 
-## A per-board slot with two producers (the card-tree slot)
+## A per-board slot with three producers (the card-tree slot)
 
-The per-board card-tree slot (`board-card-trees.ts`) is written by **two**
-producers: the review session (`seedFromQueue`) and the browse policy
-(`useForestBrowsePolicy`). With no arbitration they race — a null navigator
-selection on remount cleared a slot the review owned, wiping the review forest
-(`seedFromQueue` is idempotent and won't restore it). The arbitration is
-ownership: while a review owns the slot, the browse policy's null-clear is
-suppressed (`isReviewActive` gates it). The gate guards only that destructive
-null-clear — an explicit browse selection still loads during a review (and
-deselecting then leaves the browse forest, the review forest already gone), the
-inherent cost of one slot with two producers. When a per-board surface has more
-than one writer, give it an owner; don't let the writers race.
+The per-board card-tree slot (`board-card-trees.ts`) is written by **three**
+producers — the deck pipeline (`runPipeline`), the review session
+(`seedFromQueue`), and the navigator browse (`loadBrowse`/`loadBrowseForest`) —
+but has **one** clearer: the browse policy's null-selection `clearBrowse`. With
+no arbitration they raced: on a top-level tab switch `ForestDirectory` unmounts
+and remounts, the policy's `immediate` watch re-fires with a null selection, and
+`clearBrowse` wiped whatever the slot held — pipeline-preview *or* review
+content — while `seedFromQueue`'s idempotent short-circuit wouldn't restore it.
+(A *board* switch keeps `ForestDirectory` mounted, so it didn't reproduce — the
+tell that this is a remount/producer problem, not a scope one.)
+
+The arbitration is **ownership**: the slot carries a `source`
+(`'browse' | 'matched' | null`) stamped by whichever producer last populated it
+(`'matched'` covers pipeline *and* review — they share the
+`populateSlotFromMatched` seam), and `clearBrowse` clears ONLY `'browse'`-owned
+content. One discriminator fixes all three producers at once.
+
+The lesson — and the mistake the first cut of this fix made: when a per-board
+surface has more than one writer, give it an **owner**, not a per-writer guard.
+The first fix gated the clear on `isReviewActive` — which covered the review
+producer but not the pipeline producer, so the forest still vanished when
+previewing lineage relations outside a review. The ownership model is the
+producer-count-independent form that the reported symptom (review only) had
+hidden. Reach for the owner, not the special case.
 
 License: Public Domain (The Unlicense).
