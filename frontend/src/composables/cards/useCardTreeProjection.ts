@@ -28,6 +28,7 @@ import type {
   CardLineageTree,
   CardTreeNodeRole,
   GameSourceId,
+  CardTreeExpandKey,
 } from '../../types';
 
 // ── Render-side types ────────────────────────────────────────────────────────
@@ -64,7 +65,7 @@ export interface RenderBucketNode {
   // Synthetic ECharts identifier; `bucket:${parentCardId}` per spec
   // §"Manual expansion state" — no collision with real-card-id keys
   // because the prefix is non-numeric.
-  readonly bucketId: string;
+  readonly bucketId: CardTreeExpandKey;
   readonly parentCardId: CardId;
   readonly childCardIds: CardId[];
   readonly role: 'bucket';
@@ -98,11 +99,12 @@ const BUCKET_PREFIX = 'bucket:';
  * Distinct from any real card id (real ids stringify as bare digits;
  * bucket ids carry the `bucket:` prefix).
  */
-export function bucketIdFor(parentCardId: CardId): string {
-  return `${BUCKET_PREFIX}${parentCardId}`;
+export function bucketIdFor(parentCardId: CardId): CardTreeExpandKey {
+  // Construction site for the bucket shape of the CardTreeExpandKey brand.
+  return `${BUCKET_PREFIX}${parentCardId}` as CardTreeExpandKey;
 }
 
-export function isBucketKey(key: string): boolean {
+export function isBucketKey(key: CardTreeExpandKey): boolean {
   return key.startsWith(BUCKET_PREFIX);
 }
 
@@ -111,8 +113,9 @@ export function isBucketKey(key: string): boolean {
  * the user clicks a stub to expand it. A simple `String(cardId)`; the
  * helper exists so the call site is symmetric with `bucketIdFor`.
  */
-export function cardExpandKeyFor(cardId: CardId): string {
-  return String(cardId);
+export function cardExpandKeyFor(cardId: CardId): CardTreeExpandKey {
+  // Construction site for the card shape of the CardTreeExpandKey brand.
+  return String(cardId) as CardTreeExpandKey;
 }
 
 // ── Projection ───────────────────────────────────────────────────────────────
@@ -124,7 +127,7 @@ export function cardExpandKeyFor(cardId: CardId): string {
 export function projectForest(
   forest: CardLineageTree[],
   activeSet: Set<CardId>,
-  manualExpand: Set<string>,
+  manualExpand: Set<CardTreeExpandKey>,
 ): RenderTree[] {
   const browseMode = activeSet.size === 0;
   return forest.map(tree => projectTree(tree, activeSet, manualExpand, browseMode));
@@ -133,7 +136,7 @@ export function projectForest(
 function projectTree(
   tree: CardLineageTree,
   activeSet: Set<CardId>,
-  manualExpand: Set<string>,
+  manualExpand: Set<CardTreeExpandKey>,
   browseMode: boolean,
 ): RenderTree {
   const hot = computeHotSet(tree.tree, activeSet);
@@ -195,7 +198,7 @@ function projectNode(
   node: CardLineageNode,
   hot: Set<CardId>,
   active: Set<CardId>,
-  manualExpand: Set<string>,
+  manualExpand: Set<CardTreeExpandKey>,
   isRoot: boolean,
   browseMode: boolean,
 ): RenderNode {
@@ -356,7 +359,7 @@ function countRendered(node: RenderNode): number {
 export function useCardTreeProjection(
   forestRef: Ref<CardLineageTree[]>,
   activeSetRef: Ref<Set<CardId>>,
-  manualExpandRef: Ref<Set<string>>,
+  manualExpandRef: Ref<Set<CardTreeExpandKey>>,
 ): { renderForest: ComputedRef<RenderTree[]> } {
   const renderForest = computed(() =>
     projectForest(forestRef.value, activeSetRef.value, manualExpandRef.value),

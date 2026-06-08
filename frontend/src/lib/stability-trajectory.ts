@@ -35,6 +35,8 @@
  * License: Public Domain (The Unlicense)
  */
 
+import type { MetricId } from '../types';
+
 /** Sentinel for "extractor returned null at this packet". */
 export const UNKNOWN: unique symbol = Symbol('stability-trajectory-unknown');
 export type Unknown = typeof UNKNOWN;
@@ -431,26 +433,31 @@ export const stableFractionLogV = anchoredAtVTerm;
  * below; the consumer (panel + composable) reads the registry
  * generically.
  */
+// This map is the authoritative `MetricId` vocabulary; the array cast below
+// is the brand's construction site (keys minted here, not at consumers).
 export const STABILITY_METRICS: ReadonlyMap<
-  string,
+  MetricId,
   <Q extends StabilityValue>(
     t: StabilityTrajectory<Q>,
     V_term: number,
     options?: { V_max?: number; threshold?: number },
   ) => StabilityMetricResult
-> = new Map<string, any>([
+> = new Map(([
   ['anchored_at_v_term', anchoredAtVTerm],
   ['anchored_at_v_max', anchoredAtVMax],
   ['longest_run_fraction', longestRunFraction],
   ['change_rate_inverse', changeRateInverse],
-]);
+] as [MetricId, any][]));
 
-export const STABILITY_METRIC_LABELS: ReadonlyMap<string, string> = new Map([
+export const STABILITY_METRIC_LABELS: ReadonlyMap<MetricId, string> = new Map(([
   ['anchored_at_v_term', 'Anchored at V_term (does V_term\'s value persist?)'],
   ['anchored_at_v_max', 'Anchored at V_max (did the final value emerge early?)'],
   ['longest_run_fraction', 'Longest run (how dominant is the single most-held value?)'],
   ['change_rate_inverse', 'Inverse change-rate (how few transitions per log-doubling?)'],
-]);
+] as [MetricId, string][]));
+
+/** Default selected metric for the stability panels (a vocabulary member). */
+export const DEFAULT_METRIC_ID = 'anchored_at_v_term' as MetricId;
 
 export const STABILITY_METRIC_EXPLANATIONS: Record<string, string> = {
   anchored_at_v_term:

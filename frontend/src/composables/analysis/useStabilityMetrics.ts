@@ -33,7 +33,7 @@ import {
   STABILITY_METRICS,
   anchoredAtVTerm,
 } from '../../lib/stability-trajectory';
-import type { NodeId } from '../../types';
+import type { NodeId, ExtractorId, MetricId } from '../../types';
 
 export interface TurnStabilityMetric {
   nodeId: NodeId;
@@ -96,8 +96,8 @@ export interface StabilityMetricsOptions {
 
 export function useStabilityMetrics(
   variationPath: Ref<NodeId[]>,
-  extractorId: Ref<string>,
-  metricId: Ref<string>,
+  extractorId: Ref<ExtractorId>,
+  metricId: Ref<MetricId>,
   options: StabilityMetricsOptions = {},
 ): ComputedRef<TurnStabilityMetric[]> {
   return computed<TurnStabilityMetric[]>(() => {

@@ -25,7 +25,8 @@ import {
   buildPerQueryCapabilities,
   shouldWarnTranspositionUnmet,
 } from '../engine/katago/capability-injection';
-import { type BoardId, type NodeId, type RawKey, type EnrichedKey } from '../types';
+import { type BoardId, type NodeId, type RawKey, type EnrichedKey, type QueryId } from '../types';
+import { asQueryId } from './query-id';
 import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi, getInitialStones } from '../engine/util';
 import { store, pushSystemMessage } from '../store';
 import { ledger } from './analysis-ledger';
@@ -66,7 +67,7 @@ export class AnalysisService {
   // `engine/katago/winrate-framing.ts` for the normalisation contract
   // and the deliberate scope (raw signed scalars yes; proxy-applied
   // `extra.*` enrichment no).
-  private activeQueries = new Map<string, {
+  private activeQueries = new Map<QueryId, {
     boardId: BoardId,
     // The kind of query. Discriminates the per-board projection
     // used by `isPondering` and (in step 7) by the derived
@@ -103,13 +104,13 @@ export class AnalysisService {
   // Per-query subscription unsubscribers. Keyed by queryId.
   // `stopQuery` reads and calls the entry; `stopBoardAnalysis`
   // iterates `boardToQueries[boardId]` and delegates to `stopQuery`.
-  private activeSubscriptions = new Map<string, () => void>();
+  private activeSubscriptions = new Map<QueryId, () => void>();
   // Per-query restart thunks. Keyed by queryId. Each thunk re-issues
   // the same query with the same parameters; `restartActiveAnalyses`
   // iterates the map so a wire-flag-affecting state change re-fires
   // every active query independently. The thunks are added by
   // `analyzeRange` / `analyzeActiveNode` and removed by `stopQuery`.
-  private restartCallbacks = new Map<string, () => void>();
+  private restartCallbacks = new Map<QueryId, () => void>();
   // Per-board index of active queries. `boardToQueries.get(boardId)`
   // is the set of queryIds currently running on that board. The set
   // is grown by the analyze methods (one entry per minted query) and
@@ -117,7 +118,7 @@ export class AnalysisService {
   // iterates the set to release every query the board owns; this is
   // the path used by board-close, engine-disconnect, HMR-dispose, and
   // the purge button.
-  private boardToQueries = new Map<BoardId, Set<string>>();
+  private boardToQueries = new Map<BoardId, Set<QueryId>>();
   private packetCount = 0;
   private metricsTimer: number | null = null;
   private watchdogTimer: number | null = null;
@@ -440,7 +441,7 @@ export class AnalysisService {
     }
   }
 
-  public analyzeFullGame(boardId: BoardId, visits: number): string | null {
+  public analyzeFullGame(boardId: BoardId, visits: number): QueryId | null {
     const board = store.boards.find(b => b.id === boardId);
     if (!board || store.engine.status !== 'connected') return null;
     const fullPath = getActiveVariationPath(board) as NodeId[];
@@ -457,7 +458,7 @@ export class AnalysisService {
     overrideSettingsOverride?: Record<string, unknown>,
     forReview: boolean = false,
     isRealtime: boolean = true,
-  ): string | null {
+  ): QueryId | null {
     const board = store.boards.find(b => b.id === boardId);
     if (board) (board as any).maxVisitsTarget = visits;
     if (!board || store.engine.status !== 'connected') return null;
@@ -475,7 +476,7 @@ export class AnalysisService {
     const initialStones = getInitialStones(board);
 
     const analyzeTurns = Array.from({ length: endTurn - startTurn + 1 }, (_, i) => startTurn + i);
-    const queryId = `range-${boardId}-${Date.now()}`;
+    const queryId = asQueryId(`range-${boardId}-${Date.now()}`);
 
     // When the caller supplied a `configOverride` it provided BOTH
     // analysis_config and overrideSettings; both legs come from the
@@ -675,7 +676,7 @@ export class AnalysisService {
     visits?: number,
     configOverride?: Record<string, unknown>,
     overrideSettingsOverride?: Record<string, unknown>,
-  ): string | null {
+  ): QueryId | null {
     const board = store.boards.find(b => b.id === boardId);
     if (!board || store.engine.status !== 'connected') return null;
 
@@ -711,7 +712,7 @@ export class AnalysisService {
 
     const initialStones = getInitialStones(board);
 
-    const queryId = `${mode}-${boardId}-${Date.now()}`;
+    const queryId = asQueryId(`${mode}-${boardId}-${Date.now()}`);
     // See analyzeRange above for the configOverride-vs-live rationale.
     const hasConfigOverride = configOverride !== undefined;
     const analysis_config = configOverride ?? compileAnalysisConfig();
@@ -919,7 +920,7 @@ export class AnalysisService {
     }
   }
 
-  private onAnalysisUpdate(response: KataAnalysisResponse, queryId: string) {
+  private onAnalysisUpdate(response: KataAnalysisResponse, queryId: QueryId) {
     this.packetCount++;
     if (DEBUG_PACKETS) {
       const q = this.activeQueries.get(queryId);
@@ -1025,7 +1026,7 @@ export class AnalysisService {
    * removes the entry. Per-board entries get the empty set lazily
    * on first insert.
    */
-  private indexQueryOnBoard(boardId: BoardId, queryId: string): void {
+  private indexQueryOnBoard(boardId: BoardId, queryId: QueryId): void {
     let set = this.boardToQueries.get(boardId);
     if (set === undefined) {
       set = new Set();
@@ -1086,7 +1087,7 @@ export class AnalysisService {
    * lands on `'none'`; when other queries remain, it lands on
    * their priority (analyze > ponder).
    */
-  public stopQuery(queryId: string): void {
+  public stopQuery(queryId: QueryId): void {
     const queryInfo = this.activeQueries.get(queryId);
     if (queryInfo === undefined) {
       return;

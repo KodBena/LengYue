@@ -266,15 +266,16 @@ frontend/src/
 │   │   └── quantization.ts            [B3]  Q4 ownership + Q8-factored policy primitives for the lossy leaf.
 │   ├── analysis-bundle.ts             [B3]  Pure projection ledger ↔ wire bundle.
 │   ├── analysis-config.ts             [B3]  Palette compile + ledger hash.
-│   ├── analysis-ledger.ts             [B3]  Per-(configHash, nodeId) merged KataGo packet store. Per-node version refs (pull consumers) + `onLedgerFlush` changed-key signal (incremental push consumers).
+│   ├── analysis-ledger.ts             [B3]  Provenance-stratified merged-packet store: raw store keyed by `RawKey`, enrichment store keyed by `EnrichedKey`. Per-node version refs (pull consumers) + `onLedgerFlush` changed-key signal (incremental push consumers).
 │   ├── analysis-persistence-service.ts [B3] HTTP boundary for analysis-bundle persistence (save/restore/discard).
 │   ├── analysis-service.ts            [B3]  Bridges KataGo turns to the ledger nodes.
 │   ├── api-client.ts                  [B1]  Pure REST client; JWT injection; zero-friction local auth.
 │   ├── backend-service.ts             [B2]  ACL for the backend; wire snake_case → domain camelCase with branded ids.
 │   ├── library-service.ts             [B1]  ACL for the /library endpoints; chunked import with progress callback.
 │   ├── qeubo-service.ts               [B1]  ACL for qEUBO REST endpoints.
+│   ├── query-id.ts                    [B3]  Sole construction/re-brand site for the `QueryId` brand (engine-query correlation id).
 │   ├── resource-service.ts            [B1]  Typed client for backend static resources.
-│   ├── stability-trajectory-store.ts  [B3]  Per-(configHash, extractor, nodeId) trajectory store fed by analysis-service preview ingestion.
+│   ├── stability-trajectory-store.ts  [B3]  Per-(`RawKey`, `ExtractorId`, nodeId) trajectory store fed by analysis-service preview ingestion.
 │   └── sync-service.ts                [B1]  Stateless persistence bridge; identity-aware document sync.
 │
 ├── store/                                   Single GlobalStore singleton + mutators + migrations.
