@@ -1,6 +1,6 @@
 {
-  "node_count": 394,
-  "edge_count": 1820,
+  "node_count": 395,
+  "edge_count": 1828,
   "age_buckets": [
     {
       "name": "fresh",
@@ -1834,6 +1834,14 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": "2026-06-08",
+      "last_committed": "2026-06-08",
       "age_bucket": "fresh"
     },
     {
@@ -10816,6 +10824,62 @@
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
       "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md",
+      "to": "docs/adr/0001-state-mutation-and-readonly.md",
+      "kind": "adr-related",
+      "site": "ADR-0001",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md",
+      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md",
+      "to": "docs/adr-synopsis.md",
+      "kind": "path-mention",
+      "site": "`docs/adr-synopsis.md`",
       "resolved": "resolved"
     },
     {
