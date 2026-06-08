@@ -2,11 +2,13 @@
  * src/composables/forest/useForestNavigation.ts
  *
  * State and tree-shaping for the Forest Directory file-manager-style
- * navigator. Pure-ish: takes a reactive `Ref<ForestStat[]>`, returns
- * a `nodes` ComputedRef that groups stats by `gameSourceId` into a
- * games → roots hierarchy with per-game aggregates, plus the
- * persisted expanded-set and selection (read-side ComputedRefs +
- * named mutators that write through `store.session.ui.forestNav`).
+ * navigator. Pure-ish: takes a reactive `Ref<ForestStat[]>` and the
+ * active `Ref<BoardId | null>`, returns a `nodes` ComputedRef that
+ * groups stats by `gameSourceId` into a games → roots hierarchy with
+ * per-game aggregates, plus the persisted expansion (workspace-global)
+ * and selection (per-board, keyed on the passed board — schema 59) as
+ * read-side ComputedRefs + named mutators writing through
+ * `store.session.ui.forestNav`.
  *
  * No backend calls; no effects beyond store writes. The composable
  * is the typed seam between the navigator's persistence shape
@@ -21,6 +23,7 @@
 
 import { computed, type ComputedRef, type Ref } from 'vue';
 import type {
+  BoardId,
   CardId,
   ForestStat,
   GameSourceId,
@@ -86,8 +89,9 @@ export interface ForestNavigation {
   // SFC reads `expanded.value.has(node.nodeId)` to decide whether to
   // render a node's children.
   readonly expanded: ComputedRef<ReadonlySet<NavNodeId>>;
-  // The persisted selection. Drives the right-pane Lineage Explorer
-  // when the SFC consumes it.
+  // The active board's persisted selection (per-board, schema 59). Drives
+  // the right-pane Lineage Explorer when the SFC consumes it. `null` when
+  // the board has no selection or no board is active.
   readonly selection: ComputedRef<NavSelection | null>;
 
   // Mutators — write through `store.session.ui.forestNav`. Each
@@ -121,6 +125,11 @@ export function rootNodeId(rootCardId: CardId): NavNodeId {
 
 export function useForestNavigation(
   forestStats: Ref<ForestStat[]>,
+  // The board whose navigator selection this composable reads/writes.
+  // `forestNav.selection` is per-board (schema 59); `expanded` is global,
+  // so the expansion mutators ignore this. `null` when no board is active —
+  // selection reads as null and `select` is a no-op.
+  boardIdRef: Ref<BoardId | null>,
 ): ForestNavigation {
   const nodes = computed<readonly ForestNavGameNode[]>(() =>
     groupByGameSource(forestStats.value),
@@ -130,9 +139,10 @@ export function useForestNavigation(
     () => new Set(store.session.ui.forestNav.expanded),
   );
 
-  const selection = computed<NavSelection | null>(
-    () => store.session.ui.forestNav.selection,
-  );
+  const selection = computed<NavSelection | null>(() => {
+    const id = boardIdRef.value;
+    return id ? (store.session.ui.forestNav.selection[id] ?? null) : null;
+  });
 
   function toggle(nodeId: NavNodeId): void {
     const current = store.session.ui.forestNav.expanded;
@@ -150,7 +160,17 @@ export function useForestNavigation(
   }
 
   function select(s: NavSelection | null): void {
-    store.session.ui.forestNav.selection = s;
+    // Per-board: write through the active board's slot in the selection map.
+    // In-place add/delete on the reactive store is deep-watched by
+    // SyncService (mirrors `cardTreeNav`'s mutators). `null` clears the slot;
+    // an absent key reads back as no selection.
+    const id = boardIdRef.value;
+    if (!id) return;
+    if (s === null) {
+      delete store.session.ui.forestNav.selection[id];
+    } else {
+      store.session.ui.forestNav.selection[id] = s;
+    }
   }
 
   return { nodes, expanded, selection, toggle, expandAll, collapseAll, select };

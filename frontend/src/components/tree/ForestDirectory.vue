@@ -65,7 +65,9 @@ const browseError = ref<string | null>(null);
 // widget displays — same shape as `useReviewSession(boardIdRef)`.
 const boardIdRef = computed<BoardId | null>(() => activeBoard.value?.id ?? null);
 const tree = useCardTreeData(boardIdRef);
-const nav = useForestNavigation(roots);
+// `roots` (the navigator tree) is workspace-global; `boardIdRef` keys the
+// per-board selection axis (schema 59 — board-scope audit P0).
+const nav = useForestNavigation(roots, boardIdRef);
 const forestStats = useForestStats();
 const cardMetadata = useCardMetadata();
 const reviewSession = useReviewSession(boardIdRef);

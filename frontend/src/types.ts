@@ -1552,15 +1552,15 @@ export interface UISession {
   // opt out via the registry editor. Schema-version 34
   // introduces the field.
   watchdogColorTransition: boolean;
-  // Forest Directory navigator state — which game nodes are expanded
-  // (showing their roots) and which game/root the user has selected.
-  // Schema-version 21 introduces the field. Persisted across reloads
-  // per the file-manager idiom users expect; collapsed games stay
-  // collapsed. Mutated through `useForestNavigation`'s named
-  // mutators (toggle / expandAll / collapseAll / select). See the
-  // `ForestNavState` declaration above for the persistence shape and
-  // `composables/useForestNavigation.ts` for the render-shape
-  // projection.
+  // Forest Directory navigator state. Two axes with different scopes:
+  // `expanded` (which game nodes show their roots) is workspace-global —
+  // the navigator tree is the user's whole library; `selection` (which
+  // game/root each board has open in the right pane) is per-board. See the
+  // `ForestNavState` declaration above for the per-axis rationale. Mutated
+  // through `useForestNavigation`'s named mutators (toggle / expandAll /
+  // collapseAll / select); `select` keys on the board passed to the
+  // composable. Schema-version 21 introduces the field; 59 re-scopes
+  // `selection` per-board (board-scope audit P0).
   forestNav: ForestNavState;
   // Per-board card-tree navigator state — persists the manual-expand
   // axis the `CardTreeWidget` mutates on stub / bucket clicks so a
@@ -1601,14 +1601,25 @@ export type NavSelection =
   | { readonly kind: 'root'; readonly rootCardId: CardId };
 
 // Persisted navigator state on `session.ui.forestNav`. Schema-version
-// 21 introduces this field. `expanded` is an array (not a Set) so it
-// JSON-round-trips through SyncService cleanly; the composable
-// projects it into a ReadonlySet for O(1) lookup at render time.
-// Persistent state — collapsed games stay collapsed across reloads
-// per the file-manager idiom users expect.
+// 21 introduces this field; schema-version 59 re-scopes `selection`
+// per-board (board-scope audit P0). The two axes have different scopes:
+// see the field comments below and `frontend/docs/notes/board-scope.md`.
 export interface ForestNavState {
+  // Workspace-global. Expansion of the navigator tree — the user's whole
+  // library of game sources → roots. That tree is the same regardless of
+  // which board is active, so its expansion is not board-scoped; collapsing
+  // a game on one board must not re-expand it on another. An array (not a
+  // Set) so it JSON-round-trips through SyncService cleanly; the composable
+  // projects it into a ReadonlySet for O(1) render-time lookup. Persistent —
+  // collapsed games stay collapsed across reloads (file-manager idiom).
   expanded: NavNodeId[];
-  selection: NavSelection | null;
+  // Per-board. Which game/root each board has selected, driving that board's
+  // right-pane Lineage Explorer. Re-scoped from a single workspace-global
+  // `NavSelection | null` to a per-board map (P0) so a null/absent selection
+  // on one board can no longer clear another board's forest. Absent key = no
+  // selection (the prior `null`). Cleaned up by `closeBoard` (an O-pair) and
+  // reset wholesale by `resetWorkspace` via `defaultSessionUI`.
+  selection: PerBoard<NavSelection>;
 }
 
 // ── Card-tree navigator persistence (UISession.cardTreeNav) ──────────────────

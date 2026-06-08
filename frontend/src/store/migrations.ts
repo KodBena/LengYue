@@ -107,13 +107,13 @@ if (import.meta.hot) import.meta.hot.accept(() => location.reload());
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 58;
+export const CURRENT_SCHEMA_VERSION = 59;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 55 → 56) are
+ * The first `N` entries (currently 1 → 2 through 56 → 57) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -135,42 +135,6 @@ export const CURRENT_SCHEMA_VERSION = 58;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 56 → 57: reshape `profile.qeuboPinnedBookmarks[].parameters` from the
-  // flat `Record<string, number>` (bare analysis_env param name → scalar)
-  // to the knob-registry-native `Record<KnobId, number[]>` (`qeubo.<name>`
-  // key → value vector). Aligns the bookmark with the substrate so
-  // `applyBookmark` hands the vector straight to `writeKnobValue`. qEUBO
-  // params are scalar knobs, so each migrated vector is length 1.
-  //
-  // FROZEN literal (do NOT edit to track a future prefix change — that is
-  // a new migration): the `qeubo.` namespace prefix is frozen here as the
-  // value it carried when this migration shipped (the runtime SSOT is
-  // `useQeubo.ts`'s `QEUBO_KNOB_PREFIX`, but a migration must not import a
-  // mutable constant). The blob is plain JSON; no branding is applied (the
-  // runtime re-brands the keys on read).
-  //
-  // Idempotent: an entry whose value is already an array is preserved
-  // verbatim (already-reshaped key kept as-is), so a re-run is a no-op.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const list = out.profile?.qeuboPinnedBookmarks;
-    if (Array.isArray(list)) {
-      for (const bm of list) {
-        const params = bm?.parameters;
-        if (!params || typeof params !== 'object') continue;
-        const reshaped: Record<string, number[]> = {};
-        for (const [key, value] of Object.entries(params)) {
-          if (Array.isArray(value)) {
-            reshaped[key] = value as number[];
-          } else if (typeof value === 'number') {
-            reshaped[`qeubo.${key}`] = [value];
-          }
-        }
-        bm.parameters = reshaped;
-      }
-    }
-    return out;
-  },
   // 57 → 58: strip the now-stale `profile.knownTags` from persisted blobs.
   // knownTags moved out of the persisted profile to a non-persisted
   // top-level `GlobalStore` field (it's a server-derived cache re-fetched
@@ -186,6 +150,32 @@ export const migrations: Migration[] = [
     const out = structuredClone(blob);
     if (out.profile && typeof out.profile === 'object') {
       delete (out.profile as { knownTags?: unknown }).knownTags;
+    }
+    return out;
+  },
+  // 58 → 59: re-scope `session.ui.forestNav.selection` from a single
+  // workspace-global `NavSelection | null` to a per-board map
+  // (`PerBoard<NavSelection>`), so a null/absent selection on one board can no
+  // longer drive (or clear) the right pane of another (board-scope audit P0;
+  // see `frontend/docs/notes/board-scope.md`). `forestNav.expanded` stays
+  // global — the navigator tree is the user's whole library. The prior global
+  // selection is transient navigator state, not user data, so it is dropped
+  // rather than re-homed under a guessed active board.
+  //
+  // Detection: the already-migrated shape is a plain board-keyed map (object,
+  // non-null, no top-level `kind`; keys are BoardId UUIDs, never `kind`). The
+  // old shape is `null` or a discriminated `NavSelection` (carries `kind`).
+  // Reset anything that is not already the new shape; idempotent on it.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const nav = out.session?.ui?.forestNav;
+    if (nav && typeof nav === 'object') {
+      const sel = (nav as { selection?: unknown }).selection;
+      const alreadyPerBoard =
+        typeof sel === 'object' && sel !== null && !('kind' in (sel as object));
+      if (!alreadyPerBoard) {
+        (nav as { selection: unknown }).selection = {};
+      }
     }
     return out;
   },

@@ -345,6 +345,11 @@ export function setActiveBoard(index: number): void {
  *      trip to the backend via SyncService (same SyncService-payload
  *      concern as #3 and #4). Resource-ownership audit O14
  *      (schema-version 45 introduces the slice).
+ *  10. delete store.session.ui.forestNav.selection[boardId] — drops the
+ *      per-board forest-navigator selection (schema-version 59 re-scoped
+ *      it per-board; board-scope audit P0). Same SyncService-payload
+ *      concern as #3 / #4 / #9. `forestNav.expanded` is workspace-global
+ *      and is NOT cleared here. Resource-ownership audit O15.
  *
  * Order matters: stop the engine before purging the ledger so an
  * in-flight packet can't land between the two and re-populate the
@@ -390,14 +395,18 @@ export function closeBoard(boardId: BoardId): void {
   // surfaces non-2xx via the system log if it matters. Audit O13.
   analysisPersistenceService.discard(boardId).catch(() => { /* surfaced via api-client's system-message push */ });
 
-  // Drop the per-board workspace dictionary entries. All three keys
+  // Drop the per-board workspace dictionary entries. All four keys
   // are owned by this BoardId and have no meaning once the board is
   // gone; persisting them via SyncService would just bloat the
   // user's document with tombstones over time. Audit pairs O2 / O3
-  // / O14.
+  // / O14 / O15.
   delete store.session.reviews[boardId];
   delete store.engine.activeMode[boardId];
   delete store.session.ui.cardTreeNav[boardId];
+  // O15 (schema-version 59): per-board forest-navigator selection. The
+  // selection axis of `forestNav` was re-scoped per-board (board-scope audit
+  // P0); `expanded` stays global and is untouched here.
+  delete store.session.ui.forestNav.selection[boardId];
 
   // Abort any in-flight review-analysis wait for this board so the
   // 30s timeout doesn't fire later and resurrect the reviews row
