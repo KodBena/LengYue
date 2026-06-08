@@ -110,6 +110,20 @@ typos from silently mis-routing.
 | `AnalysisPanelId` | string | static literal (frozen persistence keys) | factory `pid` (`panel-ids.ts:15`); the `PANEL_ID` SSOT | persisted (an `AnalysisTab.panelIds` references these; renaming orphans saved tabs — `src/types.ts:99-107`) | ~10 panels | Sound; dedicated factory, frozen-forever contract documented. |
 | `KnobId` | string | static literal (`<domain>.<name>`, registry keys) | **no single factory**: string-template `` `qeubo.${name}` as KnobId `` at `useQeubo.ts:140`, `PaletteEditor.vue:99,127`; `key as KnobId` casts at `KnobRegistryEditor.vue:55`, `defaults.ts:471` | persisted (knob registry on the profile) | ~10s–100s | Mild `[leaky]` — branded at 4+ template sites rather than one constructor. Low cardinality and semantically-string, so the leak is cosmetic, not load-bearing. |
 
+### Derived content hashes (`Brand<string, …>`)
+
+Not per-entity identities — DJB2 hashes over a structured analysis descriptor,
+branded distinct so the analysis-ledger's two provenance-stratified stores
+cannot be cross-read: a `RawKey` against the enrichment store (or an
+`EnrichedKey` against the raw store) is a **compile error** (ADR-0002's
+strongest channel). See `services/analysis-ledger.ts` and the stratification
+consult (`docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md`).
+
+| Name | Prim. | Origin | Construction | Lifetime | Cardinality | Status / notes |
+|------|-------|--------|-------------|----------|-------------|----------------|
+| `RawKey` | string | derived DJB2 hash of `{overrideSettings, model}` (palette-independent) | sole factory `deriveAnalysisKeys` (`analysis-config.ts`); re-branded at `analysis-bundle.ts` replay via the `r:` configHash-prefix split | per-session (ledger raw-store key); persisted inside bundles under an `r:`-prefixed configHash | ~1–few per session (one per model×overrides) | Sound; single factory. Bucket key, not a collision-free identity — DJB2 birthday bound, identical to the prior single composite hash. |
+| `EnrichedKey` | string | derived DJB2 hash of `{analysis_config, overrideSettings, model}` | sole factory `deriveAnalysisKeys` (`analysis-config.ts`); **byte-equal to the legacy composite `configHash`**; re-branded at `analysis-bundle.ts` replay (`e:` prefix + legacy bare-hash branch) | per-session (ledger enrichment-store key); persisted inside bundles | ~1–dozens per session (one per palette×overrides×model) | Sound; single factory. Back-compat: equal to the pre-stratification hash so legacy persisted bundles' `config_hash` resolves as the enriched key. |
+
 ### Ephemeral indices (`Brand<number, …>`)
 
 Derived, per-render index newtypes. Never persisted as ids in their

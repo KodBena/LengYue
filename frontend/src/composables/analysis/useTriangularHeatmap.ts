@@ -16,7 +16,7 @@
 import { computed, type Ref } from 'vue';
 import { ledger } from '../../services/analysis-ledger';
 import type { ColorMoveIndex, NodeId, PlyIndex, StoneColor } from '../../types';
-import { activeConfigHash } from '../../services/analysis-config';
+import { activeAnalysisKeys } from '../../services/analysis-config';
 
 export interface HeatmapCell {
   readonly color: StoneColor;
@@ -49,10 +49,10 @@ export function useTriangularHeatmap(variationPath: Ref<string[]>) {
     let max = -Infinity;
 
     variationPath.value.forEach((nodeId) => {
-      const packet = ledger.getRaw(activeConfigHash.value, nodeId as NodeId);
-      if (!packet?.extra) return;
+      const enr = ledger.getEnrichment(activeAnalysisKeys.value.enrichedKey, nodeId as NodeId);
+      if (!enr) return;
 
-      packet.extra.black?.triangular?.forEach(([[s, t], v]) => {
+      enr.black?.triangular?.forEach(([[s, t], v]) => {
         const cell: HeatmapCell = {
           color: 'B',
           s: s as ColorMoveIndex,
@@ -64,7 +64,7 @@ export function useTriangularHeatmap(variationPath: Ref<string[]>) {
         if (v > max) max = v;
       });
 
-      packet.extra.white?.triangular?.forEach(([[s, t], v]) => {
+      enr.white?.triangular?.forEach(([[s, t], v]) => {
         const cell: HeatmapCell = {
           color: 'W',
           s: s as ColorMoveIndex,

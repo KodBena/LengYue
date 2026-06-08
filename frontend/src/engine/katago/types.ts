@@ -394,12 +394,19 @@ export interface KataExtra {
 // ── Response Types ─────────────────────────────────────────────────────────────
 
 /**
- * The primary Analysis Response Packet.
+ * Provenance-stratified raw half of an analysis packet: everything KataGo
+ * produces that depends only on the network + engine `overrideSettings`,
+ * never the palette. This is the value the analysis-ledger's raw store holds
+ * (keyed by `RawKey`). The field list is spelled out (rather than
+ * `Omit<KataAnalysisResponse, 'extra'>`) so it stays the exhaustive SSOT for
+ * the raw half — a new raw field is a deliberate edit here, mirroring the
+ * "exhaustive definitions" posture of this file.
  *
- * `isDuringSearch: false` means this is the final update for this turn.
- * `extra` is an optional enrichment payload from the analysis proxy.
+ * See `services/analysis-ledger.ts` for the two-store keying and
+ * `docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md`
+ * for the rationale.
  */
-export interface KataAnalysisResponse {
+export interface RawAnalysis {
   readonly id: string;
   readonly turnNumber: number;
   readonly isDuringSearch: boolean;
@@ -407,6 +414,24 @@ export interface KataAnalysisResponse {
   readonly rootInfo: KataRootInfo;
   readonly ownership?: readonly number[];
   readonly policy?: readonly number[];
+}
+
+/**
+ * The palette-derived enrichment half — the proxy-applied
+ * state/delta/triangular envelope the ledger's enrichment store holds
+ * (keyed by `EnrichedKey`). Alias of `KataExtra` (which already *is* that
+ * envelope); the domain noun names the enrichment store's value type.
+ */
+export type Enrichment = KataExtra;
+
+/**
+ * The primary Analysis Response Packet — the raw half (`RawAnalysis`) plus
+ * the optional palette enrichment.
+ *
+ * `isDuringSearch: false` means this is the final update for this turn.
+ * `extra` is an optional enrichment payload from the analysis proxy.
+ */
+export interface KataAnalysisResponse extends RawAnalysis {
   readonly extra?: KataExtra;
 }
 

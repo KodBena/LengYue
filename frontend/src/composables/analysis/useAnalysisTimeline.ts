@@ -17,7 +17,7 @@ import { ledger } from '../../services/analysis-ledger';
 import { analysisService } from '../../services/analysis-service';
 import { store, mutateBoard } from '../../store';
 import type { BoardId, NodeId, PlyIndex } from '../../types';
-import { activeConfigHash } from '../../services/analysis-config';
+import { activeAnalysisKeys } from '../../services/analysis-config';
 
 export interface AnalysisTimelineState {
   visitVector: ComputedRef<number[]>;
@@ -43,7 +43,7 @@ export function useAnalysisTimeline(
     const ids = variationPath.value;
     if (ids.length === 0) return [];
 
-    const rawVisits = ids.map(id => ledger.getRaw(activeConfigHash.value, id)?.rootInfo?.visits ?? 0);
+    const rawVisits = ids.map(id => ledger.getRaw(activeAnalysisKeys.value.rawKey, id)?.rootInfo?.visits ?? 0);
     const globalMax = Math.max(...rawVisits, 1);
     return rawVisits.map(v => v / globalMax);
   });

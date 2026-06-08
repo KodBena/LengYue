@@ -77,6 +77,8 @@ import {
 } from '../fakes/backend-service';
 import { resetFakeAnalysisService } from '../fakes/analysis-service';
 import { resetFakeAnalysisPersistenceService } from '../fakes/analysis-persistence-service';
+import { ledger } from '../../src/services/analysis-ledger';
+import { activeAnalysisKeys } from '../../src/services/analysis-config';
 import {
   runAutonomousDriver,
   type AutonomousMove,
@@ -130,6 +132,23 @@ function makePacket(opts: { turnNumber: number; delta?: number }): KataAnalysisR
     moveInfos: [],
     rootInfo: { winrate: 0.5, scoreLead: 0, visits: 1000, currentPlayer: 'B' },
   } as unknown as KataAnalysisResponse;
+}
+
+/**
+ * Mock `waitForAnalysis` to (1) seed the enrichment store for whichever node
+ * it is awaited on — mirroring production, where the same onAnalysisUpdate
+ * tick records the raw final AND its palette enrichment — then (2) resolve
+ * with the raw packet. `processUserMove` reads the per-move delta from the
+ * enrichment store (keyed by `enrichedKey`), not from the raw return.
+ */
+function resolveWaitSeedingDelta(delta: number): void {
+  vi.mocked(waitForAnalysis).mockImplementation(async (_rawKey, nodeId) => {
+    ledger.recordEnrichment(activeAnalysisKeys.value.enrichedKey, nodeId, {
+      black: { deltas: { '0': delta } },
+      white: { deltas: { '0': delta } },
+    });
+    return makePacket({ turnNumber: 1, delta });
+  });
 }
 
 /**
@@ -197,7 +216,7 @@ describe('runAutonomousDriver — happy path', () => {
 
     // Each processUserMove awaits two waitForAnalysis calls (s_0 and
     // s_1); both resolve to a packet carrying the per-move delta.
-    vi.mocked(waitForAnalysis).mockResolvedValue(makePacket({ turnNumber: 1, delta: 0.7 }));
+    resolveWaitSeedingDelta(0.7);
 
     const { policy, calls: policyCalls } = makeCounterPolicy();
     const spy = makeSpyRecorder();
@@ -240,7 +259,7 @@ describe('runAutonomousDriver — happy path', () => {
     const board = createInitialBoard();
     addBoard(board);
 
-    vi.mocked(waitForAnalysis).mockResolvedValue(makePacket({ turnNumber: 1, delta: 0.42 }));
+    resolveWaitSeedingDelta(0.42);
 
     const { policy } = makeCounterPolicy();
     const spy = makeSpyRecorder();
@@ -288,7 +307,7 @@ describe('runAutonomousDriver — policy failure', () => {
     const board = createInitialBoard();
     addBoard(board);
 
-    vi.mocked(waitForAnalysis).mockResolvedValue(makePacket({ turnNumber: 1, delta: 0.5 }));
+    resolveWaitSeedingDelta(0.5);
 
     // Policy throws on card 0, succeeds on card 1.
     let callCount = 0;
@@ -335,13 +354,18 @@ describe('runAutonomousDriver — session timeout', () => {
 
     // Card 0: waitForAnalysis rejects (timeout). Card 1: succeeds.
     let cardCount = 0;
-    vi.mocked(waitForAnalysis).mockImplementation(async () => {
+    vi.mocked(waitForAnalysis).mockImplementation(async (_rawKey, nodeId) => {
       // Each processUserMove calls waitForAnalysis twice (s_0 and s_1).
       // We want the FIRST card's pair to reject, the SECOND card's pair
       // to resolve. Switch on the call's call-count, not on the card
       // index directly.
       const callIndex = vi.mocked(waitForAnalysis).mock.calls.length;
       if (callIndex <= 2) throw new AnalysisWaitError('timeout');
+      // Seed enrichment for the awaited node — the delta read source.
+      ledger.recordEnrichment(activeAnalysisKeys.value.enrichedKey, nodeId, {
+        black: { deltas: { '0': 0.6 } },
+        white: { deltas: { '0': 0.6 } },
+      });
       return makePacket({ turnNumber: 1, delta: 0.6 });
     });
 
@@ -381,7 +405,7 @@ describe('runAutonomousDriver — cooperative stop', () => {
     const board = createInitialBoard();
     addBoard(board);
 
-    vi.mocked(waitForAnalysis).mockResolvedValue(makePacket({ turnNumber: 1, delta: 0.5 }));
+    resolveWaitSeedingDelta(0.5);
 
     let cardsCompleted = 0;
     let stop = false;
@@ -426,7 +450,7 @@ describe('runAutonomousDriver — error budget', () => {
     const board = createInitialBoard();
     addBoard(board);
 
-    vi.mocked(waitForAnalysis).mockResolvedValue(makePacket({ turnNumber: 1, delta: 0.5 }));
+    resolveWaitSeedingDelta(0.5);
 
     // Every card's policy throws → every card-end is IDLE. With
     // errorBudget=2, the driver halts after the second IDLE card-end

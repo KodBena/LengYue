@@ -13,7 +13,7 @@ import { store } from '../../store';
 import type { BoardState } from '../../types';
 import { ledger } from '../../services/analysis-ledger';
 import { useVariationPath } from '../../composables/board/useVariationPath';
-import { activeConfigHash } from '../../services/analysis-config';
+import { activeAnalysisKeys } from '../../services/analysis-config';
 import { useThrottledSnapshot } from '../../composables/useThrottledSnapshot';
 import { BOARD_TAB_RUGPLOT_REDRAW_THROTTLE_MS } from '../../lib/timing';
 
@@ -42,8 +42,8 @@ const path = useVariationPath(() => props.state.id);
 // colour walk + re-render at the family ~4 Hz cadence while the meter still
 // tracks ongoing analysis.
 const rugVisits = computed<number[]>(() => {
-  const hash = activeConfigHash.value;
-  return path.value.map(id => ledger.getRaw(hash, id)?.rootInfo?.visits ?? 0);
+  const rawKey = activeAnalysisKeys.value.rawKey;
+  return path.value.map(id => ledger.getRaw(rawKey, id)?.rootInfo?.visits ?? 0);
 });
 const displayedVisits = useThrottledSnapshot(rugVisits, BOARD_TAB_RUGPLOT_REDRAW_THROTTLE_MS);
 

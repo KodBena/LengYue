@@ -62,8 +62,8 @@ import { ledger } from '../../src/services/analysis-ledger';
 import { useReviewSession } from '../../src/composables/review/useReviewSession';
 import { createInitialBoard } from '../../src/store/board-factory';
 import {
-  hashConfig,
-  compileAnalysisDescriptorFromParts,
+  deriveAnalysisKeys,
+  activeAnalysisKeys,
 } from '../../src/services/analysis-config';
 import { serializeActivePath } from '../../src/engine/sgf-writer';
 import { applyGoMove } from '../../src/logic';
@@ -256,9 +256,9 @@ async function runScenario(opts: {
     | undefined;
   const configOverride = data?.['analysis_config'] as Record<string, unknown> | undefined;
   const overrideSettings = data?.['overrideSettings'] as Record<string, unknown> | undefined;
-  const sessionHash = configOverride
-    ? hashConfig(compileAnalysisDescriptorFromParts(configOverride, overrideSettings))
-    : 'default';
+  const sessionKeys = configOverride
+    ? deriveAnalysisKeys(configOverride, overrideSettings, store.engine.selectedModel ?? undefined)
+    : activeAnalysisKeys.value;
 
   // 8. Drive NUM_PLAY_MOVES turns. Per turn:
   //    a. Snapshot the pre-move (s_0) nodeId and active path.
@@ -310,9 +310,9 @@ async function runScenario(opts: {
     // Per-path delta-key presence — the same set of nodes the
     // production path-scan iterates.
     const perPathDeltaPresence = postPath.map((nodeId) => {
-      const packet = ledger.getRaw(sessionHash, nodeId);
-      if (!packet) return { nodeId, presence: null as null };
-      const value = packet.extra?.[colorKey]?.deltas?.[n];
+      const enr = ledger.getEnrichment(sessionKeys.enrichedKey, nodeId);
+      if (!enr) return { nodeId, presence: null as null };
+      const value = enr[colorKey]?.deltas?.[n];
       return value !== undefined
         ? { nodeId, presence: true as true, value }
         : { nodeId, presence: false as false };
@@ -328,7 +328,7 @@ async function runScenario(opts: {
     // independently from the s_0 packet's moveInfos. If the s_0
     // packet itself is missing, expected becomes null too (which is
     // its own diagnostic signal).
-    const s0Packet = ledger.getRaw(sessionHash, s0NodeId);
+    const s0Packet = ledger.getRaw(sessionKeys.rawKey, s0NodeId);
     const expected = s0Packet ? expectedVisitRatioDelta(s0Packet, move.gtp) : null;
 
     let status: TurnDiagnostic['status'] = 'ok';
@@ -344,7 +344,7 @@ async function runScenario(opts: {
       // packet's moveInfos[order=0], then reset the session state to
       // AWAITING_MOVE so the next iteration can run.
       const s1NodeId = postBoard.currentNodeId as NodeId;
-      const s1Packet = ledger.getRaw(sessionHash, s1NodeId);
+      const s1Packet = ledger.getRaw(sessionKeys.rawKey, s1NodeId);
       const bestMove = s1Packet?.moveInfos?.find((m) => m.order === 0);
       if (bestMove) {
         const coords = gtpToBoard(bestMove.move);

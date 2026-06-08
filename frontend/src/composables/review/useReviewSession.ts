@@ -6,16 +6,15 @@
  */
 
 import { computed, type Ref } from 'vue';
-import type { ReviewCard, NodeId, BoardId, ReviewStatus } from '../../types';
+import type { ReviewCard, NodeId, BoardId, ReviewStatus, RawAnalysis } from '../../types';
 import { store, addBoard, mutateBoard, updateBoardState, mutateReviewSession, pushSystemMessage } from '../../store';
 import { i18n } from '../../i18n';
 import { backendService } from '../../services/backend-service';
 import { analysisService } from '../../services/analysis-service';
 import { ledger } from '../../services/analysis-ledger';
 import {
-  activeConfigHash,
-  hashConfig,
-  compileAnalysisDescriptorFromParts,
+  activeAnalysisKeys,
+  deriveAnalysisKeys,
 } from '../../services/analysis-config';
 import { waitForAnalysis, AnalysisWaitError } from '../analysis/wait-for-analysis';
 import { KATAGO_ANALYSIS_TIMEOUT_MS } from '../../lib/timing';
@@ -334,16 +333,15 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
         : undefined;
     // Read the current SELECTOR target live so a card replay under a
     // different network buckets separately in the ledger from a prior
-    // replay under another network. `activeConfigHash` already
+    // replay under another network. `activeAnalysisKeys` already
     // accounts for this in the no-configOverride branch (its source
-    // reads `store.engine.selectedModel` too).
-    const hash = configOverride
-      ? hashConfig(
-          compileAnalysisDescriptorFromParts(
-            configOverride, overrideSettingsOverride, store.engine.selectedModel ?? undefined,
-          ),
+    // reads `store.engine.selectedModel` too). `rawKey` keys the raw
+    // waits below; `enrichedKey` keys the per-move delta lookup.
+    const keys = configOverride
+      ? deriveAnalysisKeys(
+          configOverride, overrideSettingsOverride, store.engine.selectedModel ?? undefined,
         )
-      : activeConfigHash.value;
+      : activeAnalysisKeys.value;
     // Single source of truth for the visits count — effectiveVisits
     // encapsulates the override-vs-default precedence. See the
     // computed's docstring for the resolution order.
@@ -395,23 +393,28 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     const controller = new AbortController();
     pendingAnalysisAborts.set(bId, controller);
 
-    let s_1_packet;
+    let s_1_packet: RawAnalysis;
     try {
-      // Wait for BOTH s_0 and s_1 final packets. The proxy attaches
+      // Wait for BOTH s_0 and s_1 final (raw) packets. The proxy attaches
       // the per-move delta to whichever packet on the analyzed range
       // it chose — most often the s_0 packet (the position the move
       // was played FROM, since the delta_fn references `x[0]` = the
       // pre-move state). KataGo can emit the s_1 final packet before
       // s_0 under cache hits and parallel-search races; if we only
-      // awaited s_1, the path-scan below would miss a delta that's
-      // about to land on s_0. Promise.all rejects on the first
+      // awaited s_1, the enrichment path-scan below would miss a delta
+      // that's about to land on s_0. Promise.all rejects on the first
       // failure (timeout / abort), preserving the existing catch
       // handling. The fuzzing harness in `tests/e2e/` reproducibly
-      // surfaces this race when only s_1 is awaited.
+      // surfaces this race when only s_1 is awaited. The wait keys by
+      // `rawKey` (the raw final packet is the existence/settle anchor and
+      // carries `moveInfos` for the best-move follow-through below); the
+      // per-move delta is read from the enrichment store. Both halves are
+      // recorded in the same `onAnalysisUpdate` tick, so the enrichment is
+      // present once the raw final has settled.
       const waitOpts = { timeoutMs: KATAGO_ANALYSIS_TIMEOUT_MS, signal: controller.signal };
       const [, s1] = await Promise.all([
-        waitForAnalysis(hash, s_0_id, s_0_idx, waitOpts),
-        waitForAnalysis(hash, s_1_id, s_1_idx, waitOpts),
+        waitForAnalysis(keys.rawKey, s_0_id, s_0_idx, waitOpts),
+        waitForAnalysis(keys.rawKey, s_1_id, s_1_idx, waitOpts),
       ]);
       s_1_packet = s1;
     } catch (err) {
@@ -483,20 +486,20 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     }
     const n = colorMoveCount - 1;
 
-    // Per-color delta lookup. The proxy attaches each `extra[color].deltas`
-    // entry to whichever packet on the analyzed range it chose — most
-    // commonly the s_0 packet (the position the move was played FROM,
-    // since that's where the engine evaluated alternatives), but we
-    // don't require that. Mirror the analysis-tab pattern in
-    // `useEnrichedData.ts:113-122`: scan every packet on the active
-    // path for the key `n`, take the first non-undefined value found.
-    // The fast-path s_1_packet check covers the historic case; the
-    // ledger scan covers the s_0 case the prior implementation silently
-    // missed (and the loud-failure branch below catches the residue).
-    let delta = s_1_packet.extra?.[colorKey]?.deltas?.[n];
+    // Per-color delta lookup against the ENRICHMENT store (keyed by
+    // `enrichedKey`). The proxy attaches each `[color].deltas` entry to
+    // whichever packet on the analyzed range it chose — most commonly the
+    // s_0 packet (the position the move was played FROM, since that's where
+    // the engine evaluated alternatives), but we don't require that. Mirror
+    // the analysis-tab pattern in `useEnrichedData.ts`: try s_1 first, then
+    // scan every node on the active path for the key `n`, taking the first
+    // non-undefined value found. The fast-path covers the historic case; the
+    // scan covers the s_0 case the prior implementation silently missed (and
+    // the loud-failure branch below catches the residue).
+    let delta = ledger.getEnrichment(keys.enrichedKey, s_1_id)?.[colorKey]?.deltas?.[n];
     if (delta === undefined) {
       for (const nodeId of newPath) {
-        const candidate = ledger.getRaw(hash, nodeId)?.extra?.[colorKey]?.deltas?.[n];
+        const candidate = ledger.getEnrichment(keys.enrichedKey, nodeId)?.[colorKey]?.deltas?.[n];
         if (candidate !== undefined) {
           delta = candidate;
           break;

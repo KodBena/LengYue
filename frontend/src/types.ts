@@ -50,6 +50,8 @@ export type {
   KataAnalysisResponse,
   KataExtra,
   KataPlayerExtra,
+  RawAnalysis,
+  Enrichment,
 } from './engine/katago/types';
 
 // ── Re-exports: PV animation settings shape ───────────────────────────────────
@@ -95,6 +97,26 @@ export type BookmarkId = Brand<string, 'BookmarkId'>;
  * `docs/notes/keybindings-plan.md` for the substrate design.
  */
 export type KeybindingActionId = Brand<string, 'KeybindingActionId'>;
+
+/**
+ * Derived content-hash bucket keys for the analysis ledger's two
+ * provenance-stratified stores. These are NOT entity identities — they are
+ * DJB2 hashes over a structured analysis descriptor, branded distinct so a
+ * raw-store read cannot be issued with an enrichment key (or vice versa):
+ * the wrong-key read becomes a compile error (ADR-0002, strongest channel).
+ *
+ * `RawKey` = hash(model + overrideSettings) — palette-independent.
+ * `EnrichedKey` = hash(model + overrideSettings + palette).
+ *
+ * Sole construction site: `deriveAnalysisKeys` in
+ * `services/analysis-config.ts` (no raw `as RawKey` casts at consumers).
+ * Soundness: bucket keys, not collision-free identities — collision risk is
+ * the DJB2 birthday bound, identical to the prior single composite hash.
+ * See `IDENTIFIERS.md` ("Derived content hashes") and the stratification
+ * consult under `docs/notes/consult/`.
+ */
+export type RawKey      = Brand<string, 'RawKey'>;
+export type EnrichedKey = Brand<string, 'EnrichedKey'>;
 
 /**
  * Stable identity of an analysis panel (the scrollable charts on the

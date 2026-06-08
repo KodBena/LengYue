@@ -18,7 +18,7 @@ import { useThrottledSnapshot } from '../../composables/useThrottledSnapshot';
 import { useI18n } from 'vue-i18n';
 import EngineQueueTooltip from './EngineQueueTooltip.vue';
 import { store, setSelectedModel, activeBoard } from '../../store';
-import { activeConfigHash } from '../../services/analysis-config';
+import { activeAnalysisKeys } from '../../services/analysis-config';
 import { ledger } from '../../services/analysis-ledger';
 import { useEngineControls } from '../../composables/useEngineControls';
 import { TOOLBAR_METRICS_REDRAW_THROTTLE_MS } from '../../lib/timing';
@@ -156,7 +156,7 @@ const modelTooltip = computed(() => {
 const rootInfo = computed(() => {
   const board = activeBoard.value;
   if (!board) return null;
-  const packet = ledger.getRaw(activeConfigHash.value, board.currentNodeId);
+  const packet = ledger.getRaw(activeAnalysisKeys.value.rawKey, board.currentNodeId);
   return packet?.rootInfo ?? null;
 });
 const winrateDisplay = computed(() => {

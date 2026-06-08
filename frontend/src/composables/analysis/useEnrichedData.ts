@@ -42,7 +42,7 @@ import { shallowRef, watch, onUnmounted, type Ref } from 'vue';
 import { ledger, onLedgerFlush } from '../../services/analysis-ledger';
 import { store } from '../../store';
 import { type NodeId } from '../../types';
-import { activeConfigHash } from '../../services/analysis-config';
+import { activeAnalysisKeys } from '../../services/analysis-config';
 import {
   EnrichedAccumulator,
   EMPTY_ENRICHED,
@@ -68,12 +68,12 @@ export function useEnrichedData(pathIdsRef: Ref<NodeId[]>): Ref<EnrichedResult> 
   // but only on structural changes (nav / config / palette / theme), not per
   // packet.
   function rebuild(): void {
-    const hash = activeConfigHash.value;
+    const { rawKey, enrichedKey } = activeAnalysisKeys.value;
     acc.reset({
       pathIds: pathIdsRef.value,
       seedNames: activeSeedNames(),
     });
-    acc.rebuild((nodeId) => ledger.getRaw(hash, nodeId));
+    acc.rebuild((nodeId) => ledger.getCombined(rawKey, enrichedKey, nodeId));
     out.value = acc.snapshot();
   }
 
@@ -83,23 +83,32 @@ export function useEnrichedData(pathIdsRef: Ref<NodeId[]>): Ref<EnrichedResult> 
   // seed names are display strings that contain spaces ("Win Probability",
   // "Score Advantage"), so a space- (or any printable-char-) joined signal
   // could collide; JSON escaping makes the signal unambiguous.
+  // Watch the enriched key (not both keys): it is a function of palette +
+  // overrides + model, so it changes on ANY structural change that also moves
+  // the raw key (raw = overrides + model ⊆ enriched) — watching it alone
+  // catches every rebuild trigger while keeping a primitive (string) compare.
   watch(
-    [pathIdsRef, activeConfigHash, () => JSON.stringify(activeSeedNames())],
+    [pathIdsRef, () => activeAnalysisKeys.value.enrichedKey, () => JSON.stringify(activeSeedNames())],
     rebuild,
     { immediate: true },
   );
 
   // Per-node incremental patching, driven by the ledger's changed-key signal.
   const stopFlush = onLedgerFlush((changedKeys) => {
-    const hash = activeConfigHash.value;
+    const { rawKey, enrichedKey } = activeAnalysisKeys.value;
     let dirty = false;
     for (const key of changedKeys) {
-      // key = `${hash}:${nodeId}` — split on the first ':' (hashes carry none,
-      // NodeIds are UUID-style).
+      // key = `${key}:${nodeId}` where the key-part is EITHER the raw or the
+      // enriched key (the two spaces are disjoint strings). Split on the first
+      // ':' (keys carry none, NodeIds are UUID-style) and accept a change to
+      // either store for this node; `getCombined` re-reads both so the patch
+      // reflects the current raw + enrichment view regardless of which moved.
       const sep = key.indexOf(':');
-      if (sep < 0 || key.slice(0, sep) !== hash) continue;
+      if (sep < 0) continue;
+      const keyPart = key.slice(0, sep);
+      if (keyPart !== rawKey && keyPart !== enrichedKey) continue;
       const nodeId = key.slice(sep + 1) as NodeId;
-      if (acc.patchNode(nodeId, ledger.getRaw(hash, nodeId))) dirty = true;
+      if (acc.patchNode(nodeId, ledger.getCombined(rawKey, enrichedKey, nodeId))) dirty = true;
     }
     if (dirty) out.value = acc.snapshot();
   });
