@@ -431,9 +431,10 @@ touches.
 ## Where the project is going
 
 This is the forward-looking roadmap — what to pick up next. The actionable,
-status-bearing item list lives in the work-status SSOT
-(`docs/work-status.json`); shipped releases and completed arcs are recorded
-in `docs/archive/notes/handoff-current-vestige.md`.
+status-bearing item list lives in the work-status store (the `todo` Postgres
+DB, queried via `psql`; `docs/TODO.md` is a human index over it); shipped
+releases and completed arcs are recorded in
+`docs/archive/notes/handoff-current-vestige.md`.
 
 The **distribution-packaging memo**
 (`docs/notes/distribution-packaging.md`) is the leading edge: making the
