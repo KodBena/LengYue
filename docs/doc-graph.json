@@ -1,6 +1,6 @@
 {
-  "node_count": 394,
-  "edge_count": 1827,
+  "node_count": 395,
+  "edge_count": 1833,
   "age_buckets": [
     {
       "name": "fresh",
@@ -1845,6 +1845,14 @@
       "age_bucket": "fresh"
     },
     {
+      "path": "docs/notes/consult/opus-consult-2026-06-05-board-scope-exhaustiveness.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
       "path": "docs/notes/consult/opus-consults-2026-05-28-audit.md",
       "genre": "note",
       "is_hub": false,
@@ -3082,7 +3090,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-03-scattered-timing-literals-decision.md",
@@ -10259,6 +10267,20 @@
       "resolved": "dangling"
     },
     {
+      "from": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
+      "to": "docs/notes/consult/opus-consult-2026-06-05-board-scope-exhaustiveness.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/consult/opus-consult-2026-06-05-board-scope-exhaustiveness.md`",
+      "resolved": "resolved"
+    },
+    {
       "from": "docs/notes/audit/audit-stringly-typed-contracts-2026-06-01.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
@@ -10865,6 +10887,34 @@
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
       "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-05-board-scope-exhaustiveness.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-05-board-scope-exhaustiveness.md",
+      "to": "docs/adr/0001-state-mutation-and-readonly.md",
+      "kind": "adr-related",
+      "site": "ADR-0001",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-05-board-scope-exhaustiveness.md",
+      "to": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-05-board-scope-exhaustiveness.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
       "resolved": "resolved"
     },
     {
