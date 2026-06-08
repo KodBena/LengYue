@@ -280,6 +280,43 @@ export function setActiveBoard(index: number): void {
 }
 
 /**
+ * Board-scoped store-cell teardowns — the board analog of
+ * IDENTITY_SCOPED_CACHES (below), for the per-board *store cells* rather than
+ * module caches. Each entry deletes the closing board's cell from a
+ * board-keyed GlobalStore dictionary; `closeBoard` drains this list in place
+ * of the hand-wired per-cell deletes, so a newly-added per-board store cell
+ * can't be silently left out of teardown.
+ *
+ * Scope is deliberately the store cells ONLY (board-scope audit P1b / the
+ * scope-exhaustiveness consult). The board-DERIVED purges (ledger / stability
+ * / thumbnails — they walk `board.nodes` and must run before the splice) and
+ * the ordering-bound service stop (`stopBoardAnalysis` before
+ * `ledger.purgeBoard`) stay inline in `closeBoard`: folding them in would
+ * relocate load-bearing ordering from documented inline code into array
+ * position — a legibility regression for no safety gain (the audit's §4 found
+ * no leaks). The completeness guarantee is the board-completeness *test*, not
+ * this registry or the type system — see `frontend/docs/notes/board-scope.md`.
+ *
+ * Cells are order-independent of each other; the drain runs after
+ * `stopBoardAnalysis` (so the deletes overwrite the activeMode 'none'
+ * tombstone) and before the splice.
+ */
+const BOARD_SCOPED_STORE_CELLS: ReadonlyArray<{ label: string; clear: (b: BoardId) => void }> = [
+  { label: 'session.reviews', clear: b => { delete store.session.reviews[b]; } },
+  { label: 'engine.activeMode', clear: b => { delete store.engine.activeMode[b]; } },
+  { label: 'session.ui.cardTreeNav', clear: b => { delete store.session.ui.cardTreeNav[b]; } },
+  { label: 'session.ui.forestNav.selection', clear: b => { delete store.session.ui.forestNav.selection[b]; } },
+];
+
+/** Labels of every board-scoped store cell — the board-completeness test
+ *  asserts this set matches the cells `closeBoard` drains, so a new per-board
+ *  store cell can't be silently left out of teardown. The board analog of
+ *  `identityScopedCacheLabels`. */
+export function boardScopedStoreCellLabels(): readonly string[] {
+  return BOARD_SCOPED_STORE_CELLS.map(c => c.label);
+}
+
+/**
  * Safely removes a board, shifting the active index.
  * If the last board is closed, spawns a fresh blank board.
  *
@@ -355,7 +392,9 @@ export function setActiveBoard(index: number): void {
  * in-flight packet can't land between the two and re-populate the
  * ledger after we've cleared it. The dictionary deletes follow
  * stopBoardAnalysis (which writes to activeMode) so the deletes
- * actually overwrite the tombstone rather than leaving it. The
+ * actually overwrite the tombstone rather than leaving it; those
+ * store-cell deletes (#3 / #4 / #9 / #10) are drained from the
+ * BOARD_SCOPED_STORE_CELLS registry (see its docstring). The
  * abort runs after the deletes; its rejection-side cleanup runs
  * in processUserMove's catch on the next microtask. The thumbnail
  * purge runs last among the cleanups but still before the splice
@@ -395,18 +434,16 @@ export function closeBoard(boardId: BoardId): void {
   // surfaces non-2xx via the system log if it matters. Audit O13.
   analysisPersistenceService.discard(boardId).catch(() => { /* surfaced via api-client's system-message push */ });
 
-  // Drop the per-board workspace dictionary entries. All four keys
-  // are owned by this BoardId and have no meaning once the board is
-  // gone; persisting them via SyncService would just bloat the
-  // user's document with tombstones over time. Audit pairs O2 / O3
-  // / O14 / O15.
-  delete store.session.reviews[boardId];
-  delete store.engine.activeMode[boardId];
-  delete store.session.ui.cardTreeNav[boardId];
-  // O15 (schema-version 59): per-board forest-navigator selection. The
-  // selection axis of `forestNav` was re-scoped per-board (board-scope audit
-  // P0); `expanded` stays global and is untouched here.
-  delete store.session.ui.forestNav.selection[boardId];
+  // Drop the per-board store cells via the BOARD_SCOPED_STORE_CELLS registry
+  // (defined above) — reviews (O2), activeMode (O3), cardTreeNav (O14),
+  // forestNav.selection (O15, schema 59; the per-board axis only —
+  // `forestNav.expanded` is workspace-global and untouched). All are owned by
+  // this BoardId and have no meaning once the board is gone; persisting them
+  // via SyncService would bloat the user's document with tombstones. The cells
+  // are order-independent of each other; this drain runs after
+  // stopBoardAnalysis (so the deletes overwrite the activeMode 'none'
+  // tombstone) and before the splice.
+  for (const cell of BOARD_SCOPED_STORE_CELLS) cell.clear(boardId);
 
   // Abort any in-flight review-analysis wait for this board so the
   // 30s timeout doesn't fire later and resurrect the reviews row
