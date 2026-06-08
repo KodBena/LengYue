@@ -106,6 +106,24 @@ describe('useAnalysisProjection.activeMainIndex', () => {
     navigateToPathIndex(boardId, 3); // B[pp]
     expect(projection.activeMainIndex.value).toBe(3);
   });
+
+  it("reflects its own board's cursor, not the global active board's (P2: latent scope desync)", () => {
+    // Two boards; make A active while projecting B (the non-active board).
+    // Pre-fix, activeMainIndex read the ambient `activeBoard` (A) and indexed
+    // A's cursor against B's variation path — a cross-board desync. Post-fix
+    // it reads board B's own currentNodeId. Latent today (one projection is
+    // mounted, for the active board) but the projection's contract is "the
+    // indices for THIS boardId", which this pins.
+    const a = setup('(;FF[4]GM[1]SZ[19];B[pd];W[dp];B[pp])');
+    const b = setup('(;FF[4]GM[1]SZ[19];B[pd];W[dp];B[pp])');
+    store.activeBoardIndex = store.boards.findIndex(x => x.id === a.boardId);
+
+    navigateToPathIndex(a.boardId, 1); // A's cursor at index 1
+    navigateToPathIndex(b.boardId, 3); // B's cursor at index 3
+
+    const projection = withSetup(() => useAnalysisProjection(b.boardId));
+    expect(projection.activeMainIndex.value).toBe(3);
+  });
 });
 
 describe('useAnalysisProjection.activeBlackIndex / activeWhiteIndex', () => {

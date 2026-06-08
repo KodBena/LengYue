@@ -6,7 +6,7 @@
  */
 
 import { computed } from 'vue';
-import { store, activeBoard } from '../../store';
+import { store } from '../../store';
 import { useVariationPath } from '../board/useVariationPath';
 import { useEnrichedData } from './useEnrichedData';
 import { useAnalysisTimeline } from './useAnalysisTimeline';
@@ -41,7 +41,13 @@ export function useAnalysisProjection(boardId: BoardId) {
 
   // 2. Index Calculation (The "Audit" Logic)
   const activeMainIndex = computed(() => {
-    const id = activeBoard.value?.currentNodeId;
+    // Read THIS board's cursor, not the global active board's. The two
+    // coincide under today's single-active-board mount, but reading the
+    // ambient global from a board-parameterised projection is a latent
+    // scope desync (board-scope audit P2): a projection instantiated for a
+    // non-active board would otherwise index against the wrong cursor.
+    // Mirrors the boardId-keyed lookup `getPlayerIndex` already uses below.
+    const id = store.boards.find(b => b.id === boardId)?.currentNodeId;
     if (!id) return null;
     const idx = variationPath.value.indexOf(id);
     return idx === -1 ? null : idx;
