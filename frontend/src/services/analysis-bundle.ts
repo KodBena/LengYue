@@ -19,7 +19,7 @@
  */
 
 import type { KataAnalysisResponse } from '../engine/katago/types';
-import type { BoardId, NodeId } from '../types';
+import type { BoardId, NodeId, RawKey, EnrichedKey } from '../types';
 import { asBoardId } from '../store/board-factory';
 import { ledger } from './analysis-ledger';
 import { store } from '../store';
@@ -171,20 +171,50 @@ export function parseStorageError(err: unknown): AnalysisBundleStorageError | nu
 // `board_id`) don't have to import from store internals.
 export { asBoardId };
 
+// The provenance-stratified ledger holds two stores keyed by two distinct
+// key spaces (raw vs enriched). The wire bundle is a single flat `records`
+// list of `{configHash, nodeId, packet}` (unchanged so the v1 + v2 encoder
+// schemes don't need to track this), so we serialise the two stores as
+// independent records disambiguated by a self-describing `configHash` prefix:
+//
+//   - `r:<rawKey>`       — a raw half; `packet` is the `RawAnalysis` (no `extra`).
+//   - `e:<enrichedKey>`  — an enrichment half; `packet` carries the enrichment
+//     under `extra`, with an empty raw placeholder so the record satisfies the
+//     `KataAnalysisResponse` shape the encoders dereference (replay reads only
+//     `packet.extra` from these). The wire `schema_version` stays `1`
+//     (backend-gated literal); the prefix is what distinguishes the new
+//     encoding from legacy bare-hash records.
+//   - bare `<hash>` (no prefix) — a LEGACY pre-stratification record whose
+//     `configHash` is the old composite hash (== the enriched key). On replay
+//     its enrichment restores under that key; its raw half is dropped (the raw
+//     key is underivable from the one-way composite hash) and re-fetches live
+//     on next navigation. See `replayBundleIntoLedger`.
+const RAW_PREFIX = 'r:';
+const ENR_PREFIX = 'e:';
+
+// Empty raw placeholder for enrichment-only records (see above). Honest
+// "no raw signal" values; replay never reads them.
+const ENRICHMENT_PLACEHOLDER_RAW = {
+  id: '',
+  turnNumber: 0,
+  isDuringSearch: false,
+  moveInfos: [],
+  rootInfo: { winrate: 0, scoreLead: 0, visits: 0, currentPlayer: 'B' as const },
+};
+
 /**
- * Project the AnalysisLedger into a flat bundle for the given
- * board. The bundle contains every (configHash, nodeId, packet)
- * triple the ledger holds for nodes belonging to this board,
- * across every configHash. Record order is unspecified.
+ * Project the AnalysisLedger into a flat bundle for the given board. Emits one
+ * record per raw entry (`r:` prefix) and one per enrichment entry (`e:`
+ * prefix) the ledger holds for this board's nodes, across every key. The two
+ * stores are persisted independently — no pairing — and reassembled at read
+ * time by the consumers via `activeAnalysisKeys`. Record order unspecified.
  *
- * One-shot snapshot for upload, not a reactive view; no
- * version-ref subscriptions are registered.
+ * One-shot snapshot for upload, not a reactive view; no version-ref
+ * subscriptions are registered.
  *
- * Returns an empty bundle if the boardId is unknown — fail-quiet
- * here is intentional, because the natural caller is a UI button
- * that should produce an empty-but-valid bundle for an empty
- * board. Distinguish from a missing-board error at the call site
- * if it matters.
+ * Returns an empty bundle if the boardId is unknown — fail-quiet here is
+ * intentional (the natural caller is a UI button that should produce an
+ * empty-but-valid bundle for an empty board).
  */
 export function projectLedgerToBundle(boardId: BoardId): AnalysisBundle {
   const board = store.boards.find(b => b.id === boardId);
@@ -192,20 +222,30 @@ export function projectLedgerToBundle(boardId: BoardId): AnalysisBundle {
     return { schemaVersion: BUNDLE_SCHEMA_VERSION, records: [] };
   }
   const nodeIds = Object.keys(board.nodes) as NodeId[];
-  const records = ledger.listEntriesForNodes(nodeIds);
-  return { schemaVersion: BUNDLE_SCHEMA_VERSION, records };
+  const rawRecords: AnalysisRecord[] = ledger.listRawForNodes(nodeIds).map(r => ({
+    configHash: `${RAW_PREFIX}${r.rawKey}`,
+    nodeId: r.nodeId,
+    packet: r.raw,
+  }));
+  const enrichmentRecords: AnalysisRecord[] = ledger.listEnrichmentForNodes(nodeIds).map(e => ({
+    configHash: `${ENR_PREFIX}${e.enrichedKey}`,
+    nodeId: e.nodeId,
+    packet: { ...ENRICHMENT_PLACEHOLDER_RAW, extra: e.enr },
+  }));
+  return { schemaVersion: BUNDLE_SCHEMA_VERSION, records: [...rawRecords, ...enrichmentRecords] };
 }
 
 /**
- * Replay a bundle into the AnalysisLedger via the existing
- * record() API. Each record yields one ledger.record() call;
- * the ledger's merge logic (see mergeAnalysisPacket) preserves
- * the higher-visit packet if a fresher record happens to be
- * already present, so replay-after-live-analysis is safe.
+ * Replay a bundle into the AnalysisLedger's two stores. Each record routes by
+ * its `configHash` prefix (see the prefix note above): `r:` → `recordRaw`,
+ * `e:` → `recordEnrichment`, bare → legacy combined record (enrichment
+ * restored under the composite key, raw dropped + warned). The per-store merge
+ * logic preserves the higher-visit raw packet and additively merges
+ * enrichment, so replay-after-live-analysis is safe.
  *
- * Unknown schema versions throw — silent skip would let the user
- * believe their analyses hydrated when in fact they didn't (the
- * exact silent-failure ADR-0002 forbids).
+ * Unknown schema versions throw — silent skip would let the user believe their
+ * analyses hydrated when in fact they didn't (the exact silent-failure
+ * ADR-0002 forbids).
  */
 export function replayBundleIntoLedger(bundle: AnalysisBundle): void {
   if (bundle.schemaVersion !== BUNDLE_SCHEMA_VERSION) {
@@ -214,7 +254,32 @@ export function replayBundleIntoLedger(bundle: AnalysisBundle): void {
       `this client supports up to ${BUNDLE_SCHEMA_VERSION}`,
     );
   }
+  let legacyRawDropped = 0;
   for (const r of bundle.records) {
-    ledger.record(r.configHash, r.nodeId, r.packet);
+    if (r.configHash.startsWith(RAW_PREFIX)) {
+      const rawKey = r.configHash.slice(RAW_PREFIX.length) as RawKey;
+      const { extra: _extra, ...raw } = r.packet;
+      ledger.recordRaw(rawKey, r.nodeId, raw);
+    } else if (r.configHash.startsWith(ENR_PREFIX)) {
+      const enrichedKey = r.configHash.slice(ENR_PREFIX.length) as EnrichedKey;
+      if (r.packet.extra) ledger.recordEnrichment(enrichedKey, r.nodeId, r.packet.extra);
+    } else {
+      // Legacy pre-stratification record: the bare configHash is the old
+      // composite hash, which equals today's enriched key. Restore the
+      // enrichment under it; drop the raw half (its raw key cannot be derived
+      // from the one-way composite hash) — it re-fetches live on navigation.
+      // Recording the legacy raw under the composite key would re-strand it
+      // from the raw-key consumers, reintroducing the very bug this fixes.
+      const enrichedKey = r.configHash as EnrichedKey;
+      if (r.packet.extra) ledger.recordEnrichment(enrichedKey, r.nodeId, r.packet.extra);
+      legacyRawDropped++;
+    }
+  }
+  if (legacyRawDropped > 0) {
+    console.warn(
+      `[analysis-bundle] legacy bundle: restored enrichment for ${legacyRawDropped} ` +
+      `record(s); their raw analyses re-fetch on navigation (raw key not derivable ` +
+      `from the pre-stratification composite hash).`,
+    );
   }
 }

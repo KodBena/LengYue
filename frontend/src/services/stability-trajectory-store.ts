@@ -104,6 +104,18 @@ export class StabilityTrajectoryStore {
    * V is read from `packet.rootInfo.visits` — the design note's
    * canonical V scale. Packets without a finite visits count are
    * skipped (can't place them on the V-axis).
+   *
+   * KNOWN DEFERRAL (ADR-0002, out of scope of the ledger stratification,
+   * 2026-06-08): the extracted Q values come from RAW packet fields
+   * (`rootInfo` / `moveInfos`), which depend only on the model + engine
+   * overrides — NOT the palette. But this store still keys by the full
+   * composite `hash` (the enriched key, == the value the analysis-service
+   * boundary passes here). So a palette-only swap strands a node's
+   * trajectory the same way the ledger's raw store used to strand the
+   * board overlays. The fix is to apply the identical raw-key
+   * stratification here; deferred so the ledger change stays scoped. See
+   * `docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md`
+   * ("Out of scope").
    */
   public record(hash: string, nodeId: NodeId, packet: KataAnalysisResponse): void {
     const V = packet.rootInfo?.visits;

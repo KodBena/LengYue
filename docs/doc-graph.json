@@ -1,6 +1,6 @@
 {
-  "node_count": 395,
-  "edge_count": 1828,
+  "node_count": 396,
+  "edge_count": 1832,
   "age_buckets": [
     {
       "name": "fresh",
@@ -137,7 +137,7 @@
       "genre": "adr",
       "is_hub": false,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-06-04",
+      "last_committed": "2026-06-08",
       "age_bucket": "fresh"
     },
     {
@@ -1633,7 +1633,7 @@
       "genre": "doc-root",
       "is_hub": true,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-06-04",
+      "last_committed": "2026-06-08",
       "age_bucket": "fresh"
     },
     {
@@ -1865,7 +1865,7 @@
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-06-02",
-      "last_committed": "2026-06-04",
+      "last_committed": "2026-06-08",
       "age_bucket": "fresh"
     },
     {
@@ -2674,7 +2674,7 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-27-library-newtab-middleclick.md",
@@ -2994,7 +2994,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-01-drop-jquery.md",
@@ -3082,7 +3082,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-03-scattered-timing-literals-decision.md",
@@ -3090,7 +3090,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-03-surface-1-backgrounds-audit.md",
@@ -3098,7 +3098,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-03-tag-mutation-and-tenancy-fixes.md",
@@ -3142,6 +3142,14 @@
     },
     {
       "path": "docs/worklog/2026-06-08-basechart-active-prop-default.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-08",
+      "last_committed": "2026-06-08",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-08-ledger-stratified-keying.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": null,
@@ -15629,6 +15637,27 @@
       "resolved": "resolved"
     },
     {
+      "from": "docs/worklog/2026-06-08-ledger-stratified-keying.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-08-ledger-stratified-keying.md",
+      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-08-ledger-stratified-keying.md",
+      "to": "docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md`",
+      "resolved": "resolved"
+    },
+    {
       "from": "frontend/CLAUDE.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
@@ -15794,6 +15823,13 @@
       "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
       "kind": "path-mention",
       "site": "`docs/adr/0003-frontend-portability-and-domain-boundaries.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "frontend/IDENTIFIERS.md",
+      "to": "docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md`",
       "resolved": "resolved"
     },
     {

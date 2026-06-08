@@ -112,7 +112,7 @@ import {
 } from '../fakes/analysis-service';
 import { resetFakeAnalysisPersistenceService } from '../fakes/analysis-persistence-service';
 import { ledger } from '../../src/services/analysis-ledger';
-import { activeConfigHash } from '../../src/services/analysis-config';
+import { activeAnalysisKeys } from '../../src/services/analysis-config';
 import type {
   BoardId,
   CardId,
@@ -359,6 +359,15 @@ describe('useReviewSession.processUserMove — happy path', () => {
     // `mockResolvedValue` so both waits resolve with this packet.
     // The s_1 path's fast-path delta lookup finds 0.85 on it.
     vi.mocked(waitForAnalysis).mockResolvedValue(packet);
+    // The per-move delta now lives in the enrichment store (keyed by
+    // enrichedKey), read via getEnrichment — `waitForAnalysis` returns the
+    // raw half only. Seed the enrichment under s_0 (root); the path-scan
+    // finds it. Mirrors production, where raw + enrichment land in the same
+    // onAnalysisUpdate tick.
+    ledger.recordEnrichment(activeAnalysisKeys.value.enrichedKey, board.rootNodeId, {
+      black: { deltas: { '0': 0.85 } },
+      white: { deltas: { '0': 0.85 } },
+    });
 
     const boardIdRef = ref<BoardId | null>(boardId);
     const { processUserMove, state, userMoveScores } = useReviewSession(boardIdRef);
@@ -405,20 +414,14 @@ describe('useReviewSession.processUserMove — happy path', () => {
       draft.startingNodeId = board.rootNodeId;
     });
 
-    // Pre-populate the ledger: the s_0 packet (root nodeId, the
-    // position the user is about to play from) carries the delta
-    // for black move index 0. The card has no `gradingParameter`,
-    // so processUserMove uses `activeConfigHash.value` as the hash;
-    // we mirror that here.
-    ledger.record(activeConfigHash.value, board.rootNodeId, {
-      isDuringSearch: false,
-      turnNumber: 0,
-      extra: {
-        black: { deltas: { '0': 0.42 } },
-      },
-      moveInfos: [],
-      rootInfo: { winrate: 0.5, scoreLead: 0, visits: 1000, currentPlayer: 'B' },
-    } as unknown as KataAnalysisResponse);
+    // Pre-populate the enrichment store: the s_0 node (root, the position
+    // the user is about to play from) carries the delta for black move index
+    // 0, and s_1 carries none — so only the path-scan (not the s_1 fast-path)
+    // can find it. The card has no `gradingParameter`, so processUserMove
+    // uses `activeAnalysisKeys.value.enrichedKey`; we mirror that here.
+    ledger.recordEnrichment(activeAnalysisKeys.value.enrichedKey, board.rootNodeId, {
+      black: { deltas: { '0': 0.42 } },
+    });
 
     // The s_1 packet carries no deltas — exactly the case where the
     // prior implementation silently fell back to 0.5. Empty
@@ -509,8 +512,13 @@ describe('useReviewSession.processUserMove — happy path', () => {
     });
 
     const packet = makeAnalysisPacket({ turnNumber: 1, delta: 0.92 });
-    // Both s_0 and s_1 waits resolve with this packet (Promise.all).
+    // Both s_0 and s_1 waits resolve with this raw packet (Promise.all); the
+    // delta is read from the enrichment store, seeded here under s_0 (root).
     vi.mocked(waitForAnalysis).mockResolvedValue(packet);
+    ledger.recordEnrichment(activeAnalysisKeys.value.enrichedKey, board.rootNodeId, {
+      black: { deltas: { '0': 0.92 } },
+      white: { deltas: { '0': 0.92 } },
+    });
     fakeBackendService.submitReview.mockResolvedValueOnce(card);
 
     const boardIdRef = ref<BoardId | null>(boardId);

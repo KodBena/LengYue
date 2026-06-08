@@ -44,6 +44,7 @@
 import { computed } from 'vue';
 import { useQeubo } from '../composables/useQeubo';
 import { store } from '../store';
+import type { RawKey, EnrichedKey } from '../types';
 
 const qeubo = useQeubo();
 
@@ -170,13 +171,77 @@ export function hashConfig(config: any): string {
 }
 
 /**
- * A reactive computed for UI composables to track the current active hash.
- * Changes instantly when a palette is swapped, a symbol is edited, a
- * key in `engine.katago.overrideSettings` is added / removed / retyped,
- * OR the SELECTOR Toolbar dropdown selects a different network.
- * Including all three legs in the hash is what prevents two analyses
- * with different inputs (palette, KataGo runtime settings like winrate
- * framing flipped from 'WHITE' to 'BLACK', or routing target like
- * weak vs. strong network) from sharing a ledger bucket.
+ * The raw-half descriptor: the subset of the analysis descriptor the raw
+ * KataGo output actually depends on (network + engine `overrideSettings`),
+ * with the palette (`analysis_config`) leg dropped entirely. `model` last,
+ * matching `compileAnalysisDescriptorFromParts`'s omit-when-undefined
+ * convention; there is no back-compat constraint here (no persisted bundle
+ * ever stored a raw key). Returns `undefined` when both legs are undefined
+ * so `hashConfig(undefined) === 'default'` is preserved, mirroring the
+ * enriched descriptor's contract.
  */
-export const activeConfigHash = computed(() => hashConfig(compileAnalysisDescriptor()));
+function compileRawDescriptorFromParts(
+  overrideSettings: Record<string, unknown> | undefined,
+  model?: string,
+) {
+  if (overrideSettings === undefined && model === undefined) return undefined;
+  return { overrideSettings, model };
+}
+
+/**
+ * Derive both provenance-stratified ledger keys from one structured
+ * descriptor — the SOLE construction site for the `RawKey` / `EnrichedKey`
+ * brands (no raw casts at consumers).
+ *
+ *   - `enrichedKey` = hash(palette + overrides + model). Built via the
+ *     existing `compileAnalysisDescriptorFromParts`, so it is **byte-identical
+ *     to the legacy `configHash`** — the documented model-last back-compat
+ *     invariant is preserved automatically, and a legacy persisted bundle's
+ *     `config_hash` equals this enriched key (load-bearing for v1 replay).
+ *   - `rawKey` = hash(overrides + model). Palette-independent, so a palette
+ *     swap leaves it unchanged and raw consumers keep reading their bucket.
+ *
+ * Both are derived from the same parts so the two keys can never drift on
+ * which legs feed which.
+ */
+export function deriveAnalysisKeys(
+  analysis_config: unknown,
+  overrideSettings: Record<string, unknown> | undefined,
+  model?: string,
+): { rawKey: RawKey; enrichedKey: EnrichedKey } {
+  const enrichedKey = hashConfig(
+    compileAnalysisDescriptorFromParts(analysis_config, overrideSettings, model),
+  ) as EnrichedKey;
+  const rawKey = hashConfig(
+    compileRawDescriptorFromParts(overrideSettings, model),
+  ) as RawKey;
+  return { rawKey, enrichedKey };
+}
+
+/**
+ * A reactive computed of the two active ledger keys, derived from live
+ * settings. Recomputes when a palette is swapped, a symbol is edited, an
+ * `engine.katago.overrideSettings` key is added / removed / retyped, OR the
+ * SELECTOR Toolbar dropdown selects a different network. A palette-only
+ * change re-mints `enrichedKey` while leaving `rawKey` stable — the property
+ * the raw-overlay consumers rely on to survive a palette swap.
+ */
+export const activeAnalysisKeys = computed(() =>
+  deriveAnalysisKeys(
+    compileAnalysisConfig(),
+    compileEngineOverrides(),
+    store.engine.selectedModel ?? undefined,
+  ),
+);
+
+/**
+ * @deprecated Prefer `activeAnalysisKeys.value.rawKey` /
+ * `activeAnalysisKeys.value.enrichedKey`. Retained as the composite-hash
+ * alias (equal to the enriched key) for consumers that legitimately key by
+ * the full descriptor — the stability / trajectory store
+ * (`stability-trajectory-store.ts`), which still buckets by the composite.
+ * Returns the branded `EnrichedKey`, so any not-yet-migrated
+ * `ledger.getRaw(activeConfigHash.value, …)` call now fails the typecheck —
+ * a deliberate surfacing of unmigrated raw consumers.
+ */
+export const activeConfigHash = computed(() => activeAnalysisKeys.value.enrichedKey);

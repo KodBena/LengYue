@@ -15,7 +15,7 @@ import { useNavigation } from '../../composables/useNavigation';
 import { findPlacementOnActivePath } from '../../engine/navigator';
 import { store } from '../../store';
 import { ledger } from '../../services/analysis-ledger';
-import { activeConfigHash } from '../../services/analysis-config';
+import { activeAnalysisKeys } from '../../services/analysis-config';
 
 // ── Ownership overlay glue ───────────────────────────────────────────────────
 // KataGo's `ownership` field comes back length size² in row-major order.
@@ -98,9 +98,9 @@ const lastMovePoint = computed(() => {
 // current node. Both the continuous and dots sub-modes consume this
 // list; the liveness sub-mode consumes its sibling `livenessCells`.
 const decodedOwnership = computed(() => {
-  const hash = activeConfigHash.value;
-  if (!hash) return null;
-  const packet = ledger.getRaw(hash, props.state.currentNodeId);
+  const rawKey = activeAnalysisKeys.value.rawKey;
+  if (!rawKey) return null;
+  const packet = ledger.getRaw(rawKey, props.state.currentNodeId);
   const raw = packet?.ownership;
   if (!raw) return null;
   return decodeBoardArray(raw, boardSize.value);

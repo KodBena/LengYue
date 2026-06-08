@@ -17,7 +17,7 @@
  * Callers can narrow the thrown error:
  *
  *     try {
- *       const packet = await waitForAnalysis(hash, nodeId, turn, opts);
+ *       const packet = await waitForAnalysis(rawKey, nodeId, turn, opts);
  *     } catch (err) {
  *       if (err instanceof AnalysisWaitError) {
  *         if (err.reason === 'timeout') { ... }
@@ -29,8 +29,8 @@
  */
 
 import { watch } from 'vue';
-import type { KataAnalysisResponse } from '../../engine/katago/types';
-import type { NodeId } from '../../types';
+import type { RawAnalysis } from '../../engine/katago/types';
+import type { NodeId, RawKey } from '../../types';
 import { ledger } from '../../services/analysis-ledger';
 
 export type AnalysisWaitReason = 'timeout' | 'aborted';
@@ -66,20 +66,20 @@ export interface WaitForAnalysisOptions {
  * so the matching criterion lives in one place.
  */
 function matchesTarget(
-  packet: KataAnalysisResponse | null | undefined,
+  packet: RawAnalysis | null | undefined,
   turnNumber: number
-): KataAnalysisResponse | null {
+): RawAnalysis | null {
   return (packet && packet.isDuringSearch === false && packet.turnNumber === turnNumber)
     ? packet
     : null;
 }
 
 export function waitForAnalysis(
-  hash: string,
+  rawKey: RawKey,
   nodeId: NodeId,
   turnNumber: number,
   options: WaitForAnalysisOptions
-): Promise<KataAnalysisResponse> {
+): Promise<RawAnalysis> {
   return new Promise((resolve, reject) => {
     // Defensive early-exit: if already aborted, fail fast without
     // setting up any machinery.
@@ -95,7 +95,7 @@ export function waitForAnalysis(
     //      callback synchronously before `unwatch` and `timerId` are
     //      initialized — a temporal-dead-zone hazard. Manual initial
     //      check lets us use watch() with the default (lazy) behavior.
-    const initial = matchesTarget(ledger.getRaw(hash, nodeId), turnNumber);
+    const initial = matchesTarget(ledger.getRaw(rawKey, nodeId), turnNumber);
     if (initial) {
       resolve(initial);
       return;
@@ -118,7 +118,7 @@ export function waitForAnalysis(
     const onAbort = (): void => settle(() => reject(new AnalysisWaitError('aborted')));
 
     const unwatch = watch(
-      () => ledger.getRaw(hash, nodeId),
+      () => ledger.getRaw(rawKey, nodeId),
       (packet) => {
         const matched = matchesTarget(packet, turnNumber);
         if (matched) settle(() => resolve(matched));

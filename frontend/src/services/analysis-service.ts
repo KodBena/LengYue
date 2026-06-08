@@ -25,7 +25,7 @@ import {
   buildPerQueryCapabilities,
   shouldWarnTranspositionUnmet,
 } from '../engine/katago/capability-injection';
-import { type BoardId, type NodeId } from '../types';
+import { type BoardId, type NodeId, type RawKey, type EnrichedKey } from '../types';
 import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi, getInitialStones } from '../engine/util';
 import { store, pushSystemMessage } from '../store';
 import { ledger } from './analysis-ledger';
@@ -34,9 +34,8 @@ import { analysisPersistenceService } from './analysis-persistence-service';
 import {
   compileAnalysisConfig,
   compileEngineOverrides,
-  compileAnalysisDescriptorFromParts,
-  activeConfigHash,
-  hashConfig,
+  deriveAnalysisKeys,
+  activeAnalysisKeys,
 } from './analysis-config';
 import { KATAGO_WS_URL } from '../config/env';
 import {
@@ -75,7 +74,11 @@ export class AnalysisService {
     // never mutated.
     mode: 'analyze' | 'ponder',
     path: NodeId[],
-    hash: string,
+    // The two provenance-stratified ledger keys for this query. `rawKey`
+    // (model + overrides) keys the raw store; `enrichedKey` (+ palette) keys
+    // the enrichment store and equals the legacy composite hash.
+    rawKey: RawKey,
+    enrichedKey: EnrichedKey,
     framing: WinrateFraming,
     // Wall-clock anchor (performance.now()) captured at query-submit
     // time. Used by the DEV-only per-packet timing log in
@@ -496,13 +499,13 @@ export class AnalysisService {
     // The current SELECTOR target is read live in both branches — a
     // query that targets a different network produces different
     // packets and must bucket separately in the ledger from one
-    // targeting another network. `activeConfigHash` already accounts
+    // targeting another network. `activeAnalysisKeys` already accounts
     // for this in the live branch (it reads the same source).
-    const hash = hasConfigOverride
-      ? hashConfig(compileAnalysisDescriptorFromParts(
+    const keys = hasConfigOverride
+      ? deriveAnalysisKeys(
           analysis_config, overrideSettings, store.engine.selectedModel ?? undefined,
-        ))
-      : activeConfigHash.value;
+        )
+      : activeAnalysisKeys.value;
     // Resolve the framing the wire is about to ask KataGo for and
     // cache it on the active-query entry; `onAnalysisUpdate`
     // normalises every response packet through this value before
@@ -518,7 +521,7 @@ export class AnalysisService {
     // each invocation).
     const framing = resolveWinrateFraming(overrideSettings);
 
-    this.activeQueries.set(queryId, { boardId, mode: 'analyze', path: fullPath, hash, framing, startedAt: performance.now() });
+    this.activeQueries.set(queryId, { boardId, mode: 'analyze', path: fullPath, rawKey: keys.rawKey, enrichedKey: keys.enrichedKey, framing, startedAt: performance.now() });
 
     // Queue telemetry — register at construction so the Toolbar's
     // queue tooltip can render this range query and its ETA.
@@ -716,11 +719,11 @@ export class AnalysisService {
       ? overrideSettingsOverride
       : compileEngineOverrides();
     // See analyzeRange above for the SELECTOR-model hash rationale.
-    const hash = hasConfigOverride
-      ? hashConfig(compileAnalysisDescriptorFromParts(
+    const keys = hasConfigOverride
+      ? deriveAnalysisKeys(
           analysis_config, overrideSettings, store.engine.selectedModel ?? undefined,
-        ))
-      : activeConfigHash.value;
+        )
+      : activeAnalysisKeys.value;
     // See analyzeRange above for the framing-resolution rationale.
     const framing = resolveWinrateFraming(overrideSettings);
 
@@ -732,7 +735,7 @@ export class AnalysisService {
       mode === 'ponder'
         ? store.profile.settings.engine.katago.ponderMaxVisits
         : undefined;
-    this.activeQueries.set(queryId, { boardId, mode, path: fullPath, hash, framing, startedAt: performance.now(), ponderCeiling });
+    this.activeQueries.set(queryId, { boardId, mode, path: fullPath, rawKey: keys.rawKey, enrichedKey: keys.enrichedKey, framing, startedAt: performance.now(), ponderCeiling });
 
     // Queue telemetry — single-turn entry. For ponder, the per-turn
     // visit budget is the ponderMaxVisits ceiling; for analyze, the
@@ -955,15 +958,21 @@ export class AnalysisService {
       // scalars; identity-returns the input when no flip is needed
       // (WHITE framing, or SIDETOMOVE with currentPlayer === 'W').
       const normalized = normalizePacketToWhiteFraming(response, queryInfo.framing);
-      ledger.record(queryInfo.hash, nodeId, normalized);
+      // Split the normalized packet into its provenance halves and record
+      // each under its own key: the raw half (palette-independent) under
+      // `rawKey`, the palette enrichment under `enrichedKey`. winrate-framing
+      // flips raw signed scalars only, never `extra`, so the split is clean.
+      const { extra, ...raw } = normalized;
+      ledger.recordRaw(queryInfo.rawKey, nodeId, raw);
+      if (extra) ledger.recordEnrichment(queryInfo.enrichedKey, nodeId, extra);
       // Stability-trajectory ingestion: every packet — preview and
       // final alike — contributes a V-axis observation to the per-
-      // extractor trajectories for this (hash, nodeId). Composes
-      // with the ledger record above (same hash, same nodeId, same
-      // normalised packet); the trajectory store's change-point
+      // extractor trajectories for this (enrichedKey, nodeId). The
+      // trajectory store still keys by the full composite (== enrichedKey),
+      // and consumes the whole normalised packet; its change-point
       // compression keeps storage bounded. See
       // `docs/notes/stability-surface-design-space.md` §"Option α".
-      stabilityTrajectoryStore.record(queryInfo.hash, nodeId, normalized);
+      stabilityTrajectoryStore.record(queryInfo.enrichedKey, nodeId, normalized);
       const board = store.boards.find(b => b.id === queryInfo.boardId);
       if (board) {
         store.engine.metrics = { ...store.engine.metrics, lastResponseId: board.id };

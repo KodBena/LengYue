@@ -46,7 +46,7 @@ import sgf from '@sabaki/sgf';
 import { loadSgf } from '../../../src/engine/sgf-loader';
 import { addBoard, resetWorkspace, store } from '../../../src/store';
 import { ledger } from '../../../src/services/analysis-ledger';
-import { activeConfigHash } from '../../../src/services/analysis-config';
+import { activeAnalysisKeys } from '../../../src/services/analysis-config';
 import { i18n } from '../../../src/i18n';
 import type { BoardState, NodeId } from '../../../src/types';
 import type { KataAnalysisResponse } from '../../../src/engine/katago/types';
@@ -108,7 +108,7 @@ describe('BoardTab — render-count regression guard', () => {
   it('does not re-render when rugplot analysis data changes (canvas is drawn off the render path)', async () => {
     const board = loadBoardIntoStore(FIVE_MOVE_SGF);
     const path = activePath(board);
-    const hash = activeConfigHash.value;
+    const rawKey = activeAnalysisKeys.value.rawKey;
 
     harness = mountWithRenderCount(BoardTab, {
       props: { state: board, index: 0, isActive: true },
@@ -125,14 +125,14 @@ describe('BoardTab — render-count regression guard', () => {
     let deepening = 100;
     for (let round = 0; round < 4; round++) {
       for (const nodeId of path) {
-        ledger.record(hash, nodeId, packetWithVisits(nodeId, deepening));
+        ledger.recordRaw(rawKey, nodeId, packetWithVisits(nodeId, deepening));
         deepening += 250;
       }
       await nextTick();
     }
 
     // Sanity: the data the rugplot reads actually changed.
-    expect(ledger.getRaw(hash, path[0])?.rootInfo?.visits).toBeGreaterThan(0);
+    expect(ledger.getRaw(rawKey, path[0])?.rootInfo?.visits).toBeGreaterThan(0);
 
     // The read-locality + canvas invariant: rugplot-data updates touch
     // nothing the render function subscribes to. k = 0 is the meaningful
