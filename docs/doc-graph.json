@@ -1,6 +1,6 @@
 {
-  "node_count": 398,
-  "edge_count": 1833,
+  "node_count": 400,
+  "edge_count": 1846,
   "age_buckets": [
     {
       "name": "fresh",
@@ -137,7 +137,7 @@
       "genre": "adr",
       "is_hub": false,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-06-08",
+      "last_committed": "2026-06-04",
       "age_bucket": "fresh"
     },
     {
@@ -1633,7 +1633,7 @@
       "genre": "doc-root",
       "is_hub": true,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-06-08",
+      "last_committed": "2026-06-04",
       "age_bucket": "fresh"
     },
     {
@@ -1659,6 +1659,14 @@
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
       "age_bucket": "recent"
+    },
+    {
+      "path": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": "2026-06-05",
+      "last_committed": "2026-06-08",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/audit/audit-stringly-typed-contracts-2026-06-01.md",
@@ -1826,7 +1834,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "recent"
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-03-tag-ssot-and-tenancy-leak.md",
@@ -1834,15 +1842,23 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "recent"
+      "age_bucket": "fresh"
     },
     {
-      "path": "docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md",
+      "path": "docs/notes/consult/opus-consult-2026-06-05-board-scope-exhaustiveness.md",
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-06-08",
       "last_committed": "2026-06-08",
       "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "docs/notes/consult/opus-consults-2026-05-28-audit.md",
@@ -1865,7 +1881,7 @@
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-06-02",
-      "last_committed": "2026-06-08",
+      "last_committed": "2026-06-04",
       "age_bucket": "fresh"
     },
     {
@@ -2674,7 +2690,7 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-05-27",
-      "age_bucket": "stale"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-05-27-library-newtab-middleclick.md",
@@ -2978,7 +2994,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "aging"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-01-doc-graph-artifact.md",
@@ -3090,7 +3106,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "recent"
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-03-surface-1-backgrounds-audit.md",
@@ -3106,7 +3122,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "recent"
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-03-tags-fetch-hydration-race-fix.md",
@@ -3114,7 +3130,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "recent"
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-04-qeubo-e2e-validation-harness.md",
@@ -3144,9 +3160,9 @@
       "path": "docs/worklog/2026-06-08-basechart-active-prop-default.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": "2026-06-08",
-      "last_committed": "2026-06-08",
-      "age_bucket": "fresh"
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "docs/worklog/2026-06-08-key-brand-tightening.md",
@@ -3160,17 +3176,17 @@
       "path": "docs/worklog/2026-06-08-ledger-stratified-keying.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": "2026-06-08",
-      "last_committed": "2026-06-08",
-      "age_bucket": "fresh"
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "docs/worklog/2026-06-08-stability-trajectory-stratified-keying.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": "2026-06-08",
-      "last_committed": "2026-06-08",
-      "age_bucket": "fresh"
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "frontend/CLAUDE.md",
@@ -3193,8 +3209,8 @@
       "genre": "subproject-frontend",
       "is_hub": false,
       "first_committed": "2026-05-31",
-      "last_committed": "2026-06-08",
-      "age_bucket": "fresh"
+      "last_committed": "2026-05-31",
+      "age_bucket": "aging"
     },
     {
       "path": "frontend/README.md",
@@ -10242,6 +10258,69 @@
       "resolved": "resolved"
     },
     {
+      "from": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
+      "to": "docs/adr/0001-state-mutation-and-readonly.md",
+      "kind": "adr-related",
+      "site": "ADR-0001",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
+      "to": "docs/notes/tenancy.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/tenancy.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
+      "to": "docs/archive/notes/resource-ownership-audit-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/resource-ownership-audit-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
+      "to": "frontend/docs/notes/board-scope.md",
+      "kind": "path-mention",
+      "site": "`frontend/docs/notes/board-scope.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
+      "to": "docs/notes/consult/opus-consult-2026-06-05-board-scope-exhaustiveness.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/consult/opus-consult-2026-06-05-board-scope-exhaustiveness.md`",
+      "resolved": "resolved"
+    },
+    {
       "from": "docs/notes/audit/audit-stringly-typed-contracts-2026-06-01.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
@@ -10848,6 +10927,34 @@
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
       "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-05-board-scope-exhaustiveness.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-05-board-scope-exhaustiveness.md",
+      "to": "docs/adr/0001-state-mutation-and-readonly.md",
+      "kind": "adr-related",
+      "site": "ADR-0001",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-05-board-scope-exhaustiveness.md",
+      "to": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/consult/opus-consult-2026-06-05-board-scope-exhaustiveness.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
       "resolved": "resolved"
     },
     {
