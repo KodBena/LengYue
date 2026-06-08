@@ -227,7 +227,7 @@ owning work-status SSOT item, not a per-note marker. See Rule 9.
 
 *(Appended 2026-06-02.)*
 
-The work-status SSOT consolidation (RCA guard G5 — `docs/work-status.json` as
+The work-status SSOT consolidation (RCA guard G5 — the work-status store as
 the single source of truth for work status) extends to design-note lifecycle.
 A design note is the planning record for a unit of work; that work's status is
 an SSOT concern, so the note delegates to it rather than carrying its own.
@@ -262,8 +262,10 @@ names its own retirement: when the last old-style note is implemented or
 retired, the bespoke check is purged from CI).
 
 This rule is the design-note register of the consolidation that made
-`docs/work-status.json` canonical for work status: status lives in one place,
-and the documents that describe work delegate to it.
+the work-status store (the `todo` Postgres DB; the `docs/work-status.json`
+seed it was first consolidated into has since been retired) canonical for
+work status: status lives in one place, and the documents that describe work
+delegate to it.
 
 ## Consequences
 

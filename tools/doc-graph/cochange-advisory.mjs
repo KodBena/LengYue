@@ -2,12 +2,17 @@
 /**
  * tools/doc-graph/cochange-advisory.mjs — co-change advisory for derived docs.
  *
- * Some docs are *content projections* of others — the ADR synopsis summarizes
- * the ADRs; `docs/TODO.md` projects from `docs/work-status.json`. The doc-graph
+ * Some docs are *content projections* of others — e.g. the ADR synopsis
+ * summarizes the ADRs (`<!-- derived-from: docs/adr/*.md -->`). The doc-graph
  * resolves their cross-reference EDGES and tracks node AGE, but neither catches
  * the failure where a *source* changes and its *derived* doc silently lags (the
  * ADR-0005 Rule 3 hazard — a content snapshot going stale while its link stays
  * valid). adr-synopsis missing ADR-0005 Rule 9 after PR #339 was exactly this.
+ *
+ * (Historical note: `docs/TODO.md` once projected from `docs/work-status.json`
+ * and was tracked here. Since the work-status SSOT moved to the `todo` Postgres
+ * DB and the JSON seed was retired, that projection's source is a database the
+ * per-PR-diff check cannot see — so TODO.md is no longer a co-change target.)
  *
  * This advisory closes that gap. A derived doc declares its sources inline:
  *
@@ -126,7 +131,11 @@ function main() {
 function selftest() {
   const D = [
     { derived: 'docs/adr-synopsis.md', sources: ['docs/adr/*.md'] },
-    { derived: 'docs/TODO.md', sources: ['docs/work-status.json'] },
+    // Synthetic exact-path (non-glob source) fixture — exercises globToRe's
+    // no-wildcard branch. Not a real derivation: TODO.md, the former
+    // exact-path case (← docs/work-status.json), now projects from the `todo`
+    // Postgres store, which a per-PR-diff check cannot track.
+    { derived: 'docs/_fixture-derived.md', sources: ['docs/_fixture-source.json'] },
   ];
   const cases = [
     ['source changed, derived not, no ack → flag', ['docs/adr/0005-x.md'], [], ['docs/adr-synopsis.md']],
@@ -134,8 +143,8 @@ function selftest() {
     ['source changed but acked → no flag', ['docs/adr/0005-x.md'], ['docs/adr-synopsis.md'], []],
     ['unrelated change → no flag', ['frontend/src/x.ts'], [], []],
     ['glob does not cross / (nested) → no flag', ['docs/adr/sub/x.md'], [], []],
-    ['exact-path json source → flag', ['docs/work-status.json'], [], ['docs/TODO.md']],
-    ['both derivations fire independently', ['docs/adr/0001-x.md', 'docs/work-status.json'], [], ['docs/TODO.md', 'docs/adr-synopsis.md']],
+    ['exact-path (non-glob) source → flag', ['docs/_fixture-source.json'], [], ['docs/_fixture-derived.md']],
+    ['both derivations fire independently', ['docs/adr/0001-x.md', 'docs/_fixture-source.json'], [], ['docs/_fixture-derived.md', 'docs/adr-synopsis.md']],
   ];
   let fail = 0;
   for (const [name, changed, acked, want] of cases) {
