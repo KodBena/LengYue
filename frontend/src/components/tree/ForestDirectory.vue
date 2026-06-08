@@ -156,8 +156,11 @@ watch(
 // Selection → right-pane policy lives in its own composable so the
 // orchestration is named and findable. The policy writes
 // `browseError` for UX-cap messages; the right-pane empty-state
-// cascade below reads it alongside `tree.error`.
-useForestBrowsePolicy(nav, tree, browseError);
+// cascade below reads it alongside `tree.error`. `inReviewSession`
+// gates the null-selection clear: while a review owns the slot, the
+// policy must not wipe the review forest on remount (the
+// card-metadata-during-review bug).
+useForestBrowsePolicy(nav, tree, browseError, inReviewSession);
 
 async function reloadRoots(): Promise<void> {
   roots.value = await forestStats.fetchForestStats();

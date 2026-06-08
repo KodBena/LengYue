@@ -2,11 +2,15 @@
  * src/composables/forest/useForestBrowsePolicy.ts
  *
  * Translates the Forest Directory navigator's persisted selection
- * into right-pane fetch behaviour. Subscribes to `nav.selection` +
- * `nav.nodes` and dispatches to `tree.loadBrowse` /
- * `loadBrowseForest` / `clearBrowse` based on the kind:
+ * into right-pane fetch behaviour. Subscribes to `nav.selection`,
+ * `nav.nodes`, and `isReviewActive`, and dispatches to
+ * `tree.loadBrowse` / `loadBrowseForest` / `clearBrowse` based on the
+ * kind:
  *
- *   - null:           clear the right pane.
+ *   - null:           clear the right pane — UNLESS a review owns the
+ *                     slot (`isReviewActive`), in which case the slot is
+ *                     left to its review owner. See the branch comment for
+ *                     the two-producers-one-slot rationale.
  *   - root:           single-tree loadBrowse (existing path).
  *   - game ≤ cap:     multi-tree loadBrowseForest.
  *   - game > cap:     surface the cap as a UX message in
@@ -48,11 +52,25 @@ export function useForestBrowsePolicy(
   nav: ForestNavigation,
   tree: CardTreeData,
   browseError: Ref<string | null>,
+  // True while the active board has a running review session. The card-tree
+  // slot has two producers — the review (`seedFromQueue`) and this browse
+  // policy — and the review owns the slot while it runs. Passed as a watch
+  // source so that ending a review (true → false) with no selection re-fires
+  // the policy and clears the now-orphaned review forest.
+  isReviewActive: Readonly<Ref<boolean>>,
 ): void {
   watch(
-    [() => nav.selection.value, () => nav.nodes.value],
+    [() => nav.selection.value, () => nav.nodes.value, () => isReviewActive.value],
     ([sel]) => {
       if (!sel) {
+        // While a review owns the slot, a null/absent navigator selection must
+        // NOT clear it — clearing wipes the review forest on every
+        // ForestDirectory remount (tab away/back): the card-metadata-during-
+        // review bug. `seedFromQueue` short-circuits on the already-populated
+        // slot, so it does not restore what this clear removes. Leave the slot
+        // to its review owner; clearing resumes when the review ends
+        // (isReviewActive → false re-fires this watch).
+        if (isReviewActive.value) return;
         browseError.value = null;
         tree.clearBrowse();
         return;
