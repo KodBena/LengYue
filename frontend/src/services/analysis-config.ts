@@ -33,7 +33,7 @@
  * through the `parameters` field. When an experiment exists and
  * the toolbar is in 'A' or 'B' mode, the corresponding pair's
  * decoded values overlay `env.parameters`; the engine sees the
- * audition without the audition being persisted. `activeConfigHash`
+ * audition without the audition being persisted. `activeAnalysisKeys`
  * is reactive on this overlay so analyses re-issue automatically
  * when the user toggles the audition. See `useQeubo.ts` for the
  * computed (`effectiveParameterValues`) the overlay is derived from.
@@ -105,8 +105,9 @@ export function compileEngineOverrides(): Record<string, unknown> | undefined {
 
 /**
  * Holistic descriptor of every input that determines an analysis
- * packet's content. Used as the hashing input for `activeConfigHash`
- * and for the per-query hash in `analysis-service.ts`. Kept
+ * packet's content. Used as the hashing input for `deriveAnalysisKeys`
+ * / `activeAnalysisKeys` and for the per-query keys in
+ * `analysis-service.ts`. Kept
  * structural rather than wire-shaped so the proxy and KataGo each
  * see only the field that concerns them: `analysis_config`
  * (palette) goes to the proxy; `overrideSettings` goes to KataGo;
@@ -233,15 +234,3 @@ export const activeAnalysisKeys = computed(() =>
     store.engine.selectedModel ?? undefined,
   ),
 );
-
-/**
- * @deprecated Prefer `activeAnalysisKeys.value.rawKey` /
- * `activeAnalysisKeys.value.enrichedKey`. Retained as the composite-hash
- * alias (equal to the enriched key) for consumers that legitimately key by
- * the full descriptor — the stability / trajectory store
- * (`stability-trajectory-store.ts`), which still buckets by the composite.
- * Returns the branded `EnrichedKey`, so any not-yet-migrated
- * `ledger.getRaw(activeConfigHash.value, …)` call now fails the typecheck —
- * a deliberate surfacing of unmigrated raw consumers.
- */
-export const activeConfigHash = computed(() => activeAnalysisKeys.value.enrichedKey);
