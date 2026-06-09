@@ -85,16 +85,79 @@ true. Verified at runtime — `ensureWood` fires once; every one of 12 rapid
 sidebar remounts first-paints with `woodReady = true`; pixel-sampling shows real
 wood tones on the first frame.
 
-(Because this touches a reactive/shared-state seam, the change is being measured
-under a deliberate in-browser jank profile — main vs. fixed, identical
-harness — before it is treated as settled, rather than asserted from the
-headless numbers above.)
+Because this touches a reactive/shared-state seam, the change was measured under
+a deliberate in-browser jank profile (below) before being treated as settled,
+rather than asserted from the headless numbers above.
+
+## Follow-up — the flash is a cache-gated race (why the baseline later showed no flash)
+
+Setting up the before/after comparison surfaced a sharper truth: the *unfixed*
+baseline stopped showing the flash. It is not deterministic. Each freshly-mounted
+`MiniBoardCanvas` arms its own async wood `onload` (which sets its per-instance
+`woodReady`) against its own `ResizeObserver`-driven first paint — whichever
+fires first decides flash-or-no-flash:
+
+- **cold image** → `onload` loses (network + decode) → textureless first paint → flash;
+- **warm image** → the already-decoded image's `onload` resolves fast and can
+  win → textured first paint → no flash.
+
+After heavy testing the maintainer's Firefox had `wood.jpg` hot, so the
+per-instance race resolved favourably and the baseline *looked* fixed. (Headless
+Chromium, by contrast, loses the race on every mount warm or cold — the exact
+threshold is browser-specific, so the Firefox "no flash warm" was not reproduced
+here; it is inferred from the race mechanism.) A dead end worth recording: the
+first attempt to prove the per-instance reload counted `wood.jpg` *network*
+fetches — but per-instance `new Image()` reuses the document's already-decoded
+image (the HTML "available images" list), so there is no re-fetch to count. The
+probe was useless; the per-instance `woodReady` race is the real mechanism. The
+takeaway compounds the cosmetic framing: the bug is not merely sub-frame, it is
+*non-deterministically present* on the buggy build.
+
+## Measurement — the in-browser jank profile (before/after)
+
+A dev-gated harness (`useJankTest`) loads 16 boards (the fixed 342-move Shusaku
+game + 15 random library games), forwards the others to move 50, auto-navigates
+the long game, and scrubs the docked hover preview at a 20–50ms cadence — the
+*same* harness on both builds (baseline vs. fixed), captured in the Firefox
+Profiler (four captures, two each).
+
+Every full run splits into a **~8s janky warm-up** (the 16-game load:
+`eventDelay` p95 600–685ms, ~85% of samples >50ms, main thread ~85% busy) and a
+**steady** phase (autonav + scrub: `eventDelay` p95 ~30ms, main thread ~94%
+busy). Three views:
+
+- **Aggregate** — dominated by the warm-up; baseline and fixed indistinguishable
+  (p95 ≈ 520ms, max ≈ 1000ms).
+- **Warm-up** — identical (p95 599/671 baseline vs. 685 fixed; CPU ~6.8s/8s
+  both). Expected — the warm-up is SGF parse + replay + render, nothing to do
+  with texture.
+- **Steady** — no measurable difference: `eventDelay` p95 30/31 vs. 33; paint
+  count (`DisplayList`) 354/353 vs. 352; `GCMinor` ~35 vs. 30. The one number
+  that wobbled (sync reflows/s, ~190 vs. ~124) is confounded by the *different*
+  random 15-game set per run and contradicted by the second fixed run, so it is
+  not attributed to the fix.
+
+One capture was a partial run (a 2s warm-up, 8.5s total, the full 16 games not
+loaded) and was excluded.
+
+**Verdict: no measurable performance delta**, in any view. Two reasons, both
+recorded: (1) the captures were warm-cache, so the baseline didn't flash or
+double-paint — the builds behave identically *by construction*, and the metrics
+confirm it (`DisplayList` is the same); (2) even cold, the per-mount cost (~2
+sprite rebuilds + an `Image`/`woodWaiters` re-arm × ~700 mounts) is tens of ms
+against a steady state already ~94% CPU-bound by autonav — below the
+`eventDelay` noise floor. **The fix is a correctness/visual fix, not a
+performance win; it should ship on those grounds, not speed.** Methodology notes
+for any rerun: pin the game set (the random 15 inject steady-state noise) and
+capture the baseline *cold* (hard-reload) if the flash itself is to appear in
+the trace.
 
 ## Significance — mostly cosmetic, but a discrepancy worth consolidating
 
 At the end of the day this is **mostly cosmetic to real users**: the textureless
-frame is visible for **under ~10ms** (sub-frame), and only while scrubbing the
-preview rapidly. The value of chasing it was less the pixels than what it
+frame is visible for **under ~10ms** (sub-frame), only while scrubbing the
+preview rapidly, *non-deterministically* (cache-gated, per the follow-up), and —
+per the jank profile — with **no measurable performance cost** either way. The value of chasing it was less the pixels than what it
 *revealed*: two consumers render the same component along **two different
 lifecycles** — one persistently mounted and redrawn, one mounted-and-torn-down
 per hover — and a latent "shared" resource that was actually per-instance went
