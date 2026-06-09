@@ -169,7 +169,9 @@ That is the kind of discrepancy that warrants **an eye toward consolidation**
 lifecycle, with genuinely shared resources guarded against the `<script setup>`
 per-instance footgun, would make this class of bug impossible rather than
 merely latent. Worth fixing — but its real worth is as a signpost toward
-consolidating how thumbnails are rendered.
+consolidating how thumbnails are rendered. This signpost is tracked as the
+deferred work-status item `thumbnail-render-lifecycle-consolidation` (not just
+flagged here) — a note is not the canonical record of open work.
 
 ## Lessons, distilled
 
