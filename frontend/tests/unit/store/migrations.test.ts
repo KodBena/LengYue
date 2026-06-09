@@ -2612,3 +2612,46 @@ describe('57 → 58: strip stale profile.knownTags (moved to non-persisted Globa
     expect('knownTags' in out.profile).toBe(false);
   });
 });
+
+describe('58 → 59: re-scope forestNav.selection per-board (board-scope audit P0)', () => {
+  it('drops a global NavSelection, replacing it with an empty per-board map', () => {
+    const blob: any = {
+      session: {
+        ui: { forestNav: { expanded: ['game:1'], selection: { kind: 'root', rootCardId: 7 } } },
+      },
+    };
+    const out = step(58)(blob);
+    expect(out.session.ui.forestNav.selection).toEqual({});
+    // The global expansion axis is untouched.
+    expect(out.session.ui.forestNav.expanded).toEqual(['game:1']);
+  });
+
+  it('drops a null selection to an empty map', () => {
+    const blob: any = { session: { ui: { forestNav: { expanded: [], selection: null } } } };
+    const out = step(58)(blob);
+    expect(out.session.ui.forestNav.selection).toEqual({});
+  });
+
+  it('is idempotent — preserves an already per-board selection map', () => {
+    const perBoard = { 'board-a': { kind: 'root', rootCardId: 3 } };
+    const blob: any = { session: { ui: { forestNav: { expanded: [], selection: perBoard } } } };
+    const out = step(58)(blob);
+    expect(out.session.ui.forestNav.selection).toEqual(perBoard);
+  });
+
+  it('is a no-op when forestNav is absent (pre-schema-21 / partial blob)', () => {
+    const blob: any = { session: { ui: {} } };
+    const out = step(58)(blob);
+    expect(out.session.ui.forestNav).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v58 blob with a global selection reaches CURRENT with a per-board map', () => {
+    const blob: any = {
+      schemaVersion: 58,
+      session: { ui: { forestNav: { expanded: [], selection: { kind: 'game', gameSourceId: 2 } } } },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(out.session.ui.forestNav.selection).toEqual({});
+  });
+});

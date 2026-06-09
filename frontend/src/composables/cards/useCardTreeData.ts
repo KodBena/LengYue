@@ -219,6 +219,9 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
     slot.activeSet = new Set();
     slot.cards = new Map();
     slot.error = null;
+    // Drop ownership — an empty slot is owned by no producer. Each producer
+    // re-stamps `source` when it repopulates (see `BoardCardTreeState.source`).
+    slot.source = null;
     // Manual-expand state is deliberately NOT cleared here. Its
     // keys are CardId-based and stable across forest reloads: if
     // the new forest contains the same cards, the entries remain
@@ -249,6 +252,9 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
     const slot = getOrCreateBoardCardTree(id);
     slot.isLoading = true;
     reset(id);
+    // Take browse ownership — see `BoardCardTreeState.source`. The slot now
+    // holds navigator-selection content, which `clearBrowse` may clear.
+    getOrCreateBoardCardTree(id).source = 'browse';
     try {
       const tree = await backendService.fetchTreeByRoot(rootCardId);
       // Re-resolve the slot (boardIdRef may have changed mid-fetch;
@@ -270,6 +276,8 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
     const slot = getOrCreateBoardCardTree(id);
     slot.isLoading = true;
     reset(id);
+    // Take browse ownership — see `BoardCardTreeState.source`.
+    getOrCreateBoardCardTree(id).source = 'browse';
     try {
       // Same per-root failure-aggregation pattern as
       // populateSlotFromMatched — a 422 CardTreeOverflowError on
@@ -316,6 +324,14 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
   function clearBrowse(): void {
     const id = boardIdRef.value;
     if (!id) return;
+    // Only browse-loaded content is browse-cleared. A slot a deck-pipeline or
+    // review owns ('matched') must survive a null/absent navigator selection —
+    // clearing it on every ForestDirectory remount is the
+    // card-metadata-during-review / pipeline-preview-vanishes bug (the slot has
+    // three producers and this is the one clearer). See
+    // `frontend/docs/notes/board-scope.md`.
+    const slot = getBoardCardTree(id);
+    if (!slot || slot.source !== 'browse') return;
     reset(id);
   }
 
@@ -463,6 +479,10 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
     target.forest = trees.filter((t): t is CardLineageTree => t !== null);
     target.activeSet = new Set(matchedIds);
     target.cards = new Map(matched.map(c => [c.id, c] as const));
+    // Pipeline / review content — NOT browse-clearable. This seam serves both
+    // runPipeline and seedFromQueue, so a single 'matched' stamp covers the
+    // review and pipeline-preview cases. See `BoardCardTreeState.source`.
+    target.source = 'matched';
     if (failed.length > 0) {
       const head = failed.slice(0, 3).map(f => `#${f.rootCardId}`).join(', ');
       const tail = failed.length > 3 ? i18n.global.t('lineage.failedTail', { n: failed.length - 3 }) : '';

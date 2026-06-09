@@ -6,7 +6,11 @@
  * `nav.nodes` and dispatches to `tree.loadBrowse` /
  * `loadBrowseForest` / `clearBrowse` based on the kind:
  *
- *   - null:           clear the right pane.
+ *   - null:           clear the right pane. `clearBrowse` is
+ *                     ownership-aware — it clears only browse-loaded
+ *                     content, leaving a slot a deck-pipeline or review
+ *                     owns intact (see `useCardTreeData`'s `clearBrowse`
+ *                     and `frontend/docs/notes/board-scope.md`).
  *   - root:           single-tree loadBrowse (existing path).
  *   - game ≤ cap:     multi-tree loadBrowseForest.
  *   - game > cap:     surface the cap as a UX message in
@@ -54,6 +58,10 @@ export function useForestBrowsePolicy(
     ([sel]) => {
       if (!sel) {
         browseError.value = null;
+        // `clearBrowse` clears ONLY browse-owned content; a slot owned by the
+        // deck pipeline or a review survives this null-selection clear (the
+        // producer-ownership fix — the slot has three producers and this is
+        // its one clearer). See `useCardTreeData.clearBrowse`.
         tree.clearBrowse();
         return;
       }

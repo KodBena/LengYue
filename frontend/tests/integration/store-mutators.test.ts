@@ -72,6 +72,7 @@ import {
   closeBoard,
   resetWorkspace,
   identityScopedCacheLabels,
+  boardScopedStoreCellLabels,
 } from '../../src/store';
 import { createInitialBoard } from '../../src/store/board-factory';
 import { defaultKnownTags } from '../../src/store/defaults';
@@ -90,7 +91,7 @@ import {
   removeBoardCardTree,
   clearAllBoardCardTrees,
 } from '../../src/composables/cards/board-card-trees';
-import type { BoardId } from '../../src/types';
+import type { BoardId, CardId, NavNodeId } from '../../src/types';
 
 beforeEach(() => {
   resetFakeAnalysisService();
@@ -195,6 +196,68 @@ describe('closeBoard — resource-ownership cleanup chain', () => {
 
     expect(store.boards).toHaveLength(2);
     expect(store.activeBoardIndex).toBe(1);
+  });
+});
+
+describe('closeBoard — board-scoped store-cell registry (P1b)', () => {
+  // The registry collapses the per-board store-cell deletes; these tests verify
+  // it drains correctly + per-board and tripwire its coverage list. They do NOT
+  // independently enumerate the store's per-board fields (TS can't), so they
+  // catch a forgotten teardown only via the deliberate coverage-list update —
+  // see frontend/docs/notes/board-scope.md (board-scope audit P1b).
+
+  it('the board-scoped store-cell registry covers exactly the known cells', () => {
+    // Fails the moment a per-board store cell is added to or removed from
+    // BOARD_SCOPED_STORE_CELLS without a deliberate update here, so a teardown
+    // can't be silently dropped (a tombstone leak) nor a cell un-registered.
+    expect(boardScopedStoreCellLabels()).toEqual([
+      'session.reviews',
+      'engine.activeMode',
+      'session.ui.cardTreeNav',
+      'session.ui.forestNav.selection',
+    ]);
+  });
+
+  it('closing one board clears every store cell for that board and only that board', () => {
+    // Two boards, both with every per-board store cell populated.
+    const a = store.boards[0].id;
+    const b = createInitialBoard();
+    addBoard(b);
+
+    for (const id of [a, b.id]) {
+      store.session.reviews[id] = {
+        status: 'IDLE',
+        queue: [],
+        currentIndex: -1,
+        startingNodeId: null,
+        userMovesCount: 0,
+        userMoveScores: [],
+        visitsOverride: null,
+      };
+      store.engine.activeMode[id] = 'none';
+      store.session.ui.cardTreeNav[id] = { manuallyExpanded: [] };
+      store.session.ui.forestNav.selection[id] = { kind: 'root', rootCardId: 1 as CardId };
+    }
+
+    closeBoard(b.id);
+
+    // Every store cell for the closed board is gone.
+    expect(store.session.reviews[b.id]).toBeUndefined();
+    expect(store.engine.activeMode[b.id]).toBeUndefined();
+    expect(store.session.ui.cardTreeNav[b.id]).toBeUndefined();
+    expect(store.session.ui.forestNav.selection[b.id]).toBeUndefined();
+
+    // The surviving board's cells are intact.
+    expect(store.session.reviews[a]).toBeDefined();
+    expect(store.engine.activeMode[a]).toBe('none');
+    expect(store.session.ui.cardTreeNav[a]).toEqual({ manuallyExpanded: [] });
+    expect(store.session.ui.forestNav.selection[a]).toEqual({ kind: 'root', rootCardId: 1 });
+  });
+
+  it('closing a board never touches the workspace-global forestNav.expanded', () => {
+    store.session.ui.forestNav.expanded = ['game:1' as NavNodeId];
+    closeBoard(store.boards[0].id); // last board → spawns a fresh blank
+    expect(store.session.ui.forestNav.expanded).toEqual(['game:1']);
   });
 });
 

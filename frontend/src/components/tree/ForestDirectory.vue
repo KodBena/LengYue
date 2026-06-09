@@ -65,7 +65,9 @@ const browseError = ref<string | null>(null);
 // widget displays — same shape as `useReviewSession(boardIdRef)`.
 const boardIdRef = computed<BoardId | null>(() => activeBoard.value?.id ?? null);
 const tree = useCardTreeData(boardIdRef);
-const nav = useForestNavigation(roots);
+// `roots` (the navigator tree) is workspace-global; `boardIdRef` keys the
+// per-board selection axis (schema 59 — board-scope audit P0).
+const nav = useForestNavigation(roots, boardIdRef);
 const forestStats = useForestStats();
 const cardMetadata = useCardMetadata();
 const reviewSession = useReviewSession(boardIdRef);
@@ -156,7 +158,10 @@ watch(
 // Selection → right-pane policy lives in its own composable so the
 // orchestration is named and findable. The policy writes
 // `browseError` for UX-cap messages; the right-pane empty-state
-// cascade below reads it alongside `tree.error`.
+// cascade below reads it alongside `tree.error`. Slot ownership
+// (deck-pipeline / review vs browse) is enforced inside `clearBrowse`,
+// not here — see `useCardTreeData`; this fixes the forest vanishing on
+// tab-away/back for both review and pipeline-preview content.
 useForestBrowsePolicy(nav, tree, browseError);
 
 async function reloadRoots(): Promise<void> {

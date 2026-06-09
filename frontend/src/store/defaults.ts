@@ -697,13 +697,14 @@ export const defaultSessionUI: UISession = {
   // sample. Users who want the per-ping animation flip the
   // toggle in the registry editor.
   watchdogColorTransition: false,
-  // Forest Directory navigator: empty expansion + null selection
-  // means a fresh user lands on a fully-collapsed tree until they
-  // click. Schema-version 21 introduces the field; the migration
-  // backfills existing blobs with the same empty defaults.
+  // Forest Directory navigator: empty expansion (global) + empty per-board
+  // selection map means a fresh user lands on a fully-collapsed tree with no
+  // board selection until they click. Schema-version 21 introduces the field;
+  // 59 re-scopes `selection` to a per-board map (board-scope audit P0) and its
+  // migration drops the prior global selection.
   forestNav: {
     expanded: [],
-    selection: null,
+    selection: {},
   },
   // Per-board card-tree navigator: empty dictionary means a fresh
   // user (or a fresh board) has no manually-expanded stubs or

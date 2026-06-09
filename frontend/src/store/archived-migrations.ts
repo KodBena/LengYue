@@ -2369,4 +2369,40 @@ export const archivedMigrations: Migration[] = [
     }
     return out;
   },
+  // 56 → 57: reshape `profile.qeuboPinnedBookmarks[].parameters` from the
+  // flat `Record<string, number>` (bare analysis_env param name → scalar)
+  // to the knob-registry-native `Record<KnobId, number[]>` (`qeubo.<name>`
+  // key → value vector). Aligns the bookmark with the substrate so
+  // `applyBookmark` hands the vector straight to `writeKnobValue`. qEUBO
+  // params are scalar knobs, so each migrated vector is length 1.
+  //
+  // FROZEN literal (do NOT edit to track a future prefix change — that is
+  // a new migration): the `qeubo.` namespace prefix is frozen here as the
+  // value it carried when this migration shipped (the runtime SSOT is
+  // `useQeubo.ts`'s `QEUBO_KNOB_PREFIX`, but a migration must not import a
+  // mutable constant). The blob is plain JSON; no branding is applied (the
+  // runtime re-brands the keys on read).
+  //
+  // Idempotent: an entry whose value is already an array is preserved
+  // verbatim (already-reshaped key kept as-is), so a re-run is a no-op.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const list = out.profile?.qeuboPinnedBookmarks;
+    if (Array.isArray(list)) {
+      for (const bm of list) {
+        const params = bm?.parameters;
+        if (!params || typeof params !== 'object') continue;
+        const reshaped: Record<string, number[]> = {};
+        for (const [key, value] of Object.entries(params)) {
+          if (Array.isArray(value)) {
+            reshaped[key] = value as number[];
+          } else if (typeof value === 'number') {
+            reshaped[`qeubo.${key}`] = [value];
+          }
+        }
+        bm.parameters = reshaped;
+      }
+    }
+    return out;
+  },
 ];

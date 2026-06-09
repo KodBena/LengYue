@@ -357,6 +357,14 @@ operational monitoring or a future audit walk. Naming the pair
 at authoring time prevents the silent-failure mode the audit was
 shaped to catch.
 
+For the **per-board scope** specifically — which `GlobalStore` cells
+and module caches are keyed on `BoardId`, the `PerBoard<T>` alias, the
+`BOARD_SCOPED_STORE_CELLS` registry, the two teardown classes (board-
+keyed vs board-derived), and the board-completeness test that is the
+actual teardown guarantee — see the board-scope note (`board-scope.md`,
+under `frontend/docs/notes/`), the frontend analog of the backend's
+per-user tenancy note.
+
 ## Rolling-archive discipline for `src/store/migrations.ts`
 
 The active body of `src/store/migrations.ts` keeps **exactly the
