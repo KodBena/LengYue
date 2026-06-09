@@ -1,6 +1,6 @@
 {
-  "node_count": 401,
-  "edge_count": 1849,
+  "node_count": 402,
+  "edge_count": 1850,
   "age_buckets": [
     {
       "name": "fresh",
@@ -33,8 +33,8 @@
       "genre": "umbrella-root",
       "is_hub": false,
       "first_committed": "2026-05-12",
-      "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "last_committed": "2026-06-09",
+      "age_bucket": "fresh"
     },
     {
       "path": "README.md",
@@ -546,7 +546,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/archive/notes/i18n-plan.md",
@@ -658,7 +658,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/archive/notes/vestige/deferred-items/analysis-customisable-subtabs.md",
@@ -666,7 +666,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/archive/notes/vestige/deferred-items/anchor-role-overloading.md",
@@ -674,7 +674,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/archive/notes/vestige/deferred-items/de-cq-preview-hide.md",
@@ -682,7 +682,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/archive/notes/vestige/deferred-items/doc-graph-artifact.md",
@@ -690,7 +690,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/archive/notes/vestige/deferred-items/foreststat-tagstat-acl.md",
@@ -698,7 +698,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/archive/notes/vestige/deferred-items/loadaction-type-dishonest.md",
@@ -706,7 +706,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/archive/notes/vestige/deferred-items/silent-guard-handleloadcard.md",
@@ -714,7 +714,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/archive/notes/vestige/deferred-items/stringly-typed-api-errors.md",
@@ -722,7 +722,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/archive/phase3-allocation-benchmark/NOTES.md",
@@ -2066,7 +2066,7 @@
       "is_hub": false,
       "first_committed": "2026-05-28",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/perf-capture-normalization-protocol.md",
@@ -2778,7 +2778,7 @@
       "is_hub": false,
       "first_committed": "2026-05-29",
       "last_committed": "2026-05-29",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-29-perf-nav-arc2-app-decouple.md",
@@ -2786,7 +2786,7 @@
       "is_hub": false,
       "first_committed": "2026-05-29",
       "last_committed": "2026-05-29",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-29-perf-nav-rb1-toolbar-metrics-decouple.md",
@@ -2794,7 +2794,7 @@
       "is_hub": false,
       "first_committed": "2026-05-29",
       "last_committed": "2026-05-29",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-29-perf-rb3-diagnosis.md",
@@ -3170,7 +3170,7 @@
       "is_hub": false,
       "first_committed": "2026-06-08",
       "last_committed": "2026-06-08",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-08-ledger-stratified-keying.md",
@@ -3186,15 +3186,23 @@
       "is_hub": false,
       "first_committed": "2026-06-08",
       "last_committed": "2026-06-08",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-09-board-scope-fix-perf-diff.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-09",
+      "last_committed": "2026-06-09",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-09-thumbnail-hover-linger-fix.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-09",
+      "last_committed": "2026-06-09",
+      "age_bucket": "fresh"
     },
     {
       "path": "frontend/CLAUDE.md",
@@ -3210,7 +3218,7 @@
       "is_hub": false,
       "first_committed": "2026-05-11",
       "last_committed": "2026-06-08",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "frontend/IDENTIFIERS.md",
@@ -3218,7 +3226,7 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-06-08",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "frontend/README.md",
@@ -15814,6 +15822,13 @@
       "to": "docs/notes/perf-capture-normalization-protocol.md",
       "kind": "path-mention",
       "site": "`docs/notes/perf-capture-normalization-protocol.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-09-thumbnail-hover-linger-fix.md",
+      "to": "docs/adr/0006-source-file-headers.md",
+      "kind": "adr-related",
+      "site": "ADR-0006",
       "resolved": "resolved"
     },
     {

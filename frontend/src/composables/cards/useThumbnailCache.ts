@@ -52,6 +52,15 @@ import { store } from '../../store';
 // directly. showMarker is a render option, not data, so it no longer keys the
 // cache (the snapshot carries `lastMove`; whether to draw the ring is the
 // projection's choice).
+//
+// Reactivity note (load-bearing): this is a `ref(Map)`, so Vue tracks the
+// collection mutators — a `getSnapshotSync().get()` read inside a computed /
+// render re-evaluates when a later `.set()` warms that key. The reactive
+// preview consumers depend on exactly this: ChartPreviewBox and SidebarWidget's
+// docked hover-preview pane both derive their displayed snapshot from a
+// synchronous cache read and rely on the (fire-and-forget) warm triggering the
+// fill. Refactoring this to a plain `Map` or `markRaw(new Map())` would leave
+// those panes race-free but *never populated*. Keep it a reactive collection.
 const snapshotCache: Ref<Map<NodeId, BoardSnapshot>> = ref(new Map<NodeId, BoardSnapshot>());
 const lastWarmedPath = ref<NodeId[]>([]);
 

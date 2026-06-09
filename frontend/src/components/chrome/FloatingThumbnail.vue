@@ -1,5 +1,14 @@
+<!--
+  src/components/chrome/FloatingThumbnail.vue
+  Cursor-anchored hover thumbnail. Imperative show(svg, x, y) / hide() API,
+  driven now only by TreeWidget's variation-toggle hover (the sidebar board-tab
+  preview moved to a docked, reactive pane in SidebarWidget.vue). The component
+  owns its own visibility arbitration — see the HIDE_RADIUS_PX note — so hosts
+  need only call show()/hide() from their enter/leave handlers.
+  License: Public Domain (The Unlicense)
+-->
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onUnmounted } from 'vue';
 const svgContent = ref('');
 const posX = ref(0);
 const posY = ref(0);
@@ -22,17 +31,64 @@ const visible = ref(false);
 const THUMB_BOX = 154;
 
 // magic-literal: 20px cursor-offset for thumbnail anchor. Composes
-// with the caller's own `clientX + 20, clientY - 60` offset
-// (`SidebarWidget.vue` hover handler) so the thumbnail lands at
-// (cursor + 40, cursor - 40) — right of the sidebar tab and a
-// slight rise above the cursor. The two offsets were deliberately
-// kept separate in iter-7 to avoid surprising the caller; if you
-// retune one, retune the pair.
+// with the caller's own cursor offset so the thumbnail lands to the
+// right of, and slightly below, the cursor. (TreeWidget passes the
+// raw cursor; the former SidebarWidget caller added its own nudge
+// before that host moved to the docked pane.) If you retune the
+// pair, retune both.
 const CURSOR_OFFSET_PX = 20;
+
+// magic-literal: 80px hide-radius — the seam-level backstop for a LOST
+// mouseleave, which is the dominant (and nondeterministic) source of the
+// "lingers forever" finickiness. show() records the cursor position the host
+// anchored at; while the pointer stays within this radius the preview holds,
+// and the first pointer movement beyond it hides the preview. The reason a
+// plain `mouseleave` is not enough: TreeWidget's `.toggle-group` <g> elements
+// are re-created on every tree re-render, and a pointer on (or moving off) a
+// <g> that is removed/replaced under it never receives the element-level
+// `mouseleave`, so the host's hide() never fires and the box is stranded.
+// Anchoring visibility to the live pointer rather than trusting the per-element
+// leave converts "lingers forever" into "hides as soon as the pointer moves
+// away" — and, as a side effect, neutralises the async show/hide ordering
+// hazard (an await-late show() with the pointer already elsewhere is hidden by
+// the next pointermove). This COMPOSES with the host's mouseleave (still the
+// fast path on a clean leave); it does not replace it. The listener is bound
+// only while visible, so there is no always-on document-listener cost.
+// Tunable by eye: large enough that in-element jitter does not false-hide,
+// small enough that leaving the element hides promptly.
+const HIDE_RADIUS_PX = 80;
+
+let anchorX = 0;
+let anchorY = 0;
+
+function onDocPointerMove(e: PointerEvent): void {
+  if (!visible.value) return;
+  const dx = e.clientX - anchorX;
+  const dy = e.clientY - anchorY;
+  if (dx * dx + dy * dy > HIDE_RADIUS_PX * HIDE_RADIUS_PX) {
+    hide();
+  }
+}
+
+// Release every stranding watcher. Called from hide() and onUnmounted; safe to
+// run when nothing is bound (removeEventListener on an unregistered pair is a
+// no-op). removeEventListener must echo the capture flag the matching add used.
+function detachWatchers(): void {
+  document.removeEventListener('pointermove', onDocPointerMove);
+  document.removeEventListener('scroll', hide, true);
+  window.removeEventListener('blur', hide);
+}
+
+function hide(): void {
+  visible.value = false;
+  detachWatchers();
+}
 
 defineExpose({
   show: (svg: string, x: number, y: number) => {
     svgContent.value = svg;
+    anchorX = x;
+    anchorY = y;
     const proposedX = x + CURSOR_OFFSET_PX;
     const proposedY = y + CURSOR_OFFSET_PX;
     const maxX = window.innerWidth - THUMB_BOX;
@@ -40,9 +96,27 @@ defineExpose({
     posX.value = Math.max(0, Math.min(proposedX, maxX));
     posY.value = Math.max(0, Math.min(proposedY, maxY));
     visible.value = true;
+    // Bind the stranding watchers (only while visible). Three ways a lost
+    // mouseleave can strand the thumbnail, one watcher each:
+    //   pointermove — the pointer wanders >HIDE_RADIUS_PX from the anchor;
+    //   scroll      — the anchor element scrolls out from under a still pointer
+    //                 (capture, since scroll does not bubble; passive, we never
+    //                 preventDefault) — the live variation tree grows during
+    //                 analysis, so this is the realistic stationary-pointer case;
+    //   blur        — the window loses focus mid-hover.
+    // addEventListener dedupes an identical (type, fn, capture) triple, so a
+    // re-anchoring show() while already visible does not stack listeners.
+    document.addEventListener('pointermove', onDocPointerMove);
+    document.addEventListener('scroll', hide, { capture: true, passive: true });
+    window.addEventListener('blur', hide);
   },
-  hide: () => { visible.value = false; }
+  hide,
 });
+
+// Safety net: if the host unmounts (e.g. the tree panel closes) while the
+// thumbnail is still visible, hide() never runs and the watchers would leak.
+// Drop them on teardown.
+onUnmounted(detachWatchers);
 </script>
 
 <template>
