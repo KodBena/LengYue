@@ -1,0 +1,9 @@
+# The doc-graph SVG is rendered locally for browsing
+# (`node tools/doc-graph/generate.mjs`, needs Graphviz `dot`) and is
+# deliberately NOT committed: it re-layouts wholesale on any structural
+# change and GitHub counts every line of it (`.gitattributes -diff` does
+# not decount on GitHub). The committed manifest `docs/doc-graph.json` is
+# the source of truth; `doc-graph-ci` gates that, not the picture. See
+# docs/notes/vestige/deferred-items/doc-graph-svg-render-off-tree.md
+# (work-status item `doc-graph-svg-render-off-tree`).
+docs/doc-graph.svg
