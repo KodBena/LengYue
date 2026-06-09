@@ -221,7 +221,8 @@ frontend/src/
 │   │   ├── scenarioContext.ts         [B2]  createScenarioContext + runScenario: the imperative app-action façade (createBoard / loadSgf / resetWorkspace / connectEngine / clearCache / analyzeRange / autonav / spawn / measure) + the stimulus-teardown runner.
 │   │   ├── scenarios.ts               [B2]  Scenario registry + built-ins (nav-only / nav-range / full-stress / workspace-reset; analysis preamble connects engine + cold-cache, protocol defaults 1000 visits / no-adapt / SELECTOR) + window.__perfScenario (run / list / disconnect) install.
 │   │   ├── stimuli.ts                 [B1]  popoverStress — background ScenarioStimulus toggling a popover via __devForcePopoverOpen (the useAutoPopoverPerf core, composable form).
-│   │   └── types.ts                   [B2]  PerfScenario / ScenarioContext / QueryHandle / ScenarioStimulus / RangeOpts contracts.
+│   │   ├── types.ts                   [B2]  PerfScenario / ScenarioContext / QueryHandle / ScenarioStimulus / RangeOpts contracts.
+│   │   └── useJankTest.ts             [B2]  Dev-only thumbnail-jank harness: loads 16 boards (fixed 342-move Shusaku game + 15 random library games), auto-navs the long game, scrubs the docked hover preview at 20–50 ms via synthetic mouseenter/leave on real BoardTab roots. Toggled from SidebarWidget's dev-gated "jank test" button.
 │   │
 │   ├── review/                               Spaced-repetition session.
 │   │   ├── useMinting.ts              [B3]  Mint flashcards from boards (Go-board → backend mint payload).
