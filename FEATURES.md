@@ -70,8 +70,9 @@ patterns supported, others render without hoshi).
   hosts each open board as a tab — name, close button, an
   inline analysis-meter rugplot showing recent visit pressure,
   and an activity dot ("geiger counter") indicating real-time
-  engine work. Hover a tab to preview the board state without
-  switching.
+  engine work. Hover a tab to preview that board's current
+  position in a docked preview shelf at the foot of the rail —
+  without switching to it.
 
 - **SGF import and export.** Load via the toolbar's file dialog;
   export the active board to an SGF file via the same surface.
