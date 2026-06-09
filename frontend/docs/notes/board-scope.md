@@ -143,12 +143,19 @@ content. One discriminator fixes all three producers at once — and a future
 producer that forgets to stamp inherits `null` ownership and is left alone, so
 the forget-failure is *persists* (safe), never *vanishes*.
 
-This ownership pattern is a per-slot **convention**, not a lint- or
-type-enforced guarantee. No structural guard stops the next per-board slot with
-several writers and a mid-session clearer from reintroducing this bug's shape;
-the discipline is to reach for an owner when you add the second writer. (Other
-`PerBoard<T>` cells today are single-writer or have ownership-respecting
-clearers, so there is no live twin — but the *class* is unguarded.)
+For the card-tree slot this ownership pattern is now **lint-enforced**: a custom
+ESLint rule (`local/clear-needs-ownership`, in `eslint-rules/`) flags any
+function in `useCardTreeData.ts` that empties the slot (`reset()` or
+`.forest = []`) without consulting `source` or calling a repopulator — it fires
+on the literal shape of the shipped bug (verified by reintroducing the blind
+clear), and a RuleTester test keeps the guard from being edited into a no-op.
+The rule is configurable, so a second owned multi-writer slot adds another
+`files`/`options` block in `eslint.config.js`. Across the *class* the guarantee
+is still a convention until each such slot opts in — nothing stops a brand-new
+per-board slot from reintroducing the shape before anyone wires the rule to it.
+(Other `PerBoard<T>` cells today are single-writer or have ownership-respecting
+clearers, so there is no live twin.) The discipline remains: reach for an owner
+when you add the second writer.
 
 The lesson — and the mistake the first cut of this fix made: when a per-board
 surface has more than one writer, give it an **owner**, not a per-writer guard.

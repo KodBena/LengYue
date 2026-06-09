@@ -143,6 +143,7 @@
 import pluginVue from 'eslint-plugin-vue';
 import tsParser from '@typescript-eslint/parser';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
+import { clearNeedsOwnership } from './eslint-rules/clear-needs-ownership.js';
 
 // The wire-type boundary: backend.ts is importable only at the ACL.
 // Applied everywhere EXCEPT src/services/** and src/types.ts (see block
@@ -323,6 +324,40 @@ export default [
             "Don't match a regex against an error MESSAGE to recover structure " +
             '(ADR-0002 brittleness hazard). Use a structured Error subclass ' +
             'with fields. See docs/notes/rca-discipline-lapses-2026-06-01.md (G1).',
+        },
+      ],
+    },
+  },
+
+  // ── Producer-ownership guard for the card-tree slot (custom local rule) ──
+  // rationale: the per-board card-tree slot has three producers (runPipeline,
+  // seedFromQueue/review, loadBrowse*/navigator) and one mid-session clearer
+  // (the browse policy's null-selection clearBrowse). The clearer reset() the
+  // slot blind, wiping a forest a different producer owned — the
+  // forest-vanishes-on-tab-away/back bug (review AND pipeline-preview). The fix
+  // tags the slot with `source` and clears only what it owns; the prior fix
+  // gated on a per-writer flag (isReviewActive), which covered one producer and
+  // missed the next — the exact failure a per-writer guard invites. This rule
+  // keeps a clearer from going blind again: a function in useCardTreeData.ts
+  // that empties the slot (reset() or `.forest = []`) must reference `source`
+  // or call a repopulator (populateSlotFromMatched). Best-effort + syntactic,
+  // same posture as the error-message guard above (the per-function-body /
+  // by-name gaps are named in the rule file, not papered over). It would have
+  // caught the shipped bug's literal shape — verified by reintroducing the
+  // blind clear and observing it fire. Scoped to the one slot that has this
+  // shape today; the rule is configurable, so a second owned multi-writer slot
+  // adds another block. See frontend/docs/notes/board-scope.md.
+  {
+    files: ['src/composables/cards/useCardTreeData.ts'],
+    plugins: { local: { rules: { 'clear-needs-ownership': clearNeedsOwnership } } },
+    rules: {
+      'local/clear-needs-ownership': [
+        'error',
+        {
+          emptier: 'reset',
+          emptyField: 'forest',
+          ownershipField: 'source',
+          repopulators: ['populateSlotFromMatched'],
         },
       ],
     },
