@@ -52,11 +52,14 @@ covered by a property quantifying over all callers.
    `mouseleave` hides it first; the radius is a backstop for the lost-leave case
    only. Intended composition — recorded, no change.
 2. *Invariant guards a lost `mouseleave`, not `pointerout`/scroll/blur.* The
-   backstop hides only on `pointermove` beyond radius; a touch-lift, window blur,
-   or tree-scroll-under-a-stationary-pointer (no subsequent move) could persist
-   until the next move. Fine for the desktop-mouse target; **surfaced to the
-   user** as optional further hardening (scroll/blur hide), deferred pending a
-   decision rather than added unilaterally.
+   pointer-distance backstop hides only on `pointermove` beyond radius; a window
+   blur, or a tree-scroll-under-a-stationary-pointer (no subsequent move) could
+   persist until the next move. **Acted on** (user decision): added companion
+   seam-level watchers bound only while visible — `scroll` (capture, passive;
+   the live tree grows during analysis, the realistic stationary-pointer case)
+   and window `blur`. Runtime-verified both hide the thumb, with show /
+   clean-leave / pointer-distance backstop unregressed. (Touch-lift remains a
+   non-case for a hover-only desktop affordance.)
 3. *`previewSnapshot` race-freedom depends on Vue's `ref(Map)` collection
    reactivity.* **Acted on** — load-bearing comment added at the cache
    declaration (see above).

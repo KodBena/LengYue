@@ -70,9 +70,18 @@ function onDocPointerMove(e: PointerEvent): void {
   }
 }
 
+// Release every stranding watcher. Called from hide() and onUnmounted; safe to
+// run when nothing is bound (removeEventListener on an unregistered pair is a
+// no-op). removeEventListener must echo the capture flag the matching add used.
+function detachWatchers(): void {
+  document.removeEventListener('pointermove', onDocPointerMove);
+  document.removeEventListener('scroll', hide, true);
+  window.removeEventListener('blur', hide);
+}
+
 function hide(): void {
   visible.value = false;
-  document.removeEventListener('pointermove', onDocPointerMove);
+  detachWatchers();
 }
 
 defineExpose({
@@ -87,19 +96,27 @@ defineExpose({
     posX.value = Math.max(0, Math.min(proposedX, maxX));
     posY.value = Math.max(0, Math.min(proposedY, maxY));
     visible.value = true;
-    // Idempotent: addEventListener dedupes an identical (type, fn) pair, so a
+    // Bind the stranding watchers (only while visible). Three ways a lost
+    // mouseleave can strand the thumbnail, one watcher each:
+    //   pointermove — the pointer wanders >HIDE_RADIUS_PX from the anchor;
+    //   scroll      — the anchor element scrolls out from under a still pointer
+    //                 (capture, since scroll does not bubble; passive, we never
+    //                 preventDefault) — the live variation tree grows during
+    //                 analysis, so this is the realistic stationary-pointer case;
+    //   blur        — the window loses focus mid-hover.
+    // addEventListener dedupes an identical (type, fn, capture) triple, so a
     // re-anchoring show() while already visible does not stack listeners.
     document.addEventListener('pointermove', onDocPointerMove);
+    document.addEventListener('scroll', hide, { capture: true, passive: true });
+    window.addEventListener('blur', hide);
   },
   hide,
 });
 
 // Safety net: if the host unmounts (e.g. the tree panel closes) while the
-// thumbnail is still visible, hide() never runs and the document listener would
-// leak. Drop it on teardown.
-onUnmounted(() => {
-  document.removeEventListener('pointermove', onDocPointerMove);
-});
+// thumbnail is still visible, hide() never runs and the watchers would leak.
+// Drop them on teardown.
+onUnmounted(detachWatchers);
 </script>
 
 <template>
