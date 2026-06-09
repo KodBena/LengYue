@@ -125,8 +125,10 @@ deliberately; don't inherit a neighbour's shape by reflex.
 The per-board card-tree slot (`board-card-trees.ts`) is written by **three**
 producers — the deck pipeline (`runPipeline`), the review session
 (`seedFromQueue`), and the navigator browse (`loadBrowse`/`loadBrowseForest`) —
-but has **one** clearer: the browse policy's null-selection `clearBrowse`. With
-no arbitration they raced: on a top-level tab switch `ForestDirectory` unmounts
+but has **one persist-relevant** clearer — the browse policy's null-selection
+`clearBrowse` (board-close `removeBoardCardTree` and identity-flip
+`clearAllBoardCardTrees` also clear, but tear the whole slot down, correctly,
+regardless of `source`). With no arbitration they raced: on a top-level tab switch `ForestDirectory` unmounts
 and remounts, the policy's `immediate` watch re-fires with a null selection, and
 `clearBrowse` wiped whatever the slot held — pipeline-preview *or* review
 content — while `seedFromQueue`'s idempotent short-circuit wouldn't restore it.
@@ -137,7 +139,16 @@ The arbitration is **ownership**: the slot carries a `source`
 (`'browse' | 'matched' | null`) stamped by whichever producer last populated it
 (`'matched'` covers pipeline *and* review — they share the
 `populateSlotFromMatched` seam), and `clearBrowse` clears ONLY `'browse'`-owned
-content. One discriminator fixes all three producers at once.
+content. One discriminator fixes all three producers at once — and a future
+producer that forgets to stamp inherits `null` ownership and is left alone, so
+the forget-failure is *persists* (safe), never *vanishes*.
+
+This ownership pattern is a per-slot **convention**, not a lint- or
+type-enforced guarantee. No structural guard stops the next per-board slot with
+several writers and a mid-session clearer from reintroducing this bug's shape;
+the discipline is to reach for an owner when you add the second writer. (Other
+`PerBoard<T>` cells today are single-writer or have ownership-respecting
+clearers, so there is no live twin — but the *class* is unguarded.)
 
 The lesson — and the mistake the first cut of this fix made: when a per-board
 surface has more than one writer, give it an **owner**, not a per-writer guard.

@@ -42,13 +42,19 @@ import type {
  * Which producer last populated the slot's forest. The slot has three
  * writers — the deck pipeline (`runPipeline`), the review session
  * (`seedFromQueue`), and the navigator browse (`loadBrowse` /
- * `loadBrowseForest`) — but only ONE clearer: the browse policy's
- * null-selection `clearBrowse`. Tracking ownership lets that clear target
- * ONLY browse-loaded content and leave a slot a pipeline or review owns;
- * clearing those is the card-metadata-during-review / pipeline-preview-
- * vanishes bug. `'browse'` = navigator-selection content; `'matched'` =
- * pipeline OR review content (both flow through `populateSlotFromMatched`);
- * `null` = empty. See `frontend/docs/notes/board-scope.md`.
+ * `loadBrowseForest`) — and one *persist-relevant* clearer: the browse
+ * policy's null-selection `clearBrowse`, which fires while the slot must
+ * still be on screen. (The whole-slot teardowns `removeBoardCardTree` on
+ * board-close and `clearAllBoardCardTrees` on identity-flip also clear, but
+ * destroy the entry outright and SHOULD ignore `source`.) Tracking ownership
+ * lets `clearBrowse` target ONLY browse-loaded content and leave a slot a
+ * pipeline or review owns; clearing those is the card-metadata-during-review
+ * / pipeline-preview-vanishes bug. `'browse'` = navigator-selection content;
+ * `'matched'` = pipeline OR review content (both flow through
+ * `populateSlotFromMatched`); `null` = empty. A future producer that forgets
+ * to stamp inherits `null` and is therefore left alone by `clearBrowse` — the
+ * forget-failure is "persists" (safe), never "vanishes". See
+ * `frontend/docs/notes/board-scope.md`.
  */
 export type ForestSource = 'browse' | 'matched' | null;
 
