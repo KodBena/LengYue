@@ -23,11 +23,64 @@
   the DOM. Used by ChartPreviewBox and the multiresolution heatmap preview.
   License: Public Domain (The Unlicense)
 -->
+<script lang="ts">
+// ── Module-scope shared resources (loaded once, shared across EVERY
+//    MiniBoardCanvas instance) ──────────────────────────────────────────────
+// These MUST live in a plain <script> (module scope), NOT <script setup>
+// (which compiles into setup() — per-instance). Declared per-instance, each
+// freshly-mounted thumbnail reloads the wood and first-paints textureless until
+// its OWN copy decodes — the "flat board colour, then the wood texture pops in"
+// flash. A persistently-mounted consumer (the analysis-panel preview) never
+// remounts, so never shows it; a remount-per-hover consumer (the sidebar board
+// preview) shows it on every hover. Module scope = the texture decodes once for
+// the whole session and every later mount first-paints with it. (The sprite
+// cache has the same shared-once intent; same reason it belongs here.)
+import type { StoneColor } from '../../types';
+
+// Wood texture: loaded once, shared across instances. Instances that draw
+// before it arrives repaint when it does (woodWaiters).
+let woodImg: HTMLImageElement | null = null;
+let woodReady = false;
+const woodWaiters = new Set<() => void>();
+function ensureWood(): void {
+  if (woodImg) return;
+  const img = new Image();
+  img.onload = () => { woodReady = true; woodWaiters.forEach((w) => w()); };
+  img.src = '/textures/wood.jpg';
+  woodImg = img;
+}
+
+// Stone sprites: the radial-gradient stone is rendered once per (colour,
+// device-pixel radius) into an offscreen canvas and blitted per stone — far
+// cheaper than createRadialGradient per stone per redraw, and crisp because the
+// sprite is rendered at the device-pixel radius. Shared across instances
+// (bounded: few distinct radii on screen at once).
+const spriteCache = new Map<string, HTMLCanvasElement>();
+function stoneSprite(color: StoneColor, rpx: number): HTMLCanvasElement {
+  const key = `${color}-${rpx}`;
+  const cached = spriteCache.get(key);
+  if (cached) return cached;
+  const c = document.createElement('canvas');
+  c.width = c.height = rpx * 2;
+  const g = c.getContext('2d')!;
+  // Offset highlight ≈ the SVG radial gradient (cx 35%, cy 30%, r 50%).
+  const grad = g.createRadialGradient(rpx * 0.7, rpx * 0.6, rpx * 0.1, rpx, rpx, rpx * 1.05);
+  if (color === 'B') { grad.addColorStop(0, '#666'); grad.addColorStop(1, '#111'); }
+  else { grad.addColorStop(0, '#fff'); grad.addColorStop(1, '#d0d0d0'); }
+  g.fillStyle = grad;
+  g.beginPath(); g.arc(rpx, rpx, rpx, 0, Math.PI * 2); g.fill();
+  g.lineWidth = Math.max(1, rpx * 0.05);
+  g.strokeStyle = color === 'B' ? '#000' : '#aaa';
+  g.stroke();
+  spriteCache.set(key, c);
+  return c;
+}
+</script>
+
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { BOARD_PX, BOARD_COLOR, LINE_COLOR, MARKER_INNER_RATIO } from '../../engine/constants';
 import { boardGeometry, gridLines, type BoardSnapshot } from '../../engine/board-geometry';
-import type { StoneColor } from '../../types';
 
 const props = withDefaults(
   defineProps<{
@@ -52,45 +105,6 @@ let resizeObserver: ResizeObserver | null = null;
 // escape step 3; a first cut of this component did exactly that and doubled the
 // forced-style-and-layout count in the trace).
 let cssW = 0, cssH = 0;
-
-// Wood texture: loaded once, shared across every MiniBoard instance. Instances
-// that draw before it arrives simply repaint when it does (woodWaiters).
-let woodImg: HTMLImageElement | null = null;
-let woodReady = false;
-const woodWaiters = new Set<() => void>();
-function ensureWood(): void {
-  if (woodImg) return;
-  const img = new Image();
-  img.onload = () => { woodReady = true; woodWaiters.forEach((w) => w()); };
-  img.src = '/textures/wood.jpg';
-  woodImg = img;
-}
-
-// Stone sprites: the radial-gradient stone is rendered once per (colour,
-// device-pixel radius) into an offscreen canvas and blitted per stone — far
-// cheaper than createRadialGradient per stone per redraw, and crisp because the
-// sprite is rendered at the device-pixel radius. Module-scope cache, shared
-// across instances (bounded: few distinct radii on screen at once).
-const spriteCache = new Map<string, HTMLCanvasElement>();
-function stoneSprite(color: StoneColor, rpx: number): HTMLCanvasElement {
-  const key = `${color}-${rpx}`;
-  const cached = spriteCache.get(key);
-  if (cached) return cached;
-  const c = document.createElement('canvas');
-  c.width = c.height = rpx * 2;
-  const g = c.getContext('2d')!;
-  // Offset highlight ≈ the SVG radial gradient (cx 35%, cy 30%, r 50%).
-  const grad = g.createRadialGradient(rpx * 0.7, rpx * 0.6, rpx * 0.1, rpx, rpx, rpx * 1.05);
-  if (color === 'B') { grad.addColorStop(0, '#666'); grad.addColorStop(1, '#111'); }
-  else { grad.addColorStop(0, '#fff'); grad.addColorStop(1, '#d0d0d0'); }
-  g.fillStyle = grad;
-  g.beginPath(); g.arc(rpx, rpx, rpx, 0, Math.PI * 2); g.fill();
-  g.lineWidth = Math.max(1, rpx * 0.05);
-  g.strokeStyle = color === 'B' ? '#000' : '#aaa';
-  g.stroke();
-  spriteCache.set(key, c);
-  return c;
-}
 
 function draw(): void {
   const canvas = canvasEl.value;
