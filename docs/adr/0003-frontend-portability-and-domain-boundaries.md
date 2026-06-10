@@ -196,6 +196,13 @@ named B3 leakage — under its dominant-concern allowance. The
 exclusions above stand as this ADR's planning-time scoping record,
 not as a constraint on FILES.md.)*
 
+*(Note, 2026-06-10, later the same day: the `types.ts` exclusion is
+retired by the types.ts split (history-lessons audit §3.15, a
+Revisit-when #1 consequence) — the single mixed file is now a barrel
+over per-domain modules under `src/types/` plus `src/store/schema.ts`,
+each carrying its own honest FILES.md band tag, dissolving the
+`[B2]`-with-B3-leakage compromise the previous note records.)*
+
 ## What this means for the analysis-recording feature
 
 The trigger for this ADR was the recognition that analysis-recording

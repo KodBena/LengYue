@@ -55,7 +55,7 @@ frontend/src/
 ├── logic.ts                           [B3]  applyGoMove — Go-rule board mutation with dedup-or-descend on the tree.
 ├── main.ts                            [B1]  Vue app bootstrap (createApp, install i18n, mount #app).
 ├── jquery-bridge.ts                   [B1]  Installs jQuery on `window` for legacy interop.
-├── types.ts                           [B2]  Branded ids, discriminated unions, GlobalStore schema. Carries Move/StoneColor (B3 leakage).
+├── types.ts                           [B3]  Barrel over the per-domain type modules (`types/*` + `store/schema.ts`; 2026-06-10 split). Re-exports span all three bands, so the hub tags for the highest band it re-exports; it declares nothing itself, and three runtime values (BUNDLE_COMPRESSION_SCHEMES, QeuboError, CardTreeOverflowError) pass through, making it a runtime module.
 ├── style.css                          [B1]  Empty stub; theme lives in chrome substrate variables.
 │
 ├── assets/                                  Static assets (icons, textures).
@@ -300,7 +300,8 @@ frontend/src/
 │   ├── board-factory.ts               [B3]  Pure factory functions for board state construction.
 │   ├── defaults.ts                    [B3]  Initial GlobalStore constants (board defaults dominate; some B1 too).
 │   ├── index.ts                       [B3]  Central reactive store; createBoard / closeBoard / resetWorkspace.
-│   └── migrations.ts                  [B1]  Schema-versioning framework (B1) incl. the witnessedContainer leaf-assertion helper (its runtime-shape witness imports defaults); the migrations themselves touch every band.
+│   ├── migrations.ts                  [B1]  Schema-versioning framework (B1) incl. the witnessedContainer leaf-assertion helper (its runtime-shape witness imports defaults); the migrations themselves touch every band.
+│   └── schema.ts                      [B3]  Persisted GlobalStore schema (AppSettings / UISession / ProfileState / SessionState / GlobalStore + persisted-slice types), colocated with defaults.ts. The engine.katago subtree and the BoardState / EngineState references dominate the leakage; the persistence machinery itself is B1. Carries the BUNDLE_COMPRESSION_SCHEMES runtime const.
 │
 ├── i18n/                                    vue-i18n integration.
 │   ├── index.ts                       [B1]  createI18n configuration; bundled-catalog loading.
@@ -312,8 +313,18 @@ frontend/src/
 │   ├── ko.json                        [B1]  Korean (LLM-drafted, native-speaker review pending).
 │   └── zh-CN.json                     [B1]  Simplified Chinese (LLM-drafted, native-speaker review pending).
 │
-├── types/
-│   └── backend.ts                     [B1]  Generated OpenAPI types (committed; `npm run gen:api` rewrites).
+├── types/                                   Per-domain type modules (2026-06-10 split of the former single-file types.ts; the barrel at src/types.ts re-exports all of them).
+│   ├── analysis-env.ts                [B2]  Analysis-palette / analysis-environment vocabulary (AnalysisPalette / ParameterMeta / AnalysisEnvironment) — the palette substrate is engine-analysis-coupled, not Go-specific.
+│   ├── app.ts                         [B1]  Application-shell value objects: the AuthState discriminated union + SystemMessage.
+│   ├── backend.ts                     [B1]  Generated OpenAPI types (committed; `npm run gen:api` rewrites).
+│   ├── cards.ts                       [B2]  SR-card domain: ReviewCard / EbisuModel, CardSet + typed pipeline stages + hyperparameter holes, review-session state, card-create wire aliases. The deck/SR vocabulary is domain-free; ReviewCard.sgf and the grading blob carry the Go instance (the reviewcard-canonical-content-rename trigger), and ReviewSessionData holds a game-tree NodeId.
+│   ├── engine.ts                      [B3]  Engine-connection state vocabulary: EngineState / EngineInfo / EngineMetrics / EngineModelEntry + status and mode unions. Pairs with services/engine-connection.ts as a fork's wholesale-replacement unit.
+│   ├── game.ts                        [B3]  The game domain module: Go value objects (Point / Move / GameMetadata / NodeDelta), game-tree state (GameNode / BoardState, play-vs-engine sessions), game-coupled brands (NodeId / StoneColor / ColorMoveIndex / PlyIndex). A fork replaces this module wholesale; the tree skeleton inside is B2.
+│   ├── ids.ts                         [B1]  Brand<> utility + PerBoard + the domain-agnostic identity / config-key / content-hash brands.
+│   ├── knobs.ts                       [B1]  Knob-registry substrate vocabulary: KnobDecl with input/output/transform shapes, KnobRegistry, the consumer-claim state machine.
+│   ├── library.ts                     [B3]  SGF library domain projections (/library/* list rows, full game row, filters, import outcomes, sort vocabulary).
+│   ├── lineage.ts                     [B1]  Card-tree / forest-stats browse domain: lineage trees, RootGroup resolution, CardTreeNodeRole, CardTreeOverflowError (runtime class), ForestStat / TagStat — ForestStat's playerWhite/playerBlack metadata fields are the one game-record leakage.
+│   └── qeubo.ts                       [B1]  qEUBO calibration domain: experiment / status / pair / best projections, QeuboError (runtime class), QeuboBookmark.
 │
 ├── utils/                                   Small DOM / chrome helpers.
 │   ├── context-id-macros.ts           [B2]  `${a,b}` macro expansion for the Cards-tab context-id field.
