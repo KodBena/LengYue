@@ -4,9 +4,11 @@ A namespace repository for the SPA: every *identifier type* in the
 frontend, with its primitive, encoding, origin class, construction
 site, lifetime, cardinality, and soundness notes. Use this to answer
 "what identifiers exist, how is each constructed, what is its lifetime
-and representation cost" without trawling the 2233-line `src/types.ts`,
-which mixes identifier types with value objects, state containers, and
-the `GlobalStore` schema.
+and representation cost" without trawling the type catalog — since the
+2026-06-10 split (history-lessons audit §3.15) the per-domain modules
+under `src/types/` plus `src/store/schema.ts`, barreled through
+`src/types.ts` — which mixes identifier types with value objects,
+state containers, and the `GlobalStore` schema.
 
 This is the identifier-subset companion to `frontend/FILES.md` (the
 per-file navigation map). Where FILES.md answers "where does this
@@ -28,17 +30,23 @@ not apply to FILES.md.
   construction (construction goes through the ACL or a dedicated
   factory; raw `number`/`string` does not flow through the domain;
   an `as` cast needs a justifying comment or it doesn't ship).
-- `src/types.ts` — the declaration site for every type below except
-  `src/types/backend.ts` (the OpenAPI-generated wire schemas, which
-  are **excluded** from this catalog — they are not domain
-  identifiers, they are the wire boundary the ACL re-brands across).
+- `src/types.ts` — the barrel over the declaration sites: identifier
+  types below are declared in `src/types/ids.ts` (the agnostic brands
+  and `Brand<>` itself), `src/types/game.ts` (the game-coupled
+  brands), `src/types/knobs.ts` (`KnobId`, `StorePath`), and
+  `src/store/schema.ts` (`NavNodeId`, the identity fields). Not
+  covered: `src/types/backend.ts` (the OpenAPI-generated wire
+  schemas, which are **excluded** from this catalog — they are not
+  domain identifiers, they are the wire boundary the ACL re-brands
+  across).
 - `docs/adr/0003-frontend-portability-and-domain-boundaries.md` —
   the band definitions (`[B1]`/`[B2]`/`[B3]`) referenced per-id below.
 
 ## Scope
 
-This catalog covers identifier types declared in `src/types.ts`. It
-does **not** cover:
+This catalog covers identifier types declared in the type catalog
+(`src/types/*.ts` and `src/store/schema.ts`, re-exported through the
+`src/types.ts` barrel). It does **not** cover:
 
 - Wire schemas in `src/types/backend.ts` (OpenAPI-generated; the
   snake_case shapes the ACL consumes, not domain identifiers).
@@ -53,16 +61,16 @@ catalog records which each id uses, because the construction and
 soundness story differs per mechanism:
 
 - **`Brand<K, T>`** (`type Brand<K, T> = K & { readonly __brand: T }`,
-  `src/types.ts:82`) — a Haskell-style phantom newtype: runtime-identity
+  `src/types/ids.ts:18`) — a Haskell-style phantom newtype: runtime-identity
   with the primitive `K`, typecheck-distinct via the phantom
   `__brand` field. The majority mechanism. Construction is an
   identity-function cast (`s as BoardId`) at a factory or the ACL.
 - **Template-literal union** — `NavNodeId = `game:${number}` |
-  `root:${number}`` (`src/types.ts:1502`). The discriminator is a
+  `root:${number}`` (`src/store/schema.ts:751`). The discriminator is a
   *structural property of the value*, not a phantom tag, so the
   brand is self-describing and JSON-round-trips without an erase
   step. One inhabitant.
-- **Bare alias** — `StorePath = string` (`src/types.ts:425`).
+- **Bare alias** — `StorePath = string` (`src/types/knobs.ts:48`).
   Deliberately and documentedly unbranded: its header names the
   deferred v2 (`Path<GlobalStore>`) and the interim runtime guard
   (`src/lib/knobs.ts::validateRegistry`). One inhabitant; the
@@ -78,7 +86,7 @@ constructed client-side as an RFC4122 v4 UUID.
 
 | Name | Prim. | Origin | Construction | Lifetime | Cardinality | Status / notes |
 |------|-------|--------|-------------|----------|-------------|----------------|
-| `BoardId` | string | client UUID (RFC4122 v4) | factory `asBoardId` (`board-factory.ts:20`); created at `board-factory.ts:62` via `asBoardId(generateUUID())`; ACL re-brand from wire at `library-service.ts:95,109,135,141` and `analysis-persistence-service.ts:170` | persisted (crosses wire to `analysis_bundles.board_id`; survives in synced docs) | ~1–20 open boards | Sound at the factory/ACL. Redundant casts downstream: `App.vue:66`, `ReviewSessionPanel.vue:48`, `SidebarWidget.vue:32` (the source `BoardState.id` is already `BoardId`, `src/types.ts:191`). The two re-id-to-retain-a-tab sites are clean as of 2026-06-10: `loadIntoBoard.ts:55` (assignment with the "both sides are branded" comment) and `useReviewSession.ts:264` (the former `as any` there, this row's old `[leaky]` example, was removed in the cast-hygiene arc — `BoardState.id` is a mutable `BoardId`, so the re-id is plain assignment). |
+| `BoardId` | string | client UUID (RFC4122 v4) | factory `asBoardId` (`board-factory.ts:20`); created at `board-factory.ts:62` via `asBoardId(generateUUID())`; ACL re-brand from wire at `library-service.ts:95,109,135,141` and `analysis-persistence-service.ts:170` | persisted (crosses wire to `analysis_bundles.board_id`; survives in synced docs) | ~1–20 open boards | Sound at the factory/ACL. Redundant casts downstream: `App.vue:66`, `ReviewSessionPanel.vue:48`, `SidebarWidget.vue:32` (the source `BoardState.id` is already `BoardId`, `src/types/game.ts:89`). The two re-id-to-retain-a-tab sites are clean as of 2026-06-10: `loadIntoBoard.ts:55` (assignment with the "both sides are branded" comment) and `useReviewSession.ts:264` (the former `as any` there, this row's old `[leaky]` example, was removed in the cast-hygiene arc — `BoardState.id` is a mutable `BoardId`, so the re-id is plain assignment). |
 | `AnalysisTabId` | string | client UUID | `AnalysisTabsEditor.vue:46` (`crypto.randomUUID() as AnalysisTabId`); single canonical construction site, self-documented at `:44` | persisted (user tab layout in `AppSettings.analysisTabs`) | ~1–20 user tabs | Sound; single justified site. |
 | `BookmarkId` | string | client UUID | `useQeubo.ts:782` (`generateUUID() as BookmarkId`); single construction site | per-session (qEUBO/PBO bookmarks; pinned ones persist to `qeuboPinnedBookmarks`) | ~0–dozens | Sound; single site. |
 
@@ -96,7 +104,7 @@ the brand; everything downstream should treat them as opaque.
 
 | Name | Prim. | Origin | Construction | Lifetime | Cardinality | Status / notes |
 |------|-------|--------|-------------|----------|-------------|----------------|
-| `NodeId` | string | local id — `'root-'+short` / `'node-'+short` (short = `Math.random().toString(36)`, **not** a UUID) | factory `asNodeId` (`board-factory.ts:21`); roots at `board-factory.ts:50` (`asNodeId('root-'+uuid())`); SGF-loaded nodes at `sgf-loader.ts:73` (justified single-site brand mint `('node-'+uuid()) as NodeId`, threaded through `transform`/`hydrate` — replaced the three bare `as any` at the former `:76,77,89` in the 2026-06-10 cast-hygiene arc); a fresh node in `logic.ts:106` (`'node-'+Math.random()… as NodeId`); ACL re-brand at `analysis-persistence-service.ts:157` | per-session board-scoped; **some persist** as ledger / trajectory composite keys (see "representation cost" below) | **Highest in the system**: one per game-tree node, ~340–1000+ per board × N boards | **`[leaky]`** — the soft underbelly. **35** `as NodeId` cast sites (`rg "as NodeId" src`, re-measured 2026-06-10; the prior recorded 32 had drifted to 34 before the cast-hygiene arc added the loader mint). Two distinct causes, only one self-inflicted: (1) `Object.keys(board.nodes)` returns `string[]` though `board.nodes` is `Record<NodeId, GameNode>` (`src/types.ts:200`) — a TypeScript limitation, the cast is unavoidable and the `useActivePath.ts:19-23` comment names it the "Category C" boundary; (2) genuine self-inflicted widening, e.g. `useActivePath.ts:14-15` declares `path: string[]` / `currId: string` instead of `NodeId`, forcing the re-brand at `:24`; similar at `useReviewSession.ts:302,313`. Two generators mean **NodeId is not UUID-shaped**, so any consumer assuming a `'\|'`-free UUID form is on thin ice (`stability-trajectory-store.ts` embeds it in a `\|`-delimited key — safe only because the short form has no `\|`). See erosion (a). |
+| `NodeId` | string | local id — `'root-'+short` / `'node-'+short` (short = `Math.random().toString(36)`, **not** a UUID) | factory `asNodeId` (`board-factory.ts:21`); roots at `board-factory.ts:50` (`asNodeId('root-'+uuid())`); SGF-loaded nodes at `sgf-loader.ts:73` (justified single-site brand mint `('node-'+uuid()) as NodeId`, threaded through `transform`/`hydrate` — replaced the three bare `as any` at the former `:76,77,89` in the 2026-06-10 cast-hygiene arc); a fresh node in `logic.ts:106` (`'node-'+Math.random()… as NodeId`); ACL re-brand at `analysis-persistence-service.ts:157` | per-session board-scoped; **some persist** as ledger / trajectory composite keys (see "representation cost" below) | **Highest in the system**: one per game-tree node, ~340–1000+ per board × N boards | **`[leaky]`** — the soft underbelly. **35** `as NodeId` cast sites (`rg "as NodeId" src`, re-measured 2026-06-10; the prior recorded 32 had drifted to 34 before the cast-hygiene arc added the loader mint). Two distinct causes, only one self-inflicted: (1) `Object.keys(board.nodes)` returns `string[]` though `board.nodes` is `Record<NodeId, GameNode>` (`src/types/game.ts:98`) — a TypeScript limitation, the cast is unavoidable and the `useActivePath.ts:19-23` comment names it the "Category C" boundary; (2) genuine self-inflicted widening, e.g. `useActivePath.ts:14-15` declares `path: string[]` / `currId: string` instead of `NodeId`, forcing the re-brand at `:24`; similar at `useReviewSession.ts:302,313`. Two generators mean **NodeId is not UUID-shaped**, so any consumer assuming a `'\|'`-free UUID form is on thin ice (`stability-trajectory-store.ts` embeds it in a `\|`-delimited key — safe only because the short form has no `\|`). See erosion (a). |
 
 ### Static config-key vocabularies (`Brand<string, …>`)
 
@@ -107,7 +115,7 @@ typos from silently mis-routing.
 | Name | Prim. | Origin | Construction | Lifetime | Cardinality | Status / notes |
 |------|-------|--------|-------------|----------|-------------|----------------|
 | `KeybindingActionId` | string | static literal (`<domain>.<verb>`) | factory `asActionId` (`keybindings.ts:88`) feeding the `ACTIONS` const (`keybindings.ts:98-110`, `as const satisfies Record<string, KeybindingActionId>`); `Object.keys` re-brand at `keybindings-capture.ts:175` | persisted (rebind overrides in settings) | ~12 declared (grows with actions) | Sound; dedicated factory + a satisfies-checked catalog. |
-| `AnalysisPanelId` | string | static literal (frozen persistence keys) | factory `pid` (`panel-ids.ts:15`); the `PANEL_ID` SSOT | persisted (an `AnalysisTab.panelIds` references these; renaming orphans saved tabs — `src/types.ts:99-107`) | ~10 panels | Sound; dedicated factory, frozen-forever contract documented. |
+| `AnalysisPanelId` | string | static literal (frozen persistence keys) | factory `pid` (`panel-ids.ts:15`); the `PANEL_ID` SSOT | persisted (an `AnalysisTab.panelIds` references these; renaming orphans saved tabs — `src/types/ids.ts:109-117`) | ~10 panels | Sound; dedicated factory, frozen-forever contract documented. |
 | `KnobId` | string | static literal (`<domain>.<name>`, registry keys) | **no single factory**: string-template `` `qeubo.${name}` as KnobId `` at `useQeubo.ts:140`, `PaletteEditor.vue:99,127`; `key as KnobId` casts at `KnobRegistryEditor.vue:55`, `defaults.ts:471` | persisted (knob registry on the profile) | ~10s–100s | Mild `[leaky]` — branded at 4+ template sites rather than one constructor. Low cardinality and semantically-string, so the leak is cosmetic, not load-bearing. |
 | `ExtractorId` | string | static vocabulary — keys of the open-ended `STABILITY_EXTRACTORS` map | authoritative construction at the map literal (`stability-extractors.ts`, one array cast); `DEFAULT_EXTRACTOR_ID` for the panel default | session (composable params, trajectory composite-key component) | ~6 | Sound; single construction site. Component of the `stability-trajectory-store` key. |
 | `MetricId` | string | static vocabulary — keys of the open-ended `STABILITY_METRICS` map | authoritative construction at the map literal (`lib/stability-trajectory.ts`, one array cast); `DEFAULT_METRIC_ID` for the panel default | session (composable params, metric selector) | ~4 | Sound; symmetric sibling of `ExtractorId` (branded together so the two parallel stability vocabularies can't be swapped). |
@@ -146,8 +154,8 @@ bugs — the two count moves in different spaces.
 
 | Name | Prim. | Origin | Construction | Lifetime | Cardinality | Status / notes |
 |------|-------|--------|-------------|----------|-------------|----------------|
-| `ColorMoveIndex` | number | derived index — 0-indexed within one colour's move sequence (native to KataProxy's triangular heatmap) | `useTriangularHeatmap.ts:58,59,70,71`; `useAnalysisProjection.ts:69` | ephemeral (per-render) | bounded ~340 | Sound by design. Conversion to `PlyIndex` through the single named boundary `colorMoveToPly` (`useTriangularHeatmap.ts:98-99`). Rationale at `src/types.ts:125-144`. |
-| `PlyIndex` | number | derived index — 0-indexed position into a `variationPath: NodeId[]` (PlyIndex 0 = root) | output of `colorMoveToPly` (`useTriangularHeatmap.ts:98`); endpoints in `BoardState.analysisRange: [PlyIndex, PlyIndex]` (`src/types.ts:212`) | ephemeral; range endpoints persist | bounded ~340 | Sound by design; same pair as above. |
+| `ColorMoveIndex` | number | derived index — 0-indexed within one colour's move sequence (native to KataProxy's triangular heatmap) | `useTriangularHeatmap.ts:58,59,70,71`; `useAnalysisProjection.ts:69` | ephemeral (per-render) | bounded ~340 | Sound by design. Conversion to `PlyIndex` through the single named boundary `colorMoveToPly` (`useTriangularHeatmap.ts:98-99`). Rationale at `src/types/game.ts:23-42`. |
+| `PlyIndex` | number | derived index — 0-indexed position into a `variationPath: NodeId[]` (PlyIndex 0 = root) | output of `colorMoveToPly` (`useTriangularHeatmap.ts:98`); endpoints in `BoardState.analysisRange: [PlyIndex, PlyIndex]` (`src/types/game.ts:110`) | ephemeral; range endpoints persist | bounded ~340 | Sound by design; same pair as above. |
 
 ### Template-literal id
 
@@ -159,7 +167,7 @@ bugs — the two count moves in different spaces.
 
 | Name | Prim. | Origin | Construction | Lifetime | Cardinality | Status / notes |
 |------|-------|--------|-------------|----------|-------------|----------------|
-| `StorePath` | string | dot-separated `GlobalStore` path string | n/a (`= string`, no brand) | persisted (inside `KnobDecl`) | low | Deliberately unbranded (`src/types.ts:416-425`): the header defers the v2 `Path<GlobalStore>` discriminated union and names the interim runtime guard `validateRegistry`. A documented decision, not a missing brand. |
+| `StorePath` | string | dot-separated `GlobalStore` path string | n/a (`= string`, no brand) | persisted (inside `KnobDecl`) | low | Deliberately unbranded (`src/types/knobs.ts:38-48`): the header defers the v2 `Path<GlobalStore>` discriminated union and names the interim runtime guard `validateRegistry`. A documented decision, not a missing brand. |
 
 ### Under-determined identity ids (`Brand<string, …>`)
 
@@ -169,7 +177,7 @@ bugs — the two count moves in different spaces.
 | `SessionId` | string | server UUID (intended) / **NIL-UUID sentinel (actual)** | **only** the sentinel: `store/index.ts:73,568` | persisted | 1 | Same as `ProfileId`. |
 
 `ProfileId` and `SessionId` are branded fields (`ProfileState.id`,
-`SessionState.id`/`SessionState.profileId`, `src/types.ts:1760,1770,1771`)
+`SessionState.id`/`SessionState.profileId`, `src/store/schema.ts:813,822,823`)
 whose only *constructed* value across the whole SPA is the NIL-UUID
 sentinel `'00000000-0000-0000-0000-000000000000'` (`defaults.ts:12`).
 There is no `as ProfileId` / `as SessionId` re-brand from a wire value.
@@ -183,13 +191,6 @@ never populates with a real value. This is recorded honestly rather
 than smoothed over; firming it up (does the synced document ever carry
 a real profile/session UUID? should `AuthState.userId` be branded?) is
 maintainer-directed work.
-
-### Dead types (`Brand<string, …>`)
-
-| Name | Prim. | Construction | Status / notes |
-|------|-------|--------------|----------------|
-| `CardSetKey` | string | none | **`[dead]`** — declared at `src/types.ts:1493`, **zero references** elsewhere in `src/`. No comment indicating reserved intent. |
-| `ReviewSessionId` | string | none | **`[dead]`** — declared at `src/types.ts:1494`, **zero references** elsewhere in `src/`. No comment indicating reserved intent. |
 
 ## Where representation cost is load-bearing
 
@@ -278,9 +279,9 @@ of this map.**
   sentinel; the real identity is an unbranded `AuthState.userId: number`.
   See the "Under-determined identity ids" prose above.
 
-- **(d) `[dead]` — `CardSetKey` / `ReviewSessionId`.** Declared,
-  zero references, no reserved-intent comment. Candidates for removal
-  unless a maintainer confirms a planned use.
+*(Erosion (d) — the `[dead]` `CardSetKey` / `ReviewSessionId` brands —
+was retired 2026-06-10: the types.ts split (history-lessons audit
+§3.15) deleted both after re-verifying zero references at HEAD.)*
 
 ## Cross-references
 
