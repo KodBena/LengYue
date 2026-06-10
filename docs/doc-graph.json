@@ -1,6 +1,6 @@
 {
-  "node_count": 414,
-  "edge_count": 1893,
+  "node_count": 415,
+  "edge_count": 1894,
   "age_buckets": [
     {
       "name": "fresh",
@@ -3138,7 +3138,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-03-remove-legacy-auth-key-shim.md",
@@ -3278,6 +3278,14 @@
     },
     {
       "path": "docs/worklog/2026-06-10-migration-leaf-assertion-and-composition-test.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-10",
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-10-resource-service-calibration-seam.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": "2026-06-10",
@@ -16198,6 +16206,13 @@
       "to": "frontend/FILES.md",
       "kind": "path-mention",
       "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-resource-service-calibration-seam.md",
+      "to": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`",
       "resolved": "resolved"
     },
     {
