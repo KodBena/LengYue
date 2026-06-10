@@ -3,10 +3,8 @@
 > Audit trail for work-status item `cast-hygiene-lint`, executing
 > **stage 1** of §3.10 of the 2026-06-10 history-lessons audit
 > (`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`) plus the
-> stage-2 baseline measurement; branch `bork/tooling/cast-hygiene-lint`
-> (PR number recorded by follow-up commit once the PR exists, per the
-> R1 worklogs' pattern). Stage 2 — the justification-adjacency rule for
-> all coercion
+> stage-2 baseline measurement; branch `bork/tooling/cast-hygiene-lint`,
+> PR #379. Stage 2 — the justification-adjacency rule for all coercion
 > casts — is measured here but deliberately **not** adopted (the
 > `a75814c` measure-first pattern); its staging record lives in the
 > `frontend/eslint.config.js` rationale header.
