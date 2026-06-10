@@ -30,7 +30,7 @@ import { big_table as TABLE } from './helper';
 export type IntensityColorFn = (t: number, alpha?: number) => string;
 
 /**
- * Shape of the JSON blob consumed by `initializeIntensityFactory`. The
+ * Shape of the JSON blob consumed by `setVisitDistribution`. The
  * ECDF-building code only uses the `quantiles` field (a sorted array of
  * breakpoints); any additional metadata on the payload is tolerated and
  * ignored. Typing this explicitly rather than `any` makes the contract
@@ -79,7 +79,9 @@ export const getIntensityColor = shallowRef<IntensityColorFn>(placeholderFn);
  *
  * Doesn't depend on the visit-distribution quantiles, so it's
  * functional immediately after the hue-shift watcher fires, ahead of
- * `resourceService.loadVisitDistribution()` completing.
+ * the visit-distribution fetch (kicked off by
+ * `initSuggestionColorCalibration` in
+ * `composables/board/suggestion-color-calibration.ts`) completing.
  */
 export const getIntensityColorLinear = shallowRef<IntensityColorFn>(placeholderFn);
 
@@ -205,8 +207,9 @@ function rebuildIntensityColorFn(): void {
 
 /**
  * Set the visit-distribution data backing the gradient's ECDF. Called
- * once at startup from the resource service; safe to call again if
- * the distribution is re-fetched.
+ * once at startup by the suggestion-color calibration init
+ * (`composables/board/suggestion-color-calibration.ts`); safe to call
+ * again if the distribution is re-fetched.
  */
 export function setVisitDistribution(distributionData: VisitDistributionData): void {
   _quantiles = distributionData.quantiles;
@@ -216,20 +219,13 @@ export function setVisitDistribution(distributionData: VisitDistributionData): v
 /**
  * Set the hue-rotation offset (in degrees) applied uniformly across
  * the gradient in CIELAB space. Called by the appearance-setting
- * watcher in useAppBootstrap whenever the user moves the slider.
+ * watcher installed by `initSuggestionColorCalibration` whenever the
+ * user moves the slider.
  */
 export function setIntensityHueShift(deg: number): void {
   _hueShiftDeg = deg;
   rebuildIntensityColorFn();
 }
-
-/**
- * Backwards-compatible alias for setVisitDistribution. Existing call
- * sites (resource-service) can keep their import name; new code
- * should prefer the explicit setter.
- */
-export const initializeIntensityFactory = setVisitDistribution;
-
 
 
 

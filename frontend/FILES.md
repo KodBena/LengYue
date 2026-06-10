@@ -184,12 +184,13 @@ frontend/src/
 │   │   └── wait-for-analysis.ts       [B3]  Primitive: wait for a specific KataGo packet (with timeout, abort).
 │   │
 │   ├── auth-app/                             Auth + app cold-start.
-│   │   ├── useAppBootstrap.ts         [B1]  Cold-start: auth → sync hydrate → resource preload → tag fetch.
+│   │   ├── useAppBootstrap.ts         [B3]  Cold-start wiring: auth → sync hydrate → domain inits → tag fetch. Band-mixed by role (imports analysis-service, qEUBO, the keybindings catalog); tagged like App.vue — wiring, not a B1 substrate.
 │   │   ├── useAuth.ts                 [B1]  AuthState SSOT; wraps api-client auth methods; JWT synchronisation.
 │   │   └── useMetadata.ts             [B3]  SGF root properties → UI metadata (gameName ladder, players, dates).
 │   │
 │   ├── board/                                Board-surface composables. Mostly B3.
 │   │   ├── autonomous-srs.ts          [B3]  Policy/Driver/Recorder abstractions for the autonomous SRS loop.
+│   │   ├── suggestion-color-calibration.ts [B3] Domain init for the suggestion-color gradient: hue-shift watcher + fire-and-forget visit-distribution fetch (via getResource<T>); called once from useAppBootstrap.
 │   │   ├── useActivePath.ts           [B2]  NodeId lineage root → current node.
 │   │   ├── useDirtyBoardGuard.ts      [B3]  Dirty-board guard: confirm-load modal + dirty-board policy for cards AND library games; delegates the SGF load to sgf/loadIntoBoard (swallow-and-log over the fail-loud primitive).
 │   │   ├── useEngineResponder.ts      [B3]  "Play vs engine" trigger: `fireAndAdvanceHead(boardId, gameStartNodeId)` queries the engine at the board's current position and advances the game's single green-ring head; invoked from App.vue when the user plays from a head.
@@ -287,7 +288,7 @@ frontend/src/
 │   ├── library-service.ts             [B1]  ACL for the /library endpoints; chunked import with progress callback.
 │   ├── qeubo-service.ts               [B1]  ACL for qEUBO REST endpoints.
 │   ├── query-id.ts                    [B3]  Sole construction/re-brand site for the `QueryId` brand (engine-query correlation id).
-│   ├── resource-service.ts            [B1]  Typed client for backend static resources.
+│   ├── resource-service.ts            [B1]  Generic typed resource verb (`getResource<T>`) for backend static resources; domain-free.
 │   ├── stability-trajectory-store.ts  [B3]  Per-(`RawKey`, `ExtractorId`, nodeId) trajectory store fed by analysis-service preview ingestion.
 │   └── sync-service.ts                [B1]  Stateless persistence bridge; identity-aware document sync.
 │
