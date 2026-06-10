@@ -302,6 +302,12 @@ export function setActiveBoard(index: number): void {
  * per-board cell is a discipline step, not an automatically-caught one — see
  * `frontend/docs/notes/board-scope.md`.
  *
+ * (2026-06-11: the keep-Class-B-inline judgment cited above was the
+ * 2026-06-05 consult's ADVISORY verdict, not a maintainer decision — prior
+ * records overstated it. The Class B teardown shape is an open question,
+ * tracked as work-status item closeboard-class-b-teardown-shape (parked;
+ * owner-located teardown is a named candidate).)
+ *
  * Cells are order-independent of each other; the drain runs after
  * `stopBoardAnalysis` (so the deletes overwrite the activeMode 'none'
  * tombstone) and before the splice.

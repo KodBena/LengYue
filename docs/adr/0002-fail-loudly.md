@@ -25,8 +25,26 @@
   fail-loudly-register instance, with ADR-0008 as the home of the
   broader principle (positive + negative registers, substitution-test
   severity calibration).
-- **Scope:** Codebase-wide. Applies to the frontend (`gogui`) and, as a
-  design aspiration, to coordinated choices on the spaced-repetition backend.
+  2026-06-11 — record repairs from the 2026-06-10 ADR-corpus audit
+  (`../notes/audit/audit-adr-corpus-2026-06-10.md`, package A2):
+  Scope line updated from its pre-umbrella form; Rule 7's postmortem
+  citations and the Related planning-note pointer repaired; a
+  pre-store item-number anchor and an engagement-protocol
+  forward-pointer added to Related; dated retired-marker notes added
+  at Rules 6/7 (ADR-0005 Rule 9's marker retirement) and a closure
+  note at Exception 3 (the 34b fallback chain's scheduled removal
+  completed); the Negative "policy, not an enforced mechanism" bullet
+  updated for the mechanizations landed since authoring; new
+  Revisit-when #5 (a rule gains a mechanical guard → record it here).
+  The rules themselves are unchanged.
+- **Scope:** Codebase-wide — `frontend/`, `backend/`, `proxy/`, and the
+  documentation graph. *(Updated 2026-06-11; the original line predated the
+  umbrella, naming the frontend by its former repository name `gogui` and
+  the backend as a design aspiration. The tenet has applied project-wide
+  since the umbrella formed: the proxy's call-site-validated structured
+  logging and configuration hard-refusals, the backend ACL posture, and
+  the documentation-consumption corollary in the umbrella `CLAUDE.md` are
+  the register instances.)*
 
 ## Context
 
@@ -168,8 +186,9 @@ A deviation is *not* surfaced loudly enough when:
    decision) is found to be wrong in a load-bearing way, surface the
    deviation rather than absorb it into the post-state: file a
    sibling marked `design-note: revised` per the doc-graph genre
-   vocabulary, or amend the ADR by appending a rule rather than
-   silently editing existing text. The principle parallels Rules
+   vocabulary *(marker vocabulary since retired by ADR-0005 Rule 9 —
+   see the dated note under Rule 7)*, or amend the ADR by appending a
+   rule rather than silently editing existing text. The principle parallels Rules
    1–5 in a different register: a deviation that gets quietly
    absorbed loses its reasoning trace, and the trace is what lets
    a future reader reconstruct *why* the project ended up where it
@@ -216,11 +235,17 @@ A deviation is *not* surfaced loudly enough when:
    the gap rather than reading the closest-match as a legitimate
    fit.
 
+   *(Updated 2026-06-11.)* ADR-0005 Rule 9 (2026-06-02) retired the
+   per-note `design-note: <status>` marker vocabulary named here; the
+   sibling-revision channel is unchanged, but a note's status is now
+   delegated to its owning work-status item, and the "TODO entry"
+   channel means a work-status store item.
+
    Three observed instances led to the rule's codification: the
    `KnobDomain` enum-value closest-match
-   (`../notes/postmortem-knob-registry-qeubo-domain-2026-05.md`),
+   (`../notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md`),
    the toolbar popover chrome-neighbourhood closest-match
-   (`../notes/postmortem-knob-toolbar-popover-2026-05.md`), and
+   (`../notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md`), and
    the popover hover-pattern imitation closest-match
    (`../worklog/2026-05-14-popover-hover-finickiness.md`
    §"Recurring pattern"). The imitation sub-shape's audit trigger
@@ -303,6 +328,21 @@ A deviation is *not* surfaced loudly enough when:
   enforced mechanism. A lazy `catch (e) {}` will compile fine; only
   code review catches it.
 
+  *(Updated 2026-06-11.)* Partially mechanized since authoring:
+  `frontend/eslint.config.js` enforces several registers of this tenet at
+  `error` — the silent-async class (`no-floating-promises`), union
+  exhaustiveness (`switch-exhaustiveness-check`), the thrown-non-Error ban
+  (`only-throw-error`, RCA guard G3), the error-message-reparse ban (RCA
+  guard G1), and the any-assertion ban (cast-hygiene stage 1) — plus the
+  ownership local rules, with per-rule rationale and measured-at-adoption
+  records kept in that config's header, which is the census's single home
+  (this ADR deliberately does not mirror the rule list; hand-maintained
+  mirrors drift — history audit L5). The work-status store's table
+  constraints and the doc-graph freshness gate are the
+  documentation-register analogs. The unmechanized residue — an empty
+  `catch`, justification *quality* on casts, the judgment calls in Rules
+  3–4 — remains review's.
+
 ### Neutral
 
 - **The tenet does not prescribe implementation details.** It says
@@ -357,6 +397,11 @@ removal compat shims are acceptable** if the alternative would
 produce user-facing breakage for reasons the user cannot action. They
 must be commented as such.
 
+*(2026-06-11.)* The 34b fallback chain has since been removed on schedule —
+`backend-service.ts` no longer carries it. The worked example is
+historical; the rule of thumb stands, and the completed removal is the
+"explicitly-scheduled-for-removal" contract honoured.
+
 ## What this tenet does NOT mean
 
 - **Not "crash on any anomaly."** A missing optional field is not a
@@ -393,6 +438,13 @@ following happen:
    (e.g., Sentry). The loudness hierarchy may gain a new level
    between console.warn and pushSystemMessage, and rules may need
    updating.
+5. **A rule of this tenet gains a mechanical guard** (lint rule,
+   type-level ban, DB constraint, CI gate). Record the mechanization
+   here by dated append — the enforcement level is part of a rule's
+   meaning. (Substrate: the 2026-06-01 RCA's common-root finding and
+   history-audit lesson L1 — prose disciplines decay, mechanisms
+   stick. If the mechanization-discipline tenet ships, this trigger
+   is its fail-loudly-register hook.)
 
 ## Related
 
@@ -405,11 +457,21 @@ following happen:
   and no auto-retry.
 - **TODO item 20** (shipped). API and sync error surfacing via
   pushSystemMessage.
-- **`../notes/analysis-persistence-plan.md`**. Per-record failure surfacing,
-  no silent retry queue.
+- **`../archive/notes/design/analysis-persistence-plan.md`** — the planning
+  note the no-silent-retry-queue Context example is drawn from; the design
+  has since shipped (the SPA uploads analysis bundles to the backend's
+  `/analysis-bundles` endpoint) and the note is archived.
+- **Pre-store item numbers.** Items 20/21/29/30 cited above predate
+  the work-status store and resolve against
+  `docs/archive/TODO-completed-2026-05-06.md`; current work status
+  lives in the `todo` Postgres store.
 - **Engagement protocol** (operative throughout this project). The
   rules "if you think you are missing some code… you *must* ask for
   it before attempting to do anything; don't make any unwarranted
   assumptions based on convenience" and "abstractions are a means of
   offloading working memory" are themselves applications of the
-  fail-loud tenet applied to the human-AI collaboration layer.
+  fail-loud tenet applied to the human-AI collaboration layer — since
+  codified in the umbrella `CLAUDE.md` ("Asking before assuming";
+  "ADR-0002 applies to documentation consumption") and the frontend
+  `CLAUDE.md` reading-discipline corollary, which are now the owning
+  documents for this register.

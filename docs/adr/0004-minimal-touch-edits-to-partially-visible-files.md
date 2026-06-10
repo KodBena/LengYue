@@ -4,6 +4,8 @@
 - **Genre:** Tenet (cross-cutting authoring discipline) — the second
   tenet in this codebase, after ADR-0002 (fail-loudly).
 - **Date:** 2026-04-25
+- **Amendments:** 2026-06-11 — Revisit #1 recorded as partially fired;
+  policy unrelaxed.
 - **Scope:** All authoring work on this codebase, especially during
   type-system sweeps and other large mechanical refactors where many
   files are touched in close succession.
@@ -124,6 +126,20 @@ The discipline has two cases:
   type-checking, for instance, may eventually catch some of the
   cases this tenet protects against. When they do, the policy
   can relax in proportion to the new mechanical guarantee.)
+
+  *(2026-06-10, partial — recorded by the ADR-corpus audit: the tooling
+  environment moved without yet warranting relaxation. Frontend CI has gated
+  `vue-tsc -b` on every PR since 2026-06-01
+  (`.github/workflows/frontend-ci.yml`), and two footgun classes adjacent to
+  this tenet's Context are mechanized as lints (`local/gate-prop-needs-default`,
+  `local/module-intent-in-script-setup` — see `frontend/CLAUDE.md`). The
+  2026-06-10 history-lessons audit assessed this trigger as partially
+  satisfied, low confidence, unverified empirically; its verification pass also
+  narrowed the ceiling — the boolean gate-prop omission class is type-legal by
+  design, so template type-checking cannot catch it even in principle. The
+  policy stands unrelaxed until someone measures what the current checker
+  actually catches of the four Context cases; that measurement is the gate for
+  exercising the "relax in proportion" clause.)*
 - The discipline turns out to introduce its own failure mode
   that wasn't anticipated here. (Unlikely but worth flagging
   as the trigger for revisit.)

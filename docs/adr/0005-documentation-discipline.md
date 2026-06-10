@@ -32,6 +32,17 @@
   its status-marker vocabulary is superseded (a forward-pointer is added at
   Rule 8). Pre-SSOT design notes are relocated ad-hoc, with any un-anchorable
   residue carried by a sunsetting allowlist per Rule 7.
+  2026-06-11 — noted that the Revisit-when #2 mechanization has widened since
+  the 2026-06-01 firing: a co-change advisory
+  (`tools/doc-graph/cochange-advisory.mjs`, 2026-06-02) flags derived docs
+  (declared via `derived-from` markers) whose sources change in a PR without
+  them — a partial, advisory-only net for the Rule 1 / Rule 3 derived-summary
+  hazard; and the dangling-reference report gained origin buckets
+  (live / executed / frozen), tombstones for retired hubs,
+  directory-reference resolution, and an advisory no-new-danglers ratchet
+  (work-status item `doc-graph-dangling-signal-cleanup`). Advisory-not-gate
+  per Alternative C's reasoning; the judgment core of Rules 3 and 6 remains
+  policy. No rule change.
 - **Scope:** All authoring of documentation across the three
   sub-projects. Includes ADRs, notes, READMEs, TODO entries,
   HANDOFFs, playbooks, and inter-team communications.
@@ -145,7 +156,9 @@ move the file before someone trusts the directory. The
 `backend/routers/REFERENCE.md` near-miss — the most important
 reference doc on the backend lived inside a directory whose
 name was misleading enough that a confident cleanup pass would
-have deleted it.
+have deleted it. *(Historical, 2026-06-11: the file was long since
+relocated — the path records the near-miss as it stood and no
+longer resolves at HEAD.)*
 
 Pattern: when authoring a new file, ask whether its content
 matches the directory it's about to live in. When refactoring,
@@ -339,7 +352,10 @@ mechanized the **cross-reference-resolution** subset — whether a
 reference resolves is *not* soft (a path either points at an
 existing doc or it doesn't), so it became a CI validator
 (`docs/doc-graph-report.md`, listing dangling refs) plus a
-committed-artifact freshness gate. Rule 4 and the
+committed-artifact freshness gate. A co-change advisory (2026-06-02)
+extends this to declared derived docs whose sources change without
+them; the dangling-ref report gained origin classification and an
+advisory ratchet (2026-06-10). Rule 4 and the
 judgment-shaped rules (Rule 3, Rule 6) remain unmechanized; the
 core reasoning above still holds for those.
 
@@ -390,7 +406,9 @@ This tenet is worth revisiting if:
   companion to `reflection.md`, recording observations from this
   restructure.
 - **The doc-graph artifact** (`tools/doc-graph/generate.mjs` →
-  `docs/doc-graph.{json,svg,md}` + `docs/doc-graph-report.md`;
+  `docs/doc-graph.{json,md}` + `docs/doc-graph-report.md` — the SVG
+  renders locally and is gitignored, see
+  `docs/notes/vestige/deferred-items/doc-graph-svg-render-off-tree.md`;
   design note `docs/archive/notes/design/documentation-graph-artifact-plan.md`).
   The partial mechanization of this tenet (Alternative C, partly
   adopted): the validator surfaces dangling cross-references and the

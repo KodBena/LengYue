@@ -112,6 +112,18 @@ that have grown to a size where measurable navigation friction
 exists. If the frontend reorganization lands, the principle it
 applies will likely be recorded as a new ADR.
 
+*(Outcome, 2026-06-11: the frontend reorganization landed 2026-05-11
+as the feature-surface reorganization of `components/` and
+`composables/` — commit `39e200d` — without the new ADR this
+paragraph anticipated; the organizing principle is recorded in that
+change's own record
+(`docs/archive/notes/frontend-source-tree-reorganization.md`).
+ADR-0007's Not-goals pointer to this paragraph was corrected and the
+tenet accepted the same day — see its acceptance record. Whether the
+reorganization's omitted decision record warrants a dated retro
+record is a maintainer question the ADR-corpus audit surfaces, not
+papers over (audit §6.9).)*
+
 The two decisions are independent because the two sub-projects
 have different organizing pressures. The backend's Hexagonal
 Architecture bounds directory size as a side-effect of the
@@ -458,3 +470,43 @@ grounded decision.
 Absent one of these, effect-typing stays out; a `Promise<T>` returned
 from `src/services/` carries the "effectful" signal the architecture
 already relies on.
+
+---
+
+## Migration bump cadence — no additive-backfill relaxation
+
+- **Date:** 2026-06-11.
+- **Considered:** Whether to add an additive-default-backfill tier
+  that relaxes the schema-version bump + migration requirement for
+  purely additive `GlobalStore` shape changes. Raised by the
+  2026-06-10 history-lessons audit as maintainer decision point 5
+  (§7.5): the bump cadence (~1.38/day) made the ceremony look heavy
+  relative to the change class, and an additive tier would have
+  relaxed a deliberately chosen honest-version-marker property.
+- **Decision:** No relaxation. The honest-version-marker property
+  stands; additive backfills keep the bump + migration.
+
+### Rationale
+
+Post-#370, the witnessed leaf assertions and the composition-level
+invariant test make the bump path fail-loud — the cost the relaxation
+was meant to avoid is now mostly the cost of writing an honest
+migration, not the cost of debugging a silent one. And the masking
+behaviour that argued *for* relaxation (defaults silently absorbing a
+missing migration) is exactly what hid two real defects the
+2026-06-10 audit's migration leg recorded. A version marker that only
+sometimes implies a migration is a weaker invariant than one that
+always does; the per-migration ceremony is the price of keeping the
+marker honest (ADR-0002 applied to persisted-state evolution).
+
+### Triggers for revisitation
+
+1. **The cadence becomes a measured pain** — bump frequency rises
+   substantially above the ~1.38/day baseline *and* the per-migration
+   cost stops being amortized by the witnessed-assertion helpers.
+2. **The fail-loud nets weaken** — if the composition test or the
+   leaf-assertion pattern is retired, the relaxation question reopens
+   on different terms.
+3. **A mechanical equivalence proof appears** — tooling that can
+   verify an additive change is behaviour-identical to its backfill
+   would change the honesty calculus.

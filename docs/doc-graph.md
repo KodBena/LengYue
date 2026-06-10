@@ -20,9 +20,9 @@ of truth and the picture is a projection of it.
 
 ## At a glance
 
-- **Nodes:** 440 documents.
-- **Edges:** 2078 cross-references
-  (1699 resolved, 379 dangling, 0 ambiguous).
+- **Nodes:** 441 documents.
+- **Edges:** 2108 cross-references
+  (1729 resolved, 379 dangling, 0 ambiguous).
 
 ## Staleness heatmap (buckets)
 
@@ -39,15 +39,12 @@ see the Regeneration note.)
 | Document | Bucket | Last touched |
 |---|---|---|
 | `backend/docs/tree-dsl.md` | stale | 2026-04-26 |
-| `docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md` | stale | 2026-04-26 |
 | `docs/archive/34b-complete-status.md` | stale | 2026-04-26 |
 | `docs/archive/34b-frontend-brief.md` | stale | 2026-04-26 |
 | `docs/archive/34b-parallel-frontend-work.md` | stale | 2026-04-26 |
 | `docs/archive/handoff-2026-04-frontend-pre-umbrella.md` | stale | 2026-04-26 |
 | `docs/playbooks/monorepo/monorepo-plan-framing.md` | stale | 2026-04-26 |
-| `docs/adr/0006-source-file-headers.md` | stale | 2026-04-26 |
 | `docs/notes/audit-reflections.md` | stale | 2026-04-26 |
-| `docs/adr/0007-file-size-and-information-density.md` | stale | 2026-04-26 |
 | `docs/rfcs/README.md` | stale | 2026-04-27 |
 | `docs/rfcs/0001-adr-meta-review.md` | stale | 2026-04-27 |
 | `backend/docs/redis-local-resource.md` | stale | 2026-04-28 |
@@ -68,6 +65,9 @@ see the Regeneration note.)
 | `docs/archive/dispatch/frontend-to-backend-auth-me.md` | stale | 2026-05-08 |
 | `docs/archive/dispatch/frontend-to-backend-card-tree-status.md` | stale | 2026-05-08 |
 | `docs/archive/dispatch/frontend-to-backend-game-source-dedup-status.md` | stale | 2026-05-08 |
+| `docs/archive/dispatch/frontend-to-backend-game-source-dedup.md` | stale | 2026-05-08 |
+| `docs/archive/dispatch/frontend-to-backend-qeubo-integration.md` | stale | 2026-05-08 |
+| `docs/archive/dispatch/frontend-to-frontend-auth-ux-and-dirty-board-handoff.md` | stale | 2026-05-08 |
 
 ## Pruned graph (inline)
 
@@ -118,6 +118,7 @@ flowchart LR
   n8 --> n7
   n8 --> n2
   n8 --> n4
+  n8 --> n1
   n9 --> n3
   n9 --> n5
   n9 --> n6
@@ -142,14 +143,15 @@ flowchart LR
   n12 --> n4
   n12 --> n2
   n12 --> n3
-  n12 --> n5
   n12 --> n6
+  n12 --> n5
   n12 --> n7
   n12 --> n8
   n12 --> n9
   n12 --> n10
   n12 --> n11
   n12 --> n0
+  n12 --> n1
 ```
 
 ## Broken-reference report

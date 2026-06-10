@@ -28,6 +28,10 @@
   repairs from the 2026-06-10 history-lessons audit
   (`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md` §3.23;
   work-status item `adr-record-amendments-2026-06`).
+  Second amendment, 2026-06-11 — Revisit #4 record note: the trigger's
+  anticipated work-status record now exists
+  (`services-boundary-deny-by-default`, shipped); trigger re-checked,
+  not fired. No content change.
 - **Scope:** All `frontend/` Vue component and composable authoring.
   The two rules apply at authoring time (which element type, where
   the reactive read lives) and at review time (a reviewer checks a
@@ -238,6 +242,20 @@ component-cost ranking is the signature that diagnoses it.
    (e.g. relocating reactive-state modules out of `services/`) rather
    than being held apart by a lint heuristic. Surfaced per ADR-0002;
    not resolved here.
+
+   **(Record note, 2026-06-11 — trigger not fired.)** The work-status
+   record this trigger had lacked now exists: item
+   `services-boundary-deny-by-default` (closed shipped 2026-06-10,
+   PR #378) inverted the component→services import boundary to
+   deny-by-default, with the reactive-state class exempted via one
+   named constant (`REACTIVE_STATE_EXEMPTIONS`, now the class's
+   canonical enumeration) — strengthening exactly the split described
+   above. That arc deliberately re-checked this trigger: no case the
+   split cannot classify appeared, so the trigger stays live on its
+   own terms. The collapse-into-one-principle pathway named above —
+   relocating the reactive-state modules out of `services/` (the
+   item's step (b)) — is tracked as work-status item
+   `reactive-state-modules-relocation`.
 
 ## Related
 

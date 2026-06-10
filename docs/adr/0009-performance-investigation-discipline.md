@@ -122,8 +122,9 @@ considered complete:
 
 ### Tools — canonical surface
 
-Two tools earn canonical-tool status as of this tenet's
-codification. The diagnostic uplift each delivers is
+The canonical tool surface: two tools at this tenet's
+codification (2026-05-27), extended to four by the 2026-06-01
+amendment recorded below. The diagnostic uplift each delivers is
 empirically established, not anticipated: the 2026-05-27
 side-by-side comparison documented in
 `docs/archive/notes/perf-investigation-tooling-comparison-2026-05-27.md`
@@ -219,7 +220,7 @@ codified here as the project's starting set:
   same profile all along.
 
 - **Retained-heap tail-slope per cycle** is the memory-leak metric
-  (added 2026-06-01). A leak surfaces only under *repetition*: drive a
+  (added 2026-06-01; also a Revisit #3 instance). A leak surfaces only under *repetition*: drive a
   scenario N times, force a major GC between cycles (CDP
   `HeapProfiler.collectGarbage`), and read the *retained* heap
   (`Runtime.getHeapUsage` post-GC). The discriminant is the **slope of
@@ -235,6 +236,18 @@ codified here as the project's starting set:
   absorbs the one-time init so only steady-state growth is measured.
   Attribution (which constructor / retainer) is a `.heapsnapshot`
   (`HeapProfiler.takeHeapSnapshot`) opened in DevTools → Memory.
+
+- **Count-based comparison for automated Chromium captures** (added
+  2026-06-11; Revisit #3 instance): the Chrome/CDP path's parser produces
+  per-component `render` / `patch` *operation counts* and the
+  render/patch ratio, normalized on the scenario-proxy marks
+  (`autonav:step` for navigation volume; packet-handler marks such as
+  `rb3:handler` for analysis volume). Counts are that path's comparable;
+  duration percentiles (p50/p99) remain the Firefox-path comparable.
+  Comparability is asserted on the scenario proxies *before* costs are
+  compared, per the capture-normalization protocol. First worked use: the
+  2026-06-10 multi-writer-slots null check, whose deviation from a
+  per-frame-medians commission wording was named loudly under this split.
 
 Reusing the same vocabulary across investigations is the
 discipline; the vocabulary itself is expected to extend as new
@@ -500,6 +513,14 @@ This tenet would be worth reconsidering if:
 
 ## Related
 
+- **`docs/notes/perf-capture-normalization-protocol.md`** — the
+  operational companion: this tenet governs *that* a claim carries a
+  capture and *how* perception reconciles against measurement; the
+  protocol note carries the capture-comparability mechanics (confound
+  control, normalization, harness operation). Canonical-tool *status*
+  decisions — what is canonical, why, and known limits — live in this ADR
+  and extend by dated amendment; capture *operating protocol* extends in
+  the companion and the script headers it points at.
 - **ADR-0002 (fail loudly).** The reactive ancestor. An
   unsubstantiated perf claim is the silent-failure shape
   ADR-0002 names at the runtime level, applied to the
@@ -654,6 +675,19 @@ surface extends. What changed:
   `docs/worklog/2026-06-01-memory-profiling-session.md`.
 
 Full record: `docs/worklog/2026-06-01-perf-scenario-harness.md`.
+
+## Amended (2026-06-11): tool-count lead-in, companion routing, counts-based comparable
+
+Three bounded record repairs from the 2026-06-10 ADR-corpus audit
+(package A9), none changing the discipline: the Tools lead-in's "two
+tools" count corrected to name the four-bullet surface the 2026-06-01
+amendment produced; a Related entry + routing rule added for the
+operational companion (`docs/notes/perf-capture-normalization-protocol.md`
+— tool *status* lives here, capture *operating protocol* there; Revisit
+#3's append-here authority untouched); and the counts-not-wall-clock
+Chromium comparable appended to the metric vocabulary as a discharged
+Revisit-#3 instance, previously scattered across a script header and a
+worklog — the per-investigation scatter the vocabulary section forbids.
 
 ## License
 

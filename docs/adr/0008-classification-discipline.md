@@ -12,6 +12,18 @@
   (when a choice is being made against a vocabulary, refuse fuzzy
   matches and synthetic fabrications).
 - **Date:** 2026-05-17
+- **Amendments:** 2026-06-11 — record repairs from the 2026-06-10
+  ADR-corpus audit (package A8): substrate item 4's and Rule 2's
+  citations re-pointed from a maintainer-local memory record (which
+  resolves in no clone and no longer exists locally) to the in-repo
+  reorganization audit
+  (`../archive/notes/frontend-source-tree-reorganization.md`); dated
+  retired-marker notes on both Exceptions and Rule 3's channel list
+  (ADR-0005 Rule 9 retired the `design-note: <status>` vocabulary);
+  Revisit-when #4 recorded as partially fired (the work-status
+  store's enum constraints; the refs-kind arc; the filed
+  `band-conformance-ci-check` item as the named fuller firing). The
+  rules themselves are unchanged.
 - **Scope:** All authoring work involving classification — picking
   values from closed vocabularies (enums, ADR bands, named
   patterns), placing files into directory trees, naming categories,
@@ -85,9 +97,10 @@ fabrications) named together.
    overrode to top-level. The proposed move was a fabricated
    placement that descriptively fit only the larger of two consumers,
    not the file itself.
-   (Recorded in the umbrella's memory record at
-   `feedback_classification_chestertons_fence.md`; surfaced
-   2026-05-11.)
+   (Recorded in the reorganization audit's implementation outcome —
+   `docs/archive/notes/frontend-source-tree-reorganization.md`,
+   decision point 2, which applied the same flat-lift to five further
+   ambiguous composables on the same principle; surfaced 2026-05-11.)
 
 5. **Backend source-tree reorganisation deferral.** The 2026-04-26
    consideration of partitioning backend files into domain-coupling
@@ -200,17 +213,18 @@ it as the severity rule for classification choices generally.
    classification or placing into an existing one, ask: does any
    existing category descriptively fit? If yes, use it. If not,
    leave flat. Synthetic parents are last resort, not default. The
-   companion rule recorded in the umbrella's memory:
-   *"earn-your-place"* — subdirs require ≥4 files or a strong
-   cluster identity; this tenet is its per-file counterpart.
+   companion rule recorded in the same reorganization audit (its
+   Option E): *"earn-your-place"* — subdirs require ≥4 files or a
+   strong cluster identity; this tenet is its per-file counterpart.
 
 3. **Surface the gap visibly.** When the right move (revise the
    vocabulary, hold flat) is out of scope for the current arc, the
    deviation is filed visibly per the channels named in ADR-0002
    Rule 7 — sibling note marked `revised` per ADR-0005 Rule 8, ADR
    amendment, TODO entry, or at minimum an inline comment naming
-   the misfit. Silent acceptance is the failure mode this tenet
-   forbids.
+   the misfit (a "TODO entry" means a work-status store item since
+   the 2026-06-02 consolidation). Silent acceptance is the failure
+   mode this tenet forbids.
 
 4. **Apply the substitution test for severity.** When a category
    error surfaces, the discipline-recommendation calibrates to what
@@ -239,11 +253,18 @@ consumers depend on it. The state qualifier `[experimental]` from
 `FEATURES.md`, the `[B?]` band tag from `frontend/FILES.md`, and the
 `design-note: planned` marker from the doc-graph vocabulary are the
 explicit refusals-to-classify-yet that this exception applies to.
+*(Updated 2026-06-11.)* ADR-0005 Rule 9 (2026-06-02) retired the
+per-note `design-note: <status>` marker vocabulary; the explicit
+refusal-to-classify-yet that marker carried is now expressed by the
+design note's owning work-status item remaining open.
+`[experimental]` and `[B?]` stand unchanged.
 
 ### Deliberately-imprecise tag
 
 Tags like `[experimental]`, `[partial]`, `[planned]`, `[B?]`,
-`design-note: revised` are *deliberate* admissions that
+`design-note: revised` (marker vocabulary since retired per ADR-0005
+Rule 9 — the deliberate-admission role survives as SSOT delegation)
+are *deliberate* admissions that
 classification is incomplete or under revision. They are not
 closest-match — they are explicit refusals to classify until the
 case firms up, which is the discipline applied to itself. Choosing
@@ -284,7 +305,9 @@ fuzzy-fit is the discipline working as intended.
   the gap-filing discipline of Rule 3.
 - **Discipline is policy, not mechanism.** Like the other tenets,
   this one lives in code review, authoring habit, and audit. There
-  is no automated check that catches a violation.
+  is no automated check that catches a violation. *(2026-06-11:
+  partially mechanized since — see the dated note under
+  Revisit-when #4.)*
 
 ### Neutral
 
@@ -314,6 +337,20 @@ fuzzy-fit is the discipline working as intended.
    mount sites" check for Vue SFCs. Tighten the corresponding rule
    from "review responsibility" toward "compile-time enforcement"
    as the mechanical surface grows.
+
+   **(Partially fired, recorded 2026-06-11.)** The work-status store's
+   closed-but-amendable enum constraints (e.g. `refs_kind_check`,
+   `tools/work-status/schema.sql`) mechanically refuse out-of-vocabulary
+   writes — the gap-surfacing this tenet prescribes now happens against a
+   constraint, not a convention; the `refs.kind` `audit`-value arc
+   (`docs/worklog/2026-06-10-refs-kind-audit.md`) is the worked instance: a
+   precedent-based closest-match (`design-note` for audit docs) surfaced per
+   Rule 1 rather than silently reused, and the vocabulary was revised on
+   maintainer sign-off. The band-register mechanization this trigger names
+   directly is filed as work-status item `band-conformance-ci-check`
+   (open/future; history audit §3.14); when it ships, tighten Rule 1's
+   band-tag application from review responsibility toward CI per this
+   trigger's own prescription, and record the firing here.
 
 ## Related
 

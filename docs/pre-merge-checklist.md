@@ -40,7 +40,11 @@ The umbrella `CLAUDE.md` enumeration, as a walk-through:
 - [ ] **Work-status store** — does the `todo` Postgres DB need a status
   transition (open → closed), a new item, or a retire-on-ship closure?
   (`psql -h 192.168.122.1 -d todo`; cross-row gate
-  `SELECT * FROM work_status_violations` empty ⇒ clean.)
+  `SELECT * FROM work_status_violations` empty ⇒ clean.) Staged-SQL
+  convention (ratified 2026-06-11): additive, future-disposition filings
+  (items+refs+labels) may be applied at staging time by the coordinating
+  session — filing tracks, it does not approve; description edits,
+  dispositions, and closures await maintainer sign-off.
 - [ ] **`docs/handoff-current.md`** — does this change touch an orientation
   surface it describes (product/pedagogy framing, architecture/integration
   model, or still-open-work context), and is it still accurate?

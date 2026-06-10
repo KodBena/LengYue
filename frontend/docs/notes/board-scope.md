@@ -74,6 +74,12 @@ typechecks. The guarantee comes from the test (below), not the type.
 So the registry is bounded to Class A on purpose (board-scope audit P1b; the
 scope-exhaustiveness consult under the umbrella `docs/notes/consult/`).
 
+*(2026-06-11: the keep-Class-B-inline judgment above rests on the 2026-06-05
+consult's ADVISORY verdict, not a maintainer decision — prior records
+overstated its authority. The Class B teardown shape is an open question,
+tracked as work-status item `closeboard-class-b-teardown-shape` (parked;
+owner-located teardown is a named candidate).)*
+
 **TypeScript cannot enumerate "every per-board surface" to demand each is torn
 down** — so the registry's coverage is a *convention*, not a proof. The
 board-completeness test (`tests/integration/store-mutators.test.ts`) verifies the

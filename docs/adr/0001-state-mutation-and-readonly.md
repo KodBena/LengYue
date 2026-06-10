@@ -25,6 +25,12 @@
   under Revisit-when #3. The decision is again unchanged. From the
   same audit's §3.7 leg (iv) (work-status item
   `multi-writer-slots-get-owners`).
+  Third amendment, 2026-06-11 — the three retired TODO-numbering
+  handles (Revisit #1, Related ×2) re-pointed to stable handles
+  (the work-status item id for the live multi-tab trigger; the
+  archive snapshot for the two shipped items), and a dated
+  catalog-split note added in Context. No content change; per the
+  stable-handles convention (history-lessons audit §3.25).
 - **Decision drivers:** Vue reactivity architecture; TypeScript type-system
   semantics; performance at deep store paths; honesty of type annotations.
 
@@ -38,7 +44,16 @@ state) and by named mutator functions (`mutateBoard`, `mutateReviewSession`)
 in the store module.
 
 Before this decision, `src/types.ts` marked essentially every field of
-every interface as `readonly`. The intent was likely aspirational —
+every interface as `readonly`.
+
+*(Catalog note, 2026-06-10: the single-file catalog has since split along
+its banner seams into `src/types/` domain modules plus
+`src/store/schema.ts`, with `types.ts` remaining as the barrel —
+history-lessons audit §3.15. The two-category `readonly` policy this ADR
+sets is restated in the barrel's header; the historical claim above
+describes the pre-split file.)*
+
+The intent was likely aspirational —
 signaling that state *should* be treated as immutable and mutated only
 through designated mutator functions. In practice, the actual runtime
 code mutated these fields pervasively through every channel available
@@ -273,7 +288,10 @@ become true:
 
 1. **Multi-tab concurrency becomes a real workflow.** If two browser
    tabs can meaningfully edit state at the same time, we need conflict
-   detection (ETag-style, see TODO item 27-full) and likely a more
+   detection (ETag-style — parked as work-status item
+   `item-27-etag-multitab`, the ETag multi-tab coordination layer;
+   successor of the retired TODO numbering's item 27-full, design
+   sketch in the `SyncService::sendSync()` comment) and likely a more
    disciplined mutation model. Persistent data structures (Immer or
    Immutable.js) become more attractive if we need to snapshot-and-diff
    cheaply.
@@ -337,12 +355,15 @@ become true:
   comment citing the 2026-05-28 game-scroll perf audit;
   `mutateReviewSession` carries no docstring. The ADR-to-code linkage
   runs in this direction only.)*
-- TODO item 27-min (shipped): the last-write-wins single-tab invariant
-  documented on `SyncService::sendSync()` is a consequence of the same
-  "mutation-first, discipline via convention" model.
-- TODO item 17 (shipped): the collapse of `SyncService`'s three-channel
-  watcher into one is enabled by the fact that mutations all land in
-  the same reactive tree, making a single watcher sufficient.
+- The last-write-wins single-tab invariant documented on
+  `SyncService::sendSync()` (retired TODO numbering, item 27-min;
+  archived record in `docs/archive/TODO-completed-2026-05-06.md`) is a
+  consequence of the same "mutation-first, discipline via convention"
+  model.
+- The collapse of `SyncService`'s three-channel watcher into one
+  (retired TODO numbering, item 17; same archive) is enabled by the
+  fact that mutations all land in the same reactive tree, making a
+  single watcher sufficient.
 
 ## Not goals (explicit)
 
