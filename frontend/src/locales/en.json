@@ -470,6 +470,7 @@
   "analysis.proxyMissingDeltaAnalysis":   "KataGo proxy advertises capabilities but does not list `delta_analysis`. Per-move grading and analysis-tab enrichment cannot run on this proxy. Disconnecting.",
   "analysis.proxyMissingTransposition":   "Transposition toggle is on, but the KataGo proxy does not advertise the `transposition` capability. Cluster rings will not appear; flip the toggle off in the registry to suppress this warning, or check that the proxy was built with the `goboard_transposition` module.",
   "analysis.ponderExhausted":             "Ponder reached its visit ceiling ({visits}). Your hardware is fast enough that ponder finished before you stopped it — consider raising `engine.katago.ponderMaxVisits` in the registry editor.",
+  "analysis.enrichmentNullLeafReplaced":  "Analysis enrichment anomaly: {field}[{key}] arrived with null values ({nullFields}) and replaced previously populated data. A palette function may be producing invalid output (NaN becomes null on the wire) — check the active palette's symbol definitions.",
 
   "sgf.noActiveBoard":                    "No active board to save.",
   "sgf.serialisationFailed":              "SGF serialisation failed: {detail}",

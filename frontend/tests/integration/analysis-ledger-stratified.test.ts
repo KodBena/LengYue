@@ -8,8 +8,10 @@
  * (moveInfos / rootInfo / ownership) stays reachable.
  *
  * Also covers the per-store merge semantics (raw visit-gate, enrichment
- * additive last-writer-wins) and the persistence round-trip + legacy-v1
- * replay path (enrichment restored, raw dropped, warned).
+ * additive last-writer-wins), the nested-null merge guard (the adaptive-deeper
+ * postmortem's §5.5 observation: a null-bearing inner record replacing a
+ * populated leaf must surface loudly), and the persistence round-trip +
+ * legacy-v1 replay path (enrichment restored, raw dropped, warned).
  *
  * License: Public Domain (The Unlicense)
  */
@@ -28,7 +30,7 @@ import {
   type AnalysisBundle,
 } from '../../src/services/analysis-bundle';
 import { createInitialBoard } from '../../src/store/board-factory';
-import { addBoard } from '../../src/store';
+import { addBoard, store, clearSystemMessages } from '../../src/store';
 import type { NodeId, RawKey, EnrichedKey, RawAnalysis, Enrichment } from '../../src/types';
 
 const OVERRIDES = { reportAnalysisWinratesAs: 'WHITE' };
@@ -95,6 +97,70 @@ describe('ledger merge semantics', () => {
     const incoming: Enrichment = { black: { deltas: { '1': 0.2 } } };
     const merged = mergeEnrichment(existing, incoming);
     expect(merged.black?.deltas).toEqual({ '0': 0.1, '1': 0.2 });
+  });
+});
+
+describe('mergeEnrichment — nested-null guard (adaptive-deeper postmortem §5.5)', () => {
+  // Wire-origin anomaly fixture: a palette delta_fn producing NaN under
+  // asteval serialises to JSON null, which the static type cannot represent
+  // (`state` leaf values are typed `Record<string, number>`). The double cast
+  // is justified because it constructs exactly the type-lying packet the
+  // §5.5 guard exists to catch.
+  const nullBearingLeaf = { Win: null, Complexity: 0.3 } as unknown as Record<string, number>;
+
+  beforeEach(() => {
+    clearSystemMessages();
+  });
+
+  it('loud-warns (structured console.warn + one system message) when a null-bearing state record replaces a populated leaf', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const existing: Enrichment = { state: { '42': { Win: 0.61, Complexity: 0.2 } } };
+    const incoming: Enrichment = { state: { '42': nullBearingLeaf } };
+    const merged = mergeEnrichment(existing, incoming);
+
+    // Merge semantics unchanged: last-writer-wins per leaf — the guard
+    // surfaces the anomaly, it does not block the replacement.
+    expect(merged.state?.['42']).toEqual({ Win: null, Complexity: 0.3 });
+
+    // Level-5 structured warn from the instance-blind helper, every time.
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][1]).toEqual({ label: 'extra.state', key: '42', nullFields: ['Win'] });
+
+    // Level-4 terminal: one user-visible system message, de-duplicated per
+    // label so a packet flood cannot wipe the system log.
+    const warnings = () => store.engine.messages.filter(m => m.type === 'warning');
+    expect(warnings()).toHaveLength(1);
+    expect(warnings()[0].text).toContain('extra.state');
+
+    // A second offending merge still console.warns but adds no second message.
+    mergeEnrichment(existing, incoming);
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warnings()).toHaveLength(1);
+
+    // purgeAll resets the latch with the workspace: a fresh session surfaces
+    // the anomaly anew.
+    ledger.purgeAll();
+    mergeEnrichment(existing, incoming);
+    expect(warnings()).toHaveLength(2);
+
+    warn.mockRestore();
+  });
+
+  it('stays silent when nothing populated is lost or the incoming record is null-free', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // Null-bearing record landing on an absent leaf: no populated data lost.
+    mergeEnrichment({ state: { '7': { Win: 0.5 } } }, { state: { '42': nullBearingLeaf } });
+    // Null-bearing record replacing an empty (unpopulated) leaf: likewise.
+    mergeEnrichment({ state: { '42': {} } }, { state: { '42': nullBearingLeaf } });
+    // Null-free record replacing a populated leaf: the ordinary merge.
+    mergeEnrichment({ state: { '42': { Win: 0.61 } } }, { state: { '42': { Win: 0.7 } } });
+
+    expect(warn).not.toHaveBeenCalled();
+    expect(store.engine.messages.filter(m => m.type === 'warning')).toHaveLength(0);
+
+    warn.mockRestore();
   });
 });
 
