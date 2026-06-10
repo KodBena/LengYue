@@ -259,7 +259,9 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
       // Mutate the active board to become the loaded card
       const existingIdx = store.boards.findIndex(b => b.id === bId);
       if (existingIdx !== -1) {
-        parsedBoard.id = bId as any; // Retain the tab ID
+        // Retain the tab ID: both sides are BoardId (loadSgf mints a fresh
+        // branded id; we overwrite it with the existing tab's), so no cast.
+        parsedBoard.id = bId;
         updateBoardState(existingIdx, parsedBoard);
       } else {
         addBoard(parsedBoard);

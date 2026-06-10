@@ -12,8 +12,17 @@ import { installPerfScenarios } from './composables/perf/scenarios';
 import { i18n } from './i18n';
 
 // Expose the reactive store to the browser console for verification ONLY in DEV.
+// Justified `as any` (ADR-0002 Rule 2 — untyped-global interop): these are
+// deliberately untyped DEV-only console debug handles. Scope of unsafety:
+// the two writes below and whatever a developer types at the console. A
+// `declare global` Window augmentation was considered and rejected — it
+// would advertise the debug fields tree-wide as typed surface, inviting
+// the production reads this DEV gate exists to prevent. Not a band
+// boundary (ADR-0003): window is outside the band vocabulary entirely.
 if (import.meta.env.DEV) {
+  // eslint-disable-next-line no-restricted-syntax -- DEV-only untyped console debug handle (see block comment above)
   (window as any).store = store;
+  // eslint-disable-next-line no-restricted-syntax -- DEV-only untyped console debug handle (see block comment above)
   (window as any).Writer = { serializeBoard, serializeActivePath };
   // Install `window.__perfScenario` so the Playwright capture driver (and
   // the dev-toolbar picker) can launch pluggable perf scenarios by name.

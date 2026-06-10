@@ -298,11 +298,17 @@ function removeStateFnFromPalette(paletteId: string, chartName: string) {
   }
 }
 
-function updatePaletteField(paletteId: string, field: keyof AnalysisPalette, val: any) {
+// Generic key parameter ties the value's type to the named field, so the
+// keyed write typechecks without the historical `as any` erasure.
+function updatePaletteField<K extends keyof AnalysisPalette>(
+  paletteId: string,
+  field: K,
+  val: AnalysisPalette[K],
+) {
   const next = getClone();
   const p = next.palettes.find(p => p.id === paletteId);
   if (p) {
-    (p as any)[field] = val;
+    p[field] = val;
     commit(next);
   }
 }

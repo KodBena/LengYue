@@ -121,10 +121,12 @@ function deleteCardSet() {
   }
 }
 
-function updateField(field: keyof CardSet, val: any) {
+// Generic key parameter ties the value's type to the named field, so the
+// keyed write typechecks without the historical `as any` erasure.
+function updateField<K extends keyof CardSet>(field: K, val: CardSet[K]) {
   if (!selectedId.value) return;
   const next = getClone();
-  (next[selectedId.value] as any)[field] = val;
+  next[selectedId.value][field] = val;
   commit(next);
 }
 

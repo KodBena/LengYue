@@ -1,6 +1,6 @@
 {
-  "node_count": 422,
-  "edge_count": 1936,
+  "node_count": 423,
+  "edge_count": 1941,
   "age_buckets": [
     {
       "name": "fresh",
@@ -26,7 +26,7 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-06-04",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "FEATURES.md",
@@ -1594,7 +1594,7 @@
       "is_hub": false,
       "first_committed": "2026-05-18",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/dispatch/proxy-to-frontend-selector-and-capabilities-status.md",
@@ -2962,7 +2962,7 @@
       "is_hub": false,
       "first_committed": "2026-05-30",
       "last_committed": "2026-05-30",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-30-perf-toolbar-metrics-extraction.md",
@@ -3218,7 +3218,7 @@
       "is_hub": false,
       "first_committed": "2026-06-04",
       "last_committed": "2026-06-04",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-08-basechart-active-prop-default.md",
@@ -3283,6 +3283,14 @@
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
       "age_bucket": "recent"
+    },
+    {
+      "path": "docs/worklog/2026-06-10-cast-hygiene-lint.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-10",
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-10-deferral-harvest.md",
@@ -3362,7 +3370,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "frontend/CLAUDE.md",
@@ -16353,6 +16361,41 @@
       "to": "docs/handoff-current.md",
       "kind": "path-mention",
       "site": "`docs/handoff-current.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-cast-hygiene-lint.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-cast-hygiene-lint.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-cast-hygiene-lint.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-cast-hygiene-lint.md",
+      "to": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-cast-hygiene-lint.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
       "resolved": "resolved"
     },
     {
