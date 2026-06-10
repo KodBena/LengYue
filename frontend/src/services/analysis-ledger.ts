@@ -40,7 +40,8 @@ import {
   type Enrichment,
 } from '../engine/katago/types';
 import { type NodeId, type BoardId, type RawKey, type EnrichedKey } from '../types';
-import { store } from '../store';
+import { store, pushSystemMessage } from '../store';
+import { i18n } from '../i18n';
 
 /**
  * Either store's key. The shared version-ref + flush machinery accepts a key
@@ -182,12 +183,65 @@ function purgeNodesFrom<K extends string, V>(
 
 // ── Merge helpers ─────────────────────────────────────────────────────────────
 
-function mergeRecords<T extends Record<string, unknown>>(existing?: T, incoming?: T): T | undefined {
+/**
+ * Caller-supplied guard for `mergeRecords` call sites whose leaf values are
+ * themselves records (the nested-record shape, `Record<string, Record<…>>`).
+ * The top-level nullish check in `mergeRecords` cannot see *inside* an
+ * incoming leaf, so a non-null record carrying null/undefined fields replaces
+ * a populated leaf silently — the sharp edge the adaptive-deeper postmortem
+ * recorded as a §5.5 observation
+ * (`docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md`),
+ * and wider since the 2026-06-08 stratification removed the visit gate from
+ * the enrichment merge path. The guard is structural and instance-blind: it
+ * knows nothing about KataGo — the label and the terminal escalation are the
+ * caller's calibration (work-status item `enrichment-merge-null-validation`;
+ * audit `docs/notes/audit/audit-spa-history-lessons-2026-06-10.md` §3.6).
+ */
+interface NestedRecordGuard {
+  /** Names the merged field in warn output (e.g. 'extra.state'). */
+  readonly label: string;
+  /** Terminal escalation, invoked after the structural console.warn. */
+  readonly escalate: (detail: { readonly key: string; readonly nullFields: readonly string[] }) => void;
+}
+
+/** A plain (non-array) record at least one of whose own values is nullish. */
+function isNullBearingRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+    && Object.values(v).some(inner => inner === null || inner === undefined);
+}
+
+/** A plain (non-array) record at least one of whose own values is non-nullish. */
+function isPopulatedRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+    && Object.values(v).some(inner => inner !== null && inner !== undefined);
+}
+
+function mergeRecords<T extends Record<string, unknown>>(
+  existing?: T,
+  incoming?: T,
+  guard?: NestedRecordGuard,
+): T | undefined {
   if (!existing) return incoming;
   if (!incoming) return existing;
   const merged = { ...existing };
   for (const [key, value] of Object.entries(incoming)) {
     if (value !== null && value !== undefined) {
+      // §5.5 guard: a non-null incoming record whose own fields include
+      // null/undefined is about to replace a populated leaf. Surface loudly
+      // (structured console.warn here; the caller's escalation carries the
+      // terminal level), then let last-writer-wins proceed — suppressing the
+      // replacement would mask the upstream anomaly behind stale data, the
+      // "recover by guessing" shape ADR-0002 forbids.
+      if (guard && isNullBearingRecord(value) && isPopulatedRecord(existing[key])) {
+        const nullFields = Object.entries(value)
+          .filter(([, inner]) => inner === null || inner === undefined)
+          .map(([k]) => k);
+        console.warn(
+          `[analysis-ledger] ${guard.label}[${key}]: incoming record carries nullish fields and replaces a populated leaf`,
+          { label: guard.label, key, nullFields },
+        );
+        guard.escalate({ key, nullFields });
+      }
       (merged as Record<string, unknown>)[key] = value;
     }
   }
@@ -217,13 +271,42 @@ function mergePlayerExtra(existing?: KataPlayerExtra, incoming?: KataPlayerExtra
   };
 }
 
+// ── §5.5 guard calibration — the Go-typed call site ──────────────────────────
+// All KataGo knowledge lives here, not in the instance-blind helper: the label
+// names the wire field, and the terminal escalation is ADR-0002 level 4 (a
+// user-visible `pushSystemMessage` warning), not level 3 — a throw inside
+// `recordEnrichment` would halt the packet path for a wire-origin anomaly the
+// SPA did not cause and cannot fix locally. De-duplicated per label so a
+// packet flood from one misconfigured palette surfaces once per workspace
+// session instead of wiping the 50-message system log (every occurrence still
+// console.warns inside the helper); `purgeAll` clears the latch with the
+// workspace.
+const nestedNullEscalatedLabels = new Set<string>();
+
+const stateNestedGuard: NestedRecordGuard = {
+  label: 'extra.state',
+  escalate: ({ key, nullFields }) => {
+    if (nestedNullEscalatedLabels.has('extra.state')) return;
+    nestedNullEscalatedLabels.add('extra.state');
+    pushSystemMessage('warning', i18n.global.t('analysis.enrichmentNullLeafReplaced', {
+      field: 'extra.state',
+      key,
+      nullFields: nullFields.join(', '),
+    }));
+  },
+};
+
 function mergeKataExtra(existing?: KataExtra, incoming?: KataExtra): KataExtra | undefined {
   if (!existing) return incoming;
   if (!incoming) return existing;
   return {
+    // `state` values are nested records — the one §5.5-guarded call site.
+    // `deltas` / `cwt` are numeric-leaf records the top-level nullish check
+    // in `mergeRecords` already covers; they stay unguarded.
     state: mergeRecords(
       existing.state as Record<string, unknown> | undefined,
-      incoming.state as Record<string, unknown> | undefined
+      incoming.state as Record<string, unknown> | undefined,
+      stateNestedGuard
     ) as Record<string, Record<string, number>> | undefined,
     black: mergePlayerExtra(existing.black, incoming.black),
     white: mergePlayerExtra(existing.white, incoming.white),
@@ -350,6 +433,9 @@ export class AnalysisLedger {
     rawData.clear();
     enrData.clear();
     nodeVersions.clear();
+    // §5.5 guard latch: a fresh workspace surfaces the nested-null anomaly
+    // anew rather than inheriting the prior session's "already warned" state.
+    nestedNullEscalatedLabels.clear();
     emitChanged(cleared);
   }
 
