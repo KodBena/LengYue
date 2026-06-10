@@ -107,6 +107,19 @@ The umbrella `CLAUDE.md` enumeration, as a walk-through:
   closest match is the literal-following failure ADR-0002 forbids, applied to
   vocabulary-fit.
 
+## G. Keyed-cache brand at construction (history-lessons audit §3.5)
+
+- [ ] Any **new keyed cache** (a `Map`/store keyed by a hash or a multi-input
+  composite) mints a **branded key** whose declaration names the dependency
+  set of the value it buckets, with each key leg carrying a one-word band call
+  (domain-bound vs agnostic) in its `frontend/IDENTIFIERS.md` row. The
+  normative rule lives in `frontend/CLAUDE.md`'s "Type-driven design";
+  `RawKey`/`EnrichedKey` (`deriveAnalysisKeys`) are the worked example. This
+  line is G4-shaped mitigation, not a fix — per the RCA's own caveat: *"a
+  checklist guarded by memory is weaker than a lint; this is a mitigation,
+  not a fix"*
+  (`docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md` §4, guard G4).
+
 ## Provenance
 
 Surfaced by `docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md`

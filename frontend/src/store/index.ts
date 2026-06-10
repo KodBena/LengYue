@@ -249,8 +249,8 @@ export function toggleCardTreeManualExpand(boardId: BoardId, key: CardTreeExpand
  * stored under the same board's slot. The single-key
  * `toggleCardTreeManualExpand` covers the common case; this
  * mutator covers the bulk replacement case. Per-board cleanup on
- * board close happens inline in `closeBoard` (audit pair O14),
- * not through a mutator.
+ * board close happens inline in `closeBoard` (audit tag O14,
+ * card-tree-nav-slot), not through a mutator.
  */
 export function setCardTreeManualExpand(boardId: BoardId, keys: readonly CardTreeExpandKey[]): void {
   if (keys.length === 0) {
@@ -328,7 +328,9 @@ export function boardScopedStoreCellLabels(): readonly string[] {
  *
  * Releases the closing board's external resources and per-board
  * workspace dictionaries before mutating the surviving boards.
- * Four cleanups currently fire:
+ * The cleanups, enumerated (no count is asserted here — counts in
+ * prose comments rot; the firing order lives in the ordering
+ * paragraph below):
  *
  *   1. analysisService.stopBoardAnalysis — severs *every* in-flight
  *      analysis subscription this board owns (the bulk-stop path in
@@ -340,38 +342,45 @@ export function boardScopedStoreCellLabels(): readonly string[] {
  *      per-node reactive version refs for the closed board's nodes
  *      across every palette hash. Without it, the ledger's internal
  *      Maps grow on every board close.
- *   3. delete store.session.reviews[boardId] — drops the per-board
+ *   3. stabilityTrajectoryStore.purgeBoard — drops the per-(hash,
+ *      extractor, nodeId) stability trajectories accumulated from
+ *      analysis-service's preview ingestion for the closed board's
+ *      nodes. Bounded leak if omitted (trajectory entries are
+ *      compact change-point lists), but the per-board hygiene is
+ *      the same shape as #2.
+ *   4. delete store.session.reviews[boardId] — drops the per-board
  *      review-session row. Without it, dead entries accumulate in
  *      `store.session.reviews` and round-trip to the backend via
  *      SyncService (which persists `store.session` deeply).
- *   4. delete store.engine.activeMode[boardId] — drops the
+ *   5. delete store.engine.activeMode[boardId] — drops the
  *      `'none'` tombstone that `stopBoardAnalysis`'s
  *      `recomputeActiveMode` lands at when the last query is
- *      released. Same SyncService-payload concern as #3, plus
+ *      released. Same SyncService-payload concern as #4, plus
  *      keeping the dictionary honest about which boards are still
  *      tracked.
- *   5. abortBoardReview — fires AbortController.abort() on the
+ *   6. abortBoardReview — fires AbortController.abort() on the
  *      board's pending review-analysis wait, if any. Without it,
  *      a mid-review close would let the 30s timeout fire later,
  *      surfacing a "KataGo did not respond" toast for a board
  *      that no longer exists AND resurrecting the just-deleted
  *      `store.session.reviews[boardId]` row via the catch-block's
  *      lazy `mutateReviewSession`.
- *   6. purgeBoardThumbnails — drops cached SVG renders keyed on
+ *   7. purgeBoardThumbnails — drops cached SVG renders keyed on
  *      the closing board's NodeIds. Walks `board.nodes`, so it
  *      must run while the board is still present in
  *      `store.boards` (i.e., before the splice below). NodeIds
  *      are UUID-style; cross-user collision is functionally
  *      impossible, so this is memory-hygiene rather than a
  *      correctness or privacy concern.
- *   7. removeBoardCardTree — drops the closing board's slot in
+ *   8. removeBoardCardTree — drops the closing board's slot in
  *      the per-board card-tree state map (forest, active set,
  *      hydrated cards, forestStats). Without it, the
  *      `boardCardTrees` map accumulates dead entries over the
  *      session, and the slot's hydrated-cards map (CardId-keyed)
  *      could leak across an identity flip with collision-prone
- *      auto-increment ids. Resource-ownership audit O12.
- *   8. analysisPersistenceService.discard — server-side bundle
+ *      auto-increment ids. Resource-ownership audit tag O12
+ *      (board-card-trees).
+ *   9. analysisPersistenceService.discard — server-side bundle
  *      delete + local summary cache clear. Symmetric to O1 (the
  *      ledger purge) but for the persisted server row that
  *      belongs to this board's lifetime. Best-effort and
@@ -381,25 +390,27 @@ export function boardScopedStoreCellLabels(): readonly string[] {
  *      delete cleans it up if the user closes the same id again,
  *      which they can't, so it's effectively orphan storage). The
  *      api-client surfaces non-2xx via the system log; no need
- *      to double-handle here. Resource-ownership audit O13.
- *   9. delete store.session.ui.cardTreeNav[boardId] — drops the
+ *      to double-handle here. Resource-ownership audit tag O13
+ *      (persisted-analysis-bundles).
+ *  10. delete store.session.ui.cardTreeNav[boardId] — drops the
  *      per-board card-tree manual-expand slot. Without it, dead
  *      entries accumulate in `session.ui.cardTreeNav` and round-
  *      trip to the backend via SyncService (same SyncService-payload
- *      concern as #3 and #4). Resource-ownership audit O14
- *      (schema-version 45 introduces the slice).
- *  10. delete store.session.ui.forestNav.selection[boardId] — drops the
+ *      concern as #4 and #5). Resource-ownership audit tag O14
+ *      (card-tree-nav-slot; schema-version 45 introduces the slice).
+ *  11. delete store.session.ui.forestNav.selection[boardId] — drops the
  *      per-board forest-navigator selection (schema-version 59 re-scoped
  *      it per-board; board-scope audit P0). Same SyncService-payload
- *      concern as #3 / #4 / #9. `forestNav.expanded` is workspace-global
- *      and is NOT cleared here. Resource-ownership audit O15.
+ *      concern as #4 / #5 / #10. `forestNav.expanded` is workspace-global
+ *      and is NOT cleared here. Resource-ownership audit tag O15
+ *      (forest-nav-selection).
  *
  * Order matters: stop the engine before purging the ledger so an
  * in-flight packet can't land between the two and re-populate the
  * ledger after we've cleared it. The dictionary deletes follow
  * stopBoardAnalysis (which writes to activeMode) so the deletes
  * actually overwrite the tombstone rather than leaving it; those
- * store-cell deletes (#3 / #4 / #9 / #10) are drained from the
+ * store-cell deletes (#4 / #5 / #10 / #11) are drained from the
  * BOARD_SCOPED_STORE_CELLS registry (see its docstring). The
  * abort runs after the deletes; its rejection-side cleanup runs
  * in processUserMove's catch on the next microtask. The thumbnail
@@ -412,12 +423,18 @@ export function boardScopedStoreCellLabels(): readonly string[] {
  * recorded packets; the dictionary deletes are safe regardless
  * (delete on a missing key is a no-op).
  *
- * Workspace-owned-resource cleanup is tracked in
- * docs/notes/resource-ownership-audit-plan.md (audit pairs O1 for
- * the ledger, O2 for the review-session row, O3 for the
- * activeMode tombstone, O4 for the thumbnail cache, and O5 for
- * the review-wait abort; subsequent pairs ship in their own
- * commits per the audit's bisect discipline).
+ * Workspace-owned-resource cleanup is tracked in the archived audit
+ * plan, docs/archive/notes/resource-ownership-audit-plan.md (all
+ * three passes closed 2026-05-04). Pairs O1–O5 resolve against that
+ * plan's inventory (O1 the ledger, O2 the review-session row, O3
+ * the activeMode tombstone, O4 the thumbnail cache, O5 the
+ * review-wait abort). Tags numbered past the plan's inventory —
+ * O12 (board-card-trees), O13 (persisted-analysis-bundles), O14
+ * (card-tree-nav-slot), O15 (forest-nav-selection) here — were
+ * minted in code after the plan froze and do NOT resolve against
+ * the plan's own O12–O15 rows, which name unrelated pairs; for
+ * those tags the descriptive slug, not the bare number, is the
+ * stable handle (the frozen plan is never edited).
  */
 export function closeBoard(boardId: BoardId): void {
   // Release external resources the closing board owns. Both calls
@@ -437,12 +454,14 @@ export function closeBoard(boardId: BoardId): void {
   // metric to ledger.purgeBoard but for the row stored by the
   // analysis-persistence feature. Fire-and-forget — closeBoard
   // stays sync from the caller's perspective; the api-client
-  // surfaces non-2xx via the system log if it matters. Audit O13.
+  // surfaces non-2xx via the system log if it matters. Audit tag
+  // O13 (persisted-analysis-bundles).
   analysisPersistenceService.discard(boardId).catch(() => { /* surfaced via api-client's system-message push */ });
 
   // Drop the per-board store cells via the BOARD_SCOPED_STORE_CELLS registry
-  // (defined above) — reviews (O2), activeMode (O3), cardTreeNav (O14),
-  // forestNav.selection (O15, schema 59; the per-board axis only —
+  // (defined above) — reviews (O2), activeMode (O3), cardTreeNav (O14,
+  // card-tree-nav-slot),
+  // forestNav.selection (O15, forest-nav-selection, schema 59; the per-board axis only —
   // `forestNav.expanded` is workspace-global and untouched). All are owned by
   // this BoardId and have no meaning once the board is gone; persisting them
   // via SyncService would bloat the user's document with tombstones. The cells
@@ -465,7 +484,8 @@ export function closeBoard(boardId: BoardId): void {
   // hydrated cards, forestStats). Must run before the splice so
   // any subsequent reactive read against `boardCardTrees.get(...)`
   // sees the empty state rather than stale content from the
-  // closing board. Resource-ownership audit O12.
+  // closing board. Resource-ownership audit tag O12
+  // (board-card-trees).
   removeBoardCardTree(boardId);
 
   if (store.boards.length <= 1) {
@@ -567,10 +587,12 @@ export function identityScopedCacheLabels(): readonly string[] {
  *     SVG cache.
  *   - clearCardThumbnailCache (audit pair O10) — card-thumbnail
  *     SVG cache.
- *   - clearAllBoardCardTrees (audit pair O12) — per-board
+ *   - clearAllBoardCardTrees (audit tag O12, board-card-trees) —
+ *     per-board
  *     card-tree state (forest, active set, hydrated cards keyed
  *     by raw CardId, forestStats).
- *   - analysisPersistenceService.forgetAll (audit pair O13) —
+ *   - analysisPersistenceService.forgetAll (audit tag O13,
+ *     persisted-analysis-bundles) —
  *     per-board cached AnalysisBundleSummary entries. Pure
  *     local-cache release; the server-side rows belong to the
  *     prior identity's user_id and are unreachable to the new
@@ -616,12 +638,15 @@ export function identityScopedCacheLabels(): readonly string[] {
  * document; the reset is the privacy-correct in-between state
  * for shared-computer scenarios.
  *
- * Workspace-owned-resource cleanup is tracked in
- * docs/notes/resource-ownership-audit-plan.md (audit pairs O7
+ * Workspace-owned-resource cleanup is tracked in the archived
+ * audit plan, docs/archive/notes/resource-ownership-audit-plan.md
+ * (audit pairs O7
  * for analysisService's per-board maps, O8 for the analysis-
  * ledger, O9 for the board-thumbnail cache, O10 for the
  * privacy-relevant useCardThumbnail cache, and O11 for the
- * review-wait aborts).
+ * review-wait aborts — all five resolve against the plan's
+ * inventory; the code-minted O12/O13 tags above do not, see
+ * closeBoard's closing note).
  */
 export function resetWorkspace(): void {
   // Release the prior identity's per-board analysis bookkeeping

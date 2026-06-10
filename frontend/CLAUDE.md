@@ -172,6 +172,23 @@ Use the type system as a specification, not a decoration:
 - **Strict null handling**. `Optional<T>` and discriminated unions
   beat nullable fields. `T | undefined` is acceptable when the
   optionality is genuine and load-bearing.
+- **Keyed caches mint a branded key at construction.** When a new
+  cache, store, or registry is keyed by a hash or a composite of
+  several inputs (a template-literal `Map` key, a descriptor hash),
+  the key is a branded type minted at a single construction site,
+  and the brand's declaration names the **dependency set of the
+  value it buckets** — every input the cached value's content
+  depends on appears as a named key leg, so an input the value
+  depends on but the key omits is visible at review time rather
+  than surfacing later as a stranded-bucket bug. `RawKey` /
+  `EnrichedKey` (sole factory `deriveAnalysisKeys`,
+  `src/services/analysis-config.ts`) are the worked example; the
+  under-keyed class they closed — the ledger palette-swap
+  stranding and its same-day twin in the stability-trajectory
+  store (2026-06-08) — is the failure mode. Each key leg carries a
+  one-word band call (domain-bound vs agnostic) in the key's
+  IDENTIFIERS.md row, so the dependency set doubles as a seam map
+  for any future domain re-cut.
 
 ADR-0002 applied to types: a type assertion (`as`) needs a justification
 in a comment or it doesn't ship. The OpenAPI codegen (`npm run gen:api`,
@@ -345,7 +362,22 @@ checklist:
    the resource, the failure mode, and any ordering constraint.
    The function's docstring carries the depth (an enumerated
    list of cleanups, the load-bearing ordering, an audit-pair
-   reference).
+   reference). Handles in these comments are **stable and
+   repo-resident**: prefer a descriptive slug, a committed-doc
+   anchor, a registry label, or a test name over a bare count or
+   an ad-hoc number. An audit-pair number minted beyond a frozen
+   plan's inventory travels with a descriptive slug — the bare
+   number resolves against the wrong row (the code-minted
+   O12–O15 tags colliding with the archived plan's own O12–O15
+   definitions are the worked decay; the frozen plan itself is
+   never edited, the slugs are additive in code). A work-status
+   item id likewise travels with a descriptive slug, so the
+   handle still resolves in a clone or fork without the
+   maintainer's todo DB. Counts and censuses ("four cleanups",
+   "N violations, all resolved") live in registries, tests, and
+   generated reports, never in prose comments — closeBoard's
+   "Four cleanups" census rotting over eleven operations is the
+   recorded failure (2026-06-10 history-lessons audit, §3.25).
 
 `closeBoard` and `resetWorkspace` in `src/store/index.ts` are the
 post-audit worked examples — read both before extending either,

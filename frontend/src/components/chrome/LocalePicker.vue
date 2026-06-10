@@ -35,7 +35,7 @@ function pick(loc: SupportedLocale): void {
 // Listener is installed only while the menu is open and torn down on
 // close — keeps the global-listener footprint zero in the steady
 // state and follows the resource-ownership convention codified in
-// docs/notes/resource-ownership-audit-plan.md.
+// docs/archive/notes/resource-ownership-audit-plan.md.
 const rootRef = ref<HTMLElement | null>(null);
 
 function onDocumentPointerDown(e: PointerEvent): void {

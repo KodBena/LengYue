@@ -1572,7 +1572,7 @@ export interface UISession {
   // restores the user's exploration path through the card forest.
   // Schema-version 45 introduces the field. See `CardTreeNavState`
   // declaration below for the persistence shape. Per-board cleanup
-  // fires from `closeBoard` (audit pair O14); `resetWorkspace`
+  // fires from `closeBoard` (audit tag O14, card-tree-nav-slot); `resetWorkspace`
   // clears the whole dictionary via the `defaultSessionUI` reset.
   // Per-slot cleanup also fires from `useCardTreeData::reset` so the
   // user's exploration choices clear alongside the data they were

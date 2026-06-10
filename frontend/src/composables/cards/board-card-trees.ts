@@ -19,7 +19,9 @@
  * call. `removeBoardCardTree` is invoked from `closeBoard` (per-board
  * cleanup) and `resetWorkspace` calls `clearAllBoardCardTrees`
  * (identity flip). Both calls are safe when no slot exists. Resource-
- * ownership audit O12 (per-board card-tree state).
+ * ownership audit tag O12 (board-card-trees — per-board card-tree
+ * state; a code-minted tag past the archived plan's inventory, so the
+ * slug, not the number, is the stable handle).
  *
  * Persistence: not persisted via SyncService. The forest, active set,
  * and hydrated cards are analysis-shaped data — large, regenerable

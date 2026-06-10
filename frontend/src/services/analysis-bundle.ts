@@ -189,6 +189,17 @@ export { asBoardId };
 //     its enrichment restores under that key; its raw half is dropped (the raw
 //     key is underivable from the one-way composite hash) and re-fetches live
 //     on next navigation. See `replayBundleIntoLedger`.
+//
+// Prefix-collision audit, answered SAFE (2026-06-10 history-lessons audit
+// §3.5; work-status item `keyed-cache-brand-at-construction`): the prefixes
+// mint in exactly one function (`projectLedgerToBundle`) and parse in exactly
+// one (`replayBundleIntoLedger`), both in this file — no other module reads
+// or writes the prefixed configHash encoding. Legacy persisted values are
+// bare DJB2 hex (`hashConfig`'s `(hash >>> 0).toString(16)`, alphabet
+// 0-9a-f) or the literal 'default'; neither can carry ':' at index 1, so no
+// legacy value can ever match the `r:`/`e:` startsWith dispatch in replay.
+// Any future third record kind must preserve all three properties: single
+// mint site, single parse site, prefix disjoint from bare-hex/'default'.
 const RAW_PREFIX = 'r:';
 const ENR_PREFIX = 'e:';
 
