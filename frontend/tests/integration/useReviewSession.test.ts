@@ -128,7 +128,7 @@ const SENTINEL_EBISU: EbisuModel = { alpha: 4, beta: 4, t: 1 };
 function makeReviewCard(overrides: Partial<ReviewCard> = {}): ReviewCard {
   return {
     id: 1 as CardId,
-    sgf: '(;FF[4]GM[1]SZ[19])',
+    canonicalContent: '(;FF[4]GM[1]SZ[19])',
     numMoves: 5,
     model: SENTINEL_EBISU,
     lastReviewedAt: null,
@@ -818,7 +818,7 @@ describe('useReviewSession — blind-mode pref ownership', () => {
     // sabaki tree list; loadSgf indexes [0] and throws — the real
     // parse-failure path, not a stubbed one.
     const card1 = makeReviewCard({ id: 11 as CardId, numMoves: 1 });
-    const card2 = makeReviewCard({ id: 12 as CardId, numMoves: 1, sgf: '' });
+    const card2 = makeReviewCard({ id: 12 as CardId, numMoves: 1, canonicalContent: '' });
 
     const packet = makeAnalysisPacket({ turnNumber: 1, delta: 0.9 });
     vi.mocked(waitForAnalysis).mockResolvedValue(packet);

@@ -246,7 +246,7 @@ export function tooltipFor(
   }
   // `getCardThumbnailSync` keys its memo cache by the branded `CardId`;
   // `card.id` is already a `CardId`, so it threads through without a cast.
-  const svg = getCardThumbnailSync(card.id, card.sgf);
+  const svg = getCardThumbnailSync(card.id, card.canonicalContent);
   const ebisuT = card.model.t.toFixed(4);
   const cardHeaderKey = payload.role === 'active'
     ? 'cardTree.tooltip.cardHeaderActive'

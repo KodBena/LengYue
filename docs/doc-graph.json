@@ -1,6 +1,6 @@
 {
-  "node_count": 430,
-  "edge_count": 1982,
+  "node_count": 431,
+  "edge_count": 1989,
   "age_buckets": [
     {
       "name": "fresh",
@@ -34,7 +34,7 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-06-09",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "README.md",
@@ -98,7 +98,7 @@
       "is_hub": true,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/adr/0001-state-mutation-and-readonly.md",
@@ -106,7 +106,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/adr/0002-fail-loudly.md",
@@ -2090,7 +2090,7 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-05-31",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/green-perf-arc-retrospective-2026-05-31.md",
@@ -3258,7 +3258,7 @@
       "is_hub": false,
       "first_committed": "2026-06-09",
       "last_committed": "2026-06-09",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-09-mini-board-texture-scope-fix.md",
@@ -3354,15 +3354,15 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-10-only-throw-error-g3.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-10",
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-10-refs-kind-audit.md",
@@ -3382,6 +3382,14 @@
     },
     {
       "path": "docs/worklog/2026-06-10-review-scoring-named-seam.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-10",
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-10-reviewcard-canonical-content.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": "2026-06-10",
@@ -16851,6 +16859,55 @@
       "to": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
       "kind": "path-mention",
       "site": "`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-reviewcard-canonical-content.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-reviewcard-canonical-content.md",
+      "to": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-reviewcard-canonical-content.md",
+      "to": "docs/archive/34b-frontend-brief.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/34b-frontend-brief.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-reviewcard-canonical-content.md",
+      "to": "docs/archive/34b-complete-status.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/34b-complete-status.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-reviewcard-canonical-content.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-reviewcard-canonical-content.md",
+      "to": "docs/doc-graph-report.md",
+      "kind": "path-mention",
+      "site": "`docs/doc-graph-report.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-reviewcard-canonical-content.md",
+      "to": "docs/worklog/2026-06-10-review-scoring-named-seam.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-06-10-review-scoring-named-seam.md`",
       "resolved": "resolved"
     },
     {

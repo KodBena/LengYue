@@ -271,7 +271,7 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     });
 
     try {
-      const sabakiTrees = sgf.parse(card.sgf);
+      const sabakiTrees = sgf.parse(card.canonicalContent);
       const parsedBoard = loadSgf(sabakiTrees);
       // Stamp the lineage source onto the board so a subsequent mint
       // from this exploration session populates `parent_card_id`

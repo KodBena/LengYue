@@ -63,10 +63,29 @@ export interface EbisuModel {
  * style diagnostics. Both are optional because they're snapshots at
  * read-time, not core card identity, and a card may be constructed
  * without them in test contexts.
+ *
+ * ─── `canonicalContent` (34b supersession, 2026-06-10) ──────────────────────
+ * The card's content envelope, verbatim from the wire's
+ * `canonical_content` — an opaque string from this type's point of
+ * view (an SGF document for Go cards; the Go *interpretation* lives
+ * at the consumers that parse it: `sgf.parse` in
+ * `useReviewSession.loadCard`, `loadSgfIntoBoard` behind
+ * `useDirtyBoardGuard` — engine-band calls). Until 2026-06-10 the
+ * field was named `sgf`: the 34b wire rename deliberately retained
+ * the Go-instance name on the domain type as recorded design
+ * (`docs/archive/34b-frontend-brief.md`, "Internal TypeScript type
+ * names … **stay the same**"; `docs/archive/34b-complete-status.md`,
+ * "unchanged, as intended"), premised on the frontend having no
+ * second-domain consumer. That premise was invalidated when
+ * ADR-0003's Revisit-when #1 fired (2026-06-10 amendment: the
+ * `chess-clone` work-status item plus the maintainer's generic
+ * flash-card fork), so the field now carries the wire's
+ * domain-neutral vocabulary. History-lessons audit §3.20;
+ * work-status item `reviewcard-canonical-content-rename`.
  */
 export interface ReviewCard {
   readonly id: CardId;
-  readonly sgf: string;
+  readonly canonicalContent: string;
   readonly numMoves: number;
   readonly parentId?: CardId;
   readonly model: EbisuModel;

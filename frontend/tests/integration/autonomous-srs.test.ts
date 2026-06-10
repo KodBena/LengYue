@@ -101,7 +101,7 @@ let nextCardId = 100;
 function makeReviewCard(overrides: Partial<ReviewCard> = {}): ReviewCard {
   return {
     id: nextCardId++ as CardId,
-    sgf: '(;FF[4]GM[1]SZ[19])',
+    canonicalContent: '(;FF[4]GM[1]SZ[19])',
     numMoves: 1,
     model: SENTINEL_EBISU,
     lastReviewedAt: null,
