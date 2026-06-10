@@ -188,6 +188,59 @@
  *       former are stage 2's target, the latter the no-explicit-any
  *       deferral (see the staging record at the end of this header).
  *
+ *   Vue lifecycle footgun guards (custom local rules, `.vue` files;
+ *   2026-06-10 history-lessons audit §3.12, work-status item
+ *   vue-lifecycle-footgun-guards):
+ *     - local/gate-prop-needs-default — rationale: Vue casts an omitted
+ *       boolean-typed prop to `false`, not `undefined`, so a boolean
+ *       OPT-OUT gate (`false` suppresses) silently engages for every
+ *       consumer that omits it — the BaseChart `active` regression
+ *       (`4756c30`'s "other consumers unaffected" claim falsified by
+ *       `69810e2`: blank intermission chart + ecModel crash;
+ *       docs/worklog/2026-06-08-basechart-active-prop-default.md).
+ *       vue-tsc cannot police author intent here even in principle —
+ *       omitting an optional prop is type-legal. Stock-rule assessment,
+ *       per the measure-first posture (measured on src, 2026-06-10):
+ *       vue/require-default-prop — 11 hits, every one a NON-boolean
+ *       optional prop whose `undefined` is a genuine load-bearing
+ *       sentinel (tooltipFormatter, zoomRange, …), and the rule exempts
+ *       boolean props BY DESIGN (it treats Vue's false-cast as the
+ *       sanctioned default), so it cannot catch the gate-prop class at
+ *       all: REJECTED. vue/no-boolean-default — 6 hits, every one a
+ *       deliberate explicit boolean default INCLUDING BaseChart's
+ *       `active: true`; the rule encodes the opposite convention
+ *       (booleans must default falsy) and would have the shipped fix
+ *       deleted: REJECTED. The custom rule keys on NAME patterns
+ *       (active / enabled / visible as camelCase word segments), never a
+ *       component allowlist (the enumerated-blocklist failure shape).
+ *       Measured at adoption: 1 gate-named boolean prop in src
+ *       (BaseChart `active`), already carrying its withDefaults default
+ *       ⇒ 0 hits, clean `error` adoption. The lint polices a DECLARED
+ *       default; the runtime half — the reusable omission rendering
+ *       guard tests/integration/gate-prop-omission.ts — polices the
+ *       declared default's behaviour. Named gaps in the rule file
+ *       (imported props types, literal-union booleans, options API).
+ *     - local/module-intent-in-script-setup — rationale: `<script setup>`
+ *       compiles into setup(), so a top-level declaration there is
+ *       per-instance; a comment claiming module intent ("loaded once",
+ *       "shared across instances") is then false with nothing surfacing
+ *       it — the MiniBoardCanvas texture-flash class (`463a15e`;
+ *       docs/worklog/2026-06-09-mini-board-texture-scope-fix.md). The
+ *       shipped fix's plain-`<script>` block (module scope made real,
+ *       with the "MUST live in a plain <script>" banner) is the worked
+ *       example. Triggers on the CLAIM — curated comment patterns plus
+ *       `shared*` identifier names — deliberately NOT on all top-level
+ *       let/Map/Set: per-instance non-reactive state is a sanctioned
+ *       idiom (the imperative-escape cached-dims pattern,
+ *       frontend/CLAUDE.md). Measured at adoption: 0 hits on src (the
+ *       one prior instance was fixed by PR #366; the remaining
+ *       module-intent comments sit in plain `<script>` blocks or
+ *       describe state in real `.ts` modules) ⇒ clean `error` adoption;
+ *       probe-verified by reintroducing the shipped bug's literal shape
+ *       and observing it fire. Named gaps in the rule file (uncommented
+ *       intent is undetectable; the pattern list is curated — extend it
+ *       when a new phrasing is paid for).
+ *
  * This `.ts` linting is new: the prior config parsed `.vue` only, so
  * TypeScript modules went unlinted. The `@typescript-eslint/parser` was
  * already a dependency; this wires it for `.ts` files so the import
@@ -246,6 +299,8 @@ import pluginVue from 'eslint-plugin-vue';
 import tsParser from '@typescript-eslint/parser';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
 import { clearNeedsOwnership } from './eslint-rules/clear-needs-ownership.js';
+import { gatePropNeedsDefault } from './eslint-rules/gate-prop-needs-default.js';
+import { moduleIntentInScriptSetup } from './eslint-rules/module-intent-in-script-setup.js';
 
 // The wire-type boundary: backend.ts is importable only at the ACL.
 // Applied everywhere EXCEPT src/services/** and src/types.ts (see block
@@ -324,6 +379,20 @@ const COMPONENT_SERVICES_BOUNDARY_PATTERN = {
 // double-cast through `unknown`) and annotation-position `any` are NOT
 // caught — gaps named per ADR-0002, owned by stage 2 and the
 // no-explicit-any deferral respectively (see header).
+// The local custom-rule plugin, ONE shared object on purpose: flat config
+// treats two different plugin objects under the same namespace as a
+// redefinition error when their file globs overlap, so per-block inline
+// plugin objects are a future-overlap landmine. Every block that mounts a
+// `local/` rule references this constant (the clear-needs-ownership block
+// and the Vue lifecycle footgun block below).
+const LOCAL_RULE_PLUGIN = {
+  rules: {
+    'clear-needs-ownership': clearNeedsOwnership,
+    'gate-prop-needs-default': gatePropNeedsDefault,
+    'module-intent-in-script-setup': moduleIntentInScriptSetup,
+  },
+};
+
 const ANY_ASSERTION_SELECTORS = [
   {
     selector: ':matches(TSAsExpression, TSTypeAssertion) > TSAnyKeyword',
@@ -552,7 +621,7 @@ export default [
   // adds another block. See frontend/docs/notes/board-scope.md.
   {
     files: ['src/composables/cards/useCardTreeData.ts'],
-    plugins: { local: { rules: { 'clear-needs-ownership': clearNeedsOwnership } } },
+    plugins: { local: LOCAL_RULE_PLUGIN },
     rules: {
       'local/clear-needs-ownership': [
         'error',
@@ -563,6 +632,43 @@ export default [
           repopulators: ['populateSlotFromMatched'],
         },
       ],
+    },
+  },
+
+  // ── Vue lifecycle footgun guards (custom local rules) ──
+  // The two expressible classes from five paid-for footgun investigations
+  // (2026-06-10 history-lessons audit §3.12; work-status item
+  // vue-lifecycle-footgun-guards), sharing a signature: correct-looking
+  // code whose scope/default silently differs from the author's intent,
+  // latent until a second consumer with a different lifecycle arrives.
+  //
+  // rationale (gate-prop-needs-default): Vue casts an OMITTED boolean prop
+  // to `false`, so a gate-named boolean prop without an explicit default
+  // silently suppresses for every consumer that omits it — the BaseChart
+  // `active` blank-chart + ecModel crash. Keyed on name patterns
+  // (active/enabled/visible as word segments), NEVER a component
+  // allowlist. Stock vue/require-default-prop and vue/no-boolean-default
+  // were assessed first and rejected on measurement — full assessment
+  // record + adoption baselines in the header; named gaps in the rule
+  // file. Runtime half: tests/integration/gate-prop-omission.ts.
+  //
+  // rationale (module-intent-in-script-setup): <script setup> compiles
+  // into setup(), so a top-level declaration claiming module intent
+  // ("loaded once" / "shared across instances") is per-instance in
+  // reality — the MiniBoardCanvas texture-flash class; its plain-<script>
+  // fix is the worked example. Triggers on the CLAIM (comment patterns,
+  // shared* names), deliberately NOT on all top-level let/Map/Set —
+  // per-instance non-reactive state is sanctioned (the imperative-escape
+  // cached-dims pattern). Full rationale in the header + rule file.
+  {
+    files: ['src/**/*.vue'],
+    plugins: { local: LOCAL_RULE_PLUGIN },
+    rules: {
+      'local/gate-prop-needs-default': [
+        'error',
+        { gateWords: ['active', 'enabled', 'visible'] },
+      ],
+      'local/module-intent-in-script-setup': 'error',
     },
   },
 ];
