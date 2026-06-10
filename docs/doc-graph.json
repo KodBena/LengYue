@@ -3344,9 +3344,9 @@
       "path": "docs/worklog/2026-06-10-refs-kind-audit.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-10",
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-10-resource-service-calibration-seam.md",
