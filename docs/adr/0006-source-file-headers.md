@@ -6,6 +6,11 @@
   ADR-0004 (minimal-touch), and ADR-0005 (documentation
   discipline).
 - **Date:** 2026-04-26
+- **Amendments:** 2026-06-11 — corrected the exemplar path
+  (`frontend/src/composables/useTreeLayout.ts` →
+  `frontend/src/composables/forest/useTreeLayout.ts`; the file moved in
+  a source-tree reorganisation and its own header self-updated per this
+  tenet — only this ADR's citation had rotted). No content change.
 - **Scope:** All source files in `frontend/` and `backend/` (and
   any future sub-projects added to the umbrella). Submodules
   (`proxy/`) follow their own conventions.
@@ -16,11 +21,11 @@ The umbrella's two main sub-projects evolved independently and
 converged on different conventions for source-file headers. The
 frontend has a consistent pathname + purpose + license header
 pattern, visible in (for example)
-`frontend/src/composables/useTreeLayout.ts`:
+`frontend/src/composables/forest/useTreeLayout.ts`:
 
 ```typescript
 /**
- * src/composables/useTreeLayout.ts
+ * src/composables/forest/useTreeLayout.ts
  *
  * Pluggable Tree Layout Composable.
  *
@@ -72,7 +77,7 @@ A JSDoc block at the top of the file:
 
 ```typescript
 /**
- * src/composables/useTreeLayout.ts
+ * src/composables/forest/useTreeLayout.ts
  *
  * Pluggable Tree Layout Composable.
  *
@@ -228,7 +233,7 @@ This tenet is worth revisiting if:
   of which file-headers are a specific instance. ADR-0005 Rule
   5 (file location reflects content) is harder to violate when
   the file declares its own location.
-- **`frontend/src/composables/useTreeLayout.ts`.** The exemplar
+- **`frontend/src/composables/forest/useTreeLayout.ts`.** The exemplar
   header that this tenet codifies.
 
 ## What this tenet does NOT mean

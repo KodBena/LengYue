@@ -350,7 +350,7 @@ extract a composable.
 ADR-0006: the JSDoc header (pathname + purpose + license) lives at
 the top of the `<script>` block in SFCs.
 
-ADR-0007 (proposed): SFCs target ≤ 250 lines, no individual section
+ADR-0007: SFCs target ≤ 250 lines, no individual section
 exceeding ~150. When a component grows past this, the contraction
 options are: extract a composable for the logic, extract a child
 component for a renderable subsection, move CSS to a separate file

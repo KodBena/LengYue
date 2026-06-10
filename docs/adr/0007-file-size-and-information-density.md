@@ -1,6 +1,7 @@
 # ADR-0007: File Size and Information Density
 
-- **Status:** Proposed
+- **Status:** Accepted (proposed 2026-04-26; accepted 2026-06-11, see
+  the acceptance record below)
 - **Genre:** Tenet (cross-cutting authoring discipline) — the fifth
   tenet, after ADR-0002 (fail-loudly), ADR-0004 (minimal-touch),
   ADR-0005 (documentation discipline), and ADR-0006 (source-file
@@ -132,7 +133,37 @@ ADR-0004 and ADR-0006.
   incrementally.
 - Not a critique of the Vue SFC pattern; SFCs work well when each
   section is small.
-- Not a directory-organization decision; that decision is in
-  flight per `decisions-deferred.md` and will produce its own ADR
-  if it lands.
+- Not a directory-organization decision. *(Updated 2026-06-11: the
+  frontend decision this bullet tracked landed 2026-05-11 as the
+  feature-surface reorganization of `components/` and `composables/` —
+  commit `39e200d` — without the ADR the original text promised; the
+  organizing principle is recorded only in that change's own record.
+  The backend's decision *against* reorganizing remains in the
+  deferred-decisions ledger.)*
 - Not enforced by tooling today.
+
+## Accepted (maintainer review, 2026-06-11)
+
+Proposed 2026-04-26; accepted on review of six weeks of practice in which
+the tenet operated as binding in all but label: the C2 arc (2026-04-27,
+App.vue 593 → 500 via three composable extractions) executed the refactor
+queue one day after authoring and validated §Format's contract-the-static
+discipline; the `migrations.ts` rolling archive (2026-05-14) is the second
+worked intervention; the work-status item `refactoring-queue-adr0007`
+executes the Neutral handled-on-touch clause as live policy; the 2026-06-10
+`types.ts` split (PR #384) was approved as a *named deviation* warranted by
+this ADR's type-catalogue exception text — a deviation regime presupposes a
+binding norm; the lint config defers `max-lines` against these budgets and
+cites the tenet as rule rationale; `frontend/CLAUDE.md` restates the SFC
+discipline; `docs/adr-synopsis.md` counts this among the eight tenets.
+
+Two questions stay open under acceptance, named so the label does not
+silently bless them: (1) the §Density numeric thresholds (60 / 40 percent)
+have never been measured in practice (2026-06-10 history-lessons audit §8);
+density operates as qualitative review judgment, and Revisit #3 remains the
+live trigger. (2) Per RFC-0001 open question 8, the budget language is
+sharpened to the practiced posture: when a refactor is undertaken, the
+budget is satisfied by stopping at the cleanest seam that meaningfully
+reduces working-memory cost (bounded), not by driving below the numeric
+threshold (aspirational); the C2 bounded-stopping evaluation is the worked
+precedent.

@@ -8,10 +8,13 @@
   against it.
 - **Date:** 2026-04-24
 - **Amendments:** 2026-06-10 — recorded that **Revisit-when #1 (a
-  second domain adopter materializes) has fired twice** (the
-  `chess-clone` work-status item, open/active in the store; the
-  maintainer's generic knowledge flash-card fork, named 2026-06-09/10
-  as a binding constraint on refactoring) and that **Revisit-when #2
+  second domain adopter materializes) has fired** (the maintainer's
+  generic knowledge flash-card fork, 2026-06-09/10), with a second
+  prospective adopter filed on the game-class axis (the `chess-clone`
+  work-status item, open/active; its own proof-of-concept gate is
+  unmet) — phrasing precision-corrected 2026-06-11 per the ADR-corpus
+  audit's C4 rider, which found the original "fired twice" an
+  overclaim — and that **Revisit-when #2
   (the inventory drifts substantially) has fired** (~9 of ~23
   inventory paths went stale across the source-tree
   reorganisations). The per-file inventory listing is delegated to
@@ -28,6 +31,18 @@
   2026-06-10 history-lessons audit
   (`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md` §3.23;
   work-status item `adr-record-amendments-2026-06`).
+  2026-06-11 — record repairs from the 2026-06-10 ADR-corpus audit
+  (`../notes/audit/audit-adr-corpus-2026-06-10.md`, package A3):
+  a dated premise annotation in the Decision section (the
+  "no concrete second-domain consumer exists" closing premise is no
+  longer true); the analysis-recording section re-tensed as a
+  substantially-fulfilled prediction with two named deviations; a
+  two-axis note after the principle blockquote; the Chess-sizing
+  rows annotated as a 2026-04 planning snapshot with named FILES.md
+  disagreements; the Related planning-note pointer re-pointed to the
+  archive; and the Revisit-#1 "fired twice" phrasing
+  precision-corrected (above, and at the trigger). The principle is
+  unchanged.
 - **Scope:** Frontend (`gogui`). Cross-references the backend's
   parallel work (item 30b's `PositionNormalizerPort`, item 34's
   domain-agnostic-core umbrella).
@@ -85,6 +100,14 @@ The principle, stated plainly:
 > the answer is "some of it" — that's the seam; design the seam
 > deliberately, even if you don't extract a Port today.
 
+*(Note, 2026-06-10: with a non-game adopter named (Amendments line), the
+authoring-time question is two-axis. "What would change for a Chess
+port?" forces the game-instance seam — Band 3 against the rest. "What
+would survive a port outside the game class?" forces the stronger Band 1
+boundary, which is the whole kept surface for the generic knowledge fork.
+Ask both; `frontend/FILES.md`'s legend was re-keyed to the stronger
+criterion in the same change as this amendment.)*
+
 This is not a Port-extraction mandate. It's a *design discipline at
 authoring time*. Existing code stays put; new code is written with
 the seam in mind.
@@ -116,6 +139,15 @@ genuine intent to ship a domain-portable backend. The frontend
 satisfies neither condition today: extraction is more expensive
 because of Vue's mutation-first reactive model, and no concrete
 second-domain consumer exists.
+
+*(Note, 2026-06-10 — completing the in-place record the same-day
+amendment started: the closing premise above, "no concrete
+second-domain consumer exists", is no longer true. Two adopters are
+named in the Amendments line; per Revisit-when #1, Port extraction for
+the seams a concrete adopter touches is no longer premature by this
+section's own cost-benefit argument. The reasoning stands as the
+planning-time record of why extraction waited; it is not a standing
+instruction to keep waiting.)*
 
 ## Domain Coupling Inventory
 
@@ -177,7 +209,8 @@ explicitly because they are where future seam-design matters most:
   The *gating predicate* and the *response shape it stores* are
   Band 3. **The feature should be designed so that the seam between
   these two layers is explicit**, even though we won't extract a
-  Port today.
+  Port today. *(Shipped — 2026-06-10-recorded; see the dated note in
+  "What this means for the analysis-recording feature".)*
 
 ### What's NOT in this inventory
 
@@ -247,6 +280,29 @@ cost until then.
 
 This is the principle in action.
 
+*(Note, 2026-06-10: the feature shipped — the analysis-bundle persistence
+arc (backend `/analysis-bundles` routes; frontend
+`services/analysis-persistence-service.ts` +
+`composables/useAutoSaveAnalyses.ts`). Scored against what was built: the
+**opaque envelope shipped as designed** — the v1 wire is
+`{config_hash, node_id, packet}` with the packet opaque to the backend
+(`backend/domain/analysis_bundle.py` states the contract: "the backend
+never inspects its shape"), and the v2 evolution strengthened the opacity
+(SPA-encoded bytes the backend brotli-wraps and returns verbatim). The
+**seam was designed, not extracted** — no Port, no strategy registry,
+exactly as prescribed. Two deviations from this section's letter: the
+persistence service is Go-typed (`[B3]` in FILES.md; its records carry
+`KataAnalysisResponse`, and the v2 encoder hierarchy under
+`services/analysis-bundle/` is KataGo-shaped) rather than generic over
+`payload: T`; and the gating predicate is not passed as a parameter — the
+`isDuringSearch` gate lives at the `analysis-service` call site that bumps
+the service's domain-neutral per-board dirty counter, with user-toggle
+gating in the auto-save composable. The seam between Go-shaped capture
+and generic persistence mechanics exists, one notch further upstream than
+drawn here. A fork replaces the encoder hierarchy and the dirty-bump call
+site; the wire contract and the backend need no change — the section's
+bottom-line claim held.)*
+
 ## What a Chess port would actually require
 
 A useful concrete sizing. To port this codebase to Chess:
@@ -269,6 +325,19 @@ because the Band 1 / Band 2 / Band 3 distinction was already roughly
 honored by the codebase's organic evolution. The principle above
 doesn't ask for radical restructuring; it asks for ongoing
 discipline so the boundary stays this clean as new features land.
+
+*(Note, 2026-06-10: the file rows above are the 2026-04 planning snapshot
+and are not maintained — `frontend/FILES.md` is the per-file authority
+(Amendments line). Known row-level disagreements exist: this section's
+Band-1 "no change" examples include `store/` (`store/index.ts` is `[B3]`
+in FILES.md), `services/` (several `[B3]` rows), and
+`composables/wait-for-analysis.ts` (`[B3]`); `engine/helper.ts` sits
+under wholesale replacement here but is `[B1]` there. These are recorded
+in the 2026-06-10 history-lessons audit as adjudication the filed
+band-conformance check (work-status `band-conformance-ci-check`) will
+force; until then read this section's bands as
+definitions-with-seam-detail and FILES.md's rows as the instances — where
+they disagree, neither is silently right (Revisit-when #3's posture).)*
 
 ## What a generic knowledge fork would actually require
 
@@ -342,16 +411,18 @@ This ADR would be worth revisiting if any of the following:
    for Chess, Shogi, or another problem class). At that point, Port
    extraction stops being premature — the second use case is the
    trigger that flips the cost-benefit. The seams documented here
-   become the natural extraction points. **(Fired twice; recorded
-   2026-06-10.)** The `chess-clone` work-status item is open/active
-   (same game class, different instance), and the maintainer named a
-   generic knowledge flash-card fork — a non-game adopter — as a
-   binding constraint during the 2026-06-09/10 history-lessons
-   audit. The two adopters sit on different axes, so the seams here
-   are now the extraction map both read; the non-game sizing above
-   is the second adopter's column. Port extraction for the seams a
-   concrete adopter touches is no longer premature by this ADR's own
-   criterion.
+   become the natural extraction points. **(Fired; recorded
+   2026-06-10, phrasing precision-corrected 2026-06-11 per the
+   ADR-corpus audit's C4 rider.)** The trigger has fired (the
+   maintainer's generic knowledge flash-card fork, 2026-06-09/10,
+   named as a binding constraint during the history-lessons audit),
+   with a second prospective adopter filed on the game-class axis
+   (the `chess-clone` work-status item, open/active; its own
+   proof-of-concept gate is unmet). The two adopters sit on
+   different axes, so the seams here are now the extraction map both
+   read; the non-game sizing above is the second adopter's column.
+   Port extraction for the seams a concrete adopter touches is no
+   longer premature by this ADR's own criterion.
 2. **The inventory drifts substantially.** If a wave of new features
    shifts the Band 1 / Band 2 / Band 3 distribution noticeably,
    refresh the inventory. **(Fired; recorded 2026-06-10.)** The
@@ -389,10 +460,11 @@ This ADR would be worth revisiting if any of the following:
   domain-portability is a real architectural goal across the system.
   This ADR is the frontend's reply: same goal, different velocity,
   same discipline applied at design time.
-- **`../notes/analysis-persistence-plan.md`.** The future-project planning
-  note that triggered this ADR. The principle here applies directly
-  to that feature; see "What this means for the analysis-recording
-  feature" above.
+- **`../archive/notes/design/analysis-persistence-plan.md`.** The planning
+  note that triggered this ADR (archived when the feature shipped; path
+  re-pointed 2026-06-11 — the old `docs/notes/` location no longer
+  resolves). The principle here applies directly to that feature; see
+  "What this means for the analysis-recording feature" above.
 - **ADR-0001 (state mutation and `readonly`).** The same general
   philosophy — *type declarations should match actual behavior, no
   aspirational annotations* — applies to abstractions: *don't
