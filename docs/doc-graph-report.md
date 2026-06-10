@@ -41,8 +41,8 @@ explicit root/sub-project file list — not reference rot).
 - **Dangling from EXECUTED playbooks** (reference-only records): **25**.
 - **Dangling from FROZEN documents** (archive + worklogs; expected drift): **301**.
 - **Directory references missing on disk**: **6** from live
-  documents, **7** from frozen/executed
-  (227 directory references scanned in total).
+  documents, **6** from frozen/executed
+  (228 directory references scanned in total).
 - **Ambiguous references** (bare filename matches more than one node — never
   silently resolved, per ADR-0002): **0**.
 
@@ -138,7 +138,6 @@ reference. Resolved directory references are scanned but not listed.
 - `docs/playbooks/monorepo/editorial-cleanup-plan.md` → `docs/old-todos/` *(directory-ref)* — directory does not exist on disk.
 - `docs/playbooks/monorepo/monorepo-plan-framing.md` → `docs/old-todos/` *(directory-ref)* — directory does not exist on disk.
 - `docs/playbooks/monorepo/monorepo-plan.md` → `backend/routers/` *(directory-ref)* — directory does not exist on disk.
-- `docs/playbooks/monorepo/monorepo-plan.md` → `backend/data/` *(directory-ref)* — directory does not exist on disk.
 - `docs/playbooks/monorepo/monorepo-plan.md` → `docs/old-todos/` *(directory-ref)* — directory does not exist on disk.
 
 ## Ambiguous references
