@@ -3,7 +3,7 @@
 > Audit trail for work-status item `services-boundary-deny-by-default`,
 > executing §3.11 **step (a)** of the 2026-06-10 history-lessons audit
 > (`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`); branch
-> `bork/tooling/services-boundary-deny-by-default`. Step (b) — the
+> `bork/tooling/services-boundary-deny-by-default`, PR #378. Step (b) — the
 > `state/` relocation of the reactive-state modules — is a separate
 > sign-off arc and is deliberately not started here. This item is also
 > the work-status record ADR-0010's Revisit-when #4 had lacked.
