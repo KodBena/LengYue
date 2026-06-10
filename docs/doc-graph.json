@@ -1,6 +1,6 @@
 {
-  "node_count": 423,
-  "edge_count": 1941,
+  "node_count": 424,
+  "edge_count": 1948,
   "age_buckets": [
     {
       "name": "fresh",
@@ -138,7 +138,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-08",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/adr/0006-source-file-headers.md",
@@ -1914,7 +1914,7 @@
       "is_hub": false,
       "first_committed": "2026-06-08",
       "last_committed": "2026-06-08",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/consult/opus-consults-2026-05-28-audit.md",
@@ -1938,7 +1938,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-08",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/design/adaptive-reevaluate-widening-plan.md",
@@ -2906,7 +2906,7 @@
       "is_hub": false,
       "first_committed": "2026-05-30",
       "last_committed": "2026-05-30",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-30-perf-analysis-timeline-throttle.md",
@@ -2954,7 +2954,7 @@
       "is_hub": false,
       "first_committed": "2026-05-30",
       "last_committed": "2026-05-30",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-30-perf-queue-tooltip-throttle.md",
@@ -2970,7 +2970,7 @@
       "is_hub": false,
       "first_committed": "2026-05-30",
       "last_committed": "2026-05-30",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-30-perf-toolbar-metrics-throttle.md",
@@ -2978,7 +2978,7 @@
       "is_hub": false,
       "first_committed": "2026-05-30",
       "last_committed": "2026-05-30",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-30-perf-treewidget-nav-cost.md",
@@ -3226,7 +3226,7 @@
       "is_hub": false,
       "first_committed": "2026-06-08",
       "last_committed": "2026-06-08",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-08-key-brand-tightening.md",
@@ -3346,7 +3346,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-10-services-boundary-deny-by-default.md",
@@ -3373,6 +3373,14 @@
       "age_bucket": "recent"
     },
     {
+      "path": "docs/worklog/2026-06-10-vue-lifecycle-footgun-guards.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
       "path": "frontend/CLAUDE.md",
       "genre": "subproject-frontend",
       "is_hub": false,
@@ -3386,7 +3394,7 @@
       "is_hub": false,
       "first_committed": "2026-05-11",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "frontend/IDENTIFIERS.md",
@@ -16637,6 +16645,34 @@
       "resolved": "resolved"
     },
     {
+      "from": "docs/worklog/2026-06-10-vue-lifecycle-footgun-guards.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-vue-lifecycle-footgun-guards.md",
+      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-vue-lifecycle-footgun-guards.md",
+      "to": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-vue-lifecycle-footgun-guards.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
       "from": "frontend/CLAUDE.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
@@ -16697,6 +16733,27 @@
       "to": "frontend/IDENTIFIERS.md",
       "kind": "path-mention",
       "site": "`frontend/IDENTIFIERS.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "frontend/CLAUDE.md",
+      "to": "docs/worklog/2026-05-30-perf-treewidget-nav-cost.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-05-30-perf-treewidget-nav-cost.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "frontend/CLAUDE.md",
+      "to": "docs/worklog/2026-05-22-responsive-arc.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-05-22-responsive-arc.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "frontend/CLAUDE.md",
+      "to": "docs/worklog/2026-05-16-match-cursor-independence.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-05-16-match-cursor-independence.md`",
       "resolved": "resolved"
     },
     {

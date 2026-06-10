@@ -279,6 +279,67 @@ way `closeBoard` / `resetWorkspace` do. An imperative-escape that
 registers an observer without the matching release is the
 silent-leak failure that discipline exists to catch.
 
+## Vue/CSS footgun checklist (paid-for lessons)
+
+Five investigations across 2026-05/06 each paid once for a lesson
+in the same family: correct-looking code whose scope or default
+silently differs from the author's intent, latent until a consumer
+with a different lifecycle arrives (history-lessons audit §3.12).
+Two of the classes are mechanized — `frontend/eslint.config.js`
+enforces them, so they are named here only as pointers:
+
+- **Boolean gate-props** — Vue casts an *omitted* boolean prop to
+  `false`, not `undefined`, so an opt-out gate silently engages for
+  every consumer that omits it. Lint:
+  `local/gate-prop-needs-default`; runtime half: the reusable
+  omission guard `tests/integration/gate-prop-omission.ts`
+  (`BaseChart-collapsed-gate.test.ts` is the worked example).
+- **Module-intent state in `<script setup>`** — `<script setup>`
+  compiles into `setup()`, so a declaration there claiming
+  "shared / loaded once" is per-instance in reality. Lint:
+  `local/module-intent-in-script-setup`; the plain-`<script>` block
+  in `MiniBoardCanvas.vue` is the worked fix. Module-scope state,
+  once real, lives beyond Vue's reactivity graph — walk the
+  resource-ownership checklist (see "Resource ownership at mutation
+  sites" below) when an entity owns it.
+
+The remaining three are residue — no lint or test can catch them,
+so this checklist is their home. Check it when authoring in the
+named shapes:
+
+- **`v-memo` keys must be reference-stable — check the source's
+  reactivity shape before memoising.** A `v-memo` only skips when
+  its key compares equal across renders; keyed on (or derived from)
+  a `shallowRef` that is *reassigned* per recompute, it busts every
+  time and the memo is inert. A whole-group memo over a churning
+  list is worse: it re-renders the full list O(N) in one synchronous
+  burst when the array ref churns — per-item memo is the robust
+  form. And the memo is only half the story: per the render-locality
+  corollary above (ADR-0010), `v-memo` fixes the patch, not the
+  render. Worked case:
+  `docs/worklog/2026-05-30-perf-treewidget-nav-cost.md` (the
+  `ensureVisible` guard, not the memos, was the load-bearing fix).
+- **A container query cannot style its own container.** `@container`
+  rules match only *descendants* of the queried container; a rule
+  targeting the `container-type` element itself silently never
+  matches — no error, no warning, the layout just doesn't change.
+  Fix shape: add a wrapper element so the styled element is a true
+  descendant. Worked case:
+  `docs/worklog/2026-05-22-responsive-arc.md` (iter-16/17, the
+  ForestDirectory panels that never stacked).
+- **`structuredClone` cannot clone Vue reactive state.** A reactive
+  object is a `Proxy`, which structured clone rejects
+  (`DataCloneError`) — and `toRaw` strips only the *outer* layer
+  (Vue wraps nested objects lazily on access), so
+  `structuredClone(toRaw(x))` still throws. For POJO-shaped state a
+  `JSON.parse(JSON.stringify(x))` round-trip is the working
+  deep-clone (`JSON.stringify` reads every property through the
+  proxy's get traps); it is lossless only for plain shapes — no
+  `Map`/`Set`/`Date`/functions/load-bearing `undefined`. Worked
+  case: `docs/worklog/2026-05-16-match-cursor-independence.md`
+  (`playEngineMatch`'s match cursor made independent of the user's
+  view).
+
 ## Vue Single-File Components
 
 SFCs hold three things: template, script, style. Keep the script's

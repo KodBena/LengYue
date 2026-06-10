@@ -18,6 +18,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { installRenderEnvStubs, removeRenderEnvStubs } from './render-count/jsdom-stubs';
+import { assertOmittedGatePropMeansActive } from './gate-prop-omission';
 import BaseChart from '../../src/components/charts/BaseChart.vue';
 
 // Mock ECharts: `init` returns a chart whose `setOption` is a spy — the
@@ -88,13 +89,15 @@ describe('BaseChart — collapsed gate', () => {
   // setOption — a blank chart, plus a live zr handler calling containPixel on
   // an unconfigured (`_model`-less) instance. With `active` defaulted to
   // `true`, omission ⇒ active. Remove the `active: true` default → red.
+  // The mount/flush/assert choreography lives in the reusable omission guard
+  // (./gate-prop-omission.ts — the lint rule gate-prop-needs-default's
+  // runtime half); this file is its worked example.
   it('runs setOption when `active` is omitted (Vue would otherwise cast it to false)', async () => {
-    const wrapper = mount(BaseChart, { props: { series: SERIES } });
-    await flushPromises(); // initChart: await nextTick → echarts.init → updateOptions
-
-    const chart = spiedChart();
-    expect(chart.setOption.mock.calls.length).toBeGreaterThan(0);
-
-    wrapper.unmount();
+    await assertOmittedGatePropMeansActive({
+      component: BaseChart,
+      gateProp: 'active',
+      props: { series: SERIES },
+      gatedWorkRan: () => spiedChart().setOption.mock.calls.length > 0,
+    });
   });
 });
