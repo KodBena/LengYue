@@ -25,6 +25,7 @@ import sgf from '@sabaki/sgf';
 import { loadSgf } from '../../engine/sgf-loader';
 import { navigateTo } from '../../engine/navigator';
 import { getActiveVariationPath } from '../../engine/util';
+import { scorePerMoveDelta } from '../../engine/analysis/review-scoring';
 import { applyGoMove } from '../../logic';
 import { gtpToBoard } from '../board/use-move-suggestions';
 
@@ -503,67 +504,40 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
       analysisService.stopQuery(reviewQueryId);
     }
 
-    const userColor = nextBoard.nodes[s_1_id].move!.color;
-    const colorKey = userColor === 'B' ? 'black' : 'white';
+    // Per-move delta scoring is the named engine seam (ADR-0003:
+    // "the orchestration is portable; the scoring extraction is
+    // not") — `scorePerMoveDelta` in `engine/analysis/review-scoring.ts`
+    // owns the per-colour indexing and the load-bearing
+    // s_1-fast-path-then-path-scan lookup order. The enrichment read
+    // is passed as an accessor so the engine band stays
+    // services-clean: the ledger import (and the `enrichedKey`
+    // binding) stays on this side of the seam.
+    const scored = scorePerMoveDelta(
+      nextBoard.nodes,
+      newPath,
+      s_1_idx,
+      s_1_id,
+      nodeId => ledger.getEnrichment(keys.enrichedKey, nodeId),
+    );
 
-    // Per-color local index for the user's just-played move. Black
-    // moves are at full-path positions 1, 3, 5… (per-color indices 0,
-    // 1, 2…); white moves are at 2, 4, 6…. The proxy keys
-    // `extra.{color}.deltas` by per-color index strings ("0", "1", …);
-    // see `useEnrichedData.ts` for the symmetric read on the analysis
-    // tab and `engine/katago/types.ts::KataPlayerExtra.deltas` for
-    // the contract.
-    let colorMoveCount = 0;
-    for (let i = 0; i <= s_1_idx; i++) {
-      if (nextBoard.nodes[newPath[i]]?.move?.color === userColor) {
-        colorMoveCount++;
-      }
-    }
-    const n = colorMoveCount - 1;
-
-    // Per-color delta lookup against the ENRICHMENT store (keyed by
-    // `enrichedKey`). The proxy attaches each `[color].deltas` entry to
-    // whichever packet on the analyzed range it chose — most commonly the
-    // s_0 packet (the position the move was played FROM, since that's where
-    // the engine evaluated alternatives), but we don't require that. Mirror
-    // the analysis-tab pattern in `useEnrichedData.ts`: try s_1 first, then
-    // scan every node on the active path for the key `n`, taking the first
-    // non-undefined value found. The fast-path covers the historic case; the
-    // scan covers the s_0 case the prior implementation silently missed (and
-    // the loud-failure branch below catches the residue).
-    let delta = ledger.getEnrichment(keys.enrichedKey, s_1_id)?.[colorKey]?.deltas?.[n];
-    if (delta === undefined) {
-      for (const nodeId of newPath) {
-        const candidate = ledger.getEnrichment(keys.enrichedKey, nodeId)?.[colorKey]?.deltas?.[n];
-        if (candidate !== undefined) {
-          delta = candidate;
-          break;
-        }
-      }
-    }
-
-    if (delta === undefined) {
-      // ADR-0002: a missing per-move delta at the wire boundary is a
-      // contract failure (proxy enrichment misconfiguration, palette
-      // drift, narrow-range delta_fn that never fires, etc.). The
-      // prior behaviour silently substituted 0.5 here, which scored
-      // every failure as a "neutral" review and corrupted the Ebisu
-      // recall update on every occurrence — exactly the discovered-
-      // late-as-corrupted-data failure mode the tenet is shaped to
-      // prevent. Surface, cancel the session, and let the user
-      // investigate before any score is persisted.
+    if (scored.kind === 'missing') {
+      // Structured loud failure from the scoring seam — a missing
+      // per-move delta is a wire-boundary contract failure, never a
+      // default score (ADR-0002 rationale at the `missing` branch in
+      // review-scoring.ts). Surface, cancel the session, and let the
+      // user investigate before any score is persisted.
       pushSystemMessage(
         'warning',
         i18n.global.t('review.missingPerMoveDelta', {
-          color: userColor,
-          index: n,
+          color: scored.color,
+          index: scored.perColorIndex,
         }),
       );
       mutateReviewSession(bId, draft => { draft.status = 'IDLE'; });
       return;
     }
 
-    mutateReviewSession(bId, draft => { draft.userMoveScores.push(delta); });
+    mutateReviewSession(bId, draft => { draft.userMoveScores.push(scored.delta); });
 
     if (userMovesCount.value < currentCard.value!.numMoves) {
       // Same defensive moveInfos guard as use-move-suggestions.ts: the

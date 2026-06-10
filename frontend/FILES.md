@@ -240,7 +240,7 @@ frontend/src/
 │   ├── review/                               Spaced-repetition session.
 │   │   ├── blind-mode-prefs.ts        [B3]  Snapshot/restore owner for the session-UI prefs blind mode flips (showMoveSuggestions, treeExpanded): generic snapshot core + the review session's supplied key list. B3 via its store import and its consumer's vocabulary; the snapshot mechanism is band-agnostic in character (fork: lift the factory, re-supply keys).
 │   │   ├── useMinting.ts              [B3]  Mint flashcards from boards (Go-board → backend mint payload).
-│   │   └── useReviewSession.ts        [B3]  SR-session state machine: AWAITING_MOVE / INTERMISSION / FINISHED.
+│   │   └── useReviewSession.ts        [B3]  SR-session state machine: AWAITING_MOVE / INTERMISSION / FINISHED. Band-mixed (the ADR-0003 Revisit-#3 canary): the SR orchestration is game-class-portable; the per-move delta scoring is extracted to engine/analysis/review-scoring.ts — the first of ~4 Go seams named (sgf.parse in loadCard, applyGoMove, gtpToBoard follow-through remain inline), so the [B3] tag reflects the residue, not the whole.
 │   │
 │   └── sgf/                                  SGF I/O.
 │       ├── loadIntoBoard.ts           [B2]  loadSgfIntoBoard — parse + overwrite an existing board + navigate-to-leaf. The bare load primitive (fail-loud); useDirtyBoardGuard wraps it with the confirm-modal, the perf context calls it directly.
@@ -264,6 +264,7 @@ frontend/src/
 │   ├── analysis/
 │   │   ├── clustering.ts              [B3]  Pure transposition-grouping utilities.
 │   │   ├── filters.ts                 [B3]  Predicate type for analysis-turn inclusion.
+│   │   ├── review-scoring.ts          [B3]  Per-move review-delta scoring: per-colour extra.{color}.deltas indexing + the s_1-fast-path-then-path-scan lookup, over a caller-supplied enrichment accessor (keeps the engine band services-clean). B3: StoneColor move-indexing over the KataGo enrichment shape. ADR-0003's named useReviewSession scoring seam.
 │   │   └── stability-extractors.ts    [B3]  Curated KataGo extractor catalogue for stability-trajectory observations.
 │   │
 │   └── katago/                              KataGo wire-protocol surface. All B3.
