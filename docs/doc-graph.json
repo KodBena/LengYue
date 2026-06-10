@@ -1,6 +1,6 @@
 {
-  "node_count": 429,
-  "edge_count": 1977,
+  "node_count": 430,
+  "edge_count": 1982,
   "age_buckets": [
     {
       "name": "fresh",
@@ -3355,6 +3355,14 @@
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
       "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-10-only-throw-error-g3.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "docs/worklog/2026-06-10-refs-kind-audit.md",
@@ -16745,6 +16753,41 @@
       "to": "docs/notes/perf-capture-normalization-protocol.md",
       "kind": "path-mention",
       "site": "`docs/notes/perf-capture-normalization-protocol.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-only-throw-error-g3.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-only-throw-error-g3.md",
+      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-only-throw-error-g3.md",
+      "to": "docs/notes/audit/audit-deferral-harvest-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-deferral-harvest-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-only-throw-error-g3.md",
+      "to": "docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-only-throw-error-g3.md",
+      "to": "docs/doc-graph-report.md",
+      "kind": "path-mention",
+      "site": "`docs/doc-graph-report.md`",
       "resolved": "resolved"
     },
     {

@@ -136,6 +136,31 @@
  *       `.catch` / an explicit `void` for an intentional fire-and-forget whose
  *       callee self-handles. 7 sites at adoption, all resolved (each a
  *       verified self-handling fire-and-forget → `void` + rationale).
+ *     - @typescript-eslint/only-throw-error — rationale: a thrown non-Error
+ *       value carries no stack and defeats `instanceof Error` narrowing in
+ *       every catch on its propagation path — the throw-side door adjacent
+ *       to the G1 reparse guard below. RCA G3 rates it hygiene, explicitly
+ *       NOT the Lapse-1 guard (that throw WAS an Error; the structure was
+ *       lost in its message): adopted as the cheap adjacent-door close, per
+ *       the 2026-06-10 E4 sign-off (deferral-harvest audit §4.2/§7: adopt,
+ *       measure-first per the a75814c pattern). Measured at adoption: 1 hit
+ *       on src — analysis-persistence-service's rethrowAsStorageError
+ *       throwing the AnalysisBundleStorageError union — resolved as an
+ *       annotated inline disable (the vue/no-v-html model): that union is
+ *       DELIBERATELY structural (kind/status field narrowing, no
+ *       instanceof; the type-only-import classification recorded above
+ *       leans on it), so an Error-subclass conversion is a contract change
+ *       across the union's four consumer files, not lint hygiene ⇒ adopted
+ *       at `error` on a fully-triaged baseline. Named gaps per ADR-0002:
+ *       the rule runs on its defaults (allowThrowingAny /
+ *       allowThrowingUnknown / allowRethrowing), so the `throw err` rethrow
+ *       idiom over unknown-typed caught values stays admitted — the rule
+ *       polices constructed throws, not propagation; .vue <script> sits
+ *       outside the type-checked block (type info is wired for src/**'s
+ *       .ts only; 1 throw site in .vue at adoption, already a proper
+ *       `new Error` by inspection); tests/** stays outside the lint
+ *       surface (the later-step deferral below stands — test fakes throw
+ *       deliberately, all Error-shaped at adoption).
  *
  *   Syntactic guards (`src/**` `.ts` + `.vue`, via no-restricted-syntax):
  *     - no error-message reverse-engineering — rationale: a throw site that
@@ -154,7 +179,7 @@
  *       the audit's complete-population finding), so adopted at `error` — a
  *       future non-error `.message` read trips it and takes an inline
  *       `eslint-disable` + justification (the `vue/no-v-html` model). Guard
- *       rationale + RCA: docs/notes/rca-discipline-lapses-2026-06-01.md (G1).
+ *       rationale + RCA: docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md (G1).
  *     - no any-assertions (cast hygiene, stage 1) — rationale: `x as any`
  *       (and the `<any>x` / `as any[]` spellings) erases the type system at
  *       exactly the seams where checking matters most — the ADR-0002
@@ -510,10 +535,12 @@ export default [
   },
 
   // ── Type-checked discipline rules (src/**/*.ts; TS project service) ───
-  // Two type-aware rules mechanising existing prose disciplines, adopted as
-  // `error` after measuring on src — switch-exhaustiveness: 0 violations
+  // Three type-aware rules mechanising existing prose disciplines, adopted
+  // as `error` after measuring on src — switch-exhaustiveness: 0 violations
   // (already clean); no-floating-promises: 7, all resolved (each an
-  // intentional fire-and-forget whose callee self-handles, now `void`+comment).
+  // intentional fire-and-forget whose callee self-handles, now `void`+comment);
+  // only-throw-error: 1, resolved as an annotated inline disable (the
+  // deliberate structural AnalysisBundleStorageError union throw).
   //   - switch-exhaustiveness-check → rationale: a switch over a union that
   //     doesn't handle every member (and lacks a default) silently ignores a
   //     case — this is the compiler-enforced form of the discriminated-union
@@ -523,6 +550,14 @@ export default [
   //     nothing surfaces it). Satisfied by await / `.catch` / an explicit
   //     `void` (the last documents an intentional fire-and-forget whose callee
   //     self-handles its own errors).
+  //   - only-throw-error → rationale: a thrown non-Error value carries no
+  //     stack and defeats `instanceof Error` narrowing in every catch on
+  //     its propagation path. RCA G3 (adjacent-door hygiene, deliberately
+  //     NOT credited as the Lapse-1 guard —
+  //     docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md §4);
+  //     adopted 2026-06-10 per the E4 sign-off, measure-first. Defaults
+  //     kept: the unknown-typed `throw err` rethrow idiom stays admitted.
+  //     Full census + named gaps in the header.
   // Type info comes from the TS project service — slower than syntactic
   // linting, so it runs in `npm run lint` / CI (which don't gate the build).
   {
@@ -538,6 +573,7 @@ export default [
     rules: {
       '@typescript-eslint/switch-exhaustiveness-check': 'error',
       '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/only-throw-error': 'error',
     },
   },
 
@@ -552,7 +588,7 @@ export default [
   // variable — gap named per ADR-0002). Measured 0 hits on src at adoption →
   // adopted at `error`; a future non-error `.message` read takes an inline
   // eslint-disable + justification (the vue/no-v-html model). Full rationale
-  // in the header; G1 in docs/notes/rca-discipline-lapses-2026-06-01.md.
+  // in the header; G1 in docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md.
   {
     files: ['src/**/*.ts', 'src/**/*.vue'],
     rules: {
@@ -566,7 +602,7 @@ export default [
             '(ADR-0002 brittleness hazard). Throw/consume a structured Error ' +
             'subclass with fields (e.g. ApiError { status, body }) and branch ' +
             'on `instanceof` + the field. See ' +
-            'docs/notes/rca-discipline-lapses-2026-06-01.md (G1).',
+            'docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md (G1).',
         },
         {
           selector:
@@ -574,7 +610,7 @@ export default [
           message:
             "Don't match a regex against an error MESSAGE to recover structure " +
             '(ADR-0002 brittleness hazard). Use a structured Error subclass ' +
-            'with fields. See docs/notes/rca-discipline-lapses-2026-06-01.md (G1).',
+            'with fields. See docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md (G1).',
         },
         // Cast hygiene, stage 1 — script side (.ts + .vue <script>). Lives
         // in this same array because flat config replaces a rule's entire

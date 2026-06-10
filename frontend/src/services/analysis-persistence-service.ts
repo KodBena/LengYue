@@ -235,8 +235,20 @@ function readCompressionScheme(): 'v1' | string {
 // when the body matches one of the three known envelopes; rethrow the
 // original otherwise so unexpected failures retain their full
 // diagnostic text (per ADR-0002).
+//
+// The thrown union is deliberately NOT an Error subclass: consumers
+// narrow it structurally by its `kind`/`status` fields (no instanceof
+// — AnalysisControls.vue's isStorageError is the worked consumer),
+// which is what lets the component layer consume the TYPE through the
+// deny-by-default services boundary's type-only-import admission (the
+// analysis-bundle classification record in eslint.config.js's header).
+// Converting it to an Error subclass would be a contract change across
+// the union's consumer files, not lint hygiene — hence the annotated
+// exemption below (the vue/no-v-html model; only-throw-error adoption
+// record in eslint.config.js's header).
 function rethrowAsStorageError(err: unknown): never {
   const parsed = parseStorageError(err);
+  // eslint-disable-next-line @typescript-eslint/only-throw-error -- deliberate structural-union throw (see block comment above)
   if (parsed) throw parsed;
   throw err;
 }
