@@ -3,7 +3,7 @@
 - **From:** proxy (KataProxy)
 - **To:** frontend (SPA, Vue 3 + TypeScript)
 - **Topic:** Phase 3.5 LightGBM-supervised value function — wire shape and capability shape for the SPA's range-adaptive-reevaluate UI surface.
-- **Status:** Open. Pins the wire shape ahead of any implementation work on either side. Both PRs (proxy v1.0.26 + umbrella submodule bump + SPA changes) reference this dispatch.
+- **Status:** Shipped on both sides (status edit 2026-06-10 — see the dated note under "Status of this dispatch" below; the prior "Open" header had outlived the ships). The body remains the binding wire-shape record.
 - **Date:** 2026-05-18.
 
 ## Why this dispatch exists
@@ -202,5 +202,42 @@ Three operational questions filed in `docs/dispatch/frontend-to-proxy-learned-vf
 ## Status of this dispatch
 
 Open for response. Either sub-project may request adjustments before implementation begins; the body of this document is otherwise binding once both PRs reference it.
+
+### Status note (2026-06-10)
+
+Both sides have shipped against this contract: the proxy side landed in the
+v1.0.26 substrate line (the `LearnedPiecewiseAllocator`, the model registry,
+the `available_value_bindings` advertisement), and the SPA side shipped the
+value-function dropdown in `AnalysisControls.vue`, the per-query injection in
+`engine/katago/capability-injection.ts`, the
+`engine.katago.adaptiveReevaluate.valueBinding` store field (schema version
+31), and the `en` locale keys. The `Status: Open` header above had outlived
+those ships; this note corrects the record in place per the ledger
+convention.
+
+The frontend implementation note above that reads "extend the
+`AdaptiveReevaluateCapability` type with `available_value_bindings?:
+string[]`" is now closed by the **typed-capability-metadata-mirror** arc
+(work-status item `typed-capability-metadata-mirror`; audit
+`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md` §3.2). The SPA
+never had an `AdaptiveReevaluateCapability` type — the advertisement was
+read through casts at the consumption sites — and the typed mirror now
+exists in `frontend/src/engine/katago/types.ts` as
+`AdaptiveReevaluateAdvertisedMetadata` / `CapabilityAdvertisement`
+(advertisement side) and `AdaptiveReevaluateQueryMetadata` /
+`PerQueryCapabilities` (per-query opt-in side), with
+`available_value_bindings?: readonly string[]` declared on the
+advertisement metadata as this dispatch instructed. The declared fields are
+validated once in `version-probe.ts::parseVersionResponse`; a mismatched
+advertisement degrades that one capability loudly (user-visible warning +
+console detail) without touching the connection-refusal surface, and the
+consumption-site casts are deleted.
+
+Named residue, recorded rather than silently absorbed: two items from the
+frontend implementation notes above remain unshipped — the FEATURES.md
+one-liner for the dropdown, and the non-`en` locale catalogs'
+`analysis.adaptive.valueBinding.*` keys (`ja`/`ko`/`zh-CN` currently fall
+back to `en`). Both are listed in the 2026-06-10 audit's below-the-line
+leads.
 
 License: Public Domain (The Unlicense).

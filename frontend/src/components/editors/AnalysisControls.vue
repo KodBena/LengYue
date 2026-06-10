@@ -39,15 +39,17 @@ const adaptiveAdvertised = computed(() => {
 // the proxy. Empty array means the proxy doesn't host any learned
 // predictor (either lightgbm not installed, no bundled models, or
 // pre-v1.0.26 proxy); the dropdown only shows the "default"
-// (built-in) option in that case.
+// (built-in) option in that case. The read is cast-free:
+// `available_value_bindings` is declared on the capability mirror
+// (`AdaptiveReevaluateAdvertisedMetadata` in `engine/katago/types.ts`)
+// and validated once at probe time in
+// `version-probe.ts::parseVersionResponse` — a mismatched
+// advertisement degrades the capability there instead of reaching
+// this computed as a type-level lie.
 const availableLearnedBindings = computed(() => {
-  const caps = store.engine.info.capabilities;
-  if (caps === null) return [] as readonly string[];
-  const meta = caps.adaptive_reevaluate;
-  if (!meta || typeof meta !== 'object') return [] as readonly string[];
-  const list = (meta as { available_value_bindings?: unknown }).available_value_bindings;
-  if (!Array.isArray(list)) return [] as readonly string[];
-  return list.filter((v): v is string => typeof v === 'string' && v.startsWith('learned_'));
+  const list =
+    store.engine.info.capabilities?.adaptive_reevaluate?.available_value_bindings ?? [];
+  return list.filter((vb) => vb.startsWith('learned_'));
 });
 
 // ── Persistence UI state ──────────────────────────────────────────────────

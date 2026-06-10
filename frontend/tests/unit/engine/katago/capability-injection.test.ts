@@ -34,12 +34,24 @@ const ADAPTIVE_OFF: AdaptiveReevaluateInput = {
   enabled: false,
   worstQuantile: 0.05,
   extraVisits: 800,
+  valueBinding: '',
 };
 
 const ADAPTIVE_ON: AdaptiveReevaluateInput = {
   enabled: true,
   worstQuantile: 0.05,
   extraVisits: 800,
+  valueBinding: '',
+};
+
+// Adaptive opt-in with the learned value-function dropdown set to a
+// versioned proxy-hosted predictor (the v1.0.26 learned-VF arc per
+// docs/dispatch/proxy-to-frontend-learned-vf.md).
+const ADAPTIVE_ON_LEARNED: AdaptiveReevaluateInput = {
+  enabled: true,
+  worstQuantile: 0.05,
+  extraVisits: 800,
+  valueBinding: 'learned_v1',
 };
 
 // ── buildPerQueryCapabilities ────────────────────────────────────────────────
@@ -173,7 +185,7 @@ describe('buildPerQueryCapabilities', () => {
       isRangeBased: true,
       forReview: false,
       useTransposition: false,
-      adaptiveReevaluate: { enabled: true, worstQuantile: 0.1, extraVisits: 1600 },
+      adaptiveReevaluate: { enabled: true, worstQuantile: 0.1, extraVisits: 1600, valueBinding: '' },
     });
     expect(caps?.adaptive_reevaluate).toEqual({
       worst_quantile: 0.1,
@@ -218,6 +230,103 @@ describe('buildPerQueryCapabilities', () => {
       adaptiveReevaluate: ADAPTIVE_ON,
     });
     expect(caps).toEqual({ delta_analysis: {} });
+  });
+
+  it('sends value_binding + learned_piecewise when the user picked an advertised learned binding', () => {
+    // The learned-VF wire pair per the dispatch: a `learned_*`
+    // value_binding MUST be accompanied by
+    // `allocation_algorithm: "learned_piecewise"` (the substrate
+    // refuses otherwise). The advertisement read goes through the
+    // typed mirror — no cast.
+    const caps = buildPerQueryCapabilities({
+      advertised: {
+        delta_analysis: {},
+        adaptive_reevaluate: { available_value_bindings: ['learned_v1'] },
+      },
+      isRangeBased: true,
+      forReview: false,
+      useTransposition: false,
+      adaptiveReevaluate: ADAPTIVE_ON_LEARNED,
+    });
+    expect(caps?.adaptive_reevaluate).toEqual({
+      worst_quantile: 0.05,
+      extra_visits: 800,
+      value_binding: 'learned_v1',
+      allocation_algorithm: 'learned_piecewise',
+    });
+  });
+
+  it('omits the learned pair when the proxy does not advertise the chosen binding', () => {
+    // The dropdown normally hides un-advertised options; this is the
+    // defence-in-depth for a stale registry value (user configured
+    // learned_v1 against one proxy, reconnected to another). The
+    // capability still engages with the numeric overrides — only
+    // the Phase 3 fields are withheld, so the proxy's v1.0.24
+    // worst-quantile path runs instead of a guaranteed
+    // `allocation_invalid` refusal.
+    const noBindings = buildPerQueryCapabilities({
+      advertised: { delta_analysis: {}, adaptive_reevaluate: {} },
+      isRangeBased: true,
+      forReview: false,
+      useTransposition: false,
+      adaptiveReevaluate: ADAPTIVE_ON_LEARNED,
+    });
+    expect(noBindings?.adaptive_reevaluate).toEqual({
+      worst_quantile: 0.05,
+      extra_visits: 800,
+    });
+
+    const otherBinding = buildPerQueryCapabilities({
+      advertised: {
+        delta_analysis: {},
+        adaptive_reevaluate: { available_value_bindings: ['learned_v2'] },
+      },
+      isRangeBased: true,
+      forReview: false,
+      useTransposition: false,
+      adaptiveReevaluate: ADAPTIVE_ON_LEARNED,
+    });
+    expect(otherBinding?.adaptive_reevaluate).toEqual({
+      worst_quantile: 0.05,
+      extra_visits: 800,
+    });
+  });
+
+  it('sends no Phase 3 fields for the default ("") and non-learned bindings', () => {
+    // Q1 sign-off: the "default (built-in)" dropdown choice sends NO
+    // Phase 3 fields so the wire payload matches pre-v1.0.26 SPAs
+    // byte-for-byte. A non-`learned_*` name (the hand-crafted preset
+    // namespace) likewise sends nothing from this helper — those
+    // travel via `analysis_config`, not the capability metadata.
+    const defaults = buildPerQueryCapabilities({
+      advertised: {
+        delta_analysis: {},
+        adaptive_reevaluate: { available_value_bindings: ['learned_v1'] },
+      },
+      isRangeBased: true,
+      forReview: false,
+      useTransposition: false,
+      adaptiveReevaluate: ADAPTIVE_ON,
+    });
+    expect(defaults?.adaptive_reevaluate).toEqual({
+      worst_quantile: 0.05,
+      extra_visits: 800,
+    });
+
+    const handCrafted = buildPerQueryCapabilities({
+      advertised: {
+        delta_analysis: {},
+        adaptive_reevaluate: { available_value_bindings: ['learned_v1'] },
+      },
+      isRangeBased: true,
+      forReview: false,
+      useTransposition: false,
+      adaptiveReevaluate: { ...ADAPTIVE_ON, valueBinding: 'lcb_spread' },
+    });
+    expect(handCrafted?.adaptive_reevaluate).toEqual({
+      worst_quantile: 0.05,
+      extra_visits: 800,
+    });
   });
 
   it('returns a fresh object per call (no aliasing across queries)', () => {

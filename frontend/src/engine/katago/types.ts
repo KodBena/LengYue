@@ -60,6 +60,111 @@ interface BaseQuery {
   readonly id: string; // Arbitrary identifier
 }
 
+// ── Capability metadata mirror (proxy v1.0.14+) ───────────────────────────────
+//
+// The `capabilities` dict appears on the wire twice, symmetrically:
+// the proxy's advertisement on `query_version` responses
+// (`KataActionResponse.capabilities` below) and the SPA's per-query
+// opt-in on the analysis query (`KataGoAnalysisQuery.capabilities`
+// below). Both sides are dict-of-dicts (capability-name → metadata);
+// the interfaces here are the typed mirror of the per-capability
+// metadata schemas the dispatches pin
+// (`docs/dispatch/frontend-to-proxy-selector-and-capabilities.md` for
+// the negotiation protocol; `docs/dispatch/proxy-to-frontend-learned-vf.md`
+// for `adaptive_reevaluate`'s learned-VF fields).
+//
+// Open shapes by design: every interface carries an
+// `[key: string]: unknown` index signature, so a proxy that adds
+// metadata fields — or advertises a capability name the SPA doesn't
+// know — passes through without a parser change. Unknown capability
+// NAMES and unknown metadata FIELDS are forward-compatible
+// pass-throughs, not errors. What the mirror pins is the shape of the
+// fields the SPA actually reads; `version-probe.ts::parseVersionResponse`
+// enforces those shapes once at the trust boundary (a mismatched
+// known capability is degraded loudly there rather than reaching
+// consumers as a type-level lie), so consumers read these fields
+// cast-free.
+
+/**
+ * Metadata dict for one capability — the open dict-of-dicts value
+ * shape shared by both wire directions. Empty `{}` is the
+ * no-metadata sentinel (per the capability-negotiation dispatch's
+ * Q4 sign-off); populated objects parameterise per capability.
+ */
+export type CapabilityMetadata = Record<string, unknown>;
+
+/**
+ * Advertisement-side metadata for `adaptive_reevaluate`
+ * (proxy → SPA, on `query_version` responses). The proxy publishes
+ * its middleware defaults plus — v1.0.26+ — the learned-predictor
+ * names it hosts.
+ */
+export interface AdaptiveReevaluateAdvertisedMetadata {
+  /** Proxy-side default for the deeper pass's added visits. */
+  readonly extra_visits?: number;
+  /** Proxy-side default for the worst-quantile selection. */
+  readonly worst_quantile?: number;
+  /**
+   * Proxy-hosted learned predictor names the SPA may request via the
+   * per-query `value_binding` field (`learned_v1`, …). Absent / empty
+   * means the proxy hosts no learned predictor and the SPA hides the
+   * dropdown's "learned" options. Contract pinned in
+   * `docs/dispatch/proxy-to-frontend-learned-vf.md`.
+   */
+  readonly available_value_bindings?: readonly string[];
+  readonly [key: string]: unknown;
+}
+
+/**
+ * The capability-advertisement dict on `query_version` responses —
+ * the validated form `parseVersionResponse` produces and
+ * `store.engine.info.capabilities` holds. Capability names without a
+ * declared metadata interface fall through to the open index
+ * signature.
+ */
+export interface CapabilityAdvertisement {
+  readonly adaptive_reevaluate?: AdaptiveReevaluateAdvertisedMetadata;
+  readonly [name: string]: CapabilityMetadata | undefined;
+}
+
+/**
+ * Query-side (per-query opt-in) metadata for `adaptive_reevaluate` —
+ * the user's registry overrides, keyed snake_case to match the wire
+ * vocabulary, plus the v1.0.26 learned-VF opt-in pair.
+ */
+export interface AdaptiveReevaluateQueryMetadata {
+  /** Per-query override of the proxy's worst-quantile selection. */
+  readonly worst_quantile?: number;
+  /** Per-query override of the deeper pass's added visits. */
+  readonly extra_visits?: number;
+  /**
+   * Proxy-hosted predictor name (`learned_*` namespace). Sent only
+   * when the user picked a learned binding the proxy advertises in
+   * `available_value_bindings`; bypasses `analysis_config` per the
+   * learned-VF dispatch.
+   */
+  readonly value_binding?: string;
+  /**
+   * Paired-prediction allocator; MUST accompany a `learned_*`
+   * `value_binding` (the substrate refuses otherwise) and is never
+   * sent without one by this SPA.
+   */
+  readonly allocation_algorithm?: 'learned_piecewise';
+  readonly [key: string]: unknown;
+}
+
+/**
+ * The per-query capability opt-in dict the SPA injects into analysis
+ * queries — built by `capability-injection.ts::buildPerQueryCapabilities`.
+ * Empty `{}` per capability means "opt in with proxy defaults".
+ */
+export interface PerQueryCapabilities {
+  readonly delta_analysis?: CapabilityMetadata;
+  readonly transposition?: CapabilityMetadata;
+  readonly adaptive_reevaluate?: AdaptiveReevaluateQueryMetadata;
+  readonly [name: string]: CapabilityMetadata | undefined;
+}
+
 /**
  * A standard Analysis Query.
  * Can request analysis for multiple turns of a single game state.
@@ -263,7 +368,9 @@ export interface KataGoAnalysisQuery extends BaseQuery {
   // metadata schemas (e.g., `adaptive_reevaluate` accepts
   // `worst_quantile` and `extra_visits`); a flat string list would
   // foreclose on per-capability parameterisation. See the proxy-side
-  // sign-off (Q4) for the schema-formalisation discipline.
+  // sign-off (Q4) for the schema-formalisation discipline. The
+  // per-capability metadata schemas are the typed mirror interfaces
+  // declared above (`PerQueryCapabilities` and friends).
   //
   // Proxy-control field (never reaches the engine): the proxy reads
   // and strips this before forwarding to KataGo. Semantics match the
@@ -273,7 +380,7 @@ export interface KataGoAnalysisQuery extends BaseQuery {
   // opt-in sets produce different transformer chains and therefore
   // different response artefacts), where the older four are
   // *strip-before-hash*.
-  readonly capabilities?: Record<string, Record<string, unknown>>;
+  readonly capabilities?: PerQueryCapabilities;
 
   // ─── SELECTOR routing key (proxy v1.0.15+) ────────────────────────────────
   //
@@ -482,7 +589,13 @@ export interface KataActionResponse {
   // refusal path fires when the field IS present but the SPA's
   // universally-required `delta_analysis` is missing — per the
   // dispatch's *Frontend will not* exception clause.
-  readonly capabilities?: Record<string, Record<string, unknown>>;
+  //
+  // Per-capability metadata schemas are the typed mirror interfaces
+  // declared above (`CapabilityAdvertisement` and friends);
+  // `version-probe.ts::parseVersionResponse` validates the declared
+  // fields once at the trust boundary and degrades a mismatched
+  // known capability loudly, so downstream reads are cast-free.
+  readonly capabilities?: CapabilityAdvertisement;
 }
 
 export interface KataErrorResponse {
