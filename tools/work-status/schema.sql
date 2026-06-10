@@ -80,7 +80,10 @@ CREATE TABLE deps (
 CREATE TABLE refs (
   ref_id  bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   item_id text NOT NULL REFERENCES items(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
-  kind    text NOT NULL CHECK (kind IN ('worklog', 'design-note', 'adr', 'dispatch', 'source', 'pr', 'commit')),
+  -- 'audit' added 2026-06-10: audit reports under docs/notes/audit/ were previously
+  -- filed as 'design-note' (closest match); the history-lessons audit surfaced the
+  -- vocabulary gap (ADR-0002 Rule 7 / ADR-0008) and the maintainer approved the value.
+  kind    text NOT NULL CHECK (kind IN ('worklog', 'design-note', 'adr', 'dispatch', 'source', 'pr', 'commit', 'audit')),
   target  text NOT NULL CHECK (target <> '')
 );
 CREATE INDEX refs_item_id_idx ON refs (item_id);
