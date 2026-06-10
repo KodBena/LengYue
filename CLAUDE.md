@@ -408,6 +408,15 @@ The codebase has a coherent personality (recorded in the ADRs and
 in `docs/notes/reflection.md`); changes should compose with that
 personality, not impose a different one.
 
+Coordinator-layer artifacts — commissions to collaborators, merge
+automation, curation operations on the work-status store, posted
+review verdicts — are work products under the same disciplines as
+worker output: probe-before-trust for automation, ledger-everything
+for deferrals and closures (including a residual sweep before
+closing any item), and artifact-before-verdict for reviews (a
+verdict whose artifact cannot be produced on demand is treated as
+no verdict).
+
 ## License
 
 Public Domain (The Unlicense). Per ADR-0006, source files declare

@@ -54,7 +54,6 @@ frontend/src/
 ├── App.vue                            [B3]  Root SFC. Orchestrator hosting tabs, board, modals; wires composables.
 ├── logic.ts                           [B3]  applyGoMove — Go-rule board mutation with dedup-or-descend on the tree.
 ├── main.ts                            [B1]  Vue app bootstrap (createApp, install i18n, mount #app).
-├── jquery-bridge.ts                   [B1]  Installs jQuery on `window` for legacy interop.
 ├── types.ts                           [B3]  Barrel over the per-domain type modules (`types/*` + `store/schema.ts`; 2026-06-10 split). Re-exports span all three bands, so the hub tags for the highest band it re-exports; it declares nothing itself, and three runtime values (BUNDLE_COMPRESSION_SCHEMES, QeuboError, CardTreeOverflowError) pass through, making it a runtime module.
 ├── style.css                          [B1]  Empty stub; theme lives in chrome substrate variables.
 │
@@ -120,7 +119,7 @@ frontend/src/
 │   │   ├── CardSetEditor.vue          [B2]  Master-Detail Tree-DSL pipeline editor (CodeMirror 6) with JSON5+holes dialect.
 │   │   ├── HyperparameterPanel.vue    [B1]  Declarations editor (name/type/default/constraints) for a deck's harness.
 │   │   ├── PaletteEditor.vue          [B3]  Master-Detail Analysis-Environment editor.
-│   │   └── RegistryEditor.vue         [B1]  Generic managed-registry editor with defaults and structural protection.
+│   │   └── RegistryEditor.vue         [B1]  Generic managed-registry editor with defaults and structural protection. [B1] with a named leak: imports WINRATE_FRAMINGS from [B3] engine/katago/types; structural fix owned by config-schema-projections Phase 1.
 │   │
 │   ├── modals/                              Dialog modals. Mostly B1 (generic UX) with two B3 (engine/SGF-touching).
 │   │   ├── ConfirmLoadModal.vue       [B1]  "Save / discard / cancel" dirty-board dialog.
