@@ -25,8 +25,8 @@
       "genre": "umbrella-root",
       "is_hub": false,
       "first_committed": "2026-04-27",
-      "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "FEATURES.md",
@@ -41,8 +41,8 @@
       "genre": "umbrella-root",
       "is_hub": false,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-05-12",
-      "age_bucket": "stale"
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "backend/CLAUDE.md",
@@ -97,88 +97,88 @@
       "genre": "doc-root",
       "is_hub": true,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/adr/0001-state-mutation-and-readonly.md",
       "genre": "adr",
       "is_hub": false,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/adr/0002-fail-loudly.md",
       "genre": "adr",
       "is_hub": false,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
       "genre": "adr",
       "is_hub": false,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
       "genre": "adr",
       "is_hub": false,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-04-26",
-      "age_bucket": "stale"
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/adr/0005-documentation-discipline.md",
       "genre": "adr",
       "is_hub": false,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-06-08",
-      "age_bucket": "aging"
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/adr/0006-source-file-headers.md",
       "genre": "adr",
       "is_hub": false,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-04-26",
-      "age_bucket": "stale"
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/adr/0007-file-size-and-information-density.md",
       "genre": "adr",
       "is_hub": false,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-04-26",
-      "age_bucket": "stale"
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/adr/0008-classification-discipline.md",
       "genre": "adr",
       "is_hub": false,
       "first_committed": "2026-05-17",
-      "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/adr/0009-performance-investigation-discipline.md",
       "genre": "adr",
       "is_hub": false,
       "first_committed": "2026-05-27",
-      "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
       "genre": "adr",
       "is_hub": false,
       "first_committed": "2026-05-31",
-      "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/archive/34b-complete-status.md",
@@ -1633,8 +1633,8 @@
       "genre": "doc-root",
       "is_hub": true,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/analysis-persistence-followups.md",
@@ -1730,7 +1730,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/audit/audit-spa-history-lessons-2026-06-10-appendix-p2.md",
@@ -1738,7 +1738,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/audit/audit-spa-history-lessons-2026-06-10-appendix-p3.md",
@@ -1746,7 +1746,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/audit/audit-spa-history-lessons-2026-06-10-filings.md",
@@ -1754,7 +1754,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
@@ -1762,7 +1762,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/audit/audit-stringly-typed-contracts-2026-06-01.md",
@@ -1969,8 +1969,8 @@
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/design/README.md",
@@ -2561,8 +2561,8 @@
       "genre": "doc-root",
       "is_hub": false,
       "first_committed": "2026-06-04",
-      "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/rfcs/0001-adr-meta-review.md",
@@ -3330,7 +3330,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-10-branded-path-types.md",
@@ -3338,7 +3338,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-10-cast-hygiene-lint.md",
@@ -3482,7 +3482,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-10-typed-capability-metadata-mirror.md",
@@ -3512,24 +3512,24 @@
       "path": "docs/worklog/2026-06-11-adr-corpus-amendments.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "frontend/CLAUDE.md",
       "genre": "subproject-frontend",
       "is_hub": false,
       "first_committed": "2026-04-27",
-      "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "frontend/FILES.md",
       "genre": "subproject-frontend",
       "is_hub": false,
       "first_committed": "2026-05-11",
-      "last_committed": "2026-06-10",
+      "last_committed": "2026-06-11",
       "age_bucket": "fresh"
     },
     {
