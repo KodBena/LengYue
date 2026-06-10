@@ -9,7 +9,9 @@
  * applies with special force — these tests are the artifact that
  * catches the bug *before* the symptom propagates forward in time.
  *
- * Phase 1 of `docs/notes/migration-test-rotation-plan.md`:
+ * Phase 1 of `docs/notes/design/migration-test-rotation-plan.md`
+ * (extended 2026-06-10 per work-status item
+ * `migration-leaf-assertion-and-composition-test`, audit §3.13):
  *
  *   (a) Array-length invariant: `migrations.length` equals
  *       `CURRENT_SCHEMA_VERSION - 1`, catching "rotation accidentally
@@ -17,9 +19,24 @@
  *   (b) End-to-end walk: ancient (schema-1) fixture blobs through
  *       `migrate()`, asserting the final shape is a valid
  *       `CURRENT_SCHEMA_VERSION` blob.
- *   (c) Per-migration round-trip fixtures: one `describe` block per
- *       migration, exercising happy path + idempotency + the
- *       fallback paths the source comments name.
+ *   (c) Per-migration round-trip fixtures for the COVERED steps —
+ *       exercising happy path + idempotency + the fallback paths the
+ *       source comments name. Coverage is NOT one block per
+ *       migration: the `describe` blocks below are the authoritative
+ *       list, and there is one known historical gap — steps 44 → 45
+ *       through 55 → 56 shipped during the rolling-archive cycle
+ *       without per-step fixtures and have none here (a fixed,
+ *       archived range; the prior header's "one describe block per
+ *       migration" claim was stale over it). Coverage for that range
+ *       is structural only: the invariants and end-to-end walk in
+ *       this file, plus the store-round-trip composition test in
+ *       `tests/integration/migration-store-roundtrip.test.ts`, which
+ *       pins the key-set the full corpus produces against the save
+ *       path (and is where a silent backfill no-op in that range
+ *       surfaces).
+ *   (d) Framework guards: the `witnessedContainer` leaf-assertion
+ *       helper's witness/blob-leg contract (see its docstring in
+ *       `src/store/migrations.ts`).
  *
  * No DOM, no fakes, no Vue reactivity — pure JS objects through
  * pure functions through assertions.
@@ -32,6 +49,7 @@ import {
   CURRENT_SCHEMA_VERSION,
   migrations,
   migrate,
+  witnessedContainer,
 } from '../../../src/store/migrations';
 import type { Migration } from '../../../src/store/archived-migrations';
 
@@ -108,6 +126,51 @@ describe('migrations array — invariants', () => {
     for (let i = 0; i < migrations.length; i++) {
       expect(typeof migrations[i]).toBe('function');
     }
+  });
+});
+
+// ── Framework: witnessedContainer (leaf-assertion helper) ───────────
+
+describe('witnessedContainer — independent-witness leaf assertion', () => {
+  it('throws on a path the runtime shape does not carry (the 47 → 48 wrong-path class)', () => {
+    // The exact incident shape: 'settings.knobs' instead of
+    // 'profile.settings.knobs'. The blob even HAS the wrong path —
+    // the witness leg must reject it regardless, because the witness
+    // is the runtime shape, not the blob.
+    const blob: any = { settings: { knobs: {} } };
+    expect(() => witnessedContainer(blob, 'settings.knobs')).toThrow(/wrong-path class/);
+  });
+
+  it('names the failing segment in the thrown message', () => {
+    expect(() => witnessedContainer({}, 'profile.settings.nonexistent.leafBlock'))
+      .toThrow(/failed at segment 'nonexistent'/);
+  });
+
+  it('resolves a witnessed path present on the blob', () => {
+    const blob: any = { session: { ui: { forestNav: { expanded: [], selection: null } } } };
+    const nav = witnessedContainer(blob, 'session.ui.forestNav');
+    expect(nav).toBe(blob.session.ui.forestNav);
+  });
+
+  it('returns undefined for a witnessed path absent from the blob (partial-blob tolerance)', () => {
+    expect(witnessedContainer({}, 'session.ui.forestNav')).toBeUndefined();
+    expect(witnessedContainer({ session: {} }, 'session.ui.forestNav')).toBeUndefined();
+  });
+
+  it('returns undefined when the blob carries a non-object at the witnessed path', () => {
+    // Matches the inline guards the retrofit replaced: a corrupt
+    // primitive where a container should be means "nothing to
+    // migrate here", not a crash.
+    expect(witnessedContainer({ profile: 'corrupt' }, 'profile')).toBeUndefined();
+    expect(
+      witnessedContainer({ session: { ui: { forestNav: 42 } } }, 'session.ui.forestNav'),
+    ).toBeUndefined();
+    expect(witnessedContainer({ session: 'corrupt' }, 'session.ui.forestNav')).toBeUndefined();
+  });
+
+  it('passes arrays through (typeof object — same tolerance as the prior inline guards)', () => {
+    const blob: any = { profile: [] };
+    expect(witnessedContainer(blob, 'profile')).toBe(blob.profile);
   });
 });
 
