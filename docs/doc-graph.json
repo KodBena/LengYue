@@ -2898,7 +2898,7 @@
       "is_hub": false,
       "first_committed": "2026-05-30",
       "last_committed": "2026-05-30",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-30-feat-popover-stress-harness.md",
@@ -3210,7 +3210,7 @@
       "is_hub": false,
       "first_committed": "2026-06-04",
       "last_committed": "2026-06-04",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-04-timing-literals-consolidation.md",
@@ -3344,9 +3344,9 @@
       "path": "docs/worklog/2026-06-10-services-boundary-deny-by-default.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-10",
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-10-spa-history-lessons-audit.md",
