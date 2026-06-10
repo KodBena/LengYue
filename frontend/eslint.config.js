@@ -155,6 +155,38 @@
  *       future non-error `.message` read trips it and takes an inline
  *       `eslint-disable` + justification (the `vue/no-v-html` model). Guard
  *       rationale + RCA: docs/notes/rca-discipline-lapses-2026-06-01.md (G1).
+ *     - no any-assertions (cast hygiene, stage 1) — rationale: `x as any`
+ *       (and the `<any>x` / `as any[]` spellings) erases the type system at
+ *       exactly the seams where checking matters most — the ADR-0002
+ *       silent-coercion class, concentrated at trust boundaries per the
+ *       2026-06-10 history-lessons audit (L4). The cast-justification
+ *       PROSE rule (frontend/CLAUDE.md "an `as` needs a justification or
+ *       it doesn't ship") held at ~50% in that audit's sample — this rule
+ *       is the prose discipline's mechanization, stage 1 of work-status
+ *       item cast-hygiene-lint (audit §3.10). Measured at adoption:
+ *       12 any-targeted assertion sites in src (11 bare + 1 `as any[]`;
+ *       the audit's ~13 included one site the resource-service arc had
+ *       already retired). 9 re-typed soundly (NodeId brand minted at
+ *       sgf-loader's single id-construction site; katago-client's
+ *       subscribe() seam widened to the full query union; two vestige
+ *       casts whose target types already declare the fields
+ *       (analysis-service ×2); a BoardId assignment that needed no cast
+ *       (useReviewSession); two generic-key editor writes (CardSetEditor,
+ *       PaletteEditor)); 1 removed as an any→any vestige (BaseChart);
+ *       2 kept as annotated inline disables (main.ts DEV-only window
+ *       debug handles — the vue/no-v-html escape-hatch model) ⇒ adopted
+ *       at `error` on a fully-triaged baseline. Kept-cast justification
+ *       convention: name the scope of unsafety, and when the cast sits on
+ *       an ADR-0003 band boundary, the band character ("Band 3 loader
+ *       minting a Band 2 branded id" — sgf-loader.ts is the worked form),
+ *       so the justification inventory doubles as the fork's seam map.
+ *       Template expressions are covered by the same selectors via
+ *       vue/no-restricted-syntax (0 template hits at adoption). Syntactic
+ *       best-effort, gaps named per ADR-0002: deeper any-bearing
+ *       composites (`as Record<string, any>`, double-casts through
+ *       `unknown`) and annotation-position `any` are NOT caught — the
+ *       former are stage 2's target, the latter the no-explicit-any
+ *       deferral (see the staging record at the end of this header).
  *
  * This `.ts` linting is new: the prior config parsed `.vue` only, so
  * TypeScript modules went unlinted. The `@typescript-eslint/parser` was
@@ -174,6 +206,38 @@
  * above). Still deferred as a separate, later decision: `no-explicit-any`
  * (~152 sites) and `max-lines` (~69 files over 250) — backlog-surfacing
  * rather than clean gates, so warn-as-backlog candidates, not adopted here.
+ *
+ * Cast-hygiene staging record (2026-06-10; history-lessons audit §3.10;
+ * work-status item cast-hygiene-lint). Stage 1 — the any-assertion ban
+ * above — RE-OPENS the `no-explicit-any` deferral recorded in the
+ * previous paragraph (recorded relationship per ADR-0002 Rule 6: the
+ * deferral text stands as the historical record; this paragraph amends
+ * by appending): the assertion-position corner of that backlog is now
+ * banned at `error`, while annotation-position `any` — the bulk; 109
+ * occurrences re-measured at this change, the ~152 above being the
+ * stale earlier census — stays deferred exactly as before. Stage 2 —
+ * a justification-adjacency requirement on ALL coercion casts (custom
+ * local rule; precedent: eslint-rules/clear-needs-ownership.js) — is
+ * measured here but deliberately NOT adopted, per the `a75814c`
+ * measure-first pattern. Baseline (AST-grade scratch-config run over
+ * src/, 2026-06-10, before stage-1 fixes → after):
+ *   - `as`-assertions, script side (.ts + .vue <script>): 431 → 416
+ *   - `as`-assertions in .vue <template> expressions: 37 → 37 (the
+ *     population the audit's .ts-only sample never measured; 0 of
+ *     them any-targeted)
+ *   - `as const` subset (const assertions, not coercions — excluded
+ *     from the stage-2 target): 56
+ *   - stage-2 target population (coercion casts that would need an
+ *     adjacent justification): 412 → 397
+ *   - `as unknown as` double-casts (the brand-strip shape; the
+ *     follow-on ratchet target the audit names): 28 → 25
+ *   - tests/: 4 bare `as any` (one fixture file,
+ *     tests/integration/hydration-knowntags.test.ts) sit OUTSIDE both
+ *     this lint's scope (tests/** ignored — the later-step deferral
+ *     above stands) and the vue-tsc surface (tsconfig.app.json
+ *     includes src/ only; vitest does not typecheck) — which is how
+ *     interface-violating fixtures survive. Named here rather than
+ *     silently absorbed; the tests-lint later step inherits it.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -249,6 +313,40 @@ const COMPONENT_SERVICES_BOUNDARY_PATTERN = {
     'displays, per ADR-0010) and type-only imports (compile-time-erased). ' +
     'See frontend/CLAUDE.md "Architectural shape".',
 };
+
+// Cast hygiene, stage 1 (work-status item cast-hygiene-lint; 2026-06-10
+// history-lessons audit §3.10): ban assertions whose target type is `any`.
+// Shared between the script-side core no-restricted-syntax block and the
+// template-side vue/no-restricted-syntax block below. Syntactic
+// best-effort, same posture as the error-message guard: the two selectors
+// catch `x as any` / `<any>x` and the one-level `as any[]` / `<any[]>x`
+// spellings; deeper any-bearing composites (`as Record<string, any>`, a
+// double-cast through `unknown`) and annotation-position `any` are NOT
+// caught — gaps named per ADR-0002, owned by stage 2 and the
+// no-explicit-any deferral respectively (see header).
+const ANY_ASSERTION_SELECTORS = [
+  {
+    selector: ':matches(TSAsExpression, TSTypeAssertion) > TSAnyKeyword',
+    message:
+      'A bare cast to `any` erases the type system at exactly the seam ' +
+      'where checking matters (ADR-0002 silent-coercion class). Type the ' +
+      'seam instead — widen the parameter, mint the precise brand, use a ' +
+      'generic key. If the cast is genuinely needed (untyped-library / ' +
+      'untyped-global interop), keep it behind an inline ' +
+      'eslint-disable-next-line with a justification naming the scope of ' +
+      'unsafety — and, on an ADR-0003 band boundary, the band character ' +
+      '(worked form: sgf-loader.ts). See eslint.config.js header.',
+  },
+  {
+    selector:
+      ':matches(TSAsExpression, TSTypeAssertion) > TSArrayType > TSAnyKeyword',
+    message:
+      'Casting to `any[]` erases the element type — the same ' +
+      'silent-coercion class as a bare `as any`, and its cheapest ' +
+      'circumvention. Same discipline: type the seam, or annotated ' +
+      'inline disable + justification. See eslint.config.js header.',
+  },
+];
 
 export default [
   {
@@ -407,7 +505,30 @@ export default [
             '(ADR-0002 brittleness hazard). Use a structured Error subclass ' +
             'with fields. See docs/notes/rca-discipline-lapses-2026-06-01.md (G1).',
         },
+        // Cast hygiene, stage 1 — script side (.ts + .vue <script>). Lives
+        // in this same array because flat config replaces a rule's entire
+        // entry per file rather than merging across blocks; a second
+        // no-restricted-syntax block for the same files would silently
+        // drop the G1 selectors above. Rationale + measured adoption in
+        // the header; selector constant above.
+        ...ANY_ASSERTION_SELECTORS,
       ],
+    },
+  },
+
+  // ── Cast hygiene, stage 1 — template side ──
+  // rationale: a cast inside a <template> expression is the same
+  // silent-coercion hazard as a script-side one, and SFC template casts
+  // were never measured before this rule (history-lessons audit §8). The
+  // core no-restricted-syntax rule walks the script AST only; the vue
+  // variant applies the same selectors to <template> expressions.
+  // Measured at adoption: 37 template-side casts, 0 of them any-targeted
+  // ⇒ clean `error` adoption (a clean regression gate, like
+  // switch-exhaustiveness-check).
+  {
+    files: ['src/**/*.vue'],
+    rules: {
+      'vue/no-restricted-syntax': ['error', ...ANY_ASSERTION_SELECTORS],
     },
   },
 

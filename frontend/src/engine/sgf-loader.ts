@@ -4,13 +4,13 @@
  */
 import { sgfToMove, generateUUID } from './util';
 import { validateMove } from './rules';
-import type { BoardState, GameNode, StoneColor, Point } from '../types';
+import type { BoardState, GameNode, NodeId, StoneColor, Point } from '../types';
 
 const uuid = () => Math.random().toString(36).substring(2, 7);
 
 export function loadSgf(sabakiOutput: any): BoardState {
   const sabakiRoot = sabakiOutput[0];
-  const nodes: Record<string, GameNode> = {};
+  const nodes: Record<NodeId, GameNode> = {};
 
   const size = parseInt(sabakiRoot.data['SZ']?.[0] ?? '19', 10);
 
@@ -34,11 +34,11 @@ export function loadSgf(sabakiOutput: any): BoardState {
   // `activeBoardGameHeadIds` computed.
   const state: BoardState = {
     id: generateUUID() as unknown as BoardState['id'], // BoardId is UUID-shaped (migration 24 → 25)
-    rootNodeId: rootId as unknown as BoardState['rootNodeId'], // brand on the way in
+    rootNodeId: rootId, // already branded: `transform` mints NodeId at its single id-construction site
     stones: {},
     captures: { B: 0, W: 0 },
-    currentNodeId: rootId as unknown as BoardState['currentNodeId'],
-    nodes: nodes as unknown as BoardState['nodes'],
+    currentNodeId: rootId,
+    nodes,
     koPoint: null,
     turn: 'B',
     clientGameId: generateUUID(),
@@ -61,20 +61,25 @@ export function loadSgf(sabakiOutput: any): BoardState {
 
 function transform(
   sabakiNode: any,
-  parentId: string | null,
-  nodes: Record<string, GameNode>,
+  parentId: NodeId | null,
+  nodes: Record<NodeId, GameNode>,
   size: number
-): string {
-  const id = 'node-' + uuid();
-  const props = sabakiNode.data; 
+): NodeId {
+  // Justified brand mint (ADR-0002 Rule 2): this Band-3 SGF loader is the
+  // sole construction site for loader-minted node ids, branding the fresh
+  // `node-` string into the Band-2 NodeId vocabulary (ADR-0003 band
+  // boundary — Band 3 loader minting a Band 2 branded id). Safe by
+  // construction: the id is created here and registered in `nodes` below.
+  const id = ('node-' + uuid()) as NodeId;
+  const props = sabakiNode.data;
 
   let move = null;
   if (props.B) move = sgfToMove(props.B[0], 'B', size);
   else if (props.W) move = sgfToMove(props.W[0], 'W', size);
 
   const node: GameNode = {
-    id: id as any,
-    parent: parentId as any,
+    id,
+    parent: parentId,
     children: [],
     activeChildIndex: 0,
     properties: props,
@@ -86,7 +91,7 @@ function transform(
   if (sabakiNode.children) {
     for (const child of sabakiNode.children) {
       const childId = transform(child, id, nodes, size);
-      node.children.push(childId as any);
+      node.children.push(childId);
     }
   }
 
@@ -94,9 +99,9 @@ function transform(
 }
 
 function hydrate(
-  nodeId: string, 
-  nodes: Record<string, GameNode>, 
-  stones: Record<string, StoneColor>, 
+  nodeId: NodeId,
+  nodes: Record<NodeId, GameNode>,
+  stones: Record<string, StoneColor>,
   koPoint: Point | null,
   size: number
 ) {

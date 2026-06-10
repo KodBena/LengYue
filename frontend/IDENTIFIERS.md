@@ -78,7 +78,7 @@ constructed client-side as an RFC4122 v4 UUID.
 
 | Name | Prim. | Origin | Construction | Lifetime | Cardinality | Status / notes |
 |------|-------|--------|-------------|----------|-------------|----------------|
-| `BoardId` | string | client UUID (RFC4122 v4) | factory `asBoardId` (`board-factory.ts:20`); created at `board-factory.ts:62` via `asBoardId(generateUUID())`; ACL re-brand from wire at `library-service.ts:95,109,135,141` and `analysis-persistence-service.ts:170` | persisted (crosses wire to `analysis_bundles.board_id`; survives in synced docs) | ~1–20 open boards | Sound at the factory/ACL. Redundant casts downstream: `App.vue:66`, `ReviewSessionPanel.vue:48`, `SidebarWidget.vue:32` (the source `BoardState.id` is already `BoardId`, `src/types.ts:191`). `parsedBoard.id = … as any` at `useReviewSession.ts:274` and `useDirtyBoardGuard.ts:124` strip the brand to retain a tab id. See `[leaky]` erosion (b). |
+| `BoardId` | string | client UUID (RFC4122 v4) | factory `asBoardId` (`board-factory.ts:20`); created at `board-factory.ts:62` via `asBoardId(generateUUID())`; ACL re-brand from wire at `library-service.ts:95,109,135,141` and `analysis-persistence-service.ts:170` | persisted (crosses wire to `analysis_bundles.board_id`; survives in synced docs) | ~1–20 open boards | Sound at the factory/ACL. Redundant casts downstream: `App.vue:66`, `ReviewSessionPanel.vue:48`, `SidebarWidget.vue:32` (the source `BoardState.id` is already `BoardId`, `src/types.ts:191`). The two re-id-to-retain-a-tab sites are clean as of 2026-06-10: `loadIntoBoard.ts:55` (assignment with the "both sides are branded" comment) and `useReviewSession.ts:264` (the former `as any` there, this row's old `[leaky]` example, was removed in the cast-hygiene arc — `BoardState.id` is a mutable `BoardId`, so the re-id is plain assignment). |
 | `AnalysisTabId` | string | client UUID | `AnalysisTabsEditor.vue:46` (`crypto.randomUUID() as AnalysisTabId`); single canonical construction site, self-documented at `:44` | persisted (user tab layout in `AppSettings.analysisTabs`) | ~1–20 user tabs | Sound; single justified site. |
 | `BookmarkId` | string | client UUID | `useQeubo.ts:782` (`generateUUID() as BookmarkId`); single construction site | per-session (qEUBO/PBO bookmarks; pinned ones persist to `qeuboPinnedBookmarks`) | ~0–dozens | Sound; single site. |
 
@@ -96,7 +96,7 @@ the brand; everything downstream should treat them as opaque.
 
 | Name | Prim. | Origin | Construction | Lifetime | Cardinality | Status / notes |
 |------|-------|--------|-------------|----------|-------------|----------------|
-| `NodeId` | string | local id — `'root-'+short` / `'node-'+short` (short = `Math.random().toString(36)`, **not** a UUID) | factory `asNodeId` (`board-factory.ts:21`); roots at `board-factory.ts:50` (`asNodeId('root-'+uuid())`); SGF-loaded nodes at `sgf-loader.ts:68` (then `as any` at `:76,77,89`); a fresh node in `logic.ts:106` (`'node-'+Math.random()… as NodeId`); ACL re-brand at `analysis-persistence-service.ts:157` | per-session board-scoped; **some persist** as ledger / trajectory composite keys (see "representation cost" below) | **Highest in the system**: one per game-tree node, ~340–1000+ per board × N boards | **`[leaky]`** — the soft underbelly. **32** `as NodeId` cast sites (`rg "as NodeId" src`). Two distinct causes, only one self-inflicted: (1) `Object.keys(board.nodes)` returns `string[]` though `board.nodes` is `Record<NodeId, GameNode>` (`src/types.ts:200`) — a TypeScript limitation, the cast is unavoidable and the `useActivePath.ts:19-23` comment names it the "Category C" boundary; (2) genuine self-inflicted widening, e.g. `useActivePath.ts:14-15` declares `path: string[]` / `currId: string` instead of `NodeId`, forcing the re-brand at `:24`; similar at `useReviewSession.ts:312,323`. Two generators mean **NodeId is not UUID-shaped**, so any consumer assuming a `'\|'`-free UUID form is on thin ice (`stability-trajectory-store.ts` embeds it in a `\|`-delimited key — safe only because the short form has no `\|`). See erosion (a). |
+| `NodeId` | string | local id — `'root-'+short` / `'node-'+short` (short = `Math.random().toString(36)`, **not** a UUID) | factory `asNodeId` (`board-factory.ts:21`); roots at `board-factory.ts:50` (`asNodeId('root-'+uuid())`); SGF-loaded nodes at `sgf-loader.ts:73` (justified single-site brand mint `('node-'+uuid()) as NodeId`, threaded through `transform`/`hydrate` — replaced the three bare `as any` at the former `:76,77,89` in the 2026-06-10 cast-hygiene arc); a fresh node in `logic.ts:106` (`'node-'+Math.random()… as NodeId`); ACL re-brand at `analysis-persistence-service.ts:157` | per-session board-scoped; **some persist** as ledger / trajectory composite keys (see "representation cost" below) | **Highest in the system**: one per game-tree node, ~340–1000+ per board × N boards | **`[leaky]`** — the soft underbelly. **35** `as NodeId` cast sites (`rg "as NodeId" src`, re-measured 2026-06-10; the prior recorded 32 had drifted to 34 before the cast-hygiene arc added the loader mint). Two distinct causes, only one self-inflicted: (1) `Object.keys(board.nodes)` returns `string[]` though `board.nodes` is `Record<NodeId, GameNode>` (`src/types.ts:200`) — a TypeScript limitation, the cast is unavoidable and the `useActivePath.ts:19-23` comment names it the "Category C" boundary; (2) genuine self-inflicted widening, e.g. `useActivePath.ts:14-15` declares `path: string[]` / `currId: string` instead of `NodeId`, forcing the re-brand at `:24`; similar at `useReviewSession.ts:302,313`. Two generators mean **NodeId is not UUID-shaped**, so any consumer assuming a `'\|'`-free UUID form is on thin ice (`stability-trajectory-store.ts` embeds it in a `\|`-delimited key — safe only because the short form has no `\|`). See erosion (a). |
 
 ### Static config-key vocabularies (`Brand<string, …>`)
 
@@ -249,12 +249,13 @@ are surfaced here rather than hidden. Each carries a status tag.
 separate, maintainer-directed work. Do not refactor code off the back
 of this map.**
 
-- **(a) `[leaky]` — `NodeId` cast proliferation.** 32 `as NodeId`
-  sites. Two causes (see the `NodeId` row): the unavoidable
+- **(a) `[leaky]` — `NodeId` cast proliferation.** 35 `as NodeId`
+  sites (re-measured 2026-06-10; see the `NodeId` row for the drift
+  record). Two causes (see the `NodeId` row): the unavoidable
   `Object.keys(Record<NodeId, …>) → string[]` limitation, and genuine
   self-inflicted widening where a local is typed `string` instead of
   `NodeId` and re-branded later (`useActivePath.ts:14-15`,
-  `useReviewSession.ts:312,323`). The self-inflicted subset is the
+  `useReviewSession.ts:302,313`). The self-inflicted subset is the
   fixable part; the `Object.keys` subset wants a small typed-keys
   helper if it is ever addressed. Compounding risk: the two-generator
   origin means `NodeId` is **not UUID-shaped**, so any code assuming a

@@ -456,7 +456,12 @@ const updateMarker = () => {
   // y-value while the chart's data is in [0, 1]).
   const displaySeries = getDisplaySeries();
   const seriesUpdates = displaySeries.map(s => {
-    const data = s.data as any[];
+    // No cast: `s` is already `any` (props.series is any[] — part of the
+    // recorded no-explicit-any backlog, see eslint.config.js header), so
+    // the historical `as any[]` here added nothing. The two element
+    // shapes (tuple vs { value } datum) are handled structurally by
+    // getX/getY below.
+    const data = s.data;
     if (!data || data.length === 0) return { markPoint: { data: [] } };
 
     let point = data[activeIdx];
@@ -464,7 +469,7 @@ const updateMarker = () => {
     const getY = (p: any) => p?.value !== undefined ? p.value[1] : p?.[1];
 
     if (!point || getX(point) !== activeIdx) {
-      point = data.find(d => getX(d) === activeIdx);
+      point = data.find((d: any) => getX(d) === activeIdx);
     }
 
     const yVal = getY(point);

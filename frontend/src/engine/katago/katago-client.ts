@@ -4,10 +4,9 @@
  * License: Public Domain (The Unlicense)
  */
 
-import { 
-  type KataGoQuery, 
-  type KataGoAnalysisQuery, 
-  type KataGoResponse, 
+import {
+  type KataGoQuery,
+  type KataGoResponse,
   type KataGoActionQuery,
 } from './types';
 
@@ -107,7 +106,12 @@ export class KataGoClient {
     }
   }
 
-  public subscribe(query: KataGoAnalysisQuery, onUpdate: ResponseCallback): () => void {
+  // Accepts the full KataGoQuery union: analysis queries (the streaming
+  // path) and action queries (sendCommand's one-shot path) share the same
+  // id-keyed subscription mechanics. The parameter was historically
+  // narrowed to KataGoAnalysisQuery, which forced sendCommand through a
+  // bare `as any`; widening the seam types the call instead.
+  public subscribe(query: KataGoQuery, onUpdate: ResponseCallback): () => void {
     const id = query.id;
 
     if (!this.subscribers.has(id)) {
@@ -130,7 +134,7 @@ export class KataGoClient {
 
   public sendCommand(query: KataGoActionQuery): Promise<KataGoResponse> {
     return new Promise((resolve) => {
-      const cleanup = this.subscribe(query as any, (res) => {
+      const cleanup = this.subscribe(query, (res) => {
         cleanup();
         resolve(res);
       });

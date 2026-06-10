@@ -128,7 +128,11 @@ export class AnalysisService {
   }
 
   public connect(urlOverride?: string) {
-    const settings = store.profile.settings.engine as any;
+    // Typed read — AppSettings declares engine.katago.url, so the historical
+    // `as any` here was vestige. The `?.` chain below stays: it guards a
+    // partially-hydrated legacy profile at runtime, which the static type
+    // cannot promise away.
+    const settings = store.profile.settings.engine;
     // URL resolution: an explicit transient override wins (the perf harness
     // connects to a capture-specific proxy WITHOUT persisting it to the
     // profile — see scenarioContext.connectEngine); then the user's profile
@@ -491,7 +495,9 @@ export class AnalysisService {
     isRealtime: boolean = true,
   ): QueryId | null {
     const board = store.boards.find(b => b.id === boardId);
-    if (board) (board as any).maxVisitsTarget = visits;
+    // Typed write — BoardState declares maxVisitsTarget?: number, so the
+    // historical `(board as any)` here was vestige.
+    if (board) board.maxVisitsTarget = visits;
     if (!board || store.engine.status !== 'connected') return null;
     if (fullPath.length === 0 || endTurn < startTurn) return null;
 
