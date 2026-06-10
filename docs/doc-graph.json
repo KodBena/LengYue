@@ -1,6 +1,6 @@
 {
-  "node_count": 415,
-  "edge_count": 1894,
+  "node_count": 416,
+  "edge_count": 1904,
   "age_buckets": [
     {
       "name": "fresh",
@@ -2505,8 +2505,8 @@
       "genre": "doc-root",
       "is_hub": false,
       "first_committed": "2026-06-04",
-      "last_committed": "2026-06-04",
-      "age_bucket": "recent"
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/rfcs/0001-adr-meta-review.md",
@@ -3146,7 +3146,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-03-scattered-timing-literals-decision.md",
@@ -3162,7 +3162,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-03-tag-mutation-and-tenancy-fixes.md",
@@ -3277,6 +3277,14 @@
       "age_bucket": "fresh"
     },
     {
+      "path": "docs/worklog/2026-06-10-keyed-cache-brand-and-stable-handles.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-10",
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
+    },
+    {
       "path": "docs/worklog/2026-06-10-migration-leaf-assertion-and-composition-test.md",
       "genre": "worklog",
       "is_hub": false,
@@ -3313,8 +3321,8 @@
       "genre": "subproject-frontend",
       "is_hub": false,
       "first_committed": "2026-04-27",
-      "last_committed": "2026-06-08",
-      "age_bucket": "recent"
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
     },
     {
       "path": "frontend/FILES.md",
@@ -3329,8 +3337,8 @@
       "genre": "subproject-frontend",
       "is_hub": false,
       "first_committed": "2026-05-31",
-      "last_committed": "2026-06-08",
-      "age_bucket": "recent"
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
     },
     {
       "path": "frontend/README.md",
@@ -14235,6 +14243,27 @@
       "resolved": "resolved"
     },
     {
+      "from": "docs/pre-merge-checklist.md",
+      "to": "frontend/IDENTIFIERS.md",
+      "kind": "path-mention",
+      "site": "`frontend/IDENTIFIERS.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/pre-merge-checklist.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/pre-merge-checklist.md",
+      "to": "docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md`",
+      "resolved": "resolved"
+    },
+    {
       "from": "docs/rfcs/0001-adr-meta-review.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
@@ -16185,6 +16214,55 @@
       "to": "docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md",
       "kind": "path-mention",
       "site": "`docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-keyed-cache-brand-and-stable-handles.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-keyed-cache-brand-and-stable-handles.md",
+      "to": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-keyed-cache-brand-and-stable-handles.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-keyed-cache-brand-and-stable-handles.md",
+      "to": "frontend/IDENTIFIERS.md",
+      "kind": "path-mention",
+      "site": "`frontend/IDENTIFIERS.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-keyed-cache-brand-and-stable-handles.md",
+      "to": "docs/pre-merge-checklist.md",
+      "kind": "path-mention",
+      "site": "`docs/pre-merge-checklist.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-keyed-cache-brand-and-stable-handles.md",
+      "to": "docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-keyed-cache-brand-and-stable-handles.md",
+      "to": "docs/archive/notes/resource-ownership-audit-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/resource-ownership-audit-plan.md`",
       "resolved": "resolved"
     },
     {
