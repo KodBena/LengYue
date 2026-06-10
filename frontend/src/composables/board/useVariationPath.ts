@@ -8,20 +8,25 @@
 import { computed, type ComputedRef } from 'vue';
 import { boardsById } from '../../store';
 import { getActiveVariationPath } from '../../engine/util';
-import type { BoardId, NodeId } from '../../types';
+import type { BoardId, NodeId, RootToLeafPath } from '../../types';
 
-// Branded-type signature: `getActiveVariationPath` returns `NodeId[]`
-// (every element is a key in `board.nodes: Record<NodeId, GameNode>` by
-// construction); the loose `ComputedRef<string[]>` return type that
-// previously sat here laundered the brand back to bare string and forced
-// every consumer to either accept loose `string[]` itself or cast at
-// each indexing site (a boundary adapter in `useAnalysisProjection`,
-// downstream `as NodeId` casts in `BoardTab` and `useEnrichedData`).
-// Tightening here propagates the brand through the consumer graph and
-// lets those casts retire.
-export function useVariationPath(getBoardId: () => BoardId): ComputedRef<NodeId[]> {
+// Branded-type signature: `getActiveVariationPath` returns
+// `RootToLeafPath` (a branded `NodeId[]` — every element is a key in
+// `board.nodes: Record<NodeId, GameNode>` by construction, and the
+// path-shape brand records that this is the WHOLE active line, not
+// root→cursor). The loose `ComputedRef<string[]>` return type that
+// originally sat here laundered the brand back to bare string and
+// forced every consumer to either accept loose `string[]` itself or
+// cast at each indexing site (a boundary adapter in
+// `useAnalysisProjection`, downstream `as NodeId` casts in `BoardTab`
+// and `useEnrichedData`). Tightening here propagates the brand through
+// the consumer graph and lets those casts retire.
+export function useVariationPath(getBoardId: () => BoardId): ComputedRef<RootToLeafPath> {
   let prevFingerprint = '';
-  let prevPath: NodeId[] = [];
+  // Brand mint, justified: the empty path (no board resolved) is
+  // vacuously a root→leaf line; it is also the memo's initial slot,
+  // only ever replaced by producer-minted paths below.
+  let prevPath: RootToLeafPath = [] as NodeId[] as RootToLeafPath;
 
   return computed(() => {
     // O(1) board lookup via the derived `boardsById` index — replaces
@@ -36,7 +41,8 @@ export function useVariationPath(getBoardId: () => BoardId): ComputedRef<NodeId[
     // redundant and dropped.
     const boardId = getBoardId();
     const board = boardsById.value[boardId];
-    if (!board) return [];
+    // Brand mint, justified: vacuously root→leaf (no board, no line).
+    if (!board) return [] as NodeId[] as RootToLeafPath;
 
     const path = getActiveVariationPath(board);
     const fingerprint = path.join(',');

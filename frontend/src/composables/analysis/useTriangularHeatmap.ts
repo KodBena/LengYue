@@ -15,7 +15,7 @@
  */
 import { computed, type Ref } from 'vue';
 import { ledger } from '../../services/analysis-ledger';
-import type { ColorMoveIndex, NodeId, PlyIndex, StoneColor } from '../../types';
+import type { ColorMoveIndex, PlyIndex, RootToLeafPath, StoneColor } from '../../types';
 import { activeAnalysisKeys } from '../../services/analysis-config';
 
 export interface HeatmapCell {
@@ -42,14 +42,19 @@ export interface HeatmapResult {
   moveCount: number;
 }
 
-export function useTriangularHeatmap(variationPath: Ref<string[]>) {
+// Root→leaf by contract: the triangular heatmap is anchored on the
+// whole active line (branded-path-types arc; fed by
+// `useVariationPath`). Replaces the loose `Ref<string[]>` the original
+// signature accepted — the brand also retires the per-element
+// `as NodeId` re-cast the loose element type forced below.
+export function useTriangularHeatmap(variationPath: Ref<RootToLeafPath>) {
   return computed<HeatmapResult>(() => {
     const matrix: HeatmapDatum[] = [];
     let min = Infinity;
     let max = -Infinity;
 
     variationPath.value.forEach((nodeId) => {
-      const enr = ledger.getEnrichment(activeAnalysisKeys.value.enrichedKey, nodeId as NodeId);
+      const enr = ledger.getEnrichment(activeAnalysisKeys.value.enrichedKey, nodeId);
       if (!enr) return;
 
       enr.black?.triangular?.forEach(([[s, t], v]) => {

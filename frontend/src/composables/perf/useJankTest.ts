@@ -52,7 +52,7 @@ import { libraryService, type ListGamesResult } from '../../services/library-ser
 import { getActiveVariationPath } from '../../engine/util';
 import { navigateTo } from '../../engine/navigator';
 import { runAutonav, type AutonavHandle } from './autonav';
-import type { BoardId, GameSourceId, LibraryGame, LibraryGameListItem, NodeId } from '../../types';
+import type { BoardId, GameSourceId, LibraryGame, LibraryGameListItem } from '../../types';
 
 // ── Scenario constants ───────────────────────────────────────────────────────
 
@@ -280,13 +280,15 @@ function loadGameAsNewBoard(rawContent: string, clientGameId: BoardId | null): B
 
 /** Forward a board to ply `target` along its active main line, clamped to
  *  the line length. `loadSgfIntoBoard` parks the cursor at the leaf, so we
- *  jump to the node at depth `target` (or the leaf if the game is shorter). */
+ *  jump to the node at depth `target` (or the leaf if the game is shorter).
+ *  Root→leaf is the genuine shape: the jump targets are forward of the
+ *  cursor along the whole line. */
 function forwardToMove(boardId: BoardId, target: number): void {
   mutateBoard(boardId, (draft) => {
     const path = getActiveVariationPath(draft);
     if (path.length === 0) return;
     const idx = Math.min(target, path.length - 1);
-    navigateTo(draft, path[idx] as NodeId);
+    navigateTo(draft, path[idx]);
   });
 }
 

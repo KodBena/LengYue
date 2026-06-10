@@ -5,17 +5,46 @@
  * License: Public Domain (The Unlicense)
  */
 
-import type { BoardState, GameNode, NodeId } from '../types';
+import type { BoardState, GameNode, NodeId, RootToCurrentPath, RootedPath } from '../types';
 import { getActiveVariationPath } from './util';
 
-export function getPath(nodes: Record<NodeId, GameNode>, targetId: NodeId): NodeId[] {
+/**
+ * Walks `targetId` back to root via `parent` and returns the lineage
+ * root → target as `RootToCurrentPath` — a mint site for that brand
+ * (the other is `rootToCurrentPrefix` below). The position is an
+ * explicit parameter by design: "current" in the brand name is the
+ * canonical role (the cursor is the usual target), not a hidden read
+ * of cursor state. For the active line as a whole (root → leaf), use
+ * `getActiveVariationPath` (`engine/util.ts`) — confusing the two
+ * shapes is the bug class the brands exist to close (rationale at the
+ * declarations in `src/types/game.ts`).
+ */
+export function getPath(nodes: Record<NodeId, GameNode>, targetId: NodeId): RootToCurrentPath {
   const path: NodeId[] = [];
   let curr: NodeId | null = targetId;
   while (curr) {
     path.unshift(curr);
     curr = nodes[curr].parent;
   }
-  return path;
+  // Brand mint, justified: the walk collected `targetId`'s lineage back
+  // to root, so `path` is root→target by construction.
+  return path as RootToCurrentPath;
+}
+
+/**
+ * Named re-brand for the prefix of a root-anchored line: the slice of
+ * `path` up to and including `indexInclusive` is by construction a
+ * root → position path for the node at that index. Array operations
+ * (`slice` here) erase the path brands, so this conversion is the
+ * sanctioned way to derive a `RootToCurrentPath` from a wider line —
+ * an inline `as` at the call site would be the silent widening the
+ * brands exist to forbid. The caller owns the claim that
+ * `path[indexInclusive]` is the position it means to act at.
+ */
+export function rootToCurrentPrefix(path: RootedPath, indexInclusive: number): RootToCurrentPath {
+  // Brand mint, justified: a prefix of a root-anchored path ending at a
+  // named index is root→that-position by construction.
+  return path.slice(0, indexInclusive + 1) as RootToCurrentPath;
 }
 
 export function navigateTo(state: BoardState, targetNodeId: NodeId): void {

@@ -41,7 +41,7 @@
 import { shallowRef, watch, onUnmounted, type Ref } from 'vue';
 import { ledger, onLedgerFlush } from '../../services/analysis-ledger';
 import { store } from '../../store';
-import { type NodeId } from '../../types';
+import { type NodeId, type RootToLeafPath } from '../../types';
 import { activeAnalysisKeys } from '../../services/analysis-config';
 import {
   EnrichedAccumulator,
@@ -60,7 +60,9 @@ function activeSeedNames(): string[] {
   return palette ? Object.keys(palette.state_fns) : [];
 }
 
-export function useEnrichedData(pathIdsRef: Ref<NodeId[]>): Ref<EnrichedResult> {
+// Root→leaf by contract: the enriched series span the whole active
+// line (branded-path-types arc; fed by `useVariationPath`).
+export function useEnrichedData(pathIdsRef: Ref<RootToLeafPath>): Ref<EnrichedResult> {
   const acc = new EnrichedAccumulator();
   const out = shallowRef<EnrichedResult>(EMPTY_ENRICHED);
 

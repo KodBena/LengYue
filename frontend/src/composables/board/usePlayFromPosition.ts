@@ -323,12 +323,33 @@ export interface PlayEngineMovesOptions {
  *
  * Connection lifetime spans the whole loop — one WS open per call,
  * regardless of how many moves are played.
+ *
+ * KNOWN LATENT TWIN (recorded, not fixed — branded-path-types arc,
+ * 2026-06-10): unlike `playEngineMatch` below, this loop does NOT
+ * deep-clone `startBoard`, and the product consumer
+ * (`usePlayFromPosition.start`) both passes the reactive store board
+ * in and mirrors each applied board back via `updateBoardState` — so
+ * the loop's cursor shares object identity with the store and user
+ * navigation mid-run can move where the next query is built from
+ * (the cursor-conflation class `playEngineMatch` fixed on
+ * 2026-05-16). The fix shape is the match's `MatchMoveApplied`
+ * delta-emission contract, not a one-line clone (a clone at the top
+ * alone is undone by the first wholesale store mirror); it does not
+ * fall out of the path brands, so it stays recorded against the
+ * work-status item's note rather than ridden along here. The
+ * per-move queries themselves are root→current via
+ * `buildAnalyzeQuery` and unaffected by the path-shape class.
  */
 export async function playEngineMoves(opts: PlayEngineMovesOptions): Promise<BoardState> {
   const timeoutMs = opts.perMoveTimeoutMs ?? ENGINE_PLAY_MOVE_TIMEOUT_MS;
   const client = await connectFresh(opts.katagoUrl);
   let board = opts.startBoard;
   try {
+    // Root→leaf is the genuine shape for the stop condition:
+    // `untilPathLength` is documented as "stop when the ACTIVE PATH
+    // reaches this many nodes", which deliberately counts any
+    // pre-existing forward variation (contrast `playEngineMatch`'s
+    // per-iteration `numMoves` contract, the postmortem's Bug A).
     while (!(opts.shouldStop?.() ?? false)
         && getActiveVariationPath(board).length < opts.untilPathLength) {
       const turn = currentTurnNumber(board);
@@ -410,8 +431,15 @@ export async function queryEngineMove(opts: QueryEngineMoveOptions): Promise<Eng
   }
 }
 
+// "What turn is the current position at?" is a root→current question —
+// the prior `getActiveVariationPath(board).length - 1` answered with the
+// LEAF's depth, which diverges from the cursor's whenever a pre-existing
+// forward variation extends past it (the dedup-descend case). The value
+// only labels query ids (`play-${turn}` / `match-${color}-${turn}`), so
+// the divergence was cosmetic, but it was the same shape confusion the
+// path brands close (match postmortem §4; history-lessons audit §3.4).
 function currentTurnNumber(board: BoardState): number {
-  return getActiveVariationPath(board).length - 1;
+  return getPath(board.nodes, board.currentNodeId).length - 1;
 }
 
 // ── Engine-vs-engine match (per-color options) ────────────────────────────────

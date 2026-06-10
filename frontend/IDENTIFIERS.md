@@ -104,7 +104,29 @@ the brand; everything downstream should treat them as opaque.
 
 | Name | Prim. | Origin | Construction | Lifetime | Cardinality | Status / notes |
 |------|-------|--------|-------------|----------|-------------|----------------|
-| `NodeId` | string | local id — `'root-'+short` / `'node-'+short` (short = `Math.random().toString(36)`, **not** a UUID) | factory `asNodeId` (`board-factory.ts:21`); roots at `board-factory.ts:50` (`asNodeId('root-'+uuid())`); SGF-loaded nodes at `sgf-loader.ts:73` (justified single-site brand mint `('node-'+uuid()) as NodeId`, threaded through `transform`/`hydrate` — replaced the three bare `as any` at the former `:76,77,89` in the 2026-06-10 cast-hygiene arc); a fresh node in `logic.ts:106` (`'node-'+Math.random()… as NodeId`); ACL re-brand at `analysis-persistence-service.ts:157` | per-session board-scoped; **some persist** as ledger / trajectory composite keys (see "representation cost" below) | **Highest in the system**: one per game-tree node, ~340–1000+ per board × N boards | **`[leaky]`** — the soft underbelly. **35** `as NodeId` cast sites (`rg "as NodeId" src`, re-measured 2026-06-10; the prior recorded 32 had drifted to 34 before the cast-hygiene arc added the loader mint). Two distinct causes, only one self-inflicted: (1) `Object.keys(board.nodes)` returns `string[]` though `board.nodes` is `Record<NodeId, GameNode>` (`src/types/game.ts:98`) — a TypeScript limitation, the cast is unavoidable and the `useActivePath.ts:19-23` comment names it the "Category C" boundary; (2) genuine self-inflicted widening, e.g. `useActivePath.ts:14-15` declares `path: string[]` / `currId: string` instead of `NodeId`, forcing the re-brand at `:24`; similar at `useReviewSession.ts:302,313`. Two generators mean **NodeId is not UUID-shaped**, so any consumer assuming a `'\|'`-free UUID form is on thin ice (`stability-trajectory-store.ts` embeds it in a `\|`-delimited key — safe only because the short form has no `\|`). See erosion (a). |
+| `NodeId` | string | local id — `'root-'+short` / `'node-'+short` (short = `Math.random().toString(36)`, **not** a UUID) | factory `asNodeId` (`board-factory.ts:21`); roots at `board-factory.ts:50` (`asNodeId('root-'+uuid())`); SGF-loaded nodes at `sgf-loader.ts:73` (justified single-site brand mint `('node-'+uuid()) as NodeId`, threaded through `transform`/`hydrate` — replaced the three bare `as any` at the former `:76,77,89` in the 2026-06-10 cast-hygiene arc); a fresh node in `logic.ts:106` (`'node-'+Math.random()… as NodeId`); ACL re-brand at `analysis-persistence-service.ts:157` | per-session board-scoped; **some persist** as ledger / trajectory composite keys (see "representation cost" below) | **Highest in the system**: one per game-tree node, ~340–1000+ per board × N boards | **`[leaky]`** — the soft underbelly. **27** raw `rg "as NodeId" src` line matches (re-measured 2026-06-10 after the branded-path-types arc retired 14 redundant element/array re-casts at path consumers; 8 of the 27 are prose mentions in comments, not casts, and 2 are the vacuous empty-path mints in `useVariationPath.ts:29,45`). Two distinct causes, only one self-inflicted: (1) `Object.keys(board.nodes)` returns `string[]` though `board.nodes` is `Record<NodeId, GameNode>` (`src/types/game.ts:98`) — a TypeScript limitation, the cast is unavoidable and the `useActivePath.ts:19-23` comment names it the "Category C" boundary; (2) genuine self-inflicted widening, e.g. `useActivePath.ts:14-15` declares `path: string[]` / `currId: string` instead of `NodeId`, forcing the re-brand at `:24` (the former `useReviewSession.ts` examples were retired by the branded-path-types arc). Two generators mean **NodeId is not UUID-shaped**, so any consumer assuming a `'\|'`-free UUID form is on thin ice (`stability-trajectory-store.ts` embeds it in a `\|`-delimited key — safe only because the short form has no `\|`). See erosion (a). |
+
+### Branded path shapes (`Brand<NodeId[], …>`)
+
+Not per-entity identities — composite *shape* brands over `NodeId[]`
+(the brand is on the array, not the elements), declared next to
+`NodeId` in `src/types/game.ts:75-76`. They close the
+root→leaf-vs-root→current confusion class the 2026-05-15 match
+postmortem records (two shipped bugs; §5b's deferred intensification,
+executed via history-lessons audit §3.4 / work-status item
+`branded-path-types`). The named union `RootedPath`
+(`src/types/game.ts:88`) is the sanctioned either-shape acceptor for
+consumers that operate on a caller-supplied line with explicit turn
+indices (`analysis-service.ts::analyzeRange`); widening a parameter
+back to bare `NodeId[]` is the silent erasure the union exists to
+avoid. **Array operations (slice / concat / map) erase these brands**
+— re-branding goes through the named producers below, never an inline
+cast.
+
+| Name | Prim. | Origin | Construction | Lifetime | Cardinality | Status / notes |
+|------|-------|--------|-------------|----------|-------------|----------------|
+| `RootToLeafPath` | NodeId[] | derived tree-walk — root → the active variation's leaf (via `activeChildIndex`) | sole producer `getActiveVariationPath` (`engine/util.ts:90` mint); two vacuous empty-path mints (`useVariationPath.ts:29,45`, justified — no board resolved) | ephemeral (per-call / per-computed; never persisted) | one per consumer per recompute | Sound; single producer plus the justified empties. Threaded through `useVariationPath` (`ComputedRef<RootToLeafPath>`) into the chart substrate (`useAnalysisTimeline`, `useChartNavigation`, `useEnrichedData`, `useStabilityMetrics`, `useStabilityCrossCorrelations`, `useTriangularHeatmap`). |
+| `RootToCurrentPath` | NodeId[] | derived tree-walk — root → an explicitly-named position ("current" is the canonical role; the position is always an explicit parameter, never global cursor state) | producers `getPath` (`engine/navigator.ts:31` mint) and the named prefix conversion `rootToCurrentPrefix` (`engine/navigator.ts:47` mint); test-fixture mint in `tests/unit/engine/analysis/review-scoring.test.ts:75` | ephemeral; never persisted | one per consumer per call | Sound; two named producers + the standard test-fixture mint. Required by the per-move-scoring seam (`engine/analysis/review-scoring.ts::scorePerMoveDelta`) and produced at the analysis-query move-list sites (`buildAnalyzeQuery`, `analyzeActiveNode`). |
 
 ### Static config-key vocabularies (`Brand<string, …>`)
 
@@ -250,13 +272,24 @@ are surfaced here rather than hidden. Each carries a status tag.
 separate, maintainer-directed work. Do not refactor code off the back
 of this map.**
 
-- **(a) `[leaky]` — `NodeId` cast proliferation.** 35 `as NodeId`
-  sites (re-measured 2026-06-10; see the `NodeId` row for the drift
-  record). Two causes (see the `NodeId` row): the unavoidable
+- **(a) `[leaky]` — `NodeId` cast proliferation.** 27 raw
+  `rg "as NodeId" src` line matches (re-measured 2026-06-10 after the
+  branded-path-types arc; see the `NodeId` row for the breakdown —
+  8 of the 27 are comment mentions, not casts). Two causes (see the
+  `NodeId` row): the unavoidable
   `Object.keys(Record<NodeId, …>) → string[]` limitation, and genuine
   self-inflicted widening where a local is typed `string` instead of
-  `NodeId` and re-branded later (`useActivePath.ts:14-15`,
-  `useReviewSession.ts:302,313`). The self-inflicted subset is the
+  `NodeId` and re-branded later. `useActivePath.ts:14-15` remains the
+  standing example of the self-inflicted class — and the
+  branded-path-types arc adds a second axis to its honesty deficit:
+  it is an unbranded root→current producer (a hand-rolled duplicate
+  of `getPath`'s walk, reading the `activeBoard` global rather than
+  taking the position explicitly) that sits entirely outside the new
+  `RootToCurrentPath` brand's coverage. It currently has **no
+  importers under `src/`** (checked 2026-06-10), so the erosion is
+  inert; it was deliberately left untouched by that arc (fixing or
+  retiring an importer-less file is maintainer-directed work, per
+  this section's own preamble). The self-inflicted subset is the
   fixable part; the `Object.keys` subset wants a small typed-keys
   helper if it is ever addressed. Compounding risk: the two-generator
   origin means `NodeId` is **not UUID-shaped**, so any code assuming a

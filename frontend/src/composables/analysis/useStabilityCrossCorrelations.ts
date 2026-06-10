@@ -29,7 +29,7 @@ import {
 } from '../../lib/stability-trajectory';
 import { STABILITY_EXTRACTORS, STABILITY_EXTRACTOR_LABELS } from '../../engine/analysis/stability-extractors';
 import { pearson, type CorrelationResult } from '../../lib/correlation';
-import type { NodeId, RawKey, ExtractorId, MetricId } from '../../types';
+import type { NodeId, RootToLeafPath, RawKey, ExtractorId, MetricId } from '../../types';
 
 export interface CorrelationMatrix {
   /** Row / column labels in display order. */
@@ -102,7 +102,9 @@ function buildMatrix<Id extends string>(
 }
 
 export function useStabilityCrossCorrelations(
-  variationPath: Ref<NodeId[]>,
+  // Root→leaf by contract: the correlation series span the whole
+  // active line (branded-path-types arc; fed by `useVariationPath`).
+  variationPath: Ref<RootToLeafPath>,
   fixedExtractorId: Ref<ExtractorId>,
   fixedMetricId: Ref<MetricId>,
   options: CrossCorrelationOptions = {},

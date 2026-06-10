@@ -23,7 +23,7 @@ import { loadSgf } from '../../engine/sgf-loader';
 import { getActiveVariationPath, getBoardSize } from '../../engine/util';
 import { renderBoardToSvg } from '../../engine/board-renderer';
 import { navigateTo } from '../../engine/navigator';
-import type { NodeId, CardId } from '../../types';
+import type { CardId } from '../../types';
 
 const cache = new Map<CardId, string>();
 
@@ -51,9 +51,12 @@ export function getCardThumbnailSync(cardId: CardId, cardSgf: string): string {
   try {
     const trees = sgf.parse(cardSgf);
     const board = loadSgf(trees);
+    // Root→leaf is the genuine shape: the thumbnail renders the card's
+    // final position. Branded by the producer; the former `as NodeId`
+    // re-cast on the element is retired.
     const path = getActiveVariationPath(board);
-    
-    const leafId = path[path.length - 1] as NodeId;
+
+    const leafId = path[path.length - 1];
     navigateTo(board, leafId);
     
     const size = getBoardSize(board);

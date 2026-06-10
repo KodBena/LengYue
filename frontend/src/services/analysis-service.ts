@@ -25,9 +25,10 @@ import {
   buildPerQueryCapabilities,
   shouldWarnTranspositionUnmet,
 } from '../engine/katago/capability-injection';
-import { type BoardId, type NodeId, type RawKey, type EnrichedKey, type QueryId } from '../types';
+import { type BoardId, type RootedPath, type RawKey, type EnrichedKey, type QueryId } from '../types';
 import { asQueryId } from './query-id';
 import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi, getInitialStones } from '../engine/util';
+import { rootToCurrentPrefix } from '../engine/navigator';
 import { store, pushSystemMessage, mutateBoard, setSelectedModel } from '../store';
 // Owner module for the `store.engine` subtree (connect /
 // disconnect-reset / info / selection / metrics) — this service holds
@@ -92,7 +93,12 @@ export class AnalysisService {
     // `store.engine.activeMode` view. Set at query mint time and
     // never mutated.
     mode: 'analyze' | 'ponder',
-    path: NodeId[],
+    // The analyzed line this query was built over — whichever
+    // root-anchored shape the caller supplied (root→leaf from the
+    // full-game / timeline paths, root→current from the review
+    // session). Indexed by wire `turnNumber` in `onAnalysisUpdate`;
+    // both shapes index identically over the analyzed turns.
+    path: RootedPath,
     // The two provenance-stratified ledger keys for this query. `rawKey`
     // (model + overrides) keys the raw store; `enrichedKey` (+ palette) keys
     // the enrichment store and equals the legacy composite hash.
@@ -460,13 +466,21 @@ export class AnalysisService {
   public analyzeFullGame(boardId: BoardId, visits: number): QueryId | null {
     const board = store.boards.find(b => b.id === boardId);
     if (!board || store.engine.status !== 'connected') return null;
-    const fullPath = getActiveVariationPath(board) as NodeId[];
+    // Root→leaf is the genuine shape here: "analyze the full game"
+    // means the whole active line, not just up to the cursor.
+    const fullPath = getActiveVariationPath(board);
     return this.analyzeRange(boardId, fullPath, 0, fullPath.length - 1, visits);
   }
 
   public analyzeRange(
     boardId: BoardId,
-    fullPath: NodeId[],
+    // `RootedPath` (not bare NodeId[]): this method genuinely accepts
+    // either root-anchored shape — full-game / timeline callers pass
+    // root→leaf, the review session passes root→current — and the
+    // explicit startTurn/endTurn parameters carry the position intent.
+    // The named union keeps that dual acceptance an explicit contract
+    // rather than a silent widening (history-lessons audit §3.4).
+    fullPath: RootedPath,
     startTurn: number,
     endTurn: number,
     visits: number,
@@ -491,7 +505,9 @@ export class AnalysisService {
 
     const size = getBoardSize(board);
     const komi = getKomi(board);
-    const pathUpToEnd = fullPath.slice(0, endTurn + 1);
+    // Named prefix conversion (slice would erase the brand): the wire
+    // moves list runs root → the analyzed range's end position.
+    const pathUpToEnd = rootToCurrentPrefix(fullPath, endTurn);
 
     const moves = pathUpToEnd
       .map(id => board.nodes[id]?.move ?? null)
@@ -705,8 +721,12 @@ export class AnalysisService {
     const board = store.boards.find(b => b.id === boardId);
     if (!board || store.engine.status !== 'connected') return null;
 
-    const fullPath = getActiveVariationPath(board) as NodeId[];
-    const currentIdx = fullPath.indexOf(board.currentNodeId as NodeId);
+    // Root→leaf is needed here for the turn-index mapping: the wire
+    // `analyzeTurns: [currentIdx]` and the packet-to-node lookup
+    // (`queryInfo.path[turnNumber]`) both index positions on the
+    // active line, and the cursor's index is found on it below.
+    const fullPath = getActiveVariationPath(board);
+    const currentIdx = fullPath.indexOf(board.currentNodeId);
     if (currentIdx === -1) return null;
 
     // Mode-scoped implicit cleanup. "Ponder" semantically means
@@ -728,10 +748,14 @@ export class AnalysisService {
 
     const size = getBoardSize(board);
     const komi = getKomi(board);
-    const pathUpToCurrent = fullPath.slice(0, currentIdx + 1);
+    // Root→current, via the named prefix conversion: the wire moves
+    // list is "the moves played to reach the cursor" — sending the
+    // full root→leaf line here is exactly the wrong-position class
+    // the match postmortem's Bug B records.
+    const pathUpToCurrent = rootToCurrentPrefix(fullPath, currentIdx);
 
     const moves = pathUpToCurrent
-      .map(id => board.nodes[id as NodeId]?.move ?? null)
+      .map(id => board.nodes[id]?.move ?? null)
       .filter((m): m is NonNullable<typeof m> => !!m)
       .map(m => [m.color, moveToKataCoord(m)] as [Player, KataCoord]);
 

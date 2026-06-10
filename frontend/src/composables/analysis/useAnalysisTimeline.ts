@@ -16,7 +16,7 @@ import { computed, watch, type Ref, type ComputedRef } from 'vue';
 import { ledger } from '../../services/analysis-ledger';
 import { analysisService } from '../../services/analysis-service';
 import { store, mutateBoard } from '../../store';
-import type { BoardId, NodeId, PlyIndex } from '../../types';
+import type { BoardId, PlyIndex, RootToLeafPath } from '../../types';
 import { activeAnalysisKeys } from '../../services/analysis-config';
 
 export interface AnalysisTimelineState {
@@ -35,7 +35,9 @@ export interface AnalysisTimelineState {
 }
 
 export function useAnalysisTimeline(
-  variationPath: Ref<NodeId[]>,
+  // Root→leaf by contract: the timeline's x-axis and the clamp logic
+  // below span the whole active line (branded-path-types arc).
+  variationPath: Ref<RootToLeafPath>,
   boardId: BoardId,
 ): AnalysisTimelineState {
 

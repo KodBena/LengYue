@@ -5,6 +5,7 @@
  */
 
 import type { BoardState, GameNode, NodeId } from '../types';
+import { getPath } from './navigator';
 
 function escapeSgf(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/]/g, '\\]');
@@ -66,23 +67,21 @@ export function serializeBoard(state: BoardState): string {
 }
 
 export function serializeActivePath(state: BoardState): string {
-  // Same NodeId tightening pattern as getActiveVariationPath in engine/util.ts:
-  // the walk starts at state.currentNodeId (NodeId) and proceeds via
-  // node.parent (NodeId | null); the loose `string` was a signature lie
-  // covering for the loose Record-indexing site below.
-  const path: NodeId[] = [];
-  let curr: NodeId | null = state.currentNodeId;
-  while (curr) {
-    // Explicit annotation breaks TS7022 circular inference. After
-    // ADR-0001's readonly removal, TS can no longer use the readonly
-    // hint to break the cycle between `node`'s inferred type and
-    // `curr`'s reassignment from `node.parent`. Annotating `node`
-    // breaks the cycle by removing one side of the inference.
-    const node: GameNode | undefined = state.nodes[curr];
-    if (!node) break;
-    path.unshift(curr);
-    curr = node.parent;
-  }
+  // SHAPE NOTE (branded-path-types arc, 2026-06-10): despite the name,
+  // this serializes ROOT→CURRENT — the moves up to the cursor — NOT the
+  // active variation line root→leaf. The minting consumer
+  // (`useMinting.prepareDraft`) depends on exactly that: a card is
+  // minted from the position the user is looking at, excluding any
+  // forward variation past it. The path now comes from the branded
+  // producer `getPath` (`RootToCurrentPath`) instead of the previous
+  // hand-rolled walk, so the shape is compile-visible; the old walk's
+  // silent `break` on a missing node — which would have serialized a
+  // TRUNCATED SGF, a silent-corruption path for a minted card — is
+  // replaced by getPath's fail-loud throw on a corrupt tree
+  // (ADR-0002). The misleading name predates the brands; renaming is a
+  // maintainer call because the symbol is exposed on the
+  // `window.Writer` console-debug surface (`main.ts`).
+  const path = getPath(state.nodes, state.currentNodeId);
 
   let out = '(';
   for (const nodeId of path) {

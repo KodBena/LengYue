@@ -4,7 +4,7 @@
  * traversal. Stateless; no reactive imports.
  * License: Public Domain (The Unlicense)
  */
-import type { Move, StoneColor, BoardState, NodeId } from '../types';
+import type { Move, StoneColor, BoardState, NodeId, RootToLeafPath } from '../types';
 
 /**
  * Converts SGF coordinate string to internal Point.
@@ -51,17 +51,26 @@ export function setDeep(obj: any, path: string[], value: any): void {
 /**
  * Walks the active variation from the current node to the deepest leaf
  * (following `activeChildIndex` at each branch), then walks back up to
- * collect the lineage as a NodeId[] from root to leaf.
+ * collect the lineage from root to leaf.
  *
- * Returns NodeId[] rather than string[] — every element is a key in
- * `board.nodes: Record<NodeId, GameNode>` by construction, so the
- * branded element type is the honest signature. The brand propagates
- * through `useVariationPath` (which exposes `ComputedRef<NodeId[]>`)
- * into its consumers (`useAnalysisProjection`, `useChartNavigation`,
- * `useEnrichedData`, `useKernelSeries`, `useAnalysisTimeline`,
- * `BoardTab`) without per-site casts.
+ * Returns `RootToLeafPath` — the sole mint site for that brand. This is
+ * the "what does the active line as a whole look like?" shape (chart
+ * x-axes, full-game analysis, fast-forward to the mainline end). For
+ * "what moves has the engine seen up to a position?" use `getPath`
+ * (`engine/navigator.ts`), which returns the sibling `RootToCurrentPath`
+ * brand — the two coincide only when current == leaf, and confusing them
+ * is the bug class the 2026-05-15 match postmortem records (brand
+ * rationale at the declarations in `src/types/game.ts`).
+ *
+ * Element-wise, every entry is a key in `board.nodes:
+ * Record<NodeId, GameNode>` by construction; the brand propagates
+ * through `useVariationPath` (which exposes
+ * `ComputedRef<RootToLeafPath>`) into its consumers
+ * (`useAnalysisProjection`, `useChartNavigation`, `useEnrichedData`,
+ * `useKernelSeries`, `useAnalysisTimeline`, `BoardTab`) without
+ * per-site casts.
  */
-export function getActiveVariationPath(board: BoardState): NodeId[] {
+export function getActiveVariationPath(board: BoardState): RootToLeafPath {
   let leafId = board.currentNodeId;
   let leafNode = board.nodes[leafId];
   while (leafNode && leafNode.children.length > 0) {
@@ -75,7 +84,10 @@ export function getActiveVariationPath(board: BoardState): NodeId[] {
     path.unshift(curr);
     curr = board.nodes[curr].parent;
   }
-  return path;
+  // Brand mint, justified: the walk above descended to the active
+  // variation's leaf and collected its lineage back to root, so `path`
+  // is root→leaf by construction. This is the brand's single producer.
+  return path as RootToLeafPath;
 }
 
 const GTP_ALPHABET = "ABCDEFGHJKLMNOPQRSTUVWXYZ".split("");

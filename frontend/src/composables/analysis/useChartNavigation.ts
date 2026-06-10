@@ -10,25 +10,28 @@ import { colorMoveToPly } from './useTriangularHeatmap';
 import { mutateBoard } from '../../store';
 import { navigateTo } from '../../engine/navigator';
 import type { Ref } from 'vue';
-import type { BoardId, ColorMoveIndex, NodeId } from '../../types';
+import type { BoardId, ColorMoveIndex, RootToLeafPath } from '../../types';
 
 /**
  * Composable for chart-driven board navigation.
  *
  * ─── Branded-type signature discipline ───────────────────────────────────────
  * Both `variationPath` and `boardId` are typed with their branded forms
- * (`Ref<NodeId[]>` and `BoardId`) rather than the loose `string`/`string[]`
- * the previous signature accepted. The previous loose signature was a
- * "signature lie": every actual call site passed branded values, but the
- * compiler accepted strings. The branded signature pushes the cast burden
- * (if any) up to the caller, which knows where the value came from and can
- * justify the cast at its source.
+ * (`Ref<RootToLeafPath>` and `BoardId`) rather than the loose
+ * `string`/`string[]` the original signature accepted. The loose signature
+ * was a "signature lie": every actual call site passed branded values, but
+ * the compiler accepted strings. The branded signature pushes the cast
+ * burden (if any) up to the caller, which knows where the value came from
+ * and can justify the cast at its source. The path-shape brand
+ * (branded-path-types arc, history-lessons audit §3.4) additionally
+ * records that chart x-axes index the WHOLE active line — root→leaf —
+ * not the root→cursor prefix.
  *
  * In practice no caller needs new casts — they were all passing branded
  * values already; only the signature was loose.
  * ──────────────────────────────────────────────────────────────────────────
  */
-export function useChartNavigation(variationPath: Ref<NodeId[]>, boardId: BoardId) {
+export function useChartNavigation(variationPath: Ref<RootToLeafPath>, boardId: BoardId) {
   const { getThumbnailSvg } = useThumbnailCache();
 
   // ── Main chart (turn-indexed) ─────────────────────────────────────────────

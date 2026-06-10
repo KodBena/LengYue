@@ -41,6 +41,52 @@ export type NodeId = Brand<string, 'NodeId'>;
 export type ColorMoveIndex = Brand<number, 'ColorMoveIndex'>;
 export type PlyIndex       = Brand<number, 'PlyIndex'>;
 
+// Two distinct root-anchored path shapes through the game tree; the prior
+// practice of typing both as bare `NodeId[]` admitted the confusion class
+// the 2026-05-15 match postmortem records (two shipped bugs: a query built
+// from root→leaf evaluated the wrong position; a termination condition
+// counted path-length growth) — see
+// `docs/notes/postmortem/postmortem-match-pre-existing-variation-2026-05.md`
+// §4/§5b and the 2026-06-10 history-lessons audit §3.4. The two shapes
+// coincide exactly when the current node is the active variation's leaf —
+// which every test fixture used to construct, which is why the confusion
+// stayed invisible.
+//
+//   RootToLeafPath — root → the active variation's leaf (following
+//     `activeChildIndex` at each branch). "What does the active line as a
+//     whole look like?" — chart x-axes, full-game analysis, fast-forward
+//     to the mainline end. Sole producer: `getActiveVariationPath`
+//     (`engine/util.ts`).
+//
+//   RootToCurrentPath — root → an explicitly-named position ("current" is
+//     the canonical role from the postmortem; the position is always an
+//     explicit parameter, never read from global cursor state). "What
+//     moves has the engine seen?" — analysis-query move lists, turn-index
+//     derivation. Producers: `getPath` (`engine/navigator.ts`) and the
+//     named prefix conversion `rootToCurrentPrefix` (same module).
+//
+// These brand `NodeId[]` itself (not the elements), so a RootToLeafPath
+// cannot be passed where a RootToCurrentPath is required (and vice versa)
+// while either remains assignable to plain `NodeId[]`. Array operations
+// (slice / concat / map) erase the brand by construction — re-branding
+// goes through the named producers / conversions above, never an inline
+// cast. Tree-positional (B2 within this module), not Go-bound: a domain
+// fork that keeps a tree skeleton keeps these shapes.
+export type RootToLeafPath    = Brand<NodeId[], 'RootToLeafPath'>;
+export type RootToCurrentPath = Brand<NodeId[], 'RootToCurrentPath'>;
+
+/**
+ * Named union for consumers that genuinely operate on either shape — a
+ * caller-supplied root-anchored line indexed by explicit turn positions
+ * (`analyzeRange` is the worked example: full-game callers pass
+ * root→leaf, the review session passes root→current, and the explicit
+ * `startTurn`/`endTurn` parameters carry the position intent). Accepting
+ * `RootedPath` is the sanctioned alternative to silently widening a
+ * parameter back to `NodeId[]`, which would re-open the confusion class
+ * the brands exist to close.
+ */
+export type RootedPath = RootToLeafPath | RootToCurrentPath;
+
 export type StoneColor = 'B' | 'W';
 
 // ── Value Objects (readonly preserved) ────────────────────────────────────────
