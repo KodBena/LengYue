@@ -45,6 +45,12 @@
  * License: Public Domain (The Unlicense)
  */
 
+import type {
+  AdaptiveReevaluateQueryMetadata,
+  CapabilityAdvertisement,
+  PerQueryCapabilities,
+} from './types';
+
 export interface AdaptiveReevaluateInput {
   /**
    * User's opt-in toggle, surfaced in the analysis-tab UI when the
@@ -100,9 +106,12 @@ export interface CapabilityInjectionInput {
    * `query_version` probe, as stored on `store.engine.info.capabilities`.
    * `null` means the proxy didn't advertise (legacy auto-engage path);
    * non-null means the proxy speaks the protocol — the SPA builds an
-   * explicit per-query opt-in dict from that point on.
+   * explicit per-query opt-in dict from that point on. The typed
+   * mirror (`CapabilityAdvertisement`) is validated once at probe
+   * time by `version-probe.ts::parseVersionResponse`, so the reads
+   * below are cast-free.
    */
-  readonly advertised: Record<string, Record<string, unknown>> | null;
+  readonly advertised: CapabilityAdvertisement | null;
   /**
    * Whether this query covers a range of turns (`analyzeRange`)
    * versus a single turn (`analyzeActiveNode`). Adaptive
@@ -167,49 +176,54 @@ export interface CapabilityInjectionInput {
  */
 export function buildPerQueryCapabilities(
   input: CapabilityInjectionInput,
-): Record<string, Record<string, unknown>> | undefined {
+): PerQueryCapabilities | undefined {
   if (input.advertised === null) return undefined;
 
-  const out: Record<string, Record<string, unknown>> = {};
-  // `delta_analysis` always engaged. Probe-time disconnection
-  // already enforced its presence in the advertised dict; this
-  // line is the symmetric per-query opt-in.
-  out.delta_analysis = {};
+  const engageTransposition =
+    input.useTransposition && 'transposition' in input.advertised;
 
-  if (input.useTransposition && 'transposition' in input.advertised) {
-    out.transposition = {};
-  }
+  const engageAdaptive = input.adaptiveReevaluate.enabled
+    && input.isRangeBased
+    && !input.forReview
+    && 'adaptive_reevaluate' in input.advertised;
 
-  if (input.adaptiveReevaluate.enabled
-      && input.isRangeBased
-      && !input.forReview
-      && 'adaptive_reevaluate' in input.advertised) {
-    // Wire shape uses snake_case to match the proxy's metadata
-    // schema (per the dispatch's Q4 sign-off). Registry uses
-    // camelCase per the SPA's convention; the translation happens
-    // here at the wire boundary.
-    const adaptiveCap: Record<string, unknown> = {
-      worst_quantile: input.adaptiveReevaluate.worstQuantile,
-      extra_visits: input.adaptiveReevaluate.extraVisits,
-    };
+  let adaptiveCap: AdaptiveReevaluateQueryMetadata | undefined;
+  if (engageAdaptive) {
     // v1.0.26 — Phase 3.5 learned value-function opt-in. When the
     // user selects a `learned_*` binding from the dropdown AND the
     // proxy advertises it under `available_value_bindings`, send
     // the value_binding + matching allocation_algorithm. Bypasses
     // analysis_config per docs/dispatch/proxy-to-frontend-learned-vf.md.
+    // The advertisement read is cast-free: `available_value_bindings`
+    // is typed on the mirror (`AdaptiveReevaluateAdvertisedMetadata`)
+    // and validated once at probe time — a mismatched advertisement
+    // degrades the capability in `parseVersionResponse` before it
+    // can reach this consumer.
     const vb = input.adaptiveReevaluate.valueBinding;
-    if (vb && vb.startsWith('learned_')) {
-      const adaptiveMeta = input.advertised.adaptive_reevaluate;
-      const available = (adaptiveMeta?.available_value_bindings ?? []) as readonly string[];
-      if (Array.isArray(available) && available.includes(vb)) {
-        adaptiveCap.value_binding = vb;
-        adaptiveCap.allocation_algorithm = 'learned_piecewise';
-      }
-    }
-    out.adaptive_reevaluate = adaptiveCap;
+    const available =
+      input.advertised.adaptive_reevaluate?.available_value_bindings ?? [];
+    const engageLearned = vb.startsWith('learned_') && available.includes(vb);
+    // Wire shape uses snake_case to match the proxy's metadata
+    // schema (per the dispatch's Q4 sign-off). Registry uses
+    // camelCase per the SPA's convention; the translation happens
+    // here at the wire boundary.
+    adaptiveCap = {
+      worst_quantile: input.adaptiveReevaluate.worstQuantile,
+      extra_visits: input.adaptiveReevaluate.extraVisits,
+      ...(engageLearned
+        ? { value_binding: vb, allocation_algorithm: 'learned_piecewise' as const }
+        : {}),
+    };
   }
 
-  return out;
+  // `delta_analysis` always engaged. Probe-time disconnection
+  // already enforced its presence in the advertised dict; this is
+  // the symmetric per-query opt-in.
+  return {
+    delta_analysis: {},
+    ...(engageTransposition ? { transposition: {} } : {}),
+    ...(adaptiveCap !== undefined ? { adaptive_reevaluate: adaptiveCap } : {}),
+  };
 }
 
 /**
@@ -230,7 +244,7 @@ export function buildPerQueryCapabilities(
  * present but missing the capability.
  */
 export function shouldWarnTranspositionUnmet(
-  advertised: Record<string, Record<string, unknown>> | null,
+  advertised: CapabilityAdvertisement | null,
   useTransposition: boolean,
 ): boolean {
   if (advertised === null) return false;

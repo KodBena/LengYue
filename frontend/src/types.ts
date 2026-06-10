@@ -53,6 +53,10 @@ export type {
   RawAnalysis,
   Enrichment,
 } from './engine/katago/types';
+// Imported (not just re-exported) so `EngineInfo.capabilities` below
+// can reference the typed capability-advertisement mirror locally.
+import type { CapabilityAdvertisement } from './engine/katago/types';
+export type { CapabilityAdvertisement };
 
 // ── Re-exports: PV animation settings shape ───────────────────────────────────
 // Imported (not just re-exported) so `UISession.pvAnimation` can
@@ -2075,7 +2079,16 @@ export interface EngineInfo {
   // `adaptive_reevaluate`) and by the Toolbar to gate the SELECTOR
   // dropdown render (which requires `selector` in the advertised
   // dict).
-  readonly capabilities: Record<string, Record<string, unknown>> | null;
+  //
+  // Typed as the capability mirror (`CapabilityAdvertisement` in
+  // `engine/katago/types.ts`): per-capability metadata fields the
+  // SPA reads (`adaptive_reevaluate.available_value_bindings`, …)
+  // are declared there and validated once at probe time by
+  // `version-probe.ts::parseVersionResponse` — a known capability
+  // advertised with mismatched metadata is degraded (dropped from
+  // this dict and surfaced loudly) before it lands here, so
+  // consumers read the declared fields cast-free.
+  readonly capabilities: CapabilityAdvertisement | null;
 }
 
 export type ReviewStatus = 'IDLE' | 'LOADING' | 'AWAITING_MOVE' | 'ANALYZING' | 'FINISHED';

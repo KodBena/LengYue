@@ -1,6 +1,6 @@
 {
-  "node_count": 413,
-  "edge_count": 1889,
+  "node_count": 414,
+  "edge_count": 1893,
   "age_buckets": [
     {
       "name": "fresh",
@@ -1593,8 +1593,8 @@
       "genre": "dispatch",
       "is_hub": false,
       "first_committed": "2026-05-18",
-      "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/dispatch/proxy-to-frontend-selector-and-capabilities-status.md",
@@ -1762,7 +1762,7 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-06-03",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/compression-research-followups.md",
@@ -2050,7 +2050,7 @@
       "is_hub": false,
       "first_committed": "2026-04-30",
       "last_committed": "2026-06-03",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/frontend-backlog.md",
@@ -2874,7 +2874,7 @@
       "is_hub": false,
       "first_committed": "2026-05-29",
       "last_committed": "2026-05-29",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-30-feat-autonav-perf-harness.md",
@@ -3130,7 +3130,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-03-knob-bookmark-schema-reshape.md",
@@ -3258,7 +3258,7 @@
       "is_hub": false,
       "first_committed": "2026-06-09",
       "last_committed": "2026-06-09",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-10-adr-record-amendments.md",
@@ -3286,6 +3286,14 @@
     },
     {
       "path": "docs/worklog/2026-06-10-spa-history-lessons-audit.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-10",
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-10-typed-capability-metadata-mirror.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": "2026-06-10",
@@ -10103,6 +10111,13 @@
       "resolved": "resolved"
     },
     {
+      "from": "docs/dispatch/proxy-to-frontend-learned-vf.md",
+      "to": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
       "from": "docs/dispatch/proxy-to-frontend-selector-and-capabilities-status.md",
       "to": "docs/adr/0005-documentation-discipline.md",
       "kind": "adr-related",
@@ -16190,6 +16205,27 @@
       "to": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
       "kind": "path-mention",
       "site": "`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-typed-capability-metadata-mirror.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-typed-capability-metadata-mirror.md",
+      "to": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-typed-capability-metadata-mirror.md",
+      "to": "docs/dispatch/proxy-to-frontend-learned-vf.md",
+      "kind": "path-mention",
+      "site": "`docs/dispatch/proxy-to-frontend-learned-vf.md`",
       "resolved": "resolved"
     },
     {

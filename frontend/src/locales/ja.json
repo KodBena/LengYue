@@ -342,6 +342,7 @@
   "analysis.websocketDisconnected":       "WebSocket 切断 (コード: {code})。{reason}",
   "analysis.proxyMissingDeltaAnalysis":   "KataGo プロキシは機能広告を行っていますが、`delta_analysis` が含まれていません。手ごと評価および解析タブの拡張機能はこのプロキシでは動作しません。切断します。",
   "analysis.proxyMissingTransposition":   "転置トグルは ON ですが、KataGo プロキシは `transposition` 機能を広告していません。クラスタリングは表示されません。レジストリで該当トグルを OFF にすればこの警告を抑制できます。または `goboard_transposition` モジュール付きでプロキシをビルドし直してください。",
+  "analysis.capabilityDegraded":          "KataGo プロキシが広告する `{capability}` のメタデータが不正です（`{field}` — 期待される型は {expected}）。この接続では該当機能のみ無効化されます。他の機能に影響はありません。",
   "analysis.ponderExhausted":             "ポンダーが訪問上限({visits})に到達しました。ハードウェアが十分速いため、停止前にポンダーが完了しました — レジストリエディタで `engine.katago.ponderMaxVisits` を引き上げることを検討してください。",
   "analysis.enrichmentNullLeafReplaced":  "解析エンリッチメントの異常: {field}[{key}] が null 値({nullFields})を含んだ状態で届き、既存のデータを置き換えました。パレット関数が不正な出力(NaN は wire 上で null になります)を生成している可能性があります — アクティブなパレットのシンボル定義を確認してください。",
 

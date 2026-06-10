@@ -36,6 +36,7 @@ const telemetry = useQueryTelemetry();
 import {
   type KataAnalysisResponse,
   type KataGoAnalysisQuery,
+  type PerQueryCapabilities,
   type Player,
   type KataCoord,
 } from '../../engine/katago/types';
@@ -218,7 +219,7 @@ function buildAnalyzeQuery(
   maxVisits: number,
   queryId: QueryId,
   model?: string,
-  capabilities?: Record<string, Record<string, unknown>>,
+  capabilities?: PerQueryCapabilities,
 ): { query: KataGoAnalysisQuery; expectedTurn: number } {
   // Root-to-currentNodeId path — not root-to-leaf via
   // `getActiveVariationPath`. The query asks KataGo "given the
@@ -311,7 +312,7 @@ export interface PlayEngineMovesOptions {
    * `adaptive_reevaluate` with a custom `worst_quantile` that
    * isn't represented in the user's registry. Pure pass-through.
    */
-  readonly capabilities?: Record<string, Record<string, unknown>>;
+  readonly capabilities?: PerQueryCapabilities;
 }
 
 /**
@@ -368,7 +369,7 @@ export interface QueryEngineMoveOptions {
   /** See `PlayEngineMovesOptions.model` for the SELECTOR contract. */
   readonly model?: string;
   /** See `PlayEngineMovesOptions.capabilities` for the per-query opt-in contract. */
-  readonly capabilities?: Record<string, Record<string, unknown>>;
+  readonly capabilities?: PerQueryCapabilities;
 }
 
 export interface EngineMoveResult {
@@ -501,7 +502,7 @@ export interface PlayEngineMatchOptions {
    * want explicit control (e.g., opting out of all enrichment to
    * measure raw KataGo throughput) can still author it.
    */
-  readonly capabilities?: Record<string, Record<string, unknown>>;
+  readonly capabilities?: PerQueryCapabilities;
 }
 
 /**

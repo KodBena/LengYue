@@ -270,6 +270,35 @@ export class AnalysisService {
         return;
       }
 
+      // Typed-mirror degradations (ADR-0002 loudness levels 4/5).
+      // Each entry names a KNOWN capability the proxy advertised
+      // with metadata violating its declared mirror interface
+      // (`engine/katago/types.ts`); `parseVersionResponse` dropped
+      // it from the parsed advertisement, so the SPA behaves as
+      // though the proxy never advertised that one capability — its
+      // UI gate stays hidden and no per-query opt-in goes out.
+      // Surfaced per-entry as a user-visible warning (level 4) plus
+      // console detail with the raw payload (level 5). Deliberately
+      // NOT the connection-refusal path above: refusal is reserved
+      // for a missing `delta_analysis` per the dispatch's *Frontend
+      // will not* clause, and a malformed optional capability must
+      // not take the whole engine connection down with it.
+      for (const degradation of versionResult.degraded) {
+        console.warn(
+          '[AnalysisService] Capability advertisement failed typed-mirror validation; capability degraded:',
+          degradation,
+          versionResult.raw,
+        );
+        pushSystemMessage(
+          'warning',
+          i18n.global.t('analysis.capabilityDegraded', {
+            capability: degradation.capability,
+            field: degradation.field,
+            expected: degradation.expected,
+          }),
+        );
+      }
+
       store.engine.info = {
         version: versionResult.version,
         internalName: modelsResult.internalName,

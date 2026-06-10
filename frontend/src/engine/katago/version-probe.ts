@@ -39,6 +39,11 @@
  */
 
 import type { EngineModelEntry } from '../../types';
+import type {
+  AdaptiveReevaluateAdvertisedMetadata,
+  CapabilityAdvertisement,
+  CapabilityMetadata,
+} from './types';
 
 /**
  * Universally-required behavioural capability name. The SPA's
@@ -59,9 +64,45 @@ import type { EngineModelEntry } from '../../types';
  */
 export const REQUIRED_BEHAVIOURAL_CAPABILITY = 'delta_analysis';
 
+/**
+ * One degraded capability from a `query_version` advertisement: a
+ * KNOWN capability whose metadata failed the typed-mirror validation
+ * in `parseVersionResponse`. The capability is dropped from the
+ * parsed advertisement — the SPA behaves as though the proxy never
+ * advertised that one capability (its UI gate stays hidden; no
+ * per-query opt-in goes out) — and the effectful caller surfaces the
+ * entry at ADR-0002 loudness levels 4/5 (user-visible system message
+ * + console detail). Deliberately NOT the connection-refusal surface:
+ * refusal is reserved for a missing `delta_analysis` per the
+ * capability-negotiation dispatch's *Frontend will not* clause, and a
+ * malformed optional capability must not take the whole engine
+ * connection down with it.
+ */
+export interface CapabilityDegradation {
+  /** The advertised capability name that was degraded. */
+  readonly capability: string;
+  /**
+   * The metadata field that mismatched the typed mirror;
+   * `'metadata'` when the capability's value wasn't a dict at all.
+   */
+  readonly field: string;
+  /** The shape the typed mirror expects at that field. */
+  readonly expected: string;
+}
+
 export interface VersionProbeResult {
   readonly version: string | null;
-  readonly capabilities: Record<string, Record<string, unknown>> | null;
+  readonly capabilities: CapabilityAdvertisement | null;
+  /**
+   * Typed-mirror mismatches found in the advertisement; each entry
+   * names a known capability that was advertised with metadata
+   * violating its declared interface and has been dropped from
+   * `capabilities`. Empty array = clean parse. The effectful caller
+   * (`analysis-service.ts::probeEngineInfo`) surfaces each entry —
+   * this parser stays pure so the validation is unit-testable
+   * without WebSocket or message-queue plumbing.
+   */
+  readonly degraded: readonly CapabilityDegradation[];
   readonly raw: Record<string, unknown> | null;
 }
 
@@ -81,6 +122,68 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+/** Element-checked string-array guard for advertised binding lists. */
+function isStringArray(value: unknown): value is readonly string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
+}
+
+/**
+ * Validation result for one known capability's advertised metadata.
+ * Discriminated so the success branch carries the typed value — the
+ * one place the `Record<string, unknown>` wire shape becomes the
+ * mirror interface.
+ */
+type MetadataValidation<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly field: string; readonly expected: string };
+
+/**
+ * Typed-mirror validation for `adaptive_reevaluate`'s advertised
+ * metadata (see `AdaptiveReevaluateAdvertisedMetadata` in
+ * `./types.ts`). Each declared field is optional on the wire but,
+ * when present, must carry the declared shape — a present-but-
+ * mismatched field fails validation, and the caller degrades the
+ * capability. Undeclared fields pass through untouched
+ * (forward-compatible per the mirror's open index signature).
+ *
+ * Currently the only known capability with declared metadata fields;
+ * a future capability that grows a schema gets its own validator and
+ * a named branch in `parseVersionResponse`'s loop.
+ */
+function validateAdaptiveReevaluateAdvertisement(
+  meta: CapabilityMetadata,
+): MetadataValidation<AdaptiveReevaluateAdvertisedMetadata> {
+  const bindings = meta.available_value_bindings;
+  if (bindings !== undefined && !isStringArray(bindings)) {
+    return { ok: false, field: 'available_value_bindings', expected: 'string[]' };
+  }
+  const extraVisits = meta.extra_visits;
+  if (extraVisits !== undefined && typeof extraVisits !== 'number') {
+    return { ok: false, field: 'extra_visits', expected: 'number' };
+  }
+  const worstQuantile = meta.worst_quantile;
+  if (worstQuantile !== undefined && typeof worstQuantile !== 'number') {
+    return { ok: false, field: 'worst_quantile', expected: 'number' };
+  }
+  // Cast-free reconstruction: the spread keeps undeclared metadata
+  // fields (forward-compatible pass-through); the three declared
+  // fields are re-assigned from the control-flow-narrowed locals so
+  // the object satisfies the mirror interface without a type
+  // assertion. Absent fields are re-assigned as explicit `undefined`
+  // own-properties — a TS-narrowing artefact invisible to every
+  // consumer (property reads, `?.`/`??` chains, and `toEqual` all
+  // treat them as absent).
+  return {
+    ok: true,
+    value: {
+      ...meta,
+      available_value_bindings: bindings,
+      extra_visits: extraVisits,
+      worst_quantile: worstQuantile,
+    },
+  };
+}
+
 /**
  * Parse a `query_version` response. `null` for `version` /
  * `capabilities` means "field absent or wrong shape" — the caller
@@ -88,37 +191,76 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * connection refusal if `capabilities` is non-null but missing
  * `delta_analysis`; etc.).
  *
- * The `capabilities` field, when present, is shape-validated to
- * `Record<string, Record<string, unknown>>` — a flat `string[]` or
- * any other shape parses to `null` (treated as "no advertisement"
- * by the caller, since the proxy is presumed not to be speaking
- * this protocol). Per ADR-0002 this is feature detection rather
- * than silent fallback: the legacy path is honest, the
- * capability-aware path is honest, and the choice is observation-
- * driven.
+ * The `capabilities` field, when present, is shape-validated to the
+ * typed advertisement mirror (`CapabilityAdvertisement`) — a flat
+ * `string[]` or any other non-dict shape parses to `null` (treated
+ * as "no advertisement" by the caller, since the proxy is presumed
+ * not to be speaking this protocol). Per ADR-0002 this is feature
+ * detection rather than silent fallback: the legacy path is honest,
+ * the capability-aware path is honest, and the choice is
+ * observation-driven.
+ *
+ * Layered on top (the typed-mirror validation): a KNOWN capability
+ * whose metadata violates its declared interface is dropped from the
+ * parsed dict and recorded on `degraded` — that one capability is
+ * degraded, never the connection (the refusal surface stays exactly
+ * `requiresDeltaAnalysisRefusal`'s). Unknown capability names pass
+ * through untouched provided they keep the dict-of-dicts shape.
  */
 export function parseVersionResponse(payload: unknown): VersionProbeResult {
   if (!isRecord(payload)) {
-    return { version: null, capabilities: null, raw: null };
+    return { version: null, capabilities: null, degraded: [], raw: null };
   }
   const version = typeof payload.version === 'string' ? payload.version : null;
 
-  let capabilities: Record<string, Record<string, unknown>> | null = null;
+  let capabilities: CapabilityAdvertisement | null = null;
+  const degraded: CapabilityDegradation[] = [];
   if (isRecord(payload.capabilities)) {
-    const acc: Record<string, Record<string, unknown>> = {};
+    // Mutable accumulator with the named member spelled out so the
+    // validated `adaptive_reevaluate` assignment below type-checks
+    // against the mirror interface (a bare
+    // `Record<string, CapabilityMetadata>` would erase the narrowing
+    // the validator just established).
+    const acc: {
+      adaptive_reevaluate?: AdaptiveReevaluateAdvertisedMetadata;
+      [name: string]: CapabilityMetadata | undefined;
+    } = {};
     for (const [name, metadata] of Object.entries(payload.capabilities)) {
       // Each capability value must be a plain object (the
       // dict-not-list shape is contractually load-bearing per the
       // dispatch's Q4 sign-off — empty `{}` is the no-metadata
       // sentinel; populated objects parameterise per capability).
-      if (isRecord(metadata)) {
-        acc[name] = metadata;
+      if (!isRecord(metadata)) {
+        // For the known typed capability this is a mirror mismatch:
+        // record the degradation so the caller surfaces it. Unknown
+        // names keep the original silent-drop — there is no declared
+        // schema to name a mismatch against, and the entry was never
+        // consumable anyway.
+        if (name === 'adaptive_reevaluate') {
+          degraded.push({ capability: name, field: 'metadata', expected: 'object' });
+        }
+        continue;
       }
+      if (name === 'adaptive_reevaluate') {
+        const result = validateAdaptiveReevaluateAdvertisement(metadata);
+        if (!result.ok) {
+          // Degrade exactly this one capability (level-4/5 surfacing
+          // happens at the effectful caller); every other advertised
+          // capability stands, and the connection-refusal predicate
+          // below is unaffected by construction (it keys on
+          // `delta_analysis` presence only).
+          degraded.push({ capability: name, field: result.field, expected: result.expected });
+          continue;
+        }
+        acc.adaptive_reevaluate = result.value;
+        continue;
+      }
+      acc[name] = metadata;
     }
     capabilities = acc;
   }
 
-  return { version, capabilities, raw: payload };
+  return { version, capabilities, degraded, raw: payload };
 }
 
 /**
@@ -182,7 +324,7 @@ export function parseModelsResponse(payload: unknown): ModelsProbeResult {
  * configuration.
  */
 export function requiresDeltaAnalysisRefusal(
-  capabilities: Record<string, Record<string, unknown>> | null,
+  capabilities: CapabilityAdvertisement | null,
 ): boolean {
   if (capabilities === null) return false;
   return !(REQUIRED_BEHAVIOURAL_CAPABILITY in capabilities);

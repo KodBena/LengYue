@@ -21,10 +21,11 @@ import {
 
 describe('parseVersionResponse', () => {
   it('returns nulls for non-object payloads', () => {
-    expect(parseVersionResponse(null)).toEqual({ version: null, capabilities: null, raw: null });
-    expect(parseVersionResponse(undefined)).toEqual({ version: null, capabilities: null, raw: null });
-    expect(parseVersionResponse('1.13.0')).toEqual({ version: null, capabilities: null, raw: null });
-    expect(parseVersionResponse([1, 2, 3])).toEqual({ version: null, capabilities: null, raw: null });
+    const empty = { version: null, capabilities: null, degraded: [], raw: null };
+    expect(parseVersionResponse(null)).toEqual(empty);
+    expect(parseVersionResponse(undefined)).toEqual(empty);
+    expect(parseVersionResponse('1.13.0')).toEqual(empty);
+    expect(parseVersionResponse([1, 2, 3])).toEqual(empty);
   });
 
   it('extracts version when present and string-typed', () => {
@@ -79,6 +80,165 @@ describe('parseVersionResponse', () => {
   it('returns the raw payload alongside the parsed fields for tooltip surfacing', () => {
     const payload = { id: 'x', version: '1.13.0', extra: 'tooltip-data' };
     expect(parseVersionResponse(payload).raw).toBe(payload);
+  });
+});
+
+// ── Typed-mirror validation (the per-capability metadata layer) ──────────────
+//
+// `parseVersionResponse` validates KNOWN capabilities' metadata
+// against the mirror interfaces in `engine/katago/types.ts`
+// (`AdaptiveReevaluateAdvertisedMetadata` is the only one with
+// declared fields today). The calibration under test:
+//   - a mismatched KNOWN capability degrades that ONE capability
+//     (dropped from the dict + recorded on `degraded` for level-4/5
+//     surfacing by the effectful caller);
+//   - the connection-refusal surface NEVER grows from a metadata
+//     mismatch (refusal is reserved for missing `delta_analysis`);
+//   - unknown capability NAMES keep passing through untouched.
+describe('parseVersionResponse — typed-mirror validation', () => {
+  it('passes a well-formed adaptive_reevaluate advertisement through typed', () => {
+    const r = parseVersionResponse({
+      capabilities: {
+        delta_analysis: {},
+        adaptive_reevaluate: {
+          worst_quantile: 0.25,
+          extra_visits: 800,
+          available_value_bindings: ['learned_v1', 'learned_v2'],
+        },
+      },
+    });
+    expect(r.degraded).toEqual([]);
+    expect(r.capabilities?.adaptive_reevaluate?.available_value_bindings)
+      .toEqual(['learned_v1', 'learned_v2']);
+    expect(r.capabilities?.adaptive_reevaluate?.worst_quantile).toBe(0.25);
+    expect(r.capabilities?.adaptive_reevaluate?.extra_visits).toBe(800);
+  });
+
+  it('degrades adaptive_reevaluate when available_value_bindings is not an array', () => {
+    // The proxy-side field-rename / reshaping scenario the audit
+    // names: a string where the SPA expects string[] must not
+    // silently hide the learned-VF dropdown — the capability is
+    // dropped AND the mismatch is reported for surfacing.
+    const r = parseVersionResponse({
+      capabilities: {
+        delta_analysis: {},
+        adaptive_reevaluate: { available_value_bindings: 'learned_v1' },
+      },
+    });
+    expect(r.capabilities).not.toBeNull();
+    expect(r.capabilities).not.toHaveProperty('adaptive_reevaluate');
+    expect(r.degraded).toEqual([
+      { capability: 'adaptive_reevaluate', field: 'available_value_bindings', expected: 'string[]' },
+    ]);
+  });
+
+  it('degrades adaptive_reevaluate when available_value_bindings has non-string elements', () => {
+    const r = parseVersionResponse({
+      capabilities: {
+        delta_analysis: {},
+        adaptive_reevaluate: { available_value_bindings: ['learned_v1', 42] },
+      },
+    });
+    expect(r.capabilities).not.toHaveProperty('adaptive_reevaluate');
+    expect(r.degraded).toHaveLength(1);
+    expect(r.degraded[0].field).toBe('available_value_bindings');
+  });
+
+  it('degrades adaptive_reevaluate on non-number extra_visits / worst_quantile', () => {
+    const badVisits = parseVersionResponse({
+      capabilities: { adaptive_reevaluate: { extra_visits: '800' } },
+    });
+    expect(badVisits.capabilities).not.toHaveProperty('adaptive_reevaluate');
+    expect(badVisits.degraded).toEqual([
+      { capability: 'adaptive_reevaluate', field: 'extra_visits', expected: 'number' },
+    ]);
+
+    const badQuantile = parseVersionResponse({
+      capabilities: { adaptive_reevaluate: { worst_quantile: '0.25' } },
+    });
+    expect(badQuantile.capabilities).not.toHaveProperty('adaptive_reevaluate');
+    expect(badQuantile.degraded).toEqual([
+      { capability: 'adaptive_reevaluate', field: 'worst_quantile', expected: 'number' },
+    ]);
+  });
+
+  it('degrades adaptive_reevaluate loudly (not silently) when its metadata is not a dict', () => {
+    // Unknown names with non-dict metadata stay silently dropped
+    // (pinned above); the KNOWN typed capability gets a degradation
+    // record instead, because there is a declared schema to name
+    // the mismatch against.
+    const r = parseVersionResponse({
+      capabilities: { delta_analysis: {}, adaptive_reevaluate: 'oops' },
+    });
+    expect(r.capabilities).not.toHaveProperty('adaptive_reevaluate');
+    expect(r.degraded).toEqual([
+      { capability: 'adaptive_reevaluate', field: 'metadata', expected: 'object' },
+    ]);
+  });
+
+  it('degrades ONLY the mismatched capability — siblings pass through', () => {
+    const r = parseVersionResponse({
+      capabilities: {
+        delta_analysis: {},
+        transposition: {},
+        selector: {},
+        adaptive_reevaluate: { available_value_bindings: { not: 'an array' } },
+        some_future_capability: { anything: ['goes', 1, null] },
+      },
+    });
+    expect(r.capabilities).toEqual({
+      delta_analysis: {},
+      transposition: {},
+      selector: {},
+      some_future_capability: { anything: ['goes', 1, null] },
+    });
+    expect(r.degraded).toHaveLength(1);
+  });
+
+  it('never extends the connection-refusal surface: a degraded adaptive_reevaluate does not refuse', () => {
+    // Refusal is reserved for missing `delta_analysis` (the
+    // dispatch's *Frontend will not* clause). A malformed optional
+    // capability degrades itself, never the connection.
+    const r = parseVersionResponse({
+      capabilities: {
+        delta_analysis: {},
+        adaptive_reevaluate: { available_value_bindings: 'learned_v1' },
+      },
+    });
+    expect(requiresDeltaAnalysisRefusal(r.capabilities)).toBe(false);
+  });
+
+  it('keeps unknown capability names passing through, mirror-unvalidated', () => {
+    // Unknown names have no declared metadata interface; any
+    // dict-shaped metadata passes through untouched — including
+    // fields that would mismatch adaptive's schema if they appeared
+    // there. Forward compatibility is the point.
+    const r = parseVersionResponse({
+      capabilities: {
+        delta_analysis: {},
+        brand_new_capability: { available_value_bindings: 'not-validated-here' },
+      },
+    });
+    expect(r.degraded).toEqual([]);
+    expect(r.capabilities).toHaveProperty('brand_new_capability', {
+      available_value_bindings: 'not-validated-here',
+    });
+  });
+
+  it('preserves undeclared metadata fields on a validated adaptive_reevaluate', () => {
+    // The mirror is open by design (`[key: string]: unknown`): a
+    // proxy that adds a metadata field must not lose it to the
+    // validation pass.
+    const r = parseVersionResponse({
+      capabilities: {
+        adaptive_reevaluate: {
+          available_value_bindings: ['learned_v1'],
+          future_field: 42,
+        },
+      },
+    });
+    expect(r.degraded).toEqual([]);
+    expect(r.capabilities?.adaptive_reevaluate?.future_field).toBe(42);
   });
 });
 
