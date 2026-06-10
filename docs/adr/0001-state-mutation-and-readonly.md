@@ -2,6 +2,18 @@
 
 - **Status:** Accepted
 - **Date:** 2026-04-24
+- **Amendments:** 2026-06-10 — recorded that **Revisit-when #2
+  (performance profiling reveals specific reactivity hot spots) has
+  fired** (the 2026-05-27/28 perf audits), corrected the
+  mutator-benefits re-wrap bullet (the identity re-wrap survives in
+  `mutateReviewSession` only; `mutateBoard`'s was removed in the
+  2026-05-28 game-scroll arc for documented render reasons), and
+  corrected the Related-section claim that the mutators' docstrings
+  reference this ADR (no such reference exists at HEAD). The decision
+  itself is unchanged. One of the bounded ADR record repairs from the
+  2026-06-10 history-lessons audit
+  (`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md` §3.23;
+  work-status item `adr-record-amendments-2026-06`).
 - **Decision drivers:** Vue reactivity architecture; TypeScript type-system
   semantics; performance at deep store paths; honesty of type annotations.
 
@@ -98,9 +110,20 @@ mutations go through named mutator functions (`mutateBoard`,
 
 - A single place to bump version counters (`boardsVersion.value++`) so
   that consumers of shallow-watched state get notified.
-- A single place to re-wrap mutated objects (`store.boards[index] =
-  { ...board }`) to trigger Vue's reactivity for subscribers watching
-  the whole record.
+- A single place to re-wrap mutated objects to trigger Vue's
+  reactivity for subscribers watching the whole record. *(Corrected
+  2026-06-10 — this bullet now holds for `mutateReviewSession` only,
+  which re-wraps the review record (`store/index.ts:209`).
+  `mutateBoard`'s identity re-wrap (`store.boards[index] =
+  { ...board }`) was removed in the 2026-05-28 game-scroll perf arc:
+  the swap fired the *array* dep and re-rendered every coarse reader
+  of the boards array on each navigation step, while the in-place
+  mutation through the deep-reactive proxy already fires the
+  fine-grained field deps. `boardsVersion` remains the explicit
+  coarse signal. The rationale lives as an inline comment in
+  `mutateBoard` itself, citing
+  `docs/notes/audit/perf-audit-game-scroll-2026-05-28.md` Arc 1. The
+  other bullets in this list hold unchanged for both mutators.)*
 - A single place to enforce invariants (sanity-check indexes, clamp
   values to legal ranges, etc.).
 - A grep target: anyone wanting to know "what code writes to
@@ -243,7 +266,14 @@ become true:
    components (not just theorized), we may want to refactor those
    components to hold shallow projections of state rather than reading
    through deep reactive paths. This might or might not motivate
-   revisiting `readonly`.
+   revisiting `readonly`. **(Fired; recorded 2026-06-10.)** The
+   2026-05-27/28 perf audits found exactly this class of hot spot. The
+   response did not revisit `readonly`: the cost was `mutateBoard`'s
+   object re-wrap (which coupled every coarse reader of the boards
+   array to per-navigation updates), not the mutation model, and
+   removing the identity swap resolved it — see the corrected
+   benefits bullet above. The decision stands; the trigger stays live
+   for any future hot spot the mutation model itself causes.
 
 3. **The mutator convention starts breaking down.** If contributors
    frequently bypass `mutateBoard` / `mutateReviewSession` and produce
@@ -265,7 +295,12 @@ become true:
 
 - The `mutateBoard` and `mutateReviewSession` functions in
   `src/store/index.ts` are the conventional enforcement mechanism
-  referenced throughout this ADR. Their docstrings reference this ADR.
+  referenced throughout this ADR. *(Corrected 2026-06-10: this bullet
+  claimed the mutators' docstrings reference this ADR — no such
+  reference exists at HEAD. `mutateBoard` carries an inline rationale
+  comment citing the 2026-05-28 game-scroll perf audit;
+  `mutateReviewSession` carries no docstring. The ADR-to-code linkage
+  runs in this direction only.)*
 - TODO item 27-min (shipped): the last-write-wins single-tab invariant
   documented on `SyncService::sendSync()` is a consequence of the same
   "mutation-first, discipline via convention" model.

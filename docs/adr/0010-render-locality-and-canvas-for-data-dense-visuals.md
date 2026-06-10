@@ -15,6 +15,19 @@
   high-frequency reactive value may be read, and when a data-dense
   visual must be a `<canvas>` rather than a `v-for` of DOM/SVG nodes.
 - **Date:** 2026-05-31
+- **Amendments:** 2026-06-10 — deleted the two trailing
+  harness-envelope artifact lines (a literal `</content>` /
+  `</invoke>` pair leaked from a tool-call envelope, committed with
+  the ADR's creation and surviving three later edits) and corrected
+  the render-count harness path in the Consequences section
+  (`tests/integration/render-locality/` →
+  `tests/integration/render-count/`, the directory's actual name).
+  A whole-line grep for harness-envelope strings under `docs/` now
+  gates in the `doc-graph-ci` workflow so the artifact class cannot
+  silently recur. No content change. One of the bounded ADR record
+  repairs from the 2026-06-10 history-lessons audit
+  (`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md` §3.23;
+  work-status item `adr-record-amendments-2026-06`).
 - **Scope:** All `frontend/` Vue component and composable authoring.
   The two rules apply at authoring time (which element type, where
   the reactive read lives) and at review time (a reviewer checks a
@@ -166,7 +179,7 @@ component-cost ranking is the signature that diagnoses it.
 
 - **Discipline is policy, not mechanism.** Like the sibling tenets,
   this lives in authoring, review, and audit. The render-count
-  regression harness (`tests/integration/render-locality/`) and the
+  regression harness (`tests/integration/render-count/`) and the
   minimal ESLint host are partial mechanisations, not a complete
   one — render-coupling is statically undecidable in general (the
   postmortem's typing analysis establishes why).
@@ -263,5 +276,3 @@ component-cost ranking is the signature that diagnoses it.
 ## License
 
 Public Domain (The Unlicense).
-</content>
-</invoke>

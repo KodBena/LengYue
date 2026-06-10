@@ -458,11 +458,15 @@ and "hosted deployment ships."
   engine side scalable.
 - **Domain extension.** All three sub-projects support domain adoption to
   varying degrees. The backend is genuinely portable. The frontend's
-  ADR-0003 maps the work that would be required (~30-40% of the frontend
-  would need rewriting). The proxy's Prism abstraction is intended to
-  support multiple protocols, though only KataGo is currently implemented.
-  If a chess or shogi adopter materializes, the work is substantial but
-  bounded.
+  ADR-0003 maps the work: a same-class port (chess, shogi) rewrites the
+  Go-bound ~30-40%; a non-game knowledge domain additionally *splits* the
+  game-tree-coupled band (the SR-orchestration flow and generic charting
+  survive; the tree skeleton does not — the ADR's 2026-06-10 amendment
+  carries both sizings). Two adopters have materialized on different
+  axes — the `chess-clone` work-status item and the maintainer's intended
+  generic knowledge flash-card fork. The proxy's Prism abstraction is
+  intended to support multiple protocols, though only KataGo is currently
+  implemented. The work is substantial but bounded.
 - **Community palette library** is on the longer-term horizon — palettes are
   JSON, and a "share my palette" feature is an upload-download flow. Could
   be hosted alongside the backend or as a separate static-site feature.
