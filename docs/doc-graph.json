@@ -1,6 +1,6 @@
 {
-  "node_count": 428,
-  "edge_count": 1968,
+  "node_count": 429,
+  "edge_count": 1977,
   "age_buckets": [
     {
       "name": "fresh",
@@ -3285,6 +3285,14 @@
       "age_bucket": "recent"
     },
     {
+      "path": "docs/worklog/2026-06-10-branded-path-types.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-10",
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
+    },
+    {
       "path": "docs/worklog/2026-06-10-cast-hygiene-lint.md",
       "genre": "worklog",
       "is_hub": false,
@@ -3354,7 +3362,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-10-resource-service-calibration-seam.md",
@@ -3410,7 +3418,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "frontend/CLAUDE.md",
@@ -3418,7 +3426,7 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "frontend/FILES.md",
@@ -16408,6 +16416,69 @@
       "to": "docs/handoff-current.md",
       "kind": "path-mention",
       "site": "`docs/handoff-current.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-branded-path-types.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-branded-path-types.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-branded-path-types.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-branded-path-types.md",
+      "to": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-branded-path-types.md",
+      "to": "docs/notes/postmortem/postmortem-match-pre-existing-variation-2026-05.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/postmortem/postmortem-match-pre-existing-variation-2026-05.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-branded-path-types.md",
+      "to": "docs/worklog/2026-05-15-match-pre-existing-variation-fixes.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-05-15-match-pre-existing-variation-fixes.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-branded-path-types.md",
+      "to": "docs/worklog/2026-05-16-match-cursor-independence.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-05-16-match-cursor-independence.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-branded-path-types.md",
+      "to": "docs/worklog/2026-06-10-review-scoring-named-seam.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-06-10-review-scoring-named-seam.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-branded-path-types.md",
+      "to": "frontend/IDENTIFIERS.md",
+      "kind": "path-mention",
+      "site": "`frontend/IDENTIFIERS.md`",
       "resolved": "resolved"
     },
     {

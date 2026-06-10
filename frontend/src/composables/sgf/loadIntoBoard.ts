@@ -31,7 +31,7 @@ import { store, updateBoardState, mutateBoard } from '../../store';
 import { loadSgf } from '../../engine/sgf-loader';
 import { navigateTo } from '../../engine/navigator';
 import { getActiveVariationPath } from '../../engine/util';
-import type { BoardId, BoardState, NodeId } from '../../types';
+import type { BoardId, BoardState } from '../../types';
 
 /**
  * Parse `sgfContent`, write it into the board identified by
@@ -60,7 +60,10 @@ export function loadSgfIntoBoard(
     throw new Error(`loadSgfIntoBoard: target board ${targetBoardId} not found in store`);
   }
   updateBoardState(idx, parsedBoard);
+  // Root→leaf is the genuine shape: walk the cursor to the end of the
+  // loaded SGF's active line. Branded by the producer; the former
+  // `as NodeId` re-cast on the element is retired.
   const path = getActiveVariationPath(parsedBoard);
   const leafId = path[path.length - 1];
-  mutateBoard(targetBoardId, draft => navigateTo(draft, leafId as NodeId));
+  mutateBoard(targetBoardId, draft => navigateTo(draft, leafId));
 }

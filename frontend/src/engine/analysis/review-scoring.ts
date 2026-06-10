@@ -27,7 +27,7 @@
  * License: Public Domain (The Unlicense)
  */
 
-import type { BoardState, NodeId, StoneColor } from '../../types';
+import type { BoardState, NodeId, RootToCurrentPath, StoneColor } from '../../types';
 import type { Enrichment } from '../katago/types';
 
 /**
@@ -52,14 +52,16 @@ export type PerMoveDeltaResult =
  * Score the user's just-played review move against the per-colour
  * delta enrichment.
  *
- * Preconditions: `path` is the board's active variation path,
- * `s_1_id` is the node of the user's just-played move (minted by
- * `applyGoMove`, so it carries a `Move`), and `s_1_idx` is its
- * index on `path`.
+ * Preconditions: `path` is the analyzed line root → the just-played
+ * move — `RootToCurrentPath` with s_1 as the current position (the
+ * brand makes the shape a compile-time contract; a root→leaf line
+ * would scan past the analyzed range). `s_1_id` is the node of the
+ * user's just-played move (minted by `applyGoMove`, so it carries a
+ * `Move`), and `s_1_idx` is its index on `path`.
  */
 export function scorePerMoveDelta(
   nodes: BoardState['nodes'],
-  path: readonly NodeId[],
+  path: RootToCurrentPath,
   s_1_idx: number,
   s_1_id: NodeId,
   getEnrichment: EnrichmentAccessor,

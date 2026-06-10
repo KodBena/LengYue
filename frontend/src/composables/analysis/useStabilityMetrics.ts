@@ -33,7 +33,7 @@ import {
   STABILITY_METRICS,
   anchoredAtVTerm,
 } from '../../lib/stability-trajectory';
-import type { NodeId, ExtractorId, MetricId } from '../../types';
+import type { NodeId, RootToLeafPath, ExtractorId, MetricId } from '../../types';
 
 export interface TurnStabilityMetric {
   nodeId: NodeId;
@@ -95,7 +95,9 @@ export interface StabilityMetricsOptions {
 }
 
 export function useStabilityMetrics(
-  variationPath: Ref<NodeId[]>,
+  // Root→leaf by contract: per-turn stability spans the whole active
+  // line (branded-path-types arc; fed by `useVariationPath`).
+  variationPath: Ref<RootToLeafPath>,
   extractorId: Ref<ExtractorId>,
   metricId: Ref<MetricId>,
   options: StabilityMetricsOptions = {},

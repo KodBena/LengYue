@@ -140,12 +140,17 @@ export function useLibraryPreview(): LibraryPreview {
       try {
         const sabakiTrees = sgf.parse(game.rawContent);
         const board = loadSgf(sabakiTrees);
+        // Root→leaf is the genuine shape: the scrubber spans the whole
+        // game line. The exposed `variationPath` ref stays a plain
+        // `readonly NodeId[]` (its empty-state writes would otherwise
+        // need brand mints); the shape is recorded here at the fill
+        // site instead.
         const path = getActiveVariationPath(board);
         // Start at the root so the user sees the empty board first
         // and moves through. The component can override via
         // scrubPosition write if it prefers a different default.
         if (path.length > 0) {
-          navigateTo(board, path[0] as NodeId);
+          navigateTo(board, path[0]);
         }
         if (myGen !== generation) return;
         parsedBoard.value = board;
@@ -178,7 +183,7 @@ export function useLibraryPreview(): LibraryPreview {
     const path = variationPath.value;
     if (board === null || path.length === 0) return;
     const clamped = Math.max(0, Math.min(pos, path.length - 1));
-    navigateTo(board, path[clamped] as NodeId);
+    navigateTo(board, path[clamped]);
     triggerRef(parsedBoard);
   });
 

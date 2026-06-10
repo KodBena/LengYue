@@ -296,7 +296,9 @@ async function runScenario(opts: {
     // applied (regardless of failure mode); the engine follow-through
     // is the only thing the loud-failure branch skips.
     const postBoard = store.boards.find((b) => b.id === boardId)!;
-    const postPath = getActiveVariationPath(postBoard) as NodeId[];
+    // Producer-branded RootToLeafPath; the former `as NodeId[]`
+    // widening was redundant.
+    const postPath = getActiveVariationPath(postBoard);
     const userColor = postBoard.nodes[postBoard.currentNodeId]?.move?.color as 'B' | 'W';
     const colorKey = userColor === 'B' ? 'black' : 'white';
 

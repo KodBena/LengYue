@@ -6,7 +6,7 @@
  */
 
 import { computed, type Ref } from 'vue';
-import type { ReviewCard, NodeId, BoardId, ReviewStatus, RawAnalysis } from '../../types';
+import type { ReviewCard, BoardId, ReviewStatus, RawAnalysis } from '../../types';
 import { store, addBoard, mutateBoard, updateBoardState, mutateReviewSession, pushSystemMessage } from '../../store';
 import { i18n } from '../../i18n';
 import { backendService } from '../../services/backend-service';
@@ -23,7 +23,7 @@ import { KATAGO_ANALYSIS_TIMEOUT_MS } from '../../lib/timing';
 // @ts-ignore
 import sgf from '@sabaki/sgf';
 import { loadSgf } from '../../engine/sgf-loader';
-import { navigateTo } from '../../engine/navigator';
+import { getPath, navigateTo } from '../../engine/navigator';
 import { getActiveVariationPath } from '../../engine/util';
 import { scorePerMoveDelta } from '../../engine/analysis/review-scoring';
 import { applyGoMove } from '../../logic';
@@ -290,9 +290,11 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
         addBoard(parsedBoard);
       }
 
-      // Fast-forward to the end of the SGF's pre-defined mainline
+      // Fast-forward to the end of the SGF's pre-defined mainline —
+      // root→leaf is the genuine shape here (the card-load leaf of the
+      // branded-path arc; the brand arrives from the producer).
       const path = getActiveVariationPath(parsedBoard);
-      const targetLeafId = path[path.length - 1] as NodeId;
+      const targetLeafId = path[path.length - 1];
       
       mutateBoard(bId, draft => { 
         navigateTo(draft, targetLeafId); 
@@ -331,9 +333,13 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     const board = store.boards.find(b => b.id === bId);
     if (!board) return;
 
-    const path = getActiveVariationPath(board);
-    const s_0_idx = path.indexOf(board.currentNodeId);
-    const s_0_id = board.currentNodeId as NodeId;
+    // The cursor's turn index is a root→current question ("how many
+    // nodes from root to the position the user is playing from?") —
+    // the prior `getActiveVariationPath(...).indexOf(current)` walked
+    // the whole active line to answer it (equivalent value, wrong
+    // shape; history-lessons audit §3.4 / match postmortem §5b).
+    const s_0_idx = getPath(board.nodes, board.currentNodeId).length - 1;
+    const s_0_id = board.currentNodeId;
 
     const nextBoard = applyGoMove(board, x, y);
     if (!nextBoard) return;
@@ -344,7 +350,7 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
       draft.userMovesCount++;
     });
 
-    const s_1_id = nextBoard.currentNodeId as NodeId;
+    const s_1_id = nextBoard.currentNodeId;
     const s_1_idx = s_0_idx + 1;
 
     // Two-leg replay descriptor: palette (`analysis_config`) +
@@ -383,7 +389,15 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     // computed's docstring for the resolution order.
     const visits = effectiveVisits.value;
 
-    const newPath = getActiveVariationPath(nextBoard) as NodeId[];
+    // Root→current (of `nextBoard`, whose cursor is the just-played
+    // s_1): the analyzed range ends at s_1 and the engine's move list
+    // must stop there. The prior `getActiveVariationPath(nextBoard)`
+    // coincided with this in the common case (a fresh user move makes
+    // s_1 the leaf) but would have included pre-existing forward
+    // variation past s_1 when `applyGoMove` dedups into an existing
+    // child — the same root→leaf-vs-root→current confusion class as
+    // the match postmortem's Bug B, here latent rather than biting.
+    const newPath = getPath(nextBoard.nodes, nextBoard.currentNodeId);
     // Two trailing booleans documented at the call site:
     //   forReview=true: visit count is load-bearing for grading
     //     (delta read against the card's defaultVisits), so

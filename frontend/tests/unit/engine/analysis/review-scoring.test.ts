@@ -30,7 +30,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 import { scorePerMoveDelta } from '../../../../src/engine/analysis/review-scoring';
 import type { EnrichmentAccessor } from '../../../../src/engine/analysis/review-scoring';
-import type { BoardState, GameNode, NodeId, StoneColor } from '../../../../src/types';
+import type { BoardState, GameNode, NodeId, RootToCurrentPath, StoneColor } from '../../../../src/types';
 import type { Enrichment } from '../../../../src/engine/katago/types';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -55,12 +55,15 @@ function makeNode(id: string, color: StoneColor | null): GameNode {
 
 /**
  * Build a path fixture from a colour sequence. Index 0 is the root
- * (pass `null` — no move), matching the shape `getActiveVariationPath`
- * produces. Returns node ids 'n0', 'n1', … in path order.
+ * (pass `null` — no move) and the last entry is the just-played move,
+ * matching the root→current shape `scorePerMoveDelta` now requires
+ * (branded-path-types arc). Returns node ids 'n0', 'n1', … in path
+ * order. The `as RootToCurrentPath` cast is the standard test-fixture
+ * mint, same shape as `makeNode`'s `as NodeId` above.
  */
 function makeFixture(colors: readonly (StoneColor | null)[]): {
   nodes: BoardState['nodes'];
-  path: NodeId[];
+  path: RootToCurrentPath;
 } {
   const nodes: BoardState['nodes'] = {};
   const path: NodeId[] = [];
@@ -69,7 +72,7 @@ function makeFixture(colors: readonly (StoneColor | null)[]): {
     nodes[node.id] = node;
     path.push(node.id);
   });
-  return { nodes, path };
+  return { nodes, path: path as RootToCurrentPath };
 }
 
 /** Accessor over a plain per-node enrichment map (null when absent). */

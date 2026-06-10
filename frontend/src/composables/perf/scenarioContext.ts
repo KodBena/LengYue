@@ -27,7 +27,7 @@ import { getActiveVariationPath } from '../../engine/util';
 import { analysisService } from '../../services/analysis-service';
 import { libraryService } from '../../services/library-service';
 import { runAutonav } from './autonav';
-import type { BoardId, GameSourceId, NodeId, QueryId } from '../../types';
+import type { BoardId, GameSourceId, QueryId } from '../../types';
 import type { PerfScenario, QueryHandle, RangeOpts, ScenarioContext, ScenarioStimulus } from './types';
 
 /**
@@ -160,7 +160,11 @@ function createScenarioContext(name: string): {
     analyzeRange(boardId: BoardId, opts: RangeOpts): QueryHandle {
       const board = store.boards.find((b) => b.id === boardId);
       if (!board) throw new Error(`scenarioContext.analyzeRange: board ${boardId} not found`);
-      const fullPath = getActiveVariationPath(board) as NodeId[];
+      // Root→leaf is the genuine shape: perf scenarios span the whole
+      // line by default (`full: true`), with explicit turn bounds
+      // otherwise. Branded by the producer; the former redundant
+      // `as NodeId[]` widening is retired.
+      const fullPath = getActiveVariationPath(board);
       const full = opts.full ?? true;
       const startTurn = full ? 0 : (opts.startTurn ?? 0);
       const endTurn = full ? fullPath.length - 1 : (opts.endTurn ?? fullPath.length - 1);
