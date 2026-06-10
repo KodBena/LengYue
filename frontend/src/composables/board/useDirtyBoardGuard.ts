@@ -119,7 +119,7 @@ export function useDirtyBoardGuard(
   async function handleLoadCard(card: ReviewCard): Promise<void> {
     const targetBoardId = await resolveTargetBoard();
     if (targetBoardId === null) return;
-    loadOrLog(targetBoardId, card.sgf, board => {
+    loadOrLog(targetBoardId, card.canonicalContent, board => {
       // Stamp the lineage source onto the board so a subsequent
       // mint from this exploration session populates
       // `parent_card_id` correctly (consumed by

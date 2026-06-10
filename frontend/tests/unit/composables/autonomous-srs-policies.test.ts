@@ -34,7 +34,7 @@ function makeStubBoard(): BoardState {
 function makeStubCard(): ReviewCard {
   return {
     id: 1 as CardId,
-    sgf: '(;FF[4]GM[1]SZ[19])',
+    canonicalContent: '(;FF[4]GM[1]SZ[19])',
     numMoves: 1,
     model: SENTINEL_EBISU,
     lastReviewedAt: null,

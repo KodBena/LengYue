@@ -122,7 +122,7 @@ export class BackendService {
 
     return {
       id: raw.id as CardId,
-      sgf: raw.canonical_content,
+      canonicalContent: raw.canonical_content,
       numMoves: raw.num_moves,
       // `card_source_id` is `number | null | undefined` on the wire;
       // coalesce null → undefined so the domain type stays
