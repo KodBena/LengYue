@@ -122,7 +122,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
@@ -3400,9 +3400,9 @@
       "path": "docs/worklog/2026-06-10-types-split.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-10",
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-10-vue-lifecycle-footgun-guards.md",
