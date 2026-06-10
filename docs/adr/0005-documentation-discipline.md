@@ -43,6 +43,25 @@
   (work-status item `doc-graph-dangling-signal-cleanup`). Advisory-not-gate
   per Alternative C's reasoning; the judgment core of Rules 3 and 6 remains
   policy. No rule change.
+  2026-06-11 — appended **Rule 10** (deferrals are ledgered at authoring
+  time): per the history-lessons audit lesson L3 (prose deferrals reliably
+  evaporate; ledgered ones survive) and the deferral-harvest arc, every
+  deferral / out-of-scope / recommendation bullet in any committed record
+  within this tenet's Scope either names its work-status SSOT item id or
+  carries a grep-able `not-filed: <reason>` marker; refs to the paid-for
+  diagnosis attach at filing time; an item closes only after a residual sweep
+  files or marks every named residue. `docs/pre-merge-checklist.md` §D is the
+  operational walk-through. (The consolidation review's §6 repairs are folded
+  into the rule text — `../notes/audit/audit-consolidation-history-lessons-2026-06-10.md`.)
+  2026-06-11 — appended **Rule 11** (commissioned-review artifacts are recorded
+  verbatim, in-tree): the commission prompt and full report of any audit /
+  consult / adversarial-review sub-agent whose verdict the citing session
+  treats as evidence are recorded verbatim in an appendix of the relevant
+  committed document; the verdict label does not travel without the artifact's
+  substance, and a verdict whose artifact cannot be produced on demand is
+  treated as no verdict; corrections are in-situ and dated. Previously defined
+  only in a user-local memory note while invoked by name in committed
+  documents. (Consolidation §6 repairs folded.)
 - **Scope:** All authoring of documentation across the three
   sub-projects. Includes ADRs, notes, READMEs, TODO entries,
   HANDOFFs, playbooks, and inter-team communications.
@@ -279,6 +298,126 @@ the work-status store (the `todo` Postgres DB; the `docs/work-status.json`
 seed it was first consolidated into has since been retired) canonical for
 work status: status lives in one place, and the documents that describe work
 delegate to it.
+
+### Rule 10: Deferrals are ledgered at authoring time
+
+*(Appended 2026-06-11.)*
+
+A deferral names a piece of future work; per Rule 1, future work has exactly
+one owning home — the work-status SSOT. The 2026-06-10 history-lessons audit
+verified the failure mode from both directions (lesson L3): every deferral
+that reached the work-status store was accounted for at audit time, while
+deferrals recorded only in worklog "What's deferred" sections, postmortem
+recommendations, or retrospective roadmaps reliably evaporated — including
+one (the module-scope rebinding audit, deferred in a 2026-05-17 worklog)
+parts of whose class recurred before the audit re-surfaced it. The
+consolidation review that followed (`../notes/audit/audit-consolidation-history-lessons-2026-06-10.md`)
+sharpened L3 in two ways carried into this rule's bullets: the leak has a
+second point — **closure** — and the genre enumeration the first draft used
+itself failed open.
+
+- **Capture.** Every deferral / out-of-scope / recommendation bullet in **any
+  committed record within this tenet's Scope** ends with either a work-status
+  item id or an explicit, grep-able `not-filed: <reason>` marker. The earlier
+  draft enumerated genres ("worklog, postmortem, retrospective, audit, or
+  consult record"); that enumeration failed open at a paid-for instance — a
+  dispatch carrying the learned-vf closure obligations — so the rule keys on
+  the Scope, not a list, because a rule institutionalizing "enumerations fail
+  open" must not itself be an enumeration. Neither "held for the next X-touch
+  PR" nor a bare prose admission is a tracked state.
+- **Refs at filing.** An item filed near a diagnosis document gets its ref to
+  that document at filing time; an item without refs to its paid-for
+  diagnosis forces the next session to re-derive it.
+- **Retitle to the residual.** When an open item's work partially ships,
+  retitle/redescribe it to what actually remains.
+- **Close only after a residual sweep.** An item closes only after a sweep
+  files or marks (`not-filed: <reason>`) every named residue — the program's
+  freshest evaporations were at *closure*, not authoring: `services-boundary-deny-by-default`
+  closed with its step (b) record lost (re-captured as
+  `reactive-state-modules-relocation`), and `cast-hygiene-lint` closed with
+  its stage-2 title-half measured-but-unadopted and no successor. Retitle-to-the-
+  residual covers the partial-ship case; this bullet covers the close-it-anyway
+  case the partial-ship bullet does not.
+- **Generalization deferrals are recorded, not silently dropped.** A drop on
+  single-domain grounds is itself a fail-loud event (ADR-0002): a deferral
+  whose rationale is generality for a second domain is dropped only by a bullet
+  that **names the generality rationale it declines** — never silently on "only
+  one domain uses it" grounds. The fork constraint this protects is the one
+  `docs/pre-merge-checklist.md` §D attributes to the deferral-harvest audit
+  (§3.22); the constraint is strategy-contingent (it presupposes the fork is a
+  live target), so a session declining it records why.
+
+Positive and negative markers both have a form. The negative marker
+(`not-filed: <reason>`) is deliberately grep-able so a future advisory sweep
+can mechanize detection — Revisit-when #2's open candidates gain a third, and
+filing that sweep is itself tracked work. The positive case is a bullet ending
+with the owning item id in backticks (e.g. ``… → `reactive-state-modules-relocation` ``).
+Honestly: a bullet carrying neither marker remains checklist/review territory
+until that advisory sweep exists — the sweep is what would make the absence
+mechanically visible. The two post-§D same-day misses the consolidation
+recorded (two deferrals that evaporated within hours of the checklist-§D
+convention landing) are the calibration evidence for why review alone is not
+yet sufficient.
+
+This rule is Rule 6's "where" to its "when": the evaporated deferrals *were*
+written down in the moment — in the wrong home. It is the forward-looking
+register of the consolidation Rule 9 records: Rule 9 anchors design notes to
+the SSOT; this rule anchors the moment future work is first named.
+`docs/pre-merge-checklist.md` §D is the operational walk-through.
+
+### Rule 11: Commissioned-review artifacts are recorded verbatim, in-tree
+
+*(Appended 2026-06-11.)*
+
+When work leans on a **commissioned review** — a delegated audit sub-agent, a
+consult, an adversarial pass such as a hack-rationalization run, **whose
+verdict the citing session treats as evidence** — the commission prompt and
+the full report are recorded verbatim in an appendix of the relevant committed
+document (worklog, audit note, postmortem). (A review whose verdict is not
+cited as evidence — an informal sanity read the session does not lean on — is
+out of scope; the rule binds the moment a verdict is wielded.) The verdict
+label does not travel without the artifact: a bare "passed review" or
+"narrower-but-justified" with no inspectable commission and report is the
+unsubstantiated-claim shape ADR-0002 and ADR-0009 forbid in their registers,
+and **a verdict whose artifact cannot be produced on demand is treated as no
+verdict** — the PR #382 235-character merge-on-nothing comment, which
+referenced an assessment reachable nowhere, is the substrate (since repaired).
+
+The artifact's substance is defined minimally so a summary cannot stand in for
+it: **the verdict plus every verdict-carrying finding reproduced, not
+characterized.** Where an artifact's authoritative copy lives off-tree (a PR
+comment), the committed document carries the pointer plus that substance, so
+the record survives the forge — a one-line gloss does not satisfy it.
+
+Verbatim appendices are **reference records, consumed by pointer-citation**:
+they are not read end to end on every consultation. The sanctioned posture for
+fanning out a body of agents over a large verbatim corpus is a single
+read-once digest with pointers, which subsequent agents cite by pointer — the
+regime the corpus audit's own ~810 KB fan-out incident mandated. This
+reconciles the rule with the umbrella `CLAUDE.md`'s read-fully-before-citing
+discipline: the *digest* is read fully and the appendix is the citable record
+behind its pointers, rather than every agent re-reading the whole corpus.
+
+Corrections to a recorded artifact are made **in situ, dated, by strike rather
+than deletion** — the wrong text stays legible with a visible strike and the
+correction beside it, so the record shows both what was claimed and what
+replaced it (the Rule 8 sibling-revision principle applied inside a single
+record). This is consistent with the audit directory's not-retro-edited
+convention: a **dated, additive** correction that leaves the struck original
+readable is the sanctioned move; a **silent rewrite** of a point-in-time
+artifact never is.
+
+Substrate: the 2026-06-10 multi-writer arc, where a fabricated sanction
+quote inside an in-frame review artifact was caught precisely because the
+artifact was verbatim-recorded and an out-of-frame rerun could check it
+against the commissioning item; the strike is an in-situ dated correction,
+the artifact otherwise untouched (the worklog's appendix and postscript are
+the worked example). The practice predates this rule — the history-lessons
+audit's three-part verbatim appendix is the largest instance — but its
+definition lived only in a user-local memory note while committed documents
+invoked "the standing verbatim-record discipline" by name: a named handle
+with no owning committed document, the Rule 1 failure shape applied to a
+discipline.
 
 ## Consequences
 

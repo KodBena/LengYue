@@ -20,9 +20,9 @@ of truth and the picture is a projection of it.
 
 ## At a glance
 
-- **Nodes:** 441 documents.
-- **Edges:** 2108 cross-references
-  (1729 resolved, 379 dangling, 0 ambiguous).
+- **Nodes:** 443 documents.
+- **Edges:** 2130 cross-references
+  (1756 resolved, 374 dangling, 0 ambiguous).
 
 ## Staleness heatmap (buckets)
 
@@ -92,14 +92,16 @@ flowchart LR
   n9["0008-classification-discipline"]
   n10["0009-performance-investigation-discipline"]
   n11["0010-render-locality-and-canvas-for-data-dense-visuals"]
-  n12["handoff-current"]
+  n12["0011-mechanization-discipline"]
+  n13["handoff-current"]
   n0 --> n8
-  n0 --> n12
+  n0 --> n13
   n2 --> n3
   n3 --> n2
   n3 --> n6
   n3 --> n9
   n3 --> n4
+  n3 --> n12
   n4 --> n2
   n4 --> n3
   n4 --> n6
@@ -108,6 +110,7 @@ flowchart LR
   n6 --> n3
   n6 --> n5
   n6 --> n9
+  n6 --> n10
   n6 --> n7
   n7 --> n3
   n7 --> n5
@@ -140,23 +143,29 @@ flowchart LR
   n11 --> n9
   n11 --> n10
   n11 --> n4
-  n12 --> n4
-  n12 --> n2
   n12 --> n3
-  n12 --> n6
-  n12 --> n5
-  n12 --> n7
-  n12 --> n8
   n12 --> n9
   n12 --> n10
   n12 --> n11
-  n12 --> n0
-  n12 --> n1
+  n12 --> n5
+  n12 --> n6
+  n13 --> n4
+  n13 --> n2
+  n13 --> n3
+  n13 --> n6
+  n13 --> n5
+  n13 --> n7
+  n13 --> n8
+  n13 --> n9
+  n13 --> n10
+  n13 --> n11
+  n13 --> n0
+  n13 --> n1
 ```
 
 ## Broken-reference report
 
-**44** dangling references from **live** documents in the genuine-rot classes (missing-on-disk + retired-target; 52 live total — the remainder point at on-disk files outside the node set), 327 from frozen / executed documents (expected drift), and 0 ambiguous, after the ADR-0005 Rule 4 code-block/placeholder filter. See [`docs/doc-graph-report.md`](./doc-graph-report.md) for the full list, split by origin bucket and target class — the maintainer reviews it; nothing is auto-fixed.
+**40** dangling references from **live** documents in the genuine-rot classes (missing-on-disk + retired-target; 48 live total — the remainder point at on-disk files outside the node set), 326 from frozen / executed documents (expected drift), and 0 ambiguous, after the ADR-0005 Rule 4 code-block/placeholder filter. See [`docs/doc-graph-report.md`](./doc-graph-report.md) for the full list, split by origin bucket and target class — the maintainer reviews it; nothing is auto-fixed.
 
 ## Regeneration
 
