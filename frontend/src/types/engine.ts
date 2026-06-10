@@ -56,7 +56,8 @@ export interface EngineState {
   // are added by analyze* calls, set to `'none'` by stopBoardAnalysis,
   // deleted by `closeBoard` when the owning board exits, and replaced
   // wholesale by analysisService.disconnect / onDisconnect. Same
-  // ADR-0001 / ADR-0002 reasoning as `reviews` above. Consumers
+  // ADR-0001 / ADR-0002 reasoning as `SessionState.reviews`
+  // (`store/schema.ts`). Consumers
   // (App.vue, useUserIORegistry) compare against `'ponder'`, which
   // is correct against both `'none'` and `undefined`.
   activeMode: PerBoard<AnalysisMode>;

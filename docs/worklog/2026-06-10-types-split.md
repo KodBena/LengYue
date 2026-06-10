@@ -25,7 +25,7 @@ commits).
 ## Module inventory
 
 Before: one 2,375-line hub (`src/types.ts`). After: 11 modules + a
-253-line barrel (2,750 total lines; the growth is per-file ADR-0006
+253-line barrel (2,751 total lines; the growth is per-file ADR-0006
 headers, import blocks, and the barrel's re-export lists — bodies
 moved verbatim).
 
@@ -33,7 +33,7 @@ moved verbatim).
 |---|---|---|---|
 | `src/types/ids.ts` | 126 | [B1] | `Brand<>` utility, `PerBoard<T>`, domain-agnostic identity / config-key / content-hash brands (BoardId, ProfileId, SessionId, BookmarkId, KeybindingActionId, RawKey/EnrichedKey, QueryId, ExtractorId/MetricId, CardTreeExpandKey, AnalysisPanelId/AnalysisTabId, CardId, GameSourceId) |
 | `src/types/game.ts` | 219 | [B3] | Game-coupled brands (NodeId, StoneColor, ColorMoveIndex, PlyIndex), Go value objects (Point, Move, SgfProperties, GameMetadata, NodeDelta), game-tree state (GameNode, BoardState, EnginePlayGameSession/Config) |
-| `src/types/engine.ts` | 176 | [B3] | EngineStatus, AnalysisMode, EngineMetrics, EngineState, EngineModelEntry, EngineInfo |
+| `src/types/engine.ts` | 177 | [B3] | EngineStatus, AnalysisMode, EngineMetrics, EngineState, EngineModelEntry, EngineInfo |
 | `src/types/analysis-env.ts` | 56 | [B2] | AnalysisPalette, ParameterMeta, AnalysisEnvironment |
 | `src/types/knobs.ts` | 349 | [B1] | KnobId, StorePath, KnobDomain/Widget/Input/Output/Transform/Decl, KnobRegistry, claim state machine (ClaimPolicy … UnsubscribeFn) |
 | `src/types/qeubo.ts` | 134 | [B1] | QeuboPhase … QeuboCreateInput, QeuboErrorKind, `QeuboError` (runtime class), QeuboBookmark |
@@ -126,6 +126,14 @@ rewritten header. Two deliberate token-level changes:
   of `./types` is unchanged minus the two deleted dead types.
 - The barrel header's readonly-policy block reads "live in this
   catalog (the modules above)" where it said "live in this file".
+- One positional comment pointer re-aimed where the motion itself
+  created a dangle: `EngineState.activeMode`'s "same reasoning as
+  `reviews` above" now names `SessionState.reviews`
+  (`store/schema.ts`) — the referent left the file. (A post-split
+  sweep found no other motion-created dangles; two pre-existing
+  direction-stale pointers — the BUNDLE_COMPRESSION_SCHEMES "below"
+  and the ForestNavState "above" — were already inaccurate at HEAD
+  and are preserved verbatim per the motion discipline.)
 
 No type shape, name, modifier, or comment body changed. `vue-tsc -b`
 green over the 132 unchanged barrel-importing files is the proof.
