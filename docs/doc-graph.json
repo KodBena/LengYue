@@ -3130,7 +3130,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-03-knob-bookmark-schema-reshape.md",
