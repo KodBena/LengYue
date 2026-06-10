@@ -4,7 +4,7 @@
 > executing §3.7 of the 2026-06-10 history-lessons audit
 > (`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`; lesson
 > L2: "multi-writer slots want owners, not per-writer gates"); branch
-> `bork/fix/multi-writer-slots-get-owners`, PR #381. Four legs, in
+> `bork/fix/multi-writer-slots-get-owners`, PR #382. Four legs, in
 > order: the `maxVisitsTarget` board write moved behind `analyzeRange`'s
 > refusal guards and through `mutateBoard`; a snapshot/restore owner for
 > the session-UI prefs blind mode flips; an engine-connection owner
