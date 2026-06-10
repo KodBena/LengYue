@@ -2946,7 +2946,7 @@
       "is_hub": false,
       "first_committed": "2026-05-30",
       "last_committed": "2026-05-30",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-05-30-perf-chart-accessor-decoupling.md",
@@ -3376,9 +3376,9 @@
       "path": "docs/worklog/2026-06-10-vue-lifecycle-footgun-guards.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-10",
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
     },
     {
       "path": "frontend/CLAUDE.md",
