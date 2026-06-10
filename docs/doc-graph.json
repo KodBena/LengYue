@@ -184,9 +184,9 @@
       "path": "docs/adr/0011-mechanization-discipline.md",
       "genre": "adr",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/archive/34b-complete-status.md",
@@ -3474,7 +3474,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-10-services-boundary-deny-by-default.md",
@@ -3528,9 +3528,9 @@
       "path": "docs/worklog/2026-06-11-mechanization-discipline-tenet.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "frontend/CLAUDE.md",
