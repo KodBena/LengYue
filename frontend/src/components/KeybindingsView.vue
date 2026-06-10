@@ -6,10 +6,11 @@
  * KEYBINDINGS_REGISTRY, groups actions by domain prefix
  * (`nav` / `display` / `engine`) in plan-sketch order, and
  * delegates each row's render + edit affordance to
- * KeybindingRow. Phase 4 of docs/notes/keybindings-plan.md
- * lands the row-level Edit / Reset / Unbind controls plus the
- * Reset-all button + reserved-keys disclosure at the foot;
- * Phase 3 (the read-only precursor) shipped 2026-05-27.
+ * KeybindingRow. Phase 4 of the archived plan
+ * (docs/archive/notes/design/keybindings-plan.md) landed the
+ * row-level Edit / Reset / Unbind controls plus the Reset-all
+ * button + reserved-keys disclosure at the foot; Phase 3 (the
+ * read-only precursor) shipped 2026-05-27.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -17,10 +18,8 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import KeybindingRow from './KeybindingRow.vue';
 import ResetAllKeybindingsModal from './modals/ResetAllKeybindingsModal.vue';
-import {
-  KEYBINDINGS_REGISTRY,
-  type KeybindingActionDecl,
-} from '../lib/keybindings';
+import type { KeybindingActionDecl } from '../lib/keybindings';
+import { KEYBINDINGS_REGISTRY } from '../composables/keybindings-catalog';
 import {
   RESERVED_KEYS,
   resetAllBindings,

@@ -2,9 +2,9 @@
  * tests/integration/useUserIORegistry.test.ts
  *
  * Tier-3 (composable integration) tests for `useUserIORegistry`
- * — the registry-driven keyboard dispatcher (Phase 2 of
- * `docs/notes/keybindings-plan.md`) with the Phase 4
- * captureMode early-return.
+ * — the registry-driven keyboard dispatcher (Phase 2 of the
+ * archived plan, `docs/archive/notes/design/keybindings-plan.md`)
+ * with the Phase 4 captureMode early-return.
  *
  * The composable installs a window-level `keydown` listener in
  * `onMounted` and removes it in `onUnmounted`, so each test
@@ -52,7 +52,7 @@ vi.mock('../../src/services/analysis-service', async () => {
 
 import { useUserIORegistry } from '../../src/composables/useUserIORegistry';
 import { store, resetWorkspace } from '../../src/store';
-import { ACTIONS } from '../../src/lib/keybindings';
+import { ACTIONS } from '../../src/composables/keybindings-catalog';
 import {
   cancelCapture,
   setBinding,

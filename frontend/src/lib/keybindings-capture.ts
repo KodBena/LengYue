@@ -1,8 +1,8 @@
 /**
  * src/lib/keybindings-capture.ts
  * Capture-mode state + binding-mutation helpers for the
- * user-facing keybindings editor (Phase 4 of
- * `docs/notes/keybindings-plan.md`).
+ * user-facing keybindings editor (Phase 4 of the archived plan,
+ * `docs/archive/notes/design/keybindings-plan.md`).
  *
  * Three pieces live here:
  *
@@ -41,7 +41,6 @@ import { ref, type Ref } from 'vue';
 import { store } from '../store';
 import type { KeybindingActionId } from '../types';
 import {
-  KEYBINDINGS_REGISTRY,
   effectiveKey,
   normalizeKey,
   type KeybindingActionDecl,
@@ -86,8 +85,10 @@ export function cancelCapture(): void {
  * Modifier-only keypresses (`Shift` / `Control` / `Alt` /
  * `Meta`) are also rejected — they have no standalone semantic
  * value, and the registry doesn't support modifier combos in
- * this phase (deferred per keybindings-plan.md's "Modifier
- * support — deferred" section).
+ * this phase (deferred per the archived plan's "Modifier
+ * support — deferred" section — `docs/archive/notes/design/
+ * keybindings-plan.md`; harvested as work-status item
+ * `keybindings-deferred-extensions`).
  *
  * `ContextMenu` and `F1`..`F12` carry browser-default
  * behaviours users typically rely on (right-click menu,
@@ -114,19 +115,26 @@ export function isReservedKey(key: string): boolean {
 // ── Conflict detection ─────────────────────────────────────
 
 /**
- * Find the action currently bound to `key` under the present
- * overrides, EXCLUDING `excludeActionId` (so a row can ask
- * "is this key bound to anything OTHER than me?"). Returns
- * null when the key is free. First-match wins by registry
- * order — matches the dispatcher's tie-break.
+ * Find the action in `registry` currently bound to `key` under
+ * the present overrides, EXCLUDING `excludeActionId` (so a row
+ * can ask "is this key bound to anything OTHER than me?").
+ * Returns null when the key is free. First-match wins by
+ * registry order — matches the dispatcher's tie-break.
+ *
+ * The registry is a parameter, not a module import — same
+ * registry-as-input posture as the substrate's
+ * `validateKeybindingsRegistry`, so this module stays
+ * catalog-agnostic. Production call sites (`KeybindingRow.vue`)
+ * pass the application catalog.
  */
 export function findActionByKey(
+  registry: ReadonlyArray<KeybindingActionDecl>,
   key: string,
   excludeActionId: KeybindingActionId | null,
 ): KeybindingActionDecl | null {
   const overrides = store.profile.settings.keybindings;
   const normalized = normalizeKey(key);
-  for (const action of KEYBINDINGS_REGISTRY) {
+  for (const action of registry) {
     if (action.id === excludeActionId) continue;
     const effective = effectiveKey(action, overrides);
     if (effective === null) continue;

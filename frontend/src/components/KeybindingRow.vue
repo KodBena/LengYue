@@ -2,9 +2,9 @@
 /**
  * src/components/KeybindingRow.vue
  *
- * Per-action row in the Keybindings sub-tab (Phase 4 of
- * docs/notes/keybindings-plan.md). Holds the three-state UI
- * substrate the editor needs:
+ * Per-action row in the Keybindings sub-tab (Phase 4 of the
+ * archived plan, docs/archive/notes/design/keybindings-plan.md).
+ * Holds the three-state UI substrate the editor needs:
  *
  *   - idle: shows current effective key + Edit / Reset buttons.
  *   - capturing: shows "Press a key..." prompt + Unbind / Cancel;
@@ -33,6 +33,7 @@ import { computed, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { store } from '../store';
 import { effectiveKey, type KeybindingActionDecl } from '../lib/keybindings';
+import { KEYBINDINGS_REGISTRY } from '../composables/keybindings-catalog';
 import {
   captureMode,
   startCapture,
@@ -136,8 +137,10 @@ function handleCaptureKeydown(e: KeyboardEvent): void {
   }
 
   // Conflict detection — does any OTHER action currently bind this
-  // key? (Self-bind is a no-op semantically, so excluded.)
-  const conflict = findActionByKey(e.key, props.action.id);
+  // key? (Self-bind is a no-op semantically, so excluded.) The
+  // catalog is passed explicitly — findActionByKey is
+  // registry-agnostic.
+  const conflict = findActionByKey(KEYBINDINGS_REGISTRY, e.key, props.action.id);
   if (conflict !== null) {
     state.value = {
       kind: 'conflict',

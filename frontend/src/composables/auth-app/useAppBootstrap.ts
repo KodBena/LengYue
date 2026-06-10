@@ -31,6 +31,7 @@ import { useAutoSaveAnalyses } from '../useAutoSaveAnalyses';
 import { initSuggestionColorCalibration } from '../board/suggestion-color-calibration';
 import { validateRegistry } from '../../lib/knobs';
 import { validateKeybindingsRegistry } from '../../lib/keybindings';
+import { KEYBINDINGS_REGISTRY } from '../keybindings-catalog';
 import { store, boardsSetVersion } from '../../store';
 import { i18n } from '../../i18n';
 import { isSupportedLocale, DEFAULT_LOCALE } from '../../i18n/locales';
@@ -41,13 +42,15 @@ import type { useAuth } from './useAuth';
 export function useAppBootstrap(
   auth: ReturnType<typeof useAuth>,
 ): { sync: SyncService } {
-  // Defensive ship-time validation of the keybindings registry —
+  // Defensive ship-time validation of the keybindings catalog —
   // throws if any default-key conflict or duplicate id sneaks in.
-  // The registry is module-static (doesn't change at runtime), so
-  // a single setup-time call suffices. Per the keybindings-plan
+  // The substrate validator takes the catalog as input (the
+  // substrate/catalog split keeps it registry-agnostic); the
+  // catalog is module-static (doesn't change at runtime), so a
+  // single setup-time call suffices. Per the keybindings-plan
   // Phase 1; reuses the ADR-0002 fail-loudly posture the knob
   // registry's validation also uses.
-  validateKeybindingsRegistry();
+  validateKeybindingsRegistry(KEYBINDINGS_REGISTRY);
 
   const sync = new SyncService('user_workspace_01', auth);
   const qeubo = useQeubo();

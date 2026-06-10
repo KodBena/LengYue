@@ -2,32 +2,24 @@
  * tests/unit/lib/keybindings.test.ts
  *
  * Tier-1 (pure-logic) tests for `src/lib/keybindings.ts` — the
- * registry substrate's pure helpers (`normalizeKey`,
- * `effectiveKey`, `isActionEnabled`) plus a ship-time smoke
- * check on `KEYBINDINGS_REGISTRY` itself and its validator.
+ * generic keybindings substrate: `normalizeKey`, `effectiveKey`,
+ * and the registry-parameterized `validateKeybindingsRegistry`
+ * exercised over synthetic registries (the substrate is
+ * catalog-agnostic; the shipped catalog's own smoke tests live in
+ * `tests/unit/composables/keybindings-catalog.test.ts`).
  *
- * No DOM, no fakes. `isActionEnabled` reads the reactive store
- * directly (the dispatcher calls it from a window keydown
- * handler against the live store); these tests mutate the store
- * in `beforeEach` to set up the reactive precondition the unit
- * is reading.
+ * No DOM, no fakes, no store.
  *
  * License: Public Domain (The Unlicense)
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
-  KEYBINDINGS_REGISTRY,
-  ACTIONS,
   effectiveKey,
-  isActionEnabled,
   normalizeKey,
   validateKeybindingsRegistry,
   type KeybindingActionDecl,
-  type KeybindingEnabledWhen,
 } from '../../../src/lib/keybindings';
-import { resetWorkspace, store, addBoard } from '../../../src/store';
-import { createInitialBoard } from '../../../src/store/board-factory';
 import type { KeybindingActionId } from '../../../src/types';
 
 // ── normalizeKey ───────────────────────────────────────────
@@ -71,7 +63,7 @@ describe('normalizeKey', () => {
   });
 });
 
-// ── effectiveKey ───────────────────────────────────────────
+// ── Synthetic-decl helper ──────────────────────────────────
 
 const mkAction = (overrides: Partial<KeybindingActionDecl> = {}): KeybindingActionDecl => ({
   id: 'test.action' as KeybindingActionId,
@@ -79,10 +71,12 @@ const mkAction = (overrides: Partial<KeybindingActionDecl> = {}): KeybindingActi
   descriptionKey: 'test.action.description',
   defaultKey: 'k',
   dispatchMode: 'immediate',
-  enabledWhen: 'always',
+  enabledWhen: () => true,
   handler: () => {},
   ...overrides,
 });
+
+// ── effectiveKey ───────────────────────────────────────────
 
 describe('effectiveKey', () => {
   it('returns the default when no override entry exists', () => {
@@ -131,119 +125,49 @@ describe('effectiveKey', () => {
   });
 });
 
-// ── isActionEnabled ────────────────────────────────────────
-
-describe('isActionEnabled', () => {
-  beforeEach(() => {
-    // resetWorkspace seeds a default board (`store.boards =
-    // [createInitialBoard()]`), so the post-reset state has an
-    // active board. Tests below that want the no-board state
-    // explicitly empty `store.boards`.
-    resetWorkspace();
-  });
-
-  const mk = (enabledWhen: KeybindingEnabledWhen): KeybindingActionDecl =>
-    mkAction({ enabledWhen });
-
-  it("'always' is true regardless of store state", () => {
-    expect(isActionEnabled(mk('always'))).toBe(true);
-    addBoard(createInitialBoard());
-    expect(isActionEnabled(mk('always'))).toBe(true);
-  });
-
-  it("'activeBoardExists' is false when no boards", () => {
-    store.boards = [];
-    expect(isActionEnabled(mk('activeBoardExists'))).toBe(false);
-  });
-
-  it("'activeBoardExists' is true when a board is active", () => {
-    // resetWorkspace already seeded one — assertion verifies the
-    // post-reset shape composes with the predicate.
-    expect(isActionEnabled(mk('activeBoardExists'))).toBe(true);
-  });
-
-  it("'engineConnected' is false when engine is disconnected", () => {
-    store.engine.status = 'disconnected';
-    expect(isActionEnabled(mk('engineConnected'))).toBe(false);
-  });
-
-  it("'engineConnected' is false when engine is connecting", () => {
-    store.engine.status = 'connecting';
-    expect(isActionEnabled(mk('engineConnected'))).toBe(false);
-  });
-
-  it("'engineConnected' is true when engine is connected", () => {
-    store.engine.status = 'connected';
-    expect(isActionEnabled(mk('engineConnected'))).toBe(true);
-  });
-});
-
-// ── KEYBINDINGS_REGISTRY ship-time smoke ───────────────────
-
-describe('KEYBINDINGS_REGISTRY (ship-time smoke)', () => {
-  it('contains the 12 actions ACTIONS catalog declares', () => {
-    expect(KEYBINDINGS_REGISTRY.length).toBe(Object.keys(ACTIONS).length);
-    expect(KEYBINDINGS_REGISTRY.length).toBe(12);
-  });
-
-  it('every action id is unique', () => {
-    const ids = KEYBINDINGS_REGISTRY.map((a) => a.id);
-    expect(new Set(ids).size).toBe(ids.length);
-  });
-
-  it('every action id matches a declared ACTIONS entry', () => {
-    const declared = new Set<KeybindingActionId>(Object.values(ACTIONS));
-    for (const action of KEYBINDINGS_REGISTRY) {
-      expect(declared.has(action.id)).toBe(true);
-    }
-  });
-
-  it('no two actions share a default key', () => {
-    const seen = new Map<string, KeybindingActionId>();
-    for (const action of KEYBINDINGS_REGISTRY) {
-      if (action.defaultKey === null) continue;
-      const prior = seen.get(action.defaultKey);
-      expect(prior).toBeUndefined();
-      seen.set(action.defaultKey, action.id);
-    }
-  });
-
-  it('every action references an existing i18n key prefix shape', () => {
-    // The i18n catalog's actual presence is verified at runtime
-    // by vue-i18n's missingWarn; here we pin the key-shape
-    // convention so a future declaration without a matching label
-    // pair fails the smoke test loudly.
-    for (const action of KEYBINDINGS_REGISTRY) {
-      expect(action.labelKey).toMatch(/^keybindings\.action\.[a-zA-Z]+\.label$/);
-      expect(action.descriptionKey).toMatch(/^keybindings\.action\.[a-zA-Z]+\.description$/);
-    }
-  });
-
-  it('every action id is `<domain>.<verb>` with domain ∈ {nav, display, engine}', () => {
-    // KeybindingsView's grouped render assumes this closed set.
-    for (const action of KEYBINDINGS_REGISTRY) {
-      const [domain] = action.id.split('.');
-      expect(['nav', 'display', 'engine']).toContain(domain);
-    }
-  });
-
-  it('coalesced dispatchMode is reserved for nav actions; immediate is used elsewhere', () => {
-    // The plan's invariant: rAF-coalesce only for sustained-input
-    // (nav) actions; toggles and engine controls dispatch
-    // immediately.
-    for (const action of KEYBINDINGS_REGISTRY) {
-      const [domain] = action.id.split('.');
-      if (domain === 'nav') {
-        expect(action.dispatchMode).toBe('coalesced');
-      } else {
-        expect(action.dispatchMode).toBe('immediate');
-      }
-    }
-  });
-});
+// ── validateKeybindingsRegistry ────────────────────────────
+//
+// Registry-parameterized (the substrate/catalog split made the
+// validator take its registry as input), so the failure branches
+// are exercisable with synthetic registries — previously only the
+// shipped registry's pass case was testable.
 
 describe('validateKeybindingsRegistry', () => {
-  it('passes for the shipped registry', () => {
-    expect(() => validateKeybindingsRegistry()).not.toThrow();
+  it('passes for an empty registry', () => {
+    expect(() => validateKeybindingsRegistry([])).not.toThrow();
+  });
+
+  it('passes for a conflict-free registry', () => {
+    const registry = [
+      mkAction({ id: 'test.a' as KeybindingActionId, defaultKey: 'a' }),
+      mkAction({ id: 'test.b' as KeybindingActionId, defaultKey: 'b' }),
+    ];
+    expect(() => validateKeybindingsRegistry(registry)).not.toThrow();
+  });
+
+  it('throws on a duplicate action id', () => {
+    const registry = [
+      mkAction({ id: 'test.dup' as KeybindingActionId, defaultKey: 'a' }),
+      mkAction({ id: 'test.dup' as KeybindingActionId, defaultKey: 'b' }),
+    ];
+    expect(() => validateKeybindingsRegistry(registry)).toThrow(/duplicate action id: test\.dup/);
+  });
+
+  it('throws on a default-key conflict, naming both actions', () => {
+    const registry = [
+      mkAction({ id: 'test.a' as KeybindingActionId, defaultKey: 'x' }),
+      mkAction({ id: 'test.b' as KeybindingActionId, defaultKey: 'x' }),
+    ];
+    expect(() => validateKeybindingsRegistry(registry)).toThrow(
+      /default-key conflict: "x" bound to both test\.a and test\.b/,
+    );
+  });
+
+  it('does NOT treat multiple null defaultKeys as a conflict (unbound actions coexist)', () => {
+    const registry = [
+      mkAction({ id: 'test.a' as KeybindingActionId, defaultKey: null }),
+      mkAction({ id: 'test.b' as KeybindingActionId, defaultKey: null }),
+    ];
+    expect(() => validateKeybindingsRegistry(registry)).not.toThrow();
   });
 });

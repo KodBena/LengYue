@@ -6,7 +6,9 @@
  *
  *   - `RESERVED_KEYS` membership + `isReservedKey` shape.
  *   - `findActionByKey` (default-key lookup, override lookup,
- *     exclude-self semantics, normalization).
+ *     exclude-self semantics, normalization) — registry-
+ *     parameterized since the substrate/catalog split; exercised
+ *     here against the shipped catalog.
  *   - Binding mutators (`setBinding`, `resetBinding`,
  *     `resetAllBindings`, `hasOverride`) over the persisted
  *     `store.profile.settings.keybindings` slot.
@@ -20,7 +22,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ACTIONS } from '../../../src/lib/keybindings';
+import { ACTIONS, KEYBINDINGS_REGISTRY } from '../../../src/composables/keybindings-catalog';
 import {
   RESERVED_KEYS,
   captureMode,
@@ -94,45 +96,45 @@ describe('isReservedKey', () => {
 
 describe('findActionByKey', () => {
   it('finds an action by its default key when no overrides exist', () => {
-    const found = findActionByKey('m', null);
+    const found = findActionByKey(KEYBINDINGS_REGISTRY, 'm', null);
     expect(found?.id).toBe(ACTIONS.displayToggleMoveSuggestions);
   });
 
   it('finds an action by its overridden key', () => {
     setBinding(ACTIONS.displayToggleMoveNumbers, 'z');
-    const found = findActionByKey('z', null);
+    const found = findActionByKey(KEYBINDINGS_REGISTRY, 'z', null);
     expect(found?.id).toBe(ACTIONS.displayToggleMoveNumbers);
   });
 
   it('does NOT find the action whose default key was overridden away', () => {
     // displayToggleMoveNumbers default is 'n'; override to 'z'
     setBinding(ACTIONS.displayToggleMoveNumbers, 'z');
-    const found = findActionByKey('n', null);
+    const found = findActionByKey(KEYBINDINGS_REGISTRY, 'n', null);
     expect(found).toBeNull();
   });
 
   it('does NOT find an action whose effective key is null (unbound)', () => {
     setBinding(ACTIONS.displayToggleMoveNumbers, null);
-    const found = findActionByKey('n', null);
+    const found = findActionByKey(KEYBINDINGS_REGISTRY, 'n', null);
     expect(found).toBeNull();
   });
 
   it('excludes the named action id (self-bind is not a conflict)', () => {
     // navNext defaults to ArrowDown; searching for ArrowDown
     // while excluding navNext should return null.
-    const found = findActionByKey('ArrowDown', ACTIONS.navNext);
+    const found = findActionByKey(KEYBINDINGS_REGISTRY, 'ArrowDown', ACTIONS.navNext);
     expect(found).toBeNull();
   });
 
   it('normalizes the search key (uppercase letter finds lowercase binding)', () => {
     // displayToggleMoveSuggestions defaults to 'm'; searching
     // for 'M' should match.
-    const found = findActionByKey('M', null);
+    const found = findActionByKey(KEYBINDINGS_REGISTRY, 'M', null);
     expect(found?.id).toBe(ACTIONS.displayToggleMoveSuggestions);
   });
 
   it('returns null when the key is bound to no action', () => {
-    const found = findActionByKey('z', null);
+    const found = findActionByKey(KEYBINDINGS_REGISTRY, 'z', null);
     expect(found).toBeNull();
   });
 });

@@ -563,9 +563,9 @@ export interface AppSettings {
    * `KeybindingActionId` — absence means "use the registry's
    * `defaultKey`"; explicit `null` means "user has unbound this
    * action even though it has a default". The registry itself
-   * (`src/lib/keybindings.ts::KEYBINDINGS_REGISTRY`) holds the
-   * authoritative action list with their default keys; this
-   * field stores only the deltas the user has authored. Per the
+   * (`src/composables/keybindings-catalog.ts::KEYBINDINGS_REGISTRY`)
+   * holds the authoritative action list with their default keys;
+   * this field stores only the deltas the user has authored. Per the
    * keybindings-plan design, fresh installs serialise to `{}`
    * (defaults rule); migration 52 → 53 backfills the same on
    * legacy persisted blobs.
