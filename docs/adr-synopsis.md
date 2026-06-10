@@ -32,7 +32,8 @@ remain review's to catch).
 
 **Why care.** A type that claims a property the runtime doesn't hold
 is a lie. ADR-0001 aligns the type declarations with actual behavior
-so future annotations regain meaning. Pinia was considered as an
+so future annotations regain meaning. The same philosophy extends to
+the backend's mutable Pydantic models. Pinia was considered as an
 alternative and rejected for now (cost-benefit, blast radius); the
 "Revisit when" section names the conditions that would flip the
 decision.
@@ -63,7 +64,8 @@ available — having since been articulated as its own tenet, ADR-0008).
 **Why care.** This is the most consequential single tenet in the
 codebase. It is why the KataGo timeout cancels rather than retries,
 why analysis persistence is designed without a silent retry queue,
-why the OpenAPI codegen pipeline exists. Three documented exceptions
+why the proxy's cache controls are explicit flags rather than
+implicit behaviour, why the OpenAPI codegen pipeline exists. Three documented exceptions
 are listed: UI input validation fallbacks, idempotent state
 transitions, and bounded-and-scheduled-for-removal compat shims. A
 contribution that swallows an error or silently coerces malformed
@@ -87,8 +89,10 @@ extracted only when a second concrete consumer exists.
 shaped — Go-specific gating logic isolated in named functions,
 storage abstractions that don't introspect their payloads, generic
 seams without premature Port extraction. The "second domain adopter"
-revisit trigger has now fired twice (the `chess-clone` work-status
-item; the maintainer's generic knowledge flash-card fork), so the
+revisit trigger has fired (the maintainer's generic knowledge
+flash-card fork), with a second prospective adopter filed on the
+game-class axis (the `chess-clone` work-status item; its own
+proof-of-concept gate is unmet), so the
 seams the ADR documents are the extraction map real adopters read.
 The 2026-06-10 amendment adds the non-game sizing: Band 2 *splits* —
 the game-tree skeleton is replaced while the SR-orchestration flow
@@ -178,7 +182,9 @@ prevents the condition. The contraction rules acknowledge that the
 working-memory cost of a file isn't just line count — it's
 content-aware. Refactoring oversized files is incremental, not a
 sweep, composing with ADR-0004's and ADR-0006's retrofit posture.
-Status as of authoring: Proposed.
+Accepted 2026-06-11 after six weeks of binding-in-practice operation;
+the acceptance record names the two questions held open (the
+never-measured density thresholds; bounded-vs-aspirational budgets).
 
 ## ADR-0008: Classification Discipline
 
@@ -218,12 +224,20 @@ null result — is honest only when the investigation behind it is
 captured in a form the next reader can reproduce. Three triggers
 warrant a profile capture before work is considered complete
 (before claiming improvement, when investigating user-reported
-feel issues, before/after structural refactors of hot paths); two
-canonical tools (Firefox DevTools Performance with Vue's
-`app.config.performance = true` enabled in dev;
-`@firefox-devtools/profiler-cli` as the canonical parser); a
-starting metric vocabulary (per-handler / per-frame
-`RefreshObserver` / `LongTask` / GC / inter-arrival distributions);
+feel issues, before/after structural refactors of hot paths); a
+canonical tool surface (Firefox DevTools Performance with Vue's
+`app.config.performance = true` in dev, parsed by
+`@firefox-devtools/profiler-cli`, for manual investigation; since the
+2026-06-01 amendment, Chrome DevTools Performance captured via
+CDP-over-Playwright — `frontend/scripts/perf-capture.mjs` with a
+dedicated parser, since `profiler-cli` cannot ingest Chrome traces —
+for automated and concurrent-load captures, plus CDP `HeapProfiler`
+(`frontend/scripts/perf-heap.mjs`) for leak detection, and a pluggable
+scenario harness for reproducible before/after pairs — recommended,
+not mandated); a starting metric vocabulary (per-handler / per-frame
+`RefreshObserver` / `LongTask` / GC / inter-arrival distributions;
+per-component render+patch ranking with render ≫ patch read as
+render-coupling; retained-heap tail-slope per cycle for leaks);
 a user-local profile-share convention referenced by path +
 timestamp + size, not pasted inline. Three exceptions: trivial
 structural-by-inspection changes, unsubstantiated-by-design
@@ -317,7 +331,8 @@ vocabulary (when asserting perf properties, attach the
 substantiation). Together they cover the same family of failures
 at different intervention points.
 
-The two decisions (ADR-0001, ADR-0003) describe specific structural
+The two structural records — ADR-0001 (a decision) and ADR-0003 (a
+bounded-context map) — describe specific structural
 choices that shape how the tenets get applied. ADR-0001's mutator
 convention is the discipline ADR-0002 verifies in code review;
 ADR-0003's domain-coupling map is the structure ADR-0007's
@@ -326,3 +341,21 @@ ultimately serve.
 
 A contribution against the grain of any one of these will cause
 friction wherever it touches the others.
+
+## How a fork consumes this corpus
+
+*(Added 2026-06-11, per the ADR-corpus audit §6.8/§8.7.)* A fork — the
+planned generic knowledge flash-card fork is the live case — inherits
+`docs/adr/` wholesale as its decision history. The tenets transfer
+wholesale, re-deriving instance lists where they name Go types.
+ADR-0003 is the transfer map: read once for the seams and sizings, then
+superseded by the fork's own band map. Decisions (ADR-0001 and kin)
+re-evaluate against the fork's own context rather than transferring as
+settled. Umbrella-bound infrastructure named by ADR-0005 Rules 2/9 (the
+dispatch ledger, the work-status store) is re-instantiated, not
+inherited — repo-resident handles resolve in any clone per the
+stable-handles convention. Once the mechanization-discipline tenet
+ships, its enforcement-surface declarations become the transfer
+manifest: the fork checks each discipline's mechanism survived the
+re-instantiation. New fork decisions continue the numbering with their
+own records.

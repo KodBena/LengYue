@@ -319,99 +319,17 @@ inside the submodule.
 
 ## Architectural governance — ADRs and tenets
 
-The ten foundational architectural records live in `docs/adr/`, spread
-across two genres. **All ten apply project-wide**, regardless of which
-sub-project's history they originated in.
+The ten foundational architectural records live in `docs/adr/` — two
+structural records (ADR-0001, a decision; ADR-0003, a bounded-context
+map) and eight tenets (ADR-0002, 0004–0010). **All ten apply
+project-wide**, regardless of which sub-project's history they
+originated in.
 
-### Decisions
-
-- **ADR-0001: State Mutation and `readonly` Policy.** Frontend state
-  containers are mutated as part of normal operation; annotating them
-  `readonly` was an aspirational lie that strict mode refused to accept.
-  Decision: remove `readonly` from state containers, preserve it on value
-  objects. The same philosophy applies to the backend's mutable Pydantic
-  models.
-- **ADR-0003: Frontend Portability and Domain Boundaries.** A descriptive
-  map of the codebase's domain coupling, plus a forward-looking authoring
-  principle: when designing a new module, ask "what would change for a
-  Chess port?" The principle's value is at authoring time — it forces
-  honest separation between the abstraction and the instance.
-
-### Tenets
-
-- **ADR-0002: Fail Loudly.** Six-level loudness hierarchy from
-  compile-error (best) to silent fallback (worst). Seven concrete rules
-  (Rule 6 appended 2026-05-07 extending the principle to planning-time
-  records; Rule 7 appended 2026-05-15 extending it to vocabulary-fit
-  decisions — closest-match selection surfaces too — with an explicit
-  provisional-home flag since Rule 7's deeper subject, refusing fuzzy
-  matching when sharper classification is available, is broader than
-  fail-loudly proper and may relocate when a classification-discipline
-  tenet is articulated); three documented exceptions. The most
-  consequential single document in the project. The reason
-  analysis-recording is designed without a silent retry queue, why proxy
-  cache controls are explicit rather than implicit, why the SR review
-  timeout cancels-rather-than-retries.
-- **ADR-0004: Minimal-Touch Edits to Partially-Visible Files.** Authoring
-  discipline: when editing under partial visibility, only the lines the
-  build tool flags get touched. Full-file rewrites require full-file
-  visibility. Protects against silent runtime breakage from changes the
-  type-checker cannot catch.
-- **ADR-0005: Documentation Discipline.** Seven rules for authoring
-  documentation: single source of truth per nominal handle; a shared
-  dispatch ledger for cross-team communications; reference descriptions
-  describe relations rather than content snapshots; sibling references use
-  generic descriptors; file location reflects content; author as you
-  decide; transitional sections carry explicit retirement plans. The
-  discipline that prevents documentation drift from becoming its own silent
-  failure mode.
-- **ADR-0006: Source-File Headers.** Every source file in `frontend/` and
-  `backend/` carries a header with pathname, purpose statement, and license
-  declaration. Composes with ADR-0004's partial-visibility discipline — a
-  file pasted into a chat or PR diff identifies itself.
-- **ADR-0007: File Size and Information Density.** *(Status: Proposed.)*
-  Soft size budgets for source files, with the hard prohibition that logic
-  must never be compressed to fit a budget. Prevents the condition under
-  which ADR-0004's partial-visibility discipline has to apply.
-- **ADR-0008: Classification Discipline.** When choosing from a closed
-  vocabulary (enum, ADR band, chrome neighborhood, documented pattern) or
-  placing into a taxonomy, refuse fuzzy matches against an inadequate
-  vocabulary and refuse synthetic fabrications under ambiguity — classify
-  only when the classification is honest. Two registers (positive: revise
-  vocabularies rather than picking closest-match; negative: leave flat
-  rather than inventing synthetic parents). Severity is calibrated by the
-  substitution test — what the failure shape would cost on a critical
-  surface, not the observed instance's user-visible cost. ADR-0002's Rule 7
-  is its fail-loudly-register instance; this tenet is the proactive
-  register that prevents the silent failures Rule 7 surfaces.
-- **ADR-0009: Performance Investigation Discipline.** A perf claim —
-  improvement, regression, or null result — is honest only when the
-  investigation behind it is captured in a form the next reader can
-  reproduce. Three triggers (before claiming improvement, when investigating
-  user-reported feel issues, before/after structural refactors of hot
-  paths); two canonical tools (Firefox DevTools Performance with Vue's
-  `app.config.performance = true`; `@firefox-devtools/profiler-cli` as the
-  canonical parser, with the Chrome/CDP surface amended in 2026-06-01); a
-  starting metric vocabulary (per-handler / per-frame / LongTask / GC /
-  inter-arrival distributions). Calibration on perception names three
-  orthogonal outcome classes (measurement substantiates / finds nothing /
-  contradicts), each with its own correct response. Composes with ADR-0002
-  and ADR-0008 as the per-domain instance of the unsubstantiated-claim
-  family of failures for the performance vocabulary.
-- **ADR-0010: Render Locality and Canvas for Data-Dense Visuals.** Two
-  frontend-authoring rules. Canvas rule: a fixed-size visual whose element
-  count scales with the data and has no per-element layout/hit-test is a
-  `<canvas>` job, not a `v-for` of DOM/SVG nodes. Read-locality rule: a
-  component reads a high-frequency reactive value only if its own job is to
-  display it; composition / orchestration / chrome nodes read structural or
-  low-frequency state and let leaves self-source (accessor or imperative
-  escape). Corollary (verbatim): *`v-memo` and "pull the element out of the
-  loop" fix the patch, not the render; a reactive read anywhere in a
-  template re-runs the whole render function; render ≫ patch is the tell.*
-  The preventive sibling of ADR-0009's reactive net — both patterns
-  recurred after being learned once (the render-coupling postmortem
-  proposed this tenet as Recommendation 1; `TreeWidget` reproduced the bug
-  days later).
+The condensed per-ADR reference is `docs/adr-synopsis.md` — the single
+derived summary (declared via its `derived-from` marker), watched by the
+per-PR co-change advisory in CI (advisory, not a gate); where it disagrees
+with an ADR, the ADR wins. This section deliberately does not duplicate it
+(ADR-0005 Rule 1).
 
 Together they establish the codebase's architectural personality: honest
 types over aspirational annotations (ADR-0001); loud failure over silent
@@ -462,9 +380,10 @@ and "hosted deployment ships."
   Go-bound ~30-40%; a non-game knowledge domain additionally *splits* the
   game-tree-coupled band (the SR-orchestration flow and generic charting
   survive; the tree skeleton does not — the ADR's 2026-06-10 amendment
-  carries both sizings). Two adopters have materialized on different
-  axes — the `chess-clone` work-status item and the maintainer's intended
-  generic knowledge flash-card fork. The proxy's Prism abstraction is
+  carries both sizings). One adopter has materialized (the maintainer's
+  intended generic knowledge flash-card fork), with a second prospective
+  adopter filed on the game-class axis (the `chess-clone` work-status
+  item; its own proof-of-concept gate is unmet). The proxy's Prism abstraction is
   intended to support multiple protocols, though only KataGo is currently
   implemented. The work is substantial but bounded.
 - **Community palette library** is on the longer-term horizon — palettes are

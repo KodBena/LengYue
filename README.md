@@ -87,8 +87,10 @@ System-level documentation lives in `docs/`:
 - **`docs/notes/`** — Design and architectural notes:
   `tenancy.md` (multi-tenant model), `reflection.md` (architectural
   retrospective at the close of the pre-release sweep),
-  `analysis-persistence-plan.md` (planned feature),
-  `frontend-backlog.md` (raw frontend backlog).
+  `frontend-backlog.md` (raw frontend backlog). The
+  analysis-persistence planning note has shipped and is archived at
+  `docs/archive/notes/design/analysis-persistence-plan.md`; the
+  handoff describes the live path.
 - **`docs/archive/`** — Historical artifacts kept for reference.
   Includes the pre-umbrella HANDOFF snapshots authored during the
   34b project: `34b-frontend-brief.md`,
@@ -106,18 +108,20 @@ Backend-internal documentation lives in `backend/docs/`:
 
 ## Project status
 
-**v1.0.0 has shipped** (2026-04-30). The locked release scope —
-seven items spanning backend de-branding, analysis-range
-preservation, the card-tree widget, pass handling and SGF save,
-the curated default palette, the tenancy READMEs, and the
-initial-load layout fix — is closed. See
-`docs/archive/notes/release-retrospective-2026-04.md` for the
-whole-project retrospective from a contributor perspective and
-`docs/handoff-current.md` for the current operational state.
-Earlier closure documents remain valid as historical record:
-`docs/notes/reflection.md` (backend infrastructure-sweep
-retrospective) and `docs/notes/audit-reflections.md` (umbrella
-restructure retrospective).
+Work status — what is open, shipped, or deferred — lives in the
+work-status store (the `todo` Postgres DB, queried via `psql`;
+`docs/TODO.md` is a human index over it). Current orientation lives
+in `docs/handoff-current.md`. This README deliberately carries no
+release headline — headlines rot (the previous one outlived its
+release by a version).
+
+Release retrospectives are historical record:
+`docs/archive/notes/release-retrospective-2026-04.md` (v1.0.0,
+whole-project, from a contributor perspective), plus the earlier
+closure documents `docs/notes/reflection.md` (backend
+infrastructure-sweep retrospective) and
+`docs/notes/audit-reflections.md` (umbrella restructure
+retrospective).
 
 The next undertaking is distribution packaging — making the
 software installable for users who don't have Node and Python
