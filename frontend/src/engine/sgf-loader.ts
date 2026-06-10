@@ -2,7 +2,8 @@
  * src/engine/sgf-loader.ts
  * License: Public Domain (The Unlicense)
  */
-import { sgfToMove, generateUUID } from './util';
+import { sgfToMove } from './util';
+import { generateUUID } from '../lib/utils';
 import { validateMove } from './rules';
 import type { BoardState, GameNode, NodeId, StoneColor, Point } from '../types';
 

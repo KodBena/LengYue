@@ -11,7 +11,7 @@
  */
 
 import type { BoardState, GameNode, BoardId, NodeId } from '../types';
-import { generateUUID } from '../engine/util';
+import { generateUUID } from '../lib/utils';
 
 // ── Newtype constructors ───────────────────────────────────────────────────────
 // These are identity functions at runtime; their value is purely in the
@@ -23,7 +23,7 @@ export const asNodeId  = (s: string): NodeId  => s as NodeId;
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
 // Short id generator for NodeId. Distinct from
-// `engine/util.ts::generateUUID` (RFC4122 v4) — the short form is
+// `lib/utils.ts::generateUUID` (RFC4122 v4) — the short form is
 // fine for board-scoped node identifiers where collision risk is
 // per-session and human-readable hashes are friendlier in DevTools.
 //

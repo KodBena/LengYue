@@ -1,7 +1,9 @@
 /**
  * src/engine/util.ts
- * Pure helpers for board / SGF coordinate work and active-variation
- * traversal. Stateless; no reactive imports.
+ * Pure helpers for board / SGF coordinate work, active-variation
+ * traversal, and game-name resolution. Stateless; no reactive
+ * imports. (The domain-free helpers `generateUUID` / `updateRegistry`
+ * moved to `lib/utils.ts` 2026-06-10 — this module is [B3].)
  * License: Public Domain (The Unlicense)
  */
 import type { Move, StoneColor, BoardState, NodeId, RootToLeafPath } from '../types';
@@ -30,22 +32,6 @@ export function pointToKey(x: number, y: number): string {
 export function keyToPoint(key: string): { x: number, y: number } {
   const [x, y] = key.split(',').map(Number);
   return { x, y };
-}
-
-export function setDeep(obj: any, path: string[], value: any): void {
-  if (!path.length) return;
-  
-  let current = obj;
-  for (let i = 0; i < path.length - 1; i++) {
-    const key = path[i];
-    if (current[key] === null || typeof current[key] !== 'object') {
-      current[key] = {};
-    }
-    current = current[key];
-  }
-  
-  const finalKey = path[path.length - 1];
-  current[finalKey] = value;
 }
 
 /**
@@ -198,47 +184,6 @@ export function decodeBoardArray(
     out.push({ x, y, value: values[i] });
   }
   return out;
-}
-
-export function updateRegistry<T extends object>(
-  root: T,
-  path: string[],
-  value: any
-): void {
-  setDeep(root, path, value);
-}
-
-/**
- * RFC4122 v4 UUID. Prefers `crypto.randomUUID()`; falls back to a
- * manual construction over `crypto.getRandomValues` when the former
- * is unavailable.
- *
- * `crypto.randomUUID` is only present on **secure contexts** —
- * HTTPS or localhost. Accessing the Vite dev server via a LAN IP
- * (e.g. `http://192.168.x.x:5173`) is not a secure context, so the
- * method is undefined there. `crypto.getRandomValues` is available
- * in every context, so the fallback works regardless. Per ADR-0002,
- * the call site (currently `useQeubo`'s `pinCurrent`) goes through
- * this helper rather than the bare API to avoid silent context-
- * dependent failures.
- */
-export function generateUUID(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
-  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
-  const hex: string[] = [];
-  for (const b of bytes) hex.push(b.toString(16).padStart(2, '0'));
-  return [
-    hex.slice(0, 4).join(''),
-    hex.slice(4, 6).join(''),
-    hex.slice(6, 8).join(''),
-    hex.slice(8, 10).join(''),
-    hex.slice(10, 16).join(''),
-  ].join('-');
 }
 
 // ── Game-name resolution (description fallback ladder) ────────────────────────

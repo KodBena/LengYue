@@ -11,9 +11,10 @@
  * Controlled like the other Settings editors: props in, and on every
  * mutation it emits `update({ path: ['analysisTabs'], value: nextTabs })`
  * (PaletteEditor's wholesale pattern); the host applies it via
- * `updateRegistry`. The editor knows nothing about its host — it is
- * mounted in a Settings sub-tab today, but relocating it is a one-line
- * change at the mount site, never a change here.
+ * `updateRegistry` (`lib/utils.ts`). The editor knows nothing about
+ * its host — it is mounted in a Settings sub-tab today, but
+ * relocating it is a one-line change at the mount site, never a
+ * change here.
  *
  * License: Public Domain (The Unlicense)
  */

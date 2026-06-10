@@ -32,7 +32,7 @@ import CardSetEditor from './editors/CardSetEditor.vue';
 import RegistryEditor from './editors/RegistryEditor.vue';
 import AnalysisTabsEditor from './editors/AnalysisTabsEditor.vue';
 import { store, DEFAULTS } from '../store';
-import { updateRegistry } from '../engine/util';
+import { updateRegistry } from '../lib/utils';
 import { cancelCapture } from '../lib/keybindings-capture';
 
 const { t } = useI18n();

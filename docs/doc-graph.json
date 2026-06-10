@@ -1,6 +1,6 @@
 {
-  "node_count": 431,
-  "edge_count": 1989,
+  "node_count": 432,
+  "edge_count": 1995,
   "age_buckets": [
     {
       "name": "fresh",
@@ -1969,8 +1969,8 @@
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-06-02",
-      "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/design/doc-graph-discipline-plan.md",
@@ -2098,7 +2098,7 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-05-31",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/investigation-cte-consolidation-2026-06-02.md",
@@ -3274,7 +3274,7 @@
       "is_hub": false,
       "first_committed": "2026-06-09",
       "last_committed": "2026-06-09",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-10-adr-record-amendments.md",
@@ -3371,6 +3371,14 @@
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
       "age_bucket": "recent"
+    },
+    {
+      "path": "docs/worklog/2026-06-10-rehome-agnostic-utils.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-10",
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-10-resource-service-calibration-seam.md",
@@ -16824,6 +16832,48 @@
       "to": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
       "kind": "path-mention",
       "site": "`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-rehome-agnostic-utils.md",
+      "to": "docs/adr/0006-source-file-headers.md",
+      "kind": "adr-related",
+      "site": "ADR-0006",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-rehome-agnostic-utils.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-rehome-agnostic-utils.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-rehome-agnostic-utils.md",
+      "to": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-rehome-agnostic-utils.md",
+      "to": "docs/archive/notes/frontend-source-tree-reorganization.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/frontend-source-tree-reorganization.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-rehome-agnostic-utils.md",
+      "to": "docs/notes/design/config-schema-projection-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/design/config-schema-projection-plan.md`",
       "resolved": "resolved"
     },
     {
