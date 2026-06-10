@@ -40,8 +40,11 @@ export type PerBoard<T> = Partial<Record<BoardId, T>>;
  * to prevent string typos from silently mis-routing key dispatch.
  * Naming convention: `<domain>.<verb>` (e.g., `nav.next`,
  * `display.toggleMoveNumbers`). Authoritative constructor and
- * registry live at `src/lib/keybindings.ts`. See
- * `docs/notes/keybindings-plan.md` for the substrate design.
+ * action catalog live at `src/composables/keybindings-catalog.ts`;
+ * the generic substrate (resolution / validation helpers) at
+ * `src/lib/keybindings.ts`. See
+ * `docs/archive/notes/design/keybindings-plan.md` for the
+ * substrate design.
  */
 export type KeybindingActionId = Brand<string, 'KeybindingActionId'>;
 

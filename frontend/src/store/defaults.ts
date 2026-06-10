@@ -483,10 +483,10 @@ export const defaultSettings = {
   // Keybindings overrides. Sparse map keyed by KeybindingActionId
   // — absence means "use the registry's default key", explicit
   // null means "user explicitly unbound this action". Fresh
-  // installs serialise to `{}` (defaults rule); the registry at
-  // `src/lib/keybindings.ts::KEYBINDINGS_REGISTRY` is the
-  // authoritative action list with their default keys. See
-  // `docs/notes/keybindings-plan.md` Phase 1.
+  // installs serialise to `{}` (defaults rule); the catalog at
+  // `src/composables/keybindings-catalog.ts::KEYBINDINGS_REGISTRY`
+  // is the authoritative action list with their default keys. See
+  // `docs/archive/notes/design/keybindings-plan.md` Phase 1.
   keybindings: {},
   // Default Analysis-tab layout (see AppSettings.analysisTabs). Four tabs
   // over the panel registry, Basic first (most-used). The Settings editor

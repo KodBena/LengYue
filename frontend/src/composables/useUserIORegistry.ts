@@ -2,8 +2,11 @@
  * src/composables/useUserIORegistry.ts
  * Registry-driven keyboard dispatcher.
  *
- * Reads `KEYBINDINGS_REGISTRY` from `src/lib/keybindings.ts` and
- * dispatches keydown events to the matching action's handler.
+ * Reads `KEYBINDINGS_REGISTRY` from
+ * `src/composables/keybindings-catalog.ts` (resolution and
+ * normalisation helpers from the substrate at
+ * `src/lib/keybindings.ts`) and dispatches keydown events to the
+ * matching action's handler.
  * The map from key string to action is built reactively by
  * resolving each action's `effectiveKey(action, overrides)`
  * against `store.profile.settings.keybindings` — so a user
@@ -12,10 +15,11 @@
  * Per-action `dispatchMode` decides immediate-vs-coalesced firing
  * (rAF coalesce for navigation, synchronous for toggles — same
  * posture perf Fix #1 introduced and the now-removed hardcoded
- * `COALESCED_NAV_KEYS` set tracked). Per-action `enabledWhen`
- * gates dispatch (active-board / engine-connected / always —
- * replaces the prior global `if (!activeBoard.value) return`
- * early-return). `preventDefault` fires for any registry-bound
+ * `COALESCED_NAV_KEYS` set tracked). Per-action `enabledWhen` —
+ * a catalog-supplied predicate (active-board / engine-connected /
+ * always today) — gates dispatch, replacing the prior global
+ * `if (!activeBoard.value) return`
+ * early-return. `preventDefault` fires for any registry-bound
  * key regardless of `enabledWhen` so a key the SPA owns doesn't
  * silently fall through to the browser default when its action
  * happens to be currently disabled (e.g., Space when the engine
@@ -27,11 +31,11 @@
  * lowercase; the lookup-side `.toLowerCase()` handles the
  * shift-variant `event.key`.
  *
- * Phase 2 of the keybindings arc (per
- * `docs/notes/keybindings-plan.md`). Phase 1 added the registry;
- * this commit makes the dispatcher consume it. Phase 3 adds the
- * Settings sub-tab + read-only Keybindings view; Phase 4 adds
- * the Edit / Reset / Unbind UI.
+ * Phase 2 of the keybindings arc (per the archived plan,
+ * `docs/archive/notes/design/keybindings-plan.md`); all five plan
+ * phases have shipped. The 2026-06-10 substrate/catalog split
+ * moved the registry itself to the catalog module — this
+ * dispatcher is unchanged in behaviour.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -39,12 +43,11 @@
 import { computed, onMounted, onUnmounted } from 'vue';
 import { store } from '../store';
 import {
-  KEYBINDINGS_REGISTRY,
   effectiveKey,
-  isActionEnabled,
   normalizeKey,
   type KeybindingActionDecl,
 } from '../lib/keybindings';
+import { KEYBINDINGS_REGISTRY } from './keybindings-catalog';
 import { captureMode } from '../lib/keybindings-capture';
 
 export function useUserIORegistry() {
@@ -71,9 +74,9 @@ export function useUserIORegistry() {
 
   // rAF coalesce state for `dispatchMode: 'coalesced'` actions
   // (navigation). Holds the most-recent pending action; latest-
-  // wins per frame. Re-checks `isActionEnabled` at rAF fire time
-  // so a state change between schedule and fire (rare) drops the
-  // dispatch cleanly. Matches the perf Fix #1 posture.
+  // wins per frame. The `enabledWhen` gate runs at schedule time
+  // only — the rAF callback deliberately doesn't recheck (see the
+  // comment inside the callback). Matches the perf Fix #1 posture.
   let rafId: number | null = null;
   let pendingAction: KeybindingActionDecl | null = null;
 
@@ -118,7 +121,7 @@ export function useUserIORegistry() {
     // MUST precede any rAF schedule.
     e.preventDefault();
 
-    if (!isActionEnabled(action)) return;
+    if (!action.enabledWhen()) return;
 
     if (action.dispatchMode === 'coalesced') {
       pendingAction = action;
@@ -127,7 +130,7 @@ export function useUserIORegistry() {
         const act = pendingAction;
         pendingAction = null;
         rafId = null;
-        // The schedule-time `isActionEnabled` check above is the
+        // The schedule-time `enabledWhen` check above is the
         // load-bearing gate; the rAF callback doesn't recheck.
         // Every current handler does its own internal
         // context-check where needed (`nav.*` / engine-ponder

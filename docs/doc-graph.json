@@ -1,6 +1,6 @@
 {
-  "node_count": 432,
-  "edge_count": 1995,
+  "node_count": 433,
+  "edge_count": 1998,
   "age_buckets": [
     {
       "name": "fresh",
@@ -3333,6 +3333,14 @@
       "age_bucket": "recent"
     },
     {
+      "path": "docs/worklog/2026-06-10-keybindings-substrate-split.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
       "path": "docs/worklog/2026-06-10-keyed-cache-brand-and-stable-handles.md",
       "genre": "worklog",
       "is_hub": false,
@@ -3394,7 +3402,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-10-reviewcard-canonical-content.md",
@@ -16657,6 +16665,27 @@
       "to": "docs/notes/audit/audit-hydration-rebind-residue-2026-06-10.md",
       "kind": "path-mention",
       "site": "`docs/notes/audit/audit-hydration-rebind-residue-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-keybindings-substrate-split.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-keybindings-substrate-split.md",
+      "to": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-keybindings-substrate-split.md",
+      "to": "docs/archive/notes/design/keybindings-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/design/keybindings-plan.md`",
       "resolved": "resolved"
     },
     {
