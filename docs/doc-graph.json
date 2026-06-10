@@ -1,6 +1,6 @@
 {
-  "node_count": 421,
-  "edge_count": 1934,
+  "node_count": 422,
+  "edge_count": 1936,
   "age_buckets": [
     {
       "name": "fresh",
@@ -626,7 +626,7 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-06-04",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/archive/notes/release-retrospective-2026-04.md",
@@ -3202,7 +3202,7 @@
       "is_hub": false,
       "first_committed": "2026-06-04",
       "last_committed": "2026-06-04",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-04-remove-dead-recursive-cte-duplicates.md",
@@ -3306,7 +3306,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-10-hydration-rebind-residue-audit.md",
@@ -3339,6 +3339,14 @@
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
       "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-10-services-boundary-deny-by-default.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "docs/worklog/2026-06-10-spa-history-lessons-audit.md",
@@ -16538,6 +16546,20 @@
     },
     {
       "from": "docs/worklog/2026-06-10-resource-service-calibration-seam.md",
+      "to": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-services-boundary-deny-by-default.md",
+      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-services-boundary-deny-by-default.md",
       "to": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
       "kind": "path-mention",
       "site": "`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`",

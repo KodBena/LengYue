@@ -48,42 +48,80 @@
  *                              correctness rule, not a style nit: the failure
  *                              is a wrong-state render.
  *
- *   Import boundaries (`.ts` + `.vue`, via no-restricted-imports):
+ *   Import boundaries (`.ts` + `.vue`, via no-restricted-imports and its
+ *   @typescript-eslint superset):
  *     - The OpenAPI-generated wire types (`src/types/backend.ts`,
  *       snake_case) may be imported ONLY within the services layer (the
  *       ACL) and `src/types.ts` (the type-level alias boundary where wire
  *       shapes become branded domain types). Importing them anywhere in
  *       domain code is the snake_case-leaks-past-the-ACL failure ADR-0002
- *       and the layering tenet forbid. Currently zero violations — this
- *       codifies an invariant that already holds.
- *     - Components may not import the effectful service *singletons*
- *       directly (the layering tenet: components are thin renderers; logic
- *       lives in composables; effects live in services and are called FROM
- *       composables). Rationale, chiefly testability: the three-tier test
- *       architecture (tests/CLAUDE.md) drives a composable against service
- *       fakes WITHOUT mounting a component, so effect-orchestration living
- *       in a composable is cheaply testable — the same call embedded in a
- *       component is reachable only via the component tests the project
- *       defers as low-ROI. Secondary: the component stays a thin renderer
+ *       and the layering tenet forbid. Zero violations at adoption — this
+ *       codified an invariant that already held.
+ *     - Components — and `src/App.vue` — may not import from
+ *       `src/services/**`, deny-by-default (the layering tenet: components
+ *       are thin renderers; logic lives in composables; effects live in
+ *       services and are called FROM composables). Rationale, chiefly
+ *       testability: the three-tier test architecture (tests/CLAUDE.md)
+ *       drives a composable against service fakes WITHOUT mounting a
+ *       component, so effect-orchestration living in a composable is
+ *       cheaply testable — the same call embedded in a component is
+ *       reachable only via the component tests the project defers as
+ *       low-ROI. Secondary: the component stays a thin renderer
  *       (ADR-0007), and effect lifecycle stays co-located with the
- *       resource-ownership-at-mutation-sites discipline. This deliberately
- *       restricts only the effectful
- *       singletons, NOT the reactive-state modules (`analysis-ledger`,
- *       `analysis-config`) — a display LEAF reading the reactive value it
- *       displays is sanctioned by ADR-0010's read-locality rule. That
- *       effectful-vs-reactive split is the SEAM where two directives meet —
- *       CLAUDE.md's layering tenet (effects flow component→composable→
- *       service) and ADR-0010's read-locality (a display leaf reads the
- *       reactive value it displays, wherever that value lives). The split is
- *       a working reconciliation, not a proven bridge: whether the two
- *       directives fully resolve into one coherent principle, or carry
- *       residual tension, is an OPEN question — documented here per ADR-0002,
- *       deferred for bandwidth, not settled by this rule. Four
- *       components violate this today (ReviewSessionPanel, ForestDirectory,
- *       LibraryTab, AnalysisControls) across five import sites
- *       (AnalysisControls imports two services) — surfaced as honest
- *       layering debt, not disabled-as-accepted; they await adjudication
- *       (refactor to a composable, or a justified exception).
+ *       resource-ownership-at-mutation-sites discipline.
+ *       Shape history: the rule began (2026-05-31) as an enumerated
+ *       blocklist of four effectful singletons. That shape was incomplete
+ *       from day one (sync-service, qeubo-service, api-client,
+ *       resource-service — all predate the list, none ever on it) and
+ *       fail-open: a NEW service was importable from components until
+ *       someone remembered to enumerate it. Inverted to deny-by-default
+ *       2026-06-10 (history-lessons audit §3.11; work-status item
+ *       services-boundary-deny-by-default, step (a)).
+ *       The exemptions, both deliberate: (1) the reactive-state class
+ *       ({analysis-ledger, analysis-config, stability-trajectory-store};
+ *       REACTIVE_STATE_EXEMPTIONS below) — a display LEAF reading the
+ *       reactive value it displays is sanctioned by ADR-0010's
+ *       read-locality rule. That effectful-vs-reactive split is the SEAM
+ *       where two directives meet — CLAUDE.md's layering tenet (effects
+ *       flow component→composable→service) and ADR-0010's read-locality
+ *       (a display leaf reads the reactive value it displays, wherever
+ *       that value lives). The split is a working reconciliation, not a
+ *       proven bridge: whether the two directives fully resolve into one
+ *       coherent principle, or carry residual tension, is an OPEN
+ *       question — documented here per ADR-0002 and as ADR-0010's
+ *       "Revisit when…" #4, deferred for bandwidth, not settled by this
+ *       rule. The constant is the provisional form of a future
+ *       `src/state/` directory (the item's step (b), a separate sign-off
+ *       arc): relocation makes the boundary purely directory-structural
+ *       and deletes the constant. (2) Type-only imports
+ *       (allowTypeImports — the reason this rule is the
+ *       @typescript-eslint variant): an `import type` is compile-time-
+ *       erased and carries no runtime effect coupling, so it sits outside
+ *       the tenet's target. Worked case: AnalysisControls.vue's type-only
+ *       import of AnalysisBundleStorageError from analysis-bundle —
+ *       classified by what its header declares (pure projection, no side
+ *       effects, no network): not an effectful singleton, but not a
+ *       reactive leaf-read source either, so deliberately NOT exempted
+ *       for value imports; its component-visible surface is type-level
+ *       only.
+ *       App.vue: the layering tenet covers `src/App.vue` explicitly, but
+ *       the original glob covered `src/components/**` only — a named gap,
+ *       closed at the inversion. App.vue's one standing violation
+ *       (analysisService) carries an inline eslint-disable +
+ *       justification as an annotated WIRING-FILE exemption (the
+ *       vue/no-v-html model) — honest layering debt, named not
+ *       sanctioned; extracting the orchestration is a separate arc. A
+ *       second service import there trips the rule.
+ *       Census, historical: at the blocklist's adoption, four components
+ *       violated it (ReviewSessionPanel, ForestDirectory, LibraryTab,
+ *       AnalysisControls) across five import sites — all resolved
+ *       2026-06-01 (routed through composables: useCardMetadata,
+ *       useForestStats, useLibraryPreview, useAnalysisPersistence;
+ *       commit 35c939c). At the deny-by-default inversion (2026-06-10)
+ *       the widened rule measured exactly one hit on the tree — App.vue's
+ *       analysisService import, triaged as the annotated wiring-file
+ *       exemption above — so the inversion adopted at `error` on a
+ *       fully-triaged baseline, per this config's measure-first posture.
  *
  *   Type-checked (`src/**` `.ts`, via the TS project service):
  *     - @typescript-eslint/switch-exhaustiveness-check — rationale: a switch
@@ -160,22 +198,56 @@ const WIRE_TYPE_PATTERN = {
     '+ ADR-0002.',
 };
 
-// The effectful service singletons components must not import directly.
-// NOT the reactive-state modules (analysis-ledger, analysis-config): a
-// display leaf reading what it displays is ADR-0010-sanctioned.
-const EFFECTFUL_SERVICE_PATTERN = {
-  group: [
-    '**/services/backend-service',
-    '**/services/library-service',
-    '**/services/analysis-service',
-    '**/services/analysis-persistence-service',
-  ],
+// The reactive-state exemption class for the component→services boundary
+// below. These modules are reactive leaf-read sources (ADR-0010 Rule 2,
+// read-locality: a display leaf reads the reactive value it displays,
+// wherever that value lives), not effectful singletons. PROVISIONAL FORM:
+// this constant stands in for a future `src/state/` directory — step (b)
+// of work-status item services-boundary-deny-by-default relocates these
+// modules out of services/**, the boundary becomes purely
+// directory-structural, and this constant is deleted. Membership is the
+// reactive-state CLASS, not "whatever some component reads today" —
+// stability-trajectory-store has no component reader at adoption but
+// belongs to the class.
+const REACTIVE_STATE_EXEMPTIONS = [
+  '!**/services/analysis-ledger',
+  '!**/services/analysis-config',
+  '!**/services/stability-trajectory-store',
+];
+
+// The component→services boundary, deny-by-default. The original shape was
+// an enumerated blocklist of four effectful singletons (backend-service,
+// library-service, analysis-service, analysis-persistence-service). It was
+// incomplete from day one — sync-service, qeubo-service, api-client, and
+// resource-service all predate the list and were never on it — and
+// fail-open by shape: a NEW service module was importable from components
+// until someone remembered to enumerate it. Inverted to deny-by-default
+// 2026-06-10 (history-lessons audit §3.11; work-status item
+// services-boundary-deny-by-default, step (a)): everything under
+// src/services/** is restricted from the component layer; the
+// reactive-state class is carved back in via REACTIVE_STATE_EXEMPTIONS.
+// allowTypeImports: a type-only import is erased at compile time and
+// carries no runtime effect coupling, so it sits outside the layering
+// tenet's target (effect orchestration). Classification decision recorded
+// per the audit item: analysis-bundle's header declares it a pure
+// projection (no side effects, no network) — NOT an effectful singleton,
+// but not a reactive leaf-read source either, so it is deliberately NOT
+// in REACTIVE_STATE_EXEMPTIONS: a value import of projection logic from a
+// component is still logic-in-a-component. Its one component consumer
+// (AnalysisControls.vue) needs only the AnalysisBundleStorageError TYPE
+// (a structural union, narrowed by field checks, no instanceof), which
+// allowTypeImports admits.
+const COMPONENT_SERVICES_BOUNDARY_PATTERN = {
+  group: ['**/services/**', ...REACTIVE_STATE_EXEMPTIONS],
+  allowTypeImports: true,
   message:
-    'Components are thin renderers; effectful service calls belong in a ' +
-    'composable, not a component. (Reactive-state modules like ' +
-    'analysis-ledger / analysis-config are exempt — a display leaf may ' +
-    'read what it displays, per ADR-0010.) See frontend/CLAUDE.md ' +
-    '"Architectural shape".',
+    'Components are thin renderers: src/services/** is deny-by-default ' +
+    'from the component layer (App.vue included) — effectful service ' +
+    'calls belong in a composable, not a component. Exempt: the ' +
+    'reactive-state modules (analysis-ledger / analysis-config / ' +
+    'stability-trajectory-store — a display leaf may read what it ' +
+    'displays, per ADR-0010) and type-only imports (compile-time-erased). ' +
+    'See frontend/CLAUDE.md "Architectural shape".',
 };
 
 export default [
@@ -240,20 +312,30 @@ export default [
     },
   },
 
-  // Components additionally may not import the effectful service singletons.
-  // rationale: an effectful service call is orchestration logic; it belongs
-  // in a composable (testable against fakes per tests/CLAUDE.md; keeps the
-  // component a thin renderer per ADR-0007). Reactive-state reads are exempt
-  // (ADR-0010). Full rationale in the header; dev-facing form in the message.
-  // This block matches component files too, so it must RE-STATE the wire-type
-  // pattern (a later no-restricted-imports config replaces, not merges with,
-  // the earlier one for files it matches).
+  // Components — and src/App.vue: the layering tenet covers it explicitly
+  // ("Components (src/components/*, src/App.vue) … No direct service
+  // calls"), so the prior components-only glob was a named gap, closed at
+  // the 2026-06-10 inversion — additionally may not import from
+  // src/services/** at all: deny-by-default, with the reactive-state class
+  // and type-only imports exempt. rationale: an effectful service call is
+  // orchestration logic; it belongs in a composable (testable against
+  // fakes per tests/CLAUDE.md; keeps the component a thin renderer per
+  // ADR-0007). Full rationale + inversion history in the header;
+  // dev-facing form in the message. Uses @typescript-eslint's
+  // no-restricted-imports (a superset of the base rule) for its
+  // allowTypeImports option. Because this block configures a DIFFERENT
+  // rule name than the wire-type block above, the base
+  // no-restricted-imports config from that block still applies to these
+  // files un-replaced — the wire-type pattern no longer needs re-stating
+  // here (the old same-rule-name shape did replace, hence the historical
+  // restatement).
   {
-    files: ['src/components/**/*.ts', 'src/components/**/*.vue'],
+    files: ['src/components/**/*.ts', 'src/components/**/*.vue', 'src/App.vue'],
+    plugins: { '@typescript-eslint': tsPlugin },
     rules: {
-      'no-restricted-imports': [
+      '@typescript-eslint/no-restricted-imports': [
         'error',
-        { patterns: [WIRE_TYPE_PATTERN, EFFECTFUL_SERVICE_PATTERN] },
+        { patterns: [COMPONENT_SERVICES_BOUNDARY_PATTERN] },
       ],
     },
   },
