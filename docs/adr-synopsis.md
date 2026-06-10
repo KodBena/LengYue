@@ -118,7 +118,7 @@ authoring pattern that produces it.
 
 ## ADR-0005: Documentation Discipline
 
-**Decision.** Nine rules for authoring documentation: (1) single
+**Decision.** Eleven rules for authoring documentation: (1) single
 source of truth per nominal handle; (2) a shared dispatch ledger for
 cross-team communications under `docs/dispatch/`; (3) reference
 descriptions describe relations between documents, not content
@@ -135,7 +135,18 @@ records under `docs/notes/consult/`; each design note is referenced by exactly
 one owning work-status SSOT item via a `design-note` ref and delegates status
 to it, retiring the per-note `design-note: <status>` marker, and a
 self-retiring advisory flags a note for archival when its item closes; the
-design-note register of the work-status SSOT consolidation).
+design-note register of the work-status SSOT consolidation); (10) deferrals are
+ledgered at authoring time (Rule 10, appended 2026-06-11 — every deferral /
+out-of-scope / recommendation bullet in any committed record names its
+work-status item id or a grep-able `not-filed:` marker, refs attach at filing,
+and an item closes only after a residual sweep — the forward-looking register
+of L3, deferrals leak at authoring and at closure); (11) commissioned-review
+artifacts are recorded verbatim, in-tree (Rule 11, appended 2026-06-11 — the
+commission prompt and full report of any delegated review whose verdict is
+cited as evidence are reproduced verbatim in an appendix; a verdict whose
+artifact cannot be produced on demand is no verdict; corrections are dated
+in-situ strikes, and large appendices are reference records consumed by
+pointer-citation).
 
 **Why care.** The umbrella restructure surfaced a recurring failure
 pattern: documentation written reactively decays into low-trust
@@ -296,9 +307,45 @@ postmortem doesn't stop recurrence; the preventive sibling of
 ADR-0009's reactive net. Backing: the green-arc audit
 (`opus-audit-green-perf-arc-2026-05-31.md`, Question 2 / P1).
 
+## ADR-0011: Mechanization Discipline
+
+**Decision.** A corrective-design tenet in five rules, binding at the
+moments a discipline is authored or amended and when a corrective
+responds to a recurrence. (1) Disciplines declare their enforcement
+surface against a closed vocabulary (compile-time / build-CI gate /
+write-time data constraint / query-time gate / advisory surface /
+checklist-at-a-named-moment / review-only); review-only is legitimate
+but presumptively decaying, so declaring it makes the choice
+challengeable. (2) Recurrence after a describing record converts to
+mechanism at the strongest feasible-and-proportionate surface, not
+more prose — and "filed alongside" means a work-status item (ADR-0005
+Rule 10). (3) Mechanisms adopt measure-first (scratch-config census,
+`error` only on a triaged baseline, probe-verify against the literal
+defect). (4) Nets quantify over the class — an ownership slot, a
+name/shape predicate, deny-by-default — never an instance enumeration
+that fails open at the next instance. (5) Calibration: template, not
+tollgate, where the failure mode is implementer capability — CI gates
+for crisp predicates, advisory surfaces and checklists for
+judgment-shaped output. Status Proposed.
+
+**Why care.** The project's characteristic failure mode is the
+invisible-at-authoring, visible-only-in-aggregate defect, against
+which policy enforced by one person's memory is structurally weak —
+the common root of the 2026-06-01 RCA, whose §5 open question 4
+deferred this tenet's existence to the maintainer. The tenet answers
+it procedurally: each rule names an operational surface rather than
+stating a philosophy. Rule 1 is the enforcement register of the
+ADR-0002 / ADR-0008 / ADR-0009 unsubstantiated-claim family (an
+enforcement level is itself a claim, so it must be declared); Rules
+2–5 are corrective-design protocol adjacent to that family. ADR-0010
+is its worked proof — the tenet+mechanism pairing arrested a
+recurrence a describing-only postmortem did not. It binds at a handful
+of high-attention corrective-design moments per cycle, not the per-edit
+regime where prose was measured decaying.
+
 ## How to read these together
 
-The eight tenets form a coherent posture:
+The nine tenets form a coherent posture:
 
 - **ADR-0002** says fail audibly when invariants break.
 - **ADR-0004** says don't introduce silent failures by editing
@@ -320,6 +367,10 @@ The eight tenets form a coherent posture:
   and high-frequency reactive reads belong in the leaves that
   display them, not in the composition nodes that wire them — the
   preventive name for what ADR-0009's profile catches.
+- **ADR-0011** says a discipline declares how it is enforced, and a
+  recurrence converts to a mechanism rather than more prose — because
+  policy policed by one person's memory decays, and only mechanical
+  nets hold.
 
 ADR-0002, ADR-0008, and ADR-0009 form a family of
 unsubstantiated-claim disciplines at three intervention points:
@@ -329,7 +380,14 @@ categorising, refuse fuzzy matches and synthetic fabrications);
 ADR-0009 is the per-domain instance for the performance
 vocabulary (when asserting perf properties, attach the
 substantiation). Together they cover the same family of failures
-at different intervention points.
+at different intervention points. **ADR-0011 Rule 1** is the
+enforcement register of that family: an enforcement level is itself
+a claim about a discipline, so it must be declared rather than
+implied. The remaining ADR-0011 rules (2–5) are corrective-design
+protocol adjacent to the family — recurrence-converts-to-mechanism,
+measure-first adoption, quantify-over-the-class, and the
+template-not-tollgate calibration — not a fourth member of it
+wholesale.
 
 The two structural records — ADR-0001 (a decision) and ADR-0003 (a
 bounded-context map) — describe specific structural

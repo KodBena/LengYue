@@ -141,6 +141,18 @@ The umbrella `CLAUDE.md` enumeration, as a walk-through:
   not a fix"*
   (`docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md` §4, guard G4).
 
+## H. Mechanization assessment (ADR-0011 Rule 1)
+
+- [ ] **For any corrective or new discipline: name its enforcement surface**
+  (ADR-0011 Rule 1 vocabulary — compile-time / build-CI gate / write-time data
+  constraint / query-time gate / advisory surface / checklist-at-a-named-moment
+  / review-only); if review-only or policy-only, say so and name the trigger
+  that would change it. This is ADR-0011's own checklist-at-a-named-moment
+  surface (its self-application), consulted at corrective-design moments —
+  postmortem recommendations, lint adoptions, ADR amendments — not at every
+  PR. The `adr-effectiveness-audits` sweep detects an undeclared discipline or
+  an unmeasured-baseline adoption thereafter.
+
 ## Provenance
 
 Surfaced by `docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md`

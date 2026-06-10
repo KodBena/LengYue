@@ -444,7 +444,11 @@ following happen:
    meaning. (Substrate: the 2026-06-01 RCA's common-root finding and
    history-audit lesson L1 — prose disciplines decay, mechanisms
    stick. If the mechanization-discipline tenet ships, this trigger
-   is its fail-loudly-register hook.)
+   is its fail-loudly-register hook.) *(2026-06-11: shipped — the
+   anticipated tenet is ADR-0011 (mechanization discipline,
+   Proposed); its Rule 1 owns the enforcement-surface declaration this
+   trigger records, and ADR-0011's Related section names this trigger
+   as its fail-loudly-register hook.)*
 
 ## Related
 
