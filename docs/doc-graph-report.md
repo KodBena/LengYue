@@ -21,7 +21,7 @@ References from **live** documents are the genuine-action candidates.
 
 ## Summary
 
-- **Dangling from LIVE documents** (genuine-action candidates): **125**.
+- **Dangling from LIVE documents** (genuine-action candidates): **126**.
 - **Dangling from frozen archive** (expected historical drift): **246**.
 - **Ambiguous references** (bare filename matches more than one node — never
   silently resolved, per ADR-0002): **0**.
@@ -30,6 +30,7 @@ References from **live** documents are the genuine-action candidates.
 
 - `backend/README.md` → `backend/samples/README.md` *(path-mention)* — target `backend/samples/README.md` does not resolve to any node.
 - `docs/adr/0005-documentation-discipline.md` → `backend/routers/REFERENCE.md` *(path-mention)* — target `backend/routers/REFERENCE.md` does not resolve to any node.
+- `docs/notes/audit/audit-hydration-rebind-residue-2026-06-10.md` → `frontend/docs/notes/board-scope.md` *(path-mention)* — target `frontend/docs/notes/board-scope.md` does not resolve to any node.
 - `docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md` → `frontend/docs/notes/board-scope.md` *(path-mention)* — target `frontend/docs/notes/board-scope.md` does not resolve to any node.
 - `docs/notes/audit/audit-stringly-typed-contracts-2026-06-01.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.
 - `docs/notes/auditor-notes.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` does not resolve to any node.

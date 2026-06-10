@@ -20,9 +20,9 @@ of truth and the picture is a projection of it.
 
 ## At a glance
 
-- **Nodes:** 416 documents.
-- **Edges:** 1904 cross-references
-  (1533 resolved, 371 dangling, 0 ambiguous).
+- **Nodes:** 418 documents.
+- **Edges:** 1916 cross-references
+  (1544 resolved, 372 dangling, 0 ambiguous).
 
 ## Staleness heatmap (buckets)
 
@@ -153,7 +153,7 @@ flowchart LR
 
 ## Broken-reference report
 
-**125** dangling references from **live** documents (genuine-action candidates), 246 from frozen archive (expected drift), and 0 ambiguous, after the ADR-0005 Rule 4 code-block/placeholder filter. See [`docs/doc-graph-report.md`](./doc-graph-report.md) for the full list, split by origin — the maintainer reviews it; nothing is auto-fixed.
+**126** dangling references from **live** documents (genuine-action candidates), 246 from frozen archive (expected drift), and 0 ambiguous, after the ADR-0005 Rule 4 code-block/placeholder filter. See [`docs/doc-graph-report.md`](./doc-graph-report.md) for the full list, split by origin — the maintainer reviews it; nothing is auto-fixed.
 
 ## Regeneration
 
