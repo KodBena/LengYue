@@ -1,6 +1,6 @@
 {
-  "node_count": 418,
-  "edge_count": 1916,
+  "node_count": 420,
+  "edge_count": 1927,
   "age_buckets": [
     {
       "name": "fresh",
@@ -98,7 +98,7 @@
       "is_hub": true,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/adr/0001-state-mutation-and-readonly.md",
@@ -106,7 +106,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/adr/0002-fail-loudly.md",
@@ -122,7 +122,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
@@ -178,7 +178,7 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/archive/34b-complete-status.md",
@@ -1634,7 +1634,7 @@
       "is_hub": true,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/analysis-persistence-followups.md",
@@ -1661,6 +1661,14 @@
       "age_bucket": "aging"
     },
     {
+      "path": "docs/notes/audit/audit-deferral-harvest-2026-06-10.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": "2026-06-10",
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
+    },
+    {
       "path": "docs/notes/audit/audit-hydration-rebind-residue-2026-06-10.md",
       "genre": "note",
       "is_hub": false,
@@ -1682,7 +1690,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/audit/audit-spa-history-lessons-2026-06-10-appendix-p2.md",
@@ -1690,7 +1698,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/audit/audit-spa-history-lessons-2026-06-10-appendix-p3.md",
@@ -1698,7 +1706,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/audit/audit-spa-history-lessons-2026-06-10-filings.md",
@@ -1706,7 +1714,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
@@ -1714,7 +1722,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/audit/audit-stringly-typed-contracts-2026-06-01.md",
@@ -1882,7 +1890,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-03-tag-ssot-and-tenancy-leak.md",
@@ -1890,7 +1898,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-05-board-scope-exhaustiveness.md",
@@ -3186,7 +3194,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-04-qeubo-e2e-validation-harness.md",
@@ -3274,6 +3282,14 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
+      "age_bucket": "recent"
+    },
+    {
+      "path": "docs/worklog/2026-06-10-deferral-harvest.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-10",
+      "last_committed": "2026-06-10",
       "age_bucket": "fresh"
     },
     {
@@ -3322,7 +3338,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-10-typed-capability-metadata-mirror.md",
@@ -10458,6 +10474,55 @@
       "resolved": "resolved"
     },
     {
+      "from": "docs/notes/audit/audit-deferral-harvest-2026-06-10.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-deferral-harvest-2026-06-10.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-deferral-harvest-2026-06-10.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-deferral-harvest-2026-06-10.md",
+      "to": "docs/pre-merge-checklist.md",
+      "kind": "path-mention",
+      "site": "`docs/pre-merge-checklist.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-deferral-harvest-2026-06-10.md",
+      "to": "docs/dispatch/proxy-to-frontend-learned-vf.md",
+      "kind": "path-mention",
+      "site": "`docs/dispatch/proxy-to-frontend-learned-vf.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-deferral-harvest-2026-06-10.md",
+      "to": "docs/archive/notes/design/keybindings-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/design/keybindings-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-deferral-harvest-2026-06-10.md",
+      "to": "docs/worklog/2026-05-16-proxy-topology-testing.md",
+      "kind": "path-mention",
+      "site": "`2026-05-16-proxy-topology-testing.md`",
+      "resolved": "resolved"
+    },
+    {
       "from": "docs/notes/audit/audit-hydration-rebind-residue-2026-06-10.md",
       "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
       "kind": "adr-related",
@@ -16272,6 +16337,34 @@
       "to": "docs/handoff-current.md",
       "kind": "path-mention",
       "site": "`docs/handoff-current.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-deferral-harvest.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-deferral-harvest.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-deferral-harvest.md",
+      "to": "docs/notes/audit/audit-deferral-harvest-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-deferral-harvest-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-deferral-harvest.md",
+      "to": "docs/pre-merge-checklist.md",
+      "kind": "path-mention",
+      "site": "`docs/pre-merge-checklist.md`",
       "resolved": "resolved"
     },
     {
