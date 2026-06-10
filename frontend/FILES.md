@@ -22,15 +22,27 @@ deeper "why."
 
 ## ADR-0003 band tags (one-line legend)
 
-- **[B1]** — truly domain-agnostic. Would survive a chess port
-  without code change. Auth, theming, generic UI primitives,
-  HTTP/WebSocket plumbing, persistence schema, vue-i18n, etc.
+- **[B1]** — truly domain-agnostic. Would survive a port to **any
+  knowledge domain** (chess, shogi, language flashcards, music
+  drills) without code change. Auth, theming, generic UI
+  primitives, HTTP/WebSocket plumbing, persistence schema,
+  vue-i18n, etc.
 - **[B2]** — game-tree-coupled but **not** Go-specific. Operates
   on variation-tree shapes (nodes, parents, children, paths,
-  expansion). A chess port reuses these unchanged.
+  expansion). Survives any turn-based-game port unchanged; does
+  **not** survive a port outside the game class (no game tree, no
+  "turn" in language flashcards) — a non-game fork *splits* this
+  band (ADR-0003's non-game sizing).
 - **[B3]** — Go-bound. Depends on stones, B/W, SGF, KataGo's
-  wire vocabulary, Go-board geometry. The ~30–40% surface a
-  chess port would rewrite.
+  wire vocabulary, Go-board geometry. The surface any port
+  rewrites wholesale.
+
+*(Legend re-keyed 2026-06-10 to the any-knowledge-domain criterion —
+the fork-axis re-cut from the history-lessons audit, alongside
+ADR-0003's same-day amendment. The existing tags were assigned under
+the earlier chess-keyed legend and have not been re-swept against the
+stronger criterion; drift found against it is retagged per the normal
+cadence below.)*
 
 Borderline cases are tagged for the **dominant** concern in the
 file; the header in the source has the nuance.

@@ -70,6 +70,12 @@ jobs:
           fetch-depth: 0
           # Submodules excluded: proxy/ is out of scope for the doc-graph.
           submodules: false
+      # Harness-envelope artifact gate: tool-generated docs can leak literal
+      # tool-call envelope lines (e.g. the `</content>`/`</invoke>` pair that sat
+      # at ADR-0010's tail from creation until 2026-06-10). Whole-line anchored so
+      # docs that legitimately QUOTE the strings inline (audit appendices) pass.
+      - name: Harness-envelope artifact grep (docs/ carries no leaked tool-call envelope lines)
+        run: "! grep -rnE '^[[:space:]]*</?(content|invoke|antml:invoke)>[[:space:]]*$' docs/"
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

@@ -69,20 +69,26 @@ input fights this tenet.
 
 **Decision.** A descriptive map of the frontend's domain coupling,
 plus a forward-looking principle for new modules: "what would change
-for a Chess port?" Three bands are documented — truly domain-agnostic
-(store, services, generic composables; ~60-70% of the codebase),
-game-tree-coupled (navigator, tree composables, review session
-orchestration), and Go-bound (SGF parsing, board renderer, KataGo
-wire vocabulary). The principle is applied at authoring time, not as
-a refactor mandate; Ports are extracted only when a second concrete
-consumer exists.
+for a Chess port?" Three bands are defined — truly domain-agnostic
+(would survive a port to any knowledge domain), game-tree-coupled
+(survives any turn-based-game port; not a non-game one), and Go-bound
+(wholesale replacement for any port). The per-file inventory is
+delegated to `frontend/FILES.md` (2026-06-10 amendment, after the
+inline listing drifted); the ADR retains the band definitions, the
+band-mixed seam analysis, and the port sizings. The principle is
+applied at authoring time, not as a refactor mandate; Ports are
+extracted only when a second concrete consumer exists.
 
 **Why care.** The principle affects how new features should be
 shaped — Go-specific gating logic isolated in named functions,
 storage abstractions that don't introspect their payloads, generic
-seams without premature Port extraction. Following this discipline
-keeps the agnostic core clean and makes a future Chess/Shogi port
-viable without committing to one today.
+seams without premature Port extraction. The "second domain adopter"
+revisit trigger has now fired twice (the `chess-clone` work-status
+item; the maintainer's generic knowledge flash-card fork), so the
+seams the ADR documents are the extraction map real adopters read.
+The 2026-06-10 amendment adds the non-game sizing: Band 2 *splits* —
+the game-tree skeleton is replaced while the SR-orchestration flow
+and the generic charting machinery survive.
 
 ## ADR-0004: Minimal-Touch Edits to Partially-Visible Files
 

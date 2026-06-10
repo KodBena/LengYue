@@ -167,7 +167,7 @@ export function mutateBoard(boardId: BoardId, fn: (draft: BoardState) => void): 
   // mutated fields. `boardsVersion` stays as the explicit coarse
   // signal SyncService watches for debounced persistence (it keys on
   // the counter, not identity — see sync-service.ts). Diagnosed in
-  // docs/notes/perf-audit-game-scroll-2026-05-28.md (Arc 1).
+  // docs/notes/audit/perf-audit-game-scroll-2026-05-28.md (Arc 1).
   fn(board);
   boardsVersion.value++;
 }

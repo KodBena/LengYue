@@ -7,6 +7,27 @@
   the codebase and gives a principle for evaluating future changes
   against it.
 - **Date:** 2026-04-24
+- **Amendments:** 2026-06-10 — recorded that **Revisit-when #1 (a
+  second domain adopter materializes) has fired twice** (the
+  `chess-clone` work-status item, open/active in the store; the
+  maintainer's generic knowledge flash-card fork, named 2026-06-09/10
+  as a binding constraint on refactoring) and that **Revisit-when #2
+  (the inventory drifts substantially) has fired** (~9 of ~23
+  inventory paths went stale across the source-tree
+  reorganisations). The per-file inventory listing is delegated to
+  `frontend/FILES.md` — the maintained per-file band map, with a
+  same-PR update cadence; 78 `[B1]` / 39 `[B2]` / 97 `[B3]` / 1
+  `[B?]` at this amendment — while the band definitions, the
+  band-mixed seam analysis, and the port-sizing prose are retained
+  here (one-line dominant-concern tags cannot carry within-file seam
+  detail). A non-game fork sizing is added beside the Chess one
+  (Band 2 **splits** rather than transfers). One Revisit-when #3
+  instance — `useReviewSession.ts`: Band 2 here, `[B3]` in
+  FILES.md — is recorded, not adjudicated. The principle is
+  unchanged. One of the bounded ADR record repairs from the
+  2026-06-10 history-lessons audit
+  (`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md` §3.23;
+  work-status item `adr-record-amendments-2026-06`).
 - **Scope:** Frontend (`gogui`). Cross-references the backend's
   parallel work (item 30b's `PositionNormalizerPort`, item 34's
   domain-agnostic-core umbrella).
@@ -100,7 +121,17 @@ second-domain consumer exists.
 
 The frontend's modules sit on a spectrum from fully agnostic (would
 survive any port) to essentially Go-bound (their existence presumes
-Go). Three useful bands, with examples in each:
+Go). Three useful bands.
+
+*(Amended 2026-06-10 — Revisit-when #2 fired: the per-file example
+listings this section originally carried went substantially stale
+(~9 of ~23 paths no longer resolved after the source-tree
+reorganisations). The per-file inventory is delegated to
+`frontend/FILES.md`, which tags every source file with its band and
+is maintained in the same PR that touches a file — the maintenance
+discipline an ADR-inline listing structurally lacks (ADR-0005
+Rule 1: one owning document per handle). The band definitions below
+remain canonical here; FILES.md carries the instances.)*
 
 ### Band 1 — Truly domain-agnostic
 
@@ -109,26 +140,6 @@ other knowledge domain (Chess, Shogi, language flashcards, music
 theory drills). They speak in concepts the problem *class* needs
 (reactive state, content-addressed caches, debounced persistence,
 generic UI primitives) rather than concepts the *instance* uses.
-
-- **`store/index.ts` and the GlobalStore machinery.** Reactive store
-  with named mutators, version counters, deep-watch sync. The shape
-  of `GlobalStore` carries Go-flavored field names today
-  (`boards`, `activeBoardIndex`), but the *machinery* is generic.
-- **`services/sync-service.ts`.** Stateless persistence bridge. PUTs
-  a JSON blob; doesn't care what's in it.
-- **`services/api-client.ts` + `services/resource-service.ts`.**
-  HTTP client and static-resource fetcher; no domain in either.
-- **`services/analysis-ledger.ts`.** Content-addressed cache keyed by
-  `(configHash, nodeId)` with reactive version refs per entry. The
-  abstraction — "a versioned reactive cache of expensive computed
-  values keyed by config and node identity" — is independent of
-  what the cached value is.
-- **`composables/wait-for-analysis.ts`.** Wait primitive with timeout
-  + abort. The current return type is `KataAnalysisResponse`, but the
-  shape of the abstraction (single resolution, idempotent settle,
-  three-channel race) is fully generic.
-- **`config/env.ts`, `lib/utils.ts`, the system-message machinery,
-  the registry editor.** All generic infrastructure.
 
 ### Band 2 — Game-class agnostic but tree/turn coupled
 
@@ -139,46 +150,11 @@ class (e.g., to language flashcards, where there is no game tree
 and no "turn"). They are domain-agnostic *within* the game-tree
 problem class.
 
-- **`engine/navigator.ts`.** Walks the game tree, computes LCA,
-  applies move deltas. Knows about "captures" and "ko" (Go-specific!),
-  but the navigation skeleton — LCA + delta-replay — is generic to
-  any game tree.
-- **`composables/useTreeExpansion.ts`, `useTreeLayout.ts`.** Tree
-  display logic. Knows nothing Go-specific; would render a Chess
-  variation tree identically.
-- **`composables/useReviewSession.ts`.** SR session orchestration.
-  The flow (fetch queue, load card, await user move, analyze, score,
-  advance) is game-tree-agnostic; only the per-move scoring details
-  are Go-shaped.
-- **`composables/useChartNavigation.ts`, `BaseChart.vue`.** Generic
-  charting machinery; no domain.
-
 ### Band 3 — Essentially Go-bound
 
 These modules carry concepts that don't exist outside Go (or carry
 specific Go encodings of concepts that exist generally). Porting
 them isn't refactoring — it's replacement.
-
-- **`engine/sgf-loader.ts`, `engine/sgf-writer.ts`.** SGF format is
-  a Go (and a few other games) serialization. A Chess port reads
-  PGN; the loader gets replaced wholesale.
-- **`engine/katago/*`.** KataGo's wire protocol — query shape,
-  response shape, action verbs. A Chess port talks to Stockfish
-  with UCI; the entire `engine/katago/` directory gets replaced.
-- **`engine/helper.ts` (`big_table`, `ALPHA_KNOTS`).** The visit-color
-  table is calibrated to KataGo's visit-distribution semantics; it's
-  Go-specific by construction.
-- **`engine/suggestion-colors.ts`.** Color overlay for move-quality
-  visualization; the coloring scheme is tuned to KataGo's score
-  ranges.
-- **`components/BoardDisplay.vue`, `BoardWidget.vue`, `TreeWidget.vue`
-  (the rendering of stones, hoshi, captures, ko markers).** A board-
-  rendering component for Chess looks completely different.
-- **`composables/use-move-suggestions.ts` (GTP coordinate parsing,
-  best-move overlay).** GTP coordinates are KataGo-Go; would be
-  replaced entirely.
-- **`engine/util.ts` (board-state walks, captures math).** Captures
-  are a Go-rule artifact; the math doesn't transfer.
 
 ### Band-mixed — the seams
 
@@ -213,6 +189,12 @@ explicitly because they are where future seam-design matters most:
 - `types.ts` — the interface declarations are themselves the
   boundary documentation; classifying them as "agnostic" or
   "Go-bound" misses the point.
+
+*(Note, 2026-06-10: the maintained inventory in `frontend/FILES.md`
+does tag these — `App.vue` as `[B3]`, `types.ts` as `[B2]` with a
+named B3 leakage — under its dominant-concern allowance. The
+exclusions above stand as this ADR's planning-time scoping record,
+not as a constraint on FILES.md.)*
 
 ## What this means for the analysis-recording feature
 
@@ -281,6 +263,38 @@ honored by the codebase's organic evolution. The principle above
 doesn't ask for radical restructuring; it asks for ongoing
 discipline so the boundary stays this clean as new features land.
 
+## What a generic knowledge fork would actually require
+
+*(Added 2026-06-10, when Revisit-when #1's second firing — the
+maintainer's intended fork to a non-game knowledge domain (generic
+flash cards) — made the Chess sizing above insufficient on its own.)*
+
+A port outside the turn-based-game class flips the load-bearing
+boundary. The Chess sizing partitions Band 3 (replace) from
+Band 1 + Band 2 (keep); a generic knowledge fork partitions Band 1
+(keep) from Band 2 + Band 3 — and Band 2 **splits** rather than
+transferring or being replaced wholesale:
+
+- **Wholesale replacement** (Band 3): the same surface as the Chess
+  sizing — the engine wire vocabulary, SGF I/O, board rendering,
+  the Go-calibrated tables and overlays.
+- **Split, not replace** (Band 2): the game-tree *skeleton* goes —
+  outside the game class there is no variation tree and no "turn"
+  (the navigator skeleton, tree display / expansion / layout) —
+  while the SR-orchestration flow (fetch queue, load card, await
+  user response, evaluate, score, advance) and the generic charting
+  machinery survive intact. Those two seams are exactly the ones
+  worth keeping clean; `useReviewSession`'s orchestration-vs-scoring
+  seam (Band-mixed, above) is the worked example.
+- **No change** (Band 1): the store machinery, services, generic UI
+  and infrastructure. For this fork Band 1 is the *whole* of the
+  kept surface — which is why `[B1]` tags deserve checking against
+  the any-knowledge-domain criterion in Band 1's definition rather
+  than the weaker "chess port" axis (the `frontend/FILES.md` legend
+  was re-keyed accordingly in the same change as this amendment;
+  the existing tags have not yet been swept against the stronger
+  criterion).
+
 ## Consequences
 
 ### Positive
@@ -302,7 +316,10 @@ discipline so the boundary stays this clean as new features land.
 - **The inventory will drift.** As modules change, their band
   assignments may shift. This document needs occasional refresh —
   realistically once or twice a year, or whenever a substantial
-  domain-touching feature lands.
+  domain-touching feature lands. *(2026-06-10: it did — see the
+  Amendments line. The per-file half now lives in
+  `frontend/FILES.md` with a same-PR cadence; this document keeps
+  the definitions and seams, which drift far more slowly.)*
 
 ### Neutral
 
@@ -318,15 +335,34 @@ This ADR would be worth revisiting if any of the following:
    for Chess, Shogi, or another problem class). At that point, Port
    extraction stops being premature — the second use case is the
    trigger that flips the cost-benefit. The seams documented here
-   become the natural extraction points.
+   become the natural extraction points. **(Fired twice; recorded
+   2026-06-10.)** The `chess-clone` work-status item is open/active
+   (same game class, different instance), and the maintainer named a
+   generic knowledge flash-card fork — a non-game adopter — as a
+   binding constraint during the 2026-06-09/10 history-lessons
+   audit. The two adopters sit on different axes, so the seams here
+   are now the extraction map both read; the non-game sizing above
+   is the second adopter's column. Port extraction for the seams a
+   concrete adopter touches is no longer premature by this ADR's own
+   criterion.
 2. **The inventory drifts substantially.** If a wave of new features
    shifts the Band 1 / Band 2 / Band 3 distribution noticeably,
-   refresh the inventory.
+   refresh the inventory. **(Fired; recorded 2026-06-10.)** The
+   source-tree reorganisations left ~9 of ~23 inventory paths stale.
+   Resolved by delegating the per-file listing to
+   `frontend/FILES.md` (see the Amendments line) rather than
+   refreshing it in place — the same-PR cadence there is the
+   structural fix an in-place refresh would not have provided.
 3. **A specific module's band classification turns out to be wrong
    in practice.** E.g., if `useReviewSession.ts` turns out to be far
    more KataGo-coupled than the inventory suggests once we look
    closely, the band moves and the principle's application to that
-   module changes.
+   module changes. **(One instance recorded 2026-06-10, not
+   adjudicated:** this ADR places `useReviewSession.ts` in Band 2;
+   `frontend/FILES.md` tags it `[B3]`. The disagreement is exactly
+   the canary this trigger names — the named-seam extraction work
+   the 2026-06-10 audit filed is the adjudication path, not this
+   amendment.)
 4. **The "what would change for a Chess port?" question stops being
    useful** as a thought experiment. If the team decides the
    codebase's future is exclusively Go and there's no reason to
@@ -336,6 +372,11 @@ This ADR would be worth revisiting if any of the following:
 
 ## Related
 
+- **`frontend/FILES.md`.** The maintained per-file band inventory
+  this ADR's instance listing was delegated to (2026-06-10
+  amendment). This ADR carries the band definitions and the seam
+  analysis; FILES.md carries the per-file tags, with a same-PR
+  update cadence.
 - **Backend item 34 / `PositionNormalizerPort` (item 30b).** The
   backend's analogous extraction. Established the precedent that
   domain-portability is a real architectural goal across the system.

@@ -1,6 +1,6 @@
 {
-  "node_count": 410,
-  "edge_count": 1864,
+  "node_count": 411,
+  "edge_count": 1881,
   "age_buckets": [
     {
       "name": "fresh",
@@ -162,7 +162,7 @@
       "is_hub": false,
       "first_committed": "2026-05-17",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/adr/0009-performance-investigation-discipline.md",
@@ -170,7 +170,7 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
@@ -178,7 +178,7 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/archive/34b-complete-status.md",
@@ -1594,7 +1594,7 @@
       "is_hub": false,
       "first_committed": "2026-05-18",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/dispatch/proxy-to-frontend-selector-and-capabilities-status.md",
@@ -1658,7 +1658,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/audit/audit-spa-board-scope-consistency-2026-06-05.md",
@@ -1672,41 +1672,41 @@
       "path": "docs/notes/audit/audit-spa-history-lessons-2026-06-10-appendix-p1.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-10",
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/audit/audit-spa-history-lessons-2026-06-10-appendix-p2.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-10",
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/audit/audit-spa-history-lessons-2026-06-10-appendix-p3.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-10",
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/audit/audit-spa-history-lessons-2026-06-10-filings.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-10",
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-10",
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/audit/audit-stringly-typed-contracts-2026-06-01.md",
@@ -1714,7 +1714,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/audit/audit-work-status-liveness-2026-06-02.md",
@@ -1722,7 +1722,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/audit/opus-audit-green-perf-arc-2026-05-31.md",
@@ -1730,7 +1730,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/audit/perf-audit-game-scroll-2026-05-28.md",
@@ -1738,7 +1738,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/audit/perf-audit-nav-and-pv-hover-2026-05-27.md",
@@ -1746,7 +1746,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/audit/perf-audit-range-query-nav-2026-05-29.md",
@@ -1754,7 +1754,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/auditor-notes.md",
@@ -1802,7 +1802,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-05-29-render-coupling-typing.md",
@@ -1810,7 +1810,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-05-30-config-schema-refactor.md",
@@ -1858,7 +1858,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-02-work-status-ssot-plan.md",
@@ -1866,7 +1866,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-03-knowntags-fence-and-boot-ordering.md",
@@ -1930,7 +1930,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/design/autonomous-srs-loop-revised.md",
@@ -1954,7 +1954,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/design/doc-graph-discipline-plan.md",
@@ -2010,7 +2010,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/design/proxy-topology-testing-plan.md",
@@ -2018,7 +2018,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/design/qeubo-namespace-unification-plan.md",
@@ -2042,7 +2042,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/distribution-packaging.md",
@@ -2122,7 +2122,7 @@
       "is_hub": false,
       "first_committed": "2026-05-29",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/postmortem/README.md",
@@ -2130,7 +2130,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md",
@@ -2138,7 +2138,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md",
@@ -2146,7 +2146,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/postmortem/postmortem-knob-toolbar-popover-2026-05.md",
@@ -2154,7 +2154,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/postmortem/postmortem-match-pre-existing-variation-2026-05.md",
@@ -2162,7 +2162,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/postmortem/postmortem-pbo-claim-rehydration-2026-05.md",
@@ -2170,7 +2170,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
@@ -2178,7 +2178,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/postmortem/rca-discipline-lapses-2026-06-01.md",
@@ -2186,7 +2186,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/reflection.md",
@@ -2218,7 +2218,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/retrospective/release-retrospective-2026-05.md",
@@ -2226,7 +2226,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/retrospective/retrospective-doc-consolidation-2026-06.md",
@@ -2242,7 +2242,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/retrospective/retrospective-phase3-policy-benchmark-2026-05.md",
@@ -2250,7 +2250,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/retrospective/retrospective-phase3.5-learned-vf-2026-05.md",
@@ -2258,7 +2258,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/review-session-deltas-investigation.md",
@@ -2274,7 +2274,7 @@
       "is_hub": false,
       "first_committed": "2026-05-18",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/tenancy.md",
@@ -2530,7 +2530,7 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-06-02",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-05-12-dsl-hyperparameter-harness.md",
@@ -3261,12 +3261,20 @@
       "age_bucket": "fresh"
     },
     {
-      "path": "docs/worklog/2026-06-10-spa-history-lessons-audit.md",
+      "path": "docs/worklog/2026-06-10-adr-record-amendments.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": null,
       "last_committed": null,
       "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/worklog/2026-06-10-spa-history-lessons-audit.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-10",
+      "last_committed": "2026-06-10",
+      "age_bucket": "fresh"
     },
     {
       "path": "frontend/CLAUDE.md",
@@ -3752,9 +3760,30 @@
     },
     {
       "from": "docs/adr-synopsis.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr-synopsis.md",
       "to": "docs/archive/notes/perf-investigation-tooling-comparison-2026-05-27.md",
       "kind": "path-mention",
       "site": "`docs/archive/notes/perf-investigation-tooling-comparison-2026-05-27.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0001-state-mutation-and-readonly.md",
+      "to": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0001-state-mutation-and-readonly.md",
+      "to": "docs/notes/audit/perf-audit-game-scroll-2026-05-28.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/perf-audit-game-scroll-2026-05-28.md`",
       "resolved": "resolved"
     },
     {
@@ -3811,6 +3840,27 @@
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
       "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "to": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`",
       "resolved": "resolved"
     },
     {
@@ -4203,6 +4253,13 @@
       "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
       "kind": "adr-related",
       "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "to": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`",
       "resolved": "resolved"
     },
     {
@@ -15984,6 +16041,76 @@
       "to": "docs/adr/0006-source-file-headers.md",
       "kind": "adr-related",
       "site": "ADR-0006",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-adr-record-amendments.md",
+      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-adr-record-amendments.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-adr-record-amendments.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-adr-record-amendments.md",
+      "to": "docs/adr/0001-state-mutation-and-readonly.md",
+      "kind": "adr-related",
+      "site": "ADR-0001",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-adr-record-amendments.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-adr-record-amendments.md",
+      "to": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-adr-record-amendments.md",
+      "to": "docs/notes/audit/perf-audit-game-scroll-2026-05-28.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/perf-audit-game-scroll-2026-05-28.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-adr-record-amendments.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-adr-record-amendments.md",
+      "to": "docs/adr-synopsis.md",
+      "kind": "path-mention",
+      "site": "`docs/adr-synopsis.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-adr-record-amendments.md",
+      "to": "docs/handoff-current.md",
+      "kind": "path-mention",
+      "site": "`docs/handoff-current.md`",
       "resolved": "resolved"
     },
     {
