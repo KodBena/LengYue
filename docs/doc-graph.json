@@ -1,6 +1,6 @@
 {
-  "node_count": 440,
-  "edge_count": 2078,
+  "node_count": 441,
+  "edge_count": 2108,
   "age_buckets": [
     {
       "name": "fresh",
@@ -2154,7 +2154,7 @@
       "is_hub": false,
       "first_committed": "2026-06-09",
       "last_committed": "2026-06-09",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/investigation-refactoring-queue-adr0007-2026-06-02.md",
@@ -3306,7 +3306,7 @@
       "is_hub": false,
       "first_committed": "2026-06-09",
       "last_committed": "2026-06-09",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-09-thumbnail-hover-linger-fix.md",
@@ -3507,6 +3507,14 @@
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
       "age_bucket": "recent"
+    },
+    {
+      "path": "docs/worklog/2026-06-11-adr-corpus-amendments.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "frontend/CLAUDE.md",
@@ -3754,9 +3762,23 @@
     },
     {
       "from": "README.md",
+      "to": "docs/archive/notes/design/analysis-persistence-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/design/analysis-persistence-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "README.md",
       "to": "backend/docs/tree-dsl.md",
       "kind": "path-mention",
       "site": "`backend/docs/tree-dsl.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "README.md",
+      "to": "docs/TODO.md",
+      "kind": "path-mention",
+      "site": "`docs/TODO.md`",
       "resolved": "resolved"
     },
     {
@@ -4026,6 +4048,13 @@
       "resolved": "resolved"
     },
     {
+      "from": "docs/adr/0001-state-mutation-and-readonly.md",
+      "to": "docs/archive/TODO-completed-2026-05-06.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/TODO-completed-2026-05-06.md`",
+      "resolved": "resolved"
+    },
+    {
       "from": "docs/adr/0002-fail-loudly.md",
       "to": "docs/adr/0001-state-mutation-and-readonly.md",
       "kind": "adr-related",
@@ -4065,6 +4094,13 @@
       "to": "docs/notes/design/qeubo-namespace-unification-plan.md",
       "kind": "path-mention",
       "site": "`docs/notes/design/qeubo-namespace-unification-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0002-fail-loudly.md",
+      "to": "docs/archive/TODO-completed-2026-05-06.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/TODO-completed-2026-05-06.md`",
       "resolved": "resolved"
     },
     {
@@ -4114,6 +4150,13 @@
       "to": "docs/adr/0001-state-mutation-and-readonly.md",
       "kind": "adr-related",
       "site": "ADR-0001",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
       "resolved": "resolved"
     },
     {
@@ -4177,6 +4220,13 @@
       "to": "docs/notes/audit-reflections.md",
       "kind": "path-mention",
       "site": "`docs/notes/audit-reflections.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0005-documentation-discipline.md",
+      "to": "docs/notes/vestige/deferred-items/doc-graph-svg-render-off-tree.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/vestige/deferred-items/doc-graph-svg-render-off-tree.md`",
       "resolved": "resolved"
     },
     {
@@ -4250,6 +4300,20 @@
       "resolved": "resolved"
     },
     {
+      "from": "docs/adr/0007-file-size-and-information-density.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0007-file-size-and-information-density.md",
+      "to": "docs/adr-synopsis.md",
+      "kind": "path-mention",
+      "site": "`docs/adr-synopsis.md`",
+      "resolved": "resolved"
+    },
+    {
       "from": "docs/adr/0008-classification-discipline.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
@@ -4314,6 +4378,13 @@
     },
     {
       "from": "docs/adr/0008-classification-discipline.md",
+      "to": "docs/archive/notes/frontend-source-tree-reorganization.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/frontend-source-tree-reorganization.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0008-classification-discipline.md",
       "to": "docs/notes/decisions-deferred.md",
       "kind": "path-mention",
       "site": "`docs/notes/decisions-deferred.md`",
@@ -4324,6 +4395,13 @@
       "to": "frontend/FILES.md",
       "kind": "path-mention",
       "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0008-classification-discipline.md",
+      "to": "docs/worklog/2026-06-10-refs-kind-audit.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-06-10-refs-kind-audit.md`",
       "resolved": "resolved"
     },
     {
@@ -4380,6 +4458,13 @@
       "to": "docs/archive/notes/perf-investigation-tooling-comparison-2026-05-27.md",
       "kind": "path-mention",
       "site": "`docs/archive/notes/perf-investigation-tooling-comparison-2026-05-27.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/adr/0009-performance-investigation-discipline.md",
+      "to": "docs/notes/perf-capture-normalization-protocol.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/perf-capture-normalization-protocol.md`",
       "resolved": "resolved"
     },
     {
@@ -10418,16 +10503,16 @@
     },
     {
       "from": "docs/handoff-current.md",
-      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
       "kind": "adr-related",
-      "site": "ADR-0004",
+      "site": "ADR-0005",
       "resolved": "resolved"
     },
     {
       "from": "docs/handoff-current.md",
-      "to": "docs/adr/0005-documentation-discipline.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
       "kind": "adr-related",
-      "site": "ADR-0005",
+      "site": "ADR-0004",
       "resolved": "resolved"
     },
     {
@@ -10519,6 +10604,13 @@
       "to": "docs/wire-schemas.md",
       "kind": "path-mention",
       "site": "`docs/wire-schemas.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/handoff-current.md",
+      "to": "docs/adr-synopsis.md",
+      "kind": "path-mention",
+      "site": "`docs/adr-synopsis.md`",
       "resolved": "resolved"
     },
     {
@@ -12147,6 +12239,13 @@
     },
     {
       "from": "docs/notes/decisions-deferred.md",
+      "to": "docs/adr/0007-file-size-and-information-density.md",
+      "kind": "adr-related",
+      "site": "ADR-0007",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/decisions-deferred.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
       "site": "ADR-0002",
@@ -12157,6 +12256,13 @@
       "to": "docs/TODO.md",
       "kind": "path-mention",
       "site": "`docs/TODO.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/decisions-deferred.md",
+      "to": "docs/archive/notes/frontend-source-tree-reorganization.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/frontend-source-tree-reorganization.md`",
       "resolved": "resolved"
     },
     {
@@ -17708,6 +17814,118 @@
       "to": "frontend/CLAUDE.md",
       "kind": "path-mention",
       "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-adr-corpus-amendments.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-adr-corpus-amendments.md",
+      "to": "docs/adr/0001-state-mutation-and-readonly.md",
+      "kind": "adr-related",
+      "site": "ADR-0001",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-adr-corpus-amendments.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-adr-corpus-amendments.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-adr-corpus-amendments.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-adr-corpus-amendments.md",
+      "to": "docs/adr/0006-source-file-headers.md",
+      "kind": "adr-related",
+      "site": "ADR-0006",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-adr-corpus-amendments.md",
+      "to": "docs/adr/0007-file-size-and-information-density.md",
+      "kind": "adr-related",
+      "site": "ADR-0007",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-adr-corpus-amendments.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-adr-corpus-amendments.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-adr-corpus-amendments.md",
+      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-adr-corpus-amendments.md",
+      "to": "docs/notes/audit/audit-adr-corpus-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-adr-corpus-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-adr-corpus-amendments.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-adr-corpus-amendments.md",
+      "to": "docs/archive/notes/frontend-source-tree-reorganization.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/frontend-source-tree-reorganization.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-adr-corpus-amendments.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-adr-corpus-amendments.md",
+      "to": "docs/pre-merge-checklist.md",
+      "kind": "path-mention",
+      "site": "`docs/pre-merge-checklist.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-adr-corpus-amendments.md",
+      "to": "docs/notes/decisions-deferred.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/decisions-deferred.md`",
       "resolved": "resolved"
     },
     {
