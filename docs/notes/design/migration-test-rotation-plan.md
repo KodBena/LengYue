@@ -134,6 +134,43 @@ suite catches:
 - Off-by-one errors in array indexing during manual
   rotations.
 
+**Phase 1 extension (2026-06-10).** The history-lessons audit
+(`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md` §3.13;
+work-status item `migration-leaf-assertion-and-composition-test`)
+found the suite's per-migration coverage had a twelve-step gap
+(44 → 45 through 55 → 56 shipped without fixtures while the test
+file's header still claimed one `describe` block per migration),
+and that the suite shape could not catch the 47 → 48 incident
+class — a backfill body walking a wrong optional-chained blob path,
+silently no-oping, and stamping the version anyway. Two additions
+landed (delivery record:
+`docs/worklog/2026-06-10-migration-leaf-assertion-and-composition-test.md`):
+
+- A **composition-level invariant test**
+  (`frontend/tests/integration/migration-store-roundtrip.test.ts`)
+  driving a legacy blob through `migrate()` →
+  `updateFromRemote()` → `buildPersistencePayload()` and pinning
+  the round-tripped key set against a clean migration of the same
+  blob. A silent backfill no-op surfaces as an unexplained
+  defaults-only key. Its fixture is hand-written per this note's
+  Open Question 1 recommendation (the co-tested-fixture hazard):
+  realistic for pre-framework v1 fields, deliberately minimal for
+  anything a migration is supposed to backfill.
+- A **leaf-assertion helper with an independent witness**
+  (`witnessedContainer` in `frontend/src/store/migrations.ts`):
+  active migration bodies resolve blob containers through a path
+  that is first validated against the runtime persisted shape
+  (assembled from `defaults.ts` — the paths the runtime actually
+  reads), so a typo'd path throws instead of conditioning out on
+  the same wrong walk. The helper is frozen once shipped (its
+  docstring carries the contract); archived bodies keep their
+  inline guards verbatim.
+
+The fixture-vs-extraction question this note's Open Question 1
+raised is thereby answered for the composition test: hand-write,
+with an explicit authoring rule against backfilling fixture
+fields that have migrations.
+
 ### Phase 2 — Rotation script
 
 Lands after Phase 1. Relies on Phase 1's tests as the safety

@@ -296,7 +296,7 @@ frontend/src/
 │   ├── board-factory.ts               [B3]  Pure factory functions for board state construction.
 │   ├── defaults.ts                    [B3]  Initial GlobalStore constants (board defaults dominate; some B1 too).
 │   ├── index.ts                       [B3]  Central reactive store; createBoard / closeBoard / resetWorkspace.
-│   └── migrations.ts                  [B1]  Schema-versioning framework (B1); the migrations themselves touch every band.
+│   └── migrations.ts                  [B1]  Schema-versioning framework (B1) incl. the witnessedContainer leaf-assertion helper (its runtime-shape witness imports defaults); the migrations themselves touch every band.
 │
 ├── i18n/                                    vue-i18n integration.
 │   ├── index.ts                       [B1]  createI18n configuration; bundled-catalog loading.

@@ -35,10 +35,23 @@
  *   1. Bump CURRENT_SCHEMA_VERSION below to N+1.
  *   2. Append a function to the `migrations` array that takes
  *      the v-N blob and returns the v-N+1 blob.
- *   3. Document the migration's intent in a comment immediately
+ *   3. Resolve every blob container the body reads or writes
+ *      through `witnessedContainer(out, 'path.to.container')`
+ *      (the leaf-assertion helper below) instead of a raw
+ *      optional chain. A typo'd path then fails loudly against
+ *      the runtime-shape witness instead of silently no-oping
+ *      and stamping the version anyway — the 47 → 48 incident
+ *      class (see the 48 → 49 corrective in
+ *      `archived-migrations.ts`).
+ *   4. Document the migration's intent in a comment immediately
  *      above the function. Name the fields it touches and why.
- *   4. Test by: (a) constructing a synthetic v-N blob, (b)
- *      calling migrate() on it, (c) asserting the result.
+ *   5. Test by: (a) constructing a synthetic v-N blob, (b)
+ *      calling migrate() on it, (c) asserting the result. The
+ *      store-round-trip composition test
+ *      (`tests/integration/migration-store-roundtrip.test.ts`)
+ *      pins the key-set the corpus produces against the save
+ *      path; a backfill migration that silently no-ops shows up
+ *      there as an unexplained defaults-only key.
  *
  * ── Missing schemaVersion (legacy blobs) ───────────────────────────
  * Treated as version 1 — the version at this framework's
@@ -93,6 +106,7 @@
  */
 
 import { archivedMigrations, type Migration } from './archived-migrations';
+import { defaultProfile, defaultSessionUI, NIL_UUID } from './defaults';
 
 // See "Dev-only hazard" above. The accept-then-reload pattern
 // intercepts the HMR update and forces a full page reload
@@ -100,6 +114,125 @@ import { archivedMigrations, type Migration } from './archived-migrations';
 // undefined when Vite emits the production bundle, so this
 // guard exists only in `npm run dev`.
 if (import.meta.hot) import.meta.hot.accept(() => location.reload());
+
+/**
+ * Runtime-shape witness for `witnessedContainer` below: the persisted
+ * blob's container skeleton, assembled from the same defaults the
+ * runtime store hydrates from. `buildPersistencePayload` in
+ * `store/index.ts` is the save-side mirror of this shape — these are
+ * the paths the runtime actually reads, which is what makes the
+ * witness *independent* of any migration body's own blob walk.
+ *
+ * Deliberately built from the live `defaults` module rather than a
+ * frozen inline snapshot: the witness asserts that a migration's
+ * target container exists in the *current* runtime shape, and new
+ * containers added later must be witnessable without editing frozen
+ * helper data. This is NOT the mutable-constant hazard the 42 → 43
+ * archived body's freeze note warns about — that note is about a
+ * migration's *output values* drifting silently; the witness is an
+ * assertion input whose drift fails loudly (a throw at hydrate), the
+ * opposite failure mode.
+ */
+const PERSISTED_SHAPE_WITNESS: Record<string, unknown> = {
+  schemaVersion: 0,
+  boards: [],
+  activeBoardIndex: 0,
+  profile: defaultProfile,
+  session: {
+    id: NIL_UUID,
+    profileId: NIL_UUID,
+    ui: defaultSessionUI,
+    reviews: {},
+  },
+};
+
+/**
+ * Leaf-assertion helper for ACTIVE migration bodies (work-status item
+ * `migration-leaf-assertion-and-composition-test`, audit
+ * `docs/notes/audit/audit-spa-history-lessons-2026-06-10.md` §3.13;
+ * extends Phase 1 of
+ * `docs/notes/design/migration-test-rotation-plan.md`).
+ *
+ * Resolves a dot-separated container path on the blob in two legs:
+ *
+ *   1. **Witness leg (fail loud, ADR-0002).** The path must resolve
+ *      against `PERSISTED_SHAPE_WITNESS` — the runtime persisted
+ *      shape. A path the runtime never reads throws immediately.
+ *      This is the independent witness: the 47 → 48 F-optimizer
+ *      retirement walked `out.settings?.knobs` instead of
+ *      `out.profile?.settings?.knobs` and silently no-oped on every
+ *      blob while still stamping v48; an assertion that re-walks the
+ *      body's own path would have conditioned out on the same typo.
+ *   2. **Blob leg (tolerant, unchanged semantics).** The same path is
+ *      walked on the blob with optional-chain semantics; returns the
+ *      container when it is a non-null `typeof 'object'` value
+ *      (arrays included — matching the inline guards this replaces),
+ *      else `undefined`, so partial / legacy blobs no-op exactly as
+ *      before. Pass the PARENT container's path, not the leaf's: a
+ *      stripped or backfilled leaf is usually absent from the current
+ *      shape by design; its parent is what the runtime still reads.
+ *
+ * ── FROZEN ONCE SHIPPED ────────────────────────────────────────────
+ * Shipped migration bodies call this helper, and bodies are frozen as
+ * they shipped — which makes this helper a dependency of frozen code.
+ * From the first release that ships a body calling it, the helper's
+ * observable semantics are frozen with those bodies: a behavioural
+ * change here would silently retro-edit shipped migrations in the
+ * wild, the exact failure the append-only invariant exists to
+ * prevent. If different semantics are ever needed, mint a NEW helper
+ * and leave this one untouched.
+ *
+ * Two scope rules that follow:
+ *   - ACTIVE bodies only. Archived bodies keep their original inline
+ *     guards verbatim; retrofitting frozen bodies is forbidden.
+ *   - A witnessed path is a forward commitment: while any body
+ *     (active or archived-later) witnesses it, the persisted shape
+ *     must keep carrying that container, or hydration of pre-that-
+ *     version blobs fails loudly. That loud failure is the design
+ *     (better than a silent no-op stamp), but a future restructuring
+ *     arc that renames a witnessed container must revisit the frozen
+ *     bodies' witness viability in the same change.
+ */
+export function witnessedContainer(
+  blob: unknown,
+  witnessPath: string,
+): Record<string, unknown> | undefined {
+  const segments = witnessPath.split('.');
+
+  // Witness leg.
+  let witness: unknown = PERSISTED_SHAPE_WITNESS;
+  for (const segment of segments) {
+    if (witness === null || typeof witness !== 'object' || !(segment in witness)) {
+      throw new Error(
+        `witnessedContainer: '${witnessPath}' does not resolve against the ` +
+        `runtime persisted shape (failed at segment '${segment}'). The ` +
+        `migration names a container the runtime never reads — the 47 → 48 ` +
+        `wrong-path class. Fix the path; do not loosen the witness.`,
+      );
+    }
+    // Justified cast: the line above proves `witness` is a non-null
+    // object carrying `segment`; TS cannot narrow `unknown` through
+    // the `in` check without a wider type assertion than this one.
+    witness = (witness as Record<string, unknown>)[segment];
+  }
+
+  // Blob leg.
+  let current: unknown = blob;
+  for (const segment of segments) {
+    if (current === null || current === undefined) return undefined;
+    // Justified cast: indexing a primitive (string / number / boolean)
+    // yields `undefined` for these segment names, which the next
+    // iteration's null/undefined guard absorbs — same tolerance as
+    // the optional-chained reads this helper replaces.
+    current = (current as Record<string, unknown>)[segment];
+  }
+  return current !== null && typeof current === 'object'
+    // Justified cast: arrays deliberately pass (typeof 'object'),
+    // mirroring the `value && typeof value === 'object'` inline
+    // guards the active bodies used before the retrofit.
+    ? (current as Record<string, unknown>)
+    : undefined;
+}
 
 /**
  * The current schema version. Bump only when the GlobalStore
@@ -146,10 +279,17 @@ export const migrations: Migration[] = [
   // repopulates the new field); we just delete the dead key.
   //
   // Idempotent: `delete` is a no-op when the key is already absent.
+  //
+  // Container access goes through `witnessedContainer` (semantics-
+  // preserving retrofit; see the helper's docstring): 'profile' is
+  // witnessed against the runtime shape, and the blob-side resolution
+  // keeps the prior `out.profile && typeof out.profile === 'object'`
+  // tolerance.
   (blob: any) => {
     const out = structuredClone(blob);
-    if (out.profile && typeof out.profile === 'object') {
-      delete (out.profile as { knownTags?: unknown }).knownTags;
+    const profile = witnessedContainer(out, 'profile');
+    if (profile) {
+      delete (profile as { knownTags?: unknown }).knownTags;
     }
     return out;
   },
@@ -166,10 +306,16 @@ export const migrations: Migration[] = [
   // non-null, no top-level `kind`; keys are BoardId UUIDs, never `kind`). The
   // old shape is `null` or a discriminated `NavSelection` (carries `kind`).
   // Reset anything that is not already the new shape; idempotent on it.
+  //
+  // Container access goes through `witnessedContainer` (semantics-
+  // preserving retrofit; see the helper's docstring): the
+  // 'session.ui.forestNav' path is witnessed against the runtime
+  // shape, and the blob-side resolution keeps the prior
+  // `out.session?.ui?.forestNav` + non-null-object tolerance.
   (blob: any) => {
     const out = structuredClone(blob);
-    const nav = out.session?.ui?.forestNav;
-    if (nav && typeof nav === 'object') {
+    const nav = witnessedContainer(out, 'session.ui.forestNav');
+    if (nav) {
       const sel = (nav as { selection?: unknown }).selection;
       const alreadyPerBoard =
         typeof sel === 'object' && sel !== null && !('kind' in (sel as object));

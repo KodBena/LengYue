@@ -20,9 +20,9 @@ of truth and the picture is a projection of it.
 
 ## At a glance
 
-- **Nodes:** 411 documents.
-- **Edges:** 1881 cross-references
-  (1510 resolved, 371 dangling, 0 ambiguous).
+- **Nodes:** 412 documents.
+- **Edges:** 1886 cross-references
+  (1515 resolved, 371 dangling, 0 ambiguous).
 
 ## Staleness heatmap (buckets)
 
@@ -39,13 +39,11 @@ see the Regeneration note.)
 | Document | Bucket | Last touched |
 |---|---|---|
 | `backend/docs/tree-dsl.md` | stale | 2026-04-26 |
-| `docs/adr/0001-state-mutation-and-readonly.md` | stale | 2026-04-26 |
 | `docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md` | stale | 2026-04-26 |
 | `docs/archive/34b-complete-status.md` | stale | 2026-04-26 |
 | `docs/archive/34b-frontend-brief.md` | stale | 2026-04-26 |
 | `docs/archive/34b-parallel-frontend-work.md` | stale | 2026-04-26 |
 | `docs/archive/handoff-2026-04-frontend-pre-umbrella.md` | stale | 2026-04-26 |
-| `docs/adr/0003-frontend-portability-and-domain-boundaries.md` | stale | 2026-04-26 |
 | `docs/playbooks/monorepo/monorepo-plan-framing.md` | stale | 2026-04-26 |
 | `docs/adr/0006-source-file-headers.md` | stale | 2026-04-26 |
 | `docs/notes/audit-reflections.md` | stale | 2026-04-26 |
@@ -68,6 +66,8 @@ see the Regeneration note.)
 | `docs/archive/dispatch/frontend-to-backend-analysis-persistence-status.md` | stale | 2026-05-08 |
 | `docs/archive/dispatch/frontend-to-backend-analysis-persistence.md` | stale | 2026-05-08 |
 | `docs/archive/dispatch/frontend-to-backend-auth-me.md` | stale | 2026-05-08 |
+| `docs/archive/dispatch/frontend-to-backend-card-tree-status.md` | stale | 2026-05-08 |
+| `docs/archive/dispatch/frontend-to-backend-game-source-dedup-status.md` | stale | 2026-05-08 |
 
 ## Pruned graph (inline)
 
