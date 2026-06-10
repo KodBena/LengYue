@@ -23,7 +23,14 @@
  *                               the broken-reference report + a manifest link.
  *   - `docs/doc-graph-report.md` — the validator REPORT (genuine dangling /
  *                               ambiguous cross-references, after the
- *                               ADR-0005 Rule 4 code-block/placeholder filter).
+ *                               ADR-0005 Rule 4 code-block/placeholder filter,
+ *                               split by ORIGIN bucket — live / executed-playbook
+ *                               / frozen (archive + worklog) — and, within live,
+ *                               by TARGET class — missing-on-disk /
+ *                               outside-node-set / retired-tombstone — plus a
+ *                               named directory-reference class and an advisory
+ *                               no-new-danglers ratchet. Report sections only;
+ *                               none of it gates).
  *
  * Design note (the SPEC): `docs/archive/notes/design/documentation-graph-artifact-plan.md`.
  * Substrate plan: `docs/notes/design/doc-graph-discipline-plan.md`.
@@ -144,6 +151,87 @@ const HUB_NODES = new Set([
 
 /** The adr-synopsis fan-out source — its ADR citations are `synopsis-of`. */
 const SYNOPSIS_NODE = "docs/adr-synopsis.md";
+
+// ── Broken-reference report classification (origin buckets + target classes) ─
+
+/**
+ * Origin buckets for the broken-reference report. The frozen boundary follows
+ * the project's working convention (recorded in
+ * `docs/notes/consolidation-xref-fallout.md` §Method): references FROM
+ * `docs/archive/**` AND FROM completed worklogs (`docs/worklog/**`) are
+ * point-in-time captures — "do not edit to fix" — so their danglers are
+ * expected, tolerated drift. Executed playbooks under `docs/playbooks/monorepo/`
+ * are the same note's "quasi-frozen" class (executed, reference-only) and get
+ * their own bucket so the live list is not polluted by them. Everything else is
+ * LIVE — the genuine-action surface. Buckets affect the REPORT sections only;
+ * the manifest records every edge regardless (manifest-first).
+ * magic-literal: the bucket boundary is the project convention, named here as
+ * the single source.
+ */
+const FROZEN_ORIGIN_PREFIXES = ["docs/archive/", "docs/worklog/"];
+const EXECUTED_ORIGIN_PREFIXES = ["docs/playbooks/monorepo/"];
+
+/**
+ * Deliberately retired hub documents (tombstones): paths that many docs
+ * legitimately cited while the hub lived, whose retirement was a recorded
+ * decision rather than drift. A dangling reference TO a tombstoned path is
+ * classified `retired` and sectioned separately from genuine rot — the
+ * reference is historical record of a hub that was retired on purpose, and the
+ * successor is named here so the report points readers at it. Extend this map
+ * when another hub is deliberately retired. magic-literal: the tombstone set is
+ * a curated record of retirement decisions, named here as the single source.
+ */
+const TOMBSTONES = new Map([
+  [
+    "docs/notes/deferred-items.md",
+    "retired into the work-status store (the `todo` PostgreSQL DB; schema in " +
+      "`tools/work-status/schema.sql`); per-item vestige notes live under " +
+      "`docs/notes/vestige/deferred-items/`.",
+  ],
+]);
+
+/**
+ * Advisory no-new-danglers ratchet (a report section, NOT a gate — the
+ * project's gate history counsels advisory-first: the umbrella CLAUDE.md
+ * records that merge-blocking framing for report-shaped disciplines was tried
+ * and retracted). The baseline counts dangling
+ * references from LIVE documents in the two genuine-rot classes
+ * (`missing-on-disk` + `retired`); the `outside-node-set` class is excluded
+ * because those targets exist on disk — the "dangler" status is a scan-scope
+ * artifact, not reference rot. When the current count drops below the
+ * baseline, lower the baseline here (ratchet down); when it exceeds the
+ * baseline, the report flags it for review. magic-literal: the baseline is a
+ * measured snapshot, named here as the single source.
+ */
+const NO_NEW_DANGLERS_RATCHET = {
+  baselineDate: "2026-06-10",
+  baseline: 38, // live missing-on-disk + live retired at the baseline date
+};
+
+/** Origin bucket for a reference source: "live" | "executed" | "frozen". */
+function originClass(from) {
+  for (const p of FROZEN_ORIGIN_PREFIXES) if (from.startsWith(p)) return "frozen";
+  for (const p of EXECUTED_ORIGIN_PREFIXES) if (from.startsWith(p)) return "executed";
+  return "live";
+}
+
+/**
+ * Target class for a dangling reference: tombstones first (a retired hub is
+ * missing on disk too — the retirement decision is the more specific fact),
+ * then disk existence. `outside-node-set` is the named class for targets that
+ * exist on disk but fall outside the generator's scan scope (`docs/`,
+ * `backend/docs/`, the explicit root/sub-project files) — previously these
+ * were reported with the same wording as deleted files, which is the
+ * signal-conflation this split removes. Bare-filename danglers (no directory)
+ * cannot be located on disk and honestly classify as `missing-on-disk` by the
+ * same existence probe. Computed at generation time and kept IN-MEMORY only —
+ * see `committedManifest` for why it is not committed.
+ */
+function classifyDanglingTarget(to) {
+  if (TOMBSTONES.has(to)) return "retired";
+  if (existsSync(join(REPO_ROOT, to))) return "outside-node-set";
+  return "missing-on-disk";
+}
 
 /** Mermaid pruned-view node budget: ADRs + hubs + their first-order edges. */
 const MERMAID_INCLUDE_GENRES = new Set(["adr"]);
@@ -266,6 +354,16 @@ function genreFor(relPath) {
 const ADR_TOKEN_RE = /ADR-([0-9]{4})/g;
 const BACKTICK_PATH_RE = /`((?:docs|frontend|backend)\/[^`\n]+?\.md)`/g;
 const BACKTICK_BARENAME_RE = /`([0-9]{4}-[^`\n/]+?\.md)`/g;
+/**
+ * Backtick repo-DIRECTORY references (trailing `/`). `BACKTICK_PATH_RE`
+ * requires a `.md` suffix, so directory citations were previously not scanned
+ * at all — a structurally invisible reference class. They are not graph edges
+ * (a directory is a collection, not a document node), so they are recorded as
+ * their own named class: scanned with the same fence-strip + placeholder
+ * filter, resolved against DISK existence, and surfaced in the report when
+ * missing. Disjoint from `BACKTICK_PATH_RE` by construction (`.md` vs `/`).
+ */
+const BACKTICK_DIR_RE = /`((?:docs|frontend|backend)\/[^`\n]*?\/)`/g;
 const FENCE_RE = /^```/;
 
 /**
@@ -399,6 +497,25 @@ function extractEdges(from, rawBody, ctx) {
 }
 
 /**
+ * Extract directory references from one node's body (see `BACKTICK_DIR_RE`).
+ * Each carries {from, ref, exists} — `exists` is a disk probe, not a node-set
+ * lookup, because directories are not nodes. De-duplicated per node.
+ */
+function extractDirRefs(from, rawBody) {
+  const body = stripFencedCode(rawBody);
+  const seen = new Set();
+  const out = [];
+  for (const m of body.matchAll(BACKTICK_DIR_RE)) {
+    const ref = m[1];
+    if (isPlaceholder(ref)) continue;
+    if (seen.has(ref)) continue;
+    seen.add(ref);
+    out.push({ from, ref, exists: existsSync(join(REPO_ROOT, ref)) });
+  }
+  return out;
+}
+
+/**
  * Dispatch-pair edges, derived from filenames (not body prose). A dispatch
  * `{from}-to-{to}-{topic}.md` encodes a directed cross-team edge. Where a
  * reverse `{to}-to-{from}-{topic*}.md` exists sharing the topic-cluster key,
@@ -459,11 +576,20 @@ function buildManifest() {
 
   const ctx = { nodeSet, adrIndex, basenameIndex };
   let edges = [];
+  const dirRefs = [];
   for (const path of nodes) {
     const body = readFileSync(join(REPO_ROOT, path), "utf8");
     edges.push(...extractEdges(path, body, ctx));
+    dirRefs.push(...extractDirRefs(path, body));
   }
   edges.push(...dispatchPairEdges(nodes));
+
+  // Annotate dangling edges with their target class (missing-on-disk /
+  // outside-node-set / retired). IN-MEMORY only — `committedManifest` strips
+  // it, and `manifestSkeleton` deliberately excludes it (see both for why).
+  for (const e of edges) {
+    if (e.resolved === "dangling") e.target_class = classifyDanglingTarget(e.to);
+  }
 
   // The in-memory manifest keeps the raw commit-distances (manifestNodes
   // carries them) because buildDot's bucket fill, the staleness-table ordering,
@@ -476,6 +602,7 @@ function buildManifest() {
     age_buckets: AGE_BUCKETS.map((b) => ({ name: b.name, max_distance: b.maxDistance })),
     nodes: manifestNodes,
     edges,
+    dir_refs: dirRefs, // in-memory only (report projection); see committedManifest
   };
 }
 
@@ -489,6 +616,15 @@ function buildManifest() {
  * `head_sha` are likewise dropped — git's own history of this file records which
  * commit generated it. The freshness gate reads only the structural skeleton
  * (see `manifestSkeleton`), so stripping these does not weaken it.
+ *
+ * The per-edge `target_class` and the top-level `dir_refs` array are likewise
+ * stripped: both depend on DISK existence of paths outside the doc tree (e.g.
+ * `backend/samples/README.md`), and the doc-graph CI workflow's path filter
+ * cannot see non-doc file changes — committing disk-coupled fields would let an
+ * unrelated code PR strand the committed artifact "stale" and fail the gate on
+ * the next doc PR. They are recomputed on every regeneration and live in the
+ * report snapshot, same posture as the heatmap (the gate guards structure, not
+ * the snapshot).
  */
 function committedManifest(m) {
   return {
@@ -503,7 +639,13 @@ function committedManifest(m) {
       last_committed: n.last_committed,
       age_bucket: n.age_bucket,
     })),
-    edges: m.edges,
+    edges: m.edges.map((e) => ({
+      from: e.from,
+      to: e.to,
+      kind: e.kind,
+      site: e.site,
+      resolved: e.resolved,
+    })),
   };
 }
 
@@ -734,7 +876,8 @@ function buildIndexPage(manifest, mermaid) {
   const broken = brokenRefs(manifest);
   const danglingAll = broken.filter((e) => e.resolved === "dangling");
   const dangling = danglingAll.length;
-  const danglingLive = danglingAll.filter((e) => !e.from.startsWith("docs/archive/")).length;
+  const liveDangling = danglingAll.filter((e) => originClass(e.from) === "live");
+  const liveActionable = liveDangling.filter((e) => e.target_class !== "outside-node-set").length;
   const ambiguous = broken.filter((e) => e.resolved === "ambiguous").length;
   const resolved = manifest.edges.filter((e) => e.resolved === "resolved").length;
   return `${GENERATED_BANNER}
@@ -798,7 +941,7 @@ ${mermaid}
 
 ${dangling + ambiguous === 0
   ? "No genuine dangling or ambiguous references detected (after the ADR-0005 Rule 4 code-block/placeholder filter)."
-  : `**${danglingLive}** dangling references from **live** documents (genuine-action candidates), ${dangling - danglingLive} from frozen archive (expected drift), and ${ambiguous} ambiguous, after the ADR-0005 Rule 4 code-block/placeholder filter. See [\`docs/doc-graph-report.md\`](./doc-graph-report.md) for the full list, split by origin — the maintainer reviews it; nothing is auto-fixed.`}
+  : `**${liveActionable}** dangling references from **live** documents in the genuine-rot classes (missing-on-disk + retired-target; ${liveDangling.length} live total — the remainder point at on-disk files outside the node set), ${dangling - liveDangling.length} from frozen / executed documents (expected drift), and ${ambiguous} ambiguous, after the ADR-0005 Rule 4 code-block/placeholder filter. See [\`docs/doc-graph-report.md\`](./doc-graph-report.md) for the full list, split by origin bucket and target class — the maintainer reviews it; nothing is auto-fixed.`}
 
 ## Regeneration
 
@@ -829,22 +972,42 @@ Public Domain (The Unlicense).
 `;
 }
 
-/** A frozen-archive source: dangling refs from here are expected drift. */
-function isArchiveOrigin(from) {
-  return from.startsWith("docs/archive/");
-}
-
 function buildReportPage(manifest) {
   const broken = brokenRefs(manifest);
   const dangling = broken.filter((e) => e.resolved === "dangling");
   const ambiguous = broken.filter((e) => e.resolved === "ambiguous");
-  const danglingLive = dangling.filter((e) => !isArchiveOrigin(e.from));
-  const danglingArchive = dangling.filter((e) => isArchiveOrigin(e.from));
-  const fmt = (e) =>
-    `- \`${e.from}\` → ${e.site} *(${e.kind})*` +
-    (e.resolved === "dangling"
-      ? ` — target \`${e.to}\` does not resolve to any node.`
-      : ` — matches multiple nodes; not guessing (ADR-0002).`);
+
+  const byOrigin = { live: [], executed: [], frozen: [] };
+  for (const e of dangling) byOrigin[originClass(e.from)].push(e);
+
+  const liveMissing = byOrigin.live.filter((e) => e.target_class === "missing-on-disk");
+  const liveRetired = byOrigin.live.filter((e) => e.target_class === "retired");
+  const liveOutside = byOrigin.live.filter((e) => e.target_class === "outside-node-set");
+
+  // Directory references: only the missing ones are drift; resolved ones are
+  // honest collection citations and are counted, not listed.
+  const dirRefs = manifest.dir_refs || [];
+  const dirMissing = dirRefs.filter((d) => !d.exists);
+  const dirMissingLive = dirMissing.filter((d) => originClass(d.from) === "live");
+  const dirMissingOther = dirMissing.filter((d) => originClass(d.from) !== "live");
+
+  const ratchetCurrent = liveMissing.length + liveRetired.length;
+  const { baseline, baselineDate } = NO_NEW_DANGLERS_RATCHET;
+
+  const fmt = (e) => {
+    const head = `- \`${e.from}\` → ${e.site} *(${e.kind})*`;
+    if (e.resolved === "ambiguous") return `${head} — matches multiple nodes; not guessing (ADR-0002).`;
+    switch (e.target_class) {
+      case "retired":
+        return `${head} — target \`${e.to}\` was deliberately retired: ${TOMBSTONES.get(e.to)}`;
+      case "outside-node-set":
+        return `${head} — target \`${e.to}\` exists on disk but is outside the doc-graph node set.`;
+      default:
+        return `${head} — target \`${e.to}\` does not resolve to any node and does not exist on disk.`;
+    }
+  };
+  const fmtDir = (d) =>
+    `- \`${d.from}\` → \`${d.ref}\` *(directory-ref)* — directory does not exist on disk.`;
 
   return `${GENERATED_BANNER}
 
@@ -854,40 +1017,106 @@ Generated by \`tools/doc-graph/generate.mjs\`. This is a **report**, not a gate:
 the maintainer reviews the list and decides what to fix. The doc-graph CI
 workflow checks artifact *freshness* (the committed artifact must match a fresh
 run); it does **not** block merges on broken references, because existing drift
-would make every PR red.
+would make every PR red. The classification sections below — origin buckets,
+target classes, directory references, the advisory ratchet — are likewise
+report-only.
 
 The validator applies the ADR-0005 Rule 4 exemption: references inside fenced
 code blocks and obvious template placeholders (\`X.md\`, \`YYYY-…\`, \`NNNN\`,
 \`<…>\`, \`{…}\`, \`*\` globs, \`foo\`/\`bar\` examples) are skipped, so this
 list is the genuine-drift class, not the false-positive flood.
 
-The dangling references are split by **origin**: references *from* frozen
-archive documents (\`docs/archive/…\`) are *expected* drift — an archived note
-honestly records the paths that existed when it was written, and ADR-0005's
-incremental-retrofit posture does not retroactively rewrite frozen history.
-References from **live** documents are the genuine-action candidates.
+Dangling references are split by **origin bucket**, per the working convention
+recorded in \`docs/notes/consolidation-xref-fallout.md\`:
+
+- **Live** — the genuine-action surface.
+- **Executed playbooks** (\`docs/playbooks/monorepo/…\`) — executed,
+  reference-only records; their references are point-in-time captures.
+- **Frozen** (\`docs/archive/…\` **and** completed worklogs,
+  \`docs/worklog/…\`) — *expected* drift: a frozen note honestly records the
+  paths that existed when it was written ("do not edit to fix"), and ADR-0005's
+  incremental-retrofit posture does not retroactively rewrite frozen history.
+
+Within the live bucket, danglers are split by **target class**: genuinely
+**missing on disk** (rot or typo — review these), pointing at a
+**deliberately retired** hub (tombstoned; the successor is named per entry),
+or pointing at a file that **exists on disk but outside the node set** (a
+scan-scope artifact — the generator scans \`docs/\`, \`backend/docs/\`, and an
+explicit root/sub-project file list — not reference rot).
 
 ## Summary
 
-- **Dangling from LIVE documents** (genuine-action candidates): **${danglingLive.length}**.
-- **Dangling from frozen archive** (expected historical drift): **${danglingArchive.length}**.
+- **Dangling from LIVE documents, missing on disk** (review these): **${liveMissing.length}**.
+- **Dangling from LIVE documents, retired (tombstoned) targets**: **${liveRetired.length}**.
+- **Dangling from LIVE documents, on disk but outside the node set**: **${liveOutside.length}**.
+- **Dangling from EXECUTED playbooks** (reference-only records): **${byOrigin.executed.length}**.
+- **Dangling from FROZEN documents** (archive + worklogs; expected drift): **${byOrigin.frozen.length}**.
+- **Directory references missing on disk**: **${dirMissingLive.length}** from live
+  documents, **${dirMissingOther.length}** from frozen/executed
+  (${dirRefs.length} directory references scanned in total).
 - **Ambiguous references** (bare filename matches more than one node — never
   silently resolved, per ADR-0002): **${ambiguous.length}**.
 
-## Dangling references — from LIVE documents (review these)
+## Advisory ratchet — no new danglers
 
-${danglingLive.length === 0 ? "_None._" : danglingLive.map(fmt).join("\n")}
+Live-document danglers in the two genuine-rot classes (missing-on-disk +
+retired-target): **${ratchetCurrent}**, against a recorded baseline of
+**${baseline}** (${baselineDate}). ${ratchetCurrent <= baseline
+    ? "Within baseline. When the count drops, ratchet the baseline down in `tools/doc-graph/generate.mjs` (`NO_NEW_DANGLERS_RATCHET`)."
+    : "**EXCEEDED — new danglers have been introduced since the baseline.** Review the live sections above for the additions. Advisory only (this report does not gate), but the convention is: fix the new ones in the PR that introduced them, or record why not."}
+
+## Dangling references — from LIVE documents, missing on disk (review these)
+
+${liveMissing.length === 0 ? "_None._" : liveMissing.map(fmt).join("\n")}
+
+## Dangling references — from LIVE documents, retired (tombstoned) targets
+
+The targets below were deliberately retired — a recorded decision, not drift.
+The references are historical record; re-point them at the named successor
+when (and only when) the referencing document is otherwise being edited.
+
+${liveRetired.length === 0 ? "_None._" : liveRetired.map(fmt).join("\n")}
+
+## Dangling references — from LIVE documents, on disk but outside the node set
+
+These targets exist on disk; the "dangling" status is a scan-scope artifact,
+not reference rot. They are the inventory for any future widening of the
+node-set scope (a maintainer decision, not an action item here).
+
+${liveOutside.length === 0 ? "_None._" : liveOutside.map(fmt).join("\n")}
+
+## Directory references missing on disk
+
+Backtick directory citations (trailing \`/\`) are not graph edges — a
+directory is a collection, not a document node — but a citation of a
+directory that no longer exists is the same drift class as a dangling file
+reference. Resolved directory references are scanned but not listed.
+
+### From live documents (review these)
+
+${dirMissingLive.length === 0 ? "_None._" : dirMissingLive.map(fmtDir).join("\n")}
+
+### From frozen / executed documents (expected drift)
+
+${dirMissingOther.length === 0 ? "_None._" : dirMissingOther.map(fmtDir).join("\n")}
 
 ## Ambiguous references
 
 ${ambiguous.length === 0 ? "_None._" : ambiguous.map(fmt).join("\n")}
 
-## Dangling references — from frozen archive (expected drift)
+## Dangling references — from EXECUTED playbooks (reference-only records)
 
-These are listed for completeness; they are not action items unless an archive
-file is being un-frozen.
+Listed for completeness; executed playbooks are quasi-frozen records of work
+already performed, so these are not action items.
 
-${danglingArchive.length === 0 ? "_None._" : danglingArchive.map(fmt).join("\n")}
+${byOrigin.executed.length === 0 ? "_None._" : byOrigin.executed.map(fmt).join("\n")}
+
+## Dangling references — from FROZEN documents (archive + worklogs; expected drift)
+
+Listed for completeness; they are not action items unless a frozen file is
+being un-frozen.
+
+${byOrigin.frozen.length === 0 ? "_None._" : byOrigin.frozen.map(fmt).join("\n")}
 
 ## License
 
@@ -941,6 +1170,12 @@ function writeArtifacts(artifacts) {
  * snapshot and can lag reality by up to a bucket between structural
  * regenerations — exactly the staleness the artifact is meant to surface. The
  * gate guards the structure, not the snapshot.
+ *
+ * The per-edge `target_class` and the `dir_refs` array are deliberately NOT
+ * part of the skeleton (and not committed — see `committedManifest`): they
+ * depend on disk existence of files outside the doc-graph CI workflow's path
+ * filter, so gating on them would fail doc PRs for drift introduced by code
+ * PRs the workflow never saw. Report-snapshot posture, same as the heatmap.
  */
 function manifestSkeleton(manifest) {
   return JSON.stringify({

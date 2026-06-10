@@ -141,7 +141,7 @@ function onDiskEnter(moveIndex: number) {
  * for the hovered suggestion is structurally identical to the prior one — the
  * common case during a range query, where most packets carry updated visit
  * counts and winrate but the same continuation. Diagnosed in
- * `docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md` Bug C.
+ * `docs/notes/audit/perf-audit-nav-and-pv-hover-2026-05-27.md` Bug C.
  */
 let prevPvFingerprint = '';
 function pvFingerprint(pv: PvMove[]): string {
