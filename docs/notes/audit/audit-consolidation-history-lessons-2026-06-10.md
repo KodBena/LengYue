@@ -802,3 +802,51 @@ writing). This review ran no profiles and asserts no performance
 properties (ADR-0009).
 
 License: Public Domain (The Unlicense).
+
+---
+
+## 11. Gate-2 addendum (appended 2026-06-11; dated addition per ADR-0005 Rule 11's correction convention)
+
+PR #391 was signed off in full on 2026-06-11 (the twelve-row sheet, with one
+maintainer dissent recorded below); the amendment packages executed as
+PR #393 and the tenet arc as PR #394. This addendum discharges the corpus
+audit's gate-2 definition against its named inputs:
+
+- **ADR-0011 shape**: standalone, shipped at `Proposed` (PR #394); the
+  Rule-8 fallback and remain-practice-only alternatives are moot. The next
+  trigger-sweep baseline of **43** is now operative on
+  `adr-effectiveness-audits`.
+- **ADR-0005 Rules 10–11**: shipped with every §6 required repair folded
+  into the rule texts (PR #394's integration table; verified mechanically
+  pre-merge, including the closure-sweep bullet and the
+  no-producible-artifact-⇒-no-verdict sentence).
+- **The A3/A10 text variants**: resolved — the C4 conservative phrasing
+  shipped (and its echo in the synopsis and handoff was caught and
+  corrected in the same arc); A10's bracket resolved to
+  `reactive-state-modules-relocation`.
+- **The §6.6–6.7 on-touch fixes and the deliberately-unfired mechanization
+  triggers** (ADR-0007 #1, ADR-0009 #4, ADR-0006 #1): posture unchanged,
+  measure-first gates open, as gate 2 expected.
+- **Every conditional clause in this document** ("if A13 ships…", "if
+  A5b/A5c ship…") now resolves to shipped.
+
+Decision dispositions recorded the same day: §7.5 migration cadence —
+**no relaxation**, dated decline in `decisions-deferred.md`, the corrective
+unblocked; §7.2 — the maintainer **corrected this document's framing**: the
+2026-06-05 consult's keep-inline verdict was advisory and never a
+maintainer decision, and "Class B" may itself be the wrong register (these
+are resources *owned by the board*, suggesting owner-located teardown as a
+third candidate shape) — parked as `closeboard-class-b-teardown-shape`
+pending a worked design; the "filing tracks rather than approves"
+convention was **ratified** (checklist §A line, PR #393); the
+orchestration-layer sentence was adopted into the umbrella CLAUDE.md; the
+§8 concrete actions all executed 2026-06-11 (the auto-save defect filed
+`active`; the stage-2 successor, the playEngineMoves twin, and the App.vue
+residue filed; the thumbnail note and §3.1 refresh applied; the FILES.md
+ghost row and RegistryEditor annotation fixed in PR #393;
+`band-conformance-ci-check` promoted with the six-expectation brief).
+
+Gate 2 is discharged. The program's remaining systematic arc is
+`band-conformance-ci-check` (active, briefed); three unblocked code arcs
+sit in the store (`archived-migration-wrong-path-corrective`,
+`restart-thunk-inflight-semantics`, `autosave-pause-unreachable`).

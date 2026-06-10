@@ -1,6 +1,6 @@
 {
-  "node_count": 443,
-  "edge_count": 2130,
+  "node_count": 444,
+  "edge_count": 2133,
   "age_buckets": [
     {
       "name": "fresh",
@@ -3386,7 +3386,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-10-hydration-rebind-residue-audit.md",
@@ -3523,6 +3523,14 @@
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
       "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-11-audit-program-closeout.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "docs/worklog/2026-06-11-mechanization-discipline-tenet.md",
@@ -18026,6 +18034,27 @@
       "to": "docs/notes/decisions-deferred.md",
       "kind": "path-mention",
       "site": "`docs/notes/decisions-deferred.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-audit-program-closeout.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-audit-program-closeout.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-audit-program-closeout.md",
+      "to": "docs/notes/audit/audit-consolidation-history-lessons-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-consolidation-history-lessons-2026-06-10.md`",
       "resolved": "resolved"
     },
     {
