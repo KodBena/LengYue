@@ -1,8 +1,10 @@
 /**
  * src/composables/auth-app/useAppBootstrap.ts
  * Owns the SyncService instance and the cold-start sequence run in
- * App.vue's onMounted: auth-first auto-login, sync hydration,
- * resource preloading, and the tag-dictionary fetch.
+ * App.vue's onMounted: auth-first auto-login, sync hydration, and
+ * the tag-dictionary fetch. Domain inits (currently the
+ * suggestion-color calibration) are invoked once at setup time;
+ * their orchestration lives with the domain, not here.
  *
  * The composable receives `auth` as a parameter rather than calling
  * `useAuth()` internally. This preserves the single-source-of-truth
@@ -22,12 +24,11 @@
  */
 import { onMounted, watch } from 'vue';
 import { SyncService } from '../../services/sync-service';
-import { resourceService } from '../../services/resource-service';
 import { backendService } from '../../services/backend-service';
 import { analysisService } from '../../services/analysis-service';
 import { analysisPersistenceService } from '../../services/analysis-persistence-service';
 import { useAutoSaveAnalyses } from '../useAutoSaveAnalyses';
-import { setIntensityHueShift } from '../../engine/suggestion-colors';
+import { initSuggestionColorCalibration } from '../board/suggestion-color-calibration';
 import { validateRegistry } from '../../lib/knobs';
 import { validateKeybindingsRegistry } from '../../lib/keybindings';
 import { store, boardsSetVersion } from '../../store';
@@ -105,19 +106,13 @@ export function useAppBootstrap(
   // proposal A's parameters, a genuine data-change request rather
   // than a display preference — and stays as-is.
 
-  // Propagate the user's intensity-gradient hue offset into the
-  // suggestion-colors module. `immediate: true` syncs the engine to
-  // the current store value at composable-setup time; subsequent
-  // changes (slider moves, hydration overrides) re-fire and rebuild
-  // the gradient closure. The early-return inside
-  // rebuildIntensityColorFn handles the pre-distribution case
-  // gracefully — the value is recorded; the rebuild happens once
-  // resourceService.loadVisitDistribution() lands.
-  watch(
-    () => store.profile.settings.appearance.intensityHueShift,
-    (deg) => setIntensityHueShift(deg),
-    { immediate: true },
-  );
+  // Suggestion-color gradient calibration: installs the hue-shift
+  // watcher (immediate, same setup-time semantics as before the
+  // extraction) and kicks off the fire-and-forget visit-distribution
+  // fetch. The orchestration lives with the domain —
+  // composables/board/suggestion-color-calibration.ts — so this
+  // bootstrap only makes the single named domain-init call.
+  initSuggestionColorCalibration();
 
   // Mirror the active chrome theme onto `<html data-theme="...">` so
   // theme.css's [data-theme="X"] blocks resolve their base color
@@ -405,8 +400,6 @@ export function useAppBootstrap(
     await auth.tryAutoLogin();
 
     sync.connect();
-    // Fire-and-forget; loadVisitDistribution self-handles (catches + logs).
-    void resourceService.loadVisitDistribution();
     try {
       const tags = await backendService.getTags();
       // Write the non-persisted top-level tag dictionary, NOT

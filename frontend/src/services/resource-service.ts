@@ -10,12 +10,20 @@
  *
  * Wire format: /resources/{name} returns a wrapped envelope
  *   { "name": "<name>", "content": <payload> }
- * The fetchResource<T> helper unwraps `.content` so callers never
- * see the envelope.
+ * The getResource<T> verb unwraps `.content` so callers never see
+ * the envelope.
+ *
+ * This module is deliberately domain-free: it knows the envelope
+ * shape and nothing about any particular resource's payload.
+ * Domain orchestration (which resource to fetch, what to do with
+ * it) lives with the domain — e.g. the suggestion-color
+ * calibration init in
+ * `src/composables/board/suggestion-color-calibration.ts`.
+ *
+ * License: Public Domain (The Unlicense).
  */
 
 import { api } from './api-client';
-import { initializeIntensityFactory } from '../engine/suggestion-colors';
 
 /**
  * The on-the-wire envelope returned by GET /resources/{name}.
@@ -37,30 +45,7 @@ interface ResourceEnvelope<T> {
  * @param name  The resource name, e.g. 'visit-distribution'.
  * @returns     The unwrapped payload.
  */
-async function fetchResource<T>(name: string): Promise<T> {
+export async function getResource<T>(name: string): Promise<T> {
   const envelope = await api.request<ResourceEnvelope<T>>('GET', `/resources/${name}`);
   return envelope.content;
 }
-
-export class ResourceService {
-  /**
-   * Loads the KataGo visit-distribution calibration data and hands
-   * it to the suggestion-color intensity factory. Fire-and-forget —
-   * a failure here emits a system-log message (via api.request) but
-   * must not crash the app's onMounted handler in App.vue, hence
-   * the catch.
-   */
-  async loadVisitDistribution(): Promise<void> {
-    try {
-      const data = await fetchResource<any>('visit-distribution');
-      initializeIntensityFactory(data);
-    } catch (err) {
-      // api.request has already pushed the HTTP-level error to the
-      // system log; this catch just prevents the unhandled rejection
-      // from escaping into App.vue's startup flow.
-      console.error('[ResourceService] Failed to load distribution:', err);
-    }
-  }
-}
-
-export const resourceService = new ResourceService();
