@@ -81,7 +81,7 @@ The umbrella `CLAUDE.md` enumeration, as a walk-through:
   - hard-claim-held vs unclaimed (where substrate-driven).
   Extend the list when a new state-axis enters the chrome.
 
-## D. Durable defect recording (postmortem §7.2, reframed)
+## D. Durable defect and deferral recording (postmortem §7.2, reframed; audit 2026-06-10 §3.22)
 
 - [ ] If the work ships with a known defect, the defect is recorded somewhere
   **durable** — a worklog entry, a dispatch, or an issue — naming each bug and
@@ -90,6 +90,23 @@ The umbrella `CLAUDE.md` enumeration, as a walk-through:
   benign defect can be a sound strategic call when the implementer rotation is
   temporarily under-capable; the discipline is on the *recording*, tracked
   until trusted rotation files the corrective — not on the merging.)
+- [ ] **Deferral capture** (history-lessons audit L3: prose deferrals
+  reliably evaporate; ledgered ones don't). Every deferral /
+  out-of-scope / postmortem-recommendation bullet — in the worklog's
+  "What's deferred" section or anywhere else — ends with either a
+  work-status item id or a grep-able `not-filed: <reason>` marker.
+  Neither "held for the next X-touch PR" nor a bare prose admission is a
+  tracked state.
+- [ ] **Refs at filing** — an item filed near a diagnosis document
+  (postmortem, perf audit, consult note) gets its `refs` row pointing at
+  that document *at filing time*; an item without refs to its paid-for
+  diagnosis forces the next session to re-derive it.
+- [ ] **Retitle to the residual** — when touching an open item whose work
+  has partially shipped, retitle/redescribe it to what actually remains,
+  so the store never carries a stale headline over a shrunken residual.
+- [ ] **Generalization deferrals survive** — a deferral whose rationale is
+  generality for a second domain is never dropped on "only one domain
+  uses it" grounds (the fork constraint; audit §3.22).
 
 ## E. Severity by the substitution test (postmortem §7.5)
 
