@@ -27,6 +27,16 @@ import { applyGoMove }    from './logic';
 import type { PvMove }    from './composables/board/use-pv-animation';
 import { navigateTo }     from './engine/navigator';
 
+// Wiring-file exemption from the component→services deny-by-default
+// boundary (work-status item services-boundary-deny-by-default, step (a)).
+// The layering tenet covers App.vue ("Components … No direct service
+// calls"), so this import is named layering debt, not a sanctioned
+// pattern: App.vue is the root wiring surface (engine connect/disconnect,
+// match orchestration, review-session glue) and extracting that
+// orchestration into a composable is out of the boundary-inversion arc's
+// scope. A SECOND service import here still trips the rule and needs its
+// own adjudication.
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports -- annotated wiring-file exemption, see above
 import { analysisService } from './services/analysis-service';
 import { KATAGO_WS_URL } from './config/env';
 import { usePlayMatch } from './composables/board/usePlayFromPosition';
