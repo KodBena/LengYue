@@ -348,3 +348,41 @@ today forward; the historical corpus is covered by this harvest rather
 than by retro-editing.
 
 License: Public Domain (The Unlicense).
+
+---
+
+## 7. E4 sign-off record (appended 2026-06-10; maintainer: "defaults fine")
+
+Dated addendum per the in-situ correction convention — the §4/§5 sections
+above anticipated this record. Dispositions:
+
+- **§5.A / §5.B / §5.C** — applied as staged; gate clean.
+- **§5.D** — **rerouted, not applied**: its target (`multi-writer-slots-get-owners`)
+  closed with PR #382, whose engine-owner leg deliberately preserved
+  `activeMode`. Filed instead as `drop-engine-activemode` (the
+  hydration-residue audit's zero-readers finding strengthens the disposal
+  case).
+- **§5.E** — applied as staged (rows for since-closed items are inert).
+- **§5.F** — narrowed (retitle-to-residual), per the maintainer default.
+- **§4.1** — resolved by §5.F's narrow option.
+- **§4.2 (RCA G3)** — adopt, measure-first per the `a75814c` pattern;
+  queued as a small arc after the in-flight branded-paths PR (sequential
+  eslint-config discipline); adoption record lands in the config rationale
+  citing the RCA, per the G1 precedent.
+- **§4.3** — both drops **confirmed** (adaptive postmortem §5.3 diagnostic
+  channel and §5.4 probe script, superseded by proxy v1.0.20 structured
+  logging). This line is the dated drop record.
+- **§4.4** — post-jQuery QA pass drop **confirmed** on soak evidence
+  (no regression reports since 2026-06-01). This line is the dated record.
+- **§4.5** — resolved by a targeted check (both plan docs read end to end,
+  verified at HEAD): follow-up #1 (readiness-probe noise) not actioned →
+  filed as `topology-readiness-probe-cleanup`; follow-up #2 (the §5.3
+  "3 ms race" / KataGo floor) partially actioned — diagnosis staged in
+  `~/katago_bugreport`, upstream filing deferred on bandwidth → filed as
+  `katago-firstreport-floor-upstream-filing`, which also carries the
+  suspended-§5.3-framing sibling-correction trigger.
+
+Related decisions recorded the same day, outside E4 proper:
+`restartActiveAnalyses` semantics decided as **in-flight**
+(`restart-thunk-inflight-semantics`, active); the PR #373 gradient
+cold-start smoke confirmed by the maintainer (recorded on that PR).
