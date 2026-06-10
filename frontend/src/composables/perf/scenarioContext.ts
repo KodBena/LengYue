@@ -122,6 +122,11 @@ function createScenarioContext(name: string): {
         // it must live in the store during the run. Snapshot the original once
         // and restore in teardown (capture-neutrality, like createdBoards).
         savedAdaptiveEnabled ??= store.profile.settings.engine.katago.adaptiveReevaluate.enabled;
+        // Annotated exemption (local/store-write-needs-owner):
+        // DEV-only perf harness, snapshot/restore pair with the
+        // teardown write below — capture-neutral by construction,
+        // never reachable in production builds.
+        // eslint-disable-next-line local/store-write-needs-owner -- DEV perf harness; paired with the teardown restore
         store.profile.settings.engine.katago.adaptiveReevaluate.enabled = opts.adaptive;
       }
       if (store.engine.status !== 'connected') {
@@ -231,6 +236,9 @@ function createScenarioContext(name: string): {
     // to the profile — it goes transiently through connect()). Keeps the
     // capture neutral on the user's persisted engine settings.
     if (savedAdaptiveEnabled !== undefined) {
+      // Annotated exemption (local/store-write-needs-owner): the
+      // restore half of the DEV-only harness pair above.
+      // eslint-disable-next-line local/store-write-needs-owner -- DEV perf harness; restore half of the snapshot pair
       store.profile.settings.engine.katago.adaptiveReevaluate.enabled = savedAdaptiveEnabled;
       savedAdaptiveEnabled = undefined;
     }

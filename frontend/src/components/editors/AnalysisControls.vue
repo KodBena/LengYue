@@ -181,6 +181,13 @@ function purgeLedger() {
       <div style="display: flex; flex-wrap: wrap; gap: var(--space-default); min-width: 0;">
         <div class="palette-selector">
           <label>{{ $t('analysis.paletteLabel') }}</label>
+          <!-- Annotated exemption: settings-editor v-model bound straight
+               onto a profile-settings leaf. A template write to PROFILE
+               state sits outside ADR-0001's session.ui template-toggle
+               sanction — named layering debt (this editor predates the
+               writer-enumeration rule), not a sanctioned pattern; the
+               settings-editor surfaces are the natural future mutator arc. -->
+          <!-- eslint-disable-next-line local/store-write-needs-owner -->
           <select v-model="store.profile.settings.engine.katago.analysis_env.activePaletteId" class="dark-select">
             <option v-for="p in palettes" :key="p.id" :value="p.id">{{ p.name }}</option>
           </select>
@@ -206,6 +213,10 @@ function purgeLedger() {
     <div v-if="adaptiveAdvertised" class="analysis-config-box adaptive-box">
       <div class="settings-row">
         <label class="checkbox-row">
+          <!-- Annotated exemption: settings-editor v-model on a
+               profile-settings leaf (see the palette-selector note above
+               for the class; same for the three below). -->
+          <!-- eslint-disable-next-line local/store-write-needs-owner -->
           <input
             type="checkbox"
             v-model="store.profile.settings.engine.katago.adaptiveReevaluate.enabled"
@@ -219,6 +230,7 @@ function purgeLedger() {
         >
           <label class="label-with-value adaptive-field-row">
             <span>{{ $t('analysis.adaptive.worstQuantile') }}</span>
+            <!-- eslint-disable-next-line local/store-write-needs-owner -->
             <input
               type="number"
               min="0"
@@ -230,6 +242,7 @@ function purgeLedger() {
           </label>
           <label class="label-with-value adaptive-field-row">
             <span>{{ $t('analysis.adaptive.extraVisits') }}</span>
+            <!-- eslint-disable-next-line local/store-write-needs-owner -->
             <input
               type="number"
               min="0"
@@ -252,6 +265,7 @@ function purgeLedger() {
             class="label-with-value adaptive-field-row"
           >
             <span>{{ $t('analysis.adaptive.valueBinding.label') }}</span>
+            <!-- eslint-disable-next-line local/store-write-needs-owner -->
             <select
               v-model="store.profile.settings.engine.katago.adaptiveReevaluate.valueBinding"
               class="dark-input adaptive-input"

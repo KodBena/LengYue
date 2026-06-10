@@ -238,6 +238,7 @@ frontend/src/
 │   │   └── useJankTest.ts             [B2]  Dev-only thumbnail-jank harness: loads 16 boards (fixed 342-move Shusaku game + 15 random library games), auto-navs the long game, scrubs the docked hover preview at 20–50 ms via synthetic mouseenter/leave on real BoardTab roots. Toggled from SidebarWidget's dev-gated "jank test" button.
 │   │
 │   ├── review/                               Spaced-repetition session.
+│   │   ├── blind-mode-prefs.ts        [B3]  Snapshot/restore owner for the session-UI prefs blind mode flips (showMoveSuggestions, treeExpanded): generic snapshot core + the review session's supplied key list. B3 via its store import and its consumer's vocabulary; the snapshot mechanism is band-agnostic in character (fork: lift the factory, re-supply keys).
 │   │   ├── useMinting.ts              [B3]  Mint flashcards from boards (Go-board → backend mint payload).
 │   │   └── useReviewSession.ts        [B3]  SR-session state machine: AWAITING_MOVE / INTERMISSION / FINISHED.
 │   │
@@ -285,6 +286,7 @@ frontend/src/
 │   ├── analysis-service.ts            [B3]  Bridges KataGo turns to the ledger nodes.
 │   ├── api-client.ts                  [B1]  Pure REST client; JWT injection; zero-friction local auth.
 │   ├── backend-service.ts             [B2]  ACL for the backend; wire snake_case → domain camelCase with branded ids.
+│   ├── engine-connection.ts           [B3]  Owner module for the store.engine subtree — analysis-provider connection lifecycle (connect / disconnect-reset / info / selection / metrics). B3: writes the engine slice of the [B3] store hub and speaks the engine band's types (EngineInfo, AnalysisMode), though named for the problem class — store.engine + this owner replace wholesale for a fork's analysis provider.
 │   ├── library-service.ts             [B1]  ACL for the /library endpoints; chunked import with progress callback.
 │   ├── qeubo-service.ts               [B1]  ACL for qEUBO REST endpoints.
 │   ├── query-id.ts                    [B3]  Sole construction/re-brand site for the `QueryId` brand (engine-query correlation id).

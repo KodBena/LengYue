@@ -17,6 +17,7 @@ import {
   deriveAnalysisKeys,
 } from '../../services/analysis-config';
 import { waitForAnalysis, AnalysisWaitError } from '../analysis/wait-for-analysis';
+import { blindModePrefs } from './blind-mode-prefs';
 import { KATAGO_ANALYSIS_TIMEOUT_MS } from '../../lib/timing';
 
 // @ts-ignore
@@ -79,6 +80,12 @@ export function abortBoardReview(boardId: BoardId): void {
     controller.abort();
     pendingAnalysisAborts.delete(boardId);
   }
+  // Restore the blind-mode pref snapshot if this board's review owns
+  // it — independent of whether an analysis wait was pending (a
+  // review can sit in AWAITING_MOVE with no in-flight wait; closing
+  // the board mid-review must still un-blind the session UI). No-op
+  // when this board isn't the snapshot owner.
+  blindModePrefs.release(boardId);
 }
 
 /**
@@ -92,6 +99,9 @@ export function abortAllReviews(): void {
     controller.abort();
   }
   pendingAnalysisAborts.clear();
+  // Identity flip / workspace reset: restore the blind-mode pref
+  // snapshot unconditionally (whichever board owns it is going away).
+  blindModePrefs.releaseAll();
 }
 
 export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
@@ -279,10 +289,17 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
         draft.startingNodeId = targetLeafId;
         draft.status = 'AWAITING_MOVE';
       });
-      
-      // Enter "Blind Mode"
-      store.session.ui.showMoveSuggestions = false;
-      store.session.ui.treeExpanded = false; 
+
+      // Enter "Blind Mode" through the pref owner: snapshot the
+      // user's pre-review values once per session (capture is
+      // idempotent across the session's loadCard calls), then apply
+      // the blind overrides as owned writes. The snapshot is restored
+      // by endSession / the abort paths; a manual mid-review toggle
+      // updates it (the user's new choice wins). See
+      // blind-mode-prefs.ts.
+      blindModePrefs.capture(bId);
+      blindModePrefs.write('showMoveSuggestions', false);
+      blindModePrefs.write('treeExpanded', false);
 
     } catch (err) {
       console.error('[ReviewSession] Failed to load card SGF:', err);
@@ -555,7 +572,16 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     if (!bId) return;
 
     mutateReviewSession(bId, draft => { draft.status = 'FINISHED'; });
-    store.session.ui.showMoveSuggestions = true;
+    // Intermission reveal — deliberate pedagogy, maintainer-approved
+    // 2026-06-10 (history-lessons audit §7.3): after the blind
+    // attempt, suggestions become visible so the user can study the
+    // engine's view of their moves. An owned write, NOT a restore —
+    // the user's pre-review `showMoveSuggestions` comes back at
+    // endSession / abort. `treeExpanded`, by contrast, IS restored to
+    // the user's pre-review value here: the tree carries no grading
+    // reveal, so the intermission has no claim over it.
+    blindModePrefs.write('showMoveSuggestions', true);
+    blindModePrefs.restoreKeys(['treeExpanded']);
 
     try {
       await backendService.submitReview(currentCard.value!.id, userMoveScores.value);
@@ -624,11 +650,14 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
       draft.visitsOverride = null;
     });
 
-    // Move-suggestions visibility was flipped off by loadCard
-    // ("Blind Mode") and on by finishCard. Restore the default
-    // here too so the post-session board state matches a fresh
-    // browse-mode session.
-    store.session.ui.showMoveSuggestions = true;
+    // Release the blind-mode pref snapshot: every key the session
+    // flipped (loadCard's blind writes, finishCard's reveal) returns
+    // to the user's pre-review value — these are persisted prefs, so
+    // the prior unconditional force-true clobbered an off preference
+    // and the clobber survived reloads (history-lessons audit §3.7
+    // leg (ii)). A manual mid-review toggle updated the snapshot, so
+    // the restore lands on the user's latest choice.
+    blindModePrefs.release(bId);
   }
 
   function rewindToStart() {
