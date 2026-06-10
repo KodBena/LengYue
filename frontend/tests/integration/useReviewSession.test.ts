@@ -765,7 +765,7 @@ describe('useReviewSession — blind-mode pref ownership', () => {
     expect(store.session.ui.treeExpanded).toBe(true);
   });
 
-  it('closeBoard mid-review restores the snapshot via abortBoardReview, with or without a pending wait', async () => {
+  it('closeBoard mid-review restores the snapshot (the reviews-row deletion is the exit the status watcher observes), with or without a pending wait', async () => {
     const board = createInitialBoard();
     addBoard(board);
     const boardId: BoardId = board.id;
@@ -786,9 +786,126 @@ describe('useReviewSession — blind-mode pref ownership', () => {
 
     // Close the board while AWAITING_MOVE — no analysis wait is in
     // flight, so this also pins that the restore is keyed on snapshot
-    // ownership, not on a pending AbortController.
+    // ownership, not on a pending AbortController. The release fires
+    // when closeBoard's BOARD_SCOPED_STORE_CELLS drain deletes the
+    // reviews row (the owner's exit predicate reads `undefined`),
+    // before abortBoardReview even runs.
     closeBoard(boardId);
 
+    expect(store.session.ui.showMoveSuggestions).toBe(true);
+    expect(store.session.ui.treeExpanded).toBe(true);
+  });
+
+  it('loadCard parse-failure exit (real nextCard path) restores the prefs and re-arms the next session', async () => {
+    // The first of the three exits PR #382's out-of-frame audit
+    // runtime-demonstrated leaking (audit comment, FINDINGS): card
+    // N≥2's SGF fails to parse, nextCard's fire-and-forget loadCard
+    // self-handles (catch → status IDLE) — and at that moment the
+    // prefs hold finishCard's intermission reveal, so without a
+    // release on this exit a preference-OFF user leaves the session
+    // with showMoveSuggestions=true PERSISTED (the literal
+    // commissioned defect shape, surviving reload via
+    // buildPersistencePayload).
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    store.session.ui.showMoveSuggestions = false;
+    store.session.ui.treeExpanded = true;
+
+    // Card 1 is valid with numMoves=1, so one move reaches FINISHED
+    // (the intermission reveal). Card 2's SGF parses to an empty
+    // sabaki tree list; loadSgf indexes [0] and throws — the real
+    // parse-failure path, not a stubbed one.
+    const card1 = makeReviewCard({ id: 11 as CardId, numMoves: 1 });
+    const card2 = makeReviewCard({ id: 12 as CardId, numMoves: 1, sgf: '' });
+
+    const packet = makeAnalysisPacket({ turnNumber: 1, delta: 0.9 });
+    vi.mocked(waitForAnalysis).mockResolvedValue(packet);
+    fakeBackendService.submitReview.mockResolvedValueOnce(card1);
+
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const composable = useReviewSession(boardIdRef);
+
+    await composable.startSession([card1, card2]);
+    await flushPromises();
+    expect(composable.state.value).toBe('AWAITING_MOVE');
+
+    // Seed the per-move delta on the LIVE board's root (loadCard
+    // replaced the tab's board with the parsed card SGF).
+    const liveBoard = store.boards.find(b => b.id === boardId)!;
+    ledger.recordEnrichment(activeAnalysisKeys.value.enrichedKey, liveBoard.rootNodeId, {
+      black: { deltas: { '0': 0.9 } },
+      white: { deltas: { '0': 0.9 } },
+    });
+
+    await composable.processUserMove(3, 3);
+
+    // Intermission on card 1: the reveal is live — exactly the value
+    // the enumerated-exit shape leaked into persistence.
+    expect(composable.state.value).toBe('FINISHED');
+    expect(store.session.ui.showMoveSuggestions).toBe(true);
+
+    // Advance. nextCard fire-and-forgets loadCard(1); the parse
+    // throws and the catch's status→IDLE write is the exit the
+    // owner's status watcher observes.
+    composable.nextCard();
+    await flushPromises();
+
+    expect(composable.state.value).toBe('IDLE');
+    // The preference-off user ends preference-off: the intermission
+    // reveal did not leak into the persisted pref.
+    expect(store.session.ui.showMoveSuggestions).toBe(false);
+    expect(store.session.ui.treeExpanded).toBe(true);
+
+    // Secondary-leak guard (audit FINDINGS, second bullet): the
+    // release cleared the snapshot, so the NEXT session re-captures
+    // — blind mode engages fresh and a clean endSession restores —
+    // rather than capture() no-opping against a snapshot the failed
+    // session never released. (endSession fires straight from
+    // AWAITING_MOVE — no move is played, so no submitReview.)
+    await composable.startSession([makeReviewCard({ id: 13 as CardId, numMoves: 1 })]);
+    await flushPromises();
+    expect(composable.state.value).toBe('AWAITING_MOVE');
+    expect(store.session.ui.treeExpanded).toBe(false); // blind again — fresh capture
+    composable.endSession();
+    expect(store.session.ui.showMoveSuggestions).toBe(false);
+    expect(store.session.ui.treeExpanded).toBe(true);
+  });
+
+  it('analysis-timeout exit (AnalysisWaitError(timeout) → IDLE) restores the prefs', async () => {
+    // The second runtime-demonstrated leak from PR #382's
+    // out-of-frame audit: KataGo times out mid-card, processUserMove's
+    // catch sets status IDLE — an exit no hand-enumerated release()
+    // hooked, leaving a preference-ON user blind and persisted. The
+    // status watcher quantifies over this exit like any other.
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    // Defaults from resetWorkspace: both prefs true (preference-ON).
+    expect(store.session.ui.showMoveSuggestions).toBe(true);
+    expect(store.session.ui.treeExpanded).toBe(true);
+
+    const card = makeReviewCard({ numMoves: 5 });
+    vi.mocked(waitForAnalysis).mockRejectedValue(new AnalysisWaitError('timeout'));
+
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const composable = useReviewSession(boardIdRef);
+
+    // Real entry path: startSession → loadCard parses the card SGF
+    // and applies the blind writes through the owner.
+    await composable.startSession([card]);
+    await flushPromises();
+    expect(composable.state.value).toBe('AWAITING_MOVE');
+    expect(store.session.ui.showMoveSuggestions).toBe(false);
+    expect(store.session.ui.treeExpanded).toBe(false);
+
+    await composable.processUserMove(3, 3);
+
+    // The timeout branch's status→IDLE write is the exit; the
+    // owner's watcher restores both prefs in the same tick.
+    expect(composable.state.value).toBe('IDLE');
     expect(store.session.ui.showMoveSuggestions).toBe(true);
     expect(store.session.ui.treeExpanded).toBe(true);
   });

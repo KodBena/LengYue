@@ -17,14 +17,23 @@
  *
  * Mechanism vs. policy: `createUiPrefSnapshotOwner` is the generic
  * mechanism — snapshot-if-absent / owned-write / subset-restore /
- * release over a *supplied* key list (the fork-reshape contract: a
- * generic-knowledge fork re-instantiates it with its own key list).
- * The policy — which keys, which values mean "blind", which keys each
- * lifecycle point restores — lives at the call sites in
- * `useReviewSession.ts` (loadCard enters; finishCard reveals
- * suggestions as deliberate pedagogy while restoring `treeExpanded`;
- * endSession and the abort paths restore everything;
- * maintainer-approved 2026-06-10).
+ * watcher-driven release over a *supplied* key list and a *supplied*
+ * reactive flow-exit predicate (the fork-reshape contract: a
+ * generic-knowledge fork re-instantiates it with its own key list and
+ * exit predicate). The entry/intermission policy — which keys, which
+ * values mean "blind", which keys the intermission restores — lives at
+ * the call sites in `useReviewSession.ts` (loadCard enters; finishCard
+ * reveals suggestions as deliberate pedagogy while restoring
+ * `treeExpanded`; maintainer-approved 2026-06-10). The *exit* is not a
+ * call-site policy: release quantifies over ALL flow exits, present
+ * and future, via a `flush: 'sync'` watcher installed at `capture()`
+ * on the exit predicate (for the review flow: the owner board's
+ * session status leaving the active states, or its row disappearing).
+ * The prior shape — three hand-enumerated `release()` call sites —
+ * left the failure-path exits (loadCard parse failure, analysis
+ * timeout, missing-delta cancel) leaking the snapshot; the
+ * out-of-frame hack-rationalization audit on PR #382 runtime-
+ * demonstrated the leak, and the watcher is its corrective.
  *
  * Manual-toggle tracking: the keys' sanctioned external writers are
  * direct toggles (the ADR-0001 template-toggle exception for
@@ -39,29 +48,36 @@
  * would observe the flag already cleared).
  *
  * Lifetime: module-scope, like `pendingAnalysisAborts` in
- * `useReviewSession.ts` — one canonical snapshot across the app,
- * reachable from `closeBoard` / `resetWorkspace` via the abort
- * helpers. The watchers are app-lifetime by design (created in no
+ * `useReviewSession.ts` — one canonical snapshot across the app. The
+ * per-key watchers are app-lifetime by design (created in no
  * component scope, never disposed; installed lazily on first
  * capture() because this module sits on the store↔review import
- * cycle — see the inline note). Known edges, recorded rather than
- * engineered around: (a) `store.session.ui` is workspace-global while
- * review sessions are per-board, so two concurrent reviews share one
- * snapshot — the first session to enter captures it and only that
- * owner board's exit restores (`releaseAll` is unconditional); the
- * prefs themselves were already a shared conflict surface before this
- * owner existed. (b) A mid-review reload persists the blind values
- * (the snapshot is not persisted) — that is the pre-existing
- * "review-session state survives reload" question, out of this
- * owner's scope. (c) A hydration that replaces `store.session` while
- * a snapshot is active reads as an external write and updates the
- * snapshot — the persisted truth wins, which is the honest outcome.
+ * cycle — see the inline note); the exit watcher is per-snapshot
+ * (installed at capture(), disposed at release). Known edges,
+ * recorded rather than engineered around: (a) `store.session.ui` is
+ * workspace-global while review sessions are per-board, so two
+ * concurrent reviews share one snapshot — the first session to enter
+ * captures it and only that owner board's exit releases (`releaseAll`
+ * is unconditional); the prefs themselves were already a shared
+ * conflict surface before this owner existed. (b) A mid-review reload
+ * persists the blind values (the snapshot is not persisted) — that is
+ * the pre-existing "review-session state survives reload" question,
+ * out of this owner's scope. (c) A hydration that replaces
+ * `store.session` while a snapshot is active reads as an external
+ * write and updates the snapshot — the persisted truth wins, which is
+ * the honest outcome. If the same hydration ALSO exits the owner's
+ * flow (the hydrated session lacks an active row for the owner
+ * board), the per-key fold-in and the exit-driven restore race on
+ * Vue's sync-trigger ordering: fold-in-first lands the hydrated
+ * values (a wash), release-first lands the snapshot values. Bounded
+ * to the one hydration tick and the two boolean prefs; recorded, not
+ * engineered around.
  *
  * License: Public Domain (The Unlicense)
  */
 
 import { watch } from 'vue';
-import type { BoardId, UISession } from '../../types';
+import type { BoardId, ReviewStatus, UISession } from '../../types';
 import { store } from '../../store';
 
 /** Keys of `UISession` whose value is a plain required boolean — the
@@ -89,10 +105,15 @@ function uiPrefs(): Record<BooleanUiPrefKey, boolean> {
 
 export interface UiPrefSnapshotOwner<K extends BooleanUiPrefKey> {
   /**
-   * Take the snapshot if none is active and record `boardId` as the
-   * owning board. Idempotent while a snapshot is active (re-entering
-   * the flow — e.g. the next card's loadCard — must not overwrite the
-   * pre-flow truth with mid-flow values).
+   * Take the snapshot if none is active, record `boardId` as the
+   * owning board, and arm the exit watcher: from here on, the first
+   * tick on which the supplied flow-exit predicate turns true for
+   * `boardId` restores every key and clears the snapshot — no
+   * per-exit release call exists to forget. Idempotent while a
+   * snapshot is active (re-entering the flow — e.g. the next card's
+   * loadCard — must not overwrite the pre-flow truth with mid-flow
+   * values); after any release the slate is clean, so the next
+   * flow's capture re-snapshots fresh state.
    */
   capture(boardId: BoardId): void;
   /** Owned write: sets the pref without updating the snapshot (this
@@ -101,31 +122,44 @@ export interface UiPrefSnapshotOwner<K extends BooleanUiPrefKey> {
   /** Restore a subset of keys to their snapshot values, keeping the
    *  snapshot active. No-op when no snapshot is active. */
   restoreKeys(keys: readonly K[]): void;
-  /** If `boardId` owns the active snapshot: restore every key and
-   *  clear it. No-op otherwise (another board's flow owns it, or no
-   *  snapshot is active). */
-  release(boardId: BoardId): void;
-  /** Unconditional release: restore every key and clear the snapshot
-   *  regardless of owner. The identity-flip path (`abortAllReviews`
-   *  via `resetWorkspace`). */
+  /** Unconditional manual release: restore every key and clear the
+   *  snapshot regardless of owner. The exit watcher is the primary
+   *  release path; this exists for the one caller with a real
+   *  ordering hazard the watcher cannot honour — `abortAllReviews`
+   *  on the identity-flip path, which must restore into the
+   *  *outgoing* session record BEFORE `resetWorkspace` replaces
+   *  `store.session` (the watcher would fire only at the
+   *  replacement and write the prior identity's values into the new
+   *  session's ui). Idempotent: no-op when no snapshot is active. */
   releaseAll(): void;
 }
 
 /**
  * Generic snapshot/restore mechanism over a supplied list of
- * session-UI boolean preference keys. Installs one `flush: 'sync'`
- * watcher per key lazily on the first `capture()` (see the inline
- * import-cycle note) — see the header for the manual-toggle contract
- * and the lifetime rationale.
+ * session-UI boolean preference keys and a supplied reactive
+ * flow-exit predicate. Installs one `flush: 'sync'` watcher per key
+ * lazily on the first `capture()` (see the inline import-cycle note)
+ * plus one per-snapshot `flush: 'sync'` exit watcher at each
+ * `capture()` — see the header for the manual-toggle contract, the
+ * release contract, and the lifetime rationale.
+ *
+ * `isFlowExited` is read inside the exit watcher's getter, so it must
+ * be a pure function of reactive store state for the supplied owner
+ * board (it is re-evaluated whenever its reactive reads change).
  */
 export function createUiPrefSnapshotOwner<K extends BooleanUiPrefKey>(
   keys: readonly K[],
+  isFlowExited: (ownerBoardId: BoardId) => boolean,
 ): UiPrefSnapshotOwner<K> {
   let snapshot: Map<K, boolean> | null = null;
-  let ownerBoardId: BoardId | null = null;
   // Reentrancy guard distinguishing owner writes from external
   // (user-toggle) writes inside the sync watchers below.
   let ownerWriting = false;
+  // Stop handle for the per-snapshot exit watcher. The owning board
+  // is carried by the watcher's closure (capture()'s `boardId`), so
+  // no separate owner field is needed: ownership IS "whose exit the
+  // armed watcher observes".
+  let stopExitWatch: (() => void) | null = null;
 
   // Watchers are installed lazily on the first capture(), NOT at
   // module evaluation: this module sits on an import cycle
@@ -136,7 +170,9 @@ export function createUiPrefSnapshotOwner<K extends BooleanUiPrefKey>(
   // first determines the evaluation order). By the first capture()
   // the store is long since constructed. Installed once, app-lifetime
   // (never disposed) — the snapshot-active check keeps them inert
-  // outside a flow.
+  // outside a flow. (The exit watcher below shares the same
+  // created-at-capture timing, so the cycle constraint holds for it
+  // by construction.)
   let watchersInstalled = false;
   function ensureWatchers(): void {
     if (watchersInstalled) return;
@@ -179,9 +215,17 @@ export function createUiPrefSnapshotOwner<K extends BooleanUiPrefKey>(
   }
 
   function releaseInternal(): void {
+    // Disarm the exit watcher first so release is reentrancy-proof
+    // by construction (the restore writes below touch session-UI
+    // prefs, never the flow state the watcher reads, but stopping
+    // first removes the question). Stopping a sync watcher from
+    // inside its own callback is supported by Vue.
+    if (stopExitWatch !== null) {
+      stopExitWatch();
+      stopExitWatch = null;
+    }
     restoreInto(keys);
     snapshot = null;
-    ownerBoardId = null;
   }
 
   return {
@@ -189,15 +233,27 @@ export function createUiPrefSnapshotOwner<K extends BooleanUiPrefKey>(
       ensureWatchers();
       if (snapshot !== null) return;
       snapshot = new Map(keys.map((k) => [k, uiPrefs()[k]] as const));
-      ownerBoardId = boardId;
+      // The release contract, mechanized: one sync watcher on the
+      // supplied exit predicate for the owning board. Any path on
+      // which the flow exits — whichever function drives it, whether
+      // it exists yet or not — flips the predicate and releases; the
+      // hand-enumerated alternative (a release() call per exit site)
+      // is the shape PR #382's out-of-frame audit caught leaking on
+      // the three unenumerated failure exits. `flush: 'sync'` so the
+      // restore lands in the same tick as the exit write (an async
+      // flush would let post-exit reads observe blind values).
+      const stop = watch(
+        () => isFlowExited(boardId),
+        (exited) => {
+          if (exited) releaseInternal();
+        },
+        { flush: 'sync' },
+      );
+      stopExitWatch = stop;
     },
     write,
     restoreKeys(restoreSet: readonly K[]): void {
       restoreInto(restoreSet);
-    },
-    release(boardId: BoardId): void {
-      if (snapshot === null || ownerBoardId !== boardId) return;
-      releaseInternal();
     },
     releaseAll(): void {
       if (snapshot === null) return;
@@ -207,14 +263,51 @@ export function createUiPrefSnapshotOwner<K extends BooleanUiPrefKey>(
 }
 
 /**
- * The review session's blind-mode pref owner — today's domain-supplied
- * key list. `showMoveSuggestions` is the blind-mode core (no engine
- * hints while the user attempts the card); `treeExpanded` is collapsed
- * alongside it so the game tree doesn't reveal the card's continuation.
- * Consumed exclusively by `useReviewSession.ts` (loadCard / finishCard /
- * endSession and the abort helpers `abortBoardReview` / `abortAllReviews`).
+ * The review flow's exit predicate over the per-board session status.
+ * Exited ⇔ the row is gone (closeBoard's BOARD_SCOPED_STORE_CELLS
+ * drain deletes it; resetWorkspace / hydration can replace
+ * `store.session` wholesale) or the status machine has landed on its
+ * one non-active state, IDLE. Every in-tree exit funnels through one
+ * of those two shapes: all review status writes go through
+ * `mutateReviewSession` in `useReviewSession.ts`, and every exit
+ * there is a `status = 'IDLE'` write. FINISHED is deliberately
+ * active: the intermission (finishCard's reveal) is part of the
+ * session, not an exit.
  */
-export const blindModePrefs = createUiPrefSnapshotOwner([
-  'showMoveSuggestions',
-  'treeExpanded',
-] as const);
+function isReviewSessionExited(status: ReviewStatus | undefined): boolean {
+  if (status === undefined) return true;
+  switch (status) {
+    case 'IDLE':
+      return true;
+    case 'LOADING':
+    case 'AWAITING_MOVE':
+    case 'ANALYZING':
+    case 'FINISHED':
+      return false;
+    default: {
+      // Exhaustiveness guard: a new ReviewStatus member fails to
+      // compile here, forcing an explicit active-vs-exited call —
+      // silently defaulting a new state would recreate the unhooked-
+      // exit class this predicate exists to close.
+      const unhandled: never = status;
+      return unhandled;
+    }
+  }
+}
+
+/**
+ * The review session's blind-mode pref owner — today's domain-supplied
+ * key list and exit predicate. `showMoveSuggestions` is the blind-mode
+ * core (no engine hints while the user attempts the card);
+ * `treeExpanded` is collapsed alongside it so the game tree doesn't
+ * reveal the card's continuation. Entered (capture + owned writes) by
+ * `useReviewSession.ts`'s loadCard, revealed at finishCard; released
+ * by the exit watcher on any session exit, plus the explicit
+ * `releaseAll()` in `abortAllReviews` (the identity-flip ordering
+ * hazard — see the interface doc).
+ */
+export const blindModePrefs = createUiPrefSnapshotOwner(
+  ['showMoveSuggestions', 'treeExpanded'] as const,
+  (ownerBoardId) =>
+    isReviewSessionExited(store.session.reviews[ownerBoardId]?.status),
+);

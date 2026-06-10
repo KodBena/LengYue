@@ -80,12 +80,15 @@ export function abortBoardReview(boardId: BoardId): void {
     controller.abort();
     pendingAnalysisAborts.delete(boardId);
   }
-  // Restore the blind-mode pref snapshot if this board's review owns
-  // it — independent of whether an analysis wait was pending (a
-  // review can sit in AWAITING_MOVE with no in-flight wait; closing
-  // the board mid-review must still un-blind the session UI). No-op
-  // when this board isn't the snapshot owner.
-  blindModePrefs.release(boardId);
+  // Blind-mode prefs: no explicit release here. The snapshot owner's
+  // release is watcher-driven (blind-mode-prefs.ts): its exit
+  // predicate reads the owner board's `store.session.reviews` row,
+  // and closeBoard — this helper's only caller — deletes that row
+  // via the BOARD_SCOPED_STORE_CELLS drain BEFORE invoking this
+  // helper, so the snapshot is already released by the time this
+  // runs. (The prior explicit release(boardId) call here was one of
+  // the three hand-enumerated exit hooks PR #382's out-of-frame
+  // audit found non-quantifying; the watcher replaces the set.)
 }
 
 /**
@@ -99,8 +102,17 @@ export function abortAllReviews(): void {
     controller.abort();
   }
   pendingAnalysisAborts.clear();
-  // Identity flip / workspace reset: restore the blind-mode pref
-  // snapshot unconditionally (whichever board owns it is going away).
+  // Identity flip / workspace reset: release the blind-mode pref
+  // snapshot EXPLICITLY, not via the owner's exit watcher — the one
+  // deliberately-kept manual release, justified by a real ordering
+  // hazard. resetWorkspace calls this helper BEFORE replacing
+  // `store.session`; left to the watcher, the release would fire
+  // only at the replacement and restore the prior identity's pref
+  // values into the NEW session's ui. The explicit releaseAll
+  // restores into the outgoing session record, which the replacement
+  // then discards wholesale — the identity-flip-correct order.
+  // Idempotent against the watcher: the watcher observes a null
+  // snapshot afterwards and no-ops.
   blindModePrefs.releaseAll();
 }
 
@@ -293,9 +305,13 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
       // Enter "Blind Mode" through the pref owner: snapshot the
       // user's pre-review values once per session (capture is
       // idempotent across the session's loadCard calls), then apply
-      // the blind overrides as owned writes. The snapshot is restored
-      // by endSession / the abort paths; a manual mid-review toggle
-      // updates it (the user's new choice wins). See
+      // the blind overrides as owned writes. Release is watcher-
+      // driven: capture arms a sync watcher on this board's review
+      // status, and ANY exit out of the active states — endSession's
+      // IDLE, every failure-path IDLE in this file, closeBoard's
+      // row deletion — restores the snapshot; there is no per-exit
+      // release call to forget. A manual mid-review toggle updates
+      // the snapshot (the user's new choice wins). See
       // blind-mode-prefs.ts.
       blindModePrefs.capture(bId);
       blindModePrefs.write('showMoveSuggestions', false);
@@ -640,6 +656,15 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     pendingAnalysisAborts.get(bId)?.abort();
     pendingAnalysisAborts.delete(bId);
 
+    // The status→IDLE write below is also the blind-mode release:
+    // the pref owner's exit watcher fires on it synchronously
+    // (blind-mode-prefs.ts) and every key the session flipped
+    // (loadCard's blind writes, finishCard's reveal) returns to the
+    // user's pre-review value — these are persisted prefs, so the
+    // old unconditional force-true clobbered an off preference and
+    // the clobber survived reloads (history-lessons audit §3.7
+    // leg (ii)). A manual mid-review toggle updated the snapshot, so
+    // the restore lands on the user's latest choice.
     mutateReviewSession(bId, draft => {
       draft.status = 'IDLE';
       draft.queue = [];
@@ -649,15 +674,6 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
       draft.userMoveScores = [];
       draft.visitsOverride = null;
     });
-
-    // Release the blind-mode pref snapshot: every key the session
-    // flipped (loadCard's blind writes, finishCard's reveal) returns
-    // to the user's pre-review value — these are persisted prefs, so
-    // the prior unconditional force-true clobbered an off preference
-    // and the clobber survived reloads (history-lessons audit §3.7
-    // leg (ii)). A manual mid-review toggle updated the snapshot, so
-    // the restore lands on the user's latest choice.
-    blindModePrefs.release(bId);
   }
 
   function rewindToStart() {

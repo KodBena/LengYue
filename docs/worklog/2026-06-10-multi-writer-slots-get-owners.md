@@ -178,7 +178,7 @@ the AST measurement found 20 and 5 respectively.
 |---|---|---|---|
 | `store.engine` | 20 — all `analysis-service.ts` (incl. the duplicated disconnect-reset and the two `setSelectedModel` bypasses) | 0 | collapsed into `services/engine-connection.ts` (leg 3) |
 | `store.boards` | 0 | 0 | mutator convention already held; leg 1's `maxVisitsTarget` was an *aliased* write through `boards.find()` — outside the rule's syntactic reach, routed through `mutateBoard` in the same change |
-| `store.profile` | 10 — `AnalysisControls.vue` ×5 (template `v-model`s on settings leaves), `useLocale.ts` ×1, `useQeubo.ts` ×2, `scenarioContext.ts` ×2 | 10, all annotated | every one a deliberate slice write; kept as inline `eslint-disable-next-line` exemptions with slice-naming justifications (the `vue/no-v-html` model). The `AnalysisControls` v-models are template writes to PROFILE state — outside the ADR-0001 `session.ui` sanction, so annotated as named layering debt, not exempted by config. The discharge the annotations point at — a settings-editor mutator arc giving `store.profile.settings` a real owner — is a deferral (not-filed: no work-status item exists; the exemption comments are the in-tree record) |
+| `store.profile` | 10 — `AnalysisControls.vue` ×5 (template `v-model`s on settings leaves), `useLocale.ts` ×1, `useQeubo.ts` ×2, `scenarioContext.ts` ×2 | 10, all annotated | every one a deliberate slice write; kept as inline `eslint-disable-next-line` exemptions with slice-naming justifications (the `vue/no-v-html` model). The `AnalysisControls` v-models are template writes to PROFILE state — outside the ADR-0001 `session.ui` sanction, so annotated as named layering debt, not exempted by config. The discharge the annotations point at — a settings-editor mutator arc giving `store.profile.settings` a real owner — is a deferral (not-filed: no work-status item exists; the exemption comments are the in-tree record) *[Correction 2026-06-10: now filed — work-status item `settings-profile-mutator-owner`; see the Postscript.]* |
 
 Adopted at `error` on this fully-triaged baseline (`npx eslint .` exit
 0), per the config's measure-first posture.
@@ -371,6 +371,19 @@ DOWNGRADE:     for store.profile the stated reason is scope ("the
 settings-editor surfaces are the natural future mutator arc") — a
 discipline-flavored phrase, but the narrowing was specified by the
 commissioning item itself ("genuine strays … exempted-with-annotation")
+[CORRECTION 2026-06-10 — inserted in situ per the correction
+convention; the surrounding artifact is otherwise verbatim. The
+quoted phrase "genuine strays … exempted-with-annotation" exists
+nowhere in the commissioning work-status item
+(multi-writer-slots-get-owners), nowhere in the audit, and nowhere
+else in the tree — found by the out-of-frame rerun (PR #382 audit
+comment, "Justification-integrity defect") and re-verified against
+the todo DB before this correction. The quote is STRUCK, not
+re-attributed: the commissioning item does not sanction the
+store.profile narrowing. That narrowing stands, or falls, on its
+concrete-cost argument alone; its residue is now the filed
+work-status item settings-profile-mutator-owner. See the Postscript
+below.]
 and the concrete cost is real: rerouting five live v-model widgets
 through mutators is a behavior-risk settings-editor refactor outside
 this item's writ. No other downgrade found.
@@ -461,5 +474,81 @@ FINDINGS BEYOND VERDICT:
     motivating population (all 20 engine writes were the dotted-path
     shape it guards), but see finding 1 for the shape it does not.
 ```
+
+## Postscript — out-of-frame audit corrective (2026-06-10)
+
+The in-frame HRA run above declared its own frame deficient and
+recommended an out-of-frame rerun. That rerun happened against PR #382
+(tip `20fe5ad`) and returned **UNDISCHARGED-HACK** — full verbatim
+artifact in the PR comment
+(https://github.com/KodBena/LengYue/pull/382#issuecomment-4667405038).
+What it found, and what the corrective commit appended to this branch
+changes:
+
+**The exit-set leak (the verdict-carrying finding).** Leg 2's release
+side was three hand-enumerated `release()` call sites (endSession,
+abortBoardReview, abortAllReviews) out of SIX in-tree session exits.
+The three unhooked exits — loadCard parse failure (reachable for cards
+≥2 via the real `nextCard` path, where the prefs hold finishCard's
+reveal at the moment of failure: the literal commissioned defect
+shape), the analysis-timeout IDLE, and the missing-delta loud-cancel
+IDLE — leaked the snapshot, runtime-demonstrated by the auditor.
+**Fix-claim correction:** this worklog's leg-2 claim that the original
+defect was fixed was true for the three happy/abort exits only; as of
+this corrective the release quantifies over ALL exits, present and
+future. The mechanism is the module's own sync-watcher idiom:
+`capture()` now arms a per-snapshot `flush: 'sync'` watcher on a
+supplied flow-exit predicate — for the review flow, "the owner board's
+`store.session.reviews` row is gone or its status is IDLE" (an
+exhaustive `never`-default switch over `ReviewStatus`, so a future
+status member forces an explicit active-vs-exited call). Every exit
+already funnels through `mutateReviewSession`'s status write or the
+row deletion in `closeBoard`'s registry drain, so the watcher is the
+choke point the enumeration never was. The auditor's secondary leak —
+the snapshot staying active after an unhooked exit, so the next
+session's idempotent `capture()` never re-captured — closes with it:
+the watcher-driven release nulls the snapshot, and the next capture
+re-snapshots fresh state (pinned by the parse-failure test's
+second-session coda).
+
+**Call-site disposition.** The explicit `release()` calls in
+`endSession` and `abortBoardReview` are removed as provably covered
+(endSession's own IDLE write fires the watcher synchronously;
+closeBoard deletes the reviews row before `abortBoardReview` runs).
+`abortAllReviews` keeps an explicit `releaseAll()` — the one
+belt-and-suspenders call, justified by a real ordering hazard:
+`resetWorkspace` invokes it BEFORE replacing `store.session`, and a
+watcher-only release would fire at the replacement and restore the
+prior identity's pref values into the NEW session's ui. With no caller
+remaining, `release(boardId)` is dropped from the owner interface.
+
+**Tests.** Two exit tests added on the auditor's scratch-template
+shape, both driving the real paths against the existing fakes and
+red/green-verified by flipping the exit-watcher install off in scratch
+(both red) and back on (green; scratch never committed): (a)
+parse-failure exit via real `nextCard` — a preference-off user ends
+with `showMoveSuggestions=false` persisted, plus the re-capture coda;
+(b) timeout exit — prefs restored for a preference-on user.
+
+**Stale config comment.** The committed `eslint.config.js`
+store.profile rationale said "6 → 6" and named only the
+activePaletteId v-model — a stale draft census disagreeing with the
+tree's 10 annotations and with this worklog's own table. Corrected in
+place to the true baseline (5 AnalysisControls v-models + 5 script
+sites), with the correction dated in the comment.
+
+**Justification integrity.** The embedded in-frame artifact above
+attributed the quote "genuine strays … exempted-with-annotation" to
+the commissioning item; the phrase exists nowhere in that item, the
+audit, or the tree. Struck in situ (dated correction at the line, the
+artifact otherwise left verbatim) rather than re-attributed — there is
+nothing to re-attribute it to. The store.profile narrowing keeps its
+genuine concrete-cost argument; it never needed a fabricated sanction.
+
+**Deferral discharged.** The store.profile aliased-writers residue
+(the settings-editor mutator arc) is no longer a `not-filed:` marker:
+it is filed as work-status item `settings-profile-mutator-owner`
+(open, disposition `future`). The leg-4 table's marker above carries a
+dated correction pointing here.
 
 License: Public Domain (The Unlicense).

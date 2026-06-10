@@ -663,14 +663,22 @@ export default [
   //     was an aliased write through `boards.find()`, outside this
   //     rule's syntactic reach; routed through mutateBoard in the same
   //     change).
-  //   - store.profile: 6 → 6, all triaged as annotated exemptions
+  //   - store.profile: 10 → 10, all triaged as annotated exemptions
   //     (inline disable + slice-naming justification, the vue/no-v-html
-  //     model): useLocale's locale leg, useQeubo's parameter-apply and
-  //     bookmark-clear legs, scenarioContext's DEV-only save/restore
-  //     pair, and AnalysisControls' template v-model on
-  //     activePaletteId (a template write to PROFILE state — outside
-  //     the ADR-0001 session.ui sanction, so named as debt rather than
-  //     exempted by config).
+  //     model). Five script sites: useLocale's locale leg, useQeubo's
+  //     parameter-apply and bookmark-clear legs, scenarioContext's
+  //     DEV-only save/restore pair. Five template v-models in
+  //     AnalysisControls.vue, all on settings leaves: activePaletteId
+  //     plus the four adaptiveReevaluate leaves (enabled /
+  //     worstQuantile / extraVisits / valueBinding) — template writes
+  //     to PROFILE state, outside the ADR-0001 session.ui sanction, so
+  //     named as debt rather than exempted by config. (Corrected
+  //     2026-06-10 per PR #382's out-of-frame audit: this comment
+  //     originally said "6 → 6" and named only activePaletteId — a
+  //     stale draft census; the tree carried 10 annotations at
+  //     adoption, matching the worklog/PR/ADR-amendment record.)
+  //     Discharge filed: work-status item settings-profile-mutator-owner
+  //     (the settings-editor mutator arc the annotations point at).
   //   ⇒ adopted at `error` on a fully-triaged baseline, per this
   //   config's measure-first posture. Named gaps in the rule file
   //   (aliased roots, method-call mutations, name-matched `store`).
