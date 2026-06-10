@@ -84,7 +84,7 @@
  */
 
 import { computed, ref, type ComputedRef, type Ref, type WritableComputedRef } from 'vue';
-import { generateUUID } from '../engine/util';
+import { generateUUID } from '../lib/utils';
 import { qeuboService } from '../services/qeubo-service';
 import { pushSystemMessage, store } from '../store';
 import { i18n } from '../i18n';

@@ -26,7 +26,7 @@ import {
   rewriteSymbolBlock,
   rewriteGradingParameterAnalysisConfig,
 } from '../engine/analysis-config-curation';
-import { generateUUID } from '../engine/util';
+import { generateUUID } from '../lib/utils';
 import {
   detectBrowserLocale,
   isSupportedLocale,

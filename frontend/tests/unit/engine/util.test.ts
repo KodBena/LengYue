@@ -3,8 +3,9 @@
  *
  * Tier-1 (pure-logic) tests for the small helpers in
  * `src/engine/util.ts` — coordinate conversion, board-property
- * extraction, RFC4122 v4 UUID generation, and the
- * `resolveGameName` four-rung fallback ladder.
+ * extraction, and the `resolveGameName` four-rung fallback ladder.
+ * (The `generateUUID` tests moved to `tests/unit/lib/utils.test.ts`
+ * with their subject, 2026-06-10.)
  *
  * Each helper is small but used in many places; bugs at this layer
  * surface as misaligned analyses, wrong komi, duplicated game-source
@@ -22,7 +23,6 @@ import {
   getBoardSize,
   getKomi,
   getInitialStones,
-  generateUUID,
   resolveGameName,
 } from '../../../src/engine/util';
 import { createInitialBoard } from '../../../src/store/board-factory';
@@ -158,21 +158,6 @@ describe('getInitialStones', () => {
     // No setup on root; pretend a hypothetical mid-tree node exists
     // with AB property — getInitialStones must not see it.
     expect(getInitialStones(board)).toEqual([]);
-  });
-});
-
-describe('generateUUID', () => {
-  it('produces a string in RFC4122 v4 shape', () => {
-    const u = generateUUID();
-    expect(u).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
-    );
-  });
-
-  it('produces distinct values across calls', () => {
-    const a = generateUUID();
-    const b = generateUUID();
-    expect(a).not.toBe(b);
   });
 });
 

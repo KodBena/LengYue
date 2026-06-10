@@ -38,7 +38,7 @@ import {
   activeBoard,
   createBoard,
 } from '../../store';
-import { updateRegistry } from '../../engine/util';
+import { updateRegistry } from '../../lib/utils';
 import { loadSgfIntoBoard } from '../sgf/loadIntoBoard';
 import type { BoardId, BoardState, LibraryGame, ReviewCard } from '../../types';
 import ConfirmLoadModal from '../../components/modals/ConfirmLoadModal.vue';

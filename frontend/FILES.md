@@ -259,7 +259,7 @@ frontend/src/
 │   ├── sgf-writer.ts                  [B3]  GameNode forest → SGF serialisation.
 │   ├── suggestion-colors.ts           [B3]  Pure colour utilities for move-suggestion overlays.
 │   ├── tree.ts                        [B2]  Generic grid-based tree layout + tree-graph transforms.
-│   ├── util.ts                        [B3]  Board / SGF coord helpers; active-variation traversal.
+│   ├── util.ts                        [B3]  Board / SGF coord helpers; active-variation traversal; game-name resolution ladder. (Domain-free generateUUID / updateRegistry re-homed to lib/utils.ts 2026-06-10.)
 │   │
 │   ├── analysis/
 │   │   ├── clustering.ts              [B3]  Pure transposition-grouping utilities.
@@ -340,7 +340,7 @@ frontend/src/
 │   ├── knobs.ts                       [B1]  Knob-registry substrate: path-walk accessors, named-transform library, startup validation, ownership state machine, policy-aware writeKnobValue.
 │   ├── stability-trajectory.ts        [B1]  Generic change-point-compressed V-axis trajectory + log-V-weighted stable-fraction.
 │   ├── timing.ts                      [B1]  Complete application-timing catalog: every authored time literal (coalescing windows, interaction-dismiss grace, display durations, render retries, micro-scheduling, perf-harness cadences, engine-session timing) as individually-named, independently-tunable constants — the auditable tuning surface. (Structurally B1 — imports nothing domain-specific — though §7 catalogs engine-coupled, band-2/3 timing *values*.)
-│   └── utils.ts                       [B1]  debounce helper (the only inhabitant; lib/utils merger flagged separately).
+│   └── utils.ts                       [B1]  Domain-free helpers: debounce; isObject + deepMerge (hydration default-backfill); generateUUID (RFC4122 v4); updateRegistry (silent-create deep path-write — deliberately NOT knobs.ts's fail-loud walkers; co-located, never merged). (lib/ vs utils/ merger flagged separately.)
 │
 └── config/
     └── env.ts                         [B1]  Centralised reader for Vite environment variables.

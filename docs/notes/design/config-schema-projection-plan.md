@@ -118,10 +118,11 @@ editor is "everything," not "everything not otherwise surfaced."
 Nothing declares which projection owns a given leaf.
 
 **(d) The two write paths have opposite fail-postures.** The registry
-editor emits into `updateRegistry` → `setDeep`, which **auto-vivifies**
-missing intermediate objects (`engine/util.ts:35-49`: when an
-intermediate `current[key]` is null or non-object it is replaced with
-`{}`, lines 41-43). The knob substrate's `writeKnob` **throws** if the leaf does not
+editor emits into `updateRegistry`, which **auto-vivifies**
+missing intermediate objects (`lib/utils.ts` — re-homed from
+`engine/util.ts` with the `setDeep` helper folded in, 2026-06-10:
+when an intermediate `current[key]` is null or non-object it is
+replaced with `{}`). The knob substrate's `writeKnob` **throws** if the leaf does not
 pre-exist (`knobs.ts:122-128`: "final segment … does not exist on the
 parent object. Add the leaf via the store's defaults / migration
 before declaring a KnobDecl that writes to it"). One path is
@@ -335,7 +336,7 @@ The schema's band-1 library mirrors `knobs.ts`'s failure contract
   The unified mutator (§10.4) — the path settings projections emit
   into — writes only to (i) a path with a schema leaf, or (ii) a child
   of a node whose `dynamicKeys` policy authorises additions, and throws
-  otherwise, replacing `setDeep`'s auto-vivify. It governs the
+  otherwise, replacing `updateRegistry`'s auto-vivify. It governs the
   projection write path, **not** bare reactive assignment from
   behavioural / command code (§4.1, class 3), which remains an ADR-0001
   convention write.
@@ -361,7 +362,7 @@ iff two laws hold:
   leaf, or via the cross-domain knob editor all reduce to
   `write('profile.settings.appearance.ownershipOpacityCeiling', v)`.
   *Today this fails:* the registry editor reduces to
-  `updateRegistry`/`setDeep` while the knob path reduces to
+  `updateRegistry` while the knob path reduces to
   `writeKnobValue` — two mutators, two fail-postures (§1.3(d)).
 
 - **Law 2 — schema-naturality.** A schema change `δ : S → S'` (add a
@@ -705,8 +706,8 @@ tolerate a transition window where a node carries a literal fallback.
 ### 10.4 The write paths
 
 Three write mechanisms reach config (§4.1). The refactor reconciles
-the **configuration-projection** path: `updateRegistry`/`setDeep`
-(auto-vivify, `engine/util.ts:35`) and `writeKnob` (strict,
+the **configuration-projection** path: `updateRegistry`
+(auto-vivify, `lib/utils.ts`) and `writeKnob` (strict,
 `knobs.ts:94`) converge on one schema-validated mutator (§3.3) — known
 leaf succeeds, `dynamicKeys`-authorised child succeeds, otherwise
 throws. This tightens ADR-0002 and removes the silent-structure-growth
