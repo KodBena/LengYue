@@ -149,7 +149,9 @@ export class AnalysisService {
         // misbehavior. KataGoClient.subscribers has the same
         // as-designed shape: stale entries persist through reconnect
         // but get overwritten on next subscribe. Resource-ownership
-        // audit O15 (and the related O6 verification on the
+        // audit O15 (reconnect-bookkeeping — this IS the archived
+        // plan's own O15 row, unlike the code-minted O15 tags
+        // elsewhere; and the related O6 verification on the
         // subscribers side).
         //
         // Telemetry IS cleared here, separately from the closure

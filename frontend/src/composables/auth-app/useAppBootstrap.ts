@@ -303,8 +303,8 @@ export function useAppBootstrap(
         // re-login as the same user can re-hydrate fresh. The
         // service-side caches are cleared via SyncService's
         // resetWorkspace branch (which calls
-        // analysisPersistenceService.forgetAll() — audit pair
-        // O13). The per-board restore watchers themselves are
+        // analysisPersistenceService.forgetAll() — audit tag
+        // O13, persisted-analysis-bundles). The per-board restore watchers themselves are
         // torn down via the reconcile below once resetWorkspace
         // bumps `boardsSetVersion`.
         restoredBoards.clear();

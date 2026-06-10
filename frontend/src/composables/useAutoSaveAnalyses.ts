@@ -53,7 +53,9 @@
  * (secondary causes).
  *
  * Resource ownership: the per-board watcher + its scheduled
- * timer are paired as audit-pair O15. Reconcile teardown cancels
+ * timer are paired as audit tag O15 (autosave-watcher-timer; a
+ * code-minted tag past the archived plan's inventory — the slug,
+ * not the number, is the stable handle). Reconcile teardown cancels
  * the timer before disposing the watcher so a queued microtask
  * fire can't race the dispose. The returned `stop()` tears down
  * the reconcile + gate watchers and every remaining per-board
@@ -96,7 +98,7 @@ export function useAutoSaveAnalyses(): AutoSaveHandle {
   // enter / leave the workspace. Paired with the per-board timer
   // above — teardown cancels the timer BEFORE disposing the
   // watcher so a queued microtask fire can't race the dispose.
-  // Audit pair O15.
+  // Audit tag O15 (autosave-watcher-timer).
   const boardWatcherStops = new Map<BoardId, () => void>();
   let lastGateState: boolean | null = null;
 
@@ -206,8 +208,8 @@ export function useAutoSaveAnalyses(): AutoSaveHandle {
     // isGated() and the autoSaveError slot, but lastScheduledVersion
     // would still get updated against a dead board id, polluting
     // the policy state if the same id is later reused). Audit
-    // pair O15 — the timer and the watcher are paired resources;
-    // both released here.
+    // tag O15 (autosave-watcher-timer) — the timer and the watcher
+    // are paired resources; both released here.
     const timer = pendingTimers.get(boardId);
     if (timer !== undefined) {
       clearTimeout(timer);
