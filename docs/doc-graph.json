@@ -1666,7 +1666,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/audit/audit-hydration-rebind-residue-2026-06-10.md",
@@ -3290,7 +3290,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-10-deferral-harvest.md",
