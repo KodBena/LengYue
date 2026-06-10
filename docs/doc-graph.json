@@ -1,6 +1,6 @@
 {
-  "node_count": 427,
-  "edge_count": 1963,
+  "node_count": 428,
+  "edge_count": 1968,
   "age_buckets": [
     {
       "name": "fresh",
@@ -3378,7 +3378,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-10-spa-history-lessons-audit.md",
@@ -3395,6 +3395,14 @@
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
       "age_bucket": "recent"
+    },
+    {
+      "path": "docs/worklog/2026-06-10-types-split.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "docs/worklog/2026-06-10-vue-lifecycle-footgun-guards.md",
@@ -16771,6 +16779,41 @@
       "to": "docs/dispatch/proxy-to-frontend-learned-vf.md",
       "kind": "path-mention",
       "site": "`docs/dispatch/proxy-to-frontend-learned-vf.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-types-split.md",
+      "to": "docs/adr/0007-file-size-and-information-density.md",
+      "kind": "adr-related",
+      "site": "ADR-0007",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-types-split.md",
+      "to": "docs/adr/0006-source-file-headers.md",
+      "kind": "adr-related",
+      "site": "ADR-0006",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-types-split.md",
+      "to": "docs/adr/0001-state-mutation-and-readonly.md",
+      "kind": "adr-related",
+      "site": "ADR-0001",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-types-split.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-types-split.md",
+      "to": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`",
       "resolved": "resolved"
     },
     {
