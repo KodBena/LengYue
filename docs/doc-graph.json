@@ -1,6 +1,6 @@
 {
-  "node_count": 437,
-  "edge_count": 2065,
+  "node_count": 440,
+  "edge_count": 2078,
   "age_buckets": [
     {
       "name": "fresh",
@@ -1685,12 +1685,28 @@
       "age_bucket": "fresh"
     },
     {
+      "path": "docs/notes/audit/audit-consolidation-history-lessons-2026-06-10-appendix.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/notes/audit/audit-consolidation-history-lessons-2026-06-10.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
+    },
+    {
       "path": "docs/notes/audit/audit-deferral-harvest-2026-06-10.md",
       "genre": "note",
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/audit/audit-hydration-rebind-residue-2026-06-10.md",
@@ -3347,6 +3363,14 @@
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
       "age_bucket": "recent"
+    },
+    {
+      "path": "docs/worklog/2026-06-10-e2-consolidation-review.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-10-enrichment-merge-null-validation.md",
@@ -11044,6 +11068,83 @@
       "resolved": "resolved"
     },
     {
+      "from": "docs/notes/audit/audit-consolidation-history-lessons-2026-06-10-appendix.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-consolidation-history-lessons-2026-06-10.md",
+      "to": "docs/adr/0011-*.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/notes/audit/audit-consolidation-history-lessons-2026-06-10.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-consolidation-history-lessons-2026-06-10.md",
+      "to": "docs/adr/0007-file-size-and-information-density.md",
+      "kind": "adr-related",
+      "site": "ADR-0007",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-consolidation-history-lessons-2026-06-10.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-consolidation-history-lessons-2026-06-10.md",
+      "to": "docs/adr/0006-source-file-headers.md",
+      "kind": "adr-related",
+      "site": "ADR-0006",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-consolidation-history-lessons-2026-06-10.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-consolidation-history-lessons-2026-06-10.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-consolidation-history-lessons-2026-06-10.md",
+      "to": "docs/notes/audit/audit-spa-history-lessons-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-consolidation-history-lessons-2026-06-10.md",
+      "to": "docs/notes/audit/audit-adr-corpus-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-adr-corpus-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-consolidation-history-lessons-2026-06-10.md",
+      "to": "backend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`backend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
       "from": "docs/notes/audit/audit-deferral-harvest-2026-06-10.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
@@ -17124,6 +17225,20 @@
       "to": "docs/notes/audit/perf-audit-nav-and-pv-hover-2026-05-27.md",
       "kind": "path-mention",
       "site": "`docs/notes/audit/perf-audit-nav-and-pv-hover-2026-05-27.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-e2-consolidation-review.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-10-e2-consolidation-review.md",
+      "to": "docs/notes/audit/audit-consolidation-history-lessons-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-consolidation-history-lessons-2026-06-10.md`",
       "resolved": "resolved"
     },
     {
