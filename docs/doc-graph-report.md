@@ -35,7 +35,7 @@ explicit root/sub-project file list — not reference rot).
 
 ## Summary
 
-- **Dangling from LIVE documents, missing on disk** (review these): **15**.
+- **Dangling from LIVE documents, missing on disk** (review these): **16**.
 - **Dangling from LIVE documents, retired (tombstoned) targets**: **28**.
 - **Dangling from LIVE documents, on disk but outside the node set**: **8**.
 - **Dangling from EXECUTED playbooks** (reference-only records): **25**.
@@ -49,7 +49,7 @@ explicit root/sub-project file list — not reference rot).
 ## Advisory ratchet — no new danglers
 
 Live-document danglers in the two genuine-rot classes (missing-on-disk +
-retired-target): **43**, against a recorded baseline of
+retired-target): **44**, against a recorded baseline of
 **38** (2026-06-10). **EXCEEDED — new danglers have been introduced since the baseline.** Review the live sections above for the additions. Advisory only (this report does not gate), but the convention is: fix the new ones in the PR that introduced them, or record why not.
 
 ## Dangling references — from LIVE documents, missing on disk (review these)
@@ -60,6 +60,7 @@ retired-target): **43**, against a recorded baseline of
 - `docs/notes/audit/audit-adr-corpus-2026-06-10-appendix-p1.md` → ADR-0011 *(adr-related)* — target `docs/adr/0011-*.md` does not resolve to any node and does not exist on disk.
 - `docs/notes/audit/audit-adr-corpus-2026-06-10-appendix-p2.md` → ADR-0011 *(adr-related)* — target `docs/adr/0011-*.md` does not resolve to any node and does not exist on disk.
 - `docs/notes/audit/audit-adr-corpus-2026-06-10.md` → ADR-0011 *(adr-related)* — target `docs/adr/0011-*.md` does not resolve to any node and does not exist on disk.
+- `docs/notes/audit/audit-consolidation-history-lessons-2026-06-10.md` → ADR-0011 *(adr-related)* — target `docs/adr/0011-*.md` does not resolve to any node and does not exist on disk.
 - `docs/notes/decisions-deferred.md` → `docs/release-scope.md` *(path-mention)* — target `docs/release-scope.md` does not resolve to any node and does not exist on disk.
 - `docs/notes/design/doc-graph-discipline-plan.md` → `docs/INDEX.md` *(path-mention)* — target `docs/INDEX.md` does not resolve to any node and does not exist on disk.
 - `docs/notes/design/mistake-finder-pedagogy-and-followups.md` → `docs/notes/pedagogy.md` *(path-mention)* — target `docs/notes/pedagogy.md` does not resolve to any node and does not exist on disk.
