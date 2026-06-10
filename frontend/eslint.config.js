@@ -301,6 +301,7 @@ import tsPlugin from '@typescript-eslint/eslint-plugin';
 import { clearNeedsOwnership } from './eslint-rules/clear-needs-ownership.js';
 import { gatePropNeedsDefault } from './eslint-rules/gate-prop-needs-default.js';
 import { moduleIntentInScriptSetup } from './eslint-rules/module-intent-in-script-setup.js';
+import { storeWriteNeedsOwner } from './eslint-rules/store-write-needs-owner.js';
 
 // The wire-type boundary: backend.ts is importable only at the ACL.
 // Applied everywhere EXCEPT src/services/** and src/types.ts (see block
@@ -390,6 +391,7 @@ const LOCAL_RULE_PLUGIN = {
     'clear-needs-ownership': clearNeedsOwnership,
     'gate-prop-needs-default': gatePropNeedsDefault,
     'module-intent-in-script-setup': moduleIntentInScriptSetup,
+    'store-write-needs-owner': storeWriteNeedsOwner,
   },
 };
 
@@ -630,6 +632,86 @@ export default [
           emptyField: 'forest',
           ownershipField: 'source',
           repopulators: ['populateSlotFromMatched'],
+        },
+      ],
+    },
+  },
+
+  // ── GlobalStore writer enumeration (custom local rule) ──
+  // rationale: multi-writer store slots want OWNERS, not per-writer
+  // gates (history-lessons audit L2 / §3.7 leg (iv); work-status item
+  // multi-writer-slots-get-owners; recorded as an ADR-0001 amendment —
+  // the Revisit-#3 response). ADR-0001 dropped compiler enforcement of
+  // the named-mutator convention and assigned the residue to review
+  // vigilance ("grep for direct `.boards[` writes during review");
+  // that prose duty decayed exactly as lesson L1 predicts — at
+  // measurement, store.engine had ~20 direct writers scattered through
+  // analysis-service (incl. a duplicated disconnect-reset block and
+  // writes bypassing the one named mutator). This rule mechanizes the
+  // vigilance as a data-driven {subtree → owner files} enumeration: a
+  // write to a configured subtree outside its owner files is an error;
+  // a NEW writer must consciously join the enumeration or route
+  // through the owner. ADR-0001's template-toggle exception is carved
+  // out as config (template-context-only, session.ui prefix — the
+  // exception's terms quoted in the rule file's header). Measured at
+  // adoption (2026-06-10), branch-point baseline → post-fix:
+  //   - store.engine: 20 unowned writes (all analysis-service.ts) → 0
+  //     (collapsed into services/engine-connection.ts, the subtree's
+  //     owner module).
+  //   - store.boards: 0 → 0 (the mutator convention already held; the
+  //     one out-of-band write — analysis-service's maxVisitsTarget —
+  //     was an aliased write through `boards.find()`, outside this
+  //     rule's syntactic reach; routed through mutateBoard in the same
+  //     change).
+  //   - store.profile: 10 → 10, all triaged as annotated exemptions
+  //     (inline disable + slice-naming justification, the vue/no-v-html
+  //     model). Five script sites: useLocale's locale leg, useQeubo's
+  //     parameter-apply and bookmark-clear legs, scenarioContext's
+  //     DEV-only save/restore pair. Five template v-models in
+  //     AnalysisControls.vue, all on settings leaves: activePaletteId
+  //     plus the four adaptiveReevaluate leaves (enabled /
+  //     worstQuantile / extraVisits / valueBinding) — template writes
+  //     to PROFILE state, outside the ADR-0001 session.ui sanction, so
+  //     named as debt rather than exempted by config. (Corrected
+  //     2026-06-10 per PR #382's out-of-frame audit: this comment
+  //     originally said "6 → 6" and named only activePaletteId — a
+  //     stale draft census; the tree carried 10 annotations at
+  //     adoption, matching the worklog/PR/ADR-amendment record.)
+  //     Discharge filed: work-status item settings-profile-mutator-owner
+  //     (the settings-editor mutator arc the annotations point at).
+  //   ⇒ adopted at `error` on a fully-triaged baseline, per this
+  //   config's measure-first posture. Named gaps in the rule file
+  //   (aliased roots, method-call mutations, name-matched `store`).
+  {
+    files: ['src/**/*.ts', 'src/**/*.vue'],
+    plugins: { local: LOCAL_RULE_PLUGIN },
+    rules: {
+      'local/store-write-needs-owner': [
+        'error',
+        {
+          subtrees: [
+            // The boards array and its set/content mutations: the
+            // named mutators + workspace orchestrators.
+            { path: 'boards', owners: ['src/store/index.ts'] },
+            // The analysis-provider connection subtree: the named
+            // mutator + system-message actions (store) and the
+            // connection-lifecycle owner module.
+            {
+              path: 'engine',
+              owners: ['src/store/index.ts', 'src/services/engine-connection.ts'],
+            },
+            // The persisted profile: reset/hydrate live in the store;
+            // every other writer is an annotated inline exemption.
+            { path: 'profile', owners: ['src/store/index.ts'] },
+          ],
+          // ADR-0001 "Exception: UI state written directly from
+          // templates" — small UI toggles on store.session.ui.* may
+          // write directly from <template>; quoted in full in the
+          // rule file's header. Template context only; script-side
+          // writes to the same paths are NOT exempt (session.ui is
+          // not an enumerated subtree today, so this entry encodes
+          // the sanction for the day store.session joins the map).
+          templateToggleExemptPrefixes: ['session.ui'],
         },
       ],
     },

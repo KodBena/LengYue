@@ -28,7 +28,25 @@ import {
 import { type BoardId, type NodeId, type RawKey, type EnrichedKey, type QueryId } from '../types';
 import { asQueryId } from './query-id';
 import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi, getInitialStones } from '../engine/util';
-import { store, pushSystemMessage } from '../store';
+import { store, pushSystemMessage, mutateBoard, setSelectedModel } from '../store';
+// Owner module for the `store.engine` subtree (connect /
+// disconnect-reset / info / selection / metrics) — this service holds
+// the transport and the per-query bookkeeping; the store writes go
+// through the named owner functions. See engine-connection.ts's
+// header for the ownership rationale and the preserved-semantics
+// records (resetWorkspace's deliberate non-reset; the
+// restartActiveAnalyses semantics question).
+import {
+  markEngineConnected,
+  applyEngineDisconnectReset,
+  setEngineInfo,
+  refreshEngineVersion,
+  recordPacketRate,
+  markWatchdogPingPending,
+  recordWatchdogPong,
+  recordLastResponseBoard,
+  setBoardActiveMode,
+} from './engine-connection';
 import { ledger } from './analysis-ledger';
 import { stabilityTrajectoryStore } from './stability-trajectory-store';
 import { analysisPersistenceService } from './analysis-persistence-service';
@@ -172,30 +190,13 @@ export class AnalysisService {
         for (const queryId of this.activeQueries.keys()) {
           telemetry.unregisterQuery(queryId);
         }
-        store.engine.status = 'disconnected';
-        store.engine.activeMode = {};
-        // Reset the in-flight ping marker so the optional
-        // watchdog-dot animation doesn't display a stale "pending"
-        // state across a reconnect. The next `startWatchdog`
-        // iteration sets it freshly when the new WS is up.
-        store.engine.metrics = { ...store.engine.metrics, pingPendingSince: null };
-        // Clear engine identity on disconnect so a stale
-        // version/model from a prior session can't surface in the
-        // toolbar after the WS drops. Reconnect fires
-        // probeEngineInfo() via onConnect to repopulate.
-        // SELECTOR's `selectedModel` is cleared symmetrically — a
-        // stale selection from a prior proxy must not silently apply
-        // to a freshly-connected proxy whose upstream pool may
-        // differ.
-        store.engine.info = {
-          version: null,
-          internalName: null,
-          versionPayload: null,
-          modelsPayload: null,
-          availableModels: [],
-          capabilities: null,
-        };
-        store.engine.selectedModel = null;
+        // The `store.engine` projection of "disconnected" — status,
+        // activeMode wipe, engine-identity clear, SELECTOR-selection
+        // clear, ping-marker reset — is one owner function, shared
+        // with the user-initiated disconnect() below (previously two
+        // hand-duplicated blocks). Rationale per field in
+        // engine-connection.ts::applyEngineDisconnectReset.
+        applyEngineDisconnectReset();
         this.clearTimers();
         pushSystemMessage('warning', i18n.global.t('analysis.websocketDisconnected', { code, reason }));
       },
@@ -212,7 +213,7 @@ export class AnalysisService {
       },
     });
 
-    store.engine.status = 'connected';
+    markEngineConnected();
     this.startMetrics();
     this.startWatchdog();
   }
@@ -305,14 +306,14 @@ export class AnalysisService {
         );
       }
 
-      store.engine.info = {
+      setEngineInfo({
         version: versionResult.version,
         internalName: modelsResult.internalName,
         versionPayload: versionResult.raw,
         modelsPayload: modelsResult.raw,
         availableModels: modelsResult.availableModels,
         capabilities: versionResult.capabilities,
-      };
+      });
 
       // Auto-select the first available model when SELECTOR is in
       // play and the user hasn't explicitly chosen one. This keeps
@@ -329,7 +330,9 @@ export class AnalysisService {
       if (isSelectorMode
           && store.engine.selectedModel === null
           && modelsResult.availableModels.length > 0) {
-        store.engine.selectedModel = modelsResult.availableModels[0].label;
+        // Through the named mutator (store/index.ts) like every other
+        // selection write — the auto-select previously bypassed it.
+        setSelectedModel(modelsResult.availableModels[0].label);
       }
 
       // Once-per-WS-open transposition-unmet warning. Fires when
@@ -360,7 +363,7 @@ export class AnalysisService {
     // the conventional cadence for engine-status displays. The
     // engine-metrics tick from the timing catalog (`lib/timing`).
     this.metricsTimer = window.setInterval(() => {
-      store.engine.metrics = { ...store.engine.metrics, packetsPerSecond: this.packetCount };
+      recordPacketRate(this.packetCount);
       this.packetCount = 0;
     }, ENGINE_METRICS_TICK_MS);
   }
@@ -372,21 +375,12 @@ export class AnalysisService {
       // Mark a ping in flight before issuing the command so the
       // optional ping-tandem watchdog-dot animation (gated by
       // `session.ui.watchdogColorTransition`) can fire on the
-      // outbound edge and reset on the pong.
-      store.engine.metrics = {
-        ...store.engine.metrics,
-        pingPendingSince: Date.now(),
-      };
+      // outbound edge and reset on the pong (recordWatchdogPong
+      // clears the pending marker).
+      markWatchdogPingPending();
       const start = performance.now();
       const resp = await this.client.sendCommand({ id: `wd-${Date.now()}`, action: 'query_version' });
-      store.engine.metrics = {
-        ...store.engine.metrics,
-        lastWatchdogTimestamp: Date.now(),
-        latencyMs: Math.round(performance.now() - start),
-        // Pong received — clear the pending state so the animation
-        // resets to green.
-        pingPendingSince: null,
-      };
+      recordWatchdogPong(Math.round(performance.now() - start));
       // Capture the version on each tick so a mid-session engine
       // restart with a version bump surfaces in the toolbar
       // without waiting for a full WebSocket reconnect. Also
@@ -402,11 +396,7 @@ export class AnalysisService {
         const versionPayload = (resp && typeof resp === 'object')
           ? (resp as unknown as Record<string, unknown>)
           : null;
-        store.engine.info = {
-          ...store.engine.info,
-          version: resp.version,
-          versionPayload,
-        };
+        refreshEngineVersion(resp.version, versionPayload);
       }
       // Version/heartbeat poll interval — slow cadence that keeps
       // `store.engine.info` current and the session alive. The
@@ -430,20 +420,11 @@ export class AnalysisService {
       telemetry.unregisterQuery(queryId);
     }
     this.client.disconnect();
-    store.engine.status = 'disconnected';
-    store.engine.activeMode = {};
-    store.engine.info = {
-      version: null,
-      internalName: null,
-      versionPayload: null,
-      modelsPayload: null,
-      availableModels: [],
-      capabilities: null,
-    };
-    store.engine.selectedModel = null;
-    // Symmetric ping-flag reset — see the onDisconnect handler's
-    // comment above for the rationale.
-    store.engine.metrics = { ...store.engine.metrics, pingPendingSince: null };
+    // Same single owner-side reset as the WS onDisconnect path above
+    // (idempotent if the WS-level callback also fires) — the
+    // previously duplicated block is collapsed into
+    // engine-connection.ts::applyEngineDisconnectReset.
+    applyEngineDisconnectReset();
     this.clearTimers();
   }
 
@@ -495,11 +476,18 @@ export class AnalysisService {
     isRealtime: boolean = true,
   ): QueryId | null {
     const board = store.boards.find(b => b.id === boardId);
-    // Typed write — BoardState declares maxVisitsTarget?: number, so the
-    // historical `(board as any)` here was vestige.
-    if (board) board.maxVisitsTarget = visits;
     if (!board || store.engine.status !== 'connected') return null;
     if (fullPath.length === 0 || endTurn < startTurn) return null;
+
+    // Record the board's visit target only once the query is actually
+    // going out — behind the guards above, where the write used to
+    // fire even when the query was refused — and through `mutateBoard`
+    // so `boardsVersion` bumps and the debounced persistence sync sees
+    // the change immediately instead of riding the next unrelated
+    // mutation. History-lessons audit §3.7 leg (i); work-status item
+    // multi-writer-slots-get-owners. (BoardTab's rugplot reads this as
+    // its visit-depth denominator.)
+    mutateBoard(boardId, draft => { draft.maxVisitsTarget = visits; });
 
     const size = getBoardSize(board);
     const komi = getKomi(board);
@@ -1014,7 +1002,7 @@ export class AnalysisService {
       stabilityTrajectoryStore.record(queryInfo.rawKey, nodeId, normalized);
       const board = store.boards.find(b => b.id === queryInfo.boardId);
       if (board) {
-        store.engine.metrics = { ...store.engine.metrics, lastResponseId: board.id };
+        recordLastResponseBoard(board.id);
       }
       // Auto-save dirty signal: only authoritative finals trigger
       // the per-board dirty bump. During-search previews merge into
@@ -1097,7 +1085,7 @@ export class AnalysisService {
   private recomputeActiveMode(boardId: BoardId): void {
     const queryIds = this.boardToQueries.get(boardId);
     if (queryIds === undefined || queryIds.size === 0) {
-      store.engine.activeMode[boardId] = 'none';
+      setBoardActiveMode(boardId, 'none');
       return;
     }
     let hasAnalyze = false;
@@ -1107,7 +1095,7 @@ export class AnalysisService {
       if (info?.mode === 'analyze') hasAnalyze = true;
       else if (info?.mode === 'ponder') hasPonder = true;
     }
-    store.engine.activeMode[boardId] = hasAnalyze ? 'analyze' : hasPonder ? 'ponder' : 'none';
+    setBoardActiveMode(boardId, hasAnalyze ? 'analyze' : hasPonder ? 'ponder' : 'none');
   }
 
   /**

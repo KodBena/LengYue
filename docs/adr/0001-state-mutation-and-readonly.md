@@ -14,6 +14,17 @@
   2026-06-10 history-lessons audit
   (`docs/notes/audit/audit-spa-history-lessons-2026-06-10.md` §3.23;
   work-status item `adr-record-amendments-2026-06`).
+  Second amendment, same date — recorded the **Revisit-#3 response**:
+  the review-time vigilance this ADR's Negative-consequences section
+  assigned to contributors ("grep for direct `.boards[` writes during
+  review") is now mechanized as a data-driven writer-enumeration lint
+  (`local/store-write-needs-owner`, `frontend/eslint.config.js`) over
+  the `store.boards` / `store.engine` / `store.profile` subtrees,
+  with this ADR's template-toggle exception carved out as config. The
+  trigger itself has **not** fired and stays live — see the note
+  under Revisit-when #3. The decision is again unchanged. From the
+  same audit's §3.7 leg (iv) (work-status item
+  `multi-writer-slots-get-owners`).
 - **Decision drivers:** Vue reactivity architecture; TypeScript type-system
   semantics; performance at deep store paths; honesty of type annotations.
 
@@ -178,7 +189,13 @@ section.
   above: nothing in the type system prevents a component from doing
   `activeBoard.value.stones[coord] = 'B'` directly, bypassing both
   `mutateBoard` and Vue's board-version counter. Vigilance required;
-  grep for direct `.boards[` writes during review.
+  grep for direct `.boards[` writes during review. *(Mechanized
+  2026-06-10 — the grep duty is now the `local/store-write-needs-owner`
+  lint: direct dotted-path writes to `store.boards` / `store.engine` /
+  `store.profile` outside each subtree's enumerated owner files are
+  errors. The lint is syntactic best-effort — aliased writes like the
+  `activeBoard.value.stones[coord]` example above remain review's to
+  catch, a gap named in the rule file per ADR-0002.)*
 - **No Haskell-style immutability guarantees.** Not a regression (we
   never had them), but newly explicit.
 
@@ -279,6 +296,25 @@ become true:
    frequently bypass `mutateBoard` / `mutateReviewSession` and produce
    state bugs that a stricter type discipline would have caught, we'd
    reconsider Alternative A or move to Pinia actions.
+   **(Response recorded 2026-06-10 — trigger not fired.)** The
+   2026-06-10 history-lessons audit measured the convention's edges
+   rather than waiting for the breakdown: `store.boards` had zero
+   out-of-convention dotted-path writers, but `store.engine` had ~20
+   direct writers scattered through `analysis-service.ts` (collapsed
+   into the `services/engine-connection.ts` owner module in the same
+   change) and `store.profile` had 10 (triaged: every one a deliberate
+   slice write, kept as annotated inline exemptions). Rather than
+   escalating to Alternative A / Pinia, the response mechanizes the
+   review vigilance this ADR had assigned to prose: the
+   `local/store-write-needs-owner` lint enumerates each subtree's
+   writer set in `eslint.config.js` ({subtree → owner files}, with the
+   template-toggle exception below carved out as config), so a new
+   stray writer is a lint error instead of a review hope. The trigger
+   stays live on its own terms: if writers start arriving through the
+   lint's named syntactic gaps (aliased roots, method-call mutations)
+   and produce state bugs, Alternative A / Pinia reconsideration is
+   back on the table. Audit §3.7 leg (iv); work-status item
+   `multi-writer-slots-get-owners`.
 
 4. **A Pinia migration happens for other reasons** (better devtools
    integration, clearer domain-slicing of the store, plugin ecosystem).

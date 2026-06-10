@@ -764,6 +764,13 @@ function applyEffective(): void {
         consumerId: QEUBO_CONSUMER_ID,
       });
     } else {
+      // Annotated exemption (local/store-write-needs-owner): the
+      // qEUBO apply path's non-knob fallback — parameters without a
+      // knob registration write the palette-env leaf directly. The
+      // knob-registered branch above already routes through
+      // writeKnobValue; this leg is the deliberate residual writer
+      // for the qEUBO parameter slice.
+      // eslint-disable-next-line local/store-write-needs-owner -- qEUBO parameter-apply slice; non-knob fallback leg
       store.profile.settings.engine.katago.analysis_env.parameters[name] = value;
     }
   }
@@ -821,6 +828,11 @@ function pinCurrent(name: string): void {
     parameters,
   };
   if (!store.profile.qeuboPinnedBookmarks) {
+    // Annotated exemption (local/store-write-needs-owner): lazy-init
+    // of the qEUBO pinned-bookmarks slice, owned by this composable
+    // (the only reader/writer of qeuboPinnedBookmarks; the `.push`
+    // below is the same owner mutating the array it just created).
+    // eslint-disable-next-line local/store-write-needs-owner -- qEUBO bookmark slice; lazy-init by its sole owner
     store.profile.qeuboPinnedBookmarks = [];
   }
   store.profile.qeuboPinnedBookmarks.push(bookmark);

@@ -17,6 +17,7 @@ import {
   deriveAnalysisKeys,
 } from '../../services/analysis-config';
 import { waitForAnalysis, AnalysisWaitError } from '../analysis/wait-for-analysis';
+import { blindModePrefs } from './blind-mode-prefs';
 import { KATAGO_ANALYSIS_TIMEOUT_MS } from '../../lib/timing';
 
 // @ts-ignore
@@ -79,6 +80,15 @@ export function abortBoardReview(boardId: BoardId): void {
     controller.abort();
     pendingAnalysisAborts.delete(boardId);
   }
+  // Blind-mode prefs: no explicit release here. The snapshot owner's
+  // release is watcher-driven (blind-mode-prefs.ts): its exit
+  // predicate reads the owner board's `store.session.reviews` row,
+  // and closeBoard — this helper's only caller — deletes that row
+  // via the BOARD_SCOPED_STORE_CELLS drain BEFORE invoking this
+  // helper, so the snapshot is already released by the time this
+  // runs. (The prior explicit release(boardId) call here was one of
+  // the three hand-enumerated exit hooks PR #382's out-of-frame
+  // audit found non-quantifying; the watcher replaces the set.)
 }
 
 /**
@@ -92,6 +102,18 @@ export function abortAllReviews(): void {
     controller.abort();
   }
   pendingAnalysisAborts.clear();
+  // Identity flip / workspace reset: release the blind-mode pref
+  // snapshot EXPLICITLY, not via the owner's exit watcher — the one
+  // deliberately-kept manual release, justified by a real ordering
+  // hazard. resetWorkspace calls this helper BEFORE replacing
+  // `store.session`; left to the watcher, the release would fire
+  // only at the replacement and restore the prior identity's pref
+  // values into the NEW session's ui. The explicit releaseAll
+  // restores into the outgoing session record, which the replacement
+  // then discards wholesale — the identity-flip-correct order.
+  // Idempotent against the watcher: the watcher observes a null
+  // snapshot afterwards and no-ops.
+  blindModePrefs.releaseAll();
 }
 
 export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
@@ -279,10 +301,21 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
         draft.startingNodeId = targetLeafId;
         draft.status = 'AWAITING_MOVE';
       });
-      
-      // Enter "Blind Mode"
-      store.session.ui.showMoveSuggestions = false;
-      store.session.ui.treeExpanded = false; 
+
+      // Enter "Blind Mode" through the pref owner: snapshot the
+      // user's pre-review values once per session (capture is
+      // idempotent across the session's loadCard calls), then apply
+      // the blind overrides as owned writes. Release is watcher-
+      // driven: capture arms a sync watcher on this board's review
+      // status, and ANY exit out of the active states — endSession's
+      // IDLE, every failure-path IDLE in this file, closeBoard's
+      // row deletion — restores the snapshot; there is no per-exit
+      // release call to forget. A manual mid-review toggle updates
+      // the snapshot (the user's new choice wins). See
+      // blind-mode-prefs.ts.
+      blindModePrefs.capture(bId);
+      blindModePrefs.write('showMoveSuggestions', false);
+      blindModePrefs.write('treeExpanded', false);
 
     } catch (err) {
       console.error('[ReviewSession] Failed to load card SGF:', err);
@@ -555,7 +588,16 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     if (!bId) return;
 
     mutateReviewSession(bId, draft => { draft.status = 'FINISHED'; });
-    store.session.ui.showMoveSuggestions = true;
+    // Intermission reveal — deliberate pedagogy, maintainer-approved
+    // 2026-06-10 (history-lessons audit §7.3): after the blind
+    // attempt, suggestions become visible so the user can study the
+    // engine's view of their moves. An owned write, NOT a restore —
+    // the user's pre-review `showMoveSuggestions` comes back at
+    // endSession / abort. `treeExpanded`, by contrast, IS restored to
+    // the user's pre-review value here: the tree carries no grading
+    // reveal, so the intermission has no claim over it.
+    blindModePrefs.write('showMoveSuggestions', true);
+    blindModePrefs.restoreKeys(['treeExpanded']);
 
     try {
       await backendService.submitReview(currentCard.value!.id, userMoveScores.value);
@@ -614,6 +656,15 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     pendingAnalysisAborts.get(bId)?.abort();
     pendingAnalysisAborts.delete(bId);
 
+    // The status→IDLE write below is also the blind-mode release:
+    // the pref owner's exit watcher fires on it synchronously
+    // (blind-mode-prefs.ts) and every key the session flipped
+    // (loadCard's blind writes, finishCard's reveal) returns to the
+    // user's pre-review value — these are persisted prefs, so the
+    // old unconditional force-true clobbered an off preference and
+    // the clobber survived reloads (history-lessons audit §3.7
+    // leg (ii)). A manual mid-review toggle updated the snapshot, so
+    // the restore lands on the user's latest choice.
     mutateReviewSession(bId, draft => {
       draft.status = 'IDLE';
       draft.queue = [];
@@ -623,12 +674,6 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
       draft.userMoveScores = [];
       draft.visitsOverride = null;
     });
-
-    // Move-suggestions visibility was flipped off by loadCard
-    // ("Blind Mode") and on by finishCard. Restore the default
-    // here too so the post-session board state matches a fresh
-    // browse-mode session.
-    store.session.ui.showMoveSuggestions = true;
   }
 
   function rewindToStart() {
