@@ -9,18 +9,73 @@
 import type { Move, StoneColor, BoardState, NodeId, RootToLeafPath } from '../types';
 
 /**
+ * Thrown when an inbound SGF coordinate is malformed — a character
+ * outside the SGF point alphabet, or a decoded point outside the
+ * board. This is the file-trust boundary (ADR-0002): a corrupt SGF
+ * *file* must fail loudly rather than coerce garbage into board
+ * geometry. The loader's callers narrow on it (`instanceof
+ * SgfCoordinateError`) to surface a user-visible load failure.
+ *
+ * Distinct from the legitimate pass markers (empty string, whitespace,
+ * and `tt` on boards ≤ 19×19), which `sgfToMove` still resolves to a
+ * pass — those are *valid* SGF, not malformation.
+ *
+ * `coord` is an explicit instance field (not a parameter-property
+ * shorthand) because the project's tsconfig has `erasableSyntaxOnly`
+ * enabled, which forbids parameter properties — they emit runtime code
+ * and so aren't pure type-level syntax. (Same constraint as
+ * `AnalysisWaitError` in `composables/analysis/wait-for-analysis.ts`.)
+ */
+export class SgfCoordinateError extends Error {
+  readonly coord: string;
+
+  constructor(coord: string, detail: string) {
+    super(`Malformed SGF coordinate ${JSON.stringify(coord)}: ${detail}`);
+    this.name = 'SgfCoordinateError';
+    this.coord = coord;
+  }
+}
+
+/**
  * Converts SGF coordinate string to internal Point.
  * @param sgfStr e.g. "pd"
  * @param color 'B' | 'W'
  * @param size Board size from root node
+ *
+ * Fail-loud at the file-trust boundary (ADR-0002): a coordinate whose
+ * characters fall outside the SGF point alphabet, or whose decoded
+ * point falls outside `[0, size)`, throws `SgfCoordinateError` rather
+ * than minting a `Move` with garbage geometry. The prior shape did the
+ * `charCodeAt(…) - 97` arithmetic with no bounds check, so a
+ * single-character coordinate (`charCodeAt(1)` → `NaN`) or an
+ * out-of-range letter produced a `Move` with `NaN` / out-of-board
+ * coordinates that propagated into the stones map and the rules engine.
+ * `validateMove` rejects most pathological *placements* downstream, but
+ * setup stones (AB/AW/AE) and `getInitialStones` bypass that check —
+ * the boundary is enforced here, once, for every consumer.
  */
 export function sgfToMove(sgfStr: string | undefined, color: StoneColor, size: number): Move {
   if (!sgfStr || sgfStr.trim() === "" || (sgfStr === 'tt' && size <= 19)) {
     return { type: 'pass', color, x: 0, y: 0 };
   }
 
-  const x = sgfStr.charCodeAt(0) - 97;
-  const y = (size - 1) - (sgfStr.charCodeAt(1) - 97);
+  // SGF encodes a point as two letters from the 'a'-based alphabet
+  // ('a' = 0). Anything shorter than two characters or carrying a
+  // character outside that alphabet is malformed file data.
+  if (sgfStr.length < 2) {
+    throw new SgfCoordinateError(sgfStr, 'expected two coordinate characters');
+  }
+  const col = sgfStr.charCodeAt(0) - 97;
+  const row = sgfStr.charCodeAt(1) - 97;
+  if (col < 0 || row < 0 || col >= size || row >= size) {
+    throw new SgfCoordinateError(
+      sgfStr,
+      `decoded point (col=${col}, row=${row}) is outside the ${size}×${size} board`,
+    );
+  }
+
+  const x = col;
+  const y = (size - 1) - row;
 
   return { type: 'place', color, x, y };
 }
@@ -128,6 +183,22 @@ export function getKomi(state: BoardState): number {
  * Mid-tree setup (AB/AW/AE on non-root nodes) is out of scope —
  * KataGo's analysis engine doesn't model setup operations after the
  * first move.
+ *
+ * Tolerant of a malformed coordinate, deliberately — the inverse of
+ * `sgfToMove`'s fail-loud posture, and for a layering reason. The
+ * file-trust boundary is `loadSgf` (the SGF → BoardState load):
+ * `sgfToMove` throwing there propagates to the loader's catch and is
+ * surfaced to the user. By the time `getInitialStones` runs, the board
+ * has *already* loaded — it is called from the analysis-request hot
+ * path (`analysis-service.ts` range/ponder), often on a board
+ * rehydrated from persistence that never re-ran `loadSgf` this session.
+ * Re-throwing here would move the boundary to the wrong layer: a board
+ * persisted under older (silently-coercing) code would crash analysis
+ * on every navigation rather than surface once at load. So a malformed
+ * setup coord is skipped with a `console.warn` (level 5) — that one
+ * stone degrades, analysis proceeds. This is the same fail-at-load /
+ * tolerate-at-re-read split ADR-0002's stale-bundle-shim exception
+ * codifies.
  */
 export function getInitialStones(state: BoardState): [StoneColor, string][] {
   const rootNode = state.nodes[state.rootNodeId];
@@ -135,18 +206,29 @@ export function getInitialStones(state: BoardState): [StoneColor, string][] {
   const size = getBoardSize(state);
   const result: [StoneColor, string][] = [];
 
-  for (const sgfCoord of rootNode.properties.AB ?? []) {
-    const move = sgfToMove(sgfCoord, 'B', size);
-    if (move.type === 'place') {
-      result.push(['B', toGtp(move.x, move.y)]);
+  const collect = (coords: string[] | undefined, color: StoneColor) => {
+    for (const sgfCoord of coords ?? []) {
+      let move: Move;
+      try {
+        move = sgfToMove(sgfCoord, color, size);
+      } catch (err) {
+        if (err instanceof SgfCoordinateError) {
+          // Post-load tolerance (see docstring): skip the bad stone
+          // rather than crash the analysis path. The load-time boundary
+          // already had its chance to surface this loudly.
+          console.warn(`[getInitialStones] skipping malformed setup coord: ${err.message}`);
+          continue;
+        }
+        throw err;
+      }
+      if (move.type === 'place') {
+        result.push([color, toGtp(move.x, move.y)]);
+      }
     }
-  }
-  for (const sgfCoord of rootNode.properties.AW ?? []) {
-    const move = sgfToMove(sgfCoord, 'W', size);
-    if (move.type === 'place') {
-      result.push(['W', toGtp(move.x, move.y)]);
-    }
-  }
+  };
+
+  collect(rootNode.properties.AB, 'B');
+  collect(rootNode.properties.AW, 'W');
 
   return result;
 }

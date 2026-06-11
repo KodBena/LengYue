@@ -20,7 +20,8 @@ import sgf from '@sabaki/sgf';
 import { loadSgf } from '../../engine/sgf-loader';
 import { navigateTo } from '../../engine/navigator';
 import { getActiveVariationPath } from '../../engine/util';
-import { addBoard, store } from '../../store';
+import { addBoard, store, pushSystemMessage } from '../../store';
+import { i18n } from '../../i18n';
 
 // ── Public contract ───────────────────────────────────────────────────────────
 
@@ -58,6 +59,15 @@ export function useSgfLoader(): SgfLoaderActions {
       }
       addBoard(newBoard);
     } catch (err) {
+      // Surface a corrupt file to the user (ADR-0002 level 4) — this is
+      // the explicit file-pick path, so a malformed SGF (unparseable
+      // tree, bad SZ geometry, or a malformed coordinate that `loadSgf`
+      // rejects) is exactly the case the file-trust boundary exists to
+      // make visible. The prior shape logged to the console only, so a
+      // user who picked a broken file saw nothing happen. Mirrors the
+      // sibling `useSgfDownload` save-error idiom.
+      const detail = err instanceof Error ? err.message : String(err);
+      pushSystemMessage('error', i18n.global.t('sgf.loadFailed', { detail }));
       console.error('[useSgfLoader] Failed to load SGF:', err);
     }
   }

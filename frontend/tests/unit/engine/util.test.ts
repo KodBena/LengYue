@@ -18,6 +18,7 @@
 import { describe, it, expect, vi, onTestFinished } from 'vitest';
 import {
   sgfToMove,
+  SgfCoordinateError,
   moveToKataCoord,
   toGtp,
   getBoardSize,
@@ -61,6 +62,34 @@ describe('sgfToMove', () => {
 
   it('treats undefined as a pass', () => {
     expect(sgfToMove(undefined, 'B', 19).type).toBe('pass');
+  });
+
+  // ── File-trust boundary (ADR-0002), item sgf-file-boundary-coercions ──
+  // The prior shape did charCodeAt(…) - 97 with no bounds check, so a
+  // garbage coordinate minted a Move with NaN / out-of-board geometry
+  // that propagated into the stones map and the rules engine.
+
+  it('throws SgfCoordinateError on a coordinate outside the board', () => {
+    // "zz" → col=25, row=25, outside a 19×19 board.
+    expect(() => sgfToMove('zz', 'B', 19)).toThrow(SgfCoordinateError);
+  });
+
+  it('throws SgfCoordinateError on a single-character coordinate (charCodeAt(1) → NaN)', () => {
+    expect(() => sgfToMove('a', 'B', 19)).toThrow(SgfCoordinateError);
+  });
+
+  it('throws SgfCoordinateError on a non-alphabet coordinate character', () => {
+    // "@" is below 'a' (charCode 64) → col = -33, out of range.
+    expect(() => sgfToMove('@@', 'B', 19)).toThrow(SgfCoordinateError);
+  });
+
+  it('still accepts "tt" as a real coordinate on boards > 19×19 (in bounds)', () => {
+    // Above 19×19, "tt" is (19, 5) on a 25×25 board — a valid point,
+    // not a pass and not malformed. The new bounds check must not
+    // reject it.
+    const m = sgfToMove('tt', 'B', 25);
+    expect(m.type).toBe('place');
+    expect(m).toMatchObject({ x: 19, y: 5 });
   });
 });
 
@@ -158,6 +187,27 @@ describe('getInitialStones', () => {
     // No setup on root; pretend a hypothetical mid-tree node exists
     // with AB property — getInitialStones must not see it.
     expect(getInitialStones(board)).toEqual([]);
+  });
+
+  it('SKIPS a malformed setup coordinate with a warning rather than throwing', () => {
+    // The load-bearing tolerance: getInitialStones runs at
+    // analysis-request time on a board that has ALREADY loaded (often
+    // rehydrated from persistence under older silently-coercing code).
+    // Re-throwing here would crash the unguarded analysis hot path on
+    // every navigation. The file-trust boundary is loadSgf, not this
+    // re-reader — so a bad stored coord degrades that one stone.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    onTestFinished(() => warn.mockRestore());
+
+    const board = createInitialBoard();
+    // One valid AB stone, one malformed ("zz" out of bounds on 19×19).
+    board.nodes[board.rootNodeId].properties['AB'] = ['pd', 'zz'];
+
+    const stones = getInitialStones(board);
+    // The valid stone survives; the malformed one is dropped, not fatal.
+    expect(stones).toContainEqual(['B', 'Q16']);
+    expect(stones).toHaveLength(1);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('malformed setup coord'));
   });
 });
 

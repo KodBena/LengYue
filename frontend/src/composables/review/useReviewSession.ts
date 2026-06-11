@@ -339,6 +339,14 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
       blindModePrefs.write('treeExpanded', false);
 
     } catch (err) {
+      // Surface a corrupt card SGF to the user (ADR-0002 level 4): the
+      // card's stored content failed to parse / load (unparseable tree,
+      // bad SZ geometry, or a malformed coordinate `loadSgf` rejects).
+      // The status reset alone left the user staring at an unchanged
+      // board with no explanation; the message names the fault. Same
+      // file-trust boundary as the file-pick path in `useSgfLoader`.
+      const detail = err instanceof Error ? err.message : String(err);
+      pushSystemMessage('error', i18n.global.t('sgf.loadFailed', { detail }));
       console.error('[ReviewSession] Failed to load card SGF:', err);
       mutateReviewSession(bId, draft => { draft.status = 'IDLE'; });
     }
