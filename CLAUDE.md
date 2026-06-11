@@ -85,7 +85,14 @@ it. Before declaring a task done or filing a PR, audit:
   `tools/work-status/schema.sql`). Query and change status by SQL through
   psql — there is no hand-editable file. Malformed writes are rejected
   loudly by the table constraints (ADR-0002); the cross-row invariant gate
-  is `SELECT * FROM work_status_violations` (empty ⇒ clean). `docs/TODO.md`
+  is `SELECT * FROM work_status_violations` (empty ⇒ clean). Every write is
+  recorded by an in-database audit trail (`audit_log`, trigger-fed,
+  actor-attributed via `application_name`, optionally commit-anchored via the
+  transaction-local `audit.commit` GUC); `table_asof(tbl, t)` reconstructs any
+  audited table's state at a timestamp, and `tools/work-status/asof.sh
+  <git-sha>` gives per-commit time-travel. The DDL is attested in
+  `tools/work-status/schema.sql` §Audit trail — the audit objects deliberately
+  survive reseeds. `docs/TODO.md`
   is a thin human **projection** of the store — do not record status there.
   A shipped feature still recorded as open is the silent doc-failure the
   2026-06-01 RCA records

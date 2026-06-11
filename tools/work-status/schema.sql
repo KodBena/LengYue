@@ -130,3 +130,107 @@ SELECT DISTINCT origin, 'parent-cycle'     FROM parent_walk WHERE is_cycle;
 INSERT INTO meta (key, value) VALUES ('schema_version', '1'::jsonb);
 
 COMMIT;
+
+-- ---------------------------------------------------------------------------
+-- Audit trail (added 2026-06-11, maintainer-approved; hand-rolled, no
+-- extensions — none are installed on the host and vanilla PostgreSQL has no
+-- native SYSTEM_TIME AS OF). This section is the in-repo ATTESTATION of the
+-- live objects: future auditors and project successors should treat it as the
+-- contract for the store's history layer.
+--
+-- DELIBERATE CARVE-OUT from this file's re-runnable drop-and-recreate
+-- posture: audit_log and the audit functions are NOT in the DROP list above —
+-- history survives a reseed. Two consequences, handled here:
+--   1. DROP TABLE (above) kills row triggers with their tables, so the
+--      triggers are (re)created unconditionally below.
+--   2. DROP TABLE does not fire per-row DELETE triggers, so a reseed is a
+--      discontinuity in the trail; migrate-to-pg.py re-baselines by calling
+--      audit_genesis_snapshot() after loading (rows tagged actor
+--      'genesis-snapshot').
+-- Attribution: actor = application_name (sessions set PGAPPNAME, e.g.
+-- 'coordinator'); commit_sha = the transaction-local GUC `audit.commit`,
+-- set by writers whose change corresponds to a git commit (ship-closures),
+-- null otherwise — absence is honest, not missing data.
+-- Reconstruction is transaction-granular: `at` is now() (xact-stable);
+-- audit_id orders entries within a transaction.
+
+BEGIN;
+
+CREATE TABLE IF NOT EXISTS audit_log (
+  audit_id   bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  at         timestamptz NOT NULL DEFAULT now(),
+  actor      text NOT NULL DEFAULT coalesce(nullif(current_setting('application_name', true), ''), 'unknown'),
+  commit_sha text DEFAULT nullif(current_setting('audit.commit', true), ''),
+  tbl        text NOT NULL,
+  op         text NOT NULL CHECK (op IN ('INSERT','UPDATE','DELETE')),
+  row_key    text NOT NULL,
+  old_row    jsonb,
+  new_row    jsonb
+);
+CREATE INDEX IF NOT EXISTS audit_log_lookup_idx ON audit_log (tbl, row_key, at DESC, audit_id DESC);
+
+CREATE OR REPLACE FUNCTION record_audit() RETURNS trigger LANGUAGE plpgsql AS $fn$
+DECLARE
+  r jsonb := CASE WHEN TG_OP = 'DELETE' THEN to_jsonb(OLD) ELSE to_jsonb(NEW) END;
+  k text;
+BEGIN
+  k := CASE TG_TABLE_NAME
+    WHEN 'items'  THEN r->>'id'
+    WHEN 'refs'   THEN r->>'ref_id'
+    WHEN 'labels' THEN (r->>'item_id') || ':' || (r->>'label')
+    WHEN 'deps'   THEN (r->>'item_id') || ':' || (r->>'depends_on')
+    WHEN 'meta'   THEN r->>'key'
+    ELSE r::text
+  END;
+  INSERT INTO audit_log (tbl, op, row_key, old_row, new_row)
+  VALUES (TG_TABLE_NAME, TG_OP, k,
+          CASE WHEN TG_OP <> 'INSERT' THEN to_jsonb(OLD) END,
+          CASE WHEN TG_OP <> 'DELETE' THEN to_jsonb(NEW) END);
+  RETURN NULL;
+END $fn$;
+
+DROP TRIGGER IF EXISTS items_audit  ON items;
+DROP TRIGGER IF EXISTS refs_audit   ON refs;
+DROP TRIGGER IF EXISTS labels_audit ON labels;
+DROP TRIGGER IF EXISTS deps_audit   ON deps;
+DROP TRIGGER IF EXISTS meta_audit   ON meta;
+CREATE TRIGGER items_audit  AFTER INSERT OR UPDATE OR DELETE ON items  FOR EACH ROW EXECUTE FUNCTION record_audit();
+CREATE TRIGGER refs_audit   AFTER INSERT OR UPDATE OR DELETE ON refs   FOR EACH ROW EXECUTE FUNCTION record_audit();
+CREATE TRIGGER labels_audit AFTER INSERT OR UPDATE OR DELETE ON labels FOR EACH ROW EXECUTE FUNCTION record_audit();
+CREATE TRIGGER deps_audit   AFTER INSERT OR UPDATE OR DELETE ON deps   FOR EACH ROW EXECUTE FUNCTION record_audit();
+CREATE TRIGGER meta_audit   AFTER INSERT OR UPDATE OR DELETE ON meta   FOR EACH ROW EXECUTE FUNCTION record_audit();
+
+-- State of any audited table as of t:
+--   SELECT * FROM table_asof('items', '2026-06-10T18:00:00Z');
+-- Per-commit time-travel: tools/work-status/asof.sh <git-sha> resolves the
+-- sha's committer timestamp and calls this.
+CREATE OR REPLACE FUNCTION table_asof(p_tbl text, p_t timestamptz) RETURNS SETOF jsonb LANGUAGE sql STABLE AS $fn$
+  SELECT new_row FROM (
+    SELECT DISTINCT ON (row_key) op, new_row
+    FROM audit_log WHERE tbl = p_tbl AND at <= p_t
+    ORDER BY row_key, at DESC, audit_id DESC
+  ) last WHERE op <> 'DELETE'
+$fn$;
+
+CREATE OR REPLACE FUNCTION audit_genesis_snapshot() RETURNS bigint LANGUAGE plpgsql AS $fn$
+DECLARE n bigint := 0; c bigint;
+BEGIN
+  INSERT INTO audit_log (actor, tbl, op, row_key, new_row)
+    SELECT 'genesis-snapshot', 'items', 'INSERT', id, to_jsonb(t) FROM items t;
+  GET DIAGNOSTICS c = ROW_COUNT; n := n + c;
+  INSERT INTO audit_log (actor, tbl, op, row_key, new_row)
+    SELECT 'genesis-snapshot', 'refs', 'INSERT', ref_id::text, to_jsonb(t) FROM refs t;
+  GET DIAGNOSTICS c = ROW_COUNT; n := n + c;
+  INSERT INTO audit_log (actor, tbl, op, row_key, new_row)
+    SELECT 'genesis-snapshot', 'labels', 'INSERT', item_id || ':' || label, to_jsonb(t) FROM labels t;
+  GET DIAGNOSTICS c = ROW_COUNT; n := n + c;
+  INSERT INTO audit_log (actor, tbl, op, row_key, new_row)
+    SELECT 'genesis-snapshot', 'deps', 'INSERT', item_id || ':' || depends_on, to_jsonb(t) FROM deps t;
+  GET DIAGNOSTICS c = ROW_COUNT; n := n + c;
+  INSERT INTO audit_log (actor, tbl, op, row_key, new_row)
+    SELECT 'genesis-snapshot', 'meta', 'INSERT', key, to_jsonb(t) FROM meta t;
+  GET DIAGNOSTICS c = ROW_COUNT; n := n + c;
+  RETURN n;
+END $fn$;
+
+COMMIT;
