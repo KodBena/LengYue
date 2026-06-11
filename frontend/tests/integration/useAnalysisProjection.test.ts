@@ -38,12 +38,8 @@ vi.mock('../../src/services/analysis-service', async () => {
 vi.mock('../../src/composables/cards/useThumbnailCache', () => ({
   useThumbnailCache: () => ({
     getThumbnailSvg: vi.fn(async () => ''),
-    getVariationThumbnail: vi.fn(),
-    getSync: vi.fn(),
     warmPath: vi.fn(),
   }),
-  purgeBoardThumbnails: vi.fn(),
-  purgeAllThumbnails: vi.fn(),
 }));
 
 import { loadSgf } from '../../src/engine/sgf-loader';

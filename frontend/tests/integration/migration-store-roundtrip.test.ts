@@ -66,14 +66,18 @@ vi.mock('../../src/composables/cards/useCardThumbnail', () => ({
 }));
 
 vi.mock('../../src/composables/cards/useThumbnailCache', () => ({
-  purgeBoardThumbnails: vi.fn(),
-  purgeAllThumbnails: vi.fn(),
   useThumbnailCache: () => ({
     getThumbnailSvg: vi.fn(),
-    getVariationThumbnail: vi.fn(),
-    getSync: vi.fn(),
     warmPath: vi.fn(),
   }),
+}));
+
+// The purge surface lives in its owner module (thumbnail-render-resources);
+// the store calls it during resetWorkspace / closeBoard, so keep it off the
+// real Map for isolation.
+vi.mock('../../src/composables/cards/thumbnail-render-resources', () => ({
+  purgeBoardThumbnails: vi.fn(),
+  purgeAllThumbnails: vi.fn(),
 }));
 
 vi.mock('../../src/composables/cards/board-card-trees', () => ({

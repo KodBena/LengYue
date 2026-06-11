@@ -37,7 +37,7 @@ import { stabilityTrajectoryStore } from '../services/stability-trajectory-store
 import { analysisPersistenceService } from '../services/analysis-persistence-service';
 import { clearCardThumbnailCache } from '../composables/cards/useCardThumbnail';
 import { abortAllReviews, abortBoardReview } from '../composables/review/useReviewSession';
-import { purgeAllThumbnails, purgeBoardThumbnails } from '../composables/cards/useThumbnailCache';
+import { purgeAllThumbnails, purgeBoardThumbnails } from '../composables/cards/thumbnail-render-resources';
 import { removeBoardCardTree, clearAllBoardCardTrees } from '../composables/cards/board-card-trees';
 
 export { createInitialBoard }        from './board-factory';
@@ -372,8 +372,8 @@ export function boardScopedStoreCellLabels(): readonly string[] {
  *      that no longer exists AND resurrecting the just-deleted
  *      `store.session.reviews[boardId]` row via the catch-block's
  *      lazy `mutateReviewSession`.
- *   6. purgeBoardThumbnails — drops cached SVG renders keyed on
- *      the closing board's NodeIds. Walks `board.nodes`, so it
+ *   6. purgeBoardThumbnails — drops cached board snapshots keyed
+ *      on the closing board's NodeIds. Walks `board.nodes`, so it
  *      must run while the board is still present in
  *      `store.boards` (i.e., before the splice below). NodeIds
  *      are UUID-style; cross-user collision is functionally
@@ -595,7 +595,7 @@ export function identityScopedCacheLabels(): readonly string[] {
  *   - ledger.purgeAll (audit pair O8) — analysis packets and
  *     per-node version refs.
  *   - purgeAllThumbnails (audit pair O9) — board-thumbnail
- *     SVG cache.
+ *     snapshot cache (owner module: thumbnail-render-resources).
  *   - clearCardThumbnailCache (audit pair O10) — card-thumbnail
  *     SVG cache.
  *   - clearAllBoardCardTrees (audit tag O12, board-card-trees) —

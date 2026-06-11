@@ -42,12 +42,8 @@ vi.mock('../../src/composables/cards/useThumbnailCache', () => ({
     getThumbnailSvg: vi.fn(async (nodeId: string, _boardId: string, showMarker: boolean) =>
       `<svg data-node="${nodeId}" data-marker="${showMarker}"/>`,
     ),
-    getVariationThumbnail: vi.fn(),
-    getSync: vi.fn(),
     warmPath: vi.fn(),
   }),
-  purgeBoardThumbnails: vi.fn(),
-  purgeAllThumbnails: vi.fn(),
 }));
 
 // Mock the persistence service to keep resetWorkspace quiet.

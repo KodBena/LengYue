@@ -118,6 +118,7 @@ export type {
 // ── Game domain (Go value objects, game-tree state, game-coupled brands) ──────
 export type {
   NodeId,
+  SpriteKey,
   ColorMoveIndex,
   PlyIndex,
   RootToLeafPath,
