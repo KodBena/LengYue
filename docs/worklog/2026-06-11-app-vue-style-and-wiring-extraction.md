@@ -325,3 +325,18 @@ FINDINGS BEYOND VERDICT (required):
 ```
 
 License: Public Domain (The Unlicense).
+
+---
+
+*[Dated correction 2026-06-11, coordinator, per the out-of-frame gate
+artifact (PR #412 comment): the cascade-neutrality enumeration above is
+false as written — mechanical re-derivation shows 296 (kept, moved) pairs
+flip relative order, not the 10 enumerated; the NEUTRALITY CONCLUSION
+HOLDS, but on the backstop clauses (within-set order preserved both sides;
+no element carries kept+moved classes; kept IDs outrank moved classes; the
+one overlap decided by !important), which the gate verified independently.
+The enumeration sentence should not be reasoned from. Additionally the
+shared-chrome.css header's "component CSS chunks load after App.vue's"
+claim is dev-server-true only — INVERTED in the production bundle (scoped
+chunks emit before the App chunk); production neutrality rests on
+specificity alone. The header is corrected in the same fixup commit.]*

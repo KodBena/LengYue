@@ -25,7 +25,7 @@
  * .dark-input variants). Those scoped declarations compose with —
  * and, at equal property, win over — these globals exactly as they
  * did before the relocation (scoped attribute selectors carry higher
- * specificity, and component CSS chunks load after App.vue's).
+ * specificity, and in the dev server component chunks load after App.vue's — but in the PRODUCTION bundle the order is inverted (scoped chunks emit before the App chunk), so neutrality there rests on specificity alone; corrected 2026-06-11 per the PR #412 gate artifact).
  *
  * License: Public Domain (The Unlicense)
  */
