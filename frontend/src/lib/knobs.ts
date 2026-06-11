@@ -29,7 +29,9 @@
  *     consistent with input/output dims; arc/rotate: input length 1).
  *   - `validateRegistry` throws on the first KnobDecl whose declared
  *     output paths or transform dimensions are incoherent against the
- *     reactive root.
+ *     reactive root — and, when `allowedPathPrefixes` is supplied, on
+ *     the first output path that resolves but escapes the allowed
+ *     subtree prefixes (the path-prefix allowlist; see below).
  *   - `claimKnob` returns a structured `ClaimResult.rejected` on
  *     conflict (does not throw — the requesting consumer needs to
  *     surface the conflict in its own UX). `releaseKnob` returns
@@ -319,7 +321,7 @@ function clamp(x: number, lo: number, hi: number): number {
  * Throws on the first incoherence; the thrown message names the
  * knob, the failing axis, and the recovery the caller should take.
  *
- * Three axes are checked:
+ * Four axes are checked:
  *
  *   1. Each `outputs[i].path` walks to a finite number leaf on
  *      `root`. Catches renamed settings, deleted leaves, type
@@ -330,6 +332,31 @@ function clamp(x: number, lo: number, hi: number): number {
  *      against 3-D outputs.
  *   3. Input ranges are well-formed (`range[0] < range[1]`).
  *      Catches paste-flipped ranges at decl time.
+ *   4. (When `allowedPathPrefixes` is supplied.) Each output path
+ *      begins with one of the allowed subtree prefixes. Closes the
+ *      "writes ANY finite-numeric leaf in the whole store" class
+ *      that path-resolvability alone admits — see below.
+ *
+ * Why a path-prefix allowlist (PR #410 out-of-frame gate, finding 3):
+ * the substrate is a data-driven writer over *any* finite-numeric
+ * leaf its output paths resolve to. Path-resolvability (axis 1) alone
+ * does NOT bound which store subtree a decl may write — a decl
+ * arriving in a persisted profile, a migration, or a future
+ * decl-editor surface could target e.g. a bare `engine.*` /
+ * `boards.*` leaf and the knob substrate would write it, bypassing
+ * that subtree's owner enumeration (the store-write-needs-owner lint
+ * cannot see runtime path strings). `allowedPathPrefixes` closes the
+ * class at data-validation time: the production caller passes the
+ * subtrees the profile-owner knob seam is sanctioned to write
+ * (`profile.` + `session.ui.` — every seeded decl targets one of
+ * those). An out-of-prefix path is a startup-time loud failure per
+ * ADR-0002, with structured `detail` naming the knob, the offending
+ * path, and the allowed prefixes.
+ *
+ * The parameter is OPTIONAL and defaults to no restriction: the
+ * substrate stays a domain-agnostic Band-1 library (ADR-0003), and
+ * the prefix vocabulary is the GlobalStore-coupled CALLER's to
+ * supply, not the substrate's to hardcode.
  *
  * Phase 1 ships with an empty registry; calling this against the
  * empty registry is a vacuous no-op. The function exists so Phase
@@ -338,9 +365,10 @@ function clamp(x: number, lo: number, hi: number): number {
 export function validateRegistry(
   root: object,
   registry: KnobRegistry,
+  allowedPathPrefixes?: readonly string[],
 ): void {
   for (const [key, decl] of Object.entries(registry)) {
-    validateDecl(root, key, decl, registry);
+    validateDecl(root, key, decl, registry, allowedPathPrefixes);
   }
 }
 
@@ -349,6 +377,7 @@ function validateDecl(
   key: string,
   decl: KnobDecl,
   registry: KnobRegistry,
+  allowedPathPrefixes?: readonly string[],
 ): void {
   if (decl.id !== key) {
     throw new Error(
@@ -438,6 +467,26 @@ function validateDecl(
   validateTransformDimensions(key, transform, decl.inputs.length, decl.outputs.length);
   for (let i = 0; i < decl.outputs.length; i += 1) {
     const out = decl.outputs[i];
+    // Axis 4: path-prefix allowlist (PR #410 gate finding 3). Checked
+    // BEFORE resolvability so an out-of-subtree path fails on the
+    // crisper "writes a subtree it's not allowed to" reason rather than
+    // on a downstream resolve error. Skipped when no allowlist is
+    // supplied (the substrate stays domain-agnostic; see the function
+    // docstring).
+    if (
+      allowedPathPrefixes !== undefined &&
+      !allowedPathPrefixes.some((prefix) => out.path.startsWith(prefix))
+    ) {
+      throw new Error(
+        `KnobRegistry validation: knob "${key}" output[${i}] path ` +
+        `"${out.path}" targets a store subtree the knob substrate is not ` +
+        `permitted to write. Allowed prefixes: ` +
+        `${allowedPathPrefixes.map((p) => `"${p}"`).join(', ')}. A KnobDecl ` +
+        `may only drive the profile-owner knob seam's sanctioned subtrees; ` +
+        `a leaf outside them must be written through that subtree's own ` +
+        `owner, not the knob substrate (ADR-0002, PR #410 gate finding 3).`,
+      );
+    }
     try {
       readKnob(root, out.path);
     } catch (cause) {

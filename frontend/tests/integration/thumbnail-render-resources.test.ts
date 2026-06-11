@@ -90,6 +90,24 @@ describe('snapshot cache — reactivity and invalidation surface', () => {
     expect(getCachedSnapshot(b)).not.toBeNull();
   });
 
+  it('invalidateNodeSnapshots also resets the warmed-path guard (warm-guard asymmetry, PR #413 gate finding 2)', () => {
+    // Reproduces the asymmetry the gate found: the guard was reset only by
+    // purgeAllThumbnails (O9), so dropping a node whose id sits on the
+    // last-warmed path would leave the guard claiming that path warm while
+    // its entries were just deleted — the next identical warmPath would
+    // short-circuit cold. With the O9 reset applied to this hook too, the
+    // guard clears.
+    const a = nid('node-a');
+    cacheSnapshot(a, snap());
+    markPathWarm([a]);
+    expect(isPathWarm([a])).toBe(true);
+
+    invalidateNodeSnapshots([a]);
+
+    expect(getCachedSnapshot(a)).toBeNull();
+    expect(isPathWarm([a])).toBe(false);
+  });
+
   it('purgeBoardThumbnails drops the board-owned entries and leaves foreign ones (audit pair O4)', () => {
     const board = createInitialBoard();
     const foreign = nid('node-foreign');
@@ -105,6 +123,25 @@ describe('snapshot cache — reactivity and invalidation surface', () => {
     } finally {
       // Failure-safe teardown: remove the pushed board even when an
       // assertion above throws, so later tests see a clean store.
+      store.boards.splice(store.boards.indexOf(board), 1);
+    }
+  });
+
+  it('purgeBoardThumbnails inherits the warmed-path-guard reset (it funnels through invalidateNodeSnapshots)', () => {
+    const board = createInitialBoard();
+    store.boards.push(board);
+    try {
+      cacheSnapshot(board.rootNodeId, snap(19));
+      markPathWarm([board.rootNodeId]);
+      expect(isPathWarm([board.rootNodeId])).toBe(true);
+
+      purgeBoardThumbnails(board.id);
+
+      expect(getCachedSnapshot(board.rootNodeId)).toBeNull();
+      // The guard was reset via the delegated invalidateNodeSnapshots call,
+      // so a subsequent warm of the same path actually warms.
+      expect(isPathWarm([board.rootNodeId])).toBe(false);
+    } finally {
       store.boards.splice(store.boards.indexOf(board), 1);
     }
   });

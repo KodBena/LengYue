@@ -525,28 +525,43 @@ const FROZEN_MIGRATION_FILES = ['src/store/migrations.ts', 'src/store/archived-m
 // against the literal pre-change shapes (both selector families fire
 // on reintroduction; scratch edits reverted). Named gaps per ADR-0002:
 // name-matched callees and roots (a renamed import or an intermediate
-// variable holding store.profile escapes); root-depth-bounded matching
-// (a root deeper than store.profile.<x> escapes); session.ui-rooted
+// variable holding store.profile escapes); session.ui-rooted
 // updateRegistry calls are deliberately admitted (store.session is not
 // an enumerated subtree).
+//
+// updateRegistry-over-profile root depth (corrected 2026-06-11, PR #410
+// out-of-frame gate): the original two depth-bounded selectors
+// (arguments.0 at store.profile / store.profile.<x>) carried the
+// rationale "esquery cannot express the recursive root walk", so a
+// store.profile.settings.engine depth-3 root would escape. That strong
+// reading is EMPIRICALLY REFUTED — a descendant-combinator
+// over-approximation (`CallExpression[callee.name='updateRegistry']
+// MemberExpression[object.name='store'][property.name='profile']`)
+// fires on any store.profile member-expression at ANY depth inside an
+// updateRegistry call (probe-verified: depth-1/2/3/4 all fire; zero
+// firings across the whole src/ tree at HEAD). EXACT root-anchoring
+// remains inexpressible in esquery — but the conservative
+// over-approximation is STRICTLY STRONGER than the depth-bounded pair
+// it replaces, so it is adopted in their place (ADR-0011 Rule 4:
+// quantify over the class, don't enumerate the depths). The
+// over-approximation's one cost, named per ADR-0002: it also fires when
+// `store.profile` appears as a non-target READ argument of an
+// updateRegistry call (e.g. `updateRegistry(store.session.ui, p,
+// store.profile.x)`) — broader than the arguments.0-anchored selectors,
+// zero such sites at HEAD; a future legitimate profile READ passed to
+// updateRegistry would take an annotated inline disable (the
+// vue/no-v-html model), which is the correct loud surface rather than a
+// silent depth escape.
 const PROFILE_ALIASED_WRITE_SELECTORS = [
   {
     selector:
-      "CallExpression[callee.name='updateRegistry'][arguments.0.object.name='store'][arguments.0.property.name='profile']",
+      "CallExpression[callee.name='updateRegistry'] MemberExpression[object.name='store'][property.name='profile']",
     message:
-      'updateRegistry over a store.profile root is an aliased profile write ' +
-      'the writer-enumeration lint cannot see. Route it through the profile ' +
-      "owner (src/store/profile-owner.ts: updateProfileAt for dynamic paths, " +
-      'mutateProfile for statically-known writes). See eslint.config.js header.',
-  },
-  {
-    selector:
-      "CallExpression[callee.name='updateRegistry'][arguments.0.object.object.name='store'][arguments.0.object.property.name='profile']",
-    message:
-      'updateRegistry over a store.profile.* root is an aliased profile write ' +
-      'the writer-enumeration lint cannot see. Route it through the profile ' +
-      "owner (src/store/profile-owner.ts: updateProfileAt for dynamic paths, " +
-      'mutateProfile for statically-known writes). See eslint.config.js header.',
+      'updateRegistry over a store.profile root (any depth) is an aliased ' +
+      'profile write the writer-enumeration lint cannot see. Route it ' +
+      'through the profile owner (src/store/profile-owner.ts: ' +
+      'updateProfileAt for dynamic paths, mutateProfile for ' +
+      'statically-known writes). See eslint.config.js header.',
   },
   {
     selector:

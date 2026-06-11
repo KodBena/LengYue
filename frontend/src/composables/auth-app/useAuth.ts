@@ -101,15 +101,43 @@ function setState(next: AuthState): void {
 // `auth.state` still 'authenticated'.
 //
 // Installed once at module init (same lifetime as the old registration).
-// The kind-guard makes the reaction idempotent — a burst of rejected
-// requests transitions once — and skips the case where useAuth's own
-// flows (verify-401, logout) have already moved the state off
+// The kind-guard on the FULL transition makes it idempotent — a burst of
+// rejected requests transitions once — and skips the case where useAuth's
+// own flows (verify-401, logout) have already moved the state off
 // 'authenticated'.
+//
+// Dead-token-in-non-'authenticated'-state corner (PR #411 out-of-frame
+// gate, the undisclosed fourth delta): the rejection counter bumps only
+// on a NON-auth-endpoint 401 that the identity-honest retry did not
+// recover — i.e. the server rejected the token this client presented, so
+// that stored token IS dead. If the state is NOT 'authenticated' at
+// report time (e.g. 'error' from a failed switch-attempt that left a
+// stale token in storage, or 'unauthenticated' after a prior transition)
+// the full-transition guard above drops the bump — but a dead token left
+// in storage re-enters the futile re-login retry loop on every
+// subsequent request (the very "spammy follow-up 401s" the
+// username-clear closed, resurfacing in this corner). So when a token is
+// stored and the state is non-'authenticated', clear storage too — both
+// keys, so the dead identity stops being re-attempted (no cached
+// username ⇒ no retry ⇒ fail fast). No state flip / warning here: the
+// state is already off 'authenticated' and may carry a meaningful
+// 'error' message the user is acting on; clearing the dead token is the
+// minimal repair, not a re-transition.
+//
+// The "no re-auth is in flight" condition the corner requires is already
+// enforced at the transport: the counter only bumps when
+// `!isReauthInFlight` (api-client.ts), so any rejection reaching this
+// watch is, by construction, one observed after re-auth was no longer in
+// flight. The watch needs no separate in-flight check.
 watch(authSessionRejections, () => {
   if (_authState.value.kind === 'authenticated') {
     api.clearToken();
     setState({ kind: 'unauthenticated' });
     pushSystemMessage('warning', i18n.global.t('auth.sessionExpired'));
+  } else if (api.cachedUsername() !== null) {
+    // Non-'authenticated' state but a stored (now-rejected) token: clear
+    // it so the dead identity stops re-entering the retry loop.
+    api.clearToken();
   }
 }, { flush: 'sync' });
 
