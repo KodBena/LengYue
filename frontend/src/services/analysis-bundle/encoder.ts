@@ -47,6 +47,21 @@ import {
   type PolicyQ8FactoredPacked,
 } from './quantization';
 
+// Read one property off an `unknown` value as `unknown`, for runtime
+// shape-probing of just-parsed JSON. This is the ACL/decode frontier
+// (Band 2 wire bytes → typed domain shape): the single justified cast
+// below replaces the repeated `(parsed as { k?: unknown }).k` spelling at
+// every guard site, so the deserialization frontier's unsafety lives at
+// ONE named seam. The cast is sound — reading a property off a non-null
+// object always yields `unknown`-or-undefined, and every caller checks the
+// result before trusting it.
+function prop(value: unknown, key: string): unknown {
+  if (value === null || typeof value !== 'object') return undefined;
+  // Band-2 decode frontier: a non-null object indexed by string yields an
+  // `unknown` member; callers type-check before use.
+  return (value as Record<string, unknown>)[key];
+}
+
 // ── Descriptor / encoded-bundle types ──────────────────────────────────────
 
 /**
@@ -160,14 +175,16 @@ const JSON_PROJECTED_V1: BundleEncoder = {
     if (
       !parsed ||
       typeof parsed !== 'object' ||
-      typeof (parsed as { schemaVersion?: unknown }).schemaVersion !== 'number' ||
-      !Array.isArray((parsed as { records?: unknown }).records)
+      typeof prop(parsed, 'schemaVersion') !== 'number' ||
+      !Array.isArray(prop(parsed, 'records'))
     ) {
       throw new Error(
         `analysis-bundle/encoder: decoded payload doesn't match the ` +
         `AnalysisBundle shape for scheme '${JSON_PROJECTED_V1_SCHEME}'`,
       );
     }
+    // Validated above: schemaVersion is a number and records is an array,
+    // the AnalysisBundle shape's load-bearing fields — Band-2 decode brand.
     return parsed as AnalysisBundle;
   },
 };
@@ -224,6 +241,9 @@ function encodePacketLossy(
   byteXorDelta: boolean = false,
   prevOwnership?: Uint8Array,
 ): { packet: KataAnalysisResponse; ownershipBytes: Uint8Array | undefined } {
+  // Widen the typed packet to an open record so the ownership/policy slots
+  // can hold the quantised-wrapper objects (a JSON-time shape the typed
+  // KataAnalysisResponse doesn't model); re-narrowed at return.
   const out = { ...packet } as Record<string, unknown>;
   let ownershipBytes: Uint8Array | undefined;
   if (Array.isArray(packet.ownership)) {
@@ -260,6 +280,11 @@ function encodePacketLossy(
     out.policy = wrap;
   }
   return {
+    // Double-cast through the open record: `out` carries the quantised
+    // wrappers in the ownership/policy slots, structurally divergent from
+    // KataAnalysisResponse's number[] — the decoder inverts it. Band-2
+    // wire-shape brand-strip-and-remint; the intervening `unknown` is the
+    // sanctioned escape for the structurally-incompatible widen.
     packet: out as unknown as KataAnalysisResponse,
     ownershipBytes,
   };
@@ -282,14 +307,18 @@ function decodePacketLossy(
   // ownership bytes. The caller threads `prevOwnership` through
   // packets in bundle order; the decoder XOR-undoes and recovers
   // the current's literal bytes.
+  // Widen to an open record so the quantised-wrapper slots are readable;
+  // re-narrowed at return after un-packing back to number[]s.
   const out = { ...packet } as Record<string, unknown>;
   let ownershipBytes: Uint8Array | undefined;
-  const own = out.ownership as unknown;
+  const own: unknown = out.ownership;
   if (
     own && typeof own === 'object' && !Array.isArray(own) &&
-    typeof (own as { _b64?: unknown })._b64 === 'string' &&
-    typeof (own as { _q_bits?: unknown })._q_bits === 'number'
+    typeof prop(own, '_b64') === 'string' &&
+    typeof prop(own, '_q_bits') === 'number'
   ) {
+    // Probed above: `own` carries _b64 (string) + _q_bits (number), the
+    // QuantisedOwnership discriminator — Band-2 wrapper brand.
     const wrap = own as QuantisedOwnership;
     let packed = base64ToUint8Array(wrap._b64);
     if (wrap._xor_delta === true) {
@@ -318,12 +347,14 @@ function decodePacketLossy(
       );
     }
   }
-  const pol = out.policy as unknown;
+  const pol: unknown = out.policy;
   if (
     pol && typeof pol === 'object' && !Array.isArray(pol) &&
-    (pol as { _q8_factored?: unknown })._q8_factored &&
-    typeof (pol as { _q8_factored?: unknown })._q8_factored === 'object'
+    prop(pol, '_q8_factored') &&
+    typeof prop(pol, '_q8_factored') === 'object'
   ) {
+    // Probed above: `pol` carries a _q8_factored object, the
+    // QuantisedPolicy discriminator — Band-2 wrapper brand.
     const wrap = (pol as QuantisedPolicy)._q8_factored;
     const packed: PolicyQ8FactoredPacked = {
       bitmap: base64ToUint8Array(wrap.bitmap_b64),
@@ -333,6 +364,9 @@ function decodePacketLossy(
     out.policy = dequantisePolicyQ8Factored(packed);
   }
   return {
+    // Re-narrow: the ownership/policy slots are now number[]s again (the
+    // un-packing above un-did the quantised wrappers), so `out` matches the
+    // typed shape. Band-2 wire-shape remint through the open record.
     packet: out as unknown as KataAnalysisResponse,
     ownershipBytes,
   };
@@ -404,14 +438,16 @@ function makeLossyEncoder(
       if (
         !parsed ||
         typeof parsed !== 'object' ||
-        typeof (parsed as { schemaVersion?: unknown }).schemaVersion !== 'number' ||
-        !Array.isArray((parsed as { records?: unknown }).records)
+        typeof prop(parsed, 'schemaVersion') !== 'number' ||
+        !Array.isArray(prop(parsed, 'records'))
       ) {
         throw new Error(
           `analysis-bundle/encoder: decoded payload doesn't match the ` +
           `AnalysisBundle shape for scheme '${scheme}'`,
         );
       }
+      // Validated above: schemaVersion is a number and records is an array
+      // — Band-2 decode brand on the just-parsed payload.
       const bundle = parsed as AnalysisBundle;
       const records: AnalysisBundle['records'][number][] = [];
       let prevOwnership: Uint8Array | undefined = undefined;

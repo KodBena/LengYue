@@ -69,9 +69,15 @@ function readGradingParam<T>(
   key: string
 ): T | undefined {
   if (!gradingParam || typeof gradingParam !== 'object') return undefined;
+  // ACL escape hatch: `grading_parameter` is untyped on the wire (the one
+  // unavoidable type-unsafe ACL point, per this helper's docstring above).
+  // Reading a property off the checked non-null object yields `unknown`.
   const data = (gradingParam as Record<string, unknown>)['data'];
   if (!data || typeof data !== 'object') return undefined;
+  // Same untyped-blob read; checked non-null above.
   const value = (data as Record<string, unknown>)[key];
+  // Caller-asserted T: the field's runtime shape is the caller's claim (the
+  // wire blob is unmodelled); returned as `T | undefined` for the consumer.
   return value as T | undefined;
 }
 
@@ -117,10 +123,15 @@ export class BackendService {
     // NameError to surface as a SystemMessage at review time per
     // ADR-0002 — no per-card warning here, which would be noisy.
     const curatedGradingParameter =
+      // The rewriter preserves the wire shape (no-op fast path returns the
+      // same reference; otherwise a structural copy) — re-narrow to the
+      // wire field type after the structurally-preserving rewrite.
       rewriteGradingParameterAnalysisConfig(raw.grading_parameter)
         .gradingParameter as CardFromWire['grading_parameter'];
 
     return {
+      // ACL Band-2 brand mint: the wire `id` (number) becomes the domain
+      // `CardId` at this single re-brand boundary (mapToReviewCard).
       id: raw.id as CardId,
       canonicalContent: raw.canonical_content,
       numMoves: raw.num_moves,
@@ -236,8 +247,8 @@ export class BackendService {
   // "no metadata" case, the ACL does not coerce — see ADR-0002).
   private mapForestStat(raw: ForestStatWire): ForestStat {
     return {
-      rootCardId: raw.root_card_id as CardId,
-      gameSourceId: raw.game_source_id as GameSourceId,
+      rootCardId: raw.root_card_id as CardId, // ACL Band-2 brand mint
+      gameSourceId: raw.game_source_id as GameSourceId, // ACL Band-2 brand mint
       description: raw.description,
       playerWhite: raw.player_white,
       playerBlack: raw.player_black,
@@ -291,15 +302,15 @@ export class BackendService {
     );
     return {
       roots: raw.roots.map(r => this.mapResolvedRoot(r)),
-      unmatchedCardIds: raw.unmatched_card_ids.map(n => n as CardId),
+      unmatchedCardIds: raw.unmatched_card_ids.map(n => n as CardId), // ACL Band-2 brand mint
     };
   }
 
   private mapResolvedRoot(raw: ResolvedRootWire): RootGroup {
     return {
-      rootCardId: raw.root_card_id as CardId,
-      gameSourceId: raw.game_source_id as GameSourceId,
-      cardIdsInTree: raw.card_ids_in_tree.map(n => n as CardId),
+      rootCardId: raw.root_card_id as CardId, // ACL Band-2 brand mint
+      gameSourceId: raw.game_source_id as GameSourceId, // ACL Band-2 brand mint
+      cardIdsInTree: raw.card_ids_in_tree.map(n => n as CardId), // ACL Band-2 brand mint
     };
   }
 
@@ -334,8 +345,8 @@ export class BackendService {
         { silentStatuses: [422] },
       );
       return {
-        rootCardId: raw.root_card_id as CardId,
-        gameSourceId: raw.game_source_id as GameSourceId,
+        rootCardId: raw.root_card_id as CardId, // ACL Band-2 brand mint
+        gameSourceId: raw.game_source_id as GameSourceId, // ACL Band-2 brand mint
         tree: this.mapTreeNode(raw.tree),
       };
     } catch (err) {
@@ -358,7 +369,7 @@ export class BackendService {
 
   private mapTreeNode(raw: TreeNodeWire): CardLineageNode {
     return {
-      id: raw.id as CardId,
+      id: raw.id as CardId, // ACL Band-2 brand mint
       children: raw.children.map(c => this.mapTreeNode(c)),
     };
   }
@@ -370,6 +381,8 @@ export class BackendService {
 // generic Error and the system log carries the raw text.
 function parse422Body(text: string): { actualSize: number; maxNodes: number } | null {
   try {
+    // JSON.parse returns `any`; narrow to an open record so the fields are
+    // read as `unknown` and type-checked below before use (decode frontier).
     const parsed = JSON.parse(text) as Record<string, unknown>;
     const actualSize = parsed['actual_size'];
     const maxNodes = parsed['max_nodes'];

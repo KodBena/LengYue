@@ -129,8 +129,11 @@ export function parseStorageError(err: unknown): AnalysisBundleStorageError | nu
     return null;
   }
   if (!parsed || typeof parsed !== 'object') return null;
+  // Read `detail` off the checked non-null parsed body as `unknown`.
   const detail = (parsed as { detail?: unknown }).detail;
   if (!detail || typeof detail !== 'object') return null;
+  // Checked non-null object above; treat as an open record for field reads
+  // (each field is type-checked below before use — decode frontier).
   const body = detail as Record<string, unknown>;
   const kind = body.kind;
 
@@ -211,24 +214,26 @@ export function asStorageError(err: unknown): AnalysisBundleStorageError | null 
  */
 function recogniseStorageUnion(err: unknown): AnalysisBundleStorageError | null {
   if (!err || typeof err !== 'object') return null;
+  // Checked non-null object above; read its discriminator/required legs as
+  // `unknown` through an open record (validated per-member below).
   const e = err as Record<string, unknown>;
-  // Each return casts only after the discriminator + every required leg
-  // of that member is runtime-checked above — the same validation
+  // Each return below casts only after the discriminator + every required
+  // leg of that member is runtime-checked above — the same validation
   // `parseStorageError` performs on the wire body, here on the domain
   // POJO. The cast bridges the narrowing the type system can't infer
   // through `Record<string, unknown>` indexing; it targets the branded
   // domain union, not `any`.
   if (e.kind === 'bundle_too_large' && e.status === 413) {
     if (typeof e.requestBytes !== 'number' || typeof e.capBytes !== 'number') return null;
-    return err as AnalysisBundleStorageError;
+    return err as AnalysisBundleStorageError; // validated bundle_too_large member
   }
   if (e.kind === 'user_quota_exceeded' && e.status === 413) {
     if (typeof e.currentBytes !== 'number' || typeof e.quotaBytes !== 'number') return null;
-    return err as AnalysisBundleStorageError;
+    return err as AnalysisBundleStorageError; // validated user_quota_exceeded member
   }
   if (e.kind === 'unknown_scheme' && e.status === 500) {
     if (typeof e.scheme !== 'string') return null;
-    return err as AnalysisBundleStorageError;
+    return err as AnalysisBundleStorageError; // validated unknown_scheme member
   }
   return null;
 }
@@ -299,6 +304,8 @@ export function projectLedgerToBundle(boardId: BoardId): AnalysisBundle {
   if (!board) {
     return { schemaVersion: BUNDLE_SCHEMA_VERSION, records: [] };
   }
+  // board.nodes is a Record<NodeId, …>, so its own keys are NodeIds (the
+  // Object.keys widening to string[] is undone by this re-brand).
   const nodeIds = Object.keys(board.nodes) as NodeId[];
   const rawRecords: AnalysisRecord[] = ledger.listRawForNodes(nodeIds).map(r => ({
     configHash: `${RAW_PREFIX}${r.rawKey}`,
@@ -335,10 +342,14 @@ export function replayBundleIntoLedger(bundle: AnalysisBundle): void {
   let legacyRawDropped = 0;
   for (const r of bundle.records) {
     if (r.configHash.startsWith(RAW_PREFIX)) {
+      // Stripped the `r:` prefix off a confirmed raw-record hash; the
+      // remainder is a RawKey by the bundle's key-prefix contract.
       const rawKey = r.configHash.slice(RAW_PREFIX.length) as RawKey;
       const { extra: _extra, ...raw } = r.packet;
       ledger.recordRaw(rawKey, r.nodeId, raw);
     } else if (r.configHash.startsWith(ENR_PREFIX)) {
+      // Stripped the `e:` prefix off a confirmed enrichment-record hash; the
+      // remainder is an EnrichedKey by the bundle's key-prefix contract.
       const enrichedKey = r.configHash.slice(ENR_PREFIX.length) as EnrichedKey;
       if (r.packet.extra) ledger.recordEnrichment(enrichedKey, r.nodeId, r.packet.extra);
     } else {

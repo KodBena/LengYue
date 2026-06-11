@@ -90,6 +90,9 @@ export function parse(src: string): ParseResult {
         }],
       };
     }
+    // Validated an array above; the JSON5 parse produced `Value` nodes and
+    // a top-level array of stages is a PipelineStageWithHoles[] by the
+    // dialect contract (Band-1 internal AST shape).
     return { value: v as PipelineStageWithHoles[], errors: [] };
   } catch (err) {
     if (err instanceof ParseFailure) {
@@ -243,7 +246,10 @@ export function isHole(v: unknown): v is Hole {
     typeof v === 'object' &&
     v !== null &&
     !Array.isArray(v) &&
+    // `v` narrowed to a non-null non-array object above; read its keys /
+    // $param field for the Hole shape predicate (internal AST probe).
     Object.keys(v as object).length === 1 &&
+    // Same checked-object probe: read $param to test the Hole discriminator.
     typeof (v as { $param?: unknown }).$param === 'string'
   );
 }
@@ -251,6 +257,8 @@ export function isHole(v: unknown): v is Hole {
 // ── Format ─────────────────────────────────────────────────────────
 
 export function format(pipeline: PipelineStageWithHoles[]): string {
+  // PipelineStageWithHoles[] is structurally a `Value` (array of JSON-AST
+  // nodes); widen to the recursion type the formatter walks.
   return formatValue(pipeline as Value, 0);
 }
 
@@ -271,6 +279,8 @@ function formatValue(v: Value, indent: number): string {
   const pad = '  '.repeat(indent + 1);
   const close = '  '.repeat(indent);
   return '{\n' + entries
+    // Object.entries on a `Value` object yields `unknown` values; each is a
+    // `Value` by the AST's recursive shape — narrow for the recursive call.
     .map(([k, val]) => pad + JSON.stringify(k) + ': ' + formatValue(val as Value, indent + 1))
     .join(',\n') + '\n' + close + '}';
 }
@@ -296,6 +306,7 @@ export function validate(
 
   // Collect $param references (name → list of "where-seen" tags).
   const references = new Map<string, string[]>();
+  // PipelineStageWithHoles[] widens to `Value` for the generic AST walker.
   walkHoles(pipeline as Value, '', (hole, path) => {
     const list = references.get(hole.$param) ?? [];
     list.push(path);
@@ -333,6 +344,7 @@ export function validate(
 
   // Path-aware coherence checks (v1: take.n, FilterSelection.tag_expression).
   const declByName = new Map(declarations.map(d => [d.name, d]));
+  // PipelineStageWithHoles[] widens to `Value` for the generic AST walker.
   walkHoles(pipeline as Value, '', (hole, path) => {
     const decl = declByName.get(hole.$param);
     if (!decl) return;
@@ -368,11 +380,14 @@ function walkHoles(v: Value, path: string, visit: (h: Hole, p: string) => void):
     // hole at e.g. `take.n` carries the surrounding stage's name and
     // path-aware validation can key off it. Sibling discriminator
     // → ancestor-style path segment.
+    // Read the discriminator off the narrowed non-null object (members are
+    // `unknown`); `disc` is checked for `string` below before use.
     const disc = (v as Record<string, unknown>).stage ?? (v as Record<string, unknown>).type;
     const segment = typeof disc === 'string' ? disc : '';
     const here = segment ? (path ? `${path}.${segment}` : segment) : path;
     for (const [k, val] of Object.entries(v)) {
       if ((k === 'stage' || k === 'type') && typeof val === 'string') continue;
+      // Each entry value is a `Value` by the AST's recursive shape.
       walkHoles(val as Value, here ? `${here}.${k}` : k, visit);
     }
   }
@@ -392,6 +407,10 @@ export function substitute(
   pipeline: PipelineStageWithHoles[],
   values: Record<string, number | string | boolean>,
 ): PipelineStage[] {
+  // Widen each holey stage to `Value` for substitution, then re-narrow the
+  // hole-free result to PipelineStage[]: substituteValue resolves every Hole
+  // to a scalar, so the output carries no holes by construction (the
+  // PipelineStageWithHoles → PipelineStage contract this fn discharges).
   return (pipeline as Value[]).map(stage => substituteValue(stage, values)) as PipelineStage[];
 }
 
@@ -403,6 +422,7 @@ function substituteValue(v: Value, values: Record<string, number | string | bool
   if (Array.isArray(v)) return v.map(x => substituteValue(x, values));
   if (v !== null && typeof v === 'object') {
     const out: { [k: string]: Value } = {};
+    // Each entry value is a `Value` by the AST's recursive shape.
     for (const [k, val] of Object.entries(v)) out[k] = substituteValue(val as Value, values);
     return out;
   }
@@ -412,6 +432,7 @@ function substituteValue(v: Value, values: Record<string, number | string | bool
 // Convenience: a deck has holes iff at least one $param appears.
 export function hasHoles(pipeline: PipelineStageWithHoles[]): boolean {
   let found = false;
+  // PipelineStageWithHoles[] widens to `Value` for the generic AST walker.
   walkHoles(pipeline as Value, '', () => { found = true; });
   return found;
 }
