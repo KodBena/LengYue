@@ -1,6 +1,6 @@
 {
-  "node_count": 473,
-  "edge_count": 2294,
+  "node_count": 474,
+  "edge_count": 2299,
   "age_buckets": [
     {
       "name": "fresh",
@@ -3242,7 +3242,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-03-scattered-timing-literals-decision.md",
@@ -3568,9 +3568,9 @@
       "path": "docs/worklog/2026-06-11-app-vue-extraction-residue.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-11-app-vue-orphan-sr-css.md",
@@ -3658,7 +3658,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-11-learned-vf-dispatch-closure.md",
@@ -3699,6 +3699,14 @@
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
       "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-11-playenginemoves-cursor-conflation-twin.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "docs/worklog/2026-06-11-reactive-state-modules-relocation.md",
@@ -19121,6 +19129,41 @@
       "kind": "path-mention",
       "site": "`frontend/docs/notes/board-scope.md`",
       "resolved": "dangling"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-playenginemoves-cursor-conflation-twin.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-playenginemoves-cursor-conflation-twin.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-playenginemoves-cursor-conflation-twin.md",
+      "to": "docs/worklog/2026-06-10-branded-path-types.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-06-10-branded-path-types.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-playenginemoves-cursor-conflation-twin.md",
+      "to": "docs/worklog/2026-05-16-match-cursor-independence.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-05-16-match-cursor-independence.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-playenginemoves-cursor-conflation-twin.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
     },
     {
       "from": "docs/worklog/2026-06-11-reactive-state-modules-relocation.md",

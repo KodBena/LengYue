@@ -11,7 +11,9 @@
  *   1. Product (this composable) — a "play from here" affordance the
  *      UI can wire to a button. Reactive `isRunning` / `lastError`
  *      surfaces so the host component can render state without
- *      polling. Mutates the global store via `updateBoardState`.
+ *      polling. Mutates the global store via a surgical `mutateBoard`
+ *      per-move merge (the match's delta-emission contract; see
+ *      `EngineMoveApplied`).
  *
  *   2. Test (`tests/e2e/`, via the exported `playEngineMoves` /
  *      `queryEngineMove` pure functions) — runs against a separate
@@ -42,7 +44,7 @@ import {
 } from '../../engine/katago/types';
 import type { BoardId, BoardState, GameNode, NodeId, QueryId } from '../../types';
 import { asQueryId } from '../../services/query-id';
-import { store, mutateBoard, updateBoardState } from '../../store';
+import { store, mutateBoard } from '../../store';
 import { applyGoMove } from '../../logic';
 import { gtpToBoard } from './use-move-suggestions';
 import { getPath, navigateTo } from '../../engine/navigator';
@@ -269,6 +271,56 @@ function buildAnalyzeQuery(
 
 // ── Pure exports — no store, no Vue reactivity ───────────────────────────────
 
+/**
+ * Per-move delta the self-play loop emits to `onMoveApplied`. The
+ * single-engine register of `playEngineMatch`'s `MatchMoveApplied`
+ * (see that interface's docstring for the full rationale) — same
+ * three fields, same surgical-merge contract, applied to the
+ * one-engine-playing-forward shape.
+ *
+ * It replaces the earlier `(board: BoardState) => void`, which
+ * conflated two concepts: the loop's internal cursor (where the
+ * engine just played from / to) and the store's user-visible cursor
+ * (where the user is currently looking). Passing the full
+ * `BoardState` forced the consumer to clobber the store wholesale
+ * via `updateBoardState`, and `updateBoardState` re-converges object
+ * identity — `store.boards[index]` becomes the loop's own object —
+ * so a deep clone at the top of the loop alone is INSUFFICIENT (the
+ * store and the loop re-share one graph after the first mirror).
+ * Worse, any user navigation during the run then mutated the loop's
+ * cursor in place through the shared reference, and the next engine
+ * query went out from where the user had navigated to, not from
+ * where the loop was playing.
+ *
+ * The delta-only shape removes both failure modes. The loop carries
+ * its own deep-cloned `board` internally and emits just the per-move
+ * change here; the consumer (`usePlayFromPosition.start`'s
+ * `onMoveApplied`) does a surgical `mutateBoard` that appends the new
+ * child to the parent (or bumps `activeChildIndex` for an
+ * existing-child reuse) and navigates the user's view to the new
+ * pointer only when they were tracking — i.e., their
+ * `currentNodeId === previousPointer` at the moment the move lands.
+ */
+export interface EngineMoveApplied {
+  /** The node the loop played FROM on this move. */
+  readonly previousPointer: NodeId;
+  /**
+   * The node the loop is now at after applying its move. This is
+   * either a freshly-created node (when `newNode !== null`) or an
+   * existing child of `previousPointer` whose move duplicates what
+   * the engine recommended (when `newNode === null`).
+   */
+  readonly newPointer: NodeId;
+  /**
+   * The full `GameNode` for the newly-created child, when the
+   * engine's move did not duplicate an existing child of
+   * `previousPointer`. `null` when the move descended into an
+   * existing child instead — in that case the consumer only needs
+   * to bump the parent's `activeChildIndex`.
+   */
+  readonly newNode: GameNode | null;
+}
+
 export interface PlayEngineMovesOptions {
   readonly katagoUrl: string;
   readonly startBoard: BoardState;
@@ -282,13 +334,16 @@ export interface PlayEngineMovesOptions {
    */
   readonly shouldStop?: () => boolean;
   /**
-   * Fires after each move is applied locally, before the next query.
-   * The composable wrapper uses this to mirror the new board into
-   * the global store (and thereby into the reactive UI). The pure
-   * caller (the harness) leaves it undefined and reads only the
-   * final return value.
+   * Fires after each engine move is applied to the loop's local
+   * board. The consumer is responsible for reconciling the delta
+   * into the store and deciding whether to follow with the user's
+   * view. See `EngineMoveApplied`'s docstring for the rationale and
+   * the surgical-merge contract — this is the single-engine register
+   * of `playEngineMatch`'s `MatchMoveApplied` delta-emission contract.
+   * The pure caller (the harness) leaves it undefined and reads only
+   * the final return value.
    */
-  readonly onMoveApplied?: (board: BoardState) => void;
+  readonly onMoveApplied?: (delta: EngineMoveApplied) => void;
   /**
    * SELECTOR routing key (proxy v1.0.15+). When set, every query
    * fired by this loop carries `model: <label>`; the SELECTOR
@@ -327,26 +382,40 @@ export interface PlayEngineMovesOptions {
  * Connection lifetime spans the whole loop — one WS open per call,
  * regardless of how many moves are played.
  *
- * KNOWN LATENT TWIN (recorded, not fixed — branded-path-types arc,
- * 2026-06-10): unlike `playEngineMatch` below, this loop does NOT
- * deep-clone `startBoard`, and the product consumer
- * (`usePlayFromPosition.start`) both passes the reactive store board
- * in and mirrors each applied board back via `updateBoardState` — so
- * the loop's cursor shares object identity with the store and user
- * navigation mid-run can move where the next query is built from
- * (the cursor-conflation class `playEngineMatch` fixed on
- * 2026-05-16). The fix shape is the match's `MatchMoveApplied`
- * delta-emission contract, not a one-line clone (a clone at the top
- * alone is undone by the first wholesale store mirror); it does not
- * fall out of the path brands, so it stays recorded against the
- * work-status item's note rather than ridden along here. The
- * per-move queries themselves are root→current via
+ * **Cursor independence from the store.** Like `playEngineMatch`,
+ * this loop deep-clones `opts.startBoard` at the top so the internal
+ * `board` is fully independent of any reactive store object. Without
+ * this, `mutateBoard` and `navigateTo` (called from the SPA's
+ * user-navigation paths) would mutate the loop's cursor and stones in
+ * place via shared object references — and the next engine query
+ * would go out from where the user navigated to, not from where the
+ * loop was playing. A clone at the top is necessary but not
+ * sufficient: the product consumer used to mirror each applied board
+ * back wholesale via `updateBoardState`, which re-converges object
+ * identity (`store.boards[index]` becomes the loop's own object), so
+ * the store and the loop re-shared one graph after the first mirror.
+ * The per-move `onMoveApplied` callback now emits an
+ * `EngineMoveApplied` delta instead, letting the consumer reconcile
+ * the new node into the store surgically (and decide independently
+ * whether to follow with the user's view). This is the single-engine
+ * register of the match's 2026-05-16 cursor-independence fix; the
+ * `playenginemoves-cursor-conflation-twin` work-status item is its
+ * record. The per-move queries themselves are root→current via
  * `buildAnalyzeQuery` and unaffected by the path-shape class.
  */
 export async function playEngineMoves(opts: PlayEngineMovesOptions): Promise<BoardState> {
   const timeoutMs = opts.perMoveTimeoutMs ?? ENGINE_PLAY_MOVE_TIMEOUT_MS;
   const client = await connectFresh(opts.katagoUrl);
-  let board = opts.startBoard;
+  // Deep-clone so the loop's local cursor is independent of the
+  // store. JSON round-trip is used deliberately for the same
+  // reasons `playEngineMatch` documents at its own clone site
+  // (structuredClone throws DataCloneError on a Vue reactive Proxy;
+  // toRaw strips only the outer layer; the JSON round-trip reads
+  // every property through the proxy's [[Get]] traps and reifies a
+  // fresh POJO graph, lossless for `BoardState`'s pure-POJO shape).
+  // See that site's comment and the docstring above for the full
+  // rationale on why the loop's cursor must be store-independent.
+  let board: BoardState = JSON.parse(JSON.stringify(opts.startBoard));
   try {
     // Root→leaf is the genuine shape for the stop condition:
     // `untilPathLength` is documented as "stop when the ACTIVE PATH
@@ -372,12 +441,21 @@ export async function playEngineMoves(opts: PlayEngineMovesOptions): Promise<Boa
       if (!coords) {
         throw new Error(`playEngineMoves: engine recommended pass at turn ${expectedTurn}`);
       }
+      const previousPointer = board.currentNodeId;
       const next = applyGoMove(board, coords.x, coords.y);
       if (!next) {
         throw new Error(`playEngineMoves: engine's top move ${best.move} is illegal at turn ${expectedTurn}`);
       }
+      const newPointer = next.currentNodeId;
+      // Existing-child reuse: when the engine's move duplicates an
+      // existing child of `previousPointer`, `applyGoMove` descends
+      // rather than creates. The discriminator (mirror of the
+      // match's): was `newPointer` in the BEFORE-move `board.nodes`?
+      const isNewNode = !board.nodes[newPointer];
+      const newNode = isNewNode ? next.nodes[newPointer] : null;
+
       board = next;
-      opts.onMoveApplied?.(board);
+      opts.onMoveApplied?.({ previousPointer, newPointer, newNode });
     }
     return board;
   } finally {
@@ -821,14 +899,63 @@ export function usePlayFromPosition(boardIdRef: Ref<BoardId | null>) {
         maxVisits: opts.maxVisits,
         perMoveTimeoutMs: opts.perMoveTimeoutMs,
         shouldStop: () => stopRequested,
-        onMoveApplied: (next) => {
-          // Re-resolve the index — concurrent store mutations could
-          // have shifted positions. boardId is stable.
-          const writeIdx = store.boards.findIndex((b) => b.id === boardId);
-          if (writeIdx === -1) {
+        // Surgical merge — bring just the per-move delta into the
+        // store rather than overwriting the board wholesale. This is
+        // the same contract `usePlayMatch.start` uses; see
+        // `EngineMoveApplied` / `MatchMoveApplied` for the rationale
+        // (the wholesale `updateBoardState` mirror re-converged
+        // object identity, re-aliasing the loop's cursor to the
+        // store). The "user-was-tracking" gate is the literal
+        // predicate `draft.currentNodeId === previousPointer`: if the
+        // user is sitting at the node the loop just played from, pull
+        // their view forward to the new pointer; otherwise leave
+        // their navigation alone. This composes with "re-track by
+        // navigating back" — on the next move, `previousPointer` will
+        // be the node the user is now at (the move that just landed),
+        // so the gate fires and they resume tracking from there.
+        //
+        // `mutateBoard` confirms the board still exists; the earlier
+        // `updateBoardState` path also re-resolved the index
+        // defensively for the same reason. Without the existence
+        // check, a board closed mid-run would throw from inside the
+        // navigator.
+        onMoveApplied: ({ previousPointer, newPointer, newNode }) => {
+          if (!store.boards.find((b) => b.id === boardId)) {
             throw new Error(`usePlayFromPosition: board ${boardId} disappeared mid-run`);
           }
-          updateBoardState(writeIdx, next);
+          mutateBoard(boardId, (draft) => {
+            const parent = draft.nodes[previousPointer];
+            if (parent === undefined) {
+              throw new Error(
+                `usePlayFromPosition: parent node ${previousPointer} missing from board ${boardId}`,
+              );
+            }
+            if (newNode !== null) {
+              // New-node case: append the child to the parent's
+              // children list and add the new node to draft.nodes.
+              // Use `parent.children.length` (the index of the new
+              // entry) as the active-child index, which matches
+              // `applyGoMove`'s convention for fresh nodes.
+              draft.nodes[previousPointer] = {
+                ...parent,
+                children: [...parent.children, newPointer],
+                activeChildIndex: parent.children.length,
+              };
+              draft.nodes[newPointer] = newNode;
+            } else {
+              // Existing-child reuse: just bump activeChildIndex so
+              // subsequent active-variation walks descend into the
+              // loop's variation rather than whatever the user had
+              // selected.
+              const childIdx = parent.children.indexOf(newPointer);
+              if (childIdx !== -1) {
+                draft.nodes[previousPointer] = { ...parent, activeChildIndex: childIdx };
+              }
+            }
+            if (draft.currentNodeId === previousPointer) {
+              navigateTo(draft, newPointer);
+            }
+          });
         },
       });
     } catch (err) {
