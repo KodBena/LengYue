@@ -206,6 +206,13 @@ const moveNumbersByCoord = computed((): Record<string, number> | undefined => {
   // because of variation choices; the parent walk is unambiguous.
   const chain: NodeId[] = [];
   let currId: NodeId | null = props.state.currentNodeId;
+  // Annotated exemption (local/hand-rolled-path-walk): this re-derives
+  // getPath's root→current walk (then reverses) as a bare `NodeId[]`. It runs
+  // on a `toRaw` snapshot inside a render-coupled computed (ADR-0010); routing
+  // it through navigator.ts's `getPath` is sound but a perf-sensitive change
+  // (the reactivity shape this computed reads is load-bearing), so it is the
+  // branded-path-consolidation arc's work, named-as-debt here.
+  // eslint-disable-next-line local/hand-rolled-path-walk -- render-coupled computed; route through getPath in the path-consolidation arc
   while (currId) {
     chain.push(currId);
     const node: GameNode | undefined = rawNodes[currId];

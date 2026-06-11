@@ -210,7 +210,10 @@
  *       best-effort, gaps named per ADR-0002: deeper any-bearing
  *       composites (`as Record<string, any>`, double-casts through
  *       `unknown`) and annotation-position `any` are NOT caught — the
- *       former are stage 2's target, the latter the no-explicit-any
+ *       former are now covered by stage 2's justification-adjacency rule
+ *       (every coercion cast, including the double-hop, needs an adjacent
+ *       justification; adopted 2026-06-11, see the stage-2 adoption record
+ *       at the end of this header), the latter remains the no-explicit-any
  *       deferral (see the staging record at the end of this header).
  *
  *   Vue lifecycle footgun guards (custom local rules, `.vue` files;
@@ -317,6 +320,39 @@
  *     interface-violating fixtures survive. Named here rather than
  *     silently absorbed; the tests-lint later step inherits it.
  *
+ * Stage-2 ADOPTION (2026-06-11; work-status item
+ * cast-justification-adjacency-stage2; closes the staging paragraph's
+ * loop, amending it by appending per ADR-0002 Rule 6 — the measurement
+ * above stands as the staging record). The justification-adjacency rule
+ * (eslint-rules/justification-adjacency.js) is adopted at `error` (its
+ * config block below). Re-measured baseline (AST-grade, 2026-06-11; the
+ * tree drifted since the staging census above): 405 coercion casts (368
+ * script + 37 template), 321 unjustified. Burned to 0 outside the two
+ * frozen migration files — ~16 deleted as redundant via sound typing (the
+ * 25 RegistryEditor template casts collapsed into a typed `entries`
+ * computed; `row.id as GameSourceId` where the row's id was already
+ * branded; `currentNodeId as NodeId` / `color as 'B'|'W'` already those
+ * types), the rest justified in place (ACL Band-2 brand mints; decode-
+ * frontier open-record probes; ECharts tuple/param coercions). The
+ * `as unknown as` double-casts re-measured at 27 (staging said 25): each
+ * justified naming the brand-strip / structural-mismatch — the documented
+ * IDENTIFIERS.md erosion (b) strip sites are named explicitly as
+ * maintainer-directed re-brand-helper debt, not refactored here. The 68
+ * casts in src/store/migrations.ts (5) + archived-migrations.ts (63) are
+ * config-exempted via FROZEN_MIGRATION_FILES (the migration-body freeze
+ * overrides the justification edit — directive tension surfaced at that
+ * constant). Adopted at `error` on a fully-triaged baseline (ADR-0011
+ * Rule 3). The two RIDERS this item carried: (a) the hand-rolled-path-walk
+ * lint (eslint-rules/hand-rolled-path-walk.js, its config block below) —
+ * adopted at `error`, 3 measured hits all carrying annotated inline
+ * exemptions (perf/dead-code-sensitive to refactor through getPath); (b)
+ * the tests-outside-typecheck gap — the 4 fixture `as any` in
+ * hydration-knowntags.test.ts are fixed soundly (a single typed `remote()`
+ * deep-partial seam replaces them); the tests-lint scope question is
+ * recorded with its measured numbers in
+ * docs/worklog/2026-06-11-cast-stage2-burndown.md (it interacts with the
+ * e2e console-policy deferral, named there).
+ *
  * License: Public Domain (The Unlicense)
  */
 
@@ -327,6 +363,8 @@ import { clearNeedsOwnership } from './eslint-rules/clear-needs-ownership.js';
 import { gatePropNeedsDefault } from './eslint-rules/gate-prop-needs-default.js';
 import { moduleIntentInScriptSetup } from './eslint-rules/module-intent-in-script-setup.js';
 import { storeWriteNeedsOwner } from './eslint-rules/store-write-needs-owner.js';
+import { justificationAdjacency } from './eslint-rules/justification-adjacency.js';
+import { handRolledPathWalk } from './eslint-rules/hand-rolled-path-walk.js';
 
 // The wire-type boundary: backend.ts is importable only at the ACL.
 // Applied everywhere EXCEPT src/services/** and src/types.ts (see block
@@ -402,9 +440,10 @@ const COMPONENT_SERVICES_BOUNDARY_PATTERN = {
 // best-effort, same posture as the error-message guard: the two selectors
 // catch `x as any` / `<any>x` and the one-level `as any[]` / `<any[]>x`
 // spellings; deeper any-bearing composites (`as Record<string, any>`, a
-// double-cast through `unknown`) and annotation-position `any` are NOT
-// caught — gaps named per ADR-0002, owned by stage 2 and the
-// no-explicit-any deferral respectively (see header).
+// double-cast through `unknown`) are now caught by stage 2's
+// justification-adjacency rule (every coercion cast needs a justification,
+// adopted 2026-06-11 — its config block below), and annotation-position
+// `any` remains the no-explicit-any deferral (see header).
 // The local custom-rule plugin, ONE shared object on purpose: flat config
 // treats two different plugin objects under the same namespace as a
 // redefinition error when their file globs overlap, so per-block inline
@@ -417,8 +456,28 @@ const LOCAL_RULE_PLUGIN = {
     'gate-prop-needs-default': gatePropNeedsDefault,
     'module-intent-in-script-setup': moduleIntentInScriptSetup,
     'store-write-needs-owner': storeWriteNeedsOwner,
+    'justification-adjacency': justificationAdjacency,
+    'hand-rolled-path-walk': handRolledPathWalk,
   },
 };
+
+// The two frozen migration files. `migrations.ts` carries the append-only
+// invariant ("Once a migration ships, it is never modified") and
+// `archived-migrations.ts` the rolling-archive freeze ("Migration bodies
+// are frozen as they shipped … never edit the body during the move") — a
+// migration is a contract with the persisted-blob population, not a refactor
+// target (frontend/CLAUDE.md "Rolling-archive discipline"). The 68 coercion
+// casts in these frozen bodies (63 archived + 5 active, measured 2026-06-11)
+// CANNOT take an adjacent justification edit without breaking the freeze, so
+// justification-adjacency exempts them at the config level: a directive
+// tension surfaced per this header's rule-rationale discipline — the
+// cast-justification discipline (one sound rationale) meets the
+// freeze-the-migration-body discipline (an independent sound rationale), and
+// the freeze WINS for these two files because the blob-migration contract is
+// load-bearing. A NEW migration's casts, authored before the body freezes,
+// are reviewed under the prose discipline at authoring time; the lint does
+// not police them because the file is frozen the moment it ships.
+const FROZEN_MIGRATION_FILES = ['src/store/migrations.ts', 'src/store/archived-migrations.ts'];
 
 const ANY_ASSERTION_SELECTORS = [
   {
@@ -787,6 +846,84 @@ export default [
         { gateWords: ['active', 'enabled', 'visible'] },
       ],
       'local/module-intent-in-script-setup': 'error',
+    },
+  },
+
+  // ── Cast hygiene, stage 2 — justification-adjacency (custom local rule) ──
+  // rationale: the cast-justification PROSE rule (frontend/CLAUDE.md "an
+  // `as` needs a justification or it doesn't ship") held at ~50% in the
+  // 2026-06-10 history-lessons sample (L1) — the memory-bound decay ADR-0011
+  // Rule 2 converts to mechanism. Stage 1 (eslint.config.js above) banned
+  // the `as any` corner; this rule covers the rest of the coercion-cast
+  // population: every `x as T` / `<T>x` (excluding `as const` and the inner
+  // hop of a double cast) needs an adjacent justification — a same-line
+  // trailing comment, a comment on the line directly above, or an
+  // eslint-disable-*-line `-- reason` hatch (the vue/no-v-html model).
+  // Template-expression casts are covered via the templateBody token store
+  // (the justification carrier there is an inline `/* reason */` block
+  // comment; an HTML `<!-- -->` comment is markup, not a JS token — named
+  // gap in the rule file). Measured at adoption (2026-06-11, AST-grade
+  // scratch run over src/): 405 coercion casts (368 script + 37 template),
+  // 321 unjustified at baseline; burned down to 0 outside the two frozen
+  // migration files (delete via sound typing where redundant — ~16 deleted,
+  // incl. the 25 RegistryEditor template casts via a typed `entries`
+  // computed; justify in place otherwise — ACL Band-2 brand mints,
+  // decode-frontier open-record probes, ECharts tuple/param coercions; the
+  // `as unknown as` double-casts re-measured at 27, each justified naming
+  // the brand-strip/structural-mismatch — the documented IDENTIFIERS.md
+  // erosion (b) strips named explicitly). The 68 casts in the two frozen
+  // migration files are exempted by FROZEN_MIGRATION_FILES (freeze overrides
+  // the justification edit — see that constant's rationale) ⇒ adopted at
+  // `error` on a fully-triaged baseline, per this config's measure-first
+  // posture (ADR-0011 Rule 3). Named gaps in the rule file (line-based
+  // adjacency, no quality judgment, intermediate-variable comments). Runs on
+  // .ts + .vue (script and template surfaces).
+  {
+    files: ['src/**/*.ts', 'src/**/*.vue'],
+    ignores: FROZEN_MIGRATION_FILES,
+    plugins: { local: LOCAL_RULE_PLUGIN },
+    rules: {
+      'local/justification-adjacency': 'error',
+    },
+  },
+
+  // ── Branded-path guard — hand-rolled-path-walk (custom local rule) ──
+  // rationale: the branded-paths arc (PR #386) routed root-to-X game-tree
+  // path derivations through NAMED producers in engine/navigator.ts
+  // (`getPath`, `rootToCurrentPrefix`) / engine/util.ts
+  // (`getActiveVariationPath`) that mint the RootToCurrentPath /
+  // RootToLeafPath brands. A brand protects only what its typed producer
+  // mints; a hand-rolled `while (cur) { acc.push(cur); cur = cur.parent }`
+  // re-derivation under a different name produces a bare `NodeId[]` and
+  // escapes the brand — the "wrong name" leak the arc named. This rule
+  // (shape predicate: a loop body that BOTH accumulates an array AND walks
+  // the `.parent` chain) flags hand-rolled walks outside the producers.
+  // Measured at adoption (2026-06-11, scratch run): 3 hits — useActivePath.ts
+  // (ZERO consumers — dead legacy producer), BoardWidget.vue's
+  // moveNumbersByCoord (render-coupled computed), useTreeExpansion.ts's
+  // ensureVisible (the ADR-0010 nav-cost perf guard). All three are
+  // behaviour/perf-sensitive to refactor through getPath, so each carries an
+  // annotated inline exemption naming the revisit trigger (route through
+  // getPath in the path-consolidation arc / delete the dead producer) ⇒
+  // adopted at `error` on a fully-triaged baseline (the vue/no-v-html
+  // model). The producers are a {file → fn-name} allowlist, NOT a blanket
+  // file ignore, so a NEW hand-rolled walk added to navigator.ts under a
+  // different name is still flagged (ADR-0011 Rule 4 deny-by-default).
+  // Named gaps in the rule file (same-cursor not proven; intermediate-var
+  // `.parent`; recursion not a loop node).
+  {
+    files: ['src/**/*.ts', 'src/**/*.vue'],
+    plugins: { local: LOCAL_RULE_PLUGIN },
+    rules: {
+      'local/hand-rolled-path-walk': [
+        'error',
+        {
+          producers: {
+            'engine/navigator.ts': ['getPath', 'rootToCurrentPrefix'],
+            'engine/util.ts': ['getActiveVariationPath'],
+          },
+        },
+      ],
     },
   },
 ];

@@ -14,6 +14,13 @@ export function useActivePath() {
     const path: string[] = [];
     let currId: string | null = board.currentNodeId;
 
+    // Annotated exemption (local/hand-rolled-path-walk): this composable
+    // re-derives getPath's root→current walk as a bare `string[]` (the
+    // wrong-name leak the lint guards). It has ZERO consumers at HEAD (dead
+    // legacy producer) — routing it through navigator.ts's branded `getPath`
+    // OR deleting it is maintainer-directed (deletion needs the FILES.md
+    // cut), so it is named-as-debt, not refactored in the cast-stage2 arc.
+    // eslint-disable-next-line local/hand-rolled-path-walk -- unused legacy producer; route through getPath or delete (maintainer-directed)
     while (currId) {
       path.unshift(currId);
       // `board.nodes` is `Record<NodeId, GameNode>`; strict indexing rejects
