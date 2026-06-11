@@ -263,7 +263,11 @@ The system-level architectural reference is
 identity-aware sync rework compose with the spine — the JWT is the
 identity, and a 401 on a non-auth endpoint forces the user back
 through the auth flow rather than silently substituting a different
-identity.
+identity. That forced transition has a single owner: `useAuth` owns
+every transition of the auth state, while `api-client` only throws
+on an unrecovered 401 and reports it through a read-only counter
+(`authSessionRejections`) — it never mutates auth-visible state on
+its own initiative (the RFC-0001 open-question-9 closure).
 
 ---
 
