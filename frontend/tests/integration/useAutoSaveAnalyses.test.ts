@@ -45,11 +45,11 @@ import {
 import { createInitialBoard } from '../../src/store/board-factory';
 import {
   fakeAnalysisPersistenceService,
+  realServiceStorageThrow,
   resetFakeAnalysisPersistenceService,
 } from '../fakes/analysis-persistence-service';
 import { resetFakeAnalysisService } from '../fakes/analysis-service';
 import type { BoardId } from '../../src/types';
-import { ApiError } from '../../src/services/api-client';
 
 const DEBOUNCE_MS = 2000;
 
@@ -171,8 +171,18 @@ describe('useAutoSaveAnalyses', () => {
 
   it('pauses auto-save for a board on bundle_too_large error', async () => {
     enableAutoSave();
+    // Reject with what the REAL service throws — the already-parsed
+    // structural union (rethrowAsStorageError throws the
+    // AnalysisBundleStorageError POJO, not the raw ApiError). Routing
+    // the same wire body through `realServiceStorageThrow` keeps this
+    // test exercising the production seam; a raw ApiError here passed
+    // spuriously while the real pause path was unreachable (the
+    // autosave-pause-unreachable defect).
     fakeAnalysisPersistenceService.save.mockRejectedValueOnce(
-      new ApiError(413, '{"detail":{"kind":"bundle_too_large","request_bytes":1000000,"cap_bytes":500000,"detail":"bundle exceeds cap"}}'),
+      realServiceStorageThrow(
+        413,
+        '{"detail":{"kind":"bundle_too_large","request_bytes":1000000,"cap_bytes":500000,"detail":"bundle exceeds cap"}}',
+      ),
     );
     mountAutoSave();
     const boardId = await addBoardAndGetId();

@@ -23,12 +23,47 @@
 import { vi } from 'vitest';
 import { reactive } from 'vue';
 import type { BoardId } from '../../src/types';
+import { parseStorageError } from '../../src/services/analysis-bundle';
 import type { AnalysisBundleStorageError } from '../../src/services/analysis-bundle';
+import { ApiError } from '../../src/services/api-client';
 
 // Reactive backing — same shape as the real service's private
 // Maps. Cleared by resetFakeAnalysisPersistenceService().
 const dirtyVersions = reactive(new Map<BoardId, number>());
 const autoSaveErrors = reactive(new Map<BoardId, AnalysisBundleStorageError>());
+
+// ── Fake-fidelity: reproduce the real service's storage-error throw ──────────
+//
+// The real `AnalysisPersistenceService.save()` does NOT reject with the raw
+// `ApiError` the api-client throws — it routes that error through
+// `rethrowAsStorageError`, which calls `parseStorageError(apiError)` and
+// throws the ALREADY-PARSED structural union (`AnalysisBundleStorageError`,
+// a plain `{kind,status,…}` POJO, deliberately not an Error subclass).
+//
+// A fake that rejected with a raw `ApiError` would diverge from that real
+// seam: the autosave composable's catch recognised only the parsed union, so
+// the integration test passed against a shape production never produced (the
+// `autosave-pause-unreachable` defect — tests-outside-typecheck / fake-
+// fidelity class). To keep the fake honest, `realServiceStorageThrow` derives
+// the rejection value by the SAME production parse the real service uses, from
+// the SAME wire inputs the backend would send. The pin test
+// (`analysis-persistence-fake-fidelity.test.ts`) asserts this stays equal to
+// what the real `save()` throws so the seam cannot silently diverge again.
+export function realServiceStorageThrow(
+  status: number,
+  wireBody: string,
+): AnalysisBundleStorageError {
+  const parsed = parseStorageError(new ApiError(status, wireBody));
+  if (!parsed) {
+    throw new Error(
+      'fake-fidelity: realServiceStorageThrow given a body the real ' +
+      'parseStorageError does not recognise as a storage error; the fake ' +
+      'must only reject with shapes the real service actually throws. ' +
+      `status=${status} body=${wireBody}`,
+    );
+  }
+  return parsed;
+}
 
 export const fakeAnalysisPersistenceService = {
   discard: vi.fn<(boardId: BoardId) => Promise<void>>().mockResolvedValue(undefined),

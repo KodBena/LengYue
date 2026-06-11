@@ -71,7 +71,7 @@
 import { watch } from 'vue';
 import { store, boardsSetVersion } from '../store';
 import { analysisPersistenceService } from '../services/analysis-persistence-service';
-import { parseStorageError } from '../services/analysis-bundle';
+import { asStorageError } from '../services/analysis-bundle';
 import type { BoardId } from '../types';
 // Coalescing window centralised in the timing catalog (auditable surface).
 import { AUTO_SAVE_DEBOUNCE_MS } from '../lib/timing';
@@ -128,7 +128,15 @@ export function useAutoSaveAnalyses(): AutoSaveHandle {
     try {
       await analysisPersistenceService.save(boardId);
     } catch (err) {
-      const parsed = parseStorageError(err);
+      // The real service rethrows the ALREADY-PARSED structural union
+      // (rethrowAsStorageError → throws the AnalysisBundleStorageError
+      // POJO, not the raw ApiError), so the recogniser used here must
+      // accept that shape — `parseStorageError` alone rejects it at its
+      // `instanceof ApiError` gate and the pause path would never fire
+      // against the real seam (the autosave-pause-unreachable defect).
+      // `asStorageError` recognises both the structural union and a raw
+      // ApiError, so the catch is shape-agnostic.
+      const parsed = asStorageError(err);
       if (parsed) {
         // Persistent failure: pause this board until manual recovery.
         // The error surfaces via the service's autoSaveError slot

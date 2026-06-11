@@ -166,6 +166,73 @@ export function parseStorageError(err: unknown): AnalysisBundleStorageError | nu
   return null;
 }
 
+/**
+ * Recognise an `AnalysisBundleStorageError` regardless of which throw
+ * shape it arrives in. The persistence service's two throw sites are
+ * NOT symmetric:
+ *
+ *   - `rethrowAsStorageError` (analysis-persistence-service.ts) throws
+ *     the ALREADY-PARSED structural union — a plain `{kind,status,…}`
+ *     POJO, deliberately not an `Error` subclass (the contract the
+ *     service header, AnalysisControls.vue's `isStorageError`, and the
+ *     only-throw-error inline-disable in eslint.config.js all lean on).
+ *     `parseStorageError` rejects this shape at its `instanceof ApiError`
+ *     gate, so a consumer that only called `parseStorageError` could
+ *     never see the real service's terminal storage failures (the
+ *     autosave-pause-unreachable defect).
+ *   - a raw `ApiError` can still reach a consumer where the wrapping
+ *     `try/catch` is absent (and is what the Tier-1 unit tests pin),
+ *     so the fallback to `parseStorageError` is load-bearing, not
+ *     defensive padding.
+ *
+ * This recogniser is the single seam a catch-site uses to decide
+ * "is this a typed storage failure?" without having to know which of
+ * the two shapes it got. It re-validates the structural-union case so
+ * a malformed POJO (a `{kind}` with a missing numeric leg) is rejected
+ * rather than smuggled through — symmetric with `parseStorageError`'s
+ * own per-kind field checks.
+ *
+ * Pure function: no I/O, no side effects, no shared state.
+ */
+export function asStorageError(err: unknown): AnalysisBundleStorageError | null {
+  // Path 1: the real-service throw — an already-parsed structural union.
+  const fromUnion = recogniseStorageUnion(err);
+  if (fromUnion) return fromUnion;
+  // Path 2: a raw ApiError (unit-test path; any future direct rethrow).
+  return parseStorageError(err);
+}
+
+/**
+ * Narrow an arbitrary value to the `AnalysisBundleStorageError` union by
+ * its `kind` discriminator and the per-kind required fields. Returns the
+ * value re-typed when it is a well-formed member, null otherwise. Kept
+ * private — `asStorageError` is the public recogniser; this is its
+ * structural-union leg.
+ */
+function recogniseStorageUnion(err: unknown): AnalysisBundleStorageError | null {
+  if (!err || typeof err !== 'object') return null;
+  const e = err as Record<string, unknown>;
+  // Each return casts only after the discriminator + every required leg
+  // of that member is runtime-checked above — the same validation
+  // `parseStorageError` performs on the wire body, here on the domain
+  // POJO. The cast bridges the narrowing the type system can't infer
+  // through `Record<string, unknown>` indexing; it targets the branded
+  // domain union, not `any`.
+  if (e.kind === 'bundle_too_large' && e.status === 413) {
+    if (typeof e.requestBytes !== 'number' || typeof e.capBytes !== 'number') return null;
+    return err as AnalysisBundleStorageError;
+  }
+  if (e.kind === 'user_quota_exceeded' && e.status === 413) {
+    if (typeof e.currentBytes !== 'number' || typeof e.quotaBytes !== 'number') return null;
+    return err as AnalysisBundleStorageError;
+  }
+  if (e.kind === 'unknown_scheme' && e.status === 500) {
+    if (typeof e.scheme !== 'string') return null;
+    return err as AnalysisBundleStorageError;
+  }
+  return null;
+}
+
 // `asBoardId` is re-exported from the factory so consumers needing
 // to brand an incoming UUID string (e.g., the ACL projecting a wire
 // `board_id`) don't have to import from store internals.
