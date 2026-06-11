@@ -9,7 +9,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import type { CardSet, HyperparamDecl, PipelineStageWithHoles } from '../../types';
+import type { CardSet, HyperparamDecl } from '../../types';
 import { Codemirror } from 'vue-codemirror';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { EditorView } from '@codemirror/view';
@@ -151,7 +151,7 @@ function updatePipeline(newJsonStr: string) {
   parseErrorMsg.value = null;
   if (selectedId.value && r.value) {
     const next = getClone();
-    next[selectedId.value].pipeline = r.value as PipelineStageWithHoles[];
+    next[selectedId.value].pipeline = r.value;
     commit(next);
   }
 }
@@ -178,7 +178,7 @@ function updateHyperparameters(decls: HyperparamDecl[]) {
           <li
             v-for="(set, key) in cardSets" :key="key"
             :class="{ active: selectedId === key }"
-            @click="select(key as string)"
+            @click="select(key as string /* v-for over an object types key as string|number; cardSet keys are strings */)"
           >
             {{ set.name }}
             <span v-if="activeCardSetId === key" class="active-badge">{{ $t('cardSet.sidebar.selectedBadge') }}</span>

@@ -84,7 +84,7 @@ const engineControls     = useEngineControls();
 const metadata           = useMetadata(activeBoard);
 const auth               = useAuth();
 
-const activeBoardId = computed(() => activeBoard.value?.id as BoardId | null);
+const activeBoardId = computed<BoardId | null>(() => activeBoard.value?.id ?? null);
 
 // Identity key for the control panel. Remounts the Cards / Library tabs
 // when the logged-in identity changes, so user B never sees user A's
@@ -501,7 +501,7 @@ function handleNodeSelect(nodeId: NodeId): void {
           <TabWidget
             :key="controlPanelIdentityKey"
             :tabs="controlTabs"
-            v-model="(store.session.ui.activeTab as string)"
+            v-model="(store.session.ui.activeTab as string /* widen the tab-id union to TabWidget's string v-model */)"
           >
 
             <template #library>

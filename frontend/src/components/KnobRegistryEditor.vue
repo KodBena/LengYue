@@ -52,7 +52,7 @@ const grouped = computed<readonly DomainGroup[]>(() => {
     // registry simply doesn't appear here.
     if (decl.inputs.length !== 1) continue;
     const bucket = buckets.get(decl.domain) ?? [];
-    bucket.push({ id: key as KnobId, decl });
+    bucket.push({ id: key as KnobId, decl }); // re-brand: the knobs registry is keyed by KnobId; Object.entries widens the key to string
     buckets.set(decl.domain, bucket);
   }
   // Sort each bucket by ascending priority (undefined sorts last so

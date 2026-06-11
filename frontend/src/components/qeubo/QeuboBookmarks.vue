@@ -36,6 +36,8 @@ function formatDate(ts: number): string {
  * trimmed.
  */
 function formatParameters(params: Record<KnobId, number[]>): string {
+  // Object.entries on Record<KnobId, number[]> widens the key to string;
+  // re-brand the entry tuples to the declared [KnobId, number[]] shape.
   const entries = (Object.entries(params) as [KnobId, number[]][])
     .map(([knobId, values]) => [paramNameForKnobId(knobId), values] as const)
     .sort(([a], [b]) => a.localeCompare(b));

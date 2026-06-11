@@ -77,7 +77,7 @@ function handleProfileUpdate(e: { path: string[]; value: unknown }): void {
 </script>
 
 <template>
-  <TabWidget :tabs="subTabs" v-model="(activeSubTab as string)" :keep-mounted="true">
+  <TabWidget :tabs="subTabs" v-model="(activeSubTab as string /* widen the sub-tab id union to TabWidget's string v-model */)" :keep-mounted="true">
 
     <template #general>
       <!--

@@ -124,7 +124,7 @@ function updateParameterValue(val: number) {
 
 const selectedParameterKnobId = computed<KnobId | null>(() =>
   selectedType.value === 'parameter'
-    ? (`qeubo.${selectedId.value}` as KnobId)
+    ? (`qeubo.${selectedId.value}` as KnobId) // KnobId brand mint: the `qeubo.<param>` template-literal id shape
     : null,
 );
 
@@ -506,10 +506,10 @@ function deleteItem() {
             <div class="state-fn-row" v-for="(symRef, chartName) in env.palettes.find(p => p.id === selectedId)?.state_fns" :key="chartName">
               <span class="chart-name">{{ chartName }}</span>
               <span class="arrow">→</span>
-              <select class="dark-select flex-1" :value="symRef" @change="(e: any) => updatePaletteStateFn(selectedId, chartName as string, e.target.value)">
+              <select class="dark-select flex-1" :value="symRef" @change="(e: any) => updatePaletteStateFn(selectedId, chartName as string /* v-for key over state_fns is string|number; chart names are strings */, e.target.value)">
                 <option v-for="sym in symbolKeys" :key="sym" :value="sym">{{ sym }}</option>
               </select>
-              <button class="del-btn-sm" @click="removeStateFnFromPalette(selectedId, chartName as string)">×</button>
+              <button class="del-btn-sm" @click="removeStateFnFromPalette(selectedId, chartName as string /* v-for key over state_fns is string|number; chart names are strings */)">×</button>
             </div>
           </div>
         </div>

@@ -110,8 +110,8 @@ const expandedRootId = ref<CardId | null>(null);
 // widening from the `ReadonlySet`-typed props is safe here because
 // the projection is read-only over its inputs.
 const forestRef = computed(() => props.forest);
-const activeSetRef = computed(() => props.activeSet as Set<CardId>);
-const manualExpandRef = computed(() => props.manualExpand as Set<CardTreeExpandKey>);
+const activeSetRef = computed(() => props.activeSet as Set<CardId>); // widen the ReadonlySet prop for the read-only projection (see comment above)
+const manualExpandRef = computed(() => props.manualExpand as Set<CardTreeExpandKey>); // widen the ReadonlySet prop for the read-only projection (see comment above)
 const { renderForest } = useCardTreeProjection(forestRef, activeSetRef, manualExpandRef);
 
 const { resetHydration } = useCardTreeHydration(
@@ -239,7 +239,7 @@ watch(
       </div>
       <div
         v-if="tree.rootCardId === expandedRootId"
-        :ref="(el) => setContainerRef(String(tree.rootCardId), el as Element | null)"
+        :ref="(el) => setContainerRef(String(tree.rootCardId), el as Element | null /* Vue function-ref binds the host element-or-null; this div is a plain DOM element */)"
         class="tree-canvas"
       ></div>
     </div>
