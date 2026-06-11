@@ -49,9 +49,15 @@ vi.mock('../../src/composables/cards/useCardThumbnail', () => ({
   getCardThumbnailSync: vi.fn(() => ''),
 }));
 
-vi.mock('../../src/composables/cards/useThumbnailCache', () => ({
+// The purge surface moved to its owner module in the render-lifecycle
+// consolidation (PR #413); mock BOTH paths so the registry's import is
+// intercepted wherever it resolves (gate-411 finding 5: the prior
+// hand-enumerated mock-path drifted exactly this way).
+vi.mock('../../src/composables/cards/thumbnail-render-resources', () => ({
   purgeBoardThumbnails: vi.fn(),
   purgeAllThumbnails: vi.fn(),
+}));
+vi.mock('../../src/composables/cards/useThumbnailCache', () => ({
   useThumbnailCache: () => ({
     getThumbnailSvg: vi.fn(),
     getVariationThumbnail: vi.fn(),
@@ -92,7 +98,7 @@ import {
   resetFakeAnalysisPersistenceService,
 } from '../fakes/analysis-persistence-service';
 import { clearCardThumbnailCache } from '../../src/composables/cards/useCardThumbnail';
-import { purgeAllThumbnails } from '../../src/composables/cards/useThumbnailCache';
+import { purgeAllThumbnails } from '../../src/composables/cards/thumbnail-render-resources';
 import { clearAllBoardCardTrees } from '../../src/composables/cards/board-card-trees';
 import { withSetup } from './with-setup';
 
