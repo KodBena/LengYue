@@ -218,6 +218,12 @@ packets, keyed by `(configHash, nodeId)`.
   caller-specified visits target. The chart updates as packets
   arrive.
 
+- **Adaptive re-evaluation controls.** When adaptive
+  re-evaluation is enabled, the user can pick the analysis
+  value function used for worst-turn selection; proxy-hosted
+  learned predictors (`learned_v1`) appear as options when the
+  connected proxy advertises them `[experimental]`.
+
 - **Analysis bundle persistence.** Save the active board's
   analysis ledger as a per-board bundle on the backend; restore
   on next session for the same board. Manual save via the

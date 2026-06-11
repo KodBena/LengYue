@@ -214,6 +214,10 @@
   "analysis.adaptive.worstQuantile":      "最差分位数",
   "analysis.adaptive.extraVisits":        "额外访问数",
   "analysis.adaptive.hint":               "最差分位数: 要重新评估的着手的比例 (0.05 = 最差着手的前 5%;代理默认值为 0.25)。额外访问数: 在更深一遍中添加到原始 maxVisits (代理默认值为 800;为增量而非绝对值,因此 NN 缓存从原始一遍结束的地方继续)。",
+  "analysis.adaptive.valueBinding.label":             "评估函数",
+  "analysis.adaptive.valueBinding.default":           "默认(内置)",
+  "analysis.adaptive.valueBinding.learnedLabel":      "{version} [实验性]",
+  "analysis.adaptive.valueBinding.experimentalTooltip": "3.5 阶段 LightGBM 监督预测器。针对现代围棋局面(约 2000 年以后)优化。历史棋谱(秀策、道策、吴清源、黄龙士、范西屏等)可能更适合使用默认内置配置。现代棋局预期效率 ~0.85-0.90(对比内置基线 ~0.46)。",
 
   "palette.sidebar.symbols":              "符号(λ)",
   "palette.sidebar.parameters":           "参数",

@@ -1,6 +1,6 @@
 {
-  "node_count": 470,
-  "edge_count": 2278,
+  "node_count": 472,
+  "edge_count": 2285,
   "age_buckets": [
     {
       "name": "fresh",
@@ -1587,6 +1587,14 @@
       "first_committed": "2026-05-18",
       "last_committed": "2026-05-18",
       "age_bucket": "stale"
+    },
+    {
+      "path": "docs/dispatch/frontend-to-proxy-learned-vf-consumed.md",
+      "genre": "dispatch",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "docs/dispatch/frontend-to-proxy-selector-and-capabilities.md",
@@ -3218,7 +3226,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-03-knob-bookmark-schema-reshape.md",
@@ -3626,7 +3634,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-11-gate-recommendations-sweep.md",
@@ -3643,6 +3651,14 @@
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
       "age_bucket": "recent"
+    },
+    {
+      "path": "docs/worklog/2026-06-11-learned-vf-dispatch-closure.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "docs/worklog/2026-06-11-mechanization-discipline-tenet.md",
@@ -3672,9 +3688,9 @@
       "path": "docs/worklog/2026-06-11-persistence-board-keyed-drain.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-11-reactive-state-modules-relocation.md",
@@ -10682,6 +10698,20 @@
       "to": "docs/dispatch/proxy-to-frontend-learned-vf.md",
       "kind": "path-mention",
       "site": "`docs/dispatch/proxy-to-frontend-learned-vf.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/dispatch/frontend-to-proxy-learned-vf-consumed.md",
+      "to": "docs/dispatch/proxy-to-frontend-learned-vf.md",
+      "kind": "path-mention",
+      "site": "`docs/dispatch/proxy-to-frontend-learned-vf.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/dispatch/frontend-to-proxy-learned-vf-consumed.md",
+      "to": "docs/worklog/2026-06-11-learned-vf-dispatch-closure.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-06-11-learned-vf-dispatch-closure.md`",
       "resolved": "resolved"
     },
     {
@@ -18868,6 +18898,27 @@
       "resolved": "resolved"
     },
     {
+      "from": "docs/worklog/2026-06-11-learned-vf-dispatch-closure.md",
+      "to": "docs/dispatch/proxy-to-frontend-learned-vf.md",
+      "kind": "path-mention",
+      "site": "`docs/dispatch/proxy-to-frontend-learned-vf.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-learned-vf-dispatch-closure.md",
+      "to": "docs/dispatch/frontend-to-proxy-learned-vf-consumed.md",
+      "kind": "path-mention",
+      "site": "`docs/dispatch/frontend-to-proxy-learned-vf-consumed.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-learned-vf-dispatch-closure.md",
+      "to": "docs/dispatch/frontend-to-backend-card-metadata-inline-edit-arc1-consumed.md",
+      "kind": "path-mention",
+      "site": "`docs/dispatch/frontend-to-backend-card-metadata-inline-edit-arc1-consumed.md`",
+      "resolved": "resolved"
+    },
+    {
       "from": "docs/worklog/2026-06-11-mechanization-discipline-tenet.md",
       "to": "docs/adr/0011-mechanization-discipline.md",
       "kind": "adr-related",
@@ -19708,6 +19759,13 @@
       "resolved": "resolved"
     },
     {
+      "from": "docs/dispatch/frontend-to-proxy-learned-vf-consumed.md",
+      "to": "docs/dispatch/proxy-to-frontend-learned-vf.md",
+      "kind": "dispatch-pair",
+      "site": "frontend→proxy ↔ proxy→frontend",
+      "resolved": "resolved"
+    },
+    {
       "from": "docs/dispatch/frontend-to-proxy-selector-and-capabilities.md",
       "to": "docs/dispatch/proxy-to-frontend-selector-and-capabilities-status.md",
       "kind": "dispatch-pair",
@@ -19717,6 +19775,13 @@
     {
       "from": "docs/dispatch/proxy-to-frontend-learned-vf.md",
       "to": "docs/dispatch/frontend-to-proxy-learned-vf-clarifications.md",
+      "kind": "dispatch-pair",
+      "site": "proxy→frontend ↔ frontend→proxy",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/dispatch/proxy-to-frontend-learned-vf.md",
+      "to": "docs/dispatch/frontend-to-proxy-learned-vf-consumed.md",
       "kind": "dispatch-pair",
       "site": "proxy→frontend ↔ frontend→proxy",
       "resolved": "resolved"
