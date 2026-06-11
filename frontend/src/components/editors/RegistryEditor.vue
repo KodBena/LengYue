@@ -370,6 +370,15 @@ function isModified(key: string, value: any) {
 .add-input { flex: 1; border-style: dashed; }
 .add-btn { background: var(--surface-3); border: 1px solid var(--border-2); color: var(--accent-primary); cursor: pointer; font-size: var(--text-body); padding: 0 var(--space-default); text-transform: uppercase; }
 
-.dark-input { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-1); font-size: var(--text-emphasis); }
+/* `.dark-input` deliberately omitted: this component's copy was
+   byte-equivalent to the shared global (assets/css/shared-chrome.css:104)
+   — same four properties, same values — so it is consolidated onto the
+   shared sheet. The elements here (`.dark-input.scalar-input` etc.) resolve
+   the four base properties from the global rule; the scoped `.scalar-input`
+   below adds the dimensions on top. Consolidated 2026-06-11, work-status
+   item app-vue-extraction-residue, leg 2. The OTHER scoped `.dark-input`
+   copies across the editors/modals are NOT byte-equivalent (they use
+   `--text-0` and add monospace/padding/width/outline) and are left in place;
+   see the worklog's consolidation table. */
 .scalar-input { height: 22px; padding: 0 var(--space-default); width: 140px; }
 </style>
