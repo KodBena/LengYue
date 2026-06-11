@@ -7,6 +7,24 @@
 
 import { computed, type Ref } from 'vue';
 import type { ReviewCard, BoardId, ReviewStatus, RawAnalysis } from '../../types';
+
+/**
+ * Returns true when the review session is in a transient state where
+ * board interaction (click-to-play or paste-PV) would race the SR
+ * lifecycle: LOADING positions the board from the card SGF; ANALYZING
+ * reads the just-played position to compute the per-move grade.
+ * Mutating the board tree in either state would corrupt the analysis
+ * anchor or the grade read. Used by App.vue's handleBoardMove and
+ * handlePastePv to gate both entry points with the same predicate.
+ *
+ * ADR-0011 Rule 4: the predicate quantifies over the class (the
+ * ReviewStatus type) rather than being an inline copy at each call
+ * site — a new entry point that should be blocked needs to add a
+ * call, not another copy of the LOADING/ANALYZING literals.
+ */
+export function isReviewTransientState(status: ReviewStatus): boolean {
+  return status === 'LOADING' || status === 'ANALYZING';
+}
 import { store, addBoard, mutateBoard, updateBoardState, mutateReviewSession, pushSystemMessage } from '../../store';
 import { i18n } from '../../i18n';
 import { backendService } from '../../services/backend-service';

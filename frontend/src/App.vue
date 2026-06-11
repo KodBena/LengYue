@@ -70,7 +70,7 @@ import SystemLogPanel   from './components/chrome/SystemLogPanel.vue';
 import RootErrorBoundary from './components/chrome/RootErrorBoundary.vue';
 import LocalePicker     from './components/chrome/LocalePicker.vue';
 
-import { useReviewSession } from './composables/review/useReviewSession';
+import { useReviewSession, isReviewTransientState } from './composables/review/useReviewSession';
 import ColorDebugStrip  from './components/charts/ColorDebugStrip.vue';
 import QeuboBookmarks   from './components/qeubo/QeuboBookmarks.vue';
 import KnobRegistryEditor from './components/KnobRegistryEditor.vue';
@@ -296,11 +296,11 @@ function handleBoardMove(x: number, y: number): void {
   // LOADING / ANALYZING: transient SR states. Board is mid-load
   // or mid-evaluation; free play here would race the SR lifecycle
   // (LOADING's positioning, or ANALYZING's reading of the
-  // just-played position to compute the grade).
-  if (
-    reviewSession.state.value === 'LOADING' ||
-    reviewSession.state.value === 'ANALYZING'
-  ) {
+  // just-played position to compute the grade). Shared guard
+  // with handlePastePv — both entry points use isReviewTransientState
+  // so a new board-mutation path needs only one call, not a copy of
+  // the LOADING/ANALYZING literals (ADR-0011 Rule 4).
+  if (isReviewTransientState(reviewSession.state.value)) {
     return;
   }
   // IDLE (no review running) or FINISHED (intermission — post-
@@ -342,12 +342,16 @@ function handleBoardMove(x: number, y: number): void {
  *
  * No-op during AWAITING_MOVE review state: the review session
  * enforces single-move discipline and pasting a whole PV would
- * silently bypass it. Other review states (intermission, finished)
- * allow paste — those are study phases where exploration is the
- * point.
+ * silently bypass it. Also blocked during LOADING and ANALYZING
+ * (transient states where board mutation races the SR lifecycle),
+ * matching handleBoardMove's posture. Both use isReviewTransientState
+ * as the shared guard (ADR-0011 Rule 4). Other review states
+ * (FINISHED / intermission) allow paste — those are study phases
+ * where exploration is the point.
  */
 function handlePastePv(pv: PvMove[]): void {
   if (reviewSession.state.value === 'AWAITING_MOVE') return;
+  if (isReviewTransientState(reviewSession.state.value)) return;
   if (!activeBoard.value || pv.length === 0) return;
 
   let board: BoardState = activeBoard.value;
