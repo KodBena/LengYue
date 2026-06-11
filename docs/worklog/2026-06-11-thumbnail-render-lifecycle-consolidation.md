@@ -295,3 +295,14 @@ gate.
 ---
 
 License: Public Domain (The Unlicense).
+
+---
+
+*[Dated addition 2026-06-11, coordinator, per the out-of-frame gate artifact
+(PR #413 comment): the FloatingThumbnail B1→B3 re-band minted a new advisory
+band edge (TreeWidget [B2] → FloatingThumbnail [B3]) which the checker's
+protocol requires adjudicating; adjudicated in the same fixup as a
+dominant-concern BAND_EXCEPTIONS entry with reason. The gate also found the
+async-write-into-preview-ref shape LIVE in ScoreLeadPanel/MergedDeltaPanel
+(not extinguished as the in-frame artifact implied) — filed as work-status
+item `chart-panel-preview-migration`.]*
