@@ -1,6 +1,6 @@
 {
-  "node_count": 460,
-  "edge_count": 2200,
+  "node_count": 461,
+  "edge_count": 2208,
   "age_buckets": [
     {
       "name": "fresh",
@@ -1842,7 +1842,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/consult/README.md",
@@ -2018,7 +2018,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/design/doc-graph-discipline-plan.md",
@@ -2154,7 +2154,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/investigation-mini-board-texture-flash-2026-06-09.md",
@@ -2178,7 +2178,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/per-turn-analysis-extension-guide.md",
@@ -2585,8 +2585,8 @@
       "genre": "rfc",
       "is_hub": false,
       "first_committed": "2026-04-27",
-      "last_committed": "2026-04-27",
-      "age_bucket": "stale"
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/rfcs/README.md",
@@ -3410,7 +3410,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-10-keyed-cache-brand-and-stable-handles.md",
@@ -3458,7 +3458,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-10-resource-service-calibration-seam.md",
@@ -3642,10 +3642,18 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-11-settings-profile-mutator-owner.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-11-single-owner-auth-state.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": "2026-06-11",
@@ -3690,7 +3698,7 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "frontend/README.md",
@@ -3698,7 +3706,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "fresh"
     }
   ],
   "edges": [
@@ -15583,6 +15591,13 @@
     },
     {
       "from": "docs/rfcs/0001-adr-meta-review.md",
+      "to": "docs/worklog/2026-06-11-single-owner-auth-state.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-06-11-single-owner-auth-state.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/rfcs/0001-adr-meta-review.md",
       "to": "docs/adr/0008-adr-meta-review.md",
       "kind": "path-mention",
       "site": "`docs/adr/0008-adr-meta-review.md`",
@@ -18680,6 +18695,55 @@
       "to": "docs/adr-synopsis.md",
       "kind": "path-mention",
       "site": "`docs/adr-synopsis.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-single-owner-auth-state.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-single-owner-auth-state.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-single-owner-auth-state.md",
+      "to": "docs/rfcs/0001-adr-meta-review.md",
+      "kind": "path-mention",
+      "site": "`docs/rfcs/0001-adr-meta-review.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-single-owner-auth-state.md",
+      "to": "frontend/README.md",
+      "kind": "path-mention",
+      "site": "`frontend/README.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-single-owner-auth-state.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-single-owner-auth-state.md",
+      "to": "frontend/IDENTIFIERS.md",
+      "kind": "path-mention",
+      "site": "`frontend/IDENTIFIERS.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-single-owner-auth-state.md",
+      "to": "docs/handoff-current.md",
+      "kind": "path-mention",
+      "site": "`docs/handoff-current.md`",
       "resolved": "resolved"
     },
     {

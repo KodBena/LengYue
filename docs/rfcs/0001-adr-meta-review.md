@@ -320,6 +320,21 @@ every-six-months pass turns out to be too lumpy.
    that holds at the documentation level but isn't being
    enforced at the runtime level.
 
+   *(2026-06-11 amendment — the worked example resolved.)* The
+   auth-state pair this question was written around has since
+   been restructured to remediation pattern (a): `api-client`
+   now throws on 401 and performs no auth-visible mutation of
+   its own — the unrecovered-rejection fact is exposed as a
+   read-only reactive counter (`authSessionRejections`), the
+   `onTokenInvalidated` callback bridge is retired, and
+   `useAuth` owns every transition of the nominal auth state
+   (work-status item `single-owner-auth-state`; the worklog
+   record `docs/worklog/2026-06-11-single-owner-auth-state.md`
+   carries the writer enumeration). The audit-heuristic text
+   above stands as proposed; the pair now serves as the worked
+   example of pattern (b) → pattern (a) remediation rather
+   than as an open instance.
+
 ## Acceptance criteria
 
 This RFC is accepted when:

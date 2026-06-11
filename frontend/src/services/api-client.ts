@@ -1,10 +1,14 @@
 /**
  * src/services/api-client.ts
  * Pure REST client for the spaced-repetition backend.
- * Handles JWT injection and Zero-Friction local auth.
+ * Handles JWT injection and Zero-Friction local auth. Auth-state
+ * transitions are owned by useAuth; this module reports unrecovered
+ * session rejections (`authSessionRejections`) and never mutates
+ * auth-visible state on its own initiative.
  * License: Public Domain (The Unlicense)
  */
 
+import { ref, readonly } from 'vue';
 import { API_BASE_URL } from '../config/env';
 import { pushSystemMessage } from '../store';
 import { i18n } from '../i18n';
@@ -39,6 +43,38 @@ export class ApiError extends Error {
 const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'auth_username';
 
+// ── Transport fact: unrecovered session rejections ───────────────────────────
+// Monotonic counter, bumped when a NON-auth-endpoint request comes back 401
+// and the identity-honest single retry (item 28) did not recover it — i.e.
+// the server no longer recognises the session this client is presenting.
+//
+// This is a REPORT, not a transition (single-owner shape, RFC-0001 open
+// question 9 / work-status item single-owner-auth-state): api-client never
+// mutates auth-visible state on its own initiative. The auth OWNER (the
+// useAuth composable) watches this counter and performs the COMPLETE
+// session-rejected transition — storage clear via the owner-invoked
+// `clearToken()`, `auth.state` flip, user-visible warning. The prior shape
+// (api-client clearing the JWT itself and notifying useAuth through an
+// `onTokenInvalidated` callback) left two writers of one nominal auth state,
+// coordinated by convention — the drift class RFC-0001 Q9 records.
+//
+// Auth endpoints (`/auth/*`) never bump: their callers (useAuth's own
+// login / verify flows) own those failure transitions directly, and a bump
+// would double-transition. A 401 observed while a re-auth is already in
+// flight doesn't bump either — the in-flight retry may be about to repair
+// the session, and if it fails, the retrying request's own fall-through 401
+// bumps once the flag is reset.
+const _authSessionRejections = ref(0);
+
+/**
+ * Read-only view of the unrecovered-401 counter. Consumed by exactly one
+ * watcher — useAuth's session-rejected reaction. Exposed as a reactive
+ * value (not a callback registration) so this module's export surface
+ * carries no auth-state mutation or notification hook: the owner observes,
+ * the transport reports.
+ */
+export const authSessionRejections = readonly(_authSessionRejections);
+
 // Cap error-body excerpts so we don't flood the system log with
 // multi-kilobyte FastAPI validation payloads. The full body is still
 // visible via the thrown Error's message and in the browser's Network
@@ -59,24 +95,6 @@ export class ApiClient {
   // check (path.startsWith('/auth/')) below would also catch it; the
   // flag is belt-and-suspenders.
   private isReauthInFlight = false;
-
-  // Callback bridge: invoked when a non-auth-endpoint 401 forces the
-  // token to be cleared (i.e., the user's session is genuinely no
-  // longer valid). useAuth registers a handler at module init that
-  // transitions `auth.state` to `'unauthenticated'`, which in turn
-  // drives the auth-lifecycle UX (modal auto-open, workspace wipe via
-  // SyncService's auth-state watcher). Without this bridge,
-  // mid-session 401s would clear the token at the api-client layer
-  // while leaving `auth.state` falsely 'authenticated' — the gap
-  // surfaced during TODO #28 testing.
-  //
-  // Skipped for auth endpoints (login / /auth/me): those paths' callers
-  // already handle their own state transitions, so firing this callback
-  // would produce duplicate setState calls and warning messages.
-  private onTokenInvalidatedCallback: (() => void) | null = null;
-  public onTokenInvalidated(cb: () => void): void {
-    this.onTokenInvalidatedCallback = cb;
-  }
 
   /**
    * Generic request wrapper that automatically injects the JWT.
@@ -104,6 +122,16 @@ export class ApiClient {
    *   - ADR-0002 compliance: explicit, bounded, single retry on a
    *     known auth-protocol pattern — not the silent auto-retry the
    *     tenet rejects.
+   *   - Auth-state ownership (single-owner-auth-state): the retry is
+   *     identity-PRESERVING — on success `login()` replaces the JWT
+   *     under the same cached identity; on failure the stored JWT is
+   *     left untouched. This method never clears auth-visible storage
+   *     and never transitions `auth.state`; an unrecovered non-auth
+   *     401 is reported through `authSessionRejections` (see its
+   *     docstring) and the useAuth owner performs the transition.
+   *     (The backend's /auth/token reads only the OAuth2 form body —
+   *     the stale Bearer header the un-cleared token injects into the
+   *     re-login POST is ignored server-side.)
    *
    * `options.silentStatuses` (added 2026-04-28):
    *   - Per-call list of HTTP status codes the caller considers
@@ -161,7 +189,13 @@ export class ApiClient {
     if (response.status === 401 && !this.isReauthInFlight && !isAuthEndpoint) {
       const cached = this.cachedUsername();
       if (cached) {
-        this.token = null;
+        // Deliberately NO `this.token = null` here: clearing storage is the
+        // auth owner's move (useAuth), never this method's. On re-login
+        // success `login()` overwrites the JWT under the same identity; on
+        // failure the original token must survive so no auth-visible state
+        // changed without an owner transition. The stale Bearer header this
+        // leaves on the /auth/token POST is ignored by the backend (form-
+        // body-only endpoint; see the method JSDoc).
         this.isReauthInFlight = true;
         try {
           await this.login(cached);
@@ -184,15 +218,15 @@ export class ApiClient {
     }
 
     if (!response.ok) {
-      if (response.status === 401) {
-        this.token = null; // Token expired/invalid
-        // Notify useAuth so it can flip `auth.state` to unauthenticated
-        // and drive the auth-lifecycle UX. Auth endpoints' callers
-        // handle their own state, so we skip the callback there to
-        // avoid duplicate transitions/messages.
-        if (!isAuthEndpoint) {
-          this.onTokenInvalidatedCallback?.();
-        }
+      if (response.status === 401 && !isAuthEndpoint && !this.isReauthInFlight) {
+        // Report the unrecovered rejection; mutate nothing. The useAuth
+        // owner watches this counter and performs the complete transition
+        // (storage clear + state flip + warning) — see the counter's
+        // docstring for the single-owner rationale and the two skip
+        // conditions (auth endpoints' callers own their own transitions;
+        // a concurrent 401 while a re-auth is in flight defers to that
+        // retry's own outcome).
+        _authSessionRejections.value++;
       }
       const errText = await response.text();
       const isSilent = options?.silentStatuses?.includes(response.status) ?? false;
