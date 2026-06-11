@@ -13,6 +13,17 @@
 # e2e suites (tests/e2e/*, describe.skipIf on proxy-URL env vars) skip
 # automatically here — no live backend/proxy in CI.
 #
+# The band-conformance job (below) is wired into THIS workflow rather than
+# doc-graph-ci because its two inputs are both under frontend/: the import
+# graph of frontend/src AND the band tags in frontend/FILES.md. doc-graph-ci
+# triggers on FILES.md but NOT frontend/src/**, so a band leak introduced by a
+# new import would not retrigger it — this workflow's `frontend/**` filter
+# covers both. The job is NON-GATING on band-ordering findings (advisory, per
+# ADR-0011 Rule 5: judgment-shaped output gets an advisory surface, not a
+# tollgate); it FAILS only on crisp structural drift (a FILES.md row resolving
+# to no file, a src file with no FILES.md row, a broken import) — the ADR-0002
+# fail-loud class, gated on a zero baseline. See tools/band-conformance/check.mjs.
+#
 # License: Public Domain (The Unlicense)
 name: frontend-ci
 
@@ -45,3 +56,27 @@ jobs:
         run: npx eslint .
       - name: Test (unit + integration + render-count guards)
         run: npm run test:run
+
+  # ── Band-conformance: ADR-0003 band-ordering audit (advisory + drift gate) ──
+  # Runs the umbrella-level checker (tools/band-conformance/check.mjs, zero-deps
+  # Node, no npm install) over frontend/src + frontend/FILES.md. `--check` gates
+  # ONLY on structural drift (ghost rows / missing rows / broken imports — the
+  # crisp ADR-0002 class, zero baseline); band-ordering findings are advisory
+  # and printed but never fail the build (ADR-0011 Rule 5). The job also runs
+  # the self-test fixtures, which prove the loud-failure path fires (the
+  # jquery-bridge ghost-row shape). No `working-directory` override: the tool
+  # reads from the repo root.
+  band-conformance:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Band-conformance self-test (loud-failure fixtures)
+        run: node tools/band-conformance/check.mjs --self-test
+      - name: Band-conformance check (structural-drift gate; band findings advisory)
+        run: node tools/band-conformance/check.mjs --check
