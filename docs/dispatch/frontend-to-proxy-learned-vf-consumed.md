@@ -47,10 +47,14 @@ The following surfaces shipped against the wire contract as recorded in
   selected the default option, no Phase 3 fields are added.
 
 - **Store field.** `engine.katago.adaptiveReevaluate.valueBinding:
-  string` (default `"lcb_spread"` as shipped; corrected to
-  `"default"` to match the `default (built-in)` option in the same
-  arc). Schema version 31 migration adds the field with its default
-  value.
+  string`, shipped with default `''` — the empty string selects the
+  "default (built-in)" option, under which no Phase 3 fields are sent.
+  This is a deliberate divergence from the originating dispatch's
+  suggested `"lcb_spread"` default: per its own Q2 resolution the MVP
+  dropdown carries no hand-crafted preset rows, so `lcb_spread` is not
+  a selectable value. Added at schema version 31 per the originating
+  status note; the 45→46 migration carries the corrective backfill
+  (default `''`, `store/archived-migrations.ts`).
 
 - **`en` locale keys.** `analysis.adaptive.valueBinding.label`,
   `analysis.adaptive.valueBinding.default`,
