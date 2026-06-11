@@ -29,10 +29,16 @@ preserved as a code-review responsibility, not a type-system
 enforcement — partially mechanized since 2026-06-10 by the
 `local/store-write-needs-owner` writer-enumeration lint over the
 `store.boards` / `store.engine` / `store.profile` subtrees (the
-Revisit-#3 response), plus syntactic guards on the two
-generic-machinery aliased-write shapes for `store.profile`
-(2026-06-11 follow-on); other aliased writes remain review's to
-catch.
+Revisit-#3 response). Since 2026-06-11 that lint also resolves through
+scope analysis the two generic-machinery aliased-write shapes for
+`store.profile` (`updateRegistry` / knob-substrate dispatch) and a
+one-hop intermediate-variable root, so a renamed import and a
+single-hop alias are seen rather than name-matched
+(`profile-owner-scope-analysis-net` — the prior
+`no-restricted-syntax` selectors relocated into the rule,
+deliberately narrower at the non-arg-0 READ case, which had zero
+population); a multi-hop re-alias and a reassigned root binding
+remain review's to catch.
 
 **Why care.** A type that claims a property the runtime doesn't hold
 is a lie. ADR-0001 aligns the type declarations with actual behavior

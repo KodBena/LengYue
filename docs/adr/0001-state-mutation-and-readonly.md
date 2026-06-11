@@ -39,6 +39,18 @@
   exemptions are retired, and the two aliased generic-machinery
   write shapes are mechanized. The decision is again unchanged;
   the trigger stays live.
+  Fifth amendment, 2026-06-11 — recorded the relocation of the
+  enforcement in the Revisit-#3 follow-on note: the two
+  `no-restricted-syntax` aliased-machinery selectors were RELOCATED
+  into the `local/store-write-needs-owner` rule (work-status item
+  `profile-owner-scope-analysis-net`), which gained real scope
+  analysis — a renamed import and a one-hop intermediate-variable
+  root are now resolved rather than left to review. The relocation is
+  not a strict superset (one disclosed narrowing — the deleted
+  descendant-combinator's non-write READ-argument firing is dropped,
+  surfaced by an out-of-frame HRA). The decision is again unchanged;
+  the trigger stays live (a multi-hop alias and a reassigned root
+  binding remain the named gap).
 - **Decision drivers:** Vue reactivity architecture; TypeScript type-system
   semantics; performance at deep store paths; honesty of type annotations.
 
@@ -354,6 +366,22 @@ become true:
    selectors in `eslint.config.js`. Arbitrary aliased writes through
    intermediate variables remain review's to catch; the trigger's
    terms are unchanged.)*
+   *(Correction recorded 2026-06-11, per ADR-0005 Rule 11 —
+   strike-don't-delete. The two `no-restricted-syntax` selectors
+   named above were RELOCATED into the `local/store-write-needs-owner`
+   rule's `aliasedWrites` config (work-status item
+   `profile-owner-scope-analysis-net`), which now does real scope
+   analysis: a renamed import (`updateRegistry as ur`) resolves to its
+   original export name, and a ONE-HOP intermediate-variable root
+   (`const p = store.profile; p.x = …`, and the same alias passed to
+   the machinery) resolves to its store chain. So "arbitrary aliased
+   writes through intermediate variables remain review's to catch" is
+   now only true of the residue — a two-hop re-alias and a reassigned
+   root binding; the single-hop case is mechanized. The relocation is
+   not a strict superset: the deleted descendant-combinator's non-arg-0
+   READ-argument firing (a profile READ passed to `updateRegistry`, not
+   a write) is dropped on purpose — an out-of-frame HRA surfaced and
+   named this. The trigger's terms are still unchanged.)*
 
 4. **A Pinia migration happens for other reasons** (better devtools
    integration, clearer domain-slicing of the store, plugin ecosystem).
