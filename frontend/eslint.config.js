@@ -112,6 +112,14 @@
  *       vue/no-v-html model) — honest layering debt, named not
  *       sanctioned; extracting the orchestration is a separate arc. A
  *       second service import there trips the rule.
+ *       (2026-06-11: that separate arc landed — work-status item
+ *       app-vue-style-and-wiring-extraction moved the follow-me ponder
+ *       watcher into composables/board/useFollowMePonder.ts, so App.vue
+ *       now has ZERO service imports and the wiring-file exemption is
+ *       retired; the paragraph above stands as the historical record of
+ *       the debt while it was carried. The rule still covers App.vue —
+ *       a NEW service import there trips it with no standing exemption
+ *       to hide behind.)
  *       Census, historical: at the blocklist's adoption, four components
  *       violated it (ReviewSessionPanel, ForestDirectory, LibraryTab,
  *       AnalysisControls) across five import sites — all resolved
