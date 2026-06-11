@@ -267,7 +267,11 @@ scenario harness for reproducible before/after pairs — recommended,
 not mandated); a starting metric vocabulary (per-handler / per-frame
 `RefreshObserver` / `LongTask` / GC / inter-arrival distributions;
 per-component render+patch ranking with render ≫ patch read as
-render-coupling; retained-heap tail-slope per cycle for leaks);
+render-coupling; retained-heap tail-slope per cycle for leaks; since
+2026-06-12, best-effort frame-latency distributions — frame-duration
+p50/p99, LongTask totals, over-budget-frame counts — on the automated
+Chromium path, scoping the counts-only comparable so realtime jank is
+measurable);
 a user-local profile-share convention referenced by path +
 timestamp + size, not pasted inline. Three exceptions: trivial
 structural-by-inspection changes, unsubstantiated-by-design
