@@ -76,7 +76,7 @@ frontend/src/
 │   │   ├── BoardVariationsOverlay.vue [B3]  Sibling-variation rings + active-next-move hint on the board.
 │   │   ├── BoardWidget.vue            [B3]  Hosts BoardDisplay + overlays + MoveSuggestions; computes derived view-model.
 │   │   ├── MiniBoard.vue             [B3]  Renderer dispatcher — mounts MiniBoardSvg or MiniBoardCanvas per `appearance.miniBoardRenderer` (v-if; only the chosen path mounts, so neither affects the other's perf). Used by ChartPreviewBox + heatmap preview.
-│   │   ├── MiniBoardCanvas.vue       [B3]  Canvas renderer (opt-in) — imperative draw off a watch, ResizeObserver-cached dims, sprite-blitted stones (ADR-0010 canvas rule). No render fn on the nav hot path.
+│   │   ├── MiniBoardCanvas.vue       [B3]  Canvas renderer (opt-in) — imperative draw off a watch, ResizeObserver-cached dims, stones blitted from the shared sprite store (thumbnail-render-resources owns wood + sprites; ADR-0010 canvas rule). No render fn on the nav hot path.
 │   │   ├── MiniBoardSvg.vue          [B3]  SVG renderer (default) — memoised grid + per-stone v-memo; the carried-over pre-split MiniBoard body, parity-tested against a frozen reference (MiniBoardSvg.parity.test.ts).
 │   │   ├── MoveSuggestions.vue        [B3]  KataGo move-suggestion overlay; PV preview on hover; paste-pv on modifier/middle-click.
 │   │   └── StatusBar.vue              [B3]  Move number, player names, komi, turn indicator, captures, transient hint, # toggle.
@@ -104,7 +104,7 @@ frontend/src/
 │   │
 │   ├── chrome/                              Application shell. Generic UI primitives.
 │   │   ├── EngineQueueTooltip.vue     [B1]  Toolbar badge + hover panel listing in-flight KataGo queries with ETA.
-│   │   ├── FloatingThumbnail.vue      [B1]  Generic floating thumbnail tooltip.
+│   │   ├── FloatingThumbnail.vue      [B3]  Cursor-anchored floating board preview (sole host: TreeWidget's variation hover). Synchronous show/hide gate; content derives from a host-supplied `() => BoardSnapshot` accessor rendered via MiniBoard (the ChartPreviewBox accessor contract); seam-level stranding backstops (80px anchor radius / scroll / blur). Re-banded B1→B3 when the v-html SVG-string sink became the BoardSnapshot projection (render-lifecycle consolidation).
 │   │   ├── LocalePicker.vue           [B1]  Top-nav locale picker (flag + native name).
 │   │   ├── RootErrorBoundary.vue      [B1]  Catches descendant errors, logs via ADR-0002, renders fallback.
 │   │   ├── SidebarWidget.vue          [B1]  Sidebar layout container.
@@ -214,7 +214,8 @@ frontend/src/
 │   │   ├── useCardMetadata.ts         [B2]  Effectful boundary for card-metadata edits (updateCardMetadata); shared by ReviewSessionPanel + ForestDirectory, which splice the returned card into their own state.
 │   │   ├── useCardTreeProjection.ts   [B2]  Pure projection: forest + active-set + manual-expand → role-annotated render forest.
 │   │   ├── useTags.ts                 [B1]  The single chokepoint for the client-side tag dictionary (`store.knownTags`, the autocomplete source): every tag-write path routes its resulting tag set through `learnTags` so the dictionary stays coherent with the cards. A flat label-set SSOT — domain-free (a non-Go flashcard fork keeps it unchanged).
-│   │   └── useThumbnailCache.ts       [B3]  Shared board-thumbnail cache (module-scoped Map).
+│   │   ├── thumbnail-render-resources.ts [B3]  Owner of the shared thumbnail render resources: the BoardSnapshot cache (reactive Map) + warmed-path guard, the wood texture, the stone-sprite store (SpriteKey-keyed) — plus the invalidation surface (O4 board purge, O9 identity purge, the caller-less applySetup node-invalidation hook).
+│   │   └── useThumbnailCache.ts       [B3]  Fill/projection API over the shared snapshot cache (replay, sync read, SVG-string projection, path warm, variation A/B/C labels); state owned by thumbnail-render-resources.
 │   │
 │   ├── chrome/                               UI-shell composables.
 │   │   ├── useHoverPopover.ts         [B1]  Hover-intent open/close primitive (open ref + mouseenter/mouseleave + 150 ms close-grace timer) shared by toolbar popovers.

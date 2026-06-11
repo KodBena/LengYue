@@ -161,6 +161,12 @@ const HUB_EXEMPT_TARGETS = new Map([
  * surface (ADR-0011 Rule 5).
  */
 const BAND_EXCEPTIONS = new Map([
+  // [B2] tree widget hosting the [B3] hover thumbnail: dominant-concern edge —
+  // the thumbnail IS a Go-board MiniBoard surface; the tree consumes it as an
+  // opaque hover affordance. Adjudicated 2026-06-11 at the PR #413 gate (the
+  // re-band minted this edge; retagging TreeWidget [B3] would be the greater lie).
+  ['src/components/tree/TreeWidget.vue|src/components/board/FloatingThumbnail.vue',
+   'B2 host consumes B3 thumbnail as opaque affordance (dominant concern holds)'],
   [
     "src/components/editors/RegistryEditor.vue|src/engine/katago/types.ts",
     "Named-and-owned leak: FILES.md's RegistryEditor row records the " +

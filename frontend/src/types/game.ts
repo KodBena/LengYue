@@ -20,6 +20,19 @@ import type { Brand, BoardId, CardId } from './ids';
 
 export type NodeId = Brand<string, 'NodeId'>;
 
+// Stone-sprite cache key — the canvas thumbnail renderer's shared sprite
+// store (`composables/cards/thumbnail-render-resources.ts`; sole factory
+// `spriteKey` there). Per the keyed-cache rule (frontend/CLAUDE.md
+// "Type-driven design"), the brand's declaration names the dependency set
+// of the value it buckets: a rendered stone sprite depends on exactly two
+// legs —
+//   colour [domain-bound] — the StoneColor ('B' | 'W') being drawn;
+//   rpx    [agnostic]     — the device-pixel radius the sprite renders at.
+// An input the sprite depended on but the key omitted would surface as
+// stale sprites served across that input's values; naming the legs here
+// makes the omission reviewable at the declaration.
+export type SpriteKey = Brand<string, 'SpriteKey'>;
+
 // Two distinct ways to count moves in a game; the project's prior practice
 // of typing both as bare `number` admitted a class of off-by-color bugs
 // (heatmap thumbnail hint indexed `variationPath` with a color-local move

@@ -21,66 +21,27 @@
   the navigation hot path. The interactive main board (BoardDisplay) stays SVG —
   it needs per-intersection hit-testing, the condition that keeps a visual in
   the DOM. Used by ChartPreviewBox and the multiresolution heatmap preview.
+
+  Shared render resources (wood texture, stone sprites) live in the owner
+  module `composables/cards/thumbnail-render-resources.ts` — NOT here. They
+  once sat in a plain <script> block of this file (and before that,
+  per-instance in <script setup>: the texture-flash class the
+  2026-06-09 investigation records); a real .ts module makes the sharing
+  structural — no SFC scope footgun is expressible there, and every consumer
+  lifecycle (persistent or remount-per-hover) reads the same state.
   License: Public Domain (The Unlicense)
 -->
-<script lang="ts">
-// ── Module-scope shared resources (loaded once, shared across EVERY
-//    MiniBoardCanvas instance) ──────────────────────────────────────────────
-// These MUST live in a plain <script> (module scope), NOT <script setup>
-// (which compiles into setup() — per-instance). Declared per-instance, each
-// freshly-mounted thumbnail reloads the wood and first-paints textureless until
-// its OWN copy decodes — the "flat board colour, then the wood texture pops in"
-// flash. A persistently-mounted consumer (the analysis-panel preview) never
-// remounts, so never shows it; a remount-per-hover consumer (the sidebar board
-// preview) shows it on every hover. Module scope = the texture decodes once for
-// the whole session and every later mount first-paints with it. (The sprite
-// cache has the same shared-once intent; same reason it belongs here.)
-import type { StoneColor } from '../../types';
-
-// Wood texture: loaded once, shared across instances. Instances that draw
-// before it arrives repaint when it does (woodWaiters).
-let woodImg: HTMLImageElement | null = null;
-let woodReady = false;
-const woodWaiters = new Set<() => void>();
-function ensureWood(): void {
-  if (woodImg) return;
-  const img = new Image();
-  img.onload = () => { woodReady = true; woodWaiters.forEach((w) => w()); };
-  img.src = '/textures/wood.jpg';
-  woodImg = img;
-}
-
-// Stone sprites: the radial-gradient stone is rendered once per (colour,
-// device-pixel radius) into an offscreen canvas and blitted per stone — far
-// cheaper than createRadialGradient per stone per redraw, and crisp because the
-// sprite is rendered at the device-pixel radius. Shared across instances
-// (bounded: few distinct radii on screen at once).
-const spriteCache = new Map<string, HTMLCanvasElement>();
-function stoneSprite(color: StoneColor, rpx: number): HTMLCanvasElement {
-  const key = `${color}-${rpx}`;
-  const cached = spriteCache.get(key);
-  if (cached) return cached;
-  const c = document.createElement('canvas');
-  c.width = c.height = rpx * 2;
-  const g = c.getContext('2d')!;
-  // Offset highlight ≈ the SVG radial gradient (cx 35%, cy 30%, r 50%).
-  const grad = g.createRadialGradient(rpx * 0.7, rpx * 0.6, rpx * 0.1, rpx, rpx, rpx * 1.05);
-  if (color === 'B') { grad.addColorStop(0, '#666'); grad.addColorStop(1, '#111'); }
-  else { grad.addColorStop(0, '#fff'); grad.addColorStop(1, '#d0d0d0'); }
-  g.fillStyle = grad;
-  g.beginPath(); g.arc(rpx, rpx, rpx, 0, Math.PI * 2); g.fill();
-  g.lineWidth = Math.max(1, rpx * 0.05);
-  g.strokeStyle = color === 'B' ? '#000' : '#aaa';
-  g.stroke();
-  spriteCache.set(key, c);
-  return c;
-}
-</script>
-
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { BOARD_PX, BOARD_COLOR, LINE_COLOR, MARKER_INNER_RATIO } from '../../engine/constants';
 import { boardGeometry, gridLines, type BoardSnapshot } from '../../engine/board-geometry';
+import {
+  addWoodWaiter,
+  ensureWood,
+  getWoodIfReady,
+  removeWoodWaiter,
+  stoneSprite,
+} from '../../composables/cards/thumbnail-render-resources';
 
 const props = withDefaults(
   defineProps<{
@@ -129,11 +90,14 @@ function draw(): void {
   ctx.setTransform(dpr * sc, 0, 0, dpr * sc, dpr * offX, dpr * offY);
 
   // Board ground + wood (cover-cropped to the square, matching the SVG slice).
+  // The texture is the module-shared one — decoded once per session, so a
+  // freshly-remounted thumbnail first-paints textured (no flash).
   ctx.fillStyle = BOARD_COLOR;
   ctx.fillRect(0, 0, BOARD_PX, BOARD_PX);
-  if (woodReady && woodImg) {
-    const iw = woodImg.naturalWidth, ih = woodImg.naturalHeight, s = Math.min(iw, ih);
-    ctx.drawImage(woodImg, (iw - s) / 2, (ih - s) / 2, s, s, 0, 0, BOARD_PX, BOARD_PX);
+  const wood = getWoodIfReady();
+  if (wood) {
+    const iw = wood.naturalWidth, ih = wood.naturalHeight, s = Math.min(iw, ih);
+    ctx.drawImage(wood, (iw - s) / 2, (ih - s) / 2, s, s, 0, 0, BOARD_PX, BOARD_PX);
   }
 
   // Grid.
@@ -146,7 +110,7 @@ function draw(): void {
   ctx.stroke();
   ctx.restore();
 
-  // Stones (sprite blit; sprite resolution = device-pixel stone radius).
+  // Stones (shared sprite blit; sprite resolution = device-pixel stone radius).
   const rpx = Math.max(2, Math.round(geo.stoneR * sc * dpr));
   for (const [key, color] of Object.entries(snap.stones)) {
     const [bx, by] = key.split(',').map(Number);
@@ -186,7 +150,7 @@ function draw(): void {
 
 onMounted(() => {
   ensureWood();
-  woodWaiters.add(draw);
+  addWoodWaiter(draw); // repaint when the shared texture decodes (released below)
   // ResizeObserver-cached dims (ADR-0010 imperative-escape): contentRect is the
   // layout-clean size, cached here and consumed by draw() — so the per-nav
   // redraw never forces a reflow. The observer fires once on observe (initial
@@ -210,7 +174,7 @@ onUnmounted(() => {
   // else frees them.
   resizeObserver?.disconnect();
   resizeObserver = null;
-  woodWaiters.delete(draw);
+  removeWoodWaiter(draw);
 });
 </script>
 

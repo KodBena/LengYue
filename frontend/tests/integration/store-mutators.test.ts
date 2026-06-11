@@ -48,15 +48,12 @@ vi.mock('../../src/composables/cards/useCardThumbnail', () => ({
   getCardThumbnailSync: vi.fn(() => ''),
 }));
 
-vi.mock('../../src/composables/cards/useThumbnailCache', () => ({
+// The board-thumbnail purge surface lives in its owner module
+// (thumbnail-render-resources.ts, the render-lifecycle consolidation);
+// the store imports the purges from there.
+vi.mock('../../src/composables/cards/thumbnail-render-resources', () => ({
   purgeBoardThumbnails: vi.fn(),
   purgeAllThumbnails: vi.fn(),
-  useThumbnailCache: () => ({
-    getThumbnailSvg: vi.fn(),
-    getVariationThumbnail: vi.fn(),
-    getSync: vi.fn(),
-    warmPath: vi.fn(),
-  }),
 }));
 
 vi.mock('../../src/composables/cards/board-card-trees', () => ({
@@ -86,7 +83,7 @@ import { clearCardThumbnailCache } from '../../src/composables/cards/useCardThum
 import {
   purgeBoardThumbnails,
   purgeAllThumbnails,
-} from '../../src/composables/cards/useThumbnailCache';
+} from '../../src/composables/cards/thumbnail-render-resources';
 import {
   removeBoardCardTree,
   clearAllBoardCardTrees,

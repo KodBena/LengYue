@@ -92,7 +92,7 @@ useScopedScroll(outerRef, deltaY => {
 const viewportFollow = useViewportFollow(outerRef);
 
 const expansion = useTreeExpansion();
-const { getVariationThumbnail } = useThumbnailCache();
+const { getSnapshot, getSnapshotSync, variationMarkerLabels } = useThumbnailCache();
 
 const nodesRef  = toRef(props, 'nodes');
 const { layout } = useTreeLayout(nodesRef, undefined, expansion);
@@ -107,10 +107,24 @@ const currentNodeId = computed(() => boardsById.value[props.boardId]?.currentNod
 
 // ── Variation Hover Logic ─────────────────────────────────────────────────────
 
-async function onToggleEnter(e: MouseEvent, nodeId: NodeId) {
+function onToggleEnter(e: MouseEvent, nodeId: NodeId) {
   if (!thumbRef.value) return;
-  const svg = await getVariationThumbnail(nodeId, props.boardId);
-  thumbRef.value.show(svg, e.clientX, e.clientY);
+  // Fire-and-forget warm of the shared snapshot cache. It writes ONLY the
+  // cache — never the thumbnail's visible state — so a late resolve cannot
+  // resurrect a hidden preview (the docked sidebar pane's invariant, now
+  // uniform across both hover surfaces). void: self-contained cache fill.
+  void getSnapshot(nodeId, props.boardId);
+  // Labels are tree-structural and stable for the duration of a hover, so
+  // they are derived once here, synchronously.
+  const labels = variationMarkerLabels(nodeId, props.boardId);
+  // Synchronous show with a snapshot ACCESSOR (the ChartPreviewBox accessor
+  // contract): FloatingThumbnail invokes it inside its own render scope, so
+  // the cache subscription lives in that leaf — TreeWidget's render never
+  // reads the cache and stays decoupled from hover-preview fills.
+  thumbRef.value.show(() => {
+    const snap = getSnapshotSync(nodeId);
+    return snap ? { ...snap, markerLabels: labels } : null;
+  }, e.clientX, e.clientY);
 }
 
 function onToggleLeave() {

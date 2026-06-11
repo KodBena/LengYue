@@ -1,27 +1,50 @@
 <!--
   src/components/chrome/FloatingThumbnail.vue
-  Cursor-anchored hover thumbnail. Imperative show(svg, x, y) / hide() API,
+  Cursor-anchored hover thumbnail. Imperative show(source, x, y) / hide() API,
   driven now only by TreeWidget's variation-toggle hover (the sidebar board-tab
   preview moved to a docked, reactive pane in SidebarWidget.vue). The component
   owns its own visibility arbitration — see the HIDE_RADIUS_PX note — so hosts
   need only call show()/hide() from their enter/leave handlers.
+
+  Content contract (the render-lifecycle consolidation): show() takes a
+  SYNCHRONOUS accessor `() => BoardSnapshot | null` (the ChartPreviewBox
+  accessor contract, ADR-0010 read-locality). The accessor is invoked inside
+  THIS leaf's computed, so the reactive subscription to the shared snapshot
+  cache is established here — a cache warm re-renders only this leaf, never
+  the host's render. The visible gate below is set/cleared synchronously by
+  show()/hide(); the host's async warm writes only the shared cache — so a
+  late resolve can FILL a visible thumbnail but can never RESURRECT a hidden
+  one. This is the docked sidebar pane's race-free-by-construction shape,
+  now uniform across both hover surfaces. On a cache miss the frame paints
+  empty and fills when the warm resolves (the replay path is synchronous, so
+  in practice that is within the same microtask turn — before the next paint).
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { ref, onUnmounted } from 'vue';
-const svgContent = ref('');
+import { computed, ref, shallowRef, onUnmounted } from 'vue';
+import MiniBoard from '../board/MiniBoard.vue';
+import type { BoardSnapshot } from '../../engine/board-geometry';
+
 const posX = ref(0);
 const posY = ref(0);
 const visible = ref(false);
 
-// Iter-1 audit: caller passes (clientX + 20, clientY - 60); the
-// inline `+ 20` offsets in the template added another nudge so the
-// thumbnail appeared to the right and slightly above the cursor.
-// Without clamping, hovers near the right or top viewport edge
-// painted the 150×150 thumbnail partially offscreen. Clamp at
-// show()-time using window inner dimensions — corner case of
-// window resize mid-hover is ignored (thumbnail is hidden on
-// mouseleave anyway).
+// The host-supplied snapshot accessor (see the header's content contract).
+// shallowRef: the accessor is an opaque closure; only reassignment matters.
+const source = shallowRef<(() => BoardSnapshot | null) | null>(null);
+
+// Derived content — null while hidden or on a cache miss. Reading the
+// accessor here (and only here) keeps the cache subscription leaf-local.
+const snapshot = computed<BoardSnapshot | null>(() =>
+  visible.value ? (source.value?.() ?? null) : null,
+);
+
+// Iter-1 audit: caller passes the raw cursor position; the CURSOR_OFFSET_PX
+// nudge below places the thumbnail to the right of and slightly below the
+// cursor. Without clamping, hovers near the right or bottom viewport edge
+// painted the 150×150 thumbnail partially offscreen. Clamp at show()-time
+// using window inner dimensions — corner case of window resize mid-hover is
+// ignored (thumbnail is hidden on mouseleave anyway).
 
 // magic-literal: 154 = thumbnail outer box. Sum of the inner 150px
 // (CSS `.floating-thumb { width: 150px; height: 150px }` below) +
@@ -49,11 +72,9 @@ const CURSOR_OFFSET_PX = 20;
 // `mouseleave`, so the host's hide() never fires and the box is stranded.
 // Anchoring visibility to the live pointer rather than trusting the per-element
 // leave converts "lingers forever" into "hides as soon as the pointer moves
-// away" — and, as a side effect, neutralises the async show/hide ordering
-// hazard (an await-late show() with the pointer already elsewhere is hidden by
-// the next pointermove). This COMPOSES with the host's mouseleave (still the
-// fast path on a clean leave); it does not replace it. The listener is bound
-// only while visible, so there is no always-on document-listener cost.
+// away". This COMPOSES with the host's mouseleave (still the fast path on a
+// clean leave); it does not replace it. The listener is bound only while
+// visible, so there is no always-on document-listener cost.
 // Tunable by eye: large enough that in-element jitter does not false-hide,
 // small enough that leaving the element hides promptly.
 const HIDE_RADIUS_PX = 80;
@@ -81,12 +102,15 @@ function detachWatchers(): void {
 
 function hide(): void {
   visible.value = false;
+  // Release the host's accessor closure (it captures the hovered node's
+  // label table); the next show() supplies a fresh one.
+  source.value = null;
   detachWatchers();
 }
 
 defineExpose({
-  show: (svg: string, x: number, y: number) => {
-    svgContent.value = svg;
+  show: (snapshotSource: () => BoardSnapshot | null, x: number, y: number) => {
+    source.value = snapshotSource;
     anchorX = x;
     anchorY = y;
     const proposedX = x + CURSOR_OFFSET_PX;
@@ -121,8 +145,9 @@ onUnmounted(detachWatchers);
 
 <template>
   <div v-if="visible" class="floating-thumb" :style="{ left: posX + 'px', top: posY + 'px' }">
-    <!-- eslint-disable-next-line vue/no-v-html -- deliberate board-SVG string projection from the trusted board-geometry renderer (no user-authored HTML); see ADR-0010 string-vs-reactive board projection -->
-    <div v-html="svgContent" class="svg-wrap"></div>
+    <!-- Empty frame on a cache miss; the leaf-local reactive cache read
+         fills it when the host's fire-and-forget warm resolves. -->
+    <MiniBoard v-if="snapshot" :snapshot="snapshot" />
   </div>
 </template>
 
@@ -138,5 +163,4 @@ onUnmounted(detachWatchers);
   pointer-events: none;
   box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
-.svg-wrap { width: 100%; height: 100%; }
 </style>

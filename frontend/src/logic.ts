@@ -10,6 +10,16 @@ import type { BoardState, GameNode, StoneColor, NodeId } from './types';
 /**
  * Adds a setup stone (AB/AW/AE) to the current node.
  * This maintains the SGF property list and updates the projection.
+ *
+ * CALLER OBLIGATION (caller-less at HEAD): this is the one code path that
+ * mutates an EXISTING node's position-relevant content under a stable
+ * NodeId, which breaks the node-content-immutability invariant the shared
+ * thumbnail snapshot cache rests on (hydration-residue audit,
+ * docs/notes/audit/audit-hydration-rebind-residue-2026-06-10.md §3.2). Any
+ * future caller (a setup-edit mode) must invalidate the edited node and its
+ * descendants via `invalidateNodeSnapshots` — or the coarse
+ * `purgeBoardThumbnails(boardId)` — in
+ * src/composables/cards/thumbnail-render-resources.ts at the commit site.
  */
 export function applySetup(state: BoardState, x: number, y: number, color: StoneColor | null): BoardState {
   const size = parseInt(state.nodes[state.rootNodeId].properties['SZ']?.[0] ?? '19', 10);
