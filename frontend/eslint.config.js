@@ -260,6 +260,24 @@
  *       2 annotated sanctioned sites in the owner ⇒ `error` on a
  *       fully-triaged baseline. Full rationale + named gaps at the
  *       PROFILE_ALIASED_WRITE_SELECTORS constant.
+ *       (2026-06-11, RELOCATED — work-status item
+ *       profile-owner-scope-analysis-net: these two no-restricted-syntax
+ *       selectors are deleted and their machinery check moved INTO the
+ *       store-write-needs-owner rule's `aliasedWrites` config, which
+ *       resolves the callee and the root through REAL scope analysis —
+ *       so a renamed import (`updateRegistry as ur`) and an
+ *       intermediate-variable root (`const r = store.profile;
+ *       updateRegistry(r, …)`), the two name-match escapes the PR #410
+ *       gate filed as triage row 3, are now seen too. The selectors'
+ *       WRITE-TARGET cases are covered (RuleTester, both directions);
+ *       it is NOT a strict superset — one deliberate narrowing (the
+ *       deleted descendant-combinator's non-arg-0 READ-argument firing
+ *       is dropped, an over-approximation the old rationale flagged as a
+ *       cost), disclosed by the out-of-frame HRA and named in the rule
+ *       file + worklog. The paragraph above stands as the historical
+ *       record of the no-restricted-syntax form while it was carried.
+ *       See the store-write-needs-owner block and its rule-file
+ *       scope-analysis header section.)
  *
  *   Vue lifecycle footgun guards (custom local rules, `.vue` files;
  *   2026-06-10 history-lessons audit §3.12, work-status item
@@ -527,78 +545,56 @@ const LOCAL_RULE_PLUGIN = {
 // not police them because the file is frozen the moment it ships.
 const FROZEN_MIGRATION_FILES = ['src/store/migrations.ts', 'src/store/archived-migrations.ts'];
 
-// ── Profile aliased-write guards (generic-machinery call shapes) ──
-// rationale: PR #382's out-of-frame audit found store.profile "fenced,
-// not owned" — the store-write-needs-owner lint guards the dotted-path
-// write shape, but the subtree's MAJORITY writers were aliased through
-// two pieces of generic machinery the rule's named gaps admit: the
-// silent-create path walker (`updateRegistry` handed a store.profile
-// root — the Settings registry editors' seam) and the knob substrate
-// (`writeKnobValue`/`writeKnob` handed the live `store` root, whose
-// KnobDecl output paths land on profile leaves). Work-status item
-// settings-profile-mutator-owner gives the subtree a real owner
-// (src/store/profile-owner.ts: mutateProfile / updateProfileAt /
-// writeStoreKnobValue); these selectors are the net that keeps future
-// writers from re-introducing the aliased shapes outside it (ADR-0011
-// Rule 4 — quantify over the machinery class, not the call-site list).
-// Measured at adoption (2026-06-11, scratch config over src/ BEFORE the
-// reroute): 6 call sites — updateRegistry-over-profile ×3
-// (SettingsTab.vue ×2, useDirtyBoardGuard.ts ×1), knob-substrate-with-
-// store-root ×3 (KnobSlider.vue ×1, useQeubo.ts ×2); all rerouted
-// through the owner in the same change, leaving the owner's own two
-// sites as annotated inline disables (the vue/no-v-html model) ⇒
-// adopted at `error` on a fully-triaged baseline. Probe-verified
-// against the literal pre-change shapes (both selector families fire
-// on reintroduction; scratch edits reverted). Named gaps per ADR-0002:
-// name-matched callees and roots (a renamed import or an intermediate
-// variable holding store.profile escapes); session.ui-rooted
-// updateRegistry calls are deliberately admitted (store.session is not
-// an enumerated subtree).
+// ── Profile aliased-write guards: RELOCATED into store-write-needs-owner ──
+// (2026-06-11, work-status item profile-owner-scope-analysis-net.)
 //
-// updateRegistry-over-profile root depth (corrected 2026-06-11, PR #410
-// out-of-frame gate): the original two depth-bounded selectors
-// (arguments.0 at store.profile / store.profile.<x>) carried the
-// rationale "esquery cannot express the recursive root walk", so a
-// store.profile.settings.engine depth-3 root would escape. That strong
-// reading is EMPIRICALLY REFUTED — a descendant-combinator
-// over-approximation (`CallExpression[callee.name='updateRegistry']
-// MemberExpression[object.name='store'][property.name='profile']`)
-// fires on any store.profile member-expression at ANY depth inside an
-// updateRegistry call (probe-verified: depth-1/2/3/4 all fire; zero
-// firings across the whole src/ tree at HEAD). EXACT root-anchoring
-// remains inexpressible in esquery — but the conservative
-// over-approximation is STRICTLY STRONGER than the depth-bounded pair
-// it replaces, so it is adopted in their place (ADR-0011 Rule 4:
-// quantify over the class, don't enumerate the depths). The
-// over-approximation's one cost, named per ADR-0002: it also fires when
-// `store.profile` appears as a non-target READ argument of an
-// updateRegistry call (e.g. `updateRegistry(store.session.ui, p,
-// store.profile.x)`) — broader than the arguments.0-anchored selectors,
-// zero such sites at HEAD; a future legitimate profile READ passed to
-// updateRegistry would take an annotated inline disable (the
-// vue/no-v-html model), which is the correct loud surface rather than a
-// silent depth escape.
-const PROFILE_ALIASED_WRITE_SELECTORS = [
-  {
-    selector:
-      "CallExpression[callee.name='updateRegistry'] MemberExpression[object.name='store'][property.name='profile']",
-    message:
-      'updateRegistry over a store.profile root (any depth) is an aliased ' +
-      'profile write the writer-enumeration lint cannot see. Route it ' +
-      'through the profile owner (src/store/profile-owner.ts: ' +
-      'updateProfileAt for dynamic paths, mutateProfile for ' +
-      'statically-known writes). See eslint.config.js header.',
-  },
-  {
-    selector:
-      ":matches(CallExpression[callee.name='writeKnobValue'], CallExpression[callee.name='writeKnob'])[arguments.0.name='store']",
-    message:
-      'Handing the live store root to the knob substrate is an aliased ' +
-      'store write (KnobDecl output paths land on profile/session leaves). ' +
-      "Route it through the profile owner's writeStoreKnobValue " +
-      '(src/store/profile-owner.ts). See eslint.config.js header.',
-  },
-];
+// This constant USED to carry two no-restricted-syntax selectors fencing
+// store.profile's two generic-machinery aliased-write shapes —
+// `updateRegistry` handed a store.profile root (the Settings registry
+// editors' seam) and the knob substrate (`writeKnobValue`/`writeKnob`)
+// handed the live `store` root (whose KnobDecl output paths land on
+// profile leaves). They were adopted with the owner module
+// (settings-profile-mutator-owner, PR #410) at `error` on a measured
+// 6-site baseline, all rerouted; PR #410's out-of-frame gate then
+// widened the updateRegistry selector to a descendant-combinator
+// over-approximation that fires on store.profile at ANY argument
+// position / any depth (its rationale named the one cost: it also fired
+// on a non-arg-0 READ argument, an over-approximation a legitimate
+// profile read had to disable around).
+//
+// Those selectors matched the callee and root by NAME, so two escapes
+// remained — the "fenced, not owned" residue the PR #410 gate filed
+// (triage row 3): a renamed import (`import { updateRegistry as ur }`)
+// and an intermediate-variable root (`const r = store.profile;
+// updateRegistry(r, …)`) both slipped past. The general fix the in-frame
+// HRA itself named was to put the machinery check inside
+// store-write-needs-owner with REAL scope analysis (the rule already
+// walks store member-chains; it can resolve aliases and renamed imports
+// too). That is now done: the rule's `aliasedWrites` config (the profile
+// subtree entry in the store-write-needs-owner block below) names the
+// two machinery callees by their ORIGINAL export name, and the rule
+// resolves a renamed import to that name and a one-hop intermediate root
+// to its store chain. So the selectors are deleted — the scope-analysis
+// leg covers their WRITE-TARGET cases (probe-verified against the literal
+// pre-change shapes via RuleTester, both directions —
+// tests/unit/eslint-rules/store-write-needs-owner.test.ts) AND closes the
+// renamed-import / intermediate-variable gaps they admitted; the
+// descendant-combinator depth handling is covered by the rule's
+// member-chain walk, which collects the full literal prefix at any depth.
+//
+// NOT a strict superset — one deliberate NARROWING, disclosed loudly
+// (out-of-frame HRA finding, profile-owner-scope-analysis-net): the
+// `aliasedWrites` check anchors at the write-target argument (arg 0),
+// so the deleted descendant-combinator's NON-arg-0 firing — a profile
+// value READ passed to `updateRegistry`
+// (`updateRegistry(store.session.ui, store.profile.x, v)`) — is dropped.
+// A read is not a write, so it is out of this rule's scope; the drop
+// removes the over-approximation the old selector flagged as a cost.
+// Population at relocation: zero either way (npx eslint . clean), as the
+// prior reroute left it. Named gaps move to the rule file: the dropped
+// non-arg-0 READ-argument case, a two-hop re-alias, a reassigned root
+// binding, and a renamed IMPORT of the store itself (`import { store as
+// s }` — no such shape in src) stay review's.
 
 const ANY_ASSERTION_SELECTORS = [
   {
@@ -801,11 +797,18 @@ export default [
         // drop the G1 selectors above. Rationale + measured adoption in
         // the header; selector constant above.
         ...ANY_ASSERTION_SELECTORS,
-        // Profile aliased-write guards — same single-block constraint;
-        // rationale + measured adoption at the selector constant above.
-        // The owner module (src/store/profile-owner.ts) carries the two
-        // sanctioned root-supplier sites as annotated inline disables.
-        ...PROFILE_ALIASED_WRITE_SELECTORS,
+        // (The profile aliased-write guards that lived here —
+        // PROFILE_ALIASED_WRITE_SELECTORS — were RELOCATED into the
+        // store-write-needs-owner rule's `aliasedWrites` config and
+        // deleted 2026-06-11; work-status item
+        // profile-owner-scope-analysis-net. The rule's scope-analysis
+        // leg covers the two shapes' WRITE-TARGET form AND the
+        // renamed-import / intermediate-variable escapes the selectors
+        // admitted — but is intentionally narrower at the non-arg-0
+        // READ-argument case the descendant-combinator over-fired on
+        // (named in the rule file + worklog, surfaced by the
+        // out-of-frame HRA). See the store-write-needs-owner block
+        // below + its rule file.)
       ],
     },
   },
@@ -822,15 +825,16 @@ export default [
   {
     files: ['src/**/*.vue'],
     rules: {
-      // Template side carries the profile aliased-write guards too:
-      // <script setup> exposes every top-level binding to the template,
-      // so an imported updateRegistry/writeKnobValue is template-callable
-      // in principle (0 template hits at adoption — a clean gate).
-      'vue/no-restricted-syntax': [
-        'error',
-        ...ANY_ASSERTION_SELECTORS,
-        ...PROFILE_ALIASED_WRITE_SELECTORS,
-      ],
+      // (The template-side profile aliased-write guards that lived here
+      // were relocated into store-write-needs-owner's `aliasedWrites`
+      // config and deleted 2026-06-11 — the rule's CallExpression
+      // visitor runs on the template body via defineTemplateBodyVisitor,
+      // resolving script-setup imports through the module scope, so an
+      // imported updateRegistry/writeKnobValue called from a template is
+      // covered there (write-target arg; the non-arg-0 READ-argument
+      // narrowing is named in the rule file). Work-status item
+      // profile-owner-scope-analysis-net.)
+      'vue/no-restricted-syntax': ['error', ...ANY_ASSERTION_SELECTORS],
     },
   },
 
@@ -925,6 +929,34 @@ export default [
   //   ⇒ adopted at `error` on a fully-triaged baseline, per this
   //   config's measure-first posture. Named gaps in the rule file
   //   (aliased roots, method-call mutations, name-matched `store`).
+  //
+  // 2026-06-11 — scope-analysis extension (work-status item
+  // profile-owner-scope-analysis-net; PR #410 gate, triage row 3). The
+  // rule gains REAL scope/variable resolution, closing two of the
+  // "aliased roots" / "name-matched" gaps named above for store.profile:
+  // a write rooted at a one-hop intermediate variable (`const p =
+  // store.profile; p.x = …`) is resolved to its store chain, and the two
+  // generic-machinery shapes that were the separate
+  // PROFILE_ALIASED_WRITE_SELECTORS (updateRegistry over a profile root;
+  // the knob substrate over the live store root) are now `aliasedWrites`
+  // config on the profile subtree, with the callee resolved through a
+  // renamed import (`updateRegistry as ur`). Those two selectors are
+  // deleted (see the deleted-constant note above) — their write-target
+  // cases relocated here, NOT a strict superset: the descendant-
+  // combinator's non-arg-0 READ-argument firing is intentionally dropped
+  // (a read is not a write; named gap in the rule file, surfaced by the
+  // out-of-frame HRA). Coverage is pinned by RuleTester both directions
+  // (tests/unit/eslint-rules/store-write-needs-owner.test.ts: the
+  // four-shape escape probe — renamed import, intermediate-variable root,
+  // depth-3 root, renamed knob callee — each RED outside the owner, PASS
+  // inside; plus a negative control asserting the dropped non-arg-0 READ
+  // case is intentionally NOT flagged). Population at this change: zero
+  // (npx eslint . clean), as the
+  // settings-profile-mutator-owner reroute left it — this makes the
+  // partial fence durable rather than waiting for the recurrence
+  // (ADR-0001 Revisit #3 carries the convention-breakdown trigger).
+  // Residual gaps stay in the rule file (two-hop re-alias; reassigned
+  // root binding; a renamed import of `store` itself — none in src).
   {
     files: ['src/**/*.ts', 'src/**/*.vue'],
     plugins: { local: LOCAL_RULE_PLUGIN },
@@ -948,9 +980,29 @@ export default [
             // (settings-profile-mutator-owner — see the census
             // appendix in the rationale comment above; the prior
             // shape's 10 annotated inline exemptions are retired).
+            // The `aliasedWrites` entries SUBSUME the former
+            // PROFILE_ALIASED_WRITE_SELECTORS (deleted 2026-06-11,
+            // work-status item profile-owner-scope-analysis-net): the
+            // rule's scope-analysis leg resolves a renamed import
+            // (`updateRegistry as ur`) to its original export name and
+            // an intermediate-variable root (`const r = store.profile;
+            // updateRegistry(r, …)`) to its store chain, so the two
+            // shapes the selectors fenced by NAME are now seen through
+            // their aliases too. `updateRegistry` fires when its arg-0
+            // root resolves to a store.profile chain (any depth — the
+            // member-chain walk collects the full prefix, subsuming the
+            // descendant-combinator depth handling). The knob substrate
+            // (`writeKnobValue`/`writeKnob`) fires when its arg-0 is the
+            // live store ROOT (`bareStoreRoot`), since KnobDecl output
+            // paths land on profile leaves.
             {
               path: 'profile',
               owners: ['src/store/index.ts', 'src/store/profile-owner.ts'],
+              aliasedWrites: [
+                { callee: 'updateRegistry', rootArg: 0 },
+                { callee: 'writeKnobValue', rootArg: 0, bareStoreRoot: true },
+                { callee: 'writeKnob', rootArg: 0, bareStoreRoot: true },
+              ],
             },
           ],
           // ADR-0001 "Exception: UI state written directly from

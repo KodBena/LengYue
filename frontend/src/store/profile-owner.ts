@@ -43,14 +43,20 @@
  *     the registry it dispatches over is profile state and the
  *     owner is the sanctioned root supplier; the session-targeting
  *     decls ride the same seam.
- *   - Enforcement (ADR-0011 Rule 1): direct dotted-path writes are a
- *     build/CI gate (`local/store-write-needs-owner`); the two
- *     aliased generic-machinery shapes — `updateRegistry` over a
+ *   - Enforcement (ADR-0011 Rule 1): direct dotted-path writes AND the
+ *     two aliased generic-machinery shapes — `updateRegistry` over a
  *     `store.profile` root, `writeKnobValue`/`writeKnob` with the
- *     `store` root — are a build/CI gate via `no-restricted-syntax`
- *     selectors in `eslint.config.js` (this module carries the two
- *     annotated sanctioned sites). Arbitrary aliased writes through
- *     intermediate variables remain review's to catch — the lint
+ *     `store` root — are a single build/CI gate via
+ *     `local/store-write-needs-owner`. (2026-06-11, work-status item
+ *     `profile-owner-scope-analysis-net`: the machinery shapes moved
+ *     from the separate `no-restricted-syntax`
+ *     PROFILE_ALIASED_WRITE_SELECTORS into the rule's `aliasedWrites`
+ *     config, gaining scope analysis — a renamed import and a one-hop
+ *     intermediate-variable root are now resolved, not name-matched.
+ *     This owner module no longer carries inline eslint-disables: the
+ *     rule recognizes it via the profile subtree's `owners` list.)
+ *     A two-hop re-alias or a reassigned root binding through an
+ *     intermediate variable remains review's to catch — the lint
  *     family's named gap, not closed here.
  *
  * Persistence observability: every verb mutates the same deep
@@ -95,9 +101,12 @@ export function mutateProfile(fn: (profile: ProfileState) => void): void {
  */
 export function updateProfileAt(path: readonly string[], value: unknown): void {
   // Sanctioned root-supplier site: this owner is the one module that may
-  // hand a store.profile root to the generic path writer (the
-  // no-restricted-syntax profile-aliased-write guard, eslint.config.js).
-  // eslint-disable-next-line no-restricted-syntax -- profile owner; the sole sanctioned updateRegistry-over-profile site
+  // hand a store.profile root to the generic path writer. No inline
+  // eslint-disable is needed — the aliased-write guard now lives inside
+  // the store-write-needs-owner rule (2026-06-11, work-status item
+  // profile-owner-scope-analysis-net), which recognizes this file via the
+  // profile subtree's `owners` list, the same mechanism that exempts the
+  // store's own direct writes. (Previously a no-restricted-syntax disable.)
   updateRegistry(store.profile, [...path], value);
 }
 
@@ -116,7 +125,10 @@ export function writeStoreKnobValue(
   ctx: WriteContext,
 ): WriteResult {
   // Sanctioned root-supplier site: the one module that hands the live
-  // store root to the knob substrate (same guard as above).
-  // eslint-disable-next-line no-restricted-syntax -- profile owner; the sole sanctioned writeKnobValue-with-store-root site
+  // store root to the knob substrate. No inline eslint-disable needed —
+  // the aliased-write guard is the store-write-needs-owner rule's
+  // `aliasedWrites` leg, which exempts this owner file via its `owners`
+  // list (same as updateProfileAt above; previously a no-restricted-syntax
+  // disable).
   return writeKnobValue(store, store.profile.settings.knobs, knobId, inputVector, ctx);
 }
