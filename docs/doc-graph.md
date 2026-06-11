@@ -20,9 +20,9 @@ of truth and the picture is a projection of it.
 
 ## At a glance
 
-- **Nodes:** 460 documents.
-- **Edges:** 2200 cross-references
-  (1826 resolved, 374 dangling, 0 ambiguous).
+- **Nodes:** 461 documents.
+- **Edges:** 2208 cross-references
+  (1834 resolved, 374 dangling, 0 ambiguous).
 
 ## Staleness heatmap (buckets)
 
@@ -46,7 +46,6 @@ see the Regeneration note.)
 | `docs/playbooks/monorepo/monorepo-plan-framing.md` | stale | 2026-04-26 |
 | `docs/notes/audit-reflections.md` | stale | 2026-04-26 |
 | `docs/rfcs/README.md` | stale | 2026-04-27 |
-| `docs/rfcs/0001-adr-meta-review.md` | stale | 2026-04-27 |
 | `backend/docs/redis-local-resource.md` | stale | 2026-04-28 |
 | `docs/notes/tenancy.md` | stale | 2026-04-29 |
 | `docs/archive/release-scope-2026-04.md` | stale | 2026-04-30 |
@@ -68,6 +67,7 @@ see the Regeneration note.)
 | `docs/archive/dispatch/frontend-to-backend-game-source-dedup.md` | stale | 2026-05-08 |
 | `docs/archive/dispatch/frontend-to-backend-qeubo-integration.md` | stale | 2026-05-08 |
 | `docs/archive/dispatch/frontend-to-frontend-auth-ux-and-dirty-board-handoff.md` | stale | 2026-05-08 |
+| `docs/archive/dispatch/frontend-to-frontend-default-palette-metrics-spec.md` | stale | 2026-05-08 |
 
 ## Pruned graph (inline)
 
