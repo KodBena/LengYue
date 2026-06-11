@@ -1,6 +1,6 @@
 {
-  "node_count": 456,
-  "edge_count": 2181,
+  "node_count": 457,
+  "edge_count": 2186,
   "age_buckets": [
     {
       "name": "fresh",
@@ -3474,7 +3474,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-10-reviewcard-canonical-content.md",
@@ -3621,12 +3621,20 @@
       "age_bucket": "recent"
     },
     {
-      "path": "docs/worklog/2026-06-11-unhandledrejection-backstop.md",
+      "path": "docs/worklog/2026-06-11-review-paste-permissiveness-asymmetry.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
       "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-11-unhandledrejection-backstop.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-11-work-status-audit-trail.md",
@@ -18515,6 +18523,41 @@
       "to": "frontend/FILES.md",
       "kind": "path-mention",
       "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-review-paste-permissiveness-asymmetry.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-review-paste-permissiveness-asymmetry.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-review-paste-permissiveness-asymmetry.md",
+      "to": "docs/worklog/2026-05-27-review-intermission-move-block.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-05-27-review-intermission-move-block.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-review-paste-permissiveness-asymmetry.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-review-paste-permissiveness-asymmetry.md",
+      "to": "frontend/IDENTIFIERS.md",
+      "kind": "path-mention",
+      "site": "`frontend/IDENTIFIERS.md`",
       "resolved": "resolved"
     },
     {
