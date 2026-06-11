@@ -683,12 +683,27 @@ function buildDot(manifest) {
 
   // Layout: cluster by directory (compound), pack clusters side-by-side rather
   // than one tall column (packmode=array reduces the height of the dense
-  // archive cluster dramatically), concentrate parallel edges, faint hubs.
+  // archive cluster dramatically), faint hubs.
   // magic-literal: layout spacings are presentation tuning, named inline.
+  //
+  // `concentrate` is deliberately OFF. It merges parallel/bidirectional edges
+  // (this graph has ~90 A↔B pairs) into shared virtual-node chains; on the CI
+  // apt `dot` (graphviz 2.42.2) the spline router then cannot trace 2 of those
+  // merged chains back to a NORMAL edge and emits `Error: in routesplines,
+  // cannot find NORMAL edge` (twice) — a real per-edge layout failure that
+  // routes those edges degenerately, not a cosmetic warning. The mechanism is
+  // `getmainedge` walking a merged virtual chain that no longer terminates at a
+  // NORMAL edge (graphviz lib/dotgen/dotsplines.c); it is fixed in later
+  // graphviz (local 14.1.2 renders clean even WITH concentrate), so the failure
+  // is version-sensitive to CI's older `dot`. Since the SVG is
+  // local-only/`.gitignore`d (a browsing aid, not a committed artifact), the
+  // marginal legibility concentrate bought on parallel edges is not worth a
+  // degenerate-spline failure on the version CI actually runs. See
+  // `docs/worklog/2026-06-11-doc-graph-svg-spline-failure.md`.
   const lines = [];
   lines.push("digraph doc_graph {");
   lines.push("  graph [rankdir=LR, fontname=\"sans-serif\", fontsize=10, " +
-    "compound=true, concentrate=true, splines=true, overlap=false, " +
+    "compound=true, splines=true, overlap=false, " +
     "pack=true, packmode=\"array_t3\", nodesep=0.12, ranksep=0.6];");
   lines.push("  node [shape=box, style=\"rounded,filled\", fontname=\"sans-serif\", " +
     "fontsize=8, margin=\"0.06,0.03\", height=0.22];");
@@ -764,24 +779,37 @@ function renderSvg(dotSource) {
       maxBuffer: 64 * 1024 * 1024,
     });
   } catch (err) {
-    // `dot` exits non-zero on a recoverable spline-routing warning (e.g.
-    // "in routesplines, cannot find NORMAL edge") on a large/dense graph
-    // while STILL emitting a complete SVG — execFileSync throws on the
-    // non-zero exit, discarding that valid output. Use the SVG if dot
-    // produced one (log the warning); fail loud only when there is genuinely
-    // no picture (ADR-0002: fail on a real failure, not on a warning that
-    // still drew the graph). Seen in CI with the apt `dot`; the local WASM
-    // shim the artifact was first verified against does not raise it. NB this
-    // is a STOPGAP — the underlying dot orth/curve spline-routing layout
-    // failure (one edge routed degenerately) is tracked for investigation in
-    // docs/notes/deferred-items.md; it is not "just a warning to ignore."
+    // Defense-in-depth (kept, but tightened — ADR-0002). Two things changed
+    // around this catch: (1) the freshness gate (`--check`, what CI runs) no
+    // longer renders the SVG at all (see `generate`/`main`), so this branch is
+    // now reached only on a LOCAL full render — CI can no longer be silently
+    // green-with-a-buried-error here; (2) the original
+    // `routesplines: cannot find NORMAL edge` non-zero exit was caused by
+    // `concentrate=true` (see buildDot's graph-attr comment), now off, so `dot`
+    // is expected to exit 0. A non-zero exit here is therefore no longer an
+    // "expected, tolerated warning" — it is an unexpected layout FAILURE (a
+    // degenerately-routed edge: some edge in the picture got no spline), and
+    // treating it as benign is exactly the silent-failure ADR-0002 forbids. We
+    // still complete when `dot` produced a usable SVG (so a local browse is not
+    // blocked by one bad edge — the item scoped this as "loud but still
+    // completing"), but we report it LOUDLY as a regression that wants
+    // investigation, echo dot's exit status + full stderr, and name the
+    // expected-clean baseline so the next reader does not re-shrug it off. When
+    // there is genuinely no picture, we re-throw (a real, fatal failure).
     const svg = typeof err?.stdout === "string" ? err.stdout : "";
     if (svg.includes("</svg>")) {
-      if (err?.stderr) {
-        process.stderr.write(
-          `[doc-graph] dot reported a non-fatal layout warning (SVG still produced):\n${err.stderr}\n`,
-        );
-      }
+      process.stderr.write(
+        "[doc-graph] WARNING — `dot` exited non-zero but still emitted an SVG. " +
+        "With `concentrate` off this is NOT expected and should be treated as a " +
+        "layout REGRESSION, not a benign warning: at least one edge was routed " +
+        "degenerately. The SVG is used so a local browse is not blocked, but " +
+        "this wants investigation (re-check the `routesplines: cannot find " +
+        "NORMAL edge` class against the current `dot` version; the original " +
+        "instance is documented in " +
+        "`docs/worklog/2026-06-11-doc-graph-svg-spline-failure.md`).\n" +
+        `[doc-graph] dot exit status: ${err?.status ?? "unknown"}\n` +
+        (err?.stderr ? `[doc-graph] dot stderr:\n${err.stderr}\n` : "")
+      );
       return svg;
     }
     throw err;
@@ -1126,22 +1154,38 @@ Public Domain (The Unlicense).
 
 // ── Driver ───────────────────────────────────────────────────────────────────
 
-function generate() {
+/**
+ * Build every artifact from one manifest pass. `renderPicture` gates the SVG
+ * render specifically: the freshness gate (`--check`, what CI runs) compares
+ * only the manifest skeleton + the existence of INDEX/REPORT (`checkDrift`) and
+ * never consumes the SVG — `OUT_SVG` is explicitly NOT required there. Rendering
+ * it in check mode was therefore dead work whose ONLY effect was to expose CI to
+ * `dot`'s version-bound layout quirks (the `routesplines: cannot find NORMAL
+ * edge` non-zero exit on CI's apt graphviz 2.42.2). Skipping the render in check
+ * mode makes the gate robust to that whole class of failure — not just the one
+ * trigger — which is the structural fix; the `concentrate`-off change in
+ * `buildDot` additionally keeps the LOCAL full render (`renderPicture=true`)
+ * clean on an older `dot`. See
+ * `docs/worklog/2026-06-11-doc-graph-svg-spline-failure.md`.
+ */
+function generate({ renderPicture = true } = {}) {
   const manifest = buildManifest();
-  const dotSource = buildDot(manifest);
-  const svg = renderSvg(dotSource); // fails loudly if `dot` is absent
   const mermaid = buildMermaid(manifest);
   const index = buildIndexPage(manifest, mermaid);
   const report = buildReportPage(manifest);
-  return {
+  const artifacts = {
     // Committed JSON is the STABLE projection (committedManifest); the full
     // in-memory manifest is returned as _manifest for the --check skeleton.
     [OUT_JSON]: JSON.stringify(committedManifest(manifest), null, 2) + "\n",
-    [OUT_SVG]: svg,
     [OUT_INDEX]: index,
     [OUT_REPORT]: report,
     _manifest: manifest,
   };
+  if (renderPicture) {
+    const dotSource = buildDot(manifest);
+    artifacts[OUT_SVG] = renderSvg(dotSource); // fails loudly if `dot` is absent
+  }
+  return artifacts;
 }
 
 function writeArtifacts(artifacts) {
@@ -1218,7 +1262,12 @@ function checkDrift(freshManifest) {
 
 function main() {
   const checkMode = process.argv.includes("--check");
-  const artifacts = generate();
+  // The freshness gate never consumes the SVG (checkDrift compares the manifest
+  // skeleton + INDEX/REPORT existence; OUT_SVG is intentionally not required), so
+  // render the picture ONLY when we are going to write artifacts. This keeps CI's
+  // `--check` immune to `dot`'s version-bound layout failures (ADR-0002: the gate
+  // should fail on real structural drift, never on a rendering quirk it discards).
+  const artifacts = generate({ renderPicture: !checkMode });
   const m = artifacts._manifest;
   if (checkMode) {
     const drifted = checkDrift(m);

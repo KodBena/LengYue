@@ -23,8 +23,16 @@
 # posture of .github/workflows/frontend-ci.yml.
 #
 # `git log` history is required for the commit-distance heatmap, so the checkout
-# uses fetch-depth: 0. `dot` (Graphviz) is the SVG renderer; the generator fails
-# loudly (ADR-0002) if it is absent, so the workflow installs it explicitly.
+# uses fetch-depth: 0. Graphviz `dot` is NOT installed: the freshness gate
+# (`--check`) compares the manifest skeleton + INDEX/REPORT existence and never
+# renders the SVG (see tools/doc-graph/generate.mjs `generate`/`main`), so this
+# job has no `dot` dependency. Rendering it here was previously dead work that
+# exposed CI to `dot`'s version-bound layout quirks (the
+# `routesplines: cannot find NORMAL edge` non-zero exit on the apt graphviz
+# 2.42.2); dropping both the render and the install removes that exposure. The
+# SVG is rendered locally (full, non-`--check` run), where the generator still
+# fails loudly (ADR-0002) if `dot` is absent. See
+# docs/worklog/2026-06-11-doc-graph-svg-spline-failure.md.
 #
 # License: Public Domain (The Unlicense)
 name: doc-graph-ci
@@ -79,7 +87,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install Graphviz (dot — the SVG renderer)
-        run: sudo apt-get update && sudo apt-get install -y graphviz
+      # No Graphviz install: `--check` does not render the SVG (see the header
+      # comment), so the gate has no `dot` dependency. The full local render
+      # still requires `dot` and fails loudly (ADR-0002) when it is absent.
       - name: Check doc-graph artifact freshness
         run: node tools/doc-graph/generate.mjs --check

@@ -1,6 +1,6 @@
 {
-  "node_count": 477,
-  "edge_count": 2316,
+  "node_count": 478,
+  "edge_count": 2321,
   "age_buckets": [
     {
       "name": "fresh",
@@ -90,7 +90,7 @@
       "is_hub": true,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/adr-synopsis.md",
@@ -2394,7 +2394,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/vestige/deferred-items/adaptive-query-cancellation-leak.md",
@@ -2402,7 +2402,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/vestige/deferred-items/adr-effectiveness-audits.md",
@@ -2410,7 +2410,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/vestige/deferred-items/doc-graph-svg-render-off-tree.md",
@@ -2418,7 +2418,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/vestige/deferred-items/doc-graph-svg-spline-failure.md",
@@ -2426,7 +2426,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/vestige/deferred-items/engine-connection-lifecycle-logout.md",
@@ -2434,7 +2434,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/vestige/deferred-items/kde-boundary-bias.md",
@@ -2442,7 +2442,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/vestige/deferred-items/mistake-finder-unpunished-brittleness.md",
@@ -2450,7 +2450,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/vestige/deferred-items/pv-animation-defaults-calibration.md",
@@ -2458,7 +2458,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/vestige/deferred-items/pv-overlay-typography-calibration.md",
@@ -2466,7 +2466,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/vestige/deferred-items/refactoring-queue-adr0007.md",
@@ -2474,7 +2474,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/vestige/deferred-items/remove-legacy-auth-key-shim.md",
@@ -2482,7 +2482,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/vestige/deferred-items/review-state-convention-inconsistency.md",
@@ -2490,7 +2490,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/vestige/deferred-items/scattered-timing-literals.md",
@@ -2498,7 +2498,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/vestige/deferred-items/semantic-clarity-refactors-effect-typing.md",
@@ -2506,7 +2506,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/vestige/deferred-items/serial-numbers-generated-artifacts.md",
@@ -2514,7 +2514,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/vestige/deferred-items/stability-surface-distribution-metric.md",
@@ -2522,7 +2522,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/vestige/deferred-items/surface-1-backgrounds-audit.md",
@@ -2530,7 +2530,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/vestige/deferred-items/tags-fetch-hydration-race.md",
@@ -2538,7 +2538,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/onboarding/backend.md",
@@ -2546,7 +2546,7 @@
       "is_hub": false,
       "first_committed": "2026-04-28",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/onboarding/frontend.md",
@@ -2554,7 +2554,7 @@
       "is_hub": false,
       "first_committed": "2026-04-28",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/onboarding/orientation.md",
@@ -2562,7 +2562,7 @@
       "is_hub": false,
       "first_committed": "2026-04-28",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/onboarding/proxy.md",
@@ -3282,7 +3282,7 @@
       "is_hub": false,
       "first_committed": "2026-06-04",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-04-remove-dead-recursive-cte-duplicates.md",
@@ -3645,6 +3645,14 @@
       "age_bucket": "fresh"
     },
     {
+      "path": "docs/worklog/2026-06-11-doc-graph-svg-spline-failure.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
       "path": "docs/worklog/2026-06-11-drop-engine-activemode.md",
       "genre": "worklog",
       "is_hub": false,
@@ -3762,7 +3770,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-11-single-owner-auth-state.md",
@@ -18956,6 +18964,41 @@
       "to": "docs/worklog/2026-06-11-thumbnail-render-lifecycle-consolidation.md",
       "kind": "path-mention",
       "site": "`docs/worklog/2026-06-11-thumbnail-render-lifecycle-consolidation.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-doc-graph-svg-spline-failure.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-doc-graph-svg-spline-failure.md",
+      "to": "docs/notes/deferred-items.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/deferred-items.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-doc-graph-svg-spline-failure.md",
+      "to": "docs/doc-graph.md",
+      "kind": "path-mention",
+      "site": "`docs/doc-graph.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-doc-graph-svg-spline-failure.md",
+      "to": "docs/doc-graph-report.md",
+      "kind": "path-mention",
+      "site": "`docs/doc-graph-report.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-doc-graph-svg-spline-failure.md",
+      "to": "docs/notes/vestige/deferred-items/doc-graph-svg-spline-failure.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/vestige/deferred-items/doc-graph-svg-spline-failure.md`",
       "resolved": "resolved"
     },
     {
