@@ -18,10 +18,14 @@
 # graph of frontend/src AND the band tags in frontend/FILES.md. doc-graph-ci
 # triggers on FILES.md but NOT frontend/src/**, so a band leak introduced by a
 # new import would not retrigger it — this workflow's `frontend/**` filter
-# covers both. The job is NON-GATING on band-ordering findings (advisory, per
+# covers both. The band-ordering finding DETAIL is advisory (printed, per
 # ADR-0011 Rule 5: judgment-shaped output gets an advisory surface, not a
-# tollgate); it FAILS only on crisp structural drift (a FILES.md row resolving
-# to no file, a src file with no FILES.md row, a broken import) — the ADR-0002
+# per-finding tollgate), but the finding COUNT is RATCHETED: `--check` FAILS if
+# the count exceeds NO_NEW_FINDINGS_RATCHET (a new band leak) — the ADR-0011
+# Rule-3 graduation that prevents NEW leaks without gating on the existing
+# baseline (modelled on the doc-graph NO_NEW_DANGLERS_RATCHET, but wired to
+# gate). It ALSO FAILS on crisp structural drift (a FILES.md row resolving to
+# no file, a src file with no FILES.md row, a broken import) — the ADR-0002
 # fail-loud class, gated on a zero baseline. See tools/band-conformance/check.mjs.
 #
 # License: Public Domain (The Unlicense)
@@ -57,15 +61,16 @@ jobs:
       - name: Test (unit + integration + render-count guards)
         run: npm run test:run
 
-  # ── Band-conformance: ADR-0003 band-ordering audit (advisory + drift gate) ──
+  # ── Band-conformance: ADR-0003 band-ordering audit (drift gate + ratchet) ──
   # Runs the umbrella-level checker (tools/band-conformance/check.mjs, zero-deps
   # Node, no npm install) over frontend/src + frontend/FILES.md. `--check` gates
-  # ONLY on structural drift (ghost rows / missing rows / broken imports — the
-  # crisp ADR-0002 class, zero baseline); band-ordering findings are advisory
-  # and printed but never fail the build (ADR-0011 Rule 5). The job also runs
-  # the self-test fixtures, which prove the loud-failure path fires (the
-  # jquery-bridge ghost-row shape). No `working-directory` override: the tool
-  # reads from the repo root.
+  # on (1) structural drift (ghost rows / missing rows / broken imports — the
+  # crisp ADR-0002 class, zero baseline) AND (2) the no-new-findings ratchet:
+  # the advisory band-ordering COUNT exceeding NO_NEW_FINDINGS_RATCHET (a new
+  # band leak) fails the build, while the finding DETAIL stays advisory/printed
+  # (ADR-0011 Rule 5). The job also runs the self-test fixtures, which prove the
+  # loud-failure path fires (the jquery-bridge ghost-row shape). No
+  # `working-directory` override: the tool reads from the repo root.
   band-conformance:
     runs-on: ubuntu-latest
     defaults:
@@ -78,5 +83,5 @@ jobs:
           node-version: '22'
       - name: Band-conformance self-test (loud-failure fixtures)
         run: node tools/band-conformance/check.mjs --self-test
-      - name: Band-conformance check (structural-drift gate; band findings advisory)
+      - name: Band-conformance check (structural-drift gate + no-new-findings ratchet)
         run: node tools/band-conformance/check.mjs --check

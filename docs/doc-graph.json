@@ -1,6 +1,6 @@
 {
-  "node_count": 474,
-  "edge_count": 2299,
+  "node_count": 475,
+  "edge_count": 2301,
   "age_buckets": [
     {
       "name": "fresh",
@@ -3250,7 +3250,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-03-surface-1-backgrounds-audit.md",
@@ -3258,7 +3258,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-03-tag-mutation-and-tenancy-fixes.md",
@@ -3613,6 +3613,14 @@
       "age_bucket": "aging"
     },
     {
+      "path": "docs/worklog/2026-06-11-band-conformance-advisory-ratchet.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
       "path": "docs/worklog/2026-06-11-band-conformance-ci-check.md",
       "genre": "worklog",
       "is_hub": false,
@@ -3704,9 +3712,9 @@
       "path": "docs/worklog/2026-06-11-playenginemoves-cursor-conflation-twin.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-11-reactive-state-modules-relocation.md",
@@ -18813,6 +18821,20 @@
       "to": "frontend/IDENTIFIERS.md",
       "kind": "path-mention",
       "site": "`frontend/IDENTIFIERS.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-band-conformance-advisory-ratchet.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-band-conformance-advisory-ratchet.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
       "resolved": "resolved"
     },
     {

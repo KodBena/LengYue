@@ -62,22 +62,55 @@
  *      not a backlog to drive to zero. A violation neither type-only, nor
  *      into a hub, nor on this list is REPORTED.
  *
- * ── Severity: advisory-first (warn), not a gate ──
+ * ── Severity: advisory-first (warn), with a no-new-findings ratchet ──
  *
  * Per ADR-0011 Rule 3 (mechanisms adopt measure-first; adopt at `error` only
  * on a zero-or-fully-triaged baseline) and Rule 5 (a mandatory gate on
  * judgment-shaped output is miscalibrated — advisory surface for
- * judgment-shaped predicates), this checker is ADVISORY. The measured
- * non-hub, non-type-only baseline was 41 value violations — each a genuine
- * ADR-0003 seam judgment (is this band tag wrong, or is this an expected
- * dominant-concern artifact?), not a crisp mechanical predicate. Driving
- * that to a zero `error` baseline would demand adjudicating 41 band
- * disagreements, which is the review judgment ADR-0003's "content half" keeps
- * with the human. So: `--check` exits 0 on band findings (advisory), and the
- * CI job is non-gating. It exits NON-ZERO only on the one CRISP, mechanical
- * impossibility the brief mandates fail-loud: a FILES.md row resolving to no
- * file, or a src file with no FILES.md row (structural drift, ADR-0002) —
- * and `--strict` flips band findings to fatal for local zero-drift runs.
+ * judgment-shaped predicates), the band-ordering CLASS stays ADVISORY in its
+ * DETAIL: every finding is printed every run, never silenced, because each is
+ * a genuine ADR-0003 seam judgment (is this band tag wrong, or is this an
+ * expected dominant-concern artifact?), not a crisp mechanical predicate.
+ * Driving the whole population to a zero `error` baseline would demand
+ * adjudicating that judgment, which is the review work ADR-0003's "content
+ * half" keeps with the human.
+ *
+ * But the unratcheted advisory stance leaves the class UNGATED: nothing fails
+ * CI on a genuinely NEW band leak — the report surfaces it, it does not
+ * prevent it (the residual the band-conformance-ci-check adversarial review
+ * recorded, and the successor item this ratchet discharges). The honest
+ * Rule-3 graduation, modelled on the doc-graph `NO_NEW_DANGLERS_RATCHET`
+ * pattern, is a NO-NEW-FINDINGS RATCHET (`NO_NEW_FINDINGS_RATCHET` below):
+ * a measured baseline count of advisory findings, and a `--check` exit that
+ * FAILS when the current count EXCEEDS it. This gates on the DELTA (a new
+ * leak) while never gating on the EXISTING baseline (the review surface stays
+ * the human's). The finding detail is unchanged — still printed in full,
+ * still advisory; only the count crossing the baseline is fatal.
+ *
+ * Sibling-divergence note: the doc-graph `NO_NEW_DANGLERS_RATCHET` is
+ * REPORT-ONLY (its CI gate checks artifact freshness, not the dangler count,
+ * so the ratchet there surfaces-but-does-not-prevent). This ratchet is the
+ * same SHAPE — a measured baseline that ratchets DOWN as findings are
+ * resolved — but it is WIRED TO GATE: `--check` exits non-zero on a count
+ * above the baseline. The two read as siblings in structure; they differ in
+ * the one axis the band-conformance successor item asked to graduate.
+ *
+ * RATCHETING DOWN: the baseline is a high-water mark, never a target floor.
+ * As the maintainer adjudicates findings — retagging a wrong band in
+ * FILES.md, or moving a dominant-concern artifact into BAND_EXCEPTIONS with a
+ * reason — the current count drops below the baseline. When it does, LOWER
+ * `NO_NEW_FINDINGS_RATCHET.baseline` to the new measured count in the SAME
+ * change (and bump `baselineDate`). The ratchet only goes down; it never
+ * rises to admit a new leak. A finding count BELOW the baseline is within
+ * tolerance and does not gate (the slack absorbs an in-flight retag landing
+ * before the constant is lowered); a count ABOVE it is the new leak the gate
+ * exists to catch.
+ *
+ * `--check` still exits NON-ZERO on the one CRISP, mechanical impossibility
+ * the brief mandates fail-loud: a FILES.md row resolving to no file, or a src
+ * file with no FILES.md row (structural drift, ADR-0002). `--strict` flips
+ * ALL band findings (not just the over-baseline delta) to fatal for local
+ * zero-drift runs.
  *
  * ── The fail-loud structural checks (always fatal) ──
  *
@@ -96,9 +129,13 @@
  * Usage:
  *   node tools/band-conformance/check.mjs            # report (human)
  *   node tools/band-conformance/check.mjs --check    # CI: structural-drift
- *                                                    # gate (band findings
- *                                                    # advisory, exit 0)
- *   node tools/band-conformance/check.mjs --strict   # band findings fatal too
+ *                                                    # gate + no-new-findings
+ *                                                    # ratchet (fails if the
+ *                                                    # advisory count exceeds
+ *                                                    # NO_NEW_FINDINGS_RATCHET;
+ *                                                    # finding detail stays
+ *                                                    # advisory)
+ *   node tools/band-conformance/check.mjs --strict   # ALL band findings fatal too
  *   node tools/band-conformance/check.mjs --json     # machine-readable dump
  *   node tools/band-conformance/check.mjs --self-test # run the fixture proofs
  *
@@ -194,6 +231,41 @@ const BAND_EXCEPTIONS = new Map([
       "(perf/ is the dev-only capture harness, ADR-0009).",
   ],
 ]);
+
+/**
+ * No-new-findings ratchet (the GATING graduation of the advisory class). The
+ * baseline is the MEASURED count of advisory band-ordering findings at
+ * adoption — runtime value edges where `band(file) < band(import)` that are
+ * not type-only, not into a band-mixed hub, and not on BAND_EXCEPTIONS. In
+ * `--check`, the count exceeding this baseline is FATAL (a new band leak); the
+ * count at-or-below it does not gate. The finding DETAIL stays advisory (the
+ * report prints every finding, every run) — only the count delta gates.
+ *
+ * Modelled on `tools/doc-graph/generate.mjs`'s `NO_NEW_DANGLERS_RATCHET` (same
+ * baseline-snapshot shape, same ratchet-DOWN convention). It diverges in ONE
+ * axis: doc-graph's ratchet is report-only (its CI checks artifact freshness,
+ * not the count), whereas this one is wired to gate `--check`. That divergence
+ * is the deliberate Rule-3 graduation the band-conformance-ci-check
+ * adversarial review flagged as the natural successor (the advisory class was
+ * ungated; this prevents NEW leaks without gating on the existing baseline).
+ *
+ * RATCHET DOWN, never up. When the maintainer adjudicates findings (retag a
+ * wrong band in FILES.md, or move a dominant-concern artifact into
+ * BAND_EXCEPTIONS with a reason) the current count drops; LOWER `baseline` to
+ * the new measured count in the same change and bump `baselineDate`. Raising
+ * it to admit a new leak is the move this constant exists to forbid.
+ *
+ * Baseline note: measured at 47 on 2026-06-11 at the ratchet's adoption HEAD.
+ * The band-conformance-ci-check worklog (2026-06-11) recorded 40 at the
+ * checker's own adoption a few PRs earlier; the tree grew between (225 → 230
+ * src files, 818 → 848 edges), so 47 is the honest HEAD-measured high-water
+ * mark, not the stale 40. magic-literal: the baseline is a measured snapshot,
+ * named here as the single source.
+ */
+const NO_NEW_FINDINGS_RATCHET = {
+  baselineDate: "2026-06-11",
+  baseline: 47, // measured advisory band-ordering findings at adoption HEAD
+};
 
 // ── FILES.md band-tag parser ─────────────────────────────────────────────────
 
@@ -520,8 +592,9 @@ function printReport(r) {
   }
   out.push("");
 
-  // Band-ordering findings — the advisory review surface.
-  out.push("── Band-ordering findings (advisory; the ADR-0003 review surface) ──");
+  // Band-ordering findings — the advisory review surface (detail advisory;
+  // the COUNT is ratcheted, see the ratchet line below).
+  out.push("── Band-ordering findings (advisory detail; count ratcheted; ADR-0003 review surface) ──");
   if (r.findings.length === 0) {
     out.push("  none — every runtime value edge conforms or is hub/exception-explained.");
   } else {
@@ -533,11 +606,40 @@ function printReport(r) {
       "  annotated-exception list. Each is an ADR-0003 seam to adjudicate: a wrong"
     );
     out.push("  band tag (retag in FILES.md), or an expected dominant-concern artifact");
-    out.push("  (add to BAND_EXCEPTIONS with a reason). Advisory — does not gate.");
+    out.push("  (add to BAND_EXCEPTIONS with a reason). The detail is advisory (printed,");
+    out.push("  never a per-finding tollgate); the COUNT gates via the ratchet below.");
     out.push("");
     for (const f of r.findings) {
       out.push(`    ${band(f.fromBand)} ${f.from}`);
       out.push(`      → ${band(f.toBand)} ${f.to}  (via '${f.spec}')`);
+    }
+  }
+  out.push("");
+
+  // No-new-findings ratchet status (the gating line; sibling of the doc-graph
+  // NO_NEW_DANGLERS_RATCHET report section).
+  {
+    const { baseline, baselineDate } = NO_NEW_FINDINGS_RATCHET;
+    const current = r.findings.length;
+    out.push("── No-new-findings ratchet (gates --check) ──");
+    out.push(
+      `  ${current} advisory findings against a baseline of ${baseline} (${baselineDate}).`
+    );
+    if (current > baseline) {
+      out.push(
+        `  EXCEEDED — ${current - baseline} new band leak(s) since the baseline. ` +
+          "--check FAILS."
+      );
+      out.push("  Fix the new edge in the PR that introduced it (retag FILES.md, or add the");
+      out.push("  from→to pair to BAND_EXCEPTIONS with a reason).");
+    } else if (current < baseline) {
+      out.push(
+        "  Within baseline (below it). Ratchet down: lower " +
+          `NO_NEW_FINDINGS_RATCHET.baseline to ${current}`
+      );
+      out.push("  (and bump baselineDate) in tools/band-conformance/check.mjs.");
+    } else {
+      out.push("  At baseline — no new band leaks. --check passes.");
     }
   }
   out.push("");
@@ -691,8 +793,10 @@ function main() {
   }
 
   if (argv.includes("--check")) {
-    // CI: ONLY the crisp structural-drift class gates (ADR-0002). Band-ordering
-    // findings are advisory (ADR-0011 Rule 5) and never fail the build.
+    // CI: the crisp structural-drift class gates (ADR-0002), AND the no-new-
+    // findings ratchet gates on the advisory COUNT exceeding the baseline. The
+    // finding DETAIL stays advisory (ADR-0011 Rule 5) — printed above, never a
+    // per-finding tollgate; only a count over the baseline (a new leak) fails.
     if (structuralDrift) {
       process.stderr.write(
         "\nband-conformance: STRUCTURAL DRIFT (fatal) — a FILES.md row resolves to\n" +
@@ -702,8 +806,34 @@ function main() {
       );
       process.exit(1);
     }
+    const { baseline, baselineDate } = NO_NEW_FINDINGS_RATCHET;
+    const current = r.counts.findings;
+    if (current > baseline) {
+      process.stderr.write(
+        `\nband-conformance: NO-NEW-FINDINGS RATCHET EXCEEDED (fatal) — ${current} advisory\n` +
+          `band-ordering findings against a baseline of ${baseline} (${baselineDate}). ` +
+          `${current - baseline} NEW band\nleak(s) since the baseline. Each is a runtime value edge where ` +
+          "band(file) <\nband(import), not type-only, not into a band-mixed hub, and not on the\n" +
+          "annotated-exception list (see the advisory list above). Fix the new edge in\n" +
+          "the PR that introduced it: retag the band in frontend/FILES.md if the tag is\n" +
+          "wrong, or add the from→to pair to BAND_EXCEPTIONS with a reason if it is an\n" +
+          "expected dominant-concern artifact. (The existing baseline does NOT gate —\n" +
+          "only this delta does.)\n"
+      );
+      process.exit(1);
+    }
+    if (current < baseline) {
+      process.stdout.write(
+        `band-conformance: no structural drift; ${current} advisory findings, BELOW the ` +
+          `${baseline} baseline (${baselineDate}).\n` +
+          "  → ratchet down: lower NO_NEW_FINDINGS_RATCHET.baseline to " +
+          `${current} (and bump baselineDate) in tools/band-conformance/check.mjs.\n`
+      );
+      return;
+    }
     process.stdout.write(
-      "band-conformance: no structural drift (band findings are advisory).\n"
+      `band-conformance: no structural drift; ${current} advisory findings, at the ` +
+        `${baseline} baseline (${baselineDate}) — no new band leaks. Finding detail advisory.\n`
     );
     return;
   }
