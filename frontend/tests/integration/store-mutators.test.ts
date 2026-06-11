@@ -78,7 +78,10 @@ import { fakeAnalysisService, resetFakeAnalysisService } from '../fakes/analysis
 import {
   fakeAnalysisPersistenceService,
   resetFakeAnalysisPersistenceService,
+  realServiceStorageThrow,
+  seedFakeSummary,
 } from '../fakes/analysis-persistence-service';
+import type { AnalysisBundleSummary } from '../../src/services/analysis-bundle';
 import { clearCardThumbnailCache } from '../../src/composables/cards/useCardThumbnail';
 import {
   purgeBoardThumbnails,
@@ -341,5 +344,111 @@ describe('resetWorkspace — tenancy: knownTags + the identity-scoped-cache regi
       ]),
     );
     expect(labels).toHaveLength(7);
+  });
+});
+
+describe('closeBoard — persistence-service board-keyed drain (persistence-board-keyed-drain)', () => {
+  // The analysis-persistence service holds three board-keyed reactive
+  // Maps: `summaries`, `dirtyVersions`, `autoSaveErrors`. closeBoard's
+  // teardown calls `discard(boardId)`, which routes the local release
+  // through `forgetBoard` — draining all three for the closing board.
+  // The 2026-06-11 debt second-opinion review found the prior shape
+  // drained only `summaries`, leaking a number + a small POJO per
+  // closed board until the next identity-flip `forgetAll`. These tests
+  // pin the three-Map drain and its per-board precision.
+
+  function aSummary(boardId: BoardId): AnalysisBundleSummary {
+    return {
+      boardId,
+      recordCount: 7,
+      storedScheme: 'json-projected-v1',
+      storedByteSize: 1024,
+      updatedAt: '2026-06-11T00:00:00Z',
+      uncompressedByteSize: 2048,
+      formatDescriptor: null,
+    };
+  }
+
+  // A real storage-error shape (the same structural union the real
+  // service throws), derived through the production parser so the
+  // entry the fake holds matches what production would.
+  const QUOTA_ERROR = realServiceStorageThrow(
+    413,
+    '{"detail":{"kind":"user_quota_exceeded","current_bytes":900,"quota_bytes":500,"detail":"quota full"}}',
+  );
+
+  it('drains all three board-keyed maps for the closed board', () => {
+    const second = createInitialBoard();
+    addBoard(second);
+
+    // Populate every board-keyed map for the closing board.
+    seedFakeSummary(second.id, aSummary(second.id));
+    fakeAnalysisPersistenceService.markDirty(second.id);
+    fakeAnalysisPersistenceService.markDirty(second.id);
+    fakeAnalysisPersistenceService.setAutoSaveError(second.id, QUOTA_ERROR);
+
+    // Sanity: all three are present before close.
+    expect(fakeAnalysisPersistenceService.summaryFor(second.id)).toBeDefined();
+    expect(fakeAnalysisPersistenceService.dirtyVersionFor(second.id)).toBe(2);
+    // Reactive-Map reads return a reactive proxy of the stored object,
+    // so compare by value (toEqual), not reference (toBe).
+    expect(fakeAnalysisPersistenceService.autoSaveErrorFor(second.id)).toEqual(QUOTA_ERROR);
+
+    closeBoard(second.id);
+
+    // discard() ran and drained all three (forgetBoard subsumed by it).
+    expect(fakeAnalysisPersistenceService.discard).toHaveBeenCalledWith(second.id);
+    expect(fakeAnalysisPersistenceService.summaryFor(second.id)).toBeUndefined();
+    // Absent dirty entry reads back as 0 (the `?? 0` fallback), the
+    // same as a board the service never saw.
+    expect(fakeAnalysisPersistenceService.dirtyVersionFor(second.id)).toBe(0);
+    expect(fakeAnalysisPersistenceService.autoSaveErrorFor(second.id)).toBeUndefined();
+  });
+
+  it('leaves other boards\' entries intact when one board closes', () => {
+    const a = store.boards[0].id;
+    const b = createInitialBoard();
+    addBoard(b);
+
+    for (const id of [a, b.id]) {
+      seedFakeSummary(id, aSummary(id));
+      fakeAnalysisPersistenceService.markDirty(id);
+      fakeAnalysisPersistenceService.setAutoSaveError(id, QUOTA_ERROR);
+    }
+
+    closeBoard(b.id);
+
+    // The closed board's entries are gone.
+    expect(fakeAnalysisPersistenceService.summaryFor(b.id)).toBeUndefined();
+    expect(fakeAnalysisPersistenceService.dirtyVersionFor(b.id)).toBe(0);
+    expect(fakeAnalysisPersistenceService.autoSaveErrorFor(b.id)).toBeUndefined();
+
+    // The surviving board's entries are untouched.
+    expect(fakeAnalysisPersistenceService.summaryFor(a)).toBeDefined();
+    expect(fakeAnalysisPersistenceService.dirtyVersionFor(a)).toBe(1);
+    expect(fakeAnalysisPersistenceService.autoSaveErrorFor(a)).toEqual(QUOTA_ERROR);
+  });
+
+  it('resetWorkspace still drains every board\'s entries via forgetAll (unchanged)', () => {
+    const second = createInitialBoard();
+    addBoard(second);
+
+    for (const id of [store.boards[0].id, second.id]) {
+      seedFakeSummary(id, aSummary(id));
+      fakeAnalysisPersistenceService.markDirty(id);
+      fakeAnalysisPersistenceService.setAutoSaveError(id, QUOTA_ERROR);
+    }
+    const ids = store.boards.map(b => b.id);
+
+    resetWorkspace();
+
+    // forgetAll fired (the registry drain) and cleared all three maps
+    // for every board — the identity-flip path is unchanged.
+    expect(fakeAnalysisPersistenceService.forgetAll).toHaveBeenCalledTimes(1);
+    for (const id of ids) {
+      expect(fakeAnalysisPersistenceService.summaryFor(id)).toBeUndefined();
+      expect(fakeAnalysisPersistenceService.dirtyVersionFor(id)).toBe(0);
+      expect(fakeAnalysisPersistenceService.autoSaveErrorFor(id)).toBeUndefined();
+    }
   });
 });
