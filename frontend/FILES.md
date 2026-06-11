@@ -175,7 +175,7 @@ frontend/src/
 │   │   ├── useAnalysisProjection.ts   [B3]  Projects raw board + analysis ledger to UI-ready view model.
 │   │   ├── useAnalysisPersistence.ts  [B2]  Effectful boundary for AnalysisControls' save/discard + reactive summary/auto-save-error + stopBoardAnalysis; keeps the analysisPersistenceService/analysisService imports out of the component.
 │   │   ├── useAnalysisTimeline.ts     [B3]  Owns the chart selection range + visit-vector from the ledger.
-│   │   ├── useChartNavigation.ts      [B3]  Pure black-box click+thumbnail handler for analysis charts.
+│   │   ├── useChartNavigation.ts      [B3]  Pure black-box click-navigation handler for analysis charts (hover-preview is owned panel-side).
 │   │   ├── useEChartsForestRender.ts  [B2]  Per-tree ECharts lifecycle (init, dispose, resize) for card-tree forests.
 │   │   ├── enriched-accumulator.ts    [B3]  Pure incremental derivation of the enriched series (patchNode O(1) vs full O(N) rebuild); last-path-order delta arbitration. Equivalence-tested.
 │   │   ├── useEnrichedData.ts         [B3]  Reactive enriched series — shallowRef driven by structural watch (rebuild) + ledger changed-key signal (incremental patch); no per-frame O(N) re-derive.
