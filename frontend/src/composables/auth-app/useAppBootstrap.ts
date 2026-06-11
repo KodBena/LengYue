@@ -39,6 +39,20 @@ import type { BoardId } from '../../types';
 import { useQeubo, reconcileQeuboKnobs, rehydrateExperimentClaims } from '../useQeubo';
 import type { useAuth } from './useAuth';
 
+// Path-prefix allowlist for the knob-registry coherence check (PR #410
+// out-of-frame gate, finding 3). The knob substrate writes any
+// finite-numeric leaf its decls resolve to; this is the GlobalStore-
+// coupled vocabulary of subtrees the profile-owner knob seam is
+// sanctioned to drive. Every seeded KnobDecl output path begins with
+// one of these (`profile.settings.*` for the profile-document knobs,
+// `session.ui.*` for the two move-filter / pv-fade session knobs). A
+// decl targeting any other subtree — arriving in a persisted blob, a
+// migration, or a future decl-editor surface — is refused loudly at
+// `validateRegistry`, since that leaf belongs to its own owner, not the
+// knob substrate (the store-write-needs-owner lint cannot police
+// runtime path strings).
+const KNOB_ALLOWED_PATH_PREFIXES = ['profile.', 'session.ui.'] as const;
+
 export function useAppBootstrap(
   auth: ReturnType<typeof useAuth>,
 ): { sync: SyncService } {
@@ -193,11 +207,21 @@ export function useAppBootstrap(
   // boot path. The substrate-side write surface (`writeKnobValue`)
   // re-validates each call so an unfixable decl can't silently
   // misbehave.
+  //
+  // `KNOB_ALLOWED_PATH_PREFIXES` is the path-prefix allowlist (PR #410
+  // out-of-frame gate, finding 3): the knob substrate is a data-driven
+  // writer over any finite-numeric leaf its decls resolve to, so a decl
+  // arriving in a persisted blob could otherwise target a store subtree
+  // (`engine.*`, `boards.*`) the profile-owner knob seam has no
+  // business writing. The seam is sanctioned for the profile document
+  // and the two seeded `session.ui.*` knobs only; an out-of-prefix decl
+  // is a loud startup failure at the data-validation boundary, where
+  // the lint (which cannot see runtime path strings) can't reach.
   watch(
     () => store.profile.settings.knobs,
     (registry) => {
       try {
-        validateRegistry(store, registry);
+        validateRegistry(store, registry, KNOB_ALLOWED_PATH_PREFIXES);
       } catch (err) {
         console.error(
           '[knob-registry] validateRegistry failed — at least one ' +

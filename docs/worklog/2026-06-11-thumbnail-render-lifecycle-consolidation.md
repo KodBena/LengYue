@@ -306,3 +306,21 @@ dominant-concern BAND_EXCEPTIONS entry with reason. The gate also found the
 async-write-into-preview-ref shape LIVE in ScoreLeadPanel/MergedDeltaPanel
 (not extinguished as the in-frame artifact implied) — filed as work-status
 item `chart-panel-preview-migration`.]*
+
+*[Dated addition 2026-06-11, gate-recommendations sweep, per ADR-0005 Rule 11:
+the warm-guard invalidation asymmetry the gate named (finding 2) is now FIXED.
+`lastWarmedPath` was reset only by `purgeAllThumbnails` (O9); following the
+`invalidateNodeSnapshots` applySetup obligation (or the coarse
+`purgeBoardThumbnails`) to the letter would leave the guard claiming a path
+warm whose entries were just deleted, so the next identical `warmPath` would
+short-circuit cold. The O9 rationale ("a stale fingerprint would short-circuit
+the next warm") applies verbatim to the hook path. Fix: `invalidateNodeSnapshots`
+now resets `lastWarmedPath` unconditionally (a conservative reset can only force
+a re-warm, never strand one); `purgeBoardThumbnails` funnels its deletes through
+that hook, so it inherits the reset — a single-point fix co-located with the
+delete primitive rather than duplicated per entry point. The resource-ownership
+checklist's "lastWarmedPath — O9 only" row (gate finding 6) is thereby closed:
+the guard is now reset on every cache-shrinking path (O9 + the node hook + the
+board purge). Pinned by two new cases in
+`tests/integration/thumbnail-render-resources.test.ts` (invalidateNodeSnapshots
+resets the guard; purgeBoardThumbnails inherits it).]*

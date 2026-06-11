@@ -38,6 +38,25 @@ the other module strictly observing*:
   callback's timing — the transition lands before the `ApiError`
   reaches the caller, so no consumer observes a rejected world with
   `auth.state` still `'authenticated'`.
+
+  > **[Dated addition 2026-06-11, gate-recommendations sweep, per
+  > ADR-0005 Rule 11 — strike-don't-delete.] The `flush: 'sync'`
+  > "preserves the retired callback's timing … no consumer observes a
+  > rejected world with `auth.state` still 'authenticated'" claim is
+  > NOT uniquely load-bearing, empirically.** PR #411's out-of-frame
+  > gate removed `flush: 'sync'` and found ALL 11 suite tests stay
+  > green, and a purpose-built caller-catch probe also passes under the
+  > default (`'pre'`) flush — because the pre-flush microtask queued at
+  > bump time runs before the rejection propagates through any `await`
+  > chain to a caller's `catch`. The only window sync actually closes
+  > is the transport's own synchronous segment between the bump and the
+  > next `await`, where nothing reads auth state. The flag is retained
+  > as **cheap belt-and-suspenders** — it costs nothing, it documents
+  > the intended "transition before the rejection surfaces" timing, and
+  > it removes any future await-shape dependency from the correctness
+  > argument — but it is not the unique guarantor the original sentence
+  > above implies. (The timing property itself is not separately
+  > pinned; that gap is recorded here rather than papered over.)
 - **Item-28 lineage preserved.** The identity-honest single retry is
   untouched in shape: on 401, one re-login as the *cached* identity,
   then one retry. On success `login()` replaces the JWT under the same
@@ -107,6 +126,43 @@ opposite direction). The new bump condition skips while
    (sync flush + kind-guard), but the mechanism is now a watch rather
    than a callback; a rejection burst still produces exactly one
    transition and one warning.
+
+> **[Dated addition 2026-06-11, gate-recommendations sweep, per
+> ADR-0002 "deltas named loudly" and ADR-0005 Rule 11 —
+> strike-don't-delete.] Behavioural delta (4), previously UNDISCLOSED,
+> now named and fixed.** PR #411's out-of-frame gate found a fourth
+> delta this worklog did not name (and the in-frame artifact did not
+> see): storage clearing on session rejection became conditional on
+> `auth.state.kind === 'authenticated'` at report time. The old
+> transport cleared the token UNCONDITIONALLY on any final non-auth
+> 401, while only the state-flip was kind-guarded; the single-owner
+> shape moved the clear inside the kind-guard (the useAuth watch). The
+> reachable corner — composing with delta (2): state `'error'` + a
+> stored token (a failed switch-attempt) whose token is then rejected
+> by a data request → the full-transition guard drops the bump → the
+> dead token AND username persist, and every subsequent request
+> re-enters the futile re-login retry loop (the "spammy follow-up
+> 401s" delta (1) claims closed, resurfacing in a corner). This sweep
+> holds the PR to its own ADR-0002 "deltas named loudly" standard by
+> naming the delta here AND fixing it: **the rejection watch now ALSO
+> clears storage when a token is stored (`api.cachedUsername() !==
+> null`) and the state is non-`'authenticated'` — both keys, so the
+> dead identity stops re-entering the loop (no cached username ⇒ no
+> retry ⇒ fail fast).** No state flip / warning is added for that
+> corner: the state is already off `'authenticated'` and may carry a
+> meaningful `'error'` message the user is acting on; clearing the
+> dead token is the minimal repair, not a re-transition. The "no
+> re-auth in flight" condition the corner requires is preserved
+> structurally — the rejection counter only bumps when
+> `!isReauthInFlight` (api-client.ts), so any rejection reaching the
+> watch is, by construction, observed after re-auth was no longer in
+> flight; the watch needs no separate in-flight check. Pinned by the
+> new `dead-token-in-error-state` test in
+> `tests/integration/auth-lifecycle.test.ts` (rejection clears
+> storage; a subsequent request fires zero further re-login attempts).
+> The delta (2) policy itself — a failed login/register ATTEMPT
+> leaving a still-valid prior session's JWT intact — is unchanged and
+> now pinned by the delta-(c) lifecycle tests the same sweep added.
 
 ## Tests
 

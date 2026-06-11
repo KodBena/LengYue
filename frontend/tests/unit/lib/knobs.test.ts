@@ -654,6 +654,85 @@ describe('validateRegistry', () => {
     };
     expect(() => validateRegistry(root, registry)).not.toThrow();
   });
+
+  // ── Path-prefix allowlist (axis 4; PR #410 out-of-frame gate, finding 3).
+  // The knob substrate is a data-driven writer over ANY finite-numeric leaf
+  // its decls resolve to; path-resolvability alone (axis 1) does not bound
+  // which store subtree a decl may write. `allowedPathPrefixes` closes the
+  // class: an out-of-prefix output path is a loud validation failure. The
+  // production caller (useAppBootstrap) passes ['profile.', 'session.ui.'] —
+  // the subtrees the profile-owner knob seam is sanctioned to drive.
+  describe('path-prefix allowlist (allowedPathPrefixes)', () => {
+    const ALLOWED = ['profile.', 'session.ui.'] as const;
+
+    it('is unrestricted when no allowlist is supplied (substrate stays domain-agnostic)', () => {
+      // A bare `engine.*`-shaped path resolves and passes WITHOUT the allowlist —
+      // the substrate itself imposes no subtree restriction.
+      const root = { engine: { something: 0.5 } };
+      const registry: KnobRegistry = {
+        'engine.something': decl({ id: 'engine.something', outputs: [{ path: 'engine.something' }] }),
+      };
+      expect(() => validateRegistry(root, registry)).not.toThrow();
+    });
+
+    it('refuses a decl targeting a store subtree outside the allowlist (a bare engine.* leaf)', () => {
+      const root = {
+        engine: { something: 0.5 },
+        profile: { settings: { x: 0 } },
+        session: { ui: {} },
+      };
+      const registry: KnobRegistry = {
+        'engine.something': decl({ id: 'engine.something', outputs: [{ path: 'engine.something' }] }),
+      };
+      expect(() => validateRegistry(root, registry, ALLOWED)).toThrow(
+        /knob "engine\.something" output\[0\] path "engine\.something" targets a store subtree the knob substrate is not permitted to write/,
+      );
+    });
+
+    it('passes the two seeded session.ui.* decls (and the profile.* family) under the allowlist', () => {
+      // Mirrors the production seeded shape: every output path begins with
+      // `profile.` or `session.ui.`. The two session.ui decls are
+      // move-filter-threshold and pv-fade-ms (src/store/defaults.ts).
+      const root = {
+        profile: { settings: { appearance: { ownershipOpacityCeiling: 0.5 }, engine: { katago: { watchdogAnimationMs: 800 } } } },
+        session: { ui: { moveFilterThreshold: 0.3, pvAnimation: { fadeDurationMs: 200 } } },
+      };
+      const registry: KnobRegistry = {
+        'display.move-filter-threshold': decl({
+          id: 'display.move-filter-threshold',
+          outputs: [{ path: 'session.ui.moveFilterThreshold' }],
+        }),
+        'display.pv-fade-ms': decl({
+          id: 'display.pv-fade-ms',
+          outputs: [{ path: 'session.ui.pvAnimation.fadeDurationMs' }],
+        }),
+        'display.ownership-opacity-ceiling': decl({
+          id: 'display.ownership-opacity-ceiling',
+          outputs: [{ path: 'profile.settings.appearance.ownershipOpacityCeiling' }],
+        }),
+        'engine.watchdog-animation-ms': decl({
+          id: 'engine.watchdog-animation-ms',
+          // NB: this is `profile.settings.engine.katago.*` — a profile.* path,
+          // NOT a bare engine.* one. It correctly passes the allowlist.
+          outputs: [{ path: 'profile.settings.engine.katago.watchdogAnimationMs' }],
+        }),
+      };
+      expect(() => validateRegistry(root, registry, ALLOWED)).not.toThrow();
+    });
+
+    it('checks the prefix before resolvability (the crisper reason wins)', () => {
+      // The offending path does not even exist on the root; the allowlist
+      // failure surfaces first, naming the subtree violation rather than a
+      // downstream resolve error.
+      const root = { profile: { settings: {} }, session: { ui: {} } };
+      const registry: KnobRegistry = {
+        'boards.count': decl({ id: 'boards.count', outputs: [{ path: 'boards.count' }] }),
+      };
+      expect(() => validateRegistry(root, registry, ALLOWED)).toThrow(
+        /targets a store subtree the knob substrate is not permitted to write/,
+      );
+    });
+  });
 });
 
 // ── Phase 2 — claim state machine ─────────────────────────────────

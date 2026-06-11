@@ -105,11 +105,24 @@ export function markPathWarm(nodeIds: readonly NodeId[]): void {
  * file header for the obligation it exists to receive (a future
  * setup-edit mode mutating an existing node's position content must
  * invalidate the edited node and its descendants here).
+ *
+ * Also resets the warmed-path guard — the same O9 rationale verbatim:
+ * "a stale fingerprint would short-circuit the next warm". Without
+ * this, deleting a node whose id sits on the last-warmed path would
+ * leave `lastWarmedPath` claiming that path warm while its cache
+ * entries were just dropped, so the next identical `warmPath` would
+ * short-circuit cold (the warm-guard invalidation asymmetry PR #413's
+ * out-of-frame gate found — finding 2: the guard was reset only by
+ * `purgeAllThumbnails`). The reset is unconditional rather than
+ * path-membership-checked: clearing the guard is cheap, and a
+ * conservative reset can never strand a warm. `purgeBoardThumbnails`
+ * funnels its deletes through here, so it inherits the reset.
  */
 export function invalidateNodeSnapshots(nodeIds: Iterable<NodeId>): void {
   for (const nodeId of nodeIds) {
     snapshotCache.value.delete(nodeId);
   }
+  lastWarmedPath = [];
 }
 
 /**
@@ -123,7 +136,9 @@ export function invalidateNodeSnapshots(nodeIds: Iterable<NodeId>): void {
  * on a missing key is a no-op.
  *
  * Resource-ownership audit pair O4. See the file header for the
- * identity-flip companion (purgeAllThumbnails / O9).
+ * identity-flip companion (purgeAllThumbnails / O9). The warmed-path
+ * guard reset (the asymmetry PR #413's gate found) is inherited from
+ * `invalidateNodeSnapshots`, which this funnels its deletes through.
  */
 export function purgeBoardThumbnails(boardId: BoardId): void {
   const board = store.boards.find(b => b.id === boardId);

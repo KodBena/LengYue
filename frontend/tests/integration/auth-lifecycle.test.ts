@@ -86,11 +86,18 @@ import { flushPromises } from '@vue/test-utils';
 // module on a DIFFERENT branch and the worker deadlocks at collect time —
 // verified empirically (2026-06-11): swapping this import above the store
 // import hangs the run before any test executes.
-import { store, resetWorkspace, clearSystemMessages, CURRENT_SCHEMA_VERSION } from '../../src/store';
+import {
+  store,
+  resetWorkspace,
+  clearSystemMessages,
+  CURRENT_SCHEMA_VERSION,
+  identityScopedCacheLabels,
+} from '../../src/store';
 import { useAuth } from '../../src/composables/auth-app/useAuth';
 import { api, ApiError, authSessionRejections } from '../../src/services/api-client';
 import { SyncService } from '../../src/services/sync-service';
 import { ledger } from '../../src/services/analysis-ledger';
+import { stabilityTrajectoryStore } from '../../src/services/stability-trajectory-store';
 import { i18n } from '../../src/i18n';
 import { fakeAnalysisService, resetFakeAnalysisService } from '../fakes/analysis-service';
 import {
@@ -101,8 +108,84 @@ import { clearCardThumbnailCache } from '../../src/composables/cards/useCardThum
 import { purgeAllThumbnails } from '../../src/composables/cards/thumbnail-render-resources';
 import { clearAllBoardCardTrees } from '../../src/composables/cards/board-card-trees';
 import { withSetup } from './with-setup';
+import type { MockInstance } from 'vitest';
 
 const auth = useAuth();
+
+// ── Registry-derived drain assertions (PR #411 out-of-frame gate, finding 5)
+// The IDENTITY_SCOPED_CACHES drain pin asserts every registered cache's clear
+// fired on identity flip. Deriving the asserted set from
+// `identityScopedCacheLabels()` rather than hand-enumerating it means a
+// NEW or RENAMED registry row fails this suite LOUDLY (with a clear message)
+// instead of silently going unasserted — the structural fix for the
+// hand-enumerated drift the coordinator's hotfix patched at one mock path.
+//
+// One spy per registry label, keyed by the label string. Two spy kinds:
+// fakes / module mocks already in place above (read their recorded calls),
+// and live singletons spied with vi.spyOn (ledger, stability-trajectories).
+// `installDrainSpies` returns the live spies so the caller can restore them.
+interface DrainSpies {
+  /** label → a function reading that label's recorded call count. */
+  callCountFor: (label: string) => number;
+  restore: () => void;
+}
+
+function installDrainSpies(): DrainSpies {
+  const ledgerSpy: MockInstance = vi.spyOn(ledger, 'purgeAll');
+  const stabilitySpy: MockInstance = vi.spyOn(stabilityTrajectoryStore, 'purgeAll');
+
+  // The label → call-count reader map. Every label IDENTITY_SCOPED_CACHES
+  // registers must appear here; the assertion loop below verifies that, so a
+  // new registry row with no mapped spy fails with a named gap rather than a
+  // missing assertion.
+  const counters: Record<string, () => number> = {
+    'analysis:active-board-analyses': () => fakeAnalysisService.stopAllBoardAnalyses.mock.calls.length,
+    'analysis-ledger': () => ledgerSpy.mock.calls.length,
+    'stability-trajectories': () => stabilitySpy.mock.calls.length,
+    'board-thumbnails': () => vi.mocked(purgeAllThumbnails).mock.calls.length,
+    'card-thumbnails': () => vi.mocked(clearCardThumbnailCache).mock.calls.length,
+    'board-card-trees': () => vi.mocked(clearAllBoardCardTrees).mock.calls.length,
+    'analysis-bundle-summaries': () => fakeAnalysisPersistenceService.forgetAll.mock.calls.length,
+  };
+
+  return {
+    callCountFor: (label: string): number => {
+      const reader = counters[label];
+      if (reader === undefined) {
+        throw new Error(
+          `auth-lifecycle drain pin: IDENTITY_SCOPED_CACHES registers label ` +
+          `"${label}" but this test has no spy mapped for it. Add a spy to ` +
+          `installDrainSpies() (a fake/mock call-count reader, or a vi.spyOn ` +
+          `on the live singleton) so the registry-derived drain assertion ` +
+          `covers it. Mapped labels: ${Object.keys(counters).join(', ')}.`,
+        );
+      }
+      return reader();
+    },
+    restore: (): void => {
+      ledgerSpy.mockRestore();
+      stabilitySpy.mockRestore();
+    },
+  };
+}
+
+/**
+ * Assert every registry label drained exactly once. Derives the label set
+ * from `identityScopedCacheLabels()`, so a new/renamed entry fails loudly
+ * (either here, with the per-label count, or in `callCountFor` with the
+ * unmapped-label message above).
+ */
+function expectFullDrain(spies: DrainSpies): void {
+  const labels = identityScopedCacheLabels();
+  expect(labels.length).toBeGreaterThan(0);
+  for (const label of labels) {
+    expect(
+      spies.callCountFor(label),
+      `IDENTITY_SCOPED_CACHES label "${label}" did not drain exactly once on ` +
+      `identity flip`,
+    ).toBe(1);
+  }
+}
 
 // ── Fetch router ──────────────────────────────────────────────────────────────
 // A minimal backend double for the two operating modes the Tenancy section
@@ -217,7 +300,10 @@ describe('mid-session 401 on a non-auth endpoint (multi-tenant mode, dead sessio
 
     // Baseline after setup: no drain has fired yet.
     expect(fakeAnalysisService.stopAllBoardAnalyses).not.toHaveBeenCalled();
-    const purgeAllSpy = vi.spyOn(ledger, 'purgeAll');
+    // Registry-derived drain spies (gate-411 finding 5): one spy per
+    // IDENTITY_SCOPED_CACHES label, asserted by deriving the label set from
+    // the registry so a new/renamed entry fails loudly.
+    const drainSpies = installDrainSpies();
     const attemptsBefore = router.loginAttempts.length;
     const rejectionsBefore = authSessionRejections.value;
 
@@ -243,16 +329,14 @@ describe('mid-session 401 on a non-auth endpoint (multi-tenant mode, dead sessio
 
     // Downstream: SyncService's auth-state watcher (flush 'pre') runs
     // resetWorkspace, which drains the IDENTITY_SCOPED_CACHES registry —
-    // the tenancy wipe pinned end-to-end from the 401.
+    // the tenancy wipe pinned end-to-end from the 401. Asserted by deriving
+    // the label set from the registry: EVERY registered cache drained once,
+    // including stability-trajectories (the entry the prior hand-enumerated
+    // assertion list silently omitted — gate-411 finding 5).
     await flushPromises();
-    expect(fakeAnalysisService.stopAllBoardAnalyses).toHaveBeenCalledTimes(1);
-    expect(purgeAllSpy).toHaveBeenCalledTimes(1);
-    expect(purgeAllThumbnails).toHaveBeenCalledTimes(1);
-    expect(clearCardThumbnailCache).toHaveBeenCalledTimes(1);
-    expect(clearAllBoardCardTrees).toHaveBeenCalledTimes(1);
-    expect(fakeAnalysisPersistenceService.forgetAll).toHaveBeenCalledTimes(1);
+    expectFullDrain(drainSpies);
 
-    purgeAllSpy.mockRestore();
+    drainSpies.restore();
   });
 
   it('a burst of rejected requests transitions once (owner reaction is idempotent)', async () => {
@@ -270,6 +354,107 @@ describe('mid-session 401 on a non-auth endpoint (multi-tenant mode, dead sessio
     expect(store.engine.messages.some(
       (m) => m.text === i18n.global.t('auth.sessionExpired'),
     )).toBe(false);
+  });
+});
+
+describe("failed login/register ATTEMPT against a still-valid prior session (delta-c)", () => {
+  // PR #411 worklog behavioural delta 2 / gate finding 1: a failed
+  // login/register attempt no longer strips a still-valid prior session's
+  // JWT. A 401 from /auth/token is an AUTH-endpoint rejection — it never
+  // bumps the transport's rejection counter, and api.login throws before
+  // writing any token, so the prior identity's storage survives untouched.
+  // The state goes to 'error'; storage is the recovery source of truth for
+  // tryAutoLogin, so a reload would resurrect the prior identity. This pins
+  // that policy so a future "consistency" edit re-adding a storage clear to
+  // the 'error' paths goes red here.
+  it('a failed login attempt leaves the prior identity in storage (state error, prior JWT survives a reload-shaped read)', async () => {
+    const router = installFetchRouter({ alice: 3 });
+
+    // Establish the valid prior session as alice.
+    await auth.login('alice', 'pw');
+    expect(auth.state.value).toEqual({ kind: 'authenticated', username: 'alice', userId: 3 });
+    expect(localStorage.getItem('auth_token')).toBe('token-for-alice');
+
+    const rejectionsBefore = authSessionRejections.value;
+
+    // Attempt to switch to 'bob' with a wrong/unknown credential: /auth/token
+    // 401s, api.login throws BEFORE writing a token, login() routes to 'error'.
+    await expect(auth.login('bob', 'wrongpw')).rejects.toBeInstanceOf(ApiError);
+    expect(auth.state.value.kind).toBe('error');
+
+    // The auth-endpoint 401 did NOT bump the rejection counter (no
+    // double-transition source; the watch's storage clear never engaged).
+    expect(authSessionRejections.value).toBe(rejectionsBefore);
+
+    // Reload-shaped read: storage still holds alice's valid session, so a
+    // fresh page load (tryAutoLogin reading cachedUsername + the JWT) would
+    // recover her — the failed switch did NOT log her out.
+    expect(localStorage.getItem('auth_token')).toBe('token-for-alice');
+    expect(api.cachedUsername()).toBe('alice');
+  });
+
+  it('a failed register attempt likewise leaves the prior identity in storage', async () => {
+    const router = installFetchRouter({ alice: 3 });
+    await auth.login('alice', 'pw');
+    expect(localStorage.getItem('auth_token')).toBe('token-for-alice');
+
+    const rejectionsBefore = authSessionRejections.value;
+
+    // register('carol') succeeds (router serves 200), but the follow-on
+    // login('carol') 401s in 'rejecting' mode → 'error', prior JWT survives.
+    router.mode = 'rejecting';
+    await expect(auth.register('carol', 'pw')).rejects.toBeInstanceOf(ApiError);
+    expect(auth.state.value.kind).toBe('error');
+    expect(authSessionRejections.value).toBe(rejectionsBefore);
+    expect(localStorage.getItem('auth_token')).toBe('token-for-alice');
+    expect(api.cachedUsername()).toBe('alice');
+  });
+});
+
+describe("dead-token-in-error-state — the undisclosed fourth delta's corner (gate-411)", () => {
+  // PR #411 out-of-frame gate, the undisclosed fourth delta: with the
+  // transport's unconditional 401-clear retired and the owner's clear behind
+  // the kind-guard, a non-'authenticated' state + a stored (rejected) token
+  // would leave a dead token re-entering the futile re-login retry loop. The
+  // fix: the rejection watch ALSO clears storage when a token is stored and
+  // the state is non-'authenticated' (the in-flight-reauth skip is preserved
+  // at the transport's bump guard). This pins that the rejection clears
+  // storage and the loop does not recur.
+  it('a rejection in a non-authenticated state clears the dead token and stops the retry loop', async () => {
+    const router = installFetchRouter({ bob: 7 });
+
+    // Authenticate as bob: token stored, state authenticated.
+    await auth.login('bob', 'pw');
+    expect(localStorage.getItem('auth_token')).toBe('token-for-bob');
+
+    // A failed switch-to-ghost leaves state 'error' with bob's token still in
+    // storage (the delta-c shape) — the precondition for the corner.
+    await expect(auth.login('ghost', 'pw')).rejects.toBeInstanceOf(ApiError);
+    expect(auth.state.value.kind).toBe('error');
+    expect(localStorage.getItem('auth_token')).toBe('token-for-bob');
+    expect(api.cachedUsername()).toBe('bob');
+
+    // The session dies server-side. The next data request observes the
+    // unrecovered 401 (one identity-honest retry as bob, which also 401s).
+    router.mode = 'rejecting';
+    const attemptsBefore = router.loginAttempts.length;
+    await expect(api.request('GET', '/cards/probe')).rejects.toBeInstanceOf(ApiError);
+
+    // The watch, seeing state 'error' (non-'authenticated') + a stored
+    // identity, cleared BOTH storage keys — the dead token is gone.
+    expect(localStorage.getItem('auth_token')).toBeNull();
+    expect(api.cachedUsername()).toBeNull();
+    // State is NOT re-flipped (the corner clears storage only; 'error'
+    // may carry a message the user is acting on).
+    expect(auth.state.value.kind).toBe('error');
+
+    // No retry loop: the request fired exactly one re-login attempt (bob),
+    // and with storage now clear a SUBSEQUENT request fails fast with ZERO
+    // further re-login attempts.
+    expect(router.loginAttempts.slice(attemptsBefore)).toEqual(['bob']);
+    const attemptsAfterFirst = router.loginAttempts.length;
+    await expect(api.request('GET', '/cards/probe2')).rejects.toBeInstanceOf(ApiError);
+    expect(router.loginAttempts.slice(attemptsAfterFirst)).toEqual([]);
   });
 });
 

@@ -164,6 +164,32 @@ before any further scratch operations.
   not-filed: extend-on-occurrence is recorded at the selector
   constant; esquery cannot express the recursive root walk, and no
   depth-3 call shape exists at HEAD.
+
+  > **[Dated addition 2026-06-11, gate-recommendations sweep, per
+  > ADR-0005 Rule 11 — strike-don't-delete.] The "esquery cannot
+  > express the recursive root walk" claim above is EMPIRICALLY
+  > REFUTED in its strong reading.** PR #410's out-of-frame gate ran
+  > a descendant-combinator over-approximation
+  > (`CallExpression[callee.name='updateRegistry']
+  > MemberExpression[object.name='store'][property.name='profile']`)
+  > against the depth-3 escape shape and it fires; this sweep
+  > re-verified the claim independently with a scratch probe before
+  > adopting it (depth-1/2/3/4 roots all fire; zero firings across
+  > the whole `src/` tree at HEAD — no false positives). EXACT
+  > root-anchoring is indeed inexpressible in esquery, but the
+  > conservative over-approximation is *strictly stronger* than the
+  > depth-bounded pair, so the two depth-bounded `updateRegistry`
+  > selectors were REPLACED by the single descendant-combinator
+  > selector in `PROFILE_ALIASED_WRITE_SELECTORS`. This deletes the
+  > depth-3 escape class instead of recording it (ADR-0011 Rule 4 —
+  > quantify over the class, don't enumerate depths). The
+  > over-approximation's one cost, named per ADR-0002: it also fires
+  > when `store.profile` appears as a non-target READ argument of an
+  > `updateRegistry` call — broader than the arguments.0-anchored
+  > selectors, zero such sites at HEAD; a future legitimate profile
+  > read passed to `updateRegistry` takes an annotated inline disable
+  > (the `vue/no-v-html` model). Full rationale at the selector
+  > constant in `frontend/eslint.config.js`.
 - AnalysisControls' five real computeds are exercised by vue-tsc +
   lint, not behaviorally (the harness mirrors their shape) —
   not-filed: component-level tests are out of scope per
