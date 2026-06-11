@@ -1,6 +1,6 @@
 {
-  "node_count": 462,
-  "edge_count": 2216,
+  "node_count": 463,
+  "edge_count": 2220,
   "age_buckets": [
     {
       "name": "fresh",
@@ -42,7 +42,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "backend/CLAUDE.md",
@@ -130,7 +130,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/adr/0005-documentation-discipline.md",
@@ -146,7 +146,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/adr/0007-file-size-and-information-density.md",
@@ -154,7 +154,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/adr/0008-classification-discipline.md",
@@ -170,7 +170,7 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
@@ -178,7 +178,7 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/adr/0011-mechanization-discipline.md",
@@ -458,7 +458,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/archive/notes/design/analysis-persistence-plan.md",
@@ -466,7 +466,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/archive/notes/design/documentation-graph-artifact-plan.md",
@@ -474,7 +474,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/archive/notes/design/keybindings-plan.md",
@@ -482,7 +482,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/archive/notes/design/knob-registry-plan.md",
@@ -490,7 +490,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/archive/notes/design/per-board-multi-query-model-plan.md",
@@ -498,7 +498,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/archive/notes/design/sgf-library-plan.md",
@@ -506,7 +506,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/archive/notes/design/work-status-ssot-plan.md",
@@ -514,7 +514,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/archive/notes/dsl-hyperparameter-harness-plan.md",
@@ -1642,7 +1642,7 @@
       "is_hub": true,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/analysis-persistence-followups.md",
@@ -1650,7 +1650,7 @@
       "is_hub": false,
       "first_committed": "2026-05-26",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/audit-reflections.md",
@@ -1698,7 +1698,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/audit/audit-consolidation-history-lessons-2026-06-10.md",
@@ -1834,7 +1834,7 @@
       "is_hub": false,
       "first_committed": "2026-05-26",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/consolidation-xref-fallout.md",
@@ -1850,7 +1850,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/consult/mistake-stability-firewall-consult.md",
@@ -1858,7 +1858,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-05-29-effect-ts-adoption.md",
@@ -1882,7 +1882,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-01-effect-ts-architectural-merits.md",
@@ -1890,7 +1890,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-01-io-effect-deferral-at-eager-acl.md",
@@ -1898,7 +1898,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-01-neverthrow-overhaul.md",
@@ -1906,7 +1906,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-01-perf-capture-automation-design-space.md",
@@ -1914,7 +1914,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-02-work-status-ci-gates.md",
@@ -1970,7 +1970,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/decisions-deferred.md",
@@ -2002,7 +2002,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/design/autonomous-srs-loop.md",
@@ -2010,7 +2010,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/design/config-schema-projection-plan.md",
@@ -2026,7 +2026,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/design/migration-test-rotation-plan.md",
@@ -2042,7 +2042,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/design/mistake-finder-pedagogy-and-followups.md",
@@ -2050,7 +2050,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/design/mistake-stability-surface-synthesis.md",
@@ -2058,7 +2058,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/design/perceptual-event-projection-plan.md",
@@ -2066,7 +2066,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/design/proxy-topology-testing-plan-revised.md",
@@ -2090,7 +2090,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/design/stability-surface-design-space.md",
@@ -2098,7 +2098,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/design/typed-effect-documentation-plan.md",
@@ -2554,7 +2554,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/playbooks/monorepo/monorepo-plan-framing.md",
@@ -2570,7 +2570,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/pre-merge-checklist.md",
@@ -3186,7 +3186,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-02-labels-facet.md",
@@ -3386,7 +3386,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-10-enrichment-merge-null-validation.md",
@@ -3669,6 +3669,14 @@
       "age_bucket": "fresh"
     },
     {
+      "path": "docs/worklog/2026-06-11-thumbnail-render-lifecycle-consolidation.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
+    },
+    {
       "path": "docs/worklog/2026-06-11-unhandledrejection-backstop.md",
       "genre": "worklog",
       "is_hub": false,
@@ -3690,7 +3698,7 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "frontend/FILES.md",
@@ -3705,8 +3713,8 @@
       "genre": "subproject-frontend",
       "is_hub": false,
       "first_committed": "2026-05-31",
-      "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "frontend/README.md",
@@ -18808,6 +18816,34 @@
       "to": "docs/handoff-current.md",
       "kind": "path-mention",
       "site": "`docs/handoff-current.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-thumbnail-render-lifecycle-consolidation.md",
+      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-thumbnail-render-lifecycle-consolidation.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-thumbnail-render-lifecycle-consolidation.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-thumbnail-render-lifecycle-consolidation.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
       "resolved": "resolved"
     },
     {
