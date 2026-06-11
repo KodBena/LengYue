@@ -37,12 +37,12 @@ explicit root/sub-project file list — not reference rot).
 
 - **Dangling from LIVE documents, missing on disk** (review these): **18**.
 - **Dangling from LIVE documents, retired (tombstoned) targets**: **28**.
-- **Dangling from LIVE documents, on disk but outside the node set**: **11**.
+- **Dangling from LIVE documents, on disk but outside the node set**: **12**.
 - **Dangling from EXECUTED playbooks** (reference-only records): **25**.
-- **Dangling from FROZEN documents** (archive + worklogs; expected drift): **302**.
+- **Dangling from FROZEN documents** (archive + worklogs; expected drift): **303**.
 - **Directory references missing on disk**: **6** from live
   documents, **9** from frozen/executed
-  (252 directory references scanned in total).
+  (257 directory references scanned in total).
 - **Ambiguous references** (bare filename matches more than one node — never
   silently resolved, per ADR-0002): **0**.
 
@@ -115,6 +115,7 @@ not reference rot. They are the inventory for any future widening of the
 node-set scope (a maintainer decision, not an action item here).
 
 - `backend/README.md` → `backend/samples/README.md` *(path-mention)* — target `backend/samples/README.md` exists on disk but is outside the doc-graph node set.
+- `docs/adr/0006-source-file-headers.md` → `backend/qeubo/README.md` *(path-mention)* — target `backend/qeubo/README.md` exists on disk but is outside the doc-graph node set.
 - `docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md` → `frontend/docs/i18n.md` *(path-mention)* — target `frontend/docs/i18n.md` exists on disk but is outside the doc-graph node set.
 - `docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md` → `frontend/docs/notes/board-scope.md` *(path-mention)* — target `frontend/docs/notes/board-scope.md` exists on disk but is outside the doc-graph node set.
 - `docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md` → `frontend/tests/CLAUDE.md` *(path-mention)* — target `frontend/tests/CLAUDE.md` exists on disk but is outside the doc-graph node set.
@@ -496,6 +497,7 @@ being un-frozen.
 - `docs/worklog/2026-06-02-design-note-retirement-gate.md` → `docs/notes/documentation-graph-artifact-plan.md` *(path-mention)* — target `docs/notes/documentation-graph-artifact-plan.md` does not resolve to any node and does not exist on disk.
 - `docs/worklog/2026-06-04-qeubo-e2e-validation-harness.md` → `backend/qeubo/README.md` *(path-mention)* — target `backend/qeubo/README.md` exists on disk but is outside the doc-graph node set.
 - `docs/worklog/2026-06-11-persistence-board-keyed-drain.md` → `frontend/docs/notes/board-scope.md` *(path-mention)* — target `frontend/docs/notes/board-scope.md` exists on disk but is outside the doc-graph node set.
+- `docs/worklog/2026-06-11-source-file-header-lint.md` → `backend/qeubo/README.md` *(path-mention)* — target `backend/qeubo/README.md` exists on disk but is outside the doc-graph node set.
 
 ## License
 

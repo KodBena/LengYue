@@ -6,14 +6,23 @@
   ADR-0004 (minimal-touch), and ADR-0005 (documentation
   discipline).
 - **Date:** 2026-04-26
-- **Amendments:** 2026-06-11 — corrected the exemplar path
-  (`frontend/src/composables/useTreeLayout.ts` →
-  `frontend/src/composables/forest/useTreeLayout.ts`; the file moved in
-  a source-tree reorganisation and its own header self-updated per this
-  tenet — only this ADR's citation had rotted). No content change.
+- **Amendments:**
+  - 2026-06-11 — corrected the exemplar path
+    (`frontend/src/composables/useTreeLayout.ts` →
+    `frontend/src/composables/forest/useTreeLayout.ts`; the file moved in
+    a source-tree reorganisation and its own header self-updated per this
+    tenet — only this ADR's citation had rotted). No content change.
+  - 2026-06-11 — **Revisit #1 fired (partially): the auto-VERIFY half of the
+    pathname-header tooling shipped, advisory-first.** See the
+    "Revisit when…" §1 note below for the precise scope of what fired and
+    what did not. Also added the vendored-third-party-trees exemption to
+    §Exceptions (so the new tool's `backend/qeubo/**` data-exemption cites
+    ADR text, not an analogy to the submodule clause).
 - **Scope:** All source files in `frontend/` and `backend/` (and
   any future sub-projects added to the umbrella). Submodules
-  (`proxy/`) follow their own conventions.
+  (`proxy/`) follow their own conventions; vendored third-party trees
+  inside a sub-project (e.g. `backend/qeubo/`, MIT) are likewise out of
+  scope — see §Exceptions.
 
 ## Context
 
@@ -145,13 +154,26 @@ through normal editing.
   (`tests/integration/test_pipeline_e2e.py`) is useful in PR
   diffs and test-failure output.
 - **Generated files** — e.g., `frontend/src/types/backend.ts`
-  (the OpenAPI codegen output) — do not carry a hand-written
-  header. These files are regenerated top-to-bottom each time
-  the codegen runs; any header would be lost. The codegen
-  tool's own configuration is the right place for this concern.
+  (the OpenAPI codegen output), and the Alembic migration
+  templates under `backend/alembic/versions/` (whose module
+  docstring is the migration message, not a path) — do not carry
+  a hand-written header. These files are regenerated
+  top-to-bottom each time the codegen runs; any header would be
+  lost. The codegen tool's own configuration is the right place
+  for this concern.
 - **Configuration files** (`.json`, `.yaml`, `.toml`) follow
   their own format conventions; a pathname comment is fine but
   not required.
+- **Vendored third-party trees inside a sub-project** — e.g.
+  `backend/qeubo/` (MIT-licensed; Meta Platforms,
+  `backend/qeubo/LICENSE`), behind the directory-scoped licensing
+  firewall (`backend/qeubo/README.md`). These follow their own
+  upstream conventions, exactly as a submodule does (Scope), and
+  this tenet's per-file *Public Domain* license declaration would
+  be actively wrong on them. They are out of scope. (Added
+  2026-06-11 alongside the verify tool; previously implicit by
+  analogy to the submodule clause, now explicit so the tool's
+  data-exemption cites ADR text.)
 
 ## Consequences
 
@@ -170,10 +192,17 @@ through normal editing.
 
 - **Per-file ceremony.** Small but real. Especially for files
   that are essentially type definitions or short utilities.
-- **Discipline is policy, not mechanism.** The tenet lives in
-  authoring habit and code review. A linter could automate the
-  pathname check and might be a good first step toward partial
-  mechanization, but is not currently in place.
+- **Discipline is policy, with an advisory mechanism since
+  2026-06-11.** The tenet lives in authoring habit and code
+  review. The pathname-presence check is now partially mechanized
+  by `tools/source-headers/check.mjs` — an **advisory** verify
+  tool (ADR-0011 Rule 1: advisory surface), wired non-gating into
+  CI. It reports per-file path-presence misses and a summary
+  count; it does not gate, and the *enforced* register this bullet
+  originally imagined (a lint at `error`) deliberately did NOT
+  ship (see Revisit #1, fired). So the discipline remains
+  policy-enforced for the placement and purpose/license parts of
+  the header, with the path-presence part now measured.
 
 ### Neutral
 
@@ -214,6 +243,53 @@ This tenet is worth revisiting if:
    headers.** A linter would partially mechanize the discipline,
    at which point the rule could be tightened (e.g., enforced
    rather than reviewed).
+
+   > **FIRED 2026-06-11 (partially) — work-status item
+   > `source-file-header-lint`.** What fired: the **auto-VERIFY**
+   > half. `tools/source-headers/check.mjs` ships — a zero-dep
+   > Node tool that walks the two subprojects (frontend
+   > `src/**/*.{ts,vue}`, backend `**/*.py`), applies this ADR's
+   > exemption list (encoded as data with this ADR cited per
+   > entry), and reports per-file whether the head block carries
+   > the file's subproject-relative path, with a summary count.
+   > It is wired non-gating into CI (the dedicated
+   > `source-headers-ci.yml` workflow — its own workflow rather than
+   > a `frontend-ci.yml` job, because the corpus spans both
+   > subprojects while that workflow triggers on `frontend/**` only).
+   >
+   > What did **NOT** fire, precisely:
+   > - **Not auto-GENERATE.** The tool only verifies; it writes no
+   >   headers. The "auto-generate" clause of this trigger is
+   >   untouched.
+   > - **Not tightened to enforced.** The check is **advisory**
+   >   (ADR-0011 Rule 1: advisory surface) — `--check` exits 0 on
+   >   path-presence misses; only a missing-subproject-root is
+   >   fatal. The "the rule could be tightened (enforced rather
+   >   than reviewed)" clause is explicitly NOT exercised. This is
+   >   the measure-first first step (ADR-0011 Rule 3), not the
+   >   `error`-gate. Tightening to enforced remains a future,
+   >   separate decision contingent on a zero-or-fully-triaged
+   >   baseline.
+   > - **Not a retroactive sweep.** The Consequences › Neutral
+   >   "no retroactive rewrite" posture is unchanged; the tool
+   >   names the misses (frontend 6, backend 37 at adoption) for
+   >   the ADR-0004 incremental-retrofit path, it does not fix
+   >   them.
+   > - **Not a placement check.** The tool measures path
+   >   *presence* in the head block, not the ADR's prescribed
+   >   *placement* (for `.vue`, the `<script>` JSDoc). ~50 of 69
+   >   `.vue` files carry the path in a leading HTML template
+   >   comment instead; the tool counts those present and
+   >   quantifies the swing in its report. A placement-strict
+   >   check is a named, separate follow-up.
+   >
+   > Adoption baseline (measured at ship, a dated point-in-time
+   > census per ADR-0011 Rule 3): frontend **224/230**
+   > path-present (97.4%; 1 generated file exempt), backend
+   > **83/120** (69.2%; 3 alembic-migration + 9 `__init__.py`
+   > exempt, `backend/qeubo/**` exempt by license boundary). See
+   > `docs/worklog/2026-06-11-source-file-header-lint.md`.
+
 2. **The project's license posture changes.** If the project
    moves away from Public Domain, the per-file license
    declaration's specifics need updating, but the discipline
@@ -233,6 +309,17 @@ This tenet is worth revisiting if:
   of which file-headers are a specific instance. ADR-0005 Rule
   5 (file location reflects content) is harder to violate when
   the file declares its own location.
+- **ADR-0011 (mechanization discipline).** Rule 1 (a discipline
+  declares its enforcement surface) is the register under which
+  the verify tool is **advisory**, and Rule 3 (measure-first) is
+  the adoption protocol its dated baseline follows. The Revisit
+  #1 firing above is a worked instance of Rule 1's "the existing
+  per-tenet … mechanization Revisit triggers are this rule's
+  pre-existing instances".
+- **`tools/source-headers/check.mjs`.** The advisory verify tool
+  that mechanizes this tenet's path-presence half (Revisit #1,
+  fired 2026-06-11). Structural twin of
+  `tools/band-conformance/check.mjs`.
 - **`frontend/src/composables/forest/useTreeLayout.ts`.** The exemplar
   header that this tenet codifies.
 

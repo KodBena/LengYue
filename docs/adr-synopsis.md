@@ -167,8 +167,9 @@ a header with three parts: pathname relative to subproject root, a
 brief purpose statement, and a license declaration. For TypeScript
 and `.ts` files, this is a JSDoc block at the top. For Vue SFCs, the
 JSDoc lives at the top of the `<script>` block. For Python, it is
-the module docstring. Generated files, configuration files, and
-`__init__.py` are exempt.
+the module docstring. Generated files, configuration files,
+`__init__.py`, and vendored third-party trees inside a sub-project
+(e.g. `backend/qeubo/`, MIT) are exempt.
 
 **Why care.** A file pasted into a chat, a PR diff, or a code-search
 result identifies itself; this composes directly with ADR-0004's
@@ -176,6 +177,14 @@ partial-visibility discipline. The license declaration matters at
 the moment any single file gets vendored, copied, or reposted
 outside the project. Per ADR-0004's spirit, no retroactive sweep —
 headers accumulate naturally as files cycle through normal editing.
+
+**Mechanization (Revisit #1, fired 2026-06-11, advisory-first).**
+`tools/source-headers/check.mjs` is an advisory verify tool (ADR-0011
+Rule 1: advisory surface, non-gating in CI) that measures whether
+each non-exempt source file's head block carries its
+subproject-relative path. It does not gate, generate, sweep, or check
+placement — those did not fire. Adoption baseline: frontend 224/230,
+backend 83/120.
 
 ## ADR-0007: File Size and Information Density
 
