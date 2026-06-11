@@ -490,8 +490,13 @@ export const storeWriteNeedsOwner = {
           if (!rootSegs) continue;
           if (aw.bareStoreRoot) {
             // The knob substrate is handed the live store ROOT; its
-            // KnobDecl output paths land on this subtree's leaves. Fire
-            // when the resolved root IS the store root (segments []).
+            // KnobDecl output paths land MOSTLY on this subtree's leaves
+            // (some land on session.ui — the substrate dispatches over a
+            // mixed registry, so any non-owner store-rooted knob call is
+            // flagged wholesale; a session.ui knob reported under the
+            // profile subtree is harmless over-attribution, matching the
+            // deleted selector's behavior). Fire when the resolved root
+            // IS the store root (segments []).
             if (rootSegs.length !== 0) continue;
           } else {
             // updateRegistry-shape: the root argument is itself a

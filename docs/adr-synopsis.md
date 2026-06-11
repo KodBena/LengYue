@@ -34,9 +34,11 @@ scope analysis the two generic-machinery aliased-write shapes for
 `store.profile` (`updateRegistry` / knob-substrate dispatch) and a
 one-hop intermediate-variable root, so a renamed import and a
 single-hop alias are seen rather than name-matched
-(`profile-owner-scope-analysis-net`, subsuming the prior
-`no-restricted-syntax` selectors); a multi-hop re-alias and a
-reassigned root binding remain review's to catch.
+(`profile-owner-scope-analysis-net` — the prior
+`no-restricted-syntax` selectors relocated into the rule,
+deliberately narrower at the non-arg-0 READ case, which had zero
+population); a multi-hop re-alias and a reassigned root binding
+remain review's to catch.
 
 **Why care.** A type that claims a property the runtime doesn't hold
 is a lie. ADR-0001 aligns the type declarations with actual behavior

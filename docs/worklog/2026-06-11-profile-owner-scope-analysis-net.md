@@ -178,8 +178,11 @@ config to boards/engine would be speculative, not cheap — not taken.
 - `npx eslint .` exit 0 — all nine custom rules at `error` green
   (store-write-needs-owner now carries the machinery check; the two
   former selectors gone, the two owner inline disables gone).
-- `npm run test:run`: 1039 passed / 4 skipped (the pre-existing skips);
-  +22 new store-write-needs-owner RuleTester cases.
+- `npm run test:run`: 1040 passed / 4 skipped (the pre-existing skips);
+  +23 new store-write-needs-owner RuleTester cases. (Corrected at gate
+  discharge: this line predated the negative-control case the
+  disposition note records; the out-of-frame gate ground-truthed
+  1040/+23.)
 
 ## Documentation audit
 
