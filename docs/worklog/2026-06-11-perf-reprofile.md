@@ -100,4 +100,3 @@ is a docs-only change; the suite is run per the campaign discipline, not
 because behaviour changed).
 
 License: Public Domain (The Unlicense).
-</content>

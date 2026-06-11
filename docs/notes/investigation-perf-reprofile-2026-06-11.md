@@ -381,4 +381,3 @@ preserving the prior text; the maintainer applies on sign-off. (SQL shape:
   count-comparable baseline this re-profile matches.
 
 License: Public Domain (The Unlicense).
-</content>
