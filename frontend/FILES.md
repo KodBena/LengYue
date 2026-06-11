@@ -57,7 +57,9 @@ frontend/src/
 ├── types.ts                           [B3]  Barrel over the per-domain type modules (`types/*` + `store/schema.ts`; 2026-06-10 split). Re-exports span all three bands, so the hub tags for the highest band it re-exports; it declares nothing itself, and three runtime values (BUNDLE_COMPRESSION_SCHEMES, QeuboError, CardTreeOverflowError) pass through, making it a runtime module.
 ├── style.css                          [B1]  Empty stub; theme lives in chrome substrate variables.
 │
-├── assets/                                  Static assets (icons, textures).
+├── assets/                                  Static assets (icons, textures) + the css/ substrate sheets.
+│   └── css/
+│       └── shared-chrome.css          [B1]  Shared chrome classes consumed across SFCs (settings disclosures, deck selector, SR-tab inputs, dark-input family, small toolbar buttons) — relocated 2026-06-11 from App.vue's unscoped style block so style ownership is explicit. (theme.css / style.css / palettes.css are substrate sheets predating this map's css coverage; rows accrue on touch per the normal cadence.)
 │
 ├── components/                              Vue SFCs. Thin renderers, minimum wiring to composables.
 │   ├── CardMetadataPanel.vue          [B3]  Inline-edit metadata panel for a single card (tags / numMoves / gamma / suspended / reset_prior).
@@ -194,10 +196,13 @@ frontend/src/
 │   │   ├── autonomous-srs.ts          [B3]  Policy/Driver/Recorder abstractions for the autonomous SRS loop.
 │   │   ├── suggestion-color-calibration.ts [B3] Domain init for the suggestion-color gradient: hue-shift watcher + fire-and-forget visit-distribution fetch (via getResource<T>); called once from useAppBootstrap.
 │   │   ├── useActivePath.ts           [B2]  NodeId lineage root → current node.
+│   │   ├── useBoardMoveRouting.ts     [B3]  Grading-integrity gate for both board-mutation entry points (click-to-play + paste-PV): AWAITING_MOVE routes to the review session's graded handler, transient SR states refuse mutation, free play (with the game-head engine trigger) is IDLE/FINISHED-only. Extracted from App.vue 2026-06-11.
 │   │   ├── useDirtyBoardGuard.ts      [B3]  Dirty-board guard: confirm-load modal + dirty-board policy for cards AND library games; delegates the SGF load to sgf/loadIntoBoard (swallow-and-log over the fail-loud primitive).
-│   │   ├── useEngineResponder.ts      [B3]  "Play vs engine" trigger: `fireAndAdvanceHead(boardId, gameStartNodeId)` queries the engine at the board's current position and advances the game's single green-ring head; invoked from App.vue when the user plays from a head.
+│   │   ├── useEngineResponder.ts      [B3]  "Play vs engine" trigger: `fireAndAdvanceHead(boardId, gameStartNodeId)` queries the engine at the board's current position and advances the game's single green-ring head; invoked from useBoardMoveRouting when the user plays from a head.
+│   │   ├── useFollowMePonder.ts       [B3]  "Follow Me" ponder watcher: re-issues the active board's ponder query on same-board navigation (board switches excluded). App.vue's former direct analysis-service watcher, relocated to the composable layer 2026-06-11.
 │   │   ├── use-move-suggestions.ts    [B3]  Refined intensity-mapping for KataGo move suggestions.
 │   │   ├── usePlayFromPosition.ts     [B3]  "Engine plays from here" — looped applyGoMove against a KataGo URL.
+│   │   ├── usePlayVsEngine.ts         [B3]  Play-vs-engine game-session lifecycle on `BoardState.games`: start (with the engine-turn kick via the injected responder), end, and the green-ring heads set. Extracted from App.vue 2026-06-11.
 │   │   ├── use-pv-animation.ts        [B3]  PV stone-sequence animation (window / instant / sequential modes).
 │   │   └── useVariationPath.ts        [B2]  Full active game-line root → leaf.
 │   │
