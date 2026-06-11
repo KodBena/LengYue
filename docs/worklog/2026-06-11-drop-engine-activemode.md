@@ -3,7 +3,7 @@
 > Audit trail for work-status item `drop-engine-activemode` (rerouted
 > 2026-06-10 from the deferral harvest's staged §5.D; original deferral
 > `docs/worklog/2026-05-16-per-board-multi-query.md`). Branch
-> `bork/refactor/drop-engine-activemode`, PR #PENDING. Strengthened by
+> `bork/refactor/drop-engine-activemode`, PR #406. Strengthened by
 > the 2026-06-10 hydration-residue audit, which observed activeMode kept
 > projecting a completed mode after natural completion (doc-vs-behaviour
 > drift) and found no readers.
