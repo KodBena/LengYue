@@ -13,6 +13,11 @@
  *   - `nav-range`       — autonav while a full-game range analysis streams
  *                         (regime-B: the interleaving case).
  *   - `full-stress`     — `nav-range` plus concurrent popover churn.
+ *   - `jank-extended`    — the docked-thumbnail jank stress (16-board Shusaku
+ *                         rail + hover-scrub) composed with the board-overlay +
+ *                         never-completing-query stress the bare jank test
+ *                         omits, ending in an indirect cancel by proxy
+ *                         disconnect. Built in `jankExtended.ts`.
  *
  * Domain band (ADR-0003): game-tree-coupled (B2). Dev-only; makes no
  * perf *claim* (ADR-0009).
@@ -23,6 +28,7 @@ import { analysisService } from '../../services/analysis-service';
 import { runScenario } from './scenarioContext';
 import { popoverStress, DEFAULT_POPOVER_TARGET } from './stimuli';
 import { DEFAULT_FIXTURE_SGF } from './fixtures';
+import { jankExtendedScenario } from './jankExtended';
 import type { BoardId } from '../../types';
 import type { PerfScenario, ScenarioContext } from './types';
 
@@ -150,6 +156,25 @@ const REGISTRY: ReadonlyMap<string, ScenarioFactory> = new Map<string, ScenarioF
         q.stop();
       },
     }),
+  ],
+  [
+    // The extended jank protocol (work-status `perf-jank-extended-before-after`,
+    // 2026-06-12): the docked-thumbnail jank stress composed with the board-
+    // overlay + streaming-query stress the bare jank test omits. Its run shape
+    // — 16-board Shusaku rail, a warm 200-visit transposition query, all four
+    // overlays asserted on, then a single autonav pass under popover/hover/
+    // never-completing-100000-visit-query stress ending in an indirect cancel
+    // by proxy disconnect — lives in `jankExtended.ts`. Unlike the fixture-
+    // based scenarios it builds its own board rail (via the jank substrate) and
+    // manages its own cleanup, so it is registered as a pre-built scenario
+    // rather than via the `prepareAnalysis` preamble. `visits` is ignored (the
+    // protocol pins 200 warm / 100000 in-flight); `proxyUrl`/`model` flow.
+    'jank-extended',
+    (cfg) =>
+      jankExtendedScenario({
+        proxyUrl: cfg.proxyUrl ?? DEFAULT_PROXY_URL,
+        model: cfg.model,
+      }),
   ],
 ]);
 
