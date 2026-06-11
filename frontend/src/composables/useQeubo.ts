@@ -147,6 +147,8 @@ const QEUBO_KNOB_PREFIX = 'qeubo.';
  * user's authored intent) to the registry.
  */
 function knobIdForParam(name: string): KnobId {
+  // KnobId brand mint: the `qeubo:`-prefixed template literal is the sole
+  // construction shape for a qEUBO knob id (this fn is the factory).
   return `${QEUBO_KNOB_PREFIX}${name}` as KnobId;
 }
 
@@ -363,6 +365,8 @@ function acquireExperimentClaims(controlledParams: readonly string[]): KnobId[] 
  */
 function releaseAllExperimentClaims(): void {
   for (const knobId of _claimedKnobIds) {
+    // _claimedKnobIds is a Set<string> of values minted as KnobIds; re-brand
+    // on the way back out (the brand is the set's element invariant).
     releaseKnob(knobId as KnobId, QEUBO_CONSUMER_ID);
   }
   _claimedKnobIds.clear();
@@ -443,6 +447,8 @@ export { rehydrateExperimentClaims };
 // read site. The toolbar binds to this via v-model.
 
 const _toolbarView: WritableComputedRef<'applied' | 'A' | 'B'> = computed({
+  // The persisted field is a wider string union; the migration guarantees a
+  // member of the narrow toolbar union, so narrow after the `?? 'applied'`.
   get: () => (store.session.ui.qeuboToolbarView ?? 'applied') as 'applied' | 'A' | 'B',
   set: (v: 'applied' | 'A' | 'B') => {
     store.session.ui.qeuboToolbarView = v;
@@ -822,7 +828,7 @@ function pinCurrent(name: string): void {
     parameters[knobIdForParam(paramName)] = [value];
   }
   const bookmark: QeuboBookmark = {
-    id: generateUUID() as BookmarkId,
+    id: generateUUID() as BookmarkId, // BookmarkId brand mint (fresh client UUID)
     name: trimmed,
     createdAt: Date.now(),
     parameters,
@@ -860,6 +866,8 @@ function applyBookmark(id: BookmarkId): void {
   // only for the user-facing conflict label.
   const registry = store.profile.settings.knobs;
   const conflicts: string[] = [];
+  // bookmark.parameters is Record<KnobId, …>, so its keys are KnobIds
+  // (re-brand the Object.keys string[] widening; the reshape minted them).
   for (const knobId of Object.keys(bookmark.parameters) as KnobId[]) {
     if (!(knobId in registry)) continue;
     const claim = currentClaim(knobId);
@@ -884,6 +892,8 @@ function applyBookmark(id: BookmarkId): void {
   // legacy path; same shape as `applyEffective`) — those are scalar
   // analysis-env params, so the length-1 vector's `[0]` is the value.
   const params = store.profile.settings.engine.katago.analysis_env.parameters;
+  // Object.entries on Record<KnobId, number[]> widens the key to string;
+  // re-brand the entry tuples to the declared [KnobId, number[]] shape.
   for (const [knobId, value] of Object.entries(bookmark.parameters) as [KnobId, number[]][]) {
     if (knobId in registry) {
       writeKnobValue(store, registry, knobId, value, { kind: 'manual' });
@@ -899,6 +909,7 @@ function applyBookmark(id: BookmarkId): void {
   // conflict check above runs against the bookmark's keys only;
   // deletions of unclaimed-extra keys are safe by definition.
   const bookmarkedNames = new Set(
+    // Keys of Record<KnobId, …> are KnobIds; re-brand for paramNameForKnobId.
     (Object.keys(bookmark.parameters) as KnobId[]).map(paramNameForKnobId),
   );
   for (const name of Object.keys(params)) {

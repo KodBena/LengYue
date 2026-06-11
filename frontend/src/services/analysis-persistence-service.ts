@@ -88,6 +88,8 @@ function toWireRecord(r: AnalysisRecord): AnalysisBundleRecordWire {
   return {
     config_hash: r.configHash,
     node_id: r.nodeId,
+    // ACL: the typed KataAnalysisResponse packet is opaque JSON on the wire
+    // — widen to the open-record wire slot (Band-2 domain → wire).
     packet: r.packet as unknown as { [k: string]: unknown },
   };
 }
@@ -111,6 +113,8 @@ function fromWireBundle(wire: AnalysisBundleWire): AnalysisBundle {
  * than silent data loss.
  */
 function decodeV2Bundle(wire: AnalysisBundleV2Wire): AnalysisBundle {
+  // The wire descriptor is an open JSONB blob; read its `scheme` field as
+  // `unknown`, checked `string` below (decode frontier).
   const descriptor = wire.format_descriptor as { scheme?: unknown };
   const scheme = typeof descriptor?.scheme === 'string' ? descriptor.scheme : '';
   const encoder = getEncoderForScheme(scheme);
@@ -144,6 +148,8 @@ function toWireBundleV2(bundle: AnalysisBundle, scheme: string): AnalysisBundleV
   return {
     wire_format: 'v2',
     schema_version: bundle.schemaVersion,
+    // The typed FormatDescriptor goes out as an open JSONB blob (Band-2
+    // domain → wire); the receiver re-reads it structurally on decode.
     format_descriptor: encoded.descriptor as unknown as { [k: string]: unknown },
     record_count: encoded.recordCount,
     uncompressed_byte_size: encoded.uncompressedByteSize,
@@ -154,7 +160,7 @@ function toWireBundleV2(bundle: AnalysisBundle, scheme: string): AnalysisBundleV
 function fromWireRecord(wire: AnalysisBundleRecordWire): AnalysisRecord {
   return {
     configHash: wire.config_hash,
-    nodeId: wire.node_id as NodeId,
+    nodeId: wire.node_id as NodeId, // ACL Band-2 brand mint (wire node_id → NodeId)
     // Trust the backend to return the packet shape unchanged — it's
     // opaque storage on its side, byte-for-byte modulo JSON
     // normalisation. The cast is the codebase's standard
@@ -174,6 +180,7 @@ function fromWireSummary(wire: AnalysisBundleSummaryWire): AnalysisBundleSummary
     updatedAt: wire.updated_at,
     uncompressedByteSize: wire.uncompressed_byte_size ?? null,
     formatDescriptor:
+      // ACL: surface the wire descriptor as the domain summary's open blob.
       (wire.format_descriptor as { [k: string]: unknown } | null | undefined) ?? null,
   };
 }
@@ -311,9 +318,11 @@ export class AnalysisPersistenceService {
     const bundle = projectLedgerToBundle(boardId);
     const scheme = readCompressionScheme();
     const body =
+      // Both branches produce a concrete member of the AnalysisBundleWire
+      // union (v1 vs v2 wire shapes); widen to the union for the request body.
       scheme === 'v1'
-        ? (toWireBundle(bundle) as AnalysisBundleWire)
-        : (toWireBundleV2(bundle, scheme) as AnalysisBundleWire);
+        ? (toWireBundle(bundle) as AnalysisBundleWire) // widen v1 wire shape to the union
+        : (toWireBundleV2(bundle, scheme) as AnalysisBundleWire); // widen v2 wire shape to the union
     try {
       const wire = await api.request<AnalysisBundleSummaryWire>(
         'PUT',

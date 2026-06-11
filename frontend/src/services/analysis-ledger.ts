@@ -242,6 +242,8 @@ function mergeRecords<T extends Record<string, unknown>>(
         );
         guard.escalate({ key, nullFields });
       }
+      // Index-write into the merged copy: T's keys are open at this generic
+      // boundary, so widen to a writable record (value is T's own member).
       (merged as Record<string, unknown>)[key] = value;
     }
   }
@@ -263,10 +265,14 @@ function mergePlayerExtra(existing?: KataPlayerExtra, incoming?: KataPlayerExtra
   if (!incoming) return existing;
   return {
     triangular: mergeTriangular(existing.triangular, incoming.triangular),
+    // Adapt the typed numeric-leaf records to mergeRecords' generic
+    // Record<string,unknown> signature, then re-narrow the merged result to
+    // the field's declared shape (sound: merge preserves the leaf type).
     deltas: mergeRecords(
-      existing.deltas as Record<string, unknown> | undefined,
-      incoming.deltas as Record<string, unknown> | undefined
+      existing.deltas as Record<string, unknown> | undefined, // adapt to generic merge
+      incoming.deltas as Record<string, unknown> | undefined // adapt to generic merge
     ) as Record<string, number> | undefined,
+    // Same generic-merge adapter; cwt's result type matches the helper's.
     cwt: mergeRecords(existing.cwt as Record<string, unknown> | undefined, incoming.cwt as Record<string, unknown> | undefined),
   };
 }
@@ -304,8 +310,10 @@ function mergeKataExtra(existing?: KataExtra, incoming?: KataExtra): KataExtra |
     // `deltas` / `cwt` are numeric-leaf records the top-level nullish check
     // in `mergeRecords` already covers; they stay unguarded.
     state: mergeRecords(
+      // Adapt the typed nested-record `state` to the generic merge signature;
+      // result re-narrowed to the declared nested shape below.
       existing.state as Record<string, unknown> | undefined,
-      incoming.state as Record<string, unknown> | undefined,
+      incoming.state as Record<string, unknown> | undefined, // adapt to generic merge
       stateNestedGuard
     ) as Record<string, Record<string, number>> | undefined,
     black: mergePlayerExtra(existing.black, incoming.black),
@@ -448,6 +456,8 @@ export class AnalysisLedger {
   public purgeBoard(boardId: BoardId): void {
     const board = store.boards.find(b => b.id === boardId);
     if (!board) return;
+    // board.nodes is a Record<NodeId, …>, so its keys are NodeIds (re-brand
+    // the Object.keys string[] widening).
     const nodeIds = Object.keys(board.nodes) as NodeId[];
     const cleared = new Set<string>();
     purgeNodesFrom(rawData, nodeIds, cleared);
