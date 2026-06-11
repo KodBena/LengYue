@@ -114,7 +114,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
@@ -138,7 +138,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/adr/0006-source-file-headers.md",
@@ -186,7 +186,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/archive/34b-complete-status.md",
@@ -2578,7 +2578,7 @@
       "is_hub": false,
       "first_committed": "2026-06-04",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/rfcs/0001-adr-meta-review.md",
@@ -3608,9 +3608,9 @@
       "path": "docs/worklog/2026-06-11-gate-recommendations-sweep.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-11-genapi-host-configurable.md",
@@ -3626,7 +3626,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-11-perf-reprofile.md",
