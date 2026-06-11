@@ -150,6 +150,17 @@ def main() -> None:
             sys.exit("FAIL — round-trip mismatch on {} item(s):\n{}".format(
                 len(diffs), "\n".join(diffs[:10])))
 
+    # Re-baseline the audit trail after a reseed: DROP TABLE fired no row
+    # triggers, so the trail has a discontinuity until a fresh genesis
+    # snapshot lands (see schema.sql §Audit trail). Guarded so the loader
+    # still works against a store without the trail installed.
+    with conn.cursor() as cur:
+        cur.execute("SELECT to_regproc('audit_genesis_snapshot') IS NOT NULL")
+        if cur.fetchone()[0]:
+            cur.execute("SELECT audit_genesis_snapshot()")
+            print(f"audit trail: genesis snapshot of {cur.fetchone()[0]} rows (post-reseed baseline)")
+            conn.commit()
+
     print(f"OK — {len(items)} items round-trip faithfully into `{PG['dbname']}` "
           f"({counts['deps'][0]} deps, {counts['refs'][0]} refs, "
           f"{counts['labels'][0]} labels); 0 invariant violations.")

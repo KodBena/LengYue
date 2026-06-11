@@ -1,6 +1,6 @@
 {
-  "node_count": 453,
-  "edge_count": 2166,
+  "node_count": 454,
+  "edge_count": 2167,
   "age_buckets": [
     {
       "name": "fresh",
@@ -26,7 +26,7 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "fresh"
     },
     {
       "path": "FEATURES.md",
@@ -3138,7 +3138,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-01-integration-test-hermeticity.md",
@@ -3522,7 +3522,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-11-adr-corpus-amendments.md",
@@ -3570,7 +3570,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-11-genapi-host-configurable.md",
@@ -3606,6 +3606,14 @@
     },
     {
       "path": "docs/worklog/2026-06-11-unhandledrejection-backstop.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-11-work-status-audit-trail.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": "2026-06-11",
@@ -18428,6 +18436,13 @@
       "to": "docs/doc-graph.md",
       "kind": "path-mention",
       "site": "`docs/doc-graph.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-work-status-audit-trail.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
       "resolved": "resolved"
     },
     {
