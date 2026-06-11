@@ -296,11 +296,12 @@ frontend/src/
 │   └── sync-service.ts                [B1]  Stateless persistence bridge; identity-aware document sync.
 │
 ├── store/                                   Single GlobalStore singleton + mutators + migrations.
-│   ├── archived-migrations.ts         [B1]  Pre-v1.0.0 schema migrations (preserved for the framework's contiguity invariant).
+│   ├── archived-migrations.ts         [B1]  Aged-out schema migrations (1→2 .. 57→58) lifted out under the rolling-archive cadence to keep migrations.ts scoped to the latest two; preserved for the framework's contiguity invariant. Post-retrofit bodies call witnessedContainer (imported from migration-witness.ts).
 │   ├── board-factory.ts               [B3]  Pure factory functions for board state construction.
 │   ├── defaults.ts                    [B3]  Initial GlobalStore constants (board defaults dominate; some B1 too).
 │   ├── index.ts                       [B3]  Central reactive store; createBoard / closeBoard / resetWorkspace.
-│   ├── migrations.ts                  [B1]  Schema-versioning framework (B1) incl. the witnessedContainer leaf-assertion helper (its runtime-shape witness imports defaults); the migrations themselves touch every band.
+│   ├── migration-witness.ts           [B1]  The witnessedContainer leaf-assertion helper + its runtime-shape witness (imports defaults), homed in a leaf module so both migrations.ts and archived-migrations.ts call it without a module cycle.
+│   ├── migrations.ts                  [B1]  Schema-versioning framework; the active body holds the latest two migrations (re-exports witnessedContainer from migration-witness.ts); the migrations themselves touch every band.
 │   └── schema.ts                      [B3]  Persisted GlobalStore schema (AppSettings / UISession / ProfileState / SessionState / GlobalStore + persisted-slice types), colocated with defaults.ts. The engine.katago subtree and the BoardState / EngineState references dominate the leakage; the persistence machinery itself is B1. Carries the BUNDLE_COMPRESSION_SCHEMES runtime const.
 │
 ├── i18n/                                    vue-i18n integration.

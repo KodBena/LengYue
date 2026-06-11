@@ -5,10 +5,16 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-06-03: migrations 1 → 2 through 55 → 56 (55
+ * Scope as of 2026-06-11: migrations 1 → 2 through 57 → 58 (57
  * entries). The first eight covered pre-v1.0.0 schema evolution;
  * the rest are the v1.0.x – v1.1.x active cycle, archived in
  * per-PR rolling fashion under the same archive contract.
+ *
+ * Note: the most recently archived bodies (57 → 58 onward) were
+ * authored against the `witnessedContainer` helper and keep that call
+ * verbatim — the archive imports the helper from `migration-witness.ts`
+ * (see the import below). Pre-helper bodies keep their original inline
+ * guards.
  *
  * Why preserved (not deleted): the migration framework's `migrate()`
  * function indexes a contiguous array — `migrations[i]` carries
@@ -31,6 +37,12 @@ import {
   detectBrowserLocale,
   isSupportedLocale,
 } from '../i18n/locales';
+// Bodies that aged out of `migrations.ts` under the rolling-archive
+// cadence keep their `witnessedContainer` calls verbatim. The helper
+// lives in its own leaf module so the move stays a pure cut-and-paste
+// without forcing a migrations ↔ archived module cycle. See
+// `migration-witness.ts`'s header for the why.
+import { witnessedContainer } from './migration-witness';
 import type { SystemMessage } from '../types';
 
 export type Migration = (blob: any) => any;
@@ -2402,6 +2414,31 @@ export const archivedMigrations: Migration[] = [
         }
         bm.parameters = reshaped;
       }
+    }
+    return out;
+  },
+  // 57 → 58: strip the now-stale `profile.knownTags` from persisted blobs.
+  // knownTags moved out of the persisted profile to a non-persisted
+  // top-level `GlobalStore` field (it's a server-derived cache re-fetched
+  // every boot — see the ProfileState invariant; closes the
+  // tags-fetch-hydration-race). Without this strip, an old blob's
+  // `profile.knownTags` would survive `updateFromRemote`'s deepMerge as a
+  // stray runtime key on `store.profile` and get re-persisted forever —
+  // half-defeating the move. No value is carried forward (the boot fetch
+  // repopulates the new field); we just delete the dead key.
+  //
+  // Idempotent: `delete` is a no-op when the key is already absent.
+  //
+  // Container access goes through `witnessedContainer` (semantics-
+  // preserving retrofit; see the helper's docstring): 'profile' is
+  // witnessed against the runtime shape, and the blob-side resolution
+  // keeps the prior `out.profile && typeof out.profile === 'object'`
+  // tolerance.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const profile = witnessedContainer(out, 'profile');
+    if (profile) {
+      delete (profile as { knownTags?: unknown }).knownTags;
     }
     return out;
   },
