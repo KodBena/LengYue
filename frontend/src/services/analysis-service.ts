@@ -425,7 +425,7 @@ export class AnalysisService {
         // payload widening — see the comment block there for the
         // ADR-0002 Rule 2 justification.
         const versionPayload = (resp && typeof resp === 'object')
-          ? (resp as unknown as Record<string, unknown>)
+          ? (resp as unknown as Record<string, unknown>) // checked object; widen the typed response to an open record (see comment above)
           : null;
         refreshEngineVersion(resp.version, versionPayload);
       }
@@ -537,7 +537,7 @@ export class AnalysisService {
     const moves = pathUpToEnd
       .map(id => board.nodes[id]?.move ?? null)
       .filter((m): m is NonNullable<typeof m> => !!m)
-      .map(m => [m.color, moveToKataCoord(m)] as [Player, KataCoord]);
+      .map(m => [m.color, moveToKataCoord(m)] as [Player, KataCoord]); // fix the 2-element literal to the [Player, KataCoord] move-pair tuple
 
     const initialStones = getInitialStones(board);
 
@@ -709,6 +709,8 @@ export class AnalysisService {
     };
 
     const unsubscribe = this.client.subscribe(query, (res) => {
+      // subscribe's callback is typed with the broad KataGoResponse union; an
+      // analysis query only ever yields analysis responses, so narrow.
       this.onAnalysisUpdate(res as KataAnalysisResponse, queryId);
     });
 
@@ -780,7 +782,7 @@ export class AnalysisService {
     const moves = pathUpToCurrent
       .map(id => board.nodes[id]?.move ?? null)
       .filter((m): m is NonNullable<typeof m> => !!m)
-      .map(m => [m.color, moveToKataCoord(m)] as [Player, KataCoord]);
+      .map(m => [m.color, moveToKataCoord(m)] as [Player, KataCoord]); // fix the 2-element literal to the [Player, KataCoord] move-pair tuple
 
     const initialStones = getInitialStones(board);
 
@@ -908,6 +910,8 @@ export class AnalysisService {
     };
 
     const unsubscribe = this.client.subscribe(query, (res) => {
+      // subscribe's callback is typed with the broad KataGoResponse union; an
+      // analysis query only ever yields analysis responses, so narrow.
       this.onAnalysisUpdate(res as KataAnalysisResponse, queryId);
     });
 

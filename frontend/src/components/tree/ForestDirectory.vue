@@ -182,6 +182,9 @@ async function collectHyperparameters(
   if (!deck.hyperparameters || deck.hyperparameters.length === 0) return 'skipped';
   if (!harnessModalRef.value) return 'cancelled';
   const result = await harnessModalRef.value.open(
+    // The deck's hyperparameters carry the `{name}` shape the modal's open()
+    // expects; narrow to its exact parameter type (the structural overlap the
+    // generic deck signature can't express).
     deck.hyperparameters as Parameters<typeof harnessModalRef.value.open>[0],
   );
   return result ?? 'cancelled';
@@ -252,8 +255,11 @@ function updateContextIds(val: string): void {
   // that drives the navigator — no backend round-trip needed.
   const expanded = expandContextIdMacros(val, (gameSourceId) =>
     roots.value
+      // Brand-strip GameSourceId/CardId → raw number to compare against the
+      // numeric macro arg / build the numeric context-id list; documented
+      // debt, IDENTIFIERS.md erosion (b) (maintainer-directed re-brand helper).
       .filter(s => (s.gameSourceId as unknown as number) === gameSourceId)
-      .map(s => s.rootCardId as unknown as number),
+      .map(s => s.rootCardId as unknown as number), // same brand-strip, erosion (b)
   );
   store.session.ui.cardsContextIds = expanded
     .split(',')

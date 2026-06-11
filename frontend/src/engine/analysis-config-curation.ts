@@ -163,17 +163,17 @@ export function rewriteGradingParameterAnalysisConfig(
   };
 
   if (!gradingParameter || typeof gradingParameter !== 'object') return noop;
-  const gp = gradingParameter as Record<string, unknown>;
+  const gp = gradingParameter as Record<string, unknown>; // checked non-null object above; open-record for field reads
   const data = gp.data;
   if (!data || typeof data !== 'object') return noop;
-  const dataObj = data as Record<string, unknown>;
+  const dataObj = data as Record<string, unknown>; // checked non-null object above; open-record for field reads
   const config = dataObj.analysis_config;
   if (!config || typeof config !== 'object') return noop;
-  const configObj = config as Record<string, unknown>;
+  const configObj = config as Record<string, unknown>; // checked non-null object above; open-record for field reads
   const symbols = configObj.symbols;
   if (!symbols || typeof symbols !== 'object') return noop;
 
-  const result = rewriteSymbolBlock(symbols as Record<string, unknown>);
+  const result = rewriteSymbolBlock(symbols as Record<string, unknown>); // checked non-null object above; open-record for the symbol-block rewrite
   if (result.rewriteCount === 0) {
     // Path exists but nothing changed; surface the residue but keep
     // the original blob reference.

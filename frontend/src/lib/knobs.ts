@@ -126,7 +126,7 @@ export function writeKnob(
       `defaults / migration before declaring a KnobDecl that writes to it.`,
     );
   }
-  (parent as Record<string, number>)[last] = value;
+  (parent as Record<string, number>)[last] = value; // checked object + leaf-exists above; write the numeric knob value
 }
 
 function parsePath(path: StorePath): string[] {
@@ -161,13 +161,13 @@ function walkTo(
         `an object (got ${describe(cursor)}); cannot descend into "${seg}".`,
       );
     }
-    if (!(seg in (cursor as Record<string, unknown>))) {
+    if (!(seg in (cursor as Record<string, unknown>))) { // checked object above; open-record for the `in` probe
       throw new Error(
         `${mode === 'read' ? 'readKnob' : 'writeKnob'}: path "${path}" — ` +
         `segment "${seg}" is missing at "${segments.slice(0, i).join('.') || '<root>'}".`,
       );
     }
-    cursor = (cursor as Record<string, unknown>)[seg];
+    cursor = (cursor as Record<string, unknown>)[seg]; // checked object above; descend one segment
   }
   return cursor;
 }
@@ -446,6 +446,8 @@ function validateDecl(
         `"${out.path}" failed to resolve at startup. Either the store ` +
         `leaf was renamed, or the migration that introduced this ` +
         `KnobDecl has not yet run on this profile. Underlying cause: ` +
+        // readKnob only ever throws `new Error(...)`, so the caught cause is an
+        // Error; narrow to read its message.
         `${(cause as Error).message}`,
       );
     }

@@ -290,6 +290,11 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
             .catch(treeErr => {
               console.error('[useCardTreeData] tree-by-root failed for', rcid, treeErr);
               failed.push({
+                // Brand-strip CardId → raw number for the `failed` log array
+                // (typed `number`); the double hop is required because
+                // Brand<number,_> isn't assignable to bare number. Documented
+                // debt: IDENTIFIERS.md "Known erosions" (b) (maintainer-
+                // directed: these belong behind a re-brand helper, not fixed here).
                 rootCardId: rcid as unknown as number,
                 reason: treeErr instanceof Error ? treeErr.message : String(treeErr),
               });
@@ -468,6 +473,9 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
               treeErr,
             );
             failed.push({
+              // Brand-strip CardId → raw number for the `failed` log array;
+              // documented debt, IDENTIFIERS.md erosion (b) (re-brand-helper
+              // fix is maintainer-directed, not done here).
               rootCardId: g.rootCardId as unknown as number,
               reason: treeErr instanceof Error ? treeErr.message : String(treeErr),
             });
@@ -502,6 +510,9 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
     const id = boardIdRef.value;
     if (!id) return;
     const slot = getOrCreateBoardCardTree(id);
+    // Brand-strip CardId → raw number to key the `inflight` Set<number>;
+    // documented debt, IDENTIFIERS.md erosion (b) (re-brand-helper fix is
+    // maintainer-directed, not done here).
     const rawId = cardId as unknown as number;
     if (slot.cards.has(cardId) || inflight.has(rawId)) return;
     inflight.add(rawId);

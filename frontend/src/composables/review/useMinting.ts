@@ -48,7 +48,7 @@ export function useMinting() {
     let game_metadata: GameMetadataPayload | undefined = undefined;
 
     if (board.sourceCardId !== undefined) {
-      parent_card_id = board.sourceCardId as unknown as number;
+      parent_card_id = board.sourceCardId as unknown as number; // CardId brand-strip to the wire's raw number (see comment above; IDENTIFIERS.md erosion (b))
     }
 
     // If there is no parent card, it is a Root. We must provide game_metadata.
