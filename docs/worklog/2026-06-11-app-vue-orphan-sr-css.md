@@ -74,6 +74,11 @@ retained as required.
   `app-vue-style-and-wiring-extraction` (item id: not-filed: separate item
   named in the item description from which this work was harvested; no
   tracked id visible in the work-status store at the time of this session).
+  *[Dated correction 2026-06-11, coordinator: the tracked id existed —
+  work-status item `app-vue-style-and-wiring-extraction`, open/future, filed
+  earlier the same day; the session's store query missed it. The deferral is
+  ledgered there; the original marker text is preserved above per the
+  strike-don't-delete convention.]*
 
 ## Documentation checklist
 
