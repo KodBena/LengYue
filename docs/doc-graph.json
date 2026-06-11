@@ -1,6 +1,6 @@
 {
-  "node_count": 448,
-  "edge_count": 2142,
+  "node_count": 449,
+  "edge_count": 2143,
   "age_buckets": [
     {
       "name": "fresh",
@@ -26,7 +26,7 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "FEATURES.md",
@@ -42,7 +42,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "backend/CLAUDE.md",
@@ -1642,7 +1642,7 @@
       "is_hub": true,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/analysis-persistence-followups.md",
@@ -1978,7 +1978,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/design/README.md",
@@ -3162,7 +3162,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-02-cochange-advisory.md",
@@ -3362,7 +3362,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-10-doc-graph-dangling-signal-cleanup.md",
@@ -3522,7 +3522,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-11-archived-migration-wrong-path-corrective.md",
@@ -3550,6 +3550,14 @@
     },
     {
       "path": "docs/worklog/2026-06-11-e2e-harness-selector-model-field.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-11-genapi-host-configurable.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": "2026-06-11",
@@ -3601,8 +3609,8 @@
       "genre": "subproject-frontend",
       "is_hub": false,
       "first_committed": "2026-04-26",
-      "last_committed": "2026-05-27",
-      "age_bucket": "stale"
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     }
   ],
   "edges": [
@@ -18136,6 +18144,13 @@
       "to": "docs/worklog/2026-06-10-review-scoring-named-seam.md",
       "kind": "path-mention",
       "site": "`docs/worklog/2026-06-10-review-scoring-named-seam.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-genapi-host-configurable.md",
+      "to": "frontend/README.md",
+      "kind": "path-mention",
+      "site": "`frontend/README.md`",
       "resolved": "resolved"
     },
     {
