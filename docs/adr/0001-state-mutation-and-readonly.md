@@ -31,6 +31,14 @@
   archive snapshot for the two shipped items), and a dated
   catalog-split note added in Context. No content change; per the
   stable-handles convention (history-lessons audit §3.25).
+  Fourth amendment, 2026-06-11 — appended the profile-owner
+  follow-on to the Revisit-#3 response note: `store.profile` now
+  has an owner module joining the mutator family
+  (`src/store/profile-owner.ts`; work-status item
+  `settings-profile-mutator-owner`), the lint's ten profile
+  exemptions are retired, and the two aliased generic-machinery
+  write shapes are mechanized. The decision is again unchanged;
+  the trigger stays live.
 - **Decision drivers:** Vue reactivity architecture; TypeScript type-system
   semantics; performance at deep store paths; honesty of type annotations.
 
@@ -333,6 +341,19 @@ become true:
    and produce state bugs, Alternative A / Pinia reconsideration is
    back on the table. Audit §3.7 leg (iv); work-status item
    `multi-writer-slots-get-owners`.
+   *(Follow-on recorded 2026-06-11 — trigger still not fired. The
+   `store.profile` residue above ("10, kept as annotated inline
+   exemptions") was discharged by work-status item
+   `settings-profile-mutator-owner`: the subtree gained an owner
+   module joining the mutator family (`src/store/profile-owner.ts` —
+   `mutateProfile` / `updateProfileAt` / `writeStoreKnobValue`), all
+   ten exemptions were rerouted through it and removed, and the two
+   aliased generic-machinery write shapes the lint's gaps admit —
+   `updateRegistry` handed a `store.profile` root, the knob substrate
+   handed the live store root — are now `no-restricted-syntax`
+   selectors in `eslint.config.js`. Arbitrary aliased writes through
+   intermediate variables remain review's to catch; the trigger's
+   terms are unchanged.)*
 
 4. **A Pinia migration happens for other reasons** (better devtools
    integration, clearer domain-slicing of the store, plugin ecosystem).
