@@ -7,12 +7,20 @@
  *
  * Scenarios are registered as factories `(cfg) => PerfScenario` so a
  * caller can tune the fixture / visit budget / popover target per run.
- * The three built-ins span the regimes the perf arc distinguishes:
+ * The built-ins span the regimes the perf arc distinguishes:
  *
- *   - `nav-only`        — autonav to leaf, no analysis (regime-A baseline).
- *   - `nav-range`       — autonav while a full-game range analysis streams
- *                         (regime-B: the interleaving case).
- *   - `full-stress`     — `nav-range` plus concurrent popover churn.
+ *   - `nav-only`            — autonav to leaf, no analysis (regime-A baseline).
+ *   - `nav-range`           — autonav while a full-game range analysis streams
+ *                             (regime-B: the interleaving case).
+ *   - `full-stress`         — `nav-range` plus concurrent popover churn.
+ *   - `stability-nav-range` — `nav-range` but pinned to the Stability sub-tab
+ *                             so `StabilityPanel` mounts and
+ *                             `useStabilityMetrics` runs under packet load.
+ *                             The Basic sub-tab the other regime-B scenarios
+ *                             pin renders only ScoreLead + MergedDelta, so the
+ *                             stability-panel per-packet cost is NOT in their
+ *                             counts; this scenario is the substrate for
+ *                             measuring it.
  *
  * Domain band (ADR-0003): game-tree-coupled (B2). Dev-only; makes no
  * perf *claim* (ADR-0009).
@@ -107,6 +115,25 @@ const REGISTRY: ReadonlyMap<string, ScenarioFactory> = new Map<string, ScenarioF
         const boardId = await prepareAnalysis(ctx, cfg);
         const q = ctx.analyzeRange(boardId, { full: true, visits: cfg.visits ?? DEFAULT_VISITS });
         await ctx.measure('drive', () => ctx.autonav());
+        q.stop();
+      },
+    }),
+  ],
+  [
+    // Same regime-B interleave as `nav-range`, but the autonav walk pins
+    // the *Stability* sub-tab (not Basic), so `StabilityPanel` is mounted
+    // and `useStabilityMetrics` recomputes under the same streaming packet
+    // load. This is the measurement substrate for the stability-panel
+    // per-packet cost — the question the usestabilitymetrics-incremental
+    // re-profile-first clause poses. Makes no perf *claim* (ADR-0009); it
+    // is the harness, not a result.
+    'stability-nav-range',
+    (cfg) => ({
+      name: 'stability-nav-range',
+      async run(ctx) {
+        const boardId = await prepareAnalysis(ctx, cfg);
+        const q = ctx.analyzeRange(boardId, { full: true, visits: cfg.visits ?? DEFAULT_VISITS });
+        await ctx.measure('drive', () => ctx.autonav({ subTab: 'stability' }));
         q.stop();
       },
     }),

@@ -108,9 +108,12 @@ export interface ScenarioContext {
   /**
    * The yielding measured pass: drives navigation to the active line's
    * leaf at ~60 Hz, one step per frame, so streaming analysis packets
-   * interleave between frames. Resolves at the leaf.
+   * interleave between frames. Resolves at the leaf. `subTab` pins which
+   * Analysis sub-tab is rendered during the walk (default `'basic'`); a
+   * scenario measuring a different panel set (e.g. `'stability'`) passes
+   * its id so that tab's panels mount and run under packet load.
    */
-  autonav(opts?: { markPrefix?: string }): Promise<void>;
+  autonav(opts?: { markPrefix?: string; subTab?: string }): Promise<void>;
   /**
    * Manual, synchronous navigation. Footgun for the measured pass: a
    * tight loop over `nav.next()` does NOT yield, so no packets process

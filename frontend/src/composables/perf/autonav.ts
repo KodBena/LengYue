@@ -39,7 +39,9 @@ import { AUTONAV_MIN_STEP_INTERVAL_MS } from '../../lib/timing';
 const MAIN_TAB_ANALYSIS = 'analysis';
 // magic-literal: defaults.ts `analysisTabs[0].id` — the "Basic" sub-tab
 // (ScoreLead + MergedDelta panels). Pinning it fixes the rendered panel set
-// so captures are comparable.
+// so captures are comparable. The default `subTab` for a normalized run;
+// a scenario that measures a different panel set (e.g. the Stability sub-tab,
+// where `StabilityPanel`'s `useStabilityMetrics` runs) passes its own id.
 const ANALYSIS_SUBTAB_BASIC = 'basic';
 
 
@@ -98,11 +100,23 @@ export interface AutonavOptions {
    */
   readonly markPrefix?: string;
   /**
-   * Normalize the Analysis tab + Basic sub-tab on start (released on stop)
-   * for capture replicability. Defaults to true. A scenario that pins its
-   * own panel set passes false and normalizes itself.
+   * Normalize the Analysis tab + a fixed Analysis sub-tab on start
+   * (released on stop) for capture replicability. Defaults to true. A
+   * scenario that pins its own panel set passes false and normalizes
+   * itself.
    */
   readonly normalizeTab?: boolean;
+  /**
+   * Which Analysis sub-tab id to pin while `normalizeTab` is true.
+   * Defaults to `'basic'` (ScoreLead + MergedDelta — the historical
+   * capture panel set). A scenario measuring a different panel set passes
+   * its id (e.g. `'stability'` so `StabilityPanel` mounts and
+   * `useStabilityMetrics` runs under packet load). Inert when
+   * `normalizeTab` is false. Must match a `analysisTabs[].id` in
+   * `store/defaults.ts`; an unknown id leaves the dashboard on its own
+   * fallback (the active-tab computed ignores a non-matching forced id).
+   */
+  readonly subTab?: string;
 }
 
 export interface AutonavHandle {
@@ -123,6 +137,7 @@ export interface AutonavHandle {
 export function runAutonav(opts: AutonavOptions = {}): AutonavHandle {
   const prefix = opts.markPrefix ?? 'autonav';
   const normalizeTab = opts.normalizeTab ?? true;
+  const subTab = opts.subTab ?? ANALYSIS_SUBTAB_BASIC;
   const nav = useNavigation();
   const telemetry = useQueryTelemetry();
 
@@ -204,9 +219,10 @@ export function runAutonav(opts: AutonavOptions = {}): AutonavHandle {
 
   if (normalizeTab) {
     // Normalize the capture scenario for replicability: Analysis tab +
-    // Basic sub-tab, so every capture renders the same panel set.
+    // the chosen sub-tab (default Basic), so every capture renders the
+    // same panel set.
     store.session.ui.activeTab = MAIN_TAB_ANALYSIS;
-    __devForceActiveAnalysisTab(ANALYSIS_SUBTAB_BASIC);
+    __devForceActiveAnalysisTab(subTab);
   }
   performance.mark(`${prefix}:start`, { detail: { boardId: b.id } });
   rafHandle = requestAnimationFrame(frame);
