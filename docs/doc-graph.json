@@ -1,6 +1,6 @@
 {
-  "node_count": 479,
-  "edge_count": 2327,
+  "node_count": 480,
+  "edge_count": 2331,
   "age_buckets": [
     {
       "name": "fresh",
@@ -26,7 +26,7 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "FEATURES.md",
@@ -106,7 +106,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/adr/0002-fail-loudly.md",
@@ -3722,7 +3722,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-11-playenginemoves-cursor-conflation-twin.md",
@@ -3736,9 +3736,9 @@
       "path": "docs/worklog/2026-06-11-profile-owner-scope-analysis-net.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-11-reactive-state-modules-relocation.md",
@@ -3818,7 +3818,15 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
+    },
+    {
+      "path": "docs/worklog/2026-06-12-perf-jank-extended-protocol.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "frontend/CLAUDE.md",
@@ -19749,6 +19757,34 @@
       "to": "docs/adr/0011-mechanization-discipline.md",
       "kind": "adr-related",
       "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-12-perf-jank-extended-protocol.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-12-perf-jank-extended-protocol.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-12-perf-jank-extended-protocol.md",
+      "to": "docs/adr/0007-file-size-and-information-density.md",
+      "kind": "adr-related",
+      "site": "ADR-0007",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-12-perf-jank-extended-protocol.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
       "resolved": "resolved"
     },
     {
