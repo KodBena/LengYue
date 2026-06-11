@@ -91,7 +91,7 @@ const SORT_TO_WIRE: Record<LibrarySortColumn, LibrarySortWire> = {
 
 function fromWireGameListItem(wire: LibraryGameListItemWire): LibraryGameListItem {
   return {
-    id: wire.id as GameSourceId,
+    id: wire.id as GameSourceId, // ACL Band-2 brand mint (wire id → GameSourceId)
     clientGameId: wire.client_game_id !== null ? asBoardId(wire.client_game_id) : null,
     playerWhite: wire.player_white,
     playerBlack: wire.player_black,
@@ -105,7 +105,7 @@ function fromWireGameListItem(wire: LibraryGameListItemWire): LibraryGameListIte
 
 function fromWireGame(wire: LibraryGameWire): LibraryGame {
   return {
-    id: wire.id as GameSourceId,
+    id: wire.id as GameSourceId, // ACL Band-2 brand mint (wire id → GameSourceId)
     clientGameId: wire.client_game_id !== null ? asBoardId(wire.client_game_id) : null,
     playerWhite: wire.player_white,
     playerBlack: wire.player_black,
@@ -131,13 +131,13 @@ function fromWireImportOutcome(wire: ImportOutcomeWire): LibraryImportOutcome {
     case 'created':
       return {
         status: 'created',
-        gameId: wire.game_id as GameSourceId,
+        gameId: wire.game_id as GameSourceId, // ACL Band-2 brand mint
         clientGameId: asBoardId(wire.client_game_id),
       };
     case 'deduplicated':
       return {
         status: 'deduplicated',
-        gameId: wire.game_id as GameSourceId,
+        gameId: wire.game_id as GameSourceId, // ACL Band-2 brand mint
         clientGameId: wire.client_game_id !== null ? asBoardId(wire.client_game_id) : null,
       };
     case 'errored':

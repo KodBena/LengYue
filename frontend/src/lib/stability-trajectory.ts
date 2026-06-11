@@ -371,7 +371,7 @@ export function longestRunFraction<Q extends StabilityValue>(
     const weight = Math.log(seg.next_V / seg.prev_V);
     if (weight > 0 && seg.value !== UNKNOWN) {
       totalKnown += weight;
-      const key = seg.value as Q;
+      const key = seg.value as Q; // narrowed: the `seg.value !== UNKNOWN` guard above excludes the Unknown sentinel
       durations.set(key, (durations.get(key) ?? 0) + weight);
     }
   }
@@ -442,6 +442,9 @@ export const STABILITY_METRICS: ReadonlyMap<
     V_term: number,
     options?: { V_max?: number; threshold?: number },
   ) => StabilityMetricResult
+// Brand the static literal vocabulary keys as MetricId; the entry tuples are
+// the registry's authored truth set (the `any` value is the per-metric fn,
+// whose generic <Q> signature the Map value type can't bind uniformly).
 > = new Map(([
   ['anchored_at_v_term', anchoredAtVTerm],
   ['anchored_at_v_max', anchoredAtVMax],
@@ -449,6 +452,8 @@ export const STABILITY_METRICS: ReadonlyMap<
   ['change_rate_inverse', changeRateInverse],
 ] as [MetricId, any][]));
 
+// Brand the static literal vocabulary keys as MetricId (sibling of the
+// registry above; the labels are the authored truth set).
 export const STABILITY_METRIC_LABELS: ReadonlyMap<MetricId, string> = new Map(([
   ['anchored_at_v_term', 'Anchored at V_term (does V_term\'s value persist?)'],
   ['anchored_at_v_max', 'Anchored at V_max (did the final value emerge early?)'],
