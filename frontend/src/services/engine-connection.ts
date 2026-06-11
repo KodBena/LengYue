@@ -40,21 +40,29 @@
  *   `applyEngineDisconnectReset` + the service's transport teardown"
  *   rather than a new scatter of writes).
  *
- * - **`restartActiveAnalyses` semantics — open maintainer question
- *   (hydration-rebind residue audit, 2026-06-10, §3.3 wrinkle 2 / §6.1).**
- *   The restart thunks live in `analysis-service.ts` and currently mean
- *   "every query not explicitly stopped": entries survive natural
- *   completion (no release path in `onAnalysisUpdate`) and survive a
- *   disconnect→reconnect (the bookkeeping maps are deliberately not
- *   cleared on disconnect — the O15 reconcile-on-next-interaction
- *   decision, documented at the `onDisconnect` callback). So a
- *   qEUBO toolbar-view toggle after a reconnect can re-issue completed
- *   and pre-disconnect queries at engine-compute cost. Whether "active"
- *   should mean *not explicitly stopped* (current — arguably intended
- *   for qEUBO A/B re-runs) or *in flight* is a semantics call the
- *   maintainer has not made; this extraction preserves the current
- *   behaviour exactly and records the question here so the next reader
- *   of the engine-connection lifecycle finds it.
+ * - **`restartActiveAnalyses` semantics — "active" = in-flight
+ *   (maintainer-decided 2026-06-10; the hydration-rebind residue
+ *   audit, 2026-06-10, §3.3 wrinkle 2 / §6.1 question, now resolved).**
+ *   The restart thunks live in `analysis-service.ts`. They now mean
+ *   "every query still IN FLIGHT": `onAnalysisUpdate` reaps a query's
+ *   restart thunk on natural completion (once every analyzed turn has
+ *   settled with `isDuringSearch === false`), so a completed query is
+ *   not re-issued. The other three bookkeeping maps (`activeQueries`,
+ *   `activeSubscriptions`, `boardToQueries`) deliberately survive both
+ *   natural completion and a disconnect→reconnect — the O15
+ *   reconcile-on-next-interaction decision, documented at the
+ *   `onDisconnect` callback — so the audit §3.3 wrinkle 1 bounds (per-
+ *   board map growth cleared at board close; the `activeMode`
+ *   projection drift) are unchanged. The reap is scoped to the restart
+ *   thunk alone, which is exactly the slot whose membership the
+ *   semantics question was about. The earlier "*not explicitly
+ *   stopped*" reading (arguably intended for qEUBO A/B re-runs) was the
+ *   open question this extraction recorded; the maintainer settled it
+ *   to *in flight* — a qEUBO toolbar-view toggle, especially after a
+ *   reconnect, must re-fire only the queries the user still has
+ *   running, not resurrect completed or pre-disconnect work at
+ *   engine-compute cost. Work-status item
+ *   `restart-thunk-inflight-semantics`.
  *
  * License: Public Domain (The Unlicense)
  */
