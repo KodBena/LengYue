@@ -91,14 +91,14 @@ const mergedSeries = computed<any[]>(() => {
     out.push({
       ...s,
       color: themeColor('--player-black'),
-      data: s.data.map(([k, v]) => [2 * k, v] as [number, number | null]),
+      data: s.data.map(([k, v]) => [2 * k, v] as [number, number | null]), // fix the 2-element literal to ECharts' tuple-data shape
     });
   }
   for (const s of whiteSeries.value) {
     out.push({
       ...s,
       color: themeColor('--player-white'),
-      data: s.data.map(([k, v]) => [2 * k + 1, v] as [number, number | null]),
+      data: s.data.map(([k, v]) => [2 * k + 1, v] as [number, number | null]), // fix the 2-element literal to ECharts' tuple-data shape
     });
   }
   const visibleMistakes = mistakes.value.filter(m => {
@@ -256,7 +256,7 @@ async function resetPreview() {
   }
   const color: 'B' | 'W' = x % 2 === 0 ? 'B' : 'W';
   const k = colorLocalIndex(x, color);
-  const nodeIdx = colorMoveToPly(k as ColorMoveIndex, color);
+  const nodeIdx = colorMoveToPly(k as ColorMoveIndex, color); // brand mint: colorLocalIndex returns a colour-local move index
   const nodeId = variationPath.value[nodeIdx];
   if (nodeId) {
     preview.value = await getSnapshot(nodeId, boardId);
@@ -273,7 +273,7 @@ async function handleHover(rawIdx: number, yClicked?: number) {
   const color = colorAt(rawIdx, yClicked);
   if (!color) return;
   const k = colorLocalIndex(rawIdx, color);
-  const nodeIdx = colorMoveToPly(k as ColorMoveIndex, color);
+  const nodeIdx = colorMoveToPly(k as ColorMoveIndex, color); // brand mint: colorLocalIndex returns a colour-local move index
   const nodeId = variationPath.value[nodeIdx];
   if (nodeId) {
     preview.value = await getSnapshot(nodeId, boardId);
@@ -285,7 +285,7 @@ function handleClick(rawIdx: number, yClicked?: number) {
   const color = colorAt(rawIdx, yClicked);
   if (!color) return;
   const k = colorLocalIndex(rawIdx, color);
-  const turnIdx = colorMoveToPly(k as ColorMoveIndex, color) - 1;
+  const turnIdx = colorMoveToPly(k as ColorMoveIndex, color) - 1; // brand mint: colorLocalIndex returns a colour-local move index
   const nodeId = variationPath.value[turnIdx];
   if (nodeId) {
     mutateBoard(boardId, draft => navigateTo(draft, nodeId));

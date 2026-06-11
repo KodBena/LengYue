@@ -48,7 +48,7 @@ const selectionNodeCount = computed(() =>
 // by construction. One cast at the band-1 → branded boundary; consumers
 // above (the store, useAnalysisTimeline) see the brand.
 function onRangeUpdate(r: [number, number]): void {
-  ctx.setSelectionRange(r as [PlyIndex, PlyIndex]);
+  ctx.setSelectionRange(r as [PlyIndex, PlyIndex]); // PlyIndex brand mint at the Band-1 → branded boundary (range bounded to the path, see comment above)
 }
 
 function onAnalyze(): void {

@@ -57,7 +57,7 @@ export function useAnalysisTimeline(
   // Brand cast at construction: the `[0, 0]` fallback is the empty range
   // at the root, valid PlyIndices by construction (PlyIndex 0 = root).
   const selectionRange = computed<[PlyIndex, PlyIndex]>(
-    () => stored.value ?? ([0, 0] as [PlyIndex, PlyIndex])
+    () => stored.value ?? ([0, 0] as [PlyIndex, PlyIndex]) // PlyIndex brand mint: [0,0] is the empty root range (see comment above)
   );
 
   function setSelectionRange(range: [PlyIndex, PlyIndex]): void {
@@ -78,7 +78,7 @@ export function useAnalysisTimeline(
 
       const prev = stored.value;
       if (!prev) {
-        setSelectionRange([0, len - 1] as [PlyIndex, PlyIndex]);
+        setSelectionRange([0, len - 1] as [PlyIndex, PlyIndex]); // PlyIndex brand mint: clamped against path length (see comment above)
         return;
       }
 
@@ -90,7 +90,7 @@ export function useAnalysisTimeline(
       const newEnd   = Math.max(newStart + 1, Math.min(e, len));
 
       if (newStart !== prevStart || newEnd !== prevEnd) {
-        setSelectionRange([newStart, newEnd] as [PlyIndex, PlyIndex]);
+        setSelectionRange([newStart, newEnd] as [PlyIndex, PlyIndex]); // PlyIndex brand mint: clamped against path length (see comment above)
       }
     },
     { immediate: true },
