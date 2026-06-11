@@ -114,11 +114,11 @@ export interface ForestNavigation {
 // format from scratch.
 
 export function gameNodeId(gameSourceId: GameSourceId): NavNodeId {
-  return `game:${gameSourceId}` as NavNodeId;
+  return `game:${gameSourceId}` as NavNodeId; // brand mint: `game:`-prefixed NavNodeId (this fn is the factory)
 }
 
 export function rootNodeId(rootCardId: CardId): NavNodeId {
-  return `root:${rootCardId}` as NavNodeId;
+  return `root:${rootCardId}` as NavNodeId; // brand mint: `root:`-prefixed NavNodeId (this fn is the factory)
 }
 
 // ── Main entry point ─────────────────────────────────────────────────────────

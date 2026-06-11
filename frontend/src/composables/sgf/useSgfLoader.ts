@@ -69,7 +69,7 @@ export function useSgfLoader(): SgfLoaderActions {
     input.type = 'file';
     input.accept = '.sgf';
     input.onchange = (e: Event) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
+      const file = (e.target as HTMLInputElement).files?.[0]; // DOM: onchange set on the file <input> just created, so target is it
       if (file) void loadFile(file);
     };
     input.click();

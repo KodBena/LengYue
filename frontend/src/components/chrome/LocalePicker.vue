@@ -40,7 +40,7 @@ const rootRef = ref<HTMLElement | null>(null);
 
 function onDocumentPointerDown(e: PointerEvent): void {
   if (!rootRef.value) return;
-  if (rootRef.value.contains(e.target as Node)) return;
+  if (rootRef.value.contains(e.target as Node)) return; // DOM: event.target is an EventTarget; Node is contains()'s arg type
   open.value = false;
 }
 

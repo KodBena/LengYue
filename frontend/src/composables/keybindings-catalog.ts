@@ -41,7 +41,7 @@ import type { KeybindingActionDecl, KeybindingEnabledPredicate } from '../lib/ke
 
 // ── Action ids — branded literals ────────────────────────────
 
-const asActionId = (id: string): KeybindingActionId => id as KeybindingActionId;
+const asActionId = (id: string): KeybindingActionId => id as KeybindingActionId; // brand factory: sole KeybindingActionId mint
 
 /**
  * Stable id catalog. The `as const satisfies` shape gives per-key

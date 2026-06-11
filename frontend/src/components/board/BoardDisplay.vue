@@ -122,7 +122,7 @@ function toSVG(bx: number, by: number): { x: number; y: number } {
 }
 
 function onBoardClick(e: MouseEvent) {
-  const svg = e.currentTarget as SVGSVGElement;
+  const svg = e.currentTarget as SVGSVGElement; // DOM: the handler is bound on the board's <svg>, so currentTarget is that element
   const pt = svg.createSVGPoint();
   pt.x = e.clientX;
   pt.y = e.clientY;

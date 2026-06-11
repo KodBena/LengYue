@@ -88,7 +88,7 @@ const moveNumber = computed((): number => {
           class="komi-input"
           :value="metadata?.komi"
           step="0.5"
-          @change="(e) => emit('update-komi', parseFloat((e.target as HTMLInputElement).value))"
+          @change="(e) => emit('update-komi', parseFloat((e.target as HTMLInputElement /* bound on the komi <input> */).value))"
           :title="$t('statusBar.editKomi')"
         />
       </span>

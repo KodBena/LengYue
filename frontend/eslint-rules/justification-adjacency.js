@@ -55,8 +55,13 @@
  *     rule visitor sees script casts only (measured 2026-06-11), but the
  *     templateBody assertion nodes are reachable cheaply via
  *     defineTemplateBodyVisitor (the store-write-needs-owner precedent), so
- *     the rule walks both. The token/comment adjacency scan resolves against
- *     the same source text for both surfaces.
+ *     the rule walks both. The adjacency scan is parameterised on the token
+ *     store: script casts scan `sourceCode`, template casts scan
+ *     `getTemplateBodyTokenStore()`. The justification carrier for a
+ *     template cast is an INLINE BLOCK COMMENT after the cast
+ *     (`(e.target as HTMLInputElement /* DOM target *\/)`); an HTML
+ *     `<!-- -->` comment is markup, not a JS token, so it does NOT justify
+ *     (named gap — the template escape hatch is the inline block comment).
  *
  * License: Public Domain (The Unlicense)
  */
@@ -138,103 +143,106 @@ export const justificationAdjacency = {
     const opt = context.options[0] || {};
     const linesBefore = typeof opt.linesBefore === 'number' ? opt.linesBefore : 1;
 
-    function check(node) {
-      if (node.type === 'TSAsExpression' && isAsConst(node)) return;
-      if (isInnerOfDoubleCast(node)) return;
+    // A cast in a `.vue` <template> directive expression lives in the
+    // vue-eslint-parser templateBody, whose tokens (including the inline
+    // block comments that justify a template cast) sit in a SEPARATE store —
+    // `getTemplateBodyTokenStore()` — not the script `sourceCode`. So the
+    // adjacency scan is parameterised on a token-store accessor: the script
+    // visitor uses `sourceCode`, the template visitor uses the template
+    // store. Both expose getTokenBefore/getTokenAfter with includeComments.
+    function makeCheck(store) {
+      return function check(node) {
+        if (node.type === 'TSAsExpression' && isAsConst(node)) return;
+        if (isInnerOfDoubleCast(node)) return;
 
-      const castStartLine = node.loc.start.line;
-      // The `as`/assertion sits after the operand, so the operative line is
-      // the one the WHOLE assertion expression occupies; use its end line
-      // for the same-line check (`x as Foo // why` puts the comment after
-      // the type), and the start line for the preceding-line window (a
-      // comment above the operand reads as justifying the cast).
-      const castEndLine = node.loc.end.line;
+        const castStartLine = node.loc.start.line;
+        // The `as`/assertion sits after the operand, so the operative line
+        // is the one the WHOLE assertion expression occupies: its end line
+        // anchors the same-line check (`x as Foo // why`), its start line
+        // the preceding-line window (a comment above the operand justifies).
+        const castEndLine = node.loc.end.line;
 
-      // Same-line trailing comment: a comment whose start line equals the
-      // cast's end line and which begins after the cast ends.
-      const trailing = sourceCode
-        .getCommentsAfter(node)
-        .filter((c) => c.loc.start.line === castEndLine);
-      // getCommentsAfter only returns comments after the node with no token
-      // between; also scan the enclosing statement's trailing comments via
-      // the token stream for the common `x as Foo; // why` shape.
-      const sameLineToken = (() => {
-        let tok = sourceCode.getTokenAfter(node, { includeComments: true });
-        while (tok && tok.loc.start.line === castEndLine) {
-          if (
-            (tok.type === 'Line' || tok.type === 'Block') &&
-            commentJustifies(tok)
-          ) {
-            return true;
+        // Same-line trailing comment / inline block comment after the cast.
+        const sameLineToken = (() => {
+          let tok = store.getTokenAfter(node, { includeComments: true });
+          while (tok && tok.loc.start.line === castEndLine) {
+            if (
+              (tok.type === 'Line' || tok.type === 'Block') &&
+              commentJustifies(tok)
+            ) {
+              return true;
+            }
+            tok = store.getTokenAfter(tok, { includeComments: true });
           }
-          tok = sourceCode.getTokenAfter(tok, { includeComments: true });
-        }
-        return false;
-      })();
-      if (sameLineToken || trailing.some(commentJustifies)) return;
+          return false;
+        })();
+        if (sameLineToken) return;
 
-      // Preceding-line window: a comment whose end line is within
-      // `linesBefore` of the cast's start line, with no blank line between,
-      // AND that is a TRUE leading comment — not a SAME-LINE trailing
-      // comment of a preceding token. The same-line-trailing exclusion is
-      // the gate-prop-needs-default precedent: `const a = x as Foo; // why`
-      // followed by `const b = y as Bar;` must NOT let line 1's trailing
-      // comment justify line 2's cast. A candidate comment is a true
-      // leading comment when the token immediately before it ends on an
-      // EARLIER line than the comment starts (i.e. the comment is alone on
-      // its line, not appended to code).
-      function isLeadingComment(c) {
-        const prevToken = sourceCode.getTokenBefore(c, { includeComments: false });
-        return !prevToken || prevToken.loc.end.line !== c.loc.start.line;
-      }
-      // Scan the token stream upward from the cast for an adjacent,
-      // own-line justification comment. (getCommentsBefore is relative to
-      // the operand node, which can miss a statement-level leading comment;
-      // the token walk is the robust form, matching store-write-needs-owner
-      // / gate-prop-needs-default.)
-      const precedingToken = (() => {
-        let tok = sourceCode.getTokenBefore(node, { includeComments: true });
-        // Skip back over tokens on the cast's own first line.
-        while (tok && tok.loc.end.line >= castStartLine) {
-          tok = sourceCode.getTokenBefore(tok, { includeComments: true });
+        // Preceding-line window: a comment whose end line is within
+        // `linesBefore` of the cast's start line, no blank line between, AND
+        // a TRUE leading comment — not a SAME-LINE trailing comment of a
+        // preceding token. The same-line-trailing exclusion is the
+        // gate-prop-needs-default precedent: `const a = x as Foo; // why`
+        // followed by `const b = y as Bar;` must NOT let line 1's trailing
+        // comment justify line 2's cast. A candidate is a true leading
+        // comment when the token immediately before it ends on an EARLIER
+        // line than the comment starts (the comment is alone on its line).
+        function isLeadingComment(c) {
+          const prevToken = store.getTokenBefore(c, { includeComments: false });
+          return !prevToken || prevToken.loc.end.line !== c.loc.start.line;
         }
-        // Now `tok` is the first token strictly above the cast's start line.
-        while (tok && (tok.type === 'Line' || tok.type === 'Block')) {
-          const gap = castStartLine - tok.loc.end.line;
-          if (gap > linesBefore) break;
-          if (gap >= 1 && commentJustifies(tok) && isLeadingComment(tok)) return true;
-          tok = sourceCode.getTokenBefore(tok, { includeComments: true });
-        }
-        return false;
-      })();
-      if (precedingToken) return;
+        const precedingToken = (() => {
+          let tok = store.getTokenBefore(node, { includeComments: true });
+          // Skip back over tokens on the cast's own first line.
+          while (tok && tok.loc.end.line >= castStartLine) {
+            tok = store.getTokenBefore(tok, { includeComments: true });
+          }
+          // `tok` is now the first token strictly above the cast's start.
+          while (tok && (tok.type === 'Line' || tok.type === 'Block')) {
+            const gap = castStartLine - tok.loc.end.line;
+            if (gap > linesBefore) break;
+            if (gap >= 1 && commentJustifies(tok) && isLeadingComment(tok)) return true;
+            tok = store.getTokenBefore(tok, { includeComments: true });
+          }
+          return false;
+        })();
+        if (precedingToken) return;
 
-      context.report({ node, messageId: 'missingJustification' });
+        context.report({ node, messageId: 'missingJustification' });
+      };
     }
 
+    const scriptCheck = makeCheck(sourceCode);
     const scriptVisitor = {
-      TSAsExpression: check,
-      TSTypeAssertion: check,
+      TSAsExpression: scriptCheck,
+      TSTypeAssertion: scriptCheck,
     };
 
-    // Template-expression casts (`{{ (foo as Bar).x }}`) live in the
-    // vue-eslint-parser templateBody AST, NOT the script AST a plain rule
-    // visitor walks — measured 2026-06-11: a plain visitor sees script
-    // casts only. They ARE reachable cheaply via defineTemplateBodyVisitor
-    // (the store-write-needs-owner precedent), and the same adjacency
-    // `check` applies (template nodes carry source-relative ranges, so the
-    // comment/token scans resolve against the same source text). For a
-    // plain `.ts` file (tsParser) the service is absent and the script
+    // Template-expression casts (`{{ (foo as Bar).x }}`, `(e.target as T)` in
+    // a directive) live in the vue-eslint-parser templateBody AST, NOT the
+    // script AST a plain visitor walks (measured 2026-06-11: a plain visitor
+    // sees script casts only). They are reachable cheaply via
+    // defineTemplateBodyVisitor (the store-write-needs-owner precedent); the
+    // adjacency scan uses the template body token store so an inline
+    // `/* reason */` block comment after the cast justifies it (the
+    // template-cast escape hatch — an HTML `<!-- -->` comment is markup, not
+    // a JS token, so it does NOT justify; use the inline block comment). For
+    // a plain `.ts` file (tsParser) the services are absent and the script
     // visitor alone applies.
-    const defineTemplateBodyVisitor =
-      sourceCode.parserServices?.defineTemplateBodyVisitor;
-    if (typeof defineTemplateBodyVisitor !== 'function') {
+    const services = sourceCode.parserServices;
+    if (
+      !services ||
+      typeof services.defineTemplateBodyVisitor !== 'function' ||
+      typeof services.getTemplateBodyTokenStore !== 'function'
+    ) {
       return scriptVisitor;
     }
-    return defineTemplateBodyVisitor(
+    const templateStore = services.getTemplateBodyTokenStore();
+    const templateCheck = makeCheck(templateStore);
+    return services.defineTemplateBodyVisitor(
       {
-        TSAsExpression: check,
-        TSTypeAssertion: check,
+        TSAsExpression: templateCheck,
+        TSTypeAssertion: templateCheck,
       },
       scriptVisitor,
     );

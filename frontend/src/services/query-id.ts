@@ -17,4 +17,4 @@
  */
 import type { QueryId } from '../types';
 
-export const asQueryId = (id: string): QueryId => id as QueryId;
+export const asQueryId = (id: string): QueryId => id as QueryId; // brand factory: sole QueryId mint
