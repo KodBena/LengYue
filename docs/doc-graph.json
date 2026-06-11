@@ -1,6 +1,6 @@
 {
-  "node_count": 457,
-  "edge_count": 2186,
+  "node_count": 458,
+  "edge_count": 2190,
   "age_buckets": [
     {
       "name": "fresh",
@@ -3538,7 +3538,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-11-archived-migration-wrong-path-corrective.md",
@@ -3606,6 +3606,14 @@
     },
     {
       "path": "docs/worklog/2026-06-11-perf-reprofile.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-11-perf-stability-panel-reprofile.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": "2026-06-11",
@@ -18506,6 +18514,34 @@
     },
     {
       "from": "docs/worklog/2026-06-11-perf-reprofile.md",
+      "to": "docs/doc-graph.md",
+      "kind": "path-mention",
+      "site": "`docs/doc-graph.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-perf-stability-panel-reprofile.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-perf-stability-panel-reprofile.md",
+      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-perf-stability-panel-reprofile.md",
+      "to": "docs/notes/investigation-perf-reprofile-2026-06-11.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/investigation-perf-reprofile-2026-06-11.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-perf-stability-panel-reprofile.md",
       "to": "docs/doc-graph.md",
       "kind": "path-mention",
       "site": "`docs/doc-graph.md`",
