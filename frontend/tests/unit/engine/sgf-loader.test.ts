@@ -18,13 +18,14 @@
  * License: Public Domain (The Unlicense)
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, onTestFinished } from 'vitest';
 // @ts-ignore — @sabaki/sgf has no published types declaration; the
 // production import in src/composables/useReviewSession.ts uses the
 // same suppression pattern.
 import sgf from '@sabaki/sgf';
 
-import { loadSgf } from '../../../src/engine/sgf-loader';
+import { loadSgf, SgfSizeError } from '../../../src/engine/sgf-loader';
+import { SgfCoordinateError } from '../../../src/engine/util';
 import type { BoardState, GameNode } from '../../../src/types';
 
 /**
@@ -192,5 +193,89 @@ describe('loadSgf — pass moves', () => {
     const passNode = board.nodes[path[1]];
     expect(passNode.move?.type).toBe('pass');
     expect(passNode.move?.color).toBe('B');
+  });
+});
+
+// ── File-trust boundary (ADR-0002) ──────────────────────────────────────────
+// The three coercions closed by work-status item
+// `sgf-file-boundary-coercions`: malformed board size (throws), malformed
+// inbound coordinate (throws, via sgfToMove), and an illegal move in an
+// otherwise-loadable file (loads, skips, warns — prod-visible, formerly
+// DEV-gated).
+
+describe('loadSgf — malformed board size (SZ)', () => {
+  it('throws SgfSizeError on a non-numeric SZ rather than coercing to NaN geometry', () => {
+    // SZ[foo] previously parsed to NaN and propagated into every
+    // coordinate computation — a structurally corrupt board, not a
+    // mis-scored one. The file-trust boundary refuses it loudly.
+    expect(() => load('(;FF[4]GM[1]SZ[foo];B[pd])')).toThrow(SgfSizeError);
+  });
+
+  it('throws SgfSizeError on a zero / non-positive SZ', () => {
+    expect(() => load('(;FF[4]GM[1]SZ[0])')).toThrow(SgfSizeError);
+  });
+
+  it('throws SgfSizeError on a non-square SZ[w:h] (unsupported, not silently truncated)', () => {
+    // `parseInt('19:13')` would silently yield 19; the round-trip guard
+    // rejects the trailing `:13` so the unsupported shape surfaces.
+    expect(() => load('(;FF[4]GM[1]SZ[19:13])')).toThrow(SgfSizeError);
+  });
+
+  it('still defaults to 19 when SZ is ABSENT (absence is a legitimate default, not malformation)', () => {
+    const board = load('(;FF[4]GM[1];B[pd])');
+    const path = mainlineIds(board);
+    // "pd" on a 19×19 board decodes to (15, 15); proves size resolved to 19.
+    expect(board.nodes[path[1]].move).toMatchObject({ x: 15, y: 15 });
+  });
+});
+
+describe('loadSgf — malformed inbound coordinate', () => {
+  it('throws SgfCoordinateError when a move coordinate is out of board bounds', () => {
+    // "zz" → col=25, row=25, outside a 19×19 board. Previously this
+    // minted a Move with out-of-board (x, y) that flowed into the
+    // stones map; now the boundary rejects it.
+    expect(() => load('(;FF[4]GM[1]SZ[19];B[zz])')).toThrow(SgfCoordinateError);
+  });
+
+  it('throws SgfCoordinateError when a setup-stone coordinate is malformed (bypasses validateMove)', () => {
+    // Setup stones (AB) skip the rules engine's validateMove, so a bad
+    // AB coordinate had no downstream guard at all before this change.
+    expect(() => load('(;FF[4]GM[1]SZ[19]AB[zz])')).toThrow(SgfCoordinateError);
+  });
+
+  it('throws SgfCoordinateError on a single-character coordinate (NaN from charCodeAt(1))', () => {
+    expect(() => load('(;FF[4]GM[1]SZ[19];B[a])')).toThrow(SgfCoordinateError);
+  });
+});
+
+describe('loadSgf — illegal move in an otherwise-loadable file', () => {
+  it('loads the board, skips the illegal move, and warns prod-visibly (no DEV gate)', () => {
+    // Spy on console.warn: the prior notice was gated under
+    // import.meta.env.DEV, so production silently dropped the move.
+    // Assert the notice fires (the test's own claim) and carries the
+    // per-node detail rather than a bare count.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    onTestFinished(() => warn.mockRestore());
+
+    // B plays (0,0), then W plays the SAME point — an occupied-point
+    // placement the rules engine rejects. "as" → (0,0); replaying W[as]
+    // onto the occupied point is illegal.
+    const board = load('(;FF[4]GM[1]SZ[19];B[as];W[as])');
+
+    // The board still loads (renderable-but-anomalous): the illegal W
+    // move is skipped, so its node carries no captures and the stone
+    // map keeps B at (0,0).
+    const path = mainlineIds(board);
+    expect(path.length).toBe(3); // root + B + W nodes all present
+    const wNode = board.nodes[path[2]];
+    expect(wNode.delta?.captures).toEqual([]);
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('illegal move skipped'),
+    );
+    // Per-node detail preserved (ADR-0002 Revisit-when #2): the message
+    // names the coordinate and the rules-engine reason.
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('occupied'));
   });
 });

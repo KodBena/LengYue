@@ -478,6 +478,7 @@
   "sgf.noActiveBoard":                    "No active board to save.",
   "sgf.serialisationFailed":              "SGF serialisation failed: {detail}",
   "sgf.saved":                            "Saved {filename}.",
+  "sgf.loadFailed":                       "Could not load the SGF file: {detail}",
 
   "review.kataGoTimeout":                 "KataGo did not respond within {seconds}s. Review cancelled.",
   "review.missingPerMoveDelta":           "KataGo's response carried no per-move quality score for the move you played (player={color}, per-color move index {index}). Review cancelled. This usually points at a misconfigured palette or a proxy enrichment failure.",

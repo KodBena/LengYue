@@ -1,6 +1,6 @@
 {
-  "node_count": 467,
-  "edge_count": 2266,
+  "node_count": 468,
+  "edge_count": 2272,
   "age_buckets": [
     {
       "name": "fresh",
@@ -1712,17 +1712,17 @@
       "path": "docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/audit/audit-debt-second-opinion-2026-06-11.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/audit/audit-deferral-harvest-2026-06-10.md",
@@ -2562,7 +2562,7 @@
       "is_hub": false,
       "first_committed": "2026-05-04",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/playbooks/monorepo/editorial-cleanup-plan.md",
@@ -3586,7 +3586,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-11-band-conformance-ci-check.md",
@@ -3691,6 +3691,14 @@
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
       "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-11-sgf-file-boundary-coercions.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "docs/worklog/2026-06-11-single-owner-auth-state.md",
@@ -19121,6 +19129,48 @@
       "to": "docs/adr-synopsis.md",
       "kind": "path-mention",
       "site": "`docs/adr-synopsis.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-sgf-file-boundary-coercions.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-sgf-file-boundary-coercions.md",
+      "to": "docs/adr/0006-source-file-headers.md",
+      "kind": "adr-related",
+      "site": "ADR-0006",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-sgf-file-boundary-coercions.md",
+      "to": "docs/notes/audit/audit-debt-second-opinion-2026-06-11.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-debt-second-opinion-2026-06-11.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-sgf-file-boundary-coercions.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-sgf-file-boundary-coercions.md",
+      "to": "frontend/IDENTIFIERS.md",
+      "kind": "path-mention",
+      "site": "`frontend/IDENTIFIERS.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-sgf-file-boundary-coercions.md",
+      "to": "docs/handoff-current.md",
+      "kind": "path-mention",
+      "site": "`docs/handoff-current.md`",
       "resolved": "resolved"
     },
     {
