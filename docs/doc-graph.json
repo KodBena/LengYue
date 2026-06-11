@@ -1,6 +1,6 @@
 {
-  "node_count": 444,
-  "edge_count": 2133,
+  "node_count": 445,
+  "edge_count": 2136,
   "age_buckets": [
     {
       "name": "fresh",
@@ -1602,7 +1602,7 @@
       "is_hub": false,
       "first_committed": "2026-05-18",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/dispatch/proxy-to-frontend-selector-and-capabilities-status.md",
@@ -3402,7 +3402,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-10-keyed-cache-brand-and-stable-handles.md",
@@ -3498,7 +3498,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-10-types-split.md",
@@ -3526,6 +3526,14 @@
     },
     {
       "path": "docs/worklog/2026-06-11-audit-program-closeout.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-11-autosave-pause-unreachable.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": "2026-06-11",
@@ -3562,7 +3570,7 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "frontend/README.md",
@@ -18055,6 +18063,27 @@
       "to": "docs/notes/audit/audit-consolidation-history-lessons-2026-06-10.md",
       "kind": "path-mention",
       "site": "`docs/notes/audit/audit-consolidation-history-lessons-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-autosave-pause-unreachable.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-autosave-pause-unreachable.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-autosave-pause-unreachable.md",
+      "to": "frontend/IDENTIFIERS.md",
+      "kind": "path-mention",
+      "site": "`frontend/IDENTIFIERS.md`",
       "resolved": "resolved"
     },
     {
