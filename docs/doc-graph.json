@@ -1,6 +1,6 @@
 {
-  "node_count": 459,
-  "edge_count": 2194,
+  "node_count": 460,
+  "edge_count": 2200,
   "age_buckets": [
     {
       "name": "fresh",
@@ -98,7 +98,7 @@
       "is_hub": true,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/adr/0001-state-mutation-and-readonly.md",
@@ -106,7 +106,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/adr/0002-fail-loudly.md",
@@ -3442,7 +3442,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-10-refs-kind-audit.md",
@@ -3482,7 +3482,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-10-services-boundary-deny-by-default.md",
@@ -3586,7 +3586,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-11-e2e-harness-selector-model-field.md",
@@ -3638,6 +3638,14 @@
     },
     {
       "path": "docs/worklog/2026-06-11-review-paste-permissiveness-asymmetry.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-11-settings-profile-mutator-owner.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": "2026-06-11",
@@ -18630,6 +18638,48 @@
       "to": "frontend/IDENTIFIERS.md",
       "kind": "path-mention",
       "site": "`frontend/IDENTIFIERS.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-settings-profile-mutator-owner.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-settings-profile-mutator-owner.md",
+      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-settings-profile-mutator-owner.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-settings-profile-mutator-owner.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-settings-profile-mutator-owner.md",
+      "to": "docs/adr/0001-state-mutation-and-readonly.md",
+      "kind": "adr-related",
+      "site": "ADR-0001",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-settings-profile-mutator-owner.md",
+      "to": "docs/adr-synopsis.md",
+      "kind": "path-mention",
+      "site": "`docs/adr-synopsis.md`",
       "resolved": "resolved"
     },
     {

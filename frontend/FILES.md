@@ -305,6 +305,7 @@ frontend/src/
 │   ├── index.ts                       [B3]  Central reactive store; createBoard / closeBoard / resetWorkspace.
 │   ├── migration-witness.ts           [B1]  The witnessedContainer leaf-assertion helper + its runtime-shape witness (imports defaults), homed in a leaf module so both migrations.ts and archived-migrations.ts call it without a module cycle.
 │   ├── migrations.ts                  [B1]  Schema-versioning framework; the active body holds the latest two migrations (re-exports witnessedContainer from migration-witness.ts); the migrations themselves touch every band.
+│   ├── profile-owner.ts               [B3]  Owner module for the store.profile subtree (mutateProfile / updateProfileAt / writeStoreKnobValue) — every profile write outside index.ts's reset/hydrate routes through it; B3 via the ProfileState/store coupling, the verbs themselves are domain-agnostic.
 │   └── schema.ts                      [B3]  Persisted GlobalStore schema (AppSettings / UISession / ProfileState / SessionState / GlobalStore + persisted-slice types), colocated with defaults.ts. The engine.katago subtree and the BoardState / EngineState references dominate the leakage; the persistence machinery itself is B1. Carries the BUNDLE_COMPRESSION_SCHEMES runtime const.
 │
 ├── i18n/                                    vue-i18n integration.

@@ -12,6 +12,7 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { BoardId } from '../../types';
 import { store } from '../../store';
+import { mutateProfile } from '../../store/profile-owner';
 import { ledger } from '../../services/analysis-ledger';
 import { useAnalysisPersistence } from '../../composables/analysis/useAnalysisPersistence';
 import type { AnalysisBundleStorageError } from '../../services/analysis-bundle';
@@ -21,6 +22,50 @@ const { t } = useI18n();
 const props = defineProps<{ boardId: BoardId; }>();
 const persist = useAnalysisPersistence(() => props.boardId);
 const palettes = computed(() => store.profile.settings.engine.katago.analysis_env.palettes);
+
+// ── Owner-routed v-model targets ──────────────────────────────────────────
+//
+// The five profile-settings leaves this editor binds were template
+// v-models writing PROFILE state directly — outside ADR-0001's
+// session.ui template-toggle sanction, carried as annotated
+// store-write-needs-owner exemptions until the subtree got a real
+// owner (work-status item settings-profile-mutator-owner). Each leaf
+// is now a WritableComputed: the getter reads the store (this editor
+// displays the value — ADR-0010 read-locality), the setter routes the
+// identical leaf assignment through `mutateProfile`, so v-model
+// semantics (including the .number modifier's coercion, applied
+// before the setter runs) and SyncService's deep-watch observability
+// are unchanged.
+const activePaletteId = computed({
+  get: () => store.profile.settings.engine.katago.analysis_env.activePaletteId,
+  set: (v: string) => mutateProfile((p) => {
+    p.settings.engine.katago.analysis_env.activePaletteId = v;
+  }),
+});
+const adaptiveEnabled = computed({
+  get: () => store.profile.settings.engine.katago.adaptiveReevaluate.enabled,
+  set: (v: boolean) => mutateProfile((p) => {
+    p.settings.engine.katago.adaptiveReevaluate.enabled = v;
+  }),
+});
+const adaptiveWorstQuantile = computed({
+  get: () => store.profile.settings.engine.katago.adaptiveReevaluate.worstQuantile,
+  set: (v: number) => mutateProfile((p) => {
+    p.settings.engine.katago.adaptiveReevaluate.worstQuantile = v;
+  }),
+});
+const adaptiveExtraVisits = computed({
+  get: () => store.profile.settings.engine.katago.adaptiveReevaluate.extraVisits,
+  set: (v: number) => mutateProfile((p) => {
+    p.settings.engine.katago.adaptiveReevaluate.extraVisits = v;
+  }),
+});
+const adaptiveValueBinding = computed({
+  get: () => store.profile.settings.engine.katago.adaptiveReevaluate.valueBinding,
+  set: (v: string) => mutateProfile((p) => {
+    p.settings.engine.katago.adaptiveReevaluate.valueBinding = v;
+  }),
+});
 
 // Adaptive-reevaluate UI is gated on the proxy actually advertising
 // the capability. When the proxy doesn't advertise (legacy proxies
@@ -181,14 +226,9 @@ function purgeLedger() {
       <div style="display: flex; flex-wrap: wrap; gap: var(--space-default); min-width: 0;">
         <div class="palette-selector">
           <label>{{ $t('analysis.paletteLabel') }}</label>
-          <!-- Annotated exemption: settings-editor v-model bound straight
-               onto a profile-settings leaf. A template write to PROFILE
-               state sits outside ADR-0001's session.ui template-toggle
-               sanction — named layering debt (this editor predates the
-               writer-enumeration rule), not a sanctioned pattern; the
-               settings-editor surfaces are the natural future mutator arc. -->
-          <!-- eslint-disable-next-line local/store-write-needs-owner -->
-          <select v-model="store.profile.settings.engine.katago.analysis_env.activePaletteId" class="dark-select">
+          <!-- Owner-routed writable computed (see script); the prior
+               direct profile v-model was an annotated exemption. -->
+          <select v-model="activePaletteId" class="dark-select">
             <option v-for="p in palettes" :key="p.id" :value="p.id">{{ p.name }}</option>
           </select>
         </div>
@@ -213,41 +253,35 @@ function purgeLedger() {
     <div v-if="adaptiveAdvertised" class="analysis-config-box adaptive-box">
       <div class="settings-row">
         <label class="checkbox-row">
-          <!-- Annotated exemption: settings-editor v-model on a
-               profile-settings leaf (see the palette-selector note above
-               for the class; same for the three below). -->
-          <!-- eslint-disable-next-line local/store-write-needs-owner -->
           <input
             type="checkbox"
-            v-model="store.profile.settings.engine.katago.adaptiveReevaluate.enabled"
+            v-model="adaptiveEnabled"
           />
           <span>{{ $t('analysis.adaptive.enabled') }}</span>
           <span class="info-icon" :title="$t('analysis.adaptive.tooltip')">?</span>
         </label>
         <div
-          v-if="store.profile.settings.engine.katago.adaptiveReevaluate.enabled"
+          v-if="adaptiveEnabled"
           class="adaptive-fields"
         >
           <label class="label-with-value adaptive-field-row">
             <span>{{ $t('analysis.adaptive.worstQuantile') }}</span>
-            <!-- eslint-disable-next-line local/store-write-needs-owner -->
             <input
               type="number"
               min="0"
               max="1"
               step="0.01"
-              v-model.number="store.profile.settings.engine.katago.adaptiveReevaluate.worstQuantile"
+              v-model.number="adaptiveWorstQuantile"
               class="dark-input adaptive-input"
             />
           </label>
           <label class="label-with-value adaptive-field-row">
             <span>{{ $t('analysis.adaptive.extraVisits') }}</span>
-            <!-- eslint-disable-next-line local/store-write-needs-owner -->
             <input
               type="number"
               min="0"
               step="100"
-              v-model.number="store.profile.settings.engine.katago.adaptiveReevaluate.extraVisits"
+              v-model.number="adaptiveExtraVisits"
               class="dark-input adaptive-input"
             />
           </label>
@@ -265,9 +299,8 @@ function purgeLedger() {
             class="label-with-value adaptive-field-row"
           >
             <span>{{ $t('analysis.adaptive.valueBinding.label') }}</span>
-            <!-- eslint-disable-next-line local/store-write-needs-owner -->
             <select
-              v-model="store.profile.settings.engine.katago.adaptiveReevaluate.valueBinding"
+              v-model="adaptiveValueBinding"
               class="dark-input adaptive-input"
             >
               <option value="">
@@ -282,7 +315,7 @@ function purgeLedger() {
               </option>
             </select>
             <span
-              v-if="store.profile.settings.engine.katago.adaptiveReevaluate.valueBinding.startsWith('learned_')"
+              v-if="adaptiveValueBinding.startsWith('learned_')"
               class="info-icon"
               :title="$t('analysis.adaptive.valueBinding.experimentalTooltip')"
             >?</span>

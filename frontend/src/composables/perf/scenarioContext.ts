@@ -19,6 +19,7 @@
  * License: Public Domain (The Unlicense)
  */
 import { store, activeBoard, createBoard as storeCreateBoard, closeBoard, resetWorkspace as storeResetWorkspace, setSelectedModel } from '../../store';
+import { mutateProfile } from '../../store/profile-owner';
 import { useNavigation } from '../useNavigation';
 import { useQueryTelemetry } from '../useQueryTelemetry';
 import { waitForCondition } from '../reactive-settle';
@@ -116,18 +117,16 @@ function createScenarioContext(name: string): {
     },
 
     async connectEngine(opts = {}): Promise<void> {
-      if (opts.adaptive !== undefined) {
+      const adaptive = opts.adaptive;
+      if (adaptive !== undefined) {
         // adaptiveReevaluate is a config object { enabled, worstQuantile, … };
         // `.enabled` is the gate buildPerQueryCapabilities reads per-query, so
         // it must live in the store during the run. Snapshot the original once
         // and restore in teardown (capture-neutrality, like createdBoards).
+        // Owner-routed write (settings-profile-mutator-owner); was a
+        // DEV-harness annotated exemption.
         savedAdaptiveEnabled ??= store.profile.settings.engine.katago.adaptiveReevaluate.enabled;
-        // Annotated exemption (local/store-write-needs-owner):
-        // DEV-only perf harness, snapshot/restore pair with the
-        // teardown write below — capture-neutral by construction,
-        // never reachable in production builds.
-        // eslint-disable-next-line local/store-write-needs-owner -- DEV perf harness; paired with the teardown restore
-        store.profile.settings.engine.katago.adaptiveReevaluate.enabled = opts.adaptive;
+        mutateProfile((p) => { p.settings.engine.katago.adaptiveReevaluate.enabled = adaptive; });
       }
       if (store.engine.status !== 'connected') {
         // Transient URL: passed to connect() directly, NOT written to the
@@ -240,10 +239,10 @@ function createScenarioContext(name: string): {
     // to the profile — it goes transiently through connect()). Keeps the
     // capture neutral on the user's persisted engine settings.
     if (savedAdaptiveEnabled !== undefined) {
-      // Annotated exemption (local/store-write-needs-owner): the
-      // restore half of the DEV-only harness pair above.
-      // eslint-disable-next-line local/store-write-needs-owner -- DEV perf harness; restore half of the snapshot pair
-      store.profile.settings.engine.katago.adaptiveReevaluate.enabled = savedAdaptiveEnabled;
+      // Owner-routed restore half of the snapshot pair above
+      // (settings-profile-mutator-owner).
+      const restored = savedAdaptiveEnabled;
+      mutateProfile((p) => { p.settings.engine.katago.adaptiveReevaluate.enabled = restored; });
       savedAdaptiveEnabled = undefined;
     }
   }

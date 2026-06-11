@@ -215,6 +215,20 @@
  *       justification; adopted 2026-06-11, see the stage-2 adoption record
  *       at the end of this header), the latter remains the no-explicit-any
  *       deferral (see the staging record at the end of this header).
+ *     - no aliased profile writes through generic machinery — rationale:
+ *       the store-write-needs-owner lint (below) guards dotted-path
+ *       writes only; store.profile's majority writers were aliased
+ *       through `updateRegistry` (handed a store.profile root) and the
+ *       knob substrate (`writeKnobValue`/`writeKnob` handed the live
+ *       store root) — the "fenced, not owned" finding of PR #382's
+ *       out-of-frame audit. With the subtree's owner module landed
+ *       (src/store/profile-owner.ts; work-status item
+ *       settings-profile-mutator-owner), these selectors keep the two
+ *       machinery shapes routed through it. Measured at adoption
+ *       (2026-06-11): 6 call sites, all rerouted in the same change;
+ *       2 annotated sanctioned sites in the owner ⇒ `error` on a
+ *       fully-triaged baseline. Full rationale + named gaps at the
+ *       PROFILE_ALIASED_WRITE_SELECTORS constant.
  *
  *   Vue lifecycle footgun guards (custom local rules, `.vue` files;
  *   2026-06-10 history-lessons audit §3.12, work-status item
@@ -479,6 +493,64 @@ const LOCAL_RULE_PLUGIN = {
 // not police them because the file is frozen the moment it ships.
 const FROZEN_MIGRATION_FILES = ['src/store/migrations.ts', 'src/store/archived-migrations.ts'];
 
+// ── Profile aliased-write guards (generic-machinery call shapes) ──
+// rationale: PR #382's out-of-frame audit found store.profile "fenced,
+// not owned" — the store-write-needs-owner lint guards the dotted-path
+// write shape, but the subtree's MAJORITY writers were aliased through
+// two pieces of generic machinery the rule's named gaps admit: the
+// silent-create path walker (`updateRegistry` handed a store.profile
+// root — the Settings registry editors' seam) and the knob substrate
+// (`writeKnobValue`/`writeKnob` handed the live `store` root, whose
+// KnobDecl output paths land on profile leaves). Work-status item
+// settings-profile-mutator-owner gives the subtree a real owner
+// (src/store/profile-owner.ts: mutateProfile / updateProfileAt /
+// writeStoreKnobValue); these selectors are the net that keeps future
+// writers from re-introducing the aliased shapes outside it (ADR-0011
+// Rule 4 — quantify over the machinery class, not the call-site list).
+// Measured at adoption (2026-06-11, scratch config over src/ BEFORE the
+// reroute): 6 call sites — updateRegistry-over-profile ×3
+// (SettingsTab.vue ×2, useDirtyBoardGuard.ts ×1), knob-substrate-with-
+// store-root ×3 (KnobSlider.vue ×1, useQeubo.ts ×2); all rerouted
+// through the owner in the same change, leaving the owner's own two
+// sites as annotated inline disables (the vue/no-v-html model) ⇒
+// adopted at `error` on a fully-triaged baseline. Probe-verified
+// against the literal pre-change shapes (both selector families fire
+// on reintroduction; scratch edits reverted). Named gaps per ADR-0002:
+// name-matched callees and roots (a renamed import or an intermediate
+// variable holding store.profile escapes); root-depth-bounded matching
+// (a root deeper than store.profile.<x> escapes); session.ui-rooted
+// updateRegistry calls are deliberately admitted (store.session is not
+// an enumerated subtree).
+const PROFILE_ALIASED_WRITE_SELECTORS = [
+  {
+    selector:
+      "CallExpression[callee.name='updateRegistry'][arguments.0.object.name='store'][arguments.0.property.name='profile']",
+    message:
+      'updateRegistry over a store.profile root is an aliased profile write ' +
+      'the writer-enumeration lint cannot see. Route it through the profile ' +
+      "owner (src/store/profile-owner.ts: updateProfileAt for dynamic paths, " +
+      'mutateProfile for statically-known writes). See eslint.config.js header.',
+  },
+  {
+    selector:
+      "CallExpression[callee.name='updateRegistry'][arguments.0.object.object.name='store'][arguments.0.object.property.name='profile']",
+    message:
+      'updateRegistry over a store.profile.* root is an aliased profile write ' +
+      'the writer-enumeration lint cannot see. Route it through the profile ' +
+      "owner (src/store/profile-owner.ts: updateProfileAt for dynamic paths, " +
+      'mutateProfile for statically-known writes). See eslint.config.js header.',
+  },
+  {
+    selector:
+      ":matches(CallExpression[callee.name='writeKnobValue'], CallExpression[callee.name='writeKnob'])[arguments.0.name='store']",
+    message:
+      'Handing the live store root to the knob substrate is an aliased ' +
+      'store write (KnobDecl output paths land on profile/session leaves). ' +
+      "Route it through the profile owner's writeStoreKnobValue " +
+      '(src/store/profile-owner.ts). See eslint.config.js header.',
+  },
+];
+
 const ANY_ASSERTION_SELECTORS = [
   {
     selector: ':matches(TSAsExpression, TSTypeAssertion) > TSAnyKeyword',
@@ -678,6 +750,11 @@ export default [
         // drop the G1 selectors above. Rationale + measured adoption in
         // the header; selector constant above.
         ...ANY_ASSERTION_SELECTORS,
+        // Profile aliased-write guards — same single-block constraint;
+        // rationale + measured adoption at the selector constant above.
+        // The owner module (src/store/profile-owner.ts) carries the two
+        // sanctioned root-supplier sites as annotated inline disables.
+        ...PROFILE_ALIASED_WRITE_SELECTORS,
       ],
     },
   },
@@ -694,7 +771,15 @@ export default [
   {
     files: ['src/**/*.vue'],
     rules: {
-      'vue/no-restricted-syntax': ['error', ...ANY_ASSERTION_SELECTORS],
+      // Template side carries the profile aliased-write guards too:
+      // <script setup> exposes every top-level binding to the template,
+      // so an imported updateRegistry/writeKnobValue is template-callable
+      // in principle (0 template hits at adoption — a clean gate).
+      'vue/no-restricted-syntax': [
+        'error',
+        ...ANY_ASSERTION_SELECTORS,
+        ...PROFILE_ALIASED_WRITE_SELECTORS,
+      ],
     },
   },
 
@@ -774,6 +859,18 @@ export default [
   //     adoption, matching the worklog/PR/ADR-amendment record.)
   //     Discharge filed: work-status item settings-profile-mutator-owner
   //     (the settings-editor mutator arc the annotations point at).
+  //     (Discharged 2026-06-11 — that item shipped: store.profile gained
+  //     an owner module, src/store/profile-owner.ts (mutateProfile /
+  //     updateProfileAt / writeStoreKnobValue), joined to the owners
+  //     list below; all 10 annotated exemptions rerouted through it and
+  //     removed (10 → 0); the aliased generic-machinery shapes the
+  //     PR #382 audit enumerated (updateRegistry over a store.profile
+  //     root; writeKnobValue/writeKnob with the store root) are now
+  //     guarded by PROFILE_ALIASED_WRITE_SELECTORS above, and the
+  //     keybindings-capture binding mutators — an aliased writer family
+  //     that enumeration missed, found by the at-HEAD re-derivation —
+  //     route through the owner too. The 2026-06-10 baseline above
+  //     stands as the historical record.)
   //   ⇒ adopted at `error` on a fully-triaged baseline, per this
   //   config's measure-first posture. Named gaps in the rule file
   //   (aliased roots, method-call mutations, name-matched `store`).
@@ -796,8 +893,14 @@ export default [
               owners: ['src/store/index.ts', 'src/services/engine-connection.ts'],
             },
             // The persisted profile: reset/hydrate live in the store;
-            // every other writer is an annotated inline exemption.
-            { path: 'profile', owners: ['src/store/index.ts'] },
+            // every other writer routes through the owner module
+            // (settings-profile-mutator-owner — see the census
+            // appendix in the rationale comment above; the prior
+            // shape's 10 annotated inline exemptions are retired).
+            {
+              path: 'profile',
+              owners: ['src/store/index.ts', 'src/store/profile-owner.ts'],
+            },
           ],
           // ADR-0001 "Exception: UI state written directly from
           // templates" — small UI toggles on store.session.ui.* may

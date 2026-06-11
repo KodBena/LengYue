@@ -33,6 +33,7 @@ import { computed } from 'vue';
 import type { ComputedRef } from 'vue';
 
 import { store } from '../../store';
+import { mutateProfile } from '../../store/profile-owner';
 import {
   SUPPORTED_LOCALES,
   LOCALE_DISPLAY_NAMES,
@@ -63,15 +64,12 @@ export function useLocale(): {
   });
 
   const setLocale = (loc: SupportedLocale): void => {
-    // Annotated exemption (local/store-write-needs-owner): this
-    // composable is the locale slice's de-facto owner — `setLocale`
-    // is the app's only locale writer (the chrome dropdown's named
-    // mutator in all but file location). Routing one leaf write
-    // through a store-module mutator would add ceremony without a
-    // second writer to coordinate; if a second locale writer appears,
-    // promote this into the owner enumeration instead.
-    // eslint-disable-next-line local/store-write-needs-owner -- locale slice; sole writer (see comment above)
-    store.profile.settings.appearance.locale = loc;
+    // Owner-routed write (settings-profile-mutator-owner): this
+    // composable stays the app's only locale-writing call site, but
+    // the write itself goes through the profile owner so the
+    // subtree's writer set is one grep target rather than a
+    // per-slice exemption list.
+    mutateProfile((p) => { p.settings.appearance.locale = loc; });
   };
 
   const displayName = (loc: SupportedLocale): string =>

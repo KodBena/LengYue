@@ -23,12 +23,16 @@ others — drop the `readonly` annotation that was previously
 aspirational. Value objects (`Move`, `Point`, `EbisuModel`,
 `SystemMessage`, etc.) keep `readonly` because the codebase genuinely
 doesn't mutate them. The "mutate only through named mutators"
-convention (`mutateBoard`, `mutateReviewSession`) is preserved as a
-code-review responsibility, not a type-system enforcement — partially
-mechanized since 2026-06-10 by the `local/store-write-needs-owner`
-writer-enumeration lint over the `store.boards` / `store.engine` /
-`store.profile` subtrees (the Revisit-#3 response; aliased writes
-remain review's to catch).
+convention (`mutateBoard`, `mutateReviewSession`, and since
+2026-06-11 `mutateProfile` et al. in the profile-owner module) is
+preserved as a code-review responsibility, not a type-system
+enforcement — partially mechanized since 2026-06-10 by the
+`local/store-write-needs-owner` writer-enumeration lint over the
+`store.boards` / `store.engine` / `store.profile` subtrees (the
+Revisit-#3 response), plus syntactic guards on the two
+generic-machinery aliased-write shapes for `store.profile`
+(2026-06-11 follow-on); other aliased writes remain review's to
+catch.
 
 **Why care.** A type that claims a property the runtime doesn't hold
 is a lie. ADR-0001 aligns the type declarations with actual behavior

@@ -87,6 +87,7 @@ import { computed, ref, type ComputedRef, type Ref, type WritableComputedRef } f
 import { generateUUID } from '../lib/utils';
 import { qeuboService } from '../services/qeubo-service';
 import { pushSystemMessage, store } from '../store';
+import { mutateProfile, writeStoreKnobValue } from '../store/profile-owner';
 import { i18n } from '../i18n';
 import {
   QeuboError,
@@ -98,7 +99,7 @@ import {
   type QeuboPhase,
   type QeuboStatus,
 } from '../types';
-import { claimKnob, currentClaim, releaseKnob, writeKnobValue } from '../lib/knobs';
+import { claimKnob, currentClaim, releaseKnob } from '../lib/knobs';
 
 // ─── Module-scoped state ─────────────────────────────────────────────────────
 
@@ -185,23 +186,27 @@ function ensureKnobDecl(name: string, range: readonly [number, number]): KnobId 
   const knobId = knobIdForParam(name);
   const registry = store.profile.settings.knobs;
   if (!(knobId in registry)) {
-    registry[knobId] = {
-      id: knobId,
-      label: name,
-      // Analysis-env parameters live in the palette domain — the
-      // editor's UX taxonomy answer to "where does this knob belong
-      // in the user's mental model". qEUBO is one consumer that
-      // *may* claim these knobs during experiments; that's
-      // `qeuboControlled` + the claim API, not `KnobDomain`. The
-      // earlier `domain: 'qeubo'` was a category error documented
-      // at `docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`.
-      domain: 'palette',
-      inputs: [{ range: [range[0], range[1]] }],
-      outputs: [{
-        path: `profile.settings.engine.katago.analysis_env.parameters.${name}`,
-      }],
-      qeuboControlled: true,
-    };
+    // Owner-routed decl insert (settings-profile-mutator-owner): the
+    // knobs registry is profile state; writes go through mutateProfile.
+    mutateProfile((p) => {
+      p.settings.knobs[knobId] = {
+        id: knobId,
+        label: name,
+        // Analysis-env parameters live in the palette domain — the
+        // editor's UX taxonomy answer to "where does this knob belong
+        // in the user's mental model". qEUBO is one consumer that
+        // *may* claim these knobs during experiments; that's
+        // `qeuboControlled` + the claim API, not `KnobDomain`. The
+        // earlier `domain: 'qeubo'` was a category error documented
+        // at `docs/notes/postmortem-knob-registry-qeubo-domain-2026-05.md`.
+        domain: 'palette',
+        inputs: [{ range: [range[0], range[1]] }],
+        outputs: [{
+          path: `profile.settings.engine.katago.analysis_env.parameters.${name}`,
+        }],
+        qeuboControlled: true,
+      };
+    });
   }
   return knobId;
 }
@@ -237,75 +242,81 @@ function ensureKnobDecl(name: string, range: readonly [number, number]): KnobId 
  * dependents on every keystroke when the user is typing a range.
  */
 function reconcileQeuboKnobs(): void {
-  const pm =
-    store.profile.settings.engine.katago.analysis_env.parameter_meta ?? {};
-  const knobs = store.profile.settings.knobs;
-  const KNOB_PREFIX = QEUBO_KNOB_PREFIX;
+  // Whole reconcile runs inside one owner-routed mutate
+  // (settings-profile-mutator-owner): the draft IS the live reactive
+  // store.profile, so the body — reads, the no-op short-circuits, and
+  // both write passes — is byte-for-byte the prior semantics, with the
+  // knobs-registry writes now flowing through the subtree's owner.
+  mutateProfile((profile) => {
+    const pm = profile.settings.engine.katago.analysis_env.parameter_meta ?? {};
+    const knobs = profile.settings.knobs;
+    const KNOB_PREFIX = QEUBO_KNOB_PREFIX;
 
-  // Pass 1 — add / update from parameter_meta.
-  for (const [name, meta] of Object.entries(pm)) {
-    const range = meta?.range;
-    const hasValidRange =
-      Array.isArray(range) &&
-      range.length === 2 &&
-      Number.isFinite(range[0]) &&
-      Number.isFinite(range[1]) &&
-      range[0] < range[1];
-    if (!hasValidRange) continue;
-    const knobId = knobIdForParam(name);
-    const qeuboControlled = meta?.qeubo_controlled === true;
-    const existing = knobs[knobId];
-    if (
-      existing &&
-      existing.domain === 'palette' &&
-      existing.inputs[0]?.range[0] === range[0] &&
-      existing.inputs[0]?.range[1] === range[1] &&
-      (existing.qeuboControlled === true) === qeuboControlled
-    ) {
-      continue; // No-op short-circuit
+    // Pass 1 — add / update from parameter_meta.
+    for (const [name, meta] of Object.entries(pm)) {
+      const range = meta?.range;
+      const hasValidRange =
+        Array.isArray(range) &&
+        range.length === 2 &&
+        Number.isFinite(range[0]) &&
+        Number.isFinite(range[1]) &&
+        range[0] < range[1];
+      if (!hasValidRange) continue;
+      const knobId = knobIdForParam(name);
+      const qeuboControlled = meta?.qeubo_controlled === true;
+      const existing = knobs[knobId];
+      if (
+        existing &&
+        existing.domain === 'palette' &&
+        existing.inputs[0]?.range[0] === range[0] &&
+        existing.inputs[0]?.range[1] === range[1] &&
+        (existing.qeuboControlled === true) === qeuboControlled
+      ) {
+        continue; // No-op short-circuit
+      }
+      knobs[knobId] = {
+        id: knobId,
+        label: name,
+        // Palette domain (see ensureKnobDecl above for the rationale
+        // and the postmortem reference). The short-circuit includes
+        // `domain === 'palette'` so a stale `domain: 'qeubo'` decl
+        // surviving from a pre-remediation migration falls through
+        // and gets rewritten — defense-in-depth for the 38 → 39
+        // migration's idempotence guarantee.
+        domain: 'palette',
+        inputs: [{ range: [range[0], range[1]] }],
+        outputs: [{
+          path: `profile.settings.engine.katago.analysis_env.parameters.${name}`,
+        }],
+        qeuboControlled,
+      };
     }
-    knobs[knobId] = {
-      id: knobId,
-      label: name,
-      // Palette domain (see ensureKnobDecl above for the rationale
-      // and the postmortem reference). The short-circuit includes
-      // `domain === 'palette'` so a stale `domain: 'qeubo'` decl
-      // surviving from a pre-remediation migration falls through
-      // and gets rewritten — defense-in-depth for the 38 → 39
-      // migration's idempotence guarantee.
-      domain: 'palette',
-      inputs: [{ range: [range[0], range[1]] }],
-      outputs: [{
-        path: `profile.settings.engine.katago.analysis_env.parameters.${name}`,
-      }],
-      qeuboControlled,
-    };
-  }
 
-  // Pass 2 — remove qeubo.* decls whose parameters lost their range
-  // (or were deleted). Claim-held decls survive: yanking a decl out
-  // from under a live experiment would leave the claim un-anchored
-  // and the next writeKnobValue call would throw "no KnobDecl
-  // registered" for a knob that's logically active.
-  for (const knobId of Object.keys(knobs)) {
-    if (!knobId.startsWith(KNOB_PREFIX)) continue;
-    const name = knobId.slice(KNOB_PREFIX.length);
-    const meta = pm[name];
-    const range = meta?.range;
-    const hasValidRange =
-      Array.isArray(range) &&
-      range.length === 2 &&
-      Number.isFinite(range[0]) &&
-      Number.isFinite(range[1]) &&
-      range[0] < range[1];
-    if (hasValidRange) continue;
-    // Check the substrate's actual claim state, not useQeubo's local
-    // bookkeeping — the two can diverge when the claim is held by a
-    // different consumer or when useQeubo's `_claimedKnobIds` hasn't
-    // caught up to a rehydrate. `currentClaim` is the SSOT.
-    if (currentClaim(knobId as KnobId) !== null) continue;
-    delete knobs[knobId];
-  }
+    // Pass 2 — remove qeubo.* decls whose parameters lost their range
+    // (or were deleted). Claim-held decls survive: yanking a decl out
+    // from under a live experiment would leave the claim un-anchored
+    // and the next writeKnobValue call would throw "no KnobDecl
+    // registered" for a knob that's logically active.
+    for (const knobId of Object.keys(knobs)) {
+      if (!knobId.startsWith(KNOB_PREFIX)) continue;
+      const name = knobId.slice(KNOB_PREFIX.length);
+      const meta = pm[name];
+      const range = meta?.range;
+      const hasValidRange =
+        Array.isArray(range) &&
+        range.length === 2 &&
+        Number.isFinite(range[0]) &&
+        Number.isFinite(range[1]) &&
+        range[0] < range[1];
+      if (hasValidRange) continue;
+      // Check the substrate's actual claim state, not useQeubo's local
+      // bookkeeping — the two can diverge when the claim is held by a
+      // different consumer or when useQeubo's `_claimedKnobIds` hasn't
+      // caught up to a rehydrate. `currentClaim` is the SSOT.
+      if (currentClaim(knobId as KnobId) !== null) continue;
+      delete knobs[knobId];
+    }
+  });
 }
 
 export { reconcileQeuboKnobs };
@@ -765,19 +776,19 @@ function applyEffective(): void {
   for (const [name, value] of Object.entries(eff)) {
     const knobId = knobIdForParam(name);
     if (knobId in registry) {
-      writeKnobValue(store, registry, knobId, [value], {
+      writeStoreKnobValue(knobId, [value], {
         kind: 'consumer',
         consumerId: QEUBO_CONSUMER_ID,
       });
     } else {
-      // Annotated exemption (local/store-write-needs-owner): the
-      // qEUBO apply path's non-knob fallback — parameters without a
-      // knob registration write the palette-env leaf directly. The
-      // knob-registered branch above already routes through
-      // writeKnobValue; this leg is the deliberate residual writer
-      // for the qEUBO parameter slice.
-      // eslint-disable-next-line local/store-write-needs-owner -- qEUBO parameter-apply slice; non-knob fallback leg
-      store.profile.settings.engine.katago.analysis_env.parameters[name] = value;
+      // The qEUBO apply path's non-knob fallback — parameters without
+      // a knob registration write the palette-env leaf via the profile
+      // owner (settings-profile-mutator-owner; was an annotated direct
+      // write). The knob-registered branch above routes through the
+      // owner's knob seam.
+      mutateProfile((p) => {
+        p.settings.engine.katago.analysis_env.parameters[name] = value;
+      });
     }
   }
   _toolbarView.value = 'applied';
@@ -833,15 +844,15 @@ function pinCurrent(name: string): void {
     createdAt: Date.now(),
     parameters,
   };
-  if (!store.profile.qeuboPinnedBookmarks) {
-    // Annotated exemption (local/store-write-needs-owner): lazy-init
-    // of the qEUBO pinned-bookmarks slice, owned by this composable
-    // (the only reader/writer of qeuboPinnedBookmarks; the `.push`
-    // below is the same owner mutating the array it just created).
-    // eslint-disable-next-line local/store-write-needs-owner -- qEUBO bookmark slice; lazy-init by its sole owner
-    store.profile.qeuboPinnedBookmarks = [];
-  }
-  store.profile.qeuboPinnedBookmarks.push(bookmark);
+  // Owner-routed lazy-init + push (settings-profile-mutator-owner):
+  // same in-place array mutation as before, through the profile
+  // owner. The push was a method-call mutation the lint never saw.
+  mutateProfile((p) => {
+    if (!p.qeuboPinnedBookmarks) {
+      p.qeuboPinnedBookmarks = [];
+    }
+    p.qeuboPinnedBookmarks.push(bookmark);
+  });
 }
 
 function applyBookmark(id: BookmarkId): void {
@@ -887,36 +898,41 @@ function applyBookmark(id: BookmarkId): void {
   // No conflicts — write per-key through the substrate so future
   // PaletteEditor-style claim watchers see the change reactively
   // and any soft-claim-aware paths fire the standard release event.
-  // The value vector goes straight to `writeKnobValue` (no re-wrap).
-  // Keys without a KnobDecl fall through to the direct write (the
-  // legacy path; same shape as `applyEffective`) — those are scalar
-  // analysis-env params, so the length-1 vector's `[0]` is the value.
-  const params = store.profile.settings.engine.katago.analysis_env.parameters;
-  // Object.entries on Record<KnobId, number[]> widens the key to string;
-  // re-brand the entry tuples to the declared [KnobId, number[]] shape.
-  for (const [knobId, value] of Object.entries(bookmark.parameters) as [KnobId, number[]][]) {
-    if (knobId in registry) {
-      writeKnobValue(store, registry, knobId, value, { kind: 'manual' });
-    } else {
-      params[paramNameForKnobId(knobId)] = value[0];
+  // The value vector goes straight to the owner's knob seam (no
+  // re-wrap). Keys without a KnobDecl fall through to the direct
+  // write (the legacy path; same shape as `applyEffective`) — those
+  // are scalar analysis-env params, so the length-1 vector's `[0]`
+  // is the value. Both legs and the delete sweep below run inside
+  // one owner-routed mutate (settings-profile-mutator-owner),
+  // preserving the original interleaving order exactly.
+  mutateProfile((profile) => {
+    const params = profile.settings.engine.katago.analysis_env.parameters;
+    // Object.entries on Record<KnobId, number[]> widens the key to string;
+    // re-brand the entry tuples to the declared [KnobId, number[]] shape.
+    for (const [knobId, value] of Object.entries(bookmark.parameters) as [KnobId, number[]][]) {
+      if (knobId in registry) {
+        writeStoreKnobValue(knobId, value, { kind: 'manual' });
+      } else {
+        params[paramNameForKnobId(knobId)] = value[0];
+      }
     }
-  }
-  // Bookmarks may also delete keys the current parameters hold —
-  // the prior whole-record reseat (`= { ...bookmark.parameters }`)
-  // erased any key not in the bookmark. Preserve that semantic by
-  // deleting parameters whose name isn't among the bookmark's keys
-  // (mapped back through `paramNameForKnobId`). The substrate-claim
-  // conflict check above runs against the bookmark's keys only;
-  // deletions of unclaimed-extra keys are safe by definition.
-  const bookmarkedNames = new Set(
-    // Keys of Record<KnobId, …> are KnobIds; re-brand for paramNameForKnobId.
-    (Object.keys(bookmark.parameters) as KnobId[]).map(paramNameForKnobId),
-  );
-  for (const name of Object.keys(params)) {
-    if (!bookmarkedNames.has(name)) {
-      delete params[name];
+    // Bookmarks may also delete keys the current parameters hold —
+    // the prior whole-record reseat (`= { ...bookmark.parameters }`)
+    // erased any key not in the bookmark. Preserve that semantic by
+    // deleting parameters whose name isn't among the bookmark's keys
+    // (mapped back through `paramNameForKnobId`). The substrate-claim
+    // conflict check above runs against the bookmark's keys only;
+    // deletions of unclaimed-extra keys are safe by definition.
+    const bookmarkedNames = new Set(
+      // Keys of Record<KnobId, …> are KnobIds; re-brand for paramNameForKnobId.
+      (Object.keys(bookmark.parameters) as KnobId[]).map(paramNameForKnobId),
+    );
+    for (const name of Object.keys(params)) {
+      if (!bookmarkedNames.has(name)) {
+        delete params[name];
+      }
     }
-  }
+  });
   _toolbarView.value = 'applied';
 }
 
@@ -925,24 +941,31 @@ function renameBookmark(id: BookmarkId, newName: string): void {
   if (!trimmed) {
     throw new Error('PBO: bookmark name must be non-empty.');
   }
-  const list = store.profile.qeuboPinnedBookmarks ?? [];
-  const bookmark = list.find((b) => b.id === id);
-  if (!bookmark) {
-    pushSystemMessage('error', i18n.global.t('qeuboInternal.bookmarkNotFound', { id }));
-    return;
-  }
-  bookmark.name = trimmed;
+  // Owner-routed in-place rename (settings-profile-mutator-owner):
+  // previously an aliased element write the lint never saw.
+  mutateProfile((p) => {
+    const bookmark = (p.qeuboPinnedBookmarks ?? []).find((b) => b.id === id);
+    if (!bookmark) {
+      pushSystemMessage('error', i18n.global.t('qeuboInternal.bookmarkNotFound', { id }));
+      return;
+    }
+    bookmark.name = trimmed;
+  });
 }
 
 function deleteBookmark(id: BookmarkId): void {
-  const list = store.profile.qeuboPinnedBookmarks;
-  if (!list) return;
-  const idx = list.findIndex((b) => b.id === id);
-  if (idx === -1) {
-    pushSystemMessage('error', i18n.global.t('qeuboInternal.bookmarkNotFound', { id }));
-    return;
-  }
-  list.splice(idx, 1);
+  // Owner-routed splice (settings-profile-mutator-owner): previously a
+  // method-call mutation the lint never saw.
+  mutateProfile((p) => {
+    const list = p.qeuboPinnedBookmarks;
+    if (!list) return;
+    const idx = list.findIndex((b) => b.id === id);
+    if (idx === -1) {
+      pushSystemMessage('error', i18n.global.t('qeuboInternal.bookmarkNotFound', { id }));
+      return;
+    }
+    list.splice(idx, 1);
+  });
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
