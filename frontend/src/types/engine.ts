@@ -14,7 +14,7 @@
  * License: Public Domain (The Unlicense)
  */
 
-import type { BoardId, PerBoard } from './ids';
+import type { BoardId } from './ids';
 import type { SystemMessage } from './app';
 // Imported so `EngineInfo.capabilities` can reference the typed
 // capability-advertisement mirror.
@@ -52,15 +52,6 @@ export interface EngineState {
   // EngineMetrics value object inside is itself immutable. Mutable
   // container, immutable value.
   metrics: EngineMetrics;
-  // Per-board analysis mode. `Partial<Record<>>` reflects that keys
-  // are added by analyze* calls, set to `'none'` by stopBoardAnalysis,
-  // deleted by `closeBoard` when the owning board exits, and replaced
-  // wholesale by analysisService.disconnect / onDisconnect. Same
-  // ADR-0001 / ADR-0002 reasoning as `SessionState.reviews`
-  // (`store/schema.ts`). Consumers
-  // (App.vue, useUserIORegistry) compare against `'ponder'`, which
-  // is correct against both `'none'` and `undefined`.
-  activeMode: PerBoard<AnalysisMode>;
   messages: SystemMessage[];
   // Engine identity captured from the upstream KataGo backend on
   // every fresh WebSocket open: `query_version` returns the engine

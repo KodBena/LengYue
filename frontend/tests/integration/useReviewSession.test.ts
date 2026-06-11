@@ -189,8 +189,8 @@ beforeEach(() => {
   resetFakeAnalysisPersistenceService();
   vi.mocked(waitForAnalysis).mockReset();
 
-  // resetWorkspace() drops boards, reviews, and engine activeMode
-  // entries so each test starts from a known-clean store.
+  // resetWorkspace() drops boards and reviews so each test starts
+  // from a known-clean store.
   // Mocked services absorb the cleanup-side calls (stopAllBoardAnalyses,
   // forgetAll) without reaching the real network or proxy.
   resetWorkspace();

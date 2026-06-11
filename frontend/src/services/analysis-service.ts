@@ -47,7 +47,6 @@ import {
   markWatchdogPingPending,
   recordWatchdogPong,
   recordLastResponseBoard,
-  setBoardActiveMode,
 } from './engine-connection';
 import { ledger } from './analysis-ledger';
 import { stabilityTrajectoryStore } from './stability-trajectory-store';
@@ -89,10 +88,9 @@ export class AnalysisService {
   // `extra.*` enrichment no).
   private activeQueries = new Map<QueryId, {
     boardId: BoardId,
-    // The kind of query. Discriminates the per-board projection
-    // used by `isPondering` and (in step 7) by the derived
-    // `store.engine.activeMode` view. Set at query mint time and
-    // never mutated.
+    // The kind of query. Read by `isPondering` to derive the
+    // per-board "is a ponder running" predicate from the board's
+    // live query set. Set at query mint time and never mutated.
     mode: 'analyze' | 'ponder',
     // The analyzed line this query was built over — whichever
     // root-anchored shape the caller supplied (root→leaf from the
@@ -224,8 +222,8 @@ export class AnalysisService {
           telemetry.unregisterQuery(queryId);
         }
         // The `store.engine` projection of "disconnected" — status,
-        // activeMode wipe, engine-identity clear, SELECTOR-selection
-        // clear, ping-marker reset — is one owner function, shared
+        // engine-identity clear, SELECTOR-selection clear,
+        // ping-marker reset — is one owner function, shared
         // with the user-initiated disconnect() below (previously two
         // hand-duplicated blocks). Rationale per field in
         // engine-connection.ts::applyEngineDisconnectReset.
@@ -732,8 +730,6 @@ export class AnalysisService {
         this.analyzeRange(boardId, fullPath, startTurn, endTurn, visits, configOverride, overrideSettingsOverride, forReview, isRealtime);
       },
     );
-    // `indexQueryOnBoard` also fires `recomputeActiveMode` for the
-    // freshly-multi-query-aware projection of `store.engine.activeMode`.
     this.indexQueryOnBoard(boardId, queryId);
     return queryId;
   }
@@ -930,8 +926,6 @@ export class AnalysisService {
         this.analyzeActiveNode(boardId, mode, visits, configOverride, overrideSettingsOverride);
       },
     );
-    // `indexQueryOnBoard` also fires `recomputeActiveMode` for the
-    // freshly-multi-query-aware projection of `store.engine.activeMode`.
     this.indexQueryOnBoard(boardId, queryId);
     return queryId;
   }
@@ -1126,9 +1120,9 @@ export class AnalysisService {
     // telemetry singleton's auto-cleanup. Deliberately scoped to the
     // restart thunk: `activeQueries` / `activeSubscriptions` /
     // `boardToQueries` are left to the O15 reconcile-on-next-
-    // interaction path (the bounded per-board map growth and the
-    // `activeMode` projection drift the hydration-rebind audit §3.3
-    // wrinkle 1 records as deliberate are unchanged by this reap).
+    // interaction path (the bounded per-board map growth the
+    // hydration-rebind audit §3.3 wrinkle 1 records as deliberate is
+    // unchanged by this reap).
     if (!response.isDuringSearch) {
       const live = this.activeQueries.get(queryId);
       if (live) {
@@ -1154,44 +1148,6 @@ export class AnalysisService {
       this.boardToQueries.set(boardId, set);
     }
     set.add(queryId);
-    this.recomputeActiveMode(boardId);
-  }
-
-  /**
-   * Re-project `store.engine.activeMode[boardId]` from the current
-   * per-board query set. Called after every mutation that adds or
-   * removes a query (the analyze methods, `stopQuery`,
-   * `stopBoardAnalysis`). The per-board mode is now derived state
-   * — the field used to be written at each lifecycle point in a
-   * one-query-per-board world; with multiple coexistent queries
-   * it becomes a projection over the active set.
-   *
-   * **Priority:** `analyze` > `ponder` > `none`. A board with both
-   * an active range and an active ponder is "actively analyzing"
-   * — the user-initiated work takes display precedence over the
-   * passive background ponder. No current reader actually
-   * consumes this field (the two ex-readers in
-   * `useUserIORegistry` and `App.vue` now consume the
-   * `isPondering` predicate directly), but the writes are kept
-   * honest so persisted store snapshots stay coherent with
-   * runtime state — a future UI surface that reads activeMode
-   * should see the correctly-projected value, not a stale
-   * point-update from the prior single-slot regime.
-   */
-  private recomputeActiveMode(boardId: BoardId): void {
-    const queryIds = this.boardToQueries.get(boardId);
-    if (queryIds === undefined || queryIds.size === 0) {
-      setBoardActiveMode(boardId, 'none');
-      return;
-    }
-    let hasAnalyze = false;
-    let hasPonder = false;
-    for (const qid of queryIds) {
-      const info = this.activeQueries.get(qid);
-      if (info?.mode === 'analyze') hasAnalyze = true;
-      else if (info?.mode === 'ponder') hasPonder = true;
-    }
-    setBoardActiveMode(boardId, hasAnalyze ? 'analyze' : hasPonder ? 'ponder' : 'none');
   }
 
   /**
@@ -1202,11 +1158,6 @@ export class AnalysisService {
    * `boardToQueries`, telemetry). Idempotent on a queryId not in
    * `activeQueries` — early-returns before doing any work, so the
    * wire `terminate` is not emitted for already-released queries.
-   *
-   * `activeMode` is re-projected by `recomputeActiveMode` at the
-   * end — when the board's last query is released, the projection
-   * lands on `'none'`; when other queries remain, it lands on
-   * their priority (analyze > ponder).
    */
   public stopQuery(queryId: QueryId): void {
     const queryInfo = this.activeQueries.get(queryId);
@@ -1237,8 +1188,6 @@ export class AnalysisService {
     // path inside the telemetry singleton; this branch handles
     // explicit interruption.)
     telemetry.unregisterQuery(queryId);
-
-    this.recomputeActiveMode(queryInfo.boardId);
   }
 
   public stopBoardAnalysis(boardId: BoardId) {
@@ -1251,14 +1200,11 @@ export class AnalysisService {
         this.stopQuery(qid);
       }
     }
-    // Defensive — stopQuery removes each entry as it goes (and
-    // each one re-projects activeMode along the way), so the
-    // map entry and the activeMode slot should already be settled.
-    // Belt-and-suspenders against any future leftover-state case
-    // where a query was registered without a stopQuery-reachable
-    // path. Idempotent.
+    // Defensive — stopQuery removes each entry as it goes, so the
+    // map entry should already be settled. Belt-and-suspenders
+    // against any future leftover-state case where a query was
+    // registered without a stopQuery-reachable path. Idempotent.
     this.boardToQueries.delete(boardId);
-    this.recomputeActiveMode(boardId);
   }
 
   /**

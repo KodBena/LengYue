@@ -132,7 +132,6 @@ describe('closeBoard — resource-ownership cleanup chain', () => {
       userMoveScores: [],
       visitsOverride: null,
     };
-    store.engine.activeMode[second.id] = 'none';
 
     // Spy on the ledger's purgeBoard — it's a real module-scope
     // singleton; vi.spyOn lets us record the call without
@@ -146,9 +145,10 @@ describe('closeBoard — resource-ownership cleanup chain', () => {
     expect(purgeBoardSpy).toHaveBeenCalledWith(second.id);
     expect(fakeAnalysisPersistenceService.discard).toHaveBeenCalledWith(second.id);
 
-    // Per-board dictionary deletes (audit O2, O3).
+    // Per-board dictionary delete (audit O2). O3 was the engine.activeMode
+    // tombstone, removed with the activeMode projection (work-status item
+    // drop-engine-activemode).
     expect(store.session.reviews[second.id]).toBeUndefined();
-    expect(store.engine.activeMode[second.id]).toBeUndefined();
 
     // Composable-exported cleanups (audit O4, O5, O12).
     // abortBoardReview is called via the real composable export;
@@ -212,7 +212,6 @@ describe('closeBoard — board-scoped store-cell registry (P1b)', () => {
     // can't be silently dropped (a tombstone leak) nor a cell un-registered.
     expect(boardScopedStoreCellLabels()).toEqual([
       'session.reviews',
-      'engine.activeMode',
       'session.ui.cardTreeNav',
       'session.ui.forestNav.selection',
     ]);
@@ -234,7 +233,6 @@ describe('closeBoard — board-scoped store-cell registry (P1b)', () => {
         userMoveScores: [],
         visitsOverride: null,
       };
-      store.engine.activeMode[id] = 'none';
       store.session.ui.cardTreeNav[id] = { manuallyExpanded: [] };
       store.session.ui.forestNav.selection[id] = { kind: 'root', rootCardId: 1 as CardId };
     }
@@ -243,13 +241,11 @@ describe('closeBoard — board-scoped store-cell registry (P1b)', () => {
 
     // Every store cell for the closed board is gone.
     expect(store.session.reviews[b.id]).toBeUndefined();
-    expect(store.engine.activeMode[b.id]).toBeUndefined();
     expect(store.session.ui.cardTreeNav[b.id]).toBeUndefined();
     expect(store.session.ui.forestNav.selection[b.id]).toBeUndefined();
 
     // The surviving board's cells are intact.
     expect(store.session.reviews[a]).toBeDefined();
-    expect(store.engine.activeMode[a]).toBe('none');
     expect(store.session.ui.cardTreeNav[a]).toEqual({ manuallyExpanded: [] });
     expect(store.session.ui.forestNav.selection[a]).toEqual({ kind: 'root', rootCardId: 1 });
   });
@@ -311,9 +307,7 @@ describe('resetWorkspace — identity-flip cleanup chain', () => {
 
     resetWorkspace();
 
-    // status is preserved across the reset; the per-board
-    // activeMode dictionary is wiped (it's keyed by BoardIds
-    // belonging to the prior identity).
+    // status is preserved across the reset.
     expect(store.engine.status).toBe('connected');
   });
 });

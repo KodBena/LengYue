@@ -51,11 +51,16 @@
  *   `activeSubscriptions`, `boardToQueries`) deliberately survive both
  *   natural completion and a disconnect→reconnect — the O15
  *   reconcile-on-next-interaction decision, documented at the
- *   `onDisconnect` callback — so the audit §3.3 wrinkle 1 bounds (per-
- *   board map growth cleared at board close; the `activeMode`
- *   projection drift) are unchanged. The reap is scoped to the restart
- *   thunk alone, which is exactly the slot whose membership the
- *   semantics question was about. The earlier "*not explicitly
+ *   `onDisconnect` callback — so the audit §3.3 wrinkle 1 bound (per-
+ *   board map growth cleared at board close) is unchanged. (The audit
+ *   also recorded an `activeMode` projection-drift bound; the
+ *   `store.engine.activeMode` projection has since been removed
+ *   wholesale — it was a write-only field with no readers — by
+ *   work-status item `drop-engine-activemode`, so that bound is moot.
+ *   The hydration-residue audit's O15/reconcile prose is a
+ *   point-in-time record and is left as written.) The reap is scoped
+ *   to the restart thunk alone, which is exactly the slot whose
+ *   membership the semantics question was about. The earlier "*not explicitly
  *   stopped*" reading (arguably intended for qEUBO A/B re-runs) was the
  *   open question this extraction recorded; the maintainer settled it
  *   to *in flight* — a qEUBO toolbar-view toggle, especially after a
@@ -68,7 +73,7 @@
  */
 
 import { store, setSelectedModel } from '../store';
-import type { AnalysisMode, BoardId, EngineInfo } from '../types';
+import type { BoardId, EngineInfo } from '../types';
 
 /**
  * The empty engine-identity shape. Single construction site so the
@@ -104,7 +109,6 @@ export function markEngineConnected(): void {
  * ordering and were one missed field away from drifting in content.
  *
  *   - `status` → 'disconnected'.
- *   - `activeMode` → {} (no board can be analyzing over a dead WS).
  *   - `info` → empty shape, so a stale identity from a prior session
  *     can't surface in the toolbar; reconnect re-probes.
  *   - `selectedModel` → null via the named mutator — a stale SELECTOR
@@ -124,7 +128,6 @@ export function markEngineConnected(): void {
  */
 export function applyEngineDisconnectReset(): void {
   store.engine.status = 'disconnected';
-  store.engine.activeMode = {};
   store.engine.info = emptyEngineInfo();
   setSelectedModel(null);
   store.engine.metrics = { ...store.engine.metrics, pingPendingSince: null };
@@ -181,21 +184,4 @@ export function recordWatchdogPong(latencyMs: number): void {
  *  (`onAnalysisUpdate`). */
 export function recordLastResponseBoard(boardId: BoardId): void {
   store.engine.metrics = { ...store.engine.metrics, lastResponseId: boardId };
-}
-
-// ── Per-board active-mode projection ──────────────────────────────────────────
-
-/**
- * Terminal write for the `activeMode` projection. The projection
- * *logic* (analyze > ponder > none over the board's live query set)
- * stays in `analysis-service.ts::recomputeActiveMode` — it reads the
- * service's private bookkeeping maps and is threaded through query
- * minting (`indexQueryOnBoard`) and release (`stopQuery` /
- * `stopBoardAnalysis`); only the store write goes through the owner.
- * The per-board key is *deleted* (not set to 'none') by `closeBoard`'s
- * `BOARD_SCOPED_STORE_CELLS` drain in `store/index.ts`, the store-side
- * owner of board-lifecycle teardown.
- */
-export function setBoardActiveMode(boardId: BoardId, mode: AnalysisMode): void {
-  store.engine.activeMode[boardId] = mode;
 }
