@@ -214,6 +214,10 @@
   "analysis.adaptive.worstQuantile":      "最悪分位数",
   "analysis.adaptive.extraVisits":        "追加訪問数",
   "analysis.adaptive.hint":               "最悪分位数: 再評価する手の割合 (0.05 = 最悪の手の上位 5%; プロキシのデフォルトは 0.25)。追加訪問数: 深いパスのために元の maxVisits に追加 (プロキシのデフォルトは 800; 増分であり絶対値ではないため、NN キャッシュは元のパスが終了したところから続行します)。",
+  "analysis.adaptive.valueBinding.label":             "評価関数",
+  "analysis.adaptive.valueBinding.default":           "デフォルト (組み込み)",
+  "analysis.adaptive.valueBinding.learnedLabel":      "{version} [実験的]",
+  "analysis.adaptive.valueBinding.experimentalTooltip": "フェーズ 3.5 の LightGBM 教師あり予測器。現代の碁の局面 (~2000年以降) に最適化されています。歴史的な棋士の棋譜 (秀策、道策、呉清源、黄龍士、范西屏など) にはデフォルトの組み込みアロケーションのほうが適している場合があります。現代の碁では ~0.85-0.90 の効率が期待できます (組み込みベースラインの ~0.46 と比較)。",
 
   "palette.sidebar.symbols":              "シンボル (λ)",
   "palette.sidebar.parameters":           "パラメータ",

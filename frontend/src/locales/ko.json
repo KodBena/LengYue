@@ -214,6 +214,10 @@
   "analysis.adaptive.worstQuantile":      "최악 분위수",
   "analysis.adaptive.extraVisits":        "추가 방문 수",
   "analysis.adaptive.hint":               "최악 분위수: 재평가할 수의 비율 (0.05 = 최악 수의 상위 5%; 프록시 기본값은 0.25). 추가 방문 수: 더 깊은 패스를 위해 원래 maxVisits에 추가 (프록시 기본값은 800; 증분이며 절대값이 아니므로 NN 캐시는 원래 패스가 끝난 곳에서 계속됩니다).",
+  "analysis.adaptive.valueBinding.label":             "평가 함수",
+  "analysis.adaptive.valueBinding.default":           "기본값 (내장)",
+  "analysis.adaptive.valueBinding.learnedLabel":      "{version} [실험적]",
+  "analysis.adaptive.valueBinding.experimentalTooltip": "3.5 단계 LightGBM 지도 학습 예측기. 현대 바둑 국면 (~2000년 이후)에 최적화되어 있습니다. 역사적인 기보 (슈사쿠, 도사쿠, 우칭위안, 황룽스, 판시핑 등)에는 기본 내장 배분이 더 적합할 수 있습니다. 현대 바둑에서 ~0.85-0.90의 효율을 기대할 수 있습니다 (내장 기준선 ~0.46 대비).",
 
   "palette.sidebar.symbols":              "심볼 (λ)",
   "palette.sidebar.parameters":           "매개변수",
