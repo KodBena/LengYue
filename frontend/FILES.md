@@ -341,6 +341,7 @@ frontend/src/
 │   ├── knobs.ts                       [B1]  Knob-registry substrate: path-walk accessors, named-transform library, startup validation, ownership state machine, policy-aware writeKnobValue.
 │   ├── stability-trajectory.ts        [B1]  Generic change-point-compressed V-axis trajectory + log-V-weighted stable-fraction.
 │   ├── timing.ts                      [B1]  Complete application-timing catalog: every authored time literal (coalescing windows, interaction-dismiss grace, display durations, render retries, micro-scheduling, perf-harness cadences, engine-session timing) as individually-named, independently-tunable constants — the auditable tuning surface. (Structurally B1 — imports nothing domain-specific — though §7 catalogs engine-coupled, band-2/3 timing *values*.)
+│   ├── unhandled-rejection-backstop.ts [B1] Window `unhandledrejection` backstop factory (`createRejectionBackstop`): de-dups escaped async rejections to the system-message surface (level 4) + console (level 5), keyed on reason-message with a distinct-reason cap so a storm can't wipe the 50-slot log (enrichment-merge latch precedent). Dependency-free; real sinks + the `window` listener wired in `main.ts`.
 │   └── utils.ts                       [B1]  Domain-free helpers: debounce; isObject + deepMerge (hydration default-backfill); generateUUID (RFC4122 v4); updateRegistry (silent-create deep path-write — deliberately NOT knobs.ts's fail-loud walkers; co-located, never merged). (lib/ vs utils/ merger flagged separately.)
 │
 └── config/

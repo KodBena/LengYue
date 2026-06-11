@@ -295,6 +295,8 @@
 
   "errors.unhandled":                     "Unhandled error: {msg}.",
   "errors.unhandledUi":                   "Unhandled UI error: {msg}.",
+  "errors.unhandledRejection":            "Unhandled promise rejection: {msg}.",
+  "errors.unhandledRejectionStorm":       "Multiple unhandled promise rejections ({count} distinct); further ones are suppressed in the log. Check the console for details.",
   "errors.boundary.title":                "Something went wrong",
   "errors.boundary.body":                 "The application hit an unexpected error. The system log has the details. Reload the page to continue.",
   "errors.boundary.reload":               "Reload page",

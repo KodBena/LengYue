@@ -178,6 +178,8 @@
 
   "errors.unhandled":                     "未処理エラー: {msg}。",
   "errors.unhandledUi":                   "未処理の UI エラー: {msg}。",
+  "errors.unhandledRejection":            "未処理の Promise 拒否: {msg}。",
+  "errors.unhandledRejectionStorm":       "未処理の Promise 拒否が複数発生しました({count} 種類)。以降はログに表示されません。詳細はコンソールをご確認ください。",
   "errors.boundary.title":                "問題が発生しました",
   "errors.boundary.body":                 "アプリケーションで予期しないエラーが発生しました。詳細はシステムログをご覧ください。続行するにはページを再読み込みしてください。",
   "errors.boundary.reload":               "ページを再読み込み",

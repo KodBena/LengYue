@@ -1,6 +1,6 @@
 {
-  "node_count": 449,
-  "edge_count": 2143,
+  "node_count": 450,
+  "edge_count": 2148,
   "age_buckets": [
     {
       "name": "fresh",
@@ -98,7 +98,7 @@
       "is_hub": true,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/adr/0001-state-mutation-and-readonly.md",
@@ -114,7 +114,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
@@ -138,7 +138,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/adr/0006-source-file-headers.md",
@@ -186,7 +186,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/archive/34b-complete-status.md",
@@ -2570,7 +2570,7 @@
       "is_hub": false,
       "first_committed": "2026-06-04",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/rfcs/0001-adr-meta-review.md",
@@ -3146,7 +3146,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-01-perf-miniboard-canvas-renderer.md",
@@ -3370,7 +3370,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-10-e2-consolidation-review.md",
@@ -3570,10 +3570,18 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-11-restart-thunk-inflight-semantics.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-11-unhandledrejection-backstop.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": "2026-06-11",
@@ -18235,6 +18243,41 @@
       "to": "frontend/FILES.md",
       "kind": "path-mention",
       "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-unhandledrejection-backstop.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-unhandledrejection-backstop.md",
+      "to": "docs/notes/audit/audit-deferral-harvest-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-deferral-harvest-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-unhandledrejection-backstop.md",
+      "to": "docs/archive/worklog/2026-04-pre-v1.0/2026-04-27-root-error-boundary.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/worklog/2026-04-pre-v1.0/2026-04-27-root-error-boundary.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-unhandledrejection-backstop.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-unhandledrejection-backstop.md",
+      "to": "docs/doc-graph.md",
+      "kind": "path-mention",
+      "site": "`docs/doc-graph.md`",
       "resolved": "resolved"
     },
     {

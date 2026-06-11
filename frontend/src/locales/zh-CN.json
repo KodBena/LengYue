@@ -178,6 +178,8 @@
 
   "errors.unhandled":                     "未处理错误:{msg}。",
   "errors.unhandledUi":                   "未处理的界面错误:{msg}。",
+  "errors.unhandledRejection":            "未处理的 Promise 拒绝:{msg}。",
+  "errors.unhandledRejectionStorm":       "出现多个未处理的 Promise 拒绝(共 {count} 种);日志中将不再显示后续条目。详情请查看控制台。",
   "errors.boundary.title":                "出现问题",
   "errors.boundary.body":                 "应用程序遇到意外错误。详情请参阅系统日志。重新加载页面以继续。",
   "errors.boundary.reload":               "重新加载页面",

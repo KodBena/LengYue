@@ -178,6 +178,8 @@
 
   "errors.unhandled":                     "처리되지 않은 오류: {msg}.",
   "errors.unhandledUi":                   "처리되지 않은 UI 오류: {msg}.",
+  "errors.unhandledRejection":            "처리되지 않은 프로미스 거부: {msg}.",
+  "errors.unhandledRejectionStorm":       "처리되지 않은 프로미스 거부가 여러 건 발생했습니다({count}종). 이후 항목은 로그에 표시되지 않습니다. 자세한 내용은 콘솔을 확인하세요.",
   "errors.boundary.title":                "문제가 발생했습니다",
   "errors.boundary.body":                 "애플리케이션에 예상치 못한 오류가 발생했습니다. 자세한 내용은 시스템 로그를 참조하세요. 계속하려면 페이지를 새로고침하세요.",
   "errors.boundary.reload":               "페이지 새로고침",
