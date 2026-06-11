@@ -17,7 +17,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { hashConfig } from '../../../src/services/analysis-config';
+import { hashConfig } from '../../../src/state/analysis-config';
 
 describe('hashConfig', () => {
   it('returns "default" when given undefined or null', () => {

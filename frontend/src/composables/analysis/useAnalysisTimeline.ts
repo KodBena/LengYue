@@ -13,11 +13,11 @@
  */
 
 import { computed, watch, type Ref, type ComputedRef } from 'vue';
-import { ledger } from '../../services/analysis-ledger';
+import { ledger } from '../../state/analysis-ledger';
 import { analysisService } from '../../services/analysis-service';
 import { store, mutateBoard } from '../../store';
 import type { BoardId, PlyIndex, RootToLeafPath } from '../../types';
-import { activeAnalysisKeys } from '../../services/analysis-config';
+import { activeAnalysisKeys } from '../../state/analysis-config';
 
 export interface AnalysisTimelineState {
   visitVector: ComputedRef<number[]>;

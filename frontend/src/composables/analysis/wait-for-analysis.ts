@@ -31,7 +31,7 @@
 import { watch } from 'vue';
 import type { RawAnalysis } from '../../engine/katago/types';
 import type { NodeId, RawKey } from '../../types';
-import { ledger } from '../../services/analysis-ledger';
+import { ledger } from '../../state/analysis-ledger';
 
 export type AnalysisWaitReason = 'timeout' | 'aborted';
 

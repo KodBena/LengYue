@@ -1,5 +1,5 @@
 /**
- * src/services/analysis-config.ts
+ * src/state/analysis-config.ts
  * Pure utilities for compiling and hashing the Analysis Environment.
  *
  * Two distinct concepts coexist here, and the ledger hash bridges

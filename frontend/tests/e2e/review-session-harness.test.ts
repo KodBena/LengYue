@@ -101,13 +101,13 @@ import {
 } from '../../src/store';
 import { backendService } from '../../src/services/backend-service';
 import { analysisService } from '../../src/services/analysis-service';
-import { ledger } from '../../src/services/analysis-ledger';
+import { ledger } from '../../src/state/analysis-ledger';
 import { useReviewSession } from '../../src/composables/review/useReviewSession';
 import { createInitialBoard } from '../../src/store/board-factory';
 import {
   deriveAnalysisKeys,
   activeAnalysisKeys,
-} from '../../src/services/analysis-config';
+} from '../../src/state/analysis-config';
 import { serializeActivePath } from '../../src/engine/sgf-writer';
 import { applyGoMove } from '../../src/logic';
 import { gtpToBoard } from '../../src/composables/board/use-move-suggestions';

@@ -313,7 +313,7 @@ export interface KataGoAnalysisQuery extends BaseQuery {
    * `KataAnalysisResponse.extra`.
    *
    * The shape is defined at the palette layer (see
-   * `services/analysis-config.ts::compileAnalysisConfig`) and
+   * `state/analysis-config.ts::compileAnalysisConfig`) and
    * deliberately opaque at this boundary: the proxy applies the
    * palette without introspecting it from the wire-type's perspective,
    * and the type system on the frontend doesn't need to mirror the
@@ -509,7 +509,7 @@ export interface KataExtra {
  * the raw half — a new raw field is a deliberate edit here, mirroring the
  * "exhaustive definitions" posture of this file.
  *
- * See `services/analysis-ledger.ts` for the two-store keying and
+ * See `state/analysis-ledger.ts` for the two-store keying and
  * `docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md`
  * for the rationale.
  */

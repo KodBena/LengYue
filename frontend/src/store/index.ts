@@ -32,8 +32,8 @@ import { defaultProfile, defaultSessionUI, defaultKnownTags, NIL_UUID } from './
 import { createInitialBoard } from './board-factory';
 import { migrate, CURRENT_SCHEMA_VERSION } from './migrations';
 import { analysisService } from '../services/analysis-service';
-import { ledger } from '../services/analysis-ledger';
-import { stabilityTrajectoryStore } from '../services/stability-trajectory-store';
+import { ledger } from '../state/analysis-ledger';
+import { stabilityTrajectoryStore } from '../state/stability-trajectory-store';
 import { analysisPersistenceService } from '../services/analysis-persistence-service';
 import { clearCardThumbnailCache } from '../composables/cards/useCardThumbnail';
 import { abortAllReviews, abortBoardReview } from '../composables/review/useReviewSession';

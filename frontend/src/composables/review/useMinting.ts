@@ -8,7 +8,7 @@ import { store } from '../../store';
 import { backendService } from '../../services/backend-service';
 import { serializeActivePath } from '../../engine/sgf-writer';
 import { resolveGameName } from '../../engine/util';
-import { compileAnalysisConfig, compileEngineOverrides } from '../../services/analysis-config';
+import { compileAnalysisConfig, compileEngineOverrides } from '../../state/analysis-config';
 import { useMetadata } from '../auth-app/useMetadata';
 import { learnTags } from '../cards/useTags';
 import { computed } from 'vue';

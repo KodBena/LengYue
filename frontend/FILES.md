@@ -290,8 +290,6 @@ frontend/src/
 │   │   ├── projection.ts              [B3]  SPA-typed-shape allow-list with compile-time drift gate.
 │   │   └── quantization.ts            [B3]  Q4 ownership + Q8-factored policy primitives for the lossy leaf.
 │   ├── analysis-bundle.ts             [B3]  Pure projection ledger ↔ wire bundle.
-│   ├── analysis-config.ts             [B3]  Palette compile + ledger hash.
-│   ├── analysis-ledger.ts             [B3]  Provenance-stratified merged-packet store: raw store keyed by `RawKey`, enrichment store keyed by `EnrichedKey`. Per-node version refs (pull consumers) + `onLedgerFlush` changed-key signal (incremental push consumers).
 │   ├── analysis-persistence-service.ts [B3] HTTP boundary for analysis-bundle persistence (save/restore/discard).
 │   ├── analysis-service.ts            [B3]  Bridges KataGo turns to the ledger nodes.
 │   ├── api-client.ts                  [B1]  Pure REST client; JWT injection; zero-friction local auth.
@@ -301,8 +299,12 @@ frontend/src/
 │   ├── qeubo-service.ts               [B1]  ACL for qEUBO REST endpoints.
 │   ├── query-id.ts                    [B3]  Sole construction/re-brand site for the `QueryId` brand (engine-query correlation id).
 │   ├── resource-service.ts            [B1]  Generic typed resource verb (`getResource<T>`) for backend static resources; domain-free.
-│   ├── stability-trajectory-store.ts  [B3]  Per-(`RawKey`, `ExtractorId`, nodeId) trajectory store fed by analysis-service preview ingestion.
 │   └── sync-service.ts                [B1]  Stateless persistence bridge; identity-aware document sync.
+│
+├── state/                                   Reactive-state modules: analysis-domain stores read directly by display leaves (ADR-0010 read-locality). Not effectful singletons; the component→services boundary lint does not police this directory (relocated from services/ 2026-06-11, item reactive-state-modules-relocation).
+│   ├── analysis-config.ts             [B3]  Palette compile + ledger hash. Sole factory for the `RawKey` / `EnrichedKey` brands (`deriveAnalysisKeys`); reactive `activeAnalysisKeys` over the qEUBO audition overlay.
+│   ├── analysis-ledger.ts             [B3]  Provenance-stratified merged-packet store: raw store keyed by `RawKey`, enrichment store keyed by `EnrichedKey`. Per-node version refs (pull consumers) + `onLedgerFlush` changed-key signal (incremental push consumers).
+│   └── stability-trajectory-store.ts  [B3]  Per-(`RawKey`, `ExtractorId`, nodeId) trajectory store fed by analysis-service preview ingestion.
 │
 ├── store/                                   Single GlobalStore singleton + mutators + migrations.
 │   ├── archived-migrations.ts         [B1]  Aged-out schema migrations (1→2 .. 57→58) lifted out under the rolling-archive cadence to keep migrations.ts scoped to the latest two; preserved for the framework's contiguity invariant. Post-retrofit bodies call witnessedContainer (imported from migration-witness.ts).

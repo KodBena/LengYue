@@ -96,8 +96,8 @@ import {
 import { useAuth } from '../../src/composables/auth-app/useAuth';
 import { api, ApiError, authSessionRejections } from '../../src/services/api-client';
 import { SyncService } from '../../src/services/sync-service';
-import { ledger } from '../../src/services/analysis-ledger';
-import { stabilityTrajectoryStore } from '../../src/services/stability-trajectory-store';
+import { ledger } from '../../src/state/analysis-ledger';
+import { stabilityTrajectoryStore } from '../../src/state/stability-trajectory-store';
 import { i18n } from '../../src/i18n';
 import { fakeAnalysisService, resetFakeAnalysisService } from '../fakes/analysis-service';
 import {

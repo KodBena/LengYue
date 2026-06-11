@@ -17,12 +17,12 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { deriveAnalysisKeys } from '../../src/services/analysis-config';
+import { deriveAnalysisKeys } from '../../src/state/analysis-config';
 import {
   ledger,
   mergeRawAnalysis,
   mergeEnrichment,
-} from '../../src/services/analysis-ledger';
+} from '../../src/state/analysis-ledger';
 import {
   projectLedgerToBundle,
   replayBundleIntoLedger,

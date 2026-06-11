@@ -54,7 +54,7 @@ constructs payloads conforming to that shape.
   `proxy/transformers/analysis_enricher.py`, `on_query`
   function. Reads `config` (non-destructively, post-v1.0.21),
   builds `DeltaAnalysisState` from the compiled bindings.
-- Producer: `frontend/src/services/analysis-config.ts`,
+- Producer: `frontend/src/state/analysis-config.ts`,
   `compileAnalysisConfig()`. Returns the dict the proxy will
   parse. The SPA's registry editor surfaces user-authored
   expressions; the compile step produces the wire payload.
@@ -225,7 +225,7 @@ time.
 **Authoritative source.** Producer-side. The proxy's enrichment
 transformers attach this; the SPA's merge logic preserves
 populated entries against incoming-empty per the merge contract
-in `frontend/src/services/analysis-ledger.ts`.
+in `frontend/src/state/analysis-ledger.ts`.
 
 - Producer (state, deltas, triangular, CWT):
   `proxy/transformers/analysis_enricher.py` + supporting analysis
@@ -240,7 +240,7 @@ in `frontend/src/services/analysis-ledger.ts`.
   `frontend/src/engine/katago/types.ts`, `KataExtra` interface.
   The SPA-side TS shape mirrors what the proxy emits.
 - Consumer (merge):
-  `frontend/src/services/analysis-ledger.ts`,
+  `frontend/src/state/analysis-ledger.ts`,
   `mergeAnalysisPacket()` + `mergeKataExtra()` + `mergeRecords()`.
   The merge preserves populated existing entries against
   incoming-empty (the contract that made the v1.0.21 fix

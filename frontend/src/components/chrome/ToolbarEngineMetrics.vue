@@ -18,8 +18,8 @@ import { useThrottledSnapshot } from '../../composables/useThrottledSnapshot';
 import { useI18n } from 'vue-i18n';
 import EngineQueueTooltip from './EngineQueueTooltip.vue';
 import { store, setSelectedModel, activeBoard } from '../../store';
-import { activeAnalysisKeys } from '../../services/analysis-config';
-import { ledger } from '../../services/analysis-ledger';
+import { activeAnalysisKeys } from '../../state/analysis-config';
+import { ledger } from '../../state/analysis-ledger';
 import { useEngineControls } from '../../composables/useEngineControls';
 import { TOOLBAR_METRICS_REDRAW_THROTTLE_MS } from '../../lib/timing';
 

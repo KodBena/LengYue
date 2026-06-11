@@ -73,7 +73,7 @@ import {
 } from '../../src/store';
 import { createInitialBoard } from '../../src/store/board-factory';
 import { defaultKnownTags } from '../../src/store/defaults';
-import { ledger } from '../../src/services/analysis-ledger';
+import { ledger } from '../../src/state/analysis-ledger';
 import { fakeAnalysisService, resetFakeAnalysisService } from '../fakes/analysis-service';
 import {
   fakeAnalysisPersistenceService,

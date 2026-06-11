@@ -4,7 +4,7 @@
  */
 
 import { computed } from 'vue';
-import { ledger } from '../../services/analysis-ledger';
+import { ledger } from '../../state/analysis-ledger';
 import { store } from '../../store';
 import type { RawAnalysis } from '../../engine/katago/types';
 import type { StoneColor, NodeId } from '../../types';
@@ -15,7 +15,7 @@ import {
 } from '../../engine/suggestion-colors';
 import { groupMovesByCluster } from '../../engine/analysis/clustering';
 import type { PvMove } from './use-pv-animation';
-import { activeAnalysisKeys } from '../../services/analysis-config';
+import { activeAnalysisKeys } from '../../state/analysis-config';
 
 const GTP_ALPHABET = 'ABCDEFGHJKLMNOPQRSTUVWXYZ';
 

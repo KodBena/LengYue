@@ -148,6 +148,14 @@ A Vue 3 + TypeScript SPA. The architecture has settled into three layers:
   WebSocket clients, debounced persistence. The ACL at `backend-service.ts`
   is the boundary where backend wire shapes become domain types.
 
+A small **`src/state/*`** directory sits beside these: reactive-state
+modules (`analysis-ledger`, `analysis-config`, `stability-trajectory-store`)
+that a display *leaf* may read directly under ADR-0010 read-locality —
+not effectful singletons, so the component-import boundary lint does not
+police them (split out of `src/services/` 2026-06-11, so the boundary is
+directory-structural; see `frontend/CLAUDE.md` "Architectural shape" and
+ADR-0010 Revisit #4).
+
 State lives in a single reactive `GlobalStore` (`src/store/index.ts`).
 There is no Pinia — using Vue's built-ins kept the dependency footprint
 small. The strict-mode build (`vue-tsc -b`) is load-bearing and part of

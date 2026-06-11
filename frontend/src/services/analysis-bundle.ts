@@ -21,7 +21,7 @@
 import type { KataAnalysisResponse } from '../engine/katago/types';
 import type { BoardId, NodeId, RawKey, EnrichedKey } from '../types';
 import { asBoardId } from '../store/board-factory';
-import { ledger } from './analysis-ledger';
+import { ledger } from '../state/analysis-ledger';
 import { store } from '../store';
 import { ApiError } from './api-client';
 
