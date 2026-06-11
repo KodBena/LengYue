@@ -1,6 +1,6 @@
 {
-  "node_count": 445,
-  "edge_count": 2136,
+  "node_count": 446,
+  "edge_count": 2138,
   "age_buckets": [
     {
       "name": "fresh",
@@ -1674,7 +1674,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/audit/audit-adr-corpus-2026-06-10-appendix-p2.md",
@@ -1682,7 +1682,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/audit/audit-adr-corpus-2026-06-10.md",
@@ -1690,7 +1690,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/audit/audit-consolidation-history-lessons-2026-06-10-appendix.md",
@@ -3330,7 +3330,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-10-adr-record-amendments.md",
@@ -3458,7 +3458,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-10-review-scoring-named-seam.md",
@@ -3542,6 +3542,14 @@
     },
     {
       "path": "docs/worklog/2026-06-11-mechanization-discipline-tenet.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-11-restart-thunk-inflight-semantics.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": "2026-06-11",
@@ -18154,6 +18162,20 @@
       "to": "docs/doc-graph-report.md",
       "kind": "path-mention",
       "site": "`docs/doc-graph-report.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-restart-thunk-inflight-semantics.md",
+      "to": "docs/notes/audit/audit-hydration-rebind-residue-2026-06-10.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-hydration-rebind-residue-2026-06-10.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-restart-thunk-inflight-semantics.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
       "resolved": "resolved"
     },
     {
