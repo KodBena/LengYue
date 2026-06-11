@@ -42,7 +42,7 @@ explicit root/sub-project file list — not reference rot).
 - **Dangling from FROZEN documents** (archive + worklogs; expected drift): **301**.
 - **Directory references missing on disk**: **6** from live
   documents, **6** from frozen/executed
-  (240 directory references scanned in total).
+  (241 directory references scanned in total).
 - **Ambiguous references** (bare filename matches more than one node — never
   silently resolved, per ADR-0002): **0**.
 

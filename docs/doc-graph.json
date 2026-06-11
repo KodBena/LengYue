@@ -1,6 +1,6 @@
 {
-  "node_count": 451,
-  "edge_count": 2154,
+  "node_count": 453,
+  "edge_count": 2166,
   "age_buckets": [
     {
       "name": "fresh",
@@ -2165,6 +2165,14 @@
       "age_bucket": "aging"
     },
     {
+      "path": "docs/notes/investigation-perf-reprofile-2026-06-11.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
+    },
+    {
       "path": "docs/notes/investigation-refactoring-queue-adr0007-2026-06-02.md",
       "genre": "note",
       "is_hub": false,
@@ -3090,7 +3098,7 @@
       "is_hub": false,
       "first_committed": "2026-06-01",
       "last_committed": "2026-06-01",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-01-component-service-boundaries-and-ci.md",
@@ -3354,7 +3362,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-10-deferral-harvest.md",
@@ -3554,7 +3562,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-11-e2e-harness-selector-model-field.md",
@@ -3579,6 +3587,14 @@
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
       "age_bucket": "recent"
+    },
+    {
+      "path": "docs/worklog/2026-06-11-perf-reprofile.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-11-restart-thunk-inflight-semantics.md",
@@ -13137,6 +13153,69 @@
       "resolved": "resolved"
     },
     {
+      "from": "docs/notes/investigation-perf-reprofile-2026-06-11.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/investigation-perf-reprofile-2026-06-11.md",
+      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/investigation-perf-reprofile-2026-06-11.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/investigation-perf-reprofile-2026-06-11.md",
+      "to": "docs/notes/perf-capture-normalization-protocol.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/perf-capture-normalization-protocol.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/investigation-perf-reprofile-2026-06-11.md",
+      "to": "docs/worklog/2026-05-31-perf-incremental-enriched-projection.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-05-31-perf-incremental-enriched-projection.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/investigation-perf-reprofile-2026-06-11.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "path-mention",
+      "site": "`docs/adr/0009-performance-investigation-discipline.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/investigation-perf-reprofile-2026-06-11.md",
+      "to": "docs/notes/audit/perf-audit-nav-and-pv-hover-2026-05-27.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/perf-audit-nav-and-pv-hover-2026-05-27.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/investigation-perf-reprofile-2026-06-11.md",
+      "to": "docs/notes/audit/perf-audit-range-query-nav-2026-05-29.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/perf-audit-range-query-nav-2026-05-29.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/investigation-perf-reprofile-2026-06-11.md",
+      "to": "docs/worklog/2026-06-10-multi-writer-slots-get-owners.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-06-10-multi-writer-slots-get-owners.md`",
+      "resolved": "resolved"
+    },
+    {
       "from": "docs/notes/investigation-refactoring-queue-adr0007-2026-06-02.md",
       "to": "docs/adr/0007-file-size-and-information-density.md",
       "kind": "adr-related",
@@ -18279,6 +18358,27 @@
       "to": "docs/doc-graph-report.md",
       "kind": "path-mention",
       "site": "`docs/doc-graph-report.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-perf-reprofile.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-perf-reprofile.md",
+      "to": "docs/notes/investigation-perf-reprofile-2026-06-11.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/investigation-perf-reprofile-2026-06-11.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-perf-reprofile.md",
+      "to": "docs/doc-graph.md",
+      "kind": "path-mention",
+      "site": "`docs/doc-graph.md`",
       "resolved": "resolved"
     },
     {

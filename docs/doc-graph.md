@@ -20,9 +20,9 @@ of truth and the picture is a projection of it.
 
 ## At a glance
 
-- **Nodes:** 451 documents.
-- **Edges:** 2154 cross-references
-  (1780 resolved, 374 dangling, 0 ambiguous).
+- **Nodes:** 453 documents.
+- **Edges:** 2166 cross-references
+  (1792 resolved, 374 dangling, 0 ambiguous).
 
 ## Staleness heatmap (buckets)
 
