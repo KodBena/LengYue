@@ -14,9 +14,9 @@
  * License: Public Domain (The Unlicense)
  */
 import { computed, type Ref } from 'vue';
-import { ledger } from '../../services/analysis-ledger';
+import { ledger } from '../../state/analysis-ledger';
 import type { ColorMoveIndex, PlyIndex, RootToLeafPath, StoneColor } from '../../types';
-import { activeAnalysisKeys } from '../../services/analysis-config';
+import { activeAnalysisKeys } from '../../state/analysis-config';
 
 export interface HeatmapCell {
   readonly color: StoneColor;

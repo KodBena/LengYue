@@ -1,5 +1,5 @@
 /**
- * src/services/stability-trajectory-store.ts
+ * src/state/stability-trajectory-store.ts
  *
  * Per-(rawKey, extractorId, nodeId) stability-trajectory store with per-key
  * reactive version refs as the change-notification surface — same shape as

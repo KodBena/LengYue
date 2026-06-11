@@ -29,11 +29,11 @@ import { store, addBoard, mutateBoard, updateBoardState, mutateReviewSession, pu
 import { i18n } from '../../i18n';
 import { backendService } from '../../services/backend-service';
 import { analysisService } from '../../services/analysis-service';
-import { ledger } from '../../services/analysis-ledger';
+import { ledger } from '../../state/analysis-ledger';
 import {
   activeAnalysisKeys,
   deriveAnalysisKeys,
-} from '../../services/analysis-config';
+} from '../../state/analysis-config';
 import { waitForAnalysis, AnalysisWaitError } from '../analysis/wait-for-analysis';
 import { blindModePrefs } from './blind-mode-prefs';
 import { KATAGO_ANALYSIS_TIMEOUT_MS } from '../../lib/timing';

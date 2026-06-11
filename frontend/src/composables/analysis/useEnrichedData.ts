@@ -39,10 +39,10 @@
  */
 
 import { shallowRef, watch, onUnmounted, type Ref } from 'vue';
-import { ledger, onLedgerFlush } from '../../services/analysis-ledger';
+import { ledger, onLedgerFlush } from '../../state/analysis-ledger';
 import { store } from '../../store';
 import { type NodeId, type RootToLeafPath } from '../../types';
-import { activeAnalysisKeys } from '../../services/analysis-config';
+import { activeAnalysisKeys } from '../../state/analysis-config';
 import {
   EnrichedAccumulator,
   EMPTY_ENRICHED,

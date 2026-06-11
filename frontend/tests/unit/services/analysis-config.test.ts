@@ -1,7 +1,7 @@
 /**
  * tests/unit/services/analysis-config.test.ts
  *
- * Tier-1 (pure-logic) tests for `src/services/analysis-config.ts::hashConfig`
+ * Tier-1 (pure-logic) tests for `src/state/analysis-config.ts::hashConfig`
  * — the deterministic DJB2-shaped hash function used to key
  * KataGo-analysis cache entries.
  *
@@ -17,7 +17,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { hashConfig } from '../../../src/services/analysis-config';
+import { hashConfig } from '../../../src/state/analysis-config';
 
 describe('hashConfig', () => {
   it('returns "default" when given undefined or null', () => {

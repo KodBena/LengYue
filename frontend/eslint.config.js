@@ -79,7 +79,9 @@
  *       services-boundary-deny-by-default, step (a)).
  *       The exemptions, both deliberate: (1) the reactive-state class
  *       ({analysis-ledger, analysis-config, stability-trajectory-store};
- *       REACTIVE_STATE_EXEMPTIONS below) — a display LEAF reading the
+ *       REACTIVE_STATE_EXEMPTIONS — deleted 2026-06-11 when the class
+ *       moved to src/state/, see the dated step-(b) paragraph below) —
+ *       a display LEAF reading the
  *       reactive value it displays is sanctioned by ADR-0010's
  *       read-locality rule. That effectful-vs-reactive split is the SEAM
  *       where two directives meet — CLAUDE.md's layering tenet (effects
@@ -93,7 +95,28 @@
  *       rule. The constant is the provisional form of a future
  *       `src/state/` directory (the item's step (b), a separate sign-off
  *       arc): relocation makes the boundary purely directory-structural
- *       and deletes the constant. (2) Type-only imports
+ *       and deletes the constant.
+ *       (2026-06-11: step (b) landed — work-status item
+ *       reactive-state-modules-relocation moved the three reactive-state
+ *       modules ({analysis-ledger, analysis-config,
+ *       stability-trajectory-store}) out of `src/services/` into
+ *       `src/state/`, so the component→services boundary is now purely
+ *       DIRECTORY-STRUCTURAL: components are denied `src/services/**` with
+ *       no carve-out, and `src/state/**` is importable because it is not
+ *       under `services/` — the reactive-state class is no longer an
+ *       enumerated exemption but a directory the rule simply does not
+ *       restrict. REACTIVE_STATE_EXEMPTIONS is deleted; the paragraph
+ *       above stands as the historical record of the exemption mechanism
+ *       while it was carried. The split the seam held apart is now
+ *       expressed by where a module LIVES rather than by a negation list —
+ *       the machinery-vs-payload seam the item names: `src/services/` is
+ *       effect machinery (deny), `src/state/` is reactive payload a leaf
+ *       may read (allow). The OPEN question above is unchanged by the move
+ *       — whether the two directives collapse into one coherent principle
+ *       is the same question; the relocation makes the working split
+ *       structural instead of heuristic, which is what ADR-0010 Revisit #4
+ *       named as the collapse-into-one-principle PATHWAY, not the collapse
+ *       itself.) (2) Type-only imports
  *       (allowTypeImports — the reason this rule is the
  *       @typescript-eslint variant): an `import type` is compile-time-
  *       erased and carries no runtime effect coupling, so it sits outside
@@ -403,23 +426,6 @@ const WIRE_TYPE_PATTERN = {
     '+ ADR-0002.',
 };
 
-// The reactive-state exemption class for the component→services boundary
-// below. These modules are reactive leaf-read sources (ADR-0010 Rule 2,
-// read-locality: a display leaf reads the reactive value it displays,
-// wherever that value lives), not effectful singletons. PROVISIONAL FORM:
-// this constant stands in for a future `src/state/` directory — step (b)
-// of work-status item services-boundary-deny-by-default relocates these
-// modules out of services/**, the boundary becomes purely
-// directory-structural, and this constant is deleted. Membership is the
-// reactive-state CLASS, not "whatever some component reads today" —
-// stability-trajectory-store has no component reader at adoption but
-// belongs to the class.
-const REACTIVE_STATE_EXEMPTIONS = [
-  '!**/services/analysis-ledger',
-  '!**/services/analysis-config',
-  '!**/services/stability-trajectory-store',
-];
-
 // The component→services boundary, deny-by-default. The original shape was
 // an enumerated blocklist of four effectful singletons (backend-service,
 // library-service, analysis-service, analysis-persistence-service). It was
@@ -429,30 +435,48 @@ const REACTIVE_STATE_EXEMPTIONS = [
 // until someone remembered to enumerate it. Inverted to deny-by-default
 // 2026-06-10 (history-lessons audit §3.11; work-status item
 // services-boundary-deny-by-default, step (a)): everything under
-// src/services/** is restricted from the component layer; the
-// reactive-state class is carved back in via REACTIVE_STATE_EXEMPTIONS.
+// src/services/** is restricted from the component layer.
+//
+// 2026-06-10 → 2026-06-11: step (a) carved the reactive-state class back
+// in through a REACTIVE_STATE_EXEMPTIONS constant (gitignore-style `!`
+// negations for analysis-ledger / analysis-config /
+// stability-trajectory-store), explicitly the provisional form of a
+// future `src/state/` directory. Step (b) — work-status item
+// reactive-state-modules-relocation — landed that directory: the three
+// modules moved out of src/services/** into src/state/**, so the boundary
+// is now purely DIRECTORY-STRUCTURAL. The exemption constant is deleted;
+// the group is a single `**/services/**` pattern with no negation list.
+// src/state/** is importable from components not by being carved out but
+// by simply not being under services/** — a display leaf reads the
+// reactive value it displays (ADR-0010 read-locality), and that value now
+// lives in a directory the layering boundary does not police. The header's
+// component→services paragraph carries the seam discussion (the
+// machinery-vs-payload split: src/services/ is effect machinery, src/state/
+// is reactive payload).
+//
 // allowTypeImports: a type-only import is erased at compile time and
 // carries no runtime effect coupling, so it sits outside the layering
 // tenet's target (effect orchestration). Classification decision recorded
-// per the audit item: analysis-bundle's header declares it a pure
+// per the step-(a) audit item: analysis-bundle's header declares it a pure
 // projection (no side effects, no network) — NOT an effectful singleton,
-// but not a reactive leaf-read source either, so it is deliberately NOT
-// in REACTIVE_STATE_EXEMPTIONS: a value import of projection logic from a
-// component is still logic-in-a-component. Its one component consumer
-// (AnalysisControls.vue) needs only the AnalysisBundleStorageError TYPE
-// (a structural union, narrowed by field checks, no instanceof), which
-// allowTypeImports admits.
+// but not a reactive leaf-read source either, so it stayed in services/**
+// (it is not reactive state) and is NOT importable for value imports: a
+// value import of projection logic from a component is still
+// logic-in-a-component. Its one component consumer (AnalysisControls.vue)
+// needs only the AnalysisBundleStorageError TYPE (a structural union,
+// narrowed by field checks, no instanceof), which allowTypeImports admits.
 const COMPONENT_SERVICES_BOUNDARY_PATTERN = {
-  group: ['**/services/**', ...REACTIVE_STATE_EXEMPTIONS],
+  group: ['**/services/**'],
   allowTypeImports: true,
   message:
     'Components are thin renderers: src/services/** is deny-by-default ' +
     'from the component layer (App.vue included) — effectful service ' +
-    'calls belong in a composable, not a component. Exempt: the ' +
-    'reactive-state modules (analysis-ledger / analysis-config / ' +
-    'stability-trajectory-store — a display leaf may read what it ' +
-    'displays, per ADR-0010) and type-only imports (compile-time-erased). ' +
-    'See frontend/CLAUDE.md "Architectural shape".',
+    'calls belong in a composable, not a component. The reactive-state ' +
+    'modules live in src/state/** (analysis-ledger / analysis-config / ' +
+    'stability-trajectory-store), which is importable — a display leaf may ' +
+    'read what it displays, per ADR-0010. Type-only imports are also ' +
+    'admitted (compile-time-erased). See frontend/CLAUDE.md ' +
+    '"Architectural shape".',
 };
 
 // Cast hygiene, stage 1 (work-status item cast-hygiene-lint; 2026-06-10
@@ -664,8 +688,10 @@ export default [
   // ("Components (src/components/*, src/App.vue) … No direct service
   // calls"), so the prior components-only glob was a named gap, closed at
   // the 2026-06-10 inversion — additionally may not import from
-  // src/services/** at all: deny-by-default, with the reactive-state class
-  // and type-only imports exempt. rationale: an effectful service call is
+  // src/services/** at all: deny-by-default. The reactive-state modules
+  // moved to src/state/** (2026-06-11, step (b)) so they fall outside this
+  // glob by location, not by exemption; type-only imports stay admitted
+  // (allowTypeImports). rationale: an effectful service call is
   // orchestration logic; it belongs in a composable (testable against
   // fakes per tests/CLAUDE.md; keeps the component a thin renderer per
   // ADR-0007). Full rationale + inversion history in the header;

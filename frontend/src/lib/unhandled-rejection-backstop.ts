@@ -98,7 +98,7 @@ function reasonText(reason: unknown): string {
  * Build a rejection backstop over injected sinks.
  *
  * De-dup design — generalizes the enrichment-merge latch precedent
- * (`services/analysis-ledger.ts`, the §5.5 `nestedNullEscalatedLabels`
+ * (`state/analysis-ledger.ts`, the §5.5 `nestedNullEscalatedLabels`
  * Set): there, a packet flood from one mislabelled wire field surfaces
  * to the system log ONCE per workspace session, every occurrence still
  * `console.warn`s, and `purgeAll` clears the latch with the workspace.

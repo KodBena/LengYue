@@ -32,6 +32,17 @@
   anticipated work-status record now exists
   (`services-boundary-deny-by-default`, shipped); trigger re-checked,
   not fired. No content change.
+  Third amendment, 2026-06-11 — Revisit #4 record note appended for
+  `reactive-state-modules-relocation` (the step-(b) relocation of the
+  reactive-state modules to `src/state/`): the trigger's relocation
+  *pathway* executed but the collapse-into-one-principle question it is
+  a pathway toward did NOT resolve, and the first disjunct (an
+  unclassifiable hybrid module) did not fire — so the trigger stays
+  live on the unresolved collapse. The two existing exemplar mentions
+  in the trigger body (`analysis-ledger`, `analysis-config` "in the
+  services layer") are left as the historical at-authoring phrasing per
+  ADR-0005 Rule 6; the new directory reality is carried in the dated
+  record note, not by rewriting the trigger prose.
 - **Scope:** All `frontend/` Vue component and composable authoring.
   The two rules apply at authoring time (which element type, where
   the reactive read lives) and at review time (a reviewer checks a
@@ -256,6 +267,36 @@ component-cost ranking is the signature that diagnoses it.
    relocating the reactive-state modules out of `services/` (the
    item's step (b)) — is tracked as work-status item
    `reactive-state-modules-relocation`.
+
+   **(Record note, 2026-06-11 — pathway executed; collapse NOT
+   resolved.)** Item `reactive-state-modules-relocation` (PR #415)
+   moved the three reactive-state modules ({`analysis-ledger`,
+   `analysis-config`, `stability-trajectory-store`}) out of
+   `src/services/` into a new `src/state/` directory and deleted
+   `REACTIVE_STATE_EXEMPTIONS`, so the component-import boundary is now
+   directory-structural rather than a lint negation list. Being precise
+   about what this fired and what it did not: the trigger's *second*
+   disjunct names two things — "relocating reactive-state modules out
+   of `services/`" (the e.g.) **and** the larger question it is an e.g.
+   *of*, "whether the two directives collapse into one coherent
+   principle." The **relocation executed**; the **collapse question did
+   not resolve.** The move converts the working split from heuristic
+   (an exemption list inside a lint) to structural (where a module
+   lives), which is exactly what the prior note called the
+   *pathway* — but render-locality and the effect-orchestration
+   boundary remaining two sound directives meeting at one seam is
+   unchanged; `src/state/` vs `src/services/` *names* the seam more
+   honestly, it does not *dissolve* it into a single principle. The
+   trigger's *first* disjunct (a services-layer module that is both an
+   effectful singleton and a legitimate leaf-read source) **did not
+   fire** — no such hybrid appeared; `analysis-bundle` (a pure
+   projection, the one near-miss) stayed in `src/services/` because it
+   is not reactive state, exactly as the split predicts. Net: the
+   trigger stays **live** on the unresolved collapse-into-one-principle
+   question; the relocation removes the heuristic-vs-structural objection
+   from it but leaves the deeper reconciliation open. The worklog
+   (`docs/worklog/2026-06-11-reactive-state-modules-relocation.md`)
+   carries the machinery-vs-payload seam record.
 
 ## Related
 

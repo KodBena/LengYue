@@ -51,6 +51,12 @@ The frontend is layered:
   WebSocket clients, debounced persistence. The ACL at
   `src/services/backend-service.ts` is the boundary where backend wire shapes
   (snake_case) become domain types (camelCase, branded).
+- **State** (`src/state/*`) — reactive-state modules that are not
+  effectful singletons: analysis-domain stores (`analysis-ledger`,
+  `analysis-config`, `stability-trajectory-store`) a display *leaf* may
+  read directly under ADR-0010 read-locality. Split out of `src/services/`
+  (2026-06-11) so the component-import boundary is directory-structural;
+  see the Tension paragraph below.
 - **Store** — a single reactive `GlobalStore` at `src/store/index.ts`.
   No Pinia; the decision and its conditions for revisit are in
   ADR-0001.
@@ -63,15 +69,25 @@ the only place wire shapes appear; no other module sees snake_case.
 "no direct service calls" rule above meets ADR-0010's read-locality
 rule at one seam: read-locality has a display *leaf* read the reactive
 value it displays *wherever that value lives*, which sanctions a leaf
-reading directly from a reactive-state module in the services layer
-(`analysis-ledger`, `analysis-config`). The ESLint import-boundary
-(`frontend/eslint.config.js`) encodes the working split — effectful
-service *singletons* are restricted in components; reactive-state
-modules are exempt. Whether that split is a true reconciliation of the
-two directives or a heuristic holding an irreducible tension apart is
-an open question, surfaced per ADR-0002 — see ADR-0010's "Revisit
-when…" #4. Flagged here so the seam is visible from the tenet itself,
-not only from the lint that forced the choice.
+reading directly from a reactive-state module (`analysis-ledger`,
+`analysis-config`, `stability-trajectory-store`). The ESLint
+import-boundary (`frontend/eslint.config.js`) encodes the working split
+— effectful service *singletons* under `src/services/` are restricted
+in components; the reactive-state modules live in `src/state/`, which
+the boundary does not police. **(2026-06-11, item
+`reactive-state-modules-relocation`.)** The split was originally an
+enumerated exemption list inside the services-layer lint
+(`REACTIVE_STATE_EXEMPTIONS`); relocating the three modules to
+`src/state/` makes it **directory-structural** — `src/services/` is
+effect machinery (deny), `src/state/` is reactive payload a leaf may
+read (allow), the machinery-vs-payload seam expressed by where a module
+lives rather than by a negation list. That is the *mechanism* firming
+up; whether the two directives **collapse into one coherent principle**
+is the same open question as before, surfaced per ADR-0002 — see
+ADR-0010's "Revisit when…" #4, which names the relocation as the
+collapse-into-one-principle *pathway*, not the collapse itself. Flagged
+here so the seam is visible from the tenet itself, not only from the
+lint that forced the choice.
 
 ## File map
 
@@ -182,7 +198,7 @@ Use the type system as a specification, not a decoration:
   depends on but the key omits is visible at review time rather
   than surfacing later as a stranded-bucket bug. `RawKey` /
   `EnrichedKey` (sole factory `deriveAnalysisKeys`,
-  `src/services/analysis-config.ts`) are the worked example; the
+  `src/state/analysis-config.ts`) are the worked example; the
   under-keyed class they closed — the ledger palette-swap
   stranding and its same-day twin in the stability-trajectory
   store (2026-06-08) — is the failure mode. Each key leg carries a

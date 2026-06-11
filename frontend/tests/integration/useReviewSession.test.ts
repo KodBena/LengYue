@@ -111,8 +111,8 @@ import {
   resetFakeAnalysisService,
 } from '../fakes/analysis-service';
 import { resetFakeAnalysisPersistenceService } from '../fakes/analysis-persistence-service';
-import { ledger } from '../../src/services/analysis-ledger';
-import { activeAnalysisKeys } from '../../src/services/analysis-config';
+import { ledger } from '../../src/state/analysis-ledger';
+import { activeAnalysisKeys } from '../../src/state/analysis-config';
 import type {
   BoardId,
   CardId,

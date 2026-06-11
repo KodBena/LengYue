@@ -21,8 +21,8 @@
  */
 
 import { computed, type ComputedRef, type Ref } from 'vue';
-import { stabilityTrajectoryStore } from '../../services/stability-trajectory-store';
-import { activeAnalysisKeys } from '../../services/analysis-config';
+import { stabilityTrajectoryStore } from '../../state/stability-trajectory-store';
+import { activeAnalysisKeys } from '../../state/analysis-config';
 import {
   STABILITY_METRICS,
   STABILITY_METRIC_LABELS,

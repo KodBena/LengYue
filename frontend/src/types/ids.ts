@@ -59,7 +59,7 @@ export type KeybindingActionId = Brand<string, 'KeybindingActionId'>;
  * `EnrichedKey` = hash(model + overrideSettings + palette).
  *
  * Sole construction site: `deriveAnalysisKeys` in
- * `services/analysis-config.ts` (no raw `as RawKey` casts at consumers).
+ * `state/analysis-config.ts` (no raw `as RawKey` casts at consumers).
  * Soundness: bucket keys, not collision-free identities — collision risk is
  * the DJB2 birthday bound, identical to the prior single composite hash.
  * See `IDENTIFIERS.md` ("Derived content hashes") and the stratification

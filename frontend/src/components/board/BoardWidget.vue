@@ -14,8 +14,8 @@ import { useScopedScroll } from '../../composables/useScopedScroll';
 import { useNavigation } from '../../composables/useNavigation';
 import { findPlacementOnActivePath } from '../../engine/navigator';
 import { store } from '../../store';
-import { ledger } from '../../services/analysis-ledger';
-import { activeAnalysisKeys } from '../../services/analysis-config';
+import { ledger } from '../../state/analysis-ledger';
+import { activeAnalysisKeys } from '../../state/analysis-config';
 
 // ── Ownership overlay glue ───────────────────────────────────────────────────
 // KataGo's `ownership` field comes back length size² in row-major order.

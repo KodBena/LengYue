@@ -45,8 +45,8 @@ import sgf from '@sabaki/sgf';
 
 import { loadSgf } from '../../../src/engine/sgf-loader';
 import { addBoard, resetWorkspace, store } from '../../../src/store';
-import { ledger } from '../../../src/services/analysis-ledger';
-import { activeAnalysisKeys } from '../../../src/services/analysis-config';
+import { ledger } from '../../../src/state/analysis-ledger';
+import { activeAnalysisKeys } from '../../../src/state/analysis-config';
 import { i18n } from '../../../src/i18n';
 import type { BoardState, NodeId } from '../../../src/types';
 import type { KataAnalysisResponse } from '../../../src/engine/katago/types';

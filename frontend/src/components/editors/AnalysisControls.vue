@@ -13,7 +13,7 @@ import { useI18n } from 'vue-i18n';
 import type { BoardId } from '../../types';
 import { store } from '../../store';
 import { mutateProfile } from '../../store/profile-owner';
-import { ledger } from '../../services/analysis-ledger';
+import { ledger } from '../../state/analysis-ledger';
 import { useAnalysisPersistence } from '../../composables/analysis/useAnalysisPersistence';
 import type { AnalysisBundleStorageError } from '../../services/analysis-bundle';
 import AnalysisDashboard from '../charts/AnalysisDashboard.vue';

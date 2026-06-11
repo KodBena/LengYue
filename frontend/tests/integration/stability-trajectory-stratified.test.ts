@@ -11,8 +11,8 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { deriveAnalysisKeys } from '../../src/services/analysis-config';
-import { stabilityTrajectoryStore } from '../../src/services/stability-trajectory-store';
+import { deriveAnalysisKeys } from '../../src/state/analysis-config';
+import { stabilityTrajectoryStore } from '../../src/state/stability-trajectory-store';
 import type { NodeId, KataAnalysisResponse } from '../../src/types';
 
 const OVERRIDES = { reportAnalysisWinratesAs: 'WHITE' };

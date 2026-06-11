@@ -48,15 +48,15 @@ import {
   recordWatchdogPong,
   recordLastResponseBoard,
 } from './engine-connection';
-import { ledger } from './analysis-ledger';
-import { stabilityTrajectoryStore } from './stability-trajectory-store';
+import { ledger } from '../state/analysis-ledger';
+import { stabilityTrajectoryStore } from '../state/stability-trajectory-store';
 import { analysisPersistenceService } from './analysis-persistence-service';
 import {
   compileAnalysisConfig,
   compileEngineOverrides,
   deriveAnalysisKeys,
   activeAnalysisKeys,
-} from './analysis-config';
+} from '../state/analysis-config';
 import { KATAGO_WS_URL } from '../config/env';
 import {
   KATAGO_FIRST_REPORT_FLOOR_S,

@@ -148,13 +148,13 @@ Not per-entity identities — DJB2 hashes over a structured analysis descriptor,
 branded distinct so the analysis-ledger's two provenance-stratified stores
 cannot be cross-read: a `RawKey` against the enrichment store (or an
 `EnrichedKey` against the raw store) is a **compile error** (ADR-0002's
-strongest channel). See `services/analysis-ledger.ts` and the stratification
+strongest channel). See `state/analysis-ledger.ts` and the stratification
 consult (`docs/notes/consult/opus-consult-2026-06-08-ledger-keying-typeful-defense.md`).
 
 | Name | Prim. | Origin | Construction | Lifetime | Cardinality | Status / notes |
 |------|-------|--------|-------------|----------|-------------|----------------|
-| `RawKey` | string | derived DJB2 hash of `{overrideSettings [domain-bound], model [domain-bound]}` (palette-independent; legs band-called per the keyed-cache rule in `frontend/CLAUDE.md` "Type-driven design" — the keying machinery itself is agnostic) | sole factory `deriveAnalysisKeys` (`analysis-config.ts`); re-branded at `analysis-bundle.ts` replay via the `r:` configHash-prefix split | per-session (ledger raw-store key); persisted inside bundles under an `r:`-prefixed configHash | ~1–few per session (one per model×overrides) | Sound; single factory. Bucket key, not a collision-free identity — DJB2 birthday bound, identical to the prior single composite hash. Prefix audit answered safe (2026-06-10 history-lessons audit §3.5): `r:` mints only in `projectLedgerToBundle`, parses only in `replayBundleIntoLedger`; legacy persisted values (bare DJB2 hex / `default`) cannot start with `r:` (no `:` at index 1). |
-| `EnrichedKey` | string | derived DJB2 hash of `{analysis_config [domain-bound], overrideSettings [domain-bound], model [domain-bound]}` (legs band-called per the keyed-cache rule in `frontend/CLAUDE.md` "Type-driven design" — the keying machinery itself is agnostic) | sole factory `deriveAnalysisKeys` (`analysis-config.ts`); **byte-equal to the legacy composite `configHash`**; re-branded at `analysis-bundle.ts` replay (`e:` prefix + legacy bare-hash branch) | per-session (ledger enrichment-store key); persisted inside bundles | ~1–dozens per session (one per palette×overrides×model) | Sound; single factory. Back-compat: equal to the pre-stratification hash so legacy persisted bundles' `config_hash` resolves as the enriched key. Prefix audit answered safe (2026-06-10 history-lessons audit §3.5): `e:` mints only in `projectLedgerToBundle`, parses only in `replayBundleIntoLedger`; legacy values (bare DJB2 hex / `default`) cannot start with `e:` (no `:` at index 1). |
+| `RawKey` | string | derived DJB2 hash of `{overrideSettings [domain-bound], model [domain-bound]}` (palette-independent; legs band-called per the keyed-cache rule in `frontend/CLAUDE.md` "Type-driven design" — the keying machinery itself is agnostic) | sole factory `deriveAnalysisKeys` (`state/analysis-config.ts`); re-branded at `analysis-bundle.ts` replay via the `r:` configHash-prefix split | per-session (ledger raw-store key); persisted inside bundles under an `r:`-prefixed configHash | ~1–few per session (one per model×overrides) | Sound; single factory. Bucket key, not a collision-free identity — DJB2 birthday bound, identical to the prior single composite hash. Prefix audit answered safe (2026-06-10 history-lessons audit §3.5): `r:` mints only in `projectLedgerToBundle`, parses only in `replayBundleIntoLedger`; legacy persisted values (bare DJB2 hex / `default`) cannot start with `r:` (no `:` at index 1). |
+| `EnrichedKey` | string | derived DJB2 hash of `{analysis_config [domain-bound], overrideSettings [domain-bound], model [domain-bound]}` (legs band-called per the keyed-cache rule in `frontend/CLAUDE.md` "Type-driven design" — the keying machinery itself is agnostic) | sole factory `deriveAnalysisKeys` (`state/analysis-config.ts`); **byte-equal to the legacy composite `configHash`**; re-branded at `analysis-bundle.ts` replay (`e:` prefix + legacy bare-hash branch) | per-session (ledger enrichment-store key); persisted inside bundles | ~1–dozens per session (one per palette×overrides×model) | Sound; single factory. Back-compat: equal to the pre-stratification hash so legacy persisted bundles' `config_hash` resolves as the enriched key. Prefix audit answered safe (2026-06-10 history-lessons audit §3.5): `e:` mints only in `projectLedgerToBundle`, parses only in `replayBundleIntoLedger`; legacy values (bare DJB2 hex / `default`) cannot start with `e:` (no `:` at index 1). |
 
 ### Ephemeral & discriminated string brands (analysis + card-tree + render-resource) (`Brand<string, …>`)
 
@@ -229,10 +229,10 @@ highest cardinality (one per game-tree node, ~340–1000+ per board ×
 N boards), and — unlike the others — it is allocated into composite
 `Map`-key substrings on the **hot proxy-stream path**, per packet:
 
-- `analysis-ledger.ts:23` keys an inner `Map<NodeId, …>` by the
+- `state/analysis-ledger.ts:23` keys an inner `Map<NodeId, …>` by the
   `NodeId` directly, and emits a changed-key signal `` `${hash}:${nodeId}` ``
   (`:52,182`) per record.
-- `stability-trajectory-store.ts:46,52` keys trajectories by
+- `state/stability-trajectory-store.ts:46,52` keys trajectories by
   `` `${configHash}|${extractorId}|${nodeId}` ``, built per extractor
   per packet in `record` (`:108-114`).
 

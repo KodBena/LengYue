@@ -11,9 +11,9 @@ import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
 import { getIntensityColorLinear } from '../../engine/suggestion-colors';
 import { store } from '../../store';
 import type { BoardState } from '../../types';
-import { ledger } from '../../services/analysis-ledger';
+import { ledger } from '../../state/analysis-ledger';
 import { useVariationPath } from '../../composables/board/useVariationPath';
-import { activeAnalysisKeys } from '../../services/analysis-config';
+import { activeAnalysisKeys } from '../../state/analysis-config';
 import { useThrottledSnapshot } from '../../composables/useThrottledSnapshot';
 import { BOARD_TAB_RUGPLOT_REDRAW_THROTTLE_MS } from '../../lib/timing';
 
