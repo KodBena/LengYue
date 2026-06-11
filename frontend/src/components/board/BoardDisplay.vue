@@ -268,9 +268,9 @@ function onBoardClick(e: MouseEvent) {
            comfortable base size, 3+ digits compress.
            magic-literal: 0.7 / 0.6 / 0.5 ratios are an inline
            sketch of the same kind of by-eye typography
-           calibration the deferred-items.md
-           "PV-overlay-typography-proportions" entry catalogues;
-           if that audit graduates to a substrate, fold these in. -->
+           calibration the pv-overlay-typography-calibration
+           work-status item catalogues;
+           if that calibration graduates to a substrate, fold these in. -->
       <g v-if="moveNumbers">
         <template v-for="stone in stoneList" :key="`mn-${stone.key}`">
           <text

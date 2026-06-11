@@ -231,9 +231,9 @@ const pvTransition = computed(() => `opacity ${pvCfg.fadeDurationMs}ms ease`);
 // makes the ring/disk snap; the CSS `0ms ease` shape is the right
 // no-op (browser produces no intermediate frames). Previously
 // hardcoded as `opacity 60ms ease` literals on the two `:style`
-// bindings below — see deferred-items.md PV-overlay-typography-
-// proportions entry for the original calibration concern (now
-// satisfied: the user chooses the value).
+// bindings below — see the pv-overlay-typography-calibration
+// work-status item for the original calibration concern (now
+// satisfied here: the user chooses the value).
 const suggestionTransition = computed(
   () => `opacity ${props.moveSuggestionsFadeMs ?? 60}ms ease`,
 );

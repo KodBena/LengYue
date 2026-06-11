@@ -99,7 +99,7 @@ export class ApiClient {
   /**
    * Generic request wrapper that automatically injects the JWT.
    *
-   * Error surfacing (item 20):
+   * Error surfacing:
    *   - Network failures (fetch throws before any response) emit an
    *     'error' SystemMessage and rethrow.
    *   - Non-2xx responses emit an 'error' SystemMessage and throw a
@@ -110,7 +110,7 @@ export class ApiClient {
    *   - console.error is kept in both paths as a secondary debug
    *     surface; the system log is primary.
    *
-   * 401 silent-retry (TODO item 28):
+   * 401 silent-retry:
    *   - On 401 from a non-auth endpoint, attempt one re-login as the
    *     cached identity (`cachedUsername`) and retry the original
    *     request. Identity-honest: preserves who we were authenticated

@@ -1,6 +1,6 @@
 {
-  "node_count": 465,
-  "edge_count": 2242,
+  "node_count": 467,
+  "edge_count": 2266,
   "age_buckets": [
     {
       "name": "fresh",
@@ -1709,6 +1709,22 @@
       "age_bucket": "aging"
     },
     {
+      "path": "docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/notes/audit/audit-debt-second-opinion-2026-06-11.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
       "path": "docs/notes/audit/audit-deferral-harvest-2026-06-10.md",
       "genre": "note",
       "is_hub": false,
@@ -2306,7 +2322,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-02",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/retrospective/retrospective-katago-f-optimizer-2026-05.md",
@@ -2586,7 +2602,7 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/rfcs/README.md",
@@ -3738,7 +3754,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     }
   ],
   "edges": [
@@ -11538,6 +11554,174 @@
       "to": "backend/CLAUDE.md",
       "kind": "path-mention",
       "site": "`backend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md",
+      "to": "docs/adr/0001-state-mutation-and-readonly.md",
+      "kind": "adr-related",
+      "site": "ADR-0001",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md",
+      "to": "frontend/IDENTIFIERS.md",
+      "kind": "path-mention",
+      "site": "`frontend/IDENTIFIERS.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md",
+      "to": "docs/doc-graph-report.md",
+      "kind": "path-mention",
+      "site": "`docs/doc-graph-report.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md",
+      "to": "docs/notes/audit/audit-adr-corpus-2026-06-10-appendix-p1.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-adr-corpus-2026-06-10-appendix-p1.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md",
+      "to": "docs/notes/analysis-persistence-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/analysis-persistence-plan.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md",
+      "to": "docs/notes/decisions-deferred.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/decisions-deferred.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md",
+      "to": "docs/release-scope.md",
+      "kind": "path-mention",
+      "site": "`docs/release-scope.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md",
+      "to": "docs/notes/design/mistake-finder-pedagogy-and-followups.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/design/mistake-finder-pedagogy-and-followups.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md",
+      "to": "docs/notes/pedagogy.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/pedagogy.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md",
+      "to": "docs/pedagogy.md",
+      "kind": "path-mention",
+      "site": "`docs/pedagogy.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md",
+      "to": "docs/notes/distribution-packaging.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/distribution-packaging.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md",
+      "to": "docs/notes/distribution-tauri-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/distribution-tauri-plan.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md",
+      "to": "docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md",
+      "to": "docs/dispatch/frontend-to-proxy-wire-diagnostic-channel.md",
+      "kind": "path-mention",
+      "site": "`docs/dispatch/frontend-to-proxy-wire-diagnostic-channel.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md",
+      "to": "frontend/docs/notes/board-scope.md",
+      "kind": "path-mention",
+      "site": "`frontend/docs/notes/board-scope.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md",
+      "to": "frontend/tests/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/tests/CLAUDE.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md",
+      "to": "frontend/docs/i18n.md",
+      "kind": "path-mention",
+      "site": "`frontend/docs/i18n.md`",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11-appendix.md",
+      "to": "docs/TODO.md",
+      "kind": "path-mention",
+      "site": "`docs/TODO.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11.md",
+      "to": "docs/archive/notes/design/knob-registry-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/design/knob-registry-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/audit/audit-debt-second-opinion-2026-06-11.md",
+      "to": "docs/doc-graph-report.md",
+      "kind": "path-mention",
+      "site": "`docs/doc-graph-report.md`",
       "resolved": "resolved"
     },
     {
