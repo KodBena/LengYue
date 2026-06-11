@@ -69,6 +69,19 @@ anti-corruption layer (currently `src/services/backend-service.ts`) to
 type-check the boundary where the backend's responses enter the
 frontend.
 
+The backend host is configurable via the `GENAPI_BASE_URL` environment
+variable (see `.env.example`). The npm script uses shell fallback
+syntax — `${GENAPI_BASE_URL:-http://127.0.0.1:8764}` — so setting the
+variable in your shell or a local `.env` file is sufficient; no wrapper
+script is involved. The `VITE_` prefix is intentionally absent: unlike
+`VITE_API_BASE_URL`, this variable is a contributor-tooling concern and
+is never bundled into the SPA.
+
+```sh
+# run against a non-default host:
+GENAPI_BASE_URL=http://192.168.1.10:8764 npm run gen:api
+```
+
 ### Why it exists
 
 Before codegen, `backend-service.ts::mapToReviewCard` took `raw: any`

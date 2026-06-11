@@ -11,7 +11,7 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint .",
-    "gen:api": "openapi-typescript http://127.0.0.1:8764/openapi.json -o src/types/backend.ts",
+    "gen:api": "openapi-typescript ${GENAPI_BASE_URL:-http://127.0.0.1:8764}/openapi.json -o src/types/backend.ts",
     "perf:capture": "node scripts/perf-capture.mjs",
     "perf:trace": "node scripts/perf-trace-parse.mjs",
     "perf:heap": "node scripts/perf-heap.mjs"
