@@ -36,7 +36,8 @@ import { store, pushSystemMessage, mutateBoard, setSelectedModel } from '../stor
 // through the named owner functions. See engine-connection.ts's
 // header for the ownership rationale and the preserved-semantics
 // records (resetWorkspace's deliberate non-reset; the
-// restartActiveAnalyses semantics question).
+// restartActiveAnalyses "active" = in-flight decision the
+// restart-thunk reap in `onAnalysisUpdate` implements).
 import {
   markEngineConnected,
   applyEngineDisconnectReset,
@@ -124,6 +125,27 @@ export class AnalysisService {
     // configured value at query-start time (snapshot, so mid-query
     // registry edits don't change what we report).
     ponderCeiling?: number,
+    // Natural-completion bookkeeping for restart-thunk reaping.
+    // `analyzedTurnCount` is the number of turns this query reports
+    // on — `analyzeTurns.length` (range: endTurn − startTurn + 1;
+    // ponder/analyze: 1). `finalizedTurns` accumulates the turn
+    // numbers that have received their authoritative final packet
+    // (`isDuringSearch === false`). When `finalizedTurns.size`
+    // reaches `analyzedTurnCount` the query has completed naturally
+    // — every analyzed turn settled, no more packets will arrive —
+    // and `onAnalysisUpdate` reaps the query's restart thunk so a
+    // later `restartActiveAnalyses` does not re-issue completed work
+    // (the maintainer-decided "active" = in-flight semantics). The
+    // set (not a counter) is robust against a duplicate final for
+    // the same turn — the same defensive shape the ponder-ceiling
+    // clear and the telemetry singleton's auto-cleanup take.
+    // Ponder queries are structurally indefinite (single
+    // analyzeTurns, no time limit), so their first final IS their
+    // natural completion; reaping the ponder thunk there is correct
+    // — a stopped-then-completed ponder should not resurrect on a
+    // toolbar toggle either.
+    analyzedTurnCount: number,
+    finalizedTurns: Set<number>,
   }>();
   // Per-query subscription unsubscribers. Keyed by queryId.
   // `stopQuery` reads and calls the entry; `stopBoardAnalysis`
@@ -132,8 +154,13 @@ export class AnalysisService {
   // Per-query restart thunks. Keyed by queryId. Each thunk re-issues
   // the same query with the same parameters; `restartActiveAnalyses`
   // iterates the map so a wire-flag-affecting state change re-fires
-  // every active query independently. The thunks are added by
-  // `analyzeRange` / `analyzeActiveNode` and removed by `stopQuery`.
+  // every IN-FLIGHT query independently. The thunks are added by
+  // `analyzeRange` / `analyzeActiveNode` and removed by `stopQuery`
+  // (explicit interruption) OR by `onAnalysisUpdate`'s reap when the
+  // query completes naturally — the latter is what makes the map's
+  // membership mean "in flight" rather than "not explicitly stopped"
+  // (maintainer-decided semantics, 2026-06-10; see
+  // engine-connection.ts's owner docstring).
   private restartCallbacks = new Map<QueryId, () => void>();
   // Per-board index of active queries. `boardToQueries.get(boardId)`
   // is the set of queryIds currently running on that board. The set
@@ -563,7 +590,7 @@ export class AnalysisService {
     // each invocation).
     const framing = resolveWinrateFraming(overrideSettings);
 
-    this.activeQueries.set(queryId, { boardId, mode: 'analyze', path: fullPath, rawKey: keys.rawKey, enrichedKey: keys.enrichedKey, framing, startedAt: performance.now() });
+    this.activeQueries.set(queryId, { boardId, mode: 'analyze', path: fullPath, rawKey: keys.rawKey, enrichedKey: keys.enrichedKey, framing, startedAt: performance.now(), analyzedTurnCount: analyzeTurns.length, finalizedTurns: new Set() });
 
     // Queue telemetry — register at construction so the Toolbar's
     // queue tooltip can render this range query and its ETA.
@@ -785,7 +812,10 @@ export class AnalysisService {
       mode === 'ponder'
         ? store.profile.settings.engine.katago.ponderMaxVisits
         : undefined;
-    this.activeQueries.set(queryId, { boardId, mode, path: fullPath, rawKey: keys.rawKey, enrichedKey: keys.enrichedKey, framing, startedAt: performance.now(), ponderCeiling });
+    // Single-turn query (`analyzeTurns: [currentIdx]`), so the
+    // natural-completion threshold is 1 — the first authoritative
+    // final reaps the restart thunk.
+    this.activeQueries.set(queryId, { boardId, mode, path: fullPath, rawKey: keys.rawKey, enrichedKey: keys.enrichedKey, framing, startedAt: performance.now(), ponderCeiling, analyzedTurnCount: 1, finalizedTurns: new Set() });
 
     // Queue telemetry — single-turn entry. For ponder, the per-turn
     // visit budget is the ponderMaxVisits ceiling; for analyze, the
@@ -907,16 +937,27 @@ export class AnalysisService {
   }
 
   /**
-   * Re-issue every currently-active analysis query. Used when a
-   * piece of state external to the query parameters (the qEUBO
-   * toolbar-view toggle in `useAppBootstrap`'s
-   * `qeubo.toolbarView` watcher, currently the only caller) must
-   * propagate into the engine's wire request. Each restart fires
-   * the per-query thunk independently — with multiple coexisting
-   * queries on a board (a concurrent range + ponder), every one
-   * re-issues with the new parameters, which is the intended
-   * behaviour when the toggle affects the analysis posture
-   * uniformly.
+   * Re-issue every IN-FLIGHT analysis query. Used when a piece of
+   * state external to the query parameters (the qEUBO toolbar-view
+   * toggle in `useAppBootstrap`'s `qeubo.toolbarView` watcher,
+   * currently the only caller) must propagate into the engine's
+   * wire request. Each restart fires the per-query thunk
+   * independently — with multiple coexisting queries on a board (a
+   * concurrent range + ponder), every one re-issues with the new
+   * parameters, which is the intended behaviour when the toggle
+   * affects the analysis posture uniformly.
+   *
+   * **"In-flight", not "not explicitly stopped"** (maintainer-decided
+   * 2026-06-10; the hydration-rebind audit §6.1 question, resolved).
+   * `onAnalysisUpdate` reaps a query's restart thunk on natural
+   * completion (every analyzed turn finalized), so the map iterated
+   * here holds only queries still running — a completed query, or one
+   * that finished before a disconnect, is NOT re-issued. This stops a
+   * toolbar-view toggle (especially after a reconnect, where the
+   * bookkeeping maps deliberately survive per the O15 decision) from
+   * resurrecting queries the user believes dead at engine-compute
+   * cost. See engine-connection.ts's owner docstring for the full
+   * record.
    *
    * The per-query thunk's call site (`analyzeRange` /
    * `analyzeActiveNode`) handles its own cleanup via the
@@ -1065,6 +1106,37 @@ export class AnalysisService {
         }),
       );
       this.activeQueries.set(queryId, { ...queryInfo, ponderCeiling: undefined });
+    }
+
+    // Restart-thunk reaping on natural completion. "Active" means
+    // in-flight (maintainer-decided 2026-06-10; see
+    // engine-connection.ts's owner docstring): once every analyzed
+    // turn has settled (`isDuringSearch === false`), the query is
+    // done and must not re-issue on a later `restartActiveAnalyses`
+    // — a qEUBO toolbar-view toggle or a post-reconnect restart
+    // should re-fire only the queries still in flight, not resurrect
+    // completed work at engine-compute cost. We record the finalized
+    // turn on the live entry (the ponder-ceiling branch above may
+    // have replaced it; re-read to mutate the current one — the
+    // `finalizedTurns` Set carries through the spread by reference)
+    // and reap the thunk once the count reaches `analyzedTurnCount`.
+    // The Set keys on `turnNumber` so a duplicate final for one turn
+    // (cache replay / proxy enrichment) cannot over-count, mirroring
+    // the ponder-ceiling clear's once-per-turn defence and the
+    // telemetry singleton's auto-cleanup. Deliberately scoped to the
+    // restart thunk: `activeQueries` / `activeSubscriptions` /
+    // `boardToQueries` are left to the O15 reconcile-on-next-
+    // interaction path (the bounded per-board map growth and the
+    // `activeMode` projection drift the hydration-rebind audit §3.3
+    // wrinkle 1 records as deliberate are unchanged by this reap).
+    if (!response.isDuringSearch) {
+      const live = this.activeQueries.get(queryId);
+      if (live) {
+        live.finalizedTurns.add(response.turnNumber);
+        if (live.finalizedTurns.size >= live.analyzedTurnCount) {
+          this.restartCallbacks.delete(queryId);
+        }
+      }
     }
   }
 
