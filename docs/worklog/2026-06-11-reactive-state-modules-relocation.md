@@ -282,6 +282,11 @@ clause produced the same three modules. Two scope judgments worth surfacing
   unresolved) — this is the ADR's own open question, already a tracked
   trigger, not a new deferral; recorded in the ADR's dated note, no new
   marker needed.
+- The unit test for the relocated config module stays under
+  `tests/unit/services/` (the test file did not move; its subject did) →
+  `not-filed: tests/unit/services tier-directory naming for relocated state
+  modules — cosmetic, rename on the next touch of that test`. (Added at
+  gate discharge, 2026-06-11 — the out-of-frame review surfaced it.)
 
 ## Out-of-frame review
 

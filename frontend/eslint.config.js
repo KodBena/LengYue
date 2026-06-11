@@ -79,7 +79,9 @@
  *       services-boundary-deny-by-default, step (a)).
  *       The exemptions, both deliberate: (1) the reactive-state class
  *       ({analysis-ledger, analysis-config, stability-trajectory-store};
- *       REACTIVE_STATE_EXEMPTIONS below) — a display LEAF reading the
+ *       REACTIVE_STATE_EXEMPTIONS — deleted 2026-06-11 when the class
+ *       moved to src/state/, see the dated step-(b) paragraph below) —
+ *       a display LEAF reading the
  *       reactive value it displays is sanctioned by ADR-0010's
  *       read-locality rule. That effectful-vs-reactive split is the SEAM
  *       where two directives meet — CLAUDE.md's layering tenet (effects
