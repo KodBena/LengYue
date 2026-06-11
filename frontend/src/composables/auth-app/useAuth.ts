@@ -51,11 +51,20 @@
  * `api.register()`. The storage-key invariant has one enforcement
  * site, in api-client.ts.
  *
+ * Ownership (single-owner-auth-state): this module owns EVERY transition
+ * of the nominal auth state. api-client never initiates one — it reports
+ * unrecovered 401s via its read-only `authSessionRejections` counter and
+ * the watch below reacts. Storage-clear policy: transitions that mean
+ * "the stored session is dead" (verify-401, session-rejected, logout)
+ * clear storage; 'error' transitions (a failed login/register ATTEMPT)
+ * leave storage alone — the stored identity remains the recovery source
+ * of truth for tryAutoLogin.
+ *
  * License: Public Domain (The Unlicense)
  */
 
-import { ref, computed, readonly, type ComputedRef, type Ref } from 'vue';
-import { api, ApiError } from '../../services/api-client';
+import { ref, computed, readonly, watch, type ComputedRef, type Ref } from 'vue';
+import { api, ApiError, authSessionRejections } from '../../services/api-client';
 import { pushSystemMessage } from '../../store';
 import { i18n } from '../../i18n';
 import type { AuthState } from '../../types';
@@ -72,26 +81,37 @@ function setState(next: AuthState): void {
   _authState.value = next;
 }
 
-// ─── api-client → useAuth bridge (TODO #28 follow-up) ─────────────────────────
-// When api-client's request() observes a 401 on a non-auth endpoint, the
-// token gets cleared at the localStorage layer; without this bridge,
-// `auth.state` would stay falsely 'authenticated' (since useAuth methods
-// haven't run) and the auth-lifecycle UX (modal auto-open, workspace
-// wipe via SyncService's auth-state watcher) wouldn't trigger. The
-// bridge transitions state to 'unauthenticated' so downstream watchers
-// see the truth.
+// ─── Session-rejected reaction (single-owner shape, RFC-0001 Q9) ─────────────
+// api-client reports an unrecovered non-auth-endpoint 401 by bumping its
+// read-only `authSessionRejections` counter and mutates NOTHING — this
+// watch is where the owner performs the COMPLETE transition: storage clear
+// (both keys, via the owner-invoked `api.clearToken()`), state flip, and
+// the user-visible warning. Downstream watchers (UserBadge's modal
+// auto-open, SyncService's identity-aware workspace wipe, the qEUBO /
+// analysis-persistence resets) all key off the `auth.state` flip exactly
+// as before. The prior shape — api-client clearing the JWT itself and
+// invoking a useAuth-registered `onTokenInvalidated` callback — split one
+// nominal transition across two writer modules (the drift class RFC-0001
+// open question 9 records); this watch retires that bridge, so `_authState`
+// and the JWT storage have exactly one transition owner: this module.
 //
-// Registered once at module init. The kind-guard avoids redundant
-// transitions when state is already non-authenticated (the api-client
-// can fire the callback in scenarios where useAuth has just done its
-// own state update — e.g., overlapping flows during cold-start; the
-// guard makes the registration idempotent).
-api.onTokenInvalidated(() => {
+// `flush: 'sync'` preserves the retired callback's timing: the transition
+// runs inside request()'s error path, before the ApiError reaches the
+// caller, so no consumer can observe a 401-rejected world with
+// `auth.state` still 'authenticated'.
+//
+// Installed once at module init (same lifetime as the old registration).
+// The kind-guard makes the reaction idempotent — a burst of rejected
+// requests transitions once — and skips the case where useAuth's own
+// flows (verify-401, logout) have already moved the state off
+// 'authenticated'.
+watch(authSessionRejections, () => {
   if (_authState.value.kind === 'authenticated') {
+    api.clearToken();
     setState({ kind: 'unauthenticated' });
     pushSystemMessage('warning', i18n.global.t('auth.sessionExpired'));
   }
-});
+}, { flush: 'sync' });
 
 // ─── Verify-and-transition helper (private, B5) ──────────────────────────────
 
@@ -106,11 +126,13 @@ api.onTokenInvalidated(() => {
  *         /auth/me}. The backend's claim overrides the typed/cached
  *         username — this is the stale-token-drift fix.
  *
- *   401 → token rejected by server. api.request has already cleared
- *         the JWT internally; we additionally clear the cached
- *         username (via api.clearToken, which is idempotent on the
- *         JWT side), transition to unauthenticated, and surface a
- *         warning. The user can recover via the LoginModal.
+ *   401 → token rejected by server. api.request mutates nothing on a
+ *         401 (single-owner shape — see the session-rejected watch
+ *         above); this owner-side branch clears BOTH storage keys via
+ *         api.clearToken, transitions to unauthenticated, and surfaces
+ *         a warning. The user can recover via the LoginModal. (/auth/me
+ *         is an auth endpoint, so the rejection counter never bumps for
+ *         this path — the transition here is the only one.)
  *
  *   other (network, 5xx) → can't verify, but the JWT is presumed
  *         valid (it just succeeded one call ago, in the login case;
