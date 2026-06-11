@@ -63,8 +63,8 @@ let initTimeout: number | null = null;
 //      animation frame, coalescing the (rare) case of multiple
 //      synchronous setOption calls within a tick.
 //
-// A polymorphic-renderer abstraction is parked under Future projects
-// in `docs/TODO.md` — when ECharts is replaced for this surface the
+// A polymorphic-renderer abstraction is parked as the
+// polymorphic-chart-renderer work-status item — when ECharts is replaced for this surface the
 // throttle constant and the split-path machinery become renderer
 // configuration rather than ECharts-specific workarounds.
 

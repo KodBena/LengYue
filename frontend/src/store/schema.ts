@@ -514,8 +514,8 @@ export interface AppSettings {
      * disk opacity transitions in `MoveSuggestions.vue`. Promoted from
      * a hardcoded `transition: opacity 60ms ease` inline literal that
      * the magic-literals audit (Pass 2) had left deferred — the
-     * calibration concern named in `deferred-items.md`'s
-     * PV-overlay-typography-proportions entry is satisfied by
+     * calibration concern named in the pv-overlay-typography-calibration
+     * work-status item is satisfied by
      * surfacing the value as a user knob (the user is now the one
      * choosing the calibration, so internal pairwise-tuning no longer
      * applies).

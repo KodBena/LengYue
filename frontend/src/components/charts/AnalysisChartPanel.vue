@@ -46,8 +46,8 @@ const expanded = ref(true);
 // inline-size` + `@container (max-width: …)` re-evaluated on every style flush,
 // and ECharts' canvas text rendering forces a synchronous flush per redraw — so
 // the CQ recompute scaled with (forced flushes × visible panels): a per-nav
-// style-recalc tax with charts visible (deferred-items "container-query
-// recompute"). A ResizeObserver fires only on ACTUAL width changes (not per
+// style-recalc tax with charts visible (the "container-query recompute" entry
+// of the since-dissolved deferred-items ledger). A ResizeObserver fires only on ACTUAL width changes (not per
 // flush); the boolean toggle is idempotent, so a resize that doesn't cross the
 // threshold re-renders nothing.
 // magic-literal: 379px is the crossing point where the 140px preview + a ~240px
@@ -127,8 +127,9 @@ onUnmounted(() => {
    flex-shrink and claims its width absolutely while chart-area is the
    sacrificial flex child). This was a `container-type: inline-size` +
    `@container (max-width: 379px)` query; that re-evaluated on EVERY style flush,
-   and ECharts forces one per redraw → a per-nav recompute storm (deferred-items
-   "container-query recompute"). It's now driven by a ResizeObserver-toggled
+   and ECharts forces one per redraw → a per-nav recompute storm (the
+   "container-query recompute" entry of the since-dissolved deferred-items
+   ledger). It's now driven by a ResizeObserver-toggled
    `.narrow` class (fires only on real width changes) — see the script. The
    379px threshold lives at PREVIEW_HIDE_BELOW_PX there. Dropping `container-type`
    also drops its implied layout/size containment, which is safe here: the
