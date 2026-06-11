@@ -252,8 +252,10 @@ This tenet is worth revisiting if:
    > exemption list (encoded as data with this ADR cited per
    > entry), and reports per-file whether the head block carries
    > the file's subproject-relative path, with a summary count.
-   > It is wired non-gating into CI (the `frontend-ci.yml`
-   > `source-headers` job).
+   > It is wired non-gating into CI (the dedicated
+   > `source-headers-ci.yml` workflow — its own workflow rather than
+   > a `frontend-ci.yml` job, because the corpus spans both
+   > subprojects while that workflow triggers on `frontend/**` only).
    >
    > What did **NOT** fire, precisely:
    > - **Not auto-GENERATE.** The tool only verifies; it writes no
