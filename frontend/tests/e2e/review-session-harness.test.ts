@@ -4,16 +4,42 @@
  * tests/e2e/review-session-harness.test.ts
  *
  * End-to-end fuzzing harness for `useReviewSession`. Drives the real
- * composable against a real backend and two real KataProxy instances:
+ * composable against a real backend and a real KataProxy, with a
+ * "strong" and a "weak" engine playing the two roles below.
  *
- *   - REVIEW_E2E_STRONG (env): the strong proxy. Used by
- *     `analysisService` for review-time analysis (20 visits per user
- *     move) and by the position generator (100 visits per setup move).
+ * The strong/weak pair is sourced one of two ways, depending on the
+ * proxy topology of the standing dev stack:
  *
- *   - REVIEW_E2E_WEAK (env): the weak proxy. Used by the human-
- *     simulator (10 visits per "user" move). Lower visits → the
- *     simulator more often plays a non-engine-top move, which
- *     exercises the full delta range across the 7-move card.
+ *   - SELECTOR mode (the default — the standing dev stack runs only
+ *     the SELECTOR on 127.0.0.1:1235 with a labelled upstream pool).
+ *     Both roles connect to the one SELECTOR URL and differ only in
+ *     the per-query `model` label the SELECTOR routes on. The SELECTOR
+ *     refuses any analysis query that carries no `model` field
+ *     (`{"error": "missing 'model' field for SELECTOR routing"}`), so
+ *     the label must be threaded through every engine-move path —
+ *     position generation, the human-simulator, AND `analysisService`'s
+ *     review-time analysis (via `store.engine.selectedModel`). The two
+ *     labels are configurable; the defaults are two healthy upstreams
+ *     discovered from the live `query_models` response.
+ *
+ *   - LEAF-pair mode (the original topology — two distinct LEAF
+ *     proxies on two URLs, each serving a single network, no `model`
+ *     field on the wire). Set both URL env vars to opt into it; the
+ *     `model` labels are then omitted from every query.
+ *
+ * The two engine roles, however the pair is sourced:
+ *
+ *   - Strong: used by `analysisService` for review-time analysis
+ *     (REVIEW_VISITS per user move) and by the position generator
+ *     (POSITION_GEN_VISITS per setup move).
+ *
+ *   - Weak: used by the human-simulator (HUMAN_SIM_VISITS per "user"
+ *     move). Lower visits → the simulator more often plays a
+ *     non-engine-top move, which exercises the full delta range across
+ *     the card. In SELECTOR mode the strong/weak label split layers a
+ *     network-strength difference on top of the visit-budget
+ *     difference; in LEAF-pair mode the visit budget is the only lever
+ *     unless the two LEAFs serve different networks.
  *
  * The harness scores each user-move under the FLAT `visit_ratio`
  * palette (`uservisits / maxvisits`). The flat metric is directly
@@ -36,12 +62,29 @@
  * property, so under jsdom the connection promise never resolves.
  * Node 24's native WebSocket dispatches IDL handlers correctly.
  *
- * Gating: skipped unless BOTH env URLs are set. A normal
- * `npm run test:run` is unaffected; opt in with
+ * Gating: skipped unless an engine endpoint is configured. A normal
+ * `npm run test:run` is unaffected. Two opt-in shapes:
+ *
+ *   SELECTOR mode (the standing dev stack — one SELECTOR, two labels):
+ *
+ *     REVIEW_E2E_SELECTOR=ws://127.0.0.1:1235 \
+ *       npm run test:run -- tests/e2e/review-session-harness.test.ts
+ *
+ *   The labels default to two healthy upstreams (`REVIEW_E2E_STRONG_MODEL`
+ *   defaults to `b28c512nbt`, `REVIEW_E2E_WEAK_MODEL` to `b10c128`).
+ *   Discover the live label set — and which are `healthy: true` — with
+ *   a `query_models` probe (the parser lives in
+ *   `src/engine/katago/version-probe.ts`); override either env var to
+ *   route the two roles at a different healthy pair.
+ *
+ *   LEAF-pair mode (two distinct LEAF proxies, no `model` on the wire):
  *
  *     REVIEW_E2E_STRONG=ws://192.168.122.1:1234 \
  *     REVIEW_E2E_WEAK=ws://192.168.122.1:1235 \
- *       npm run test:run -- tests/e2e
+ *       npm run test:run -- tests/e2e/review-session-harness.test.ts
+ *
+ * When `REVIEW_E2E_SELECTOR` is set it takes precedence; the LEAF-pair
+ * URL vars are the fallback the original topology used.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -84,8 +127,56 @@ import { seedTestUser, seedTestCard } from './seed';
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
-const STRONG_URL = process.env.REVIEW_E2E_STRONG;
-const WEAK_URL = process.env.REVIEW_E2E_WEAK;
+/**
+ * One resolved engine role: the proxy URL to connect to and the
+ * SELECTOR routing label to thread on every query (null in LEAF-pair
+ * mode, where the wire carries no `model` field). The harness reads
+ * `url` for the WebSocket and passes `model ?? undefined` to the
+ * `playEngineMoves` / `queryEngineMove` `model` parameter so an
+ * absent label is omitted from the query rather than sent as the
+ * string `"null"`.
+ */
+interface EngineRole {
+  readonly url: string;
+  readonly model: string | null;
+}
+
+const SELECTOR_URL = process.env.REVIEW_E2E_SELECTOR;
+const LEAF_STRONG_URL = process.env.REVIEW_E2E_STRONG;
+const LEAF_WEAK_URL = process.env.REVIEW_E2E_WEAK;
+
+// Defaults are two upstreams the live SELECTOR advertised as
+// `healthy: true` (2026-06-11 `query_models` probe). Override either
+// when the standing stack's healthy pair changes — an unhealthy or
+// unknown label makes the SELECTOR fail the query loudly (ADR-0002),
+// which surfaces through `awaitFinalPacket`'s error branch rather
+// than silently substituting a different network.
+const STRONG_MODEL = process.env.REVIEW_E2E_STRONG_MODEL || 'b28c512nbt';
+const WEAK_MODEL = process.env.REVIEW_E2E_WEAK_MODEL || 'b10c128';
+
+/**
+ * Resolve the strong/weak engine roles from the configured topology.
+ * SELECTOR mode (single URL, two labels) takes precedence; the
+ * LEAF-pair fallback uses two URLs and no labels. `null` when neither
+ * is configured — the suite's `skipIf` reads that to skip cleanly.
+ */
+function resolveRoles(): { strong: EngineRole; weak: EngineRole } | null {
+  if (SELECTOR_URL) {
+    return {
+      strong: { url: SELECTOR_URL, model: STRONG_MODEL },
+      weak: { url: SELECTOR_URL, model: WEAK_MODEL },
+    };
+  }
+  if (LEAF_STRONG_URL && LEAF_WEAK_URL) {
+    return {
+      strong: { url: LEAF_STRONG_URL, model: null },
+      weak: { url: LEAF_WEAK_URL, model: null },
+    };
+  }
+  return null;
+}
+
+const ROLES = resolveRoles();
 
 const NUM_PLAY_MOVES = 20;
 const REVIEW_VISITS = 100;
@@ -188,6 +279,14 @@ async function runScenario(opts: {
 }): Promise<ScenarioResult> {
   mark(`scenario start: preMoveCount=${opts.preMoveCount} desc="${opts.description}"`);
 
+  // The suite's `skipIf` guards this, so ROLES is non-null whenever a
+  // scenario actually runs; the assert keeps the non-null reads below
+  // honest (ADR-0002) rather than papering over with `!`.
+  if (!ROLES) throw new Error('runScenario invoked with no engine roles configured');
+  const { strong, weak } = ROLES;
+  mark(`roles: strong=${strong.url} model=${strong.model ?? '(none)'} `
+    + `weak=${weak.url} model=${weak.model ?? '(none)'}`);
+
   // 1. Identity. Fresh open-access account each scenario.
   mark('seedTestUser');
   const seeded = await seedTestUser();
@@ -198,20 +297,32 @@ async function runScenario(opts: {
   // to the strong proxy simultaneously (one client per proxy URL is
   // the simpler invariant; concurrent connections to the same URL
   // can race in subtle ways under load).
-  mark(`playEngineMoves: ${opts.preMoveCount} moves @ ${POSITION_GEN_VISITS} visits — strong proxy`);
+  mark(`playEngineMoves: ${opts.preMoveCount} moves @ ${POSITION_GEN_VISITS} visits — strong engine`);
   const generatedBoard = await playEngineMoves({
-    katagoUrl: STRONG_URL!,
+    katagoUrl: strong.url,
     startBoard: createInitialBoard(),
     untilPathLength: opts.preMoveCount + 1,
     maxVisits: POSITION_GEN_VISITS,
+    // SELECTOR routing label for the strong engine; undefined (omitted
+    // from the query) in LEAF-pair mode.
+    model: strong.model ?? undefined,
   });
   const generatedSgf = serializeActivePath(generatedBoard);
   mark(`playEngineMoves ok: sgf.length=${generatedSgf.length}`);
 
-  // 3. Connect analysisService to the strong proxy now that the
-  // position-gen client is gone.
-  mark(`analysisService.connect: url=${STRONG_URL}`);
-  store.profile.settings.engine.katago.url = STRONG_URL!;
+  // 3. Connect analysisService to the strong engine now that the
+  // position-gen client is gone. In SELECTOR mode the review-time
+  // analysis queries must carry the strong label too — the service
+  // injects `model: store.engine.selectedModel` on every query (see
+  // analysis-service.ts), so setting it here is what routes the
+  // review session's per-move analyze through the strong upstream.
+  // Without it the SELECTOR would auto-select its first advertised
+  // label, which need not be the strong one. (In LEAF-pair mode the
+  // label is null and the field is omitted, matching the original
+  // behaviour.)
+  mark(`analysisService.connect: url=${strong.url} model=${strong.model ?? '(none)'}`);
+  store.profile.settings.engine.katago.url = strong.url;
+  store.engine.selectedModel = strong.model;
   analysisService.connect();
   mark('analysisService.connect: returned (ws opens async)');
 
@@ -276,11 +387,14 @@ async function runScenario(opts: {
     if (!preBoard) throw new Error(`Harness: board ${boardId} disappeared mid-session (turn ${turn})`);
     const s0NodeId = preBoard.currentNodeId as NodeId;
 
-    mark(`turn ${turn}: state=${session.state.value} queryEngineMove (weak proxy)`);
+    mark(`turn ${turn}: state=${session.state.value} queryEngineMove (weak engine)`);
     const move = await queryEngineMove({
-      katagoUrl: WEAK_URL!,
+      katagoUrl: weak.url,
       board: preBoard,
       maxVisits: HUMAN_SIM_VISITS,
+      // SELECTOR routing label for the weak engine; undefined in
+      // LEAF-pair mode.
+      model: weak.model ?? undefined,
     });
     mark(`turn ${turn}: weak chose ${move.gtp}`);
 
@@ -382,8 +496,8 @@ async function runScenario(opts: {
 
 // ── Suite ────────────────────────────────────────────────────────────────────
 
-describe.skipIf(!STRONG_URL || !WEAK_URL)(
-  'review-session e2e harness (real backend + two KataProxies)',
+describe.skipIf(!ROLES)(
+  'review-session e2e harness (real backend + SELECTOR or LEAF-pair)',
   () => {
     beforeEach(() => {
       try { analysisService.disconnect(); } catch { /* first iter / idempotent */ }
