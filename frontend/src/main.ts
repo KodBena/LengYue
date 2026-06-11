@@ -10,6 +10,7 @@ import { store, pushSystemMessage } from './store';
 import { serializeBoard, serializeActivePath } from './engine/sgf-writer';
 import { installPerfScenarios } from './composables/perf/scenarios';
 import { i18n } from './i18n';
+import { createRejectionBackstop } from './lib/unhandled-rejection-backstop';
 
 // Expose the reactive store to the browser console for verification ONLY in DEV.
 // Justified `as any` (ADR-0002 Rule 2 — untyped-global interop): these are
@@ -62,5 +63,40 @@ app.config.errorHandler = (err, _instance, info) => {
     console.error('[App] pushSystemMessage failed:', pushErr);
   }
 };
+
+// Window-level `unhandledrejection` backstop. The errorHandler above
+// and RootErrorBoundary cover errors that flow through Vue's reactivity;
+// a promise that rejects with no `.catch` OUTSIDE Vue's render cycle
+// escapes both and reaches only the console — invisible to the user.
+// This closes the gap the root-error-boundary worklog named as
+// out-of-scope-but-worth-doing (the `window.addEventListener(
+// 'unhandledrejection')` bullet). De-dup logic + posture rationale live
+// in `lib/unhandled-rejection-backstop.ts`; the real sinks are wired
+// here (the bootstrap/wiring surface, sibling to the errorHandler).
+//
+// Resource ownership (frontend/CLAUDE.md "Resource ownership at mutation
+// sites"): this registers ONE document-level listener that must live for
+// the entire app lifetime. There is no owning entity that is created and
+// destroyed, and no `onUnmounted`/teardown site — main.ts is the app
+// root, below any component, and the process owns the listener until the
+// document is torn down (page unload / reload), which releases it for
+// free. So the resource is named here and the deliberate NON-removal is
+// the correct call, not a missing cleanup: an unhandledrejection that
+// fires during the brief shutdown window should still surface, and there
+// is no later-arriving consumer with a different lifecycle (the class
+// the discipline guards) — the listener has exactly one lifetime, the
+// app's. The de-dup latch lives inside the closure; it likewise GCs with
+// the document on unload. (Contrast the imperative-escape ResizeObservers,
+// which a remounting leaf owns and MUST release in onUnmounted.)
+const rejectionBackstop = createRejectionBackstop({
+  pushSystemMessage,
+  // i18n.global is the Composition-API surface on the plugin instance,
+  // same as the errorHandler above.
+  translate: (key, params) => i18n.global.t(key, params ?? {}),
+  logError: (...args) => { console.error(...args); },
+});
+window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
+  rejectionBackstop.handle(event.reason);
+});
 
 app.mount('#app');
