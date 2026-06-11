@@ -1,0 +1,61 @@
+# .github/workflows/source-headers-ci.yml
+#
+# Source-file-header path-presence advisory (umbrella-level). Runs the
+# zero-deps Node checker (tools/source-headers/check.mjs) that mechanizes
+# ADR-0006's source-file-header discipline, scoped to its crispest part: does
+# each non-exempt source file's head block carry its subproject-relative path?
+#
+# This is a DEDICATED umbrella workflow rather than a job inside frontend-ci.yml
+# (where band-conformance lives) because this tool's inputs span BOTH
+# subprojects — frontend/src/**/*.{ts,vue} AND backend/**/*.py — whereas
+# band-conformance reads only frontend/src + frontend/FILES.md. frontend-ci.yml
+# triggers on frontend/** only, so a backend-only change would never retrigger
+# it; this workflow's frontend/src + backend filters cover both sides.
+#
+# ADVISORY, per ADR-0011 Rule 1 (a discipline declares its enforcement surface;
+# this one is an advisory surface) and ADR-0006 Revisit #1 (fired 2026-06-11
+# advisory-first, NOT tightened to an error-gate). The `--check` step prints
+# the per-file path-presence misses + summary but exits 0 regardless; it FAILS
+# only on the crisp ADR-0002 structural class (a subproject root missing from
+# disk). The `--self-test` step IS gating: it guards the tool itself (the
+# probe-before-trust fixtures), exactly as cochange-advisory-ci gates its own
+# --selftest while the advisory run never blocks. See
+# tools/source-headers/check.mjs.
+#
+# Zero external dependencies: pure Node, no npm install, no Graphviz, no venv.
+# No `working-directory` override — the tool reads from the repo root.
+#
+# License: Public Domain (The Unlicense)
+name: source-headers-ci
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/src/**'
+      - 'backend/**'
+      - 'tools/source-headers/**'
+      - '.github/workflows/source-headers-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/src/**'
+      - 'backend/**'
+      - 'tools/source-headers/**'
+      - '.github/workflows/source-headers-ci.yml'
+
+jobs:
+  source-headers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Submodules excluded: proxy/ follows its own header conventions
+          # (ADR-0006 Scope) and is not in this tool's corpus.
+          submodules: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Source-headers self-test (probe-before-trust fixtures — gating)
+        run: node tools/source-headers/check.mjs --self-test
+      - name: Source-headers path-presence audit (advisory; misses never gate)
+        run: node tools/source-headers/check.mjs --check
