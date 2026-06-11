@@ -225,17 +225,22 @@ function legacyV1Blob(): any {
  *       found; whether any deserves a backfill is a maintainer call
  *       (the bump-cadence question, audit §7.5, is out of scope
  *       here).
- *   [silent-no-op] — a backfill migration EXISTS but provably
- *       no-ops: the archived 45 → 46 body walks
+ *   [silent-no-op] — a backfill migration EXISTED but provably
+ *       no-oped: the archived 45 → 46 body walks
  *       `out.settings?.engine?.katago` and the archived 46 → 47 body
  *       walks `out.settings?.appearance` — both missing the
  *       `profile.` prefix, the same wrong-path class as the
  *       corrected 47 → 48 incident, but never themselves corrected.
- *       Surfaced by this test 2026-06-10; the corrective is a new
- *       migration (out of this item's scope — archived bodies are
- *       frozen). If a corrective ships, these rows move out of this
- *       list and the test goes red until the pin is updated — that
- *       is the intended ratchet direction.
+ *       Surfaced by this test 2026-06-10. RESOLVED 2026-06-11 (item
+ *       `archived-migration-wrong-path-corrective`): the 59 → 60
+ *       migration re-applies both backfills with the correct paths via
+ *       `witnessedContainer`. That shipping turned this test red — the
+ *       two rows (`appearance.moveSuggestionsFadeMs`,
+ *       `engine.katago.adaptiveReevaluate.valueBinding`) the clean
+ *       migration now produces stopped being defaults-only — and the
+ *       red was cleared by removing them from the pin below, the
+ *       intended ratchet direction. No `[silent-no-op]` entries remain;
+ *       the class is documented here as the closed precedent.
  */
 const EXPECTED_DEFAULTS_ONLY_PATHS: string[] = [
   // [no-backfill] The 'fringe_first' deck shipped in defaults
@@ -255,11 +260,6 @@ const EXPECTED_DEFAULTS_ONLY_PATHS: string[] = [
   'profile.settings.knobs.display.mistake-finder-threshold.label',
   'profile.settings.knobs.display.mistake-finder-threshold.outputs',
   'profile.settings.knobs.display.mistake-finder-threshold.priority',
-  // [silent-no-op] The archived 46 → 47 body was supposed to
-  // backfill this leaf (default 60) but walks
-  // `out.settings?.appearance` — missing the `profile.` prefix —
-  // and no-ops on every real blob.
-  'profile.settings.appearance.moveSuggestionsFadeMs',
   // [no-backfill] The two animation KnobDecls the 46 → 47 body
   // deliberately declined to inject (its inline comment defers to
   // the defaults-side seed for fresh profiles); persisted blobs see
@@ -276,11 +276,6 @@ const EXPECTED_DEFAULTS_ONLY_PATHS: string[] = [
   'profile.settings.knobs.display.pv-fade-ms.label',
   'profile.settings.knobs.display.pv-fade-ms.outputs',
   'profile.settings.knobs.display.pv-fade-ms.priority',
-  // [silent-no-op] The archived 45 → 46 body was supposed to
-  // backfill this leaf (default '') but walks
-  // `out.settings?.engine?.katago` — missing the `profile.` prefix —
-  // and no-ops on every real blob.
-  'profile.settings.engine.katago.adaptiveReevaluate.valueBinding',
 ];
 
 /**

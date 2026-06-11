@@ -2718,3 +2718,86 @@ describe('58 → 59: re-scope forestNav.selection per-board (board-scope audit P
     expect(out.session.ui.forestNav.selection).toEqual({});
   });
 });
+
+describe('59 → 60: re-apply the wrong-path backfills (valueBinding + moveSuggestionsFadeMs)', () => {
+  // The corrective for the archived 45 → 46 / 46 → 47 silent no-ops
+  // (item `archived-migration-wrong-path-corrective`). Both leaves are
+  // written through the witnessed parent container at the CORRECT
+  // `profile.settings.…` path.
+  function blobWithContainers(): any {
+    return {
+      profile: {
+        settings: {
+          appearance: {},
+          engine: { katago: { adaptiveReevaluate: { enabled: false } } },
+        },
+      },
+    };
+  }
+
+  it("backfills valueBinding = '' when the leaf is absent", () => {
+    const out = step(59)(blobWithContainers());
+    expect(out.profile.settings.engine.katago.adaptiveReevaluate.valueBinding).toBe('');
+  });
+
+  it('backfills moveSuggestionsFadeMs = 60 when the leaf is absent', () => {
+    const out = step(59)(blobWithContainers());
+    expect(out.profile.settings.appearance.moveSuggestionsFadeMs).toBe(60);
+  });
+
+  it('preserves a pre-existing string valueBinding (idempotent / hand-edited)', () => {
+    const blob = blobWithContainers();
+    blob.profile.settings.engine.katago.adaptiveReevaluate.valueBinding = 'learned_v1';
+    const out = step(59)(blob);
+    expect(out.profile.settings.engine.katago.adaptiveReevaluate.valueBinding).toBe('learned_v1');
+  });
+
+  it('preserves a pre-existing numeric moveSuggestionsFadeMs', () => {
+    const blob = blobWithContainers();
+    blob.profile.settings.appearance.moveSuggestionsFadeMs = 0;
+    const out = step(59)(blob);
+    expect(out.profile.settings.appearance.moveSuggestionsFadeMs).toBe(0);
+  });
+
+  it('replaces a non-string valueBinding / non-numeric fade with the defaults', () => {
+    const blob = blobWithContainers();
+    blob.profile.settings.engine.katago.adaptiveReevaluate.valueBinding = 42;
+    blob.profile.settings.appearance.moveSuggestionsFadeMs = 'fast';
+    const out = step(59)(blob);
+    expect(out.profile.settings.engine.katago.adaptiveReevaluate.valueBinding).toBe('');
+    expect(out.profile.settings.appearance.moveSuggestionsFadeMs).toBe(60);
+  });
+
+  it('is a no-op when the adaptiveReevaluate container is absent (partial blob)', () => {
+    // The witnessed parent path resolves against the runtime shape, but
+    // the blob-side leg returns undefined for an absent container, so the
+    // body no-ops — same tolerance the broken bodies intended.
+    const blob: any = { profile: { settings: { appearance: {} } } };
+    const out = step(59)(blob);
+    expect(out.profile.settings.engine).toBeUndefined();
+    // The other backfill still runs on its present container.
+    expect(out.profile.settings.appearance.moveSuggestionsFadeMs).toBe(60);
+  });
+
+  it('is a no-op when profile is absent (very-legacy blob)', () => {
+    const blob: any = { session: {} };
+    const out = step(59)(blob);
+    expect(out.profile).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v59 blob reaches CURRENT with both leaves backfilled', () => {
+    const blob: any = {
+      schemaVersion: 59,
+      profile: {
+        settings: {
+          appearance: {},
+          engine: { katago: { adaptiveReevaluate: { enabled: false } } },
+        },
+      },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(out.profile.settings.engine.katago.adaptiveReevaluate.valueBinding).toBe('');
+    expect(out.profile.settings.appearance.moveSuggestionsFadeMs).toBe(60);
+  });
+});
