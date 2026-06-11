@@ -1,6 +1,6 @@
 # Worklog — single-owner auth state (RFC-0001 Q9 closure)
 
-> Work-status item: `single-owner-auth-state`. PR: #TBD
+> Work-status item: `single-owner-auth-state`. PR: #411
 > (`bork/refactor/single-owner-auth-state`). >1-writer arc — the
 > coordinator's out-of-frame writer-enumeration review gates the merge;
 > the in-frame HRA pass below does not discharge that gate.
