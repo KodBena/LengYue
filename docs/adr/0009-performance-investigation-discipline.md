@@ -249,6 +249,27 @@ codified here as the project's starting set:
   2026-06-10 multi-writer-slots null check, whose deviation from a
   per-frame-medians commission wording was named loudly under this split.
 
+- **Best-effort realtime-latency comparable for automated Chromium
+  captures** (added 2026-06-12; Revisit #3 instance — see the dated
+  amendment below). The counts comparable above cannot see *jank*: a
+  refactoring span can hold render/patch counts constant while
+  introducing indirections that lengthen frames. For realtime stress
+  protocols (the extended jank test is the trigger class), every
+  automated Chromium capture ALSO records the latency distributions the
+  trace already carries — frame-duration percentiles (p50 / p99) over
+  the stress window, `LongTask` count + cumulative duration, and
+  late/over-budget-frame counts — compared **best-effort**: the
+  confounds the counts rule was shaped to avoid (environment drift,
+  cache warmth, engine pacing) are controlled per the normalization
+  protocol (cold caches, scenario-proxy comparability asserted first)
+  and NAMED next to any latency comparison rather than treated as
+  disqualifying. Counts remain the strict cross-run comparable; the
+  latency distributions are the jank-relevant comparable counts cannot
+  express. This SCOPES the 2026-06-11 "counts, not wall-clock" rule
+  rather than reversing it: that rule forbids comparing raw wall-clock
+  totals as if they were precise, not capturing latency distributions
+  at all.
+
 Reusing the same vocabulary across investigations is the
 discipline; the vocabulary itself is expected to extend as new
 investigation classes surface. Additions go here, not in
@@ -688,6 +709,25 @@ operational companion (`docs/notes/perf-capture-normalization-protocol.md`
 Chromium comparable appended to the metric vocabulary as a discharged
 Revisit-#3 instance, previously scattered across a script header and a
 worklog — the per-investigation scatter the vocabulary section forbids.
+
+## Amended (2026-06-12): best-effort latency comparable for the automated path
+
+Revisit trigger **#3** ("the metric vocabulary stops covering the
+perf-relevant axes") fired: the extended jank-test protocol (work-status
+item `perf-jank-extended-before-after` — sustained overlay + in-flight
+query + autonav + scrub realtime stress, maintainer-commissioned for the
+before/after comparison across the 2026-06 refactoring span) is an
+investigation class whose subject IS realtime latency, which the
+automated Chromium path's counts-only comparable (the 2026-06-11
+amendment) cannot express. The maintainer named the deficiency directly:
+measuring only by discrete quantities cannot see jank. The vocabulary
+gains the best-effort realtime-latency bullet above; the counts rule is
+scoped (raw wall-clock totals are still not compared as precise), not
+reversed. Honest state note: `frontend/scripts/perf-trace-parse.mjs` is
+counts-only at this amendment's date — the captured traces already carry
+the latency signals, and the parser's latency surface lands with the
+extended-jank-protocol arc; until it does, latency reads come from the
+raw traces directly.
 
 ## License
 
