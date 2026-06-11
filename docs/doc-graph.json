@@ -1,6 +1,6 @@
 {
-  "node_count": 475,
-  "edge_count": 2301,
+  "node_count": 476,
+  "edge_count": 2303,
   "age_buckets": [
     {
       "name": "fresh",
@@ -1962,7 +1962,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/consult/opus-consult-2026-06-03-tag-ssot-and-tenancy-leak.md",
@@ -3616,9 +3616,9 @@
       "path": "docs/worklog/2026-06-11-band-conformance-advisory-ratchet.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-11-band-conformance-ci-check.md",
@@ -3635,6 +3635,14 @@
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
       "age_bucket": "recent"
+    },
+    {
+      "path": "docs/worklog/2026-06-11-chart-panel-preview-migration.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-11-drop-engine-activemode.md",
@@ -3658,7 +3666,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-11-genapi-host-configurable.md",
@@ -3746,7 +3754,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-11-sgf-file-boundary-coercions.md",
@@ -3762,7 +3770,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-11-thumbnail-render-lifecycle-consolidation.md",
@@ -3770,7 +3778,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-11-unhandledrejection-backstop.md",
@@ -3778,7 +3786,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-11-work-status-audit-trail.md",
@@ -18905,6 +18913,20 @@
       "to": "frontend/CLAUDE.md",
       "kind": "path-mention",
       "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-chart-panel-preview-migration.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-chart-panel-preview-migration.md",
+      "to": "docs/worklog/2026-06-11-thumbnail-render-lifecycle-consolidation.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-06-11-thumbnail-render-lifecycle-consolidation.md`",
       "resolved": "resolved"
     },
     {

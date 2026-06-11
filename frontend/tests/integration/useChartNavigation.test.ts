@@ -2,12 +2,14 @@
  * tests/integration/useChartNavigation.test.ts
  *
  * Tier-3 (composable integration) tests for `useChartNavigation`.
- * The composable is the centralised handler shared by every
- * analysis-chart panel: ECharts emits a turn-index or
- * (color, color-local-move-index) tuple on click/hover; the
- * composable converts that to a NodeId and either navigates the
- * board (click) or asks the thumbnail cache for an SVG preview
- * (hover).
+ * The composable is the centralised CLICK-navigation handler shared
+ * by every analysis-chart panel: ECharts emits a turn-index or
+ * (color, color-local-move-index) tuple on click; the composable
+ * converts that to a NodeId and navigates the board. (Hover preview
+ * is owned panel-side now — the synchronous index→nodeId lookup +
+ * fire-and-forget cache warm + accessor shape, item
+ * `chart-panel-preview-migration`; the old async-write hover handlers
+ * here are removed.)
  *
  * The two correctness invariants the tests pin:
  *
@@ -15,36 +17,18 @@
  *     `handleMainClick(turnIdx)` finds `variationPath[turnIdx]` and
  *     calls `navigateTo` on it. Out-of-bounds clicks are no-ops.
  *   - **Player click navigates to the position BEFORE the move.**
- *     The asymmetry is deliberate (see the composable's docstring):
- *     click reveals the situation the player faced; hover previews
- *     the result. `handlePlayerClick` subtracts one ply from
- *     `colorMoveToPly(moveIdx, color)` to land on the before-move
- *     position.
- *
- * `useThumbnailCache` is mocked because its real implementation
- * renders SVG via the board renderer — out of scope for the
- * integration tier and not where useChartNavigation's logic lives.
+ *     The before/after asymmetry is deliberate (see the composable's
+ *     docstring): click reveals the situation the player faced; the
+ *     panel's hover preview shows the result. `handlePlayerClick`
+ *     subtracts one ply from `colorMoveToPly(moveIdx, color)` to land
+ *     on the before-move position.
  *
  * License: Public Domain (The Unlicense)
  */
 
-import { ref } from 'vue';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 // @ts-ignore — @sabaki/sgf has no published types declaration.
 import sgf from '@sabaki/sgf';
-
-// Mock the thumbnail cache — useChartNavigation's hover handlers
-// call getThumbnailSvg and store the result on the previewRef. The
-// mock returns a deterministic SVG string per call so the hover-
-// handler tests can assert on the previewRef value directly.
-vi.mock('../../src/composables/cards/useThumbnailCache', () => ({
-  useThumbnailCache: () => ({
-    getThumbnailSvg: vi.fn(async (nodeId: string, _boardId: string, showMarker: boolean) =>
-      `<svg data-node="${nodeId}" data-marker="${showMarker}"/>`,
-    ),
-    warmPath: vi.fn(),
-  }),
-}));
 
 // Mock the persistence service to keep resetWorkspace quiet.
 vi.mock('../../src/services/analysis-persistence-service', async () => {
@@ -171,37 +155,6 @@ describe('useChartNavigation.handlePlayerClick', () => {
     const targetNodeId = variationPath.value[1]; // the B[pd] node
     const board = store.boards.find(b => b.id === boardId)!;
     expect(board.currentNodeId).toBe(targetNodeId);
-  });
-});
-
-describe('useChartNavigation.handleMainHover', () => {
-  it('writes the thumbnail SVG (showMarker=false) for the hovered turn into previewRef', async () => {
-    const { boardId } = setup('(;FF[4]GM[1]SZ[19];B[pd];W[dp])');
-    const variationPath = useVariationPath(() => boardId);
-    const { handleMainHover } = useChartNavigation(variationPath, boardId);
-
-    const previewRef = ref('');
-    await handleMainHover(2, previewRef);
-
-    const targetNodeId = variationPath.value[2];
-    expect(previewRef.value).toBe(`<svg data-node="${targetNodeId}" data-marker="false"/>`);
-  });
-});
-
-describe('useChartNavigation.handlePlayerHover', () => {
-  it('previews the position AT the move (showMarker=true) for the player panel', async () => {
-    const { boardId } = setup('(;FF[4]GM[1]SZ[19];B[pd];W[dp];B[pp])');
-    const variationPath = useVariationPath(() => boardId);
-    const { handlePlayerHover } = useChartNavigation(variationPath, boardId);
-
-    const previewRef = ref('');
-    await handlePlayerHover('B', 1 as ColorMoveIndex, previewRef);
-
-    // colorMoveToPly(1, 'B') = 3. handlePlayerHover (unlike click)
-    // does not subtract one — the preview shows the position AFTER
-    // the move.
-    const targetNodeId = variationPath.value[3];
-    expect(previewRef.value).toBe(`<svg data-node="${targetNodeId}" data-marker="true"/>`);
   });
 });
 

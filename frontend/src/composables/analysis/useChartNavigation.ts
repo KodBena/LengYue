@@ -1,11 +1,20 @@
 /**
  * src/composables/analysis/useChartNavigation.ts
- * Pure black-box navigation + thumbnail handler for all analysis charts.
+ * Pure black-box click-navigation for all analysis charts.
  * Centralises the only remaining business logic that was duplicated across panels.
+ *
+ * Scope note: the chart panels own their hover-preview wiring locally (a
+ * synchronous index→nodeId lookup + a fire-and-forget cache warm + an
+ * accessor over `getSnapshotSync`, the #365 / PR #413 cured shape). The
+ * old `handleMainHover` / `handlePlayerHover` here wrote an awaited
+ * `getThumbnailSvg` result into a caller-supplied preview ref; they were
+ * the last instance of the async-write-into-a-preview-ref shape and had
+ * zero live consumers once the panels migrated, so they were removed
+ * (item `chart-panel-preview-migration`).
+ *
  * License: Public Domain (The Unlicense)
  */
 
-import { useThumbnailCache } from '../cards/useThumbnailCache';
 import { colorMoveToPly } from './useTriangularHeatmap';
 import { mutateBoard } from '../../store';
 import { navigateTo } from '../../engine/navigator';
@@ -32,8 +41,6 @@ import type { BoardId, ColorMoveIndex, RootToLeafPath } from '../../types';
  * ──────────────────────────────────────────────────────────────────────────
  */
 export function useChartNavigation(variationPath: Ref<RootToLeafPath>, boardId: BoardId) {
-  const { getThumbnailSvg } = useThumbnailCache();
-
   // ── Main chart (turn-indexed) ─────────────────────────────────────────────
   function handleMainClick(turnIdx: number) {
     const nodeId = variationPath.value[turnIdx];
@@ -42,23 +49,15 @@ export function useChartNavigation(variationPath: Ref<RootToLeafPath>, boardId: 
     }
   }
 
-  async function handleMainHover(turnIdx: number, previewRef: { value: string }) {
-    const nodeId = variationPath.value[turnIdx];
-    if (nodeId) {
-      previewRef.value = await getThumbnailSvg(nodeId, boardId, false);
-    }
-  }
-
   // ── Player panels (move-indexed) ──────────────────────────────────────────
   // moveIdx is branded ColorMoveIndex; the brand pair forces callers to
   // commit to the colour-local interpretation rather than passing a bare
   // number that could be a PlyIndex by mistake.
   //
-  // Asymmetry note: click navigates to the position BEFORE the move (so
-  // the user sees the situation the player faced), hover previews the
-  // position AFTER (the result of the move). Click is `colorMoveToPly`
-  // minus one; hover is `colorMoveToPly` directly. The two routes share
-  // the cmi → ply conversion but diverge by one ply for UX reasons.
+  // Click navigates to the position BEFORE the move (so the user sees the
+  // situation the player faced), hence `colorMoveToPly` minus one. The
+  // symmetric AFTER-the-move preview the panels show on hover is derived
+  // panel-side (the cured hover shape; see the module header), not here.
   function handlePlayerClick(playerColor: 'B' | 'W', moveIdx: ColorMoveIndex) {
     const turnIdx = colorMoveToPly(moveIdx, playerColor) - 1;
     const nodeId = variationPath.value[turnIdx];
@@ -67,22 +66,8 @@ export function useChartNavigation(variationPath: Ref<RootToLeafPath>, boardId: 
     }
   }
 
-  async function handlePlayerHover(
-    playerColor: 'B' | 'W',
-    moveIdx: ColorMoveIndex,
-    previewRef: { value: string }
-  ) {
-    const nodeIdx = colorMoveToPly(moveIdx, playerColor);
-    const nodeId = variationPath.value[nodeIdx];
-    if (nodeId) {
-      previewRef.value = await getThumbnailSvg(nodeId, boardId, true);
-    }
-  }
-
   return {
     handleMainClick,
-    handleMainHover,
     handlePlayerClick,
-    handlePlayerHover,
   } as const;
 }
