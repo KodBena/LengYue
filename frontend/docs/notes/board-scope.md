@@ -54,6 +54,7 @@ typechecks. The guarantee comes from the test (below), not the type.
 | `session.ui.forestNav.selection` | `GlobalStore` (`PerBoard`) | `BOARD_SCOPED_STORE_CELLS` |
 | board-card-trees slot | module-scope `Map<BoardId,…>` | `removeBoardCardTree` (inline) |
 | analysis-service per-board maps | module-scope | `stopBoardAnalysis` (inline) |
+| analysis-persistence service maps (summaries / dirtyVersions / autoSaveErrors) | service `Map<BoardId,…>` (×3) | `forgetBoard`, via `discard` (inline) |
 | `useReviewSession.pendingAnalysisAborts` | module-scope `Map` | `abortBoardReview` (inline) |
 | analysis ledger / stability / thumbnails | per-node (`configHash`/`NodeId`) | `purgeBoard` — walks `board.nodes` (inline) |
 
@@ -79,6 +80,22 @@ consult's ADVISORY verdict, not a maintainer decision — prior records
 overstated its authority. The Class B teardown shape is an open question,
 tracked as work-status item `closeboard-class-b-teardown-shape` (parked;
 owner-located teardown is a named candidate).)*
+
+*(2026-06-11: the analysis-persistence service's three board-keyed Maps
+(`summaries` / `dirtyVersions` / `autoSaveErrors`) are Class A in nature
+(board-*keyed*, `delete map[boardId]`, order-independent) but stay **inline**
+in `closeBoard` rather than in the `BOARD_SCOPED_STORE_CELLS` registry — that
+registry is bounded to `GlobalStore` cells, and these live behind a service's
+private encapsulation, drained through its `forgetBoard` release verb (which
+`discard` subsumes). Until 2026-06-11 only `summaries` was drained at close;
+`dirtyVersions` / `autoSaveErrors` leaked a bounded number + small POJO per
+closed board until identity-flip `forgetAll`. Fixed by extending `forgetBoard`
+to drain all three and deriving `forgetAll` from it over the keyset, so the
+three-Map set is named in one place — work-status item
+`persistence-board-keyed-drain`, found by the 2026-06-11 debt second-opinion
+review. This is independent of the parked `closeboard-class-b-teardown-shape`
+decision above: the release verb is needed under every candidate teardown
+architecture; only its call site would move.)*
 
 **TypeScript cannot enumerate "every per-board surface" to demand each is torn
 down** — so the registry's coverage is a *convention*, not a proof. The

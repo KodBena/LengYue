@@ -1,6 +1,6 @@
 {
-  "node_count": 469,
-  "edge_count": 2276,
+  "node_count": 470,
+  "edge_count": 2278,
   "age_buckets": [
     {
       "name": "fresh",
@@ -1842,7 +1842,7 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-06-03",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/compression-research-followups.md",
@@ -2130,7 +2130,7 @@
       "is_hub": false,
       "first_committed": "2026-04-30",
       "last_committed": "2026-06-03",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/frontend-backlog.md",
@@ -3552,9 +3552,9 @@
       "path": "docs/worklog/2026-06-11-analysis-subscribe-union-narrowing.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-11-app-vue-orphan-sr-css.md",
@@ -3570,7 +3570,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-11-archived-migration-wrong-path-corrective.md",
@@ -3667,6 +3667,14 @@
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
       "age_bucket": "recent"
+    },
+    {
+      "path": "docs/worklog/2026-06-11-persistence-board-keyed-drain.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "docs/worklog/2026-06-11-reactive-state-modules-relocation.md",
@@ -18977,6 +18985,20 @@
       "kind": "path-mention",
       "site": "`docs/doc-graph.md`",
       "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-persistence-board-keyed-drain.md",
+      "to": "docs/notes/audit/audit-debt-second-opinion-2026-06-11.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/audit-debt-second-opinion-2026-06-11.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-persistence-board-keyed-drain.md",
+      "to": "frontend/docs/notes/board-scope.md",
+      "kind": "path-mention",
+      "site": "`frontend/docs/notes/board-scope.md`",
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-06-11-reactive-state-modules-relocation.md",

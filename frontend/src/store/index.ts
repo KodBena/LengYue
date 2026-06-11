@@ -461,9 +461,15 @@ export function closeBoard(boardId: BoardId): void {
   // lists) but the per-board hygiene is the same shape.
   stabilityTrajectoryStore.purgeBoard(boardId);
 
-  // Release the server-side persisted bundle if one exists. Sym-
-  // metric to ledger.purgeBoard but for the row stored by the
-  // analysis-persistence feature. Fire-and-forget — closeBoard
+  // Release the server-side persisted bundle if one exists, plus the
+  // board's local persistence-cache entries (summary, dirty-version
+  // counter, auto-save-error pause — discard() drains all of them
+  // through forgetBoard). Symmetric to ledger.purgeBoard but for the
+  // row stored by the analysis-persistence feature and its
+  // board-keyed reactive Maps. Failure mode if the local drain were
+  // omitted: a bounded leak — a stranded number + small POJO per
+  // closed board, surviving until the next identity-flip forgetAll
+  // (persistence-board-keyed-drain). Fire-and-forget — closeBoard
   // stays sync from the caller's perspective; the api-client
   // surfaces non-2xx via the system log if it matters. Audit tag
   // O13 (persisted-analysis-bundles).

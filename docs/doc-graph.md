@@ -20,9 +20,9 @@ of truth and the picture is a projection of it.
 
 ## At a glance
 
-- **Nodes:** 469 documents.
-- **Edges:** 2276 cross-references
-  (1893 resolved, 383 dangling, 0 ambiguous).
+- **Nodes:** 470 documents.
+- **Edges:** 2278 cross-references
+  (1894 resolved, 384 dangling, 0 ambiguous).
 
 ## Staleness heatmap (buckets)
 
@@ -168,7 +168,7 @@ flowchart LR
 
 ## Broken-reference report
 
-**46** dangling references from **live** documents in the genuine-rot classes (missing-on-disk + retired-target; 57 live total — the remainder point at on-disk files outside the node set), 326 from frozen / executed documents (expected drift), and 0 ambiguous, after the ADR-0005 Rule 4 code-block/placeholder filter. See [`docs/doc-graph-report.md`](./doc-graph-report.md) for the full list, split by origin bucket and target class — the maintainer reviews it; nothing is auto-fixed.
+**46** dangling references from **live** documents in the genuine-rot classes (missing-on-disk + retired-target; 57 live total — the remainder point at on-disk files outside the node set), 327 from frozen / executed documents (expected drift), and 0 ambiguous, after the ADR-0005 Rule 4 code-block/placeholder filter. See [`docs/doc-graph-report.md`](./doc-graph-report.md) for the full list, split by origin bucket and target class — the maintainer reviews it; nothing is auto-fixed.
 
 ## Regeneration
 

@@ -38,8 +38,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { api, ApiError } from '../../src/services/api-client';
 import { analysisPersistenceService } from '../../src/services/analysis-persistence-service';
-import { realServiceStorageThrow } from '../fakes/analysis-persistence-service';
+import {
+  fakeAnalysisPersistenceService,
+  realServiceStorageThrow,
+  resetFakeAnalysisPersistenceService,
+  seedFakeSummary,
+} from '../fakes/analysis-persistence-service';
 import type { BoardId } from '../../src/types';
+import type { AnalysisBundleStorageError } from '../../src/services/analysis-bundle';
 
 // The three terminal storage envelopes the backend communicates as
 // structured error bodies (the wire shape the real api-client puts on
@@ -103,5 +109,130 @@ describe('fake fidelity — storage-error throw shape matches the real service',
     expect(() =>
       realServiceStorageThrow(413, '{"detail":{"kind":"mystery"}}'),
     ).toThrow(/fake-fidelity/);
+  });
+});
+
+// ── Fake-fidelity: the per-board DRAIN seam ──────────────────────────────────
+//
+// The storage-error pin above guards one seam (what save() throws). The OTHER
+// seam the fake mirrors is the per-board *drain*: the real forgetBoard()/
+// discard() empties all three board-keyed Maps, and the fake must do the same
+// or a closeBoard-cleanup test passes against a fake that no longer matches
+// production — the exact class (`persistence-board-keyed-drain`) the
+// summaries-only fake was an instance of. These tests drive the REAL service
+// and assert it drains all three; a paired assertion checks the fake reproduces
+// the same observable post-state from the same inputs. If the real drain ever
+// drops a Map (or the fake's mirror drifts), this pin goes red.
+describe('fake fidelity — per-board drain shape matches the real service', () => {
+  function uniqueBoardId(): BoardId {
+    return `drain-probe-${Math.random().toString(36).slice(2, 10)}-${Date.now()}` as BoardId;
+  }
+
+  const QUOTA_ERROR: AnalysisBundleStorageError = realServiceStorageThrow(
+    413,
+    '{"detail":{"kind":"user_quota_exceeded","current_bytes":900,"quota_bytes":500,"detail":"quota full"}}',
+  );
+
+  // The wire summary shape the backend returns from a PUT — drives the real
+  // service's private `summaries` map via save() so the drain has a summary to
+  // clear (the only one of the three Maps with no public setter).
+  function summaryWire(boardId: BoardId): Record<string, unknown> {
+    return {
+      board_id: boardId,
+      record_count: 0,
+      stored_scheme: 'json-projected-v1',
+      stored_byte_size: 16,
+      updated_at: '2026-06-11T00:00:00Z',
+      uncompressed_byte_size: 16,
+      format_descriptor: null,
+    };
+  }
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    resetFakeAnalysisPersistenceService();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  async function populateRealService(boardId: BoardId): Promise<void> {
+    // summaries: drive save() with a spied PUT so the real fromWireSummary
+    // path sets the private map (unknown board → empty bundle → reaches PUT).
+    vi.spyOn(api, 'request').mockResolvedValueOnce(summaryWire(boardId));
+    await analysisPersistenceService.save(boardId);
+    // dirtyVersions + autoSaveErrors: public setters.
+    analysisPersistenceService.markDirty(boardId);
+    analysisPersistenceService.setAutoSaveError(boardId, QUOTA_ERROR);
+  }
+
+  it('real discard() drains all three board-keyed maps for the board', async () => {
+    const boardId = uniqueBoardId();
+    await populateRealService(boardId);
+
+    // All three present.
+    expect(analysisPersistenceService.summaryFor(boardId)).toBeDefined();
+    expect(analysisPersistenceService.dirtyVersionFor(boardId)).toBe(1);
+    expect(analysisPersistenceService.autoSaveErrorFor(boardId)).toBeDefined();
+
+    // DELETE resolves; discard() then drains via forgetBoard.
+    vi.spyOn(api, 'request').mockResolvedValueOnce(undefined);
+    await analysisPersistenceService.discard(boardId);
+
+    expect(analysisPersistenceService.summaryFor(boardId)).toBeUndefined();
+    expect(analysisPersistenceService.dirtyVersionFor(boardId)).toBe(0);
+    expect(analysisPersistenceService.autoSaveErrorFor(boardId)).toBeUndefined();
+  });
+
+  it('real forgetBoard() drains all three without an HTTP call', async () => {
+    const boardId = uniqueBoardId();
+    await populateRealService(boardId);
+
+    // forgetBoard makes no request — spy throws if one is attempted.
+    // Clear the populate-phase save() call from the spy's history first
+    // (vi.spyOn returns the existing spy with its calls intact).
+    const reqSpy = vi.spyOn(api, 'request').mockImplementation(() => {
+      throw new Error('forgetBoard must not make an HTTP call');
+    });
+    reqSpy.mockClear();
+    analysisPersistenceService.forgetBoard(boardId);
+    expect(reqSpy).not.toHaveBeenCalled();
+
+    expect(analysisPersistenceService.summaryFor(boardId)).toBeUndefined();
+    expect(analysisPersistenceService.dirtyVersionFor(boardId)).toBe(0);
+    expect(analysisPersistenceService.autoSaveErrorFor(boardId)).toBeUndefined();
+  });
+
+  it('the fake reproduces the same observable drain the real service performs', async () => {
+    // Same inputs to the fake; assert the same observable post-state. This is
+    // the cross-check that the fake mirrors production rather than being hand-
+    // shaped to pass: both must show all three entries present then drained.
+    const boardId = uniqueBoardId();
+
+    // Fake: populate all three (summaries via the seed seam, the other two via
+    // the public setters the real service also exposes).
+    seedFakeSummary(boardId, {
+      boardId,
+      recordCount: 0,
+      storedScheme: 'json-projected-v1',
+      storedByteSize: 16,
+      updatedAt: '2026-06-11T00:00:00Z',
+      uncompressedByteSize: 16,
+      formatDescriptor: null,
+    });
+    fakeAnalysisPersistenceService.markDirty(boardId);
+    fakeAnalysisPersistenceService.setAutoSaveError(boardId, QUOTA_ERROR);
+
+    expect(fakeAnalysisPersistenceService.summaryFor(boardId)).toBeDefined();
+    expect(fakeAnalysisPersistenceService.dirtyVersionFor(boardId)).toBe(1);
+    expect(fakeAnalysisPersistenceService.autoSaveErrorFor(boardId)).toBeDefined();
+
+    await fakeAnalysisPersistenceService.discard(boardId);
+
+    // Same observable post-state the real discard() leaves (asserted above).
+    expect(fakeAnalysisPersistenceService.summaryFor(boardId)).toBeUndefined();
+    expect(fakeAnalysisPersistenceService.dirtyVersionFor(boardId)).toBe(0);
+    expect(fakeAnalysisPersistenceService.autoSaveErrorFor(boardId)).toBeUndefined();
   });
 });

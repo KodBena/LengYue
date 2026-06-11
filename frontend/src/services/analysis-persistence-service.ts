@@ -375,21 +375,28 @@ export class AnalysisPersistenceService {
   }
 
   /**
-   * Idempotent server-side delete; clears the local summaries
-   * entry so the UI flips back to "no bundle saved" immediately.
+   * Idempotent server-side delete; releases the board's local
+   * per-board cache (via forgetBoard) so the UI flips back to "no
+   * bundle saved" immediately.
    *
    * Called from closeBoard's resource-ownership audit pair so a
    * board's server bundle releases at the same moment its ledger
-   * entries do (and the in-memory summary entry, kept here).
+   * entries do (and every in-memory per-board entry, via
+   * forgetBoard — summary, dirty-version, auto-save-error).
    * Failures rethrow generic — no parseStorageError envelope
    * applies to DELETE.
+   *
+   * The local release routes through forgetBoard rather than a
+   * direct `summaries.delete` so the HTTP path (this verb) and the
+   * cache-only path share one drain: a future board-keyed Map is
+   * released by both for free.
    */
   public async discard(boardId: BoardId): Promise<void> {
     await api.request<void>(
       'DELETE',
       `/analysis-bundles/${encodeURIComponent(boardId)}`,
     );
-    this.summaries.delete(boardId);
+    this.forgetBoard(boardId);
   }
 
   /**
@@ -489,34 +496,61 @@ export class AnalysisPersistenceService {
   }
 
   /**
-   * Drop the cached summary for `boardId` without making an HTTP
-   * call. Used by closeBoard when the user closes a board whose
-   * server bundle should be deleted — the discard() above does
-   * both halves; this method is for the rare case where only the
-   * cache release is wanted (e.g., an operator-side admin path
-   * that wipes data through other means).
+   * Release every cached per-board resource this service holds for
+   * `boardId` — the summary entry, the dirty-version counter, and
+   * the auto-save-error pause — without making an HTTP call. This
+   * is THE per-board release verb: it is the board-keyed analog of
+   * forgetAll()'s identity-flip drain, and forgetAll() is its
+   * all-boards generalisation (`summaries` / `dirtyVersions` /
+   * `autoSaveErrors` are the three board-keyed Maps below).
    *
-   * Currently no callers other than forgetAll(); kept narrow for
-   * symmetry with the audit-ownership pattern (every resource has
-   * an explicit release verb, even when also subsumed by a higher
-   * one).
+   * Called by discard() (which adds the server-side DELETE) and so
+   * indirectly from closeBoard's resource-ownership audit pair.
+   * Whichever per-board Maps the service grows, this verb is the
+   * one place a board's local entries are dropped, so closeBoard
+   * gets the drain for free.
+   *
+   * Failure mode if a Map were left out here: a bounded leak — one
+   * stranded `number` (dirty counter) and one small POJO
+   * (storage-error) per board ever opened in a session, surviving
+   * until the next forgetAll() at identity flip. No correctness or
+   * privacy issue (BoardId is UUID-fresh, never reused; the
+   * auto-save watcher is torn down at board close, so a stranded
+   * entry is never read), which is why the leak was bounded and
+   * silent. Found by the 2026-06-11 debt second-opinion review
+   * (`persistence-board-keyed-drain`).
    */
   public forgetBoard(boardId: BoardId): void {
     this.summaries.delete(boardId);
+    this.dirtyVersions.delete(boardId);
+    this.autoSaveErrors.delete(boardId);
   }
 
   /**
-   * Drop every cached summary. Called from resetWorkspace on
-   * identity flip — the server-side rows belong to the previous
-   * identity's user_id and are inaccessible to the new identity
-   * via the tenancy boundary, so no DELETE storm is needed; the
-   * frontend-side cache is the only resource to release.
-   * Resource-ownership audit follow-up to O8.
+   * Drop every cached per-board resource — the all-boards
+   * generalisation of forgetBoard(), and literally *defined as*
+   * forgetBoard() over every board the service currently holds an
+   * entry for, in any of its board-keyed Maps. Deriving it from
+   * forgetBoard (rather than a parallel set of `.clear()` calls)
+   * is the structural fix for the drift this item closed: the
+   * three-Map set is named in exactly one place (forgetBoard), so
+   * a future board-keyed Map added there is drained here for free
+   * — the two drains cannot diverge again
+   * (persistence-board-keyed-drain).
+   *
+   * Called from resetWorkspace on identity flip — the server-side
+   * rows belong to the previous identity's user_id and are
+   * inaccessible to the new identity via the tenancy boundary, so
+   * no DELETE storm is needed; the frontend-side cache is the only
+   * resource to release. Resource-ownership audit follow-up to O8.
    */
   public forgetAll(): void {
-    this.summaries.clear();
-    this.dirtyVersions.clear();
-    this.autoSaveErrors.clear();
+    const boards = new Set<BoardId>([
+      ...this.summaries.keys(),
+      ...this.dirtyVersions.keys(),
+      ...this.autoSaveErrors.keys(),
+    ]);
+    for (const boardId of boards) this.forgetBoard(boardId);
   }
 }
 

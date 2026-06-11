@@ -39,7 +39,7 @@ explicit root/sub-project file list — not reference rot).
 - **Dangling from LIVE documents, retired (tombstoned) targets**: **28**.
 - **Dangling from LIVE documents, on disk but outside the node set**: **11**.
 - **Dangling from EXECUTED playbooks** (reference-only records): **25**.
-- **Dangling from FROZEN documents** (archive + worklogs; expected drift): **301**.
+- **Dangling from FROZEN documents** (archive + worklogs; expected drift): **302**.
 - **Directory references missing on disk**: **6** from live
   documents, **9** from frozen/executed
   (249 directory references scanned in total).
@@ -495,6 +495,7 @@ being un-frozen.
 - `docs/worklog/2026-06-02-design-note-retirement-gate.md` → `docs/notes/audit-stringly-typed-contracts-2026-06-01.md` *(path-mention)* — target `docs/notes/audit-stringly-typed-contracts-2026-06-01.md` does not resolve to any node and does not exist on disk.
 - `docs/worklog/2026-06-02-design-note-retirement-gate.md` → `docs/notes/documentation-graph-artifact-plan.md` *(path-mention)* — target `docs/notes/documentation-graph-artifact-plan.md` does not resolve to any node and does not exist on disk.
 - `docs/worklog/2026-06-04-qeubo-e2e-validation-harness.md` → `backend/qeubo/README.md` *(path-mention)* — target `backend/qeubo/README.md` exists on disk but is outside the doc-graph node set.
+- `docs/worklog/2026-06-11-persistence-board-keyed-drain.md` → `frontend/docs/notes/board-scope.md` *(path-mention)* — target `frontend/docs/notes/board-scope.md` exists on disk but is outside the doc-graph node set.
 
 ## License
 
