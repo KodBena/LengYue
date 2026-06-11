@@ -10,8 +10,10 @@
  * quantity per the plan §6's widget dispatch policy.
  *
  * Reads the current value via the substrate's path walk; writes
- * through `writeKnobValue` so the policy dispatch machinery (claim
- * state, soft-release-on-manual-write) engages on every drag. The
+ * through the profile owner's `writeStoreKnobValue` seam (which
+ * dispatches `lib/knobs.ts::writeKnobValue` with the live store
+ * root) so the policy dispatch machinery (claim state,
+ * soft-release-on-manual-write) engages on every drag. The
  * disabled state and tooltip derive from the per-knob claim — a
  * hard-claimed knob renders the slider disabled, with the holder's
  * `consumerId` (and optional `reason`) surfaced in the title.
@@ -25,9 +27,9 @@
 import { computed, onUnmounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { store } from '../../store';
+import { writeStoreKnobValue } from '../../store/profile-owner';
 import {
   readKnob,
-  writeKnobValue,
   currentClaim,
   onClaimChange,
 } from '../../lib/knobs';
@@ -298,14 +300,10 @@ function onInput(event: Event) {
   // belt-and-braces guard for the disabled-widget case), and releases
   // a soft claim before writing. The return value names which path
   // ran but the widget doesn't need to surface it — the value
-  // computed re-reads on the next tick.
-  writeKnobValue(
-    store,
-    store.profile.settings.knobs,
-    props.knobId,
-    [n],
-    { kind: 'manual' },
-  );
+  // computed re-reads on the next tick. Routed through the profile
+  // owner's store-root seam (settings-profile-mutator-owner) so the
+  // widget never hands the live store to the substrate itself.
+  writeStoreKnobValue(props.knobId, [n], { kind: 'manual' });
 }
 </script>
 

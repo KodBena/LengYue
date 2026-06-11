@@ -32,6 +32,7 @@ import CardSetEditor from './editors/CardSetEditor.vue';
 import RegistryEditor from './editors/RegistryEditor.vue';
 import AnalysisTabsEditor from './editors/AnalysisTabsEditor.vue';
 import { store, DEFAULTS } from '../store';
+import { updateProfileAt } from '../store/profile-owner';
 import { updateRegistry } from '../lib/utils';
 import { cancelCapture } from '../lib/keybindings-capture';
 
@@ -65,14 +66,21 @@ watch(activeSubTab, (next) => {
   }
 });
 
+// Profile-targeting editor events route through the profile owner
+// (work-status item settings-profile-mutator-owner); the owner's
+// updateProfileAt carries updateRegistry's silent-create contract
+// unchanged. The empty-path guard preserves the prior shape's
+// no-op exactly — without it, the settings-rooted form would
+// resolve to ['settings'] and replace the whole subtree.
 function handleSettingsUpdate(e: { path: string[]; value: unknown }): void {
-  updateRegistry(store.profile.settings, e.path, e.value);
+  if (e.path.length === 0) return;
+  updateProfileAt(['settings', ...e.path], e.value);
 }
 function handleSessionUpdate(e: { path: string[]; value: unknown }): void {
   updateRegistry(store.session.ui, e.path, e.value);
 }
 function handleProfileUpdate(e: { path: string[]; value: unknown }): void {
-  updateRegistry(store.profile, e.path, e.value);
+  updateProfileAt(e.path, e.value);
 }
 </script>
 

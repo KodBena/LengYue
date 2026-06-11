@@ -39,6 +39,7 @@
 
 import { ref, type Ref } from 'vue';
 import { store } from '../store';
+import { mutateProfile } from '../store/profile-owner';
 import type { KeybindingActionId } from '../types';
 import {
   effectiveKey,
@@ -157,8 +158,12 @@ export function findActionByKey(
  * keydown without a remount.
  */
 export function setBinding(actionId: KeybindingActionId, key: string | null): void {
-  const overrides = store.profile.settings.keybindings;
-  overrides[actionId] = key === null ? null : normalizeKey(key);
+  // Owner-routed (settings-profile-mutator-owner): these three binding
+  // mutators were aliased `store.profile.settings.keybindings` writers
+  // the writer-enumeration lint could not see.
+  mutateProfile((p) => {
+    p.settings.keybindings[actionId] = key === null ? null : normalizeKey(key);
+  });
 }
 
 /**
@@ -167,10 +172,11 @@ export function setBinding(actionId: KeybindingActionId, key: string | null): vo
  * if no override exists.
  */
 export function resetBinding(actionId: KeybindingActionId): void {
-  const overrides = store.profile.settings.keybindings;
-  if (actionId in overrides) {
-    delete overrides[actionId];
-  }
+  mutateProfile((p) => {
+    if (actionId in p.settings.keybindings) {
+      delete p.settings.keybindings[actionId];
+    }
+  });
 }
 
 /**
@@ -179,12 +185,13 @@ export function resetBinding(actionId: KeybindingActionId): void {
  * (destructive — loses every customisation).
  */
 export function resetAllBindings(): void {
-  const overrides = store.profile.settings.keybindings;
-  // keybindings is keyed by KeybindingActionId; Object.keys widens to string[],
-  // re-brand the keys (the same Category-C boundary as NodeId).
-  for (const key of Object.keys(overrides) as KeybindingActionId[]) {
-    delete overrides[key];
-  }
+  mutateProfile((p) => {
+    // keybindings is keyed by KeybindingActionId; Object.keys widens to string[],
+    // re-brand the keys (the same Category-C boundary as NodeId).
+    for (const key of Object.keys(p.settings.keybindings) as KeybindingActionId[]) {
+      delete p.settings.keybindings[key];
+    }
+  });
 }
 
 /**

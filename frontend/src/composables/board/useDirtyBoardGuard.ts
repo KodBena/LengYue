@@ -38,7 +38,7 @@ import {
   activeBoard,
   createBoard,
 } from '../../store';
-import { updateRegistry } from '../../lib/utils';
+import { mutateProfile } from '../../store/profile-owner';
 import { loadSgfIntoBoard } from '../sgf/loadIntoBoard';
 import type { BoardId, BoardState, LibraryGame, ReviewCard } from '../../types';
 import ConfirmLoadModal from '../../components/modals/ConfirmLoadModal.vue';
@@ -84,7 +84,10 @@ export function useDirtyBoardGuard(
       if (result.action === 'cancel') return null;
       action = result.action;
       if (result.remember) {
-        updateRegistry(store.profile.settings, ['navigation', 'actionOnDirtyBoard'], action);
+        // Typed owner-routed write (was an aliased updateRegistry walk —
+        // work-status item settings-profile-mutator-owner).
+        const remembered = action;
+        mutateProfile((p) => { p.settings.navigation.actionOnDirtyBoard = remembered; });
       }
     }
 
