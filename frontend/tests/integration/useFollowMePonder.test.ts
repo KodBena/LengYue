@@ -21,7 +21,7 @@
  * License: Public Domain (The Unlicense)
  */
 
-import { nextTick } from 'vue';
+import { nextTick, createApp } from 'vue';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../../src/services/backend-service', async () => {
@@ -114,5 +114,49 @@ describe('useFollowMePonder', () => {
     await nextTick();
 
     expect(fakeAnalysisService.analyzeActiveNode).not.toHaveBeenCalled();
+  });
+
+  // ── Call-once contract enforcement (leg 3, app-vue-extraction-residue) ──
+  // The pre-existing three cases above ALREADY prove the latch clears on
+  // teardown: each installs via `withSetup` and tears down on test finish,
+  // so a set-once latch that never cleared would have made the SECOND case
+  // throw. These two cases pin the contract explicitly.
+
+  it('throws on a second concurrent install (duplicate-watcher guard)', () => {
+    const board = createInitialBoard();
+    addBoard(board);
+
+    // First install: latch set, watcher live, host torn down on test finish.
+    withSetup(() => useFollowMePonder());
+
+    // A second call WHILE the first watcher is live is the bug the guard
+    // catches — two watchers would each re-issue the ponder query. It fails
+    // loudly (ADR-0002) rather than silently doubling the watcher.
+    expect(() => useFollowMePonder()).toThrow(/already installed/);
+  });
+
+  it('allows a fresh install after the previous scope disposes', async () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    fakeAnalysisService.isPondering.mockReturnValue(true);
+
+    // Install, then dispose synchronously (not via onTestFinished) so the
+    // latch clears here and the next install is allowed within this case.
+    const app = createApp({
+      setup() {
+        useFollowMePonder();
+        return () => null;
+      },
+    });
+    app.mount(document.createElement('div'));
+    app.unmount(); // onScopeDispose fires → latch clears.
+
+    // A fresh install must now succeed (no throw) and its watcher must work.
+    withSetup(() => useFollowMePonder());
+    playMoveOn(board.id, 3, 3);
+    await nextTick();
+
+    expect(fakeAnalysisService.analyzeActiveNode).toHaveBeenCalledTimes(1);
+    expect(fakeAnalysisService.analyzeActiveNode).toHaveBeenCalledWith(board.id, 'ponder');
   });
 });

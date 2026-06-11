@@ -1,6 +1,6 @@
 {
-  "node_count": 472,
-  "edge_count": 2285,
+  "node_count": 473,
+  "edge_count": 2294,
   "age_buckets": [
     {
       "name": "fresh",
@@ -33,8 +33,8 @@
       "genre": "umbrella-root",
       "is_hub": false,
       "first_committed": "2026-05-12",
-      "last_committed": "2026-06-09",
-      "age_bucket": "aging"
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "README.md",
@@ -1592,9 +1592,9 @@
       "path": "docs/dispatch/frontend-to-proxy-learned-vf-consumed.md",
       "genre": "dispatch",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/dispatch/frontend-to-proxy-selector-and-capabilities.md",
@@ -3234,7 +3234,7 @@
       "is_hub": false,
       "first_committed": "2026-06-03",
       "last_committed": "2026-06-03",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-03-remove-legacy-auth-key-shim.md",
@@ -3565,6 +3565,14 @@
       "age_bucket": "fresh"
     },
     {
+      "path": "docs/worklog/2026-06-11-app-vue-extraction-residue.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
       "path": "docs/worklog/2026-06-11-app-vue-orphan-sr-css.md",
       "genre": "worklog",
       "is_hub": false,
@@ -3586,7 +3594,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-11-audit-program-closeout.md",
@@ -3656,9 +3664,9 @@
       "path": "docs/worklog/2026-06-11-learned-vf-dispatch-closure.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-11",
+      "last_committed": "2026-06-11",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-11-mechanization-discipline-tenet.md",
@@ -18573,6 +18581,69 @@
       "to": "docs/doc-graph-report.md",
       "kind": "path-mention",
       "site": "`docs/doc-graph-report.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-app-vue-extraction-residue.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-app-vue-extraction-residue.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-app-vue-extraction-residue.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-app-vue-extraction-residue.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-app-vue-extraction-residue.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-app-vue-extraction-residue.md",
+      "to": "docs/worklog/2026-06-11-app-vue-style-and-wiring-extraction.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-06-11-app-vue-style-and-wiring-extraction.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-app-vue-extraction-residue.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-app-vue-extraction-residue.md",
+      "to": "frontend/IDENTIFIERS.md",
+      "kind": "path-mention",
+      "site": "`frontend/IDENTIFIERS.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-11-app-vue-extraction-residue.md",
+      "to": "docs/handoff-current.md",
+      "kind": "path-mention",
+      "site": "`docs/handoff-current.md`",
       "resolved": "resolved"
     },
     {

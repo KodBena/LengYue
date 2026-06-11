@@ -410,6 +410,7 @@ import { moduleIntentInScriptSetup } from './eslint-rules/module-intent-in-scrip
 import { storeWriteNeedsOwner } from './eslint-rules/store-write-needs-owner.js';
 import { justificationAdjacency } from './eslint-rules/justification-adjacency.js';
 import { handRolledPathWalk } from './eslint-rules/hand-rolled-path-walk.js';
+import { boardMutationEntryPoint } from './eslint-rules/board-mutation-entry-point.js';
 
 // The wire-type boundary: backend.ts is importable only at the ACL.
 // Applied everywhere EXCEPT src/services/** and src/types.ts (see block
@@ -504,6 +505,7 @@ const LOCAL_RULE_PLUGIN = {
     'store-write-needs-owner': storeWriteNeedsOwner,
     'justification-adjacency': justificationAdjacency,
     'hand-rolled-path-walk': handRolledPathWalk,
+    'board-mutation-entry-point': boardMutationEntryPoint,
   },
 };
 
@@ -1073,6 +1075,70 @@ export default [
           producers: {
             'engine/navigator.ts': ['getPath', 'rootToCurrentPrefix'],
             'engine/util.ts': ['getActiveVariationPath'],
+          },
+        },
+      ],
+    },
+  },
+
+  // ── Grading-integrity coverage net — board-mutation-entry-point ──
+  // rationale: the grading gate (useBoardMoveRouting) routes a user's
+  // click / paste-PV through the review session's N-move discipline and
+  // per-move grading, but the gate is reached only because the two
+  // user-move entry points call it. `isReviewTransientState` quantifies
+  // over the review STATE class; entry-point coverage was an ENUMERATION
+  // of `updateBoardState` call sites (the pre-extraction useReviewSession
+  // docstring admitted it: "a new entry point ... needs to add a call").
+  // An enumeration fails open at the next instance — PR #412's out-of-frame
+  // gate named this as residue (FINDINGS BEYOND VERDICT 1; work-status item
+  // app-vue-extraction-residue, leg 1). This rule converts the enumeration
+  // into a deny-by-default net: every `updateBoardState(...)` call site is
+  // the gate, the store's definition, or a named non-user-move mutator on
+  // the allowlist (each with a one-line reason). A NEW caller file is
+  // reported until consciously classified — route the user move through the
+  // gate, or add the file with a reason (ADR-0011 Rule 4: quantify over the
+  // class). Measured at adoption (2026-06-11, grep over src/): 8 call sites
+  // across 5 files — useBoardMoveRouting ×2 (the gate), useReviewSession ×3
+  // (the graded path itself), useEngineResponder ×1 (engine reply),
+  // usePlayFromPosition ×1 (match cursor), loadIntoBoard ×1 (SGF-load
+  // primitive); plus the store's own export site (definition, not a call).
+  // All classified ⇒ adopted at `error` on a fully-triaged baseline.
+  // Probe-verified: a scratch `updateBoardState(...)` added to an
+  // unclassified file fires the rule; removed (recorded in the worklog).
+  // Composes with store-write-needs-owner: that rule denies raw
+  // `store.boards` writes outside the store module, so a NEW mutator that
+  // bypasses `updateBoardState` entirely surfaces THERE — the two nets
+  // together cover the board-mutation surface. Named gaps in the rule file
+  // (name-matched callee; per-FILE not per-call grain).
+  {
+    files: ['src/**/*.ts', 'src/**/*.vue'],
+    plugins: { local: LOCAL_RULE_PLUGIN },
+    rules: {
+      'local/board-mutation-entry-point': [
+        'error',
+        {
+          gateFiles: ['src/composables/board/useBoardMoveRouting.ts'],
+          definitionFile: 'src/store/index.ts',
+          allowlist: {
+            // The review session IS the grading authority: its writes
+            // apply the graded move / load a card's SGF into the session
+            // board / mirror an engine board within review.
+            'src/composables/review/useReviewSession.ts':
+              'the graded path itself — the SR session is the grading authority',
+            // The engine responder writes the engine's OWN reply move
+            // (play-vs-engine), not a user move.
+            'src/composables/board/useEngineResponder.ts':
+              'engine reply move — the responder plays the engine\'s move, not a user move',
+            // The match-cursor / play-from-position engine-playback loop
+            // mirrors each engine move back to the board (perf scenario +
+            // match playback), not a user move.
+            'src/composables/board/usePlayFromPosition.ts':
+              'match cursor — engine-playback loop mirrors engine moves, not a user move',
+            // The shared SGF-load primitive (dirty-guarded at its callers
+            // in useDirtyBoardGuard); it replaces a board wholesale from a
+            // parsed SGF, not a user move.
+            'src/composables/sgf/loadIntoBoard.ts':
+              'SGF-load primitive — replaces a board from parsed SGF (dirty-guarded at callers), not a user move',
           },
         },
       ],
