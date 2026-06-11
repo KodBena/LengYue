@@ -1,4 +1,14 @@
 <script setup lang="ts">
+/**
+ * src/App.vue
+ *
+ * Root application component. Provides the top-level layout — the
+ * resizable board/control-panel split, the tab bar, workspace
+ * auth scaffolding, and the global unscoped stylesheet that
+ * several child components depend on.
+ *
+ * License: Public Domain (The Unlicense)
+ */
 import { computed, watch } from 'vue';
 import { ref as vueRef } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -631,7 +641,6 @@ function handleNodeSelect(nodeId: NodeId): void {
 .panel-resizer:hover, .panel-resizer:active { background: var(--accent-primary); }
 
 .tab-padding { padding: var(--space-default); }
-.tab-padding-sr { padding: var(--space-medium) var(--space-default); text-align: center; }
 .section-divider { border-top: 1px solid var(--surface-3); margin-top: 0; padding-top: 0; }
 .sub-header { color: var(--text-2); font-size: var(--text-heading); margin-bottom: var(--space-medium); }
 
