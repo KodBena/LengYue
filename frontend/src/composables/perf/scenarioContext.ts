@@ -184,7 +184,7 @@ function createScenarioContext(name: string): {
     },
 
     autonav(opts): Promise<void> {
-      return runAutonav({ markPrefix: opts?.markPrefix }).done;
+      return runAutonav({ markPrefix: opts?.markPrefix, subTab: opts?.subTab }).done;
     },
 
     nav,
