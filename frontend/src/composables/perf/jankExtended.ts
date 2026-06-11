@@ -238,11 +238,18 @@ export function jankExtendedScenario(opts: {
         ctx.spawn(popoverStress(DEFAULT_POPOVER_TARGET));
         const scrub = startHoverScrub();
 
-        // Single root→leaf pass; `normalizeTab:false` because the protocol
-        // measures the board OVERLAYS, not a pinned analysis sub-tab — leave
-        // the dashboard wherever it is so the overlay render path dominates.
+        // Single root→leaf pass; `normalizeTab:true` pins the dashboard tab
+        // (Analysis + the default sub-tab, the other analysis scenarios'
+        // convention) so the visible chart population is DETERMINISTIC across
+        // runs AND across the two measured tree states. "Leave the dashboard
+        // wherever it is" would mean wherever HYDRATION put it — and the
+        // baseline tree fails to hydrate the shared persisted blob (schema
+        // skew) while main hydrates it, so an unpinned tab could differ
+        // systematically between the two states (coordinator review
+        // amendment, 2026-06-12). The board overlays under test render on
+        // the board regardless of which dashboard tab is pinned.
         await ctx.measure('drive', () =>
-          runAutonav({ markPrefix: 'jankext:autonav', normalizeTab: false }).done,
+          runAutonav({ markPrefix: 'jankext:autonav', normalizeTab: true }).done,
         );
 
         scrub.stop();
