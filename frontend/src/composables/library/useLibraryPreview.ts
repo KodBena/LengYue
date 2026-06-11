@@ -128,7 +128,7 @@ export function useLibraryPreview(): LibraryPreview {
     const myGen = generation;
     loading.value = true;
     try {
-      const game = await libraryService.getGame(row.id as GameSourceId);
+      const game = await libraryService.getGame(row.id);
       if (myGen !== generation) return;  // newer selection superseded us
       selectedGame.value = game;
       if (game === null) {

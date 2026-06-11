@@ -389,7 +389,7 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
       rawOverrides &&
       typeof rawOverrides === 'object' &&
       !Array.isArray(rawOverrides)
-        ? (rawOverrides as Record<string, unknown>)
+        ? (rawOverrides as Record<string, unknown>) // checked non-null non-array object above; narrow the untyped overrides blob to a record
         : undefined;
     // Read the current SELECTOR target live so a card replay under a
     // different network buckets separately in the ledger from a prior

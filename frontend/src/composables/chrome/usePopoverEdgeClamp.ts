@@ -104,7 +104,7 @@ export function usePopoverEdgeClamp(
   // because Vue's function-ref contract allows it (we only bind to
   // a plain <div>, so the cast back to HTMLElement is safe).
   const setPopoverEl = (el: Element | ComponentPublicInstance | null): void => {
-    popoverEl.value = el as HTMLElement | null;
+    popoverEl.value = el as HTMLElement | null; // DOM: we only bind the ref to a plain <div> (see comment above)
   };
 
   watch(open, async (isOpen) => {

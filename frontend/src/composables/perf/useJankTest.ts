@@ -220,7 +220,7 @@ async function loadShusakuGame(): Promise<LibraryGame> {
     );
   }
 
-  const game = await libraryService.getGame(row.id as GameSourceId);
+  const game = await libraryService.getGame(row.id);
   if (!game) {
     throw new Error(
       `[jank-test] Shusaku row #${row.id} matched the list query but GET ` +
@@ -439,7 +439,7 @@ export function useJankTest() {
 
       // 4) Load the others, each forwarded to move 50.
       for (const row of others) {
-        const game = await libraryService.getGame(row.id as GameSourceId);
+        const game = await libraryService.getGame(row.id);
         if (!game) {
           console.warn(`[jank-test] skipping game #${row.id}: GET returned 404.`);
           continue;

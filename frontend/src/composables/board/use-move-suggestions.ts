@@ -79,7 +79,7 @@ export function useMoveSuggestions(
   );
 
   const compiledFilter = computed(() => {
-    const exprString = (store.session.ui.moveFilterExpression as string) 
+    const exprString = store.session.ui.moveFilterExpression
       || 'move.order === 0 || (move.visits / root.visits) >= ui.threshold';
     try {
       return new Function('move', 'root', 'ui', `return ${exprString};`);

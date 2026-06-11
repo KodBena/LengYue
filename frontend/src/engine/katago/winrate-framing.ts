@@ -71,8 +71,8 @@ export function resolveWinrateFraming(
   if (!overrides) return 'SIDETOMOVE';
   const v = overrides.reportAnalysisWinratesAs;
   if (typeof v !== 'string') return 'SIDETOMOVE';
-  if ((WINRATE_FRAMINGS as readonly string[]).includes(v)) {
-    return v as WinrateFraming;
+  if ((WINRATE_FRAMINGS as readonly string[]).includes(v)) { // widen the literal-union tuple to string[] for the .includes membership test
+    return v as WinrateFraming; // membership confirmed above: v is one of the WINRATE_FRAMINGS literals
   }
   console.warn(
     `[winrate-framing] Unknown reportAnalysisWinratesAs value '${v}'; ` +
@@ -150,6 +150,9 @@ function flipMoveSignedFields(mi: KataMoveInfo): KataMoveInfo {
     winrate: oneMinus(mi.winrate),
     scoreLead: negateScalar(mi.scoreLead),
   };
+  // Widen to an open record so the optional signed fields can be flipped in
+  // place by name (the typed shape's optionals aren't index-writable); the
+  // double hop bridges the structural mismatch. Returns the typed `flipped`.
   const widened = flipped as unknown as Record<string, unknown>;
   flipIfPresent(widened, 'scoreMean', negateScalar);
   flipIfPresent(widened, 'scoreSelfplay', negateScalar);
@@ -165,6 +168,8 @@ function flipRootSignedFields(ri: KataRootInfo): KataRootInfo {
     winrate: oneMinus(ri.winrate),
     scoreLead: negateScalar(ri.scoreLead),
   };
+  // Widen to an open record so the optional signed fields can be flipped in
+  // place by name; the double hop bridges the structural mismatch.
   const widened = flipped as unknown as Record<string, unknown>;
   flipIfPresent(widened, 'scoreMean', negateScalar);
   flipIfPresent(widened, 'scoreSelfplay', negateScalar);

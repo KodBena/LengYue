@@ -170,8 +170,8 @@ function pathFromEntry(entry: FsEntry): string {
 }
 
 async function walkEntry(entry: FsEntry, out: File[]): Promise<void> {
-  if (entry.isFile && isSgfFile((entry as FsFileEntry).fullPath)) {
-    const f = await readFile(entry as FsFileEntry);
+  if (entry.isFile && isSgfFile((entry as FsFileEntry).fullPath)) { // checked entry.isFile; FsEntry.isFile is boolean (no literal discriminator) so TS can't auto-narrow
+    const f = await readFile(entry as FsFileEntry); // same isFile-checked narrowing
     // Synthesise webkitRelativePath via Object.defineProperty —
     // the File constructor doesn't accept it directly. Drop
     // events expose entries without populating this field; we
@@ -183,7 +183,7 @@ async function walkEntry(entry: FsEntry, out: File[]): Promise<void> {
     });
     out.push(f);
   } else if (entry.isDirectory) {
-    const reader = (entry as FsDirectoryEntry).createReader();
+    const reader = (entry as FsDirectoryEntry).createReader(); // checked entry.isDirectory; FsEntry.isDirectory is boolean so TS can't auto-narrow
     // readEntries returns at most ~100 entries per call; loop
     // until empty to drain the full directory.
     for (;;) {
@@ -256,7 +256,7 @@ export function useLibraryImport(onImportComplete?: () => void): LibraryImport {
     input.multiple = true;
     input.accept = '.sgf';
     input.onchange = (e) => {
-      const files = Array.from((e.target as HTMLInputElement).files ?? []);
+      const files = Array.from((e.target as HTMLInputElement).files ?? []); // DOM: onchange set on the file <input> just created, so target is it
       void importFiles(files);
     };
     input.click();
@@ -269,7 +269,7 @@ export function useLibraryImport(onImportComplete?: () => void): LibraryImport {
     // despite the prefix; supported in Chrome / Firefox / Safari.
     (input as unknown as { webkitdirectory: boolean }).webkitdirectory = true;
     input.onchange = (e) => {
-      const files = Array.from((e.target as HTMLInputElement).files ?? []);
+      const files = Array.from((e.target as HTMLInputElement).files ?? []); // DOM: onchange set on the file <input> just created, so target is it
       void importFiles(files);
     };
     input.click();

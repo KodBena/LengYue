@@ -473,7 +473,7 @@ export const defaultSettings = {
       domain: 'engine',
       inputs: [{
         range: [0.001, 4.0] as const,
-        maxFromKnob: 'engine.report-during-search-every' as KnobId,
+        maxFromKnob: 'engine.report-during-search-every' as KnobId, // KnobId brand mint: static `<domain>.<name>` registry-key literal
         minFloor: KATAGO_FIRST_REPORT_FLOOR_S,
       }],
       outputs: [{ path: 'profile.settings.engine.katago.firstReportDuringSearchAfter' }],
@@ -599,8 +599,11 @@ export const defaultCardSets: Record<string, CardSet> = {
 };
 
 export const defaultProfile: ProfileState = {
-  id: NIL_UUID as ProfileId,
+  id: NIL_UUID as ProfileId, // NIL-UUID brand mint (pre-auth sentinel identity)
   username: 'Guest',
+  // defaultSettings is an inferred object literal whose narrow literal types
+  // (string-literal enums, tuple ranges) don't structurally match AppSettings'
+  // wider field types without the unknown hop; the literal IS the seed shape.
   settings: defaultSettings as unknown as AppSettings,
   thumbnailSettings: defaultThumbnailSettings,
   cardSets: defaultCardSets,

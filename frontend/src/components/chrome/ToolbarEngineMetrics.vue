@@ -110,7 +110,7 @@ const isSelectorMode = computed(() => {
 const availableModels = computed(() => store.engine.info.availableModels);
 const selectedModel = computed(() => store.engine.selectedModel);
 function onSelectModel(event: Event) {
-  const target = event.target as HTMLSelectElement;
+  const target = event.target as HTMLSelectElement; // DOM: handler bound on the model <select>, so target is that element
   setSelectedModel(target.value || null);
   // Return focus to the document body so the global space-bar
   // ponder toggle (wired in `useUserIORegistry`) fires correctly

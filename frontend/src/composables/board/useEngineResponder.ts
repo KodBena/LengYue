@@ -75,7 +75,7 @@ export function findGameByHead(
 ): { startNodeId: NodeId; session: EnginePlayGameSession } | null {
   for (const [startNodeId, session] of Object.entries(board.games)) {
     if (session.currentHeadNodeId === headNodeId) {
-      return { startNodeId: startNodeId as NodeId, session };
+      return { startNodeId: startNodeId as NodeId, session }; // re-brand: board.games is keyed by NodeId; Object.entries widens the key to string
     }
   }
   return null;

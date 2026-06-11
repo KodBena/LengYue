@@ -237,7 +237,7 @@ export class EnrichedAccumulator {
     for (const [name, values] of this.stateMetrics) {
       stateSeries.push({
         name,
-        data: values.map((v, i) => [i, v] as [number, number | null]),
+        data: values.map((v, i) => [i, v] as [number, number | null]), // fix the 2-element literal to the EnrichedSeries tuple-data shape
       });
     }
 
@@ -249,11 +249,11 @@ export class EnrichedAccumulator {
       deltaSeries: {
         black: [{
           name: 'Black Delta',
-          data: this.blackDeltas.map((v, i) => [i, v] as [number, number | null]),
+          data: this.blackDeltas.map((v, i) => [i, v] as [number, number | null]), // fix the 2-element literal to the tuple-data shape
         }],
         white: [{
           name: 'White Delta',
-          data: this.whiteDeltas.map((v, i) => [i, v] as [number, number | null]),
+          data: this.whiteDeltas.map((v, i) => [i, v] as [number, number | null]), // fix the 2-element literal to the tuple-data shape
         }],
       },
     };

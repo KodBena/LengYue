@@ -218,7 +218,7 @@ const initChart = () => {
 
   chartInstance.on('click', (params: any) => {
     if (params.componentType === 'series' && params.seriesType === 'heatmap' && params.data?.cell) {
-      emit('cell-click', params.data.cell as HeatmapCell);
+      emit('cell-click', params.data.cell as HeatmapCell); // narrow the loose ECharts param's `data.cell` to the HeatmapCell we attached when building the series
     }
   });
 
@@ -226,7 +226,7 @@ const initChart = () => {
   // tooltip). `globalout` fires when the cursor leaves the chart entirely.
   chartInstance.on('mouseover', (params: any) => {
     if (params.componentType === 'series' && params.seriesType === 'heatmap' && params.data?.cell) {
-      emit('cell-hover', params.data.cell as HeatmapCell);
+      emit('cell-hover', params.data.cell as HeatmapCell); // narrow the loose ECharts param's `data.cell` to the HeatmapCell we attached when building the series
     }
   });
   chartInstance.on('mouseout', () => emit('cell-leave'));

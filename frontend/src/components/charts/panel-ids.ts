@@ -12,7 +12,7 @@
  */
 import type { AnalysisPanelId } from '../../types';
 
-const pid = (id: string): AnalysisPanelId => id as AnalysisPanelId;
+const pid = (id: string): AnalysisPanelId => id as AnalysisPanelId; // brand factory: sole AnalysisPanelId mint
 
 /**
  * The frozen-forever panel id values. These are the persistence keys an

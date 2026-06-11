@@ -210,9 +210,13 @@ export function deriveAnalysisKeys(
   overrideSettings: Record<string, unknown> | undefined,
   model?: string,
 ): { rawKey: RawKey; enrichedKey: EnrichedKey } {
+  // EnrichedKey brand mint: this is the sole factory for the enriched cache
+  // key (frontend/CLAUDE.md keyed-cache discipline); the hash binds the full
+  // analysis-descriptor dependency set.
   const enrichedKey = hashConfig(
     compileAnalysisDescriptorFromParts(analysis_config, overrideSettings, model),
   ) as EnrichedKey;
+  // RawKey brand mint: sibling sole factory; hash binds the raw-descriptor leg.
   const rawKey = hashConfig(
     compileRawDescriptorFromParts(overrideSettings, model),
   ) as RawKey;

@@ -78,9 +78,9 @@ const activeGames = computed(() => {
   if (!board) return [];
   return Object.entries(board.games)
     .map(([startNodeId, session]) => ({
-      startNodeId: startNodeId as NodeId,
+      startNodeId: startNodeId as NodeId, // re-brand: board.games is keyed by NodeId; Object.entries widens to string
       config: session.config,
-      startMoveNumber: getMoveNumber(board, startNodeId as NodeId),
+      startMoveNumber: getMoveNumber(board, startNodeId as NodeId), // same NodeId re-brand of the games-map key
       headMoveNumber: getMoveNumber(board, session.currentHeadNodeId),
     }))
     .sort((a, b) => a.startMoveNumber - b.startMoveNumber);

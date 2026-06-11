@@ -152,6 +152,8 @@ function pickKeys<T extends Record<string, unknown>>(
   for (const k of Object.keys(obj)) {
     if (allowed.has(k)) out[k] = obj[k];
   }
+  // `out` holds a subset of T's keys (allow-list filter over T's own keys),
+  // so it is a Partial<T> by construction.
   return out as Partial<T>;
 }
 
@@ -172,18 +174,23 @@ export function projectPacket(
   packet: KataAnalysisResponse,
 ): KataAnalysisResponse {
   const projected = pickKeys(
+    // Widen the typed packet to an open record so the key-allow-list filter
+    // can walk it generically; re-narrowed to KataAnalysisResponse at return.
     packet as unknown as Record<string, unknown>,
     ROOT_KEY_SET,
-  ) as Record<string, unknown>;
+  ) as Record<string, unknown>; // pickKeys returns Partial; widen for in-place field assigns below
 
   if (projected.rootInfo && typeof projected.rootInfo === 'object') {
     projected.rootInfo = pickKeys(
+      // Checked object above; treat the nested rootInfo as an open record
+      // for the recursive allow-list filter.
       projected.rootInfo as Record<string, unknown>,
       ROOT_INFO_KEY_SET,
     );
   }
 
   if (Array.isArray(projected.moveInfos)) {
+    // Each moveInfo is an open record for the per-element allow-list filter.
     projected.moveInfos = (projected.moveInfos as Record<string, unknown>[]).map((mi) =>
       pickKeys(mi, MOVE_INFO_KEY_SET),
     );
@@ -191,17 +198,20 @@ export function projectPacket(
 
   if (projected.extra && typeof projected.extra === 'object') {
     const extra = pickKeys(
+      // Checked object above; nested extra envelope as an open record.
       projected.extra as Record<string, unknown>,
       EXTRA_KEY_SET,
-    ) as Record<string, unknown>;
+    ) as Record<string, unknown>; // pickKeys returns Partial; widen for nested player-extra assigns
     if (extra.black && typeof extra.black === 'object') {
       extra.black = pickKeys(
+        // Checked object above; per-player extra as an open record.
         extra.black as Record<string, unknown>,
         PLAYER_EXTRA_KEY_SET,
       );
     }
     if (extra.white && typeof extra.white === 'object') {
       extra.white = pickKeys(
+        // Checked object above; per-player extra as an open record.
         extra.white as Record<string, unknown>,
         PLAYER_EXTRA_KEY_SET,
       );
@@ -209,5 +219,7 @@ export function projectPacket(
     projected.extra = extra;
   }
 
+  // Re-narrow: `projected` is the allow-list-filtered packet, structurally a
+  // KataAnalysisResponse (Band-2 wire-shape remint through the open record).
   return projected as unknown as KataAnalysisResponse;
 }

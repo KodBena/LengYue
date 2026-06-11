@@ -109,7 +109,7 @@ export function useEnrichedData(pathIdsRef: Ref<RootToLeafPath>): Ref<EnrichedRe
       if (sep < 0) continue;
       const keyPart = key.slice(0, sep);
       if (keyPart !== rawKey && keyPart !== enrichedKey) continue;
-      const nodeId = key.slice(sep + 1) as NodeId;
+      const nodeId = key.slice(sep + 1) as NodeId; // brand: the ledger key's `:`-suffix is the NodeId it was built from
       if (acc.patchNode(nodeId, ledger.getCombined(rawKey, enrichedKey, nodeId))) dirty = true;
     }
     if (dirty) out.value = acc.snapshot();

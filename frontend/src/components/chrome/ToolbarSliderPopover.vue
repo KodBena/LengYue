@@ -64,7 +64,7 @@ const orderedKnobs = computed<ReadonlyArray<{ id: KnobId; decl: KnobDecl }>>(() 
   const entries: Array<{ id: KnobId; decl: KnobDecl }> = [];
   for (const [key, decl] of Object.entries(store.profile.settings.knobs)) {
     if (decl.inputs.length !== 1) continue;
-    entries.push({ id: key as KnobId, decl });
+    entries.push({ id: key as KnobId, decl }); // re-brand: the knobs registry is keyed by KnobId; Object.entries widens the key to string
   }
   entries.sort((a, b) => priorityKey(a.decl) - priorityKey(b.decl));
   return entries;

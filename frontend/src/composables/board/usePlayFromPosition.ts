@@ -178,13 +178,16 @@ function awaitFinalPacket(
       ));
     }, timeoutMs);
     unsub = client.subscribe(query, (res) => {
+      // res is the broad KataGoResponse union; probe for an `error` field as
+      // an open record (the proxy can surface a wire error in-band).
       if ('error' in (res as unknown as Record<string, unknown>)) {
-        const errMsg = (res as unknown as { error: string }).error;
+        const errMsg = (res as unknown as { error: string }).error; // error branch confirmed above; read the message
         settle(() => reject(
           new Error(`KataGo error for queryId=${query.id}: ${errMsg}`),
         ));
         return;
       }
+      // No error field: this is an analysis response on this analysis query.
       const r = res as KataAnalysisResponse;
       if (telemetryMeta) {
         const rootVisits = r.rootInfo?.visits ?? 0;
@@ -238,7 +241,7 @@ function buildAnalyzeQuery(
   const moves = path
     .map((id) => board.nodes[id]?.move ?? null)
     .filter((m): m is NonNullable<typeof m> => !!m)
-    .map((m) => [m.color, moveToKataCoord(m)] as [Player, KataCoord]);
+    .map((m) => [m.color, moveToKataCoord(m)] as [Player, KataCoord]); // fix the 2-element literal to the [Player, KataCoord] move-pair tuple
   const initialStones = getInitialStones(board);
   const expectedTurn = moves.length;
   // Both consumers (engine self-play loop, one-shot top-move query)

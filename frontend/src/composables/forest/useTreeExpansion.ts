@@ -76,6 +76,13 @@ export function useTreeExpansion(): TreeExpansionState {
   ): void => {
     const ancestors: NodeId[] = [];
     let cur = nodes[nodeId]?.parent ?? null;
+    // Annotated exemption (local/hand-rolled-path-walk): collects the strict
+    // ancestor list (parent→root, excluding nodeId itself) as a bare
+    // `NodeId[]`. getPath gives the inclusive root→target path; deriving the
+    // strict-ancestor slice from it is sound but a behaviour-adjacent change
+    // to this perf-load-bearing `ensureVisible` guard (the ADR-0010 nav-cost
+    // fix), so it is named-as-debt for the path-consolidation arc.
+    // eslint-disable-next-line local/hand-rolled-path-walk -- ensureVisible perf guard; derive the ancestor slice from getPath in the path-consolidation arc
     while (cur) {
       ancestors.push(cur);
       cur = nodes[cur]?.parent ?? null;

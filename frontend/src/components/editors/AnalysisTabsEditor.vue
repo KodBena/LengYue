@@ -107,7 +107,7 @@ function reassignPanel(panelId: AnalysisPanelId, toTabId: string): void {
           class="tab-name"
           :value="tab.label"
           :placeholder="t('analysisTabs.tabNamePlaceholder')"
-          @change="renameTab(tab.id, ($event.target as HTMLInputElement).value)"
+          @change="renameTab(tab.id, ($event.target as HTMLInputElement /* the tab-name <input> */).value)"
         />
         <button type="button" class="icon-btn" :disabled="ti === 0" :title="t('analysisTabs.moveUp')" @click="moveTab(ti, -1)">↑</button>
         <button type="button" class="icon-btn" :disabled="ti === props.tabs.length - 1" :title="t('analysisTabs.moveDown')" @click="moveTab(ti, 1)">↓</button>
@@ -117,7 +117,7 @@ function reassignPanel(panelId: AnalysisPanelId, toTabId: string): void {
       <div v-if="tab.panelIds.length === 0" class="empty-hint">{{ t('analysisTabs.emptyTab') }}</div>
       <div v-for="(pid, pi) in tab.panelIds" :key="pid" class="panel-row">
         <span class="panel-name">{{ panelLabel(pid) }}</span>
-        <select class="move-select" :value="tab.id" @change="reassignPanel(pid, ($event.target as HTMLSelectElement).value)">
+        <select class="move-select" :value="tab.id" @change="reassignPanel(pid, ($event.target as HTMLSelectElement /* the move-to <select> */).value)">
           <option v-for="opt in props.tabs" :key="opt.id" :value="opt.id">{{ opt.label }}</option>
           <option value="">{{ t('analysisTabs.hide') }}</option>
         </select>
@@ -131,7 +131,7 @@ function reassignPanel(panelId: AnalysisPanelId, toTabId: string): void {
       <div v-if="unassigned.length === 0" class="empty-hint">{{ t('analysisTabs.allAssigned') }}</div>
       <div v-for="pid in unassigned" :key="pid" class="panel-row">
         <span class="panel-name muted">{{ panelLabel(pid) }}</span>
-        <select class="move-select" value="" @change="reassignPanel(pid, ($event.target as HTMLSelectElement).value)">
+        <select class="move-select" value="" @change="reassignPanel(pid, ($event.target as HTMLSelectElement /* the assign-to <select> */).value)">
           <option value="" disabled>{{ t('analysisTabs.assignTo') }}</option>
           <option v-for="opt in props.tabs" :key="opt.id" :value="opt.id">{{ opt.label }}</option>
         </select>

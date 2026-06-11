@@ -31,7 +31,7 @@ import { activeBoard, mutateBoard, mutateReviewSession, store, pushSystemMessage
 import { getActiveVariationPath } from '../engine/util';
 import { navigateTo } from '../engine/navigator';
 import { themeColor } from '../utils/theme-color';
-import type { BoardId, CardMetadataPatch, CardId, ReviewCard } from '../types';
+import type { BoardId, CardMetadataPatch, ReviewCard } from '../types';
 
 const { t } = useI18n();
 const cardMetadata = useCardMetadata();
@@ -143,7 +143,7 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
     // the SR composable already uses; assigning a fresh array
     // keeps Vue's reactive tracking honest.
     mutateReviewSession(bId, draft => {
-      const idx = draft.queue.findIndex((c: ReviewCard) => c.id === (card.id as CardId));
+      const idx = draft.queue.findIndex((c: ReviewCard) => c.id === card.id);
       if (idx >= 0) {
         const next = [...draft.queue];
         next[idx] = updated;

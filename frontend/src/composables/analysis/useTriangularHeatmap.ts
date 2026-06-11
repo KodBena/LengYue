@@ -60,8 +60,8 @@ export function useTriangularHeatmap(variationPath: Ref<RootToLeafPath>) {
       enr.black?.triangular?.forEach(([[s, t], v]) => {
         const cell: HeatmapCell = {
           color: 'B',
-          s: s as ColorMoveIndex,
-          t: t as ColorMoveIndex,
+          s: s as ColorMoveIndex, // brand mint: triangular tuple index → ColorMoveIndex
+          t: t as ColorMoveIndex, // brand mint: triangular tuple index → ColorMoveIndex
           value: v,
         };
         matrix.push({ value: [s, t, v], cell });
@@ -72,8 +72,8 @@ export function useTriangularHeatmap(variationPath: Ref<RootToLeafPath>) {
       enr.white?.triangular?.forEach(([[s, t], v]) => {
         const cell: HeatmapCell = {
           color: 'W',
-          s: s as ColorMoveIndex,
-          t: t as ColorMoveIndex,
+          s: s as ColorMoveIndex, // brand mint: triangular tuple index → ColorMoveIndex
+          t: t as ColorMoveIndex, // brand mint: triangular tuple index → ColorMoveIndex
           value: v,
         };
         matrix.push({ value: [t, s, v], cell });
@@ -101,4 +101,6 @@ export function useTriangularHeatmap(variationPath: Ref<RootToLeafPath>) {
 // (ColorMoveIndex, StoneColor) pair, and uses brand erasure only to
 // perform the arithmetic.
 export const colorMoveToPly = (m: ColorMoveIndex, color: StoneColor): PlyIndex =>
+  // brand erase ColorMoveIndex → number for the arithmetic, brand mint the
+  // result as PlyIndex (this fn is the sole authority for the invariant above).
   ((m as number) * 2 + (color === 'B' ? 1 : 2)) as PlyIndex;

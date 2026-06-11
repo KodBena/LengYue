@@ -75,8 +75,10 @@ export const store = reactive<GlobalStore>({
   // the module-level default array.
   knownTags: structuredClone(defaultKnownTags),
   session: {
-    id: '00000000-0000-0000-0000-000000000000' as SessionId,
-    profileId: '00000000-0000-0000-0000-000000000000' as ProfileId,
+    // NIL-UUID sentinels minted as the session/profile brands: the pre-auth
+    // placeholder identity, replaced on login (brand mint at sentinels).
+    id: '00000000-0000-0000-0000-000000000000' as SessionId, // NIL-UUID brand mint
+    profileId: '00000000-0000-0000-0000-000000000000' as ProfileId, // NIL-UUID brand mint
     ui: defaultSessionUI,
     reviews: {},
   },
@@ -140,6 +142,8 @@ export const activeBoardSize = computed((): number => {
  * `docs/notes/perf-audit-nav-and-pv-hover-2026-05-27.md` Bug A.
  */
 export const boardsById = computed((): Record<BoardId, BoardState> => {
+  // Empty-object accumulator typed as the keyed record it builds up below;
+  // populated in the loop (the established empty-record-seed idiom).
   const out = {} as Record<BoardId, BoardState>;
   for (const board of store.boards) {
     out[board.id] = board;
@@ -683,8 +687,8 @@ export function resetWorkspace(): void {
   // overwrote it. Server-derived cache; see the ProfileState invariant.
   store.knownTags = structuredClone(defaultKnownTags);
   store.session = {
-    id: NIL_UUID as SessionId,
-    profileId: NIL_UUID as ProfileId,
+    id: NIL_UUID as SessionId, // NIL-UUID brand mint (logged-out sentinel)
+    profileId: NIL_UUID as ProfileId, // NIL-UUID brand mint (logged-out sentinel)
     ui: structuredClone(defaultSessionUI),
     reviews: {},
   };
@@ -705,8 +709,11 @@ export function updateFromRemote(
   // of the persistence shape, so the migration can't push directly.
   // Drain the queue here, after the schema is apply-ready, before
   // pushing through the public API.
+  // `_pendingMigrationMessages` is a transient field migrations attach
+  // outside the persistence shape; read it as `unknown` and drain.
   const pending = (migrated as { _pendingMigrationMessages?: unknown })
     ._pendingMigrationMessages;
+  // Same off-shape transient field; delete after draining.
   delete (migrated as { _pendingMigrationMessages?: unknown })._pendingMigrationMessages;
 
   if (migrated.boards) {
@@ -726,12 +733,16 @@ export function updateFromRemote(
     for (const m of pending) {
       if (
         m && typeof m === 'object' &&
+        // Probe the queued message's shape: read type/text off the checked
+        // non-null object as `unknown`, validated `string` before use.
         typeof (m as { type?: unknown }).type === 'string' &&
-        typeof (m as { text?: unknown }).text === 'string'
+        typeof (m as { text?: unknown }).text === 'string' // same checked-object probe
       ) {
         pushSystemMessage(
+          // Validated above: type/text are present strings — narrow to the
+          // SystemMessage field types for the push.
           (m as { type: SystemMessage['type'] }).type,
-          (m as { text: string }).text
+          (m as { text: string }).text // validated string above
         );
       }
     }
@@ -814,6 +825,9 @@ function normalizeGames(rawGames: any): BoardState['games'] {
       v && typeof v === 'object' &&
       'config' in v && 'currentHeadNodeId' in v
     ) {
+      // Validated the head-pointer shape above ({config, currentHeadNodeId}):
+      // narrow the key to the games-map key type and the value to the
+      // EnginePlayGameSession the new responder expects (migration filter).
       out[k as keyof BoardState['games']] = v as BoardState['games'][keyof BoardState['games']];
     }
   }

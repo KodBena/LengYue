@@ -117,7 +117,7 @@ const series = computed<EnrichedSeries[]>(() => {
   // vMax alongside the fraction is what makes the diagnostic
   // tooltip (below) possible.
   const data = metrics.value.map(m => ({
-    value: [m.turn, Number.isNaN(m.fraction) ? null : m.fraction] as [number, number | null],
+    value: [m.turn, Number.isNaN(m.fraction) ? null : m.fraction] as [number, number | null], // fix the 2-element literal to ECharts' tuple shape
     nPackets: m.nPackets,
     vMin: m.vMin,
     vMax: m.vMax,
@@ -126,7 +126,7 @@ const series = computed<EnrichedSeries[]>(() => {
   }));
   return [{
     name: 'Stability',
-    data: data as unknown as [number, number | null][],
+    data: data as unknown as [number, number | null][], // ECharts accepts per-point {value, ...extra} objects but its data type is narrower; the extra fields ride along for the tooltip formatter (the intervening unknown is for the structural mismatch)
     color: themeColor('--accent-primary'),
   }];
 });

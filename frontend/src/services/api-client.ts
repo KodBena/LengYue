@@ -219,7 +219,7 @@ export class ApiClient {
     // routes return 204-no-content cleanly and lets callers declare
     // `request<void>` for those endpoints.
     const text = await response.text();
-    if (text === '') return undefined as T;
+    if (text === '') return undefined as T; // empty 204 body: callers of these routes declare request<void>, so undefined IS T (see comment above)
     return JSON.parse(text);
   }
 

@@ -310,7 +310,7 @@ export interface UseAuth {
 
 export function useAuth(): UseAuth {
   return {
-    state: readonly(_authState) as Readonly<Ref<AuthState>>,
+    state: readonly(_authState) as Readonly<Ref<AuthState>>, // Vue's readonly() returns DeepReadonly; expose the shallower Readonly<Ref> the contract declares
     isAuthenticated: computed(() => _authState.value.kind === 'authenticated'),
     username: computed(() =>
       _authState.value.kind === 'authenticated' ? _authState.value.username : null

@@ -17,8 +17,8 @@ import { generateUUID } from '../lib/utils';
 // These are identity functions at runtime; their value is purely in the
 // type system — preventing BoardId and NodeId from being interchanged.
 
-export const asBoardId = (s: string): BoardId => s as BoardId;
-export const asNodeId  = (s: string): NodeId  => s as NodeId;
+export const asBoardId = (s: string): BoardId => s as BoardId; // brand factory: sole BoardId mint
+export const asNodeId  = (s: string): NodeId  => s as NodeId; // brand factory: sole NodeId mint
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 

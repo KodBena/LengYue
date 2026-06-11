@@ -290,7 +290,7 @@ const disabledTitle = computed(() => {
 // ── User input ───────────────────────────────────────────────────
 
 function onInput(event: Event) {
-  const raw = (event.target as HTMLInputElement).value;
+  const raw = (event.target as HTMLInputElement).value; // DOM: handler bound on the slider <input>, so target is that element
   const n = Number(raw);
   if (!Number.isFinite(n)) return;
   // The substrate's policy machinery decides: write succeeds against

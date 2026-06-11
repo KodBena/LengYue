@@ -131,7 +131,7 @@ function withAlpha(color: string, alpha: number): string {
 function buildKdeSeries() {
   const out: any[] = [];
   for (const entry of seriesData.value) {
-    const points = entry.kdePoints as KdePoint[];
+    const points = entry.kdePoints as KdePoint[]; // seriesData is a {kdePoints}|{bins} union; this path runs only in the 'kde' variant so kdePoints is present
     const { meta } = entry;
     // Uncertainty bounds rendered as two dashed lines bracketing
     // the density curve — the same colour, lighter weight, dashed
@@ -186,7 +186,7 @@ function buildKdeSeries() {
 
 function buildHistogramSeries() {
   return seriesData.value.map((entry, idx) => {
-    const bins = entry.bins as HistogramBin[];
+    const bins = entry.bins as HistogramBin[]; // seriesData is a {kdePoints}|{bins} union; this path runs only in the non-kde variant so bins is present
     const { meta } = entry;
     return {
       name: meta.name,

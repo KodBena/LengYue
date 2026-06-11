@@ -12,12 +12,25 @@ import { BUNDLE_COMPRESSION_SCHEMES } from '../../types';
 const props = defineProps<{
   registry: any;
   defaults?: any; // The "Shadow Schema" for restoration
-  path?: string[]; 
+  path?: string[];
 }>();
 
 const emit = defineEmits(['update']);
 
 const newKeyName = ref('');
+
+// Registry keys are object property names, hence strings. Iterating
+// `registry` directly with `v-for="(value, key) in registry"` types
+// `key` as `string | number` (Vue's object-v-for key type), forcing a
+// `key as string` cast at every helper call in the template. Deriving
+// the entry list here keys the value pairs with the key typed `string`
+// at the single `Object.entries` seam, removing that whole family of
+// template casts. Values stay `any` (the `registry` prop is already
+// `any` — this is a generic registry editor, not a typed-shape editor),
+// so no narrowing cast is introduced at the value bindings either.
+const entries = computed<[string, any][]>(() =>
+  Object.entries(props.registry ?? {}),
+);
 
 // --- Structural Rules ---
 // Define which parts of the registry allow key additions/deletions.
@@ -203,81 +216,81 @@ function isModified(key: string, value: any) {
 
 <template>
   <div class="registry-editor" :class="{ 'registry-root': !path }">
-    <div v-for="(value, key) in registry" :key="key" class="registry-row">
-      
+    <div v-for="[key, value] in entries" :key="key" class="registry-row">
+
       <!-- BRANCH: Object recursion -->
       <div v-if="isObject(value)" class="registry-branch">
         <div class="branch-header">
           <div class="label-group">
              <span class="branch-label">{{ key }}</span>
-             <span v-if="isModified(key as string, value)" class="modified-dot"></span>
+             <span v-if="isModified(key, value)" class="modified-dot"></span>
              <span
-               v-if="tooltipText(key as string)"
+               v-if="tooltipText(key)"
                class="tooltip-hint"
                role="img"
-               :aria-label="tooltipText(key as string)"
-               :title="tooltipText(key as string)"
+               :aria-label="tooltipText(key)"
+               :title="tooltipText(key)"
              >⚠</span>
           </div>
           <div class="action-group">
-            <button v-if="isModified(key as string, value)" class="restore-btn" :title="$t('registry.restoreBranchDefaults')" @click="restoreDefault(key as string)">↺</button>
-            <button v-if="isDynamicNode" class="delete-btn" @click="deleteKey(key as string)">×</button>
+            <button v-if="isModified(key, value)" class="restore-btn" :title="$t('registry.restoreBranchDefaults')" @click="restoreDefault(key)">↺</button>
+            <button v-if="isDynamicNode" class="delete-btn" @click="deleteKey(key)">×</button>
           </div>
         </div>
         <div class="branch-content">
-          <RegistryEditor 
-            :registry="value" 
+          <RegistryEditor
+            :registry="value"
             :defaults="defaults ? defaults[key] : undefined"
-            :path="getPath(key as string)" 
+            :path="getPath(key)"
             @update="e => emit('update', e)"
           />
         </div>
       </div>
 
       <!-- LEAF: Scalar/Expression/Ref -->
-      <div v-else class="registry-leaf" :class="getFieldType(key as string, value)">
+      <div v-else class="registry-leaf" :class="getFieldType(key, value)">
         <div class="leaf-header">
           <div class="label-group">
             <label class="leaf-label">{{ key }}</label>
-            <span v-if="isModified(key as string, value)" class="modified-dot"></span>
+            <span v-if="isModified(key, value)" class="modified-dot"></span>
             <span
-              v-if="tooltipText(key as string)"
+              v-if="tooltipText(key)"
               class="tooltip-hint"
               role="img"
-              :aria-label="tooltipText(key as string)"
-              :title="tooltipText(key as string)"
+              :aria-label="tooltipText(key)"
+              :title="tooltipText(key)"
             >⚠</span>
           </div>
           <div class="action-group">
-            <button v-if="isModified(key as string, value)" class="restore-btn" :title="$t('registry.restoreDefault')" @click="restoreDefault(key as string)">↺</button>
-            <button v-if="isDynamicNode" class="delete-btn" @click="deleteKey(key as string)">×</button>
+            <button v-if="isModified(key, value)" class="restore-btn" :title="$t('registry.restoreDefault')" @click="restoreDefault(key)">↺</button>
+            <button v-if="isDynamicNode" class="delete-btn" @click="deleteKey(key)">×</button>
           </div>
         </div>
-        
+
         <div class="leaf-input-container">
           <textarea
-            v-if="getFieldType(key as string, value) === 'expression'"
+            v-if="getFieldType(key, value) === 'expression'"
             class="dark-input expression-input"
             :value="value"
             spellcheck="false"
-            @input="(e: any) => handleUpdate(key as string, e.target.value)"
+            @input="(e: any) => handleUpdate(key, e.target.value)"
           ></textarea>
 
-          <div v-else-if="getFieldType(key as string, value) === 'symbol-ref'" class="symbol-ref-box">
+          <div v-else-if="getFieldType(key, value) === 'symbol-ref'" class="symbol-ref-box">
              <span class="ref-icon">λ</span>
-             <input type="text" class="dark-input scalar-input ref-input" :value="value" @input="(e: any) => handleUpdate(key as string, e.target.value)"/>
+             <input type="text" class="dark-input scalar-input ref-input" :value="value" @input="(e: any) => handleUpdate(key, e.target.value)"/>
           </div>
 
-          <input v-else-if="typeof value === 'boolean'" type="checkbox" :checked="value" @change="(e: any) => handleUpdate(key as string, e.target.checked)"/>
+          <input v-else-if="typeof value === 'boolean'" type="checkbox" :checked="value" @change="(e: any) => handleUpdate(key, e.target.checked)"/>
           <select
-            v-else-if="getFieldType(key as string, value) === 'enum'"
+            v-else-if="getFieldType(key, value) === 'enum'"
             class="dark-input scalar-input"
             :value="value"
-            @change="(e: any) => handleUpdate(key as string, e.target.value)"
+            @change="(e: any) => handleUpdate(key, e.target.value)"
           >
-            <option v-for="opt in enumOptions(key as string)" :key="opt" :value="opt">{{ opt }}</option>
+            <option v-for="opt in enumOptions(key)" :key="opt" :value="opt">{{ opt }}</option>
           </select>
-          <input v-else :type="typeof value === 'number' ? 'number' : 'text'" class="dark-input scalar-input" :value="value" @input="(e: any) => handleUpdate(key as string, typeof value === 'number' ? Number(e.target.value) : e.target.value)"/>
+          <input v-else :type="typeof value === 'number' ? 'number' : 'text'" class="dark-input scalar-input" :value="value" @input="(e: any) => handleUpdate(key, typeof value === 'number' ? Number(e.target.value) : e.target.value)"/>
         </div>
       </div>
     </div>

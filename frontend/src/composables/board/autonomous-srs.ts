@@ -33,7 +33,7 @@
  */
 
 import { ref, type Ref } from 'vue';
-import type { BoardId, BoardState, CardId, NodeId, ReviewCard, ReviewStatus } from '../../types';
+import type { BoardId, BoardState, CardId, ReviewCard, ReviewStatus } from '../../types';
 import { store } from '../../store';
 import { useReviewSession } from '../review/useReviewSession';
 import { waitForCondition } from '../reactive-settle';
@@ -291,8 +291,8 @@ export async function runAutonomousDriver(opts: DriverOptions): Promise<DriverRe
       // Read from the active node instead — its `move.color` is the
       // authoritative record.
       const postBoard = store.boards.find((b) => b.id === opts.boardId);
-      const postNode = postBoard?.nodes[postBoard.currentNodeId as NodeId];
-      const userColor: 'B' | 'W' = (postNode?.move?.color ?? 'B') as 'B' | 'W';
+      const postNode = postBoard?.nodes[postBoard.currentNodeId];
+      const userColor: 'B' | 'W' = postNode?.move?.color ?? 'B';
 
       await opts.recorder.record({
         kind: 'move',

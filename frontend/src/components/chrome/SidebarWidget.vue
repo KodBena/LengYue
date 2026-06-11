@@ -76,8 +76,8 @@ function handleAdd() {
   createBoard();
 }
 
-function getReviewState(boardId: string) {
-  const status = store.session.reviews[boardId as BoardId]?.status;
+function getReviewState(boardId: BoardId) {
+  const status = store.session.reviews[boardId]?.status;
   if (!status) return null;
 
   if (status === 'AWAITING_MOVE' || status === 'ANALYZING' || status === 'LOADING') return 'ACTIVE';

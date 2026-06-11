@@ -38,6 +38,7 @@ const palettes = computed(() => store.profile.settings.engine.katago.analysis_en
 // `services/backend-service.ts::mapToReviewCard`.
 const defaultVisits = computed<number>({
   get() {
+    // untyped wire blob: assert the one field this getter reads (see header).
     const gp = draft.value?.grading_parameter as
       | { data?: { default_visits?: number } }
       | null
@@ -46,6 +47,7 @@ const defaultVisits = computed<number>({
   },
   set(v: number) {
     if (!draft.value) return;
+    // untyped wire blob: assert the data sub-object this setter writes.
     const gp = draft.value.grading_parameter as
       | { data: Record<string, unknown> }
       | null;
@@ -55,6 +57,7 @@ const defaultVisits = computed<number>({
 
 const gamma = computed<number>({
   get() {
+    // untyped wire blob: assert the one field this getter reads (see header).
     const gp = draft.value?.grading_parameter as
       | { data?: { gamma?: number } }
       | null
@@ -63,6 +66,7 @@ const gamma = computed<number>({
   },
   set(v: number) {
     if (!draft.value) return;
+    // untyped wire blob: assert the data sub-object this setter writes.
     const gp = draft.value.grading_parameter as
       | { data: Record<string, unknown> }
       | null;

@@ -118,7 +118,7 @@ export class StabilityTrajectoryStore {
     if (V === undefined || V === null || !Number.isFinite(V) || V <= 0) return;
 
     for (const [extractorId, extract] of STABILITY_EXTRACTORS.entries()) {
-      const value = (extract as StabilityExtractor)(packet);
+      const value = (extract as StabilityExtractor)(packet); // pin the map's generic <Q> extractor to a concrete callable for this packet
       const key = keyOf(rawKey, extractorId, nodeId);
       const t = getOrCreateTrajectory(key);
       const hadObservations = t.n_packets > 0;
@@ -176,6 +176,8 @@ export class StabilityTrajectoryStore {
   public purgeBoard(boardId: BoardId): void {
     const board = store.boards.find(b => b.id === boardId);
     if (!board) return;
+    // Object.keys widens Record<NodeId,…> keys to string[] (the TS "Category C"
+    // boundary, IDENTIFIERS.md NodeId row); re-brand the keys.
     const nodeIds = new Set<NodeId>(Object.keys(board.nodes) as NodeId[]);
 
     for (const key of Array.from(trajectories.keys())) {
