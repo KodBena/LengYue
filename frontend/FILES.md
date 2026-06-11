@@ -155,6 +155,7 @@ frontend/src/
 │   ├── reactive-settle.ts             [B1]  waitForCondition — the reactive-settle bridge (resolve a promise when a reactive predicate flips true). Shared by the autonomous-SRS driver and the perf-scenario context.
 │   ├── useAutoNavigatePerf.ts         [B2]  Dev-only: dev-toolbar toggle wrapper (start/stop/isRunning) over the shared autonav loop core in perf/autonav.ts. Button gated to dev builds.
 │   ├── useAutoPopoverPerf.ts          [B1]  Dev-only: toggles a target popover open/closed at ~2/s (via useHoverPopover's force hook), emitting popover:open/close marks tagged with queue state — for the popover-toggle-cost measurement.
+│   ├── useAutoSaveAnalyses.ts         [B3]  Auto-save policy for the [experimental] analysis-persistence feature: watches each board's `dirtyVersion` on analysisPersistenceService and trailing-debounces a `save(boardId)`, gated on `engine.katago.analysisStorageEnabled && analysisAutoSave`. B3 via the analysis-bundle / persistence-service imports and the KataGo storage toggles.
 │   ├── useEngineControls.ts           [B3]  Engine connect / disconnect / toggle lifecycle.
 │   ├── useNavigation.ts               [B2]  Headless navigation within the game tree (next/prev/parent/child).
 │   ├── useQeubo.ts                    [B1]  qEUBO experiment state machine + audition + verdict.
@@ -186,7 +187,8 @@ frontend/src/
 │   ├── auth-app/                             Auth + app cold-start.
 │   │   ├── useAppBootstrap.ts         [B3]  Cold-start wiring: auth → sync hydrate → domain inits → tag fetch. Band-mixed by role (imports analysis-service, qEUBO, the keybindings catalog); tagged like App.vue — wiring, not a B1 substrate.
 │   │   ├── useAuth.ts                 [B1]  AuthState SSOT; wraps api-client auth methods; JWT synchronisation.
-│   │   └── useMetadata.ts             [B3]  SGF root properties → UI metadata (gameName ladder, players, dates).
+│   │   ├── useMetadata.ts             [B3]  SGF root properties → UI metadata (gameName ladder, players, dates).
+│   │   └── workspace-identity-key.ts  [B1]  Derives a stable per-identity remount key from `username` (App.vue binds it as the control-panel `:key`) so an auth flip can't let user B inherit user A's component-instance data — the tenancy leak `resetWorkspace`'s module-cache registry can't reach. Identity-keyed remount is domain-free.
 │   │
 │   ├── board/                                Board-surface composables. Mostly B3.
 │   │   ├── autonomous-srs.ts          [B3]  Policy/Driver/Recorder abstractions for the autonomous SRS loop.
@@ -206,6 +208,7 @@ frontend/src/
 │   │   ├── useCardTreeHydration.ts    [B2]  Lazy-hydration walker over the render forest.
 │   │   ├── useCardMetadata.ts         [B2]  Effectful boundary for card-metadata edits (updateCardMetadata); shared by ReviewSessionPanel + ForestDirectory, which splice the returned card into their own state.
 │   │   ├── useCardTreeProjection.ts   [B2]  Pure projection: forest + active-set + manual-expand → role-annotated render forest.
+│   │   ├── useTags.ts                 [B1]  The single chokepoint for the client-side tag dictionary (`store.knownTags`, the autocomplete source): every tag-write path routes its resulting tag set through `learnTags` so the dictionary stays coherent with the cards. A flat label-set SSOT — domain-free (a non-Go flashcard fork keeps it unchanged).
 │   │   └── useThumbnailCache.ts       [B3]  Shared board-thumbnail cache (module-scoped Map).
 │   │
 │   ├── chrome/                               UI-shell composables.
@@ -374,7 +377,15 @@ the file's role firms up is the expected path; pretending
 settled purpose where there isn't any is the failure mode this
 allowance prevents.
 
-A future scripted check could validate that every file under
-`src/` appears here, and complain on drift. Out of scope for
-v1 of this map; flag as follow-up if the manual cadence proves
-unreliable.
+**Scripted drift check (shipped 2026-06-11).** The "every `src/`
+file appears here" validation this note flagged as a future
+follow-up now exists: `tools/band-conformance/check.mjs`
+(work-status `band-conformance-ci-check`, wired into `frontend-ci`)
+fails loudly on a row resolving to no file (the ghost-row class —
+the deleted `jquery-bridge.ts` row was the worked case) AND on a
+`src/` file with no row here (the missing-row class). It also runs
+the ADR-0003 band-ordering audit (`band(file) >= band(import)` over
+the import graph, advisory-first) — so the band tags above are no
+longer purely review-policed for the structural half. Keep the
+same-PR cadence above: the gate catches drift, it does not author
+the row for you.

@@ -24,6 +24,19 @@
   store's enum constraints; the refs-kind arc; the filed
   `band-conformance-ci-check` item as the named fuller firing). The
   rules themselves are unchanged.
+  2026-06-11 — Revisit-when #4's named fuller firing SHIPPED: the
+  band-register mechanization (`tools/band-conformance/check.mjs`,
+  work-status `band-conformance-ci-check`) now parses FILES.md's band
+  tags against `frontend/src`'s import graph and enforces
+  `band(file) >= band(import)`, surfacing band-tag misfits at CI rather
+  than review. Recorded at the trigger; Rule 1's band-tag application
+  tightens from review responsibility toward CI *for the structural
+  half only* — the checker gates the crisp drift class (FILES.md row ↔
+  file resolution) and runs the band-ordering audit advisory-first
+  (ADR-0011 Rule 3/5: a 40-violation judgment baseline is not a clean
+  `error` gate). The content half — is a given band tag right, or an
+  expected dominant-concern artifact — stays review judgment. The
+  rules themselves are unchanged.
 - **Scope:** All authoring work involving classification — picking
   values from closed vocabularies (enums, ADR bands, named
   patterns), placing files into directory trees, naming categories,
@@ -351,6 +364,27 @@ fuzzy-fit is the discipline working as intended.
    (open/future; history audit §3.14); when it ships, tighten Rule 1's
    band-tag application from review responsibility toward CI per this
    trigger's own prescription, and record the firing here.
+
+   **(Fuller firing SHIPPED, recorded 2026-06-11.)** The band-register
+   mechanization shipped as `tools/band-conformance/check.mjs` (the
+   doc-graph-style committed-report Node tool; wired into `frontend-ci`):
+   it parses FILES.md's band tags against `frontend/src`'s import graph
+   and enforces `band(file) >= band(import)`, with `[B?]` exempt,
+   type-only imports exempt (compile-time-erased), the two band-mixed
+   hubs (`types.ts` barrel, `store/index.ts`) exempt as documented
+   dominant-concern targets, and an annotated-exception list that
+   ENCODES this tenet's "deliberately-imprecise tag" / dominant-concern
+   legend rule (expected non-empty by design — the Exceptions section).
+   Rule 1's band-tag application is thereby tightened from review
+   responsibility toward CI for the **structural half** — the crisp
+   FILES.md-row ↔ file-resolution drift gates at `error` on a zero
+   baseline (ADR-0002). The **content half** — whether a given band tag
+   is right vs an expected dominant-concern artifact — runs
+   advisory-first (40-violation judgment baseline at adoption; ADR-0011
+   Rule 3's measure-first / Rule 5's judgment-shaped-output-gets-an-
+   advisory-surface). So this trigger is fired but not fully discharged:
+   the mechanism *surfaces* band misfits, the human still *adjudicates*
+   them.
 
 ## Related
 

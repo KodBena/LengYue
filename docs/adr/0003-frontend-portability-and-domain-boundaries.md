@@ -43,6 +43,15 @@
   archive; and the Revisit-#1 "fired twice" phrasing
   precision-corrected (above, and at the trigger). The principle is
   unchanged.
+  2026-06-11 — the **structural half of the band discipline became
+  mechanism** (Negative-consequence note below; work-status
+  `band-conformance-ci-check`): `tools/band-conformance/check.mjs`
+  enforces `band(file) >= band(import)` over `frontend/src`'s import
+  graph against `frontend/FILES.md`'s tags, gating CI on the crisp
+  FILES.md-row ↔ file drift class and running the band-ordering audit
+  advisory-first. The content-half band judgment stays with review.
+  This is the per-tenet mechanization ADR-0008 Revisit-#4 named; the
+  principle is unchanged.
 - **Scope:** Frontend (`gogui`). Cross-references the backend's
   parallel work (item 30b's `PositionNormalizerPort`, item 34's
   domain-agnostic-core umbrella).
@@ -388,7 +397,20 @@ transferring or being replaced wholesale:
 
 - **The principle is policy, not mechanism.** A contributor who
   doesn't ask the question won't have the type system catch them.
-  Like ADR-0002, the discipline lives in code review.
+  Like ADR-0002, the discipline lives in code review. *(2026-06-11:
+  the **structural half** became mechanism. `tools/band-conformance/
+  check.mjs` (work-status `band-conformance-ci-check`; wired into
+  `frontend-ci`) parses `frontend/FILES.md`'s band tags against
+  `frontend/src`'s import graph and enforces `band(file) >=
+  band(import)` — `[B?]` / type-only / the two band-mixed hubs exempt,
+  with an annotated-exception list encoding the dominant-concern legend.
+  It gates at `error` only on the crisp FILES.md-row ↔ file-resolution
+  drift class; the band-ordering audit runs advisory-first (ADR-0011
+  Rule 3/5). So the **content half** — is this band tag right, or an
+  expected dominant-concern artifact — stays review judgment, exactly
+  the half the "what would change for a Chess/non-game port?" question
+  asks a human to weigh. The Revisit-#3 disagreements below are now
+  surfaced mechanically rather than only at audit time.)*
 - **The inventory will drift.** As modules change, their band
   assignments may shift. This document needs occasional refresh —
   realistically once or twice a year, or whenever a substantial
