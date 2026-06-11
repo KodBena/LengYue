@@ -24,7 +24,7 @@ import { useLibraryImport } from '../../composables/library/useLibraryImport';
 import { useLibraryPlayerSuggest } from '../../composables/library/useLibraryPlayerSuggest';
 import { useLibraryPreview } from '../../composables/library/useLibraryPreview';
 import { useLibraryQuery } from '../../composables/library/useLibraryQuery';
-import type { GameSourceId, LibraryGame, LibraryGameListItem } from '../../types';
+import type { LibraryGame, LibraryGameListItem } from '../../types';
 
 const emit = defineEmits<{
   (e: 'open-library-game', game: LibraryGame): void;
@@ -67,7 +67,7 @@ function onSelect(row: LibraryGameListItem): void {
 // the double-click and the button stay alignable that way.
 async function onOpen(row: LibraryGameListItem): Promise<void> {
   preview.selectedRow.value = row;
-  const game = await preview.fetchGame(row.id as GameSourceId);
+  const game = await preview.fetchGame(row.id);
   if (game !== null) emit('open-library-game', game);
 }
 
@@ -80,7 +80,7 @@ function onOpenFromPreview(): void {
 // Ctrl-click. Don't touch the preview selection — the new-tab
 // affordance is "open without disturbing the active context".
 async function onOpenNewTab(row: LibraryGameListItem): Promise<void> {
-  const game = await preview.fetchGame(row.id as GameSourceId);
+  const game = await preview.fetchGame(row.id);
   if (game !== null) emit('open-library-game-new-tab', game);
 }
 

@@ -86,6 +86,8 @@ export const DEFAULT_LOCALE: SupportedLocale = 'en';
  */
 export function isSupportedLocale(value: unknown): value is SupportedLocale {
   return typeof value === 'string'
+    // widen the literal-union tuple to string[] so .includes accepts an
+    // arbitrary string (the guard narrows `value` to SupportedLocale on true).
     && (SUPPORTED_LOCALES as readonly string[]).includes(value);
 }
 

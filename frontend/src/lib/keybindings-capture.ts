@@ -180,6 +180,8 @@ export function resetBinding(actionId: KeybindingActionId): void {
  */
 export function resetAllBindings(): void {
   const overrides = store.profile.settings.keybindings;
+  // keybindings is keyed by KeybindingActionId; Object.keys widens to string[],
+  // re-brand the keys (the same Category-C boundary as NodeId).
   for (const key of Object.keys(overrides) as KeybindingActionId[]) {
     delete overrides[key];
   }

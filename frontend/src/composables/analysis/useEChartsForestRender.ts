@@ -103,11 +103,11 @@ export function useEChartsForestRender<P>(): ForestChartHandle<P> {
       // doesn't need its own ECharts-shape assertions.
       type ParamWithData = { data?: { payload?: P }; event?: { offsetX: number; offsetY: number } };
       inst.on('click', (params) => {
-        const data = (params as ParamWithData).data;
+        const data = (params as ParamWithData).data; // narrow ECharts' loose callback param to the datum shape we passed in (see comment above)
         if (data?.payload !== undefined) cfg.onClick(data.payload);
       });
       inst.on('mouseover', (params) => {
-        const p = params as ParamWithData;
+        const p = params as ParamWithData; // narrow ECharts' loose callback param to the datum shape we passed in (see comment above)
         if (p.data?.payload === undefined || !p.event) return;
         cfg.onHover(p.data.payload, p.event.offsetX, p.event.offsetY);
       });

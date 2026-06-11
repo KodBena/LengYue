@@ -122,6 +122,8 @@ function snapshotToSvg(snap: BoardSnapshot, nodeId: NodeId, showMarker: boolean)
 export function purgeBoardThumbnails(boardId: BoardId): void {
   const board = store.boards.find(b => b.id === boardId);
   if (!board) return;
+  // Object.keys widens Record<NodeId,…> keys to string[] (the TS "Category C"
+  // boundary, IDENTIFIERS.md NodeId row); re-brand the keys.
   for (const nodeId of Object.keys(board.nodes) as NodeId[]) {
     snapshotCache.value.delete(nodeId);
   }
