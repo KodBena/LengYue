@@ -7,6 +7,7 @@
 import { KataGoClient } from '../engine/katago/katago-client';
 import {
   type KataGoAnalysisQuery,
+  type KataGoResponse,
   type Player,
   type KataCoord,
   type KataAnalysisResponse,
@@ -709,9 +710,7 @@ export class AnalysisService {
     };
 
     const unsubscribe = this.client.subscribe(query, (res) => {
-      // subscribe's callback is typed with the broad KataGoResponse union; an
-      // analysis query only ever yields analysis responses, so narrow.
-      this.onAnalysisUpdate(res as KataAnalysisResponse, queryId);
+      this.routeSubscriptionResponse(res, queryId);
     });
 
     this.activeSubscriptions.set(queryId, unsubscribe);
@@ -910,9 +909,7 @@ export class AnalysisService {
     };
 
     const unsubscribe = this.client.subscribe(query, (res) => {
-      // subscribe's callback is typed with the broad KataGoResponse union; an
-      // analysis query only ever yields analysis responses, so narrow.
-      this.onAnalysisUpdate(res as KataAnalysisResponse, queryId);
+      this.routeSubscriptionResponse(res, queryId);
     });
 
     this.activeSubscriptions.set(queryId, unsubscribe);
@@ -1006,6 +1003,71 @@ export class AnalysisService {
         this.stopQuery(qid);
       }
     }
+  }
+
+  /**
+   * Trust boundary for an analysis subscription's callback. The
+   * `subscribe` callback is typed with the broad `KataGoResponse`
+   * union (`KataAnalysisResponse | KataActionResponse |
+   * KataErrorResponse`); this narrows it before any consumer treats
+   * the packet as the analysis variant — ADR-0002 Rule 4 (boundaries
+   * validate, they do not coerce). The precedent is
+   * `awaitFinalPacket`'s `'error' in res` probe
+   * (`composables/board/usePlayFromPosition.ts`); the same
+   * field-presence discriminator is used here so the three sites
+   * (this, that, and `katago-client.ts`'s global handler) read the
+   * union identically.
+   *
+   * An error packet routed onto an analysis query's id (a bad palette
+   * compiled to a Python error, an unknown SELECTOR `model`, a proxy-
+   * side abort) was previously cast straight to `KataAnalysisResponse`
+   * and fed to `onAnalysisUpdate`, where its absent
+   * `isDuringSearch`/`turnNumber` read as a finalized turn — corrupting
+   * telemetry `turnsCompleted`, firing the false ponder-exhausted
+   * warning, reaping the restart thunk prematurely, and leaking the
+   * `activeQueries` / `activeSubscriptions` entry (the subscription was
+   * never torn down because the query looked complete). Work-status
+   * item `analysis-subscribe-union-narrowing`.
+   *
+   * On an error packet:
+   *   - The **user-facing** surface is already loud and is NOT
+   *     re-emitted here: `KataGoClient.handleIncomingMessage` fires
+   *     `callbacks.onError(response.error)` for every error packet
+   *     before dispatching to the per-id subscriber, and this
+   *     service wires that to `pushSystemMessage('error', errorMsg)`
+   *     in `connect`. Emitting a second `pushSystemMessage` here would
+   *     double-toast the same failure. The **developer** surface is
+   *     added: a `console.warn` naming the misrouted-error event at
+   *     this boundary (ADR-0002 loudness level 5), so the cast-site
+   *     failure is self-evident in the console without depending on
+   *     the reader knowing the global path fired.
+   *   - The query lifecycle is released through `stopQuery` — the one
+   *     complete release verb (it detaches the subscription, sends a
+   *     best-effort wire `terminate`, and clears `activeQueries`,
+   *     `activeSubscriptions`, `restartCallbacks`, `boardToQueries`,
+   *     and the telemetry entry). The proxy already errored this
+   *     query, so the `terminate` is redundant-but-benign
+   *     (fire-and-forget, void). `stopQuery` early-returns if the id
+   *     is already gone, so it is idempotent; deleting this query's
+   *     sole subscriber mid-`forEach` in the client is safe (Set
+   *     iteration tolerates deletion of the current element).
+   */
+  private routeSubscriptionResponse(res: KataGoResponse, queryId: QueryId): void {
+    if ('error' in res) {
+      console.warn(
+        `[analysis-service] error packet routed onto analysis query ${queryId}; `
+        + `surfaced via the global onError channel, releasing query bookkeeping:`,
+        res.error,
+      );
+      this.stopQuery(queryId);
+      return;
+    }
+    // No `error` field: an analysis subscription's id only ever carries
+    // analysis packets (action responses travel `sendCommand`'s own
+    // ephemeral subscription, never an analyze query's id), so the
+    // remaining union members narrow to the analysis variant. Mirrors
+    // `awaitFinalPacket`'s post-probe narrowing.
+    this.onAnalysisUpdate(res as KataAnalysisResponse, queryId);
   }
 
   private onAnalysisUpdate(response: KataAnalysisResponse, queryId: QueryId) {
