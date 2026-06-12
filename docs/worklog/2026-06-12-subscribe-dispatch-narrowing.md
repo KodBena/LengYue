@@ -1,7 +1,7 @@
 # Worklog — typed subscribe API: structural narrowing at the katago-client dispatch layer (2026-06-12)
 
 > Audit trail for work-status item `subscribe-dispatch-structural-narrowing`
-> (branch `bork/refactor/subscribe-dispatch-narrowing`, PR `#<filled on push>`).
+> (branch `bork/refactor/subscribe-dispatch-narrowing`, PR #431).
 > Frontend sub-project. The coordinator owns the work-status store write
 > (this session does not touch the `todo` DB).
 >
