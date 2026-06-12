@@ -1,6 +1,6 @@
 {
-  "node_count": 480,
-  "edge_count": 2331,
+  "node_count": 481,
+  "edge_count": 2332,
   "age_buckets": [
     {
       "name": "fresh",
@@ -34,7 +34,7 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "README.md",
@@ -122,7 +122,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
@@ -162,7 +162,7 @@
       "is_hub": false,
       "first_committed": "2026-05-17",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/adr/0009-performance-investigation-discipline.md",
@@ -1594,7 +1594,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/dispatch/frontend-to-proxy-selector-and-capabilities.md",
@@ -1986,7 +1986,7 @@
       "is_hub": false,
       "first_committed": "2026-06-08",
       "last_committed": "2026-06-08",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/consult/opus-consults-2026-05-28-audit.md",
@@ -2010,7 +2010,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-08",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/design/adaptive-reevaluate-widening-plan.md",
@@ -3298,7 +3298,7 @@
       "is_hub": false,
       "first_committed": "2026-06-04",
       "last_committed": "2026-06-04",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-08-basechart-active-prop-default.md",
@@ -3306,7 +3306,7 @@
       "is_hub": false,
       "first_committed": "2026-06-08",
       "last_committed": "2026-06-08",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-08-key-brand-tightening.md",
@@ -3626,7 +3626,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-11-cast-stage2-burndown.md",
@@ -3690,7 +3690,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-11-mechanization-discipline-tenet.md",
@@ -3824,6 +3824,14 @@
       "path": "docs/worklog/2026-06-12-perf-jank-extended-protocol.md",
       "genre": "worklog",
       "is_hub": false,
+      "first_committed": "2026-06-12",
+      "last_committed": "2026-06-12",
+      "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-12-perf-jank-extended-study-results.md",
+      "genre": "worklog",
+      "is_hub": false,
       "first_committed": null,
       "last_committed": null,
       "age_bucket": "uncommitted"
@@ -3841,7 +3849,7 @@
       "genre": "subproject-frontend",
       "is_hub": false,
       "first_committed": "2026-05-11",
-      "last_committed": "2026-06-11",
+      "last_committed": "2026-06-12",
       "age_bucket": "fresh"
     },
     {
@@ -19785,6 +19793,13 @@
       "to": "frontend/FILES.md",
       "kind": "path-mention",
       "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-12-perf-jank-extended-study-results.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
       "resolved": "resolved"
     },
     {

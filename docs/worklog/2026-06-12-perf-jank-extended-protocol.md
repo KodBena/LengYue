@@ -191,11 +191,18 @@ Both traces, parsed with `perf-trace-parse.mjs`, confirm the protocol ran:
   `BoardHeatmapOverlay` (the ownership map), `BoardVariationsOverlay` mounts and
   per-pass renders are in both traces. Popover stress: ~42–51 open/close cycles.
   Range-packet processing: `rb3:handler` ×1275 (main) / ×1329 (baseline).
-- A genuine tree difference already visible (and exactly what the comparison
+- ~~A genuine tree difference already visible (and exactly what the comparison
   exists to surface, not a confound): the baseline thumbnail renders
   `MiniBoardSvg`; main renders `MiniBoardCanvas` (the thumbnail-render-lifecycle
   refactor). The harness drives the same protocol; the rendered components
-  differ because the trees differ.
+  differ because the trees differ.~~ **[Corrected 2026-06-12 at the study's
+  extraction step: this predicted divergence did NOT reproduce — all 20 study
+  readings on BOTH states render `MiniBoardSvg`, and `MiniBoardCanvas` appears
+  in no trace (verified by raw grep on both run01 traces). The docked
+  sidebar preview path uses `MiniBoard`→`MiniBoardSvg` on both trees;
+  `MiniBoardCanvas` belongs to a different thumbnail surface not exercised by
+  this protocol. The component top-15 set is identical across all 20 readings,
+  which makes the per-component comparison cleaner than this entry expected.]**
 
 ### Out-of-frame review
 
@@ -342,5 +349,8 @@ scenario proxies before comparing costs: `jankext:autonav:step` count
 (analysis-packet volume). Then compare per-component `render`/`patch` counts and
 the render÷patch ratio (`render ≫ patch` is the render-coupling tell). Window on
 `scenario:jank-extended:start..:end` (the parser does this by default). Expect
-genuine tree differences (e.g. `MiniBoardSvg` baseline vs `MiniBoardCanvas`
-main) — those are the refactoring-span costs the comparison exists to surface.
+genuine tree differences ~~(e.g. `MiniBoardSvg` baseline vs `MiniBoardCanvas`
+main)~~ — those are the refactoring-span costs the comparison exists to surface.
+**[Corrected 2026-06-12: the parenthetical example did not reproduce in the
+study — both states render `MiniBoardSvg`; the component set was identical
+across all 20 readings. See the verification-run section's dated correction.]**
