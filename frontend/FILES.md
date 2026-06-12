@@ -67,7 +67,7 @@ frontend/src/
 │   ├── KeybindingsView.vue            [B1]  Keybindings sub-tab: per-domain registry list + Reset-all + reserved-keys disclosure. (Machinery domain-free; walks the injected [B3] catalog and assumes its closed {nav, display, engine} domain-prefix set.)
 │   ├── KnobRegistryEditor.vue         [B1]  Cross-domain knob-registry editor — lists every scalar knob, grouped by domain (Phase 3b).
 │   ├── ReviewSessionPanel.vue         [B3]  In-session SR controls: status, counter, intermission chart, hint visibility.
-│   ├── SettingsTab.vue                [B1]  Settings tab surface: General / Analysis / Keybindings sub-tabs via TabWidget. (Retagged B2→B1 2026-06-12, maintainer adjudication: generic settings chrome; the B2/B3 contamination — the editors, profile-owner, the in-template engine.katago.analysis_env path — may be structural necessity, possibly dissolved by config-schema-projections; those edges are annotated exceptions, named-and-owned.)
+│   ├── SettingsTab.vue                [B1]  Settings tab surface: Session (UI) / Analysis Environment / Card Sets / Advanced Registry / Analysis / Keybindings sub-tabs via TabWidget. (Retagged B2→B1 2026-06-12, maintainer adjudication: generic settings chrome; the B2/B3 contamination — the editors, profile-owner, the in-template engine.katago.analysis_env path — may be structural necessity, possibly dissolved by config-schema-projections; those edges are annotated exceptions, named-and-owned.)
 │   │
 │   ├── board/                                Go-board surface. Renderers + overlays.
 │   │   ├── BoardDisplay.vue           [B3]  Stateless SVG Go board with stone gradients, hoshi, last-move ring, move-number text.

@@ -2,14 +2,22 @@
 /**
  * src/components/SettingsTab.vue
  *
- * The Settings tab's surface. Hosts two sub-tabs via the
+ * The Settings tab's surface. Hosts six sub-tabs via the
  * project's TabWidget:
- *   - General: the four discloseable sections (analysis env,
- *     card sets, advanced registry, session UI) extracted from
- *     App.vue's prior `#settings` slot.
+ *   - Session (UI): the RegistryEditor over `store.session.ui`.
+ *   - Analysis Environment: the PaletteEditor over the KataGo
+ *     analysis_env, with a Force Persistence button at the top.
+ *   - Card Sets: the CardSetEditor in a taller registry-container.
+ *   - Advanced Registry: the RegistryEditor over profile settings.
+ *   - Analysis: the AnalysisTabsEditor (Analysis-tab layout).
  *   - Keybindings: the read-only registry view (Phase 3 of
  *     docs/notes/keybindings-plan.md). Phase 4 adds Edit /
  *     Reset / Unbind.
+ *
+ * The first four were extracted from App.vue's prior `#settings`
+ * slot; they were native <details> accordion sections under one
+ * General sub-tab until the 2026-06-12 restructure flattened each
+ * into its own sub-tab.
  *
  * Sub-tab state is component-local (matches ForestDirectory's
  * Decks/Browse pattern); not persisted across remounts. A future
@@ -42,24 +50,27 @@ defineEmits<{
   (e: 'force-save'): void;
 }>();
 
-const activeSubTab = ref<'general' | 'analysis' | 'keybindings'>('general');
+const activeSubTab = ref<'session' | 'analysisEnv' | 'cardSets' | 'advancedRegistry' | 'analysis' | 'keybindings'>('session');
 
 const subTabs = computed(() => [
-  { id: 'general',     label: t('settings.subtab.general') },
-  { id: 'analysis',    label: t('settings.subtab.analysis') },
-  { id: 'keybindings', label: t('settings.subtab.keybindings') },
+  { id: 'session',          label: t('settings.section.sessionUI') },
+  { id: 'analysisEnv',      label: t('settings.section.analysisEnv') },
+  { id: 'cardSets',         label: t('settings.section.cardSets') },
+  { id: 'advancedRegistry', label: t('settings.section.advancedRegistry') },
+  { id: 'analysis',         label: t('settings.subtab.analysis') },
+  { id: 'keybindings',      label: t('settings.subtab.keybindings') },
 ]);
 
 // With keepMounted=true on the inner TabWidget below, switching
-// from Keybindings to General leaves KeybindingsView mounted-but-
-// hidden (v-show false). Any KeybindingRow mid-capture would
-// otherwise keep its window-level keydown listener installed,
-// silently intercepting keypresses meant for the General view's
-// inputs. Cancelling capture whenever the sub-tab leaves
-// Keybindings releases the listener and clears the mode flag.
-// (Switching INTO Keybindings can't have anything in capture
-// mode by construction — capture is only ever started by a click
-// inside the Keybindings view itself.)
+// away from Keybindings leaves KeybindingsView mounted-but-hidden
+// (v-show false). Any KeybindingRow mid-capture would otherwise
+// keep its window-level keydown listener installed, silently
+// intercepting keypresses meant for another sub-tab's inputs.
+// Cancelling capture whenever the sub-tab leaves Keybindings
+// releases the listener and clears the mode flag. (Switching INTO
+// Keybindings can't have anything in capture mode by construction —
+// capture is only ever started by a click inside the Keybindings
+// view itself.)
 watch(activeSubTab, (next) => {
   if (next !== 'keybindings') {
     cancelCapture();
@@ -87,56 +98,46 @@ function handleProfileUpdate(e: { path: string[]; value: unknown }): void {
 <template>
   <TabWidget :tabs="subTabs" v-model="(activeSubTab as string /* widen the sub-tab id union to TabWidget's string v-model */)" :keep-mounted="true">
 
-    <template #general>
-      <!--
-        Each subsection is a native <details> disclosure. Open by
-        default — no behavior change for users opening the tab the
-        first time after this lands; collapsing is purely an
-        opt-in space-saver. @click.stop on the Force Persistence
-        button keeps clicks from bubbling up to <summary>'s
-        toggle.
-      -->
+    <template #session>
       <div class="tab-padding">
-        <details class="settings-section" open>
-          <summary>
-            <h3 class="sub-header">{{ $t('settings.section.analysisEnv') }}</h3>
-            <button class="toolbar-btn-sm" @click.stop="$emit('force-save')">{{ $t('settings.button.forcePersistence') }}</button>
-          </summary>
-          <div style="margin-top: var(--space-medium);">
-            <PaletteEditor :env="store.profile.settings.engine.katago.analysis_env" @update="handleSettingsUpdate"/>
-          </div>
-        </details>
+        <div class="registry-container">
+          <RegistryEditor :registry="store.session.ui" :defaults="DEFAULTS.session" @update="handleSessionUpdate"/>
+        </div>
+      </div>
+    </template>
 
-        <details class="settings-section section-divider" open>
-          <summary><h3 class="sub-header">{{ $t('settings.section.cardSets') }}</h3></summary>
-          <!-- magic-literal: clamp(500px, 70vh, 900px) — taller than the
-               default `.registry-container` clamp (400/60vh/800) because Card
-               Sets renders a richer table (many columns + per-row controls)
-               and needs more vertical room before scrolling kicks in. 70vh
-               proportional vs 60vh = card-sets gets ~17% more height share. -->
-          <div class="registry-container" style="max-height: clamp(500px, 70vh, 900px); padding-bottom: var(--space-medium);">
-            <CardSetEditor
-              :cardSets="store.profile.cardSets"
-              :activeCardSetId="store.session.ui.activeCardSetId"
-              @update="handleProfileUpdate"
-              @update-active="(id) => store.session.ui.activeCardSetId = id"
-            />
-          </div>
-        </details>
+    <template #analysisEnv>
+      <div class="tab-padding">
+        <button class="toolbar-btn-sm" @click="$emit('force-save')">{{ $t('settings.button.forcePersistence') }}</button>
+        <div style="margin-top: var(--space-medium);">
+          <PaletteEditor :env="store.profile.settings.engine.katago.analysis_env" @update="handleSettingsUpdate"/>
+        </div>
+      </div>
+    </template>
 
-        <details class="settings-section section-divider" open>
-          <summary><h3 class="sub-header">{{ $t('settings.section.advancedRegistry') }}</h3></summary>
-          <div class="registry-container">
-            <RegistryEditor :registry="store.profile.settings" :defaults="DEFAULTS.profile" @update="handleSettingsUpdate"/>
-          </div>
-        </details>
+    <template #cardSets>
+      <div class="tab-padding">
+        <!-- magic-literal: clamp(500px, 70vh, 900px) — taller than the
+             default `.registry-container` clamp (400/60vh/800) because Card
+             Sets renders a richer table (many columns + per-row controls)
+             and needs more vertical room before scrolling kicks in. 70vh
+             proportional vs 60vh = card-sets gets ~17% more height share. -->
+        <div class="registry-container" style="max-height: clamp(500px, 70vh, 900px); padding-bottom: var(--space-medium);">
+          <CardSetEditor
+            :cardSets="store.profile.cardSets"
+            :activeCardSetId="store.session.ui.activeCardSetId"
+            @update="handleProfileUpdate"
+            @update-active="(id) => store.session.ui.activeCardSetId = id"
+          />
+        </div>
+      </div>
+    </template>
 
-        <details class="settings-section section-divider" open>
-          <summary><h3 class="sub-header">{{ $t('settings.section.sessionUI') }}</h3></summary>
-          <div class="registry-container">
-            <RegistryEditor :registry="store.session.ui" :defaults="DEFAULTS.session" @update="handleSessionUpdate"/>
-          </div>
-        </details>
+    <template #advancedRegistry>
+      <div class="tab-padding">
+        <div class="registry-container">
+          <RegistryEditor :registry="store.profile.settings" :defaults="DEFAULTS.profile" @update="handleSettingsUpdate"/>
+        </div>
       </div>
     </template>
 
