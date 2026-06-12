@@ -204,6 +204,17 @@ const BAND_EXCEPTIONS = new Map([
   // re-band minted this edge; retagging TreeWidget [B3] would be the greater lie).
   ['src/components/tree/TreeWidget.vue|src/components/board/FloatingThumbnail.vue',
    'B2 host consumes B3 thumbnail as opaque affordance (dominant concern holds)'],
+  // [B2] scenario registry importing the [B3] jank-extended scenario:
+  // dominant-concern edge — the registry's job is to enumerate every
+  // registered scenario regardless of band; it consumes jankExtended as an
+  // opaque factory. Minted 2026-06-12 when jankExtended was honestly
+  // retagged B3 (it writes KataGo wire-capability settings); retagging the
+  // whole registry B3 over one entry would also adjudicate its pre-existing
+  // baseline finding (scenarios.ts→analysis-service, the maintainer's
+  // review surface) as a side effect — the greater lie, same shape as the
+  // TreeWidget precedent above.
+  ['src/composables/perf/scenarios.ts|src/composables/perf/jankExtended.ts',
+   'B2 registry consumes B3 scenario as opaque factory (dominant concern holds)'],
   [
     "src/components/editors/RegistryEditor.vue|src/engine/katago/types.ts",
     "Named-and-owned leak: FILES.md's RegistryEditor row records the " +
