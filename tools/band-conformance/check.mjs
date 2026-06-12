@@ -241,6 +241,62 @@ const BAND_EXCEPTIONS = new Map([
       "install, import.meta.env.DEV-gated and tree-shaken from production " +
       "(perf/ is the dev-only capture harness, ADR-0009).",
   ],
+  // ── 2026-06-12 maintainer band adjudication (tranche 2) ──
+  // Worklog: docs/worklog/2026-06-12-band-adjudication-tranche-2.md.
+  //
+  // The keybindings substrate/catalog split (history-lessons audit §3.16):
+  // the catalog is maintainer-confirmed [B3] — the domain half, which a fork
+  // replaces wholesale while keeping the lib/keybindings.ts substrate. Its
+  // three consumers are generic machinery taking the catalog as an opaque
+  // decl registry; dominant concern holds on all three importers.
+  ['src/components/KeybindingRow.vue|src/composables/keybindings-catalog.ts',
+   "B1 row machinery passes the B3 catalog through as findActionByKey's registry argument (dominant concern holds)"],
+  ['src/components/KeybindingsView.vue|src/composables/keybindings-catalog.ts',
+   'B1 registry view walks the injected B3 catalog as an opaque decl list (dominant concern holds)'],
+  ['src/composables/useUserIORegistry.ts|src/composables/keybindings-catalog.ts',
+   'B2 dispatcher consumes the B3 catalog as an opaque decl registry (dominant concern holds)'],
+  // SettingsTab retagged B2→B1 (maintainer adjudication: generic settings
+  // chrome). Its domain edges are named-and-owned contamination — the
+  // adjudication records they "may be structural necessity", possibly
+  // dissolved by config-schema-projections (the RegistryEditor
+  // WINRATE_FRAMINGS entry above is the same register, same owner).
+  ['src/components/SettingsTab.vue|src/components/editors/PaletteEditor.vue',
+   'Named-and-owned: B1 settings chrome hosts the B3 analysis-env editor; owned by config-schema-projections'],
+  ['src/components/SettingsTab.vue|src/components/editors/AnalysisTabsEditor.vue',
+   'Named-and-owned: B1 settings chrome hosts the B3 analysis-tab-layout editor; owned by config-schema-projections'],
+  ['src/components/SettingsTab.vue|src/components/editors/CardSetEditor.vue',
+   'Named-and-owned: B1 settings chrome hosts the B2 deck-pipeline editor; owned by config-schema-projections'],
+  ['src/components/SettingsTab.vue|src/store/profile-owner.ts',
+   'Named-and-owned: settings mutations route through the B3 profile owner (settings-profile-mutator-owner pattern); owned by config-schema-projections'],
+  // ForestDirectory retagged B2→B1 (maintainer adjudication: deck/card/
+  // lineage browsing is a domain-free SRS surface, "B1 modulo the B2/B3
+  // specifics ... the delineation is fairly obvious"). The eleven edges
+  // below ARE that delineation, annotated: a B1 orchestrator hosting the
+  // domain halves of the browse/review surface (the main.ts|App.vue wiring
+  // register). Whether the B2 card/forest composables deserve B1 themselves
+  // is a separate, unadjudicated question — see the worklog.
+  ['src/components/tree/ForestDirectory.vue|src/components/CardMetadataPanel.vue',
+   'B1 orchestrator hosts the B3 card-metadata panel (maintainer-named specific: per-domain card labels)'],
+  ['src/components/tree/ForestDirectory.vue|src/components/ReviewSessionPanel.vue',
+   'B1 orchestrator hosts the B3 in-session SR panel (maintainer-named specific: review session)'],
+  ['src/components/tree/ForestDirectory.vue|src/composables/review/useReviewSession.ts',
+   'B1 orchestrator drives the B3 review-session composable (maintainer-named specific: review session)'],
+  ['src/components/tree/ForestDirectory.vue|src/components/charts/CardTreeWidget.vue',
+   'B1 orchestrator hosts the B2 card-tree forest display (wiring register)'],
+  ['src/components/tree/ForestDirectory.vue|src/components/tree/ForestTreeNav.vue',
+   'B1 orchestrator hosts the B2 hierarchical navigator (wiring register)'],
+  ['src/components/tree/ForestDirectory.vue|src/composables/cards/useCardMetadata.ts',
+   'B1 orchestrator calls the B2 card-metadata boundary (wiring register)'],
+  ['src/components/tree/ForestDirectory.vue|src/composables/cards/useCardTreeData.ts',
+   'B1 orchestrator drives the B2 per-board card-tree projection (wiring register)'],
+  ['src/components/tree/ForestDirectory.vue|src/composables/forest/useForestBrowsePolicy.ts',
+   'B1 orchestrator wires the B2 selection-to-pane policy (wiring register)'],
+  ['src/components/tree/ForestDirectory.vue|src/composables/forest/useForestNavigation.ts',
+   'B1 orchestrator drives the B2 forest navigator state (wiring register)'],
+  ['src/components/tree/ForestDirectory.vue|src/composables/forest/useForestStats.ts',
+   'B1 orchestrator calls the B2 forest-stats boundary (wiring register)'],
+  ['src/components/tree/ForestDirectory.vue|src/utils/context-id-macros.ts',
+   'B1 orchestrator expands B2 context-id macros for the deck pipeline (wiring register)'],
 ]);
 
 /**
@@ -272,10 +328,16 @@ const BAND_EXCEPTIONS = new Map([
  * src files, 818 → 848 edges), so 47 is the honest HEAD-measured high-water
  * mark, not the stale 40. magic-literal: the baseline is a measured snapshot,
  * named here as the single source.
+ *
+ * Ratcheted 47 → 31 on 2026-06-12 (maintainer band adjudication, tranche 2):
+ * SidebarWidget/LibraryTab retags (B1→B3) dissolved 7 findings;
+ * SettingsTab/ForestDirectory retags (→B1) surfaced 9 previously-masked
+ * edges; 18 adjudicated edges moved to BAND_EXCEPTIONS. 47 − 7 + 9 − 18 = 31.
+ * Worklog: docs/worklog/2026-06-12-band-adjudication-tranche-2.md.
  */
 const NO_NEW_FINDINGS_RATCHET = {
-  baselineDate: "2026-06-11",
-  baseline: 47, // measured advisory band-ordering findings at adoption HEAD
+  baselineDate: "2026-06-12",
+  baseline: 31, // measured advisory band-ordering findings at adoption HEAD
 };
 
 // ── FILES.md band-tag parser ─────────────────────────────────────────────────

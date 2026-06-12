@@ -1,6 +1,6 @@
 {
-  "node_count": 482,
-  "edge_count": 2335,
+  "node_count": 483,
+  "edge_count": 2337,
   "age_buckets": [
     {
       "name": "fresh",
@@ -3322,7 +3322,7 @@
       "is_hub": false,
       "first_committed": "2026-06-08",
       "last_committed": "2026-06-08",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-08-stability-trajectory-stratified-keying.md",
@@ -3330,7 +3330,7 @@
       "is_hub": false,
       "first_committed": "2026-06-08",
       "last_committed": "2026-06-08",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-09-board-scope-fix-perf-diff.md",
@@ -3642,7 +3642,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-11-doc-graph-svg-spline-failure.md",
@@ -3714,7 +3714,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-11-persistence-board-keyed-drain.md",
@@ -3821,12 +3821,20 @@
       "age_bucket": "aging"
     },
     {
-      "path": "docs/worklog/2026-06-12-engine-move-delta-reconcile.md",
+      "path": "docs/worklog/2026-06-12-band-adjudication-tranche-2.md",
       "genre": "worklog",
       "is_hub": false,
       "first_committed": null,
       "last_committed": null,
       "age_bucket": "uncommitted"
+    },
+    {
+      "path": "docs/worklog/2026-06-12-engine-move-delta-reconcile.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": "2026-06-12",
+      "last_committed": "2026-06-12",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-12-perf-jank-extended-protocol.md",
@@ -19773,6 +19781,20 @@
       "to": "docs/adr/0011-mechanization-discipline.md",
       "kind": "adr-related",
       "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-12-band-adjudication-tranche-2.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-12-band-adjudication-tranche-2.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
       "resolved": "resolved"
     },
     {

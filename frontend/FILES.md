@@ -67,7 +67,7 @@ frontend/src/
 │   ├── KeybindingsView.vue            [B1]  Keybindings sub-tab: per-domain registry list + Reset-all + reserved-keys disclosure. (Machinery domain-free; walks the injected [B3] catalog and assumes its closed {nav, display, engine} domain-prefix set.)
 │   ├── KnobRegistryEditor.vue         [B1]  Cross-domain knob-registry editor — lists every scalar knob, grouped by domain (Phase 3b).
 │   ├── ReviewSessionPanel.vue         [B3]  In-session SR controls: status, counter, intermission chart, hint visibility.
-│   ├── SettingsTab.vue                [B2]  Settings tab surface: General / Keybindings sub-tabs via TabWidget.
+│   ├── SettingsTab.vue                [B1]  Settings tab surface: General / Analysis / Keybindings sub-tabs via TabWidget. (Retagged B2→B1 2026-06-12, maintainer adjudication: generic settings chrome; the B2/B3 contamination — the editors, profile-owner, the in-template engine.katago.analysis_env path — may be structural necessity, possibly dissolved by config-schema-projections; those edges are annotated exceptions, named-and-owned.)
 │   │
 │   ├── board/                                Go-board surface. Renderers + overlays.
 │   │   ├── BoardDisplay.vue           [B3]  Stateless SVG Go board with stone gradients, hoshi, last-move ring, move-number text.
@@ -107,7 +107,7 @@ frontend/src/
 │   │   ├── FloatingThumbnail.vue      [B3]  Cursor-anchored floating board preview (sole host: TreeWidget's variation hover). Synchronous show/hide gate; content derives from a host-supplied `() => BoardSnapshot` accessor rendered via MiniBoard (the ChartPreviewBox accessor contract); seam-level stranding backstops (80px anchor radius / scroll / blur). Re-banded B1→B3 when the v-html SVG-string sink became the BoardSnapshot projection (render-lifecycle consolidation).
 │   │   ├── LocalePicker.vue           [B1]  Top-nav locale picker (flag + native name).
 │   │   ├── RootErrorBoundary.vue      [B1]  Catches descendant errors, logs via ADR-0002, renders fallback.
-│   │   ├── SidebarWidget.vue          [B1]  Sidebar layout container.
+│   │   ├── SidebarWidget.vue          [B3]  Board rail: BoardTab thumb-list, docked MiniBoard hover preview, SGF load/save emits, new-board affordance, dev jank-test toggle. (Retagged B1→B3 2026-06-12, maintainer adjudication: not B1 — the rail exists to host Go-board surfaces; SGF vocabulary and the BoardSnapshot preview are in-file.)
 │   │   ├── SystemLogPanel.vue         [B1]  Always-visible system log bar with idle row.
 │   │   ├── TabWidget.vue              [B1]  Controlled tabbed navigation.
 │   │   ├── Toolbar.vue                [B3]  Application toolbar shell (title, buttons, popover mounts). Reads only `isConnected`; telemetry lives in ToolbarEngineMetrics so the shell doesn't re-render per packet.
@@ -139,7 +139,7 @@ frontend/src/
 │   │   ├── LibraryImportPanel.vue     [B1]  Drag-drop + picker + progress UI for useLibraryImport.
 │   │   ├── LibraryPlayerFilter.vue    [B1]  Autocomplete input fed by useLibraryPlayerSuggest.
 │   │   ├── LibraryPreviewPane.vue     [B3]  Mini-board (via renderBoardToSvg) + scrubber + action buttons.
-│   │   ├── LibraryTab.vue             [B1]  Master-detail orchestrator wiring the four library composables.
+│   │   ├── LibraryTab.vue             [B3]  Master-detail orchestrator wiring the four library composables. (Retagged B1→B3 2026-06-12, maintainer adjudication: not B1 — the surface browses the Go game library; W/B per-color player filters in-file, SGF import + board preview children.)
 │   │   └── LibraryTable.vue           [B1]  Virtual-scrolled table with sortable headers; emits select / open / visible-range.
 │   │
 │   ├── qeubo/                               PBO (preference-based Bayesian optimisation) calibration UI surfaces. Code path retains the `qeubo` identifier (matches `useQeubo` / `qeubo-service.ts` / `/qeubo/*` routes); user-facing label is PBO.
@@ -147,13 +147,13 @@ frontend/src/
 │   │   └── PboPopover.vue             [B1]  Toolbar hover popover — phase badge + audition toggle / verdict pair / apply / pin / debug. Consumes useHoverPopover.
 │   │
 │   └── tree/                                Tree-shaped surfaces: game tree, forest directory, timeline.
-│       ├── ForestDirectory.vue        [B2]  Master-Detail database explorer (Decks tab + Browse tab + chart).
+│       ├── ForestDirectory.vue        [B1]  Master-Detail database explorer (Decks tab + Browse tab + chart). (Retagged B2→B1 2026-06-12, maintainer adjudication: deck/card/lineage browsing is a domain-free SRS surface, B1 modulo the named specifics — position thumbnails, per-domain card labels, analysis config, review session — which live in B2/B3 children; those edges are annotated exceptions.)
 │       ├── ForestTreeNav.vue          [B2]  File-manager-style hierarchical navigator (games → roots).
 │       ├── HorizontalTimelineVisualizer.vue [B2]  Horizontal timeline rug-plot + draggable selection. Data track drawn on a canvas off the render path; slider/handles/grid stay DOM.
 │       └── TreeWidget.vue             [B2]  SVG game-tree viewer; enforces current-node-visible invariant via ensureVisible.
 │
 ├── composables/                             Logic layer. Pure-ish functions over reactive refs.
-│   ├── keybindings-catalog.ts         [B3]  The application's keybinding action catalog: `ACTIONS` ids, named `enabledWhen` predicates, `KEYBINDINGS_REGISTRY` decls dispatching domain verbs (useNavigation / analysisService / session-UI toggles). Structurally B3 via the analysis-service import, though entries are band-mixed *values* (nav.* B2; ponder + ownership overlays B3) — values-note per the timing.ts precedent. Id strings are the persisted-overrides contract (pinned by test); generic machinery lives in lib/keybindings.ts.
+│   ├── keybindings-catalog.ts         [B3]  The application's keybinding action catalog: `ACTIONS` ids, named `enabledWhen` predicates, `KEYBINDINGS_REGISTRY` decls dispatching domain verbs (useNavigation / analysisService / session-UI toggles). Structurally B3 via the analysis-service import, though entries are band-mixed *values* (nav.* B2; ponder + ownership overlays B3) — values-note per the timing.ts precedent. Id strings are the persisted-overrides contract (pinned by test); generic machinery lives in lib/keybindings.ts. ([B3] maintainer-confirmed 2026-06-12.)
 │   ├── reactive-settle.ts             [B1]  waitForCondition — the reactive-settle bridge (resolve a promise when a reactive predicate flips true). Shared by the autonomous-SRS driver and the perf-scenario context.
 │   ├── useAutoNavigatePerf.ts         [B2]  Dev-only: dev-toolbar toggle wrapper (start/stop/isRunning) over the shared autonav loop core in perf/autonav.ts. Button gated to dev builds.
 │   ├── useAutoPopoverPerf.ts          [B1]  Dev-only: toggles a target popover open/closed at ~2/s (via useHoverPopover's force hook), emitting popover:open/close marks tagged with queue state — for the popover-toggle-cost measurement.
@@ -265,7 +265,7 @@ frontend/src/
 │   ├── board-renderer.ts              [B3]  Pure SVG Go board rendering → string (v-html / ECharts-innerHTML sinks); geometry from board-geometry.
 │   ├── constants.ts                   [B3]  Board geometry, stone-radius ratio, label-band width, etc.
 │   ├── helper.ts                      [B1]  Piecewise cubic Hermite interpolation (pure math).
-│   ├── navigator.ts                   [B3]  LCA-based game-tree traversal with setup-stone + capture tracking.
+│   ├── navigator.ts                   [B3]  LCA-based game-tree traversal with setup-stone + capture tracking. (Maintainer-adjudicated target 2026-06-12: B2 — generic LCA traversal; the tag stays B3 as structural fact while the Go replay — stones/ko/captures/SGF setup-coord decode — is inlined in navigateTo. Tags record fact, not aspiration; lib/keybindings.ts precedent.)
 │   ├── rules.ts                       [B3]  Pure Go rules engine (legality, captures, ko).
 │   ├── sgf-loader.ts                  [B3]  SGF parser → GameNode forest.
 │   ├── sgf-writer.ts                  [B3]  GameNode forest → SGF serialisation.
