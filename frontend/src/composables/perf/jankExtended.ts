@@ -45,7 +45,13 @@
  * step 3 names the capability; step 4's "transpositions" names the overlay.
  * Both are set here.
  *
- * Domain band (ADR-0003): game-tree-coupled (B2). Dev-only; makes no perf
+ * Domain band (ADR-0003): Go/KataGo-bound (B3) — retagged from the perf
+ * directory's default B2 at the ratchet's first catch (2026-06-12): this
+ * scenario writes KataGo wire-capability settings
+ * (`engine.katago.useTransposition`) and drives KataGo queries through the
+ * analysis service, which is KataGo vocabulary, not generic game-tree
+ * machinery. (The substrate it composes, `jankSubstrate.ts`, stays B2.)
+ * Dev-only; makes no perf
  * *claim* (ADR-0009): it is the capture harness, not a measured result. See
  * docs/notes/perf-capture-normalization-protocol.md and
  * docs/worklog/2026-06-12-perf-jank-extended-protocol.md.
