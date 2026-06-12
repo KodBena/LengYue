@@ -1,6 +1,6 @@
 {
-  "node_count": 488,
-  "edge_count": 2361,
+  "node_count": 489,
+  "edge_count": 2362,
   "age_buckets": [
     {
       "name": "fresh",
@@ -2232,9 +2232,9 @@
       "path": "docs/notes/postmortem/context-memo-missing-model-representability-2026-06-12.md",
       "genre": "note",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-12",
+      "last_committed": "2026-06-12",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md",
@@ -2618,7 +2618,7 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/rfcs/README.md",
@@ -3885,6 +3885,14 @@
       "age_bucket": "fresh"
     },
     {
+      "path": "docs/worklog/2026-06-12-settings-accordion-to-tabs.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
       "path": "docs/worklog/2026-06-12-subscribe-dispatch-narrowing.md",
       "genre": "worklog",
       "is_hub": false,
@@ -3922,7 +3930,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     }
   ],
   "edges": [
@@ -20010,6 +20018,13 @@
       "to": "docs/worklog/2026-06-11-chart-panel-preview-migration.md",
       "kind": "path-mention",
       "site": "`docs/worklog/2026-06-11-chart-panel-preview-migration.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-12-settings-accordion-to-tabs.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
       "resolved": "resolved"
     },
     {
