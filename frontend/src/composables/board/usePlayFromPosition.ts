@@ -44,10 +44,11 @@ import {
 } from '../../engine/katago/types';
 import type { BoardId, BoardState, GameNode, NodeId, QueryId } from '../../types';
 import { asQueryId } from '../../services/query-id';
-import { store, mutateBoard } from '../../store';
+import { store } from '../../store';
 import { applyGoMove } from '../../logic';
 import { gtpToBoard } from './use-move-suggestions';
-import { getPath, navigateTo } from '../../engine/navigator';
+import { getPath } from '../../engine/navigator';
+import { reconcileEngineMoveDelta } from './engine-move-delta-reconcile';
 import {
   getActiveVariationPath,
   getBoardSize,
@@ -788,62 +789,13 @@ export function usePlayMatch(boardIdRef: Ref<BoardId | null>) {
         white: opts.white,
         perMoveTimeoutMs: opts.perMoveTimeoutMs,
         shouldStop: () => stopRequested,
-        // Surgical merge — bring just the per-move delta into the
-        // store rather than overwriting the board wholesale. The
-        // "user-was-tracking" gate is the literal predicate
-        // `draft.currentNodeId === previousPointer`: if the user
-        // is sitting at the node the match just played from, pull
-        // their view forward to the new pointer; otherwise leave
-        // their navigation alone. This composes with the
-        // "re-track by navigating back" behaviour the spec asks
-        // for — on the *next* move, `previousPointer` will be the
-        // node the user is now at (the move that just landed), so
-        // the gate fires and they resume tracking from there.
-        //
-        // `mutateBoard` confirms the board still exists; the
-        // earlier `updateBoardState` path also re-resolved the
-        // index defensively for the same reason. Without the
-        // existence check, a board closed mid-match would throw
-        // from inside the navigator.
-        onMoveApplied: ({ previousPointer, newPointer, newNode }) => {
-          if (!store.boards.find((b) => b.id === boardId)) {
-            throw new Error(`usePlayMatch: board ${boardId} disappeared mid-match`);
-          }
-          mutateBoard(boardId, (draft) => {
-            const parent = draft.nodes[previousPointer];
-            if (parent === undefined) {
-              throw new Error(
-                `usePlayMatch: parent node ${previousPointer} missing from board ${boardId}`,
-              );
-            }
-            if (newNode !== null) {
-              // New-node case: append the child to the parent's
-              // children list and add the new node to draft.nodes.
-              // Use `parent.children.length` (the index of the
-              // new entry) as the active-child index, which
-              // matches `applyGoMove`'s convention for fresh
-              // nodes.
-              draft.nodes[previousPointer] = {
-                ...parent,
-                children: [...parent.children, newPointer],
-                activeChildIndex: parent.children.length,
-              };
-              draft.nodes[newPointer] = newNode;
-            } else {
-              // Existing-child reuse: just bump activeChildIndex
-              // so subsequent active-variation walks descend into
-              // the match's variation rather than whatever the
-              // user had selected.
-              const childIdx = parent.children.indexOf(newPointer);
-              if (childIdx !== -1) {
-                draft.nodes[previousPointer] = { ...parent, activeChildIndex: childIdx };
-              }
-            }
-            if (draft.currentNodeId === previousPointer) {
-              navigateTo(draft, newPointer);
-            }
-          });
-        },
+        // Surgical merge via the shared `reconcileEngineMoveDelta`
+        // helper. Appends the new child (new-node case) or bumps
+        // `activeChildIndex` (existing-child reuse), then advances
+        // the user's cursor only when they were tracking. See
+        // `engine-move-delta-reconcile.ts` for the full contract
+        // and the ADR-0002 fail-loud invariants.
+        onMoveApplied: (delta) => reconcileEngineMoveDelta(boardId, delta, 'usePlayMatch'),
       });
     } catch (err) {
       lastError.value = err instanceof Error ? err : new Error(String(err));
@@ -899,64 +851,13 @@ export function usePlayFromPosition(boardIdRef: Ref<BoardId | null>) {
         maxVisits: opts.maxVisits,
         perMoveTimeoutMs: opts.perMoveTimeoutMs,
         shouldStop: () => stopRequested,
-        // Surgical merge — bring just the per-move delta into the
-        // store rather than overwriting the board wholesale. This is
-        // the same contract `usePlayMatch.start` uses; see
-        // `EngineMoveApplied` / `MatchMoveApplied` for the rationale
-        // (the wholesale `updateBoardState` mirror re-converged
-        // object identity, re-aliasing the loop's cursor to the
-        // store). The "user-was-tracking" gate is the literal
-        // predicate `draft.currentNodeId === previousPointer`: if the
-        // user is sitting at the node the loop just played from, pull
-        // their view forward to the new pointer; otherwise leave
-        // their navigation alone. This composes with "re-track by
-        // navigating back" — on the next move, `previousPointer` will
-        // be the node the user is now at (the move that just landed),
-        // so the gate fires and they resume tracking from there.
-        //
-        // `mutateBoard` confirms the board still exists; the earlier
-        // `updateBoardState` path also re-resolved the index
-        // defensively for the same reason. Without the existence
-        // check, a board closed mid-run would throw from inside the
-        // navigator.
-        onMoveApplied: ({ previousPointer, newPointer, newNode }) => {
-          if (!store.boards.find((b) => b.id === boardId)) {
-            throw new Error(`usePlayFromPosition: board ${boardId} disappeared mid-run`);
-          }
-          mutateBoard(boardId, (draft) => {
-            const parent = draft.nodes[previousPointer];
-            if (parent === undefined) {
-              throw new Error(
-                `usePlayFromPosition: parent node ${previousPointer} missing from board ${boardId}`,
-              );
-            }
-            if (newNode !== null) {
-              // New-node case: append the child to the parent's
-              // children list and add the new node to draft.nodes.
-              // Use `parent.children.length` (the index of the new
-              // entry) as the active-child index, which matches
-              // `applyGoMove`'s convention for fresh nodes.
-              draft.nodes[previousPointer] = {
-                ...parent,
-                children: [...parent.children, newPointer],
-                activeChildIndex: parent.children.length,
-              };
-              draft.nodes[newPointer] = newNode;
-            } else {
-              // Existing-child reuse: just bump activeChildIndex so
-              // subsequent active-variation walks descend into the
-              // loop's variation rather than whatever the user had
-              // selected.
-              const childIdx = parent.children.indexOf(newPointer);
-              if (childIdx !== -1) {
-                draft.nodes[previousPointer] = { ...parent, activeChildIndex: childIdx };
-              }
-            }
-            if (draft.currentNodeId === previousPointer) {
-              navigateTo(draft, newPointer);
-            }
-          });
-        },
+        // Surgical merge via the shared `reconcileEngineMoveDelta`
+        // helper. Appends the new child (new-node case) or bumps
+        // `activeChildIndex` (existing-child reuse), then advances
+        // the user's cursor only when they were tracking. See
+        // `engine-move-delta-reconcile.ts` for the full contract
+        // and the ADR-0002 fail-loud invariants.
+        onMoveApplied: (delta) => reconcileEngineMoveDelta(boardId, delta, 'usePlayFromPosition'),
       });
     } catch (err) {
       lastError.value = err instanceof Error ? err : new Error(String(err));

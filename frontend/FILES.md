@@ -194,6 +194,7 @@ frontend/src/
 │   │
 │   ├── board/                                Board-surface composables. Mostly B3.
 │   │   ├── autonomous-srs.ts          [B3]  Policy/Driver/Recorder abstractions for the autonomous SRS loop.
+│   │   ├── engine-move-delta-reconcile.ts [B3]  Shared surgical-merge helper for engine-move-delta consumers: reconciles an EngineDelta into the store and gates cursor advance on user-tracking.
 │   │   ├── suggestion-color-calibration.ts [B3] Domain init for the suggestion-color gradient: hue-shift watcher + fire-and-forget visit-distribution fetch (via getResource<T>); called once from useAppBootstrap.
 │   │   ├── useActivePath.ts           [B2]  NodeId lineage root → current node.
 │   │   ├── useBoardMoveRouting.ts     [B3]  Grading-integrity gate for both board-mutation entry points (click-to-play + paste-PV): AWAITING_MOVE routes to the review session's graded handler, transient SR states refuse mutation, free play (with the game-head engine trigger) is IDLE/FINISHED-only. Extracted from App.vue 2026-06-11.
