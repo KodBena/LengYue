@@ -235,6 +235,11 @@ async function submit() {
     }
   }
 
+  // Tracks whether a requested calibration is still the in-flight step,
+  // so the catch can attribute the failure correctly: a throw while this
+  // is true is a CALIBRATION failure (calibration-failed message); a
+  // throw after it clears came from `commitMint` (mint-failed alert only).
+  let calibrationPending = false;
   try {
     // Komi calibration (opt-in). Runs a fresh bounded evaluation and
     // rewrites the draft's SGF komi so the minted card stores the
@@ -244,11 +249,13 @@ async function submit() {
     // failure and the card is NOT created. The visits passed are the
     // per-mint value (which does not write back to the setting).
     if (calibrateKomi.value && engineConnected.value && draftBoardId.value) {
+      calibrationPending = true;
       const result = await calibrateKomiOnDraft(
         draftBoardId.value,
         draft.value,
         calibrationVisits.value,
       );
+      calibrationPending = false;
       // System-log the komi set for this card; name the clamp when it
       // fired so the user isn't surprised by an out-of-range adjustment.
       pushSystemMessage(
@@ -269,7 +276,10 @@ async function submit() {
     // A calibration failure aborts the mint loudly (ADR-0002) — surface
     // it in the system log as an error so the user knows the card was
     // NOT created and why, then fall through to the existing alert.
-    if (calibrateKomi.value) {
+    // Scoped to throws from the calibration step itself: a post-
+    // calibration `commitMint` failure must not be mislabelled as a
+    // calibration failure (coordinator gate correction, PR #434).
+    if (calibrationPending) {
       pushSystemMessage('error', t('mint.komiCalibration.failed', { err: String(err) }));
     }
     // Native alert wraps the English `${err}` per the (a) backend-error
