@@ -1,0 +1,42 @@
+# This file is TRACKED — deliberately. It originally carried a literal
+# `.gitignore` entry that made it self-ignoring: invisible in status,
+# never committed, and therefore absent from every fresh git worktree.
+# Worktree checkouts then had node_modules/ and dist/ UNIGNORED, which
+# is how installed dependency trees twice ended up staged into commits
+# (2026-06-12). Do not re-add a `.gitignore` entry here.
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.vscode
+gogui_old
+
+# Python bytecode (the run-selector-stack.py script generates this
+# alongside scripts/ when invoked with --help or otherwise imported).
+__pycache__/
+*.pyc
+
+# Autonomous-SRS run output (the JSONL recorder writes here by
+# default; per-run logs aren't worth committing).
+autonomous-srs-results.jsonl

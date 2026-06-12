@@ -1,0 +1,15 @@
+# This file is TRACKED — deliberately. It originally began with a
+# literal `.gitignore` entry that made it self-ignoring: invisible in
+# status, never committed, and therefore absent from every fresh git
+# worktree (the same trap as frontend/.gitignore; see that file's
+# header). Do not re-add a `.gitignore` entry here.
+__pycache__/
+data/
+venv
+models
+run.sh
+ebisu_parity.db
+.ebisu_secret_key
+.jwt_secret
+*.db
+!samples/*.db
