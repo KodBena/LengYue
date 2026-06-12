@@ -181,23 +181,25 @@ function awaitFinalPacket(
       ));
     }, timeoutMs);
     unsub = client.subscribe(query, (res) => {
-      // res is the broad KataGoResponse union; probe for an `error` field as
-      // an open record (the proxy can surface a wire error in-band).
-      if ('error' in (res as unknown as Record<string, unknown>)) {
-        const errMsg = (res as unknown as { error: string }).error; // error branch confirmed above; read the message
+      // `query` is a KataGoAnalysisQuery, so the generic `subscribe<Q>`
+      // types `res` as `KataAnalysisResponse | KataErrorResponse`. Probe
+      // the error variant in-band (the proxy can surface a wire error on
+      // this query's id); the `'error' in res` discriminant narrows the
+      // `else` to `KataAnalysisResponse` with no cast.
+      if ('error' in res) {
         settle(() => reject(
-          new Error(`KataGo error for queryId=${query.id}: ${errMsg}`),
+          new Error(`KataGo error for queryId=${query.id}: ${res.error}`),
         ));
         return;
       }
-      // No error field: this is an analysis response on this analysis query.
-      const r = res as KataAnalysisResponse;
+      // No error field: `res` is `KataAnalysisResponse` here (the `else`
+      // of the discriminant), so the downstream reads need no alias/cast.
       if (telemetryMeta) {
-        const rootVisits = r.rootInfo?.visits ?? 0;
-        telemetry.recordPacket(qid, r.turnNumber, rootVisits, r.isDuringSearch);
+        const rootVisits = res.rootInfo?.visits ?? 0;
+        telemetry.recordPacket(qid, res.turnNumber, rootVisits, res.isDuringSearch);
       }
-      if (r.turnNumber === expectedTurn && r.isDuringSearch === false) {
-        settle(() => resolve(r));
+      if (res.turnNumber === expectedTurn && res.isDuringSearch === false) {
+        settle(() => resolve(res));
       }
     });
   });

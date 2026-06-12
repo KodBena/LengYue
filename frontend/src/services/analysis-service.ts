@@ -7,10 +7,10 @@
 import { KataGoClient } from '../engine/katago/katago-client';
 import {
   type KataGoAnalysisQuery,
-  type KataGoResponse,
   type Player,
   type KataCoord,
   type KataAnalysisResponse,
+  type KataErrorResponse,
   type WinrateFraming,
 } from '../engine/katago/types';
 import {
@@ -1006,12 +1006,18 @@ export class AnalysisService {
   }
 
   /**
-   * Trust boundary for an analysis subscription's callback. The
-   * `subscribe` callback is typed with the broad `KataGoResponse`
-   * union (`KataAnalysisResponse | KataActionResponse |
-   * KataErrorResponse`); this narrows it before any consumer treats
-   * the packet as the analysis variant — ADR-0002 Rule 4 (boundaries
-   * validate, they do not coerce). The precedent is
+   * Trust boundary for an analysis subscription's callback. Since the
+   * `subscribe` API was made generic over the query type
+   * (`subscribe<Q>`, work-status item
+   * `subscribe-dispatch-structural-narrowing`), an analysis query's
+   * callback receives `ResponseFor<KataGoAnalysisQuery>` =
+   * `KataAnalysisResponse | KataErrorResponse` — the action variant is
+   * already gone at the type level. This boundary still discriminates the
+   * error variant before any consumer treats the packet as the analysis
+   * variant — ADR-0002 Rule 4 (boundaries validate, they do not coerce) —
+   * but the post-probe narrow to `KataAnalysisResponse` is now the
+   * compiler's, with no `as` cast (the `'error' in res` `else` branch
+   * leaves exactly `KataAnalysisResponse`). The precedent is
    * `awaitFinalPacket`'s `'error' in res` probe
    * (`composables/board/usePlayFromPosition.ts`); the same
    * field-presence discriminator is used here so the three sites
@@ -1052,7 +1058,10 @@ export class AnalysisService {
    *     sole subscriber mid-`forEach` in the client is safe (Set
    *     iteration tolerates deletion of the current element).
    */
-  private routeSubscriptionResponse(res: KataGoResponse, queryId: QueryId): void {
+  private routeSubscriptionResponse(
+    res: KataAnalysisResponse | KataErrorResponse,
+    queryId: QueryId,
+  ): void {
     if ('error' in res) {
       console.warn(
         `[analysis-service] error packet routed onto analysis query ${queryId}; `
@@ -1062,12 +1071,12 @@ export class AnalysisService {
       this.stopQuery(queryId);
       return;
     }
-    // No `error` field: an analysis subscription's id only ever carries
-    // analysis packets (action responses travel `sendCommand`'s own
-    // ephemeral subscription, never an analyze query's id), so the
-    // remaining union members narrow to the analysis variant. Mirrors
-    // `awaitFinalPacket`'s post-probe narrowing.
-    this.onAnalysisUpdate(res as KataAnalysisResponse, queryId);
+    // The `'error' in res` discriminant removed `KataErrorResponse`, so
+    // `res` is `KataAnalysisResponse` here with no cast — the type the
+    // generic `subscribe<KataGoAnalysisQuery>` already guarantees. (An
+    // action response would never reach an analyze query's id; that
+    // invariant is now encoded in `ResponseFor`, not asserted by an `as`.)
+    this.onAnalysisUpdate(res, queryId);
   }
 
   private onAnalysisUpdate(response: KataAnalysisResponse, queryId: QueryId) {

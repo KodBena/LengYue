@@ -612,3 +612,40 @@ export type KataGoResponse =
   | KataAnalysisResponse
   | KataActionResponse
   | KataErrorResponse;
+
+/**
+ * The response union a given query type can produce on the wire — the
+ * type-level statement of the id-routing invariant
+ * (`KataGoClient.handleIncomingMessage` dispatches a response only to
+ * the subscriber for that response's `id`, and a query's `id` only ever
+ * carries that query's own responses).
+ *
+ * - An **analysis** query (`KataGoAnalysisQuery`) yields streaming
+ *   `KataAnalysisResponse` packets, or a `KataErrorResponse` (a bad
+ *   palette compiled to a Python error, an unknown SELECTOR `model`, a
+ *   proxy-side abort). It never yields a `KataActionResponse`.
+ * - An **action** query (`KataGoActionQuery`) yields a single
+ *   `KataActionResponse` echo (e.g. `query_version`, `query_models`), or
+ *   a `KataErrorResponse`. It never yields a `KataAnalysisResponse`.
+ *
+ * The point of mapping query → response (rather than handing every
+ * subscriber the full `KataGoResponse`) is the compile-time forcing it
+ * buys at `KataGoClient.subscribe`: an analysis subscriber's callback
+ * receives `KataAnalysisResponse | KataErrorResponse`, so after a
+ * `'error' in res` discriminant the `else` branch narrows to
+ * `KataAnalysisResponse` with **no cast** — and a callback that reads an
+ * analysis field without discriminating the error variant is a hard type
+ * error (`TS2339`), not a silent `as`-erased cast. This is the
+ * type-enforced form of the per-subscriber narrowing PR #417 had to
+ * apply by hand at each site (work-status item
+ * `subscribe-dispatch-structural-narrowing`). The `'error' in res`
+ * field-presence probe is the same discriminator the wire-type contract,
+ * `routeSubscriptionResponse` (`services/analysis-service.ts`),
+ * `awaitFinalPacket` (`composables/board/usePlayFromPosition.ts`), and
+ * `handleIncomingMessage`'s global handler all use — one probe shape,
+ * every site.
+ */
+export type ResponseFor<Q extends KataGoQuery> =
+  Q extends KataGoActionQuery
+    ? KataActionResponse | KataErrorResponse
+    : KataAnalysisResponse | KataErrorResponse;
