@@ -7,13 +7,16 @@
  * cache shape PR #413 established for `FloatingThumbnail` / `ChartPreviewBox`
  * (see `FloatingThumbnail.seam.test.ts`, the floating-surface analog).
  *
- * The seam, as the panels now wire it:
+ * Since item `preview-snapshot-shared-composable` this drives the REAL shared
+ * unit `usePreviewSnapshot` (the composable the panels now wire), not a
+ * hand-restated copy of the quartet. The composable IS the panels'
+ * production seam:
  *   - the visible preview state is a `previewNode` ref holding a NodeId (or
- *     null), written ONLY synchronously (a hover sets it, a leave-time
- *     `resetPreview` clears it);
+ *     null), written ONLY synchronously (`showPreview` sets it, `reset`
+ *     clears it);
  *   - the displayed snapshot is DERIVED through `getSnapshotSync(previewNode)`
- *     in an accessor (`() => BoardSnapshot | null`), the contract
- *     `ChartPreviewBox` consumes;
+ *     in the `getPreview` accessor (`() => BoardSnapshot | null`), the
+ *     contract `ChartPreviewBox` consumes;
  *   - the only async work is a fire-and-forget `getSnapshot` cache WARM that
  *     writes the shared cache, never the gate.
  *
@@ -25,20 +28,22 @@
  * only the cache, so the accessor — reading the now-null `previewNode` —
  * stays empty.
  *
- * The test drives the REAL `useThumbnailCache` (the production sync-read /
- * async-warm functions the panels delegate to) against a real board; the
- * panel quartet itself (the ref + the two one-line setters + the accessor)
- * is the minimal glue modelled here, exactly as both panels spell it. A
- * deliberately-deferred `getSnapshot` resolve simulates the slow cache miss.
+ * The composable warms the cache internally via `useThumbnailCache().getSnapshot`.
+ * To model a SLOW cache miss (the race window) WITHOUT splitting the shared-
+ * cache module graph, `useThumbnailCache` is mocked once (hoisted) to the REAL
+ * implementation with its `getSnapshot` wrapped in a test-controlled gate
+ * (`warmGate`): the wrapper awaits the gate, then delegates to the real fill,
+ * so `getSnapshotSync` and the cache itself stay the genuine production
+ * singletons and the "the cache genuinely fills" assertion exercises real code.
  *
  * License: Public Domain (The Unlicense)
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { ref } from 'vue';
 import { flushPromises } from '@vue/test-utils';
 // @ts-ignore — @sabaki/sgf has no published types declaration.
 import sgf from '@sabaki/sgf';
+import type { BoardId, NodeId } from '../../src/types';
 
 // Quiet resetWorkspace's service-cleanup paths (the standard Tier-3 mocks).
 vi.mock('../../src/services/analysis-persistence-service', async () => {
@@ -50,16 +55,45 @@ vi.mock('../../src/services/analysis-service', async () => {
   return { analysisService: fakeAnalysisService };
 });
 
+// A test-controlled gate over the cache WARM. `null` = warm resolves
+// immediately (the default, cold-cache fast path); a Promise = the warm is
+// held until the test releases it (the slow-cache-miss race window). Module-
+// level so the hoisted mock factory can close over it; each test resets it.
+let warmGate: Promise<void> | null = null;
+
+// Mock useThumbnailCache to the REAL implementation, wrapping getSnapshot in
+// the gate. getSnapshotSync and the underlying reactive cache stay the real
+// singletons (one module graph), so the accessor reads — and the "cache
+// genuinely fills" assertion — exercise production code.
+vi.mock('../../src/composables/cards/useThumbnailCache', async () => {
+  const actual = await vi.importActual<
+    typeof import('../../src/composables/cards/useThumbnailCache')
+  >('../../src/composables/cards/useThumbnailCache');
+  return {
+    ...actual,
+    useThumbnailCache: () => {
+      const real = actual.useThumbnailCache();
+      return {
+        ...real,
+        getSnapshot: async (nodeId: NodeId, bId: BoardId) => {
+          if (warmGate) await warmGate;
+          return real.getSnapshot(nodeId, bId);
+        },
+      };
+    },
+  };
+});
+
 import { loadSgf } from '../../src/engine/sgf-loader';
 import { addBoard, resetWorkspace } from '../../src/store';
 import { useThumbnailCache } from '../../src/composables/cards/useThumbnailCache';
+import { usePreviewSnapshot } from '../../src/composables/cards/usePreviewSnapshot';
 import { purgeAllThumbnails } from '../../src/composables/cards/thumbnail-render-resources';
-import type { BoardSnapshot } from '../../src/engine/board-geometry';
-import type { BoardId, NodeId } from '../../src/types';
 import { resetFakeAnalysisService } from '../fakes/analysis-service';
 import { resetFakeAnalysisPersistenceService } from '../fakes/analysis-persistence-service';
 
 beforeEach(() => {
+  warmGate = null;
   resetFakeAnalysisService();
   resetFakeAnalysisPersistenceService();
   resetWorkspace();
@@ -84,39 +118,12 @@ function setup(source: string): { boardId: BoardId; path: NodeId[] } {
   return { boardId: board.id, path };
 }
 
-/**
- * The panels' cured quartet, spelled exactly as `ScoreLeadPanel` /
- * `MergedDeltaPanel` now wire it: a synchronously-written nodeId ref, an
- * accessor deriving the snapshot through the real `getSnapshotSync`, and a
- * `showPreview` that warms the shared cache fire-and-forget. `getSnapshot`
- * is the real cache fill; the test substitutes a deferred one per case to
- * model a slow cache miss.
- */
-function makePanelSeam(
-  boardId: BoardId,
-  warm: (nodeId: NodeId, boardId: BoardId) => Promise<unknown>,
-) {
-  const { getSnapshotSync } = useThumbnailCache();
-  const previewNode = ref<NodeId | null>(null);
-  const getPreview = (): BoardSnapshot | null =>
-    previewNode.value ? getSnapshotSync(previewNode.value) : null;
-  function showPreview(nodeId: NodeId): void {
-    previewNode.value = nodeId;
-    void warm(nodeId, boardId);
-  }
-  function resetPreview(): void {
-    previewNode.value = null;
-  }
-  return { previewNode, getPreview, showPreview, resetPreview };
-}
-
-describe('chart-panel preview seam (cured shape)', () => {
+describe('chart-panel preview seam (cured shape — real usePreviewSnapshot)', () => {
   it('hover sets the gate synchronously; the accessor fills once the warm resolves', async () => {
     const { boardId, path } = setup('(;FF[4]GM[1]SZ[19];B[pd];W[dp];B[pp])');
-    const { getSnapshot } = useThumbnailCache();
     const hovered = path[2];
 
-    const seam = makePanelSeam(boardId, getSnapshot);
+    const seam = usePreviewSnapshot(boardId);
     seam.showPreview(hovered);
 
     // Gate set synchronously; on a cold cache the accessor reads null until
@@ -126,30 +133,24 @@ describe('chart-panel preview seam (cured shape)', () => {
     await flushPromises();
     const snap = seam.getPreview();
     expect(snap).not.toBeNull();
-    // The accessor surfaces the hovered position, not some other node.
-    expect(snap).toEqual(seam.getPreview()); // stable cache read
+    // The accessor surfaces the hovered position via a stable cache read.
+    expect(snap).toEqual(seam.getPreview());
   });
 
   it('a warm landing AFTER a leave-time reset does not resurrect the stale preview', async () => {
+    // Hold the warm: model a slow cache-miss resolve that lands after leave.
+    let release!: () => void;
+    warmGate = new Promise<void>(r => { release = r; });
+
     const { boardId, path } = setup('(;FF[4]GM[1]SZ[19];B[pd];W[dp];B[pp])');
     const hovered = path[2];
 
-    // A deferred warm: the cache fill is held until we release it, modelling
-    // a slow cache-miss resolve that lands after the user has left the chart.
-    const real = useThumbnailCache();
-    let release!: () => void;
-    const gate = new Promise<void>(r => { release = r; });
-    const deferredWarm = async (nodeId: NodeId, bId: BoardId): Promise<unknown> => {
-      await gate;
-      return real.getSnapshot(nodeId, bId);
-    };
-
-    const seam = makePanelSeam(boardId, deferredWarm);
+    const seam = usePreviewSnapshot(boardId);
 
     // Hover, then leave before the warm resolves.
     seam.showPreview(hovered);
     expect(seam.previewNode.value).toBe(hovered);
-    seam.resetPreview();
+    seam.reset();
     expect(seam.previewNode.value).toBeNull();
     expect(seam.getPreview()).toBeNull();
 
@@ -158,7 +159,7 @@ describe('chart-panel preview seam (cured shape)', () => {
     await flushPromises();
 
     // The cache is warm for `hovered`…
-    expect(real.getSnapshotSync(hovered)).not.toBeNull();
+    expect(useThumbnailCache().getSnapshotSync(hovered)).not.toBeNull();
     // …but the gate was cleared by the leave, so the docked preview stays
     // empty — no content-resurrection. (Under the old awaited-write shape
     // the late resolve would have repopulated it.)
@@ -167,17 +168,18 @@ describe('chart-panel preview seam (cured shape)', () => {
 
   it('the async warm writes only the shared cache, never the gate', async () => {
     const { boardId, path } = setup('(;FF[4]GM[1]SZ[19];B[pd];W[dp])');
-    const { getSnapshot } = useThumbnailCache();
     const hovered = path[1];
 
-    const seam = makePanelSeam(boardId, getSnapshot);
+    const seam = usePreviewSnapshot(boardId);
     seam.showPreview(hovered);
-    seam.resetPreview(); // clear before the warm can resolve
+    seam.reset(); // clear before the warm can resolve
 
     await flushPromises();
 
     // previewNode (the gate) is untouched by the resolved warm.
     expect(seam.previewNode.value).toBeNull();
     expect(seam.getPreview()).toBeNull();
+    // The warm still filled the shared cache for `hovered` (cache-only write).
+    expect(useThumbnailCache().getSnapshotSync(hovered)).not.toBeNull();
   });
 });

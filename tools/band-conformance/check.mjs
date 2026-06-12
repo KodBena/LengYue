@@ -202,8 +202,23 @@ const BAND_EXCEPTIONS = new Map([
   // the thumbnail IS a Go-board MiniBoard surface; the tree consumes it as an
   // opaque hover affordance. Adjudicated 2026-06-11 at the PR #413 gate (the
   // re-band minted this edge; retagging TreeWidget [B3] would be the greater lie).
-  ['src/components/tree/TreeWidget.vue|src/components/board/FloatingThumbnail.vue',
+  // (2026-06-12, PR #433: key path corrected `board/` → `chrome/` —
+  // FloatingThumbnail lives under chrome/ and TreeWidget imports it from
+  // there; the prior key was a dead path that never matched the real edge,
+  // so the adjudication was inert and the edge sat in the advisory baseline.)
+  ['src/components/tree/TreeWidget.vue|src/components/chrome/FloatingThumbnail.vue',
    'B2 host consumes B3 thumbnail as opaque affordance (dominant concern holds)'],
+  // [B2] tree widget consuming the [B3] cured-preview sub-unit
+  // (warmSnapshotAccessor in usePreviewSnapshot): same dominant-concern edge
+  // as the FloatingThumbnail precedent above — TreeWidget consumes the
+  // Go-board hover-preview machinery as an opaque affordance; the unit deals
+  // in BoardSnapshot/NodeId, so [B3] is honest and retagging TreeWidget [B3]
+  // would be the greater lie. Minted 2026-06-12 when the cured quartet was
+  // extracted out of the panels + tree into usePreviewSnapshot (item
+  // preview-snapshot-shared-composable); identical in shape to TreeWidget's
+  // pre-existing useThumbnailCache edge, which the same extraction inherits.
+  ['src/components/tree/TreeWidget.vue|src/composables/cards/usePreviewSnapshot.ts',
+   'B2 host consumes B3 cured-preview sub-unit as opaque affordance (dominant concern holds)'],
   // [B2] scenario registry importing the [B3] jank-extended scenario:
   // dominant-concern edge — the registry's job is to enumerate every
   // registered scenario regardless of band; it consumes jankExtended as an
@@ -334,10 +349,18 @@ const BAND_EXCEPTIONS = new Map([
  * SettingsTab/ForestDirectory retags (→B1) surfaced 9 previously-masked
  * edges; 18 adjudicated edges moved to BAND_EXCEPTIONS. 47 − 7 + 9 − 18 = 31.
  * Worklog: docs/worklog/2026-06-12-band-adjudication-tranche-2.md.
+ *
+ * Ratcheted 31 → 30 on 2026-06-12 (PR #433): correcting the inert
+ * TreeWidget → FloatingThumbnail exception key (board/ → chrome/) made that
+ * already-intended adjudication finally fire, absolving the one real edge it
+ * had never matched. (The preview-snapshot extraction's new
+ * TreeWidget → usePreviewSnapshot edge is absolved by its own BAND_EXCEPTIONS
+ * entry and nets zero. The PR's worklog says 47 → 46 — authored against the
+ * pre-tranche-2 baseline; renumbered to 31 → 30 at the merge-train rebase.)
  */
 const NO_NEW_FINDINGS_RATCHET = {
   baselineDate: "2026-06-12",
-  baseline: 31, // measured advisory band-ordering findings at adoption HEAD
+  baseline: 30, // measured advisory band-ordering findings at adoption HEAD
 };
 
 // ── FILES.md band-tag parser ─────────────────────────────────────────────────

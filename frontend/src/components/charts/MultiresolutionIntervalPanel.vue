@@ -53,10 +53,23 @@ function handleCellClick(cell: HeatmapCell) {
 // ── Fixed preview window (replaces the ECharts thumbnail tooltip) ───────────
 // The heatmap emits cell-hover; we resolve the interval's start/end positions
 // to BoardSnapshots and render them as MiniBoards below the chart.
-const { getSnapshot } = useThumbnailCache();
+//
+// Cured hover-preview invariant (the same one usePreviewSnapshot single-sources
+// for the single-NodeId panels): the VISIBLE state is the synchronously-written
+// `hoveredCell` gate; the only async work is a fire-and-forget cache WARM that
+// writes the shared snapshot cache, never the gate. The two displayed snapshots
+// are DERIVED through `getSnapshotSync` over the current cell's endpoints, so a
+// late warm can fill a still-hovered preview but can never resurrect a cell the
+// leave already cleared. This site keeps its in-place wiring rather than the
+// composable: its gate is a two-endpoint `HeatmapCell`, not a single NodeId, so
+// it applies the invariant directly (as SidebarWidget's board-keyed docked pane
+// does) instead of consuming the NodeId quartet. The prior shape
+// (`startSnap.value = await getSnapshot(...)`) was an awaited write into the
+// visible refs, guarded only by a latest-wins `hoverToken` counter; deriving
+// the snapshots synchronously removes the race at the seam rather than guarding
+// around it.
+const { getSnapshot, getSnapshotSync } = useThumbnailCache();
 const hoveredCell = ref<HeatmapCell | null>(null);
-const startSnap = ref<BoardSnapshot | null>(null);
-const endSnap   = ref<BoardSnapshot | null>(null);
 
 const caption = computed(() => {
   const c = hoveredCell.value;
@@ -65,24 +78,33 @@ const caption = computed(() => {
   return `${colorLabel}: moves ${c.s}–${c.t} · ${c.value.toFixed(3)}`;
 });
 
-// Latest-wins guard: rapid hovers issue overlapping async snapshot fetches;
-// only the most recent result is allowed to land.
-let hoverToken = 0;
-watch(hoveredCell, async (cell) => {
-  const token = ++hoverToken;
-  if (!cell) { startSnap.value = null; endSnap.value = null; return; }
-  const startNode = variationPath.value[colorMoveToPly(cell.s, cell.color)];
-  const endNode   = variationPath.value[colorMoveToPly(cell.t, cell.color)];
-  // Pondering can paint a cell whose endpoint is past the live tail of the
-  // known variationPath; degrade to whichever board resolves (hover UX, not
-  // a state-transition contract — ADR-0002).
-  const [s, e] = await Promise.all([
-    startNode ? getSnapshot(startNode, boardId) : Promise.resolve(null),
-    endNode   ? getSnapshot(endNode,   boardId) : Promise.resolve(null),
-  ]);
-  if (token !== hoverToken) return;
-  startSnap.value = s;
-  endSnap.value   = e;
+// The cell's start/end node ids, re-derived from the current gate. Pondering
+// can paint a cell whose endpoint is past the live tail of the known
+// variationPath; an undefined endpoint degrades to a null preview (hover UX,
+// not a state-transition contract — ADR-0002).
+const startNode = computed(() => {
+  const c = hoveredCell.value;
+  return c ? variationPath.value[colorMoveToPly(c.s, c.color)] ?? null : null;
+});
+const endNode = computed(() => {
+  const c = hoveredCell.value;
+  return c ? variationPath.value[colorMoveToPly(c.t, c.color)] ?? null : null;
+});
+
+// Snapshots DERIVED from the cache over the current endpoints — null on a miss,
+// filled reactively when the warm lands (the cache is a reactive Map).
+const startSnap = computed<BoardSnapshot | null>(() =>
+  startNode.value ? getSnapshotSync(startNode.value) : null);
+const endSnap = computed<BoardSnapshot | null>(() =>
+  endNode.value ? getSnapshotSync(endNode.value) : null);
+
+// Fire-and-forget warm of the shared cache for both endpoints on every gate
+// change (cache-only writes; never the visible refs). No latest-wins token is
+// needed: the snapshots read the CURRENT cell, so a stale warm only fills the
+// cache and the computeds ignore it once the cell has moved on.
+watch(hoveredCell, () => {
+  if (startNode.value) void getSnapshot(startNode.value, boardId);
+  if (endNode.value)   void getSnapshot(endNode.value, boardId);
 });
 </script>
 

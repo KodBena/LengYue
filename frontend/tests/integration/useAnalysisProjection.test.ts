@@ -37,7 +37,6 @@ vi.mock('../../src/services/analysis-service', async () => {
 
 vi.mock('../../src/composables/cards/useThumbnailCache', () => ({
   useThumbnailCache: () => ({
-    getThumbnailSvg: vi.fn(async () => ''),
     warmPath: vi.fn(),
   }),
 }));
