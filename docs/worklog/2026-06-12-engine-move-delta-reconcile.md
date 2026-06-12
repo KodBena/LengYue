@@ -138,11 +138,16 @@ precisely without a WS mock connection:
    `draft.currentNodeId === previousPointer`.
 2. **New-node case — cursor stays when user has navigated away.**
    Verifies the gate does not fire when the user is elsewhere.
-3. **Existing-child reuse — `activeChildIndex` bumped and cursor
-   follows when tracking.** The load-bearing new test: constructs a
-   board with a pre-existing child via `applyGoMove`, then calls the
-   helper with `newNode: null`. Asserts `activeChildIndex` is bumped
-   to the correct slot and the user's cursor follows.
+3. **Existing-child reuse — `activeChildIndex` bumped; cursor stays
+   (user not at `previousPointer`).** The load-bearing new test:
+   constructs a board with a pre-existing child via `applyGoMove`,
+   then calls the helper with `newNode: null` while the user sits at
+   the child. Asserts `activeChildIndex` is bumped to the correct
+   slot and the tracking gate does not fire.
+   *(Coordinator correction 2026-06-12: the test's original name and
+   this entry claimed the cursor "follows when tracking"; the test
+   body exercises the non-tracking case — the tracking case is
+   test 4.)*
 4. **Existing-child reuse — cursor follows when tracking at
    `previousPointer`.** Complementary case confirming the tracking
    gate fires from the parent node.

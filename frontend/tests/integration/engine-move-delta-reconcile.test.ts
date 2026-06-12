@@ -53,8 +53,7 @@ import {
   resetWorkspace,
   mutateBoard,
 } from '../../src/store';
-import { createInitialBoard } from '../../src/store/board-factory';
-import { asNodeId } from '../../src/store/board-factory';
+import { createInitialBoard, asNodeId } from '../../src/store/board-factory';
 import { applyGoMove } from '../../src/logic';
 import { reconcileEngineMoveDelta } from '../../src/composables/board/engine-move-delta-reconcile';
 import type { BoardId, BoardState, NodeId, GameNode } from '../../src/types';
@@ -176,19 +175,17 @@ describe('reconcileEngineMoveDelta — new-node case', () => {
 });
 
 describe('reconcileEngineMoveDelta — existing-child-reuse case (newNode === null)', () => {
-  it('bumps activeChildIndex and advances cursor when user is tracking', () => {
+  it('bumps activeChildIndex without moving the cursor when the user is not at previousPointer', () => {
     const { boardId, rootId, childId } = boardWithOneChild();
 
-    // User is at childId (tracking the engine's position).
+    // User sits at childId — NOT at previousPointer (rootId) — so the
+    // tracking gate must not fire.
     mutateBoard(boardId, (draft) => { draft.currentNodeId = childId; });
 
-    // Engine's move deduped into the existing child of root.
-    // Set activeChildIndex to a different child to ensure the bump fires.
-    // (boardWithOneChild leaves activeChildIndex = 0 = childId's slot.)
-    // We'll reset it to -1 equivalent: slot doesn't matter because the
-    // test verifies the bump, so just confirm the childIdx lookup fires.
+    // Engine's move deduped into the existing child of root. Force
+    // activeChildIndex to a wrong slot first so the bump is observable
+    // (boardWithOneChild leaves it already at childId's slot).
     mutateBoard(boardId, (draft) => {
-      // Force activeChildIndex off so we can observe the bump clearly.
       draft.nodes[rootId] = { ...draft.nodes[rootId]!, activeChildIndex: 99 };
     });
 
