@@ -1,6 +1,6 @@
 {
-  "node_count": 483,
-  "edge_count": 2337,
+  "node_count": 484,
+  "edge_count": 2344,
   "age_buckets": [
     {
       "name": "fresh",
@@ -146,7 +146,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/adr/0007-file-size-and-information-density.md",
@@ -3314,7 +3314,7 @@
       "is_hub": false,
       "first_committed": "2026-06-08",
       "last_committed": "2026-06-08",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-08-ledger-stratified-keying.md",
@@ -3794,7 +3794,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-11-thumbnail-render-lifecycle-consolidation.md",
@@ -3824,9 +3824,9 @@
       "path": "docs/worklog/2026-06-12-band-adjudication-tranche-2.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-12",
+      "last_committed": "2026-06-12",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-12-engine-move-delta-reconcile.md",
@@ -3851,6 +3851,14 @@
       "first_committed": "2026-06-12",
       "last_committed": "2026-06-12",
       "age_bucket": "fresh"
+    },
+    {
+      "path": "docs/worklog/2026-06-12-subscribe-dispatch-narrowing.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "frontend/CLAUDE.md",
@@ -19851,6 +19859,55 @@
       "to": "docs/adr/0009-performance-investigation-discipline.md",
       "kind": "adr-related",
       "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-12-subscribe-dispatch-narrowing.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-12-subscribe-dispatch-narrowing.md",
+      "to": "docs/adr/0006-source-file-headers.md",
+      "kind": "adr-related",
+      "site": "ADR-0006",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-12-subscribe-dispatch-narrowing.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-12-subscribe-dispatch-narrowing.md",
+      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-12-subscribe-dispatch-narrowing.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-12-subscribe-dispatch-narrowing.md",
+      "to": "docs/doc-graph.md",
+      "kind": "path-mention",
+      "site": "`docs/doc-graph.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-12-subscribe-dispatch-narrowing.md",
+      "to": "docs/doc-graph-report.md",
+      "kind": "path-mention",
+      "site": "`docs/doc-graph-report.md`",
       "resolved": "resolved"
     },
     {
