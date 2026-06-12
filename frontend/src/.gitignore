@@ -1,0 +1,5 @@
+# Environment overrides — do not commit local secrets or per-machine config.
+# `.env.example` is committed as documentation; everything else stays local.
+.env
+.env.local
+.env.*.local
