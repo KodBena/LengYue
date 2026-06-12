@@ -6,11 +6,13 @@
 
 import { store } from '../../store';
 import { backendService } from '../../services/backend-service';
-import { serializeActivePath } from '../../engine/sgf-writer';
+import { serializeActivePath, setSgfRootKomi } from '../../engine/sgf-writer';
 import { resolveGameName } from '../../engine/util';
 import { compileAnalysisConfig, compileEngineOverrides } from '../../state/analysis-config';
 import { useMetadata } from '../auth-app/useMetadata';
 import { learnTags } from '../cards/useTags';
+import { useKomiCalibration } from './useKomiCalibration';
+import type { KomiCalibrationResult } from '../../engine/katago/komi-calibration';
 import { computed } from 'vue';
 import type { BoardId, CardCreatePayload, GameMetadataPayload } from '../../types';
 
@@ -159,6 +161,42 @@ export function useMinting() {
   }
 
   /**
+   * Mint-time komi calibration (opt-in, pedagogical). Runs a FRESH
+   * bounded evaluation for the board's current position at `visits`,
+   * computes the komi that makes the position even, and writes it onto
+   * the draft's serialized SGF (`raw_content`) so the minted card stores
+   * the even-game komi.
+   *
+   * Komi travels in the SGF `KM` root property — the card's only komi
+   * carrier (there is no separate komi wire field) — so adjusting it is
+   * a frontend-only rewrite of `raw_content`. The draft is mutated in
+   * place; the live board is untouched (calibration reads the board but
+   * does not write to it, and the SGF rewrite operates on the draft's
+   * own string).
+   *
+   * Failure (engine disconnect, wire error packet, timeout) REJECTS
+   * (ADR-0002) — `calibrate` throws and the caller aborts the mint
+   * loudly. There is no silent fallback to an uncalibrated mint.
+   *
+   * Returns the calibration result so the caller can report the komi set
+   * (and whether it was clamped) in the system log.
+   */
+  async function calibrateKomiOnDraft(
+    boardId: BoardId,
+    draft: CardCreatePayload,
+    visits: number,
+  ): Promise<KomiCalibrationResult> {
+    const board = store.boards.find(b => b.id === boardId);
+    if (!board) {
+      throw new Error(`calibrateKomiOnDraft: board ${boardId} not found in store`);
+    }
+    const { calibrate } = useKomiCalibration();
+    const result = await calibrate({ board, maxVisits: visits });
+    draft.raw_content = setSgfRootKomi(draft.raw_content, result.evenKomi);
+    return result;
+  }
+
+  /**
    * Submits the finalized payload to the API.
    * Automatically adds any newly introduced tags to the user's knownTags list.
    */
@@ -175,6 +213,7 @@ export function useMinting() {
 
   return {
     prepareDraft,
+    calibrateKomiOnDraft,
     commitMint
   };
 }

@@ -2801,3 +2801,55 @@ describe('59 → 60: re-apply the wrong-path backfills (valueBinding + moveSugge
     expect(out.profile.settings.appearance.moveSuggestionsFadeMs).toBe(60);
   });
 });
+
+describe('60 → 61: backfill engine.katago.calibrationVisits', () => {
+  // The new default visit budget for mint-time komi calibration. Written
+  // through the witnessed `profile.settings.engine.katago` parent
+  // container; default 1000.
+  function blobWithKatago(): any {
+    return {
+      profile: { settings: { engine: { katago: { url: 'ws://x' } } } },
+    };
+  }
+
+  it('backfills calibrationVisits = 1000 when the leaf is absent', () => {
+    const out = step(60)(blobWithKatago());
+    expect(out.profile.settings.engine.katago.calibrationVisits).toBe(1000);
+  });
+
+  it('preserves a pre-existing numeric calibrationVisits (idempotent / hand-edited)', () => {
+    const blob = blobWithKatago();
+    blob.profile.settings.engine.katago.calibrationVisits = 2500;
+    const out = step(60)(blob);
+    expect(out.profile.settings.engine.katago.calibrationVisits).toBe(2500);
+  });
+
+  it('replaces a non-numeric calibrationVisits with the default', () => {
+    const blob = blobWithKatago();
+    blob.profile.settings.engine.katago.calibrationVisits = 'lots';
+    const out = step(60)(blob);
+    expect(out.profile.settings.engine.katago.calibrationVisits).toBe(1000);
+  });
+
+  it('is a no-op when the katago container is absent (partial blob)', () => {
+    const blob: any = { profile: { settings: { engine: {} } } };
+    const out = step(60)(blob);
+    expect(out.profile.settings.engine.katago).toBeUndefined();
+  });
+
+  it('is a no-op when profile is absent (very-legacy blob)', () => {
+    const blob: any = { session: {} };
+    const out = step(60)(blob);
+    expect(out.profile).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v60 blob reaches CURRENT with calibrationVisits backfilled', () => {
+    const blob: any = {
+      schemaVersion: 60,
+      profile: { settings: { engine: { katago: { url: 'ws://x' } } } },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(out.profile.settings.engine.katago.calibrationVisits).toBe(1000);
+  });
+});

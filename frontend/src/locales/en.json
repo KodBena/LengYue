@@ -138,6 +138,12 @@
   "mint.button.mint":                     "Mint Card",
   "mint.button.minting":                  "Minting...",
   "mint.alert.failed":                    "Minting Failed: {err}",
+  "mint.field.calibrateKomi":             "Calibrate komi:",
+  "mint.field.calibrationVisits":         "Calibration visits:",
+  "mint.komiCalibration.hint":            "Re-evaluate this position and set komi so the game is even.",
+  "mint.komiCalibration.set":             "Komi calibrated: set to {komi} for this card.",
+  "mint.komiCalibration.setClamped":      "Komi calibrated: computed {raw}, clamped to {komi} (KataGo komi range) for this card.",
+  "mint.komiCalibration.failed":          "Komi calibration failed; mint aborted: {err}",
 
   "confirmLoad.title":                    "Board in Use",
   "confirmLoad.body":                     "The current board has moves. How would you like to load this position?",

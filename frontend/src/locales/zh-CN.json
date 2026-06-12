@@ -123,6 +123,12 @@
   "mint.button.mint":                     "制作卡片",
   "mint.button.minting":                  "制作中…",
   "mint.alert.failed":                    "制作失败:{err}",
+  "mint.field.calibrateKomi":             "校准贴目:",
+  "mint.field.calibrationVisits":         "校准访问数:",
+  "mint.komiCalibration.hint":            "重新评估此局面并设定贴目使对局均衡。",
+  "mint.komiCalibration.set":             "贴目已校准：本卡片设为 {komi}。",
+  "mint.komiCalibration.setClamped":      "贴目已校准：计算值 {raw}，限制为 {komi}（KataGo 贴目范围）。",
+  "mint.komiCalibration.failed":          "贴目校准失败，已取消制作：{err}",
 
   "confirmLoad.title":                    "棋盘正在使用",
   "confirmLoad.body":                     "当前棋盘已有着子。您希望如何加载此棋局?",

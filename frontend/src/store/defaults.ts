@@ -113,6 +113,14 @@ export const defaultSettings = {
       // Schema-version 41 → 42 backfills.
       reportDuringSearchEvery: 0.15,
       firstReportDuringSearchAfter: 0.05,
+      // Default visit budget for mint-time komi calibration (the opt-in
+      // pedagogical even-game feature). Spent on a one-shot evaluation
+      // at mint time; never persisted onto the card. Prefills the
+      // per-mint visits input in MintCardModal when the engine is
+      // connected. Distinct from `minting.defaultVisits` (the per-card
+      // analysis budget). See `AppSettings.engine.katago.calibrationVisits`
+      // in `schema.ts`. Schema-version 60 → 61 introduces / backfills.
+      calibrationVisits: 1000,
       // Engine-side runtime overrides forwarded as KataGo's
       // `overrideSettings` field on every analysis query. The seed
       // values are a sensible default analysis posture for the SR

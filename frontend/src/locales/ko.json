@@ -123,6 +123,12 @@
   "mint.button.mint":                     "카드 만들기",
   "mint.button.minting":                  "만드는 중…",
   "mint.alert.failed":                    "만들기 실패: {err}",
+  "mint.field.calibrateKomi":             "덤 보정:",
+  "mint.field.calibrationVisits":         "보정 방문 횟수:",
+  "mint.komiCalibration.hint":            "이 국면을 재평가하여 호각이 되도록 덤을 설정합니다.",
+  "mint.komiCalibration.set":             "덤 보정 완료: 이 카드에 {komi}(으)로 설정했습니다.",
+  "mint.komiCalibration.setClamped":      "덤 보정 완료: 계산값 {raw}을(를) {komi}(으)로 제한했습니다 (KataGo 덤 범위).",
+  "mint.komiCalibration.failed":          "덤 보정 실패; 만들기를 중단했습니다: {err}",
 
   "confirmLoad.title":                    "보드 사용 중",
   "confirmLoad.body":                     "현재 보드에 수가 있습니다. 이 위치를 어떻게 로드하시겠습니까?",

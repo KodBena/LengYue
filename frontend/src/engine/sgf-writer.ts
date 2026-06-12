@@ -66,6 +66,76 @@ export function serializeBoard(state: BoardState): string {
   return result;
 }
 
+/**
+ * Set (or insert) the root-node `KM` (komi) property on an already-
+ * serialized SGF string, returning a new SGF with the adjusted komi.
+ *
+ * Used by mint-time komi calibration: the mint draft already holds the
+ * serialized `raw_content`, and re-deriving + re-serializing the board
+ * would risk drifting from the exact SGF the draft captured. Rewriting
+ * the one property in place is the minimal, drift-free change.
+ *
+ * The root node is the first `;`-prefixed property block, immediately
+ * after the opening `(`. Two cases:
+ *
+ *   - **`KM` present** — replace its single value. The SGF this writer
+ *     emits has at most one `KM[...]` on the root (komi is a single-
+ *     valued property), so the first match on the root block is THE
+ *     komi.
+ *   - **`KM` absent** — insert `KM[<komi>]` at the head of the root
+ *     block's properties (right after the leading `;`), so it sits
+ *     alongside `SZ` / `GM` / `FF`.
+ *
+ * Pure and total. Throws (ADR-0002) if the input is not a well-formed
+ * SGF collection (no leading `(;`) rather than silently returning a
+ * mangled string — a malformed `raw_content` at mint time is a bug, not
+ * a value to coerce. The numeric komi is formatted with `String(komi)`,
+ * matching the `KM[6.5]` / `KM[7]` shapes KataGo and the SGF spec
+ * accept; the calibration caller has already rounded to a half-integer.
+ */
+export function setSgfRootKomi(sgf: string, komi: number): string {
+  // The root block runs from the first `;` (just inside the opening
+  // paren) up to the next structural delimiter that ends it: another
+  // `;` (the next node), a `(` (a variation), or the closing `)`.
+  const openMatch = sgf.match(/^\(\s*;/);
+  if (!openMatch) {
+    throw new Error(
+      `setSgfRootKomi: input is not a well-formed SGF collection ` +
+      `(expected a leading "(;"): ${JSON.stringify(sgf.slice(0, 32))}…`,
+    );
+  }
+  const rootStart = openMatch[0].length; // index just after the root's leading `;`
+  // Find where the root block's properties end: the first `;`, `(`, or
+  // `)` AT THE TOP LEVEL of the root block. Property values can contain
+  // `;`/`(`/`)` inside `[...]`, so scan bracket-aware.
+  let rootEnd = sgf.length;
+  let inValue = false;
+  for (let i = rootStart; i < sgf.length; i++) {
+    const ch = sgf[i];
+    if (inValue) {
+      if (ch === '\\') { i++; continue; } // escaped char inside a value
+      if (ch === ']') inValue = false;
+      continue;
+    }
+    if (ch === '[') { inValue = true; continue; }
+    if (ch === ';' || ch === '(' || ch === ')') { rootEnd = i; break; }
+  }
+
+  const rootBlock = sgf.slice(rootStart, rootEnd);
+  const before = sgf.slice(0, rootStart);
+  const after = sgf.slice(rootEnd);
+
+  const komiStr = String(komi);
+  // Replace an existing root `KM[...]` value (single-valued property)
+  // or insert a fresh one at the head of the root block.
+  const kmRe = /KM\[(?:\\.|[^\]\\])*\]/;
+  const rewrittenRoot = kmRe.test(rootBlock)
+    ? rootBlock.replace(kmRe, `KM[${escapeSgf(komiStr)}]`)
+    : `KM[${escapeSgf(komiStr)}]` + rootBlock;
+
+  return before + rewrittenRoot + after;
+}
+
 export function serializeActivePath(state: BoardState): string {
   // SHAPE NOTE (branded-path-types arc, 2026-06-10): despite the name,
   // this serializes ROOT→CURRENT — the moves up to the cursor — NOT the

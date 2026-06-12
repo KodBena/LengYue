@@ -407,6 +407,22 @@ export interface AppSettings {
        * [0.001, 4.0]. Schema-version 41 → 42 backfills.
        */
       firstReportDuringSearchAfter: number;
+      /**
+       * Default `maxVisits` for mint-time komi calibration — the
+       * opt-in, maintainer-specified pedagogical feature that issues a
+       * fresh bounded analysis on mint and adjusts the minted card's
+       * komi so the position is even (teaching the student the correct
+       * move set if the game were balanced). Prefills the per-mint
+       * visits input in `MintCardModal` when the "calibrate komi"
+       * checkbox is shown (engine connected); per-mint edits to the
+       * field do NOT write back to this setting. Distinct from
+       * `minting.defaultVisits` (the per-card *analysis* visit budget
+       * the backend records on the card) — this is a one-shot evaluation
+       * budget spent at mint time and never persisted. Default 1000;
+       * range [1, …] (a positive visit count). Schema-version 60 → 61
+       * introduces and backfills the field.
+       */
+      calibrationVisits: number;
       // Engine-side runtime overrides forwarded verbatim to KataGo as
       // the Analysis Engine's `overrideSettings` field. Documented at
       // the wire-shape boundary on `KataGoAnalysisQuery` in
