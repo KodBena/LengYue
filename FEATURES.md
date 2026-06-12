@@ -289,9 +289,8 @@ modal collects:
 - **Discount γ** — Ebisu's recall-decay parameter, per card.
 - **Analysis palette** — which palette compiles the grading
   signal.
-- **Calibrate komi** `[experimental]` — an opt-in, maintainer-
-  specified pedagogical control, shown only when an engine is
-  connected. When checked, minting first runs a fresh bounded
+- **Calibrate komi** — an opt-in pedagogical control, shown
+  only when an engine is connected. When checked, minting first runs a fresh bounded
   evaluation of the position (at a per-mint visit budget,
   prefilled from a user setting) and adjusts the minted card's
   komi so the position is even — teaching the student the

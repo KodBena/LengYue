@@ -153,8 +153,11 @@ Tests:
 
 Docs:
 
-- `FEATURES.md` — new `Calibrate komi` `[experimental]` bullet under Card
-  minting.
+- `FEATURES.md` — new `Calibrate komi` bullet under Card minting.
+  *(Coordinator gate correction 2026-06-12: the commission asked for an
+  `[experimental]` tag; the maintainer overruled it — ceremony scales
+  with change size, and a tested, reviewed feature of this size ships
+  untagged. The bullet lands without a qualifier.)*
 - `frontend/FILES.md` — rows for `komi-calibration.ts` and
   `useKomiCalibration.ts`; `useMinting.ts` row note updated.
 - Doc-graph regenerated (this worklog is a structural add).
@@ -374,8 +377,9 @@ Deferrals as `not-filed:` markers.
   (Deferrals).
 - RUNTIME unverified — **ACKNOWLEDGED, not dischargeable here.** Driving
   the live proxy is explicitly out of scope for this commission (the
-  maintainer validates against a live engine; the feature ships
-  `[experimental]` for that reason). The engine-facing leg is exercised
+  maintainer validates against a live engine; the `[experimental]` tag
+  the commission requested for that reason was overruled at the gate —
+  the entry ships untagged, see Docs above). The engine-facing leg is exercised
   through fakes; the arithmetic and SGF-rewrite legs are unit-tested.
 - Direction (#4) + single-source evalKomi (#3) — **SOUND, no action.**
 

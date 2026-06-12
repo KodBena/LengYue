@@ -1,0 +1,210 @@
+/**
+ * src/composables/perf/scenarios.ts
+ *
+ * The scenario registry and the built-in scenarios, plus the dev-only
+ * `window.__perfScenario` install the Playwright capture driver (and a
+ * dev-toolbar picker) call into.
+ *
+ * Scenarios are registered as factories `(cfg) => PerfScenario` so a
+ * caller can tune the fixture / visit budget / popover target per run.
+ * The built-ins span the regimes the perf arc distinguishes:
+ *
+ *   - `nav-only`            — autonav to leaf, no analysis (regime-A baseline).
+ *   - `nav-range`           — autonav while a full-game range analysis streams
+ *                             (regime-B: the interleaving case).
+ *   - `full-stress`         — `nav-range` plus concurrent popover churn.
+ *   - `stability-nav-range` — `nav-range` but pinned to the Stability sub-tab
+ *                             so `StabilityPanel` mounts and
+ *                             `useStabilityMetrics` runs under packet load.
+ *                             The Basic sub-tab the other regime-B scenarios
+ *                             pin renders only ScoreLead + MergedDelta, so the
+ *                             stability-panel per-packet cost is NOT in their
+ *                             counts; this scenario is the substrate for
+ *                             measuring it.
+ *   - `jank-extended`       — the docked-thumbnail jank stress (16-board
+ *                             Shusaku rail + hover-scrub) composed with the
+ *                             board-overlay + never-completing-query stress the
+ *                             bare jank test omits, ending in an indirect cancel
+ *                             by proxy disconnect. Built in `jankExtended.ts`;
+ *                             builds its own rail and manages its own cleanup.
+ *
+ * Domain band (ADR-0003): game-tree-coupled (B2). Dev-only; makes no
+ * perf *claim* (ADR-0009).
+ *
+ * License: Public Domain (The Unlicense)
+ */
+import { analysisService } from '../../services/analysis-service';
+import { runScenario } from './scenarioContext';
+import { popoverStress, DEFAULT_POPOVER_TARGET } from './stimuli';
+import { DEFAULT_FIXTURE_SGF } from './fixtures';
+import { jankExtendedScenario } from './jankExtended';
+// magic-literal: default per-turn visit budget. 1000 visits/move is the
+// protocol used (implicitly) during the green-arc captures.
+const DEFAULT_VISITS = 1000;
+// magic-literal: default proxy WS URL — the SELECTOR role on :1235 (the
+// dev-resources convention; see reference_dev_resources / umbrella CLAUDE.md).
+// The env default (config/env.ts KATAGO_WS_URL → :41948) is the wrong target
+// for a fresh capture context, so analysis scenarios pin the SELECTOR here.
+// 127.0.0.1 is correct on-VM (the harness runs here); connectEngine applies it
+// TRANSIENTLY via analysisService.connect() and never persists it, so a
+// capture does not clobber the maintainer's profile proxy host (which is
+// ws://192.168.122.68:1235 — the LAN IP their browser reaches).
+const DEFAULT_PROXY_URL = 'ws://127.0.0.1:1235';
+/** Load the fixture and walk the cursor home — shared scenario preamble. */
+function loadAndHome(ctx, cfg) {
+    const boardId = ctx.loadSgf(cfg.sgf ?? DEFAULT_FIXTURE_SGF);
+    ctx.nav.home();
+    return boardId;
+}
+/**
+ * Analysis-scenario preamble: load the fixture, connect the engine (select
+ * model, set adaptive per protocol), and clear the cache for a cold-cache
+ * run (cache warmth confounds packet volume across runs — see the
+ * perf-capture normalization protocol). Returns the board id.
+ */
+async function prepareAnalysis(ctx, cfg) {
+    // Engine setup (the awaits) FIRST, board creation LAST — so no event-loop
+    // yield sits between creating the board and the scenario's analyzeRange.
+    // An async workspace mutation (sync-hydrate's resetWorkspace) could
+    // otherwise clobber store.boards during an intervening await, leaving
+    // analyzeRange unable to find the freshly-created board. The capture
+    // driver additionally waits for bootstrap to settle before invoking the
+    // scenario, so this is defence-in-depth.
+    await ctx.connectEngine({
+        url: cfg.proxyUrl ?? DEFAULT_PROXY_URL,
+        model: cfg.model,
+        adaptive: cfg.adaptive ?? false,
+    });
+    await ctx.clearCache();
+    return loadAndHome(ctx, cfg);
+}
+const REGISTRY = new Map([
+    [
+        'nav-only',
+        (_cfg) => ({
+            name: 'nav-only',
+            async run(ctx) {
+                loadAndHome(ctx, _cfg);
+                await ctx.measure('drive', () => ctx.autonav());
+            },
+        }),
+    ],
+    [
+        'nav-range',
+        (cfg) => ({
+            name: 'nav-range',
+            async run(ctx) {
+                const boardId = await prepareAnalysis(ctx, cfg);
+                const q = ctx.analyzeRange(boardId, { full: true, visits: cfg.visits ?? DEFAULT_VISITS });
+                await ctx.measure('drive', () => ctx.autonav());
+                q.stop();
+            },
+        }),
+    ],
+    [
+        // Same regime-B interleave as `nav-range`, but the autonav walk pins
+        // the *Stability* sub-tab (not Basic), so `StabilityPanel` is mounted
+        // and `useStabilityMetrics` recomputes under the same streaming packet
+        // load. This is the measurement substrate for the stability-panel
+        // per-packet cost — the question the usestabilitymetrics-incremental
+        // re-profile-first clause poses. Makes no perf *claim* (ADR-0009); it
+        // is the harness, not a result.
+        'stability-nav-range',
+        (cfg) => ({
+            name: 'stability-nav-range',
+            async run(ctx) {
+                const boardId = await prepareAnalysis(ctx, cfg);
+                const q = ctx.analyzeRange(boardId, { full: true, visits: cfg.visits ?? DEFAULT_VISITS });
+                await ctx.measure('drive', () => ctx.autonav({ subTab: 'stability' }));
+                q.stop();
+            },
+        }),
+    ],
+    [
+        // Workspace-reset churn — the leak-churn target for `resetWorkspace`
+        // (the other named resource-ownership cleanup alongside closeBoard).
+        // Each cycle builds workspace state then resets it; perf-heap repeats
+        // and checks retained heap doesn't grow per reset. If `model` is given,
+        // an in-flight analysis is left running into the reset so the bulk
+        // stopAllBoardAnalyses / forgetAll path is exercised under load. Run
+        // under perf-heap (default no-persist) — resetWorkspace clears boards.
+        'workspace-reset',
+        (cfg) => ({
+            name: 'workspace-reset',
+            async run(ctx) {
+                const board = ctx.loadSgf(cfg.sgf ?? DEFAULT_FIXTURE_SGF);
+                ctx.nav.home();
+                if (cfg.model) {
+                    await ctx.connectEngine({
+                        url: cfg.proxyUrl ?? DEFAULT_PROXY_URL,
+                        model: cfg.model,
+                        adaptive: cfg.adaptive ?? false,
+                    });
+                    // Fire-and-forget — left in flight so the reset tears it down.
+                    ctx.analyzeRange(board, { full: true, visits: cfg.visits ?? DEFAULT_VISITS });
+                }
+                ctx.resetWorkspace();
+            },
+        }),
+    ],
+    [
+        'full-stress',
+        (cfg) => ({
+            name: 'full-stress',
+            async run(ctx) {
+                const boardId = await prepareAnalysis(ctx, cfg);
+                const q = ctx.analyzeRange(boardId, { full: true, visits: cfg.visits ?? DEFAULT_VISITS });
+                ctx.spawn(popoverStress(cfg.popoverTarget ?? DEFAULT_POPOVER_TARGET));
+                await ctx.measure('drive', () => ctx.autonav());
+                q.stop();
+            },
+        }),
+    ],
+    [
+        // The extended jank protocol (work-status `perf-jank-extended-before-after`,
+        // 2026-06-12): the docked-thumbnail jank stress composed with the board-
+        // overlay + streaming-query stress the bare jank test omits. Its run shape
+        // — 16-board Shusaku rail, a warm 200-visit transposition query, all four
+        // overlays asserted on, then a single autonav pass under popover/hover/
+        // never-completing-100000-visit-query stress ending in an indirect cancel
+        // by proxy disconnect — lives in `jankExtended.ts`. Unlike the fixture-
+        // based scenarios it builds its own board rail (via the jank substrate) and
+        // manages its own cleanup, so it is registered as a pre-built scenario
+        // rather than via the `prepareAnalysis` preamble. `visits` is ignored (the
+        // protocol pins 200 warm / 100000 in-flight); `proxyUrl`/`model` flow.
+        'jank-extended',
+        (cfg) => jankExtendedScenario({
+            proxyUrl: cfg.proxyUrl ?? DEFAULT_PROXY_URL,
+            model: cfg.model,
+        }),
+    ],
+]);
+/** Names of the registered scenarios, for pickers and diagnostics. */
+export function listScenarios() {
+    return [...REGISTRY.keys()];
+}
+/**
+ * Build and run a registered scenario by name. Throws (fail-loud) on an
+ * unknown name, listing the known set.
+ */
+export async function runScenarioByName(name, cfg = {}) {
+    const factory = REGISTRY.get(name);
+    if (!factory) {
+        throw new Error(`Unknown perf scenario "${name}". Known: ${listScenarios().join(', ')}`);
+    }
+    await runScenario(factory(cfg));
+}
+/**
+ * Install `window.__perfScenario` in dev builds so the Playwright capture
+ * driver (and a dev-toolbar picker) can launch scenarios by name. No-op in
+ * production — the harness must never ship to users.
+ */
+export function installPerfScenarios() {
+    if (!import.meta.env.DEV)
+        return;
+    window.__perfScenario = {
+        run: (name, cfg) => runScenarioByName(name, cfg),
+        list: () => listScenarios(),
+        disconnect: () => analysisService.disconnect(),
+    };
+}
