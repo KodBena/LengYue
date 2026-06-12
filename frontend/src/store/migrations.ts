@@ -128,13 +128,13 @@ if (import.meta.hot) import.meta.hot.accept(() => location.reload());
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 60;
+export const CURRENT_SCHEMA_VERSION = 61;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 57 → 58) are
+ * The first `N` entries (currently 1 → 2 through 58 → 59) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -156,38 +156,6 @@ export const CURRENT_SCHEMA_VERSION = 60;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 58 → 59: re-scope `session.ui.forestNav.selection` from a single
-  // workspace-global `NavSelection | null` to a per-board map
-  // (`PerBoard<NavSelection>`), so a null/absent selection on one board can no
-  // longer drive (or clear) the right pane of another (board-scope audit P0;
-  // see `frontend/docs/notes/board-scope.md`). `forestNav.expanded` stays
-  // global — the navigator tree is the user's whole library. The prior global
-  // selection is transient navigator state, not user data, so it is dropped
-  // rather than re-homed under a guessed active board.
-  //
-  // Detection: the already-migrated shape is a plain board-keyed map (object,
-  // non-null, no top-level `kind`; keys are BoardId UUIDs, never `kind`). The
-  // old shape is `null` or a discriminated `NavSelection` (carries `kind`).
-  // Reset anything that is not already the new shape; idempotent on it.
-  //
-  // Container access goes through `witnessedContainer` (semantics-
-  // preserving retrofit; see the helper's docstring): the
-  // 'session.ui.forestNav' path is witnessed against the runtime
-  // shape, and the blob-side resolution keeps the prior
-  // `out.session?.ui?.forestNav` + non-null-object tolerance.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const nav = witnessedContainer(out, 'session.ui.forestNav');
-    if (nav) {
-      const sel = (nav as { selection?: unknown }).selection;
-      const alreadyPerBoard =
-        typeof sel === 'object' && sel !== null && !('kind' in (sel as object));
-      if (!alreadyPerBoard) {
-        (nav as { selection: unknown }).selection = {};
-      }
-    }
-    return out;
-  },
   // 59 → 60: re-apply the two backfills the archived 45 → 46 and
   // 46 → 47 bodies were meant to perform but silently no-oped on. Both
   // walked `out.settings?.…` instead of `out.profile?.settings?.…` —
@@ -237,6 +205,38 @@ export const migrations: Migration[] = [
       const ap = appearance as { moveSuggestionsFadeMs?: unknown };
       if (typeof ap.moveSuggestionsFadeMs !== 'number') {
         ap.moveSuggestionsFadeMs = 60;
+      }
+    }
+    return out;
+  },
+  // 60 → 61: backfill `profile.settings.engine.katago.calibrationVisits`
+  // (number, default 1000) — the new default visit budget for the opt-in
+  // mint-time komi-calibration feature. The leaf is read by
+  // `MintCardModal` (prefills the per-mint visits input when the
+  // "calibrate komi" checkbox is shown) and seeded in `defaults.ts`; a
+  // persisted blob predating this field would otherwise carry no value
+  // and rely on `updateFromRemote`'s deepMerge to surface the default.
+  // Backfilling explicitly keeps the persisted shape honest (the
+  // composition test pins it) rather than leaning on the merge.
+  //
+  // Container witnessed against the runtime shape (`witnessedContainer`,
+  // per step 3 of the add-a-migration recipe): the
+  // `profile.settings.engine.katago` container exists from the original
+  // settings seed, so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version. The blob-side resolution keeps the
+  // sibling bodies' non-null-object tolerance: a partial / legacy blob
+  // whose container is absent no-ops.
+  //
+  // Idempotent: a pre-existing numeric `calibrationVisits` is preserved
+  // unchanged (a hand-edited or forward-compat blob keeps its value);
+  // only a missing / wrong-typed leaf is backfilled to the default.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const katago = witnessedContainer(out, 'profile.settings.engine.katago');
+    if (katago) {
+      const k = katago as { calibrationVisits?: unknown };
+      if (typeof k.calibrationVisits !== 'number') {
+        k.calibrationVisits = 1000;
       }
     }
     return out;

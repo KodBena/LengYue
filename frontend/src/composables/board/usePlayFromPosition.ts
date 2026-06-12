@@ -32,6 +32,7 @@
 
 import { ref, type Ref } from 'vue';
 import { KataGoClient } from '../../engine/katago/katago-client';
+import { connectFresh, awaitFinalPacket as sharedAwaitFinalPacket } from '../../engine/katago/fresh-eval';
 import { useQueryTelemetry } from '../useQueryTelemetry';
 
 const telemetry = useQueryTelemetry();
@@ -58,45 +59,17 @@ import {
 } from '../../engine/util';
 import { ENGINE_PLAY_MOVE_TIMEOUT_MS } from '../../lib/timing';
 
-// ── Pure WS primitives ───────────────────────────────────────────────────────
-
-/**
- * Connect a fresh KataGoClient and resolve once `onConnect` fires.
- * Rejects on disconnect-before-open and on `onError`. Wraps the
- * client's callback-shaped lifecycle into a single Promise.
- */
-function connectFresh(url: string): Promise<KataGoClient> {
-  return new Promise((resolve, reject) => {
-    let opened = false;
-    let settled = false;
-    const settle = (fn: () => void) => {
-      if (settled) return;
-      settled = true;
-      fn();
-    };
-    const client = new KataGoClient('');
-    client.connect(url, {
-      onConnect: () => {
-        opened = true;
-        settle(() => resolve(client));
-      },
-      onDisconnect: (code, reason) => {
-        if (!opened) {
-          settle(() => reject(
-            new Error(`KataGo WS closed before open (code=${code}, reason=${reason || 'n/a'}, url=${url})`),
-          ));
-        }
-      },
-      onError: (errorMsg) => {
-        if (!opened) {
-          settle(() => reject(
-            new Error(`KataGo WS error before open: ${errorMsg} (url=${url})`),
-          ));
-        }
-      },
-    });
-  });
-}
+// ── WS primitives ────────────────────────────────────────────────────────────
+//
+// `connectFresh` and the core of `awaitFinalPacket` are the SHARED
+// `engine/katago/fresh-eval.ts` primitives (one owned copy; this module
+// and the komi-calibration path are the two consumers, plus the two
+// in-file consumers `playEngineMoves` / `playEngineMatch`). The local
+// `awaitFinalPacket` below is a thin telemetry-binding wrapper: it
+// supplies the queue-tooltip side-effects (register / record / cancel /
+// unregister) through the shared primitive's `AwaitFinalPacketHooks`,
+// keeping the connect / discriminate / timeout / teardown logic in one
+// place while preserving this module's Toolbar-queue behaviour.
 
 /**
  * Telemetry meta the caller passes when it wants this query to
@@ -113,17 +86,18 @@ interface AwaitTelemetryMeta {
 
 /**
  * Subscribe a single query and resolve with the first final packet
- * (`isDuringSearch === false`) for `expectedTurn`. Intermediate
- * during-search packets are ignored. The subscription tears down via
- * the returned `unsub` regardless of which channel wins.
+ * (`isDuringSearch === false`) for `expectedTurn`, delegating the
+ * connect / discriminate / timeout / teardown core to the shared
+ * `fresh-eval.ts` primitive.
  *
- * When `telemetryMeta` is supplied, the call also registers the
- * query with the SPA's queue-telemetry singleton, records each
- * packet's `(turnNumber, visits, isDuringSearch)` for ETA
- * computation, and unregisters on settle (regardless of which
- * channel — final / timeout / error — wins). This is how the
- * engine-match loop surfaces in the Toolbar queue alongside
- * analysis-service-issued queries.
+ * When `telemetryMeta` is supplied, this wrapper registers the query
+ * with the SPA's queue-telemetry singleton, records each packet's
+ * `(turnNumber, visits, isDuringSearch)` for ETA computation, arms a
+ * user-cancel that terminates the proxy-side query, and unregisters on
+ * settle (regardless of which channel — final / timeout / error /
+ * cancel — wins). This is how the engine-match loop surfaces in the
+ * Toolbar queue alongside analysis-service-issued queries. Without
+ * `telemetryMeta` the call is a plain shared `awaitFinalPacket`.
  */
 function awaitFinalPacket(
   client: KataGoClient,
@@ -132,76 +106,56 @@ function awaitFinalPacket(
   timeoutMs: number,
   telemetryMeta?: AwaitTelemetryMeta,
 ): Promise<KataAnalysisResponse> {
-  return new Promise((resolve, reject) => {
-    // `query.id` is the QueryId the caller minted (passed via buildAnalyzeQuery,
-    // stored into the wire-string `id`); lift it back to the brand for the
-    // telemetry calls below — the one re-brand boundary in this module.
-    const qid = asQueryId(query.id);
-    let unsub: (() => void) | null = null;
-    let settled = false;
-    const settle = (fn: () => void) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      unsub?.();
-      if (telemetryMeta) telemetry.unregisterQuery(qid);
-      fn();
-    };
-    if (telemetryMeta) {
-      telemetry.registerQuery({
-        queryId:       qid,
-        kind:          telemetryMeta.kind,
-        boardId:       null,
-        model:         telemetryMeta.model,
-        startTimeMs:   Date.now(),
-        turnsTotal:    1,
-        visitsPerTurn: telemetryMeta.visitsPerTurn,
-        label:         telemetryMeta.label,
-        // Cancel: terminate the proxy-side query (so the engine
-        // stops computing the deeper analysis), then settle the
-        // promise with a rejection. The `playEngineMatch` loop's
-        // try/catch handles the rejection and tears the match
-        // down — cancelling one turn cancels the match, since
-        // the loop can't skip past an aborted turn.
-        cancel: () => {
-          void client.sendCommand({
-            id: `term-cancel-${Date.now()}`,
-            action: 'terminate',
-            terminateId: query.id,
-          });
-          settle(() => reject(
-            new Error(`Cancelled by user (queue-tooltip) for queryId=${query.id}`),
-          ));
-        },
-      });
-    }
-    const timer = setTimeout(() => {
-      settle(() => reject(
-        new Error(`No final packet for turn ${expectedTurn} within ${timeoutMs}ms (queryId=${query.id})`),
-      ));
-    }, timeoutMs);
-    unsub = client.subscribe(query, (res) => {
-      // `query` is a KataGoAnalysisQuery, so the generic `subscribe<Q>`
-      // types `res` as `KataAnalysisResponse | KataErrorResponse`. Probe
-      // the error variant in-band (the proxy can surface a wire error on
-      // this query's id); the `'error' in res` discriminant narrows the
-      // `else` to `KataAnalysisResponse` with no cast.
-      if ('error' in res) {
-        settle(() => reject(
-          new Error(`KataGo error for queryId=${query.id}: ${res.error}`),
-        ));
-        return;
-      }
-      // No error field: `res` is `KataAnalysisResponse` here (the `else`
-      // of the discriminant), so the downstream reads need no alias/cast.
-      if (telemetryMeta) {
-        const rootVisits = res.rootInfo?.visits ?? 0;
-        telemetry.recordPacket(qid, res.turnNumber, rootVisits, res.isDuringSearch);
-      }
-      if (res.turnNumber === expectedTurn && res.isDuringSearch === false) {
-        settle(() => resolve(res));
-      }
-    });
+  if (!telemetryMeta) {
+    return sharedAwaitFinalPacket(client, query, expectedTurn, timeoutMs);
+  }
+  // `query.id` is the QueryId the caller minted (passed via buildAnalyzeQuery,
+  // stored into the wire-string `id`); lift it back to the brand for the
+  // telemetry calls below — the one re-brand boundary in this module.
+  const qid = asQueryId(query.id);
+  // Captured from the shared primitive's `armCancel` hook so the
+  // telemetry `cancel` (registered below) can drive the same teardown
+  // path. Null until `armCancel` runs synchronously inside
+  // `sharedAwaitFinalPacket`'s executor — which is before any user
+  // cancel could fire, so the `?.` guard only covers the brief window
+  // between registerQuery and the executor's synchronous arm.
+  let cancelReject: ((err: Error) => void) | null = null;
+  telemetry.registerQuery({
+    queryId:       qid,
+    kind:          telemetryMeta.kind,
+    boardId:       null,
+    model:         telemetryMeta.model,
+    startTimeMs:   Date.now(),
+    turnsTotal:    1,
+    visitsPerTurn: telemetryMeta.visitsPerTurn,
+    label:         telemetryMeta.label,
+    // Cancel: terminate the proxy-side query (so the engine stops
+    // computing the deeper analysis), then settle the promise with a
+    // rejection. Both legs run inside `cancelReject`, armed via the
+    // shared primitive's `armCancel` hook below. The `playEngineMatch`
+    // loop's try/catch handles the rejection and tears the match down —
+    // cancelling one turn cancels the match, since the loop can't skip
+    // past an aborted turn.
+    cancel: () => cancelReject?.(
+      new Error(`Cancelled by user (queue-tooltip) for queryId=${query.id}`),
+    ),
+  });
+  return sharedAwaitFinalPacket(client, query, expectedTurn, timeoutMs, {
+    onPacket: (res) => {
+      const rootVisits = res.rootInfo?.visits ?? 0;
+      telemetry.recordPacket(qid, res.turnNumber, rootVisits, res.isDuringSearch);
+    },
+    onSettle: () => telemetry.unregisterQuery(qid),
+    armCancel: (reject) => {
+      cancelReject = (err) => {
+        void client.sendCommand({
+          id: `term-cancel-${Date.now()}`,
+          action: 'terminate',
+          terminateId: query.id,
+        });
+        reject(err);
+      };
+    },
   });
 }
 

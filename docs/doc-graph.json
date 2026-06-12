@@ -1,6 +1,6 @@
 {
-  "node_count": 485,
-  "edge_count": 2350,
+  "node_count": 486,
+  "edge_count": 2355,
   "age_buckets": [
     {
       "name": "fresh",
@@ -106,7 +106,7 @@
       "is_hub": false,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/adr/0002-fail-loudly.md",
@@ -3738,7 +3738,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-11-reactive-state-modules-relocation.md",
@@ -3837,6 +3837,14 @@
       "age_bucket": "fresh"
     },
     {
+      "path": "docs/worklog/2026-06-12-mint-komi-calibration.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
       "path": "docs/worklog/2026-06-12-perf-jank-extended-protocol.md",
       "genre": "worklog",
       "is_hub": false,
@@ -3856,9 +3864,9 @@
       "path": "docs/worklog/2026-06-12-preview-snapshot-composable.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-12",
+      "last_committed": "2026-06-12",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-12-subscribe-dispatch-narrowing.md",
@@ -19833,6 +19841,41 @@
       "kind": "path-mention",
       "site": "`docs/worklog/2026-06-11-playenginemoves-cursor-conflation-twin.md`",
       "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-12-mint-komi-calibration.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-12-mint-komi-calibration.md",
+      "to": "docs/adr/0008-classification-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0008",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-12-mint-komi-calibration.md",
+      "to": "docs/adr/0003-frontend-portability-and-domain-boundaries.md",
+      "kind": "adr-related",
+      "site": "ADR-0003",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-12-mint-komi-calibration.md",
+      "to": "frontend/FILES.md",
+      "kind": "path-mention",
+      "site": "`frontend/FILES.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-12-mint-komi-calibration.md",
+      "to": "frontend/docs/i18n.md",
+      "kind": "path-mention",
+      "site": "`frontend/docs/i18n.md`",
+      "resolved": "dangling"
     },
     {
       "from": "docs/worklog/2026-06-12-perf-jank-extended-protocol.md",

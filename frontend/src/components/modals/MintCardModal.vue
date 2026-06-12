@@ -6,17 +6,21 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { store } from '../../store';
+import { store, pushSystemMessage } from '../../store';
 import { useMinting } from '../../composables/review/useMinting';
 import type { BoardId, CardCreatePayload } from '../../types';
 import { INTERACTION_DISMISS_DELAY_MS } from '../../lib/timing';
 
 const { t } = useI18n();
-const { prepareDraft, commitMint } = useMinting();
+const { prepareDraft, calibrateKomiOnDraft, commitMint } = useMinting();
 
 const isOpen = ref(false);
 const isLoading = ref(false);
 const draft = ref<CardCreatePayload | null>(null);
+// The board this draft was prepared from — retained so the
+// komi-calibration evaluation (run at submit) can re-read the board's
+// position. Set in `open`, cleared in `close`.
+const draftBoardId = ref<BoardId | null>(null);
 
 // Tag Input State
 const tagInput = ref('');
@@ -24,6 +28,17 @@ const showSuggestions = ref(false);
 
 // Palette Override State
 const selectedPaletteId = ref<string>('active');
+
+// ── Komi calibration (opt-in, pedagogical) ───────────────────────────
+// The two controls appear only when an engine is connected — the same
+// `store.engine.status === 'connected'` predicate the keybindings
+// catalog's `engineConnected` uses. Strictly opt-in: the checkbox is
+// unchecked by default. The visits input prefills from the user setting
+// but per-mint edits do NOT write back to it (a local ref, not bound to
+// the store).
+const engineConnected = computed(() => store.engine.status === 'connected');
+const calibrateKomi = ref(false);
+const calibrationVisits = ref<number>(store.profile.settings.engine.katago.calibrationVisits);
 
 const palettes = computed(() => store.profile.settings.engine.katago.analysis_env.palettes);
 
@@ -87,8 +102,14 @@ defineExpose({
     selectedPaletteId.value = store.profile.settings.minting.defaultPaletteId;
     draft.value = await prepareDraft(boardId);
     if (draft.value) {
+      draftBoardId.value = boardId;
       isOpen.value = true;
       tagInput.value = '';
+      // Reset calibration to its opt-in default each open; prefill the
+      // visits input from the current setting (per-mint edits don't
+      // write back).
+      calibrateKomi.value = false;
+      calibrationVisits.value = store.profile.settings.engine.katago.calibrationVisits;
     }
   }
 });
@@ -96,6 +117,7 @@ defineExpose({
 function close() {
   isOpen.value = false;
   draft.value = null;
+  draftBoardId.value = null;
 }
 
 // ─── Tag Management ──────────────────────────────────────────────────────────
@@ -213,11 +235,53 @@ async function submit() {
     }
   }
 
+  // Tracks whether a requested calibration is still the in-flight step,
+  // so the catch can attribute the failure correctly: a throw while this
+  // is true is a CALIBRATION failure (calibration-failed message); a
+  // throw after it clears came from `commitMint` (mint-failed alert only).
+  let calibrationPending = false;
   try {
+    // Komi calibration (opt-in). Runs a fresh bounded evaluation and
+    // rewrites the draft's SGF komi so the minted card stores the
+    // even-game komi. If the evaluation fails (engine disconnect,
+    // error packet, timeout), `calibrateKomiOnDraft` throws and we
+    // ABORT the mint loudly (ADR-0002) — the catch below surfaces the
+    // failure and the card is NOT created. The visits passed are the
+    // per-mint value (which does not write back to the setting).
+    if (calibrateKomi.value && engineConnected.value && draftBoardId.value) {
+      calibrationPending = true;
+      const result = await calibrateKomiOnDraft(
+        draftBoardId.value,
+        draft.value,
+        calibrationVisits.value,
+      );
+      calibrationPending = false;
+      // System-log the komi set for this card; name the clamp when it
+      // fired so the user isn't surprised by an out-of-range adjustment.
+      pushSystemMessage(
+        'info',
+        result.clamped
+          ? t('mint.komiCalibration.setClamped', {
+              komi: result.evenKomi,
+              raw: result.rawEvenKomi.toFixed(1),
+            })
+          : t('mint.komiCalibration.set', { komi: result.evenKomi }),
+      );
+    }
+
     await commitMint(draft.value);
     close();
   } catch (err) {
     console.error('[Minting] Failed to create card:', err);
+    // A calibration failure aborts the mint loudly (ADR-0002) — surface
+    // it in the system log as an error so the user knows the card was
+    // NOT created and why, then fall through to the existing alert.
+    // Scoped to throws from the calibration step itself: a post-
+    // calibration `commitMint` failure must not be mislabelled as a
+    // calibration failure (coordinator gate correction, PR #434).
+    if (calibrationPending) {
+      pushSystemMessage('error', t('mint.komiCalibration.failed', { err: String(err) }));
+    }
     // Native alert wraps the English `${err}` per the (a) backend-error
     // pass-through approach (see frontend/docs/i18n.md).
     alert(t('mint.alert.failed', { err: String(err) }));
@@ -275,6 +339,29 @@ async function submit() {
             <option value="active">{{ $t('mint.palette.activeOption') }}</option>
             <option v-for="p in palettes" :key="p.id" :value="p.id">{{ p.name }}</option>
           </select>
+
+          <!-- Komi calibration (opt-in, pedagogical). Shown only when an
+               engine is connected — calibration needs a live evaluation.
+               The visits input is enabled only when the checkbox is
+               checked; its value is per-mint and does not write back to
+               the `engine.katago.calibrationVisits` setting. -->
+          <template v-if="engineConnected">
+            <label>{{ $t('mint.field.calibrateKomi') }}</label>
+            <label class="checkbox-cell">
+              <input type="checkbox" v-model="calibrateKomi" class="calibrate-checkbox" />
+              <span class="hint">{{ $t('mint.komiCalibration.hint') }}</span>
+            </label>
+
+            <label>{{ $t('mint.field.calibrationVisits') }}</label>
+            <input
+              type="number"
+              v-model.number="calibrationVisits"
+              min="1"
+              step="100"
+              class="dark-input"
+              :disabled="!calibrateKomi"
+            />
+          </template>
         </div>
 
         <!-- Tag Autocomplete -->
@@ -367,6 +454,13 @@ async function submit() {
   border-radius: var(--radius-default); font-family: monospace; font-size: var(--text-emphasis); width: 100%; outline: none;
 }
 .dark-input:focus, .dark-select:focus { border-color: var(--accent-primary); }
+.dark-input:disabled { opacity: var(--alpha-disabled); cursor: not-allowed; }
+
+/* Calibration checkbox cell — a non-uppercased inline label so the
+   checkbox sits next to its explanatory hint without inheriting the
+   form-grid label's letter-spacing / uppercase transform. */
+.checkbox-cell { display: flex; align-items: center; gap: var(--space-default); text-transform: none; }
+.calibrate-checkbox { width: auto; accent-color: var(--accent-primary); cursor: pointer; }
 
 .tag-label { font-size: var(--text-emphasis); color: var(--text-2); text-transform: uppercase; display: block; margin-bottom: var(--space-default); }
 .tag-input-wrapper {

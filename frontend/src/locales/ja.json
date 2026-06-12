@@ -123,6 +123,12 @@
   "mint.button.mint":                     "カード作成",
   "mint.button.minting":                  "作成中…",
   "mint.alert.failed":                    "作成失敗: {err}",
+  "mint.field.calibrateKomi":             "コミを調整:",
+  "mint.field.calibrationVisits":         "調整用訪問数:",
+  "mint.komiCalibration.hint":            "この局面を再評価し、互角になるようコミを設定します。",
+  "mint.komiCalibration.set":             "コミを調整しました: このカードに {komi} を設定しました。",
+  "mint.komiCalibration.setClamped":      "コミを調整しました: 計算値 {raw} を {komi} に制限しました（KataGo のコミ範囲）。",
+  "mint.komiCalibration.failed":          "コミの調整に失敗しました。作成を中止しました: {err}",
 
   "confirmLoad.title":                    "ボード使用中",
   "confirmLoad.body":                     "現在のボードに着手があります。この局面をどう読み込みますか?",

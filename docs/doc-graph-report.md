@@ -39,7 +39,7 @@ explicit root/sub-project file list — not reference rot).
 - **Dangling from LIVE documents, retired (tombstoned) targets**: **28**.
 - **Dangling from LIVE documents, on disk but outside the node set**: **12**.
 - **Dangling from EXECUTED playbooks** (reference-only records): **25**.
-- **Dangling from FROZEN documents** (archive + worklogs; expected drift): **304**.
+- **Dangling from FROZEN documents** (archive + worklogs; expected drift): **305**.
 - **Directory references missing on disk**: **6** from live
   documents, **9** from frozen/executed
   (257 directory references scanned in total).
@@ -499,6 +499,7 @@ being un-frozen.
 - `docs/worklog/2026-06-11-doc-graph-svg-spline-failure.md` → `docs/notes/deferred-items.md` *(path-mention)* — target `docs/notes/deferred-items.md` was deliberately retired: retired into the work-status store (the `todo` PostgreSQL DB; schema in `tools/work-status/schema.sql`); per-item vestige notes live under `docs/notes/vestige/deferred-items/`.
 - `docs/worklog/2026-06-11-persistence-board-keyed-drain.md` → `frontend/docs/notes/board-scope.md` *(path-mention)* — target `frontend/docs/notes/board-scope.md` exists on disk but is outside the doc-graph node set.
 - `docs/worklog/2026-06-11-source-file-header-lint.md` → `backend/qeubo/README.md` *(path-mention)* — target `backend/qeubo/README.md` exists on disk but is outside the doc-graph node set.
+- `docs/worklog/2026-06-12-mint-komi-calibration.md` → `frontend/docs/i18n.md` *(path-mention)* — target `frontend/docs/i18n.md` exists on disk but is outside the doc-graph node set.
 
 ## License
 

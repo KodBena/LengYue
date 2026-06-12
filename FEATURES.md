@@ -289,6 +289,17 @@ modal collects:
 - **Discount γ** — Ebisu's recall-decay parameter, per card.
 - **Analysis palette** — which palette compiles the grading
   signal.
+- **Calibrate komi** — an opt-in pedagogical control, shown
+  only when an engine is connected. When checked, minting first runs a fresh bounded
+  evaluation of the position (at a per-mint visit budget,
+  prefilled from a user setting) and adjusts the minted card's
+  komi so the position is even — teaching the student the
+  correct move set *as if the game were balanced*, rather than
+  the move set the current score margin favours. If the
+  evaluation fails (engine disconnect, error, timeout) the mint
+  aborts loudly rather than minting an uncalibrated card; the
+  system log records the komi set (and notes when it was clamped
+  to KataGo's range).
 - **Tags** — comma-separated plain tags attached to the card.
   Virtual tags (the `$tactic,~$blocked` macro form) are NOT
   authored at mint time; they live as a query-time

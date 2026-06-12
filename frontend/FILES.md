@@ -252,7 +252,8 @@ frontend/src/
 │   │
 │   ├── review/                               Spaced-repetition session.
 │   │   ├── blind-mode-prefs.ts        [B3]  Snapshot/restore owner for the session-UI prefs blind mode flips (showMoveSuggestions, treeExpanded): generic snapshot core + the review session's supplied key list. B3 via its store import and its consumer's vocabulary; the snapshot mechanism is band-agnostic in character (fork: lift the factory, re-supply keys).
-│   │   ├── useMinting.ts              [B3]  Mint flashcards from boards (Go-board → backend mint payload).
+│   │   ├── useMinting.ts              [B3]  Mint flashcards from boards (Go-board → backend mint payload). `calibrateKomiOnDraft` runs the opt-in mint-time komi calibration and rewrites the draft SGF's `KM`.
+│   │   ├── useKomiCalibration.ts      [B3]  One-shot bounded evaluation for mint-time komi calibration: shared fresh-eval primitives → analyze the minted position → computeEvenKomi. Fails loudly (no silent uncalibrated fallback).
 │   │   └── useReviewSession.ts        [B3]  SR-session state machine: AWAITING_MOVE / INTERMISSION / FINISHED. Band-mixed (the ADR-0003 Revisit-#3 canary): the SR orchestration is game-class-portable; the per-move delta scoring is extracted to engine/analysis/review-scoring.ts — the first of ~4 Go seams named (sgf.parse in loadCard, applyGoMove, gtpToBoard follow-through remain inline), so the [B3] tag reflects the residue, not the whole.
 │   │
 │   └── sgf/                                  SGF I/O.
@@ -283,7 +284,9 @@ frontend/src/
 │   └── katago/                              KataGo wire-protocol surface. All B3.
 │       ├── capability-injection.ts    [B3]  Pure builder for the per-query `capabilities` dict (proxy v1.0.14+).
 │       ├── contract.ts                [B3]  KataGoClient black-box callback-registry contract.
+│       ├── fresh-eval.ts              [B3]  Shared one-shot-eval primitives (connectFresh + awaitFinalPacket) for callers running a fresh KataGo eval off the analysisService singleton; telemetry injected via optional hooks. Consumed by usePlayFromPosition (engine self-play / match) and useKomiCalibration.
 │       ├── katago-client.ts           [B3]  WebSocket transport for KataGo analysis engine.
+│       ├── komi-calibration.ts         [B3]  Pure mint-time even-komi arithmetic: normalise scoreLead to Black-positive (via winrate-framing) → add to evalKomi → round-to-half → clamp [-150, 150].
 │       ├── subscribe-narrowing.type-test.ts [B3]  Compile-time regression artifact: asserts `subscribe<Q>`'s callback receives `ResponseFor<Q>`, forcing each subscriber to discriminate the error variant. No runtime exports; type-checked by `vue-tsc -b`.
 │       ├── types.ts                   [B3]  SSOT for KataGo wire types + enrichment envelope.
 │       ├── version-probe.ts           [B3]  Pure parsers for `query_version` + `query_models` (SELECTOR-aware).

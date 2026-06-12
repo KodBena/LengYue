@@ -5,7 +5,7 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-06-11: migrations 1 → 2 through 57 → 58 (57
+ * Scope as of 2026-06-12: migrations 1 → 2 through 58 → 59 (58
  * entries). The first eight covered pre-v1.0.0 schema evolution;
  * the rest are the v1.0.x – v1.1.x active cycle, archived in
  * per-PR rolling fashion under the same archive contract.
@@ -2439,6 +2439,38 @@ export const archivedMigrations: Migration[] = [
     const profile = witnessedContainer(out, 'profile');
     if (profile) {
       delete (profile as { knownTags?: unknown }).knownTags;
+    }
+    return out;
+  },
+  // 58 → 59: re-scope `session.ui.forestNav.selection` from a single
+  // workspace-global `NavSelection | null` to a per-board map
+  // (`PerBoard<NavSelection>`), so a null/absent selection on one board can no
+  // longer drive (or clear) the right pane of another (board-scope audit P0;
+  // see `frontend/docs/notes/board-scope.md`). `forestNav.expanded` stays
+  // global — the navigator tree is the user's whole library. The prior global
+  // selection is transient navigator state, not user data, so it is dropped
+  // rather than re-homed under a guessed active board.
+  //
+  // Detection: the already-migrated shape is a plain board-keyed map (object,
+  // non-null, no top-level `kind`; keys are BoardId UUIDs, never `kind`). The
+  // old shape is `null` or a discriminated `NavSelection` (carries `kind`).
+  // Reset anything that is not already the new shape; idempotent on it.
+  //
+  // Container access goes through `witnessedContainer` (semantics-
+  // preserving retrofit; see the helper's docstring): the
+  // 'session.ui.forestNav' path is witnessed against the runtime
+  // shape, and the blob-side resolution keeps the prior
+  // `out.session?.ui?.forestNav` + non-null-object tolerance.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const nav = witnessedContainer(out, 'session.ui.forestNav');
+    if (nav) {
+      const sel = (nav as { selection?: unknown }).selection;
+      const alreadyPerBoard =
+        typeof sel === 'object' && sel !== null && !('kind' in (sel as object));
+      if (!alreadyPerBoard) {
+        (nav as { selection: unknown }).selection = {};
+      }
     }
     return out;
   },
