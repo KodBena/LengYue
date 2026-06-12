@@ -216,7 +216,8 @@ frontend/src/
 │   │   ├── useCardTreeProjection.ts   [B2]  Pure projection: forest + active-set + manual-expand → role-annotated render forest.
 │   │   ├── useTags.ts                 [B1]  The single chokepoint for the client-side tag dictionary (`store.knownTags`, the autocomplete source): every tag-write path routes its resulting tag set through `learnTags` so the dictionary stays coherent with the cards. A flat label-set SSOT — domain-free (a non-Go flashcard fork keeps it unchanged).
 │   │   ├── thumbnail-render-resources.ts [B3]  Owner of the shared thumbnail render resources: the BoardSnapshot cache (reactive Map) + warmed-path guard, the wood texture, the stone-sprite store (SpriteKey-keyed) — plus the invalidation surface (O4 board purge, O9 identity purge, the caller-less applySetup node-invalidation hook).
-│   │   └── useThumbnailCache.ts       [B3]  Fill/projection API over the shared snapshot cache (replay, sync read, SVG-string projection, path warm, variation A/B/C labels); state owned by thumbnail-render-resources.
+│   │   ├── usePreviewSnapshot.ts      [B3]  The cured hover-preview quartet, single-sourced: a synchronously-written `previewNode` gate + fire-and-forget cache warm + `getSnapshotSync` accessor (so a late resolve fills but never resurrects). Full quartet for gate-owning panels (ScoreLead/MergedDelta); `warmSnapshotAccessor` sub-unit for hosts whose gate lives elsewhere (TreeWidget → FloatingThumbnail).
+│   │   └── useThumbnailCache.ts       [B3]  Fill/projection API over the shared snapshot cache (replay, sync read, path warm, variation A/B/C labels); state owned by thumbnail-render-resources.
 │   │
 │   ├── chrome/                               UI-shell composables.
 │   │   ├── useHoverPopover.ts         [B1]  Hover-intent open/close primitive (open ref + mouseenter/mouseleave + 150 ms close-grace timer) shared by toolbar popovers.

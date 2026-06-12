@@ -67,7 +67,6 @@ vi.mock('../../src/composables/cards/useCardThumbnail', () => ({
 
 vi.mock('../../src/composables/cards/useThumbnailCache', () => ({
   useThumbnailCache: () => ({
-    getThumbnailSvg: vi.fn(),
     warmPath: vi.fn(),
   }),
 }));

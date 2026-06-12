@@ -17,6 +17,7 @@ import { useScopedScroll }  from '../../composables/useScopedScroll';
 import { useViewportFollow } from '../../composables/useViewportFollow';
 import { useNavigation }    from '../../composables/useNavigation';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
+import { warmSnapshotAccessor } from '../../composables/cards/usePreviewSnapshot';
 import { themeColor }        from '../../utils/theme-color';
 import FloatingThumbnail    from '../chrome/FloatingThumbnail.vue';
 import { boardsById }        from '../../store';
@@ -92,7 +93,7 @@ useScopedScroll(outerRef, deltaY => {
 const viewportFollow = useViewportFollow(outerRef);
 
 const expansion = useTreeExpansion();
-const { getSnapshot, getSnapshotSync, variationMarkerLabels } = useThumbnailCache();
+const { variationMarkerLabels } = useThumbnailCache();
 
 const nodesRef  = toRef(props, 'nodes');
 const { layout } = useTreeLayout(nodesRef, undefined, expansion);
@@ -109,20 +110,25 @@ const currentNodeId = computed(() => boardsById.value[props.boardId]?.currentNod
 
 function onToggleEnter(e: MouseEvent, nodeId: NodeId) {
   if (!thumbRef.value) return;
-  // Fire-and-forget warm of the shared snapshot cache. It writes ONLY the
-  // cache — never the thumbnail's visible state — so a late resolve cannot
-  // resurrect a hidden preview (the docked sidebar pane's invariant, now
-  // uniform across both hover surfaces). void: self-contained cache fill.
-  void getSnapshot(nodeId, props.boardId);
+  // The warm-plus-accessor sub-unit of the cured preview-snapshot quartet
+  // (usePreviewSnapshot): fire-and-forget warm of the shared snapshot cache,
+  // then a synchronous accessor over `getSnapshotSync(nodeId)`. The warm
+  // writes ONLY the cache — never the thumbnail's visible state — so a late
+  // resolve cannot resurrect a hidden preview (the invariant uniform across
+  // both hover surfaces). TreeWidget's gate is owned by the FloatingThumbnail
+  // child (set imperatively via show()/hide()), so it reuses only this pair,
+  // not the gate-holding quartet form.
+  const baseAccessor = warmSnapshotAccessor(nodeId, props.boardId);
   // Labels are tree-structural and stable for the duration of a hover, so
-  // they are derived once here, synchronously.
+  // they are derived once here, synchronously, and decorated onto the
+  // snapshot in TreeWidget's own closure.
   const labels = variationMarkerLabels(nodeId, props.boardId);
-  // Synchronous show with a snapshot ACCESSOR (the ChartPreviewBox accessor
-  // contract): FloatingThumbnail invokes it inside its own render scope, so
-  // the cache subscription lives in that leaf — TreeWidget's render never
-  // reads the cache and stays decoupled from hover-preview fills.
+  // Synchronous show with the decorated accessor (the ChartPreviewBox
+  // accessor contract): FloatingThumbnail invokes it inside its own render
+  // scope, so the cache subscription lives in that leaf — TreeWidget's render
+  // never reads the cache and stays decoupled from hover-preview fills.
   thumbRef.value.show(() => {
-    const snap = getSnapshotSync(nodeId);
+    const snap = baseAccessor();
     return snap ? { ...snap, markerLabels: labels } : null;
   }, e.clientX, e.clientY);
 }

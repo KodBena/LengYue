@@ -7,10 +7,17 @@
  * identity flip / the caller-less node-content hook) — is owned by the
  * sibling module `thumbnail-render-resources.ts`; this composable owns
  * the derivations over it: the replay that fills it (`getSnapshot` /
- * `warmPath`), the synchronous read (`getSnapshotSync`), the SVG string
- * projection (`getThumbnailSvg`, for the `v-html` / ECharts-innerHTML
- * sinks), and the variation A/B/C label derivation
- * (`variationMarkerLabels`, for the floating variation preview).
+ * `warmPath`), the synchronous read (`getSnapshotSync`), and the
+ * variation A/B/C label derivation (`variationMarkerLabels`, for the
+ * floating variation preview).
+ *
+ * The SVG-string projection (`getThumbnailSvg` / its private
+ * `snapshotToSvg`) was retired with item
+ * `preview-snapshot-shared-composable`: it lost its last production
+ * consumer when PR #424 removed the async-write hover handlers
+ * (`useChartNavigation.handleMainHover` / `handlePlayerHover`), and every
+ * remaining thumbnail surface renders the reactive `BoardSnapshot` via
+ * `MiniBoard` rather than a `v-html` SVG string.
  *
  * Keying is on nodeId alone (not `${nodeId}:${showMarker}`) — showMarker
  * is a render option, not data: the snapshot carries `lastMove`, and
@@ -19,7 +26,6 @@
  * License: Public Domain (The Unlicense)
  */
 
-import { renderBoardToSvg } from '../../engine/board-renderer';
 import type { BoardSnapshot } from '../../engine/board-geometry';
 import { navigateTo } from '../../engine/navigator';
 import type { BoardState, BoardId, NodeId } from '../../types';
@@ -59,19 +65,6 @@ async function generateSnapshot(
   };
 }
 
-// Cheap string projection of a snapshot for the v-html / ECharts-innerHTML
-// consumers. uid scheme preserved so the output is identical to the prior
-// string cache (gradient ids are uid-scoped, internal).
-function snapshotToSvg(snap: BoardSnapshot, nodeId: NodeId, showMarker: boolean): string {
-  return renderBoardToSvg({
-    size: snap.size,
-    stones: snap.stones,
-    lastMove: snap.lastMove,
-    showMarker,
-    uid: `${nodeId.replace(/[^a-zA-Z0-9]/g, '')}${showMarker ? 'm' : 's'}`,
-  });
-}
-
 // ── Public black-box contract ──────────────────────────────────────────────
 /**
  * ─── Branded-type signature discipline ───────────────────────────────────────
@@ -102,15 +95,6 @@ export function useThumbnailCache() {
   /** Synchronous cache read; null on miss (caller decides whether to warm). */
   function getSnapshotSync(nodeId: NodeId): BoardSnapshot | null {
     return getCachedSnapshot(nodeId);
-  }
-
-  async function getThumbnailSvg(
-    nodeId: NodeId,
-    boardId: BoardId,
-    showMarker: boolean
-  ): Promise<string> {
-    const snap = await getSnapshot(nodeId, boardId);
-    return snap ? snapshotToSvg(snap, nodeId, showMarker) : '';
   }
 
   /** Warm every node on a path (the low-hanging perf win: an identical
@@ -150,7 +134,6 @@ export function useThumbnailCache() {
   return {
     getSnapshot,
     getSnapshotSync,
-    getThumbnailSvg,
     variationMarkerLabels,
     warmPath,
   } as const;

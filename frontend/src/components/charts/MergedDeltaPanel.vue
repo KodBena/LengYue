@@ -43,17 +43,16 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { computed, watch } from 'vue';
 import AnalysisChartPanel from './AnalysisChartPanel.vue';
 import { globalLegendState } from './BaseChart.vue';
-import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
-import type { BoardSnapshot } from '../../engine/board-geometry';
+import { usePreviewSnapshot } from '../../composables/cards/usePreviewSnapshot';
 import { mutateBoard, store } from '../../store';
 import { navigateTo } from '../../engine/navigator';
 import { colorMoveToPly } from '../../composables/analysis/useTriangularHeatmap';
 import { themeColor } from '../../utils/theme-color';
 import { injectAnalysisContext } from '../../composables/analysis/useAnalysisContext';
-import type { ColorMoveIndex, NodeId } from '../../types';
+import type { ColorMoveIndex } from '../../types';
 
 // Phase-0 projection seam: self-source from the injected AnalysisContext
 // rather than prop-drilled slices. activeMergedIndex keeps its own
@@ -67,31 +66,15 @@ const boardId        = ctx.boardId;
 const variationPath  = ctx.variationPath;
 const selectionRange = ctx.selectionRange;
 
-const { getSnapshot, getSnapshotSync } = useThumbnailCache();
-// The preview ref holds the *target node*, written SYNCHRONOUSLY from the
-// hover/leave continuations — never an awaited snapshot. The cured #365
-// shape (PR #413, TreeWidget.onToggleEnter): a fire-and-forget warm fills
-// the shared cache, and the accessor reads the cache synchronously. A slow
-// cache-miss resolve can therefore fill a still-targeted thumbnail but can
-// never resurrect a node the leave-time reset already cleared. The prior
-// `preview.value = await getSnapshot(...)` shape was last-write-wins on the
-// VISIBLE state, so a late resolve landing after a leave-time reset
-// repopulated the docked preview with the stale hovered position. Holding
-// the nodeId and deriving the snapshot in the accessor moves the only async
-// write off the gate and onto the shared cache.
-const previewNode = ref<NodeId | null>(null);
-// Accessor passed down instead of the value: the per-nav thumbnail update
-// then re-renders only the <ChartPreviewBox> leaf, not this panel or the
-// chart host (render-coupling postmortem, 2026-05-29).
-const getPreview = (): BoardSnapshot | null =>
-  previewNode.value ? getSnapshotSync(previewNode.value) : null;
-
-/** Point the preview at `nodeId`: set the target synchronously, then warm
- *  the shared cache fire-and-forget (cache-only write; never the gate). */
-function showPreview(nodeId: NodeId): void {
-  previewNode.value = nodeId;
-  void getSnapshot(nodeId, boardId);
-}
+// The cured hover-preview quartet, single-sourced in usePreviewSnapshot:
+// a synchronously-written `previewNode` gate, a fire-and-forget cache warm,
+// and a `getPreview` accessor over the synchronous cache read — so a late
+// cache-miss resolve can fill a still-targeted thumbnail but can never
+// resurrect a node the leave-time reset already cleared. The accessor is
+// passed down (not the value) so the per-nav thumbnail update re-renders
+// only the <ChartPreviewBox> leaf, not this panel or the chart host
+// (render-coupling postmortem, 2026-05-29).
+const { getPreview, showPreview, reset } = usePreviewSnapshot(boardId);
 
 // Re-index each side's colour-local data onto a shared
 // parity-interleaved x-axis: black move K → x=2K, white
@@ -270,7 +253,7 @@ function resetPreview(): void {
   // `handleHover`, sourced from `activeMergedIndex`.
   const x = activeMergedIndex.value;
   if (x === null) {
-    previewNode.value = null;
+    reset();
     return;
   }
   const color: 'B' | 'W' = x % 2 === 0 ? 'B' : 'W';
@@ -280,7 +263,7 @@ function resetPreview(): void {
   if (nodeId) {
     showPreview(nodeId);
   } else {
-    previewNode.value = null;
+    reset();
   }
 }
 
