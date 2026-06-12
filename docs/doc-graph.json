@@ -1,6 +1,6 @@
 {
-  "node_count": 486,
-  "edge_count": 2355,
+  "node_count": 487,
+  "edge_count": 2356,
   "age_buckets": [
     {
       "name": "fresh",
@@ -33,8 +33,8 @@
       "genre": "umbrella-root",
       "is_hub": false,
       "first_committed": "2026-05-12",
-      "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "last_committed": "2026-06-12",
+      "age_bucket": "fresh"
     },
     {
       "path": "README.md",
@@ -98,7 +98,7 @@
       "is_hub": true,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-12",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/adr/0001-state-mutation-and-readonly.md",
@@ -170,7 +170,7 @@
       "is_hub": false,
       "first_committed": "2026-05-27",
       "last_committed": "2026-06-12",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
@@ -3634,7 +3634,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-11-chart-panel-preview-migration.md",
@@ -3821,6 +3821,14 @@
       "age_bucket": "aging"
     },
     {
+      "path": "docs/worklog/2026-06-12-analysis-query-routing-brand.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
       "path": "docs/worklog/2026-06-12-band-adjudication-tranche-2.md",
       "genre": "worklog",
       "is_hub": false,
@@ -3840,9 +3848,9 @@
       "path": "docs/worklog/2026-06-12-mint-komi-calibration.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-12",
+      "last_committed": "2026-06-12",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-12-perf-jank-extended-protocol.md",
@@ -3850,7 +3858,7 @@
       "is_hub": false,
       "first_committed": "2026-06-12",
       "last_committed": "2026-06-12",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-12-perf-jank-extended-study-results.md",
@@ -3858,7 +3866,7 @@
       "is_hub": false,
       "first_committed": "2026-06-12",
       "last_committed": "2026-06-12",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-12-preview-snapshot-composable.md",
@@ -19805,6 +19813,13 @@
       "to": "docs/adr/0011-mechanization-discipline.md",
       "kind": "adr-related",
       "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-12-analysis-query-routing-brand.md",
+      "to": "docs/worklog/2026-06-11-e2e-harness-selector-model-field.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-06-11-e2e-harness-selector-model-field.md`",
       "resolved": "resolved"
     },
     {

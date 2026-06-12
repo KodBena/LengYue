@@ -10,6 +10,7 @@ import {
   type KataGoActionQuery,
   type ResponseFor,
 } from './types';
+import type { RoutedAnalysisQuery } from './query-routing';
 
 type ResponseCallback = (response: KataGoResponse) => void;
 
@@ -107,11 +108,20 @@ export class KataGoClient {
     }
   }
 
-  // Accepts the full KataGoQuery union: analysis queries (the streaming
-  // path) and action queries (sendCommand's one-shot path) share the same
-  // id-keyed subscription mechanics. The parameter was historically
-  // narrowed to KataGoAnalysisQuery, which forced sendCommand through a
-  // bare `as any`; widening the seam types the call instead.
+  // Accepts analysis queries (the streaming path) and action queries
+  // (sendCommand's one-shot path) — they share the same id-keyed
+  // subscription mechanics. The parameter was historically narrowed to
+  // KataGoAnalysisQuery, which forced sendCommand through a bare
+  // `as any`; widening the seam types the call instead.
+  //
+  // Analysis traffic is accepted ONLY as `RoutedAnalysisQuery` — the
+  // brand `finalizeAnalysisRouting` (query-routing.ts) mints once the
+  // SELECTOR `model` decision is made. An assembled-but-unrouted
+  // analysis query fails to COMPILE here rather than failing on the
+  // wire ("missing 'model' field for SELECTOR routing", the 2026-06-12
+  // komi-calibration incident — the second of its class after the e2e
+  // harness). Action queries need no routing (the proxy broadcasts
+  // them, v1.0.18).
   //
   // Generic over the query type so the callback receives only the
   // responses that query's id can carry (`ResponseFor<Q>`): an analysis
@@ -125,7 +135,7 @@ export class KataGoClient {
   // `ResponseFor<Q>` it must discriminate `'error' in res` before reading
   // an analysis field, or the read is a hard type error. Work-status item
   // `subscribe-dispatch-structural-narrowing`.
-  public subscribe<Q extends KataGoQuery>(
+  public subscribe<Q extends RoutedAnalysisQuery | KataGoActionQuery>(
     query: Q,
     onUpdate: (response: ResponseFor<Q>) => void,
   ): () => void {

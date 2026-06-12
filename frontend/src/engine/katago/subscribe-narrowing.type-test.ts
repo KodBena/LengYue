@@ -31,13 +31,27 @@ import type {
   KataGoAnalysisQuery,
   KataGoActionQuery,
 } from './types';
+import type { RoutedAnalysisQuery, UnroutedAnalysisQuery } from './query-routing';
 
 // Type-only handles; never constructed or invoked at runtime.
 declare const client: KataGoClient;
-declare const analysisQuery: KataGoAnalysisQuery;
+declare const analysisQuery: RoutedAnalysisQuery;
 declare const actionQuery: KataGoActionQuery;
+declare const unroutedQuery: UnroutedAnalysisQuery;
+declare const unbrandedQuery: KataGoAnalysisQuery;
 
 function __subscribeNarrowingTypeAssertions(): void {
+  // ── Routing seam (query-routing.ts; 2026-06-12 missing-`model`
+  // incident) ──────────────────────────────────────────────────────────
+  // Analysis traffic reaches the wire only as `RoutedAnalysisQuery` —
+  // the brand `finalizeAnalysisRouting` mints once the SELECTOR `model`
+  // decision is made. A builder that skips the seam fails HERE, at
+  // compile time, instead of on the wire.
+  // @ts-expect-error an assembled-but-unrouted analysis query must not be subscribable
+  client.subscribe(unroutedQuery, () => {});
+  // @ts-expect-error a bare KataGoAnalysisQuery (no routing decision) must not be subscribable
+  client.subscribe(unbrandedQuery, () => {});
+
   // ── Analysis subscription ────────────────────────────────────────────
   // The callback receives `KataAnalysisResponse | KataErrorResponse`
   // (`ResponseFor<KataGoAnalysisQuery>`), never the action variant.

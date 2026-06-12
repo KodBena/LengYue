@@ -287,7 +287,8 @@ frontend/src/
 │       ├── fresh-eval.ts              [B3]  Shared one-shot-eval primitives (connectFresh + awaitFinalPacket) for callers running a fresh KataGo eval off the analysisService singleton; telemetry injected via optional hooks. Consumed by usePlayFromPosition (engine self-play / match) and useKomiCalibration.
 │       ├── katago-client.ts           [B3]  WebSocket transport for KataGo analysis engine.
 │       ├── komi-calibration.ts         [B3]  Pure mint-time even-komi arithmetic: normalise scoreLead to Black-positive (via winrate-framing) → add to evalKomi → round-to-half → clamp [-150, 150].
-│       ├── subscribe-narrowing.type-test.ts [B3]  Compile-time regression artifact: asserts `subscribe<Q>`'s callback receives `ResponseFor<Q>`, forcing each subscriber to discriminate the error variant. No runtime exports; type-checked by `vue-tsc -b`.
+│       ├── query-routing.ts           [B3]  The SELECTOR-routing seam: `RoutedAnalysisQuery` brand + `finalizeAnalysisRouting`, the sole place an analysis query's `model` leg is decided (`subscribe` accepts only the brand; the cast is lint-fenced outside this file). Born of the 2026-06-12 missing-`model` incident.
+│       ├── subscribe-narrowing.type-test.ts [B3]  Compile-time regression artifact: asserts `subscribe<Q>`'s callback receives `ResponseFor<Q>` (forcing the error-variant discriminant) and that un-routed analysis queries are un-subscribable (the query-routing seam). No runtime exports; type-checked by `vue-tsc -b`.
 │       ├── types.ts                   [B3]  SSOT for KataGo wire types + enrichment envelope.
 │       ├── version-probe.ts           [B3]  Pure parsers for `query_version` + `query_models` (SELECTOR-aware).
 │       └── winrate-framing.ts         [B3]  Resolves and normalises `reportAnalysisWinratesAs` framing.
