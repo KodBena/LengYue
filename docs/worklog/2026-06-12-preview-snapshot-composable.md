@@ -159,6 +159,13 @@ no new leak. (`TreeWidget → useThumbnailCache` remains an un-absolved advisory
 finding by design — the maintainer's review surface, pre-existing and out of
 scope per ADR-0004.)
 
+*(Coordinator renumbering at the merge-train rebase, 2026-06-12: the 47 → 46
+figures above were authored against the pre-tranche-2 baseline. PR #432's
+maintainer band adjudication landed first and took the baseline 47 → 31, so
+the same key fix lands on main as 31 → **30** — re-measured at the rebase,
+`--check` clean at the 30 baseline. The mechanism and arithmetic of this
+section are otherwise unchanged.)*
+
 ## Verification (gates)
 
 - `npm run build` (`vue-tsc -b` strict + `vite build`): pass, 1061 modules.
