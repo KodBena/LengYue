@@ -797,6 +797,30 @@ export default [
         // drop the G1 selectors above. Rationale + measured adoption in
         // the header; selector constant above.
         ...ANY_ASSERTION_SELECTORS,
+        // Routing-brand fence (2026-06-12 missing-`model` incident): the
+        // RoutedAnalysisQuery brand is minted ONLY by
+        // finalizeAnalysisRouting (src/engine/katago/query-routing.ts,
+        // which carries the one justified inline disable at the mint).
+        // A cast to the brand anywhere else forges the SELECTOR-routing
+        // decision and re-opens the silent missing-`model` wire failure
+        // the brand exists to make unrepresentable. Lives in this same
+        // array for the flat-config replace-not-merge reason above.
+        {
+          selector:
+            "TSAsExpression > TSTypeReference > Identifier[name='RoutedAnalysisQuery']",
+          message:
+            'RoutedAnalysisQuery is minted only by finalizeAnalysisRouting ' +
+            '(engine/katago/query-routing.ts). Assemble an UnroutedAnalysisQuery ' +
+            'and pass it through the seam instead of casting the brand.',
+        },
+        {
+          selector:
+            "TSTypeAssertion > TSTypeReference > Identifier[name='RoutedAnalysisQuery']",
+          message:
+            'RoutedAnalysisQuery is minted only by finalizeAnalysisRouting ' +
+            '(engine/katago/query-routing.ts). Assemble an UnroutedAnalysisQuery ' +
+            'and pass it through the seam instead of casting the brand.',
+        },
         // (The profile aliased-write guards that lived here —
         // PROFILE_ALIASED_WRITE_SELECTORS — were RELOCATED into the
         // store-write-needs-owner rule's `aliasedWrites` config and

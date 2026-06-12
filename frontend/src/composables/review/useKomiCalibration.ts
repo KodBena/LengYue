@@ -35,10 +35,13 @@
  */
 
 import {
-  type KataGoAnalysisQuery,
   type Player,
   type KataCoord,
 } from '../../engine/katago/types';
+import {
+  finalizeAnalysisRouting,
+  type UnroutedAnalysisQuery,
+} from '../../engine/katago/query-routing';
 import type { BoardState } from '../../types';
 import { store } from '../../store';
 import { KATAGO_WS_URL } from '../../config/env';
@@ -67,7 +70,7 @@ function buildCalibrationQuery(
   board: BoardState,
   maxVisits: number,
   overrideSettings: Record<string, unknown> | undefined,
-): { query: KataGoAnalysisQuery; expectedTurn: number; evalKomi: number } {
+): { query: UnroutedAnalysisQuery; expectedTurn: number; evalKomi: number } {
   const path = getPath(board.nodes, board.currentNodeId);
   const moves = path
     .map((id) => board.nodes[id]?.move ?? null)
@@ -134,9 +137,18 @@ export function useKomiCalibration() {
       overrideSettings,
     );
 
+    // The SELECTOR routing decision — the leg this feature originally
+    // shipped WITHOUT (the proxy rejected un-routed calibration queries
+    // on the wire: "missing 'model' field for SELECTOR routing",
+    // 2026-06-12). Calibration rides the user's currently selected
+    // model, the same source the live analysis path routes by; the
+    // finalizeAnalysisRouting seam makes the decision explicit and the
+    // omission a compile error.
+    const routed = finalizeAnalysisRouting(query, store.engine.selectedModel);
+
     const client = await connectFresh(url);
     try {
-      const packet = await awaitFinalPacket(client, query, expectedTurn, timeoutMs);
+      const packet = await awaitFinalPacket(client, routed, expectedTurn, timeoutMs);
       return computeEvenKomi({
         evalKomi,
         scoreLead: packet.rootInfo.scoreLead,

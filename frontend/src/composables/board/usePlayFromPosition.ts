@@ -33,12 +33,16 @@
 import { ref, type Ref } from 'vue';
 import { KataGoClient } from '../../engine/katago/katago-client';
 import { connectFresh, awaitFinalPacket as sharedAwaitFinalPacket } from '../../engine/katago/fresh-eval';
+import {
+  finalizeAnalysisRouting,
+  type RoutedAnalysisQuery,
+  type UnroutedAnalysisQuery,
+} from '../../engine/katago/query-routing';
 import { useQueryTelemetry } from '../useQueryTelemetry';
 
 const telemetry = useQueryTelemetry();
 import {
   type KataAnalysisResponse,
-  type KataGoAnalysisQuery,
   type PerQueryCapabilities,
   type Player,
   type KataCoord,
@@ -101,7 +105,7 @@ interface AwaitTelemetryMeta {
  */
 function awaitFinalPacket(
   client: KataGoClient,
-  query: KataGoAnalysisQuery,
+  query: RoutedAnalysisQuery,
   expectedTurn: number,
   timeoutMs: number,
   telemetryMeta?: AwaitTelemetryMeta,
@@ -164,13 +168,17 @@ function awaitFinalPacket(
  * turn." Shared between the self-play loop and the one-shot top-move
  * helper.
  *
- * The `model` and `capabilities` parameters are optional pass-throughs
- * for proxy v1.0.14+ contracts: SELECTOR routing and per-query
- * capability opt-in. They have no SPA-side semantics here — the
- * harness gives the caller direct control over them, distinct from
- * the analysis-service's policy-driven injection (which is keyed on
- * caller-supplied flags, registry toggles, and the connected proxy's
- * advertisement). This lets harness scenarios author multi-weights
+ * The `model` parameter is the REQUIRED SELECTOR-routing decision
+ * (proxy v1.0.15+): a label routes via the SELECTOR pool, `null` is
+ * the deliberate non-SELECTOR omission. It is applied through the
+ * `finalizeAnalysisRouting` seam (query-routing.ts), so forgetting it
+ * is a compile error, not a wire failure. `capabilities` stays an
+ * optional pass-through (proxy v1.0.14+ per-query opt-in). Both have
+ * no SPA-side semantics here — the harness gives the caller direct
+ * control over them, distinct from the analysis-service's
+ * policy-driven injection (which is keyed on caller-supplied flags,
+ * registry toggles, and the connected proxy's advertisement). This
+ * lets harness scenarios author multi-weights
  * and LLM-at-seat policies that the autonomous-SR-loop note sketches:
  * fire alternating `playEngineMoves({...,model:"strong"})` and
  * `playEngineMoves({...,model:"weak"})` against one URL and the
@@ -180,9 +188,9 @@ function buildAnalyzeQuery(
   board: BoardState,
   maxVisits: number,
   queryId: QueryId,
-  model?: string,
+  model: string | null,
   capabilities?: PerQueryCapabilities,
-): { query: KataGoAnalysisQuery; expectedTurn: number } {
+): { query: RoutedAnalysisQuery; expectedTurn: number } {
   // Root-to-currentNodeId path — not root-to-leaf via
   // `getActiveVariationPath`. The query asks KataGo "given the
   // moves played to reach the current position, what's the best
@@ -208,20 +216,22 @@ function buildAnalyzeQuery(
   // `isDuringSearch === false`. Omitting `reportDuringSearchEvery`
   // tells the proxy not to emit during-search updates, saving
   // bandwidth and avoiding churn through the subscription callback.
+  // Assembled WITHOUT the `model` leg; the routing decision is made
+  // once, explicitly, at the finalizeAnalysisRouting seam below.
+  const unrouted: UnroutedAnalysisQuery = {
+    id: queryId,
+    moves,
+    ...(initialStones.length ? { initialStones } : {}),
+    rules: 'tromp-taylor',
+    boardXSize: getBoardSize(board),
+    boardYSize: getBoardSize(board),
+    komi: getKomi(board),
+    maxVisits,
+    analyzeTurns: [expectedTurn],
+    ...(capabilities !== undefined ? { capabilities } : {}),
+  };
   return {
-    query: {
-      id: queryId,
-      moves,
-      ...(initialStones.length ? { initialStones } : {}),
-      rules: 'tromp-taylor',
-      boardXSize: getBoardSize(board),
-      boardYSize: getBoardSize(board),
-      komi: getKomi(board),
-      maxVisits,
-      analyzeTurns: [expectedTurn],
-      ...(model !== undefined ? { model } : {}),
-      ...(capabilities !== undefined ? { capabilities } : {}),
-    },
+    query: finalizeAnalysisRouting(unrouted, model),
     expectedTurn,
   };
 }
@@ -386,7 +396,7 @@ export async function playEngineMoves(opts: PlayEngineMovesOptions): Promise<Boa
         board,
         opts.maxVisits,
         asQueryId(`play-${turn}-${Date.now()}`),
-        opts.model,
+        opts.model ?? null,
         opts.capabilities,
       );
       const packet = await awaitFinalPacket(client, query, expectedTurn, timeoutMs);
@@ -451,7 +461,7 @@ export async function queryEngineMove(opts: QueryEngineMoveOptions): Promise<Eng
       opts.board,
       opts.maxVisits,
       asQueryId(`query-${Date.now()}`),
-      opts.model,
+      opts.model ?? null,
       opts.capabilities,
     );
     const packet = await awaitFinalPacket(client, query, expectedTurn, opts.timeoutMs ?? ENGINE_PLAY_MOVE_TIMEOUT_MS);
@@ -653,7 +663,7 @@ export async function playEngineMatch(opts: PlayEngineMatchOptions): Promise<Boa
         matchBoard,
         side.maxVisits,
         asQueryId(`match-${playerColor}-${turn}-${Date.now()}`),
-        side.model,
+        side.model ?? null,
         opts.capabilities,
       );
       const packet = await awaitFinalPacket(client, query, expectedTurn, timeoutMs, {

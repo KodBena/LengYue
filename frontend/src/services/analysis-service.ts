@@ -6,7 +6,6 @@
 
 import { KataGoClient } from '../engine/katago/katago-client';
 import {
-  type KataGoAnalysisQuery,
   type Player,
   type KataCoord,
   type KataAnalysisResponse,
@@ -17,6 +16,10 @@ import {
   resolveWinrateFraming,
   normalizePacketToWhiteFraming,
 } from '../engine/katago/winrate-framing';
+import {
+  finalizeAnalysisRouting,
+  type UnroutedAnalysisQuery,
+} from '../engine/katago/query-routing';
 import {
   parseVersionResponse,
   parseModelsResponse,
@@ -657,7 +660,10 @@ export class AnalysisService {
     // ledger. Realtime callers (analysis-tab range selection,
     // full-game analyze) keep the default and get the 0.5s cadence
     // so reactive views update during ponder.
-    const query: KataGoAnalysisQuery = {
+    // Assembled WITHOUT the `model` leg — the routing decision is the
+    // finalizeAnalysisRouting seam's alone (query-routing.ts), applied
+    // at the subscribe call below.
+    const query: UnroutedAnalysisQuery = {
       id: queryId,
       moves,
       ...(initialStones.length ? { initialStones } : {}),
@@ -706,12 +712,14 @@ export class AnalysisService {
       ...(hasOverrides ? { overrideSettings } : {}),
       ...(analysis_config ? { analysis_config } : {}),
       ...(capabilities ? { capabilities } : {}),
-      ...(selectedModel !== null ? { model: selectedModel } : {}),
     };
 
-    const unsubscribe = this.client.subscribe(query, (res) => {
-      this.routeSubscriptionResponse(res, queryId);
-    });
+    const unsubscribe = this.client.subscribe(
+      finalizeAnalysisRouting(query, selectedModel),
+      (res) => {
+        this.routeSubscriptionResponse(res, queryId);
+      },
+    );
 
     this.activeSubscriptions.set(queryId, unsubscribe);
     // Restart thunk: when `restartActiveAnalyses` iterates, each
@@ -867,7 +875,10 @@ export class AnalysisService {
       adaptiveReevaluate: store.profile.settings.engine.katago.adaptiveReevaluate,
     });
     const selectedModel = store.engine.selectedModel;
-    const query: KataGoAnalysisQuery = {
+    // Assembled WITHOUT the `model` leg — the routing decision is the
+    // finalizeAnalysisRouting seam's alone (query-routing.ts), applied
+    // at the subscribe call below.
+    const query: UnroutedAnalysisQuery = {
       id: queryId,
       moves,
       ...(initialStones.length ? { initialStones } : {}),
@@ -905,12 +916,14 @@ export class AnalysisService {
       ...(hasOverrides ? { overrideSettings } : {}),
       ...(analysis_config ? { analysis_config } : {}),
       ...(capabilities ? { capabilities } : {}),
-      ...(selectedModel !== null ? { model: selectedModel } : {}),
     };
 
-    const unsubscribe = this.client.subscribe(query, (res) => {
-      this.routeSubscriptionResponse(res, queryId);
-    });
+    const unsubscribe = this.client.subscribe(
+      finalizeAnalysisRouting(query, selectedModel),
+      (res) => {
+        this.routeSubscriptionResponse(res, queryId);
+      },
+    );
 
     this.activeSubscriptions.set(queryId, unsubscribe);
     // Self-stopping restart thunk — see the analyzeRange site

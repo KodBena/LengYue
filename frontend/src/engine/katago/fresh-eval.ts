@@ -30,7 +30,8 @@
  */
 
 import { KataGoClient } from './katago-client';
-import type { KataAnalysisResponse, KataGoAnalysisQuery } from './types';
+import type { KataAnalysisResponse } from './types';
+import type { RoutedAnalysisQuery } from './query-routing';
 
 /**
  * Connect a fresh `KataGoClient` and resolve once `onConnect` fires.
@@ -107,7 +108,7 @@ export interface AwaitFinalPacketHooks {
  */
 export function awaitFinalPacket(
   client: KataGoClient,
-  query: KataGoAnalysisQuery,
+  query: RoutedAnalysisQuery,
   expectedTurn: number,
   timeoutMs: number,
   hooks: AwaitFinalPacketHooks = {},
