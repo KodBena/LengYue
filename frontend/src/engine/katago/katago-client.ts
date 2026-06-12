@@ -8,6 +8,7 @@ import {
   type KataGoQuery,
   type KataGoResponse,
   type KataGoActionQuery,
+  type ResponseFor,
 } from './types';
 
 type ResponseCallback = (response: KataGoResponse) => void;
@@ -111,20 +112,46 @@ export class KataGoClient {
   // id-keyed subscription mechanics. The parameter was historically
   // narrowed to KataGoAnalysisQuery, which forced sendCommand through a
   // bare `as any`; widening the seam types the call instead.
-  public subscribe(query: KataGoQuery, onUpdate: ResponseCallback): () => void {
+  //
+  // Generic over the query type so the callback receives only the
+  // responses that query's id can carry (`ResponseFor<Q>`): an analysis
+  // query's callback gets `KataAnalysisResponse | KataErrorResponse`, an
+  // action query's gets `KataActionResponse | KataErrorResponse`. This is
+  // the type-enforced narrowing the dispatch layer cannot give for free
+  // (`handleIncomingMessage` surfaces an error packet and falls through to
+  // the per-id subscriber — it must, since `sendCommand`'s one-shot path
+  // relies on receiving the error packet to resolve). With the broad
+  // response type a subscriber could `as`-erase the union; with
+  // `ResponseFor<Q>` it must discriminate `'error' in res` before reading
+  // an analysis field, or the read is a hard type error. Work-status item
+  // `subscribe-dispatch-structural-narrowing`.
+  public subscribe<Q extends KataGoQuery>(
+    query: Q,
+    onUpdate: (response: ResponseFor<Q>) => void,
+  ): () => void {
     const id = query.id;
 
     if (!this.subscribers.has(id)) {
       this.subscribers.set(id, new Set());
     }
-    this.subscribers.get(id)!.add(onUpdate);
+    // The subscriber registry is keyed by wire `id` only (it does not
+    // track which query type minted each id), so its callbacks are stored
+    // at the broad `ResponseCallback` type. `onUpdate` accepts the
+    // narrower `ResponseFor<Q>`; widening it back is sound because the
+    // id-routing invariant `ResponseFor<Q>` encodes holds at runtime —
+    // `handleIncomingMessage` only ever dispatches this id's own responses
+    // here, which are exactly the `ResponseFor<Q>` members. The cast is
+    // the one place that invariant is asserted rather than proven; it is
+    // confined to this storage step (the public signature stays narrow).
+    const stored = onUpdate as ResponseCallback;
+    this.subscribers.get(id)!.add(stored);
 
     this.sendRaw(query);
 
     return () => {
       const callbacks = this.subscribers.get(id);
       if (callbacks) {
-        callbacks.delete(onUpdate);
+        callbacks.delete(stored);
         if (callbacks.size === 0) {
           this.subscribers.delete(id);
         }

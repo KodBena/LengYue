@@ -283,6 +283,7 @@ frontend/src/
 │       ├── capability-injection.ts    [B3]  Pure builder for the per-query `capabilities` dict (proxy v1.0.14+).
 │       ├── contract.ts                [B3]  KataGoClient black-box callback-registry contract.
 │       ├── katago-client.ts           [B3]  WebSocket transport for KataGo analysis engine.
+│       ├── subscribe-narrowing.type-test.ts [B3]  Compile-time regression artifact: asserts `subscribe<Q>`'s callback receives `ResponseFor<Q>`, forcing each subscriber to discriminate the error variant. No runtime exports; type-checked by `vue-tsc -b`.
 │       ├── types.ts                   [B3]  SSOT for KataGo wire types + enrichment envelope.
 │       ├── version-probe.ts           [B3]  Pure parsers for `query_version` + `query_models` (SELECTOR-aware).
 │       └── winrate-framing.ts         [B3]  Resolves and normalises `reportAnalysisWinratesAs` framing.
