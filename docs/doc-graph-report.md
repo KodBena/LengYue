@@ -35,13 +35,13 @@ explicit root/sub-project file list — not reference rot).
 
 ## Summary
 
-- **Dangling from LIVE documents, missing on disk** (review these): **18**.
+- **Dangling from LIVE documents, missing on disk** (review these): **19**.
 - **Dangling from LIVE documents, retired (tombstoned) targets**: **28**.
-- **Dangling from LIVE documents, on disk but outside the node set**: **12**.
+- **Dangling from LIVE documents, on disk but outside the node set**: **13**.
 - **Dangling from EXECUTED playbooks** (reference-only records): **25**.
 - **Dangling from FROZEN documents** (archive + worklogs; expected drift): **305**.
 - **Directory references missing on disk**: **6** from live
-  documents, **9** from frozen/executed
+  documents, **6** from frozen/executed
   (257 directory references scanned in total).
 - **Ambiguous references** (bare filename matches more than one node — never
   silently resolved, per ADR-0002): **0**.
@@ -49,7 +49,7 @@ explicit root/sub-project file list — not reference rot).
 ## Advisory ratchet — no new danglers
 
 Live-document danglers in the two genuine-rot classes (missing-on-disk +
-retired-target): **46**, against a recorded baseline of
+retired-target): **47**, against a recorded baseline of
 **38** (2026-06-10). **EXCEEDED — new danglers have been introduced since the baseline.** Review the live sections above for the additions. Advisory only (this report does not gate), but the convention is: fix the new ones in the PR that introduced them, or record why not.
 
 ## Dangling references — from LIVE documents, missing on disk (review these)
@@ -70,6 +70,7 @@ retired-target): **46**, against a recorded baseline of
 - `docs/notes/distribution-packaging.md` → `docs/notes/distribution-tauri-plan.md` *(path-mention)* — target `docs/notes/distribution-tauri-plan.md` does not resolve to any node and does not exist on disk.
 - `docs/notes/distribution-packaging.md` → `docs/release-scope.md` *(path-mention)* — target `docs/release-scope.md` does not resolve to any node and does not exist on disk.
 - `docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md` → `docs/dispatch/frontend-to-proxy-wire-diagnostic-channel.md` *(path-mention)* — target `docs/dispatch/frontend-to-proxy-wire-diagnostic-channel.md` does not resolve to any node and does not exist on disk.
+- `docs/notes/roadmap-frontend-import-cycle-break.md` → ADR-0012 *(adr-related)* — target `docs/adr/0012-*.md` does not resolve to any node and does not exist on disk.
 - `docs/rfcs/0001-adr-meta-review.md` → `docs/adr/0008-adr-meta-review.md` *(path-mention)* — target `docs/adr/0008-adr-meta-review.md` does not resolve to any node and does not exist on disk.
 - `docs/rfcs/0001-adr-meta-review.md` → `docs/audits/README.md` *(path-mention)* — target `docs/audits/README.md` does not resolve to any node and does not exist on disk.
 
@@ -125,6 +126,7 @@ node-set scope (a maintainer decision, not an action item here).
 - `docs/notes/frontend-test-coverage-2026-05.md` → `frontend/tests/CLAUDE.md` *(path-mention)* — target `frontend/tests/CLAUDE.md` exists on disk but is outside the doc-graph node set.
 - `docs/notes/retrospective/release-retrospective-2026-05.md` → `frontend/docs/i18n.md` *(path-mention)* — target `frontend/docs/i18n.md` exists on disk but is outside the doc-graph node set.
 - `docs/notes/retrospective/release-retrospective-2026-05.md` → `frontend/tests/CLAUDE.md` *(path-mention)* — target `frontend/tests/CLAUDE.md` exists on disk but is outside the doc-graph node set.
+- `docs/notes/roadmap-frontend-import-cycle-break.md` → `frontend/docs/notes/board-scope.md` *(path-mention)* — target `frontend/docs/notes/board-scope.md` exists on disk but is outside the doc-graph node set.
 - `README.md` → `backend/samples/README.md` *(path-mention)* — target `backend/samples/README.md` exists on disk but is outside the doc-graph node set.
 
 ## Directory references missing on disk
@@ -150,10 +152,7 @@ reference. Resolved directory references are scanned but not listed.
 - `docs/playbooks/monorepo/editorial-cleanup-plan.md` → `docs/old-todos/` *(directory-ref)* — directory does not exist on disk.
 - `docs/playbooks/monorepo/monorepo-plan-framing.md` → `docs/old-todos/` *(directory-ref)* — directory does not exist on disk.
 - `docs/playbooks/monorepo/monorepo-plan.md` → `backend/routers/` *(directory-ref)* — directory does not exist on disk.
-- `docs/playbooks/monorepo/monorepo-plan.md` → `backend/data/` *(directory-ref)* — directory does not exist on disk.
 - `docs/playbooks/monorepo/monorepo-plan.md` → `docs/old-todos/` *(directory-ref)* — directory does not exist on disk.
-- `docs/worklog/2026-06-10-reviewcard-canonical-content.md` → `backend/data/` *(directory-ref)* — directory does not exist on disk.
-- `docs/worklog/2026-06-11-adr-corpus-amendments.md` → `backend/data/` *(directory-ref)* — directory does not exist on disk.
 
 ## Ambiguous references
 
