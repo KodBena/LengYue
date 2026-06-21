@@ -31,6 +31,10 @@ import type {
 import { defaultProfile, defaultSessionUI, defaultKnownTags, NIL_UUID } from './defaults';
 import { createInitialBoard } from './board-factory';
 import { migrate, CURRENT_SCHEMA_VERSION } from './migrations';
+import {
+  registerSystemMessageSink,
+  pushSystemMessage,
+} from '../services/system-message-sink';
 import { analysisService } from '../services/analysis-service';
 import { ledger } from '../state/analysis-ledger';
 import { stabilityTrajectoryStore } from '../state/stability-trajectory-store';
@@ -115,6 +119,30 @@ export const store = reactive<GlobalStore>({
     selectedModel: null,
   },
 });
+
+// Register the system-message sink once `store` exists (the impl writes into
+// `store.engine.messages`). Producers (services / state modules / composables)
+// push through `pushSystemMessage` from the sink port rather than importing the
+// store directly — that decoupling is what keeps api-client (and its cycle-only
+// dependents) out of the store/services import cycle. `pushSystemMessage` is
+// re-exported below so the existing store-importers keep working unchanged.
+registerSystemMessageSink({
+  push(type: SystemMessage['type'], text: string) {
+    const msg: SystemMessage = {
+      id: Math.random().toString(36).substring(2, 9),
+      type,
+      text,
+      timestamp: Date.now(),
+    };
+    store.engine.messages.unshift(msg);
+    if (store.engine.messages.length > 50) store.engine.messages.pop();
+  },
+});
+
+// Re-export the sink's push so the ~13 Component/composable importers that do
+// `import { pushSystemMessage } from '.../store'` keep working — they cannot
+// import from `src/services/**` (the component→services eslint boundary).
+export { pushSystemMessage };
 
 export const activeBoard = computed(() => store.boards[store.activeBoardIndex] ?? null);
 
@@ -783,17 +811,13 @@ export function buildPersistencePayload(): {
 }
 
 // ── System Messaging Actions ──
-
-export function pushSystemMessage(type: SystemMessage['type'], text: string) {
-  const msg: SystemMessage = {
-    id: Math.random().toString(36).substring(2, 9),
-    type,
-    text,
-    timestamp: Date.now()
-  };
-  store.engine.messages.unshift(msg);
-  if (store.engine.messages.length > 50) store.engine.messages.pop();
-}
+//
+// `pushSystemMessage` now lives behind the registered sink port
+// (`src/services/system-message-sink.ts`); the write implementation is
+// registered at module init above (just after `store` is defined) and the
+// symbol is re-exported there, so store-importers are unaffected.
+// `clearSystemMessages` / `dismissSystemMessage` stay store-local (not part of
+// the sink port).
 
 export function clearSystemMessages() {
   store.engine.messages = [];

@@ -308,7 +308,8 @@ frontend/src/
 │   ├── qeubo-service.ts               [B1]  ACL for qEUBO REST endpoints.
 │   ├── query-id.ts                    [B3]  Sole construction/re-brand site for the `QueryId` brand (engine-query correlation id).
 │   ├── resource-service.ts            [B1]  Generic typed resource verb (`getResource<T>`) for backend static resources; domain-free.
-│   └── sync-service.ts                [B1]  Stateless persistence bridge; identity-aware document sync.
+│   ├── sync-service.ts                [B1]  Stateless persistence bridge; identity-aware document sync.
+│   └── system-message-sink.ts         [B1]  Registered sink port for `pushSystemMessage` — decouples message producers from the store (store registers the write-into-`store.engine.messages` impl at init); breaks the producer→store import edge (cycle-check ratchet).
 │
 ├── state/                                   Reactive-state modules: analysis-domain stores read directly by display leaves (ADR-0010 read-locality). Not effectful singletons; the component→services boundary lint does not police this directory (relocated from services/ 2026-06-11, item reactive-state-modules-relocation).
 │   ├── analysis-config.ts             [B3]  Palette compile + ledger hash. Sole factory for the `RawKey` / `EnrichedKey` brands (`deriveAnalysisKeys`); reactive `activeAnalysisKeys` over the qEUBO audition overlay.

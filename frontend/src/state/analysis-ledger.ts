@@ -40,7 +40,8 @@ import {
   type Enrichment,
 } from '../engine/katago/types';
 import { type NodeId, type BoardId, type RawKey, type EnrichedKey } from '../types';
-import { store, pushSystemMessage } from '../store';
+import { store } from '../store';
+import { pushSystemMessage } from '../services/system-message-sink';
 import { i18n } from '../i18n';
 
 /**

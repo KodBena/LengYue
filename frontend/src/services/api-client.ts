@@ -10,7 +10,7 @@
 
 import { ref, readonly } from 'vue';
 import { API_BASE_URL } from '../config/env';
-import { pushSystemMessage } from '../store';
+import { pushSystemMessage } from './system-message-sink';
 import { i18n } from '../i18n';
 import type { components } from '../types/backend';
 

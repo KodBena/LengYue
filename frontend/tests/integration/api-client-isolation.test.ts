@@ -26,6 +26,13 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { isReadonly } from 'vue';
+// The store registers the SystemMessageSink at module init; api-client's 401
+// report path pushes through that sink. api-client no longer imports the store
+// (the edge was broken behind the sink port — cycle-check ratchet, ADR-0011),
+// so this test must load the store itself for the sink to be registered — the
+// "real store for system messages" the header names, now an explicit import
+// rather than a transitive one.
+import '../../src/store';
 import * as apiClientModule from '../../src/services/api-client';
 import {
   api,
