@@ -90,3 +90,28 @@ jobs:
         run: node tools/band-conformance/check.mjs --self-test
       - name: Band-conformance check (structural-drift gate + no-new-findings ratchet)
         run: node tools/band-conformance/check.mjs --check
+
+  # ── Cycle-check: import-cycle ratchet (no new circular dependencies) ──
+  # Runs the umbrella-level checker (tools/cycle-check/check.mjs, zero-deps Node,
+  # sharing tools/import-graph.mjs with band-conformance — the extracted walker)
+  # over frontend/src's runtime VALUE-edge graph. `--check` gates on the
+  # NO-NEW-CYCLES ratchet: the cyclic-cluster count or the file-in-cycle count
+  # EXCEEDING the measured baseline (a new import cycle, or an existing tangle
+  # growing) fails the build; the baseline itself does not gate. A runtime import
+  # cycle is the structural precondition of the vite-8.0.12 vitest-teardown
+  # deadlock (PR #444). The self-test proves SCC detection fires on a cycle and
+  # stays clean on a DAG. No `working-directory` override: reads from repo root.
+  cycle-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Cycle-check self-test (SCC detection proofs)
+        run: node tools/cycle-check/check.mjs --self-test
+      - name: Cycle-check (no-new-cycles ratchet)
+        run: node tools/cycle-check/check.mjs --check

@@ -142,16 +142,22 @@
  * License: Public Domain (The Unlicense)
  */
 
-import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join, resolve, relative, basename } from "node:path";
+import { readFileSync, existsSync } from "node:fs";
+import { join, relative } from "node:path";
+import {
+  REPO_ROOT,
+  FRONTEND,
+  SRC_DIR,
+  enumerateSrcFiles,
+  extractEdges,
+} from "../import-graph.mjs";
 
 // ── Substrate tokens ─────────────────────────────────────────────────────────
 
-/** Repo root = two levels up from tools/band-conformance/. */
-const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const FRONTEND = join(REPO_ROOT, "frontend");
-const SRC_DIR = join(FRONTEND, "src");
+// Path substrate (REPO_ROOT/FRONTEND/SRC_DIR) and the import-graph recovery
+// (enumerateSrcFiles/extractEdges) now live in the shared tools/import-graph.mjs
+// — band-conformance and cycle-check derive the graph from one home (ADR-0012
+// P1; ADR-0008 keeps each tool's classification single).
 const FILES_MD = join(FRONTEND, "FILES.md");
 
 /** Band ordering: a more-portable band is a SMALLER rank. */
@@ -437,126 +443,6 @@ function parseFilesMd() {
     );
   }
   return { bandByPath, rowOrigin };
-}
-
-// ── Source-file enumeration + import graph ───────────────────────────────────
-
-/** Every `.ts`/`.vue` file under src, src-relative, excluding the codegen file. */
-function enumerateSrcFiles(srcRoot = SRC_DIR) {
-  const out = [];
-  const walk = (absDir) => {
-    for (const e of readdirSync(absDir, { withFileTypes: true })) {
-      const abs = join(absDir, e.name);
-      if (e.isDirectory()) walk(abs);
-      else if (/\.(ts|vue)$/.test(e.name)) out.push(srcRelOf(abs, srcRoot));
-    }
-  };
-  walk(srcRoot);
-  // src/types/backend.ts is OpenAPI-generated — never hand-tagged, excluded
-  // from FILES.md, and excluded here (it is the ACL's generated wire types).
-  return out.filter((f) => f !== "src/types/backend.ts").sort();
-}
-
-/** Absolute path → `src/<...>` relative form. */
-function srcRelOf(abs, srcRoot = SRC_DIR) {
-  return "src/" + relative(srcRoot, abs).replace(/\\/g, "/");
-}
-
-/**
- * Resolve a relative import specifier from a file to a src-relative path.
- * Returns `{ resolved, exists }`. Mirrors Vite/TS module resolution for the
- * extensionless + directory-index forms the codebase uses (`../store` →
- * `store/index.ts`). Bare specifiers (npm, `vue`) resolve to `null`.
- */
-function resolveImport(fromSrcRel, spec, srcRoot = SRC_DIR) {
-  if (!spec.startsWith(".")) return null; // bare → npm package, not in-graph
-  const fromAbs = join(srcRoot, relative("src", fromSrcRel));
-  const baseAbs = resolve(dirname(fromAbs), spec);
-  const candidates = [
-    baseAbs,
-    baseAbs + ".ts",
-    baseAbs + ".vue",
-    baseAbs + ".json",
-    join(baseAbs, "index.ts"),
-    join(baseAbs, "index.vue"),
-  ];
-  for (const c of candidates) {
-    if (existsSync(c) && statSync(c).isFile()) {
-      return { resolved: srcRelOf(c, srcRoot), exists: true };
-    }
-  }
-  return { resolved: srcRelOf(baseAbs, srcRoot), exists: false };
-}
-
-const IMPORT_FROM_RE = /^\s*(?:export\s+)?import\s+(type\s+)?[\s\S]*?from\s*['"]([^'"]+)['"]/;
-const EXPORT_FROM_RE = /^\s*export\s+(type\s+)?(?:\*|\{[\s\S]*?\})\s*from\s*['"]([^'"]+)['"]/;
-const SIDE_EFFECT_RE = /^\s*import\s+['"]([^'"]+)['"]/;
-
-/**
- * Extract a file's runtime import edges. Each edge is
- * `{ from, spec, target, exists, typeOnly }`. `typeOnly` is true for
- * `import type` / `export type` (compile-time-erased — exempt). Re-export
- * `from` lines are edges too (a barrel's re-export is a runtime dependency on
- * the leaf for value re-exports; `export type` is type-only).
- *
- * Best-effort line-based scan (no full TS parse — zero-deps posture). It reads
- * single-line `import … from '…'` and the common multi-line member form is
- * handled by the `[\s\S]*?` in the regex only when the `from` lands on the
- * same logical match; for robustness across multi-line member lists we
- * pre-join continuation lines that lack a `from` with their closing `from`.
- */
-function extractEdges(fromSrcRel, body) {
-  const edges = [];
-  const seen = new Set();
-  // Pre-join: collapse a multi-line `import { … \n … } from '…'` into one line
-  // so the single-line regexes catch it. We join lines from an `import`/
-  // `export` opener up to the line carrying the closing `from '…'`.
-  const physical = body.split("\n");
-  const logical = [];
-  let buffer = null;
-  for (const line of physical) {
-    const opensImport = /^\s*(?:export\s+)?import\b/.test(line) || /^\s*export\b/.test(line);
-    if (buffer !== null) {
-      buffer += " " + line.trim();
-      if (/from\s*['"][^'"]+['"]/.test(line) || /['"][^'"]+['"]\s*;?\s*$/.test(line)) {
-        logical.push(buffer);
-        buffer = null;
-      }
-      continue;
-    }
-    if (opensImport && !/from\s*['"][^'"]+['"]/.test(line) && !SIDE_EFFECT_RE.test(line) && /[{,]\s*$/.test(line)) {
-      buffer = line.trim();
-      continue;
-    }
-    logical.push(line);
-  }
-  if (buffer !== null) logical.push(buffer);
-
-  for (const line of logical) {
-    let typeOnly = false;
-    let spec = null;
-    let m;
-    if ((m = line.match(IMPORT_FROM_RE))) {
-      typeOnly = !!m[1];
-      spec = m[2];
-    } else if ((m = line.match(EXPORT_FROM_RE))) {
-      typeOnly = !!m[1];
-      spec = m[2];
-    } else if ((m = line.match(SIDE_EFFECT_RE))) {
-      typeOnly = false;
-      spec = m[1];
-    } else {
-      continue;
-    }
-    if (!spec || !spec.startsWith(".")) continue;
-    const r = resolveImport(fromSrcRel, spec);
-    if (!r) continue;
-    const key = `${r.resolved}|${typeOnly}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    edges.push({ from: fromSrcRel, spec, target: r.resolved, exists: r.exists, typeOnly });
-  }
-  return edges;
 }
 
 // ── Analysis ─────────────────────────────────────────────────────────────────
