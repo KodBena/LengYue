@@ -68,6 +68,10 @@ on:
       - 'tools/doc-graph/**'
       - '.github/workflows/doc-graph-ci.yml'
 
+# Least privilege: checkout + read-only freshness check only; no writes.
+permissions:
+  contents: read
+
 jobs:
   freshness:
     runs-on: ubuntu-latest

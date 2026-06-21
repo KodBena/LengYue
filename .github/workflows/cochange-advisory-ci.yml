@@ -30,6 +30,11 @@ on:
       - 'tools/doc-graph/cochange-advisory.mjs'
       - '.github/workflows/cochange-advisory-ci.yml'
 
+# Least privilege: this workflow only checks out and runs read-only Node
+# checks — it never pushes, comments, or calls the GitHub API.
+permissions:
+  contents: read
+
 jobs:
   cochange:
     runs-on: ubuntu-latest
