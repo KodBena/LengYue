@@ -43,6 +43,10 @@ on:
       - 'tools/source-headers/**'
       - '.github/workflows/source-headers-ci.yml'
 
+# Least privilege: checkout + read-only Node checks only; no writes.
+permissions:
+  contents: read
+
 jobs:
   source-headers:
     runs-on: ubuntu-latest

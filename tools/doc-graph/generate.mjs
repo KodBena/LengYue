@@ -659,7 +659,11 @@ function nodeUrl(path) {
 }
 
 function dotEscape(s) {
-  return s.replace(/"/g, '\\"');
+  // Escape the escape char (`\`) before the quote, or a backslash in the
+  // input would corrupt the quote-escaping it precedes (CodeQL
+  // js/incomplete-sanitization). Inputs are repo-resident doc paths/labels,
+  // so this is defence-in-depth rather than an attacker-controlled surface.
+  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
 /** Short label for a node in the picture (basename, with dir disambiguation). */

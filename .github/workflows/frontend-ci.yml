@@ -38,6 +38,11 @@ on:
     branches: [main]
     paths: ['frontend/**', '.github/workflows/frontend-ci.yml']
 
+# Least privilege: build/lint/test + band-conformance only — both jobs are
+# read-only (no push, comment, or GitHub API writes).
+permissions:
+  contents: read
+
 defaults:
   run:
     working-directory: frontend
