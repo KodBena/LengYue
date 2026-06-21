@@ -1,6 +1,6 @@
 {
-  "node_count": 489,
-  "edge_count": 2362,
+  "node_count": 490,
+  "edge_count": 2370,
   "age_buckets": [
     {
       "name": "fresh",
@@ -2373,6 +2373,14 @@
       "age_bucket": "stale"
     },
     {
+      "path": "docs/notes/roadmap-frontend-import-cycle-break.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
       "path": "docs/notes/roadmap-phase3.5-spa-integration.md",
       "genre": "note",
       "is_hub": false,
@@ -3346,7 +3354,7 @@
       "is_hub": false,
       "first_committed": "2026-06-09",
       "last_committed": "2026-06-09",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-09-mini-board-texture-scope-fix.md",
@@ -3842,7 +3850,7 @@
       "is_hub": false,
       "first_committed": "2026-06-12",
       "last_committed": "2026-06-12",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-12-engine-move-delta-reconcile.md",
@@ -3850,7 +3858,7 @@
       "is_hub": false,
       "first_committed": "2026-06-12",
       "last_committed": "2026-06-12",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-12-mint-komi-calibration.md",
@@ -3888,9 +3896,9 @@
       "path": "docs/worklog/2026-06-12-settings-accordion-to-tabs.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-12",
+      "last_committed": "2026-06-12",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-12-subscribe-dispatch-narrowing.md",
@@ -14622,6 +14630,62 @@
       "kind": "adr-related",
       "site": "ADR-0002",
       "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/roadmap-frontend-import-cycle-break.md",
+      "to": "docs/adr/0004-minimal-touch-edits-to-partially-visible-files.md",
+      "kind": "adr-related",
+      "site": "ADR-0004",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/roadmap-frontend-import-cycle-break.md",
+      "to": "docs/adr/0012-*.md",
+      "kind": "adr-related",
+      "site": "ADR-0012",
+      "resolved": "dangling"
+    },
+    {
+      "from": "docs/notes/roadmap-frontend-import-cycle-break.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/roadmap-frontend-import-cycle-break.md",
+      "to": "docs/adr/0001-state-mutation-and-readonly.md",
+      "kind": "adr-related",
+      "site": "ADR-0001",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/roadmap-frontend-import-cycle-break.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/roadmap-frontend-import-cycle-break.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/roadmap-frontend-import-cycle-break.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/roadmap-frontend-import-cycle-break.md",
+      "to": "frontend/docs/notes/board-scope.md",
+      "kind": "path-mention",
+      "site": "`frontend/docs/notes/board-scope.md`",
+      "resolved": "dangling"
     },
     {
       "from": "docs/notes/roadmap-phase3.5-spa-integration.md",
