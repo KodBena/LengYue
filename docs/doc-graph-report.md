@@ -35,7 +35,7 @@ explicit root/sub-project file list — not reference rot).
 
 ## Summary
 
-- **Dangling from LIVE documents, missing on disk** (review these): **18**.
+- **Dangling from LIVE documents, missing on disk** (review these): **19**.
 - **Dangling from LIVE documents, retired (tombstoned) targets**: **28**.
 - **Dangling from LIVE documents, on disk but outside the node set**: **12**.
 - **Dangling from EXECUTED playbooks** (reference-only records): **25**.
@@ -49,7 +49,7 @@ explicit root/sub-project file list — not reference rot).
 ## Advisory ratchet — no new danglers
 
 Live-document danglers in the two genuine-rot classes (missing-on-disk +
-retired-target): **46**, against a recorded baseline of
+retired-target): **47**, against a recorded baseline of
 **38** (2026-06-10). **EXCEEDED — new danglers have been introduced since the baseline.** Review the live sections above for the additions. Advisory only (this report does not gate), but the convention is: fix the new ones in the PR that introduced them, or record why not.
 
 ## Dangling references — from LIVE documents, missing on disk (review these)
@@ -70,6 +70,7 @@ retired-target): **46**, against a recorded baseline of
 - `docs/notes/distribution-packaging.md` → `docs/notes/distribution-tauri-plan.md` *(path-mention)* — target `docs/notes/distribution-tauri-plan.md` does not resolve to any node and does not exist on disk.
 - `docs/notes/distribution-packaging.md` → `docs/release-scope.md` *(path-mention)* — target `docs/release-scope.md` does not resolve to any node and does not exist on disk.
 - `docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md` → `docs/dispatch/frontend-to-proxy-wire-diagnostic-channel.md` *(path-mention)* — target `docs/dispatch/frontend-to-proxy-wire-diagnostic-channel.md` does not resolve to any node and does not exist on disk.
+- `docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md` → ADR-0013 *(adr-related)* — target `docs/adr/0013-*.md` does not resolve to any node and does not exist on disk.
 - `docs/rfcs/0001-adr-meta-review.md` → `docs/adr/0008-adr-meta-review.md` *(path-mention)* — target `docs/adr/0008-adr-meta-review.md` does not resolve to any node and does not exist on disk.
 - `docs/rfcs/0001-adr-meta-review.md` → `docs/audits/README.md` *(path-mention)* — target `docs/audits/README.md` does not resolve to any node and does not exist on disk.
 
