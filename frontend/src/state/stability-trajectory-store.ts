@@ -32,7 +32,7 @@
 
 import { ref, type Ref } from 'vue';
 import type { KataAnalysisResponse } from '../engine/katago/types';
-import type { NodeId, BoardId, RawKey, ExtractorId } from '../types';
+import type { NodeId, RawKey, ExtractorId } from '../types';
 import {
   STABILITY_EXTRACTORS,
   type StabilityExtractor,
@@ -43,7 +43,11 @@ import {
   type StabilityTrajectory,
   type StabilityValue,
 } from '../lib/stability-trajectory';
-import { store } from '../store';
+import {
+  registerBoardCloseHandler,
+  registerWorkspaceResetHandler,
+  TeardownOrder,
+} from '../store/teardown-registry';
 
 // ── Internal storage ──────────────────────────────────────────────────────────
 
@@ -167,25 +171,24 @@ export class StabilityTrajectoryStore {
   }
 
   /**
-   * Drop every trajectory whose nodeId belongs to the given board.
-   * Mirrors `analysis-ledger::purgeBoard`'s bump-then-delete contract:
+   * Drop every trajectory whose nodeId is in the given list.
+   * Mirrors `analysis-ledger::purgeNodes`'s bump-then-delete contract:
    * subscribed consumers see the cleared data before the version ref
    * is dropped, then re-attach to fresh refs on the next read via
-   * `getOrCreateVersion`.
+   * `getOrCreateVersion`. The caller hands the node list directly (it no
+   * longer reaches up into the store — the up-edge
+   * `stability-trajectory-store → store` was the import cycle this
+   * inversion broke); an empty array is a no-op.
    */
-  public purgeBoard(boardId: BoardId): void {
-    const board = store.boards.find(b => b.id === boardId);
-    if (!board) return;
-    // Object.keys widens Record<NodeId,…> keys to string[] (the TS "Category C"
-    // boundary, IDENTIFIERS.md NodeId row); re-brand the keys.
-    const nodeIds = new Set<NodeId>(Object.keys(board.nodes) as NodeId[]);
+  public purgeNodes(nodeIds: readonly NodeId[]): void {
+    const wanted = new Set<NodeId>(nodeIds);
 
     for (const key of Array.from(trajectories.keys())) {
       // Key shape: `${hash}|${extractorId}|${nodeId}` — the last
       // segment is the nodeId. NodeIds are UUIDs (no '|' in them),
       // so the last split-segment is unambiguous.
       const nodeId = key.substring(key.lastIndexOf('|') + 1) as NodeId;
-      if (nodeIds.has(nodeId)) {
+      if (wanted.has(nodeId)) {
         trajectories.delete(key);
         const v = trajectoryVersions.get(key);
         if (v) {
@@ -198,3 +201,24 @@ export class StabilityTrajectoryStore {
 }
 
 export const stabilityTrajectoryStore = new StabilityTrajectoryStore();
+
+// ── Teardown registration (ADR-0012 dependency inversion) ────────────────────
+// Symmetric to analysis-ledger: the store no longer imports this module to
+// drive its purges (the removed store → store-state out-edge was part of the
+// Tranche D cycle break). `TeardownOrder.LEDGER_PURGE` mirrors the ledger — its
+// purge is a board-derived clear that runs after analysis-service's stop, same
+// shape as the ledger's per-board purge.
+registerBoardCloseHandler({
+  label: 'stability-trajectory:purge',
+  order: TeardownOrder.LEDGER_PURGE,
+  // Drops the per-(rawKey, extractor, nodeId) trajectories for the closed
+  // board's nodes. Bounded leak if omitted (compact change-point lists); same
+  // per-board hygiene as the ledger purge. Empty list is a no-op.
+  run: (_boardId, nodeIds) => stabilityTrajectoryStore.purgeNodes(nodeIds),
+});
+registerWorkspaceResetHandler({
+  label: 'stability-trajectories',
+  // Drops every cached trajectory on identity flip. Order-independent of the
+  // other data-cache clears (runs after the engine stop). (Audit-shape O8 twin.)
+  run: () => stabilityTrajectoryStore.purgeAll(),
+});

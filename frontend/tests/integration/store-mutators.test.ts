@@ -29,48 +29,117 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// ── Teardown-registry mocking (ADR-0012 dependency inversion) ─────────────────
+// closeBoard / resetWorkspace no longer import the resource owners to drive
+// their cleanup — each owner registers its teardown handler at module init and
+// the store calls the registry (`runBoardCloseHandlers` /
+// `runWorkspaceResetHandlers`). So a `vi.mock` that replaces an owner module
+// wholesale ALSO removes that owner's registration (the mocked module body
+// never runs), and closeBoard would then drive NO cleanup for that owner.
+//
+// To keep these behaviour tests pinning the per-owner cleanup calls, each
+// owner-module mock factory below ALSO registers a delegating teardown handler
+// (same label + TeardownOrder band as production) that calls the fake/spy. The
+// real un-mocked owners (analysis-ledger, stability-trajectory-store,
+// useReviewSession) self-register via their real module bodies when the
+// `teardown-registrations` bootstrap loads them. The completeness assertions
+// below pin that the FULL production label set is present and correctly
+// ordered (a forgotten owner — real or faked — fails loudly), and the per-owner
+// call assertions pin that closeBoard drives each handler. Factories register
+// via dynamic `await import` because vi.mock factories cannot close over
+// outer-scope bindings (hoisting).
+
 // Service mocks (network boundaries).
 vi.mock('../../src/services/analysis-service', async () => {
   const { fakeAnalysisService } = await import('../fakes/analysis-service');
+  const { registerBoardCloseHandler, registerWorkspaceResetHandler, TeardownOrder } =
+    await import('../../src/store/teardown-registry');
+  // Engine-stop — must run before the ledger purge (ENGINE_STOP < LEDGER_PURGE).
+  registerBoardCloseHandler({
+    label: 'analysis-service:stop',
+    order: TeardownOrder.ENGINE_STOP,
+    run: (boardId) => fakeAnalysisService.stopBoardAnalysis(boardId),
+  });
+  registerWorkspaceResetHandler({
+    label: 'analysis:active-board-analyses',
+    order: TeardownOrder.ENGINE_STOP,
+    run: () => fakeAnalysisService.stopAllBoardAnalyses(),
+  });
   return { analysisService: fakeAnalysisService };
 });
 
 vi.mock('../../src/services/analysis-persistence-service', async () => {
   const { fakeAnalysisPersistenceService } = await import('../fakes/analysis-persistence-service');
+  const { registerBoardCloseHandler, registerWorkspaceResetHandler } =
+    await import('../../src/store/teardown-registry');
+  registerBoardCloseHandler({
+    label: 'analysis-persistence:discard',
+    run: (boardId) =>
+      fakeAnalysisPersistenceService
+        .discard(boardId)
+        .catch(() => { /* mirrors production's fire-and-forget swallow */ }),
+  });
+  registerWorkspaceResetHandler({
+    label: 'analysis-bundle-summaries',
+    run: () => fakeAnalysisPersistenceService.forgetAll(),
+  });
   return { analysisPersistenceService: fakeAnalysisPersistenceService };
 });
 
 // Composable-exported cleanup functions. Replace each with a
-// vi.fn() spy; resetWorkspace and closeBoard call these as part
-// of their cleanup chain, and the assertion is on call shape.
-vi.mock('../../src/composables/cards/useCardThumbnail', () => ({
-  clearCardThumbnailCache: vi.fn(),
-  getCardThumbnailSync: vi.fn(() => ''),
-}));
+// vi.fn() spy; the registry's board-close / workspace-reset handlers call
+// these, and the assertion is on call shape. Each factory registers its
+// delegating handler (same labels/order as production).
+vi.mock('../../src/composables/cards/useCardThumbnail', async () => {
+  const { registerWorkspaceResetHandler } = await import('../../src/store/teardown-registry');
+  const clearCardThumbnailCache = vi.fn();
+  registerWorkspaceResetHandler({ label: 'card-thumbnails', run: () => clearCardThumbnailCache() });
+  return { clearCardThumbnailCache, getCardThumbnailSync: vi.fn(() => '') };
+});
 
 // The board-thumbnail purge surface lives in its owner module
-// (thumbnail-render-resources.ts, the render-lifecycle consolidation);
-// the store imports the purges from there.
-vi.mock('../../src/composables/cards/thumbnail-render-resources', () => ({
-  purgeBoardThumbnails: vi.fn(),
-  purgeAllThumbnails: vi.fn(),
-}));
+// (thumbnail-render-resources.ts, the render-lifecycle consolidation).
+vi.mock('../../src/composables/cards/thumbnail-render-resources', async () => {
+  const { registerBoardCloseHandler, registerWorkspaceResetHandler } =
+    await import('../../src/store/teardown-registry');
+  const purgeBoardThumbnails = vi.fn();
+  const purgeAllThumbnails = vi.fn();
+  registerBoardCloseHandler({ label: 'thumbnails:purge-board', run: (boardId) => purgeBoardThumbnails(boardId) });
+  registerWorkspaceResetHandler({ label: 'board-thumbnails', run: () => purgeAllThumbnails() });
+  return { purgeBoardThumbnails, purgeAllThumbnails };
+});
 
-vi.mock('../../src/composables/cards/board-card-trees', () => ({
-  removeBoardCardTree: vi.fn(),
-  clearAllBoardCardTrees: vi.fn(),
-  getOrCreateBoardCardTree: vi.fn(),
-  getBoardCardTree: vi.fn(() => null),
-}));
+vi.mock('../../src/composables/cards/board-card-trees', async () => {
+  const { registerBoardCloseHandler, registerWorkspaceResetHandler } =
+    await import('../../src/store/teardown-registry');
+  const removeBoardCardTree = vi.fn();
+  const clearAllBoardCardTrees = vi.fn();
+  registerBoardCloseHandler({ label: 'board-card-trees:remove', run: (boardId) => removeBoardCardTree(boardId) });
+  registerWorkspaceResetHandler({ label: 'board-card-trees', run: () => clearAllBoardCardTrees() });
+  return {
+    removeBoardCardTree,
+    clearAllBoardCardTrees,
+    getOrCreateBoardCardTree: vi.fn(),
+    getBoardCardTree: vi.fn(() => null),
+  };
+});
+
+// Load every owner so its teardown handler registers (real owners via their
+// real module body; mocked owners via the factories above). Must precede the
+// store import-driven mutators using the registry.
+import '../../src/store/teardown-registrations';
 
 import {
   store,
   addBoard,
   closeBoard,
   resetWorkspace,
-  identityScopedCacheLabels,
   boardScopedStoreCellLabels,
 } from '../../src/store';
+import {
+  registeredBoardCloseLabels,
+  registeredWorkspaceResetLabels,
+} from '../../src/store/teardown-registry';
 import { createInitialBoard } from '../../src/store/board-factory';
 import { defaultKnownTags } from '../../src/store/defaults';
 import { ledger } from '../../src/state/analysis-ledger';
@@ -91,7 +160,7 @@ import {
   removeBoardCardTree,
   clearAllBoardCardTrees,
 } from '../../src/composables/cards/board-card-trees';
-import type { BoardId, CardId, NavNodeId } from '../../src/types';
+import type { BoardId, CardId, NavNodeId, NodeId } from '../../src/types';
 
 beforeEach(() => {
   resetFakeAnalysisService();
@@ -133,16 +202,22 @@ describe('closeBoard — resource-ownership cleanup chain', () => {
       visitsOverride: null,
     };
 
-    // Spy on the ledger's purgeBoard — it's a real module-scope
+    // Snapshot the closing board's node ids before the close: closeBoard
+    // hands these to ledger.purgeNodes (the inverted per-board purge — the
+    // ledger no longer reaches up into the store), so this is the load-
+    // bearing assertion that the RIGHT nodes are passed.
+    const closingNodeIds = Object.keys(second.nodes) as NodeId[];
+
+    // Spy on the ledger's purgeNodes — it's a real module-scope
     // singleton; vi.spyOn lets us record the call without
     // replacing behaviour.
-    const purgeBoardSpy = vi.spyOn(ledger, 'purgeBoard');
+    const purgeNodesSpy = vi.spyOn(ledger, 'purgeNodes');
 
     closeBoard(second.id);
 
     // Service calls (audit O1, O13).
     expect(fakeAnalysisService.stopBoardAnalysis).toHaveBeenCalledWith(second.id);
-    expect(purgeBoardSpy).toHaveBeenCalledWith(second.id);
+    expect(purgeNodesSpy).toHaveBeenCalledWith(closingNodeIds);
     expect(fakeAnalysisPersistenceService.discard).toHaveBeenCalledWith(second.id);
 
     // Per-board dictionary delete (audit O2). O3 was the engine.activeMode
@@ -163,7 +238,7 @@ describe('closeBoard — resource-ownership cleanup chain', () => {
     const remaining = store.boards.find(b => b.id === second.id);
     expect(remaining).toBeUndefined();
 
-    purgeBoardSpy.mockRestore();
+    purgeNodesSpy.mockRestore();
   });
 
   it('spawns a fresh blank board when closing the only remaining board', () => {
@@ -325,25 +400,44 @@ describe('resetWorkspace — tenancy: knownTags + the identity-scoped-cache regi
     expect(store.knownTags).not.toBe(defaultKnownTags);
   });
 
-  it('the identity-scoped-cache registry covers exactly the known caches', () => {
-    // The registry is the single place identity-scoped MODULE caches
-    // register their clear; resetWorkspace drains it. This guard fails
-    // the moment a cache is added to or removed from the registry
-    // without a deliberate update here — so a clear can't be silently
-    // dropped (a cross-tenant leak) nor a cache silently un-registered.
-    const labels = identityScopedCacheLabels();
-    expect(labels).toEqual(
-      expect.arrayContaining([
-        'analysis:active-board-analyses',
-        'analysis-ledger',
-        'stability-trajectories',
-        'board-thumbnails',
-        'card-thumbnails',
-        'board-card-trees',
-        'analysis-bundle-summaries',
-      ]),
+  it('resetWorkspace drives the registry path (every workspace-reset spy fires once)', () => {
+    // NOTE: this suite mocks 5 owners and each mock factory re-registers a
+    // delegating handler, so the registered LABEL SET here reflects the mocks,
+    // not production — asserting the full set here would be CIRCULAR (it would
+    // read back what the mocks wrote). The production-completeness guarantee
+    // therefore lives in `teardown-registry-completeness.test.ts`, which loads
+    // the REAL owners un-mocked. What is real HERE is that resetWorkspace runs
+    // the registry and the registry drives each handler — proven by the spy
+    // assertions in the resetWorkspace suite below (stopAllBoardAnalyses,
+    // forgetAll, ledger.purgeAll, purgeAllThumbnails, clearCardThumbnailCache,
+    // clearAllBoardCardTrees all fire once). This assertion pins that the
+    // workspace-reset registry is non-empty and includes the engine-stop first,
+    // i.e. the path is wired (a smoke check, not the completeness guarantee).
+    const labels = [...registeredWorkspaceResetLabels()];
+    expect(labels.length).toBeGreaterThan(0);
+    expect(labels[0]).toBe('analysis:active-board-analyses'); // ENGINE_STOP band runs first
+  });
+});
+
+describe('closeBoard — teardown registry path (smoke; real completeness is in the un-mocked suite)', () => {
+  // The COMPLETE board-close / workspace-reset registration sets — that every
+  // real owner registers, with the right label and TeardownOrder band — are
+  // pinned in `teardown-registry-completeness.test.ts` (un-mocked, against the
+  // real owner modules). They CANNOT be pinned here: this suite vi.mocks 5
+  // owners whose mock factories re-register delegating handlers, so the set
+  // read back here is the mocks' set, not production's (a circular assertion;
+  // out-of-frame audit 2026-06-22). What IS real here is that closeBoard runs
+  // the registry and the registry drives each handler — the per-owner spy
+  // assertions in the closeBoard suite above (stopBoardAnalysis, ledger.purgeNodes,
+  // discard, purgeBoardThumbnails, removeBoardCardTree). This is the smoke check
+  // that the board-close path is wired and engine-stop-ordered.
+  it('the board-close registry is wired with the engine stop ordered first', () => {
+    const labels = [...registeredBoardCloseLabels()];
+    expect(labels.length).toBeGreaterThan(0);
+    expect(labels[0]).toBe('analysis-service:stop'); // ENGINE_STOP band runs first
+    expect(labels.indexOf('analysis-service:stop')).toBeLessThan(
+      labels.indexOf('analysis-ledger:purge'),
     );
-    expect(labels).toHaveLength(7);
   });
 });
 

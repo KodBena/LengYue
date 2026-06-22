@@ -39,6 +39,10 @@ import type {
   ForestStat,
   ReviewCard,
 } from '../../types';
+import {
+  registerBoardCloseHandler,
+  registerWorkspaceResetHandler,
+} from '../../store/teardown-registry';
 
 /**
  * Which producer last populated the slot's forest. The slot has three
@@ -122,3 +126,23 @@ export function removeBoardCardTree(boardId: BoardId): void {
 export function clearAllBoardCardTrees(): void {
   boardCardTrees.clear();
 }
+
+// ── Teardown registration (ADR-0012 dependency inversion) ────────────────────
+// The store no longer imports these slot teardowns to drive its cleanup (that
+// store → module out-edge was part of the import cycle Tranche D broke); this
+// module registers them. Order-independent of the other teardown handlers.
+registerBoardCloseHandler({
+  label: 'board-card-trees:remove',
+  // Drops the closing board's slot (forest, active set, hydrated cards keyed
+  // by raw CardId, forestStats). Must run before closeBoard's splice so a
+  // subsequent reactive read sees the empty state; the registry's
+  // before-splice run position preserves that. (Audit O12 — board-card-trees.)
+  run: (boardId) => removeBoardCardTree(boardId),
+});
+registerWorkspaceResetHandler({
+  label: 'board-card-trees',
+  // Drops every card-tree slot on identity flip. Privacy-relevant: hydrated
+  // cards are keyed by raw per-tenant CardId, which collides across users.
+  // (Audit O12 — board-card-trees.)
+  run: () => clearAllBoardCardTrees(),
+});

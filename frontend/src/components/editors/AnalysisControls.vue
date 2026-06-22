@@ -10,7 +10,7 @@
  */
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import type { BoardId } from '../../types';
+import type { BoardId, NodeId } from '../../types';
 import { store } from '../../store';
 import { mutateProfile } from '../../store/profile-owner';
 import { ledger } from '../../state/analysis-ledger';
@@ -208,7 +208,15 @@ async function onDiscard() {
 function purgeLedger() {
   if (confirm(t('analysis.confirmPurge'))) {
     persist.stopAnalysis();
-    ledger.purgeBoard(props.boardId);
+    // The ledger no longer reaches up into the store to derive the
+    // board's node list (the up-edge `analysis-ledger → store` was an
+    // import cycle); the caller hands it the nodes directly. A missing
+    // board yields an empty array, a no-op purge.
+    const board = store.boards.find(b => b.id === props.boardId);
+    // `board.nodes` keys are NodeIds — re-brand the Object.keys string[]
+    // widening (matches the cast the old purgeBoard carried internally).
+    const nodeIds = (board ? Object.keys(board.nodes) : []) as NodeId[];
+    ledger.purgeNodes(nodeIds);
   }
 }
 </script>

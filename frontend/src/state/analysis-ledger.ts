@@ -39,9 +39,13 @@ import {
   type RawAnalysis,
   type Enrichment,
 } from '../engine/katago/types';
-import { type NodeId, type BoardId, type RawKey, type EnrichedKey } from '../types';
-import { store } from '../store';
+import { type NodeId, type RawKey, type EnrichedKey } from '../types';
 import { pushSystemMessage } from '../services/system-message-sink';
+import {
+  registerBoardCloseHandler,
+  registerWorkspaceResetHandler,
+  TeardownOrder,
+} from '../store/teardown-registry';
 import { i18n } from '../i18n';
 
 /**
@@ -107,7 +111,7 @@ function getOrCreateVersion(key: LedgerKey, nodeId: NodeId): Ref<number> {
 // same reason — they are one-shot transitions where immediate visual
 // feedback is the whole point:
 //
-//   - purgeBoard / purgeAll: user action wiping data; the cleared state
+//   - purgeNodes / purgeAll: user action wiping data; the cleared state
 //     must paint without one-frame lag.
 //   - First packet for a (key, nodeId): the no-data → has-data transition.
 //     The user pressed space (or branched out of a game) and is waiting to
@@ -449,17 +453,15 @@ export class AnalysisLedger {
   }
 
   /**
-   * Drop every cached entry for a board's nodes from BOTH stores, with the
+   * Drop every cached entry for the given nodes from BOTH stores, with the
    * bump-then-delete contract (consumers re-run and observe cleared data; a
    * subsequent read returns null). A re-record on the same nodeId creates a
-   * fresh ref via `getOrCreateVersion`.
+   * fresh ref via `getOrCreateVersion`. The caller hands the node list
+   * directly (it no longer reaches up into the store to derive it — the
+   * up-edge `analysis-ledger → store` was the import cycle this inversion
+   * broke); an empty array is a no-op.
    */
-  public purgeBoard(boardId: BoardId): void {
-    const board = store.boards.find(b => b.id === boardId);
-    if (!board) return;
-    // board.nodes is a Record<NodeId, …>, so its keys are NodeIds (re-brand
-    // the Object.keys string[] widening).
-    const nodeIds = Object.keys(board.nodes) as NodeId[];
+  public purgeNodes(nodeIds: readonly NodeId[]): void {
     const cleared = new Set<string>();
     purgeNodesFrom(rawData, nodeIds, cleared);
     purgeNodesFrom(enrData, nodeIds, cleared);
@@ -468,3 +470,26 @@ export class AnalysisLedger {
 }
 
 export const ledger = new AnalysisLedger();
+
+// ── Teardown registration (ADR-0012 dependency inversion) ────────────────────
+// The store no longer imports the ledger to drive its per-board / identity-flip
+// purges (that store → ledger out-edge was part of the import cycle Tranche D
+// broke); the ledger registers its own teardown here. `TeardownOrder.LEDGER_PURGE`
+// (> `ENGINE_STOP`) keeps the per-board purge AFTER analysis-service's stop —
+// the engine-stop-before-ledger-purge correctness constraint — independent of
+// module-load timing.
+registerBoardCloseHandler({
+  label: 'analysis-ledger:purge',
+  order: TeardownOrder.LEDGER_PURGE,
+  // Drops cached analysis packets + per-node version refs for the closed
+  // board's nodes across every key. The caller hands the node-id snapshot
+  // (taken before the splice). Empty list is a no-op. (Audit O1 — the ledger.)
+  run: (_boardId, nodeIds) => ledger.purgeNodes(nodeIds),
+});
+registerWorkspaceResetHandler({
+  label: 'analysis-ledger',
+  // Drops every cached entry (both stores) on identity flip. Order-independent
+  // of the other data-cache clears; the only ordering constraint is that it
+  // runs after the engine stop (ENGINE_STOP < DEFAULT). (Audit O8.)
+  run: () => ledger.purgeAll(),
+});

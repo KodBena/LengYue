@@ -26,6 +26,10 @@ export function isReviewTransientState(status: ReviewStatus): boolean {
   return status === 'LOADING' || status === 'ANALYZING';
 }
 import { store, addBoard, mutateBoard, updateBoardState, mutateReviewSession, pushSystemMessage } from '../../store';
+import {
+  registerBoardCloseHandler,
+  registerWorkspaceResetHandler,
+} from '../../store/teardown-registry';
 import { i18n } from '../../i18n';
 import { backendService } from '../../services/backend-service';
 import { analysisService } from '../../services/analysis-service';
@@ -134,6 +138,33 @@ export function abortAllReviews(): void {
   // snapshot afterwards and no-ops.
   blindModePrefs.releaseAll();
 }
+
+// ── Teardown registration (ADR-0012 dependency inversion) ────────────────────
+// The store no longer imports these abort helpers to drive its cleanup (that
+// store → composable out-edge was part of the import cycle Tranche D broke);
+// this module registers them. Both are order-independent of the other teardown
+// handlers — except that abortBoardReview relies on closeBoard having ALREADY
+// deleted the board's `store.session.reviews` row (via the inline
+// BOARD_SCOPED_STORE_CELLS drain, which runs before the close handlers) so the
+// blind-mode snapshot's exit watcher has fired; that inline-before-handlers
+// ordering is preserved in closeBoard. (Audit O5 / O11.)
+registerBoardCloseHandler({
+  label: 'review:abort',
+  // Fires AbortController.abort() on the board's pending review-analysis wait,
+  // if any. Without it a mid-review close lets the 30s timeout fire later,
+  // surfacing a phantom "KataGo did not respond" toast and resurrecting the
+  // just-deleted reviews row via the catch-block's lazy mutateReviewSession.
+  run: (boardId) => abortBoardReview(boardId),
+});
+registerWorkspaceResetHandler({
+  label: 'review:abort-all',
+  // Aborts every in-flight review-analysis wait on identity flip so a
+  // prior-identity timeout can't fire 30s into the new identity's session and
+  // pollute its `store.session.reviews` with phantom rows. Also releases the
+  // blind-mode pref snapshot explicitly (see abortAllReviews' body for the
+  // ordering hazard that justifies the explicit release).
+  run: () => abortAllReviews(),
+});
 
 export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
   // ── Safe Projections ──

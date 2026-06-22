@@ -9,8 +9,9 @@
  * Drives the REAL useAuth + REAL api-client + REAL SyncService + real
  * store against a stubbed global fetch (the network boundary) and the
  * established store-cleanup fakes (the same set as
- * store-mutators.test.ts) so `resetWorkspace`'s IDENTITY_SCOPED_CACHES
- * drain is observable as spies. The three pinned behaviours:
+ * store-mutators.test.ts) so `resetWorkspace`'s owner-registered
+ * teardown-handler drain (the workspace-reset cache handlers) is
+ * observable as spies. The three pinned behaviours:
  *
  *   1. The auto-login path (ALLOW_PASSWORDLESS_LOGIN mode) is
  *      unchanged: tryAutoLogin lands 'authenticated' with the
@@ -20,8 +21,8 @@
  *      identity, never substitutes), owner-performed (storage cleared
  *      by useAuth, not the transport) — and the downstream
  *      identity-flip chain still fires end-to-end: SyncService's
- *      auth-state watcher → resetWorkspace → the IDENTITY_SCOPED_CACHES
- *      drain.
+ *      auth-state watcher → resetWorkspace → the workspace-reset
+ *      teardown-handler drain.
  *   3. Auth-endpoint 401s (the /auth/me verify path) transition via
  *      their caller's own branch without bumping the transport's
  *      rejection report (no double-transition source).
@@ -33,30 +34,52 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Store-cleanup boundaries, mocked exactly as in store-mutators.test.ts
 // so resetWorkspace's registry drain records on spies instead of touching
-// network / DOM dependencies.
+// network / DOM dependencies. Per the ADR-0012 dependency inversion, each
+// owner registers its workspace-reset handler at module init — a wholesale
+// vi.mock skips that registration, so each factory below also registers a
+// delegating handler (same label as production) that calls the fake/spy, so
+// resetWorkspace's runWorkspaceResetHandlers drains through the spies. (Mirrors
+// store-mutators.test.ts.)
 vi.mock('../../src/services/analysis-service', async () => {
   const { fakeAnalysisService } = await import('../fakes/analysis-service');
+  const { registerWorkspaceResetHandler, TeardownOrder } =
+    await import('../../src/store/teardown-registry');
+  registerWorkspaceResetHandler({
+    label: 'analysis:active-board-analyses',
+    order: TeardownOrder.ENGINE_STOP,
+    run: () => fakeAnalysisService.stopAllBoardAnalyses(),
+  });
   return { analysisService: fakeAnalysisService };
 });
 
 vi.mock('../../src/services/analysis-persistence-service', async () => {
   const { fakeAnalysisPersistenceService } = await import('../fakes/analysis-persistence-service');
+  const { registerWorkspaceResetHandler } = await import('../../src/store/teardown-registry');
+  registerWorkspaceResetHandler({
+    label: 'analysis-bundle-summaries',
+    run: () => fakeAnalysisPersistenceService.forgetAll(),
+  });
   return { analysisPersistenceService: fakeAnalysisPersistenceService };
 });
 
-vi.mock('../../src/composables/cards/useCardThumbnail', () => ({
-  clearCardThumbnailCache: vi.fn(),
-  getCardThumbnailSync: vi.fn(() => ''),
-}));
+vi.mock('../../src/composables/cards/useCardThumbnail', async () => {
+  const { registerWorkspaceResetHandler } = await import('../../src/store/teardown-registry');
+  const clearCardThumbnailCache = vi.fn();
+  registerWorkspaceResetHandler({ label: 'card-thumbnails', run: () => clearCardThumbnailCache() });
+  return { clearCardThumbnailCache, getCardThumbnailSync: vi.fn(() => '') };
+});
 
 // The purge surface moved to its owner module in the render-lifecycle
 // consolidation (PR #413); mock BOTH paths so the registry's import is
 // intercepted wherever it resolves (gate-411 finding 5: the prior
 // hand-enumerated mock-path drifted exactly this way).
-vi.mock('../../src/composables/cards/thumbnail-render-resources', () => ({
-  purgeBoardThumbnails: vi.fn(),
-  purgeAllThumbnails: vi.fn(),
-}));
+vi.mock('../../src/composables/cards/thumbnail-render-resources', async () => {
+  const { registerWorkspaceResetHandler } = await import('../../src/store/teardown-registry');
+  const purgeBoardThumbnails = vi.fn();
+  const purgeAllThumbnails = vi.fn();
+  registerWorkspaceResetHandler({ label: 'board-thumbnails', run: () => purgeAllThumbnails() });
+  return { purgeBoardThumbnails, purgeAllThumbnails };
+});
 vi.mock('../../src/composables/cards/useThumbnailCache', () => ({
   useThumbnailCache: () => ({
     getVariationThumbnail: vi.fn(),
@@ -65,12 +88,18 @@ vi.mock('../../src/composables/cards/useThumbnailCache', () => ({
   }),
 }));
 
-vi.mock('../../src/composables/cards/board-card-trees', () => ({
-  removeBoardCardTree: vi.fn(),
-  clearAllBoardCardTrees: vi.fn(),
-  getOrCreateBoardCardTree: vi.fn(),
-  getBoardCardTree: vi.fn(() => null),
-}));
+vi.mock('../../src/composables/cards/board-card-trees', async () => {
+  const { registerWorkspaceResetHandler } = await import('../../src/store/teardown-registry');
+  const removeBoardCardTree = vi.fn();
+  const clearAllBoardCardTrees = vi.fn();
+  registerWorkspaceResetHandler({ label: 'board-card-trees', run: () => clearAllBoardCardTrees() });
+  return {
+    removeBoardCardTree,
+    clearAllBoardCardTrees,
+    getOrCreateBoardCardTree: vi.fn(),
+    getBoardCardTree: vi.fn(() => null),
+  };
+});
 
 import { flushPromises } from '@vue/test-utils';
 // LOAD-BEARING IMPORT ORDER: `src/store` must initialize BEFORE the auth
@@ -90,8 +119,13 @@ import {
   resetWorkspace,
   clearSystemMessages,
   CURRENT_SCHEMA_VERSION,
-  identityScopedCacheLabels,
 } from '../../src/store';
+// Load every owner so its workspace-reset handler registers (real owners via
+// their real module body; mocked owners via the factories above). After the
+// store import so the store-first init order the comment above preserves still
+// holds — the bootstrap's owner imports transit store/api-client.
+import '../../src/store/teardown-registrations';
+import { registeredWorkspaceResetLabels } from '../../src/store/teardown-registry';
 import { useAuth } from '../../src/composables/auth-app/useAuth';
 import { api, ApiError, authSessionRejections } from '../../src/services/api-client';
 import { SyncService } from '../../src/services/sync-service';
@@ -112,12 +146,13 @@ import type { MockInstance } from 'vitest';
 const auth = useAuth();
 
 // ── Registry-derived drain assertions (PR #411 out-of-frame gate, finding 5)
-// The IDENTITY_SCOPED_CACHES drain pin asserts every registered cache's clear
-// fired on identity flip. Deriving the asserted set from
-// `identityScopedCacheLabels()` rather than hand-enumerating it means a
-// NEW or RENAMED registry row fails this suite LOUDLY (with a clear message)
-// instead of silently going unasserted — the structural fix for the
-// hand-enumerated drift the coordinator's hotfix patched at one mock path.
+// The cache-drain pin asserts every registered workspace-reset CACHE handler's
+// clear fired on identity flip. Deriving the asserted set from the live
+// teardown registry (`registeredWorkspaceResetLabels()`, minus the non-cache
+// `review:abort-all`) rather than hand-enumerating it means a NEW or RENAMED
+// cache handler fails this suite LOUDLY (with a clear message) instead of
+// silently going unasserted — the structural fix for the hand-enumerated drift
+// the coordinator's hotfix patched at one mock path.
 //
 // One spy per registry label, keyed by the label string. Two spy kinds:
 // fakes / module mocks already in place above (read their recorded calls),
@@ -152,11 +187,12 @@ function installDrainSpies(): DrainSpies {
       const reader = counters[label];
       if (reader === undefined) {
         throw new Error(
-          `auth-lifecycle drain pin: IDENTITY_SCOPED_CACHES registers label ` +
-          `"${label}" but this test has no spy mapped for it. Add a spy to ` +
-          `installDrainSpies() (a fake/mock call-count reader, or a vi.spyOn ` +
-          `on the live singleton) so the registry-derived drain assertion ` +
-          `covers it. Mapped labels: ${Object.keys(counters).join(', ')}.`,
+          `auth-lifecycle drain pin: the teardown registry registers ` +
+          `workspace-reset label "${label}" but this test has no spy mapped ` +
+          `for it. Add a spy to installDrainSpies() (a fake/mock call-count ` +
+          `reader, or a vi.spyOn on the live singleton) so the registry-derived ` +
+          `drain assertion covers it, OR add it to NON_CACHE_RESET_LABELS if it ` +
+          `is not a module-cache clear. Mapped labels: ${Object.keys(counters).join(', ')}.`,
         );
       }
       return reader();
@@ -169,18 +205,29 @@ function installDrainSpies(): DrainSpies {
 }
 
 /**
- * Assert every registry label drained exactly once. Derives the label set
- * from `identityScopedCacheLabels()`, so a new/renamed entry fails loudly
- * (either here, with the per-label count, or in `callCountFor` with the
+ * Assert every identity-scoped CACHE handler drained exactly once on identity
+ * flip. Derives the label set from the live teardown registry
+ * (`registeredWorkspaceResetLabels()`), so a new/renamed cache handler fails
+ * loudly (either here with the per-label count, or in `callCountFor` with the
  * unmapped-label message above).
+ *
+ * `review:abort-all` is the one workspace-reset handler this suite does NOT
+ * map a spy for: it is the review-wait abort (not a module-cache clear), and
+ * its handler is registered by the real (un-mocked) useReviewSession whose
+ * internal closure a namespace spy cannot intercept. It is covered by the
+ * dedicated review tests and the store-mutators board/reset completeness pins,
+ * so it is excluded here. That keeps this pin focused on the cache drain it has
+ * always been about while still failing on any NEW unmapped cache handler.
  */
+const NON_CACHE_RESET_LABELS = new Set<string>(['review:abort-all']);
+
 function expectFullDrain(spies: DrainSpies): void {
-  const labels = identityScopedCacheLabels();
+  const labels = registeredWorkspaceResetLabels().filter(l => !NON_CACHE_RESET_LABELS.has(l));
   expect(labels.length).toBeGreaterThan(0);
   for (const label of labels) {
     expect(
       spies.callCountFor(label),
-      `IDENTITY_SCOPED_CACHES label "${label}" did not drain exactly once on ` +
+      `workspace-reset cache handler "${label}" did not drain exactly once on ` +
       `identity flip`,
     ).toBe(1);
   }

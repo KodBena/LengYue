@@ -262,6 +262,15 @@ const BAND_EXCEPTIONS = new Map([
       "install, import.meta.env.DEV-gated and tree-shaken from production " +
       "(perf/ is the dev-only capture harness, ADR-0009).",
   ],
+  [
+    "src/main.ts|src/store/teardown-registrations.ts",
+    "Bootstrap wiring: main.ts ([B1]) side-effect-imports the [B3] teardown " +
+      "bootstrap so every resource owner's teardown handler is registered " +
+      "before any closeBoard / resetWorkspace fires (ADR-0012 P2/P3 " +
+      "load-guarantee). Same class as the main.ts|App.vue edge — the app root " +
+      "wiring the whole instance, not a portable-module leak; a fork swaps the " +
+      "owner set and this bootstrap together.",
+  ],
   // ── 2026-06-12 maintainer band adjudication (tranche 2) ──
   // Worklog: docs/worklog/2026-06-12-band-adjudication-tranche-2.md.
   //

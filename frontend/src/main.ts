@@ -7,6 +7,13 @@ import { createApp } from 'vue';
 import './style.css';
 import App from './App.vue';
 import { store, pushSystemMessage } from './store';
+// Side-effect import: loads every resource owner so its board-close /
+// workspace-reset teardown handler is registered before any closeBoard /
+// resetWorkspace fires (ADR-0012 P2/P3 dependency inversion — the store no
+// longer imports the owners; this bootstrap is the load-guarantee that the
+// handler set is present). Must run early, before any workspace mutation. See
+// `store/teardown-registrations.ts` for the rationale.
+import './store/teardown-registrations';
 import { serializeBoard, serializeActivePath } from './engine/sgf-writer';
 import { installPerfScenarios } from './composables/perf/scenarios';
 import { i18n } from './i18n';

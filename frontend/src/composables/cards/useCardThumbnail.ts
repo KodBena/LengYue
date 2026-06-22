@@ -24,6 +24,7 @@ import { getActiveVariationPath, getBoardSize } from '../../engine/util';
 import { renderBoardToSvg } from '../../engine/board-renderer';
 import { navigateTo } from '../../engine/navigator';
 import type { CardId } from '../../types';
+import { registerWorkspaceResetHandler } from '../../store/teardown-registry';
 
 const cache = new Map<CardId, string>();
 
@@ -36,6 +37,17 @@ const cache = new Map<CardId, string>();
 export function clearCardThumbnailCache(): void {
   cache.clear();
 }
+
+// ── Teardown registration (ADR-0012 dependency inversion) ────────────────────
+// resetWorkspace no longer imports this clear directly; the module registers
+// it. Workspace-reset only — the card-thumbnail cache is identity-scoped, not
+// per-board, so there is no board-close handler (parallels its single presence
+// in the old IDENTITY_SCOPED_CACHES registry). Privacy-relevant: the cache key
+// is the raw per-tenant CardId, which collides across users (Audit O10).
+registerWorkspaceResetHandler({
+  label: 'card-thumbnails',
+  run: () => clearCardThumbnailCache(),
+});
 
 /**
  * Parses a standalone SGF, plays it to the end, and returns an SVG

@@ -4,12 +4,18 @@
  * exports both pure mutators and the small set of orchestrator
  * functions (createBoard, closeBoard, resetWorkspace) that
  * coordinate workspace-level state changes with their downstream
- * service-side cleanup. The latter is why this module imports both
- * analysis-service and analysis-ledger — closing a board is a
- * workspace mutation that must release the board's external
- * resources (in-flight analysis subscription at the proxy, cached
- * packets and per-node version refs in the ledger) as part of the
- * same operation; see closeBoard's docstring.
+ * service-side cleanup. Closing a board (or resetting the workspace)
+ * is a mutation that must release the board's external resources
+ * (in-flight analysis subscription at the proxy, cached packets and
+ * per-node version refs in the ledger, persisted bundle, review-wait
+ * aborts, thumbnail caches, card-tree slots). Those releases are
+ * INVERTED (ADR-0012 P2/P3): rather than importing the resource owners
+ * to drive their cleanup — which put the store on the down-edge of an
+ * import cycle (the vite-vitest teardown-deadlock substrate) — the
+ * store calls the owner-registered handlers in `teardown-registry.ts`,
+ * which each owner registers at its own module init. See closeBoard's
+ * docstring for the per-handler enumeration and the load-bearing
+ * engine-stop-before-ledger-purge ordering.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -21,6 +27,7 @@ import type {
   GlobalStore,
   BoardState,
   BoardId,
+  NodeId,
   ProfileId,
   SessionId,
   ReviewSessionData,
@@ -35,14 +42,21 @@ import {
   registerSystemMessageSink,
   pushSystemMessage,
 } from '../services/system-message-sink';
-import { analysisService } from '../services/analysis-service';
-import { ledger } from '../state/analysis-ledger';
-import { stabilityTrajectoryStore } from '../state/stability-trajectory-store';
-import { analysisPersistenceService } from '../services/analysis-persistence-service';
-import { clearCardThumbnailCache } from '../composables/cards/useCardThumbnail';
-import { abortAllReviews, abortBoardReview } from '../composables/review/useReviewSession';
-import { purgeAllThumbnails, purgeBoardThumbnails } from '../composables/cards/thumbnail-render-resources';
-import { removeBoardCardTree, clearAllBoardCardTrees } from '../composables/cards/board-card-trees';
+// Owner-cleanup is inverted (ADR-0012 P2/P3): closeBoard / resetWorkspace no
+// longer import the resource owners (analysis-service, analysis-ledger,
+// stability-trajectory-store, analysis-persistence-service, useReviewSession,
+// thumbnail-render-resources, useCardThumbnail, board-card-trees) to drive
+// their teardown. Each owner registers its own handler at module init; the
+// store calls the registry's run-APIs. Removing those store → owner out-edges
+// is what dissolved the store/services import cycle (the vite-vitest teardown
+// deadlock substrate — cycle-check ratchet, PR #444). The handler set is loaded
+// by `teardown-registrations.ts` (side-effect-imported from the app entry); the
+// board-completeness test pins the registered set so a dropped registration
+// fails loudly (ADR-0002 — the test is the guarantee, not the type system).
+import {
+  runBoardCloseHandlers,
+  runWorkspaceResetHandlers,
+} from './teardown-registry';
 
 export { createInitialBoard }        from './board-factory';
 export { DEFAULTS }                  from './defaults';
@@ -311,42 +325,39 @@ export function setActiveBoard(index: number): void {
 }
 
 /**
- * Board-scoped store-cell teardowns — the board analog of
- * IDENTITY_SCOPED_CACHES (below), for the per-board *store cells* rather than
- * module caches. Each entry deletes the closing board's cell from a
- * board-keyed GlobalStore dictionary; `closeBoard` drains this list in place
- * of the hand-wired per-cell deletes, so a newly-added per-board store cell
- * can't be silently left out of teardown.
+ * Board-scoped store-cell teardowns — for the per-board *store cells*
+ * (board-keyed GlobalStore dictionaries) rather than module caches. Each entry
+ * deletes the closing board's cell; `closeBoard` drains this list in place of
+ * hand-wired per-cell deletes, so a newly-added per-board store cell can't be
+ * silently left out of teardown.
  *
  * Scope is deliberately the store cells ONLY (board-scope audit P1b / the
- * scope-exhaustiveness consult). The board-DERIVED purges (ledger / stability
- * / thumbnails — they walk `board.nodes` and must run before the splice) and
- * the ordering-bound service stop (`stopBoardAnalysis` before
- * `ledger.purgeBoard`) stay inline in `closeBoard`: folding them in would
- * relocate load-bearing ordering from documented inline code into array
- * position — a legibility regression for no safety gain (the audit's §4 found
- * no leaks). The board-completeness *test* verifies this registry drains
- * correctly and per-board, and tripwires changes to its coverage list — but it
- * does NOT enumerate the store's per-board fields independently (TypeScript
- * can't, and no lint guards it today), so a newly-added cell is caught only if
- * its author both registers it here and extends that test. Registering a new
- * per-board cell is a discipline step, not an automatically-caught one — see
- * `frontend/docs/notes/board-scope.md`.
+ * scope-exhaustiveness consult). The board-DERIVED purges and the
+ * ordering-bound service stop are NO LONGER inline: Tranche D's
+ * dependency inversion (ADR-0012 P2/P3) moved them to owner-registered
+ * handlers run via `runBoardCloseHandlers` — exactly the "owner-located
+ * teardown" candidate that the parked work-status item
+ * `closeboard-class-b-teardown-shape` named (the prior keep-Class-B-inline
+ * judgment was the 2026-06-05 consult's ADVISORY verdict, not a maintainer
+ * decision; the load-bearing engine-stop-before-ledger-purge ordering now
+ * travels as an explicit `TeardownOrder` band rather than inline call
+ * position). This store-cell registry stays inline because it imports nothing
+ * — it is not a cycle edge. The board-completeness *test* verifies this
+ * registry drains correctly and per-board, and tripwires changes to its
+ * coverage list — but it does NOT enumerate the store's per-board fields
+ * independently (TypeScript can't, and no lint guards it today), so a
+ * newly-added cell is caught only if its author both registers it here and
+ * extends that test. Registering a new per-board cell is a discipline step,
+ * not an automatically-caught one — see `frontend/docs/notes/board-scope.md`.
  *
- * (2026-06-11: the keep-Class-B-inline judgment cited above was the
- * 2026-06-05 consult's ADVISORY verdict, not a maintainer decision — prior
- * records overstated it. The Class B teardown shape is an open question,
- * tracked as work-status item closeboard-class-b-teardown-shape (parked;
- * owner-located teardown is a named candidate).)
- *
- * Cells are order-independent of each other and of `stopBoardAnalysis`;
- * the drain runs before the splice. (Until 2026-06-11 the drain had to
- * follow `stopBoardAnalysis` so its deletes would overwrite the
+ * Cells are order-independent of each other. closeBoard drains them BEFORE the
+ * owner handlers (so the `review:abort` handler sees the reviews row already
+ * gone) and before the splice. No surviving cell is written by the engine
+ * stop, so the cells are order-independent of it too. (Until 2026-06-11 the
+ * drain had to follow `stopBoardAnalysis` so its deletes would overwrite the
  * `engine.activeMode` 'none' tombstone that the now-removed activeMode
- * projection landed there — see work-status item `drop-engine-activemode`.
- * No surviving cell is written by `stopBoardAnalysis`, so that ordering
- * constraint is gone; the drain still runs after it incidentally, but
- * nothing depends on the order now.)
+ * projection landed there — see work-status item `drop-engine-activemode`. No
+ * surviving cell is written by it, so that constraint is gone.)
  */
 const BOARD_SCOPED_STORE_CELLS: ReadonlyArray<{ label: string; clear: (b: BoardId) => void }> = [
   { label: 'session.reviews', clear: b => { delete store.session.reviews[b]; } },
@@ -357,8 +368,10 @@ const BOARD_SCOPED_STORE_CELLS: ReadonlyArray<{ label: string; clear: (b: BoardI
 /** Labels of every board-scoped store cell. The board-completeness test pins
  *  this set as a tripwire so the registry's coverage can't change without a
  *  deliberate test update; it does not (and cannot, in TS) prove the registry
- *  is exhaustive over the store's per-board fields. The board analog of
- *  `identityScopedCacheLabels`. */
+ *  is exhaustive over the store's per-board fields. The store-internal-cell
+ *  analog of the teardown registry's `registeredWorkspaceResetLabels` /
+ *  `registeredBoardCloseLabels` (those cover the OWNER teardowns; this covers
+ *  the store's own per-board cells). */
 export function boardScopedStoreCellLabels(): readonly string[] {
   return BOARD_SCOPED_STORE_CELLS.map(c => c.label);
 }
@@ -379,11 +392,13 @@ export function boardScopedStoreCellLabels(): readonly string[] {
  *      set and routes each queryId through `stopQuery`). The
  *      keep-alive middleware can't help here; the WS is shared with
  *      surviving boards and stays healthy.
- *   2. ledger.purgeBoard — drops cached analysis packets and the
+ *   2. ledger.purgeNodes — drops cached analysis packets and the
  *      per-node reactive version refs for the closed board's nodes
- *      across every palette hash. Without it, the ledger's internal
+ *      across every palette hash (the caller snapshots the node ids
+ *      before the splice and hands them in; the ledger no longer
+ *      reaches up into the store). Without it, the ledger's internal
  *      Maps grow on every board close.
- *   3. stabilityTrajectoryStore.purgeBoard — drops the per-(hash,
+ *   3. stabilityTrajectoryStore.purgeNodes — drops the per-(hash,
  *      extractor, nodeId) stability trajectories accumulated from
  *      analysis-service's preview ingestion for the closed board's
  *      nodes. Bounded leak if omitted (trajectory entries are
@@ -440,23 +455,34 @@ export function boardScopedStoreCellLabels(): readonly string[] {
  *      and is NOT cleared here. Resource-ownership audit tag O15
  *      (forest-nav-selection).
  *
- * Order matters: stop the engine before purging the ledger so an
- * in-flight packet can't land between the two and re-populate the
- * ledger after we've cleared it. The store-cell deletes (#4 / #9 /
- * #10) are drained from the BOARD_SCOPED_STORE_CELLS registry (see
- * its docstring); none of the surviving cells is written by
- * `stopBoardAnalysis`, so their drain is order-independent of it (it
- * still runs after, incidentally). The abort runs after the deletes;
- * its rejection-side cleanup runs in processUserMove's catch on the
- * next microtask. The thumbnail purge runs last among the cleanups
- * but still before the splice — purgeBoardThumbnails reads
- * `board.nodes` via store.boards.find, which only resolves while the
- * board is still present.
+ * The owner cleanups (#1, #2, #3, #5, #6, #7, #8 above) are no longer
+ * inline: each owner registers its handler at module init and this
+ * function drains them via `runBoardCloseHandlers` (ADR-0012
+ * dependency inversion — removing the store → owner imports is what
+ * broke the import cycle). The store-cell deletes (#4 / #9 / #10) stay
+ * INLINE via the BOARD_SCOPED_STORE_CELLS registry (they import
+ * nothing — not a cycle edge).
  *
- * Both `analysisService.stopBoardAnalysis` and `ledger.purgeBoard`
- * short-circuit cleanly when the board has no active analysis or
- * recorded packets; the dictionary deletes are safe regardless
- * (delete on a missing key is a no-op).
+ * Order matters, and is carried by `TeardownOrder` bands on the
+ * handlers rather than by call position: stop the engine
+ * (`analysis-service:stop`, ENGINE_STOP) before purging the ledger
+ * (`analysis-ledger:purge` / `stability-trajectory:purge`,
+ * LEDGER_PURGE) so an in-flight packet can't land between the two and
+ * re-populate the ledger after we've cleared it. The inline store-cell
+ * drain runs FIRST, before the handlers: none of the surviving cells
+ * is written by `stopBoardAnalysis` (order-independent of it), and the
+ * `review:abort` handler relies on this board's reviews row already
+ * being gone (blind-mode-prefs' exit watcher). The abort's
+ * rejection-side cleanup runs in processUserMove's catch on the next
+ * microtask. Every board-derived handler (the purges, the thumbnail
+ * walk, the card-tree slot read) runs before the splice —
+ * purgeBoardThumbnails reads `board.nodes` via store.boards.find,
+ * which only resolves while the board is still present.
+ *
+ * Both `analysis-service:stop` and the ledger purge short-circuit
+ * cleanly when the board has no active analysis or recorded packets
+ * (an empty node list is a no-op purge); the inline dictionary deletes
+ * are safe regardless (delete on a missing key is a no-op).
  *
  * Workspace-owned-resource cleanup is tracked in the archived audit
  * plan, docs/archive/notes/resource-ownership-audit-plan.md (all
@@ -476,62 +502,61 @@ export function boardScopedStoreCellLabels(): readonly string[] {
  * stable handle (the frozen plan is never edited).
  */
 export function closeBoard(boardId: BoardId): void {
-  // Release external resources the closing board owns. Both calls
-  // are safe when the board has nothing to release; ordering is
-  // load-bearing — stop the engine before purging the ledger. See
-  // docstring above for the full rationale.
-  analysisService.stopBoardAnalysis(boardId);
-  ledger.purgeBoard(boardId);
-  // Stability-trajectory store: symmetric to ledger.purgeBoard for
-  // the per-(hash, extractor, nodeId) trajectories accumulated from
-  // analysis-service's preview ingestion. Bounded leak if omitted
-  // (trajectory entries are per-extractor compact change-point
-  // lists) but the per-board hygiene is the same shape.
-  stabilityTrajectoryStore.purgeBoard(boardId);
-
-  // Release the server-side persisted bundle if one exists, plus the
-  // board's local persistence-cache entries (summary, dirty-version
-  // counter, auto-save-error pause — discard() drains all of them
-  // through forgetBoard). Symmetric to ledger.purgeBoard but for the
-  // row stored by the analysis-persistence feature and its
-  // board-keyed reactive Maps. Failure mode if the local drain were
-  // omitted: a bounded leak — a stranded number + small POJO per
-  // closed board, surviving until the next identity-flip forgetAll
-  // (persistence-board-keyed-drain). Fire-and-forget — closeBoard
-  // stays sync from the caller's perspective; the api-client
-  // surfaces non-2xx via the system log if it matters. Audit tag
-  // O13 (persisted-analysis-bundles).
-  analysisPersistenceService.discard(boardId).catch(() => { /* surfaced via api-client's system-message push */ });
+  // Snapshot the closing board's node ids BEFORE any cleanup (and
+  // necessarily before the splice below): the ledger and the
+  // stability-trajectory store no longer reach up into the store to
+  // derive this list (the up-edges `analysis-ledger → store` and
+  // `stability-trajectory-store → store` were import cycles), so the
+  // caller hands them the nodes directly. The board must still be
+  // present in `store.boards` for the lookup to resolve — Class-B
+  // before-splice invariant; a closed/missing board yields an empty
+  // array, a no-op purge.
+  const board = store.boards.find(b => b.id === boardId);
+  // `board.nodes` is a Record<NodeId, …>, so its keys are NodeIds —
+  // re-brand the Object.keys string[] widening (matches the cast the
+  // old purgeBoard carried internally).
+  const nodeIds = (board ? Object.keys(board.nodes) : []) as NodeId[];
 
   // Drop the per-board store cells via the BOARD_SCOPED_STORE_CELLS registry
   // (defined above) — reviews (O2), cardTreeNav (O14, card-tree-nav-slot),
   // forestNav.selection (O15, forest-nav-selection, schema 59; the per-board axis only —
   // `forestNav.expanded` is workspace-global and untouched). All are owned by
   // this BoardId and have no meaning once the board is gone; persisting them
-  // via SyncService would bloat the user's document with tombstones. The cells
-  // are order-independent of each other and of stopBoardAnalysis (no surviving
-  // cell is written by it — the engine.activeMode tombstone that forced that
-  // ordering was removed with the activeMode projection); this drain runs
-  // before the splice.
+  // via SyncService would bloat the user's document with tombstones. This
+  // store-internal drain stays INLINE (it imports nothing — not a cycle edge,
+  // ADR-0012 P2/P3 leaves it here) and must run BEFORE the owner handlers: the
+  // `review:abort` handler relies on this board's `store.session.reviews` row
+  // already being gone so blind-mode-prefs' exit watcher has released the
+  // snapshot (see abortBoardReview's body). The cells are otherwise
+  // order-independent of each other and of the engine stop (no surviving cell
+  // is written by stopBoardAnalysis); the drain runs before the splice.
   for (const cell of BOARD_SCOPED_STORE_CELLS) cell.clear(boardId);
 
-  // Abort any in-flight review-analysis wait for this board so the
-  // 30s timeout doesn't fire later and resurrect the reviews row
-  // we just deleted. No-op if no review wait is pending.
-  abortBoardReview(boardId);
-
-  // Drop the closing board's thumbnail-cache entries. Must run
-  // before the splice below — purgeBoardThumbnails walks
-  // `board.nodes` and looks the board up in store.boards.
-  purgeBoardThumbnails(boardId);
-
-  // Drop the closing board's card-tree slot (forest, active set,
-  // hydrated cards, forestStats). Must run before the splice so
-  // any subsequent reactive read against `boardCardTrees.get(...)`
-  // sees the empty state rather than stale content from the
-  // closing board. Resource-ownership audit tag O12
-  // (board-card-trees).
-  removeBoardCardTree(boardId);
+  // Release the external resources the closing board owns, via the
+  // owner-registered teardown handlers (ADR-0012 dependency inversion — the
+  // store no longer imports the owners; each registered its handler at module
+  // init, loaded by teardown-registrations.ts). Runs AFTER the inline cell
+  // drain above and BEFORE the splice below — every board-derived cleanup
+  // (the ledger / stability purges over `nodeIds`, purgeBoardThumbnails'
+  // `board.nodes` walk, removeBoardCardTree's slot read) needs the board still
+  // present in `store.boards`. Ordering among handlers is carried by
+  // `TeardownOrder` bands, not call position: the load-bearing constraint is
+  // engine-stop-before-ledger-purge — `analysis-service:stop` (ENGINE_STOP)
+  // runs before `analysis-ledger:purge` / `stability-trajectory:purge`
+  // (LEDGER_PURGE) so an in-flight packet can't land between the two and
+  // re-populate the ledger after it's cleared (see this function's docstring).
+  // The handlers preserve, exactly:
+  //   - analysis-service:stop (O1) — sever in-flight subscriptions;
+  //   - analysis-ledger:purge (O1) — drop cached packets + version refs;
+  //   - stability-trajectory:purge — drop per-(hash,extractor,node) trajectories;
+  //   - analysis-persistence:discard (O13) — fire-and-forget server delete +
+  //     local per-board cache release, `discard().catch()` swallowing failures;
+  //   - review:abort (O5) — abort the in-flight review-analysis wait;
+  //   - thumbnails:purge-board (O4) — drop the board's thumbnail snapshots;
+  //   - board-card-trees:remove (O12) — drop the board's card-tree slot.
+  // Both purges short-circuit cleanly on an empty node list; the dictionary
+  // deletes (the inline drain) are no-ops on a missing key.
+  runBoardCloseHandlers(boardId, nodeIds);
 
   if (store.boards.length <= 1) {
     store.boards = [createInitialBoard()];
@@ -570,43 +595,19 @@ export function updateBoardState(index: number, newState: BoardState): void {
   }
 }
 
-/**
- * Registry of identity-scoped MODULE caches — module-scope state that
- * holds one identity's fetched/derived data and MUST be dropped on
- * identity flip (logout / switch-user), or it leaks across the tenancy
- * boundary. `resetWorkspace` drains this list; the tenancy test in
- * `tests/integration/store-mutators.test.ts` asserts each entry actually
- * clears. **Adding identity-scoped module state? Add a row here** — this
- * is the single place, so the clear can't be silently forgotten (the
- * structural successor to the prior hand-wired O8–O13 clears).
- *
- * Order is load-bearing: the engine stop (`stopAllBoardAnalyses`) runs
- * FIRST so an in-flight response can't re-populate the ledger after it's
- * purged (same discipline as `closeBoard`). The card-thumbnail and
- * card-tree clears are privacy-relevant (raw-CardId keys collide across
- * tenants); the rest are UUID-keyed memory hygiene.
- *
- * SCOPE: module-scope caches only. Component-instance fetched data
- * (ForestDirectory's `roots`, LibraryTab's query/preview state) is
- * unreachable from here — that leak is closed by remounting those
- * subtrees on identity flip via the control-panel identity `:key` in
- * `App.vue`.
- */
-const IDENTITY_SCOPED_CACHES: ReadonlyArray<{ label: string; clear: () => void }> = [
-  { label: 'analysis:active-board-analyses', clear: () => analysisService.stopAllBoardAnalyses() },
-  { label: 'analysis-ledger', clear: () => ledger.purgeAll() },
-  { label: 'stability-trajectories', clear: () => stabilityTrajectoryStore.purgeAll() },
-  { label: 'board-thumbnails', clear: () => purgeAllThumbnails() },
-  { label: 'card-thumbnails', clear: () => clearCardThumbnailCache() },
-  { label: 'board-card-trees', clear: () => clearAllBoardCardTrees() },
-  { label: 'analysis-bundle-summaries', clear: () => analysisPersistenceService.forgetAll() },
-];
-
-/** Labels of every registered identity-scoped cache — the tenancy
- *  completeness test asserts this set is non-empty and fully drained. */
-export function identityScopedCacheLabels(): readonly string[] {
-  return IDENTITY_SCOPED_CACHES.map(c => c.label);
-}
+// Identity-scoped MODULE-cache teardown (the prior `IDENTITY_SCOPED_CACHES`
+// registry) is now OWNER-LOCATED (ADR-0012 P2/P3): each owner registers its
+// workspace-reset handler at module init, and `resetWorkspace` drains them via
+// `runWorkspaceResetHandlers()`. The single-place "add a row here" discipline
+// moved to the owner modules + the registry leaf (`teardown-registry.ts`); the
+// completeness guarantee is the board-completeness test pinning
+// `registeredWorkspaceResetLabels()`. The load-bearing engine-stop-before-
+// ledger-purge ordering travels as an explicit `TeardownOrder` band on the
+// handlers (analysis-service's stop at ENGINE_STOP < the ledger purge), not as
+// array position. SCOPE is unchanged — module-scope caches only; component-
+// instance fetched data (ForestDirectory's `roots`, LibraryTab's query/preview)
+// is unreachable from here and is closed by remounting those subtrees on the
+// control-panel identity `:key` in `App.vue`.
 
 /**
  * Resets user-owned reactive workspace state (boards,
@@ -694,22 +695,28 @@ export function identityScopedCacheLabels(): readonly string[] {
  * closeBoard's closing note).
  */
 export function resetWorkspace(): void {
-  // Release the prior identity's per-board analysis bookkeeping
-  // before mutating the workspace. Same shape as closeBoard's
-  // cleanup but applied to every active board at once. The WS
-  // itself stays open per the docstring's deployment-model
-  // reasoning.
-  // Drain every identity-scoped module cache in dependency order (see
-  // IDENTITY_SCOPED_CACHES above — engine-stop first, then the data
-  // caches). Replaces the prior hand-wired O8–O13 clears with one
-  // registry, so a future cache can't be silently left out of the
-  // tenancy reset.
-  for (const cache of IDENTITY_SCOPED_CACHES) cache.clear();
-
-  // Abort every in-flight review-analysis wait so prior-identity
-  // timeouts can't fire 30s into the new identity's session and
-  // pollute `store.session.reviews` with phantom IDLE rows.
-  abortAllReviews();
+  // Release the prior identity's per-board analysis bookkeeping and the
+  // identity-scoped module caches before mutating the workspace — same shape
+  // as closeBoard's cleanup but applied to every active board at once. The WS
+  // itself stays open per the docstring's deployment-model reasoning.
+  //
+  // Drain every owner-registered workspace-reset handler (ADR-0012 dependency
+  // inversion — the store no longer imports the owners). Ordering is carried
+  // by `TeardownOrder`: `analysis:active-board-analyses` (ENGINE_STOP) fires
+  // the engine stop FIRST so an in-flight response can't re-populate the
+  // ledger after `analysis-ledger`'s purgeAll; the remaining data-cache clears
+  // and `review:abort-all` are order-independent (DEFAULT). The handlers
+  // preserve, exactly: the engine stop (O7), the ledger / stability purgeAll
+  // (O8), purgeAllThumbnails (O9), clearCardThumbnailCache (O10),
+  // clearAllBoardCardTrees (O12), analysisPersistenceService.forgetAll (O13),
+  // and abortAllReviews (O11, which also releases the blind-mode pref snapshot).
+  //
+  // The whole drain runs BEFORE the `store.session` replacement below — a
+  // load-bearing ordering for `review:abort-all` (abortAllReviews): its
+  // blind-mode `releaseAll()` must restore into the OUTGOING session record
+  // (which the replacement then discards wholesale), not the new one. See
+  // abortAllReviews' body for that ordering hazard.
+  runWorkspaceResetHandlers();
 
   store.boards = [createInitialBoard()];
   store.activeBoardIndex = 0;
