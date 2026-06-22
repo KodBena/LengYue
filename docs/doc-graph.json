@@ -1,6 +1,6 @@
 {
-  "node_count": 489,
-  "edge_count": 2362,
+  "node_count": 491,
+  "edge_count": 2377,
   "age_buckets": [
     {
       "name": "fresh",
@@ -2245,6 +2245,14 @@
       "age_bucket": "stale"
     },
     {
+      "path": "docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md",
+      "genre": "note",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
+    },
+    {
       "path": "docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md",
       "genre": "note",
       "is_hub": false,
@@ -3346,7 +3354,7 @@
       "is_hub": false,
       "first_committed": "2026-06-09",
       "last_committed": "2026-06-09",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-09-mini-board-texture-scope-fix.md",
@@ -3362,7 +3370,7 @@
       "is_hub": false,
       "first_committed": "2026-06-09",
       "last_committed": "2026-06-09",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-10-adr-corpus-audit.md",
@@ -3594,7 +3602,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-11-archived-migration-wrong-path-corrective.md",
@@ -3842,7 +3850,7 @@
       "is_hub": false,
       "first_committed": "2026-06-12",
       "last_committed": "2026-06-12",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-12-engine-move-delta-reconcile.md",
@@ -3850,7 +3858,7 @@
       "is_hub": false,
       "first_committed": "2026-06-12",
       "last_committed": "2026-06-12",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-12-mint-komi-calibration.md",
@@ -3882,15 +3890,15 @@
       "is_hub": false,
       "first_committed": "2026-06-12",
       "last_committed": "2026-06-12",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-12-settings-accordion-to-tabs.md",
       "genre": "worklog",
       "is_hub": false,
-      "first_committed": null,
-      "last_committed": null,
-      "age_bucket": "uncommitted"
+      "first_committed": "2026-06-12",
+      "last_committed": "2026-06-12",
+      "age_bucket": "fresh"
     },
     {
       "path": "docs/worklog/2026-06-12-subscribe-dispatch-narrowing.md",
@@ -3898,7 +3906,15 @@
       "is_hub": false,
       "first_committed": "2026-06-12",
       "last_committed": "2026-06-12",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
+    },
+    {
+      "path": "docs/worklog/2026-06-22-perf-close-at-scale-capture.md",
+      "genre": "worklog",
+      "is_hub": false,
+      "first_committed": null,
+      "last_committed": null,
+      "age_bucket": "uncommitted"
     },
     {
       "path": "frontend/CLAUDE.md",
@@ -3913,7 +3929,7 @@
       "genre": "subproject-frontend",
       "is_hub": false,
       "first_committed": "2026-05-11",
-      "last_committed": "2026-06-12",
+      "last_committed": "2026-06-22",
       "age_bucket": "fresh"
     },
     {
@@ -13959,6 +13975,97 @@
       "resolved": "dangling"
     },
     {
+      "from": "docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md",
+      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "kind": "adr-related",
+      "site": "ADR-0010",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0011",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md",
+      "to": "docs/adr/0002-fail-loudly.md",
+      "kind": "adr-related",
+      "site": "ADR-0002",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md",
+      "to": "docs/adr/0005-documentation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0005",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md",
+      "to": "frontend/CLAUDE.md",
+      "kind": "path-mention",
+      "site": "`frontend/CLAUDE.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md",
+      "to": "docs/archive/notes/resource-ownership-audit-plan.md",
+      "kind": "path-mention",
+      "site": "`docs/archive/notes/resource-ownership-audit-plan.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md",
+      "to": "docs/worklog/2026-05-30-perf-treewidget-nav-cost.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-05-30-perf-treewidget-nav-cost.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md",
+      "to": "docs/notes/audit/opus-audit-green-perf-arc-2026-05-31.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/audit/opus-audit-green-perf-arc-2026-05-31.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md",
+      "to": "docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md",
+      "kind": "path-mention",
+      "site": "`docs/adr/0010-render-locality-and-canvas-for-data-dense-visuals.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md",
+      "to": "docs/adr/0011-mechanization-discipline.md",
+      "kind": "path-mention",
+      "site": "`docs/adr/0011-mechanization-discipline.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md",
+      "to": "docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/postmortem/postmortem-render-coupling-at-composition-nodes-2026-05-29.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md",
+      "to": "docs/worklog/2026-06-12-perf-jank-extended-study-results.md",
+      "kind": "path-mention",
+      "site": "`docs/worklog/2026-06-12-perf-jank-extended-study-results.md`",
+      "resolved": "resolved"
+    },
+    {
       "from": "docs/notes/postmortem/postmortem-knob-registry-qeubo-domain-2026-05.md",
       "to": "docs/adr/0002-fail-loudly.md",
       "kind": "adr-related",
@@ -20074,6 +20181,20 @@
       "to": "docs/doc-graph-report.md",
       "kind": "path-mention",
       "site": "`docs/doc-graph-report.md`",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-22-perf-close-at-scale-capture.md",
+      "to": "docs/adr/0009-performance-investigation-discipline.md",
+      "kind": "adr-related",
+      "site": "ADR-0009",
+      "resolved": "resolved"
+    },
+    {
+      "from": "docs/worklog/2026-06-22-perf-close-at-scale-capture.md",
+      "to": "docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md",
+      "kind": "path-mention",
+      "site": "`docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md`",
       "resolved": "resolved"
     },
     {

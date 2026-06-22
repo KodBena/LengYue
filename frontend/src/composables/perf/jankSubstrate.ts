@@ -46,6 +46,20 @@ export const TOTAL_BOARDS = 16;
 /** Plies every board EXCEPT the long fixed game is forwarded to. */
 export const PARK_MOVE = 50;
 
+/** Default board count for the `close-at-scale` capture — the regime the
+ *  16-board `setUpRail` never reaches (the 2026-06-12 jank-extended study
+ *  validated 16 boards; the close-path costs that scale with board count only
+ *  bite an order of magnitude past that). "About 230" per the commission. */
+export const MANY_BOARDS_TARGET = 230;
+
+/** How many DISTINCT library games `setUpManyBoards` fetches bodies for.
+ *  Boards beyond this cycle the fetched bodies — each board still parses its
+ *  own independent tree (its own NodeIds, its own store slot), so the close
+ *  path sees a genuine per-board node set; only the SGF *source* repeats. This
+ *  bounds setup HTTP to one list page + this many `getGame` round-trips
+ *  regardless of how many boards the capture wants. */
+const DISTINCT_GAME_CAP = 50;
+
 /** Library page size for the random-sample fetch. One page is plenty to
  *  sample 15 games from; we do not need the whole library in memory. */
 const SAMPLE_PAGE_SIZE = 200;
@@ -327,6 +341,84 @@ export async function setUpRail(): Promise<BoardId> {
   }
 
   return shusakuBoardId;
+}
+
+/**
+ * Build `targetCount` boards, each forwarded to `parkMove` (clamped to the
+ * game's last move when shorter). The scale substrate for the `close-at-scale`
+ * capture; `setUpRail` is the bounded 16-board analog.
+ *
+ * Strategy: sample up to `DISTINCT_GAME_CAP` distinct library games and fetch
+ * their bodies ONCE, then fill `targetCount` boards by cycling those bodies.
+ * Each board parses its own independent tree, so the per-board store/tree state
+ * the close path operates on is genuine; only the SGF source repeats. This
+ * keeps setup HTTP bounded (one list page + ≤cap `getGame` calls) no matter how
+ * many boards the capture wants. Fetched bodies are loaded as fresh boards with
+ * NO `clientGameId` (each is an independent unsaved load — avoids many boards
+ * sharing one library-game identity, which the dirty-guard would not expect).
+ *
+ * Fails LOUDLY (ADR-0002) if the library is empty or every sampled row 404s —
+ * it does not substitute a synthetic fixture rail (which would silently change
+ * what the profile measures). Logs (not throws) a build shortfall. Returns the
+ * number of boards actually created.
+ */
+export async function setUpManyBoards(targetCount: number, parkMove: number): Promise<number> {
+  const page = await libraryService.listGames({
+    sort: 'createdAt',
+    direction: 'desc',
+    filter: {
+      playerLike: null,
+      playerWhiteLike: null,
+      playerBlackLike: null,
+      dateFrom: null,
+      dateTo: null,
+      resultEq: null,
+      rulesetEq: null,
+      boardSizeEq: null,
+    },
+    offset: 0,
+    limit: SAMPLE_PAGE_SIZE,
+  });
+  if (page.rows.length === 0) {
+    throw new Error(
+      '[jank-substrate] setUpManyBoards: the local_user library returned zero ' +
+        'games — cannot build any board. Confirm the session is authenticated as ' +
+        'local_user and the library is imported. The harness fails loudly rather ' +
+        'than build a synthetic-fixture rail (ADR-0002).',
+    );
+  }
+
+  // Fetch up to DISTINCT_GAME_CAP distinct bodies once (cached in `bodies`).
+  const distinct = page.rows.slice(0, Math.min(DISTINCT_GAME_CAP, page.rows.length));
+  const bodies: string[] = [];
+  for (const row of distinct) {
+    const game = await libraryService.getGame(row.id);
+    if (!game) {
+      console.warn(`[jank-substrate] setUpManyBoards: skipping game #${row.id}: GET returned 404.`);
+      continue;
+    }
+    bodies.push(game.rawContent);
+  }
+  if (bodies.length === 0) {
+    throw new Error(
+      '[jank-substrate] setUpManyBoards: every sampled library row failed to ' +
+        'fetch a body (all 404). Cannot build the rail.',
+    );
+  }
+
+  // Build targetCount boards by cycling the fetched bodies. No await in this
+  // loop (the fetches are done) so the board build is a clean synchronous burst
+  // — the close phase, not the build, is what the capture profiles.
+  let built = 0;
+  for (let i = 0; i < targetCount; i++) {
+    const id = loadGameAsNewBoard(bodies[i % bodies.length], null);
+    forwardToMove(id, parkMove);
+    built++;
+  }
+  if (built < targetCount) {
+    console.warn(`[jank-substrate] setUpManyBoards: built ${built}/${targetCount} boards.`);
+  }
+  return built;
 }
 
 // ── The hover-scrub stimulus ─────────────────────────────────────────────────

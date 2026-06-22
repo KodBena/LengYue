@@ -27,6 +27,15 @@
  *                             bare jank test omits, ending in an indirect cancel
  *                             by proxy disconnect. Built in `jankExtended.ts`;
  *                             builds its own rail and manages its own cleanup.
+ *   - `close-at-scale`      — build ~230 boards (each forwarded to move 50),
+ *                             then close every board in the heaviest order
+ *                             (front/active board, one per frame) while the
+ *                             trace records. The board-count-scaling close-path
+ *                             profile, an order of magnitude past the 16-board
+ *                             studied regime. Built in `closeAtScale.ts`; builds
+ *                             its own rail and manages its own cleanup. No
+ *                             analysis — the close-path costs it surfaces don't
+ *                             need it, and analysis is impractical at 230 boards.
  *
  * Domain band (ADR-0003): game-tree-coupled (B2). Dev-only; makes no
  * perf *claim* (ADR-0009).
@@ -38,6 +47,7 @@ import { runScenario } from './scenarioContext';
 import { popoverStress, DEFAULT_POPOVER_TARGET } from './stimuli';
 import { DEFAULT_FIXTURE_SGF } from './fixtures';
 import { jankExtendedScenario } from './jankExtended';
+import { closeAtScaleScenario } from './closeAtScale';
 import type { BoardId } from '../../types';
 import type { PerfScenario, ScenarioContext } from './types';
 
@@ -55,6 +65,8 @@ export interface ScenarioConfig {
   readonly model?: string;
   /** Engage adaptive_reevaluate. Default false (the green-arc protocol). */
   readonly adaptive?: boolean;
+  /** Target board count for `close-at-scale`. Default MANY_BOARDS_TARGET (230). */
+  readonly boards?: number;
 }
 
 // magic-literal: default per-turn visit budget. 1000 visits/move is the
@@ -203,6 +215,16 @@ const REGISTRY: ReadonlyMap<string, ScenarioFactory> = new Map<string, ScenarioF
         proxyUrl: cfg.proxyUrl ?? DEFAULT_PROXY_URL,
         model: cfg.model,
       }),
+  ],
+  [
+    // The board-count-scaling close-path profile (work-status item to be filed):
+    // ~230 boards each forwarded to move 50, then closed in the heaviest order
+    // (front/active board, one per frame) while the trace records. Builds its
+    // own rail (via the jank substrate) and manages its own cleanup, so it is a
+    // pre-built scenario, not a `prepareAnalysis` one. Runs NO analysis —
+    // `proxyUrl`/`model`/`visits` are ignored; `boards` tunes the count.
+    'close-at-scale',
+    (cfg) => closeAtScaleScenario({ targetBoards: cfg.boards }),
   ],
 ]);
 
