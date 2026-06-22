@@ -12,7 +12,7 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { store, activeBoard, pushSystemMessage } from '../../store';
 import type { BoardId, CardId, CardMetadataPatch, ForestStat, ReviewCard } from '../../types';
@@ -22,6 +22,7 @@ import { useForestNavigation } from '../../composables/forest/useForestNavigatio
 import { useForestBrowsePolicy } from '../../composables/forest/useForestBrowsePolicy';
 import { useForestStats } from '../../composables/forest/useForestStats';
 import { useReviewSession } from '../../composables/review/useReviewSession';
+import { useAuth } from '../../composables/auth-app/useAuth';
 import { expandContextIdMacros } from '../../utils/context-id-macros';
 import CardTreeWidget from '../charts/CardTreeWidget.vue';
 import ForestTreeNav from './ForestTreeNav.vue';
@@ -69,6 +70,7 @@ const tree = useCardTreeData(boardIdRef);
 // per-board selection axis (schema 59 — board-scope audit P0).
 const nav = useForestNavigation(roots, boardIdRef);
 const forestStats = useForestStats();
+const auth = useAuth();
 const cardMetadata = useCardMetadata();
 const reviewSession = useReviewSession(boardIdRef);
 const selectedDeckId = ref<string>(store.session.ui.activeCardSetId);
@@ -99,22 +101,36 @@ function toggleOrientation(): void {
   orientation.value = orientation.value === 'horizontal' ? 'vertical' : 'horizontal';
 }
 
-onMounted(async () => {
-  isLoadingRoots.value = true;
-  try {
-    roots.value = await forestStats.fetchForestStats();
-    tree.setForestStats(roots.value);
-    // The selection watcher below (immediate: true) drives the
-    // right pane from the persisted `nav.selection` once roots
-    // load. No auto-select — fresh users land on a fully
-    // collapsed nav and pick what they want; returning users
-    // resume their last selection.
-  } catch (err) {
-    console.error('Failed to load Forest Directory:', err);
-  } finally {
-    isLoadingRoots.value = false;
-  }
-});
+// Load the forest roots once authenticated — NOT on a bare onMounted.
+// ForestDirectory can mount during cold-start bootstrap, before useAuth has
+// obtained and stored the token, so an unconditional mount-time fetch races
+// auth and 401s on GET /stats/forests (harmless — it logs and shows an empty
+// forest — but it surfaces a spurious "Not authenticated" error every load).
+// `isAuthenticated` is a sound readiness gate: api-client stores the token
+// (localStorage) before useAuth flips the state to 'authenticated', so a true
+// here means the Bearer header is attached. `immediate: true` fetches at once
+// when the component mounts already-authenticated (the common case after
+// bootstrap), and the watch re-fires on a later (re)authentication.
+watch(
+  auth.isAuthenticated,
+  async (isAuth) => {
+    if (!isAuth) return;
+    isLoadingRoots.value = true;
+    try {
+      roots.value = await forestStats.fetchForestStats();
+      tree.setForestStats(roots.value);
+      // The selection watcher below (immediate: true) drives the right pane
+      // from the persisted `nav.selection` once roots load. No auto-select —
+      // fresh users land on a fully collapsed nav and pick what they want;
+      // returning users resume their last selection.
+    } catch (err) {
+      console.error('Failed to load Forest Directory:', err);
+    } finally {
+      isLoadingRoots.value = false;
+    }
+  },
+  { immediate: true },
+);
 
 // Re-seed forestStats into the active board's slot when the board
 // changes (the slot may be empty if it's a never-explored board).
