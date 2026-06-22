@@ -33,7 +33,8 @@ import { type BoardId, type RootedPath, type RawKey, type EnrichedKey, type Quer
 import { asQueryId } from './query-id';
 import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi, getInitialStones } from '../engine/util';
 import { rootToCurrentPrefix } from '../engine/navigator';
-import { store, pushSystemMessage, mutateBoard, setSelectedModel } from '../store';
+import { store, mutateBoard, setSelectedModel } from '../store';
+import { pushSystemMessage } from './system-message-sink';
 // Owner module for the `store.engine` subtree (connect /
 // disconnect-reset / info / selection / metrics) — this service holds
 // the transport and the per-query bookkeeping; the store writes go

@@ -50,13 +50,17 @@ import { collectEdges } from "../import-graph.mjs";
  * here as the single source (mirrors band-conformance's NO_NEW_FINDINGS_RATCHET).
  */
 const NO_NEW_CYCLES_RATCHET = {
-  baselineDate: "2026-06-21",
+  baselineDate: "2026-06-22",
   // Measured at adoption HEAD: ONE cyclic cluster of 18 files — the
   // store/services/api-client tangle (the api-client→store `pushSystemMessage`
-  // back-edge closes it). madge counts 15 elementary cycles within this one
-  // SCC; the cluster + member count is the stable ratchet metric.
+  // back-edge closed it). Tranche A of the import-cycle break (2026-06-22)
+  // moved `pushSystemMessage` behind the registered sink port
+  // (src/services/system-message-sink.ts), dropping the api-client→store edge
+  // — which took api-client and its cycle-only dependents (backend-service,
+  // qeubo-service) out of the SCC: the cluster shrank from 18 to 15 files.
+  // The cluster + member count is the stable ratchet metric.
   clusters: 1,
-  cyclicNodes: 18,
+  cyclicNodes: 15,
 };
 
 // ── Pure graph algorithms (driven by the self-test fixtures) ─────────────────
