@@ -23,7 +23,7 @@
  * subtitle without manual invalidation.
  *
  * Resource ownership: closeBoard's audit pair calls discard() to
- * release the per-board server row alongside ledger.purgeBoard;
+ * release the per-board server row alongside ledger.purgeNodes;
  * resetWorkspace calls forgetAll() to clear cached summaries on
  * identity flip (the server-side rows belong to the prior
  * identity's user_id and are inaccessible to the new identity by
@@ -198,6 +198,10 @@ function fromWireSummary(wire: AnalysisBundleSummaryWire): AnalysisBundleSummary
 // than it's worth for a single string.
 
 import { store } from '../store';
+import {
+  registerBoardCloseHandler,
+  registerWorkspaceResetHandler,
+} from '../store/teardown-registry';
 
 /**
  * Reads the user-facing wire-format choice from the registry and
@@ -555,3 +559,30 @@ export class AnalysisPersistenceService {
 }
 
 export const analysisPersistenceService = new AnalysisPersistenceService();
+
+// ── Teardown registration (ADR-0012 dependency inversion) ────────────────────
+// The store no longer imports this service to drive closeBoard's discard /
+// resetWorkspace's forgetAll (that store → service out-edge was part of the
+// Tranche D cycle break). Both clears are order-independent of the other
+// teardown handlers, so they sit at the default order.
+registerBoardCloseHandler({
+  label: 'analysis-persistence:discard',
+  // Server-side bundle delete + local per-board cache release (summary,
+  // dirty-version, auto-save-error, via forgetBoard). Symmetric to the ledger
+  // purge but for the persisted server row. Fire-and-forget so closeBoard
+  // stays sync from the caller's perspective; a failed delete leaves a
+  // harmless orphan server row (the api-client surfaces non-2xx via the
+  // system log). (Audit O13 — persisted-analysis-bundles.)
+  run: (boardId) =>
+    analysisPersistenceService
+      .discard(boardId)
+      .catch(() => { /* surfaced via api-client's system-message push */ }),
+});
+registerWorkspaceResetHandler({
+  label: 'analysis-bundle-summaries',
+  // Pure local-cache release on identity flip — drops every cached
+  // AnalysisBundleSummary. The server-side rows belong to the prior identity's
+  // user_id and are unreachable to the new identity (tenancy boundary), so no
+  // DELETE storm. (Audit O13 — persisted-analysis-bundles.)
+  run: () => analysisPersistenceService.forgetAll(),
+});

@@ -58,9 +58,25 @@ const NO_NEW_CYCLES_RATCHET = {
   // (src/services/system-message-sink.ts), dropping the api-client→store edge
   // — which took api-client and its cycle-only dependents (backend-service,
   // qeubo-service) out of the SCC: the cluster shrank from 18 to 15 files.
+  // Tranche B (2026-06-22) inverted the per-board purge in `analysis-ledger`
+  // and `stability-trajectory-store` from "look the board up in the store" to
+  // "be handed the node list the caller already has", dropping the up-edges
+  // `analysis-ledger → store` and `stability-trajectory-store → store` —
+  // which took those two modules and their cycle-only dependent
+  // (wait-for-analysis) out of the SCC: 15 → 12 files.
+  // Tranche D (2026-06-22) inverted the remaining store → owner cleanup
+  // out-edges via the owner-registered teardown registry
+  // (src/store/teardown-registry.ts + the teardown-registrations.ts bootstrap):
+  // closeBoard / resetWorkspace no longer import analysis-service,
+  // analysis-ledger, stability-trajectory-store, analysis-persistence-service,
+  // useReviewSession, thumbnail-render-resources, useCardThumbnail, or
+  // board-card-trees to drive teardown; each owner registers its own handler.
+  // Removing those store out-edges dissolved the last SCC: 12 → 0. The
+  // reshaped 12-node SCC was the substrate of the vite-8.0.8 vitest-teardown
+  // deadlock (the full suite hung); at clusters:0 the suite passes and exits.
   // The cluster + member count is the stable ratchet metric.
-  clusters: 1,
-  cyclicNodes: 15,
+  clusters: 0,
+  cyclicNodes: 0,
 };
 
 // ── Pure graph algorithms (driven by the self-test fixtures) ─────────────────

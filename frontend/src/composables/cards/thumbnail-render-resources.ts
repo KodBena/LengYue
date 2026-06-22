@@ -56,6 +56,10 @@ import { ref, type Ref } from 'vue';
 import type { BoardSnapshot } from '../../engine/board-geometry';
 import type { BoardId, NodeId, SpriteKey, StoneColor } from '../../types';
 import { store } from '../../store';
+import {
+  registerBoardCloseHandler,
+  registerWorkspaceResetHandler,
+} from '../../store/teardown-registry';
 
 // ── Data layer: the BoardSnapshot cache ─────────────────────────────────────
 //
@@ -164,6 +168,27 @@ export function purgeAllThumbnails(): void {
   snapshotCache.value.clear();
   lastWarmedPath = [];
 }
+
+// ── Teardown registration (ADR-0012 dependency inversion) ────────────────────
+// The store no longer imports these purges to drive its cleanup (that store →
+// module out-edge was part of the import cycle Tranche D broke); this module
+// registers them. Order-independent of the other teardown handlers.
+registerBoardCloseHandler({
+  label: 'thumbnails:purge-board',
+  // Drops cached board snapshots keyed on the closing board's NodeIds. Walks
+  // `board.nodes` via store.boards.find, so it must run while the board is
+  // still present in store.boards — i.e. before closeBoard's splice, which the
+  // registry's before-splice run position preserves. The handler does NOT
+  // consume the caller's nodeIds snapshot — purgeBoardThumbnails derives the
+  // nodes itself (existing behaviour, preserved). (Audit O4.)
+  run: (boardId) => purgeBoardThumbnails(boardId),
+});
+registerWorkspaceResetHandler({
+  label: 'board-thumbnails',
+  // Drops every cached board snapshot on identity flip (memory hygiene —
+  // NodeIds are UUID-style, no cross-user collision). (Audit O9.)
+  run: () => purgeAllThumbnails(),
+});
 
 // ── Paint layer: wood texture ───────────────────────────────────────────────
 //

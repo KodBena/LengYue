@@ -34,6 +34,11 @@ import { asQueryId } from './query-id';
 import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi, getInitialStones } from '../engine/util';
 import { rootToCurrentPrefix } from '../engine/navigator';
 import { store, mutateBoard, setSelectedModel } from '../store';
+import {
+  registerBoardCloseHandler,
+  registerWorkspaceResetHandler,
+  TeardownOrder,
+} from '../store/teardown-registry';
 import { pushSystemMessage } from './system-message-sink';
 // Owner module for the `store.engine` subtree (connect /
 // disconnect-reset / info / selection / metrics) — this service holds
@@ -1312,6 +1317,38 @@ export class AnalysisService {
 }
 
 export const analysisService = new AnalysisService();
+
+// ── Teardown registration (ADR-0012 dependency inversion) ────────────────────
+// closeBoard / resetWorkspace no longer import this service to drive cleanup
+// (that store → service out-edge was the import cycle Tranche D broke); the
+// service registers its own teardown here and the store calls the registry.
+//
+// Order is load-bearing for the board-close handler: `stopBoardAnalysis` MUST
+// run before the ledger purge so an in-flight packet can't land between the
+// two and re-populate the ledger after it was cleared (see closeBoard's
+// docstring). `TeardownOrder.ENGINE_STOP` (< `LEDGER_PURGE`) carries that
+// constraint explicitly — it does not depend on this module's load timing,
+// which the import graph reshapes (analysis-ledger evaluates as a dependency
+// of this very module). The workspace-reset stop is order-independent of the
+// other identity-flip clears (no surviving cell is written by it), so it sits
+// at DEFAULT.
+registerBoardCloseHandler({
+  label: 'analysis-service:stop',
+  order: TeardownOrder.ENGINE_STOP,
+  // Severs every in-flight analysis subscription this board owns (the
+  // bulk-stop path; iterates `boardToQueries` and routes each queryId through
+  // stopQuery). No-op when the board has no active analysis. (Audit O1.)
+  run: (boardId) => analysisService.stopBoardAnalysis(boardId),
+});
+registerWorkspaceResetHandler({
+  label: 'analysis:active-board-analyses',
+  order: TeardownOrder.ENGINE_STOP,
+  // Fires a terminate frame for every still-active query across all boards;
+  // the per-board maps drop their entries on the way through. Engine-stop
+  // first (same discipline as closeBoard) so an in-flight response can't
+  // re-populate the ledger after purgeAll. (Audit O7.)
+  run: () => analysisService.stopAllBoardAnalyses(),
+});
 
 // HMR dispose — dev-only. Vite re-instantiates this module's singleton
 // when the file (or one of its transitive dependencies) is hot-replaced;

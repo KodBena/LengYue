@@ -75,7 +75,7 @@ afterEach(() => {
 
 describe('api-client export surface — the callback bridge is gone', () => {
   it('exports no auth-state mutation/notification hook (exact export set pinned)', () => {
-    // Tripwire, same shape as identityScopedCacheLabels' coverage pin:
+    // Tripwire, same shape as the teardown-registry coverage pins:
     // fails the moment a new export (e.g. a re-introduced callback
     // registration) appears without a deliberate update here.
     expect(Object.keys(apiClientModule).sort()).toEqual([
