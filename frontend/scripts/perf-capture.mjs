@@ -74,6 +74,9 @@ const connectUrl = flag('connect', undefined);
 const waitEngineMs = Number(flag('wait-engine-ms', '0'));
 const cfg = {};
 if (flag('visits', undefined) !== undefined) cfg.visits = Number(flag('visits'));
+// close-at-scale: target board count (default 230 in the scenario). Ignored by
+// the other scenarios.
+if (flag('boards', undefined) !== undefined) cfg.boards = Number(flag('boards'));
 if (flag('popover-target', undefined) !== undefined) cfg.popoverTarget = flag('popover-target');
 if (flag('proxy-url', undefined) !== undefined) cfg.proxyUrl = flag('proxy-url');
 if (flag('model', undefined) !== undefined) cfg.model = flag('model');
