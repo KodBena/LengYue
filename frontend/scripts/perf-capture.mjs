@@ -87,6 +87,14 @@ if (argv.includes('--adapt')) cfg.adaptive = true;
 const sgfPath = flag('sgf', undefined);
 if (sgfPath !== undefined) cfg.sgf = await readFile(sgfPath, 'utf8');
 
+// --cpu-profile: append the V8 sampling-profiler category so the trace carries
+// `Profile` / `ProfileChunk` events (per-function self-time samples, ~1 kHz, on
+// the same clock as the scenario marks so they window cleanly to a phase). Off
+// by default — it inflates the trace and the standing battery doesn't need it;
+// opt in when category-level timing (Scripting vs Layout) is too coarse to name
+// the hot function.
+const cpuProfile = argv.includes('--cpu-profile');
+
 // magic-literal: Chrome trace categories. `blink.user_timing` is the
 // load-bearing one — it carries every `performance.mark`/`measure`, i.e.
 // Vue's per-component render/patch and our scenario marks. The rest mirror
@@ -100,6 +108,7 @@ const TRACE_CATEGORIES = [
   'toplevel',
   'blink',
   'cc',
+  ...(cpuProfile ? ['disabled-by-default-v8.cpu_profiler'] : []),
 ].join(',');
 
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');

@@ -12,7 +12,7 @@ import { getIntensityColorLinear } from '../../engine/suggestion-colors';
 import { store } from '../../store';
 import type { BoardId, BoardState } from '../../types';
 import { ledger } from '../../state/analysis-ledger';
-import { useVariationPath } from '../../composables/board/useVariationPath';
+import { useVariationPathFor } from '../../composables/board/useVariationPath';
 import { activeAnalysisKeys } from '../../state/analysis-config';
 import { useThrottledSnapshot } from '../../composables/useThrottledSnapshot';
 import { BOARD_TAB_RUGPLOT_REDRAW_THROTTLE_MS } from '../../lib/timing';
@@ -43,7 +43,12 @@ const emit = defineEmits<{
   (e: 'hover-leave'): void;
 }>();
 
-const path = useVariationPath(() => props.state.id);
+// Path from the OWN board object (props.state), NOT the id wrapper: the wrapper
+// resolves through `boardsById`, which invalidates on every board-set change
+// (any close) and would re-walk this tab's path on every close — O(N²) over the
+// rail (CPU-profiled as ≈ half the close-at-scale close phase). props.state is
+// stable across a sibling's close, so this only re-walks when THIS board moves.
+const path = useVariationPathFor(() => props.state);
 
 // ── Throttled rugplot source (per-node visit scan) ────────────────────
 // `rugPlot` below colours a per-move depth meter from every node on the path
