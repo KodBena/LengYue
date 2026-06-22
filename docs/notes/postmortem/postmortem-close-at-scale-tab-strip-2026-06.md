@@ -52,23 +52,39 @@ Recorded audibly (ADR-0002) rather than retro-editing the body.
    itself an instance of **the deficient-proxy trap this postmortem names** — a
    recursion worth recording.
 
-3. **The dominant close cost is the SyncService deep-watch (§2.3), not the
-   renders.** Post-fix self-time attribution: Scripting/GC ~30 s + Layout ~7.6 s
-   still dominate the (now 31.5 s) close phase. The §2.3 "~22% floor" — the
-   `{ deep: true }` re-traversal of per-board `store.session` on every close plus
-   the two `boardsSetVersion` reconcile loops — is the **actual #1 cost**,
-   vindicating the original *static* diagnosis. §2.3's "merely dominated by the
-   render storm" is backwards. The next fix targets it (a `session` version
-   counter instead of `{ deep: true }`).
+3. **The deep-watch was NOT the dominant cost either — a CPU profile finally
+   pinned the real one.** An intermediate inference said the SyncService
+   `{ deep: true }` session watch (§2.3) was the #1 cost. Falsified: replacing it
+   with a version counter (branch `bork/perf/syncservice-session-version`, a
+   correct architectural cleanup parked for QA) moved the close phase **not at
+   all** — the deep-traversal touches N *small* per-board entries, a few hundred
+   ms total. A V8 sampling-profiler capture (`perf-capture --cpu-profile`) then
+   attributed self-time per function: **`getActiveVariationPath` 14% + the
+   reactive `get` trap 38.5% ≈ half the close phase.** Cause: every BoardTab's
+   path computed resolves its board via `boardsById`, which invalidates on every
+   board-set change (any close), so one close re-walked all N tabs' paths over
+   reactive node state — O(N²) of `get`-trap hits. Fix (PR #455,
+   `fix-boardtab-path-recompute-storm`): BoardTab sources its path from the board
+   object it already holds (`props.state`), not the all-boards index. **Measured:
+   close-phase CPU 32.9 s → 14.5 s (−56%); long-task 36.9 → 17.1 s; p99 frame
+   256 → 123 ms.** The residual is V8 baseline + dev-only instrumentation marks,
+   not app code.
+
+   *Method note (ADR-0013 register):* category-level attribution (Scripting vs
+   Layout) was too coarse and produced **three** wrong rankings in a row (78%
+   render, then deep-watch #1). Per-function self-time from a CPU profile is the
+   tool; structural inference of a bottleneck is not — measure it, do not reason
+   it.
 
 **Effect on §5-§6:** §5 stands. The §5.4 *residue* is sharpened — the footgun is
 not only "`v-memo` key derived from index" but the broader **"per-item closure
 props (handlers) on a long keyed list force `shouldUpdateComponent` to re-render
 the whole list on any parent render."** `lint-vmemo-churning-key` (§6.4) is
 reframed accordingly, and `net-render-count-vs-n-ratchet` (§6.2) is *more*
-validated (it would have caught the 26,797 directly). Work-status items updated
-to match (`fix-boardtab-vmemo-index-key` superseded by `fix-boardtab-stable-handlers`;
-`perf-syncservice-deep-watch-session` filed as the real #1).
+validated (it would have caught the 26,797 directly). Work-status:
+`fix-boardtab-vmemo-index-key` superseded by `fix-boardtab-stable-handlers`;
+`perf-syncservice-deep-watch-session` corrected (parked cleanup, not the
+bottleneck); `fix-boardtab-path-recompute-storm` is the close-cost win (PR #455).
 
 ---
 
