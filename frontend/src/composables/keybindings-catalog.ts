@@ -34,7 +34,7 @@
  */
 
 import { useNavigation } from './useNavigation';
-import { activeBoard, store } from '../store';
+import { activeBoard, store, touchSession } from '../store';
 import { analysisService } from '../services/analysis-service';
 import type { KeybindingActionId } from '../types';
 import type { KeybindingActionDecl, KeybindingEnabledPredicate } from '../lib/keybindings';
@@ -185,6 +185,7 @@ export const KEYBINDINGS_REGISTRY: ReadonlyArray<KeybindingActionDecl> = [
     enabledWhen: activeBoardExists,
     handler: () => {
       store.session.ui.showMoveSuggestions = !store.session.ui.showMoveSuggestions;
+      touchSession();
     },
   },
   {
@@ -196,6 +197,7 @@ export const KEYBINDINGS_REGISTRY: ReadonlyArray<KeybindingActionDecl> = [
     enabledWhen: activeBoardExists,
     handler: () => {
       store.session.ui.showStoneMoveNumbers = !store.session.ui.showStoneMoveNumbers;
+      touchSession();
     },
   },
   {
@@ -207,6 +209,7 @@ export const KEYBINDINGS_REGISTRY: ReadonlyArray<KeybindingActionDecl> = [
     enabledWhen: activeBoardExists,
     handler: () => {
       store.session.ui.overlayLayers.ownership.continuous = !store.session.ui.overlayLayers.ownership.continuous;
+      touchSession();
     },
   },
   {
@@ -218,6 +221,7 @@ export const KEYBINDINGS_REGISTRY: ReadonlyArray<KeybindingActionDecl> = [
     enabledWhen: activeBoardExists,
     handler: () => {
       store.session.ui.overlayLayers.ownership.dots = !store.session.ui.overlayLayers.ownership.dots;
+      touchSession();
     },
   },
   {
@@ -229,6 +233,7 @@ export const KEYBINDINGS_REGISTRY: ReadonlyArray<KeybindingActionDecl> = [
     enabledWhen: activeBoardExists,
     handler: () => {
       store.session.ui.overlayLayers.ownership.liveness = !store.session.ui.overlayLayers.ownership.liveness;
+      touchSession();
     },
   },
 ];

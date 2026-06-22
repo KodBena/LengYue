@@ -39,7 +39,7 @@ import PaletteEditor from './editors/PaletteEditor.vue';
 import CardSetEditor from './editors/CardSetEditor.vue';
 import RegistryEditor from './editors/RegistryEditor.vue';
 import AnalysisTabsEditor from './editors/AnalysisTabsEditor.vue';
-import { store, DEFAULTS } from '../store';
+import { store, DEFAULTS, touchSession } from '../store';
 import { updateProfileAt } from '../store/profile-owner';
 import { updateRegistry } from '../lib/utils';
 import { cancelCapture } from '../lib/keybindings-capture';
@@ -89,9 +89,19 @@ function handleSettingsUpdate(e: { path: string[]; value: unknown }): void {
 }
 function handleSessionUpdate(e: { path: string[]; value: unknown }): void {
   updateRegistry(store.session.ui, e.path, e.value);
+  // Generic-path write into `store.session.ui` — bump the session counter
+  // SyncService keys persistence on (it no longer deep-watches
+  // `store.session`; see `sessionVersion` in `store/index.ts`).
+  touchSession();
 }
 function handleProfileUpdate(e: { path: string[]; value: unknown }): void {
   updateProfileAt(e.path, e.value);
+}
+// Active card-set is a persisted `session.ui` field — write + bump the
+// session counter (same reason as `handleSessionUpdate`).
+function handleActiveCardSet(id: string): void {
+  store.session.ui.activeCardSetId = id;
+  touchSession();
 }
 </script>
 
@@ -127,7 +137,7 @@ function handleProfileUpdate(e: { path: string[]; value: unknown }): void {
             :cardSets="store.profile.cardSets"
             :activeCardSetId="store.session.ui.activeCardSetId"
             @update="handleProfileUpdate"
-            @update-active="(id) => store.session.ui.activeCardSetId = id"
+            @update-active="handleActiveCardSet"
           />
         </div>
       </div>

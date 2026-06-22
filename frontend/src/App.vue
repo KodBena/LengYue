@@ -31,9 +31,10 @@ import {
   activeBoard,
   mutateBoard,
   pushSystemMessage,
+  touchSession,
 } from './store';
 
-import type { BoardId, NodeId }   from './types';
+import type { BoardId, NodeId, UISession }   from './types';
 import { navigateTo }     from './engine/navigator';
 
 import { KATAGO_WS_URL } from './config/env';
@@ -222,6 +223,36 @@ function handleNodeSelect(nodeId: NodeId): void {
   mutateBoard(activeBoard.value.id, draft => navigateTo(draft, nodeId));
 }
 
+// Boolean keys of `UISession` — the only shape the chrome toggle below
+// handles (it flips a boolean in place). Keeps the helper from being
+// pointed at a non-boolean session field.
+type BooleanUiKey = {
+  [K in keyof UISession]-?: UISession[K] extends boolean ? K : never;
+}[keyof UISession];
+
+// Chrome panel toggle (sidebar / board / tree / controls). These are
+// persisted `session.ui` flags, so the toggle bumps `touchSession()` —
+// SyncService keys session persistence on the `sessionVersion` counter
+// now, not a deep `store.session` watch (see `sessionVersion` in
+// `store/index.ts`). Replaces the inline `@click="store.session.ui.X =
+// !store.session.ui.X"` template writes, which the counter would not
+// observe.
+function toggleChrome(key: BooleanUiKey): void {
+  store.session.ui[key] = !store.session.ui[key];
+  touchSession();
+}
+
+// Control-panel active tab — persisted `session.ui.activeTab`. A
+// writable computed so the TabWidget v-model write routes through
+// `touchSession()` (same session-counter reason as `toggleChrome`).
+const activeTab = computed<string>({
+  get: () => store.session.ui.activeTab,
+  set: (v) => {
+    store.session.ui.activeTab = v;
+    touchSession();
+  },
+});
+
 </script>
 
 <template>
@@ -244,7 +275,7 @@ function handleNodeSelect(nodeId: NodeId): void {
     <div id="main-workspace">
       
       <div class="top-nav-bar">
-        <button class="collapse-btn" @click="store.session.ui.sidebarExpanded = !store.session.ui.sidebarExpanded" :title="$t('app.chrome.toggleSidebar')">
+        <button class="collapse-btn" @click="toggleChrome('sidebarExpanded')" :title="$t('app.chrome.toggleSidebar')">
           {{ store.session.ui.sidebarExpanded ? '◀' : '▶' }}
         </button>
 
@@ -259,13 +290,13 @@ function handleNodeSelect(nodeId: NodeId): void {
         />
 
         <div class="right-toggles">
-          <button class="collapse-btn" @click="store.session.ui.boardExpanded = !store.session.ui.boardExpanded" :title="$t('app.chrome.toggleBoard')">
+          <button class="collapse-btn" @click="toggleChrome('boardExpanded')" :title="$t('app.chrome.toggleBoard')">
             🔲 {{ store.session.ui.boardExpanded ? '▶' : '◀' }}
           </button>
-          <button class="collapse-btn" @click="store.session.ui.treeExpanded = !store.session.ui.treeExpanded" :title="$t('app.chrome.toggleTree')">
+          <button class="collapse-btn" @click="toggleChrome('treeExpanded')" :title="$t('app.chrome.toggleTree')">
             🌲 {{ store.session.ui.treeExpanded ? '▶' : '◀' }}
           </button>
-          <button class="collapse-btn" @click="store.session.ui.controlsExpanded = !store.session.ui.controlsExpanded" :title="$t('app.chrome.toggleControls')">
+          <button class="collapse-btn" @click="toggleChrome('controlsExpanded')" :title="$t('app.chrome.toggleControls')">
             ⚙️ {{ store.session.ui.controlsExpanded ? '▶' : '◀' }}
           </button>
           <LocalePicker />
@@ -342,7 +373,7 @@ function handleNodeSelect(nodeId: NodeId): void {
           <TabWidget
             :key="controlPanelIdentityKey"
             :tabs="controlTabs"
-            v-model="(store.session.ui.activeTab as string /* widen the tab-id union to TabWidget's string v-model */)"
+            v-model="activeTab"
           >
 
             <template #library>
