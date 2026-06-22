@@ -14,7 +14,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { store, activeBoard, pushSystemMessage } from '../../store';
+import { store, activeBoard, pushSystemMessage, touchSession } from '../../store';
 import type { BoardId, CardId, CardMetadataPatch, ForestStat, ReviewCard } from '../../types';
 import { useCardTreeData } from '../../composables/cards/useCardTreeData';
 import { useCardMetadata } from '../../composables/cards/useCardMetadata';
@@ -281,6 +281,10 @@ function updateContextIds(val: string): void {
     .split(',')
     .map(s => parseInt(s.trim(), 10))
     .filter(n => !isNaN(n));
+  // Persisted `session.ui` field — bump the session counter SyncService
+  // keys persistence on (it no longer deep-watches `store.session`; see
+  // `sessionVersion` in `store/index.ts`).
+  touchSession();
 }
 
 function handleNodeClick(payload: { cardId: CardId; role: 'active' | 'context' }): void {

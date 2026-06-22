@@ -26,7 +26,7 @@
  * License: Public Domain (The Unlicense).
  */
 import { onUnmounted, ref } from 'vue';
-import { store } from '../../store';
+import { store, touchSession } from '../../store';
 
 const MIN_BOARD = 300;
 const MAX_BOARD = 4096;
@@ -62,6 +62,11 @@ export function useResizablePanel() {
     const totalDelta = e.clientX - lastMouseX;
     const next = Math.max(MIN_BOARD, Math.min(dragOriginPx + totalDelta, MAX_BOARD));
     store.session.ui.boardSquareMaxWidthPx = next;
+    // `boardSquareMaxWidthPx` is persisted session UI state; bump the session
+    // counter so SyncService schedules a (debounced) save. The per-move bumps
+    // coalesce into one PUT after the drag settles, exactly as the prior deep
+    // `store.session` watch did. See `sessionVersion` in `store/index.ts`.
+    touchSession();
   }
 
   function stopResize() {

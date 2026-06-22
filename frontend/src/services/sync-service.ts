@@ -18,6 +18,7 @@ import { watch } from 'vue';
 import {
   store,
   boardsVersion,
+  sessionVersion,
   updateFromRemote,
   pushSystemMessage,
   resetWorkspace,
@@ -163,37 +164,72 @@ export class SyncService {
    * Subscribe to the full reactive surface that participates in
    * sync.
    *
-   * Why one watcher instead of three:
-   *   The previous implementation ran three independent watchers
-   *   (boards, profile, session) — each with its own debounce
-   *   slot, each calling the same sendSync() which always
-   *   serializes the entire blob. Because the PUT is monolithic,
-   *   per-channel timers produced only drawbacks:
+   * Why one DEBOUNCE SLOT, not three:
+   *   The original implementation ran three independent watchers
+   *   (boards, profile, session) — each with its OWN debounce slot,
+   *   each calling the same sendSync() which always serializes the
+   *   entire blob. Because the PUT is monolithic, per-channel timers
+   *   produced only drawbacks:
    *     (a) no bandwidth saving — every PUT sent everything;
    *     (b) redundant PUTs when two channels fired in the same
    *         debounce window (e.g., boards at t=0 and profile at
    *         t=0.5s produced one PUT at t=1s AND another at
    *         t=1.5s, both containing the same merged state).
-   *   A single watcher + single debounce slot produces exactly
-   *   one PUT per user-perceptible change batch, which is what
-   *   we want.
+   *   The fix was a SINGLE debounce slot, not necessarily a single
+   *   `watch` — what matters is that every channel funnels through
+   *   `scheduleSync`, which cancels+reschedules the one
+   *   `pendingTimer`, so exactly one PUT lands per change batch. The
+   *   current shape uses two `watch` calls (the shallow board/session
+   *   counter watch + the deep profile watch, split for the perf
+   *   reason below), both routed through that one slot — so the
+   *   one-PUT-per-batch property is unchanged.
    *
-   * Why deep watches on profile and session:
-   *   boardsVersion is an explicit version counter bumped by
-   *   every board mutation, so a shallow watch suffices. profile
-   *   and session are deep reactive trees without version
-   *   counters, so they need deep watches to catch nested edits.
+   * Why a shallow version-counter watch for boards AND session, but
+   * a deep watch for profile:
+   *   `boardsVersion` and `sessionVersion` are explicit version
+   *   counters (`store/index.ts`) bumped by every board / session
+   *   mutation that should persist, so a SHALLOW read of their
+   *   `.value` suffices — no traversal. `store.session` specifically
+   *   moved off a deep watch because it holds three PER-BOARD
+   *   dictionaries (`session.reviews`, `session.ui.cardTreeNav`,
+   *   `session.ui.forestNav.selection`); deep-traversing them was
+   *   O(open-board count) per fire and O(N²) over a close-all — the
+   *   dominant close-at-scale cost (see `sessionVersion`'s docstring
+   *   and `composables/perf/closeAtScale.ts`). The
+   *   persistence-correctness contract — every session write bumps
+   *   `sessionVersion` — is pinned by
+   *   `tests/integration/sync-session-version.test.ts`.
+   *   `store.profile` keeps a deep watch: it is workspace-global
+   *   (settings + decks), O(1) in open-board count, so its deep
+   *   traversal does not scale with the board rail; a counter would
+   *   only add write-site discipline with no perf payoff.
+   *
+   * Why two watches still share one debounce:
+   *   Both call `scheduleSync()`, which cancels and reschedules the
+   *   single `pendingTimer` slot — so the one-PUT-per-change-batch
+   *   property the single-watcher scheme bought (see above) is
+   *   preserved: whichever watch fires last in a debounce window
+   *   owns the slot, and exactly one PUT lands.
    */
   private startWatcher() {
+    // Boards + session via their shallow version counters, plus the
+    // directly-watched active-board index. No traversal.
     watch(
       () => [
         boardsVersion.value,
+        sessionVersion.value,
         store.activeBoardIndex,
-        store.profile,
-        store.session,
       ],
       () => this.scheduleSync(),
-      { deep: true }
+    );
+
+    // Profile keeps a deep watch — workspace-global, O(1) in board
+    // count (see the docstring above). Shares the one debounce slot
+    // via `scheduleSync`.
+    watch(
+      () => store.profile,
+      () => this.scheduleSync(),
+      { deep: true },
     );
   }
 

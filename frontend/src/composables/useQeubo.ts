@@ -86,7 +86,7 @@
 import { computed, ref, type ComputedRef, type Ref, type WritableComputedRef } from 'vue';
 import { generateUUID } from '../lib/utils';
 import { qeuboService } from '../services/qeubo-service';
-import { pushSystemMessage, store } from '../store';
+import { pushSystemMessage, store, touchSession } from '../store';
 import { mutateProfile, writeStoreKnobValue } from '../store/profile-owner';
 import { i18n } from '../i18n';
 import {
@@ -463,6 +463,10 @@ const _toolbarView: WritableComputedRef<'applied' | 'A' | 'B'> = computed({
   get: () => (store.session.ui.qeuboToolbarView ?? 'applied') as 'applied' | 'A' | 'B',
   set: (v: 'applied' | 'A' | 'B') => {
     store.session.ui.qeuboToolbarView = v;
+    // Persisted session UI field — bump the session counter so SyncService
+    // (which no longer deep-watches `store.session`) schedules a save. See
+    // `sessionVersion` in `store/index.ts`.
+    touchSession();
   },
 });
 
