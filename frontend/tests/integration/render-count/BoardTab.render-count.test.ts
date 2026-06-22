@@ -10,7 +10,8 @@
  * (`rugVisits` → throttled `displayedVisits` → `rugPlot`) is consumed
  * ONLY inside `watch(rugPlot, drawMeter)`, which draws to the canvas
  * imperatively — the template/render reads `isActive`, `reviewState`,
- * `index`, and the label, but NOT the rugplot data. So a rugplot-data
+ * and the i18n label word, but NOT the rugplot data (nor `index` — the
+ * "Board N" ordinal is a CSS counter now, not a reactive prop). So a rugplot-data
  * update (a new analysis packet bumping the ledger) must re-run the
  * render function ZERO times; only a chrome change (e.g. `isActive`)
  * re-renders.
@@ -111,7 +112,7 @@ describe('BoardTab — render-count regression guard', () => {
     const rawKey = activeAnalysisKeys.value.rawKey;
 
     harness = mountWithRenderCount(BoardTab, {
-      props: { state: board, index: 0, isActive: true },
+      props: { state: board, isActive: true },
       global: { plugins: [i18n] },
     });
     await nextTick();
@@ -145,7 +146,7 @@ describe('BoardTab — render-count regression guard', () => {
     const board = loadBoardIntoStore(FIVE_MOVE_SGF);
 
     harness = mountWithRenderCount(BoardTab, {
-      props: { state: board, index: 0, isActive: false },
+      props: { state: board, isActive: false },
       global: { plugins: [i18n] },
     });
     await nextTick();

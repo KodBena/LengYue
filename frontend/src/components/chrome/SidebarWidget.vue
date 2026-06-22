@@ -9,7 +9,7 @@ import BoardTab from '../board/BoardTab.vue';
 import MiniBoard from '../board/MiniBoard.vue';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
 import { useJankTest } from '../../composables/perf/useJankTest';
-import type { BoardId, BoardState } from '../../types';
+import type { BoardId } from '../../types';
 import type { BoardSnapshot } from '../../engine/board-geometry';
 
 // Dev-only "jank test" affordance (below). import.meta.env.DEV is statically
@@ -76,6 +76,15 @@ function handleAdd() {
   createBoard();
 }
 
+// Stable per-tab handlers — defined ONCE, not as per-`v-for`-item closures.
+// This is what lets Vue's keyed diff skip an unchanged tab when a sibling
+// closes, instead of re-rendering all of them (the O(N²) close-render storm;
+// see the BoardTab emit comment + the close-at-scale postmortem). BoardTab
+// emits its own board id, resolved to the CURRENT position at event time.
+function onActivate(id: BoardId) {
+  setActiveBoard(store.boards.findIndex(b => b.id === id));
+}
+
 function getReviewState(boardId: BoardId) {
   const status = store.session.reviews[boardId]?.status;
   if (!status) return null;
@@ -85,13 +94,14 @@ function getReviewState(boardId: BoardId) {
   return null;
 }
 
-function onHoverEnter(board: BoardState) {
-  previewBoardId.value = board.id;
+function onHoverEnter(id: BoardId) {
+  previewBoardId.value = id;
   // Fire-and-forget warm of the shared cache for that board's current node.
   // The reactive `previewSnapshot` picks the result up; we deliberately do NOT
   // assign the awaited value to any visible state — that async write-back is
   // exactly the race this redesign removes.
-  void getSnapshot(board.currentNodeId, board.id);
+  const board = store.boards.find(b => b.id === id);
+  if (board) void getSnapshot(board.currentNodeId, id);
 }
 
 function onHoverLeave() {
@@ -118,30 +128,31 @@ function onHoverLeave() {
     </div>
 
     <div class="thumb-list">
-      <!-- v-memo skips the parent-forced re-render of each tab. App.vue
-           re-renders on every navigation, and this widget's `v-show`
-           makes Vue force-update it on each parent render — which would
-           re-render every BoardTab (and its rug-plot meter, a full
-           variation-path walk) per nav step, including the inactive
-           board's. The memo key carries only the parent-driven inputs a
-           BoardTab cannot self-source: `board` (object identity — catches
-           the move-play replacement via updateBoardState), `index` (the
-           "Board N" label after a close-induced reindex), active-highlight,
-           and review-border state. Cursor / analysis-depth updates
-           flow through BoardTab's OWN reactive effects, which v-memo does
-           not block (it suppresses parent-driven patches, not the child's
-           own render effect). See docs/notes/perf-audit-game-scroll-2026-05-28.md. -->
+      <!-- No v-memo (deliberate). App.vue re-renders on every navigation, and
+           this widget's `v-show` force-updates it on each parent render, so this
+           v-for re-runs often AND on every board close. Tabs skip re-rendering
+           anyway because every BoardTab prop is referentially stable for an
+           unchanged tab: `:state` is the board object (stable ref — a move-play
+           replacement via updateBoardState changes it, which correctly DOES
+           re-render that one tab), `:isActive`/`:reviewState` are value-stable,
+           and the handlers are STABLE module functions (BoardTab emits its own
+           id) rather than per-`v-for`-item closures. Vue's keyed diff +
+           shouldUpdateComponent then skips the O(N) tabs a sibling's close
+           leaves untouched — closing the O(N²) close-render storm at its real
+           root. (v-memo was the old mask for the nav case, but it caches
+           POSITIONALLY, so a close-induced shift busts every memo and it never
+           helped the close path; the per-item-closure handlers were the actual
+           driver. See docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md
+           and docs/notes/perf-audit-game-scroll-2026-05-28.md.) -->
       <BoardTab
         v-for="(board, index) in store.boards"
         :key="board.id"
-        v-memo="[board, index, store.activeBoardIndex === index, getReviewState(board.id)]"
         :state="board"
-        :index="index"
         :isActive="store.activeBoardIndex === index"
         :reviewState="getReviewState(board.id)"
-        @click="setActiveBoard(index)"
-        @close="closeBoard(board.id)"
-        @hover-enter="onHoverEnter(board)"
+        @activate="onActivate"
+        @close="closeBoard"
+        @hover-enter="onHoverEnter"
         @hover-leave="onHoverLeave"
       />
     </div>
@@ -192,6 +203,11 @@ function onHoverLeave() {
 .thumb-list {
   flex: 1; overflow-y: auto; width: 100%; display: flex;
   flex-direction: column; align-items: center;
+  /* Resets the `boardtab` CSS counter each BoardTab's `.thumb-container`
+     increments to render its "Board N" ordinal — see BoardTab's
+     `.tab-label-num`. The browser recomputes it on a close-induced reflow, so
+     the labels renumber with no Vue re-render (fix-boardtab-vmemo-index-key). */
+  counter-reset: boardtab;
 }
 
 .tab-add-btn {

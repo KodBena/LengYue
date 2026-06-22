@@ -9,6 +9,22 @@
   commissioned same day); this worklog is the capture record and the interim
   mitigation, not the root-cause-of-the-recurrence account.
 
+## ⚠ Correction (2026-06-22, post-fix measurement)
+
+Finding 1 and the "band-aid mitigation" below were **falsified by a measured fix
+attempt on this same harness.** Removing `index` from the `v-memo` key — and
+removing the `v-memo` entirely — left BoardTab renders at **26,797 (no change)**.
+The real driver was **per-item inline event-handler closures** (fresh function
+refs every parent render → `shouldUpdateComponent` re-renders every tab); the fix
+is **stable handlers** (BoardTab emits its own id) + a CSS-counter label, cutting
+renders to **463**. And the render storm was **~17% of close CPU, not ~78%** —
+the dominant cost is the SyncService `{ deep: true }` watch (the static-diagnosis
+#1). The finding *magnitudes* below (render count, DOM/listener leak) stand; the
+*mechanism* and *cost ranking* are corrected in the Correction banner of
+`docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md`.
+
+---
+
 ## Why
 
 A maintainer report: with very many boards open (~220, reached by running the
