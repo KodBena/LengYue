@@ -3,8 +3,9 @@
 - **Date filed:** 2026-06-22
 - **Status:** Performance + memory class confirmed by a CDP trace capture on
   `main` @ `bbd4fe8b`; root causes diagnosed from the trace plus a static
-  code-read; no fix shipped (this note scopes the *why-it-recurred* question
-  and the mechanization proposals, not the fix).
+  code-read. **A later measured fix attempt (2026-06-22) FALSIFIED Finding 1's
+  mechanism and the ~78% cost ranking — read the Correction banner below before
+  relying on §2-§3.** The gap analysis (§4-§5) stands.
 - **Audience:** Author + LLM collaborators. The focus is why the existing
   preventive nets did not catch this class, not blame — the nets are good and
   the code that tripped them was written carefully.
@@ -16,6 +17,58 @@
   that recurred despite ADR-0010, the `frontend/CLAUDE.md` footgun checklist,
   the 2026-05-29 render-coupling postmortem, and the 2026-05-31 green-arc
   audit's mechanization (the render-count harness).
+
+---
+
+## ⚠ Correction (2026-06-22, post-fix measurement) — supersedes Finding 1's mechanism and the 78%
+
+The body below is the original point-in-time diagnosis. A fix attempt, **measured
+on the same `close-at-scale` harness**, falsified two load-bearing claims.
+Recorded audibly (ADR-0002) rather than retro-editing the body.
+
+1. **`index` in the `v-memo` key was NOT the cause.** Measured in sequence at
+   230 boards: removing `index` from the memo key → BoardTab renders **26,797
+   (unchanged)**; removing the `v-memo` *entirely* → **26,797 (unchanged)**. The
+   memo never drove the storm. `v-memo` in a `v-for` caches **by position**, so a
+   front-close shifts every board to a new slot and the memo busts on the
+   `board`-identity leg regardless of `index`; and more fundamentally a close
+   *changes the list*, so the parent re-renders all remaining tabs with or
+   without a memo. `v-memo` only ever helped the *nav* case.
+
+   **The real driver: per-item inline event-handler closures.**
+   `@click="activate(board)"`, `@hover-enter="onHoverEnter(board)"` etc. close
+   over the `v-for` item, so they are **fresh function references every parent
+   render** → `shouldUpdateComponent` sees changed props and re-renders every
+   tab on every parent re-render. Fix: BoardTab emits its own board id, the
+   parent binds **stable** module-scope handlers, and the "Board N" label becomes
+   a CSS counter (no churning `:index` prop). With all per-tab props referentially
+   stable, the keyed diff skips an unchanged tab. **Measured: 26,797 → 463
+   renders** (~one per close). Branch `bork/perf/boardtab-stable-handlers`.
+
+2. **The render storm was ~17% of close CPU, not ~78%.** The 78% was *inferred*
+   from render *count* × a per-close slope — count is not self-time. Measured:
+   fixing the storm cut cumulative close-phase long-task **43.0 s → 35.6 s
+   (~17%)**, wall 37.7 → 31.5 s, p99 302 → 254 ms. That count⇒cost inference was
+   itself an instance of **the deficient-proxy trap this postmortem names** — a
+   recursion worth recording.
+
+3. **The dominant close cost is the SyncService deep-watch (§2.3), not the
+   renders.** Post-fix self-time attribution: Scripting/GC ~30 s + Layout ~7.6 s
+   still dominate the (now 31.5 s) close phase. The §2.3 "~22% floor" — the
+   `{ deep: true }` re-traversal of per-board `store.session` on every close plus
+   the two `boardsSetVersion` reconcile loops — is the **actual #1 cost**,
+   vindicating the original *static* diagnosis. §2.3's "merely dominated by the
+   render storm" is backwards. The next fix targets it (a `session` version
+   counter instead of `{ deep: true }`).
+
+**Effect on §5-§6:** §5 stands. The §5.4 *residue* is sharpened — the footgun is
+not only "`v-memo` key derived from index" but the broader **"per-item closure
+props (handlers) on a long keyed list force `shouldUpdateComponent` to re-render
+the whole list on any parent render."** `lint-vmemo-churning-key` (§6.4) is
+reframed accordingly, and `net-render-count-vs-n-ratchet` (§6.2) is *more*
+validated (it would have caught the 26,797 directly). Work-status items updated
+to match (`fix-boardtab-vmemo-index-key` superseded by `fix-boardtab-stable-handlers`;
+`perf-syncservice-deep-watch-session` filed as the real #1).
 
 ---
 

@@ -10,7 +10,7 @@
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
 import { getIntensityColorLinear } from '../../engine/suggestion-colors';
 import { store } from '../../store';
-import type { BoardState } from '../../types';
+import type { BoardId, BoardState } from '../../types';
 import { ledger } from '../../state/analysis-ledger';
 import { useVariationPath } from '../../composables/board/useVariationPath';
 import { activeAnalysisKeys } from '../../state/analysis-config';
@@ -19,14 +19,27 @@ import { BOARD_TAB_RUGPLOT_REDRAW_THROTTLE_MS } from '../../lib/timing';
 
 const props = defineProps<{
   state: BoardState;
-  index: number;
   isActive: boolean;
   reviewState?: 'ACTIVE' | 'INTERMISSION' | 'COMPLETE' | null;
 }>();
+// No `index` prop: the "Board N" ordinal is rendered as a CSS counter (see the
+// `.tab-label-num` rule), so a close-induced reindex renumbers the labels on
+// reflow without re-rendering — which is what lets the parent drop `index` from
+// the BoardTab v-memo key (fix-boardtab-vmemo-index-key; the O(N²) close
+// re-render storm in the close-at-scale postmortem).
 
+// Events carry this tab's OWN board id so the parent can bind STABLE handlers
+// (one function reference, not a per-`v-for`-item closure). A per-item inline
+// handler (`@click="activate(board)"`) is a fresh closure on every parent
+// render, which makes Vue's `shouldUpdateComponent` re-render every tab on every
+// parent re-render — the real driver of the O(N²) close-render storm (the
+// close-at-scale postmortem; v-memo only masked it for the nav case). With id-
+// carrying events + stable parent handlers, an unchanged tab's props are
+// referentially stable, so the keyed diff skips it.
 const emit = defineEmits<{
-  (e: 'close'): void;
-  (e: 'hover-enter', evt: MouseEvent): void;
+  (e: 'activate', id: BoardId): void;
+  (e: 'close', id: BoardId): void;
+  (e: 'hover-enter', id: BoardId): void;
   (e: 'hover-leave'): void;
 }>();
 
@@ -181,9 +194,10 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div 
-    class="thumb-container" 
-    @mouseenter="emit('hover-enter', $event)" 
+  <div
+    class="thumb-container"
+    @click="emit('activate', state.id)"
+    @mouseenter="emit('hover-enter', state.id)"
     @mouseleave="emit('hover-leave')"
   >
     <div 
@@ -195,8 +209,13 @@ onUnmounted(() => {
         'review-complete': reviewState === 'COMPLETE'
       }"
     >
-      <span class="tab-label">{{ $t('boardTab.label', { n: index + 1 }) }}</span>
-      <button class="close-board-btn" @click.stop="emit('close')" :title="$t('boardTab.close')">×</button>
+      <!-- "Board N": the localized word comes from i18n (relabels on a language
+           switch — the parent's v-memo carries `locale`), the number is a CSS
+           counter so it renumbers on a close-induced reflow with no Vue render. -->
+      <i18n-t keypath="boardTab.label" tag="span" class="tab-label" scope="global">
+        <template #n><span class="tab-label-num" /></template>
+      </i18n-t>
+      <button class="close-board-btn" @click.stop="emit('close', state.id)" :title="$t('boardTab.close')">×</button>
     </div>
 
     <div class="indicator-row">
@@ -219,7 +238,7 @@ onUnmounted(() => {
    to read as breathing room. The 32px height on `.tab-thumb` is
    separate — the thumb's portrait/landscape aspect (88×32 → now
    86×32) reads as a short label band rather than a card. */
-.thumb-container { --tab-width: 86px; display: flex; flex-direction: column; align-items: center; width: var(--tab-width); }
+.thumb-container { --tab-width: 86px; display: flex; flex-direction: column; align-items: center; width: var(--tab-width); counter-increment: boardtab; }
 
 .tab-thumb {
   width: var(--tab-width); height: 32px; border: 2px solid var(--surface-3); background: var(--surface-0);
@@ -229,6 +248,12 @@ onUnmounted(() => {
 }
 
 .tab-label { font-size: var(--text-emphasis); color: var(--text-2); font-weight: bold; pointer-events: none; }
+/* The "Board N" ordinal as a CSS counter: `.thumb-list` (SidebarWidget) resets
+   `boardtab`, each `.thumb-container` increments it, so the number is the tab's
+   1-based DOM position and renumbers on a close-induced reflow WITHOUT a Vue
+   re-render. This is the half of fix-boardtab-vmemo-index-key that lets the
+   parent drop `index` from the v-memo key (the O(N²) close storm). */
+.tab-label-num::before { content: counter(boardtab); }
 .tab-thumb:hover .tab-label { color: var(--text-0); }
 
 .tab-thumb.active { background: var(--surface-2); }
