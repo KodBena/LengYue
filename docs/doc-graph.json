@@ -178,7 +178,7 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/adr/0011-mechanization-discipline.md",
@@ -1650,7 +1650,7 @@
       "is_hub": true,
       "first_committed": "2026-04-26",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/analysis-persistence-followups.md",
@@ -1722,7 +1722,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/audit/audit-debt-second-opinion-2026-06-11.md",
@@ -1730,7 +1730,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/notes/audit/audit-deferral-harvest-2026-06-10.md",
@@ -2058,7 +2058,7 @@
       "is_hub": false,
       "first_committed": "2026-06-02",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/notes/design/mistake-finder-design-space.md",
@@ -2234,7 +2234,7 @@
       "is_hub": false,
       "first_committed": "2026-06-12",
       "last_committed": "2026-06-12",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/notes/postmortem/postmortem-adaptive-deeper-enrichment-2026-05.md",
@@ -2642,7 +2642,7 @@
       "is_hub": false,
       "first_committed": "2026-05-12",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-05-12-dsl-hyperparameter-harness.md",
@@ -3386,7 +3386,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-10-branded-path-types.md",
@@ -3466,7 +3466,7 @@
       "is_hub": false,
       "first_committed": "2026-06-10",
       "last_committed": "2026-06-10",
-      "age_bucket": "aging"
+      "age_bucket": "stale"
     },
     {
       "path": "docs/worklog/2026-06-10-multi-writer-slots-get-owners.md",
@@ -3762,7 +3762,7 @@
       "is_hub": false,
       "first_committed": "2026-06-11",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "docs/worklog/2026-06-11-restart-thunk-inflight-semantics.md",
@@ -3898,7 +3898,7 @@
       "is_hub": false,
       "first_committed": "2026-06-12",
       "last_committed": "2026-06-12",
-      "age_bucket": "fresh"
+      "age_bucket": "recent"
     },
     {
       "path": "docs/worklog/2026-06-12-subscribe-dispatch-narrowing.md",
@@ -3922,14 +3922,14 @@
       "is_hub": false,
       "first_committed": "2026-04-27",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "frontend/FILES.md",
       "genre": "subproject-frontend",
       "is_hub": false,
       "first_committed": "2026-05-11",
-      "last_committed": "2026-06-22",
+      "last_committed": "2026-06-23",
       "age_bucket": "fresh"
     },
     {
@@ -3938,7 +3938,7 @@
       "is_hub": false,
       "first_committed": "2026-05-31",
       "last_committed": "2026-06-11",
-      "age_bucket": "recent"
+      "age_bucket": "aging"
     },
     {
       "path": "frontend/README.md",
