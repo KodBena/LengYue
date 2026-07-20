@@ -53,6 +53,7 @@ import AnalysisControls from './components/editors/AnalysisControls.vue';
 import Toolbar          from './components/chrome/Toolbar.vue';
 import StatusBar        from './components/board/StatusBar.vue';
 import MintCardModal    from './components/modals/MintCardModal.vue';
+import KomiCalibrationControls from './components/modals/KomiCalibrationControls.vue';
 import ConfirmLoadModal from './components/modals/ConfirmLoadModal.vue';
 import EngineMatchModal from './components/modals/EngineMatchModal.vue';
 import PlayEngineModal  from './components/modals/PlayEngineModal.vue';
@@ -258,7 +259,11 @@ const activeTab = computed<string>({
 <template>
   <RootErrorBoundary>
   <div id="main-area">
-    <MintCardModal ref="mintModalRef" />
+    <MintCardModal ref="mintModalRef">
+      <template #komiCalibration="{ boardId, registerBeforeSubmit }">
+        <KomiCalibrationControls :board-id="boardId" :register-before-submit="registerBeforeSubmit" />
+      </template>
+    </MintCardModal>
     <ConfirmLoadModal ref="confirmLoadModalRef" />
     <EngineMatchModal ref="matchModalRef" @start-match="handleStartMatch" />
     <PlayEngineModal
