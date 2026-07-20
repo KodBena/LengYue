@@ -25,6 +25,7 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import BaseChart from './charts/BaseChart.vue';
 import CardMetadataPanel from './CardMetadataPanel.vue';
+import GoCardMetadataFields from './GoCardMetadataFields.vue';
 import { useReviewSession } from '../composables/review/useReviewSession';
 import { useCardMetadata } from '../composables/cards/useCardMetadata';
 import { activeBoard, mutateBoard, mutateReviewSession, store, pushSystemMessage } from '../store';
@@ -212,7 +213,15 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
       :card="reviewSession.currentCard.value"
       :disabled="cardMetadataSaving"
       @patch="handleCardMetadataPatch"
-    />
+    >
+      <template #domain-fields="{ card, disabled }">
+        <GoCardMetadataFields
+          :card="card"
+          :disabled="disabled"
+          @patch="handleCardMetadataPatch"
+        />
+      </template>
+    </CardMetadataPanel>
 
     <button class="action-btn-large advance-btn" @click="reviewSession.nextCard">
       {{ reviewSession.state.value === 'FINISHED' ? $t('review.session.nextCard') : $t('review.session.skipCard') }}

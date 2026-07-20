@@ -28,6 +28,7 @@ import CardTreeWidget from '../charts/CardTreeWidget.vue';
 import ForestTreeNav from './ForestTreeNav.vue';
 import ReviewSessionPanel from '../ReviewSessionPanel.vue';
 import CardMetadataPanel from '../CardMetadataPanel.vue';
+import GoCardMetadataFields from '../GoCardMetadataFields.vue';
 import TabWidget from '../chrome/TabWidget.vue';
 import HyperparamPromptModal, { type HyperparamValues } from '../modals/HyperparamPromptModal.vue';
 
@@ -477,7 +478,15 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
         :card="selectedCard"
         :disabled="cardMetadataSaving"
         @patch="handleCardMetadataPatch"
-      />
+      >
+        <template #domain-fields="{ card, disabled }">
+          <GoCardMetadataFields
+            :card="card"
+            :disabled="disabled"
+            @patch="handleCardMetadataPatch"
+          />
+        </template>
+      </CardMetadataPanel>
     </div>
 
     <HyperparamPromptModal ref="harnessModalRef" />
