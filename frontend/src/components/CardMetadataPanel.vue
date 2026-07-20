@@ -16,34 +16,25 @@
     - `tags`            — full replacement (chip-based input
                           with autocomplete from
                           `store.profile.knownTags`)
-    - `numMoves`        — direct overwrite; surfaces an inline
-                          `resetPrior` opt-in checkbox when
-                          dirty (the dispatch's worded prompt)
     - `suspended`       — toggle, fires on change
-    - `gradingParameterData.gamma`         — number, validates
-                                              (0, 1) locally
-    - `gradingParameterData.default_visits` — number, positive
 
-  `analysisConfig` editing is **not supported** in this panel
-  by design (deferred pending UX design); the field surfaces
-  as a read-only marker with a tooltip stating the deferral.
-  Users who need to edit it today reach the registry editor.
-
-  A standalone "reset review history" button is reachable
-  independent of the `numMoves` flow — for the "the prior was
-  corrupted by mistaken reviews" case the dispatch's reply
-  identified.
+  The remaining mutable fields (`numMoves`/`resetPrior`,
+  `gradingParameterData.gamma`/`default_visits`, and the
+  read-only `analysisConfig` marker) are Go/engine-specific and
+  live in `GoCardMetadataFields.vue`, supplied via this panel's
+  `domain-fields` named slot — see
+  docs/notes/design/di-refactor-entanglement-investigation-2026-07-20.md
+  §2.4. This panel itself is domain-agnostic; a generic fork
+  drops the slot content and gets a clean generic metadata panel
+  for free.
 
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { useI18n } from 'vue-i18n';
 import type { ReviewCard, CardMetadataPatch } from '../types';
 import { store } from '../store';
 import { INTERACTION_DISMISS_DELAY_MS } from '../lib/timing';
-
-const { t } = useI18n();
 
 const props = defineProps<{
   card: ReviewCard;
@@ -80,26 +71,11 @@ function cardTags(c: { tags?: readonly string[] }): readonly string[] {
 const localTags             = ref<string[]>([...cardTags(props.card)]);
 const tagInput              = ref('');
 const showTagSuggestions    = ref(false);
-const localNumMoves         = ref(props.card.numMoves);
-const localGamma            = ref(props.card.gamma);
-const localDefaultVisits    = ref(props.card.defaultVisits);
-// Inline opt-in surfacing when `numMoves` is dirty. Stays
-// false on every card-change so the destructive default is
-// off.
-const resetPriorOnSave      = ref(false);
 
 watch(() => props.card, (c) => {
   localTags.value          = [...cardTags(c)];
   tagInput.value           = '';
-  localNumMoves.value      = c.numMoves;
-  localGamma.value         = c.gamma;
-  localDefaultVisits.value = c.defaultVisits;
-  resetPriorOnSave.value   = false;
 });
-
-const numMovesDirty = computed(
-  () => localNumMoves.value !== props.card.numMoves,
-);
 
 // Tag-autocomplete suggestions: known tags partial-matched by
 // the current input, minus those already attached. Cap at 8 to
@@ -161,54 +137,8 @@ function hideTagSuggestionsSoon(): void {
   setTimeout(() => { showTagSuggestions.value = false; }, INTERACTION_DISMISS_DELAY_MS);
 }
 
-function commitNumMoves(): void {
-  if (!numMovesDirty.value) {
-    resetPriorOnSave.value = false;
-    return;
-  }
-  if (!Number.isInteger(localNumMoves.value) || localNumMoves.value <= 0) {
-    // Local validation: revert. Backend would 422 on a
-    // non-positive int anyway; revert here avoids the wire
-    // round-trip for an obvious typo.
-    localNumMoves.value = props.card.numMoves;
-    return;
-  }
-  const patch: CardMetadataPatch = {
-    numMoves: localNumMoves.value,
-    ...(resetPriorOnSave.value ? { resetPrior: true } : {}),
-  };
-  emit('patch', patch);
-  resetPriorOnSave.value = false;
-}
-
-function commitGamma(): void {
-  if (localGamma.value === props.card.gamma) return;
-  if (!(localGamma.value > 0 && localGamma.value < 1)) {
-    localGamma.value = props.card.gamma;
-    return;
-  }
-  emit('patch', { gradingParameterData: { gamma: localGamma.value } });
-}
-
-function commitDefaultVisits(): void {
-  if (localDefaultVisits.value === props.card.defaultVisits) return;
-  if (!Number.isInteger(localDefaultVisits.value) || localDefaultVisits.value <= 0) {
-    localDefaultVisits.value = props.card.defaultVisits;
-    return;
-  }
-  emit('patch', { gradingParameterData: { default_visits: localDefaultVisits.value } });
-}
-
 function toggleSuspended(): void {
   emit('patch', { suspended: !props.card.suspended });
-}
-
-function resetPriorStandalone(): void {
-  // window.confirm() is the minimal-touch destructive-confirm
-  // affordance; if the panel grows enough to warrant a custom
-  // modal, that's a follow-up.
-  if (!window.confirm(t('cardMetadata.resetPriorStandaloneConfirm'))) return;
-  emit('patch', { resetPrior: true });
 }
 </script>
 
@@ -260,65 +190,6 @@ function resetPriorStandalone(): void {
         </div>
       </div>
 
-      <!-- Num moves ─────────────────────────────────────── -->
-      <div class="field">
-        <label>{{ $t('cardMetadata.numMovesLabel') }}</label>
-        <input
-          v-model.number="localNumMoves"
-          type="number"
-          min="1"
-          step="1"
-          class="num-input"
-          :disabled="disabled"
-          @blur="commitNumMoves"
-          @keydown.enter="commitNumMoves"
-        />
-      </div>
-      <div v-if="numMovesDirty" class="reset-prompt">
-        <label>
-          <input
-            v-model="resetPriorOnSave"
-            type="checkbox"
-            :disabled="disabled"
-          />
-          <span class="reset-prompt-text">
-            {{ $t('cardMetadata.resetPriorInlinePrompt') }}
-          </span>
-        </label>
-        <p class="hint">{{ $t('cardMetadata.resetPriorInlineHint') }}</p>
-      </div>
-
-      <!-- Gamma ─────────────────────────────────────────── -->
-      <div class="field">
-        <label>{{ $t('cardMetadata.gammaLabel') }}</label>
-        <input
-          v-model.number="localGamma"
-          type="number"
-          min="0.01"
-          max="0.99"
-          step="0.01"
-          class="num-input"
-          :disabled="disabled"
-          @blur="commitGamma"
-          @keydown.enter="commitGamma"
-        />
-      </div>
-
-      <!-- Default visits ───────────────────────────────── -->
-      <div class="field">
-        <label>{{ $t('cardMetadata.defaultVisitsLabel') }}</label>
-        <input
-          v-model.number="localDefaultVisits"
-          type="number"
-          min="1"
-          step="50"
-          class="num-input"
-          :disabled="disabled"
-          @blur="commitDefaultVisits"
-          @keydown.enter="commitDefaultVisits"
-        />
-      </div>
-
       <!-- Suspended ─────────────────────────────────────── -->
       <div class="field toggle-field">
         <label>
@@ -332,28 +203,17 @@ function resetPriorStandalone(): void {
         </label>
       </div>
 
-      <!-- Analysis config (read-only marker) ───────────── -->
-      <div
-        class="field readonly-field"
-        :title="$t('cardMetadata.analysisConfigTooltip')"
-      >
-        <label>{{ $t('cardMetadata.analysisConfigLabel') }}</label>
-        <span class="readonly-value">
-          {{ $t('cardMetadata.analysisConfigDeferred') }}
-        </span>
-      </div>
-
-      <!-- Standalone reset_prior ──────────────────────── -->
-      <div class="actions">
-        <button
-          class="action-btn reset-btn"
-          :disabled="disabled"
-          :title="$t('cardMetadata.resetPriorStandaloneTooltip')"
-          @click="resetPriorStandalone"
-        >
-          {{ $t('cardMetadata.resetPriorStandalone') }}
-        </button>
-      </div>
+      <!-- Go/engine-specific fields (numMoves+resetPrior, gamma,
+           default_visits, analysisConfig marker, standalone reset)
+           — supplied via this named slot; see
+           GoCardMetadataFields.vue and
+           docs/notes/design/di-refactor-entanglement-investigation-2026-07-20.md
+           §2.4. Note: these fields moved to sit after `suspended`
+           (previously `suspended` was interleaved between the
+           numMoves/gamma/defaultVisits group and the analysisConfig/
+           actions group) so the whole domain-specific block is
+           contiguous behind one slot; no other visual change. -->
+      <slot name="domain-fields" :card="card" :disabled="disabled" />
     </div>
   </div>
 </template>
@@ -408,18 +268,6 @@ function resetPriorStandalone(): void {
   letter-spacing: var(--tracking-default);
   flex-shrink: 0;
 }
-
-.num-input {
-  width: 80px;
-  background: transparent;
-  border: 1px solid var(--border-3);
-  color: var(--text-0);
-  padding: var(--space-tight);
-  border-radius: var(--radius-default);
-  text-align: right;
-  font-family: inherit;
-}
-.num-input:focus { border-color: var(--accent-primary); outline: none; }
 
 .toggle-field label {
   display: flex;
@@ -500,51 +348,4 @@ function resetPriorStandalone(): void {
   color: var(--text-1);
 }
 .tag-suggestions li:hover { background: var(--surface-2); color: var(--text-0); }
-
-/* Reset-prior inline opt-in (visible only when num_moves is
-   dirty). The hint paragraph is the worded prompt the dispatch
-   reply committed to. */
-.reset-prompt {
-  margin-top: calc(-1 * var(--space-tight));
-  margin-left: var(--space-default);
-  padding: var(--space-tight);
-  background: var(--surface-2);
-  border-left: 2px solid var(--state-attention);
-  border-radius: 0 var(--radius-default) var(--radius-default) 0;
-}
-.reset-prompt label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-tight);
-  color: var(--text-0);
-  text-transform: none;
-  letter-spacing: normal;
-  font-weight: normal;
-  font-size: var(--text-body);
-  cursor: pointer;
-}
-.reset-prompt-text { font-weight: normal; }
-.hint { margin: var(--space-tight) 0 0 0; font-size: var(--text-tiny); color: var(--text-2); }
-
-.readonly-field { color: var(--text-2); cursor: help; }
-.readonly-value { color: var(--text-2); font-style: italic; }
-
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: var(--space-default);
-}
-.action-btn {
-  background: transparent;
-  border: 1px solid var(--border-3);
-  color: var(--text-2);
-  padding: var(--space-tight) var(--space-default);
-  border-radius: var(--radius-default);
-  cursor: pointer;
-  font-family: inherit;
-  font-size: var(--text-body);
-  transition: color var(--duration-default), border-color var(--duration-default);
-}
-.action-btn:hover { color: var(--state-attention); border-color: var(--state-attention); }
-.action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

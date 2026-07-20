@@ -5,8 +5,24 @@
  * License: Public Domain (The Unlicense)
  */
 
-import type { BoardState, GameNode, NodeId, RootToCurrentPath, RootedPath } from '../types';
+import type { BoardState, GameNode, NodeDelta, NodeId, RootToCurrentPath, RootedPath } from '../types';
 import { getActiveVariationPath } from './util';
+
+/**
+ * Port (ADR-0012 P2 seam): the per-node undo/redo behavior
+ * `navigateTo`'s LCA loop skeleton drives, extracted so the loop
+ * itself stays domain-agnostic. `undo` reverses one node's delta
+ * (backward step, current → LCA); `redo` applies one node's delta
+ * (forward step, LCA → target). `boardSize` is threaded into `redo`
+ * rather than recomputed per call — `navigateTo` still derives it
+ * once (from the root node's `SZ` property) exactly as the
+ * pre-extraction inline code did, so the extraction changes where
+ * this logic lives, not its behavior or its per-call cost.
+ */
+export interface DeltaApplier<TState, TDelta> {
+  undo(state: TState, delta: TDelta, node: GameNode): void;
+  redo(state: TState, delta: TDelta, node: GameNode, boardSize: number): void;
+}
 
 /**
  * Walks `targetId` back to root via `parent` and returns the lineage
@@ -47,7 +63,65 @@ export function rootToCurrentPrefix(path: RootedPath, indexInclusive: number): R
   return path.slice(0, indexInclusive + 1) as RootToCurrentPath;
 }
 
-export function navigateTo(state: BoardState, targetNodeId: NodeId): void {
+/**
+ * Concrete `DeltaApplier` for `BoardState`/`NodeDelta` — the
+ * stone-placement/removal, capture bookkeeping, ko-point tracking,
+ * and SGF setup-coordinate decoding that used to be inlined directly
+ * in `navigateTo`'s undo/replay loops, lifted verbatim.
+ */
+export const goDeltaApplier: DeltaApplier<BoardState, NodeDelta> = {
+  undo(state, delta, node) {
+    if (node.move && node.move.type === 'place') {
+      delete state.stones[`${node.move.x},${node.move.y}`];
+      const enemyColor = node.move.color === 'B' ? 'W' : 'B';
+      for (const capKey of delta.captures) {
+        state.stones[capKey] = enemyColor;
+        state.captures[node.move.color] -= 1;
+      }
+    }
+
+    for (const [posKey, prevColor] of Object.entries(delta.setupOverwritten ?? {})) {
+      if (prevColor === null) delete state.stones[posKey];
+      else state.stones[posKey] = prevColor;
+    }
+
+    state.koPoint = delta.prevKoPoint;
+    state.turn = node.move ? node.move.color : state.turn;
+  },
+
+  redo(state, delta, node, boardSize) {
+    // Apply Setup (Forward)
+    for (const posKey of Object.keys(delta.setupOverwritten ?? {})) {
+      const [x, y] = posKey.split(',').map(Number);
+      const sgfCoord = String.fromCharCode(97 + x) + String.fromCharCode(97 + (boardSize - 1 - y));
+
+      if (node.properties.AB?.includes(sgfCoord)) state.stones[posKey] = 'B';
+      else if (node.properties.AW?.includes(sgfCoord)) state.stones[posKey] = 'W';
+      else if (node.properties.AE?.includes(sgfCoord)) delete state.stones[posKey];
+    }
+
+    // Apply Move (Forward)
+    if (node.move) {
+      const { x, y, color, type } = node.move;
+      if (type === 'place') {
+        state.stones[`${x},${y}`] = color;
+        for (const capKey of delta.captures) {
+          delete state.stones[capKey];
+          state.captures[color] += 1;
+        }
+      }
+      state.turn = color === 'B' ? 'W' : 'B';
+    }
+
+    state.koPoint = delta.newKoPoint;
+  },
+};
+
+export function navigateTo(
+  state: BoardState,
+  targetNodeId: NodeId,
+  applier: DeltaApplier<BoardState, NodeDelta> = goDeltaApplier,
+): void {
   if (state.currentNodeId === targetNodeId) return;
 
   const currentPath = getPath(state.nodes, state.currentNodeId);
@@ -66,30 +140,14 @@ export function navigateTo(state: BoardState, targetNodeId: NodeId): void {
   for (let i = currentPath.length - 1; i >= lcaIndex; i--) {
     const node = state.nodes[currentPath[i]];
     if (!node.delta) continue;
-
-    if (node.move && node.move.type === 'place') {
-      delete state.stones[`${node.move.x},${node.move.y}`];
-      const enemyColor = node.move.color === 'B' ? 'W' : 'B';
-      for (const capKey of node.delta.captures) {
-        state.stones[capKey] = enemyColor;
-        state.captures[node.move.color] -= 1;
-      }
-    }
-
-    for (const [posKey, prevColor] of Object.entries(node.delta.setupOverwritten ?? {})) {
-      if (prevColor === null) delete state.stones[posKey];
-      else state.stones[posKey] = prevColor;
-    }
-
-    state.koPoint = node.delta.prevKoPoint;
-    state.turn = node.move ? node.move.color : state.turn;
+    applier.undo(state, node.delta, node);
   }
 
   // 2. Replay (Forwards from LCA to Target)
   const size = parseInt(state.nodes[state.rootNodeId].properties['SZ']?.[0] ?? '19', 10);
   for (let i = lcaIndex; i < targetPath.length; i++) {
     const node = state.nodes[targetPath[i]];
-    
+
     if (node.parent) {
       const parent = state.nodes[node.parent];
       const childIdx = parent.children.indexOf(node.id);
@@ -98,30 +156,7 @@ export function navigateTo(state: BoardState, targetNodeId: NodeId): void {
 
     if (!node.delta) continue;
 
-    // Apply Setup (Forward)
-    for (const posKey of Object.keys(node.delta.setupOverwritten ?? {})) {
-      const [x, y] = posKey.split(',').map(Number);
-      const sgfCoord = String.fromCharCode(97 + x) + String.fromCharCode(97 + (size - 1 - y));
-      
-      if (node.properties.AB?.includes(sgfCoord)) state.stones[posKey] = 'B';
-      else if (node.properties.AW?.includes(sgfCoord)) state.stones[posKey] = 'W';
-      else if (node.properties.AE?.includes(sgfCoord)) delete state.stones[posKey];
-    }
-
-    // Apply Move (Forward)
-    if (node.move) {
-      const { x, y, color, type } = node.move;
-      if (type === 'place') {
-        state.stones[`${x},${y}`] = color;
-        for (const capKey of node.delta.captures) {
-          delete state.stones[capKey];
-          state.captures[color] += 1;
-        }
-      }
-      state.turn = color === 'B' ? 'W' : 'B';
-    }
-    
-    state.koPoint = node.delta.newKoPoint;
+    applier.redo(state, node.delta, node, size);
   }
 
   state.currentNodeId = targetNodeId;

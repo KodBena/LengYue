@@ -6,7 +6,7 @@
  */
 
 import { computed, type Ref } from 'vue';
-import type { ReviewCard, BoardId, ReviewStatus, RawAnalysis } from '../../types';
+import type { ReviewCard, BoardId, ReviewStatus, RawAnalysis, BoardState } from '../../types';
 
 /**
  * Returns true when the review session is in a transient state where
@@ -42,14 +42,9 @@ import { waitForAnalysis, AnalysisWaitError } from '../analysis/wait-for-analysi
 import { blindModePrefs } from './blind-mode-prefs';
 import { KATAGO_ANALYSIS_TIMEOUT_MS } from '../../lib/timing';
 
-// @ts-ignore
-import sgf from '@sabaki/sgf';
-import { loadSgf } from '../../engine/sgf-loader';
-import { getPath, navigateTo } from '../../engine/navigator';
 import { getActiveVariationPath } from '../../engine/util';
-import { scorePerMoveDelta } from '../../engine/analysis/review-scoring';
-import { applyGoMove } from '../../logic';
-import { gtpToBoard } from '../board/use-move-suggestions';
+import type { ReviewDomainAdapter } from './review-domain-adapter';
+import { goReviewAdapter, type GoMoveInput } from './go-review-adapter';
 
 /**
  * Absolute fallback used when a card somehow arrives without a
@@ -166,7 +161,10 @@ registerWorkspaceResetHandler({
   run: () => abortAllReviews(),
 });
 
-export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
+export function useReviewSession(
+  boardIdRef: Ref<BoardId | null>,
+  adapter: ReviewDomainAdapter<BoardState, GoMoveInput> = goReviewAdapter,
+) {
   // ── Safe Projections ──
   const reviewData = computed(() => {
     const id = boardIdRef.value;
@@ -320,8 +318,7 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     });
 
     try {
-      const sabakiTrees = sgf.parse(card.canonicalContent);
-      const parsedBoard = loadSgf(sabakiTrees);
+      const parsedBoard = adapter.loadCardIntoBoard(card.canonicalContent);
       // Stamp the lineage source onto the board so a subsequent mint
       // from this exploration session populates `parent_card_id`
       // correctly (consumed by `useMinting.prepareDraft`). Set before
@@ -345,8 +342,8 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
       const path = getActiveVariationPath(parsedBoard);
       const targetLeafId = path[path.length - 1];
       
-      mutateBoard(bId, draft => { 
-        navigateTo(draft, targetLeafId); 
+      mutateBoard(bId, draft => {
+        adapter.navigateTo(draft, targetLeafId);
       });
 
       mutateReviewSession(bId, draft => {
@@ -395,10 +392,10 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     // the prior `getActiveVariationPath(...).indexOf(current)` walked
     // the whole active line to answer it (equivalent value, wrong
     // shape; history-lessons audit §3.4 / match postmortem §5b).
-    const s_0_idx = getPath(board.nodes, board.currentNodeId).length - 1;
+    const s_0_idx = adapter.getPathToNode(board, board.currentNodeId).length - 1;
     const s_0_id = board.currentNodeId;
 
-    const nextBoard = applyGoMove(board, x, y);
+    const nextBoard = adapter.applyMove(board, { x, y });
     if (!nextBoard) return;
 
     updateBoardState(store.activeBoardIndex, nextBoard);
@@ -454,7 +451,7 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     // variation past s_1 when `applyGoMove` dedups into an existing
     // child — the same root→leaf-vs-root→current confusion class as
     // the match postmortem's Bug B, here latent rather than biting.
-    const newPath = getPath(nextBoard.nodes, nextBoard.currentNodeId);
+    const newPath = adapter.getPathToNode(nextBoard, nextBoard.currentNodeId);
     // Two trailing booleans documented at the call site:
     //   forReview=true: visit count is load-bearing for grading
     //     (delta read against the card's defaultVisits), so
@@ -583,8 +580,8 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     // is passed as an accessor so the engine band stays
     // services-clean: the ledger import (and the `enrichedKey`
     // binding) stays on this side of the seam.
-    const scored = scorePerMoveDelta(
-      nextBoard.nodes,
+    const scored = adapter.scorePerMoveDelta(
+      nextBoard,
       newPath,
       s_1_idx,
       s_1_id,
@@ -614,13 +611,10 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
       // Same defensive moveInfos guard as use-move-suggestions.ts: the
       // wire type declares moveInfos required but the proxy can deliver
       // packets where it is absent. Skip best-move follow-through if so.
-      const bestMoveInfo = s_1_packet.moveInfos?.find(m => m.order === 0);
-      if (bestMoveInfo) {
-        const coords = gtpToBoard(bestMoveInfo.move);
-        if (coords) {
-          const engineBoard = applyGoMove(store.boards.find(b => b.id === bId)!, coords.x, coords.y);
-          if (engineBoard) updateBoardState(store.activeBoardIndex, engineBoard);
-        }
+      const followThrough = adapter.bestFollowThroughMove(s_1_packet);
+      if (followThrough) {
+        const engineBoard = adapter.applyMove(store.boards.find(b => b.id === bId)!, followThrough);
+        if (engineBoard) updateBoardState(store.activeBoardIndex, engineBoard);
       }
       mutateReviewSession(bId, draft => { draft.status = 'AWAITING_MOVE'; });
     } else {
@@ -726,9 +720,45 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     const startId = reviewData.value?.startingNodeId;
     if (bId && startId) {
       mutateBoard(bId, draft => {
-        navigateTo(draft, startId);
+        adapter.navigateTo(draft, startId);
       });
     }
+  }
+
+  /**
+   * Navigate the board to the position the user faced when making
+   * the k-th move (1-indexed) of the current card's active
+   * variation. Moved here from `ReviewSessionPanel.vue`'s
+   * `handleIntermissionClick` (the intermission-chart click handler)
+   * — the chart is UI chrome, but "which position does move k
+   * correspond to" is a review-session/game-tree question (DI
+   * investigation §2.5).
+   *
+   * Sequencing: each user move is followed by the engine's best-move
+   * response (`processUserMove` calls `adapter.applyMove` for both,
+   * in sequence), so the active variation advances 2 plies per user
+   * move from `startingNodeId`. Position before user move k = path
+   * index `startIdx + 2*(k-1)`.
+   *
+   * No-op when there's no active session/`startingNodeId`, when the
+   * active variation doesn't contain `startingNodeId`, or when the
+   * target index falls outside the path — same defensive guards the
+   * pre-extraction handler had.
+   */
+  function navigateToMoveIndex(idx: number): void {
+    const bId = boardIdRef.value;
+    if (!bId) return;
+    const startId = reviewData.value?.startingNodeId;
+    if (!startId) return;
+    const board = store.boards.find(b => b.id === bId);
+    if (!board) return;
+    const path = getActiveVariationPath(board);
+    const startIdx = path.indexOf(startId);
+    if (startIdx < 0) return;
+    const targetIdx = startIdx + 2 * (idx - 1);
+    if (targetIdx < 0 || targetIdx >= path.length) return;
+    const targetNodeId = path[targetIdx];
+    mutateBoard(bId, draft => adapter.navigateTo(draft, targetNodeId));
   }
 
   return {
@@ -738,6 +768,7 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     startSession,
     nextCard,
     rewindToStart,
+    navigateToMoveIndex,
     processUserMove,
     userMovesCount,
     userMoveScores,

@@ -25,11 +25,10 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import BaseChart from './charts/BaseChart.vue';
 import CardMetadataPanel from './CardMetadataPanel.vue';
+import GoCardMetadataFields from './GoCardMetadataFields.vue';
 import { useReviewSession } from '../composables/review/useReviewSession';
 import { useCardMetadata } from '../composables/cards/useCardMetadata';
-import { activeBoard, mutateBoard, mutateReviewSession, store, pushSystemMessage } from '../store';
-import { getActiveVariationPath } from '../engine/util';
-import { navigateTo } from '../engine/navigator';
+import { activeBoard, mutateReviewSession, pushSystemMessage } from '../store';
 import { themeColor } from '../utils/theme-color';
 import type { BoardId, CardMetadataPatch, ReviewCard } from '../types';
 
@@ -88,36 +87,14 @@ function handleVisitsOverrideChange(e: Event) {
  * the move" semantics as `useChartNavigation::handlePlayerClick`
  * for the per-player delta charts on the analysis tab.
  *
- * Sequencing: in a review session, each user move is followed by
- * the engine's best-move response (`processUserMove` calls
- * `applyGoMove` for both, in sequence). The active variation
- * path therefore advances 2 plies per user move from
- * `startingNodeId`. Position before user move k = path index
- * `startIdx + 2(k-1)`.
- *
- * Reads `store.session.reviews[bId].startingNodeId` directly
- * rather than threading the value through the composable's
- * return — same cheap-projection pattern ForestDirectory uses.
- *
- * No-op when the path doesn't include `startingNodeId` (defensive
- * guard for the unlikely case of a navigation that severs the
- * post-rewind active variation), or when the target index is
- * out of bounds.
+ * The actual "which position does move k correspond to" logic
+ * (the 2-plies-per-user-move arithmetic, the active-variation walk,
+ * the board mutation) now lives in `useReviewSession.navigateToMoveIndex`
+ * — a review-session/game-tree question, not UI chrome (DI
+ * investigation §2.5). This handler is now pure UI glue.
  */
 function handleIntermissionClick(idx: number) {
-  const bId = activeBoardId.value;
-  if (!bId) return;
-  const review = store.session.reviews[bId];
-  if (!review || !review.startingNodeId) return;
-  const board = activeBoard.value;
-  if (!board) return;
-  const path = getActiveVariationPath(board);
-  const startIdx = path.indexOf(review.startingNodeId);
-  if (startIdx < 0) return;
-  const targetIdx = startIdx + 2 * (idx - 1);
-  if (targetIdx < 0 || targetIdx >= path.length) return;
-  const targetNodeId = path[targetIdx];
-  mutateBoard(bId, draft => navigateTo(draft, targetNodeId));
+  reviewSession.navigateToMoveIndex(idx);
 }
 
 // Card-metadata inline-edit arc 2 plumbing. The panel emits a
@@ -212,7 +189,15 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
       :card="reviewSession.currentCard.value"
       :disabled="cardMetadataSaving"
       @patch="handleCardMetadataPatch"
-    />
+    >
+      <template #domain-fields="{ card, disabled }">
+        <GoCardMetadataFields
+          :card="card"
+          :disabled="disabled"
+          @patch="handleCardMetadataPatch"
+        />
+      </template>
+    </CardMetadataPanel>
 
     <button class="action-btn-large advance-btn" @click="reviewSession.nextCard">
       {{ reviewSession.state.value === 'FINISHED' ? $t('review.session.nextCard') : $t('review.session.skipCard') }}
