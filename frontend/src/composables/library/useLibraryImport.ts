@@ -169,8 +169,8 @@ function pathFromEntry(entry: FsEntry): string {
   return entry.fullPath.startsWith('/') ? entry.fullPath.slice(1) : entry.fullPath;
 }
 
-async function walkEntry(entry: FsEntry, out: File[]): Promise<void> {
-  if (entry.isFile && isSgfFile((entry as FsFileEntry).fullPath)) { // checked entry.isFile; FsEntry.isFile is boolean (no literal discriminator) so TS can't auto-narrow
+async function walkEntry(entry: FsEntry, out: File[], extensionFilter: (name: string) => boolean): Promise<void> {
+  if (entry.isFile && extensionFilter((entry as FsFileEntry).fullPath)) { // checked entry.isFile; FsEntry.isFile is boolean (no literal discriminator) so TS can't auto-narrow
     const f = await readFile(entry as FsFileEntry); // same isFile-checked narrowing
     // Synthesise webkitRelativePath via Object.defineProperty —
     // the File constructor doesn't accept it directly. Drop
@@ -189,7 +189,7 @@ async function walkEntry(entry: FsEntry, out: File[]): Promise<void> {
     for (;;) {
       const batch = await readEntries(reader);
       if (batch.length === 0) break;
-      for (const child of batch) await walkEntry(child, out);
+      for (const child of batch) await walkEntry(child, out, extensionFilter);
     }
   }
 }
@@ -202,7 +202,10 @@ const INITIAL_PROGRESS: ImportProgressState = {
   counts: { created: 0, deduplicated: 0, errored: 0 },
 };
 
-export function useLibraryImport(onImportComplete?: () => void): LibraryImport {
+export function useLibraryImport(
+  onImportComplete?: () => void,
+  extensionFilter: (name: string) => boolean = isSgfFile,
+): LibraryImport {
   const phase = ref<ImportPhase>('idle');
   const progress = reactive<ImportProgressState>({ ...INITIAL_PROGRESS, counts: { ...INITIAL_PROGRESS.counts } });
   const lastOutcomes = ref<readonly LibraryImportOutcome[]>([]);
@@ -223,7 +226,7 @@ export function useLibraryImport(onImportComplete?: () => void): LibraryImport {
 
   async function importFiles(rawFiles: readonly File[]): Promise<void> {
     reset();
-    const files = rawFiles.filter(f => isSgfFile(f.name));
+    const files = rawFiles.filter(f => extensionFilter(f.name));
     if (files.length === 0) return;
     try {
       phase.value = 'reading';
@@ -285,7 +288,7 @@ export function useLibraryImport(onImportComplete?: () => void): LibraryImport {
       const entry = (item as unknown as {
         webkitGetAsEntry?: () => FsEntry | null;
       }).webkitGetAsEntry?.();
-      if (entry) await walkEntry(entry, collected);
+      if (entry) await walkEntry(entry, collected, extensionFilter);
     }
     await importFiles(collected);
   }
