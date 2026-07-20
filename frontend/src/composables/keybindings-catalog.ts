@@ -14,10 +14,23 @@
  * Homed in the composables layer: the handlers are thin dispatch
  * into the logic layer — `useNavigation` verbs, `analysisService`
  * calls, named `store.session.ui` writes — i.e. the keyboard analog
- * of App-wiring. Band-mixed by entry (nav.* is game-tree [B2];
- * ponder / ownership-overlay toggles are Go/KataGo-flavored [B3]);
- * structurally [B3] via the `analysis-service` import. A fork
- * replaces this file wholesale and keeps the substrate.
+ * of App-wiring.
+ *
+ * **Row-level split (DI action-plan step 7, di-refactor-entanglement-
+ * investigation-2026-07-20.md §2.3).** A catalog is data, not a
+ * swappable unit of behavior, so no port abstraction applies here;
+ * the entanglement was finer than file granularity — individual
+ * array entries — so the fix is splitting the array itself:
+ * `GENERIC_KEYBINDINGS` (nav.* game-tree movement [B2], plus
+ * `displayToggleMoveNumbers`, a plain UI toggle with no engine
+ * dependency) and `GO_KEYBINDINGS` (ponder and the ownership-overlay
+ * toggles, which gate/depend on `analysisService` — Go/KataGo-
+ * flavored [B3]; `displayToggleMoveSuggestions` also lives here
+ * because it gates KataGo's analysis overlay specifically, per the
+ * `showMoveSuggestions` field comment in `store/schema.ts`). Both
+ * arrays are concatenated back into `KEYBINDINGS_REGISTRY` below so
+ * every existing consumer sees the same flat list unchanged. A fork
+ * drops `GO_KEYBINDINGS` from the concatenation and keeps the rest.
  *
  * **Persisted-id contract.** Action `id` strings are keys into the
  * persisted `store.profile.settings.keybindings` overrides blob
@@ -90,8 +103,14 @@ export const engineConnected: KeybindingEnabledPredicate = () =>
 const nav = useNavigation();
 
 // ── Registry ─────────────────────────────────────────────────
+//
+// Split per the row-level fix in the module header: generic
+// (game-tree nav + plain UI toggles) vs. Go/KataGo-specific
+// (engine ponder + ownership-overlay/move-suggestion toggles).
+// `KEYBINDINGS_REGISTRY` below concatenates both — every existing
+// consumer keeps seeing the same flat list.
 
-export const KEYBINDINGS_REGISTRY: ReadonlyArray<KeybindingActionDecl> = [
+export const GENERIC_KEYBINDINGS: ReadonlyArray<KeybindingActionDecl> = [
   // ── Navigation (coalesced) ─────────────────────────────────
   //
   // Parameterless nav handlers use direct method references
@@ -157,6 +176,22 @@ export const KEYBINDINGS_REGISTRY: ReadonlyArray<KeybindingActionDecl> = [
     enabledWhen: activeBoardExists,
     handler: nav.end,
   },
+  // ── Display toggle (immediate, engine-independent) ─────────
+  {
+    id: ACTIONS.displayToggleMoveNumbers,
+    labelKey: 'keybindings.action.displayToggleMoveNumbers.label',
+    descriptionKey: 'keybindings.action.displayToggleMoveNumbers.description',
+    defaultKey: 'n',
+    dispatchMode: 'immediate',
+    enabledWhen: activeBoardExists,
+    handler: () => {
+      store.session.ui.showStoneMoveNumbers = !store.session.ui.showStoneMoveNumbers;
+      touchSession();
+    },
+  },
+];
+
+export const GO_KEYBINDINGS: ReadonlyArray<KeybindingActionDecl> = [
   // ── Engine (immediate) ─────────────────────────────────────
   {
     id: ACTIONS.enginePonderToggle,
@@ -175,7 +210,7 @@ export const KEYBINDINGS_REGISTRY: ReadonlyArray<KeybindingActionDecl> = [
       }
     },
   },
-  // ── Display toggles (immediate) ────────────────────────────
+  // ── Analysis-overlay toggles (immediate) ───────────────────
   {
     id: ACTIONS.displayToggleMoveSuggestions,
     labelKey: 'keybindings.action.displayToggleMoveSuggestions.label',
@@ -185,18 +220,6 @@ export const KEYBINDINGS_REGISTRY: ReadonlyArray<KeybindingActionDecl> = [
     enabledWhen: activeBoardExists,
     handler: () => {
       store.session.ui.showMoveSuggestions = !store.session.ui.showMoveSuggestions;
-      touchSession();
-    },
-  },
-  {
-    id: ACTIONS.displayToggleMoveNumbers,
-    labelKey: 'keybindings.action.displayToggleMoveNumbers.label',
-    descriptionKey: 'keybindings.action.displayToggleMoveNumbers.description',
-    defaultKey: 'n',
-    dispatchMode: 'immediate',
-    enabledWhen: activeBoardExists,
-    handler: () => {
-      store.session.ui.showStoneMoveNumbers = !store.session.ui.showStoneMoveNumbers;
       touchSession();
     },
   },
@@ -236,4 +259,13 @@ export const KEYBINDINGS_REGISTRY: ReadonlyArray<KeybindingActionDecl> = [
       touchSession();
     },
   },
+];
+
+// Combined flat list — every current consumer (`useUserIORegistry`,
+// `KeybindingRow.vue`, `KeybindingsView.vue`, `useAppBootstrap.ts`,
+// and the test suites) reads this unchanged; only the declaration
+// above is now split by domain.
+export const KEYBINDINGS_REGISTRY: ReadonlyArray<KeybindingActionDecl> = [
+  ...GENERIC_KEYBINDINGS,
+  ...GO_KEYBINDINGS,
 ];
