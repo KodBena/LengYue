@@ -5,7 +5,7 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-08-06: migrations 1 → 2 through 62 → 63 (62
+ * Scope as of 2026-08-06: migrations 1 → 2 through 63 → 64 (63
  * entries). The first eight covered pre-v1.0.0 schema evolution;
  * the rest are the v1.0.x – v1.1.x active cycle, archived in
  * per-PR rolling fashion under the same archive contract.
@@ -2661,6 +2661,40 @@ export const archivedMigrations: Migration[] = [
       const ap = appearance as { highContrastText?: unknown };
       if (typeof ap.highContrastText !== 'boolean') {
         ap.highContrastText = false;
+      }
+    }
+    return out;
+  },
+  // 63 → 64: backfill `session.ui.deltaViewMode` ('shared' | 'black' |
+  // 'white', default 'shared') — the delta-analysis panel's three-mode
+  // view cycle (ledger row 418; see the field's doc comment on
+  // `UISession.deltaViewMode` in `schema.ts`, and
+  // `composables/analysis/useDeltaViewMode.ts` for the full rationale).
+  // A persisted blob predating this field would otherwise carry no
+  // value; `defaultSessionUI` already seeds fresh installs, and the
+  // panel's own read site falls back to `?? 'shared'`, so this backfill
+  // is belt-and-suspenders (matches the `qeuboToolbarView` / 5 → 6
+  // precedent in `archived-migrations.ts`) rather than load-bearing —
+  // it keeps the persisted shape honest instead of leaning on the
+  // read-site fallback. 'shared' is the only sensible default: it is
+  // the view every pre-existing workspace already had (the feature
+  // introduces two ADDITIONAL views, not a replacement one), so this
+  // migration is a pure additive seed with no behavior change.
+  //
+  // Container witnessed against the runtime shape: `session.ui` is
+  // present from v1, so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version.
+  //
+  // Idempotent: a pre-existing valid mode value is preserved unchanged
+  // (a hand-edited or forward-compat blob keeps its value); only a
+  // missing / malformed value is backfilled to 'shared'.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { deltaViewMode?: unknown };
+      if (u.deltaViewMode !== 'shared' && u.deltaViewMode !== 'black' && u.deltaViewMode !== 'white') {
+        u.deltaViewMode = 'shared';
       }
     }
     return out;
