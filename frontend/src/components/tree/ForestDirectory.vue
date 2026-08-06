@@ -12,9 +12,10 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { store, activeBoard, pushSystemMessage } from '../../store';
+import { useDeferredContainerBreakpoint } from '../../composables/chrome/useDeferredContainerBreakpoint';
 import type { BoardId, CardId, CardMetadataPatch, ForestStat, ReviewCard } from '../../types';
 import { useCardTreeData } from '../../composables/cards/useCardTreeData';
 import { useCardMetadata } from '../../composables/cards/useCardMetadata';
@@ -341,19 +342,45 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
     cardMetadataSaving.value = false;
   }
 }
+
+// resizer-rearch charter amendment (deferred-reorg mechanism, ledger
+// row 391): the row↔column reflow below used to be a pure CSS
+// `@container (max-width: 479px)` query (iter-17, see the template
+// comment). That's exactly the class of "discrete responsiveness
+// reorganization" the amendment names — this panel is hosted inside
+// #control-panel (the Cards tab), so a resizer drag sweeps this
+// wrapper's width continuously through 479px, and the CQ used to flip
+// the layout mid-gesture. Converted to a ResizeObserver-driven class
+// via useDeferredContainerBreakpoint, which freezes the reorg while
+// EITHER resizer bar is dragging and commits once, with hysteresis,
+// on release. See that composable's header for the full mechanism.
+const forestCqWrapperEl = ref<HTMLElement | null>(null);
+const {
+  committed: forestNarrow,
+  observe: observeForestWidth,
+  stop: stopForestWidthObserver,
+} = useDeferredContainerBreakpoint(479);
+
+onMounted(() => {
+  if (forestCqWrapperEl.value) observeForestWidth(forestCqWrapperEl.value);
+});
+// ADR-0010 imperative-escape step 4: the ResizeObserver lives outside
+// Vue's reactivity graph and must be released, or every mounted
+// ForestDirectory leaks an observer for the component's lifetime.
+onUnmounted(() => {
+  stopForestWidthObserver();
+});
 </script>
 
 <template>
-  <!-- Container-query wrapper (iter-17). The CQ container must be
-       an ancestor — not the queried element itself. iter-16 placed
-       `container-type` on `.forest-container` and tried to style
-       `.forest-container { flex-direction: column }` inside its own
-       `@container` block, which never matches (you can't query an
-       element from its own descendants). The wrapper moves the
-       container-type up one level so `.forest-container` and its
-       children become proper descendants. -->
-  <div class="forest-cq-wrapper">
-  <div class="forest-container">
+  <!-- Was a container-query wrapper (iter-17); converted to a
+       ResizeObserver-driven class (resizer-rearch charter amendment,
+       ledger row 391) — see the script's forestNarrow comment for
+       why. The wrapper element is kept as the ResizeObserver's
+       target (same ancestor-not-self reasoning iter-17 established:
+       `.forest-container` cannot observe/react to its own width). -->
+  <div class="forest-cq-wrapper" ref="forestCqWrapperEl">
+  <div class="forest-container" :class="{ 'forest-narrow-stack': forestNarrow }">
 
     <!-- LEFT PANEL: Navigation — Decks / Browse via the shared TabWidget -->
     <div class="left-panel">
@@ -483,35 +510,44 @@ async function handleCardMetadataPatch(patch: CardMetadataPatch): Promise<void> 
 </template>
 
 <style scoped>
-/* Container-query wrapper (iter-17 correction of iter-16). The CQ
-   container is the wrapper `.forest-cq-wrapper`; `.forest-container`
-   is its descendant. Threshold 479 px is content-derived (left-panel
+/* Was a `@container` query (iter-17 correction of iter-16); converted
+   to a ResizeObserver-driven `.forest-narrow-stack` class
+   (resizer-rearch charter amendment, ledger row 391 — see the
+   script's forestNarrow comment for why: a live `@container` flips
+   mid-drag, which is exactly the "discrete reorganization during a
+   continuous gesture" the amendment forbids). `.forest-cq-wrapper`
+   is kept as the ResizeObserver's target (an ancestor of
+   `.forest-container`, not the styled element itself — the
+   ancestor-not-self lesson iter-17 originally paid for still applies
+   to a ResizeObserver target the same way it applied to a CQ
+   container). Threshold 479 px is content-derived (left-panel
    natural width 280 + tree-panel min-width ≈200 = 480), not viewport-
    derived — a user widening the control panel above ~480 px gets the
    side-by-side layout regardless of the actual viewport. */
-.forest-cq-wrapper { display: flex; flex: 1; height: 100%; min-height: 0; min-width: 0; container-type: inline-size; }
+.forest-cq-wrapper { display: flex; flex: 1; height: 100%; min-height: 0; min-width: 0; }
 .forest-container { display: flex; flex: 1; height: 100%; min-height: 0; min-width: 0; overflow: hidden; background: var(--surface-0); }
 .left-panel { width: 280px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--surface-3); flex-shrink: 0; }
 
-/* magic-literal: 479px CQ threshold — derived, not arbitrary. The
-   side-by-side layout needs `.left-panel`'s natural width (280px,
-   set immediately above) plus `.tree-panel`'s usable minimum
-   (~200px, the threshold below which the lineage explorer's
-   ECharts forest renders unintelligibly). 280 + 200 = 480; the
-   query fires below that. If the left-panel's natural width or the
-   tree-panel's usable floor changes, this threshold needs to track
-   them. */
-@container (max-width: 479px) {
-  .forest-container { flex-direction: column; }
-  /* magic-literal: 40% max-height on stacked left-panel — leaves
-     ~60% for the tree-panel below. Picked so the lineage explorer
-     gets the larger share (it's the visualization the user came to
-     this tab for); left-panel is navigation + form chrome and 40%
-     of a ~700px stacked container is ~280px, enough for the
-     deck-selector form to render without internal scroll in the
-     common case. Soft cap — if left-panel content is shorter than
-     40%, it sizes to content. */
-  .left-panel { width: 100%; max-height: 40%; border-right: none; border-bottom: 1px solid var(--surface-3); flex-shrink: 1; }
+/* magic-literal: 479px threshold (useDeferredContainerBreakpoint call
+   site in the script) — derived, not arbitrary. The side-by-side
+   layout needs `.left-panel`'s natural width (280px, set immediately
+   above) plus `.tree-panel`'s usable minimum (~200px, the threshold
+   below which the lineage explorer's ECharts forest renders
+   unintelligibly). 280 + 200 = 480; the reorg fires below that. If
+   the left-panel's natural width or the tree-panel's usable floor
+   changes, this threshold needs to track them. */
+.forest-container.forest-narrow-stack {
+  flex-direction: column;
+}
+/* magic-literal: 40% max-height on stacked left-panel — leaves ~60%
+   for the tree-panel below. Picked so the lineage explorer gets the
+   larger share (it's the visualization the user came to this tab
+   for); left-panel is navigation + form chrome and 40% of a ~700px
+   stacked container is ~280px, enough for the deck-selector form to
+   render without internal scroll in the common case. Soft cap — if
+   left-panel content is shorter than 40%, it sizes to content. */
+.forest-container.forest-narrow-stack .left-panel {
+  width: 100%; max-height: 40%; border-right: none; border-bottom: 1px solid var(--surface-3); flex-shrink: 1;
 }
 .panel-header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-tight) var(--space-default); border-bottom: 1px solid var(--surface-3); background: var(--surface-2); font-size: var(--text-emphasis); text-transform: uppercase; color: var(--text-0); letter-spacing: var(--tracking-default); flex-shrink: 0; }
 .decks-view, .browse-view { display: flex; flex-direction: column; flex: 1; min-height: 0; }

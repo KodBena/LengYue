@@ -128,13 +128,13 @@ if (import.meta.hot) import.meta.hot.accept(() => location.reload());
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 61;
+export const CURRENT_SCHEMA_VERSION = 62;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 58 → 59) are
+ * The first `N` entries (currently 1 → 2 through 59 → 60) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -156,59 +156,6 @@ export const CURRENT_SCHEMA_VERSION = 61;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 59 → 60: re-apply the two backfills the archived 45 → 46 and
-  // 46 → 47 bodies were meant to perform but silently no-oped on. Both
-  // walked `out.settings?.…` instead of `out.profile?.settings?.…` —
-  // the exact 47 → 48 wrong-path class, but never themselves corrected
-  // — so `adaptiveReevaluate.valueBinding` (string, default '') and
-  // `appearance.moveSuggestionsFadeMs` (number, default 60) were never
-  // written onto persisted blobs. The defect was masked at runtime by
-  // `updateFromRemote`'s deepMerge against defaults (which is why no
-  // user-visible symptom surfaced); the composition test
-  // (`tests/integration/migration-store-roundtrip.test.ts`) surfaced
-  // both as `[silent-no-op]` defaults-only keys on 2026-06-10. Found by
-  // PR #370 (item `migration-leaf-assertion-and-composition-test`);
-  // corrective item `archived-migration-wrong-path-corrective`.
-  //
-  // Archived bodies are frozen (append-only invariant), so the fix is a
-  // NEW migration with the CORRECT paths via `witnessedContainer` — a
-  // typo here fails loudly at the runtime-shape witness instead of
-  // no-oping and stamping the version. Both containers are witnessed
-  // (`profile.settings.engine.katago.adaptiveReevaluate` exists from the
-  // 29 → 30 seed; `profile.settings.appearance` is present from v1), and
-  // the blob-side resolution keeps the prior bodies' inline
-  // non-null-object tolerance: a partial / legacy blob whose container is
-  // absent no-ops exactly as the broken bodies intended.
-  //
-  // Idempotent: a pre-existing string `valueBinding` / numeric
-  // `moveSuggestionsFadeMs` is preserved unchanged (a hand-edited or
-  // forward-compat blob keeps its value); only a missing / wrong-typed
-  // leaf is backfilled to the default. The two new display-domain
-  // animation KnobDecls the 46 → 47 body deliberately declined to inject
-  // are NOT re-applied here — that body's choice to defer to the
-  // defaults-side seed for fresh profiles is correct and remains the
-  // `[no-backfill]` posture pinned in the composition test.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const adaptive = witnessedContainer(
-      out,
-      'profile.settings.engine.katago.adaptiveReevaluate',
-    );
-    if (adaptive) {
-      const a = adaptive as { valueBinding?: unknown };
-      if (typeof a.valueBinding !== 'string') {
-        a.valueBinding = '';
-      }
-    }
-    const appearance = witnessedContainer(out, 'profile.settings.appearance');
-    if (appearance) {
-      const ap = appearance as { moveSuggestionsFadeMs?: unknown };
-      if (typeof ap.moveSuggestionsFadeMs !== 'number') {
-        ap.moveSuggestionsFadeMs = 60;
-      }
-    }
-    return out;
-  },
   // 60 → 61: backfill `profile.settings.engine.katago.calibrationVisits`
   // (number, default 1000) — the new default visit budget for the opt-in
   // mint-time komi-calibration feature. The leaf is read by
@@ -238,6 +185,61 @@ export const migrations: Migration[] = [
       if (typeof k.calibrationVisits !== 'number') {
         k.calibrationVisits = 1000;
       }
+    }
+    return out;
+  },
+  // 61 → 62: resizer-rearch — strip the two pre-rearch split-workspace
+  // resizer homes. The current-model fields this rearch settled on
+  // (`session.ui.treePanelWidthPx`, `session.ui.treeControlRegionWidthPx`
+  // — nested-splitter amendment, ledger rows 391/414; see schema.ts)
+  // are both purely additive/optional and never shipped under a prior
+  // name, so this migration only needs to strip, never rename. Strips:
+  //
+  //   - `session.ui.boardSquareMaxWidthPx` — the pre-rearch board-
+  //     width cap the resizer drag used to write (ADR-0019 audit
+  //     `.claude/dispatch-reports/adr19-audit.md` S2: two writers for
+  //     one conceptual fact, a discontinuous drag-start clobber, and
+  //     — because it has no reliable visible effect past the board's
+  //     own aspect-ratio saturation point — the persisted slot with
+  //     no visible effect on reload).
+  //   - `session.ui.controlPanelWidth` — a dead, never-read zombie
+  //     field (ADR-0019 audit S9: "a control wired to nothing";
+  //     `grep -rn "controlPanelWidth\b" src/` before this migration
+  //     returned exactly the schema declaration and the default).
+  //     Removed in the same migration as the board-width cap so
+  //     neither pre-rearch field survives into a freshly-migrated
+  //     blob, which would otherwise recreate the exact "one fact, two
+  //     homes" defect class (Rule 3 / C1) this rearch exists to close.
+  //
+  // No value is carried forward to either current-model field.
+  // `boardSquareMaxWidthPx` (a board-width cap) has no principled
+  // conversion to either `treePanelWidthPx` or
+  // `treeControlRegionWidthPx` without live viewport geometry — the
+  // row's actual pixel width, the tree panel's current visibility,
+  // the board's current height — none of which a migration body (a
+  // pure function over the persisted blob, no DOM) has access to.
+  // Backfilling a guessed value would be exactly the silent-narrowing
+  // this codebase's ADR-0002 posture forbids; leaving both new fields
+  // `undefined` (their documented default: no drag yet, natural
+  // layout) is the honest choice — the user re-drags once, same as
+  // any migration that resets a runtime/session-shaped preference
+  // rather than fabricating a translation for it.
+  //
+  // Idempotent: deleting an already-absent key is a no-op.
+  //
+  // Container access goes through `witnessedContainer` (per step 3 of
+  // the add-a-migration recipe): `session.ui` is witnessed against the
+  // runtime shape, so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version. The blob-side resolution keeps
+  // the sibling bodies' non-null-object tolerance: a partial / legacy
+  // blob whose container is absent no-ops.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { boardSquareMaxWidthPx?: unknown; controlPanelWidth?: unknown };
+      delete u.boardSquareMaxWidthPx;
+      delete u.controlPanelWidth;
     }
     return out;
   },

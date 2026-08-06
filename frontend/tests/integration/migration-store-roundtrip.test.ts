@@ -201,6 +201,13 @@ function legacyV1Blob(): any {
         controlsExpanded: true,
         boardExpanded: true,
         systemLogExpanded: true,
+        // Exercises the 61 → 62 (resizer-rearch) strip end-to-end: this
+        // dead pre-rearch field is deleted by that migration and never
+        // reappears (no backfill to the current-model fields,
+        // treePanelWidthPx / treeControlRegionWidthPx — nested-
+        // splitter amendment ledger rows 391/414; see the migration's
+        // own comment), so it must NOT show up in either EXPECTED_*
+        // pin below.
         controlPanelWidth: 340,
         moveFilterThreshold: 0.05,
         moveFilterExpression: 'move.order === 0 || (move.visits / root.visits) >= ui.threshold',

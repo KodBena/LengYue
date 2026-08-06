@@ -637,7 +637,10 @@ export const defaultSessionUI: UISession = {
   // would rather have. Users can re-enable via the Session (UI)
   // registry.
   systemLogExpanded: false,
-  controlPanelWidth: 340,
+  // controlPanelWidthPx intentionally omitted: undefined is the
+  // documented default (schema.ts) — no drag has happened yet, so
+  // #control-panel renders at its natural flex fill. See
+  // useResizablePanel.ts.
   moveFilterThreshold: 0.05,
   moveFilterExpression: 'move.order === 0 || (move.visits / root.visits) >= ui.threshold',
   analysisLayout: 'horizontal',

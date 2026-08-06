@@ -223,7 +223,8 @@ frontend/src/
 │   │   ├── useHoverPopover.ts         [B1]  Hover-intent open/close primitive (open ref + mouseenter/mouseleave + 150 ms close-grace timer) shared by toolbar popovers.
 │   │   ├── useLocale.ts               [B1]  Locale read/write through GlobalStore + supported-locale registry.
 │   │   ├── usePopoverEdgeClamp.ts     [B1]  Viewport-edge clamp for hover popovers (setPopoverEl function-ref + xShift) — translateX shifts the rendered popover inward when its CSS anchor would push it off-screen.
-│   │   └── useResizablePanel.ts       [B2]  Horizontal resize-bar between tree and control panels.
+│   │   ├── useDeferredContainerBreakpoint.ts [B1]  Defers a control-panel-hosted component's discrete responsive breakpoint commit to resizer-drag release (with hysteresis), so a `@container`-style reorg never fires mid-gesture.
+│   │   └── useResizablePanel.ts       [B2]  Nested-splitter resize bars (OUTER: board↔tree+control wrapper; INNER: tree↔control panel), each owning one independently-persisted pane width.
 │   │
 │   ├── forest/                               Forest / game-tree expansion + navigation.
 │   │   ├── useForestBrowsePolicy.ts   [B2]  Forest-Directory selection → fetch-behaviour dispatcher.
@@ -318,7 +319,7 @@ frontend/src/
 │   └── stability-trajectory-store.ts  [B3]  Per-(`RawKey`, `ExtractorId`, nodeId) trajectory store fed by analysis-service preview ingestion.
 │
 ├── store/                                   Single GlobalStore singleton + mutators + migrations.
-│   ├── archived-migrations.ts         [B1]  Aged-out schema migrations (1→2 .. 57→58) lifted out under the rolling-archive cadence to keep migrations.ts scoped to the latest two; preserved for the framework's contiguity invariant. Post-retrofit bodies call witnessedContainer (imported from migration-witness.ts).
+│   ├── archived-migrations.ts         [B1]  Aged-out schema migrations (1→2 .. 59→60) lifted out under the rolling-archive cadence to keep migrations.ts scoped to the latest two; preserved for the framework's contiguity invariant. Post-retrofit bodies call witnessedContainer (imported from migration-witness.ts).
 │   ├── board-factory.ts               [B3]  Pure factory functions for board state construction.
 │   ├── defaults.ts                    [B3]  Initial GlobalStore constants (board defaults dominate; some B1 too).
 │   ├── index.ts                       [B3]  Central reactive store; createBoard / closeBoard / resetWorkspace.

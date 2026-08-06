@@ -2853,3 +2853,75 @@ describe('60 → 61: backfill engine.katago.calibrationVisits', () => {
     expect(out.profile.settings.engine.katago.calibrationVisits).toBe(1000);
   });
 });
+
+describe('61 → 62: resizer-rearch — strip the two pre-rearch split-workspace resizer homes', () => {
+  // Strips the two prior homes (session.ui.boardSquareMaxWidthPx,
+  // session.ui.controlPanelWidth — see the migration body's own
+  // comment in migrations.ts for the full ADR-0019 audit S2 / S9
+  // context). No value is carried forward; the current-model fields
+  // this rearch settled on (treePanelWidthPx,
+  // treeControlRegionWidthPx — nested-splitter amendment, ledger rows
+  // 391/414) are left absent, their documented defaults. Neither ever
+  // shipped under this migration's original name
+  // (`controlPanelWidthPx`, superseded within the same development
+  // arc before release), so there is no name to assert absence of
+  // here beyond the two genuinely-legacy fields.
+  function blobWithUi(extra: Record<string, unknown> = {}): any {
+    return {
+      session: {
+        ui: {
+          activeTab: 'cards',
+          treeExpanded: true,
+          ...extra,
+        },
+      },
+    };
+  }
+
+  it('deletes boardSquareMaxWidthPx when present', () => {
+    const out = step(61)(blobWithUi({ boardSquareMaxWidthPx: 3490 }));
+    expect('boardSquareMaxWidthPx' in out.session.ui).toBe(false);
+    // No value is carried forward to either current-model field.
+    expect('treePanelWidthPx' in out.session.ui).toBe(false);
+    expect('treeControlRegionWidthPx' in out.session.ui).toBe(false);
+  });
+
+  it('deletes the dead controlPanelWidth zombie field when present', () => {
+    const out = step(61)(blobWithUi({ controlPanelWidth: 340 }));
+    expect('controlPanelWidth' in out.session.ui).toBe(false);
+  });
+
+  it('deletes both prior homes at once, preserving sibling leaves', () => {
+    const out = step(61)(blobWithUi({ boardSquareMaxWidthPx: 2228, controlPanelWidth: 340 }));
+    expect('boardSquareMaxWidthPx' in out.session.ui).toBe(false);
+    expect('controlPanelWidth' in out.session.ui).toBe(false);
+    expect(out.session.ui.activeTab).toBe('cards');
+    expect(out.session.ui.treeExpanded).toBe(true);
+  });
+
+  it('is idempotent — a no-op when neither prior field is present', () => {
+    const out = step(61)(blobWithUi());
+    expect('boardSquareMaxWidthPx' in out.session.ui).toBe(false);
+    expect('controlPanelWidth' in out.session.ui).toBe(false);
+    expect(out.session.ui.activeTab).toBe('cards');
+  });
+
+  it('is a no-op when session.ui is absent (very-legacy / partial blob)', () => {
+    const blob: any = { profile: {} };
+    const out = step(61)(blob);
+    expect(out.session).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v61 blob reaches CURRENT with both prior homes gone', () => {
+    const blob: any = {
+      schemaVersion: 61,
+      session: {
+        ui: { activeTab: 'cards', boardSquareMaxWidthPx: 3490, controlPanelWidth: 340 },
+      },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect('boardSquareMaxWidthPx' in out.session.ui).toBe(false);
+    expect('controlPanelWidth' in out.session.ui).toBe(false);
+  });
+});
