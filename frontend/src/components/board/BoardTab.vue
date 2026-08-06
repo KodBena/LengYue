@@ -266,11 +266,24 @@ onUnmounted(() => {
    half-overlapping-corner look is unchanged. */
 .thumb-container { --tab-width: 86px; display: flex; flex-direction: column; align-items: center; width: var(--tab-width); padding-top: 6px; counter-increment: boardtab; }
 
+/* `overflow: visible` is declared explicitly, not left to the default,
+   because `.close-board-btn` below deliberately overshoots this box's own
+   top and right edges by 6px (the "detached affordance" look) — an
+   `overflow: hidden` on this element clips the button along its
+   rectangular edges, producing a crescent-shaped clip on the button's
+   circular border (ui-fix-4b-tab-clip.md: a stale global `.tab-thumb`
+   rule in style.css, dead since BoardTab's pre-rewrite 88x88-card design,
+   set `overflow: hidden` and this scoped rule never overrode that one
+   property, so the cascade let it through even though every other
+   property here won on specificity — the dead global rule has been
+   removed, but this declaration is kept as defense-in-depth so a future
+   global rule touching `.tab-thumb` can't silently reintroduce the same
+   clip). */
 .tab-thumb {
   width: var(--tab-width); height: 32px; border: 2px solid var(--surface-3); background: var(--surface-0);
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   transition: border-color var(--duration-default) ease, background var(--duration-default) ease;
-  position: relative; border-radius: var(--radius-default);
+  position: relative; border-radius: var(--radius-default); overflow: visible;
 }
 
 .tab-label { font-size: var(--text-emphasis); color: var(--text-2); font-weight: bold; pointer-events: none; }
