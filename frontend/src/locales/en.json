@@ -500,6 +500,9 @@
   "analysis.ponderExhausted":             "Ponder reached its visit ceiling ({visits}). Your hardware is fast enough that ponder finished before you stopped it — consider raising `engine.katago.ponderMaxVisits` in the registry editor.",
   "analysis.enrichmentNullLeafReplaced":  "Analysis enrichment anomaly: {field}[{key}] arrived with null values ({nullFields}) and replaced previously populated data. A palette function may be producing invalid output (NaN becomes null on the wire) — check the active palette's symbol definitions.",
 
+  "nav.branchSwitchNoFork":               "No sibling variation here — this line has no branch point above it.",
+  "nav.branchSwitchBoundary":             "Already at the outermost variation in this direction.",
+
   "sgf.noActiveBoard":                    "No active board to save.",
   "sgf.serialisationFailed":              "SGF serialisation failed: {detail}",
   "sgf.saved":                            "Saved {filename}.",

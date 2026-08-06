@@ -4,7 +4,7 @@
  * Provides pure domain actions for moving within the Game Tree.
  */
 
-import { activeBoard, mutateBoard } from '../store';
+import { activeBoard, mutateBoard, pushSystemMessage } from '../store';
 import { registerBoardCloseHandler, registerWorkspaceResetHandler } from '../store/teardown-registry';
 import {
   navigateNext,
@@ -13,8 +13,29 @@ import {
   navigateTo,
   navigateToggleMainLine,
 } from '../engine/navigator';
+import type { BranchSwitchOutcome } from '../engine/navigator';
 import { getActiveVariationPath } from '../engine/util';
+import { i18n } from '../i18n';
 import type { BoardId, NodeId } from '../types';
+
+/**
+ * Surfaces a `BranchSwitchOutcome`'s `false` case through the existing
+ * `pushSystemMessage` transient-log idiom (L4 — identity-with-
+ * feedback: `navigateVariation`/`navigateToggleMainLine` return WHY
+ * they no-opped rather than silently returning, and the caller's job
+ * is to make that visible; a console-only signal is not enough for a
+ * user-triggered keybinding — see the nav-algebra diagnosis,
+ * `.claude/dispatch-reports/nav-algebra-diagnosis.md`, §3 L4). `'info'`
+ * (not `'warning'`/`'error'`) because both reasons are expected
+ * boundary conditions of ordinary navigation, not anomalies — the same
+ * severity `sgf.saved` and `sync.workspaceLoaded` use for "this
+ * completed, here's the fact" notices.
+ */
+function surfaceBranchSwitchNoOp(outcome: BranchSwitchOutcome): void {
+  if (outcome.ok) return;
+  const key = outcome.reason === 'no-fork' ? 'nav.branchSwitchNoFork' : 'nav.branchSwitchBoundary';
+  pushSystemMessage('info', i18n.global.t(key));
+}
 
 // Module-scope: the toggle-history `navigateToggleMainLine` reads and
 // writes, keyed `${boardId}::${forkNodeId}` inside that function.
@@ -110,9 +131,10 @@ export function useNavigation() {
   };
 
   const variation = (dir: number) => {
-    if (activeBoard.value) {
-      mutateBoard(activeBoard.value.id, draft => navigateVariation(draft, dir));
-    }
+    if (!activeBoard.value) return;
+    let outcome: BranchSwitchOutcome | undefined;
+    mutateBoard(activeBoard.value.id, draft => { outcome = navigateVariation(draft, dir); });
+    if (outcome) surfaceBranchSwitchNoOp(outcome);
   };
 
   // Jump to the first node of the active variation path (the root).
@@ -153,9 +175,12 @@ export function useNavigation() {
   // for the fork-search and toggle-memory semantics, and its
   // ambiguity note for the reading this implements.
   const toggleMainLine = () => {
-    if (activeBoard.value) {
-      mutateBoard(activeBoard.value.id, draft => navigateToggleMainLine(draft, mainLineToggleMemory));
-    }
+    if (!activeBoard.value) return;
+    let outcome: BranchSwitchOutcome | undefined;
+    mutateBoard(activeBoard.value.id, draft => {
+      outcome = navigateToggleMainLine(draft, mainLineToggleMemory);
+    });
+    if (outcome) surfaceBranchSwitchNoOp(outcome);
   };
 
   return { next, prev, variation, home, end, goTo, toggleMainLine };
