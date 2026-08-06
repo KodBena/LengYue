@@ -35,9 +35,11 @@ import { KataGoClient } from '../../engine/katago/katago-client';
 import { connectFresh, awaitFinalPacket as sharedAwaitFinalPacket } from '../../engine/katago/fresh-eval';
 import {
   finalizeAnalysisRouting,
+  finalizeMatchAnalysisRouting,
   type RoutedAnalysisQuery,
   type UnroutedAnalysisQuery,
 } from '../../engine/katago/query-routing';
+import type { MatchPlayer } from '../../state/match-player-overrides';
 import { useQueryTelemetry } from '../useQueryTelemetry';
 
 const telemetry = useQueryTelemetry();
@@ -183,6 +185,17 @@ function awaitFinalPacket(
  * fire alternating `playEngineMoves({...,model:"strong"})` and
  * `playEngineMoves({...,model:"weak"})` against one URL and the
  * SELECTOR's labelled-pool routes them appropriately.
+ *
+ * The `matchPlayer` parameter is the match-specific routing extension
+ * (ledger rows 593/594): when the caller supplies it (the match loop
+ * only — `playEngineMoves`'s single-engine loop never does), the
+ * query routes through `finalizeMatchAnalysisRouting` instead of
+ * `finalizeAnalysisRouting`, additionally merging that player's
+ * configured per-player overrides. It is a plain function argument
+ * the caller resolves fresh per call (from `matchBoard.turn`) — see
+ * `finalizeMatchAnalysisRouting`'s docstring for why that, and not a
+ * shared "current player" variable, is what forecloses the
+ * cross-player-leak bug class under async interleave.
  */
 function buildAnalyzeQuery(
   board: BoardState,
@@ -190,6 +203,7 @@ function buildAnalyzeQuery(
   queryId: QueryId,
   model: string | null,
   capabilities?: PerQueryCapabilities,
+  matchPlayer?: MatchPlayer,
 ): { query: RoutedAnalysisQuery; expectedTurn: number } {
   // Root-to-currentNodeId path — not root-to-leaf via
   // `getActiveVariationPath`. The query asks KataGo "given the
@@ -231,7 +245,9 @@ function buildAnalyzeQuery(
     ...(capabilities !== undefined ? { capabilities } : {}),
   };
   return {
-    query: finalizeAnalysisRouting(unrouted, model),
+    query: matchPlayer !== undefined
+      ? finalizeMatchAnalysisRouting(unrouted, model, matchPlayer)
+      : finalizeAnalysisRouting(unrouted, model),
     expectedTurn,
   };
 }
@@ -665,6 +681,13 @@ export async function playEngineMatch(opts: PlayEngineMatchOptions): Promise<Boa
         asQueryId(`match-${playerColor}-${turn}-${Date.now()}`),
         side.model ?? null,
         opts.capabilities,
+        // `playerColor` is a local `const` read from `matchBoard.turn`
+        // at the top of THIS iteration — see `buildAnalyzeQuery`'s and
+        // `finalizeMatchAnalysisRouting`'s docstrings for why this
+        // (an explicit per-call argument) rather than a shared
+        // "current player" module variable is what makes a B query
+        // picking up W's overrides unrepresentable.
+        playerColor,
       );
       const packet = await awaitFinalPacket(client, query, expectedTurn, timeoutMs, {
         kind:          'match',

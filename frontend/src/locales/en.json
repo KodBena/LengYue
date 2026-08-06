@@ -184,6 +184,14 @@
   "match.button.cancel":                  "Cancel",
   "match.button.start":                   "Start",
   "match.failed":                         "Engine match failed: {error}",
+  "match.section.overrides":              "Per-Player Overrides",
+
+  "matchPlayerOverrides.labelBlack":      "Black overrides",
+  "matchPlayerOverrides.labelWhite":      "White overrides",
+  "matchPlayerOverrides.placeholder":     "{'{'}\"playoutDoublingAdvantage\": 1.5{'}'}",
+  "matchPlayerOverrides.error":           "Invalid overrides — not applied: {message}",
+  "matchPlayerOverrides.resetButton":     "Clear",
+  "matchPlayerOverrides.resetTooltip":    "Clear this player's override text (no change to outgoing queries).",
 
   "playEngine.title":                     "Play vs Engine",
   "playEngine.subtitle":                  "Start a game from the current position. The green ring marks the single node where the engine will respond to your next move; play a move from the green node and the engine answers, advancing the ring forward to the new position. Off-line exploration (navigating away from the ring) doesn't trigger the engine.",

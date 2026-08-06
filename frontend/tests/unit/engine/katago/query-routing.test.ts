@@ -20,15 +20,21 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   finalizeAnalysisRouting,
+  finalizeMatchAnalysisRouting,
   type UnroutedAnalysisQuery,
 } from '../../../../src/engine/katago/query-routing';
 import {
   setPerQueryOverridesText,
   _resetPerQueryOverridesForTesting,
 } from '../../../../src/state/per-query-overrides';
+import {
+  setMatchPlayerOverridesText,
+  _resetMatchPlayerOverridesForTesting,
+} from '../../../../src/state/match-player-overrides';
 
 beforeEach(() => {
   _resetPerQueryOverridesForTesting();
+  _resetMatchPlayerOverridesForTesting();
 });
 
 const baseQuery: UnroutedAnalysisQuery = {
@@ -102,5 +108,98 @@ describe('finalizeAnalysisRouting — per-query overrides merge', () => {
     setPerQueryOverridesText('{not valid json');
     const routed = finalizeAnalysisRouting(baseQuery, null);
     expect('overrideSettings' in routed).toBe(false);
+  });
+});
+
+describe('finalizeMatchAnalysisRouting — per-match-player overrides merge (ledger rows 593/594)', () => {
+  it('leaves the query unchanged when neither global nor per-player overrides are configured', () => {
+    const routed = finalizeMatchAnalysisRouting(baseQuery, null, 'B');
+    expect('overrideSettings' in routed).toBe(false);
+  });
+
+  it("ACCEPTANCE CASE: B gets {playoutDoublingAdvantage:1.5}, W gets {} — the two routed queries' overrideSettings differ accordingly", () => {
+    setMatchPlayerOverridesText('B', '{"playoutDoublingAdvantage": 1.5}');
+    setMatchPlayerOverridesText('W', '{}');
+
+    const blackRouted = finalizeMatchAnalysisRouting(baseQuery, null, 'B');
+    const whiteRouted = finalizeMatchAnalysisRouting(baseQuery, null, 'W');
+
+    expect(blackRouted.overrideSettings).toEqual({ playoutDoublingAdvantage: 1.5 });
+    expect('overrideSettings' in whiteRouted).toBe(false);
+  });
+
+  it("a B query never carries W's overrides, and vice versa, when both are configured with DIFFERENT sets", () => {
+    setMatchPlayerOverridesText('B', '{"playoutDoublingAdvantage": 1.5}');
+    setMatchPlayerOverridesText('W', '{"wideRootNoise": 0.05}');
+
+    const blackRouted = finalizeMatchAnalysisRouting(baseQuery, null, 'B');
+    const whiteRouted = finalizeMatchAnalysisRouting(baseQuery, null, 'W');
+
+    expect(blackRouted.overrideSettings).toEqual({ playoutDoublingAdvantage: 1.5 });
+    expect(whiteRouted.overrideSettings).toEqual({ wideRootNoise: 0.05 });
+    // Cross-contamination check, explicit.
+    expect(blackRouted.overrideSettings).not.toHaveProperty('wideRootNoise');
+    expect(whiteRouted.overrideSettings).not.toHaveProperty('playoutDoublingAdvantage');
+  });
+
+  it('the routing (model) leg still applies independently of the per-player overrides merge', () => {
+    setMatchPlayerOverridesText('B', '{"playoutDoublingAdvantage": 1.5}');
+    const routed = finalizeMatchAnalysisRouting(baseQuery, 'strong-net', 'B');
+    expect(routed.model).toBe('strong-net');
+    expect(routed.overrideSettings).toEqual({ playoutDoublingAdvantage: 1.5 });
+  });
+
+  it('precedence: per-player overrides shallow-merge OVER the global session overrides for that player\'s query', () => {
+    setPerQueryOverridesText('{"reportAnalysisWinratesAs": "WHITE", "wideRootNoise": 0.01}');
+    setMatchPlayerOverridesText('B', '{"wideRootNoise": 0.5, "playoutDoublingAdvantage": 1.5}');
+
+    const blackRouted = finalizeMatchAnalysisRouting(baseQuery, null, 'B');
+    expect(blackRouted.overrideSettings).toEqual({
+      reportAnalysisWinratesAs: 'WHITE', // from the global set, not named by B's per-player JSON
+      wideRootNoise: 0.5,                // B's per-player value wins over the global 0.01
+      playoutDoublingAdvantage: 1.5,     // new key B's per-player JSON introduced
+    });
+
+    // W has no per-player overrides configured — the global set still applies alone.
+    const whiteRouted = finalizeMatchAnalysisRouting(baseQuery, null, 'W');
+    expect(whiteRouted.overrideSettings).toEqual({
+      reportAnalysisWinratesAs: 'WHITE',
+      wideRootNoise: 0.01,
+    });
+  });
+
+  it('an invalid per-player override (ADR-0002) is never applied for that player, independent of the other player', () => {
+    setMatchPlayerOverridesText('B', '{not valid json');
+    setMatchPlayerOverridesText('W', '{"wideRootNoise": 0.05}');
+
+    const blackRouted = finalizeMatchAnalysisRouting(baseQuery, null, 'B');
+    const whiteRouted = finalizeMatchAnalysisRouting(baseQuery, null, 'W');
+
+    expect('overrideSettings' in blackRouted).toBe(false);
+    expect(whiteRouted.overrideSettings).toEqual({ wideRootNoise: 0.05 });
+  });
+
+  it('INTERLEAVE: two match queries built back-to-back for opposite players each carry only their own set (no shared "current player" state)', () => {
+    setMatchPlayerOverridesText('B', '{"playoutDoublingAdvantage": 1.5}');
+    setMatchPlayerOverridesText('W', '{"playoutDoublingAdvantage": 0.5}');
+
+    // Build B's query, THEN W's, THEN B's again — simulating the
+    // match loop's per-turn alternation with no reset in between.
+    // Each call is independently keyed by its own explicit `player`
+    // argument, not by any module-scope "whose turn" pointer.
+    const black1 = finalizeMatchAnalysisRouting(baseQuery, null, 'B');
+    const white1 = finalizeMatchAnalysisRouting(baseQuery, null, 'W');
+    const black2 = finalizeMatchAnalysisRouting(baseQuery, null, 'B');
+
+    expect(black1.overrideSettings).toEqual({ playoutDoublingAdvantage: 1.5 });
+    expect(white1.overrideSettings).toEqual({ playoutDoublingAdvantage: 0.5 });
+    expect(black2.overrideSettings).toEqual({ playoutDoublingAdvantage: 1.5 });
+  });
+
+  it('does not mutate the input query', () => {
+    setMatchPlayerOverridesText('B', '{"playoutDoublingAdvantage": 1.5}');
+    const input: UnroutedAnalysisQuery = { ...baseQuery };
+    finalizeMatchAnalysisRouting(input, null, 'B');
+    expect('overrideSettings' in input).toBe(false);
   });
 });
