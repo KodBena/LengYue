@@ -159,6 +159,7 @@ frontend/src/
 │   ├── useAutoPopoverPerf.ts          [B1]  Dev-only: toggles a target popover open/closed at ~2/s (via useHoverPopover's force hook), emitting popover:open/close marks tagged with queue state — for the popover-toggle-cost measurement.
 │   ├── useAutoSaveAnalyses.ts         [B3]  Auto-save policy for the [experimental] analysis-persistence feature: watches each board's `dirtyVersion` on analysisPersistenceService and trailing-debounces a `save(boardId)`, gated on `engine.katago.analysisStorageEnabled && analysisAutoSave`. B3 via the analysis-bundle / persistence-service imports and the KataGo storage toggles.
 │   ├── useEngineControls.ts           [B3]  Engine connect / disconnect / toggle lifecycle.
+│   ├── useModalKeyboard.ts            [B1]  Shared modal keyboard/focus mechanism (ADR-0019 S5 fix): Escape→close, Tab/Shift+Tab focus trap, initial focus, focus restoration; exports `anyModalOpen` for useUserIORegistry's global-hotkey suppression while a modal is open. Wired into all 7 src/components/modals/*.vue files.
 │   ├── useNavigation.ts               [B2]  Headless navigation within the game tree (next/prev/parent/child).
 │   ├── useQeubo.ts                    [B1]  qEUBO experiment state machine + audition + verdict.
 │   ├── useQueryTelemetry.ts           [B1]  Singleton in-flight KataGo query queue + per-model visits/sec ETA.

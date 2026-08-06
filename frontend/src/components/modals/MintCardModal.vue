@@ -8,6 +8,7 @@ import { ref, computed, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { store, pushSystemMessage } from '../../store';
 import { useMinting } from '../../composables/review/useMinting';
+import { useModalKeyboard } from '../../composables/useModalKeyboard';
 import type { BoardId, CardCreatePayload } from '../../types';
 import { INTERACTION_DISMISS_DELAY_MS } from '../../lib/timing';
 
@@ -15,6 +16,7 @@ const { t } = useI18n();
 const { prepareDraft, calibrateKomiOnDraft, commitMint } = useMinting();
 
 const isOpen = ref(false);
+const modalContentRef = ref<HTMLElement | null>(null);
 const isLoading = ref(false);
 const draft = ref<CardCreatePayload | null>(null);
 // The board this draft was prepared from — retained so the
@@ -120,6 +122,15 @@ function close() {
   draftBoardId.value = null;
 }
 
+// Escape → same close path as the Cancel/× buttons (ADR-0019 S5);
+// Tab focus trap + initial focus + focus restoration — all one
+// shared mechanism, see useModalKeyboard.ts. (The tag input's own
+// Escape handler below, `handleTagKeydown`, stops propagation so
+// a first Escape closes the suggestions dropdown only; a second
+// Escape — dropdown already closed — reaches this and closes the
+// modal.)
+useModalKeyboard(modalContentRef, isOpen, close);
+
 // ─── Tag Management ──────────────────────────────────────────────────────────
 
 function addTag(tag: string) {
@@ -140,7 +151,13 @@ function handleTagKeydown(e: KeyboardEvent) {
   } else if (e.key === 'Backspace' && tagInput.value === '' && draft.value?.tags.length) {
     draft.value.tags.pop();
   } else if (e.key === 'Escape') {
-    showSuggestions.value = false;
+    if (showSuggestions.value) {
+      // Contain the first Escape to the suggestions dropdown; don't
+      // let it also bubble to the modal-level handler and discard
+      // the in-progress draft in the same keypress.
+      e.stopPropagation();
+      showSuggestions.value = false;
+    }
   } else {
     showSuggestions.value = true;
   }
@@ -293,10 +310,10 @@ async function submit() {
 
 <template>
   <div v-if="isOpen" class="modal-backdrop" @mousedown.self="close">
-    <div class="modal-content">
-      
+    <div ref="modalContentRef" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="mint-card-title" tabindex="-1">
+
       <div class="modal-header">
-        <h2>{{ $t('mint.title') }}</h2>
+        <h2 id="mint-card-title">{{ $t('mint.title') }}</h2>
         <button class="close-btn" @click="close">×</button>
       </div>
 
