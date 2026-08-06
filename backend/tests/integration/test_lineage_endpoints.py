@@ -18,12 +18,20 @@ Self-contained seeding: the existing `TreeBuilder` helper in
 need updating before it could be reused here. That update is out of
 scope for this work; this file builds its small fixtures inline.
 
+Browse-leak-fix (ledger rows 417/423): `RootGroup` / `RootedTree`
+identify their root via `root_card_public_id` (UUID) /
+`game_source_display_ordinal` (per-user int), not the raw PKs;
+`fetch_tree_by_root`'s identity parameter is now `root_card_public_id`
+too. `_build_tree` below captures each card's minted `public_id` and
+the tree's game_source `display_ordinal` alongside the existing
+internal-id map so tests can assert against both.
+
 License: Public Domain (The Unlicense)
 """
 import hashlib
 from itertools import count
 from typing import Dict, List, Optional
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import insert
@@ -80,7 +88,8 @@ async def _seed_normalized_position(session: AsyncSession, *, tag: str) -> int:
 
 async def _seed_game_source(
     session: AsyncSession, *, position_id: int, user_id: int, description: str
-) -> int:
+) -> tuple[int, int]:
+    ordinal = next(_ordinal)
     res = await session.execute(
         insert(game_source)
         .values(
@@ -88,16 +97,17 @@ async def _seed_game_source(
             user_id=user_id,
             description=description,
             client_game_id=uuid4(),
-            display_ordinal=next(_ordinal),
+            display_ordinal=ordinal,
         )
         .returning(game_source.c.id)
     )
-    return res.scalar()
+    return res.scalar(), ordinal
 
 
 async def _seed_card(
     session: AsyncSession, *, position_id: int, user_id: int
-) -> int:
+) -> tuple[int, UUID]:
+    public_id = uuid4()
     res = await session.execute(
         insert(card)
         .values(
@@ -107,12 +117,12 @@ async def _seed_card(
             t=1.0,
             user_id=user_id,
             normalized_position_id=position_id,
-            public_id=uuid4(),
+            public_id=public_id,
             display_ordinal=next(_ordinal),
         )
         .returning(card.c.id)
     )
-    return res.scalar()
+    return res.scalar(), public_id
 
 
 async def _link_card_to_root(
@@ -148,22 +158,24 @@ async def _build_tree(
     *,
     user_id: int,
     description: str = "test-tree",
-) -> Dict[str, int]:
+) -> Dict[str, object]:
     """
     Seed a single tree under one game_source row, owned by `user_id`.
 
     `adjacency` maps node_name → parent_name (or None for the root).
     Exactly one node must have parent None — that's the root, which
-    gets linked to a fresh game_source. Returns
-    `{node_name: card_id, "_game_source": game_source_id}` for use
-    in test assertions.
+    gets linked to a fresh game_source. Returns a dict with:
+      - `{node_name: card_id}` for every node (internal ids)
+      - `{node_name}_public_id` → the card's minted `public_id`
+      - `_game_source` → the internal game_source id
+      - `_game_source_ordinal` → the game_source's display_ordinal
     """
     pos_id = await _seed_normalized_position(session, tag=description)
-    gs_id = await _seed_game_source(
+    gs_id, gs_ordinal = await _seed_game_source(
         session, position_id=pos_id, user_id=user_id, description=description
     )
 
-    ids: Dict[str, int] = {}
+    ids: Dict[str, object] = {}
     inserted: set = set()
     remaining = dict(adjacency)
 
@@ -172,8 +184,11 @@ async def _build_tree(
         for name, parent_name in list(remaining.items()):
             if parent_name is not None and parent_name not in inserted:
                 continue
-            cid = await _seed_card(session, position_id=pos_id, user_id=user_id)
+            cid, public_id = await _seed_card(
+                session, position_id=pos_id, user_id=user_id
+            )
             ids[name] = cid
+            ids[f"{name}_public_id"] = public_id
             if parent_name is None:
                 await _link_card_to_root(
                     session, card_id=cid, game_source_id=gs_id
@@ -190,6 +205,7 @@ async def _build_tree(
 
     await session.flush()
     ids["_game_source"] = gs_id
+    ids["_game_source_ordinal"] = gs_ordinal
     return ids
 
 
@@ -230,17 +246,25 @@ async def test_resolve_roots_groups_input_by_root(async_session):
     )
 
     assert len(result.roots) == 2
-    by_root = {g.root_card_id: g for g in result.roots}
+    by_root = {g.root_card_public_id: g for g in result.roots}
 
-    assert tree_a["a_root"] in by_root
-    assert by_root[tree_a["a_root"]].game_source_id == tree_a["_game_source"]
-    assert sorted(by_root[tree_a["a_root"]].card_ids_in_tree) == sorted(
+    assert tree_a["a_root_public_id"] in by_root
+    assert (
+        by_root[tree_a["a_root_public_id"]].game_source_display_ordinal
+        == tree_a["_game_source_ordinal"]
+    )
+    assert sorted(by_root[tree_a["a_root_public_id"]].card_ids_in_tree) == sorted(
         [tree_a["a_leaf"], tree_a["a_mid"]]
     )
 
-    assert tree_b["b_root"] in by_root
-    assert by_root[tree_b["b_root"]].game_source_id == tree_b["_game_source"]
-    assert by_root[tree_b["b_root"]].card_ids_in_tree == [tree_b["b_child"]]
+    assert tree_b["b_root_public_id"] in by_root
+    assert (
+        by_root[tree_b["b_root_public_id"]].game_source_display_ordinal
+        == tree_b["_game_source_ordinal"]
+    )
+    assert by_root[tree_b["b_root_public_id"]].card_ids_in_tree == [
+        tree_b["b_child"]
+    ]
 
     assert result.unmatched_card_ids == []
 
@@ -263,7 +287,7 @@ async def test_resolve_roots_self_root_input_resolves_to_itself(async_session):
     )
 
     assert len(result.roots) == 1
-    assert result.roots[0].root_card_id == tree["root"]
+    assert result.roots[0].root_card_public_id == tree["root_public_id"]
     assert result.roots[0].card_ids_in_tree == [tree["root"]]
     assert result.unmatched_card_ids == []
 
@@ -296,7 +320,7 @@ async def test_resolve_roots_unmatched_for_other_tenants_card(async_session):
     )
 
     assert len(result.roots) == 1
-    assert result.roots[0].root_card_id == alice_tree["root"]
+    assert result.roots[0].root_card_public_id == alice_tree["root_public_id"]
     assert result.unmatched_card_ids == [bob_tree["child"], 999_999]
 
 
@@ -323,7 +347,8 @@ async def test_resolve_roots_empty_input_returns_empty(async_session):
 async def test_fetch_tree_by_root_returns_full_subtree(async_session):
     """
     A 5-node branching tree returned in full as a recursive CardTree
-    structure, with `game_source_id` populated on the wrapper.
+    structure, with `game_source_display_ordinal` populated on the
+    wrapper.
     """
     session = async_session
     await _seed_user(session, user_id=USER_ALICE, username="alice")
@@ -338,10 +363,12 @@ async def test_fetch_tree_by_root_returns_full_subtree(async_session):
     )
 
     repo = LineageRepository(session)
-    rooted = await repo.fetch_tree_by_root(ids["r"], user_id=USER_ALICE)
+    rooted = await repo.fetch_tree_by_root(
+        ids["r_public_id"], user_id=USER_ALICE
+    )
 
-    assert rooted.root_card_id == ids["r"]
-    assert rooted.game_source_id == ids["_game_source"]
+    assert rooted.root_card_public_id == ids["r_public_id"]
+    assert rooted.game_source_display_ordinal == ids["_game_source_ordinal"]
     assert rooted.tree.id == ids["r"]
 
     # Collect every id in the recursive structure.
@@ -385,8 +412,22 @@ async def test_fetch_tree_by_root_404_for_other_tenants_root(async_session):
     repo = LineageRepository(session)
     with pytest.raises(CardNotFoundError):
         await repo.fetch_tree_by_root(
-            bob_tree["root"], user_id=USER_ALICE
+            bob_tree["root_public_id"], user_id=USER_ALICE
         )
+
+
+async def test_fetch_tree_by_root_404_for_unknown_public_id(async_session):
+    """
+    A syntactically-valid `public_id` that matches no card is a
+    CardNotFoundError, not a KeyError/500 — the resolution lookup and
+    the ownership/root checks are one fused query.
+    """
+    session = async_session
+    await _seed_user(session, user_id=USER_ALICE, username="alice")
+
+    repo = LineageRepository(session)
+    with pytest.raises(CardNotFoundError):
+        await repo.fetch_tree_by_root(uuid4(), user_id=USER_ALICE)
 
 
 async def test_fetch_tree_by_root_404_for_non_root_card(async_session):
@@ -406,7 +447,9 @@ async def test_fetch_tree_by_root_404_for_non_root_card(async_session):
 
     repo = LineageRepository(session)
     with pytest.raises(CardNotFoundError):
-        await repo.fetch_tree_by_root(ids["mid"], user_id=USER_ALICE)
+        await repo.fetch_tree_by_root(
+            ids["mid_public_id"], user_id=USER_ALICE
+        )
 
 
 async def test_fetch_tree_by_root_overflow_returns_actual_size(async_session):
@@ -426,7 +469,7 @@ async def test_fetch_tree_by_root_overflow_returns_actual_size(async_session):
     repo = LineageRepository(session)
     with pytest.raises(LineageOverflowError) as exc:
         await repo.fetch_tree_by_root(
-            ids["n0"], user_id=USER_ALICE, max_nodes=4
+            ids["n0_public_id"], user_id=USER_ALICE, max_nodes=4
         )
 
     assert exc.value.actual_size == 10
@@ -448,7 +491,7 @@ async def test_fetch_tree_by_root_at_exactly_max_nodes_succeeds(async_session):
 
     repo = LineageRepository(session)
     rooted = await repo.fetch_tree_by_root(
-        ids["n0"], user_id=USER_ALICE, max_nodes=5
+        ids["n0_public_id"], user_id=USER_ALICE, max_nodes=5
     )
 
     seen: set[int] = set()

@@ -18,10 +18,12 @@ Four public methods match the Port:
   - resolve_roots(card_ids, *, user_id): card-tree endpoint. Walks UP
     from each input id to its game-source root, grouping the input by
     root and surfacing unmatched ids explicitly.
-  - fetch_tree_by_root(root_card_id, *, user_id, max_nodes): card-tree
-    endpoint. Walks DOWN from a verified game-source root, returning
-    a structure-only CardTree, with explicit overflow on
-    `count > max_nodes`.
+  - fetch_tree_by_root(root_card_public_id, *, user_id, max_nodes):
+    card-tree endpoint. Resolves the public_id to its internal card
+    id (browse-leak-fix, ledger rows 417/423 — the root is addressed
+    by its per-user public_id, never the raw PK), then walks DOWN
+    from the verified game-source root, returning a structure-only
+    CardTree, with explicit overflow on `count > max_nodes`.
 
 The first two funnel into a shared private _materialize helper. The
 two card-tree methods do not — their result types are different
@@ -51,12 +53,20 @@ Postgres.
 License: Public Domain (The Unlicense)
 """
 from typing import List, Optional, assert_never
+from uuid import UUID
 
 from sqlalchemy import and_, func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.expression import ColumnElement, CTE, Select
 
-from db.schema import card, card_source, card_tag, normalized_position, tag
+from db.schema import (
+    card,
+    card_source,
+    card_tag,
+    game_source,
+    normalized_position,
+    tag,
+)
 from domain.auth import UserId
 from domain.card import Card
 from domain.errors import (
@@ -216,10 +226,37 @@ class LineageRepository:
             groups[key].append(cid)
             matched.add(cid)
 
+        # Browse-leak-fix (ledger rows 417/423): project the internal
+        # (root_id, gs_id) pairs to their per-user display ids —
+        # card.public_id / game_source.display_ordinal — at the
+        # response edge. Two small batched IN-lookups over the
+        # distinct root/game_source ids in this result (bounded by
+        # the number of distinct forests the input touched, not by
+        # card_ids' length), same shape as _materialize's existing
+        # tag-enrichment batch. No raw PK survives into RootGroup.
+        root_ids = {root_id for (root_id, _) in order_seen}
+        gs_ids = {gs_id for (_, gs_id) in order_seen}
+
+        public_id_by_root: dict[int, UUID] = {}
+        if root_ids:
+            rows2 = (await self.session.execute(
+                select(card.c.id, card.c.public_id)
+                .where(card.c.id.in_(root_ids))
+            )).fetchall()
+            public_id_by_root = {r.id: r.public_id for r in rows2}
+
+        ordinal_by_gs: dict[int, int] = {}
+        if gs_ids:
+            rows3 = (await self.session.execute(
+                select(game_source.c.id, game_source.c.display_ordinal)
+                .where(game_source.c.id.in_(gs_ids))
+            )).fetchall()
+            ordinal_by_gs = {r.id: r.display_ordinal for r in rows3}
+
         roots = [
             RootGroup(
-                root_card_id=root_id,
-                game_source_id=gs_id,
+                root_card_public_id=public_id_by_root[root_id],
+                game_source_display_ordinal=ordinal_by_gs[gs_id],
                 card_ids_in_tree=groups[(root_id, gs_id)],
             )
             for (root_id, gs_id) in order_seen
@@ -230,7 +267,7 @@ class LineageRepository:
 
     async def fetch_tree_by_root(
         self,
-        root_card_id: int,
+        root_card_public_id: UUID,
         *,
         user_id: UserId,
         max_nodes: int = 10000,
@@ -238,8 +275,9 @@ class LineageRepository:
         """
         Walk downward from a verified game-source root, returning a
         `RootedTree` (the recursive `CardTree` plus the per-root
-        context — `root_card_id` and `game_source_id`) restricted to
-        cards owned by `user_id`.
+        context — `root_card_public_id` and
+        `game_source_display_ordinal`) restricted to cards owned by
+        `user_id`.
 
         Card-tree (release-scope item 3): eighth tenant-scoped read
         path.
@@ -274,22 +312,36 @@ class LineageRepository:
              (worst case: a `max_nodes`-long linear tree) doesn't
              exhaust Python's recursion limit.
         """
-        # Step 1: verify the root and capture its game_source_id.
+        # Step 1: resolve root_card_public_id -> the internal card id
+        # (browse-leak-fix: the request identifies the root by its
+        # public_id, never the raw PK) and, in the same query, verify
+        # it's owned by user_id and is genuinely a game-source root,
+        # capturing the game_source's display_ordinal for the wire
+        # response.
         root_check = (
-            select(card_source.c.game_source_id)
-            .select_from(
-                card_source.join(card, card_source.c.card_id == card.c.id)
+            select(
+                card_source.c.card_id,
+                game_source.c.display_ordinal,
             )
-            .where(card_source.c.card_id == root_card_id)
+            .select_from(
+                card_source
+                .join(card, card_source.c.card_id == card.c.id)
+                .join(
+                    game_source,
+                    card_source.c.game_source_id == game_source.c.id,
+                )
+            )
+            .where(card.c.public_id == root_card_public_id)
             .where(card.c.user_id == user_id)
             .where(card_source.c.game_source_id.is_not(None))
         )
         root_row = (await self.session.execute(root_check)).fetchone()
         if root_row is None:
             raise CardNotFoundError(
-                f"root card {root_card_id} not found for this user"
+                f"root card {root_card_public_id} not found for this user"
             )
-        game_source_id = int(root_row.game_source_id)
+        root_card_id = int(root_row.card_id)
+        game_source_display_ordinal = int(root_row.display_ordinal)
 
         # Step 2: build the descent CTE.
         descent = _recursive_descent_cte(
@@ -335,8 +387,8 @@ class LineageRepository:
                     stack.append((child_id, False))
 
         return RootedTree(
-            root_card_id=root_card_id,
-            game_source_id=game_source_id,
+            root_card_public_id=root_card_public_id,
+            game_source_display_ordinal=game_source_display_ordinal,
             tree=built[root_card_id],
         )
 

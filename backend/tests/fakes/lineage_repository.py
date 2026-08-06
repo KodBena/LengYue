@@ -21,7 +21,7 @@ from __future__ import annotations
 import hashlib
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from domain.auth import UserId
 from domain.card import Card
@@ -80,6 +80,15 @@ class FakeLineageRepository:
         # Per-user-id-enumeration design: fake stand-in for the
         # production per-user counter.
         self._next_ordinal: Dict[int, int] = {}
+        # Browse-leak-fix: fake stand-in for game_source.display_
+        # ordinal (per-user, lazily assigned the first time a
+        # game_source_id is seen via seed_card) and a public_id ->
+        # internal card_id reverse index (mirrors the production
+        # `ix_card_public_id` unique index), needed because
+        # fetch_tree_by_root now addresses its root by public_id.
+        self.game_source_ordinal: Dict[int, int] = {}
+        self._next_gs_ordinal: Dict[int, int] = {}
+        self.card_id_by_public_id: Dict[UUID, int] = {}
 
     # ─── Test helpers ──────────────────────────────────────────────────────
 
@@ -147,6 +156,7 @@ class FakeLineageRepository:
             )
         card_id = self._next_card_id
         self._next_card_id += 1
+        public_id = uuid4()
         self.cards[card_id] = Card(
             id=card_id,
             num_moves=num_moves,
@@ -161,14 +171,27 @@ class FakeLineageRepository:
             canonical_content=canonical_content,
             content_hash=hashlib.sha256(canonical_content.encode()).digest(),
             card_source_id=parent_card_id,
-            public_id=uuid4(),
+            public_id=public_id,
             display_ordinal=self._next_ordinal.get(user_id, 0) + 1,
         )
         self._next_ordinal[user_id] = self._next_ordinal.get(user_id, 0) + 1
         self.parent_of[card_id] = parent_card_id
         self.user_id_by_card[card_id] = user_id
+        # Browse-leak-fix: reverse index for fetch_tree_by_root's
+        # public_id -> internal-id resolution.
+        self.card_id_by_public_id[public_id] = card_id
         if game_source_id is not None:
             self.game_source_of_root[card_id] = game_source_id
+            # Browse-leak-fix: lazily mint a per-user display_ordinal
+            # for this game_source the first time it's seen — mirrors
+            # the production per-(user, game_source) ordinal.
+            if game_source_id not in self.game_source_ordinal:
+                self._next_gs_ordinal[user_id] = (
+                    self._next_gs_ordinal.get(user_id, 0) + 1
+                )
+                self.game_source_ordinal[game_source_id] = (
+                    self._next_gs_ordinal[user_id]
+                )
         return card_id
 
     # ─── Internal walks ────────────────────────────────────────────────────
@@ -367,8 +390,8 @@ class FakeLineageRepository:
         return RootResolution(
             roots=[
                 RootGroup(
-                    root_card_id=root_id,
-                    game_source_id=gs_id,
+                    root_card_public_id=self.cards[root_id].public_id,
+                    game_source_display_ordinal=self.game_source_ordinal[gs_id],
                     card_ids_in_tree=groups[(root_id, gs_id)],
                 )
                 for (root_id, gs_id) in order_seen
@@ -378,25 +401,34 @@ class FakeLineageRepository:
 
     async def fetch_tree_by_root(
         self,
-        root_card_id: int,
+        root_card_public_id: UUID,
         *,
         user_id: UserId,
         max_nodes: int = 10000,
     ) -> RootedTree:
+        # Browse-leak-fix: resolve the public_id to the internal card
+        # id first — mirrors the production adapter's fused lookup+
+        # verification query. An unknown public_id is the same
+        # CardNotFoundError as any other failed verification below.
+        root_card_id = self.card_id_by_public_id.get(root_card_public_id)
+        if root_card_id is None:
+            raise CardNotFoundError(
+                f"root card {root_card_public_id} not found for this user"
+            )
         # Root must exist, be owned by the caller, and be a
         # game-source root (parent is None and gs_id is set).
         if self.user_id_by_card.get(root_card_id) != int(user_id):
             raise CardNotFoundError(
-                f"root card {root_card_id} not found for this user"
+                f"root card {root_card_public_id} not found for this user"
             )
         if self.parent_of.get(root_card_id) is not None:
             raise CardNotFoundError(
-                f"root card {root_card_id} is not a game-source root"
+                f"root card {root_card_public_id} is not a game-source root"
             )
         gs_id = self.game_source_of_root.get(root_card_id)
         if gs_id is None:
             raise CardNotFoundError(
-                f"root card {root_card_id} has no game source"
+                f"root card {root_card_public_id} has no game source"
             )
 
         # Descent: collect all owned descendants.
@@ -422,7 +454,7 @@ class FakeLineageRepository:
             )
 
         return RootedTree(
-            root_card_id=root_card_id,
-            game_source_id=gs_id,
+            root_card_public_id=root_card_public_id,
+            game_source_display_ordinal=self.game_source_ordinal[gs_id],
             tree=build_subtree(root_card_id),
         )
