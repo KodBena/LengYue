@@ -41,6 +41,7 @@ import {
 import { waitForAnalysis, AnalysisWaitError } from '../analysis/wait-for-analysis';
 import { blindModePrefs } from './blind-mode-prefs';
 import { KATAGO_ANALYSIS_TIMEOUT_MS } from '../../lib/timing';
+import { lerpVisits, visitsLerpParams } from '../../state/visits-lerp';
 
 // @ts-ignore
 import sgf from '@sabaki/sgf';
@@ -632,7 +633,26 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     // Single source of truth for the visits count — effectiveVisits
     // encapsulates the override-vs-default precedence. See the
     // computed's docstring for the resolution order.
-    const visits = effectiveVisits.value;
+    //
+    // The session-ephemeral a/b LERP override (wiki wanted-feature 3,
+    // ledger rows 503/504) is applied HERE — this is the ONE seam
+    // where a card's specific visit count feeds analysis-query
+    // construction (ADR-0012: one home for the transform, never one
+    // per call site). Rejected alternative sites: inside the
+    // `effectiveVisits` computed above (would also transform the
+    // number `ReviewSessionPanel.vue`'s "Max visits (this card)"
+    // input displays/edits, entangling the session-wide LERP with the
+    // pre-existing per-card sticky override and double-applying on
+    // re-edit); inside `analysisService.analyzeRange`/
+    // `analysis-service.ts` generally (would also transform ponder /
+    // one-shot analyze visit counts, which are not "a card's specific
+    // visit count" — out of this feature's scope). Defaults
+    // (a=1, b=0) make `lerpVisits` byte-identical to `effectiveVisits`
+    // (regression lock; see `state/visits-lerp.ts`'s unit tests).
+    // Seam for the wiki's noted future per-request-overrides feature:
+    // that feature would compose as a further transform stage at this
+    // same call site — no machinery for it is pre-built here.
+    const visits = lerpVisits(effectiveVisits.value, visitsLerpParams.value);
 
     // Root→current (of `nextBoard`, whose cursor is the just-played
     // s_1): the analyzed range ends at s_1 and the engine's move list

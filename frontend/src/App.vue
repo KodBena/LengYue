@@ -68,6 +68,8 @@ import { useReviewSession } from './composables/review/useReviewSession';
 import ColorDebugStrip  from './components/charts/ColorDebugStrip.vue';
 import QeuboBookmarks   from './components/qeubo/QeuboBookmarks.vue';
 import KnobRegistryEditor from './components/KnobRegistryEditor.vue';
+import VisitsLerpConfig from './components/VisitsLerpConfig.vue';
+import PerQueryOverridesConfig from './components/PerQueryOverridesConfig.vue';
 
 useUserIORegistry();
 
@@ -573,6 +575,12 @@ const activeTab = computed<string>({
                   <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.gradientCalibration') }}</h3>
                   <p class="hue-slider-hint">{{ $t('other.label.gradientCalibrationNotice') }}</p>
                   <ColorDebugStrip :steps="500" />
+
+                  <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.visitsLerp') }}</h3>
+                  <VisitsLerpConfig />
+
+                  <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.perQueryOverrides') }}</h3>
+                  <PerQueryOverridesConfig />
 
                   <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.qeuboBookmarks') }}</h3>
                   <QeuboBookmarks />
