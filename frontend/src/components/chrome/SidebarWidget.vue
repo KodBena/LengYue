@@ -38,10 +38,14 @@ const { getSnapshot, getSnapshotSync } = useThumbnailCache();
 // windows the render to the scroll viewport; see the close-at-scale postmortem
 // (§2.2 space, §Finding 2 leak).
 const thumbListRef = ref<HTMLElement | null>(null);
-// Fixed BoardTab height. magic-literal tied to BoardTab.vue's CSS — `.tab-thumb`
-// 32 + `.indicator-row` (12 + 2px margin-top) = 46 (global box-sizing:border-box
-// and the `*` margin reset). Measured at mount to self-correct if that drifts.
-const tabHeight = ref(46);
+// Fixed BoardTab height. magic-literal tied to BoardTab.vue's CSS — `.thumb-
+// container`'s `padding-top: 6px` (added for the tab-close-button clip fix,
+// ui-defects-investigation.md Defect 4) + `.tab-thumb` 32 + `.indicator-row`
+// (12 + 2px margin-top) = 52 (global box-sizing:border-box and the `*` margin
+// reset). Measured at mount to self-correct if that drifts — `offsetHeight`
+// includes padding, so the correction picks up the padding-top automatically
+// without any change to this composable's math.
+const tabHeight = ref(52);
 const { window: tabWindow, topPadPx, bottomPadPx, scrollToIndex } = useVirtualList({
   items: () => store.boards,
   itemHeight: () => tabHeight.value,
