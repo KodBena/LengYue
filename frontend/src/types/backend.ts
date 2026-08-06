@@ -551,6 +551,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/positions/hash-batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hash Position Batch
+         * @description Normalize each of ``raw_contents`` and return their content
+         *     hashes, index-aligned. Card-position-annotations Stage B (§5 of
+         *     the ratified design) — lets the SPA's game-tree viewer hash every
+         *     currently-rendered node in one round trip instead of one
+         *     ``POST /positions/hash`` call per node.
+         *
+         *     Each item is normalized independently via the identical
+         *     ``normalizer.normalize()`` call ``hash_position`` (the single-item
+         *     sibling above) and ``CardService.create_card`` both use — the
+         *     result for ``raw_contents[i]`` here is byte-for-byte the same hash
+         *     a single-item call on that same content would produce.
+         *
+         *     Raises:
+         *         413 (``PositionHashBatchTooLargeError``): ``len(raw_contents)``
+         *         exceeds ``config.POSITIONS_HASH_BATCH_MAX``. Detail body:
+         *         ``{kind: "position_hash_batch_too_large", detail, received,
+         *         maximum}`` — same shape as the library-import batch cap
+         *         (``api/routes/library.py``).
+         *         422 (via InvalidInputError-shaped translation): ANY item in
+         *         ``raw_contents`` fails to normalize — the whole batch fails
+         *         rather than returning a partial/sparse result, so a caller
+         *         never has to reconcile "which index is missing" (ADR-0002:
+         *         an ambiguous partial success is a worse failure mode than a
+         *         loud whole-batch rejection). The error message names the
+         *         first-failing index. Callers that need per-item fault
+         *         isolation submit items individually via the single endpoint.
+         */
+        post: operations["hash_position_batch_positions_hash_batch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/qeubo/experiment": {
         parameters: {
             query?: never;
@@ -1891,6 +1936,47 @@ export interface components {
             count: number;
         };
         /**
+         * PositionHashBatchRequest
+         * @description Request body for ``POST /positions/hash-batch``.
+         *
+         *     Card-position-annotations Stage B (the ratified design's §5 —
+         *     ``.claude/dispatch-reports/card-position-annotations-design.md``):
+         *     the SPA's game-tree viewer needs the ``content_hash`` for every
+         *     currently-rendered node to derive its known-position highlight
+         *     set. Hashing one node per ``POST /positions/hash`` round trip
+         *     produces request bursts on fast tree expansion/scroll; this batch
+         *     variant answers N nodes in one round trip.
+         *
+         *     ``raw_contents[i]`` is independent domain content (same shape as
+         *     ``PositionHashRequest.raw_content`` / ``CardCreate.raw_content``)
+         *     — each item is normalized on its own, not related to its
+         *     neighbours. Order is preserved: ``PositionHashBatchResponse
+         *     .content_hashes[i]`` is the hash of ``raw_contents[i]``.
+         */
+        PositionHashBatchRequest: {
+            /**
+             * Raw Contents
+             * @description Raw domain content for each position to hash, in the order hashes are returned. At least one entry; capped server-side at config.POSITIONS_HASH_BATCH_MAX (413 above the cap, not a 422 — see the route's docstring).
+             */
+            raw_contents: string[];
+        };
+        /**
+         * PositionHashBatchResponse
+         * @description Response body for ``POST /positions/hash-batch``.
+         *
+         *     ``content_hashes[i]`` is the lowercase-hex SHA-256 digest of
+         *     ``PositionHashBatchRequest.raw_contents[i]`` — same representation
+         *     and equality contract as ``PositionHashResponse.content_hash``,
+         *     index-aligned with the request.
+         */
+        PositionHashBatchResponse: {
+            /**
+             * Content Hashes
+             * @description Lowercase-hex SHA-256 digests, index-aligned with the request's raw_contents.
+             */
+            content_hashes: string[];
+        };
+        /**
          * PositionHashRequest
          * @description Request body for ``POST /positions/hash``.
          *
@@ -2951,6 +3037,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PositionHashResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hash_position_batch_positions_hash_batch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PositionHashBatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PositionHashBatchResponse"];
                 };
             };
             /** @description Validation Error */

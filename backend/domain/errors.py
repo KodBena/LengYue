@@ -16,6 +16,7 @@ Three-axis structure:
     ├── ResourceLimitError         "the request would exceed a resource limit"
     │   ├── BundleTooLargeError
     │   ├── BatchTooLargeError
+    │   ├── PositionHashBatchTooLargeError
     │   └── UserQuotaExceededError
     └── UnknownSchemeError         "a stored row carries an unrecognised codec scheme"
 
@@ -183,6 +184,35 @@ class BatchTooLargeError(ResourceLimitError):
         self.maximum = maximum
         super().__init__(
             f"import batch exceeds per-request cap "
+            f"(received={received}, maximum={maximum})"
+        )
+
+
+class PositionHashBatchTooLargeError(ResourceLimitError):
+    """A `POST /positions/hash-batch` request exceeds the configured
+    per-request cap.
+
+    Raised by the route handler when
+    `len(raw_contents) > config.POSITIONS_HASH_BATCH_MAX`. Card-
+    position-annotations Stage B (`.claude/dispatch-reports/
+    card-position-annotations-design.md` §5) — the batch endpoint that
+    lets the SPA hash every currently-rendered tree node in one round
+    trip; the cap bounds worst-case per-request parse/normalize cost
+    the same way `BatchTooLargeError` bounds library-import batches.
+    The route projects this to 413 with body
+    `{kind: "position_hash_batch_too_large", detail, received, maximum}`.
+
+    Unlike `BatchTooLargeError` (library import, which persists rows),
+    this endpoint is stateless — a caller with a larger tree simply
+    issues more than one batch call; there is no retry-idempotency
+    concern to document.
+    """
+
+    def __init__(self, *, received: int, maximum: int):
+        self.received = received
+        self.maximum = maximum
+        super().__init__(
+            f"position hash batch exceeds per-request cap "
             f"(received={received}, maximum={maximum})"
         )
 

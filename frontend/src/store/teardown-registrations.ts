@@ -55,7 +55,7 @@ import '../state/stability-trajectory-store';
 
 // Order-independent owners (DEFAULT band): persisted bundles, review-wait
 // aborts, thumbnail caches, card-thumbnail cache, card-tree slots,
-// fork-toggle history.
+// fork-toggle history, node-position-hash cache + its fill orchestration.
 import '../services/analysis-persistence-service';
 import '../composables/review/useReviewSession';
 import '../composables/cards/thumbnail-render-resources';
@@ -63,3 +63,12 @@ import '../composables/cards/useCardThumbnail';
 import '../composables/cards/board-card-trees';
 import '../composables/useNavigation';
 import '../state/known-positions';
+import '../state/node-position-hashes';
+// Fill-orchestration state (perBoard debounce timers) for the cache above —
+// a SEPARATE board-keyed store from `node-position-hashes.ts`'s own cache,
+// with its own board-close registration (re-review REJECT, eviction gap:
+// `useNodePositionHashes.ts`'s file header, "perBoard eviction"). Not
+// transitively pulled in by the state-module import above (the composable
+// imports the state module, not the reverse), so it needs its own explicit
+// import here or its handler would never register.
+import '../composables/cards/useNodePositionHashes';

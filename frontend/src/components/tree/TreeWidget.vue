@@ -18,6 +18,7 @@ import { useViewportFollow } from '../../composables/useViewportFollow';
 import { useNavigation }    from '../../composables/useNavigation';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
 import { warmSnapshotAccessor } from '../../composables/cards/usePreviewSnapshot';
+import { useNodePositionHashes } from '../../composables/cards/useNodePositionHashes';
 import { isReviewStartNode } from '../../composables/forest/tree-review-marker';
 import { themeColor }        from '../../utils/theme-color';
 import FloatingThumbnail    from '../chrome/FloatingThumbnail.vue';
@@ -61,6 +62,13 @@ const props = withDefaults(
     // `board.games[*].currentHeadNodeId` upstream; per-session
     // config is opaque here — the tree only needs identity.
     gameHeadIds?: ReadonlySet<NodeId>;
+    // card-position-annotations Stage B: NodeIds whose normalized
+    // position already exists as one of the caller's cards.
+    // Precomputed at the composition layer (App.vue's
+    // `useKnownPositionNodes`, mirroring `gameHeadIds`'s own
+    // `usePlayVsEngine` precedent) — TreeWidget only renders the
+    // membership test, never fetches or derives it itself.
+    knownPositionNodeIds?: ReadonlySet<NodeId>;
     // The active review session's starting node — "where a card
     // starts" (wanted-feature 4 / ledger row 524's re-adjudicated
     // build). At most one per board (a board has at most one active
@@ -106,6 +114,7 @@ const viewportFollow = useViewportFollow(outerRef);
 
 const expansion = useTreeExpansion();
 const { variationMarkerLabels } = useThumbnailCache();
+const { requestHashFill } = useNodePositionHashes();
 
 const nodesRef  = toRef(props, 'nodes');
 const { layout } = useTreeLayout(nodesRef, undefined, expansion);
@@ -287,6 +296,7 @@ const nodeList = computed(() => {
     move: GameNode['move']; isBranching: boolean; isExpanded: boolean;
     parentIdForToggle: NodeId | '';
     isGameHead: boolean;
+    isKnownPosition: boolean;
     isReviewStart: boolean;
   }> = [];
 
@@ -318,11 +328,32 @@ const nodeList = computed(() => {
       isExpanded: isParentExpanded,
       parentIdForToggle, // Pass to template
       isGameHead: !!props.gameHeadIds?.has(id),
+      isKnownPosition: !!props.knownPositionNodeIds?.has(id),
       isReviewStart: isReviewStartNode(id, props.reviewStartNodeId),
     });
   });
   return items;
 });
+
+// card-position-annotations Stage B: viewport-driven hash-fill trigger.
+// Reads only `nodeList`'s id set (already bounded to laid-out/expanded
+// nodes — collapsed variations never appear there) and the board state
+// needed to serialize each node's root->node path. This is a `watch`
+// side effect, not a template read, so it does not add to TreeWidget's
+// render cost (ADR-0010) — it fires once per genuine nodeList change
+// (tree structure / expansion change), not per render, and
+// `useNodePositionHashes` itself dedupes against already-cached and
+// already-pending NodeIds so a nav-only nodeList re-identity (same ids,
+// new array) is a cheap no-op past the first pass.
+watch(nodeList, (items) => {
+  const board = boardsById.value[props.boardId];
+  if (!board || items.length === 0) return;
+  requestHashFill(items.map(item => item.id), board);
+}, { immediate: true }); // immediate: the FIRST computed nodeList (e.g. a
+// fresh board's lone root node) is not itself a "change" a bare watch()
+// fires on — without immediate, the root node's hash is never requested
+// until the tree structure changes again (found via the Stage B live
+// witness: the marker never appeared on a fresh board's root).
 
 const edges = computed(() => {
   const result: Array<{ d: string; id: string }> = [];
@@ -381,8 +412,33 @@ const edges = computed(() => {
         <g
           v-for="item in nodeList"
           :key="item.id"
-          v-memo="[item.isGameHead, item.isReviewStart, item.move?.color, item.isBranching, item.isExpanded, item.px, item.py]"
+          v-memo="[item.isGameHead, item.isKnownPosition, item.isReviewStart, item.move?.color, item.isBranching, item.isExpanded, item.px, item.py]"
         >
+          <!-- Known-position marker (card-position-annotations Stage B).
+               RADIUS NOTE (review REJECT finding 2,
+               `.claude/dispatch-reports/card-position-highlight-stageB-review.md`):
+               this branch was cut before `review-start-ring` (below)
+               landed in `next`; both were independently authored at
+               NODE_R+7 in `--accent-secondary`, which at merge fully
+               occluded the dashed ring under the solid one on any node
+               that is BOTH a review session's start AND an
+               already-owned card position (an ordinary overlap, not an
+               edge case). Resolved at compose time by moving this ring
+               one radius further OUT — NODE_R + 9, one past
+               review-start-ring — so the two-ring stack (concentric:
+               active +3, game-head +5, review-start +7, known-position
+               +9) is visually distinct even when every marker on a node
+               is lit at once. Still a DASHED ring, not a fill-color
+               change (fill color is already spoken for by nodeFill's
+               B/W stone colors) and not solid (which would read as a
+               fourth instance of the same ring idiom rather than a
+               distinguishable "you already have a card here" marker),
+               per ADR-0019/C18 no-color-only. Membership comes from
+               `knownPositionNodeIds` (App.vue's `useKnownPositionNodes`,
+               cache ∩ known-positions — see that composable's header),
+               not a per-render read: the prop is a precomputed Set, and
+               this v-memo key is what gates the actual DOM patch. -->
+          <circle v-if="item.isKnownPosition" :cx="item.px" :cy="item.py" :r="NODE_R + 9" class="known-position-ring" stroke-width="1.5" stroke-dasharray="2,1.5" />
           <!-- Game-head marker — outermost ring (NODE_R + 5) so it stays
                visible when the active-ring (NODE_R + 3) also applies on the
                current node. Green = "play vs engine session's head — engine
@@ -402,7 +458,9 @@ const edges = computed(() => {
                color. Sourced from `reviewStartNodeId` (zero I/O — see
                the prop's doc comment above); appears/disappears with
                the review session the same way `isGameHead` already does
-               with `board.games`. -->
+               with `board.games`. See known-position-ring's comment
+               above for the NODE_R+7 collision this ring's radius was
+               already occupying and how it was resolved at merge. -->
           <circle v-if="item.isReviewStart" :cx="item.px" :cy="item.py" :r="NODE_R + 7" class="review-start-ring" stroke-width="1.5" />
           <circle :cx="item.px" :cy="item.py" :r="NODE_R" :fill="nodeFill(item)" :stroke="nodeStroke(item)" stroke-width="1" class="node-circle" @click="emit('select-node', item.id)" />
 
@@ -429,6 +487,7 @@ const edges = computed(() => {
 .tree-edges { fill: none; stroke: var(--border-3); }
 .active-ring { fill: color-mix(in srgb, var(--accent-primary) 15%, transparent); stroke: var(--accent-primary); }
 .game-head-ring { fill: color-mix(in srgb, var(--state-success) 15%, transparent); stroke: var(--state-success); }
+.known-position-ring { fill: none; stroke: var(--accent-secondary); }
 .review-start-ring { fill: color-mix(in srgb, var(--accent-secondary) 15%, transparent); stroke: var(--accent-secondary); }
 .node-circle { cursor: pointer; transition: filter var(--duration-default); }
 .node-circle:hover { filter: brightness(1.4) drop-shadow(0 0 3px var(--accent-primary)); }

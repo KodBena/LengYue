@@ -43,6 +43,10 @@ export const fakeBackendService = {
   // (`POST /positions/hash`) — exercised by useMinting/useKnownPositions'
   // mint-time duplicate check.
   hashPosition: vi.fn<(rawContent: string) => Promise<ContentHash>>(),
+  // card-position-annotations Stage B: the batched hash lookup
+  // (`POST /positions/hash-batch`) — exercised by
+  // useNodePositionHashes' viewport-driven tree-node cache fill.
+  hashPositionsBatch: vi.fn<(rawContents: string[]) => Promise<ContentHash[]>>(),
 };
 
 export function resetFakeBackendService(): void {
@@ -50,4 +54,5 @@ export function resetFakeBackendService(): void {
   fakeBackendService.createCard.mockReset();
   fakeBackendService.updateCardMetadata.mockReset();
   fakeBackendService.hashPosition.mockReset();
+  fakeBackendService.hashPositionsBatch.mockReset();
 }
