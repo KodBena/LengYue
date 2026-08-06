@@ -686,6 +686,10 @@ export const defaultSessionUI: UISession = {
   // editing.
   cardsContextIds: [3],
   qeuboToolbarView: 'applied',
+  // Delta-analysis panel's view cycle. 'shared' preserves the
+  // pre-feature, only-ever-existed view — see the field's doc comment
+  // in schema.ts. Schema-version 64 introduces the field.
+  deltaViewMode: 'shared',
   // Board-variations overlay rendering posture. Default 'circles' is
   // the common GUI default per the user's framing (Lizzie / Sabaki /
   // KaTrain idiom): variations as stroke-only colored rings (so they
