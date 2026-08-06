@@ -25,6 +25,7 @@ import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { store } from '../../store';
 import { useModalKeyboard } from '../../composables/useModalKeyboard';
+import MatchPlayerOverridesConfig from '../MatchPlayerOverridesConfig.vue';
 
 const { t } = useI18n();
 
@@ -161,6 +162,14 @@ const canSubmit = computed(() => {
         </div>
 
         <p class="hint">{{ t('match.hint.stopAnytime') }}</p>
+
+        <div class="overrides-section">
+          <h3 class="section-title">{{ t('match.section.overrides') }}</h3>
+          <div class="overrides-grid">
+            <MatchPlayerOverridesConfig player="B" />
+            <MatchPlayerOverridesConfig player="W" />
+          </div>
+        </div>
       </div>
 
       <div class="modal-footer">
@@ -230,6 +239,10 @@ const canSubmit = computed(() => {
 
 .hint { font-size: var(--text-body); color: var(--text-2); margin: var(--space-tight) 0 0 0; }
 .modal-body .hint:first-child { margin-bottom: var(--space-medium); margin-top: 0; }
+
+.overrides-section { margin-top: var(--space-medium); padding-top: var(--space-medium); border-top: 1px solid var(--surface-3); }
+.section-title { margin: 0 0 var(--space-default) 0; font-size: var(--text-emphasis); color: var(--text-2); text-transform: uppercase; letter-spacing: var(--tracking-tight); }
+.overrides-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-medium); }
 
 .modal-footer {
   display: flex; justify-content: flex-end; gap: var(--space-medium);
