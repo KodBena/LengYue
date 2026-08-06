@@ -70,6 +70,7 @@ export const ACTIONS = {
   displayToggleOwnershipDots:       asActionId('display.toggleOwnershipDots'),
   displayToggleOwnershipLiveness:   asActionId('display.toggleOwnershipLiveness'),
   reviewNextCard:                   asActionId('review.nextCard'),
+  reviewPrevCard:                   asActionId('review.prevCard'),
   cardMint:                         asActionId('card.mint'),
 } as const satisfies Record<string, KeybindingActionId>;
 
@@ -134,6 +135,15 @@ const reviewSession = useReviewSession(activeBoardId);
 // closes over that instance.
 export const reviewSessionHasCurrentCard: KeybindingEnabledPredicate = () =>
   reviewSession.currentCard.value !== null;
+
+// Gate for `review.prevCard`: mirrors the panel's own Back button
+// `:disabled` binding (`ReviewSessionPanel.vue`) — `canGoBack` is
+// `currentIndex > 0`, already false whenever the panel isn't mounted
+// (no session ⇒ `currentIndex` stays at its reset default), so this
+// alone is sufficient without also conjoining
+// `reviewSessionHasCurrentCard`.
+export const reviewSessionCanGoBack: KeybindingEnabledPredicate = () =>
+  reviewSession.canGoBack.value;
 
 // ── Registry ─────────────────────────────────────────────────
 
@@ -349,6 +359,29 @@ export const KEYBINDINGS_REGISTRY: ReadonlyArray<KeybindingActionDecl> = [
     dispatchMode: 'immediate',
     enabledWhen: reviewSessionHasCurrentCard,
     handler: reviewSession.nextCard,
+  },
+  {
+    // "Previous card" — `.`'s sibling, per the deck-repeat design doc
+    // §5 (the hotkey was deliberately deferred from the original
+    // build to the hotkeys-batch work item; landing it here since the
+    // programmatic `goBack`/`canGoBack` interface it depends on is
+    // now shipped). Same guarded step `ReviewSessionPanel.vue`'s Back
+    // button dispatches (`reviewSession.goBack`) — restores a
+    // previously-visited slot's retained snapshot rather than
+    // re-parsing (see `useReviewSession.ts`'s `captureSlot`/
+    // `restoreSlot`). `enabledWhen` reproduces the button's own
+    // `:disabled="!canGoBack"` gate so the keybinding is reachable
+    // exactly when the button isn't disabled. `,` — the ASCII/US-
+    // keyboard neighbour of `.`, unused in the existing catalog,
+    // passes C15 (not in `RESERVED_KEYS`,
+    // `lib/keybindings-capture.ts`).
+    id: ACTIONS.reviewPrevCard,
+    labelKey: 'keybindings.action.reviewPrevCard.label',
+    descriptionKey: 'keybindings.action.reviewPrevCard.description',
+    defaultKey: ',',
+    dispatchMode: 'immediate',
+    enabledWhen: reviewSessionCanGoBack,
+    handler: reviewSession.goBack,
   },
   // ── Card (immediate) ───────────────────────────────────────
   {

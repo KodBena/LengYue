@@ -24,6 +24,7 @@ import {
   engineConnected,
   engineSelectorMode,
   reviewSessionHasCurrentCard,
+  reviewSessionCanGoBack,
 } from '../../../src/composables/keybindings-catalog';
 import { validateKeybindingsRegistry } from '../../../src/lib/keybindings';
 import { resetWorkspace, store, addBoard, mutateReviewSession } from '../../../src/store';
@@ -142,14 +143,37 @@ describe('enabledWhen predicates', () => {
     });
     expect(reviewSessionHasCurrentCard()).toBe(false);
   });
+
+  // Deck-repeat: `review.prevCard`'s gate. Mirrors
+  // `ReviewSessionPanel.vue`'s Back button `:disabled="!canGoBack"`
+  // binding (`useReviewSession.ts`'s `canGoBack = currentIndex > 0`).
+  it("'reviewSessionCanGoBack' is false at the first queue slot", () => {
+    const boardId = store.boards[store.activeBoardIndex].id;
+    mutateReviewSession(boardId, (draft) => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [makeStubCard(), makeStubCard()];
+      draft.currentIndex = 0;
+    });
+    expect(reviewSessionCanGoBack()).toBe(false);
+  });
+
+  it("'reviewSessionCanGoBack' is true once past the first queue slot", () => {
+    const boardId = store.boards[store.activeBoardIndex].id;
+    mutateReviewSession(boardId, (draft) => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [makeStubCard(), makeStubCard()];
+      draft.currentIndex = 1;
+    });
+    expect(reviewSessionCanGoBack()).toBe(true);
+  });
 });
 
 // ── KEYBINDINGS_REGISTRY ship-time smoke ───────────────────
 
 describe('KEYBINDINGS_REGISTRY (ship-time smoke)', () => {
-  it('contains the 17 actions ACTIONS catalog declares', () => {
+  it('contains the 18 actions ACTIONS catalog declares', () => {
     expect(KEYBINDINGS_REGISTRY.length).toBe(Object.keys(ACTIONS).length);
-    expect(KEYBINDINGS_REGISTRY.length).toBe(17);
+    expect(KEYBINDINGS_REGISTRY.length).toBe(18);
   });
 
   it('every action id is unique', () => {
@@ -189,6 +213,7 @@ describe('KEYBINDINGS_REGISTRY (ship-time smoke)', () => {
       'nav.variationNext',
       'nav.variationPrev',
       'review.nextCard',
+      'review.prevCard',
     ]);
   });
 
@@ -245,5 +270,25 @@ describe('KEYBINDINGS_REGISTRY (ship-time smoke)', () => {
     const before = mintDialogRequestCount.value;
     action!.handler();
     expect(mintDialogRequestCount.value).toBe(before + 1);
+  });
+
+  // Deck-repeat: `review.prevCard`'s handler is the literal
+  // `reviewSession.goBack` reference (same "the button and the
+  // hotkey call the same function" idiom as `review.nextCard` /
+  // `reviewSession.nextCard` above it) — wiring smoke, not a
+  // re-test of `goBack`'s own snapshot-restore behaviour (covered
+  // in `useReviewSession-deck-repeat.test.ts`).
+  it("'review.prevCard' handler steps currentIndex back via reviewSession.goBack", () => {
+    resetWorkspace();
+    const boardId = store.boards[store.activeBoardIndex].id;
+    mutateReviewSession(boardId, (draft) => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [makeStubCard(), makeStubCard()];
+      draft.currentIndex = 1;
+    });
+    const action = KEYBINDINGS_REGISTRY.find((a) => a.id === ACTIONS.reviewPrevCard);
+    expect(action).toBeDefined();
+    action!.handler();
+    expect(store.session.reviews[boardId].currentIndex).toBe(0);
   });
 });
