@@ -56,6 +56,7 @@ describe('teardown registry — production completeness (the real load-guarantee
       'review:abort',
       'thumbnails:purge-board',
       'board-card-trees:remove',
+      'nav:clear-toggle-memory',
     ]);
   });
 
@@ -74,6 +75,7 @@ describe('teardown registry — production completeness (the real load-guarantee
       'board-thumbnails',
       'card-thumbnails',
       'board-card-trees',
+      'nav:clear-toggle-memory-all',
     ]);
   });
 
