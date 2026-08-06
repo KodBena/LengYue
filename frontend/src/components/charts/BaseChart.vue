@@ -512,7 +512,13 @@ const debouncedUpdateMarker = () => {
 };
 
 let resizeObserver: ResizeObserver | null = null;
-
+// Init-retry timer: captured so onUnmounted can release it. Failure mode if
+// uncleared — a chart unmounted while a retry is pending (TabWidget lazy
+// unmount, App.vue's `:key`-driven board remount) leaves a closure that
+// reschedules itself forever against a dead `chartRef`/`chartInstance`,
+// never satisfying `chartRef.value` and never calling `echarts.init` for
+// that mount (mirrors HeatmapChart's `initTimeout`, HeatmapChart.vue:39).
+let initTimeout: number | null = null;
 
 const initChart = async () => {
   await nextTick();
@@ -520,7 +526,7 @@ const initChart = async () => {
     // Re-init delay — gives the ECharts container time to acquire
     // layout. The shared chart init-retry constant from the timing
     // catalog (`lib/timing`), also used by HeatmapChart.
-    setTimeout(initChart, CHART_INIT_RETRY_MS);
+    initTimeout = window.setTimeout(initChart, CHART_INIT_RETRY_MS);
     return;
   }
 
@@ -606,6 +612,11 @@ onUnmounted(() => {
   // Release the data-redraw throttle timer too, so a pending setOption
   // can't fire into a disposed chartInstance.
   dataThrottle.cancel();
+  // Release the init-retry timer: without this, a chart unmounted while a
+  // retry is pending leaks a closure that reschedules itself forever
+  // against a dead chartRef/chartInstance (see the declaration comment
+  // above). Mirrors HeatmapChart.vue's `initTimeout` cleanup.
+  if (initTimeout) clearTimeout(initTimeout);
   if (resizeObserver && chartRef.value) {
     resizeObserver.unobserve(chartRef.value);
     resizeObserver.disconnect();
