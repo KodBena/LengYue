@@ -87,6 +87,52 @@
  * body) additionally discards an in-flight fetch's result if the board
  * closed while the fetch was outstanding — a `clearTimeout` alone
  * cannot reach a fetch already past the `await`.
+ *
+ * ── Chunked flush (ledger row 637) ────────────────────────────────────────
+ * A single board's pending set can exceed the backend's per-request cap
+ * (`config.POSITIONS_HASH_BATCH_MAX`, `backend/core/config.py:211` — 200
+ * as of this writing): selecting a card loads a full game tree, and
+ * `TreeWidget`'s viewport-bounded `nodeList` (see "Viewport-driven, not
+ * eager whole-tree" above) can still exceed 200 nodes for a tall or wide
+ * expanded region. Before this fix, `flush` sent every pending id in ONE
+ * `hashPositionsBatch` call; over the cap, the backend 413s
+ * (`backend/api/routes/positions.py:121`) and the WHOLE fill failed —
+ * including the ids that were comfortably under the cap.
+ *
+ * `HASH_BATCH_MAX_ITEMS` mirrors `config.POSITIONS_HASH_BATCH_MAX`
+ * (backend/core/config.py:211) — the two constants are NOT wired
+ * together (no shared source across the frontend/backend boundary), so
+ * a drift between them silently reopens the 413: raising the backend
+ * cap without raising this one only wastes round trips (chunks stay
+ * smaller than necessary, still correct); LOWERING the backend cap
+ * without lowering this one reintroduces the exact bug this fix repairs
+ * (a chunk sized to the old, larger cap 413s again). Keep them in sync
+ * by hand when either changes.
+ *
+ * `flush` partitions `ids` into chunks of at most `HASH_BATCH_MAX_ITEMS`
+ * and awaits each chunk's `hashPositionsBatch` call SEQUENTIALLY, not in
+ * parallel — the 150ms debounce above already coalesces same-window
+ * requests into one flush; firing every chunk of that flush concurrently
+ * would still hammer the backend with N/200 simultaneous requests for a
+ * single huge fill. Each chunk's results are cached as soon as that
+ * chunk lands, so a failure partway through (see "Chunked partial-
+ * failure semantics" below) never discards a chunk that already
+ * succeeded.
+ *
+ * ── Chunked partial-failure semantics (ADR-0002) ───────────────────────────
+ * A chunk that succeeds before a later chunk fails keeps its cached
+ * results — they are correct, and discarding them on a later chunk's
+ * failure would be dishonest in the other direction (silently throwing
+ * away known-good data). The failure notice still fires at most once per
+ * episode (the existing per-board throttle, unchanged): the first
+ * failing chunk in a flush trips it, and the loop then stops issuing
+ * further chunks for that flush — a flush that hit a down backend does
+ * not try three more chunks against the same down backend. The
+ * remaining un-cached ids (the failed chunk's own ids, plus every chunk
+ * after it that was never sent) go back into `s.pending`, so the NEXT
+ * `requestHashFill` naturally re-requests exactly the gap: already-
+ * cached ids are filtered by `hasCachedNodeHash`, so a retry never
+ * re-covers ground the earlier chunks already won.
  */
 
 import { backendService } from '../../services/backend-service';
@@ -98,6 +144,12 @@ import type { BoardId, BoardState, NodeId } from '../../types';
 import { i18n } from '../../i18n';
 
 const DEBOUNCE_MS = 150; // ledger assumption row 535
+
+// Mirrors backend `config.POSITIONS_HASH_BATCH_MAX`
+// (backend/core/config.py:211). See the file header's "Chunked flush"
+// note for what drifting the two apart breaks (a 413 -> degraded
+// highlight fill, never data corruption).
+const HASH_BATCH_MAX_ITEMS = 200;
 
 interface PerBoardFillState {
   pending: Set<NodeId>;
@@ -147,6 +199,17 @@ function requestHashFill(nodeIds: readonly NodeId[], state: BoardState): void {
   s.timer = setTimeout(() => { void flush(state); }, DEBOUNCE_MS);
 }
 
+// Splits `ids` into consecutive chunks of at most `HASH_BATCH_MAX_ITEMS`
+// each — pure partitioning, no I/O. `ids.length === 0` yields `[]`, not
+// `[[]]` (callers never see a spurious empty chunk).
+function partitionIntoChunks(ids: readonly NodeId[]): NodeId[][] {
+  const chunks: NodeId[][] = [];
+  for (let i = 0; i < ids.length; i += HASH_BATCH_MAX_ITEMS) {
+    chunks.push(ids.slice(i, i + HASH_BATCH_MAX_ITEMS));
+  }
+  return chunks;
+}
+
 async function flush(state: BoardState): Promise<void> {
   const s = stateFor(state.id);
   s.timer = null;
@@ -154,38 +217,77 @@ async function flush(state: BoardState): Promise<void> {
   s.pending.clear();
   if (ids.length === 0) return;
 
-  try {
-    // Serialization can itself throw (getPath's fail-loud posture on a
-    // NodeId no longer present in `state.nodes`) — inside the try so a
-    // stale-NodeId race is treated as the same failure-honesty case as
-    // a network error, not an unhandled rejection. Per-board scoping
-    // (above) means `state` here is always the SAME board every id in
-    // `ids` was requested against, so this should not throw in
-    // practice — the try/catch is defense-in-depth, not a known gap.
-    const rawContents = ids.map(id => serializeActivePath(state, id));
-    const hashes = await backendService.hashPositionsBatch(rawContents);
-
-    // Board-close guard (re-review, eviction gap): `closeBoard` may have
-    // run WHILE this fetch was in flight — a `clearTimeout` can't reach
-    // a fetch already past its `await`. The board-close handler below
-    // deletes `state.id`'s `perBoard` entry synchronously on close, so
-    // its absence here means the board closed under us; discard the
-    // result rather than writing a resurrected entry into the (already
-    // purged) `node-position-hashes.ts` cache for a closed board.
+  // Chunked flush (ledger row 637 — see file header): the backend caps
+  // a single hash-batch request at HASH_BATCH_MAX_ITEMS. Chunks are
+  // awaited SEQUENTIALLY (never Promise.all — the debounce above already
+  // coalesces a burst into one flush; firing every chunk concurrently
+  // would still hammer the backend for one huge fill). A chunk's results
+  // are cached immediately on landing, so a later chunk's failure never
+  // touches an earlier chunk's already-cached, correct results.
+  const chunks = partitionIntoChunks(ids);
+  for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+    // Per-chunk board-close guard: a board close can land between any
+    // two chunks (or during one's in-flight fetch), not just once per
+    // flush. Checking before EVERY chunk — not just once up front —
+    // stops issuing further requests for a closed board and discards
+    // whatever chunk was about to run, matching the single-request
+    // guard's discipline (re-review, eviction gap) at chunk granularity.
     if (!perBoard.has(state.id)) return;
 
-    ids.forEach((id, i) => cacheNodeHash(id, hashes[i]));
-    s.notifiedThisEpisode = false; // recovered — a future failure notifies again
-  } catch {
-    // Same board-close guard as the success path: don't surface a
-    // failure notice for a board the user already closed.
-    if (!perBoard.has(state.id)) return;
-    // ADR-0002 failure-honesty: nothing is cached (ABSENT highlight,
-    // never a partial/stale one). One notice per failure episode,
-    // per board.
-    if (!s.notifiedThisEpisode) {
-      s.notifiedThisEpisode = true;
-      pushSystemMessage('warning', i18n.global.t('cards.knownPositionHashFillFailed'));
+    const chunk = chunks[chunkIndex];
+    try {
+      // Serialization can itself throw (getPath's fail-loud posture on a
+      // NodeId no longer present in `state.nodes`) — inside the try so a
+      // stale-NodeId race is treated as the same failure-honesty case as
+      // a network error, not an unhandled rejection. Per-board scoping
+      // (above) means `state` here is always the SAME board every id in
+      // `ids` was requested against, so this should not throw in
+      // practice — the try/catch is defense-in-depth, not a known gap.
+      const rawContents = chunk.map(id => serializeActivePath(state, id));
+      const hashes = await backendService.hashPositionsBatch(rawContents);
+
+      // Board-close guard (re-review, eviction gap): `closeBoard` may
+      // have run WHILE this fetch was in flight — a `clearTimeout` can't
+      // reach a fetch already past its `await`. The board-close handler
+      // below deletes `state.id`'s `perBoard` entry synchronously on
+      // close, so its absence here means the board closed under us;
+      // discard this chunk's result (and stop, via the loop-top check
+      // above) rather than writing a resurrected entry into the
+      // (already purged) `node-position-hashes.ts` cache for a closed
+      // board.
+      if (!perBoard.has(state.id)) return;
+
+      chunk.forEach((id, i) => cacheNodeHash(id, hashes[i]));
+      s.notifiedThisEpisode = false; // recovered — a future failure notifies again
+    } catch {
+      // Same board-close guard as the success path: don't surface a
+      // failure notice for a board the user already closed.
+      if (!perBoard.has(state.id)) return;
+
+      // Partial-failure semantics (ADR-0002, ledger row 637): every
+      // chunk before this one already landed and stays cached. THIS
+      // chunk's ids, and every chunk after it that was never sent, are
+      // deliberately NOT re-added to `s.pending` here — `s.pending` was
+      // already drained (and its timer cleared) at the top of `flush`,
+      // and re-adding them without also re-arming a timer would leave
+      // them stuck (`requestHashFill`'s own dedup treats "already in
+      // pending" as "already scheduled" and skips re-arming). Instead,
+      // the un-cached ids simply stay un-cached: the NEXT
+      // `requestHashFill` call for these ids — `TreeWidget`'s `watch`
+      // fires on every `nodeList` recompute, so this happens naturally —
+      // sees `hasCachedNodeHash` return false for them, re-adds them to
+      // a fresh `pending`, and arms a fresh timer. That retry request
+      // only re-covers the gap: ids the earlier chunks already cached
+      // are filtered out by that same `hasCachedNodeHash` check.
+      // ADR-0002 failure-honesty: nothing from this chunk (or any
+      // un-sent chunk after it) is cached — ABSENT highlight, never a
+      // partial/stale one. One notice per failure episode, per board;
+      // the loop then stops issuing further chunks for this flush.
+      if (!s.notifiedThisEpisode) {
+        s.notifiedThisEpisode = true;
+        pushSystemMessage('warning', i18n.global.t('cards.knownPositionHashFillFailed'));
+      }
+      return;
     }
   }
 }

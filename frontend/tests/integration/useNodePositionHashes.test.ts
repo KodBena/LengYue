@@ -40,6 +40,17 @@
  *     `node-position-hashes.ts` cache entry when its orphaned timer (or
  *     an in-flight fetch already past its `await`) later resolves.
  *     Ported from the re-reviewer's own fake-timer probe.
+ *   - CHUNKED FLUSH (ledger row 637, `.claude/dispatch-reports/hash-
+ *     batch-chunking-fix.md`): a pending set over `HASH_BATCH_MAX_ITEMS`
+ *     (200, mirroring backend `config.POSITIONS_HASH_BATCH_MAX`) is
+ *     split into `ceil(N/200)` sequential `hashPositionsBatch` calls,
+ *     each correctly partitioned. A chunk that fails leaves every
+ *     EARLIER chunk's results cached (they're correct), fires the
+ *     existing once-per-episode notice, and stops the loop; a later
+ *     fill naturally retries only the still-uncached gap. A board close
+ *     mid-sequence stops the loop (no further chunks issued) and
+ *     discards results the same way the single-request eviction guard
+ *     already did.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -59,10 +70,39 @@ import {
   cacheNodeHash,
 } from '../../src/state/node-position-hashes';
 import { store, closeBoard, addBoard } from '../../src/store';
-import { createInitialBoard } from '../../src/store/board-factory';
-import type { ContentHash } from '../../src/types';
+import { createInitialBoard, asNodeId, uuid } from '../../src/store/board-factory';
+import type { BoardState, ContentHash, NodeId } from '../../src/types';
 
 const HASH_ROOT = 'a'.repeat(64) as ContentHash;
+
+// Mirrors the composable's own HASH_BATCH_MAX_ITEMS (not exported —
+// module-private by design; this constant is the test's own
+// independent statement of the same cap, so a drift between the two
+// shows up as a test failure rather than a tautology).
+const HASH_BATCH_MAX_ITEMS = 200;
+
+// Extends `board` with `count` extra nodes, all direct children of the
+// root, so `serializeActivePath`/`getPath` resolves each one (a short
+// root->node path) without needing a deep chain. Returns the full list
+// of NodeIds (root included) available to request hashes for.
+function addSiblingNodes(board: BoardState, count: number): NodeId[] {
+  const ids: NodeId[] = [board.rootNodeId];
+  const root = board.nodes[board.rootNodeId];
+  for (let i = 0; i < count; i++) {
+    const id = asNodeId('sib-' + uuid());
+    board.nodes[id] = {
+      id,
+      parent: board.rootNodeId,
+      children: [],
+      activeChildIndex: 0,
+      properties: {},
+      move: { color: i % 2 === 0 ? 'B' : 'W', type: 'pass', x: 0, y: 0 },
+    };
+    root.children.push(id);
+    ids.push(id);
+  }
+  return ids;
+}
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -265,5 +305,122 @@ describe('useNodePositionHashes — eviction on board close (re-review REJECT, e
     // Must STAY purged — the landing guard in `flush` discards the
     // late result instead of writing it back into a closed board's slot.
     expect(getCachedNodeHash(board.rootNodeId)).toBeUndefined();
+  });
+});
+
+describe('useNodePositionHashes — chunked flush (ledger row 637)', () => {
+  it('a fill over HASH_BATCH_MAX_ITEMS issues ceil(N/200) requests with correct partitioning and all results cached', async () => {
+    // 250 total ids (root + 249 siblings) -> ceil(250/200) = 2 chunks:
+    // 200 + 50. Before this fix, this was ONE request of 250 items,
+    // which the real backend would 413 (over config.POSITIONS_HASH_BATCH_MAX).
+    const board = createInitialBoard();
+    const ids = addSiblingNodes(board, HASH_BATCH_MAX_ITEMS + 49); // 250 total
+    expect(ids.length).toBe(250);
+
+    let callCount = 0;
+    fakeBackendService.hashPositionsBatch.mockImplementation(async (raw: string[]) => {
+      callCount++;
+      return raw.map((_, i) => `h${callCount}-${i}`) as unknown as ContentHash[];
+    });
+
+    const { requestHashFill } = useNodePositionHashes();
+    requestHashFill(ids, board);
+    await vi.advanceTimersByTimeAsync(150);
+
+    expect(fakeBackendService.hashPositionsBatch).toHaveBeenCalledTimes(2);
+    const callLengths = fakeBackendService.hashPositionsBatch.mock.calls.map(
+      (call) => (call[0] as string[]).length,
+    );
+    expect(callLengths).toEqual([200, 50]); // correct partitioning, in order
+    expect(callLengths.reduce((a, b) => a + b, 0)).toBe(ids.length);
+
+    // Every id landed in the cache — no gap, no duplicate loss.
+    for (const id of ids) {
+      expect(getCachedNodeHash(id)).toBeDefined();
+    }
+  });
+
+  it('a mid-sequence chunk failure keeps the earlier chunk\'s results, notifies once, and a later fill retries only the gap', async () => {
+    const board = createInitialBoard();
+    const ids = addSiblingNodes(board, HASH_BATCH_MAX_ITEMS + 49); // 250 total: chunks of 200, 50
+
+    fakeBackendService.hashPositionsBatch
+      .mockImplementationOnce(async (raw: string[]) => raw.map(() => HASH_ROOT)) // chunk 1 (200) succeeds
+      .mockImplementationOnce(async () => { throw new Error('chunk 2 network down'); }); // chunk 2 (50) fails
+
+    const { requestHashFill } = useNodePositionHashes();
+    requestHashFill(ids, board);
+    await vi.advanceTimersByTimeAsync(150);
+
+    expect(fakeBackendService.hashPositionsBatch).toHaveBeenCalledTimes(2);
+    const firstChunkIds = ids.slice(0, HASH_BATCH_MAX_ITEMS);
+    const secondChunkIds = ids.slice(HASH_BATCH_MAX_ITEMS);
+    for (const id of firstChunkIds) {
+      expect(getCachedNodeHash(id)).toBe(HASH_ROOT); // earlier chunk's results kept
+    }
+    for (const id of secondChunkIds) {
+      expect(getCachedNodeHash(id)).toBeUndefined(); // failed chunk cached nothing
+    }
+    expect(store.engine.messages.length).toBe(1); // notice fires once for the episode
+
+    // A later fill (TreeWidget's watch re-firing with the same node
+    // list, as it does on every nodeList recompute) must retry ONLY the
+    // uncached gap — the 50 ids from the failed second chunk.
+    fakeBackendService.hashPositionsBatch.mockImplementationOnce(
+      async (raw: string[]) => raw.map(() => HASH_ROOT),
+    );
+    requestHashFill(ids, board);
+    await vi.advanceTimersByTimeAsync(150);
+
+    expect(fakeBackendService.hashPositionsBatch).toHaveBeenCalledTimes(3);
+    const retryCall = fakeBackendService.hashPositionsBatch.mock.calls[2][0] as string[];
+    expect(retryCall).toHaveLength(50); // only the gap, not the whole 250 again
+    for (const id of secondChunkIds) {
+      expect(getCachedNodeHash(id)).toBe(HASH_ROOT);
+    }
+    expect(store.engine.messages.length).toBe(1); // recovered — no extra notice
+  });
+
+  it('a board close between chunks stops issuing further chunks and never resurrects a purged entry', async () => {
+    // 450 ids -> 3 chunks: 200, 200, 50. The board closes as a side
+    // effect of chunk 2's request landing (modelling a close that
+    // arrives while chunk 2's fetch is outstanding) — `closeBoard`
+    // synchronously purges EVERY node-hash entry for this board
+    // (`purgeBoardNodeHashes`, unchanged pre-existing behaviour: a
+    // close always wipes the whole board's cache, not just the
+    // in-flight chunk), so chunk 1's already-landed results are wiped
+    // by the close itself, same as any other cache entry for a closed
+    // board. What this fix is responsible for: chunk 2's late result
+    // must not be written back over the purge, and chunk 3 — the
+    // "remaining chunk" — must never be dispatched at all.
+    const board = createInitialBoard();
+    addBoard(board);
+    const ids = addSiblingNodes(board, 2 * HASH_BATCH_MAX_ITEMS + 49); // 450 total
+
+    fakeBackendService.hashPositionsBatch
+      .mockImplementationOnce(async (raw: string[]) => raw.map(() => HASH_ROOT)) // chunk 1 (200) succeeds
+      .mockImplementationOnce(async (raw: string[]) => {
+        closeBoard(board.id); // board closes while chunk 2's request is in flight
+        return raw.map(() => HASH_ROOT);
+      })
+      .mockImplementationOnce(async () => {
+        throw new Error('chunk 3 must never be dispatched');
+      });
+
+    const { requestHashFill } = useNodePositionHashes();
+    requestHashFill(ids, board);
+    await vi.advanceTimersByTimeAsync(150);
+
+    // Chunk 3 was never issued — the loop's per-chunk board-close guard
+    // stopped it before dispatch.
+    expect(fakeBackendService.hashPositionsBatch).toHaveBeenCalledTimes(2);
+
+    // Every id — including chunk 1's, already landed before the close —
+    // stays purged. `closeBoard`'s synchronous purge is authoritative;
+    // nothing after it (chunk 2's late-landing result, or a chunk 3
+    // that must never even be sent) may write back into the cache.
+    for (const id of ids) {
+      expect(getCachedNodeHash(id)).toBeUndefined();
+    }
   });
 });
