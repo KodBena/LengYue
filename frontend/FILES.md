@@ -318,7 +318,7 @@ frontend/src/
 │   │   └── quantization.ts            [B3]  Q4 ownership + Q8-factored policy primitives for the lossy leaf.
 │   ├── analysis-bundle.ts             [B3]  Pure projection ledger ↔ wire bundle.
 │   ├── analysis-persistence-service.ts [B3] HTTP boundary for analysis-bundle persistence (save/restore/discard).
-│   ├── analysis-service.ts            [B3]  Bridges KataGo turns to the ledger nodes.
+│   ├── analysis-service.ts            [B3]  Bridges KataGo turns to the ledger nodes. Also warnIfMidTreeSetupDropped: fires a once-per-board system-message notice (analyzeRange/analyzeActiveNode) when the queried path carries a non-root setup stone KataGo's wire protocol has no way to represent (ledger row 622).
 │   ├── api-client.ts                  [B1]  Pure REST client; JWT injection; zero-friction local auth.
 │   ├── backend-service.ts             [B2]  ACL for the backend; wire snake_case → domain camelCase with branded ids.
 │   ├── engine-connection.ts           [B3]  Owner module for the store.engine subtree — analysis-provider connection lifecycle (connect / disconnect-reset / info / selection / metrics). B3: writes the engine slice of the [B3] store hub and speaks the engine band's types (EngineInfo), though named for the problem class — store.engine + this owner replace wholesale for a fork's analysis provider.

@@ -55,7 +55,7 @@ import '../state/stability-trajectory-store';
 
 // Order-independent owners (DEFAULT band): persisted bundles, review-wait
 // aborts, thumbnail caches, card-thumbnail cache, card-tree slots,
-// fork-toggle history.
+// fork-toggle history, setup-toolkit tool-selection state.
 import '../services/analysis-persistence-service';
 import '../composables/review/useReviewSession';
 import '../composables/cards/thumbnail-render-resources';
@@ -63,3 +63,4 @@ import '../composables/cards/useCardThumbnail';
 import '../composables/cards/board-card-trees';
 import '../composables/useNavigation';
 import '../state/known-positions';
+import '../composables/board/useSetupTools';

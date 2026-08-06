@@ -39,7 +39,7 @@ import {
   type GameNode,
 } from '../types';
 import { asQueryId } from './query-id';
-import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi, getInitialStones, getRulesetResolution } from '../engine/util';
+import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi, getInitialStones, getRulesetResolution, pathHasMidTreeSetup } from '../engine/util';
 import { rulesetToWireName } from '../engine/rulesets';
 import { rootToCurrentPrefix } from '../engine/navigator';
 import { store, mutateBoard, setSelectedModel } from '../store';
@@ -277,6 +277,19 @@ export class AnalysisService {
   // the path used by board-close, engine-disconnect, HMR-dispose, and
   // the purge button.
   private boardToQueries = new Map<BoardId, Set<QueryId>>();
+  // One-time-per-board-per-session dedup for the mid-tree-setup-drop
+  // notice (see `warnIfMidTreeSetupDropped` below). Deliberately
+  // coarser than the ponder-ceiling warning's per-QUERY `undefined`-
+  // clear dedup (that one re-arms on every fresh query so a genuinely
+  // new ceiling-hit is reported again); this is a standing FACT about
+  // the board's tree shape, true on every subsequent query the same
+  // way, so re-warning on every query construction would be noise —
+  // once per board is the honest "you should know this" cadence.
+  // Released on board-close (this board's own entry) and workspace
+  // reset (the whole set) via the teardown registry, same discipline
+  // as every other per-board module-scope resource in this codebase
+  // (frontend/CLAUDE.md "Resource ownership at mutation sites").
+  private midTreeSetupWarnedBoards = new Set<BoardId>();
   private packetCount = 0;
   private metricsTimer: number | null = null;
   private watchdogTimer: number | null = null;
@@ -597,6 +610,27 @@ export class AnalysisService {
     }
   }
 
+  /**
+   * Query-construction-time fail-loud notice (ADR-0002; maintainer
+   * adjudication ledger row 622): when the path a query is about to
+   * analyze carries a NON-ROOT setup edit (`pathHasMidTreeSetup`,
+   * `engine/util.ts`), the wire query silently omits it — KataGo's
+   * protocol has no primitive for a mid-sequence stone insertion, and
+   * `buildMovesAndTurnIndex` above only ever forwards `node.move`, so
+   * the setup-only node's AB/AW/AE never reaches `moves`, and
+   * `getInitialStones` only ever reads root. Root-level setup
+   * (handicap) is unaffected and fires no notice. Fires at most once
+   * per board per session (`midTreeSetupWarnedBoards`); called from
+   * both `analyzeRange` and `analyzeActiveNode` — the two query-
+   * construction sites that build a `moves` array from a path.
+   */
+  private warnIfMidTreeSetupDropped(boardId: BoardId, nodes: Record<NodeId, GameNode>, path: readonly NodeId[]): void {
+    if (this.midTreeSetupWarnedBoards.has(boardId)) return;
+    if (!pathHasMidTreeSetup(nodes, path)) return;
+    this.midTreeSetupWarnedBoards.add(boardId);
+    pushSystemMessage('warning', i18n.global.t('analysis.midTreeSetupDropped'));
+  }
+
   public analyzeFullGame(boardId: BoardId, visits: number): QueryId | null {
     const board = store.boards.find(b => b.id === boardId);
     if (!board || store.engine.status !== 'connected') return null;
@@ -661,6 +695,7 @@ export class AnalysisService {
     const { moves, turnIndexAtTreeIndex, turnToNodeId } = buildMovesAndTurnIndex(board.nodes, pathUpToEnd);
 
     const initialStones = getInitialStones(board);
+    this.warnIfMidTreeSetupDropped(boardId, board.nodes, pathUpToEnd);
 
     // Unique + sorted: a moveless tree index repeats its predecessor's
     // turn value (see docstring), so the naive per-tree-index mapping
@@ -920,6 +955,7 @@ export class AnalysisService {
     // full root→leaf line here is exactly the wrong-position class
     // the match postmortem's Bug B records.
     const pathUpToCurrent = rootToCurrentPrefix(fullPath, currentIdx);
+    this.warnIfMidTreeSetupDropped(boardId, board.nodes, pathUpToCurrent);
 
     const { moves, turnToNodeId } = buildMovesAndTurnIndex(board.nodes, pathUpToCurrent);
     // `analyzeActiveNode` is a single-explicit-target query — unlike
@@ -1470,6 +1506,16 @@ export class AnalysisService {
       this.stopBoardAnalysis(boardId);
     }
   }
+
+  /** Board-close release for `midTreeSetupWarnedBoards` (resource-ownership discipline). */
+  public clearMidTreeSetupWarning(boardId: BoardId): void {
+    this.midTreeSetupWarnedBoards.delete(boardId);
+  }
+
+  /** Workspace-reset release for `midTreeSetupWarnedBoards` (identity flip). */
+  public clearAllMidTreeSetupWarnings(): void {
+    this.midTreeSetupWarnedBoards.clear();
+  }
 }
 
 export const analysisService = new AnalysisService();
@@ -1504,6 +1550,19 @@ registerWorkspaceResetHandler({
   // first (same discipline as closeBoard) so an in-flight response can't
   // re-populate the ledger after purgeAll. (Audit O7.)
   run: () => analysisService.stopAllBoardAnalyses(),
+});
+
+// `midTreeSetupWarnedBoards` release (setup-toolkit mid-tree-drop notice,
+// ledger row 622) — order-independent (DEFAULT band): this Set carries no
+// engine-stop-before-ledger-purge constraint, it's purely "has this board
+// already been told."
+registerBoardCloseHandler({
+  label: 'analysis-service:mid-tree-setup-warning',
+  run: (boardId) => analysisService.clearMidTreeSetupWarning(boardId),
+});
+registerWorkspaceResetHandler({
+  label: 'analysis-service:mid-tree-setup-warnings-all',
+  run: () => analysisService.clearAllMidTreeSetupWarnings(),
 });
 
 // HMR dispose — dev-only. Vite re-instantiates this module's singleton

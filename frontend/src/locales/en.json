@@ -526,6 +526,7 @@
   "analysis.proxyMissingTransposition":   "Transposition toggle is on, but the KataGo proxy does not advertise the `transposition` capability. Cluster rings will not appear; flip the toggle off in the registry to suppress this warning, or check that the proxy was built with the `goboard_transposition` module.",
   "analysis.capabilityDegraded":          "KataGo proxy advertises `{capability}` with malformed metadata (`{field}` — expected {expected}). That capability is disabled for this connection; other capabilities are unaffected.",
   "analysis.ponderExhausted":             "Ponder reached its visit ceiling ({visits}). Your hardware is fast enough that ponder finished before you stopped it — consider raising `engine.katago.ponderMaxVisits` in the registry editor.",
+  "analysis.midTreeSetupDropped":         "This game tree has a setup stone placed after the first move. KataGo's analysis protocol has no way to represent a stone added mid-sequence, so this query — and every later one on this board — is analyzed WITHOUT it.",
   "analysis.enrichmentNullLeafReplaced":  "Analysis enrichment anomaly: {field}[{key}] arrived with null values ({nullFields}) and replaced previously populated data. A palette function may be producing invalid output (NaN becomes null on the wire) — check the active palette's symbol definitions.",
 
   "nav.branchSwitchNoFork":               "No sibling variation here — this line has no branch point above it.",
