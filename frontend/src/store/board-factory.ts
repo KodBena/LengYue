@@ -54,7 +54,13 @@ export function createInitialBoard(): BoardState {
     parent: null,
     children: [],
     activeChildIndex: 0,
-    properties: { SZ: ['19'], GM: ['1'], FF: ['4'] },
+    // RU: ['Tromp-Taylor'] — commissioner adjudication on the flagged
+    // fresh-board consequence of the ruleset ruling (rulesets-build.md
+    // addendum): this authors the root's own RU record at creation
+    // time (RulesetName's canonical spelling), it does not coerce any
+    // input, so a fresh board resolves by construction and never hits
+    // the unknown-blocks-analysis path.
+    properties: { SZ: ['19'], GM: ['1'], FF: ['4'], RU: ['Tromp-Taylor'] },
     move: null,
   };
 
