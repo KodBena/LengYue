@@ -357,6 +357,14 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
   const currentIndex = computed(() => reviewData.value?.currentIndex ?? -1);
   const userMovesCount = computed(() => reviewData.value?.userMovesCount ?? 0);
   const userMoveScores = computed(() => reviewData.value?.userMoveScores ?? []);
+  // The active card's position in ITS OWN tree — `loadCard` sets this to
+  // the SGF's fast-forwarded leaf (below) and `endSession` resets it to
+  // `null`; `rewindToStart` already navigates back to it. Exposed here
+  // (same synchronous-projection shape as `state`/`currentIndex` above)
+  // so `App.vue` can feed it to `TreeWidget` as the "review start" marker
+  // source (ledger row 524's build) — zero-I/O, reactive to a card
+  // loading/unloading in this session the same way `state` already is.
+  const startingNodeId = computed(() => reviewData.value?.startingNodeId ?? null);
 
   const currentCard = computed(() => 
     currentIndex.value >= 0 && currentIndex.value < queue.value.length 
@@ -1119,6 +1127,7 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     queue,
     currentCard,
     currentIndex,
+    startingNodeId,
     startSession,
     nextCard,
     goBack,

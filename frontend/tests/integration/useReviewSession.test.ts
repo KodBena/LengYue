@@ -263,6 +263,80 @@ describe('useReviewSession.endSession', () => {
   });
 });
 
+describe('useReviewSession.startingNodeId (tree-marker data source, ledger row 524)', () => {
+  // Pins the reactive projection `TreeWidget`'s "review start" marker
+  // (`frontend/src/components/tree/TreeWidget.vue`'s `reviewStartNodeId`
+  // prop) is fed from — same synchronous-projection shape as `state`/
+  // `currentIndex`, no I/O. See `useReviewSession.ts`'s `startingNodeId`
+  // computed and its doc comment for the mechanism this pins.
+
+  it('is null before any card has been loaded (no review session active)', () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { startingNodeId } = useReviewSession(boardIdRef);
+
+    expect(startingNodeId.value).toBeNull();
+  });
+
+  it('reflects the store row once a review session has a starting node', () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    // Constructed directly (mirrors the `processUserMove` timeout
+    // test above) rather than driving `loadCard`'s SGF-parse path —
+    // the projection under test only needs `reviewData.value
+    // .startingNodeId` to exist and change; `loadCard` itself is
+    // exercised by the deck-repeat/timeout suites.
+    mutateReviewSession(boardId, draft => {
+      draft.status = 'AWAITING_MOVE';
+      draft.startingNodeId = board.rootNodeId;
+    });
+
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { startingNodeId } = useReviewSession(boardIdRef);
+
+    expect(startingNodeId.value).toBe(board.rootNodeId);
+  });
+
+  it('clears back to null when the session ends — the marker must disappear reactively', () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    mutateReviewSession(boardId, draft => {
+      draft.status = 'AWAITING_MOVE';
+      draft.startingNodeId = board.rootNodeId;
+    });
+
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { startingNodeId, endSession } = useReviewSession(boardIdRef);
+
+    expect(startingNodeId.value).toBe(board.rootNodeId);
+
+    endSession();
+
+    expect(startingNodeId.value).toBeNull();
+  });
+
+  it('is null when boardIdRef points at a board with no review row', () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    // No mutateReviewSession call — `store.session.reviews[boardId]`
+    // stays whatever `addBoard`'s default-init leaves it at (a fresh
+    // IDLE row per `store/index.ts`, `startingNodeId: null`).
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { startingNodeId } = useReviewSession(boardIdRef);
+
+    expect(startingNodeId.value).toBeNull();
+  });
+});
+
 describe('useReviewSession.startSession', () => {
   it('transitions status to IDLE on an empty queue without entering LOADING', async () => {
     const board = createInitialBoard();

@@ -504,6 +504,7 @@ const activeTab = computed<string>({
               :nodes="activeBoard.nodes"
               :board-id="activeBoard.id"
               :game-head-ids="activeBoardGameHeadIds"
+              :review-start-node-id="reviewSession.startingNodeId.value"
               @select-node="handleNodeSelect"
             />
           </div>

@@ -243,7 +243,8 @@ frontend/src/
 │   │   ├── useForestStats.ts          [B2]  Effectful boundary for the Browse forest's data source (getForestStats); ForestDirectory reads its roots through this rather than the backend singleton.
 │   │   ├── useForestNavigation.ts     [B2]  Tree-shaping for the file-manager-style navigator (games → roots).
 │   │   ├── useTreeExpansion.ts        [B2]  Variation-hiding expansion state; enforces "current-always-visible" invariant.
-│   │   └── useTreeLayout.ts           [B2]  Pluggable tree-layout composable (watchEffect-driven).
+│   │   ├── useTreeLayout.ts           [B2]  Pluggable tree-layout composable (watchEffect-driven).
+│   │   └── tree-review-marker.ts      [B2]  Pure `isReviewStartNode` derivation for TreeWidget's review-start marker ring (sourced from `useReviewSession.startingNodeId`, zero I/O).
 │   │
 │   ├── library/                              SGF library surface composables.
 │   │   ├── useLibraryImport.ts        [B3]  File picker / directory picker / drag-drop with webkitGetAsEntry walk + chunked upload with progress.
