@@ -29,7 +29,15 @@ import {
   buildPerQueryCapabilities,
   shouldWarnTranspositionUnmet,
 } from '../engine/katago/capability-injection';
-import { type BoardId, type RootedPath, type RawKey, type EnrichedKey, type QueryId } from '../types';
+import {
+  type BoardId,
+  type RootedPath,
+  type RawKey,
+  type EnrichedKey,
+  type QueryId,
+  type NodeId,
+  type GameNode,
+} from '../types';
 import { asQueryId } from './query-id';
 import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi, getInitialStones } from '../engine/util';
 import { rootToCurrentPrefix } from '../engine/navigator';
@@ -84,6 +92,51 @@ const telemetry = useQueryTelemetry();
 // and skews dev profiles — a flip-to-debug tool, not always-on spam.
 const DEBUG_PACKETS = false;
 
+/**
+ * Wire-protocol invariant this helper exists to make unconstructable:
+ * a KataGo `analyzeTurns` entry is a **turn index** — "the position
+ * after N real moves" — valid only for `0 <= N <= moves.length` against
+ * the `moves` array sent on the same query. Tree-node position (a
+ * path's index into `NodeId[]`, which is what `PlyIndex` / the
+ * `startTurn`/`endTurn` callers of `analyzeRange` actually pass) is a
+ * DIFFERENT axis whenever a node in the path carries no move — a
+ * territory/scoring node (`TW`/`TB`), a comment-only node, or any other
+ * moveless tree position. The two axes coincide only when every
+ * non-root node up to that point is a move; a trailing OR mid-path
+ * moveless node breaks the coincidence (SGF-pass-tail specimen:
+ * `.claude/dispatch-reports/sgf-pass-diagnosis.md`, "WITH-ENGINE
+ * REPRODUCTION" — a 250-tree-node path with one moveless leaf produced
+ * `analyzeTurns` up to 249 against only 248 real moves, and the whole
+ * query was rejected by the wire).
+ *
+ * `turnIndexAtTreeIndex[i]` is the count of real moves among
+ * `pathPrefix[0..i]` inclusive — i.e. the turn index a caller must use
+ * to mean "the position reached by tree index i." A moveless node at
+ * tree index i simply repeats the prior index's turn value (it
+ * contributes no new turn), so deriving `analyzeTurns` from this array
+ * — rather than from the caller's raw tree-index range — makes
+ * `max(analyzeTurns) > moves.length` unconstructable by construction:
+ * the values placed on the wire are never anything but real turn
+ * counts, regardless of where in the path a moveless node falls.
+ */
+function buildMovesAndTurnIndex(
+  nodes: Record<NodeId, GameNode>,
+  pathPrefix: readonly NodeId[],
+): { moves: [Player, KataCoord][]; turnIndexAtTreeIndex: number[] } {
+  let turnCounter = 0;
+  const turnIndexAtTreeIndex: number[] = [];
+  const moves: [Player, KataCoord][] = [];
+  for (const id of pathPrefix) {
+    const move = nodes[id]?.move ?? null;
+    if (move) {
+      turnCounter++;
+      moves.push([move.color, moveToKataCoord(move)]);
+    }
+    turnIndexAtTreeIndex.push(turnCounter);
+  }
+  return { moves, turnIndexAtTreeIndex };
+}
+
 export class AnalysisService {
   private client: KataGoClient;
   // Per-query bookkeeping. Keyed by queryId. `boardId` lets `stopQuery`
@@ -135,8 +188,12 @@ export class AnalysisService {
     ponderCeiling?: number,
     // Natural-completion bookkeeping for restart-thunk reaping.
     // `analyzedTurnCount` is the number of turns this query reports
-    // on — `analyzeTurns.length` (range: endTurn − startTurn + 1;
-    // ponder/analyze: 1). `finalizedTurns` accumulates the turn
+    // on — `analyzeTurns.length` (range queries: the count of DISTINCT
+    // real turn indices covered by [startTurn, endTurn], which can be
+    // fewer than `endTurn − startTurn + 1` when a moveless tree
+    // position in that span collapses onto its predecessor's turn —
+    // see `buildMovesAndTurnIndex`; ponder/analyze: always 1).
+    // `finalizedTurns` accumulates the turn
     // numbers that have received their authoritative final packet
     // (`isDuringSearch === false`). When `finalizedTurns.size`
     // reaches `analyzedTurnCount` the query has completed naturally
@@ -544,14 +601,29 @@ export class AnalysisService {
     // moves list runs root → the analyzed range's end position.
     const pathUpToEnd = rootToCurrentPrefix(fullPath, endTurn);
 
-    const moves = pathUpToEnd
-      .map(id => board.nodes[id]?.move ?? null)
-      .filter((m): m is NonNullable<typeof m> => !!m)
-      .map(m => [m.color, moveToKataCoord(m)] as [Player, KataCoord]); // fix the 2-element literal to the [Player, KataCoord] move-pair tuple
+    // See `buildMovesAndTurnIndex`'s docstring above for the invariant
+    // this derivation enforces: `analyzeTurns` is built from the same
+    // real-move count that produced `moves`, never from the caller's
+    // raw tree-index range, so `max(analyzeTurns) <= moves.length` by
+    // construction — a moveless node anywhere in [startTurn, endTurn]
+    // (mid-path or trailing) cannot push a turn index past the wire
+    // ceiling.
+    const { moves, turnIndexAtTreeIndex } = buildMovesAndTurnIndex(board.nodes, pathUpToEnd);
 
     const initialStones = getInitialStones(board);
 
-    const analyzeTurns = Array.from({ length: endTurn - startTurn + 1 }, (_, i) => startTurn + i);
+    // Unique + sorted: a moveless tree index repeats its predecessor's
+    // turn value (see docstring), so the naive per-tree-index mapping
+    // can contain duplicates — collapse them rather than sending the
+    // same turn twice.
+    const analyzeTurns = Array.from(
+      new Set(
+        Array.from(
+          { length: endTurn - startTurn + 1 },
+          (_, i) => turnIndexAtTreeIndex[startTurn + i],
+        ),
+      ),
+    ).sort((a, b) => a - b);
     const queryId = asQueryId(`range-${boardId}-${Date.now()}`);
 
     // When the caller supplied a `configOverride` it provided BOTH
@@ -759,10 +831,12 @@ export class AnalysisService {
     const board = store.boards.find(b => b.id === boardId);
     if (!board || store.engine.status !== 'connected') return null;
 
-    // Root→leaf is needed here for the turn-index mapping: the wire
-    // `analyzeTurns: [currentIdx]` and the packet-to-node lookup
-    // (`queryInfo.path[turnNumber]`) both index positions on the
-    // active line, and the cursor's index is found on it below.
+    // Root→leaf is needed here for the packet-to-node lookup
+    // (`queryInfo.path[turnNumber]`), which indexes positions on the
+    // active line; the cursor's tree index is found on it below. The
+    // wire `analyzeTurns` value itself is derived separately, from the
+    // real-move count up to the cursor (see `buildMovesAndTurnIndex`
+    // below) — NOT from this tree index directly.
     const fullPath = getActiveVariationPath(board);
     const currentIdx = fullPath.indexOf(board.currentNodeId);
     if (currentIdx === -1) return null;
@@ -792,10 +866,7 @@ export class AnalysisService {
     // the match postmortem's Bug B records.
     const pathUpToCurrent = rootToCurrentPrefix(fullPath, currentIdx);
 
-    const moves = pathUpToCurrent
-      .map(id => board.nodes[id]?.move ?? null)
-      .filter((m): m is NonNullable<typeof m> => !!m)
-      .map(m => [m.color, moveToKataCoord(m)] as [Player, KataCoord]); // fix the 2-element literal to the [Player, KataCoord] move-pair tuple
+    const { moves } = buildMovesAndTurnIndex(board.nodes, pathUpToCurrent);
 
     const initialStones = getInitialStones(board);
 
@@ -823,9 +894,9 @@ export class AnalysisService {
       mode === 'ponder'
         ? store.profile.settings.engine.katago.ponderMaxVisits
         : undefined;
-    // Single-turn query (`analyzeTurns: [currentIdx]`), so the
-    // natural-completion threshold is 1 — the first authoritative
-    // final reaps the restart thunk.
+    // Single-turn query (`analyzeTurns: [moves.length]`, see below),
+    // so the natural-completion threshold is 1 — the first
+    // authoritative final reaps the restart thunk.
     this.activeQueries.set(queryId, { boardId, mode, path: fullPath, rawKey: keys.rawKey, enrichedKey: keys.enrichedKey, framing, startedAt: performance.now(), ponderCeiling, analyzedTurnCount: 1, finalizedTurns: new Set() });
 
     // Queue telemetry — single-turn entry. For ponder, the per-turn
@@ -863,7 +934,7 @@ export class AnalysisService {
     const hasOverrides =
       overrideSettings !== undefined && Object.keys(overrideSettings).length > 0;
     // Per-query capability opt-in. analyzeActiveNode is turn-locked
-    // by construction (single-turn `analyzeTurns: [currentIdx]`),
+    // by construction (single-turn `analyzeTurns: [moves.length]`),
     // so `adaptive_reevaluate` is structurally inappropriate
     // regardless of forReview — the helper's `isRangeBased: false`
     // enforces this. forReview defaults to false here because no
@@ -917,7 +988,13 @@ export class AnalysisService {
         ),
       ),
       ...(mode === 'ponder' ? { maxVisits: store.profile.settings.engine.katago.ponderMaxVisits } : {}),
-      analyzeTurns: [currentIdx],
+      // `moves.length`, not `currentIdx` (tree-node position): the two
+      // diverge whenever a moveless node sits anywhere on the path up
+      // to and including the cursor (see `buildMovesAndTurnIndex`'s
+      // docstring above). `moves` was built from exactly this prefix,
+      // so its length IS the turn index for "the position reached by
+      // the cursor" by construction — no separate clamp needed.
+      analyzeTurns: [moves.length],
       ...(needsOwnership ? { includeOwnership: true } : {}),
       ...(hasOverrides ? { overrideSettings } : {}),
       ...(analysis_config ? { analysis_config } : {}),
