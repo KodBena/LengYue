@@ -113,6 +113,9 @@ export type {
   AnalysisTabId,
   CardId,
   GameSourceId,
+  CardDisplayOrdinal,
+  GameDisplayOrdinal,
+  CardPublicId,
   ContentHash,
 } from './types/ids';
 

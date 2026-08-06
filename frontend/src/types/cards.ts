@@ -18,7 +18,7 @@
 // boundary; aliased here under domain-friendly names so consumers
 // stay free of `components['schemas'][…]` boilerplate.
 import type { components } from './backend';
-import type { CardId, ContentHash } from './ids';
+import type { CardId, CardDisplayOrdinal, CardPublicId, ContentHash } from './ids';
 import type { NodeId } from './game';
 
 // ── Value Objects (readonly preserved) — SR domain ────────────────────────────
@@ -85,6 +85,17 @@ export interface EbisuModel {
  */
 export interface ReviewCard {
   readonly id: CardId;
+  // Per-user-id-enumeration design: the per-user display value —
+  // "this is the Nth card you created" — never round-tripped as a
+  // reference. Display sites (card-tree labels, library rows) use
+  // this instead of `id`/raw PK. See
+  // `.claude/dispatch-reports/per-user-id-enumeration-design.md`.
+  readonly displayOrdinal: CardDisplayOrdinal;
+  // The reference-role opaque handle (`card.public_id` on the
+  // wire). Not yet consumed as a request-addressing value anywhere
+  // in the SPA (`id` stays the addressing value per the design's
+  // named path-param exception) — carried for forward use.
+  readonly publicId: CardPublicId;
   readonly canonicalContent: string;
   // card-position-annotations Stage A: the backend's dedup hash for
   // this card's position (`Card.content_hash` on the wire — lowercase
