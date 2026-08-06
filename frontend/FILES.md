@@ -195,6 +195,7 @@ frontend/src/
 │   │
 │   ├── board/                                Board-surface composables. Mostly B3.
 │   │   ├── autonomous-srs.ts          [B3]  Policy/Driver/Recorder abstractions for the autonomous SRS loop.
+│   │   ├── board-variations-markers.ts [B2]  Pure derivation of BoardVariationsOverlay's dashed sibling/next-move markers (incl. the PV-hover `suppressed` gate); extracted 2026-08-06.
 │   │   ├── engine-move-delta-reconcile.ts [B3]  Shared surgical-merge helper for engine-move-delta consumers: reconciles an EngineDelta into the store and gates cursor advance on user-tracking.
 │   │   ├── suggestion-color-calibration.ts [B3] Domain init for the suggestion-color gradient: hue-shift watcher + fire-and-forget visit-distribution fetch (via getResource<T>); called once from useAppBootstrap.
 │   │   ├── useActivePath.ts           [B2]  NodeId lineage root → current node.
