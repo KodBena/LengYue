@@ -35,6 +35,7 @@ import {
 
 import type { BoardId, NodeId }   from './types';
 import { navigateTo }     from './engine/navigator';
+import type { RulesetName } from './engine/rulesets';
 
 import { KATAGO_WS_URL } from './config/env';
 import { usePlayMatch } from './composables/board/usePlayFromPosition';
@@ -177,6 +178,21 @@ function handleUpdateKomi(newKomi: number) {
   });
 }
 
+// Parallel to handleUpdateKomi. `newRules` is one of the four
+// ruling-mandated canonical spellings (RulesetName) — StatusBar's
+// dropdown only emits values drawn from RULESET_NAMES, so this writes
+// the canonical spelling directly to root `RU`, no re-normalization
+// needed here.
+function handleUpdateRules(newRules: RulesetName) {
+  if (!activeBoard.value) return;
+  mutateBoard(activeBoard.value.id, draft => {
+    const root = draft.nodes[draft.rootNodeId];
+    if (root) {
+      root.properties['RU'] = [newRules];
+    }
+  });
+}
+
 const confirmLoadModalRef = vueRef<InstanceType<typeof ConfirmLoadModal> | null>(null);
 const {
   handleLoadCard,
@@ -309,6 +325,7 @@ function handleNodeSelect(nodeId: NodeId): void {
             :board="activeBoard"
             :metadata="metadata"
             @update-komi="handleUpdateKomi"
+            @update-rules="handleUpdateRules"
           />
         </div>
 

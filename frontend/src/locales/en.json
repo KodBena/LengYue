@@ -291,6 +291,8 @@
   "statusBar.versus":                     "vs",
   "statusBar.komi":                       "Komi",
   "statusBar.editKomi":                   "Edit Komi",
+  "statusBar.editRules":                  "Edit Ruleset",
+  "statusBar.rulesUnrecognized":          "Unrecognized — choose",
   "statusBar.blackToPlay":                "Black to Play",
   "statusBar.whiteToPlay":                "White to Play",
   "statusBar.toggleMoveNumbers":          "Toggle move-number annotation on stones",
@@ -474,6 +476,7 @@
   "sync.saveFailed":                      "Sync: failed to save workspace. Your recent changes are not on the server yet.",
 
   "analysis.websocketDisconnected":       "WebSocket Disconnected (Code: {code}). {reason}",
+  "analysis.rulesetUnrecognized":         "Ruleset not recognized{rawSuffix} — choose a ruleset in the status bar before analysis can run.",
   "analysis.proxyMissingDeltaAnalysis":   "KataGo proxy advertises capabilities but does not list `delta_analysis`. Per-move grading and analysis-tab enrichment cannot run on this proxy. Disconnecting.",
   "analysis.proxyMissingTransposition":   "Transposition toggle is on, but the KataGo proxy does not advertise the `transposition` capability. Cluster rings will not appear; flip the toggle off in the registry to suppress this warning, or check that the proxy was built with the `goboard_transposition` module.",
   "analysis.capabilityDegraded":          "KataGo proxy advertises `{capability}` with malformed metadata (`{field}` — expected {expected}). That capability is disabled for this connection; other capabilities are unaffected.",

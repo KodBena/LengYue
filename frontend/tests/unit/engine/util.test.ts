@@ -25,6 +25,7 @@ import {
   getKomi,
   getInitialStones,
   resolveGameName,
+  getRulesetResolution,
 } from '../../../src/engine/util';
 import { createInitialBoard } from '../../../src/store/board-factory';
 import type { BoardState } from '../../../src/types';
@@ -160,6 +161,32 @@ describe('getKomi', () => {
     const board = createInitialBoard();
     board.nodes[board.rootNodeId].properties['KM'] = ['unparseable'];
     expect(getKomi(board)).toBe(6.5);
+  });
+});
+
+describe('getRulesetResolution', () => {
+  it('reads and normalizes the RU property from the root node', () => {
+    const board = createInitialBoard();
+    board.nodes[board.rootNodeId].properties['RU'] = ['japanese'];
+    expect(getRulesetResolution(board)).toEqual({ kind: 'resolved', name: 'Japanese' });
+  });
+
+  it('is case-insensitive over the RU property', () => {
+    const board = createInitialBoard();
+    board.nodes[board.rootNodeId].properties['RU'] = ['AGA'];
+    expect(getRulesetResolution(board)).toEqual({ kind: 'resolved', name: 'AGA' });
+  });
+
+  it('returns the explicit unknown arm — never a silent default — when RU is missing', () => {
+    const board = createInitialBoard();
+    delete board.nodes[board.rootNodeId].properties['RU'];
+    expect(getRulesetResolution(board)).toEqual({ kind: 'unknown', raw: '' });
+  });
+
+  it('returns the explicit unknown arm when RU does not match one of the four names', () => {
+    const board = createInitialBoard();
+    board.nodes[board.rootNodeId].properties['RU'] = ['New Zealand'];
+    expect(getRulesetResolution(board)).toEqual({ kind: 'unknown', raw: 'New Zealand' });
   });
 });
 

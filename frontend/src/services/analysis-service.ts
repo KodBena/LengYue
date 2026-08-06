@@ -31,7 +31,8 @@ import {
 } from '../engine/katago/capability-injection';
 import { type BoardId, type RootedPath, type RawKey, type EnrichedKey, type QueryId } from '../types';
 import { asQueryId } from './query-id';
-import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi, getInitialStones } from '../engine/util';
+import { moveToKataCoord, getActiveVariationPath, getBoardSize, getKomi, getInitialStones, getRulesetResolution } from '../engine/util';
+import { rulesetToWireName } from '../engine/rulesets';
 import { rootToCurrentPrefix } from '../engine/navigator';
 import { store, mutateBoard, setSelectedModel } from '../store';
 import {
@@ -528,6 +529,23 @@ export class AnalysisService {
     if (!board || store.engine.status !== 'connected') return null;
     if (fullPath.length === 0 || endTurn < startTurn) return null;
 
+    // Fail-loud ruleset gate (ruling §RULESETS, criterion 4): a board
+    // whose `RU` doesn't resolve to one of the four ruling-mandated
+    // names must NOT send a guessed `rules` value on the wire. Refuse
+    // query construction and surface a user-visible message rather
+    // than falling back to a default — before any of this method's
+    // other side effects (the visit-target write below included).
+    const rulesetResolution = getRulesetResolution(board);
+    if (rulesetResolution.kind === 'unknown') {
+      pushSystemMessage(
+        'error',
+        i18n.global.t('analysis.rulesetUnrecognized', {
+          rawSuffix: rulesetResolution.raw ? ` (${rulesetResolution.raw})` : '',
+        }),
+      );
+      return null;
+    }
+
     // Record the board's visit target only once the query is actually
     // going out — behind the guards above, where the write used to
     // fire even when the query was refused — and through `mutateBoard`
@@ -673,7 +691,7 @@ export class AnalysisService {
       id: queryId,
       moves,
       ...(initialStones.length ? { initialStones } : {}),
-      rules: 'tromp-taylor',
+      rules: rulesetToWireName(rulesetResolution.name),
       boardXSize: size,
       boardYSize: size,
       komi, // Added Komi mapping
@@ -758,6 +776,19 @@ export class AnalysisService {
   ): QueryId | null {
     const board = store.boards.find(b => b.id === boardId);
     if (!board || store.engine.status !== 'connected') return null;
+
+    // Fail-loud ruleset gate — see analyzeRange above for the full
+    // rationale (ruling §RULESETS, criterion 4).
+    const rulesetResolution = getRulesetResolution(board);
+    if (rulesetResolution.kind === 'unknown') {
+      pushSystemMessage(
+        'error',
+        i18n.global.t('analysis.rulesetUnrecognized', {
+          rawSuffix: rulesetResolution.raw ? ` (${rulesetResolution.raw})` : '',
+        }),
+      );
+      return null;
+    }
 
     // Root→leaf is needed here for the turn-index mapping: the wire
     // `analyzeTurns: [currentIdx]` and the packet-to-node lookup
@@ -888,7 +919,7 @@ export class AnalysisService {
       id: queryId,
       moves,
       ...(initialStones.length ? { initialStones } : {}),
-      rules: 'tromp-taylor',
+      rules: rulesetToWireName(rulesetResolution.name),
       boardXSize: size,
       boardYSize: size,
       komi, // Added Komi mapping
