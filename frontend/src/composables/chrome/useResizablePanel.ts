@@ -84,17 +84,26 @@
  * breakpoint must not commit mid-gesture. One flag, not two, because
  * a human drags at most one bar at a time.
  *
- * ── Persistence: touchSession semantics preserved ───────────────────
- * Every `mousemove` write is a plain reactive mutation on
- * `store.session` — `SyncService.startWatcher()`
- * (`services/sync-service.ts`) already deep-watches `store.session`,
- * so both facts persist (debounced) exactly like any other
- * `session.ui` leaf. No separate "touch" call needed.
+ * ── Persistence: touchSession() at every write site ──────────────────
+ * `next`'s `SyncService` (ec840417/f645ca42, "version-count
+ * `store.session` in SyncService instead of deep-watching it") no
+ * longer deep-watches `store.session` — it watches a shallow
+ * `sessionVersion` counter that every persistence-relevant
+ * `store.session` write must bump explicitly via `touchSession()`
+ * (`store/index.ts`). A write that skips the bump is a SILENTLY LOST
+ * SAVE. Both `onMouseMoveInner` and `onMouseMoveOuter` call
+ * `touchSession()` immediately after their store write, once per
+ * `mousemove` — SyncService's own debounce coalesces the resulting
+ * burst into one PUT after the drag settles, exactly as the prior
+ * deep-watch did. Covered by `tests/integration/
+ * sync-session-version.test.ts`'s save-coverage net (extended for
+ * both new fields) — a dropped `touchSession()` at either site must
+ * turn a case red there.
  *
  * License: Public Domain (The Unlicense).
  */
 import { onUnmounted, ref } from 'vue';
-import { store } from '../../store';
+import { store, touchSession } from '../../store';
 
 // The board's own floor. The OUTER bar's upper clamp is derived so
 // the board can never be squeezed narrower than this.
@@ -243,6 +252,12 @@ export function useResizablePanel() {
       totalDelta,
       treeMaxWidthPx,
     );
+    // treePanelWidthPx is persisted session UI state; bump the session
+    // counter so SyncService schedules a (debounced) save. Per-move
+    // bumps coalesce into one PUT after the drag settles. See this
+    // file's header, "Persistence: touchSession() at every write
+    // site", and `sessionVersion` in `store/index.ts`.
+    touchSession();
   }
 
   function stopResizeInner() {
@@ -293,6 +308,10 @@ export function useResizablePanel() {
       totalDelta,
       regionMaxWidthPx,
     );
+    // treeControlRegionWidthPx is persisted session UI state; bump the
+    // session counter so SyncService schedules a (debounced) save. See
+    // onMouseMoveInner's identical comment above.
+    touchSession();
   }
 
   function stopResizeOuter() {
