@@ -210,45 +210,61 @@ describe('navigateVariation', () => {
     expect(board.stones['15,3']).toBe('W');      // pp
   });
 
-  it('is a no-op at the root (no parent)', () => {
+  it('is a LOUD no-op at the root (no parent) — L4', () => {
     const board = load('(;FF[4]GM[1]SZ[19])');
     const before = board.currentNodeId;
-    navigateVariation(board, +1);
+    const outcome = navigateVariation(board, +1);
     expect(board.currentNodeId).toBe(before);
+    expect(outcome).toEqual({ ok: false, reason: 'no-fork' });
   });
 
-  it('is a no-op when stepping past the last sibling', () => {
+  it('is a LOUD no-op when stepping past the last sibling — L4', () => {
     const board = load('(;FF[4]GM[1]SZ[19];B[pd](;W[dp])(;W[pp]))');
     const branchPoint = board.nodes[board.rootNodeId].children[0];
     const secondSibling = board.nodes[branchPoint].children[1];
     navigateTo(board, secondSibling);
 
     const before = board.currentNodeId;
-    navigateVariation(board, +1); // already at the last sibling
+    const outcome = navigateVariation(board, +1); // already at the last sibling
     expect(board.currentNodeId).toBe(before);
+    expect(outcome).toEqual({ ok: false, reason: 'out-of-range' });
+  });
+
+  it('is a LOUD no-op when stepping before the first sibling — L4 (the maintainer complaint (c) shape)', () => {
+    const board = load('(;FF[4]GM[1]SZ[19];B[pd](;W[dp])(;W[pp]))');
+    const branchPoint = board.nodes[board.rootNodeId].children[0];
+    const firstSibling = board.nodes[branchPoint].children[0];
+    navigateTo(board, firstSibling);
+
+    const before = board.currentNodeId;
+    const outcome = navigateVariation(board, -1); // already at the first sibling
+    expect(board.currentNodeId).toBe(before);
+    expect(outcome).toEqual({ ok: false, reason: 'out-of-range' });
   });
 });
 
 describe('navigateToggleMainLine', () => {
-  it('is a no-op at the root (no ancestor to fork at)', () => {
+  it('is a LOUD no-op at the root (no ancestor to fork at) — L4', () => {
     const board = load('(;FF[4]GM[1]SZ[19])');
     const memory = new Map<string, number>();
     const before = board.currentNodeId;
-    navigateToggleMainLine(board, memory);
+    const outcome = navigateToggleMainLine(board, memory);
     expect(board.currentNodeId).toBe(before);
     expect(memory.size).toBe(0);
+    expect(outcome).toEqual({ ok: false, reason: 'no-fork' });
   });
 
-  it('is a no-op when every ancestor on the path to root has exactly one child', () => {
+  it('is a LOUD no-op when every ancestor on the path to root has exactly one child — L4', () => {
     // Linear game, no branches anywhere.
     const board = load('(;FF[4]GM[1]SZ[19];B[pd];W[dp];B[pp])');
     const leaf = activeLeafFrom(board, board.rootNodeId);
     navigateTo(board, leaf);
     const memory = new Map<string, number>();
     const before = board.currentNodeId;
-    navigateToggleMainLine(board, memory);
+    const outcome = navigateToggleMainLine(board, memory);
     expect(board.currentNodeId).toBe(before);
     expect(memory.size).toBe(0);
+    expect(outcome).toEqual({ ok: false, reason: 'no-fork' });
   });
 
   it('switches to the sibling branch when the fork is the immediate parent', () => {
@@ -264,34 +280,34 @@ describe('navigateToggleMainLine', () => {
     expect(board.nodes[branchPoint].activeChildIndex).toBe(1);
   });
 
-  it('toggles the fork itself when the cursor sits exactly ON the fork node (review nit — was a silent no-op)', () => {
-    // The cursor stands exactly at the branch point (B[pd] itself,
-    // not one of its children). Pre-fix, `navigateToggleMainLine`
-    // only ever inspected `node.parent`'s children — the current
-    // node's OWN children were never checked — so standing exactly
-    // on a fork with no further ancestor fork above it was a silent
-    // no-op, the most intuitive place to invoke the toggle doing
-    // nothing. Fixed by checking the current node itself first, before
-    // walking to any parent. This is a genuine red/green case for the
-    // fix: reverting the "check node.children first" branch back to
-    // "check node.parent's children only" makes this assertion fail
-    // (currentNodeId stays at forkNode instead of moving to a child).
+  it('is a LOUD no-op when the cursor sits exactly ON a fork with no ancestor fork above it (2026-08-06 nav-algebra fix — reverses the prior self-check behavior)', () => {
+    // The cursor stands exactly at the branch point (B[pd] itself, not
+    // one of its children). A prior review nit had `findNearestFork`
+    // check the current node's OWN children before walking to any
+    // ancestor, specifically so this case would toggle. The 2026-08-06
+    // nav-algebra fix (ledger rows 483/494/497) reverses that: fork
+    // selection now ALWAYS starts at the cursor's PARENT, never at the
+    // cursor itself — because a node that is simultaneously (i) a
+    // branch head reached via some ancestor fork and (ii) itself a
+    // fork (has >1 children) was resolving breadth operators (variation
+    // step / toggle) in the wrong frame (its own children — a DEPTH
+    // fact) instead of the ancestor fork's sibling-line frame (the
+    // BREADTH fact these operators actually need). Standing exactly ON
+    // a fork with no further ancestor fork above it is now correctly a
+    // LOUD no-op (L4): there is no sibling LINE to switch to from the
+    // fork itself, only children to descend into — a different
+    // operation (`navigateNext`), never a fallback this op takes
+    // silently.
     const board = load('(;FF[4]GM[1]SZ[19];B[pd](;W[dp])(;W[pp]))');
     const forkNode = board.nodes[board.rootNodeId].children[0]; // B[pd]
-    const firstChild = board.nodes[forkNode].children[0]; // W[dp]
-    const secondChild = board.nodes[forkNode].children[1]; // W[pp]
     navigateTo(board, forkNode); // cursor ON the fork, not below it
 
     const memory = new Map<string, number>();
-    navigateToggleMainLine(board, memory);
-    // Starts at activeChildIndex 0 (default) -> advances to child 1.
-    expect(board.currentNodeId).toBe(secondChild);
-    expect(board.nodes[forkNode].activeChildIndex).toBe(1);
-
-    // Second press toggles back to the first child (two-value toggle,
-    // same as the below-the-fork case).
-    navigateToggleMainLine(board, memory);
-    expect(board.currentNodeId).toBe(firstChild);
+    const before = board.currentNodeId;
+    const outcome = navigateToggleMainLine(board, memory);
+    expect(board.currentNodeId).toBe(before); // no-op: cursor never moves
+    expect(memory.size).toBe(0); // no-op: toggle memory untouched
+    expect(outcome).toEqual({ ok: false, reason: 'no-fork' }); // loud: names why
   });
 
   it('finds the nearest ancestor fork past single-child ancestors (the uncle/cousin case)', () => {
