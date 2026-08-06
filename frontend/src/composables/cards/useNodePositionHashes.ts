@@ -129,8 +129,10 @@
  * further chunks for that flush — a flush that hit a down backend does
  * not try three more chunks against the same down backend. The
  * remaining un-cached ids (the failed chunk's own ids, plus every chunk
- * after it that was never sent) go back into `s.pending`, so the NEXT
- * `requestHashFill` naturally re-requests exactly the gap: already-
+ * after it that was never sent) are deliberately NOT re-added to
+ * `s.pending` (they would sit there with no live timer); instead the
+ * NEXT `requestHashFill` call (the tree's nodeList watch fires on every
+ * recompute) naturally re-requests exactly the gap: already-
  * cached ids are filtered by `hasCachedNodeHash`, so a retry never
  * re-covers ground the earlier chunks already won.
  */
