@@ -63,6 +63,9 @@ class _Row:
     board_size: Optional[int]
     metadata_extra: Dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    # Per-user-id-enumeration design: display-role field, mirroring
+    # the production `game_source.display_ordinal` column.
+    display_ordinal: int = 1
 
 
 class FakeGameLibraryRepository:
@@ -83,6 +86,14 @@ class FakeGameLibraryRepository:
         self._rows: Dict[int, _Row] = {}
         self._next_id: int = 1
         self._raise_on: Dict[bytes, Exception] = {}
+        # Per-user-id-enumeration design: fake stand-in for
+        # `next_game_display_ordinal`'s per-user counter.
+        self._next_ordinal: Dict[int, int] = {}
+
+    def _assign_ordinal(self, user_id: int) -> int:
+        n = self._next_ordinal.get(user_id, 0) + 1
+        self._next_ordinal[user_id] = n
+        return n
 
     # ─── Test-facing seeding helpers ────────────────────────────────
 
@@ -119,6 +130,7 @@ class FakeGameLibraryRepository:
             board_size=board_size,
             metadata_extra=metadata_extra or {},
             created_at=created_at or datetime.now(timezone.utc),
+            display_ordinal=self._assign_ordinal(int(user_id)),
         )
         return row_id
 
@@ -178,6 +190,7 @@ class FakeGameLibraryRepository:
             ruleset=req.metadata.ruleset,
             board_size=req.metadata.board_size,
             metadata_extra=extras,
+            display_ordinal=self._assign_ordinal(int(user_id)),
         )
         return ImportOutcomeCreated(
             game_id=row_id,
@@ -226,6 +239,7 @@ class FakeGameLibraryRepository:
                 ruleset=r.ruleset,
                 board_size=r.board_size,
                 created_at=r.created_at,
+                display_ordinal=r.display_ordinal,
             )
             for r in page
         ]
@@ -252,6 +266,7 @@ class FakeGameLibraryRepository:
             metadata_extra=row.metadata_extra,
             created_at=row.created_at,
             raw_content=row.raw_content,
+            display_ordinal=row.display_ordinal,
         )
 
     async def delete_game(

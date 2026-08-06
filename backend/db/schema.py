@@ -98,11 +98,22 @@ normalized_position = Table(
 # below the table) collapses repeated mints from one board into a
 # single game_source row via the get-or-create path in
 # repositories.card_repository.get_or_create_game_source_by_client_id.
-# The column is nullable so legacy callers (and any pre-rollout
-# frontend traffic) keep the always-create behavior; the partial
-# predicate keeps the unique constraint inert for those rows. See
+# The column was nullable so legacy callers (and any pre-rollout
+# frontend traffic) kept the always-create behavior; the partial
+# predicate kept the unique constraint inert for those rows. See
 # docs/dispatch/backend-to-frontend-game-source-dedup-status.md for
 # the dedup contract.
+#
+# Per-user-id-enumeration design (closing the client_game_id-may-be-
+# None exception, Decision 4's disposition table): the column is now
+# NOT NULL. `insert_game_source` (the plain create-card-root path,
+# which historically never set client_game_id) now mints a fresh
+# UUID unconditionally, matching `get_or_create_game_source_by_
+# client_id`'s and the library import path's existing behavior. The
+# partial-unique-index predicate above (`client_game_id IS NOT NULL`)
+# is now trivially always-true post-migration but left as-is —
+# functionally still a correct unique index, and removing it isn't
+# required by this change (ADR-0004 minimal-touch).
 #
 # Existing installs must run
 # scripts/migrate_add_client_game_id_to_game_source.py before
@@ -152,13 +163,21 @@ game_source = Table(
     Column("player_black", String, nullable=True),
     Column("raw_content", String, nullable=True),
     Column("description", String, nullable=True),
-    Column("client_game_id", Uuid, nullable=True),
+    Column("client_game_id", Uuid, nullable=False),
     Column("created_at", DateTime(timezone=True), default=func.now(), server_default=func.now()),
     Column("date", String, nullable=True),
     Column("result", String, nullable=True),
     Column("ruleset", String, nullable=True),
     Column("board_size", Integer, nullable=True),
     Column("metadata_extra", JSON, nullable=True),
+    # Per-user display enumeration (per-user-id-enumeration design,
+    # Decision 2/3): a per-user, gaps-on-delete ordinal assigned via
+    # `user_display_counters` at insert time. Wire-facing display
+    # value replacing the raw PK for anything a user *reads* (the
+    # library list's row numbering); never round-tripped as a
+    # reference. See `user_display_counters` below and
+    # `.claude/dispatch-reports/per-user-id-enumeration-design.md`.
+    Column("display_ordinal", Integer, nullable=False),
 )
 
 # Game-source dedup: partial unique index on (user_id, client_game_id) where
@@ -242,6 +261,16 @@ Index(
     game_source.c.id,
 )
 
+# Per-user-id-enumeration design: sibling of `uniq_card_user_display_
+# ordinal` below the `card` table — a user cannot have two
+# game_source rows at the same display ordinal.
+Index(
+    "uniq_game_source_user_display_ordinal",
+    game_source.c.user_id,
+    game_source.c.display_ordinal,
+    unique=True,
+)
+
 # 4. Cards
 card = Table(
     "card", metadata,
@@ -256,8 +285,41 @@ card = Table(
     Column("user_id", Integer, ForeignKey("users.id"), nullable=False, default=1),
     Column("creation_date", DateTime(timezone=True), server_default=func.now()),
     Column("grading_parameter", JSON, nullable=True),
-    Column("normalized_position_id", BigInteger, ForeignKey("normalized_position.id"))
+    Column("normalized_position_id", BigInteger, ForeignKey("normalized_position.id")),
+    # Per-user-id-enumeration design: `card` had no opaque
+    # stable-reference handle (unlike `game_source.client_game_id`);
+    # `public_id` is its sibling, minted once per row and never
+    # reused. Reference role — round-tripped by the frontend to
+    # identify which card a request means (`parent_card_id` on
+    # create, `/cards/{id}` addressing today per the design's named
+    # path-param exception). `display_ordinal` is the display role
+    # (per-user, gaps-on-delete, non-guessable-as-global-count) — see
+    # `user_display_counters` below.
+    Column("public_id", Uuid, nullable=False),
+    Column("display_ordinal", Integer, nullable=False),
 )
+
+# Unique compound index: a user cannot have two cards (or two
+# game_sources, via the sibling index below) at the same display
+# ordinal. Belt-and-braces alongside the atomic counter increment in
+# `user_display_counters` (Decision 2's "add regardless" instruction)
+# — the two independent-enforcement-layers posture `docs/notes/
+# tenancy.md` already applies elsewhere.
+Index(
+    "uniq_card_user_display_ordinal",
+    card.c.user_id,
+    card.c.display_ordinal,
+    unique=True,
+)
+
+# public_id uniqueness as a standalone named index rather than
+# Column(unique=True) — a table-level inline UNIQUE constraint blocks
+# SQLite's `ALTER TABLE ... DROP COLUMN` on that column entirely
+# (confirmed via tests/integration/test_alembic_bootstrap.py's
+# create_all-then-strip harness); a separate CREATE UNIQUE INDEX can
+# be dropped independently, matching the migration's
+# `op.create_index("ix_card_public_id", ...)` for upgrading installs.
+Index("ix_card_public_id", card.c.public_id, unique=True)
 
 # 5. Card Source
 card_source = Table(
@@ -408,4 +470,30 @@ analysis_bundles = Table(
         onupdate=func.now(),
         nullable=False,
     ),
+)
+
+# 10. User Display Counters (per-user-id-enumeration design)
+#
+# One row per user, seeded at first-mint time (lazy upsert — see
+# `CardRepository._next_display_ordinal`). Tenant-scoped via the
+# `user_id` primary key itself, not a secondary column: each user
+# owns exactly one counter row.
+#
+# Assignment mechanism (Decision 2): `UPDATE ... SET next_card_
+# ordinal = next_card_ordinal + 1 RETURNING next_card_ordinal` is an
+# atomic read-modify-write the row lock protects even under
+# concurrent mints, once the row exists. `next_card_ordinal` /
+# `next_game_ordinal` hold "the ordinal that will be assigned to the
+# NEXT insert" (i.e. start at 0; the first card gets ordinal 1 after
+# the increment).
+#
+# Renumbering never happens (gaps-on-delete, Decision 2) — a deleted
+# card's ordinal is never reissued, so a user-authored reference to
+# "card 3" (a screenshot, a note, a spaced-repetition history entry)
+# stays valid forever even if earlier cards are removed.
+user_display_counters = Table(
+    "user_display_counters", metadata,
+    Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
+    Column("next_card_ordinal", Integer, nullable=False, default=0),
+    Column("next_game_ordinal", Integer, nullable=False, default=0),
 )

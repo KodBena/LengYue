@@ -92,6 +92,7 @@ async def submit_review(
 async def create_new_card(
     data: CardCreate,
     service: CardService = Depends(get_card_service),
+    repo: CardRepositoryPort = Depends(get_card_repo),
     db: AsyncSession = Depends(get_db),
     user_id: UserId = Depends(get_current_user_id),  # Tenancy stamp: item 14.
 ):
@@ -117,7 +118,22 @@ async def create_new_card(
     try:
         async with db.begin():
             card_id = await service.create_card(data, user_id=user_id)
-        return CardCreateResponse(status="created", card_id=card_id)
+            # Per-user-id-enumeration design: insert_card already minted
+            # public_id/display_ordinal at INSERT time (Decision 3); this
+            # re-fetch (same session, same still-open transaction, so it
+            # sees the uncommitted row) reads them back for the response
+            # without widening CardWriteRepositoryPort's return contract.
+            created = await repo.get_card_by_id(card_id, user_id=user_id)
+        assert created is not None, (
+            "just-inserted card must be readable by its own creator "
+            "inside the same transaction"
+        )
+        return CardCreateResponse(
+            status="created",
+            card_id=card_id,
+            public_id=created.public_id,
+            display_ordinal=created.display_ordinal,
+        )
     except NotFoundError as e:
         # Item 14: CardService.create_card raises CardNotFoundError
         # (a NotFoundError) when parent_card_id refers to a card the

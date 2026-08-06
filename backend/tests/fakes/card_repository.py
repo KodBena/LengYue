@@ -33,7 +33,7 @@ from __future__ import annotations
 import hashlib
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from core.config import config
 from domain.auth import UserId
@@ -72,6 +72,17 @@ class FakeCardRepository:
         self._next_card_id = 1
         self._next_position_id = 1
         self._next_game_source_id = 1
+        # Per-user-id-enumeration design: fake stand-in for the
+        # production `user_display_counters` atomic increment, keyed
+        # per user_id since a service test may seed cards/game_sources
+        # across more than one tenant.
+        self._next_card_ordinal: Dict[int, int] = {}
+        self._next_game_ordinal: Dict[int, int] = {}
+
+    def _next_ordinal(self, counters: Dict[int, int], user_id: int) -> int:
+        n = counters.get(user_id, 0) + 1
+        counters[user_id] = n
+        return n
 
     # ─── Test helpers ──────────────────────────────────────────────────────
 
@@ -122,6 +133,8 @@ class FakeCardRepository:
             canonical_content=canonical_content,
             content_hash=resolved_hash,
             card_source_id=parent_card_id,
+            public_id=uuid4(),
+            display_ordinal=self._next_ordinal(self._next_card_ordinal, user_id),
         )
         self.user_id_by_card[card_id] = user_id
         self.card_sources[card_id] = (parent_card_id, None)
@@ -210,6 +223,8 @@ class FakeCardRepository:
             canonical_content=self.canonical_by_position[position_id],
             content_hash=self.hash_by_position[position_id],
             card_source_id=None,
+            public_id=uuid4(),
+            display_ordinal=self._next_ordinal(self._next_card_ordinal, int(user_id)),
         )
         self.user_id_by_card[card_id] = int(user_id)
         return card_id
@@ -233,7 +248,10 @@ class FakeCardRepository:
             "player_black": player_black,
             "description": description,
             "raw_content": raw_content,
-            "client_game_id": None,
+            # Per-user-id-enumeration design: always minted now (the
+            # "may be None" exception is closed).
+            "client_game_id": uuid4(),
+            "display_ordinal": self._next_ordinal(self._next_game_ordinal, int(user_id)),
         }
         return gs_id
 
@@ -262,6 +280,7 @@ class FakeCardRepository:
             "description": description,
             "raw_content": raw_content,
             "client_game_id": client_game_id,
+            "display_ordinal": self._next_ordinal(self._next_game_ordinal, int(user_id)),
         }
         self.client_id_to_gs[key] = gs_id
         return gs_id

@@ -47,6 +47,7 @@ And the default_visits relocation (also complete):
 """
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
@@ -87,6 +88,17 @@ class Card(BaseModel):
     content_hash: bytes
     card_source_id: Optional[int] = None
     tags: List[str] = Field(default_factory=list)
+    # Per-user-id-enumeration design
+    # (`.claude/dispatch-reports/per-user-id-enumeration-design.md`):
+    # `public_id` is the reference-role opaque handle (card's sibling
+    # of `game_source.client_game_id`) — minted once at insert, never
+    # reused. `display_ordinal` is the display-role, per-user,
+    # gaps-on-delete ordinal. `id` (the raw PK) stays on the wire as
+    # a named allowlist exception alongside the `GET /cards/{card_id}`
+    # path param — see the design's Decision 4 disposition table and
+    # `tests/enforcement/global_sequence_allowlist.py`.
+    public_id: UUID
+    display_ordinal: int
 
     @field_serializer("content_hash", when_used="json")
     def _serialize_content_hash(self, value: bytes) -> str:

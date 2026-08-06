@@ -21,11 +21,17 @@ scope for this work; this file builds its small fixtures inline.
 License: Public Domain (The Unlicense)
 """
 import hashlib
+from itertools import count
 from typing import Dict, List, Optional
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+
+# Per-user-id-enumeration design: see test_stats_repository.py's
+# identical comment.
+_ordinal = count(1)
 
 from db.schema import (
     card,
@@ -81,6 +87,8 @@ async def _seed_game_source(
             position_id=position_id,
             user_id=user_id,
             description=description,
+            client_game_id=uuid4(),
+            display_ordinal=next(_ordinal),
         )
         .returning(game_source.c.id)
     )
@@ -99,6 +107,8 @@ async def _seed_card(
             t=1.0,
             user_id=user_id,
             normalized_position_id=position_id,
+            public_id=uuid4(),
+            display_ordinal=next(_ordinal),
         )
         .returning(card.c.id)
     )
