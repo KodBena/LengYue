@@ -247,6 +247,8 @@
   "keybindings.action.reviewPrevCard.description":             "Go back to the previous card in the review session, restoring its board and grade exactly as left.",
   "keybindings.action.cardMint.label":                         "Mint card",
   "keybindings.action.cardMint.description":                   "Open the mint-card dialog for the active board's current position.",
+  "keybindings.action.boardPass.label":                        "Pass",
+  "keybindings.action.boardPass.description":                  "Play a pass on the active board.",
 
   "keybindings.section.nav":                                   "Navigation",
   "keybindings.section.display":                               "Display",
@@ -344,6 +346,9 @@
   "statusBar.blackToPlay":                "Black to Play",
   "statusBar.whiteToPlay":                "White to Play",
   "statusBar.toggleMoveNumbers":          "Toggle move-number annotation on stones",
+  "statusBar.pass":                       "Pass",
+  "statusBar.passTitle":                  "Play a pass (consumes the turn, no stone placed)",
+  "statusBar.gameEndedByPass":            "Game ended — two consecutive passes",
 
   "moveSuggestions.pasteHint":            "{key}+click to paste PV",
   "moveSuggestions.pasteIllegal":         "PV paste stopped at move {n}: ({x}, {y}) is illegal in that position",

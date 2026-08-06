@@ -163,6 +163,13 @@ function onToggleLeave() {
 
 function nodeFill(item: { move?: GameNode['move'] }): string {
   if (!item.move) return themeColor('--border-3');
+  // A pass node places no stone — fill it the same neutral tone as a
+  // moveless node rather than a B/W stone colour (a color-only
+  // pass/stone distinction would fail ADR-0019 appendix C18; the "P"
+  // glyph rendered alongside in the template is the actual
+  // distinguishing signal, this just keeps the fill from lying about
+  // "a stone of this colour sits here").
+  if (item.move.type === 'pass') return themeColor('--border-3');
   // Stone colors are domain-meaningful (board pieces); not chrome.
   //
   // DARK-THEME EXCEPTION (Defect 7 fix, ui-defects-investigation.md):
@@ -412,7 +419,7 @@ const edges = computed(() => {
         <g
           v-for="item in nodeList"
           :key="item.id"
-          v-memo="[item.isGameHead, item.isKnownPosition, item.isReviewStart, item.move?.color, item.isBranching, item.isExpanded, item.px, item.py]"
+          v-memo="[item.isGameHead, item.isKnownPosition, item.isReviewStart, item.move?.color, item.move?.type, item.isBranching, item.isExpanded, item.px, item.py]"
         >
           <!-- Known-position marker (card-position-annotations Stage B).
                RADIUS NOTE (review REJECT finding 2,
@@ -463,6 +470,12 @@ const edges = computed(() => {
                already occupying and how it was resolved at merge. -->
           <circle v-if="item.isReviewStart" :cx="item.px" :cy="item.py" :r="NODE_R + 7" class="review-start-ring" stroke-width="1.5" />
           <circle :cx="item.px" :cy="item.py" :r="NODE_R" :fill="nodeFill(item)" :stroke="nodeStroke(item)" stroke-width="1" class="node-circle" @click="emit('select-node', item.id)" />
+          <!-- Pass-node glyph — the actual distinguishing signal for a
+               pass (per ADR-0019 appendix C18, no color-only meaning):
+               a "P" letterform, not merely the neutral fill above.
+               `pointer-events: none` so the glyph doesn't shadow the
+               circle's own click target. -->
+          <text v-if="item.move?.type === 'pass'" :x="item.px" :y="item.py" class="pass-glyph" text-anchor="middle" dominant-baseline="central" pointer-events="none">P</text>
 
           <g v-if="item.isBranching" class="toggle-group" @click.stop="expansion.toggle(item.parentIdForToggle as NodeId /* layout item's parent id is a NodeId */)" @mouseenter="e => onToggleEnter(e, item.parentIdForToggle as NodeId /* layout item's parent id is a NodeId */)" @mouseleave="onToggleLeave">
             <line :x1="item.px" :y1="item.py" :x2="item.ix" :y2="item.iy" class="toggle-leader" stroke-width="1" stroke-dasharray="2,1" />
@@ -491,6 +504,11 @@ const edges = computed(() => {
 .review-start-ring { fill: color-mix(in srgb, var(--accent-secondary) 15%, transparent); stroke: var(--accent-secondary); }
 .node-circle { cursor: pointer; transition: filter var(--duration-default); }
 .node-circle:hover { filter: brightness(1.4) drop-shadow(0 0 3px var(--accent-primary)); }
+/* Pass-node glyph — 6px against a NODE_R=5 (10px-diameter) circle;
+   legible at the tree's default zoom without dominating the node.
+   `--text-1` (not a stone-literal colour) since the glyph sits on the
+   neutral `nodeFill` background, not a B/W stone. */
+.pass-glyph { font-size: 6px; font-weight: bold; fill: var(--text-1); user-select: none; }
 .toggle-group { cursor: pointer; }
 .toggle-group rect { transition: stroke var(--duration-default), fill var(--duration-default); }
 .toggle-leader { stroke: var(--border-3); }

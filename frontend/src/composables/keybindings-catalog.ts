@@ -38,6 +38,7 @@ import { useNavigation } from './useNavigation';
 import { useEngineModelSelection } from './useEngineModelSelection';
 import { useReviewSession } from './review/useReviewSession';
 import { requestMintDialog } from './useMintDialogSignal';
+import { requestPass } from './board/usePassSignal';
 import { activeBoard, store, touchSession } from '../store';
 import { analysisService } from '../services/analysis-service';
 import type { BoardId, KeybindingActionId } from '../types';
@@ -72,6 +73,7 @@ export const ACTIONS = {
   reviewNextCard:                   asActionId('review.nextCard'),
   reviewPrevCard:                   asActionId('review.prevCard'),
   cardMint:                         asActionId('card.mint'),
+  boardPass:                        asActionId('board.pass'),
 } as const satisfies Record<string, KeybindingActionId>;
 
 // ── enabledWhen predicates ───────────────────────────────────
@@ -407,5 +409,26 @@ export const KEYBINDINGS_REGISTRY: ReadonlyArray<KeybindingActionDecl> = [
     dispatchMode: 'immediate',
     enabledWhen: activeBoardExists,
     handler: requestMintDialog,
+  },
+  // ── Board (immediate) ──────────────────────────────────────
+  {
+    // "Pass" — plays a pass on the active board (pass-support design,
+    // `.claude/dispatch-reports/design-engine-features.md`, PASS
+    // SUPPORT §B). Same module-scope-has-no-component-instance gap as
+    // `card.mint` above: `handlePass` lives inside `App.vue`'s setup
+    // (closes over `reviewSession`/`engineResponder`), so this catalog
+    // signals via `requestPass()` (`usePassSignal.ts`, same shape as
+    // `useMintDialogSignal.ts`) rather than calling a routing handler
+    // directly. `enabledWhen: activeBoardExists` mirrors the status-bar
+    // pass button's own gate. `p` — unused in the existing catalog
+    // (C15-clean), the conventional Sabaki/q5go pass mnemonic per the
+    // design's genre survey.
+    id: ACTIONS.boardPass,
+    labelKey: 'keybindings.action.boardPass.label',
+    descriptionKey: 'keybindings.action.boardPass.description',
+    defaultKey: 'p',
+    dispatchMode: 'immediate',
+    enabledWhen: activeBoardExists,
+    handler: requestPass,
   },
 ];

@@ -16,8 +16,13 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { applyGoMove } from '../../src/logic';
+// @ts-ignore — @sabaki/sgf has no published types declaration; same
+// suppression pattern as tests/unit/engine/sgf-loader.test.ts.
+import sgf from '@sabaki/sgf';
+import { applyGoMove, applyPass } from '../../src/logic';
 import { createInitialBoard } from '../../src/store/board-factory';
+import { loadSgf } from '../../src/engine/sgf-loader';
+import { serializeBoard } from '../../src/engine/sgf-writer';
 import type { BoardState } from '../../src/types';
 
 /**
@@ -131,5 +136,97 @@ describe('applyGoMove — capture', () => {
     // The ko point lives at the just-captured square; W cannot
     // immediately recapture there.
     expect(board.koPoint).toEqual({ x: 4, y: 3 });
+  });
+});
+
+/**
+ * `applyPass` (pass-support design, PASS SUPPORT §B, `.claude/
+ * dispatch-reports/design-engine-features.md`) — turn parity, no
+ * capture, tree-node shape, and the SGF round-trip through the real
+ * writer/loader (the mutator's node must produce the exact property
+ * shape `sgfToMove` already decodes and `serializeBoard` already
+ * re-emits — both existing, pre-fix code paths per the sgf-pass-
+ * diagnosis report).
+ */
+describe('applyPass', () => {
+  it('consumes the turn without placing a stone or capturing', () => {
+    const board = createInitialBoard();
+    expect(board.turn).toBe('B');
+
+    const next = applyPass(board);
+
+    expect(next.turn).toBe('W');
+    expect(Object.keys(next.stones)).toHaveLength(0);
+    expect(next.captures).toEqual({ B: 0, W: 0 });
+  });
+
+  it('appends a tree node with move.type "pass" and the passing colour', () => {
+    const board = createInitialBoard();
+    const next = applyPass(board);
+
+    expect(next.currentNodeId).not.toBe(board.currentNodeId);
+    const node = next.nodes[next.currentNodeId];
+    expect(node.move).toEqual({ x: 0, y: 0, color: 'B', type: 'pass' });
+    expect(node.parent).toBe(board.currentNodeId);
+    expect(next.nodes[board.currentNodeId].children).toContain(next.currentNodeId);
+  });
+
+  it('a pass never touches the stones projection even mid-game', () => {
+    let board = createInitialBoard();
+    board = play(board, 3, 3); // B
+    board = play(board, 15, 15); // W
+    const stonesBefore = { ...board.stones };
+
+    const next = applyPass(board); // B passes
+
+    expect(next.stones).toEqual(stonesBefore);
+    expect(next.turn).toBe('W');
+  });
+
+  it('two consecutive passes alternate colour correctly (turn parity over a pass-pass sequence)', () => {
+    let board = createInitialBoard();
+    board = applyPass(board); // B passes → W to move
+    expect(board.turn).toBe('W');
+    board = applyPass(board); // W passes → B to move
+    expect(board.turn).toBe('B');
+    expect(board.nodes[board.currentNodeId].move).toEqual({ x: 0, y: 0, color: 'W', type: 'pass' });
+  });
+
+  it('existing-child reuse: replaying the same pass descends into the existing node rather than duplicating', () => {
+    const board = createInitialBoard();
+    const first = applyPass(board);
+    // Re-navigate to the parent and pass again — same shape as
+    // applyGoMove's dedup test, mirrored for the pass mutator.
+    const replay = applyPass({ ...first, currentNodeId: board.currentNodeId, nodes: first.nodes, turn: 'B' });
+
+    expect(replay.currentNodeId).toBe(first.currentNodeId);
+    expect(Object.keys(replay.nodes)).toHaveLength(Object.keys(first.nodes).length);
+  });
+
+  it('SGF round-trip: a pass played via applyPass survives serializeBoard → loadSgf identically', () => {
+    let board = createInitialBoard();
+    board = play(board, 3, 3); // B
+    board = applyPass(board); // W passes
+    board = play(board, 15, 15); // B plays again
+
+    const written = serializeBoard(board);
+    // The written SGF must carry an empty-value W property (the pass
+    // marker) — not merely "some W property".
+    expect(written).toMatch(/;W\[\]/);
+
+    const reloaded = loadSgf(sgf.parse(written));
+    const reloadedLeaf = reloaded.nodes[reloaded.currentNodeId];
+    // Walk reloaded's mainline to find the pass node and confirm it
+    // decoded back to type 'pass', color 'W' — the exact round-trip
+    // the design's acceptance criteria require.
+    let cursor = reloaded.nodes[reloaded.rootNodeId];
+    const moves: (typeof reloadedLeaf.move)[] = [];
+    while (true) {
+      moves.push(cursor.move);
+      if (cursor.children.length === 0) break;
+      cursor = reloaded.nodes[cursor.children[cursor.activeChildIndex]];
+    }
+    const passMove = moves.find(m => m?.type === 'pass');
+    expect(passMove).toEqual({ x: 0, y: 0, color: 'W', type: 'pass' });
   });
 });

@@ -27,6 +27,7 @@ import { useDirtyBoardGuard } from './composables/board/useDirtyBoardGuard';
 import { useAppBootstrap } from './composables/auth-app/useAppBootstrap';
 import { useTransientLogReveal } from './composables/useTransientLogReveal';
 import { mintDialogRequestCount } from './composables/useMintDialogSignal';
+import { passRequestCount } from './composables/board/usePassSignal';
 import {
   store,
   activeBoard,
@@ -273,8 +274,26 @@ const controlTabs = computed(() => [
 // refuse board mutation, and free play (with the play-vs-engine
 // head trigger) is an IDLE/FINISHED-only affordance. Policy +
 // rationale live in the composable; tier-3 tests pin the gating.
-const { handleBoardMove, handlePastePv } =
+const { handleBoardMove, handlePass, handlePastePv } =
   useBoardMoveRouting(reviewSession, engineResponder);
+
+// Same signal shape as `mintDialogRequestCount` above: the module-
+// scope keybindings catalog can't call `handlePass` directly (it
+// closes over `reviewSession`/`engineResponder`, both App-setup-
+// scoped), so `board.pass`'s handler bumps `passRequestCount` and
+// this watcher calls the real handler.
+watch(passRequestCount, () => {
+  handlePass();
+});
+
+// StatusBar's pass-button enabled state: mirrors `handlePass`'s own
+// no-op arms (transient SR states, REVIEWED) so the button's
+// disabled-ness never lies about what a click would do.
+const canPass = computed(() =>
+  reviewSession.state.value !== 'LOADING'
+  && reviewSession.state.value !== 'ANALYZING'
+  && reviewSession.state.value !== 'REVIEWED',
+);
 
 // Tightened from `nodeId: string` to `nodeId: NodeId` to match
 // TreeWidget's tightened `select-node` emit signature. The handler
@@ -451,8 +470,10 @@ const activeTab = computed<string>({
               v-if="activeBoard"
               :board="activeBoard"
               :metadata="metadata"
+              :can-pass="canPass"
               @update-komi="handleUpdateKomi"
               @update-rules="handleUpdateRules"
+              @pass="handlePass"
             />
           </div>
         </div>
