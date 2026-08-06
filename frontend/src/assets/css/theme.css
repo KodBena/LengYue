@@ -274,19 +274,25 @@
    * Two tiers, ordered fast → slow. Snap-by-cluster applied to
    * 22 surveyed transition sites: the prior 0.1s / 0.12s / 0.15s
    * / 0.2s spread is within JND for the role they all serve
-   * (hover and state transitions on chrome) and collapses into
-   * a single --duration-default at 0.2s (the largest cluster and
-   * web-design canonical default). The pulse-and-attention
-   * animation tier is preserved as a distinct role at 1s. If a
-   * future need surfaces for a snappier-than-default tier (e.g.
-   * an SVG node hover with sub-100ms feedback), add the tier
-   * here rather than reaching for an inline literal — same
-   * discipline as z-index. The MoveSuggestions PV-stone fade
-   * (60ms inline in MoveSuggestions.vue) is intentionally faster
-   * than chrome and band-2 game-tree-coupled; it stays inline-
-   * justified rather than entering this scale. */
-  --duration-default: 0.2s;  /* chrome hover and state transitions */
-  --duration-slow:    1s;    /* pulse and attention animations */
+   * (hover and state transitions on chrome) and collapsed into a
+   * single --duration-default token (formerly 0.2s, the largest
+   * cluster and web-design canonical default). Per maintainer
+   * ruling (2026-08, ledgered scope call: chrome transitions are
+   * unwanted), --duration-default is now 0s — a one-line SSOT
+   * kill switch for every referencing site rather than a 14-file
+   * per-site sweep. --duration-slow is untouched: it gates only
+   * feature-carrying `animation:` keyframes (the watchdog-pinging
+   * indicator, off by default, and PboPopover's busy-dot pulse),
+   * not decorative transitions. If a future need surfaces for a
+   * snappier-than-default tier (e.g. an SVG node hover with
+   * sub-100ms feedback), add the tier here rather than reaching
+   * for an inline literal — same discipline as z-index. The
+   * MoveSuggestions PV-stone fade (60ms inline in
+   * MoveSuggestions.vue) is intentionally faster than chrome and
+   * band-2 game-tree-coupled; it stays inline-justified rather
+   * than entering this scale. */
+  --duration-default: 0s;    /* chrome hover and state transitions — disabled per maintainer ruling */
+  --duration-slow:    1s;    /* pulse and attention animations (feature-carrying keyframes only) */
 
   /* ── Spacing scale (4) ───────────────────────────────────────
    * Four tiers for gap, padding, margin. Snap-by-cluster

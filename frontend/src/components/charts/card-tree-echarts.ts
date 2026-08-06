@@ -102,6 +102,16 @@ export function toEChartsNode(
       name: `Card ${node.cardId}`,
       payload: { kind: 'card', cardId: node.cardId, role: node.role },
       symbolSize: node.role === 'active' ? 12 : 8,
+      // On-canvas annotation is the bare card id — `name` stays
+      // `Card ${cardId}` for tooltips/keying (unchanged), but the
+      // rendered label must not repeat "Card " for every node in the
+      // forest simultaneously. Mirrors the `stub`/`bucket` branches'
+      // own `label.formatter` below. Overridden by the isSuspended
+      // spread below when the card is suspended (💤 takes priority).
+      label: {
+        show: true,
+        formatter: () => String(node.cardId),
+      },
       itemStyle: {
         // Precedence: isSelected (green) > isCurrent (orange /
         // --review-current-card) > role default. `isSelected`
