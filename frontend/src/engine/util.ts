@@ -309,6 +309,9 @@ export function pathHasMidTreeSetup(nodes: Record<NodeId, GameNode>, path: reado
     }
   }
   return false;
+}
+
+/**
  * Game-end signal (pass-support design, PASS SUPPORT §"Game-end
  * signal"): a STATUS-ONLY read of "did the active path just end in
  * two consecutive passes?" — no persistent state, no scoring/territory

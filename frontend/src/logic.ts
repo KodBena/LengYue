@@ -168,6 +168,10 @@ export function applyMarkup(state: BoardState, x: number, y: number, key: SetupM
   return {
     ...state,
     nodes: nextNodes,
+  };
+}
+
+/**
  * Applies a pass: consumes the turn, captures nothing, and appends a
  * `type: 'pass'` `GameNode` to the tree — the mutator named in the
  * pass-support design (`.claude/dispatch-reports/

@@ -358,6 +358,9 @@ describe('pathHasMidTreeSetup', () => {
     // range for THIS query, so it must not be flagged.
     const rootOnlyPath: NodeId[] = [board.rootNodeId];
     expect(pathHasMidTreeSetup(withMidTreeSetup.nodes, rootOnlyPath)).toBe(false);
+  });
+});
+
 /**
  * `getGameEndStatus` truth table (pass-support design's "Game-end
  * signal", `.claude/dispatch-reports/design-engine-features.md`) —

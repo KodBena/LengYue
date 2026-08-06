@@ -292,6 +292,8 @@ describe('KEYBINDINGS_REGISTRY (ship-time smoke)', () => {
     expect(action).toBeDefined();
     action!.handler();
     expect(store.session.reviews[boardId].currentIndex).toBe(0);
+  });
+
   it("'board.pass' handler bumps the pass request signal (App.vue's watcher entry point)", () => {
     const action = KEYBINDINGS_REGISTRY.find((a) => a.id === ACTIONS.boardPass);
     expect(action).toBeDefined();
