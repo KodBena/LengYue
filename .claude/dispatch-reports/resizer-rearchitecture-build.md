@@ -447,3 +447,240 @@ rebuild everything:
 
 License: Public Domain (The Unlicense), per every touched file's own
 header.
+
+---
+
+## Addendum — post-review repairs (2026-08-06, same day)
+
+The fresh-context review
+(`.claude/dispatch-reports/resizer-rearchitecture-review.md`, read in
+full before starting this addendum) returned **ACCEPT-WITH-FINDING**:
+architecture accepted, merge blocked on repairs. This addendum covers
+each repair, WITNESSED gate output per claim, and commits `7fd0b499`
+(touchSession fix) and `033c1604` (the merge itself) on this branch.
+
+### A1. CRITICAL (review §2) — `touchSession()` at both write sites
+
+**WITNESSED.** `next` shipped `ec840417`/`f645ca42` ("version-count
+`store.session` in SyncService instead of deep-watching it") after
+this branch's original base commit — confirmed independently by
+reading `store/index.ts`'s `sessionVersion`/`touchSession` docstring
+and `git show ec840417 --stat` on the real `next` history before
+touching anything (this directly contradicted what I'd verified
+earlier in the same session against the branch's *original*, stale
+base — the review's claim was checked against real git state, not
+taken on faith).
+
+Fix: `touchSession()` called immediately after both
+`onMouseMoveInner`'s and `onMouseMoveOuter`'s store writes in
+`useResizablePanel.ts`, mirroring `next`'s own baseline
+`useResizablePanel.ts` pattern for its (superseded) board-target
+write. The file's header docstring — which had asserted the
+now-false "SyncService already deep-watches `store.session`, no
+separate touch call needed" — is corrected to name the real
+contract.
+
+**Red-then-green witness (WITNESSED, per review §2's own ask — "a
+dropped `touchSession()` at either site must turn a case red"):**
+
+```
+# Red leg (touchSession() calls temporarily deleted via sed):
+FAIL  ... the INNER bar drag (treePanelWidthPx) schedules a save
+FAIL  ... the OUTER bar drag (treeControlRegionWidthPx) schedules a save
+Test Files  1 failed (1)   Tests  2 failed | 13 skipped (15)
+
+# Green leg (restored):
+Test Files  1 passed (1)   Tests  15 passed (15)
+```
+
+Extended `tests/integration/sync-session-version.test.ts` (the
+project's own save-coverage net) with two new cases, added under a
+new `describe('SyncService save-coverage — resizer-rearch nested-
+splitter (ledger row 391/414, review §2)')` block. Both drive the
+**production** drag handlers end-to-end (`useResizablePanel()` +
+synthetic `mousedown`/`mousemove`/`mouseup`, not an inline store
+write), through the real `SyncService` watcher → debounce → stubbed-
+fetch `PUT` path — the same harness shape every other case in that
+file uses, so a regression here is caught the same way a regression
+in `mutateReviewSession` or `toggleCardTreeManualExpand` would be.
+
+### A2. Merge — 8 conflicting files (review §1)
+
+**WITNESSED.** Merged `next` (head `b5732042` at merge time — one
+commit ahead of the review's own trial-merge base, `50f9ee6c`, since
+a delta-panel PR landed on `next` between the review and this repair)
+into this branch. `git merge --no-commit --no-ff next` reported the
+same 8 conflicting files the review enumerated:
+`migrations.ts`, `archived-migrations.ts`, `migrations.test.ts`,
+`App.vue`, `ForestDirectory.vue`, `useResizablePanel.ts`,
+`useResizablePanel.test.ts` (add/add), `FILES.md`.
+
+**Each resolution verified against BOTH parents' intent** (not
+copied wholesale from the reviewer's scratch worktree without
+re-deriving it independently — the scratch tree at
+`/tmp/omega-trial-merge` was consulted as a reference for *what next
+added independently* via `git show next:<path>`, but every hunk below
+was composed by hand against the current merge, since the review's
+own scratch resolution predates the delta-panel commit that landed
+on `next` afterward):
+
+- **Migrations.** `next`'s `CURRENT_SCHEMA_VERSION` was **64** at
+  merge time (confirmed via `git show next:frontend/src/store/
+  migrations.ts`), not the review's `63` — one migration ahead of
+  the review's own snapshot (delta-panel's `63→64 deltaViewMode`
+  backfill). Renumbered this branch's resizer-strip migration
+  `61→62` → **`64→65`**; `CURRENT_SCHEMA_VERSION` → **65**.
+  Rolling-archive discipline maintained: archived `62→63`
+  (`highContrastText`, moved out of `next`'s active file to make
+  room) alongside `next`'s own `60→61` / `61→62` archive additions,
+  so the archive now covers `1→2` through `62→63` (62 entries) and
+  the active file holds exactly two (`63→64`, `64→65`).
+  `migrations.test.ts`'s `61→62` block renamed to `64→65` with
+  `step(61)` → `step(64)`; `next`'s own `61→62 analysisRange`
+  test block and `63→64 deltaViewMode` test block both kept
+  unchanged.
+- **App.vue — the 5-hunk file.** Composed, not picked, per the
+  review's own instruction:
+  - Kept `next`'s ADR-0019 cold-load gate
+    (`<template v-if="store.workspaceLoadState.kind === 'loaded'">`
+    wrapping the whole workspace, `v-else-if` loading/error
+    siblings) and its relocated `.right-toggles` block (now inside
+    the gated `.top-nav-bar`, driven by `toggleChrome()`) — deleted
+    this branch's OWN un-relocated duplicate of that block (the
+    stale-base copy the review's §1 table flagged as "reintroduced/
+    duplicated purely because `next` moved it").
+  - Kept `next`'s `toggleChrome(key: BooleanUiKey)` helper and the
+    writable `activeTab` computed (both call `touchSession()`) —
+    wired `TabWidget`'s `v-model` to `activeTab` (replacing this
+    branch's inline `store.session.ui.activeTab as string` cast,
+    which predates and is subsumed by the computed).
+  - Added `@update-rules="handleUpdateRules"` to the `StatusBar` tag
+    — `next`'s addition, absent from this branch's stale-base
+    template, real `defineEmits` in `StatusBar.vue` confirmed before
+    wiring it (`grep -n "update-rules" StatusBar.vue`).
+  - Kept this branch's FULL nested-splitter resizer structure
+    (`#board-column` / `#board-square` / `#resizer-outer` /
+    `#tree-control-wrapper` / `#resizer-inner` / `#control-panel`)
+    wholesale — `next`'s side here is the pre-rearch `ui-fix-56`
+    baseline this branch's whole commission exists to replace.
+  - **A dropped closing `</div>` from the manual composition** (the
+    `#split-workspace` element opened at the top of the resolved
+    block never got its matching close after I removed a duplicate
+    opening tag) was caught by `vite build`'s SFC template parser —
+    "Element is missing end tag" at `App.vue:388` — not by
+    `vue-tsc -b`, which is a `<script>`-only typecheck and doesn't
+    validate template tag balance. **WITNESSED failure, then
+    WITNESSED fix**: added the missing `</div>`, `npm run build`
+    went from a hard compile error to `✓ 1097 modules transformed`.
+    Recorded here as a genuine authoring mistake caught by the gate
+    it should be caught by, not silently corrected without mention.
+- **`useResizablePanel.ts` / `.test.ts` (add/add).** Took this
+  branch's full rewrite wholesale — confirmed `next`'s side is
+  byte-identical to the pre-rearch `ui-fix-56` baseline
+  (`git diff next:frontend/src/composables/chrome/useResizablePanel.ts
+  1e246e6d:frontend/src/composables/chrome/useResizablePanel.ts`
+  empty) before discarding it.
+- **`ForestDirectory.vue`.** Adjacent-import-line conflict only
+  (`touchSession` from `next`'s side, `useDeferredContainerBreakpoint`
+  from this branch's side) — both needed, both kept; the rest of the
+  file (including `next`'s `touchSession()` call at the
+  `cardsContextIds` write site) merged clean with no further
+  conflict.
+- **`FILES.md`.** Adjacent-line entry conflict — composed both
+  sides' new rows (`useDeferredContainerBreakpoint.ts`,
+  `useVirtualList.ts`) alongside the updated `useResizablePanel.ts`
+  description.
+
+### A3. Probe fix (review §4) — removed the prohibited `waitForTimeout`
+
+**WITNESSED.** `grep -rn "waitForTimeout\|setTimeout("
+resizer-rearch-probe.mjs` now returns nothing. The single call site
+(ledger-row-414 content-stability check, after the branch-expand +
+navigation drive) is replaced with a condition wait: a
+`page.evaluate` polling loop via `requestAnimationFrame` that resolves
+once `#vue-tree-panel` and `#tree-control-wrapper`'s combined geometry
+string reads identically across two consecutive frames, rather than
+guessing a fixed 50ms is enough.
+
+### A4. Post-merge gates and live probe — WITNESSED, this branch's HEAD
+
+All four run from `frontend/` against the merged tree (commit
+`033c1604`), in the isolated worktree:
+
+**`npm run build`:**
+```
+✓ 1097 modules transformed.
+dist/assets/index-DM3qrb7J.css    119.72 kB
+dist/assets/index-B1cdroQ6.js   2,943.67 kB
+✓ built in 1.72s
+```
+
+**`npx eslint .`:** clean, zero output.
+
+**`npm run test:run`:**
+```
+Test Files  110 passed | 3 skipped (113)
+     Tests  1392 passed | 4 skipped (1396)
+```
+(Up from the pre-merge 84 files / 1145 tests — the merge brought in
+`next`'s own suite, and this addendum's two new
+`sync-session-version.test.ts` cases.)
+
+**Playwright probe** (own port `4812`, dev server killed after; a
+first attempt raced an orphaned background instance from an earlier
+troubleshooting step and crashed with `Target page, context or
+browser has been closed` — killed all stray Chromium processes,
+confirmed a clean process table, and re-ran once, synchronously,
+start to finish, in the foreground):
+
+```
+PASS  INNER bar: bar found / pane found
+FAIL  INNER bar: bar screen position tracks the CLAMPED cursor expectation
+      — maxLag=116.1px at dx=-342
+PASS  INNER bar: sweep moved the pane / range pinning (both ends) /
+      persisted fact matches rendered geometry / no drag-start clobber
+PASS  OUTER bar: ALL checks, including bar-position lag (0 failures
+      across the full 1800-step swept range)
+PASS  both facts ended independently-set, defined (ADR-0012)
+PASS  ledger row 414: ZERO width delta on #vue-tree-panel from
+      branch-expand + navigation
+PASS  ledger row 414: ZERO width delta on #tree-control-wrapper from
+      branch-expand + navigation
+
+1 FAILURE(S)
+```
+
+**The INNER-bar residual lag (first reported in the original build
+report §7) reproduced a THIRD time, post-merge, at a THIRD distinct
+magnitude and position** (41.4px @ dx=-242 → 41.4px @ dx=-317 →
+116.1px @ dx=-342, across three independent runs on three different
+dev-server instances/ports). The magnitude is no longer even
+approximately constant across runs, which weakens the "fixed
+geometric offset" hypothesis (a genuine CSS box-sizing mismatch on
+`#vue-tree-panel`'s border/padding would recur at a stable magnitude
+every run) and strengthens the "headless-Chromium paint/reactivity-
+flush timing artifact" hypothesis this report and the review both
+flagged as the leading candidate — still **UNEXERCISED**: a
+controlled repeat-run study (same port, same board, N≥5 runs,
+recording magnitude/position variance) to confirm this statistically
+was not performed, in the interest of delivering this repair now per
+the coordinator's explicit instruction rather than continuing to
+iterate on an already-small, already-disclosed, non-blocking residual
+(review §7 assessed it as "acceptable to ship as a tracked residual,
+given §2 is fixed first" — §2 is now fixed).
+
+### A5. What's still open after this addendum
+
+- The ~41–116px INNER-bar residual lag (A4) — reproduced three times,
+  root cause still not isolated, now with evidence favoring a timing
+  artifact over a geometry defect.
+- Library (700px) / Analysis (379px) breakpoint conversions to
+  `useDeferredContainerBreakpoint` — unchanged from the original
+  report's §8, reviewer-assessed acceptable to defer (review §7).
+- This report's placement (worktree-local, not main-checkout — see
+  the header note) — unchanged; still a sandbox constraint, not a
+  choice.
+
+Nothing in this addendum's scope (review §1–§4) remains open. Commits
+`7fd0b499` and `033c1604` are on this branch, ready for the next
+review pass.
