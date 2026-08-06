@@ -71,8 +71,8 @@ from `buildPersistencePayload`, untouched by `updateFromRemote`). Default
 - New `SyncService.retryHydrate()` — re-fires `hydrate()` for the current
   authenticated identity; wired to the error state's retry button (C8).
 - `App.vue`: the entire `top-nav-bar` + `SystemLogPanel` + `#split-workspace`
-  block (board column, tree panel, resizer, control panel — every surface
-  that offers workspace mutation) is now wrapped
+  block (board column, tree panel, resizer, control panel — the *render-tree*
+  surfaces that offer workspace mutation) is now wrapped
   `v-if="store.workspaceLoadState.kind === 'loaded'"`, with `v-else-if`
   loading (pulsing-dot spinner + text, `role="status"` `aria-busy="true"`)
   and `v-else-if` error (`role="alert"` + retry button using the existing
@@ -82,6 +82,22 @@ from `buildPersistencePayload`, untouched by `updateFromRemote`). Default
   separately would be redundant per-widget sprinkling.
 - New locale keys `app.workspace.loading` / `loadFailed` / `retry` added to
   all four catalogs (`en`/`ko`/`ja`/`zh-CN`).
+- **Correction (post-review, nit 1):** the original cut of this report
+  claimed "every surface that offers workspace mutation" is gated —
+  overstated by one class. `useUserIORegistry()`'s global `window`
+  keydown listener is independent of the render tree; its catalog
+  (`keybindings-catalog.ts`) gates each action on `activeBoardExists` /
+  `engineConnected`, both of which the store's *default* board already
+  satisfies during `'loading'` — so nav/display-toggle hotkeys, and
+  notably the Space ponder-toggle (a real `analysisService` WebSocket
+  query, not just a store write), stayed live through the render gate.
+  Fixed by adding `if (store.workspaceLoadState.kind !== 'loaded') return;`
+  as an early return in `useUserIORegistry.ts`'s `handleKeyDown`, ahead of
+  the per-action `enabledWhen` checks — one seam, not per-action
+  threading. Left a note at that seam for the next merge against `next`
+  (which lands a sibling `anyModalOpen.value` early-return at the same
+  spot via the just-merged modal-keyboard arc) to compose the two
+  cleanly rather than collide.
 
 No existing skeleton/spinner component existed to reuse; found one prior
 idiom (`PboPopover.vue`'s `.busy-dot` `@keyframes pulse`) and followed its
