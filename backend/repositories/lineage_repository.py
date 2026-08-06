@@ -378,6 +378,9 @@ class LineageRepository:
                 cte.c.card_source_id,
                 cte.c.depth,
                 normalized_position.c.canonical_content,
+                # content_hash: card-position-annotations Stage A —
+                # widens Card to carry the dedup hash for free.
+                normalized_position.c.content_hash,
             )
             .join(cte, card.c.id == cte.c.card_id)
             .join(

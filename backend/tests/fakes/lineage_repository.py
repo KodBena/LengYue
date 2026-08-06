@@ -18,6 +18,7 @@ License: Public Domain (The Unlicense)
 """
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
@@ -154,6 +155,7 @@ class FakeLineageRepository:
             suspended=False,
             grading_parameter=None,
             canonical_content=canonical_content,
+            content_hash=hashlib.sha256(canonical_content.encode()).digest(),
             card_source_id=parent_card_id,
         )
         self.parent_of[card_id] = parent_card_id

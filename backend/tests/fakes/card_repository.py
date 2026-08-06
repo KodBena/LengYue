@@ -30,6 +30,7 @@ License: Public Domain (The Unlicense)
 """
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
@@ -59,6 +60,10 @@ class FakeCardRepository:
         self.user_id_by_card: Dict[int, int] = {}
         self.positions: Dict[bytes, int] = {}
         self.canonical_by_position: Dict[int, str] = {}
+        # content_hash Stage A: mirrors canonical_by_position, keyed the
+        # other direction, so insert_card can populate Card.content_hash
+        # without a reverse scan of self.positions.
+        self.hash_by_position: Dict[int, bytes] = {}
         self.game_sources: Dict[int, Dict[str, Any]] = {}
         self.client_id_to_gs: Dict[Tuple[int, UUID], int] = {}
         self.card_sources: Dict[int, Tuple[Optional[int], Optional[int]]] = {}
@@ -75,6 +80,7 @@ class FakeCardRepository:
         *,
         user_id: int,
         canonical_content: str = "(;FF[4]SZ[19])",
+        content_hash: Optional[bytes] = None,
         parent_card_id: Optional[int] = None,
         alpha: float = 3.0,
         beta: float = 3.0,
@@ -90,9 +96,18 @@ class FakeCardRepository:
         Insert a card directly. Returns the new card id. Useful for
         preconditions in service tests (e.g. seeding a parent that
         ``CardService.create_card`` checks ownership against).
+
+        ``content_hash`` defaults to the SHA-256 digest of
+        ``canonical_content`` — the same dedup-hash shape the real
+        ``SgfNormalizer`` produces — so callers that don't care about
+        the hash's exact value still get a Card that round-trips
+        through the (now-required) field.
         """
         card_id = self._next_card_id
         self._next_card_id += 1
+        resolved_hash = content_hash or hashlib.sha256(
+            canonical_content.encode()
+        ).digest()
         self.cards[card_id] = Card(
             id=card_id,
             num_moves=num_moves,
@@ -105,6 +120,7 @@ class FakeCardRepository:
             suspended=suspended,
             grading_parameter=grading_parameter,
             canonical_content=canonical_content,
+            content_hash=resolved_hash,
             card_source_id=parent_card_id,
         )
         self.user_id_by_card[card_id] = user_id
@@ -165,6 +181,7 @@ class FakeCardRepository:
         self._next_position_id += 1
         self.positions[content_hash] = pid
         self.canonical_by_position[pid] = canonical_content
+        self.hash_by_position[pid] = content_hash
         return pid
 
     async def insert_card(
@@ -191,6 +208,7 @@ class FakeCardRepository:
             suspended=False,
             grading_parameter=grading_parameter,
             canonical_content=self.canonical_by_position[position_id],
+            content_hash=self.hash_by_position[position_id],
             card_source_id=None,
         )
         self.user_id_by_card[card_id] = int(user_id)

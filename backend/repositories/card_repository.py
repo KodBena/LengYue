@@ -110,6 +110,9 @@ class CardRepository(CardRepositoryPort, CardWriteRepositoryPort):
                 # Alias the new generic column back to the current
                 # Card field name. 34b deletes this alias.
                 normalized_position.c.canonical_content,
+                # content_hash: card-position-annotations Stage A —
+                # widens Card to carry the dedup hash for free.
+                normalized_position.c.content_hash,
                 card_source.c.card_source_id,  # Parent ID for the frontend tree
             )
             .join(normalized_position, card.c.normalized_position_id == normalized_position.c.id)

@@ -64,6 +64,7 @@ def _make_card(
         suspended=False,
         grading_parameter=None,
         canonical_content="(;FF[4])",
+        content_hash=b"\x00" * 32,
     )
 
 
