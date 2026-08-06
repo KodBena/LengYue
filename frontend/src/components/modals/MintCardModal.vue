@@ -13,7 +13,15 @@ import type { BoardId, CardCreatePayload } from '../../types';
 import { INTERACTION_DISMISS_DELAY_MS } from '../../lib/timing';
 
 const { t } = useI18n();
-const { prepareDraft, calibrateKomiOnDraft, commitMint } = useMinting();
+const {
+  prepareDraft,
+  calibrateKomiOnDraft,
+  commitMint,
+  checkDuplicate,
+  resetDuplicateCheck,
+  duplicateCheckStatus,
+  duplicateCardId,
+} = useMinting();
 
 const isOpen = ref(false);
 const modalContentRef = ref<HTMLElement | null>(null);
@@ -112,6 +120,14 @@ defineExpose({
       // write back).
       calibrateKomi.value = false;
       calibrationVisits.value = store.profile.settings.engine.katago.calibrationVisits;
+
+      // card-position-annotations Stage A: fire the duplicate-position
+      // check without awaiting it — the modal must render immediately
+      // with the draft; the warning box appears once the async check
+      // settles (checkDuplicate manages its own 'checking' -> 'checked'
+      // transition, which the template reads reactively).
+      resetDuplicateCheck();
+      void checkDuplicate(draft.value.raw_content);
     }
   }
 });
@@ -120,6 +136,7 @@ function close() {
   isOpen.value = false;
   draft.value = null;
   draftBoardId.value = null;
+  resetDuplicateCheck();
 }
 
 // Escape → same close path as the Cancel/× buttons (ADR-0019 S5);
@@ -329,6 +346,19 @@ async function submit() {
           </div>
         </div>
 
+        <!-- card-position-annotations Stage A: duplicate-position notice.
+             Warning, not a hard block (C10 posture) — the user may
+             proceed deliberately (e.g. a second card with different
+             grading params over the same position). C6: the in-flight
+             lookup renders as "checking", never as a silent
+             no-duplicate-found. -->
+        <div v-if="duplicateCheckStatus === 'checking'" class="duplicate-notice duplicate-checking">
+          {{ $t('mint.duplicateCheck.checking') }}
+        </div>
+        <div v-else-if="duplicateCardId !== null" class="duplicate-notice duplicate-warning">
+          {{ $t('mint.duplicateCheck.warning', { id: duplicateCardId }) }}
+        </div>
+
         <!-- Basic Settings -->
         <div class="form-grid">
           <label>{{ $t('mint.field.targetMoves') }}</label>
@@ -459,6 +489,28 @@ async function submit() {
 .lineage-icon { font-size: var(--text-heading); }
 .lineage-text { display: flex; flex-direction: column; font-size: var(--text-emphasis); color: var(--text-1); }
 .lineage-text strong { color: var(--text-0); font-size: var(--text-emphasis); text-transform: uppercase; }
+
+/* card-position-annotations Stage A: duplicate-position notice. A
+   distinct border/background per genre convention (ADR-0019) rather
+   than color-only (C18) — the text itself names the condition, the
+   color is a secondary reinforcement, not the sole signal. */
+.duplicate-notice {
+  padding: var(--space-default) var(--space-medium);
+  border-radius: var(--radius-default);
+  margin-bottom: var(--space-medium);
+  border: 1px solid transparent;
+  font-size: var(--text-emphasis);
+}
+.duplicate-checking {
+  color: var(--text-2);
+  background: color-mix(in srgb, var(--text-2) 8%, transparent);
+  border-color: color-mix(in srgb, var(--text-2) 20%, transparent);
+}
+.duplicate-warning {
+  color: var(--text-0);
+  background: color-mix(in srgb, var(--state-warning) 12%, transparent);
+  border-color: color-mix(in srgb, var(--state-warning) 40%, transparent);
+}
 
 .form-grid { display: grid; grid-template-columns: 110px 1fr; gap: var(--space-medium); align-items: center; }
 .form-grid label { font-size: var(--text-emphasis); color: var(--text-2); text-transform: uppercase; }

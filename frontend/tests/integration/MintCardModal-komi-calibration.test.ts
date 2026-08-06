@@ -21,6 +21,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
+import { ref } from 'vue';
 
 const commitMint = vi.fn(async () => 1);
 const prepareDraft = vi.fn(async () => ({
@@ -33,9 +34,24 @@ const prepareDraft = vi.fn(async () => ({
 // result the modal logs; configured per-test for the success / failure
 // cases.
 const calibrateKomiOnDraft = vi.fn();
+// card-position-annotations Stage A: MintCardModal.open() now also calls
+// resetDuplicateCheck + checkDuplicate — inert here, this suite doesn't
+// exercise the duplicate-check UI.
+const checkDuplicate = vi.fn(async () => {});
+const resetDuplicateCheck = vi.fn();
+const duplicateCheckStatus = ref<'idle' | 'checking' | 'checked'>('idle');
+const duplicateCardId = ref<number | null>(null);
 
 vi.mock('../../src/composables/review/useMinting', () => ({
-  useMinting: () => ({ prepareDraft, calibrateKomiOnDraft, commitMint }),
+  useMinting: () => ({
+    prepareDraft,
+    calibrateKomiOnDraft,
+    commitMint,
+    checkDuplicate,
+    resetDuplicateCheck,
+    duplicateCheckStatus,
+    duplicateCardId,
+  }),
 }));
 
 import { store } from '../../src/store';

@@ -220,6 +220,7 @@ frontend/src/
 │   │   ├── useCardTreeHydration.ts    [B2]  Lazy-hydration walker over the render forest.
 │   │   ├── useCardMetadata.ts         [B2]  Effectful boundary for card-metadata edits (updateCardMetadata); shared by ReviewSessionPanel + ForestDirectory, which splice the returned card into their own state.
 │   │   ├── useCardTreeProjection.ts   [B2]  Pure projection: forest + active-set + manual-expand → role-annotated render forest.
+│   │   ├── useKnownPositions.ts       [B1]  Fetch/mutation API over the known-positions state module: the mint-time duplicate-position check (POST /positions/hash + lookup) and append-on-mint; state owned by state/known-positions.ts.
 │   │   ├── useTags.ts                 [B1]  The single chokepoint for the client-side tag dictionary (`store.knownTags`, the autocomplete source): every tag-write path routes its resulting tag set through `learnTags` so the dictionary stays coherent with the cards. A flat label-set SSOT — domain-free (a non-Go flashcard fork keeps it unchanged).
 │   │   ├── thumbnail-render-resources.ts [B3]  Owner of the shared thumbnail render resources: the BoardSnapshot cache (reactive Map) + warmed-path guard, the wood texture, the stone-sprite store (SpriteKey-keyed) — plus the invalidation surface (O4 board purge, O9 identity purge, the caller-less applySetup node-invalidation hook).
 │   │   ├── usePreviewSnapshot.ts      [B3]  The cured hover-preview quartet, single-sourced: a synchronously-written `previewNode` gate + fire-and-forget cache warm + `getSnapshotSync` accessor (so a late resolve fills but never resurrects). Full quartet for gate-owning panels (ScoreLead/MergedDelta); `warmSnapshotAccessor` sub-unit for hosts whose gate lives elsewhere (TreeWidget → FloatingThumbnail).
@@ -323,6 +324,7 @@ frontend/src/
 ├── state/                                   Reactive-state modules: analysis-domain stores read directly by display leaves (ADR-0010 read-locality). Not effectful singletons; the component→services boundary lint does not police this directory (relocated from services/ 2026-06-11, item reactive-state-modules-relocation).
 │   ├── analysis-config.ts             [B3]  Palette compile + ledger hash. Sole factory for the `RawKey` / `EnrichedKey` brands (`deriveAnalysisKeys`); reactive `activeAnalysisKeys` over the qEUBO audition overlay.
 │   ├── analysis-ledger.ts             [B3]  Provenance-stratified merged-packet store: raw store keyed by `RawKey`, enrichment store keyed by `EnrichedKey`. Per-node version refs (pull consumers) + `onLedgerFlush` changed-key signal (incremental push consumers).
+│   ├── known-positions.ts             [B1]  Per-user reactive `ContentHash -> CardId` map (card-position-annotations Stage A); populated incidentally via BackendService.mapToReviewCard, first-seen-wins on write, purged on identity flip.
 │   └── stability-trajectory-store.ts  [B3]  Per-(`RawKey`, `ExtractorId`, nodeId) trajectory store fed by analysis-service preview ingestion.
 │
 ├── store/                                   Single GlobalStore singleton + mutators + migrations.

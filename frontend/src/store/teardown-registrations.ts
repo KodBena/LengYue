@@ -62,3 +62,4 @@ import '../composables/cards/thumbnail-render-resources';
 import '../composables/cards/useCardThumbnail';
 import '../composables/cards/board-card-trees';
 import '../composables/useNavigation';
+import '../state/known-positions';

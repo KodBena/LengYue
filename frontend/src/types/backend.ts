@@ -515,6 +515,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/positions/hash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hash Position
+         * @description Normalize ``raw_content`` and return its content hash.
+         *
+         *     Raises:
+         *         422 (via InvalidInputError-shaped translation): the
+         *         normalizer rejects the raw content as malformed — mirrors
+         *         the same ``ValueError`` → 422 translation
+         *         ``CardService.create_card`` performs (services/card_service.py),
+         *         so a caller sees the identical failure mode whether the
+         *         malformed content is submitted here or to ``POST /cards/``.
+         */
+        post: operations["hash_position_positions_hash_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/qeubo/experiment": {
         parameters: {
             query?: never;
@@ -1131,6 +1159,8 @@ export interface components {
             } | null;
             /** Canonical Content */
             canonical_content: string;
+            /** Content Hash */
+            content_hash: string;
             /** Card Source Id */
             card_source_id?: number | null;
             /** Tags */
@@ -1777,6 +1807,42 @@ export interface components {
             name: string;
             /** Count */
             count: number;
+        };
+        /**
+         * PositionHashRequest
+         * @description Request body for ``POST /positions/hash``.
+         *
+         *     ``raw_content`` is the same shape ``CardCreate.raw_content``
+         *     accepts — raw domain content in whatever form the configured
+         *     ``PositionNormalizerPort`` expects (an SGF string for the Go
+         *     domain). The route feeds it through the identical
+         *     ``normalizer.normalize()`` call ``CardService.create_card`` uses,
+         *     so "what hash would minting this content produce" is answered by
+         *     running the *same* code path, not a parallel reimplementation.
+         */
+        PositionHashRequest: {
+            /**
+             * Raw Content
+             * @description The raw domain content (SGF for Go, PGN for Chess, etc.) to normalize and hash. Same shape as CardCreate.raw_content.
+             */
+            raw_content: string;
+        };
+        /**
+         * PositionHashResponse
+         * @description Response body for ``POST /positions/hash``.
+         *
+         *     ``content_hash`` is the lowercase-hex SHA-256 digest — the same
+         *     string representation ``domain.card.Card.content_hash`` emits on
+         *     the wire (see ``Card._serialize_content_hash``), so a client can
+         *     compare this endpoint's output against a card's ``content_hash``
+         *     field with plain string equality.
+         */
+        PositionHashResponse: {
+            /**
+             * Content Hash
+             * @description Lowercase-hex SHA-256 digest of the normalized position.
+             */
+            content_hash: string;
         };
         /** PreferenceRequest */
         PreferenceRequest: {
@@ -2737,6 +2803,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TreeByRootResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hash_position_positions_hash_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PositionHashRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PositionHashResponse"];
                 };
             };
             /** @description Validation Error */

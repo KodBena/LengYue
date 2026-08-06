@@ -143,6 +143,8 @@
   "mint.komiCalibration.set":             "Komi calibrated: set to {komi} for this card.",
   "mint.komiCalibration.setClamped":      "Komi calibrated: computed {raw}, clamped to {komi} (KataGo komi range) for this card.",
   "mint.komiCalibration.failed":          "Komi calibration failed; mint aborted: {err}",
+  "mint.duplicateCheck.checking":         "Checking for a duplicate position…",
+  "mint.duplicateCheck.warning":          "This exact position is already card #{id}. Minting again will create a second card for the same position.",
 
   "confirmLoad.title":                    "Board in Use",
   "confirmLoad.body":                     "The current board has moves. How would you like to load this position?",

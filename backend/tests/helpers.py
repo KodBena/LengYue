@@ -52,6 +52,7 @@ def make_card(
     creation_date: Optional[datetime] = None,
     grading_parameter: Optional[Dict] = None,
     canonical_content: str = "(;FF[4]SZ[19])",
+    content_hash: Optional[bytes] = None,
 ) -> Card:
     """
     Build a `domain.card.Card` with sensible defaults.
@@ -64,6 +65,11 @@ def make_card(
     `parent_id` maps to `Card.card_source_id` — the schema field name
     is preserved at the domain layer to keep the lineage pointer
     semantics explicit.
+
+    `content_hash` (card-position-annotations Stage A) defaults to
+    the SHA-256 digest of `canonical_content` — the same dedup-hash
+    shape the real `SgfNormalizer` produces — so callers that don't
+    care about the hash's exact value still get a valid Card.
     """
     return Card(
         id=card_id,
@@ -77,6 +83,7 @@ def make_card(
         suspended=suspended,
         grading_parameter=grading_parameter,
         canonical_content=canonical_content,
+        content_hash=content_hash or hashlib.sha256(canonical_content.encode()).digest(),
         card_source_id=parent_id,
     )
 

@@ -18,7 +18,7 @@
 // boundary; aliased here under domain-friendly names so consumers
 // stay free of `components['schemas'][…]` boilerplate.
 import type { components } from './backend';
-import type { CardId } from './ids';
+import type { CardId, ContentHash } from './ids';
 import type { NodeId } from './game';
 
 // ── Value Objects (readonly preserved) — SR domain ────────────────────────────
@@ -86,6 +86,12 @@ export interface EbisuModel {
 export interface ReviewCard {
   readonly id: CardId;
   readonly canonicalContent: string;
+  // card-position-annotations Stage A: the backend's dedup hash for
+  // this card's position (`Card.content_hash` on the wire — lowercase
+  // hex SHA-256). Powers the known-positions state module
+  // (`src/state/known-positions.ts`) and the mint-dialog duplicate
+  // warning; see `.claude/dispatch-reports/card-position-annotations-design.md`.
+  readonly contentHash: ContentHash;
   readonly numMoves: number;
   readonly parentId?: CardId;
   readonly model: EbisuModel;
