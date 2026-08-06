@@ -489,6 +489,7 @@
   "review.missingPerMoveDelta":           "KataGo's response carried no per-move quality score for the move you played (player={color}, per-color move index {index}). Review cancelled. This usually points at a misconfigured palette or a proxy enrichment failure.",
 
   "review.session.intermission":          "Intermission",
+  "review.session.reviewed":              "Reviewed",
   "review.session.active":                "Review Active",
   "review.session.cardOf":                "Card {n} of {total}",
   "review.session.statusLine":            "Status: {state}",
@@ -497,6 +498,10 @@
   "review.session.maxVisitsLabel":        "Max visits (this card):",
   "review.session.nextCard":              "Next Card",
   "review.session.skipCard":              "Skip Card",
+  "review.session.goBack":                "Back",
+  "review.session.goForward":             "Forward",
+  "review.session.retry":                 "Retry Card",
+  "review.session.retryConfirm":          "Retry this card? Your recorded score for this attempt will be replaced by whatever you score on the new attempt.",
   "review.session.rewindToStart":         "Rewind to Start",
   "review.session.endSession":            "End Session",
   "review.session.moveScoreDelta":        "Move Score (Delta)",
@@ -505,6 +510,7 @@
   "review.session.state.AWAITING_MOVE":   "awaiting move",
   "review.session.state.ANALYZING":       "analyzing",
   "review.session.state.FINISHED":        "finished",
+  "review.session.state.REVIEWED":        "reviewed",
   "review.session.allSuspended":          "All {n} matched cards are suspended — no review queue. Inspect each card in the Browse view (or the Lineage Explorer) to unsuspend the ones you want to study.",
   "review.session.someSuspended":         "{dropped} of {total} matched cards are suspended and were excluded from this review queue.",
 

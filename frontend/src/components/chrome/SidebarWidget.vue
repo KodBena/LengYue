@@ -90,7 +90,11 @@ function getReviewState(boardId: BoardId) {
   if (!status) return null;
 
   if (status === 'AWAITING_MOVE' || status === 'ANALYZING' || status === 'LOADING') return 'ACTIVE';
-  if (status === 'FINISHED') return 'INTERMISSION';
+  // REVIEWED (deck-repeat arc: a goBack/goForward-restored, view-only
+  // card) reads as the same tab-badge bucket as FINISHED — both are
+  // "not actively awaiting a move," and REVIEWED has no dedicated
+  // badge state of its own yet.
+  if (status === 'FINISHED' || status === 'REVIEWED') return 'INTERMISSION';
   return null;
 }
 

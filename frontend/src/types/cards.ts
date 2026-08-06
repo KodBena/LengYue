@@ -247,7 +247,16 @@ export interface CardSet {
   hyperparameters: HyperparamDecl[];
 }
 
-export type ReviewStatus = 'IDLE' | 'LOADING' | 'AWAITING_MOVE' | 'ANALYZING' | 'FINISHED';
+// REVIEWED (deck-repeat arc): a restored per-visit snapshot of a
+// previously-FINISHED card (useReviewSession's goBack/goForward). It
+// is deliberately distinct from live FINISHED — a FINISHED intermission
+// still allows free play (see useBoardMoveRouting), but a REVIEWED
+// restore is strictly view-only: submitReview has no idempotency guard
+// (deck-repeat design doc §1d), so nothing may route back into
+// finishCard from here without an explicit "Retry" that discards the
+// snapshot and re-enters via loadCard. See useReviewSession.ts's
+// visitSnapshots block comment for the capture/restore contract.
+export type ReviewStatus = 'IDLE' | 'LOADING' | 'AWAITING_MOVE' | 'ANALYZING' | 'FINISHED' | 'REVIEWED';
 
 // ReviewSessionData is mutated through `mutateReviewSession` in store/index.ts;
 // the SR session writes back queue progression, scores, override values.

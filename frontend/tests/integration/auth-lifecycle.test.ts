@@ -218,8 +218,13 @@ function installDrainSpies(): DrainSpies {
  * dedicated review tests and the store-mutators board/reset completeness pins,
  * so it is excluded here. That keeps this pin focused on the cache drain it has
  * always been about while still failing on any NEW unmapped cache handler.
+ *
+ * `review:visit-snapshots-clear-all` (deck-repeat arc) is the same shape as
+ * `review:abort-all`: a plain module-scope Map drop inside useReviewSession's
+ * closure, not a bounded module-level cache with its own exported clear
+ * function to spy on. Covered by the dedicated useReviewSession tests instead.
  */
-const NON_CACHE_RESET_LABELS = new Set<string>(['review:abort-all']);
+const NON_CACHE_RESET_LABELS = new Set<string>(['review:abort-all', 'review:visit-snapshots-clear-all']);
 
 function expectFullDrain(spies: DrainSpies): void {
   const labels = registeredWorkspaceResetLabels().filter(l => !NON_CACHE_RESET_LABELS.has(l));
