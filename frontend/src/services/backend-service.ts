@@ -44,6 +44,7 @@ type TreeNodeWire = components['schemas']['TreeNode'];
 type ForestStatWire = components['schemas']['ForestStat'];
 type TagStatWire = components['schemas']['TagStat'];
 type PositionHashResponseWire = components['schemas']['PositionHashResponse'];
+type PositionHashBatchResponseWire = components['schemas']['PositionHashBatchResponse'];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -259,6 +260,29 @@ export class BackendService {
       { raw_content: rawContent },
     );
     return raw.content_hash as ContentHash; // ACL Band-2 brand mint
+  }
+
+  /**
+   * card-position-annotations Stage B. Batched sibling of
+   * `hashPosition`: hashes every entry in `rawContents` in one round
+   * trip, returning the results index-aligned. Used by
+   * `useNodePositionHashes` (`src/composables/cards/`) to fill the
+   * tree-node NodeId->ContentHash cache without one request per
+   * rendered node.
+   *
+   * Throws (surfaced via `api.request`'s ApiError) on any backend
+   * failure — 413 over `POSITIONS_HASH_BATCH_MAX`, 422 if any item
+   * fails to normalize. The caller decides how to degrade (absent
+   * highlight + one non-blocking notice, per the design's failure-
+   * honesty posture — never a stale/partial highlight).
+   */
+  public async hashPositionsBatch(rawContents: string[]): Promise<ContentHash[]> {
+    const raw = await api.request<PositionHashBatchResponseWire>(
+      'POST',
+      '/positions/hash-batch',
+      { raw_contents: rawContents },
+    );
+    return raw.content_hashes as ContentHash[]; // ACL Band-2 brand mint
   }
 
   public async getTags(): Promise<TagStat[]> {

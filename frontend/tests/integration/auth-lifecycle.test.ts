@@ -132,6 +132,7 @@ import { SyncService } from '../../src/services/sync-service';
 import { ledger } from '../../src/state/analysis-ledger';
 import { stabilityTrajectoryStore } from '../../src/state/stability-trajectory-store';
 import * as knownPositionsModule from '../../src/state/known-positions';
+import * as nodePositionHashesModule from '../../src/state/node-position-hashes';
 import { i18n } from '../../src/i18n';
 import { fakeAnalysisService, resetFakeAnalysisService } from '../fakes/analysis-service';
 import {
@@ -173,6 +174,9 @@ function installDrainSpies(): DrainSpies {
   // spy on the namespace export rather than a singleton method, since the
   // module exports plain functions, not a class instance.
   const knownPositionsSpy: MockInstance = vi.spyOn(knownPositionsModule, 'purgeKnownPositions');
+  // card-position-annotations Stage B: node-position-hashes.ts is real
+  // (unmocked) here too, same shape as known-positions.ts above.
+  const nodePositionHashesSpy: MockInstance = vi.spyOn(nodePositionHashesModule, 'purgeAllNodeHashes');
 
   // The label → call-count reader map. Every label IDENTITY_SCOPED_CACHES
   // registers must appear here; the assertion loop below verifies that, so a
@@ -187,6 +191,7 @@ function installDrainSpies(): DrainSpies {
     'board-card-trees': () => vi.mocked(clearAllBoardCardTrees).mock.calls.length,
     'analysis-bundle-summaries': () => fakeAnalysisPersistenceService.forgetAll.mock.calls.length,
     'known-positions:purge': () => knownPositionsSpy.mock.calls.length,
+    'node-position-hashes': () => nodePositionHashesSpy.mock.calls.length,
   };
 
   return {
@@ -208,6 +213,7 @@ function installDrainSpies(): DrainSpies {
       ledgerSpy.mockRestore();
       stabilitySpy.mockRestore();
       knownPositionsSpy.mockRestore();
+      nodePositionHashesSpy.mockRestore();
     },
   };
 }

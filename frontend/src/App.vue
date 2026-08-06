@@ -44,6 +44,7 @@ import { usePlayMatch } from './composables/board/usePlayFromPosition';
 import { useEngineResponder } from './composables/board/useEngineResponder';
 import { useBoardMoveRouting } from './composables/board/useBoardMoveRouting';
 import { usePlayVsEngine } from './composables/board/usePlayVsEngine';
+import { useKnownPositionNodes } from './composables/board/useKnownPositionNodes';
 import { useFollowMePonder } from './composables/board/useFollowMePonder';
 
 import BoardWidget      from './components/board/BoardWidget.vue';
@@ -158,6 +159,11 @@ function triggerPlay() {
 
 const { handleStartGame, handleEndGame, activeBoardGameHeadIds } =
   usePlayVsEngine(engineResponder);
+
+// card-position-annotations Stage B: the known-position highlight set
+// (cache ∩ known-positions) for the active board's tree, passed to
+// TreeWidget the same way activeBoardGameHeadIds is.
+const { activeBoardKnownPositionNodeIds } = useKnownPositionNodes();
 
 // "Follow Me" ponder watcher — restarts pondering on same-board
 // navigation (board switches deliberately excluded). Watcher scope:
@@ -417,6 +423,7 @@ const activeTab = computed<string>({
               :nodes="activeBoard.nodes"
               :board-id="activeBoard.id"
               :game-head-ids="activeBoardGameHeadIds"
+              :known-position-node-ids="activeBoardKnownPositionNodeIds"
               @select-node="handleNodeSelect"
             />
           </div>

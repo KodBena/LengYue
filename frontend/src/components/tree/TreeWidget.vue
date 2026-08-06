@@ -18,6 +18,7 @@ import { useViewportFollow } from '../../composables/useViewportFollow';
 import { useNavigation }    from '../../composables/useNavigation';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
 import { warmSnapshotAccessor } from '../../composables/cards/usePreviewSnapshot';
+import { useNodePositionHashes } from '../../composables/cards/useNodePositionHashes';
 import { themeColor }        from '../../utils/theme-color';
 import FloatingThumbnail    from '../chrome/FloatingThumbnail.vue';
 import { boardsById }        from '../../store';
@@ -60,6 +61,13 @@ const props = withDefaults(
     // `board.games[*].currentHeadNodeId` upstream; per-session
     // config is opaque here — the tree only needs identity.
     gameHeadIds?: ReadonlySet<NodeId>;
+    // card-position-annotations Stage B: NodeIds whose normalized
+    // position already exists as one of the caller's cards.
+    // Precomputed at the composition layer (App.vue's
+    // `useKnownPositionNodes`, mirroring `gameHeadIds`'s own
+    // `usePlayVsEngine` precedent) — TreeWidget only renders the
+    // membership test, never fetches or derives it itself.
+    knownPositionNodeIds?: ReadonlySet<NodeId>;
   }>(),
   { orientation: 'vertical' },
 );
@@ -94,6 +102,7 @@ const viewportFollow = useViewportFollow(outerRef);
 
 const expansion = useTreeExpansion();
 const { variationMarkerLabels } = useThumbnailCache();
+const { requestHashFill } = useNodePositionHashes();
 
 const nodesRef  = toRef(props, 'nodes');
 const { layout } = useTreeLayout(nodesRef, undefined, expansion);
@@ -275,6 +284,7 @@ const nodeList = computed(() => {
     move: GameNode['move']; isBranching: boolean; isExpanded: boolean;
     parentIdForToggle: NodeId | '';
     isGameHead: boolean;
+    isKnownPosition: boolean;
   }> = [];
 
   layout.value.positions.forEach((pos, id) => {
@@ -305,9 +315,26 @@ const nodeList = computed(() => {
       isExpanded: isParentExpanded,
       parentIdForToggle, // Pass to template
       isGameHead: !!props.gameHeadIds?.has(id),
+      isKnownPosition: !!props.knownPositionNodeIds?.has(id),
     });
   });
   return items;
+});
+
+// card-position-annotations Stage B: viewport-driven hash-fill trigger.
+// Reads only `nodeList`'s id set (already bounded to laid-out/expanded
+// nodes — collapsed variations never appear there) and the board state
+// needed to serialize each node's root->node path. This is a `watch`
+// side effect, not a template read, so it does not add to TreeWidget's
+// render cost (ADR-0010) — it fires once per genuine nodeList change
+// (tree structure / expansion change), not per render, and
+// `useNodePositionHashes` itself dedupes against already-cached and
+// already-pending NodeIds so a nav-only nodeList re-identity (same ids,
+// new array) is a cheap no-op past the first pass.
+watch(nodeList, (items) => {
+  const board = boardsById.value[props.boardId];
+  if (!board || items.length === 0) return;
+  requestHashFill(items.map(item => item.id), board);
 });
 
 const edges = computed(() => {
@@ -367,8 +394,23 @@ const edges = computed(() => {
         <g
           v-for="item in nodeList"
           :key="item.id"
-          v-memo="[item.isGameHead, item.move?.color, item.isBranching, item.isExpanded, item.px, item.py]"
+          v-memo="[item.isGameHead, item.isKnownPosition, item.move?.color, item.isBranching, item.isExpanded, item.px, item.py]"
         >
+          <!-- Known-position marker (card-position-annotations Stage B) —
+               outermost ring (NODE_R + 7), outside both the active-ring
+               (NODE_R + 3) and the game-head-ring (NODE_R + 5) so all three
+               can co-occur without visually colliding. Membership comes
+               from `knownPositionNodeIds` (App.vue's `useKnownPositionNodes`,
+               cache ∩ known-positions — see that composable's header), not
+               a per-render read: the prop is a precomputed Set, and this
+               v-memo key is what gates the actual DOM patch. Distinct glyph
+               family per ADR-0019/C18 (no-color-only): a DASHED ring, not a
+               fill-color change (fill color is already spoken for by
+               nodeFill's B/W stone colors) and not a solid ring (which
+               would read as a third instance of the game-head/active-ring
+               idiom rather than a visually distinct "you already have a
+               card here" marker). -->
+          <circle v-if="item.isKnownPosition" :cx="item.px" :cy="item.py" :r="NODE_R + 7" class="known-position-ring" stroke-width="1.5" stroke-dasharray="2,1.5" />
           <!-- Game-head marker — outermost ring (NODE_R + 5) so it stays
                visible when the active-ring (NODE_R + 3) also applies on the
                current node. Green = "play vs engine session's head — engine
@@ -402,6 +444,7 @@ const edges = computed(() => {
 .tree-edges { fill: none; stroke: var(--border-3); }
 .active-ring { fill: color-mix(in srgb, var(--accent-primary) 15%, transparent); stroke: var(--accent-primary); }
 .game-head-ring { fill: color-mix(in srgb, var(--state-success) 15%, transparent); stroke: var(--state-success); }
+.known-position-ring { fill: none; stroke: var(--accent-secondary); }
 .node-circle { cursor: pointer; transition: filter var(--duration-default); }
 .node-circle:hover { filter: brightness(1.4) drop-shadow(0 0 3px var(--accent-primary)); }
 .toggle-group { cursor: pointer; }

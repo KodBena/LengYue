@@ -555,6 +555,7 @@
   "cardMetadata.saveFailed":                     "Could not save card metadata: {detail}",
 
   "lineage.fetchFailedBrowse":            "Lineage Explorer: {count} tree(s) ({head}{tail}) could not be fetched. First failure: {reason}.",
+  "cards.knownPositionHashFillFailed":    "Could not check some tree positions against your cards. The already-owned-position highlight may be incomplete until this recovers.",
   "lineage.fetchFailedDeck":              "Lineage Explorer: {count} tree(s) ({head}{tail}) could not be fetched — matched cards in those trees won't be visible in the forest. First failure: {reason}.",
   "lineage.failedTail":                   ", … and {n} more",
 
