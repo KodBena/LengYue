@@ -264,6 +264,36 @@ describe('navigateToggleMainLine', () => {
     expect(board.nodes[branchPoint].activeChildIndex).toBe(1);
   });
 
+  it('toggles the fork itself when the cursor sits exactly ON the fork node (review nit — was a silent no-op)', () => {
+    // The cursor stands exactly at the branch point (B[pd] itself,
+    // not one of its children). Pre-fix, `navigateToggleMainLine`
+    // only ever inspected `node.parent`'s children — the current
+    // node's OWN children were never checked — so standing exactly
+    // on a fork with no further ancestor fork above it was a silent
+    // no-op, the most intuitive place to invoke the toggle doing
+    // nothing. Fixed by checking the current node itself first, before
+    // walking to any parent. This is a genuine red/green case for the
+    // fix: reverting the "check node.children first" branch back to
+    // "check node.parent's children only" makes this assertion fail
+    // (currentNodeId stays at forkNode instead of moving to a child).
+    const board = load('(;FF[4]GM[1]SZ[19];B[pd](;W[dp])(;W[pp]))');
+    const forkNode = board.nodes[board.rootNodeId].children[0]; // B[pd]
+    const firstChild = board.nodes[forkNode].children[0]; // W[dp]
+    const secondChild = board.nodes[forkNode].children[1]; // W[pp]
+    navigateTo(board, forkNode); // cursor ON the fork, not below it
+
+    const memory = new Map<string, number>();
+    navigateToggleMainLine(board, memory);
+    // Starts at activeChildIndex 0 (default) -> advances to child 1.
+    expect(board.currentNodeId).toBe(secondChild);
+    expect(board.nodes[forkNode].activeChildIndex).toBe(1);
+
+    // Second press toggles back to the first child (two-value toggle,
+    // same as the below-the-fork case).
+    navigateToggleMainLine(board, memory);
+    expect(board.currentNodeId).toBe(firstChild);
+  });
+
   it('finds the nearest ancestor fork past single-child ancestors (the uncle/cousin case)', () => {
     // Fork at the root's child (B[pd]): one line goes W[dp] -> B[qq]
     // (a single-child chain two deep), the other goes straight to

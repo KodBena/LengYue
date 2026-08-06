@@ -1,5 +1,74 @@
 # Hotkeys batch — build report
 
+## Post-review fixes (2026-08-06, addressing ACCEPT-WITH-NITS)
+
+Review verdict: `.claude/dispatch-reports/hotkeys-batch-review.md`, findings 4
+and 5. Both fixed on this same branch; new head after this update.
+
+**Nit 1 — cursor-ON-fork was a silent no-op.** `navigateToggleMainLine`
+(`src/engine/navigator.ts`) only ever inspected `node.parent`'s children,
+never the current node's own — so standing exactly at a fork walked past it
+to the next ancestor fork (or no-op'd if none existed) instead of acting
+where the user is standing. Fixed by unifying the two cases into one
+at-or-above walk: the current node is checked first, then each ancestor in
+turn, both via the same `children.length > 1` test. Reviewer's own read
+("toggling the fork's own active child seems the natural reading") is what's
+implemented; the docstring now names this explicitly as the resolved
+cursor-on-fork case (previously only the depth-preserving ambiguity was
+named). New test: `tests/unit/engine/navigator.test.ts` — "toggles the fork
+itself when the cursor sits exactly ON the fork node (review nit — was a
+silent no-op)"; the comment in the test spells out the red/green shape
+(reverting to the old "check `node.parent` only" logic makes it fail).
+
+**Nit 2 — `mainLineToggleMemory` had no `closeBoard` cleanup.** The original
+report cited `pendingAnalysisAborts` as precedent for the module-scope-Map
+pattern but didn't actually wire the matching cleanup (the precedent is
+*actively deleted* per-`BoardId` at several call sites; the new Map wasn't).
+Fixed per the resource-ownership-at-mutation-sites checklist
+(`frontend/CLAUDE.md`), which names both `closeBoard` and `resetWorkspace` as
+mutation sites an owner must release resources at:
+
+- `useNavigation.ts` now exports `clearMainLineToggleMemoryForBoard(boardId)`
+  (deletes every `${boardId}::…`-prefixed key) and registers it as a
+  `closeBoard` teardown handler (`registerBoardCloseHandler`, label
+  `nav:clear-toggle-memory`, DEFAULT band) — same mechanism as
+  `useReviewSession.ts`'s `review:abort`.
+- Also registers a `resetWorkspace` handler (`registerWorkspaceResetHandler`,
+  label `nav:clear-toggle-memory-all`, wholesale `.clear()`) — extending
+  beyond the literal ask (which named only `closeBoard`) to the sibling
+  mutation site the same checklist names, mirroring `review:abort-all`. Flag
+  this beyond-scope addition for maintainer awareness even though it's
+  low-risk and directly justified by the cited discipline.
+- `src/store/teardown-registrations.ts` — added
+  `import '../composables/useNavigation';` so the registration actually
+  fires at bootstrap (without it, nothing forces the module to load before
+  the first `closeBoard`/`resetWorkspace` call — the exact silent-registration
+  gap `teardown-registry.ts`'s header describes).
+- Updated the two places that pin the complete registry label sets:
+  `tests/integration/teardown-registry-completeness.test.ts` (both
+  `registeredBoardCloseLabels()` and `registeredWorkspaceResetLabels()` now
+  include the new labels, in bootstrap-import-order position) and
+  `tests/integration/auth-lifecycle.test.ts`'s `NON_CACHE_RESET_LABELS`
+  (this test's registry-derived drain pin failed loudly, exactly as
+  designed, until `nav:clear-toggle-memory-all` was added there — it's a
+  bookkeeping-Map clear on a real/un-mocked module, not a spyable module
+  cache, the same shape as the existing `review:abort-all` exclusion).
+- A test-only inspector, `_mainLineToggleMemoryKeyCountForBoard(boardId)`,
+  lets tests assert the count directly (the Map itself stays unexported —
+  `frontend/CLAUDE.md`'s discipline against handing out mutable module state
+  to arbitrary importers).
+- New test file `tests/integration/useNavigation-toggle-memory-cleanup.test.ts`
+  (Tier 3, real store + real navigator, no fakes needed): 4 cases —
+  `closeBoard` drops the closing board's entries, closing one board doesn't
+  disturb another board's entries, `resetWorkspace` clears every board's
+  entries, and the cleanup function is a safe no-op with nothing to clear.
+
+Gates re-run after both fixes: build clean, `eslint .` clean,
+`npm run test:run` → 1132 passed / 4 skipped, 83 files passed / 3 skipped
+(0 failures) — confirms both the new tests and every previously-passing
+suite (including the two registry-completeness pins and the auth-lifecycle
+drain pin) are green together.
+
 BUILD agent delivery for the maintainer commission: add hotkey actions for
 engine model swap/cycle, mint card, next card, and toggle main-line
 variation to `frontend/src/composables/keybindings-catalog.ts`.
