@@ -10,9 +10,20 @@ import {
   navigatePrev,
   navigateVariation,
   navigateTo,
+  navigateToggleMainLine,
 } from '../engine/navigator';
 import { getActiveVariationPath } from '../engine/util';
 import type { NodeId } from '../types';
+
+// Module-scope: the toggle-history `navigateToggleMainLine` reads and
+// writes, keyed `${boardId}::${forkNodeId}` inside that function.
+// Shared across every `useNavigation()` call site (TreeWidget,
+// BoardWidget, the keybindings catalog, autonav) deliberately — the
+// toggle is a per-board-per-fork history, not a per-caller one.
+// Mirrors the module-scope `pendingAnalysisAborts` map in
+// `useReviewSession.ts` (see `tests/CLAUDE.md`'s "Module-scope state
+// in composables" gotcha).
+const mainLineToggleMemory = new Map<string, number>();
 
 export function useNavigation() {
   const next = () => {
@@ -65,5 +76,16 @@ export function useNavigation() {
     mutateBoard(activeBoard.value.id, draft => navigateTo(draft, nodeId));
   };
 
-  return { next, prev, variation, home, end, goTo };
+  // "Toggle main line variation" — switch the active line at the
+  // nearest ancestor fork between the two most recent choices there,
+  // and back. See `navigateToggleMainLine`'s docstring (`engine/navigator.ts`)
+  // for the fork-search and toggle-memory semantics, and its
+  // ambiguity note for the reading this implements.
+  const toggleMainLine = () => {
+    if (activeBoard.value) {
+      mutateBoard(activeBoard.value.id, draft => navigateToggleMainLine(draft, mainLineToggleMemory));
+    }
+  };
+
+  return { next, prev, variation, home, end, goTo, toggleMainLine };
 }

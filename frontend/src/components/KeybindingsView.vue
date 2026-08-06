@@ -27,17 +27,17 @@ import {
 
 const { t } = useI18n();
 
-const KNOWN_DOMAINS = ['nav', 'display', 'engine'] as const;
+const KNOWN_DOMAINS = ['nav', 'display', 'engine', 'review'] as const;
 type Domain = (typeof KNOWN_DOMAINS)[number];
 
 const grouped = computed<ReadonlyArray<readonly [Domain, ReadonlyArray<KeybindingActionDecl>]>>(() => {
-  const groups: Record<Domain, KeybindingActionDecl[]> = { nav: [], display: [], engine: [] };
+  const groups: Record<Domain, KeybindingActionDecl[]> = { nav: [], display: [], engine: [], review: [] };
   for (const action of KEYBINDINGS_REGISTRY) {
     const prefix = action.id.split('.')[0];
-    if (prefix !== 'nav' && prefix !== 'display' && prefix !== 'engine') {
+    if (prefix !== 'nav' && prefix !== 'display' && prefix !== 'engine' && prefix !== 'review') {
       // ADR-0002: KeybindingsView's grouped render assumes the closed
-      // {nav, display, engine} domain set. A new prefix means the
-      // KNOWN_DOMAINS list and the i18n `keybindings.section.<domain>`
+      // {nav, display, engine, review} domain set. A new prefix means
+      // the KNOWN_DOMAINS list and the i18n `keybindings.section.<domain>`
       // catalog entries need extending in the same change.
       throw new Error(`KeybindingsView: unknown action domain prefix "${prefix}" for action "${action.id}"`);
     }

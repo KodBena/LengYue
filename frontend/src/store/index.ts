@@ -131,6 +131,9 @@ export const store = reactive<GlobalStore>({
     // pool. Persisted through SyncService alongside other engine
     // settings.
     selectedModel: null,
+    // See `EngineState.previousSelectedModel`'s doc comment
+    // (`src/types/engine.ts`) — NOT synced through SyncService.
+    previousSelectedModel: null,
   },
 });
 
@@ -232,8 +235,18 @@ export function mutateBoard(boardId: BoardId, fn: (draft: BoardState) => void): 
  * a different upstream). The Toolbar dropdown's option list is
  * sourced from `availableModels`, so the typical UI-driven path
  * cannot construct an invalid selection.
+ *
+ * Also shifts the outgoing value into `previousSelectedModel` — the
+ * sole write site for that field too, so every caller (the Toolbar
+ * dropdown, the "swap last-active engine" keybinding action) keeps
+ * the pair consistent without duplicating the bookkeeping at each
+ * call site. A same-value call (re-selecting the already-selected
+ * model) is a no-op for both fields — it is not a "previous"
+ * selection.
  */
 export function setSelectedModel(label: string | null): void {
+  if (label === store.engine.selectedModel) return;
+  store.engine.previousSelectedModel = store.engine.selectedModel;
   store.engine.selectedModel = label;
 }
 

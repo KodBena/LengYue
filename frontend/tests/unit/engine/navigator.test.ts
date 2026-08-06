@@ -32,6 +32,7 @@ import {
   navigateNext,
   navigatePrev,
   navigateVariation,
+  navigateToggleMainLine,
   findPlacementOnActivePath,
 } from '../../../src/engine/navigator';
 import type { BoardState, GameNode, NodeId } from '../../../src/types';
@@ -225,6 +226,118 @@ describe('navigateVariation', () => {
     const before = board.currentNodeId;
     navigateVariation(board, +1); // already at the last sibling
     expect(board.currentNodeId).toBe(before);
+  });
+});
+
+describe('navigateToggleMainLine', () => {
+  it('is a no-op at the root (no ancestor to fork at)', () => {
+    const board = load('(;FF[4]GM[1]SZ[19])');
+    const memory = new Map<string, number>();
+    const before = board.currentNodeId;
+    navigateToggleMainLine(board, memory);
+    expect(board.currentNodeId).toBe(before);
+    expect(memory.size).toBe(0);
+  });
+
+  it('is a no-op when every ancestor on the path to root has exactly one child', () => {
+    // Linear game, no branches anywhere.
+    const board = load('(;FF[4]GM[1]SZ[19];B[pd];W[dp];B[pp])');
+    const leaf = activeLeafFrom(board, board.rootNodeId);
+    navigateTo(board, leaf);
+    const memory = new Map<string, number>();
+    const before = board.currentNodeId;
+    navigateToggleMainLine(board, memory);
+    expect(board.currentNodeId).toBe(before);
+    expect(memory.size).toBe(0);
+  });
+
+  it('switches to the sibling branch when the fork is the immediate parent', () => {
+    const board = load('(;FF[4]GM[1]SZ[19];B[pd](;W[dp])(;W[pp]))');
+    const branchPoint = board.nodes[board.rootNodeId].children[0];
+    const firstSibling = board.nodes[branchPoint].children[0]; // W[dp]
+    const secondSibling = board.nodes[branchPoint].children[1]; // W[pp]
+    navigateTo(board, firstSibling);
+
+    const memory = new Map<string, number>();
+    navigateToggleMainLine(board, memory);
+    expect(board.currentNodeId).toBe(secondSibling);
+    expect(board.nodes[branchPoint].activeChildIndex).toBe(1);
+  });
+
+  it('finds the nearest ancestor fork past single-child ancestors (the uncle/cousin case)', () => {
+    // Fork at the root's child (B[pd]): one line goes W[dp] -> B[qq]
+    // (a single-child chain two deep), the other goes straight to
+    // W[pp]. Cursor sits at the DEEP node B[qq] — two single-child
+    // ancestors away from the fork — so the toggle must walk past
+    // both to find the fork, then land on the cousin branch's
+    // immediate child (W[pp]), not merely flip something at the
+    // immediate parent (which has only one child and isn't a fork).
+    const board = load('(;FF[4]GM[1]SZ[19];B[pd](;W[dp];B[qq])(;W[pp]))');
+    const forkNode = board.nodes[board.rootNodeId].children[0]; // B[pd]
+    const deepLine = board.nodes[forkNode].children[0]; // W[dp]
+    const deepLeaf = board.nodes[deepLine].children[0]; // B[qq]
+    const cousinLine = board.nodes[forkNode].children[1]; // W[pp]
+    navigateTo(board, deepLeaf);
+
+    const memory = new Map<string, number>();
+    navigateToggleMainLine(board, memory);
+    expect(board.currentNodeId).toBe(cousinLine);
+  });
+
+  it('toggles back and forth between the two most recent choices (true two-value toggle)', () => {
+    const board = load('(;FF[4]GM[1]SZ[19];B[pd](;W[dp])(;W[pp]))');
+    const branchPoint = board.nodes[board.rootNodeId].children[0];
+    const firstSibling = board.nodes[branchPoint].children[0];
+    const secondSibling = board.nodes[branchPoint].children[1];
+    navigateTo(board, firstSibling);
+
+    const memory = new Map<string, number>();
+    navigateToggleMainLine(board, memory); // first -> second
+    expect(board.currentNodeId).toBe(secondSibling);
+    navigateToggleMainLine(board, memory); // second -> first (back)
+    expect(board.currentNodeId).toBe(firstSibling);
+    navigateToggleMainLine(board, memory); // first -> second again
+    expect(board.currentNodeId).toBe(secondSibling);
+  });
+
+  it('with 3+ siblings, a first press advances by one and does not need remembered state', () => {
+    const board = load('(;FF[4]GM[1]SZ[19];B[pd](;W[dp])(;W[pp])(;W[jj]))');
+    const branchPoint = board.nodes[board.rootNodeId].children[0];
+    const first = board.nodes[branchPoint].children[0];
+    const second = board.nodes[branchPoint].children[1];
+    navigateTo(board, first);
+
+    const memory = new Map<string, number>();
+    navigateToggleMainLine(board, memory);
+    expect(board.currentNodeId).toBe(second); // advance-by-one, wrapping, on first use
+  });
+
+  it('a shared memory Map works independently across two boards with identically-shaped trees', () => {
+    // Two independently-loaded boards, same SGF shape (so their forks
+    // sit at structurally-identical positions). One shared `memory`
+    // Map (mirroring the real module-scope map in useNavigation.ts)
+    // must not let board A's toggle affect board B's — the key is
+    // `${state.id}::${forkNodeId}` (`navigateToggleMainLine`'s
+    // docstring), boardId-qualified precisely so this holds even in
+    // the pathological case where both boards' fork NodeIds happen to
+    // coincide (NodeIds are short random per-board tokens — see
+    // IDENTIFIERS.md — so a real collision is possible even though
+    // this run's two `load()` calls won't happen to produce one).
+    const boardA = load('(;FF[4]GM[1]SZ[19];B[pd](;W[dp])(;W[pp]))');
+    const boardB = load('(;FF[4]GM[1]SZ[19];B[pd](;W[dp])(;W[pp]))');
+    const branchA = boardA.nodes[boardA.rootNodeId].children[0];
+    const branchB = boardB.nodes[boardB.rootNodeId].children[0];
+    navigateTo(boardA, boardA.nodes[branchA].children[0]);
+    navigateTo(boardB, boardB.nodes[branchB].children[0]);
+
+    const memory = new Map<string, number>();
+    navigateToggleMainLine(boardA, memory);
+    // boardB's structurally-identical fork must still see this as its
+    // OWN first toggle (advance-by-one), not inherit boardA's
+    // "came from index 0" entry.
+    navigateToggleMainLine(boardB, memory);
+    expect(boardA.currentNodeId).toBe(boardA.nodes[branchA].children[1]);
+    expect(boardB.currentNodeId).toBe(boardB.nodes[branchB].children[1]);
   });
 });
 

@@ -152,6 +152,63 @@ export function navigateVariation(state: BoardState, direction: number) {
 }
 
 /**
+ * Toggle the active line at the nearest ancestor fork between the two
+ * most recently distinct branches taken there — the "switch to the
+ * nearest alternative branch (uncle/cousin) and back" keybinding
+ * semantics (`nav.toggleMainLine`).
+ *
+ * Walks from the current node upward via `parent`, past every
+ * single-child ancestor (an ancestor with no alternative branch is
+ * not a fork — there is nothing to switch to there), to the nearest
+ * node with `children.length > 1`. At that fork, switches
+ * `activeChildIndex` to the last-remembered "other" branch (a plain
+ * advance-by-one, wrapping, on first use — there is no "other" to
+ * return to yet), landing on that branch's own immediate child.
+ * No-ops when the current node is the root, or when every ancestor on
+ * the path to root has exactly one child (no fork exists to toggle).
+ *
+ * `memory` is keyed `${state.id}::${forkNodeId}` — `NodeId`s are
+ * board-local and can collide across boards (see `IDENTIFIERS.md`),
+ * so the key must carry the board id; `state.id` supplies it. Each
+ * entry records the branch index the toggle switched FROM, so the
+ * next press at the SAME fork returns to it — a true two-value
+ * toggle between the two most recent choices, not a cycle through
+ * every sibling (that's `navigateVariation`'s job, one level only).
+ * Caller owns the `Map`'s lifetime (module-scope in
+ * `useNavigation.ts`, shared across every `useNavigation()` call site
+ * so the toggle history is per-board-per-fork, not per-caller).
+ *
+ * Ambiguity note (maintainer-facing, from the dispatch brief this
+ * function was built against): "toggle main line variation / last
+ * known uncle-cousin" has no prior art in this codebase to pin exact
+ * semantics against. This is the defensible reading named in the
+ * brief — switch `activeChildIndex` at the nearest ancestor fork
+ * between the two most recent choices, landing on the fork's
+ * alternate immediate child. A depth-preserving variant (replaying
+ * the new branch's own stored `activeChildIndex` chain down to the
+ * same move number, rather than stopping at the immediate child) is a
+ * straightforward follow-up if that is the intended reading instead.
+ */
+export function navigateToggleMainLine(state: BoardState, memory: Map<string, number>): void {
+  let node = state.nodes[state.currentNodeId];
+  while (node.parent) {
+    const parent = state.nodes[node.parent];
+    if (parent.children.length > 1) {
+      const key = `${state.id}::${node.parent}`;
+      const currentIdx = parent.activeChildIndex;
+      const rememberedIdx = memory.get(key);
+      const targetIdx = rememberedIdx !== undefined && rememberedIdx !== currentIdx
+        ? rememberedIdx
+        : (currentIdx + 1) % parent.children.length;
+      memory.set(key, currentIdx);
+      navigateTo(state, parent.children[targetIdx]);
+      return;
+    }
+    node = parent;
+  }
+}
+
+/**
  * Find the active-path node closest to current where a move
  * placed a stone at the clicked vertex (x, y). Searches backward
  * first — the "where did this stone come from?" reading — then

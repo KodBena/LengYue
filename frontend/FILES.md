@@ -159,7 +159,8 @@ frontend/src/
 │   ├── useAutoPopoverPerf.ts          [B1]  Dev-only: toggles a target popover open/closed at ~2/s (via useHoverPopover's force hook), emitting popover:open/close marks tagged with queue state — for the popover-toggle-cost measurement.
 │   ├── useAutoSaveAnalyses.ts         [B3]  Auto-save policy for the [experimental] analysis-persistence feature: watches each board's `dirtyVersion` on analysisPersistenceService and trailing-debounces a `save(boardId)`, gated on `engine.katago.analysisStorageEnabled && analysisAutoSave`. B3 via the analysis-bundle / persistence-service imports and the KataGo storage toggles.
 │   ├── useEngineControls.ts           [B3]  Engine connect / disconnect / toggle lifecycle.
-│   ├── useNavigation.ts               [B2]  Headless navigation within the game tree (next/prev/parent/child).
+│   ├── useEngineModelSelection.ts     [B3]  SELECTOR-mode model-selection actions over `setSelectedModel`: cycle through `availableModels` (wrapping, skipping unhealthy) and swap to the last-active selection. Backs the `engine.cycleModel` / `engine.swapLastActiveModel` keybindings.
+│   ├── useNavigation.ts               [B2]  Headless navigation within the game tree (next/prev/parent/child/toggle-main-line).
 │   ├── useQeubo.ts                    [B1]  qEUBO experiment state machine + audition + verdict.
 │   ├── useQueryTelemetry.ts           [B1]  Singleton in-flight KataGo query queue + per-model visits/sec ETA.
 │   ├── useScopedScroll.ts             [B1]  Wheel-event scoped scroll (board + tree both consume).
