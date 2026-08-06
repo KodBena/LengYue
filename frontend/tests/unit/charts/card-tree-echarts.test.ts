@@ -34,7 +34,7 @@ function cardNode(cardId: number): RenderCardNode {
   };
 }
 
-const THEME_STUB_VARS = ['--accent-primary', '--text-0'];
+const THEME_STUB_VARS = ['--accent-primary', '--accent-primary-canonical', '--text-0'];
 
 describe('toEChartsNode — card branch (Defect 8)', () => {
   beforeAll(() => {

@@ -315,6 +315,11 @@ export const defaultSettings = {
   // mirrored onto vue-i18n by useAppBootstrap's watch on this field.
   appearance:  {
     theme: 'cluster',
+    // Opt-in high-contrast text override for the cluster theme. Default
+    // off — OFF state must render identically to today. See
+    // `AppSettings.appearance.highContrastText` in `schema.ts` for the
+    // full rationale. Schema 62 → 63 backfills `false`.
+    highContrastText: false,
     // MiniBoard thumbnail renderer (analysis preview boards + heatmap preview).
     // 'svg' (default) preserves the pre-split declarative SVG; 'canvas' is the
     // ADR-0010 canvas variant (lighter paint/jank). User-selectable in the

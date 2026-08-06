@@ -464,6 +464,25 @@ export interface AppSettings {
     // migration if a prior valid value retires.
     theme: 'dark' | 'cluster';
     /**
+     * Opt-in text/glyph-contrast override for the `cluster` theme (default
+     * `false` — OFF state renders byte-identical to today). `cluster`'s base
+     * anchors project strictly onto the maximin-optimised cluster-12
+     * categorical palette (see the `[data-theme="cluster"]` block in
+     * `theme.css`), which has no luminance ramp and leaves `--text-2` and
+     * `--accent-primary` below WCAG 2.1's 4.5:1 normal-text floor against
+     * `--surface-0` (ADR-0019 audit, `.claude/dispatch-reports/
+     * adr19-audit.md` §S4: 3.84:1 and 2.08:1 respectively). When `true`,
+     * `useAppBootstrap` mirrors this leaf onto `<html data-contrast-text
+     * ="on">` (alongside the existing `data-theme` mirror), and
+     * `theme.css`'s `[data-theme="cluster"][data-contrast-text="on"]`
+     * block darkens exactly those two tokens (hue preserved, luminance
+     * lowered) to clear 4.5:1 — the data-series / chart-derived palette is
+     * untouched in both states, and the `dark` theme is untouched
+     * regardless of this leaf's value. Schema-version 62 → 63 backfills
+     * `false`.
+     */
+    highContrastText: boolean;
+    /**
      * MiniBoard thumbnail renderer (the analysis-chart preview boards + the
      * multiresolution heatmap preview). `'svg'` is the declarative SVG
      * projection (default; slightly more prominent last-move ring); `'canvas'`

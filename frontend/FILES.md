@@ -191,6 +191,7 @@ frontend/src/
 │   │   └── wait-for-analysis.ts       [B3]  Primitive: wait for a specific KataGo packet (with timeout, abort).
 │   │
 │   ├── auth-app/                             Auth + app cold-start.
+│   │   ├── contrast-text-attribute.ts [B1]  Pure DOM mutation: mirrors `appearance.highContrastText` onto `<html data-contrast-text="on">` (removed, not `"off"`, when false). Pulled out of useAppBootstrap's watcher so the OFF-state-unchanged guarantee is unit-testable standalone.
 │   │   ├── useAppBootstrap.ts         [B3]  Cold-start wiring: auth → sync hydrate → domain inits → tag fetch. Band-mixed by role (imports analysis-service, qEUBO, the keybindings catalog); tagged like App.vue — wiring, not a B1 substrate.
 │   │   ├── useAuth.ts                 [B1]  AuthState SSOT; wraps api-client auth methods; JWT synchronisation.
 │   │   ├── useMetadata.ts             [B3]  SGF root properties → UI metadata (gameName ladder, players, dates).
@@ -360,6 +361,7 @@ frontend/src/
 │   └── qeubo.ts                       [B1]  qEUBO calibration domain: experiment / status / pair / best projections, QeuboError (runtime class), QeuboBookmark.
 │
 ├── utils/                                   Small DOM / chrome helpers.
+│   ├── contrast-ratio.ts              [B1]  Pure WCAG 2.1 relative-luminance / contrast-ratio math over `#rrggbb` hex strings. Backs the high-contrast-text token choices in theme.css's `[data-theme="cluster"][data-contrast-text="on"]` block with a machine-checked test rather than hand-computed-and-trusted ratios.
 │   ├── context-id-macros.ts           [B2]  `${a,b}` macro expansion for the Cards-tab context-id field.
 │   ├── modifier-key.ts                [B1]  Platform-aware modifier-click detection (Cmd vs Ctrl, middle-button).
 │   └── theme-color.ts                 [B1]  Runtime CSS-variable accessor for ECharts adapter configs.

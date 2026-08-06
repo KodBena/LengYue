@@ -128,13 +128,13 @@ if (import.meta.hot) import.meta.hot.accept(() => location.reload());
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 62;
+export const CURRENT_SCHEMA_VERSION = 63;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 58 → 59) are
+ * The first `N` entries (currently 1 → 2 through 60 → 61) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -156,38 +156,6 @@ export const CURRENT_SCHEMA_VERSION = 62;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 60 → 61: backfill `profile.settings.engine.katago.calibrationVisits`
-  // (number, default 1000) — the new default visit budget for the opt-in
-  // mint-time komi-calibration feature. The leaf is read by
-  // `MintCardModal` (prefills the per-mint visits input when the
-  // "calibrate komi" checkbox is shown) and seeded in `defaults.ts`; a
-  // persisted blob predating this field would otherwise carry no value
-  // and rely on `updateFromRemote`'s deepMerge to surface the default.
-  // Backfilling explicitly keeps the persisted shape honest (the
-  // composition test pins it) rather than leaning on the merge.
-  //
-  // Container witnessed against the runtime shape (`witnessedContainer`,
-  // per step 3 of the add-a-migration recipe): the
-  // `profile.settings.engine.katago` container exists from the original
-  // settings seed, so a typo'd path fails loudly here rather than
-  // no-oping and stamping the version. The blob-side resolution keeps the
-  // sibling bodies' non-null-object tolerance: a partial / legacy blob
-  // whose container is absent no-ops.
-  //
-  // Idempotent: a pre-existing numeric `calibrationVisits` is preserved
-  // unchanged (a hand-edited or forward-compat blob keeps its value);
-  // only a missing / wrong-typed leaf is backfilled to the default.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const katago = witnessedContainer(out, 'profile.settings.engine.katago');
-    if (katago) {
-      const k = katago as { calibrationVisits?: unknown };
-      if (typeof k.calibrationVisits !== 'number') {
-        k.calibrationVisits = 1000;
-      }
-    }
-    return out;
-  },
   // 61 → 62: reshape `boards[*].analysisRange` (single per-board slot,
   // `[startPly, endPly]`) into `boards[*].analysisRanges` (keyed per
   // branch-stem `BranchRangeKey` — `composables/analysis/branch-range-
@@ -256,6 +224,40 @@ export const migrations: Migration[] = [
 
         board.analysisRanges = { [branchKey]: legacyRange };
         delete board.analysisRange;
+      }
+    }
+    return out;
+  },
+  // 62 → 63: backfill `profile.settings.appearance.highContrastText`
+  // (boolean, default false) — the opt-in text/glyph-contrast override
+  // for the `cluster` theme (ADR-0019 audit §S4 corrective; see the
+  // field's doc comment on `AppSettings.appearance.highContrastText` in
+  // `schema.ts` for the full rationale). A persisted blob predating this
+  // field would otherwise carry no value and rely on
+  // `updateFromRemote`'s deepMerge to surface the default; backfilling
+  // explicitly keeps the persisted shape honest (the composition test
+  // pins it) rather than leaning on the merge. Default `false` also
+  // preserves the OFF-by-default / byte-identical-to-today contract for
+  // every pre-existing workspace blob, the same guarantee a fresh
+  // install gets from `defaults.ts`.
+  //
+  // Container witnessed against the runtime shape (`witnessedContainer`,
+  // per step 3 of the add-a-migration recipe): `profile.settings.
+  // appearance` is present from v1, so a typo'd path fails loudly here
+  // rather than no-oping and stamping the version. The blob-side
+  // resolution keeps the sibling bodies' non-null-object tolerance: a
+  // partial / legacy blob whose container is absent no-ops.
+  //
+  // Idempotent: a pre-existing boolean `highContrastText` is preserved
+  // unchanged (a hand-edited or forward-compat blob keeps its value);
+  // only a missing / wrong-typed leaf is backfilled to the default.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const appearance = witnessedContainer(out, 'profile.settings.appearance');
+    if (appearance) {
+      const ap = appearance as { highContrastText?: unknown };
+      if (typeof ap.highContrastText !== 'boolean') {
+        ap.highContrastText = false;
       }
     }
     return out;

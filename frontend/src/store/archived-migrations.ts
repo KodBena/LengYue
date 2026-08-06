@@ -2527,4 +2527,36 @@ export const archivedMigrations: Migration[] = [
     }
     return out;
   },
+  // 60 → 61: backfill `profile.settings.engine.katago.calibrationVisits`
+  // (number, default 1000) — the new default visit budget for the opt-in
+  // mint-time komi-calibration feature. The leaf is read by
+  // `MintCardModal` (prefills the per-mint visits input when the
+  // "calibrate komi" checkbox is shown) and seeded in `defaults.ts`; a
+  // persisted blob predating this field would otherwise carry no value
+  // and rely on `updateFromRemote`'s deepMerge to surface the default.
+  // Backfilling explicitly keeps the persisted shape honest (the
+  // composition test pins it) rather than leaning on the merge.
+  //
+  // Container witnessed against the runtime shape (`witnessedContainer`,
+  // per step 3 of the add-a-migration recipe): the
+  // `profile.settings.engine.katago` container exists from the original
+  // settings seed, so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version. The blob-side resolution keeps the
+  // sibling bodies' non-null-object tolerance: a partial / legacy blob
+  // whose container is absent no-ops.
+  //
+  // Idempotent: a pre-existing numeric `calibrationVisits` is preserved
+  // unchanged (a hand-edited or forward-compat blob keeps its value);
+  // only a missing / wrong-typed leaf is backfilled to the default.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const katago = witnessedContainer(out, 'profile.settings.engine.katago');
+    if (katago) {
+      const k = katago as { calibrationVisits?: unknown };
+      if (typeof k.calibrationVisits !== 'number') {
+        k.calibrationVisits = 1000;
+      }
+    }
+    return out;
+  },
 ];
