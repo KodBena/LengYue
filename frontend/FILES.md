@@ -170,11 +170,12 @@ frontend/src/
 │   ├── useUserIORegistry.ts           [B2]  Hardware-event → domain-verb adapter (keyboard nav, suggestion toggle, …).
 │   │
 │   ├── analysis/                             KataGo-derived view models and chart wiring.
+│   │   ├── branch-range-key.ts        [B2]  Sole factory for the `BranchRangeKey` brand — the branch-stem identity (decision-node choices only) analysis-range memory is keyed by (`useAnalysisTimeline`, Candidate C).
 │   │   ├── useAnalysisContext.ts      [B3]  Per-board analysis context (projection + derived) shared to panels via provide/inject.
 │   │   ├── useAnalysisTabs.ts         [B3]  Analysis-tab state: persisted tab list (AppSettings.analysisTabs) + ephemeral active-tab selection. No component imports (resolution is the dashboard's job).
 │   │   ├── useAnalysisProjection.ts   [B3]  Projects raw board + analysis ledger to UI-ready view model.
 │   │   ├── useAnalysisPersistence.ts  [B2]  Effectful boundary for AnalysisControls' save/discard + reactive summary/auto-save-error + stopBoardAnalysis; keeps the analysisPersistenceService/analysisService imports out of the component.
-│   │   ├── useAnalysisTimeline.ts     [B3]  Owns the chart selection range + visit-vector from the ledger.
+│   │   ├── useAnalysisTimeline.ts     [B3]  Owns the per-branch-stem chart selection range (keyed by `BranchRangeKey`, uncapped) + visit-vector from the ledger.
 │   │   ├── useChartNavigation.ts      [B3]  Pure black-box click-navigation handler for analysis charts (hover-preview is owned panel-side).
 │   │   ├── useEChartsForestRender.ts  [B2]  Per-tree ECharts lifecycle (init, dispose, resize) for card-tree forests.
 │   │   ├── enriched-accumulator.ts    [B3]  Pure incremental derivation of the enriched series (patchNode O(1) vs full O(N) rebuild); last-path-order delta arbitration. Equivalence-tested.
