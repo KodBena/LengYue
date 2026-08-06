@@ -60,13 +60,23 @@ const { metrics } = useEngineControls();
 // hand-tuned "the engine is busy enough that the user should
 // notice" point; users on slower networks can raise it. Drives
 // via the `engine.watchdog-latency-threshold-ms` KnobDecl.
+//
+// `watchdogClasses` is defined below the throttled-metrics-snapshot
+// section (`displayed`, ~line 200) — it reads `displayed.value.*`, not
+// `metrics.value.*` directly. See that section's comment for why: an
+// un-throttled read here previously re-ran this component's ENTIRE
+// render (SELECTOR `<select>` included) on every 1 Hz
+// `ENGINE_METRICS_TICK_MS` store tick, and Vue's special-cased
+// `<select>` value-sync then force-reasserted `el.value` on that same
+// cadence, killing the user's hover/preview in the model dropdown
+// (docs/dispatch-reports/ui-defects-investigation.md, Defect 1).
 const watchdogClasses = computed(() => {
   if (store.session.ui.watchdogColorTransition) {
-    return metrics.value.pingPendingSince !== null
+    return displayed.value.pingPendingSince !== null
       ? 'watchdog-pinging'
       : '';
   }
-  return metrics.value.latencyMs >= store.profile.settings.engine.katago.watchdogLatencyThresholdMs
+  return displayed.value.latency >= store.profile.settings.engine.katago.watchdogLatencyThresholdMs
     ? 'watchdog-bad'
     : '';
 });
@@ -176,23 +186,46 @@ const scoreLeadDisplay = computed(() => {
 // scoreLead refine every packet) and `store.engine.metrics`, which
 // analysis-service replaces wholesale on every response (the `lastResponseId`
 // bump) — so even the 1 Hz PPS and 5 s latency reads churn at the packet rate
-// through object identity. Project the four displayed scalars into a derived
+// through object identity. Project the displayed scalars into a derived
 // object and publish it to the template via the shared subscriber-projection
-// throttle, so the strip redraws at most ~4 Hz. The watchdog dot is left LIVE
-// below: its computed short-circuits on a stable class string (no per-packet
-// render), and staying live lets a latency spike flip it promptly.
+// throttle, so the strip redraws at most ~4 Hz.
+//
+// `pingPendingSince` and `latencyMs` (the watchdog dot's inputs) are folded
+// into this SAME projection/throttle rather than read live. They used to be
+// read directly off `metrics.value` from `watchdogClasses` below, which
+// re-ran this component's whole render on every `ENGINE_METRICS_TICK_MS`
+// (1000ms) store tick regardless of whether the watchdog fields actually
+// changed — ADR-0010's render-locality corollary: "a reactive read anywhere
+// in a template re-runs the whole render function." Vue's `<select>`
+// value-sync then reasserted `el.value` on that cadence, killing hover in
+// the SELECTOR model dropdown (Defect 1,
+// docs/dispatch-reports/ui-defects-investigation.md). Fix: route the
+// watchdog fields through the same gated snapshot as everything else here.
+//
+// Deliberately reusing the EXISTING 250 ms throttle rather than adding a
+// second, faster-but-still-gated one for the watchdog fields alone: the
+// watchdog's own cadences are the animated ping-tandem duration
+// (`watchdogAnimationMs`, default 500ms) and the un-animated sample poll
+// (~5000ms) — both an order of magnitude slower than 250ms, so a single
+// shared throttle keeps "a latency spike flips promptly" true in practice
+// (worst-case 250ms added latency, imperceptible against either cadence)
+// without a second timer instance to reason about. If a future consumer
+// needs sub-250ms watchdog responsiveness, split it into its own
+// `useThrottledSnapshot` call at that point rather than pre-emptively here.
 interface MetricsDisplay {
-  winrate:   string;
-  scoreLead: string;
-  pps:       number;
-  latency:   number;
+  winrate:          string;
+  scoreLead:        string;
+  pps:              number;
+  latency:          number;
+  pingPendingSince: number | null;
 }
 
 const liveMetrics = computed<MetricsDisplay>(() => ({
-  winrate:   winrateDisplay.value,
-  scoreLead: scoreLeadDisplay.value,
-  pps:       metrics.value.packetsPerSecond,
-  latency:   metrics.value.latencyMs,
+  winrate:          winrateDisplay.value,
+  scoreLead:        scoreLeadDisplay.value,
+  pps:              metrics.value.packetsPerSecond,
+  latency:          metrics.value.latencyMs,
+  pingPendingSince: metrics.value.pingPendingSince,
 }));
 const displayed = useThrottledSnapshot(liveMetrics, TOOLBAR_METRICS_REDRAW_THROTTLE_MS);
 </script>
