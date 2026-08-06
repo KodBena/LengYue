@@ -22,7 +22,7 @@
  * License: Public Domain (The Unlicense)
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 // @ts-ignore — @sabaki/sgf has no published types declaration.
 import sgf from '@sabaki/sgf';
 
@@ -369,6 +369,136 @@ describe('navigateToggleMainLine', () => {
     expect(boardA.currentNodeId).toBe(boardA.nodes[branchA].children[1]);
     expect(boardB.currentNodeId).toBe(boardB.nodes[branchB].children[1]);
   });
+});
+
+// ── Branch-switch semantics (2026-08-06 maintainer veto) ──────────────────────
+//
+// The veto: toggle-main-line's shipped semantics were wrong — a branch
+// switch must restore the actual last node the cursor occupied in the
+// target branch, not always its immediate child; the switch must fire
+// from anywhere in the current line, not only from a fork's immediate
+// child; and toggle/next/prev-variation must share exactly the same
+// restore behavior. These tests exercise the veto's own five scenarios
+// against `GameNode.lastVisitedDescendant` (`types/game.ts`) and the
+// shared restore primitive (`resolveBranchTarget` / `switchToBranch`,
+// `engine/navigator.ts`) both `navigateVariation` and
+// `navigateToggleMainLine` route through.
+
+describe('branch-switch semantics — restore the actual last node (not the immediate child)', () => {
+  it('(1) navigating deep into branch A, switching away from mid-line (not the fork child), then back — restores the exact node left in A', () => {
+    const board = load('(;FF[4]GM[1]SZ[19];B[pd](;W[dp];B[qq])(;W[pp];B[dq]))');
+    const forkNode = board.nodes[board.rootNodeId].children[0]; // B[pd]
+    const branchAHead = board.nodes[forkNode].children[0]; // W[dp]
+    const branchAMid = board.nodes[branchAHead].children[0]; // B[qq] — mid-line, NOT the fork child
+    const branchBHead = board.nodes[forkNode].children[1]; // W[pp]
+
+    navigateTo(board, branchAMid);
+    expect(board.currentNodeId).not.toBe(branchAHead); // sanity: genuinely mid-line
+
+    const memory = new Map<string, number>();
+    navigateToggleMainLine(board, memory); // A -> B
+    expect(board.currentNodeId).toBe(branchBHead); // B never visited: defaults to its head (scenario 2)
+
+    navigateToggleMainLine(board, memory); // B -> A, restore
+    expect(board.currentNodeId).toBe(branchAMid); // exact node left in A, not branchAHead
+  });
+
+  it('(2) a never-visited branch defaults to its own head node', () => {
+    const board = load('(;FF[4]GM[1]SZ[19];B[pd](;W[dp])(;W[pp]))');
+    const forkNode = board.nodes[board.rootNodeId].children[0];
+    const branchBHead = board.nodes[forkNode].children[1];
+    navigateTo(board, board.nodes[forkNode].children[0]);
+
+    navigateVariation(board, +1);
+    expect(board.currentNodeId).toBe(branchBHead);
+  });
+
+  it('(3) a pruned remembered node falls back loudly to the branch head — no crash, no silent wrong node', () => {
+    const board = load('(;FF[4]GM[1]SZ[19];B[pd](;W[dp];B[qq])(;W[pp]))');
+    const forkNode = board.nodes[board.rootNodeId].children[0];
+    const branchAHead = board.nodes[forkNode].children[0];
+    const branchAMid = board.nodes[branchAHead].children[0];
+
+    navigateTo(board, branchAMid); // remember branchAMid as branchAHead's last-visited node
+    const memory = new Map<string, number>();
+    navigateToggleMainLine(board, memory); // switch away to branch B
+
+    delete board.nodes[branchAMid]; // simulate pruning: the remembered node no longer exists
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(() => navigateToggleMainLine(board, memory)).not.toThrow();
+    expect(board.currentNodeId).toBe(branchAHead); // loud fallback to the branch head
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    warnSpy.mockRestore();
+  });
+
+  it('(5) navigateVariation switches from an arbitrary depth, not only from the forks immediate child (the old limitation this closes)', () => {
+    const board = load('(;FF[4]GM[1]SZ[19];B[pd](;W[dp];B[qq];W[jj])(;W[pp]))');
+    const forkNode = board.nodes[board.rootNodeId].children[0];
+    const deepLine = board.nodes[forkNode].children[0]; // W[dp]
+    const deepMid = board.nodes[deepLine].children[0]; // B[qq]
+    const deepLeaf = board.nodes[deepMid].children[0]; // W[jj] — three levels below the fork
+    const cousinLine = board.nodes[forkNode].children[1]; // W[pp]
+    navigateTo(board, deepLeaf);
+
+    navigateVariation(board, +1); // fires from the leaf, well past the fork's immediate child
+    expect(board.currentNodeId).toBe(cousinLine);
+  });
+
+  // (4) toggle / next-variation / prev-variation share exactly the same
+  // restore behavior — both directions of `navigateVariation` and the
+  // toggle exercised against the identical fork/branch shape.
+  type RestoreCase = {
+    name: string;
+    fromIdx: 0 | 1;
+    toIdx: 0 | 1;
+    stepThere: (board: BoardState, memory: Map<string, number>) => void;
+    stepBack: (board: BoardState, memory: Map<string, number>) => void;
+  };
+
+  const restoreCases: RestoreCase[] = [
+    {
+      name: 'toggle',
+      fromIdx: 0,
+      toIdx: 1,
+      stepThere: (board, memory) => navigateToggleMainLine(board, memory),
+      stepBack: (board, memory) => navigateToggleMainLine(board, memory),
+    },
+    {
+      name: 'next-then-prev-variation',
+      fromIdx: 0,
+      toIdx: 1,
+      stepThere: (board) => navigateVariation(board, +1),
+      stepBack: (board) => navigateVariation(board, -1),
+    },
+    {
+      name: 'prev-then-next-variation',
+      fromIdx: 1,
+      toIdx: 0,
+      stepThere: (board) => navigateVariation(board, -1),
+      stepBack: (board) => navigateVariation(board, +1),
+    },
+  ];
+
+  it.each(restoreCases)(
+    '$name restores the exact last-visited node when switching back into a branch',
+    ({ fromIdx, toIdx, stepThere, stepBack }) => {
+      const board = load('(;FF[4]GM[1]SZ[19];B[pd](;W[dp];B[qq])(;W[pp];B[dq]))');
+      const forkNode = board.nodes[board.rootNodeId].children[0];
+      const fromHead = board.nodes[forkNode].children[fromIdx];
+      const fromMid = board.nodes[fromHead].children[0];
+      const toHead = board.nodes[forkNode].children[toIdx];
+
+      navigateTo(board, fromMid); // deep in the "from" branch, not at its head
+      const memory = new Map<string, number>();
+
+      stepThere(board, memory); // switch to the "to" branch — never visited, lands at its head
+      expect(board.currentNodeId).toBe(toHead);
+
+      stepBack(board, memory); // switch back — restores the exact mid node, not fromHead
+      expect(board.currentNodeId).toBe(fromMid);
+    },
+  );
 });
 
 // ── findPlacementOnActivePath ──────────────────────────────────────────────────

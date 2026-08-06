@@ -145,6 +145,32 @@ export interface GameNode {
   parent: NodeId | null;
   children: NodeId[];
   activeChildIndex: number;
+  // Per-branch cursor memory (2026-08-06 branch-switch-semantics veto):
+  // when this node is itself a fork's child (a branch root), the last
+  // node the cursor actually stood on *within this node's own subtree*
+  // — inclusive of this node itself. `activeChildIndex` above already
+  // remembers which CHILD each fork last descended into (the path);
+  // this remembers the DEPTH the cursor stopped at along that path, so
+  // a branch switch restores the exact node last occupied instead of
+  // always landing back on the branch's immediate child.
+  //
+  // Write-through: `navigateTo` (`engine/navigator.ts`) sets this on
+  // every ancestor of the new `currentNodeId` (including the node
+  // itself) on every call — a fact of moving the cursor, not a
+  // switch-time special case. Read-side: `resolveBranchTarget`
+  // (`engine/navigator.ts`) validates the remembered id still exists
+  // and is still inside this node's subtree before trusting it,
+  // falling back loudly (this node's own id) otherwise — the case a
+  // pruned/deleted node's stale memory would otherwise land the
+  // cursor at a wrong or missing node.
+  //
+  // Optional and omitted at construction (mirrors `delta?` below):
+  // `undefined` reads as "never visited independently of the branch
+  // head," which is exactly a never-visited branch's correct fallback,
+  // so no backfill migration is needed for blobs saved before this
+  // field existed — the persisted shape degrades to "always fall back
+  // to head," never to a crash or a wrong node.
+  lastVisitedDescendant?: NodeId;
   properties: SgfProperties;
   move: Move | null;
   delta?: NodeDelta;
