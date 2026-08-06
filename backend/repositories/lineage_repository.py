@@ -71,6 +71,7 @@ from domain.auth import UserId
 from domain.card import Card
 from domain.errors import (
     CardNotFoundError,
+    GameSourceNotFoundError,
     LineageOverflowError,
     PipelineDSLError,
 )
@@ -472,6 +473,64 @@ class LineageRepository:
             nodes.append(CardNode(card=card_entity, depth=depth))
 
         return nodes
+
+    async def resolve_game_source_root_card_ids(
+        self,
+        ordinals: List[int],
+        *,
+        user_id: UserId,
+    ) -> List[int]:
+        """
+        Resolve `game_source.display_ordinal` tokens to their root
+        card ids, tenancy-scoped. See LineageRepositoryPort's
+        docstring for the full contract (macro-public-id-tokens).
+
+        Two-query shape (both filtered on user_id, never joined
+        across tenants):
+
+        1. `game_source.id` for every ordinal in `ordinals`, WHERE
+           `display_ordinal IN (:ordinals) AND user_id = :user_id`
+           — the predicate fusion that makes an unowned or
+           nonexistent ordinal indistinguishable (404-not-403). Any
+           ordinal missing from the result set is unresolved;
+           GameSourceNotFoundError is raised naming the first one
+           found missing (deterministic: ordinals are checked in
+           input order), rather than silently resolving a partial
+           set.
+
+        2. `card_source.card_id` for every row whose
+           `game_source_id` is one of the resolved ids, joined to
+           `card` and filtered on `card.user_id = :user_id` —
+           belt-and-braces, mirroring every other recursive-CTE
+           caller's base-case filter even though this is a plain
+           (non-recursive) join. A game_source can anchor more than
+           one root card_source row (multiple root moves under one
+           imported game); all of them are returned.
+        """
+        if not ordinals:
+            return []
+
+        gs_rows = (await self.session.execute(
+            select(game_source.c.id, game_source.c.display_ordinal)
+            .where(game_source.c.display_ordinal.in_(ordinals))
+            .where(game_source.c.user_id == user_id)
+        )).fetchall()
+        gs_id_by_ordinal = {row.display_ordinal: row.id for row in gs_rows}
+        for ordinal in ordinals:
+            if ordinal not in gs_id_by_ordinal:
+                raise GameSourceNotFoundError(ordinal=ordinal)
+
+        root_rows = (await self.session.execute(
+            select(card_source.c.card_id)
+            .select_from(
+                card_source.join(card, card_source.c.card_id == card.c.id)
+            )
+            .where(
+                card_source.c.game_source_id.in_(gs_id_by_ordinal.values())
+            )
+            .where(card.c.user_id == user_id)
+        )).fetchall()
+        return [row.card_id for row in root_rows]
 
 
 # =====================================================================
