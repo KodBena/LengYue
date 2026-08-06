@@ -36,6 +36,7 @@ vi.mock('../../src/services/analysis-persistence-service', async () => {
 
 import { loadSgf } from '../../src/engine/sgf-loader';
 import { addBoard, resetWorkspace, store } from '../../src/store';
+import { createInitialBoard } from '../../src/store/board-factory';
 import { analysisService } from '../../src/services/analysis-service';
 import { getActiveVariationPath } from '../../src/engine/util';
 import { resetFakeAnalysisPersistenceService } from '../fakes/analysis-persistence-service';
@@ -166,6 +167,25 @@ describe('AnalysisService ruleset wire assembly (analyzeRange)', () => {
 
     expect(queryId).toBeNull();
     expect(ws.analysisQueries()).toHaveLength(0);
+  });
+});
+
+describe('AnalysisService ruleset wire assembly — fresh (non-SGF) board', () => {
+  // Inverse of the unknown-refusal tests above: a board minted by
+  // createInitialBoard (the "New Game" path, not an SGF load) carries
+  // the commissioner-adjudicated RU[Tromp-Taylor] default
+  // (board-factory.ts), so it must resolve by construction and its
+  // query construction must proceed rather than refuse.
+  it('resolves to Tromp-Taylor and proceeds through analyzeRange (analyzeActiveNode)', () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const ws = MockWebSocket.last!;
+
+    const queryId = analysisService.analyzeActiveNode(board.id, 'analyze', 100);
+
+    expect(queryId).not.toBeNull();
+    expect(ws.analysisQueries()).toHaveLength(1);
+    expect(ws.analysisQueries()[0].rules).toBe('tromp-taylor');
   });
 });
 

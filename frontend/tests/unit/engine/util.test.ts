@@ -188,6 +188,15 @@ describe('getRulesetResolution', () => {
     board.nodes[board.rootNodeId].properties['RU'] = ['New Zealand'];
     expect(getRulesetResolution(board)).toEqual({ kind: 'unknown', raw: 'New Zealand' });
   });
+
+  // Inverse of the unknown-blocks-analysis case: a fresh board minted
+  // by createInitialBoard carries commissioner-adjudicated RU[Tromp-
+  // Taylor] (board-factory.ts) precisely so it resolves by
+  // construction and never lands in the unknown state.
+  it('resolves a fresh createInitialBoard board to Tromp-Taylor by construction', () => {
+    const board = createInitialBoard();
+    expect(getRulesetResolution(board)).toEqual({ kind: 'resolved', name: 'Tromp-Taylor' });
+  });
 });
 
 describe('getInitialStones', () => {

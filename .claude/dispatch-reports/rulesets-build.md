@@ -107,3 +107,45 @@ $ npm run test:run
 ```
 
 License: Public Domain (The Unlicense)
+
+## Addendum (2026-08-06) — commissioner adjudication on the flagged fresh-board consequence
+
+The commissioner adjudicated the "Flagged (not in scope, not fixed)"
+item above: fresh app-created boards mint a default ruleset at
+creation. Decree: `createInitialBoard`
+(`frontend/src/store/board-factory.ts`) now writes
+`RU: ['Tromp-Taylor']` into the root node's `properties` alongside
+`SZ`/`GM`/`FF`, canonical spelling exactly as in `RULESET_NAMES`. A
+one-line comment at the write site cites the adjudication and notes
+this is authoring a record at construction time, not coercing
+untrusted input — `normalizeRuleset`'s fail-loud posture for
+SGF-loaded boards with a foreign/unrecognized `RU` is unchanged.
+
+Added tests (inverse of the unknown-refusal coverage):
+
+- `tests/unit/engine/util.test.ts` — `getRulesetResolution` new case:
+  a fresh `createInitialBoard()` board resolves to
+  `{ kind: 'resolved', name: 'Tromp-Taylor' }`.
+- `tests/integration/analysis-service-ruleset.test.ts` — new
+  `describe('AnalysisService ruleset wire assembly — fresh (non-SGF)
+  board', …)`: a `createInitialBoard()` + `addBoard()` board proceeds
+  through `analyzeActiveNode` (query construction is NOT refused) and
+  sends `rules: 'tromp-taylor'` on the wire.
+
+Gates re-run clean:
+
+```
+$ npm run build
+✓ 1081 modules transformed.
+✓ built in 2.71s
+
+$ npx eslint .
+(no output — clean)
+
+$ npm run test:run
+ Test Files  83 passed | 3 skipped (86)
+      Tests  1142 passed | 4 skipped (1146)
+```
+
+Commit: same branch (`worktree-agent-ae9e1b0d0e686b564`), new head
+after this addendum.
