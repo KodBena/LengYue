@@ -25,10 +25,19 @@ from __future__ import annotations
 
 import hashlib
 from datetime import datetime, timezone
+from itertools import count
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+
+# Per-user-id-enumeration design: card.display_ordinal,
+# card.public_id, and game_source.display_ordinal are NOT NULL. This
+# module's seeding helpers aren't exercising that feature, so a
+# process-wide monotonic counter (trivially per-user-unique too) is
+# sufficient — the exact ordinal values aren't under test here.
+_ordinal = count(1)
 
 from db.schema import (
     card,
@@ -87,6 +96,8 @@ async def _seed_game_source(
             description=description,
             player_white=player_white,
             player_black=player_black,
+            client_game_id=uuid4(),
+            display_ordinal=next(_ordinal),
         )
         .returning(game_source.c.id)
     )
@@ -107,6 +118,8 @@ async def _seed_card(
             user_id=user_id,
             num_reviews=num_reviews,
             normalized_position_id=position_id,
+            public_id=uuid4(),
+            display_ordinal=next(_ordinal),
         )
         .returning(card.c.id)
     )

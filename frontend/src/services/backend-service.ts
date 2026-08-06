@@ -7,6 +7,8 @@
 import { api, ApiError } from './api-client';
 import type {
   CardId,
+  CardDisplayOrdinal,
+  CardPublicId,
   CardMetadataPatch,
   ContentHash,
   GameSourceId,
@@ -143,6 +145,11 @@ export class BackendService {
 
     return {
       id: cardId,
+      // Per-user-id-enumeration design: ACL Band-2 brand mints for
+      // the display-role and reference-role fields added alongside
+      // the raw PK (`id` stays the exception per Decision 4).
+      displayOrdinal: raw.display_ordinal as CardDisplayOrdinal, // ACL Band-2 brand mint
+      publicId: raw.public_id as CardPublicId, // ACL Band-2 brand mint
       canonicalContent: raw.canonical_content,
       contentHash,
       numMoves: raw.num_moves,

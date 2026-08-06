@@ -1061,6 +1061,15 @@ export interface components {
          *     Dict[str, Any], which provided no information to OpenAPI consumers
          *     (and therefore no information to any code-generated TypeScript
          *     client downstream — see item 30). Item 4.
+         *
+         *     Per-user-id-enumeration design: ``card_id`` (the raw PK) is kept
+         *     — allowlisted alongside the ``GET /cards/{card_id}`` path param,
+         *     which the frontend addresses with this same value immediately
+         *     after creation (`.claude/dispatch-reports/
+         *     per-user-id-enumeration-design.md`, Decision 4). ``public_id``
+         *     (the opaque reference handle) and ``display_ordinal`` (the
+         *     per-user display value) are added alongside so a caller that
+         *     wants to *display* "card N" doesn't need a follow-up round trip.
          */
         CardCreateResponse: {
             /**
@@ -1070,6 +1079,13 @@ export interface components {
             status: "created";
             /** Card Id */
             card_id: number;
+            /**
+             * Public Id
+             * Format: uuid
+             */
+            public_id: string;
+            /** Display Ordinal */
+            display_ordinal: number;
         };
         /**
          * CardPatch
@@ -1165,6 +1181,13 @@ export interface components {
             card_source_id?: number | null;
             /** Tags */
             tags?: string[];
+            /**
+             * Public Id
+             * Format: uuid
+             */
+            public_id: string;
+            /** Display Ordinal */
+            display_ordinal: number;
             /** Current Recall */
             current_recall: number;
             /** Halflife Units */
@@ -1555,17 +1578,20 @@ export interface components {
              * Format: uuid
              */
             client_game_id: string;
+            /** Display Ordinal */
+            display_ordinal: number;
         };
         /**
          * ImportOutcomeDeduplicated
          * @description The SGF normalized to a position already in the user's library;
          *     the existing row's id is returned without inserting a duplicate.
          *
-         *     ``client_game_id`` is the existing row's UUID, which may be
-         *     ``None`` for legacy rows that pre-date the dedup arc (rows
-         *     minted via the card flow before ``client_game_id`` rolled out).
-         *     The frontend handles None by falling back to ``game_id`` as
-         *     the row's identity.
+         *     ``client_game_id`` is the existing row's UUID. Per-user-id-
+         *     enumeration design: previously ``Optional`` for legacy rows that
+         *     pre-date the dedup arc (rows minted via the card flow before
+         *     ``client_game_id`` rolled out); that exception is now closed —
+         *     the migration backfills every historical NULL, so this is always
+         *     present.
          */
         ImportOutcomeDeduplicated: {
             /**
@@ -1575,8 +1601,13 @@ export interface components {
             status: "deduplicated";
             /** Game Id */
             game_id: number;
-            /** Client Game Id */
-            client_game_id: string | null;
+            /**
+             * Client Game Id
+             * Format: uuid
+             */
+            client_game_id: string;
+            /** Display Ordinal */
+            display_ordinal: number;
         };
         /**
          * ImportOutcomeErrored
@@ -1629,8 +1660,11 @@ export interface components {
         LibraryGame: {
             /** Id */
             id: number;
-            /** Client Game Id */
-            client_game_id: string | null;
+            /**
+             * Client Game Id
+             * Format: uuid
+             */
+            client_game_id: string;
             /** Player White */
             player_white: string | null;
             /** Player Black */
@@ -1654,6 +1688,8 @@ export interface components {
             created_at: string;
             /** Raw Content */
             raw_content: string;
+            /** Display Ordinal */
+            display_ordinal: number;
         };
         /**
          * LibraryGameListItem
@@ -1664,12 +1700,22 @@ export interface components {
          *     ``client_game_id`` so the frontend can open the row as a board
          *     using the same identifier the existing card-mint dedup path
          *     keys on.
+         *
+         *     Per-user-id-enumeration design: ``client_game_id`` is no longer
+         *     ``Optional`` — the legacy "may be None for pre-dedup-arc rows"
+         *     exception is closed (every ``game_source`` row now mints one at
+         *     insert time, and the migration backfills historical NULLs).
+         *     ``display_ordinal`` is the new per-user display-role field
+         *     (library list row numbering).
          */
         LibraryGameListItem: {
             /** Id */
             id: number;
-            /** Client Game Id */
-            client_game_id: string | null;
+            /**
+             * Client Game Id
+             * Format: uuid
+             */
+            client_game_id: string;
             /** Player White */
             player_white: string | null;
             /** Player Black */
@@ -1687,6 +1733,8 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Display Ordinal */
+            display_ordinal: number;
         };
         /**
          * ListGamesResponse

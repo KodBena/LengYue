@@ -21,10 +21,16 @@ License: Public Domain (The Unlicense)
 from __future__ import annotations
 
 import hashlib
+from itertools import count
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+
+# Per-user-id-enumeration design: see test_stats_repository.py's
+# identical comment.
+_ordinal = count(1)
 
 from db.schema import (
     card,
@@ -64,7 +70,10 @@ async def _build_tree(
     pos = int(res.scalar())
     res = await session.execute(
         insert(game_source)
-        .values(position_id=pos, user_id=user_id, description=description)
+        .values(
+            position_id=pos, user_id=user_id, description=description,
+            client_game_id=uuid4(), display_ordinal=next(_ordinal),
+        )
         .returning(game_source.c.id)
     )
     gs_id = int(res.scalar())
@@ -82,6 +91,7 @@ async def _build_tree(
                 .values(
                     num_moves=5, alpha=3.0, beta=3.0, t=1.0,
                     user_id=user_id, normalized_position_id=pos,
+                    public_id=uuid4(), display_ordinal=next(_ordinal),
                 )
                 .returning(card.c.id)
             )
@@ -361,7 +371,10 @@ async def test_forests_query_content_hash_isolated_across_tenants_sharing_positi
     async def _attach_root_card(user_id: int) -> int:
         res = await session.execute(
             insert(game_source)
-            .values(position_id=pos, user_id=user_id, description="shared")
+            .values(
+                position_id=pos, user_id=user_id, description="shared",
+                client_game_id=uuid4(), display_ordinal=next(_ordinal),
+            )
             .returning(game_source.c.id)
         )
         gs_id = int(res.scalar())
@@ -370,6 +383,7 @@ async def test_forests_query_content_hash_isolated_across_tenants_sharing_positi
             .values(
                 num_moves=5, alpha=3.0, beta=3.0, t=1.0,
                 user_id=user_id, normalized_position_id=pos,
+                public_id=uuid4(), display_ordinal=next(_ordinal),
             )
             .returning(card.c.id)
         )

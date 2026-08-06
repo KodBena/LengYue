@@ -26,6 +26,7 @@ License: Public Domain (The Unlicense)
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
@@ -65,6 +66,8 @@ def _make_card(
         grading_parameter=None,
         canonical_content="(;FF[4])",
         content_hash=b"\x00" * 32,
+        public_id=uuid4(),
+        display_ordinal=1,
     )
 
 

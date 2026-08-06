@@ -106,19 +106,29 @@ export function toEChartsNode(
     // card isn't suspended so the default-styling pathway is
     // unchanged.
     const isSuspended = cards?.get(node.cardId)?.suspended === true;
+    // Per-user-id-enumeration design: the on-canvas label paints the
+    // per-user displayOrdinal, not the raw PK (`node.cardId`) — the
+    // literal fix for the commissioner's complaint (a GoGoD-scale
+    // import painting huge global-sequence numbers on-screen). `name`
+    // (used for tooltips/keying, unchanged below) still carries the
+    // raw id — that's an internal identity string, never rendered.
+    // Falls back to an ellipsis when the card hasn't hydrated into
+    // `cards` yet (matches `tooltipFor`'s "Loading…" convention).
+    const displayOrdinal = cards?.get(node.cardId)?.displayOrdinal;
     return {
       name: `Card ${node.cardId}`,
       payload: { kind: 'card', cardId: node.cardId, role: node.role },
       symbolSize: node.role === 'active' ? 12 : 8,
-      // On-canvas annotation is the bare card id — `name` stays
-      // `Card ${cardId}` for tooltips/keying (unchanged), but the
-      // rendered label must not repeat "Card " for every node in the
-      // forest simultaneously. Mirrors the `stub`/`bucket` branches'
-      // own `label.formatter` below. Overridden by the isSuspended
-      // spread below when the card is suspended (💤 takes priority).
+      // On-canvas annotation is the per-user display ordinal — `name`
+      // stays `Card ${cardId}` for tooltips/keying (unchanged), but
+      // the rendered label must not repeat "Card " for every node in
+      // the forest simultaneously. Mirrors the `stub`/`bucket`
+      // branches' own `label.formatter` below. Overridden by the
+      // isSuspended spread below when the card is suspended (💤
+      // takes priority).
       label: {
         show: true,
-        formatter: () => String(node.cardId),
+        formatter: () => displayOrdinal !== undefined ? String(displayOrdinal) : '…',
       },
       itemStyle: {
         // Precedence: isSelected (green) > isCurrent (orange /

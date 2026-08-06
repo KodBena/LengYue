@@ -129,6 +129,35 @@ export type CardId = Brand<number, 'CardId'>;
 export type GameSourceId = Brand<number, 'GameSourceId'>;
 
 /**
+ * Per-user, gaps-on-delete display ordinal (per-user-id-enumeration
+ * design, `.claude/dispatch-reports/per-user-id-enumeration-design.md`).
+ * Display-role only — never round-tripped as a reference (the ACL
+ * mints this alongside `CardId`/`GameSourceId`, never in place of
+ * them). Branded distinctly from `CardId`/`GameSourceId` because,
+ * unlike those, the value is NOT unique across tenants — two users
+ * both have a "card 1" — so it must never be used to address a
+ * request. Sole construction site: `services/backend-service.ts`'s
+ * `mapToReviewCard` / library mapping functions (`raw.display_ordinal
+ * as CardDisplayOrdinal` / `as GameDisplayOrdinal`).
+ */
+export type CardDisplayOrdinal = Brand<number, 'CardDisplayOrdinal'>;
+export type GameDisplayOrdinal = Brand<number, 'GameDisplayOrdinal'>;
+
+/**
+ * `card`'s reference-role opaque handle (per-user-id-enumeration
+ * design) — the sibling of `GameSourceId`'s existing UUID-shaped
+ * counterpart `game_source.client_game_id`. A UUID string minted
+ * once at card-creation; round-tripped to identify a card without
+ * encoding its position in the global insertion sequence. Not yet
+ * used as a request-addressing value anywhere in the SPA (the
+ * design's Decision 4 keeps `GET /cards/{card_id}` on the raw PK as
+ * a named exception) — carried on the wire today so a future site
+ * that needs a non-leaking reference has one available without a
+ * backend round-trip.
+ */
+export type CardPublicId = Brand<string, 'CardPublicId'>;
+
+/**
  * Lowercase-hex SHA-256 digest of a normalized position's canonical
  * content (`domain.card.Card.content_hash` on the backend wire;
  * `normalized_position.content_hash` at the DB layer). NOT a

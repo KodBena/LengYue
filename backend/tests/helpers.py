@@ -27,6 +27,7 @@ License: Public Domain (The Unlicense)
 import hashlib
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
+from uuid import UUID, uuid4
 
 from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -53,6 +54,8 @@ def make_card(
     grading_parameter: Optional[Dict] = None,
     canonical_content: str = "(;FF[4]SZ[19])",
     content_hash: Optional[bytes] = None,
+    public_id: Optional[UUID] = None,
+    display_ordinal: Optional[int] = None,
 ) -> Card:
     """
     Build a `domain.card.Card` with sensible defaults.
@@ -70,6 +73,14 @@ def make_card(
     the SHA-256 digest of `canonical_content` — the same dedup-hash
     shape the real `SgfNormalizer` produces — so callers that don't
     care about the hash's exact value still get a valid Card.
+
+    `public_id` (per-user-id-enumeration design) defaults to a fresh
+    UUID — tests that don't care about its exact value still get a
+    valid Card. `display_ordinal` defaults to `card_id` itself: not
+    semantically meaningful (the design's ordinal is per-user and
+    starts at 1, unrelated to the raw PK), but a stable, deterministic
+    per-call default a test can override when the ordinal value
+    itself is under test.
     """
     return Card(
         id=card_id,
@@ -85,6 +96,8 @@ def make_card(
         canonical_content=canonical_content,
         content_hash=content_hash or hashlib.sha256(canonical_content.encode()).digest(),
         card_source_id=parent_id,
+        public_id=public_id or uuid4(),
+        display_ordinal=display_ordinal if display_ordinal is not None else card_id,
     )
 
 
@@ -310,6 +323,12 @@ class TreeBuilder:
         self._ready = False
         self._norm_pos_id: Optional[int] = None
         self._game_source_id: Optional[int] = None
+        # Per-user-id-enumeration design: a builder-local counter
+        # standing in for the production `user_display_counters`
+        # atomic increment — good enough for this single-threaded
+        # test fixture, which never has two builders racing on the
+        # same user_id.
+        self._next_card_ordinal = 1
 
     async def setup_base(self):
         """Insert the minimum foundation rows required by FK constraints."""
@@ -349,6 +368,12 @@ class TreeBuilder:
                 position_id=self._norm_pos_id,
                 user_id=self.user_id,
                 description="test-anchor",
+                # Per-user-id-enumeration design: both columns NOT NULL
+                # post-migration. display_ordinal=1 since this is the
+                # anchor's first (and typically only) game_source row
+                # for this builder's user_id.
+                client_game_id=uuid4(),
+                display_ordinal=1,
             )
             .returning(game_source.c.id)
         )
@@ -402,9 +427,14 @@ class TreeBuilder:
                         t=t,
                         user_id=self.user_id,
                         normalized_position_id=self._norm_pos_id,
+                        # Per-user-id-enumeration design: both columns
+                        # NOT NULL post-migration.
+                        public_id=uuid4(),
+                        display_ordinal=self._next_card_ordinal,
                     )
                     .returning(card.c.id)
                 )
+                self._next_card_ordinal += 1
                 card_id = res.scalar()
                 ids[name] = card_id
 
