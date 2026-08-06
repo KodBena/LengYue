@@ -22,7 +22,7 @@ import { useEngineControls } from './composables/useEngineControls';
 import { useUserIORegistry } from './composables/useUserIORegistry';
 import { useAuth }           from './composables/auth-app/useAuth';
 import { workspaceIdentityKey } from './composables/auth-app/workspace-identity-key';
-import { useResizablePanel } from './composables/chrome/useResizablePanel';
+import { useResizablePanel, CONTROL_PANEL_MIN_WIDTH_PX } from './composables/chrome/useResizablePanel';
 import { useDirtyBoardGuard } from './composables/board/useDirtyBoardGuard';
 import { useAppBootstrap } from './composables/auth-app/useAppBootstrap';
 import { useTransientLogReveal } from './composables/useTransientLogReveal';
@@ -185,7 +185,26 @@ const {
   handleLoadLibraryGameInNewBoard,
 } = useDirtyBoardGuard(confirmLoadModalRef);
 
-const { startResize } = useResizablePanel();
+const { startResize, controlPanelWidthPx } = useResizablePanel();
+
+// ui-fix-56 (Defects 5 + 6, same underlying gap: freed row space in
+// #split-workspace is never reflected). #split-workspace centers its
+// row content whenever something has claimed less than its natural
+// share of the row: either the control panel is toggled off
+// entirely (Defect 6), or the resizer has driven #control-panel's
+// width down past the board's own saturation point (Defect 5,
+// `controlPanelWidthPx` — see useResizablePanel.ts). `!treeExpanded`
+// deliberately does NOT participate: #vue-tree-panel is a fixed-width
+// (140px), flex-shrink:0 sibling that never absorbs freed space on
+// its own — with the control panel visible, toggling the tree off
+// just lets #control-panel's flex:1 claim the extra 140px already
+// (no dead space to center away); the dead-space bug is entirely a
+// consequence of #control-panel — the row's one flex-grow:1 element —
+// being narrower than its natural share, which these two conditions
+// already cover.
+const splitWorkspaceCentered = computed(
+  () => !store.session.ui.controlsExpanded || controlPanelWidthPx.value !== undefined,
+);
 
 const { sync } = useAppBootstrap(auth);
 
@@ -317,8 +336,11 @@ const activeTab = computed<string>({
         v-if="store.session.ui.systemLogExpanded || transientLogReveal"
       />
 
-      <div id="split-workspace">
-        
+      <div
+        id="split-workspace"
+        :style="splitWorkspaceCentered ? { justifyContent: 'center' } : {}"
+      >
+
         <div
           id="board-column"
           v-show="store.session.ui.boardExpanded"
@@ -356,19 +378,23 @@ const activeTab = computed<string>({
 
         <div v-show="store.session.ui.controlsExpanded" class="panel-resizer" @mousedown="startResize"></div>
 
-        <!-- magic-literal: 220px #control-panel min-width — derived
+        <!-- CONTROL_PANEL_MIN_WIDTH_PX (useResizablePanel.ts) — derived
              from the tab strip's natural width at the smallest legible
              font scale (4 tabs × ~50px each + gaps). The audit's
              cross-cutting Finding #1 was that without a floor, the
              tab strip's right-most tab fell off-screen at 1024×768.
              Coupled with the iter-17 container-query threshold (479px)
              via the Cards-tab `.tree-panel`'s 200px usable floor —
-             changing 220 here would invalidate the 479 derivation
-             in `ForestDirectory.vue`. -->
+             changing this value would invalidate the 479 derivation
+             in `ForestDirectory.vue`. Single-sourced (ui-fix-56) so
+             the resizer's post-saturation shrink floor (Defect 5) and
+             this static floor can't drift apart. -->
         <div
           id="control-panel"
           v-show="store.session.ui.controlsExpanded"
-          :style="{ flex: '1 1 0', minWidth: '220px' }"
+          :style="controlPanelWidthPx !== undefined
+            ? { flex: '0 0 auto', width: controlPanelWidthPx + 'px', minWidth: CONTROL_PANEL_MIN_WIDTH_PX + 'px' }
+            : { flex: '1 1 0', minWidth: CONTROL_PANEL_MIN_WIDTH_PX + 'px' }"
         >
           <TabWidget
             :key="controlPanelIdentityKey"
@@ -463,7 +489,12 @@ const activeTab = computed<string>({
   border-bottom: 1px solid var(--surface-1); padding: 0 var(--space-default); min-height: 32px; flex-shrink: 0;
 }
 
-/* The lower area where the resizer lives */
+/* The lower area where the resizer lives. justify-content is bound
+   inline (splitWorkspaceCentered, script setup above) rather than
+   here: it's conditional on runtime UI state (controlsExpanded /
+   controlPanelWidthPx), not a static rule. Default flex-start below;
+   see the ui-fix-56 comment on splitWorkspaceCentered for when it
+   flips to centered. */
 #split-workspace {
   display: flex;
   flex-direction: row;
