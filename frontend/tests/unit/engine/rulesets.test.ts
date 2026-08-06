@@ -3,13 +3,18 @@
  *
  * Tier-1 (pure-logic) tests for `src/engine/rulesets.ts` — the
  * commissioner-ruled four-name ruleset normalization (ledger row 110,
- * `.claude/dispatch-reports/design-engine-features.md` §RULESETS).
+ * `.claude/dispatch-reports/design-engine-features.md` §RULESETS),
+ * as superseded by the live-testing adjudication
+ * (`.claude/dispatch-reports/ruleset-default-wedge-fix.md`): a
+ * missing/unrecognized `RU` now DEFAULTS to Tromp-Taylor
+ * (`source: 'defaulted'`) instead of refusing to resolve.
  *
  * Covers: totality (every input, including undefined/empty/garbage,
- * returns a `RulesetResolution`), case-insensitivity across all four
- * names (plus hyphen/space tolerance for Tromp-Taylor), the explicit
- * `'unknown'` fail-loud arm (no silent coercion, ADR-0002), and the
- * wire-spelling projection.
+ * returns a `RulesetResolution` with a defined `RulesetName`),
+ * case-insensitivity across all four names (plus hyphen/space
+ * tolerance for Tromp-Taylor), the defaulted arm (source
+ * provenance, not a refusal — RED against the old blocking
+ * 'unknown' behaviour), and the wire-spelling projection.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -23,18 +28,20 @@ import {
 } from '../../../src/engine/rulesets';
 
 describe('normalizeRuleset — totality', () => {
-  it('returns a resolution for every string input, never throwing', () => {
+  it('returns a resolution with a defined RulesetName for every string input, never throwing', () => {
     const inputs = ['AGA', 'garbage', '', '   ', 'New Zealand', '日本', '-----'];
     for (const raw of inputs) {
       expect(() => normalizeRuleset(raw)).not.toThrow();
       const res = normalizeRuleset(raw);
-      expect(['resolved', 'unknown']).toContain(res.kind);
+      expect(RULESET_NAMES).toContain(res.name);
+      expect(['ru', 'defaulted']).toContain(res.source);
     }
   });
 
   it('returns a resolution for undefined input (missing RU property)', () => {
     const res = normalizeRuleset(undefined);
-    expect(res.kind).toBe('unknown');
+    expect(res.source).toBe('defaulted');
+    expect(res.name).toBe('Tromp-Taylor');
   });
 });
 
@@ -56,49 +63,56 @@ describe('normalizeRuleset — case-insensitive resolution of all four names', (
 
   for (const name of RULESET_NAMES) {
     for (const spelling of casesByName[name]) {
-      it(`resolves "${spelling}" to ${name}`, () => {
+      it(`resolves "${spelling}" to ${name} with source 'ru'`, () => {
         const res = normalizeRuleset(spelling);
-        expect(res).toEqual({ kind: 'resolved', name });
+        expect(res).toEqual({ name, source: 'ru' });
       });
     }
   }
 
   it('tolerates surrounding whitespace', () => {
-    expect(normalizeRuleset('  chinese  ')).toEqual({ kind: 'resolved', name: 'Chinese' });
+    expect(normalizeRuleset('  chinese  ')).toEqual({ name: 'Chinese', source: 'ru' });
   });
 });
 
-describe('normalizeRuleset — explicit unknown arm (fail-loud, no silent coercion)', () => {
-  it('does not resolve an unrecognized ruleset name', () => {
+describe('normalizeRuleset — unrecognized input defaults to Tromp-Taylor (live-testing adjudication)', () => {
+  // RED against the vetoed shipped behaviour: the original fail-loud
+  // shape returned `{ kind: 'unknown', raw }` here and every
+  // downstream query builder refused to construct a query at all.
+  // The adjudication supersedes that — these cases now resolve to an
+  // effective, usable ruleset, distinguished only by `source`.
+
+  it('defaults an unrecognized ruleset name to Tromp-Taylor', () => {
     const res = normalizeRuleset('New Zealand');
-    expect(res).toEqual({ kind: 'unknown', raw: 'New Zealand' });
+    expect(res).toEqual({ name: 'Tromp-Taylor', source: 'defaulted' });
   });
 
-  it('does not resolve an empty string', () => {
-    expect(normalizeRuleset('')).toEqual({ kind: 'unknown', raw: '' });
+  it('defaults an empty string to Tromp-Taylor', () => {
+    expect(normalizeRuleset('')).toEqual({ name: 'Tromp-Taylor', source: 'defaulted' });
   });
 
-  it('does not resolve undefined (raw normalizes to empty string)', () => {
-    expect(normalizeRuleset(undefined)).toEqual({ kind: 'unknown', raw: '' });
+  it('defaults undefined (RU absent) to Tromp-Taylor', () => {
+    expect(normalizeRuleset(undefined)).toEqual({ name: 'Tromp-Taylor', source: 'defaulted' });
   });
 
-  it('does not resolve a near-miss/garbage string', () => {
+  it('defaults a near-miss/garbage string to Tromp-Taylor', () => {
     expect(normalizeRuleset('chinese rules v2')).toEqual({
-      kind: 'unknown',
-      raw: 'chinese rules v2',
+      name: 'Tromp-Taylor',
+      source: 'defaulted',
     });
   });
 
-  it('never widens an unrecognized input into one of the four names', () => {
+  it('never widens an unrecognized input into a DIFFERENT one of the four names — it defaults to Tromp-Taylor specifically, not a fuzzy nearest match', () => {
     // Note: normalizeRuleset's fold strips ALL whitespace/hyphens
     // before matching, so a spelling that only differs from a
     // recognized alias by word-split position (e.g. "tromp taylorx"
     // vs "tromptaylorx") is judged on the folded string, not the
     // original tokenization — these four fold to genuinely distinct,
-    // unrecognized keys.
+    // unrecognized keys, and all four default to Tromp-Taylor (not to
+    // whichever name they most resemble).
     for (const raw of ['aga2', 'chinese-ish', 'japan', 'tromptaylorx']) {
       const res = normalizeRuleset(raw);
-      expect(res.kind).toBe('unknown');
+      expect(res).toEqual({ name: 'Tromp-Taylor', source: 'defaulted' });
     }
   });
 });
@@ -116,7 +130,7 @@ describe('rulesetToWireName', () => {
   it('round-trips every RULESET_NAMES entry through normalizeRuleset(wireName)', () => {
     for (const name of RULESET_NAMES) {
       const wire = rulesetToWireName(name);
-      expect(normalizeRuleset(wire)).toEqual({ kind: 'resolved', name });
+      expect(normalizeRuleset(wire)).toEqual({ name, source: 'ru' });
     }
   });
 });

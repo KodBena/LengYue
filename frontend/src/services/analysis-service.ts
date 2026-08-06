@@ -627,22 +627,13 @@ export class AnalysisService {
     if (!board || store.engine.status !== 'connected') return null;
     if (fullPath.length === 0 || endTurn < startTurn) return null;
 
-    // Fail-loud ruleset gate (ruling §RULESETS, criterion 4): a board
-    // whose `RU` doesn't resolve to one of the four ruling-mandated
-    // names must NOT send a guessed `rules` value on the wire. Refuse
-    // query construction and surface a user-visible message rather
-    // than falling back to a default — before any of this method's
-    // other side effects (the visit-target write below included).
+    // Ruleset resolution (live-testing adjudication superseding ruling
+    // §RULESETS, `.claude/dispatch-reports/ruleset-default-wedge-fix.md`):
+    // `getRulesetResolution` is now total — a missing/unrecognized `RU`
+    // resolves to `{ name: 'Tromp-Taylor', source: 'defaulted' }` rather
+    // than refusing query construction. `.name` is always defined, so
+    // this call site no longer gates on it.
     const rulesetResolution = getRulesetResolution(board);
-    if (rulesetResolution.kind === 'unknown') {
-      pushSystemMessage(
-        'error',
-        i18n.global.t('analysis.rulesetUnrecognized', {
-          rawSuffix: rulesetResolution.raw ? ` (${rulesetResolution.raw})` : '',
-        }),
-      );
-      return null;
-    }
 
     // Record the board's visit target only once the query is actually
     // going out — behind the guards above, where the write used to
@@ -890,18 +881,10 @@ export class AnalysisService {
     const board = store.boards.find(b => b.id === boardId);
     if (!board || store.engine.status !== 'connected') return null;
 
-    // Fail-loud ruleset gate — see analyzeRange above for the full
-    // rationale (ruling §RULESETS, criterion 4).
+    // Ruleset resolution — see analyzeRange above for the full
+    // rationale (live-testing adjudication superseding ruling
+    // §RULESETS). `getRulesetResolution` is total; no gate needed.
     const rulesetResolution = getRulesetResolution(board);
-    if (rulesetResolution.kind === 'unknown') {
-      pushSystemMessage(
-        'error',
-        i18n.global.t('analysis.rulesetUnrecognized', {
-          rawSuffix: rulesetResolution.raw ? ` (${rulesetResolution.raw})` : '',
-        }),
-      );
-      return null;
-    }
 
     // Root→leaf is needed here only to locate the cursor's tree
     // index below (`currentIdx`); the wire `analyzeTurns` value and

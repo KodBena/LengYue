@@ -307,7 +307,7 @@
   "statusBar.komi":                       "Komi",
   "statusBar.editKomi":                   "Edit Komi",
   "statusBar.editRules":                  "Edit Ruleset",
-  "statusBar.rulesUnrecognized":          "Unrecognized — choose",
+  "statusBar.rulesDefaulted":             "Defaulted to Tromp-Taylor (no matching ruleset in the file) — choose one to record it",
   "statusBar.blackToPlay":                "Black to Play",
   "statusBar.whiteToPlay":                "White to Play",
   "statusBar.toggleMoveNumbers":          "Toggle move-number annotation on stones",
@@ -491,7 +491,6 @@
   "sync.saveFailed":                      "Sync: failed to save workspace. Your recent changes are not on the server yet.",
 
   "analysis.websocketDisconnected":       "WebSocket Disconnected (Code: {code}). {reason}",
-  "analysis.rulesetUnrecognized":         "Ruleset not recognized{rawSuffix} — choose a ruleset in the status bar before analysis can run.",
   "analysis.proxyMissingDeltaAnalysis":   "KataGo proxy advertises capabilities but does not list `delta_analysis`. Per-move grading and analysis-tab enrichment cannot run on this proxy. Disconnecting.",
   "analysis.proxyMissingTransposition":   "Transposition toggle is on, but the KataGo proxy does not advertise the `transposition` capability. Cluster rings will not appear; flip the toggle off in the registry to suppress this warning, or check that the proxy was built with the `goboard_transposition` module.",
   "analysis.capabilityDegraded":          "KataGo proxy advertises `{capability}` with malformed metadata (`{field}` — expected {expected}). That capability is disabled for this connection; other capabilities are unaffected.",
@@ -504,6 +503,7 @@
   "sgf.loadFailed":                       "Could not load the SGF file: {detail}",
 
   "review.kataGoTimeout":                 "KataGo did not respond within {seconds}s. Review cancelled.",
+  "review.queryRefused":                  "Could not start analysis for this move (the engine may be disconnected). Your move was not counted — try it again once the engine is ready.",
   "review.missingPerMoveDelta":           "KataGo's response carried no per-move quality score for the move you played (player={color}, per-color move index {index}). Review cancelled. This usually points at a misconfigured palette or a proxy enrichment failure.",
 
   "review.session.intermission":          "Intermission",

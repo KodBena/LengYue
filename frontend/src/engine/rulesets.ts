@@ -5,18 +5,39 @@
  * SGF `RU`-property input, and the KataGo wire-spelling projection.
  *
  * Scope, per commissioner ruling (ledger row 110,
- * `.claude/dispatch-reports/design-engine-features.md` §RULESETS):
- * exactly these four hard-coded presets, no component-rules model
- * (ko/scoring/suicide/tax toggles — explicitly out of scope), and no
- * silent coercion of unrecognized input. LengYue is public-domain
- * (Unlicense); KataGo is MIT. Per the ruling, nothing from the KataGo
- * rules documentation page (https://lightvector.github.io/KataGo/rules.html)
- * is lifted or paraphrased here — it is cited by URL only, as the
- * external reference for "KataGo accepts named rulesets over the
- * wire." The wire spellings below are not drawn from that page; they
- * are the lowercase form of each canonical display name, matching the
- * pre-existing hardcoded `'tromp-taylor'` literal this module replaces
- * at the two `analysis-service.ts` query-builder call sites.
+ * `.claude/dispatch-reports/design-engine-features.md` §RULESETS) as
+ * superseded by the live-testing adjudication recorded in
+ * `.claude/dispatch-reports/ruleset-default-wedge-fix.md`: exactly
+ * these four hard-coded presets, no component-rules model
+ * (ko/scoring/suicide/tax toggles — explicitly out of scope). LengYue
+ * is public-domain (Unlicense); KataGo is MIT. Per the original
+ * ruling, nothing from the KataGo rules documentation page
+ * (https://lightvector.github.io/KataGo/rules.html) is lifted or
+ * paraphrased here — it is cited by URL only, as the external
+ * reference for "KataGo accepts named rulesets over the wire." The
+ * wire spellings below are not drawn from that page; they are the
+ * lowercase form of each canonical display name, matching the
+ * pre-existing hardcoded `'tromp-taylor'` literal this module
+ * originally replaced at the two `analysis-service.ts`
+ * query-builder call sites.
+ *
+ * Adjudication supersession: the ORIGINAL shape here treated an
+ * unrecognized/absent `RU` as `{ kind: 'unknown' }` and every
+ * downstream query-builder call site refused to construct a query at
+ * all (fail-loud, ADR-0002-flavoured). Live testing surfaced that
+ * this blocked ordinary analysis on any board without a matching RU
+ * (foreign SGF, a ruleset name outside the four) with no in-session
+ * recovery — the maintainer adjudicated that this is a case for a
+ * REPRESENTED DEFAULT, not a refusal: `normalizeRuleset` is now total
+ * in a stronger sense — it always names an effective `RulesetName`,
+ * distinguishing only WHETHER that name came from the file
+ * (`source: 'ru'`) or was defaulted (`source: 'defaulted'`). This is
+ * still not silent coercion in the ADR-0002 sense that mattered: the
+ * DEFAULTED provenance is a first-class represented fact a caller can
+ * branch on (the StatusBar dropdown surfaces it), it is simply no
+ * longer a REFUSAL. The canonical RU value on a loaded SGF is never
+ * rewritten by this defaulting — only an explicit user selection
+ * (`App.vue`'s `handleUpdateRules`) writes `RU`.
  *
  * This module is the SOLE construction site for `RulesetName` — no
  * other module string-compares against the four names directly
@@ -32,15 +53,18 @@ export const RULESET_NAMES = ['AGA', 'Chinese', 'Japanese', 'Tromp-Taylor'] as c
 export type RulesetName = (typeof RULESET_NAMES)[number];
 
 /**
- * Discriminated normalization result. `normalizeRuleset` is TOTAL — it
- * always returns one of these two arms — but distinguishes "confidently
- * resolved to one of the four" from "could not resolve," per the
- * ruling's fail-loud requirement (ADR-0002): an unrecognized `RU` value
- * never silently coerces to a default.
+ * `normalizeRuleset`'s result: an effective `RulesetName` (always
+ * defined — every query builder can use `.name` unconditionally,
+ * there is no refusal arm) plus `source`, which names whether that
+ * name was actually read from the file (`'ru'`) or is the
+ * commissioner-adjudicated Tromp-Taylor default applied because the
+ * `RU` value was missing or didn't match one of the four
+ * ruling-mandated names (`'defaulted'`). `source` is what keeps the
+ * default from being SILENT — a caller (the StatusBar dropdown, most
+ * directly) can branch on it to surface the provenance to the user,
+ * even though defaulting itself no longer blocks anything.
  */
-export type RulesetResolution =
-  | { kind: 'resolved'; name: RulesetName }
-  | { kind: 'unknown'; raw: string };
+export type RulesetResolution = { name: RulesetName; source: 'ru' | 'defaulted' };
 
 /**
  * Alias table keyed by a folded (case/hyphen/space-insensitive) form of
@@ -71,18 +95,24 @@ function foldRulesetKey(s: string): string {
 /**
  * Total, case-insensitive normalization from untrusted input (an SGF
  * `RU` value, typically) to a `RulesetResolution`. Every input —
- * including `undefined`, empty, or garbage — returns a value; no input
- * is silently coerced into one of the four names on a fuzzy match. Only
- * the recognized aliases in `RULESET_ALIASES` resolve; anything else
- * (e.g. `"New Zealand"`) returns `{ kind: 'unknown', raw }`.
+ * including `undefined`, empty, or garbage — returns a defined
+ * `RulesetName`; no input is coerced into a FUZZY match against one
+ * of the four names (only the exact aliases in `RULESET_ALIASES`
+ * resolve as `source: 'ru'`) — an unrecognized value (e.g. `"New
+ * Zealand"`) falls through to `{ name: 'Tromp-Taylor', source:
+ * 'defaulted' }` per the live-testing adjudication (see this module's
+ * header). Callers that need to know whether the name is provenance-
+ * honest or a default branch on `.source`; every caller that just
+ * needs an effective name (the KataGo wire-value call sites) can use
+ * `.name` unconditionally.
  */
 export function normalizeRuleset(raw: string | undefined): RulesetResolution {
   const input = raw ?? '';
   const name = RULESET_ALIASES[foldRulesetKey(input)];
   if (name !== undefined) {
-    return { kind: 'resolved', name };
+    return { name, source: 'ru' };
   }
-  return { kind: 'unknown', raw: input };
+  return { name: 'Tromp-Taylor', source: 'defaulted' };
 }
 
 /**

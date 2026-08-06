@@ -2,9 +2,10 @@
  * tests/integration/analysis-service-ruleset.test.ts
  *
  * Tier-3 (service integration) tests for the ruleset wire-value
- * assembly in `AnalysisService` (ruling §RULESETS,
+ * assembly in `AnalysisService` (originally ruling §RULESETS,
  * `.claude/dispatch-reports/design-engine-features.md`, ledger row
- * 110).
+ * 110; superseded by the live-testing adjudication in
+ * `.claude/dispatch-reports/ruleset-default-wedge-fix.md`).
  *
  * Two things are load-bearing here and neither is decidable from a
  * pure-logic (Tier-1) test of `normalizeRuleset` alone:
@@ -12,10 +13,15 @@
  *   1. A board whose root `RU` resolves to one of the four names sends
  *      that resolved name's wire spelling in the assembled query's
  *      `rules` field — not the old hardcoded `'tromp-taylor'` literal.
- *   2. A board whose root `RU` does NOT resolve refuses query
- *      construction outright (ADR-0021 Rule 2 tripwire): no query
- *      reaches the wire, and a user-visible system message is pushed
- *      instead of a guessed value going out.
+ *   2. A board whose root `RU` does NOT resolve now DEFAULTS to
+ *      Tromp-Taylor and PROCEEDS through query construction — the
+ *      vetoed original shape refused construction outright (ADR-0021
+ *      Rule 2 tripwire) here; the adjudication supersedes that
+ *      because it wedged review sessions with no in-session recovery
+ *      (see the wedge-fix dispatch report and
+ *      `tests/integration/useReviewSession.test.ts`'s
+ *      "query-refused recovery" cases for the consumer-side half of
+ *      that fix).
  *
  * Drives the REAL `analysisService` singleton against a mock
  * `WebSocket`, mirroring the harness in
@@ -138,7 +144,18 @@ describe('AnalysisService ruleset wire assembly (analyzeRange)', () => {
     expect(ws.analysisQueries()[0].rules).toBe('aga');
   });
 
-  it('refuses to build a query and surfaces a system message when RU does not resolve', () => {
+  // DELETE-WITH-JUSTIFICATION (vetoed expectations): this suite
+  // previously pinned "refuses to build a query and surfaces a system
+  // message when RU does not resolve" / "refuses ... when RU is
+  // entirely absent" — the fail-loud refusal behaviour. The
+  // live-testing adjudication (`.claude/dispatch-reports/
+  // ruleset-default-wedge-fix.md`) vetoes that: an unrecognized/absent
+  // RU must DEFAULT to Tromp-Taylor and let the query proceed, not
+  // block it. Replaced by the two tests below (RED against the old
+  // blocking behaviour: they'd have failed — queryId null, zero
+  // queries sent — under the pre-adjudication code).
+
+  it('defaults to Tromp-Taylor and proceeds when RU does not match one of the four names (no refusal, no system message)', () => {
     const boardId = setupBoard(SGF_UNKNOWN_RU);
     const ws = MockWebSocket.last!;
     const messagesBefore = store.engine.messages.length;
@@ -147,17 +164,16 @@ describe('AnalysisService ruleset wire assembly (analyzeRange)', () => {
       boardId, activePath(boardId), 1, 3, 100, undefined, undefined, false, false,
     );
 
-    // Tripwire (ADR-0021 Rule 2): no query construction, no guessed
-    // value on the wire.
-    expect(queryId).toBeNull();
-    expect(ws.analysisQueries()).toHaveLength(0);
-
-    // A user-visible message was surfaced instead of a silent default.
-    expect(store.engine.messages.length).toBeGreaterThan(messagesBefore);
-    expect(store.engine.messages[0].text).toContain('New Zealand');
+    expect(queryId).not.toBeNull();
+    expect(ws.analysisQueries()).toHaveLength(1);
+    expect(ws.analysisQueries()[0].rules).toBe('tromp-taylor');
+    // No refusal message — defaulting is silent-but-represented, not
+    // a user-visible error. (The StatusBar dropdown's `source:
+    // 'defaulted'` hint is the represented-fact surface, not a toast.)
+    expect(store.engine.messages.length).toBe(messagesBefore);
   });
 
-  it('refuses to build a query when RU is entirely absent from the SGF', () => {
+  it('defaults to Tromp-Taylor and proceeds when RU is entirely absent from the SGF', () => {
     const boardId = setupBoard(SGF_NO_RU);
     const ws = MockWebSocket.last!;
 
@@ -165,17 +181,20 @@ describe('AnalysisService ruleset wire assembly (analyzeRange)', () => {
       boardId, activePath(boardId), 1, 3, 100, undefined, undefined, false, false,
     );
 
-    expect(queryId).toBeNull();
-    expect(ws.analysisQueries()).toHaveLength(0);
+    expect(queryId).not.toBeNull();
+    expect(ws.analysisQueries()).toHaveLength(1);
+    expect(ws.analysisQueries()[0].rules).toBe('tromp-taylor');
   });
 });
 
 describe('AnalysisService ruleset wire assembly — fresh (non-SGF) board', () => {
-  // Inverse of the unknown-refusal tests above: a board minted by
-  // createInitialBoard (the "New Game" path, not an SGF load) carries
-  // the commissioner-adjudicated RU[Tromp-Taylor] default
-  // (board-factory.ts), so it must resolve by construction and its
-  // query construction must proceed rather than refuse.
+  // A board minted by createInitialBoard (the "New Game" path, not an
+  // SGF load) carries the commissioner-adjudicated RU[Tromp-Taylor]
+  // default (board-factory.ts) — `source: 'ru'` (authored at
+  // construction), not `source: 'defaulted'` (the missing/
+  // unrecognized-RU case the describe blocks above now cover). Both
+  // proceed through query construction post-adjudication; this block
+  // pins the authored-default case specifically.
   it('resolves to Tromp-Taylor and proceeds through analyzeRange (analyzeActiveNode)', () => {
     const board = createInitialBoard();
     addBoard(board);
@@ -199,15 +218,18 @@ describe('AnalysisService ruleset wire assembly (analyzeActiveNode)', () => {
     expect(ws.analysisQueries()[0].rules).toBe('japanese');
   });
 
-  it('refuses and surfaces a system message when RU does not resolve', () => {
+  // DELETE-WITH-JUSTIFICATION: see the analyzeRange describe block
+  // above — same vetoed refusal expectation, same adjudication.
+  it('defaults to Tromp-Taylor and proceeds when RU does not resolve (no refusal, no system message)', () => {
     const boardId = setupBoard(SGF_UNKNOWN_RU);
     const ws = MockWebSocket.last!;
     const messagesBefore = store.engine.messages.length;
 
     const queryId = analysisService.analyzeActiveNode(boardId, 'analyze', 100);
 
-    expect(queryId).toBeNull();
-    expect(ws.analysisQueries()).toHaveLength(0);
-    expect(store.engine.messages.length).toBeGreaterThan(messagesBefore);
+    expect(queryId).not.toBeNull();
+    expect(ws.analysisQueries()).toHaveLength(1);
+    expect(ws.analysisQueries()[0].rules).toBe('tromp-taylor');
+    expect(store.engine.messages.length).toBe(messagesBefore);
   });
 });

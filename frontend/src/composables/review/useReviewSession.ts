@@ -680,6 +680,37 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
       false,
     );
 
+    // The wedge (adjudication: `.claude/dispatch-reports/
+    // ruleset-default-wedge-fix.md`). `analyzeRange` refuses query
+    // construction synchronously in a few cases (the engine
+    // disconnected between the click and this call; pre-fix-1, an
+    // unresolved ruleset) and returns null BEFORE any query reaches
+    // the wire. The prior shape fell straight through into the
+    // Promise.all wait below, keyed to `s_0_id`/`s_1_id` on a query
+    // that was never issued — no packet for it can ever arrive, so
+    // the wait sat wedged until KATAGO_ANALYSIS_TIMEOUT_MS elapsed,
+    // at which point the timeout branch dropped the session to IDLE.
+    // IDLE has no path back to the SAME attempted move: by that point
+    // the board had already advanced to `nextBoard` (s_1) and
+    // `userMovesCount` had already been incremented (both above), so
+    // even after the refusal's cause cleared, the user's next click
+    // would be scored as a DIFFERENT move against the card rather
+    // than a retry of the one that was refused — a dead end (C8).
+    // Recover immediately instead of waiting on a query that will
+    // never settle: undo the board advance and the move-count
+    // increment, and drop back to AWAITING_MOVE at s_0, so clicking
+    // the SAME point again re-drives this exact `processUserMove`
+    // call once conditions clear.
+    if (reviewQueryId === null) {
+      mutateBoard(bId, draft => { navigateTo(draft, s_0_id); });
+      mutateReviewSession(bId, draft => {
+        draft.userMovesCount = Math.max(0, draft.userMovesCount - 1);
+        draft.status = 'AWAITING_MOVE';
+      });
+      pushSystemMessage('warning', i18n.global.t('review.queryRefused'));
+      return;
+    }
+
     // Set up a fresh abort controller for this wait. loadCard will
     // trigger it if the user transitions cards while we're waiting.
     // A previous controller for the same board (shouldn't exist in
