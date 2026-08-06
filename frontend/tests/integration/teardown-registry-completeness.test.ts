@@ -59,6 +59,7 @@ describe('teardown registry — production completeness (the real load-guarantee
       'board-card-trees:remove',
       'nav:clear-toggle-memory',
       'node-position-hashes:purge-board',
+      'node-position-hash-fill:cancel-pending',
     ]);
   });
 

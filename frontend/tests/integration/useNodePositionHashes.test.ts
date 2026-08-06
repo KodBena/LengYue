@@ -34,10 +34,17 @@
  *     dropping the CURRENTLY-VIEWED board's own highlights too — not
  *     just the stale board's. Each board's request must resolve
  *     independently.
+ *   - EVICTION ON BOARD CLOSE (re-review REJECT, eviction gap,
+ *     `.claude/dispatch-reports/card-position-highlight-stageB-rereview.md`
+ *     §3): a board closed mid-debounce must not resurrect a purged
+ *     `node-position-hashes.ts` cache entry when its orphaned timer (or
+ *     an in-flight fetch already past its `await`) later resolves.
+ *     Ported from the re-reviewer's own fake-timer probe.
  *
  * License: Public Domain (The Unlicense)
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { flushPromises } from '@vue/test-utils';
 
 vi.mock('../../src/services/backend-service', async () => {
   const { fakeBackendService } = await import('../fakes/backend-service');
@@ -51,7 +58,7 @@ import {
   purgeAllNodeHashes,
   cacheNodeHash,
 } from '../../src/state/node-position-hashes';
-import { store } from '../../src/store';
+import { store, closeBoard, addBoard } from '../../src/store';
 import { createInitialBoard } from '../../src/store/board-factory';
 import type { ContentHash } from '../../src/types';
 
@@ -201,5 +208,62 @@ describe('useNodePositionHashes — cross-board isolation (review finding 1)', (
     }
     expect(getCachedNodeHash(boardA.rootNodeId)).toBeDefined();
     expect(getCachedNodeHash(boardB.rootNodeId)).toBeDefined();
+  });
+});
+
+describe('useNodePositionHashes — eviction on board close (re-review REJECT, eviction gap)', () => {
+  it('cancels the pending debounce timer on close, so it never fires and never resurrects the purged cache entry', async () => {
+    // Ported from the re-reviewer's own probe
+    // (`.claude/dispatch-reports/card-position-highlight-stageB-rereview.md`
+    // §3): a board closed WHILE its fill is still inside the 150ms
+    // debounce window must not have its orphaned timer later write back
+    // into the (already purged) node-position-hashes.ts cache.
+    const board = createInitialBoard();
+    addBoard(board);
+    fakeBackendService.hashPositionsBatch.mockResolvedValue([HASH_ROOT]);
+
+    const { requestHashFill } = useNodePositionHashes();
+    requestHashFill([board.rootNodeId], board);
+
+    closeBoard(board.id); // purgeBoardNodeHashes runs synchronously, board still in store.boards
+    expect(getCachedNodeHash(board.rootNodeId)).toBeUndefined(); // confirmed purged
+
+    await vi.advanceTimersByTimeAsync(150); // the debounce window elapses
+
+    // RED (pre-fix) behaviour: the orphaned timer fires, flush() runs
+    // against the detached-but-intact BoardState, and cacheNodeHash
+    // resurrects the entry. GREEN (post-fix): the board-close handler
+    // cancelled the timer, so it never fires at all.
+    expect(fakeBackendService.hashPositionsBatch).not.toHaveBeenCalled();
+    expect(getCachedNodeHash(board.rootNodeId)).toBeUndefined();
+  });
+
+  it('discards an in-flight fetch\'s result for a board that closed while the fetch was outstanding (in-flight variant)', async () => {
+    // The disclosed gap's async-landing half: `clearTimeout` alone
+    // cannot reach a fetch already past its `await` when the board
+    // closes. The `flush` continuation must itself notice the board is
+    // gone and discard the result rather than caching it.
+    const board = createInitialBoard();
+    addBoard(board);
+    let resolveBatch!: (hashes: ContentHash[]) => void;
+    fakeBackendService.hashPositionsBatch.mockImplementation(
+      () => new Promise<ContentHash[]>((resolve) => { resolveBatch = resolve; }),
+    );
+
+    const { requestHashFill } = useNodePositionHashes();
+    requestHashFill([board.rootNodeId], board);
+
+    await vi.advanceTimersByTimeAsync(150); // debounce fires; flush() is now awaiting the fetch
+    expect(fakeBackendService.hashPositionsBatch).toHaveBeenCalledTimes(1);
+
+    closeBoard(board.id); // purge runs; perBoard's entry for this board is dropped mid-flight
+    expect(getCachedNodeHash(board.rootNodeId)).toBeUndefined();
+
+    resolveBatch([HASH_ROOT]); // the in-flight fetch lands AFTER the board closed
+    await flushPromises();
+
+    // Must STAY purged — the landing guard in `flush` discards the
+    // late result instead of writing it back into a closed board's slot.
+    expect(getCachedNodeHash(board.rootNodeId)).toBeUndefined();
   });
 });

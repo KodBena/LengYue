@@ -59,12 +59,41 @@
  * own independent timer and flush — a board switch can never merge
  * another board's NodeIds into the active board's batch call, and one
  * board's failure/notice does not touch another's.
+ *
+ * ── perBoard eviction (re-review REJECT, eviction gap) ────────────────────
+ * `perBoard` is module-scope, not per-`useNodePositionHashes()`-call —
+ * matching the "instantiated once, effectively app-lifetime" reality
+ * described above, and required for the board-close handler below to
+ * be registered exactly once (a handler registered inside the
+ * composable body would re-register on every call, which the
+ * board-completeness census — `teardown-registry-completeness.test.ts`
+ * — would catch as a duplicate label, and which would multiply
+ * pointlessly under repeated test-file instantiation).
+ *
+ * Without eviction, a board closed mid-debounce leaves its `setTimeout`
+ * orphaned: `closeBoard` purges `node-position-hashes.ts`'s cache
+ * synchronously (via `purgeBoardNodeHashes`, registered separately in
+ * that module), but does nothing about THIS module's pending timer —
+ * `closeBoard` does not clear `board.nodes`, only splices the board out
+ * of `store.boards`, so the detached `BoardState` the orphaned timer's
+ * closure holds is still intact when the timer fires later.
+ * `serializeActivePath` and `hashPositionsBatch` both succeed against
+ * it, and `cacheNodeHash` writes the result back into the shared cache
+ * for a NodeId belonging to an already-closed, already-purged board —
+ * resurrecting a stale entry after teardown
+ * (`.claude/dispatch-reports/card-position-highlight-stageB-rereview.md`
+ * §3). The board-close handler below cancels the pending timer AND
+ * drops the `perBoard` entry; `flush`'s own post-await guard (see its
+ * body) additionally discards an in-flight fetch's result if the board
+ * closed while the fetch was outstanding — a `clearTimeout` alone
+ * cannot reach a fetch already past the `await`.
  */
 
 import { backendService } from '../../services/backend-service';
 import { pushSystemMessage } from '../../services/system-message-sink';
 import { serializeActivePath } from '../../engine/sgf-writer';
 import { cacheNodeHash, hasCachedNodeHash } from '../../state/node-position-hashes';
+import { registerBoardCloseHandler } from '../../store/teardown-registry';
 import type { BoardId, BoardState, NodeId } from '../../types';
 import { i18n } from '../../i18n';
 
@@ -90,73 +119,95 @@ export interface NodePositionHashFillHandle {
   requestHashFill: (nodeIds: readonly NodeId[], state: BoardState) => void;
 }
 
+// Module-scope — see the file header's "perBoard eviction" note: shared
+// across every `useNodePositionHashes()` call so the board-close handler
+// below can be registered exactly once, at module init.
+const perBoard = new Map<BoardId, PerBoardFillState>();
+
+function stateFor(boardId: BoardId): PerBoardFillState {
+  let s = perBoard.get(boardId);
+  if (!s) {
+    s = { pending: new Set<NodeId>(), timer: null, notifiedThisEpisode: false };
+    perBoard.set(boardId, s);
+  }
+  return s;
+}
+
+function requestHashFill(nodeIds: readonly NodeId[], state: BoardState): void {
+  const s = stateFor(state.id);
+  let scheduledAny = false;
+  for (const id of nodeIds) {
+    if (hasCachedNodeHash(id) || s.pending.has(id)) continue;
+    s.pending.add(id);
+    scheduledAny = true;
+  }
+  if (!scheduledAny) return;
+
+  if (s.timer !== null) clearTimeout(s.timer);
+  s.timer = setTimeout(() => { void flush(state); }, DEBOUNCE_MS);
+}
+
+async function flush(state: BoardState): Promise<void> {
+  const s = stateFor(state.id);
+  s.timer = null;
+  const ids = [...s.pending];
+  s.pending.clear();
+  if (ids.length === 0) return;
+
+  try {
+    // Serialization can itself throw (getPath's fail-loud posture on a
+    // NodeId no longer present in `state.nodes`) — inside the try so a
+    // stale-NodeId race is treated as the same failure-honesty case as
+    // a network error, not an unhandled rejection. Per-board scoping
+    // (above) means `state` here is always the SAME board every id in
+    // `ids` was requested against, so this should not throw in
+    // practice — the try/catch is defense-in-depth, not a known gap.
+    const rawContents = ids.map(id => serializeActivePath(state, id));
+    const hashes = await backendService.hashPositionsBatch(rawContents);
+
+    // Board-close guard (re-review, eviction gap): `closeBoard` may have
+    // run WHILE this fetch was in flight — a `clearTimeout` can't reach
+    // a fetch already past its `await`. The board-close handler below
+    // deletes `state.id`'s `perBoard` entry synchronously on close, so
+    // its absence here means the board closed under us; discard the
+    // result rather than writing a resurrected entry into the (already
+    // purged) `node-position-hashes.ts` cache for a closed board.
+    if (!perBoard.has(state.id)) return;
+
+    ids.forEach((id, i) => cacheNodeHash(id, hashes[i]));
+    s.notifiedThisEpisode = false; // recovered — a future failure notifies again
+  } catch {
+    // Same board-close guard as the success path: don't surface a
+    // failure notice for a board the user already closed.
+    if (!perBoard.has(state.id)) return;
+    // ADR-0002 failure-honesty: nothing is cached (ABSENT highlight,
+    // never a partial/stale one). One notice per failure episode,
+    // per board.
+    if (!s.notifiedThisEpisode) {
+      s.notifiedThisEpisode = true;
+      pushSystemMessage('warning', i18n.global.t('cards.knownPositionHashFillFailed'));
+    }
+  }
+}
+
 export function useNodePositionHashes(): NodePositionHashFillHandle {
-  // Resource-ownership note (umbrella CLAUDE.md checklist item 3,
-  // "document" disposition): `perBoard` accumulates one small entry
-  // (an empty-by-then `Set` + two primitives) per distinct BoardId ever
-  // passed to `requestHashFill`, with no board-close eviction. Bounded
-  // by "how many distinct boards this session ever opened," not by
-  // node/tree size — the same order of magnitude as the number of tabs
-  // a user opens in a session, not something that scales with content.
-  // Deferred rather than fixed here: this composable is instantiated
-  // once per TreeWidget mount (effectively app-lifetime, not
-  // per-board), so wiring a `registerBoardCloseHandler` cleanup is a
-  // real but separable improvement, out of scope for the review's
-  // finding 1 (the correctness race), which this map exists to fix.
-  const perBoard = new Map<BoardId, PerBoardFillState>();
-
-  function stateFor(boardId: BoardId): PerBoardFillState {
-    let s = perBoard.get(boardId);
-    if (!s) {
-      s = { pending: new Set<NodeId>(), timer: null, notifiedThisEpisode: false };
-      perBoard.set(boardId, s);
-    }
-    return s;
-  }
-
-  function requestHashFill(nodeIds: readonly NodeId[], state: BoardState): void {
-    const s = stateFor(state.id);
-    let scheduledAny = false;
-    for (const id of nodeIds) {
-      if (hasCachedNodeHash(id) || s.pending.has(id)) continue;
-      s.pending.add(id);
-      scheduledAny = true;
-    }
-    if (!scheduledAny) return;
-
-    if (s.timer !== null) clearTimeout(s.timer);
-    s.timer = setTimeout(() => { void flush(state); }, DEBOUNCE_MS);
-  }
-
-  async function flush(state: BoardState): Promise<void> {
-    const s = stateFor(state.id);
-    s.timer = null;
-    const ids = [...s.pending];
-    s.pending.clear();
-    if (ids.length === 0) return;
-
-    try {
-      // Serialization can itself throw (getPath's fail-loud posture on a
-      // NodeId no longer present in `state.nodes`) — inside the try so a
-      // stale-NodeId race is treated as the same failure-honesty case as
-      // a network error, not an unhandled rejection. Per-board scoping
-      // (above) means `state` here is always the SAME board every id in
-      // `ids` was requested against, so this should not throw in
-      // practice — the try/catch is defense-in-depth, not a known gap.
-      const rawContents = ids.map(id => serializeActivePath(state, id));
-      const hashes = await backendService.hashPositionsBatch(rawContents);
-      ids.forEach((id, i) => cacheNodeHash(id, hashes[i]));
-      s.notifiedThisEpisode = false; // recovered — a future failure notifies again
-    } catch {
-      // ADR-0002 failure-honesty: nothing is cached (ABSENT highlight,
-      // never a partial/stale one). One notice per failure episode,
-      // per board.
-      if (!s.notifiedThisEpisode) {
-        s.notifiedThisEpisode = true;
-        pushSystemMessage('warning', i18n.global.t('cards.knownPositionHashFillFailed'));
-      }
-    }
-  }
-
   return { requestHashFill };
 }
+
+// Board-close teardown (re-review REJECT, eviction gap — see file header):
+// cancel the closing board's pending debounce timer (a no-op `clearTimeout`
+// if none is scheduled) and drop its `perBoard` entry, so neither an
+// orphaned timer nor an in-flight fetch's resolution (guarded above, in
+// `flush`) can write into `node-position-hashes.ts`'s cache for a board
+// that no longer exists. DEFAULT band (order-independent of the ENGINE_STOP
+// / LEDGER_PURGE bands — this only touches this module's own fill-state
+// map, never the ledger or the analysis subscription), same as the sibling
+// `node-position-hashes:purge-board` handler this map feeds.
+registerBoardCloseHandler({
+  label: 'node-position-hash-fill:cancel-pending',
+  run: (boardId) => {
+    const s = perBoard.get(boardId);
+    if (s?.timer !== null && s?.timer !== undefined) clearTimeout(s.timer);
+    perBoard.delete(boardId);
+  },
+});
