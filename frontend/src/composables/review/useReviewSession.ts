@@ -49,7 +49,7 @@ import { loadSgf } from '../../engine/sgf-loader';
 import { getPath, navigateTo } from '../../engine/navigator';
 import { getActiveVariationPath } from '../../engine/util';
 import { scorePerMoveDelta } from '../../engine/analysis/review-scoring';
-import { applyGoMove } from '../../logic';
+import { applyGoMove, applyPass } from '../../logic';
 import { gtpToBoard } from '../board/use-move-suggestions';
 
 /**
@@ -598,6 +598,49 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     const nextBoard = applyGoMove(board, x, y);
     if (!nextBoard) return;
 
+    await processUserTurn(bId, nextBoard, s_0_idx, s_0_id);
+  }
+
+  /**
+   * Pass counterpart to `processUserMove` — same s_0/s_0_idx capture,
+   * but the board mutation is `applyPass` (always succeeds; a pass is
+   * never illegal) rather than `applyGoMove(x, y)`. Routed here from
+   * `useBoardMoveRouting.handlePass`'s AWAITING_MOVE arm, matching
+   * `handleBoardMove`'s own routing into `processUserMove`. See
+   * `processUserTurn`'s doc comment for why the rest of the grading
+   * pipeline needs no pass-specific branch.
+   */
+  async function processUserPass() {
+    const bId = boardIdRef.value;
+    if (!bId) return;
+
+    const board = store.boards.find(b => b.id === bId);
+    if (!board) return;
+
+    const s_0_idx = getPath(board.nodes, board.currentNodeId).length - 1;
+    const s_0_id = board.currentNodeId;
+
+    const nextBoard = applyPass(board);
+
+    await processUserTurn(bId, nextBoard, s_0_idx, s_0_id);
+  }
+
+  /**
+   * `processUserMove` and `processUserPass` differ only in how the
+   * board mutates for the attempted action (`applyGoMove(board, x, y)`
+   * vs. `applyPass(board)`, the latter infallible) — every downstream
+   * step (kick off the graded analysis query, wait for both endpoint
+   * packets, score the per-move delta, advance or finish the card) is
+   * identical, since a pass is scored by the same s_0→s_1 delta
+   * machinery as any other move: `moveToKataCoord` already serializes
+   * a pass to the wire correctly (`engine/util.ts`), so the review
+   * session doesn't need a pass-specific grading path, only a
+   * pass-specific way to produce `nextBoard`. Shared here per
+   * ADR-0012 (one home for the orchestration, not a copy per caller) —
+   * this is the "processUserMove-adjacent path" the pass-support
+   * design (PASS SUPPORT, touched-file inventory) calls for.
+   */
+  async function processUserTurn(bId: BoardId, nextBoard: BoardState, s_0_idx: number, s_0_id: NodeId) {
     updateBoardState(store.activeBoardIndex, nextBoard);
     mutateReviewSession(bId, draft => {
       draft.status = 'ANALYZING';
@@ -1138,6 +1181,7 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     canGoForward,
     rewindToStart,
     processUserMove,
+    processUserPass,
     userMovesCount,
     userMoveScores,
     effectiveVisits,

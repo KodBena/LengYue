@@ -6,7 +6,7 @@
  * moved to `lib/utils.ts` 2026-06-10 — this module is [B3].)
  * License: Public Domain (The Unlicense)
  */
-import type { Move, StoneColor, BoardState, NodeId, RootToLeafPath } from '../types';
+import type { Move, StoneColor, BoardState, NodeId, GameNode, RootToLeafPath } from '../types';
 import { normalizeRuleset, type RulesetResolution } from './rulesets';
 
 /**
@@ -248,6 +248,42 @@ export function getInitialStones(state: BoardState): [StoneColor, string][] {
   collect(rootNode.properties.AW, 'W');
 
   return result;
+}
+
+/**
+ * Game-end signal (pass-support design, PASS SUPPORT §"Game-end
+ * signal"): a STATUS-ONLY read of "did the active path just end in
+ * two consecutive passes?" — no persistent state, no scoring/territory
+ * (explicitly out of scope, maintainer-ratified). A discriminated
+ * union per `frontend/CLAUDE.md`'s branded-types/DU convention, not a
+ * boolean, so a future third status (e.g. resignation) is additive
+ * rather than a breaking boolean-to-enum migration.
+ *
+ * Evaluated positionally against whatever `path` names — typically
+ * root→current (`getPath`), so navigating away from the two-pass
+ * position (or into a branch that doesn't end in two passes) reverts
+ * the signal, matching "branch switching resets correctly along the
+ * active path" from the design's acceptance criteria. A moveless node
+ * (e.g. an SGF's trailing `TW`/`TB` scoring node) sitting after the
+ * two passes reads back to 'in-progress' at ITS position — the signal
+ * is about the position named by `path`'s last element, not a
+ * whole-tree property.
+ */
+export type GameStatus =
+  | { kind: 'in-progress' }
+  | { kind: 'ended-by-pass'; lastMoveColor: StoneColor };
+
+export function getGameEndStatus(
+  nodes: Record<NodeId, GameNode>,
+  path: readonly NodeId[],
+): GameStatus {
+  if (path.length < 2) return { kind: 'in-progress' };
+  const lastMove = nodes[path[path.length - 1]]?.move;
+  const prevMove = nodes[path[path.length - 2]]?.move;
+  if (lastMove?.type === 'pass' && prevMove?.type === 'pass') {
+    return { kind: 'ended-by-pass', lastMoveColor: lastMove.color };
+  }
+  return { kind: 'in-progress' };
 }
 
 /**

@@ -423,6 +423,57 @@ describe('useReviewSession.processUserMove — timeout path', () => {
   });
 });
 
+/**
+ * `processUserPass` — the review/quiz-flow pass entry point
+ * (pass-support design, touched-file inventory: "pass handling in
+ * `processUserMove`-adjacent path"). Mirrors the
+ * `processUserMove` timeout-path test above exactly (same
+ * deterministic-settle shape via a rejected `waitForAnalysis`), the
+ * only difference being that the board mutation comes from
+ * `applyPass` rather than `applyGoMove(x, y)` — this pins that the
+ * shared `processUserTurn` orchestration (grading query, move count,
+ * status transitions) engages identically for a pass.
+ */
+describe('useReviewSession.processUserPass — review-flow pass case', () => {
+  it('applies a pass (not a placement), engages the same grading query, and counts the move', async () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    const card = makeReviewCard({ numMoves: 5, defaultVisits: 1000 });
+    mutateReviewSession(boardId, draft => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [card];
+      draft.currentIndex = 0;
+      draft.startingNodeId = board.rootNodeId;
+    });
+
+    vi.mocked(waitForAnalysis).mockRejectedValue(new AnalysisWaitError('timeout'));
+
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { processUserPass, state } = useReviewSession(boardIdRef);
+
+    await processUserPass();
+
+    // Same terminal shape as the processUserMove timeout test:
+    // status resets to IDLE, the move was counted before the wait.
+    expect(state.value).toBe('IDLE');
+    expect(store.session.reviews[boardId].userMovesCount).toBe(1);
+
+    // The board actually advanced via a pass, not a placement: no
+    // stones anywhere, and the new node's move is type 'pass'.
+    const liveBoard = store.boards.find(b => b.id === boardId)!;
+    expect(Object.keys(liveBoard.stones)).toHaveLength(0);
+    const passNode = liveBoard.nodes[liveBoard.currentNodeId];
+    expect(passNode.move).toEqual({ x: 0, y: 0, color: 'B', type: 'pass' });
+
+    // Same grading machinery as a placed move: one analyzeRange call
+    // for this board.
+    expect(fakeAnalysisService.analyzeRange).toHaveBeenCalledTimes(1);
+    expect(fakeAnalysisService.analyzeRange.mock.calls[0]?.[0]).toBe(boardId);
+  });
+});
+
 describe('useReviewSession.processUserMove — query-refused recovery (the wedge fix)', () => {
   // Diagnosis (`.claude/dispatch-reports/ruleset-default-wedge-fix.md`):
   // `analysisService.analyzeRange` can refuse query construction

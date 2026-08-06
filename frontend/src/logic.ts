@@ -70,6 +70,84 @@ export function applySetup(state: BoardState, x: number, y: number, color: Stone
   };
 }
 
+/**
+ * Applies a pass: consumes the turn, captures nothing, and appends a
+ * `type: 'pass'` `GameNode` to the tree — the mutator named in the
+ * pass-support design (`.claude/dispatch-reports/
+ * design-engine-features.md`, PASS SUPPORT §B). Structurally parallel
+ * to `applyGoMove` (existing-child reuse, parent/child bookkeeping,
+ * ko/delta shape) but skips `validateMove`/capture entirely: a pass
+ * is always legal and never touches the stones projection.
+ *
+ * SGF round-trip: the new node's property is `{ [turn]: [''] }` — an
+ * empty-value property, matching the exact shape `sgfToMove`
+ * (`engine/util.ts:57-60`) already decodes back into a pass move, and
+ * that `sgf-writer.ts::serializeProperties` already re-serializes
+ * losslessly (an empty-string *value* still has `values.length === 1`,
+ * so it is NOT the "empty values array" case that function skips —
+ * only an absent/zero-length array is dropped). This is the same
+ * property shape a real SGF's `B[]`/`W[]` pass marker parses into, so
+ * a pass played here and a pass loaded from a file are indistinguishable
+ * once in the tree.
+ */
+export function applyPass(state: BoardState): BoardState {
+  const currentNode = state.nodes[state.currentNodeId];
+
+  // Existing-child reuse: a pass replayed from an existing subtree
+  // (e.g. re-navigating an SGF-loaded pass) should descend into the
+  // existing node rather than mint a duplicate sibling — same policy
+  // as applyGoMove's placement dedup.
+  const existingChildId = currentNode.children.find(id => {
+    const m = state.nodes[id]?.move;
+    return m?.type === 'pass' && m.color === state.turn;
+  });
+
+  const nextNodes = { ...state.nodes };
+  const parentNode = { ...currentNode };
+  let nextCurrentNodeId: NodeId;
+
+  if (existingChildId) {
+    parentNode.activeChildIndex = parentNode.children.indexOf(existingChildId);
+    nextCurrentNodeId = existingChildId;
+  } else {
+    // Single cast at the boundary: untyped string from Math.random
+    // becomes a NodeId here — same idiom as applyGoMove's new-node
+    // path above.
+    const newNodeId = ('node-' + Math.random().toString(36).substring(2, 7)) as NodeId;
+    const newNode: GameNode = {
+      id: newNodeId,
+      parent: state.currentNodeId,
+      children: [],
+      activeChildIndex: 0,
+      properties: { [state.turn]: [''] },
+      move: { x: 0, y: 0, color: state.turn, type: 'pass' },
+      delta: {
+        captures: [],
+        setupOverwritten: {},
+        prevKoPoint: state.koPoint,
+        // A pass clears any ko threat the way a real move would (the
+        // ko point is a single-move-window restriction; passing lets
+        // it lapse) — mirrors GTP/SGF engine convention.
+        newKoPoint: null,
+      },
+    };
+    parentNode.children = [...parentNode.children, newNodeId];
+    parentNode.activeChildIndex = parentNode.children.length - 1;
+    nextNodes[newNodeId] = newNode;
+    nextCurrentNodeId = newNodeId;
+  }
+
+  nextNodes[state.currentNodeId] = parentNode;
+
+  return {
+    ...state,
+    turn: state.turn === 'B' ? 'W' : 'B',
+    currentNodeId: nextCurrentNodeId,
+    nodes: nextNodes,
+    koPoint: null,
+  };
+}
+
 export function applyGoMove(state: BoardState, x: number, y: number): BoardState | null {
   const rootNode = state.nodes[state.rootNodeId];
   const size = parseInt(rootNode.properties['SZ']?.[0] ?? '19', 10);
