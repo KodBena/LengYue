@@ -387,6 +387,17 @@ the review controls:
 - **FINISHED state.** Session-end summary; back to the deck
   picker.
 
+- **Back / Forward (deck repeat).** Step back to a card already
+  visited this session and its exact played line, per-move
+  scores, and grading chart reappear — no re-analysis, nothing
+  lost. A card revisited this way is view-only ("Reviewed"): no
+  new moves, no re-grading. "Retry Card" (with a confirmation,
+  since it replaces the recorded score) discards the retained
+  attempt and re-enters the card fresh for a genuine second try.
+  Forward returns to wherever the session was, including an
+  attempt left mid-move. Retained visits are session-scoped —
+  they don't survive "End Session" or closing the tab.
+
 ### Browse mode (Forest Directory)
 
 A file-manager-style navigator alongside a card-tree chart.

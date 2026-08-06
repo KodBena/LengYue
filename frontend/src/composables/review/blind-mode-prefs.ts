@@ -290,6 +290,12 @@ function isReviewSessionExited(status: ReviewStatus | undefined): boolean {
     case 'ANALYZING':
     case 'FINISHED':
       return false;
+    case 'REVIEWED':
+      // Deck-repeat arc: a goBack/goForward restore onto a previously-
+      // FINISHED slot. The overall session is still active (currentIndex
+      // just moved within the same board's queue) — not an exit any
+      // more than FINISHED's own intermission is.
+      return false;
     default: {
       // Exhaustiveness guard: a new ReviewStatus member fails to
       // compile here, forcing an explicit active-vs-exited call —
