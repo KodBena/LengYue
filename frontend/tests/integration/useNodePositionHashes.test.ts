@@ -24,6 +24,16 @@
  *     failing debounce windows (the "surfaces once" throttle); a later
  *     SUCCESSFUL flush resets the throttle so a fresh failure notifies
  *     again.
+ *   - CROSS-BOARD ISOLATION (review REJECT finding 1, `.claude/dispatch-
+ *     reports/card-position-highlight-stageB-review.md`): switching
+ *     board tabs within the same debounce window must not merge two
+ *     boards' pending NodeIds into one flush. Before the fix, a single
+ *     flat `pending`/`latestState` pair meant `serializeActivePath`
+ *     threw on the stale board's NodeIds (absent from the new board's
+ *     `state.nodes`), failing the WHOLE batch call and silently
+ *     dropping the CURRENTLY-VIEWED board's own highlights too — not
+ *     just the stale board's. Each board's request must resolve
+ *     independently.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -129,5 +139,67 @@ describe('useNodePositionHashes — failure honesty (ADR-0002)', () => {
     requestHashFill([board.rootNodeId], board);
     await vi.advanceTimersByTimeAsync(150);
     expect(store.engine.messages.length).toBe(2);
+  });
+});
+
+describe('useNodePositionHashes — cross-board isolation (review finding 1)', () => {
+  it('a board switch inside the debounce window does not corrupt EITHER board\'s flush', async () => {
+    // The reviewer's own repro shape, ported: two distinct BoardState
+    // objects, both requested through the SAME composable instance (as
+    // TreeWidget's long-lived setup() does across a tab switch) within
+    // one 150ms debounce window.
+    const boardA = createInitialBoard();
+    const boardB = createInitialBoard();
+    const HASH_A = 'a'.repeat(64) as ContentHash;
+    const HASH_B = 'b'.repeat(64) as ContentHash;
+    fakeBackendService.hashPositionsBatch.mockImplementation(async (rawContents: string[]) => {
+      // Each board's root serializes to a distinct raw SGF string (a
+      // fresh UUID-suffixed clientGameId doesn't affect serialization,
+      // but the two calls are still distinguished by call order here).
+      return rawContents.map(() =>
+        fakeBackendService.hashPositionsBatch.mock.calls.length === 1 ? HASH_A : HASH_B,
+      );
+    });
+
+    const { requestHashFill } = useNodePositionHashes();
+    requestHashFill([boardA.rootNodeId], boardA); // user is on board A...
+    requestHashFill([boardB.rootNodeId], boardB); // ...then switches to board B, still within 150ms
+    await vi.advanceTimersByTimeAsync(150);
+
+    // The CURRENTLY-VIEWED board (B) must not silently lose its
+    // highlight fill because A's stale NodeId was still pending — this
+    // is the exact failure the review's finding 1 describes: before the
+    // fix, `serializeActivePath` throws on A's NodeId (absent from B's
+    // `state.nodes` once `latestState` was clobbered to B), which fails
+    // the WHOLE flush and leaves B's own root uncached too.
+    expect(getCachedNodeHash(boardB.rootNodeId)).toBeDefined();
+    expect(getCachedNodeHash(boardA.rootNodeId)).toBeDefined();
+    // No spurious failure notice — both boards resolved cleanly.
+    expect(store.engine.messages.length).toBe(0);
+  });
+
+  it('two boards requested in the same tick produce two separate single-item batch calls, not one merged call', async () => {
+    // Fresh boards serialize to IDENTICAL raw content (same default
+    // properties, no moves), so this test distinguishes the two boards
+    // by CALL SHAPE (each call carries exactly one item) rather than by
+    // parsing the SGF back out — a merged flush would instead produce
+    // one call with two items (or, pre-fix, throw before any call).
+    const boardA = createInitialBoard();
+    const boardB = createInitialBoard();
+    fakeBackendService.hashPositionsBatch.mockImplementation(
+      async (rawContents: string[]) => rawContents.map(() => 'a'.repeat(64) as ContentHash),
+    );
+
+    const { requestHashFill } = useNodePositionHashes();
+    requestHashFill([boardA.rootNodeId], boardA);
+    requestHashFill([boardB.rootNodeId], boardB);
+    await vi.advanceTimersByTimeAsync(150);
+
+    expect(fakeBackendService.hashPositionsBatch).toHaveBeenCalledTimes(2);
+    for (const call of fakeBackendService.hashPositionsBatch.mock.calls) {
+      expect(call[0]).toHaveLength(1); // each board's own flush, never merged
+    }
+    expect(getCachedNodeHash(boardA.rootNodeId)).toBeDefined();
+    expect(getCachedNodeHash(boardB.rootNodeId)).toBeDefined();
   });
 });
