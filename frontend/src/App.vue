@@ -11,7 +11,7 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { ref as vueRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -26,6 +26,7 @@ import { useResizablePanel, CONTROL_PANEL_MIN_WIDTH_PX } from './composables/chr
 import { useDirtyBoardGuard } from './composables/board/useDirtyBoardGuard';
 import { useAppBootstrap } from './composables/auth-app/useAppBootstrap';
 import { useTransientLogReveal } from './composables/useTransientLogReveal';
+import { mintDialogRequestCount } from './composables/useMintDialogSignal';
 import {
   store,
   activeBoard,
@@ -168,6 +169,19 @@ function triggerMint() {
     mintModalRef.value?.open(activeBoardId.value);
   }
 }
+
+// `card.mint` keybinding entry point: the catalog is module-scope and
+// has no component instance to hold `mintModalRef`, so it can't call
+// `triggerMint()` directly. It instead bumps `mintDialogRequestCount`
+// (`useMintDialogSignal.ts`) and this watcher — living at App scope,
+// which does hold the ref — reacts by calling the same `triggerMint()`
+// the Toolbar button already dispatches. No cleanup to wire: a Vue
+// `watch` registered in `setup` is torn down automatically on unmount
+// (umbrella CLAUDE.md's resource-ownership discipline names this as
+// the automatically-cleaned case, unlike module-scope subscriptions).
+watch(mintDialogRequestCount, () => {
+  triggerMint();
+});
 
 function handleUpdateKomi(newKomi: number) {
   if (!activeBoard.value || isNaN(newKomi)) return;

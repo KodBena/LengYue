@@ -37,6 +37,7 @@ import { computed } from 'vue';
 import { useNavigation } from './useNavigation';
 import { useEngineModelSelection } from './useEngineModelSelection';
 import { useReviewSession } from './review/useReviewSession';
+import { requestMintDialog } from './useMintDialogSignal';
 import { activeBoard, store, touchSession } from '../store';
 import { analysisService } from '../services/analysis-service';
 import type { BoardId, KeybindingActionId } from '../types';
@@ -69,6 +70,7 @@ export const ACTIONS = {
   displayToggleOwnershipDots:       asActionId('display.toggleOwnershipDots'),
   displayToggleOwnershipLiveness:   asActionId('display.toggleOwnershipLiveness'),
   reviewNextCard:                   asActionId('review.nextCard'),
+  cardMint:                         asActionId('card.mint'),
 } as const satisfies Record<string, KeybindingActionId>;
 
 // ── enabledWhen predicates ───────────────────────────────────
@@ -347,5 +349,30 @@ export const KEYBINDINGS_REGISTRY: ReadonlyArray<KeybindingActionDecl> = [
     dispatchMode: 'immediate',
     enabledWhen: reviewSessionHasCurrentCard,
     handler: reviewSession.nextCard,
+  },
+  // ── Card (immediate) ───────────────────────────────────────
+  {
+    // "Mint card" — opens MintCardModal for the active board.
+    // Previously PROPOSED-ONLY (see the hotkeys-batch build
+    // report): the modal is opened today only via a component-ref
+    // method (`App.vue`'s `triggerMint`), and this module-scope
+    // catalog has no component instance to hold that ref. Wired
+    // via `requestMintDialog()` — a module-scoped counter signal
+    // (`useMintDialogSignal.ts`, same shape as `captureMode` /
+    // `anyModalOpen`) that `App.vue` watches to call its own
+    // `triggerMint()`. `enabledWhen: activeBoardExists` mirrors the
+    // Toolbar mint button's own implicit gate (`triggerMint` is a
+    // no-op without an active board) and the modal's own required
+    // `boardId` parameter. `k` — unused, C15-clean; no stronger
+    // mnemonic was available (`m` is already `display.
+    // toggleMoveSuggestions`) — every action is user-rebindable via
+    // the Phase 4 editor regardless.
+    id: ACTIONS.cardMint,
+    labelKey: 'keybindings.action.cardMint.label',
+    descriptionKey: 'keybindings.action.cardMint.description',
+    defaultKey: 'k',
+    dispatchMode: 'immediate',
+    enabledWhen: activeBoardExists,
+    handler: requestMintDialog,
   },
 ];
