@@ -83,6 +83,6 @@ const isDefault = computed(
 .field label { font-size: var(--text-emphasis); color: var(--text-1); }
 .num-input { width: 100px; }
 .actions { margin-top: var(--space-medium); }
-.action-btn.reset-btn { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: var(--space-tight) var(--space-default); font-size: var(--text-body); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
+.action-btn.reset-btn { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-1); padding: var(--space-tight) var(--space-default); font-size: var(--text-body); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
 .action-btn.reset-btn:disabled { opacity: 0.5; cursor: default; }
 </style>

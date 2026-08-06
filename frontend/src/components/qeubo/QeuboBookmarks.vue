@@ -132,11 +132,11 @@ function onDelete(b: QeuboBookmark): void {
 .qeubo-bookmarks { font-family: 'Consolas', monospace; }
 .bookmarks-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-medium); }
 .hint { font-size: var(--text-emphasis); color: var(--text-2); }
-/* theme-exception: .new-btn / .apply-btn use muted-cyan variants
-   (#1a3a4a / #2a5a7a) — same pattern as QeuboToolbar's
-   action-button vocabulary. Hover-state literals retired with the
-   no-mouseover-change sweep. */
-.new-btn { background: #1a3a4a; border: 1px solid #2a5a7a; color: var(--accent-primary); padding: 5px 10px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
+/* Former theme-exception (muted-cyan literals #1a3a4a/#2a5a7a) retired
+   2026-08-06 by maintainer ruling (ledger row 609): the literals were
+   near-invisible against accent-primary in the cluster theme, and
+   --surface-0 is the blessed control background. */
+.new-btn { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--accent-primary); padding: 5px 10px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
 
 .empty-state { padding: var(--space-loose); background: var(--surface-0); border: 1px dashed var(--surface-3); border-radius: var(--radius-default); color: var(--text-2); font-size: var(--text-emphasis); line-height: 1.5; text-align: center; }
 .empty-state code { background: var(--surface-2); padding: 1px 5px; border-radius: var(--radius-default); color: var(--text-1); font-size: var(--text-body); }
