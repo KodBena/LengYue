@@ -9,7 +9,7 @@
  * License: Public Domain (The Unlicense)
  */
 
-import type { CardId, ForestStat, ReviewCard, CardTreeExpandKey } from '../../types';
+import type { CardId, CardPublicId, ForestStat, ReviewCard, CardTreeExpandKey } from '../../types';
 import type { RenderNode, RenderTree } from '../../composables/cards/useCardTreeProjection';
 import { getCardThumbnailSync } from '../../composables/cards/useCardThumbnail';
 import { themeColor } from '../../utils/theme-color';
@@ -323,7 +323,8 @@ export interface HeaderLine {
  */
 export function headerLineFor(
   tree: RenderTree,
-  forestStats: ReadonlyMap<CardId, ForestStat>,
+  // Browse-leak-fix (ledger rows 417/423): keyed by CardPublicId.
+  forestStats: ReadonlyMap<CardPublicId, ForestStat>,
 ): HeaderLine {
   const stat = forestStats.get(tree.rootCardId);
   const desc = stat?.description?.trim();

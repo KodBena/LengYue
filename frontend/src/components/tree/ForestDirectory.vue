@@ -262,21 +262,43 @@ const contextIdInput = ref(store.session.ui.cardsContextIds.join(', '));
 // shows their literal typing rather than the parsed form).
 const hasContextIdMacro = computed(() => /\$\{/.test(contextIdInput.value));
 
+// Browse-leak-fix (ledger rows 417/423/456): `${gameSourceId}` macro
+// tokens used to resolve to raw root card ids via `ForestStat`'s now-
+// removed raw PKs. `ForestStat` no longer carries a raw root card id
+// at all (only `rootCardPublicId`, a UUID, and `gameSourceDisplayOrdinal`
+// — neither is a value `/forests/query`'s unchanged `context_ids:
+// number[]` contract can accept). Closing this properly needs either
+// widening `/forests/query` to accept public-id tokens, or making this
+// resolution async against `/lineage/tree-by-root` with a debounce (this
+// function runs on every keystroke today) — both out of this pass's
+// named scope (/stats/forests, /lineage/*, and their direct display
+// consumer ForestTreeNav.vue). Disclosed, load-bearing narrowing (ledger
+// row 456): the macro now always resolves to no matches. `hasContextIdMacro`'s
+// existing "→ Expands to" hint still shows the (now-empty) result, so
+// the degradation is visible, not silent; a one-time console.warn per
+// distinct token names the reason for anyone debugging it.
+const warnedMacroTokens = new Set<number>();
+
 function updateContextIds(val: string): void {
   // Preserve the user's literal typing in the local ref.
   contextIdInput.value = val;
-  // Pre-expand `${gameSourceId, ...}` macros to the corresponding
-  // root card ids, then mirror CardSetEditor's parser: split on
-  // comma, parse, drop NaN. Resolution uses the same `roots` ref
-  // that drives the navigator — no backend round-trip needed.
-  const expanded = expandContextIdMacros(val, (gameSourceId) =>
-    roots.value
-      // Brand-strip GameSourceId/CardId → raw number to compare against the
-      // numeric macro arg / build the numeric context-id list; documented
-      // debt, IDENTIFIERS.md erosion (b) (maintainer-directed re-brand helper).
-      .filter(s => (s.gameSourceId as unknown as number) === gameSourceId)
-      .map(s => s.rootCardId as unknown as number), // same brand-strip, erosion (b)
-  );
+  const expanded = expandContextIdMacros(val, (gameSourceDisplayOrdinal) => {
+    const known = roots.value.some(
+      // Brand-strip GameDisplayOrdinal -> raw number to compare against the
+      // macro's parsed-int token; documented debt, IDENTIFIERS.md erosion
+      // (b) (maintainer-directed re-brand-helper fix, not done here).
+      s => (s.gameSourceDisplayOrdinal as unknown as number) === gameSourceDisplayOrdinal,
+    );
+    if (known && !warnedMacroTokens.has(gameSourceDisplayOrdinal)) {
+      warnedMacroTokens.add(gameSourceDisplayOrdinal);
+      console.warn(
+        `[ForestDirectory] \${${gameSourceDisplayOrdinal}} macro expansion is ` +
+        'unavailable post-browse-leak-fix: ForestStat no longer carries a ' +
+        'raw root card id to expand to. See ledger row 456.',
+      );
+    }
+    return [];
+  });
   store.session.ui.cardsContextIds = expanded
     .split(',')
     .map(s => parseInt(s.trim(), 10))

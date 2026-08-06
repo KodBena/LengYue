@@ -128,7 +128,7 @@ if (import.meta.hot) import.meta.hot.accept(() => location.reload());
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 63;
+export const CURRENT_SCHEMA_VERSION = 64;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
@@ -156,78 +156,6 @@ export const CURRENT_SCHEMA_VERSION = 63;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 61 → 62: reshape `boards[*].analysisRange` (single per-board slot,
-  // `[startPly, endPly]`) into `boards[*].analysisRanges` (keyed per
-  // branch-stem `BranchRangeKey` — `composables/analysis/branch-range-
-  // key.ts`). Design proposal §1 Candidate C; commissioner adjudication
-  // (ledger rows 112/119) also overrules the design's proposed 32-entry
-  // LRU eviction — the new map is deliberately UNCAPPED (see the field's
-  // doc comment on `BoardState.analysisRanges` in `types/game.ts`).
-  //
-  // Carry-over, not drop (commissioner-adjudicated, same rows: a real
-  // user-visible behavior difference — "my range survives the upgrade"
-  // vs "my range resets once" — decided in favor of survives). A
-  // pre-existing `analysisRange` is converted into a single entry under
-  // the branch key computed from the board's CURRENT active-variation
-  // path at migration time — the only key computable from a frozen
-  // blob; a board visited on a *different* branch after this migration
-  // runs seeds its own fresh default the normal way
-  // (`useAnalysisTimeline`'s reseed-on-key-change path), same as any
-  // other never-before-visited branch.
-  //
-  // The active-path walk (root → leaf via `activeChildIndex`) and the
-  // branch-key derivation are INLINED here rather than imported from
-  // `getActiveVariationPath` / `deriveBranchRangeKey` — deliberately, so
-  // this migration body stays self-contained and frozen (append-only
-  // invariant) independent of those modules' future evolution. The
-  // algorithm mirrors both exactly: walk from `rootNodeId`, following
-  // `children[activeChildIndex]` until a childless node; a node
-  // contributes `${nodeId}:${chosenChildId}` to the key iff it has more
-  // than one child.
-  //
-  // Idempotent: a board that already carries `analysisRanges` (re-run,
-  // or a forward-compat blob) is left untouched. A board with neither
-  // field, or a malformed `analysisRange` (not a 2-tuple), is a no-op —
-  // no reason to synthesize a range nothing asked for. `boards`
-  // absent/non-array is a no-op (very-legacy or partial blob).
-  (blob: any) => {
-    const out = structuredClone(blob);
-    if (Array.isArray(out.boards)) {
-      for (const board of out.boards) {
-        if (!board || typeof board !== 'object') continue;
-        if (board.analysisRanges !== undefined) continue;
-        const legacyRange = board.analysisRange;
-        if (!Array.isArray(legacyRange) || legacyRange.length !== 2) continue;
-
-        const nodes = board.nodes && typeof board.nodes === 'object' ? board.nodes : {};
-        const path: string[] = [];
-        let cur = board.rootNodeId;
-        const seen = new Set<string>();
-        while (typeof cur === 'string' && nodes[cur] && !seen.has(cur)) {
-          seen.add(cur);
-          path.push(cur);
-          const node = nodes[cur];
-          const children = Array.isArray(node.children) ? node.children : [];
-          if (children.length === 0) break;
-          const idx = typeof node.activeChildIndex === 'number' ? node.activeChildIndex : 0;
-          cur = children[idx] ?? children[0];
-        }
-
-        const legs: string[] = [];
-        for (let i = 0; i < path.length - 1; i++) {
-          const node = nodes[path[i]];
-          if (node && Array.isArray(node.children) && node.children.length > 1) {
-            legs.push(`${path[i]}:${path[i + 1]}`);
-          }
-        }
-        const branchKey = legs.join('|');
-
-        board.analysisRanges = { [branchKey]: legacyRange };
-        delete board.analysisRange;
-      }
-    }
-    return out;
-  },
   // 62 → 63: backfill `profile.settings.appearance.highContrastText`
   // (boolean, default false) — the opt-in text/glyph-contrast override
   // for the `cluster` theme (ADR-0019 audit §S4 corrective; see the
@@ -259,6 +187,44 @@ export const migrations: Migration[] = [
       if (typeof ap.highContrastText !== 'boolean') {
         ap.highContrastText = false;
       }
+    }
+    return out;
+  },
+  // 63 → 64: clear `session.ui.forestNav.selection` for every board
+  // (browse-leak-fix, ledger rows 417/423). `NavSelection`'s two
+  // variants both changed brand/semantics on this pass:
+  //   - `{ kind: 'root', rootCardId }` — was the raw internal card PK
+  //     (`CardId`, a number); now `CardPublicId` (a UUID string). A
+  //     persisted numeric value is simply the wrong shape.
+  //   - `{ kind: 'game', gameSourceId }` — was the raw internal
+  //     game_source PK (`GameSourceId`); now `GameDisplayOrdinal`, the
+  //     per-user display ordinal. Still a `number`, so a stale
+  //     persisted value would NOT fail loudly at the type level — it
+  //     would silently select whichever game/root happens to carry
+  //     that number under the NEW per-user-ordinal numbering, which
+  //     is almost certainly not what the user last had selected. Per
+  //     ADR-0002, a silent wrong-selection is worse than a cleared
+  //     one, so both variants are cleared uniformly rather than only
+  //     the type-incompatible one.
+  //
+  // This mirrors the reset-a-stale-slot posture `useCardTreeData::
+  // reset`'s own doc comment describes for the sibling case (a
+  // forest reload whose card set no longer matches the persisted
+  // manual-expand keys) — the safe response to a meaning change is
+  // to drop the now-untrustworthy persisted value, not attempt to
+  // reinterpret it.
+  //
+  // Container witnessed against the runtime shape: `session.ui.
+  // forestNav` is present from schema-version 21, so a typo'd path
+  // fails loudly here rather than no-oping and stamping the version.
+  //
+  // Idempotent: a blob with no `forestNav.selection` entries, or a
+  // `forestNav.selection` that's already `{}`, is a no-op.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const forestNav = witnessedContainer(out, 'session.ui.forestNav');
+    if (forestNav) {
+      (forestNav as { selection?: unknown }).selection = {};
     }
     return out;
   },

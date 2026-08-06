@@ -26,6 +26,7 @@ import type {
   CardId,
   CardLineageNode,
   CardLineageTree,
+  CardPublicId,
   CardSet,
   ForestStat,
   ResolveRootsResult,
@@ -56,13 +57,15 @@ export interface CardTreeData {
   forest: ComputedRef<CardLineageTree[]>;
   activeSet: ComputedRef<ReadonlySet<CardId>>;
   cards: ComputedRef<ReadonlyMap<CardId, ReviewCard>>;
-  forestStats: ComputedRef<ReadonlyMap<CardId, ForestStat>>;
+  // Browse-leak-fix (ledger rows 417/423): keyed by CardPublicId (the
+  // root's public_id), not the raw CardId this Map used to key on.
+  forestStats: ComputedRef<ReadonlyMap<CardPublicId, ForestStat>>;
   // Lifecycle flags.
   isLoading: ComputedRef<boolean>;
   error: ComputedRef<string | null>;
   // Consumption-mode entry points and a hydration callback. Each
   // operates on the active board's slot at call time.
-  loadBrowse: (rootCardId: CardId) => Promise<void>;
+  loadBrowse: (rootCardId: CardPublicId) => Promise<void>;
   // Multi-root browse mode — fetches each root's lineage tree in
   // parallel and combines them into the slot's forest. Used by the
   // Forest Directory navigator's game-node selection path (see
@@ -70,7 +73,7 @@ export interface CardTreeData {
   // active set / hydrated cards (browse semantics, not pipeline);
   // per-root fetch failures surface via `pushSystemMessage` per
   // ADR-0002, mirroring `populateSlotFromMatched`'s pattern.
-  loadBrowseForest: (rootCardIds: CardId[]) => Promise<void>;
+  loadBrowseForest: (rootCardIds: CardPublicId[]) => Promise<void>;
   // Clear the slot's browse state (forest, error, isLoading) without
   // a fetch. Called when the navigator's selection is null — drops
   // the right pane to its empty state cleanly.
@@ -108,7 +111,7 @@ export interface CardTreeData {
   // entries under the same board are preserved. No-op when the
   // board's slot is missing or the tree isn't currently in the
   // forest.
-  clearManualExpandForTree: (rootCardId: CardId) => void;
+  clearManualExpandForTree: (rootCardId: CardPublicId) => void;
   // Re-hydrate the forest from a known queue of matched cards
   // without re-running the deck pipeline. Used by the cards-tab
   // re-hydrate path (browser reopen mid-session): the review
@@ -123,7 +126,7 @@ export interface CardTreeData {
 const EMPTY_FOREST: CardLineageTree[] = [];
 const EMPTY_ACTIVE_SET: ReadonlySet<CardId> = new Set();
 const EMPTY_CARDS: ReadonlyMap<CardId, ReviewCard> = new Map();
-const EMPTY_FOREST_STATS: ReadonlyMap<CardId, ForestStat> = new Map();
+const EMPTY_FOREST_STATS: ReadonlyMap<CardPublicId, ForestStat> = new Map();
 const EMPTY_MANUAL_EXPAND: ReadonlySet<CardTreeExpandKey> = new Set();
 
 // Per-composable-instance set of in-flight `requestCard` ids, scoped
@@ -146,7 +149,7 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
     const id = boardIdRef.value;
     return id ? (getBoardCardTree(id)?.cards ?? EMPTY_CARDS) : EMPTY_CARDS;
   });
-  const forestStats = computed<ReadonlyMap<CardId, ForestStat>>(() => {
+  const forestStats = computed<ReadonlyMap<CardPublicId, ForestStat>>(() => {
     const id = boardIdRef.value;
     return id ? (getBoardCardTree(id)?.forestStats ?? EMPTY_FOREST_STATS) : EMPTY_FOREST_STATS;
   });
@@ -179,12 +182,12 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
     toggleCardTreeManualExpand(id, key);
   }
 
-  function clearManualExpandForTree(rootCardId: CardId): void {
+  function clearManualExpandForTree(rootCardId: CardPublicId): void {
     const id = boardIdRef.value;
     if (!id) return;
     const slot = getBoardCardTree(id);
     if (!slot) return;
-    const tree = slot.forest.find(t => t.rootCardId === rootCardId);
+    const tree = slot.forest.find(t => t.rootCardPublicId === rootCardId);
     if (!tree) return;
     // Build the set of keys this tree could contribute to the
     // persisted manual-expand array. The projection's two key
@@ -241,12 +244,12 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
     const id = boardIdRef.value;
     if (!id) return;
     const slot = getOrCreateBoardCardTree(id);
-    const m = new Map<CardId, ForestStat>();
-    for (const s of stats) m.set(s.rootCardId, s);
+    const m = new Map<CardPublicId, ForestStat>();
+    for (const s of stats) m.set(s.rootCardPublicId, s);
     slot.forestStats = m;
   }
 
-  async function loadBrowse(rootCardId: CardId): Promise<void> {
+  async function loadBrowse(rootCardId: CardPublicId): Promise<void> {
     const id = boardIdRef.value;
     if (!id) return;
     const slot = getOrCreateBoardCardTree(id);
@@ -270,7 +273,7 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
     }
   }
 
-  async function loadBrowseForest(rootCardIds: CardId[]): Promise<void> {
+  async function loadBrowseForest(rootCardIds: CardPublicId[]): Promise<void> {
     const id = boardIdRef.value;
     if (!id) return;
     const slot = getOrCreateBoardCardTree(id);
@@ -282,7 +285,7 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
       // Same per-root failure-aggregation pattern as
       // populateSlotFromMatched — a 422 CardTreeOverflowError on
       // one root shouldn't blank the whole forest.
-      const failed: { rootCardId: number; reason: string }[] = [];
+      const failed: { rootCardId: string; reason: string }[] = [];
       const trees = await Promise.all(
         rootCardIds.map(rcid =>
           backendService
@@ -290,12 +293,10 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
             .catch(treeErr => {
               console.error('[useCardTreeData] tree-by-root failed for', rcid, treeErr);
               failed.push({
-                // Brand-strip CardId → raw number for the `failed` log array
-                // (typed `number`); the double hop is required because
-                // Brand<number,_> isn't assignable to bare number. Documented
-                // debt: IDENTIFIERS.md "Known erosions" (b) (maintainer-
-                // directed: these belong behind a re-brand helper, not fixed here).
-                rootCardId: rcid as unknown as number,
+                // CardPublicId is already a string brand — no brand-strip
+                // hop needed here (unlike the pre-browse-leak-fix CardId
+                // erosion this comment used to document).
+                rootCardId: rcid as unknown as string,
                 reason: treeErr instanceof Error ? treeErr.message : String(treeErr),
               });
               return null;
@@ -456,11 +457,11 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
         grouped.unmatchedCardIds,
       );
     }
-    const failed: { rootCardId: number; reason: string }[] = [];
+    const failed: { rootCardId: string; reason: string }[] = [];
     const trees = await Promise.all(
       grouped.roots.map((g: RootGroup) =>
         backendService
-          .fetchTreeByRoot(g.rootCardId)
+          .fetchTreeByRoot(g.rootCardPublicId)
           .catch(treeErr => {
             // Per ADR-0002, surface the per-root failure to the user.
             // Aggregating across failures (rather than one toast per
@@ -469,14 +470,12 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
             // case.
             console.error(
               '[useCardTreeData] tree-by-root failed for',
-              g.rootCardId,
+              g.rootCardPublicId,
               treeErr,
             );
             failed.push({
-              // Brand-strip CardId → raw number for the `failed` log array;
-              // documented debt, IDENTIFIERS.md erosion (b) (re-brand-helper
-              // fix is maintainer-directed, not done here).
-              rootCardId: g.rootCardId as unknown as number,
+              // CardPublicId is already a string brand.
+              rootCardId: g.rootCardPublicId as unknown as string,
               reason: treeErr instanceof Error ? treeErr.message : String(treeErr),
             });
             return null;
