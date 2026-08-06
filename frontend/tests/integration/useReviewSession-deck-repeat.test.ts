@@ -65,10 +65,14 @@ vi.mock('../../src/composables/analysis/wait-for-analysis', async () => {
   };
 });
 
-import { useReviewSession } from '../../src/composables/review/useReviewSession';
+import {
+  useReviewSession,
+  _visitSnapshotStonesForTesting,
+} from '../../src/composables/review/useReviewSession';
 import { useBoardMoveRouting } from '../../src/composables/board/useBoardMoveRouting';
 import type { EngineResponderHandle } from '../../src/composables/board/useEngineResponder';
-import { store, addBoard, resetWorkspace } from '../../src/store';
+import { store, addBoard, mutateBoard, resetWorkspace } from '../../src/store';
+import { navigateTo } from '../../src/engine/navigator';
 import { createInitialBoard } from '../../src/store/board-factory';
 import { waitForAnalysis } from '../../src/composables/analysis/wait-for-analysis';
 import { fakeBackendService, resetFakeBackendService } from '../fakes/backend-service';
@@ -223,6 +227,59 @@ describe('useReviewSession — deck repeat: goBack restores the exact visit', ()
     expect(session.state.value).toBe('AWAITING_MOVE');
     expect(session.userMovesCount.value).toBe(1);
     expect(session.userMoveScores.value).toEqual([0.6]);
+  });
+
+  it('the aliasing fix: mutating the live board after a restore does not corrupt the archived snapshot', async () => {
+    // Witnesses restoreSlot's re-clone directly (review should-fix):
+    // restore a snapshot, mutate the LIVE board in place via the same
+    // mechanism rewindToStart/the intermission-chart click use
+    // (mutateBoard -> navigateTo, which deletes/sets `stones` entries
+    // in place, not a full board replacement), then read the ARCHIVED
+    // map entry back through the test-only inspector — WITHOUT
+    // navigating away first (a navigate-away would re-capture fresh
+    // from the live board regardless of the bug, masking it). If
+    // restoreSlot installed the snapshot's own `stones` object instead
+    // of a fresh clone, this in-place mutation would be visible in the
+    // archived copy too.
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    // Two-move card so one move leaves it AWAITING_MOVE, not FINISHED
+    // — keeps the played stone on the board (no finishCard rewind to
+    // confound the stones assertion).
+    const card0 = makeReviewCard({ id: 1 as CardId, numMoves: 2 });
+    const card1 = makeReviewCard({ id: 2 as CardId, numMoves: 1 });
+
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const session = useReviewSession(boardIdRef);
+
+    await session.startSession([card0, card1]);
+    await flushPromises();
+
+    primeAnalysis(boardId, 0.5);
+    await session.processUserMove(3, 3); // one of card0's two moves
+    expect(session.state.value).toBe('AWAITING_MOVE');
+    expect(store.boards.find(b => b.id === boardId)!.stones['3,3']).toBe('B');
+
+    session.goForward(); // -> card1, fresh; captures card0's slot (index 0)
+    await flushPromises();
+    expect(_visitSnapshotStonesForTesting(boardId, 0)).toEqual({ '3,3': 'B' });
+
+    session.goBack(); // restores card0's snapshot — the install under test
+    expect(session.state.value).toBe('AWAITING_MOVE');
+    expect(store.boards.find(b => b.id === boardId)!.stones['3,3']).toBe('B');
+
+    // Mutate the LIVE board in place (navigate to root — undoes the
+    // move, deleting the '3,3' stone from `state.stones` in place).
+    // No goBack/goForward call in between — nothing re-captures.
+    const rootId = store.boards.find(b => b.id === boardId)!.rootNodeId;
+    mutateBoard(boardId, draft => navigateTo(draft, rootId));
+    expect(store.boards.find(b => b.id === boardId)!.stones['3,3']).toBeUndefined();
+
+    // The archived snapshot for index 0 must be unaffected by the
+    // live mutation above.
+    expect(_visitSnapshotStonesForTesting(boardId, 0)).toEqual({ '3,3': 'B' });
   });
 });
 

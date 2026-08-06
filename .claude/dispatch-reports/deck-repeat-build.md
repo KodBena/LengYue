@@ -219,3 +219,93 @@ auth-lifecycle drain pin updated for the two new teardown labels.)
   Review sessions.
 - `.claude/dispatch-reports/deck-repeat-design.md` — copied into this
   worktree (see the worktree note above).
+
+## Addendum — review response (`deck-repeat-review.md`, ACCEPT-WITH-NITS)
+
+Fresh-context review confirmed the SRS-integrity/double-fire property with
+its own independent red-leg and adversarial sequence, and confirmed the
+aliasing fix's *code* was correct but flagged three items: two merge
+blockers and one should-fix.
+
+**Blocker 1 — `touchSession()` "removed" from `blind-mode-prefs.ts`.**
+Investigated: this branch's own commit (`5648dff6`) never touched
+`write()` or `touchSession()` — its only diff to that file was the
+`REVIEWED` case in the exhaustive switch (confirmed via `git show`).
+`touchSession()` did not exist ANYWHERE in this worktree at the time —
+neither in `blind-mode-prefs.ts` nor in `store/index.ts`. It was
+introduced by `f645ca42` ("perf(frontend): version-count store.session in
+SyncService instead of deep-watching it"), a `next`-only commit that
+post-dates this branch's merge-base (`3378806f`) by many commits. So the
+finding was real but the framing was off: nothing was "dropped" by this
+branch's diff — this branch's copy of the file simply pre-dated the
+feature, and comparing it against current `next` (as the reviewer's own
+finding #9 independently establishes the branch needed to do) reads as a
+removal when it's a staleness gap. Resolved by blocker 2's merge, which
+auto-merged `blind-mode-prefs.ts` cleanly — both the `REVIEWED` case and
+`touchSession()` are present in the merged result (verified directly:
+`write()` calls `touchSession()` after the `uiPrefs()[k] = value` write,
+exactly as `f645ca42` shipped it).
+
+**Blocker 2 — merge `next` in, reconcile both teardown-label sets.**
+Merged local `next` (`56a3d7e3`, 52 commits ahead of the merge-base) into
+this branch. `teardown-registry-completeness.test.ts` auto-merged cleanly
+(non-overlapping array insertions — `review:visit-snapshots[-*]` and
+`nav:clear-toggle-memory[-all]` both present, in the two files' existing
+registration order). `auth-lifecycle.test.ts` had one real textual
+conflict (both sides added a `NON_CACHE_RESET_LABELS` entry with
+adjacent doc comments) — resolved by hand, keeping both comment blocks and
+folding the Set to `['review:abort-all', 'review:visit-snapshots-clear-all',
+'nav:clear-toggle-memory-all']`. No other files conflicted (`blind-mode-
+prefs.ts`, `FEATURES.md`, `FILES.md`, `SidebarWidget.vue`, `en.json` all
+auto-merged). Verified no stray `<<<<<<<`/`=======`/`>>>>>>>` markers
+remain anywhere in the tree post-merge.
+
+**Should-fix — aliasing witness.** Added
+`_visitSnapshotStonesForTesting(boardId, index)`, a narrow test-only
+inspector exported from `useReviewSession.ts` (module-private
+`visitSnapshots` stays unexported; this returns a defensive shallow copy
+of one stored snapshot's `stones` record) — the same shape as
+`useNavigation.ts`'s `_mainLineToggleMemoryKeyCountForBoard`, which `next`
+had already established as this codebase's precedent for exactly this
+problem (a module-scope Map with no UI-facing query to route a test
+through instead). New test in
+`useReviewSession-deck-repeat.test.ts`: restore an `AWAITING_MOVE`
+snapshot (card0, one move played, stone on the board), then — WITHOUT
+navigating away again (any navigate-away re-captures the outgoing slot
+fresh from the live board regardless of the bug, which is what makes the
+property otherwise unfalsifiable through the public API alone) — mutate
+the live board in place via `mutateBoard`/`navigateTo` (the same
+mechanism `rewindToStart` and the intermission-chart click use; it
+deletes/sets `stones` entries in place, not a full-board replacement),
+then read the archived snapshot back through the inspector and assert it
+is untouched. **Red-leg verified:** temporarily reverted `restoreSlot`'s
+re-clone to a shallow spread of `snap.board` directly — the test failed
+loudly (`expected {} to deeply equal { '3,3': 'B' }`, i.e. the in-place
+mutation was visible in the archived copy); reverted before the final
+gate run.
+
+**Gates, re-run on the merged result (WITNESSED):**
+
+```
+vue-tsc -b        clean, no output
+eslint .          clean, no output
+npm run build     ✓ 1091 modules transformed, built in 1.76s
+                  (pre-existing >500kB chunk-size advisory only)
+npm run test:run  Test Files  102 passed | 3 skipped (105)
+                       Tests  1299 passed | 4 skipped (1303)
+```
+
+(1107→1299 reflects `next`'s own test growth across the merge, plus the
+one new aliasing-witness test — 6→7 in this file.)
+
+Additional files touched by the addendum:
+- `frontend/src/composables/review/useReviewSession.ts` —
+  `_visitSnapshotStonesForTesting` test-only export.
+- `frontend/tests/integration/useReviewSession-deck-repeat.test.ts` —
+  aliasing-witness test (7th test).
+- `frontend/tests/integration/auth-lifecycle.test.ts` — merge conflict
+  resolved, both `NON_CACHE_RESET_LABELS` entries retained.
+- Merge commit bringing `next` (`56a3d7e3`) into this branch — brings in
+  the hotkeys (`nav.toggleMainLine`), modals, collapsibles, and
+  high-contrast-tokens work, none of which this deliverable's diff
+  otherwise touches.

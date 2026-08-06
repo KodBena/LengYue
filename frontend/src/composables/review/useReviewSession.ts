@@ -6,7 +6,7 @@
  */
 
 import { computed, toRaw, type Ref } from 'vue';
-import type { ReviewCard, BoardId, BoardState, NodeId, ReviewStatus, RawAnalysis } from '../../types';
+import type { ReviewCard, BoardId, BoardState, NodeId, ReviewStatus, RawAnalysis, StoneColor } from '../../types';
 
 /**
  * Returns true when the review session is in a transient state where
@@ -226,6 +226,28 @@ function restoreSlot(boardId: BoardId, index: number, snap: CardVisitSnapshot): 
     draft.startingNodeId = snap.startingNodeId;
     draft.status = snap.status === 'FINISHED' ? 'REVIEWED' : 'AWAITING_MOVE';
   });
+}
+
+/**
+ * Test-only inspector — NOT part of the composable's UI-facing
+ * surface. `visitSnapshots` itself is deliberately not exported (a
+ * mutable Map handed to arbitrary importers would invite writes from
+ * outside `captureSlot`/`restoreSlot`); this narrow accessor lets a
+ * test read back a specific stored snapshot's `stones` record
+ * directly, to assert the `restoreSlot` re-clone invariant — mutating
+ * the LIVE board after a restore must never retroactively change what
+ * is archived here — the same shape as `useNavigation.ts`'s
+ * `_mainLineToggleMemoryKeyCountForBoard`. There is no UI-facing "what
+ * does this archived visit currently look like" query to route
+ * through instead. Returns a defensive shallow copy so the caller
+ * cannot itself become a second write path into the stored entry.
+ */
+export function _visitSnapshotStonesForTesting(
+  boardId: BoardId,
+  index: number,
+): Record<string, StoneColor> | null {
+  const snap = visitSnapshots.get(boardId)?.get(index);
+  return snap ? { ...snap.board.stones } : null;
 }
 
 /**
