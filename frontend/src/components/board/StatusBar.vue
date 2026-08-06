@@ -67,11 +67,15 @@ const emit = defineEmits<{
 const { hint } = useTransientHint();
 
 // Sourced from `props.board` directly (not `metadata.rules`, which is
-// `useMetadata`'s display-only `RU` passthrough with a silent
-// `'Japanese'` default) — the dropdown's default must reflect the
-// board's *actual* `RU` resolution, including the explicit 'unknown'
-// arm when it doesn't case-insensitively match one of the four
-// ruling-mandated names (ADR-0002: no silent coercion).
+// `useMetadata`'s display-only `RU` passthrough with its own silent
+// `'Japanese'` default) — the dropdown must reflect the board's
+// *actual* `RU` resolution, including `source: 'defaulted'` when the
+// file's `RU` is missing/unrecognized. `getRulesetResolution` is total
+// (live-testing adjudication, `.claude/dispatch-reports/
+// ruleset-default-wedge-fix.md`): `.name` is always one of the four
+// ruling-mandated names, so the dropdown always has a valid selected
+// value — `source` only changes whether the `.defaulted` hint class
+// applies, never whether a value is selectable.
 const rulesetResolution = computed(() => getRulesetResolution(props.board));
 
 function onRulesChange(e: Event): void {
@@ -113,14 +117,11 @@ const moveNumber = computed((): number => {
       <span class="game-info">
         <select
           class="rules-select"
-          :class="{ unrecognized: rulesetResolution.kind === 'unknown' }"
-          :value="rulesetResolution.kind === 'resolved' ? rulesetResolution.name : ''"
+          :class="{ defaulted: rulesetResolution.source === 'defaulted' }"
+          :value="rulesetResolution.name"
           @change="onRulesChange"
-          :title="$t('statusBar.editRules')"
+          :title="rulesetResolution.source === 'defaulted' ? $t('statusBar.rulesDefaulted') : $t('statusBar.editRules')"
         >
-          <option v-if="rulesetResolution.kind === 'unknown'" value="" disabled>
-            {{ $t('statusBar.rulesUnrecognized') }}
-          </option>
           <option v-for="name in RULESET_NAMES" :key="name" :value="name">{{ name }}</option>
         </select>
         · {{ $t('statusBar.komi') }}
@@ -227,9 +228,13 @@ const moveNumber = computed((): number => {
 
 /* Rules dropdown — same low-contrast register as the komi input
    (transparent, dashed underline, accent-primary on focus/hover).
-   `.unrecognized` swaps to the warning accent so the fail-loud
-   'unrecognized — choose' state (ADR-0002) reads as a notice, not a
-   normal idle control. */
+   `.defaulted` is a subtle informational hint (italic), not a warning
+   accent — this is a represented fact about provenance, not a refused
+   or error state (live-testing adjudication superseded the prior
+   fail-loud 'unrecognized — choose' UI state; see
+   `.claude/dispatch-reports/ruleset-default-wedge-fix.md`). Query
+   construction proceeds either way, so the styling shouldn't read as
+   "something is broken." */
 .rules-select {
   background: transparent;
   border: none;
@@ -245,9 +250,9 @@ const moveNumber = computed((): number => {
   color: var(--accent-primary);
   border-bottom: 1px solid var(--accent-primary);
 }
-.rules-select.unrecognized {
-  color: var(--accent-secondary);
-  border-bottom: 1px solid var(--accent-secondary);
+.rules-select.defaulted {
+  font-style: italic;
+  color: var(--text-2);
 }
 
 .komi-input {

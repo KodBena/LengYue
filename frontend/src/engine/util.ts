@@ -174,10 +174,13 @@ export function getKomi(state: BoardState): number {
 /**
  * Extracts the ruleset from the SGF root node's `RU` property, parallel
  * in shape to `getKomi` / `getBoardSize` but returning the
- * `RulesetResolution` union rather than defaulting silently — per the
- * ruleset ruling (`.claude/dispatch-reports/design-engine-features.md`
- * §RULESETS), an unrecognized or missing `RU` must surface as an
- * explicit `'unknown'` arm, never a guessed default (ADR-0002).
+ * `RulesetResolution` record (an effective `RulesetName` plus a
+ * `source` provenance tag) rather than a bare string — per the
+ * live-testing adjudication superseding the original ruleset ruling
+ * (`.claude/dispatch-reports/ruleset-default-wedge-fix.md`), a missing
+ * or unrecognized `RU` defaults to Tromp-Taylor (`source: 'defaulted'`)
+ * rather than refusing; a recognized `RU` resolves with `source: 'ru'`.
+ * See `normalizeRuleset` in `engine/rulesets.ts` for the full contract.
  */
 export function getRulesetResolution(state: BoardState): RulesetResolution {
   const raw = state.nodes[state.rootNodeId]?.properties['RU']?.[0];

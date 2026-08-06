@@ -168,34 +168,40 @@ describe('getRulesetResolution', () => {
   it('reads and normalizes the RU property from the root node', () => {
     const board = createInitialBoard();
     board.nodes[board.rootNodeId].properties['RU'] = ['japanese'];
-    expect(getRulesetResolution(board)).toEqual({ kind: 'resolved', name: 'Japanese' });
+    expect(getRulesetResolution(board)).toEqual({ name: 'Japanese', source: 'ru' });
   });
 
   it('is case-insensitive over the RU property', () => {
     const board = createInitialBoard();
     board.nodes[board.rootNodeId].properties['RU'] = ['AGA'];
-    expect(getRulesetResolution(board)).toEqual({ kind: 'resolved', name: 'AGA' });
+    expect(getRulesetResolution(board)).toEqual({ name: 'AGA', source: 'ru' });
   });
 
-  it('returns the explicit unknown arm — never a silent default — when RU is missing', () => {
+  // RED against the vetoed shipped behaviour (the fail-loud
+  // 'unknown' arm): live-testing adjudication
+  // (`.claude/dispatch-reports/ruleset-default-wedge-fix.md`)
+  // supersedes it — a missing/unrecognized RU now defaults to
+  // Tromp-Taylor with `source: 'defaulted'`, a represented fact
+  // rather than a refusal.
+  it('defaults to Tromp-Taylor (source: defaulted) when RU is missing', () => {
     const board = createInitialBoard();
     delete board.nodes[board.rootNodeId].properties['RU'];
-    expect(getRulesetResolution(board)).toEqual({ kind: 'unknown', raw: '' });
+    expect(getRulesetResolution(board)).toEqual({ name: 'Tromp-Taylor', source: 'defaulted' });
   });
 
-  it('returns the explicit unknown arm when RU does not match one of the four names', () => {
+  it('defaults to Tromp-Taylor (source: defaulted) when RU does not match one of the four names', () => {
     const board = createInitialBoard();
     board.nodes[board.rootNodeId].properties['RU'] = ['New Zealand'];
-    expect(getRulesetResolution(board)).toEqual({ kind: 'unknown', raw: 'New Zealand' });
+    expect(getRulesetResolution(board)).toEqual({ name: 'Tromp-Taylor', source: 'defaulted' });
   });
 
-  // Inverse of the unknown-blocks-analysis case: a fresh board minted
-  // by createInitialBoard carries commissioner-adjudicated RU[Tromp-
-  // Taylor] (board-factory.ts) precisely so it resolves by
-  // construction and never lands in the unknown state.
-  it('resolves a fresh createInitialBoard board to Tromp-Taylor by construction', () => {
+  // A fresh board minted by createInitialBoard carries commissioner-
+  // adjudicated RU[Tromp-Taylor] (board-factory.ts) authored at
+  // construction time, so it resolves with `source: 'ru'` — distinct
+  // from the defaulted case above, which never touches the file's RU.
+  it('resolves a fresh createInitialBoard board to Tromp-Taylor with source "ru" (authored, not defaulted)', () => {
     const board = createInitialBoard();
-    expect(getRulesetResolution(board)).toEqual({ kind: 'resolved', name: 'Tromp-Taylor' });
+    expect(getRulesetResolution(board)).toEqual({ name: 'Tromp-Taylor', source: 'ru' });
   });
 });
 
