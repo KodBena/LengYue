@@ -42,7 +42,21 @@
   "other.section.knobRegistry":           "Knob Registry",
   "other.section.gradientCalibration":    "Gradient Calibration",
   "other.section.qeuboBookmarks":         "PBO Bookmarks",
+  "other.section.visitsLerp":             "Card Visit-Count Override",
+  "other.section.perQueryOverrides":      "Per-Query Overrides",
   "other.label.gradientCalibrationNotice": "Hue offset moved to Knob Registry above (Display group). The preview below tracks the current setting.",
+
+  "visitsLerp.hint":                      "Session-only — resets on reload. Transforms each card's visit count x into a·x + b before it reaches the engine (e.g. to compensate for KataGo model strength drift, or to dial visits up/down as you learn the deck). Defaults (a=1, b=0) leave visit counts unchanged.",
+  "visitsLerp.multiplierLabel":           "Multiplier (a):",
+  "visitsLerp.offsetLabel":               "Offset (b):",
+  "visitsLerp.resetButton":               "Reset to Defaults",
+  "visitsLerp.resetTooltip":              "Restore a=1, b=0 (no change to visit counts).",
+
+  "perQueryOverrides.hint":               "Session-only — resets on reload. A JSON object shallow-merged into every outgoing analysis query's engine overrideSettings (e.g. {\"playoutDoublingAdvantage\": 1.5}). Keys you set here win over the app's own computed values; an empty box changes nothing.",
+  "perQueryOverrides.placeholder":        "{\"playoutDoublingAdvantage\": 1.5}",
+  "perQueryOverrides.error":              "Invalid overrides — not applied: {message}",
+  "perQueryOverrides.resetButton":        "Clear Overrides",
+  "perQueryOverrides.resetTooltip":       "Clear the override text (no change to outgoing queries).",
 
   "knobRegistry.empty":                   "No registered knobs yet.",
   "knobRegistry.lockedTooltip":           "Controlled by {holder}{reason}",

@@ -66,8 +66,10 @@ frontend/src/
 │   ├── KeybindingRow.vue              [B1]  Per-action row in the Keybindings view — idle/capture/conflict state machine + Edit/Reset/Unbind buttons. (Machinery domain-free; imports the [B3] catalog only to supply findActionByKey's registry argument.)
 │   ├── KeybindingsView.vue            [B1]  Keybindings sub-tab: per-domain registry list + Reset-all + reserved-keys disclosure. (Machinery domain-free; walks the injected [B3] catalog and assumes its closed {nav, display, engine} domain-prefix set.)
 │   ├── KnobRegistryEditor.vue         [B1]  Cross-domain knob-registry editor — lists every scalar knob, grouped by domain (Phase 3b).
+│   ├── PerQueryOverridesConfig.vue    [B1]  "Other" tab: freeform JSON textarea for the session-ephemeral blanket per-query override (`state/per-query-overrides.ts`), RegistryEditor expression-input idiom.
 │   ├── ReviewSessionPanel.vue         [B3]  In-session SR controls: status, counter, intermission chart, hint visibility, deck-repeat back/forward + Retry.
 │   ├── SettingsTab.vue                [B1]  Settings tab surface: Session (UI) / Analysis Environment / Card Sets / Advanced Registry / Analysis / Keybindings sub-tabs via TabWidget. (Retagged B2→B1 2026-06-12, maintainer adjudication: generic settings chrome; the B2/B3 contamination — the editors, profile-owner, the in-template engine.katago.analysis_env path — may be structural necessity, possibly dissolved by config-schema-projections; those edges are annotated exceptions, named-and-owned.)
+│   ├── VisitsLerpConfig.vue           [B1]  "Other" tab: a/b numeric inputs for the session-ephemeral visits-LERP override (`state/visits-lerp.ts`), CardMetadataPanel field idiom + reset button.
 │   │
 │   ├── board/                                Go-board surface. Renderers + overlays.
 │   │   ├── BoardDisplay.vue           [B3]  Stateless SVG Go board with stone gradients, hoshi, last-move ring, move-number text.
@@ -299,7 +301,7 @@ frontend/src/
 │       ├── fresh-eval.ts              [B3]  Shared one-shot-eval primitives (connectFresh + awaitFinalPacket) for callers running a fresh KataGo eval off the analysisService singleton; telemetry injected via optional hooks. Consumed by usePlayFromPosition (engine self-play / match) and useKomiCalibration.
 │       ├── katago-client.ts           [B3]  WebSocket transport for KataGo analysis engine.
 │       ├── komi-calibration.ts         [B3]  Pure mint-time even-komi arithmetic: normalise scoreLead to Black-positive (via winrate-framing) → add to evalKomi → round-to-half → clamp [-150, 150].
-│       ├── query-routing.ts           [B3]  The SELECTOR-routing seam: `RoutedAnalysisQuery` brand + `finalizeAnalysisRouting`, the sole place an analysis query's `model` leg is decided (`subscribe` accepts only the brand; the cast is lint-fenced outside this file). Born of the 2026-06-12 missing-`model` incident.
+│       ├── query-routing.ts           [B3]  The SELECTOR-routing seam: `RoutedAnalysisQuery` brand + `finalizeAnalysisRouting`, the sole place an analysis query's `model` leg is decided (`subscribe` accepts only the brand; the cast is lint-fenced outside this file). Born of the 2026-06-12 missing-`model` incident. Also the ONE merge point for the session-ephemeral per-query JSON override (`state/per-query-overrides.ts`) — every builder already passes through here, so the merge rides the same choke point rather than a second remembered call.
 │       ├── subscribe-narrowing.type-test.ts [B3]  Compile-time regression artifact: asserts `subscribe<Q>`'s callback receives `ResponseFor<Q>` (forcing the error-variant discriminant) and that un-routed analysis queries are un-subscribable (the query-routing seam). No runtime exports; type-checked by `vue-tsc -b`.
 │       ├── types.ts                   [B3]  SSOT for KataGo wire types + enrichment envelope.
 │       ├── version-probe.ts           [B3]  Pure parsers for `query_version` + `query_models` (SELECTOR-aware).
@@ -327,7 +329,9 @@ frontend/src/
 │   ├── analysis-config.ts             [B3]  Palette compile + ledger hash. Sole factory for the `RawKey` / `EnrichedKey` brands (`deriveAnalysisKeys`); reactive `activeAnalysisKeys` over the qEUBO audition overlay.
 │   ├── analysis-ledger.ts             [B3]  Provenance-stratified merged-packet store: raw store keyed by `RawKey`, enrichment store keyed by `EnrichedKey`. Per-node version refs (pull consumers) + `onLedgerFlush` changed-key signal (incremental push consumers).
 │   ├── known-positions.ts             [B1]  Per-user reactive `ContentHash -> CardId` map (card-position-annotations Stage A); populated incidentally via BackendService.mapToReviewCard, first-seen-wins on write, purged on identity flip.
-│   └── stability-trajectory-store.ts  [B3]  Per-(`RawKey`, `ExtractorId`, nodeId) trajectory store fed by analysis-service preview ingestion.
+│   ├── per-query-overrides.ts         [B1]  Session-ephemeral blanket JSON override merged into every outgoing analysis query's `overrideSettings` at the `finalizeAnalysisRouting` choke point (wiki wanted-feature 2, ledger rows 510/511). Not persisted — module-scope only.
+│   ├── stability-trajectory-store.ts  [B3]  Per-(`RawKey`, `ExtractorId`, nodeId) trajectory store fed by analysis-service preview ingestion.
+│   └── visits-lerp.ts                 [B1]  Session-ephemeral a/b LERP override (`effective = a*x + b`) on a card's specific visit count, applied in `useReviewSession.ts::processUserMove` (wiki wanted-feature 3, ledger rows 503/504). Not persisted — module-scope only.
 │
 ├── store/                                   Single GlobalStore singleton + mutators + migrations.
 │   ├── archived-migrations.ts         [B1]  Aged-out schema migrations (1→2 .. 57→58) lifted out under the rolling-archive cadence to keep migrations.ts scoped to the latest two; preserved for the framework's contiguity invariant. Post-retrofit bodies call witnessedContainer (imported from migration-witness.ts).

@@ -113,6 +113,11 @@ import {
 import { resetFakeAnalysisPersistenceService } from '../fakes/analysis-persistence-service';
 import { ledger } from '../../src/state/analysis-ledger';
 import { activeAnalysisKeys } from '../../src/state/analysis-config';
+import {
+  setVisitsLerpA,
+  setVisitsLerpB,
+  _resetVisitsLerpForTesting,
+} from '../../src/state/visits-lerp';
 import type {
   BoardId,
   CardId,
@@ -194,6 +199,13 @@ beforeEach(() => {
   // Mocked services absorb the cleanup-side calls (stopAllBoardAnalyses,
   // forgetAll) without reaching the real network or proxy.
   resetWorkspace();
+
+  // The session-ephemeral visits-LERP override (state/visits-lerp.ts)
+  // is module-scope, not store-scope — resetWorkspace() does not
+  // touch it (by design: it's ephemeral to the whole session, not
+  // per-workspace). Reset explicitly so a prior test's a/b setting
+  // can't bleed into this one.
+  _resetVisitsLerpForTesting();
 });
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -625,6 +637,114 @@ describe('useReviewSession.processUserMove — happy path', () => {
     // Move-suggestions visibility was revealed by finishCard (the
     // intermission reveal — an owned write, not a restore).
     expect(store.session.ui.showMoveSuggestions).toBe(true);
+  });
+});
+
+describe('useReviewSession.processUserMove — visits LERP override (wiki wanted-feature 3, ledger rows 503/504)', () => {
+  // The seam under test is the `const visits = lerpVisits(...)` line
+  // in processUserMove — the ONE place a card's specific visit count
+  // (effectiveVisits: override-or-defaultVisits) is transformed
+  // before reaching `analysisService.analyzeRange`'s `visits`
+  // argument (position 4). These tests observe that argument
+  // directly via the fake's spy, which is the actual value that
+  // would reach the engine query.
+
+  it('at defaults (a=1, b=0) the visits count reaching analyzeRange is byte-identical to the card\'s defaultVisits — the regression lock', async () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    const card = makeReviewCard({ numMoves: 5, defaultVisits: 1000 });
+    mutateReviewSession(boardId, draft => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [card];
+      draft.currentIndex = 0;
+      draft.startingNodeId = board.rootNodeId;
+    });
+    // Refuse the query synchronously so the test doesn't need to
+    // drive the wait/enrichment machinery — analyzeRange is called
+    // (and its arguments recorded) before that refusal is observed.
+    fakeAnalysisService.analyzeRange.mockReturnValueOnce(null);
+
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { processUserMove } = useReviewSession(boardIdRef);
+    await processUserMove(3, 3);
+
+    expect(fakeAnalysisService.analyzeRange).toHaveBeenCalledTimes(1);
+    expect(fakeAnalysisService.analyzeRange.mock.calls[0]?.[4]).toBe(1000);
+  });
+
+  it('a configured a/b transforms the visits count that reaches analyzeRange', async () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    const card = makeReviewCard({ numMoves: 5, defaultVisits: 1000 });
+    mutateReviewSession(boardId, draft => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [card];
+      draft.currentIndex = 0;
+      draft.startingNodeId = board.rootNodeId;
+    });
+    setVisitsLerpA(2);
+    setVisitsLerpB(100);
+    fakeAnalysisService.analyzeRange.mockReturnValueOnce(null);
+
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { processUserMove } = useReviewSession(boardIdRef);
+    await processUserMove(3, 3);
+
+    // 2 * 1000 + 100 = 2100.
+    expect(fakeAnalysisService.analyzeRange.mock.calls[0]?.[4]).toBe(2100);
+  });
+
+  it('a negative b that would drive the raw value below 1 floors to the minimum positive integer visits count', async () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    const card = makeReviewCard({ numMoves: 5, defaultVisits: 5 });
+    mutateReviewSession(boardId, draft => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [card];
+      draft.currentIndex = 0;
+      draft.startingNodeId = board.rootNodeId;
+    });
+    setVisitsLerpA(1);
+    setVisitsLerpB(-1000);
+    fakeAnalysisService.analyzeRange.mockReturnValueOnce(null);
+
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { processUserMove } = useReviewSession(boardIdRef);
+    await processUserMove(3, 3);
+
+    expect(fakeAnalysisService.analyzeRange.mock.calls[0]?.[4]).toBe(1);
+  });
+
+  it('applies on top of a per-card sticky visitsOverride too — the transform composes with the existing override, not just defaultVisits', async () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    const card = makeReviewCard({ numMoves: 5, defaultVisits: 1000 });
+    mutateReviewSession(boardId, draft => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [card];
+      draft.currentIndex = 0;
+      draft.startingNodeId = board.rootNodeId;
+      draft.visitsOverride = 200; // user's sticky per-card override takes precedence over defaultVisits
+    });
+    setVisitsLerpA(3);
+    setVisitsLerpB(0);
+    fakeAnalysisService.analyzeRange.mockReturnValueOnce(null);
+
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { processUserMove } = useReviewSession(boardIdRef);
+    await processUserMove(3, 3);
+
+    // effectiveVisits resolves to the override (200), THEN the LERP
+    // applies: 3 * 200 = 600.
+    expect(fakeAnalysisService.analyzeRange.mock.calls[0]?.[4]).toBe(600);
   });
 });
 
