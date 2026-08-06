@@ -172,3 +172,100 @@ New files (added to `frontend/FILES.md` in the same change):
 
 No resource used from the RESOURCES registry beyond the project's own
 Vitest/ESLint/Playwright-core toolchain already vendored as devDeps.
+
+## REPAIR — 2026-08-06
+
+Fresh-context review (`.claude/dispatch-reports/contrast-tokens-review.md`,
+main checkout, same worktree/branch under review) **REJECTED** the build
+on finding (3): `--accent-primary-canonical` locked the CSS-alias layer
+(`--heatmap-mid`, `--chart-marker`, `--player-black`) but missed **JS-side
+`themeColor('--accent-primary')` reads**, which bypass CSS `var()`
+resolution entirely (`themeColor()` is its own
+`getComputedStyle(...).getPropertyValue(name)` call). Three genuine
+data-series/node-role sites were still reading the darkened anchor
+directly. Everything else in the review — OFF-gating, ratio math,
+migration cadence, gates — was WITNESSED clean and unchanged by this
+repair.
+
+**(1) Enumeration.** Every `themeColor()` call site in `src/` (43 call
+sites across 10 files) was read and classified chart/data-series vs
+chrome/text. Full list in the review-response below; only
+`'--accent-primary'` reads needed reclassification — `'--player-black'`
+/`'--player-white'`/`'--review-current-card'`/`'--state-success'` sites
+already resolve through CSS aliases (`--player-black` etc.) that were
+already canonical-locked in the original build, confirmed unaffected by
+a live before/after check (`getComputedStyle` read, both states,
+unchanged).
+
+**(2) Repointed to `--accent-primary-canonical` (4 sites, all
+data-encoding):**
+- `StabilityPanel.vue:133` — the "Stability" line-chart series color.
+- `BaseChart.vue:498` — the active-index `markPoint` chart marker.
+- `card-tree-echarts.ts:69` (`colors.active`) and `:75`
+  (`colors.stubActiveBorder`) — the card-tree's "active role" node-fill
+  color, plus `:235` (`cAccent` in `tooltipFor`) — the tooltip header
+  color that echoes the same active-role fill for visual consistency.
+
+`--accent-primary-canonical` added to `theme-color.ts`'s `ChromeAnchor`
+union (SSOT lockstep edit theme-color.ts's own header docstring
+requires whenever the color-anchor set changes) so these sites compile
+against the same type-checked vocabulary as every other `themeColor()`
+call.
+
+**Left as disclosed chrome** (per the review's item (4) suggestion,
+confirmed correct on inspection — neither encodes data):
+`BaseChart.vue:360` (axisPointer crosshair) and
+`useEChartsForestRender.ts:149` (tooltip-box border). Both carry an
+inline `contrast-tokens-review.md (4)` marker comment naming the
+disclosure.
+
+**(3) Class guard.** `tests/unit/chart-accent-primary-lock.test.ts` scans
+`src/components/charts/` and `src/composables/analysis/` (the two
+directories that had ANY `themeColor('--accent-primary')` call site,
+verified by grep at authoring time — the guard's scope is disclosed in
+its own header comment as bounded to these two directories, not all of
+`src/`) and fails if a direct `'--accent-primary'` read appears without
+the `contrast-tokens-review.md (4)` marker within 12 lines above it.
+WITNESSED live: temporarily reverted `StabilityPanel.vue`'s fix back to
+a direct `themeColor('--accent-primary')` read — the guard went red,
+naming the exact line; reverted the revert — guard green again (35/35).
+This is the same "verify the guard can fail" discipline
+`tests/CLAUDE.md`'s render-count harness section names.
+
+**(4) Gates — re-run in full, all green:**
+- `npm run build` → exit 0, 1081 modules, no type errors.
+- `npx eslint .` → exit 0, no output.
+- `npm run test:run` → exit 0, **84 files / 1149 tests passed, 3 files /
+  4 tests skipped** (35 new tests from the guard file; skip count
+  unchanged).
+
+**Playwright chart-token witness, re-aimed at the JS-read consumers** (not
+the CSS-alias consumers the original witness sampled): a fresh headless
+pass against `vite preview` on :4599 (killed after) evaluated
+`getComputedStyle(document.documentElement).getPropertyValue(name)` —
+the exact expression `themeColor()` executes, so this is a faithful
+stand-in for every fixed call site without needing to import/execute the
+Vue/ECharts modules directly — for both `--accent-primary-canonical` and
+`--accent-primary`, before and after clicking the real `highContrastText`
+checkbox:
+
+```
+{ "off": { "canonical": "#00a7ff", "accentPrimary": "#00a7ff" },
+  "on":  { "canonical": "#00a7ff", "accentPrimary": "#0069a1" },
+  "canonical_unchanged": true,
+  "accentPrimary_shifted_as_expected": true }
+```
+
+WITNESSED: `--accent-primary-canonical` (every repointed chart/node-role
+site) is byte-identical flag-off vs flag-on; `--accent-primary` (the two
+disclosed chrome sites) shifts, confirming the override itself still
+fires. **Not exercised:** live pixel sampling of an actual rendered chart
+canvas (StabilityPanel/BaseChart needed loaded analysis data to draw a
+real series, which the running preview didn't have — S8 in the ADR-0019
+audit: charts render empty axes with no data loaded). The
+`getComputedStyle`-level check is the exact mechanism `themeColor()`
+uses with no intervening caching, so this is disclosed as a
+mechanism-level witness, not a pixel-level one.
+
+Commit on branch `worktree-agent-a8ba00ad9bf95182c` (same branch,
+following the coordinator's instruction). Same reviewer to re-review.
