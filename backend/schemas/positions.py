@@ -57,3 +57,51 @@ class PositionHashResponse(BaseModel):
     content_hash: str = Field(
         description="Lowercase-hex SHA-256 digest of the normalized position.",
     )
+
+
+class PositionHashBatchRequest(BaseModel):
+    """
+    Request body for ``POST /positions/hash-batch``.
+
+    Card-position-annotations Stage B (the ratified design's §5 —
+    ``.claude/dispatch-reports/card-position-annotations-design.md``):
+    the SPA's game-tree viewer needs the ``content_hash`` for every
+    currently-rendered node to derive its known-position highlight
+    set. Hashing one node per ``POST /positions/hash`` round trip
+    produces request bursts on fast tree expansion/scroll; this batch
+    variant answers N nodes in one round trip.
+
+    ``raw_contents[i]`` is independent domain content (same shape as
+    ``PositionHashRequest.raw_content`` / ``CardCreate.raw_content``)
+    — each item is normalized on its own, not related to its
+    neighbours. Order is preserved: ``PositionHashBatchResponse
+    .content_hashes[i]`` is the hash of ``raw_contents[i]``.
+    """
+
+    raw_contents: list[str] = Field(
+        min_length=1,
+        description=(
+            "Raw domain content for each position to hash, in the "
+            "order hashes are returned. At least one entry; capped "
+            "server-side at config.POSITIONS_HASH_BATCH_MAX (413 "
+            "above the cap, not a 422 — see the route's docstring)."
+        ),
+    )
+
+
+class PositionHashBatchResponse(BaseModel):
+    """
+    Response body for ``POST /positions/hash-batch``.
+
+    ``content_hashes[i]`` is the lowercase-hex SHA-256 digest of
+    ``PositionHashBatchRequest.raw_contents[i]`` — same representation
+    and equality contract as ``PositionHashResponse.content_hash``,
+    index-aligned with the request.
+    """
+
+    content_hashes: list[str] = Field(
+        description=(
+            "Lowercase-hex SHA-256 digests, index-aligned with the "
+            "request's raw_contents."
+        ),
+    )
