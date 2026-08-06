@@ -152,6 +152,82 @@ export function navigateVariation(state: BoardState, direction: number) {
 }
 
 /**
+ * Toggle the active line at the nearest fork — at-or-above the
+ * current node — between the two most recently distinct branches
+ * taken there. The "switch to the nearest alternative branch
+ * (uncle/cousin) and back" keybinding semantics (`nav.toggleMainLine`).
+ *
+ * **Cursor-on-fork case (review nit fix, 2026-08-06).** If the
+ * current node itself has more than one child, it IS the fork — the
+ * user is standing exactly at the decision point, which is the most
+ * natural place for "toggle" to act, so the toggle happens right
+ * there rather than walking past it to some ancestor. (The original
+ * v1 checked only `node.parent`'s children, never the current node's
+ * own — a spec gap the dispatch brief asked to be checked and a
+ * fresh review caught: standing on a fork silently no-op'd or, if an
+ * ancestor fork also existed further up, toggled that ancestor
+ * instead of the fork under the cursor. Fixed by unifying the
+ * "on-fork" and "ancestor-fork" cases into one at-or-above walk
+ * below — the current node is now checked FIRST, before any `parent`
+ * lookup.)
+ *
+ * Walks from the current node upward via `parent` (checking the
+ * current node itself first, then each ancestor in turn) past every
+ * node with `children.length <= 1` (nothing to switch to there) to
+ * the nearest node — self or ancestor — with `children.length > 1`.
+ * At that fork, switches `activeChildIndex` to the last-remembered
+ * "other" branch (a plain advance-by-one, wrapping, on first use —
+ * there is no "other" to return to yet), landing on that branch's own
+ * immediate child. No-ops when no node from the current position up
+ * to the root has more than one child (no fork exists to toggle
+ * anywhere on the path).
+ *
+ * `memory` is keyed `${state.id}::${forkNodeId}` — `NodeId`s are
+ * board-local and can collide across boards (see `IDENTIFIERS.md`),
+ * so the key must carry the board id; `state.id` supplies it. Each
+ * entry records the branch index the toggle switched FROM, so the
+ * next press at the SAME fork returns to it — a true two-value
+ * toggle between the two most recent choices, not a cycle through
+ * every sibling (that's `navigateVariation`'s job, one level only).
+ * Caller owns the `Map`'s lifetime (module-scope in
+ * `useNavigation.ts`, shared across every `useNavigation()` call site
+ * so the toggle history is per-board-per-fork, not per-caller; that
+ * module also registers a `closeBoard` teardown handler that drops
+ * every entry keyed to the closing board — see its
+ * `nav:clear-toggle-memory` registration).
+ *
+ * Ambiguity note (maintainer-facing, from the dispatch brief this
+ * function was built against): "toggle main line variation / last
+ * known uncle-cousin" has no prior art in this codebase to pin exact
+ * semantics against. This is the defensible reading named in the
+ * brief — switch `activeChildIndex` at the nearest fork (self or
+ * ancestor) between the two most recent choices, landing on the
+ * fork's alternate immediate child. A depth-preserving variant
+ * (replaying the new branch's own stored `activeChildIndex` chain
+ * down to the same move number, rather than stopping at the
+ * immediate child) is a straightforward follow-up if that is the
+ * intended reading instead.
+ */
+export function navigateToggleMainLine(state: BoardState, memory: Map<string, number>): void {
+  let node = state.nodes[state.currentNodeId];
+  for (;;) {
+    if (node.children.length > 1) {
+      const key = `${state.id}::${node.id}`;
+      const currentIdx = node.activeChildIndex;
+      const rememberedIdx = memory.get(key);
+      const targetIdx = rememberedIdx !== undefined && rememberedIdx !== currentIdx
+        ? rememberedIdx
+        : (currentIdx + 1) % node.children.length;
+      memory.set(key, currentIdx);
+      navigateTo(state, node.children[targetIdx]);
+      return;
+    }
+    if (!node.parent) return;
+    node = state.nodes[node.parent];
+  }
+}
+
+/**
  * Find the active-path node closest to current where a move
  * placed a stone at the clicked vertex (x, y). Searches backward
  * first — the "where did this stone come from?" reading — then

@@ -22,11 +22,34 @@ import {
   always,
   activeBoardExists,
   engineConnected,
+  engineSelectorMode,
+  reviewSessionHasCurrentCard,
 } from '../../../src/composables/keybindings-catalog';
 import { validateKeybindingsRegistry } from '../../../src/lib/keybindings';
-import { resetWorkspace, store, addBoard } from '../../../src/store';
+import { resetWorkspace, store, addBoard, mutateReviewSession } from '../../../src/store';
 import { createInitialBoard } from '../../../src/store/board-factory';
-import type { KeybindingActionId } from '../../../src/types';
+import type { KeybindingActionId, ReviewCard, CardId, EbisuModel } from '../../../src/types';
+
+// Minimal fixture — mirrors `makeStubCard` in
+// `tests/unit/composables/autonomous-srs-policies.test.ts`. The
+// `reviewSessionHasCurrentCard` predicate only reads
+// `currentIndex`/`queue.length` (via `currentCard`), so the card's
+// own fields are irrelevant beyond satisfying the type.
+function makeStubCard(): ReviewCard {
+  const model: EbisuModel = { alpha: 4, beta: 4, t: 1 };
+  return {
+    id: 1 as CardId,
+    canonicalContent: '(;FF[4]GM[1]SZ[19])',
+    numMoves: 1,
+    model,
+    lastReviewedAt: null,
+    numReviews: 0,
+    suspended: false,
+    defaultVisits: 1000,
+    gamma: 1.0,
+    tags: [],
+  };
+}
 
 // ── enabledWhen predicates ─────────────────────────────────
 
@@ -70,14 +93,62 @@ describe('enabledWhen predicates', () => {
     store.engine.status = 'connected';
     expect(engineConnected()).toBe(true);
   });
+
+  it("'engineSelectorMode' is false when disconnected, even with a selector advertisement", () => {
+    store.engine.status = 'disconnected';
+    store.engine.info = { ...store.engine.info, capabilities: { selector: {} } as never };
+    expect(engineSelectorMode()).toBe(false);
+  });
+
+  it("'engineSelectorMode' is false when connected but no capabilities advertised", () => {
+    store.engine.status = 'connected';
+    store.engine.info = { ...store.engine.info, capabilities: null };
+    expect(engineSelectorMode()).toBe(false);
+  });
+
+  it("'engineSelectorMode' is false when connected with capabilities but no 'selector' key", () => {
+    store.engine.status = 'connected';
+    store.engine.info = { ...store.engine.info, capabilities: {} as never };
+    expect(engineSelectorMode()).toBe(false);
+  });
+
+  it("'engineSelectorMode' is true when connected and 'selector' is advertised", () => {
+    store.engine.status = 'connected';
+    store.engine.info = { ...store.engine.info, capabilities: { selector: {} } as never };
+    expect(engineSelectorMode()).toBe(true);
+  });
+
+  it("'reviewSessionHasCurrentCard' is false with no review session for the active board", () => {
+    expect(reviewSessionHasCurrentCard()).toBe(false);
+  });
+
+  it("'reviewSessionHasCurrentCard' is true once a queue has a card at currentIndex", () => {
+    const boardId = store.boards[store.activeBoardIndex].id;
+    mutateReviewSession(boardId, (draft) => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [makeStubCard()];
+      draft.currentIndex = 0;
+    });
+    expect(reviewSessionHasCurrentCard()).toBe(true);
+  });
+
+  it("'reviewSessionHasCurrentCard' is false once currentIndex runs past the queue (post-nextCard end-of-queue shape)", () => {
+    const boardId = store.boards[store.activeBoardIndex].id;
+    mutateReviewSession(boardId, (draft) => {
+      draft.status = 'FINISHED';
+      draft.queue = [makeStubCard()];
+      draft.currentIndex = 1; // one past the single-card queue
+    });
+    expect(reviewSessionHasCurrentCard()).toBe(false);
+  });
 });
 
 // ── KEYBINDINGS_REGISTRY ship-time smoke ───────────────────
 
 describe('KEYBINDINGS_REGISTRY (ship-time smoke)', () => {
-  it('contains the 12 actions ACTIONS catalog declares', () => {
+  it('contains the 16 actions ACTIONS catalog declares', () => {
     expect(KEYBINDINGS_REGISTRY.length).toBe(Object.keys(ACTIONS).length);
-    expect(KEYBINDINGS_REGISTRY.length).toBe(12);
+    expect(KEYBINDINGS_REGISTRY.length).toBe(16);
   });
 
   it('every action id is unique', () => {
@@ -105,13 +176,17 @@ describe('KEYBINDINGS_REGISTRY (ship-time smoke)', () => {
       'display.toggleOwnershipContinuous',
       'display.toggleOwnershipDots',
       'display.toggleOwnershipLiveness',
+      'engine.cycleModel',
       'engine.ponderToggle',
+      'engine.swapLastActiveModel',
       'nav.end',
       'nav.home',
       'nav.next',
       'nav.prev',
+      'nav.toggleMainLine',
       'nav.variationNext',
       'nav.variationPrev',
+      'review.nextCard',
     ]);
   });
 
@@ -136,11 +211,11 @@ describe('KEYBINDINGS_REGISTRY (ship-time smoke)', () => {
     }
   });
 
-  it('every action id is `<domain>.<verb>` with domain ∈ {nav, display, engine}', () => {
+  it('every action id is `<domain>.<verb>` with domain ∈ {nav, display, engine, review}', () => {
     // KeybindingsView's grouped render assumes this closed set.
     for (const action of KEYBINDINGS_REGISTRY) {
       const [domain] = action.id.split('.');
-      expect(['nav', 'display', 'engine']).toContain(domain);
+      expect(['nav', 'display', 'engine', 'review']).toContain(domain);
     }
   });
 

@@ -127,7 +127,10 @@ const series = computed<EnrichedSeries[]>(() => {
   return [{
     name: 'Stability',
     data: data as unknown as [number, number | null][], // ECharts accepts per-point {value, ...extra} objects but its data type is narrower; the extra fields ride along for the tooltip formatter (the intervening unknown is for the structural mismatch)
-    color: themeColor('--accent-primary'),
+    // Data-series color, not chrome: reads the chart-series-locked
+    // '--accent-primary-canonical' (not '--accent-primary') so the
+    // high-contrast-text override can't silently recolor this line.
+    color: themeColor('--accent-primary-canonical'),
   }];
 });
 

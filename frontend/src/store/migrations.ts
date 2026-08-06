@@ -128,13 +128,13 @@ if (import.meta.hot) import.meta.hot.accept(() => location.reload());
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 61;
+export const CURRENT_SCHEMA_VERSION = 63;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 58 → 59) are
+ * The first `N` entries (currently 1 → 2 through 60 → 61) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -156,87 +156,108 @@ export const CURRENT_SCHEMA_VERSION = 61;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 59 → 60: re-apply the two backfills the archived 45 → 46 and
-  // 46 → 47 bodies were meant to perform but silently no-oped on. Both
-  // walked `out.settings?.…` instead of `out.profile?.settings?.…` —
-  // the exact 47 → 48 wrong-path class, but never themselves corrected
-  // — so `adaptiveReevaluate.valueBinding` (string, default '') and
-  // `appearance.moveSuggestionsFadeMs` (number, default 60) were never
-  // written onto persisted blobs. The defect was masked at runtime by
-  // `updateFromRemote`'s deepMerge against defaults (which is why no
-  // user-visible symptom surfaced); the composition test
-  // (`tests/integration/migration-store-roundtrip.test.ts`) surfaced
-  // both as `[silent-no-op]` defaults-only keys on 2026-06-10. Found by
-  // PR #370 (item `migration-leaf-assertion-and-composition-test`);
-  // corrective item `archived-migration-wrong-path-corrective`.
+  // 61 → 62: reshape `boards[*].analysisRange` (single per-board slot,
+  // `[startPly, endPly]`) into `boards[*].analysisRanges` (keyed per
+  // branch-stem `BranchRangeKey` — `composables/analysis/branch-range-
+  // key.ts`). Design proposal §1 Candidate C; commissioner adjudication
+  // (ledger rows 112/119) also overrules the design's proposed 32-entry
+  // LRU eviction — the new map is deliberately UNCAPPED (see the field's
+  // doc comment on `BoardState.analysisRanges` in `types/game.ts`).
   //
-  // Archived bodies are frozen (append-only invariant), so the fix is a
-  // NEW migration with the CORRECT paths via `witnessedContainer` — a
-  // typo here fails loudly at the runtime-shape witness instead of
-  // no-oping and stamping the version. Both containers are witnessed
-  // (`profile.settings.engine.katago.adaptiveReevaluate` exists from the
-  // 29 → 30 seed; `profile.settings.appearance` is present from v1), and
-  // the blob-side resolution keeps the prior bodies' inline
-  // non-null-object tolerance: a partial / legacy blob whose container is
-  // absent no-ops exactly as the broken bodies intended.
+  // Carry-over, not drop (commissioner-adjudicated, same rows: a real
+  // user-visible behavior difference — "my range survives the upgrade"
+  // vs "my range resets once" — decided in favor of survives). A
+  // pre-existing `analysisRange` is converted into a single entry under
+  // the branch key computed from the board's CURRENT active-variation
+  // path at migration time — the only key computable from a frozen
+  // blob; a board visited on a *different* branch after this migration
+  // runs seeds its own fresh default the normal way
+  // (`useAnalysisTimeline`'s reseed-on-key-change path), same as any
+  // other never-before-visited branch.
   //
-  // Idempotent: a pre-existing string `valueBinding` / numeric
-  // `moveSuggestionsFadeMs` is preserved unchanged (a hand-edited or
-  // forward-compat blob keeps its value); only a missing / wrong-typed
-  // leaf is backfilled to the default. The two new display-domain
-  // animation KnobDecls the 46 → 47 body deliberately declined to inject
-  // are NOT re-applied here — that body's choice to defer to the
-  // defaults-side seed for fresh profiles is correct and remains the
-  // `[no-backfill]` posture pinned in the composition test.
+  // The active-path walk (root → leaf via `activeChildIndex`) and the
+  // branch-key derivation are INLINED here rather than imported from
+  // `getActiveVariationPath` / `deriveBranchRangeKey` — deliberately, so
+  // this migration body stays self-contained and frozen (append-only
+  // invariant) independent of those modules' future evolution. The
+  // algorithm mirrors both exactly: walk from `rootNodeId`, following
+  // `children[activeChildIndex]` until a childless node; a node
+  // contributes `${nodeId}:${chosenChildId}` to the key iff it has more
+  // than one child.
+  //
+  // Idempotent: a board that already carries `analysisRanges` (re-run,
+  // or a forward-compat blob) is left untouched. A board with neither
+  // field, or a malformed `analysisRange` (not a 2-tuple), is a no-op —
+  // no reason to synthesize a range nothing asked for. `boards`
+  // absent/non-array is a no-op (very-legacy or partial blob).
   (blob: any) => {
     const out = structuredClone(blob);
-    const adaptive = witnessedContainer(
-      out,
-      'profile.settings.engine.katago.adaptiveReevaluate',
-    );
-    if (adaptive) {
-      const a = adaptive as { valueBinding?: unknown };
-      if (typeof a.valueBinding !== 'string') {
-        a.valueBinding = '';
-      }
-    }
-    const appearance = witnessedContainer(out, 'profile.settings.appearance');
-    if (appearance) {
-      const ap = appearance as { moveSuggestionsFadeMs?: unknown };
-      if (typeof ap.moveSuggestionsFadeMs !== 'number') {
-        ap.moveSuggestionsFadeMs = 60;
+    if (Array.isArray(out.boards)) {
+      for (const board of out.boards) {
+        if (!board || typeof board !== 'object') continue;
+        if (board.analysisRanges !== undefined) continue;
+        const legacyRange = board.analysisRange;
+        if (!Array.isArray(legacyRange) || legacyRange.length !== 2) continue;
+
+        const nodes = board.nodes && typeof board.nodes === 'object' ? board.nodes : {};
+        const path: string[] = [];
+        let cur = board.rootNodeId;
+        const seen = new Set<string>();
+        while (typeof cur === 'string' && nodes[cur] && !seen.has(cur)) {
+          seen.add(cur);
+          path.push(cur);
+          const node = nodes[cur];
+          const children = Array.isArray(node.children) ? node.children : [];
+          if (children.length === 0) break;
+          const idx = typeof node.activeChildIndex === 'number' ? node.activeChildIndex : 0;
+          cur = children[idx] ?? children[0];
+        }
+
+        const legs: string[] = [];
+        for (let i = 0; i < path.length - 1; i++) {
+          const node = nodes[path[i]];
+          if (node && Array.isArray(node.children) && node.children.length > 1) {
+            legs.push(`${path[i]}:${path[i + 1]}`);
+          }
+        }
+        const branchKey = legs.join('|');
+
+        board.analysisRanges = { [branchKey]: legacyRange };
+        delete board.analysisRange;
       }
     }
     return out;
   },
-  // 60 → 61: backfill `profile.settings.engine.katago.calibrationVisits`
-  // (number, default 1000) — the new default visit budget for the opt-in
-  // mint-time komi-calibration feature. The leaf is read by
-  // `MintCardModal` (prefills the per-mint visits input when the
-  // "calibrate komi" checkbox is shown) and seeded in `defaults.ts`; a
-  // persisted blob predating this field would otherwise carry no value
-  // and rely on `updateFromRemote`'s deepMerge to surface the default.
-  // Backfilling explicitly keeps the persisted shape honest (the
-  // composition test pins it) rather than leaning on the merge.
+  // 62 → 63: backfill `profile.settings.appearance.highContrastText`
+  // (boolean, default false) — the opt-in text/glyph-contrast override
+  // for the `cluster` theme (ADR-0019 audit §S4 corrective; see the
+  // field's doc comment on `AppSettings.appearance.highContrastText` in
+  // `schema.ts` for the full rationale). A persisted blob predating this
+  // field would otherwise carry no value and rely on
+  // `updateFromRemote`'s deepMerge to surface the default; backfilling
+  // explicitly keeps the persisted shape honest (the composition test
+  // pins it) rather than leaning on the merge. Default `false` also
+  // preserves the OFF-by-default / byte-identical-to-today contract for
+  // every pre-existing workspace blob, the same guarantee a fresh
+  // install gets from `defaults.ts`.
   //
   // Container witnessed against the runtime shape (`witnessedContainer`,
-  // per step 3 of the add-a-migration recipe): the
-  // `profile.settings.engine.katago` container exists from the original
-  // settings seed, so a typo'd path fails loudly here rather than
-  // no-oping and stamping the version. The blob-side resolution keeps the
-  // sibling bodies' non-null-object tolerance: a partial / legacy blob
-  // whose container is absent no-ops.
+  // per step 3 of the add-a-migration recipe): `profile.settings.
+  // appearance` is present from v1, so a typo'd path fails loudly here
+  // rather than no-oping and stamping the version. The blob-side
+  // resolution keeps the sibling bodies' non-null-object tolerance: a
+  // partial / legacy blob whose container is absent no-ops.
   //
-  // Idempotent: a pre-existing numeric `calibrationVisits` is preserved
+  // Idempotent: a pre-existing boolean `highContrastText` is preserved
   // unchanged (a hand-edited or forward-compat blob keeps its value);
   // only a missing / wrong-typed leaf is backfilled to the default.
   (blob: any) => {
     const out = structuredClone(blob);
-    const katago = witnessedContainer(out, 'profile.settings.engine.katago');
-    if (katago) {
-      const k = katago as { calibrationVisits?: unknown };
-      if (typeof k.calibrationVisits !== 'number') {
-        k.calibrationVisits = 1000;
+    const appearance = witnessedContainer(out, 'profile.settings.appearance');
+    if (appearance) {
+      const ap = appearance as { highContrastText?: unknown };
+      if (typeof ap.highContrastText !== 'boolean') {
+        ap.highContrastText = false;
       }
     }
     return out;

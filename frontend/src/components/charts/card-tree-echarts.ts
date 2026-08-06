@@ -40,13 +40,21 @@ export interface EChartsTreeNode {
   payload: NodePayload;
 }
 
-// Palette: cyan accent (--accent-primary) is the codebase's primary;
-// cold nodes sit in the chrome substrate's surface tones. Stub
+// Palette: cyan accent (--accent-primary-canonical) is the codebase's
+// primary; cold nodes sit in the chrome substrate's surface tones. Stub
 // borders pick up the active accent when their head card is in the
 // active set — the spec's 4-role partition is preserved (the role
 // stays 'stub') but the visual signal "matched but summarized" is
 // recoverable. Read at use time via themeColor() so the values track
 // theme.css changes.
+//
+// `active` / `stubActiveBorder` read '--accent-primary-canonical', NOT
+// '--accent-primary': this is a data-encoding color (which of the 4
+// roles a node has), not chrome text, so it must not shift when the
+// high-contrast-text override darkens '--accent-primary' for its
+// TEXT/CTA role (contrast-tokens-review.md (3)). The guard test
+// (tests/unit/chart-accent-primary-lock.test.ts) enforces this file
+// never reads '--accent-primary' directly.
 //
 // `--review-current-card` is the substrate handle for "the card
 // currently under review in an active SR session" — aliases to
@@ -58,13 +66,13 @@ export interface EChartsTreeNode {
 // handle is the white-player chart-series colour (red in the dark
 // theme), not orange.
 const colors = {
-  get active()             { return themeColor('--accent-primary'); },
+  get active()             { return themeColor('--accent-primary-canonical'); },
   get activeBorder()       { return themeColor('--text-0'); },
   get context()            { return themeColor('--surface-3'); },
   get contextBorder()      { return themeColor('--text-2'); },
   get stub()               { return themeColor('--surface-2'); },
   get stubBorder()         { return themeColor('--border-3'); },
-  get stubActiveBorder()   { return themeColor('--accent-primary'); },
+  get stubActiveBorder()   { return themeColor('--accent-primary-canonical'); },
   get bucket()             { return themeColor('--surface-0'); },
   get bucketBorder()       { return themeColor('--border-2'); },
   get current()            { return themeColor('--review-current-card'); },
@@ -102,6 +110,16 @@ export function toEChartsNode(
       name: `Card ${node.cardId}`,
       payload: { kind: 'card', cardId: node.cardId, role: node.role },
       symbolSize: node.role === 'active' ? 12 : 8,
+      // On-canvas annotation is the bare card id — `name` stays
+      // `Card ${cardId}` for tooltips/keying (unchanged), but the
+      // rendered label must not repeat "Card " for every node in the
+      // forest simultaneously. Mirrors the `stub`/`bucket` branches'
+      // own `label.formatter` below. Overridden by the isSuspended
+      // spread below when the card is suspended (💤 takes priority).
+      label: {
+        show: true,
+        formatter: () => String(node.cardId),
+      },
       itemStyle: {
         // Precedence: isSelected (green) > isCurrent (orange /
         // --review-current-card) > role default. `isSelected`
@@ -222,7 +240,9 @@ export function tooltipFor(
 ): string {
   const cText1 = themeColor('--text-1');
   const cText2 = themeColor('--text-2');
-  const cAccent = themeColor('--accent-primary');
+  // Mirrors `colors.active` above (the node-role fill this tooltip
+  // header echoes) — chart-series-locked canonical, not '--accent-primary'.
+  const cAccent = themeColor('--accent-primary-canonical');
   const cBorder2 = themeColor('--border-2');
   const cSurface0 = themeColor('--surface-0');
   if (payload.kind === 'stub') {

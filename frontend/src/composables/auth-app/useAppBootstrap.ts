@@ -37,6 +37,7 @@ import { i18n } from '../../i18n';
 import { isSupportedLocale, DEFAULT_LOCALE } from '../../i18n/locales';
 import type { BoardId } from '../../types';
 import { useQeubo, reconcileQeuboKnobs, rehydrateExperimentClaims } from '../useQeubo';
+import { applyContrastTextAttribute } from './contrast-text-attribute';
 import type { useAuth } from './useAuth';
 
 // Path-prefix allowlist for the knob-registry coherence check (PR #410
@@ -149,6 +150,28 @@ export function useAppBootstrap(
   watch(
     () => store.profile.settings.appearance.theme,
     (theme) => document.documentElement.setAttribute('data-theme', theme),
+    { immediate: true },
+  );
+
+  // Mirror the opt-in high-contrast-text override onto
+  // `<html data-contrast-text="...">`, same shape as the theme mirror
+  // immediately above. `theme.css`'s
+  // `[data-theme="cluster"][data-contrast-text="on"]` block is the only
+  // consumer — it exists solely to darken `--text-2` / `--accent-primary`
+  // past WCAG's 4.5:1 floor (ADR-0019 audit §S4) without touching the
+  // `dark` theme or the untouched OFF-state cluster block. The attribute
+  // is REMOVED (not set to `"off"`) when the flag is false, so the OFF
+  // state has no attribute at all and the override selector structurally
+  // cannot match — this is the byte-identical-to-today guarantee, not
+  // just a value flip. `immediate: true` syncs at setup-time so a
+  // pre-hydration default (`false`) lands as a no-op matching the
+  // attribute's absence from index.html. The set/remove decision itself
+  // is `applyContrastTextAttribute` (`./contrast-text-attribute.ts`),
+  // pulled out to a pure unit so the OFF-state guarantee is unit-testable
+  // without mounting this whole composable.
+  watch(
+    () => store.profile.settings.appearance.highContrastText,
+    (on) => applyContrastTextAttribute(document.documentElement, on),
     { immediate: true },
   );
 

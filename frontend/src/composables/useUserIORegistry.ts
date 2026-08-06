@@ -49,6 +49,7 @@ import {
 } from '../lib/keybindings';
 import { KEYBINDINGS_REGISTRY } from './keybindings-catalog';
 import { captureMode } from '../lib/keybindings-capture';
+import { anyModalOpen } from './useModalKeyboard';
 
 export function useUserIORegistry() {
   // Reactive key→action map. Recomputes when `store.profile.settings.keybindings`
@@ -91,6 +92,16 @@ export function useUserIORegistry() {
     // See `src/lib/keybindings-capture.ts` for the flag's
     // lifecycle.
     if (captureMode.value !== null) return;
+
+    // Modal guard: while any modal wired through useModalKeyboard is
+    // open, its own controls are the only thing the keyboard should
+    // reach. Without this, a registry-bound key pressed while focus
+    // sits on a modal's own <button> (not covered by the form-control
+    // guard below) would fire the underlying page's action beneath
+    // the modal (ADR-0019 audit, S5). useModalKeyboard.ts owns the
+    // Escape/Tab handling for the modal itself; this is the other
+    // half of the same seam.
+    if (anyModalOpen.value) return;
 
     // Context Guard: ignore hardware events when user is typing.
     //

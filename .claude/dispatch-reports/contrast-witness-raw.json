@@ -1,0 +1,483 @@
+{
+  "initial": {
+    "theme": "cluster",
+    "contrastAttr": null,
+    "hasAttr": false
+  },
+  "beforeSweep": {
+    "examined": 400,
+    "pass": 208,
+    "fail": 192,
+    "failing": [
+      {
+        "text": "◀",
+        "color": "rgb(122, 111, 109)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 10,
+        "fontWeight": "400",
+        "ratio": "3.84",
+        "floor": 4.5
+      },
+      {
+        "text": "12",
+        "color": "rgb(122, 111, 109)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 10,
+        "fontWeight": "400",
+        "ratio": "3.84",
+        "floor": 4.5
+      },
+      {
+        "text": "Mint Card",
+        "color": "rgb(0, 167, 255)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "2.08",
+        "floor": 4.5
+      },
+      {
+        "text": "🔲 ▶",
+        "color": "rgb(122, 111, 109)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 10,
+        "fontWeight": "400",
+        "ratio": "3.84",
+        "floor": 4.5
+      },
+      {
+        "text": "🌲 ▶",
+        "color": "rgb(122, 111, 109)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 10,
+        "fontWeight": "400",
+        "ratio": "3.84",
+        "floor": 4.5
+      },
+      {
+        "text": "⚙️ ▶",
+        "color": "rgb(122, 111, 109)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 10,
+        "fontWeight": "400",
+        "ratio": "3.84",
+        "floor": 4.5
+      },
+      {
+        "text": "▾",
+        "color": "rgb(122, 111, 109)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 9,
+        "fontWeight": "400",
+        "ratio": "3.84",
+        "floor": 4.5
+      },
+      {
+        "text": "MOVE 11",
+        "color": "rgb(254, 218, 247)",
+        "bg": "rgb(0, 167, 255)",
+        "fontSize": 10,
+        "fontWeight": "700",
+        "ratio": "2.08",
+        "floor": 4.5
+      },
+      {
+        "text": "#",
+        "color": "rgb(122, 111, 109)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 10,
+        "fontWeight": "700",
+        "ratio": "3.84",
+        "floor": 4.5
+      },
+      {
+        "text": "B: 0 · W: 0",
+        "color": "rgb(122, 111, 109)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 10,
+        "fontWeight": "400",
+        "ratio": "3.84",
+        "floor": 4.5
+      },
+      {
+        "text": "Game Tree",
+        "color": "rgb(122, 111, 109)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 9,
+        "fontWeight": "400",
+        "ratio": "3.84",
+        "floor": 4.5
+      },
+      {
+        "text": "Library",
+        "color": "rgb(122, 111, 109)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.84",
+        "floor": 4.5
+      },
+      {
+        "text": "Cards",
+        "color": "rgb(122, 111, 109)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.84",
+        "floor": 4.5
+      },
+      {
+        "text": "Settings",
+        "color": "rgb(0, 167, 255)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "2.08",
+        "floor": 4.5
+      },
+      {
+        "text": "Analysis",
+        "color": "rgb(122, 111, 109)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.84",
+        "floor": 4.5
+      },
+      {
+        "text": "Other",
+        "color": "rgb(122, 111, 109)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.84",
+        "floor": 4.5
+      },
+      {
+        "text": "Session (UI)",
+        "color": "rgb(122, 111, 109)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.84",
+        "floor": 4.5
+      },
+      {
+        "text": "Analysis Environment",
+        "color": "rgb(122, 111, 109)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.84",
+        "floor": 4.5
+      },
+      {
+        "text": "Card Sets (Decks)",
+        "color": "rgb(122, 111, 109)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.84",
+        "floor": 4.5
+      },
+      {
+        "text": "Advanced Registry",
+        "color": "rgb(0, 167, 255)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "2.08",
+        "floor": 4.5
+      },
+      {
+        "text": "Analysis Layout",
+        "color": "rgb(122, 111, 109)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.84",
+        "floor": 4.5
+      },
+      {
+        "text": "Keybindings",
+        "color": "rgb(122, 111, 109)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.84",
+        "floor": 4.5
+      },
+      {
+        "text": "activeTab",
+        "color": "rgb(122, 111, 109)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.84",
+        "floor": 4.5
+      },
+      {
+        "text": "↺",
+        "color": "rgb(122, 111, 109)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.84",
+        "floor": 4.5
+      },
+      {
+        "text": "sidebarExpanded",
+        "color": "rgb(122, 111, 109)",
+        "bg": "rgb(254, 218, 247)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.84",
+        "floor": 4.5
+      }
+    ]
+  },
+  "found": {
+    "found": true
+  },
+  "toggledViaUI": true,
+  "afterToggleAttrs": {
+    "theme": "cluster",
+    "contrastAttr": "on"
+  },
+  "afterSweep": {
+    "examined": 400,
+    "pass": 368,
+    "fail": 32,
+    "failing": [
+      {
+        "text": "1",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(44, 49, 58)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.61",
+        "floor": 4.5
+      },
+      {
+        "text": "2",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      },
+      {
+        "text": "3",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      },
+      {
+        "text": "4",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      },
+      {
+        "text": "5",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      },
+      {
+        "text": "6",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      },
+      {
+        "text": "7",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      },
+      {
+        "text": "8",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      },
+      {
+        "text": "9",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      },
+      {
+        "text": "10",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      },
+      {
+        "text": "11",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      },
+      {
+        "text": "12",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      },
+      {
+        "text": "13",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      },
+      {
+        "text": "14",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      },
+      {
+        "text": "15",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      },
+      {
+        "text": "16",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      },
+      {
+        "text": "17",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      },
+      {
+        "text": "18",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      },
+      {
+        "text": "19",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      },
+      {
+        "text": "20",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      },
+      {
+        "text": "21",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      },
+      {
+        "text": "22",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      },
+      {
+        "text": "23",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      },
+      {
+        "text": "24",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      },
+      {
+        "text": "25",
+        "color": "rgb(125, 135, 153)",
+        "bg": "rgb(40, 44, 52)",
+        "fontSize": 12,
+        "fontWeight": "400",
+        "ratio": "3.86",
+        "floor": 4.5
+      }
+    ]
+  },
+  "afterRevert": {
+    "contrastAttr": null,
+    "hasAttr": false
+  }
+}

@@ -23,7 +23,19 @@ import { computed } from 'vue';
 import type { StoneColor, BoardState, GameNode, NodeId } from '../../types';
 import UserBadge from '../chrome/UserBadge.vue';
 import { useTransientHint } from '../../composables/useTransientHint';
-import { store } from '../../store';
+import { store, touchSession } from '../../store';
+import { getRulesetResolution } from '../../engine/util';
+import { RULESET_NAMES, type RulesetName } from '../../engine/rulesets';
+
+// Toggle the persisted `session.ui.showStoneMoveNumbers` flag and bump
+// the session counter SyncService keys persistence on (it no longer
+// deep-watches `store.session`; see `sessionVersion` in
+// `store/index.ts`). Replaces the inline template write, which the
+// counter would not observe.
+function toggleStoneMoveNumbers(): void {
+  store.session.ui.showStoneMoveNumbers = !store.session.ui.showStoneMoveNumbers;
+  touchSession();
+}
 
 interface StatusMetadata {
   readonly blackName: string;
@@ -49,9 +61,26 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update-komi', value: number): void;
+  (e: 'update-rules', value: RulesetName): void;
 }>();
 
 const { hint } = useTransientHint();
+
+// Sourced from `props.board` directly (not `metadata.rules`, which is
+// `useMetadata`'s display-only `RU` passthrough with a silent
+// `'Japanese'` default) — the dropdown's default must reflect the
+// board's *actual* `RU` resolution, including the explicit 'unknown'
+// arm when it doesn't case-insensitively match one of the four
+// ruling-mandated names (ADR-0002: no silent coercion).
+const rulesetResolution = computed(() => getRulesetResolution(props.board));
+
+function onRulesChange(e: Event): void {
+  const value = (e.target as HTMLSelectElement /* bound on the rules <select> */).value;
+  // The <select>'s options are exactly RULESET_NAMES (plus the
+  // disabled unrecognized-placeholder, which is never a selectable
+  // value), so a change event's value is always a RulesetName.
+  emit('update-rules', value as RulesetName);
+}
 
 const turn = computed<StoneColor>(() => props.board.turn);
 const captures = computed(() => props.board.captures);
@@ -82,7 +111,19 @@ const moveNumber = computed((): number => {
         {{ metadata?.whiteName }}
       </span>
       <span class="game-info">
-        {{ metadata?.rules }} · {{ $t('statusBar.komi') }}
+        <select
+          class="rules-select"
+          :class="{ unrecognized: rulesetResolution.kind === 'unknown' }"
+          :value="rulesetResolution.kind === 'resolved' ? rulesetResolution.name : ''"
+          @change="onRulesChange"
+          :title="$t('statusBar.editRules')"
+        >
+          <option v-if="rulesetResolution.kind === 'unknown'" value="" disabled>
+            {{ $t('statusBar.rulesUnrecognized') }}
+          </option>
+          <option v-for="name in RULESET_NAMES" :key="name" :value="name">{{ name }}</option>
+        </select>
+        · {{ $t('statusBar.komi') }}
         <input
           type="number"
           class="komi-input"
@@ -99,7 +140,7 @@ const moveNumber = computed((): number => {
         class="move-numbers-btn"
         :class="{ active: store.session.ui.showStoneMoveNumbers }"
         :title="$t('statusBar.toggleMoveNumbers')"
-        @click="store.session.ui.showStoneMoveNumbers = !store.session.ui.showStoneMoveNumbers"
+        @click="toggleStoneMoveNumbers"
       >#</button>
       <span class="caps">B: {{ captures.B }} · W: {{ captures.W }}</span>
       <UserBadge />
@@ -182,6 +223,31 @@ const moveNumber = computed((): number => {
    white side. */
 .stone-chip.active {
   box-shadow: 0 0 0 2px var(--accent-secondary);
+}
+
+/* Rules dropdown — same low-contrast register as the komi input
+   (transparent, dashed underline, accent-primary on focus/hover).
+   `.unrecognized` swaps to the warning accent so the fail-loud
+   'unrecognized — choose' state (ADR-0002) reads as a notice, not a
+   normal idle control. */
+.rules-select {
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed var(--border-3);
+  color: var(--text-1);
+  font-size: var(--text-body);
+  font-family: inherit;
+  padding: 0;
+  outline: none;
+  transition: color var(--duration-default), border-color var(--duration-default);
+}
+.rules-select:focus, .rules-select:hover {
+  color: var(--accent-primary);
+  border-bottom: 1px solid var(--accent-primary);
+}
+.rules-select.unrecognized {
+  color: var(--accent-secondary);
+  border-bottom: 1px solid var(--accent-secondary);
 }
 
 .komi-input {
