@@ -143,6 +143,12 @@ export const store = reactive<GlobalStore>({
   // ProfileState). Cloned so the boot fetch / commitMint don't mutate
   // the module-level default array.
   knownTags: structuredClone(defaultKnownTags),
+  // Non-persisted cold-start workspace-fetch lifecycle (ADR-0019 audit
+  // S1; see GlobalStore's field comment and types/app.ts). Starts
+  // 'loading': App.vue's gate must not show a plausible-but-default
+  // workspace as if it were the real one before SyncService's hydrate
+  // (or its "nothing to fetch" resolution) has run at least once.
+  workspaceLoadState: { kind: 'loading' },
   session: {
     // NIL-UUID sentinels minted as the session/profile brands: the pre-auth
     // placeholder identity, replaced on login (brand mint at sentinels).
@@ -804,6 +810,12 @@ export function resetWorkspace(): void {
   // leak into the next session until the boot getTags() fetch
   // overwrote it. Server-derived cache; see the ProfileState invariant.
   store.knownTags = structuredClone(defaultKnownTags);
+  // The workspace is back to its (honest) default; nothing is being
+  // fetched. Covers both resetWorkspace's callers: SyncService's
+  // identity-out branch (which already knows there's no pending
+  // fetch) and the perf-scenario harness's direct calls — either way
+  // a stale 'loading'/'error' state must not survive a reset.
+  store.workspaceLoadState = { kind: 'loaded' };
   store.session = {
     id: NIL_UUID as SessionId, // NIL-UUID brand mint (logged-out sentinel)
     profileId: NIL_UUID as ProfileId, // NIL-UUID brand mint (logged-out sentinel)

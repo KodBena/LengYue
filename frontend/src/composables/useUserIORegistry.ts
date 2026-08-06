@@ -103,6 +103,24 @@ export function useUserIORegistry() {
     // half of the same seam.
     if (anyModalOpen.value) return;
 
+    // Workspace-load guard (ADR-0019 audit S1 review, nit 1): App.vue's
+    // render gate withholds the board/tree/control-panel surfaces while
+    // `store.workspaceLoadState.kind !== 'loaded'`, but this listener is
+    // global (`window`) and independent of the render tree — the
+    // per-action `enabledWhen` predicates (`activeBoardExists` /
+    // `engineConnected`) are satisfied by the store's DEFAULT board
+    // during the loading window, so nav/display-toggle hotkeys and
+    // especially the Space ponder-toggle (a real `analysisService`
+    // WebSocket query, not just a store write) could still fire against
+    // a workspace about to be replaced wholesale by hydrate(). Composed
+    // as the second sibling early-return, after the modal guard above
+    // (per this composable's own prior anticipation note): no modal can
+    // legitimately be open during the load gate today, since every
+    // modal-opening trigger lives inside App.vue's gated toolbar, but
+    // ordering them defensively — modal first — costs nothing and holds
+    // even if that invariant is ever relaxed.
+    if (store.workspaceLoadState.kind !== 'loaded') return;
+
     // Context Guard: ignore hardware events when user is typing.
     //
     // The form-control branches (HTMLInputElement, HTMLTextAreaElement,

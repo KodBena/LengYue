@@ -33,6 +33,7 @@ import type { AnalysisEnvironment } from '../types/analysis-env';
 import type { KnobRegistry } from '../types/knobs';
 import type { CardSet, ReviewSessionData } from '../types/cards';
 import type { QeuboBookmark } from '../types/qeubo';
+import type { WorkspaceLoadState } from '../types/app';
 // PV animation settings shape — `UISession.pvAnimation` references
 // the composable-owned alias (same relationship as pre-split).
 import type { PvAnimationSettings } from '../composables/board/use-pv-animation';
@@ -883,4 +884,13 @@ export interface GlobalStore {
   // `profile` per the ProfileState invariant — out of the persisted
   // blob, it can't be clobbered by the hydrate-vs-fetch race.
   knownTags: string[];
+  // Cold-start workspace-fetch lifecycle (ADR-0019 audit S1). NON-
+  // PERSISTED, same rationale as `knownTags` above: it describes
+  // *this session's* fetch, not user data, and would race the
+  // fetch it describes if it round-tripped through the document.
+  // Owned by `SyncService`; `App.vue`'s top-level gate reads it to
+  // decide whether the board/tab-rail/control-panel surfaces (or a
+  // loading/error state) are rendered. See `types/app.ts` for the
+  // full lifecycle doc.
+  workspaceLoadState: WorkspaceLoadState;
 }
