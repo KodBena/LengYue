@@ -133,18 +133,18 @@ function activePath(boardId: BoardId): RootedPath {
 // TW/TB scoring node. Path: root, pd, dp, pp, pass, pass, comment-only
 // → 6 tree nodes past root, 5 of them real moves.
 const SGF_TRAILING_MOVELESS =
-  '(;FF[4]GM[1]SZ[19];B[pd];W[dp];B[pp];W[];B[];C[final scoring node, no move])';
+  '(;FF[4]GM[1]SZ[19]RU[Tromp-Taylor];B[pd];W[dp];B[pp];W[];B[];C[final scoring node, no move])';
 
 // Mid-path-moveless shape: a comment-only node sits BETWEEN two real
 // moves, not at the leaf. Path: root, pd (move #1), comment-only,
 // dp (move #2), pp (move #3) → 4 tree nodes past root, 3 real moves.
 const SGF_MIDPATH_MOVELESS =
-  '(;FF[4]GM[1]SZ[19];B[pd];C[mid-path comment, no move];W[dp];B[pp])';
+  '(;FF[4]GM[1]SZ[19]RU[Tromp-Taylor];B[pd];C[mid-path comment, no move];W[dp];B[pp])';
 
 // Normal game, no moveless node anywhere on the path — every non-root
 // node is a real move. Regression guard: full-range analysis must
 // still cover every move after the fix.
-const SGF_NORMAL = '(;FF[4]GM[1]SZ[19];B[pd];W[dp];B[pp])';
+const SGF_NORMAL = '(;FF[4]GM[1]SZ[19]RU[Tromp-Taylor];B[pd];W[dp];B[pp])';
 
 beforeEach(() => {
   vi.useFakeTimers();
