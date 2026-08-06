@@ -103,6 +103,7 @@ frontend/src/
 │   │   └── StabilityPanel.vue         [B3]  Per-position stability metric over the variation path; extractor-selectable.
 │   │
 │   ├── chrome/                              Application shell. Generic UI primitives.
+│   │   ├── EngineModelSelect.vue      [B1]  Toolbar MODEL-identity slot (SELECTOR `<select>` / LEAF static label + tooltip); self-sources model-selection state only, isolated from ToolbarEngineMetrics's metrics-tick re-renders so a live tick can't reassert the select's DOM and kill hover.
 │   │   ├── EngineQueueTooltip.vue     [B1]  Toolbar badge + hover panel listing in-flight KataGo queries with ETA.
 │   │   ├── FloatingThumbnail.vue      [B3]  Cursor-anchored floating board preview (sole host: TreeWidget's variation hover). Synchronous show/hide gate; content derives from a host-supplied `() => BoardSnapshot` accessor rendered via MiniBoard (the ChartPreviewBox accessor contract); seam-level stranding backstops (80px anchor radius / scroll / blur). Re-banded B1→B3 when the v-html SVG-string sink became the BoardSnapshot projection (render-lifecycle consolidation).
 │   │   ├── LocalePicker.vue           [B1]  Top-nav locale picker (flag + native name).
@@ -111,7 +112,7 @@ frontend/src/
 │   │   ├── SystemLogPanel.vue         [B1]  Always-visible system log bar with idle row.
 │   │   ├── TabWidget.vue              [B1]  Controlled tabbed navigation.
 │   │   ├── Toolbar.vue                [B3]  Application toolbar shell (title, buttons, popover mounts). Reads only `isConnected`; telemetry lives in ToolbarEngineMetrics so the shell doesn't re-render per packet.
-│   │   ├── ToolbarEngineMetrics.vue   [B3]  Live engine-telemetry strip leaf (version/model/winrate/scoreLead/PPS/latency/watchdog + queue tooltip); self-sources the per-packet/per-tick reads, extracted out of Toolbar (render-coupling fix).
+│   │   ├── ToolbarEngineMetrics.vue   [B3]  Live engine-telemetry strip leaf (version/winrate/scoreLead/PPS/latency/watchdog + queue tooltip + mounts EngineModelSelect); self-sources the per-packet/per-tick reads, extracted out of Toolbar (render-coupling fix). MODEL slot moved to EngineModelSelect.vue (2026-08-06) so this leaf's own 1Hz tick re-render can't reach the select's DOM.
 │   │   ├── ToolbarSliderPopover.vue   [B1]  Toolbar badge + hover popover: compact priority-ordered list of every scalar knob (quick-access surface for the knob registry).
 │   │   └── UserBadge.vue              [B1]  Auth-identity badge; opens LoginModal on click.
 │   │
