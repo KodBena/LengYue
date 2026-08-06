@@ -70,6 +70,7 @@ describe('teardown registry — production completeness (the real load-guarantee
       'analysis-ledger',
       'stability-trajectories',
       'analysis-bundle-summaries',
+      'known-positions:purge',
       'review:abort-all',
       'board-thumbnails',
       'card-thumbnails',

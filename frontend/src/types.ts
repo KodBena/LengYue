@@ -113,6 +113,7 @@ export type {
   AnalysisTabId,
   CardId,
   GameSourceId,
+  ContentHash,
 } from './types/ids';
 
 // ── Game domain (Go value objects, game-tree state, game-coupled brands) ──────

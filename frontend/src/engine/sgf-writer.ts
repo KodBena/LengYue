@@ -136,7 +136,7 @@ export function setSgfRootKomi(sgf: string, komi: number): string {
   return before + rewrittenRoot + after;
 }
 
-export function serializeActivePath(state: BoardState): string {
+export function serializeActivePath(state: BoardState, targetNodeId?: NodeId): string {
   // SHAPE NOTE (branded-path-types arc, 2026-06-10): despite the name,
   // this serializes ROOT→CURRENT — the moves up to the cursor — NOT the
   // active variation line root→leaf. The minting consumer
@@ -151,7 +151,17 @@ export function serializeActivePath(state: BoardState): string {
   // (ADR-0002). The misleading name predates the brands; renaming is a
   // maintainer call because the symbol is exposed on the
   // `window.Writer` console-debug surface (`main.ts`).
-  const path = getPath(state.nodes, state.currentNodeId);
+  //
+  // GENERICIZATION (card-position-annotations Stage A, per the ratified
+  // design's §4): `targetNodeId` widens this from "always the cursor"
+  // to "root→any node". Optional and defaulting to
+  // `state.currentNodeId` so every existing call site (mint-time,
+  // `window.Writer`) is byte-identical to before this change — the
+  // widening is additive, not a repurposing of the load-bearing
+  // root→current shape `useMinting` depends on. Stage B's per-node
+  // hash cache (tree annotation markers) is the first caller to pass
+  // an explicit `targetNodeId`.
+  const path = getPath(state.nodes, targetNodeId ?? state.currentNodeId);
 
   let out = '(';
   for (const nodeId of path) {

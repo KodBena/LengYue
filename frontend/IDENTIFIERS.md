@@ -100,6 +100,16 @@ the brand; everything downstream should treat them as opaque.
 | `CardId` | number | server PK | ACL re-brand at `backend-service.ts:135,141,250,305,311,313,348,372` (`raw.id as CardId`, etc.) | persisted (DB row id; flows in synced docs and the card forest) | large (100s–1000s in a real deck) | Sound at the ACL. **Brand-stripped downstream** past the ACL via `as unknown as number`: `useMinting.ts:50` (justified, `:42`), `useCardTreeData.ts:282,452,482`, `useCardTreeHydration.ts:44`, `card-tree-echarts.ts:249`, `ForestDirectory.vue:237`. See `[leaky]` erosion (b). |
 | `GameSourceId` | number | server PK | ACL re-brand at `backend-service.ts:251,312,349` and `library-service.ts:94,108,134,140,141` (`wire.id as GameSourceId`) | persisted (DB row id) | ~10s–100s | Sound at the ACL. Same `as unknown as number` stripping at `ForestDirectory.vue:236`. See `[leaky]` erosion (b). |
 
+### Server-derived content hashes
+
+Not an entity identity — a `ContentHash` identifies a *position*, not a
+row; several `CardId`s can share one (a duplicate mint). Card-position-
+annotations Stage A.
+
+| Name | Prim. | Origin | Construction | Lifetime | Cardinality | Status / notes |
+|------|-------|--------|-------------|----------|-------------|----------------|
+| `ContentHash` | string | server-computed SHA-256 (lowercase hex) | ACL re-brand at `backend-service.ts` (`mapToReviewCard`'s `raw.content_hash as ContentHash`; `hashPosition`'s `raw.content_hash as ContentHash`) | per-session (known-positions map); not itself persisted client-side | one per distinct owned position (≤ card count) | Sound at the ACL — two construction sites, both re-branding a wire `content_hash: string` (`domain.card.Card._serialize_content_hash` / `PositionHashResponse.content_hash` on the backend). Consumed by `state/known-positions.ts`'s `Map<ContentHash, CardId>`. |
+
 ### Local ids (board-scoped, not server-issued)
 
 | Name | Prim. | Origin | Construction | Lifetime | Cardinality | Status / notes |

@@ -60,3 +60,4 @@ import '../composables/review/useReviewSession';
 import '../composables/cards/thumbnail-render-resources';
 import '../composables/cards/useCardThumbnail';
 import '../composables/cards/board-card-trees';
+import '../state/known-positions';

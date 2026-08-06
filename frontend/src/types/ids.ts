@@ -127,3 +127,19 @@ export type AnalysisTabId = Brand<string, 'AnalysisTabId'>;
 // brand — see `services/backend-service.ts`).
 export type CardId = Brand<number, 'CardId'>;
 export type GameSourceId = Brand<number, 'GameSourceId'>;
+
+/**
+ * Lowercase-hex SHA-256 digest of a normalized position's canonical
+ * content (`domain.card.Card.content_hash` on the backend wire;
+ * `normalized_position.content_hash` at the DB layer). NOT a
+ * card-identity brand — a `ContentHash` is a *position* identity;
+ * several `CardId`s can share one `ContentHash` (minting twice off
+ * the identical content), which is exactly the duplicate condition
+ * the known-positions state module (`src/state/known-positions.ts`)
+ * and the mint-dialog duplicate-warning flow exist to surface.
+ * Branded so a raw hex string returned from an unrelated fetch can't
+ * be handed to a `Map<ContentHash, CardId>` lookup by accident — the
+ * ACL (`services/backend-service.ts::mapToReviewCard` /
+ * `::hashPosition`) is the sole minting site.
+ */
+export type ContentHash = Brand<string, 'ContentHash'>;
