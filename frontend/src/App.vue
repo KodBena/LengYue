@@ -236,155 +236,194 @@ function handleNodeSelect(nodeId: NodeId): void {
       @end-game="handleEndGame"
     />
     <SidebarWidget
+      v-if="store.workspaceLoadState.kind === 'loaded'"
       v-show="store.session.ui.sidebarExpanded"
       @load-sgf="openFileDialog"
       @save-sgf="downloadActiveBoard"
     />
 
     <div id="main-workspace">
-      
-      <div class="top-nav-bar">
-        <button class="collapse-btn" @click="store.session.ui.sidebarExpanded = !store.session.ui.sidebarExpanded" :title="$t('app.chrome.toggleSidebar')">
-          {{ store.session.ui.sidebarExpanded ? '◀' : '▶' }}
-        </button>
 
-        <Toolbar
-          :is-match-running="matchControls.isRunning.value"
-          @toggle-engine="engineControls.toggle"
-          @mint-card="triggerMint"
-          @open-match="triggerMatch"
-          @stop-match="handleStopMatch"
-          @open-play="triggerPlay"
-          style="flex: 1; border-bottom: none;"
+      <!-- ADR-0019 audit Finding S1: cold-load honest gate. Before
+           the workspace fetch has resolved (or resolved to "nothing
+           to fetch"), the store's default boards must not be
+           rendered as a plausible, interactive workspace — that was
+           the audit's phantom-37-boards defect. `store.workspaceLoadState`
+           (SyncService-owned, see types/app.ts) drives an exhaustive
+           three-way gate over the board/tree/control-panel surfaces:
+           chrome (toolbar, tab strip) that could mutate workspace
+           state is withheld the same way. The system-log bar and
+           modals stay outside the gate — the log is diagnostic-only
+           and the modals are inert until a (gated-away) toolbar
+           button opens one. -->
+      <template v-if="store.workspaceLoadState.kind === 'loaded'">
+        <div class="top-nav-bar">
+          <button class="collapse-btn" @click="store.session.ui.sidebarExpanded = !store.session.ui.sidebarExpanded" :title="$t('app.chrome.toggleSidebar')">
+            {{ store.session.ui.sidebarExpanded ? '◀' : '▶' }}
+          </button>
+
+          <Toolbar
+            :is-match-running="matchControls.isRunning.value"
+            @toggle-engine="engineControls.toggle"
+            @mint-card="triggerMint"
+            @open-match="triggerMatch"
+            @stop-match="handleStopMatch"
+            @open-play="triggerPlay"
+            style="flex: 1; border-bottom: none;"
+          />
+
+          <div class="right-toggles">
+            <button class="collapse-btn" @click="store.session.ui.boardExpanded = !store.session.ui.boardExpanded" :title="$t('app.chrome.toggleBoard')">
+              🔲 {{ store.session.ui.boardExpanded ? '▶' : '◀' }}
+            </button>
+            <button class="collapse-btn" @click="store.session.ui.treeExpanded = !store.session.ui.treeExpanded" :title="$t('app.chrome.toggleTree')">
+              🌲 {{ store.session.ui.treeExpanded ? '▶' : '◀' }}
+            </button>
+            <button class="collapse-btn" @click="store.session.ui.controlsExpanded = !store.session.ui.controlsExpanded" :title="$t('app.chrome.toggleControls')">
+              ⚙️ {{ store.session.ui.controlsExpanded ? '▶' : '◀' }}
+            </button>
+            <LocalePicker />
+          </div>
+        </div>
+
+        <!-- Persistent system-log bar. Visible when either:
+               (a) `systemLogExpanded` is checked in the Session (UI)
+                   registry — the always-on case, or
+               (b) `transientLogReveal` is currently flashing — an
+                   error- or warning-level message arrived in the
+                   last few seconds while `systemLogExpanded` was
+                   false. See `composables/useTransientLogReveal.ts`
+                   for the timer mechanics.
+             Messages continue to accumulate in the store regardless
+             of the visibility gate. -->
+        <SystemLogPanel
+          v-if="store.session.ui.systemLogExpanded || transientLogReveal"
         />
 
-        <div class="right-toggles">
-          <button class="collapse-btn" @click="store.session.ui.boardExpanded = !store.session.ui.boardExpanded" :title="$t('app.chrome.toggleBoard')">
-            🔲 {{ store.session.ui.boardExpanded ? '▶' : '◀' }}
-          </button>
-          <button class="collapse-btn" @click="store.session.ui.treeExpanded = !store.session.ui.treeExpanded" :title="$t('app.chrome.toggleTree')">
-            🌲 {{ store.session.ui.treeExpanded ? '▶' : '◀' }}
-          </button>
-          <button class="collapse-btn" @click="store.session.ui.controlsExpanded = !store.session.ui.controlsExpanded" :title="$t('app.chrome.toggleControls')">
-            ⚙️ {{ store.session.ui.controlsExpanded ? '▶' : '◀' }}
-          </button>
-          <LocalePicker />
-        </div>
-      </div>
+        <div id="split-workspace">
 
-      <!-- Persistent system-log bar. Visible when either:
-             (a) `systemLogExpanded` is checked in the Session (UI)
-                 registry — the always-on case, or
-             (b) `transientLogReveal` is currently flashing — an
-                 error- or warning-level message arrived in the
-                 last few seconds while `systemLogExpanded` was
-                 false. See `composables/useTransientLogReveal.ts`
-                 for the timer mechanics.
-           Messages continue to accumulate in the store regardless
-           of the visibility gate. -->
-      <SystemLogPanel
-        v-if="store.session.ui.systemLogExpanded || transientLogReveal"
-      />
-
-      <div id="split-workspace">
-        
-        <div
-          id="board-column"
-          v-show="store.session.ui.boardExpanded"
-          :style="store.session.ui.boardSquareMaxWidthPx
-            ? { '--board-target-px': store.session.ui.boardSquareMaxWidthPx + 'px' }
-            : {}"
-        >
-          <div id="content">
-            <BoardWidget
+          <div
+            id="board-column"
+            v-show="store.session.ui.boardExpanded"
+            :style="store.session.ui.boardSquareMaxWidthPx
+              ? { '--board-target-px': store.session.ui.boardSquareMaxWidthPx + 'px' }
+              : {}"
+          >
+            <div id="content">
+              <BoardWidget
+                v-if="activeBoard"
+                :key="activeBoard.id"
+                :state="activeBoard"
+                @move="handleBoardMove"
+                @paste-pv="handlePastePv"
+              />
+            </div>
+            <StatusBar
               v-if="activeBoard"
-              :key="activeBoard.id"
-              :state="activeBoard"
-              @move="handleBoardMove"
-              @paste-pv="handlePastePv"
+              :board="activeBoard"
+              :metadata="metadata"
+              @update-komi="handleUpdateKomi"
             />
           </div>
-          <StatusBar
-            v-if="activeBoard"
-            :board="activeBoard"
-            :metadata="metadata"
-            @update-komi="handleUpdateKomi"
-          />
-        </div>
 
-        <div id="vue-tree-panel" v-show="store.session.ui.treeExpanded">
-          <div id="tree-panel-header">{{ $t('app.chrome.gameTreePanelHeader') }}</div>
-          <TreeWidget
-            v-if="activeBoard"
-            :nodes="activeBoard.nodes"
-            :board-id="activeBoard.id"
-            :game-head-ids="activeBoardGameHeadIds"
-            @select-node="handleNodeSelect"
-          />
-        </div>
+          <div id="vue-tree-panel" v-show="store.session.ui.treeExpanded">
+            <div id="tree-panel-header">{{ $t('app.chrome.gameTreePanelHeader') }}</div>
+            <TreeWidget
+              v-if="activeBoard"
+              :nodes="activeBoard.nodes"
+              :board-id="activeBoard.id"
+              :game-head-ids="activeBoardGameHeadIds"
+              @select-node="handleNodeSelect"
+            />
+          </div>
 
-        <div v-show="store.session.ui.controlsExpanded" class="panel-resizer" @mousedown="startResize"></div>
+          <div v-show="store.session.ui.controlsExpanded" class="panel-resizer" @mousedown="startResize"></div>
 
-        <!-- magic-literal: 220px #control-panel min-width — derived
-             from the tab strip's natural width at the smallest legible
-             font scale (4 tabs × ~50px each + gaps). The audit's
-             cross-cutting Finding #1 was that without a floor, the
-             tab strip's right-most tab fell off-screen at 1024×768.
-             Coupled with the iter-17 container-query threshold (479px)
-             via the Cards-tab `.tree-panel`'s 200px usable floor —
-             changing 220 here would invalidate the 479 derivation
-             in `ForestDirectory.vue`. -->
-        <div
-          id="control-panel"
-          v-show="store.session.ui.controlsExpanded"
-          :style="{ flex: '1 1 0', minWidth: '220px' }"
-        >
-          <TabWidget
-            :key="controlPanelIdentityKey"
-            :tabs="controlTabs"
-            v-model="(store.session.ui.activeTab as string /* widen the tab-id union to TabWidget's string v-model */)"
+          <!-- magic-literal: 220px #control-panel min-width — derived
+               from the tab strip's natural width at the smallest legible
+               font scale (4 tabs × ~50px each + gaps). The audit's
+               cross-cutting Finding #1 was that without a floor, the
+               tab strip's right-most tab fell off-screen at 1024×768.
+               Coupled with the iter-17 container-query threshold (479px)
+               via the Cards-tab `.tree-panel`'s 200px usable floor —
+               changing 220 here would invalidate the 479 derivation
+               in `ForestDirectory.vue`. -->
+          <div
+            id="control-panel"
+            v-show="store.session.ui.controlsExpanded"
+            :style="{ flex: '1 1 0', minWidth: '220px' }"
           >
+            <TabWidget
+              :key="controlPanelIdentityKey"
+              :tabs="controlTabs"
+              v-model="(store.session.ui.activeTab as string /* widen the tab-id union to TabWidget's string v-model */)"
+            >
 
-            <template #library>
-              <div style="flex: 1; display: flex; min-height: 0; width: 100%;">
-                <LibraryTab
-                  @open-library-game="handleLoadLibraryGame"
-                  @open-library-game-new-tab="handleLoadLibraryGameInNewBoard"
-                />
-              </div>
-            </template>
+              <template #library>
+                <div style="flex: 1; display: flex; min-height: 0; width: 100%;">
+                  <LibraryTab
+                    @open-library-game="handleLoadLibraryGame"
+                    @open-library-game-new-tab="handleLoadLibraryGameInNewBoard"
+                  />
+                </div>
+              </template>
 
-            <template #cards>
-              <div style="flex: 1; display: flex; min-height: 0; width: 100%;">
-                <ForestDirectory @load-card="handleLoadCard" />
-              </div>
-            </template>
+              <template #cards>
+                <div style="flex: 1; display: flex; min-height: 0; width: 100%;">
+                  <ForestDirectory @load-card="handleLoadCard" />
+                </div>
+              </template>
 
-            <template #settings>
-              <SettingsTab @force-save="sync.forceSave()" />
-            </template>
+              <template #settings>
+                <SettingsTab @force-save="sync.forceSave()" />
+              </template>
 
-            <template #analysis>
-              <AnalysisControls v-if="activeBoard" :boardId="activeBoard.id" />
-            </template>
+              <template #analysis>
+                <AnalysisControls v-if="activeBoard" :boardId="activeBoard.id" />
+              </template>
 
-            <template #other>
-              <div class="tab-padding">
-                <h3 class="sub-header">{{ $t('other.section.knobRegistry') }}</h3>
-                <KnobRegistryEditor />
+              <template #other>
+                <div class="tab-padding">
+                  <h3 class="sub-header">{{ $t('other.section.knobRegistry') }}</h3>
+                  <KnobRegistryEditor />
 
-                <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.gradientCalibration') }}</h3>
-                <p class="hue-slider-hint">{{ $t('other.label.gradientCalibrationNotice') }}</p>
-                <ColorDebugStrip :steps="500" />
+                  <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.gradientCalibration') }}</h3>
+                  <p class="hue-slider-hint">{{ $t('other.label.gradientCalibrationNotice') }}</p>
+                  <ColorDebugStrip :steps="500" />
 
-                <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.qeuboBookmarks') }}</h3>
-                <QeuboBookmarks />
-              </div>
-            </template>
+                  <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.qeuboBookmarks') }}</h3>
+                  <QeuboBookmarks />
+                </div>
+              </template>
 
-          </TabWidget>
+            </TabWidget>
+          </div>
         </div>
-      </div> </div> </div>
+      </template>
+
+      <div
+        v-else-if="store.workspaceLoadState.kind === 'loading'"
+        id="workspace-boot-state"
+        role="status"
+        aria-busy="true"
+        aria-live="polite"
+      >
+        <div class="workspace-boot-spinner" aria-hidden="true"></div>
+        <p>{{ $t('app.workspace.loading') }}</p>
+      </div>
+
+      <div
+        v-else-if="store.workspaceLoadState.kind === 'error'"
+        id="workspace-boot-state"
+        role="alert"
+      >
+        <p>{{ $t('app.workspace.loadFailed') }}</p>
+        <button class="action-btn-large" style="width: auto; padding-left: var(--space-loose); padding-right: var(--space-loose);" @click="sync.retryHydrate()">
+          {{ $t('app.workspace.retry') }}
+        </button>
+      </div>
+
+    </div> </div>
   </RootErrorBoundary>
 </template>
 
@@ -440,6 +479,28 @@ function handleNodeSelect(nodeId: NodeId): void {
   min-width: 0;
   min-height: 0;
 }
+
+/* ADR-0019 audit S1: cold-load loading/error state, occupying the
+   same flex slot `#split-workspace` would (`#main-workspace`'s
+   `flex-direction: column` + this block's `flex: 1`), so the
+   toolbar-then-content layout shape doesn't jump when the gate
+   resolves. Minimal — a pulsing dot (PboPopover's `.busy-dot`
+   `@keyframes pulse` is the existing chrome idiom for a busy
+   indication) plus centred text, not a full skeleton; C26 only
+   needs a busy indication within ~1s, not a content-shaped
+   placeholder. */
+#workspace-boot-state {
+  flex: 1; min-width: 0; min-height: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--space-default);
+  color: var(--text-2); font-size: var(--text-emphasis);
+}
+.workspace-boot-spinner {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 3px solid var(--surface-2); border-top-color: var(--accent-primary);
+  animation: workspace-boot-spin 0.8s linear infinite;
+}
+@keyframes workspace-boot-spin { to { transform: rotate(360deg); } }
 
 /* Release-scope item 7: board column is a square sized from its
    allocated height (aspect-ratio: 1/1 + height: 100%). The user-

@@ -118,15 +118,32 @@ export class SyncService {
       // hydrate's updateFromRemote will replace the store; no
       // explicit reset needed on this branch. Fire-and-forget; hydrate
       // self-handles (catch → system message). void = intentional non-await.
+      // hydrate() itself owns the workspaceLoadState transition
+      // ('loading' → 'loaded'/'error') for this branch.
       void this.hydrate(next.userId);
-    } else if (wasHydrated) {
+      return;
+    }
+
+    if (wasHydrated) {
       // We were synced to an identity; we're not anymore. Clear
       // the workspace so the next user (or no-user) doesn't see
       // the prior user's data. Privacy: shared-computer scenario.
       // Engine state is intentionally preserved; see
       // resetWorkspace's docstring for the deployment-model
-      // reasoning.
+      // reasoning. resetWorkspace() sets workspaceLoadState back to
+      // 'loaded' (nothing pending) as part of its reset.
       resetWorkspace();
+    } else {
+      // ADR-0019 audit S1: no identity to hydrate for in this auth
+      // state (unauthenticated / authenticating / error / the
+      // userId-less authenticated edge case), and we were never
+      // hydrated this session, so resetWorkspace() above doesn't run
+      // either. Without this, workspaceLoadState would be stuck at
+      // its module-init 'loading' value forever on an unauthenticated
+      // cold start, and App.vue's gate would spin indefinitely. The
+      // store's built-in default workspace IS the honest state here
+      // (there's nothing else to show), so mark it loaded.
+      store.workspaceLoadState = { kind: 'loaded' };
     }
   }
 
@@ -139,16 +156,42 @@ export class SyncService {
    */
   private async hydrate(userId: number): Promise<void> {
     const gen = ++this.hydrationGeneration;
+    // ADR-0019 audit S1: mark the fetch in flight BEFORE the await so
+    // App.vue's gate holds the loading state (or re-enters it, on a
+    // user-triggered retry after 'error') for the whole request, not
+    // just after it resolves.
+    store.workspaceLoadState = { kind: 'loading' };
     try {
       const doc = await api.request<any>('GET', `/documents/${this.docKey}`);
       if (gen !== this.hydrationGeneration) return;  // superseded
       if (doc && doc.data) updateFromRemote(doc.data);
       this.hydratedForUserId = userId;
+      store.workspaceLoadState = { kind: 'loaded' };
       pushSystemMessage('info', i18n.global.t('sync.workspaceLoaded'));
     } catch (err) {
       if (gen !== this.hydrationGeneration) return;
       console.error('[Sync] Hydration failed:', err);
+      const message = err instanceof Error ? err.message : String(err);
+      store.workspaceLoadState = { kind: 'error', message };
       pushSystemMessage('error', i18n.global.t('sync.workspaceLoadFailed'));
+    }
+  }
+
+  /**
+   * Retries the workspace fetch after a failed hydration (ADR-0019
+   * audit S1 error path, C8: explicit error state with retry, never
+   * silently re-showing the stale/default paint). Only meaningful
+   * when the current identity is authenticated with a known userId —
+   * App.vue only renders the retry affordance while
+   * `workspaceLoadState.kind === 'error'`, which only this class's
+   * own `hydrate()` can produce, so the guard here is defense in
+   * depth rather than a reachable no-op path.
+   */
+  public retryHydrate(): void {
+    const state = this.auth.state.value;
+    if (state.kind === 'authenticated' && state.userId !== undefined) {
+      // Fire-and-forget; hydrate self-handles (catch → message + error state).
+      void this.hydrate(state.userId);
     }
   }
 

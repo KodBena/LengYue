@@ -11,6 +11,10 @@
   "app.chrome.toggleControls":            "切换控制面板",
   "app.chrome.gameTreePanelHeader":       "棋谱树",
 
+  "app.workspace.loading":                "正在加载工作区…",
+  "app.workspace.loadFailed":             "工作区加载失败。未发生任何更改或丢失。",
+  "app.workspace.retry":                  "重试",
+
   "localePicker.tooltip":                 "切换界面语言",
   "localePicker.machineTranslatedNotice": "* 机器翻译 — 欢迎贡献修正",
   "localePicker.machineTranslatedTooltip": "此翻译由机器生成,等待母语者审核。欢迎在 GitHub 上贡献修正。",

@@ -11,6 +11,10 @@
   "app.chrome.toggleControls":            "Toggle Control Panel",
   "app.chrome.gameTreePanelHeader":       "Game Tree",
 
+  "app.workspace.loading":                "Loading workspace…",
+  "app.workspace.loadFailed":             "Workspace failed to load. Nothing has been changed or lost.",
+  "app.workspace.retry":                  "Retry",
+
   "localePicker.tooltip":                 "Change interface language",
   "localePicker.machineTranslatedNotice": "* machine-translated — contributions welcome",
   "localePicker.machineTranslatedTooltip": "This catalog was produced by machine translation and is awaiting native-speaker review. Contributions are welcome on GitHub.",
