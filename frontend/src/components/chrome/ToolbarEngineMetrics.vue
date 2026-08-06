@@ -10,6 +10,16 @@
   (docs/notes/postmortem-render-coupling-at-composition-nodes-2026-05-29.md),
   applied to the toolbar telemetry strip. Everything below moved verbatim
   from Toolbar.vue.
+
+  The MODEL slot moved OUT again, to `EngineModelSelect.vue`: this
+  component still whole-renders at ~1Hz on `ENGINE_METRICS_TICK_MS` (a
+  250ms throttle can't coalesce a slower 1000ms source — see the
+  throttled-snapshot comment below), which kept re-patching the model
+  `<select>`'s `<option>`s and killing the user's hover even after the
+  throttle fix (Defect 1, live-witnessed re-broken:
+  docs/dispatch-reports/ui-fix-1b-diagnosis.md). Giving the select its
+  own component instance gives it an independent render effect with no
+  dependency on the tick — see that file's header for the full account.
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
@@ -17,7 +27,8 @@ import { computed } from 'vue';
 import { useThrottledSnapshot } from '../../composables/useThrottledSnapshot';
 import { useI18n } from 'vue-i18n';
 import EngineQueueTooltip from './EngineQueueTooltip.vue';
-import { store, setSelectedModel, activeBoard } from '../../store';
+import EngineModelSelect from './EngineModelSelect.vue';
+import { store, activeBoard } from '../../store';
 import { activeAnalysisKeys } from '../../state/analysis-config';
 import { ledger } from '../../state/analysis-ledger';
 import { useEngineControls } from '../../composables/useEngineControls';
@@ -65,11 +76,15 @@ const { metrics } = useEngineControls();
 // section (`displayed`, ~line 200) — it reads `displayed.value.*`, not
 // `metrics.value.*` directly. See that section's comment for why: an
 // un-throttled read here previously re-ran this component's ENTIRE
-// render (SELECTOR `<select>` included) on every 1 Hz
-// `ENGINE_METRICS_TICK_MS` store tick, and Vue's special-cased
-// `<select>` value-sync then force-reasserted `el.value` on that same
-// cadence, killing the user's hover/preview in the model dropdown
-// (docs/dispatch-reports/ui-defects-investigation.md, Defect 1).
+// render on every 1 Hz `ENGINE_METRICS_TICK_MS` store tick. That WHOLE-
+// RENDER coupling is still true after the throttle (a 250ms throttle
+// is inert against a slower 1000ms source — see the throttled-snapshot
+// comment below) — but it no longer touches the model `<select>`,
+// because that element now lives in a sibling leaf component
+// (`EngineModelSelect.vue`) with its own independent render effect.
+// This component re-rendering on the tick is fine; the select not
+// living inside it is what makes the tick unable to reach it
+// (docs/dispatch-reports/ui-fix-1b-diagnosis.md, Defect 1 re-diagnosis).
 const watchdogClasses = computed(() => {
   if (store.session.ui.watchdogColorTransition) {
     return displayed.value.pingPendingSince !== null
@@ -93,54 +108,17 @@ const watchdogStyle = computed(() => ({
   '--watchdog-animation-ms': `${store.profile.settings.engine.katago.watchdogAnimationMs}ms`,
 }));
 
-// Engine identity (KataGo `query_version` + `query_models` probe).
-// Two separate slots — VERSION and MODEL — each with its own
-// hover tooltip showing the full corresponding probe payload.
-// The model slot's render shape varies by proxy role:
-//
-//   - LEAF / RELAY / ECHO (or SELECTOR-not-advertised): static
-//     label showing `models[0].internalName` (KataGo's short
-//     self-identifier — short and path-free, suitable for
-//     streaming / screenshare contexts).
-//   - SELECTOR (capabilities.selector advertised): `<select>`
-//     dropdown sourced from `engine.info.availableModels` (each
-//     entry's `label` field). Selection writes to
-//     `engine.selectedModel` via the named mutator and persists
-//     through SyncService.
-//
-// In both modes the slot's hover tooltip surfaces the full
-// `query_models` payload (including the privacy-concerning `name`
-// field on LEAF mode) for debugging.
-const engineInternalName = computed(() => store.engine.info.internalName);
+// Engine identity (KataGo `query_version` probe). The VERSION slot
+// stays here; the MODEL slot (LEAF-mode static label / SELECTOR-mode
+// `<select>` + its own tooltip) is `EngineModelSelect.vue` — a
+// self-sourcing leaf mounted below, per that file's own header
+// comment for why it's split out (the 1Hz-tick hover-kill witness).
 const engineVersion = computed(() => store.engine.info.version);
-const isSelectorMode = computed(() => {
-  const caps = store.engine.info.capabilities;
-  return caps !== null && 'selector' in caps;
-});
-const availableModels = computed(() => store.engine.info.availableModels);
-const selectedModel = computed(() => store.engine.selectedModel);
-function onSelectModel(event: Event) {
-  const target = event.target as HTMLSelectElement; // DOM: handler bound on the model <select>, so target is that element
-  setSelectedModel(target.value || null);
-  // Return focus to the document body so the global space-bar
-  // ponder toggle (wired in `useUserIORegistry`) fires correctly
-  // on the next keystroke. Without the blur, focus stays on the
-  // <select>, and `useUserIORegistry`'s `HTMLSelectElement` guard
-  // bails on the keydown — the user's "pick model, press space"
-  // workflow then needs an intervening click outside the toolbar.
-  target.blur();
-}
 const versionTooltip = computed(() => {
   const payload = store.engine.info.versionPayload;
   return payload
     ? `query_version response:\n${JSON.stringify(payload, null, 2)}`
     : t('toolbar.engineVersionTooltipPending');
-});
-const modelTooltip = computed(() => {
-  const payload = store.engine.info.modelsPayload;
-  return payload
-    ? `query_models response:\n${JSON.stringify(payload, null, 2)}`
-    : t('toolbar.engineModelTooltipPending');
 });
 
 // Live engine-evaluation surface — slim-tier preview of the
@@ -196,11 +174,18 @@ const scoreLeadDisplay = computed(() => {
 // re-ran this component's whole render on every `ENGINE_METRICS_TICK_MS`
 // (1000ms) store tick regardless of whether the watchdog fields actually
 // changed — ADR-0010's render-locality corollary: "a reactive read anywhere
-// in a template re-runs the whole render function." Vue's `<select>`
-// value-sync then reasserted `el.value` on that cadence, killing hover in
-// the SELECTOR model dropdown (Defect 1,
-// docs/dispatch-reports/ui-defects-investigation.md). Fix: route the
-// watchdog fields through the same gated snapshot as everything else here.
+// in a template re-runs the whole render function." Routing it through
+// `useThrottledSnapshot` here does NOT stop that whole-render coupling —
+// `ENGINE_METRICS_TICK_MS` (1000ms) is slower than this throttle's own
+// 250ms window, so a throttle with nothing faster to coalesce is inert
+// (docs/dispatch-reports/ui-fix-1b-diagnosis.md re-diagnosed this after
+// the fix shipped and found the tick still firing this component's render
+// at ~1Hz). What actually stops the user-visible symptom is
+// `EngineModelSelect.vue` no longer being a descendant of this render at
+// all — see the MODEL-slot comment above and that file's own header.
+// This throttle is kept for its original, still-valid purpose: coalescing
+// the numeric-display churn (PPS / latency / winrate / scoreLead) to ~4 Hz
+// so those redraw less often than per-packet.
 //
 // Deliberately reusing the EXISTING 250 ms throttle rather than adding a
 // second, faster-but-still-gated one for the watchdog fields alone: the
@@ -245,24 +230,11 @@ const displayed = useThrottledSnapshot(liveMetrics, TOOLBAR_METRICS_REDRAW_THROT
       <span class="m-lbl">{{ $t('toolbar.metric.version') }}</span>
       <span class="m-val engine-version-val">{{ engineVersion !== null ? `v${engineVersion}` : '—' }}</span>
     </div>
-    <div class="metric engine-identity" :title="modelTooltip">
-      <span class="m-lbl">{{ $t('toolbar.metric.model') }}</span>
-      <select
-        v-if="isSelectorMode"
-        class="m-val engine-id-val engine-model-select"
-        :value="selectedModel ?? ''"
-        @change="onSelectModel"
-      >
-        <option
-          v-for="entry in availableModels"
-          :key="entry.label"
-          :value="entry.label"
-          :disabled="!entry.healthy"
-          :title="entry.healthy ? entry.label : t('toolbar.modelUnavailable', { label: entry.label })"
-        >{{ entry.label }}{{ entry.healthy ? '' : ' (unavailable)' }}</option>
-      </select>
-      <span v-else class="m-val engine-id-val">{{ engineInternalName ?? '—' }}</span>
-    </div>
+    <!-- MODEL slot: self-sourcing leaf (see EngineModelSelect.vue's
+         header comment). Reads no metrics-derived state, so it never
+         re-renders on the metrics tick regardless of how often THIS
+         component's own render runs. -->
+    <EngineModelSelect />
     <!-- Live engine evaluation — slim preview of the user-
          captured rootInfo display arc (see the corresponding
          computeds in <script>). Two hardcoded W-framed
@@ -309,12 +281,10 @@ const displayed = useThrottledSnapshot(liveMetrics, TOOLBAR_METRICS_REDRAW_THROT
 .metric { display: flex; align-items: center; gap: var(--space-tight); min-width: 0; }
 .m-lbl  { color: var(--border-3); font-size: var(--text-tiny); text-transform: uppercase; letter-spacing: var(--tracking-default); }
 .m-val  { color: var(--accent-primary); font-weight: bold; }
-/* Engine-identity slots (VERSION + MODEL): the model's `internalName`
-   can be 30–40 chars (`kata1-b18c384nbt-s9131461376-d4087399203` and
-   similar). Shown in full — the toolbar has room and the user
-   explicitly wanted the full identifier visible without hover. The
-   `cursor: help` on the value cues the hover tooltip (full probe
-   response, including the privacy-concerning `name` field). */
+/* Engine-identity slot (VERSION; MODEL's twin rule lives in
+   EngineModelSelect.vue's own scoped style — `<style scoped>` doesn't
+   cascade across component boundaries). `cursor: help` on the value
+   cues the hover tooltip (full probe response). */
 .engine-identity { flex-shrink: 0; }
 /* Watchdog dot. magic-literal: #00ff88 (green) is the in-codebase
    liveness-OK convention; var(--state-attention) is the
@@ -350,14 +320,5 @@ const displayed = useThrottledSnapshot(liveMetrics, TOOLBAR_METRICS_REDRAW_THROT
   from { color: #00ff88; }
   to   { color: var(--state-attention); }
 }
-.engine-version-val, .engine-id-val, .eval-val { white-space: nowrap; cursor: help; }
-/* SELECTOR-mode model dropdown. The .m-val class on the same
-   element supplies the accent colour + bold weight; this rule
-   overrides only the chrome — transparent background + thin
-   border so it reads as a native part of the metrics row rather
-   than a heavy form control. font-family is set explicitly
-   because <select> elements default to system-UI typography and
-   wouldn't inherit the surrounding monospace; pointer cursor
-   overrides .engine-id-val's `help`. */
-.engine-model-select { background: transparent; border: 1px solid var(--border-3); padding: 0 var(--space-tight); border-radius: var(--radius-default); cursor: pointer; font-family: monospace; font-size: var(--text-emphasis); }
+.engine-version-val, .eval-val { white-space: nowrap; cursor: help; }
 </style>
