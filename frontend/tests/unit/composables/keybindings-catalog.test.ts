@@ -28,6 +28,7 @@ import {
 import { validateKeybindingsRegistry } from '../../../src/lib/keybindings';
 import { resetWorkspace, store, addBoard, mutateReviewSession } from '../../../src/store';
 import { createInitialBoard } from '../../../src/store/board-factory';
+import { mintDialogRequestCount } from '../../../src/composables/useMintDialogSignal';
 import type { KeybindingActionId, ReviewCard, CardId, EbisuModel } from '../../../src/types';
 
 // Minimal fixture — mirrors `makeStubCard` in
@@ -146,9 +147,9 @@ describe('enabledWhen predicates', () => {
 // ── KEYBINDINGS_REGISTRY ship-time smoke ───────────────────
 
 describe('KEYBINDINGS_REGISTRY (ship-time smoke)', () => {
-  it('contains the 16 actions ACTIONS catalog declares', () => {
+  it('contains the 17 actions ACTIONS catalog declares', () => {
     expect(KEYBINDINGS_REGISTRY.length).toBe(Object.keys(ACTIONS).length);
-    expect(KEYBINDINGS_REGISTRY.length).toBe(16);
+    expect(KEYBINDINGS_REGISTRY.length).toBe(17);
   });
 
   it('every action id is unique', () => {
@@ -171,6 +172,7 @@ describe('KEYBINDINGS_REGISTRY (ship-time smoke)', () => {
     // instead. See the catalog header's persisted-id contract.
     const ids = KEYBINDINGS_REGISTRY.map((a) => a.id as string).sort();
     expect(ids).toEqual([
+      'card.mint',
       'display.toggleMoveNumbers',
       'display.toggleMoveSuggestions',
       'display.toggleOwnershipContinuous',
@@ -211,11 +213,11 @@ describe('KEYBINDINGS_REGISTRY (ship-time smoke)', () => {
     }
   });
 
-  it('every action id is `<domain>.<verb>` with domain ∈ {nav, display, engine, review}', () => {
+  it('every action id is `<domain>.<verb>` with domain ∈ {nav, display, engine, review, card}', () => {
     // KeybindingsView's grouped render assumes this closed set.
     for (const action of KEYBINDINGS_REGISTRY) {
       const [domain] = action.id.split('.');
-      expect(['nav', 'display', 'engine', 'review']).toContain(domain);
+      expect(['nav', 'display', 'engine', 'review', 'card']).toContain(domain);
     }
   });
 
@@ -235,5 +237,13 @@ describe('KEYBINDINGS_REGISTRY (ship-time smoke)', () => {
 
   it('passes the substrate validator (the same call useAppBootstrap makes at ship time)', () => {
     expect(() => validateKeybindingsRegistry(KEYBINDINGS_REGISTRY)).not.toThrow();
+  });
+
+  it("'card.mint' handler bumps the mint-dialog request signal (App.vue's watcher entry point)", () => {
+    const action = KEYBINDINGS_REGISTRY.find((a) => a.id === ACTIONS.cardMint);
+    expect(action).toBeDefined();
+    const before = mintDialogRequestCount.value;
+    action!.handler();
+    expect(mintDialogRequestCount.value).toBe(before + 1);
   });
 });
