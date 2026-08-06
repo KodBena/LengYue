@@ -124,6 +124,12 @@ function enumOptions(key: string): readonly string[] | undefined {
 //     inverted. Tracking note in `docs/handoff-current.md`'s
 //     "Known gaps (frontend)".
 const PATH_TOOLTIPS: Record<string, string> = {
+  'appearance.highContrastText':
+    "Only affects the 'cluster' (light) theme. Darkens the low-emphasis " +
+    "text and the primary accent colour so they clear WCAG's 4.5:1 " +
+    'contrast floor against the theme background; hue is preserved, only ' +
+    'luminance drops. Off by default. Chart/data-series colours and the ' +
+    "'dark' theme are unaffected either way.",
   'engine.katago.overrideSettings.reportAnalysisWinratesAs':
     "Only 'WHITE' is fully supported. 'BLACK' and 'SIDETOMOVE' will " +
     'not be supported in the near future unless another contributor ' +

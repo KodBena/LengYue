@@ -615,6 +615,14 @@ backend; flip the env-var to opt in.
   the Other tab lets the user tune the colour gradient driving
   move-suggestion intensity.
 
+- **High-contrast text (opt-in).** A checkbox next to the theme
+  picker (Settings → Advanced Registry → `appearance.highContrastText`)
+  darkens the light ("cluster") theme's low-emphasis text and
+  primary accent colour just enough to clear WCAG's 4.5:1 contrast
+  floor — same hues, better readability. Off by default; leaves the
+  dark theme and every chart / data-series colour untouched either
+  way.
+
 ## Authentication and persistence
 
 - **Zero-friction local-install mode.** A fresh install runs
