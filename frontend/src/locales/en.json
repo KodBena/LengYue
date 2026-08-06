@@ -243,6 +243,8 @@
   "keybindings.action.displayToggleOwnershipLiveness.description": "Show or hide the liveness highlight on stones the engine disagrees with about ownership.",
   "keybindings.action.reviewNextCard.label":                   "Next / skip card",
   "keybindings.action.reviewNextCard.description":             "Advance the review session to the next card, or skip the current one before grading finishes.",
+  "keybindings.action.reviewPrevCard.label":                   "Previous card",
+  "keybindings.action.reviewPrevCard.description":             "Go back to the previous card in the review session, restoring its board and grade exactly as left.",
   "keybindings.action.cardMint.label":                         "Mint card",
   "keybindings.action.cardMint.description":                   "Open the mint-card dialog for the active board's current position.",
 
