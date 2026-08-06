@@ -1,215 +1,338 @@
 /**
  * src/composables/chrome/useResizablePanel.ts
  *
- * The horizontal resize-bar between the tree panel and the control
- * panel. Per release-scope item 7's "use the resizer to control the
- * board square" model, the drag mutates
- * `store.session.ui.boardSquareMaxWidthPx` — a user-set upper bound
- * on the square board's width. The board column sizes itself via
- * `aspect-ratio: 1/1` (width derived from height); this cap lets
- * the user shrink the board below that natural max so the control
- * panel can have more horizontal room. The mapping is piecewise-
- * linear and clipped:
+ * The nested-splitter tree (resizer-rearch, charter amendment ledger
+ * row 391, geometry per maintainer constraint ledger row 414). TWO
+ * resizer bars, each directly manipulating ONE independently-owned,
+ * persisted width — never derived from the other's (ADR-0012
+ * one-home-per-fact), and — per ledger row 414 — the tree pane's
+ * width changes through EXACTLY that one channel, never
+ * automatically (no fit-to-content, no auto-grow on branch expansion
+ * or navigation):
  *
- *   - Drag right: target grows. Board grows up to the saturation
- *     point (column.height). Past that (ui-fix-56, Defect 5), the
- *     board itself stops changing — aspect-ratio pins the rendered
- *     width — but the drag keeps having a *visible* effect: it
- *     shrinks `#control-panel`'s explicit width instead
- *     (`controlPanelWidthPx`), down to `CONTROL_PANEL_MIN_WIDTH_PX`.
- *     The freed strip shows up as centered margin around the maxed
- *     board via `#split-workspace`'s conditional
- *     `justify-content: center` (App.vue), the same mechanism
- *     Defect 6 uses when the control panel is toggled off — which is
- *     also what makes the resizer bar itself track the cursor past
- *     saturation: it sits between the tree panel and the control
- *     panel inside that centered block, so as the block's total
- *     width shrinks, centering pushes the whole block (board
- *     included) rightward, carrying the resizer with it.
- *   - Drag left: target shrinks. Board shrinks. Saturates at
- *     `MIN_BOARD` (300px) at the low end. `controlPanelWidthPx`
- *     reverts to `undefined` the moment `next` drops back to or
- *     below the saturation point, handing control-panel sizing back
- *     to its default `flex: 1 1 0` fill — byte-identical to the
- *     pre-ui-fix-56 behavior for the whole below-saturation range.
+ *   OUTER bar (`#resizer-outer`, between `#board-column` and
+ *     `#tree-control-wrapper`) → directly sets
+ *     `session.ui.treeControlRegionWidthPx` — the WRAPPER's own
+ *     width (the combined tree+control region), not either pane
+ *     inside it.
  *
- * On mousedown, the drag origin is read from the column's current
- * rendered width (via `getBoundingClientRect`). This makes the
- * first delta visually continuous with what the user is looking
- * at, regardless of whether the persisted target was previously
- * set, undefined, or stale relative to the current window size.
- * The saturation point and the row's "other fixed width" (tree
- * panel + resizer + borders — everything in `#split-workspace`
- * besides the board column and the control panel) are likewise
- * measured once at drag start, not on every `mousemove` — a
- * `mousemove`-time `getBoundingClientRect` read would force a
- * synchronous reflow on the hot path (the same
- * ResizeObserver-cached-geometry discipline `frontend/CLAUDE.md`'s
- * imperative-escape pattern names for other hot paths). The two
- * pure math steps derived from those measurements
- * (`computeBoardTargetPx`, `computeControlPanelWidthPx`) are
- * exported separately so the drag math is unit-testable without a
- * DOM.
+ *   INNER bar (`#resizer-inner`, between `#vue-tree-panel` and
+ *     `#control-panel`, INSIDE the wrapper) → directly sets
+ *     `session.ui.treePanelWidthPx` — the tree panel's own width.
  *
- * `controlPanelWidthPx` is deliberately **not** persisted to the
- * store: it is a derived, session-local render hint (the row's
- * available width is itself a runtime/DOM fact that can change
- * between sessions), not a piece of durable user intent the way
- * `boardSquareMaxWidthPx` is. On reload it starts `undefined`
- * (control panel back to its default flex fill) until the user
- * drags again.
+ * `#control-panel` is ALWAYS `flex: 1 1 0` within the wrapper (pure
+ * CSS, no JS derivation at all) and `#board-column` is ALWAYS `flex:
+ * 1 1 auto` in the outer row (App.vue) — both fully derived, never a
+ * second writer for either persisted fact.
+ *
+ * ── Why TRUE nesting, not a flatter derivation (the geometric fix
+ *    behind the live diagnostic) ──────────────────────────────────
+ * An earlier shape of this rearch treated the row as one flat list
+ * and derived `#board-column`'s width in JS from the OTHER panes'
+ * widths. The live diagnostic
+ * (.claude/dispatch-reports/panel-weirdness-live-investigation.md
+ * §3/§6) measured up to 541px of lag between the cursor and the
+ * divider under that shape, because whichever pane absorbed the
+ * "complement" (the derived one) could sit on the SAME side of a bar
+ * as the pane being dragged — in a flat list, the bar's own screen
+ * position is the SUM of everything before it, and if both the
+ * dragged pane and its complement-absorber are on that same side,
+ * their opposite changes cancel and the bar doesn't move at all.
+ *
+ * TRUE CSS nesting avoids this structurally: `#tree-control-wrapper`
+ * is its own independent flex container, so `#resizer-inner`'s
+ * position depends only on what's INSIDE the wrapper before it
+ * (`#vue-tree-panel`'s width, directly dragged — nothing else is
+ * between them), while `#control-panel` absorbs the wrapper-local
+ * complement on the OTHER side of that bar. One level up,
+ * `#resizer-outer`'s position depends only on `#board-column`'s width
+ * in the OUTER row, which absorbs the complement against the
+ * wrapper's OWN width (directly dragged by the outer bar) — the
+ * dragged quantity (wrapper width) and the absorber (`#board-column`)
+ * are on OPPOSITE sides of that bar too. Both bars therefore track
+ * the cursor 1:1 across their FULL range, with no saturation-
+ * triggered decoupling — see the unit tests
+ * (`useResizablePanel.test.ts`) for the pure-math continuity/no-
+ * clobber probes, and the Playwright probe
+ * (`.claude/dispatch-reports/resizer-rearch-probe.mjs`) for the live
+ * bar-position-vs-cursor lag measurement this argument predicts.
+ *
+ * ── Shared drag math (both bars) ─────────────────────────────────
+ * `computePaneWidthPx(dragOriginPx, totalDeltaPx, minWidthPx,
+ * maxWidthPx, sign)` is the ONE function both bars' `onMouseMove`
+ * calls — `next = dragOriginPx + sign * totalDeltaPx`, clamped. `sign`
+ * differs per bar (`+1` for the INNER bar, `-1` for the OUTER —see
+ * `computePaneWidthPx`'s own doc for why: it depends on which side of
+ * the bar the directly-dragged pane sits on). No regime handoff,
+ * continuous and monotone across the whole domain. `dragOriginPx` is
+ * always read from the DIRECTLY-DRAGGED element's CURRENT rendered
+ * width at `mousedown` (never from the store), which is what makes
+ * the drag-start-clobber class structurally impossible. `maxWidthPx`
+ * (and the fixed-sibling widths it's derived from) is measured once
+ * at `mousedown`, not on every `mousemove`, per the
+ * ResizeObserver-cached-geometry discipline (`frontend/CLAUDE.md`'s
+ * imperative-escape pattern) — a `mousemove`-time
+ * `getBoundingClientRect` read would force a synchronous reflow on
+ * the hot path.
+ *
+ * ── Shared drag-in-progress flag (deferred-reorg mechanism) ─────────
+ * `isAnyPanelResizing` (module-scope, exported) is `true` while
+ * EITHER bar is being dragged — consumed by
+ * `useDeferredContainerBreakpoint.ts` (charter amendment item 2), a
+ * SEPARATE continuity obligation from the geometric width functions
+ * above: a control-panel-hosted component's own internal responsive
+ * breakpoint must not commit mid-gesture. One flag, not two, because
+ * a human drags at most one bar at a time.
+ *
+ * ── Persistence: touchSession() at every write site ──────────────────
+ * `next`'s `SyncService` (ec840417/f645ca42, "version-count
+ * `store.session` in SyncService instead of deep-watching it") no
+ * longer deep-watches `store.session` — it watches a shallow
+ * `sessionVersion` counter that every persistence-relevant
+ * `store.session` write must bump explicitly via `touchSession()`
+ * (`store/index.ts`). A write that skips the bump is a SILENTLY LOST
+ * SAVE. Both `onMouseMoveInner` and `onMouseMoveOuter` call
+ * `touchSession()` immediately after their store write, once per
+ * `mousemove` — SyncService's own debounce coalesces the resulting
+ * burst into one PUT after the drag settles, exactly as the prior
+ * deep-watch did. Covered by `tests/integration/
+ * sync-session-version.test.ts`'s save-coverage net (extended for
+ * both new fields) — a dropped `touchSession()` at either site must
+ * turn a case red there.
  *
  * License: Public Domain (The Unlicense).
  */
 import { onUnmounted, ref } from 'vue';
 import { store, touchSession } from '../../store';
 
-const MIN_BOARD = 300;
-const MAX_BOARD = 4096;
+// The board's own floor. The OUTER bar's upper clamp is derived so
+// the board can never be squeezed narrower than this.
+export const MIN_BOARD_PX = 300;
 
-// magic-literal: mirrors App.vue's own #control-panel min-width
-// (the tab-strip-legibility floor documented at that call site).
-// Exported so App.vue can bind the same value instead of a second
-// hardcoded '220px' literal drifting out of sync with this one.
+// magic-literal: mirrors #control-panel's min-width (App.vue) — the
+// tab-strip-legibility floor documented at that call site. Used here
+// only to derive the INNER bar's upper clamp (tree can't grow so
+// wide it squeezes control below this floor).
 export const CONTROL_PANEL_MIN_WIDTH_PX = 220;
 
+// magic-literal: the tree panel's historical fixed width (pre-
+// amendment `#vue-tree-panel { width: 140px }`). Kept as the FLOOR
+// rather than picking a smaller number: no prior data point validates
+// the tree/game-navigator widget rendering sensibly below 140px.
+export const TREE_PANEL_MIN_WIDTH_PX = 140;
+
+// The wrapper's own floor: it must fit at least the tree floor + the
+// inner resizer + the control-panel floor. Derived, not independently
+// chosen, so the three constants can't drift apart.
+export const WRAPPER_MIN_WIDTH_PX = TREE_PANEL_MIN_WIDTH_PX + 4 + CONTROL_PANEL_MIN_WIDTH_PX;
+
+// Each resizer bar's own rendered width (App.vue `.panel-resizer`).
+export const RESIZER_WIDTH_PX = 4;
+
+// True while EITHER resizer bar is being dragged. See this file's
+// header, "Shared drag-in-progress flag", for what consumes it.
+export const isAnyPanelResizing = ref(false);
+
 /**
- * Pure drag-math: the next `boardSquareMaxWidthPx` target for a
- * given drag origin and cumulative mouse delta, clamped to
- * [MIN_BOARD, MAX_BOARD]. No DOM, no store — a plain function of
- * its inputs so it's directly unit-testable.
+ * Pure drag math shared by both bars: the next pane width for a given
+ * drag origin (the DIRECTLY-DRAGGED element's rendered width at
+ * mousedown), cumulative pointer displacement since mousedown, and a
+ * `sign` that encodes which side of the bar the directly-dragged pane
+ * sits on — clamped to `[minWidthPx, maxWidthPx]`. No DOM, no store,
+ * no regime branch — continuous and monotone across its whole domain
+ * (the direction of monotonicity depends on `sign`, see below).
+ *
+ * `sign` is `+1` when the directly-dragged pane sits to the bar's
+ * LEFT (dragging the bar right pushes the boundary further right,
+ * GROWING that pane — e.g. `#resizer-inner` and the tree panel, which
+ * is to its left) or `-1` when the pane sits to the bar's RIGHT
+ * (dragging right pushes the boundary right, SHRINKING that pane —
+ * e.g. `#resizer-outer` and the tree+control wrapper, which is to its
+ * right). Getting this wrong doesn't break clamping or persistence —
+ * the drag still writes SOME value on every mousemove — but it makes
+ * the bar's own screen position track the cursor at completely the
+ * wrong rate or direction, exactly the class of defect the live
+ * diagnostic's Anomaly 1 named (lag up to 541px under an earlier,
+ * differently-shaped bug in this same file): a first version of this
+ * nested-splitter geometry reused the OUTER bar's sign unchanged for
+ * the INNER bar without re-deriving it for the flipped left/right
+ * relationship, and the Playwright probe caught a 1188px lag as a
+ * direct result — see `useResizablePanel.test.ts`'s monotonicity
+ * blocks, which pin each bar's OWN correct direction so a sign
+ * regression fails loudly here rather than only in a live drag.
+ *
+ * `maxWidthPx` may legitimately be smaller than `minWidthPx` on a
+ * very narrow viewport; the clamp degrades gracefully by clamping to
+ * whichever of the two bounds is actually the min/max of the pair.
  */
-export function computeBoardTargetPx(dragOriginPx: number, totalDeltaPx: number): number {
-  return Math.max(MIN_BOARD, Math.min(dragOriginPx + totalDeltaPx, MAX_BOARD));
+export function computePaneWidthPx(
+  dragOriginPx: number,
+  totalDeltaPx: number,
+  minWidthPx: number,
+  maxWidthPx: number,
+  sign: 1 | -1,
+): number {
+  const next = dragOriginPx + sign * totalDeltaPx;
+  const lo = Math.min(minWidthPx, maxWidthPx);
+  const hi = Math.max(minWidthPx, maxWidthPx);
+  return Math.max(lo, Math.min(next, hi));
 }
 
 /**
- * Pure post-saturation math for Defect 5 (ui-fix-56): given the
- * current board target, the board's own height-driven saturation
- * width, and the row geometry measured once at drag start, returns
- * the explicit width `#control-panel` should render at, or
- * `undefined` when the board hasn't reached saturation (below
- * saturation, `#control-panel` keeps its default `flex: 1 1 0`
- * fill — this function must return `undefined` for every input
- * where `targetPx <= boardColumnSaturationPx`, which is what keeps
- * that range byte-identical to pre-fix behavior).
- *
- * `rowWidthAtDragStartPx === 0` is the "couldn't measure the row at
- * drag start" sentinel (missing `#split-workspace` or
- * `#control-panel` element) — treated the same as "not saturated":
- * no shrink math without real geometry to derive it from.
+ * `computePaneWidthPx` specialised to the tree panel's floor — the
+ * INNER bar's math. `sign = +1`: the tree panel sits to
+ * `#resizer-inner`'s LEFT (`#vue-tree-panel`, then the bar, then
+ * `#control-panel`), so dragging right GROWS it.
  */
-export function computeControlPanelWidthPx(
-  targetPx: number,
-  boardColumnSaturationPx: number,
-  rowWidthAtDragStartPx: number,
-  otherFixedWidthAtDragStartPx: number,
-): number | undefined {
-  if (rowWidthAtDragStartPx === 0 || targetPx <= boardColumnSaturationPx) {
-    return undefined;
-  }
-  const overshootPx = targetPx - boardColumnSaturationPx;
-  const naturalPanelWidthPx =
-    rowWidthAtDragStartPx - otherFixedWidthAtDragStartPx - boardColumnSaturationPx;
-  return Math.max(CONTROL_PANEL_MIN_WIDTH_PX, Math.round(naturalPanelWidthPx - overshootPx));
+export function computeTreePanelWidthPx(
+  dragOriginPx: number,
+  totalDeltaPx: number,
+  maxTreePanelWidthPx: number,
+): number {
+  return computePaneWidthPx(dragOriginPx, totalDeltaPx, TREE_PANEL_MIN_WIDTH_PX, maxTreePanelWidthPx, 1);
+}
+
+/**
+ * `computePaneWidthPx` specialised to the wrapper's floor — the
+ * OUTER bar's math. `sign = -1`: `#tree-control-wrapper` sits to
+ * `#resizer-outer`'s RIGHT (`#board-column`, then the bar, then the
+ * wrapper), so dragging right SHRINKS it (matching the original,
+ * pre-nesting resizer-rearch convention: "drag right narrows the
+ * control-side pane, grows the board").
+ */
+export function computeTreeControlRegionWidthPx(
+  dragOriginPx: number,
+  totalDeltaPx: number,
+  maxRegionWidthPx: number,
+): number {
+  return computePaneWidthPx(dragOriginPx, totalDeltaPx, WRAPPER_MIN_WIDTH_PX, maxRegionWidthPx, -1);
 }
 
 export function useResizablePanel() {
-  const isResizing = ref(false);
-  // Defect 5 (ui-fix-56): explicit #control-panel width past board
-  // saturation, or undefined below it. See computeControlPanelWidthPx.
-  const controlPanelWidthPx = ref<number | undefined>(undefined);
+  // ── INNER bar: tree panel (inside #tree-control-wrapper) ─────────
+  let treeDragOriginPx = 0;
+  let treeMaxWidthPx = TREE_PANEL_MIN_WIDTH_PX;
+  let treeLastMouseX = 0;
 
-  let lastMouseX = 0;
-  let dragOriginPx = 0;
-  // The board's own height-driven width ceiling (aspect-ratio: 1/1
-  // against the column's rendered height), measured once at drag
-  // start.
-  let boardColumnSaturationPx = MAX_BOARD;
-  // Row geometry measured once at drag start; see
-  // computeControlPanelWidthPx's doc for how these combine.
-  let rowWidthAtDragStartPx = 0;
-  let otherFixedWidthAtDragStartPx = 0;
-
-  function startResize(e: MouseEvent) {
+  function startResizeInner(e: MouseEvent) {
     e.preventDefault();
-    isResizing.value = true;
-    lastMouseX = e.clientX;
-    // Reset to the default flex-fill shape at the start of every
-    // drag; onMouseMove re-derives it from this drag's own
-    // measurements before the first store write.
-    controlPanelWidthPx.value = undefined;
+    isAnyPanelResizing.value = true;
+    treeLastMouseX = e.clientX;
 
-    const col = document.getElementById('board-column');
-    if (col) {
-      const colRect = col.getBoundingClientRect();
-      // Use the column's current rendered width as the drag origin
-      // so the user's first delta lands exactly where they expect.
-      dragOriginPx = Math.round(colRect.width);
-      boardColumnSaturationPx = Math.round(colRect.height);
+    const tree = document.getElementById('vue-tree-panel');
+    const wrapper = document.getElementById('tree-control-wrapper');
+
+    if (tree) {
+      // Rendered width, never the stored value — see this file's
+      // header, "no drag-start clobber".
+      treeDragOriginPx = Math.round(tree.getBoundingClientRect().width);
     } else {
-      // Fallback: persisted value, or a sensible mid-range default
-      // if neither the DOM nor the store has anything to offer.
-      dragOriginPx = store.session.ui.boardSquareMaxWidthPx ?? 600;
-      boardColumnSaturationPx = MAX_BOARD;
+      treeDragOriginPx = store.session.ui.treePanelWidthPx ?? TREE_PANEL_MIN_WIDTH_PX;
     }
 
-    const row = document.getElementById('split-workspace');
-    const panel = document.getElementById('control-panel');
-    if (row && panel) {
-      const rowWidthPx = Math.round(row.getBoundingClientRect().width);
-      const panelWidthPx = Math.round(panel.getBoundingClientRect().width);
-      rowWidthAtDragStartPx = rowWidthPx;
-      otherFixedWidthAtDragStartPx = rowWidthPx - dragOriginPx - panelWidthPx;
+    if (wrapper) {
+      const wrapperWidthPx = wrapper.getBoundingClientRect().width;
+      treeMaxWidthPx = Math.max(
+        TREE_PANEL_MIN_WIDTH_PX,
+        Math.round(wrapperWidthPx - CONTROL_PANEL_MIN_WIDTH_PX - RESIZER_WIDTH_PX),
+      );
     } else {
-      // No control panel currently in the row (e.g. dragging isn't
-      // actually reachable without it — .panel-resizer is v-show
-      // gated on controlsExpanded — but fail safe rather than throw):
-      // the "couldn't measure" sentinel, see computeControlPanelWidthPx.
-      rowWidthAtDragStartPx = 0;
-      otherFixedWidthAtDragStartPx = 0;
+      treeMaxWidthPx = treeDragOriginPx;
     }
 
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', stopResize);
+    document.addEventListener('mousemove', onMouseMoveInner);
+    document.addEventListener('mouseup', stopResizeInner);
     document.body.classList.add('resizing');
   }
 
-  function onMouseMove(e: MouseEvent) {
-    if (!isResizing.value) return;
-    const totalDelta = e.clientX - lastMouseX;
-    const next = computeBoardTargetPx(dragOriginPx, totalDelta);
-    store.session.ui.boardSquareMaxWidthPx = next;
-    // `boardSquareMaxWidthPx` is persisted session UI state; bump the session
-    // counter so SyncService schedules a (debounced) save. The per-move bumps
-    // coalesce into one PUT after the drag settles, exactly as the prior deep
-    // `store.session` watch did. See `sessionVersion` in `store/index.ts`.
-    // (`controlPanelWidthPx` below is deliberately NOT persisted — see the
-    // file header — so the bump covers only the board-target write above.)
-    touchSession();
-    controlPanelWidthPx.value = computeControlPanelWidthPx(
-      next,
-      boardColumnSaturationPx,
-      rowWidthAtDragStartPx,
-      otherFixedWidthAtDragStartPx,
+  function onMouseMoveInner(e: MouseEvent) {
+    const totalDelta = e.clientX - treeLastMouseX;
+    store.session.ui.treePanelWidthPx = computeTreePanelWidthPx(
+      treeDragOriginPx,
+      totalDelta,
+      treeMaxWidthPx,
     );
+    // treePanelWidthPx is persisted session UI state; bump the session
+    // counter so SyncService schedules a (debounced) save. Per-move
+    // bumps coalesce into one PUT after the drag settles. See this
+    // file's header, "Persistence: touchSession() at every write
+    // site", and `sessionVersion` in `store/index.ts`.
+    touchSession();
   }
 
-  function stopResize() {
-    isResizing.value = false;
-    document.removeEventListener('mousemove', onMouseMove);
-    document.removeEventListener('mouseup', stopResize);
+  function stopResizeInner() {
+    isAnyPanelResizing.value = false;
+    document.removeEventListener('mousemove', onMouseMoveInner);
+    document.removeEventListener('mouseup', stopResizeInner);
+    document.body.classList.remove('resizing');
+  }
+
+  // ── OUTER bar: tree+control wrapper (in #split-workspace) ────────
+  let regionDragOriginPx = 0;
+  let regionMaxWidthPx = WRAPPER_MIN_WIDTH_PX;
+  let regionLastMouseX = 0;
+
+  function startResizeOuter(e: MouseEvent) {
+    e.preventDefault();
+    isAnyPanelResizing.value = true;
+    regionLastMouseX = e.clientX;
+
+    const wrapper = document.getElementById('tree-control-wrapper');
+    const row = document.getElementById('split-workspace');
+
+    if (wrapper) {
+      regionDragOriginPx = Math.round(wrapper.getBoundingClientRect().width);
+    } else {
+      regionDragOriginPx = store.session.ui.treeControlRegionWidthPx ?? WRAPPER_MIN_WIDTH_PX;
+    }
+
+    if (row) {
+      const rowWidthPx = row.getBoundingClientRect().width;
+      regionMaxWidthPx = Math.max(
+        WRAPPER_MIN_WIDTH_PX,
+        Math.round(rowWidthPx - MIN_BOARD_PX - RESIZER_WIDTH_PX),
+      );
+    } else {
+      regionMaxWidthPx = regionDragOriginPx;
+    }
+
+    document.addEventListener('mousemove', onMouseMoveOuter);
+    document.addEventListener('mouseup', stopResizeOuter);
+    document.body.classList.add('resizing');
+  }
+
+  function onMouseMoveOuter(e: MouseEvent) {
+    const totalDelta = e.clientX - regionLastMouseX;
+    store.session.ui.treeControlRegionWidthPx = computeTreeControlRegionWidthPx(
+      regionDragOriginPx,
+      totalDelta,
+      regionMaxWidthPx,
+    );
+    // treeControlRegionWidthPx is persisted session UI state; bump the
+    // session counter so SyncService schedules a (debounced) save. See
+    // onMouseMoveInner's identical comment above.
+    touchSession();
+  }
+
+  function stopResizeOuter() {
+    isAnyPanelResizing.value = false;
+    document.removeEventListener('mousemove', onMouseMoveOuter);
+    document.removeEventListener('mouseup', stopResizeOuter);
     document.body.classList.remove('resizing');
   }
 
   // If the host SFC unmounts mid-drag (HMR, route change), the
   // document-level mousemove / mouseup listeners would persist and
-  // body.classList would keep the 'resizing' class. stopResize is
-  // idempotent — safe to call when no drag is in flight, removeEvent-
-  // Listener is a no-op for unattached handlers, classList.remove is
-  // a no-op for an absent class. Mirrors HorizontalTimelineVisualizer's
-  // onUnmounted(() => stopDragging()) pattern.
-  onUnmounted(stopResize);
+  // body.classList would keep the 'resizing' class. Both stop*
+  // functions are idempotent — safe to call when no drag is in
+  // flight, removeEventListener is a no-op for unattached handlers,
+  // classList.remove is a no-op for an absent class. Mirrors
+  // HorizontalTimelineVisualizer's onUnmounted(() => stopDragging())
+  // pattern.
+  onUnmounted(() => {
+    stopResizeInner();
+    stopResizeOuter();
+  });
 
-  return { startResize, controlPanelWidthPx };
+  return { startResizeInner, startResizeOuter };
 }

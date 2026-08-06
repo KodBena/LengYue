@@ -494,6 +494,52 @@ class LineageRepositoryPort(Protocol):
         """
         ...
 
+    async def resolve_game_source_root_card_ids(
+        self,
+        ordinals: List[int],
+        *,
+        user_id: UserId,
+    ) -> List[int]:
+        """
+        Resolve `game_source.display_ordinal` tokens to the internal
+        ids of their root cards, restricted to `game_source` rows
+        owned by `user_id`.
+
+        macro-public-id-tokens (restoring the Cards-tab
+        `${gameSourceId}` macro after browse-leak-fix removed its
+        raw-id source, ledger row 456). `PipelineExecutor.run` calls
+        this to turn `ForestQuery.game_source_ordinals` into internal
+        card ids it can hand to `fetch_selection` alongside
+        `context_ids` — the SPA supplies only the per-user ordinal it
+        can see; this Port owns turning that into an addressable PK.
+
+        A game_source can anchor more than one root card (multiple
+        `card_source` rows with `game_source_id` set to the same
+        game_source, e.g. multiple root moves under one imported
+        game) — the return value is the union of every such root
+        across every input ordinal, order and duplication unspecified
+        (the caller de-dups via its own pool_map).
+
+        Tenancy / 404-not-403: an ordinal that doesn't resolve to a
+        `game_source` owned by `user_id` — because no such ordinal
+        exists at all, or because it belongs to a different tenant —
+        raises `GameSourceNotFoundError`. The two cases are
+        indistinguishable by construction: resolution is a single
+        query with `game_source.display_ordinal = :ordinal AND
+        game_source.user_id = :user_id` fused into one WHERE clause,
+        the same predicate-fusion pattern documented in
+        docs/notes/tenancy.md. Fails loudly (ADR-0002) on the FIRST
+        unresolved ordinal rather than silently resolving the ones
+        that do and dropping the ones that don't — a caller-supplied
+        token that doesn't name anything real is a caller error, not
+        a partial-result situation.
+
+        Empty `ordinals` returns an empty list without touching the
+        database (mirrors `fetch_selection`'s empty-`context_ids`
+        short-circuit).
+        """
+        ...
+
 
 class TagFilterRepositoryPort(Protocol):
     """

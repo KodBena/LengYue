@@ -363,6 +363,14 @@ the review controls:
   hidden during this phase so the user isn't influenced by the
   engine.
 
+- **Start marker in the game tree.** While a review session is
+  active, the game-tree panel rings the node the current card
+  starts from — the same visual family as the green "play vs
+  engine" head ring and the engine-match head, an accent-colored
+  ring around the node's circle. It appears when a card loads and
+  disappears when the session ends, so navigating the tree
+  mid-review always shows where the card began.
+
 - **Engine response and grading.** After the user moves,
   KataGo evaluates the position; the palette-compiled grading
   signal produces a recall outcome that Ebisu uses to schedule

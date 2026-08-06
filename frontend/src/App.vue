@@ -69,6 +69,8 @@ import { useReviewSession } from './composables/review/useReviewSession';
 import ColorDebugStrip  from './components/charts/ColorDebugStrip.vue';
 import QeuboBookmarks   from './components/qeubo/QeuboBookmarks.vue';
 import KnobRegistryEditor from './components/KnobRegistryEditor.vue';
+import VisitsLerpConfig from './components/VisitsLerpConfig.vue';
+import PerQueryOverridesConfig from './components/PerQueryOverridesConfig.vue';
 
 useUserIORegistry();
 
@@ -221,26 +223,31 @@ const {
   handleLoadLibraryGameInNewBoard,
 } = useDirtyBoardGuard(confirmLoadModalRef);
 
-const { startResize, controlPanelWidthPx } = useResizablePanel();
+const { startResizeInner, startResizeOuter } = useResizablePanel();
 
-// ui-fix-56 (Defects 5 + 6, same underlying gap: freed row space in
-// #split-workspace is never reflected). #split-workspace centers its
-// row content whenever something has claimed less than its natural
-// share of the row: either the control panel is toggled off
-// entirely (Defect 6), or the resizer has driven #control-panel's
-// width down past the board's own saturation point (Defect 5,
-// `controlPanelWidthPx` — see useResizablePanel.ts). `!treeExpanded`
-// deliberately does NOT participate: #vue-tree-panel is a fixed-width
-// (140px), flex-shrink:0 sibling that never absorbs freed space on
-// its own — with the control panel visible, toggling the tree off
-// just lets #control-panel's flex:1 claim the extra 140px already
-// (no dead space to center away); the dead-space bug is entirely a
-// consequence of #control-panel — the row's one flex-grow:1 element —
-// being narrower than its natural share, which these two conditions
-// already cover.
-const splitWorkspaceCentered = computed(
-  () => !store.session.ui.controlsExpanded || controlPanelWidthPx.value !== undefined,
-);
+// Defect 6 (ui-fix-56), preserved as a documented, minor cosmetic
+// nicety under the nested-splitter geometry (ledger rows 391/414) —
+// see useResizablePanel.ts's header for the two-level nesting model
+// this composes with. #split-workspace centers its row content when
+// the control panel is toggled off entirely.
+//
+// Under the nested model this is now LARGELY (not fully) redundant
+// with a structural effect: #board-column is `flex: 1 1 auto` and
+// #board-square (the actual visual square) is `align-self: center`
+// within it, so #board-column growing into freed space already
+// re-centers the square WITHIN #board-column's own box, continuously,
+// with no discrete class flip. The discrete `justify-content: center`
+// here additionally centers the square across the FULL row (including
+// the tree-only wrapper's own leftover width when control is hidden)
+// rather than only within #board-column's box — the two differ by at
+// most half the tree panel's width (~70px at the default 140px),
+// judged acceptable to keep as the simpler, already-shipped mechanism
+// rather than removing it and accepting that small a asymmetry as a
+// visible regression. `!treeExpanded` deliberately does NOT
+// participate: hiding the tree alone doesn't strand space the way
+// disabling the whole control region does (the wrapper's own binding
+// below already un-claims that space structurally).
+const splitWorkspaceCentered = computed(() => !store.session.ui.controlsExpanded);
 
 const { sync } = useAppBootstrap(auth);
 
@@ -391,13 +398,46 @@ const activeTab = computed<string>({
           :style="splitWorkspaceCentered ? { justifyContent: 'center' } : {}"
         >
 
-          <div
-            id="board-column"
-            v-show="store.session.ui.boardExpanded"
-            :style="store.session.ui.boardSquareMaxWidthPx
-              ? { '--board-target-px': store.session.ui.boardSquareMaxWidthPx + 'px' }
-              : {}"
-          >
+        <!-- resizer-rearch (nested-splitter amendment, ledger row
+             391; geometry corrected per the live diagnostic,
+             .claude/dispatch-reports/panel-weirdness-live-investigation.md
+             §3/§6). #board-column is purely DERIVED — never a second
+             writer (C2) — from the row's structural layout, and now
+             `flex: 1 1 auto` (TRUE flex-fill, not `0 1 auto`): it
+             absorbs 100% of whatever space the tree panel, BOTH
+             resizer bars, and the control panel — each an
+             independently-owned persisted fact
+             (session.ui.treePanelWidthPx, session.ui.controlPanelWidthPx
+             — see useResizablePanel.ts) — did NOT claim, CONTINUOUSLY,
+             with no cap of its own. This is what makes a resizer bar
+             ALWAYS track the cursor 1:1: the diagnostic measured up to
+             541px of pointer/divider lag under the prior `flex: 0 1
+             auto` shape, because that shape let #board-column stop
+             absorbing freed space once its own aspect-ratio square
+             saturated, decoupling every bar's screen position (which
+             is a function of #board-column's width) from the drag
+             past that point. The aspect-ratio SQUARE itself moves down
+             one level, to #board-square below — see its own comment
+             for why splitting "the row-flex slot" from "the visual
+             square" is what fixes this without losing the square. -->
+        <div
+          id="board-column"
+          v-show="store.session.ui.boardExpanded"
+        >
+          <!-- The visual board square + status bar, centered within
+               whatever width #board-column (now unbounded) received.
+               `align-self: center` (not the parent's default stretch)
+               is what lets `aspect-ratio: 1/1` + `height: 100%` derive
+               THIS element's width from its height, independent of
+               #board-column's own (now often wider) box — exactly the
+               same aspect-ratio-cap mechanism #board-column itself
+               used to carry, just no longer coupled to the row's flex
+               math. `max-width: 100%` preserves the existing
+               overconstrained-viewport behavior: shrinks below the
+               natural square (tall-narrow rectangle) rather than
+               overflowing, and the board SVG's own preserveAspectRatio
+               letterboxes inside it exactly as before. -->
+          <div id="board-square">
             <div id="content">
               <BoardWidget
                 v-if="activeBoard"
@@ -415,8 +455,55 @@ const activeTab = computed<string>({
               @update-rules="handleUpdateRules"
             />
           </div>
+        </div>
 
-          <div id="vue-tree-panel" v-show="store.session.ui.treeExpanded">
+        <!-- OUTER resizer (nested-splitter amendment, ledger row 391;
+             geometry per ledger row 414): sits between #board-column
+             and #tree-control-wrapper, directly sets
+             session.ui.treeControlRegionWidthPx — the WRAPPER's own
+             width, never either pane inside it. Gated on
+             controlsExpanded (matching the wrapper's own visibility
+             below): with the control region entirely collapsed there
+             is nothing for this bar to divide board-vs-wrapper room
+             for that the tree's own presence doesn't already handle
+             via #board-column's flex-fill. -->
+        <div v-show="store.session.ui.controlsExpanded" class="panel-resizer" id="resizer-outer" @mousedown="startResizeOuter"></div>
+
+        <!-- The combined tree+control region (nested-splitter
+             amendment). TRUE nested flex container — see
+             useResizablePanel.ts's header for why this two-level
+             nesting (not one flat row with JS-derived widths) is what
+             makes BOTH resizer bars track the cursor 1:1. Width bound
+             to session.ui.treeControlRegionWidthPx ONLY while
+             controlsExpanded — with the control panel hidden, the
+             wrapper holds only the tree and should size to ITS
+             content (140px default or the user's own
+             treePanelWidthPx), not to a stored width that accounted
+             for a control panel that isn't currently rendered. -->
+        <div
+          id="tree-control-wrapper"
+          :style="store.session.ui.controlsExpanded && store.session.ui.treeControlRegionWidthPx !== undefined
+            ? { flex: '0 0 auto', width: store.session.ui.treeControlRegionWidthPx + 'px' }
+            : store.session.ui.controlsExpanded
+              ? { flex: '1 1 0' }
+              : {}"
+        >
+          <!-- resizer-rearch charter amendment + maintainer constraint
+               (ledger row 414): bound to session.ui.treePanelWidthPx —
+               undefined until the user first drags the INNER bar
+               (natural 140px default, byte-identical to the
+               pre-amendment fixed width), an explicit px width after.
+               This is the tree pane's ONLY write channel: no
+               fit-to-content, no auto-grow on branch expansion or
+               navigation — content changes never touch this value.
+               See useResizablePanel.ts. -->
+          <div
+            id="vue-tree-panel"
+            v-show="store.session.ui.treeExpanded"
+            :style="store.session.ui.treePanelWidthPx !== undefined
+              ? { width: store.session.ui.treePanelWidthPx + 'px', flex: '0 0 auto' }
+              : {}"
+          >
             <div id="tree-panel-header">{{ $t('app.chrome.gameTreePanelHeader') }}</div>
             <TreeWidget
               v-if="activeBoard"
@@ -424,29 +511,40 @@ const activeTab = computed<string>({
               :board-id="activeBoard.id"
               :game-head-ids="activeBoardGameHeadIds"
               :known-position-node-ids="activeBoardKnownPositionNodeIds"
+              :review-start-node-id="reviewSession.startingNodeId.value"
               @select-node="handleNodeSelect"
             />
           </div>
 
-          <div v-show="store.session.ui.controlsExpanded" class="panel-resizer" @mousedown="startResize"></div>
+          <!-- INNER resizer (ledger row 414): sits between
+               #vue-tree-panel and #control-panel, INSIDE the wrapper.
+               Directly sets session.ui.treePanelWidthPx — the tree
+               pane's ONE write channel. -->
+          <div v-show="store.session.ui.controlsExpanded && store.session.ui.treeExpanded" class="panel-resizer" id="resizer-inner" @mousedown="startResizeInner"></div>
 
-          <!-- CONTROL_PANEL_MIN_WIDTH_PX (useResizablePanel.ts) — derived
-               from the tab strip's natural width at the smallest legible
-               font scale (4 tabs × ~50px each + gaps). The audit's
-               cross-cutting Finding #1 was that without a floor, the
-               tab strip's right-most tab fell off-screen at 1024×768.
-               Coupled with the iter-17 container-query threshold (479px)
-               via the Cards-tab `.tree-panel`'s 200px usable floor —
-               changing this value would invalidate the 479 derivation
-               in `ForestDirectory.vue`. Single-sourced (ui-fix-56) so
-               the resizer's post-saturation shrink floor (Defect 5) and
-               this static floor can't drift apart. -->
+          <!-- CONTROL_PANEL_MIN_WIDTH_PX (useResizablePanel.ts) —
+               derived from the tab strip's natural width at the
+               smallest legible font scale (4 tabs × ~50px each +
+               gaps). The audit's cross-cutting Finding #1 was that
+               without a floor, the tab strip's right-most tab fell
+               off-screen at 1024×768. Coupled with the iter-17
+               container-query threshold (479px) via the Cards-tab
+               `.tree-panel`'s 200px usable floor — changing this
+               value would invalidate the 479 derivation in
+               `ForestDirectory.vue`.
+
+               resizer-rearch geometry fix (ledger row 414): ALWAYS
+               `flex: 1 1 0` — pure CSS flex-fill WITHIN the wrapper,
+               no JS-derived width, no persisted fact of its own. This
+               is what makes #resizer-inner track the cursor 1:1: the
+               tree pane is directly dragged, and #control-panel
+               absorbs the wrapper-local complement on the bar's OTHER
+               side. See useResizablePanel.ts's header for the full
+               argument. -->
           <div
             id="control-panel"
             v-show="store.session.ui.controlsExpanded"
-            :style="controlPanelWidthPx !== undefined
-              ? { flex: '0 0 auto', width: controlPanelWidthPx + 'px', minWidth: CONTROL_PANEL_MIN_WIDTH_PX + 'px' }
-              : { flex: '1 1 0', minWidth: CONTROL_PANEL_MIN_WIDTH_PX + 'px' }"
+            :style="{ flex: '1 1 0', minWidth: CONTROL_PANEL_MIN_WIDTH_PX + 'px' }"
           >
             <TabWidget
               :key="controlPanelIdentityKey"
@@ -486,6 +584,12 @@ const activeTab = computed<string>({
                   <p class="hue-slider-hint">{{ $t('other.label.gradientCalibrationNotice') }}</p>
                   <ColorDebugStrip :steps="500" />
 
+                  <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.visitsLerp') }}</h3>
+                  <VisitsLerpConfig />
+
+                  <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.perQueryOverrides') }}</h3>
+                  <PerQueryOverridesConfig />
+
                   <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.qeuboBookmarks') }}</h3>
                   <QeuboBookmarks />
                 </div>
@@ -493,6 +597,7 @@ const activeTab = computed<string>({
 
             </TabWidget>
           </div>
+        </div>
         </div>
       </template>
 
@@ -568,10 +673,9 @@ const activeTab = computed<string>({
 
 /* The lower area where the resizer lives. justify-content is bound
    inline (splitWorkspaceCentered, script setup above) rather than
-   here: it's conditional on runtime UI state (controlsExpanded /
-   controlPanelWidthPx), not a static rule. Default flex-start below;
-   see the ui-fix-56 comment on splitWorkspaceCentered for when it
-   flips to centered. */
+   here: it's conditional on runtime UI state (controlsExpanded),
+   not a static rule. Default flex-start below; see
+   splitWorkspaceCentered's comment for when it flips to centered. */
 #split-workspace {
   display: flex;
   flex-direction: row;
@@ -602,54 +706,102 @@ const activeTab = computed<string>({
 }
 @keyframes workspace-boot-spin { to { transform: rotate(360deg); } }
 
-/* Release-scope item 7: board column is a square sized from its
-   allocated height (aspect-ratio: 1/1 + height: 100%). The user-
-   set `--board-target-px` (mutated by the resizer) caps the width
-   below the height-natural max — drag-left grows the cap (board
-   shrinks), drag-right shrinks the cap (board grows up to the
-   height saturation point). When unset, no cap; the board
-   saturates at full square.
+/* resizer-rearch (replaces the release-scope item 7 board-width-cap
+   model — see useResizablePanel.ts's header for the full defect this
+   fixes, ADR-0019 audit S2; extended to a nested-splitter tree under
+   the charter amendment, ledger row 391 / geometry ledger row 414;
+   THIS shape corrected per the live diagnostic,
+   .claude/dispatch-reports/panel-weirdness-live-investigation.md
+   §3/§6, which measured a resizer bar decoupling from the cursor by
+   up to 541px because a `flex: 0 1 auto` (never-grow) board column
+   stops absorbing freed row space the moment its own aspect-ratio
+   square saturates).
 
-   `flex: 0 1 auto` (was `0 0 auto`): allow the column to shrink
-   below the height-natural square when the row is overconstrained
-   (e.g. narrow desktops, snapped half-screen). The control panel's
-   min-width:220px floor then keeps the tab strip on-screen; the
-   board column becomes a tall-narrow rectangle and the SVG
-   letterboxes via its viewBox preserveAspectRatio. */
+   `flex: 1 1 auto` — TRUE flex-fill. #board-column now claims 100% of
+   whatever width #tree-control-wrapper (below — a TRUE nested flex
+   container, itself bound to session.ui.treeControlRegionWidthPx, the
+   OUTER bar's own persisted fact) did NOT claim — continuously,
+   unconditionally, with no cap of its own. This is a structural (not
+   persisted) derivation, never a second writer: no `max-width` or
+   `aspect-ratio` here at all — the visual square lives one level
+   down, in #board-square. Because #board-column is the OUTER row's
+   ONLY flex-grow party, and the wrapper's own width is the ONLY thing
+   the OUTER bar directly drags, #resizer-outer's screen position (a
+   function of #board-column's width, since it sits immediately after
+   it) tracks the cursor 1:1 across the bar's ENTIRE range — see
+   useResizablePanel.ts's header for the full nesting argument, and
+   the diagnostic's Anomaly 1 (up to 541px lag) / Anomaly 4 (board
+   frozen for ~1250px of travel) for the failure mode this replaces. */
 #board-column {
   display: flex;
   flex-direction: column;
-  flex: 0 1 auto;
+  align-items: center;
+  flex: 1 1 auto;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* The visual board square, pushed down from #board-column (see that
+   rule's comment for why). `align-self: center` overrides the
+   parent's default cross-axis stretch, which is what lets
+   `aspect-ratio: 1/1` + `height: 100%` derive THIS element's width
+   from its own height — the same mechanism #board-column used to
+   carry directly, just no longer coupled to the row's flex math, so
+   #board-column can be as wide as the row leaves it (absorbing freed
+   space for bar-tracking continuity) while #board-square stays a true
+   square (or a letterboxed tall-narrow rectangle when overconstrained
+   — same fallback as before) regardless. `max-width: 100%` is the
+   overconstrained-viewport floor: shrinks below the natural square
+   rather than overflowing #board-column; the board SVG's own
+   preserveAspectRatio letterboxes inside it exactly as before. */
+#board-square {
+  display: flex;
+  flex-direction: column;
+  align-self: center;
   height: 100%;
   aspect-ratio: 1 / 1;
-  max-width: var(--board-target-px, 100%);
   min-width: 0;
+  max-width: 100%;
   min-height: 0;
 }
 
 #content { flex: 1; display: flex; justify-content: center; align-items: center; min-height: 0; }
 
-/* magic-literal: 140px `#vue-tree-panel` width — was 220px (iter-21
-   slim-down). The tree-panel is not currently resizable; user said
-   they're "less confident" about the right value because they
-   haven't recently exercised variation-heavy tree navigation. 140
-   is conservative-aggressive: gives the centre column +80px back
-   while preserving room for single-column main-line walks and 1–2
-   side variations at the standard tree-widget node size. If the
-   user finds variation-heavy trees clipping at this width, dial up
-   (180-200) or add a resizer. magic-literal: 5px padding-right —
-   preserved from prior; gives the tree the standard tight margin
-   against the right chrome edge without affecting tree-widget
-   layout. */
-#vue-tree-panel { width: 140px; display: flex; flex-direction: column; border-left: 1px solid var(--surface-1); background: var(--border-1); min-height: 0; flex-shrink: 0; padding-right: 5px; }
+/* The combined tree+control region — a TRUE nested flex container
+   (nested-splitter amendment, ledger row 391 / geometry ledger row
+   414). Its own width is session.ui.treeControlRegionWidthPx (bound
+   inline, App.vue template) — the OUTER bar's persisted fact. `row`
+   direction so #vue-tree-panel, #resizer-inner, and #control-panel
+   lay out exactly like #split-workspace's own children one level up.
+   `min-width: 0` is required for the SAME reason it's required on
+   every flex item wrapping shrinkable content: without it, a flex
+   item's automatic minimum size is its content's intrinsic width,
+   which can force the wrapper wider than its own flex-basis. */
+#tree-control-wrapper { display: flex; flex-direction: row; height: 100%; min-width: 0; min-height: 0; }
+
+/* magic-literal: 140px `#vue-tree-panel` DEFAULT width (was 220px,
+   iter-21 slim-down). Nested-splitter amendment (ledger row 391;
+   maintainer constraint ledger row 414 — this is the tree pane's
+   ONLY write channel, ever): the panel is user-resizable via the
+   INNER `.panel-resizer` (`#resizer-inner`, inside the wrapper above)
+   — the inline `width` style (App.vue template) overrides this
+   default once `session.ui.treePanelWidthPx` is set. 140 remains both
+   the CSS default AND the drag floor (`TREE_PANEL_MIN_WIDTH_PX`,
+   useResizablePanel.ts) — see that constant's comment for why the
+   floor wasn't lowered. magic-literal: 5px padding-right — preserved
+   from prior; gives the tree the standard tight margin against the
+   right chrome edge without affecting tree-widget layout. */
+#vue-tree-panel { width: 140px; flex-shrink: 0; display: flex; flex-direction: column; border-left: 1px solid var(--surface-1); background: var(--border-1); min-height: 0; padding-right: 5px; }
 #tree-panel-header { height: 20px; background: var(--surface-0); border-bottom: 1px solid var(--surface-1); display: flex; align-items: center; padding: 0 var(--space-default); font-size: var(--text-tiny); letter-spacing: var(--tracking-wide); color: var(--text-2); text-transform: uppercase; flex-shrink: 0; }
-#control-panel { border-left: 1px solid var(--surface-1); background: var(--surface-3); flex-shrink: 0; display: flex; flex-direction: column; }
+#control-panel { border-left: 1px solid var(--surface-1); background: var(--surface-3); min-width: 0; display: flex; flex-direction: column; }
 
 /* theme-exception: .panel-resizer #eba46d is a peach accent color
    outside the substrate vocabulary (the chrome substrate has
    --accent-primary cyan and --accent-secondary orange #f0a04a; this
-   peach is distinct from both). Used as a visual handle for the
-   board / control-panel divider. */
+   peach is distinct from both). Used as a visual handle for both
+   nested-splitter divider bars (#resizer-outer, board↔tree;
+   #resizer-inner, tree↔control — see useResizablePanel.ts). */
 .panel-resizer { width: 4px; background: #eba46d; cursor: col-resize; z-index: var(--z-affordance); flex-shrink: 0; transition: background var(--duration-default); }
 .panel-resizer:hover, .panel-resizer:active { background: var(--accent-primary); }
 

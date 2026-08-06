@@ -630,15 +630,48 @@ export interface UISession {
   // Persistent system-log bar below the top nav. Default true — hidden
   // only when the user explicitly unchecks it in the Session (UI) registry.
   systemLogExpanded: boolean;
-  controlPanelWidth: number;
-  // Release-scope item 7: user-controlled cap on the square board's
-  // width, in pixels. The board column is height-driven via
-  // aspect-ratio: 1/1; `boardSquareMaxWidthPx` puts an additional
-  // upper bound, letting the user shrink the board (giving the
-  // control panel more room) below the height-natural max. The
-  // resizer drag mutates this. `undefined` = no cap; the board
-  // saturates at column.height.
-  boardSquareMaxWidthPx?: number;
+  // resizer-rearch (nested-splitter tree, charter amendment ledger
+  // row 391; geometry per maintainer constraint ledger row 414: the
+  // tree pane's width changes through EXACTLY ONE channel — the user
+  // dragging the INNER splitter — never automatically). TWO
+  // independently-owned persisted facts model the whole
+  // board/tree/control split, each set by exactly one resizer bar,
+  // neither derived from the other (ADR-0012 one-home-per-fact):
+  //
+  //   treePanelWidthPx (below) — the tree panel's own width. Set
+  //     ONLY by the INNER bar (`#resizer-inner`, sits between
+  //     `#vue-tree-panel` and `#control-panel`, INSIDE
+  //     `#tree-control-wrapper`). `undefined` = the historical 140px
+  //     default.
+  //
+  //   treeControlRegionWidthPx (this field) — `#tree-control-wrapper`'s
+  //     own width (the combined tree+control region). Set ONLY by the
+  //     OUTER bar (`#resizer-outer`, sits between `#board-column` and
+  //     the wrapper). `undefined` = the wrapper's default `flex: 1 1
+  //     0` fill.
+  //
+  // `#control-panel` and `#board-column` are BOTH fully derived, never
+  // a second writer for either persisted fact — `#control-panel` is
+  // always `flex: 1 1 0` WITHIN the wrapper (native CSS flexbox, no JS
+  // width computation at all), and `#board-column` is `flex: 1 1
+  // auto` in the outer row, absorbing whatever the wrapper didn't
+  // claim. This TRUE two-level CSS nesting (an actual nested flex
+  // container, not one flat row with derived JS widths) is what makes
+  // BOTH resizer bars track the cursor 1:1 across their entire range —
+  // see `useResizablePanel.ts`'s header for the full geometric
+  // argument and the live diagnostic
+  // (.claude/dispatch-reports/panel-weirdness-live-investigation.md)
+  // that measured up to 541px of pointer/divider lag under an earlier,
+  // flatter shape of this same rearch. Migration 61 → 62 drops the
+  // two pre-rearch homes this whole model replaces
+  // (`boardSquareMaxWidthPx`, the persisted board-width cap with no
+  // reliable visible effect past saturation, and the dead
+  // `controlPanelWidth` zombie field, S9) — see that migration's
+  // comment for why no value is carried forward. Both fields below are
+  // purely additive/optional (no migration needed for either — neither
+  // ever existed under a different name in a shipped schema version).
+  treeControlRegionWidthPx?: number;
+  treePanelWidthPx?: number;
   moveFilterThreshold: number;
   moveFilterExpression: string;
   analysisLayout: 'horizontal' | 'vertical';
@@ -699,6 +732,18 @@ export interface UISession {
   // tab-by-tab. Edited via a simple comma-separated text input in
   // the Cards tab.
   cardsContextIds: number[];
+  // macro-public-id-tokens (schema-version 66, ledger row 456): the
+  // Cards-tab `${gameSourceId}` macro's recognized game_source
+  // `display_ordinal` tokens, held unresolved — resolution happens
+  // server-side, within tenancy, inside `/forests/query` itself
+  // (`PipelineExecutor.run`'s new `game_source_ordinals` param). Kept
+  // as a sibling list rather than merged into `cardsContextIds`
+  // because the two are different token kinds on the wire
+  // (`ForestQuery.context_ids` vs `.game_source_ordinals`); merging
+  // them client-side would just require re-splitting them again at
+  // the request boundary. Populated by `expandContextIdMacros`'s
+  // `gameSourceOrdinals` output; consumed by `useCardTreeData.runPipeline`.
+  cardsContextGameSourceOrdinals: number[];
   // Which view the qEUBO toolbar cluster is currently showing.
   // 'applied' = engine sees the persistent values from
   // analysis_env.parameters; 'A' / 'B' temporarily override what

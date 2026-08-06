@@ -642,7 +642,10 @@ export const defaultSessionUI: UISession = {
   // would rather have. Users can re-enable via the Session (UI)
   // registry.
   systemLogExpanded: false,
-  controlPanelWidth: 340,
+  // controlPanelWidthPx intentionally omitted: undefined is the
+  // documented default (schema.ts) — no drag has happened yet, so
+  // #control-panel renders at its natural flex fill. See
+  // useResizablePanel.ts.
   moveFilterThreshold: 0.05,
   moveFilterExpression: 'move.order === 0 || (move.visits / root.visits) >= ui.threshold',
   analysisLayout: 'horizontal',
@@ -685,6 +688,9 @@ export const defaultSessionUI: UISession = {
   // → `[3]` so existing users land on whichever value they were last
   // editing.
   cardsContextIds: [3],
+  // macro-public-id-tokens (schema-version 66): no game_source
+  // ordinal tokens pending resolution by default.
+  cardsContextGameSourceOrdinals: [],
   qeuboToolbarView: 'applied',
   // Delta-analysis panel's view cycle. 'shared' preserves the
   // pre-feature, only-ever-existed view — see the field's doc comment

@@ -53,6 +53,30 @@ class CardNotFoundError(NotFoundError):
     """The card with the given id was not found (or not owned by the caller)."""
 
 
+class GameSourceNotFoundError(NotFoundError):
+    """
+    A `game_source` display-ordinal token does not resolve for the
+    requesting user — either no game_source carries that ordinal at
+    all, or it belongs to a different tenant. The two cases are
+    indistinguishable from the caller's perspective by construction
+    (the resolution query fuses the ordinal and user_id predicates
+    into one WHERE clause, same 404-not-403 pattern as every other
+    tenant-scoped lookup — see docs/notes/tenancy.md).
+
+    Raised by `LineageRepositoryPort.resolve_game_source_root_card_ids`
+    (macro-public-id-tokens: restoring the Cards-tab `${gameSourceId}`
+    macro after browse-leak-fix removed its raw-id source). The route
+    maps this to 404.
+    """
+
+    def __init__(self, *, ordinal: int):
+        self.ordinal = ordinal
+        super().__init__(
+            f"game_source with display_ordinal={ordinal} not found "
+            f"for this user"
+        )
+
+
 class ResourceNotFoundError(NotFoundError):
     """
     The requested static resource is not known.

@@ -19,6 +19,7 @@ import { useNavigation }    from '../../composables/useNavigation';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
 import { warmSnapshotAccessor } from '../../composables/cards/usePreviewSnapshot';
 import { useNodePositionHashes } from '../../composables/cards/useNodePositionHashes';
+import { isReviewStartNode } from '../../composables/forest/tree-review-marker';
 import { themeColor }        from '../../utils/theme-color';
 import FloatingThumbnail    from '../chrome/FloatingThumbnail.vue';
 import { boardsById }        from '../../store';
@@ -68,6 +69,17 @@ const props = withDefaults(
     // `usePlayVsEngine` precedent) — TreeWidget only renders the
     // membership test, never fetches or derives it itself.
     knownPositionNodeIds?: ReadonlySet<NodeId>;
+    // The active review session's starting node — "where a card
+    // starts" (wanted-feature 4 / ledger row 524's re-adjudicated
+    // build). At most one per board (a board has at most one active
+    // review session), so a nullable single id rather than a Set —
+    // same zero-I/O shape as `gameHeadIds`, sourced from
+    // `useReviewSession`'s `startingNodeId` projection over
+    // `ReviewSessionData.startingNodeId` (`null` outside a review
+    // session). Renders a marker ring in the game-head-ring family,
+    // distinct color, so a card's start position reads at a glance
+    // the same way a play/match session head does.
+    reviewStartNodeId?: NodeId | null;
   }>(),
   { orientation: 'vertical' },
 );
@@ -285,6 +297,7 @@ const nodeList = computed(() => {
     parentIdForToggle: NodeId | '';
     isGameHead: boolean;
     isKnownPosition: boolean;
+    isReviewStart: boolean;
   }> = [];
 
   layout.value.positions.forEach((pos, id) => {
@@ -316,6 +329,7 @@ const nodeList = computed(() => {
       parentIdForToggle, // Pass to template
       isGameHead: !!props.gameHeadIds?.has(id),
       isKnownPosition: !!props.knownPositionNodeIds?.has(id),
+      isReviewStart: isReviewStartNode(id, props.reviewStartNodeId),
     });
   });
   return items;
@@ -398,23 +412,33 @@ const edges = computed(() => {
         <g
           v-for="item in nodeList"
           :key="item.id"
-          v-memo="[item.isGameHead, item.isKnownPosition, item.move?.color, item.isBranching, item.isExpanded, item.px, item.py]"
+          v-memo="[item.isGameHead, item.isKnownPosition, item.isReviewStart, item.move?.color, item.isBranching, item.isExpanded, item.px, item.py]"
         >
-          <!-- Known-position marker (card-position-annotations Stage B) —
-               outermost ring (NODE_R + 7), outside both the active-ring
-               (NODE_R + 3) and the game-head-ring (NODE_R + 5) so all three
-               can co-occur without visually colliding. Membership comes
-               from `knownPositionNodeIds` (App.vue's `useKnownPositionNodes`,
-               cache ∩ known-positions — see that composable's header), not
-               a per-render read: the prop is a precomputed Set, and this
-               v-memo key is what gates the actual DOM patch. Distinct glyph
-               family per ADR-0019/C18 (no-color-only): a DASHED ring, not a
-               fill-color change (fill color is already spoken for by
-               nodeFill's B/W stone colors) and not a solid ring (which
-               would read as a third instance of the game-head/active-ring
-               idiom rather than a visually distinct "you already have a
-               card here" marker). -->
-          <circle v-if="item.isKnownPosition" :cx="item.px" :cy="item.py" :r="NODE_R + 7" class="known-position-ring" stroke-width="1.5" stroke-dasharray="2,1.5" />
+          <!-- Known-position marker (card-position-annotations Stage B).
+               RADIUS NOTE (review REJECT finding 2,
+               `.claude/dispatch-reports/card-position-highlight-stageB-review.md`):
+               this branch was cut before `review-start-ring` (below)
+               landed in `next`; both were independently authored at
+               NODE_R+7 in `--accent-secondary`, which at merge fully
+               occluded the dashed ring under the solid one on any node
+               that is BOTH a review session's start AND an
+               already-owned card position (an ordinary overlap, not an
+               edge case). Resolved at compose time by moving this ring
+               one radius further OUT — NODE_R + 9, one past
+               review-start-ring — so the two-ring stack (concentric:
+               active +3, game-head +5, review-start +7, known-position
+               +9) is visually distinct even when every marker on a node
+               is lit at once. Still a DASHED ring, not a fill-color
+               change (fill color is already spoken for by nodeFill's
+               B/W stone colors) and not solid (which would read as a
+               fourth instance of the same ring idiom rather than a
+               distinguishable "you already have a card here" marker),
+               per ADR-0019/C18 no-color-only. Membership comes from
+               `knownPositionNodeIds` (App.vue's `useKnownPositionNodes`,
+               cache ∩ known-positions — see that composable's header),
+               not a per-render read: the prop is a precomputed Set, and
+               this v-memo key is what gates the actual DOM patch. -->
+          <circle v-if="item.isKnownPosition" :cx="item.px" :cy="item.py" :r="NODE_R + 9" class="known-position-ring" stroke-width="1.5" stroke-dasharray="2,1.5" />
           <!-- Game-head marker — outermost ring (NODE_R + 5) so it stays
                visible when the active-ring (NODE_R + 3) also applies on the
                current node. Green = "play vs engine session's head — engine
@@ -423,6 +447,21 @@ const edges = computed(() => {
                previously-green nodes no longer render the ring. See
                PlayEngineModal / useEngineResponder for the lifecycle. -->
           <circle v-if="item.isGameHead" :cx="item.px" :cy="item.py" :r="NODE_R + 5" class="game-head-ring" stroke-width="1.5" />
+          <!-- Review-start marker — sibling ring to the game-head ring
+               above, one radius further out (NODE_R + 7) so both can
+               render concentrically on the rare node where a play-vs-
+               engine head and a review session's start coincide, rather
+               than one clobbering the other. `--accent-secondary` is
+               already the SR / current-card accent color (theme.css),
+               so "a card starts here" reads as the SR-family color the
+               same way the game-head ring reads as the play-session
+               color. Sourced from `reviewStartNodeId` (zero I/O — see
+               the prop's doc comment above); appears/disappears with
+               the review session the same way `isGameHead` already does
+               with `board.games`. See known-position-ring's comment
+               above for the NODE_R+7 collision this ring's radius was
+               already occupying and how it was resolved at merge. -->
+          <circle v-if="item.isReviewStart" :cx="item.px" :cy="item.py" :r="NODE_R + 7" class="review-start-ring" stroke-width="1.5" />
           <circle :cx="item.px" :cy="item.py" :r="NODE_R" :fill="nodeFill(item)" :stroke="nodeStroke(item)" stroke-width="1" class="node-circle" @click="emit('select-node', item.id)" />
 
           <g v-if="item.isBranching" class="toggle-group" @click.stop="expansion.toggle(item.parentIdForToggle as NodeId /* layout item's parent id is a NodeId */)" @mouseenter="e => onToggleEnter(e, item.parentIdForToggle as NodeId /* layout item's parent id is a NodeId */)" @mouseleave="onToggleLeave">
@@ -449,6 +488,7 @@ const edges = computed(() => {
 .active-ring { fill: color-mix(in srgb, var(--accent-primary) 15%, transparent); stroke: var(--accent-primary); }
 .game-head-ring { fill: color-mix(in srgb, var(--state-success) 15%, transparent); stroke: var(--state-success); }
 .known-position-ring { fill: none; stroke: var(--accent-secondary); }
+.review-start-ring { fill: color-mix(in srgb, var(--accent-secondary) 15%, transparent); stroke: var(--accent-secondary); }
 .node-circle { cursor: pointer; transition: filter var(--duration-default); }
 .node-circle:hover { filter: brightness(1.4) drop-shadow(0 0 3px var(--accent-primary)); }
 .toggle-group { cursor: pointer; }

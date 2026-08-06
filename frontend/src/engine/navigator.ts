@@ -144,29 +144,67 @@ export function navigateTo(state: BoardState, targetNodeId: NodeId): void {
 }
 
 /**
- * Walk from `nodeId` upward via `parent` — checking `nodeId` itself
- * first, then each ancestor in turn — to the nearest node (self or
- * ancestor) with more than one child: the fork `navigateVariation` and
- * `navigateToggleMainLine` both act on. Returns `null` when no node
- * from `nodeId` up to the root has more than one child (no fork exists
- * to switch at anywhere on the path).
+ * Walk from `nodeId` upward via `parent` — starting the fork test at
+ * `nodeId`'s PARENT, never at `nodeId` itself — to the nearest ANCESTOR
+ * with more than one child: the fork `navigateVariation` and
+ * `navigateToggleMainLine` both act on. Returns `null` when no ancestor
+ * from `nodeId`'s parent up to the root has more than one child (no
+ * fork exists to switch at anywhere on the path).
  *
- * This generalizes both primitives to fire from anywhere in the
+ * 2026-08-06 nav-algebra fix (ledger rows 483/494/497): the prior
+ * self-then-ancestor walk tested `nodeId.children.length > 1` on
+ * iteration 1, before ever considering an ancestor. That conflates two
+ * different questions — "which sibling-line am I in, and what are its
+ * neighbours?" (the BREADTH frame `navigateVariation` /
+ * `navigateToggleMainLine` need, always answered by an ancestor fork)
+ * versus "do I, right here, have more than one way to go deeper?" (a
+ * DEPTH fact about the node's own children, irrelevant to a breadth
+ * operator, already `navigateNext`'s job). Any node that is
+ * simultaneously (i) a branch head chosen at some ancestor fork and
+ * (ii) itself a fork got exclusively the depth-frame answer under the
+ * old walk — the ancestor fork the breadth operator actually needed
+ * was never reached. Starting the test at `nodeId.parent` instead
+ * forecloses the self-vs-ancestor ambiguity structurally: a node that
+ * is itself a fork no longer masquerades as its own breadth frame.
+ * This still generalizes both primitives to fire from anywhere in the
  * current line, not only from a fork's immediate child (the maintainer
- * veto's "switch from anywhere" requirement) — the nearest ancestor
- * fork is the natural reading, and it was already the established
- * convention here: `navigateToggleMainLine`'s prior self-then-ancestor
- * walk is promoted unchanged into this shared helper rather than
- * inventing a second convention for `navigateVariation`.
+ * veto's "switch from anywhere" requirement) — the nearest ANCESTOR
+ * fork is the natural reading, unchanged from before; only the
+ * self-test that used to run first is gone.
+ *
+ * Full diagnosis, truth table, and the adjudicated algebra (L1-L5):
+ * `.claude/dispatch-reports/nav-algebra-diagnosis.md`.
  */
 function findNearestFork(state: BoardState, nodeId: NodeId): GameNode | null {
   let node = state.nodes[nodeId];
   for (;;) {
-    if (node.children.length > 1) return node;
     if (!node.parent) return null;
     node = state.nodes[node.parent];
+    if (node.children.length > 1) return node;
   }
 }
+
+/**
+ * Outcome of a `navigateVariation` / `navigateToggleMainLine` call.
+ * `ok: true` means the cursor moved to a sibling line; `ok: false`
+ * names WHY the operation was a no-op — L4 (identity-with-feedback,
+ * see the diagnosis) requires every no-op to be loud and to name its
+ * reason, never a bare silent `return`. Deliberately a plain return
+ * value, not a thrown error or a direct `pushSystemMessage` call from
+ * this module: `navigator.ts` is Tier-1 pure logic (no DOM, no
+ * services, no fakes — `frontend/tests/CLAUDE.md`), so it reports the
+ * fact and leaves surfacing it to the caller. Every existing
+ * `pushSystemMessage` call site in this codebase lives in a
+ * composable, a service, or a component — never in `src/engine/` —
+ * and `useNavigation.ts`'s `variation`/`toggleMainLine` wrappers are
+ * where this outcome is turned into a user-visible system message,
+ * mirroring `sgf-loader.ts`'s throw-then-`pushSystemMessage`-at-the-
+ * caller precedent (see that file's header comment) for the analogous
+ * "pure engine signals, composable surfaces" split.
+ */
+export type BranchSwitchOutcome =
+  | { ok: true }
+  | { ok: false; reason: 'no-fork' | 'out-of-range' };
 
 /**
  * True iff `nodeId` is `ancestorId` itself or a descendant of it,
@@ -250,12 +288,12 @@ export function navigatePrev(state: BoardState) {
 }
 
 /**
- * Move to the adjacent sibling branch at the nearest fork — self or
- * ancestor of the current node, per `findNearestFork` — ordered by
- * child index, clamping at the ends (no-op past the first/last
- * sibling; this preserves the primitive's pre-existing convention, the
- * "or clamping per existing convention" half of the maintainer's veto
- * — `navigateToggleMainLine`'s wrap-on-first-use is a distinct,
+ * Move to the adjacent sibling branch at the nearest ANCESTOR fork
+ * (never self — see `findNearestFork`), ordered by child index,
+ * clamping at the ends (no-op past the first/last sibling; this
+ * preserves the primitive's pre-existing convention, the "or clamping
+ * per existing convention" half of the maintainer's veto —
+ * `navigateToggleMainLine`'s wrap-on-first-use is a distinct,
  * intentional convention for the toggle reading, not something this
  * primitive inherits). "Adjacent" is relative to the fork's
  * `activeChildIndex`, which always names the branch the current
@@ -269,23 +307,38 @@ export function navigatePrev(state: BoardState) {
  * `switchToBranch` (the shared primitive `navigateToggleMainLine` also
  * routes through) rather than always landing on the branch's immediate
  * child — the maintainer veto's core fix, applied identically here.
+ *
+ * Returns a `BranchSwitchOutcome` (L4): `{ ok: false, reason: 'no-fork' }`
+ * when no ancestor fork exists on the path to root; `{ ok: false,
+ * reason: 'out-of-range' }` when `direction` steps past the first/last
+ * sibling at the fork that WAS found. Both are no-ops on `state` —
+ * the cursor and every reactive field it touches are left exactly as
+ * they were — but the caller is expected to surface the `false` case
+ * loudly (never a silent `return`; `useNavigation.ts`'s `variation`
+ * wrapper is the current caller and does this via `pushSystemMessage`).
  */
-export function navigateVariation(state: BoardState, direction: number) {
+export function navigateVariation(state: BoardState, direction: number): BranchSwitchOutcome {
   const fork = findNearestFork(state, state.currentNodeId);
-  if (!fork) return;
+  if (!fork) return { ok: false, reason: 'no-fork' };
   const targetIdx = fork.activeChildIndex + direction;
-  if (targetIdx >= 0 && targetIdx < fork.children.length) {
-    switchToBranch(state, fork, targetIdx);
+  if (targetIdx < 0 || targetIdx >= fork.children.length) {
+    return { ok: false, reason: 'out-of-range' };
   }
+  switchToBranch(state, fork, targetIdx);
+  return { ok: true };
 }
 
 /**
- * Toggle the active line at the nearest fork — self or ancestor of the
- * current node, per `findNearestFork`, so this fires from anywhere in
- * the line, not only from a fork's immediate child — between the two
- * most recently distinct branches taken there. The "switch to the
- * nearest alternative branch (uncle/cousin) and back" keybinding
- * semantics (`nav.toggleMainLine`).
+ * Toggle the active line at the nearest ANCESTOR fork (never self —
+ * see `findNearestFork`), so this fires from anywhere in the line, not
+ * only from a fork's immediate child — between the two most recently
+ * distinct branches taken there. The "switch to the nearest
+ * alternative branch (uncle/cousin) and back" keybinding semantics
+ * (`nav.toggleMainLine`). Shares `findNearestFork`'s parent-first walk
+ * and `switchToBranch`'s landing rule EXACTLY with `navigateVariation`
+ * (maintainer's binding "toggle and previous/next-variation share
+ * EXACT same semantics" ruling) — only the target-index selection
+ * policy differs (plain ±1 there, two-value toggle memory here).
  *
  * At the fork, picks the target branch by a plain advance-by-one,
  * wrapping (`(currentIdx + 1) % fork.children.length`) on first use —
@@ -320,10 +373,18 @@ export function navigateVariation(state: BoardState, direction: number) {
  * module also registers a `closeBoard` teardown handler that drops
  * every entry keyed to the closing board — see its
  * `nav:clear-toggle-memory` registration).
+ *
+ * Returns a `BranchSwitchOutcome` (L4), the same contract
+ * `navigateVariation` returns: `{ ok: false, reason: 'no-fork' }` when
+ * no ancestor fork exists on the path to root (toggle's only no-op
+ * case — its target-index selection always wraps into range once a
+ * fork is found, unlike `navigateVariation`'s clamped step). The
+ * caller is expected to surface a `false` outcome loudly, same as
+ * `navigateVariation`'s.
  */
-export function navigateToggleMainLine(state: BoardState, memory: Map<string, number>): void {
+export function navigateToggleMainLine(state: BoardState, memory: Map<string, number>): BranchSwitchOutcome {
   const fork = findNearestFork(state, state.currentNodeId);
-  if (!fork) return;
+  if (!fork) return { ok: false, reason: 'no-fork' };
 
   const key = `${state.id}::${fork.id}`;
   const currentIdx = fork.activeChildIndex;
@@ -333,6 +394,7 @@ export function navigateToggleMainLine(state: BoardState, memory: Map<string, nu
     : (currentIdx + 1) % fork.children.length;
   memory.set(key, currentIdx);
   switchToBranch(state, fork, targetIdx);
+  return { ok: true };
 }
 
 /**

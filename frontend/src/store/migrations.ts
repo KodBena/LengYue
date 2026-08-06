@@ -128,13 +128,13 @@ if (import.meta.hot) import.meta.hot.accept(() => location.reload());
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 65;
+export const CURRENT_SCHEMA_VERSION = 67;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 62 → 63) are
+ * The first `N` entries (currently 1 → 2 through 64 → 65) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -156,75 +156,87 @@ export const CURRENT_SCHEMA_VERSION = 65;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 63 → 64: backfill `session.ui.deltaViewMode` ('shared' | 'black' |
-  // 'white', default 'shared') — the delta-analysis panel's three-mode
-  // view cycle (ledger row 418; see the field's doc comment on
-  // `UISession.deltaViewMode` in `schema.ts`, and
-  // `composables/analysis/useDeltaViewMode.ts` for the full rationale).
-  // A persisted blob predating this field would otherwise carry no
-  // value; `defaultSessionUI` already seeds fresh installs, and the
-  // panel's own read site falls back to `?? 'shared'`, so this backfill
-  // is belt-and-suspenders (matches the `qeuboToolbarView` / 5 → 6
-  // precedent in `archived-migrations.ts`) rather than load-bearing —
-  // it keeps the persisted shape honest instead of leaning on the
-  // read-site fallback. 'shared' is the only sensible default: it is
-  // the view every pre-existing workspace already had (the feature
-  // introduces two ADDITIONAL views, not a replacement one), so this
-  // migration is a pure additive seed with no behavior change.
+  // 65 → 66: resizer-rearch — strip the two pre-rearch split-workspace
+  // resizer homes. The current-model fields this rearch settled on
+  // (`session.ui.treePanelWidthPx`, `session.ui.treeControlRegionWidthPx`
+  // — nested-splitter amendment, ledger rows 391/414; see schema.ts)
+  // are both purely additive/optional and never shipped under a prior
+  // name, so this migration only needs to strip, never rename. Strips:
+  //
+  //   - `session.ui.boardSquareMaxWidthPx` — the pre-rearch board-
+  //     width cap the resizer drag used to write (ADR-0019 audit
+  //     `.claude/dispatch-reports/adr19-audit.md` S2: two writers for
+  //     one conceptual fact, a discontinuous drag-start clobber, and
+  //     — because it has no reliable visible effect past the board's
+  //     own aspect-ratio saturation point — the persisted slot with
+  //     no visible effect on reload).
+  //   - `session.ui.controlPanelWidth` — a dead, never-read zombie
+  //     field (ADR-0019 audit S9: "a control wired to nothing";
+  //     `grep -rn "controlPanelWidth\b" src/` before this migration
+  //     returned exactly the schema declaration and the default).
+  //     Removed in the same migration as the board-width cap so
+  //     neither pre-rearch field survives into a freshly-migrated
+  //     blob, which would otherwise recreate the exact "one fact, two
+  //     homes" defect class (Rule 3 / C1) this rearch exists to close.
+  //
+  // No value is carried forward to either current-model field.
+  // `boardSquareMaxWidthPx` (a board-width cap) has no principled
+  // conversion to either `treePanelWidthPx` or
+  // `treeControlRegionWidthPx` without live viewport geometry — the
+  // row's actual pixel width, the tree panel's current visibility,
+  // the board's current height — none of which a migration body (a
+  // pure function over the persisted blob, no DOM) has access to.
+  // Backfilling a guessed value would be exactly the silent-narrowing
+  // this codebase's ADR-0002 posture forbids; leaving both new fields
+  // `undefined` (their documented default: no drag yet, natural
+  // layout) is the honest choice — the user re-drags once, same as
+  // any migration that resets a runtime/session-shaped preference
+  // rather than fabricating a translation for it.
+  //
+  // Idempotent: deleting an already-absent key is a no-op.
+  //
+  // Container access goes through `witnessedContainer` (per step 3 of
+  // the add-a-migration recipe): `session.ui` is witnessed against the
+  // runtime shape, so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version. The blob-side resolution keeps
+  // the sibling bodies' non-null-object tolerance: a partial / legacy
+  // blob whose container is absent no-ops.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { boardSquareMaxWidthPx?: unknown; controlPanelWidth?: unknown };
+      delete u.boardSquareMaxWidthPx;
+      delete u.controlPanelWidth;
+    }
+    return out;
+  },
+  // 66 → 67: backfill `session.ui.cardsContextGameSourceOrdinals = []`
+  // (macro-public-id-tokens, ledger row 456 — restoring the Cards-tab
+  // `${gameSourceId}` macro after browse-leak-fix broke it). New
+  // field, additive: a persisted blob predating it simply lacks the
+  // key. `defaultSessionUI` already seeds `[]` for fresh installs;
+  // this backfill keeps the persisted shape honest for existing
+  // workspaces rather than leaning on `updateFromRemote`'s deepMerge
+  // to paper over the missing key (matches the `deltaViewMode` /
+  // 63 → 64 and `highContrastText` precedents' belt-and-suspenders
+  // posture — see the archived body's comment).
   //
   // Container witnessed against the runtime shape: `session.ui` is
   // present from v1, so a typo'd path fails loudly here rather than
   // no-oping and stamping the version.
   //
-  // Idempotent: a pre-existing valid mode value is preserved unchanged
-  // (a hand-edited or forward-compat blob keeps its value); only a
-  // missing / malformed value is backfilled to 'shared'.
+  // Idempotent: a pre-existing array value (of any length, including
+  // empty) is preserved unchanged; only a missing / wrong-typed leaf
+  // is backfilled to `[]`.
   (blob: any) => {
     const out = structuredClone(blob);
     const ui = witnessedContainer(out, 'session.ui');
     if (ui) {
-      const u = ui as { deltaViewMode?: unknown };
-      if (u.deltaViewMode !== 'shared' && u.deltaViewMode !== 'black' && u.deltaViewMode !== 'white') {
-        u.deltaViewMode = 'shared';
+      const u = ui as { cardsContextGameSourceOrdinals?: unknown };
+      if (!Array.isArray(u.cardsContextGameSourceOrdinals)) {
+        u.cardsContextGameSourceOrdinals = [];
       }
-    }
-    return out;
-  },
-  // 64 → 65: clear `session.ui.forestNav.selection` for every board
-  // (browse-leak-fix, ledger rows 417/423). `NavSelection`'s two
-  // variants both changed brand/semantics on this pass:
-  //   - `{ kind: 'root', rootCardId }` — was the raw internal card PK
-  //     (`CardId`, a number); now `CardPublicId` (a UUID string). A
-  //     persisted numeric value is simply the wrong shape.
-  //   - `{ kind: 'game', gameSourceId }` — was the raw internal
-  //     game_source PK (`GameSourceId`); now `GameDisplayOrdinal`, the
-  //     per-user display ordinal. Still a `number`, so a stale
-  //     persisted value would NOT fail loudly at the type level — it
-  //     would silently select whichever game/root happens to carry
-  //     that number under the NEW per-user-ordinal numbering, which
-  //     is almost certainly not what the user last had selected. Per
-  //     ADR-0002, a silent wrong-selection is worse than a cleared
-  //     one, so both variants are cleared uniformly rather than only
-  //     the type-incompatible one.
-  //
-  // This mirrors the reset-a-stale-slot posture `useCardTreeData::
-  // reset`'s own doc comment describes for the sibling case (a
-  // forest reload whose card set no longer matches the persisted
-  // manual-expand keys) — the safe response to a meaning change is
-  // to drop the now-untrustworthy persisted value, not attempt to
-  // reinterpret it.
-  //
-  // Container witnessed against the runtime shape: `session.ui.
-  // forestNav` is present from schema-version 21, so a typo'd path
-  // fails loudly here rather than no-oping and stamping the version.
-  //
-  // Idempotent: a blob with no `forestNav.selection` entries, or a
-  // `forestNav.selection` that's already `{}`, is a no-op.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const forestNav = witnessedContainer(out, 'session.ui.forestNav');
-    if (forestNav) {
-      (forestNav as { selection?: unknown }).selection = {};
     }
     return out;
   },

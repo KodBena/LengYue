@@ -183,9 +183,19 @@ export class BackendService {
     };
   }
 
-  public async queryForest(contextIds: number[], pipeline: PipelineStage[]): Promise<ReviewCard[]> {
+  public async queryForest(
+    contextIds: number[],
+    pipeline: PipelineStage[],
+    gameSourceOrdinals: number[] = [],
+  ): Promise<ReviewCard[]> {
+    // macro-public-id-tokens: game_source_ordinals is the widened
+    // /forests/query token vocabulary (ledger rows 498/500) — each
+    // ordinal is resolved server-side, within the caller's tenancy,
+    // to its game_source's root card id(s) before the pipeline runs.
+    // The SPA never resolves this itself; see context-id-macros.ts.
     const payload = {
       context_ids: contextIds,
+      game_source_ordinals: gameSourceOrdinals,
       pipeline
     };
 

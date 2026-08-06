@@ -5,7 +5,7 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-08-06: migrations 1 → 2 through 62 → 63 (62
+ * Scope as of 2026-08-06: migrations 1 → 2 through 64 → 65 (64
  * entries). The first eight covered pre-v1.0.0 schema evolution;
  * the rest are the v1.0.x – v1.1.x active cycle, archived in
  * per-PR rolling fashion under the same archive contract.
@@ -2662,6 +2662,78 @@ export const archivedMigrations: Migration[] = [
       if (typeof ap.highContrastText !== 'boolean') {
         ap.highContrastText = false;
       }
+    }
+    return out;
+  },
+  // 63 → 64: backfill `session.ui.deltaViewMode` ('shared' | 'black' |
+  // 'white', default 'shared') — the delta-analysis panel's three-mode
+  // view cycle (ledger row 418; see the field's doc comment on
+  // `UISession.deltaViewMode` in `schema.ts`, and
+  // `composables/analysis/useDeltaViewMode.ts` for the full rationale).
+  // A persisted blob predating this field would otherwise carry no
+  // value; `defaultSessionUI` already seeds fresh installs, and the
+  // panel's own read site falls back to `?? 'shared'`, so this backfill
+  // is belt-and-suspenders (matches the `qeuboToolbarView` / 5 → 6
+  // precedent in `archived-migrations.ts`) rather than load-bearing —
+  // it keeps the persisted shape honest instead of leaning on the
+  // read-site fallback. 'shared' is the only sensible default: it is
+  // the view every pre-existing workspace already had (the feature
+  // introduces two ADDITIONAL views, not a replacement one), so this
+  // migration is a pure additive seed with no behavior change.
+  //
+  // Container witnessed against the runtime shape: `session.ui` is
+  // present from v1, so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version.
+  //
+  // Idempotent: a pre-existing valid mode value is preserved unchanged
+  // (a hand-edited or forward-compat blob keeps its value); only a
+  // missing / malformed value is backfilled to 'shared'.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { deltaViewMode?: unknown };
+      if (u.deltaViewMode !== 'shared' && u.deltaViewMode !== 'black' && u.deltaViewMode !== 'white') {
+        u.deltaViewMode = 'shared';
+      }
+    }
+    return out;
+  },
+  // 64 → 65: clear `session.ui.forestNav.selection` for every board
+  // (browse-leak-fix, ledger rows 417/423). `NavSelection`'s two
+  // variants both changed brand/semantics on this pass:
+  //   - `{ kind: 'root', rootCardId }` — was the raw internal card PK
+  //     (`CardId`, a number); now `CardPublicId` (a UUID string). A
+  //     persisted numeric value is simply the wrong shape.
+  //   - `{ kind: 'game', gameSourceId }` — was the raw internal
+  //     game_source PK (`GameSourceId`); now `GameDisplayOrdinal`, the
+  //     per-user display ordinal. Still a `number`, so a stale
+  //     persisted value would NOT fail loudly at the type level — it
+  //     would silently select whichever game/root happens to carry
+  //     that number under the NEW per-user-ordinal numbering, which
+  //     is almost certainly not what the user last had selected. Per
+  //     ADR-0002, a silent wrong-selection is worse than a cleared
+  //     one, so both variants are cleared uniformly rather than only
+  //     the type-incompatible one.
+  //
+  // This mirrors the reset-a-stale-slot posture `useCardTreeData::
+  // reset`'s own doc comment describes for the sibling case (a
+  // forest reload whose card set no longer matches the persisted
+  // manual-expand keys) — the safe response to a meaning change is
+  // to drop the now-untrustworthy persisted value, not attempt to
+  // reinterpret it.
+  //
+  // Container witnessed against the runtime shape: `session.ui.
+  // forestNav` is present from schema-version 21, so a typo'd path
+  // fails loudly here rather than no-oping and stamping the version.
+  //
+  // Idempotent: a blob with no `forestNav.selection` entries, or a
+  // `forestNav.selection` that's already `{}`, is a no-op.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const forestNav = witnessedContainer(out, 'session.ui.forestNav');
+    if (forestNav) {
+      (forestNav as { selection?: unknown }).selection = {};
     }
     return out;
   },

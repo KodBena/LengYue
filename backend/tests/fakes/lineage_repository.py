@@ -25,7 +25,11 @@ from uuid import UUID, uuid4
 
 from domain.auth import UserId
 from domain.card import Card
-from domain.errors import CardNotFoundError, LineageOverflowError
+from domain.errors import (
+    CardNotFoundError,
+    GameSourceNotFoundError,
+    LineageOverflowError,
+)
 from domain.lineage import CardTree, RootedTree, RootGroup, RootResolution
 from domain.pipeline_dsl import (
     AncestorSelection,
@@ -89,6 +93,15 @@ class FakeLineageRepository:
         self.game_source_ordinal: Dict[int, int] = {}
         self._next_gs_ordinal: Dict[int, int] = {}
         self.card_id_by_public_id: Dict[UUID, int] = {}
+        # macro-public-id-tokens: reverse index for
+        # resolve_game_source_root_card_ids's tenancy-scoped lookup —
+        # (user_id, ordinal) -> game_source_id. Keyed by user_id (not
+        # just ordinal) because the ordinal namespace is per-user in
+        # production (two users' game_sources can legitimately share
+        # the same display_ordinal number); mirrors the production
+        # adapter's `WHERE display_ordinal = :o AND user_id = :u`
+        # predicate fusion.
+        self._gs_id_by_user_ordinal: Dict[Tuple[int, int], int] = {}
 
     # ─── Test helpers ──────────────────────────────────────────────────────
 
@@ -189,8 +202,10 @@ class FakeLineageRepository:
                 self._next_gs_ordinal[user_id] = (
                     self._next_gs_ordinal.get(user_id, 0) + 1
                 )
-                self.game_source_ordinal[game_source_id] = (
-                    self._next_gs_ordinal[user_id]
+                ordinal = self._next_gs_ordinal[user_id]
+                self.game_source_ordinal[game_source_id] = ordinal
+                self._gs_id_by_user_ordinal[(user_id, ordinal)] = (
+                    game_source_id
                 )
         return card_id
 
@@ -458,3 +473,30 @@ class FakeLineageRepository:
             game_source_display_ordinal=self.game_source_ordinal[gs_id],
             tree=build_subtree(root_card_id),
         )
+
+    async def resolve_game_source_root_card_ids(
+        self,
+        ordinals: List[int],
+        *,
+        user_id: UserId,
+    ) -> List[int]:
+        """
+        macro-public-id-tokens: mirrors the production adapter's
+        two-step resolution — ordinal -> game_source_id (tenancy-
+        scoped via the (user_id, ordinal) reverse index seeded by
+        seed_card), then game_source_id -> root card ids (via
+        game_source_of_root, filtered on ownership).
+        """
+        if not ordinals:
+            return []
+        gs_ids: List[int] = []
+        for ordinal in ordinals:
+            gs_id = self._gs_id_by_user_ordinal.get((int(user_id), ordinal))
+            if gs_id is None:
+                raise GameSourceNotFoundError(ordinal=ordinal)
+            gs_ids.append(gs_id)
+        return [
+            cid
+            for cid, gs in self.game_source_of_root.items()
+            if gs in gs_ids and self.user_id_by_card.get(cid) == int(user_id)
+        ]
