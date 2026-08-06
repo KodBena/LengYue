@@ -109,6 +109,25 @@ const DEBUG_PACKETS = false;
  * `analyzeTurns` up to 249 against only 248 real moves, and the whole
  * query was rejected by the wire).
  *
+ * **Second invariant, added after fresh-context review rejected the
+ * first pass** (`.claude/dispatch-reports/sgf-analyzeturns-review.md`):
+ * bounding the OUTBOUND `analyzeTurns` is not enough on its own — a
+ * response packet's `turnNumber` comes back in this SAME turn-index
+ * space, and `onAnalysisUpdate` must resolve it to a `nodeId` through
+ * the SAME mapping this function used to build the query, never by
+ * re-deriving a tree-index lookup (`path[turnNumber]`) independently.
+ * Two independently-derived mappings between the same two spaces is
+ * exactly the defect class the outbound-only fix reintroduced: an
+ * un-reconciled `path[turnNumber]` after this function switched
+ * `analyzeTurns` to real-move counts silently mis-keyed every response
+ * at/after a mid-path moveless node to the WRONG node — worse than the
+ * crash it replaced, because it fails silently. `turnToNodeId` is the
+ * single authority for this direction too, minted HERE (the same site
+ * that mints `analyzeTurns`) and threaded onto the query's bookkeeping
+ * entry so ingestion has no arithmetic left to diverge: `turnToNodeId
+ * .get(response.turnNumber)` is the only sanctioned way to resolve a
+ * response to a nodeId.
+ *
  * `turnIndexAtTreeIndex[i]` is the count of real moves among
  * `pathPrefix[0..i]` inclusive — i.e. the turn index a caller must use
  * to mean "the position reached by tree index i." A moveless node at
@@ -118,23 +137,39 @@ const DEBUG_PACKETS = false;
  * `max(analyzeTurns) > moves.length` unconstructable by construction:
  * the values placed on the wire are never anything but real turn
  * counts, regardless of where in the path a moveless node falls.
+ *
+ * `turnToNodeId` is the inverse direction: turn 0 maps to the prefix's
+ * root; turn k (1 <= k <= moves.length) maps to the id of the tree
+ * node where the k-th real move was played. A moveless node never
+ * becomes a map VALUE (only a real-move node can be "where turn k was
+ * reached"), so a response for a turn whose tree position also had a
+ * trailing/interposed moveless node is correctly attributed to the
+ * real-move node the turn count actually reached, never to the
+ * moveless node itself and never to an unrelated later node.
  */
 function buildMovesAndTurnIndex(
   nodes: Record<NodeId, GameNode>,
   pathPrefix: readonly NodeId[],
-): { moves: [Player, KataCoord][]; turnIndexAtTreeIndex: number[] } {
+): {
+  moves: [Player, KataCoord][];
+  turnIndexAtTreeIndex: number[];
+  turnToNodeId: Map<number, NodeId>;
+} {
   let turnCounter = 0;
   const turnIndexAtTreeIndex: number[] = [];
   const moves: [Player, KataCoord][] = [];
+  const turnToNodeId = new Map<number, NodeId>();
+  if (pathPrefix.length > 0) turnToNodeId.set(0, pathPrefix[0]); // turn 0 = root, before any move
   for (const id of pathPrefix) {
     const move = nodes[id]?.move ?? null;
     if (move) {
       turnCounter++;
       moves.push([move.color, moveToKataCoord(move)]);
+      turnToNodeId.set(turnCounter, id); // turn `turnCounter` is reached AT this node
     }
     turnIndexAtTreeIndex.push(turnCounter);
   }
-  return { moves, turnIndexAtTreeIndex };
+  return { moves, turnIndexAtTreeIndex, turnToNodeId };
 }
 
 export class AnalysisService {
@@ -155,12 +190,18 @@ export class AnalysisService {
     // per-board "is a ponder running" predicate from the board's
     // live query set. Set at query mint time and never mutated.
     mode: 'analyze' | 'ponder',
-    // The analyzed line this query was built over — whichever
-    // root-anchored shape the caller supplied (root→leaf from the
-    // full-game / timeline paths, root→current from the review
-    // session). Indexed by wire `turnNumber` in `onAnalysisUpdate`;
-    // both shapes index identically over the analyzed turns.
-    path: RootedPath,
+    // Turn→nodeId authority for this query, minted by
+    // `buildMovesAndTurnIndex` at the SAME call site that built the
+    // outbound `analyzeTurns` (dispatch time), never re-derived at
+    // ingestion. `onAnalysisUpdate` resolves every response's
+    // `turnNumber` through THIS map exclusively — see
+    // `buildMovesAndTurnIndex`'s docstring for why a second,
+    // independently-computed turn→node mapping (e.g. a raw tree-path
+    // index) is the defect class this field exists to foreclose
+    // (fresh-context review, `.claude/dispatch-reports/
+    // sgf-analyzeturns-review.md`: an un-reconciled `path[turnNumber]`
+    // silently mis-keyed responses after a mid-path moveless node).
+    turnToNodeId: ReadonlyMap<number, NodeId>,
     // The two provenance-stratified ledger keys for this query. `rawKey`
     // (model + overrides) keys the raw store; `enrichedKey` (+ palette) keys
     // the enrichment store and equals the legacy composite hash.
@@ -608,7 +649,7 @@ export class AnalysisService {
     // construction — a moveless node anywhere in [startTurn, endTurn]
     // (mid-path or trailing) cannot push a turn index past the wire
     // ceiling.
-    const { moves, turnIndexAtTreeIndex } = buildMovesAndTurnIndex(board.nodes, pathUpToEnd);
+    const { moves, turnIndexAtTreeIndex, turnToNodeId } = buildMovesAndTurnIndex(board.nodes, pathUpToEnd);
 
     const initialStones = getInitialStones(board);
 
@@ -670,7 +711,7 @@ export class AnalysisService {
     // each invocation).
     const framing = resolveWinrateFraming(overrideSettings);
 
-    this.activeQueries.set(queryId, { boardId, mode: 'analyze', path: fullPath, rawKey: keys.rawKey, enrichedKey: keys.enrichedKey, framing, startedAt: performance.now(), analyzedTurnCount: analyzeTurns.length, finalizedTurns: new Set() });
+    this.activeQueries.set(queryId, { boardId, mode: 'analyze', turnToNodeId, rawKey: keys.rawKey, enrichedKey: keys.enrichedKey, framing, startedAt: performance.now(), analyzedTurnCount: analyzeTurns.length, finalizedTurns: new Set() });
 
     // Queue telemetry — register at construction so the Toolbar's
     // queue tooltip can render this range query and its ETA.
@@ -831,12 +872,12 @@ export class AnalysisService {
     const board = store.boards.find(b => b.id === boardId);
     if (!board || store.engine.status !== 'connected') return null;
 
-    // Root→leaf is needed here for the packet-to-node lookup
-    // (`queryInfo.path[turnNumber]`), which indexes positions on the
-    // active line; the cursor's tree index is found on it below. The
-    // wire `analyzeTurns` value itself is derived separately, from the
+    // Root→leaf is needed here only to locate the cursor's tree
+    // index below (`currentIdx`); the wire `analyzeTurns` value and
+    // the response→nodeId map are both derived separately, from the
     // real-move count up to the cursor (see `buildMovesAndTurnIndex`
-    // below) — NOT from this tree index directly.
+    // below) — the packet-to-node lookup goes through the returned
+    // `turnToNodeId` map exclusively, never through this tree path.
     const fullPath = getActiveVariationPath(board);
     const currentIdx = fullPath.indexOf(board.currentNodeId);
     if (currentIdx === -1) return null;
@@ -866,7 +907,25 @@ export class AnalysisService {
     // the match postmortem's Bug B records.
     const pathUpToCurrent = rootToCurrentPrefix(fullPath, currentIdx);
 
-    const { moves } = buildMovesAndTurnIndex(board.nodes, pathUpToCurrent);
+    const { moves, turnToNodeId } = buildMovesAndTurnIndex(board.nodes, pathUpToCurrent);
+    // `analyzeActiveNode` is a single-explicit-target query — unlike
+    // `analyzeRange`, the caller already names the exact nodeId the
+    // one requested turn is for (`board.currentNodeId`, the cursor).
+    // `buildMovesAndTurnIndex`'s generic rule maps a turn to the node
+    // where the k-th real MOVE was played, which is the cursor itself
+    // whenever the cursor carries a move — but when the cursor is
+    // itself moveless (e.g. parked on a trailing TW/TB scoring node),
+    // the generic map has no entry naming the cursor at all (a
+    // moveless node is never a map value) and would otherwise leave
+    // `turnToNodeId.get(moves.length)` pointing at the nearest earlier
+    // real-move ancestor instead. Overriding the single requested
+    // turn's target to the cursor explicitly keeps "analyze the active
+    // node" attaching its result to the node the user is actually
+    // looking at, regardless of move-type — still exactly one
+    // authoritative entry for this query's one turn, just naming the
+    // caller's own explicit target rather than the generic per-move
+    // rule's implicit one.
+    turnToNodeId.set(moves.length, board.currentNodeId);
 
     const initialStones = getInitialStones(board);
 
@@ -897,7 +956,7 @@ export class AnalysisService {
     // Single-turn query (`analyzeTurns: [moves.length]`, see below),
     // so the natural-completion threshold is 1 — the first
     // authoritative final reaps the restart thunk.
-    this.activeQueries.set(queryId, { boardId, mode, path: fullPath, rawKey: keys.rawKey, enrichedKey: keys.enrichedKey, framing, startedAt: performance.now(), ponderCeiling, analyzedTurnCount: 1, finalizedTurns: new Set() });
+    this.activeQueries.set(queryId, { boardId, mode, turnToNodeId, rawKey: keys.rawKey, enrichedKey: keys.enrichedKey, framing, startedAt: performance.now(), ponderCeiling, analyzedTurnCount: 1, finalizedTurns: new Set() });
 
     // Queue telemetry — single-turn entry. For ponder, the per-turn
     // visit budget is the ponderMaxVisits ceiling; for analyze, the
@@ -1198,7 +1257,13 @@ export class AnalysisService {
     const queryInfo = this.activeQueries.get(queryId);
     if (!queryInfo) return;
 
-    const nodeId = queryInfo.path[response.turnNumber];
+    // Sole sanctioned resolution of a response to a nodeId: through the
+    // `turnToNodeId` map minted alongside `analyzeTurns` at dispatch
+    // time (`buildMovesAndTurnIndex`), never through a re-derived
+    // tree-path index — see that function's docstring for why a second
+    // independently-computed mapping is exactly the defect class this
+    // line exists to foreclose.
+    const nodeId = queryInfo.turnToNodeId.get(response.turnNumber);
     if (nodeId) {
       // RB-3 (ADR-0009): per-packet receive-work timing — the before-anchor
       // for the packet-receive chunking arc. DEV-only (dead-code-eliminated

@@ -25,6 +25,22 @@
  * a normal (no moveless node) sibling as a regression guard that the
  * fix didn't narrow full-range analysis for ordinary games.
  *
+ * **REPAIR (2026-08-06), after fresh-context review REJECTED the first
+ * pass** (`.claude/dispatch-reports/sgf-analyzeturns-review.md`): the
+ * first pass bounded the OUTBOUND `analyzeTurns` correctly but left
+ * `onAnalysisUpdate`'s response→nodeId resolution
+ * (`queryInfo.path[response.turnNumber]`) un-updated — a raw tree-index
+ * lookup in a wire query that now sends real-move-count turn indices.
+ * The two tests under "response ingestion resolves nodeId..." below are
+ * the witness this gap needed: they simulate a response packet for a
+ * turn reached AFTER a mid-path moveless node and assert which nodeId
+ * the ledger records it under. Confirmed red against the un-repaired
+ * ingestion (`git stash` the `analysis-service.ts` repair, keep this
+ * file): the first assertion failed because the packet landed on the
+ * moveless node's own id instead of the real-move node's id — the
+ * exact mis-keying the review's trace table names. Green after routing
+ * ingestion through the shared `turnToNodeId` map.
+ *
  * Driven the same way as `analysis-service-restart-thunk.test.ts`: the
  * REAL `analysisService` singleton against a mock `WebSocket`, so the
  * assertion is on the actual wire query the service assembles — not a
@@ -44,10 +60,13 @@ vi.mock('../../src/services/analysis-persistence-service', async () => {
 });
 
 import { loadSgf } from '../../src/engine/sgf-loader';
-import { addBoard, resetWorkspace, store } from '../../src/store';
+import { addBoard, mutateBoard, resetWorkspace, store } from '../../src/store';
 import { analysisService } from '../../src/services/analysis-service';
 import { getActiveVariationPath } from '../../src/engine/util';
+import { navigateTo } from '../../src/engine/navigator';
 import { resetFakeAnalysisPersistenceService } from '../fakes/analysis-persistence-service';
+import { activeAnalysisKeys } from '../../src/state/analysis-config';
+import { ledger } from '../../src/state/analysis-ledger';
 import type { BoardId, BoardState, RootedPath } from '../../src/types';
 
 // ── Mock WebSocket (mirrors analysis-service-restart-thunk.test.ts) ────────
@@ -84,6 +103,11 @@ class MockWebSocket {
   close(): void {
     this.readyState = MockWebSocket.CLOSED;
     this.onclose?.({ code: 1000, reason: 'mock-close' });
+  }
+
+  /** Deliver a raw response object to the id-keyed subscriber. */
+  inject(packet: Record<string, unknown>): void {
+    this.onmessage?.({ data: JSON.stringify(packet) });
   }
 
   analysisQueries(): SentQuery[] {
@@ -209,5 +233,89 @@ describe('AnalysisService — analyzeTurns vs. moves.length (moveless-node invar
     expect(moves).toHaveLength(3);
     expect(Math.max(...analyzeTurns)).toBe(moves.length);
     expect(analyzeTurns).toEqual([0, 1, 2, 3]);
+  });
+});
+
+describe('AnalysisService — response ingestion resolves nodeId through the SAME turn-index authority as analyzeTurns (mid-path moveless node)', () => {
+  it('routes a range-query response for a post-moveless-node turn to the correct nodeId, not the moveless node or a shifted neighbour', () => {
+    const boardId = setupBoard(SGF_MIDPATH_MOVELESS);
+    const path = activePath(boardId);
+    const board = store.boards.find(b => b.id === boardId)!;
+    const ws = MockWebSocket.last!;
+
+    // Fixture shape this test's node-identity assertions depend on:
+    // path = [root, pd(#1 real move), comment-only(moveless),
+    // dp(#2 real move), pp(#3 real move, leaf)].
+    expect(path).toHaveLength(5);
+    expect(board.nodes[path[2]].move).toBeNull();
+    expect(board.nodes[path[3]].move).not.toBeNull();
+    expect(board.nodes[path[4]].move).not.toBeNull();
+
+    const queryId = analysisService.analyzeRange(
+      boardId, path, 0, path.length - 1, 100, undefined, undefined, false, false,
+    );
+    expect(queryId).not.toBeNull();
+    const rawKey = activeAnalysisKeys.value.rawKey;
+
+    // Turn 2 = the position after 2 real moves, reached at path[3]
+    // (W[dp]) — NOT path[2] (the moveless comment-only node, one tree
+    // index earlier). The un-repaired ingestion resolved this via
+    // `path[turnNumber]` (raw tree index) and landed on path[2].
+    ws.inject({
+      id: queryId, turnNumber: 2, isDuringSearch: false, moveInfos: [],
+      rootInfo: { currentPlayer: 'B', visits: 111, winrate: 0.5, scoreLead: 0 },
+    });
+    expect(ledger.getRaw(rawKey, path[3])?.rootInfo?.visits).toBe(111);
+    expect(ledger.getRaw(rawKey, path[2])).toBeNull();
+
+    // Turn 3 = the position after 3 real moves, reached at path[4]
+    // (B[pp], the leaf) — NOT path[3] (the un-repaired ingestion's
+    // one-tree-index-short target, which would have had turn3's result
+    // OVERWRITE turn2's own entry, and the true leaf would never
+    // receive a result at all).
+    ws.inject({
+      id: queryId, turnNumber: 3, isDuringSearch: false, moveInfos: [],
+      rootInfo: { currentPlayer: 'W', visits: 222, winrate: 0.5, scoreLead: 0 },
+    });
+    expect(ledger.getRaw(rawKey, path[4])?.rootInfo?.visits).toBe(222);
+    // turn2's entry at path[3] must still read its own value, not have
+    // been clobbered by turn3's packet landing on the same (wrong) node.
+    expect(ledger.getRaw(rawKey, path[3])?.rootInfo?.visits).toBe(111);
+  });
+
+  it('single-turn analyzeActiveNode routes its result to the cursor node itself when the cursor IS the moveless node', () => {
+    const boardId = setupBoard(SGF_MIDPATH_MOVELESS);
+    const path = activePath(boardId); // [root, pd(#1), comment-only, dp(#2), pp(#3, leaf)]
+    const ws = MockWebSocket.last!;
+
+    // Cursor parked ON the moveless comment-only node itself (tree
+    // index 2, one real move — B[pd] — behind it). The wire turn for
+    // "the position at the cursor" is `moves.length === 1`.
+    // `buildMovesAndTurnIndex`'s generic per-move rule alone would map
+    // turn 1 to path[1] (the node WHERE the 1st real move was played),
+    // not to the cursor (path[2]) — correct for a range query with more
+    // real moves later on the same path, but wrong for "analyze what
+    // I'm looking at right now". `analyzeActiveNode`'s explicit
+    // override (`turnToNodeId.set(moves.length, board.currentNodeId)`)
+    // is exactly what keeps this case attaching the result to the
+    // node the user is actually viewing.
+    mutateBoard(boardId, draft => navigateTo(draft, path[2]));
+
+    const queryId = analysisService.analyzeActiveNode(boardId, 'analyze', 100);
+    expect(queryId).not.toBeNull();
+    const sent = ws.analysisQueries()[0];
+    expect(sent.analyzeTurns).toEqual([1]);
+
+    const rawKey = activeAnalysisKeys.value.rawKey;
+    ws.inject({
+      id: queryId, turnNumber: 1, isDuringSearch: false, moveInfos: [],
+      rootInfo: { currentPlayer: 'W', visits: 333, winrate: 0.5, scoreLead: 0 },
+    });
+
+    // Lands on the cursor (the moveless node), not on path[1] (the
+    // ancestor real-move node the generic per-move rule alone would
+    // have named).
+    expect(ledger.getRaw(rawKey, path[2])?.rootInfo?.visits).toBe(333);
+    expect(ledger.getRaw(rawKey, path[1])).toBeNull();
   });
 });

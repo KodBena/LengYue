@@ -155,6 +155,132 @@ dist/assets/index-Dgldr6Yi.js   2,920.92 kB │ gzip: 1,032.42 kB
    Duration  90.20s
 ```
 
+## REPAIR (2026-08-06, after fresh-context review REJECTED the first pass)
+
+Review: `.claude/dispatch-reports/sgf-analyzeturns-review.md`. Verdict:
+REJECT — the first pass bounded the OUTBOUND `analyzeTurns` correctly
+but left `onAnalysisUpdate` (then at `analysis-service.ts:1201`)
+resolving a response's `turnNumber` to a `nodeId` via
+`queryInfo.path[response.turnNumber]` — a raw tree-index lookup,
+un-updated to match `analyzeTurns`'s new real-move-count space. For any
+query touching a MID-PATH moveless node, every response at/after it was
+silently mis-keyed to the wrong node — worse than the crash the first
+pass fixed, because it fails silently (ADR-0002 worst tier). The
+review's concrete trace table (tree `0:root 1:place 2:moveless
+3:place 4:place`, `analyzeTurns=[0,1,2,3]`) showed turn 2 landing on
+node2 (the moveless node — spurious) instead of node3, turn 3
+overwriting node3 instead of reaching node4, and node4 (the true range
+end) never receiving a result at all.
+
+**Root cause of the gap**: the two directions (tree-index → turn-index
+for the outbound query, turn-index → nodeId for inbound responses)
+were fixed at different times by different reasoning, with no shared
+authority forcing them to agree. Exactly the class CLAUDE.md's
+type-driven-design section asks to foreclose, and exactly what the
+first pass's own docstring claimed to guarantee but didn't — it only
+guaranteed the outbound half.
+
+**Fix**: `buildMovesAndTurnIndex` (same helper, same call sites) now
+also returns `turnToNodeId: Map<number, NodeId>` — turn 0 → the
+prefix's root; turn k (1 <= k <= moves.length) → the id of the tree
+node where the k-th real move was played. This map is minted at the
+SAME site and the SAME pass that builds `analyzeTurns`, then stored on
+the query's `activeQueries` bookkeeping entry (replacing the `path:
+RootedPath` field, which had no other reader — confirmed by grep — so
+removing it closes the "two representations that can diverge" class
+outright rather than leaving a now-unused-but-still-present temptation
+to read it again). `onAnalysisUpdate` resolves every response's
+`nodeId` via `queryInfo.turnToNodeId.get(response.turnNumber)`
+exclusively; the `path[turnNumber]` expression no longer exists
+anywhere in the file.
+
+**`analyzeActiveNode`'s single-turn case** gets one explicit,
+documented override: since this method's caller already names the
+exact single node the query is for (the cursor, `board.currentNodeId`),
+`turnToNodeId.set(moves.length, board.currentNodeId)` is applied after
+the generic derivation. This matters specifically when the cursor
+itself is a moveless node — the generic per-move rule has no map VALUE
+naming a moveless node (only real-move nodes are ever "where a turn
+was reached"), so without the override, analyzing a moveless cursor
+would attach its result to the nearest earlier real-move ancestor
+instead of the node the user is actually viewing. The override keeps
+"analyze the active node" doing what its name says regardless of
+move-type, while the generic range-query rule (no single named target,
+many tree positions collapsing onto fewer turns) stays exactly as
+derived.
+
+**Other ingestion paths checked** (`grep -rn "turnNumber"` across
+`src/`, all read end to end): `useQueryTelemetry.ts` and
+`wait-for-analysis.ts` compare `turnNumber` against a caller-supplied
+expected value (no path/tree-index arithmetic — not the mis-keying
+class); `usePlayFromPosition.ts`/`fresh-eval.ts` serve the separate
+live-play/self-play primitives, always single, explicit,
+sequentially-incrementing positions with no branching tree or moveless
+nodes in play — not exposed to this defect class; `enriched-
+accumulator.ts`'s `patchNode(nodeId, packet)` always receives its
+`nodeId` as a caller-supplied parameter (from ledger-side iteration in
+`useEnrichedData.ts`), never re-derives one from `turnNumber`;
+`useStabilityMetrics.ts`'s `path[turn]` loop is iterating the path
+directly as a display axis (turn = tree position, a legitimate,
+different "turn" meaning for that consumer) — it reads trajectories
+already keyed by nodeId as recorded through `onAnalysisUpdate`, so it
+inherits the fix rather than needing one. `analysis-service.ts:1201`
+(now moved a few lines with the added comment) was the sole
+turn→nodeId ingestion site.
+
+### Repair tests
+
+Extended `frontend/tests/integration/analysis-service-moveless-node.test.ts`
+with a second describe block, "response ingestion resolves nodeId
+through the SAME turn-index authority as analyzeTurns":
+
+- `routes a range-query response for a post-moveless-node turn to the
+  correct nodeId, not the moveless node or a shifted neighbour` — mid-
+  path-moveless fixture (`SGF_MIDPATH_MOVELESS`, existing), injects
+  synthetic final packets for turn 2 and turn 3 via the mock
+  WebSocket, asserts via `ledger.getRaw(rawKey, nodeId)` that turn 2's
+  packet lands on `path[3]` (not `path[2]`, the moveless node) and
+  turn 3's lands on `path[4]` (the true leaf) without clobbering
+  turn 2's entry.
+- `single-turn analyzeActiveNode routes its result to the cursor node
+  itself when the cursor IS the moveless node` — parks the cursor on
+  the mid-path moveless node itself, confirms the wire `analyzeTurns`
+  is `[1]` (not `[2]`, the cursor's tree index), injects a packet for
+  turn 1, and asserts it lands on the cursor's own nodeId — the
+  override case.
+
+**Confirmed red pre-repair**: `git stash`ed only the
+`analysis-service.ts` repair (kept the new tests), ran the file
+against the first pass's (reviewer-rejected) code — both new tests
+failed with `expected undefined to be 111`/`333`: the packet landed
+somewhere else (the mis-keyed node), so the CORRECT node's ledger
+entry read `undefined`, the same silent-misattribution signature the
+review's trace table describes. `git stash pop` restored the repair;
+both green.
+
+### Gate tails (WITNESSED, this worktree, `frontend/`, post-repair)
+
+`npx vue-tsc -b` (standalone re-check after the field rename from
+`path` to `turnToNodeId`) — exit 0, no errors (one intermediate error,
+`TS18004` for a destructuring-shorthand typo at the `analyzeRange`
+call site, caught and fixed before the full build gate below).
+
+**`npm run build`** — exit 0:
+```
+✓ 1080 modules transformed.
+✓ built in 1.91s
+```
+
+**`npx eslint .`** — exit 0, no output.
+
+**`npm run test:run`** — exit 0, exited cleanly:
+```
+ Test Files  82 passed | 3 skipped (85)
+      Tests  1106 passed | 4 skipped (1110)
+   Duration  39.28s
+```
+(1106 vs. the first pass's 1104 — the two new ingestion tests.)
+
 ## Scope note
 
 Per the umbrella `CLAUDE.md`'s ledger discipline (point 1 onward), this
