@@ -16,6 +16,7 @@
 import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAuth } from '../../composables/auth-app/useAuth';
+import { useModalKeyboard } from '../../composables/useModalKeyboard';
 
 const { t } = useI18n();
 const { state, login, register, logout } = useAuth();
@@ -23,6 +24,8 @@ const { state, login, register, logout } = useAuth();
 const emit = defineEmits<{
   (e: 'close'): void;
 }>();
+
+const modalContentRef = ref<HTMLElement | null>(null);
 
 // ─── Form state (local; not in any store) ───────────────────────────────────
 
@@ -89,11 +92,20 @@ function handleBackdropClick(e: MouseEvent): void {
   // up from the modal card.
   if (e.target === e.currentTarget) emit('close');
 }
+
+// Escape → same close path as Cancel (ADR-0019 S5); Tab focus trap +
+// initial focus + focus restoration — all one shared mechanism, see
+// useModalKeyboard.ts. This component is mounted only while open
+// (the parent, UserBadge.vue, gates it with `v-if="isModalOpen"`
+// rather than an internal isOpen ref), so `isOpen` here is a
+// constant-true computed — see useModalKeyboard's `isOpen` param
+// doc for why that's the correct shape for this mount pattern.
+useModalKeyboard(modalContentRef, computed(() => true), handleCancel);
 </script>
 
 <template>
   <div class="modal-backdrop" @click="handleBackdropClick">
-    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="login-modal-title">
+    <div ref="modalContentRef" class="modal-card" role="dialog" aria-modal="true" aria-labelledby="login-modal-title" tabindex="-1">
       <h3 id="login-modal-title" class="modal-title">{{ $t('auth.title') }}</h3>
 
       <p class="current-identity" v-if="currentIdentity">{{ currentIdentity }}</p>
@@ -106,7 +118,6 @@ function handleBackdropClick(e: MouseEvent): void {
           type="text"
           class="text-input"
           autocomplete="username"
-          autofocus
           @keyup.enter="submit('login')"
         />
       </div>
