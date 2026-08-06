@@ -69,6 +69,6 @@ function handleInput(e: Event): void {
 .expression-input { width: 100%; min-height: 4.5em; box-sizing: border-box; resize: vertical; font-family: 'Consolas', monospace; font-size: var(--text-body); }
 .error-line { color: var(--state-error); font-size: var(--text-body); margin: var(--space-tight) 0 0 0; }
 .actions { margin-top: var(--space-medium); }
-.action-btn.reset-btn { background: var(--border-2); border: 1px solid var(--border-3); color: var(--text-1); padding: var(--space-tight) var(--space-default); font-size: var(--text-body); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
+.action-btn.reset-btn { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-1); padding: var(--space-tight) var(--space-default); font-size: var(--text-body); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
 .action-btn.reset-btn:disabled { opacity: 0.5; cursor: default; }
 </style>
