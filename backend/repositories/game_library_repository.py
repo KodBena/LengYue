@@ -132,7 +132,11 @@ class GameLibraryRepository(GameLibraryRepositoryPort):
         # existing row's id and client_game_id (which may be NULL for
         # legacy rows). First-mint-wins per the design note.
         existing = await self.session.execute(
-            select(game_source.c.id, game_source.c.client_game_id)
+            select(
+                game_source.c.id,
+                game_source.c.client_game_id,
+                game_source.c.display_ordinal,
+            )
             .where(game_source.c.user_id == user_id)
             .where(game_source.c.position_id == position_id)
             .limit(1)
@@ -142,6 +146,7 @@ class GameLibraryRepository(GameLibraryRepositoryPort):
             return ImportOutcomeDeduplicated(
                 game_id=row.id,
                 client_game_id=row.client_game_id,
+                display_ordinal=row.display_ordinal,
             )
 
         # Miss → INSERT new row with a freshly generated UUID and the
@@ -202,6 +207,7 @@ class GameLibraryRepository(GameLibraryRepositoryPort):
         return ImportOutcomeCreated(
             game_id=new_id,
             client_game_id=new_uuid,
+            display_ordinal=display_ordinal,
         )
 
     async def _get_or_create_position(

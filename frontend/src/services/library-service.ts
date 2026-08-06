@@ -138,6 +138,7 @@ function fromWireImportOutcome(wire: ImportOutcomeWire): LibraryImportOutcome {
         status: 'created',
         gameId: wire.game_id as GameSourceId, // ACL Band-2 brand mint
         clientGameId: asBoardId(wire.client_game_id),
+        displayOrdinal: wire.display_ordinal as GameDisplayOrdinal, // ACL Band-2 brand mint
       };
     case 'deduplicated':
       return {
@@ -146,6 +147,7 @@ function fromWireImportOutcome(wire: ImportOutcomeWire): LibraryImportOutcome {
         // Per-user-id-enumeration design: closed exception, see
         // types/library.ts.
         clientGameId: asBoardId(wire.client_game_id),
+        displayOrdinal: wire.display_ordinal as GameDisplayOrdinal, // ACL Band-2 brand mint
       };
     case 'errored':
       return {

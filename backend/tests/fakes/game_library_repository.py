@@ -169,6 +169,7 @@ class FakeGameLibraryRepository:
                 return ImportOutcomeDeduplicated(
                     game_id=row.id,
                     client_game_id=row.client_game_id,
+                    display_ordinal=row.display_ordinal,
                 )
 
         row_id = self._next_id
@@ -177,6 +178,7 @@ class FakeGameLibraryRepository:
         extras = dict(req.metadata.extras)
         if req.source_path is not None:
             extras["source_path"] = req.source_path
+        ordinal = self._assign_ordinal(int(user_id))
         self._rows[row_id] = _Row(
             id=row_id,
             user_id=int(user_id),
@@ -190,11 +192,12 @@ class FakeGameLibraryRepository:
             ruleset=req.metadata.ruleset,
             board_size=req.metadata.board_size,
             metadata_extra=extras,
-            display_ordinal=self._assign_ordinal(int(user_id)),
+            display_ordinal=ordinal,
         )
         return ImportOutcomeCreated(
             game_id=row_id,
             client_game_id=new_uuid,
+            display_ordinal=ordinal,
         )
 
     async def list_games(

@@ -1578,6 +1578,8 @@ export interface components {
              * Format: uuid
              */
             client_game_id: string;
+            /** Display Ordinal */
+            display_ordinal: number;
         };
         /**
          * ImportOutcomeDeduplicated
@@ -1604,6 +1606,8 @@ export interface components {
              * Format: uuid
              */
             client_game_id: string;
+            /** Display Ordinal */
+            display_ordinal: number;
         };
         /**
          * ImportOutcomeErrored

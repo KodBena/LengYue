@@ -149,6 +149,6 @@ export interface LibraryImportInput {
 // longer `BoardId | null` — the legacy exception is closed the same
 // way as `LibraryGameListItem.clientGameId` above.
 export type LibraryImportOutcome =
-  | { readonly status: 'created'; readonly gameId: GameSourceId; readonly clientGameId: BoardId }
-  | { readonly status: 'deduplicated'; readonly gameId: GameSourceId; readonly clientGameId: BoardId }
+  | { readonly status: 'created'; readonly gameId: GameSourceId; readonly clientGameId: BoardId; readonly displayOrdinal: GameDisplayOrdinal }
+  | { readonly status: 'deduplicated'; readonly gameId: GameSourceId; readonly clientGameId: BoardId; readonly displayOrdinal: GameDisplayOrdinal }
   | { readonly status: 'errored'; readonly error: string };

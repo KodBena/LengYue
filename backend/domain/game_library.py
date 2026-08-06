@@ -261,6 +261,10 @@ class ImportOutcomeCreated(BaseModel):
     status: Literal["created"] = "created"
     game_id: int
     client_game_id: UUID
+    # Per-user-id-enumeration design: the display-role sibling of
+    # game_id, so the caller can render "game N" immediately without
+    # a follow-up GET /library/games round trip.
+    display_ordinal: int
 
 
 class ImportOutcomeDeduplicated(BaseModel):
@@ -280,6 +284,9 @@ class ImportOutcomeDeduplicated(BaseModel):
     status: Literal["deduplicated"] = "deduplicated"
     game_id: int
     client_game_id: UUID
+    # Per-user-id-enumeration design: the existing row's display
+    # ordinal, same rationale as ImportOutcomeCreated.display_ordinal.
+    display_ordinal: int
 
 
 class ImportOutcomeErrored(BaseModel):
