@@ -2853,3 +2853,92 @@ describe('60 → 61: backfill engine.katago.calibrationVisits', () => {
     expect(out.profile.settings.engine.katago.calibrationVisits).toBe(1000);
   });
 });
+
+describe('61 → 62: analysisRange → analysisRanges (branch-stem keying, carry-over)', () => {
+  // Design proposal §1 Candidate C; commissioner adjudication (ledger
+  // rows 112/119). A board with a legacy single-slot `analysisRange`
+  // is converted to a single `analysisRanges` entry keyed by the
+  // branch stem computed from the board's CURRENT active-variation
+  // path (root -> leaf via activeChildIndex) at migration time.
+
+  /** A straight mainline (no fork): root -> a -> b, no node has >1 child. */
+  function boardMainlineOnly(range: [number, number] | undefined): any {
+    return {
+      id: 'board-1',
+      rootNodeId: 'root',
+      currentNodeId: 'b',
+      nodes: {
+        root: { id: 'root', parent: null, children: ['a'], activeChildIndex: 0 },
+        a: { id: 'a', parent: 'root', children: ['b'], activeChildIndex: 0 },
+        b: { id: 'b', parent: 'a', children: [], activeChildIndex: 0 },
+      },
+      ...(range !== undefined ? { analysisRange: range } : {}),
+    };
+  }
+
+  /** root -> fork -> {left, right}; activeChildIndex 1 selects "right". */
+  function boardWithForkOnRight(range: [number, number]): any {
+    return {
+      id: 'board-2',
+      rootNodeId: 'root',
+      currentNodeId: 'right',
+      nodes: {
+        root: { id: 'root', parent: null, children: ['fork'], activeChildIndex: 0 },
+        fork: { id: 'fork', parent: 'root', children: ['left', 'right'], activeChildIndex: 1 },
+        left: { id: 'left', parent: 'fork', children: [], activeChildIndex: 0 },
+        right: { id: 'right', parent: 'fork', children: [], activeChildIndex: 0 },
+      },
+      analysisRange: range,
+    };
+  }
+
+  it('converts a mainline-only board\'s legacy analysisRange into a single analysisRanges entry (empty branch key, no fork ever chosen)', () => {
+    const blob: any = { boards: [boardMainlineOnly([0, 2])] };
+    const out = step(61)(blob);
+    const board = out.boards[0];
+    expect(board.analysisRange).toBeUndefined();
+    expect(board.analysisRanges).toEqual({ '': [0, 2] });
+  });
+
+  it('converts a forked board\'s legacy analysisRange into an entry keyed by the branch stem of its CURRENT active path', () => {
+    const blob: any = { boards: [boardWithForkOnRight([1, 2])] };
+    const out = step(61)(blob);
+    const board = out.boards[0];
+    expect(board.analysisRange).toBeUndefined();
+    expect(board.analysisRanges).toEqual({ 'fork:right': [1, 2] });
+  });
+
+  it('is a no-op when analysisRange is absent', () => {
+    const blob: any = { boards: [boardMainlineOnly(undefined)] };
+    const out = step(61)(blob);
+    expect(out.boards[0].analysisRanges).toBeUndefined();
+  });
+
+  it('is idempotent: a board that already carries analysisRanges is left untouched', () => {
+    const board = boardMainlineOnly([0, 2]);
+    board.analysisRanges = { 'already-migrated': [9, 9] };
+    const blob: any = { boards: [board] };
+    const out = step(61)(blob);
+    expect(out.boards[0].analysisRanges).toEqual({ 'already-migrated': [9, 9] });
+    // The legacy field is left alone too — the migration only acts when
+    // analysisRanges is absent.
+    expect(out.boards[0].analysisRange).toEqual([0, 2]);
+  });
+
+  it('is a no-op when boards is absent or non-array', () => {
+    expect(step(61)({}).boards).toBeUndefined();
+    const blob: any = { boards: 'not-an-array' };
+    expect(step(61)(blob).boards).toBe('not-an-array');
+  });
+
+  it('walks end-to-end: a v61 blob reaches CURRENT with the legacy range carried over under the branch key', () => {
+    const blob: any = {
+      schemaVersion: 61,
+      boards: [boardWithForkOnRight([1, 2])],
+      profile: { settings: { engine: { katago: { url: 'ws://x' } } } },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(out.boards[0].analysisRanges).toEqual({ 'fork:right': [1, 2] });
+  });
+});

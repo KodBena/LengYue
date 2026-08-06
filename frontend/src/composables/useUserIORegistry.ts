@@ -49,6 +49,7 @@ import {
 } from '../lib/keybindings';
 import { KEYBINDINGS_REGISTRY } from './keybindings-catalog';
 import { captureMode } from '../lib/keybindings-capture';
+import { anyModalOpen } from './useModalKeyboard';
 
 export function useUserIORegistry() {
   // Reactive key→action map. Recomputes when `store.profile.settings.keybindings`
@@ -92,6 +93,16 @@ export function useUserIORegistry() {
     // lifecycle.
     if (captureMode.value !== null) return;
 
+    // Modal guard: while any modal wired through useModalKeyboard is
+    // open, its own controls are the only thing the keyboard should
+    // reach. Without this, a registry-bound key pressed while focus
+    // sits on a modal's own <button> (not covered by the form-control
+    // guard below) would fire the underlying page's action beneath
+    // the modal (ADR-0019 audit, S5). useModalKeyboard.ts owns the
+    // Escape/Tab handling for the modal itself; this is the other
+    // half of the same seam.
+    if (anyModalOpen.value) return;
+
     // Workspace-load guard (ADR-0019 audit S1 review, nit 1): App.vue's
     // render gate withholds the board/tree/control-panel surfaces while
     // `store.workspaceLoadState.kind !== 'loaded'`, but this listener is
@@ -101,16 +112,13 @@ export function useUserIORegistry() {
     // during the loading window, so nav/display-toggle hotkeys and
     // especially the Space ponder-toggle (a real `analysisService`
     // WebSocket query, not just a store write) could still fire against
-    // a workspace about to be replaced wholesale by hydrate(). One seam,
-    // ahead of the per-action gates, rather than threading the predicate
-    // through every `enabledWhen` in the catalog. NOTE for the next
-    // merge/rebase against `next`: `next`'s `useModalKeyboard.ts` arc
-    // adds an `anyModalOpen.value` early-return at this same spot (modal
-    // focus should be the only thing the keyboard reaches while a modal
-    // is open) — compose the two as sibling early-returns, this one
-    // first (no modal can legitimately be open during the load gate
-    // today, since every modal-opening trigger lives inside the gated
-    // toolbar, but ordering them defensively costs nothing).
+    // a workspace about to be replaced wholesale by hydrate(). Composed
+    // as the second sibling early-return, after the modal guard above
+    // (per this composable's own prior anticipation note): no modal can
+    // legitimately be open during the load gate today, since every
+    // modal-opening trigger lives inside App.vue's gated toolbar, but
+    // ordering them defensively — modal first — costs nothing and holds
+    // even if that invariant is ever relaxed.
     if (store.workspaceLoadState.kind !== 'loaded') return;
 
     // Context Guard: ignore hardware events when user is typing.

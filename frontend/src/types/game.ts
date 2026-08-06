@@ -15,6 +15,12 @@
  */
 
 import type { Brand, BoardId, CardId } from './ids';
+// Type-only import (erased at compile time, no runtime cycle); mirrors
+// `types/engine.ts`'s precedent of importing a type from outside `types/`.
+// `BranchRangeKey` is declared alongside its sole factory
+// (`deriveBranchRangeKey`) in `composables/analysis/branch-range-key.ts`
+// per the keyed-cache rule (frontend/CLAUDE.md "Type-driven design").
+import type { BranchRangeKey } from '../composables/analysis/branch-range-key';
 
 // ── Game-coupled brands ───────────────────────────────────────────────────────
 
@@ -156,17 +162,32 @@ export interface BoardState {
   turn: StoneColor;
   nodes: Record<NodeId, GameNode>;
   maxVisitsTarget?: number;
-  // Analysis-chart selection range as [startPly, endPly] indices into
-  // the active variation path. Branded `[PlyIndex, PlyIndex]` so the
-  // off-by-colour confusion the brand pair exists to prevent (a caller
-  // passing a colour-local move-range here would be a compile error)
-  // cannot recur. Mutated by `useAnalysisTimeline` via `mutateBoard`;
-  // persisted across tab switches and board switches (BoardState
-  // survives both). `undefined` means "use the default fit-to-path
-  // range" — set on first observation of a non-empty variation.
-  // Wire shape unaffected: brands erase at JSON serialisation, so
-  // SyncService persistence is transparent. Release-scope item 2.
-  analysisRange?: [PlyIndex, PlyIndex];
+  // Analysis-chart selection ranges, keyed per branch-stem
+  // (`BranchRangeKey`, `composables/analysis/branch-range-key.ts`) so a
+  // range set on one variation survives navigating away and back, and
+  // does not silently apply to an unrelated sibling branch. Each value
+  // is `[startPly, endPly]` indices into the branch's own active
+  // variation path, branded `[PlyIndex, PlyIndex]` so the off-by-colour
+  // confusion the brand pair exists to prevent (a caller passing a
+  // colour-local move-range here would be a compile error) cannot
+  // recur. Mutated by `useAnalysisTimeline` via `mutateBoard`; persisted
+  // across tab switches and board switches (BoardState survives both).
+  // A missing entry for the current branch key means "use the default
+  // fit-to-path range" — set on first observation of a non-empty
+  // variation under that key. Wire shape unaffected: brands erase at
+  // JSON serialisation, so SyncService persistence is transparent.
+  //
+  // Deliberately UNCAPPED (commissioner adjudication, ledger rows
+  // 112/119 — overrules the original design proposal's 32-entry LRU
+  // eviction). Growth is bounded in practice by the number of distinct
+  // branch stems a human actually visits in a review session, not by
+  // any enforced limit; a deleted variation can orphan a stem's entry
+  // permanently, accepted as a documented bounded leak under the
+  // Resource-ownership checklist (`frontend/CLAUDE.md` "Resource
+  // ownership at mutation sites" §3) rather than wiring a sweep at
+  // every delete-variation call site. Do not add an eviction policy
+  // here without a new adjudication overturning this one.
+  analysisRanges?: Partial<Record<BranchRangeKey, [PlyIndex, PlyIndex]>>;
   // CardId of the card whose SGF populated this board, when known.
   // Set by the card-load paths — `useDirtyBoardGuard.handleLoadCard`
   // (database tab) and `useReviewSession.loadCard` (SR queue) — before

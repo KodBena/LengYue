@@ -143,7 +143,28 @@ function onToggleLeave() {
 function nodeFill(item: { move?: GameNode['move'] }): string {
   if (!item.move) return themeColor('--border-3');
   // Stone colors are domain-meaningful (board pieces); not chrome.
-  return item.move.color === 'B' ? '#111' : '#eee';
+  //
+  // DARK-THEME EXCEPTION (Defect 7 fix, ui-defects-investigation.md):
+  // the literal black-stone fill '#111' against dark theme's
+  // --surface-2 (#1a1a1a, theme.css) computes to a WCAG contrast ratio
+  // of ~1.085:1 (relative-luminance formula (L1+0.05)/(L2+0.05)) --
+  // functionally invisible, well under C19's 3:1 floor for
+  // information-bearing glyphs (law/adr/0019-appendix-ui-proscriptions.md).
+  // '#eee' (white nodes) against the same background is ~15.0:1 --
+  // trivially passes, unaffected by this change.
+  //
+  // var(--tree-node-black-fill, #111) resolves to '#707070' ONLY when
+  // [data-theme="dark"] is active on <html> (see the plain, unscoped
+  // <style> block below) -- #707070 against #1a1a1a computes to
+  // ~3.51:1 (same formula, cross-checked: it reproduces the report's
+  // 1.085 figure for the #111/#1a1a1a pair before being applied to
+  // #707070/#1a1a1a). Every other theme ("cluster", any future theme)
+  // never sets that custom property, so the var() fallback resolves to
+  // the domain-literal '#111' unchanged -- the mechanism cannot leak
+  // into a theme it wasn't written for. This is pure CSS (no
+  // data-theme sniffing in JS), so it adds zero reactive reads to the
+  // render path (ADR-0010 read-locality).
+  return item.move.color === 'B' ? 'var(--tree-node-black-fill, #111)' : '#eee';
 }
 
 function nodeStroke(item: { move?: GameNode['move'] }): string {
@@ -391,4 +412,19 @@ const edges = computed(() => {
 .toggle-group:hover .toggle-box { stroke: var(--accent-primary); fill: var(--surface-3); }
 .toggle-group:hover .toggle-mark { stroke: var(--text-0); }
 .hit-area { pointer-events: all; }
+</style>
+
+<!--
+  Plain (unscoped) style block, deliberately separate from the scoped
+  block above: `[data-theme="dark"]` lives on <html>, an ancestor
+  outside this component's own scope-id boundary, so a scoped rule
+  cannot key off it. `.tree-widget-wrapper` is unique in the codebase
+  (grep-checked) so the global selector is safely specific. See
+  nodeFill()'s comment (script block above) for the WCAG-ratio
+  derivation and the var()-fallback leak analysis.
+-->
+<style>
+[data-theme="dark"] .tree-widget-wrapper {
+  --tree-node-black-fill: #707070;
+}
 </style>

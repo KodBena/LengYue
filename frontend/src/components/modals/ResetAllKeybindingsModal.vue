@@ -10,8 +10,10 @@
  * License: Public Domain (The Unlicense)
  */
 import { ref } from 'vue';
+import { useModalKeyboard } from '../../composables/useModalKeyboard';
 
 const isOpen = ref(false);
+const modalContentRef = ref<HTMLElement | null>(null);
 let resolvePromise: ((confirmed: boolean) => void) | null = null;
 
 defineExpose({
@@ -30,13 +32,18 @@ function handle(confirmed: boolean): void {
     resolvePromise = null;
   }
 }
+
+// Escape → same close path as the Cancel button (ADR-0019 S5);
+// Tab focus trap + initial focus + focus restoration — all one
+// shared mechanism, see useModalKeyboard.ts.
+useModalKeyboard(modalContentRef, isOpen, () => handle(false));
 </script>
 
 <template>
   <div v-if="isOpen" class="modal-backdrop" @mousedown.self="handle(false)">
-    <div class="modal-content">
+    <div ref="modalContentRef" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="reset-all-keybindings-title" tabindex="-1">
       <div class="modal-header">
-        <h2>{{ $t('keybindings.resetAll.title') }}</h2>
+        <h2 id="reset-all-keybindings-title">{{ $t('keybindings.resetAll.title') }}</h2>
       </div>
       <div class="modal-body">
         <p>{{ $t('keybindings.resetAll.body') }}</p>

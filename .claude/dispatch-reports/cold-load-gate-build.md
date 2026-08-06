@@ -174,3 +174,94 @@ intended files are modified).
 - `frontend/tests/integration/workspace-load-gate.test.ts` — new test file.
 
 No new files under `frontend/src/`, so `FILES.md` needs no entry.
+
+## MERGE (2026-08-06) — composing next into this branch
+
+Coordinator attempted `next` → this branch and aborted: 4 conflict hunks in
+`App.vue` plus the anticipated `useUserIORegistry.ts` seam, and the
+`App.vue` ones matched exactly the hazard the reviewer flagged (Finding 8
+of `cold-load-gate-review.md`) — a blind splice risked keeping the
+PRE-`f645ca42` inline chrome-toggle writes (`store.session.ui.X = !...`)
+inside my gated template while current `next` had already converted every
+one of them to the `sessionVersion`-bumping `toggleChrome()` /
+writable-computed `activeTab` handlers (`f645ca42`, "version-count
+store.session in SyncService instead of deep-watching it"). Did the
+composition by hand with the full merged file in view, not a mechanical
+`git merge` accept-theirs/accept-ours.
+
+`next` had moved considerably since this branch's base (3378806f):
+hotkeys batch (`c298a9e5`), modal keyboard integrity (`95afd78f`),
+registry collapsibles, opt-in high-contrast text tokens (`56a3d7e3`),
+deck repetition (`e03d2fee`), and the `f645ca42` toolbar/session-version
+refactor plus the follow-on tab-strip virtualisation perf arc — 56 commits
+ahead. `git merge next --no-edit` produced exactly 2 conflicting files,
+matching the coordinator's read.
+
+**`App.vue` resolution.** Rebuilt the file by hand from `next`'s full copy
+(`git show next:frontend/src/App.vue`) as the base — its script block
+(`toggleChrome`, the writable `activeTab` computed, `splitWorkspaceCentered`,
+`CONTROL_PANEL_MIN_WIDTH_PX`, `controlPanelWidthPx`, `handleUpdateRules`,
+the `RulesetName` import) is unchanged by this branch — and re-applied only
+this branch's diff on top: the `v-if="store.workspaceLoadState.kind ===
+'loaded'"` wrapper around `SidebarWidget` and around the
+toolbar/`SystemLogPanel`/`#split-workspace` block, the `v-else-if`
+loading/error states, and the `#workspace-boot-state` /
+`.workspace-boot-spinner` CSS. Every control inside the gated template now
+calls `next`'s current handler, not this branch's stale pre-refactor
+write — verified control-by-control (nit-2 verification, below).
+
+**`useUserIORegistry.ts` resolution.** Composed per this branch's own
+anticipation note (written into the nit-1 fix, before this merge existed):
+`next`'s `anyModalOpen.value` early-return stays first, this branch's
+`store.workspaceLoadState.kind !== 'loaded'` early-return follows as the
+second sibling guard. Comment updated to say so directly rather than
+forward-reference a note that's now resolved.
+
+**Nit-2 verification — every toolbar control in the gated template, and
+the handler it calls, post-merge (`frontend/src/App.vue`):**
+
+| Control | Template line (approx) | Handler | Session-version bump? |
+|---|---|---|---|
+| Sidebar-toggle button | `toggleChrome('sidebarExpanded')` | `toggleChrome` | Yes — `touchSession()` inside `toggleChrome` |
+| Board-expand toggle | `toggleChrome('boardExpanded')` | `toggleChrome` | Yes |
+| Tree-expand toggle | `toggleChrome('treeExpanded')` | `toggleChrome` | Yes |
+| Controls-expand toggle | `toggleChrome('controlsExpanded')` | `toggleChrome` | Yes |
+| Control-panel tab strip (`TabWidget` `v-model`) | `v-model="activeTab"` | writable `activeTab` computed | Yes — `touchSession()` in the computed's `set` |
+| Toolbar (engine/mint/match/play) | unchanged both branches | `engineControls.toggle` / `triggerMint` / `triggerMatch` / `handleStopMatch` / `triggerPlay` | N/A — not `session.ui`-persisted, untouched by `f645ca42` |
+| Panel resizer (`@mousedown`) | unchanged both branches | `startResize` (`useResizablePanel`) | N/A — drives `controlPanelWidthPx`, its own persistence path, not `f645ca42`'s scope |
+| `SidebarWidget` load/save SGF | unchanged both branches | `openFileDialog` / `downloadActiveBoard` | N/A — board mutation, not chrome state |
+| `BoardWidget` move/paste-pv, `StatusBar` komi/rules, `TreeWidget` select-node | unchanged both branches | `handleBoardMove` / `handlePastePv` / `handleUpdateKomi` / `handleUpdateRules` / `handleNodeSelect` | N/A — board/game-tree mutation, not chrome state |
+
+Grepped the merged file for `store.session.ui\.` afterward: every
+remaining occurrence is a **read** (`v-show="store.session.ui.X"`, the
+`splitWorkspaceCentered` computed's read of `controlsExpanded`) — no
+inline `store.session.ui.X = !store.session.ui.X` writes survived the
+composition anywhere in the file, gated or not.
+
+**Correction to my own earlier "every mutation surface is gated" claim**
+(compounding the nit-1 correction above, same overstatement pattern):
+that claim was scoped to *render-tree* surfaces even before this merge;
+the merge doesn't change its scope, but is recorded here since the merge
+is exactly the kind of change that could have silently reintroduced a
+mutation path (the stale-handler hazard the coordinator flagged) had the
+composition been mechanical rather than hand-verified.
+
+**Gates on the merged result:**
+
+- `npm run build` (`vue-tsc -b && vite build`) — clean. The typecheck
+  passing is itself part of the verification: `activeTab`,
+  `toggleChrome`, `controlPanelWidthPx`, `CONTROL_PANEL_MIN_WIDTH_PX`, and
+  `handleUpdateRules` are all `next`-side script bindings — a template
+  reference to a handler this branch's stale script didn't declare would
+  have failed `vue-tsc`, not just looked wrong.
+- `npx eslint .` — clean.
+- `npm run test:run` — **1310 passed, 4 skipped, 0 failed** (103/106
+  files) — up from the pre-merge 1112 (next's 56 commits brought ~198 new
+  tests: hotkeys batch, modal keyboard, collapsibles, contrast tokens,
+  deck repetition, tab-strip virtualisation, etc.). No regressions.
+
+Committed as a merge commit (`next` → this branch), not a rebase — the
+coordinator's framing ("merge current next into your branch") and the
+fact this branch has already been reviewed at its pre-merge tip make a
+merge commit the honest record of what happened, rather than rewriting
+this branch's already-reviewed history.

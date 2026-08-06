@@ -7,6 +7,7 @@
  * License: Public Domain (The Unlicense)
  */
 import type { Move, StoneColor, BoardState, NodeId, RootToLeafPath } from '../types';
+import { normalizeRuleset, type RulesetResolution } from './rulesets';
 
 /**
  * Thrown when an inbound SGF coordinate is malformed — a character
@@ -168,6 +169,19 @@ export function getKomi(state: BoardState): number {
   const kmStr = state.nodes[state.rootNodeId]?.properties['KM']?.[0];
   const km = parseFloat(kmStr ?? '6.5');
   return isNaN(km) ? 6.5 : km;
+}
+
+/**
+ * Extracts the ruleset from the SGF root node's `RU` property, parallel
+ * in shape to `getKomi` / `getBoardSize` but returning the
+ * `RulesetResolution` union rather than defaulting silently — per the
+ * ruleset ruling (`.claude/dispatch-reports/design-engine-features.md`
+ * §RULESETS), an unrecognized or missing `RU` must surface as an
+ * explicit `'unknown'` arm, never a guessed default (ADR-0002).
+ */
+export function getRulesetResolution(state: BoardState): RulesetResolution {
+  const raw = state.nodes[state.rootNodeId]?.properties['RU']?.[0];
+  return normalizeRuleset(raw);
 }
 
 /**

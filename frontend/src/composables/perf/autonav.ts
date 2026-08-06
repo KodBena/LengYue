@@ -26,7 +26,7 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import { activeBoard, store } from '../../store';
+import { activeBoard, store, touchSession } from '../../store';
 import { useNavigation } from '../useNavigation';
 import { useQueryTelemetry, type QueryKind, type InFlightQuery } from '../useQueryTelemetry';
 import { __devForceActiveAnalysisTab } from '../analysis/useAnalysisTabs';
@@ -222,6 +222,7 @@ export function runAutonav(opts: AutonavOptions = {}): AutonavHandle {
     // the chosen sub-tab (default Basic), so every capture renders the
     // same panel set.
     store.session.ui.activeTab = MAIN_TAB_ANALYSIS;
+    touchSession(); // persisted session UI field; see `sessionVersion` (store/index.ts)
     __devForceActiveAnalysisTab(subTab);
   }
   performance.mark(`${prefix}:start`, { detail: { boardId: b.id } });

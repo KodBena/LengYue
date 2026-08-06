@@ -66,7 +66,7 @@ frontend/src/
 │   ├── KeybindingRow.vue              [B1]  Per-action row in the Keybindings view — idle/capture/conflict state machine + Edit/Reset/Unbind buttons. (Machinery domain-free; imports the [B3] catalog only to supply findActionByKey's registry argument.)
 │   ├── KeybindingsView.vue            [B1]  Keybindings sub-tab: per-domain registry list + Reset-all + reserved-keys disclosure. (Machinery domain-free; walks the injected [B3] catalog and assumes its closed {nav, display, engine} domain-prefix set.)
 │   ├── KnobRegistryEditor.vue         [B1]  Cross-domain knob-registry editor — lists every scalar knob, grouped by domain (Phase 3b).
-│   ├── ReviewSessionPanel.vue         [B3]  In-session SR controls: status, counter, intermission chart, hint visibility.
+│   ├── ReviewSessionPanel.vue         [B3]  In-session SR controls: status, counter, intermission chart, hint visibility, deck-repeat back/forward + Retry.
 │   ├── SettingsTab.vue                [B1]  Settings tab surface: Session (UI) / Analysis Environment / Card Sets / Advanced Registry / Analysis / Keybindings sub-tabs via TabWidget. (Retagged B2→B1 2026-06-12, maintainer adjudication: generic settings chrome; the B2/B3 contamination — the editors, profile-owner, the in-template engine.katago.analysis_env path — may be structural necessity, possibly dissolved by config-schema-projections; those edges are annotated exceptions, named-and-owned.)
 │   │
 │   ├── board/                                Go-board surface. Renderers + overlays.
@@ -103,6 +103,7 @@ frontend/src/
 │   │   └── StabilityPanel.vue         [B3]  Per-position stability metric over the variation path; extractor-selectable.
 │   │
 │   ├── chrome/                              Application shell. Generic UI primitives.
+│   │   ├── EngineModelSelect.vue      [B1]  Toolbar MODEL-identity slot (SELECTOR `<select>` / LEAF static label + tooltip); self-sources model-selection state only, isolated from ToolbarEngineMetrics's metrics-tick re-renders so a live tick can't reassert the select's DOM and kill hover.
 │   │   ├── EngineQueueTooltip.vue     [B1]  Toolbar badge + hover panel listing in-flight KataGo queries with ETA.
 │   │   ├── FloatingThumbnail.vue      [B3]  Cursor-anchored floating board preview (sole host: TreeWidget's variation hover). Synchronous show/hide gate; content derives from a host-supplied `() => BoardSnapshot` accessor rendered via MiniBoard (the ChartPreviewBox accessor contract); seam-level stranding backstops (80px anchor radius / scroll / blur). Re-banded B1→B3 when the v-html SVG-string sink became the BoardSnapshot projection (render-lifecycle consolidation).
 │   │   ├── LocalePicker.vue           [B1]  Top-nav locale picker (flag + native name).
@@ -111,7 +112,7 @@ frontend/src/
 │   │   ├── SystemLogPanel.vue         [B1]  Always-visible system log bar with idle row.
 │   │   ├── TabWidget.vue              [B1]  Controlled tabbed navigation.
 │   │   ├── Toolbar.vue                [B3]  Application toolbar shell (title, buttons, popover mounts). Reads only `isConnected`; telemetry lives in ToolbarEngineMetrics so the shell doesn't re-render per packet.
-│   │   ├── ToolbarEngineMetrics.vue   [B3]  Live engine-telemetry strip leaf (version/model/winrate/scoreLead/PPS/latency/watchdog + queue tooltip); self-sources the per-packet/per-tick reads, extracted out of Toolbar (render-coupling fix).
+│   │   ├── ToolbarEngineMetrics.vue   [B3]  Live engine-telemetry strip leaf (version/winrate/scoreLead/PPS/latency/watchdog + queue tooltip + mounts EngineModelSelect); self-sources the per-packet/per-tick reads, extracted out of Toolbar (render-coupling fix). MODEL slot moved to EngineModelSelect.vue (2026-08-06) so this leaf's own 1Hz tick re-render can't reach the select's DOM.
 │   │   ├── ToolbarSliderPopover.vue   [B1]  Toolbar badge + hover popover: compact priority-ordered list of every scalar knob (quick-access surface for the knob registry).
 │   │   └── UserBadge.vue              [B1]  Auth-identity badge; opens LoginModal on click.
 │   │
@@ -159,7 +160,9 @@ frontend/src/
 │   ├── useAutoPopoverPerf.ts          [B1]  Dev-only: toggles a target popover open/closed at ~2/s (via useHoverPopover's force hook), emitting popover:open/close marks tagged with queue state — for the popover-toggle-cost measurement.
 │   ├── useAutoSaveAnalyses.ts         [B3]  Auto-save policy for the [experimental] analysis-persistence feature: watches each board's `dirtyVersion` on analysisPersistenceService and trailing-debounces a `save(boardId)`, gated on `engine.katago.analysisStorageEnabled && analysisAutoSave`. B3 via the analysis-bundle / persistence-service imports and the KataGo storage toggles.
 │   ├── useEngineControls.ts           [B3]  Engine connect / disconnect / toggle lifecycle.
-│   ├── useNavigation.ts               [B2]  Headless navigation within the game tree (next/prev/parent/child).
+│   ├── useEngineModelSelection.ts     [B3]  SELECTOR-mode model-selection actions over `setSelectedModel`: cycle through `availableModels` (wrapping, skipping unhealthy) and swap to the last-active selection. Backs the `engine.cycleModel` / `engine.swapLastActiveModel` keybindings.
+│   ├── useModalKeyboard.ts            [B1]  Shared modal keyboard/focus mechanism (ADR-0019 S5 fix): Escape→close, Tab/Shift+Tab focus trap, initial focus, focus restoration; exports `anyModalOpen` for useUserIORegistry's global-hotkey suppression while a modal is open. Wired into all 7 src/components/modals/*.vue files.
+│   ├── useNavigation.ts               [B2]  Headless navigation within the game tree (next/prev/parent/child/toggle-main-line).
 │   ├── useQeubo.ts                    [B1]  qEUBO experiment state machine + audition + verdict.
 │   ├── useQueryTelemetry.ts           [B1]  Singleton in-flight KataGo query queue + per-model visits/sec ETA.
 │   ├── useScopedScroll.ts             [B1]  Wheel-event scoped scroll (board + tree both consume).
@@ -170,11 +173,12 @@ frontend/src/
 │   ├── useUserIORegistry.ts           [B2]  Hardware-event → domain-verb adapter (keyboard nav, suggestion toggle, …).
 │   │
 │   ├── analysis/                             KataGo-derived view models and chart wiring.
+│   │   ├── branch-range-key.ts        [B2]  Sole factory for the `BranchRangeKey` brand — the branch-stem identity (decision-node choices only) analysis-range memory is keyed by (`useAnalysisTimeline`, Candidate C).
 │   │   ├── useAnalysisContext.ts      [B3]  Per-board analysis context (projection + derived) shared to panels via provide/inject.
 │   │   ├── useAnalysisTabs.ts         [B3]  Analysis-tab state: persisted tab list (AppSettings.analysisTabs) + ephemeral active-tab selection. No component imports (resolution is the dashboard's job).
 │   │   ├── useAnalysisProjection.ts   [B3]  Projects raw board + analysis ledger to UI-ready view model.
 │   │   ├── useAnalysisPersistence.ts  [B2]  Effectful boundary for AnalysisControls' save/discard + reactive summary/auto-save-error + stopBoardAnalysis; keeps the analysisPersistenceService/analysisService imports out of the component.
-│   │   ├── useAnalysisTimeline.ts     [B3]  Owns the chart selection range + visit-vector from the ledger.
+│   │   ├── useAnalysisTimeline.ts     [B3]  Owns the per-branch-stem chart selection range (keyed by `BranchRangeKey`, uncapped) + visit-vector from the ledger.
 │   │   ├── useChartNavigation.ts      [B3]  Pure black-box click-navigation handler for analysis charts (hover-preview is owned panel-side).
 │   │   ├── useEChartsForestRender.ts  [B2]  Per-tree ECharts lifecycle (init, dispose, resize) for card-tree forests.
 │   │   ├── enriched-accumulator.ts    [B3]  Pure incremental derivation of the enriched series (patchNode O(1) vs full O(N) rebuild); last-path-order delta arbitration. Equivalence-tested.
@@ -187,6 +191,7 @@ frontend/src/
 │   │   └── wait-for-analysis.ts       [B3]  Primitive: wait for a specific KataGo packet (with timeout, abort).
 │   │
 │   ├── auth-app/                             Auth + app cold-start.
+│   │   ├── contrast-text-attribute.ts [B1]  Pure DOM mutation: mirrors `appearance.highContrastText` onto `<html data-contrast-text="on">` (removed, not `"off"`, when false). Pulled out of useAppBootstrap's watcher so the OFF-state-unchanged guarantee is unit-testable standalone.
 │   │   ├── useAppBootstrap.ts         [B3]  Cold-start wiring: auth → sync hydrate → domain inits → tag fetch. Band-mixed by role (imports analysis-service, qEUBO, the keybindings catalog); tagged like App.vue — wiring, not a B1 substrate.
 │   │   ├── useAuth.ts                 [B1]  AuthState SSOT; wraps api-client auth methods; JWT synchronisation.
 │   │   ├── useMetadata.ts             [B3]  SGF root properties → UI metadata (gameName ladder, players, dates).
@@ -194,10 +199,11 @@ frontend/src/
 │   │
 │   ├── board/                                Board-surface composables. Mostly B3.
 │   │   ├── autonomous-srs.ts          [B3]  Policy/Driver/Recorder abstractions for the autonomous SRS loop.
+│   │   ├── board-variations-markers.ts [B2]  Pure derivation of BoardVariationsOverlay's dashed sibling/next-move markers (incl. the PV-hover `suppressed` gate); extracted 2026-08-06.
 │   │   ├── engine-move-delta-reconcile.ts [B3]  Shared surgical-merge helper for engine-move-delta consumers: reconciles an EngineDelta into the store and gates cursor advance on user-tracking.
 │   │   ├── suggestion-color-calibration.ts [B3] Domain init for the suggestion-color gradient: hue-shift watcher + fire-and-forget visit-distribution fetch (via getResource<T>); called once from useAppBootstrap.
 │   │   ├── useActivePath.ts           [B2]  NodeId lineage root → current node.
-│   │   ├── useBoardMoveRouting.ts     [B3]  Grading-integrity gate for both board-mutation entry points (click-to-play + paste-PV): AWAITING_MOVE routes to the review session's graded handler, transient SR states refuse mutation, free play (with the game-head engine trigger) is IDLE/FINISHED-only. Extracted from App.vue 2026-06-11.
+│   │   ├── useBoardMoveRouting.ts     [B3]  Grading-integrity gate for both board-mutation entry points (click-to-play + paste-PV): AWAITING_MOVE routes to the review session's graded handler, transient SR states refuse mutation, REVIEWED (a restored deck-repeat snapshot) refuses outright, free play (with the game-head engine trigger) is IDLE/FINISHED-only. Extracted from App.vue 2026-06-11.
 │   │   ├── useDirtyBoardGuard.ts      [B3]  Dirty-board guard: confirm-load modal + dirty-board policy for cards AND library games; delegates the SGF load to sgf/loadIntoBoard (swallow-and-log over the fail-loud primitive).
 │   │   ├── useEngineResponder.ts      [B3]  "Play vs engine" trigger: `fireAndAdvanceHead(boardId, gameStartNodeId)` queries the engine at the board's current position and advances the game's single green-ring head; invoked from useBoardMoveRouting when the user plays from a head.
 │   │   ├── useFollowMePonder.ts       [B3]  "Follow Me" ponder watcher: re-issues the active board's ponder query on same-board navigation (board switches excluded). App.vue's former direct analysis-service watcher, relocated to the composable layer 2026-06-11.
@@ -223,7 +229,8 @@ frontend/src/
 │   │   ├── useHoverPopover.ts         [B1]  Hover-intent open/close primitive (open ref + mouseenter/mouseleave + 150 ms close-grace timer) shared by toolbar popovers.
 │   │   ├── useLocale.ts               [B1]  Locale read/write through GlobalStore + supported-locale registry.
 │   │   ├── usePopoverEdgeClamp.ts     [B1]  Viewport-edge clamp for hover popovers (setPopoverEl function-ref + xShift) — translateX shifts the rendered popover inward when its CSS anchor would push it off-screen.
-│   │   └── useResizablePanel.ts       [B2]  Horizontal resize-bar between tree and control panels.
+│   │   ├── useResizablePanel.ts       [B2]  Horizontal resize-bar between tree and control panels.
+│   │   └── useVirtualList.ts          [B1]  Fixed-height vertical virtual-list windower (visible slice + top/bottom spacer pad + scrollToIndex); rAF-coalesced scroll + ResizeObserver, released on unmount. Virtualizes the SidebarWidget board-tab rail (was ~185k DOM nodes at 230 boards).
 │   │
 │   ├── forest/                               Forest / game-tree expansion + navigation.
 │   │   ├── useForestBrowsePolicy.ts   [B2]  Forest-Directory selection → fetch-behaviour dispatcher.
@@ -255,7 +262,7 @@ frontend/src/
 │   │   ├── blind-mode-prefs.ts        [B3]  Snapshot/restore owner for the session-UI prefs blind mode flips (showMoveSuggestions, treeExpanded): generic snapshot core + the review session's supplied key list. B3 via its store import and its consumer's vocabulary; the snapshot mechanism is band-agnostic in character (fork: lift the factory, re-supply keys).
 │   │   ├── useMinting.ts              [B3]  Mint flashcards from boards (Go-board → backend mint payload). `calibrateKomiOnDraft` runs the opt-in mint-time komi calibration and rewrites the draft SGF's `KM`.
 │   │   ├── useKomiCalibration.ts      [B3]  One-shot bounded evaluation for mint-time komi calibration: shared fresh-eval primitives → analyze the minted position → computeEvenKomi. Fails loudly (no silent uncalibrated fallback).
-│   │   └── useReviewSession.ts        [B3]  SR-session state machine: AWAITING_MOVE / INTERMISSION / FINISHED. Band-mixed (the ADR-0003 Revisit-#3 canary): the SR orchestration is game-class-portable; the per-move delta scoring is extracted to engine/analysis/review-scoring.ts — the first of ~4 Go seams named (sgf.parse in loadCard, applyGoMove, gtpToBoard follow-through remain inline), so the [B3] tag reflects the residue, not the whole.
+│   │   └── useReviewSession.ts        [B3]  SR-session state machine: AWAITING_MOVE / INTERMISSION / FINISHED / REVIEWED (deck-repeat: goBack/goForward/jumpTo/retryCard over a module-scope per-visit snapshot map, visitSnapshots). Band-mixed (the ADR-0003 Revisit-#3 canary): the SR orchestration is game-class-portable; the per-move delta scoring is extracted to engine/analysis/review-scoring.ts — the first of ~4 Go seams named (sgf.parse in loadCard, applyGoMove, gtpToBoard follow-through remain inline), so the [B3] tag reflects the residue, not the whole.
 │   │
 │   └── sgf/                                  SGF I/O.
 │       ├── loadIntoBoard.ts           [B2]  loadSgfIntoBoard — parse + overwrite an existing board + navigate-to-leaf. The bare load primitive (fail-loud); useDirtyBoardGuard wraps it with the confirm-modal, the perf context calls it directly.
@@ -270,11 +277,12 @@ frontend/src/
 │   ├── helper.ts                      [B1]  Piecewise cubic Hermite interpolation (pure math).
 │   ├── navigator.ts                   [B3]  LCA-based game-tree traversal with setup-stone + capture tracking. (Maintainer-adjudicated target 2026-06-12: B2 — generic LCA traversal; the tag stays B3 as structural fact while the Go replay — stones/ko/captures/SGF setup-coord decode — is inlined in navigateTo. Tags record fact, not aspiration; lib/keybindings.ts precedent.)
 │   ├── rules.ts                       [B3]  Pure Go rules engine (legality, captures, ko).
+│   ├── rulesets.ts                    [B3]  The four ruling-mandated named rulesets (AGA/Chinese/Japanese/Tromp-Taylor): RulesetName, total case-insensitive normalizeRuleset (sole RulesetName construction site), and rulesetToWireName (display name → KataGo wire spelling, single home).
 │   ├── sgf-loader.ts                  [B3]  SGF parser → GameNode forest.
 │   ├── sgf-writer.ts                  [B3]  GameNode forest → SGF serialisation.
 │   ├── suggestion-colors.ts           [B3]  Pure colour utilities for move-suggestion overlays.
 │   ├── tree.ts                        [B2]  Generic grid-based tree layout + tree-graph transforms.
-│   ├── util.ts                        [B3]  Board / SGF coord helpers; active-variation traversal; game-name resolution ladder. (Domain-free generateUUID / updateRegistry re-homed to lib/utils.ts 2026-06-10.)
+│   ├── util.ts                        [B3]  Board / SGF coord helpers; active-variation traversal; game-name resolution ladder; getRulesetResolution (RU-property accessor, parallel to getKomi/getBoardSize). (Domain-free generateUUID / updateRegistry re-homed to lib/utils.ts 2026-06-10.)
 │   │
 │   ├── analysis/
 │   │   ├── clustering.ts              [B3]  Pure transposition-grouping utilities.
@@ -353,6 +361,7 @@ frontend/src/
 │   └── qeubo.ts                       [B1]  qEUBO calibration domain: experiment / status / pair / best projections, QeuboError (runtime class), QeuboBookmark.
 │
 ├── utils/                                   Small DOM / chrome helpers.
+│   ├── contrast-ratio.ts              [B1]  Pure WCAG 2.1 relative-luminance / contrast-ratio math over `#rrggbb` hex strings. Backs the high-contrast-text token choices in theme.css's `[data-theme="cluster"][data-contrast-text="on"]` block with a machine-checked test rather than hand-computed-and-trusted ratios.
 │   ├── context-id-macros.ts           [B2]  `${a,b}` macro expansion for the Cards-tab context-id field.
 │   ├── modifier-key.ts                [B1]  Platform-aware modifier-click detection (Cmd vs Ctrl, middle-button).
 │   └── theme-color.ts                 [B1]  Runtime CSS-variable accessor for ECharts adapter configs.

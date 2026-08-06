@@ -5,8 +5,8 @@
  * License: Public Domain (The Unlicense)
  */
 
-import { computed, type Ref } from 'vue';
-import type { ReviewCard, BoardId, ReviewStatus, RawAnalysis } from '../../types';
+import { computed, toRaw, type Ref } from 'vue';
+import type { ReviewCard, BoardId, BoardState, NodeId, ReviewStatus, RawAnalysis, StoneColor } from '../../types';
 
 /**
  * Returns true when the review session is in a transient state where
@@ -91,6 +91,166 @@ const ABSOLUTE_FALLBACK_VISITS = 1000;
 const pendingAnalysisAborts = new Map<BoardId, AbortController>();
 
 /**
+ * Deck-repeat arc (`.claude/dispatch-reports/deck-repeat-design.md`,
+ * option (a)): a per-board, per-visit snapshot registry that lets
+ * `goBack`/`goForward`/`jumpTo` restore a card the user has already
+ * visited this session WITHOUT re-parsing its SGF — a re-parse mints
+ * fresh non-deterministic NodeIds (`engine/sgf-loader.ts`'s `uuid()`),
+ * which would silently sever the analysis-ledger keying (design doc
+ * §1b) and degrade the feature into "restart the card" (design doc
+ * §2c). `CardVisitSnapshot.board` is instead a plain-value JSON
+ * round-trip clone of the live `BoardState`, which preserves every
+ * NodeId string verbatim.
+ *
+ * Module-scope, board-keyed — same idiom as `pendingAnalysisAborts`
+ * above (one canonical registry across the app, reachable from
+ * `closeBoard`/`resetWorkspace` via the teardown registry below).
+ * Keyed by queue INDEX, not CardId: the queue can in principle repeat
+ * a card, and index is already the session's own "which slot am I on"
+ * identity (`ReviewSessionData.currentIndex`).
+ *
+ * Lifetime: a board's inner map is populated by `captureSlot` (called
+ * from `loadCard`'s capture-at-entry and from `goBack`/`goForward`/
+ * `jumpTo` before they swap the board out) and consumed by
+ * `restoreSlot`. It is cleared per-board by `endSession` (a session
+ * ending drops its retained visits — the deck-repeat design doc's
+ * "Memory growth / ownership call": bounded by deck length, not
+ * unbounded across sessions) and by the two teardown handlers
+ * registered below (board close / workspace reset — resource-
+ * ownership checklist item 1: this is new external state keyed by
+ * BoardId).
+ */
+const visitSnapshots = new Map<BoardId, Map<number, CardVisitSnapshot>>();
+
+/**
+ * The retained state for one already-visited queue slot. Fields are
+ * exactly the design doc's enumerated set (§2a): a snapshot is only
+ * ever taken at a SETTLED instant (`status` is narrowed to the two
+ * non-transient values — see `captureSlot`), so `startingNodeId` is
+ * always present by construction at capture time.
+ */
+interface CardVisitSnapshot {
+  status: 'AWAITING_MOVE' | 'FINISHED';
+  userMovesCount: number;
+  userMoveScores: number[];
+  visitsOverride: number | null;
+  startingNodeId: NodeId;
+  board: BoardState;
+}
+
+/** Get-or-create the per-board snapshot submap. */
+function snapshotsFor(boardId: BoardId): Map<number, CardVisitSnapshot> {
+  let m = visitSnapshots.get(boardId);
+  if (!m) {
+    m = new Map();
+    visitSnapshots.set(boardId, m);
+  }
+  return m;
+}
+
+/**
+ * Capture the board's CURRENTLY ACTIVE slot (`index`) into the
+ * per-visit snapshot map, if — and only if — the slot is in a settled
+ * state: AWAITING_MOVE (mid-attempt, not yet graded) or FINISHED
+ * (graded). LOADING/ANALYZING are refused — a snapshot mid-flight
+ * would capture a torn state (a board mutated ahead of its recorded
+ * score, or an analysis wait about to resolve into a slot nothing
+ * will read again); the outgoing card's unsettled progress is lost,
+ * the same discard today's pre-existing LOADING/ANALYZING transition-
+ * away already performs. IDLE / `index < 0` are no-ops (no active
+ * slot to capture).
+ *
+ * Plain-value clone (`JSON.parse(JSON.stringify(toRaw(board)))`) —
+ * the codebase's sanctioned deep-clone idiom for POJO-shaped reactive
+ * state (`frontend/CLAUDE.md`'s "Vue/CSS footgun checklist":
+ * `structuredClone` cannot clone a Vue reactive proxy). This preserves
+ * every `NodeId` string value verbatim, which is the load-bearing
+ * property the whole feature depends on (design doc §1b/§2a).
+ */
+function captureSlot(boardId: BoardId, index: number): void {
+  if (index < 0) return;
+  const review = store.session.reviews[boardId];
+  if (!review) return;
+  if (review.status !== 'AWAITING_MOVE' && review.status !== 'FINISHED') return;
+  if (!review.startingNodeId) return;
+  const board = store.boards.find(b => b.id === boardId);
+  if (!board) return;
+  snapshotsFor(boardId).set(index, {
+    status: review.status,
+    userMovesCount: review.userMovesCount,
+    userMoveScores: [...review.userMoveScores],
+    visitsOverride: review.visitsOverride,
+    startingNodeId: review.startingNodeId,
+    // JSON.parse/stringify erases the type; `board` is a live BoardState
+    // and the round-trip is lossless for its POJO shape (no Map/Set/
+    // Date/functions — see the `structuredClone`-cannot-clone-reactive-
+    // state footgun note in frontend/CLAUDE.md), so the result is
+    // structurally still a BoardState.
+    board: JSON.parse(JSON.stringify(toRaw(board))) as BoardState,
+  });
+}
+
+/**
+ * Install a retained snapshot as the board's live state and move the
+ * session's `currentIndex` onto it.
+ *
+ * Re-clones `snap.board` on every install rather than installing the
+ * snapshot's own object graph directly: the live board WILL be
+ * mutated in place afterward by ordinary navigation (`mutateBoard` —
+ * `rewindToStart`, the intermission-chart click-to-navigate — both
+ * reachable even from the view-only REVIEWED state). Installing the
+ * snapshot's own `nodes`/`stones`/`games` objects would alias them
+ * into the reactive board; an in-place navigation write would then
+ * silently corrupt the archived snapshot that the NEXT `goBack` to
+ * this same index reads. Re-cloning keeps the map's copy immutable no
+ * matter what the live board does after this call returns.
+ *
+ * A restored FINISHED snapshot re-enters as REVIEWED (view-only — see
+ * `isReviewTransientState`'s sibling gate in `useBoardMoveRouting`,
+ * which refuses board mutation in this state outright, and
+ * `retryCard` below, the only path back into a gradeable state). A
+ * restored AWAITING_MOVE snapshot resumes exactly as left — it never
+ * graded, so continuing and eventually finishing it is today's
+ * semantics, just resumed later.
+ */
+function restoreSlot(boardId: BoardId, index: number, snap: CardVisitSnapshot): void {
+  const boardIdx = store.boards.findIndex(b => b.id === boardId);
+  if (boardIdx === -1) return;
+  const restoredBoard: BoardState = { ...JSON.parse(JSON.stringify(snap.board)), id: boardId };
+  updateBoardState(boardIdx, restoredBoard);
+  mutateReviewSession(boardId, draft => {
+    draft.currentIndex = index;
+    draft.userMovesCount = snap.userMovesCount;
+    draft.userMoveScores = [...snap.userMoveScores];
+    draft.visitsOverride = snap.visitsOverride;
+    draft.startingNodeId = snap.startingNodeId;
+    draft.status = snap.status === 'FINISHED' ? 'REVIEWED' : 'AWAITING_MOVE';
+  });
+}
+
+/**
+ * Test-only inspector — NOT part of the composable's UI-facing
+ * surface. `visitSnapshots` itself is deliberately not exported (a
+ * mutable Map handed to arbitrary importers would invite writes from
+ * outside `captureSlot`/`restoreSlot`); this narrow accessor lets a
+ * test read back a specific stored snapshot's `stones` record
+ * directly, to assert the `restoreSlot` re-clone invariant — mutating
+ * the LIVE board after a restore must never retroactively change what
+ * is archived here — the same shape as `useNavigation.ts`'s
+ * `_mainLineToggleMemoryKeyCountForBoard`. There is no UI-facing "what
+ * does this archived visit currently look like" query to route
+ * through instead. Returns a defensive shallow copy so the caller
+ * cannot itself become a second write path into the stored entry.
+ */
+export function _visitSnapshotStonesForTesting(
+  boardId: BoardId,
+  index: number,
+): Record<string, StoneColor> | null {
+  const snap = visitSnapshots.get(boardId)?.get(index);
+  return snap ? { ...snap.board.stones } : null;
+}
+
+/**
  * Abort the in-flight analysis-wait for `boardId`, if any. The
  * waitForAnalysis promise rejects with `AnalysisWaitError('aborted')`
  * which processUserMove's catch silent-returns on — no toast, no
@@ -164,6 +324,24 @@ registerWorkspaceResetHandler({
   // blind-mode pref snapshot explicitly (see abortAllReviews' body for the
   // ordering hazard that justifies the explicit release).
   run: () => abortAllReviews(),
+});
+registerBoardCloseHandler({
+  label: 'review:visit-snapshots',
+  // Drops the closing board's entire per-visit snapshot map
+  // (goBack/goForward retained-attempt state — see the visitSnapshots
+  // block comment above). Each entry holds a full BoardState clone
+  // plus a per-move score array; without this the board-keyed outer
+  // Map would retain every visited card's clone forever after the tab
+  // closes. Order-independent: the clone is a self-contained
+  // plain-value copy, not a live subscription, so it carries no
+  // engine-stop/ledger-purge ordering dependency.
+  run: (boardId) => { visitSnapshots.delete(boardId); },
+});
+registerWorkspaceResetHandler({
+  label: 'review:visit-snapshots-clear-all',
+  // Identity flip: drop every board's per-visit snapshot map. Same
+  // resource as the close handler above, workspace-wide.
+  run: () => { visitSnapshots.clear(); },
 });
 
 export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
@@ -300,6 +478,16 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
 
     const card = queue.value[index];
     if (!card) return;
+
+    // Deck-repeat arc: snapshot the OUTGOING slot before transitioning
+    // away from it — capture-at-advance-time is what lets a later
+    // goBack() restore this exact visit without re-parsing (design doc
+    // §2a), whether the advance came from an explicit goForward() or
+    // from an ordinary nextCard()/loadCard() walk. No-op when there is
+    // no active slot (currentIndex -1, e.g. startSession's initial
+    // loadCard(0)) or when the outgoing slot isn't settled (see
+    // captureSlot).
+    captureSlot(bId, currentIndex.value);
 
     // Cancel any in-flight analysis wait for this board before
     // starting the new card. If the previous card's processUserMove
@@ -654,8 +842,17 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
 
   function nextCard() {
     if (currentIndex.value + 1 < queue.value.length) {
-      // Fire-and-forget; loadCard self-handles (catch → status IDLE).
-      void loadCard(currentIndex.value + 1);
+      // Deck-repeat arc: route through goForward rather than calling
+      // loadCard directly. Byte-identical to the prior behaviour when
+      // the next slot was never visited (goForward's own fallback is
+      // `void loadCard(targetIndex)` — the exact call this line used
+      // to make); the difference only shows when the next slot WAS
+      // already visited (e.g. the user went back, then clicked
+      // Skip/Next instead of the dedicated forward button) — in that
+      // case goForward restores the retained snapshot instead of
+      // silently re-parsing and losing it, which a plain loadCard call
+      // here would otherwise do.
+      goForward();
     } else {
       // No more cards in the queue — end the session and let the
       // host UI return to its idle shape (deck-config form). The
@@ -667,6 +864,133 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
       // the Cards tab cleanly returns to the deck-config form.
       endSession();
     }
+  }
+
+  /**
+   * True when a lower queue slot exists to navigate back to.
+   * Convenience for the UI (`ReviewSessionPanel`'s back button
+   * `:disabled` binding) so the index arithmetic lives in one place.
+   */
+  const canGoBack = computed(() => currentIndex.value > 0);
+
+  /**
+   * True when a higher queue slot exists to navigate forward to
+   * (whether previously visited or not — `goForward` falls through to
+   * a fresh `loadCard` for an unvisited slot, same as `nextCard`).
+   */
+  const canGoForward = computed(() =>
+    currentIndex.value >= 0 && currentIndex.value + 1 < queue.value.length);
+
+  /**
+   * Navigate to the previous queue slot, restoring its retained
+   * per-visit snapshot when one exists (design doc §2a's programmatic
+   * interface). Snapshots the OUTGOING slot first — same pre-
+   * transition abort as `loadCard` performs, since a mid-ANALYZING
+   * outgoing slot isn't snapshottable (see `captureSlot`).
+   *
+   * Returns false (no-op) when already at the first slot or no board
+   * is active. The "no snapshot for the target" branch is a defensive
+   * fallback only: every index below `currentIndex` should already
+   * carry one from `loadCard`'s own capture-at-entry.
+   */
+  function goBack(): boolean {
+    const bId = boardIdRef.value;
+    if (!bId) return false;
+    const idx = currentIndex.value;
+    if (idx <= 0) return false;
+    const targetIndex = idx - 1;
+
+    pendingAnalysisAborts.get(bId)?.abort();
+    pendingAnalysisAborts.delete(bId);
+    captureSlot(bId, idx);
+
+    const snap = snapshotsFor(bId).get(targetIndex);
+    if (snap) {
+      restoreSlot(bId, targetIndex, snap);
+    } else {
+      void loadCard(targetIndex);
+    }
+    return true;
+  }
+
+  /**
+   * Navigate to the next queue slot — restoring a retained snapshot
+   * when the slot was already visited this session, or falling
+   * through to a fresh `loadCard` when it wasn't (the same shape
+   * `nextCard` already uses for the never-visited case). See `goBack`
+   * for the shared pre-transition abort/capture shape.
+   */
+  function goForward(): boolean {
+    const bId = boardIdRef.value;
+    if (!bId) return false;
+    const idx = currentIndex.value;
+    if (idx < 0 || idx + 1 >= queue.value.length) return false;
+    const targetIndex = idx + 1;
+
+    pendingAnalysisAborts.get(bId)?.abort();
+    pendingAnalysisAborts.delete(bId);
+    captureSlot(bId, idx);
+
+    const snap = snapshotsFor(bId).get(targetIndex);
+    if (snap) {
+      restoreSlot(bId, targetIndex, snap);
+    } else {
+      void loadCard(targetIndex);
+    }
+    return true;
+  }
+
+  /**
+   * Navigate directly to an arbitrary queue slot — the general form
+   * `goBack`/`goForward` specialise (design doc §2a's declared
+   * interface). Not currently wired to any UI affordance; kept for
+   * interface completeness and as the natural hook for a future
+   * clickable card-counter or queue list.
+   */
+  function jumpTo(index: number): boolean {
+    const bId = boardIdRef.value;
+    if (!bId) return false;
+    if (index < 0 || index >= queue.value.length) return false;
+    const idx = currentIndex.value;
+    if (index === idx) return true;
+
+    pendingAnalysisAborts.get(bId)?.abort();
+    pendingAnalysisAborts.delete(bId);
+    captureSlot(bId, idx);
+
+    const snap = snapshotsFor(bId).get(index);
+    if (snap) {
+      restoreSlot(bId, index, snap);
+    } else {
+      void loadCard(index);
+    }
+    return true;
+  }
+
+  /**
+   * Discard the restored (REVIEWED) snapshot for the current slot and
+   * re-enter it fresh via `loadCard` — a genuine second attempt,
+   * graded once like any first attempt. This is the ONLY path back
+   * into a gradeable state from REVIEWED (design doc §3's second
+   * load-bearing property): `useBoardMoveRouting` refuses board
+   * mutation outright while REVIEWED, so without this explicit action
+   * a restored FINISHED snapshot has no way back to `finishCard` —
+   * which is what makes `submitReview`'s missing idempotency guard
+   * (design doc §1d) structurally unreachable twice for the same
+   * attempt.
+   *
+   * No-op outside REVIEWED (defensive — the UI only shows Retry in
+   * that state). The caller (ReviewSessionPanel) is responsible for
+   * confirming the re-grade with the user before invoking this, per
+   * the codebase's `window.confirm` destructive-action convention.
+   */
+  function retryCard(): void {
+    const bId = boardIdRef.value;
+    if (!bId) return;
+    if (state.value !== 'REVIEWED') return;
+    const idx = currentIndex.value;
+    snapshotsFor(bId).delete(idx);
+    void loadCard(idx);
   }
 
   /**
@@ -700,6 +1024,14 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     // loadCard's pre-transition cleanup.
     pendingAnalysisAborts.get(bId)?.abort();
     pendingAnalysisAborts.delete(bId);
+
+    // Deck-repeat arc: a session ending drops its retained per-visit
+    // snapshots (design doc "Memory growth / ownership call" — bounded
+    // by deck length within a session, not unbounded across sessions).
+    // The board-close / workspace-reset teardown handlers registered
+    // above cover the other two exits (tab closed, identity flip); this
+    // is the third — a normal session end while the board stays open.
+    visitSnapshots.delete(bId);
 
     // The status→IDLE write below is also the blind-mode release:
     // the pref owner's exit watcher fires on it synchronously
@@ -735,8 +1067,15 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     state,
     queue,
     currentCard,
+    currentIndex,
     startSession,
     nextCard,
+    goBack,
+    goForward,
+    jumpTo,
+    retryCard,
+    canGoBack,
+    canGoForward,
     rewindToStart,
     processUserMove,
     userMovesCount,

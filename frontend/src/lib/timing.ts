@@ -133,8 +133,15 @@ export const QUEUE_TOOLTIP_REDRAW_THROTTLE_MS = SUBSCRIBER_PROJECTION_REDRAW_THR
  * 5 s latency reads churn at the packet rate through object identity.
  * Coalescing the displayed scalars to 4 Hz drops the strip from
  * ~packet-rate to ~4 redraws/sec; the headline numbers to one decimal
- * don't change meaningfully faster. The watchdog dot is intentionally NOT
- * throttled (it stays live so a latency spike flips it promptly).
+ * don't change meaningfully faster. The watchdog dot's `pingPendingSince`
+ * / `latencyMs` inputs are folded into this SAME throttled snapshot
+ * (fixed 2026-08 — an un-throttled watchdog read was re-running the
+ * whole component's render on every 1 Hz `ENGINE_METRICS_TICK_MS` store
+ * tick, reasserting the SELECTOR `<select>`'s value and killing hover;
+ * see `ToolbarEngineMetrics.vue`'s throttled-snapshot comment). 250ms is
+ * an order of magnitude faster than either watchdog cadence (the
+ * animated ping-tandem duration or the ~5s sample poll), so "a latency
+ * spike flips it promptly" still holds in practice.
  * Distinct from the chart / queue throttles despite the shared 250 ms:
  * different consumer, independently tunable.
  */

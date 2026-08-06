@@ -218,8 +218,28 @@ function installDrainSpies(): DrainSpies {
  * dedicated review tests and the store-mutators board/reset completeness pins,
  * so it is excluded here. That keeps this pin focused on the cache drain it has
  * always been about while still failing on any NEW unmapped cache handler.
+ *
+ * `review:visit-snapshots-clear-all` (deck-repeat arc) is the same shape as
+ * `review:abort-all`: a plain module-scope Map drop inside useReviewSession's
+ * closure, not a bounded module-level cache with its own exported clear
+ * function to spy on. Covered by the dedicated useReviewSession tests instead.
+ *
+ * `nav:clear-toggle-memory-all` (added alongside the `nav.toggleMainLine`
+ * keybinding's `closeBoard` cleanup, review nit fix 2026-08-06) is the same
+ * shape as `review:abort-all` for the same reason: it clears
+ * `useNavigation.ts`'s module-private `mainLineToggleMemory` Map, that module
+ * is real/un-mocked here too, and there is no exported hook a namespace spy
+ * could intercept without exposing the Map itself (deliberately not exported
+ * — see `useNavigation.ts`'s comment on `_mainLineToggleMemoryKeyCountForBoard`).
+ * Covered directly by
+ * `tests/integration/useNavigation-toggle-memory-cleanup.test.ts` and the
+ * teardown-registry completeness pin instead.
  */
-const NON_CACHE_RESET_LABELS = new Set<string>(['review:abort-all']);
+const NON_CACHE_RESET_LABELS = new Set<string>([
+  'review:abort-all',
+  'review:visit-snapshots-clear-all',
+  'nav:clear-toggle-memory-all',
+]);
 
 function expectFullDrain(spies: DrainSpies): void {
   const labels = registeredWorkspaceResetLabels().filter(l => !NON_CACHE_RESET_LABELS.has(l));
