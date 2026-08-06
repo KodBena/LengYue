@@ -18,6 +18,7 @@ import { useViewportFollow } from '../../composables/useViewportFollow';
 import { useNavigation }    from '../../composables/useNavigation';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
 import { warmSnapshotAccessor } from '../../composables/cards/usePreviewSnapshot';
+import { isReviewStartNode } from '../../composables/forest/tree-review-marker';
 import { themeColor }        from '../../utils/theme-color';
 import FloatingThumbnail    from '../chrome/FloatingThumbnail.vue';
 import { boardsById }        from '../../store';
@@ -60,6 +61,17 @@ const props = withDefaults(
     // `board.games[*].currentHeadNodeId` upstream; per-session
     // config is opaque here — the tree only needs identity.
     gameHeadIds?: ReadonlySet<NodeId>;
+    // The active review session's starting node — "where a card
+    // starts" (wanted-feature 4 / ledger row 524's re-adjudicated
+    // build). At most one per board (a board has at most one active
+    // review session), so a nullable single id rather than a Set —
+    // same zero-I/O shape as `gameHeadIds`, sourced from
+    // `useReviewSession`'s `startingNodeId` projection over
+    // `ReviewSessionData.startingNodeId` (`null` outside a review
+    // session). Renders a marker ring in the game-head-ring family,
+    // distinct color, so a card's start position reads at a glance
+    // the same way a play/match session head does.
+    reviewStartNodeId?: NodeId | null;
   }>(),
   { orientation: 'vertical' },
 );
@@ -275,6 +287,7 @@ const nodeList = computed(() => {
     move: GameNode['move']; isBranching: boolean; isExpanded: boolean;
     parentIdForToggle: NodeId | '';
     isGameHead: boolean;
+    isReviewStart: boolean;
   }> = [];
 
   layout.value.positions.forEach((pos, id) => {
@@ -305,6 +318,7 @@ const nodeList = computed(() => {
       isExpanded: isParentExpanded,
       parentIdForToggle, // Pass to template
       isGameHead: !!props.gameHeadIds?.has(id),
+      isReviewStart: isReviewStartNode(id, props.reviewStartNodeId),
     });
   });
   return items;
@@ -367,7 +381,7 @@ const edges = computed(() => {
         <g
           v-for="item in nodeList"
           :key="item.id"
-          v-memo="[item.isGameHead, item.move?.color, item.isBranching, item.isExpanded, item.px, item.py]"
+          v-memo="[item.isGameHead, item.isReviewStart, item.move?.color, item.isBranching, item.isExpanded, item.px, item.py]"
         >
           <!-- Game-head marker — outermost ring (NODE_R + 5) so it stays
                visible when the active-ring (NODE_R + 3) also applies on the
@@ -377,6 +391,19 @@ const edges = computed(() => {
                previously-green nodes no longer render the ring. See
                PlayEngineModal / useEngineResponder for the lifecycle. -->
           <circle v-if="item.isGameHead" :cx="item.px" :cy="item.py" :r="NODE_R + 5" class="game-head-ring" stroke-width="1.5" />
+          <!-- Review-start marker — sibling ring to the game-head ring
+               above, one radius further out (NODE_R + 7) so both can
+               render concentrically on the rare node where a play-vs-
+               engine head and a review session's start coincide, rather
+               than one clobbering the other. `--accent-secondary` is
+               already the SR / current-card accent color (theme.css),
+               so "a card starts here" reads as the SR-family color the
+               same way the game-head ring reads as the play-session
+               color. Sourced from `reviewStartNodeId` (zero I/O — see
+               the prop's doc comment above); appears/disappears with
+               the review session the same way `isGameHead` already does
+               with `board.games`. -->
+          <circle v-if="item.isReviewStart" :cx="item.px" :cy="item.py" :r="NODE_R + 7" class="review-start-ring" stroke-width="1.5" />
           <circle :cx="item.px" :cy="item.py" :r="NODE_R" :fill="nodeFill(item)" :stroke="nodeStroke(item)" stroke-width="1" class="node-circle" @click="emit('select-node', item.id)" />
 
           <g v-if="item.isBranching" class="toggle-group" @click.stop="expansion.toggle(item.parentIdForToggle as NodeId /* layout item's parent id is a NodeId */)" @mouseenter="e => onToggleEnter(e, item.parentIdForToggle as NodeId /* layout item's parent id is a NodeId */)" @mouseleave="onToggleLeave">
@@ -402,6 +429,7 @@ const edges = computed(() => {
 .tree-edges { fill: none; stroke: var(--border-3); }
 .active-ring { fill: color-mix(in srgb, var(--accent-primary) 15%, transparent); stroke: var(--accent-primary); }
 .game-head-ring { fill: color-mix(in srgb, var(--state-success) 15%, transparent); stroke: var(--state-success); }
+.review-start-ring { fill: color-mix(in srgb, var(--accent-secondary) 15%, transparent); stroke: var(--accent-secondary); }
 .node-circle { cursor: pointer; transition: filter var(--duration-default); }
 .node-circle:hover { filter: brightness(1.4) drop-shadow(0 0 3px var(--accent-primary)); }
 .toggle-group { cursor: pointer; }
