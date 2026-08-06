@@ -5,7 +5,7 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-08-06: migrations 1 → 2 through 63 → 64 (63
+ * Scope as of 2026-08-06: migrations 1 → 2 through 64 → 65 (64
  * entries). The first eight covered pre-v1.0.0 schema evolution;
  * the rest are the v1.0.x – v1.1.x active cycle, archived in
  * per-PR rolling fashion under the same archive contract.
@@ -2696,6 +2696,44 @@ export const archivedMigrations: Migration[] = [
       if (u.deltaViewMode !== 'shared' && u.deltaViewMode !== 'black' && u.deltaViewMode !== 'white') {
         u.deltaViewMode = 'shared';
       }
+    }
+    return out;
+  },
+  // 64 → 65: clear `session.ui.forestNav.selection` for every board
+  // (browse-leak-fix, ledger rows 417/423). `NavSelection`'s two
+  // variants both changed brand/semantics on this pass:
+  //   - `{ kind: 'root', rootCardId }` — was the raw internal card PK
+  //     (`CardId`, a number); now `CardPublicId` (a UUID string). A
+  //     persisted numeric value is simply the wrong shape.
+  //   - `{ kind: 'game', gameSourceId }` — was the raw internal
+  //     game_source PK (`GameSourceId`); now `GameDisplayOrdinal`, the
+  //     per-user display ordinal. Still a `number`, so a stale
+  //     persisted value would NOT fail loudly at the type level — it
+  //     would silently select whichever game/root happens to carry
+  //     that number under the NEW per-user-ordinal numbering, which
+  //     is almost certainly not what the user last had selected. Per
+  //     ADR-0002, a silent wrong-selection is worse than a cleared
+  //     one, so both variants are cleared uniformly rather than only
+  //     the type-incompatible one.
+  //
+  // This mirrors the reset-a-stale-slot posture `useCardTreeData::
+  // reset`'s own doc comment describes for the sibling case (a
+  // forest reload whose card set no longer matches the persisted
+  // manual-expand keys) — the safe response to a meaning change is
+  // to drop the now-untrustworthy persisted value, not attempt to
+  // reinterpret it.
+  //
+  // Container witnessed against the runtime shape: `session.ui.
+  // forestNav` is present from schema-version 21, so a typo'd path
+  // fails loudly here rather than no-oping and stamping the version.
+  //
+  // Idempotent: a blob with no `forestNav.selection` entries, or a
+  // `forestNav.selection` that's already `{}`, is a no-op.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const forestNav = witnessedContainer(out, 'session.ui.forestNav');
+    if (forestNav) {
+      (forestNav as { selection?: unknown }).selection = {};
     }
     return out;
   },

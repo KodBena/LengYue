@@ -25,7 +25,7 @@ from itertools import count
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import insert
+from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Per-user-id-enumeration design: see test_stats_repository.py's
@@ -438,3 +438,163 @@ async def test_forests_query_without_bearer_returns_401(client):
         },
     )
     assert response.status_code == 401
+
+
+# ─── macro-public-id-tokens: game_source_ordinals ─────────────────────────────
+#
+# Restoring the Cards-tab `${gameSourceId}` macro (ledger row 456). Failure
+# paths first (backend/tests/CLAUDE.md contract 2): cross-tenant token → 404,
+# unknown ordinal → 404, then the happy path and the both-empty 422.
+
+
+_SELECT_DESCENDANTS = [
+    {
+        "stage": "select",
+        "selection": {"type": "DescendantSelection"},
+        "ordering": {"type": "DepthKey"},
+    },
+]
+
+
+async def _seed_root_with_ordinal(
+    session: AsyncSession, *, user_id: int, description: str = "macro-tree",
+) -> tuple[int, int]:
+    """
+    Like `_build_tree`, but for a single root card and returns the
+    game_source's own `display_ordinal` alongside the root card id —
+    the macro grammar addresses game sources by that ordinal, not by
+    the module-global `_ordinal` counter's raw value (which the
+    caller can't observe from `_build_tree`'s dict-of-ids return
+    alone).
+    """
+    canonical = f"(;c[{description}])"
+    digest = hashlib.sha256(canonical.encode()).digest()
+    res = await session.execute(
+        insert(normalized_position)
+        .values(content_hash=digest, canonical_content=canonical)
+        .returning(normalized_position.c.id)
+    )
+    pos = int(res.scalar())
+    ordinal = next(_ordinal)
+    res = await session.execute(
+        insert(game_source)
+        .values(
+            position_id=pos, user_id=user_id, description=description,
+            client_game_id=uuid4(), display_ordinal=ordinal,
+        )
+        .returning(game_source.c.id)
+    )
+    gs_id = int(res.scalar())
+    res = await session.execute(
+        insert(card)
+        .values(
+            num_moves=5, alpha=3.0, beta=3.0, t=1.0,
+            user_id=user_id, normalized_position_id=pos,
+            public_id=uuid4(), display_ordinal=next(_ordinal),
+        )
+        .returning(card.c.id)
+    )
+    root_id = int(res.scalar())
+    await session.execute(insert(card_source).values(
+        card_id=root_id, game_source_id=gs_id, is_primary_source=True,
+    ))
+    await session.commit()
+    return root_id, ordinal
+
+
+async def test_forests_query_unknown_game_source_ordinal_is_404(client, session):
+    await seed_user(session, user_id=ALICE_ID)
+    response = await client.post(
+        "/forests/query",
+        json={
+            "context_ids": [],
+            "game_source_ordinals": [999999],
+            "pipeline": _SELECT_DESCENDANTS,
+        },
+        headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 404
+
+
+async def test_forests_query_cross_tenant_game_source_ordinal_is_404(client, session):
+    """
+    Bob's game_source ordinal, queried with Alice's bearer, is a 404 —
+    not Alice's own unrelated data and not a leak of Bob's root. The
+    (user_id, display_ordinal) predicate fusion inside
+    `resolve_game_source_root_card_ids` makes "belongs to another
+    tenant" and "doesn't exist" indistinguishable from Alice's
+    perspective, same invariant docs/notes/tenancy.md documents for
+    every other tenant-scoped lookup.
+    """
+    await seed_user(session, user_id=ALICE_ID)
+    await seed_user(session, user_id=BOB_ID)
+    _bob_root, bob_ordinal = await _seed_root_with_ordinal(
+        session, user_id=BOB_ID, description="bobs-macro-tree",
+    )
+
+    response = await client.post(
+        "/forests/query",
+        json={
+            "context_ids": [],
+            "game_source_ordinals": [bob_ordinal],
+            "pipeline": _SELECT_DESCENDANTS,
+        },
+        headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 404
+
+
+async def test_forests_query_game_source_ordinal_resolves_root_and_descendants(
+    client, session,
+):
+    await seed_user(session, user_id=ALICE_ID)
+    ids = await _build_tree(
+        session,
+        {"r": None, "a": "r", "b": "a"},
+        user_id=ALICE_ID,
+    )
+    # `_build_tree` doesn't return the game_source's display_ordinal;
+    # read it back directly (it's the ordinal `_build_tree` minted via
+    # the same module-level `_ordinal` counter `_seed_root_with_ordinal`
+    # uses — but since other tests in this module also draw from that
+    # counter, look it up by the root card's own card_source row
+    # rather than assuming a specific value).
+    res = await session.execute(
+        select(game_source.c.display_ordinal)
+        .select_from(
+            card_source.join(
+                game_source, card_source.c.game_source_id == game_source.c.id,
+            )
+        )
+        .where(card_source.c.card_id == ids["r"])
+    )
+    ordinal = int(res.scalar())
+
+    response = await client.post(
+        "/forests/query",
+        json={
+            "context_ids": [],
+            "game_source_ordinals": [ordinal],
+            "pipeline": _SELECT_DESCENDANTS,
+        },
+        headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 200
+    returned_ids = {c["id"] for c in response.json()}
+    assert returned_ids == {ids["a"], ids["b"]}
+
+
+async def test_forests_query_context_ids_and_game_source_ordinals_both_empty_is_422(
+    client, session,
+):
+    await seed_user(session, user_id=ALICE_ID)
+    response = await client.post(
+        "/forests/query",
+        json={
+            "context_ids": [],
+            "game_source_ordinals": [],
+            "pipeline": _SELECT_DESCENDANTS,
+        },
+        headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 422

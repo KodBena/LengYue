@@ -688,6 +688,9 @@ export const defaultSessionUI: UISession = {
   // → `[3]` so existing users land on whichever value they were last
   // editing.
   cardsContextIds: [3],
+  // macro-public-id-tokens (schema-version 66): no game_source
+  // ordinal tokens pending resolution by default.
+  cardsContextGameSourceOrdinals: [],
   qeuboToolbarView: 'applied',
   // Delta-analysis panel's view cycle. 'shared' preserves the
   // pre-feature, only-ever-existed view — see the field's doc comment

@@ -214,10 +214,16 @@ async function runDeck(): Promise<void> {
   if (collected === 'cancelled') return;
   const values: HyperparamValues = collected === 'skipped' ? {} : collected;
   // Single ephemeral context (schema-version 16): the deck is a pure
-  // strategy, the context lives on `cardsContextIds`. The matched-cards
-  // return value is unused here — this codepath is browse-only,
-  // distinct from the start-review-session flow that consumes it.
-  await tree.runPipeline(deck, store.session.ui.cardsContextIds, values);
+  // strategy, the context lives on `cardsContextIds` /
+  // `cardsContextGameSourceOrdinals`. The matched-cards return value
+  // is unused here — this codepath is browse-only, distinct from the
+  // start-review-session flow that consumes it.
+  await tree.runPipeline(
+    deck,
+    store.session.ui.cardsContextIds,
+    values,
+    store.session.ui.cardsContextGameSourceOrdinals,
+  );
 }
 
 /**
@@ -239,7 +245,12 @@ async function startReviewFromConfig(): Promise<void> {
   const collected = await collectHyperparameters(deck);
   if (collected === 'cancelled') return;
   const values: HyperparamValues = collected === 'skipped' ? {} : collected;
-  const matched = await tree.runPipeline(deck, store.session.ui.cardsContextIds, values);
+  const matched = await tree.runPipeline(
+    deck,
+    store.session.ui.cardsContextIds,
+    values,
+    store.session.ui.cardsContextGameSourceOrdinals,
+  );
   if (matched.length > 0) {
     await reviewSession.startSession(matched);
   }
@@ -263,48 +274,63 @@ const contextIdInput = ref(store.session.ui.cardsContextIds.join(', '));
 // shows their literal typing rather than the parsed form).
 const hasContextIdMacro = computed(() => /\$\{/.test(contextIdInput.value));
 
-// Browse-leak-fix (ledger rows 417/423/456): `${gameSourceId}` macro
-// tokens used to resolve to raw root card ids via `ForestStat`'s now-
-// removed raw PKs. `ForestStat` no longer carries a raw root card id
-// at all (only `rootCardPublicId`, a UUID, and `gameSourceDisplayOrdinal`
-// — neither is a value `/forests/query`'s unchanged `context_ids:
-// number[]` contract can accept). Closing this properly needs either
-// widening `/forests/query` to accept public-id tokens, or making this
-// resolution async against `/lineage/tree-by-root` with a debounce (this
-// function runs on every keystroke today) — both out of this pass's
-// named scope (/stats/forests, /lineage/*, and their direct display
-// consumer ForestTreeNav.vue). Disclosed, load-bearing narrowing (ledger
-// row 456): the macro now always resolves to no matches. `hasContextIdMacro`'s
-// existing "→ Expands to" hint still shows the (now-empty) result, so
-// the degradation is visible, not silent; a one-time console.warn per
-// distinct token names the reason for anyone debugging it.
-const warnedMacroTokens = new Set<number>();
+// macro-public-id-tokens: the hint can no longer show the FINAL
+// resolved root card ids (resolution is server-side now, not a
+// client-side lookup) — it shows what will actually be SENT: the
+// literal card ids plus each recognized game_source ordinal, tagged
+// so it's clear which is which. `t('cards.decks.expandsToGameTag')`
+// (e.g. "game N") disambiguates a bare number typed outside a macro
+// from a resolved-at-request-time game token.
+const expandsToDisplay = computed(() => {
+  const parts = [
+    ...store.session.ui.cardsContextIds.map(id => String(id)),
+    ...store.session.ui.cardsContextGameSourceOrdinals.map(
+      ordinal => t('cards.decks.expandsToGameTag', { ordinal }),
+    ),
+  ];
+  return parts.length > 0 ? parts.join(', ') : t('cards.decks.expandsToEmpty');
+});
+
+// macro-public-id-tokens (ledger rows 456/498/500): restores the
+// `${gameSourceId}` macro that browse-leak-fix broke. The macro
+// expander no longer resolves a token to a raw root card id itself
+// (`ForestStat` has none to give it) — it just recognizes which
+// typed macro tokens are known `gameSourceDisplayOrdinal` values and
+// hands both the literal card ids and the recognized ordinals to
+// `/forests/query` unresolved; the backend resolves each ordinal to
+// its game_source's root card id(s) server-side, within this user's
+// tenancy (`PipelineExecutor.run`'s `game_source_ordinals` param).
+// The SPA never sees or handles a raw root-card PK for this purpose.
+const warnedUnknownMacroTokens = new Set<number>();
 
 function updateContextIds(val: string): void {
   // Preserve the user's literal typing in the local ref.
   contextIdInput.value = val;
-  const expanded = expandContextIdMacros(val, (gameSourceDisplayOrdinal) => {
-    const known = roots.value.some(
+  const expanded = expandContextIdMacros(val, (gameSourceDisplayOrdinal) =>
+    roots.value.some(
       // Brand-strip GameDisplayOrdinal -> raw number to compare against the
       // macro's parsed-int token; documented debt, IDENTIFIERS.md erosion
       // (b) (maintainer-directed re-brand-helper fix, not done here).
       s => (s.gameSourceDisplayOrdinal as unknown as number) === gameSourceDisplayOrdinal,
-    );
-    if (known && !warnedMacroTokens.has(gameSourceDisplayOrdinal)) {
-      warnedMacroTokens.add(gameSourceDisplayOrdinal);
+    ),
+  );
+  // A token inside `${...}` that doesn't match any of the user's own
+  // known game sources is still the ADR-0002 UI-input-validation
+  // exception (silently drop from the request), but warned once per
+  // distinct value so a typo doesn't look like an unexplained no-op.
+  for (const token of expanded.unknownGameSourceOrdinalTokens) {
+    if (!warnedUnknownMacroTokens.has(token)) {
+      warnedUnknownMacroTokens.add(token);
       console.warn(
-        `[ForestDirectory] \${${gameSourceDisplayOrdinal}} macro expansion is ` +
-        'unavailable post-browse-leak-fix: ForestStat no longer carries a ' +
-        'raw root card id to expand to. See ledger row 456.',
+        `[ForestDirectory] \${${token}} does not match any of your ` +
+        'game sources — dropped from the query. Check the Browse tab ' +
+        'for the game source\'s actual display id.',
       );
     }
-    return [];
-  });
-  store.session.ui.cardsContextIds = expanded
-    .split(',')
-    .map(s => parseInt(s.trim(), 10))
-    .filter(n => !isNaN(n));
-  // Persisted `session.ui` field — bump the session counter SyncService
+  }
+  store.session.ui.cardsContextIds = [...expanded.cardIds];
+  store.session.ui.cardsContextGameSourceOrdinals = [...expanded.gameSourceOrdinals];
+  // Persisted `session.ui` fields — bump the session counter SyncService
   // keys persistence on (it no longer deep-watches `store.session`; see
   // `sessionVersion` in `store/index.ts`).
   touchSession();
@@ -434,7 +460,7 @@ onUnmounted(() => {
                 :title="$t('cards.decks.contextIdsTooltip', ['${N}', '${N, M, ...}'])"
               />
               <p v-if="hasContextIdMacro" class="macro-hint">
-                {{ $t('cards.decks.expandsTo', { ids: store.session.ui.cardsContextIds.join(', ') || $t('cards.decks.expandsToEmpty') }) }}
+                {{ $t('cards.decks.expandsTo', { ids: expandsToDisplay }) }}
               </p>
 
               <button
