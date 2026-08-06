@@ -10,7 +10,7 @@ Decision 7.1): "exceptions enumerated, never silent."
 Every entry is `(schema_name, field_name): reason`. The schema-walk
 test flags any `integer`-typed field on any OpenAPI component schema
 whose name matches an id-shaped pattern (`*_id` or exactly `id`)
-UNLESS it appears here. Two reason classes appear below:
+UNLESS it appears here. One reason class appears below:
 
 - **"named exception"** — the field intentionally carries the raw
   global-sequence PK because it plays a reference/addressing role
@@ -22,16 +22,32 @@ UNLESS it appears here. Two reason classes appear below:
   rewrite (the `GET /cards/{card_id}` path param is the design's own
   worked example).
 
-- **"deferred follow-on"** — a field this build pass identified as
-  the same leak class but did NOT rewire to an opaque/display value,
-  because doing so requires threading `public_id`/`client_game_id`
-  through `LineageRepository`'s recursive CTEs (a materially larger,
-  independently-resumable unit) or an equivalent adapter change for
-  `StatsRepository`. Named here rather than silently left uncovered
-  — see the per-user-ids build report for the full rationale. A
-  future build closing this class removes the corresponding row(s)
-  here; the schema-walk test's job is to ensure nothing *new* joins
-  this list by accident, not that this list is empty.
+Browse-leak-fix (ledger rows 417/423): the "deferred follow-on" class
+that used to live here (`ForestStat.root_card_id`/`game_source_id`,
+`ResolvedRoot.root_card_id`/`game_source_id`,
+`TreeByRootResponse.root_card_id`/`game_source_id`) is CLOSED, not
+just removed from this list — those fields no longer exist on the
+wire at all. `/stats/forests` and `/lineage/*` now surface
+`root_card_public_id` (UUID) / `game_source_display_ordinal` (int,
+per-user) instead, neither of which is an id-shaped *integer* field,
+so the schema-walk regex doesn't even consider them candidates
+(`root_card_public_id` is a `string` (`format: uuid`) on the wire, and
+while `game_source_display_ordinal` IS an integer, its name doesn't
+match the `*_id`/`*_ids` pattern — both facts are asserted directly by
+`test_global_sequence_schema_walk.py`'s plant-and-trip proof, not just
+assumed). This is the reviewer's Top Finding from
+`.claude/dispatch-reports/per-user-ids-review.md` fully closed: the
+Browse tab (`ForestTreeNav.vue`) no longer has a raw global PK to
+paint on screen.
+
+`TreeNode.id`, `ResolvedRoot.card_ids_in_tree`, and
+`ResolveRootsResponse.unmatched_card_ids` remain — reclassified from
+"deferred follow-on" to "named exception" below, now that their
+sibling display fields are fixed: they were never painted as digits
+anywhere (`card-tree-echarts.ts` already renders `displayOrdinal`,
+not `TreeNode.id`; the two array fields only ever echo back card ids
+the caller supplied or already owns), so they are the same
+addressing-only class as `CardWithRecall.id`'s exception above them.
 
 License: Public Domain (The Unlicense)
 """
@@ -82,47 +98,30 @@ GLOBAL_SEQUENCE_ALLOWLIST: Dict[Tuple[str, str], str] = {
         "every user always sees exactly their own single id, never "
         "another tenant's count or position in a sequence."
     ),
-    # ── Deferred follow-on (lineage + forest-stats CTEs) ─────────────────────
-    ("ResolvedRoot", "root_card_id"): (
-        "deferred follow-on: /lineage/resolve-roots' root_card_id is "
-        "still the raw PK. Rewiring to public_id needs "
-        "LineageRepository.resolve_roots' CTE to select+join card."
-        "public_id; not done in this build pass."
-    ),
-    ("ResolvedRoot", "game_source_id"): (
-        "deferred follow-on: same CTE-threading gap as root_card_id "
-        "above, for game_source.client_game_id."
-    ),
-    ("TreeByRootResponse", "root_card_id"): (
-        "deferred follow-on: /lineage/tree-by-root's root context id, "
-        "same gap as ResolvedRoot.root_card_id."
-    ),
-    ("TreeByRootResponse", "game_source_id"): (
-        "deferred follow-on: same gap as ResolvedRoot.game_source_id."
-    ),
+    # ── Lineage tree-structure reference ids (browse-leak-fix reclassify) ───
     ("TreeNode", "id"): (
-        "deferred follow-on: every node in the recursive card-tree "
-        "structure carries the raw card PK. Rewiring needs "
-        "LineageRepository.fetch_tree_by_root's recursive CTE to carry "
-        "card.public_id at every level, not just the root."
+        "named exception: every node in the recursive card-tree "
+        "structure carries the raw card PK, purely as a reference to "
+        "key already-tenancy-scoped card data fetched elsewhere (the "
+        "same class as CardWithRecall.id above) — never painted as a "
+        "digit; card-tree-echarts.ts's on-canvas label reads "
+        "displayOrdinal. Reclassified from 'deferred follow-on' by "
+        "the browse-leak-fix pass, which closed the actual display "
+        "leak (ForestStat/ResolvedRoot/TreeByRootResponse's "
+        "root_card_id/game_source_id, now root_card_public_id/"
+        "game_source_display_ordinal — no longer on this list because "
+        "the fields no longer exist)."
     ),
-    ("ForestStat", "root_card_id"): (
-        "deferred follow-on: GET /stats/forests' per-forest pivot id. "
-        "Same leak class as the lineage endpoints, not in scope for "
-        "this build pass — StatsRepository.fetch_forest_members would "
-        "need the same CTE-threading treatment."
-    ),
-    ("ForestStat", "game_source_id"): (
-        "deferred follow-on: same gap as ForestStat.root_card_id."
-    ),
-    # ── Array-of-id fields (same deferred class, plural wire names) ─────────
     ("ResolvedRoot", "card_ids_in_tree"): (
-        "deferred follow-on: array of raw card PKs grouped under a "
-        "root — same CTE-threading gap as ResolvedRoot.root_card_id."
+        "named exception: array of raw card PKs grouped under a root "
+        "— the caller's own input ids (obtained from an already-"
+        "tenancy-scoped response, e.g. /forests/query's "
+        "CardWithRecall.id) echoed back grouped by root, not a display "
+        "value. Reclassified alongside TreeNode.id above."
     ),
     ("ResolveRootsResponse", "unmatched_card_ids"): (
-        "deferred follow-on: array of raw card PKs the caller submitted "
-        "that didn't resolve to an owned root — same gap."
+        "named exception: array of raw card PKs the caller submitted "
+        "that didn't resolve to an owned root — same reference-role "
+        "reasoning as ResolvedRoot.card_ids_in_tree above."
     ),
 }
-

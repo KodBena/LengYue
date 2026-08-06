@@ -5,7 +5,7 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-08-06: migrations 1 → 2 through 61 → 62 (61
+ * Scope as of 2026-08-06: migrations 1 → 2 through 62 → 63 (62
  * entries). The first eight covered pre-v1.0.0 schema evolution;
  * the rest are the v1.0.x – v1.1.x active cycle, archived in
  * per-PR rolling fashion under the same archive contract.
@@ -2627,6 +2627,40 @@ export const archivedMigrations: Migration[] = [
 
         board.analysisRanges = { [branchKey]: legacyRange };
         delete board.analysisRange;
+      }
+    }
+    return out;
+  },
+  // 62 → 63: backfill `profile.settings.appearance.highContrastText`
+  // (boolean, default false) — the opt-in text/glyph-contrast override
+  // for the `cluster` theme (ADR-0019 audit §S4 corrective; see the
+  // field's doc comment on `AppSettings.appearance.highContrastText` in
+  // `schema.ts` for the full rationale). A persisted blob predating this
+  // field would otherwise carry no value and rely on
+  // `updateFromRemote`'s deepMerge to surface the default; backfilling
+  // explicitly keeps the persisted shape honest (the composition test
+  // pins it) rather than leaning on the merge. Default `false` also
+  // preserves the OFF-by-default / byte-identical-to-today contract for
+  // every pre-existing workspace blob, the same guarantee a fresh
+  // install gets from `defaults.ts`.
+  //
+  // Container witnessed against the runtime shape (`witnessedContainer`,
+  // per step 3 of the add-a-migration recipe): `profile.settings.
+  // appearance` is present from v1, so a typo'd path fails loudly here
+  // rather than no-oping and stamping the version. The blob-side
+  // resolution keeps the sibling bodies' non-null-object tolerance: a
+  // partial / legacy blob whose container is absent no-ops.
+  //
+  // Idempotent: a pre-existing boolean `highContrastText` is preserved
+  // unchanged (a hand-edited or forward-compat blob keeps its value);
+  // only a missing / wrong-typed leaf is backfilled to the default.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const appearance = witnessedContainer(out, 'profile.settings.appearance');
+    if (appearance) {
+      const ap = appearance as { highContrastText?: unknown };
+      if (typeof ap.highContrastText !== 'boolean') {
+        ap.highContrastText = false;
       }
     }
     return out;

@@ -15,10 +15,11 @@ SQLAlchemy Rows, which is the whole point of item 32a.2.
 Why the forest-level fields are repeated across rows (rather than a
 two-level {root: {...}, members: [...]} shape): the SQL join produces
 rows in exactly this flat form, and the service aggregates by
-root_card_id in a single linear pass. Restructuring SQL output into
-a nested shape would require either a second query or a GROUP_CONCAT-
-style trick that's dialect-sensitive. The flat form is dialect-agnostic
-(SQLite + Postgres) and the Python aggregation loop is trivial.
+root_card_public_id in a single linear pass. Restructuring SQL output
+into a nested shape would require either a second query or a
+GROUP_CONCAT-style trick that's dialect-sensitive. The flat form is
+dialect-agnostic (SQLite + Postgres) and the Python aggregation loop
+is trivial.
 
 The subset of Card fields carried here (alpha, beta, t,
 last_reviewed_at, creation_date, num_reviews) is deliberately thinner
@@ -26,9 +27,21 @@ than a full Card — it's exactly what the aggregation needs. A future
 stats feature that needs more card attributes can widen this DTO
 without breaking existing callers (Pydantic's ignore-extra default
 makes additive changes safe).
+
+Browse-leak-fix (ledger rows 417/423): `root_card_id` (raw card PK)
+and `game_source_id` (raw game_source PK) are replaced by
+`root_card_public_id` (the root card's `public_id` UUID) and
+`game_source_display_ordinal` (the game_source's per-user
+`display_ordinal`) — the per-user-id-enumeration migration (0004)
+already backfilled both columns; this DTO just carries them instead
+of the raw PKs so no global-sequence value survives past the
+adapter. `StatsRepository.fetch_forest_members` selects them directly
+off the already-joined `card`/`game_source` tables (see that file for
+the extra root-card join it needs).
 """
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
@@ -38,10 +51,10 @@ class ForestMemberRow(BaseModel):
     One row from the forest-membership query: a card's participation
     in a specific forest, with everything the aggregation needs.
 
-    Forest-level fields (root_card_id, game_source_id, description,
-    player_white, player_black) repeat across every member of the
-    same forest. The aggregation dedupes them into a single
-    ForestStat per distinct root_card_id.
+    Forest-level fields (root_card_public_id, game_source_display_
+    ordinal, description, player_white, player_black) repeat across
+    every member of the same forest. The aggregation dedupes them
+    into a single ForestStat per distinct root_card_public_id.
 
     Card-state fields (alpha, beta, t, last_reviewed_at,
     creation_date, num_reviews) are the per-card inputs to the
@@ -50,9 +63,10 @@ class ForestMemberRow(BaseModel):
     """
     model_config = ConfigDict(frozen=True)
 
-    # Forest-level (repeated across rows of the same forest)
-    root_card_id: int
-    game_source_id: int
+    # Forest-level (repeated across rows of the same forest). Per-user
+    # display ids, not the raw global PKs — browse-leak-fix.
+    root_card_public_id: UUID
+    game_source_display_ordinal: int
     description: Optional[str]
     player_white: Optional[str]
     player_black: Optional[str]

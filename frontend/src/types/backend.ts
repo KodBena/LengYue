@@ -495,7 +495,7 @@ export interface paths {
         put?: never;
         /**
          * Tree By Root
-         * @description Return the structure-only subtree rooted at `root_card_id`.
+         * @description Return the structure-only subtree rooted at `root_card_public_id`.
          *
          *     Three response shapes:
          *       - 200: TreeByRootResponse with the recursive `tree` payload.
@@ -1377,10 +1377,13 @@ export interface components {
         };
         /** ForestStat */
         ForestStat: {
-            /** Root Card Id */
-            root_card_id: number;
-            /** Game Source Id */
-            game_source_id: number;
+            /**
+             * Root Card Public Id
+             * Format: uuid
+             */
+            root_card_public_id: string;
+            /** Game Source Display Ordinal */
+            game_source_display_ordinal: number;
             /** Description */
             description: string | null;
             /** Player White */
@@ -1943,12 +1946,22 @@ export interface components {
         /**
          * ResolvedRoot
          * @description One game-source root and the input cards that descend from it.
+         *
+         *     Browse-leak-fix (ledger rows 417/423): identifies the root by
+         *     `root_card_public_id` / `game_source_display_ordinal` (per-user
+         *     display ids) rather than the raw global PKs. `card_ids_in_tree`
+         *     stays raw — it's the caller's own input cards echoed back, a
+         *     reference-role field the caller already owns (see
+         *     `domain/lineage.py`'s module docstring).
          */
         ResolvedRoot: {
-            /** Root Card Id */
-            root_card_id: number;
-            /** Game Source Id */
-            game_source_id: number;
+            /**
+             * Root Card Public Id
+             * Format: uuid
+             */
+            root_card_public_id: string;
+            /** Game Source Display Ordinal */
+            game_source_display_ordinal: number;
             /** Card Ids In Tree */
             card_ids_in_tree: number[];
         };
@@ -2104,6 +2117,15 @@ export interface components {
          * TreeByRootRequest
          * @description Input to /lineage/tree-by-root.
          *
+         *     Browse-leak-fix (ledger rows 417/423): the root is addressed by
+         *     `root_card_public_id` (the card's `public_id` UUID), not the raw
+         *     internal PK — per the ruling, "where a client genuinely needs an
+         *     addressing handle, the per-user id IS the handle." Every response
+         *     that hands the frontend a root to browse to (`/stats/forests`,
+         *     `/lineage/resolve-roots`) now surfaces `root_card_public_id`
+         *     instead of the raw id, so there is no raw id left for the client
+         *     to round-trip here.
+         *
          *     `max_nodes` defaults to 10000 per the spec. The route accepts an
          *     explicit override if the caller knows it wants a smaller cap (e.g.
          *     a UI that previews only the top of a tree); the lower bound is
@@ -2111,8 +2133,11 @@ export interface components {
          *     runtime overflow.
          */
         TreeByRootRequest: {
-            /** Root Card Id */
-            root_card_id: number;
+            /**
+             * Root Card Public Id
+             * Format: uuid
+             */
+            root_card_public_id: string;
             /**
              * Max Nodes
              * @default 10000
@@ -2123,14 +2148,25 @@ export interface components {
          * TreeByRootResponse
          * @description Response shape for /lineage/tree-by-root.
          *
+         *     Browse-leak-fix (ledger rows 417/423): `root_card_public_id` /
+         *     `game_source_display_ordinal` replace the raw PKs, mirroring
+         *     `ResolvedRoot`. `TreeNode.id` (inside `tree`) is unaffected — it's
+         *     a reference-role addressing value the frontend uses purely to key
+         *     already-tenancy-scoped card data it fetched elsewhere (the same
+         *     class as `CardWithRecall.id`'s named schema-walk exception), never
+         *     painted as a digit anywhere in the UI.
+         *
          *     On overflow the route returns 422 with a structured detail body
          *     (see `_overflow_detail` below) instead of this shape.
          */
         TreeByRootResponse: {
-            /** Root Card Id */
-            root_card_id: number;
-            /** Game Source Id */
-            game_source_id: number;
+            /**
+             * Root Card Public Id
+             * Format: uuid
+             */
+            root_card_public_id: string;
+            /** Game Source Display Ordinal */
+            game_source_display_ordinal: number;
             tree: components["schemas"]["TreeNode"];
         };
         /**

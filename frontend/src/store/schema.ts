@@ -19,9 +19,9 @@
 import type {
   AnalysisPanelId,
   AnalysisTabId,
-  CardId,
+  CardPublicId,
   CardTreeExpandKey,
-  GameSourceId,
+  GameDisplayOrdinal,
   KeybindingActionId,
   PerBoard,
   ProfileId,
@@ -799,7 +799,13 @@ export interface UISession {
 // type so the discriminator (`game:` / `root:`) is a structural
 // property of the value, not a convention. Serializable to JSON via
 // SyncService for cross-reload persistence.
-export type NavNodeId = `game:${number}` | `root:${number}`;
+//
+// Browse-leak-fix (ledger rows 417/423): the `root:` branch's payload
+// switched from a raw `CardId` (number) to a `CardPublicId` (UUID
+// string) — see `NavSelection` below for the full rationale. The
+// `game:` branch stays `${number}`: `GameDisplayOrdinal` is still a
+// number, just a per-user-scoped one instead of the raw PK.
+export type NavNodeId = `game:${number}` | `root:${string}`;
 
 // The user's current selection in the Forest navigator. `null` = no
 // selection (right-pane shows empty state). The discriminated union
@@ -807,9 +813,17 @@ export type NavNodeId = `game:${number}` | `root:${number}`;
 // `'card'` variant later will require both a schema migration and
 // a composable update — the persistence and render layers stay in
 // lockstep on the union shape.
+//
+// Browse-leak-fix (ledger rows 417/423): both payload fields switched
+// from the raw global PK to a per-user display id — `gameSourceId`
+// from `GameSourceId` to `GameDisplayOrdinal`, `rootCardId` from
+// `CardId` to `CardPublicId` — closing the last hole in the
+// non-leak guarantee (`/stats/forests` and `/lineage/*` no longer
+// surface the raw PKs these fields were sourced from). Migration
+// 63 → 64 clears any persisted selection under the old shape.
 export type NavSelection =
-  | { readonly kind: 'game'; readonly gameSourceId: GameSourceId }
-  | { readonly kind: 'root'; readonly rootCardId: CardId };
+  | { readonly kind: 'game'; readonly gameSourceId: GameDisplayOrdinal }
+  | { readonly kind: 'root'; readonly rootCardId: CardPublicId };
 
 // Persisted navigator state on `session.ui.forestNav`. Schema-version
 // 21 introduces this field; schema-version 59 re-scopes `selection`

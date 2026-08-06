@@ -415,36 +415,59 @@ class LineageRepositoryPort(Protocol):
         `roots` and the `card_ids_in_tree` within each group is the
         adapter's choice; no ordering invariant is part of the
         contract — the frontend re-organizes by its own UX rules.
+
+        Browse-leak-fix (ledger rows 417/423): the returned
+        `RootGroup`s identify their root via `root_card_public_id` /
+        `game_source_display_ordinal` (per-user display ids), not the
+        raw global PKs — see `domain/lineage.py`'s module docstring
+        for the reference-vs-display distinction that keeps
+        `card_ids_in_tree` as raw ids.
         """
         ...
 
     async def fetch_tree_by_root(
         self,
-        root_card_id: int,
+        root_card_public_id: UUID,
         *,
         user_id: UserId,
         max_nodes: int = 10000,
     ) -> RootedTree:
         """
-        Return the structure-only subtree rooted at `root_card_id`,
-        restricted to cards owned by `user_id`. The result wraps the
-        recursive `CardTree` with the `root_card_id` and the
-        `game_source_id` of the game source the root descends from
-        (the wire shape's per-root context).
+        Return the structure-only subtree rooted at the card whose
+        `public_id` is `root_card_public_id`, restricted to cards
+        owned by `user_id`. The result wraps the recursive `CardTree`
+        with the root's `public_id` and the `display_ordinal` of the
+        game source it descends from (the wire shape's per-root
+        context).
+
+        Browse-leak-fix (ledger rows 417/423): the root's *identity*
+        parameter switched from the raw internal `card.id` to
+        `card.public_id` — per the ruling, "where a client genuinely
+        needs an addressing handle, the per-user id IS the handle."
+        The frontend never holds the raw internal id for a root (the
+        sibling `resolve_roots` and `/stats/forests` endpoints no
+        longer surface it either), so there is no raw id left to
+        round-trip through this request. The adapter resolves
+        `public_id` → internal id via a tenant-scoped lookup, then
+        reuses the pre-existing internal-id descent unchanged.
 
         Card-tree contract: per-card metadata is fetched separately
-        via /cards/{id} (the existing route). The recursive `tree`
-        field carries only `id` and `children` per node — see
-        `docs/archive/notes/card-tree-backend-spec.md` for the rationale.
+        via /cards/{id} (the existing route, which keeps the raw
+        `card_id` as a named addressing exception — see the schema-
+        walk allowlist). The recursive `tree` field carries only `id`
+        (still the raw per-card id — reference role, not display; see
+        `domain/lineage.py`) and `children` per node — see
+        `docs/archive/notes/card-tree-backend-spec.md` for the
+        rationale.
 
         Behaviors:
 
-        - If `root_card_id` is not owned by the caller, or doesn't
-          exist, or exists but isn't a game-source root (i.e.
-          `card_source.game_source_id IS NULL` for that row), raise
-          `CardNotFoundError`. The route maps this to 404 — the
-          single 404-not-403 collapse for the single-resource case
-          (item 13's posture).
+        - If `root_card_public_id` doesn't resolve to a card owned by
+          the caller, or resolves to a card that isn't a game-source
+          root (i.e. `card_source.game_source_id IS NULL` for that
+          row), raise `CardNotFoundError`. The route maps this to
+          404 — the single 404-not-403 collapse for the single-
+          resource case (item 13's posture).
 
         - If the tree contains more than `max_nodes` nodes, raise
           `LineageOverflowError(actual_size, max_nodes)`. Early
@@ -461,13 +484,13 @@ class LineageRepositoryPort(Protocol):
         Implementation note on the return shape: the
         backend-spec text declares the return as `CardTree` and
         the wire response shape as `{root_card_id, game_source_id,
-        tree}`. The two are inconsistent because the Port has the
-        game_source_id in hand from its own root-verification step,
-        and forcing the route to fetch it again would be a wasted
-        round trip. The Port returns `RootedTree` (a small wrapper
-        carrying both pieces of context) so the route can project
-        directly to the wire shape. Worklog
-        2026-04-29-card-tree-backend documents the deviation.
+        tree}` (pre-browse-leak-fix names). The two are inconsistent
+        because the Port has the game-source context in hand from its
+        own root-verification step, and forcing the route to fetch it
+        again would be a wasted round trip. The Port returns
+        `RootedTree` (a small wrapper carrying both pieces of context)
+        so the route can project directly to the wire shape. Worklog
+        2026-04-29-card-tree-backend documents the original deviation.
         """
         ...
 

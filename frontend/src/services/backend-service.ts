@@ -11,7 +11,7 @@ import type {
   CardPublicId,
   CardMetadataPatch,
   ContentHash,
-  GameSourceId,
+  GameDisplayOrdinal,
   ReviewCard,
   CardCreatePayload,
   ForestStat,
@@ -283,13 +283,15 @@ export class BackendService {
   }
 
   // Wire → domain projection: snake_case → camelCase rename, raw
-  // `number` → branded `CardId` / `GameSourceId` at the boundary,
+  // string/number → branded `CardPublicId` / `GameDisplayOrdinal` at
+  // the boundary (browse-leak-fix, ledger rows 417/423 — these were
+  // `CardId`/`GameSourceId`, the raw global PKs, until this pass),
   // nullable metadata strings preserved (consumers handle the
   // "no metadata" case, the ACL does not coerce — see ADR-0002).
   private mapForestStat(raw: ForestStatWire): ForestStat {
     return {
-      rootCardId: raw.root_card_id as CardId, // ACL Band-2 brand mint
-      gameSourceId: raw.game_source_id as GameSourceId, // ACL Band-2 brand mint
+      rootCardPublicId: raw.root_card_public_id as CardPublicId, // ACL Band-2 brand mint
+      gameSourceDisplayOrdinal: raw.game_source_display_ordinal as GameDisplayOrdinal, // ACL Band-2 brand mint
       description: raw.description,
       playerWhite: raw.player_white,
       playerBlack: raw.player_black,
@@ -349,17 +351,24 @@ export class BackendService {
 
   private mapResolvedRoot(raw: ResolvedRootWire): RootGroup {
     return {
-      rootCardId: raw.root_card_id as CardId, // ACL Band-2 brand mint
-      gameSourceId: raw.game_source_id as GameSourceId, // ACL Band-2 brand mint
+      rootCardPublicId: raw.root_card_public_id as CardPublicId, // ACL Band-2 brand mint
+      gameSourceDisplayOrdinal: raw.game_source_display_ordinal as GameDisplayOrdinal, // ACL Band-2 brand mint
       cardIdsInTree: raw.card_ids_in_tree.map(n => n as CardId), // ACL Band-2 brand mint
     };
   }
 
   /**
-   * Fetch the structure-only subtree rooted at `rootCardId`. The wire
-   * shape is `{id, children}` recursive; per-card data is fetched
-   * separately via `fetchCard`. The two read paths are independently
-   * cacheable per the backend dispatch.
+   * Fetch the structure-only subtree rooted at `rootCardPublicId`.
+   * The wire shape is `{id, children}` recursive; per-card data is
+   * fetched separately via `fetchCard`. The two read paths are
+   * independently cacheable per the backend dispatch.
+   *
+   * Browse-leak-fix (ledger rows 417/423): the root is now addressed
+   * by its `public_id` (a `CardPublicId`) rather than the raw
+   * internal `CardId` — the guarantee's "the per-user id IS the
+   * handle" ruling. Every caller sources this value from
+   * `ForestStat.rootCardPublicId` or `RootGroup.rootCardPublicId`,
+   * neither of which carries a raw id anymore.
    *
    * Throws `CardTreeOverflowError` on 422 (`actual_size` exceeds
    * `max_nodes`). Per ADR-0002, no silent truncation; the caller
@@ -370,11 +379,11 @@ export class BackendService {
    * not owned, missing, or not a game-source root).
    */
   public async fetchTreeByRoot(
-    rootCardId: CardId,
+    rootCardPublicId: CardPublicId,
     maxNodes?: number,
   ): Promise<CardLineageTree> {
-    const body: { root_card_id: CardId; max_nodes?: number } = {
-      root_card_id: rootCardId,
+    const body: { root_card_public_id: CardPublicId; max_nodes?: number } = {
+      root_card_public_id: rootCardPublicId,
     };
     if (maxNodes !== undefined) body.max_nodes = maxNodes;
 
@@ -386,8 +395,8 @@ export class BackendService {
         { silentStatuses: [422] },
       );
       return {
-        rootCardId: raw.root_card_id as CardId, // ACL Band-2 brand mint
-        gameSourceId: raw.game_source_id as GameSourceId, // ACL Band-2 brand mint
+        rootCardPublicId: raw.root_card_public_id as CardPublicId, // ACL Band-2 brand mint
+        gameSourceDisplayOrdinal: raw.game_source_display_ordinal as GameDisplayOrdinal, // ACL Band-2 brand mint
         tree: this.mapTreeNode(raw.tree),
       };
     } catch (err) {
@@ -398,7 +407,7 @@ export class BackendService {
         const body422 = parse422Body(err.body);
         if (body422) {
           throw new CardTreeOverflowError(
-            rootCardId,
+            rootCardPublicId,
             body422.actualSize,
             body422.maxNodes,
           );

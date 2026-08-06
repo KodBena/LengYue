@@ -128,13 +128,13 @@ if (import.meta.hot) import.meta.hot.accept(() => location.reload());
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 64;
+export const CURRENT_SCHEMA_VERSION = 65;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 61 → 62) are
+ * The first `N` entries (currently 1 → 2 through 62 → 63) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -156,40 +156,6 @@ export const CURRENT_SCHEMA_VERSION = 64;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 62 → 63: backfill `profile.settings.appearance.highContrastText`
-  // (boolean, default false) — the opt-in text/glyph-contrast override
-  // for the `cluster` theme (ADR-0019 audit §S4 corrective; see the
-  // field's doc comment on `AppSettings.appearance.highContrastText` in
-  // `schema.ts` for the full rationale). A persisted blob predating this
-  // field would otherwise carry no value and rely on
-  // `updateFromRemote`'s deepMerge to surface the default; backfilling
-  // explicitly keeps the persisted shape honest (the composition test
-  // pins it) rather than leaning on the merge. Default `false` also
-  // preserves the OFF-by-default / byte-identical-to-today contract for
-  // every pre-existing workspace blob, the same guarantee a fresh
-  // install gets from `defaults.ts`.
-  //
-  // Container witnessed against the runtime shape (`witnessedContainer`,
-  // per step 3 of the add-a-migration recipe): `profile.settings.
-  // appearance` is present from v1, so a typo'd path fails loudly here
-  // rather than no-oping and stamping the version. The blob-side
-  // resolution keeps the sibling bodies' non-null-object tolerance: a
-  // partial / legacy blob whose container is absent no-ops.
-  //
-  // Idempotent: a pre-existing boolean `highContrastText` is preserved
-  // unchanged (a hand-edited or forward-compat blob keeps its value);
-  // only a missing / wrong-typed leaf is backfilled to the default.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const appearance = witnessedContainer(out, 'profile.settings.appearance');
-    if (appearance) {
-      const ap = appearance as { highContrastText?: unknown };
-      if (typeof ap.highContrastText !== 'boolean') {
-        ap.highContrastText = false;
-      }
-    }
-    return out;
-  },
   // 63 → 64: backfill `session.ui.deltaViewMode` ('shared' | 'black' |
   // 'white', default 'shared') — the delta-analysis panel's three-mode
   // view cycle (ledger row 418; see the field's doc comment on
@@ -221,6 +187,44 @@ export const migrations: Migration[] = [
       if (u.deltaViewMode !== 'shared' && u.deltaViewMode !== 'black' && u.deltaViewMode !== 'white') {
         u.deltaViewMode = 'shared';
       }
+    }
+    return out;
+  },
+  // 64 → 65: clear `session.ui.forestNav.selection` for every board
+  // (browse-leak-fix, ledger rows 417/423). `NavSelection`'s two
+  // variants both changed brand/semantics on this pass:
+  //   - `{ kind: 'root', rootCardId }` — was the raw internal card PK
+  //     (`CardId`, a number); now `CardPublicId` (a UUID string). A
+  //     persisted numeric value is simply the wrong shape.
+  //   - `{ kind: 'game', gameSourceId }` — was the raw internal
+  //     game_source PK (`GameSourceId`); now `GameDisplayOrdinal`, the
+  //     per-user display ordinal. Still a `number`, so a stale
+  //     persisted value would NOT fail loudly at the type level — it
+  //     would silently select whichever game/root happens to carry
+  //     that number under the NEW per-user-ordinal numbering, which
+  //     is almost certainly not what the user last had selected. Per
+  //     ADR-0002, a silent wrong-selection is worse than a cleared
+  //     one, so both variants are cleared uniformly rather than only
+  //     the type-incompatible one.
+  //
+  // This mirrors the reset-a-stale-slot posture `useCardTreeData::
+  // reset`'s own doc comment describes for the sibling case (a
+  // forest reload whose card set no longer matches the persisted
+  // manual-expand keys) — the safe response to a meaning change is
+  // to drop the now-untrustworthy persisted value, not attempt to
+  // reinterpret it.
+  //
+  // Container witnessed against the runtime shape: `session.ui.
+  // forestNav` is present from schema-version 21, so a typo'd path
+  // fails loudly here rather than no-oping and stamping the version.
+  //
+  // Idempotent: a blob with no `forestNav.selection` entries, or a
+  // `forestNav.selection` that's already `{}`, is a no-op.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const forestNav = witnessedContainer(out, 'session.ui.forestNav');
+    if (forestNav) {
+      (forestNav as { selection?: unknown }).selection = {};
     }
     return out;
   },
