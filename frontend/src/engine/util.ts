@@ -6,7 +6,7 @@
  * moved to `lib/utils.ts` 2026-06-10 — this module is [B3].)
  * License: Public Domain (The Unlicense)
  */
-import type { Move, StoneColor, BoardState, NodeId, RootToLeafPath } from '../types';
+import type { Move, StoneColor, BoardState, NodeId, GameNode, RootToLeafPath } from '../types';
 import { normalizeRuleset, type RulesetResolution } from './rulesets';
 
 /**
@@ -130,6 +130,30 @@ export function getActiveVariationPath(board: BoardState): RootToLeafPath {
   // variation's leaf and collected its lineage back to root, so `path`
   // is root→leaf by construction. This is the brand's single producer.
   return path as RootToLeafPath;
+}
+
+/**
+ * Every NodeId in `nodeId`'s subtree, inclusive of `nodeId` itself —
+ * a plain BFS over `children`. Minted for the setup-toolkit's
+ * thumbnail-invalidation obligation: `applySetup` (`src/logic.ts`)
+ * mutates the CURRENT node's stone projection, and every descendant's
+ * cached thumbnail snapshot is a replay that starts from that
+ * projection, so all of them go stale together (contrast
+ * `applyMarkup`, whose mutation has no board-state carry-forward and
+ * therefore invalidates only the one node it touched — no subtree
+ * walk needed there).
+ */
+export function collectSubtreeIds(nodes: Record<NodeId, GameNode>, nodeId: NodeId): NodeId[] {
+  const out: NodeId[] = [];
+  const queue: NodeId[] = [nodeId];
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    const node = nodes[id];
+    if (!node) continue;
+    out.push(id);
+    queue.push(...node.children);
+  }
+  return out;
 }
 
 const GTP_ALPHABET = "ABCDEFGHJKLMNOPQRSTUVWXYZ".split("");
