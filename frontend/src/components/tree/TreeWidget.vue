@@ -335,7 +335,11 @@ watch(nodeList, (items) => {
   const board = boardsById.value[props.boardId];
   if (!board || items.length === 0) return;
   requestHashFill(items.map(item => item.id), board);
-});
+}, { immediate: true }); // immediate: the FIRST computed nodeList (e.g. a
+// fresh board's lone root node) is not itself a "change" a bare watch()
+// fires on — without immediate, the root node's hash is never requested
+// until the tree structure changes again (found via the Stage B live
+// witness: the marker never appeared on a fresh board's root).
 
 const edges = computed(() => {
   const result: Array<{ d: string; id: string }> = [];
