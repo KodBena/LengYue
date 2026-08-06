@@ -270,6 +270,14 @@ export interface paths {
          *     the only remaining runtime PipelineDSLError path (the nested-
          *     filter case from pre-32a is now a parse-time error thanks to the
          *     BaseSelection vs Selection split in domain/pipeline_dsl.py).
+         *
+         *     macro-public-id-tokens: `query.game_source_ordinals` threads to
+         *     executor.run(), which resolves each ordinal server-side, within
+         *     this user's tenancy, to root card ids before building the
+         *     selection pool. An ordinal that doesn't resolve (unknown, or
+         *     belongs to a different tenant) raises GameSourceNotFoundError —
+         *     caught below via the NotFoundError axis and mapped to 404, the
+         *     same 404-not-403 collapse every other tenant-scoped lookup uses.
          */
         post: operations["query_forest_forests_query_post"];
         delete?: never;
@@ -1362,16 +1370,39 @@ export interface components {
          *     Structural invariants enforced by a model_validator:
          *       1. First stage must be 'select'.
          *       2. No subsequent stage may be 'select'.
+         *       3. At least one of `context_ids` / `game_source_ordinals` is
+         *          non-empty (macro-public-id-tokens; see below).
          *
          *     Field-level validation (each variant's fields, each numeric bound,
          *     each discriminator value) is handled by Pydantic's discriminated-
          *     union machinery. The recently-added nested-filter rule (32a) is
          *     enforced by BaseSelection's absence of FilterSelection — no runtime
          *     check needed.
+         *
+         *     macro-public-id-tokens (restoring the Cards-tab `${gameSourceId}`
+         *     macro that browse-leak-fix broke, ledger row 456): `context_ids`
+         *     remains a list of raw internal card ids — `CardId` is a named
+         *     per-user-id-enumeration allowlist exception
+         *     (frontend/IDENTIFIERS.md), the addressing value every already-
+         *     fetched, tenant-scoped card round-trips through, so it was never
+         *     part of the leak this endpoint needed closing. `game_source_
+         *     ordinals` is new: a list of `game_source.display_ordinal` tokens
+         *     — the per-user id the SPA now actually has (post-browse-leak-fix,
+         *     `ForestStat` no longer carries the raw `game_source_id` PK this
+         *     field used to require). Each ordinal is resolved SERVER-SIDE,
+         *     within the caller's tenancy, to that game_source's root card
+         *     id(s) (PipelineExecutor.run), which are unioned into the same
+         *     context pool `context_ids` seeds — the SPA never sees or handles
+         *     a raw root-card PK for this purpose. An ordinal that doesn't
+         *     resolve (unknown, or belongs to a different tenant — the two are
+         *     indistinguishable by construction, 404-not-403) raises
+         *     GameSourceNotFoundError, which the route maps to 404.
          */
         ForestQuery: {
             /** Context Ids */
-            context_ids: number[];
+            context_ids?: number[];
+            /** Game Source Ordinals */
+            game_source_ordinals?: number[];
             /** Pipeline */
             pipeline: (components["schemas"]["SelectStage"] | components["schemas"]["TakeStage"] | components["schemas"]["ShuffleStage"] | components["schemas"]["OrderStage"])[];
         };

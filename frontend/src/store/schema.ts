@@ -699,6 +699,18 @@ export interface UISession {
   // tab-by-tab. Edited via a simple comma-separated text input in
   // the Cards tab.
   cardsContextIds: number[];
+  // macro-public-id-tokens (schema-version 66, ledger row 456): the
+  // Cards-tab `${gameSourceId}` macro's recognized game_source
+  // `display_ordinal` tokens, held unresolved — resolution happens
+  // server-side, within tenancy, inside `/forests/query` itself
+  // (`PipelineExecutor.run`'s new `game_source_ordinals` param). Kept
+  // as a sibling list rather than merged into `cardsContextIds`
+  // because the two are different token kinds on the wire
+  // (`ForestQuery.context_ids` vs `.game_source_ordinals`); merging
+  // them client-side would just require re-splitting them again at
+  // the request boundary. Populated by `expandContextIdMacros`'s
+  // `gameSourceOrdinals` output; consumed by `useCardTreeData.runPipeline`.
+  cardsContextGameSourceOrdinals: number[];
   // Which view the qEUBO toolbar cluster is currently showing.
   // 'applied' = engine sees the persistent values from
   // analysis_env.parameters; 'A' / 'B' temporarily override what

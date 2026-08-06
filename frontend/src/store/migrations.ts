@@ -128,13 +128,13 @@ if (import.meta.hot) import.meta.hot.accept(() => location.reload());
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 65;
+export const CURRENT_SCHEMA_VERSION = 66;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 62 → 63) are
+ * The first `N` entries (currently 1 → 2 through 63 → 64) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -156,40 +156,6 @@ export const CURRENT_SCHEMA_VERSION = 65;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 63 → 64: backfill `session.ui.deltaViewMode` ('shared' | 'black' |
-  // 'white', default 'shared') — the delta-analysis panel's three-mode
-  // view cycle (ledger row 418; see the field's doc comment on
-  // `UISession.deltaViewMode` in `schema.ts`, and
-  // `composables/analysis/useDeltaViewMode.ts` for the full rationale).
-  // A persisted blob predating this field would otherwise carry no
-  // value; `defaultSessionUI` already seeds fresh installs, and the
-  // panel's own read site falls back to `?? 'shared'`, so this backfill
-  // is belt-and-suspenders (matches the `qeuboToolbarView` / 5 → 6
-  // precedent in `archived-migrations.ts`) rather than load-bearing —
-  // it keeps the persisted shape honest instead of leaning on the
-  // read-site fallback. 'shared' is the only sensible default: it is
-  // the view every pre-existing workspace already had (the feature
-  // introduces two ADDITIONAL views, not a replacement one), so this
-  // migration is a pure additive seed with no behavior change.
-  //
-  // Container witnessed against the runtime shape: `session.ui` is
-  // present from v1, so a typo'd path fails loudly here rather than
-  // no-oping and stamping the version.
-  //
-  // Idempotent: a pre-existing valid mode value is preserved unchanged
-  // (a hand-edited or forward-compat blob keeps its value); only a
-  // missing / malformed value is backfilled to 'shared'.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const ui = witnessedContainer(out, 'session.ui');
-    if (ui) {
-      const u = ui as { deltaViewMode?: unknown };
-      if (u.deltaViewMode !== 'shared' && u.deltaViewMode !== 'black' && u.deltaViewMode !== 'white') {
-        u.deltaViewMode = 'shared';
-      }
-    }
-    return out;
-  },
   // 64 → 65: clear `session.ui.forestNav.selection` for every board
   // (browse-leak-fix, ledger rows 417/423). `NavSelection`'s two
   // variants both changed brand/semantics on this pass:
@@ -225,6 +191,35 @@ export const migrations: Migration[] = [
     const forestNav = witnessedContainer(out, 'session.ui.forestNav');
     if (forestNav) {
       (forestNav as { selection?: unknown }).selection = {};
+    }
+    return out;
+  },
+  // 65 → 66: backfill `session.ui.cardsContextGameSourceOrdinals = []`
+  // (macro-public-id-tokens, ledger row 456 — restoring the Cards-tab
+  // `${gameSourceId}` macro after browse-leak-fix broke it). New
+  // field, additive: a persisted blob predating it simply lacks the
+  // key. `defaultSessionUI` already seeds `[]` for fresh installs;
+  // this backfill keeps the persisted shape honest for existing
+  // workspaces rather than leaning on `updateFromRemote`'s deepMerge
+  // to paper over the missing key (matches the `deltaViewMode` /
+  // 63 → 64 and `highContrastText` precedents' belt-and-suspenders
+  // posture — see the archived body's comment).
+  //
+  // Container witnessed against the runtime shape: `session.ui` is
+  // present from v1, so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version.
+  //
+  // Idempotent: a pre-existing array value (of any length, including
+  // empty) is preserved unchanged; only a missing / wrong-typed leaf
+  // is backfilled to `[]`.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { cardsContextGameSourceOrdinals?: unknown };
+      if (!Array.isArray(u.cardsContextGameSourceOrdinals)) {
+        u.cardsContextGameSourceOrdinals = [];
+      }
     }
     return out;
   },

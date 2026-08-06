@@ -82,6 +82,7 @@ export interface CardTreeData {
     deck: CardSet,
     contextIds: number[],
     hyperparameterValues?: Record<string, number | string>,
+    gameSourceOrdinals?: number[],
   ) => Promise<ReviewCard[]>;
   setForestStats: (stats: ForestStat[]) => void;
   requestCard: (cardId: CardId) => Promise<void>;
@@ -366,6 +367,7 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
     deck: CardSet,
     contextIds: number[],
     hyperparameterValues: Record<string, number | string> = {},
+    gameSourceOrdinals: number[] = [],
   ): Promise<ReviewCard[]> {
     const id = boardIdRef.value;
     if (!id) return [];
@@ -374,7 +376,12 @@ export function useCardTreeData(boardIdRef: Ref<BoardId | null>): CardTreeData {
     reset(id);
     try {
       const resolved = substitute(deck.pipeline, hyperparameterValues);
-      const matched: ReviewCard[] = await backendService.queryForest(contextIds, resolved);
+      // macro-public-id-tokens: gameSourceOrdinals threads through
+      // unresolved — the backend resolves each ordinal to its
+      // game_source's root card ids server-side, within tenancy.
+      const matched: ReviewCard[] = await backendService.queryForest(
+        contextIds, resolved, gameSourceOrdinals,
+      );
       if (matched.length === 0) {
         const target = getOrCreateBoardCardTree(id);
         target.error = 'Pipeline returned no cards.';
