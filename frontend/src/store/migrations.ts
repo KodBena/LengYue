@@ -128,13 +128,13 @@ if (import.meta.hot) import.meta.hot.accept(() => location.reload());
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 63;
+export const CURRENT_SCHEMA_VERSION = 64;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 60 → 61) are
+ * The first `N` entries (currently 1 → 2 through 61 → 62) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -156,78 +156,6 @@ export const CURRENT_SCHEMA_VERSION = 63;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 61 → 62: reshape `boards[*].analysisRange` (single per-board slot,
-  // `[startPly, endPly]`) into `boards[*].analysisRanges` (keyed per
-  // branch-stem `BranchRangeKey` — `composables/analysis/branch-range-
-  // key.ts`). Design proposal §1 Candidate C; commissioner adjudication
-  // (ledger rows 112/119) also overrules the design's proposed 32-entry
-  // LRU eviction — the new map is deliberately UNCAPPED (see the field's
-  // doc comment on `BoardState.analysisRanges` in `types/game.ts`).
-  //
-  // Carry-over, not drop (commissioner-adjudicated, same rows: a real
-  // user-visible behavior difference — "my range survives the upgrade"
-  // vs "my range resets once" — decided in favor of survives). A
-  // pre-existing `analysisRange` is converted into a single entry under
-  // the branch key computed from the board's CURRENT active-variation
-  // path at migration time — the only key computable from a frozen
-  // blob; a board visited on a *different* branch after this migration
-  // runs seeds its own fresh default the normal way
-  // (`useAnalysisTimeline`'s reseed-on-key-change path), same as any
-  // other never-before-visited branch.
-  //
-  // The active-path walk (root → leaf via `activeChildIndex`) and the
-  // branch-key derivation are INLINED here rather than imported from
-  // `getActiveVariationPath` / `deriveBranchRangeKey` — deliberately, so
-  // this migration body stays self-contained and frozen (append-only
-  // invariant) independent of those modules' future evolution. The
-  // algorithm mirrors both exactly: walk from `rootNodeId`, following
-  // `children[activeChildIndex]` until a childless node; a node
-  // contributes `${nodeId}:${chosenChildId}` to the key iff it has more
-  // than one child.
-  //
-  // Idempotent: a board that already carries `analysisRanges` (re-run,
-  // or a forward-compat blob) is left untouched. A board with neither
-  // field, or a malformed `analysisRange` (not a 2-tuple), is a no-op —
-  // no reason to synthesize a range nothing asked for. `boards`
-  // absent/non-array is a no-op (very-legacy or partial blob).
-  (blob: any) => {
-    const out = structuredClone(blob);
-    if (Array.isArray(out.boards)) {
-      for (const board of out.boards) {
-        if (!board || typeof board !== 'object') continue;
-        if (board.analysisRanges !== undefined) continue;
-        const legacyRange = board.analysisRange;
-        if (!Array.isArray(legacyRange) || legacyRange.length !== 2) continue;
-
-        const nodes = board.nodes && typeof board.nodes === 'object' ? board.nodes : {};
-        const path: string[] = [];
-        let cur = board.rootNodeId;
-        const seen = new Set<string>();
-        while (typeof cur === 'string' && nodes[cur] && !seen.has(cur)) {
-          seen.add(cur);
-          path.push(cur);
-          const node = nodes[cur];
-          const children = Array.isArray(node.children) ? node.children : [];
-          if (children.length === 0) break;
-          const idx = typeof node.activeChildIndex === 'number' ? node.activeChildIndex : 0;
-          cur = children[idx] ?? children[0];
-        }
-
-        const legs: string[] = [];
-        for (let i = 0; i < path.length - 1; i++) {
-          const node = nodes[path[i]];
-          if (node && Array.isArray(node.children) && node.children.length > 1) {
-            legs.push(`${path[i]}:${path[i + 1]}`);
-          }
-        }
-        const branchKey = legs.join('|');
-
-        board.analysisRanges = { [branchKey]: legacyRange };
-        delete board.analysisRange;
-      }
-    }
-    return out;
-  },
   // 62 → 63: backfill `profile.settings.appearance.highContrastText`
   // (boolean, default false) — the opt-in text/glyph-contrast override
   // for the `cluster` theme (ADR-0019 audit §S4 corrective; see the
@@ -258,6 +186,40 @@ export const migrations: Migration[] = [
       const ap = appearance as { highContrastText?: unknown };
       if (typeof ap.highContrastText !== 'boolean') {
         ap.highContrastText = false;
+      }
+    }
+    return out;
+  },
+  // 63 → 64: backfill `session.ui.deltaViewMode` ('shared' | 'black' |
+  // 'white', default 'shared') — the delta-analysis panel's three-mode
+  // view cycle (ledger row 418; see the field's doc comment on
+  // `UISession.deltaViewMode` in `schema.ts`, and
+  // `composables/analysis/useDeltaViewMode.ts` for the full rationale).
+  // A persisted blob predating this field would otherwise carry no
+  // value; `defaultSessionUI` already seeds fresh installs, and the
+  // panel's own read site falls back to `?? 'shared'`, so this backfill
+  // is belt-and-suspenders (matches the `qeuboToolbarView` / 5 → 6
+  // precedent in `archived-migrations.ts`) rather than load-bearing —
+  // it keeps the persisted shape honest instead of leaning on the
+  // read-site fallback. 'shared' is the only sensible default: it is
+  // the view every pre-existing workspace already had (the feature
+  // introduces two ADDITIONAL views, not a replacement one), so this
+  // migration is a pure additive seed with no behavior change.
+  //
+  // Container witnessed against the runtime shape: `session.ui` is
+  // present from v1, so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version.
+  //
+  // Idempotent: a pre-existing valid mode value is preserved unchanged
+  // (a hand-edited or forward-compat blob keeps its value); only a
+  // missing / malformed value is backfilled to 'shared'.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { deltaViewMode?: unknown };
+      if (u.deltaViewMode !== 'shared' && u.deltaViewMode !== 'black' && u.deltaViewMode !== 'white') {
+        u.deltaViewMode = 'shared';
       }
     }
     return out;

@@ -2942,3 +2942,42 @@ describe('61 → 62: analysisRange → analysisRanges (branch-stem keying, carry
     expect(out.boards[0].analysisRanges).toEqual({ 'fork:right': [1, 2] });
   });
 });
+
+describe('63 → 64: backfill session.ui.deltaViewMode (delta-analysis view cycle, ledger row 418)', () => {
+  function blobWithUi(): any {
+    return { session: { ui: { activeTab: 'cards' } } };
+  }
+
+  it("backfills deltaViewMode = 'shared' when the leaf is absent", () => {
+    const out = step(63)(blobWithUi());
+    expect(out.session.ui.deltaViewMode).toBe('shared');
+  });
+
+  it('preserves a pre-existing valid mode (idempotent)', () => {
+    const blob = blobWithUi();
+    blob.session.ui.deltaViewMode = 'black';
+    expect(step(63)(blob).session.ui.deltaViewMode).toBe('black');
+
+    const blobWhite = blobWithUi();
+    blobWhite.session.ui.deltaViewMode = 'white';
+    expect(step(63)(blobWhite).session.ui.deltaViewMode).toBe('white');
+  });
+
+  it('replaces a malformed deltaViewMode with the default', () => {
+    const blob = blobWithUi();
+    blob.session.ui.deltaViewMode = 'both'; // not a valid mode
+    expect(step(63)(blob).session.ui.deltaViewMode).toBe('shared');
+  });
+
+  it('is a no-op when session.ui is absent (very-legacy / partial blob)', () => {
+    const blob: any = { session: {} };
+    expect(step(63)(blob).session.ui).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v63 blob reaches CURRENT with deltaViewMode backfilled to shared', () => {
+    const blob: any = { schemaVersion: 63, session: { ui: { activeTab: 'cards' } } };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(out.session.ui.deltaViewMode).toBe('shared');
+  });
+});

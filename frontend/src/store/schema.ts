@@ -40,6 +40,10 @@ import type { PvAnimationSettings } from '../composables/board/use-pv-animation'
 // i18n supported-locale union — the SSOT lives next to the catalog
 // registry in `src/i18n/locales.ts`.
 import type { SupportedLocale } from '../i18n/locales';
+// Delta-analysis-panel view-cycle mode — the SSOT lives next to the
+// cycle order and the click-path filtering helper in
+// `src/composables/analysis/useDeltaViewMode.ts`.
+import type { DeltaViewMode } from '../composables/analysis/useDeltaViewMode';
 
 export type RegistryLeaf = string | number | boolean | null;
 export interface Registry {
@@ -703,6 +707,17 @@ export interface UISession {
   // 'applied'. Mutated by the toolbar; consumed by useQeubo's
   // effectiveParameterValues computed.
   qeuboToolbarView?: 'applied' | 'A' | 'B';
+  // Delta-analysis panel's ("Per-Player Performance (Moves)",
+  // `MergedDeltaPanel.vue`) three-mode view cycle: 'shared' (both
+  // colours overlaid — today's only view), 'black' / 'white'
+  // (single-colour, disambiguating click-to-navigate on the
+  // parity-interleaved axis — see `useDeltaViewMode.ts`'s header for
+  // the full rationale). Optional + `?? 'shared'`-defaulted at every
+  // read site (mirrors `qeuboToolbarView` above) so a pre-migration
+  // blob degrades to the byte-identical legacy view rather than
+  // throwing. Mutated by the panel's dedicated cycle button, never by
+  // a plot click. Schema-version 64 introduces the field.
+  deltaViewMode?: DeltaViewMode;
   // Board-overlay rendering posture for sibling variations from
   // the current node. Surfaced by `BoardVariationsOverlay.vue`.
   //   'off'     — no variation markers rendered.
