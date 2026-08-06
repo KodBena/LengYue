@@ -8,13 +8,23 @@ import { ref, computed, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { store, pushSystemMessage } from '../../store';
 import { useMinting } from '../../composables/review/useMinting';
+import { useModalKeyboard } from '../../composables/useModalKeyboard';
 import type { BoardId, CardCreatePayload } from '../../types';
 import { INTERACTION_DISMISS_DELAY_MS } from '../../lib/timing';
 
 const { t } = useI18n();
-const { prepareDraft, calibrateKomiOnDraft, commitMint } = useMinting();
+const {
+  prepareDraft,
+  calibrateKomiOnDraft,
+  commitMint,
+  checkDuplicate,
+  resetDuplicateCheck,
+  duplicateCheckStatus,
+  duplicateCardId,
+} = useMinting();
 
 const isOpen = ref(false);
+const modalContentRef = ref<HTMLElement | null>(null);
 const isLoading = ref(false);
 const draft = ref<CardCreatePayload | null>(null);
 // The board this draft was prepared from — retained so the
@@ -110,6 +120,14 @@ defineExpose({
       // write back).
       calibrateKomi.value = false;
       calibrationVisits.value = store.profile.settings.engine.katago.calibrationVisits;
+
+      // card-position-annotations Stage A: fire the duplicate-position
+      // check without awaiting it — the modal must render immediately
+      // with the draft; the warning box appears once the async check
+      // settles (checkDuplicate manages its own 'checking' -> 'checked'
+      // transition, which the template reads reactively).
+      resetDuplicateCheck();
+      void checkDuplicate(draft.value.raw_content);
     }
   }
 });
@@ -118,7 +136,17 @@ function close() {
   isOpen.value = false;
   draft.value = null;
   draftBoardId.value = null;
+  resetDuplicateCheck();
 }
+
+// Escape → same close path as the Cancel/× buttons (ADR-0019 S5);
+// Tab focus trap + initial focus + focus restoration — all one
+// shared mechanism, see useModalKeyboard.ts. (The tag input's own
+// Escape handler below, `handleTagKeydown`, stops propagation so
+// a first Escape closes the suggestions dropdown only; a second
+// Escape — dropdown already closed — reaches this and closes the
+// modal.)
+useModalKeyboard(modalContentRef, isOpen, close);
 
 // ─── Tag Management ──────────────────────────────────────────────────────────
 
@@ -140,7 +168,13 @@ function handleTagKeydown(e: KeyboardEvent) {
   } else if (e.key === 'Backspace' && tagInput.value === '' && draft.value?.tags.length) {
     draft.value.tags.pop();
   } else if (e.key === 'Escape') {
-    showSuggestions.value = false;
+    if (showSuggestions.value) {
+      // Contain the first Escape to the suggestions dropdown; don't
+      // let it also bubble to the modal-level handler and discard
+      // the in-progress draft in the same keypress.
+      e.stopPropagation();
+      showSuggestions.value = false;
+    }
   } else {
     showSuggestions.value = true;
   }
@@ -293,10 +327,10 @@ async function submit() {
 
 <template>
   <div v-if="isOpen" class="modal-backdrop" @mousedown.self="close">
-    <div class="modal-content">
-      
+    <div ref="modalContentRef" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="mint-card-title" tabindex="-1">
+
       <div class="modal-header">
-        <h2>{{ $t('mint.title') }}</h2>
+        <h2 id="mint-card-title">{{ $t('mint.title') }}</h2>
         <button class="close-btn" @click="close">×</button>
       </div>
 
@@ -310,6 +344,19 @@ async function submit() {
             <span v-if="draft.parent_card_id">{{ $t('mint.lineage.derivedFrom', { id: draft.parent_card_id }) }}</span>
             <span v-else>{{ $t('mint.lineage.newOrigin') }}</span>
           </div>
+        </div>
+
+        <!-- card-position-annotations Stage A: duplicate-position notice.
+             Warning, not a hard block (C10 posture) — the user may
+             proceed deliberately (e.g. a second card with different
+             grading params over the same position). C6: the in-flight
+             lookup renders as "checking", never as a silent
+             no-duplicate-found. -->
+        <div v-if="duplicateCheckStatus === 'checking'" class="duplicate-notice duplicate-checking">
+          {{ $t('mint.duplicateCheck.checking') }}
+        </div>
+        <div v-else-if="duplicateCardId !== null" class="duplicate-notice duplicate-warning">
+          {{ $t('mint.duplicateCheck.warning', { id: duplicateCardId }) }}
         </div>
 
         <!-- Basic Settings -->
@@ -442,6 +489,28 @@ async function submit() {
 .lineage-icon { font-size: var(--text-heading); }
 .lineage-text { display: flex; flex-direction: column; font-size: var(--text-emphasis); color: var(--text-1); }
 .lineage-text strong { color: var(--text-0); font-size: var(--text-emphasis); text-transform: uppercase; }
+
+/* card-position-annotations Stage A: duplicate-position notice. A
+   distinct border/background per genre convention (ADR-0019) rather
+   than color-only (C18) — the text itself names the condition, the
+   color is a secondary reinforcement, not the sole signal. */
+.duplicate-notice {
+  padding: var(--space-default) var(--space-medium);
+  border-radius: var(--radius-default);
+  margin-bottom: var(--space-medium);
+  border: 1px solid transparent;
+  font-size: var(--text-emphasis);
+}
+.duplicate-checking {
+  color: var(--text-2);
+  background: color-mix(in srgb, var(--text-2) 8%, transparent);
+  border-color: color-mix(in srgb, var(--text-2) 20%, transparent);
+}
+.duplicate-warning {
+  color: var(--text-0);
+  background: color-mix(in srgb, var(--state-warning) 12%, transparent);
+  border-color: color-mix(in srgb, var(--state-warning) 40%, transparent);
+}
 
 .form-grid { display: grid; grid-template-columns: 110px 1fr; gap: var(--space-medium); align-items: center; }
 .form-grid label { font-size: var(--text-emphasis); color: var(--text-2); text-transform: uppercase; }

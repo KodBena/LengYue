@@ -18,8 +18,10 @@ License: Public Domain (The Unlicense)
 """
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
+from uuid import uuid4
 
 from domain.auth import UserId
 from domain.card import Card
@@ -75,6 +77,9 @@ class FakeLineageRepository:
         self.tags: Dict[int, List[str]] = {}
 
         self._next_card_id = 1
+        # Per-user-id-enumeration design: fake stand-in for the
+        # production per-user counter.
+        self._next_ordinal: Dict[int, int] = {}
 
     # ─── Test helpers ──────────────────────────────────────────────────────
 
@@ -154,8 +159,12 @@ class FakeLineageRepository:
             suspended=False,
             grading_parameter=None,
             canonical_content=canonical_content,
+            content_hash=hashlib.sha256(canonical_content.encode()).digest(),
             card_source_id=parent_card_id,
+            public_id=uuid4(),
+            display_ordinal=self._next_ordinal.get(user_id, 0) + 1,
         )
+        self._next_ordinal[user_id] = self._next_ordinal.get(user_id, 0) + 1
         self.parent_of[card_id] = parent_card_id
         self.user_id_by_card[card_id] = user_id
         if game_source_id is not None:

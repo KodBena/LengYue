@@ -21,10 +21,16 @@ License: Public Domain (The Unlicense)
 from __future__ import annotations
 
 import hashlib
+from itertools import count
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+
+# Per-user-id-enumeration design: see test_stats_repository.py's
+# identical comment.
+_ordinal = count(1)
 
 from db.schema import (
     card,
@@ -64,7 +70,10 @@ async def _build_tree(
     pos = int(res.scalar())
     res = await session.execute(
         insert(game_source)
-        .values(position_id=pos, user_id=user_id, description=description)
+        .values(
+            position_id=pos, user_id=user_id, description=description,
+            client_game_id=uuid4(), display_ordinal=next(_ordinal),
+        )
         .returning(game_source.c.id)
     )
     gs_id = int(res.scalar())
@@ -82,6 +91,7 @@ async def _build_tree(
                 .values(
                     num_moves=5, alpha=3.0, beta=3.0, t=1.0,
                     user_id=user_id, normalized_position_id=pos,
+                    public_id=uuid4(), display_ordinal=next(_ordinal),
                 )
                 .returning(card.c.id)
             )
@@ -137,6 +147,12 @@ async def test_forests_query_returns_descendant_pool(client, session):
     # DescendantSelection excludes the context.
     assert ids["r"] not in returned_ids
     assert returned_ids == {ids["a"], ids["b"]}
+    # card-position-annotations Stage A: content_hash rides along on
+    # every CardWithRecall — a hex string (Card._serialize_content_hash),
+    # matching the digest of the canonical content _build_tree seeded.
+    expected_hash = hashlib.sha256(b"(;c[tree])").hexdigest()
+    for c in body:
+        assert c["content_hash"] == expected_hash
 
 
 async def test_forests_query_results_carry_tags(client, session):
@@ -318,6 +334,90 @@ async def test_forests_query_results_are_tenant_scoped(client, session):
     )
     assert response.status_code == 200
     assert response.json() == []
+
+
+async def test_forests_query_content_hash_isolated_across_tenants_sharing_position(
+    client, session,
+):
+    """
+    card-position-annotations Stage A tenancy check (design §1: "the
+    per-user hash set comes from the user's own cards"). `content_hash`
+    is deliberately a *global* identity — two tenants who mint a card
+    off the identical canonical content share the same
+    `normalized_position` row and therefore the same `content_hash`
+    value. That sharing must never leak *card ids* across the tenancy
+    boundary: Alice's forest query returns only her own card, with the
+    (shared) hash value, and Bob's card id never appears — the existing
+    404-not-403 / ownership-filtered invariant holds regardless of
+    whether the underlying position happens to be shared.
+    """
+    await seed_user(session, user_id=ALICE_ID)
+    await seed_user(session, user_id=BOB_ID)
+
+    # normalized_position.content_hash is UNIQUE (a shared, global
+    # dedup row) — seed it once, then attach a card for each tenant
+    # to the same position id, mirroring what CardRepository's
+    # get_or_create_position does for two independent mints of
+    # identical content.
+    canonical = "(;c[shared])"
+    digest = hashlib.sha256(canonical.encode()).digest()
+    res = await session.execute(
+        insert(normalized_position)
+        .values(content_hash=digest, canonical_content=canonical)
+        .returning(normalized_position.c.id)
+    )
+    pos = int(res.scalar())
+
+    async def _attach_root_card(user_id: int) -> int:
+        res = await session.execute(
+            insert(game_source)
+            .values(
+                position_id=pos, user_id=user_id, description="shared",
+                client_game_id=uuid4(), display_ordinal=next(_ordinal),
+            )
+            .returning(game_source.c.id)
+        )
+        gs_id = int(res.scalar())
+        res = await session.execute(
+            insert(card)
+            .values(
+                num_moves=5, alpha=3.0, beta=3.0, t=1.0,
+                user_id=user_id, normalized_position_id=pos,
+                public_id=uuid4(), display_ordinal=next(_ordinal),
+            )
+            .returning(card.c.id)
+        )
+        cid = int(res.scalar())
+        await session.execute(insert(card_source).values(
+            card_id=cid, game_source_id=gs_id, is_primary_source=True,
+        ))
+        return cid
+
+    alice_root = await _attach_root_card(ALICE_ID)
+    bob_root = await _attach_root_card(BOB_ID)
+    await session.commit()
+
+    response = await client.post(
+        "/forests/query",
+        json={
+            "context_ids": [alice_root],
+            "pipeline": [
+                {
+                    "stage": "select",
+                    "selection": {"type": "AncestorSelection", "n": 0},
+                    "ordering": {"type": "DepthKey"},
+                },
+            ],
+        },
+        headers=auth_header(ALICE_ID),
+    )
+    assert response.status_code == 200
+    body = response.json()
+    returned_ids = {c["id"] for c in body}
+    assert returned_ids == {alice_root}
+    assert bob_root not in returned_ids
+    expected_hash = hashlib.sha256(b"(;c[shared])").hexdigest()
+    assert body[0]["content_hash"] == expected_hash
 
 
 # ─── 401 without bearer ───────────────────────────────────────────────────────

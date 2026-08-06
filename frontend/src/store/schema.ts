@@ -33,12 +33,17 @@ import type { AnalysisEnvironment } from '../types/analysis-env';
 import type { KnobRegistry } from '../types/knobs';
 import type { CardSet, ReviewSessionData } from '../types/cards';
 import type { QeuboBookmark } from '../types/qeubo';
+import type { WorkspaceLoadState } from '../types/app';
 // PV animation settings shape — `UISession.pvAnimation` references
 // the composable-owned alias (same relationship as pre-split).
 import type { PvAnimationSettings } from '../composables/board/use-pv-animation';
 // i18n supported-locale union — the SSOT lives next to the catalog
 // registry in `src/i18n/locales.ts`.
 import type { SupportedLocale } from '../i18n/locales';
+// Delta-analysis-panel view-cycle mode — the SSOT lives next to the
+// cycle order and the click-path filtering helper in
+// `src/composables/analysis/useDeltaViewMode.ts`.
+import type { DeltaViewMode } from '../composables/analysis/useDeltaViewMode';
 
 export type RegistryLeaf = string | number | boolean | null;
 export interface Registry {
@@ -464,6 +469,25 @@ export interface AppSettings {
     // migration if a prior valid value retires.
     theme: 'dark' | 'cluster';
     /**
+     * Opt-in text/glyph-contrast override for the `cluster` theme (default
+     * `false` — OFF state renders byte-identical to today). `cluster`'s base
+     * anchors project strictly onto the maximin-optimised cluster-12
+     * categorical palette (see the `[data-theme="cluster"]` block in
+     * `theme.css`), which has no luminance ramp and leaves `--text-2` and
+     * `--accent-primary` below WCAG 2.1's 4.5:1 normal-text floor against
+     * `--surface-0` (ADR-0019 audit, `.claude/dispatch-reports/
+     * adr19-audit.md` §S4: 3.84:1 and 2.08:1 respectively). When `true`,
+     * `useAppBootstrap` mirrors this leaf onto `<html data-contrast-text
+     * ="on">` (alongside the existing `data-theme` mirror), and
+     * `theme.css`'s `[data-theme="cluster"][data-contrast-text="on"]`
+     * block darkens exactly those two tokens (hue preserved, luminance
+     * lowered) to clear 4.5:1 — the data-series / chart-derived palette is
+     * untouched in both states, and the `dark` theme is untouched
+     * regardless of this leaf's value. Schema-version 62 → 63 backfills
+     * `false`.
+     */
+    highContrastText: boolean;
+    /**
      * MiniBoard thumbnail renderer (the analysis-chart preview boards + the
      * multiresolution heatmap preview). `'svg'` is the declarative SVG
      * projection (default; slightly more prominent last-move ring); `'canvas'`
@@ -716,6 +740,17 @@ export interface UISession {
   // 'applied'. Mutated by the toolbar; consumed by useQeubo's
   // effectiveParameterValues computed.
   qeuboToolbarView?: 'applied' | 'A' | 'B';
+  // Delta-analysis panel's ("Per-Player Performance (Moves)",
+  // `MergedDeltaPanel.vue`) three-mode view cycle: 'shared' (both
+  // colours overlaid — today's only view), 'black' / 'white'
+  // (single-colour, disambiguating click-to-navigate on the
+  // parity-interleaved axis — see `useDeltaViewMode.ts`'s header for
+  // the full rationale). Optional + `?? 'shared'`-defaulted at every
+  // read site (mirrors `qeuboToolbarView` above) so a pre-migration
+  // blob degrades to the byte-identical legacy view rather than
+  // throwing. Mutated by the panel's dedicated cycle button, never by
+  // a plot click. Schema-version 64 introduces the field.
+  deltaViewMode?: DeltaViewMode;
   // Board-overlay rendering posture for sibling variations from
   // the current node. Surfaced by `BoardVariationsOverlay.vue`.
   //   'off'     — no variation markers rendered.
@@ -897,4 +932,13 @@ export interface GlobalStore {
   // `profile` per the ProfileState invariant — out of the persisted
   // blob, it can't be clobbered by the hydrate-vs-fetch race.
   knownTags: string[];
+  // Cold-start workspace-fetch lifecycle (ADR-0019 audit S1). NON-
+  // PERSISTED, same rationale as `knownTags` above: it describes
+  // *this session's* fetch, not user data, and would race the
+  // fetch it describes if it round-tripped through the document.
+  // Owned by `SyncService`; `App.vue`'s top-level gate reads it to
+  // decide whether the board/tab-rail/control-panel surfaces (or a
+  // loading/error state) are rendered. See `types/app.ts` for the
+  // full lifecycle doc.
+  workspaceLoadState: WorkspaceLoadState;
 }

@@ -243,13 +243,47 @@ onUnmounted(() => {
    to read as breathing room. The 32px height on `.tab-thumb` is
    separate — the thumb's portrait/landscape aspect (88×32 → now
    86×32) reads as a short label band rather than a card. */
-.thumb-container { --tab-width: 86px; display: flex; flex-direction: column; align-items: center; width: var(--tab-width); counter-increment: boardtab; }
+/* padding-top: 6px absorbs .close-board-btn's `top: -6px` overshoot (see
+   below) INSIDE this element's own box, so the button's rendered top edge
+   never sits negative relative to `.thumb-container` — load-bearing for the
+   virtualized rail in SidebarWidget.vue: `.thumb-list` there is a real
+   scroll/clip container (`overflow-y: auto`, and per CSS 2.1 §11.1.1 the
+   un-authored `overflow-x` computes to `auto` too once one axis is
+   non-visible), so whichever tab is scrolled flush to the container's own
+   top edge has anything poking above ITS OWN box clipped outright — this is
+   true for every tab that becomes flush-topmost (e.g. via `scrollToIndex`
+   snapping a newly-activated board into view), not only the rail's first
+   tab, so a one-time buffer at the top of the whole scrollable list (the
+   naive fix) only protects tab index 0 and silently leaves every other tab
+   unprotected once scrolled to. This per-tab padding is a real, disclosed
+   visual change (a uniform 6px gap now separates each tab; they previously
+   sat flush) but is included in `offsetHeight`, so `SidebarWidget.vue`'s
+   `tabHeight` self-correction (measuring `.thumb-container.offsetHeight` in
+   `onMounted`) absorbs it automatically — no separate height-math
+   compensation needed. Investigation: `.claude/dispatch-reports/
+   ui-defects-investigation.md`, Defect 4. Does NOT move `.close-board-btn`
+   itself or change its offset relative to `.tab-thumb` — the detached
+   half-overlapping-corner look is unchanged. */
+.thumb-container { --tab-width: 86px; display: flex; flex-direction: column; align-items: center; width: var(--tab-width); padding-top: 6px; counter-increment: boardtab; }
 
+/* `overflow: visible` is declared explicitly, not left to the default,
+   because `.close-board-btn` below deliberately overshoots this box's own
+   top and right edges by 6px (the "detached affordance" look) — an
+   `overflow: hidden` on this element clips the button along its
+   rectangular edges, producing a crescent-shaped clip on the button's
+   circular border (ui-fix-4b-tab-clip.md: a stale global `.tab-thumb`
+   rule in style.css, dead since BoardTab's pre-rewrite 88x88-card design,
+   set `overflow: hidden` and this scoped rule never overrode that one
+   property, so the cascade let it through even though every other
+   property here won on specificity — the dead global rule has been
+   removed, but this declaration is kept as defense-in-depth so a future
+   global rule touching `.tab-thumb` can't silently reintroduce the same
+   clip). */
 .tab-thumb {
   width: var(--tab-width); height: 32px; border: 2px solid var(--surface-3); background: var(--surface-0);
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   transition: border-color var(--duration-default) ease, background var(--duration-default) ease;
-  position: relative; border-radius: var(--radius-default);
+  position: relative; border-radius: var(--radius-default); overflow: visible;
 }
 
 .tab-label { font-size: var(--text-emphasis); color: var(--text-2); font-weight: bold; pointer-events: none; }
@@ -276,7 +310,10 @@ onUnmounted(() => {
    16x16 close button off the tab-thumb's corner so half the button
    overlaps the corner radius and half hangs outside, reading as a
    detached affordance. The -6px offset is hand-tuned to that specific
-   visual; not a substrate candidate. */
+   visual; not a substrate candidate. `.thumb-container`'s `padding-top: 6px`
+   above absorbs this exact overshoot so the button never clips against the
+   virtualized rail's scroll-container edge (ui-defects-investigation.md
+   Defect 4) — the offset itself is unchanged. */
 .close-board-btn {
   position: absolute; top: -6px; right: -6px;
   background: var(--surface-3); color: var(--text-1); border: 1px solid var(--border-3); border-radius: var(--radius-circle);

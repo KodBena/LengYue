@@ -21,7 +21,7 @@ License: Public Domain (The Unlicense)
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,6 +37,10 @@ from db.schema import (
 )
 from domain.auth import UserId
 from domain.card import Card
+from repositories.display_counters import (
+    next_card_display_ordinal,
+    next_game_display_ordinal,
+)
 from repositories.ports import CardRepositoryPort, CardWriteRepositoryPort
 from schemas.card import CardPatch
 
@@ -110,6 +114,9 @@ class CardRepository(CardRepositoryPort, CardWriteRepositoryPort):
                 # Alias the new generic column back to the current
                 # Card field name. 34b deletes this alias.
                 normalized_position.c.canonical_content,
+                # content_hash: card-position-annotations Stage A —
+                # widens Card to carry the dedup hash for free.
+                normalized_position.c.content_hash,
                 card_source.c.card_source_id,  # Parent ID for the frontend tree
             )
             .join(normalized_position, card.c.normalized_position_id == normalized_position.c.id)
@@ -251,8 +258,19 @@ class CardRepository(CardRepositoryPort, CardWriteRepositoryPort):
         Insert a new card row with the given Bayesian prior and
         return its id. RETURNING requires SQLite 3.35+ (March 2021) —
         already a soft minimum for this codebase.
+
+        Per-user-id-enumeration design: mints `public_id` (a fresh
+        UUID, the reference-role opaque handle — `card`'s sibling of
+        `game_source.client_game_id`) and `display_ordinal` (the
+        per-user, gaps-on-delete display-role ordinal, assigned
+        atomically via `next_card_display_ordinal` inside this same
+        INSERT's transaction so a failed create never burns an
+        ordinal).
         """
         alpha, beta, t = model
+        display_ordinal = await next_card_display_ordinal(
+            self.session, user_id=UserId(user_id)
+        )
         stmt = (
             insert(card)
             .values(
@@ -263,6 +281,8 @@ class CardRepository(CardRepositoryPort, CardWriteRepositoryPort):
                 user_id=user_id,
                 grading_parameter=grading_parameter,
                 normalized_position_id=position_id,
+                public_id=uuid4(),
+                display_ordinal=display_ordinal,
             )
             .returning(card.c.id)
         )
@@ -283,12 +303,24 @@ class CardRepository(CardRepositoryPort, CardWriteRepositoryPort):
         Insert a new game_source row, stamping user_id from the
         caller's tenant context (item 24). Returns the new id.
 
-        Game-source dedup: no `client_game_id` is set on
-        rows from this path. Such rows are exempt from the partial
-        unique index `uniq_game_source_user_client_game_id` and
-        therefore not dedup targets. The dedup-aware path is
+        Game-source dedup: this path is not dedup-aware — every
+        call inserts a new row. The dedup-aware path is
         `get_or_create_game_source_by_client_id`.
+
+        Per-user-id-enumeration design (closing the client_game_id-
+        may-be-None exception, Decision 4): this path previously left
+        `client_game_id` NULL, exempting the row from the partial
+        unique index `uniq_game_source_user_client_game_id`. It now
+        mints a fresh UUID unconditionally — the column is NOT NULL
+        post-migration, and every row (from either insert path) now
+        carries an opaque reference handle regardless of whether the
+        caller ever intends to dedup against it. `display_ordinal` is
+        assigned atomically via `next_game_display_ordinal` inside
+        this same INSERT's transaction.
         """
+        display_ordinal = await next_game_display_ordinal(
+            self.session, user_id=user_id
+        )
         stmt = (
             insert(game_source)
             .values(
@@ -298,6 +330,8 @@ class CardRepository(CardRepositoryPort, CardWriteRepositoryPort):
                 player_black=player_black,
                 description=description,
                 raw_content=raw_content,
+                client_game_id=uuid4(),
+                display_ordinal=display_ordinal,
             )
             .returning(game_source.c.id)
         )
@@ -344,6 +378,9 @@ class CardRepository(CardRepositoryPort, CardWriteRepositoryPort):
             )
             return found_id
 
+        display_ordinal = await next_game_display_ordinal(
+            self.session, user_id=user_id
+        )
         stmt = (
             insert(game_source)
             .values(
@@ -354,6 +391,7 @@ class CardRepository(CardRepositoryPort, CardWriteRepositoryPort):
                 description=description,
                 raw_content=raw_content,
                 client_game_id=client_game_id,
+                display_ordinal=display_ordinal,
             )
             .returning(game_source.c.id)
         )

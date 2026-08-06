@@ -128,13 +128,13 @@ if (import.meta.hot) import.meta.hot.accept(() => location.reload());
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 62;
+export const CURRENT_SCHEMA_VERSION = 65;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 59 → 60) are
+ * The first `N` entries (currently 1 → 2 through 62 → 63) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -156,39 +156,41 @@ export const CURRENT_SCHEMA_VERSION = 62;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 60 → 61: backfill `profile.settings.engine.katago.calibrationVisits`
-  // (number, default 1000) — the new default visit budget for the opt-in
-  // mint-time komi-calibration feature. The leaf is read by
-  // `MintCardModal` (prefills the per-mint visits input when the
-  // "calibrate komi" checkbox is shown) and seeded in `defaults.ts`; a
-  // persisted blob predating this field would otherwise carry no value
-  // and rely on `updateFromRemote`'s deepMerge to surface the default.
-  // Backfilling explicitly keeps the persisted shape honest (the
-  // composition test pins it) rather than leaning on the merge.
+  // 63 → 64: backfill `session.ui.deltaViewMode` ('shared' | 'black' |
+  // 'white', default 'shared') — the delta-analysis panel's three-mode
+  // view cycle (ledger row 418; see the field's doc comment on
+  // `UISession.deltaViewMode` in `schema.ts`, and
+  // `composables/analysis/useDeltaViewMode.ts` for the full rationale).
+  // A persisted blob predating this field would otherwise carry no
+  // value; `defaultSessionUI` already seeds fresh installs, and the
+  // panel's own read site falls back to `?? 'shared'`, so this backfill
+  // is belt-and-suspenders (matches the `qeuboToolbarView` / 5 → 6
+  // precedent in `archived-migrations.ts`) rather than load-bearing —
+  // it keeps the persisted shape honest instead of leaning on the
+  // read-site fallback. 'shared' is the only sensible default: it is
+  // the view every pre-existing workspace already had (the feature
+  // introduces two ADDITIONAL views, not a replacement one), so this
+  // migration is a pure additive seed with no behavior change.
   //
-  // Container witnessed against the runtime shape (`witnessedContainer`,
-  // per step 3 of the add-a-migration recipe): the
-  // `profile.settings.engine.katago` container exists from the original
-  // settings seed, so a typo'd path fails loudly here rather than
-  // no-oping and stamping the version. The blob-side resolution keeps the
-  // sibling bodies' non-null-object tolerance: a partial / legacy blob
-  // whose container is absent no-ops.
+  // Container witnessed against the runtime shape: `session.ui` is
+  // present from v1, so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version.
   //
-  // Idempotent: a pre-existing numeric `calibrationVisits` is preserved
-  // unchanged (a hand-edited or forward-compat blob keeps its value);
-  // only a missing / wrong-typed leaf is backfilled to the default.
+  // Idempotent: a pre-existing valid mode value is preserved unchanged
+  // (a hand-edited or forward-compat blob keeps its value); only a
+  // missing / malformed value is backfilled to 'shared'.
   (blob: any) => {
     const out = structuredClone(blob);
-    const katago = witnessedContainer(out, 'profile.settings.engine.katago');
-    if (katago) {
-      const k = katago as { calibrationVisits?: unknown };
-      if (typeof k.calibrationVisits !== 'number') {
-        k.calibrationVisits = 1000;
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { deltaViewMode?: unknown };
+      if (u.deltaViewMode !== 'shared' && u.deltaViewMode !== 'black' && u.deltaViewMode !== 'white') {
+        u.deltaViewMode = 'shared';
       }
     }
     return out;
   },
-  // 61 → 62: resizer-rearch — strip the two pre-rearch split-workspace
+  // 64 → 65: resizer-rearch — strip the two pre-rearch split-workspace
   // resizer homes. The current-model fields this rearch settled on
   // (`session.ui.treePanelWidthPx`, `session.ui.treeControlRegionWidthPx`
   // — nested-splitter amendment, ledger rows 391/414; see schema.ts)

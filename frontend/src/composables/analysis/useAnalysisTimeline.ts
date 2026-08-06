@@ -2,12 +2,14 @@
  * src/composables/analysis/useAnalysisTimeline.ts
  *
  * Owns the analysis-chart selection range plus the visit-vector
- * derived from the ledger. Source of truth for the selection range
- * is `BoardState.analysisRange` in the store — that lets the range
- * survive tab switches and board switches per release-scope item 2
- * (BoardState outlives the component lifecycle on both axes; the
- * `:key="boardId"` re-mount on board switch picks up the new
- * board's stored range automatically).
+ * derived from the ledger. Source of truth for the selection range is
+ * `BoardState.analysisRanges` in the store, keyed per branch-stem
+ * (`BranchRangeKey`, `branch-range-key.ts`) — that lets a range set on
+ * one variation survive tab switches, board switches, AND navigating
+ * away to a sibling branch and back, without one branch's range
+ * silently clobbering another's (BoardState outlives the component
+ * lifecycle on all three axes; the `:key="boardId"` re-mount on board
+ * switch picks up the new board's stored ranges automatically).
  *
  * License: Public Domain (The Unlicense)
  */
@@ -18,13 +20,15 @@ import { analysisService } from '../../services/analysis-service';
 import { store, mutateBoard } from '../../store';
 import type { BoardId, PlyIndex, RootToLeafPath } from '../../types';
 import { activeAnalysisKeys } from '../../state/analysis-config';
+import { deriveBranchRangeKey } from './branch-range-key';
 
 export interface AnalysisTimelineState {
   visitVector: ComputedRef<number[]>;
   /**
-   * Read-only view onto the active board's stored selection range.
-   * Mutate via `setSelectionRange`, never via `.value =`. Branded
-   * `[PlyIndex, PlyIndex]` per `BoardState.analysisRange`'s brand
+   * Read-only view onto the active branch stem's stored selection
+   * range (`BoardState.analysisRanges[branchKey]`). Mutate via
+   * `setSelectionRange`, never via `.value =`. Branded
+   * `[PlyIndex, PlyIndex]` per `BoardState.analysisRanges`'s brand
    * (which the brand pair was introduced to enforce against the
    * colour-local-vs-absolute-ply confusion class).
    */
@@ -50,9 +54,16 @@ export function useAnalysisTimeline(
     return rawVisits.map(v => v / globalMax);
   });
 
-  // ── Selection range — store-backed ────────────────────────────────────────
+  // ── Selection range — store-backed, keyed per branch-stem ──────────────────
   const board = computed(() => store.boards.find(b => b.id === boardId));
-  const stored = computed(() => board.value?.analysisRange);
+  // BranchRangeKey mint site: the sole factory, given the active path and
+  // this board's node table (the two legs the key's dependency-set doc
+  // comment names). Recomputes only when the path or the tree shape
+  // changes — a plain cursor move within the same line does not touch
+  // `activeChildIndex` anywhere, so the key (and thus which map entry
+  // `stored` below reads) stays stable across ordinary navigation.
+  const branchKey = computed(() => deriveBranchRangeKey(variationPath.value, board.value?.nodes ?? {}));
+  const stored = computed(() => board.value?.analysisRanges?.[branchKey.value]);
 
   // Brand cast at construction: the `[0, 0]` fallback is the empty range
   // at the root, valid PlyIndices by construction (PlyIndex 0 = root).
@@ -61,19 +72,30 @@ export function useAnalysisTimeline(
   );
 
   function setSelectionRange(range: [PlyIndex, PlyIndex]): void {
-    mutateBoard(boardId, draft => { draft.analysisRange = range; });
+    const key = branchKey.value;
+    mutateBoard(boardId, draft => {
+      if (!draft.analysisRanges) draft.analysisRanges = {};
+      draft.analysisRanges[key] = range;
+    });
   }
 
-  // Keep the stored range in sync with the path length: initialize on
-  // first observation of a non-empty path, clamp on subsequent length
-  // changes. Skip the write when the clamp is a no-op so we don't churn
+  // Keep the stored range in sync with (branch key, path length): reseed
+  // the default fit-to-path range on first observation of a branch stem
+  // that has no remembered entry yet (a fresh fork, OR the mainline
+  // before any fork exists), clamp in place on a length change within
+  // the SAME branch stem (plain forward play/extension — the existing,
+  // must-not-regress behavior). Watching the pair (not length alone) is
+  // load-bearing: a branch switch to a sibling of equal length changes
+  // `stored` (a different map entry) without changing `path.length`, and
+  // that sibling's own default must still get seeded the first time it's
+  // visited. Skip the write when the clamp is a no-op so we don't churn
   // boardsVersion on every navigation. Brand casts at the construction
   // sites are safe by construction — every value is clamped against
   // `len = variationPath.value.length`, which is the upper bound of
   // valid PlyIndices for the active path.
   watch(
-    () => variationPath.value.length,
-    (len) => {
+    () => [branchKey.value, variationPath.value.length] as const,
+    ([, len]) => {
       if (len === 0) return;
 
       const prev = stored.value;

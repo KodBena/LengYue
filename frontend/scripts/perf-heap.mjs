@@ -63,6 +63,8 @@ const wantSnapshot = argv.includes('--snapshot');
 const persist = argv.includes('--persist');
 const cfg = {};
 if (flag('visits', undefined) !== undefined) cfg.visits = Number(flag('visits'));
+// close-at-scale: board count per cycle (default 230 in the scenario).
+if (flag('boards', undefined) !== undefined) cfg.boards = Number(flag('boards'));
 if (flag('proxy-url', undefined) !== undefined) cfg.proxyUrl = flag('proxy-url');
 if (flag('model', undefined) !== undefined) cfg.model = flag('model');
 if (argv.includes('--adapt')) cfg.adaptive = true;

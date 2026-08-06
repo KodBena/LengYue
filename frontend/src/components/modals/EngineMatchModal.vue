@@ -24,10 +24,12 @@
 import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { store } from '../../store';
+import { useModalKeyboard } from '../../composables/useModalKeyboard';
 
 const { t } = useI18n();
 
 const isOpen = ref(false);
+const modalContentRef = ref<HTMLElement | null>(null);
 const blackModel = ref<string | undefined>(undefined);
 const whiteModel = ref<string | undefined>(undefined);
 const blackVisits = ref(500);
@@ -78,6 +80,11 @@ function close() {
   isOpen.value = false;
 }
 
+// Escape → same close path as the Cancel/× buttons (ADR-0019 S5);
+// Tab focus trap + initial focus + focus restoration — all one
+// shared mechanism, see useModalKeyboard.ts.
+useModalKeyboard(modalContentRef, isOpen, close);
+
 function submit() {
   emit('start-match', {
     numMoves: numMoves.value,
@@ -105,9 +112,9 @@ const canSubmit = computed(() => {
 
 <template>
   <div v-if="isOpen" class="modal-backdrop" @mousedown.self="close">
-    <div class="modal-content">
+    <div ref="modalContentRef" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="engine-match-title" tabindex="-1">
       <div class="modal-header">
-        <h2>{{ t('match.title') }}</h2>
+        <h2 id="engine-match-title">{{ t('match.title') }}</h2>
         <button class="close-btn" @click="close">×</button>
       </div>
 

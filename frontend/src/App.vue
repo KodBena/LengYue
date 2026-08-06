@@ -11,7 +11,7 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { ref as vueRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -26,15 +26,18 @@ import { useResizablePanel, CONTROL_PANEL_MIN_WIDTH_PX } from './composables/chr
 import { useDirtyBoardGuard } from './composables/board/useDirtyBoardGuard';
 import { useAppBootstrap } from './composables/auth-app/useAppBootstrap';
 import { useTransientLogReveal } from './composables/useTransientLogReveal';
+import { mintDialogRequestCount } from './composables/useMintDialogSignal';
 import {
   store,
   activeBoard,
   mutateBoard,
   pushSystemMessage,
+  touchSession,
 } from './store';
 
-import type { BoardId, NodeId }   from './types';
+import type { BoardId, NodeId, UISession }   from './types';
 import { navigateTo }     from './engine/navigator';
+import type { RulesetName } from './engine/rulesets';
 
 import { KATAGO_WS_URL } from './config/env';
 import { usePlayMatch } from './composables/board/usePlayFromPosition';
@@ -167,12 +170,40 @@ function triggerMint() {
   }
 }
 
+// `card.mint` keybinding entry point: the catalog is module-scope and
+// has no component instance to hold `mintModalRef`, so it can't call
+// `triggerMint()` directly. It instead bumps `mintDialogRequestCount`
+// (`useMintDialogSignal.ts`) and this watcher — living at App scope,
+// which does hold the ref — reacts by calling the same `triggerMint()`
+// the Toolbar button already dispatches. No cleanup to wire: a Vue
+// `watch` registered in `setup` is torn down automatically on unmount
+// (umbrella CLAUDE.md's resource-ownership discipline names this as
+// the automatically-cleaned case, unlike module-scope subscriptions).
+watch(mintDialogRequestCount, () => {
+  triggerMint();
+});
+
 function handleUpdateKomi(newKomi: number) {
   if (!activeBoard.value || isNaN(newKomi)) return;
   mutateBoard(activeBoard.value.id, draft => {
     const root = draft.nodes[draft.rootNodeId];
     if (root) {
       root.properties['KM'] = [newKomi.toString()];
+    }
+  });
+}
+
+// Parallel to handleUpdateKomi. `newRules` is one of the four
+// ruling-mandated canonical spellings (RulesetName) — StatusBar's
+// dropdown only emits values drawn from RULESET_NAMES, so this writes
+// the canonical spelling directly to root `RU`, no re-normalization
+// needed here.
+function handleUpdateRules(newRules: RulesetName) {
+  if (!activeBoard.value) return;
+  mutateBoard(activeBoard.value.id, draft => {
+    const root = draft.nodes[draft.rootNodeId];
+    if (root) {
+      root.properties['RU'] = [newRules];
     }
   });
 }
@@ -246,6 +277,36 @@ function handleNodeSelect(nodeId: NodeId): void {
   mutateBoard(activeBoard.value.id, draft => navigateTo(draft, nodeId));
 }
 
+// Boolean keys of `UISession` — the only shape the chrome toggle below
+// handles (it flips a boolean in place). Keeps the helper from being
+// pointed at a non-boolean session field.
+type BooleanUiKey = {
+  [K in keyof UISession]-?: UISession[K] extends boolean ? K : never;
+}[keyof UISession];
+
+// Chrome panel toggle (sidebar / board / tree / controls). These are
+// persisted `session.ui` flags, so the toggle bumps `touchSession()` —
+// SyncService keys session persistence on the `sessionVersion` counter
+// now, not a deep `store.session` watch (see `sessionVersion` in
+// `store/index.ts`). Replaces the inline `@click="store.session.ui.X =
+// !store.session.ui.X"` template writes, which the counter would not
+// observe.
+function toggleChrome(key: BooleanUiKey): void {
+  store.session.ui[key] = !store.session.ui[key];
+  touchSession();
+}
+
+// Control-panel active tab — persisted `session.ui.activeTab`. A
+// writable computed so the TabWidget v-model write routes through
+// `touchSession()` (same session-counter reason as `toggleChrome`).
+const activeTab = computed<string>({
+  get: () => store.session.ui.activeTab,
+  set: (v) => {
+    store.session.ui.activeTab = v;
+    touchSession();
+  },
+});
+
 </script>
 
 <template>
@@ -260,60 +321,74 @@ function handleNodeSelect(nodeId: NodeId): void {
       @end-game="handleEndGame"
     />
     <SidebarWidget
+      v-if="store.workspaceLoadState.kind === 'loaded'"
       v-show="store.session.ui.sidebarExpanded"
       @load-sgf="openFileDialog"
       @save-sgf="downloadActiveBoard"
     />
 
     <div id="main-workspace">
-      
-      <div class="top-nav-bar">
-        <button class="collapse-btn" @click="store.session.ui.sidebarExpanded = !store.session.ui.sidebarExpanded" :title="$t('app.chrome.toggleSidebar')">
-          {{ store.session.ui.sidebarExpanded ? '◀' : '▶' }}
-        </button>
 
-        <Toolbar
-          :is-match-running="matchControls.isRunning.value"
-          @toggle-engine="engineControls.toggle"
-          @mint-card="triggerMint"
-          @open-match="triggerMatch"
-          @stop-match="handleStopMatch"
-          @open-play="triggerPlay"
-          style="flex: 1; border-bottom: none;"
+      <!-- ADR-0019 audit Finding S1: cold-load honest gate. Before
+           the workspace fetch has resolved (or resolved to "nothing
+           to fetch"), the store's default boards must not be
+           rendered as a plausible, interactive workspace — that was
+           the audit's phantom-37-boards defect. `store.workspaceLoadState`
+           (SyncService-owned, see types/app.ts) drives an exhaustive
+           three-way gate over the board/tree/control-panel surfaces:
+           chrome (toolbar, tab strip) that could mutate workspace
+           state is withheld the same way. The system-log bar and
+           modals stay outside the gate — the log is diagnostic-only
+           and the modals are inert until a (gated-away) toolbar
+           button opens one. -->
+      <template v-if="store.workspaceLoadState.kind === 'loaded'">
+        <div class="top-nav-bar">
+          <button class="collapse-btn" @click="toggleChrome('sidebarExpanded')" :title="$t('app.chrome.toggleSidebar')">
+            {{ store.session.ui.sidebarExpanded ? '◀' : '▶' }}
+          </button>
+
+          <Toolbar
+            :is-match-running="matchControls.isRunning.value"
+            @toggle-engine="engineControls.toggle"
+            @mint-card="triggerMint"
+            @open-match="triggerMatch"
+            @stop-match="handleStopMatch"
+            @open-play="triggerPlay"
+            style="flex: 1; border-bottom: none;"
+          />
+
+          <div class="right-toggles">
+            <button class="collapse-btn" @click="toggleChrome('boardExpanded')" :title="$t('app.chrome.toggleBoard')">
+              🔲 {{ store.session.ui.boardExpanded ? '▶' : '◀' }}
+            </button>
+            <button class="collapse-btn" @click="toggleChrome('treeExpanded')" :title="$t('app.chrome.toggleTree')">
+              🌲 {{ store.session.ui.treeExpanded ? '▶' : '◀' }}
+            </button>
+            <button class="collapse-btn" @click="toggleChrome('controlsExpanded')" :title="$t('app.chrome.toggleControls')">
+              ⚙️ {{ store.session.ui.controlsExpanded ? '▶' : '◀' }}
+            </button>
+            <LocalePicker />
+          </div>
+        </div>
+
+        <!-- Persistent system-log bar. Visible when either:
+               (a) `systemLogExpanded` is checked in the Session (UI)
+                   registry — the always-on case, or
+               (b) `transientLogReveal` is currently flashing — an
+                   error- or warning-level message arrived in the
+                   last few seconds while `systemLogExpanded` was
+                   false. See `composables/useTransientLogReveal.ts`
+                   for the timer mechanics.
+             Messages continue to accumulate in the store regardless
+             of the visibility gate. -->
+        <SystemLogPanel
+          v-if="store.session.ui.systemLogExpanded || transientLogReveal"
         />
 
-        <div class="right-toggles">
-          <button class="collapse-btn" @click="store.session.ui.boardExpanded = !store.session.ui.boardExpanded" :title="$t('app.chrome.toggleBoard')">
-            🔲 {{ store.session.ui.boardExpanded ? '▶' : '◀' }}
-          </button>
-          <button class="collapse-btn" @click="store.session.ui.treeExpanded = !store.session.ui.treeExpanded" :title="$t('app.chrome.toggleTree')">
-            🌲 {{ store.session.ui.treeExpanded ? '▶' : '◀' }}
-          </button>
-          <button class="collapse-btn" @click="store.session.ui.controlsExpanded = !store.session.ui.controlsExpanded" :title="$t('app.chrome.toggleControls')">
-            ⚙️ {{ store.session.ui.controlsExpanded ? '▶' : '◀' }}
-          </button>
-          <LocalePicker />
-        </div>
-      </div>
-
-      <!-- Persistent system-log bar. Visible when either:
-             (a) `systemLogExpanded` is checked in the Session (UI)
-                 registry — the always-on case, or
-             (b) `transientLogReveal` is currently flashing — an
-                 error- or warning-level message arrived in the
-                 last few seconds while `systemLogExpanded` was
-                 false. See `composables/useTransientLogReveal.ts`
-                 for the timer mechanics.
-           Messages continue to accumulate in the store regardless
-           of the visibility gate. -->
-      <SystemLogPanel
-        v-if="store.session.ui.systemLogExpanded || transientLogReveal"
-      />
-
-      <div
-        id="split-workspace"
-        :style="splitWorkspaceCentered ? { justifyContent: 'center' } : {}"
-      >
+        <div
+          id="split-workspace"
+          :style="splitWorkspaceCentered ? { justifyContent: 'center' } : {}"
+        >
 
         <!-- resizer-rearch (nested-splitter amendment, ledger row
              391; geometry corrected per the live diagnostic,
@@ -369,6 +444,7 @@ function handleNodeSelect(nodeId: NodeId): void {
               :board="activeBoard"
               :metadata="metadata"
               @update-komi="handleUpdateKomi"
+              @update-rules="handleUpdateRules"
             />
           </div>
         </div>
@@ -463,7 +539,7 @@ function handleNodeSelect(nodeId: NodeId): void {
             <TabWidget
               :key="controlPanelIdentityKey"
               :tabs="controlTabs"
-              v-model="(store.session.ui.activeTab as string /* widen the tab-id union to TabWidget's string v-model */)"
+              v-model="activeTab"
             >
 
               <template #library>
@@ -506,7 +582,32 @@ function handleNodeSelect(nodeId: NodeId): void {
             </TabWidget>
           </div>
         </div>
-      </div> </div> </div>
+        </div>
+      </template>
+
+      <div
+        v-else-if="store.workspaceLoadState.kind === 'loading'"
+        id="workspace-boot-state"
+        role="status"
+        aria-busy="true"
+        aria-live="polite"
+      >
+        <div class="workspace-boot-spinner" aria-hidden="true"></div>
+        <p>{{ $t('app.workspace.loading') }}</p>
+      </div>
+
+      <div
+        v-else-if="store.workspaceLoadState.kind === 'error'"
+        id="workspace-boot-state"
+        role="alert"
+      >
+        <p>{{ $t('app.workspace.loadFailed') }}</p>
+        <button class="action-btn-large" style="width: auto; padding-left: var(--space-loose); padding-right: var(--space-loose);" @click="sync.retryHydrate()">
+          {{ $t('app.workspace.retry') }}
+        </button>
+      </div>
+
+    </div> </div>
   </RootErrorBoundary>
 </template>
 
@@ -566,6 +667,28 @@ function handleNodeSelect(nodeId: NodeId): void {
   min-width: 0;
   min-height: 0;
 }
+
+/* ADR-0019 audit S1: cold-load loading/error state, occupying the
+   same flex slot `#split-workspace` would (`#main-workspace`'s
+   `flex-direction: column` + this block's `flex: 1`), so the
+   toolbar-then-content layout shape doesn't jump when the gate
+   resolves. Minimal — a pulsing dot (PboPopover's `.busy-dot`
+   `@keyframes pulse` is the existing chrome idiom for a busy
+   indication) plus centred text, not a full skeleton; C26 only
+   needs a busy indication within ~1s, not a content-shaped
+   placeholder. */
+#workspace-boot-state {
+  flex: 1; min-width: 0; min-height: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--space-default);
+  color: var(--text-2); font-size: var(--text-emphasis);
+}
+.workspace-boot-spinner {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 3px solid var(--surface-2); border-top-color: var(--accent-primary);
+  animation: workspace-boot-spin 0.8s linear infinite;
+}
+@keyframes workspace-boot-spin { to { transform: rotate(360deg); } }
 
 /* resizer-rearch (replaces the release-scope item 7 board-width-cap
    model — see useResizablePanel.ts's header for the full defect this

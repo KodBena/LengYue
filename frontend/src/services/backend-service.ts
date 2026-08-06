@@ -7,7 +7,10 @@
 import { api, ApiError } from './api-client';
 import type {
   CardId,
+  CardDisplayOrdinal,
+  CardPublicId,
   CardMetadataPatch,
+  ContentHash,
   GameSourceId,
   ReviewCard,
   CardCreatePayload,
@@ -22,6 +25,7 @@ import type {
 import { CardTreeOverflowError } from '../types';
 import type { components } from '../types/backend';
 import { rewriteGradingParameterAnalysisConfig } from '../engine/analysis-config-curation';
+import { recordKnownPosition } from '../state/known-positions';
 
 // ─── Wire-type aliases (the ACL boundary) ────────────────────────────────────
 // These names describe what the backend sends, not what the app speaks in.
@@ -39,6 +43,7 @@ type TreeByRootResponseWire = components['schemas']['TreeByRootResponse'];
 type TreeNodeWire = components['schemas']['TreeNode'];
 type ForestStatWire = components['schemas']['ForestStat'];
 type TagStatWire = components['schemas']['TagStat'];
+type PositionHashResponseWire = components['schemas']['PositionHashResponse'];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -129,11 +134,24 @@ export class BackendService {
       rewriteGradingParameterAnalysisConfig(raw.grading_parameter)
         .gradingParameter as CardFromWire['grading_parameter'];
 
+    // card-position-annotations Stage A: ACL Band-2 brand mints, then feed
+    // the known-positions state module. Every mapToReviewCard call is an
+    // opportunity to learn "this caller owns a card at this position" —
+    // see src/state/known-positions.ts's file header for why this is the
+    // module's sole population path (no dedicated bulk-fetch endpoint).
+    const cardId = raw.id as CardId; // ACL Band-2 brand mint (wire number -> CardId)
+    const contentHash = raw.content_hash as ContentHash; // ACL Band-2 brand mint (wire hex string -> ContentHash)
+    recordKnownPosition(contentHash, cardId);
+
     return {
-      // ACL Band-2 brand mint: the wire `id` (number) becomes the domain
-      // `CardId` at this single re-brand boundary (mapToReviewCard).
-      id: raw.id as CardId,
+      id: cardId,
+      // Per-user-id-enumeration design: ACL Band-2 brand mints for
+      // the display-role and reference-role fields added alongside
+      // the raw PK (`id` stays the exception per Decision 4).
+      displayOrdinal: raw.display_ordinal as CardDisplayOrdinal, // ACL Band-2 brand mint
+      publicId: raw.public_id as CardPublicId, // ACL Band-2 brand mint
       canonicalContent: raw.canonical_content,
+      contentHash,
       numMoves: raw.num_moves,
       // `card_source_id` is `number | null | undefined` on the wire;
       // coalesce null → undefined so the domain type stays
@@ -218,6 +236,29 @@ export class BackendService {
   public async createCard(payload: CardCreatePayload): Promise<number> {
     const response = await api.request<any>('POST', '/cards/', payload);
     return response.card_id;
+  }
+
+  /**
+   * card-position-annotations Stage A. Asks the backend "what
+   * content_hash would normalizing this raw content produce" without
+   * minting anything — no `normalized_position` row, no card. Used by
+   * `useMinting.prepareDraft` (mint-dialog duplicate check) and, in
+   * Stage B, the tree-node annotation cache.
+   *
+   * The backend runs the raw content through the exact same
+   * `PositionNormalizerPort` `POST /cards/` does (see
+   * `api/routes/positions.py`'s module docstring), so the returned
+   * hash is guaranteed to equal what minting `rawContent` verbatim
+   * would produce — no parallel client-side normalization (design
+   * §1: "one identity, one home").
+   */
+  public async hashPosition(rawContent: string): Promise<ContentHash> {
+    const raw = await api.request<PositionHashResponseWire>(
+      'POST',
+      '/positions/hash',
+      { raw_content: rawContent },
+    );
+    return raw.content_hash as ContentHash; // ACL Band-2 brand mint
   }
 
   public async getTags(): Promise<TagStat[]> {

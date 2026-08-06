@@ -82,6 +82,14 @@ REVISION_MARKERS: List[Tuple[str, str, str]] = [
     # earlier markers' stamp-then-upgrade path lands correctly
     # regardless of whether create_all already populated the
     # columns.
+    #
+    # Revision 0004 (per_user_id_enumeration) adds columns to
+    # ``card`` and ``game_source`` — both baseline (pre-v1.0)
+    # tables, unlike ``analysis_bundles``. A pre-v1.0 DB's
+    # ``metadata.create_all`` does NOT retroactively add columns to
+    # an already-existing table, so a marker here is safe and
+    # reliable the same way the two entries above are.
+    ("game_source", "display_ordinal", "0004_per_user_id_enumeration"),
 ]
 
 

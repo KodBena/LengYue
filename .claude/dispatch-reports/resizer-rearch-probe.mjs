@@ -290,7 +290,29 @@ async function main() {
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('ArrowUp');
-  await page.waitForTimeout(50); // let any (there should be none) reflow settle
+  // Wall-clock waits are prohibited (ledger row 450) — poll a real
+  // condition instead: two consecutive rAFs reporting an IDENTICAL
+  // rect for both elements (i.e. layout has settled), rather than a
+  // fixed sleep guessing how long "any reflow" might take.
+  await page.evaluate(() => new Promise((resolve) => {
+    const rectOf = (sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return `${r.width}x${r.height}@${r.left},${r.top}`;
+    };
+    const snapshot = () => `${rectOf('#vue-tree-panel')}|${rectOf('#tree-control-wrapper')}`;
+    let prev = snapshot();
+    let stableFrames = 0;
+    function tick() {
+      const now = snapshot();
+      stableFrames = now === prev ? stableFrames + 1 : 0;
+      prev = now;
+      if (stableFrames >= 2) { resolve(undefined); return; }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }));
   const afterContent = await page.evaluate(() => ({
     tree: document.querySelector('#vue-tree-panel')?.getBoundingClientRect().width,
     wrapper: document.querySelector('#tree-control-wrapper')?.getBoundingClientRect().width,

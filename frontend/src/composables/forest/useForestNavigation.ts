@@ -30,7 +30,7 @@ import type {
   NavNodeId,
   NavSelection,
 } from '../../types';
-import { store } from '../../store';
+import { store, touchSession } from '../../store';
 
 // ── Render-shape types ───────────────────────────────────────────────────────
 //
@@ -95,8 +95,10 @@ export interface ForestNavigation {
   readonly selection: ComputedRef<NavSelection | null>;
 
   // Mutators — write through `store.session.ui.forestNav`. Each
-  // mutation reassigns the field with a fresh array / object so
-  // SyncService's deep-watch picks up the change.
+  // mutation reassigns the field with a fresh array / object and calls
+  // `touchSession()` so SyncService's session version-counter watch
+  // picks up the change (it no longer deep-watches `store.session` —
+  // see `sessionVersion` in `store/index.ts`).
   toggle: (nodeId: NavNodeId) => void;
   expandAll: () => void;
   collapseAll: () => void;
@@ -149,21 +151,25 @@ export function useForestNavigation(
     store.session.ui.forestNav.expanded = current.includes(nodeId)
       ? current.filter(id => id !== nodeId)
       : [...current, nodeId];
+    touchSession();
   }
 
   function expandAll(): void {
     store.session.ui.forestNav.expanded = nodes.value.map(g => g.nodeId);
+    touchSession();
   }
 
   function collapseAll(): void {
     store.session.ui.forestNav.expanded = [];
+    touchSession();
   }
 
   function select(s: NavSelection | null): void {
     // Per-board: write through the active board's slot in the selection map.
-    // In-place add/delete on the reactive store is deep-watched by
-    // SyncService (mirrors `cardTreeNav`'s mutators). `null` clears the slot;
-    // an absent key reads back as no selection.
+    // In-place add/delete on the reactive store; `touchSession()` makes the
+    // change observable to SyncService's session counter watch (mirrors
+    // `cardTreeNav`'s store mutators). `null` clears the slot; an absent key
+    // reads back as no selection.
     const id = boardIdRef.value;
     if (!id) return;
     if (s === null) {
@@ -171,6 +177,7 @@ export function useForestNavigation(
     } else {
       store.session.ui.forestNav.selection[id] = s;
     }
+    touchSession();
   }
 
   return { nodes, expanded, selection, toggle, expandAll, collapseAll, select };

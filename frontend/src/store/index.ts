@@ -65,6 +65,57 @@ export { CURRENT_SCHEMA_VERSION, migrate } from './migrations';
 export const boardsVersion = ref(0);
 
 /**
+ * Explicit version counter for the `store.session` subtree, the
+ * session analog of `boardsVersion`. SyncService watches this
+ * SHALLOWLY in place of a `{ deep: true }` traversal of
+ * `store.session` (sync-service.ts `startWatcher`). The deep watch
+ * it replaces re-traversed the three PER-BOARD session dictionaries
+ * (`session.reviews`, `session.ui.cardTreeNav`,
+ * `session.ui.forestNav.selection` — the `BOARD_SCOPED_STORE_CELLS`)
+ * on every fire, which is O(open-board count) per fire and O(N²)
+ * over a close-all (the dominant close-at-scale cost — see
+ * `composables/perf/closeAtScale.ts` and
+ * `docs/notes/audit/perf-audit-game-scroll-2026-05-28.md`'s sibling
+ * close-path findings).
+ *
+ * Persistence-correctness contract: EVERY mutation of `store.session`
+ * that should schedule a persist must bump this counter, via
+ * `touchSession()` at the write site. A session write that skips the
+ * bump is a SILENTLY LOST SAVE — strictly worse than the traversal
+ * cost removed — so the bump set is pinned by the save-coverage test
+ * (`tests/integration/sync-session-version.test.ts`), which asserts a
+ * sync is scheduled for each persistence-relevant session mutation
+ * category. `store.profile` keeps its own deep watch (workspace-
+ * global, O(1) in board count); only `session` moved to a counter.
+ *
+ * Bumped (via `touchSession`) at: `mutateReviewSession`,
+ * `toggleCardTreeManualExpand`, `setCardTreeManualExpand`,
+ * `closeBoard` (per-board cell drain), `resetWorkspace`,
+ * `updateFromRemote` (the three wholesale / per-board session
+ * mutators), plus the out-of-store session writers:
+ * `useForestNavigation`'s mutators, `blind-mode-prefs`' owned write,
+ * `useResizablePanel`, `useQeubo`'s toolbar-view setter, the
+ * `SettingsTab` session registry editor, `ForestDirectory`'s
+ * cardsContextIds / activeCardSetId writes, the App.vue / StatusBar
+ * chrome toggles, the keybindings session toggles, the knob seam
+ * (`writeStoreKnobValue`), and the dev-only perf harnesses
+ * (`autonav`, `jankExtended`).
+ */
+export const sessionVersion = ref(0);
+
+/**
+ * Bump the `sessionVersion` counter. Call at every `store.session`
+ * write site that should schedule a persist (the SyncService watcher
+ * keys on this counter shallowly — see `sessionVersion`'s docstring
+ * for the lost-save contract). A no-arg side-effect so the write
+ * site reads as `touchSession()` regardless of the write's shape
+ * (direct dotted write, aliased write, generic-record write).
+ */
+export function touchSession(): void {
+  sessionVersion.value++;
+}
+
+/**
  * Counter incremented only on board *set* changes (add / remove /
  * replace), not on per-board content mutations. Composables that
  * maintain per-board watchers (e.g., `useAutoSaveAnalyses`,
@@ -92,6 +143,12 @@ export const store = reactive<GlobalStore>({
   // ProfileState). Cloned so the boot fetch / commitMint don't mutate
   // the module-level default array.
   knownTags: structuredClone(defaultKnownTags),
+  // Non-persisted cold-start workspace-fetch lifecycle (ADR-0019 audit
+  // S1; see GlobalStore's field comment and types/app.ts). Starts
+  // 'loading': App.vue's gate must not show a plausible-but-default
+  // workspace as if it were the real one before SyncService's hydrate
+  // (or its "nothing to fetch" resolution) has run at least once.
+  workspaceLoadState: { kind: 'loading' },
   session: {
     // NIL-UUID sentinels minted as the session/profile brands: the pre-auth
     // placeholder identity, replaced on login (brand mint at sentinels).
@@ -131,6 +188,9 @@ export const store = reactive<GlobalStore>({
     // pool. Persisted through SyncService alongside other engine
     // settings.
     selectedModel: null,
+    // See `EngineState.previousSelectedModel`'s doc comment
+    // (`src/types/engine.ts`) — NOT synced through SyncService.
+    previousSelectedModel: null,
   },
 });
 
@@ -232,8 +292,18 @@ export function mutateBoard(boardId: BoardId, fn: (draft: BoardState) => void): 
  * a different upstream). The Toolbar dropdown's option list is
  * sourced from `availableModels`, so the typical UI-driven path
  * cannot construct an invalid selection.
+ *
+ * Also shifts the outgoing value into `previousSelectedModel` — the
+ * sole write site for that field too, so every caller (the Toolbar
+ * dropdown, the "swap last-active engine" keybinding action) keeps
+ * the pair consistent without duplicating the bookkeeping at each
+ * call site. A same-value call (re-selecting the already-selected
+ * model) is a no-op for both fields — it is not a "previous"
+ * selection.
  */
 export function setSelectedModel(label: string | null): void {
+  if (label === store.engine.selectedModel) return;
+  store.engine.previousSelectedModel = store.engine.selectedModel;
   store.engine.selectedModel = label;
 }
 
@@ -252,6 +322,7 @@ export function mutateReviewSession(boardId: BoardId, fn: (draft: ReviewSessionD
   }
   fn(review);
   store.session.reviews[boardId] = { ...review };
+  touchSession();
 }
 
 /**
@@ -271,6 +342,7 @@ export function toggleCardTreeManualExpand(boardId: BoardId, key: CardTreeExpand
   const cur = store.session.ui.cardTreeNav[boardId];
   if (!cur) {
     store.session.ui.cardTreeNav[boardId] = { manuallyExpanded: [key] };
+    touchSession();
     return;
   }
   const has = cur.manuallyExpanded.includes(key);
@@ -280,6 +352,7 @@ export function toggleCardTreeManualExpand(boardId: BoardId, key: CardTreeExpand
       ? cur.manuallyExpanded.filter(k => k !== key)
       : [...cur.manuallyExpanded, key],
   };
+  touchSession();
 }
 
 /**
@@ -301,10 +374,12 @@ export function setCardTreeManualExpand(boardId: BoardId, keys: readonly CardTre
   if (keys.length === 0) {
     if (store.session.ui.cardTreeNav[boardId] !== undefined) {
       delete store.session.ui.cardTreeNav[boardId];
+      touchSession();
     }
     return;
   }
   store.session.ui.cardTreeNav[boardId] = { manuallyExpanded: [...keys] };
+  touchSession();
 }
 
 export function addBoard(boardState: BoardState): void {
@@ -531,6 +606,14 @@ export function closeBoard(boardId: BoardId): void {
   // order-independent of each other and of the engine stop (no surviving cell
   // is written by stopBoardAnalysis); the drain runs before the splice.
   for (const cell of BOARD_SCOPED_STORE_CELLS) cell.clear(boardId);
+  // The cell drain mutated the three per-board session dictionaries
+  // (dropping this board's tombstones from the persisted blob), so the
+  // session counter must bump — the SyncService watcher keys on it
+  // shallowly now (no deep `session` traversal). `boardsVersion` also
+  // fires on this close path, but the session tombstone-drop is a
+  // genuine session mutation in its own right; bump explicitly rather
+  // than rely on the boards-side coincidence (see `sessionVersion`).
+  touchSession();
 
   // Release the external resources the closing board owns, via the
   // owner-registered teardown handlers (ADR-0012 dependency inversion — the
@@ -727,6 +810,12 @@ export function resetWorkspace(): void {
   // leak into the next session until the boot getTags() fetch
   // overwrote it. Server-derived cache; see the ProfileState invariant.
   store.knownTags = structuredClone(defaultKnownTags);
+  // The workspace is back to its (honest) default; nothing is being
+  // fetched. Covers both resetWorkspace's callers: SyncService's
+  // identity-out branch (which already knows there's no pending
+  // fetch) and the perf-scenario harness's direct calls — either way
+  // a stale 'loading'/'error' state must not survive a reset.
+  store.workspaceLoadState = { kind: 'loaded' };
   store.session = {
     id: NIL_UUID as SessionId, // NIL-UUID brand mint (logged-out sentinel)
     profileId: NIL_UUID as ProfileId, // NIL-UUID brand mint (logged-out sentinel)
@@ -735,6 +824,9 @@ export function resetWorkspace(): void {
   };
   boardsVersion.value++;
   boardsSetVersion.value++;
+  // `store.session` was replaced wholesale — bump the session counter
+  // (the SyncService watcher keys on it shallowly; see `sessionVersion`).
+  touchSession();
 }
 
 export function updateFromRemote(
@@ -791,6 +883,10 @@ export function updateFromRemote(
 
   boardsVersion.value++;
   boardsSetVersion.value++;
+  // `store.session` was replaced (or seeded) by the hydration above —
+  // bump the session counter so the SyncService watcher (which keys on
+  // it shallowly now) observes the change. See `sessionVersion`.
+  touchSession();
 }
 
 /**

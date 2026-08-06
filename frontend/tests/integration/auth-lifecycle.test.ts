@@ -131,6 +131,7 @@ import { api, ApiError, authSessionRejections } from '../../src/services/api-cli
 import { SyncService } from '../../src/services/sync-service';
 import { ledger } from '../../src/state/analysis-ledger';
 import { stabilityTrajectoryStore } from '../../src/state/stability-trajectory-store';
+import * as knownPositionsModule from '../../src/state/known-positions';
 import { i18n } from '../../src/i18n';
 import { fakeAnalysisService, resetFakeAnalysisService } from '../fakes/analysis-service';
 import {
@@ -167,6 +168,11 @@ interface DrainSpies {
 function installDrainSpies(): DrainSpies {
   const ledgerSpy: MockInstance = vi.spyOn(ledger, 'purgeAll');
   const stabilitySpy: MockInstance = vi.spyOn(stabilityTrajectoryStore, 'purgeAll');
+  // card-position-annotations Stage A: known-positions.ts is real
+  // (unmocked) in this suite, like ledger/stabilityTrajectoryStore above —
+  // spy on the namespace export rather than a singleton method, since the
+  // module exports plain functions, not a class instance.
+  const knownPositionsSpy: MockInstance = vi.spyOn(knownPositionsModule, 'purgeKnownPositions');
 
   // The label → call-count reader map. Every label IDENTITY_SCOPED_CACHES
   // registers must appear here; the assertion loop below verifies that, so a
@@ -180,6 +186,7 @@ function installDrainSpies(): DrainSpies {
     'card-thumbnails': () => vi.mocked(clearCardThumbnailCache).mock.calls.length,
     'board-card-trees': () => vi.mocked(clearAllBoardCardTrees).mock.calls.length,
     'analysis-bundle-summaries': () => fakeAnalysisPersistenceService.forgetAll.mock.calls.length,
+    'known-positions:purge': () => knownPositionsSpy.mock.calls.length,
   };
 
   return {
@@ -200,6 +207,7 @@ function installDrainSpies(): DrainSpies {
     restore: (): void => {
       ledgerSpy.mockRestore();
       stabilitySpy.mockRestore();
+      knownPositionsSpy.mockRestore();
     },
   };
 }
@@ -218,8 +226,28 @@ function installDrainSpies(): DrainSpies {
  * dedicated review tests and the store-mutators board/reset completeness pins,
  * so it is excluded here. That keeps this pin focused on the cache drain it has
  * always been about while still failing on any NEW unmapped cache handler.
+ *
+ * `review:visit-snapshots-clear-all` (deck-repeat arc) is the same shape as
+ * `review:abort-all`: a plain module-scope Map drop inside useReviewSession's
+ * closure, not a bounded module-level cache with its own exported clear
+ * function to spy on. Covered by the dedicated useReviewSession tests instead.
+ *
+ * `nav:clear-toggle-memory-all` (added alongside the `nav.toggleMainLine`
+ * keybinding's `closeBoard` cleanup, review nit fix 2026-08-06) is the same
+ * shape as `review:abort-all` for the same reason: it clears
+ * `useNavigation.ts`'s module-private `mainLineToggleMemory` Map, that module
+ * is real/un-mocked here too, and there is no exported hook a namespace spy
+ * could intercept without exposing the Map itself (deliberately not exported
+ * — see `useNavigation.ts`'s comment on `_mainLineToggleMemoryKeyCountForBoard`).
+ * Covered directly by
+ * `tests/integration/useNavigation-toggle-memory-cleanup.test.ts` and the
+ * teardown-registry completeness pin instead.
  */
-const NON_CACHE_RESET_LABELS = new Set<string>(['review:abort-all']);
+const NON_CACHE_RESET_LABELS = new Set<string>([
+  'review:abort-all',
+  'review:visit-snapshots-clear-all',
+  'nav:clear-toggle-memory-all',
+]);
 
 function expectFullDrain(spies: DrainSpies): void {
   const labels = registeredWorkspaceResetLabels().filter(l => !NON_CACHE_RESET_LABELS.has(l));

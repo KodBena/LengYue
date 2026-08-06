@@ -22,10 +22,21 @@ License: Public Domain (The Unlicense)
 from __future__ import annotations
 
 import hashlib
+from itertools import count
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+
+# Per-user-id-enumeration design: see test_stats_repository.py's
+# identical comment. Started at a high offset (rather than 1, unlike
+# the other test files) because THIS file's tests also drive
+# POST /cards for the same seeded user_id — the production path's
+# own `user_display_counters` counter starts at 1 for a fresh test
+# DB, so a raw-seeded row using a low ordinal would collide with the
+# card the route creates for real.
+_ordinal = count(100_000)
 
 from db.schema import card, card_source, card_tag, normalized_position, tag
 from tests.integration.routes.conftest import (
@@ -80,6 +91,7 @@ async def _seed_card_with_root(
         .values(
             num_moves=5, alpha=3.0, beta=3.0, t=1.0,
             user_id=user_id, normalized_position_id=pos,
+            public_id=uuid4(), display_ordinal=next(_ordinal),
         )
         .returning(card.c.id)
     )
@@ -90,7 +102,10 @@ async def _seed_card_with_root(
     from db.schema import game_source
     res = await session.execute(
         insert(game_source)
-        .values(position_id=pos, user_id=user_id)
+        .values(
+            position_id=pos, user_id=user_id,
+            client_game_id=uuid4(), display_ordinal=next(_ordinal),
+        )
         .returning(game_source.c.id)
     )
     gs_id = int(res.scalar())
@@ -415,13 +430,17 @@ async def _seed_card_with_grading_parameter(
             num_moves=5, alpha=4.2, beta=4.2, t=2.0,
             user_id=user_id, normalized_position_id=pos,
             grading_parameter=grading_parameter, num_reviews=3,
+            public_id=uuid4(), display_ordinal=next(_ordinal),
         ).returning(card.c.id)
     )
     cid = int(res.scalar())
     from db.schema import game_source
     res = await session.execute(
         insert(game_source)
-        .values(position_id=pos, user_id=user_id)
+        .values(
+            position_id=pos, user_id=user_id,
+            client_game_id=uuid4(), display_ordinal=next(_ordinal),
+        )
         .returning(game_source.c.id)
     )
     gs_id = int(res.scalar())

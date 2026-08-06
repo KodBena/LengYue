@@ -337,6 +337,89 @@ describe('useReviewSession.processUserMove — timeout path', () => {
   });
 });
 
+describe('useReviewSession.processUserMove — query-refused recovery (the wedge fix)', () => {
+  // Diagnosis (`.claude/dispatch-reports/ruleset-default-wedge-fix.md`):
+  // `analysisService.analyzeRange` can refuse query construction
+  // synchronously and return null (the engine disconnects between the
+  // click and the call being the realistic trigger post-fix-1; a
+  // stale, now-fixed ruleset refusal was the pre-fix-1 trigger). The
+  // prior shape fell straight into the Promise.all(waitForAnalysis(...))
+  // wait below regardless, keyed to a query that was NEVER issued — no
+  // packet for it can ever arrive, so the wait sat wedged until
+  // KATAGO_ANALYSIS_TIMEOUT_MS elapsed and the timeout branch dropped
+  // the session to a terminal IDLE with no path back to the SAME
+  // attempted move (the board had already advanced and userMovesCount
+  // had already incremented). The fix short-circuits immediately on a
+  // null queryId: undoes both, and returns to AWAITING_MOVE at the
+  // pre-move position — a state from which retrying the identical
+  // (x, y) click is a genuine retry, not a different move.
+  //
+  // This test forces the refusal directly via the fake (rather than
+  // via an unrecognized ruleset, which fix 1 above no longer produces)
+  // — the general "query construction refused" class the composable
+  // must tolerate regardless of cause.
+
+  it('recovers to AWAITING_MOVE at the pre-move position when analyzeRange refuses (returns null); the SAME move then succeeds once conditions clear', async () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    const card = makeReviewCard({ numMoves: 5, defaultVisits: 1000 });
+    mutateReviewSession(boardId, draft => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [card];
+      draft.currentIndex = 0;
+      draft.startingNodeId = board.rootNodeId;
+    });
+
+    // Force a single synchronous refusal — analyzeRange returns null
+    // exactly as it would when its own internal guards refuse
+    // construction (engine disconnected, etc.).
+    fakeAnalysisService.analyzeRange.mockReturnValueOnce(null);
+
+    const messagesBefore = store.engine.messages.length;
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { processUserMove, state } = useReviewSession(boardIdRef);
+
+    await processUserMove(3, 3);
+
+    // Recovered, not wedged: AWAITING_MOVE (not stuck ANALYZING, not
+    // dropped to a dead-end terminal state), the move-count increment
+    // was undone, and the board is back at the pre-move position
+    // (root) with the placed stone undone — exactly the state needed
+    // for retrying the SAME click to be a genuine retry.
+    expect(state.value).toBe('AWAITING_MOVE');
+    expect(store.session.reviews[boardId].userMovesCount).toBe(0);
+    const boardAfterRefusal = store.boards.find(b => b.id === boardId)!;
+    expect(boardAfterRefusal.currentNodeId).toBe(board.rootNodeId);
+    expect(Object.keys(boardAfterRefusal.stones)).toHaveLength(0);
+
+    // A system message was surfaced (the failure is visible, not
+    // silent) — but waitForAnalysis was NEVER called: the fix
+    // short-circuits before reaching the wedge-causing wait.
+    expect(store.engine.messages.length).toBe(messagesBefore + 1);
+    expect(store.engine.messages[0]?.type).toBe('warning');
+    expect(waitForAnalysis).not.toHaveBeenCalled();
+
+    // Retry the SAME action. analyzeRange's fake return is re-armed to
+    // FAKE_QUERY_ID by default (only the first call was overridden
+    // above), and waitForAnalysis is mocked to resolve — the session
+    // is genuinely resumable, not reset to another dead end.
+    const packet = makeAnalysisPacket({ turnNumber: 1, delta: 0.7, bestMoveGtp: 'Q16' });
+    vi.mocked(waitForAnalysis).mockResolvedValue(packet);
+    ledger.recordEnrichment(activeAnalysisKeys.value.enrichedKey, board.rootNodeId, {
+      black: { deltas: { '0': 0.7 } },
+      white: { deltas: { '0': 0.7 } },
+    });
+
+    await processUserMove(3, 3);
+
+    expect(state.value).toBe('AWAITING_MOVE');
+    expect(store.session.reviews[boardId].userMovesCount).toBe(1);
+    expect(fakeAnalysisService.analyzeRange).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('useReviewSession.processUserMove — happy path', () => {
   it('records the analysis delta on a non-final move and returns to AWAITING_MOVE', async () => {
     const board = createInitialBoard();

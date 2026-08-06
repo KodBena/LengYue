@@ -11,7 +11,13 @@ Exports:
   card-metadata inline-edit dispatch arc 1) is populated by the
   repository adapters at read time — `Card` is the entity-level
   home for tags because they're part of the persisted card, not
-  a wire-only enrichment.
+  a wire-only enrichment. The `content_hash` field (added per the
+  card-position-annotations Stage A design) is the dedup hash
+  already stored on `normalized_position.content_hash` — projected
+  onto `Card` at the same two construction sites as
+  `canonical_content` (`CardRepository.get_card_by_id`,
+  `LineageRepository._materialize`) so it flows through
+  `CardWithRecall` for free via `project_card`'s `model_dump()`.
 
 - CardWithRecall: Card + freshly-computed Bayesian recall projection.
   The wire shape. Post-34b-Commit-3b, emits only the canonical field
@@ -41,8 +47,9 @@ And the default_visits relocation (also complete):
 """
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 from core.ebisu import model_to_halflife, predict_recall
 
@@ -78,8 +85,50 @@ class Card(BaseModel):
     suspended: bool
     grading_parameter: Optional[Dict[str, Any]]
     canonical_content: str
+    content_hash: bytes
     card_source_id: Optional[int] = None
     tags: List[str] = Field(default_factory=list)
+    # Per-user-id-enumeration design
+    # (`.claude/dispatch-reports/per-user-id-enumeration-design.md`):
+    # `public_id` is the reference-role opaque handle (card's sibling
+    # of `game_source.client_game_id`) — minted once at insert, never
+    # reused. `display_ordinal` is the display-role, per-user,
+    # gaps-on-delete ordinal. `id` (the raw PK) stays on the wire as
+    # a named allowlist exception alongside the `GET /cards/{card_id}`
+    # path param — see the design's Decision 4 disposition table and
+    # `tests/enforcement/global_sequence_allowlist.py`.
+    public_id: UUID
+    display_ordinal: int
+
+    @field_serializer("content_hash", when_used="json")
+    def _serialize_content_hash(self, value: bytes) -> str:
+        """
+        Card.content_hash is a raw SHA-256 digest (bytes), matching
+        the `normalized_position.content_hash` column type. But
+        CardWithRecall is also this codebase's wire-response model
+        (GET /cards/{id}, POST /forests/query) — raw bytes fail
+        Pydantic v2's default JSON serialization (it round-trips
+        through UTF-8, and a SHA-256 digest is essentially never
+        valid UTF-8). Emit lowercase hex instead: it's the same
+        representation `POST /positions/hash` returns (see
+        `schemas/positions.py::PositionHashResponse`), so a client
+        can compare a card's `content_hash` against that endpoint's
+        response with a straight string equality — no decode step.
+
+        `when_used="json"` is load-bearing, not decoration:
+        `project_card` builds `CardWithRecall` via
+        `CardWithRecall(**card.model_dump(), ...)` — a *python-mode*
+        `model_dump()`. Without the restriction, that internal
+        round-trip would also run this serializer, turning
+        `content_hash` into a hex *string*, which Pydantic then
+        re-validates back into `bytes` by UTF-8-encoding the hex
+        string — silently double-encoding the hash. Scoping to
+        `json` mode means only the actual wire response (FastAPI's
+        `model_dump_json` / `dump_json` at the route boundary) sees
+        the hex conversion; every internal python-mode dump/copy
+        keeps the raw digest bytes.
+        """
+        return value.hex()
 
 
 class CardWithRecall(Card):

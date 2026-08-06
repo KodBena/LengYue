@@ -11,6 +11,10 @@
   "app.chrome.toggleControls":            "컨트롤 패널 토글",
   "app.chrome.gameTreePanelHeader":       "게임 트리",
 
+  "app.workspace.loading":                "작업 공간 불러오는 중…",
+  "app.workspace.loadFailed":             "작업 공간을 불러오지 못했습니다. 변경되거나 손실된 내용은 없습니다.",
+  "app.workspace.retry":                  "재시도",
+
   "localePicker.tooltip":                 "인터페이스 언어 변경",
   "localePicker.machineTranslatedNotice": "* 기계 번역입니다 — 기여 환영",
   "localePicker.machineTranslatedTooltip": "이 번역은 기계 생성입니다. 원어민 검토 대기 중입니다. GitHub에서 기여를 환영합니다.",
