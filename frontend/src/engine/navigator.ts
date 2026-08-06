@@ -89,7 +89,7 @@ export function navigateTo(state: BoardState, targetNodeId: NodeId): void {
   const size = parseInt(state.nodes[state.rootNodeId].properties['SZ']?.[0] ?? '19', 10);
   for (let i = lcaIndex; i < targetPath.length; i++) {
     const node = state.nodes[targetPath[i]];
-    
+
     if (node.parent) {
       const parent = state.nodes[node.parent];
       const childIdx = parent.children.indexOf(node.id);
@@ -125,6 +125,115 @@ export function navigateTo(state: BoardState, targetNodeId: NodeId): void {
   }
 
   state.currentNodeId = targetNodeId;
+
+  // Branch-head write-through (2026-08-06 branch-switch-semantics veto):
+  // every ancestor of the new cursor position (root..target inclusive —
+  // `targetPath` was already computed above for the replay loop, no
+  // extra walk) remembers `targetNodeId` as the last node visited
+  // within ITS OWN subtree. This is a fact of moving the cursor, not a
+  // switch-time special case — writing it here, once, at the navigator's
+  // single choke point, is what lets `navigateVariation` /
+  // `navigateToggleMainLine` restore the exact node a branch was left
+  // at instead of always landing back on the branch's immediate child.
+  // See `GameNode.lastVisitedDescendant`'s doc comment (`types/game.ts`)
+  // for the field's contract and `resolveBranchTarget` below for the
+  // read-side validity check.
+  for (const ancestorId of targetPath) {
+    state.nodes[ancestorId].lastVisitedDescendant = targetNodeId;
+  }
+}
+
+/**
+ * Walk from `nodeId` upward via `parent` — checking `nodeId` itself
+ * first, then each ancestor in turn — to the nearest node (self or
+ * ancestor) with more than one child: the fork `navigateVariation` and
+ * `navigateToggleMainLine` both act on. Returns `null` when no node
+ * from `nodeId` up to the root has more than one child (no fork exists
+ * to switch at anywhere on the path).
+ *
+ * This generalizes both primitives to fire from anywhere in the
+ * current line, not only from a fork's immediate child (the maintainer
+ * veto's "switch from anywhere" requirement) — the nearest ancestor
+ * fork is the natural reading, and it was already the established
+ * convention here: `navigateToggleMainLine`'s prior self-then-ancestor
+ * walk is promoted unchanged into this shared helper rather than
+ * inventing a second convention for `navigateVariation`.
+ */
+function findNearestFork(state: BoardState, nodeId: NodeId): GameNode | null {
+  let node = state.nodes[nodeId];
+  for (;;) {
+    if (node.children.length > 1) return node;
+    if (!node.parent) return null;
+    node = state.nodes[node.parent];
+  }
+}
+
+/**
+ * True iff `nodeId` is `ancestorId` itself or a descendant of it,
+ * walked via `parent`. The validity check `resolveBranchTarget` uses
+ * to confirm a remembered node still belongs to the subtree it claims
+ * to.
+ */
+function isWithinSubtree(state: BoardState, nodeId: NodeId, ancestorId: NodeId): boolean {
+  let curr: NodeId | null = nodeId;
+  while (curr) {
+    if (curr === ancestorId) return true;
+    curr = state.nodes[curr]?.parent ?? null;
+  }
+  return false;
+}
+
+/**
+ * Resolve the node a switch onto `branchHead` (a fork's child — the
+ * root of one branch) should actually land the cursor on: the
+ * branch's remembered cursor position (`GameNode.lastVisitedDescendant`)
+ * when one exists, is still present in `state.nodes` (not pruned), and
+ * is still genuinely within `branchHead`'s own subtree — the invariant
+ * a stale or cross-subtree memory would otherwise violate silently.
+ * Falls back to `branchHead` itself (the branch's own head node) in
+ * every other case, loudly: a `console.warn` names the fork and the
+ * dangling id so a pruned-and-still-referenced remembered node is
+ * visible rather than silently sending the cursor to the wrong place
+ * (ADR-0002 fail-loudly). Never-visited branches (no memory recorded
+ * yet) take this same fallback path with no warning — that is the
+ * expected, non-exceptional case.
+ *
+ * Single home for the restore semantics (ADR-0012 P1): both
+ * `navigateVariation` and `navigateToggleMainLine` call this — and
+ * only this — to decide where a branch switch lands, so the "restore
+ * the actual last node" behavior cannot drift between the two
+ * primitives.
+ */
+function resolveBranchTarget(state: BoardState, branchHead: GameNode): NodeId {
+  const remembered = branchHead.lastVisitedDescendant;
+  if (remembered === undefined) return branchHead.id;
+
+  const rememberedNode: GameNode | undefined = state.nodes[remembered];
+  if (!rememberedNode || !isWithinSubtree(state, remembered, branchHead.id)) {
+    console.warn(
+      `[navigator] branch-head memory for fork child ${branchHead.id} pointed at ` +
+      `${remembered}, which no longer exists in that subtree (pruned?) — falling back ` +
+      `to the branch head.`,
+    );
+    return branchHead.id;
+  }
+  return remembered;
+}
+
+/**
+ * The one primitive `navigateVariation` and `navigateToggleMainLine`
+ * both route through to actually perform a branch switch, once each
+ * has picked `fork` and `targetIdx` by its own selection rule (see
+ * their docstrings for how those rules differ). Restores
+ * `fork.children[targetIdx]`'s remembered cursor node via
+ * `resolveBranchTarget` rather than always landing on the immediate
+ * child — the maintainer veto's core fix, applied exactly once so it
+ * cannot diverge between the two call sites (ADR-0012 P1: no three
+ * parallel implementations).
+ */
+function switchToBranch(state: BoardState, fork: GameNode, targetIdx: number): void {
+  const branchHead = state.nodes[fork.children[targetIdx]];
+  navigateTo(state, resolveBranchTarget(state, branchHead));
 }
 
 export function navigateNext(state: BoardState) {
@@ -140,47 +249,56 @@ export function navigatePrev(state: BoardState) {
   if (curr.parent) navigateTo(state, curr.parent);
 }
 
+/**
+ * Move to the adjacent sibling branch at the nearest fork — self or
+ * ancestor of the current node, per `findNearestFork` — ordered by
+ * child index, clamping at the ends (no-op past the first/last
+ * sibling; this preserves the primitive's pre-existing convention, the
+ * "or clamping per existing convention" half of the maintainer's veto
+ * — `navigateToggleMainLine`'s wrap-on-first-use is a distinct,
+ * intentional convention for the toggle reading, not something this
+ * primitive inherits). "Adjacent" is relative to the fork's
+ * `activeChildIndex`, which always names the branch the current
+ * node's path actually descends through — `navigateTo`'s forward-
+ * replay loop keeps every ancestor's `activeChildIndex` in sync with
+ * `currentNodeId` on every call, so no separate indexOf search is
+ * needed even when `state.currentNodeId` sits deep inside that branch
+ * rather than at its immediate child.
+ *
+ * Restores the target branch's remembered cursor node via
+ * `switchToBranch` (the shared primitive `navigateToggleMainLine` also
+ * routes through) rather than always landing on the branch's immediate
+ * child — the maintainer veto's core fix, applied identically here.
+ */
 export function navigateVariation(state: BoardState, direction: number) {
-  const curr = state.nodes[state.currentNodeId];
-  if (!curr.parent) return;
-  const parent = state.nodes[curr.parent];
-  const myIdx = parent.children.indexOf(state.currentNodeId);
-  const nextIdx = myIdx + direction;
-  if (nextIdx >= 0 && nextIdx < parent.children.length) {
-    navigateTo(state, parent.children[nextIdx]);
+  const fork = findNearestFork(state, state.currentNodeId);
+  if (!fork) return;
+  const targetIdx = fork.activeChildIndex + direction;
+  if (targetIdx >= 0 && targetIdx < fork.children.length) {
+    switchToBranch(state, fork, targetIdx);
   }
 }
 
 /**
- * Toggle the active line at the nearest fork — at-or-above the
- * current node — between the two most recently distinct branches
- * taken there. The "switch to the nearest alternative branch
- * (uncle/cousin) and back" keybinding semantics (`nav.toggleMainLine`).
+ * Toggle the active line at the nearest fork — self or ancestor of the
+ * current node, per `findNearestFork`, so this fires from anywhere in
+ * the line, not only from a fork's immediate child — between the two
+ * most recently distinct branches taken there. The "switch to the
+ * nearest alternative branch (uncle/cousin) and back" keybinding
+ * semantics (`nav.toggleMainLine`).
  *
- * **Cursor-on-fork case (review nit fix, 2026-08-06).** If the
- * current node itself has more than one child, it IS the fork — the
- * user is standing exactly at the decision point, which is the most
- * natural place for "toggle" to act, so the toggle happens right
- * there rather than walking past it to some ancestor. (The original
- * v1 checked only `node.parent`'s children, never the current node's
- * own — a spec gap the dispatch brief asked to be checked and a
- * fresh review caught: standing on a fork silently no-op'd or, if an
- * ancestor fork also existed further up, toggled that ancestor
- * instead of the fork under the cursor. Fixed by unifying the
- * "on-fork" and "ancestor-fork" cases into one at-or-above walk
- * below — the current node is now checked FIRST, before any `parent`
- * lookup.)
- *
- * Walks from the current node upward via `parent` (checking the
- * current node itself first, then each ancestor in turn) past every
- * node with `children.length <= 1` (nothing to switch to there) to
- * the nearest node — self or ancestor — with `children.length > 1`.
- * At that fork, switches `activeChildIndex` to the last-remembered
- * "other" branch (a plain advance-by-one, wrapping, on first use —
- * there is no "other" to return to yet), landing on that branch's own
- * immediate child. No-ops when no node from the current position up
- * to the root has more than one child (no fork exists to toggle
- * anywhere on the path).
+ * At the fork, picks the target branch by a plain advance-by-one,
+ * wrapping (`(currentIdx + 1) % fork.children.length`) on first use —
+ * there is no "other" to return to yet — or the last-remembered "other"
+ * branch on a repeat press at the same fork; then restores that
+ * branch's remembered cursor node via the shared `switchToBranch`
+ * primitive (`navigateVariation` routes through the same primitive) —
+ * the exact node the cursor last occupied in that branch, not always
+ * its immediate child (2026-08-06 branch-switch-semantics veto: the
+ * prior "always land on the immediate child" behavior was the defect
+ * this function existed to fix). No-ops when no node from the current
+ * position up to the root has more than one child (no fork exists to
+ * toggle anywhere on the path).
  *
  * `memory` is keyed `${state.id}::${forkNodeId}` — `NodeId`s are
  * board-local and can collide across boards (see `IDENTIFIERS.md`),
@@ -189,42 +307,32 @@ export function navigateVariation(state: BoardState, direction: number) {
  * next press at the SAME fork returns to it — a true two-value
  * toggle between the two most recent choices, not a cycle through
  * every sibling (that's `navigateVariation`'s job, one level only).
+ * This memory is deliberately separate from `GameNode.lastVisitedDescendant`
+ * (`types/game.ts`): the former is this operation's own two-value
+ * toggle history (which branch did the LAST toggle come from), the
+ * latter is the per-branch cursor-position fact every navigation
+ * write-throughs regardless of which primitive moved the cursor.
+ * `navigateVariation`'s plain step doesn't touch this Map — only a
+ * toggle press has a "came from" to remember.
  * Caller owns the `Map`'s lifetime (module-scope in
  * `useNavigation.ts`, shared across every `useNavigation()` call site
  * so the toggle history is per-board-per-fork, not per-caller; that
  * module also registers a `closeBoard` teardown handler that drops
  * every entry keyed to the closing board — see its
  * `nav:clear-toggle-memory` registration).
- *
- * Ambiguity note (maintainer-facing, from the dispatch brief this
- * function was built against): "toggle main line variation / last
- * known uncle-cousin" has no prior art in this codebase to pin exact
- * semantics against. This is the defensible reading named in the
- * brief — switch `activeChildIndex` at the nearest fork (self or
- * ancestor) between the two most recent choices, landing on the
- * fork's alternate immediate child. A depth-preserving variant
- * (replaying the new branch's own stored `activeChildIndex` chain
- * down to the same move number, rather than stopping at the
- * immediate child) is a straightforward follow-up if that is the
- * intended reading instead.
  */
 export function navigateToggleMainLine(state: BoardState, memory: Map<string, number>): void {
-  let node = state.nodes[state.currentNodeId];
-  for (;;) {
-    if (node.children.length > 1) {
-      const key = `${state.id}::${node.id}`;
-      const currentIdx = node.activeChildIndex;
-      const rememberedIdx = memory.get(key);
-      const targetIdx = rememberedIdx !== undefined && rememberedIdx !== currentIdx
-        ? rememberedIdx
-        : (currentIdx + 1) % node.children.length;
-      memory.set(key, currentIdx);
-      navigateTo(state, node.children[targetIdx]);
-      return;
-    }
-    if (!node.parent) return;
-    node = state.nodes[node.parent];
-  }
+  const fork = findNearestFork(state, state.currentNodeId);
+  if (!fork) return;
+
+  const key = `${state.id}::${fork.id}`;
+  const currentIdx = fork.activeChildIndex;
+  const rememberedIdx = memory.get(key);
+  const targetIdx = rememberedIdx !== undefined && rememberedIdx !== currentIdx
+    ? rememberedIdx
+    : (currentIdx + 1) % fork.children.length;
+  memory.set(key, currentIdx);
+  switchToBranch(state, fork, targetIdx);
 }
 
 /**
