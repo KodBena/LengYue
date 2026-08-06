@@ -55,7 +55,8 @@ import '../state/stability-trajectory-store';
 
 // Order-independent owners (DEFAULT band): persisted bundles, review-wait
 // aborts, thumbnail caches, card-thumbnail cache, card-tree slots,
-// fork-toggle history, node-position-hash cache + its fill orchestration.
+// fork-toggle history, node-position-hash cache + its fill orchestration,
+// setup-toolkit tool-selection state.
 import '../services/analysis-persistence-service';
 import '../composables/review/useReviewSession';
 import '../composables/cards/thumbnail-render-resources';
@@ -72,3 +73,4 @@ import '../state/node-position-hashes';
 // imports the state module, not the reverse), so it needs its own explicit
 // import here or its handler would never register.
 import '../composables/cards/useNodePositionHashes';
+import '../composables/board/useSetupTools';

@@ -12,6 +12,7 @@ import type { BoardState, NodeId, GameNode } from '../../types';
 import { getBoardSize, decodeBoardArray } from '../../engine/util';
 import { useScopedScroll } from '../../composables/useScopedScroll';
 import { useNavigation } from '../../composables/useNavigation';
+import { useSetupTools } from '../../composables/board/useSetupTools';
 import { findPlacementOnActivePath } from '../../engine/navigator';
 import { store } from '../../store';
 import { ledger } from '../../state/analysis-ledger';
@@ -81,6 +82,7 @@ const emit = defineEmits<{
 
 const containerRef = ref<HTMLElement | null>(null);
 const nav = useNavigation();
+const setupTools = useSetupTools();
 
 useScopedScroll(containerRef, (deltaY) => {
   if (deltaY > 0) nav.next();
@@ -238,6 +240,36 @@ const moveNumbersByCoord = computed((): Record<string, number> | undefined => {
   return result;
 });
 
+// Triangle marks (SGF `TR`) on the CURRENT node only — markup has no
+// carry-forward to descendants (see `applyMarkup`'s doc comment), so
+// unlike `moveNumbersByCoord` this reads a single node's properties,
+// no parent-chain walk. Decoded from the SGF coordinate alphabet the
+// rest of this component already uses (`String.fromCharCode`
+// pairs — same convention `applySetup`/`applyMarkup` encode with).
+const triangleMarks = computed((): { x: number; y: number }[] => {
+  const currentNode = props.state.nodes[props.state.currentNodeId];
+  const coords = currentNode?.properties.TR;
+  if (!coords || coords.length === 0) return [];
+  return coords.map(sgf => ({
+    x: sgf.charCodeAt(0) - 97,
+    y: boardSize.value - 1 - (sgf.charCodeAt(1) - 97),
+  }));
+});
+
+/**
+ * Board click, routed: with a setup tool armed, the click places (or
+ * toggles off) that tool's element on the current node and does NOT
+ * reach `useBoardMoveRouting` at all — setup edits are a distinct,
+ * always-available editor action, not a move subject to the review
+ * session's AWAITING_MOVE grading gate. `applyToolAt` returns `false`
+ * when no tool is armed, and the click falls through to the normal
+ * `move` emit exactly as before this feature existed.
+ */
+function onBoardClick(x: number, y: number) {
+  if (setupTools.applyToolAt(x, y)) return;
+  emit('move', x, y);
+}
+
 /**
  * Shift-click on a board vertex: navigate to the nearest node on
  * the active variation path that placed a stone at (x, y), backward
@@ -264,7 +296,8 @@ function onShiftClick(x: number, y: number) {
       :move-numbers="moveNumbersByCoord"
       :underlay-cells="continuousCells"
       :underlay-color-map="ownershipColor"
-      @click="(x, y) => emit('move', x, y)"
+      :triangles="triangleMarks"
+      @click="onBoardClick"
       @shift-click="onShiftClick"
     />
     <BoardHeatmapOverlay

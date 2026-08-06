@@ -1215,6 +1215,13 @@ export default [
             // parsed SGF, not a user move.
             'src/composables/sgf/loadIntoBoard.ts':
               'SGF-load primitive — replaces a board from parsed SGF (dirty-guarded at callers), not a user move',
+            // The setup toolkit (ledger rows 603/604) writes SGF setup
+            // properties (AB/AW/TR) on the current node — an editor action
+            // with no capture logic and no turn consumption, deliberately
+            // NOT subject to the review session's move grading (genre
+            // convention: setup mode is orthogonal to game-flow state).
+            'src/composables/board/useSetupTools.ts':
+              'setup-toolkit edit (setup stone / markup toggle) — not a user MOVE, no grading applies',
           },
         },
       ],

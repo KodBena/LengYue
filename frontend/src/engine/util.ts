@@ -6,7 +6,7 @@
  * moved to `lib/utils.ts` 2026-06-10 — this module is [B3].)
  * License: Public Domain (The Unlicense)
  */
-import type { Move, StoneColor, BoardState, NodeId, RootToLeafPath } from '../types';
+import type { Move, StoneColor, BoardState, NodeId, GameNode, RootToLeafPath } from '../types';
 import { normalizeRuleset, type RulesetResolution } from './rulesets';
 
 /**
@@ -132,6 +132,30 @@ export function getActiveVariationPath(board: BoardState): RootToLeafPath {
   return path as RootToLeafPath;
 }
 
+/**
+ * Every NodeId in `nodeId`'s subtree, inclusive of `nodeId` itself —
+ * a plain BFS over `children`. Minted for the setup-toolkit's
+ * thumbnail-invalidation obligation: `applySetup` (`src/logic.ts`)
+ * mutates the CURRENT node's stone projection, and every descendant's
+ * cached thumbnail snapshot is a replay that starts from that
+ * projection, so all of them go stale together (contrast
+ * `applyMarkup`, whose mutation has no board-state carry-forward and
+ * therefore invalidates only the one node it touched — no subtree
+ * walk needed there).
+ */
+export function collectSubtreeIds(nodes: Record<NodeId, GameNode>, nodeId: NodeId): NodeId[] {
+  const out: NodeId[] = [];
+  const queue: NodeId[] = [nodeId];
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    const node = nodes[id];
+    if (!node) continue;
+    out.push(id);
+    queue.push(...node.children);
+  }
+  return out;
+}
+
 const GTP_ALPHABET = "ABCDEFGHJKLMNOPQRSTUVWXYZ".split("");
 
 export function toGtp(x: number, y: number): string {
@@ -248,6 +272,43 @@ export function getInitialStones(state: BoardState): [StoneColor, string][] {
   collect(rootNode.properties.AW, 'W');
 
   return result;
+}
+
+/**
+ * True iff any NON-ROOT node on `path` carries a setup property (`AB`/
+ * `AW`/`AE`). `getInitialStones` above (and `analyzeRange` /
+ * `analyzeActiveNode` in `src/services/analysis-service.ts`) only ever
+ * project the ROOT's own AB/AW into KataGo's `initialStones` — that is
+ * wire-protocol-correct for handicap/problem setups, but a mid-tree
+ * setup edit (the setup toolkit, ledger rows 603/604, can place one on
+ * ANY current node — not just root) is silently absent from BOTH
+ * `initialStones` (root-only) and `moves` (`buildMovesAndTurnIndex`
+ * only ever collects `node.move`, treating a setup-only node exactly
+ * like any other moveless node): KataGo's analysis-engine protocol has
+ * no wire primitive for "insert a stone mid-sequence with no move,"
+ * so the analyzed position silently diverges from the board the user
+ * is looking at. This predicate is the query-construction-time
+ * detection that lets a caller surface that divergence loudly
+ * (ADR-0002) rather than ship a silently-wrong analysis — see the
+ * mid-tree-setup system-message notice at both `analyzeRange` and
+ * `analyzeActiveNode` call sites.
+ *
+ * `path[0]` (root) is always excluded — root AB/AW is the
+ * wire-correct, already-handled case.
+ */
+export function pathHasMidTreeSetup(nodes: Record<NodeId, GameNode>, path: readonly NodeId[]): boolean {
+  for (let i = 1; i < path.length; i++) {
+    const node = nodes[path[i]];
+    if (!node) continue;
+    if (
+      (node.properties.AB && node.properties.AB.length > 0)
+      || (node.properties.AW && node.properties.AW.length > 0)
+      || (node.properties.AE && node.properties.AE.length > 0)
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**

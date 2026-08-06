@@ -8,7 +8,7 @@ import { computed } from 'vue';
 import {
   BOARD_COLOR, LINE_COLOR, LABEL_COLOR,
   LABEL_BAND, LABEL_FONT_SIZE, LABEL_INSET_RATIO, TOTAL_PX,
-  MARKER_INNER_RATIO,
+  MARKER_INNER_RATIO, TRIANGLE_MARK_RATIO,
   ALL_X_LABELS,
 } from '../../engine/constants';
 import { boardGeometry, gridLines } from '../../engine/board-geometry';
@@ -40,6 +40,15 @@ const props = defineProps<{
   // site contract is one-for-one with the overlay component.
   underlayCells?: readonly HeatmapCell[];
   underlayColorMap?: HeatmapStyle;
+  // Setup-toolkit triangle marks (SGF `TR`) for the current node.
+  // Deliberately the only markup shape rendered today (ledger rows
+  // 603/604's skeleton scope) — a square/circle/label renderer is the
+  // seam this prop's sibling would extend, not built here. Handful-
+  // sized per node (SVG, not canvas — ADR-0010's density threshold
+  // doesn't apply to a mark count that scales with board size, not
+  // with streamed data). Optional; BoardWidget omits it when there
+  // are none, matching `moveNumbers`' v-if-friendly convention.
+  triangles?: readonly { x: number; y: number }[];
 }>();
 
 const emit = defineEmits<{
@@ -119,6 +128,19 @@ function toSVG(bx: number, by: number): { x: number; y: number } {
   // by (LABEL_BAND, LABEL_BAND) in the template, so these are inner-board
   // coordinates.
   return geo.value.toSVG(bx, by);
+}
+
+// Triangle-mark polygon points, computed per stone-radius so the mark
+// scales with board size like every other geometry primitive here.
+// An upward-pointing equilateral-ish triangle centered on the vertex —
+// the Lizzie/Sabaki/KaTrain convention `TRIANGLE_MARK_RATIO`'s doc
+// comment names.
+function trianglePoints(cx: number, cy: number): string {
+  const r = stoneR.value * TRIANGLE_MARK_RATIO;
+  const top: [number, number] = [cx, cy - r];
+  const bottomLeft: [number, number] = [cx - r * 0.87, cy + r * 0.5];
+  const bottomRight: [number, number] = [cx + r * 0.87, cy + r * 0.5];
+  return [top, bottomLeft, bottomRight].map(([x, y]) => `${x},${y}`).join(' ');
 }
 
 function onBoardClick(e: MouseEvent) {
@@ -287,6 +309,23 @@ function onBoardClick(e: MouseEvent) {
             pointer-events="none"
           >{{ moveNumbers[stone.key] }}</text>
         </template>
+      </g>
+
+      <!-- 3f. Setup-toolkit triangle marks (SGF `TR`, current node
+           only). Stroke-only outline so it reads over both an empty
+           point and an occupied one; pointer-events disabled so the
+           mark never steals the board's own click handling. -->
+      <g v-if="triangles && triangles.length > 0">
+        <polygon
+          v-for="tri in triangles"
+          :key="`tri-${tri.x},${tri.y}`"
+          :points="trianglePoints(toSVG(tri.x, tri.y).x, toSVG(tri.x, tri.y).y)"
+          fill="none"
+          :stroke="stones[`${tri.x},${tri.y}`] === 'B' ? '#fff' : 'var(--state-attention)'"
+          stroke-width="1.5"
+          stroke-linejoin="round"
+          pointer-events="none"
+        />
       </g>
     </g>
   </svg>

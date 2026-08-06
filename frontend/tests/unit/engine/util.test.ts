@@ -26,9 +26,11 @@ import {
   getInitialStones,
   resolveGameName,
   getRulesetResolution,
+  pathHasMidTreeSetup,
 } from '../../../src/engine/util';
+import { applySetup } from '../../../src/logic';
 import { createInitialBoard } from '../../../src/store/board-factory';
-import type { BoardState } from '../../../src/types';
+import type { BoardState, NodeId } from '../../../src/types';
 
 describe('sgfToMove', () => {
   it('decodes "pd" on 19×19 to (15, 15) (y inverts to bottom-origin)', () => {
@@ -298,5 +300,61 @@ describe('resolveGameName', () => {
   it('skips a whitespace-only GN and falls through to EV', () => {
     const board = withRootProps({ GN: ['   '], EV: ['Tournament 2026'] });
     expect(resolveGameName(board, FROZEN)).toBe('Tournament 2026');
+  });
+});
+
+describe('pathHasMidTreeSetup', () => {
+  it('is false for a path with no setup properties at all', () => {
+    const board = createInitialBoard();
+    const path: NodeId[] = [board.rootNodeId];
+    expect(pathHasMidTreeSetup(board.nodes, path)).toBe(false);
+  });
+
+  it('is false when only the ROOT carries AB/AW (the wire-correct, already-handled case)', () => {
+    const board = createInitialBoard();
+    const withRootSetup = applySetup(board, 3, 3, 'B');
+    const path: NodeId[] = [withRootSetup.rootNodeId];
+    expect(pathHasMidTreeSetup(withRootSetup.nodes, path)).toBe(false);
+  });
+
+  it('is true when a NON-ROOT node on the path carries AW', () => {
+    const board = createInitialBoard();
+    // A one-node child under root, with a setup edit applied to IT
+    // (not root) — the exact shape the setup toolkit produces when
+    // the user is anywhere but the tree's first position.
+    const childId = ('node-child' as NodeId);
+    board.nodes[childId] = {
+      id: childId,
+      parent: board.rootNodeId,
+      children: [],
+      activeChildIndex: 0,
+      properties: {},
+      move: null,
+    };
+    board.nodes[board.rootNodeId].children.push(childId);
+    const withMidTreeSetup = applySetup({ ...board, currentNodeId: childId }, 5, 5, 'W');
+
+    const path: NodeId[] = [board.rootNodeId, childId];
+    expect(pathHasMidTreeSetup(withMidTreeSetup.nodes, path)).toBe(true);
+  });
+
+  it('ignores a node past the end of the queried path (only scans path[1..])', () => {
+    const board = createInitialBoard();
+    const childId = ('node-child' as NodeId);
+    board.nodes[childId] = {
+      id: childId,
+      parent: board.rootNodeId,
+      children: [],
+      activeChildIndex: 0,
+      properties: {},
+      move: null,
+    };
+    board.nodes[board.rootNodeId].children.push(childId);
+    const withMidTreeSetup = applySetup({ ...board, currentNodeId: childId }, 5, 5, 'W');
+
+    // Path stops AT root — the child (and its setup edit) is out of
+    // range for THIS query, so it must not be flagged.
+    const rootOnlyPath: NodeId[] = [board.rootNodeId];
+    expect(pathHasMidTreeSetup(withMidTreeSetup.nodes, rootOnlyPath)).toBe(false);
   });
 });

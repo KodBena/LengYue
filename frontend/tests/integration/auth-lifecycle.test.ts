@@ -248,11 +248,19 @@ function installDrainSpies(): DrainSpies {
  * Covered directly by
  * `tests/integration/useNavigation-toggle-memory-cleanup.test.ts` and the
  * teardown-registry completeness pin instead.
+ *
+ * `setup-tools:close-palette` (setup toolkit, ledger rows 603/604) is the
+ * same shape again: it resets `useSetupTools.ts`'s module-private
+ * `activeTool` / `paletteOpen` refs, that module is real/un-mocked here,
+ * and neither ref is exported for a namespace spy to intercept. Covered
+ * directly by `tests/integration/useSetupTools.test.ts`'s dedicated
+ * resetWorkspace test and the teardown-registry completeness pin instead.
  */
 const NON_CACHE_RESET_LABELS = new Set<string>([
   'review:abort-all',
   'review:visit-snapshots-clear-all',
   'nav:clear-toggle-memory-all',
+  'setup-tools:close-palette',
 ]);
 
 function expectFullDrain(spies: DrainSpies): void {

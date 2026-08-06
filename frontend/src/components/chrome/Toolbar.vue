@@ -8,6 +8,7 @@ import { useI18n } from 'vue-i18n';
 import PboPopover from '../qeubo/PboPopover.vue';
 import ToolbarEngineMetrics from './ToolbarEngineMetrics.vue';
 import ToolbarSliderPopover from './ToolbarSliderPopover.vue';
+import SetupToolPalette from './SetupToolPalette.vue';
 import { useEngineControls } from '../../composables/useEngineControls';
 import { useAutoNavigatePerf } from '../../composables/useAutoNavigatePerf';
 import { useAutoPopoverPerf } from '../../composables/useAutoPopoverPerf';
@@ -113,6 +114,13 @@ function onMatchClick() {
          backend's `/qeubo/*` routes retain `qeubo` (the
          acquisition function / library name). -->
     <PboPopover />
+
+    <!-- Setup toolkit (ledger rows 603/604): the classic Go-editor
+         setup mode — click to open a small tool palette (BLACK/WHITE
+         setup stone, TRIANGLE mark), click again to close. Renders
+         unconditionally, same band-1 reasoning as ToolbarSliderPopover
+         above: setup edits don't require an engine connection. -->
+    <SetupToolPalette />
 
     <div class="engine-controls">
       <button class="toolbar-btn highlight-btn" @click="emit('mint-card')">{{ $t('toolbar.mintCard') }}</button>

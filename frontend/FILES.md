@@ -52,7 +52,7 @@ file; the header in the source has the nuance.
 ```
 frontend/src/
 ├── App.vue                            [B3]  Root SFC. Orchestrator hosting tabs, board, modals; wires composables.
-├── logic.ts                           [B3]  applyGoMove — Go-rule board mutation with dedup-or-descend on the tree.
+├── logic.ts                           [B3]  applyGoMove — Go-rule board mutation with dedup-or-descend on the tree. Also applySetup (toggle-on-repeat AB/AW/AE setup stone on the current node) and applyMarkup (TR triangle toggle) — the setup toolkit's data layer, ledger rows 603/604.
 ├── main.ts                            [B1]  Vue app bootstrap (createApp, install i18n, mount #app).
 ├── types.ts                           [B3]  Barrel over the per-domain type modules (`types/*` + `store/schema.ts`; 2026-06-10 split). Re-exports span all three bands, so the hub tags for the highest band it re-exports; it declares nothing itself, and three runtime values (BUNDLE_COMPRESSION_SCHEMES, QeuboError, CardTreeOverflowError) pass through, making it a runtime module.
 ├── style.css                          [B1]  Empty stub; theme lives in chrome substrate variables.
@@ -72,11 +72,11 @@ frontend/src/
 │   ├── VisitsLerpConfig.vue           [B1]  "Other" tab: a/b numeric inputs for the session-ephemeral visits-LERP override (`state/visits-lerp.ts`), CardMetadataPanel field idiom + reset button.
 │   │
 │   ├── board/                                Go-board surface. Renderers + overlays.
-│   │   ├── BoardDisplay.vue           [B3]  Stateless SVG Go board with stone gradients, hoshi, last-move ring, move-number text.
+│   │   ├── BoardDisplay.vue           [B3]  Stateless SVG Go board with stone gradients, hoshi, last-move ring, move-number text, and setup-toolkit triangle marks (`triangles` prop, current node only).
 │   │   ├── BoardHeatmapOverlay.vue    [B3]  Stateless per-intersection heatmap (ownership / liveness / dots).
 │   │   ├── BoardTab.vue               [B3]  Tab row in the board-list rail (label, close, canvas analysis-depth rugplot drawn imperatively off the render path).
 │   │   ├── BoardVariationsOverlay.vue [B3]  Sibling-variation rings + active-next-move hint on the board.
-│   │   ├── BoardWidget.vue            [B3]  Hosts BoardDisplay + overlays + MoveSuggestions; computes derived view-model.
+│   │   ├── BoardWidget.vue            [B3]  Hosts BoardDisplay + overlays + MoveSuggestions; computes derived view-model. Board clicks route through useSetupTools.applyToolAt first (setup-toolkit edit) and only fall back to the normal `move` emit when no tool is armed.
 │   │   ├── MiniBoard.vue             [B3]  Renderer dispatcher — mounts MiniBoardSvg or MiniBoardCanvas per `appearance.miniBoardRenderer` (v-if; only the chosen path mounts, so neither affects the other's perf). Used by ChartPreviewBox + heatmap preview.
 │   │   ├── MiniBoardCanvas.vue       [B3]  Canvas renderer (opt-in) — imperative draw off a watch, ResizeObserver-cached dims, stones blitted from the shared sprite store (thumbnail-render-resources owns wood + sprites; ADR-0010 canvas rule). No render fn on the nav hot path.
 │   │   ├── MiniBoardSvg.vue          [B3]  SVG renderer (default) — memoised grid + per-stone v-memo; the carried-over pre-split MiniBoard body, parity-tested against a frozen reference (MiniBoardSvg.parity.test.ts).
@@ -110,6 +110,7 @@ frontend/src/
 │   │   ├── FloatingThumbnail.vue      [B3]  Cursor-anchored floating board preview (sole host: TreeWidget's variation hover). Synchronous show/hide gate; content derives from a host-supplied `() => BoardSnapshot` accessor rendered via MiniBoard (the ChartPreviewBox accessor contract); seam-level stranding backstops (80px anchor radius / scroll / blur). Re-banded B1→B3 when the v-html SVG-string sink became the BoardSnapshot projection (render-lifecycle consolidation).
 │   │   ├── LocalePicker.vue           [B1]  Top-nav locale picker (flag + native name).
 │   │   ├── RootErrorBoundary.vue      [B1]  Catches descendant errors, logs via ADR-0002, renders fallback.
+│   │   ├── SetupToolPalette.vue       [B2]  Setup toolkit (ledger rows 603/604): click-toggled toolbar palette (NOT hover — same shape as LocalePicker) offering BLACK/WHITE setup stone + TRIANGLE tools. Closing (re-click / ESC / outside-click) always deselects via useSetupTools.closePalette.
 │   │   ├── SidebarWidget.vue          [B3]  Board rail: BoardTab thumb-list, docked MiniBoard hover preview, SGF load/save emits, new-board affordance, dev jank-test toggle. (Retagged B1→B3 2026-06-12, maintainer adjudication: not B1 — the rail exists to host Go-board surfaces; SGF vocabulary and the BoardSnapshot preview are in-file.)
 │   │   ├── SystemLogPanel.vue         [B1]  Always-visible system log bar with idle row.
 │   │   ├── TabWidget.vue              [B1]  Controlled tabbed navigation.
@@ -216,6 +217,7 @@ frontend/src/
 │   │   ├── useKnownPositionNodes.ts   [B2]  card-position-annotations Stage B: `activeBoardKnownPositionNodeIds` — cache ∩ known-positions Set for the active board, precomputed at the composition layer (mirrors usePlayVsEngine's activeBoardGameHeadIds); no network I/O in the computed itself.
 │   │   ├── usePlayVsEngine.ts         [B3]  Play-vs-engine game-session lifecycle on `BoardState.games`: start (with the engine-turn kick via the injected responder), end, and the green-ring heads set. Extracted from App.vue 2026-06-11.
 │   │   ├── use-pv-animation.ts        [B3]  PV stone-sequence animation (window / instant / sequential modes).
+│   │   ├── useSetupTools.ts           [B2]  Setup toolkit (ledger rows 603/604): SetupTool selection state (module-scope, released on resetWorkspace) + applyToolAt(x,y) — dispatches to logic.ts's applySetup/applyMarkup, writes through updateBoardState (allowlisted, non-user-move), invalidates the affected thumbnail snapshot(s).
 │   │   └── useVariationPath.ts        [B2]  Full active game-line root → leaf.
 │   │
 │   ├── cards/                                Card-tree exploration state.
@@ -291,7 +293,7 @@ frontend/src/
 │   ├── sgf-writer.ts                  [B3]  GameNode forest → SGF serialisation.
 │   ├── suggestion-colors.ts           [B3]  Pure colour utilities for move-suggestion overlays.
 │   ├── tree.ts                        [B2]  Generic grid-based tree layout + tree-graph transforms.
-│   ├── util.ts                        [B3]  Board / SGF coord helpers; active-variation traversal; game-name resolution ladder; getRulesetResolution (RU-property accessor, parallel to getKomi/getBoardSize). (Domain-free generateUUID / updateRegistry re-homed to lib/utils.ts 2026-06-10.)
+│   ├── util.ts                        [B3]  Board / SGF coord helpers; active-variation traversal; game-name resolution ladder; getRulesetResolution (RU-property accessor, parallel to getKomi/getBoardSize); collectSubtreeIds (BFS subtree walk — the setup toolkit's thumbnail-invalidation obligation). (Domain-free generateUUID / updateRegistry re-homed to lib/utils.ts 2026-06-10.)
 │   │
 │   ├── analysis/
 │   │   ├── clustering.ts              [B3]  Pure transposition-grouping utilities.
@@ -318,7 +320,7 @@ frontend/src/
 │   │   └── quantization.ts            [B3]  Q4 ownership + Q8-factored policy primitives for the lossy leaf.
 │   ├── analysis-bundle.ts             [B3]  Pure projection ledger ↔ wire bundle.
 │   ├── analysis-persistence-service.ts [B3] HTTP boundary for analysis-bundle persistence (save/restore/discard).
-│   ├── analysis-service.ts            [B3]  Bridges KataGo turns to the ledger nodes.
+│   ├── analysis-service.ts            [B3]  Bridges KataGo turns to the ledger nodes. Also warnIfMidTreeSetupDropped: fires a once-per-board system-message notice (analyzeRange/analyzeActiveNode) when the queried path carries a non-root setup stone KataGo's wire protocol has no way to represent (ledger row 622).
 │   ├── api-client.ts                  [B1]  Pure REST client; JWT injection; zero-friction local auth.
 │   ├── backend-service.ts             [B2]  ACL for the backend; wire snake_case → domain camelCase with branded ids.
 │   ├── engine-connection.ts           [B3]  Owner module for the store.engine subtree — analysis-provider connection lifecycle (connect / disconnect-reset / info / selection / metrics). B3: writes the engine slice of the [B3] store hub and speaks the engine band's types (EngineInfo), though named for the problem class — store.engine + this owner replace wholesale for a fork's analysis provider.
