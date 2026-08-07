@@ -38,6 +38,7 @@ import { isSupportedLocale, DEFAULT_LOCALE } from '../../i18n/locales';
 import type { BoardId } from '../../types';
 import { useQeubo, reconcileQeuboKnobs, rehydrateExperimentClaims } from '../useQeubo';
 import { applyContrastTextAttribute } from './contrast-text-attribute';
+import { useKnownPositions } from '../cards/useKnownPositions';
 import type { useAuth } from './useAuth';
 
 // Path-prefix allowlist for the knob-registry coherence check (PR #410
@@ -304,6 +305,16 @@ export function useAppBootstrap(
     },
   );
 
+  // Known-positions boot-time hydrate (see
+  // `.claude/dispatch-reports/known-positions-boot-hydrate.md`).
+  // Extracted to the named export `installKnownPositionsHydrateWatcher`
+  // below — see that function's docstring for the behavioural contract
+  // — so `tests/integration/known-positions-boot-hydrate.test.ts` can
+  // drive the REAL production edge-detection logic against a fake
+  // `auth`, rather than a hand-copy of it. Installed here at bootstrap
+  // exactly once, same as every other auth-state watcher in this file.
+  installKnownPositionsHydrateWatcher(auth);
+
   // Restart active analyses whenever the qEUBO audition toggle
   // changes the parameters the engine should see. The
   // analysis-service's `activeAnalysisKeys` is reactive on
@@ -466,4 +477,57 @@ export function useAppBootstrap(
   });
 
   return { sync };
+}
+
+/**
+ * Known-positions boot-time hydrate watcher (see
+ * `.claude/dispatch-reports/known-positions-boot-hydrate.md`). Installs
+ * a `watch` on `auth.state` that calls `useKnownPositions
+ * .hydrateKnownPositions()` on every genuine unauthenticated/unknown ->
+ * `authenticated` EDGE — cold-start auto-login AND any later
+ * re-authentication after logout/identity-switch — so the
+ * `known-positions` state module's `ContentHash -> CardId` map (and the
+ * game-tree known-position rings / mint-dialog duplicate warning it
+ * feeds) is populated at auth-readiness rather than only filling in
+ * incidentally as navigation happens to touch cards.
+ *
+ * `wasAuth`/`isAuth` edge detection — same shape as the qEUBO-bootstrap
+ * and analysis-persistence-hydrate watchers in `useAppBootstrap` above
+ * — so this fires once per genuine flip-in, never on an unrelated
+ * `auth.state` mutation (e.g. an `authenticated` row gaining a
+ * `userId`). `hydrateKnownPositions` swallows its own failures (logs
+ * loudly, never throws) per ADR-0002 "audible, not fatal", so no
+ * `.catch()` is needed here.
+ *
+ * The prior identity's entries are purged by `known-positions.ts`'s own
+ * `workspace-reset` teardown handler (fired by `resetWorkspace` on
+ * identity-out) — this watcher only owns the re-fill half; the purge is
+ * the state module's own resource-ownership responsibility, not
+ * bootstrap's.
+ *
+ * Extracted as a named export (rather than inlined in
+ * `useAppBootstrap`, like the file's other auth-state watchers are) so
+ * `tests/integration/known-positions-boot-hydrate.test.ts` can drive
+ * this EXACT production edge-detection logic against a fake `auth`
+ * object, instead of a hand-copy that could silently drift from the
+ * real watcher. Takes `Pick<UseAuth, 'state'>` rather than the full
+ * `UseAuth` interface — this function only ever reads `auth.state`, and
+ * the narrower parameter type keeps the test's fake minimal (no need to
+ * stub `tryAutoLogin`/`login`/`register`/`logout` just to satisfy the
+ * type).
+ */
+export function installKnownPositionsHydrateWatcher(
+  auth: Pick<ReturnType<typeof useAuth>, 'state'>,
+): ReturnType<typeof watch> {
+  const { hydrateKnownPositions } = useKnownPositions();
+  return watch(
+    () => auth.state.value,
+    (next, prev) => {
+      const wasAuth = prev?.kind === 'authenticated';
+      const isAuth = next.kind === 'authenticated';
+      if (isAuth && !wasAuth) {
+        void hydrateKnownPositions();
+      }
+    },
+  );
 }

@@ -42,7 +42,7 @@ from repositories.display_counters import (
     next_game_display_ordinal,
 )
 from repositories.ports import CardRepositoryPort, CardWriteRepositoryPort
-from schemas.card import CardPatch
+from schemas.card import CardHashEntry, CardPatch
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +154,48 @@ class CardRepository(CardRepositoryPort, CardWriteRepositoryPort):
         row_dict = row._asdict()
         row_dict["tags"] = tag_names
         return Card.model_validate(row_dict)
+
+    async def list_content_hashes(
+        self,
+        *,
+        user_id: UserId,
+    ) -> List[CardHashEntry]:
+        """
+        Bulk fetch of ``(content_hash, card_id)`` for every card
+        owned by `user_id`. Card-position-annotations boot-time
+        hydrate (see `CardRepositoryPort.list_content_hashes`'s
+        docstring for the design rationale).
+
+        One join, one WHERE clause — no recursive walk needed
+        (unlike the forest-membership CTEs in stats_repository.py):
+        `card.user_id` is a direct column, so tenancy is a single
+        predicate on the base table, same shape as
+        `get_card_by_id`'s.
+
+        `content_hash` is stored as raw SHA-256 bytes on
+        `normalized_position`; `.hex()` here matches the string
+        representation `POST /positions/hash` and
+        `CardWithRecall.content_hash` already emit, so a client can
+        compare all three with plain string equality.
+        """
+        query = (
+            select(
+                normalized_position.c.content_hash,
+                card.c.id.label("card_id"),
+            )
+            .select_from(
+                card.join(
+                    normalized_position,
+                    card.c.normalized_position_id == normalized_position.c.id,
+                )
+            )
+            .where(card.c.user_id == user_id)  # Item 13: tenancy filter.
+        )
+        result = await self.session.execute(query)
+        return [
+            CardHashEntry(content_hash=row.content_hash.hex(), card_id=row.card_id)
+            for row in result
+        ]
 
     async def update_card_model(
         self,

@@ -6,22 +6,32 @@
  * `.claude/dispatch-reports/card-position-annotations-design.md`, §3
  * "Fetch + freshness" and §6's Stage-A acceptance handle).
  *
- * ── Population: incidental, not a dedicated fetch loop ────────────────────
- * There is no bulk "all my card hashes" endpoint (the design's §3 names one
- * as an optional dispatch flag; this implementation doesn't add it — the
- * task's ask covers only the stateless `POST /positions/hash` endpoint and
- * the widened `CardWithRecall.content_hash` field). Instead, every existing
- * card-fetch path the SPA already drives (`queryForest`, `fetchCard`,
- * `submitReview`, `updateCardMetadata`) now carries `content_hash` on the
- * wire, so `BackendService.mapToReviewCard` — the ACL boundary every one of
- * those paths already funnels through — calls `recordKnownPosition` for
- * every card it projects. This module needs no dedicated "hydrate on
- * login" step: the set fills in as the SPA's existing navigation touches
- * cards, same completeness caveat the design's §3 names for its "rely on
- * what's already loaded" option (a) — incomplete until a given card has
- * been fetched at least once this session. Mint-time duplicate warnings
- * (`useKnownPositions.ts`) additionally append eagerly on a successful
- * mint, so a just-minted card is known immediately without a re-fetch.
+ * ── Population: bulk hydrate at auth-readiness, PLUS incidental fill ──────
+ * Two population paths, not one:
+ *
+ *   1. **Bulk hydrate** (`useKnownPositions.hydrateKnownPositions`, wired
+ *      at auth-readiness by `useAppBootstrap.ts`'s
+ *      `installKnownPositionsHydrateWatcher` — see
+ *      `.claude/dispatch-reports/known-positions-boot-hydrate.md`): fetches
+ *      every `(content_hash, card_id)` pair the caller owns via
+ *      `GET /cards/hashes` (the design's §3 dispatch-flag-#3 option (b),
+ *      landed) and records each pair. This is the completeness guarantee —
+ *      it runs once per authenticated flip-in (cold-start login AND any
+ *      later re-authentication), independent of what the user has actually
+ *      navigated to.
+ *   2. **Incidental fill** (pre-existing, still active): every card-fetch
+ *      path the SPA already drives (`queryForest`, `fetchCard`,
+ *      `submitReview`, `updateCardMetadata`) carries `content_hash` on the
+ *      wire, so `BackendService.mapToReviewCard` — the ACL boundary every
+ *      one of those paths funnels through — calls `recordKnownPosition` for
+ *      every card it projects. This still matters even with the bulk
+ *      hydrate in place: it's what keeps the map current for a card minted
+ *      or fetched *after* the last hydrate, without waiting on the next
+ *      auth flip.
+ *
+ * Mint-time duplicate warnings (`useKnownPositions.ts`) additionally append
+ * eagerly on a successful mint, so a just-minted card is known immediately
+ * without a re-fetch.
  *
  * ── First-seen-wins ────────────────────────────────────────────────────────
  * `recordKnownPosition` does NOT overwrite an existing entry. If the user

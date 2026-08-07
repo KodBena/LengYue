@@ -124,4 +124,18 @@ GLOBAL_SEQUENCE_ALLOWLIST: Dict[Tuple[str, str], str] = {
         "that didn't resolve to an owned root — same reference-role "
         "reasoning as ResolvedRoot.card_ids_in_tree above."
     ),
+    ("CardHashEntry", "card_id"): (
+        "named exception: raw card PK, the addressing value the SPA's "
+        "known-positions boot-time hydrate needs to populate its "
+        "ContentHash -> CardId map (GET /cards/hashes; see "
+        "`.claude/dispatch-reports/known-positions-boot-hydrate.md`). "
+        "Same reference role as CardCreateResponse.card_id above — the "
+        "mint-dialog duplicate warning and the tree-node annotation "
+        "markers key off this id to look up 'which card already owns "
+        "this position', never to paint a digit on screen. "
+        "display_ordinal is not projected here because the identical "
+        "id already appears (with display_ordinal alongside) on every "
+        "CardWithRecall the caller fetches for that same card; this "
+        "endpoint's job is a bare bulk index, not a display-ready row."
+    ),
 }
