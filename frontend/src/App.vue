@@ -699,7 +699,7 @@ const activeTab = computed<string>({
    changes from its current 28px floor, retune in tandem. */
 .top-nav-bar {
   display: flex; align-items: center; background: var(--surface-0);
-  border-bottom: 1px solid var(--surface-1); padding: 0 var(--space-default); min-height: 32px; flex-shrink: 0;
+  border-bottom: 1px solid var(--border-1); padding: 0 var(--space-default); min-height: 32px; flex-shrink: 0;
 }
 
 /* The lower area where the resizer lives. justify-content is bound
@@ -823,9 +823,16 @@ const activeTab = computed<string>({
    floor wasn't lowered. magic-literal: 5px padding-right — preserved
    from prior; gives the tree the standard tight margin against the
    right chrome edge without affecting tree-widget layout. */
-#vue-tree-panel { width: 140px; flex-shrink: 0; display: flex; flex-direction: column; border-left: 1px solid var(--surface-1); background: var(--border-1); min-height: 0; padding-right: 5px; }
-#tree-panel-header { height: 20px; background: var(--surface-0); border-bottom: 1px solid var(--surface-1); display: flex; align-items: center; padding: 0 var(--space-default); font-size: var(--text-tiny); letter-spacing: var(--tracking-wide); color: var(--text-2); text-transform: uppercase; flex-shrink: 0; }
-#control-panel { border-left: 1px solid var(--surface-1); background: var(--surface-3); min-width: 0; display: flex; flex-direction: column; }
+/* Token categories per ledger row 742 (surface-token discipline): borders
+   use border tokens, backgrounds use surface tokens. The pre-2026-08-07
+   form (background: var(--border-1); border: var(--surface-1)) was a
+   category inversion minted by the 2026-05-02 nearest-value var() sweep;
+   background matches TreeWidget's own --surface-2. The vestigial
+   padding-right: 5px (the "grey bar" the background used to show
+   through) was removed by commissioner directive the same day. */
+#vue-tree-panel { width: 140px; flex-shrink: 0; display: flex; flex-direction: column; border-left: 1px solid var(--border-1); background: var(--surface-2); min-height: 0; }
+#tree-panel-header { height: 20px; background: var(--surface-0); border-bottom: 1px solid var(--border-1); display: flex; align-items: center; padding: 0 var(--space-default); font-size: var(--text-tiny); letter-spacing: var(--tracking-wide); color: var(--text-2); text-transform: uppercase; flex-shrink: 0; }
+#control-panel { border-left: 1px solid var(--border-1); background: var(--surface-3); min-width: 0; display: flex; flex-direction: column; }
 
 /* theme-exception: .panel-resizer #eba46d is a peach accent color
    outside the substrate vocabulary (the chrome substrate has

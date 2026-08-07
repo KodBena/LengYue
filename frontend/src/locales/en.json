@@ -281,7 +281,7 @@
   "toolbar.connect":                      "Connect",
   "toolbar.disconnect":                   "Disconnect",
   "toolbar.clearCache":                   "Clear cache",
-  "engineUri.label":                      "URI",
+  "engineUri.label":                      "Engine URI",
   "engineUri.placeholder":                "ws://host:port",
   "engineUri.error.empty":                "Engine URI cannot be empty.",
   "engineUri.error.malformed":            "Engine URI is not a valid URL.",
