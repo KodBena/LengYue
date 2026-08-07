@@ -7,6 +7,7 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import PboPopover from '../qeubo/PboPopover.vue';
 import ToolbarEngineMetrics from './ToolbarEngineMetrics.vue';
+import ToolbarEngineUri from './ToolbarEngineUri.vue';
 import ToolbarSliderPopover from './ToolbarSliderPopover.vue';
 import SetupToolPalette from './SetupToolPalette.vue';
 import { useEngineControls } from '../../composables/useEngineControls';
@@ -80,6 +81,14 @@ function onMatchClick() {
          binding is opt-in via the `title` prop. No caller passes
          it today; the element renders empty by default. -->
     <span class="toolbar-title">{{ title }}</span>
+
+    <!-- The engine WebSocket URI — address-bar-like, click-to-edit.
+         Views and edits the same store cell as the Settings tab's
+         Advanced Registry editor (ADR-0012). Renders unconditionally
+         (unlike ToolbarEngineMetrics below) so it's usable to fix a
+         bad URI while disconnected, which is precisely the case
+         where it's most needed. -->
+    <ToolbarEngineUri />
 
     <!-- Live engine telemetry (version / model / winrate / scoreLead / PPS /
          latency / watchdog / queue). Extracted to its own leaf so its
