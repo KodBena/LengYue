@@ -27,17 +27,16 @@ build an ECDF over KataGo visit ratios so the move-suggestion color
 gradient walks its LUT uniformly across the population's natural skew,
 rather than through the uncalibrated fallback ramp.
 
-**Current content is a placeholder.** The real calibration dataset
-(quantiles derived from actual KataGo self-play visit counts) was
-never committed to this repository's git history, and no copy of it
-existed on disk in the checkout this fix was authored from. The
-committed `visit_distribution.json` is a synthetic right-skewed ECDF
-that satisfies the shape contract (`{"quantiles": number[]}`, sorted,
-bounded to `[0, 1]`) so the resource ships and the endpoint serves
-real content end-to-end — it is flagged `"_placeholder": true` in the
-file itself. Replace it with the real calibration data (regenerated
-however the original was produced) before relying on this for
-production color accuracy.
+**Provenance.** The committed `visit_distribution.json` is the real
+calibration dataset (1000 quantiles derived from actual KataGo visit
+counts), first committed to git 2026-08-08. It previously lived only
+as an untracked file at `backend/data/visit_distribution.json` on the
+maintainer's machine — swept out of both git and the Docker build
+context by the `data/` ignore patterns, which is the outage this
+directory exists to fix. (The relocation fix was authored in a
+checkout that had no copy of the file; a flagged synthetic placeholder
+shipped in the branch and was replaced with the real data at merge
+time by the orchestrator — see ledger row for the merge witness.)
 
 ## Adding a new shipped resource
 
