@@ -1,0 +1,20 @@
+# frontend/.dockerignore
+#
+# Keeps the Docker build context to source only — node_modules/ and
+# dist/ in particular must never enter the context (frontend/.gitignore
+# excludes them from git for the same reason: a stale local
+# node_modules/dist baked into a build layer silently shadows what
+# `npm ci` / `npm run build` would actually produce inside the image).
+node_modules
+dist
+dist-ssr
+.git/
+.gitignore
+.dockerignore
+Dockerfile
+*.log
+.DS_Store
+.vscode
+.idea
+coverage
+autonomous-srs-results.jsonl
