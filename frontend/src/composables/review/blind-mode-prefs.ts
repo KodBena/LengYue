@@ -78,7 +78,7 @@
 
 import { watch } from 'vue';
 import type { BoardId, ReviewStatus, UISession } from '../../types';
-import { store } from '../../store';
+import { store, touchSession } from '../../store';
 
 /** Keys of `UISession` whose value is a plain required boolean — the
  *  only shape the snapshot mechanism handles (copy by value). The
@@ -209,6 +209,12 @@ export function createUiPrefSnapshotOwner<K extends BooleanUiPrefKey>(
     ownerWriting = true;
     try {
       uiPrefs()[k] = value;
+      // Owned write into `store.session.ui` (the blind-mode override, and
+      // the restore that follows on flow exit) — bump the session counter so
+      // SyncService persists it. SyncService no longer deep-watches
+      // `store.session` (see `sessionVersion` in `store/index.ts`), so this
+      // generic-record write would otherwise be invisible to it.
+      touchSession();
     } finally {
       ownerWriting = false;
     }
@@ -283,6 +289,12 @@ function isReviewSessionExited(status: ReviewStatus | undefined): boolean {
     case 'AWAITING_MOVE':
     case 'ANALYZING':
     case 'FINISHED':
+      return false;
+    case 'REVIEWED':
+      // Deck-repeat arc: a goBack/goForward restore onto a previously-
+      // FINISHED slot. The overall session is still active (currentIndex
+      // just moved within the same board's queue) — not an exit any
+      // more than FINISHED's own intermission is.
       return false;
     default: {
       // Exhaustiveness guard: a new ReviewStatus member fails to

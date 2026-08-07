@@ -36,6 +36,7 @@ import type {
   BoardId,
   CardId,
   CardLineageTree,
+  CardPublicId,
   ForestStat,
   ReviewCard,
 } from '../../types';
@@ -68,7 +69,9 @@ export interface BoardCardTreeState {
   forest: CardLineageTree[];
   activeSet: ReadonlySet<CardId>;
   cards: ReadonlyMap<CardId, ReviewCard>;
-  forestStats: ReadonlyMap<CardId, ForestStat>;
+  // Browse-leak-fix (ledger rows 417/423): keyed by the root's
+  // CardPublicId (was CardId).
+  forestStats: ReadonlyMap<CardPublicId, ForestStat>;
   isLoading: boolean;
   error: string | null;
   // Ownership of the current forest (see `ForestSource`) — drives whether

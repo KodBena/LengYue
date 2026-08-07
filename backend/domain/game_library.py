@@ -107,11 +107,18 @@ class LibraryGameListItem(BaseModel):
     ``client_game_id`` so the frontend can open the row as a board
     using the same identifier the existing card-mint dedup path
     keys on.
+
+    Per-user-id-enumeration design: ``client_game_id`` is no longer
+    ``Optional`` — the legacy "may be None for pre-dedup-arc rows"
+    exception is closed (every ``game_source`` row now mints one at
+    insert time, and the migration backfills historical NULLs).
+    ``display_ordinal`` is the new per-user display-role field
+    (library list row numbering).
     """
     model_config = ConfigDict(frozen=True)
 
     id: int
-    client_game_id: Optional[UUID]
+    client_game_id: UUID
     player_white: Optional[str]
     player_black: Optional[str]
     date: Optional[str]
@@ -119,6 +126,7 @@ class LibraryGameListItem(BaseModel):
     ruleset: Optional[str]
     board_size: Optional[int]
     created_at: datetime
+    display_ordinal: int
 
 
 class LibraryGame(BaseModel):
@@ -135,7 +143,7 @@ class LibraryGame(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     id: int
-    client_game_id: Optional[UUID]
+    client_game_id: UUID
     player_white: Optional[str]
     player_black: Optional[str]
     date: Optional[str]
@@ -145,6 +153,7 @@ class LibraryGame(BaseModel):
     metadata_extra: Dict[str, Any]
     created_at: datetime
     raw_content: str
+    display_ordinal: int
 
 
 # ─── Aggregate views ─────────────────────────────────────────────────────────
@@ -252,6 +261,10 @@ class ImportOutcomeCreated(BaseModel):
     status: Literal["created"] = "created"
     game_id: int
     client_game_id: UUID
+    # Per-user-id-enumeration design: the display-role sibling of
+    # game_id, so the caller can render "game N" immediately without
+    # a follow-up GET /library/games round trip.
+    display_ordinal: int
 
 
 class ImportOutcomeDeduplicated(BaseModel):
@@ -259,17 +272,21 @@ class ImportOutcomeDeduplicated(BaseModel):
     The SGF normalized to a position already in the user's library;
     the existing row's id is returned without inserting a duplicate.
 
-    ``client_game_id`` is the existing row's UUID, which may be
-    ``None`` for legacy rows that pre-date the dedup arc (rows
-    minted via the card flow before ``client_game_id`` rolled out).
-    The frontend handles None by falling back to ``game_id`` as
-    the row's identity.
+    ``client_game_id`` is the existing row's UUID. Per-user-id-
+    enumeration design: previously ``Optional`` for legacy rows that
+    pre-date the dedup arc (rows minted via the card flow before
+    ``client_game_id`` rolled out); that exception is now closed —
+    the migration backfills every historical NULL, so this is always
+    present.
     """
     model_config = ConfigDict(frozen=True)
 
     status: Literal["deduplicated"] = "deduplicated"
     game_id: int
-    client_game_id: Optional[UUID]
+    client_game_id: UUID
+    # Per-user-id-enumeration design: the existing row's display
+    # ordinal, same rationale as ImportOutcomeCreated.display_ordinal.
+    display_ordinal: int
 
 
 class ImportOutcomeErrored(BaseModel):

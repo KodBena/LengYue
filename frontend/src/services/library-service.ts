@@ -31,6 +31,7 @@ import { api, ApiError } from './api-client';
 import { asBoardId } from '../store/board-factory';
 import type {
   GameSourceId,
+  GameDisplayOrdinal,
   LibraryFilter,
   LibraryGame,
   LibraryGameListItem,
@@ -92,7 +93,9 @@ const SORT_TO_WIRE: Record<LibrarySortColumn, LibrarySortWire> = {
 function fromWireGameListItem(wire: LibraryGameListItemWire): LibraryGameListItem {
   return {
     id: wire.id as GameSourceId, // ACL Band-2 brand mint (wire id → GameSourceId)
-    clientGameId: wire.client_game_id !== null ? asBoardId(wire.client_game_id) : null,
+    // Per-user-id-enumeration design: client_game_id is no longer
+    // Optional on the wire — closed exception, see types/library.ts.
+    clientGameId: asBoardId(wire.client_game_id),
     playerWhite: wire.player_white,
     playerBlack: wire.player_black,
     date: wire.date,
@@ -100,13 +103,14 @@ function fromWireGameListItem(wire: LibraryGameListItemWire): LibraryGameListIte
     ruleset: wire.ruleset,
     boardSize: wire.board_size,
     createdAt: wire.created_at,
+    displayOrdinal: wire.display_ordinal as GameDisplayOrdinal, // ACL Band-2 brand mint
   };
 }
 
 function fromWireGame(wire: LibraryGameWire): LibraryGame {
   return {
     id: wire.id as GameSourceId, // ACL Band-2 brand mint (wire id → GameSourceId)
-    clientGameId: wire.client_game_id !== null ? asBoardId(wire.client_game_id) : null,
+    clientGameId: asBoardId(wire.client_game_id),
     playerWhite: wire.player_white,
     playerBlack: wire.player_black,
     date: wire.date,
@@ -116,6 +120,7 @@ function fromWireGame(wire: LibraryGameWire): LibraryGame {
     metadataExtra: wire.metadata_extra,
     createdAt: wire.created_at,
     rawContent: wire.raw_content,
+    displayOrdinal: wire.display_ordinal as GameDisplayOrdinal, // ACL Band-2 brand mint
   };
 }
 
@@ -133,12 +138,16 @@ function fromWireImportOutcome(wire: ImportOutcomeWire): LibraryImportOutcome {
         status: 'created',
         gameId: wire.game_id as GameSourceId, // ACL Band-2 brand mint
         clientGameId: asBoardId(wire.client_game_id),
+        displayOrdinal: wire.display_ordinal as GameDisplayOrdinal, // ACL Band-2 brand mint
       };
     case 'deduplicated':
       return {
         status: 'deduplicated',
         gameId: wire.game_id as GameSourceId, // ACL Band-2 brand mint
-        clientGameId: wire.client_game_id !== null ? asBoardId(wire.client_game_id) : null,
+        // Per-user-id-enumeration design: closed exception, see
+        // types/library.ts.
+        clientGameId: asBoardId(wire.client_game_id),
+        displayOrdinal: wire.display_ordinal as GameDisplayOrdinal, // ACL Band-2 brand mint
       };
     case 'errored':
       return {

@@ -18,6 +18,7 @@ import { useViewportFollow } from '../../composables/useViewportFollow';
 import { useNavigation }    from '../../composables/useNavigation';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
 import { warmSnapshotAccessor } from '../../composables/cards/usePreviewSnapshot';
+import { isReviewStartNode } from '../../composables/forest/tree-review-marker';
 import { themeColor }        from '../../utils/theme-color';
 import FloatingThumbnail    from '../chrome/FloatingThumbnail.vue';
 import { boardsById }        from '../../store';
@@ -60,6 +61,17 @@ const props = withDefaults(
     // `board.games[*].currentHeadNodeId` upstream; per-session
     // config is opaque here — the tree only needs identity.
     gameHeadIds?: ReadonlySet<NodeId>;
+    // The active review session's starting node — "where a card
+    // starts" (wanted-feature 4 / ledger row 524's re-adjudicated
+    // build). At most one per board (a board has at most one active
+    // review session), so a nullable single id rather than a Set —
+    // same zero-I/O shape as `gameHeadIds`, sourced from
+    // `useReviewSession`'s `startingNodeId` projection over
+    // `ReviewSessionData.startingNodeId` (`null` outside a review
+    // session). Renders a marker ring in the game-head-ring family,
+    // distinct color, so a card's start position reads at a glance
+    // the same way a play/match session head does.
+    reviewStartNodeId?: NodeId | null;
   }>(),
   { orientation: 'vertical' },
 );
@@ -143,7 +155,28 @@ function onToggleLeave() {
 function nodeFill(item: { move?: GameNode['move'] }): string {
   if (!item.move) return themeColor('--border-3');
   // Stone colors are domain-meaningful (board pieces); not chrome.
-  return item.move.color === 'B' ? '#111' : '#eee';
+  //
+  // DARK-THEME EXCEPTION (Defect 7 fix, ui-defects-investigation.md):
+  // the literal black-stone fill '#111' against dark theme's
+  // --surface-2 (#1a1a1a, theme.css) computes to a WCAG contrast ratio
+  // of ~1.085:1 (relative-luminance formula (L1+0.05)/(L2+0.05)) --
+  // functionally invisible, well under C19's 3:1 floor for
+  // information-bearing glyphs (law/adr/0019-appendix-ui-proscriptions.md).
+  // '#eee' (white nodes) against the same background is ~15.0:1 --
+  // trivially passes, unaffected by this change.
+  //
+  // var(--tree-node-black-fill, #111) resolves to '#707070' ONLY when
+  // [data-theme="dark"] is active on <html> (see the plain, unscoped
+  // <style> block below) -- #707070 against #1a1a1a computes to
+  // ~3.51:1 (same formula, cross-checked: it reproduces the report's
+  // 1.085 figure for the #111/#1a1a1a pair before being applied to
+  // #707070/#1a1a1a). Every other theme ("cluster", any future theme)
+  // never sets that custom property, so the var() fallback resolves to
+  // the domain-literal '#111' unchanged -- the mechanism cannot leak
+  // into a theme it wasn't written for. This is pure CSS (no
+  // data-theme sniffing in JS), so it adds zero reactive reads to the
+  // render path (ADR-0010 read-locality).
+  return item.move.color === 'B' ? 'var(--tree-node-black-fill, #111)' : '#eee';
 }
 
 function nodeStroke(item: { move?: GameNode['move'] }): string {
@@ -254,6 +287,7 @@ const nodeList = computed(() => {
     move: GameNode['move']; isBranching: boolean; isExpanded: boolean;
     parentIdForToggle: NodeId | '';
     isGameHead: boolean;
+    isReviewStart: boolean;
   }> = [];
 
   layout.value.positions.forEach((pos, id) => {
@@ -284,6 +318,7 @@ const nodeList = computed(() => {
       isExpanded: isParentExpanded,
       parentIdForToggle, // Pass to template
       isGameHead: !!props.gameHeadIds?.has(id),
+      isReviewStart: isReviewStartNode(id, props.reviewStartNodeId),
     });
   });
   return items;
@@ -346,7 +381,7 @@ const edges = computed(() => {
         <g
           v-for="item in nodeList"
           :key="item.id"
-          v-memo="[item.isGameHead, item.move?.color, item.isBranching, item.isExpanded, item.px, item.py]"
+          v-memo="[item.isGameHead, item.isReviewStart, item.move?.color, item.isBranching, item.isExpanded, item.px, item.py]"
         >
           <!-- Game-head marker — outermost ring (NODE_R + 5) so it stays
                visible when the active-ring (NODE_R + 3) also applies on the
@@ -356,6 +391,19 @@ const edges = computed(() => {
                previously-green nodes no longer render the ring. See
                PlayEngineModal / useEngineResponder for the lifecycle. -->
           <circle v-if="item.isGameHead" :cx="item.px" :cy="item.py" :r="NODE_R + 5" class="game-head-ring" stroke-width="1.5" />
+          <!-- Review-start marker — sibling ring to the game-head ring
+               above, one radius further out (NODE_R + 7) so both can
+               render concentrically on the rare node where a play-vs-
+               engine head and a review session's start coincide, rather
+               than one clobbering the other. `--accent-secondary` is
+               already the SR / current-card accent color (theme.css),
+               so "a card starts here" reads as the SR-family color the
+               same way the game-head ring reads as the play-session
+               color. Sourced from `reviewStartNodeId` (zero I/O — see
+               the prop's doc comment above); appears/disappears with
+               the review session the same way `isGameHead` already does
+               with `board.games`. -->
+          <circle v-if="item.isReviewStart" :cx="item.px" :cy="item.py" :r="NODE_R + 7" class="review-start-ring" stroke-width="1.5" />
           <circle :cx="item.px" :cy="item.py" :r="NODE_R" :fill="nodeFill(item)" :stroke="nodeStroke(item)" stroke-width="1" class="node-circle" @click="emit('select-node', item.id)" />
 
           <g v-if="item.isBranching" class="toggle-group" @click.stop="expansion.toggle(item.parentIdForToggle as NodeId /* layout item's parent id is a NodeId */)" @mouseenter="e => onToggleEnter(e, item.parentIdForToggle as NodeId /* layout item's parent id is a NodeId */)" @mouseleave="onToggleLeave">
@@ -381,6 +429,7 @@ const edges = computed(() => {
 .tree-edges { fill: none; stroke: var(--border-3); }
 .active-ring { fill: color-mix(in srgb, var(--accent-primary) 15%, transparent); stroke: var(--accent-primary); }
 .game-head-ring { fill: color-mix(in srgb, var(--state-success) 15%, transparent); stroke: var(--state-success); }
+.review-start-ring { fill: color-mix(in srgb, var(--accent-secondary) 15%, transparent); stroke: var(--accent-secondary); }
 .node-circle { cursor: pointer; transition: filter var(--duration-default); }
 .node-circle:hover { filter: brightness(1.4) drop-shadow(0 0 3px var(--accent-primary)); }
 .toggle-group { cursor: pointer; }
@@ -391,4 +440,19 @@ const edges = computed(() => {
 .toggle-group:hover .toggle-box { stroke: var(--accent-primary); fill: var(--surface-3); }
 .toggle-group:hover .toggle-mark { stroke: var(--text-0); }
 .hit-area { pointer-events: all; }
+</style>
+
+<!--
+  Plain (unscoped) style block, deliberately separate from the scoped
+  block above: `[data-theme="dark"]` lives on <html>, an ancestor
+  outside this component's own scope-id boundary, so a scoped rule
+  cannot key off it. `.tree-widget-wrapper` is unique in the codebase
+  (grep-checked) so the global selector is safely specific. See
+  nodeFill()'s comment (script block above) for the WCAG-ratio
+  derivation and the var()-fallback leak analysis.
+-->
+<style>
+[data-theme="dark"] .tree-widget-wrapper {
+  --tree-node-black-fill: #707070;
+}
 </style>

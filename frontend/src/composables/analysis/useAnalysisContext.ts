@@ -21,23 +21,55 @@
 import { computed, inject, provide, type InjectionKey } from 'vue';
 import { store } from '../../store';
 import { useAnalysisProjection } from './useAnalysisProjection';
-import { useMistakeFinder } from './useMistakeFinder';
+import { useMistakeFinder, type MistakeMarker } from './useMistakeFinder';
 import { useChartNavigation } from './useChartNavigation';
+import { colorMoveToPly } from './useTriangularHeatmap';
 import { consecutiveGaps } from '../../lib/distributions';
 import { themeColor } from '../../utils/theme-color';
 import type { DistributionSeries } from '../../components/charts/DistributionChart.vue';
 import type { EnrichedSeries } from './useEnrichedData';
-import type { BoardId } from '../../types';
+import type { BoardId, ColorMoveIndex, PlyIndex, StoneColor } from '../../types';
 
-// Pull the finite values out of a per-colour enriched-series set — the
-// sample vector the KDE/histogram consume. Moved verbatim from the
-// dashboard's prior inline helper.
-function valuesFromSeries(series: EnrichedSeries[]): number[] {
+// Pull the finite values out of a per-colour enriched-series set that fall
+// within the analysis selection range — the sample vector the KDE consumes.
+//
+// Mapping anchor: `EnrichedSeries.data` entries are keyed by colour-local
+// move index (`mIdx`; see enriched-accumulator.ts's "Delta arbitration"
+// doc), NOT by PlyIndex and NOT by array position — `deltaSeries.black[i]`
+// is not "the move at ply i". `range` is `[PlyIndex, PlyIndex]` (whole-game
+// plies, root-anchored), so each entry's ply is derived via
+// `colorMoveToPly` — the codebase's sole (ColorMoveIndex, StoneColor) ->
+// PlyIndex authority (also used by MergedDeltaPanel / useChartNavigation
+// for this exact series shape) — rather than an inline `2*i+parity` guess,
+// which would be unsound the moment a game seeds handicap stones outside
+// `variationPath` (colour-local index 0 would then not sit at ply 1).
+// `range` is treated as inclusive at both ends, matching
+// AnalysisTimelinePanel's displayed `turnsRange`.
+function valuesFromSeriesInRange(
+  series: EnrichedSeries[],
+  color: StoneColor,
+  range: [PlyIndex, PlyIndex],
+): number[] {
+  const [start, end] = range;
   const out: number[] = [];
   for (const s of series) {
-    for (const [, v] of s.data) if (v !== null) out.push(v);
+    for (const [k, v] of s.data) {
+      if (v === null) continue;
+      const ply = colorMoveToPly(k as ColorMoveIndex, color); // brand mint: `k` is a colour-local move index by construction (see doc above)
+      if (ply >= start && ply <= end) out.push(v);
+    }
   }
   return out;
+}
+
+// Same range-membership test as above, applied to a MistakeMarker (whose
+// `colorLocalIdx` lives in the same colour-local move-index space as
+// `EnrichedSeries.data`'s `k`; `.ply` on the marker is a different,
+// parity-interleaved *chart* axis, not a PlyIndex, so it is not used here).
+function mistakeInRange(m: MistakeMarker, range: [PlyIndex, PlyIndex]): boolean {
+  const [start, end] = range;
+  const ply = colorMoveToPly(m.colorLocalIdx as ColorMoveIndex, m.color); // brand mint: colorLocalIdx is a colour-local move index by construction
+  return ply >= start && ply <= end;
 }
 
 export function useAnalysisContext(boardId: BoardId) {
@@ -48,15 +80,25 @@ export function useAnalysisContext(boardId: BoardId) {
 
   // Distribution series — moved verbatim from AnalysisDashboard so the
   // dashboard no longer reads `enriched.value` / `mistakes.value` in its
-  // own render (the whole point of the seam).
-  const deltaKdeSeries = computed<DistributionSeries[]>(() => [
-    { name: 'Black', samples: valuesFromSeries(projection.enriched.value.deltaSeries.black), color: themeColor('--player-black') },
-    { name: 'White', samples: valuesFromSeries(projection.enriched.value.deltaSeries.white), color: themeColor('--player-white') },
-  ]);
-  const mistakeGapHistogramSeries = computed<DistributionSeries[]>(() => [
-    { name: 'Black', samples: consecutiveGaps(mistakes.value.filter(m => m.color === 'B').map(m => m.colorLocalIdx)), color: themeColor('--player-black') },
-    { name: 'White', samples: consecutiveGaps(mistakes.value.filter(m => m.color === 'W').map(m => m.colorLocalIdx)), color: themeColor('--player-white') },
-  ]);
+  // own render (the whole point of the seam). Both read
+  // `projection.selectionRange.value` so the computed genuinely subscribes
+  // to the analysis move-range picker — previously neither read it at all,
+  // so changing the range never recomputed either series (a missing
+  // reactive read, not a stale cache).
+  const deltaKdeSeries = computed<DistributionSeries[]>(() => {
+    const range = projection.selectionRange.value;
+    return [
+      { name: 'Black', samples: valuesFromSeriesInRange(projection.enriched.value.deltaSeries.black, 'B', range), color: themeColor('--player-black') },
+      { name: 'White', samples: valuesFromSeriesInRange(projection.enriched.value.deltaSeries.white, 'W', range), color: themeColor('--player-white') },
+    ];
+  });
+  const mistakeGapHistogramSeries = computed<DistributionSeries[]>(() => {
+    const range = projection.selectionRange.value;
+    return [
+      { name: 'Black', samples: consecutiveGaps(mistakes.value.filter(m => m.color === 'B' && mistakeInRange(m, range)).map(m => m.colorLocalIdx)), color: themeColor('--player-black') },
+      { name: 'White', samples: consecutiveGaps(mistakes.value.filter(m => m.color === 'W' && mistakeInRange(m, range)).map(m => m.colorLocalIdx)), color: themeColor('--player-white') },
+    ];
+  });
 
   return {
     boardId,

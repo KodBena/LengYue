@@ -11,10 +11,12 @@
  */
 import { ref, computed } from 'vue';
 import type { HyperparamDecl } from '../../types';
+import { useModalKeyboard } from '../../composables/useModalKeyboard';
 
 export type HyperparamValues = Record<string, number | string>;
 
 const isOpen = ref(false);
+const modalContentRef = ref<HTMLElement | null>(null);
 const declarations = ref<HyperparamDecl[]>([]);
 // Per-name raw input strings; numbers are parsed at submit time so
 // the user can type freely. Pre-populated from `default` on open.
@@ -80,13 +82,18 @@ function cancel() {
   resolvePromise?.(null);
   resolvePromise = null;
 }
+
+// Escape → same close path as the Cancel button (ADR-0019 S5);
+// Tab focus trap + initial focus + focus restoration — all one
+// shared mechanism, see useModalKeyboard.ts.
+useModalKeyboard(modalContentRef, isOpen, cancel);
 </script>
 
 <template>
   <div v-if="isOpen" class="modal-backdrop" @mousedown.self="cancel">
-    <div class="modal-content">
+    <div ref="modalContentRef" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="harness-prompt-title" tabindex="-1">
       <div class="modal-header">
-        <h2>{{ $t('harnessPrompt.title') }}</h2>
+        <h2 id="harness-prompt-title">{{ $t('harnessPrompt.title') }}</h2>
       </div>
       <div class="modal-body">
         <p class="lede">{{ $t('harnessPrompt.lede') }}</p>

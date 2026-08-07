@@ -228,6 +228,68 @@ describe('useUserIORegistry — context guards', () => {
   });
 });
 
+// ── Workspace-load guard (ADR-0019 audit S1 review, nit 1) ─
+//
+// App.vue's render gate withholds the board/tree/control-panel
+// surfaces while `workspaceLoadState.kind !== 'loaded'`, but this
+// listener is global (`window`) and independent of the render
+// tree — the per-action `enabledWhen` predicates are satisfied by
+// the store's DEFAULT board during 'loading', so without this
+// guard a nav/display-toggle hotkey (or the Space ponder-toggle,
+// a real WebSocket query) would still fire against a phantom
+// workspace about to be replaced wholesale by hydrate(). Pins the
+// early return added to `handleKeyDown` in `useUserIORegistry.ts`.
+
+describe('useUserIORegistry — workspace-load guard', () => {
+  it("does NOT fire an immediate-mode action while workspaceLoadState is 'loading'", () => {
+    store.workspaceLoadState = { kind: 'loading' };
+    const before = store.session.ui.showMoveSuggestions;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'm' }));
+    expect(store.session.ui.showMoveSuggestions).toBe(before);
+  });
+
+  it("does NOT fire the ponder-toggle (a real analysisService WebSocket query) while workspaceLoadState is 'loading', even with the engine connected", () => {
+    store.workspaceLoadState = { kind: 'loading' };
+    store.engine.status = 'connected';
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
+    expect(fakeAnalysisService.isPondering).not.toHaveBeenCalled();
+    expect(fakeAnalysisService.analyzeActiveNode).not.toHaveBeenCalled();
+  });
+
+  it("does NOT fire a coalesced-mode nav action (no rAF scheduled) while workspaceLoadState is 'loading'", () => {
+    store.workspaceLoadState = { kind: 'loading' };
+    const rafSpy = vi.spyOn(globalThis, 'requestAnimationFrame');
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+    expect(rafSpy).not.toHaveBeenCalled();
+    rafSpy.mockRestore();
+  });
+
+  it("does NOT call preventDefault while workspaceLoadState is 'loading' (no key is claimed before the workspace is real)", () => {
+    store.workspaceLoadState = { kind: 'loading' };
+    const event = new KeyboardEvent('keydown', { key: 'm', cancelable: true });
+    const preventSpy = vi.spyOn(event, 'preventDefault');
+    window.dispatchEvent(event);
+    expect(preventSpy).not.toHaveBeenCalled();
+  });
+
+  it("resumes normal dispatch once workspaceLoadState becomes 'loaded'", () => {
+    store.workspaceLoadState = { kind: 'loading' };
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'm' }));
+    const before = store.session.ui.showMoveSuggestions;
+
+    store.workspaceLoadState = { kind: 'loaded' };
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'm' }));
+    expect(store.session.ui.showMoveSuggestions).toBe(!before);
+  });
+
+  it("does NOT fire while workspaceLoadState is 'error' either (not just 'loading')", () => {
+    store.workspaceLoadState = { kind: 'error', message: 'boom' };
+    const before = store.session.ui.showMoveSuggestions;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'm' }));
+    expect(store.session.ui.showMoveSuggestions).toBe(before);
+  });
+});
+
 // ── captureMode early-return (Phase 4) ──────────────────
 
 describe('useUserIORegistry — captureMode early-return', () => {

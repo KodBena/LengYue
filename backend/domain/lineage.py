@@ -29,11 +29,24 @@ Frozen per ADR-0001's "value objects keep readonly" rule: these are
 projection results, not mutable state containers. A second pipeline
 run produces a new instance.
 
+Browse-leak-fix (ledger rows 417/423): the root-identifying fields
+(`root_card_id`, `game_source_id`) carried the raw global-sequence
+PKs. Per-user-id-enumeration migration 0004 already backfilled
+`card.public_id` (UUID) and `game_source.display_ordinal` (per-user
+int); this pass threads them through as the root's identity instead.
+`card_ids_in_tree` / `unmatched_card_ids` are unaffected — they carry
+the *input* card ids the caller already owns (obtained from an
+already-tenancy-scoped response, e.g. `/forests/query`'s
+`CardWithRecall.id`, itself a named exception on the schema-walk
+allowlist), a reference role rather than a display role, and are
+never painted as digits anywhere in the frontend.
+
 License: Public Domain (The Unlicense)
 """
 from __future__ import annotations
 
 from typing import List
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
@@ -43,15 +56,19 @@ class RootGroup(BaseModel):
     One game-source root that some subset of the resolve-roots input
     descends from.
 
-    `card_ids_in_tree` is the subset of the original input that
-    resolved to this particular root. The list is order-preserving
-    relative to the input (the adapter inserts in input order so the
-    frontend can reason about its own request without re-sorting).
+    `root_card_public_id` / `game_source_display_ordinal` identify the
+    root itself (per-user display ids, not the raw global PK —
+    browse-leak-fix). `card_ids_in_tree` is the subset of the original
+    input that resolved to this particular root, still raw card ids
+    (reference role — see the module docstring). The list is order-
+    preserving relative to the input (the adapter inserts in input
+    order so the frontend can reason about its own request without
+    re-sorting).
     """
     model_config = ConfigDict(frozen=True)
 
-    root_card_id: int
-    game_source_id: int
+    root_card_public_id: UUID
+    game_source_display_ordinal: int
     card_ids_in_tree: List[int]
 
 
@@ -102,8 +119,10 @@ CardTree.model_rebuild()
 class RootedTree(BaseModel):
     """
     A tree plus the per-root context the wire response needs:
-    `root_card_id` (so the caller can correlate against its request)
-    and `game_source_id` (the game-source the root descends from).
+    `root_card_public_id` (so the caller can correlate against its
+    request — browse-leak-fix: was `root_card_id`, the raw PK) and
+    `game_source_display_ordinal` (the game-source the root descends
+    from, per-user ordinal — was `game_source_id`).
 
     Returned by `LineageRepositoryPort.fetch_tree_by_root`. The
     backend spec's wire-shape declaration includes both fields;
@@ -115,6 +134,6 @@ class RootedTree(BaseModel):
     """
     model_config = ConfigDict(frozen=True)
 
-    root_card_id: int
-    game_source_id: int
+    root_card_public_id: UUID
+    game_source_display_ordinal: int
     tree: CardTree

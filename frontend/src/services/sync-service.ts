@@ -18,6 +18,7 @@ import { watch } from 'vue';
 import {
   store,
   boardsVersion,
+  sessionVersion,
   updateFromRemote,
   pushSystemMessage,
   resetWorkspace,
@@ -118,15 +119,32 @@ export class SyncService {
       // hydrate's updateFromRemote will replace the store; no
       // explicit reset needed on this branch. Fire-and-forget; hydrate
       // self-handles (catch → system message). void = intentional non-await.
+      // hydrate() itself owns the workspaceLoadState transition
+      // ('loading' → 'loaded'/'error') for this branch.
       void this.hydrate(next.userId);
-    } else if (wasHydrated) {
+      return;
+    }
+
+    if (wasHydrated) {
       // We were synced to an identity; we're not anymore. Clear
       // the workspace so the next user (or no-user) doesn't see
       // the prior user's data. Privacy: shared-computer scenario.
       // Engine state is intentionally preserved; see
       // resetWorkspace's docstring for the deployment-model
-      // reasoning.
+      // reasoning. resetWorkspace() sets workspaceLoadState back to
+      // 'loaded' (nothing pending) as part of its reset.
       resetWorkspace();
+    } else {
+      // ADR-0019 audit S1: no identity to hydrate for in this auth
+      // state (unauthenticated / authenticating / error / the
+      // userId-less authenticated edge case), and we were never
+      // hydrated this session, so resetWorkspace() above doesn't run
+      // either. Without this, workspaceLoadState would be stuck at
+      // its module-init 'loading' value forever on an unauthenticated
+      // cold start, and App.vue's gate would spin indefinitely. The
+      // store's built-in default workspace IS the honest state here
+      // (there's nothing else to show), so mark it loaded.
+      store.workspaceLoadState = { kind: 'loaded' };
     }
   }
 
@@ -139,16 +157,42 @@ export class SyncService {
    */
   private async hydrate(userId: number): Promise<void> {
     const gen = ++this.hydrationGeneration;
+    // ADR-0019 audit S1: mark the fetch in flight BEFORE the await so
+    // App.vue's gate holds the loading state (or re-enters it, on a
+    // user-triggered retry after 'error') for the whole request, not
+    // just after it resolves.
+    store.workspaceLoadState = { kind: 'loading' };
     try {
       const doc = await api.request<any>('GET', `/documents/${this.docKey}`);
       if (gen !== this.hydrationGeneration) return;  // superseded
       if (doc && doc.data) updateFromRemote(doc.data);
       this.hydratedForUserId = userId;
+      store.workspaceLoadState = { kind: 'loaded' };
       pushSystemMessage('info', i18n.global.t('sync.workspaceLoaded'));
     } catch (err) {
       if (gen !== this.hydrationGeneration) return;
       console.error('[Sync] Hydration failed:', err);
+      const message = err instanceof Error ? err.message : String(err);
+      store.workspaceLoadState = { kind: 'error', message };
       pushSystemMessage('error', i18n.global.t('sync.workspaceLoadFailed'));
+    }
+  }
+
+  /**
+   * Retries the workspace fetch after a failed hydration (ADR-0019
+   * audit S1 error path, C8: explicit error state with retry, never
+   * silently re-showing the stale/default paint). Only meaningful
+   * when the current identity is authenticated with a known userId —
+   * App.vue only renders the retry affordance while
+   * `workspaceLoadState.kind === 'error'`, which only this class's
+   * own `hydrate()` can produce, so the guard here is defense in
+   * depth rather than a reachable no-op path.
+   */
+  public retryHydrate(): void {
+    const state = this.auth.state.value;
+    if (state.kind === 'authenticated' && state.userId !== undefined) {
+      // Fire-and-forget; hydrate self-handles (catch → message + error state).
+      void this.hydrate(state.userId);
     }
   }
 
@@ -163,37 +207,72 @@ export class SyncService {
    * Subscribe to the full reactive surface that participates in
    * sync.
    *
-   * Why one watcher instead of three:
-   *   The previous implementation ran three independent watchers
-   *   (boards, profile, session) — each with its own debounce
-   *   slot, each calling the same sendSync() which always
-   *   serializes the entire blob. Because the PUT is monolithic,
-   *   per-channel timers produced only drawbacks:
+   * Why one DEBOUNCE SLOT, not three:
+   *   The original implementation ran three independent watchers
+   *   (boards, profile, session) — each with its OWN debounce slot,
+   *   each calling the same sendSync() which always serializes the
+   *   entire blob. Because the PUT is monolithic, per-channel timers
+   *   produced only drawbacks:
    *     (a) no bandwidth saving — every PUT sent everything;
    *     (b) redundant PUTs when two channels fired in the same
    *         debounce window (e.g., boards at t=0 and profile at
    *         t=0.5s produced one PUT at t=1s AND another at
    *         t=1.5s, both containing the same merged state).
-   *   A single watcher + single debounce slot produces exactly
-   *   one PUT per user-perceptible change batch, which is what
-   *   we want.
+   *   The fix was a SINGLE debounce slot, not necessarily a single
+   *   `watch` — what matters is that every channel funnels through
+   *   `scheduleSync`, which cancels+reschedules the one
+   *   `pendingTimer`, so exactly one PUT lands per change batch. The
+   *   current shape uses two `watch` calls (the shallow board/session
+   *   counter watch + the deep profile watch, split for the perf
+   *   reason below), both routed through that one slot — so the
+   *   one-PUT-per-batch property is unchanged.
    *
-   * Why deep watches on profile and session:
-   *   boardsVersion is an explicit version counter bumped by
-   *   every board mutation, so a shallow watch suffices. profile
-   *   and session are deep reactive trees without version
-   *   counters, so they need deep watches to catch nested edits.
+   * Why a shallow version-counter watch for boards AND session, but
+   * a deep watch for profile:
+   *   `boardsVersion` and `sessionVersion` are explicit version
+   *   counters (`store/index.ts`) bumped by every board / session
+   *   mutation that should persist, so a SHALLOW read of their
+   *   `.value` suffices — no traversal. `store.session` specifically
+   *   moved off a deep watch because it holds three PER-BOARD
+   *   dictionaries (`session.reviews`, `session.ui.cardTreeNav`,
+   *   `session.ui.forestNav.selection`); deep-traversing them was
+   *   O(open-board count) per fire and O(N²) over a close-all — the
+   *   dominant close-at-scale cost (see `sessionVersion`'s docstring
+   *   and `composables/perf/closeAtScale.ts`). The
+   *   persistence-correctness contract — every session write bumps
+   *   `sessionVersion` — is pinned by
+   *   `tests/integration/sync-session-version.test.ts`.
+   *   `store.profile` keeps a deep watch: it is workspace-global
+   *   (settings + decks), O(1) in open-board count, so its deep
+   *   traversal does not scale with the board rail; a counter would
+   *   only add write-site discipline with no perf payoff.
+   *
+   * Why two watches still share one debounce:
+   *   Both call `scheduleSync()`, which cancels and reschedules the
+   *   single `pendingTimer` slot — so the one-PUT-per-change-batch
+   *   property the single-watcher scheme bought (see above) is
+   *   preserved: whichever watch fires last in a debounce window
+   *   owns the slot, and exactly one PUT lands.
    */
   private startWatcher() {
+    // Boards + session via their shallow version counters, plus the
+    // directly-watched active-board index. No traversal.
     watch(
       () => [
         boardsVersion.value,
+        sessionVersion.value,
         store.activeBoardIndex,
-        store.profile,
-        store.session,
       ],
       () => this.scheduleSync(),
-      { deep: true }
+    );
+
+    // Profile keeps a deep watch — workspace-global, O(1) in board
+    // count (see the docstring above). Shares the one debounce slot
+    // via `scheduleSync`.
+    watch(
+      () => store.profile,
+      () => this.scheduleSync(),
+      { deep: true },
     );
   }
 

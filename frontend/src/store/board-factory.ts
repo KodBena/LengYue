@@ -54,7 +54,16 @@ export function createInitialBoard(): BoardState {
     parent: null,
     children: [],
     activeChildIndex: 0,
-    properties: { SZ: ['19'], GM: ['1'], FF: ['4'] },
+    // RU: ['Tromp-Taylor'] — commissioner adjudication on the flagged
+    // fresh-board consequence of the ruleset ruling (rulesets-build.md
+    // addendum): this authors the root's own RU record at creation
+    // time (RulesetName's canonical spelling), it does not coerce any
+    // input, so a fresh board resolves with `source: 'ru'` by
+    // construction (see `getRulesetResolution` /
+    // `normalizeRuleset` in `engine/rulesets.ts`) rather than falling
+    // through to the defaulted-Tromp-Taylor path a board with no RU
+    // at all would take.
+    properties: { SZ: ['19'], GM: ['1'], FF: ['4'], RU: ['Tromp-Taylor'] },
     move: null,
   };
 

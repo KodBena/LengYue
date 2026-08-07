@@ -15,46 +15,32 @@
  * Same open/resolve shape as ConfirmLoadModal.vue (isOpen ref +
  * promise-resolve pattern) but resolves a plain boolean rather than a
  * structured action, since close has only two outcomes: confirmed or
- * cancelled.
+ * cancelled. Keyboard/focus handling (Escape → Cancel, Tab focus trap,
+ * initial focus, focus restoration) is `useModalKeyboard` — the shared
+ * mechanism every modal in this directory uses (ADR-0019 audit S5).
+ * (An earlier revision of this file, authored against a worktree whose
+ * branch point predated useModalKeyboard existing, carried a small
+ * self-contained Escape/focus mechanism instead; that was swapped for
+ * the real composable once a merge brought S5 in — no functional loss,
+ * this file is exactly the "thin dedicated component" that swap was
+ * always meant to land on.)
  *
- * DEVIATION FROM THE COMMISSIONED PATTERN, DISCLOSED: the dispatch that
- * commissioned this modal named `useModalKeyboard.ts` — a shared
- * Escape/focus-trap/initial-focus/restore composable already wired into
- * every modal in `src/components/modals/` — as the convention to reuse.
- * That composable does NOT exist in this worktree: `grep -rl
- * "useModalKeyboard" src/` returns nothing, and every existing modal here
- * (ConfirmLoadModal.vue included) has zero keyboard handling — no
- * `role="dialog"`, no `tabindex`, no Escape binding. This worktree's
- * branch point predates the ADR-0019-audit S5 fix ("every modal is
- * keyboard-inert") that composable belongs to; the commissioning dispatch
- * was written against a newer tree.
- *
- * Rather than block on that mismatch or introduce a new shared
- * composable pre-emptively (which would duplicate whatever ships when S5
- * actually lands here, and this dispatch's own S6 section says explicitly
- * NOT to build a shared primitive — see its S14 note), this modal wires
- * a small SELF-CONTAINED keyboard mechanism scoped to itself: Escape
- * routes to the same Cancel path as the button, initial focus lands on
- * the modal on open, and focus restores to the opener on close. It does
- * NOT implement a full manual Tab-cycle focus trap (the hardest part of
- * useModalKeyboard) — that's judged out of proportion for one dedicated
- * modal when no other modal in this tree has one either, and doing it
- * here first would itself be inventing the shared mechanism through the
- * back door. Flagged for reconciliation once useModalKeyboard (or
- * equivalent) lands in this branch's ancestry — this modal is exactly
- * the "thin dedicated component" the commissioning dispatch asked for,
- * so swapping it onto the real composable then should be a small,
- * mechanical change.
+ * Backdrop is deliberately `background: transparent` — no dimming tint —
+ * per the commissioner's standing instruction for this dispatch (a
+ * departure from the older modals' `rgba(...)` backdrops in this same
+ * directory). Card background is `var(--surface-0)`, the blessed control
+ * background token. S14 note honored: this is a thin, single-purpose
+ * modal, not a new generic confirm/prompt primitive.
  *
  * License: Public Domain (The Unlicense).
  */
-import { ref, nextTick, onUnmounted, watch } from 'vue';
+import { ref } from 'vue';
+import { useModalKeyboard } from '../../composables/useModalKeyboard';
 
 const isOpen = ref(false);
 const boardName = ref('');
 const modalContentRef = ref<HTMLElement | null>(null);
 let resolvePromise: ((confirmed: boolean) => void) | null = null;
-let opener: HTMLElement | null = null;
 
 defineExpose({
   open(name: string): Promise<boolean> {
@@ -74,31 +60,10 @@ function handle(confirmed: boolean) {
   }
 }
 
-function handleKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Escape') {
-    e.preventDefault();
-    handle(false);
-  }
-}
-
-// Escape-to-close + initial focus + focus restoration, scoped to this
-// one modal (see the DEVIATION note above for why this isn't
-// useModalKeyboard). No Tab-cycle trap.
-watch(isOpen, (open) => {
-  if (open) {
-    opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    window.addEventListener('keydown', handleKeydown);
-    void nextTick(() => modalContentRef.value?.focus());
-  } else {
-    window.removeEventListener('keydown', handleKeydown);
-    if (opener !== null && document.contains(opener)) opener.focus();
-    opener = null;
-  }
-});
-
-onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeydown);
-});
+// Escape → same close path as Cancel (ADR-0019 S5); Tab focus trap +
+// initial focus + focus restoration — all one shared mechanism, see
+// useModalKeyboard.ts.
+useModalKeyboard(modalContentRef, isOpen, () => handle(false));
 </script>
 
 <template>

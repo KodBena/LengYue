@@ -2853,3 +2853,206 @@ describe('60 → 61: backfill engine.katago.calibrationVisits', () => {
     expect(out.profile.settings.engine.katago.calibrationVisits).toBe(1000);
   });
 });
+
+describe('61 → 62: analysisRange → analysisRanges (branch-stem keying, carry-over)', () => {
+  // Design proposal §1 Candidate C; commissioner adjudication (ledger
+  // rows 112/119). A board with a legacy single-slot `analysisRange`
+  // is converted to a single `analysisRanges` entry keyed by the
+  // branch stem computed from the board's CURRENT active-variation
+  // path (root -> leaf via activeChildIndex) at migration time.
+
+  /** A straight mainline (no fork): root -> a -> b, no node has >1 child. */
+  function boardMainlineOnly(range: [number, number] | undefined): any {
+    return {
+      id: 'board-1',
+      rootNodeId: 'root',
+      currentNodeId: 'b',
+      nodes: {
+        root: { id: 'root', parent: null, children: ['a'], activeChildIndex: 0 },
+        a: { id: 'a', parent: 'root', children: ['b'], activeChildIndex: 0 },
+        b: { id: 'b', parent: 'a', children: [], activeChildIndex: 0 },
+      },
+      ...(range !== undefined ? { analysisRange: range } : {}),
+    };
+  }
+
+  /** root -> fork -> {left, right}; activeChildIndex 1 selects "right". */
+  function boardWithForkOnRight(range: [number, number]): any {
+    return {
+      id: 'board-2',
+      rootNodeId: 'root',
+      currentNodeId: 'right',
+      nodes: {
+        root: { id: 'root', parent: null, children: ['fork'], activeChildIndex: 0 },
+        fork: { id: 'fork', parent: 'root', children: ['left', 'right'], activeChildIndex: 1 },
+        left: { id: 'left', parent: 'fork', children: [], activeChildIndex: 0 },
+        right: { id: 'right', parent: 'fork', children: [], activeChildIndex: 0 },
+      },
+      analysisRange: range,
+    };
+  }
+
+  it('converts a mainline-only board\'s legacy analysisRange into a single analysisRanges entry (empty branch key, no fork ever chosen)', () => {
+    const blob: any = { boards: [boardMainlineOnly([0, 2])] };
+    const out = step(61)(blob);
+    const board = out.boards[0];
+    expect(board.analysisRange).toBeUndefined();
+    expect(board.analysisRanges).toEqual({ '': [0, 2] });
+  });
+
+  it('converts a forked board\'s legacy analysisRange into an entry keyed by the branch stem of its CURRENT active path', () => {
+    const blob: any = { boards: [boardWithForkOnRight([1, 2])] };
+    const out = step(61)(blob);
+    const board = out.boards[0];
+    expect(board.analysisRange).toBeUndefined();
+    expect(board.analysisRanges).toEqual({ 'fork:right': [1, 2] });
+  });
+
+  it('is a no-op when analysisRange is absent', () => {
+    const blob: any = { boards: [boardMainlineOnly(undefined)] };
+    const out = step(61)(blob);
+    expect(out.boards[0].analysisRanges).toBeUndefined();
+  });
+
+  it('is idempotent: a board that already carries analysisRanges is left untouched', () => {
+    const board = boardMainlineOnly([0, 2]);
+    board.analysisRanges = { 'already-migrated': [9, 9] };
+    const blob: any = { boards: [board] };
+    const out = step(61)(blob);
+    expect(out.boards[0].analysisRanges).toEqual({ 'already-migrated': [9, 9] });
+    // The legacy field is left alone too — the migration only acts when
+    // analysisRanges is absent.
+    expect(out.boards[0].analysisRange).toEqual([0, 2]);
+  });
+
+  it('is a no-op when boards is absent or non-array', () => {
+    expect(step(61)({}).boards).toBeUndefined();
+    const blob: any = { boards: 'not-an-array' };
+    expect(step(61)(blob).boards).toBe('not-an-array');
+  });
+
+  it('walks end-to-end: a v61 blob reaches CURRENT with the legacy range carried over under the branch key', () => {
+    const blob: any = {
+      schemaVersion: 61,
+      boards: [boardWithForkOnRight([1, 2])],
+      profile: { settings: { engine: { katago: { url: 'ws://x' } } } },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(out.boards[0].analysisRanges).toEqual({ 'fork:right': [1, 2] });
+  });
+});
+
+describe('63 → 64: backfill session.ui.deltaViewMode (delta-analysis view cycle, ledger row 418)', () => {
+  function blobWithUi(): any {
+    return { session: { ui: { activeTab: 'cards' } } };
+  }
+
+  it("backfills deltaViewMode = 'shared' when the leaf is absent", () => {
+    const out = step(63)(blobWithUi());
+    expect(out.session.ui.deltaViewMode).toBe('shared');
+  });
+
+  it('preserves a pre-existing valid mode (idempotent)', () => {
+    const blob = blobWithUi();
+    blob.session.ui.deltaViewMode = 'black';
+    expect(step(63)(blob).session.ui.deltaViewMode).toBe('black');
+
+    const blobWhite = blobWithUi();
+    blobWhite.session.ui.deltaViewMode = 'white';
+    expect(step(63)(blobWhite).session.ui.deltaViewMode).toBe('white');
+  });
+
+  it('replaces a malformed deltaViewMode with the default', () => {
+    const blob = blobWithUi();
+    blob.session.ui.deltaViewMode = 'both'; // not a valid mode
+    expect(step(63)(blob).session.ui.deltaViewMode).toBe('shared');
+  });
+
+  it('is a no-op when session.ui is absent (very-legacy / partial blob)', () => {
+    const blob: any = { session: {} };
+    expect(step(63)(blob).session.ui).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v63 blob reaches CURRENT with deltaViewMode backfilled to shared', () => {
+    const blob: any = { schemaVersion: 63, session: { ui: { activeTab: 'cards' } } };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(out.session.ui.deltaViewMode).toBe('shared');
+  });
+});
+
+describe('65 → 66: resizer-rearch — strip the two pre-rearch split-workspace resizer homes', () => {
+  // Strips the two prior homes (session.ui.boardSquareMaxWidthPx,
+  // session.ui.controlPanelWidth — see the migration body's own
+  // comment in migrations.ts for the full ADR-0019 audit S2 / S9
+  // context). No value is carried forward; the current-model fields
+  // this rearch settled on (treePanelWidthPx,
+  // treeControlRegionWidthPx — nested-splitter amendment, ledger rows
+  // 391/414) are left absent, their documented defaults. Neither ever
+  // shipped under this migration's original name
+  // (`controlPanelWidthPx`, superseded within the same development
+  // arc before release), so there is no name to assert absence of
+  // here beyond the two genuinely-legacy fields. Renumbered 61→62 →
+  // 64→65 on merge into `next` (review §1/§2): `next` independently
+  // claimed 61→62 (analysisRange reshape, above) and shipped 62→63 /
+  // 63→64 of its own after this migration was authored.
+  function blobWithUi(extra: Record<string, unknown> = {}): any {
+    return {
+      session: {
+        ui: {
+          activeTab: 'cards',
+          treeExpanded: true,
+          ...extra,
+        },
+      },
+    };
+  }
+
+  it('deletes boardSquareMaxWidthPx when present', () => {
+    const out = step(65)(blobWithUi({ boardSquareMaxWidthPx: 3490 }));
+    expect('boardSquareMaxWidthPx' in out.session.ui).toBe(false);
+    // No value is carried forward to either current-model field.
+    expect('treePanelWidthPx' in out.session.ui).toBe(false);
+    expect('treeControlRegionWidthPx' in out.session.ui).toBe(false);
+  });
+
+  it('deletes the dead controlPanelWidth zombie field when present', () => {
+    const out = step(65)(blobWithUi({ controlPanelWidth: 340 }));
+    expect('controlPanelWidth' in out.session.ui).toBe(false);
+  });
+
+  it('deletes both prior homes at once, preserving sibling leaves', () => {
+    const out = step(65)(blobWithUi({ boardSquareMaxWidthPx: 2228, controlPanelWidth: 340 }));
+    expect('boardSquareMaxWidthPx' in out.session.ui).toBe(false);
+    expect('controlPanelWidth' in out.session.ui).toBe(false);
+    expect(out.session.ui.activeTab).toBe('cards');
+    expect(out.session.ui.treeExpanded).toBe(true);
+  });
+
+  it('is idempotent — a no-op when neither prior field is present', () => {
+    const out = step(65)(blobWithUi());
+    expect('boardSquareMaxWidthPx' in out.session.ui).toBe(false);
+    expect('controlPanelWidth' in out.session.ui).toBe(false);
+    expect(out.session.ui.activeTab).toBe('cards');
+  });
+
+  it('is a no-op when session.ui is absent (very-legacy / partial blob)', () => {
+    const blob: any = { profile: {} };
+    const out = step(65)(blob);
+    expect(out.session).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v64 blob reaches CURRENT with both prior homes gone', () => {
+    const blob: any = {
+      schemaVersion: 65,
+      session: {
+        ui: { activeTab: 'cards', boardSquareMaxWidthPx: 3490, controlPanelWidth: 340 },
+      },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect('boardSquareMaxWidthPx' in out.session.ui).toBe(false);
+    expect('controlPanelWidth' in out.session.ui).toBe(false);
+  });
+});

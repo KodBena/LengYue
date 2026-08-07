@@ -27,16 +27,27 @@
  */
 
 import { vi } from 'vitest';
-import type { CardId, CardCreatePayload, CardMetadataPatch, ReviewCard } from '../../src/types';
+import type {
+  CardId,
+  CardCreatePayload,
+  CardMetadataPatch,
+  ContentHash,
+  ReviewCard,
+} from '../../src/types';
 
 export const fakeBackendService = {
   submitReview: vi.fn<(cardId: CardId, scores: number[]) => Promise<ReviewCard>>(),
   createCard: vi.fn<(payload: CardCreatePayload) => Promise<number>>(),
   updateCardMetadata: vi.fn<(cardId: CardId, patch: CardMetadataPatch) => Promise<ReviewCard>>(),
+  // card-position-annotations Stage A: the stateless hash lookup
+  // (`POST /positions/hash`) — exercised by useMinting/useKnownPositions'
+  // mint-time duplicate check.
+  hashPosition: vi.fn<(rawContent: string) => Promise<ContentHash>>(),
 };
 
 export function resetFakeBackendService(): void {
   fakeBackendService.submitReview.mockReset();
   fakeBackendService.createCard.mockReset();
   fakeBackendService.updateCardMetadata.mockReset();
+  fakeBackendService.hashPosition.mockReset();
 }

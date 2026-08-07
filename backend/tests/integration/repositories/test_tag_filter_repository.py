@@ -21,10 +21,16 @@ License: Public Domain (The Unlicense)
 from __future__ import annotations
 
 import hashlib
+from itertools import count
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+
+# Per-user-id-enumeration design: see test_stats_repository.py's
+# identical comment.
+_ordinal = count(1)
 
 from db.schema import (
     card,
@@ -73,6 +79,7 @@ async def _seed_card(
         .values(
             num_moves=5, alpha=3.0, beta=3.0, t=1.0,
             user_id=user_id, normalized_position_id=position_id,
+            public_id=uuid4(), display_ordinal=next(_ordinal),
         )
         .returning(card.c.id)
     )

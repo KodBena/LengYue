@@ -113,6 +113,10 @@ export type {
   AnalysisTabId,
   CardId,
   GameSourceId,
+  CardDisplayOrdinal,
+  GameDisplayOrdinal,
+  CardPublicId,
+  ContentHash,
 } from './types/ids';
 
 // ── Game domain (Go value objects, game-tree state, game-coupled brands) ──────
@@ -233,7 +237,7 @@ export type {
 } from './types/library';
 
 // ── Application-shell value objects ───────────────────────────────────────────
-export type { AuthState, SystemMessage } from './types/app';
+export type { AuthState, SystemMessage, WorkspaceLoadState } from './types/app';
 
 // ── Persisted store schema (colocated with store/defaults.ts) ─────────────────
 export type {

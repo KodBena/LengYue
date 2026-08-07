@@ -121,8 +121,14 @@ class StatsRepository:
 
         Stage 2 (final SELECT): join root_mapping with game_source
         (for forest-level metadata — description, player_white,
-        player_black) and with card (for Bayesian-prior fields
-        needed by recall aggregation).
+        player_black, and per-user display_ordinal) and with card
+        (for Bayesian-prior fields needed by recall aggregation), plus
+        a second `card` alias joined on the root's own id to fetch the
+        root's `public_id` (browse-leak-fix, ledger rows 417/423 —
+        `ForestMemberRow` carries `root_card_public_id` /
+        `game_source_display_ordinal`, not the raw PKs; both columns
+        were already backfilled by the per-user-id-enumeration
+        migration, so this is a plain extra join, no new schema).
 
         Item 15 (tenancy): the user_id filter appears in two places:
 
@@ -174,13 +180,24 @@ class StatsRepository:
 
         root_mapping_cte = base.union_all(step)
 
-        # Stage 2: join with game_source (forest metadata) and card
-        # (Bayesian-prior fields). No additional user_id filter needed
-        # here — the CTE already restricts to this user's cards.
+        # Stage 2: join with game_source (forest metadata + per-user
+        # display_ordinal) and card (Bayesian-prior fields for the
+        # member card). No additional user_id filter needed here —
+        # the CTE already restricts to this user's cards.
+        #
+        # `root_card` is a second alias of `card`, joined on the
+        # CTE's `root_card_id` (the internal PK of the forest's root
+        # card) purely to fetch that root's `public_id` — the
+        # browse-leak-fix identity field. It's a plain equality join
+        # on an indexed PK, no recursion, so the cost is one extra
+        # join per query, not per CTE level.
+        root_card = card.alias("root_card")
         stmt = (
             select(
-                root_mapping_cte.c.root_card_id,
-                root_mapping_cte.c.game_source_id,
+                root_card.c.public_id.label("root_card_public_id"),
+                game_source.c.display_ordinal.label(
+                    "game_source_display_ordinal"
+                ),
                 game_source.c.description,
                 game_source.c.player_white,
                 game_source.c.player_black,
@@ -191,11 +208,16 @@ class StatsRepository:
                 card.c.creation_date,
                 card.c.num_reviews,
             )
+            .select_from(root_mapping_cte)
             .join(
                 game_source,
                 game_source.c.id == root_mapping_cte.c.game_source_id,
             )
             .join(card, card.c.id == root_mapping_cte.c.card_id)
+            .join(
+                root_card,
+                root_card.c.id == root_mapping_cte.c.root_card_id,
+            )
         )
 
         result = await self.session.execute(stmt)

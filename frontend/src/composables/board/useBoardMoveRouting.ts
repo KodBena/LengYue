@@ -90,6 +90,20 @@ export function useBoardMoveRouting(
     if (isReviewTransientState(reviewSession.state.value)) {
       return;
     }
+    // REVIEWED: a restored per-visit snapshot (goBack/goForward landed
+    // on a previously-FINISHED card). Structurally view-only — unlike
+    // FINISHED, this does NOT fall through to free play. Refusing here
+    // as its own explicit arm (not folded into isReviewTransientState,
+    // which is about racing the SR lifecycle, a different failure
+    // class) is what makes submitReview's missing idempotency guard
+    // (deck-repeat design doc §1d) structurally unreachable a second
+    // time for the same attempt: there is no mutation path out of
+    // REVIEWED except the explicit Retry action, which discards the
+    // snapshot and re-enters via loadCard first. Silent no-op, same
+    // as the AWAITING_MOVE/transient-state refusals above it.
+    if (reviewSession.state.value === 'REVIEWED') {
+      return;
+    }
     // IDLE (no review running) or FINISHED (intermission — post-
     // evaluation exploration phase): free play. Intermission is when
     // the user reads branches off the evaluated position; per the
@@ -141,6 +155,9 @@ export function useBoardMoveRouting(
   function handlePastePv(pv: PvMove[]): void {
     if (reviewSession.state.value === 'AWAITING_MOVE') return;
     if (isReviewTransientState(reviewSession.state.value)) return;
+    // REVIEWED: same structural refusal as handleBoardMove's own arm
+    // above — a restored snapshot is view-only, not free-play.
+    if (reviewSession.state.value === 'REVIEWED') return;
     if (!activeBoard.value || pv.length === 0) return;
 
     let board: BoardState = activeBoard.value;
