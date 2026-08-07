@@ -1,0 +1,145 @@
+<script setup lang="ts">
+/**
+ * src/components/modals/ConfirmCloseBoardModal.vue
+ * Confirm-before-destroy guard for board close (ADR-0019 audit S6 / C10 —
+ * closing a board was previously irreversible and unconfirmed: one click
+ * on a 16x16 corner button destroyed the board's tree with no undo).
+ *
+ * SidebarWidget.vue opens this only when the board being closed holds
+ * more than its root node (the same cheap "has moves" dirtiness signal
+ * `useDirtyBoardGuard.ts` already uses for the load-over-board guard) —
+ * a freshly-created blank board closes immediately with no prompt, since
+ * there is nothing to lose. See `useCloseBoardGuard.ts` for the policy
+ * and its rationale.
+ *
+ * Same open/resolve shape as ConfirmLoadModal.vue (isOpen ref +
+ * promise-resolve pattern) but resolves a plain boolean rather than a
+ * structured action, since close has only two outcomes: confirmed or
+ * cancelled.
+ *
+ * DEVIATION FROM THE COMMISSIONED PATTERN, DISCLOSED: the dispatch that
+ * commissioned this modal named `useModalKeyboard.ts` — a shared
+ * Escape/focus-trap/initial-focus/restore composable already wired into
+ * every modal in `src/components/modals/` — as the convention to reuse.
+ * That composable does NOT exist in this worktree: `grep -rl
+ * "useModalKeyboard" src/` returns nothing, and every existing modal here
+ * (ConfirmLoadModal.vue included) has zero keyboard handling — no
+ * `role="dialog"`, no `tabindex`, no Escape binding. This worktree's
+ * branch point predates the ADR-0019-audit S5 fix ("every modal is
+ * keyboard-inert") that composable belongs to; the commissioning dispatch
+ * was written against a newer tree.
+ *
+ * Rather than block on that mismatch or introduce a new shared
+ * composable pre-emptively (which would duplicate whatever ships when S5
+ * actually lands here, and this dispatch's own S6 section says explicitly
+ * NOT to build a shared primitive — see its S14 note), this modal wires
+ * a small SELF-CONTAINED keyboard mechanism scoped to itself: Escape
+ * routes to the same Cancel path as the button, initial focus lands on
+ * the modal on open, and focus restores to the opener on close. It does
+ * NOT implement a full manual Tab-cycle focus trap (the hardest part of
+ * useModalKeyboard) — that's judged out of proportion for one dedicated
+ * modal when no other modal in this tree has one either, and doing it
+ * here first would itself be inventing the shared mechanism through the
+ * back door. Flagged for reconciliation once useModalKeyboard (or
+ * equivalent) lands in this branch's ancestry — this modal is exactly
+ * the "thin dedicated component" the commissioning dispatch asked for,
+ * so swapping it onto the real composable then should be a small,
+ * mechanical change.
+ *
+ * License: Public Domain (The Unlicense).
+ */
+import { ref, nextTick, onUnmounted, watch } from 'vue';
+
+const isOpen = ref(false);
+const boardName = ref('');
+const modalContentRef = ref<HTMLElement | null>(null);
+let resolvePromise: ((confirmed: boolean) => void) | null = null;
+let opener: HTMLElement | null = null;
+
+defineExpose({
+  open(name: string): Promise<boolean> {
+    boardName.value = name;
+    isOpen.value = true;
+    return new Promise(resolve => {
+      resolvePromise = resolve;
+    });
+  }
+});
+
+function handle(confirmed: boolean) {
+  isOpen.value = false;
+  if (resolvePromise) {
+    resolvePromise(confirmed);
+    resolvePromise = null;
+  }
+}
+
+function handleKeydown(e: KeyboardEvent): void {
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    handle(false);
+  }
+}
+
+// Escape-to-close + initial focus + focus restoration, scoped to this
+// one modal (see the DEVIATION note above for why this isn't
+// useModalKeyboard). No Tab-cycle trap.
+watch(isOpen, (open) => {
+  if (open) {
+    opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    window.addEventListener('keydown', handleKeydown);
+    void nextTick(() => modalContentRef.value?.focus());
+  } else {
+    window.removeEventListener('keydown', handleKeydown);
+    if (opener !== null && document.contains(opener)) opener.focus();
+    opener = null;
+  }
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown);
+});
+</script>
+
+<template>
+  <div v-if="isOpen" class="modal-backdrop" @mousedown.self="handle(false)">
+    <div ref="modalContentRef" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="confirm-close-board-title" tabindex="-1">
+      <div class="modal-header">
+        <h2 id="confirm-close-board-title">{{ $t('confirmCloseBoard.title') }}</h2>
+      </div>
+      <div class="modal-body">
+        <p>{{ $t('confirmCloseBoard.body', { name: boardName }) }}</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" @click="handle(false)">{{ $t('confirmCloseBoard.button.cancel') }}</button>
+        <button class="btn-close" @click="handle(true)">{{ $t('confirmCloseBoard.button.close') }}</button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+/* Backdrop is a full-viewport click-catcher for the outside-click dismiss
+   only — NO dimming/tint/blur (commissioner instruction; see script header). */
+.modal-backdrop {
+  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+  background: transparent;
+  display: flex; align-items: center; justify-content: center; z-index: var(--z-modal);
+}
+/* Same 420px width as ConfirmLoadModal.vue / MintCardModal.vue (shared
+   modal-width convention; see ConfirmLoadModal.vue's magic-literal note). */
+.modal-content {
+  background: var(--surface-0); border: 1px solid var(--border-2); border-radius: var(--radius-default);
+  width: 420px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+  display: flex; flex-direction: column; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+.modal-header { padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-3); background: var(--surface-2); }
+.modal-header h2 { margin: 0; font-size: var(--text-heading); color: var(--text-0); text-transform: uppercase; }
+.modal-body { padding: var(--space-medium); color: var(--text-1); font-size: var(--text-emphasis); }
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: var(--space-medium); padding: var(--space-medium) var(--space-medium);
+  border-top: 1px solid var(--surface-3); background: var(--surface-2);
+}
+.btn-cancel { background: transparent; border: 1px solid var(--border-3); color: var(--text-1); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
+.btn-close { background: transparent; border: 1px solid var(--state-attention); color: var(--state-attention); padding: var(--space-default) var(--space-medium); border-radius: var(--radius-default); cursor: pointer; }
+</style>

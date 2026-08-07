@@ -124,6 +124,7 @@ frontend/src/
 │   │   └── RegistryEditor.vue         [B1]  Generic managed-registry editor with defaults and structural protection. [B1] with a named leak: imports WINRATE_FRAMINGS from [B3] engine/katago/types; structural fix owned by config-schema-projections Phase 1.
 │   │
 │   ├── modals/                              Dialog modals. Mostly B1 (generic UX) with two B3 (engine/SGF-touching).
+│   │   ├── ConfirmCloseBoardModal.vue [B1]  Destructive-confirm modal for board close (ADR-0019 audit S6/C10); opened by useCloseBoardGuard only when the target board has moves. Self-contained Escape/initial-focus/focus-restore keyboard handling — see its header for why it doesn't use a shared useModalKeyboard composable (not present in this branch's ancestry).
 │   │   ├── ConfirmLoadModal.vue       [B1]  "Save / discard / cancel" dirty-board dialog.
 │   │   ├── EngineMatchModal.vue       [B3]  Engine-vs-engine match config (model picker, visits, num moves).
 │   │   ├── HyperparamPromptModal.vue  [B1]  Bind-time prompt for deck-pipeline hyperparameters (defaults pre-filled, per-field validation).
@@ -198,6 +199,7 @@ frontend/src/
 │   │   ├── suggestion-color-calibration.ts [B3] Domain init for the suggestion-color gradient: hue-shift watcher + fire-and-forget visit-distribution fetch (via getResource<T>); called once from useAppBootstrap.
 │   │   ├── useActivePath.ts           [B2]  NodeId lineage root → current node.
 │   │   ├── useBoardMoveRouting.ts     [B3]  Grading-integrity gate for both board-mutation entry points (click-to-play + paste-PV): AWAITING_MOVE routes to the review session's graded handler, transient SR states refuse mutation, free play (with the game-head engine trigger) is IDLE/FINISHED-only. Extracted from App.vue 2026-06-11.
+│   │   ├── useCloseBoardGuard.ts      [B3]  Close-board guard (ADR-0019 audit S6/C10): confirm-before-destroy policy for board close — confirms only when the board has moves (root-node-only boards close immediately, via resolveGameName's SGF-property read), via ConfirmCloseBoardModal; otherwise calls the store's closeBoard directly.
 │   │   ├── useDirtyBoardGuard.ts      [B3]  Dirty-board guard: confirm-load modal + dirty-board policy for cards AND library games; delegates the SGF load to sgf/loadIntoBoard (swallow-and-log over the fail-loud primitive).
 │   │   ├── useEngineResponder.ts      [B3]  "Play vs engine" trigger: `fireAndAdvanceHead(boardId, gameStartNodeId)` queries the engine at the board's current position and advances the game's single green-ring head; invoked from useBoardMoveRouting when the user plays from a head.
 │   │   ├── useFollowMePonder.ts       [B3]  "Follow Me" ponder watcher: re-issues the active board's ponder query on same-board navigation (board switches excluded). App.vue's former direct analysis-service watcher, relocated to the composable layer 2026-06-11.

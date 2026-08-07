@@ -4,11 +4,13 @@
 -->
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { store, setActiveBoard, createBoard, closeBoard } from '../../store';
+import { store, setActiveBoard, createBoard } from '../../store';
 import BoardTab from '../board/BoardTab.vue';
 import MiniBoard from '../board/MiniBoard.vue';
+import ConfirmCloseBoardModal from '../modals/ConfirmCloseBoardModal.vue';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
 import { useJankTest } from '../../composables/perf/useJankTest';
+import { useCloseBoardGuard } from '../../composables/board/useCloseBoardGuard';
 import type { BoardId } from '../../types';
 import type { BoardSnapshot } from '../../engine/board-geometry';
 
@@ -107,6 +109,17 @@ function onHoverEnter(id: BoardId) {
 function onHoverLeave() {
   previewBoardId.value = null;
 }
+
+// ── Close guard (ADR-0019 audit S6 / C10) ───────────────────────────────
+// Board close used to go straight to the store's closeBoard — irreversible,
+// no confirm, no undo. BoardTab now emits 'request-close' (renamed from
+// 'close' so the wiring can't silently regress back to the direct call);
+// the policy (when to confirm, resolving the board's display name, calling
+// closeBoard) lives in useCloseBoardGuard.ts — same composable-owns-the-
+// decision shape as useDirtyBoardGuard, and independently unit-testable
+// without mounting this whole widget.
+const confirmCloseBoardModalRef = ref<InstanceType<typeof ConfirmCloseBoardModal> | null>(null);
+const { requestCloseBoard } = useCloseBoardGuard(confirmCloseBoardModalRef);
 </script>
 
 <template>
@@ -151,11 +164,15 @@ function onHoverLeave() {
         :isActive="store.activeBoardIndex === index"
         :reviewState="getReviewState(board.id)"
         @activate="onActivate"
-        @close="closeBoard"
+        @request-close="requestCloseBoard"
         @hover-enter="onHoverEnter"
         @hover-leave="onHoverLeave"
       />
     </div>
+
+    <!-- Close-confirm guard (ADR-0019 audit S6 / C10) — opened by
+         requestCloseBoard only when the target board has moves. -->
+    <ConfirmCloseBoardModal ref="confirmCloseBoardModalRef" />
 
     <button class="tab-add-btn" :title="$t('sidebar.newBoard')" @click="handleAdd">+</button>
 
