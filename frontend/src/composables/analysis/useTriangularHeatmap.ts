@@ -104,3 +104,34 @@ export const colorMoveToPly = (m: ColorMoveIndex, color: StoneColor): PlyIndex =
   // brand erase ColorMoveIndex → number for the arithmetic, brand mint the
   // result as PlyIndex (this fn is the sole authority for the invariant above).
   ((m as number) * 2 + (color === 'B' ? 1 : 2)) as PlyIndex;
+
+// Reverse projection: an absolute [startPly, endPly] range (as stored in
+// `BoardState.analysisRange` / `AnalysisTimelineState.selectionRange`) onto
+// a single colour's local move-index sub-range — the largest run of that
+// colour's moves strictly contained within the ply range. This is the SAME
+// projection the proxy's `Triangular()` query applies server-side when an
+// analysis-range spanning both colours is analysed (`analyzeSelection` in
+// `useAnalysisTimeline.ts`): the emitted (s, t) triangular entry for each
+// colour is keyed by exactly this sub-range, which is why looking a
+// selection range up in the accumulated `matrix` (see `useTriangularHeatmap`
+// above) via this projection finds the same cell a hover over that
+// interval would.
+//
+// Returns null when the ply range contains none of the colour's moves
+// (an empty or degenerate projection — s > t after rounding). The `as`
+// casts are justified per ADR-0002 Rule 2: this function, together with
+// `colorMoveToPly` above, is the sole authority for the PlyIndex ↔
+// ColorMoveIndex invariant; brand erasure is used only to perform the
+// arithmetic before re-minting the result.
+export function plyRangeToColorMoveRange(
+  startPly: PlyIndex,
+  endPly: PlyIndex,
+  color: StoneColor,
+): [ColorMoveIndex, ColorMoveIndex] | null {
+  const offset = color === 'B' ? 1 : 2; // brand erase: colorMoveToPly's own offset, inverted here
+  const rawS = Math.ceil(((startPly as number) - offset) / 2); // brand erase PlyIndex → number: see docstring above
+  const rawT = Math.floor(((endPly as number) - offset) / 2); // brand erase PlyIndex → number: see docstring above
+  const s = Math.max(rawS, 0);
+  if (s > rawT) return null;
+  return [s as ColorMoveIndex, rawT as ColorMoveIndex]; // brand mint ColorMoveIndex: see docstring above
+}

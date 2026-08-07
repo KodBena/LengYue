@@ -128,13 +128,13 @@ if (import.meta.hot) import.meta.hot.accept(() => location.reload());
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 67;
+export const CURRENT_SCHEMA_VERSION = 68;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 64 → 65) are
+ * The first `N` entries (currently 1 → 2 through 65 → 66) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -156,61 +156,6 @@ export const CURRENT_SCHEMA_VERSION = 67;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 65 → 66: resizer-rearch — strip the two pre-rearch split-workspace
-  // resizer homes. The current-model fields this rearch settled on
-  // (`session.ui.treePanelWidthPx`, `session.ui.treeControlRegionWidthPx`
-  // — nested-splitter amendment, ledger rows 391/414; see schema.ts)
-  // are both purely additive/optional and never shipped under a prior
-  // name, so this migration only needs to strip, never rename. Strips:
-  //
-  //   - `session.ui.boardSquareMaxWidthPx` — the pre-rearch board-
-  //     width cap the resizer drag used to write (ADR-0019 audit
-  //     `.claude/dispatch-reports/adr19-audit.md` S2: two writers for
-  //     one conceptual fact, a discontinuous drag-start clobber, and
-  //     — because it has no reliable visible effect past the board's
-  //     own aspect-ratio saturation point — the persisted slot with
-  //     no visible effect on reload).
-  //   - `session.ui.controlPanelWidth` — a dead, never-read zombie
-  //     field (ADR-0019 audit S9: "a control wired to nothing";
-  //     `grep -rn "controlPanelWidth\b" src/` before this migration
-  //     returned exactly the schema declaration and the default).
-  //     Removed in the same migration as the board-width cap so
-  //     neither pre-rearch field survives into a freshly-migrated
-  //     blob, which would otherwise recreate the exact "one fact, two
-  //     homes" defect class (Rule 3 / C1) this rearch exists to close.
-  //
-  // No value is carried forward to either current-model field.
-  // `boardSquareMaxWidthPx` (a board-width cap) has no principled
-  // conversion to either `treePanelWidthPx` or
-  // `treeControlRegionWidthPx` without live viewport geometry — the
-  // row's actual pixel width, the tree panel's current visibility,
-  // the board's current height — none of which a migration body (a
-  // pure function over the persisted blob, no DOM) has access to.
-  // Backfilling a guessed value would be exactly the silent-narrowing
-  // this codebase's ADR-0002 posture forbids; leaving both new fields
-  // `undefined` (their documented default: no drag yet, natural
-  // layout) is the honest choice — the user re-drags once, same as
-  // any migration that resets a runtime/session-shaped preference
-  // rather than fabricating a translation for it.
-  //
-  // Idempotent: deleting an already-absent key is a no-op.
-  //
-  // Container access goes through `witnessedContainer` (per step 3 of
-  // the add-a-migration recipe): `session.ui` is witnessed against the
-  // runtime shape, so a typo'd path fails loudly here rather than
-  // no-oping and stamping the version. The blob-side resolution keeps
-  // the sibling bodies' non-null-object tolerance: a partial / legacy
-  // blob whose container is absent no-ops.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const ui = witnessedContainer(out, 'session.ui');
-    if (ui) {
-      const u = ui as { boardSquareMaxWidthPx?: unknown; controlPanelWidth?: unknown };
-      delete u.boardSquareMaxWidthPx;
-      delete u.controlPanelWidth;
-    }
-    return out;
-  },
   // 66 → 67: backfill `session.ui.cardsContextGameSourceOrdinals = []`
   // (macro-public-id-tokens, ledger row 456 — restoring the Cards-tab
   // `${gameSourceId}` macro after browse-leak-fix broke it). New
@@ -236,6 +181,37 @@ export const migrations: Migration[] = [
       const u = ui as { cardsContextGameSourceOrdinals?: unknown };
       if (!Array.isArray(u.cardsContextGameSourceOrdinals)) {
         u.cardsContextGameSourceOrdinals = [];
+      }
+    }
+    return out;
+  },
+  // 67 → 68: insert the `interval-summary` panel id (wiki Wanted feature
+  // #6, `PANEL_ID.intervalSummary`) at the front of the persisted 'basic'
+  // analysisTab's `panelIds`, so the on-by-default placement in
+  // `defaults.ts` also reaches users who already have a persisted
+  // `analysisTabs` array from migration 54 → 55 (a fresh-install default
+  // change alone does not reach an existing blob — the same reason 55 → 56
+  // through 61 stayed additive per-leaf backfills rather than re-defaulting
+  // whole containers).
+  //
+  // Scoped to the tab literally id'd 'basic' — a user who renamed or
+  // deleted that tab in the Phase-3 Settings editor keeps their layout
+  // untouched; this migration only ever adds a panel id, never removes or
+  // reorders the others in that tab.
+  //
+  // Idempotent: a 'basic' tab whose panelIds already contains
+  // 'interval-summary' is left unchanged (guards a blob that was already
+  // migrated, or one a forward-compat client already wrote the id onto).
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const settings = out.profile?.settings;
+    if (settings && typeof settings === 'object' && Array.isArray(settings.analysisTabs)) {
+      for (const tab of settings.analysisTabs) {
+        if (!tab || typeof tab !== 'object' || tab.id !== 'basic') continue;
+        if (!Array.isArray(tab.panelIds)) continue;
+        if (!tab.panelIds.includes('interval-summary')) {
+          tab.panelIds = ['interval-summary', ...tab.panelIds];
+        }
       }
     }
     return out;

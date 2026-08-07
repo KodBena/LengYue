@@ -24,6 +24,7 @@ import { PANEL_ID } from './panel-ids';
 
 import ScoreLeadPanel from './ScoreLeadPanel.vue';
 import MergedDeltaPanel from './MergedDeltaPanel.vue';
+import IntervalSummaryPanel from './IntervalSummaryPanel.vue';
 import MultiresolutionIntervalPanel from './MultiresolutionIntervalPanel.vue';
 import StabilityPanel from './StabilityPanel.vue';
 import StabilityCrossCorrelationPanel from './StabilityCrossCorrelationPanel.vue';
@@ -52,6 +53,7 @@ export interface AnalysisPanelDescriptor {
 export const ANALYSIS_PANELS: readonly AnalysisPanelDescriptor[] = [
   { id: PANEL_ID.scoreLead, label: 'Score Lead', component: ScoreLeadPanel },
   { id: PANEL_ID.mergedDelta, label: 'Merged Delta', component: MergedDeltaPanel },
+  { id: PANEL_ID.intervalSummary, label: 'Interval Summary', component: IntervalSummaryPanel },
   { id: PANEL_ID.multiresolutionInterval, label: 'Multiresolution Interval', component: MultiresolutionIntervalPanel },
   { id: PANEL_ID.stability, label: 'Stability', component: StabilityPanel },
   { id: PANEL_ID.stabilityCrossCorrelation, label: 'Cross-correlations', component: StabilityCrossCorrelationPanel },

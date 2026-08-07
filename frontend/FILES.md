@@ -96,6 +96,7 @@ frontend/src/
 │   │   ├── ColorDebugStrip.vue        [B1]  Dual-track gradient-calibration debug strip.
 │   │   ├── HeatmapChart.vue           [B1]  Stateless generic ECharts heatmap renderer; emits cell-click / cell-hover / cell-leave (no tooltip — the host renders any preview).
 │   │   ├── MergedDeltaPanel.vue       [B3]  Both-players delta chart on a parity-interleaved x-axis; shared/black/white view-cycle button disambiguates click-to-navigate.
+│   │   ├── IntervalSummaryPanel.vue   [B3]  Compact per-colour summary table for the current analysis interval (Basic tab, on by default); looks the value up in useTriangularHeatmap's own matrix — no parallel recompute.
 │   │   ├── ScoreLeadPanel.vue         [B3]  ScoreLead chart panel.
 │   │   ├── DistributionChart.vue      [B1]  Generic histogram/KDE primitive (variant-dispatched ECharts mount).
 │   │   ├── DeltaDistributionPanel.vue [B3]  Per-colour delta-KDE panel (injects AnalysisContext; wraps DistributionChart).
@@ -188,11 +189,12 @@ frontend/src/
 │   │   ├── useEChartsForestRender.ts  [B2]  Per-tree ECharts lifecycle (init, dispose, resize) for card-tree forests.
 │   │   ├── enriched-accumulator.ts    [B3]  Pure incremental derivation of the enriched series (patchNode O(1) vs full O(N) rebuild); last-path-order delta arbitration. Equivalence-tested.
 │   │   ├── useEnrichedData.ts         [B3]  Reactive enriched series — shallowRef driven by structural watch (rebuild) + ledger changed-key signal (incremental patch); no per-frame O(N) re-derive.
+│   │   ├── useIntervalSummary.ts      [B3]  Per-colour summary row for the current selectionRange; projects the ply range onto each colour's local move-range (useTriangularHeatmap's own `plyRangeToColorMoveRange`) and looks the cell up in its matrix — shared kernel, not a recompute.
 │   │   ├── useMistakeFinder.ts        [B3]  Calculated property: per-move mistake severity + un-punished red-flag.
 │   │   ├── useStabilityCrossCorrelations.ts [B3] Pairwise Pearson over the extractor and metric axes of stability series.
 │   │   ├── useStabilityMetrics.ts     [B3]  Per-move stability fractions from the trajectory store for a chosen extractor + metric.
 │   │   ├── useTimelineLogic.ts        [B2]  Contiguous-segment calc + selection range + debounced updates.
-│   │   ├── useTriangularHeatmap.ts    [B3]  Extracts proxy-side triangular heatmap from the ledger for a path.
+│   │   ├── useTriangularHeatmap.ts    [B3]  Extracts proxy-side triangular heatmap from the ledger for a path; sole authority for the PlyIndex ↔ ColorMoveIndex conversion (colorMoveToPly + its reverse plyRangeToColorMoveRange).
 │   │   └── wait-for-analysis.ts       [B3]  Primitive: wait for a specific KataGo packet (with timeout, abort).
 │   │
 │   ├── auth-app/                             Auth + app cold-start.

@@ -3056,3 +3056,85 @@ describe('65 → 66: resizer-rearch — strip the two pre-rearch split-workspace
     expect('controlPanelWidth' in out.session.ui).toBe(false);
   });
 });
+
+describe('66 → 67: backfill session.ui.cardsContextGameSourceOrdinals = []', () => {
+  // Additive backfill (macro-public-id-tokens, ledger row 456): a blob
+  // predating the field gains `[]`; an existing array — including a
+  // non-empty one — is preserved unchanged. Block added at the 67 → 68
+  // merge (review finding 2's class): the body shipped without direct
+  // coverage, the exact silent-no-op class step 5 of the recipe warns
+  // about.
+  function blobWithUi(extra: Record<string, unknown> = {}): any {
+    return { session: { ui: { activeTab: 'cards', ...extra } } };
+  }
+
+  it('backfills [] when the field is missing', () => {
+    const out = step(66)(blobWithUi());
+    expect(out.session.ui.cardsContextGameSourceOrdinals).toEqual([]);
+  });
+
+  it('preserves an existing array unchanged (idempotent)', () => {
+    const out = step(66)(blobWithUi({ cardsContextGameSourceOrdinals: [3, 7] }));
+    expect(out.session.ui.cardsContextGameSourceOrdinals).toEqual([3, 7]);
+  });
+
+  it('replaces a wrong-typed leaf with []', () => {
+    const out = step(66)(blobWithUi({ cardsContextGameSourceOrdinals: 'nope' }));
+    expect(out.session.ui.cardsContextGameSourceOrdinals).toEqual([]);
+  });
+
+  it('is a no-op when session.ui is absent (partial / legacy blob)', () => {
+    const out = step(66)({ profile: {} });
+    expect(out.session).toBeUndefined();
+  });
+});
+
+describe("67 → 68: insert 'interval-summary' at the front of the persisted basic tab", () => {
+  // Interval-summary panel on-by-default (wiki Wanted feature #6) must
+  // also reach users with a persisted analysisTabs array from 54 → 55;
+  // scoped to the tab literally id'd 'basic'. Renumbered 61 → 62 →
+  // 67 → 68 on merge into `next` (which had independently shipped
+  // 62 → 63 through 66 → 67). Cases per review finding 2:
+  // insert / idempotent / no-op / scope.
+  function blobWithTabs(tabs: unknown): any {
+    return { profile: { settings: { analysisTabs: tabs } } };
+  }
+
+  it("inserts 'interval-summary' at the FRONT of the basic tab's panelIds", () => {
+    const out = step(67)(blobWithTabs([{ id: 'basic', panelIds: ['winrate', 'score'] }]));
+    expect(out.profile.settings.analysisTabs[0].panelIds).toEqual([
+      'interval-summary', 'winrate', 'score',
+    ]);
+  });
+
+  it('is idempotent — an already-present id is neither moved nor duplicated', () => {
+    const out = step(67)(blobWithTabs([{ id: 'basic', panelIds: ['winrate', 'interval-summary'] }]));
+    expect(out.profile.settings.analysisTabs[0].panelIds).toEqual([
+      'winrate', 'interval-summary',
+    ]);
+  });
+
+  it('is a no-op when analysisTabs is absent (blob predating 54 → 55)', () => {
+    const out = step(67)({ profile: { settings: {} } });
+    expect(out.profile.settings.analysisTabs).toBeUndefined();
+  });
+
+  it("scope: non-'basic' tabs are untouched, and a renamed/deleted basic tab keeps the user's layout", () => {
+    const out = step(67)(blobWithTabs([
+      { id: 'advanced', panelIds: ['winrate'] },
+      { id: 'my-renamed-tab', panelIds: ['score'] },
+    ]));
+    expect(out.profile.settings.analysisTabs[0].panelIds).toEqual(['winrate']);
+    expect(out.profile.settings.analysisTabs[1].panelIds).toEqual(['score']);
+  });
+
+  it('walks end-to-end: a v67 blob reaches CURRENT with the panel inserted', () => {
+    const blob: any = {
+      schemaVersion: 67,
+      profile: { settings: { analysisTabs: [{ id: 'basic', panelIds: ['winrate'] }] } },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(out.profile.settings.analysisTabs[0].panelIds).toEqual(['interval-summary', 'winrate']);
+  });
+});
