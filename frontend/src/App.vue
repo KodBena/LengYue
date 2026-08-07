@@ -224,7 +224,7 @@ const {
   handleLoadLibraryGameInNewBoard,
 } = useDirtyBoardGuard(confirmLoadModalRef);
 
-const { startResizeInner, startResizeOuter } = useResizablePanel();
+const { startResizeInner, startResizeOuter, effectiveTreeControlRegionWidthPx } = useResizablePanel();
 
 // Defect 6 (ui-fix-56), preserved as a documented, minor cosmetic
 // nicety under the nested-splitter geometry (ledger rows 391/414) —
@@ -500,11 +500,21 @@ const activeTab = computed<string>({
              wrapper holds only the tree and should size to ITS
              content (140px default or the user's own
              treePanelWidthPx), not to a stored width that accounted
-             for a control panel that isn't currently rendered. -->
+             for a control panel that isn't currently rendered.
+
+             ui-5-3: reads effectiveTreeControlRegionWidthPx, NOT the
+             raw store value — useResizablePanel.ts clamps the
+             persisted number against #split-workspace's CURRENT live
+             width on every render (not just mid-drag), so a value
+             hydrated from a different/wider viewport (or otherwise
+             stale/migrated/garbage) can never squeeze #board-column
+             below MIN_BOARD_PX ("board restored minimized" after
+             upgrading). See useResizablePanel.ts's header for the
+             full rationale. -->
         <div
           id="tree-control-wrapper"
-          :style="store.session.ui.controlsExpanded && store.session.ui.treeControlRegionWidthPx !== undefined
-            ? { flex: '0 0 auto', width: store.session.ui.treeControlRegionWidthPx + 'px' }
+          :style="store.session.ui.controlsExpanded && effectiveTreeControlRegionWidthPx !== undefined
+            ? { flex: '0 0 auto', width: effectiveTreeControlRegionWidthPx + 'px' }
             : store.session.ui.controlsExpanded
               ? { flex: '1 1 0' }
               : {}"

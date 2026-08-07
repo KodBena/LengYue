@@ -55,10 +55,12 @@ import {
   computeTreePanelWidthPx,
   computeTreeControlRegionWidthPx,
   computePaneWidthPx,
+  sanitizeTreeControlRegionWidthPx,
   TREE_PANEL_MIN_WIDTH_PX,
   WRAPPER_MIN_WIDTH_PX,
   CONTROL_PANEL_MIN_WIDTH_PX,
   MIN_BOARD_PX,
+  RESIZER_WIDTH_PX,
 } from '../../../../src/composables/chrome/useResizablePanel';
 
 // ── INNER bar: the tree panel (session.ui.treePanelWidthPx) ─────────
@@ -247,5 +249,64 @@ describe('sanity: the board floor composes with both bars\' max-clamp derivation
     // test just pins the constant's value so a change is a visible
     // diff here.
     expect(MIN_BOARD_PX).toBe(300);
+  });
+});
+
+// ── ui-5-3: restore-time board-visibility clamp ──────────────────────
+// "The board comes back minimized after upgrading" — a persisted
+// treeControlRegionWidthPx saved against one viewport, hydrated
+// verbatim against a narrower one, used to leave #board-column far
+// below MIN_BOARD_PX because only an in-progress DRAG clamped against
+// live geometry. sanitizeTreeControlRegionWidthPx re-derives that same
+// clamp from the row's CURRENT width at render time — RED against the
+// raw store read (a 3490px region on a 1024px-wide row leaves the
+// board around -2170px, i.e. it doesn't exist), GREEN through this
+// function (the board keeps its full MIN_BOARD_PX floor).
+describe('sanitizeTreeControlRegionWidthPx — ui-5-3 restore-time clamp', () => {
+  it('RED (documents the bug): the raw persisted value alone gives the board no room at all on a narrower viewport', () => {
+    const staleWidePx = 3490; // plausible pre-rearch / wide-screen save
+    const narrowRowWidthPx = 1024;
+    const boardRoomPx = narrowRowWidthPx - staleWidePx - RESIZER_WIDTH_PX;
+    expect(boardRoomPx).toBeLessThan(MIN_BOARD_PX);
+    expect(boardRoomPx).toBeLessThan(0); // the reported symptom: no board at all
+  });
+
+  it('GREEN: sanitizes the same stale/wide value down so the board keeps at least MIN_BOARD_PX', () => {
+    const staleWidePx = 3490;
+    const narrowRowWidthPx = 1024;
+    const sanitized = sanitizeTreeControlRegionWidthPx(staleWidePx, narrowRowWidthPx);
+    expect(sanitized).toBeDefined();
+    const boardRoomPx = narrowRowWidthPx - (sanitized as number) - RESIZER_WIDTH_PX;
+    expect(boardRoomPx).toBeGreaterThanOrEqual(MIN_BOARD_PX);
+  });
+
+  it('a value that already leaves the board plenty of room passes through unchanged (no-op on the common case)', () => {
+    expect(sanitizeTreeControlRegionWidthPx(500, 1600)).toBe(500);
+  });
+
+  it('undefined (never dragged) stays undefined — fresh installs are unaffected', () => {
+    expect(sanitizeTreeControlRegionWidthPx(undefined, 1024)).toBeUndefined();
+    expect(sanitizeTreeControlRegionWidthPx(undefined, 0)).toBeUndefined();
+  });
+
+  it('a garbage negative value is floored at WRAPPER_MIN_WIDTH_PX, same as the drag clamp', () => {
+    expect(sanitizeTreeControlRegionWidthPx(-500, 1600)).toBe(WRAPPER_MIN_WIDTH_PX);
+  });
+
+  it('rowWidthPx = 0 (no live measurement yet, e.g. before the first ResizeObserver callback) clamps to the wrapper floor rather than trusting the raw value', () => {
+    expect(sanitizeTreeControlRegionWidthPx(3490, 0)).toBe(WRAPPER_MIN_WIDTH_PX);
+  });
+
+  it('degrades gracefully on a viewport too narrow for even the wrapper floor (never returns a value below WRAPPER_MIN_WIDTH_PX, never NaN/Infinity)', () => {
+    const sanitized = sanitizeTreeControlRegionWidthPx(3490, 200);
+    expect(sanitized).toBe(WRAPPER_MIN_WIDTH_PX);
+    expect(Number.isFinite(sanitized as number)).toBe(true);
+  });
+
+  it('agrees with a zero-displacement drag through computeTreeControlRegionWidthPx given the same derived max', () => {
+    const rowWidthPx = 1600;
+    const maxRegionWidthPx = Math.max(WRAPPER_MIN_WIDTH_PX, rowWidthPx - MIN_BOARD_PX - RESIZER_WIDTH_PX);
+    expect(sanitizeTreeControlRegionWidthPx(900, rowWidthPx))
+      .toBe(computeTreeControlRegionWidthPx(900, 0, maxRegionWidthPx));
   });
 });
