@@ -24,6 +24,7 @@
  * License: Public Domain (The Unlicense)
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { nextTick } from 'vue';
 
 // Same service-mock preamble as resizer-persistence-roundtrip.test.ts —
 // importing `src/store` (transitively, via useResizablePanel importing
@@ -164,6 +165,44 @@ describe('ui-5-3: hydrating a wide-viewport width on a narrow one always leaves 
     mountSplitWorkspace(1024);
     const panel = withSetup(() => useResizablePanel());
 
+    expect(panel.effectiveTreeControlRegionWidthPx.value).toBeUndefined();
+  });
+});
+
+describe('ui-5-3 live regression (2026-08-07): cold-load gate vs the row observer', () => {
+  // #split-workspace sits behind App.vue's cold-load v-if
+  // (workspaceLoadState 'loaded'), so at composable mount time the
+  // element typically does NOT exist. The original mount-only attach
+  // silently never observed: rowWidthPx stayed 0 and the clamp pinned
+  // the region to its minimum — witnessed live as "the divider stopped
+  // dragging". The two-phase attach watches workspaceLoadState and
+  // attaches one tick after the workspace renders.
+  it('a composable mounted BEFORE the element exists still clamps once the workspace loads', async () => {
+    store.session.ui.treeControlRegionWidthPx = 5000; // needs clamping on a 1024 row
+
+    // No #split-workspace in the DOM yet (loading state).
+    store.workspaceLoadState = { kind: 'loading' } as any;
+    const panel = withSetup(() => useResizablePanel());
+
+    // Pre-load: geometry unknown — the raw value passes through
+    // (finite-guarded), NOT a clamp against a fantasy 0-width row.
+    expect(panel.effectiveTreeControlRegionWidthPx.value).toBe(5000);
+
+    // Workspace loads; element appears; watcher attaches next tick.
+    mountSplitWorkspace(1024);
+    store.workspaceLoadState = { kind: 'loaded' } as any;
+    await nextTick(); // watcher fires
+    await nextTick(); // attach callback's own nextTick
+
+    const v = panel.effectiveTreeControlRegionWidthPx.value;
+    expect(v).toBeDefined();
+    expect(v!).toBeLessThan(1024); // clamped against the real row now
+  });
+
+  it('pre-load pass-through still refuses non-finite persisted values', () => {
+    store.session.ui.treeControlRegionWidthPx = Number.NaN;
+    store.workspaceLoadState = { kind: 'loading' } as any;
+    const panel = withSetup(() => useResizablePanel());
     expect(panel.effectiveTreeControlRegionWidthPx.value).toBeUndefined();
   });
 });

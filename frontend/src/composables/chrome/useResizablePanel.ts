@@ -135,7 +135,7 @@
  *
  * License: Public Domain (The Unlicense).
  */
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { store, touchSession } from '../../store';
 
 // The board's own floor. The OUTER bar's upper clamp is derived so
@@ -416,13 +416,40 @@ export function useResizablePanel() {
     if (row) rowWidthPx.value = Math.round(row.getBoundingClientRect().width);
   }
 
-  onMounted(() => {
-    measureRowWidth();
+  // Attach the observer to #split-workspace if it exists NOW; returns
+  // whether it did. The element sits behind the cold-load gate
+  // (App.vue: v-if workspaceLoadState 'loaded'), so at App mount time it
+  // typically does NOT exist yet — the live-regression class this
+  // two-phase attach closes: the original mount-only attach silently
+  // never observed, rowWidthPx stayed 0, and the clamp pinned the
+  // region to its minimum ("divider stopped dragging", commissioner
+  // report 2026-08-07).
+  function attachRowObserver(): boolean {
     const row = document.getElementById('split-workspace');
-    if (row && typeof ResizeObserver !== 'undefined') {
+    if (!row) return false;
+    rowWidthPx.value = Math.round(row.getBoundingClientRect().width);
+    if (typeof ResizeObserver !== 'undefined' && rowObserver === null) {
       rowObserver = new ResizeObserver(measureRowWidth);
       rowObserver.observe(row);
     }
+    return true;
+  }
+
+  onMounted(() => {
+    if (attachRowObserver()) return;
+    // Element not in the DOM yet (cold-load gate): attach one tick
+    // after the workspace actually renders. The watcher stops itself
+    // once attached; onUnmounted's disconnect handles the observer.
+    const stopWatch = watch(
+      () => store.workspaceLoadState.kind,
+      (kind) => {
+        if (kind !== 'loaded') return;
+        void nextTick(() => {
+          if (attachRowObserver()) stopWatch();
+        });
+      },
+      { immediate: true },
+    );
   });
 
   onUnmounted(() => {
@@ -430,9 +457,18 @@ export function useResizablePanel() {
     rowObserver = null;
   });
 
-  const effectiveTreeControlRegionWidthPx = computed(() =>
-    sanitizeTreeControlRegionWidthPx(store.session.ui.treeControlRegionWidthPx, rowWidthPx.value),
-  );
+  const effectiveTreeControlRegionWidthPx = computed(() => {
+    const raw = store.session.ui.treeControlRegionWidthPx;
+    // Geometry not yet known (observer not attached — pre-load, or the
+    // one tick between load and attach): clamping against a fantasy
+    // width of 0 would pin the region to its minimum. Pass the value
+    // through with only the non-finite guard; the real clamp engages
+    // as soon as the row is measured.
+    if (rowWidthPx.value <= 0) {
+      return raw !== undefined && Number.isFinite(raw) ? raw : undefined;
+    }
+    return sanitizeTreeControlRegionWidthPx(raw, rowWidthPx.value);
+  });
 
   return { startResizeInner, startResizeOuter, effectiveTreeControlRegionWidthPx };
 }

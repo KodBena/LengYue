@@ -63,6 +63,11 @@ beforeEach(() => {
 describe('useEngineUriEditor — same cell as the Settings path', () => {
   it('a write through the toolbar editor is visible through the Settings-tab write path (updateProfileAt)', () => {
     const editor = withSetup(() => useEngineUriEditor());
+    // beginEdit() first: commit() is guarded to no-op outside an edit
+    // session (review finding 1's compose — a blur racing a cancel must
+    // not commit), matching the component flow where the display click
+    // always begins the edit.
+    editor.beginEdit();
     editor.draft.value = 'ws://example.test:9999';
     editor.commit();
 

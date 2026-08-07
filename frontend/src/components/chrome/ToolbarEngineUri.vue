@@ -34,7 +34,14 @@ async function onDisplayClick(): Promise<void> {
 
 function onEscape(): void {
   cancel();
-  inputEl.value?.blur();
+  // No explicit blur: `cancel()` flips `isEditing`, so Vue removes the
+  // input on the next microtask, and jsdom/browser DOM removal of a
+  // focused node does NOT fire blur. An explicit `.blur()` here fired
+  // the still-mounted input's @blur="commit" and turned the CANCEL
+  // affordance into a commit — with an invalid stored value (writable
+  // via the unvalidated Advanced Registry sibling editor) that pushed a
+  // spurious error toast (review BLOCKER,
+  // toolbar-engine-uri-review.md finding 1).
 }
 </script>
 

@@ -1,9 +1,13 @@
 /**
  * src/lib/ws-url.ts
  *
- * Validation for the engine WebSocket URI — the single check both
- * editors of `store.profile.settings.engine.katago.url` apply before
- * committing a new value (ADR-0002 fail-loudly: an unparseable URI
+ * Validation for the engine WebSocket URI — applied by the TOOLBAR
+ * editor (`useEngineUriEditor`) before committing a new value. The
+ * Settings tab's Advanced Registry editor writes the same cell
+ * UNVALIDATED on every keystroke (pre-existing; flagged to the
+ * commissioner at the toolbar-engine-uri review — extending
+ * validation to that path is a separate ruling, not silently done
+ * here). (ADR-0002 fail-loudly: an unparseable URI
  * must be rejected with a message, never handed to `new WebSocket(...)`
  * where it throws synchronously and uncaught inside
  * `KataGoClient.connect` — see that constructor's call site in

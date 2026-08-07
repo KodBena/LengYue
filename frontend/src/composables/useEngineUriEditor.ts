@@ -72,6 +72,10 @@ export function useEngineUriEditor(): EngineUriEditor {
   }
 
   function commit(): void {
+    // Guard against commit paths firing after the edit ended (e.g. a
+    // blur event racing a cancel — review finding 1's class): once the
+    // editor is closed there is no draft to commit.
+    if (!isEditing.value) return;
     const validation = validateEngineUri(draft.value);
     if (!validation.ok) {
       pushSystemMessage('error', i18n.global.t(validation.errorKey));
