@@ -63,7 +63,7 @@ interface HandicapTable {
   readonly corners: readonly [number, number][];
   /** The 4 edge hoshi, in [left, right, bottom, top] order — left/right used first (N=6), bottom/top added at N=8. Empty when the board has no edge hoshi in scope (13×13, 9×9). */
   readonly edges: readonly [number, number][];
-  readonly center: readonly [number, number];
+  readonly center: [number, number];
   /** Highest N this board size supports (this module's documented, not FF[4]-mandated, cap). */
   readonly maxN: number;
 }
@@ -91,6 +91,11 @@ const HANDICAP_TABLES: Readonly<Record<HandicapBoardSize, HandicapTable>> = {
 
 /** True iff `size` is one of the sizes this module has a handicap table for. */
 export function isHandicapBoardSize(size: number): size is HandicapBoardSize {
+  // Widening cast, not a coercion: `Array<T>.includes` is typed to accept
+  // only `T`, but the whole point of this guard is to test an arbitrary
+  // `number` (which may not be a `HandicapBoardSize`) for membership — the
+  // cast only relaxes the SEARCH argument's type, it does not touch the
+  // array's actual (branded-literal) runtime values.
   return (HANDICAP_BOARD_SIZES as readonly number[]).includes(size);
 }
 
