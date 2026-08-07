@@ -127,7 +127,7 @@ frontend/src/
 │   │   ├── ConfirmLoadModal.vue       [B1]  "Save / discard / cancel" dirty-board dialog.
 │   │   ├── EngineMatchModal.vue       [B3]  Engine-vs-engine match config (model picker, visits, num moves).
 │   │   ├── HyperparamPromptModal.vue  [B1]  Bind-time prompt for deck-pipeline hyperparameters (defaults pre-filled, per-field validation).
-│   │   ├── LearnPathModal.vue         [B2]  "Learn this path" (wiki #8): depth/K/tag dialog + seeded/skipped/frontier result summary, wired to useLearnPath.
+│   │   ├── LearnPathModal.vue         [B2]  "Learn this path" (wiki #8): depth/K/tag dialog, two-phase Explore (live tree growth, no minting) → Mint All (explicit batch confirm) flow, wired to useLearnPath.
 │   │   ├── LoginModal.vue             [B1]  Sign-in / register / switch-user / sign-out.
 │   │   ├── MintCardModal.vue          [B3]  Flashcard mint dialog (SGF → backend mint).
 │   │   ├── PlayEngineModal.vue        [B3]  "Play vs engine" session manager: lists active sessions (start + current-head move) on the board with End buttons; start form for a new session at the current node.
@@ -213,7 +213,9 @@ frontend/src/
 │   │   ├── useCardThumbnail.ts        [B3]  Memoised SGF → SVG renderer for tooltips.
 │   │   ├── useCardTreeData.ts         [B2]  Per-board card-tree projection + loadBrowse / runPipeline entry points.
 │   │   ├── useCardTreeHydration.ts    [B2]  Lazy-hydration walker over the render forest.
-│   │   ├── useLearnPath.ts            [B2]  "Learn this path" (wiki #8): walks palette-ranked top-K candidate moves from EXISTING ledger analysis to a given depth (both sides), minting through the real mint path with existing-card dedup; a position lacking analysis is a reported frontier, never silently truncated.
+│   │   ├── learn-path-policy.ts       [B2]  "Learn this path" (wiki #8) exploration-policy seam: pure `LearnPathPolicy` interface + `spineFirstPolicy` (ratified rows 706-708) — ranks candidates by `order` ascending, rank 1 = uncarded spine, ranks 2..K = carded deviations.
+│   │   ├── learn-path-pending-markers.ts [B2] Per-board "would be carded on mint all" NodeId registry (ledger row 718) — module-scope since LearnPathModal and TreeWidget are siblings; TreeWidget reads it as a prop-shaped ReadonlySet for the dashed pre-mint ring.
+│   │   ├── useLearnPath.ts            [B2]  "Learn this path" (wiki #8): `explore()` grows the board's live tree (spine-first, deviations recurse as their own subtree) from EXISTING ledger analysis, registering pre-mint markers — mints NOTHING; `confirmMint()` is the explicit, caller-driven batch mint with existing-card dedup. A position lacking analysis is a reported frontier, never silently truncated.
 │   │   ├── useCardMetadata.ts         [B2]  Effectful boundary for card-metadata edits (updateCardMetadata); shared by ReviewSessionPanel + ForestDirectory, which splice the returned card into their own state.
 │   │   ├── useCardTreeProjection.ts   [B2]  Pure projection: forest + active-set + manual-expand → role-annotated render forest.
 │   │   ├── useTags.ts                 [B1]  The single chokepoint for the client-side tag dictionary (`store.knownTags`, the autocomplete source): every tag-write path routes its resulting tag set through `learnTags` so the dictionary stays coherent with the cards. A flat label-set SSOT — domain-free (a non-Go flashcard fork keeps it unchanged).

@@ -1,28 +1,36 @@
 /**
  * tests/integration/useLearnPath.test.ts
  *
- * "Learn this path" (wiki #8, ledger row 660/700 — see
+ * "Learn this path" (wiki #8, ledger rows 660/700/706-708/718 — see
  * src/composables/cards/useLearnPath.ts's module header for the full
- * design). This is the pre-registered acceptance test: a synthetic
- * ledger produces a deterministic seeded set to a given depth/K/tag,
- * an unanalyzed frontier fails loudly with a partial-result report
- * (not a silent truncation, ADR-0002), and an already-minted position
- * is skipped-with-notice rather than re-minted.
+ * design). This is the pre-registered acceptance test, updated for
+ * the ratified rows-706-708/718 semantics: candidates rank by
+ * `order` ascending (unit-tested separately in
+ * tests/unit/composables/learn-path-policy.test.ts); the best move at
+ * each node is a SPINE, descended first, never carded; ranks 2..K are
+ * DEVIATIONS, recursively expanded as their own subtree and carded;
+ * the walk grows the board's live tree and registers pre-mint markers
+ * as it explores; NOTHING is minted until `confirmMint` is called
+ * explicitly (row 718 — no auto-mint at walk end); an unanalyzed
+ * frontier fails loudly with a partial-result report; an
+ * already-minted position is skipped-with-notice at mint time.
  *
- * Determinism trick: `applyGoMove`'s node ids are `Math.random()`-keyed
- * (src/logic.ts), so a node id can't be predicted in the abstract. The
- * "existing-child reuse" branch in `applyGoMove` is the way out: the
- * anchor board fixture below is built by actually PLAYING the two
- * depth-1 candidate moves from a scratch root first (via `applyGoMove`
- * directly, off the board the test hands the composable), which mints
- * their real child nodes — then the board's `nodes` map (which now
- * contains both children) is spliced onto a fresh, EMPTY-stones root
- * cursor. When `useLearnPath` independently calls `applyGoMove` for the
- * same two moves, `src/logic.ts`'s existing-child-reuse fires and lands
- * on exactly these precomputed node ids — so the ledger can be seeded
- * at known positions and the resulting `canonicalContent` for the
- * "already exists" fixture can be computed with the same
- * `serializeActivePath` call the production code uses, verbatim.
+ * ── Determinism trick ─────────────────────────────────────────────────
+ * `applyGoMove`'s node ids are `Math.random()`-keyed (src/logic.ts), so
+ * a node id can't be predicted in the abstract. The "existing-child
+ * reuse" branch in `applyGoMove` is the way out: the anchor board
+ * fixture below is built by actually PLAYING every position the test
+ * needs (spine chains, deviation siblings) from a scratch root first,
+ * via `applyGoMove` directly — each sibling branch is built by
+ * resetting the cursor to the branch point while grafting on the
+ * `nodes` map accumulated so far (so earlier siblings are visible for
+ * existing-child reuse) — then the fully-built `nodes` map is spliced
+ * onto a fresh, EMPTY-stones root cursor (the "anchor" board the walk
+ * actually starts from). When `useLearnPath` independently calls
+ * `applyGoMove` for the same moves, `src/logic.ts`'s existing-child-
+ * reuse fires and lands on exactly these precomputed node ids — so the
+ * ledger can be seeded at known positions and dedup fixtures can reuse
+ * the same `serializeActivePath` call the production code uses.
  *
  * License: Public Domain (The Unlicense)
  */
@@ -44,12 +52,19 @@ import {
   LearnPathError,
   LearnPathPreconditionError,
 } from '../../src/composables/cards/useLearnPath';
+import { getPendingMintNodeIds } from '../../src/composables/cards/learn-path-pending-markers';
 import { fakeBackendService, resetFakeBackendService } from '../fakes/backend-service';
-import type { BoardId, BoardState, CardId, CardLineageTree, GameSourceId, RawAnalysis, ReviewCard } from '../../src/types';
+import type { BoardId, BoardState, CardId, CardLineageTree, GameSourceId, NodeId, RawAnalysis, ReviewCard } from '../../src/types';
 
 const ANCHOR_CARD_ID = 1000 as CardId;
-const EXISTING_D4_CARD_ID = 1001 as CardId;
+const EXISTING_Q16_CARD_ID = 1001 as CardId;
 const GAME_SOURCE_ID = 5000 as GameSourceId;
+
+// A yield hook that resolves on a microtask, not a real
+// requestAnimationFrame — fast and deterministic for tests, and
+// exercises the exact seam `LearnPathParams.yieldStep` exists for
+// (never a wall-clock delay).
+const microtaskYield = () => Promise.resolve();
 
 function rawWithMoves(moves: readonly { move: string; order: number }[]): RawAnalysis {
   return {
@@ -75,31 +90,81 @@ function stubReviewCard(id: CardId, canonicalContent: string): ReviewCard {
 }
 
 /**
- * Builds the anchor board fixture: root with two already-materialised
- * children (D4, Q16 — the depth-1 candidates), cursor back at the root
- * with EMPTY stones (nothing "played" from the cursor's point of view;
- * only the tree shape is pre-seeded). See the module header for why.
+ * The fixture used across this file's tests. Coordinates (see the GTP
+ * strings below) are chosen so every branch's stones stay disjoint
+ * along its own path — no captures, no illegal-point collisions.
+ *
+ *              root (B to move)
+ *           D4(spine) \  Q16(deviation, dedup-EXISTING)
+ *            D4 node (W to move)
+ *      C17(spine) \  P9(deviation)
+ *       C17 node (B to move)
+ *   Q3(spine) \  pass(deviation, unplayable)
+ *
+ * D4/C17/Q3 form the full-depth spine (never carded). P9 (D4's own
+ * deviation) and Q16 (root's own deviation) are the two carded
+ * positions. C17's "pass" deviation is unplayable. Neither P9's nor
+ * Q16's OWN subtree has recorded analysis — both are frontiers at
+ * their respective depths (2 and 1).
  */
-function buildAnchorBoard(): { board: BoardState; d4NodeId: string; q16NodeId: string; d4Sgf: string } {
+function buildAnchorBoard() {
   const base = createInitialBoard();
-  const afterD4 = applyGoMove(base, 3, 3)!; // D4 (col index 3, row index 3)
-  expect(afterD4).not.toBeNull();
-  const rootWithD4: BoardState = { ...base, nodes: afterD4.nodes };
-  const afterQ16 = applyGoMove(rootWithD4, 15, 15)!; // Q16, sibling of D4 under root
-  expect(afterQ16).not.toBeNull();
 
-  const board: BoardState = { ...base, nodes: afterQ16.nodes, currentNodeId: base.rootNodeId };
+  const D4 = { move: 'D4', x: 3, y: 3 };
+  const C17 = { move: 'C17', x: 2, y: 16 };
+  const Q3 = { move: 'Q3', x: 15, y: 2 };
+  const P9 = { move: 'P9', x: 14, y: 8 };
+  const Q16 = { move: 'Q16', x: 15, y: 15 };
+
+  const atD4 = applyGoMove(base, D4.x, D4.y)!;
+  const atD4C17 = applyGoMove(atD4, C17.x, C17.y)!;
+  const atD4C17Q3 = applyGoMove(atD4C17, Q3.x, Q3.y)!;
+
+  // D4's deviation (P9): reset cursor to D4, keep the accumulated
+  // `nodes` (which already has D4 -> C17 -> Q3) so C17 stays D4's
+  // FIRST child (spine / rank 1) and P9 becomes its second (deviation
+  // / rank 2).
+  const d4ResetForP9: BoardState = { ...atD4, nodes: atD4C17Q3.nodes };
+  const atD4P9 = applyGoMove(d4ResetForP9, P9.x, P9.y)!;
+
+  // Root's deviation (Q16): reset cursor to root, keep everything
+  // accumulated so far, so D4 stays root's first child (spine / rank 1)
+  // and Q16 becomes its second (deviation / rank 2).
+  const rootResetForQ16: BoardState = { ...base, nodes: atD4P9.nodes };
+  const atQ16 = applyGoMove(rootResetForQ16, Q16.x, Q16.y)!;
+
+  const board: BoardState = { ...base, nodes: atQ16.nodes, currentNodeId: base.rootNodeId };
   const rootNode = board.nodes[board.rootNodeId];
   const d4NodeId = rootNode.children[0];
   const q16NodeId = rootNode.children[1];
+  const d4Node = board.nodes[d4NodeId];
+  const c17NodeId = d4Node.children[0];
+  const p9NodeId = d4Node.children[1];
 
-  // The D4 candidate's canonical content — computed via the SAME
-  // applyGoMove + serializeActivePath calls the composable will make
-  // independently; existing-child reuse guarantees byte-identical output.
-  const atD4 = applyGoMove(board, 3, 3)!;
-  const d4Sgf = serializeActivePath(atD4);
+  // Q16's canonical content — via the SAME applyGoMove + serializeActivePath
+  // calls the composable will make independently; existing-child reuse
+  // guarantees byte-identical output.
+  const atQ16FromBoard = applyGoMove(board, Q16.x, Q16.y)!;
+  const q16Sgf = serializeActivePath(atQ16FromBoard);
 
-  return { board, d4NodeId, q16NodeId, d4Sgf };
+  return { board, moves: { D4, C17, Q3, P9, Q16 }, nodeIds: { d4NodeId, c17NodeId, p9NodeId, q16NodeId }, q16Sgf };
+}
+
+function mockDedupFakes(existingContent: readonly { cardId: CardId; sgf: string }[]) {
+  fakeBackendService.resolveRoots.mockResolvedValue({
+    roots: [{ rootCardId: ANCHOR_CARD_ID, gameSourceId: GAME_SOURCE_ID, cardIdsInTree: [ANCHOR_CARD_ID] }],
+    unmatchedCardIds: [],
+  });
+  fakeBackendService.fetchTreeByRoot.mockResolvedValue({
+    rootCardId: ANCHOR_CARD_ID,
+    gameSourceId: GAME_SOURCE_ID,
+    tree: { id: ANCHOR_CARD_ID, children: existingContent.map(e => ({ id: e.cardId, children: [] })) },
+  } satisfies CardLineageTree);
+  fakeBackendService.fetchCard.mockImplementation(async (id: CardId) => {
+    const hit = existingContent.find(e => e.cardId === id);
+    if (!hit) throw new Error(`unexpected fetchCard(${id})`);
+    return stubReviewCard(hit.cardId, hit.sgf);
+  });
 }
 
 beforeEach(() => {
@@ -109,118 +174,175 @@ beforeEach(() => {
   store.activeBoardIndex = 0;
 });
 
-describe('useLearnPath — synthetic-ledger acceptance', () => {
-  it('seeds the deterministic set to depth 2/K 2, skips the existing card, and reports the unanalyzed frontier', async () => {
-    const { board, d4NodeId, q16NodeId, d4Sgf } = buildAnchorBoard();
+function seedLedger(board: BoardState, nodeIds: { d4NodeId: NodeId; c17NodeId: NodeId; p9NodeId: NodeId }, moves: ReturnType<typeof buildAnchorBoard>['moves']) {
+  ledger.recordRaw(activeAnalysisKeys.value.rawKey, board.rootNodeId, rawWithMoves([
+    { move: moves.D4.move, order: 0 },
+    { move: moves.Q16.move, order: 1 },
+  ]));
+  ledger.recordRaw(activeAnalysisKeys.value.rawKey, nodeIds.d4NodeId, rawWithMoves([
+    { move: moves.C17.move, order: 0 },
+    { move: moves.P9.move, order: 1 },
+  ]));
+  ledger.recordRaw(activeAnalysisKeys.value.rawKey, nodeIds.c17NodeId, rawWithMoves([
+    { move: moves.Q3.move, order: 0 },
+    { move: 'pass', order: 1 },
+  ]));
+  // Deliberately NOT seeding p9NodeId or the root's Q16-child node — both are frontiers.
+}
+
+describe('useLearnPath.explore — spine-first walk, live growth, no minting', () => {
+  it('grows the tree live (spine fully before deviations) and mints NOTHING', async () => {
+    const { board, moves, nodeIds, q16Sgf } = buildAnchorBoard();
     board.sourceCardId = ANCHOR_CARD_ID;
     addBoard(board);
     const boardId = board.id as BoardId;
 
-    // Root: D4 (rank 1 / order 0) already exists as a card; Q16 (rank 2 /
-    // order 1) does not.
-    ledger.recordRaw(activeAnalysisKeys.value.rawKey, board.rootNodeId, rawWithMoves([
-      { move: 'D4', order: 0 },
-      { move: 'Q16', order: 1 },
-    ]));
-    // Under D4 (depth 1): Q16 is a legal continuation (rank 1); "pass"
-    // (rank 2) is unplayable and must be recorded as a skip, not silently
-    // dropped. Q16 under D4 is NOT recorded — the walk under the OTHER
-    // depth-1 branch (Q16-at-root) has no analysis at all, so that branch
-    // is the frontier; this one continues to depth 2.
-    ledger.recordRaw(activeAnalysisKeys.value.rawKey, d4NodeId, rawWithMoves([
-      { move: 'Q16', order: 0 },
-      { move: 'pass', order: 1 },
-    ]));
-    // Deliberately NOT seeding analysis at q16NodeId — the frontier case.
+    seedLedger(board, nodeIds, moves);
+    mockDedupFakes([{ cardId: EXISTING_Q16_CARD_ID, sgf: q16Sgf }]);
 
-    // Dedup-coverage fakes: the anchor resolves to a one-card-deep tree
-    // whose only descendant is the D4 position, already minted.
-    fakeBackendService.resolveRoots.mockResolvedValue({
-      roots: [{ rootCardId: ANCHOR_CARD_ID, gameSourceId: GAME_SOURCE_ID, cardIdsInTree: [ANCHOR_CARD_ID] }],
-      unmatchedCardIds: [],
-    });
-    fakeBackendService.fetchTreeByRoot.mockResolvedValue({
-      rootCardId: ANCHOR_CARD_ID,
-      gameSourceId: GAME_SOURCE_ID,
-      tree: { id: ANCHOR_CARD_ID, children: [{ id: EXISTING_D4_CARD_ID, children: [] }] },
-    } satisfies CardLineageTree);
-    fakeBackendService.fetchCard.mockResolvedValue(stubReviewCard(EXISTING_D4_CARD_ID, d4Sgf));
+    const steps: string[] = [];
+    const yieldStep = async () => {
+      const live = store.boards.find(b => b.id === boardId)!;
+      const move = live.nodes[live.currentNodeId].move;
+      steps.push(move && move.type === 'place' ? `${move.x},${move.y}` : 'unknown');
+      await Promise.resolve();
+    };
+
+    const { explore } = useLearnPath();
+    const exploration = await explore({ boardId, depth: 3, topK: 2, tag: 'taisha', yieldStep });
+
+    // Spine-first live growth: the FULL D4 -> C17 -> Q3 spine is grown
+    // (and awaited) before either deviation (P9, then Q16) appears —
+    // "pass" produces no growth step (unplayable, never applied).
+    expect(steps).toEqual([
+      `${moves.D4.x},${moves.D4.y}`,
+      `${moves.C17.x},${moves.C17.y}`,
+      `${moves.Q3.x},${moves.Q3.y}`,
+      `${moves.P9.x},${moves.P9.y}`,
+      `${moves.Q16.x},${moves.Q16.y}`,
+    ]);
+
+    // No card minted during explore — row 718: batch mint is a button, not automatic.
+    expect(fakeBackendService.createCard).not.toHaveBeenCalled();
+
+    // Summary counts: 2 pending deviations (P9, Q16), 1 already exists (Q16).
+    expect(exploration.pendingSeedCount).toBe(2);
+    expect(exploration.existingCount).toBe(1);
+    expect(exploration.frontierCount).toBe(2);
+    expect(exploration.unplayableCount).toBe(1);
+
+    // Pre-mint markers: pending minus existing — only P9's node is marked.
+    const markers = getPendingMintNodeIds(boardId);
+    expect(markers.size).toBe(1);
+    expect(markers.has(nodeIds.p9NodeId)).toBe(true);
+
+    // The user's cursor is restored to the anchor root; the grown tree persists.
+    const finalBoard = store.boards.find(b => b.id === boardId)!;
+    expect(finalBoard.currentNodeId).toBe(board.rootNodeId);
+    expect(finalBoard.nodes[nodeIds.p9NodeId]).toBeDefined();
+    expect(finalBoard.nodes[nodeIds.c17NodeId]).toBeDefined();
+  });
+});
+
+describe('useLearnPath.confirmMint — deferred, explicit, one batch call', () => {
+  it('mints exactly the pending-minus-existing set in one pass, clears markers, matches the acceptance shape', async () => {
+    const { board, moves, nodeIds, q16Sgf } = buildAnchorBoard();
+    board.sourceCardId = ANCHOR_CARD_ID;
+    addBoard(board);
+    const boardId = board.id as BoardId;
+
+    seedLedger(board, nodeIds, moves);
+    mockDedupFakes([{ cardId: EXISTING_Q16_CARD_ID, sgf: q16Sgf }]);
 
     let nextMintedId = 2000;
     fakeBackendService.createCard.mockImplementation(async () => nextMintedId++);
 
-    const { runLearnPath } = useLearnPath();
-    const result = await runLearnPath({ boardId, depth: 2, topK: 2, tag: 'taisha' });
+    const { explore, confirmMint } = useLearnPath();
+    const exploration = await explore({ boardId, depth: 3, topK: 2, tag: 'taisha', yieldStep: microtaskYield });
+
+    expect(fakeBackendService.createCard).not.toHaveBeenCalled();
+
+    const result = await confirmMint(exploration);
+
+    // Exactly one batch call per pending-and-not-existing seed (P9 only).
+    expect(fakeBackendService.createCard).toHaveBeenCalledTimes(1);
+    const payload = fakeBackendService.createCard.mock.calls[0][0] as { tags: string[] };
+    expect(payload.tags).toEqual(['taisha']);
 
     expect(result.tag).toBe('taisha');
+    expect(result.seeded).toHaveLength(1);
+    expect(result.seeded[0]).toMatchObject({ parentCardId: ANCHOR_CARD_ID, plyDepth: 2, rank: 2 });
+    const seededP9Id = result.seeded[0].cardId;
 
-    // Seeded: Q16-at-root (depth1, rank2) and Q16-under-D4 (depth2, rank1).
-    expect(result.seeded).toHaveLength(2);
-    const seededByDepth = [...result.seeded].sort((a, b) => a.plyDepth - b.plyDepth);
-    expect(seededByDepth[0]).toMatchObject({ parentCardId: ANCHOR_CARD_ID, plyDepth: 1, rank: 2 });
-    expect(seededByDepth[1]).toMatchObject({ parentCardId: EXISTING_D4_CARD_ID, plyDepth: 2, rank: 1 });
-    // Every seeded card carries the mint through the real createCard spy
-    // (existing mint path, constraint 3), tagged with the user's context tag.
-    for (const call of fakeBackendService.createCard.mock.calls) {
-      expect((call[0] as { tags: string[] }).tags).toEqual(['taisha']);
-    }
-    expect(fakeBackendService.createCard).toHaveBeenCalledTimes(2);
-
-    // Skipped: D4-at-root as existing-card, pass-under-D4 as unplayable-move.
     expect(result.skipped).toHaveLength(2);
     expect(result.skipped).toContainEqual(expect.objectContaining({
-      reason: 'existing-card', existingCardId: EXISTING_D4_CARD_ID, parentCardId: ANCHOR_CARD_ID, plyDepth: 1, rank: 1,
+      reason: 'existing-card', existingCardId: EXISTING_Q16_CARD_ID, parentCardId: ANCHOR_CARD_ID, plyDepth: 1, rank: 2,
     }));
     expect(result.skipped).toContainEqual(expect.objectContaining({
-      reason: 'unplayable-move', parentCardId: EXISTING_D4_CARD_ID, plyDepth: 2, rank: 2,
+      reason: 'unplayable-move', parentCardId: ANCHOR_CARD_ID, plyDepth: 3, rank: 2,
     }));
 
-    // Frontier: the Q16-at-root branch has no recorded analysis at its
-    // own (newly seeded) position — reported, not silently truncated.
-    expect(result.frontiers).toHaveLength(1);
-    expect(result.frontiers[0]).toMatchObject({ parentCardId: seededByDepth[0].cardId, plyDepth: 1, nodeId: q16NodeId });
+    expect(result.frontiers).toHaveLength(2);
+    expect(result.frontiers).toContainEqual({ parentCardId: seededP9Id, plyDepth: 2, nodeId: nodeIds.p9NodeId });
+    expect(result.frontiers).toContainEqual({ parentCardId: EXISTING_Q16_CARD_ID, plyDepth: 1, nodeId: nodeIds.q16NodeId });
+
+    // Markers clear after mint.
+    expect(getPendingMintNodeIds(boardId).size).toBe(0);
   });
 
-  it('is deterministic — same ledger state + same params produce the same seeded set twice', async () => {
+  it('discardExploration clears the markers without minting anything', async () => {
+    const { board, moves, nodeIds, q16Sgf } = buildAnchorBoard();
+    board.sourceCardId = ANCHOR_CARD_ID;
+    addBoard(board);
+    const boardId = board.id as BoardId;
+
+    seedLedger(board, nodeIds, moves);
+    mockDedupFakes([{ cardId: EXISTING_Q16_CARD_ID, sgf: q16Sgf }]);
+
+    const { explore, discardExploration } = useLearnPath();
+    const exploration = await explore({ boardId, depth: 3, topK: 2, tag: 'taisha', yieldStep: microtaskYield });
+
+    expect(getPendingMintNodeIds(boardId).size).toBe(1);
+    discardExploration(exploration);
+    expect(getPendingMintNodeIds(boardId).size).toBe(0);
+    expect(fakeBackendService.createCard).not.toHaveBeenCalled();
+  });
+});
+
+describe('useLearnPath.runLearnPath — programmatic explore+confirm convenience', () => {
+  it('is deterministic — same ledger state + same params produce the same seeded shape twice', async () => {
     const build = () => {
-      const { board, d4NodeId } = buildAnchorBoard();
+      const { board, moves, nodeIds, q16Sgf } = buildAnchorBoard();
       board.sourceCardId = ANCHOR_CARD_ID;
-      ledger.recordRaw(activeAnalysisKeys.value.rawKey, board.rootNodeId, rawWithMoves([
-        { move: 'D4', order: 0 },
-        { move: 'Q16', order: 1 },
-      ]));
-      ledger.recordRaw(activeAnalysisKeys.value.rawKey, d4NodeId, rawWithMoves([{ move: 'Q16', order: 0 }]));
-      return board;
+      seedLedger(board, nodeIds, moves);
+      return { board, q16Sgf };
     };
 
-    fakeBackendService.resolveRoots.mockResolvedValue({
-      roots: [{ rootCardId: ANCHOR_CARD_ID, gameSourceId: GAME_SOURCE_ID, cardIdsInTree: [ANCHOR_CARD_ID] }],
-      unmatchedCardIds: [],
-    });
-    fakeBackendService.fetchTreeByRoot.mockResolvedValue({
-      rootCardId: ANCHOR_CARD_ID,
-      gameSourceId: GAME_SOURCE_ID,
-      tree: { id: ANCHOR_CARD_ID, children: [] },
-    } satisfies CardLineageTree);
     let nextMintedId = 3000;
     fakeBackendService.createCard.mockImplementation(async () => nextMintedId++);
 
     const { runLearnPath } = useLearnPath();
-
-    store.boards.length = 0;
-    addBoard(build());
-    const run1 = await runLearnPath({ boardId: store.boards[0].id as BoardId, depth: 2, topK: 1, tag: 'taisha' });
-
-    ledger.purgeAll();
-    store.boards.length = 0;
-    addBoard(build());
-    const run2 = await runLearnPath({ boardId: store.boards[0].id as BoardId, depth: 2, topK: 1, tag: 'taisha' });
-
-    const shape = (r: typeof run1) => ({
+    const shape = (r: Awaited<ReturnType<typeof runLearnPath>>) => ({
       seeded: r.seeded.map(s => ({ plyDepth: s.plyDepth, rank: s.rank, move: s.move })),
       skipped: r.skipped,
-      frontierPlyDepths: r.frontiers.map(f => f.plyDepth),
+      frontierPlyDepths: r.frontiers.map(f => f.plyDepth).sort(),
     });
+
+    const first = build();
+    mockDedupFakes([{ cardId: EXISTING_Q16_CARD_ID, sgf: first.q16Sgf }]);
+    store.boards.length = 0;
+    addBoard(first.board);
+    const run1 = await runLearnPath({ boardId: first.board.id as BoardId, depth: 3, topK: 2, tag: 'taisha', yieldStep: microtaskYield });
+
+    ledger.purgeAll();
+    resetFakeBackendService();
+    fakeBackendService.createCard.mockImplementation(async () => nextMintedId++);
+    const second = build();
+    mockDedupFakes([{ cardId: EXISTING_Q16_CARD_ID, sgf: second.q16Sgf }]);
+    store.boards.length = 0;
+    addBoard(second.board);
+    const run2 = await runLearnPath({ boardId: second.board.id as BoardId, depth: 3, topK: 2, tag: 'taisha', yieldStep: microtaskYield });
+
     expect(shape(run1)).toEqual(shape(run2));
   });
 
@@ -229,19 +351,19 @@ describe('useLearnPath — synthetic-ledger acceptance', () => {
     board.sourceCardId = ANCHOR_CARD_ID;
     addBoard(board);
     const boardId = board.id as BoardId;
-    const { runLearnPath } = useLearnPath();
+    const { explore } = useLearnPath();
 
-    await expect(runLearnPath({ boardId, depth: 0, topK: 1, tag: 'x' })).rejects.toThrow(LearnPathError);
-    await expect(runLearnPath({ boardId, depth: 1, topK: 0, tag: 'x' })).rejects.toThrow(LearnPathError);
-    await expect(runLearnPath({ boardId, depth: 1, topK: 1, tag: '   ' })).rejects.toThrow(LearnPathError);
+    await expect(explore({ boardId, depth: 0, topK: 1, tag: 'x' })).rejects.toThrow(LearnPathError);
+    await expect(explore({ boardId, depth: 1, topK: 0, tag: 'x' })).rejects.toThrow(LearnPathError);
+    await expect(explore({ boardId, depth: 1, topK: 1, tag: '   ' })).rejects.toThrow(LearnPathError);
   });
 
   it('refuses a board with no sourceCardId (precondition)', async () => {
     const board = createInitialBoard();
     addBoard(board);
-    const { runLearnPath } = useLearnPath();
+    const { explore } = useLearnPath();
     await expect(
-      runLearnPath({ boardId: board.id as BoardId, depth: 1, topK: 1, tag: 'x' }),
+      explore({ boardId: board.id as BoardId, depth: 1, topK: 1, tag: 'x' }),
     ).rejects.toThrow(LearnPathPreconditionError);
   });
 
@@ -252,9 +374,9 @@ describe('useLearnPath — synthetic-ledger acceptance', () => {
     moved.sourceCardId = ANCHOR_CARD_ID;
     moved.id = base.id;
     addBoard(moved);
-    const { runLearnPath } = useLearnPath();
+    const { explore } = useLearnPath();
     await expect(
-      runLearnPath({ boardId: moved.id as BoardId, depth: 1, topK: 1, tag: 'x' }),
+      explore({ boardId: moved.id as BoardId, depth: 1, topK: 1, tag: 'x' }),
     ).rejects.toThrow(LearnPathPreconditionError);
   });
 });

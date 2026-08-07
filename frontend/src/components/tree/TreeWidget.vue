@@ -60,6 +60,17 @@ const props = withDefaults(
     // `board.games[*].currentHeadNodeId` upstream; per-session
     // config is opaque here — the tree only needs identity.
     gameHeadIds?: ReadonlySet<NodeId>;
+    // "Learn this path" (wiki #8, ledger row 718 amendment #2 — PRE-MINT
+    // MARKERS): NodeIds the exploration walk has flagged as "would be
+    // added on mint all" — every pending deviation position that isn't
+    // already an existing card. Owned by `learn-path-pending-markers.ts`
+    // (module-scope, since `LearnPathModal` and this widget are siblings
+    // under App.vue, not parent/child); populated live as the walk
+    // grows the tree, cleared after mint or on discard. Renders a
+    // dashed blue ring, same colour family as the solid active-node
+    // ring but visually distinct (dashed, outermost radius) so it reads
+    // as "pending", not "current" or "game head".
+    pendingMintIds?: ReadonlySet<NodeId>;
   }>(),
   { orientation: 'vertical' },
 );
@@ -254,6 +265,7 @@ const nodeList = computed(() => {
     move: GameNode['move']; isBranching: boolean; isExpanded: boolean;
     parentIdForToggle: NodeId | '';
     isGameHead: boolean;
+    isPendingMint: boolean;
   }> = [];
 
   layout.value.positions.forEach((pos, id) => {
@@ -284,6 +296,7 @@ const nodeList = computed(() => {
       isExpanded: isParentExpanded,
       parentIdForToggle, // Pass to template
       isGameHead: !!props.gameHeadIds?.has(id),
+      isPendingMint: !!props.pendingMintIds?.has(id),
     });
   });
   return items;
@@ -346,7 +359,7 @@ const edges = computed(() => {
         <g
           v-for="item in nodeList"
           :key="item.id"
-          v-memo="[item.isGameHead, item.move?.color, item.isBranching, item.isExpanded, item.px, item.py]"
+          v-memo="[item.isGameHead, item.isPendingMint, item.move?.color, item.isBranching, item.isExpanded, item.px, item.py]"
         >
           <!-- Game-head marker — outermost ring (NODE_R + 5) so it stays
                visible when the active-ring (NODE_R + 3) also applies on the
@@ -356,6 +369,13 @@ const edges = computed(() => {
                previously-green nodes no longer render the ring. See
                PlayEngineModal / useEngineResponder for the lifecycle. -->
           <circle v-if="item.isGameHead" :cx="item.px" :cy="item.py" :r="NODE_R + 5" class="game-head-ring" stroke-width="1.5" />
+          <!-- "Learn this path" pre-mint marker (ledger row 718) — dashed,
+               same accent-primary blue as the (solid) active-ring, at the
+               outermost radius so it coexists with both the active-ring and
+               the game-head-ring without collision. "This node would be
+               added if you click mint-all"; cleared on mint or discard. See
+               `learn-path-pending-markers.ts`. -->
+          <circle v-if="item.isPendingMint" :cx="item.px" :cy="item.py" :r="NODE_R + 7" class="pending-mint-ring" stroke-width="1.5" stroke-dasharray="2,1" />
           <circle :cx="item.px" :cy="item.py" :r="NODE_R" :fill="nodeFill(item)" :stroke="nodeStroke(item)" stroke-width="1" class="node-circle" @click="emit('select-node', item.id)" />
 
           <g v-if="item.isBranching" class="toggle-group" @click.stop="expansion.toggle(item.parentIdForToggle as NodeId /* layout item's parent id is a NodeId */)" @mouseenter="e => onToggleEnter(e, item.parentIdForToggle as NodeId /* layout item's parent id is a NodeId */)" @mouseleave="onToggleLeave">
@@ -381,6 +401,7 @@ const edges = computed(() => {
 .tree-edges { fill: none; stroke: var(--border-3); }
 .active-ring { fill: color-mix(in srgb, var(--accent-primary) 15%, transparent); stroke: var(--accent-primary); }
 .game-head-ring { fill: color-mix(in srgb, var(--state-success) 15%, transparent); stroke: var(--state-success); }
+.pending-mint-ring { fill: none; stroke: var(--accent-primary); }
 .node-circle { cursor: pointer; transition: filter var(--duration-default); }
 .node-circle:hover { filter: brightness(1.4) drop-shadow(0 0 3px var(--accent-primary)); }
 .toggle-group { cursor: pointer; }

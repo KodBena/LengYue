@@ -1,35 +1,49 @@
 <!--
   src/components/modals/LearnPathModal.vue
-  "Learn this path" — auto-seed a card tree beneath the currently loaded
-  anchor card by following the engine's top-K ranked candidate moves to
-  a given depth. See src/composables/cards/useLearnPath.ts for the full
-  design (ranking metric, precondition, dedup).
+  "Learn this path" — grows a card tree beneath the currently loaded
+  anchor card by following the engine's palette-ranked candidate moves
+  (spine-first, deviations recurse), then mints the collected
+  deviations in one explicit, user-confirmed batch. Two-phase flow
+  (ledger rows 708/718): Explore grows the tree live and leaves it
+  inspectable — nothing is minted; Mint All performs the single batch
+  mint only once clicked. See src/composables/cards/useLearnPath.ts
+  for the full design.
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { pushSystemMessage } from '../../store';
-import { useLearnPath, LearnPathError, type LearnPathResult } from '../../composables/cards/useLearnPath';
+import {
+  useLearnPath,
+  LearnPathError,
+  type LearnPathExploration,
+  type LearnPathResult,
+} from '../../composables/cards/useLearnPath';
 import type { BoardId } from '../../types';
 
 const { t } = useI18n();
-const { runLearnPath } = useLearnPath();
+const { explore, confirmMint, discardExploration } = useLearnPath();
+
+type Phase = 'form' | 'exploring' | 'explored' | 'minting' | 'minted';
 
 const isOpen = ref(false);
-const isRunning = ref(false);
+const phase = ref<Phase>('form');
 const boardId = ref<BoardId | null>(null);
 
 const depth = ref(4);
 const topK = ref(3);
 const tag = ref('');
 
+const exploration = ref<LearnPathExploration | null>(null);
 const result = ref<LearnPathResult | null>(null);
 const errorMessage = ref<string | null>(null);
 
 defineExpose({
   open(id: BoardId) {
     boardId.value = id;
+    phase.value = 'form';
+    exploration.value = null;
     result.value = null;
     errorMessage.value = null;
     tag.value = '';
@@ -38,28 +52,58 @@ defineExpose({
 });
 
 function close() {
+  // A closed-without-confirming exploration's markers are a discard —
+  // the grown tree nodes stay (documented limitation, useLearnPath.ts
+  // header), but the "would be added" markers shouldn't linger once
+  // the dialog is gone.
+  if (exploration.value && (phase.value === 'explored')) {
+    discardExploration(exploration.value);
+  }
   isOpen.value = false;
   boardId.value = null;
+  phase.value = 'form';
+  exploration.value = null;
   result.value = null;
   errorMessage.value = null;
 }
 
-async function submit() {
+async function runExplore() {
   if (!boardId.value) return;
   const cleanTag = tag.value.trim();
   if (!cleanTag || depth.value < 1 || topK.value < 1) return;
 
-  isRunning.value = true;
+  phase.value = 'exploring';
   errorMessage.value = null;
-  result.value = null;
   try {
-    const r = await runLearnPath({
+    exploration.value = await explore({
       boardId: boardId.value,
       depth: depth.value,
       topK: topK.value,
       tag: cleanTag,
     });
+    phase.value = 'explored';
+  } catch (err) {
+    const message = err instanceof LearnPathError ? err.message : String(err);
+    errorMessage.value = message;
+    pushSystemMessage('error', t('learnPath.systemMessage.failed', { err: message }));
+    phase.value = 'form';
+  }
+}
+
+function runDiscard() {
+  if (exploration.value) discardExploration(exploration.value);
+  exploration.value = null;
+  phase.value = 'form';
+}
+
+async function runMintAll() {
+  if (!exploration.value) return;
+  phase.value = 'minting';
+  errorMessage.value = null;
+  try {
+    const r = await confirmMint(exploration.value);
     result.value = r;
+    phase.value = 'minted';
     pushSystemMessage('info', t('learnPath.systemMessage.summary', {
       seeded: r.seeded.length,
       skipped: r.skipped.length,
@@ -70,8 +114,12 @@ async function submit() {
     const message = err instanceof LearnPathError ? err.message : String(err);
     errorMessage.value = message;
     pushSystemMessage('error', t('learnPath.systemMessage.failed', { err: message }));
-  } finally {
-    isRunning.value = false;
+    // confirmMint's own `finally` already cleared the markers; the
+    // exploration is still available for inspection, but re-minting
+    // the same batch is not offered here — a fresh Explore is the
+    // documented recovery (mirrors the walk-phase's own
+    // partial-progress posture).
+    phase.value = 'explored';
   }
 }
 </script>
@@ -89,10 +137,10 @@ async function submit() {
 
         <div class="form-grid">
           <label>{{ $t('learnPath.field.depth') }}</label>
-          <input type="number" v-model.number="depth" min="1" max="12" class="dark-input" :disabled="isRunning" />
+          <input type="number" v-model.number="depth" min="1" max="12" class="dark-input" :disabled="phase !== 'form'" />
 
           <label>{{ $t('learnPath.field.topK') }}</label>
-          <input type="number" v-model.number="topK" min="1" max="6" class="dark-input" :disabled="isRunning" />
+          <input type="number" v-model.number="topK" min="1" max="6" class="dark-input" :disabled="phase !== 'form'" />
 
           <label>{{ $t('learnPath.field.tag') }}</label>
           <input
@@ -100,11 +148,26 @@ async function submit() {
             v-model="tag"
             class="dark-input"
             :placeholder="$t('learnPath.field.tagPlaceholder')"
-            :disabled="isRunning"
+            :disabled="phase !== 'form'"
           />
         </div>
 
         <p v-if="errorMessage" class="error-box">{{ errorMessage }}</p>
+
+        <p v-if="phase === 'exploring'" class="hint">{{ $t('learnPath.status.exploring') }}</p>
+
+        <!-- Explored, not yet minted: the tree has grown live in the
+             viewer (with dashed blue pre-mint markers on the deviation
+             positions) and this is the confirm step the commissioner
+             wants — inspect before anything touches cards.db. -->
+        <div v-if="exploration && (phase === 'explored' || phase === 'minting')" class="result-box">
+          <p class="result-line">{{ $t('learnPath.explore.pending', { n: exploration.pendingSeedCount - exploration.existingCount }) }}</p>
+          <p v-if="exploration.existingCount > 0" class="result-line">{{ $t('learnPath.explore.existing', { n: exploration.existingCount }) }}</p>
+          <p v-if="exploration.frontierCount > 0" class="result-line result-line-attention">
+            {{ $t('learnPath.explore.frontiers', { n: exploration.frontierCount }) }}
+          </p>
+          <p v-if="exploration.unplayableCount > 0" class="result-line">{{ $t('learnPath.explore.unplayable', { n: exploration.unplayableCount }) }}</p>
+        </div>
 
         <div v-if="result" class="result-box">
           <p class="result-line">{{ $t('learnPath.result.seeded', { n: result.seeded.length }) }}</p>
@@ -116,9 +179,23 @@ async function submit() {
       </div>
 
       <div class="modal-footer">
-        <button class="btn-cancel" @click="close" :disabled="isRunning">{{ $t('learnPath.button.close') }}</button>
-        <button class="btn-submit" @click="submit" :disabled="isRunning || !tag.trim()">
-          {{ isRunning ? $t('learnPath.button.running') : $t('learnPath.button.run') }}
+        <button class="btn-cancel" @click="close" :disabled="phase === 'exploring' || phase === 'minting'">
+          {{ $t('learnPath.button.close') }}
+        </button>
+        <template v-if="phase === 'explored'">
+          <button class="btn-cancel" @click="runDiscard">{{ $t('learnPath.button.discard') }}</button>
+          <button class="btn-submit" @click="runMintAll">{{ $t('learnPath.button.mintAll') }}</button>
+        </template>
+        <button
+          v-else-if="phase === 'form' || phase === 'exploring'"
+          class="btn-submit"
+          @click="runExplore"
+          :disabled="phase === 'exploring' || !tag.trim()"
+        >
+          {{ phase === 'exploring' ? $t('learnPath.button.exploring') : $t('learnPath.button.explore') }}
+        </button>
+        <button v-else class="btn-submit" disabled>
+          {{ phase === 'minting' ? $t('learnPath.button.minting') : $t('learnPath.button.mintAll') }}
         </button>
       </div>
     </div>
