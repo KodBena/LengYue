@@ -1,6 +1,192 @@
 # Dispatch report — ADR-0019 audit S6 + S11 + S13
 
 Branch: `worktree-agent-a1c39e65d18c3e32d`
+Commit: `823268aebaacd94d57942d1cfaba9d29fc4cf0c8` (merge commit; supersedes `5aa860f5`/`b80002cd`
+below, which were built on a stale base)
+
+## Correction notice (read this first)
+
+The original delivery (commit `5aa860f5`, report text preserved below under "Original delivery")
+was built against a worktree branch point that turned out to be stale relative to the real
+integration branch. Two claims in that original report are **wrong and must not be trusted**:
+
+- "The board-tab rail is not virtualized here" — **false** against the real integration branch.
+  The virtualization (`useVirtualList`, the windowed `tabWindow` render, the `padding-top` clip
+  fix) was real, shipped work I simply hadn't merged in yet. "Nothing to regress here" was an
+  artifact of comparing against a stale base, not a fact about the codebase.
+- "`useModalKeyboard.ts` does not exist" — **false** against the real integration branch. It
+  exists, is wired into all seven pre-existing modals, and `ConfirmCloseBoardModal.vue` now uses
+  it too (see below).
+
+Root cause: I fetched and merge-base'd against `origin/next` (the GitHub mirror), which really was
+behind my worktree's own history in one place and behind the actual working integration branch in
+another. A second, orphaned remote-tracking ref set (`refs/remotes/local/*`, no `git remote`
+entry pointing at it — leftover tracking refs from a remote no longer configured, but with real,
+already-fetched objects) turned out to hold the actual current integration branch
+(`local/next`, tip `dcbde8de`), 96 commits ahead of my worktree's true branch point and a
+strict descendant of `origin/next`. I merged that instead. Flagging this plainly rather than
+letting the corrected merge quietly imply the original diagnosis was reasonable — it wasn't;
+`origin/next` should have been treated as suspect the moment its merge-base with my branch (an old
+commit, `52b1df9`) didn't match what my worktree's own `git log` said its ancestry was on first
+principles. I did not catch that the first time.
+
+## Repair performed
+
+1. `git merge origin/next` was done first (against the wrong ref), conflicts resolved, then
+   **`git merge --abort`** once the mismatch was discovered — no partial state committed from that
+   attempt.
+2. `git merge local/next --no-edit` — real merge, 96 commits, three conflicting files:
+   `frontend/FILES.md`, `frontend/src/components/board/BoardTab.vue`,
+   `frontend/src/components/chrome/SidebarWidget.vue`.
+3. Conflict resolution, per file:
+   - **`FILES.md`**: mechanical — kept next's updated `useBoardMoveRouting.ts` description
+     (REVIEWED-state handling, unrelated content update) alongside my new `useCloseBoardGuard.ts`
+     row.
+   - **`BoardTab.vue`**: the virtualized-rail reality (next's `.thumb-container { padding-top: 6px
+     }` clip fix, `overflow: visible` rationale) is the base; my S6 rework (`.tab-thumb-wrap` as
+     the outer box, `.tab-thumb` as the real `<button>`, `.close-board-btn` as its sibling) is
+     re-expressed on top of it, keeping next's box properties and comments where they still apply.
+     **A real bug surfaced doing this, not just a textual conflict**: my S6 change widened the
+     close button's hit area from 16×16 to 24×24 (C21) while keeping the same *visible* circle
+     position, which moved the button's own top-edge overshoot from 6px to 10px. Next's clip-fix
+     padding (`padding-top: 6px`) was tuned to absorb exactly the *old* 6px overshoot — left as-is,
+     the wider (now keyboard-focusable) hit area would clip 4px off its top edge for any tab
+     scrolled flush against the virtualized rail's top edge, a narrower recurrence of the exact
+     defect (`ui-defects-investigation.md` Defect 4) the padding exists to prevent, specific to the
+     keyboard-focus case C21 was fixing. Fixed by widening `padding-top` to `10px` and updating
+     both its own comment and `SidebarWidget.vue`'s `tabHeight` magic-literal comment/default
+     (`52` → `56`) to match. This is exactly the kind of interaction the coordinator's message
+     warned "preserving render-locality and CSS-counter mechanics" would require attention to — it
+     wasn't a render-locality break, but it was a real, non-textual conflict between the two
+     changes that `git merge` could not see.
+   - **`SidebarWidget.vue`**: next's virtualized template (`useVirtualList`, `tabWindow`,
+     `thumbListRef`, `topPadPx`/`bottomPadPx`, `counter-reset` on the windowed wrapper,
+     `activeBoardId` id-based lookup) is the base; the only change layered on top is
+     `@close="closeBoard"` → `@request-close="requestCloseBoard"` and the
+     `useCloseBoardGuard`/`ConfirmCloseBoardModal` wiring from the original delivery.
+4. **`ConfirmCloseBoardModal.vue`**: rewritten to import and call the real `useModalKeyboard`
+   (`useModalKeyboard(modalContentRef, isOpen, () => handle(false))`), replacing the self-contained
+   Escape/initial-focus/focus-restore mechanism from the original delivery. It now has the full
+   Tab-cycle focus trap that mechanism never had. Backdrop stays `background: transparent`; card
+   stays `background: var(--surface-0)` — unaffected by the swap, both already matched the
+   commissioner's rule.
+5. `FILES.md`'s `ConfirmCloseBoardModal.vue` row updated to drop the now-false "self-contained,
+   doesn't use useModalKeyboard" note.
+
+## Gate verdicts (post-merge)
+
+- `npx vue-tsc --noEmit` — exit 0.
+- `npx vitest run --silent=true` (`nice -n 19` + `NODE_OPTIONS=--max-old-space-size=2048
+  VITEST_MAX_THREADS=2 VITEST_MAX_FORKS=2`) — exit 0. **1513 passed, 4 skipped, 0 failed, 119 test
+  files** (up from the stale-base run's 1117/84 — the merge brought in ~400 tests from the other 96
+  commits).
+- **Tab-rail render-count guards, confirmed passing specifically**: ran
+  `tests/integration/render-count/` alone — 3 test files, 6 tests, all passed. This includes
+  `BoardTab.render-count.test.ts` (the rugplot-canvas render-locality guard) unmodified by this
+  merge or by the S6/S11 changes — the conflict resolution touched only box/positioning CSS and the
+  close-event wiring, never the template's reactive reads.
+- The five S6/S11/S13/S5-touching test files specifically (`BoardTab-close-guard.test.ts`,
+  `useCloseBoardGuard.test.ts`, `shared-chrome-css.test.ts`, both `useModalKeyboard.test.ts` files)
+  — 24 tests, all passed. The `useModalKeyboard` tests passing confirms `ConfirmCloseBoardModal`'s
+  swap onto the real composable didn't need a new test of its own to be covered — the composable's
+  own suite covers the mechanism, and `useCloseBoardGuard.test.ts`'s modal-interaction tests (open
+  on a dirty board, cancel vs confirm) still pass unchanged, proving the swap didn't change the
+  modal's open/close *contract*, only its keyboard internals.
+
+## Per-claim status (re-stated against post-merge reality)
+
+### S6 — board tab close
+
+1. **Tab itself gets button semantics, keyboard-activatable.** WITNESSED, unchanged by the merge.
+   `.tab-thumb` is a real `<button type="button">`, now inside the virtualized rail's per-item
+   render (`v-for="board in tabWindow.items"`) rather than the flat `v-for` the stale-base delivery
+   tested against — `BoardTab-close-guard.test.ts` mounts `BoardTab` directly (not through
+   `SidebarWidget`), so this assertion was never actually coupled to virtualization one way or the
+   other; it holds identically post-merge. Native Enter/Space activation remains **UNEXERCISED
+   under jsdom** for the same reason as before (jsdom doesn't simulate default button keydown
+   behaviour).
+2. **Close button: >=24x24 hit area, `:focus-visible` overriding the opacity:0 reveal, leaves the
+   primary tab order's destructive-gauntlet shape.**
+   - Hit area and focus-visible override: WITNESSED, unchanged (source-pinned assertions in
+     `BoardTab-close-guard.test.ts`). **Corrected**: the hit-area widening interacts with the real
+     virtualized rail's clip-fix padding in a way the stale-base delivery could not have caught,
+     because that padding didn't exist in the stale base — see "Repair performed" above. Fixed as
+     part of this merge, not left as a latent regression for whoever merged next later.
+   - Destructive-gauntlet shape: WITNESSED structurally, same as before (two focusable elements
+     per tab, alternating select/close in DOM order) — **now genuinely evaluated against the real
+     virtualized rail** rather than a rail that doesn't exist upstream, closing the earlier
+     UNEXERCISED gap about "this worktree predates the virtualized rail the audit measured
+     against." Still UNEXERCISED: no live-browser re-measurement at the audit's original scale (a
+     92-board workspace) — jsdom has no layout, and the virtual-list's windowing means a live
+     measurement would need a real scrollable viewport to exercise correctly.
+3. **Close gets a confirm guard (C10).** WITNESSED, unchanged in substance.
+   `useCloseBoardGuard.test.ts` mounts the real `ConfirmCloseBoardModal` (now running through the
+   real `useModalKeyboard`) and drives the same four scenarios (blank board closes with no prompt,
+   board-with-moves opens the modal and waits, cancel leaves it open/unclosed, confirm calls
+   `closeBoard`) — all still pass post-swap, which is the evidence the modal's swap onto
+   `useModalKeyboard` didn't change its externally-observable open/close contract.
+   - Modal conventions (backdrop `background: transparent`, card `background: var(--surface-0)`):
+     WITNESSED by source read, same as before — genuinely unaffected by the `useModalKeyboard` swap
+     (that composable only touches keyboard/focus JS, never styles). Still no dedicated CSS-token
+     test for this modal's backdrop specifically — same disclosed gap as the original report.
+   - S14 note honored, unchanged: still no generic confirm/prompt primitive built.
+
+### S11 — tab naming
+
+WITNESSED, unchanged by the merge. `resolveGameName` and the aria-label/aria-hidden wiring in
+`BoardTab.vue` were untouched by conflict resolution (the conflicts were in the CSS box model and
+the close-event name, not the naming logic). `BoardTab-close-guard.test.ts`'s assertions
+(GN-property name, `Free play` fallback, `aria-hidden` on the counter span) all still pass.
+Render-locality claim **now genuinely evidenced against the real perf-sensitive rail** — the
+render-count guard that's the direct evidence for "doesn't reintroduce render-coupling" is the
+real `BoardTab.render-count.test.ts` from the virtualization arc, not a stand-in.
+
+### S13 — `.toolbar-btn-sm` background
+
+WITNESSED, unchanged. `shared-chrome.css` was not touched by the other 96 commits — the merge
+carried the fix through with no conflict. `shared-chrome-css.test.ts` still passes.
+
+## Design choices / deviations, summarized (updated)
+
+- **Guard policy** (confirm only when the board has moves): unchanged, still the position taken.
+- **`request-close` event rename**: unchanged.
+- **`useCloseBoardGuard.ts` as a composable**: unchanged.
+- **`ConfirmCloseBoardModal.vue`'s keyboard handling**: **no longer a deviation.** The original
+  self-contained mechanism was a stopgap forced by a stale base, disclosed as such at the time
+  ("flagged for reconciliation once useModalKeyboard lands"). It has now landed, via this merge,
+  and the modal was swapped onto it in the same change per the coordinator's instruction. Nothing
+  about this deviation survives in the current code.
+- **No FEATURES.md change**: unchanged rationale.
+
+## Files touched (this repair, in addition to the original delivery's list)
+
+- `frontend/src/components/board/BoardTab.vue` — conflict-resolved; `.thumb-container`
+  `padding-top` widened 6px → 10px (see "Repair performed").
+- `frontend/src/components/chrome/SidebarWidget.vue` — conflict-resolved; `tabHeight` default
+  52 → 56 + comment update.
+- `frontend/src/components/modals/ConfirmCloseBoardModal.vue` — rewritten onto `useModalKeyboard`.
+- `frontend/FILES.md` — conflict-resolved; `ConfirmCloseBoardModal.vue` row updated.
+- No changes to `useCloseBoardGuard.ts`, the three new test files, or the locale keys — all carried
+  through the merge unmodified and still pass.
+
+## Housekeeping note (unchanged from original)
+
+`frontend/node_modules` is a symlink to the main checkout's, not a real install — see the original
+delivery's note below. `package.json`/`package-lock.json` were unchanged by the `local/next` merge
+(confirmed via `git diff` across the merge), so the symlink remained valid for both gate runs in
+this repair.
+
+---
+
+## Original delivery (commit `5aa860f5`/`b80002cd`, superseded — preserved for the record)
+
+Everything below this line is the original report text, unedited except for this header. Read it
+as history, not as current fact — see the correction notice at the top of this file for what's
+wrong in it.
+
+# Dispatch report — ADR-0019 audit S6 + S11 + S13
+
+Branch: `worktree-agent-a1c39e65d18c3e32d`
 Commit: `5aa860f5287bd4b81924c4f8aa4f35dfcce78fd2`
 
 ## Gate verdicts
@@ -32,6 +218,10 @@ the commissioning dispatch's text assumes are already in place:
    handling — no `role="dialog"`, no `tabindex`, no Escape binding. This is the literal S5 defect
    the audit describes, still unfixed on this branch. The commission's "use useModalKeyboard — see
    `frontend/src/components/modals/` for the pattern" assumes a newer tree.
+
+**[CORRECTED ABOVE — both (1) and (2) turned out to be false against the real integration branch,
+`local/next`. See the correction notice at the top of this file. Preserved verbatim below only for
+the audit trail.]**
 
 Given both, I did not attempt to backport the virtualization or S5 fixes (out of scope for this
 dispatch and each is its own arc). For (2) specifically, `ConfirmCloseBoardModal.vue` wires a
