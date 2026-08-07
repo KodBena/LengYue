@@ -103,10 +103,13 @@
  * would actually create. Neither of these touches cards.db — only the
  * in-memory board's node tree and the marker registry change. Once the
  * walk finishes, the board's cursor (stones/turn/captures/koPoint/
- * currentNodeId) is reset to the anchor's own position — the explored
- * NODES persist (that tree IS the deliverable the user inspects before
- * minting), but the user's viewport doesn't end up stranded wherever
- * the last step landed.
+ * currentNodeId) is reset to the anchor's own position — by
+ * construction (see "Anchor resolution" above) this is always the SAME
+ * position the cursor was at when `explore()` was invoked, whether the
+ * anchor is a pre-existing card or one freshly minted from that exact
+ * spot — the explored NODES persist (that tree IS the deliverable the
+ * user inspects before minting), but the user's viewport doesn't end up
+ * stranded wherever the last step landed.
  *
  * Documented limitation: if the caller never calls `confirmMint` (the
  * commissioner explicitly wants to inspect the exploration before
@@ -135,6 +138,22 @@
  * own by-`BoardId` keying (that module was never subject to this bug —
  * only the direct `updateBoardState` call sites were).
  *
+ * `resolveAnchor` (the anchor-resolution generalization above) adds its
+ * OWN pre-walk `await`s — the duplicate-check and, on a miss, the mint
+ * — before `walk()`'s first checkpoint. A board close during those
+ * awaits is not re-derived from an index (no index is held across
+ * them), so it can't corrupt another board the way the stale-index bug
+ * above could; the exposure is narrower: a fresh anchor can get minted
+ * for a board that closes before `walk()` gets a chance to write
+ * anything under it. `walk()`'s own first `writeLiveBoard` call still
+ * catches this (the board is gone, so it reports `false` immediately)
+ * and the walk aborts with an empty `LearnPathExploration` — the anchor
+ * card itself is NOT rolled back (minting already committed
+ * server-side), so it can end up a real card with no descendants ever
+ * grown under it, the same accepted-cost shape as any other mint whose
+ * caller doesn't get to build on it. Not observed in practice;
+ * documented for the same reason the rest of this section is.
+ *
  * ── Ranking metric — the commissioner's clarification (row 706), and
  * the finding that produced it ───────────────────────────────────────
  * `RawAnalysis.moveInfos` — the ONLY per-sibling-candidate ranking the
@@ -149,14 +168,73 @@
  * analysis identity is live* (`activeAnalysisKeys.value.rawKey`), and
  * *within* that bucket, ranking uses KataGo's own `order` field.
  *
- * ── Precondition (documented v1 scope restriction) ────────────────────
- * The walk needs a `CardId` to parent depth-1 seeds under. The only
- * client-side `NodeId → CardId` linkage that exists is
- * `BoardState.sourceCardId`, set on the board's ROOT node by the
- * card-load paths. There is no mapping from an arbitrary mid-tree
- * `NodeId` to a `CardId`. v1 therefore requires the chosen node to be
- * the board's root and fails loudly (`LearnPathPreconditionError`)
- * otherwise.
+ * ── Anchor resolution (generalized, commission row 832 — supersedes the
+ * v1 "board root only" restriction this section used to document) ─────
+ * The walk needs a `CardId` to parent depth-1 seeds under — this used
+ * to be satisfied only by requiring `BoardState.sourceCardId` (set on
+ * the board's ROOT node by the card-load paths) with the cursor pinned
+ * at that root. That was a v1 narrowing the commissioner rejected
+ * outright (row 832: "you see a position in a game and go 'hey, I want
+ * to learn this'... and are greeted with a door slamming shut") — the
+ * primary use case is starting from an ARBITRARY position, not only a
+ * freshly-loaded card's own root.
+ *
+ * `resolveAnchor` (below) replaces the two rejected preconditions with
+ * a two-outcome resolution of the CURRENT CURSOR POSITION, whatever
+ * board/node it is on:
+ *
+ *   1. **Existing card.** `useKnownPositions.checkForDuplicate` hashes
+ *      the position's serialized content through the stateless backend
+ *      endpoint and looks the hash up in the boot-hydrated
+ *      known-positions map (`hydrateKnownPositions`, plus this
+ *      session's own incidental/mint-time appends). A hit anchors
+ *      directly to that card — no mint.
+ *   2. **No existing card.** The current position is minted as a fresh
+ *      anchor, through the SAME real mint path a manual mint uses
+ *      (`useMinting.prepareDraft` + `commitMint`), tagged with the
+ *      caller's context tag. `commitMint` already calls
+ *      `rememberMintedCard` internally, so the new anchor is
+ *      immediately known-positions-visible for any later call this
+ *      session.
+ *
+ * **Serialization-match soundness.** `resolveAnchor` builds its
+ * duplicate-check content via `prepareDraft(boardId)` — the EXACT call
+ * site a manual mint of this same position would use
+ * (`serializeActivePath(board)`, root→cursor, per that function's own
+ * shape note). Reusing the call site, not just the function, forecloses
+ * the failure mode named in the commission: a hand-rolled second
+ * serialization of "the current position" that differs from the mint
+ * path's own (a different property order, a different path
+ * derivation) would silently never match a hash the mint path itself
+ * recorded, and duplicate detection would quietly stop working. Because
+ * `prepareDraft`'s returned `raw_content` is what's hashed AND (on a
+ * miss) exactly what's minted, there is no seam for that drift to open.
+ *
+ * **Known-positions staleness — reasoned, not solved.** The
+ * known-positions map is a CLIENT-SIDE cache: hydrated at boot/re-auth
+ * and appended-to on every mint this session, but it can be incomplete
+ * (a card minted in another session or before this session's hydrate
+ * ran). Its failure mode is a false MISS only — never a false hit,
+ * since every entry it holds was itself hash-verified by the backend
+ * at the write that recorded it (there is no path that records a hash
+ * without the backend having computed it from real content). A false
+ * miss costs a redundant anchor mint, not an incorrect one — the same
+ * accepted-cost posture `card-position-annotations-design.md` already
+ * takes for the mint-dialog's own duplicate warning — and the mint
+ * that follows immediately closes the gap for this session (outcome 2
+ * above already calls `rememberMintedCard`). The backend's hash
+ * computation is the only thing "authoritative" here; the lookup
+ * itself is intentionally best-effort, matching `useKnownPositions.ts`'s
+ * own file-header framing of the map as "a convenience annotation
+ * layer... never a blocking dependency."
+ *
+ * **The old fast path still exists — as a case of the general one.**
+ * A board loaded from a card with the cursor still at that card's own
+ * root serializes to exactly that card's own content, so
+ * `checkForDuplicate` resolves outcome 1 and anchors to
+ * `sourceCardId`'s own card — byte-identical behavior to the v1 special
+ * case, now reached through the same path every other position takes
+ * rather than a dedicated branch.
  *
  * ── Existing-card dedup ────────────────────────────────────────────────
  * `insert_card` does NOT dedup at the card level — v1 fetches the
@@ -181,6 +259,7 @@ import { serializeActivePath } from '../../engine/sgf-writer';
 import { applyGoMove } from '../../logic';
 import { gtpToBoard } from '../board/use-move-suggestions';
 import { compileMintGradingParameter, useMinting } from '../review/useMinting';
+import { useKnownPositions } from './useKnownPositions';
 import { spineFirstPolicy, type LearnPathPolicy, type LearnPathPolicyConfig } from './learn-path-policy';
 import { addPendingMintMarker, clearPendingMintMarkers } from './learn-path-pending-markers';
 import type {
@@ -368,7 +447,41 @@ function collectDescendantIds(node: CardLineageNode, out: CardId[]): void {
 }
 
 export function useLearnPath() {
-  const { commitMint } = useMinting();
+  const { commitMint, prepareDraft } = useMinting();
+  const { checkForDuplicate } = useKnownPositions();
+
+  /**
+   * Resolves the CURRENT CURSOR POSITION on `boardId` to the `CardId`
+   * the walk anchors under — see the module header's "Anchor
+   * resolution" section for the full design and its soundness argument.
+   * Two outcomes: an existing card at this exact position (no mint), or
+   * a freshly-minted one (through the real mint path, tagged with the
+   * caller's context tag).
+   */
+  async function resolveAnchor(boardId: BoardId, tag: string): Promise<CardId> {
+    const draft = await prepareDraft(boardId);
+    if (!draft) {
+      // Unreachable in practice: `explore` confirms the board exists
+      // synchronously, with no intervening `await`, immediately before
+      // calling this. Defensive per ADR-0002 rather than a non-null
+      // assertion.
+      throw new LearnPathError(
+        `Learn this path: board ${boardId} not found while resolving the anchor.`,
+      );
+    }
+    const existingCardId = await checkForDuplicate(draft.raw_content);
+    if (existingCardId !== null) return existingCardId;
+
+    // No existing card at this position: mint one now, tagged with the
+    // caller's context tag rather than `prepareDraft`'s empty default —
+    // everything else (raw_content, parent_card_id/game_metadata XOR,
+    // grading_parameter) is the identical real-mint construction.
+    const anchorPayload: CardCreatePayload = { ...draft, tags: [tag] };
+    // Brand mint: commitMint (-> backendService.createCard) returns the
+    // wire's raw numeric id; same ACL re-brand pattern used at the seed
+    // mint site in confirmMint below.
+    return await commitMint(anchorPayload) as CardId;
+  }
 
   /**
    * Fetches the anchor's already-minted descendants and returns a map
@@ -432,26 +545,20 @@ export function useLearnPath() {
    * NOTHING — see `confirmMint`.
    */
   async function explore(params: LearnPathParams): Promise<LearnPathExploration> {
-    if (params.depth < 1) throw new LearnPathError('Learn this path: depth must be >= 1.');
-    if (params.topK < 1) throw new LearnPathError('Learn this path: topK must be >= 1.');
+    // Genuinely-impossible-input validation stays on `LearnPathPreconditionError`
+    // (row 832's design). The two REJECTED preconditions — sourceCardId
+    // required, cursor pinned at the board root — are gone; anchor
+    // resolution (below) generalizes to any board/cursor position. See
+    // the module header's "Anchor resolution" section.
+    if (params.depth < 1) throw new LearnPathPreconditionError('Learn this path: depth must be >= 1.');
+    if (params.topK < 1) throw new LearnPathPreconditionError('Learn this path: topK must be >= 1.');
     const tag = params.tag.trim();
-    if (!tag) throw new LearnPathError('Learn this path: a context tag is required.');
+    if (!tag) throw new LearnPathPreconditionError('Learn this path: a context tag is required.');
 
     const board = store.boards.find(b => b.id === params.boardId);
-    if (!board) throw new LearnPathError(`Learn this path: board ${params.boardId} not found.`);
-    if (board.sourceCardId === undefined) {
-      throw new LearnPathPreconditionError(
-        'Learn this path requires a board loaded from a card (no sourceCardId on this board). ' +
-        'Load or review the anchor card first.',
-      );
-    }
-    if (board.currentNodeId !== board.rootNodeId) {
-      throw new LearnPathPreconditionError(
-        'Learn this path must be invoked at the loaded card\'s own position (cursor at the board root). ' +
-        'Navigate back to the card\'s position and try again.',
-      );
-    }
-    const anchorCardId = board.sourceCardId;
+    if (!board) throw new LearnPathPreconditionError(`Learn this path: board ${params.boardId} not found.`);
+
+    const anchorCardId = await resolveAnchor(params.boardId, tag);
     const policy = params.policy ?? spineFirstPolicy;
     const config: LearnPathPolicyConfig = { depth: params.depth, topK: params.topK };
     const yieldStep = params.yieldStep ?? defaultYieldStep;

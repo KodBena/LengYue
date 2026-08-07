@@ -54,7 +54,8 @@ import {
 } from '../../src/composables/cards/useLearnPath';
 import { getPendingMintNodeIds } from '../../src/composables/cards/learn-path-pending-markers';
 import { fakeBackendService, resetFakeBackendService } from '../fakes/backend-service';
-import type { BoardId, BoardState, CardId, CardLineageTree, CardPublicId, GameDisplayOrdinal, NodeId, RawAnalysis, ReviewCard } from '../../src/types';
+import { recordKnownPosition, purgeKnownPositions } from '../../src/state/known-positions';
+import type { BoardId, BoardState, CardCreatePayload, CardId, CardLineageTree, CardPublicId, ContentHash, GameDisplayOrdinal, NodeId, RawAnalysis, ReviewCard } from '../../src/types';
 
 const ANCHOR_CARD_ID = 1000 as CardId;
 const EXISTING_Q16_CARD_ID = 1001 as CardId;
@@ -154,15 +155,18 @@ function buildAnchorBoard() {
   return { board, moves: { D4, C17, Q3, P9, Q16 }, nodeIds: { d4NodeId, c17NodeId, p9NodeId, q16NodeId }, q16Sgf };
 }
 
-function mockDedupFakes(existingContent: readonly { cardId: CardId; sgf: string }[]) {
+function mockDedupFakes(
+  existingContent: readonly { cardId: CardId; sgf: string }[],
+  anchorCardId: CardId = ANCHOR_CARD_ID,
+) {
   fakeBackendService.resolveRoots.mockResolvedValue({
-    roots: [{ rootCardPublicId: ANCHOR_ROOT_PUBLIC_ID, gameSourceDisplayOrdinal: GAME_DISPLAY_ORDINAL, cardIdsInTree: [ANCHOR_CARD_ID] }],
+    roots: [{ rootCardPublicId: ANCHOR_ROOT_PUBLIC_ID, gameSourceDisplayOrdinal: GAME_DISPLAY_ORDINAL, cardIdsInTree: [anchorCardId] }],
     unmatchedCardIds: [],
   });
   fakeBackendService.fetchTreeByRoot.mockResolvedValue({
     rootCardPublicId: ANCHOR_ROOT_PUBLIC_ID,
     gameSourceDisplayOrdinal: GAME_DISPLAY_ORDINAL,
-    tree: { id: ANCHOR_CARD_ID, children: existingContent.map(e => ({ id: e.cardId, children: [] })) },
+    tree: { id: anchorCardId, children: existingContent.map(e => ({ id: e.cardId, children: [] })) },
   } satisfies CardLineageTree);
   fakeBackendService.fetchCard.mockImplementation(async (id: CardId) => {
     const hit = existingContent.find(e => e.cardId === id);
@@ -171,8 +175,40 @@ function mockDedupFakes(existingContent: readonly { cardId: CardId; sgf: string 
   });
 }
 
+/**
+ * Anchor-resolution fixture support (commission row 832 generalization):
+ * `resolveAnchor` now always runs `useKnownPositions.checkForDuplicate`
+ * against `useMinting.prepareDraft`'s `raw_content` for the board's
+ * CURRENT cursor position — even the legacy "board loaded from a card,
+ * cursor at its root" flow goes through this same generic path (it just
+ * happens to serialize to exactly that card's own content). Tests that
+ * exercise the legacy fast path record a known-position entry for the
+ * anchor board's current-position content so `resolveAnchor` finds
+ * `ANCHOR_CARD_ID` and does NOT mint a fresh one — preserving the old
+ * byte-identical behavior under the new generalized mechanism.
+ *
+ * `hashPosition` is faked as content-identity (the raw SGF string cast
+ * to `ContentHash`) for this file's tests — a valid simplification for
+ * a stateless-hash FAKE (real hashing is exercised elsewhere,
+ * `useMinting-duplicate-check.test.ts` and the backend's own hash-route
+ * tests); what THIS suite needs is "same content resolves to the same
+ * key," which content-identity gives for free without wiring an actual
+ * hash function through the fake.
+ */
+function mockContentIdentityHashing() {
+  fakeBackendService.hashPosition.mockImplementation(
+    async (raw: string) => raw as unknown as ContentHash,
+  );
+}
+
+function seedAnchorKnownPosition(board: BoardState, anchorCardId: CardId): void {
+  recordKnownPosition(serializeActivePath(board) as unknown as ContentHash, anchorCardId);
+}
+
 beforeEach(() => {
   resetFakeBackendService();
+  mockContentIdentityHashing();
+  purgeKnownPositions();
   ledger.purgeAll();
   store.boards.length = 0;
   store.activeBoardIndex = 0;
@@ -198,6 +234,7 @@ describe('useLearnPath.explore — spine-first walk, live growth, no minting', (
   it('grows the tree live (spine fully before deviations) and mints NOTHING', async () => {
     const { board, moves, nodeIds, q16Sgf } = buildAnchorBoard();
     board.sourceCardId = ANCHOR_CARD_ID;
+    seedAnchorKnownPosition(board, ANCHOR_CARD_ID);
     addBoard(board);
     const boardId = board.id as BoardId;
 
@@ -262,6 +299,7 @@ describe('useLearnPath.explore — board-identity safety (fresh-context review B
     const boardA = createInitialBoard();
     const { board: boardB, moves, nodeIds } = buildAnchorBoard();
     boardB.sourceCardId = ANCHOR_CARD_ID;
+    seedAnchorKnownPosition(boardB, ANCHOR_CARD_ID);
     const boardCBase = createInitialBoard();
     const boardC = applyGoMove(boardCBase, 10, 10)!; // pre-moved, distinguishable
     boardC.sourceCardId = undefined; // irrelevant to this board; just needs to be untouched
@@ -312,6 +350,7 @@ describe('useLearnPath.explore — board-identity safety (fresh-context review B
     const boardA = createInitialBoard();
     const { board: boardB, moves, nodeIds } = buildAnchorBoard();
     boardB.sourceCardId = ANCHOR_CARD_ID;
+    seedAnchorKnownPosition(boardB, ANCHOR_CARD_ID);
     const boardCBase = createInitialBoard();
     const boardC = applyGoMove(boardCBase, 10, 10)!;
     boardC.sourceCardId = undefined;
@@ -356,6 +395,7 @@ describe('useLearnPath.confirmMint — deferred, explicit, one batch call', () =
   it('mints exactly the pending-minus-existing set in one pass, clears markers, matches the acceptance shape', async () => {
     const { board, moves, nodeIds, q16Sgf } = buildAnchorBoard();
     board.sourceCardId = ANCHOR_CARD_ID;
+    seedAnchorKnownPosition(board, ANCHOR_CARD_ID);
     addBoard(board);
     const boardId = board.id as BoardId;
 
@@ -401,6 +441,7 @@ describe('useLearnPath.confirmMint — deferred, explicit, one batch call', () =
   it('discardExploration clears the markers without minting anything', async () => {
     const { board, moves, nodeIds, q16Sgf } = buildAnchorBoard();
     board.sourceCardId = ANCHOR_CARD_ID;
+    seedAnchorKnownPosition(board, ANCHOR_CARD_ID);
     addBoard(board);
     const boardId = board.id as BoardId;
 
@@ -422,6 +463,7 @@ describe('useLearnPath.runLearnPath — programmatic explore+confirm convenience
     const build = () => {
       const { board, moves, nodeIds, q16Sgf } = buildAnchorBoard();
       board.sourceCardId = ANCHOR_CARD_ID;
+      seedAnchorKnownPosition(board, ANCHOR_CARD_ID);
       seedLedger(board, nodeIds, moves);
       return { board, q16Sgf };
     };
@@ -444,6 +486,7 @@ describe('useLearnPath.runLearnPath — programmatic explore+confirm convenience
 
     ledger.purgeAll();
     resetFakeBackendService();
+    mockContentIdentityHashing(); // resetFakeBackendService cleared hashPosition's mockImplementation too
     fakeBackendService.createCard.mockImplementation(async () => nextMintedId++);
     const second = build();
     mockDedupFakes([{ cardId: EXISTING_Q16_CARD_ID, sgf: second.q16Sgf }]);
@@ -466,25 +509,171 @@ describe('useLearnPath.runLearnPath — programmatic explore+confirm convenience
     await expect(explore({ boardId, depth: 1, topK: 1, tag: '   ' })).rejects.toThrow(LearnPathError);
   });
 
-  it('refuses a board with no sourceCardId (precondition)', async () => {
-    const board = createInitialBoard();
+});
+
+/**
+ * Generalized anchor resolution (commission row 832): the two v1
+ * preconditions this describe block used to pin — "requires
+ * sourceCardId", "requires cursor at the board root" — are REJECTED
+ * narrowing, deleted from `useLearnPath.ts` (not softened to a
+ * warning). These four tests are their replacement, covering the
+ * ratified design's outcomes: (a) a genuinely new position on a board
+ * with NO sourceCardId mints a fresh, root-level anchor and walks from
+ * it (isolates the FIRST rejected precondition); (d) a genuinely new
+ * position on a board that DOES have sourceCardId — cursor moved off
+ * root — mints a fresh, lineage-preserving anchor parented under the
+ * original card (isolates the SECOND rejected precondition, and pins
+ * `prepareDraft`'s XOR rule as exercised through the anchor-mint path
+ * for the first time); (b) a position that already has a card anchors
+ * there without minting a duplicate; (c) the legacy "loaded from a
+ * card, cursor at its root" flow is byte-identical under the new
+ * mechanism (case (a)/(d)'s own resolution just happening to find case
+ * (b)'s own card).
+ */
+describe('useLearnPath.explore — generalized anchor resolution (commission row 832)', () => {
+  const NEW_ANCHOR_CARD_ID = 5000 as CardId;
+
+  /** A board with NO sourceCardId (plain SGF-loaded / fresh board), cursor mid-game at D4. */
+  function buildMidGameNoCardBoard() {
+    const base = createInitialBoard();
+    const D4 = { move: 'D4', x: 3, y: 3 };
+    const board = applyGoMove(base, D4.x, D4.y)!;
+    return { board, D4 };
+  }
+
+  it('(a) mints a fresh anchor from a mid-game cursor on a plain SGF-loaded board (no sourceCardId) and walks from it', async () => {
+    const { board } = buildMidGameNoCardBoard();
+    expect(board.sourceCardId).toBeUndefined();
     addBoard(board);
+    const boardId = board.id as BoardId;
+    const startingNodeId = board.currentNodeId;
+
+    // Deliberately no `seedAnchorKnownPosition` call — this position is
+    // genuinely new, so `checkForDuplicate` must miss.
+    ledger.recordRaw(activeAnalysisKeys.value.rawKey, startingNodeId, rawWithMoves([
+      { move: 'C17', order: 0 }, // spine — never carded
+      { move: 'Q16', order: 1 }, // deviation — pending seed
+    ]));
+
+    fakeBackendService.createCard.mockResolvedValueOnce(NEW_ANCHOR_CARD_ID);
+    mockDedupFakes([], NEW_ANCHOR_CARD_ID); // fresh anchor has no descendants yet
+
     const { explore } = useLearnPath();
-    await expect(
-      explore({ boardId: board.id as BoardId, depth: 1, topK: 1, tag: 'x' }),
-    ).rejects.toThrow(LearnPathPreconditionError);
+    const exploration = await explore({ boardId, depth: 1, topK: 2, tag: 'midgame', yieldStep: microtaskYield });
+
+    // Exactly one mint: the anchor itself. Row 718's "no auto-mint of
+    // deviations" still holds — Q16 is only a pending seed.
+    expect(fakeBackendService.createCard).toHaveBeenCalledTimes(1);
+    const anchorPayload = fakeBackendService.createCard.mock.calls[0][0] as { raw_content: string; tags: string[] };
+    expect(anchorPayload.tags).toEqual(['midgame']);
+    expect(anchorPayload.raw_content).toBe(serializeActivePath(board));
+
+    expect(exploration.anchorCardId).toBe(NEW_ANCHOR_CARD_ID);
+    expect(exploration.pendingSeedCount).toBe(1); // Q16
+    expect(exploration.existingCount).toBe(0);
+    expect(exploration.frontierCount).toBe(0);
+    expect(exploration.unplayableCount).toBe(0);
+
+    // Cursor restored to exactly where it started (mid-game, not the tree's own root).
+    const finalBoard = store.boards.find(b => b.id === boardId)!;
+    expect(finalBoard.currentNodeId).toBe(startingNodeId);
+    expect(finalBoard.currentNodeId).not.toBe(board.rootNodeId);
   });
 
-  it('refuses a board whose cursor is not at the root (precondition)', async () => {
+  it('(d) a card-loaded board whose cursor has moved off root to a genuinely new position mints a lineage-preserving anchor', async () => {
+    // The OTHER rejected precondition, isolated from (a): this board DOES
+    // have `sourceCardId` (it was loaded from ANCHOR_CARD_ID), but the
+    // cursor has moved away from that card's own root to a position no
+    // card exists at yet — the "I'm mid-review and want to learn from
+    // right here" case the commission names. `prepareDraft`'s existing
+    // XOR rule (unchanged by this feature) means the fresh anchor mint
+    // parents under the ORIGINAL card rather than becoming a new root —
+    // pinned explicitly here since nothing else in this suite asserts
+    // `parent_card_id` on an anchor mint.
     const base = createInitialBoard();
     base.sourceCardId = ANCHOR_CARD_ID;
-    const moved = applyGoMove(base, 3, 3)!;
-    moved.sourceCardId = ANCHOR_CARD_ID;
-    moved.id = base.id;
+    const moved = applyGoMove(base, 3, 3)!; // D4 — a position no card exists at
+    expect(moved.sourceCardId).toBe(ANCHOR_CARD_ID); // survives the spread in applyGoMove
     addBoard(moved);
+    const boardId = moved.id as BoardId;
+
+    ledger.recordRaw(activeAnalysisKeys.value.rawKey, moved.currentNodeId, rawWithMoves([
+      { move: 'C17', order: 0 }, // spine only (topK=1 below) — isolates the anchor-mint assertion
+    ]));
+
+    // Deliberately no `seedAnchorKnownPosition` — this mid-game position
+    // has never been minted, only the board's ROOT (ANCHOR_CARD_ID) has.
+    fakeBackendService.createCard.mockResolvedValueOnce(NEW_ANCHOR_CARD_ID);
+    mockDedupFakes([], NEW_ANCHOR_CARD_ID);
+
     const { explore } = useLearnPath();
-    await expect(
-      explore({ boardId: moved.id as BoardId, depth: 1, topK: 1, tag: 'x' }),
-    ).rejects.toThrow(LearnPathPreconditionError);
+    const exploration = await explore({ boardId, depth: 1, topK: 1, tag: 'midgame-from-card', yieldStep: microtaskYield });
+
+    expect(fakeBackendService.createCard).toHaveBeenCalledTimes(1);
+    const anchorPayload = fakeBackendService.createCard.mock.calls[0][0] as CardCreatePayload;
+    expect(anchorPayload.tags).toEqual(['midgame-from-card']);
+    expect(anchorPayload.raw_content).toBe(serializeActivePath(moved));
+    // Lineage-preserving XOR: parents under the board's OWN sourceCardId,
+    // not a fresh root (`game_metadata` absent) — prepareDraft's existing
+    // rule, exercised here through the anchor-mint path for the first time.
+    expect(anchorPayload.parent_card_id).toBe(ANCHOR_CARD_ID as unknown as number);
+    expect(anchorPayload.game_metadata).toBeUndefined();
+
+    expect(exploration.anchorCardId).toBe(NEW_ANCHOR_CARD_ID);
+  });
+
+  it('(b) anchors to an existing card at the current position and mints NO duplicate anchor', async () => {
+    const { board } = buildMidGameNoCardBoard();
+    addBoard(board);
+    const boardId = board.id as BoardId;
+
+    ledger.recordRaw(activeAnalysisKeys.value.rawKey, board.currentNodeId, rawWithMoves([
+      { move: 'C17', order: 0 },
+    ]));
+
+    // This exact position already has a card — recorded exactly the way
+    // a prior mint (this session, or hydrated at boot) would have.
+    seedAnchorKnownPosition(board, ANCHOR_CARD_ID);
+    mockDedupFakes([], ANCHOR_CARD_ID);
+
+    const { explore } = useLearnPath();
+    // topK=1: only the spine (never carded) — no deviation mint call to
+    // conflate with an anchor mint call, isolating the assertion below.
+    const exploration = await explore({ boardId, depth: 1, topK: 1, tag: 'dup', yieldStep: microtaskYield });
+
+    expect(fakeBackendService.createCard).not.toHaveBeenCalled();
+    expect(exploration.anchorCardId).toBe(ANCHOR_CARD_ID);
+  });
+
+  it('(c) the legacy card-loaded-at-root flow is byte-identical: anchors to sourceCardId\'s own card, no mint', async () => {
+    const { board, moves, nodeIds, q16Sgf } = buildAnchorBoard();
+    board.sourceCardId = ANCHOR_CARD_ID;
+    // The current position (board's own root, since currentNodeId ===
+    // rootNodeId here) already IS anchor card ANCHOR_CARD_ID's content —
+    // step 1 of the general resolution finds it without needing the
+    // `sourceCardId` field at all.
+    seedAnchorKnownPosition(board, ANCHOR_CARD_ID);
+    addBoard(board);
+    const boardId = board.id as BoardId;
+
+    seedLedger(board, nodeIds, moves);
+    mockDedupFakes([{ cardId: EXISTING_Q16_CARD_ID, sgf: q16Sgf }]);
+
+    const { explore } = useLearnPath();
+    const exploration = await explore({ boardId, depth: 3, topK: 2, tag: 'taisha', yieldStep: microtaskYield });
+
+    // Byte-identical to the pre-generalization behavior: no anchor mint,
+    // anchor resolves to the board's own sourceCardId, same counts as
+    // the original spine-first acceptance test.
+    expect(fakeBackendService.createCard).not.toHaveBeenCalled();
+    expect(exploration.anchorCardId).toBe(ANCHOR_CARD_ID);
+    expect(exploration.pendingSeedCount).toBe(2);
+    expect(exploration.existingCount).toBe(1);
+    expect(exploration.frontierCount).toBe(2);
+    expect(exploration.unplayableCount).toBe(1);
+
+    const finalBoard = store.boards.find(b => b.id === boardId)!;
+    expect(finalBoard.currentNodeId).toBe(board.rootNodeId);
+    expect(finalBoard.nodes[nodeIds.p9NodeId]).toBeDefined();
   });
 });
