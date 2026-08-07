@@ -288,7 +288,16 @@ function onShiftClick(x: number, y: number) {
 </script>
 
 <template>
-  <div ref="containerRef" class="board-widget-container">
+  <!-- data-setup-tool-surface: read by SetupToolPalette.vue's outside-
+       click dismiss (onDocumentPointerDown) so a pointerdown here is
+       NOT treated as "outside the palette" — the board is the tool's
+       intended application surface, not a dismiss target. Without this
+       marker the palette's capture-phase pointerdown listener fires
+       BEFORE the board's own 'click' handler and deselects the armed
+       tool first, so `applyToolAt` always sees no tool armed (the
+       setup-palette-defects no-op regression). See that file's header
+       for the fuller contract. -->
+  <div ref="containerRef" class="board-widget-container" data-setup-tool-surface="true">
     <BoardDisplay
       :size="boardSize"
       :stones="state.stones"

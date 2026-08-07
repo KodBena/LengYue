@@ -25,6 +25,26 @@
   square / circle / label tool adds a case — named here as the visible
   seam, not built.
 
+  Placement (setup-palette-defects, commission row 756, occlusion
+  defect): the palette is DOCKED to the toolbar, not floated over the
+  board. `.setup-toolkit` stacks its trigger and (when open) its panel
+  in a column, in normal document flow — opening it grows the
+  toolbar's own row height (the same vertical-growth mechanism
+  `Toolbar.vue`'s `flex-wrap` already uses at narrow viewports), which
+  pushes `#board-column` down rather than covering any part of it.
+  Genre precedent (q5go/cgoban): a compact toolstrip attached to the
+  chrome, never a transparent or opaque layer over the grid — every
+  intersection must stay clickable while a tool is armed. Rejected:
+  (a) keep `position: absolute` but move the anchor — no anchor is
+  overlay-safe at every viewport width/board-column layout, so this
+  only relocates the occlusion, doesn't remove it; (b) dock the panel
+  beside `#board-column` itself (App.vue) — correct in spirit but
+  couples this leaf's open/closed state into the App-level layout
+  grid for no gain the in-toolbar growth doesn't already give;
+  (c) a modal/backdrop dialog — explicitly banned (no transparent
+  overlay backdrops) and wrong genre besides (a modal blocks the very
+  board clicks the tool exists to receive).
+
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
@@ -42,9 +62,25 @@ const rootRef = ref<HTMLElement | null>(null);
 // in the capture phase so this fires before an in-palette click
 // handler, and only installed while open (zero-listener steady state,
 // the resource-ownership convention `frontend/CLAUDE.md` names).
+//
+// BUT unlike LocalePicker (whose menu items are the whole interaction
+// surface), this palette's WHOLE PURPOSE is to arm a tool that gets
+// applied by clicking somewhere else — the board. A naive "outside
+// this popover's DOM == dismiss" check treats every board click as a
+// dismiss, and because `pointerdown` (capture phase) fires and runs
+// synchronously BEFORE the board element's own `click` handler, the
+// tool was already deselected by the time BoardWidget's
+// `applyToolAt` ran — the tool armed, then silently no-op'd on every
+// real click (setup-palette-defects, commission row 756: "clicking
+// black/white/triangle then clicking the board places NOTHING").
+// `data-setup-tool-surface` (BoardWidget.vue's template) marks the
+// one exempted region: a pointerdown there is the tool's intended
+// use, not a request to dismiss.
 function onDocumentPointerDown(e: PointerEvent): void {
   if (!rootRef.value) return;
-  if (rootRef.value.contains(e.target as Node)) return; // DOM: event.target is EventTarget; Node is contains()'s arg type
+  const target = e.target as Node; // DOM: event.target is EventTarget; Node is contains()'s/closest's arg type
+  if (rootRef.value.contains(target)) return;
+  if (target instanceof Element && target.closest('[data-setup-tool-surface]')) return;
   closePalette();
 }
 
@@ -136,7 +172,12 @@ const TOOLS: ReadonlyArray<{ id: SetupTool; labelKey: string; swatch: 'black' | 
 </template>
 
 <style scoped>
-.setup-toolkit { position: relative; display: flex; align-items: center; }
+/* column, not row: the trigger and (when open) the palette panel
+   stack vertically WITHIN this element's own box, in normal document
+   flow — see the header's "Placement" note. `align-items: flex-start`
+   keeps both the trigger and the wider panel left-edge-aligned rather
+   than the row default of stretching/centering. */
+.setup-toolkit { position: relative; display: flex; flex-direction: column; align-items: flex-start; }
 
 /* Matches Toolbar.vue's `.toolbar-btn` look (styles can't cross the
    scoped-CSS boundary between SFCs, so this mirrors rather than
@@ -161,16 +202,21 @@ const TOOLS: ReadonlyArray<{ id: SetupTool; labelKey: string; swatch: 'black' | 
 }
 
 .setup-palette {
-  position: absolute;
-  top: 100%;
-  right: 0;
+  /* In-flow, not a floating overlay (see the header's "Placement"
+     note) — `position: static` (the default; named explicitly here
+     because `.setup-toolkit`'s `position: relative` would otherwise
+     read as a hint that this child is positioned against it). Opening
+     the palette grows `.setup-toolkit`'s own column height, which
+     grows the toolbar row it sits in, which pushes the board down —
+     it never draws on top of any board pixel, so every intersection
+     stays clickable while a tool is armed. */
+  position: static;
   margin-top: 4px;
   background: var(--surface-0);
   border: 1px solid var(--border-3);
   border-radius: var(--radius-default);
   padding: var(--space-default);
   min-width: 180px;
-  z-index: 1000;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
