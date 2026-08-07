@@ -76,6 +76,21 @@ Recorded audibly (ADR-0002) rather than retro-editing the body.
    tool; structural inference of a bottleneck is not — measure it, do not reason
    it.
 
+4. **Finding 2's "retention leak" is GC-lag, not a leak — and the strip is now
+   virtualized.** A forced-GC heap test (`perf-heap`, multi-cycle close-at-scale)
+   returns the retained heap to baseline (tail slope 0 KB/cycle): no JS-rooted
+   leak. The high DOM-node PEAK (~185k) and the "105k nodes at 2 boards" Finding 2
+   reported are the tight synchronous close loop **starving the GC** (detached
+   subtrees pending collection, which a GC reclaims), not retained memory.
+   Separately, the tab rail is now VIRTUALIZED (`perf-tabstrip-virtualization`,
+   PR on `next`): only the visible slice renders, so live/attached nodes are
+   bounded and layout drops (close long-task 17.1 s → 8.3 s at 230 boards).
+   Implementing it surfaced two real bugs, both measured: the flexbox
+   `min-height:auto` windowing-inert footgun, and a scroll-anchoring feedback
+   loop that pegged a renderer at 99% CPU (fixed by `min-height:0` +
+   `overflow-anchor:none`). Disposition: `fix-close-path-retention-leak` closed
+   as GC-lag (not a leak).
+
 **Effect on §5-§6:** §5 stands. The §5.4 *residue* is sharpened — the footgun is
 not only "`v-memo` key derived from index" but the broader **"per-item closure
 props (handlers) on a long keyed list force `shouldUpdateComponent` to re-render

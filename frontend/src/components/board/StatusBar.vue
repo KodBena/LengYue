@@ -23,7 +23,17 @@ import { computed } from 'vue';
 import type { StoneColor, BoardState, GameNode, NodeId } from '../../types';
 import UserBadge from '../chrome/UserBadge.vue';
 import { useTransientHint } from '../../composables/useTransientHint';
-import { store } from '../../store';
+import { store, touchSession } from '../../store';
+
+// Toggle the persisted `session.ui.showStoneMoveNumbers` flag and bump
+// the session counter SyncService keys persistence on (it no longer
+// deep-watches `store.session`; see `sessionVersion` in
+// `store/index.ts`). Replaces the inline template write, which the
+// counter would not observe.
+function toggleStoneMoveNumbers(): void {
+  store.session.ui.showStoneMoveNumbers = !store.session.ui.showStoneMoveNumbers;
+  touchSession();
+}
 
 interface StatusMetadata {
   readonly blackName: string;
@@ -99,7 +109,7 @@ const moveNumber = computed((): number => {
         class="move-numbers-btn"
         :class="{ active: store.session.ui.showStoneMoveNumbers }"
         :title="$t('statusBar.toggleMoveNumbers')"
-        @click="store.session.ui.showStoneMoveNumbers = !store.session.ui.showStoneMoveNumbers"
+        @click="toggleStoneMoveNumbers"
       >#</button>
       <span class="caps">B: {{ captures.B }} · W: {{ captures.W }}</span>
       <UserBadge />
