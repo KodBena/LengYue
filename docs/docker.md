@@ -6,20 +6,24 @@ operate this deployment even if you've never used Docker before.
 
 ## What Docker gives you here (and what it doesn't)
 
-Docker packages the **backend** (FastAPI service) and **frontend**
-(Vue 3 SPA, served by nginx) as two isolated, reproducible
+Docker packages the **backend** (FastAPI service), **frontend**
+(Vue 3 SPA, served by nginx), and **proxy** (KataProxy, the analysis
+middleware in front of the engine) as three isolated, reproducible
 "containers" — think of a container as a lightweight, disposable
 virtual machine that only contains what its image says it contains.
-`docker compose` is a small orchestrator that builds both images from
-this repo and starts/stops them together as a unit.
+`docker compose` is a small orchestrator that builds all three images
+and starts/stops them together as a unit.
 
-**What is NOT containerized, deliberately (v1 scope):** KataGo (the
-Go-analysis engine) and KataProxy (`proxy/`, the bridge in front of
-it). GPU drivers and engine setup are specific to your machine, so
-v1 does not attempt to containerize them — the containerized app
-connects to the engine running on your host, exactly the same way
-the app does when you run it without Docker at all. See "Pointing at
-the engine" below for what that means in practice.
+**What is NOT containerized, deliberately:** KataGo itself — the
+actual Go-analysis engine. GPU drivers, CUDA, and engine setup are
+specific to your machine (and Docker+CUDA is enough of its own can of
+worms that the KataProxy project doesn't attempt to paper over it
+either — it "chains arbitrarily" onto whatever upstream you give it).
+The containerized proxy connects out to an engine you provide, running
+on your host or reachable over your network, exactly the way a
+non-Docker install of KataProxy does. See "The KataProxy service"
+below for what that means in practice, including what you'll observe
+if you start the stack before you have an engine to point it at.
 
 Everything else about running the app day-to-day — where cards.db
 lives, how to back it up, how ports are chosen — is explained below.
@@ -30,11 +34,18 @@ lives, how to back it up, how ports are chosen — is explained below.
   version` should print something; this was built and verified
   against Docker 29.4 / Compose 5.3).
 - The `proxy/` git submodule does **not** need to be checked out to
-  build or run these images — neither Dockerfile reads from `proxy/`,
-  so an empty submodule directory is harmless here (though you still
-  want it checked out to run the engine itself; see `proxy/README.md`).
-- Your KataGo + KataProxy stack already running on this machine (or
-  reachable over the network), the same as a non-Docker install.
+  build or run these images. Neither the backend nor frontend
+  Dockerfile reads from `proxy/`, so an empty submodule directory is
+  harmless here — and `proxy.Dockerfile` doesn't read from it either:
+  it builds the proxy service from KataProxy's own GitHub repository
+  at a pinned branch, independently of whatever this repo's `proxy/`
+  submodule happens to be pinned to (see "The KataProxy service"
+  below for why they can differ).
+- A KataGo-speaking analysis engine reachable from wherever Docker
+  runs — on your host, on another machine on your LAN, or behind a
+  host-side WebSocket shim. You don't need this to bring the stack
+  up (see "The KataProxy service"), but board analysis won't work
+  without it.
 
 ## Quick start
 
@@ -42,12 +53,17 @@ lives, how to back it up, how ports are chosen — is explained below.
 docker compose up --build
 ```
 
-First run builds both images (a couple of minutes — Python deps for
-the backend, `npm ci` + `vite build` for the frontend) and starts
-them. Subsequent runs skip the build unless source changed.
+First run builds all three images (several minutes — Python deps for
+the backend, `npm ci` + `vite build` for the frontend, a `git clone`
+of KataProxy plus a native-extension compile for the proxy) and
+starts them. Subsequent runs skip the build unless source changed.
 
 Open **http://localhost:19080** in a browser. That's the SPA. It
-talks to the backend at **http://localhost:19081**.
+talks to the backend at **http://localhost:19081** and, for board
+analysis, to the proxy at **ws://localhost:19082** (see "The
+KataProxy service"). Board analysis will fail loudly until you set
+`ENGINE_WS_URL` to a real engine (again, see below) — everything
+else works without it.
 
 Stop everything with Ctrl-C, or from another shell:
 
@@ -59,22 +75,25 @@ docker compose down
 data** — see "Where your data lives" below. Nothing is lost between
 `up` / `down` cycles.
 
-## Why ports 19080 / 19081, not the usual dev ports
+## Why ports 19080 / 19081 / 19082, not the usual dev ports
 
 If you've run this project without Docker, you may know the backend
 as `:8764` and the frontend dev server as `:5173`. The Docker
 compose file deliberately publishes **different** host ports
-(19080 for the frontend, 19081 for the backend) so `docker compose
-up` never collides with an already-running non-Docker instance of
-this same app on your machine. Override them if you like:
+(19080 for the frontend, 19081 for the backend, 19082 for the proxy)
+so `docker compose up` never collides with an already-running
+non-Docker instance of this same app — or a non-Docker KataProxy
+instance, which defaults to `:41949` — on your machine. Override
+them if you like:
 
 ```bash
-FRONTEND_PORT=8080 BACKEND_PORT=8081 docker compose up --build
+FRONTEND_PORT=8080 BACKEND_PORT=8081 KATAPROXY_PORT=8082 docker compose up --build
 ```
 
-(If you change `BACKEND_PORT`, the frontend image is rebuilt with
-that new backend URL baked in — see "How the frontend finds the
-backend" below for why a rebuild, not a restart, is required.)
+(If you change `BACKEND_PORT` or `KATAPROXY_PORT`, the frontend image
+is rebuilt with those URLs baked in — see "How the frontend finds the
+backend and the proxy" below for why a rebuild, not a restart, is
+required.)
 
 ## Where your data lives, and backing it up
 
@@ -123,58 +142,134 @@ docker compose restart backend
 **To inspect the volume's location on disk** (rarely needed):
 `docker volume inspect <project>_cards_data`.
 
-## Pointing at the engine
+## The KataProxy service
 
-The browser — not either container — is what opens the WebSocket
-connection to KataGo/KataProxy for board analysis. That connection
-is configured the same way it always is for this app: either the
-built-in default (`ws://127.0.0.1:41948`, i.e. "the engine on this
-same machine") or an explicit URL you set in the app's own Settings
-UI (`settings.katago.url`), which always wins once set. Docker
-doesn't change this — the browser reaches the engine directly,
-outside of Docker's networking entirely, because the browser itself
-runs on your host, not inside a container.
+Before this service existed, the browser opened its analysis
+WebSocket straight to KataGo/KataProxy running bare-metal on your
+host. Now that KataProxy is itself one of the three containers, the
+wiring has one more hop, in exchange for the app being able to do
+much more interesting analysis (replay caching, transposition
+detection — see below) than talking to a bare LEAF ever could:
 
-If your engine runs somewhere other than `127.0.0.1:41948` (a
-different machine on your LAN, a non-default port), set it once in
-the app's Settings UI after first login — no rebuild needed, this is
-a runtime setting, not a build-time one. Alternatively, override the
-built-in default at build time:
+```
+   browser  --ws://localhost:19082-->  proxy container  --UPSTREAM_URLS-->  your engine
+  (host)                              (RELAY role)                        (host, LAN, or a shim)
+```
+
+**The browser talks to the proxy, never to the engine directly.**
+The app's built-in default and Settings-UI override
+(`settings.katago.url`) both still work exactly as before — they
+just now point at the proxy's published port
+(`ws://localhost:19082` by default) rather than the engine's. That
+default is baked into the frontend image the same way
+`VITE_API_BASE_URL` is — see "How the frontend finds the backend and
+the proxy" below.
+
+**The proxy talks to your engine**, configured by one environment
+variable at the compose level:
 
 ```bash
 ENGINE_WS_URL=ws://192.168.1.50:41948 docker compose up --build
 ```
 
-**A wiring detail for the curious:** `docker-compose.yml` also maps
-`host.docker.internal` to your host machine *inside* each container
-(`extra_hosts: host.docker.internal:host-gateway`). This is **not**
-what the browser uses (`host.docker.internal` only resolves inside
-containers, never on your host's own network stack) — it's there so
-anything run *inside* the backend container itself (e.g. an operator
-shelling in with `docker compose exec backend sh` to curl the
-engine's status endpoint) can reach the host without extra
-configuration. The backend's own request-handling code never calls
-the engine today — that's purely a browser-to-engine connection — so
-this mapping isn't on the critical path of a normal request; it's
-forward-wiring for troubleshooting.
+This feeds `UPSTREAM_URLS` inside the proxy container (KataProxy's
+own env var, `sproxy_config.py`) — `docker-compose.yml` wires the two
+together so you only need to set the one name this doc uses. Unlike
+the frontend's Vite vars, this is a **runtime** setting on the proxy
+side — `docker compose restart proxy` picks up a changed
+`ENGINE_WS_URL` without a rebuild. (You will still want to rebuild
+the frontend if you also want the browser's *default* proxy target
+to change, but that's about `KATAPROXY_PORT`, not `ENGINE_WS_URL` —
+see below.)
 
-## How the frontend finds the backend
+Three shapes `ENGINE_WS_URL` typically takes:
+
+- **An engine on the same host as Docker** (the common case if you
+  followed a sibling item's host-side WebSocket shim setup):
+  `ws://host.docker.internal:<port>`. `docker-compose.yml` maps
+  `host.docker.internal` to your host machine *inside* the proxy
+  container (`extra_hosts: host.docker.internal:host-gateway`) for
+  exactly this — plain `localhost`/`127.0.0.1` inside a container
+  means "this container," not your host, so it would silently point
+  the proxy at itself.
+- **An engine on another machine on your LAN**: its real address,
+  e.g. `ws://192.168.1.50:41948`. No `host.docker.internal` needed —
+  ordinary network reachability from wherever Docker runs.
+- **Left unset (the default)**: see "What happens with no upstream
+  configured" immediately below. The stack still starts; analysis
+  doesn't work until you set this.
+
+### What happens with no upstream configured
+
+The proxy image runs KataProxy in its **RELAY** role (forwards
+queries to an upstream rather than spawning a local engine — the
+right role for "the engine is provided by the operator," see
+`proxy/ARCHITECTURE.md`'s role table). RELAY's own startup code
+refuses to construct without at least one upstream URL
+(`router.py`: `raise ValueError("RELAY role requires at least one
+UPSTREAM_URL")`) — this is KataProxy's own ADR-0002-style fail-loud
+behavior, not something this image adds.
+
+Witnessed behavior with `ENGINE_WS_URL` unset: `docker compose up`
+still brings up backend and frontend cleanly; the `proxy` container
+crashes on that `ValueError`, and — because
+`restart: unless-stopped` is the same policy every service in this
+stack uses — Docker restarts it, which crashes again, in a loop
+visible in `docker compose ps` (status cycles through `Restarting`)
+and in `docker compose logs proxy`. This is loud, not silent: the
+error is the same one an operator would see running KataProxy
+bare-metal with no `UPSTREAM_URLS` set. It is not a hang and it does
+not corrupt anything — set `ENGINE_WS_URL` and `docker compose up
+proxy` (or restart the whole stack) to recover.
+
+### Replay cache and the transposition detector
+
+Two defaults are baked into `proxy.Dockerfile`, not left to compose
+overrides, because they're what makes the proxy worth having in the
+stack at all:
+
+- **`PROXY_HUB_CACHE_MAX=8192`** — an 8192-entry analysis replay
+  cache (KataProxy's own default is 1024; see `sproxy_config.py`'s
+  "Hub replay-cache bound" section).
+- **The transposition detector, compiled in and enabled.** This is
+  the `goboard_transposition` native extension
+  (`proxy/goboard_transposition/`, see its `COMPILATION.md`) —
+  `proxy.Dockerfile`'s builder stage compiles it unconditionally.
+  There is no separate on/off env var for this: KataProxy's
+  `capability_gate("transposition", ...)` auto-engages the detector
+  for every query that doesn't explicitly opt out (see
+  `proxy_server.py` / `middleware/capability_gate.py`), so building
+  the extension *is* enabling it. Without the extension present,
+  KataProxy still runs — it just silently skips the enrichment and
+  logs one startup warning, per its own README.
+
+Override the cache bound at runtime (`docker-compose.yml`'s
+`environment:` block for the `proxy` service, or a
+`docker-compose.override.yml`) with `PROXY_HUB_CACHE_MAX` if you
+want a different bound; there's no equivalent override for the
+transposition detector since enabling it is a build-time (compile
+it in) rather than run-time decision.
+
+## How the frontend finds the backend and the proxy
 
 The frontend is a Vue single-page app; it doesn't read environment
-variables at container start the way the backend does. Vite (the
-frontend's build tool) **bakes** `VITE_API_BASE_URL` and
+variables at container start the way the backend and proxy do. Vite
+(the frontend's build tool) **bakes** `VITE_API_BASE_URL` and
 `VITE_KATAGO_WS_URL` into the compiled JavaScript at *build* time
 (`frontend/src/config/env.ts` is the one file that reads them). That
 means:
 
-- Changing `BACKEND_PORT` or `ENGINE_WS_URL` requires a **rebuild**
+- Changing `BACKEND_PORT` or `KATAPROXY_PORT` requires a **rebuild**
   of the frontend image (`docker compose up --build` — Compose is
-  smart enough to only rebuild what changed).
-- The compose file passes these as Docker **build args**, matching
-  whatever host port it's about to publish, so the two stay in sync
-  automatically as long as you go through `docker compose up
-  --build` rather than building the image by hand with different
-  values.
+  smart enough to only rebuild what changed). `ENGINE_WS_URL`, by
+  contrast, only affects the proxy container and needs no frontend
+  rebuild — see "The KataProxy service" above.
+- The compose file passes `BACKEND_PORT` and `KATAPROXY_PORT` as
+  Docker **build args**, matching whatever host ports it's about to
+  publish, so `VITE_API_BASE_URL` / `VITE_KATAGO_WS_URL` stay in sync
+  with the actual published ports automatically, as long as you go
+  through `docker compose up --build` rather than building the image
+  by hand with different values.
 
 ## Static serving: nginx vs. mounting the SPA in the backend
 
@@ -220,7 +315,9 @@ scaling/restart of the two tiers for no offsetting benefit here.
 | `frontend/Dockerfile` | Multi-stage build: `npm ci && npm run build` in a Node stage, then copy `dist/` into an nginx (non-root/`nginx-unprivileged`) stage. |
 | `frontend/nginx.conf` | SPA history-mode fallback (`try_files ... /index.html`) plus long-cache headers for content-hashed asset files. |
 | `frontend/.dockerignore` | Keeps `node_modules/` and `dist/` out of the build context. |
-| `docker-compose.yml` | Wires both images together: named volume for backend data, port mapping, engine-host env var, restart policy. |
+| `proxy.Dockerfile` | Multi-stage build: clone KataProxy (`fable-branch`) and install its dependencies in a builder stage, compile the `goboard_transposition` native extension there too, copy only the installed packages + cloned source into a slim, non-root final stage. |
+| `proxy.Dockerfile.dockerignore` | Keeps the build context to just this Dockerfile — the build clones its own source from GitHub and needs nothing else from this repo. |
+| `docker-compose.yml` | Wires all three images together: named volume for backend data, port mapping, engine-host env vars, restart policy. |
 
 ## Troubleshooting
 
@@ -239,6 +336,19 @@ scaling/restart of the two tiers for no offsetting benefit here.
   actually-published port — open the browser devtools Network tab
   and see what host:port the failing request targeted. Rebuild the
   frontend image if you changed `BACKEND_PORT` without rebuilding.
+- **Proxy container keeps restarting**: expected with no
+  `ENGINE_WS_URL` set — see "What happens with no upstream
+  configured" above. `docker compose logs proxy` will show
+  `RELAY role requires at least one UPSTREAM_URL`.
+- **Board analysis fails even with `ENGINE_WS_URL` set**: confirm the
+  URL is reachable *from inside the proxy container*, not just from
+  your host — `docker compose exec proxy python -c "import
+  sproxy_config as c; print(c.UPSTREAM_URLS)"` shows what the proxy
+  actually parsed. A LAN engine that's reachable from your host but
+  behind a firewall rule scoped to your host's own IP is a common
+  gap.
 - **"port is already allocated"**: something else on your machine
-  (possibly a non-Docker instance of this same app) is using 19080
-  or 19081. Set `FRONTEND_PORT` / `BACKEND_PORT` to something else.
+  (possibly a non-Docker instance of this same app, or a bare-metal
+  KataProxy on `:41949`) is using 19080, 19081, or 19082. Set
+  `FRONTEND_PORT` / `BACKEND_PORT` / `KATAPROXY_PORT` to something
+  else.
