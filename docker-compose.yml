@@ -1,0 +1,114 @@
+# docker-compose.yml
+#
+# Wanted feature #12 — Docker image (backend + frontend). Ledger rows
+# 820/821 add a third service: the KataProxy analysis proxy, built from
+# https://github.com/KodBena/KataProxy.git at fable-branch (see
+# proxy.Dockerfile). KataGo itself — the actual analysis engine — is
+# still NOT containerized (GPU + engine setup is machine-specific, and
+# Docker+CUDA is its own can of worms); the proxy connects out to an
+# engine the operator provides, exactly like a non-Docker install. See
+# docs/docker.md for the full zero-Docker-context orientation, including
+# why the default host ports below are 19080/19081/19082 rather than the
+# app's usual dev ports.
+#
+# Quick start: `docker compose up --build`, then open
+# http://localhost:19080 in a browser. Board analysis will fail loudly
+# (see the proxy service below) until ENGINE_WS_URL points at a real
+# KataGo-speaking engine.
+
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: lengyue-backend
+    restart: unless-stopped
+    environment:
+      # Both already-supported Settings fields (backend/core/config.py) —
+      # no backend code changes were needed to containerize it. Pointed
+      # at the named volume below so cards.db and the JWT secret survive
+      # `docker compose down` (and only disappear on `down -v`).
+      DATABASE_URI: sqlite+aiosqlite:////app/data/cards.db
+      SECRET_KEY_FILE: /app/data/.jwt_secret
+      # Wildcard is the app's own out-of-the-box default (main.py's CORS
+      # middleware runs allow_credentials=False, so a wildcard origin is
+      # spec-compliant, not a hardening gap). Override for a locked-down
+      # deployment, e.g.:
+      #   CORS_ALLOW_ORIGINS: '["http://localhost:19080"]'
+      CORS_ALLOW_ORIGINS: '["*"]'
+    volumes:
+      - cards_data:/app/data
+    ports:
+      - "${BACKEND_PORT:-19081}:8764"
+    # Container-to-host reachability, for anything run *inside* this
+    # container that needs to reach the host-run engine/proxy (e.g. an
+    # operator shelling in to curl a health endpoint). The backend's own
+    # application code never calls the engine today (that connection is
+    # made client-side, by the browser — see docs/docker.md), so this is
+    # forward-wiring, not load-bearing for v1's request path. Native
+    # Docker Compose support for resolving this on Linux (requires
+    # Docker 20.10+; this environment runs 29.4).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Baked into the compiled JS bundle at build time (see
+        # frontend/src/config/env.ts) — evaluated by the operator's
+        # BROWSER, not by this container, so these must be addresses the
+        # browser can reach: localhost + the published host port, for
+        # both the API and (now that KataProxy is in the stack) the
+        # analysis WebSocket. The browser talks to the PROXY, never
+        # straight to the engine — see docs/docker.md "The KataProxy
+        # service" for why, and why `host.docker.internal`
+        # (container-only) would be the WRONG value here regardless.
+        VITE_API_BASE_URL: http://localhost:${BACKEND_PORT:-19081}
+        VITE_KATAGO_WS_URL: ws://localhost:${KATAPROXY_PORT:-19082}
+    container_name: lengyue-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-19080}:8080"
+    depends_on:
+      - backend
+
+  proxy:
+    build:
+      context: .
+      dockerfile: proxy.Dockerfile
+      args:
+        # See proxy.Dockerfile for why these are build args (the branch
+        # is pinned into the image at build time — a network-fetching
+        # `git clone`, normal for a Docker build) rather than compose
+        # env vars: KATAPROXY_REPO/KATAPROXY_REF pick *what code* gets
+        # built, not a runtime behavior.
+        KATAPROXY_REPO: ${KATAPROXY_REPO:-https://github.com/KodBena/KataProxy.git}
+        KATAPROXY_REF: ${KATAPROXY_REF:-fable-branch}
+    container_name: lengyue-proxy
+    restart: unless-stopped
+    environment:
+      # The upstream KataGo-speaking engine. NOT containerized (see the
+      # file header) — the operator points this at wherever their engine
+      # (or the host-side websocket shim a sibling item provides) is
+      # listening. Left unset by default: RELAY (this image's fixed
+      # PROXY_ROLE, see proxy.Dockerfile) refuses to start with no
+      # upstream configured, so an unset ENGINE_WS_URL surfaces as a
+      # loud, restarting container rather than a silently-broken one —
+      # see docs/docker.md "The KataProxy service" for the exact
+      # observed behavior and how to point this at your engine.
+      UPSTREAM_URLS: ${ENGINE_WS_URL:-}
+    ports:
+      - "${KATAPROXY_PORT:-19082}:41949"
+    # Same rationale as the backend's extra_hosts above: lets
+    # ENGINE_WS_URL name `host.docker.internal` for an engine (or the
+    # websocket shim) running on the operator's own host, since the
+    # proxy container's network namespace otherwise can't see it as
+    # `localhost`/`127.0.0.1`.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  # Named volume for cards.db + the persisted JWT secret. `docker compose
+  # down` leaves it intact; `docker compose down -v` deletes it — see
+  # docs/docker.md "Backup" for how to snapshot it before that.
+  cards_data:

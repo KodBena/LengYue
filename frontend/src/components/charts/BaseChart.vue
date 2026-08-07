@@ -348,6 +348,15 @@ const updateOptions = () => {
       // magic-literal: axisPointer opacity 0.5 — chart-visualization role,
       // distinct from --alpha-disabled. Hand-tuned for visible-but-not-
       // intrusive cursor crosshair against the chart background.
+      //
+      // Chrome, not data-series (disclosed, contrast-tokens-review.md (4)):
+      // the axis-pointer crosshair encodes no data — it's cursor
+      // chrome, same category as the accent border two lines below on
+      // hover state. Reads '--accent-primary' directly (not the
+      // chart-series-locked canonical) so it inherits the high-contrast
+      // override like any other chrome accent use; the guard test
+      // (tests/unit/chart-accent-primary-lock.test.ts) allowlists this
+      // exact line.
       axisPointer: { type: 'line', lineStyle: { color: themeColor('--accent-primary'), opacity: 0.5 } }
     },
     grid: {
@@ -483,7 +492,10 @@ const updateMarker = () => {
         symbolSize: 8,
         label: { show: false },
         itemStyle: {
-          color: themeColor('--accent-primary'),
+          // Chart marker (the active-index dot), not chrome — reads the
+          // chart-series-locked canonical anchor per
+          // contrast-tokens-review.md (3).
+          color: themeColor('--accent-primary-canonical'),
           borderColor: themeColor('--text-0'),
           borderWidth: 1,
           shadowBlur: 4,
@@ -512,7 +524,13 @@ const debouncedUpdateMarker = () => {
 };
 
 let resizeObserver: ResizeObserver | null = null;
-
+// Init-retry timer: captured so onUnmounted can release it. Failure mode if
+// uncleared — a chart unmounted while a retry is pending (TabWidget lazy
+// unmount, App.vue's `:key`-driven board remount) leaves a closure that
+// reschedules itself forever against a dead `chartRef`/`chartInstance`,
+// never satisfying `chartRef.value` and never calling `echarts.init` for
+// that mount (mirrors HeatmapChart's `initTimeout`, HeatmapChart.vue:39).
+let initTimeout: number | null = null;
 
 const initChart = async () => {
   await nextTick();
@@ -520,7 +538,7 @@ const initChart = async () => {
     // Re-init delay — gives the ECharts container time to acquire
     // layout. The shared chart init-retry constant from the timing
     // catalog (`lib/timing`), also used by HeatmapChart.
-    setTimeout(initChart, CHART_INIT_RETRY_MS);
+    initTimeout = window.setTimeout(initChart, CHART_INIT_RETRY_MS);
     return;
   }
 
@@ -606,6 +624,11 @@ onUnmounted(() => {
   // Release the data-redraw throttle timer too, so a pending setOption
   // can't fire into a disposed chartInstance.
   dataThrottle.cancel();
+  // Release the init-retry timer: without this, a chart unmounted while a
+  // retry is pending leaks a closure that reschedules itself forever
+  // against a dead chartRef/chartInstance (see the declaration comment
+  // above). Mirrors HeatmapChart.vue's `initTimeout` cleanup.
+  if (initTimeout) clearTimeout(initTimeout);
   if (resizeObserver && chartRef.value) {
     resizeObserver.unobserve(chartRef.value);
     resizeObserver.disconnect();

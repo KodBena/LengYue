@@ -26,3 +26,5 @@ alembic==1.18.1
 annotated-doc==0.0.4
 annotated-types==0.7.0
 Brotli==1.2.0
+bcrypt==5.0.0
+python-multipart==0.0.32

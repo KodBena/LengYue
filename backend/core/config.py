@@ -150,6 +150,17 @@ class Settings(BaseSettings):
     # spec-compliant when allow_credentials=False (set in main.py).
     CORS_ALLOW_ORIGINS: List[str] = ["*"]
 
+    # HOST / PORT: consumed by main.py's `if __name__ == "__main__"` entry
+    # point (the frozen-executable / Tauri-sidecar launch path — the local
+    # dev workflow uses `fastapi dev main.py --host ... --port ...`
+    # instead, per backend/README.md, and doesn't read these). The Tauri
+    # desktop shell (`frontend/src-tauri/src/lib.rs`) picks a free local
+    # port at app start and sets PORT via this env var before spawning the
+    # sidecar, so the default here only matters for a bare `python main.py`
+    # invocation outside Tauri.
+    HOST: str = "127.0.0.1"
+    PORT: int = 8764
+
     # ----- Analysis persistence -----
     # The cross/analysis-persistence arc adds server-side persistence for
     # KataGo analysis bundles per BoardId. The codec envelope is opaque
@@ -196,6 +207,19 @@ class Settings(BaseSettings):
     # to ~150 KB worst case per page. The SPA defaults to 100;
     # virtual-scrolling above the cap is the SPA's concern.
     SGF_LIBRARY_LIST_LIMIT_MAX: int = 500
+
+    # POSITIONS_HASH_BATCH_MAX: maximum number of `raw_content` entries
+    # accepted in a single `POST /positions/hash-batch` request
+    # (card-position-annotations Stage B). Bounds server-side memory
+    # and parse time during the per-item normalize pass. A caller with
+    # a larger currently-rendered tree issues more than one batch call
+    # — the endpoint is stateless, so there is no cross-call ordering
+    # or idempotency concern to preserve. 200 (ledger assumption row
+    # 534, `.claude/dispatch-reports/card-position-annotations-design.md`
+    # §5): the design doc names no numeric cap; 200 keeps a viewport-
+    # driven fetch burst well within one round trip while bounding
+    # worst-case payload/parse cost.
+    POSITIONS_HASH_BATCH_MAX: int = 200
 
     model_config = SettingsConfigDict(env_file=".env")
 

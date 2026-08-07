@@ -1,0 +1,38 @@
+[package]
+name = "lengyue"
+version = "0.1.0"
+description = "LengYue desktop shell (Tauri v2) — hosts the SPA and the FastAPI backend sidecar"
+authors = ["LengYue project"]
+license = "Unlicense"
+repository = ""
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "lengyue_lib"
+crate-type = ["staticlib", "cdylib", "lib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# Linux-first scaffold; the [target."cfg(target_os = \"windows\")"] table
+# is left absent deliberately — Windows support is config work (an
+# externalBin entry with a `.exe` suffix, an MSI/NSIS bundle target,
+# and a windows-x86_64 sidecar binary), not a Rust source rewrite. See
+# the "What Windows needs later" section of the dispatch report.
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# ureq: small blocking HTTP client used only for the sidecar readiness
+# poll (GET /health). Chosen over reqwest to avoid pulling an async
+# runtime's worth of dependencies into a desktop-shell binary that
+# otherwise has no other HTTP-client need.
+ureq = "2"
+
+[features]
+# This feature is used for production builds where `devUrl` points to
+# the local CLI server, but the CLI is not always available. See
+# https://tauri.app/develop/#dev-server-vs-embedded-frontend
+custom-protocol = ["tauri/custom-protocol"]

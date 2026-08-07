@@ -34,6 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.schema import game_source, normalized_position
 from domain.auth import UserId
+from repositories.display_counters import next_game_display_ordinal
 from domain.game_library import (
     GameLibraryImportRequest,
     GameListFilter,
@@ -131,7 +132,11 @@ class GameLibraryRepository(GameLibraryRepositoryPort):
         # existing row's id and client_game_id (which may be NULL for
         # legacy rows). First-mint-wins per the design note.
         existing = await self.session.execute(
-            select(game_source.c.id, game_source.c.client_game_id)
+            select(
+                game_source.c.id,
+                game_source.c.client_game_id,
+                game_source.c.display_ordinal,
+            )
             .where(game_source.c.user_id == user_id)
             .where(game_source.c.position_id == position_id)
             .limit(1)
@@ -141,6 +146,7 @@ class GameLibraryRepository(GameLibraryRepositoryPort):
             return ImportOutcomeDeduplicated(
                 game_id=row.id,
                 client_game_id=row.client_game_id,
+                display_ordinal=row.display_ordinal,
             )
 
         # Miss → INSERT new row with a freshly generated UUID and the
@@ -165,6 +171,13 @@ class GameLibraryRepository(GameLibraryRepositoryPort):
             extras["source_path"] = req.source_path
         extras["imported_via"] = "library"
         new_uuid = uuid4()
+        # Per-user-id-enumeration design: display_ordinal assigned
+        # atomically inside this per-file SAVEPOINT, so a rolled-back
+        # import (per-file failure isolation, see class docstring)
+        # never burns an ordinal for a row that didn't survive.
+        display_ordinal = await next_game_display_ordinal(
+            self.session, user_id=user_id
+        )
         stmt = (
             insert(game_source)
             .values(
@@ -180,6 +193,7 @@ class GameLibraryRepository(GameLibraryRepositoryPort):
                 ruleset=req.metadata.ruleset,
                 board_size=req.metadata.board_size,
                 metadata_extra=extras or None,
+                display_ordinal=display_ordinal,
             )
             .returning(game_source.c.id)
         )
@@ -193,6 +207,7 @@ class GameLibraryRepository(GameLibraryRepositoryPort):
         return ImportOutcomeCreated(
             game_id=new_id,
             client_game_id=new_uuid,
+            display_ordinal=display_ordinal,
         )
 
     async def _get_or_create_position(
@@ -303,6 +318,7 @@ class GameLibraryRepository(GameLibraryRepositoryPort):
                 game_source.c.ruleset,
                 game_source.c.board_size,
                 game_source.c.created_at,
+                game_source.c.display_ordinal,
             )
             .where(*where_terms)
             .order_by(*order_clause)
@@ -321,6 +337,7 @@ class GameLibraryRepository(GameLibraryRepositoryPort):
                 ruleset=row.ruleset,
                 board_size=row.board_size,
                 created_at=row.created_at,
+                display_ordinal=row.display_ordinal,
             )
             for row in page_result.all()
         ]
@@ -353,6 +370,7 @@ class GameLibraryRepository(GameLibraryRepositoryPort):
                 game_source.c.metadata_extra,
                 game_source.c.created_at,
                 game_source.c.raw_content,
+                game_source.c.display_ordinal,
             )
             .where(game_source.c.id == game_id)
             .where(game_source.c.user_id == user_id)
@@ -373,6 +391,7 @@ class GameLibraryRepository(GameLibraryRepositoryPort):
             metadata_extra=row.metadata_extra or {},
             created_at=row.created_at,
             raw_content=row.raw_content or "",
+            display_ordinal=row.display_ordinal,
         )
 
     # ─── delete ─────────────────────────────────────────────────────────

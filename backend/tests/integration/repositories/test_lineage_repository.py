@@ -18,10 +18,16 @@ License: Public Domain (The Unlicense)
 from __future__ import annotations
 
 import hashlib
+from itertools import count
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+
+# Per-user-id-enumeration design: see test_stats_repository.py's
+# identical comment.
+_ordinal = count(1)
 
 from db.schema import (
     card,
@@ -82,6 +88,7 @@ async def _build_tree(
         insert(game_source)
         .values(
             position_id=pos, user_id=user_id, description=description,
+            client_game_id=uuid4(), display_ordinal=next(_ordinal),
         )
         .returning(game_source.c.id)
     )
@@ -100,6 +107,7 @@ async def _build_tree(
                 .values(
                     num_moves=5, alpha=3.0, beta=3.0, t=1.0,
                     user_id=user_id, normalized_position_id=pos,
+                    public_id=uuid4(), display_ordinal=next(_ordinal),
                 )
                 .returning(card.c.id)
             )
@@ -353,6 +361,7 @@ async def test_fetch_selection_does_not_cross_tenant_boundary_in_descent(
         .values(
             num_moves=5, alpha=3.0, beta=3.0, t=1.0,
             user_id=BOB, normalized_position_id=pos,
+            public_id=uuid4(), display_ordinal=next(_ordinal),
         )
         .returning(card.c.id)
     )

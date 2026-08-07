@@ -5,8 +5,8 @@
  * License: Public Domain (The Unlicense)
  */
 
-import { computed, type Ref } from 'vue';
-import type { ReviewCard, BoardId, ReviewStatus, RawAnalysis } from '../../types';
+import { computed, toRaw, type Ref } from 'vue';
+import type { ReviewCard, BoardId, BoardState, NodeId, ReviewStatus, RawAnalysis, StoneColor } from '../../types';
 
 /**
  * Returns true when the review session is in a transient state where
@@ -41,6 +41,7 @@ import {
 import { waitForAnalysis, AnalysisWaitError } from '../analysis/wait-for-analysis';
 import { blindModePrefs } from './blind-mode-prefs';
 import { KATAGO_ANALYSIS_TIMEOUT_MS } from '../../lib/timing';
+import { lerpVisits, visitsLerpParams } from '../../state/visits-lerp';
 
 // @ts-ignore
 import sgf from '@sabaki/sgf';
@@ -48,7 +49,7 @@ import { loadSgf } from '../../engine/sgf-loader';
 import { getPath, navigateTo } from '../../engine/navigator';
 import { getActiveVariationPath } from '../../engine/util';
 import { scorePerMoveDelta } from '../../engine/analysis/review-scoring';
-import { applyGoMove } from '../../logic';
+import { applyGoMove, applyPass } from '../../logic';
 import { gtpToBoard } from '../board/use-move-suggestions';
 
 /**
@@ -89,6 +90,166 @@ const ABSOLUTE_FALLBACK_VISITS = 1000;
  * lazy initialization. Resource-ownership audit O5 / O11.
  */
 const pendingAnalysisAborts = new Map<BoardId, AbortController>();
+
+/**
+ * Deck-repeat arc (`.claude/dispatch-reports/deck-repeat-design.md`,
+ * option (a)): a per-board, per-visit snapshot registry that lets
+ * `goBack`/`goForward`/`jumpTo` restore a card the user has already
+ * visited this session WITHOUT re-parsing its SGF — a re-parse mints
+ * fresh non-deterministic NodeIds (`engine/sgf-loader.ts`'s `uuid()`),
+ * which would silently sever the analysis-ledger keying (design doc
+ * §1b) and degrade the feature into "restart the card" (design doc
+ * §2c). `CardVisitSnapshot.board` is instead a plain-value JSON
+ * round-trip clone of the live `BoardState`, which preserves every
+ * NodeId string verbatim.
+ *
+ * Module-scope, board-keyed — same idiom as `pendingAnalysisAborts`
+ * above (one canonical registry across the app, reachable from
+ * `closeBoard`/`resetWorkspace` via the teardown registry below).
+ * Keyed by queue INDEX, not CardId: the queue can in principle repeat
+ * a card, and index is already the session's own "which slot am I on"
+ * identity (`ReviewSessionData.currentIndex`).
+ *
+ * Lifetime: a board's inner map is populated by `captureSlot` (called
+ * from `loadCard`'s capture-at-entry and from `goBack`/`goForward`/
+ * `jumpTo` before they swap the board out) and consumed by
+ * `restoreSlot`. It is cleared per-board by `endSession` (a session
+ * ending drops its retained visits — the deck-repeat design doc's
+ * "Memory growth / ownership call": bounded by deck length, not
+ * unbounded across sessions) and by the two teardown handlers
+ * registered below (board close / workspace reset — resource-
+ * ownership checklist item 1: this is new external state keyed by
+ * BoardId).
+ */
+const visitSnapshots = new Map<BoardId, Map<number, CardVisitSnapshot>>();
+
+/**
+ * The retained state for one already-visited queue slot. Fields are
+ * exactly the design doc's enumerated set (§2a): a snapshot is only
+ * ever taken at a SETTLED instant (`status` is narrowed to the two
+ * non-transient values — see `captureSlot`), so `startingNodeId` is
+ * always present by construction at capture time.
+ */
+interface CardVisitSnapshot {
+  status: 'AWAITING_MOVE' | 'FINISHED';
+  userMovesCount: number;
+  userMoveScores: number[];
+  visitsOverride: number | null;
+  startingNodeId: NodeId;
+  board: BoardState;
+}
+
+/** Get-or-create the per-board snapshot submap. */
+function snapshotsFor(boardId: BoardId): Map<number, CardVisitSnapshot> {
+  let m = visitSnapshots.get(boardId);
+  if (!m) {
+    m = new Map();
+    visitSnapshots.set(boardId, m);
+  }
+  return m;
+}
+
+/**
+ * Capture the board's CURRENTLY ACTIVE slot (`index`) into the
+ * per-visit snapshot map, if — and only if — the slot is in a settled
+ * state: AWAITING_MOVE (mid-attempt, not yet graded) or FINISHED
+ * (graded). LOADING/ANALYZING are refused — a snapshot mid-flight
+ * would capture a torn state (a board mutated ahead of its recorded
+ * score, or an analysis wait about to resolve into a slot nothing
+ * will read again); the outgoing card's unsettled progress is lost,
+ * the same discard today's pre-existing LOADING/ANALYZING transition-
+ * away already performs. IDLE / `index < 0` are no-ops (no active
+ * slot to capture).
+ *
+ * Plain-value clone (`JSON.parse(JSON.stringify(toRaw(board)))`) —
+ * the codebase's sanctioned deep-clone idiom for POJO-shaped reactive
+ * state (`frontend/CLAUDE.md`'s "Vue/CSS footgun checklist":
+ * `structuredClone` cannot clone a Vue reactive proxy). This preserves
+ * every `NodeId` string value verbatim, which is the load-bearing
+ * property the whole feature depends on (design doc §1b/§2a).
+ */
+function captureSlot(boardId: BoardId, index: number): void {
+  if (index < 0) return;
+  const review = store.session.reviews[boardId];
+  if (!review) return;
+  if (review.status !== 'AWAITING_MOVE' && review.status !== 'FINISHED') return;
+  if (!review.startingNodeId) return;
+  const board = store.boards.find(b => b.id === boardId);
+  if (!board) return;
+  snapshotsFor(boardId).set(index, {
+    status: review.status,
+    userMovesCount: review.userMovesCount,
+    userMoveScores: [...review.userMoveScores],
+    visitsOverride: review.visitsOverride,
+    startingNodeId: review.startingNodeId,
+    // JSON.parse/stringify erases the type; `board` is a live BoardState
+    // and the round-trip is lossless for its POJO shape (no Map/Set/
+    // Date/functions — see the `structuredClone`-cannot-clone-reactive-
+    // state footgun note in frontend/CLAUDE.md), so the result is
+    // structurally still a BoardState.
+    board: JSON.parse(JSON.stringify(toRaw(board))) as BoardState,
+  });
+}
+
+/**
+ * Install a retained snapshot as the board's live state and move the
+ * session's `currentIndex` onto it.
+ *
+ * Re-clones `snap.board` on every install rather than installing the
+ * snapshot's own object graph directly: the live board WILL be
+ * mutated in place afterward by ordinary navigation (`mutateBoard` —
+ * `rewindToStart`, the intermission-chart click-to-navigate — both
+ * reachable even from the view-only REVIEWED state). Installing the
+ * snapshot's own `nodes`/`stones`/`games` objects would alias them
+ * into the reactive board; an in-place navigation write would then
+ * silently corrupt the archived snapshot that the NEXT `goBack` to
+ * this same index reads. Re-cloning keeps the map's copy immutable no
+ * matter what the live board does after this call returns.
+ *
+ * A restored FINISHED snapshot re-enters as REVIEWED (view-only — see
+ * `isReviewTransientState`'s sibling gate in `useBoardMoveRouting`,
+ * which refuses board mutation in this state outright, and
+ * `retryCard` below, the only path back into a gradeable state). A
+ * restored AWAITING_MOVE snapshot resumes exactly as left — it never
+ * graded, so continuing and eventually finishing it is today's
+ * semantics, just resumed later.
+ */
+function restoreSlot(boardId: BoardId, index: number, snap: CardVisitSnapshot): void {
+  const boardIdx = store.boards.findIndex(b => b.id === boardId);
+  if (boardIdx === -1) return;
+  const restoredBoard: BoardState = { ...JSON.parse(JSON.stringify(snap.board)), id: boardId };
+  updateBoardState(boardIdx, restoredBoard);
+  mutateReviewSession(boardId, draft => {
+    draft.currentIndex = index;
+    draft.userMovesCount = snap.userMovesCount;
+    draft.userMoveScores = [...snap.userMoveScores];
+    draft.visitsOverride = snap.visitsOverride;
+    draft.startingNodeId = snap.startingNodeId;
+    draft.status = snap.status === 'FINISHED' ? 'REVIEWED' : 'AWAITING_MOVE';
+  });
+}
+
+/**
+ * Test-only inspector — NOT part of the composable's UI-facing
+ * surface. `visitSnapshots` itself is deliberately not exported (a
+ * mutable Map handed to arbitrary importers would invite writes from
+ * outside `captureSlot`/`restoreSlot`); this narrow accessor lets a
+ * test read back a specific stored snapshot's `stones` record
+ * directly, to assert the `restoreSlot` re-clone invariant — mutating
+ * the LIVE board after a restore must never retroactively change what
+ * is archived here — the same shape as `useNavigation.ts`'s
+ * `_mainLineToggleMemoryKeyCountForBoard`. There is no UI-facing "what
+ * does this archived visit currently look like" query to route
+ * through instead. Returns a defensive shallow copy so the caller
+ * cannot itself become a second write path into the stored entry.
+ */
+export function _visitSnapshotStonesForTesting(
+  boardId: BoardId,
+  index: number,
+): Record<string, StoneColor> | null {
+  const snap = visitSnapshots.get(boardId)?.get(index);
+  return snap ? { ...snap.board.stones } : null;
+}
 
 /**
  * Abort the in-flight analysis-wait for `boardId`, if any. The
@@ -165,6 +326,24 @@ registerWorkspaceResetHandler({
   // ordering hazard that justifies the explicit release).
   run: () => abortAllReviews(),
 });
+registerBoardCloseHandler({
+  label: 'review:visit-snapshots',
+  // Drops the closing board's entire per-visit snapshot map
+  // (goBack/goForward retained-attempt state — see the visitSnapshots
+  // block comment above). Each entry holds a full BoardState clone
+  // plus a per-move score array; without this the board-keyed outer
+  // Map would retain every visited card's clone forever after the tab
+  // closes. Order-independent: the clone is a self-contained
+  // plain-value copy, not a live subscription, so it carries no
+  // engine-stop/ledger-purge ordering dependency.
+  run: (boardId) => { visitSnapshots.delete(boardId); },
+});
+registerWorkspaceResetHandler({
+  label: 'review:visit-snapshots-clear-all',
+  // Identity flip: drop every board's per-visit snapshot map. Same
+  // resource as the close handler above, workspace-wide.
+  run: () => { visitSnapshots.clear(); },
+});
 
 export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
   // ── Safe Projections ──
@@ -178,6 +357,14 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
   const currentIndex = computed(() => reviewData.value?.currentIndex ?? -1);
   const userMovesCount = computed(() => reviewData.value?.userMovesCount ?? 0);
   const userMoveScores = computed(() => reviewData.value?.userMoveScores ?? []);
+  // The active card's position in ITS OWN tree — `loadCard` sets this to
+  // the SGF's fast-forwarded leaf (below) and `endSession` resets it to
+  // `null`; `rewindToStart` already navigates back to it. Exposed here
+  // (same synchronous-projection shape as `state`/`currentIndex` above)
+  // so `App.vue` can feed it to `TreeWidget` as the "review start" marker
+  // source (ledger row 524's build) — zero-I/O, reactive to a card
+  // loading/unloading in this session the same way `state` already is.
+  const startingNodeId = computed(() => reviewData.value?.startingNodeId ?? null);
 
   const currentCard = computed(() => 
     currentIndex.value >= 0 && currentIndex.value < queue.value.length 
@@ -301,6 +488,16 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     const card = queue.value[index];
     if (!card) return;
 
+    // Deck-repeat arc: snapshot the OUTGOING slot before transitioning
+    // away from it — capture-at-advance-time is what lets a later
+    // goBack() restore this exact visit without re-parsing (design doc
+    // §2a), whether the advance came from an explicit goForward() or
+    // from an ordinary nextCard()/loadCard() walk. No-op when there is
+    // no active slot (currentIndex -1, e.g. startSession's initial
+    // loadCard(0)) or when the outgoing slot isn't settled (see
+    // captureSlot).
+    captureSlot(bId, currentIndex.value);
+
     // Cancel any in-flight analysis wait for this board before
     // starting the new card. If the previous card's processUserMove
     // is mid-wait, its promise rejects with 'aborted' and silently
@@ -401,6 +598,49 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     const nextBoard = applyGoMove(board, x, y);
     if (!nextBoard) return;
 
+    await processUserTurn(bId, nextBoard, s_0_idx, s_0_id);
+  }
+
+  /**
+   * Pass counterpart to `processUserMove` — same s_0/s_0_idx capture,
+   * but the board mutation is `applyPass` (always succeeds; a pass is
+   * never illegal) rather than `applyGoMove(x, y)`. Routed here from
+   * `useBoardMoveRouting.handlePass`'s AWAITING_MOVE arm, matching
+   * `handleBoardMove`'s own routing into `processUserMove`. See
+   * `processUserTurn`'s doc comment for why the rest of the grading
+   * pipeline needs no pass-specific branch.
+   */
+  async function processUserPass() {
+    const bId = boardIdRef.value;
+    if (!bId) return;
+
+    const board = store.boards.find(b => b.id === bId);
+    if (!board) return;
+
+    const s_0_idx = getPath(board.nodes, board.currentNodeId).length - 1;
+    const s_0_id = board.currentNodeId;
+
+    const nextBoard = applyPass(board);
+
+    await processUserTurn(bId, nextBoard, s_0_idx, s_0_id);
+  }
+
+  /**
+   * `processUserMove` and `processUserPass` differ only in how the
+   * board mutates for the attempted action (`applyGoMove(board, x, y)`
+   * vs. `applyPass(board)`, the latter infallible) — every downstream
+   * step (kick off the graded analysis query, wait for both endpoint
+   * packets, score the per-move delta, advance or finish the card) is
+   * identical, since a pass is scored by the same s_0→s_1 delta
+   * machinery as any other move: `moveToKataCoord` already serializes
+   * a pass to the wire correctly (`engine/util.ts`), so the review
+   * session doesn't need a pass-specific grading path, only a
+   * pass-specific way to produce `nextBoard`. Shared here per
+   * ADR-0012 (one home for the orchestration, not a copy per caller) —
+   * this is the "processUserMove-adjacent path" the pass-support
+   * design (PASS SUPPORT, touched-file inventory) calls for.
+   */
+  async function processUserTurn(bId: BoardId, nextBoard: BoardState, s_0_idx: number, s_0_id: NodeId) {
     updateBoardState(store.activeBoardIndex, nextBoard);
     mutateReviewSession(bId, draft => {
       draft.status = 'ANALYZING';
@@ -444,7 +684,26 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     // Single source of truth for the visits count — effectiveVisits
     // encapsulates the override-vs-default precedence. See the
     // computed's docstring for the resolution order.
-    const visits = effectiveVisits.value;
+    //
+    // The session-ephemeral a/b LERP override (wiki wanted-feature 3,
+    // ledger rows 503/504) is applied HERE — this is the ONE seam
+    // where a card's specific visit count feeds analysis-query
+    // construction (ADR-0012: one home for the transform, never one
+    // per call site). Rejected alternative sites: inside the
+    // `effectiveVisits` computed above (would also transform the
+    // number `ReviewSessionPanel.vue`'s "Max visits (this card)"
+    // input displays/edits, entangling the session-wide LERP with the
+    // pre-existing per-card sticky override and double-applying on
+    // re-edit); inside `analysisService.analyzeRange`/
+    // `analysis-service.ts` generally (would also transform ponder /
+    // one-shot analyze visit counts, which are not "a card's specific
+    // visit count" — out of this feature's scope). Defaults
+    // (a=1, b=0) make `lerpVisits` byte-identical to `effectiveVisits`
+    // (regression lock; see `state/visits-lerp.ts`'s unit tests).
+    // Seam for the wiki's noted future per-request-overrides feature:
+    // that feature would compose as a further transform stage at this
+    // same call site — no machinery for it is pre-built here.
+    const visits = lerpVisits(effectiveVisits.value, visitsLerpParams.value);
 
     // Root→current (of `nextBoard`, whose cursor is the just-played
     // s_1): the analyzed range ends at s_1 and the engine's move list
@@ -491,6 +750,37 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
       true,
       false,
     );
+
+    // The wedge (adjudication: `.claude/dispatch-reports/
+    // ruleset-default-wedge-fix.md`). `analyzeRange` refuses query
+    // construction synchronously in a few cases (the engine
+    // disconnected between the click and this call; pre-fix-1, an
+    // unresolved ruleset) and returns null BEFORE any query reaches
+    // the wire. The prior shape fell straight through into the
+    // Promise.all wait below, keyed to `s_0_id`/`s_1_id` on a query
+    // that was never issued — no packet for it can ever arrive, so
+    // the wait sat wedged until KATAGO_ANALYSIS_TIMEOUT_MS elapsed,
+    // at which point the timeout branch dropped the session to IDLE.
+    // IDLE has no path back to the SAME attempted move: by that point
+    // the board had already advanced to `nextBoard` (s_1) and
+    // `userMovesCount` had already been incremented (both above), so
+    // even after the refusal's cause cleared, the user's next click
+    // would be scored as a DIFFERENT move against the card rather
+    // than a retry of the one that was refused — a dead end (C8).
+    // Recover immediately instead of waiting on a query that will
+    // never settle: undo the board advance and the move-count
+    // increment, and drop back to AWAITING_MOVE at s_0, so clicking
+    // the SAME point again re-drives this exact `processUserMove`
+    // call once conditions clear.
+    if (reviewQueryId === null) {
+      mutateBoard(bId, draft => { navigateTo(draft, s_0_id); });
+      mutateReviewSession(bId, draft => {
+        draft.userMovesCount = Math.max(0, draft.userMovesCount - 1);
+        draft.status = 'AWAITING_MOVE';
+      });
+      pushSystemMessage('warning', i18n.global.t('review.queryRefused'));
+      return;
+    }
 
     // Set up a fresh abort controller for this wait. loadCard will
     // trigger it if the user transitions cards while we're waiting.
@@ -654,8 +944,17 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
 
   function nextCard() {
     if (currentIndex.value + 1 < queue.value.length) {
-      // Fire-and-forget; loadCard self-handles (catch → status IDLE).
-      void loadCard(currentIndex.value + 1);
+      // Deck-repeat arc: route through goForward rather than calling
+      // loadCard directly. Byte-identical to the prior behaviour when
+      // the next slot was never visited (goForward's own fallback is
+      // `void loadCard(targetIndex)` — the exact call this line used
+      // to make); the difference only shows when the next slot WAS
+      // already visited (e.g. the user went back, then clicked
+      // Skip/Next instead of the dedicated forward button) — in that
+      // case goForward restores the retained snapshot instead of
+      // silently re-parsing and losing it, which a plain loadCard call
+      // here would otherwise do.
+      goForward();
     } else {
       // No more cards in the queue — end the session and let the
       // host UI return to its idle shape (deck-config form). The
@@ -667,6 +966,133 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
       // the Cards tab cleanly returns to the deck-config form.
       endSession();
     }
+  }
+
+  /**
+   * True when a lower queue slot exists to navigate back to.
+   * Convenience for the UI (`ReviewSessionPanel`'s back button
+   * `:disabled` binding) so the index arithmetic lives in one place.
+   */
+  const canGoBack = computed(() => currentIndex.value > 0);
+
+  /**
+   * True when a higher queue slot exists to navigate forward to
+   * (whether previously visited or not — `goForward` falls through to
+   * a fresh `loadCard` for an unvisited slot, same as `nextCard`).
+   */
+  const canGoForward = computed(() =>
+    currentIndex.value >= 0 && currentIndex.value + 1 < queue.value.length);
+
+  /**
+   * Navigate to the previous queue slot, restoring its retained
+   * per-visit snapshot when one exists (design doc §2a's programmatic
+   * interface). Snapshots the OUTGOING slot first — same pre-
+   * transition abort as `loadCard` performs, since a mid-ANALYZING
+   * outgoing slot isn't snapshottable (see `captureSlot`).
+   *
+   * Returns false (no-op) when already at the first slot or no board
+   * is active. The "no snapshot for the target" branch is a defensive
+   * fallback only: every index below `currentIndex` should already
+   * carry one from `loadCard`'s own capture-at-entry.
+   */
+  function goBack(): boolean {
+    const bId = boardIdRef.value;
+    if (!bId) return false;
+    const idx = currentIndex.value;
+    if (idx <= 0) return false;
+    const targetIndex = idx - 1;
+
+    pendingAnalysisAborts.get(bId)?.abort();
+    pendingAnalysisAborts.delete(bId);
+    captureSlot(bId, idx);
+
+    const snap = snapshotsFor(bId).get(targetIndex);
+    if (snap) {
+      restoreSlot(bId, targetIndex, snap);
+    } else {
+      void loadCard(targetIndex);
+    }
+    return true;
+  }
+
+  /**
+   * Navigate to the next queue slot — restoring a retained snapshot
+   * when the slot was already visited this session, or falling
+   * through to a fresh `loadCard` when it wasn't (the same shape
+   * `nextCard` already uses for the never-visited case). See `goBack`
+   * for the shared pre-transition abort/capture shape.
+   */
+  function goForward(): boolean {
+    const bId = boardIdRef.value;
+    if (!bId) return false;
+    const idx = currentIndex.value;
+    if (idx < 0 || idx + 1 >= queue.value.length) return false;
+    const targetIndex = idx + 1;
+
+    pendingAnalysisAborts.get(bId)?.abort();
+    pendingAnalysisAborts.delete(bId);
+    captureSlot(bId, idx);
+
+    const snap = snapshotsFor(bId).get(targetIndex);
+    if (snap) {
+      restoreSlot(bId, targetIndex, snap);
+    } else {
+      void loadCard(targetIndex);
+    }
+    return true;
+  }
+
+  /**
+   * Navigate directly to an arbitrary queue slot — the general form
+   * `goBack`/`goForward` specialise (design doc §2a's declared
+   * interface). Not currently wired to any UI affordance; kept for
+   * interface completeness and as the natural hook for a future
+   * clickable card-counter or queue list.
+   */
+  function jumpTo(index: number): boolean {
+    const bId = boardIdRef.value;
+    if (!bId) return false;
+    if (index < 0 || index >= queue.value.length) return false;
+    const idx = currentIndex.value;
+    if (index === idx) return true;
+
+    pendingAnalysisAborts.get(bId)?.abort();
+    pendingAnalysisAborts.delete(bId);
+    captureSlot(bId, idx);
+
+    const snap = snapshotsFor(bId).get(index);
+    if (snap) {
+      restoreSlot(bId, index, snap);
+    } else {
+      void loadCard(index);
+    }
+    return true;
+  }
+
+  /**
+   * Discard the restored (REVIEWED) snapshot for the current slot and
+   * re-enter it fresh via `loadCard` — a genuine second attempt,
+   * graded once like any first attempt. This is the ONLY path back
+   * into a gradeable state from REVIEWED (design doc §3's second
+   * load-bearing property): `useBoardMoveRouting` refuses board
+   * mutation outright while REVIEWED, so without this explicit action
+   * a restored FINISHED snapshot has no way back to `finishCard` —
+   * which is what makes `submitReview`'s missing idempotency guard
+   * (design doc §1d) structurally unreachable twice for the same
+   * attempt.
+   *
+   * No-op outside REVIEWED (defensive — the UI only shows Retry in
+   * that state). The caller (ReviewSessionPanel) is responsible for
+   * confirming the re-grade with the user before invoking this, per
+   * the codebase's `window.confirm` destructive-action convention.
+   */
+  function retryCard(): void {
+    const bId = boardIdRef.value;
+    if (!bId) return;
+    if (state.value !== 'REVIEWED') return;
+    const idx = currentIndex.value;
+    snapshotsFor(bId).delete(idx);
+    void loadCard(idx);
   }
 
   /**
@@ -700,6 +1126,14 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     // loadCard's pre-transition cleanup.
     pendingAnalysisAborts.get(bId)?.abort();
     pendingAnalysisAborts.delete(bId);
+
+    // Deck-repeat arc: a session ending drops its retained per-visit
+    // snapshots (design doc "Memory growth / ownership call" — bounded
+    // by deck length within a session, not unbounded across sessions).
+    // The board-close / workspace-reset teardown handlers registered
+    // above cover the other two exits (tab closed, identity flip); this
+    // is the third — a normal session end while the board stays open.
+    visitSnapshots.delete(bId);
 
     // The status→IDLE write below is also the blind-mode release:
     // the pref owner's exit watcher fires on it synchronously
@@ -735,10 +1169,19 @@ export function useReviewSession(boardIdRef: Ref<BoardId | null>) {
     state,
     queue,
     currentCard,
+    currentIndex,
+    startingNodeId,
     startSession,
     nextCard,
+    goBack,
+    goForward,
+    jumpTo,
+    retryCard,
+    canGoBack,
+    canGoForward,
     rewindToStart,
     processUserMove,
+    processUserPass,
     userMovesCount,
     userMoveScores,
     effectiveVisits,

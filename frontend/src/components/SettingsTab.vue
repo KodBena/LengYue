@@ -40,9 +40,11 @@ import CardSetEditor from './editors/CardSetEditor.vue';
 import RegistryEditor from './editors/RegistryEditor.vue';
 import AnalysisTabsEditor from './editors/AnalysisTabsEditor.vue';
 import { store, DEFAULTS, touchSession } from '../store';
+import { mutateProfile } from '../store/profile-owner';
 import { updateProfileAt } from '../store/profile-owner';
 import { updateRegistry } from '../lib/utils';
 import { cancelCapture } from '../lib/keybindings-capture';
+import { openSetupWizard } from '../composables/useSetupWizardSignal';
 
 const { t } = useI18n();
 
@@ -103,6 +105,14 @@ function handleActiveCardSet(id: string): void {
   store.session.ui.activeCardSetId = id;
   touchSession();
 }
+
+// Session (UI) theme selector — writes the SAME cell the Advanced
+// Registry and the setup wizard edit (one fact, one home; row 748).
+function setTheme(theme: 'dark' | 'cluster'): void {
+  mutateProfile((profile) => {
+    profile.settings.appearance.theme = theme;
+  });
+}
 </script>
 
 <template>
@@ -110,7 +120,27 @@ function handleActiveCardSet(id: string): void {
 
     <template #session>
       <div class="tab-padding">
-        <div class="registry-container">
+        <!-- Re-run entry point for the first-run setup wizard (ledger
+             slug swz-setup-wizard) — re-running never resets
+             `profile.settings.onboarding.completed`; see
+             `useSetupWizardSignal.ts`. -->
+        <button class="toolbar-btn-sm" @click="openSetupWizard">{{ $t('settings.button.rerunWizard') }}</button>
+        <!-- Theme selector, restored per commission row 748 ("what
+             happened to the theme selector in Session(UI)?"). A second
+             VIEW of profile.settings.appearance.theme (same cell the
+             Advanced Registry + wizard edit — one fact, one home). -->
+        <div class="theme-row">
+          <label for="session-theme-select">{{ $t('settings.label.theme') }}</label>
+          <select
+            id="session-theme-select"
+            :value="store.profile.settings.appearance.theme"
+            @change="setTheme(($event.target as HTMLSelectElement).value as 'dark' | 'cluster')"
+          >
+            <option value="cluster">{{ $t('wizard.theme.cluster') }}</option>
+            <option value="dark">{{ $t('wizard.theme.dark') }}</option>
+          </select>
+        </div>
+        <div class="registry-container" style="margin-top: var(--space-medium);">
           <RegistryEditor :registry="store.session.ui" :defaults="DEFAULTS.session" @update="handleSessionUpdate"/>
         </div>
       </div>
@@ -163,3 +193,13 @@ function handleActiveCardSet(id: string): void {
 
   </TabWidget>
 </template>
+
+<style scoped>
+/* Session (UI) theme selector row (row 748). surface-0 control per rows 681/742. */
+.theme-row { display: flex; align-items: center; gap: var(--space-default); margin-top: var(--space-medium); }
+.theme-row label { color: var(--text-1); font-size: var(--text-emphasis); }
+.theme-row select {
+  background: var(--surface-0); color: var(--text-0); border: 1px solid var(--border-2);
+  border-radius: var(--radius-default); padding: 2px var(--space-tight); font-family: inherit;
+}
+</style>

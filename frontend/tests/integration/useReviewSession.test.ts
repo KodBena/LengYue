@@ -113,6 +113,11 @@ import {
 import { resetFakeAnalysisPersistenceService } from '../fakes/analysis-persistence-service';
 import { ledger } from '../../src/state/analysis-ledger';
 import { activeAnalysisKeys } from '../../src/state/analysis-config';
+import {
+  setVisitsLerpA,
+  setVisitsLerpB,
+  _resetVisitsLerpForTesting,
+} from '../../src/state/visits-lerp';
 import type {
   BoardId,
   CardId,
@@ -194,6 +199,13 @@ beforeEach(() => {
   // Mocked services absorb the cleanup-side calls (stopAllBoardAnalyses,
   // forgetAll) without reaching the real network or proxy.
   resetWorkspace();
+
+  // The session-ephemeral visits-LERP override (state/visits-lerp.ts)
+  // is module-scope, not store-scope — resetWorkspace() does not
+  // touch it (by design: it's ephemeral to the whole session, not
+  // per-workspace). Reset explicitly so a prior test's a/b setting
+  // can't bleed into this one.
+  _resetVisitsLerpForTesting();
 });
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -248,6 +260,80 @@ describe('useReviewSession.endSession', () => {
     // throw and the empty store stays empty.
     expect(() => endSession()).not.toThrow();
     expect(Object.keys(store.session.reviews)).toEqual([]);
+  });
+});
+
+describe('useReviewSession.startingNodeId (tree-marker data source, ledger row 524)', () => {
+  // Pins the reactive projection `TreeWidget`'s "review start" marker
+  // (`frontend/src/components/tree/TreeWidget.vue`'s `reviewStartNodeId`
+  // prop) is fed from — same synchronous-projection shape as `state`/
+  // `currentIndex`, no I/O. See `useReviewSession.ts`'s `startingNodeId`
+  // computed and its doc comment for the mechanism this pins.
+
+  it('is null before any card has been loaded (no review session active)', () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { startingNodeId } = useReviewSession(boardIdRef);
+
+    expect(startingNodeId.value).toBeNull();
+  });
+
+  it('reflects the store row once a review session has a starting node', () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    // Constructed directly (mirrors the `processUserMove` timeout
+    // test above) rather than driving `loadCard`'s SGF-parse path —
+    // the projection under test only needs `reviewData.value
+    // .startingNodeId` to exist and change; `loadCard` itself is
+    // exercised by the deck-repeat/timeout suites.
+    mutateReviewSession(boardId, draft => {
+      draft.status = 'AWAITING_MOVE';
+      draft.startingNodeId = board.rootNodeId;
+    });
+
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { startingNodeId } = useReviewSession(boardIdRef);
+
+    expect(startingNodeId.value).toBe(board.rootNodeId);
+  });
+
+  it('clears back to null when the session ends — the marker must disappear reactively', () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    mutateReviewSession(boardId, draft => {
+      draft.status = 'AWAITING_MOVE';
+      draft.startingNodeId = board.rootNodeId;
+    });
+
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { startingNodeId, endSession } = useReviewSession(boardIdRef);
+
+    expect(startingNodeId.value).toBe(board.rootNodeId);
+
+    endSession();
+
+    expect(startingNodeId.value).toBeNull();
+  });
+
+  it('is null when boardIdRef points at a board with no review row', () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    // No mutateReviewSession call — `store.session.reviews[boardId]`
+    // stays whatever `addBoard`'s default-init leaves it at (a fresh
+    // IDLE row per `store/index.ts`, `startingNodeId: null`).
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { startingNodeId } = useReviewSession(boardIdRef);
+
+    expect(startingNodeId.value).toBeNull();
   });
 });
 
@@ -334,6 +420,140 @@ describe('useReviewSession.processUserMove — timeout path', () => {
     // The backend was not asked to record this move — finishCard's
     // submitReview only fires on the success path.
     expect(fakeBackendService.submitReview).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * `processUserPass` — the review/quiz-flow pass entry point
+ * (pass-support design, touched-file inventory: "pass handling in
+ * `processUserMove`-adjacent path"). Mirrors the
+ * `processUserMove` timeout-path test above exactly (same
+ * deterministic-settle shape via a rejected `waitForAnalysis`), the
+ * only difference being that the board mutation comes from
+ * `applyPass` rather than `applyGoMove(x, y)` — this pins that the
+ * shared `processUserTurn` orchestration (grading query, move count,
+ * status transitions) engages identically for a pass.
+ */
+describe('useReviewSession.processUserPass — review-flow pass case', () => {
+  it('applies a pass (not a placement), engages the same grading query, and counts the move', async () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    const card = makeReviewCard({ numMoves: 5, defaultVisits: 1000 });
+    mutateReviewSession(boardId, draft => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [card];
+      draft.currentIndex = 0;
+      draft.startingNodeId = board.rootNodeId;
+    });
+
+    vi.mocked(waitForAnalysis).mockRejectedValue(new AnalysisWaitError('timeout'));
+
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { processUserPass, state } = useReviewSession(boardIdRef);
+
+    await processUserPass();
+
+    // Same terminal shape as the processUserMove timeout test:
+    // status resets to IDLE, the move was counted before the wait.
+    expect(state.value).toBe('IDLE');
+    expect(store.session.reviews[boardId].userMovesCount).toBe(1);
+
+    // The board actually advanced via a pass, not a placement: no
+    // stones anywhere, and the new node's move is type 'pass'.
+    const liveBoard = store.boards.find(b => b.id === boardId)!;
+    expect(Object.keys(liveBoard.stones)).toHaveLength(0);
+    const passNode = liveBoard.nodes[liveBoard.currentNodeId];
+    expect(passNode.move).toEqual({ x: 0, y: 0, color: 'B', type: 'pass' });
+
+    // Same grading machinery as a placed move: one analyzeRange call
+    // for this board.
+    expect(fakeAnalysisService.analyzeRange).toHaveBeenCalledTimes(1);
+    expect(fakeAnalysisService.analyzeRange.mock.calls[0]?.[0]).toBe(boardId);
+  });
+});
+
+describe('useReviewSession.processUserMove — query-refused recovery (the wedge fix)', () => {
+  // Diagnosis (`.claude/dispatch-reports/ruleset-default-wedge-fix.md`):
+  // `analysisService.analyzeRange` can refuse query construction
+  // synchronously and return null (the engine disconnects between the
+  // click and the call being the realistic trigger post-fix-1; a
+  // stale, now-fixed ruleset refusal was the pre-fix-1 trigger). The
+  // prior shape fell straight into the Promise.all(waitForAnalysis(...))
+  // wait below regardless, keyed to a query that was NEVER issued — no
+  // packet for it can ever arrive, so the wait sat wedged until
+  // KATAGO_ANALYSIS_TIMEOUT_MS elapsed and the timeout branch dropped
+  // the session to a terminal IDLE with no path back to the SAME
+  // attempted move (the board had already advanced and userMovesCount
+  // had already incremented). The fix short-circuits immediately on a
+  // null queryId: undoes both, and returns to AWAITING_MOVE at the
+  // pre-move position — a state from which retrying the identical
+  // (x, y) click is a genuine retry, not a different move.
+  //
+  // This test forces the refusal directly via the fake (rather than
+  // via an unrecognized ruleset, which fix 1 above no longer produces)
+  // — the general "query construction refused" class the composable
+  // must tolerate regardless of cause.
+
+  it('recovers to AWAITING_MOVE at the pre-move position when analyzeRange refuses (returns null); the SAME move then succeeds once conditions clear', async () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    const card = makeReviewCard({ numMoves: 5, defaultVisits: 1000 });
+    mutateReviewSession(boardId, draft => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [card];
+      draft.currentIndex = 0;
+      draft.startingNodeId = board.rootNodeId;
+    });
+
+    // Force a single synchronous refusal — analyzeRange returns null
+    // exactly as it would when its own internal guards refuse
+    // construction (engine disconnected, etc.).
+    fakeAnalysisService.analyzeRange.mockReturnValueOnce(null);
+
+    const messagesBefore = store.engine.messages.length;
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { processUserMove, state } = useReviewSession(boardIdRef);
+
+    await processUserMove(3, 3);
+
+    // Recovered, not wedged: AWAITING_MOVE (not stuck ANALYZING, not
+    // dropped to a dead-end terminal state), the move-count increment
+    // was undone, and the board is back at the pre-move position
+    // (root) with the placed stone undone — exactly the state needed
+    // for retrying the SAME click to be a genuine retry.
+    expect(state.value).toBe('AWAITING_MOVE');
+    expect(store.session.reviews[boardId].userMovesCount).toBe(0);
+    const boardAfterRefusal = store.boards.find(b => b.id === boardId)!;
+    expect(boardAfterRefusal.currentNodeId).toBe(board.rootNodeId);
+    expect(Object.keys(boardAfterRefusal.stones)).toHaveLength(0);
+
+    // A system message was surfaced (the failure is visible, not
+    // silent) — but waitForAnalysis was NEVER called: the fix
+    // short-circuits before reaching the wedge-causing wait.
+    expect(store.engine.messages.length).toBe(messagesBefore + 1);
+    expect(store.engine.messages[0]?.type).toBe('warning');
+    expect(waitForAnalysis).not.toHaveBeenCalled();
+
+    // Retry the SAME action. analyzeRange's fake return is re-armed to
+    // FAKE_QUERY_ID by default (only the first call was overridden
+    // above), and waitForAnalysis is mocked to resolve — the session
+    // is genuinely resumable, not reset to another dead end.
+    const packet = makeAnalysisPacket({ turnNumber: 1, delta: 0.7, bestMoveGtp: 'Q16' });
+    vi.mocked(waitForAnalysis).mockResolvedValue(packet);
+    ledger.recordEnrichment(activeAnalysisKeys.value.enrichedKey, board.rootNodeId, {
+      black: { deltas: { '0': 0.7 } },
+      white: { deltas: { '0': 0.7 } },
+    });
+
+    await processUserMove(3, 3);
+
+    expect(state.value).toBe('AWAITING_MOVE');
+    expect(store.session.reviews[boardId].userMovesCount).toBe(1);
+    expect(fakeAnalysisService.analyzeRange).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -542,6 +762,114 @@ describe('useReviewSession.processUserMove — happy path', () => {
     // Move-suggestions visibility was revealed by finishCard (the
     // intermission reveal — an owned write, not a restore).
     expect(store.session.ui.showMoveSuggestions).toBe(true);
+  });
+});
+
+describe('useReviewSession.processUserMove — visits LERP override (wiki wanted-feature 3, ledger rows 503/504)', () => {
+  // The seam under test is the `const visits = lerpVisits(...)` line
+  // in processUserMove — the ONE place a card's specific visit count
+  // (effectiveVisits: override-or-defaultVisits) is transformed
+  // before reaching `analysisService.analyzeRange`'s `visits`
+  // argument (position 4). These tests observe that argument
+  // directly via the fake's spy, which is the actual value that
+  // would reach the engine query.
+
+  it('at defaults (a=1, b=0) the visits count reaching analyzeRange is byte-identical to the card\'s defaultVisits — the regression lock', async () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    const card = makeReviewCard({ numMoves: 5, defaultVisits: 1000 });
+    mutateReviewSession(boardId, draft => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [card];
+      draft.currentIndex = 0;
+      draft.startingNodeId = board.rootNodeId;
+    });
+    // Refuse the query synchronously so the test doesn't need to
+    // drive the wait/enrichment machinery — analyzeRange is called
+    // (and its arguments recorded) before that refusal is observed.
+    fakeAnalysisService.analyzeRange.mockReturnValueOnce(null);
+
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { processUserMove } = useReviewSession(boardIdRef);
+    await processUserMove(3, 3);
+
+    expect(fakeAnalysisService.analyzeRange).toHaveBeenCalledTimes(1);
+    expect(fakeAnalysisService.analyzeRange.mock.calls[0]?.[4]).toBe(1000);
+  });
+
+  it('a configured a/b transforms the visits count that reaches analyzeRange', async () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    const card = makeReviewCard({ numMoves: 5, defaultVisits: 1000 });
+    mutateReviewSession(boardId, draft => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [card];
+      draft.currentIndex = 0;
+      draft.startingNodeId = board.rootNodeId;
+    });
+    setVisitsLerpA(2);
+    setVisitsLerpB(100);
+    fakeAnalysisService.analyzeRange.mockReturnValueOnce(null);
+
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { processUserMove } = useReviewSession(boardIdRef);
+    await processUserMove(3, 3);
+
+    // 2 * 1000 + 100 = 2100.
+    expect(fakeAnalysisService.analyzeRange.mock.calls[0]?.[4]).toBe(2100);
+  });
+
+  it('a negative b that would drive the raw value below 1 floors to the minimum positive integer visits count', async () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    const card = makeReviewCard({ numMoves: 5, defaultVisits: 5 });
+    mutateReviewSession(boardId, draft => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [card];
+      draft.currentIndex = 0;
+      draft.startingNodeId = board.rootNodeId;
+    });
+    setVisitsLerpA(1);
+    setVisitsLerpB(-1000);
+    fakeAnalysisService.analyzeRange.mockReturnValueOnce(null);
+
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { processUserMove } = useReviewSession(boardIdRef);
+    await processUserMove(3, 3);
+
+    expect(fakeAnalysisService.analyzeRange.mock.calls[0]?.[4]).toBe(1);
+  });
+
+  it('applies on top of a per-card sticky visitsOverride too — the transform composes with the existing override, not just defaultVisits', async () => {
+    const board = createInitialBoard();
+    addBoard(board);
+    const boardId: BoardId = board.id;
+
+    const card = makeReviewCard({ numMoves: 5, defaultVisits: 1000 });
+    mutateReviewSession(boardId, draft => {
+      draft.status = 'AWAITING_MOVE';
+      draft.queue = [card];
+      draft.currentIndex = 0;
+      draft.startingNodeId = board.rootNodeId;
+      draft.visitsOverride = 200; // user's sticky per-card override takes precedence over defaultVisits
+    });
+    setVisitsLerpA(3);
+    setVisitsLerpB(0);
+    fakeAnalysisService.analyzeRange.mockReturnValueOnce(null);
+
+    const boardIdRef = ref<BoardId | null>(boardId);
+    const { processUserMove } = useReviewSession(boardIdRef);
+    await processUserMove(3, 3);
+
+    // effectiveVisits resolves to the override (200), THEN the LERP
+    // applies: 3 * 200 = 600.
+    expect(fakeAnalysisService.analyzeRange.mock.calls[0]?.[4]).toBe(600);
   });
 });
 

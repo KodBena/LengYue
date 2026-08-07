@@ -10,6 +10,7 @@
  * License: Public Domain (The Unlicense).
  */
 import { ref } from 'vue';
+import { useModalKeyboard } from '../../composables/useModalKeyboard';
 
 type LoadAction = 'new' | 'overwrite' | 'cancel';
 export interface LoadResult {
@@ -19,6 +20,7 @@ export interface LoadResult {
 
 const isOpen = ref(false);
 const remember = ref(false);
+const modalContentRef = ref<HTMLElement | null>(null);
 let resolvePromise: ((result: LoadResult) => void) | null = null;
 
 defineExpose({
@@ -40,13 +42,18 @@ function handle(action: LoadAction) {
     });
   }
 }
+
+// Escape → same close path as the Cancel button (ADR-0019 S5);
+// Tab focus trap + initial focus + focus restoration — all one
+// shared mechanism, see useModalKeyboard.ts.
+useModalKeyboard(modalContentRef, isOpen, () => handle('cancel'));
 </script>
 
 <template>
   <div v-if="isOpen" class="modal-backdrop" @mousedown.self="handle('cancel')">
-    <div class="modal-content">
+    <div ref="modalContentRef" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="confirm-load-title" tabindex="-1">
       <div class="modal-header">
-        <h2>{{ $t('confirmLoad.title') }}</h2>
+        <h2 id="confirm-load-title">{{ $t('confirmLoad.title') }}</h2>
       </div>
       <div class="modal-body">
         <p>{{ $t('confirmLoad.body') }}</p>

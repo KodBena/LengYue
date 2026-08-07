@@ -33,6 +33,7 @@ maintains.
 - [§7 — `_PROXY_ONLY_FIELDS` central wire-strip](#7--_proxy_only_fields-central-wire-strip) — invariant governing §1, §3, §5
 - [§8 — Future evolution: AsyncAPI](#8--future-evolution-asyncapi) — when this doc's discipline is no longer enough
 - [§9 — `/library` REST API](#9--library-rest-api) — backend ↔ SPA, SGF library
+- [§10 — `content_hash` / `POST /positions/hash`](#10--content_hash--post-positionshash) — backend ↔ SPA, card-position-annotations Stage A
 
 ---
 
@@ -567,6 +568,82 @@ isolation makes this honest at the SQL level.
 - 404 on missing or cross-tenant detail/delete (404-not-403
   invariant per `docs/notes/tenancy.md`).
 - 401 on missing/invalid bearer token (auth-spine).
+
+---
+
+## §10 — `content_hash` / `POST /positions/hash`
+
+**Direction.** Backend → SPA (`content_hash` field, riding on the
+existing `CardWithRecall` wire shape); SPA → backend → SPA
+(`POST /positions/hash`, a stateless round-trip).
+
+Card-position-annotations Stage A — the ratified design lives at
+`.claude/dispatch-reports/card-position-annotations-design.md`
+(not itself a doc-graph node; a session-scoped dispatch artifact,
+per that directory's convention).
+
+**Authoritative source.** Producer-side for both halves.
+
+- Producer (`content_hash` field): `backend/domain/card.py`'s
+  `Card.content_hash` (a raw SHA-256 digest, `bytes`) plus its
+  `_serialize_content_hash` field serializer (`when_used="json"`),
+  which is what actually emits the lowercase-hex string on the
+  wire. Projects onto `CardWithRecall`, so every existing
+  `CardWithRecall`-shaped response (`GET /cards/{id}`,
+  `POST /forests/query`, `POST /cards/{id}/review`,
+  `PATCH /cards/{id}`) carries it — no new fetch loop.
+- Producer (`POST /positions/hash`): `backend/api/routes/positions.py`.
+  One endpoint:
+  ```
+  POST /positions/hash   — normalize raw_content, return content_hash only
+  ```
+  Request/response schemas: `backend/schemas/positions.py`
+  (`PositionHashRequest` / `PositionHashResponse`). Calls
+  `PositionNormalizerPort.normalize()` directly — the same Port
+  `CardService.create_card` depends on, so the hash this endpoint
+  returns for a given `raw_content` is guaranteed to equal what
+  minting that exact content would produce (deliberately NOT a
+  parallel client-side reimplementation of the normalizer; see the
+  design's §1).
+- Consumer (SPA): `frontend/src/services/backend-service.ts`
+  (`mapToReviewCard`'s `content_hash -> ContentHash` brand mint;
+  `hashPosition` for the stateless call), feeding
+  `frontend/src/state/known-positions.ts` (the per-user
+  `ContentHash -> CardId` map) via
+  `frontend/src/composables/cards/useKnownPositions.ts`. Consumed
+  by the mint-dialog duplicate-position warning
+  (`useMinting.ts` / `MintCardModal.vue`).
+- Generated TS type: `frontend/src/types/backend.ts`
+  (`components['schemas']['PositionHashRequest']` /
+  `['PositionHashResponse']`; `CardWithRecall.content_hash`).
+
+**Cross-boundary discipline.** Same generated-types pattern as §6/§9.
+
+**Identity semantics (no symmetry, no transposition-merging).**
+`content_hash` is over the literal main-line move sequence + setup
++ komi — no board-rotation/reflection canonicalization, no
+move-order canonicalization. Two SGFs reaching the same stone
+layout via different move orders, or the mirrored version of the
+same shape, hash *differently*. See the design's §2 for the full
+semantics and the disclosed gap vs. naive user intuition.
+
+**Tenancy.** `content_hash` itself is a *position* identity, not
+tenant-scoped (`normalized_position` is shared reference data, per
+`docs/notes/tenancy.md`) — two tenants minting off identical
+content share one hash. What IS tenant-scoped is which `CardId`s a
+given hash maps to for a given caller: every `CardWithRecall`
+listing endpoint that carries `content_hash` is already
+tenant-filtered (the existing 404-not-403 / WHERE-clause-fusion
+invariant), so the known-positions map a caller builds client-side
+never learns another tenant's card ids.
+
+**Failure paths.**
+- 422 on malformed `raw_content` (the normalizer's `ValueError`,
+  same translation `POST /cards/` uses).
+- 401 on missing/invalid bearer token (auth-spine) — see
+  `api/routes/positions.py`'s module docstring for why this route
+  requires auth despite the computation itself not being
+  tenant-scoped.
 
 ---
 

@@ -30,6 +30,7 @@ Known Defects Documented Here
 import pytest
 
 from domain.auth import UserId
+from domain.errors import GameSourceNotFoundError
 from domain.pipeline import PipelineExecutor
 from domain.pipeline_dsl import ForestQuery
 from repositories.lineage_repository import LineageRepository
@@ -434,6 +435,136 @@ async def test_multi_context_deduplication_first_seen_wins(seeded_session):
         "Duplicate card IDs must be deduplicated when the same node is "
         "fetched from multiple context_ids"
     )
+
+
+# ─── macro-public-id-tokens: game_source_ordinals ─────────────────────────────
+#
+# Restoring the Cards-tab `${gameSourceId}` macro after browse-leak-fix
+# removed its raw-id source (ledger row 456). These tests exercise the
+# widened ForestQuery grammar's server-side resolution path directly
+# against a real LineageRepository — the failure paths (unknown ordinal,
+# cross-tenant ordinal) are written FIRST per ADR-0021 / backend/tests/
+# CLAUDE.md's "failure mode first" contract, then the happy path.
+
+
+async def run_with_ordinals(session, context_ids, game_source_ordinals, pipeline, *, user_id=USER):
+    """Same shape as `run()` above, but threads game_source_ordinals."""
+    query = ForestQuery(
+        context_ids=context_ids,
+        game_source_ordinals=game_source_ordinals,
+        pipeline=pipeline,
+    )
+    executor = PipelineExecutor(
+        lineage_repo=LineageRepository(session),
+        tag_filter_repo=TagFilterRepository(session),
+    )
+    return await executor.run(
+        query.context_ids,
+        query.pipeline,
+        user_id=user_id,
+        game_source_ordinals=query.game_source_ordinals,
+    )
+
+
+async def test_unknown_game_source_ordinal_raises_game_source_not_found(seeded_session):
+    """
+    FAILURE PATH FIRST: an ordinal that names no game_source at all
+    (for any user) raises GameSourceNotFoundError, not a silent empty
+    result.
+    """
+    session, builder = seeded_session
+    await builder.build({"r": None, "a": "r"})
+
+    with pytest.raises(GameSourceNotFoundError):
+        await run_with_ordinals(
+            session, [], [999999],
+            [{"stage": "select",
+              "selection": {"type": "DescendantSelection"},
+              "ordering": {"type": "DepthKey"}}],
+        )
+
+
+async def test_cross_tenant_game_source_ordinal_raises_game_source_not_found(seeded_session):
+    """
+    FAILURE PATH FIRST, tenancy: user B has never been allocated
+    ordinal=1 (a second builder never runs for user B in this test —
+    its ordinal namespace is empty), so user B querying ordinal=1 —
+    which IS a real, user-A-owned ordinal in this fixture — gets
+    GameSourceNotFoundError rather than user A's root. The
+    (user_id, ordinal) predicate fusion in
+    `resolve_game_source_root_card_ids` is what makes this the same
+    404-not-403 shape as every other tenant-scoped lookup, not a leak.
+    A fuller cross-tenant matrix (both users owning distinct ordinal
+    namespaces, including a colliding ordinal number) is covered at
+    the route layer in test_forests_routes.py, which has the seed_user
+    / two-tenant scaffolding this integration tier doesn't.
+    """
+    session, builder = seeded_session
+    await builder.build({"r": None})  # user 1's ordinal=1 anchor is live.
+
+    with pytest.raises(GameSourceNotFoundError):
+        await run_with_ordinals(
+            session, [], [1],
+            [{"stage": "select",
+              "selection": {"type": "DescendantSelection"},
+              "ordering": {"type": "DepthKey"}}],
+            user_id=UserId(2),  # never provisioned; users.id=2 doesn't exist.
+        )
+
+
+async def test_game_source_ordinal_resolves_to_root_and_descendants(seeded_session):
+    """
+    Happy path: querying by game_source_ordinal alone (no literal
+    context_ids) resolves to the anchor game_source's root card(s)
+    server-side, and DescendantSelection from that root returns the
+    same pool a literal `context_ids=[root]` query would.
+    """
+    session, builder = seeded_session
+    ids = await builder.build({"r": None, "a": "r", "b": "a"})
+
+    by_ordinal = await run_with_ordinals(
+        session, [], [1],
+        [{"stage": "select",
+          "selection": {"type": "DescendantSelection"},
+          "ordering": {"type": "DepthKey"}}],
+    )
+    by_literal_id = await run(session, [ids["r"]], [
+        {"stage": "select",
+         "selection": {"type": "DescendantSelection"},
+         "ordering": {"type": "DepthKey"}},
+    ])
+
+    assert card_id_set(by_ordinal) == card_id_set(by_literal_id)
+    assert card_id_set(by_ordinal) == {ids["a"], ids["b"]}
+
+
+async def test_game_source_ordinal_unions_with_literal_context_ids(seeded_session):
+    """
+    game_source_ordinals and context_ids compose: both contribute to
+    the same context pool, deduplicated exactly like two literal
+    context_ids would be (P-E2E-9's contract, extended).
+    """
+    session, builder = seeded_session
+    ids = await builder.build({
+        "root1": None, "a": "root1",
+        "root2": None, "b": "root2",
+    })
+
+    # root1 and root2 share the builder's single anchor game_source
+    # (display_ordinal=1) -- resolving ordinal=1 alone already covers
+    # both roots. Passing root2's id explicitly too must not duplicate it.
+    responses = await run_with_ordinals(
+        session, [ids["root2"]], [1],
+        [{"stage": "select",
+          "selection": {"type": "DescendantSelection"},
+          "ordering": {"type": "DepthKey"}}],
+    )
+    returned_ids = card_ids(responses)
+    assert len(returned_ids) == len(set(returned_ids)), (
+        "root2 reached via both the literal context_id and the "
+        "resolved game_source_ordinal must not be duplicated"
+    )
+    assert set(returned_ids) == {ids["a"], ids["b"]}
 
 
 # ─── Defect tests ─────────────────────────────────────────────────────────────

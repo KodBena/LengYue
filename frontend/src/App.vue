@@ -11,7 +11,7 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { ref as vueRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -22,10 +22,13 @@ import { useEngineControls } from './composables/useEngineControls';
 import { useUserIORegistry } from './composables/useUserIORegistry';
 import { useAuth }           from './composables/auth-app/useAuth';
 import { workspaceIdentityKey } from './composables/auth-app/workspace-identity-key';
-import { useResizablePanel } from './composables/chrome/useResizablePanel';
+import { useResizablePanel, CONTROL_PANEL_MIN_WIDTH_PX } from './composables/chrome/useResizablePanel';
 import { useDirtyBoardGuard } from './composables/board/useDirtyBoardGuard';
 import { useAppBootstrap } from './composables/auth-app/useAppBootstrap';
 import { useTransientLogReveal } from './composables/useTransientLogReveal';
+import { mintDialogRequestCount } from './composables/useMintDialogSignal';
+import { passRequestCount } from './composables/board/usePassSignal';
+import { setupWizardOpen, openSetupWizard } from './composables/useSetupWizardSignal';
 import {
   store,
   activeBoard,
@@ -36,12 +39,14 @@ import {
 
 import type { BoardId, NodeId, UISession }   from './types';
 import { navigateTo }     from './engine/navigator';
+import type { RulesetName } from './engine/rulesets';
 
 import { KATAGO_WS_URL } from './config/env';
 import { usePlayMatch } from './composables/board/usePlayFromPosition';
 import { useEngineResponder } from './composables/board/useEngineResponder';
 import { useBoardMoveRouting } from './composables/board/useBoardMoveRouting';
 import { usePlayVsEngine } from './composables/board/usePlayVsEngine';
+import { useKnownPositionNodes } from './composables/board/useKnownPositionNodes';
 import { useFollowMePonder } from './composables/board/useFollowMePonder';
 
 import BoardWidget      from './components/board/BoardWidget.vue';
@@ -53,9 +58,14 @@ import AnalysisControls from './components/editors/AnalysisControls.vue';
 import Toolbar          from './components/chrome/Toolbar.vue';
 import StatusBar        from './components/board/StatusBar.vue';
 import MintCardModal    from './components/modals/MintCardModal.vue';
+import LearnPathModal   from './components/modals/LearnPathModal.vue';
+import { getPendingMintNodeIds } from './composables/cards/learn-path-pending-markers';
 import ConfirmLoadModal from './components/modals/ConfirmLoadModal.vue';
 import EngineMatchModal from './components/modals/EngineMatchModal.vue';
 import PlayEngineModal  from './components/modals/PlayEngineModal.vue';
+import SetupWizardModal from './components/wizard/SetupWizardModal.vue';
+import AppConfirmDialog from './components/modals/AppConfirmDialog.vue';
+import AppPromptDialog  from './components/modals/AppPromptDialog.vue';
 import ForestDirectory  from './components/tree/ForestDirectory.vue';
 import LibraryTab       from './components/library/LibraryTab.vue';
 import SystemLogPanel   from './components/chrome/SystemLogPanel.vue';
@@ -66,6 +76,8 @@ import { useReviewSession } from './composables/review/useReviewSession';
 import ColorDebugStrip  from './components/charts/ColorDebugStrip.vue';
 import QeuboBookmarks   from './components/qeubo/QeuboBookmarks.vue';
 import KnobRegistryEditor from './components/KnobRegistryEditor.vue';
+import VisitsLerpConfig from './components/VisitsLerpConfig.vue';
+import PerQueryOverridesConfig from './components/PerQueryOverridesConfig.vue';
 
 useUserIORegistry();
 
@@ -77,6 +89,14 @@ const metadata           = useMetadata(activeBoard);
 const auth               = useAuth();
 
 const activeBoardId = computed<BoardId | null>(() => activeBoard.value?.id ?? null);
+// "Learn this path" pre-mint markers (ledger row 718) — reads the
+// module-scope registry `LearnPathModal` writes to via `useLearnPath`;
+// see `learn-path-pending-markers.ts` for why this lives at module
+// scope rather than as a prop threaded from the modal (siblings, not
+// parent/child).
+const activeBoardPendingMintIds = computed(() =>
+  activeBoardId.value ? getPendingMintNodeIds(activeBoardId.value) : undefined,
+);
 
 // Identity key for the control panel. Remounts the Cards / Library tabs
 // when the logged-in identity changes, so user B never sees user A's
@@ -87,6 +107,7 @@ const activeBoardId = computed<BoardId | null>(() => activeBoard.value?.id ?? nu
 const controlPanelIdentityKey = computed(() => workspaceIdentityKey(auth.state.value));
 const reviewSession = useReviewSession(activeBoardId);
 const mintModalRef = vueRef<InstanceType<typeof MintCardModal> | null>(null);
+const learnPathModalRef = vueRef<InstanceType<typeof LearnPathModal> | null>(null);
 const matchModalRef = vueRef<InstanceType<typeof EngineMatchModal> | null>(null);
 const playModalRef  = vueRef<InstanceType<typeof PlayEngineModal>  | null>(null);
 
@@ -157,6 +178,11 @@ function triggerPlay() {
 const { handleStartGame, handleEndGame, activeBoardGameHeadIds } =
   usePlayVsEngine(engineResponder);
 
+// card-position-annotations Stage B: the known-position highlight set
+// (cache ∩ known-positions) for the active board's tree, passed to
+// TreeWidget the same way activeBoardGameHeadIds is.
+const { activeBoardKnownPositionNodeIds } = useKnownPositionNodes();
+
 // "Follow Me" ponder watcher — restarts pondering on same-board
 // navigation (board switches deliberately excluded). Watcher scope:
 // App lifetime. See the composable for the trigger contract.
@@ -168,12 +194,72 @@ function triggerMint() {
   }
 }
 
+// "Learn this path" (wiki #8) — mirrors triggerMint's pattern. The
+// modal's own `open()` doesn't need the precondition (loaded-card-at-
+// root) checked here; useLearnPath.runLearnPath surfaces a failed
+// precondition as a reported error inside the modal.
+function triggerLearnPath() {
+  if (activeBoardId.value) {
+    learnPathModalRef.value?.open(activeBoardId.value);
+  }
+}
+
+// `card.mint` keybinding entry point: the catalog is module-scope and
+// has no component instance to hold `mintModalRef`, so it can't call
+// `triggerMint()` directly. It instead bumps `mintDialogRequestCount`
+// (`useMintDialogSignal.ts`) and this watcher — living at App scope,
+// which does hold the ref — reacts by calling the same `triggerMint()`
+// the Toolbar button already dispatches. No cleanup to wire: a Vue
+// `watch` registered in `setup` is torn down automatically on unmount
+// (umbrella CLAUDE.md's resource-ownership discipline names this as
+// the automatically-cleaned case, unlike module-scope subscriptions).
+watch(mintDialogRequestCount, () => {
+  triggerMint();
+});
+
+// First-run setup wizard trigger (ledger slug swz-setup-wizard).
+// `store.workspaceLoadState.kind` flips to 'loaded' exactly once
+// hydrate has resolved — either a real persisted blob (migrated,
+// `onboarding.completed` backfilled `true` by migration 69 → 70) or
+// a genuinely fresh profile (never persisted; `completed` stays the
+// `defaults.ts` seed of `false`). `{ immediate: true }` covers the
+// already-loaded-by-mount-time race (workspaceLoadState can reach
+// 'loaded' before this watcher registers, e.g. a synchronous local
+// default with no remote fetch in flight); the `kind === 'loaded'`
+// guard keeps it a no-op while still 'loading'/'error'. Re-running
+// via Settings goes through the same `openSetupWizard()` entry point
+// (`useSetupWizardSignal.ts`) and never touches this watcher.
+watch(
+  () => store.workspaceLoadState.kind,
+  (kind) => {
+    if (kind === 'loaded' && !store.profile.settings.onboarding.completed) {
+      openSetupWizard();
+    }
+  },
+  { immediate: true },
+);
+
 function handleUpdateKomi(newKomi: number) {
   if (!activeBoard.value || isNaN(newKomi)) return;
   mutateBoard(activeBoard.value.id, draft => {
     const root = draft.nodes[draft.rootNodeId];
     if (root) {
       root.properties['KM'] = [newKomi.toString()];
+    }
+  });
+}
+
+// Parallel to handleUpdateKomi. `newRules` is one of the four
+// ruling-mandated canonical spellings (RulesetName) — StatusBar's
+// dropdown only emits values drawn from RULESET_NAMES, so this writes
+// the canonical spelling directly to root `RU`, no re-normalization
+// needed here.
+function handleUpdateRules(newRules: RulesetName) {
+  if (!activeBoard.value) return;
+  mutateBoard(activeBoard.value.id, draft => {
+    const root = draft.nodes[draft.rootNodeId];
+    if (root) {
+      root.properties['RU'] = [newRules];
     }
   });
 }
@@ -185,7 +271,36 @@ const {
   handleLoadLibraryGameInNewBoard,
 } = useDirtyBoardGuard(confirmLoadModalRef);
 
-const { startResize } = useResizablePanel();
+const {
+  startResizeInner,
+  startResizeOuter,
+  effectiveTreeControlRegionWidthPx,
+  freshTreeControlWrapperMinWidthPx,
+} = useResizablePanel();
+
+// Defect 6 (ui-fix-56), preserved as a documented, minor cosmetic
+// nicety under the nested-splitter geometry (ledger rows 391/414) —
+// see useResizablePanel.ts's header for the two-level nesting model
+// this composes with. #split-workspace centers its row content when
+// the control panel is toggled off entirely.
+//
+// Under the nested model this is now LARGELY (not fully) redundant
+// with a structural effect: #board-column is `flex: 1 1 auto` and
+// #board-square (the actual visual square) is `align-self: center`
+// within it, so #board-column growing into freed space already
+// re-centers the square WITHIN #board-column's own box, continuously,
+// with no discrete class flip. The discrete `justify-content: center`
+// here additionally centers the square across the FULL row (including
+// the tree-only wrapper's own leftover width when control is hidden)
+// rather than only within #board-column's box — the two differ by at
+// most half the tree panel's width (~70px at the default 140px),
+// judged acceptable to keep as the simpler, already-shipped mechanism
+// rather than removing it and accepting that small a asymmetry as a
+// visible regression. `!treeExpanded` deliberately does NOT
+// participate: hiding the tree alone doesn't strand space the way
+// disabling the whole control region does (the wrapper's own binding
+// below already un-claims that space structurally).
+const splitWorkspaceCentered = computed(() => !store.session.ui.controlsExpanded);
 
 const { sync } = useAppBootstrap(auth);
 
@@ -211,8 +326,26 @@ const controlTabs = computed(() => [
 // refuse board mutation, and free play (with the play-vs-engine
 // head trigger) is an IDLE/FINISHED-only affordance. Policy +
 // rationale live in the composable; tier-3 tests pin the gating.
-const { handleBoardMove, handlePastePv } =
+const { handleBoardMove, handlePass, handlePastePv } =
   useBoardMoveRouting(reviewSession, engineResponder);
+
+// Same signal shape as `mintDialogRequestCount` above: the module-
+// scope keybindings catalog can't call `handlePass` directly (it
+// closes over `reviewSession`/`engineResponder`, both App-setup-
+// scoped), so `board.pass`'s handler bumps `passRequestCount` and
+// this watcher calls the real handler.
+watch(passRequestCount, () => {
+  handlePass();
+});
+
+// StatusBar's pass-button enabled state: mirrors `handlePass`'s own
+// no-op arms (transient SR states, REVIEWED) so the button's
+// disabled-ness never lies about what a click would do.
+const canPass = computed(() =>
+  reviewSession.state.value !== 'LOADING'
+  && reviewSession.state.value !== 'ANALYZING'
+  && reviewSession.state.value !== 'REVIEWED',
+);
 
 // Tightened from `nodeId: string` to `nodeId: NodeId` to match
 // TreeWidget's tightened `select-node` emit signature. The handler
@@ -258,7 +391,11 @@ const activeTab = computed<string>({
 <template>
   <RootErrorBoundary>
   <div id="main-area">
+    <SetupWizardModal v-if="setupWizardOpen" />
+    <AppConfirmDialog />
+    <AppPromptDialog />
     <MintCardModal ref="mintModalRef" />
+    <LearnPathModal ref="learnPathModalRef" />
     <ConfirmLoadModal ref="confirmLoadModalRef" />
     <EngineMatchModal ref="matchModalRef" @start-match="handleStartMatch" />
     <PlayEngineModal
@@ -267,155 +404,329 @@ const activeTab = computed<string>({
       @end-game="handleEndGame"
     />
     <SidebarWidget
+      v-if="store.workspaceLoadState.kind === 'loaded'"
       v-show="store.session.ui.sidebarExpanded"
       @load-sgf="openFileDialog"
       @save-sgf="downloadActiveBoard"
     />
 
     <div id="main-workspace">
-      
-      <div class="top-nav-bar">
-        <button class="collapse-btn" @click="toggleChrome('sidebarExpanded')" :title="$t('app.chrome.toggleSidebar')">
-          {{ store.session.ui.sidebarExpanded ? '◀' : '▶' }}
-        </button>
 
-        <Toolbar
-          :is-match-running="matchControls.isRunning.value"
-          @toggle-engine="engineControls.toggle"
-          @mint-card="triggerMint"
-          @open-match="triggerMatch"
-          @stop-match="handleStopMatch"
-          @open-play="triggerPlay"
-          style="flex: 1; border-bottom: none;"
+      <!-- ADR-0019 audit Finding S1: cold-load honest gate. Before
+           the workspace fetch has resolved (or resolved to "nothing
+           to fetch"), the store's default boards must not be
+           rendered as a plausible, interactive workspace — that was
+           the audit's phantom-37-boards defect. `store.workspaceLoadState`
+           (SyncService-owned, see types/app.ts) drives an exhaustive
+           three-way gate over the board/tree/control-panel surfaces:
+           chrome (toolbar, tab strip) that could mutate workspace
+           state is withheld the same way. The system-log bar and
+           modals stay outside the gate — the log is diagnostic-only
+           and the modals are inert until a (gated-away) toolbar
+           button opens one. -->
+      <template v-if="store.workspaceLoadState.kind === 'loaded'">
+        <div class="top-nav-bar">
+          <button class="collapse-btn" @click="toggleChrome('sidebarExpanded')" :title="$t('app.chrome.toggleSidebar')">
+            {{ store.session.ui.sidebarExpanded ? '◀' : '▶' }}
+          </button>
+
+          <Toolbar
+            :is-match-running="matchControls.isRunning.value"
+            @toggle-engine="engineControls.toggle"
+            @mint-card="triggerMint"
+            @open-match="triggerMatch"
+            @stop-match="handleStopMatch"
+            @open-play="triggerPlay"
+            @open-learn-path="triggerLearnPath"
+            style="flex: 1; border-bottom: none;"
+          />
+
+          <div class="right-toggles">
+            <button class="collapse-btn" @click="toggleChrome('boardExpanded')" :title="$t('app.chrome.toggleBoard')">
+              🔲 {{ store.session.ui.boardExpanded ? '▶' : '◀' }}
+            </button>
+            <button class="collapse-btn" @click="toggleChrome('treeExpanded')" :title="$t('app.chrome.toggleTree')">
+              🌲 {{ store.session.ui.treeExpanded ? '▶' : '◀' }}
+            </button>
+            <button class="collapse-btn" @click="toggleChrome('controlsExpanded')" :title="$t('app.chrome.toggleControls')">
+              ⚙️ {{ store.session.ui.controlsExpanded ? '▶' : '◀' }}
+            </button>
+            <LocalePicker />
+          </div>
+        </div>
+
+        <!-- Persistent system-log bar. Visible when either:
+               (a) `systemLogExpanded` is checked in the Session (UI)
+                   registry — the always-on case, or
+               (b) `transientLogReveal` is currently flashing — an
+                   error- or warning-level message arrived in the
+                   last few seconds while `systemLogExpanded` was
+                   false. See `composables/useTransientLogReveal.ts`
+                   for the timer mechanics.
+             Messages continue to accumulate in the store regardless
+             of the visibility gate. -->
+        <SystemLogPanel
+          v-if="store.session.ui.systemLogExpanded || transientLogReveal"
         />
 
-        <div class="right-toggles">
-          <button class="collapse-btn" @click="toggleChrome('boardExpanded')" :title="$t('app.chrome.toggleBoard')">
-            🔲 {{ store.session.ui.boardExpanded ? '▶' : '◀' }}
-          </button>
-          <button class="collapse-btn" @click="toggleChrome('treeExpanded')" :title="$t('app.chrome.toggleTree')">
-            🌲 {{ store.session.ui.treeExpanded ? '▶' : '◀' }}
-          </button>
-          <button class="collapse-btn" @click="toggleChrome('controlsExpanded')" :title="$t('app.chrome.toggleControls')">
-            ⚙️ {{ store.session.ui.controlsExpanded ? '▶' : '◀' }}
-          </button>
-          <LocalePicker />
-        </div>
-      </div>
+        <div
+          id="split-workspace"
+          :style="splitWorkspaceCentered ? { justifyContent: 'center' } : {}"
+        >
 
-      <!-- Persistent system-log bar. Visible when either:
-             (a) `systemLogExpanded` is checked in the Session (UI)
-                 registry — the always-on case, or
-             (b) `transientLogReveal` is currently flashing — an
-                 error- or warning-level message arrived in the
-                 last few seconds while `systemLogExpanded` was
-                 false. See `composables/useTransientLogReveal.ts`
-                 for the timer mechanics.
-           Messages continue to accumulate in the store regardless
-           of the visibility gate. -->
-      <SystemLogPanel
-        v-if="store.session.ui.systemLogExpanded || transientLogReveal"
-      />
-
-      <div id="split-workspace">
-        
+        <!-- resizer-rearch (nested-splitter amendment, ledger row
+             391; geometry corrected per the live diagnostic,
+             .claude/dispatch-reports/panel-weirdness-live-investigation.md
+             §3/§6). #board-column is purely DERIVED — never a second
+             writer (C2) — from the row's structural layout, and now
+             `flex: 1 1 auto` (TRUE flex-fill, not `0 1 auto`): it
+             absorbs 100% of whatever space the tree panel, BOTH
+             resizer bars, and the control panel — each an
+             independently-owned persisted fact
+             (session.ui.treePanelWidthPx, session.ui.controlPanelWidthPx
+             — see useResizablePanel.ts) — did NOT claim, CONTINUOUSLY,
+             with no cap of its own. This is what makes a resizer bar
+             ALWAYS track the cursor 1:1: the diagnostic measured up to
+             541px of pointer/divider lag under the prior `flex: 0 1
+             auto` shape, because that shape let #board-column stop
+             absorbing freed space once its own aspect-ratio square
+             saturated, decoupling every bar's screen position (which
+             is a function of #board-column's width) from the drag
+             past that point. The aspect-ratio SQUARE itself moves down
+             one level, to #board-square below — see its own comment
+             for why splitting "the row-flex slot" from "the visual
+             square" is what fixes this without losing the square. -->
         <div
           id="board-column"
           v-show="store.session.ui.boardExpanded"
-          :style="store.session.ui.boardSquareMaxWidthPx
-            ? { '--board-target-px': store.session.ui.boardSquareMaxWidthPx + 'px' }
-            : {}"
         >
-          <div id="content">
-            <BoardWidget
+          <!-- The visual board square + status bar, centered within
+               whatever width #board-column (now unbounded) received.
+               `align-self: center` (not the parent's default stretch)
+               is what lets `aspect-ratio: 1/1` + `height: 100%` derive
+               THIS element's width from its height, independent of
+               #board-column's own (now often wider) box — exactly the
+               same aspect-ratio-cap mechanism #board-column itself
+               used to carry, just no longer coupled to the row's flex
+               math. `max-width: 100%` preserves the existing
+               overconstrained-viewport behavior: shrinks below the
+               natural square (tall-narrow rectangle) rather than
+               overflowing, and the board SVG's own preserveAspectRatio
+               letterboxes inside it exactly as before. -->
+          <div id="board-square">
+            <div id="content">
+              <BoardWidget
+                v-if="activeBoard"
+                :key="activeBoard.id"
+                :state="activeBoard"
+                @move="handleBoardMove"
+                @paste-pv="handlePastePv"
+              />
+            </div>
+            <StatusBar
               v-if="activeBoard"
-              :key="activeBoard.id"
-              :state="activeBoard"
-              @move="handleBoardMove"
-              @paste-pv="handlePastePv"
+              :board="activeBoard"
+              :metadata="metadata"
+              :can-pass="canPass"
+              @update-komi="handleUpdateKomi"
+              @update-rules="handleUpdateRules"
+              @pass="handlePass"
             />
           </div>
-          <StatusBar
-            v-if="activeBoard"
-            :board="activeBoard"
-            :metadata="metadata"
-            @update-komi="handleUpdateKomi"
-          />
         </div>
 
-        <div id="vue-tree-panel" v-show="store.session.ui.treeExpanded">
-          <div id="tree-panel-header">{{ $t('app.chrome.gameTreePanelHeader') }}</div>
-          <TreeWidget
-            v-if="activeBoard"
-            :nodes="activeBoard.nodes"
-            :board-id="activeBoard.id"
-            :game-head-ids="activeBoardGameHeadIds"
-            @select-node="handleNodeSelect"
-          />
-        </div>
+        <!-- OUTER resizer (nested-splitter amendment, ledger row 391;
+             geometry per ledger row 414): sits between #board-column
+             and #tree-control-wrapper, directly sets
+             session.ui.treeControlRegionWidthPx — the WRAPPER's own
+             width, never either pane inside it. Gated on
+             controlsExpanded (matching the wrapper's own visibility
+             below): with the control region entirely collapsed there
+             is nothing for this bar to divide board-vs-wrapper room
+             for that the tree's own presence doesn't already handle
+             via #board-column's flex-fill. -->
+        <div v-show="store.session.ui.controlsExpanded" class="panel-resizer" id="resizer-outer" @mousedown="startResizeOuter"></div>
 
-        <div v-show="store.session.ui.controlsExpanded" class="panel-resizer" @mousedown="startResize"></div>
+        <!-- The combined tree+control region (nested-splitter
+             amendment). TRUE nested flex container — see
+             useResizablePanel.ts's header for why this two-level
+             nesting (not one flat row with JS-derived widths) is what
+             makes BOTH resizer bars track the cursor 1:1. Width bound
+             to session.ui.treeControlRegionWidthPx ONLY while
+             controlsExpanded — with the control panel hidden, the
+             wrapper holds only the tree and should size to ITS
+             content (140px default or the user's own
+             treePanelWidthPx), not to a stored width that accounted
+             for a control panel that isn't currently rendered.
 
-        <!-- magic-literal: 220px #control-panel min-width — derived
-             from the tab strip's natural width at the smallest legible
-             font scale (4 tabs × ~50px each + gaps). The audit's
-             cross-cutting Finding #1 was that without a floor, the
-             tab strip's right-most tab fell off-screen at 1024×768.
-             Coupled with the iter-17 container-query threshold (479px)
-             via the Cards-tab `.tree-panel`'s 200px usable floor —
-             changing 220 here would invalidate the 479 derivation
-             in `ForestDirectory.vue`. -->
+             ui-5-3: reads effectiveTreeControlRegionWidthPx, NOT the
+             raw store value — useResizablePanel.ts clamps the
+             persisted number against #split-workspace's CURRENT live
+             width on every render (not just mid-drag), so a value
+             hydrated from a different/wider viewport (or otherwise
+             stale/migrated/garbage) can never squeeze #board-column
+             below MIN_BOARD_PX ("board restored minimized" after
+             upgrading). See useResizablePanel.ts's header for the
+             full rationale.
+
+             fresh-profile floor (ledger row 802): the flex-fill branch
+             below (never dragged, nothing to restore) previously had no
+             width floor of its own — #tree-control-wrapper's CSS
+             `min-width: 0` (needed so the two branches above can shrink
+             it to an explicit px) applies here too, so on a first paint
+             whose flex-share came out narrower than the wrapper's own
+             content (tree + inner resizer + control-panel's floor),
+             #control-panel overflowed past the wrapper and off the
+             viewport's right edge (witnessed at a 1366×768 first paint —
+             see useResizablePanel.ts's freshTreeControlWrapperFloorPx
+             doc). `freshTreeControlWrapperMinWidthPx` supplies that
+             floor, recomputed off treeExpanded so a tree-collapsed first
+             paint doesn't over-reserve room for a hidden tree panel. -->
         <div
-          id="control-panel"
-          v-show="store.session.ui.controlsExpanded"
-          :style="{ flex: '1 1 0', minWidth: '220px' }"
+          id="tree-control-wrapper"
+          :style="store.session.ui.controlsExpanded && effectiveTreeControlRegionWidthPx !== undefined
+            ? { flex: '0 0 auto', width: effectiveTreeControlRegionWidthPx + 'px' }
+            : store.session.ui.controlsExpanded
+              ? { flex: '1 1 0', minWidth: freshTreeControlWrapperMinWidthPx + 'px' }
+              : {}"
         >
-          <TabWidget
-            :key="controlPanelIdentityKey"
-            :tabs="controlTabs"
-            v-model="activeTab"
+          <!-- resizer-rearch charter amendment + maintainer constraint
+               (ledger row 414): bound to session.ui.treePanelWidthPx —
+               undefined until the user first drags the INNER bar
+               (natural 140px default, byte-identical to the
+               pre-amendment fixed width), an explicit px width after.
+               This is the tree pane's ONLY write channel: no
+               fit-to-content, no auto-grow on branch expansion or
+               navigation — content changes never touch this value.
+               See useResizablePanel.ts. -->
+          <div
+            id="vue-tree-panel"
+            v-show="store.session.ui.treeExpanded"
+            :style="store.session.ui.treePanelWidthPx !== undefined
+              ? { width: store.session.ui.treePanelWidthPx + 'px', flex: '0 0 auto' }
+              : {}"
           >
+            <div id="tree-panel-header">{{ $t('app.chrome.gameTreePanelHeader') }}</div>
+            <TreeWidget
+              v-if="activeBoard"
+              :nodes="activeBoard.nodes"
+              :board-id="activeBoard.id"
+              :game-head-ids="activeBoardGameHeadIds"
+              :known-position-node-ids="activeBoardKnownPositionNodeIds"
+              :review-start-node-id="reviewSession.startingNodeId.value"
+              :pending-mint-ids="activeBoardPendingMintIds"
+              @select-node="handleNodeSelect"
+            />
+          </div>
 
-            <template #library>
-              <div style="flex: 1; display: flex; min-height: 0; width: 100%;">
-                <LibraryTab
-                  @open-library-game="handleLoadLibraryGame"
-                  @open-library-game-new-tab="handleLoadLibraryGameInNewBoard"
-                />
-              </div>
-            </template>
+          <!-- INNER resizer (ledger row 414): sits between
+               #vue-tree-panel and #control-panel, INSIDE the wrapper.
+               Directly sets session.ui.treePanelWidthPx — the tree
+               pane's ONE write channel. -->
+          <div v-show="store.session.ui.controlsExpanded && store.session.ui.treeExpanded" class="panel-resizer" id="resizer-inner" @mousedown="startResizeInner"></div>
 
-            <template #cards>
-              <div style="flex: 1; display: flex; min-height: 0; width: 100%;">
-                <ForestDirectory @load-card="handleLoadCard" />
-              </div>
-            </template>
+          <!-- CONTROL_PANEL_MIN_WIDTH_PX (useResizablePanel.ts) —
+               derived from the tab strip's natural width at the
+               smallest legible font scale (4 tabs × ~50px each +
+               gaps). The audit's cross-cutting Finding #1 was that
+               without a floor, the tab strip's right-most tab fell
+               off-screen at 1024×768. Coupled with the iter-17
+               container-query threshold (479px) via the Cards-tab
+               `.tree-panel`'s 200px usable floor — changing this
+               value would invalidate the 479 derivation in
+               `ForestDirectory.vue`.
 
-            <template #settings>
-              <SettingsTab @force-save="sync.forceSave()" />
-            </template>
+               resizer-rearch geometry fix (ledger row 414): ALWAYS
+               `flex: 1 1 0` — pure CSS flex-fill WITHIN the wrapper,
+               no JS-derived width, no persisted fact of its own. This
+               is what makes #resizer-inner track the cursor 1:1: the
+               tree pane is directly dragged, and #control-panel
+               absorbs the wrapper-local complement on the bar's OTHER
+               side. See useResizablePanel.ts's header for the full
+               argument. -->
+          <div
+            id="control-panel"
+            v-show="store.session.ui.controlsExpanded"
+            :style="{ flex: '1 1 0', minWidth: CONTROL_PANEL_MIN_WIDTH_PX + 'px' }"
+          >
+            <TabWidget
+              :key="controlPanelIdentityKey"
+              :tabs="controlTabs"
+              v-model="activeTab"
+            >
 
-            <template #analysis>
-              <AnalysisControls v-if="activeBoard" :boardId="activeBoard.id" />
-            </template>
+              <template #library>
+                <div style="flex: 1; display: flex; min-height: 0; width: 100%;">
+                  <LibraryTab
+                    @open-library-game="handleLoadLibraryGame"
+                    @open-library-game-new-tab="handleLoadLibraryGameInNewBoard"
+                  />
+                </div>
+              </template>
 
-            <template #other>
-              <div class="tab-padding">
-                <h3 class="sub-header">{{ $t('other.section.knobRegistry') }}</h3>
-                <KnobRegistryEditor />
+              <template #cards>
+                <div style="flex: 1; display: flex; min-height: 0; width: 100%;">
+                  <ForestDirectory @load-card="handleLoadCard" />
+                </div>
+              </template>
 
-                <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.gradientCalibration') }}</h3>
-                <p class="hue-slider-hint">{{ $t('other.label.gradientCalibrationNotice') }}</p>
-                <ColorDebugStrip :steps="500" />
+              <template #settings>
+                <SettingsTab @force-save="sync.forceSave()" />
+              </template>
 
-                <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.qeuboBookmarks') }}</h3>
-                <QeuboBookmarks />
-              </div>
-            </template>
+              <template #analysis>
+                <AnalysisControls v-if="activeBoard" :boardId="activeBoard.id" />
+              </template>
 
-          </TabWidget>
+              <template #other>
+                <div class="tab-padding">
+                  <h3 class="sub-header">{{ $t('other.section.knobRegistry') }}</h3>
+                  <KnobRegistryEditor />
+
+                  <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.gradientCalibration') }}</h3>
+                  <p class="hue-slider-hint">{{ $t('other.label.gradientCalibrationNotice') }}</p>
+                  <ColorDebugStrip :steps="500" />
+
+                  <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.visitsLerp') }}</h3>
+                  <VisitsLerpConfig />
+
+                  <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.perQueryOverrides') }}</h3>
+                  <PerQueryOverridesConfig />
+
+                  <h3 class="sub-header section-divider" style="margin-top: var(--space-loose);">{{ $t('other.section.qeuboBookmarks') }}</h3>
+                  <QeuboBookmarks />
+                </div>
+              </template>
+
+            </TabWidget>
+          </div>
         </div>
-      </div> </div> </div>
+        </div>
+      </template>
+
+      <div
+        v-else-if="store.workspaceLoadState.kind === 'loading'"
+        id="workspace-boot-state"
+        role="status"
+        aria-busy="true"
+        aria-live="polite"
+      >
+        <div class="workspace-boot-spinner" aria-hidden="true"></div>
+        <p>{{ $t('app.workspace.loading') }}</p>
+      </div>
+
+      <div
+        v-else-if="store.workspaceLoadState.kind === 'error'"
+        id="workspace-boot-state"
+        role="alert"
+      >
+        <p>{{ $t('app.workspace.loadFailed') }}</p>
+        <button class="action-btn-large" style="width: auto; padding-left: var(--space-loose); padding-right: var(--space-loose);" @click="sync.retryHydrate()">
+          {{ $t('app.workspace.retry') }}
+        </button>
+      </div>
+
+    </div> </div>
   </RootErrorBoundary>
 </template>
 
@@ -460,10 +771,14 @@ const activeTab = computed<string>({
    changes from its current 28px floor, retune in tandem. */
 .top-nav-bar {
   display: flex; align-items: center; background: var(--surface-0);
-  border-bottom: 1px solid var(--surface-1); padding: 0 var(--space-default); min-height: 32px; flex-shrink: 0;
+  border-bottom: 1px solid var(--border-1); padding: 0 var(--space-default); min-height: 32px; flex-shrink: 0;
 }
 
-/* The lower area where the resizer lives */
+/* The lower area where the resizer lives. justify-content is bound
+   inline (splitWorkspaceCentered, script setup above) rather than
+   here: it's conditional on runtime UI state (controlsExpanded),
+   not a static rule. Default flex-start below; see
+   splitWorkspaceCentered's comment for when it flips to centered. */
 #split-workspace {
   display: flex;
   flex-direction: row;
@@ -472,54 +787,131 @@ const activeTab = computed<string>({
   min-height: 0;
 }
 
-/* Release-scope item 7: board column is a square sized from its
-   allocated height (aspect-ratio: 1/1 + height: 100%). The user-
-   set `--board-target-px` (mutated by the resizer) caps the width
-   below the height-natural max — drag-left grows the cap (board
-   shrinks), drag-right shrinks the cap (board grows up to the
-   height saturation point). When unset, no cap; the board
-   saturates at full square.
+/* ADR-0019 audit S1: cold-load loading/error state, occupying the
+   same flex slot `#split-workspace` would (`#main-workspace`'s
+   `flex-direction: column` + this block's `flex: 1`), so the
+   toolbar-then-content layout shape doesn't jump when the gate
+   resolves. Minimal — a pulsing dot (PboPopover's `.busy-dot`
+   `@keyframes pulse` is the existing chrome idiom for a busy
+   indication) plus centred text, not a full skeleton; C26 only
+   needs a busy indication within ~1s, not a content-shaped
+   placeholder. */
+#workspace-boot-state {
+  flex: 1; min-width: 0; min-height: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--space-default);
+  color: var(--text-2); font-size: var(--text-emphasis);
+}
+.workspace-boot-spinner {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 3px solid var(--surface-2); border-top-color: var(--accent-primary);
+  animation: workspace-boot-spin 0.8s linear infinite;
+}
+@keyframes workspace-boot-spin { to { transform: rotate(360deg); } }
 
-   `flex: 0 1 auto` (was `0 0 auto`): allow the column to shrink
-   below the height-natural square when the row is overconstrained
-   (e.g. narrow desktops, snapped half-screen). The control panel's
-   min-width:220px floor then keeps the tab strip on-screen; the
-   board column becomes a tall-narrow rectangle and the SVG
-   letterboxes via its viewBox preserveAspectRatio. */
+/* resizer-rearch (replaces the release-scope item 7 board-width-cap
+   model — see useResizablePanel.ts's header for the full defect this
+   fixes, ADR-0019 audit S2; extended to a nested-splitter tree under
+   the charter amendment, ledger row 391 / geometry ledger row 414;
+   THIS shape corrected per the live diagnostic,
+   .claude/dispatch-reports/panel-weirdness-live-investigation.md
+   §3/§6, which measured a resizer bar decoupling from the cursor by
+   up to 541px because a `flex: 0 1 auto` (never-grow) board column
+   stops absorbing freed row space the moment its own aspect-ratio
+   square saturates).
+
+   `flex: 1 1 auto` — TRUE flex-fill. #board-column now claims 100% of
+   whatever width #tree-control-wrapper (below — a TRUE nested flex
+   container, itself bound to session.ui.treeControlRegionWidthPx, the
+   OUTER bar's own persisted fact) did NOT claim — continuously,
+   unconditionally, with no cap of its own. This is a structural (not
+   persisted) derivation, never a second writer: no `max-width` or
+   `aspect-ratio` here at all — the visual square lives one level
+   down, in #board-square. Because #board-column is the OUTER row's
+   ONLY flex-grow party, and the wrapper's own width is the ONLY thing
+   the OUTER bar directly drags, #resizer-outer's screen position (a
+   function of #board-column's width, since it sits immediately after
+   it) tracks the cursor 1:1 across the bar's ENTIRE range — see
+   useResizablePanel.ts's header for the full nesting argument, and
+   the diagnostic's Anomaly 1 (up to 541px lag) / Anomaly 4 (board
+   frozen for ~1250px of travel) for the failure mode this replaces. */
 #board-column {
   display: flex;
   flex-direction: column;
-  flex: 0 1 auto;
+  align-items: center;
+  flex: 1 1 auto;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* The visual board square, pushed down from #board-column (see that
+   rule's comment for why). `align-self: center` overrides the
+   parent's default cross-axis stretch, which is what lets
+   `aspect-ratio: 1/1` + `height: 100%` derive THIS element's width
+   from its own height — the same mechanism #board-column used to
+   carry directly, just no longer coupled to the row's flex math, so
+   #board-column can be as wide as the row leaves it (absorbing freed
+   space for bar-tracking continuity) while #board-square stays a true
+   square (or a letterboxed tall-narrow rectangle when overconstrained
+   — same fallback as before) regardless. `max-width: 100%` is the
+   overconstrained-viewport floor: shrinks below the natural square
+   rather than overflowing #board-column; the board SVG's own
+   preserveAspectRatio letterboxes inside it exactly as before. */
+#board-square {
+  display: flex;
+  flex-direction: column;
+  align-self: center;
   height: 100%;
   aspect-ratio: 1 / 1;
-  max-width: var(--board-target-px, 100%);
   min-width: 0;
+  max-width: 100%;
   min-height: 0;
 }
 
 #content { flex: 1; display: flex; justify-content: center; align-items: center; min-height: 0; }
 
-/* magic-literal: 140px `#vue-tree-panel` width — was 220px (iter-21
-   slim-down). The tree-panel is not currently resizable; user said
-   they're "less confident" about the right value because they
-   haven't recently exercised variation-heavy tree navigation. 140
-   is conservative-aggressive: gives the centre column +80px back
-   while preserving room for single-column main-line walks and 1–2
-   side variations at the standard tree-widget node size. If the
-   user finds variation-heavy trees clipping at this width, dial up
-   (180-200) or add a resizer. magic-literal: 5px padding-right —
-   preserved from prior; gives the tree the standard tight margin
-   against the right chrome edge without affecting tree-widget
-   layout. */
-#vue-tree-panel { width: 140px; display: flex; flex-direction: column; border-left: 1px solid var(--surface-1); background: var(--border-1); min-height: 0; flex-shrink: 0; padding-right: 5px; }
-#tree-panel-header { height: 20px; background: var(--surface-0); border-bottom: 1px solid var(--surface-1); display: flex; align-items: center; padding: 0 var(--space-default); font-size: var(--text-tiny); letter-spacing: var(--tracking-wide); color: var(--text-2); text-transform: uppercase; flex-shrink: 0; }
-#control-panel { border-left: 1px solid var(--surface-1); background: var(--surface-3); flex-shrink: 0; display: flex; flex-direction: column; }
+/* The combined tree+control region — a TRUE nested flex container
+   (nested-splitter amendment, ledger row 391 / geometry ledger row
+   414). Its own width is session.ui.treeControlRegionWidthPx (bound
+   inline, App.vue template) — the OUTER bar's persisted fact. `row`
+   direction so #vue-tree-panel, #resizer-inner, and #control-panel
+   lay out exactly like #split-workspace's own children one level up.
+   `min-width: 0` is required for the SAME reason it's required on
+   every flex item wrapping shrinkable content: without it, a flex
+   item's automatic minimum size is its content's intrinsic width,
+   which can force the wrapper wider than its own flex-basis. */
+#tree-control-wrapper { display: flex; flex-direction: row; height: 100%; min-width: 0; min-height: 0; }
+
+/* magic-literal: 140px `#vue-tree-panel` DEFAULT width (was 220px,
+   iter-21 slim-down). Nested-splitter amendment (ledger row 391;
+   maintainer constraint ledger row 414 — this is the tree pane's
+   ONLY write channel, ever): the panel is user-resizable via the
+   INNER `.panel-resizer` (`#resizer-inner`, inside the wrapper above)
+   — the inline `width` style (App.vue template) overrides this
+   default once `session.ui.treePanelWidthPx` is set. 140 remains both
+   the CSS default AND the drag floor (`TREE_PANEL_MIN_WIDTH_PX`,
+   useResizablePanel.ts) — see that constant's comment for why the
+   floor wasn't lowered. magic-literal: 5px padding-right — preserved
+   from prior; gives the tree the standard tight margin against the
+   right chrome edge without affecting tree-widget layout. */
+/* Token categories per ledger row 742 (surface-token discipline): borders
+   use border tokens, backgrounds use surface tokens. The pre-2026-08-07
+   form (background: var(--border-1); border: var(--surface-1)) was a
+   category inversion minted by the 2026-05-02 nearest-value var() sweep;
+   background matches TreeWidget's own --surface-2. The vestigial
+   padding-right: 5px (the "grey bar" the background used to show
+   through) was removed by commissioner directive the same day. */
+#vue-tree-panel { width: 140px; flex-shrink: 0; display: flex; flex-direction: column; border-left: 1px solid var(--border-1); background: var(--surface-2); min-height: 0; }
+#tree-panel-header { height: 20px; background: var(--surface-0); border-bottom: 1px solid var(--border-1); display: flex; align-items: center; padding: 0 var(--space-default); font-size: var(--text-tiny); letter-spacing: var(--tracking-wide); color: var(--text-2); text-transform: uppercase; flex-shrink: 0; }
+#control-panel { border-left: 1px solid var(--border-1); background: var(--surface-3); min-width: 0; display: flex; flex-direction: column; }
 
 /* theme-exception: .panel-resizer #eba46d is a peach accent color
    outside the substrate vocabulary (the chrome substrate has
    --accent-primary cyan and --accent-secondary orange #f0a04a; this
-   peach is distinct from both). Used as a visual handle for the
-   board / control-panel divider. */
+   peach is distinct from both). Used as a visual handle for both
+   nested-splitter divider bars (#resizer-outer, board↔tree;
+   #resizer-inner, tree↔control — see useResizablePanel.ts). */
 .panel-resizer { width: 4px; background: #eba46d; cursor: col-resize; z-index: var(--z-affordance); flex-shrink: 0; transition: background var(--duration-default); }
 .panel-resizer:hover, .panel-resizer:active { background: var(--accent-primary); }
 

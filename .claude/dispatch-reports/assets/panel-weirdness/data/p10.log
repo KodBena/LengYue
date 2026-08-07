@@ -1,0 +1,17 @@
+=== R1: STATE AFTER RELOAD (previous session ended with panel=220, board target 3390) ===
+GEO on fresh load: {"row":{"x":168,"w":3672,"h":2128},"board":{"x":168,"w":900,"h":2128},"tree":{"x":1068,"w":140,"h":2128},"panel":{"x":1212,"w":2628,"h":2128},"resizerX":1208,"boardSvg":{"w":892,"h":2100},"justify":"normal","panelFlex":"flex: 1 1 0px; min-width: 220px;","boardTargetPx":"--board-target-px: 900px;"}
+STATUS on fresh load: {"move":"MOVE 87","cx":42,"cy":2106,"treeScrollL":0,"treeScrollT":1042,"focus":"BODY."}
+=== R2: RE-GRAB TEST ===
+after first drag right (released): {"row":{"x":168,"w":3672,"h":2128},"board":{"x":599,"w":2128,"h":2128},"tree":{"x":2727,"w":140,"h":2128},"panel":{"x":2871,"w":538,"h":2128},"resizerX":2867,"boardSvg":{"w":2120,"h":2100},"justify":"center","panelFlex":"flex: 0 0 auto; min-width: 220px; width: 538px;","boardTargetPx":"--board-target-px: 2990px;"}
+geo hovering resizer (pre-mousedown): {"row":{"x":168,"w":3672,"h":2128},"board":{"x":599,"w":2128,"h":2128},"tree":{"x":2727,"w":140,"h":2128},"panel":{"x":2871,"w":538,"h":2128},"resizerX":2867,"boardSvg":{"w":2120,"h":2100},"justify":"center","panelFlex":"flex: 0 0 auto; min-width: 220px; width: 538px;","boardTargetPx":"--board-target-px: 2990px;"}
+geo AFTER mousedown, ZERO mouse travel: {"row":{"x":168,"w":3672,"h":2128},"board":{"x":168,"w":2128,"h":2128},"tree":{"x":2296,"w":140,"h":2128},"panel":{"x":2440,"w":1400,"h":2128},"resizerX":2436,"boardSvg":{"w":2120,"h":2100},"justify":"normal","panelFlex":"flex: 1 1 0px; min-width: 220px;","boardTargetPx":"--board-target-px: 2990px;"}
+geo after 1px nudge right: {"row":{"x":168,"w":3672,"h":2128},"board":{"x":599.5,"w":2128,"h":2128},"tree":{"x":2727.5,"w":140,"h":2128},"panel":{"x":2871.5,"w":537,"h":2128},"resizerX":2867.5,"boardSvg":{"w":2120,"h":2100},"justify":"center","panelFlex":"flex: 0 0 auto; min-width: 220px; width: 537px;","boardTargetPx":"--board-target-px: 2129px;"}
+>>> panel width: before=538 onMouseDown=1400 after1px=537
+>>> resizerX: before=2867 onMouseDown=2436 after1px=2867.5
+=== R3: REVERSE SWEEP ===  samples: 490 end geo: {"row":{"x":168,"w":3672,"h":2128},"board":{"x":168,"w":360,"h":2128},"tree":{"x":528,"w":140,"h":2128},"panel":{"x":672,"w":3168,"h":2128},"resizerX":668,"boardSvg":{"w":352,"h":2054},"justify":"normal","panelFlex":"flex: 1 1 0px; min-width: 220px;","boardTargetPx":"--board-target-px: 360px;"}
+=== R4: FAST DRAG (5 big steps to 3700) === {"row":{"x":168,"w":3672,"h":2128},"board":{"x":758,"w":2128,"h":2128},"tree":{"x":2886,"w":140,"h":2128},"panel":{"x":3030,"w":220,"h":2128},"resizerX":3026,"boardSvg":{"w":2120,"h":2100},"justify":"center","panelFlex":"flex: 0 0 auto; min-width: 220px; width: 220px;","boardTargetPx":"--board-target-px: 3390px;"}
+=== R5: POST-DRAG NAV ===
+status before keys: {"move":"MOVE 87","cx":42,"cy":2106,"treeScrollL":0,"treeScrollT":1042,"focus":"BODY."}
+status after ArrowUp (no click, focus as left by drag): {"move":"MOVE 86","cx":42,"cy":2082,"treeScrollL":0,"treeScrollT":1018,"focus":"BODY."}
+status after ArrowDown: {"move":"MOVE 87","cx":42,"cy":2106,"treeScrollL":0,"treeScrollT":1042,"focus":"BODY."}
+CONSOLE: [{"t":"error","text":"Failed to load resource: the server responded with a status of 503 (Service Unavailable)"}]

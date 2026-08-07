@@ -9,9 +9,11 @@ import { useI18n } from 'vue-i18n';
 import { useQeubo } from '../../composables/useQeubo';
 import { pushSystemMessage } from '../../store';
 import { currentClaim, onClaimChange } from '../../lib/knobs';
+import { useAppDialogs } from '../../composables/useAppDialogs';
 import type { AnalysisEnvironment, AnalysisPalette, ConsumerClaim, KnobId, ParameterMeta } from '../../types';
 
 const { t } = useI18n();
+const dialogs = useAppDialogs();
 
 import { Codemirror } from 'vue-codemirror';
 import { python } from '@codemirror/lang-python';
@@ -59,8 +61,8 @@ function select(type: ViewType, id: string) {
 
 // ── Mutations ──────────────────────────────────────────
 
-function addSymbol() {
-  const name = prompt(t('palette.prompt.symbolName'));
+async function addSymbol() {
+  const name = await dialogs.prompt({ message: t('palette.prompt.symbolName') });
   if (!name || props.env.symbols[name]) return;
   const next = getClone();
   next.symbols[name] = '0.0';
@@ -75,8 +77,8 @@ function updateSymbolValue(val: string) {
   commit(next);
 }
 
-function addParameter() {
-  const name = prompt(t('palette.prompt.parameterName'));
+async function addParameter() {
+  const name = await dialogs.prompt({ message: t('palette.prompt.parameterName') });
   if (!name || props.env.parameters[name] !== undefined) return;
   const next = getClone();
   next.parameters[name] = 1.0;
@@ -261,8 +263,8 @@ async function setParamQeuboControlled(name: string, checked: boolean): Promise<
   }
 }
 
-function addPalette() {
-  const name = prompt(t('palette.prompt.paletteName'));
+async function addPalette() {
+  const name = await dialogs.prompt({ message: t('palette.prompt.paletteName') });
   if (!name) return;
   const id = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
   const next = getClone();
@@ -278,8 +280,8 @@ function addPalette() {
   select('palette', id);
 }
 
-function addStateFnToPalette(paletteId: string) {
-  const name = prompt(t('palette.prompt.chartName'));
+async function addStateFnToPalette(paletteId: string) {
+  const name = await dialogs.prompt({ message: t('palette.prompt.chartName') });
   if (!name) return;
   const next = getClone();
   const p = next.palettes.find(p => p.id === paletteId);
@@ -322,9 +324,13 @@ function updatePaletteStateFn(paletteId: string, chartName: string, symRef: stri
   }
 }
 
-function deleteItem() {
+async function deleteItem() {
   if (!selectedType.value || !selectedId.value) return;
-  if (!confirm(t('palette.confirm.deleteItem', { type: selectedType.value, id: selectedId.value }))) return;
+  const ok = await dialogs.confirm({
+    message: t('palette.confirm.deleteItem', { type: selectedType.value, id: selectedId.value }),
+    danger: true,
+  });
+  if (!ok) return;
   
   const next = getClone();
   if (selectedType.value === 'symbol') delete next.symbols[selectedId.value];

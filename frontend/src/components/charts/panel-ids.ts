@@ -22,6 +22,7 @@ const pid = (id: string): AnalysisPanelId => id as AnalysisPanelId; // brand fac
 export const PANEL_ID = {
   scoreLead: pid('score-lead'),
   mergedDelta: pid('merged-delta'),
+  intervalSummary: pid('interval-summary'),
   multiresolutionInterval: pid('multiresolution-interval'),
   stability: pid('stability'),
   stabilityCrossCorrelation: pid('stability-cross-correlation'),

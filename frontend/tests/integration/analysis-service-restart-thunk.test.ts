@@ -144,8 +144,14 @@ function activePath(boardId: BoardId): RootedPath {
 }
 
 // A 3-move game: root + B[pd] + W[dp] + B[pp] → 4 path entries
-// (turns 0..3). Enough turns for a multi-turn range query.
-const SGF = '(;FF[4]GM[1]SZ[19];B[pd];W[dp];B[pp])';
+// (turns 0..3). Enough turns for a multi-turn range query. RU[Chinese]
+// is load-bearing since the ruleset fail-loud gate (ruling §RULESETS,
+// `.claude/dispatch-reports/design-engine-features.md`) refuses query
+// construction on a board whose root `RU` doesn't resolve — this
+// file's subject (restart-thunk reap semantics) is orthogonal to
+// ruleset resolution, so the fixture just needs a resolvable RU to
+// clear that gate.
+const SGF = '(;FF[4]GM[1]SZ[19]RU[Chinese];B[pd];W[dp];B[pp])';
 
 beforeEach(() => {
   vi.useFakeTimers();

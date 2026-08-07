@@ -1,0 +1,11 @@
+# proxy.Dockerfile.dockerignore
+#
+# proxy.Dockerfile's build context is the repo root ("."), but the build
+# itself clones KataProxy fresh from GitHub (see proxy.Dockerfile) and
+# needs no local files at all. This keeps the context Docker sends to the
+# daemon small instead of shipping the whole monorepo (frontend/
+# node_modules-adjacent source, backend/, docs/, git history) for a build
+# that reads none of it. BuildKit picks this up automatically for the
+# Dockerfile of the same basename (proxy.Dockerfile) in preference to a
+# root .dockerignore, which this repo does not otherwise have.
+*

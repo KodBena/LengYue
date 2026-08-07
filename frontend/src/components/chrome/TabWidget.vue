@@ -85,7 +85,7 @@ function selectTab(id: string) {
   padding: 0;
   margin: 0;
   background: var(--surface-0);
-  border-bottom: 1px solid var(--surface-1);
+  border-bottom: 1px solid var(--border-1);
   flex-shrink: 0;
 }
 
@@ -94,12 +94,14 @@ function selectTab(id: string) {
   font-size: var(--text-emphasis);
   color: var(--text-2);
   cursor: pointer;
-  border-right: 1px solid var(--surface-1);
-  transition: background var(--duration-default), color var(--duration-default);
+  border-right: 1px solid var(--border-1);
 }
 
+/* Hover: text brightening only — the previous background:
+   var(--border-1) was a border-token-as-hover-background (the "dark
+   grey" slab; same category-inversion class as ledger row 742) and was
+   removed with the transition by commissioner directive 2026-08-07. */
 .tab-header li:hover {
-  background: var(--border-1);
   color: var(--text-0);
 }
 

@@ -14,7 +14,12 @@
     "gen:api": "openapi-typescript ${GENAPI_BASE_URL:-http://127.0.0.1:8764}/openapi.json -o src/types/backend.ts",
     "perf:capture": "node scripts/perf-capture.mjs",
     "perf:trace": "node scripts/perf-trace-parse.mjs",
-    "perf:heap": "node scripts/perf-heap.mjs"
+    "perf:heap": "node scripts/perf-heap.mjs",
+    "sidecar:build": "bash src-tauri/scripts/build-sidecar.sh",
+    "proxy-sidecar:build": "bash src-tauri/scripts/build-proxy-sidecar.sh",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "dependencies": {
     "@codemirror/lang-python": "^6.2.1",
@@ -28,6 +33,7 @@
     "vue-i18n": "^11.4.0"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.9.1",
     "@types/node": "^24.12.0",
     "@typescript-eslint/eslint-plugin": "^8.60.0",
     "@typescript-eslint/parser": "^8.60.0",

@@ -38,6 +38,31 @@ git submodule update --init --recursive
 
 The submodule step is required — without it, `proxy/` is empty.
 
+## Provide your engine
+
+Before any of the setup below: this app needs a KataGo-speaking
+WebSocket endpoint to analyze against. It never talks to KataGo
+directly — the SPA always connects through KataProxy (bundled as a
+Docker container or a desktop sidecar; run bare in dev), and
+KataProxy is what needs to reach an actual `katago analysis` process.
+You provide that upstream:
+
+- Have a `katago analysis` process reachable over WebSocket already
+  (KataProxy's own LEAF role, or a bare KataGo behind something that
+  speaks its protocol), **or**
+- Wrap a plain `katago` binary with the provided shim,
+  `backend/scripts/katago_ws_shim.py` — launches `katago analysis` as
+  a subprocess and re-exposes it as a WebSocket server multiple
+  clients can share. Run it with `--help` for the full option list
+  (katago path/model/config, bind host/port).
+
+Where you point KataProxy at that upstream differs by packaging —
+Docker's `ENGINE_WS_URL`, the desktop app's proxy-upstream setting,
+or a bare-metal engine URI — see
+**[docs/docker.md](docs/docker.md)** ("The KataProxy service") and
+`frontend/README.md` ("Desktop app (Tauri v2)") for the exact knob
+per deployment.
+
 ## Running
 
 Each subproject has its own README with full setup details. The
@@ -59,6 +84,18 @@ npm run dev
 cd proxy
 ./run_relay.sh   # or ./run_leaf.sh
 ```
+
+### Running via Docker instead
+
+The backend, frontend, AND KataProxy can all run as Docker
+containers (`docker compose up --build`, then open
+http://localhost:19080). KataGo itself is not containerized —
+it's a native, GPU-bound process, so the containerized proxy
+connects out to the engine running on your host (or LAN), same
+"provide your engine" requirement as above. See
+**[docs/docker.md](docs/docker.md)** for a from-zero walkthrough
+(build/up, where data lives, backups, pointing the proxy at the
+engine).
 
 ### Optional: populate the database with a sample workspace
 
