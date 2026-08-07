@@ -29,15 +29,32 @@
  * "watch it animate" is step-local. A real hover on the demo board's
  * own suggestion markers (step d, when `showMoveSuggestions` is on)
  * shows the SAME config applied through the real component too.
+ *
+ * Mode-picker placement (commission row 795, replacing the leaf's old
+ * ‹/› auto-advancing button pair with a dropdown): the mode `<select>`
+ * lives HERE, not in `PvAnimationPreview.vue`, and that placement is
+ * load-bearing, not stylistic. `PvAnimationPreview`'s template reads
+ * `displayStones`, which changes every animation frame; this parent's
+ * template reads only `mode` and `annotation` — both written solely by
+ * a user picking a `<select>` option, never by a timer or an animation
+ * tick. Had the mode `<select>` stayed in the leaf, every frame would
+ * re-run the leaf's render and Vue's <select> value-sync would reset
+ * an open dropdown mid-interaction (the same model-select flicker
+ * class `EngineModelSelect.vue` was extracted to fix). Putting it here
+ * means an animation frame can never reach this select's render at
+ * all — this component doesn't even read `displayStones`. The mode
+ * description line for the selected mode travels with the select for
+ * the same reason.
  */
 import { computed } from 'vue';
-import { type PvAnnotation, type PvMove } from '../../../composables/board/use-pv-animation';
+import { type PvAnnotation, type PvMode, type PvMove } from '../../../composables/board/use-pv-animation';
 import PvAnimationPreview from './PvAnimationPreview.vue';
 import { useSetupWizardDemoBoard } from '../../../composables/useSetupWizardDemoBoard';
 import { fromGtp } from '../../../engine/util';
 import { store, touchSession } from '../../../store';
 
 const ANNOTATIONS: readonly PvAnnotation[] = ['none', 'from1', 'fromCurrent'];
+const PV_MODES: readonly PvMode[] = ['instant', 'sequential', 'window'];
 
 const { board, topPv, provenance } = useSetupWizardDemoBoard();
 
@@ -67,11 +84,21 @@ const annotation = computed<PvAnnotation>({
   set: (v) => { store.session.ui.pvAnimation.annotation = v; touchSession(); },
 });
 
-// The animated preview + mode switcher live in PvAnimationPreview
-// (leaf isolation, commission row 748/749 defect 5): this parent's
-// template reads NO animation state, so the annotation <select> below
-// is never re-rendered by an animation frame or the auto-advance
-// interval. The PV list is passed as a GETTER for the same reason.
+// Same computed-setter + touchSession() pattern as `annotation` above —
+// one fact, one home (ADR-0012): this writes the exact cell
+// `PvAnimationPreview`'s `usePvAnimation(() => store.session.ui.pvAnimation)`
+// already watches, so picking a mode here restarts the preview in that
+// mode via the leaf's own `watch([mode, pvMoves], ...)`.
+const mode = computed<PvMode>({
+  get: () => store.session.ui.pvAnimation.mode,
+  set: (v) => { store.session.ui.pvAnimation.mode = v; touchSession(); },
+});
+
+// The animated preview lives in PvAnimationPreview (leaf isolation,
+// commission row 748/749 defect 5, extended by row 795): this parent's
+// template reads NO animation-frame state, so the mode and annotation
+// <select>s below are never re-rendered by an animation frame. The PV
+// list is passed as a GETTER for the same reason.
 function getPvMoves(): PvMove[] {
   return pvMoves.value;
 }
@@ -82,6 +109,12 @@ function getPvMoves(): PvMove[] {
     <p class="step-description">{{ $t('wizard.step.pvAnimation.description') }}</p>
 
     <PvAnimationPreview :get-pv-moves="getPvMoves" />
+
+    <label class="field-label" for="wizard-pv-mode">{{ $t('wizard.pvAnimation.modeLabel') }}</label>
+    <select id="wizard-pv-mode" v-model="mode" class="dark-select">
+      <option v-for="m in PV_MODES" :key="m" :value="m">{{ $t(`wizard.pvAnimation.mode.${m}`) }}</option>
+    </select>
+    <p class="mode-settings">{{ $t(`wizard.pvAnimation.mode.${mode}.settings`) }}</p>
 
     <label class="field-label" for="wizard-pv-annotation">{{ $t('wizard.pvAnimation.annotationLabel') }}</label>
     <select id="wizard-pv-annotation" v-model="annotation" class="dark-select">
@@ -100,4 +133,5 @@ function getPvMoves(): PvMove[] {
   padding: var(--space-default); font-size: var(--text-emphasis); font-family: inherit;
   border-radius: var(--radius-default); outline: none;
 }
+.mode-settings { color: var(--text-2); font-size: var(--text-emphasis); margin: 0; }
 </style>
