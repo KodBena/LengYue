@@ -154,5 +154,5 @@ which is redundancy, not a substitute for any one of them.
 
 Branch: `worktree-agent-aa6ad222583994632` (this worktree's dedicated
 branch, fast-forwarded onto `next` @ `8e17f5d6` before any of this
-work — see below). Final commit sha recorded after `git commit` runs;
-see the commit this report ships alongside.
+work). Final commit: `ef2366c6` — "feat(scripts): add KataGo websocket
+shim, cleaned up from commissioner prototype".
