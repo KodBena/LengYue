@@ -72,6 +72,7 @@ frontend/src/
 │   ├── VisitsLerpConfig.vue           [B1]  "Other" tab: a/b numeric inputs for the session-ephemeral visits-LERP override (`state/visits-lerp.ts`), CardMetadataPanel field idiom + reset button.
 │   │
 │   ├── board/                                Go-board surface. Renderers + overlays.
+│   │   ├── BoardDeltaAnnotation.vue   [B3]  Wiki Wanted #7/#7.1: single-label overlay for the just-played move's ledger delta + child visit count (or per-player-framed score delta); self-sources via useMoveDeltaAnnotation, renders nothing when the ledger has no delta for the node.
 │   │   ├── BoardDisplay.vue           [B3]  Stateless SVG Go board with stone gradients, hoshi, last-move ring, move-number text, and setup-toolkit triangle marks (`triangles` prop, current node only).
 │   │   ├── BoardHeatmapOverlay.vue    [B3]  Stateless per-intersection heatmap (ownership / liveness / dots).
 │   │   ├── BoardTab.vue               [B3]  Tab row in the board-list rail (label, close, canvas analysis-depth rugplot drawn imperatively off the render path).
@@ -215,6 +216,7 @@ frontend/src/
 │   │   ├── useDirtyBoardGuard.ts      [B3]  Dirty-board guard: confirm-load modal + dirty-board policy for cards AND library games; delegates the SGF load to sgf/loadIntoBoard (swallow-and-log over the fail-loud primitive).
 │   │   ├── useEngineResponder.ts      [B3]  "Play vs engine" trigger: `fireAndAdvanceHead(boardId, gameStartNodeId)` queries the engine at the board's current position and advances the game's single green-ring head; invoked from useBoardMoveRouting when the user plays from a head.
 │   │   ├── useFollowMePonder.ts       [B3]  "Follow Me" ponder watcher: re-issues the active board's ponder query on same-board navigation (board switches excluded). App.vue's former direct analysis-service watcher, relocated to the composable layer 2026-06-11.
+│   │   ├── useMoveDeltaAnnotation.ts  [B3]  Wiki Wanted #7/#7.1: per-node delta+visits derivation for the board overlay, reused unmodified from the same `useEnrichedData`/`enriched-accumulator` authority MergedDeltaPanel charts against — no separate delta formula. Returns null (absence) when the ledger lacks the node's delta.
 │   │   ├── use-move-suggestions.ts    [B3]  Refined intensity-mapping for KataGo move suggestions.
 │   │   ├── usePassSignal.ts           [B1]  Module-scoped "play a pass" request counter (`requestPass()` / `passRequestCount`), same shape as useMintDialogSignal.ts. Closes the same module-scope-has-no-component-instance gap: the `board.pass` keybinding bumps the counter; App.vue watches it and calls its own `handlePass()` (from useBoardMoveRouting).
 │   │   ├── usePlayFromPosition.ts     [B3]  "Engine plays from here" — looped applyGoMove against a KataGo URL.

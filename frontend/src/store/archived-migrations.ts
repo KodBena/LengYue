@@ -5,7 +5,7 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-08-07: migrations 1 → 2 through 65 → 66 (65
+ * Scope as of 2026-08-07: migrations 1 → 2 through 66 → 67 (66
  * entries). The first eight covered pre-v1.0.0 schema evolution;
  * the rest are the v1.0.x – v1.1.x active cycle, archived in
  * per-PR rolling fashion under the same archive contract.
@@ -2789,6 +2789,35 @@ export const archivedMigrations: Migration[] = [
       const u = ui as { boardSquareMaxWidthPx?: unknown; controlPanelWidth?: unknown };
       delete u.boardSquareMaxWidthPx;
       delete u.controlPanelWidth;
+    }
+    return out;
+  },
+  // 66 → 67: backfill `session.ui.cardsContextGameSourceOrdinals = []`
+  // (macro-public-id-tokens, ledger row 456 — restoring the Cards-tab
+  // `${gameSourceId}` macro after browse-leak-fix broke it). New
+  // field, additive: a persisted blob predating it simply lacks the
+  // key. `defaultSessionUI` already seeds `[]` for fresh installs;
+  // this backfill keeps the persisted shape honest for existing
+  // workspaces rather than leaning on `updateFromRemote`'s deepMerge
+  // to paper over the missing key (matches the `deltaViewMode` /
+  // 63 → 64 and `highContrastText` precedents' belt-and-suspenders
+  // posture — see the archived body's comment).
+  //
+  // Container witnessed against the runtime shape: `session.ui` is
+  // present from v1, so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version.
+  //
+  // Idempotent: a pre-existing array value (of any length, including
+  // empty) is preserved unchanged; only a missing / wrong-typed leaf
+  // is backfilled to `[]`.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { cardsContextGameSourceOrdinals?: unknown };
+      if (!Array.isArray(u.cardsContextGameSourceOrdinals)) {
+        u.cardsContextGameSourceOrdinals = [];
+      }
     }
     return out;
   },

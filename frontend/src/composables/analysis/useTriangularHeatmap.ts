@@ -135,3 +135,21 @@ export function plyRangeToColorMoveRange(
   if (s > rawT) return null;
   return [s as ColorMoveIndex, rawT as ColorMoveIndex]; // brand mint ColorMoveIndex: see docstring above
 }
+
+// Inverse of colorMoveToPly, for consumers that hold a PlyIndex (a node's
+// position on a `variationPath`) and a StoneColor and need the colour-local
+// move index to index `extra.{color}.deltas` / the enriched deltaSeries —
+// `composables/board/useMoveDeltaAnnotation.ts` (the board-overlay delta
+// annotation, wiki Wanted #7) is the worked consumer. Kept alongside
+// `colorMoveToPly` per that function's own docstring ("conversion happens
+// through a single named helper at the boundary"): both directions of the
+// one invariant belong in the same module rather than a second ad-hoc
+// inversion drifting elsewhere.
+//
+export const plyToColorMove = (ply: PlyIndex, color: StoneColor): ColorMoveIndex =>
+  // The `as`-casts are justified per ADR-0002 Rule 2 the same way
+  // `colorMoveToPly` is: this function is the sole authority for inverting
+  // the (ColorMoveIndex, StoneColor) → PlyIndex invariant established
+  // above — brand erase PlyIndex → number for the arithmetic, brand mint
+  // the result as ColorMoveIndex.
+  (((ply as number) - (color === 'B' ? 1 : 2)) / 2) as ColorMoveIndex;

@@ -128,13 +128,13 @@ if (import.meta.hot) import.meta.hot.accept(() => location.reload());
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 68;
+export const CURRENT_SCHEMA_VERSION = 69;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 65 → 66) are
+ * The first `N` entries (currently 1 → 2 through 66 → 67) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -156,35 +156,6 @@ export const CURRENT_SCHEMA_VERSION = 68;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 66 → 67: backfill `session.ui.cardsContextGameSourceOrdinals = []`
-  // (macro-public-id-tokens, ledger row 456 — restoring the Cards-tab
-  // `${gameSourceId}` macro after browse-leak-fix broke it). New
-  // field, additive: a persisted blob predating it simply lacks the
-  // key. `defaultSessionUI` already seeds `[]` for fresh installs;
-  // this backfill keeps the persisted shape honest for existing
-  // workspaces rather than leaning on `updateFromRemote`'s deepMerge
-  // to paper over the missing key (matches the `deltaViewMode` /
-  // 63 → 64 and `highContrastText` precedents' belt-and-suspenders
-  // posture — see the archived body's comment).
-  //
-  // Container witnessed against the runtime shape: `session.ui` is
-  // present from v1, so a typo'd path fails loudly here rather than
-  // no-oping and stamping the version.
-  //
-  // Idempotent: a pre-existing array value (of any length, including
-  // empty) is preserved unchanged; only a missing / wrong-typed leaf
-  // is backfilled to `[]`.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const ui = witnessedContainer(out, 'session.ui');
-    if (ui) {
-      const u = ui as { cardsContextGameSourceOrdinals?: unknown };
-      if (!Array.isArray(u.cardsContextGameSourceOrdinals)) {
-        u.cardsContextGameSourceOrdinals = [];
-      }
-    }
-    return out;
-  },
   // 67 → 68: insert the `interval-summary` panel id (wiki Wanted feature
   // #6, `PANEL_ID.intervalSummary`) at the front of the persisted 'basic'
   // analysisTab's `panelIds`, so the on-by-default placement in
@@ -212,6 +183,42 @@ export const migrations: Migration[] = [
         if (!tab.panelIds.includes('interval-summary')) {
           tab.panelIds = ['interval-summary', ...tab.panelIds];
         }
+      }
+    }
+    return out;
+  },
+  // 68 → 69: backfill `session.ui.moveDeltaAnnotation` (string enum
+  // 'off' | 'deltaVisits' | 'perPlayer', default 'off') — the new
+  // board-overlay toggle for the just-played move's delta + visit-count
+  // annotation (wiki Wanted #7 / #7.1; see the field's doc comment on
+  // `UISession` in `schema.ts` and `composables/board/useMoveDeltaAnnotation.ts`
+  // for the derivation). The leaf is read by `BoardWidget` (gates whether
+  // `BoardDeltaAnnotation` mounts) and by `RegistryEditor`'s `PATH_ENUMS`
+  // table (renders the three-way dropdown); a persisted blob predating
+  // this field would otherwise carry no value and rely on
+  // `updateFromRemote`'s deepMerge to surface the default. Backfilling
+  // explicitly keeps the persisted shape honest (the composition test
+  // pins it) rather than leaning on the merge.
+  //
+  // Container witnessed against the runtime shape (`witnessedContainer`,
+  // per step 3 of the add-a-migration recipe): `session.ui` exists from
+  // the framework's introduction, so a typo'd path fails loudly here
+  // rather than no-oping and stamping the version. The blob-side
+  // resolution keeps the sibling bodies' non-null-object tolerance: a
+  // partial / legacy blob whose container is absent no-ops.
+  //
+  // Idempotent: a pre-existing valid `moveDeltaAnnotation` is preserved
+  // unchanged (a hand-edited or forward-compat blob keeps its value);
+  // only a missing / wrong-typed / out-of-enum leaf is backfilled to the
+  // default.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { moveDeltaAnnotation?: unknown };
+      const valid = ['off', 'deltaVisits', 'perPlayer'];
+      if (typeof u.moveDeltaAnnotation !== 'string' || !valid.includes(u.moveDeltaAnnotation)) {
+        u.moveDeltaAnnotation = 'off';
       }
     }
     return out;

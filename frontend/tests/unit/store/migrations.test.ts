@@ -3138,3 +3138,48 @@ describe("67 → 68: insert 'interval-summary' at the front of the persisted bas
     expect(out.profile.settings.analysisTabs[0].panelIds).toEqual(['interval-summary', 'winrate']);
   });
 });
+
+describe('68 → 69: backfill session.ui.moveDeltaAnnotation', () => {
+  // Wiki Wanted #7/#7.1's board-overlay annotation-mode toggle. Written
+  // through the witnessed `session.ui` parent container; default 'off'.
+  function blobWithSessionUi(): any {
+    return {
+      session: { ui: { activeTab: 'cards' } },
+    };
+  }
+
+  it("backfills moveDeltaAnnotation = 'off' when the leaf is absent", () => {
+    const out = step(68)(blobWithSessionUi());
+    expect(out.session.ui.moveDeltaAnnotation).toBe('off');
+  });
+
+  it('preserves a pre-existing valid moveDeltaAnnotation (idempotent / hand-edited)', () => {
+    const blob = blobWithSessionUi();
+    blob.session.ui.moveDeltaAnnotation = 'perPlayer';
+    const out = step(68)(blob);
+    expect(out.session.ui.moveDeltaAnnotation).toBe('perPlayer');
+  });
+
+  it('replaces a non-enum moveDeltaAnnotation with the default', () => {
+    const blob = blobWithSessionUi();
+    blob.session.ui.moveDeltaAnnotation = 'garbage';
+    const out = step(68)(blob);
+    expect(out.session.ui.moveDeltaAnnotation).toBe('off');
+  });
+
+  it('is a no-op when the session.ui container is absent (partial blob)', () => {
+    const blob: any = { session: {} };
+    const out = step(68)(blob);
+    expect(out.session.ui).toBeUndefined();
+  });
+
+  it('walks end-to-end: a v67 blob reaches CURRENT with moveDeltaAnnotation backfilled', () => {
+    const blob: any = {
+      schemaVersion: 67,
+      session: { ui: { activeTab: 'cards' } },
+    };
+    const out = migrate(blob);
+    expect(out.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(out.session.ui.moveDeltaAnnotation).toBe('off');
+  });
+});

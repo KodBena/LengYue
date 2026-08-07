@@ -7,6 +7,7 @@ import { computed, ref, toRaw } from 'vue';
 import BoardDisplay from './BoardDisplay.vue';
 import BoardHeatmapOverlay from './BoardHeatmapOverlay.vue';
 import BoardVariationsOverlay from './BoardVariationsOverlay.vue';
+import BoardDeltaAnnotation from './BoardDeltaAnnotation.vue';
 import MoveSuggestions from './MoveSuggestions.vue';
 import type { BoardState, NodeId, GameNode } from '../../types';
 import { getBoardSize, decodeBoardArray } from '../../engine/util';
@@ -346,6 +347,18 @@ function onShiftClick(x: number, y: number) {
       :show-active-next-move="store.session.ui.showActiveNextMove"
       :show-move-suggestions="store.session.ui.showMoveSuggestions"
       :suppressed="pvHoverActive"
+    />
+    <!-- Wiki Wanted #7 / #7.1: the just-played move's delta (vs its
+         parent) + the child's visit count. Own leaf per ADR-0010
+         read-locality — see BoardDeltaAnnotation's header. Structural
+         props only (state, currentNodeId, mode); the leaf self-sources
+         the per-packet delta/visit values. -->
+    <BoardDeltaAnnotation
+      v-if="store.session.ui.moveDeltaAnnotation !== 'off'"
+      :state="state"
+      :current-node-id="state.currentNodeId"
+      :board-size="boardSize"
+      :mode="store.session.ui.moveDeltaAnnotation"
     />
   </div>
 </template>
