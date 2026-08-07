@@ -9,12 +9,22 @@
  * Why this scenario exists. The 2026-06-12 jank-extended study validated the
  * SPA at 16 boards (p50 ~14 ms, no regression). The close / switch path has
  * several costs that are negligible at 16 but scale with the open-board count —
- * the SyncService deep-watch re-traversal of per-board `store.session` cells,
  * the whole-workspace persistence serialization, the two per-board-watcher
  * reconcile loops (`useAutoSaveAnalyses` / `useAppBootstrap`, fired on
  * `boardsSetVersion`), and the stability-trajectory purge's all-keys scan. This
  * scenario exercises them an order of magnitude past the studied regime so the
  * profile shows which actually dominates at scale.
+ *
+ * Resolved suspect (this capture's original dominant cost). The first
+ * close-at-scale run found the SyncService deep-watch re-traversal of the
+ * per-board `store.session` cells (`session.reviews`, `session.ui.cardTreeNav`,
+ * `session.ui.forestNav.selection`) dominating — O(open-board count) per fire,
+ * O(N²) over a close-all. That `{ deep: true }` traversal of `store.session`
+ * was replaced by a shallow `sessionVersion` counter watch (work-status item
+ * `perf-syncservice-deep-watch-session`; see `sessionVersion` in
+ * `store/index.ts`), so
+ * the cost is gone. The scenario stays as the regression guard for it and to
+ * surface whichever of the remaining costs above now leads.
  *
  * Heaviest close order (deliberate, documented). The loop always closes the
  * board at index 0, which is also the active board (set before the loop):

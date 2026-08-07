@@ -223,7 +223,8 @@ frontend/src/
 │   │   ├── useHoverPopover.ts         [B1]  Hover-intent open/close primitive (open ref + mouseenter/mouseleave + 150 ms close-grace timer) shared by toolbar popovers.
 │   │   ├── useLocale.ts               [B1]  Locale read/write through GlobalStore + supported-locale registry.
 │   │   ├── usePopoverEdgeClamp.ts     [B1]  Viewport-edge clamp for hover popovers (setPopoverEl function-ref + xShift) — translateX shifts the rendered popover inward when its CSS anchor would push it off-screen.
-│   │   └── useResizablePanel.ts       [B2]  Horizontal resize-bar between tree and control panels.
+│   │   ├── useResizablePanel.ts       [B2]  Horizontal resize-bar between tree and control panels.
+│   │   └── useVirtualList.ts          [B1]  Fixed-height vertical virtual-list windower (visible slice + top/bottom spacer pad + scrollToIndex); rAF-coalesced scroll + ResizeObserver, released on unmount. Virtualizes the SidebarWidget board-tab rail (was ~185k DOM nodes at 230 boards).
 │   │
 │   ├── forest/                               Forest / game-tree expansion + navigation.
 │   │   ├── useForestBrowsePolicy.ts   [B2]  Forest-Directory selection → fetch-behaviour dispatcher.
