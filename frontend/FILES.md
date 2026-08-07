@@ -286,15 +286,16 @@ frontend/src/
 │   ├── board-geometry.ts              [B3]  SSOT for board rendering geometry (pad/cell/stoneR/toSVG, gridLines) + the BoardSnapshot position primitive; shared by renderBoardToSvg (string) and the Vue board components so projections can't drift.
 │   ├── board-renderer.ts              [B3]  Pure SVG Go board rendering → string (v-html / ECharts-innerHTML sinks); geometry from board-geometry.
 │   ├── constants.ts                   [B3]  Board geometry, stone-radius ratio, label-band width, etc.
+│   ├── handicap.ts                    [B3]  Handicap-stone placement tables (19×19 N=2-9, 13×13 N=2-5, 9×9 N=2-4; GNU-Go-convention hoshi progression) + applyHandicap — places root AB stones via logic.ts's applySetup, sets turn/PL[W]/HA[n]/default KM. Refuses (HandicapOnStartedGameError) once the root has children.
 │   ├── helper.ts                      [B1]  Piecewise cubic Hermite interpolation (pure math).
 │   ├── navigator.ts                   [B3]  LCA-based game-tree traversal with setup-stone + capture tracking. (Maintainer-adjudicated target 2026-06-12: B2 — generic LCA traversal; the tag stays B3 as structural fact while the Go replay — stones/ko/captures/SGF setup-coord decode — is inlined in navigateTo. Tags record fact, not aspiration; lib/keybindings.ts precedent.)
 │   ├── rules.ts                       [B3]  Pure Go rules engine (legality, captures, ko).
 │   ├── rulesets.ts                    [B3]  The four ruling-mandated named rulesets (AGA/Chinese/Japanese/Tromp-Taylor): RulesetName, total case-insensitive normalizeRuleset (sole RulesetName construction site), and rulesetToWireName (display name → KataGo wire spelling, single home).
-│   ├── sgf-loader.ts                  [B3]  SGF parser → GameNode forest.
+│   ├── sgf-loader.ts                  [B3]  SGF parser → GameNode forest. Root turn seeded from getInitialPlayer (PL[W] override for a handicap board; defaults 'B').
 │   ├── sgf-writer.ts                  [B3]  GameNode forest → SGF serialisation.
 │   ├── suggestion-colors.ts           [B3]  Pure colour utilities for move-suggestion overlays.
 │   ├── tree.ts                        [B2]  Generic grid-based tree layout + tree-graph transforms.
-│   ├── util.ts                        [B3]  Board / SGF coord helpers; active-variation traversal; game-name resolution ladder; getRulesetResolution (RU-property accessor, parallel to getKomi/getBoardSize); collectSubtreeIds (BFS subtree walk — the setup toolkit's thumbnail-invalidation obligation). (Domain-free generateUUID / updateRegistry re-homed to lib/utils.ts 2026-06-10.)
+│   ├── util.ts                        [B3]  Board / SGF coord helpers; active-variation traversal; game-name resolution ladder; getRulesetResolution (RU-property accessor, parallel to getKomi/getBoardSize); getInitialPlayer (PL-property accessor — root player-to-move, handicap-aware); collectSubtreeIds (BFS subtree walk — the setup toolkit's thumbnail-invalidation obligation). (Domain-free generateUUID / updateRegistry re-homed to lib/utils.ts 2026-06-10.)
 │   │
 │   ├── analysis/
 │   │   ├── clustering.ts              [B3]  Pure transposition-grouping utilities.

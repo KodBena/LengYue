@@ -30,8 +30,11 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref, watch } from 'vue';
 import { useSetupTools, type SetupTool } from '../../composables/board/useSetupTools';
+import { useHandicap } from '../../composables/board/useHandicap';
+import HandicapPanel from './HandicapPanel.vue';
 
 const { activeTool, paletteOpen, selectTool, togglePalette, closePalette } = useSetupTools();
+const { panelOpen: handicapPanelOpen, togglePanel: toggleHandicapPanel, closePanel: closeHandicapPanel } = useHandicap();
 
 const rootRef = ref<HTMLElement | null>(null);
 
@@ -61,6 +64,11 @@ watch(paletteOpen, (isOpen) => {
   } else {
     document.removeEventListener('pointerdown', onDocumentPointerDown, true);
     document.removeEventListener('keydown', onKeydown);
+    // The handicap sub-panel has no dismiss listeners of its own (it
+    // rides the parent palette's — see this component's header); it
+    // must still not stay expanded into the NEXT time the palette
+    // opens, so closing the palette by any path closes it too.
+    closeHandicapPanel();
   }
 });
 
@@ -108,6 +116,21 @@ const TOOLS: ReadonlyArray<{ id: SetupTool; labelKey: string; swatch: 'black' | 
           <span class="tool-label">{{ $t(tool.labelKey) }}</span>
         </button>
       </div>
+
+      <!-- Handicap trigger row: a second click-toggle nested inside the
+           already-open palette (ADR-0019: click, never hover). Kept as
+           its own row rather than folded into `.tool-grid` — a
+           handicap pick is a one-shot "set the board up" action, not a
+           toggleable tool the board-click handler arms. -->
+      <button
+        type="button"
+        class="handicap-trigger"
+        :class="{ active: handicapPanelOpen }"
+        :title="$t('toolbar.setupToolkit.handicapTooltip')"
+        :aria-expanded="handicapPanelOpen"
+        @click="toggleHandicapPanel"
+      >{{ $t('toolbar.setupToolkit.handicapButton') }}</button>
+      <HandicapPanel v-if="handicapPanelOpen" />
     </div>
   </div>
 </template>
@@ -171,6 +194,21 @@ const TOOLS: ReadonlyArray<{ id: SetupTool; labelKey: string; swatch: 'black' | 
 }
 .tool-btn:hover { border-color: var(--border-3); color: var(--text-0); }
 .tool-btn.active { border-color: var(--accent-primary); color: var(--accent-primary); }
+
+.handicap-trigger {
+  margin-top: var(--space-tight);
+  width: 100%;
+  background: var(--surface-0);
+  border: 1px solid var(--border-2);
+  color: var(--text-1);
+  padding: var(--space-tight) var(--space-default);
+  cursor: pointer;
+  border-radius: var(--radius-default);
+  font-size: var(--text-emphasis);
+  text-align: left;
+}
+.handicap-trigger:hover { border-color: var(--border-3); color: var(--text-0); }
+.handicap-trigger.active { border-color: var(--accent-primary); color: var(--accent-primary); }
 
 .swatch {
   display: inline-block;
