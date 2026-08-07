@@ -214,5 +214,5 @@ and is not part of this commit.
 
 ## Branch and commit
 
-Branch: `worktree-agent-a1e5184a3655baa21`. Commit SHA is recorded below
-after committing (see final reply for the authoritative value).
+Branch: `worktree-agent-a1e5184a3655baa21`. Commit: `4c8fda9d` — "fix(frontend):
+PV-paste hint becomes a permanent in-flow slot (ledger row 837)".
