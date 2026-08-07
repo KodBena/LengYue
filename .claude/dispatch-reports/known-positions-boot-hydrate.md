@@ -322,7 +322,6 @@ Frontend:
 | `npm run gen:api` | UNEXERCISED — pre-existing Alembic-bootstrap hang, documented above (unchanged) |
 | Mutation check (Finding 1 acceptance criterion) | inverted edge condition → 2/6 tests in the new file went red (transcript above); reverted, confirmed byte-identical, suite re-confirmed green |
 
-Final commit sha (review-response revision): recorded after the commit
-below — see the reply to the coordinator for the exact sha.
+Final commit sha (review-response revision): `9c8ef361`.
 
 License: Public Domain (The Unlicense)
