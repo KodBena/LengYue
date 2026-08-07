@@ -64,6 +64,8 @@ import ConfirmLoadModal from './components/modals/ConfirmLoadModal.vue';
 import EngineMatchModal from './components/modals/EngineMatchModal.vue';
 import PlayEngineModal  from './components/modals/PlayEngineModal.vue';
 import SetupWizardModal from './components/wizard/SetupWizardModal.vue';
+import AppConfirmDialog from './components/modals/AppConfirmDialog.vue';
+import AppPromptDialog  from './components/modals/AppPromptDialog.vue';
 import ForestDirectory  from './components/tree/ForestDirectory.vue';
 import LibraryTab       from './components/library/LibraryTab.vue';
 import SystemLogPanel   from './components/chrome/SystemLogPanel.vue';
@@ -385,6 +387,8 @@ const activeTab = computed<string>({
   <RootErrorBoundary>
   <div id="main-area">
     <SetupWizardModal v-if="setupWizardOpen" />
+    <AppConfirmDialog />
+    <AppPromptDialog />
     <MintCardModal ref="mintModalRef" />
     <LearnPathModal ref="learnPathModalRef" />
     <ConfirmLoadModal ref="confirmLoadModalRef" />

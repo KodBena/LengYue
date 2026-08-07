@@ -31,9 +31,11 @@ import { activeBoard, mutateBoard, mutateReviewSession, store, pushSystemMessage
 import { getActiveVariationPath } from '../engine/util';
 import { navigateTo } from '../engine/navigator';
 import { themeColor } from '../utils/theme-color';
+import { useAppDialogs } from '../composables/useAppDialogs';
 import type { BoardId, CardMetadataPatch, ReviewCard } from '../types';
 
 const { t } = useI18n();
+const dialogs = useAppDialogs();
 const cardMetadata = useCardMetadata();
 
 // The composable is per-board: it projects the active board's
@@ -92,12 +94,12 @@ function handleVisitsOverrideChange(e: Event) {
 }
 
 // Retry re-grades the current card — a destructive re-entry (it
-// discards the restored snapshot). window.confirm is the codebase's
-// established minimal-touch destructive-confirm idiom (see
-// CardMetadataPanel.vue / QeuboBookmarks.vue); only proceeds to
-// reviewSession.retryCard() on confirmation.
-function handleRetry() {
-  if (!window.confirm(t('review.session.retryConfirm'))) return;
+// discards the restored snapshot). Guarded by the sanctioned in-app
+// confirm dialog (ADR-0019 S14) before proceeding to
+// reviewSession.retryCard().
+async function handleRetry() {
+  const ok = await dialogs.confirm({ message: t('review.session.retryConfirm'), danger: true });
+  if (!ok) return;
   reviewSession.retryCard();
 }
 

@@ -59,14 +59,12 @@ import { i18n } from '../../src/i18n';
 import MintCardModal from '../../src/components/modals/MintCardModal.vue';
 import type { BoardId } from '../../src/types';
 
-// Mute jsdom's unimplemented window.alert (the failure path calls it).
 beforeEach(() => {
   commitMint.mockClear();
   prepareDraft.mockClear();
   calibrateKomiOnDraft.mockReset();
   store.profile.settings.minting.defaultPaletteId = 'active';
   store.engine.messages = [];
-  vi.spyOn(window, 'alert').mockImplementation(() => {});
 });
 
 async function openModal() {
