@@ -18,28 +18,45 @@
  *      fatal" contract that keeps a hydrate failure from breaking
  *      SPA boot.
  *
- *   2. The auth-flip WIRING CONTRACT `useAppBootstrap.ts` installs —
- *      `watch(() => auth.state.value, (next, prev) => { if
- *      (isAuth && !wasAuth) hydrateKnownPositions() }})` — reproduced
- *      here verbatim against a local, controllable `ref<AuthState>`
- *      rather than by invoking the full `useAppBootstrap` composable.
- *      `useAppBootstrap` pulls in SyncService construction, the
- *      keybindings/knob validators, qEUBO bootstrap, and several other
- *      auth-state watchers with their own network/DOM side effects —
- *      none of which this test wants to fake just to observe one
- *      watcher's edge-triggering. Existing tests exercising a piece of
- *      `useAppBootstrap`'s logic already take this same "call the
- *      underlying pure contract directly, not the composable"
- *      approach (`tests/unit/composables/keybindings-catalog.test.ts`,
- *      `tests/unit/lib/knobs.test.ts`). The watch block under test
- *      here is copied verbatim from `useAppBootstrap.ts`'s "Known-
- *      positions boot-time hydrate" section; a change to that block's
- *      shape should update both together.
+ *   2. The auth-flip WIRING CONTRACT — `installKnownPositionsHydrateWatcher`,
+ *      a NAMED EXPORT of `useAppBootstrap.ts` extracted specifically so
+ *      this test can drive the REAL production edge-detection logic
+ *      (not a hand-copy of it) against a fake `auth` object
+ *      (`Pick<UseAuth, 'state'>` — the function only ever reads
+ *      `auth.state`, so a bare `{ state: ref<AuthState>(...) }`
+ *      satisfies the parameter type without stubbing
+ *      `tryAutoLogin`/`login`/`register`/`logout`). This deliberately
+ *      does NOT invoke the full `useAppBootstrap` composable —
+ *      `useAppBootstrap` also constructs a `SyncService`, runs the
+ *      keybindings/knob validators, bootstraps qEUBO, and installs
+ *      several unrelated auth-state watchers with their own
+ *      network/DOM side effects, none of which this test wants to fake
+ *      just to observe one watcher's edge-triggering (the existing
+ *      precedents that exercise a piece of `useAppBootstrap`'s logic,
+ *      `tests/unit/composables/keybindings-catalog.test.ts` and
+ *      `tests/unit/lib/knobs.test.ts`, both call an underlying
+ *      production function directly rather than the composable — this
+ *      test does the same, calling `installKnownPositionsHydrateWatcher`
+ *      itself rather than a copy of its body).
+ *
+ *      Mutation check performed at authoring time (per the review
+ *      finding this file was revised to address): with the watcher's
+ *      edge condition in `useAppBootstrap.ts` inverted (`if (!isAuth &&
+ *      !wasAuth)` in place of `if (isAuth && !wasAuth)`, reproducing
+ *      the exact class of bug this delivery exists to prevent — a
+ *      hydrate that never fires on the real auth transition), every
+ *      test in the "auth-flip wiring contract" `describe` block below
+ *      went RED (the two hydrate-firing assertions timed out via
+ *      `vi.waitFor`; the no-re-fire test still passed, as expected,
+ *      since it asserts absence). Reverted immediately after
+ *      confirming red; the working tree carries the correct condition.
+ *      See `.claude/dispatch-reports/known-positions-boot-hydrate.md`
+ *      for the full transcript.
  *
  * License: Public Domain (The Unlicense)
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { ref, watch, nextTick } from 'vue';
+import { ref, nextTick } from 'vue';
 
 vi.mock('../../src/services/backend-service', async () => {
   const { fakeBackendService } = await import('../fakes/backend-service');
@@ -47,6 +64,7 @@ vi.mock('../../src/services/backend-service', async () => {
 });
 
 import { useKnownPositions } from '../../src/composables/cards/useKnownPositions';
+import { installKnownPositionsHydrateWatcher } from '../../src/composables/auth-app/useAppBootstrap';
 import { fakeBackendService, resetFakeBackendService } from '../fakes/backend-service';
 import {
   lookupKnownPosition,
@@ -109,25 +127,12 @@ describe('useKnownPositions — hydrateKnownPositions', () => {
   });
 });
 
-describe('auth-flip wiring contract (useAppBootstrap.ts, "Known-positions boot-time hydrate")', () => {
-  // Reproduces useAppBootstrap's watcher verbatim: fires
-  // hydrateKnownPositions only on a genuine unauth/unknown -> authenticated
-  // EDGE, not on every auth.state mutation (e.g. authenticated ->
-  // authenticated with a changed username would NOT re-fire — this is
-  // the same edge-detection shape the qEUBO and analysis-persistence
-  // watchers in useAppBootstrap.ts already use).
+describe('auth-flip wiring contract (useAppBootstrap.ts, installKnownPositionsHydrateWatcher)', () => {
+  // Drives the REAL production export — not a copy of its body. A fake
+  // `auth` satisfying `Pick<UseAuth, 'state'>` (the only member the
+  // function reads) is all the parameter type requires.
   function wireHydrateOnAuthFlip(authState: ReturnType<typeof ref<AuthState>>) {
-    const { hydrateKnownPositions } = useKnownPositions();
-    return watch(
-      () => authState.value,
-      (next, prev) => {
-        const wasAuth = prev?.kind === 'authenticated';
-        const isAuth = next.kind === 'authenticated';
-        if (isAuth && !wasAuth) {
-          void hydrateKnownPositions();
-        }
-      },
-    );
+    return installKnownPositionsHydrateWatcher({ state: authState });
   }
 
   let authState: ReturnType<typeof ref<AuthState>>;

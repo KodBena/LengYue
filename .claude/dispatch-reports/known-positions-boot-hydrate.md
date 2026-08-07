@@ -12,7 +12,8 @@ original base (3378806f) predated card-position-annotations Stage A
 (`known-positions.ts`, `useKnownPositions.ts`, `/positions/hash{,-batch}`)
 landing on `next`; the commission's premise assumed Stage A already
 existed, so I rebased to pick it up rather than re-deriving it.
-Final commit sha: `4664d70e`.
+Final commit sha: `4664d70e` (original delivery); revised after adversarial
+review, new final sha recorded at the bottom of this report.
 
 ## What was built
 
@@ -106,17 +107,24 @@ ContentHash; cardId: CardId}>>` — calls `GET /cards/hashes`, brand-mints
   module's existing semantics — unchanged). Failures are caught and
   `console.error`-logged, never thrown (ADR-0002 "audible, not fatal");
   the function always resolves.
-- `useAppBootstrap.ts` (the app bootstrap layer, per `ForestDirectory.vue`'s
-  `watch(auth.isAuthenticated, ..., { immediate: true })` precedent, read
-  in full before wiring): a new `watch(() => auth.state.value, (next,
-  prev) => { if (isAuth && !wasAuth) void hydrateKnownPositions(); })` —
-  same edge-detection shape as the existing qEUBO-bootstrap and
+- `useAppBootstrap.ts` (the app bootstrap layer, read in full before
+  wiring — `ForestDirectory.vue`'s `watch(auth.isAuthenticated, ...,
+  { immediate: true })` is the auth-readiness-gating *pattern* precedent,
+  though that watcher itself lives on a tab component, not the App
+  bootstrap layer): the edge-detection logic is now a **named export**,
+  `installKnownPositionsHydrateWatcher(auth: Pick<UseAuth, 'state'>):
+  WatchStopHandle` — `watch(() => auth.state.value, (next, prev) => {
+  if (isAuth && !wasAuth) void hydrateKnownPositions(); })` — same
+  edge-detection shape as the existing qEUBO-bootstrap and
   analysis-persistence-hydrate watchers in the same file, so it fires once
   per genuine unauth→authenticated transition (cold-start auto-login AND
   any later re-authentication), never on an unrelated `auth.state`
-  mutation. Placed at the App-bootstrap composable, not inside a tab
-  component, per the brief's explicit instruction (a tab component may
-  never mount).
+  mutation. `useAppBootstrap` itself just calls
+  `installKnownPositionsHydrateWatcher(auth)` at setup time. Placed at
+  the App-bootstrap composable, not inside a tab component, per the
+  brief's explicit instruction (a tab component may never mount).
+  **Extracted as a named export in response to the adversarial review's
+  Finding 1** — see "Response to adversarial review" below.
 - The identity-flip purge already registered in `known-positions.ts`
   (the `known-positions:purge` workspace-reset handler, pre-existing from
   Stage A) is untouched and still fires on logout/identity-switch; the new
@@ -128,32 +136,26 @@ ContentHash; cardId: CardId}>>` — calls `GET /cards/hashes`, brand-mints
 ### 5. Frontend tests
 
 `frontend/tests/integration/known-positions-boot-hydrate.test.ts` (new,
-7 tests):
+6 tests):
 
 - `hydrateKnownPositions` populates the map from a fake bulk fetch.
 - A rejected fetch is swallowed (logged via a `console.error` spy, not
   thrown) — boot stays alive.
 - Calling hydrate twice is additive/first-seen-wins-safe.
-- The auth-flip **wiring contract** — reproduced verbatim from
-  `useAppBootstrap.ts`'s watcher (documented in the test file's header
-  why: invoking the full `useAppBootstrap` composable directly would drag
-  in `SyncService` construction, the keybindings/knob validators, qEUBO
-  bootstrap, and several unrelated auth-state watchers with their own
-  network/DOM side effects that no existing test fakes — the two existing
-  precedents that touch `useAppBootstrap`'s logic,
-  `tests/unit/composables/keybindings-catalog.test.ts` and
-  `tests/unit/lib/knobs.test.ts`, both call the underlying pure contract
-  directly rather than the composable, which this test mirrors) — hydrates
-  on a genuine flip-in, does NOT re-fire on an authenticated→authenticated
-  mutation (no edge), and re-hydrates on re-authentication after a
-  simulated workspace-reset purge.
+- The auth-flip **wiring contract** — drives the REAL production export
+  `installKnownPositionsHydrateWatcher` (see "Response to adversarial
+  review" below for why this isn't a hand-copy) against a fake `auth`
+  object: hydrates on a genuine flip-in, does NOT re-fire on an
+  authenticated→authenticated mutation (no edge), and re-hydrates on
+  re-authentication after a simulated workspace-reset purge.
 
 `tests/fakes/backend-service.ts` extended with
 `fetchKnownPositionHashes: vi.fn<...>()`, reset in
 `resetFakeBackendService()`, following the fake's existing pattern
 exactly.
 
-**WITNESSED**:
+**WITNESSED** (post-review-fix, full suite re-run after the mutation-check
+revert):
 
 ```
 npx vue-tsc --noEmit          → clean (exit 0, no output)
@@ -176,6 +178,100 @@ regression fix restoring the known-position rings/duplicate-warning's
 already-intended behavior, not a new user-facing capability, and
 `FEATURES.md` has no existing entry for the known-position annotation
 surface to update (Stage A/B never got one either).
+
+## Response to adversarial review
+
+The delivery went through an adversarial review that returned
+ACCEPT-WITH-NITS with one blocking finding. Both findings are fixed in
+this revision.
+
+### Finding 1 (significant, blocking) — test hand-copied the watcher logic
+
+**Reviewer's point, confirmed correct**: the original
+`known-positions-boot-hydrate.test.ts` reproduced the auth-flip
+edge-detection condition as a local function inside the test file
+rather than calling real production code. Mutation-falsifying the real
+watcher (inverting its edge condition) left the frontend suite green —
+the test was measuring its own copy, not the shipped behavior. The
+cited precedents (`keybindings-catalog.test.ts`, `knobs.test.ts`) do
+call real exported functions, so the original test's own justification
+didn't hold up.
+
+**Fix**: extracted the watcher-installing logic out of
+`useAppBootstrap`'s body into a new named export,
+`installKnownPositionsHydrateWatcher(auth: Pick<UseAuth, 'state'>):
+WatchStopHandle`, in `useAppBootstrap.ts`. `useAppBootstrap` itself now
+just calls `installKnownPositionsHydrateWatcher(auth)` — the production
+wiring is unchanged in behavior, only relocated to a directly-testable
+named export. The test now imports this real export and drives it
+against a fake `auth` object (`{ state: ref<AuthState>(...) }`,
+satisfying the narrow `Pick<UseAuth, 'state'>` parameter type — no need
+to stub `tryAutoLogin`/`login`/`register`/`logout`). This does not
+invoke the full `useAppBootstrap` composable (which also constructs a
+`SyncService`, runs the keybindings/knob validators, and bootstraps
+qEUBO — side effects irrelevant to this watcher and not worth faking
+just to observe it), matching the same "call the real underlying
+function, not the composable" shape `keybindings-catalog.test.ts` and
+`knobs.test.ts` actually use.
+
+**Mutation check performed, per the acceptance criterion, exactly as
+requested**: in the working tree, changed
+`useAppBootstrap.ts`'s real condition from `if (isAuth && !wasAuth)` to
+`if (!isAuth && !wasAuth)` — inverting the edge condition, reproducing
+the exact class of bug ("hydrate never fires on the real auth
+transition") this delivery exists to prevent — then ran
+`npx vitest run --silent=true tests/integration/known-positions-boot-hydrate.test.ts`.
+Observed result: **2 of 6 tests went red**:
+
+```
+ ❯ tests/integration/known-positions-boot-hydrate.test.ts (6 tests | 2 failed) 2062ms
+     × hydrates once the auth state flips into authenticated 1034ms
+     × re-hydrates on re-authentication after a workspace reset purged the map 1002ms
+
+ FAIL  ... > hydrates once the auth state flips into authenticated
+AssertionError: expected "vi.fn()" to be called 1 times, but got 0 times
+ ❯ tests/integration/known-positions-boot-hydrate.test.ts:160:59
+
+ FAIL  ... > re-hydrates on re-authentication after a workspace reset purged the map
+AssertionError: expected "vi.fn()" to be called 1 times, but got 0 times
+ ❯ tests/integration/known-positions-boot-hydrate.test.ts:187:59
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 4 passed (6)
+```
+
+The third wiring-contract test ("does not re-hydrate on an
+authenticated → authenticated mutation") stayed green under the
+mutation, as expected — it asserts *absence* of a call, and the
+inverted condition still doesn't fire on that particular transition
+(both `wasAuth` and `isAuth` are `true`, so `!isAuth && !wasAuth` is
+`false` either way), so that assertion is insensitive to this
+particular mutation by construction; the other two tests (which assert
+the hydrate call *does* happen) are exactly the ones that caught it.
+The mutation was then reverted (`diff` against a pre-mutation copy of
+the file confirmed byte-identical revert) and the suite re-run to
+confirm 6/6 green again — WITNESSED below under "Frontend tests".
+
+### Finding 2 (minor) — stale/incorrect docstring citations
+
+**(a)** `useKnownPositions.ts`'s docstring cited "App.vue's
+`watch(() => auth.isAuthenticated, ..., { immediate: true })`" as the
+wiring precedent — no such watch exists in `App.vue`; the real
+`ForestDirectory.vue` watch of that shape lives on a tab component, for
+a different (component-mount-gated) reason. Fixed: the docstring now
+names the actual wiring site (`useAppBootstrap.ts`'s
+`installKnownPositionsHydrateWatcher`) and correctly attributes
+`ForestDirectory.vue`'s watch as a *pattern* precedent only, noting it
+lives on a tab component rather than the App-bootstrap layer.
+
+**(b)** `src/state/known-positions.ts`'s file header still said "There
+is no bulk 'all my card hashes' endpoint... This module needs no
+dedicated 'hydrate on login' step" — false since this delivery added
+exactly that endpoint and step. Fixed: the "Population" section now
+describes both paths — the bulk hydrate (completeness guarantee, fires
+per auth-flip) and the pre-existing incidental fill via
+`mapToReviewCard` (still active, covers cards minted/fetched between
+hydrates).
 
 ## Deviations from the brief
 
@@ -203,19 +299,30 @@ Backend:
 
 Frontend:
 - `frontend/src/services/backend-service.ts`
-- `frontend/src/composables/cards/useKnownPositions.ts`
-- `frontend/src/composables/auth-app/useAppBootstrap.ts`
+- `frontend/src/composables/cards/useKnownPositions.ts` (also touched in
+  the review-response pass — docstring citation fix, Finding 2a)
+- `frontend/src/composables/auth-app/useAppBootstrap.ts` (also touched in
+  the review-response pass — `installKnownPositionsHydrateWatcher`
+  extraction, Finding 1)
+- `frontend/src/state/known-positions.ts` (touched only in the
+  review-response pass — file-header fix, Finding 2b)
 - `frontend/tests/fakes/backend-service.ts`
-- `frontend/tests/integration/known-positions-boot-hydrate.test.ts` (new)
+- `frontend/tests/integration/known-positions-boot-hydrate.test.ts` (new;
+  also revised in the review-response pass to drive the real export,
+  Finding 1)
 - `frontend/FILES.md`
 
-## Gate verdicts (summary)
+## Gate verdicts (summary, post-review-fix)
 
 | Gate | Result |
 |---|---|
-| Backend full suite (`pytest -m "not qeubo and not slow"`) | 732 passed, 1 xfailed, 0 failed |
+| Backend full suite (`pytest -m "not qeubo and not slow"`) | 732 passed, 1 xfailed, 0 failed (unchanged by the review-response pass — no backend files touched) |
 | `npx vue-tsc --noEmit` | clean |
 | `npx vitest run --silent=true` (full frontend suite) | 1780 passed, 4 skipped, 0 failed |
-| `npm run gen:api` | UNEXERCISED — pre-existing Alembic-bootstrap hang, documented above |
+| `npm run gen:api` | UNEXERCISED — pre-existing Alembic-bootstrap hang, documented above (unchanged) |
+| Mutation check (Finding 1 acceptance criterion) | inverted edge condition → 2/6 tests in the new file went red (transcript above); reverted, confirmed byte-identical, suite re-confirmed green |
+
+Final commit sha (review-response revision): recorded after the commit
+below — see the reply to the coordinator for the exact sha.
 
 License: Public Domain (The Unlicense)

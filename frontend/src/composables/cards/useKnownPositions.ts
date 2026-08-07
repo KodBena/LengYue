@@ -22,8 +22,12 @@
  * navigation happened to fetch), leaving the game-tree known-position
  * rings and the mint-dialog duplicate warning empty after a fresh SPA
  * start until the user browsed. Wired at auth-readiness by the App
- * bootstrap layer (see `App.vue`'s `watch(() =>
- * auth.isAuthenticated, ..., { immediate: true })`), not here — this
+ * bootstrap layer — `useAppBootstrap.ts`'s exported
+ * `installKnownPositionsHydrateWatcher`, an auth-state `watch` with
+ * `wasAuth`/`isAuth` edge detection (the same auth-readiness-gating
+ * shape `ForestDirectory.vue`'s `watch(auth.isAuthenticated, ...,
+ * { immediate: true })` uses for its own fetch, though that one lives
+ * on a tab component, not the App-bootstrap layer) — not here; this
  * composable only owns the fetch-and-populate operation itself, not
  * *when* it fires.
  *
