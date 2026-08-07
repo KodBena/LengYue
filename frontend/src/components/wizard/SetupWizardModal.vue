@@ -86,11 +86,11 @@ useModalKeyboard(modalContentRef, computed(() => true), wizard.finish);
 <style scoped>
 .modal-backdrop {
   position: fixed; inset: 0; z-index: var(--z-modal);
-  /* rgba(0,0,0,0.1): the codebase's modal-backdrop convention
-     (MintCardModal / EngineMatchModal). The wizard shipped 0.6 — the
-     heavy diffuse-transparent-overlay class the commissioner banned;
-     witnessed making dark-theme text unreadable (commission row 748). */
-  background: rgba(0, 0, 0, 0.1);
+  /* NO backdrop tint — commissioner ruling (commission row 748,
+     restated verbatim 2026-08-07: "*NO* backdrop"): diffuse
+     transparent overlays are banned, at ANY opacity. The element
+     remains only as the centering/click-capture container. */
+  background: transparent;
   display: flex; align-items: center; justify-content: center;
 }
 
