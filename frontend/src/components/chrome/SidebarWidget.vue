@@ -3,10 +3,11 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { store, setActiveBoard, createBoard, closeBoard } from '../../store';
 import BoardTab from '../board/BoardTab.vue';
 import MiniBoard from '../board/MiniBoard.vue';
+import { useVirtualList } from '../../composables/chrome/useVirtualList';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
 import { useJankTest } from '../../composables/perf/useJankTest';
 import type { BoardId } from '../../types';
@@ -30,6 +31,37 @@ defineEmits<{
 }>();
 
 const { getSnapshot, getSnapshotSync } = useThumbnailCache();
+
+// ── Virtualized board-tab rail ──────────────────────────────────────────────
+// Only the visible BoardTabs render — the rail can hold hundreds of boards,
+// each ~800 DOM nodes (~185k live at 230 boards before this). `useVirtualList`
+// windows the render to the scroll viewport; see the close-at-scale postmortem
+// (§2.2 space, §Finding 2 leak).
+const thumbListRef = ref<HTMLElement | null>(null);
+// Fixed BoardTab height. magic-literal tied to BoardTab.vue's CSS — `.tab-thumb`
+// 32 + `.indicator-row` (12 + 2px margin-top) = 46 (global box-sizing:border-box
+// and the `*` margin reset). Measured at mount to self-correct if that drifts.
+const tabHeight = ref(46);
+const { window: tabWindow, topPadPx, bottomPadPx, scrollToIndex } = useVirtualList({
+  items: () => store.boards,
+  itemHeight: () => tabHeight.value,
+  containerRef: thumbListRef,
+  overscan: 4,
+});
+// Id-based active flag (not an index) so a tab's prop stays referentially stable
+// across a sibling's close — the keyed diff then skips it.
+const activeBoardId = computed(() => store.boards[store.activeBoardIndex]?.id ?? null);
+
+onMounted(async () => {
+  await nextTick();
+  const firstTab = thumbListRef.value?.querySelector<HTMLElement>('.thumb-container');
+  if (firstTab && firstTab.offsetHeight > 0) tabHeight.value = firstTab.offsetHeight;
+  scrollToIndex(store.activeBoardIndex);
+});
+
+// Keep the active tab in view when the active board changes (keyboard switch, or
+// a close re-selecting a new active). No-op when it is already visible.
+watch(() => store.activeBoardIndex, (i) => scrollToIndex(i));
 
 // ── Docked hover preview ────────────────────────────────────────────────────
 // The board-tab hover preview is a DOCKED pane at the foot of the rail, not a
@@ -127,34 +159,36 @@ function onHoverLeave() {
       <button class="board-action-btn" @click="$emit('save-sgf')">{{ $t('sidebar.saveSgf') }}</button>
     </div>
 
-    <div class="thumb-list">
-      <!-- No v-memo (deliberate). App.vue re-renders on every navigation, and
-           this widget's `v-show` force-updates it on each parent render, so this
-           v-for re-runs often AND on every board close. Tabs skip re-rendering
-           anyway because every BoardTab prop is referentially stable for an
-           unchanged tab: `:state` is the board object (stable ref — a move-play
-           replacement via updateBoardState changes it, which correctly DOES
-           re-render that one tab), `:isActive`/`:reviewState` are value-stable,
-           and the handlers are STABLE module functions (BoardTab emits its own
-           id) rather than per-`v-for`-item closures. Vue's keyed diff +
-           shouldUpdateComponent then skips the O(N) tabs a sibling's close
-           leaves untouched — closing the O(N²) close-render storm at its real
-           root. (v-memo was the old mask for the nav case, but it caches
-           POSITIONALLY, so a close-induced shift busts every memo and it never
-           helped the close path; the per-item-closure handlers were the actual
-           driver. See docs/notes/postmortem/postmortem-close-at-scale-tab-strip-2026-06.md
-           and docs/notes/perf-audit-game-scroll-2026-05-28.md.) -->
-      <BoardTab
-        v-for="(board, index) in store.boards"
-        :key="board.id"
-        :state="board"
-        :isActive="store.activeBoardIndex === index"
-        :reviewState="getReviewState(board.id)"
-        @activate="onActivate"
-        @close="closeBoard"
-        @hover-enter="onHoverEnter"
-        @hover-leave="onHoverLeave"
-      />
+    <!-- Virtualized board-tab rail: only the visible slice renders
+         (`useVirtualList` windows on scroll). The padded inner wrapper preserves
+         the scrollbar geometry; its `counter-reset: boardtab <start>` keeps the
+         "Board N" CSS-counter labels ABSOLUTE (the first rendered tab is board
+         `tabWindow.start`). Per-tab props stay referentially stable — stable
+         module handlers (BoardTab emits its own id) + an id-based `:isActive` —
+         so Vue's keyed diff skips an unchanged tab on a sibling's close (the
+         close-render-storm fix; close-at-scale postmortem). No v-memo: it caches
+         positionally and never helped the close path. -->
+    <div class="thumb-list" ref="thumbListRef">
+      <div
+        class="thumb-virt"
+        :style="{
+          paddingTop: topPadPx + 'px',
+          paddingBottom: bottomPadPx + 'px',
+          counterReset: 'boardtab ' + tabWindow.start,
+        }"
+      >
+        <BoardTab
+          v-for="board in tabWindow.items"
+          :key="board.id"
+          :state="board"
+          :isActive="board.id === activeBoardId"
+          :reviewState="getReviewState(board.id)"
+          @activate="onActivate"
+          @close="closeBoard"
+          @hover-enter="onHoverEnter"
+          @hover-leave="onHoverLeave"
+        />
+      </div>
     </div>
 
     <button class="tab-add-btn" :title="$t('sidebar.newBoard')" @click="handleAdd">+</button>
@@ -200,14 +234,30 @@ function onHoverLeave() {
   border-right: 1px solid var(--surface-1); width: 168px;
 }
 
+/* Scroll container for the virtualized rail (block, not flex — the flex-column
+   centering moves to `.thumb-virt`, the single padded child whose height the
+   spacer padding inflates to N×tabHeight so the scrollbar geometry is correct).
+   `min-height: 0` is LOAD-BEARING: a flex item defaults to `min-height: auto`,
+   which refuses to shrink below its content — so without this the list grows to
+   fit ALL tabs (clientHeight = full content) and the virtual window spans
+   everything (windowing inert). The classic flexbox-scroll footgun. */
 .thumb-list {
-  flex: 1; overflow-y: auto; width: 100%; display: flex;
-  flex-direction: column; align-items: center;
-  /* Resets the `boardtab` CSS counter each BoardTab's `.thumb-container`
-     increments to render its "Board N" ordinal — see BoardTab's
-     `.tab-label-num`. The browser recomputes it on a close-induced reflow, so
-     the labels renumber with no Vue re-render (fix-boardtab-vmemo-index-key). */
-  counter-reset: boardtab;
+  flex: 1; min-height: 0; overflow-y: auto; width: 100%;
+  /* Disable scroll-anchoring: when the window scrolls and the inline top-pad
+     (content ABOVE the viewport) changes height, the browser would re-adjust
+     scrollTop to preserve the visual position — which fires another scroll
+     event, recomputes the window/pad, re-anchors… a per-frame busy-loop. The
+     window math owns scrollTop here; the browser must not also move it. */
+  overflow-anchor: none;
+}
+
+/* Windowed-slice wrapper. Its inline `counter-reset: boardtab <start>` offsets
+   the "Board N" CSS counter (BoardTab's `.tab-label-num`) so labels stay
+   ABSOLUTE though only the visible slice renders; the inline top/bottom padding
+   reserves the off-screen space (set from useVirtualList). */
+.thumb-virt {
+  display: flex; flex-direction: column; align-items: center;
+  width: 100%; box-sizing: border-box;
 }
 
 .tab-add-btn {
