@@ -16,10 +16,61 @@ import type { KomiCalibrationResult } from '../../engine/katago/komi-calibration
 import { computed } from 'vue';
 import type { BoardId, CardCreatePayload, GameMetadataPayload } from '../../types';
 
+/**
+ * Compiles the `grading_parameter` blob shared by every card-create
+ * payload: the palette snapshot (active, or a user-pinned specific
+ * palette per `minting.defaultPaletteId`), the engine-override
+ * snapshot, `default_visits`, and `gamma`. Pure function of the
+ * current profile settings — no board dependency — so both
+ * `prepareDraft` (mint-from-board) and `useLearnPath` (mint-from-
+ * synthesized-position) can call it without needing a live board.
+ * Extracted from `prepareDraft` (was inline 34b logic) when
+ * `useLearnPath` needed the identical construction without a
+ * `boardId` to read from.
+ */
+export function compileMintGradingParameter(): Record<string, any> {
+  const mintingPrefs = store.profile.settings.minting;
+  const env = store.profile.settings.engine.katago.analysis_env;
+
+  const overrideSettingsSnapshot = compileEngineOverrides();
+  let grading_parameter: Record<string, any> = {
+    data: {
+      analysis_config: compileAnalysisConfig(),
+      ...(overrideSettingsSnapshot ? { overrideSettings: overrideSettingsSnapshot } : {}),
+    },
+  };
+
+  // If the user specified a specific default palette, compile just that one
+  if (mintingPrefs.defaultPaletteId !== 'active') {
+    const specificPalette = env.palettes.find(p => p.id === mintingPrefs.defaultPaletteId);
+    if (specificPalette) {
+      grading_parameter = {
+        data: {
+          analysis_config: {
+            bindings: {
+              delta_fn: specificPalette.delta_fn,
+              state_fns: specificPalette.state_fns,
+              summary_fn: specificPalette.summary_fn
+            },
+            parameters: env.parameters,
+            symbols: env.symbols
+          },
+          ...(overrideSettingsSnapshot ? { overrideSettings: overrideSettingsSnapshot } : {}),
+        }
+      };
+    }
+  }
+
+  grading_parameter.data.default_visits = mintingPrefs.defaultVisits;
+  grading_parameter.data.gamma = mintingPrefs.defaultGamma;
+
+  return grading_parameter;
+}
+
 export function useMinting() {
-  
+
   /**
-   * Reads the current board state and user settings, and constructs 
+   * Reads the current board state and user settings, and constructs
    * a Draft Payload for the Minting Modal. Enforces the XOR rule.
    */
   async function prepareDraft(boardId: BoardId): Promise<CardCreatePayload | null> {
@@ -82,77 +133,21 @@ export function useMinting() {
       };
     }
 
-    // 3. Resolve Palette (Grading Parameter)
-    const mintingPrefs = store.profile.settings.minting;
-    const env = store.profile.settings.engine.katago.analysis_env;
-
-    // 34b: `grading_parameter` is declared with a widening annotation
-    // (`Record<string, any>`) because we mutate it below to add
-    // `default_visits`. Without this, TypeScript would infer the narrower
-    // object-literal type from the initializer and reject the mutation.
-    //
-    // The mint-time snapshot has two legs: `analysis_config` (palette)
-    // determines how the proxy enriches the response; `overrideSettings`
-    // (KataGo runtime overrides) determines what packets KataGo emits
-    // in the first place — winrate sign convention, symmetry sampling,
-    // root noise. Both are part of the stable analysis identity for
-    // this card; both are read back at review time by `useReviewSession`
-    // and threaded through `analyzeRange` so the replay matches the
-    // mint-time analysis posture exactly. The hash that buckets ledger
-    // entries combines both via `compileAnalysisDescriptorFromParts`.
-    //
-    // `compileEngineOverrides()` returns `undefined` when the user has
-    // no overrides configured; we conditionally include the field so a
-    // legacy card's snapshot shape (no `overrideSettings` key) is
-    // reachable as a deliberate "no overrides" semantic for future
-    // mints from a registry-cleared profile.
-    const overrideSettingsSnapshot = compileEngineOverrides();
-    let grading_parameter: Record<string, any> = {
-      data: {
-        analysis_config: compileAnalysisConfig(),
-        ...(overrideSettingsSnapshot ? { overrideSettings: overrideSettingsSnapshot } : {}),
-      },
-    };
-
-    // If the user specified a specific default palette, compile just that one
-    if (mintingPrefs.defaultPaletteId !== 'active') {
-      const specificPalette = env.palettes.find(p => p.id === mintingPrefs.defaultPaletteId);
-      if (specificPalette) {
-        grading_parameter = {
-          data: {
-            analysis_config: {
-              bindings: {
-                delta_fn: specificPalette.delta_fn,
-                state_fns: specificPalette.state_fns,
-                summary_fn: specificPalette.summary_fn
-              },
-              parameters: env.parameters,
-              symbols: env.symbols
-            },
-            ...(overrideSettingsSnapshot ? { overrideSettings: overrideSettingsSnapshot } : {}),
-          }
-        };
-      }
-    }
-
-    // 34b: `default_visits` now lives inside `grading_parameter.data`
-    // instead of at the top level of the payload. Merged in after
-    // palette resolution so both the "active" and "specific palette"
-    // branches pick it up uniformly.
-    grading_parameter.data.default_visits = mintingPrefs.defaultVisits;
-
-    // Recall-discount γ rides in the same opaque blob — the wire is
-    // OpenAPI-honest about the shape (`{[key: string]: unknown} |
-    // null`); the backend reads it back via the same `data.gamma`
-    // path on grading. The MintCardModal surfaces it as editable so
-    // the per-card override is set at mint time; this seeds the
-    // user's profile-default value. Read-side counterpart in
-    // `backend-service.ts::mapToReviewCard`'s `?? 0.9` fallback.
-    grading_parameter.data.gamma = mintingPrefs.defaultGamma;
+    // 3. Resolve Palette (Grading Parameter) — the mint-time snapshot has
+    // two legs: `analysis_config` (palette) determines how the proxy
+    // enriches the response; `overrideSettings` (KataGo runtime
+    // overrides) determines what packets KataGo emits in the first
+    // place. Both are part of the stable analysis identity for this
+    // card; both are read back at review time by `useReviewSession` and
+    // threaded through `analyzeRange` so the replay matches the mint-time
+    // analysis posture exactly. Extracted to `compileMintGradingParameter`
+    // (module-level, above) so `useLearnPath` can build the identical
+    // blob without a live `boardId` to read from.
+    const grading_parameter = compileMintGradingParameter();
 
     return {
       raw_content: sgf,
-      num_moves: mintingPrefs.defaultNumMoves,
+      num_moves: store.profile.settings.minting.defaultNumMoves,
       grading_parameter,
       tags: [],
       parent_card_id,

@@ -27,16 +27,31 @@
  */
 
 import { vi } from 'vitest';
-import type { CardId, CardCreatePayload, CardMetadataPatch, ReviewCard } from '../../src/types';
+import type {
+  CardId,
+  CardCreatePayload,
+  CardLineageTree,
+  CardMetadataPatch,
+  ResolveRootsResult,
+  ReviewCard,
+} from '../../src/types';
 
 export const fakeBackendService = {
   submitReview: vi.fn<(cardId: CardId, scores: number[]) => Promise<ReviewCard>>(),
   createCard: vi.fn<(payload: CardCreatePayload) => Promise<number>>(),
   updateCardMetadata: vi.fn<(cardId: CardId, patch: CardMetadataPatch) => Promise<ReviewCard>>(),
+  // useLearnPath's dedup-coverage read path (frontend/CLAUDE.md fakes
+  // discipline: added when useLearnPath.test.ts started exercising it).
+  resolveRoots: vi.fn<(cardIds: CardId[]) => Promise<ResolveRootsResult>>(),
+  fetchTreeByRoot: vi.fn<(rootCardId: CardId, maxNodes?: number) => Promise<CardLineageTree>>(),
+  fetchCard: vi.fn<(cardId: CardId) => Promise<ReviewCard>>(),
 };
 
 export function resetFakeBackendService(): void {
   fakeBackendService.submitReview.mockReset();
   fakeBackendService.createCard.mockReset();
   fakeBackendService.updateCardMetadata.mockReset();
+  fakeBackendService.resolveRoots.mockReset();
+  fakeBackendService.fetchTreeByRoot.mockReset();
+  fakeBackendService.fetchCard.mockReset();
 }

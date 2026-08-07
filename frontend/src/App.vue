@@ -52,6 +52,7 @@ import AnalysisControls from './components/editors/AnalysisControls.vue';
 import Toolbar          from './components/chrome/Toolbar.vue';
 import StatusBar        from './components/board/StatusBar.vue';
 import MintCardModal    from './components/modals/MintCardModal.vue';
+import LearnPathModal   from './components/modals/LearnPathModal.vue';
 import ConfirmLoadModal from './components/modals/ConfirmLoadModal.vue';
 import EngineMatchModal from './components/modals/EngineMatchModal.vue';
 import PlayEngineModal  from './components/modals/PlayEngineModal.vue';
@@ -86,6 +87,7 @@ const activeBoardId = computed<BoardId | null>(() => activeBoard.value?.id ?? nu
 const controlPanelIdentityKey = computed(() => workspaceIdentityKey(auth.state.value));
 const reviewSession = useReviewSession(activeBoardId);
 const mintModalRef = vueRef<InstanceType<typeof MintCardModal> | null>(null);
+const learnPathModalRef = vueRef<InstanceType<typeof LearnPathModal> | null>(null);
 const matchModalRef = vueRef<InstanceType<typeof EngineMatchModal> | null>(null);
 const playModalRef  = vueRef<InstanceType<typeof PlayEngineModal>  | null>(null);
 
@@ -167,6 +169,16 @@ function triggerMint() {
   }
 }
 
+// "Learn this path" (wiki #8) — mirrors triggerMint's pattern. The
+// modal's own `open()` doesn't need the precondition (loaded-card-at-
+// root) checked here; useLearnPath.runLearnPath surfaces a failed
+// precondition as a reported error inside the modal.
+function triggerLearnPath() {
+  if (activeBoardId.value) {
+    learnPathModalRef.value?.open(activeBoardId.value);
+  }
+}
+
 function handleUpdateKomi(newKomi: number) {
   if (!activeBoard.value || isNaN(newKomi)) return;
   mutateBoard(activeBoard.value.id, draft => {
@@ -228,6 +240,7 @@ function handleNodeSelect(nodeId: NodeId): void {
   <RootErrorBoundary>
   <div id="main-area">
     <MintCardModal ref="mintModalRef" />
+    <LearnPathModal ref="learnPathModalRef" />
     <ConfirmLoadModal ref="confirmLoadModalRef" />
     <EngineMatchModal ref="matchModalRef" @start-match="handleStartMatch" />
     <PlayEngineModal
@@ -255,6 +268,7 @@ function handleNodeSelect(nodeId: NodeId): void {
           @open-match="triggerMatch"
           @stop-match="handleStopMatch"
           @open-play="triggerPlay"
+          @open-learn-path="triggerLearnPath"
           style="flex: 1; border-bottom: none;"
         />
 
