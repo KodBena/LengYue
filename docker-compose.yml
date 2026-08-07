@@ -12,9 +12,13 @@
 # app's usual dev ports.
 #
 # Quick start: `docker compose up --build`, then open
-# http://localhost:19080 in a browser. Board analysis will fail loudly
-# (see the proxy service below) until ENGINE_WS_URL points at a real
-# KataGo-speaking engine.
+# http://localhost:19080 in a browser. ENGINE_WS_URL defaults to the
+# host-side KataGo WS shim's own default (backend/scripts/katago_ws_shim.py,
+# port 1242) — run the shim with its defaults on the Docker host and board
+# analysis works with zero configuration. If nothing is listening there yet,
+# the proxy service still comes up and logs loud connect failures (see the
+# proxy service below) until a shim or engine appears at that address, or you
+# point ENGINE_WS_URL elsewhere.
 
 services:
   backend:
@@ -89,14 +93,22 @@ services:
     environment:
       # The upstream KataGo-speaking engine. NOT containerized (see the
       # file header) — the operator points this at wherever their engine
-      # (or the host-side websocket shim a sibling item provides) is
-      # listening. Left unset by default: RELAY (this image's fixed
-      # PROXY_ROLE, see proxy.Dockerfile) refuses to start with no
-      # upstream configured, so an unset ENGINE_WS_URL surfaces as a
-      # loud, restarting container rather than a silently-broken one —
-      # see docs/docker.md "The KataProxy service" for the exact
-      # observed behavior and how to point this at your engine.
-      UPSTREAM_URLS: ${ENGINE_WS_URL:-}
+      # is listening. Defaults to the host-side KataGo WS shim
+      # (backend/scripts/katago_ws_shim.py) at its own default port,
+      # 1242 — the one user-facing port across every packaging this app
+      # ships (docker, Tauri, bare dev). Reached via
+      # `host.docker.internal` (mapped below) since the proxy container's
+      # network namespace can't otherwise see the host as
+      # `localhost`/`127.0.0.1`. Unset ENGINE_WS_URL no longer means a
+      # restart loop: this default is never empty, so RELAY (this
+      # image's fixed PROXY_ROLE, see proxy.Dockerfile) always has an
+      # upstream URL to start with. If nothing is actually listening at
+      # that address yet (the shim hasn't been started), the proxy still
+      # comes up and stays up — it logs loud connect failures on every
+      # query until the shim appears, rather than crash-looping. See
+      # docs/docker.md "The KataProxy service" for the exact observed
+      # behavior and how to point this at a different engine.
+      UPSTREAM_URLS: ${ENGINE_WS_URL:-ws://host.docker.internal:1242}
     ports:
       - "${KATAPROXY_PORT:-19082}:41949"
     # Same rationale as the backend's extra_hosts above: lets
