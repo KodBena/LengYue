@@ -276,6 +276,7 @@ const {
   startResizeOuter,
   effectiveTreeControlRegionWidthPx,
   freshTreeControlWrapperMinWidthPx,
+  boardColumnMaxWidthPx,
 } = useResizablePanel();
 
 // Defect 6 (ui-fix-56), preserved as a documented, minor cosmetic
@@ -495,10 +496,26 @@ const activeTab = computed<string>({
              past that point. The aspect-ratio SQUARE itself moves down
              one level, to #board-square below — see its own comment
              for why splitting "the row-flex slot" from "the visual
-             square" is what fixes this without losing the square. -->
+             square" is what fixes this without losing the square.
+
+             boardColumnMaxWidthPx (commission row 848, "space should
+             not be wasted" — useResizablePanel.ts's header, "Board-
+             column width cap"): a HEIGHT-bound board-square can't
+             render past the row's own height regardless of how much
+             row WIDTH #board-column's flex-fill claims; left
+             uncapped, the excess became dead centered margin around
+             the square while #tree-control-wrapper starved at its
+             floor. The cap freezes #board-column at its actual usable
+             width once reached, and native flexbox hands the
+             remaining free space to the wrapper's own flex-grow
+             instead — undefined (not yet measured, controls
+             collapsed, or an explicit dragged/restored wrapper width
+             already governs the split) falls back to the prior
+             uncapped behaviour. -->
         <div
           id="board-column"
           v-show="store.session.ui.boardExpanded"
+          :style="boardColumnMaxWidthPx !== undefined ? { maxWidth: boardColumnMaxWidthPx + 'px' } : {}"
         >
           <!-- The visual board square + status bar, centered within
                whatever width #board-column (now unbounded) received.
@@ -824,10 +841,25 @@ const activeTab = computed<string>({
    whatever width #tree-control-wrapper (below — a TRUE nested flex
    container, itself bound to session.ui.treeControlRegionWidthPx, the
    OUTER bar's own persisted fact) did NOT claim — continuously,
-   unconditionally, with no cap of its own. This is a structural (not
-   persisted) derivation, never a second writer: no `max-width` or
-   `aspect-ratio` here at all — the visual square lives one level
-   down, in #board-square. Because #board-column is the OUTER row's
+   unconditionally, with no CSS-authored cap of its own here: no
+   `max-width` or `aspect-ratio` in this static rule — the visual
+   square lives one level down, in #board-square.
+
+   The inline `:style` binding on the element (template, above —
+   `boardColumnMaxWidthPx`, useResizablePanel.ts) DOES add a `max-
+   width` conditionally, but it is disabled (`undefined`) the instant
+   an explicit `treeControlRegionWidthPx` exists — which includes
+   every frame of an active OUTER-bar drag, since `onMouseMoveOuter`
+   writes that field on the very first `mousemove`. So the cap and the
+   1:1-tracking argument below never overlap in time: while a drag is
+   genuinely in flight, #board-column is exactly as uncapped as this
+   comment always described; the cap only ever engages in the
+   NO-EXPLICIT-WIDTH flex-fill distribution (never dragged, nothing
+   restored), where there is no cursor to track yet. See
+   useResizablePanel.ts's header, "Board-column width cap", for why
+   that distribution needed one.
+
+   Because #board-column is the OUTER row's
    ONLY flex-grow party, and the wrapper's own width is the ONLY thing
    the OUTER bar directly drags, #resizer-outer's screen position (a
    function of #board-column's width, since it sits immediately after
