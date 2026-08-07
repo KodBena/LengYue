@@ -12,8 +12,11 @@
  * License: Public Domain (The Unlicense)
  */
 import { computed, nextTick, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { currentDialogRequest, settlePrompt } from '../../composables/useAppDialogs';
 import { useModalKeyboard } from '../../composables/useModalKeyboard';
+
+const { t } = useI18n();
 
 const modalContentRef = ref<HTMLElement | null>(null);
 const inputRef = ref<HTMLInputElement | null>(null);
@@ -23,6 +26,18 @@ const request = computed(() =>
   currentDialogRequest.value?.kind === 'prompt' ? currentDialogRequest.value : null,
 );
 const isOpen = computed(() => request.value !== null);
+
+// The input's accessible name (review finding, ADR-0019 C20): the
+// prior template rendered the prompt's message as a plain <p>, which
+// gives the <input> no programmatic label at all — several call sites
+// pass no `placeholder` either, so those inputs had zero accessible
+// name for assistive tech. A real `<label for>` on the visible prompt
+// text (message, falling back to title, falling back to a generic
+// catalog string) closes this for EVERY call site at once, per
+// `HyperparamPromptModal.vue`'s existing `<label :for>` precedent —
+// no call site has to remember to pass a label itself.
+const INPUT_ID = 'app-prompt-input';
+const inputLabel = computed(() => request.value?.message || request.value?.title || t('dialogs.prompt.defaultLabel'));
 
 // Seed the draft from `defaultValue` each time a NEW request opens
 // (mirrors native `prompt(message, defaultValue)`). Re-seeding is
@@ -64,8 +79,9 @@ useModalKeyboard(modalContentRef, isOpen, cancel);
         <h2 id="app-prompt-title">{{ request.title }}</h2>
       </div>
       <div class="modal-body">
-        <p v-if="request.message">{{ request.message }}</p>
+        <label :for="INPUT_ID" class="prompt-label">{{ inputLabel }}</label>
         <input
+          :id="INPUT_ID"
           ref="inputRef"
           v-model="value"
           type="text"
@@ -97,7 +113,7 @@ useModalKeyboard(modalContentRef, isOpen, cancel);
 .modal-header { padding: var(--space-medium) var(--space-medium); border-bottom: 1px solid var(--surface-3); }
 .modal-header h2 { margin: 0; font-size: var(--text-heading); color: var(--text-0); }
 .modal-body { padding: var(--space-medium); color: var(--text-1); font-size: var(--text-emphasis); display: flex; flex-direction: column; gap: var(--space-default); }
-.modal-body p { margin: 0; }
+.prompt-label { display: block; margin: 0; }
 .dark-input {
   background: var(--surface-0); border: 1px solid var(--border-2); color: var(--text-0);
   padding: var(--space-default); border-radius: var(--radius-default);

@@ -21,6 +21,7 @@
   "dialogs.alert.defaultOk":              "OK",
   "dialogs.prompt.defaultConfirm":        "OK",
   "dialogs.prompt.defaultCancel":         "Cancel",
+  "dialogs.prompt.defaultLabel":          "Value",
 
   "localePicker.tooltip":                 "インターフェース言語を変更",
   "localePicker.machineTranslatedNotice": "* 機械翻訳です — 貢献歓迎",

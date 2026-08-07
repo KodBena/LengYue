@@ -138,6 +138,65 @@ describe('useAppDialogs — prompt()', () => {
     expect(resolved).toBe('new-name');
   });
 
+  it('gives the input a real programmatic label wired to the prompt message (C20 — review finding)', async () => {
+    // The prior shape rendered the message as a plain <p>, which is
+    // NOT a programmatic label — <label for>/aria-labelledby/
+    // aria-label are the only things that give an <input> an
+    // accessible name; several real call sites pass no `placeholder`
+    // either, so that <input> would otherwise have zero accessible
+    // name for assistive tech. Pin the actual DOM association rather
+    // than a computed a11y-tree name (no such computation is
+    // available under jsdom) — a <label for="X"> paired with an
+    // <input id="X"> IS the programmatic association the review
+    // finding asked for; this test fails if the label is ever
+    // removed, its `for` drifts from the input's `id`, or its text
+    // stops tracking `request.message`.
+    wrapper = mount(DialogHost, { attachTo: document.body, global: { plugins: [i18n] } });
+    const vm = wrapper.vm as unknown as HostVm;
+
+    void vm.dialogs.prompt({ message: 'Bookmark name?' });
+    await flushPromises();
+    await nextTick();
+
+    const dialog = wrapper.get('[role="dialog"]');
+    const label = dialog.get('label');
+    const input = dialog.get('input.dark-input');
+
+    expect(label.text()).toBe('Bookmark name?');
+    expect(label.attributes('for')).toBeTruthy();
+    expect(label.attributes('for')).toBe(input.attributes('id'));
+  });
+
+  it('falls back to the dialog title, then a generic catalog string, when no message is given', async () => {
+    wrapper = mount(DialogHost, { attachTo: document.body, global: { plugins: [i18n] } });
+    const vm = wrapper.vm as unknown as HostVm;
+
+    void vm.dialogs.prompt({ title: 'Rename' });
+    await flushPromises();
+    await nextTick();
+
+    let dialog = wrapper.get('[role="dialog"]');
+    let label = dialog.get('label');
+    let input = dialog.get('input.dark-input');
+    expect(label.text()).toBe('Rename');
+    expect(label.attributes('for')).toBe(input.attributes('id'));
+
+    // Settle this request before starting the next one (only one
+    // request is live at a time — see useAppDialogs.ts's header).
+    await dialog.get('.btn-secondary').trigger('click');
+    await flushPromises();
+
+    void vm.dialogs.prompt({});
+    await flushPromises();
+    await nextTick();
+
+    dialog = wrapper.get('[role="dialog"]');
+    label = dialog.get('label');
+    input = dialog.get('input.dark-input');
+    expect(label.text().length).toBeGreaterThan(0);
+    expect(label.attributes('for')).toBe(input.attributes('id'));
+  });
+
   it('resolves null (not empty string) when cancelled — distinguishable from an empty submit', async () => {
     wrapper = mount(DialogHost, { attachTo: document.body, global: { plugins: [i18n] } });
     const vm = wrapper.vm as unknown as HostVm;

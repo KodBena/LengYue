@@ -21,6 +21,7 @@
   "dialogs.alert.defaultOk":              "OK",
   "dialogs.prompt.defaultConfirm":        "OK",
   "dialogs.prompt.defaultCancel":         "Cancel",
+  "dialogs.prompt.defaultLabel":          "Value",
 
   "localePicker.tooltip":                 "Change interface language",
   "localePicker.machineTranslatedNotice": "* machine-translated — contributions welcome",

@@ -1,7 +1,60 @@
 # S14/S16 dialogs — build report
 
 Branch: `worktree-agent-a45e1d4ff88a9b05b`
-Commit: `951742fc`
+Commit: `951742fc` (initial delivery), report commit `ec3461bb`,
+**post-review fix commit: see "Post-review fixup" below — current
+HEAD sha is reported in the final chat reply, not hardcoded twice
+here to avoid drift.**
+
+## Post-review fixup (C20 — accessible name on the prompt input)
+
+Fresh-context review (ACCEPT-WITH-NITS) found one blocking issue:
+`AppPromptDialog.vue`'s `<input>` had no programmatic label
+(`aria-label`/`aria-labelledby`/`<label for>`) — the prompt's message
+rendered as a plain `<p>`, and several real call sites pass no
+`placeholder`, so those inputs had zero accessible name for
+assistive tech. This regressed the codebase's own precedent
+(`HyperparamPromptModal.vue` uses `<label :for>`) and, since this
+whole arc exists to close ADR-0019 findings, shipping a new C20
+violation inside it was not acceptable.
+
+**Base note:** before starting the fix, `next` had moved to
+`f727f0b3` (4 new commits: known-positions boot-hydrate work). The
+worktree branch had exactly 2 commits beyond the old base and none of
+them touched files `next` had also changed, so `git merge next
+--no-edit` applied clean — only `frontend/FILES.md` needed the
+standard auto-merge (both sides appended independent rows), resolved
+automatically with no conflict markers. WITNESSED via the merge
+commit's own diffstat.
+
+**Fix** (`src/components/modals/AppPromptDialog.vue`): replaced the
+plain `<p v-if="request.message">` with `<label :for="INPUT_ID"
+class="prompt-label">{{ inputLabel }}</label>`, and gave the `<input>`
+a matching `:id="INPUT_ID"`. `inputLabel` is a computed fallback
+chain — `request.message || request.title ||
+t('dialogs.prompt.defaultLabel')` — so every call site gets a real
+programmatic label for free, with no call site needing to remember to
+pass one (the review's own ask). New locale key
+`dialogs.prompt.defaultLabel` added to all 4 catalogs for the
+no-message/no-title edge case (not hit by any of the 6 real S14 call
+sites, all of which pass `message`, but closes the gap honestly for
+future callers). The outer dialog's own `role="dialog"`
+`aria-label`/`aria-labelledby` (naming the DIALOG, a separate concern
+from naming the INPUT) was already correct and untouched.
+
+**Test added** (`tests/integration/useAppDialogs.test.ts`, 2 new
+cases, both WITNESSED green):
+- "gives the input a real programmatic label wired to the prompt
+  message (C20 — review finding)" — pins the actual DOM association:
+  asserts the rendered `<label>`'s text equals the prompt message,
+  and that `label.attributes('for') === input.attributes('id')`, so
+  the test fails if the label is ever removed or its `for` drifts
+  from the input's `id`.
+- "falls back to the dialog title, then a generic catalog string,
+  when no message is given" — exercises both fallback rungs of
+  `inputLabel`'s chain.
+
+Total tests in that file: 9 → 11.
 
 ## Worktree-base deviation (disclosed up front)
 
@@ -112,27 +165,36 @@ Did not touch `BoardTab.vue` or `SidebarWidget.vue` — WITNESSED via
 
 ## Gates
 
-- `npx vue-tsc --noEmit` → **exit 0**, WITNESSED, clean (both before
-  and after `npm install`, which was required — the worktree had no
-  `node_modules` at all pre-fast-forward).
+Re-run after the post-review fixup, on the merged (post-`next`-ff)
+tree:
+
+- `npx vue-tsc --noEmit` → **exit 0**, WITNESSED, clean (initial
+  delivery, and again after the C20 fixup).
 - `npx vitest run --silent=true` (full suite, `NODE_OPTIONS=--max-old-space-size=2048
   VITEST_MAX_THREADS=2 VITEST_MAX_FORKS=2`, `nice -n 19`) → **exit 0**,
-  WITNESSED: `147 passed | 3 skipped (150)` files, `1787 passed | 4
-  skipped (1791)` tests, 127s.
-- `npx eslint` over every touched `src/` file → **exit 0**, WITNESSED,
-  zero problems.
+  WITNESSED post-fixup: `148 passed | 3 skipped (151)` files, `1795
+  passed | 4 skipped (1799)` tests, 96.75s. (Pre-fixup, before merging
+  `next`: 147/150 files, 1787/1791 tests — the delta is the 4 new
+  known-positions-boot-hydrate tests `next` brought in via the merge,
+  plus the 2 new C20 tests below.)
+- `npx eslint` over every touched `src/` file (including the fixup) →
+  **exit 0**, WITNESSED, zero problems.
 
 ## Tests added
 
-`tests/integration/useAppDialogs.test.ts` (9 tests, all WITNESSED
-green) — drives the real `AppConfirmDialog.vue` / `AppPromptDialog.vue`
-pair (not mocks), covering:
+`tests/integration/useAppDialogs.test.ts` — 9 tests at initial
+delivery, **11 after the C20 fixup**, all WITNESSED green — drives the
+real `AppConfirmDialog.vue` / `AppPromptDialog.vue` pair (not mocks),
+covering:
 - confirm-accept (danger button), confirm-cancel (button), confirm
   Escape.
 - alert: single footer button, resolves on OK.
 - prompt-value (seeded from `defaultValue`, typed value resolves),
   prompt-cancel (button) resolving `null` (distinguishable from an
   empty-string submit), prompt Escape resolving `null`.
+- **New (C20 fixup):** the input's `<label for>` association pinned
+  against the prompt message, and the message→title→catalog-string
+  fallback chain exercised end to end.
 - One converted call site end-to-end: `CardSetEditor`'s "add deck"
   prompt — click `+`, type a name in the real rendered dialog, submit,
   assert the emitted `update` payload contains the new card set keyed
