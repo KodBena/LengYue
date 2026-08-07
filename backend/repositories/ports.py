@@ -63,7 +63,7 @@ from domain.normalizer import NormalizedPosition
 from domain.pipeline_dsl import BaseSelection
 from domain.stats import ForestMemberRow
 from domain.tree_engine import CardNode
-from schemas.card import CardPatch
+from schemas.card import CardHashEntry, CardPatch
 from schemas.stats import TagStat
 
 
@@ -96,6 +96,32 @@ class CardRepositoryPort(Protocol):
 
         ReviewService translates None into a CardNotFoundError
         (item 11), preserving the same error semantic.
+        """
+        ...
+
+    async def list_content_hashes(
+        self,
+        *,
+        user_id: UserId,
+    ) -> List[CardHashEntry]:
+        """
+        Return every ``(content_hash, card_id)`` pair for cards owned
+        by `user_id` — the bulk-fetch endpoint the
+        card-position-annotations design's §3 recommends ("Recommend
+        (b)") for a boot-time hydrate of the SPA's known-positions
+        map, so the game-tree known-position rings and the mint-
+        dialog duplicate warning are populated by login rather than
+        only incidentally by whichever cards navigation happens to
+        fetch.
+
+        Item 13 (tenancy): the WHERE clause filters on user_id — the
+        same single-predicate shape `fetch_tag_usage` uses (no
+        recursive walk here; every row lives directly on `card`, one
+        join to `normalized_position` for the hash). No cross-tenant
+        row can appear in the result.
+
+        Ordering is unspecified — the SPA only needs the pairs to
+        populate a `Map<ContentHash, CardId>`, not a stable sequence.
         """
         ...
 

@@ -219,6 +219,42 @@ class CardPatch(BaseModel):
     reset_prior: bool = False
 
 
+class CardHashEntry(BaseModel):
+    """
+    One row of ``GET /cards/hashes``'s response: the pairing between
+    a position's content hash and the caller's card id at that
+    position.
+
+    Card-position-annotations boot-time hydrate (see
+    ``.claude/dispatch-reports/card-position-annotations-design.md``
+    §3, "Recommend (b)"): the SPA's `known-positions` state module
+    fills incidentally today, via `mapToReviewCard` on every card
+    fetch (`content_hash` alone, widened onto `CardWithRecall` in
+    Stage A). This DTO adds the ``card_id`` leg so a single bulk
+    fetch at boot/login can populate the full
+    `ContentHash -> CardId` map without waiting on incidental
+    navigation — the completeness guarantee §3 calls out as
+    ``GET /cards/hashes``'s reason to exist over relying on what's
+    already loaded.
+
+    ``content_hash`` is the lowercase-hex SHA-256 digest, same
+    representation and equality contract as
+    `PositionHashResponse.content_hash` (schemas/positions.py) and
+    `CardWithRecall.content_hash` — a client can compare all three
+    with plain string equality. ``card_id`` is the raw PK, matching
+    `CardCreateResponse.card_id` and every other route that
+    addresses a card by its internal id (per-user-id-enumeration
+    Decision 4 allowlists this value).
+    """
+
+    content_hash: str = Field(
+        description="Lowercase-hex SHA-256 digest of the position's normalized content.",
+    )
+    card_id: int = Field(
+        description="The internal id of the caller's card at this position.",
+    )
+
+
 class ReviewRequest(BaseModel):
     scores: List[float] = Field(
         ..., description="Float scores for each move [0.0 - 1.0]"

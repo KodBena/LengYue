@@ -38,6 +38,7 @@ import { isSupportedLocale, DEFAULT_LOCALE } from '../../i18n/locales';
 import type { BoardId } from '../../types';
 import { useQeubo, reconcileQeuboKnobs, rehydrateExperimentClaims } from '../useQeubo';
 import { applyContrastTextAttribute } from './contrast-text-attribute';
+import { useKnownPositions } from '../cards/useKnownPositions';
 import type { useAuth } from './useAuth';
 
 // Path-prefix allowlist for the knob-registry coherence check (PR #410
@@ -300,6 +301,39 @@ export function useAppBootstrap(
         void qeubo.bootstrap();
       } else if (!isAuth && wasAuth) {
         qeubo.reset();
+      }
+    },
+  );
+
+  // Known-positions boot-time hydrate (see
+  // `.claude/dispatch-reports/known-positions-boot-hydrate.md`). On
+  // every `authenticated` flip-in — cold-start auto-login AND a later
+  // re-authentication after logout/identity-switch — bulk-populate the
+  // `known-positions` state module's `ContentHash -> CardId` map via
+  // `GET /cards/hashes`, so the game-tree known-position rings
+  // (`useKnownPositionNodes.ts`, TreeWidget's `known-position-ring`)
+  // and the mint-dialog duplicate warning are live immediately instead
+  // of only filling in as incidental navigation touches cards. Same
+  // watcher shape as the qEUBO / analysis-persistence auth-state
+  // watchers above — `wasAuth`/`isAuth` edge detection so this fires
+  // once per genuine flip-in, not on every unrelated `auth.state`
+  // mutation. `hydrateKnownPositions` swallows its own failures
+  // (logs loudly, never throws) per ADR-0002 "audible, not fatal", so
+  // no `.catch()` is needed here.
+  //
+  // The prior identity's entries are purged by
+  // `known-positions.ts`'s own `workspace-reset` teardown handler
+  // (fired by `resetWorkspace` on identity-out) — this watcher only
+  // owns the re-fill half; the purge is the state module's own
+  // resource-ownership responsibility, not bootstrap's.
+  const knownPositions = useKnownPositions();
+  watch(
+    () => auth.state.value,
+    (next, prev) => {
+      const wasAuth = prev?.kind === 'authenticated';
+      const isAuth = next.kind === 'authenticated';
+      if (isAuth && !wasAuth) {
+        void knownPositions.hydrateKnownPositions();
       }
     },
   );

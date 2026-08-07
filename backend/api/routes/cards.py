@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timezone
+from typing import List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, HTTPException
@@ -19,6 +20,7 @@ from repositories.ports import CardRepositoryPort
 from schemas.card import (
     CardCreate,
     CardCreateResponse,
+    CardHashEntry,
     CardPatch,
     ReviewRequest,
 )
@@ -28,6 +30,42 @@ from services.review_service import ReviewService
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/cards", tags=["cards"])
+
+
+@router.get("/hashes", response_model=List[CardHashEntry])
+async def get_card_hashes(
+    repo: CardRepositoryPort = Depends(get_card_repo),
+    user_id: UserId = Depends(get_current_user_id),  # Item 13 (active).
+):
+    """
+    Returns every ``(content_hash, card_id)`` pair for cards the
+    caller owns.
+
+    Card-position-annotations boot-time hydrate (see
+    ``.claude/dispatch-reports/card-position-annotations-design.md``,
+    §3 "Recommend (b)"): the SPA's `known-positions` state module
+    otherwise fills only incidentally, via whichever cards navigation
+    happens to fetch — leaving the game-tree known-position rings and
+    the mint-dialog duplicate warning empty after a fresh SPA start
+    until the user browses. This is the guaranteed-complete bulk
+    fetch the design names as the fix, driven at SPA boot/login
+    rather than left to incidental navigation.
+
+    Registered ahead of ``GET /{card_id}`` in this file: Starlette's
+    default path converter for an untyped ``{card_id}`` segment
+    matches any non-slash string, so if this static route were
+    registered *after* the parametrized one, a request to
+    ``/cards/hashes`` would match ``/cards/{card_id}`` first and only
+    then fail FastAPI's ``int`` coercion of ``"hashes"`` (a 422, not
+    this endpoint). Route order is load-bearing here.
+
+    Item 13 (tenancy): user_id is forwarded to the Port, which
+    filters on it directly — no cross-tenant row can appear in the
+    result, same 404-not-403-adjacent guarantee (there's nothing to
+    404 on; an absent set is just an empty list) the rest of the
+    card surface gives.
+    """
+    return await repo.list_content_hashes(user_id=user_id)
 
 
 @router.get("/{card_id}", response_model=CardWithRecall)
