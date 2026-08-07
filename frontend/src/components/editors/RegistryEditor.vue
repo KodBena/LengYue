@@ -117,6 +117,7 @@ const PATH_ENUMS: Record<string, readonly string[]> = {
   'pvAnimation.annotation':        ['none', 'from1', 'fromCurrent'],
   'qeuboToolbarView':              ['applied', 'A', 'B'],
   'boardVariations':               ['off', 'circles', 'letters'],
+  'moveDeltaAnnotation':           ['off', 'deltaVisits', 'perPlayer'],
   'deltaViewMode':                 ['shared', 'black', 'white'],
 };
 

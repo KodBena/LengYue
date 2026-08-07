@@ -5,7 +5,7 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-08-06: migrations 1 → 2 through 64 → 65 (64
+ * Scope as of 2026-08-07: migrations 1 → 2 through 65 → 66 (65
  * entries). The first eight covered pre-v1.0.0 schema evolution;
  * the rest are the v1.0.x – v1.1.x active cycle, archived in
  * per-PR rolling fashion under the same archive contract.
@@ -2734,6 +2734,61 @@ export const archivedMigrations: Migration[] = [
     const forestNav = witnessedContainer(out, 'session.ui.forestNav');
     if (forestNav) {
       (forestNav as { selection?: unknown }).selection = {};
+    }
+    return out;
+  },
+  // 65 → 66: resizer-rearch — strip the two pre-rearch split-workspace
+  // resizer homes. The current-model fields this rearch settled on
+  // (`session.ui.treePanelWidthPx`, `session.ui.treeControlRegionWidthPx`
+  // — nested-splitter amendment, ledger rows 391/414; see schema.ts)
+  // are both purely additive/optional and never shipped under a prior
+  // name, so this migration only needs to strip, never rename. Strips:
+  //
+  //   - `session.ui.boardSquareMaxWidthPx` — the pre-rearch board-
+  //     width cap the resizer drag used to write (ADR-0019 audit
+  //     `.claude/dispatch-reports/adr19-audit.md` S2: two writers for
+  //     one conceptual fact, a discontinuous drag-start clobber, and
+  //     — because it has no reliable visible effect past the board's
+  //     own aspect-ratio saturation point — the persisted slot with
+  //     no visible effect on reload).
+  //   - `session.ui.controlPanelWidth` — a dead, never-read zombie
+  //     field (ADR-0019 audit S9: "a control wired to nothing";
+  //     `grep -rn "controlPanelWidth\b" src/` before this migration
+  //     returned exactly the schema declaration and the default).
+  //     Removed in the same migration as the board-width cap so
+  //     neither pre-rearch field survives into a freshly-migrated
+  //     blob, which would otherwise recreate the exact "one fact, two
+  //     homes" defect class (Rule 3 / C1) this rearch exists to close.
+  //
+  // No value is carried forward to either current-model field.
+  // `boardSquareMaxWidthPx` (a board-width cap) has no principled
+  // conversion to either `treePanelWidthPx` or
+  // `treeControlRegionWidthPx` without live viewport geometry — the
+  // row's actual pixel width, the tree panel's current visibility,
+  // the board's current height — none of which a migration body (a
+  // pure function over the persisted blob, no DOM) has access to.
+  // Backfilling a guessed value would be exactly the silent-narrowing
+  // this codebase's ADR-0002 posture forbids; leaving both new fields
+  // `undefined` (their documented default: no drag yet, natural
+  // layout) is the honest choice — the user re-drags once, same as
+  // any migration that resets a runtime/session-shaped preference
+  // rather than fabricating a translation for it.
+  //
+  // Idempotent: deleting an already-absent key is a no-op.
+  //
+  // Container access goes through `witnessedContainer` (per step 3 of
+  // the add-a-migration recipe): `session.ui` is witnessed against the
+  // runtime shape, so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version. The blob-side resolution keeps
+  // the sibling bodies' non-null-object tolerance: a partial / legacy
+  // blob whose container is absent no-ops.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { boardSquareMaxWidthPx?: unknown; controlPanelWidth?: unknown };
+      delete u.boardSquareMaxWidthPx;
+      delete u.controlPanelWidth;
     }
     return out;
   },

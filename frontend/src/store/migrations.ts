@@ -128,13 +128,13 @@ if (import.meta.hot) import.meta.hot.accept(() => location.reload());
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 67;
+export const CURRENT_SCHEMA_VERSION = 68;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 64 → 65) are
+ * The first `N` entries (currently 1 → 2 through 65 → 66) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -156,61 +156,6 @@ export const CURRENT_SCHEMA_VERSION = 67;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 65 → 66: resizer-rearch — strip the two pre-rearch split-workspace
-  // resizer homes. The current-model fields this rearch settled on
-  // (`session.ui.treePanelWidthPx`, `session.ui.treeControlRegionWidthPx`
-  // — nested-splitter amendment, ledger rows 391/414; see schema.ts)
-  // are both purely additive/optional and never shipped under a prior
-  // name, so this migration only needs to strip, never rename. Strips:
-  //
-  //   - `session.ui.boardSquareMaxWidthPx` — the pre-rearch board-
-  //     width cap the resizer drag used to write (ADR-0019 audit
-  //     `.claude/dispatch-reports/adr19-audit.md` S2: two writers for
-  //     one conceptual fact, a discontinuous drag-start clobber, and
-  //     — because it has no reliable visible effect past the board's
-  //     own aspect-ratio saturation point — the persisted slot with
-  //     no visible effect on reload).
-  //   - `session.ui.controlPanelWidth` — a dead, never-read zombie
-  //     field (ADR-0019 audit S9: "a control wired to nothing";
-  //     `grep -rn "controlPanelWidth\b" src/` before this migration
-  //     returned exactly the schema declaration and the default).
-  //     Removed in the same migration as the board-width cap so
-  //     neither pre-rearch field survives into a freshly-migrated
-  //     blob, which would otherwise recreate the exact "one fact, two
-  //     homes" defect class (Rule 3 / C1) this rearch exists to close.
-  //
-  // No value is carried forward to either current-model field.
-  // `boardSquareMaxWidthPx` (a board-width cap) has no principled
-  // conversion to either `treePanelWidthPx` or
-  // `treeControlRegionWidthPx` without live viewport geometry — the
-  // row's actual pixel width, the tree panel's current visibility,
-  // the board's current height — none of which a migration body (a
-  // pure function over the persisted blob, no DOM) has access to.
-  // Backfilling a guessed value would be exactly the silent-narrowing
-  // this codebase's ADR-0002 posture forbids; leaving both new fields
-  // `undefined` (their documented default: no drag yet, natural
-  // layout) is the honest choice — the user re-drags once, same as
-  // any migration that resets a runtime/session-shaped preference
-  // rather than fabricating a translation for it.
-  //
-  // Idempotent: deleting an already-absent key is a no-op.
-  //
-  // Container access goes through `witnessedContainer` (per step 3 of
-  // the add-a-migration recipe): `session.ui` is witnessed against the
-  // runtime shape, so a typo'd path fails loudly here rather than
-  // no-oping and stamping the version. The blob-side resolution keeps
-  // the sibling bodies' non-null-object tolerance: a partial / legacy
-  // blob whose container is absent no-ops.
-  (blob: any) => {
-    const out = structuredClone(blob);
-    const ui = witnessedContainer(out, 'session.ui');
-    if (ui) {
-      const u = ui as { boardSquareMaxWidthPx?: unknown; controlPanelWidth?: unknown };
-      delete u.boardSquareMaxWidthPx;
-      delete u.controlPanelWidth;
-    }
-    return out;
-  },
   // 66 → 67: backfill `session.ui.cardsContextGameSourceOrdinals = []`
   // (macro-public-id-tokens, ledger row 456 — restoring the Cards-tab
   // `${gameSourceId}` macro after browse-leak-fix broke it). New
@@ -236,6 +181,42 @@ export const migrations: Migration[] = [
       const u = ui as { cardsContextGameSourceOrdinals?: unknown };
       if (!Array.isArray(u.cardsContextGameSourceOrdinals)) {
         u.cardsContextGameSourceOrdinals = [];
+      }
+    }
+    return out;
+  },
+  // 67 → 68: backfill `session.ui.moveDeltaAnnotation` (string enum
+  // 'off' | 'deltaVisits' | 'perPlayer', default 'off') — the new
+  // board-overlay toggle for the just-played move's delta + visit-count
+  // annotation (wiki Wanted #7 / #7.1; see the field's doc comment on
+  // `UISession` in `schema.ts` and `composables/board/useMoveDeltaAnnotation.ts`
+  // for the derivation). The leaf is read by `BoardWidget` (gates whether
+  // `BoardDeltaAnnotation` mounts) and by `RegistryEditor`'s `PATH_ENUMS`
+  // table (renders the three-way dropdown); a persisted blob predating
+  // this field would otherwise carry no value and rely on
+  // `updateFromRemote`'s deepMerge to surface the default. Backfilling
+  // explicitly keeps the persisted shape honest (the composition test
+  // pins it) rather than leaning on the merge.
+  //
+  // Container witnessed against the runtime shape (`witnessedContainer`,
+  // per step 3 of the add-a-migration recipe): `session.ui` exists from
+  // the framework's introduction, so a typo'd path fails loudly here
+  // rather than no-oping and stamping the version. The blob-side
+  // resolution keeps the sibling bodies' non-null-object tolerance: a
+  // partial / legacy blob whose container is absent no-ops.
+  //
+  // Idempotent: a pre-existing valid `moveDeltaAnnotation` is preserved
+  // unchanged (a hand-edited or forward-compat blob keeps its value);
+  // only a missing / wrong-typed / out-of-enum leaf is backfilled to the
+  // default.
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { moveDeltaAnnotation?: unknown };
+      const valid = ['off', 'deltaVisits', 'perPlayer'];
+      if (typeof u.moveDeltaAnnotation !== 'string' || !valid.includes(u.moveDeltaAnnotation)) {
+        u.moveDeltaAnnotation = 'off';
       }
     }
     return out;

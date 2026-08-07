@@ -836,6 +836,23 @@ export interface UISession {
   // applied to — they are no longer meaningful against the new
   // forest.
   cardTreeNav: PerBoard<CardTreeNavState>;
+  // Board-overlay annotation mode for the just-played move's delta (vs its
+  // parent) and the child's visit count — wiki Wanted #7 / #7.1.
+  //   'off'         — no annotation rendered (the default).
+  //   'deltaVisits' — generic label: the palette-defined delta value and
+  //                   the child's rootInfo.visits.
+  //   'perPlayer'   — same delta value, framed as the mover's own "score
+  //                   delta" (per #7.1's common request) — labelled and
+  //                   tinted per player (Black Δ / White Δ), matching
+  //                   `MergedDeltaPanel`'s Black Delta / White Delta
+  //                   convention. Still derived from the active palette's
+  //                   `delta_fn`; there is no separate score-delta formula.
+  // In every non-'off' mode, absence of a delta for the current node in
+  // the analysis ledger (parent and/or child not yet both evaluated)
+  // renders nothing — never a zero placeholder. See
+  // `composables/board/useMoveDeltaAnnotation.ts` for the derivation.
+  // Schema-version 68 introduces the field.
+  moveDeltaAnnotation: 'off' | 'deltaVisits' | 'perPlayer';
 }
 
 // ── Forest Directory navigator persistence (UISession.forestNav) ─────────────

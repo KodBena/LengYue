@@ -740,6 +740,12 @@ export const defaultSessionUI: UISession = {
   // field; the migration backfills existing blobs with the same
   // empty default.
   cardTreeNav: {},
+  // Board-overlay delta+visits annotation — off by default, matching
+  // showStoneMoveNumbers' posture: an opt-in overlay a user turns on via
+  // the Session (UI) registry once they know it exists, rather than
+  // surprising every board with new on-stone chrome. Schema-version 68
+  // introduces the field.
+  moveDeltaAnnotation: 'off',
 };
 
 export const DEFAULTS = {

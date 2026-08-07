@@ -37,7 +37,10 @@ const _visitsCompactFormatter = new Intl.NumberFormat('en', {
   notation: 'compact',
   maximumFractionDigits: 1,
 });
-function formatVisitsCompact(visits: number): string {
+// Exported: `BoardDeltaAnnotation.vue` (the delta+visits board overlay,
+// wiki Wanted #7) reuses this for its own visit-count label rather than
+// duplicating the Intl.NumberFormat setup.
+export function formatVisitsCompact(visits: number): string {
   return _visitsCompactFormatter.format(visits);
 }
 
