@@ -696,9 +696,9 @@
   "wizard.theme.cluster":                 "Light",
 
   "wizard.step.engineUri.title":          "Engine connection",
-  "wizard.step.engineUri.description":    "This is the address the app connects to for KataGo analysis. The default works for a KataGo instance running on this machine — change it if yours runs elsewhere.",
+  "wizard.step.engineUri.description":    "The app talks to KataGo through a proxy (KataProxy), not directly — this field sets what the app itself connects to, normally the local proxy already wired up for you in the Docker and desktop builds. The KataGo engine those builds forward to is configured separately (Docker: ENGINE_WS_URL at compose time; desktop: the proxy's upstream setting). Running from source, this field can point straight at an engine, or at any proxy in the chain.",
   "wizard.engineUri.label":               "Engine WebSocket URI",
-  "wizard.engineUri.hint":                "Example: ws://127.0.0.1:41948 — you can change this anytime from the toolbar or Settings.",
+  "wizard.engineUri.hint":                "Example: ws://127.0.0.1:41948 — full setup story: docs/docker.md. Change this anytime from the toolbar or Settings.",
 
   "wizard.step.palette.title":            "Default palette",
   "wizard.step.palette.description":      "The palette controls how move quality is summarized across the board and charts. You can switch anytime.",
