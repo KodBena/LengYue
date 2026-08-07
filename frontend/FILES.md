@@ -163,7 +163,7 @@ frontend/src/
 │
 ├── wizard/                                   First-run setup wizard (ledger slug swz-setup-wizard). Orchestrator shell + step indicator, one leaf per step under wizard/steps/. Every step writes its own real store cell directly — the wizard is a VIEW, never a second home (ADR-0012).
 │   ├── SetupWizardModal.vue           [B1]  Orchestrator shell: mounts `useSetupWizard`'s current step, the step indicator, and the Back/Skip/Next/Finish footer. Escape / backdrop / × all call `finish()` — dismissing at any point still marks the profile onboarded (this is a first-RUN wizard). `useModalKeyboard`-wired like every other modal.
-│   ├── WizardStepIndicator.vue        [B1]  Numbered step-dot row (ADR-0019 wizard genre convention); past steps are click-to-jump, current/future are not (nothing gates forward progression anyway).
+│   ├── WizardStepIndicator.vue        [B1]  Numbered step-dot row (ADR-0019 wizard genre convention); every dot but the current one is click-to-jump, forward or back (nothing gates forward progression).
 │   │
 │   └── steps/
 │       ├── WizardStepTheme.vue        [B1]  Step (a) — light/dark presented neutrally side by side, no preselected favorite (commissioner ruling). Writes `profile.settings.appearance.theme` — the SAME cell RegistryEditor's Advanced Registry section edits.
