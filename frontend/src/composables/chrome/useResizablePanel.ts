@@ -100,9 +100,42 @@
  * both new fields) — a dropped `touchSession()` at either site must
  * turn a case red there.
  *
+ * ── Restore-time board-visibility clamp (ui-5-3) ──────────────────
+ * The two `:style` bindings above (App.vue) used to read
+ * `store.session.ui.treeControlRegionWidthPx` RAW — the OUTER bar's
+ * own drag clamps against the row's live width at `mousedown`
+ * (`regionMaxWidthPx` below), but a value that reaches App.vue any
+ * other way (hydrated from a stale save, a save made on a wider
+ * screen, or simply garbage) was rendered unclamped. On a narrower
+ * viewport than the one the value was saved from, this could squeeze
+ * `#board-column` down to a sliver — reported as "the board comes
+ * back minimized after upgrading" (wiki #5.3): the fix predates the
+ * nested-splitter rearch only in the sense that ANY numeric width
+ * persisted against one viewport and replayed against another has
+ * the same failure shape; the rearch just gave it a name
+ * (`treeControlRegionWidthPx`) and a single call site to fix it at.
+ *
+ * `effectiveTreeControlRegionWidthPx` (returned below) re-derives the
+ * SAME clamp `startResizeOuter` computes at drag-time, but from the
+ * CURRENT live width of `#split-workspace` on every render — not just
+ * while a drag is in flight — via `sanitizeTreeControlRegionWidthPx`,
+ * a pure function so the clamp itself is unit-testable without
+ * mounting anything. The live width is tracked with the
+ * ResizeObserver-cached-geometry idiom (`frontend/CLAUDE.md`'s
+ * imperative-escape pattern): measured once on mount and on every
+ * resize of the row, never read synchronously on a hot path. The
+ * tracking ref starts at `0`, which clamps the wrapper DOWN to its
+ * own floor (`WRAPPER_MIN_WIDTH_PX`) until the first real
+ * measurement lands — the opposite failure (a briefly narrow
+ * tree/control region for one tick) is harmless and self-corrects;
+ * a minimized board is the regression this exists to prevent, so the
+ * default errs toward protecting the board. `undefined` in (never
+ * dragged) still means `undefined` out — fresh installs, which have
+ * no persisted value to sanitize, are unaffected.
+ *
  * License: Public Domain (The Unlicense).
  */
-import { onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { store, touchSession } from '../../store';
 
 // The board's own floor. The OUTER bar's upper clamp is derived so
@@ -206,6 +239,32 @@ export function computeTreeControlRegionWidthPx(
   maxRegionWidthPx: number,
 ): number {
   return computePaneWidthPx(dragOriginPx, totalDeltaPx, WRAPPER_MIN_WIDTH_PX, maxRegionWidthPx, -1);
+}
+
+/**
+ * ui-5-3 restore-time clamp: re-derives `startResizeOuter`'s own
+ * `regionMaxWidthPx` bound (`rowWidthPx - MIN_BOARD_PX -
+ * RESIZER_WIDTH_PX`, floored at `WRAPPER_MIN_WIDTH_PX`) from the row's
+ * CURRENT live width, and clamps a persisted `rawWidthPx` against it
+ * via `computeTreeControlRegionWidthPx` at zero displacement (`next =
+ * dragOriginPx`, i.e. the raw value itself, then clamped) — so a
+ * hydrated width that was saved against a DIFFERENT (usually wider)
+ * viewport, or is otherwise stale/migrated/garbage, can never leave
+ * `#board-column` narrower than `MIN_BOARD_PX`. `undefined` in ⇒
+ * `undefined` out: a workspace whose OUTER bar has never been dragged
+ * keeps its `flex: 1 1 0` default (App.vue) unchanged — fresh installs
+ * are unaffected by this clamp.
+ */
+export function sanitizeTreeControlRegionWidthPx(
+  rawWidthPx: number | undefined,
+  rowWidthPx: number,
+): number | undefined {
+  if (rawWidthPx === undefined) return undefined;
+  const maxRegionWidthPx = Math.max(
+    WRAPPER_MIN_WIDTH_PX,
+    Math.round(rowWidthPx - MIN_BOARD_PX - RESIZER_WIDTH_PX),
+  );
+  return computeTreeControlRegionWidthPx(rawWidthPx, 0, maxRegionWidthPx);
 }
 
 export function useResizablePanel() {
@@ -334,5 +393,40 @@ export function useResizablePanel() {
     stopResizeOuter();
   });
 
-  return { startResizeInner, startResizeOuter };
+  // ── Restore-time board-visibility clamp (ui-5-3) ──────────────────
+  // See this file's header, "Restore-time board-visibility clamp",
+  // for the full rationale. `rowWidthPx` is `#split-workspace`'s own
+  // live width — independent of how its children (board / wrapper)
+  // currently divide it, so measuring it is never circular with the
+  // clamp derived from it. ResizeObserver-cached geometry per
+  // `frontend/CLAUDE.md`'s imperative-escape pattern: measured once on
+  // mount, refreshed only on an actual resize of the row, released on
+  // unmount.
+  const rowWidthPx = ref(0);
+  let rowObserver: ResizeObserver | null = null;
+
+  function measureRowWidth() {
+    const row = document.getElementById('split-workspace');
+    if (row) rowWidthPx.value = Math.round(row.getBoundingClientRect().width);
+  }
+
+  onMounted(() => {
+    measureRowWidth();
+    const row = document.getElementById('split-workspace');
+    if (row && typeof ResizeObserver !== 'undefined') {
+      rowObserver = new ResizeObserver(measureRowWidth);
+      rowObserver.observe(row);
+    }
+  });
+
+  onUnmounted(() => {
+    rowObserver?.disconnect();
+    rowObserver = null;
+  });
+
+  const effectiveTreeControlRegionWidthPx = computed(() =>
+    sanitizeTreeControlRegionWidthPx(store.session.ui.treeControlRegionWidthPx, rowWidthPx.value),
+  );
+
+  return { startResizeInner, startResizeOuter, effectiveTreeControlRegionWidthPx };
 }
