@@ -67,7 +67,7 @@
 .deck-dropdown:focus { border-color: var(--accent-primary); }
 
 .action-btn-large { background: var(--accent-primary); color: var(--text-0); border: none; padding: var(--space-tight) var(--space-medium); cursor: pointer; border-radius: var(--radius-default); font-weight: bold; width: 100%; }
-.toolbar-btn-sm { border: 1px solid var(--border-3); color: var(--text-1); padding: 1px 4px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); }
+.toolbar-btn-sm { background: var(--surface-0); border: 1px solid var(--border-3); color: var(--text-1); padding: 1px 4px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); }
 /* magic-literal: clamp(400px, 60vh, 800px) `.registry-container` max-height.
    Floor 400: preserves the prior fixed 400px on short viewports (≤700px
    tall, where 60vh ≤ 400). Cap 800: prevents runaway at 4K (≥1334px tall,

@@ -206,6 +206,11 @@
   "confirmLoad.button.overwrite":         "Overwrite Current",
   "confirmLoad.button.openInNewTab":      "Open in New Tab",
 
+  "confirmCloseBoard.title":               "Close Board",
+  "confirmCloseBoard.body":                "\"{name}\" has moves on it. Closing discards them — this can't be undone.",
+  "confirmCloseBoard.button.cancel":       "Cancel",
+  "confirmCloseBoard.button.close":        "Close Board",
+
   "match.title":                          "Engine Match",
   "match.subtitle":                       "Engines play forward from the current position. Click STOP MATCH on the toolbar to interrupt at any point.",
   "match.singleEngineNote":               "Proxy is not in SELECTOR mode — both colours play through the single connected engine ({label}).",
@@ -650,6 +655,7 @@
 
   "boardTab.label":                       "Board {n}",
   "boardTab.close":                       "Close board",
+  "boardTab.closeAria":                   "Close {name}",
 
   "systemLog.title":                      "System Diagnostics",
   "systemLog.clearAll":                   "Clear All",

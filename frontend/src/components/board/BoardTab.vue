@@ -16,6 +16,7 @@ import { useVariationPathFor } from '../../composables/board/useVariationPath';
 import { activeAnalysisKeys } from '../../state/analysis-config';
 import { useThrottledSnapshot } from '../../composables/useThrottledSnapshot';
 import { BOARD_TAB_RUGPLOT_REDRAW_THROTTLE_MS } from '../../lib/timing';
+import { resolveGameName } from '../../engine/util';
 
 const props = defineProps<{
   state: BoardState;
@@ -38,10 +39,36 @@ const props = defineProps<{
 // referentially stable, so the keyed diff skips it.
 const emit = defineEmits<{
   (e: 'activate', id: BoardId): void;
-  (e: 'close', id: BoardId): void;
+  // Renamed from 'close' (ADR-0019 audit S6): the parent no longer wires
+  // this straight to the store's closeBoard — it's a REQUEST that the
+  // parent may gate behind a confirm modal first (C10 — irreversible
+  // actions guarded). The event name says so.
+  (e: 'request-close', id: BoardId): void;
   (e: 'hover-enter', id: BoardId): void;
   (e: 'hover-leave'): void;
 }>();
+
+// ── Accessible tab name (ADR-0019 audit S11) ──────────────────────────────
+// The visible "Board N" ordinal stays a CSS counter (see `.tab-label-num`
+// below) — that's the deliberate perf choice that avoids a Vue re-render on
+// every close-induced reflow, and this fix does not touch it. What was
+// missing is the accessibility channel: a screen reader (or find-in-page,
+// or copy-paste) sees only the literal word "Board" repeated across every
+// tab, with no way to tell 92 tabs apart.
+//
+// `displayName` is bound to `aria-label`/`title` only — never rendered as
+// DOM text in the counter's place — so it does NOT reintroduce the O(N²)
+// close-render cost the counter exists to avoid: this is a single scalar
+// attribute per tab, not a per-move v-for. It reads `resolveGameName`
+// (the same GN → EV → sourceFileName → date-stamped-fallback ladder
+// `useMetadata`/`useMinting` already use as the SSOT for "this board's
+// name"), which only depends on the ROOT node's properties + the source
+// filename — both are written once at SGF-load time, not per move and not
+// per analysis packet, so this computed does not subscribe to anything
+// high-frequency. It changes when a board's identity changes (load/close),
+// not on the ~4 Hz colour-update cadence the canvas escape above exists to
+// dodge.
+const displayName = computed<string>(() => resolveGameName(props.state));
 
 // Path from the OWN board object (props.state), NOT the id wrapper: the wrapper
 // resolves through `boardsById`, which invalidates on every board-set change
@@ -205,22 +232,52 @@ onUnmounted(() => {
     @mouseenter="emit('hover-enter', state.id)"
     @mouseleave="emit('hover-leave')"
   >
-    <div 
-      class="tab-thumb" 
-      :class="{ 
+    <!-- `.tab-thumb-wrap` carries the active/review visual state (border,
+         background, glow) that used to live directly on `.tab-thumb`; it now
+         also owns the `position: relative` anchor for `.close-board-btn`'s
+         absolute offset. `.tab-thumb` became a real <button> (ADR-0019 audit
+         S6 — keyboard-reachable tab selection, standard Enter/Space
+         activation, native tab-order presence) and a <button> cannot legally
+         nest another <button>, so `.close-board-btn` moved out to be its
+         sibling instead of `.tab-thumb`'s child. Visually unchanged: the
+         close button still overlaps the same corner at the same offset. -->
+    <div
+      class="tab-thumb-wrap"
+      :class="{
         active: isActive,
         'review-active': reviewState === 'ACTIVE',
         'review-intermission': reviewState === 'INTERMISSION',
         'review-complete': reviewState === 'COMPLETE'
       }"
     >
-      <!-- "Board N": the localized word comes from i18n (relabels on a language
-           switch — the parent's v-memo carries `locale`), the number is a CSS
-           counter so it renumbers on a close-induced reflow with no Vue render. -->
-      <i18n-t keypath="boardTab.label" tag="span" class="tab-label" scope="global">
-        <template #n><span class="tab-label-num" /></template>
-      </i18n-t>
-      <button class="close-board-btn" @click.stop="emit('close', state.id)" :title="$t('boardTab.close')">×</button>
+      <button
+        type="button"
+        class="tab-thumb"
+        :aria-label="displayName"
+        :title="displayName"
+        @click="emit('activate', state.id)"
+      >
+        <!-- "Board N": the localized word comes from i18n (relabels on a language
+             switch — the parent's v-memo carries `locale`), the number is a CSS
+             counter so it renumbers on a close-induced reflow with no Vue render.
+             `aria-hidden` on the counter span: the visible ordinal is positional
+             (renumbers on close) and carries no stable identity, so it is
+             excluded from the accessible name — the button's `aria-label` above
+             (the resolved game name / stable fallback) is the real name a
+             screen reader announces. -->
+        <i18n-t keypath="boardTab.label" tag="span" class="tab-label" scope="global" aria-hidden="true">
+          <template #n><span class="tab-label-num" /></template>
+        </i18n-t>
+      </button>
+      <button
+        type="button"
+        class="close-board-btn"
+        @click.stop="emit('request-close', state.id)"
+        :title="$t('boardTab.close')"
+        :aria-label="$t('boardTab.closeAria', { name: displayName })"
+      >
+        <span class="close-icon" aria-hidden="true">×</span>
+      </button>
     </div>
 
     <div class="indicator-row">
@@ -243,32 +300,48 @@ onUnmounted(() => {
    to read as breathing room. The 32px height on `.tab-thumb` is
    separate — the thumb's portrait/landscape aspect (88×32 → now
    86×32) reads as a short label band rather than a card. */
-/* padding-top: 6px absorbs .close-board-btn's `top: -6px` overshoot (see
-   below) INSIDE this element's own box, so the button's rendered top edge
-   never sits negative relative to `.thumb-container` — load-bearing for the
-   virtualized rail in SidebarWidget.vue: `.thumb-list` there is a real
-   scroll/clip container (`overflow-y: auto`, and per CSS 2.1 §11.1.1 the
-   un-authored `overflow-x` computes to `auto` too once one axis is
-   non-visible), so whichever tab is scrolled flush to the container's own
+/* padding-top: 10px absorbs .close-board-btn's `top: -10px` overshoot (see
+   that rule's comment) INSIDE this element's own box, so the button's
+   rendered top edge never sits negative relative to `.thumb-container` —
+   load-bearing for the virtualized rail in SidebarWidget.vue: `.thumb-list`
+   there is a real scroll/clip container (`overflow-y: auto`, and per CSS 2.1
+   §11.1.1 the un-authored `overflow-x` computes to `auto` too once one axis
+   is non-visible), so whichever tab is scrolled flush to the container's own
    top edge has anything poking above ITS OWN box clipped outright — this is
    true for every tab that becomes flush-topmost (e.g. via `scrollToIndex`
    snapping a newly-activated board into view), not only the rail's first
    tab, so a one-time buffer at the top of the whole scrollable list (the
    naive fix) only protects tab index 0 and silently leaves every other tab
    unprotected once scrolled to. This per-tab padding is a real, disclosed
-   visual change (a uniform 6px gap now separates each tab; they previously
+   visual change (a uniform 10px gap now separates each tab; they previously
    sat flush) but is included in `offsetHeight`, so `SidebarWidget.vue`'s
    `tabHeight` self-correction (measuring `.thumb-container.offsetHeight` in
    `onMounted`) absorbs it automatically — no separate height-math
    compensation needed. Investigation: `.claude/dispatch-reports/
    ui-defects-investigation.md`, Defect 4. Does NOT move `.close-board-btn`
-   itself or change its offset relative to `.tab-thumb` — the detached
-   half-overlapping-corner look is unchanged. */
-.thumb-container { --tab-width: 86px; display: flex; flex-direction: column; align-items: center; width: var(--tab-width); padding-top: 6px; counter-increment: boardtab; }
+   itself or change its offset relative to `.tab-thumb-wrap` — the detached
+   half-overlapping-corner look is unchanged.
 
-/* `overflow: visible` is declared explicitly, not left to the default,
+   Bumped from 6px to 10px in the ADR-0019 audit S6 dispatch: the close
+   button's hit area grew from 16x16 to 24x24 (C21) while its visible
+   circle stayed 16x16, which widened the button's own top overshoot from
+   6px to 10px (see .close-board-btn's comment) — the padding must track
+   the HIT AREA's overshoot, not the visible circle's, since a wider
+   invisible-until-hover/focus hit box scrolled flush-topmost would
+   otherwise get its keyboard-focusable region clipped even though nothing
+   visibly changes until it's focused or hovered. */
+.thumb-container { --tab-width: 86px; display: flex; flex-direction: column; align-items: center; width: var(--tab-width); padding-top: 10px; counter-increment: boardtab; }
+
+/* `.tab-thumb-wrap` carries the box + active/review visual state that used
+   to live directly on `.tab-thumb` (ADR-0019 audit S6 — see the template
+   comment for why the button-nesting constraint forced this split). It is
+   the `position: relative` anchor `.close-board-btn` offsets against, so
+   the button's rendered corner position is unchanged from before the
+   split.
+
+   `overflow: visible` is declared explicitly, not left to the default,
    because `.close-board-btn` below deliberately overshoots this box's own
-   top and right edges by 6px (the "detached affordance" look) — an
+   top and right edges (the "detached affordance" look) — an
    `overflow: hidden` on this element clips the button along its
    rectangular edges, producing a crescent-shaped clip on the button's
    circular border (ui-fix-4b-tab-clip.md: a stale global `.tab-thumb`
@@ -277,13 +350,31 @@ onUnmounted(() => {
    property, so the cascade let it through even though every other
    property here won on specificity — the dead global rule has been
    removed, but this declaration is kept as defense-in-depth so a future
-   global rule touching `.tab-thumb` can't silently reintroduce the same
+   global rule touching this box can't silently reintroduce the same
    clip). */
-.tab-thumb {
+.tab-thumb-wrap {
   width: var(--tab-width); height: 32px; border: 2px solid var(--surface-3); background: var(--surface-0);
-  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: center; justify-content: center;
   transition: border-color var(--duration-default) ease, background var(--duration-default) ease;
   position: relative; border-radius: var(--radius-default); overflow: visible;
+}
+
+/* The selection surface itself: a real <button> (ADR-0019 audit S6) so
+   board selection is standard-keyboard-reachable (Tab to focus, Enter/
+   Space to activate) rather than only a bare `<div @click>`. No border/
+   background of its own — `.tab-thumb-wrap` (its parent) already paints
+   the box this button fills; a second border here would double it up. */
+.tab-thumb {
+  width: 100%; height: 100%; border: none; background: transparent; padding: 0;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-default); font: inherit; color: inherit;
+}
+/* Visible keyboard-focus ring (ADR-0019 audit S6/C17 — the tab previously
+   had no focusable element at all, so there was nothing to show a focus
+   indicator on). Browser default `outline` would work too, but an explicit
+   rule keeps the ring legible against `.tab-thumb-wrap`'s own border. */
+.tab-thumb:focus-visible {
+  outline: 2px solid var(--accent-primary); outline-offset: 1px;
 }
 
 .tab-label { font-size: var(--text-emphasis); color: var(--text-2); font-weight: bold; pointer-events: none; }
@@ -293,36 +384,61 @@ onUnmounted(() => {
    re-render. This is the half of fix-boardtab-vmemo-index-key that lets the
    parent drop `index` from the v-memo key (the O(N²) close storm). */
 .tab-label-num::before { content: counter(boardtab); }
-.tab-thumb:hover .tab-label { color: var(--text-0); }
+.tab-thumb-wrap:hover .tab-label { color: var(--text-0); }
 
-.tab-thumb.active { background: var(--surface-2); }
-.tab-thumb.active .tab-label { color: var(--accent-primary); }
+.tab-thumb-wrap.active { background: var(--surface-2); }
+.tab-thumb-wrap.active .tab-label { color: var(--accent-primary); }
 
-.tab-thumb.review-active { border-color: var(--review-active); box-shadow: 0 0 8px color-mix(in srgb, var(--review-active) 40%, transparent); }
-.tab-thumb.review-intermission { border-color: var(--review-intermission); box-shadow: 0 0 8px color-mix(in srgb, var(--review-intermission) 40%, transparent); }
-.tab-thumb.review-complete { border-color: var(--review-complete); }
+.tab-thumb-wrap.review-active { border-color: var(--review-active); box-shadow: 0 0 8px color-mix(in srgb, var(--review-active) 40%, transparent); }
+.tab-thumb-wrap.review-intermission { border-color: var(--review-intermission); box-shadow: 0 0 8px color-mix(in srgb, var(--review-intermission) 40%, transparent); }
+.tab-thumb-wrap.review-complete { border-color: var(--review-complete); }
 
-.tab-thumb.active.review-active { border-width: 3px; }
-.tab-thumb.active.review-intermission { border-width: 3px; }
-.tab-thumb.active.review-complete { border-width: 3px; }
+.tab-thumb-wrap.active.review-active { border-width: 3px; }
+.tab-thumb-wrap.active.review-intermission { border-width: 3px; }
+.tab-thumb-wrap.active.review-complete { border-width: 3px; }
 
-/* magic-literal: .close-board-btn's `top: -6px; right: -6px` lifts the
-   16x16 close button off the tab-thumb's corner so half the button
-   overlaps the corner radius and half hangs outside, reading as a
-   detached affordance. The -6px offset is hand-tuned to that specific
-   visual; not a substrate candidate. `.thumb-container`'s `padding-top: 6px`
-   above absorbs this exact overshoot so the button never clips against the
-   virtualized rail's scroll-container edge (ui-defects-investigation.md
-   Defect 4) — the offset itself is unchanged. */
+/* magic-literal: .close-board-btn's `top: -10px; right: -10px` on a 24x24
+   button keeps the same VISIBLE circle position as the pre-audit 16x16
+   button at `top: -6px; right: -6px` (center offset unchanged: -6 - (24-16)/2
+   = -10), while widening the actual hit target to the C21 floor (24x24 CSS
+   px) — the audit measured the old target at 16x16 half-hanging off the
+   corner. `.close-icon` inside carries the ORIGINAL 16x16 visible circle
+   (background/border/radius), centered in the button via flex, so the
+   click/tap area grows without changing what's drawn.
+
+   `.thumb-container`'s `padding-top` (below) must absorb THIS overshoot,
+   not the pre-audit 6px one: the wider 24x24 hit box overshoots its
+   `.tab-thumb-wrap` parent's top edge by 10px, not 6px, so the padding-top
+   compensation was widened from 6px to 10px in the same change — see that
+   rule's comment. Left at the old 6px, the top-scrolled tab in the
+   virtualized rail would clip 4px off the ENLARGED (now invisible-until-
+   hover, but still keyboard-focusable) hit area, silently reintroducing a
+   narrower version of ui-defects-investigation.md Defect 4 for exactly the
+   keyboard-focus case this dispatch's C21 fix exists to serve. */
 .close-board-btn {
-  position: absolute; top: -6px; right: -6px;
-  background: var(--surface-3); color: var(--text-1); border: 1px solid var(--border-3); border-radius: var(--radius-circle);
-  width: 16px; height: 16px; font-size: var(--text-emphasis); line-height: 1;
+  position: absolute; top: -10px; right: -10px;
+  width: 24px; height: 24px; border: none; background: transparent; padding: 0;
   display: flex; align-items: center; justify-content: center;
-  cursor: pointer; opacity: 0; transition: opacity var(--duration-default), background var(--duration-default), color var(--duration-default);
+  cursor: pointer; opacity: 0; transition: opacity var(--duration-default);
+}
+.close-icon {
+  width: 16px; height: 16px; font-size: var(--text-emphasis); line-height: 1;
+  background: var(--surface-3); color: var(--text-1); border: 1px solid var(--border-3); border-radius: var(--radius-circle);
+  display: flex; align-items: center; justify-content: center;
+  transition: background var(--duration-default), color var(--duration-default);
 }
 
-.tab-thumb:hover .close-board-btn { opacity: 1; }
+.tab-thumb-wrap:hover .close-board-btn { opacity: 1; }
+/* :focus-visible OVERRIDES the opacity:0 hover-reveal (ADR-0019 audit S6 —
+   the audit's exact finding: a `:hover`-only reveal paints the keyboard
+   focus indicator on an invisible element). A keyboard user tabbing to the
+   close button must see it before activating it. */
+.close-board-btn:focus-visible {
+  opacity: 1;
+}
+.close-board-btn:focus-visible .close-icon {
+  outline: 2px solid var(--accent-primary); outline-offset: 1px;
+}
 
 .indicator-row {
   width: 100%; height: 12px; display: flex; align-items: center;
