@@ -69,8 +69,10 @@ describe('SetupWizardModal — navigation', () => {
     const skipBtn = wrapper.findAll('.wizard-footer button').find(b => b.text().toLowerCase().includes('skip'))!;
     await skipBtn.trigger('click');
     expect(wrapper.find('#setup-wizard-title').text()).not.toBe('');
-    // Step indicator's second dot is now "done" — proves navigation moved.
-    expect(wrapper.findAll('.step-dot.is-done').length).toBe(1);
+    // Step indicator's current dot is now the second one — proves navigation moved.
+    const dots = wrapper.findAll('.step-dot');
+    expect(dots[1].classes()).toContain('is-current');
+    expect(dots[0].classes()).not.toContain('is-current');
   });
 });
 
