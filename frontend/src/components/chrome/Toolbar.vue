@@ -7,7 +7,9 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import PboPopover from '../qeubo/PboPopover.vue';
 import ToolbarEngineMetrics from './ToolbarEngineMetrics.vue';
+import ToolbarEngineUri from './ToolbarEngineUri.vue';
 import ToolbarSliderPopover from './ToolbarSliderPopover.vue';
+import SetupToolPalette from './SetupToolPalette.vue';
 import { useEngineControls } from '../../composables/useEngineControls';
 import { useAutoNavigatePerf } from '../../composables/useAutoNavigatePerf';
 import { useAutoPopoverPerf } from '../../composables/useAutoPopoverPerf';
@@ -53,6 +55,7 @@ const emit = defineEmits<{
   (e: 'open-match'):   void;
   (e: 'stop-match'):   void;
   (e: 'open-play'):    void;
+  (e: 'open-learn-path'): void;
 }>();
 
 // isConnected is destructured from useEngineControls() above (RB-1).
@@ -79,6 +82,14 @@ function onMatchClick() {
          binding is opt-in via the `title` prop. No caller passes
          it today; the element renders empty by default. -->
     <span class="toolbar-title">{{ title }}</span>
+
+    <!-- The engine WebSocket URI — address-bar-like, click-to-edit.
+         Views and edits the same store cell as the Settings tab's
+         Advanced Registry editor (ADR-0012). Renders unconditionally
+         (unlike ToolbarEngineMetrics below) so it's usable to fix a
+         bad URI while disconnected, which is precisely the case
+         where it's most needed. -->
+    <ToolbarEngineUri />
 
     <!-- Live engine telemetry (version / model / winrate / scoreLead / PPS /
          latency / watchdog / queue). Extracted to its own leaf so its
@@ -114,8 +125,21 @@ function onMatchClick() {
          acquisition function / library name). -->
     <PboPopover />
 
+    <!-- Setup toolkit (ledger rows 603/604): the classic Go-editor
+         setup mode — click to open a small tool palette (BLACK/WHITE
+         setup stone, TRIANGLE mark), click again to close. Renders
+         unconditionally, same band-1 reasoning as ToolbarSliderPopover
+         above: setup edits don't require an engine connection. -->
+    <SetupToolPalette />
+
     <div class="engine-controls">
       <button class="toolbar-btn highlight-btn" @click="emit('mint-card')">{{ $t('toolbar.mintCard') }}</button>
+      <!-- "Learn this path" (wiki #8) — opens LearnPathModal, which
+           self-gates on the loaded-card-at-root precondition
+           (useLearnPath.ts) and reports its own error rather than this
+           button disabling ahead of time; every board state is a valid
+           click target, the modal explains a failed precondition. -->
+      <button class="toolbar-btn" @click="emit('open-learn-path')">{{ $t('toolbar.learnPath') }}</button>
       <!-- PLAY opens the manage-games-on-this-board modal. Single
            surface for both "start new game vs engine" and "end an
            existing game" — see `PlayEngineModal.vue` for the

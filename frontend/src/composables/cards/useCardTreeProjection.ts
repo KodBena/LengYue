@@ -26,8 +26,9 @@ import type {
   CardId,
   CardLineageNode,
   CardLineageTree,
+  CardPublicId,
   CardTreeNodeRole,
-  GameSourceId,
+  GameDisplayOrdinal,
   CardTreeExpandKey,
 } from '../../types';
 
@@ -84,8 +85,9 @@ export interface RenderTreeStats {
 }
 
 export interface RenderTree {
-  readonly rootCardId: CardId;
-  readonly gameSourceId: GameSourceId;
+  // Browse-leak-fix (ledger rows 417/423): per-user display ids.
+  readonly rootCardId: CardPublicId;
+  readonly gameSourceId: GameDisplayOrdinal;
   readonly root: RenderNode;
   readonly stats: RenderTreeStats;
 }
@@ -149,8 +151,8 @@ function projectTree(
     browseMode,
   );
   return {
-    rootCardId: tree.rootCardId,
-    gameSourceId: tree.gameSourceId,
+    rootCardId: tree.rootCardPublicId,
+    gameSourceId: tree.gameSourceDisplayOrdinal,
     root,
     stats: {
       totalCardNodes: countAllNodes(tree.tree),

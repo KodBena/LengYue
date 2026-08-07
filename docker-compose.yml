@@ -1,0 +1,74 @@
+# docker-compose.yml
+#
+# Wanted feature #12 — Docker image. v1 scope (ledger row 690): this
+# compose file containerizes the backend and frontend only. KataGo /
+# KataProxy are NOT containerized (GPU + engine setup is machine-
+# specific) — the app connects to the engine running on the operator's
+# host, exactly like a non-Docker install. See docs/docker.md for the
+# full zero-Docker-context orientation, including why the default host
+# ports below are 19080/19081 rather than the app's usual dev ports.
+#
+# Quick start: `docker compose up --build`, then open
+# http://localhost:19080 in a browser.
+
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: lengyue-backend
+    restart: unless-stopped
+    environment:
+      # Both already-supported Settings fields (backend/core/config.py) —
+      # no backend code changes were needed to containerize it. Pointed
+      # at the named volume below so cards.db and the JWT secret survive
+      # `docker compose down` (and only disappear on `down -v`).
+      DATABASE_URI: sqlite+aiosqlite:////app/data/cards.db
+      SECRET_KEY_FILE: /app/data/.jwt_secret
+      # Wildcard is the app's own out-of-the-box default (main.py's CORS
+      # middleware runs allow_credentials=False, so a wildcard origin is
+      # spec-compliant, not a hardening gap). Override for a locked-down
+      # deployment, e.g.:
+      #   CORS_ALLOW_ORIGINS: '["http://localhost:19080"]'
+      CORS_ALLOW_ORIGINS: '["*"]'
+    volumes:
+      - cards_data:/app/data
+    ports:
+      - "${BACKEND_PORT:-19081}:8764"
+    # Container-to-host reachability, for anything run *inside* this
+    # container that needs to reach the host-run engine/proxy (e.g. an
+    # operator shelling in to curl a health endpoint). The backend's own
+    # application code never calls the engine today (that connection is
+    # made client-side, by the browser — see docs/docker.md), so this is
+    # forward-wiring, not load-bearing for v1's request path. Native
+    # Docker Compose support for resolving this on Linux (requires
+    # Docker 20.10+; this environment runs 29.4).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Baked into the compiled JS bundle at build time (see
+        # frontend/src/config/env.ts) — evaluated by the operator's
+        # BROWSER, not by this container, so these must be addresses the
+        # browser can reach: localhost + the published host port for the
+        # API, and the engine's host-reachable address (typically also
+        # localhost, since the engine and the browser are normally on
+        # the same machine) for the analysis WebSocket. See
+        # docs/docker.md for why `host.docker.internal` (container-only)
+        # would be the WRONG value here.
+        VITE_API_BASE_URL: http://localhost:${BACKEND_PORT:-19081}
+        VITE_KATAGO_WS_URL: ${ENGINE_WS_URL:-ws://127.0.0.1:41948}
+    container_name: lengyue-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-19080}:8080"
+    depends_on:
+      - backend
+
+volumes:
+  # Named volume for cards.db + the persisted JWT secret. `docker compose
+  # down` leaves it intact; `docker compose down -v` deletes it — see
+  # docs/docker.md "Backup" for how to snapshot it before that.
+  cards_data:

@@ -70,7 +70,9 @@
  * `src/assets/css/theme.css` — 16 base anchors (4 surface + 3
  * border + 3 text + 2 accent + 4 semantic state) plus 6
  * chart-derived helpers plus 5 role aliases (decouple-via-alias
- * for implicit handles).
+ * for implicit handles) plus 1 chart-series-locked mirror
+ * (`--accent-primary-canonical`, declared per-theme alongside
+ * `--accent-primary` in `theme.css`).
  *
  * Non-color anchors in theme.css (the z-index ladder) are
  * intentionally excluded — they're CSS-only, no runtime accessor
@@ -89,6 +91,13 @@ export type ChromeAnchor =
   | '--text-0' | '--text-1' | '--text-2'
   // Accent (2)
   | '--accent-primary' | '--accent-secondary'
+  // Chart-series-locked mirror of --accent-primary (decouple-via-alias;
+  // see theme.css's per-theme docstring on this anchor). Data-series /
+  // chart-marker / node-role JS consumers read this instead of
+  // '--accent-primary' so the high-contrast-text override (which darkens
+  // '--accent-primary' for its TEXT/CTA role) can't silently recolor a
+  // chart. tests/unit/chart-accent-primary-lock.test.ts is the guard.
+  | '--accent-primary-canonical'
   // Semantic state (4)
   | '--state-success' | '--state-warning' | '--state-error' | '--state-attention'
   // Chart-derived helpers (aliases of the anchors above; named

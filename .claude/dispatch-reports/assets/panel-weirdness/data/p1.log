@@ -1,0 +1,16 @@
+workspace loaded
+IDENT localStorage user= quark
+STATUSBAR tail: "\nshowTranspositionRings\nwatchdogColorTransition\nFORESTNAV\n↺\nexpanded\n↺\nSELECTION\n↺\nB9160D39-7C2E-4B37-85F3-BF4A758FF9E2\n↺\nkind\ngameSourceId\n7567B5F9-C116-48B3-AD3F-C0E7BCE7D45B\n↺\nkind\nrootCardId\n14D70C82-9B0D-4E3B-B1CB-4BA213FCAE82\n↺\nkind\ngameSourceId\n01BF82E0-1235-403D-AAF8-7B5F551683DB\n↺\nkind\nrootCardId\nCARDTREENAV\n↺\n7567B5F9-C116-48B3-AD3F-C0E7BCE7D45B\n↺\nmanuallyExpanded\nboardSquareMaxWidthPx\n↺"
+TABS sample: [{"cls":"tab-thumb review-intermission","txt":"Board ×"},{"cls":"tab-label","txt":"Board"},{"cls":"tab-label-num","txt":""},{"cls":"tab-thumb review-intermission","txt":"Board ×"},{"cls":"tab-label","txt":"Board"},{"cls":"tab-label-num","txt":""},{"cls":"tab-thumb review-intermission","txt":"Board ×"},{"cls":"tab-label","txt":"Board"},{"cls":"tab-label-num","txt":""},{"cls":"tab-thumb review-intermission","txt":"Board ×"},{"cls":"tab-label","txt":"Board"},{"cls":"tab-label-num","txt":""},{"cls":"tab-thumb","txt":"Board ×"},{"cls":"tab-label","txt":"Board"},{"cls":"tab-label-num","txt":""},{"cls":"tab-thumb","txt":"Board ×"},{"cls":"tab-label","txt":"Board"},{"cls":"tab-label-num","txt":""},{"cls":"tab-thumb review-active","txt":"Board ×"},{"cls":"tab-label","txt":"Board"},{"cls":"tab-label-num","txt":""},{"cls":"tab-thumb","txt":"Board ×"},{"cls":"tab-label","txt":"Board"},{"cls":"tab-label-num","txt":""},{"cls":"tab-thumb active","txt":"Board ×"},{"cls":"tab-label","txt":"Board"},{"cls":"tab-label-num","txt":""},{"cls":"tab-thumb","txt":"Board ×"},{"cls":"tab-label","txt":"Board"},{"cls":"tab-label-num","txt":""},{"cls":"tab-thumb","txt":"Board ×"},{"cls":"tab-label","txt":"Board"},{"cls":"tab-label-num","txt":""},{"cls":"tab-add-btn","txt":"+"},{"cls":"vue-tabs","txt":"LibraryCardsSettingsAnalysisOtherSession"},{"cls":"tab-header","txt":"LibraryCardsSettingsAnalysisOther"},{"cls":"tab-body","txt":"Session (UI)Analysis EnvironmentCard Set"},{"cls":"tab-pane","txt":""},{"cls":"tab-pane","txt":""},{"cls":"tab-pane","txt":"Session (UI)Analysis EnvironmentCard Set"}]
+CONSOLE: [
+ {
+  "t": "error",
+  "text": "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+ }
+]
+NETFAIL: [
+ {
+  "url": "http://192.168.122.68:8764/qeubo/experiment/status",
+  "status": 503
+ }
+]

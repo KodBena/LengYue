@@ -267,6 +267,13 @@ export function loadGameAsNewBoard(rawContent: string, clientGameId: BoardId | n
   const b = activeBoard.value;
   if (!b) throw new Error('[jank-substrate] no active board after createBoard');
   const id = b.id;
+  // `clientGameId: BoardId | null` here is a deliberate per-call
+  // opt-out (see setUpManyBoards below, which passes `null` so many
+  // boards from the same repeated body don't share a client id) —
+  // NOT the now-closed "LibraryGame.clientGameId may be null for
+  // legacy rows" exception (per-user-id-enumeration design). The
+  // two nulls look alike but mean different things; kept distinct
+  // rather than collapsing this parameter to non-nullable.
   loadSgfIntoBoard(id, rawContent, (board) => {
     if (clientGameId !== null) board.clientGameId = clientGameId;
   });

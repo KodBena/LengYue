@@ -138,12 +138,11 @@ export function useDirtyBoardGuard(
       // Stamp the library row's `client_game_id` so a subsequent
       // mint reuses the existing `game_source` row via the
       // backend's `get_or_create_game_source_by_client_id` dedup.
-      // Legacy library rows (pre-dedup) carry `clientGameId ===
-      // null` — leave the board's freshly generated UUID in place
-      // for those; the card-mint will create a sibling row.
-      if (game.clientGameId !== null) {
-        board.clientGameId = game.clientGameId;
-      }
+      // Per-user-id-enumeration design: `clientGameId` is no longer
+      // nullable — the "legacy pre-dedup rows carry null" exception
+      // is closed (the migration backfills historical NULLs), so
+      // this assignment is now unconditional.
+      board.clientGameId = game.clientGameId;
     });
   }
 
@@ -162,9 +161,10 @@ export function useDirtyBoardGuard(
     createBoard();
     const targetBoardId = store.boards[store.activeBoardIndex].id;
     loadOrLog(targetBoardId, game.rawContent, board => {
-      if (game.clientGameId !== null) {
-        board.clientGameId = game.clientGameId;
-      }
+      // Per-user-id-enumeration design: see handleLoadLibraryGame's
+      // identical note — unconditional now that clientGameId is
+      // never null.
+      board.clientGameId = game.clientGameId;
     });
   }
 

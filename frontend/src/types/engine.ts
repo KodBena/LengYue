@@ -89,6 +89,20 @@ export interface EngineState {
   // identity-flip — the WebSocket URL is not user-keyed in the
   // current local-machine deployment).
   selectedModel: string | null;
+  // The value `selectedModel` held immediately before its most recent
+  // change, tracked by the same named mutator (`setSelectedModel` in
+  // `store/index.ts`) so every write path — the Toolbar dropdown AND
+  // the "swap last-active engine" keybinding action
+  // (`useEngineModelSelection.ts`) — keeps this pair consistent. Null
+  // until a second distinct selection has been made, and also null
+  // immediately after a disconnect reset (the disconnect path calls
+  // `setSelectedModel(null)`, which shifts the pre-disconnect
+  // selection in here — swapping back to it after a reconnect is a
+  // reasonable "last active" reading, not a bug). NOT synced through
+  // SyncService (unlike `selectedModel`): this is session-local
+  // convenience memory for the keybinding, not a durable preference,
+  // and there is no existing persistence lane for a "second" model.
+  previousSelectedModel: string | null;
 }
 
 export interface EngineModelEntry {

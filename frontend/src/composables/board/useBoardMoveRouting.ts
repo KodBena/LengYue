@@ -38,7 +38,7 @@ import {
   pushSystemMessage,
 } from '../../store';
 import { i18n } from '../../i18n';
-import { applyGoMove } from '../../logic';
+import { applyGoMove, applyPass } from '../../logic';
 import type { BoardState, ReviewStatus } from '../../types';
 import type { PvMove } from './use-pv-animation';
 import { findGameByHead, type EngineResponderHandle } from './useEngineResponder';
@@ -53,10 +53,12 @@ import { isReviewTransientState } from '../review/useReviewSession';
 export interface ReviewSessionGate {
   state: ComputedRef<ReviewStatus>;
   processUserMove: (x: number, y: number) => Promise<void>;
+  processUserPass: () => Promise<void>;
 }
 
 export interface BoardMoveRoutingHandle {
   handleBoardMove: (x: number, y: number) => void;
+  handlePass: () => void;
   handlePastePv: (pv: PvMove[]) => void;
 }
 
@@ -90,6 +92,20 @@ export function useBoardMoveRouting(
     if (isReviewTransientState(reviewSession.state.value)) {
       return;
     }
+    // REVIEWED: a restored per-visit snapshot (goBack/goForward landed
+    // on a previously-FINISHED card). Structurally view-only — unlike
+    // FINISHED, this does NOT fall through to free play. Refusing here
+    // as its own explicit arm (not folded into isReviewTransientState,
+    // which is about racing the SR lifecycle, a different failure
+    // class) is what makes submitReview's missing idempotency guard
+    // (deck-repeat design doc §1d) structurally unreachable a second
+    // time for the same attempt: there is no mutation path out of
+    // REVIEWED except the explicit Retry action, which discards the
+    // snapshot and re-enters via loadCard first. Silent no-op, same
+    // as the AWAITING_MOVE/transient-state refusals above it.
+    if (reviewSession.state.value === 'REVIEWED') {
+      return;
+    }
     // IDLE (no review running) or FINISHED (intermission — post-
     // evaluation exploration phase): free play. Intermission is when
     // the user reads branches off the evaluated position; per the
@@ -118,6 +134,40 @@ export function useBoardMoveRouting(
   }
 
   /**
+   * Pass entry point — mirrors `handleBoardMove`'s branch structure
+   * exactly (same four gating arms: AWAITING_MOVE routes to the
+   * review session's graded pass handler, transient states and
+   * REVIEWED refuse, IDLE/FINISHED is free play), per the pass-support
+   * design's "pass routing in useBoardMoveRouting" touched-file entry.
+   * Unlike `handleBoardMove`, a pass never triggers the "play vs
+   * engine" responder from a game head — passing off a head is a
+   * legitimate move that should still fire the engine's reply the
+   * same way a placed stone does, so the same head-capture/advance
+   * shape is reproduced here rather than skipped.
+   */
+  function handlePass(): void {
+    if (reviewSession.state.value === 'AWAITING_MOVE') {
+      void reviewSession.processUserPass();
+      return;
+    }
+    if (isReviewTransientState(reviewSession.state.value)) {
+      return;
+    }
+    if (reviewSession.state.value === 'REVIEWED') {
+      return;
+    }
+    if (!activeBoard.value) return;
+    const prevNodeId = activeBoard.value.currentNodeId;
+    const boardId = activeBoard.value.id;
+    const gameAtHead = findGameByHead(activeBoard.value, prevNodeId);
+    const next = applyPass(activeBoard.value);
+    updateBoardState(store.activeBoardIndex, next);
+    if (gameAtHead !== null) {
+      void engineResponder.fireAndAdvanceHead(boardId, gameAtHead.startNodeId);
+    }
+  }
+
+  /**
    * Paste a principal variation into the active board's game tree.
    * Loops applyGoMove sequentially: each call either descends into
    * an existing child that already plays the coordinate, or creates
@@ -141,6 +191,9 @@ export function useBoardMoveRouting(
   function handlePastePv(pv: PvMove[]): void {
     if (reviewSession.state.value === 'AWAITING_MOVE') return;
     if (isReviewTransientState(reviewSession.state.value)) return;
+    // REVIEWED: same structural refusal as handleBoardMove's own arm
+    // above — a restored snapshot is view-only, not free-play.
+    if (reviewSession.state.value === 'REVIEWED') return;
     if (!activeBoard.value || pv.length === 0) return;
 
     let board: BoardState = activeBoard.value;
@@ -164,5 +217,5 @@ export function useBoardMoveRouting(
     }
   }
 
-  return { handleBoardMove, handlePastePv };
+  return { handleBoardMove, handlePass, handlePastePv };
 }

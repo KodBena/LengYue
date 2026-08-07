@@ -1,0 +1,12 @@
+T0 initial: {"move":"MOVE 10","turn":"B-to-play(=last was W)","caps":"B: 0 · W: 0","cx":18,"cy":258,"depth":10}
+T1 Home: {"move":"MOVE 0","turn":"B-to-play(=last was W)","caps":"B: 0 · W: 0","cx":18,"cy":18,"depth":0}
+T2 ArrowDown x87 -> depth 87: {"move":"MOVE 87","turn":"W-to-play(=last was B)","caps":"B: 0 · W: 0","cx":42,"cy":2106,"depth":87}
+T3 press u (toggleMainLine): {"move":"MOVE 87","turn":"W-to-play(=last was B)","caps":"B: 0 · W: 0","cx":66,"cy":2106,"depth":87}
+T4 press u again: {"move":"MOVE 87","turn":"W-to-play(=last was B)","caps":"B: 0 · W: 0","cx":42,"cy":2106,"depth":87}
+T5 ArrowRight (variation +1): {"move":"MOVE 87","turn":"W-to-play(=last was B)","caps":"B: 0 · W: 0","cx":66,"cy":2106,"depth":87}
+T6 ArrowLeft (variation -1): {"move":"MOVE 87","turn":"W-to-play(=last was B)","caps":"B: 0 · W: 0","cx":42,"cy":2106,"depth":87}
+T7 ArrowUp x4 -> depth 83: {"move":"MOVE 83","turn":"W-to-play(=last was B)","caps":"B: 0 · W: 0","cx":18,"cy":2010,"depth":83}
+T8 press u at depth 83 (fork 82) -> alternate subtree: {"move":"MOVE 82","turn":"B-to-play(=last was W)","caps":"B: 0 · W: 0","cx":138,"cy":1986,"depth":82}
+T9 ArrowDown to depth 87 in alternate subtree (THE COUSIN): {"move":"MOVE 85","turn":"W-to-play(=last was B)","caps":"B: 0 · W: 0","cx":138,"cy":2058,"depth":85}
+GEO after nav: {"row":{"x":168,"w":3672,"h":2128},"board":{"x":168,"w":900,"h":2128},"tree":{"x":1068,"w":140,"h":2128},"panel":{"x":1212,"w":2628,"h":2128},"resizerX":1208,"boardSvg":{"w":892,"h":2100},"justify":"normal","panelFlex":"flex: 1 1 0px; min-width: 220px;","boardTargetPx":"--board-target-px: 900px;"}
+CONSOLE: [{"t":"error","text":"Failed to load resource: the server responded with a status of 503 (Service Unavailable)"}]

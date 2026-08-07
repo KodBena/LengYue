@@ -1,0 +1,7 @@
+expand pass 0: clicked 10
+expand pass 1: clicked 3
+expand pass 2: clicked 0
+EXTENT after expand: {"n":205,"maxCx":450,"svgW":"492","outerCW":134,"outerSW":492}
+ROW cy=2106 (depth 87) nodes: [{"cx":18,"col":"B"},{"cx":114,"col":"B"},{"cx":138,"col":"B"},{"cx":162,"col":"B"},{"cx":186,"col":"B"}]
+edges into row 2106: [{"tag":"path","d":"M18,2082 L18,2106","x1":null,"y1":null,"x2":null,"y2":null},{"tag":"path","d":"M18,2106 L18,2130","x1":null,"y1":null,"x2":null,"y2":null},{"tag":"path","d":"M114,2082 L114,2106","x1":null,"y1":null,"x2":null,"y2":null},{"tag":"path","d":"M114,2082 L114,2094 L138,2094 L138,2106","x1":null,"y1":null,"x2":null,"y2":null},{"tag":"path","d":"M114,2082 L114,2094 L162,2094 L162,2106","x1":null,"y1":null,"x2":null,"y2":null},{"tag":"path","d":"M114,2082 L114,2094 L186,2094 L186,2106","x1":null,"y1":null,"x2":null,"y2":null}]
+CONSOLE: [{"t":"error","text":"Failed to load resource: the server responded with a status of 503 (Service Unavailable)"}]

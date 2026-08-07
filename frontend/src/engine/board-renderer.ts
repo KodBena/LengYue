@@ -4,12 +4,20 @@
  */
 import { BOARD_PX, BOARD_COLOR, LINE_COLOR, MARKER_INNER_RATIO } from './constants';
 import { boardGeometry, gridLines } from './board-geometry';
-import type { StoneColor, Point } from '../types';
+import type { StoneColor, Move } from '../types';
 
 export function renderBoardToSvg(props: {
   size: number;
   stones: Record<string, StoneColor>;
-  lastMove?: Point | null;
+  // Contract: the marker ring is drawn only for a `'place'` move. Typed as
+  // the discriminated `Move` union (not the bare `Point` it used to be) so a
+  // `'pass'` move — whose `Move` shape still carries a placeholder `x:0,y:0`
+  // per `sgfToMove` — cannot satisfy this parameter by duck-typing and slip
+  // past a truthiness check into drawing a spurious ring at board (0,0). The
+  // `.type === 'place'` guard below is the single enforcement site for every
+  // caller, current or future — narrowing at each call site instead would
+  // leave the class open to the next caller that forgets to guard.
+  lastMove?: Move | null;
   showMarker: boolean;
   uid: string;
   /** Map of "x,y" to a short string (e.g. "A", "B") */
@@ -43,7 +51,7 @@ export function renderBoardToSvg(props: {
   }
 
   let markerSvg = '';
-  if (showMarker && lastMove) {
+  if (showMarker && lastMove && lastMove.type === 'place') {
     const coords = toSVG(lastMove.x, lastMove.y);
     markerSvg += `<circle cx="${coords.x}" cy="${coords.y}" r="${stoneR * MARKER_INNER_RATIO}" fill="none"
       stroke="${stones[`${lastMove.x},${lastMove.y}`] === 'B' ? 'white' : 'black'}" stroke-width="2" opacity="0.8" />`;

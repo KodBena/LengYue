@@ -61,6 +61,28 @@
  * PATH_ENUMS to include the new name, and append a migration
  * coercion if a prior valid value is being retired.
  *
+ * ─── High-contrast text override (data-contrast-text) ─────────
+ * Opt-in, default OFF (`AppSettings.appearance.highContrastText`,
+ * mirrored onto `<html data-contrast-text="on">` by the same
+ * useAppBootstrap watcher pattern as `data-theme`, attribute
+ * ABSENT — not `"off"` — when the setting is false). The
+ * `[data-theme="cluster"][data-contrast-text="on"]` block below
+ * the `cluster` block overrides ONLY `--text-2` and
+ * `--accent-primary` — the two tokens the ADR-0019 audit
+ * (`.claude/dispatch-reports/adr19-audit.md` §S4) measured below
+ * WCAG 2.1's 4.5:1 normal-text floor against `--surface-0` when
+ * bound to their raw cluster-12 palette entries. Each override
+ * value is the same hue, darkened only as far as clearing 4.5:1
+ * requires (see the block's own comments for the computed
+ * ratios) — this is a readability patch, not a second theme.
+ * Chart-derived helpers, role aliases, and every other base
+ * anchor (including the data-series / chart palette) are
+ * untouched; the `dark` theme has no matching block and is
+ * therefore untouched regardless of this attribute's value; the
+ * OFF state (attribute absent) matches no selector in this file,
+ * so it renders byte-identical to the theme with the override
+ * never having existed.
+ *
  * Out of scope:
  * - Domain (Go-specific) colors live in src/engine/constants.ts.
  * - Visualization-system anchors (visit-intensity LUT,
@@ -107,6 +129,15 @@
   /* ── Accent (2) ──────────────────────────────────────────── */
   --accent-primary:   #4aaef0;  /* cyan — active interactive */
   --accent-secondary: #f0a04a;  /* orange — SR / CTA / current-card */
+  /* Chart-series-locked mirror of --accent-primary (decouple-via-alias,
+   * same pattern as the "Role aliases" section below). The `dark` theme
+   * has no high-contrast-text override block, so this equals
+   * --accent-primary today and always will here — declared for parity
+   * with the `cluster` block below, where the two DO diverge, so
+   * `--player-black` / the chart-derived helpers read from one stable
+   * name regardless of theme. See the `[data-theme="cluster"]` block's
+   * copy of this comment for the full rationale. */
+  --accent-primary-canonical: #4aaef0;
 
   /* ── Semantic state (4) ──────────────────────────────────── */
   --state-success:   #4caf50;  /* engine connected, complete */
@@ -194,6 +225,22 @@
   /* ── Accent (2) ──────────────────────────────────────────── */
   --accent-primary:   var(--cluster-12-2);   /* sky blue */
   --accent-secondary: var(--cluster-12-11);  /* orange — SR / CTA */
+  /* Chart-series-locked mirror of --accent-primary, sourced from the
+   * palette entry directly (--cluster-12-2), NOT from --accent-primary
+   * itself. This is deliberate: the high-contrast-text override block
+   * below darkens --accent-primary for its TEXT/CTA role (the ADR-0019
+   * audit's failing-contrast finding), and CSS custom properties
+   * resolve `var()` against the live cascade — a naive `var(--accent-
+   * primary)` indirection here would inherit that darkened value too,
+   * silently recoloring every chart-derived consumer of this alias.
+   * Routing the chart-derived helpers (`--heatmap-mid`, `--chart-
+   * marker`) and `--player-black` through THIS anchor instead keeps
+   * them pinned to the palette's curated blue in both contrast states —
+   * "the data-series palette is untouched in both states" per the
+   * commissioner's brief. Same decouple-via-alias discipline as the
+   * "Role aliases" section below, applied one layer earlier because the
+   * conflict originates in a base anchor, not an alias. */
+  --accent-primary-canonical: var(--cluster-12-2);
 
   /* ── Semantic state (4) ──────────────────────────────────── */
   --state-success:   var(--cluster-12-1);   /* bright green */
@@ -202,17 +249,67 @@
   --state-attention: var(--cluster-12-10);  /* hot pink */
 }
 
+/* Opt-in high-contrast text override for `cluster` — see this file's
+ * header docstring, "High-contrast text override (data-contrast-text)",
+ * for the mechanism. `AppSettings.appearance.highContrastText` (default
+ * false); useAppBootstrap mirrors it onto this attribute.
+ *
+ * Only `--text-2` and `--accent-primary` are overridden — the two
+ * tokens the ADR-0019 audit (`.claude/dispatch-reports/
+ * adr19-audit.md` §S4) measured failing WCAG 2.1's 4.5:1 normal-text
+ * floor against `--surface-0` (`--cluster-12-9`, `#fedaf7`) when bound
+ * to their raw cluster-12 entries. Both overrides are the SAME hue as
+ * the palette entry they replace, scaled down in luminance only (no
+ * hue rotation, no desaturation toward gray) — "same look, readable",
+ * per the commissioner's brief, not a second theme. `--text-0` /
+ * `--text-1` (`--cluster-12-4`, deep purple) already clear ~16:1
+ * against `--surface-0` and are left alone; every other base anchor,
+ * every chart-derived helper (`--heatmap-*`, `--chart-*`), and every
+ * role alias (`--player-*`, `--review-*`) is untouched, so the
+ * data-series / chart palette this rule must not touch stays exactly
+ * as `[data-theme="cluster"]` declares it.
+ *
+ * Ratios computed via the WCAG 2.1 relative-luminance formula
+ * (`L = 0.2126 R + 0.7152 G + 0.0722 B` on gamma-expanded channels;
+ * contrast `= (L1 + 0.05) / (L2 + 0.05)`), against `--surface-0`
+ * (`--cluster-12-9`, rgb(254,218,247), L ≈ 0.7796) — the background
+ * the audit's worst-offender rows were measured against and the
+ * background the vast majority of the affected text nodes (tab
+ * labels, leaf-labels, the accent CTA/badges) actually render on. */
+[data-theme="cluster"][data-contrast-text="on"] {
+  /* text-2 (labels, hints, axis text): cluster-12-6 rgb(122,111,109),
+   * taupe, L ≈ 0.1661 → 3.84:1 against surface-0 (fails 4.5:1). Scaled
+   * to ~85% luminance-equivalent brightness (same taupe hue, R:G:B
+   * ratio preserved) → rgb(104,94,93), L ≈ 0.1175 → 4.95:1. PASS
+   * (normal text, ≥ 4.5:1). */
+  --text-2: #685E5D;
+
+  /* accent-primary (Mint Card CTA, active tab, "5%" badge, branch
+   * labels): cluster-12-2 rgb(0,167,255), sky blue, L ≈ 0.3486 →
+   * 2.08:1 against surface-0 (fails both 4.5:1 and 3:1). Scaled to
+   * ~63% luminance-equivalent brightness (hue and 0-red channel
+   * preserved) → rgb(0,105,161), L ≈ 0.1269 → 4.69:1. PASS (normal
+   * text, ≥ 4.5:1; also clears the 3:1 large-text/glyph floor with
+   * more margin). */
+  --accent-primary: #0069A1;
+}
+
 :root {
   /* ── Chart-derived helpers (aliases; no new decisions) ────
    * `var()` resolves at use time against the active cascade,
    * so these aliases automatically pick up the active theme's
    * base values. Declared here once rather than per-theme. */
   --heatmap-low:  var(--surface-2);
-  --heatmap-mid:  var(--accent-primary);
+  /* --heatmap-mid and --chart-marker route through
+   * --accent-primary-canonical, NOT --accent-primary — see that
+   * anchor's docstring in each `[data-theme="X"]` block above. These
+   * are data-series-adjacent chart paint; the high-contrast-text
+   * override must not recolor them. */
+  --heatmap-mid:  var(--accent-primary-canonical);
   --heatmap-high: var(--state-error);
   --chart-grid:   var(--border-1);
   --chart-axis:   var(--text-2);
-  --chart-marker: var(--accent-primary);
+  --chart-marker: var(--accent-primary-canonical);
 
   /* ── Role aliases for implicit handles (decouple-via-alias) ─
    * Where a consumer's semantic role doesn't fit the chrome
@@ -230,8 +327,12 @@
    * base values the active theme block defines. */
 
   /* Player identifiers — used in chart series for B/W deltas
-   * and per-point markers. Band 2 (game-tree-coupled). */
-  --player-black: var(--accent-primary);
+   * and per-point markers. Band 2 (game-tree-coupled). Routes
+   * through --accent-primary-canonical (not --accent-primary) for
+   * the same data-series-lock reason as --heatmap-mid /
+   * --chart-marker above — --player-black is a per-series chart
+   * color, not chrome text. */
+  --player-black: var(--accent-primary-canonical);
   --player-white: var(--state-error);
 
   /* Review-session lifecycle states — used for tab-thumb
@@ -274,19 +375,25 @@
    * Two tiers, ordered fast → slow. Snap-by-cluster applied to
    * 22 surveyed transition sites: the prior 0.1s / 0.12s / 0.15s
    * / 0.2s spread is within JND for the role they all serve
-   * (hover and state transitions on chrome) and collapses into
-   * a single --duration-default at 0.2s (the largest cluster and
-   * web-design canonical default). The pulse-and-attention
-   * animation tier is preserved as a distinct role at 1s. If a
-   * future need surfaces for a snappier-than-default tier (e.g.
-   * an SVG node hover with sub-100ms feedback), add the tier
-   * here rather than reaching for an inline literal — same
-   * discipline as z-index. The MoveSuggestions PV-stone fade
-   * (60ms inline in MoveSuggestions.vue) is intentionally faster
-   * than chrome and band-2 game-tree-coupled; it stays inline-
-   * justified rather than entering this scale. */
-  --duration-default: 0.2s;  /* chrome hover and state transitions */
-  --duration-slow:    1s;    /* pulse and attention animations */
+   * (hover and state transitions on chrome) and collapsed into a
+   * single --duration-default token (formerly 0.2s, the largest
+   * cluster and web-design canonical default). Per maintainer
+   * ruling (2026-08, ledgered scope call: chrome transitions are
+   * unwanted), --duration-default is now 0s — a one-line SSOT
+   * kill switch for every referencing site rather than a 14-file
+   * per-site sweep. --duration-slow is untouched: it gates only
+   * feature-carrying `animation:` keyframes (the watchdog-pinging
+   * indicator, off by default, and PboPopover's busy-dot pulse),
+   * not decorative transitions. If a future need surfaces for a
+   * snappier-than-default tier (e.g. an SVG node hover with
+   * sub-100ms feedback), add the tier here rather than reaching
+   * for an inline literal — same discipline as z-index. The
+   * MoveSuggestions PV-stone fade (60ms inline in
+   * MoveSuggestions.vue) is intentionally faster than chrome and
+   * band-2 game-tree-coupled; it stays inline-justified rather
+   * than entering this scale. */
+  --duration-default: 0s;    /* chrome hover and state transitions — disabled per maintainer ruling */
+  --duration-slow:    1s;    /* pulse and attention animations (feature-carrying keyframes only) */
 
   /* ── Spacing scale (4) ───────────────────────────────────────
    * Four tiers for gap, padding, margin. Snap-by-cluster
