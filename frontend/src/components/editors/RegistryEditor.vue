@@ -8,6 +8,7 @@ import { ref, computed } from 'vue';
 import { SUPPORTED_LOCALES } from '../../i18n/locales';
 import { WINRATE_FRAMINGS } from '../../engine/katago/types';
 import { BUNDLE_COMPRESSION_SCHEMES } from '../../types';
+import { isRegistryGroupDefaultCollapsed } from '../../lib/utils';
 
 const props = defineProps<{
   registry: any;
@@ -61,6 +62,21 @@ function isObject(val: any) {
   return val !== null && typeof val === 'object' && !Array.isArray(val);
 }
 
+// Initial open/closed state for a branch's native <details> disclosure.
+// Deliberately a per-render *initial value*, not a persisted/controlled
+// binding — `:open` below is uncontrolled (Vue only ever writes it when
+// this expression's own value changes, and `isRegistryGroupDefaultCollapsed`
+// is a pure function of `key`), so it never fights the user's own toggle
+// after mount. That is the "always collapsed by default" reading the
+// disclosure was commissioned under: collapsed on every fresh render of
+// the row, not remembered across a session the way `.settings-section`'s
+// other native <details> mounts (Settings tab's own accordion, retired
+// 2026-06-12) are NOT wired to persist either — there is no existing
+// persisted-disclosure precedent in this codebase to diverge from.
+function isInitiallyOpen(key: string): boolean {
+  return !isRegistryGroupDefaultCollapsed(key);
+}
+
 // Path → finite set of allowed string values for typed-union fields.
 // The lookup key is a dot-joined path RELATIVE to the editor's root —
 // `App.vue` mounts the editor twice (once with `store.profile.settings`
@@ -101,6 +117,8 @@ const PATH_ENUMS: Record<string, readonly string[]> = {
   'pvAnimation.annotation':        ['none', 'from1', 'fromCurrent'],
   'qeuboToolbarView':              ['applied', 'A', 'B'],
   'boardVariations':               ['off', 'circles', 'letters'],
+  'moveDeltaAnnotation':           ['off', 'deltaVisits', 'perPlayer'],
+  'deltaViewMode':                 ['shared', 'black', 'white'],
 };
 
 function enumOptions(key: string): readonly string[] | undefined {
@@ -124,6 +142,12 @@ function enumOptions(key: string): readonly string[] | undefined {
 //     inverted. Tracking note in `docs/handoff-current.md`'s
 //     "Known gaps (frontend)".
 const PATH_TOOLTIPS: Record<string, string> = {
+  'appearance.highContrastText':
+    "Only affects the 'cluster' (light) theme. Darkens the low-emphasis " +
+    "text and the primary accent colour so they clear WCAG's 4.5:1 " +
+    'contrast floor against the theme background; hue is preserved, only ' +
+    'luminance drops. Off by default. Chart/data-series colours and the ' +
+    "'dark' theme are unaffected either way.",
   'engine.katago.overrideSettings.reportAnalysisWinratesAs':
     "Only 'WHITE' is fully supported. 'BLACK' and 'SIDETOMOVE' will " +
     'not be supported in the near future unless another contributor ' +
@@ -218,9 +242,18 @@ function isModified(key: string, value: any) {
   <div class="registry-editor" :class="{ 'registry-root': !path }">
     <div v-for="[key, value] in entries" :key="key" class="registry-row">
 
-      <!-- BRANCH: Object recursion -->
-      <div v-if="isObject(value)" class="registry-branch">
-        <div class="branch-header">
+      <!-- BRANCH: Object recursion, as a native <details> disclosure
+           (shared-chrome.css's .settings-section idiom — the same
+           collapsible-heading disclosure the Settings tab's own
+           accordion sections use; ADR-0019 genre: standard disclosure
+           triangle, natively focusable/enterable). `:open` is an
+           uncontrolled initial value — see isInitiallyOpen above. -->
+      <details
+        v-if="isObject(value)"
+        class="registry-branch settings-section"
+        :open="isInitiallyOpen(key)"
+      >
+        <summary class="branch-header">
           <div class="label-group">
              <span class="branch-label">{{ key }}</span>
              <span v-if="isModified(key, value)" class="modified-dot"></span>
@@ -233,10 +266,13 @@ function isModified(key: string, value: any) {
              >⚠</span>
           </div>
           <div class="action-group">
-            <button v-if="isModified(key, value)" class="restore-btn" :title="$t('registry.restoreBranchDefaults')" @click="restoreDefault(key)">↺</button>
-            <button v-if="isDynamicNode" class="delete-btn" @click="deleteKey(key)">×</button>
+            <!-- .stop: these sit inside <summary>, whose native click
+                 target is "toggle the disclosure" — without .stop a
+                 restore/delete click would also flip open/closed. -->
+            <button v-if="isModified(key, value)" class="restore-btn" :title="$t('registry.restoreBranchDefaults')" @click.stop="restoreDefault(key)">↺</button>
+            <button v-if="isDynamicNode" class="delete-btn" @click.stop="deleteKey(key)">×</button>
           </div>
-        </div>
+        </summary>
         <div class="branch-content">
           <RegistryEditor
             :registry="value"
@@ -245,7 +281,7 @@ function isModified(key: string, value: any) {
             @update="e => emit('update', e)"
           />
         </div>
-      </div>
+      </details>
 
       <!-- LEAF: Scalar/Expression/Ref -->
       <div v-else class="registry-leaf" :class="getFieldType(key, value)">
@@ -342,13 +378,14 @@ function isModified(key: string, value: any) {
 
 .branch-content { padding-left: var(--space-medium); border-left: 1px solid var(--surface-3); margin-left: var(--space-tight); }
 
-/* theme-exception: .expression-input's #fbbf24 text matches the
-   .modified-dot indicator above — same Tailwind amber-400, marking
-   asteval expressions visually distinct from non-expression scalar
-   inputs. Same substrate gap as the indicator. */
+/* Expression inputs read in normal text tokens (commission row 748:
+   the amber-400 text was unreadable against surface-0 on the cluster
+   theme — orange on pink); the .modified-dot indicator alone carries
+   the asteval-expression distinctness now. Border was a
+   surface-token-as-border inversion (rows 681/742). */
 .expression-input {
   width: 100%; min-height: 50px; padding: var(--space-default); line-height: 1.4;
-  color: #fbbf24; background: var(--surface-0); border: 1px solid var(--surface-3); resize: vertical;
+  color: var(--text-0); background: var(--surface-0); border: 1px solid var(--border-2); resize: vertical;
 }
 
 .symbol-ref-box { display: flex; align-items: center; width: 100%; gap: var(--space-default); }

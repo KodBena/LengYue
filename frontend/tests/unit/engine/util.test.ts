@@ -25,9 +25,14 @@ import {
   getKomi,
   getInitialStones,
   resolveGameName,
+  getRulesetResolution,
+  pathHasMidTreeSetup,
+  getGameEndStatus,
 } from '../../../src/engine/util';
+import { applySetup, applyGoMove, applyPass } from '../../../src/logic';
 import { createInitialBoard } from '../../../src/store/board-factory';
-import type { BoardState } from '../../../src/types';
+import { getPath } from '../../../src/engine/navigator';
+import type { BoardState, GameNode, NodeId } from '../../../src/types';
 
 describe('sgfToMove', () => {
   it('decodes "pd" on 19×19 to (15, 15) (y inverts to bottom-origin)', () => {
@@ -163,6 +168,47 @@ describe('getKomi', () => {
   });
 });
 
+describe('getRulesetResolution', () => {
+  it('reads and normalizes the RU property from the root node', () => {
+    const board = createInitialBoard();
+    board.nodes[board.rootNodeId].properties['RU'] = ['japanese'];
+    expect(getRulesetResolution(board)).toEqual({ name: 'Japanese', source: 'ru' });
+  });
+
+  it('is case-insensitive over the RU property', () => {
+    const board = createInitialBoard();
+    board.nodes[board.rootNodeId].properties['RU'] = ['AGA'];
+    expect(getRulesetResolution(board)).toEqual({ name: 'AGA', source: 'ru' });
+  });
+
+  // RED against the vetoed shipped behaviour (the fail-loud
+  // 'unknown' arm): live-testing adjudication
+  // (`.claude/dispatch-reports/ruleset-default-wedge-fix.md`)
+  // supersedes it — a missing/unrecognized RU now defaults to
+  // Tromp-Taylor with `source: 'defaulted'`, a represented fact
+  // rather than a refusal.
+  it('defaults to Tromp-Taylor (source: defaulted) when RU is missing', () => {
+    const board = createInitialBoard();
+    delete board.nodes[board.rootNodeId].properties['RU'];
+    expect(getRulesetResolution(board)).toEqual({ name: 'Tromp-Taylor', source: 'defaulted' });
+  });
+
+  it('defaults to Tromp-Taylor (source: defaulted) when RU does not match one of the four names', () => {
+    const board = createInitialBoard();
+    board.nodes[board.rootNodeId].properties['RU'] = ['New Zealand'];
+    expect(getRulesetResolution(board)).toEqual({ name: 'Tromp-Taylor', source: 'defaulted' });
+  });
+
+  // A fresh board minted by createInitialBoard carries commissioner-
+  // adjudicated RU[Tromp-Taylor] (board-factory.ts) authored at
+  // construction time, so it resolves with `source: 'ru'` — distinct
+  // from the defaulted case above, which never touches the file's RU.
+  it('resolves a fresh createInitialBoard board to Tromp-Taylor with source "ru" (authored, not defaulted)', () => {
+    const board = createInitialBoard();
+    expect(getRulesetResolution(board)).toEqual({ name: 'Tromp-Taylor', source: 'ru' });
+  });
+});
+
 describe('getInitialStones', () => {
   it('returns an empty array when no setup stones exist', () => {
     const board = createInitialBoard();
@@ -256,5 +302,177 @@ describe('resolveGameName', () => {
   it('skips a whitespace-only GN and falls through to EV', () => {
     const board = withRootProps({ GN: ['   '], EV: ['Tournament 2026'] });
     expect(resolveGameName(board, FROZEN)).toBe('Tournament 2026');
+  });
+});
+
+describe('pathHasMidTreeSetup', () => {
+  it('is false for a path with no setup properties at all', () => {
+    const board = createInitialBoard();
+    const path: NodeId[] = [board.rootNodeId];
+    expect(pathHasMidTreeSetup(board.nodes, path)).toBe(false);
+  });
+
+  it('is false when only the ROOT carries AB/AW (the wire-correct, already-handled case)', () => {
+    const board = createInitialBoard();
+    const withRootSetup = applySetup(board, 3, 3, 'B');
+    const path: NodeId[] = [withRootSetup.rootNodeId];
+    expect(pathHasMidTreeSetup(withRootSetup.nodes, path)).toBe(false);
+  });
+
+  it('is true when a NON-ROOT node on the path carries AW', () => {
+    const board = createInitialBoard();
+    // A one-node child under root, with a setup edit applied to IT
+    // (not root) — the exact shape the setup toolkit produces when
+    // the user is anywhere but the tree's first position.
+    const childId = ('node-child' as NodeId);
+    board.nodes[childId] = {
+      id: childId,
+      parent: board.rootNodeId,
+      children: [],
+      activeChildIndex: 0,
+      properties: {},
+      move: null,
+    };
+    board.nodes[board.rootNodeId].children.push(childId);
+    const withMidTreeSetup = applySetup({ ...board, currentNodeId: childId }, 5, 5, 'W');
+
+    const path: NodeId[] = [board.rootNodeId, childId];
+    expect(pathHasMidTreeSetup(withMidTreeSetup.nodes, path)).toBe(true);
+  });
+
+  it('ignores a node past the end of the queried path (only scans path[1..])', () => {
+    const board = createInitialBoard();
+    const childId = ('node-child' as NodeId);
+    board.nodes[childId] = {
+      id: childId,
+      parent: board.rootNodeId,
+      children: [],
+      activeChildIndex: 0,
+      properties: {},
+      move: null,
+    };
+    board.nodes[board.rootNodeId].children.push(childId);
+    const withMidTreeSetup = applySetup({ ...board, currentNodeId: childId }, 5, 5, 'W');
+
+    // Path stops AT root — the child (and its setup edit) is out of
+    // range for THIS query, so it must not be flagged.
+    const rootOnlyPath: NodeId[] = [board.rootNodeId];
+    expect(pathHasMidTreeSetup(withMidTreeSetup.nodes, rootOnlyPath)).toBe(false);
+  });
+});
+
+/**
+ * `getGameEndStatus` truth table (pass-support design's "Game-end
+ * signal", `.claude/dispatch-reports/design-engine-features.md`) —
+ * status-only, no scoring: pass-pass ends, pass-move doesn't, and
+ * branch switching resets correctly along the ACTIVE path (the
+ * function is evaluated purely off the `path` argument, so this also
+ * pins that navigating off the two-pass position reverts the signal).
+ */
+describe('getGameEndStatus', () => {
+  function path(board: BoardState): readonly NodeId[] {
+    return getPath(board.nodes, board.currentNodeId);
+  }
+
+  it('in-progress on a fresh board (root only, path length 1)', () => {
+    const board = createInitialBoard();
+    expect(getGameEndStatus(board.nodes, path(board))).toEqual({ kind: 'in-progress' });
+  });
+
+  it('in-progress after a single placed move', () => {
+    let board = createInitialBoard();
+    board = applyGoMove(board, 3, 3)!;
+    expect(getGameEndStatus(board.nodes, path(board))).toEqual({ kind: 'in-progress' });
+  });
+
+  it('in-progress after one pass followed by a placed move (pass-move truth-table row)', () => {
+    let board = createInitialBoard();
+    board = applyPass(board); // B passes
+    board = applyGoMove(board, 3, 3)!; // W plays — not two passes
+    expect(getGameEndStatus(board.nodes, path(board))).toEqual({ kind: 'in-progress' });
+  });
+
+  it('ended-by-pass after two consecutive passes, carrying the second pass\'s color', () => {
+    let board = createInitialBoard();
+    board = applyPass(board); // B passes
+    board = applyPass(board); // W passes
+    expect(getGameEndStatus(board.nodes, path(board))).toEqual({
+      kind: 'ended-by-pass',
+      lastMoveColor: 'W',
+    });
+  });
+
+  it('a placed move after two passes is NOT ended (continuing past the signal)', () => {
+    let board = createInitialBoard();
+    board = applyPass(board);
+    board = applyPass(board);
+    board = applyGoMove(board, 3, 3)!;
+    expect(getGameEndStatus(board.nodes, path(board))).toEqual({ kind: 'in-progress' });
+  });
+
+  it('branch switching resets correctly along the active path: a sibling branch that does not end in two passes reads in-progress even though a cousin branch did', () => {
+    let board = createInitialBoard();
+    board = applyPass(board); // B passes at root
+    const afterFirstPass = board;
+    // Branch 1 (from the current node, whatever it may be renamed to):
+    // W also passes — two-pass ended.
+    const ended = applyPass(afterFirstPass);
+    expect(getGameEndStatus(ended.nodes, path(ended))).toEqual({
+      kind: 'ended-by-pass',
+      lastMoveColor: 'W',
+    });
+
+    // Branch 2 (sibling, from the SAME afterFirstPass node): W plays a
+    // stone instead. Nodes accumulate on the shared `nodes` map the
+    // same way a real tree does (both branches are children of the
+    // same parent), so read status off branch 2's own leaf.
+    const played = applyGoMove({ ...afterFirstPass, nodes: ended.nodes }, 15, 15)!;
+    expect(getGameEndStatus(played.nodes, path(played))).toEqual({ kind: 'in-progress' });
+  });
+
+  it('reads status positionally: navigating back to before the second pass reads in-progress even though the leaf (two passes later) is ended', () => {
+    let board = createInitialBoard();
+    const beforeSecondPass = applyPass(board); // B passes; cursor at B's pass node
+    const ended = applyPass(beforeSecondPass); // W passes; cursor at W's pass node
+
+    // At the leaf: ended.
+    expect(getGameEndStatus(ended.nodes, path(ended))).toEqual({
+      kind: 'ended-by-pass',
+      lastMoveColor: 'W',
+    });
+    // At the position one step back (only one pass has happened along
+    // this shorter path): in-progress. Same `nodes` map (ended.nodes
+    // already contains the earlier node), different cursor.
+    const rewound: BoardState = { ...ended, currentNodeId: beforeSecondPass.currentNodeId };
+    expect(getGameEndStatus(rewound.nodes, path(rewound))).toEqual({ kind: 'in-progress' });
+  });
+
+  it('a moveless node (e.g. an SGF scoring TW/TB node) trailing two passes reads in-progress at ITS OWN position', () => {
+    let board = createInitialBoard();
+    board = applyPass(board);
+    board = applyPass(board);
+    // Synthesize a moveless trailing node the way an SGF's root-less
+    // scoring node would decode (move: null) — same shape sgf-loader
+    // produces for a node with no B/W property.
+    const leafId = board.currentNodeId;
+    const scoringId = 'node-scoring' as NodeId;
+    const scoringNode: GameNode = {
+      id: scoringId,
+      parent: leafId,
+      children: [],
+      activeChildIndex: 0,
+      properties: { TW: ['aa'], TB: ['bb'] },
+      move: null,
+    };
+    const withScoring: BoardState = {
+      ...board,
+      nodes: {
+        ...board.nodes,
+        [leafId]: { ...board.nodes[leafId], children: [scoringId] },
+        [scoringId]: scoringNode,
+      },
+      currentNodeId: scoringId,
+    };
+    expect(getGameEndStatus(withScoring.nodes, path(withScoring))).toEqual({ kind: 'in-progress' });
   });
 });

@@ -15,7 +15,7 @@ What's verified here:
     for a future "hide low-use tags" policy.
 
   - ``compute_forest_summaries`` aggregates flat rows into one
-    ``ForestStat`` per distinct ``root_card_id``; per-card
+    ``ForestStat`` per distinct ``root_card_public_id``; per-card
     recall is computed once per row against a single clock
     reading.
 
@@ -27,6 +27,7 @@ License: Public Domain (The Unlicense)
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from uuid import UUID
 
 import pytest
 
@@ -59,11 +60,20 @@ def _row(
     num_reviews: int = 0,
     creation_offset_days: int = 1,
 ) -> ForestMemberRow:
-    """Construct a ForestMemberRow with sane defaults."""
+    """
+    Construct a ForestMemberRow with sane defaults.
+
+    `root_card_id` / `game_source_id` are small test-local ints kept
+    for call-site readability; browse-leak-fix (ledger rows 417/423)
+    renamed the DTO's real fields to `root_card_public_id` (UUID) /
+    `game_source_display_ordinal` (int) — `UUID(int=root_card_id)`
+    gives a deterministic, distinct UUID per test int without
+    changing every call site's shape.
+    """
     creation = datetime.now(timezone.utc) - timedelta(days=creation_offset_days)
     return ForestMemberRow(
-        root_card_id=root_card_id,
-        game_source_id=game_source_id,
+        root_card_public_id=UUID(int=root_card_id),
+        game_source_display_ordinal=game_source_id,
         description=description,
         player_white=player_white,
         player_black=player_black,
@@ -136,8 +146,8 @@ async def test_compute_forest_summaries_single_forest_with_three_cards():
     result = await svc.compute_forest_summaries(user_id=ALICE)
     assert len(result) == 1
     forest = result[0]
-    assert forest.root_card_id == 1
-    assert forest.game_source_id == 10
+    assert forest.root_card_public_id == UUID(int=1)
+    assert forest.game_source_display_ordinal == 10
     assert forest.total_cards == 3
     assert forest.total_reviews == 3
     # Forest-level metadata copied from any row of the forest.
@@ -164,7 +174,9 @@ async def test_compute_forest_summaries_multi_forest_sorted_by_total_cards_desc(
     )
 
     result = await svc.compute_forest_summaries(user_id=ALICE)
-    assert [f.root_card_id for f in result] == [3, 2, 1]
+    assert [f.root_card_public_id for f in result] == [
+        UUID(int=3), UUID(int=2), UUID(int=1),
+    ]
     assert [f.total_cards for f in result] == [3, 2, 1]
 
 
@@ -225,5 +237,5 @@ async def test_compute_forest_summaries_tenancy_isolation():
 
     alice = await svc.compute_forest_summaries(user_id=ALICE)
     bob = await svc.compute_forest_summaries(user_id=BOB)
-    assert [f.root_card_id for f in alice] == [1]
-    assert [f.root_card_id for f in bob] == [2]
+    assert [f.root_card_public_id for f in alice] == [UUID(int=1)]
+    assert [f.root_card_public_id for f in bob] == [UUID(int=2)]

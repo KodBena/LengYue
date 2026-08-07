@@ -12,7 +12,7 @@
  * License: Public Domain (The Unlicense)
  */
 
-import type { CardId, GameSourceId } from './ids';
+import type { CardId, CardPublicId, GameDisplayOrdinal } from './ids';
 
 // ── Value Objects (readonly preserved) — backend-sourced stats ────────────────
 //
@@ -26,8 +26,10 @@ import type { CardId, GameSourceId } from './ids';
 // ADR-0002.
 
 export interface ForestStat {
-  readonly rootCardId: CardId;
-  readonly gameSourceId: GameSourceId;
+  // Browse-leak-fix (ledger rows 417/423): per-user display ids, not
+  // the raw global PKs `ForestTreeNav.vue` used to paint on screen.
+  readonly rootCardPublicId: CardPublicId;
+  readonly gameSourceDisplayOrdinal: GameDisplayOrdinal;
   readonly description: string | null;
   readonly playerWhite: string | null;
   readonly playerBlack: string | null;
@@ -69,11 +71,13 @@ export interface CardLineageNode {
 }
 
 export interface RootGroup {
-  readonly rootCardId: CardId;
-  readonly gameSourceId: GameSourceId;
+  // Browse-leak-fix (ledger rows 417/423): per-user display ids.
+  readonly rootCardPublicId: CardPublicId;
+  readonly gameSourceDisplayOrdinal: GameDisplayOrdinal;
   // Subset of the resolve-roots input that descends from this root, in
   // input order. Useful for the consumer that wants to associate
-  // pipeline-result cards with the tree they belong in.
+  // pipeline-result cards with the tree they belong in. Reference role
+  // (not display) — raw CardId is fine here, unaffected by the fix.
   readonly cardIdsInTree: CardId[];
 }
 
@@ -87,8 +91,9 @@ export interface ResolveRootsResult {
 }
 
 export interface CardLineageTree {
-  readonly rootCardId: CardId;
-  readonly gameSourceId: GameSourceId;
+  // Browse-leak-fix (ledger rows 417/423): per-user display ids.
+  readonly rootCardPublicId: CardPublicId;
+  readonly gameSourceDisplayOrdinal: GameDisplayOrdinal;
   readonly tree: CardLineageNode;
 }
 
@@ -106,16 +111,18 @@ export type CardTreeNodeRole = 'active' | 'context' | 'stub' | 'bucket';
 // `actual_size` exactly so the UI can say "this game has N nodes; cap
 // is M — increase or narrow." Per ADR-0002, no silent truncation.
 export class CardTreeOverflowError extends Error {
-  readonly rootCardId: CardId;
+  // Browse-leak-fix (ledger rows 417/423): tracks the CardPublicId
+  // now passed to fetchTreeByRoot, not the raw CardId.
+  readonly rootCardPublicId: CardPublicId;
   readonly actualSize: number;
   readonly maxNodes: number;
-  constructor(rootCardId: CardId, actualSize: number, maxNodes: number) {
+  constructor(rootCardPublicId: CardPublicId, actualSize: number, maxNodes: number) {
     super(
-      `Card-tree at root ${rootCardId} exceeds max_nodes ` +
+      `Card-tree at root ${rootCardPublicId} exceeds max_nodes ` +
       `(actual ${actualSize} > cap ${maxNodes})`,
     );
     this.name = 'CardTreeOverflowError';
-    this.rootCardId = rootCardId;
+    this.rootCardPublicId = rootCardPublicId;
     this.actualSize = actualSize;
     this.maxNodes = maxNodes;
   }

@@ -63,7 +63,7 @@ from domain.normalizer import NormalizedPosition
 from domain.pipeline_dsl import BaseSelection
 from domain.stats import ForestMemberRow
 from domain.tree_engine import CardNode
-from schemas.card import CardPatch
+from schemas.card import CardHashEntry, CardPatch
 from schemas.stats import TagStat
 
 
@@ -96,6 +96,32 @@ class CardRepositoryPort(Protocol):
 
         ReviewService translates None into a CardNotFoundError
         (item 11), preserving the same error semantic.
+        """
+        ...
+
+    async def list_content_hashes(
+        self,
+        *,
+        user_id: UserId,
+    ) -> List[CardHashEntry]:
+        """
+        Return every ``(content_hash, card_id)`` pair for cards owned
+        by `user_id` — the bulk-fetch endpoint the
+        card-position-annotations design's §3 recommends ("Recommend
+        (b)") for a boot-time hydrate of the SPA's known-positions
+        map, so the game-tree known-position rings and the mint-
+        dialog duplicate warning are populated by login rather than
+        only incidentally by whichever cards navigation happens to
+        fetch.
+
+        Item 13 (tenancy): the WHERE clause filters on user_id — the
+        same single-predicate shape `fetch_tag_usage` uses (no
+        recursive walk here; every row lives directly on `card`, one
+        join to `normalized_position` for the hash). No cross-tenant
+        row can appear in the result.
+
+        Ordering is unspecified — the SPA only needs the pairs to
+        populate a `Map<ContentHash, CardId>`, not a stable sequence.
         """
         ...
 
@@ -415,36 +441,59 @@ class LineageRepositoryPort(Protocol):
         `roots` and the `card_ids_in_tree` within each group is the
         adapter's choice; no ordering invariant is part of the
         contract — the frontend re-organizes by its own UX rules.
+
+        Browse-leak-fix (ledger rows 417/423): the returned
+        `RootGroup`s identify their root via `root_card_public_id` /
+        `game_source_display_ordinal` (per-user display ids), not the
+        raw global PKs — see `domain/lineage.py`'s module docstring
+        for the reference-vs-display distinction that keeps
+        `card_ids_in_tree` as raw ids.
         """
         ...
 
     async def fetch_tree_by_root(
         self,
-        root_card_id: int,
+        root_card_public_id: UUID,
         *,
         user_id: UserId,
         max_nodes: int = 10000,
     ) -> RootedTree:
         """
-        Return the structure-only subtree rooted at `root_card_id`,
-        restricted to cards owned by `user_id`. The result wraps the
-        recursive `CardTree` with the `root_card_id` and the
-        `game_source_id` of the game source the root descends from
-        (the wire shape's per-root context).
+        Return the structure-only subtree rooted at the card whose
+        `public_id` is `root_card_public_id`, restricted to cards
+        owned by `user_id`. The result wraps the recursive `CardTree`
+        with the root's `public_id` and the `display_ordinal` of the
+        game source it descends from (the wire shape's per-root
+        context).
+
+        Browse-leak-fix (ledger rows 417/423): the root's *identity*
+        parameter switched from the raw internal `card.id` to
+        `card.public_id` — per the ruling, "where a client genuinely
+        needs an addressing handle, the per-user id IS the handle."
+        The frontend never holds the raw internal id for a root (the
+        sibling `resolve_roots` and `/stats/forests` endpoints no
+        longer surface it either), so there is no raw id left to
+        round-trip through this request. The adapter resolves
+        `public_id` → internal id via a tenant-scoped lookup, then
+        reuses the pre-existing internal-id descent unchanged.
 
         Card-tree contract: per-card metadata is fetched separately
-        via /cards/{id} (the existing route). The recursive `tree`
-        field carries only `id` and `children` per node — see
-        `docs/archive/notes/card-tree-backend-spec.md` for the rationale.
+        via /cards/{id} (the existing route, which keeps the raw
+        `card_id` as a named addressing exception — see the schema-
+        walk allowlist). The recursive `tree` field carries only `id`
+        (still the raw per-card id — reference role, not display; see
+        `domain/lineage.py`) and `children` per node — see
+        `docs/archive/notes/card-tree-backend-spec.md` for the
+        rationale.
 
         Behaviors:
 
-        - If `root_card_id` is not owned by the caller, or doesn't
-          exist, or exists but isn't a game-source root (i.e.
-          `card_source.game_source_id IS NULL` for that row), raise
-          `CardNotFoundError`. The route maps this to 404 — the
-          single 404-not-403 collapse for the single-resource case
-          (item 13's posture).
+        - If `root_card_public_id` doesn't resolve to a card owned by
+          the caller, or resolves to a card that isn't a game-source
+          root (i.e. `card_source.game_source_id IS NULL` for that
+          row), raise `CardNotFoundError`. The route maps this to
+          404 — the single 404-not-403 collapse for the single-
+          resource case (item 13's posture).
 
         - If the tree contains more than `max_nodes` nodes, raise
           `LineageOverflowError(actual_size, max_nodes)`. Early
@@ -461,13 +510,59 @@ class LineageRepositoryPort(Protocol):
         Implementation note on the return shape: the
         backend-spec text declares the return as `CardTree` and
         the wire response shape as `{root_card_id, game_source_id,
-        tree}`. The two are inconsistent because the Port has the
-        game_source_id in hand from its own root-verification step,
-        and forcing the route to fetch it again would be a wasted
-        round trip. The Port returns `RootedTree` (a small wrapper
-        carrying both pieces of context) so the route can project
-        directly to the wire shape. Worklog
-        2026-04-29-card-tree-backend documents the deviation.
+        tree}` (pre-browse-leak-fix names). The two are inconsistent
+        because the Port has the game-source context in hand from its
+        own root-verification step, and forcing the route to fetch it
+        again would be a wasted round trip. The Port returns
+        `RootedTree` (a small wrapper carrying both pieces of context)
+        so the route can project directly to the wire shape. Worklog
+        2026-04-29-card-tree-backend documents the original deviation.
+        """
+        ...
+
+    async def resolve_game_source_root_card_ids(
+        self,
+        ordinals: List[int],
+        *,
+        user_id: UserId,
+    ) -> List[int]:
+        """
+        Resolve `game_source.display_ordinal` tokens to the internal
+        ids of their root cards, restricted to `game_source` rows
+        owned by `user_id`.
+
+        macro-public-id-tokens (restoring the Cards-tab
+        `${gameSourceId}` macro after browse-leak-fix removed its
+        raw-id source, ledger row 456). `PipelineExecutor.run` calls
+        this to turn `ForestQuery.game_source_ordinals` into internal
+        card ids it can hand to `fetch_selection` alongside
+        `context_ids` — the SPA supplies only the per-user ordinal it
+        can see; this Port owns turning that into an addressable PK.
+
+        A game_source can anchor more than one root card (multiple
+        `card_source` rows with `game_source_id` set to the same
+        game_source, e.g. multiple root moves under one imported
+        game) — the return value is the union of every such root
+        across every input ordinal, order and duplication unspecified
+        (the caller de-dups via its own pool_map).
+
+        Tenancy / 404-not-403: an ordinal that doesn't resolve to a
+        `game_source` owned by `user_id` — because no such ordinal
+        exists at all, or because it belongs to a different tenant —
+        raises `GameSourceNotFoundError`. The two cases are
+        indistinguishable by construction: resolution is a single
+        query with `game_source.display_ordinal = :ordinal AND
+        game_source.user_id = :user_id` fused into one WHERE clause,
+        the same predicate-fusion pattern documented in
+        docs/notes/tenancy.md. Fails loudly (ADR-0002) on the FIRST
+        unresolved ordinal rather than silently resolving the ones
+        that do and dropping the ones that don't — a caller-supplied
+        token that doesn't name anything real is a caller error, not
+        a partial-result situation.
+
+        Empty `ordinals` returns an empty list without touching the
+        database (mirrors `fetch_selection`'s empty-`context_ids`
+        short-circuit).
         """
         ...
 

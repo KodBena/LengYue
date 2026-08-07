@@ -1,0 +1,10 @@
+BEFORE cousin click: {"move":"MOVE 10","cx":18,"cy":258,"treeScrollL":0,"treeScrollT":0}
+AFTER cousin click (BLACK COUSIN OF MOVE 87): {"move":"MOVE 87","cx":138,"cy":2106,"treeScrollL":71,"treeScrollT":1042}
+GEO at cousin: {"row":{"x":168,"w":3672,"h":2128},"board":{"x":168,"w":900,"h":2128},"tree":{"x":1068,"w":140,"h":2128},"panel":{"x":1212,"w":2628,"h":2128},"resizerX":1208,"boardSvg":{"w":892,"h":2100},"justify":"normal","panelFlex":"flex: 1 1 0px; min-width: 220px;","boardTargetPx":"--board-target-px: 900px;"}
+after Library tab: {"cq":true,"panelW":2628}
+[S1-right-slow] resizer at x=1208; geo BEFORE mousedown: {"row":{"x":168,"w":3672,"h":2128},"board":{"x":168,"w":900,"h":2128},"tree":{"x":1068,"w":140,"h":2128},"panel":{"x":1212,"w":2628,"h":2128},"resizerX":1208,"boardSvg":{"w":892,"h":2100},"justify":"normal","panelFlex":"flex: 1 1 0px; min-width: 220px;","boardTargetPx":"--board-target-px: 900px;"}
+[S1-right-slow] geo IMMEDIATELY AFTER mousedown (no mouse movement): {"row":{"x":168,"w":3672,"h":2128},"board":{"x":168,"w":900,"h":2128},"tree":{"x":1068,"w":140,"h":2128},"panel":{"x":1212,"w":2628,"h":2128},"resizerX":1208,"boardSvg":{"w":892,"h":2100},"justify":"normal","panelFlex":"flex: 1 1 0px; min-width: 220px;","boardTargetPx":"--board-target-px: 900px;"}
+[S1-right-slow] geo at end of drag: {"row":{"x":168,"w":3672,"h":2128},"board":{"x":758,"w":2128,"h":2128},"tree":{"x":2886,"w":140,"h":2128},"panel":{"x":3030,"w":220,"h":2128},"resizerX":3026,"boardSvg":{"w":2120,"h":2100},"justify":"center","panelFlex":"flex: 0 0 auto; min-width: 220px; width: 220px;","boardTargetPx":"--board-target-px: 3390px;"}
+S1 samples: 698
+CONSOLE: [{"t":"error","text":"Failed to load resource: the server responded with a status of 503 (Service Unavailable)"}]
+NETFAIL: [{"url":"http://192.168.122.68:8764/qeubo/experiment/status","status":503}]

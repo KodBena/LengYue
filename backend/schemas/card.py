@@ -117,9 +117,20 @@ class CardCreateResponse(BaseModel):
     Dict[str, Any], which provided no information to OpenAPI consumers
     (and therefore no information to any code-generated TypeScript
     client downstream — see item 30). Item 4.
+
+    Per-user-id-enumeration design: ``card_id`` (the raw PK) is kept
+    — allowlisted alongside the ``GET /cards/{card_id}`` path param,
+    which the frontend addresses with this same value immediately
+    after creation (`.claude/dispatch-reports/
+    per-user-id-enumeration-design.md`, Decision 4). ``public_id``
+    (the opaque reference handle) and ``display_ordinal`` (the
+    per-user display value) are added alongside so a caller that
+    wants to *display* "card N" doesn't need a follow-up round trip.
     """
     status: Literal["created"]
     card_id: int
+    public_id: UUID
+    display_ordinal: int
 
 
 class GradingParameterData(BaseModel):
@@ -206,6 +217,42 @@ class CardPatch(BaseModel):
     suspended: Optional[bool] = None
     grading_parameter: Optional[GradingParameterPatch] = None
     reset_prior: bool = False
+
+
+class CardHashEntry(BaseModel):
+    """
+    One row of ``GET /cards/hashes``'s response: the pairing between
+    a position's content hash and the caller's card id at that
+    position.
+
+    Card-position-annotations boot-time hydrate (see
+    ``.claude/dispatch-reports/card-position-annotations-design.md``
+    §3, "Recommend (b)"): the SPA's `known-positions` state module
+    fills incidentally today, via `mapToReviewCard` on every card
+    fetch (`content_hash` alone, widened onto `CardWithRecall` in
+    Stage A). This DTO adds the ``card_id`` leg so a single bulk
+    fetch at boot/login can populate the full
+    `ContentHash -> CardId` map without waiting on incidental
+    navigation — the completeness guarantee §3 calls out as
+    ``GET /cards/hashes``'s reason to exist over relying on what's
+    already loaded.
+
+    ``content_hash`` is the lowercase-hex SHA-256 digest, same
+    representation and equality contract as
+    `PositionHashResponse.content_hash` (schemas/positions.py) and
+    `CardWithRecall.content_hash` — a client can compare all three
+    with plain string equality. ``card_id`` is the raw PK, matching
+    `CardCreateResponse.card_id` and every other route that
+    addresses a card by its internal id (per-user-id-enumeration
+    Decision 4 allowlists this value).
+    """
+
+    content_hash: str = Field(
+        description="Lowercase-hex SHA-256 digest of the position's normalized content.",
+    )
+    card_id: int = Field(
+        description="The internal id of the caller's card at this position.",
+    )
 
 
 class ReviewRequest(BaseModel):

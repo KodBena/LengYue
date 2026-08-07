@@ -153,6 +153,7 @@ import { resetFakeAnalysisPersistenceService } from '../fakes/analysis-persisten
 import { withSetup } from './with-setup';
 import { ref, nextTick } from 'vue';
 import type { BoardId, CardId, CardTreeExpandKey, ForestStat, KnobId } from '../../src/types';
+import { useResizablePanel } from '../../src/composables/chrome/useResizablePanel';
 
 const auth = useAuth();
 
@@ -324,6 +325,34 @@ describe('SyncService save-coverage — knob seam targeting session.ui', () => {
       // for the seam call (the registry keys ARE the KnobId vocabulary).
       const result = writeStoreKnobValue('display.move-filter-threshold' as KnobId, [0.4], { kind: 'manual' });
       expect(result.kind).toBe('written');
+    })).toBe(true);
+  });
+});
+
+describe('SyncService save-coverage — resizer-rearch nested-splitter (ledger row 391/414, review §2)', () => {
+  // Reviewer's own minimal witness (resizer-rearchitecture-review.md §2):
+  // a direct store.session.ui.treePanelWidthPx / treeControlRegionWidthPx
+  // write did NOT bump sessionVersion before this coverage + the
+  // touchSession() fix landed in useResizablePanel.ts. Driven through the
+  // PRODUCTION drag handlers (startResizeInner/startResizeOuter + a
+  // synthetic mousedown/mousemove/mouseup), not an inline store write, so
+  // a dropped touchSession() at either site turns its case red here —
+  // per this suite's own stated purpose (see file header).
+  it('the INNER bar drag (treePanelWidthPx) schedules a save', async () => {
+    const resizer = withSetup(() => useResizablePanel());
+    expect(await putFiredAfter(() => {
+      resizer.startResizeInner(new MouseEvent('mousedown', { clientX: 300 }));
+      document.dispatchEvent(new MouseEvent('mousemove', { clientX: 320 }));
+      document.dispatchEvent(new MouseEvent('mouseup'));
+    })).toBe(true);
+  });
+
+  it('the OUTER bar drag (treeControlRegionWidthPx) schedules a save', async () => {
+    const resizer = withSetup(() => useResizablePanel());
+    expect(await putFiredAfter(() => {
+      resizer.startResizeOuter(new MouseEvent('mousedown', { clientX: 300 }));
+      document.dispatchEvent(new MouseEvent('mousemove', { clientX: 280 }));
+      document.dispatchEvent(new MouseEvent('mouseup'));
     })).toBe(true);
   });
 });

@@ -4,12 +4,14 @@
 -->
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick } from 'vue';
-import { store, setActiveBoard, createBoard, closeBoard } from '../../store';
+import { store, setActiveBoard, createBoard } from '../../store';
 import BoardTab from '../board/BoardTab.vue';
 import MiniBoard from '../board/MiniBoard.vue';
+import ConfirmCloseBoardModal from '../modals/ConfirmCloseBoardModal.vue';
 import { useVirtualList } from '../../composables/chrome/useVirtualList';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
 import { useJankTest } from '../../composables/perf/useJankTest';
+import { useCloseBoardGuard } from '../../composables/board/useCloseBoardGuard';
 import type { BoardId } from '../../types';
 import type { BoardSnapshot } from '../../engine/board-geometry';
 
@@ -38,10 +40,17 @@ const { getSnapshot, getSnapshotSync } = useThumbnailCache();
 // windows the render to the scroll viewport; see the close-at-scale postmortem
 // (§2.2 space, §Finding 2 leak).
 const thumbListRef = ref<HTMLElement | null>(null);
-// Fixed BoardTab height. magic-literal tied to BoardTab.vue's CSS — `.tab-thumb`
-// 32 + `.indicator-row` (12 + 2px margin-top) = 46 (global box-sizing:border-box
-// and the `*` margin reset). Measured at mount to self-correct if that drifts.
-const tabHeight = ref(46);
+// Fixed BoardTab height. magic-literal tied to BoardTab.vue's CSS — `.thumb-
+// container`'s `padding-top: 10px` (widened from 6px in the ADR-0019 audit S6
+// dispatch, when the close button's hit area grew to the 24x24 C21 floor —
+// see BoardTab.vue's `.thumb-container` comment; originally 6px for the
+// tab-close-button clip fix, ui-defects-investigation.md Defect 4) +
+// `.tab-thumb-wrap` 32 + `.indicator-row` (12 + 2px margin-top) = 56 (global
+// box-sizing:border-box and the `*` margin reset). Measured at mount to
+// self-correct if that drifts — `offsetHeight` includes padding, so the
+// correction picks up the padding-top automatically without any change to
+// this composable's math.
+const tabHeight = ref(56);
 const { window: tabWindow, topPadPx, bottomPadPx, scrollToIndex } = useVirtualList({
   items: () => store.boards,
   itemHeight: () => tabHeight.value,
@@ -122,7 +131,11 @@ function getReviewState(boardId: BoardId) {
   if (!status) return null;
 
   if (status === 'AWAITING_MOVE' || status === 'ANALYZING' || status === 'LOADING') return 'ACTIVE';
-  if (status === 'FINISHED') return 'INTERMISSION';
+  // REVIEWED (deck-repeat arc: a goBack/goForward-restored, view-only
+  // card) reads as the same tab-badge bucket as FINISHED — both are
+  // "not actively awaiting a move," and REVIEWED has no dedicated
+  // badge state of its own yet.
+  if (status === 'FINISHED' || status === 'REVIEWED') return 'INTERMISSION';
   return null;
 }
 
@@ -139,6 +152,17 @@ function onHoverEnter(id: BoardId) {
 function onHoverLeave() {
   previewBoardId.value = null;
 }
+
+// ── Close guard (ADR-0019 audit S6 / C10) ───────────────────────────────
+// Board close used to go straight to the store's closeBoard — irreversible,
+// no confirm, no undo. BoardTab now emits 'request-close' (renamed from
+// 'close' so the wiring can't silently regress back to the direct call);
+// the policy (when to confirm, resolving the board's display name, calling
+// closeBoard) lives in useCloseBoardGuard.ts — same composable-owns-the-
+// decision shape as useDirtyBoardGuard, and independently unit-testable
+// without mounting this whole widget.
+const confirmCloseBoardModalRef = ref<InstanceType<typeof ConfirmCloseBoardModal> | null>(null);
+const { requestCloseBoard } = useCloseBoardGuard(confirmCloseBoardModalRef);
 </script>
 
 <template>
@@ -167,7 +191,13 @@ function onHoverLeave() {
          module handlers (BoardTab emits its own id) + an id-based `:isActive` —
          so Vue's keyed diff skips an unchanged tab on a sibling's close (the
          close-render-storm fix; close-at-scale postmortem). No v-memo: it caches
-         positionally and never helped the close path. -->
+         positionally and never helped the close path.
+
+         @request-close (not @close, ADR-0019 audit S6 / C10): BoardTab no
+         longer wires straight to the store's closeBoard — requestCloseBoard
+         (from useCloseBoardGuard) decides whether the target board's close
+         needs confirming first. See the composable + ConfirmCloseBoardModal
+         below. -->
     <div class="thumb-list" ref="thumbListRef">
       <div
         class="thumb-virt"
@@ -184,12 +214,16 @@ function onHoverLeave() {
           :isActive="board.id === activeBoardId"
           :reviewState="getReviewState(board.id)"
           @activate="onActivate"
-          @close="closeBoard"
+          @request-close="requestCloseBoard"
           @hover-enter="onHoverEnter"
           @hover-leave="onHoverLeave"
         />
       </div>
     </div>
+
+    <!-- Close-confirm guard (ADR-0019 audit S6 / C10) — opened by
+         requestCloseBoard only when the target board has moves. -->
+    <ConfirmCloseBoardModal ref="confirmCloseBoardModalRef" />
 
     <button class="tab-add-btn" :title="$t('sidebar.newBoard')" @click="handleAdd">+</button>
 

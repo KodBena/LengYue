@@ -18,7 +18,7 @@
 // boundary; aliased here under domain-friendly names so consumers
 // stay free of `components['schemas'][…]` boilerplate.
 import type { components } from './backend';
-import type { CardId } from './ids';
+import type { CardId, CardDisplayOrdinal, CardPublicId, ContentHash } from './ids';
 import type { NodeId } from './game';
 
 // ── Value Objects (readonly preserved) — SR domain ────────────────────────────
@@ -85,7 +85,24 @@ export interface EbisuModel {
  */
 export interface ReviewCard {
   readonly id: CardId;
+  // Per-user-id-enumeration design: the per-user display value —
+  // "this is the Nth card you created" — never round-tripped as a
+  // reference. Display sites (card-tree labels, library rows) use
+  // this instead of `id`/raw PK. See
+  // `.claude/dispatch-reports/per-user-id-enumeration-design.md`.
+  readonly displayOrdinal: CardDisplayOrdinal;
+  // The reference-role opaque handle (`card.public_id` on the
+  // wire). Not yet consumed as a request-addressing value anywhere
+  // in the SPA (`id` stays the addressing value per the design's
+  // named path-param exception) — carried for forward use.
+  readonly publicId: CardPublicId;
   readonly canonicalContent: string;
+  // card-position-annotations Stage A: the backend's dedup hash for
+  // this card's position (`Card.content_hash` on the wire — lowercase
+  // hex SHA-256). Powers the known-positions state module
+  // (`src/state/known-positions.ts`) and the mint-dialog duplicate
+  // warning; see `.claude/dispatch-reports/card-position-annotations-design.md`.
+  readonly contentHash: ContentHash;
   readonly numMoves: number;
   readonly parentId?: CardId;
   readonly model: EbisuModel;
@@ -247,7 +264,16 @@ export interface CardSet {
   hyperparameters: HyperparamDecl[];
 }
 
-export type ReviewStatus = 'IDLE' | 'LOADING' | 'AWAITING_MOVE' | 'ANALYZING' | 'FINISHED';
+// REVIEWED (deck-repeat arc): a restored per-visit snapshot of a
+// previously-FINISHED card (useReviewSession's goBack/goForward). It
+// is deliberately distinct from live FINISHED — a FINISHED intermission
+// still allows free play (see useBoardMoveRouting), but a REVIEWED
+// restore is strictly view-only: submitReview has no idempotency guard
+// (deck-repeat design doc §1d), so nothing may route back into
+// finishCard from here without an explicit "Retry" that discards the
+// snapshot and re-enters via loadCard. See useReviewSession.ts's
+// visitSnapshots block comment for the capture/restore contract.
+export type ReviewStatus = 'IDLE' | 'LOADING' | 'AWAITING_MOVE' | 'ANALYZING' | 'FINISHED' | 'REVIEWED';
 
 // ReviewSessionData is mutated through `mutateReviewSession` in store/index.ts;
 // the SR session writes back queue progression, scores, override values.

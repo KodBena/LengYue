@@ -26,6 +26,7 @@ import { ref, computed, watch, nextTick, toRef } from 'vue';
 import type {
   CardId,
   CardLineageTree,
+  CardPublicId,
   ForestStat,
   ReviewCard,
   CardTreeExpandKey,
@@ -51,7 +52,8 @@ const props = withDefaults(
     forest: CardLineageTree[];
     activeSet: ReadonlySet<CardId>;
     cards: ReadonlyMap<CardId, ReviewCard>;
-    forestStats: ReadonlyMap<CardId, ForestStat>;
+    // Browse-leak-fix (ledger rows 417/423): keyed by CardPublicId.
+    forestStats: ReadonlyMap<CardPublicId, ForestStat>;
     // Manual-expand axis the widget projects against. Owned by the
     // parent (via `useCardTreeData::manualExpand`, which reads from
     // `store.session.ui.cardTreeNav[boardId]` — schema-version 45);
@@ -96,7 +98,7 @@ const emit = defineEmits<{
   // manual-expand key belonging to that tree, leaving other trees'
   // expansion entries (under the same board's persisted slot)
   // intact.
-  (e: 'collapse-tree', rootCardId: CardId): void;
+  (e: 'collapse-tree', rootCardId: CardPublicId): void;
 }>();
 
 // Per-mount accordion-expand (per-tree section). manualExpand is a
@@ -104,7 +106,7 @@ const emit = defineEmits<{
 // `useCardTreeData::reset` clears it when forest / activeSet are
 // replaced, so the widget no longer needs to mirror that reset.
 
-const expandedRootId = ref<CardId | null>(null);
+const expandedRootId = ref<CardPublicId | null>(null);
 
 // Composable expects `Ref<Set<CardId>>` / `Ref<Set<string>>`;
 // widening from the `ReadonlySet`-typed props is safe here because
@@ -133,7 +135,7 @@ watch(renderForest, forest => {
   if (!stillThere) expandedRootId.value = forest[0].rootCardId;
 }, { immediate: true });
 
-function toggleExpand(rootCardId: CardId): void {
+function toggleExpand(rootCardId: CardPublicId): void {
   expandedRootId.value = expandedRootId.value === rootCardId ? null : rootCardId;
 }
 

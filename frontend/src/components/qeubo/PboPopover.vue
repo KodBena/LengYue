@@ -67,8 +67,10 @@ import { useQeubo } from '../../composables/useQeubo';
 import { useHoverPopover } from '../../composables/chrome/useHoverPopover';
 import { usePopoverEdgeClamp } from '../../composables/chrome/usePopoverEdgeClamp';
 import { pushSystemMessage } from '../../store';
+import { useAppDialogs } from '../../composables/useAppDialogs';
 
 const { t } = useI18n();
+const dialogs = useAppDialogs();
 const q = useQeubo();
 const { open, onMouseEnter, onMouseLeave } = useHoverPopover();
 // `right: 0`-anchored — see usePopoverEdgeClamp's behaviour notes.
@@ -135,8 +137,8 @@ function onApply(): void {
   }
 }
 
-function onPin(): void {
-  const name = window.prompt(t('qeubo.prompt.bookmarkName'));
+async function onPin(): Promise<void> {
+  const name = await dialogs.prompt({ message: t('qeubo.prompt.bookmarkName') });
   if (name === null) return;
   try {
     q.pinCurrent(name);

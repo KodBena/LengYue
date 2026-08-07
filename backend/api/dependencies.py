@@ -58,13 +58,26 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
 #
 # Declared at module level so the full catalog of what this deployment
 # exposes via /resources/{name} is visible in one place. Adding a new
-# static resource: (1) drop the JSON file in ./data/, (2) add a line
-# here, (3) done — no service, adapter, or route change required.
+# static resource: (1) drop the JSON file in ./resources_data/, (2) add
+# a line here, (3) done — no service, adapter, or route change
+# required.
 #
 # Paths are resolved relative to the current working directory at app
 # startup. The app's run directory is typically the repo root, so
-# "data/<filename>.json" resolves to <repo>/data/<filename>.json.
-# Override via CWD if running the app from a different directory.
+# "resources_data/<filename>.json" resolves to
+# <repo>/resources_data/<filename>.json. Override via CWD if running
+# the app from a different directory.
+#
+# resources_data/ (tracked in git, shipped by the Docker image via
+# `COPY . .`) is deliberately NOT backend/data/ — the latter is the
+# mutable, .gitignore'd, .dockerignore'd per-installation directory for
+# cards.db and the JWT secret, and in Docker is the mount point for the
+# cards_data named volume. A resource registered under backend/data/
+# would be swept out of both the image build context (.dockerignore)
+# and version control (.gitignore), and would be shadowed by the
+# volume mount even if it somehow made it into the image — see
+# backend/resources_data/README.md and docs/docker.md for the packaging
+# defect this shape fixes (ledger rows 806/807).
 #
 # The registry is NOT validated at startup. A registered resource
 # whose file is missing surfaces as a 500 on first fetch, not as a
@@ -73,7 +86,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
 # =====================================================================
 
 STATIC_RESOURCE_REGISTRY = {
-    "visit-distribution": Path("data/visit_distribution.json"),
+    "visit-distribution": Path("resources_data/visit_distribution.json"),
 }
 
 

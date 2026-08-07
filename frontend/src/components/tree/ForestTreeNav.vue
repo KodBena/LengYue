@@ -14,7 +14,7 @@
   License: Public Domain (The Unlicense)
 -->
 <script setup lang="ts">
-import type { CardId, NavSelection } from '../../types';
+import type { CardPublicId, NavSelection } from '../../types';
 import type {
   ForestNavGameNode,
   ForestNavRootNode,
@@ -54,7 +54,7 @@ function selectGame(game: ForestNavGameNode): void {
   props.nav.select({ kind: 'game', gameSourceId: game.gameSourceId });
 }
 
-function selectRoot(rootCardId: CardId): void {
+function selectRoot(rootCardId: CardPublicId): void {
   props.nav.select({ kind: 'root', rootCardId });
 }
 

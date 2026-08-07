@@ -48,6 +48,42 @@ npm run build
 npm run preview   # local smoke test of the built bundle
 ```
 
+### Desktop app (Tauri v2)
+
+`src-tauri/` scaffolds a Tauri v2 desktop shell: the built SPA
+(`npm run build`'s `dist/`) inside a native webview, with the FastAPI
+backend running as a **sidecar** — a frozen executable the desktop
+shell spawns, waits for, and kills alongside itself. See the wf11
+dispatch report
+(`.claude/dispatch-reports/wf11-tauri-build.md`) for the full
+zero-context orientation (what Tauri is, the sidecar lifecycle, the
+per-user data directory, evidentiary status of every claim). The
+short version:
+
+```sh
+# 1. Freeze the backend into src-tauri/binaries/ (PyInstaller; needs
+#    python3.13 and network access to install deps into a throwaway venv)
+npm run sidecar:build
+
+# 2. Linux webview deps (once per machine) — Tauri's webview is
+#    webkit2gtk on Linux, not bundled Chromium:
+#    webkit2gtk-4.1, gtk+-3.0, libsoup-3.0 (dev packages) via your
+#    distro's package manager.
+
+# 3. Dev loop (hot-reloads the SPA; the sidecar still runs frozen —
+#    there's no hot-reload for backend Python changes in this mode)
+npm run tauri:dev
+
+# 4. Production bundle (AppImage + .deb on Linux)
+npm run tauri:build
+```
+
+Linux-first: `src-tauri/tauri.conf.json`'s `bundle.targets` lists only
+`appimage`/`deb`. Windows is deferred but the scaffold is
+target-agnostic — see the dispatch report's "What Windows needs
+later" section for the concrete remaining steps (an `.exe`-suffixed
+sidecar binary, an NSIS/MSI bundle target, no Rust source changes).
+
 ---
 
 ## Backend type generation — `npm run gen:api`

@@ -174,6 +174,15 @@ function rowTitle(idx: number): string {
 <template>
   <div class="library-table">
     <div class="library-table-header">
+      <!--
+        Per-user-id-enumeration design: net-new display_ordinal
+        column — no numeric id was rendered here before (the design's
+        survey found "no `.id` interpolated into visible text in this
+        file"). Not sortable (display_ordinal isn't in the backend's
+        GameListSort vocabulary), so it's a plain span, not a `.th`
+        button.
+      -->
+      <span class="th col-ordinal">#</span>
       <button class="th col-player" @click="onHeaderClick('playerBlack')">Black{{ sortIndicator('playerBlack') }}</button>
       <button class="th col-player" @click="onHeaderClick('playerWhite')">White{{ sortIndicator('playerWhite') }}</button>
       <button class="th col-date" @click="onHeaderClick('date')">Date{{ sortIndicator('date') }}</button>
@@ -212,6 +221,7 @@ function rowTitle(idx: number): string {
             @mousedown="(e) => onRowMousedown(e, i)"
           >
             <template v-if="rowAt(i)">
+              <span class="td col-ordinal">{{ rowAt(i)?.displayOrdinal }}</span>
               <span class="td col-player">{{ rowAt(i)?.playerBlack ?? '—' }}</span>
               <span class="td col-player">{{ rowAt(i)?.playerWhite ?? '—' }}</span>
               <span class="td col-date">{{ rowAt(i)?.date ?? '—' }}</span>
@@ -237,10 +247,10 @@ function rowTitle(idx: number): string {
 }
 .library-table-header {
   display: grid;
-  /* Black, White, Date, Result. The two player columns grow
-     equally with the available width; Date and Result are
+  /* #, Black, White, Date, Result. The two player columns grow
+     equally with the available width; #, Date and Result are
      fixed so player names get the maximum room. */
-  grid-template-columns: 1fr 1fr 110px 80px;
+  grid-template-columns: 40px 1fr 1fr 110px 80px;
   gap: var(--space-tiny);
   padding: var(--space-tiny) var(--space-small);
   background: var(--surface-2);
@@ -273,7 +283,7 @@ function rowTitle(idx: number): string {
 }
 .library-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 110px 80px;
+  grid-template-columns: 40px 1fr 1fr 110px 80px;
   gap: var(--space-tiny);
   padding: 0 var(--space-small);
   font-size: var(--text-body);

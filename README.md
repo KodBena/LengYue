@@ -60,6 +60,15 @@ cd proxy
 ./run_relay.sh   # or ./run_leaf.sh
 ```
 
+### Running via Docker instead
+
+The backend and frontend can also run as Docker containers
+(`docker compose up --build`, then open http://localhost:19080).
+KataGo/KataProxy are not containerized in v1 — the containerized app
+connects to the engine running on your host, same as above. See
+**[docs/docker.md](docs/docker.md)** for a from-zero walkthrough
+(build/up, where data lives, backups, pointing at the engine).
+
 ### Optional: populate the database with a sample workspace
 
 A fresh install starts with an empty backend database — the SPA's

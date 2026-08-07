@@ -25,7 +25,7 @@
  *
  * License: Public Domain (The Unlicense)
  */
-import { sgfToMove } from './util';
+import { sgfToMove, getInitialPlayer } from './util';
 import { generateUUID } from '../lib/utils';
 import { validateMove } from './rules';
 import type { BoardState, GameNode, NodeId, StoneColor, Point } from '../types';
@@ -116,10 +116,17 @@ export function loadSgf(sabakiOutput: any): BoardState {
     currentNodeId: rootId,
     nodes,
     koPoint: null,
-    turn: 'B',
+    turn: 'B', // placeholder — overwritten immediately below via getInitialPlayer
     clientGameId: generateUUID(),
     games: {},
   };
+
+  // Root `PL[W]` (the handicap affordance's own write, `engine/
+  // handicap.ts::applyHandicap`, and any other SGF authored with an
+  // explicit starting player) overrides the ordinary Black-first
+  // default. Absent `PL`, `getInitialPlayer` falls back to 'B',
+  // matching every board this codebase creates without a handicap.
+  state.turn = getInitialPlayer(state);
 
   // 3. Project root setup stones (AB/AW on the root node) into the board.
   const rootNode = nodes[rootId];

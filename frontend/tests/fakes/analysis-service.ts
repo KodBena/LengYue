@@ -59,6 +59,13 @@ export const fakeAnalysisService = {
   isPondering: vi.fn<(boardId: BoardId) => boolean>(),
   stopPonderOnBoard: vi.fn<(boardId: BoardId) => void>(),
   analyzeActiveNode: vi.fn<(boardId: BoardId, mode: 'ponder' | 'analyze') => void>(),
+  // Connection lifecycle. Exercised by `useEngineControls` (the
+  // toolbar CONNECT/DISCONNECT button) and by
+  // `useEngineUriEditor` (the toolbar URI editor's reconnect-on-
+  // commit path) — both call the singleton directly, so the fake's
+  // spies are what those composables' tests assert against.
+  connect: vi.fn<(urlOverride?: string) => void>(),
+  disconnect: vi.fn<() => void>(),
 };
 
 export function resetFakeAnalysisService(): void {
@@ -80,4 +87,6 @@ export function resetFakeAnalysisService(): void {
   fakeAnalysisService.isPondering.mockReturnValue(false);
   fakeAnalysisService.stopPonderOnBoard.mockReset();
   fakeAnalysisService.analyzeActiveNode.mockReset();
+  fakeAnalysisService.connect.mockReset();
+  fakeAnalysisService.disconnect.mockReset();
 }

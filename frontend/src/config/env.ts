@@ -23,13 +23,33 @@
  */
 
 /**
+ * Tauri desktop-shell override: `src-tauri/src/lib.rs` picks a free
+ * local port for the backend sidecar at app start (a build-time
+ * VITE_API_BASE_URL can't know this port in advance) and injects it as
+ * this global via `WebviewWindowBuilder::initialization_script`, which
+ * Tauri guarantees runs before any page script — including this
+ * module's own top-level evaluation. `undefined` in every non-Tauri
+ * context (web dev server, `vite preview`), so the branch below falls
+ * through to the normal VITE_API_BASE_URL / localhost resolution there.
+ */
+declare global {
+  interface Window {
+    __LENGYUE_BACKEND_PORT__?: number;
+  }
+}
+
+/**
  * Base URL for the spaced-repetition backend (cards, reviews, forests,
  * documents, and — since the resource-endpoint consolidation — static
  * resources served at /resources/{name}).
  * Override via VITE_API_BASE_URL in `.env` or the build environment.
+ * Under the Tauri desktop shell, the sidecar's OS-assigned port
+ * (see `__LENGYUE_BACKEND_PORT__` above) takes precedence over both.
  */
 export const API_BASE_URL: string =
-  import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8764';
+  typeof window !== 'undefined' && window.__LENGYUE_BACKEND_PORT__ !== undefined
+    ? `http://127.0.0.1:${window.__LENGYUE_BACKEND_PORT__}`
+    : (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8764');
 
 /**
  * WebSocket URL for the KataGo analysis middleware.

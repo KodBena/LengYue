@@ -363,6 +363,14 @@ the review controls:
   hidden during this phase so the user isn't influenced by the
   engine.
 
+- **Start marker in the game tree.** While a review session is
+  active, the game-tree panel rings the node the current card
+  starts from — the same visual family as the green "play vs
+  engine" head ring and the engine-match head, an accent-colored
+  ring around the node's circle. It appears when a card loads and
+  disappears when the session ends, so navigating the tree
+  mid-review always shows where the card began.
+
 - **Engine response and grading.** After the user moves,
   KataGo evaluates the position; the palette-compiled grading
   signal produces a recall outcome that Ebisu uses to schedule
@@ -386,6 +394,17 @@ the review controls:
 
 - **FINISHED state.** Session-end summary; back to the deck
   picker.
+
+- **Back / Forward (deck repeat).** Step back to a card already
+  visited this session and its exact played line, per-move
+  scores, and grading chart reappear — no re-analysis, nothing
+  lost. A card revisited this way is view-only ("Reviewed"): no
+  new moves, no re-grading. "Retry Card" (with a confirmation,
+  since it replaces the recorded score) discards the retained
+  attempt and re-enters the card fresh for a genuine second try.
+  Forward returns to wherever the session was, including an
+  attempt left mid-move. Retained visits are session-scoped —
+  they don't survive "End Session" or closing the tab.
 
 ### Browse mode (Forest Directory)
 
@@ -614,6 +633,14 @@ backend; flip the env-var to opt in.
   through CSS variables. A "Gradient Calibration" surface in
   the Other tab lets the user tune the colour gradient driving
   move-suggestion intensity.
+
+- **High-contrast text (opt-in).** A checkbox next to the theme
+  picker (Settings → Advanced Registry → `appearance.highContrastText`)
+  darkens the light ("cluster") theme's low-emphasis text and
+  primary accent colour just enough to clear WCAG's 4.5:1 contrast
+  floor — same hues, better readability. Off by default; leaves the
+  dark theme and every chart / data-series colour untouched either
+  way.
 
 ## Authentication and persistence
 

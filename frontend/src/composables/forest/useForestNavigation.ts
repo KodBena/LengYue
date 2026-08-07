@@ -24,9 +24,9 @@
 import { computed, type ComputedRef, type Ref } from 'vue';
 import type {
   BoardId,
-  CardId,
+  CardPublicId,
   ForestStat,
-  GameSourceId,
+  GameDisplayOrdinal,
   NavNodeId,
   NavSelection,
 } from '../../types';
@@ -55,8 +55,10 @@ export interface ForestNavGameAggregate {
 export interface ForestNavRootNode {
   readonly kind: 'root';
   readonly nodeId: NavNodeId;
-  readonly rootCardId: CardId;
-  readonly gameSourceId: GameSourceId;
+  // Browse-leak-fix (ledger rows 417/423): per-user display ids, not
+  // the raw global PKs this chip used to paint on screen.
+  readonly rootCardId: CardPublicId;
+  readonly gameSourceId: GameDisplayOrdinal;
   // Pass-through reference to the source `ForestStat` so the SFC can
   // render the per-root inline stats (totalCards / totalReviews /
   // averageRecall) without re-projecting.
@@ -66,7 +68,7 @@ export interface ForestNavRootNode {
 export interface ForestNavGameNode {
   readonly kind: 'game';
   readonly nodeId: NavNodeId;
-  readonly gameSourceId: GameSourceId;
+  readonly gameSourceId: GameDisplayOrdinal;
   // First non-empty `description` across the game's roots; falls
   // back to "Game source #N" when every root has null/blank
   // metadata. The fallback uses the game-source id since there's no
@@ -115,11 +117,11 @@ export interface ForestNavigation {
 // (and PR 2's SFC) can produce node ids without re-deriving the
 // format from scratch.
 
-export function gameNodeId(gameSourceId: GameSourceId): NavNodeId {
+export function gameNodeId(gameSourceId: GameDisplayOrdinal): NavNodeId {
   return `game:${gameSourceId}` as NavNodeId; // brand mint: `game:`-prefixed NavNodeId (this fn is the factory)
 }
 
-export function rootNodeId(rootCardId: CardId): NavNodeId {
+export function rootNodeId(rootCardId: CardPublicId): NavNodeId {
   return `root:${rootCardId}` as NavNodeId; // brand mint: `root:`-prefixed NavNodeId (this fn is the factory)
 }
 
@@ -194,20 +196,20 @@ function groupByGameSource(
   // require recomputing the aggregate as roots accumulate; the two-
   // pass shape is clearer and the input size (a few thousand stats
   // worst-case) doesn't motivate the optimisation.
-  const grouped = new Map<GameSourceId, ForestStat[]>();
+  const grouped = new Map<GameDisplayOrdinal, ForestStat[]>();
   for (const s of stats) {
-    const list = grouped.get(s.gameSourceId);
+    const list = grouped.get(s.gameSourceDisplayOrdinal);
     if (list) list.push(s);
-    else grouped.set(s.gameSourceId, [s]);
+    else grouped.set(s.gameSourceDisplayOrdinal, [s]);
   }
 
   const games: ForestNavGameNode[] = [];
   for (const [gameSourceId, gameStats] of grouped) {
     const roots: ForestNavRootNode[] = gameStats.map(stat => ({
       kind: 'root' as const,
-      nodeId: rootNodeId(stat.rootCardId),
-      rootCardId: stat.rootCardId,
-      gameSourceId: stat.gameSourceId,
+      nodeId: rootNodeId(stat.rootCardPublicId),
+      rootCardId: stat.rootCardPublicId,
+      gameSourceId: stat.gameSourceDisplayOrdinal,
       stat,
     }));
     games.push({
@@ -232,7 +234,7 @@ function titleFor(gameStats: readonly ForestStat[]): string {
   // alongside the CardTreeWidget header rename; the inline `#N`
   // chip in ForestTreeNav still handles the discoverability case
   // when a non-null description hides the id.
-  return `Game ID #${gameStats[0]?.gameSourceId ?? '?'}`;
+  return `Game ID #${gameStats[0]?.gameSourceDisplayOrdinal ?? '?'}`;
 }
 
 function aggregateFor(

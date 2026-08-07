@@ -178,6 +178,10 @@ async def test_bootstrap_v1_baseline_db_upgrades_to_head(temp_db_engine):
             "ix_game_source_user_result_id",
             "ix_game_source_user_ruleset_id",
             "ix_game_source_user_board_size_id",
+            # 0004 added these; must strip too, same reason as below.
+            "uniq_game_source_user_display_ordinal",
+            "uniq_card_user_display_ordinal",
+            "ix_card_public_id",
         ):
             await conn.execute(text(f"DROP INDEX IF EXISTS {idx}"))
         # 0002 added these to game_source.
@@ -187,6 +191,17 @@ async def test_bootstrap_v1_baseline_db_upgrades_to_head(temp_db_engine):
         # 0003 added these to analysis_bundles.
         for col in ("format_descriptor", "uncompressed_byte_size"):
             await conn.execute(text(f"ALTER TABLE analysis_bundles DROP COLUMN {col}"))
+        # 0004 added these to game_source/card. Per-user-id-enumeration
+        # design: game_source.display_ordinal is this revision's probe
+        # marker (db/alembic_bootstrap.py REVISION_MARKERS) — leaving
+        # it in place after create_all would falsely satisfy the
+        # marker on this "just past baseline" simulated DB and skip
+        # 0002/0003/0004 entirely (the exact failure mode 0003's own
+        # docstring warns about for a create_all-then-strip test
+        # construction, just one revision later).
+        await conn.execute(text("ALTER TABLE game_source DROP COLUMN display_ordinal"))
+        await conn.execute(text("ALTER TABLE card DROP COLUMN display_ordinal"))
+        await conn.execute(text("ALTER TABLE card DROP COLUMN public_id"))
 
     # Confirm alembic_version doesn't exist yet.
     assert await _alembic_version(temp_db_engine) is None
@@ -201,10 +216,13 @@ async def test_bootstrap_v1_baseline_db_upgrades_to_head(temp_db_engine):
         info = await conn.execute(text("PRAGMA table_info(game_source)"))
         cols = {row[1] for row in info.fetchall()}
         assert {"created_at", "date", "result", "ruleset",
-                "board_size", "metadata_extra"} <= cols
+                "board_size", "metadata_extra", "display_ordinal"} <= cols
         info = await conn.execute(text("PRAGMA table_info(analysis_bundles)"))
         ab_cols = {row[1] for row in info.fetchall()}
         assert {"format_descriptor", "uncompressed_byte_size"} <= ab_cols
+        info = await conn.execute(text("PRAGMA table_info(card)"))
+        card_cols = {row[1] for row in info.fetchall()}
+        assert {"display_ordinal", "public_id"} <= card_cols
 
 
 # ─── Pre-v1.0 schema → legacy chain runs → baseline reached ─────────────────

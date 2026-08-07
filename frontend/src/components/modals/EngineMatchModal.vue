@@ -24,10 +24,13 @@
 import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { store } from '../../store';
+import { useModalKeyboard } from '../../composables/useModalKeyboard';
+import MatchPlayerOverridesConfig from '../MatchPlayerOverridesConfig.vue';
 
 const { t } = useI18n();
 
 const isOpen = ref(false);
+const modalContentRef = ref<HTMLElement | null>(null);
 const blackModel = ref<string | undefined>(undefined);
 const whiteModel = ref<string | undefined>(undefined);
 const blackVisits = ref(500);
@@ -78,6 +81,11 @@ function close() {
   isOpen.value = false;
 }
 
+// Escape → same close path as the Cancel/× buttons (ADR-0019 S5);
+// Tab focus trap + initial focus + focus restoration — all one
+// shared mechanism, see useModalKeyboard.ts.
+useModalKeyboard(modalContentRef, isOpen, close);
+
 function submit() {
   emit('start-match', {
     numMoves: numMoves.value,
@@ -105,9 +113,9 @@ const canSubmit = computed(() => {
 
 <template>
   <div v-if="isOpen" class="modal-backdrop" @mousedown.self="close">
-    <div class="modal-content">
+    <div ref="modalContentRef" class="modal-content" role="dialog" aria-modal="true" aria-labelledby="engine-match-title" tabindex="-1">
       <div class="modal-header">
-        <h2>{{ t('match.title') }}</h2>
+        <h2 id="engine-match-title">{{ t('match.title') }}</h2>
         <button class="close-btn" @click="close">×</button>
       </div>
 
@@ -154,6 +162,14 @@ const canSubmit = computed(() => {
         </div>
 
         <p class="hint">{{ t('match.hint.stopAnytime') }}</p>
+
+        <div class="overrides-section">
+          <h3 class="section-title">{{ t('match.section.overrides') }}</h3>
+          <div class="overrides-grid">
+            <MatchPlayerOverridesConfig player="B" />
+            <MatchPlayerOverridesConfig player="W" />
+          </div>
+        </div>
       </div>
 
       <div class="modal-footer">
@@ -223,6 +239,10 @@ const canSubmit = computed(() => {
 
 .hint { font-size: var(--text-body); color: var(--text-2); margin: var(--space-tight) 0 0 0; }
 .modal-body .hint:first-child { margin-bottom: var(--space-medium); margin-top: 0; }
+
+.overrides-section { margin-top: var(--space-medium); padding-top: var(--space-medium); border-top: 1px solid var(--surface-3); }
+.section-title { margin: 0 0 var(--space-default) 0; font-size: var(--text-emphasis); color: var(--text-2); text-transform: uppercase; letter-spacing: var(--tracking-tight); }
+.overrides-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-medium); }
 
 .modal-footer {
   display: flex; justify-content: flex-end; gap: var(--space-medium);

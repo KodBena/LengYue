@@ -15,15 +15,32 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
+import { ref } from 'vue';
 
 const commitMint = vi.fn(async () => 1);
 const prepareDraft = vi.fn(async () => ({
+  raw_content: '(;FF[4])',
   num_moves: 1,
   tags: [] as string[],
   grading_parameter: { data: { default_visits: 1000, gamma: 0.9 } },
 }));
+// card-position-annotations Stage A: MintCardModal.open() now also calls
+// resetDuplicateCheck + checkDuplicate — this suite doesn't exercise the
+// duplicate-check UI, so the mocks are inert (a no-op reset, an
+// always-resolves-to-nothing check).
+const checkDuplicate = vi.fn(async () => {});
+const resetDuplicateCheck = vi.fn();
+const duplicateCheckStatus = ref<'idle' | 'checking' | 'checked'>('idle');
+const duplicateCardId = ref<number | null>(null);
 vi.mock('../../src/composables/review/useMinting', () => ({
-  useMinting: () => ({ prepareDraft, commitMint }),
+  useMinting: () => ({
+    prepareDraft,
+    commitMint,
+    checkDuplicate,
+    resetDuplicateCheck,
+    duplicateCheckStatus,
+    duplicateCardId,
+  }),
 }));
 
 import { store } from '../../src/store';

@@ -128,13 +128,13 @@ if (import.meta.hot) import.meta.hot.accept(() => location.reload());
  * forward-migration. Pair every bump with a new entry in the
  * migrations array below.
  */
-export const CURRENT_SCHEMA_VERSION = 61;
+export const CURRENT_SCHEMA_VERSION = 70;
 
 /**
  * Append-only ordered list of migrations. `migrations[i]`
  * migrates from version `(i + 1)` to `(i + 2)`.
  *
- * The first `N` entries (currently 1 → 2 through 58 → 59) are
+ * The first `N` entries (currently 1 → 2 through 66 → 67) are
  * spread in from `archived-migrations.ts`; the rest live below.
  *
  * ── Rolling-archive discipline (2026-05-14) ────────────────────
@@ -156,87 +156,70 @@ export const CURRENT_SCHEMA_VERSION = 61;
  */
 export const migrations: Migration[] = [
   ...archivedMigrations,
-  // 59 → 60: re-apply the two backfills the archived 45 → 46 and
-  // 46 → 47 bodies were meant to perform but silently no-oped on. Both
-  // walked `out.settings?.…` instead of `out.profile?.settings?.…` —
-  // the exact 47 → 48 wrong-path class, but never themselves corrected
-  // — so `adaptiveReevaluate.valueBinding` (string, default '') and
-  // `appearance.moveSuggestionsFadeMs` (number, default 60) were never
-  // written onto persisted blobs. The defect was masked at runtime by
-  // `updateFromRemote`'s deepMerge against defaults (which is why no
-  // user-visible symptom surfaced); the composition test
-  // (`tests/integration/migration-store-roundtrip.test.ts`) surfaced
-  // both as `[silent-no-op]` defaults-only keys on 2026-06-10. Found by
-  // PR #370 (item `migration-leaf-assertion-and-composition-test`);
-  // corrective item `archived-migration-wrong-path-corrective`.
+  // 68 → 69: backfill `session.ui.moveDeltaAnnotation` (string enum
+  // 'off' | 'deltaVisits' | 'perPlayer', default 'off') — the new
+  // board-overlay toggle for the just-played move's delta + visit-count
+  // annotation (wiki Wanted #7 / #7.1; see the field's doc comment on
+  // `UISession` in `schema.ts` and `composables/board/useMoveDeltaAnnotation.ts`
+  // for the derivation). The leaf is read by `BoardWidget` (gates whether
+  // `BoardDeltaAnnotation` mounts) and by `RegistryEditor`'s `PATH_ENUMS`
+  // table (renders the three-way dropdown); a persisted blob predating
+  // this field would otherwise carry no value and rely on
+  // `updateFromRemote`'s deepMerge to surface the default. Backfilling
+  // explicitly keeps the persisted shape honest (the composition test
+  // pins it) rather than leaning on the merge.
   //
-  // Archived bodies are frozen (append-only invariant), so the fix is a
-  // NEW migration with the CORRECT paths via `witnessedContainer` — a
-  // typo here fails loudly at the runtime-shape witness instead of
-  // no-oping and stamping the version. Both containers are witnessed
-  // (`profile.settings.engine.katago.adaptiveReevaluate` exists from the
-  // 29 → 30 seed; `profile.settings.appearance` is present from v1), and
-  // the blob-side resolution keeps the prior bodies' inline
-  // non-null-object tolerance: a partial / legacy blob whose container is
-  // absent no-ops exactly as the broken bodies intended.
+  // Container witnessed against the runtime shape (`witnessedContainer`,
+  // per step 3 of the add-a-migration recipe): `session.ui` exists from
+  // the framework's introduction, so a typo'd path fails loudly here
+  // rather than no-oping and stamping the version. The blob-side
+  // resolution keeps the sibling bodies' non-null-object tolerance: a
+  // partial / legacy blob whose container is absent no-ops.
   //
-  // Idempotent: a pre-existing string `valueBinding` / numeric
-  // `moveSuggestionsFadeMs` is preserved unchanged (a hand-edited or
-  // forward-compat blob keeps its value); only a missing / wrong-typed
-  // leaf is backfilled to the default. The two new display-domain
-  // animation KnobDecls the 46 → 47 body deliberately declined to inject
-  // are NOT re-applied here — that body's choice to defer to the
-  // defaults-side seed for fresh profiles is correct and remains the
-  // `[no-backfill]` posture pinned in the composition test.
+  // Idempotent: a pre-existing valid `moveDeltaAnnotation` is preserved
+  // unchanged (a hand-edited or forward-compat blob keeps its value);
+  // only a missing / wrong-typed / out-of-enum leaf is backfilled to the
+  // default.
   (blob: any) => {
     const out = structuredClone(blob);
-    const adaptive = witnessedContainer(
-      out,
-      'profile.settings.engine.katago.adaptiveReevaluate',
-    );
-    if (adaptive) {
-      const a = adaptive as { valueBinding?: unknown };
-      if (typeof a.valueBinding !== 'string') {
-        a.valueBinding = '';
-      }
-    }
-    const appearance = witnessedContainer(out, 'profile.settings.appearance');
-    if (appearance) {
-      const ap = appearance as { moveSuggestionsFadeMs?: unknown };
-      if (typeof ap.moveSuggestionsFadeMs !== 'number') {
-        ap.moveSuggestionsFadeMs = 60;
+    const ui = witnessedContainer(out, 'session.ui');
+    if (ui) {
+      const u = ui as { moveDeltaAnnotation?: unknown };
+      const valid = ['off', 'deltaVisits', 'perPlayer'];
+      if (typeof u.moveDeltaAnnotation !== 'string' || !valid.includes(u.moveDeltaAnnotation)) {
+        u.moveDeltaAnnotation = 'off';
       }
     }
     return out;
   },
-  // 60 → 61: backfill `profile.settings.engine.katago.calibrationVisits`
-  // (number, default 1000) — the new default visit budget for the opt-in
-  // mint-time komi-calibration feature. The leaf is read by
-  // `MintCardModal` (prefills the per-mint visits input when the
-  // "calibrate komi" checkbox is shown) and seeded in `defaults.ts`; a
-  // persisted blob predating this field would otherwise carry no value
-  // and rely on `updateFromRemote`'s deepMerge to surface the default.
-  // Backfilling explicitly keeps the persisted shape honest (the
-  // composition test pins it) rather than leaning on the merge.
+  // 69 → 70: backfill `profile.settings.onboarding.completed = true`
+  // (ledger slug swz-setup-wizard) — the first-run setup wizard's
+  // "has this profile already been onboarded" flag. A blob reaching
+  // this migration necessarily existed before the wizard shipped, so
+  // it is by definition not a fresh profile; backfilling `true` here
+  // is what keeps an existing user from seeing the wizard pop up
+  // unbidden on their next load. A genuinely fresh profile never
+  // walks this migration — `defaultAppSettings()` seeds
+  // `onboarding.completed: false` directly (see `defaults.ts`), which
+  // is the wizard's actual trigger condition (`useSetupWizard.ts`).
   //
-  // Container witnessed against the runtime shape (`witnessedContainer`,
-  // per step 3 of the add-a-migration recipe): the
-  // `profile.settings.engine.katago` container exists from the original
-  // settings seed, so a typo'd path fails loudly here rather than
-  // no-oping and stamping the version. The blob-side resolution keeps the
-  // sibling bodies' non-null-object tolerance: a partial / legacy blob
-  // whose container is absent no-ops.
+  // Container witnessed against the runtime shape: `profile.settings`
+  // exists from v1, so a typo'd path fails loudly here rather than
+  // no-oping and stamping the version.
   //
-  // Idempotent: a pre-existing numeric `calibrationVisits` is preserved
-  // unchanged (a hand-edited or forward-compat blob keeps its value);
-  // only a missing / wrong-typed leaf is backfilled to the default.
+  // Idempotent: a pre-existing boolean `completed` value (true or
+  // false) is preserved unchanged; only a missing / wrong-typed leaf
+  // is backfilled to `true`.
   (blob: any) => {
     const out = structuredClone(blob);
-    const katago = witnessedContainer(out, 'profile.settings.engine.katago');
-    if (katago) {
-      const k = katago as { calibrationVisits?: unknown };
-      if (typeof k.calibrationVisits !== 'number') {
-        k.calibrationVisits = 1000;
+    const settings = witnessedContainer(out, 'profile.settings');
+    if (settings) {
+      const s = settings as { onboarding?: unknown };
+      const existing = s.onboarding && typeof s.onboarding === 'object'
+        ? (s.onboarding as { completed?: unknown })
+        : undefined;
+      if (!existing || typeof existing.completed !== 'boolean') {
+        s.onboarding = { completed: true };
       }
     }
     return out;

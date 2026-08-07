@@ -24,6 +24,9 @@ import type { StoneColor, BoardState, GameNode, NodeId } from '../../types';
 import UserBadge from '../chrome/UserBadge.vue';
 import { useTransientHint } from '../../composables/useTransientHint';
 import { store, touchSession } from '../../store';
+import { getRulesetResolution, getGameEndStatus } from '../../engine/util';
+import { getPath } from '../../engine/navigator';
+import { RULESET_NAMES, type RulesetName } from '../../engine/rulesets';
 
 // Toggle the persisted `session.ui.showStoneMoveNumbers` flag and bump
 // the session counter SyncService keys persistence on (it no longer
@@ -52,16 +55,48 @@ interface StatusMetadata {
 // this bar. `metadata` stays a prop — it is board-root-derived
 // (useMetadata) and nav-stable, so App passing it costs no per-nav
 // re-render.
+/**
+ * `canPass` (default `true`): App.vue passes `false` while the review
+ * session is in a state where `handlePass` would silently no-op —
+ * LOADING/ANALYZING/REVIEWED — mirroring `useBoardMoveRouting`'s own
+ * gating so the button's enabled-ness matches what clicking it would
+ * actually do. Per genre convention (acceptance criterion 1: "present
+ * ... whenever it is the local user's turn to move ... disabled/absent
+ * otherwise"), the control stays visible/enabled in ordinary free play.
+ */
 const props = defineProps<{
   board:    BoardState;
   metadata: StatusMetadata | null;
+  canPass?: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: 'update-komi', value: number): void;
+  (e: 'update-rules', value: RulesetName): void;
+  (e: 'pass'): void;
 }>();
 
 const { hint } = useTransientHint();
+
+// Sourced from `props.board` directly (not `metadata.rules`, which is
+// `useMetadata`'s display-only `RU` passthrough with its own silent
+// `'Japanese'` default) — the dropdown must reflect the board's
+// *actual* `RU` resolution, including `source: 'defaulted'` when the
+// file's `RU` is missing/unrecognized. `getRulesetResolution` is total
+// (live-testing adjudication, `.claude/dispatch-reports/
+// ruleset-default-wedge-fix.md`): `.name` is always one of the four
+// ruling-mandated names, so the dropdown always has a valid selected
+// value — `source` only changes whether the `.defaulted` hint class
+// applies, never whether a value is selectable.
+const rulesetResolution = computed(() => getRulesetResolution(props.board));
+
+function onRulesChange(e: Event): void {
+  const value = (e.target as HTMLSelectElement /* bound on the rules <select> */).value;
+  // The <select>'s options are exactly RULESET_NAMES (plus the
+  // disabled unrecognized-placeholder, which is never a selectable
+  // value), so a change event's value is always a RulesetName.
+  emit('update-rules', value as RulesetName);
+}
 
 const turn = computed<StoneColor>(() => props.board.turn);
 const captures = computed(() => props.board.captures);
@@ -78,6 +113,14 @@ const moveNumber = computed((): number => {
   }
   return count;
 });
+
+// Game-end signal (pass-support design's status-only two-pass check):
+// evaluated positionally against the current cursor via `getPath`
+// (root→current), so navigating off the two-pass position — or into a
+// sibling branch that doesn't end that way — reverts the message.
+const gameStatus = computed(() =>
+  getGameEndStatus(props.board.nodes, getPath(props.board.nodes, props.board.currentNodeId)),
+);
 </script>
 
 <template>
@@ -92,7 +135,16 @@ const moveNumber = computed((): number => {
         {{ metadata?.whiteName }}
       </span>
       <span class="game-info">
-        {{ metadata?.rules }} · {{ $t('statusBar.komi') }}
+        <select
+          class="rules-select"
+          :class="{ defaulted: rulesetResolution.source === 'defaulted' }"
+          :value="rulesetResolution.name"
+          @change="onRulesChange"
+          :title="rulesetResolution.source === 'defaulted' ? $t('statusBar.rulesDefaulted') : $t('statusBar.editRules')"
+        >
+          <option v-for="name in RULESET_NAMES" :key="name" :value="name">{{ name }}</option>
+        </select>
+        · {{ $t('statusBar.komi') }}
         <input
           type="number"
           class="komi-input"
@@ -104,7 +156,14 @@ const moveNumber = computed((): number => {
       </span>
     </div>
     <div class="status-right">
+      <span v-if="gameStatus.kind === 'ended-by-pass'" class="game-end-badge">{{ $t('statusBar.gameEndedByPass') }}</span>
       <span v-if="hint" class="transient-hint">{{ hint }}</span>
+      <button
+        class="pass-btn"
+        :disabled="props.canPass === false"
+        :title="$t('statusBar.passTitle')"
+        @click="emit('pass')"
+      >{{ $t('statusBar.pass') }}</button>
       <button
         class="move-numbers-btn"
         :class="{ active: store.session.ui.showStoneMoveNumbers }"
@@ -141,7 +200,12 @@ const moveNumber = computed((): number => {
 }
 
 .status-left  { display: flex; gap: var(--space-medium); align-items: center; }
-.status-right { display: flex; gap: var(--space-medium); align-items: center; }
+/* `position: relative` anchors `.transient-hint` below (see that
+   rule's comment) — the hint is positioned absolutely against THIS
+   box so its mount/unmount never changes `.status-right`'s own flex
+   width, which is exactly the geometry bug this anchor exists to
+   prevent (ledger row 811). */
+.status-right { display: flex; gap: var(--space-medium); align-items: center; position: relative; }
 
 .move-badge {
   background: var(--accent-primary);
@@ -194,6 +258,35 @@ const moveNumber = computed((): number => {
   box-shadow: 0 0 0 2px var(--accent-secondary);
 }
 
+/* Rules dropdown — same low-contrast register as the komi input
+   (transparent, dashed underline, accent-primary on focus/hover).
+   `.defaulted` is a subtle informational hint (italic), not a warning
+   accent — this is a represented fact about provenance, not a refused
+   or error state (live-testing adjudication superseded the prior
+   fail-loud 'unrecognized — choose' UI state; see
+   `.claude/dispatch-reports/ruleset-default-wedge-fix.md`). Query
+   construction proceeds either way, so the styling shouldn't read as
+   "something is broken." */
+.rules-select {
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed var(--border-3);
+  color: var(--text-1);
+  font-size: var(--text-body);
+  font-family: inherit;
+  padding: 0;
+  outline: none;
+  transition: color var(--duration-default), border-color var(--duration-default);
+}
+.rules-select:focus, .rules-select:hover {
+  color: var(--accent-primary);
+  border-bottom: 1px solid var(--accent-primary);
+}
+.rules-select.defaulted {
+  font-style: italic;
+  color: var(--text-2);
+}
+
 .komi-input {
   width: 42px;
   background: transparent;
@@ -224,6 +317,47 @@ const moveNumber = computed((): number => {
 
 .caps { font-family: monospace; color: var(--text-2); font-size: var(--text-body); }
 
+/* Pass affordance — always-visible board-chrome control per genre
+   convention (Sabaki/KaTrain/OGS survey, design-engine-features.md
+   PASS SUPPORT §"Genre convention"): a labeled button, not a
+   hidden/modifier-only hotkey, disabled (not hidden) when a pass
+   would be a no-op (review session mid-transition). Text label
+   ("Pass") rather than a glyph — this is the one control in the bar
+   whose meaning must never be color- or icon-only (ADR-0019 appendix
+   C18), and "Pass" has no established single-glyph convention the
+   way move-numbers' "#" does. */
+.pass-btn {
+  background: transparent;
+  border: 1px solid var(--border-3);
+  border-radius: var(--radius-default);
+  color: var(--text-1);
+  font-size: var(--text-body);
+  font-family: inherit;
+  cursor: pointer;
+  padding: 1px 8px;
+  line-height: 1.4;
+  transition: color var(--duration-default), border-color var(--duration-default);
+}
+.pass-btn:hover:not(:disabled) {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+.pass-btn:disabled {
+  color: var(--text-2);
+  border-color: var(--border-2);
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* Two-consecutive-passes status message — the game-end signal is a
+   status only (no scoring), so it reads as informational rather than
+   a warning/error accent. */
+.game-end-badge {
+  color: var(--accent-primary);
+  font-weight: 600;
+  font-size: var(--text-body);
+}
+
 /* Move-number toggle. Inactive: muted text-2, no background.
    Active: accent-primary, hinting "on" without a separate
    indicator (the board itself is the indicator). Borderless to
@@ -248,10 +382,42 @@ const moveNumber = computed((): number => {
 /* Transient hint surface — populated by `useTransientHint` from
    hover-driven affordances (e.g. the PV-paste discoverability
    text on move-suggestion hover). Distinct anchor from the
-   permanent status vocabulary so it reads as ephemeral. */
+   permanent status vocabulary so it reads as ephemeral.
+
+   `position: absolute` (ledger row 811 fix): mounting/unmounting
+   this span used to be an ordinary flex-flow insertion into
+   `.status-right`, which widened the row on hover-enter and
+   squeezed `.caps` (no `white-space: nowrap` there) into wrapping
+   onto two lines — the status bar's `min-height` then grew to fit
+   the wrapped line, and because the board square derives its size
+   from the bar's remaining height budget, the ENTIRE BOARD resized
+   on every hover-enter/leave. Taking the hint out of flow entirely
+   removes it from `.status-right`'s width computation altogether —
+   the row's rendered width, the bar's height, and every neighbor's
+   position are now byte-for-byte identical whether the hint is
+   mounted or not. Floats just above the bar (`bottom: 100%`) rather
+   than inline with it, so it never overlaps the row's own controls;
+   `pointer-events: none` keeps it from intercepting hover/click on
+   whatever it floats over. Opaque `--surface-2` background (matches
+   the bar itself) rather than transparent, since it now floats over
+   the board rather than sitting inside the bar's own backdrop — a
+   diffuse/transparent tooltip here would be illegible against board
+   content, which is the case the standing no-transparent-backdrop
+   rule is about; this is a small opaque label, not an overlay
+   backdrop. */
 .transient-hint {
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  margin-bottom: var(--space-tight);
+  padding: 1px 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-3);
+  border-radius: var(--radius-default);
   color: var(--text-2);
   font-style: italic;
   font-size: var(--text-body);
+  white-space: nowrap;
+  pointer-events: none;
 }
 </style>

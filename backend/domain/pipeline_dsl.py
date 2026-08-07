@@ -338,18 +338,45 @@ class ForestQuery(_DslBase):
     Structural invariants enforced by a model_validator:
       1. First stage must be 'select'.
       2. No subsequent stage may be 'select'.
+      3. At least one of `context_ids` / `game_source_ordinals` is
+         non-empty (macro-public-id-tokens; see below).
 
     Field-level validation (each variant's fields, each numeric bound,
     each discriminator value) is handled by Pydantic's discriminated-
     union machinery. The recently-added nested-filter rule (32a) is
     enforced by BaseSelection's absence of FilterSelection — no runtime
     check needed.
+
+    macro-public-id-tokens (restoring the Cards-tab `${gameSourceId}`
+    macro that browse-leak-fix broke, ledger row 456): `context_ids`
+    remains a list of raw internal card ids — `CardId` is a named
+    per-user-id-enumeration allowlist exception
+    (frontend/IDENTIFIERS.md), the addressing value every already-
+    fetched, tenant-scoped card round-trips through, so it was never
+    part of the leak this endpoint needed closing. `game_source_
+    ordinals` is new: a list of `game_source.display_ordinal` tokens
+    — the per-user id the SPA now actually has (post-browse-leak-fix,
+    `ForestStat` no longer carries the raw `game_source_id` PK this
+    field used to require). Each ordinal is resolved SERVER-SIDE,
+    within the caller's tenancy, to that game_source's root card
+    id(s) (PipelineExecutor.run), which are unioned into the same
+    context pool `context_ids` seeds — the SPA never sees or handles
+    a raw root-card PK for this purpose. An ordinal that doesn't
+    resolve (unknown, or belongs to a different tenant — the two are
+    indistinguishable by construction, 404-not-403) raises
+    GameSourceNotFoundError, which the route maps to 404.
     """
-    context_ids: List[int] = Field(min_length=1)
+    context_ids: List[int] = Field(default_factory=list)
+    game_source_ordinals: List[int] = Field(default_factory=list)
     pipeline: List[Stage] = Field(min_length=1)
 
     @model_validator(mode="after")
     def validate_structure(self) -> "ForestQuery":
+        if not self.context_ids and not self.game_source_ordinals:
+            raise ValueError(
+                "At least one of context_ids / game_source_ordinals "
+                "must be non-empty."
+            )
         head = self.pipeline[0]
         if not isinstance(head, SelectStage):
             raise ValueError(

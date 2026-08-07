@@ -18,6 +18,8 @@ import { useViewportFollow } from '../../composables/useViewportFollow';
 import { useNavigation }    from '../../composables/useNavigation';
 import { useThumbnailCache } from '../../composables/cards/useThumbnailCache';
 import { warmSnapshotAccessor } from '../../composables/cards/usePreviewSnapshot';
+import { useNodePositionHashes } from '../../composables/cards/useNodePositionHashes';
+import { isReviewStartNode } from '../../composables/forest/tree-review-marker';
 import { themeColor }        from '../../utils/theme-color';
 import FloatingThumbnail    from '../chrome/FloatingThumbnail.vue';
 import { boardsById }        from '../../store';
@@ -60,6 +62,36 @@ const props = withDefaults(
     // `board.games[*].currentHeadNodeId` upstream; per-session
     // config is opaque here — the tree only needs identity.
     gameHeadIds?: ReadonlySet<NodeId>;
+    // card-position-annotations Stage B: NodeIds whose normalized
+    // position already exists as one of the caller's cards.
+    // Precomputed at the composition layer (App.vue's
+    // `useKnownPositionNodes`, mirroring `gameHeadIds`'s own
+    // `usePlayVsEngine` precedent) — TreeWidget only renders the
+    // membership test, never fetches or derives it itself.
+    knownPositionNodeIds?: ReadonlySet<NodeId>;
+    // The active review session's starting node — "where a card
+    // starts" (wanted-feature 4 / ledger row 524's re-adjudicated
+    // build). At most one per board (a board has at most one active
+    // review session), so a nullable single id rather than a Set —
+    // same zero-I/O shape as `gameHeadIds`, sourced from
+    // `useReviewSession`'s `startingNodeId` projection over
+    // `ReviewSessionData.startingNodeId` (`null` outside a review
+    // session). Renders a marker ring in the game-head-ring family,
+    // distinct color, so a card's start position reads at a glance
+    // the same way a play/match session head does.
+    reviewStartNodeId?: NodeId | null;
+    // "Learn this path" (wiki #8, ledger row 718 amendment #2 — PRE-MINT
+    // MARKERS): NodeIds the exploration walk has flagged as "would be
+    // added on mint all" — every pending deviation position that isn't
+    // already an existing card. Owned by `learn-path-pending-markers.ts`
+    // (module-scope, since `LearnPathModal` and this widget are siblings
+    // under App.vue, not parent/child); populated live as the walk
+    // grows the tree, cleared after mint or on discard. Renders a
+    // dashed blue ring, same colour family as the solid active-node
+    // ring but visually distinct (dashed, outermost radius — see the
+    // ring-radius stack note by known-position-ring in the template
+    // below) so it reads as "pending", not "current" or "game head".
+    pendingMintIds?: ReadonlySet<NodeId>;
   }>(),
   { orientation: 'vertical' },
 );
@@ -94,6 +126,7 @@ const viewportFollow = useViewportFollow(outerRef);
 
 const expansion = useTreeExpansion();
 const { variationMarkerLabels } = useThumbnailCache();
+const { requestHashFill } = useNodePositionHashes();
 
 const nodesRef  = toRef(props, 'nodes');
 const { layout } = useTreeLayout(nodesRef, undefined, expansion);
@@ -142,12 +175,64 @@ function onToggleLeave() {
 
 function nodeFill(item: { move?: GameNode['move'] }): string {
   if (!item.move) return themeColor('--border-3');
+  // A pass is a game move played by a specific color (ledger row 759:
+  // "a pass is a game move, not a meta-instruction") — it takes the
+  // SAME B/W stone fill as any other move by that color, not a neutral
+  // chrome tone. The "P" glyph rendered alongside in the template (see
+  // `passGlyphFill` below) is the actual distinguishing signal that
+  // this node is a pass rather than a placed stone, per ADR-0019
+  // appendix C18 (no color-only meaning) — the fill alone never carries
+  // the pass/stone distinction.
+  //
   // Stone colors are domain-meaningful (board pieces); not chrome.
-  return item.move.color === 'B' ? '#111' : '#eee';
+  //
+  // DARK-THEME EXCEPTION (Defect 7 fix, ui-defects-investigation.md):
+  // the literal black-stone fill '#111' against dark theme's
+  // --surface-2 (#1a1a1a, theme.css) computes to a WCAG contrast ratio
+  // of ~1.085:1 (relative-luminance formula (L1+0.05)/(L2+0.05)) --
+  // functionally invisible, well under C19's 3:1 floor for
+  // information-bearing glyphs (law/adr/0019-appendix-ui-proscriptions.md).
+  // '#eee' (white nodes) against the same background is ~15.0:1 --
+  // trivially passes, unaffected by this change.
+  //
+  // var(--tree-node-black-fill, #111) resolves to '#707070' ONLY when
+  // [data-theme="dark"] is active on <html> (see the plain, unscoped
+  // <style> block below) -- #707070 against #1a1a1a computes to
+  // ~3.51:1 (same formula, cross-checked: it reproduces the report's
+  // 1.085 figure for the #111/#1a1a1a pair before being applied to
+  // #707070/#1a1a1a). Every other theme ("cluster", any future theme)
+  // never sets that custom property, so the var() fallback resolves to
+  // the domain-literal '#111' unchanged -- the mechanism cannot leak
+  // into a theme it wasn't written for. This is pure CSS (no
+  // data-theme sniffing in JS), so it adds zero reactive reads to the
+  // render path (ADR-0010 read-locality).
+  return item.move.color === 'B' ? 'var(--tree-node-black-fill, #111)' : '#eee';
 }
 
 function nodeStroke(item: { move?: GameNode['move'] }): string {
   return item.move ? themeColor('--border-3') : themeColor('--border-2');
+}
+
+// Pass-glyph fill: since `nodeFill()` now paints a pass node the same
+// B/W stone colour as any other move (ledger row 759), the "P" glyph
+// needs a per-stone-color fill to stay legible on BOTH stone colors —
+// a single `--text-1` (the prior treatment, correct only against the
+// neutral pass fill it replaced) would be invisible on a black stone
+// and low-contrast on white. White glyph on black stone, dark glyph on
+// white stone — the same B/W literal-color posture `nodeFill` already
+// uses for the stones themselves (ADR-0003 plan §D: domain colors, not
+// chrome).
+//
+// Checked against BOTH fills `nodeFill` can return for a black-color
+// pass: light theme's literal '#111' (glyph '#eee' vs '#111' is
+// ~16.9:1) and the dark-theme override
+// `var(--tree-node-black-fill, #111)` => '#707070' (see nodeFill()'s
+// WCAG derivation above) — '#eee' vs '#707070' is ~4.06:1, both well
+// past ADR-0019 appendix C19's 3:1 floor for information-bearing
+// glyphs. White stone fill '#eee' vs glyph '#111' is ~16.9:1 in every
+// theme (no theme override touches the white-stone fill).
+function passGlyphFill(item: { move?: GameNode['move'] }): string {
+  return item.move?.color === 'B' ? '#eee' : '#111';
 }
 
 // ── Coordinate mapping ────────────────────────────────────────────────────────
@@ -254,6 +339,9 @@ const nodeList = computed(() => {
     move: GameNode['move']; isBranching: boolean; isExpanded: boolean;
     parentIdForToggle: NodeId | '';
     isGameHead: boolean;
+    isKnownPosition: boolean;
+    isReviewStart: boolean;
+    isPendingMint: boolean;
   }> = [];
 
   layout.value.positions.forEach((pos, id) => {
@@ -284,10 +372,33 @@ const nodeList = computed(() => {
       isExpanded: isParentExpanded,
       parentIdForToggle, // Pass to template
       isGameHead: !!props.gameHeadIds?.has(id),
+      isKnownPosition: !!props.knownPositionNodeIds?.has(id),
+      isReviewStart: isReviewStartNode(id, props.reviewStartNodeId),
+      isPendingMint: !!props.pendingMintIds?.has(id),
     });
   });
   return items;
 });
+
+// card-position-annotations Stage B: viewport-driven hash-fill trigger.
+// Reads only `nodeList`'s id set (already bounded to laid-out/expanded
+// nodes — collapsed variations never appear there) and the board state
+// needed to serialize each node's root->node path. This is a `watch`
+// side effect, not a template read, so it does not add to TreeWidget's
+// render cost (ADR-0010) — it fires once per genuine nodeList change
+// (tree structure / expansion change), not per render, and
+// `useNodePositionHashes` itself dedupes against already-cached and
+// already-pending NodeIds so a nav-only nodeList re-identity (same ids,
+// new array) is a cheap no-op past the first pass.
+watch(nodeList, (items) => {
+  const board = boardsById.value[props.boardId];
+  if (!board || items.length === 0) return;
+  requestHashFill(items.map(item => item.id), board);
+}, { immediate: true }); // immediate: the FIRST computed nodeList (e.g. a
+// fresh board's lone root node) is not itself a "change" a bare watch()
+// fires on — without immediate, the root node's hash is never requested
+// until the tree structure changes again (found via the Stage B live
+// witness: the marker never appeared on a fresh board's root).
 
 const edges = computed(() => {
   const result: Array<{ d: string; id: string }> = [];
@@ -346,8 +457,33 @@ const edges = computed(() => {
         <g
           v-for="item in nodeList"
           :key="item.id"
-          v-memo="[item.isGameHead, item.move?.color, item.isBranching, item.isExpanded, item.px, item.py]"
+          v-memo="[item.isGameHead, item.isKnownPosition, item.isReviewStart, item.isPendingMint, item.move?.color, item.move?.type, item.isBranching, item.isExpanded, item.px, item.py]"
         >
+          <!-- Known-position marker (card-position-annotations Stage B).
+               RADIUS NOTE (review REJECT finding 2,
+               `.claude/dispatch-reports/card-position-highlight-stageB-review.md`):
+               this branch was cut before `review-start-ring` (below)
+               landed in `next`; both were independently authored at
+               NODE_R+7 in `--accent-secondary`, which at merge fully
+               occluded the dashed ring under the solid one on any node
+               that is BOTH a review session's start AND an
+               already-owned card position (an ordinary overlap, not an
+               edge case). Resolved at compose time by moving this ring
+               one radius further OUT — NODE_R + 9, one past
+               review-start-ring — so the two-ring stack (concentric:
+               active +3, game-head +5, review-start +7, known-position
+               +9) is visually distinct even when every marker on a node
+               is lit at once. Still a DASHED ring, not a fill-color
+               change (fill color is already spoken for by nodeFill's
+               B/W stone colors) and not solid (which would read as a
+               fourth instance of the same ring idiom rather than a
+               distinguishable "you already have a card here" marker),
+               per ADR-0019/C18 no-color-only. Membership comes from
+               `knownPositionNodeIds` (App.vue's `useKnownPositionNodes`,
+               cache ∩ known-positions — see that composable's header),
+               not a per-render read: the prop is a precomputed Set, and
+               this v-memo key is what gates the actual DOM patch. -->
+          <circle v-if="item.isKnownPosition" :cx="item.px" :cy="item.py" :r="NODE_R + 9" class="known-position-ring" stroke-width="1.5" stroke-dasharray="2,1.5" />
           <!-- Game-head marker — outermost ring (NODE_R + 5) so it stays
                visible when the active-ring (NODE_R + 3) also applies on the
                current node. Green = "play vs engine session's head — engine
@@ -356,7 +492,52 @@ const edges = computed(() => {
                previously-green nodes no longer render the ring. See
                PlayEngineModal / useEngineResponder for the lifecycle. -->
           <circle v-if="item.isGameHead" :cx="item.px" :cy="item.py" :r="NODE_R + 5" class="game-head-ring" stroke-width="1.5" />
+          <!-- Review-start marker — sibling ring to the game-head ring
+               above, one radius further out (NODE_R + 7) so both can
+               render concentrically on the rare node where a play-vs-
+               engine head and a review session's start coincide, rather
+               than one clobbering the other. `--accent-secondary` is
+               already the SR / current-card accent color (theme.css),
+               so "a card starts here" reads as the SR-family color the
+               same way the game-head ring reads as the play-session
+               color. Sourced from `reviewStartNodeId` (zero I/O — see
+               the prop's doc comment above); appears/disappears with
+               the review session the same way `isGameHead` already does
+               with `board.games`. See known-position-ring's comment
+               above for the NODE_R+7 collision this ring's radius was
+               already occupying and how it was resolved at merge. -->
+          <circle v-if="item.isReviewStart" :cx="item.px" :cy="item.py" :r="NODE_R + 7" class="review-start-ring" stroke-width="1.5" />
+          <!-- "Learn this path" pre-mint marker (ledger row 718, radius
+               reconciled per fresh-context review "wf8-learn-this-path-
+               review.md" REQUIRED finding). Dashed, same accent-primary
+               blue as the (solid) active-ring, but colour alone would
+               collide with nothing here (accent-primary is distinct from
+               the known-position/review-start rings' accent-secondary
+               orange) — the actual collision was RADIUS: this ring
+               originally shared NODE_R+7 with review-start-ring, which
+               would fully occlude one under the other on a node that is
+               simultaneously a review-start AND a pending-mint candidate.
+               Moved one radius past known-position-ring's own NODE_R+9
+               (the same "move outward" resolution known-position-ring's
+               own comment above documents for ITS NODE_R+7 collision) so
+               the full concentric stack — active +3, game-head +5,
+               review-start +7, known-position +9, pending-mint +11 — stays
+               visually distinct even when every marker on a node is lit
+               at once. "This node would be added if you click mint-all";
+               cleared on mint or discard. See
+               `learn-path-pending-markers.ts`. -->
+          <circle v-if="item.isPendingMint" :cx="item.px" :cy="item.py" :r="NODE_R + 11" class="pending-mint-ring" stroke-width="1.5" stroke-dasharray="2,1" />
           <circle :cx="item.px" :cy="item.py" :r="NODE_R" :fill="nodeFill(item)" :stroke="nodeStroke(item)" stroke-width="1" class="node-circle" @click="emit('select-node', item.id)" />
+          <!-- Pass-node glyph — the actual distinguishing signal for a
+               pass (per ADR-0019 appendix C18, no color-only meaning):
+               a "P" letterform, since the node circle itself now renders
+               as an ordinary B/W stone (nodeFill, ledger row 759).
+               `:fill="passGlyphFill(item)"` picks a per-stone-color glyph
+               fill so the "P" stays legible on both colors (see
+               passGlyphFill's comment in the script block for the
+               contrast derivation). `pointer-events: none` so the glyph
+               doesn't shadow the circle's own click target. -->
+          <text v-if="item.move?.type === 'pass'" :x="item.px" :y="item.py" :fill="passGlyphFill(item)" class="pass-glyph" text-anchor="middle" dominant-baseline="central" pointer-events="none">P</text>
 
           <g v-if="item.isBranching" class="toggle-group" @click.stop="expansion.toggle(item.parentIdForToggle as NodeId /* layout item's parent id is a NodeId */)" @mouseenter="e => onToggleEnter(e, item.parentIdForToggle as NodeId /* layout item's parent id is a NodeId */)" @mouseleave="onToggleLeave">
             <line :x1="item.px" :y1="item.py" :x2="item.ix" :y2="item.iy" class="toggle-leader" stroke-width="1" stroke-dasharray="2,1" />
@@ -381,8 +562,19 @@ const edges = computed(() => {
 .tree-edges { fill: none; stroke: var(--border-3); }
 .active-ring { fill: color-mix(in srgb, var(--accent-primary) 15%, transparent); stroke: var(--accent-primary); }
 .game-head-ring { fill: color-mix(in srgb, var(--state-success) 15%, transparent); stroke: var(--state-success); }
+.known-position-ring { fill: none; stroke: var(--accent-secondary); }
+.review-start-ring { fill: color-mix(in srgb, var(--accent-secondary) 15%, transparent); stroke: var(--accent-secondary); }
+.pending-mint-ring { fill: none; stroke: var(--accent-primary); }
 .node-circle { cursor: pointer; transition: filter var(--duration-default); }
 .node-circle:hover { filter: brightness(1.4) drop-shadow(0 0 3px var(--accent-primary)); }
+/* Pass-node glyph — 6px against a NODE_R=5 (10px-diameter) circle;
+   legible at the tree's default zoom without dominating the node.
+   Fill is set per-item via `:fill="passGlyphFill(item)"` in the
+   template (a B/W-stone-literal colour, contrasting with whichever
+   stone colour `nodeFill` painted the node) — no `fill` declared here,
+   so the element's own `fill` attribute is not overridden by the
+   stylesheet cascade. */
+.pass-glyph { font-size: 6px; font-weight: bold; user-select: none; }
 .toggle-group { cursor: pointer; }
 .toggle-group rect { transition: stroke var(--duration-default), fill var(--duration-default); }
 .toggle-leader { stroke: var(--border-3); }
@@ -391,4 +583,19 @@ const edges = computed(() => {
 .toggle-group:hover .toggle-box { stroke: var(--accent-primary); fill: var(--surface-3); }
 .toggle-group:hover .toggle-mark { stroke: var(--text-0); }
 .hit-area { pointer-events: all; }
+</style>
+
+<!--
+  Plain (unscoped) style block, deliberately separate from the scoped
+  block above: `[data-theme="dark"]` lives on <html>, an ancestor
+  outside this component's own scope-id boundary, so a scoped rule
+  cannot key off it. `.tree-widget-wrapper` is unique in the codebase
+  (grep-checked) so the global selector is safely specific. See
+  nodeFill()'s comment (script block above) for the WCAG-ratio
+  derivation and the var()-fallback leak analysis.
+-->
+<style>
+[data-theme="dark"] .tree-widget-wrapper {
+  --tree-node-black-fill: #707070;
+}
 </style>

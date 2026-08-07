@@ -270,6 +270,14 @@ export interface paths {
          *     the only remaining runtime PipelineDSLError path (the nested-
          *     filter case from pre-32a is now a parse-time error thanks to the
          *     BaseSelection vs Selection split in domain/pipeline_dsl.py).
+         *
+         *     macro-public-id-tokens: `query.game_source_ordinals` threads to
+         *     executor.run(), which resolves each ordinal server-side, within
+         *     this user's tenancy, to root card ids before building the
+         *     selection pool. An ordinal that doesn't resolve (unknown, or
+         *     belongs to a different tenant) raises GameSourceNotFoundError —
+         *     caught below via the NotFoundError axis and mapped to 404, the
+         *     same 404-not-403 collapse every other tenant-scoped lookup uses.
          */
         post: operations["query_forest_forests_query_post"];
         delete?: never;
@@ -495,7 +503,7 @@ export interface paths {
         put?: never;
         /**
          * Tree By Root
-         * @description Return the structure-only subtree rooted at `root_card_id`.
+         * @description Return the structure-only subtree rooted at `root_card_public_id`.
          *
          *     Three response shapes:
          *       - 200: TreeByRootResponse with the recursive `tree` payload.
@@ -509,6 +517,79 @@ export interface paths {
          *     level of the descent CTE.
          */
         post: operations["tree_by_root_lineage_tree_by_root_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/positions/hash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hash Position
+         * @description Normalize ``raw_content`` and return its content hash.
+         *
+         *     Raises:
+         *         422 (via InvalidInputError-shaped translation): the
+         *         normalizer rejects the raw content as malformed — mirrors
+         *         the same ``ValueError`` → 422 translation
+         *         ``CardService.create_card`` performs (services/card_service.py),
+         *         so a caller sees the identical failure mode whether the
+         *         malformed content is submitted here or to ``POST /cards/``.
+         */
+        post: operations["hash_position_positions_hash_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/positions/hash-batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hash Position Batch
+         * @description Normalize each of ``raw_contents`` and return their content
+         *     hashes, index-aligned. Card-position-annotations Stage B (§5 of
+         *     the ratified design) — lets the SPA's game-tree viewer hash every
+         *     currently-rendered node in one round trip instead of one
+         *     ``POST /positions/hash`` call per node.
+         *
+         *     Each item is normalized independently via the identical
+         *     ``normalizer.normalize()`` call ``hash_position`` (the single-item
+         *     sibling above) and ``CardService.create_card`` both use — the
+         *     result for ``raw_contents[i]`` here is byte-for-byte the same hash
+         *     a single-item call on that same content would produce.
+         *
+         *     Raises:
+         *         413 (``PositionHashBatchTooLargeError``): ``len(raw_contents)``
+         *         exceeds ``config.POSITIONS_HASH_BATCH_MAX``. Detail body:
+         *         ``{kind: "position_hash_batch_too_large", detail, received,
+         *         maximum}`` — same shape as the library-import batch cap
+         *         (``api/routes/library.py``).
+         *         422 (via InvalidInputError-shaped translation): ANY item in
+         *         ``raw_contents`` fails to normalize — the whole batch fails
+         *         rather than returning a partial/sparse result, so a caller
+         *         never has to reconcile "which index is missing" (ADR-0002:
+         *         an ambiguous partial success is a worse failure mode than a
+         *         loud whole-batch rejection). The error message names the
+         *         first-failing index. Callers that need per-item fault
+         *         isolation submit items individually via the single endpoint.
+         */
+        post: operations["hash_position_batch_positions_hash_batch_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1033,6 +1114,15 @@ export interface components {
          *     Dict[str, Any], which provided no information to OpenAPI consumers
          *     (and therefore no information to any code-generated TypeScript
          *     client downstream — see item 30). Item 4.
+         *
+         *     Per-user-id-enumeration design: ``card_id`` (the raw PK) is kept
+         *     — allowlisted alongside the ``GET /cards/{card_id}`` path param,
+         *     which the frontend addresses with this same value immediately
+         *     after creation (`.claude/dispatch-reports/
+         *     per-user-id-enumeration-design.md`, Decision 4). ``public_id``
+         *     (the opaque reference handle) and ``display_ordinal`` (the
+         *     per-user display value) are added alongside so a caller that
+         *     wants to *display* "card N" doesn't need a follow-up round trip.
          */
         CardCreateResponse: {
             /**
@@ -1042,6 +1132,13 @@ export interface components {
             status: "created";
             /** Card Id */
             card_id: number;
+            /**
+             * Public Id
+             * Format: uuid
+             */
+            public_id: string;
+            /** Display Ordinal */
+            display_ordinal: number;
         };
         /**
          * CardPatch
@@ -1131,10 +1228,19 @@ export interface components {
             } | null;
             /** Canonical Content */
             canonical_content: string;
+            /** Content Hash */
+            content_hash: string;
             /** Card Source Id */
             card_source_id?: number | null;
             /** Tags */
             tags?: string[];
+            /**
+             * Public Id
+             * Format: uuid
+             */
+            public_id: string;
+            /** Display Ordinal */
+            display_ordinal: number;
             /** Current Recall */
             current_recall: number;
             /** Halflife Units */
@@ -1309,25 +1415,51 @@ export interface components {
          *     Structural invariants enforced by a model_validator:
          *       1. First stage must be 'select'.
          *       2. No subsequent stage may be 'select'.
+         *       3. At least one of `context_ids` / `game_source_ordinals` is
+         *          non-empty (macro-public-id-tokens; see below).
          *
          *     Field-level validation (each variant's fields, each numeric bound,
          *     each discriminator value) is handled by Pydantic's discriminated-
          *     union machinery. The recently-added nested-filter rule (32a) is
          *     enforced by BaseSelection's absence of FilterSelection — no runtime
          *     check needed.
+         *
+         *     macro-public-id-tokens (restoring the Cards-tab `${gameSourceId}`
+         *     macro that browse-leak-fix broke, ledger row 456): `context_ids`
+         *     remains a list of raw internal card ids — `CardId` is a named
+         *     per-user-id-enumeration allowlist exception
+         *     (frontend/IDENTIFIERS.md), the addressing value every already-
+         *     fetched, tenant-scoped card round-trips through, so it was never
+         *     part of the leak this endpoint needed closing. `game_source_
+         *     ordinals` is new: a list of `game_source.display_ordinal` tokens
+         *     — the per-user id the SPA now actually has (post-browse-leak-fix,
+         *     `ForestStat` no longer carries the raw `game_source_id` PK this
+         *     field used to require). Each ordinal is resolved SERVER-SIDE,
+         *     within the caller's tenancy, to that game_source's root card
+         *     id(s) (PipelineExecutor.run), which are unioned into the same
+         *     context pool `context_ids` seeds — the SPA never sees or handles
+         *     a raw root-card PK for this purpose. An ordinal that doesn't
+         *     resolve (unknown, or belongs to a different tenant — the two are
+         *     indistinguishable by construction, 404-not-403) raises
+         *     GameSourceNotFoundError, which the route maps to 404.
          */
         ForestQuery: {
             /** Context Ids */
-            context_ids: number[];
+            context_ids?: number[];
+            /** Game Source Ordinals */
+            game_source_ordinals?: number[];
             /** Pipeline */
             pipeline: (components["schemas"]["SelectStage"] | components["schemas"]["TakeStage"] | components["schemas"]["ShuffleStage"] | components["schemas"]["OrderStage"])[];
         };
         /** ForestStat */
         ForestStat: {
-            /** Root Card Id */
-            root_card_id: number;
-            /** Game Source Id */
-            game_source_id: number;
+            /**
+             * Root Card Public Id
+             * Format: uuid
+             */
+            root_card_public_id: string;
+            /** Game Source Display Ordinal */
+            game_source_display_ordinal: number;
             /** Description */
             description: string | null;
             /** Player White */
@@ -1525,17 +1657,20 @@ export interface components {
              * Format: uuid
              */
             client_game_id: string;
+            /** Display Ordinal */
+            display_ordinal: number;
         };
         /**
          * ImportOutcomeDeduplicated
          * @description The SGF normalized to a position already in the user's library;
          *     the existing row's id is returned without inserting a duplicate.
          *
-         *     ``client_game_id`` is the existing row's UUID, which may be
-         *     ``None`` for legacy rows that pre-date the dedup arc (rows
-         *     minted via the card flow before ``client_game_id`` rolled out).
-         *     The frontend handles None by falling back to ``game_id`` as
-         *     the row's identity.
+         *     ``client_game_id`` is the existing row's UUID. Per-user-id-
+         *     enumeration design: previously ``Optional`` for legacy rows that
+         *     pre-date the dedup arc (rows minted via the card flow before
+         *     ``client_game_id`` rolled out); that exception is now closed —
+         *     the migration backfills every historical NULL, so this is always
+         *     present.
          */
         ImportOutcomeDeduplicated: {
             /**
@@ -1545,8 +1680,13 @@ export interface components {
             status: "deduplicated";
             /** Game Id */
             game_id: number;
-            /** Client Game Id */
-            client_game_id: string | null;
+            /**
+             * Client Game Id
+             * Format: uuid
+             */
+            client_game_id: string;
+            /** Display Ordinal */
+            display_ordinal: number;
         };
         /**
          * ImportOutcomeErrored
@@ -1599,8 +1739,11 @@ export interface components {
         LibraryGame: {
             /** Id */
             id: number;
-            /** Client Game Id */
-            client_game_id: string | null;
+            /**
+             * Client Game Id
+             * Format: uuid
+             */
+            client_game_id: string;
             /** Player White */
             player_white: string | null;
             /** Player Black */
@@ -1624,6 +1767,8 @@ export interface components {
             created_at: string;
             /** Raw Content */
             raw_content: string;
+            /** Display Ordinal */
+            display_ordinal: number;
         };
         /**
          * LibraryGameListItem
@@ -1634,12 +1779,22 @@ export interface components {
          *     ``client_game_id`` so the frontend can open the row as a board
          *     using the same identifier the existing card-mint dedup path
          *     keys on.
+         *
+         *     Per-user-id-enumeration design: ``client_game_id`` is no longer
+         *     ``Optional`` — the legacy "may be None for pre-dedup-arc rows"
+         *     exception is closed (every ``game_source`` row now mints one at
+         *     insert time, and the migration backfills historical NULLs).
+         *     ``display_ordinal`` is the new per-user display-role field
+         *     (library list row numbering).
          */
         LibraryGameListItem: {
             /** Id */
             id: number;
-            /** Client Game Id */
-            client_game_id: string | null;
+            /**
+             * Client Game Id
+             * Format: uuid
+             */
+            client_game_id: string;
             /** Player White */
             player_white: string | null;
             /** Player Black */
@@ -1657,6 +1812,8 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Display Ordinal */
+            display_ordinal: number;
         };
         /**
          * ListGamesResponse
@@ -1778,6 +1935,83 @@ export interface components {
             /** Count */
             count: number;
         };
+        /**
+         * PositionHashBatchRequest
+         * @description Request body for ``POST /positions/hash-batch``.
+         *
+         *     Card-position-annotations Stage B (the ratified design's §5 —
+         *     ``.claude/dispatch-reports/card-position-annotations-design.md``):
+         *     the SPA's game-tree viewer needs the ``content_hash`` for every
+         *     currently-rendered node to derive its known-position highlight
+         *     set. Hashing one node per ``POST /positions/hash`` round trip
+         *     produces request bursts on fast tree expansion/scroll; this batch
+         *     variant answers N nodes in one round trip.
+         *
+         *     ``raw_contents[i]`` is independent domain content (same shape as
+         *     ``PositionHashRequest.raw_content`` / ``CardCreate.raw_content``)
+         *     — each item is normalized on its own, not related to its
+         *     neighbours. Order is preserved: ``PositionHashBatchResponse
+         *     .content_hashes[i]`` is the hash of ``raw_contents[i]``.
+         */
+        PositionHashBatchRequest: {
+            /**
+             * Raw Contents
+             * @description Raw domain content for each position to hash, in the order hashes are returned. At least one entry; capped server-side at config.POSITIONS_HASH_BATCH_MAX (413 above the cap, not a 422 — see the route's docstring).
+             */
+            raw_contents: string[];
+        };
+        /**
+         * PositionHashBatchResponse
+         * @description Response body for ``POST /positions/hash-batch``.
+         *
+         *     ``content_hashes[i]`` is the lowercase-hex SHA-256 digest of
+         *     ``PositionHashBatchRequest.raw_contents[i]`` — same representation
+         *     and equality contract as ``PositionHashResponse.content_hash``,
+         *     index-aligned with the request.
+         */
+        PositionHashBatchResponse: {
+            /**
+             * Content Hashes
+             * @description Lowercase-hex SHA-256 digests, index-aligned with the request's raw_contents.
+             */
+            content_hashes: string[];
+        };
+        /**
+         * PositionHashRequest
+         * @description Request body for ``POST /positions/hash``.
+         *
+         *     ``raw_content`` is the same shape ``CardCreate.raw_content``
+         *     accepts — raw domain content in whatever form the configured
+         *     ``PositionNormalizerPort`` expects (an SGF string for the Go
+         *     domain). The route feeds it through the identical
+         *     ``normalizer.normalize()`` call ``CardService.create_card`` uses,
+         *     so "what hash would minting this content produce" is answered by
+         *     running the *same* code path, not a parallel reimplementation.
+         */
+        PositionHashRequest: {
+            /**
+             * Raw Content
+             * @description The raw domain content (SGF for Go, PGN for Chess, etc.) to normalize and hash. Same shape as CardCreate.raw_content.
+             */
+            raw_content: string;
+        };
+        /**
+         * PositionHashResponse
+         * @description Response body for ``POST /positions/hash``.
+         *
+         *     ``content_hash`` is the lowercase-hex SHA-256 digest — the same
+         *     string representation ``domain.card.Card.content_hash`` emits on
+         *     the wire (see ``Card._serialize_content_hash``), so a client can
+         *     compare this endpoint's output against a card's ``content_hash``
+         *     field with plain string equality.
+         */
+        PositionHashResponse: {
+            /**
+             * Content Hash
+             * @description Lowercase-hex SHA-256 digest of the normalized position.
+             */
+            content_hash: string;
+        };
         /** PreferenceRequest */
         PreferenceRequest: {
             /** Query Uuid */
@@ -1829,12 +2063,22 @@ export interface components {
         /**
          * ResolvedRoot
          * @description One game-source root and the input cards that descend from it.
+         *
+         *     Browse-leak-fix (ledger rows 417/423): identifies the root by
+         *     `root_card_public_id` / `game_source_display_ordinal` (per-user
+         *     display ids) rather than the raw global PKs. `card_ids_in_tree`
+         *     stays raw — it's the caller's own input cards echoed back, a
+         *     reference-role field the caller already owns (see
+         *     `domain/lineage.py`'s module docstring).
          */
         ResolvedRoot: {
-            /** Root Card Id */
-            root_card_id: number;
-            /** Game Source Id */
-            game_source_id: number;
+            /**
+             * Root Card Public Id
+             * Format: uuid
+             */
+            root_card_public_id: string;
+            /** Game Source Display Ordinal */
+            game_source_display_ordinal: number;
             /** Card Ids In Tree */
             card_ids_in_tree: number[];
         };
@@ -1990,6 +2234,15 @@ export interface components {
          * TreeByRootRequest
          * @description Input to /lineage/tree-by-root.
          *
+         *     Browse-leak-fix (ledger rows 417/423): the root is addressed by
+         *     `root_card_public_id` (the card's `public_id` UUID), not the raw
+         *     internal PK — per the ruling, "where a client genuinely needs an
+         *     addressing handle, the per-user id IS the handle." Every response
+         *     that hands the frontend a root to browse to (`/stats/forests`,
+         *     `/lineage/resolve-roots`) now surfaces `root_card_public_id`
+         *     instead of the raw id, so there is no raw id left for the client
+         *     to round-trip here.
+         *
          *     `max_nodes` defaults to 10000 per the spec. The route accepts an
          *     explicit override if the caller knows it wants a smaller cap (e.g.
          *     a UI that previews only the top of a tree); the lower bound is
@@ -1997,8 +2250,11 @@ export interface components {
          *     runtime overflow.
          */
         TreeByRootRequest: {
-            /** Root Card Id */
-            root_card_id: number;
+            /**
+             * Root Card Public Id
+             * Format: uuid
+             */
+            root_card_public_id: string;
             /**
              * Max Nodes
              * @default 10000
@@ -2009,14 +2265,25 @@ export interface components {
          * TreeByRootResponse
          * @description Response shape for /lineage/tree-by-root.
          *
+         *     Browse-leak-fix (ledger rows 417/423): `root_card_public_id` /
+         *     `game_source_display_ordinal` replace the raw PKs, mirroring
+         *     `ResolvedRoot`. `TreeNode.id` (inside `tree`) is unaffected — it's
+         *     a reference-role addressing value the frontend uses purely to key
+         *     already-tenancy-scoped card data it fetched elsewhere (the same
+         *     class as `CardWithRecall.id`'s named schema-walk exception), never
+         *     painted as a digit anywhere in the UI.
+         *
          *     On overflow the route returns 422 with a structured detail body
          *     (see `_overflow_detail` below) instead of this shape.
          */
         TreeByRootResponse: {
-            /** Root Card Id */
-            root_card_id: number;
-            /** Game Source Id */
-            game_source_id: number;
+            /**
+             * Root Card Public Id
+             * Format: uuid
+             */
+            root_card_public_id: string;
+            /** Game Source Display Ordinal */
+            game_source_display_ordinal: number;
             tree: components["schemas"]["TreeNode"];
         };
         /**
@@ -2737,6 +3004,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TreeByRootResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hash_position_positions_hash_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PositionHashRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PositionHashResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hash_position_batch_positions_hash_batch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PositionHashBatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PositionHashBatchResponse"];
                 };
             };
             /** @description Validation Error */

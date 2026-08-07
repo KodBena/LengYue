@@ -10,9 +10,11 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQeubo, paramNameForKnobId } from '../../composables/useQeubo';
 import { pushSystemMessage, store } from '../../store';
+import { useAppDialogs } from '../../composables/useAppDialogs';
 import type { KnobId, QeuboBookmark } from '../../types';
 
 const { t } = useI18n();
+const dialogs = useAppDialogs();
 const q = useQeubo();
 
 const bookmarks = computed<QeuboBookmark[]>(() => {
@@ -57,8 +59,8 @@ function trimZeros(s: string): string {
   return s.replace(/\.?0+$/, '') || '0';
 }
 
-function onNewFromCurrent(): void {
-  const name = window.prompt(t('qeubo.prompt.bookmarkName'));
+async function onNewFromCurrent(): Promise<void> {
+  const name = await dialogs.prompt({ message: t('qeubo.prompt.bookmarkName') });
   if (name === null) return;
   try {
     q.pinCurrent(name);
@@ -74,8 +76,8 @@ function onApply(b: QeuboBookmark): void {
   pushSystemMessage('info', t('qeuboBookmarks.systemMessage.applied', { name: b.name }));
 }
 
-function onRename(b: QeuboBookmark): void {
-  const next = window.prompt(t('qeuboBookmarks.prompt.newName'), b.name);
+async function onRename(b: QeuboBookmark): Promise<void> {
+  const next = await dialogs.prompt({ message: t('qeuboBookmarks.prompt.newName'), defaultValue: b.name });
   if (next === null) return;
   try {
     q.renameBookmark(b.id, next);
@@ -85,8 +87,12 @@ function onRename(b: QeuboBookmark): void {
   }
 }
 
-function onDelete(b: QeuboBookmark): void {
-  if (!window.confirm(t('qeuboBookmarks.confirm.delete', { name: b.name }))) return;
+async function onDelete(b: QeuboBookmark): Promise<void> {
+  const ok = await dialogs.confirm({
+    message: t('qeuboBookmarks.confirm.delete', { name: b.name }),
+    danger: true,
+  });
+  if (!ok) return;
   q.deleteBookmark(b.id);
 }
 </script>
@@ -132,11 +138,11 @@ function onDelete(b: QeuboBookmark): void {
 .qeubo-bookmarks { font-family: 'Consolas', monospace; }
 .bookmarks-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-medium); }
 .hint { font-size: var(--text-emphasis); color: var(--text-2); }
-/* theme-exception: .new-btn / .apply-btn use muted-cyan variants
-   (#1a3a4a / #2a5a7a) — same pattern as QeuboToolbar's
-   action-button vocabulary. Hover-state literals retired with the
-   no-mouseover-change sweep. */
-.new-btn { background: #1a3a4a; border: 1px solid #2a5a7a; color: var(--accent-primary); padding: 5px 10px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
+/* Former theme-exception (muted-cyan literals #1a3a4a/#2a5a7a) retired
+   2026-08-06 by maintainer ruling (ledger row 609): the literals were
+   near-invisible against accent-primary in the cluster theme, and
+   --surface-0 is the blessed control background. */
+.new-btn { background: var(--surface-0); border: 1px solid var(--border-2); color: var(--accent-primary); padding: 5px 10px; font-size: var(--text-emphasis); cursor: pointer; border-radius: var(--radius-default); font-family: inherit; text-transform: uppercase; letter-spacing: var(--tracking-tight); }
 
 .empty-state { padding: var(--space-loose); background: var(--surface-0); border: 1px dashed var(--surface-3); border-radius: var(--radius-default); color: var(--text-2); font-size: var(--text-emphasis); line-height: 1.5; text-align: center; }
 .empty-state code { background: var(--surface-2); padding: 1px 5px; border-radius: var(--radius-default); color: var(--text-1); font-size: var(--text-body); }

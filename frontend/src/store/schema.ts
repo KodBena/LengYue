@@ -19,9 +19,9 @@
 import type {
   AnalysisPanelId,
   AnalysisTabId,
-  CardId,
+  CardPublicId,
   CardTreeExpandKey,
-  GameSourceId,
+  GameDisplayOrdinal,
   KeybindingActionId,
   PerBoard,
   ProfileId,
@@ -33,12 +33,17 @@ import type { AnalysisEnvironment } from '../types/analysis-env';
 import type { KnobRegistry } from '../types/knobs';
 import type { CardSet, ReviewSessionData } from '../types/cards';
 import type { QeuboBookmark } from '../types/qeubo';
+import type { WorkspaceLoadState } from '../types/app';
 // PV animation settings shape — `UISession.pvAnimation` references
 // the composable-owned alias (same relationship as pre-split).
 import type { PvAnimationSettings } from '../composables/board/use-pv-animation';
 // i18n supported-locale union — the SSOT lives next to the catalog
 // registry in `src/i18n/locales.ts`.
 import type { SupportedLocale } from '../i18n/locales';
+// Delta-analysis-panel view-cycle mode — the SSOT lives next to the
+// cycle order and the click-path filtering helper in
+// `src/composables/analysis/useDeltaViewMode.ts`.
+import type { DeltaViewMode } from '../composables/analysis/useDeltaViewMode';
 
 export type RegistryLeaf = string | number | boolean | null;
 export interface Registry {
@@ -464,6 +469,25 @@ export interface AppSettings {
     // migration if a prior valid value retires.
     theme: 'dark' | 'cluster';
     /**
+     * Opt-in text/glyph-contrast override for the `cluster` theme (default
+     * `false` — OFF state renders byte-identical to today). `cluster`'s base
+     * anchors project strictly onto the maximin-optimised cluster-12
+     * categorical palette (see the `[data-theme="cluster"]` block in
+     * `theme.css`), which has no luminance ramp and leaves `--text-2` and
+     * `--accent-primary` below WCAG 2.1's 4.5:1 normal-text floor against
+     * `--surface-0` (ADR-0019 audit, `.claude/dispatch-reports/
+     * adr19-audit.md` §S4: 3.84:1 and 2.08:1 respectively). When `true`,
+     * `useAppBootstrap` mirrors this leaf onto `<html data-contrast-text
+     * ="on">` (alongside the existing `data-theme` mirror), and
+     * `theme.css`'s `[data-theme="cluster"][data-contrast-text="on"]`
+     * block darkens exactly those two tokens (hue preserved, luminance
+     * lowered) to clear 4.5:1 — the data-series / chart-derived palette is
+     * untouched in both states, and the `dark` theme is untouched
+     * regardless of this leaf's value. Schema-version 62 → 63 backfills
+     * `false`.
+     */
+    highContrastText: boolean;
+    /**
      * MiniBoard thumbnail renderer (the analysis-chart preview boards + the
      * multiresolution heatmap preview). `'svg'` is the declarative SVG
      * projection (default; slightly more prominent last-move ring); `'canvas'`
@@ -595,6 +619,21 @@ export interface AppSettings {
    * this; the dashboard renders only the active tab.
    */
   analysisTabs: AnalysisTab[];
+  /**
+   * First-run setup wizard state (ledger slug swz-setup-wizard). A
+   * fresh profile seeds `completed: false` (`defaults.ts`), which is
+   * the wizard's actual trigger — `useSetupWizard.ts` shows the
+   * wizard whenever this is `false` and marks it `true` on finish or
+   * skip. Migration 69 → 70 backfills `true` for every blob that
+   * predates the wizard, so an existing user never sees it pop up
+   * unbidden. Re-runnable from Settings without resetting this flag
+   * (a module-scope request signal drives that path, mirroring
+   * `useMintDialogSignal`'s shape) — `completed` only ever tracks
+   * "has this profile seen the wizard once", not "is it open now".
+   */
+  onboarding: {
+    completed: boolean;
+  };
 }
 
 export interface UISession {
@@ -606,15 +645,48 @@ export interface UISession {
   // Persistent system-log bar below the top nav. Default true — hidden
   // only when the user explicitly unchecks it in the Session (UI) registry.
   systemLogExpanded: boolean;
-  controlPanelWidth: number;
-  // Release-scope item 7: user-controlled cap on the square board's
-  // width, in pixels. The board column is height-driven via
-  // aspect-ratio: 1/1; `boardSquareMaxWidthPx` puts an additional
-  // upper bound, letting the user shrink the board (giving the
-  // control panel more room) below the height-natural max. The
-  // resizer drag mutates this. `undefined` = no cap; the board
-  // saturates at column.height.
-  boardSquareMaxWidthPx?: number;
+  // resizer-rearch (nested-splitter tree, charter amendment ledger
+  // row 391; geometry per maintainer constraint ledger row 414: the
+  // tree pane's width changes through EXACTLY ONE channel — the user
+  // dragging the INNER splitter — never automatically). TWO
+  // independently-owned persisted facts model the whole
+  // board/tree/control split, each set by exactly one resizer bar,
+  // neither derived from the other (ADR-0012 one-home-per-fact):
+  //
+  //   treePanelWidthPx (below) — the tree panel's own width. Set
+  //     ONLY by the INNER bar (`#resizer-inner`, sits between
+  //     `#vue-tree-panel` and `#control-panel`, INSIDE
+  //     `#tree-control-wrapper`). `undefined` = the historical 140px
+  //     default.
+  //
+  //   treeControlRegionWidthPx (this field) — `#tree-control-wrapper`'s
+  //     own width (the combined tree+control region). Set ONLY by the
+  //     OUTER bar (`#resizer-outer`, sits between `#board-column` and
+  //     the wrapper). `undefined` = the wrapper's default `flex: 1 1
+  //     0` fill.
+  //
+  // `#control-panel` and `#board-column` are BOTH fully derived, never
+  // a second writer for either persisted fact — `#control-panel` is
+  // always `flex: 1 1 0` WITHIN the wrapper (native CSS flexbox, no JS
+  // width computation at all), and `#board-column` is `flex: 1 1
+  // auto` in the outer row, absorbing whatever the wrapper didn't
+  // claim. This TRUE two-level CSS nesting (an actual nested flex
+  // container, not one flat row with derived JS widths) is what makes
+  // BOTH resizer bars track the cursor 1:1 across their entire range —
+  // see `useResizablePanel.ts`'s header for the full geometric
+  // argument and the live diagnostic
+  // (.claude/dispatch-reports/panel-weirdness-live-investigation.md)
+  // that measured up to 541px of pointer/divider lag under an earlier,
+  // flatter shape of this same rearch. Migration 61 → 62 drops the
+  // two pre-rearch homes this whole model replaces
+  // (`boardSquareMaxWidthPx`, the persisted board-width cap with no
+  // reliable visible effect past saturation, and the dead
+  // `controlPanelWidth` zombie field, S9) — see that migration's
+  // comment for why no value is carried forward. Both fields below are
+  // purely additive/optional (no migration needed for either — neither
+  // ever existed under a different name in a shipped schema version).
+  treeControlRegionWidthPx?: number;
+  treePanelWidthPx?: number;
   moveFilterThreshold: number;
   moveFilterExpression: string;
   analysisLayout: 'horizontal' | 'vertical';
@@ -675,6 +747,18 @@ export interface UISession {
   // tab-by-tab. Edited via a simple comma-separated text input in
   // the Cards tab.
   cardsContextIds: number[];
+  // macro-public-id-tokens (schema-version 66, ledger row 456): the
+  // Cards-tab `${gameSourceId}` macro's recognized game_source
+  // `display_ordinal` tokens, held unresolved — resolution happens
+  // server-side, within tenancy, inside `/forests/query` itself
+  // (`PipelineExecutor.run`'s new `game_source_ordinals` param). Kept
+  // as a sibling list rather than merged into `cardsContextIds`
+  // because the two are different token kinds on the wire
+  // (`ForestQuery.context_ids` vs `.game_source_ordinals`); merging
+  // them client-side would just require re-splitting them again at
+  // the request boundary. Populated by `expandContextIdMacros`'s
+  // `gameSourceOrdinals` output; consumed by `useCardTreeData.runPipeline`.
+  cardsContextGameSourceOrdinals: number[];
   // Which view the qEUBO toolbar cluster is currently showing.
   // 'applied' = engine sees the persistent values from
   // analysis_env.parameters; 'A' / 'B' temporarily override what
@@ -683,6 +767,17 @@ export interface UISession {
   // 'applied'. Mutated by the toolbar; consumed by useQeubo's
   // effectiveParameterValues computed.
   qeuboToolbarView?: 'applied' | 'A' | 'B';
+  // Delta-analysis panel's ("Per-Player Performance (Moves)",
+  // `MergedDeltaPanel.vue`) three-mode view cycle: 'shared' (both
+  // colours overlaid — today's only view), 'black' / 'white'
+  // (single-colour, disambiguating click-to-navigate on the
+  // parity-interleaved axis — see `useDeltaViewMode.ts`'s header for
+  // the full rationale). Optional + `?? 'shared'`-defaulted at every
+  // read site (mirrors `qeuboToolbarView` above) so a pre-migration
+  // blob degrades to the byte-identical legacy view rather than
+  // throwing. Mutated by the panel's dedicated cycle button, never by
+  // a plot click. Schema-version 64 introduces the field.
+  deltaViewMode?: DeltaViewMode;
   // Board-overlay rendering posture for sibling variations from
   // the current node. Surfaced by `BoardVariationsOverlay.vue`.
   //   'off'     — no variation markers rendered.
@@ -756,6 +851,23 @@ export interface UISession {
   // applied to — they are no longer meaningful against the new
   // forest.
   cardTreeNav: PerBoard<CardTreeNavState>;
+  // Board-overlay annotation mode for the just-played move's delta (vs its
+  // parent) and the child's visit count — wiki Wanted #7 / #7.1.
+  //   'off'         — no annotation rendered (the default).
+  //   'deltaVisits' — generic label: the palette-defined delta value and
+  //                   the child's rootInfo.visits.
+  //   'perPlayer'   — same delta value, framed as the mover's own "score
+  //                   delta" (per #7.1's common request) — labelled and
+  //                   tinted per player (Black Δ / White Δ), matching
+  //                   `MergedDeltaPanel`'s Black Delta / White Delta
+  //                   convention. Still derived from the active palette's
+  //                   `delta_fn`; there is no separate score-delta formula.
+  // In every non-'off' mode, absence of a delta for the current node in
+  // the analysis ledger (parent and/or child not yet both evaluated)
+  // renders nothing — never a zero placeholder. See
+  // `composables/board/useMoveDeltaAnnotation.ts` for the derivation.
+  // Schema-version 69 introduces the field.
+  moveDeltaAnnotation: 'off' | 'deltaVisits' | 'perPlayer';
 }
 
 // ── Forest Directory navigator persistence (UISession.forestNav) ─────────────
@@ -764,7 +876,13 @@ export interface UISession {
 // type so the discriminator (`game:` / `root:`) is a structural
 // property of the value, not a convention. Serializable to JSON via
 // SyncService for cross-reload persistence.
-export type NavNodeId = `game:${number}` | `root:${number}`;
+//
+// Browse-leak-fix (ledger rows 417/423): the `root:` branch's payload
+// switched from a raw `CardId` (number) to a `CardPublicId` (UUID
+// string) — see `NavSelection` below for the full rationale. The
+// `game:` branch stays `${number}`: `GameDisplayOrdinal` is still a
+// number, just a per-user-scoped one instead of the raw PK.
+export type NavNodeId = `game:${number}` | `root:${string}`;
 
 // The user's current selection in the Forest navigator. `null` = no
 // selection (right-pane shows empty state). The discriminated union
@@ -772,9 +890,17 @@ export type NavNodeId = `game:${number}` | `root:${number}`;
 // `'card'` variant later will require both a schema migration and
 // a composable update — the persistence and render layers stay in
 // lockstep on the union shape.
+//
+// Browse-leak-fix (ledger rows 417/423): both payload fields switched
+// from the raw global PK to a per-user display id — `gameSourceId`
+// from `GameSourceId` to `GameDisplayOrdinal`, `rootCardId` from
+// `CardId` to `CardPublicId` — closing the last hole in the
+// non-leak guarantee (`/stats/forests` and `/lineage/*` no longer
+// surface the raw PKs these fields were sourced from). Migration
+// 63 → 64 clears any persisted selection under the old shape.
 export type NavSelection =
-  | { readonly kind: 'game'; readonly gameSourceId: GameSourceId }
-  | { readonly kind: 'root'; readonly rootCardId: CardId };
+  | { readonly kind: 'game'; readonly gameSourceId: GameDisplayOrdinal }
+  | { readonly kind: 'root'; readonly rootCardId: CardPublicId };
 
 // Persisted navigator state on `session.ui.forestNav`. Schema-version
 // 21 introduces this field; schema-version 59 re-scopes `selection`
@@ -864,4 +990,13 @@ export interface GlobalStore {
   // `profile` per the ProfileState invariant — out of the persisted
   // blob, it can't be clobbered by the hydrate-vs-fetch race.
   knownTags: string[];
+  // Cold-start workspace-fetch lifecycle (ADR-0019 audit S1). NON-
+  // PERSISTED, same rationale as `knownTags` above: it describes
+  // *this session's* fetch, not user data, and would race the
+  // fetch it describes if it round-tripped through the document.
+  // Owned by `SyncService`; `App.vue`'s top-level gate reads it to
+  // decide whether the board/tab-rail/control-panel surfaces (or a
+  // loading/error state) are rendered. See `types/app.ts` for the
+  // full lifecycle doc.
+  workspaceLoadState: WorkspaceLoadState;
 }
