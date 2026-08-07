@@ -16,6 +16,7 @@
     "perf:trace": "node scripts/perf-trace-parse.mjs",
     "perf:heap": "node scripts/perf-heap.mjs",
     "sidecar:build": "bash src-tauri/scripts/build-sidecar.sh",
+    "proxy-sidecar:build": "bash src-tauri/scripts/build-proxy-sidecar.sh",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"

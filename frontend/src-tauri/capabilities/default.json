@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capabilities for LengYue's main window: default core permissions plus the narrow shell-execute scope needed to spawn (and only spawn) the declared backend sidecar binary.",
+  "description": "Capabilities for LengYue's main window: default core permissions plus the narrow shell-execute scope needed to spawn (and only spawn) the declared backend and proxy sidecar binaries.",
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -10,6 +10,10 @@
       "allow": [
         {
           "name": "binaries/lengyue-backend",
+          "sidecar": true
+        },
+        {
+          "name": "binaries/lengyue-proxy",
           "sidecar": true
         }
       ]

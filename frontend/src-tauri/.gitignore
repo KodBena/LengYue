@@ -5,9 +5,11 @@
 # by the CLI; not hand-authored).
 /gen/
 
-# The frozen backend sidecar binary. Built by
-# `frontend/src-tauri/scripts/build-sidecar.sh` from `backend/` via
-# PyInstaller — a per-platform build artifact, not source. See that
-# script and the dispatch report's "Backend sidecar" section.
+# The frozen sidecar binaries: the backend (built by
+# `frontend/src-tauri/scripts/build-sidecar.sh` from `backend/`) and
+# the proxy (built by `scripts/build-proxy-sidecar.sh` from a scratch
+# KataProxy clone). Both via PyInstaller — per-platform build
+# artifacts, not source. See those scripts and the dispatch reports
+# ("Backend sidecar" / kataproxy-tauri.md) for the mechanism.
 /binaries/*
 !/binaries/.gitkeep
