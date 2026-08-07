@@ -28,6 +28,7 @@ import { useAppBootstrap } from './composables/auth-app/useAppBootstrap';
 import { useTransientLogReveal } from './composables/useTransientLogReveal';
 import { mintDialogRequestCount } from './composables/useMintDialogSignal';
 import { passRequestCount } from './composables/board/usePassSignal';
+import { setupWizardOpen, openSetupWizard } from './composables/useSetupWizardSignal';
 import {
   store,
   activeBoard,
@@ -60,6 +61,7 @@ import MintCardModal    from './components/modals/MintCardModal.vue';
 import ConfirmLoadModal from './components/modals/ConfirmLoadModal.vue';
 import EngineMatchModal from './components/modals/EngineMatchModal.vue';
 import PlayEngineModal  from './components/modals/PlayEngineModal.vue';
+import SetupWizardModal from './components/wizard/SetupWizardModal.vue';
 import ForestDirectory  from './components/tree/ForestDirectory.vue';
 import LibraryTab       from './components/library/LibraryTab.vue';
 import SystemLogPanel   from './components/chrome/SystemLogPanel.vue';
@@ -191,6 +193,28 @@ function triggerMint() {
 watch(mintDialogRequestCount, () => {
   triggerMint();
 });
+
+// First-run setup wizard trigger (ledger slug swz-setup-wizard).
+// `store.workspaceLoadState.kind` flips to 'loaded' exactly once
+// hydrate has resolved — either a real persisted blob (migrated,
+// `onboarding.completed` backfilled `true` by migration 69 → 70) or
+// a genuinely fresh profile (never persisted; `completed` stays the
+// `defaults.ts` seed of `false`). `{ immediate: true }` covers the
+// already-loaded-by-mount-time race (workspaceLoadState can reach
+// 'loaded' before this watcher registers, e.g. a synchronous local
+// default with no remote fetch in flight); the `kind === 'loaded'`
+// guard keeps it a no-op while still 'loading'/'error'. Re-running
+// via Settings goes through the same `openSetupWizard()` entry point
+// (`useSetupWizardSignal.ts`) and never touches this watcher.
+watch(
+  () => store.workspaceLoadState.kind,
+  (kind) => {
+    if (kind === 'loaded' && !store.profile.settings.onboarding.completed) {
+      openSetupWizard();
+    }
+  },
+  { immediate: true },
+);
 
 function handleUpdateKomi(newKomi: number) {
   if (!activeBoard.value || isNaN(newKomi)) return;
@@ -339,6 +363,7 @@ const activeTab = computed<string>({
 <template>
   <RootErrorBoundary>
   <div id="main-area">
+    <SetupWizardModal v-if="setupWizardOpen" />
     <MintCardModal ref="mintModalRef" />
     <ConfirmLoadModal ref="confirmLoadModalRef" />
     <EngineMatchModal ref="matchModalRef" @start-match="handleStartMatch" />

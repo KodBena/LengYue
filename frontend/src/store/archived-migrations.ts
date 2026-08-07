@@ -5,7 +5,7 @@
  * migrations as style anchors. See `migrations.ts`'s rolling-archive
  * discipline docstring for the per-PR cadence.
  *
- * Scope as of 2026-08-07: migrations 1 → 2 through 66 → 67 (66
+ * Scope as of 2026-08-07: migrations 1 → 2 through 67 → 68 (67
  * entries). The first eight covered pre-v1.0.0 schema evolution;
  * the rest are the v1.0.x – v1.1.x active cycle, archived in
  * per-PR rolling fashion under the same archive contract.
@@ -2817,6 +2817,37 @@ export const archivedMigrations: Migration[] = [
       const u = ui as { cardsContextGameSourceOrdinals?: unknown };
       if (!Array.isArray(u.cardsContextGameSourceOrdinals)) {
         u.cardsContextGameSourceOrdinals = [];
+      }
+    }
+    return out;
+  },
+  // 67 → 68: insert the `interval-summary` panel id (wiki Wanted feature
+  // #6, `PANEL_ID.intervalSummary`) at the front of the persisted 'basic'
+  // analysisTab's `panelIds`, so the on-by-default placement in
+  // `defaults.ts` also reaches users who already have a persisted
+  // `analysisTabs` array from migration 54 → 55 (a fresh-install default
+  // change alone does not reach an existing blob — the same reason 55 → 56
+  // through 61 stayed additive per-leaf backfills rather than re-defaulting
+  // whole containers).
+  //
+  // Scoped to the tab literally id'd 'basic' — a user who renamed or
+  // deleted that tab in the Phase-3 Settings editor keeps their layout
+  // untouched; this migration only ever adds a panel id, never removes or
+  // reorders the others in that tab.
+  //
+  // Idempotent: a 'basic' tab whose panelIds already contains
+  // 'interval-summary' is left unchanged (guards a blob that was already
+  // migrated, or one a forward-compat client already wrote the id onto).
+  (blob: any) => {
+    const out = structuredClone(blob);
+    const settings = out.profile?.settings;
+    if (settings && typeof settings === 'object' && Array.isArray(settings.analysisTabs)) {
+      for (const tab of settings.analysisTabs) {
+        if (!tab || typeof tab !== 'object' || tab.id !== 'basic') continue;
+        if (!Array.isArray(tab.panelIds)) continue;
+        if (!tab.panelIds.includes('interval-summary')) {
+          tab.panelIds = ['interval-summary', ...tab.panelIds];
+        }
       }
     }
     return out;

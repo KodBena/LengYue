@@ -519,6 +519,13 @@ export const defaultSettings = {
     { id: 'stability', label: 'Stability', panelIds: [PANEL_ID.stability, PANEL_ID.stabilityCrossCorrelation] },
     { id: 'multiresolution', label: 'Multiresolution', panelIds: [PANEL_ID.multiresolutionInterval] },
   ],
+  // First-run setup wizard's "has this profile been onboarded" flag
+  // (ledger slug swz-setup-wizard). `false` here is the actual trigger:
+  // a fresh profile (never persisted, so this default stands untouched)
+  // shows the wizard on first mount. Migration 69 → 70 backfills `true`
+  // for every pre-existing persisted blob, so the wizard never surprises
+  // a returning user. See `composables/useSetupWizard.ts`.
+  onboarding: { completed: false },
 } as const;
 
 export const defaultThumbnailSettings: ThumbnailSettings = {

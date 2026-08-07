@@ -43,6 +43,7 @@ import { store, DEFAULTS, touchSession } from '../store';
 import { updateProfileAt } from '../store/profile-owner';
 import { updateRegistry } from '../lib/utils';
 import { cancelCapture } from '../lib/keybindings-capture';
+import { openSetupWizard } from '../composables/useSetupWizardSignal';
 
 const { t } = useI18n();
 
@@ -110,7 +111,12 @@ function handleActiveCardSet(id: string): void {
 
     <template #session>
       <div class="tab-padding">
-        <div class="registry-container">
+        <!-- Re-run entry point for the first-run setup wizard (ledger
+             slug swz-setup-wizard) — re-running never resets
+             `profile.settings.onboarding.completed`; see
+             `useSetupWizardSignal.ts`. -->
+        <button class="toolbar-btn-sm" @click="openSetupWizard">{{ $t('settings.button.rerunWizard') }}</button>
+        <div class="registry-container" style="margin-top: var(--space-medium);">
           <RegistryEditor :registry="store.session.ui" :defaults="DEFAULTS.session" @update="handleSessionUpdate"/>
         </div>
       </div>
