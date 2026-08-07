@@ -11,8 +11,9 @@ witnessed defects at a ~2000px-wide window, fresh docker profile
    flex-grow claims width it cannot render into, as dead margin, instead
    of that width flowing to the tree/control region.
 
-Branch: `worktree-agent-a014d4ea9b87f524b` (this worktree). Final sha
-(after commit, below): see "Commit" section.
+Branch: `worktree-agent-a014d4ea9b87f524b` (this worktree). Final sha:
+`76acb225` (`fix(frontend): board width slack flows to the tree/control
+panel, not dead margin`).
 
 ## Root cause, with actual numbers
 
