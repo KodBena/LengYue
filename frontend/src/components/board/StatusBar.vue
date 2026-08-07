@@ -200,7 +200,12 @@ const gameStatus = computed(() =>
 }
 
 .status-left  { display: flex; gap: var(--space-medium); align-items: center; }
-.status-right { display: flex; gap: var(--space-medium); align-items: center; }
+/* `position: relative` anchors `.transient-hint` below (see that
+   rule's comment) — the hint is positioned absolutely against THIS
+   box so its mount/unmount never changes `.status-right`'s own flex
+   width, which is exactly the geometry bug this anchor exists to
+   prevent (ledger row 811). */
+.status-right { display: flex; gap: var(--space-medium); align-items: center; position: relative; }
 
 .move-badge {
   background: var(--accent-primary);
@@ -377,10 +382,42 @@ const gameStatus = computed(() =>
 /* Transient hint surface — populated by `useTransientHint` from
    hover-driven affordances (e.g. the PV-paste discoverability
    text on move-suggestion hover). Distinct anchor from the
-   permanent status vocabulary so it reads as ephemeral. */
+   permanent status vocabulary so it reads as ephemeral.
+
+   `position: absolute` (ledger row 811 fix): mounting/unmounting
+   this span used to be an ordinary flex-flow insertion into
+   `.status-right`, which widened the row on hover-enter and
+   squeezed `.caps` (no `white-space: nowrap` there) into wrapping
+   onto two lines — the status bar's `min-height` then grew to fit
+   the wrapped line, and because the board square derives its size
+   from the bar's remaining height budget, the ENTIRE BOARD resized
+   on every hover-enter/leave. Taking the hint out of flow entirely
+   removes it from `.status-right`'s width computation altogether —
+   the row's rendered width, the bar's height, and every neighbor's
+   position are now byte-for-byte identical whether the hint is
+   mounted or not. Floats just above the bar (`bottom: 100%`) rather
+   than inline with it, so it never overlaps the row's own controls;
+   `pointer-events: none` keeps it from intercepting hover/click on
+   whatever it floats over. Opaque `--surface-2` background (matches
+   the bar itself) rather than transparent, since it now floats over
+   the board rather than sitting inside the bar's own backdrop — a
+   diffuse/transparent tooltip here would be illegible against board
+   content, which is the case the standing no-transparent-backdrop
+   rule is about; this is a small opaque label, not an overlay
+   backdrop. */
 .transient-hint {
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  margin-bottom: var(--space-tight);
+  padding: 1px 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-3);
+  border-radius: var(--radius-default);
   color: var(--text-2);
   font-style: italic;
   font-size: var(--text-body);
+  white-space: nowrap;
+  pointer-events: none;
 }
 </style>
