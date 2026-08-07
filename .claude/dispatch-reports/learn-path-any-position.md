@@ -8,8 +8,7 @@ slamming shut." The two preconditions in
 narrowing — dissolved in this change.
 
 Branch: `worktree-agent-ac06eda9f41b0ccbe` (worktree of the LengYue repo).
-Final commit sha: **see the "Commit" section below** — filled in after the
-commit lands.
+Final commit sha: `ab1af2a4` (see the "Commit" section below).
 
 ## What changed
 
@@ -254,6 +253,9 @@ narrow residuals per the "Design decisions" section — not silently dropped.
 
 ## Commit
 
-(Filled in immediately after the commit lands — see the actual git log for
-the authoritative sha; this section exists so the report is self-contained
-for a reader who does not have shell access to the worktree.)
+`ab1af2a4` — `fix(frontend): learn-path anchors to any cursor position, not
+just a card's own root`, on branch `worktree-agent-ac06eda9f41b0ccbe`
+(worktree of the LengYue repo, based on `next` at `8d8ed48f`). 4 files
+changed: `frontend/src/composables/cards/useLearnPath.ts`,
+`frontend/src/locales/en.json`, `frontend/tests/integration/useLearnPath.test.ts`,
+and this report.
